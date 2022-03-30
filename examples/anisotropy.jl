@@ -11,12 +11,12 @@ num = Numerical(T_inf = -0.8,
     CFL = 0.5,
     TEND = 0.09,
     aniso = true,
-    θ₀ = 0*pi,
+    θ₀ = 0.25*pi,
     m = 6,
     A = -0.2,
     N = 6,
     R = 0.1,
-    max_iterations = 1
+    #max_iterations = 1
     )
 
 idx = set_indices(num.n)
@@ -31,7 +31,7 @@ fwd.TL .= num.T_inf;
     solid_phase = true,
     verbose = true,
     advection = true,
-    show_every = 1
+    show_every = 50
     );
 
 
@@ -61,4 +61,4 @@ end
 
 f = current_figure()
 
-#Makie.save("./figures/paper_figures/aniso_theta_pi_0.png", f)
+#Makie.save("./figures/paper_figures/aniso_theta_pi_4.png", f)
