@@ -77,9 +77,33 @@ function find_radius(u, MIXED, ISO, B, BT, H, inside_indices, Δ)
     return mean(radius)
 end
 
+@inline function line_intersection(l1::Line, l2::Line)
+    x1, y1 = l1.p1.x, l1.p1.y
+    x2, y2 = l1.p2.x, l1.p2.y
+    x3, y3 = l2.p1.x, l2.p1.y
+    x4, y4 = l2.p2.x, l2.p2.y
+
+    d = (x1-x2)*(y3-y4) - (y1-y2)*(x3-x4)
+    px = ((x1*y2-y1*x2)*(x3-x4) - (x1-x2)*(x3*y4-y3*x4)) / d
+    py = ((x1*y2-y1*x2)*(y3-y4) - (y1-y2)*(x3*y4-y3*x4)) / d
+
+    return Point(px,py)
+end
+
+@inline function Bcaps(ip, centroid)
+    if isnan(ip) || isinf(ip) || abs(ip) >= 0.5
+        cap = 1.0
+    elseif sign(ip) == sign(centroid)
+        cap = 0.5 - abs(ip)
+    else
+        cap = 0.5 + abs(ip)
+    end
+    return cap
+end
+
 function marching_squares!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, Δ, L0, B, BT, inside_indices, ϵ, n, faces)
-    empty_capacities = @SVector zeros(5)
-    full_capacities = @SVector ones(5)
+    empty_capacities = @SVector zeros(7)
+    full_capacities = @SVector ones(7)
     κ .= zeros(n,n)
     @inbounds @threads for II in inside_indices
         st = static_stencil(u, II)
@@ -144,9 +168,11 @@ function get_iterface_location!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection,
     @inbounds @threads for II in inside_indices
         ISO = iso[II]
         f = average_face_capacities(faces, ISO, II)
-        SOL[II,:], LIQ[II,:], α, sol_centroid, liq_centroid, mid_point = capacities(f, ISO)
+        SOL[II,1:5], LIQ[II,1:5], α, sol_centroid, liq_centroid, mid_point, cut_points = capacities(f, ISO)
         absolute_position = Point(H[II.I[2]], H[II.I[1]])
         sol_projection[II], liq_projection[II] = projection_2points(absolute_position, mid_point, α, L0, Δ)
+
+        SOL[II,6:7], LIQ[II,6:7] = Bcapacities(ISO, cut_points, sol_centroid, liq_centroid)
     end
     return nothing
 end
@@ -167,6 +193,7 @@ function capacities(F, case)
     sol_centroid = Point(NaN, NaN)
     liq_centroid = Point(NaN, NaN)
     mid_point = Point(NaN, NaN)
+    cut_points = (Point(NaN, NaN), Point(NaN, NaN))
     if case == 1.0 #W S
         s1 = (Point(0.,0.), Point(F[2],0.), Point(0.,F[1]), Point(0.,0.))
         l1 = (Point(1.,0.), Point(F[2],0.), Point(0., F[1]), Point(0.,1.), Point(1.,1.), Point(1., 0.))
@@ -176,6 +203,7 @@ function capacities(F, case)
         cap_liq = SA_F64[1.0 - F[1], 1.0 - F[2], 1.0, 1.0, 1. - 0.5*F[1]*F[2]]
         α = atan(F[2], F[1])
         mid_point = midpoint(Point(F[2],0.), Point(0.,F[1]))
+        cut_points = [Point(F[2],0.) - Point(0.5,0.5), Point(0.,F[1]) - Point(0.5,0.5)]
     elseif case == 2.0 #S E
         s2 = (Point(F[1],0.), Point(1.,0.), Point(1.,F[2]), Point(F[1],0.))
         l2 = (Point(0.,0.), Point(F[1],0.), Point(1., F[2]), Point(1.,1.), Point(0.,1.), Point(0., 0.))
@@ -185,6 +213,7 @@ function capacities(F, case)
         cap_liq = SA_F64[1.0, F[1], 1.0 - F[2], 1.0, 1. - 0.5*(1 - F[1])*F[2]]
         α = atan(1- F[1], -F[2])
         mid_point = midpoint(Point(F[1],0.), Point(1.,F[2]))
+        cut_points = [Point(F[1],0.) - Point(0.5,0.5), Point(1.,F[2]) - Point(0.5,0.5)]
     elseif case == 3.0 #W E
         s3 = (Point(0.,0.), Point(1.,0.), Point(1.,F[2]), Point(0.,F[1]), Point(0.,0.))
         l3 = (Point(1.,1.), Point(0.,1.), Point(0.,F[1]), Point(1.,F[2]), Point(1.,1.))
@@ -194,6 +223,7 @@ function capacities(F, case)
         cap_liq = SA_F64[1.0 - F[1], 0.0, 1.0 - F[2], 1.0, 1.0 - 0.5*(F[1]+F[2])]
         α = atan(1. , F[1]-F[2])
         mid_point = midpoint(Point(1.,F[2]), Point(0.,F[1]))
+        cut_points = [Point(1.,F[2]) - Point(0.5,0.5), Point(0.,F[1]) - Point(0.5,0.5)]
     elseif case == 4.0 #E N
         s4 = (Point(1.,1.), Point(F[2],1.), Point(1.,F[1]), Point(1.,1.))
         l4 = (Point(0.,0.), Point(1.,0.), Point(1.,F[1]), Point(F[2],1.), Point(0.,1.), Point(0.,0.))
@@ -203,6 +233,7 @@ function capacities(F, case)
         cap_sol = SA_F64[0.0, 0.0, 1. - F[1], 1. - F[2], 0.5*(1. - F[1])*(1. - F[2])]
         α = atan(-1+F[2], -1 +F[1])
         mid_point = midpoint(Point(F[2],1.), Point(1.,F[1]))
+        cut_points = [Point(F[2],1.) - Point(0.5,0.5), Point(1.,F[1]) - Point(0.5,0.5)]
     elseif case == 6.0 #S N
         s6 = (Point(1.,1.), Point(F[2],1.), Point(F[1],0.), Point(1.,0.), Point(1.,1.))
         l6 = (Point(0.,0.), Point(F[1],0.), Point(F[2],1.), Point(0.,1.), Point(0.,0.))
@@ -212,6 +243,7 @@ function capacities(F, case)
         cap_sol = SA_F64[0.0, 1. - F[1], 1.0, 1. - F[2], 1.0 - 0.5*(F[1]+F[2])]
         α = atan(F[2]-F[1], -1.)
         mid_point = midpoint(Point(F[2],1.), Point(F[1],0.))
+        cut_points = [Point(F[2],1.) - Point(0.5,0.5), Point(F[1],0.) - Point(0.5,0.5)]
     elseif case == 7.0 #W N
         s7 = (Point(0.,0.), Point(1.,0.), Point(1.,1.), Point(F[2],1.), Point(0.,F[1]), Point(0.,0.))
         l7 = (Point(0.,1.), Point(0.,F[1]), Point(F[2],1.), Point(0.,1.))
@@ -221,6 +253,7 @@ function capacities(F, case)
         cap_liq = SA_F64[1.0 - F[1], 0.0, 0.0, F[2], 0.5*(1.0-F[1])*F[2]]
         α = atan(F[2], -1. + F[1])
         mid_point = midpoint(Point(F[2],1.), Point(0.,F[1]))
+        cut_points = [Point(F[2],1.) - Point(0.5,0.5), Point(0.,F[1]) - Point(0.5,0.5)]
     elseif case == 8.0 #W N
         s8 = (Point(0.,1.), Point(0.,F[1]), Point(F[2],1.), Point(0.,1.))
         l8 = (Point(0.,0.), Point(1.,0.), Point(1.,1.), Point(F[2],1.), Point(0.,F[1]), Point(0.,0.))
@@ -230,6 +263,7 @@ function capacities(F, case)
         cap_liq = SA_F64[F[1], 1.0, 1.0, 1. - F[2], 1. - 0.5*F[2]*(1.0-F[1])]
         α = atan(-F[2], 1. - F[1])
         mid_point = midpoint(Point(0.,F[1]), Point(F[2],1.))
+        cut_points = [Point(0.,F[1]) - Point(0.5,0.5), Point(F[2],1.) - Point(0.5,0.5)]
     elseif case == 9.0 #S N
         s9 = (Point(0.,0.), Point(F[1],0.), Point(F[2],1.), Point(0.,1.), Point(0.,0.))
         l9 = (Point(1.,1.), Point(F[2],1.), Point(F[1],0.), Point(1.,0.), Point(1.,1.))
@@ -239,6 +273,7 @@ function capacities(F, case)
         cap_liq = SA_F64[0, 1.0 - F[1], 1.0, 1.0 - F[2], 1. - 0.5*(F[1]+F[2])]
         α = atan(F[1]-F[2], 1.)
         mid_point = midpoint(Point(F[1],0.), Point(F[2],1.))
+        cut_points = [Point(F[1],0.) - Point(0.5,0.5), Point(F[2],1.) - Point(0.5,0.5)]
     elseif case == 11.0 #E N
         s11 = (Point(0.,0.), Point(1.,0.), Point(1.,F[1]), Point(F[2],1.), Point(0.,1.), Point(0.,0.))
         l11 = (Point(1.,1.), Point(F[2],1.), Point(1.,F[1]), Point(1.,1.))
@@ -248,6 +283,7 @@ function capacities(F, case)
         cap_liq = SA_F64[0.0, 0.0, 1. - F[1], 1. - F[2], 0.5*((1.0 - F[1])*(1.0 - F[2]))]
         α = atan(1. - F[2], 1. - F[1])
         mid_point = midpoint(Point(1.,F[1]), Point(F[2],1.))
+        cut_points = [Point(1.,F[1]) - Point(0.5,0.5), Point(F[2],1.) - Point(0.5,0.5)]
     elseif case == 12.0 #W E
         s12 = (Point(1.,1.), Point(0.,1.), Point(0.,F[1]), Point(1.,F[2]), Point(1.,1.))
         l12 = (Point(0.,0.), Point(1.,0.), Point(1.,F[2]), Point(0.,F[1]), Point(0.,0.))
@@ -257,6 +293,7 @@ function capacities(F, case)
         cap_liq = SA_F64[F[1], 1.0, F[2], 0.0, 0.5*(F[1]+F[2])]
         α = atan(-1., (1. - F[1])-(1. - F[2]))
         mid_point = midpoint(Point(0.,F[1]), Point(1.,F[2]))
+        cut_points = [Point(0.,F[1]) - Point(0.5,0.5), Point(1.,F[2]) - Point(0.5,0.5)]
     elseif case == 13.0 #S E
         s13 = (Point(0.,0.), Point(F[1],0.), Point(1.,F[2]), Point(1.,1.), Point(0.,1.), Point(0.,0.))
         l13 = (Point(1.,0.), Point(1.,F[2]), Point(F[1],0.), Point(1.,0.))
@@ -266,6 +303,7 @@ function capacities(F, case)
         cap_liq = SA_F64[0.0, 1.0 - F[1], F[2], 0.0, 0.5*(F[2]*(1. - F[1]))]
         α = atan(-1.0+F[1], F[2])
         mid_point = midpoint(Point(F[1],0.), Point(1.,F[2]))
+        cut_points = [Point(F[1],0.) - Point(0.5,0.5), Point(1.,F[2]) - Point(0.5,0.5)]
     elseif case == 14.0 #W S
         s14 = (Point(1.,1.), Point(0.,1.), Point(0.,F[1]), Point(F[2],0.), Point(1.,0.), Point(1.,1.))
         l14 = (Point(0.,0.), Point(F[2],0.), Point(0.,F[1]), Point(0.,0.))
@@ -275,8 +313,41 @@ function capacities(F, case)
         cap_liq = SA_F64[F[1], F[2], 0.0, 0.0, 0.5*F[1]*F[2]]
         α = atan(-F[2], -F[1])
         mid_point = midpoint(Point(0.,F[1]), Point(F[2],0.))
+        cut_points = [Point(0.,F[1]) - Point(0.5,0.5), Point(F[2],0.) - Point(0.5,0.5)]
     end
-    return cap_sol, cap_liq, min(float(π),max(-float(π),α)), sol_centroid, liq_centroid, mid_point
+    return cap_sol, cap_liq, min(float(π),max(-float(π),α)), sol_centroid, liq_centroid, mid_point, cut_points
+end
+
+function Bcapacities(iso, cut_points, sol_centroid, liq_centroid)
+    if is_solid(iso)
+        sol = [1.0, 1.0]
+        liq = [0.0, 0.0]
+    elseif is_liquid(iso)
+        sol = [0.0, 0.0]
+        liq = [1.0, 1.0]
+    else
+        sol = zeros(2)
+        liq = zeros(2)
+        l_int = Line(cut_points[1], cut_points[2])
+
+        ly = Line(sol_centroid, sol_centroid+Point(0.0,1.0))
+        lx = Line(sol_centroid, sol_centroid+Point(1.0,0.0))
+        ipy = line_intersection(l_int, ly)
+        ipx = line_intersection(l_int, lx)
+
+        sol[1] = Bcaps(ipy.y, sol_centroid.y)
+        sol[2] = Bcaps(ipx.x, sol_centroid.x)
+
+        ly = Line(liq_centroid, liq_centroid+Point(0.0,1.0))
+        lx = Line(liq_centroid, liq_centroid+Point(1.0,0.0))
+        ipy = line_intersection(l_int, ly)
+        ipx = line_intersection(l_int, lx)
+
+        liq[1] = Bcaps(ipy.y, liq_centroid.y)
+        liq[2] = Bcaps(ipx.x, liq_centroid.x)
+    end
+
+    return sol, liq
 end
 
 function face_capacities(itp, case)

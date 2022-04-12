@@ -55,6 +55,11 @@ struct Point{T <: Number}
    y::T
 end
 
+struct Line{T <: Number}
+    p1::Point{T}
+    p2::Point{T}
+end
+
 mutable struct Gradient{T <: Float64}
     flag::Bool
     angle::T
