@@ -102,8 +102,8 @@ end
 end
 
 function marching_squares!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, Δ, L0, B, BT, inside_indices, ϵ, n, faces)
-    empty_capacities = @SVector zeros(7)
-    full_capacities = @SVector ones(7)
+    empty_capacities = vcat(zeros(7), zeros(4))
+    full_capacities = vcat(ones(7), 0.5.*ones(4))
     κ .= zeros(n,n)
     @inbounds @threads for II in inside_indices
         st = static_stencil(u, II)
@@ -185,8 +185,8 @@ function get_curvature(u, POS, κ, B, BT, h, inside_indices)
 end
 
 function capacities(F, case)
-    cap_sol = @SVector zeros(7)
-    cap_liq = @SVector zeros(7)
+    cap_sol = @SVector zeros(11)
+    cap_liq = @SVector zeros(11)
     α = 0.0
     sol_centroid = Point(NaN, NaN)
     liq_centroid = Point(NaN, NaN)
@@ -200,9 +200,34 @@ function capacities(F, case)
         α = atan(F[2], F[1])
         mid_point = midpoint(Point(F[2],0.), Point(0.,F[1]))
         cut_points = [Point(F[2],0.) - Point(0.5,0.5), Point(0.,F[1]) - Point(0.5,0.5)]
-        bsol, bliq = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
-        cap_sol = SA_F64[F[1], F[2], 0, 0, 0.5*F[1]*F[2], bsol...]
-        cap_liq = SA_F64[1.0 - F[1], 1.0 - F[2], 1.0, 1.0, 1. - 0.5*F[1]*F[2], bliq...]
+        bsol, bliq, s_ipx, s_ipy, l_ipx, l_ipy = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
+        svol = 0.5*F[1]*F[2]
+        lvol = 1. - 0.5*F[1]*F[2]
+
+        s_w3 = 0.5*(F[2]-(sol_centroid.x+0.5))*(s_ipy.y+0.5)
+        s_w1 = svol - s_w3
+        s_w4 = 0.5*(F[1]-(sol_centroid.y+0.5))*(s_ipx.x+0.5)
+        s_w2 = svol - s_w4
+
+        if isnan(l_ipy.y) || isinf(l_ipy.y) || abs(l_ipy.y) >= 0.5
+            l_w3 = 1.0 - (liq_centroid.x+0.5)
+            l_w1 = lvol - l_w3
+        else
+            l_w1 = 0.5*(liq_centroid.x+0.5)*(1.0-(l_ipy.y+0.5)+1.0-F[1])
+            l_w3 = lvol - l_w1
+        end
+        if isnan(l_ipx.x) || isinf(l_ipx.x) || abs(l_ipx.x) >= 0.5
+            l_w4 = 1.0 - (liq_centroid.y+0.5)
+            l_w2 = lvol - l_w4
+        else
+            l_w2 = 0.5*(liq_centroid.y+0.5)*(1.0-(l_ipx.x+0.5)+1.0-F[2])
+            l_w4 = lvol - l_w2
+        end
+
+        # cap_sol = SA_F64[F[1], F[2], 0, 0, svol, bsol...]
+        # cap_liq = SA_F64[1.0 - F[1], 1.0 - F[2], 1.0, 1.0, lvol, bliq...]
+        cap_sol = SA_F64[F[1], F[2], 0, 0, svol, bsol..., s_w1, s_w2, s_w3, s_w4]
+        cap_liq = SA_F64[1.0 - F[1], 1.0 - F[2], 1.0, 1.0, lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     elseif case == 2.0 #S E
         s2 = (Point(F[1],0.), Point(1.,0.), Point(1.,F[2]), Point(F[1],0.))
         l2 = (Point(0.,0.), Point(F[1],0.), Point(1., F[2]), Point(1.,1.), Point(0.,1.), Point(0., 0.))
@@ -211,9 +236,34 @@ function capacities(F, case)
         α = atan(1- F[1], -F[2])
         mid_point = midpoint(Point(F[1],0.), Point(1.,F[2]))
         cut_points = [Point(F[1],0.) - Point(0.5,0.5), Point(1.,F[2]) - Point(0.5,0.5)]
-        bsol, bliq = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
-        cap_sol = SA_F64[0.0, 1 - F[1], F[2], 0.0, 0.5*(1 - F[1])*F[2], bsol...]
-        cap_liq = SA_F64[1.0, F[1], 1.0 - F[2], 1.0, 1. - 0.5*(1 - F[1])*F[2], bliq...]
+        bsol, bliq, s_ipx, s_ipy, l_ipx, l_ipy = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
+        svol = 0.5*(1 - F[1])*F[2]
+        lvol = 1. - 0.5*(1 - F[1])*F[2]
+
+        s_w1 = 0.5*(sol_centroid.x+0.5-F[1])*(s_ipy.y+0.5)
+        s_w3 = svol - s_w1
+        s_w4 = 0.5*(F[2]-(sol_centroid.y+0.5))*(1.0-(s_ipx.x+0.5))
+        s_w2 = svol - s_w4
+
+        if isnan(l_ipy.y) || isinf(l_ipy.y) || abs(l_ipy.y) >= 0.5
+            l_w1 = liq_centroid.x+0.5
+            l_w3 = lvol - l_w1
+        else
+            l_w3 = 0.5*(1.0-(liq_centroid.x+0.5))*(1.0-(l_ipy.y+0.5)+1.0-F[2])
+            l_w1 = lvol - l_w3
+        end
+        if isnan(l_ipx.x) || isinf(l_ipx.x) || abs(l_ipx.x) >= 0.5
+            l_w4 = 1.0 - (liq_centroid.y+0.5)
+            l_w2 = lvol - l_w4
+        else
+            l_w2 = 0.5*(liq_centroid.y+0.5)*(l_ipx.x+0.5+F[1])
+            l_w4 = lvol - l_w2
+        end
+
+        # cap_sol = SA_F64[0.0, 1 - F[1], F[2], 0.0, svol, bsol...]
+        # cap_liq = SA_F64[1.0, F[1], 1.0 - F[2], 1.0, lvol, bliq...]
+        cap_sol = SA_F64[0.0, 1 - F[1], F[2], 0.0, svol, bsol..., s_w1, s_w2, s_w3, s_w4]
+        cap_liq = SA_F64[1.0, F[1], 1.0 - F[2], 1.0, lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     elseif case == 3.0 #W E
         s3 = (Point(0.,0.), Point(1.,0.), Point(1.,F[2]), Point(0.,F[1]), Point(0.,0.))
         l3 = (Point(1.,1.), Point(0.,1.), Point(0.,F[1]), Point(1.,F[2]), Point(1.,1.))
@@ -222,9 +272,40 @@ function capacities(F, case)
         α = atan(1. , F[1]-F[2])
         mid_point = midpoint(Point(1.,F[2]), Point(0.,F[1]))
         cut_points = [Point(1.,F[2]) - Point(0.5,0.5), Point(0.,F[1]) - Point(0.5,0.5)]
-        bsol, bliq = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
-        cap_sol = SA_F64[F[1], 1.0, F[2], 0.0, 0.5*(F[1]+F[2]), bsol...]
-        cap_liq = SA_F64[1.0 - F[1], 0.0, 1.0 - F[2], 1.0, 1.0 - 0.5*(F[1]+F[2]), bliq...]
+        bsol, bliq, s_ipx, s_ipy, l_ipx, l_ipy = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
+        svol = 0.5*(F[1]+F[2])
+        lvol = 1.0 - 0.5*(F[1]+F[2])
+
+        s_w1 = 0.5*(sol_centroid.x+0.5)*(F[1]+s_ipy.y+0.5)
+        s_w3 = svol - s_w1
+        l_w1 = 0.5*(liq_centroid.x+0.5)*(1.0-F[1]+1.0-(l_ipy.y+0.5))
+        l_w3 = lvol - l_w1
+
+        if isnan(s_ipx.x) || isinf(s_ipx.x) || abs(s_ipx.x) >= 0.5
+            s_w2 = sol_centroid.y+0.5
+            s_w4 = svol - s_w2
+        elseif F[2] >= F[1]
+            s_w4 = 0.5*(1.0-(s_ipx.x+0.5))*(F[2]-(sol_centroid.y+0.5))
+            s_w2 = svol - s_w4
+        else
+            s_w4 = 0.5*(s_ipx.x+0.5)*(F[1]-(sol_centroid.y+0.5))
+            s_w2 = svol - s_w4
+        end
+        if isnan(l_ipx.x) || isinf(l_ipx.x) || abs(l_ipx.x) >= 0.5
+            l_w4 = 1.0 - (liq_centroid.y+0.5)
+            l_w2 = lvol - l_w4
+        elseif F[2] >= F[1]
+            l_w2 = 0.5*(liq_centroid.y+0.5-F[1])*(l_ipx.x+0.5)
+            l_w4 = lvol - l_w2
+        else
+            l_w2 = 0.5*(liq_centroid.y+0.5-F[2])*(1.0-(l_ipx.x+0.5))
+            l_w4 = lvol - l_w2
+        end
+
+        # cap_sol = SA_F64[F[1], 1.0, F[2], 0.0, svol, bsol...]
+        # cap_liq = SA_F64[1.0 - F[1], 0.0, 1.0 - F[2], 1.0, lvol, bliq...]
+        cap_sol = SA_F64[F[1], 1.0, F[2], 0.0, svol, bsol..., s_w1, s_w2, s_w3, s_w4]
+        cap_liq = SA_F64[1.0 - F[1], 0.0, 1.0 - F[2], 1.0, lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     elseif case == 4.0 #E N
         s4 = (Point(1.,1.), Point(F[2],1.), Point(1.,F[1]), Point(1.,1.))
         l4 = (Point(0.,0.), Point(1.,0.), Point(1.,F[1]), Point(F[2],1.), Point(0.,1.), Point(0.,0.))
@@ -233,9 +314,34 @@ function capacities(F, case)
         α = atan(-1+F[2], -1 +F[1])
         mid_point = midpoint(Point(F[2],1.), Point(1.,F[1]))
         cut_points = [Point(F[2],1.) - Point(0.5,0.5), Point(1.,F[1]) - Point(0.5,0.5)]
-        bsol, bliq = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
-        cap_liq = SA_F64[1.0, 1.0, F[1], F[2], 1. - 0.5*(1. - F[1])*(1. - F[2]), bliq...]
-        cap_sol = SA_F64[0.0, 0.0, 1. - F[1], 1. - F[2], 0.5*(1. - F[1])*(1. - F[2]), bsol...]
+        bsol, bliq, s_ipx, s_ipy, l_ipx, l_ipy = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
+        svol = 0.5*(1. - F[1])*(1. - F[2])
+        lvol = 1. - 0.5*(1. - F[1])*(1. - F[2])
+
+        s_w1 = 0.5*(sol_centroid.x+0.5-F[2])*(1.0-(s_ipy.y+0.5))
+        s_w3 = svol - s_w1
+        s_w2 = 0.5*(sol_centroid.y+0.5-F[1])*(1.0-(s_ipx.x+0.5))
+        s_w4 = svol - s_w2
+
+        if isnan(l_ipy.y) || isinf(l_ipy.y) || abs(l_ipy.y) >= 0.5
+            l_w1 = liq_centroid.x+0.5
+            l_w3 = lvol - l_w1
+        else
+            l_w3 = 0.5*(1.0-(liq_centroid.x+0.5))*(l_ipy.y+0.5+F[1])
+            l_w1 = lvol - l_w3
+        end
+        if isnan(l_ipx.x) || isinf(l_ipx.x) || abs(l_ipx.x) >= 0.5
+            l_w2 = liq_centroid.y+0.5
+            l_w4 = lvol - l_w2
+        else
+            l_w4 = 0.5*(1.0-(liq_centroid.y+0.5))*(l_ipx.x+0.5+F[2])
+            l_w2 = lvol - l_w4
+        end
+
+        # cap_liq = SA_F64[1.0, 1.0, F[1], F[2], lvol, bliq...]
+        # cap_sol = SA_F64[0.0, 0.0, 1. - F[1], 1. - F[2], svol, bsol...]
+        cap_liq = SA_F64[1.0, 1.0, F[1], F[2], lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
+        cap_sol = SA_F64[0.0, 0.0, 1. - F[1], 1. - F[2], svol, bsol..., s_w1, s_w2, s_w3, s_w4]
     elseif case == 6.0 #S N
         s6 = (Point(1.,1.), Point(F[2],1.), Point(F[1],0.), Point(1.,0.), Point(1.,1.))
         l6 = (Point(0.,0.), Point(F[1],0.), Point(F[2],1.), Point(0.,1.), Point(0.,0.))
@@ -244,9 +350,40 @@ function capacities(F, case)
         α = atan(F[2]-F[1], -1.)
         mid_point = midpoint(Point(F[2],1.), Point(F[1],0.))
         cut_points = [Point(F[2],1.) - Point(0.5,0.5), Point(F[1],0.) - Point(0.5,0.5)]
-        bsol, bliq = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
-        cap_liq = SA_F64[1.0, F[1], 0.0, F[2], 0.5*(F[1]+F[2]), bliq...]
-        cap_sol = SA_F64[0.0, 1. - F[1], 1.0, 1. - F[2], 1.0 - 0.5*(F[1]+F[2]), bsol...]
+        bsol, bliq, s_ipx, s_ipy, l_ipx, l_ipy = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
+        svol = 1.0 - 0.5*(F[1]+F[2])
+        lvol = 0.5*(F[1]+F[2])
+
+        s_w2 = 0.5*(sol_centroid.y+0.5)*(1.0-F[1]+1.0-(s_ipx.x+0.5))
+        s_w4 = svol - s_w2
+        l_w2 = 0.5*(liq_centroid.y+0.5)*(F[1]+l_ipx.x+0.5)
+        l_w4 = lvol - l_w2
+
+        if isnan(s_ipy.y) || isinf(s_ipy.y) || abs(s_ipy.y) >= 0.5
+            s_w3 = 1.0-(sol_centroid.x+0.5)
+            s_w1 = svol - s_w3
+        elseif F[2] >= F[1]
+            s_w1 = 0.5*(s_ipy.y+0.5)*(sol_centroid.x+0.5-F[1])
+            s_w3 = svol - s_w1
+        else
+            s_w1 = 0.5*(1.0-(s_ipy.y+0.5))*(sol_centroid.x+0.5-F[2])
+            s_w3 = svol - s_w1
+        end
+        if isnan(l_ipy.y) || isinf(l_ipy.y) || abs(l_ipy.y) >= 0.5
+            l_w1 = liq_centroid.x+0.5
+            l_w3 = lvol - l_w1
+        elseif F[2] >= F[1]
+            l_w3 = 0.5*(F[2]-(liq_centroid.x+0.5))*(1.0-(l_ipy.y+0.5))
+            l_w1 = lvol - l_w3
+        else
+            l_w3 = 0.5*(F[1]-(liq_centroid.x+0.5))*(l_ipy.y+0.5)
+            l_w1 = lvol - l_w3
+        end
+         
+        # cap_liq = SA_F64[1.0, F[1], 0.0, F[2], lvol, bliq...]
+        # cap_sol = SA_F64[0.0, 1. - F[1], 1.0, 1. - F[2], svol, bsol...]
+        cap_liq = SA_F64[1.0, F[1], 0.0, F[2], lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
+        cap_sol = SA_F64[0.0, 1. - F[1], 1.0, 1. - F[2], svol, bsol..., s_w1, s_w2, s_w3, s_w4]
     elseif case == 7.0 #W N
         s7 = (Point(0.,0.), Point(1.,0.), Point(1.,1.), Point(F[2],1.), Point(0.,F[1]), Point(0.,0.))
         l7 = (Point(0.,1.), Point(0.,F[1]), Point(F[2],1.), Point(0.,1.))
@@ -255,9 +392,34 @@ function capacities(F, case)
         α = atan(F[2], -1. + F[1])
         mid_point = midpoint(Point(F[2],1.), Point(0.,F[1]))
         cut_points = [Point(F[2],1.) - Point(0.5,0.5), Point(0.,F[1]) - Point(0.5,0.5)]
-        bsol, bliq = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
-        cap_sol = SA_F64[F[1], 1.0, 1.0, 1. - F[2], 1. - 0.5*(1.0-F[1])*F[2], bsol...]
-        cap_liq = SA_F64[1.0 - F[1], 0.0, 0.0, F[2], 0.5*(1.0-F[1])*F[2], bliq...]
+        bsol, bliq, s_ipx, s_ipy, l_ipx, l_ipy = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
+        svol = 1. - 0.5*(1.0-F[1])*F[2]
+        lvol = 0.5*(1.0-F[1])*F[2]
+
+        l_w3 = 0.5*(F[2]-(liq_centroid.x+0.5))*(1.0-(l_ipy.y+0.5))
+        l_w1 = lvol - l_w3
+        l_w2 = 0.5*(liq_centroid.y+0.5-F[1])*(l_ipx.x+0.5)
+        l_w4 = lvol - l_w2
+
+        if isnan(s_ipy.y) || isinf(s_ipy.y) || abs(s_ipy.y) >= 0.5
+            s_w3 = 1.0-(sol_centroid.x+0.5)
+            s_w1 = svol - s_w3
+        else
+            s_w1 = 0.5*(sol_centroid.x+0.5)*(s_ipy.y+0.5+F[1])
+            s_w3 = svol - s_w1
+        end
+        if isnan(s_ipx.x) || isinf(s_ipx.x) || abs(s_ipx.x) >= 0.5
+            s_w2 = sol_centroid.y+0.5
+            s_w4 = svol - s_w2
+        else
+            s_w4 = 0.5*(1.0-(sol_centroid.y+0.5))*(1.0-(s_ipx.x+0.5)+1.0-F[2])
+            s_w2 = svol - s_w4
+        end
+
+        # cap_sol = SA_F64[F[1], 1.0, 1.0, 1. - F[2], svol, bsol...]
+        # cap_liq = SA_F64[1.0 - F[1], 0.0, 0.0, F[2], lvol, bliq...]
+        cap_sol = SA_F64[F[1], 1.0, 1.0, 1. - F[2], svol, bsol..., s_w1, s_w2, s_w3, s_w4]
+        cap_liq = SA_F64[1.0 - F[1], 0.0, 0.0, F[2], lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     elseif case == 8.0 #W N
         s8 = (Point(0.,1.), Point(0.,F[1]), Point(F[2],1.), Point(0.,1.))
         l8 = (Point(0.,0.), Point(1.,0.), Point(1.,1.), Point(F[2],1.), Point(0.,F[1]), Point(0.,0.))
@@ -266,9 +428,34 @@ function capacities(F, case)
         α = atan(-F[2], 1. - F[1])
         mid_point = midpoint(Point(0.,F[1]), Point(F[2],1.))
         cut_points = [Point(0.,F[1]) - Point(0.5,0.5), Point(F[2],1.) - Point(0.5,0.5)]
-        bsol, bliq = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
-        cap_sol = SA_F64[1. - F[1], 0.0, 0.0, F[2], 0.5*F[2]*(1. -F[1]), bsol...]
-        cap_liq = SA_F64[F[1], 1.0, 1.0, 1. - F[2], 1. - 0.5*F[2]*(1.0-F[1]), bliq...]
+        bsol, bliq, s_ipx, s_ipy, l_ipx, l_ipy = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
+        svol = 0.5*F[2]*(1. -F[1])
+        lvol = 1. - 0.5*F[2]*(1.0-F[1])
+
+        s_w3 = 0.5*(F[2]-(sol_centroid.x+0.5))*(1.0-(s_ipy.y+0.5))
+        s_w1 = svol - s_w3
+        s_w2 = 0.5*(sol_centroid.y+0.5-F[1])*(s_ipx.x+0.5)
+        s_w4 = svol - s_w2
+
+        if isnan(l_ipy.y) || isinf(l_ipy.y) || abs(l_ipy.y) >= 0.5
+            l_w3 = 1.0-(liq_centroid.x+0.5)
+            l_w1 = lvol - l_w3
+        else
+            l_w1 = 0.5*(liq_centroid.x+0.5)*(l_ipy.y+0.5+F[1])
+            l_w3 = lvol - l_w1
+        end
+        if isnan(l_ipx.x) || isinf(l_ipx.x) || abs(l_ipx.x) >= 0.5
+            l_w2 = liq_centroid.y+0.5
+            l_w4 = lvol - l_w2
+        else
+            l_w4 = 0.5*(1.0-(liq_centroid.y+0.5))*(1.0-(l_ipx.x+0.5)+1.0-F[2])
+            l_w2 = lvol - l_w4
+        end
+
+        # cap_sol = SA_F64[1. - F[1], 0.0, 0.0, F[2], svol, bsol...]
+        # cap_liq = SA_F64[F[1], 1.0, 1.0, 1. - F[2], lvol, bliq...]
+        cap_sol = SA_F64[1. - F[1], 0.0, 0.0, F[2], svol, bsol..., s_w1, s_w2, s_w3, s_w4]
+        cap_liq = SA_F64[F[1], 1.0, 1.0, 1. - F[2], lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     elseif case == 9.0 #S N
         s9 = (Point(0.,0.), Point(F[1],0.), Point(F[2],1.), Point(0.,1.), Point(0.,0.))
         l9 = (Point(1.,1.), Point(F[2],1.), Point(F[1],0.), Point(1.,0.), Point(1.,1.))
@@ -277,9 +464,40 @@ function capacities(F, case)
         α = atan(F[1]-F[2], 1.)
         mid_point = midpoint(Point(F[1],0.), Point(F[2],1.))
         cut_points = [Point(F[1],0.) - Point(0.5,0.5), Point(F[2],1.) - Point(0.5,0.5)]
-        bsol, bliq = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
-        cap_sol = SA_F64[1.0, F[1], 0.0, F[2], 0.5*(F[1]+F[2]), bsol...]
-        cap_liq = SA_F64[0, 1.0 - F[1], 1.0, 1.0 - F[2], 1. - 0.5*(F[1]+F[2]), bliq...]
+        bsol, bliq, s_ipx, s_ipy, l_ipx, l_ipy = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
+        svol = 0.5*(F[1]+F[2])
+        lvol = 1. - 0.5*(F[1]+F[2])
+
+        l_w2 = 0.5*(liq_centroid.y+0.5)*(1.0-F[1]+1.0-(l_ipx.x+0.5))
+        l_w4 = lvol - l_w2
+        s_w2 = 0.5*(sol_centroid.y+0.5)*(F[1]+s_ipx.x+0.5)
+        s_w4 = svol - s_w2
+
+        if isnan(l_ipy.y) || isinf(l_ipy.y) || abs(l_ipy.y) >= 0.5
+            l_w3 = 1.0-(liq_centroid.x+0.5)
+            l_w1 = lvol - l_w3
+        elseif F[2] >= F[1]
+            l_w1 = 0.5*(l_ipy.y+0.5)*(liq_centroid.x+0.5-F[1])
+            l_w3 = lvol - l_w1
+        else
+            l_w1 = 0.5*(1.0-(l_ipy.y+0.5))*(liq_centroid.x+0.5-F[2])
+            l_w3 = lvol - l_w1
+        end
+        if isnan(s_ipy.y) || isinf(s_ipy.y) || abs(s_ipy.y) >= 0.5
+            s_w1 = sol_centroid.x+0.5
+            s_w3 = svol - s_w1
+        elseif F[2] >= F[1]
+            s_w3 = 0.5*(F[2]-(sol_centroid.x+0.5))*(1.0-(s_ipy.y+0.5))
+            s_w1 = svol - s_w3
+        else
+            s_w3 = 0.5*(F[1]-(sol_centroid.x+0.5))*(s_ipy.y+0.5)
+            s_w1 = svol - s_w3
+        end
+
+        # cap_sol = SA_F64[1.0, F[1], 0.0, F[2], svol, bsol...]
+        # cap_liq = SA_F64[0, 1.0 - F[1], 1.0, 1.0 - F[2], lvol, bliq...]
+        cap_sol = SA_F64[1.0, F[1], 0.0, F[2], svol, bsol..., s_w1, s_w2, s_w3, s_w4]
+        cap_liq = SA_F64[0, 1.0 - F[1], 1.0, 1.0 - F[2], lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     elseif case == 11.0 #E N
         s11 = (Point(0.,0.), Point(1.,0.), Point(1.,F[1]), Point(F[2],1.), Point(0.,1.), Point(0.,0.))
         l11 = (Point(1.,1.), Point(F[2],1.), Point(1.,F[1]), Point(1.,1.))
@@ -288,9 +506,34 @@ function capacities(F, case)
         α = atan(1. - F[2], 1. - F[1])
         mid_point = midpoint(Point(1.,F[1]), Point(F[2],1.))
         cut_points = [Point(1.,F[1]) - Point(0.5,0.5), Point(F[2],1.) - Point(0.5,0.5)]
-        bsol, bliq = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
-        cap_sol = SA_F64[1.0, 1.0, F[1], F[2], 1. - 0.5*((1.0 - F[1])*(1.0 - F[2])), bsol...]
-        cap_liq = SA_F64[0.0, 0.0, 1. - F[1], 1. - F[2], 0.5*((1.0 - F[1])*(1.0 - F[2])), bliq...]
+        bsol, bliq, s_ipx, s_ipy, l_ipx, l_ipy = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
+        svol = 1. - 0.5*((1.0 - F[1])*(1.0 - F[2]))
+        lvol = 0.5*((1.0 - F[1])*(1.0 - F[2]))
+
+        l_w1 = 0.5*(liq_centroid.x+0.5-F[2])*(1.0-(l_ipy.y+0.5))
+        l_w3 = lvol - l_w1
+        l_w2 = 0.5*(liq_centroid.y+0.5-F[1])*(1.0-(l_ipx.x+0.5))
+        l_w4 = lvol - l_w2
+
+        if isnan(s_ipy.y) || isinf(s_ipy.y) || abs(s_ipy.y) >= 0.5
+            s_w1 = sol_centroid.x+0.5
+            s_w3 = svol - s_w1
+        else
+            s_w3 = 0.5*(1.0-(sol_centroid.x+0.5))*(s_ipy.y+0.5+F[1])
+            s_w1 = svol - s_w3
+        end
+        if isnan(s_ipx.x) || isinf(s_ipx.x) || abs(s_ipx.x) >= 0.5
+            s_w2 = sol_centroid.y+0.5
+            s_w4 = svol - s_w2
+        else
+            s_w4 = 0.5*(1.0-(sol_centroid.y+0.5))*(s_ipx.x+0.5+F[2])
+            s_w2 = svol - s_w4
+        end
+
+        # cap_sol = SA_F64[1.0, 1.0, F[1], F[2], svol, bsol...]
+        # cap_liq = SA_F64[0.0, 0.0, 1. - F[1], 1. - F[2], lvol, bliq...]
+        cap_sol = SA_F64[1.0, 1.0, F[1], F[2], svol, bsol..., s_w1, s_w2, s_w3, s_w4]
+        cap_liq = SA_F64[0.0, 0.0, 1. - F[1], 1. - F[2], lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     elseif case == 12.0 #W E
         s12 = (Point(1.,1.), Point(0.,1.), Point(0.,F[1]), Point(1.,F[2]), Point(1.,1.))
         l12 = (Point(0.,0.), Point(1.,0.), Point(1.,F[2]), Point(0.,F[1]), Point(0.,0.))
@@ -299,9 +542,40 @@ function capacities(F, case)
         α = atan(-1., (1. - F[1])-(1. - F[2]))
         mid_point = midpoint(Point(0.,F[1]), Point(1.,F[2]))
         cut_points = [Point(0.,F[1]) - Point(0.5,0.5), Point(1.,F[2]) - Point(0.5,0.5)]
-        bsol, bliq = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
-        cap_sol = SA_F64[1. - F[1], 0.0, 1. - F[2], 1.0, 1. - 0.5*(F[1]+F[2]), bsol...]
-        cap_liq = SA_F64[F[1], 1.0, F[2], 0.0, 0.5*(F[1]+F[2]), bliq...]
+        bsol, bliq, s_ipx, s_ipy, l_ipx, l_ipy = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
+        svol = 1. - 0.5*(F[1]+F[2])
+        lvol = 0.5*(F[1]+F[2])
+
+        l_w1 = 0.5*(liq_centroid.x+0.5)*(F[1]+l_ipy.y+0.5)
+        l_w3 = lvol - l_w1
+        s_w1 = 0.5*(sol_centroid.x+0.5)*(1.0-F[1]+1.0-(s_ipy.y+0.5))
+        s_w3 = svol - s_w1
+
+        if isnan(l_ipx.x) || isinf(l_ipx.x) || abs(l_ipx.x) >= 0.5
+            l_w2 = liq_centroid.y+0.5
+            l_w4 = lvol - l_w2
+        elseif F[2] >= F[1]
+            l_w4 = 0.5*(1.0-(l_ipx.x+0.5))*(F[2]-(liq_centroid.y+0.5))
+            l_w2 = lvol - l_w4
+        else
+            l_w4 = 0.5*(l_ipx.x+0.5)*(F[1]-(liq_centroid.y+0.5))
+            l_w2 = lvol - l_w4
+        end
+        if isnan(s_ipx.x) || isinf(s_ipx.x) || abs(s_ipx.x) >= 0.5
+            s_w4 = 1.0 - (sol_centroid.y+0.5)
+            s_w2 = svol - s_w4
+        elseif F[2] >= F[1]
+            s_w2 = 0.5*(sol_centroid.y+0.5-F[1])*(s_ipx.x+0.5)
+            s_w4 = svol - s_w2
+        else
+            s_w2 = 0.5*(sol_centroid.y+0.5-F[2])*(1.0-(s_ipx.x+0.5))
+            s_w4 = svol - s_w2
+        end
+
+        # cap_sol = SA_F64[1. - F[1], 0.0, 1. - F[2], 1.0, svol, bsol...]
+        # cap_liq = SA_F64[F[1], 1.0, F[2], 0.0, lvol, bliq...]
+        cap_sol = SA_F64[1. - F[1], 0.0, 1. - F[2], 1.0, svol, bsol..., s_w1, s_w2, s_w3, s_w4]
+        cap_liq = SA_F64[F[1], 1.0, F[2], 0.0, lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     elseif case == 13.0 #S E
         s13 = (Point(0.,0.), Point(F[1],0.), Point(1.,F[2]), Point(1.,1.), Point(0.,1.), Point(0.,0.))
         l13 = (Point(1.,0.), Point(1.,F[2]), Point(F[1],0.), Point(1.,0.))
@@ -310,9 +584,34 @@ function capacities(F, case)
         α = atan(-1.0+F[1], F[2])
         mid_point = midpoint(Point(F[1],0.), Point(1.,F[2]))
         cut_points = [Point(F[1],0.) - Point(0.5,0.5), Point(1.,F[2]) - Point(0.5,0.5)]
-        bsol, bliq = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
-        cap_sol = SA_F64[1.0, F[1], 1. - F[2], 1.0, 1. - 0.5*(F[2]*(1. - F[1])), bsol...]
-        cap_liq = SA_F64[0.0, 1.0 - F[1], F[2], 0.0, 0.5*(F[2]*(1. - F[1])), bliq...]
+        bsol, bliq, s_ipx, s_ipy, l_ipx, l_ipy = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
+        svol = 1. - 0.5*(F[2]*(1. - F[1]))
+        lvol = 0.5*(F[2]*(1. - F[1]))
+
+        l_w1 = 0.5*(liq_centroid.x+0.5-F[1])*(l_ipy.y+0.5)
+        l_w3 = lvol - l_w1
+        l_w4 = 0.5*(F[2]-(liq_centroid.y+0.5))*(1.0-(l_ipx.x+0.5))
+        l_w2 = lvol - l_w4
+
+        if isnan(s_ipy.y) || isinf(s_ipy.y) || abs(s_ipy.y) >= 0.5
+            s_w1 = sol_centroid.x+0.5
+            s_w3 = svol - s_w1
+        else
+            s_w3 = 0.5*(1.0-(sol_centroid.x+0.5))*(1.0-(s_ipy.y+0.5)+1.0-F[2])
+            s_w1 = svol - s_w3
+        end
+        if isnan(s_ipx.x) || isinf(s_ipx.x) || abs(s_ipx.x) >= 0.5
+            s_w4 = 1.0 - (sol_centroid.y+0.5)
+            s_w2 = svol - s_w4
+        else
+            s_w2 = 0.5*(sol_centroid.y+0.5)*(s_ipx.x+0.5+F[1])
+            s_w4 = svol - s_w2
+        end
+
+        # cap_sol = SA_F64[1.0, F[1], 1. - F[2], 1.0, svol, bsol...]
+        # cap_liq = SA_F64[0.0, 1.0 - F[1], F[2], 0.0, lvol, bliq...]
+        cap_sol = SA_F64[1.0, F[1], 1. - F[2], 1.0, svol, bsol..., s_w1, s_w2, s_w3, s_w4]
+        cap_liq = SA_F64[0.0, 1.0 - F[1], F[2], 0.0, lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     elseif case == 14.0 #W S
         s14 = (Point(1.,1.), Point(0.,1.), Point(0.,F[1]), Point(F[2],0.), Point(1.,0.), Point(1.,1.))
         l14 = (Point(0.,0.), Point(F[2],0.), Point(0.,F[1]), Point(0.,0.))
@@ -321,43 +620,60 @@ function capacities(F, case)
         α = atan(-F[2], -F[1])
         mid_point = midpoint(Point(0.,F[1]), Point(F[2],0.))
         cut_points = [Point(0.,F[1]) - Point(0.5,0.5), Point(F[2],0.) - Point(0.5,0.5)]
-        bsol, bliq = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
-        cap_sol = SA_F64[1.0 - F[1], 1.0 - F[2], 1.0, 1.0, 1. - 0.5*F[1]*F[2], bsol...]
-        cap_liq = SA_F64[F[1], F[2], 0.0, 0.0, 0.5*F[1]*F[2], bliq...]
+        bsol, bliq, s_ipx, s_ipy, l_ipx, l_ipy = Bcapacities(case, cut_points, sol_centroid, liq_centroid)
+        svol = 1. - 0.5*F[1]*F[2]
+        lvol = 0.5*F[1]*F[2]
+
+        l_w3 = 0.5*(F[2]-(liq_centroid.x+0.5))*(l_ipy.y+0.5)
+        l_w1 = lvol - l_w3
+        l_w4 = 0.5*(F[1]-(liq_centroid.y+0.5))*(l_ipx.x+0.5)
+        l_w2 = lvol - l_w4
+
+        if isnan(s_ipy.y) || isinf(s_ipy.y) || abs(s_ipy.y) >= 0.5
+            s_w3 = 1.0 - (sol_centroid.x+0.5)
+            s_w1 = svol - s_w3
+        else
+            s_w1 = 0.5*(sol_centroid.x+0.5)*(1.0-(s_ipy.y+0.5)+1.0-F[1])
+            s_w3 = svol - s_w1
+        end
+        if isnan(s_ipx.x) || isinf(s_ipx.x) || abs(s_ipx.x) >= 0.5
+            s_w4 = 1.0 - (sol_centroid.y+0.5)
+            s_w2 = svol - s_w4
+        else
+            s_w2 = 0.5*(sol_centroid.y+0.5)*(1.0-(s_ipx.x+0.5)+1.0-F[2])
+            s_w4 = svol - s_w2
+        end
+
+        # cap_sol = SA_F64[1.0 - F[1], 1.0 - F[2], 1.0, 1.0, svol, bsol...]
+        # cap_liq = SA_F64[F[1], F[2], 0.0, 0.0, lvol, bliq...]
+        cap_sol = SA_F64[1.0 - F[1], 1.0 - F[2], 1.0, 1.0, svol, bsol..., s_w1, s_w2, s_w3, s_w4]
+        cap_liq = SA_F64[F[1], F[2], 0.0, 0.0, lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     end
     return cap_sol, cap_liq, min(float(π),max(-float(π),α)), sol_centroid, liq_centroid, mid_point, cut_points
 end
 
 function Bcapacities(iso, cut_points, sol_centroid, liq_centroid)
-    if is_solid(iso)
-        sol = [1.0, 1.0]
-        liq = [0.0, 0.0]
-    elseif is_liquid(iso)
-        sol = [0.0, 0.0]
-        liq = [1.0, 1.0]
-    else
-        sol = zeros(2)
-        liq = zeros(2)
-        l_int = Line(cut_points[1], cut_points[2])
+    sol = zeros(2)
+    liq = zeros(2)
+    l_int = Line(cut_points[1], cut_points[2])
 
-        ly = Line(sol_centroid, sol_centroid+Point(0.0,1.0))
-        lx = Line(sol_centroid, sol_centroid+Point(1.0,0.0))
-        ipy = line_intersection(l_int, ly)
-        ipx = line_intersection(l_int, lx)
+    ly = Line(sol_centroid, sol_centroid+Point(0.0,1.0))
+    lx = Line(sol_centroid, sol_centroid+Point(1.0,0.0))
+    s_ipy = line_intersection(l_int, ly)
+    s_ipx = line_intersection(l_int, lx)
 
-        sol[1] = Bcaps(ipy.y, sol_centroid.y)
-        sol[2] = Bcaps(ipx.x, sol_centroid.x)
+    sol[1] = Bcaps(s_ipy.y, sol_centroid.y)
+    sol[2] = Bcaps(s_ipx.x, sol_centroid.x)
 
-        ly = Line(liq_centroid, liq_centroid+Point(0.0,1.0))
-        lx = Line(liq_centroid, liq_centroid+Point(1.0,0.0))
-        ipy = line_intersection(l_int, ly)
-        ipx = line_intersection(l_int, lx)
+    ly = Line(liq_centroid, liq_centroid+Point(0.0,1.0))
+    lx = Line(liq_centroid, liq_centroid+Point(1.0,0.0))
+    l_ipy = line_intersection(l_int, ly)
+    l_ipx = line_intersection(l_int, lx)
 
-        liq[1] = Bcaps(ipy.y, liq_centroid.y)
-        liq[2] = Bcaps(ipx.x, liq_centroid.x)
-    end
+    liq[1] = Bcaps(l_ipy.y, liq_centroid.y)
+    liq[2] = Bcaps(l_ipx.x, liq_centroid.x)
 
-    return sol, liq
+    return sol, liq, s_ipx, s_ipy, l_ipx, l_ipy
 end
 
 function face_capacities(itp, case)

@@ -23,8 +23,8 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters)
     SCUT = zeros(n^2)
     LCUT = zeros(n^2)
 
-    SOL = zeros(n,n,7)
-    LIQ = zeros(n,n,7)
+    SOL = zeros(n,n,11)
+    LIQ = zeros(n,n,11)
 
     sol_projection = Array{Gradient{Float64}, 2}(undef, n, n)
     liq_projection = Array{Gradient{Float64}, 2}(undef, n, n)

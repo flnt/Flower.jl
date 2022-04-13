@@ -8,7 +8,7 @@ num = Numerical(case = "Sphere",
     L0 = 2.,
     n = 16,
     CFL = 1.0,
-    max_iterations = 2,
+    max_iterations = 1,
     R = 0.7)
 
 idx = set_indices(num.n)
@@ -72,3 +72,35 @@ resize_to_layout!(fb2)
 fb2 = heatmap!(num.H, num.H, tmp.LIQ[:,:,7]')
 fb2 = contour!(num.H, num.H, fwd.usave[1,:,:]', levels = 0:0, color=:red, linewidth = 3);
 fb2 = current_figure()
+
+fw1 = Figure(resolution = (1600, 1000))
+colsize!(fw1.layout, 1, Aspect(1, 1.0))
+ax = Axis(fw1[1,1], aspect = 1, xticks = -1:1:1, yticks = -1:1:1)
+resize_to_layout!(fw1)
+fw1 = heatmap!(num.H, num.H, tmp.LIQ[:,:,8]')
+fw1 = contour!(num.H, num.H, fwd.usave[1,:,:]', levels = 0:0, color=:red, linewidth = 3);
+fw1 = current_figure()
+
+fw2 = Figure(resolution = (1600, 1000))
+colsize!(fw2.layout, 1, Aspect(1, 1.0))
+ax = Axis(fw2[1,1], aspect = 1, xticks = -1:1:1, yticks = -1:1:1)
+resize_to_layout!(fw2)
+fw2 = heatmap!(num.H, num.H, tmp.LIQ[:,:,9]')
+fw2 = contour!(num.H, num.H, fwd.usave[1,:,:]', levels = 0:0, color=:red, linewidth = 3);
+fw2 = current_figure()
+
+fw3 = Figure(resolution = (1600, 1000))
+colsize!(fw3.layout, 1, Aspect(1, 1.0))
+ax = Axis(fw3[1,1], aspect = 1, xticks = -1:1:1, yticks = -1:1:1)
+resize_to_layout!(fw3)
+fw3 = heatmap!(num.H, num.H, tmp.LIQ[:,:,10]')
+fw3 = contour!(num.H, num.H, fwd.usave[1,:,:]', levels = 0:0, color=:red, linewidth = 3);
+fw3 = current_figure()
+
+fw4 = Figure(resolution = (1600, 1000))
+colsize!(fw4.layout, 1, Aspect(1, 1.0))
+ax = Axis(fw4[1,1], aspect = 1, xticks = -1:1:1, yticks = -1:1:1)
+resize_to_layout!(fw4)
+fw4 = heatmap!(num.H, num.H, tmp.LIQ[:,:,11]')
+fw4 = contour!(num.H, num.H, fwd.usave[1,:,:]', levels = 0:0, color=:red, linewidth = 3);
+fw4 = current_figure()
