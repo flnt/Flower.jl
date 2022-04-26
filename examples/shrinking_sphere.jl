@@ -22,7 +22,7 @@ tmp, fwd = init_fields(num, idx)
 fwd.TL .= 0.
 
 MIXED = run_forward(num, idx, tmp, fwd,
-BC_TL = Boundaries(top = Boundary(f = dirichlet, val = 1.0)),
+BC_TL = Boundaries(top = Boundary(t = dir, f = dirichlet, val = 1.0)),
 stefan = true,
 advection = true,
 heat = true,

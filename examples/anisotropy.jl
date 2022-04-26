@@ -4,7 +4,7 @@ using Flower
 num = Numerical(T_inf = -0.8,
     case = "Crystal",
     θd = 0.,
-    ϵ_κ = 0.001,
+    ϵ_κ = 0.003,
     ϵ_V = 0.000,
     L0 = 4.,
     n = 300,

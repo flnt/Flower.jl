@@ -1,48 +1,185 @@
-@inline function diffusion_coefficients(a, i)
-    avg = SA_F64[a[i,1]+a[i,3], a[i,2]+a[i,4]] .* 0.5
-    V = SA_F64[a[i,5]+a[δx⁻(i),5], a[i,5]+a[δy⁻(i),5], a[i,5]+a[δx⁺(i),5], a[i,5]+a[δy⁺(i),5]] .* 0.5 .+ eps(.01)
-    f = SA_F64[a[δx⁻(i),1]+a[δx⁻(i),3], a[δy⁻(i),2]+a[δy⁻(i),4], a[δx⁺(i),3]+a[δx⁺(i),1], a[δy⁺(i),4]+a[δy⁺(i),2]] .* 0.5
-    bc = SA_F64[a[δx⁻(i),1]-a[i,3], a[δy⁻(i),2]-a[i,4], a[δx⁺(i),3]-a[i,1], a[δy⁺(i),4]-a[i,2]] .* 0.5
-    return avg, V, f, bc
-end
+function set_bc_bnds(D, H, BC)
+    Dx = similar(D)
+    Dy = similar(D)
+    Dx .= D
+    Dy .= D
 
-@inline function fill_matrices!(avg, V, f, bc, A, B, p, n, CFL)
-    s = 0.
-    bs = 0.
-    a = (-n, -1, n, 1)
-    @inbounds for (i,j) in zip(1:4,a)
-        @inbounds A[p, p + j] = -(CFL*avg[2-mod(i,2)]*f[i])/V[i]
-        @inbounds B[p, p + j] = (CFL*avg[2-mod(i,2)]*f[i])/V[i]
-        s += (avg[2-mod(i,2)]^2)/V[i]
-        bs -= (avg[2-mod(i,2)]*bc[i])/V[i]
+    if BC.left.f == neumann
+        Dx[:,1] .= H[:,1] .* BC.left.val
+    else
+        Dx[:,1] .= BC.left.val
     end
-    return 2 + CFL*s, 2 - CFL*s, CFL*bs
+    if BC.bottom.f == neumann
+        Dy[1,:] .= H[1,:] .* BC.bottom.val 
+    else
+        Dy[1,:] .= BC.bottom.val
+    end
+    if BC.right.f == neumann
+        Dx[:,end] .= H[:,end] .* BC.right.val 
+    else
+        Dx[:,end] .= BC.right.val
+    end
+    if BC.top.f == neumann
+        Dy[end,:] .= H[end,:] .* BC.top.val 
+    else
+        Dy[end,:] .= BC.top.val
+    end
+
+    return Dx, Dy
 end
 
-function crank_nicolson(SCUT, LCUT, SOL, LIQ, AS, AL, BS, BL, n, inside, CFL, θd, κ, ϵ_κ, ϵ_V, V)
-    @inbounds @threads for II in inside
-        p = lexicographic(II, n)
-        Savg, SV, Sf, Sbc = diffusion_coefficients(SOL,II)
-        Lavg, LV, Lf, Lbc = diffusion_coefficients(LIQ,II)
-        AS[p,p], BS[p,p], SCUT_= fill_matrices!(Savg, SV, Sf, Sbc, AS, BS, p, n, CFL)
-        AL[p,p], BL[p,p], LCUT_= fill_matrices!(Lavg, LV, Lf, Lbc, AL, BL, p, n, CFL)
-        SCUT[p] = SCUT_*(θd - ϵ_κ*κ[II] - ϵ_V*V[II])
-        LCUT[p] = LCUT_*(θd - ϵ_κ*κ[II] - ϵ_V*V[II])
+@inline function apply_curvature(bc, D, κ, ϵ_κ, ϵ_V, V, all_indices)
+    @inbounds @threads for II in all_indices
+        @inbounds bc[II] = D[II] - ϵ_κ*κ[II] - ϵ_V*V[II]
     end
     return nothing
 end
 
-function crank_nicolson(SCUT, LCUT, SOL, LIQ, AS, AL, BS, BL, n, inside, CFL, θd, κ, ϵ_κ, ϵ_V, V, m, θ₀, aniso, sol_projection)
-    @inbounds @threads for II in inside
-        p = lexicographic(II, n)
-        Savg, SV, Sf, Sbc = diffusion_coefficients(SOL,II)
-        Lavg, LV, Lf, Lbc = diffusion_coefficients(LIQ,II)
-        AS[p,p], BS[p,p], SCUT_= fill_matrices!(Savg, SV, Sf, Sbc, AS, BS, p, n, CFL)
-        AL[p,p], BL[p,p], LCUT_= fill_matrices!(Lavg, LV, Lf, Lbc, AL, BL, p, n, CFL)
+@inline function apply_anisotropy(bc, D, MIXED, κ, ϵ_κ, ϵ_V, V, m, θ₀, sol_projection)
+    @inbounds @threads for II in MIXED
         ϵ_c = anisotropy(ϵ_κ, m, sol_projection[II].angle, θ₀)
         ϵ_v = anisotropy(ϵ_V, m, sol_projection[II].angle, θ₀)
-        SCUT[p] = SCUT_*(θd - ϵ_c*κ[II] - ϵ_V*V[II])
-        LCUT[p] = LCUT_*(θd - ϵ_c*κ[II] - ϵ_v*V[II])
+        @inbounds bc[II] = D[II] - ϵ_c*κ[II] - ϵ_v*V[II]
+    end
+    return nothing
+end
+
+@inline function get_capacities(cap, II, Δ)
+    ret = (cap[II,1]*Δ, cap[II,2]*Δ, cap[II,3]*Δ, cap[II,4]*Δ, cap[II,6]*Δ, cap[II,7]*Δ,
+           cap[II,8]*Δ^2 + eps(0.01), cap[II,9]*Δ^2 + eps(0.01), cap[II,10]*Δ^2 + eps(0.01), cap[II,11]*Δ^2 + eps(0.01))
+    return ret
+end
+
+@inline function set_lapl_bnd!(::Dirichlet, ::Dirichlet, L, B, W, C1, C2, n, Δ, b_indices, b2)
+    return nothing
+end
+
+@inline function set_lapl_bnd!(::Dirichlet, ::Neumann, L, B, W, C1, C2, n, Δ, b_indices, b2)
+    @inbounds @threads for II in b_indices
+        pII = lexicographic(II, n)
+        @inbounds L[pII,pII] += B[II]*Δ * (C1[II]*Δ - C2[II]*Δ) / (W[II]*Δ^2+eps(0.01))
+    end
+    return nothing
+end
+
+@inline function set_lapl_bnd!(::Dirichlet, ::Periodic, L, B, W, C1, C2, n, Δ, b_indices, b_periodic)
+    @inbounds @threads for (II, JJ) in zip(b_indices, b_periodic)
+        pII = lexicographic(II, n)
+        pJJ = lexicographic(JJ, n)
+        @inbounds L[pII,pJJ] += B[II]*Δ / (W[II]*Δ^2+eps(0.01)) * B[JJ]*Δ 
+    end
+    return nothing
+end
+
+@inline function laplacian!(::Dirichlet, L, B, Dx, Dy, cap, n, Δ, BC, all_indices, empty, b_left, b_bottom, b_right, b_top)
+    B .= 0.0
+    @inbounds @threads for II in all_indices
+        pII = lexicographic(II, n)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(cap, II, Δ)
+        
+        @inbounds L[pII,pII] = -B1 * (B1/W3 + B1/W1) - B2 * (B2/W4 + B2/W2)
+
+        @inbounds B[pII] += -B1 / W3 * (A3 - B1) * Dx[II]
+        @inbounds B[pII] += B1 / W1 * (B1 - A1) * Dx[II]
+        @inbounds B[pII] += -B2 / W4 * (A4 - B2) * Dy[II]
+        @inbounds B[pII] += B2 / W2 * (B2 - A2) * Dy[II]
+
+        if II ∉ b_right
+            @inbounds L[pII,pII+n] = B1 / W3 * cap[δx⁺(II),6]*Δ
+            @inbounds B[pII] += -B1 / W3 * (cap[δx⁺(II),6]*Δ - A3) * Dx[δx⁺(II)]
+        end
+        if II ∉ b_left
+            @inbounds L[pII,pII-n] = B1 / W1 * cap[δx⁻(II),6]*Δ
+            @inbounds B[pII] += B1 / W1 * (A1 - cap[δx⁻(II),6]*Δ) * Dx[δx⁻(II)]
+        end
+        if II ∉ b_top
+            @inbounds L[pII,pII+1] = B2 / W4 * cap[δy⁺(II),7]*Δ
+            @inbounds B[pII] += -B2 / W4 * (cap[δy⁺(II),7]*Δ - A4) * Dy[δy⁺(II)]
+        end
+        if II ∉ b_bottom
+            @inbounds L[pII,pII-1] = B2 / W2 * cap[δy⁻(II),7]*Δ
+            @inbounds B[pII] += B2 / W2 * (A2 - cap[δy⁻(II),7]*Δ) * Dy[δy⁻(II)]
+        end
+    end
+
+    @inbounds @threads for II in empty
+        pII = lexicographic(II, n)
+        @inbounds L[pII,pII] = -4.0
+    end
+
+    set_lapl_bnd!(dir, BC.left.t, L, cap[:,:,6], cap[:,:,8], cap[:,:,6], cap[:,:,1], n, Δ, b_left, b_right)
+    set_lapl_bnd!(dir, BC.bottom.t, L, cap[:,:,7], cap[:,:,9], cap[:,:,7], cap[:,:,2], n, Δ, b_bottom, b_top)
+    set_lapl_bnd!(dir, BC.right.t, L, cap[:,:,6], cap[:,:,10], cap[:,:,6], cap[:,:,3], n, Δ, b_right, b_left)
+    set_lapl_bnd!(dir, BC.top.t, L, cap[:,:,7], cap[:,:,11], cap[:,:,7], cap[:,:,4], n, Δ, b_top, b_bottom)
+    
+    return nothing
+end
+
+@inline function set_lapl_bnd!(::Neumann, ::Neumann, L, A, W, n, Δ, b_indices, b2)
+    return nothing
+end
+
+@inline function set_lapl_bnd!(::Neumann, ::Dirichlet, L, A, W, n, Δ, b_indices, b2)
+    @error ("Not implemented yet.\nTry Neumann or Periodic in the outer BCs.")
+    return nothing
+end
+
+@inline function set_lapl_bnd!(::Neumann, ::Periodic, L, A, W, n, Δ, b_indices, b_periodic)
+    @inbounds @threads for (II, JJ) in zip(b_indices, b_periodic)
+        pII = lexicographic(II, n)
+        pJJ = lexicographic(JJ, n)
+        @inbounds L[pII,pJJ] += (A[II]*Δ)^2 / (W[II]*Δ^2+eps(0.01))
+    end
+    return nothing
+end
+
+@inline function laplacian!(::Neumann, L, B, Nx, Ny, cap, n, Δ, BC, all_indices, empty, b_left, b_bottom, b_right, b_top)
+    B .= 0.0
+    @inbounds @threads for II in all_indices
+        pII = lexicographic(II, n)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(cap, II, Δ)
+
+        @inbounds L[pII,pII] = -(A1^2 / W1 + A2^2 / W2 + A3^2 / W3 + A4^2 / W4)
+
+        @inbounds B[pII] += -(A3 - B1) * Nx[II] - (B1 - A1) * Nx[II]
+        @inbounds B[pII] += -(A4 - B2) * Ny[II] - (B2 - A2) * Ny[II]
+
+        if II ∉ b_right
+            @inbounds L[pII,pII+n] = A3^2 / W3
+        end
+        if II ∉ b_left
+            @inbounds L[pII,pII-n] = A1^2 / W1
+        end
+        if II ∉ b_top
+            @inbounds L[pII,pII+1] = A4^2 / W4
+        end
+        if II ∉ b_bottom
+            @inbounds L[pII,pII-1] = A2^2 / W2
+        end
+    end
+
+    @inbounds @threads for II in empty
+        pII = lexicographic(II, n)
+        @inbounds L[pII,pII] = -4.0
+    end
+
+    set_lapl_bnd!(neu, BC.left.t, L, cap[:,:,1], cap[:,:,8], n, Δ, b_left, b_right)
+    set_lapl_bnd!(neu, BC.bottom.t, L, cap[:,:,2], cap[:,:,9], n, Δ, b_bottom, b_top)
+    set_lapl_bnd!(neu, BC.right.t, L, cap[:,:,3], cap[:,:,10], n, Δ, b_right, b_left)
+    set_lapl_bnd!(neu, BC.top.t, L, cap[:,:,4], cap[:,:,11], n, Δ, b_top, b_bottom)
+
+    return nothing
+end
+
+function crank_nicolson!(L, A, B, cap, τ, n, Δ, all_indices)
+    @inbounds V = cap[:,:,5] .* Δ^2
+
+    @inbounds A .= -L .* τ
+    @inbounds B .= L .* τ
+    @inbounds @threads for II in all_indices
+        pII = lexicographic(II, n)
+        @inbounds B[pII,pII] += V[II] * 2.
+        @inbounds A[pII,pII] += V[II] * 2.
     end
     return nothing
 end

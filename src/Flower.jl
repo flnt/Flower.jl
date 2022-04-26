@@ -28,6 +28,7 @@ import Base.abs
 @reexport using CairoMakie
 @reexport using Gnuplot
 @reexport using IterativeSolvers
+@reexport using PETSc
 @reexport using LsqFit
 @reexport using Polynomials
 
@@ -39,6 +40,7 @@ include("cutcell.jl")
 include("heat.jl")
 include("run.jl")
 include("optimize.jl")
+include("viz.jl")
 
 export_all()
 

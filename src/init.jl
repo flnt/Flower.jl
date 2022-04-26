@@ -14,7 +14,7 @@ function set_indices(n)
     TOP = filter(x->x.I[1]==n, all_indices)
     TOP2 = filter(x->x.I[1]==n-1, all_indices)
 
-    return Indices(inside, (LEFT, RIGHT2), (RIGHT, LEFT2), (BOTTOM, TOP2), (TOP, BOTTOM2), (LEFT, LEFT2), (BOTTOM, BOTTOM2), (RIGHT, RIGHT2), (TOP, TOP2))
+    return Indices(all_indices, inside, (LEFT, RIGHT2), (RIGHT, LEFT2), (BOTTOM, TOP2), (TOP, BOTTOM2), (LEFT, LEFT2), (BOTTOM, BOTTOM2), (RIGHT, RIGHT2), (TOP, TOP2))
 end
 
 function init_fields(num::NumericalParameters, idx::NumericalParameters)
@@ -24,10 +24,22 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters)
     LCUT = zeros(n^2)
 
     SOL = zeros(n,n,11)
-    LIQ = zeros(n,n,11)
+    LIQ = ones(n,n,11)
+    LIQ[:,:,8:end] .*= 0.5
 
     sol_projection = Array{Gradient{Float64}, 2}(undef, n, n)
     liq_projection = Array{Gradient{Float64}, 2}(undef, n, n)
+
+    sol_centroid = Array{Point{Float64}, 2}(undef, n, n)
+    liq_centroid = Array{Point{Float64}, 2}(undef, n, n)
+
+    mid_point = Array{Point{Float64}, 2}(undef, n, n)
+
+    @inbounds @threads for II in eachindex(sol_centroid)
+        sol_centroid[II] = Point(0.0, 0.0)
+        liq_centroid[II] = Point(0.0, 0.0)
+        mid_point[II] = Point(0.0, 0.0)
+    end
 
     ii = collect(i for i = 1:n^2)
     iw = collect(i for i = n+1:n^2)
@@ -48,6 +60,8 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters)
     a = ones(length(jj))
     b = zeros(length(jw)+length(js)+length(jn)+length(je))
 
+    LTS = sparse(II,JJ,vcat(a,b))
+    LTL = sparse(II,JJ,vcat(a,b))
     AS = sparse(II,JJ,vcat(a,b))
     AL = sparse(II,JJ,vcat(a,b))
     BS = sparse(II,JJ,vcat(a,b))
@@ -61,6 +75,8 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters)
     TS = zeros(n, n)
     TL = zeros(n, n)
     Tall = zeros(n, n)
+    DTS = zeros(n, n)
+    DTL = zeros(n, n)
     V = zeros(n, n)
     κ = zeros(n, n)
 
@@ -103,9 +119,11 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters)
             u[II] = min(u1,u2,u3)
         end
         TL .= T_inf;
+    elseif num.case == "Nothing"
+        u .= sqrt.(X.^2 + Y.^2) .+ 1e-8
     end
 
-    return TempArrays(SCUT, LCUT, LIQ, SOL, sol_projection, liq_projection, AS, AL, BS, BL, LSA, LSB), Forward(iso, u, TS, TL, Tall, V, κ, usave, TSsave, TLsave, Tsave, Vsave, κsave, lengthsave)
+    return TempArrays(SCUT, LCUT, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, LTS, LTL, AS, AL, BS, BL, LSA, LSB), Forward(iso, u, TS, TL, Tall, DTS, DTL, V, κ, usave, TSsave, TLsave, Tsave, Vsave, κsave, lengthsave)
 end
 
 function init_mullins!(T, V, t, A, N, n, H, shift)

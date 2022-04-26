@@ -7,6 +7,8 @@ Returns the index of type `Int` corresponding to the 1D view of a `n × n` array
 @inline lexicographic(II, n) = muladd(n, II[2]-1, II[1])
 @inline within_bounds(i, n) = 1 <= i <= n^2
 
+const newaxis = [CartesianIndex()]
+
 @inline δy⁺(II) = CartesianIndex(II[1]+1, II[2])
 @inline δy⁻(II) = CartesianIndex(II[1]-1, II[2])
 @inline δx⁺(II) = CartesianIndex(II[1], II[2]+1)
@@ -215,7 +217,7 @@ end
 @inline robin(target, Δ, λ, val) = muladd((2*λ-Δ)/(2*λ+Δ), target, (2*Δ*val)/(Δ+2*λ))
 @inline periodic(target, Δ, λ, val) = target
 
-function bcs!(field, BC::Boundary{N, T, T}, Δ) where {N, T}
+function bcs!(field, BC::Boundary{B, N, T, T}, Δ) where {B, N, T}
     @inbounds for KK in axes(field,3)
         for (II,JJ) in zip(BC.ind[1], BC.ind[2])
             field[II,KK] = BC.f(field[JJ,KK], Δ, BC.λ, BC.val)
@@ -224,7 +226,7 @@ function bcs!(field, BC::Boundary{N, T, T}, Δ) where {N, T}
     return nothing
 end
 
-function bcs!(field, BC::Boundary{N, T, Vector{T}}, Δ) where {N, T}
+function bcs!(field, BC::Boundary{B, N, T, Vector{T}}, Δ) where {B, N, T}
     @inbounds for KK in axes(field,3)
         for (II,JJ,LL) in zip(BC.ind[1], BC.ind[2], axes(field,1))
             field[II,KK] = BC.f(field[JJ,KK], Δ, BC.λ, BC.val[LL])

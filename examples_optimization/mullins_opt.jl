@@ -66,7 +66,7 @@ function fg2!(F, G, x, des, opt, num, idx, initial_levelset, initial_temperature
       advection = true
       );
   s = similar(fwd.u)
-  adj = my_Adjoint(s, fwd.u, opt.γ[1].*(des.TS - fwd.TS), opt.γ[1].*(des.TL - fwd.TL), s, s)
+  adj = my_Adjoint(s, fwd.u, opt.γ[1].*(des.TS - fwd.TS), opt.γ[1].*(des.TL - fwd.TL), s, s, s, s)
   tmp, fwd_ = init_fields(num, idx)
   run_backward(num, idx, tmp, fwd, adj,
       stefan = true,

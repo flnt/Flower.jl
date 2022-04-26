@@ -33,9 +33,9 @@ function run_forward(num, idx, tmp, fwd;
     )
 
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, τ, L0, NB, n, Δ, CFL, max_iterations, current_i, reinit_every, nb_reinit, ϵ, H, B, BT, m, θ₀, aniso = num
-    @unpack inside, b_left, b_bottom, b_right, b_top = idx
-    @unpack SCUT, LCUT, AS, AL, BS, BL, LSA, LSB, SOL, LIQ, sol_projection, liq_projection = tmp
-    @unpack iso, u, TS, TL, Tall, V, κ, usave, TSsave, TLsave, Tsave, Vsave, κsave, lengthsave = fwd
+    @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = idx
+    @unpack SCUT, LCUT, LTS, LTL, AS, AL, BS, BL, LSA, LSB, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point = tmp
+    @unpack iso, u, TS, TL, Tall, DTS, DTL, V, κ, usave, TSsave, TLsave, Tsave, Vsave, κsave, lengthsave = fwd
 
     local MIXED; local SOLID; local LIQUID;
     local WAS_SOLID; local WAS_LIQUID;
@@ -45,21 +45,21 @@ function run_forward(num, idx, tmp, fwd;
     local faces = zeros(n,n,4);
 
     if periodic_x
-        BC_TS.left.ind = BC_TL.left.ind = BC_u.left.ind = idx.periodicL;
-        BC_TS.right.ind = BC_TL.right.ind = BC_u.right.ind = idx.periodicR;
-        BC_TS.left.f = BC_TL.left.f = BC_u.left.f = BC_TS.right.f = BC_TL.right.f = BC_u.right.f = periodic
+        BC_u.left.ind = idx.periodicL;
+        BC_u.right.ind = idx.periodicR;
+        BC_u.left.f = BC_u.right.f = periodic
     else
-        BC_TS.left.ind = BC_TL.left.ind = BC_u.left.ind = b_left;
-        BC_TS.right.ind = BC_TL.right.ind = BC_u.right.ind = b_right;
+        BC_u.left.ind = b_left;
+        BC_u.right.ind = b_right;
     end
 
     if periodic_y
-        BC_TS.bottom.ind = BC_TL.bottom.ind = BC_u.bottom.ind = idx.periodicB;
-        BC_TS.top.ind = BC_TL.top.ind = BC_u.top.ind = idx.periodicT;
-        BC_TS.bottom.f = BC_TL.bottom.f = BC_u.bottom.f = BC_TS.top.f = BC_TL.top.f = BC_u.top.f = periodic
+        BC_u.bottom.ind = idx.periodicB;
+        BC_u.top.ind = idx.periodicT;
+        BC_u.bottom.f = BC_u.top.f = periodic
     else
-        BC_TS.bottom.ind = BC_TL.bottom.ind = BC_u.bottom.ind = b_bottom;
-        BC_TS.top.ind = BC_TL.top.ind = BC_u.top.ind = b_top;
+        BC_u.bottom.ind = b_bottom;
+        BC_u.top.ind = b_top;
     end
 
     usave[1, :, :] .= u[:,:]
@@ -78,7 +78,7 @@ function run_forward(num, idx, tmp, fwd;
         MIXED, SOLID, LIQUID = get_cells_indices(iso, inside)
         NB_indices = get_NB_width(MIXED, NB_indices_base)
 
-        get_iterface_location!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, Δ, L0, B, BT, MIXED, ϵ, n, faces)
+        get_iterface_location!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, Δ, L0, B, BT, idx, MIXED, ϵ, n, faces, periodic_x, periodic_y)
         get_curvature(u, liq_projection, κ, B, BT, Δ, MIXED)
         if save_radius
             local radius = zeros(max_iterations+1)
@@ -96,23 +96,37 @@ function run_forward(num, idx, tmp, fwd;
         MIXED = [CartesianIndex(-1,-1)]
     end
 
-    @sync begin
-        @spawn bcs!(SOL, BC_u.left, Δ)
-        @spawn bcs!(SOL, BC_u.right, Δ)
-        @spawn bcs!(SOL, BC_u.bottom, Δ)
-        @spawn bcs!(SOL, BC_u.top, Δ)
-
-        @spawn bcs!(LIQ, BC_u.left, Δ)
-        @spawn bcs!(LIQ, BC_u.right, Δ)
-        @spawn bcs!(LIQ, BC_u.bottom, Δ)
-        @spawn bcs!(LIQ, BC_u.top, Δ)
+    HS = similar(DTS)
+    HS .= 0.
+    for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
+        HS[II] = distance(mid_point[II], sol_centroid[II]) * Δ
+    end
+    
+    HL = similar(DTL)
+    HL .= 0.
+    for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
+        HL[II] = distance(mid_point[II], liq_centroid[II]) * Δ
     end
 
-    crank_nicolson(SCUT, LCUT, SOL, LIQ, AS, AL, BS, BL, n, inside, CFL, θd, κ, ϵ_κ, ϵ_V, V)
-
+    DTS .= θd
+    DTL .= θd
+    bcS = similar(DTS)
+    bcL = similar(DTL)
+    apply_curvature(bcS, DTS, κ, ϵ_κ, ϵ_V, V, all_indices)
+    apply_curvature(bcL, DTL, κ, ϵ_κ, ϵ_V, V, all_indices)
     if aniso
-        crank_nicolson(SCUT, LCUT, SOL, LIQ, AS, AL, BS, BL, n, MIXED, CFL, θd, κ, ϵ_κ, ϵ_V, V, m, θ₀, aniso, sol_projection)
+        apply_anisotropy(bcS, DTS, MIXED, κ, ϵ_κ, ϵ_V, V, m, θ₀, sol_projection)
+        apply_anisotropy(bcL, DTL, MIXED, κ, ϵ_κ, ϵ_V, V, m, θ₀, sol_projection)
     end
+    bcSx, bcSy = set_bc_bnds(bcS, HS, BC_TS)
+    bcLx, bcLy = set_bc_bnds(bcL, HL, BC_TL)
+
+    laplacian!(dir, LTS, SCUT, bcSx, bcSy, SOL, n, num.Δ, BC_TS, all_indices, LIQUID,
+                b_left[1], b_bottom[1], b_right[1], b_top[1])
+    laplacian!(dir, LTL, LCUT, bcLx, bcLy, LIQ, n, num.Δ, BC_TL, all_indices, SOLID,
+                b_left[1], b_bottom[1], b_right[1], b_top[1])
+    crank_nicolson!(LTS, AS, BS, SOL, τ, n, Δ, all_indices)
+    crank_nicolson!(LTL, AL, BL, LIQ, τ, n, Δ, all_indices)
 
     IIOE(LSA, LSB, u, V, inside, CFL, Δ, n)
 
@@ -130,24 +144,43 @@ function run_forward(num, idx, tmp, fwd;
         if heat
             LCUT .= zeros(n^2)
             SCUT .= zeros(n^2)
-            crank_nicolson(SCUT, LCUT, SOL, LIQ, AS, AL, BS, BL, n, inside, CFL, θd, κ, ϵ_κ, ϵ_V, V)
-            if aniso
-                crank_nicolson(SCUT, LCUT, SOL, LIQ, AS, AL, BS, BL, n, MIXED, CFL, θd, κ, ϵ_κ, ϵ_V, V, m, θ₀, aniso, sol_projection)
-            end
+
             try
                 if solid_phase
-                    TS .= reshape(gmres(AS,(BS*vec(TS) + 2.0*SCUT)), (n,n))
-                    bcs!(TS, BC_TS.left, Δ)
-                    bcs!(TS, BC_TS.right, Δ)
-                    bcs!(TS, BC_TS.bottom, Δ)
-                    bcs!(TS, BC_TS.top, Δ)
+                    HS .= 0.
+                    for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
+                        HS[II] = distance(mid_point[II], sol_centroid[II]) * Δ
+                    end
+
+                    DTS .= θd
+                    apply_curvature(bcS, DTS, κ, ϵ_κ, ϵ_V, V, all_indices)
+                    if aniso
+                        apply_anisotropy(bcS, DTS, MIXED, κ, ϵ_κ, ϵ_V, V, m, θ₀, sol_projection)
+                    end
+                    bcSx, bcSy = set_bc_bnds(bcS, HS, BC_TS)
+
+                    laplacian!(dir, LTS, SCUT, bcSx, bcSy, SOL, n, num.Δ, BC_TS, all_indices, LIQUID,
+                                b_left[1], b_bottom[1], b_right[1], b_top[1])
+                    crank_nicolson!(LTS, AS, BS, SOL, τ, n, Δ, all_indices)
+                    TS .= reshape(gmres(AS,(BS*vec(TS) .+ 2.0*τ*SCUT)), (n,n))
                 end
                 if liquid_phase
-                    TL .= reshape(gmres(AL,(BL*vec(TL) + 2.0*LCUT)), (n,n))
-                    bcs!(TL, BC_TL.left, Δ)
-                    bcs!(TL, BC_TL.right, Δ)
-                    bcs!(TL, BC_TL.bottom, Δ)
-                    bcs!(TL, BC_TL.top, Δ)
+                    HL .= 0.
+                    for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
+                        HL[II] = distance(mid_point[II], liq_centroid[II]) * Δ
+                    end
+
+                    DTL .= θd
+                    apply_curvature(bcL, DTL, κ, ϵ_κ, ϵ_V, V, all_indices)
+                    if aniso
+                        apply_anisotropy(bcL, DTL, MIXED, κ, ϵ_κ, ϵ_V, V, m, θ₀, sol_projection)
+                    end
+                    bcLx, bcLy = set_bc_bnds(bcL, HL, BC_TL)
+
+                    laplacian!(dir, LTL, LCUT, bcLx, bcLy, LIQ, n, num.Δ, BC_TL, all_indices, SOLID,
+                                b_left[1], b_bottom[1], b_right[1], b_top[1])
+                    crank_nicolson!(LTL, AL, BL, LIQ, τ, n, Δ, all_indices)
+                    TL .= reshape(gmres(AL,(BL*vec(TL) .+ 2.0*τ*LCUT)), (n,n))
                 end
             catch
                 @error ("Unphysical temperature field, iteration $current_i")
@@ -209,7 +242,7 @@ function run_forward(num, idx, tmp, fwd;
             MIXED, SOLID, LIQUID = get_cells_indices(iso, inside)
             NB_indices = get_NB_width(MIXED, NB_indices_base)
 
-            get_iterface_location!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, Δ, L0, B, BT, MIXED, ϵ, n, faces)
+            get_iterface_location!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, Δ, L0, B, BT, idx, MIXED, ϵ, n, faces, periodic_x, periodic_y)
             get_curvature(u, liq_projection, κ, B, BT, Δ, MIXED)
 
             FRESH_L = intersect(MIXED, WAS_SOLID)
@@ -232,18 +265,6 @@ function run_forward(num, idx, tmp, fwd;
                 lengthsave[current_i+1] = arc_length2(sol_projection, MIXED, Δ)
                 κsave[current_i+1, :, :] .= κ
             end
-        end
-
-        @sync begin
-            @spawn bcs!(SOL, BC_u.left, Δ)
-            @spawn bcs!(SOL, BC_u.right, Δ)
-            @spawn bcs!(SOL, BC_u.bottom, Δ)
-            @spawn bcs!(SOL, BC_u.top, Δ)
-
-            @spawn bcs!(LIQ, BC_u.left, Δ)
-            @spawn bcs!(LIQ, BC_u.right, Δ)
-            @spawn bcs!(LIQ, BC_u.bottom, Δ)
-            @spawn bcs!(LIQ, BC_u.top, Δ)
         end
 
         Vsave[current_i+1, :, :] .= V[:,:]
@@ -309,10 +330,10 @@ function run_backward(num, idx, tmp, fwd, adj;
     )
 
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, τ, L0, NB, n, Δ, CFL, max_iterations, current_i, reinit_every, nb_reinit, ϵ, H, B, BT, m, θ₀, aniso = num
-    @unpack inside, b_left, b_bottom, b_right, b_top = idx
-    @unpack SCUT, LCUT, AS, AL, BS, BL, LSA, LSB, SOL, LIQ, sol_projection, liq_projection = tmp
+    @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = idx
+    @unpack SCUT, LCUT, LTS, LTL, AS, AL, BS, BL, LSA, LSB, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point = tmp
     @unpack usave, TSsave, TLsave, Tsave, Vsave, κsave = fwd
-    @unpack iso, u, TS, TL, κ, V = adj
+    @unpack iso, u, TS, TL, DTS, DTL, κ, V = adj
 
     local MIXED; local SOLID; local LIQUID;
     local WAS_SOLID; local WAS_LIQUID;
@@ -322,21 +343,21 @@ function run_backward(num, idx, tmp, fwd, adj;
     local faces = zeros(n,n,4);
 
     if periodic_x
-        BC_TS.left.ind = BC_TL.left.ind = BC_u.left.ind = idx.periodicL;
-        BC_TS.right.ind = BC_TL.right.ind = BC_u.right.ind = idx.periodicR;
-        BC_TS.left.f = BC_TL.left.f = BC_u.left.f = BC_TS.right.f = BC_TL.right.f = BC_u.right.f = periodic
+        BC_u.left.ind = idx.periodicL;
+        BC_u.right.ind = idx.periodicR;
+        BC_u.left.f = BC_u.right.f = periodic
     else
-        BC_TS.left.ind = BC_TL.left.ind = BC_u.left.ind = b_left;
-        BC_TS.right.ind = BC_TL.right.ind = BC_u.right.ind = b_right;
+        BC_u.left.ind = b_left;
+        BC_u.right.ind = b_right;
     end
 
     if periodic_y
-        BC_TS.bottom.ind = BC_TL.bottom.ind = BC_u.bottom.ind = idx.periodicB;
-        BC_TS.top.ind = BC_TL.top.ind = BC_u.top.ind = idx.periodicT;
-        BC_TS.bottom.f = BC_TL.bottom.f = BC_u.bottom.f = BC_TS.top.f = BC_TL.top.f = BC_u.top.f = periodic
+        BC_u.bottom.ind = idx.periodicB;
+        BC_u.top.ind = idx.periodicT;
+        BC_u.bottom.f = BC_u.top.f = periodic
     else
-        BC_TS.bottom.ind = BC_TL.bottom.ind = BC_u.bottom.ind = b_bottom;
-        BC_TS.top.ind = BC_TL.top.ind = BC_u.top.ind = b_top;
+        BC_u.bottom.ind = b_bottom;
+        BC_u.top.ind = b_top;
     end
 
     current_i = max_iterations + 1
@@ -354,53 +375,86 @@ function run_backward(num, idx, tmp, fwd, adj;
         MIXED, SOLID, LIQUID = get_cells_indices(iso, inside)
         NB_indices = get_NB_width(MIXED, NB_indices_base)
 
-        get_iterface_location!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, Δ, L0, B, BT, MIXED, ϵ, n, faces)
+        get_iterface_location!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, Δ, L0, B, BT, idx, MIXED, ϵ, n, faces, periodic_x, periodic_y)
         get_curvature(u, liq_projection, κ, B, BT, Δ, MIXED)
     elseif !levelset
         MIXED = [CartesianIndex(-1,-1)]
     end
 
-    @sync begin
-        @spawn bcs!(SOL, BC_u.left, Δ)
-        @spawn bcs!(SOL, BC_u.right, Δ)
-        @spawn bcs!(SOL, BC_u.bottom, Δ)
-        @spawn bcs!(SOL, BC_u.top, Δ)
-
-        @spawn bcs!(LIQ, BC_u.left, Δ)
-        @spawn bcs!(LIQ, BC_u.right, Δ)
-        @spawn bcs!(LIQ, BC_u.bottom, Δ)
-        @spawn bcs!(LIQ, BC_u.top, Δ)
+    HS = similar(DTS)
+    HS .= 0.
+    for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
+        HS[II] = distance(mid_point[II], sol_centroid[II]) * Δ
+    end
+    
+    HL = similar(DTL)
+    HL .= 0.
+    for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
+        HL[II] = distance(mid_point[II], liq_centroid[II]) * Δ
     end
 
-    crank_nicolson(SCUT, LCUT, SOL, LIQ, AS, AL, BS, BL, n, inside, CFL, θd, κ, ϵ_κ, ϵ_V, V)
-
+    DTS .= θd
+    DTL .= θd
+    bcS = similar(DTS)
+    bcL = similar(DTL)
+    apply_curvature(bcS, DTS, κ, ϵ_κ, ϵ_V, V, all_indices)
+    apply_curvature(bcL, DTL, κ, ϵ_κ, ϵ_V, V, all_indices)
     if aniso
-        crank_nicolson(SCUT, LCUT, SOL, LIQ, AS, AL, BS, BL, n, MIXED, CFL, θd, κ, ϵ_κ, ϵ_V, V, m, θ₀, aniso, sol_projection)
+        apply_anisotropy(bcS, DTS, MIXED, κ, ϵ_κ, ϵ_V, V, m, θ₀, sol_projection)
+        apply_anisotropy(bcL, DTL, MIXED, κ, ϵ_κ, ϵ_V, V, m, θ₀, sol_projection)
     end
+    bcSx, bcSy = set_bc_bnds(bcS, HS, BC_TS)
+    bcLx, bcLy = set_bc_bnds(bcL, HL, BC_TL)
+
+    laplacian!(dir, LTS, SCUT, bcSx, bcSy, SOL, n, num.Δ, BC_TS, all_indices, LIQUID,
+                b_left[1], b_bottom[1], b_right[1], b_top[1])
+    laplacian!(dir, LTL, LCUT, bcLx, bcLy, LIQ, n, num.Δ, BC_TL, all_indices, SOLID,
+                b_left[1], b_bottom[1], b_right[1], b_top[1])
+    crank_nicolson!(LTS, AS, BS, SOL, τ, n, Δ, all_indices)
+    crank_nicolson!(LTL, AL, BL, LIQ, τ, n, Δ, all_indices)
 
     while current_i > 1
 
         if heat
             LCUT .= zeros(n^2)
             SCUT .= zeros(n^2)
-            crank_nicolson(SCUT, LCUT, SOL, LIQ, AS, AL, BS, BL, n, inside, CFL, θd, κ, ϵ_κ, ϵ_V, V)
-            if aniso
-                crank_nicolson(SCUT, LCUT, SOL, LIQ, AS, AL, BS, BL, n, MIXED, CFL, θd, κ, ϵ_κ, ϵ_V, V, m, θ₀, aniso, sol_projection)
-            end
+
             try
                 if solid_phase
-                    TS .= reshape(gmres(AS,(BS*vec(TS) + 2.0*SCUT)), (n,n))
-                    bcs!(TS, BC_TS.left, Δ)
-                    bcs!(TS, BC_TS.right, Δ)
-                    bcs!(TS, BC_TS.bottom, Δ)
-                    bcs!(TS, BC_TS.top, Δ)
+                    HS .= 0.
+                    for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
+                        HS[II] = distance(mid_point[II], sol_centroid[II]) * Δ
+                    end
+
+                    DTS .= θd
+                    apply_curvature(bcS, DTS, κ, ϵ_κ, ϵ_V, V, all_indices)
+                    if aniso
+                        apply_anisotropy(bcS, DTS, MIXED, κ, ϵ_κ, ϵ_V, V, m, θ₀, sol_projection)
+                    end
+                    bcSx, bcSy = set_bc_bnds(bcS, HS, BC_TS)
+
+                    laplacian!(dir, LTS, SCUT, bcSx, bcSy, SOL, n, num.Δ, BC_TS, all_indices, LIQUID,
+                                b_left[1], b_bottom[1], b_right[1], b_top[1])
+                    crank_nicolson!(LTS, AS, BS, SOL, τ, n, Δ, all_indices)
+                    TS .= reshape(gmres(AS,(BS*vec(TS) + 2.0*τ*SCUT)), (n,n))
                 end
                 if liquid_phase
-                    TL .= reshape(gmres(AL,(BL*vec(TL) + 2.0*LCUT)), (n,n))
-                    bcs!(TL, BC_TL.left, Δ)
-                    bcs!(TL, BC_TL.right, Δ)
-                    bcs!(TL, BC_TL.bottom, Δ)
-                    bcs!(TL, BC_TL.top, Δ)
+                    HL .= 0.
+                    for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
+                        HL[II] = distance(mid_point[II], liq_centroid[II]) * Δ
+                    end
+
+                    DTL .= θd
+                    apply_curvature(bcL, DTL, κ, ϵ_κ, ϵ_V, V, all_indices)
+                    if aniso
+                        apply_anisotropy(bcL, DTL, MIXED, κ, ϵ_κ, ϵ_V, V, m, θ₀, sol_projection)
+                    end
+                    bcLx, bcLy = set_bc_bnds(bcL, HL, BC_TL)
+
+                    laplacian!(dir, LTL, LCUT, bcLx, bcLy, LIQ, n, num.Δ, BC_TL, all_indices, SOLID,
+                                b_left[1], b_bottom[1], b_right[1], b_top[1])
+                    crank_nicolson!(LTL, AL, BL, LIQ, τ, n, Δ, all_indices)
+                    TL .= reshape(gmres(AL,(BL*vec(TL) + 2.0*τ*LCUT)), (n,n))
                 end
             catch
                 @error ("Unphysical temperature field, iteration $current_i")
@@ -434,7 +488,8 @@ function run_backward(num, idx, tmp, fwd, adj;
             MIXED, SOLID, LIQUID = get_cells_indices(iso, inside)
             NB_indices = Flower.get_NB_width(MIXED, NB_indices_base)
 
-            get_iterface_location!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, Δ, L0, B, BT, MIXED, ϵ, n, faces)
+        pII = lexicographic(II, n)
+            get_iterface_location!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, Δ, L0, B, BT, idx, MIXED, ϵ, n, faces, periodic_x, periodic_y)
 
             FRESH_L = intersect(MIXED, WAS_SOLID)
             FRESH_S = intersect(MIXED, WAS_LIQUID)
@@ -443,18 +498,6 @@ function run_backward(num, idx, tmp, fwd, adj;
             init_fresh_cells!(TL, liq_projection, FRESH_L)
 
             get_curvature(u, liq_projection, κ, B, BT, Δ, MIXED)
-        end
-
-        @sync begin
-            @spawn bcs!(SOL, BC_u.left, Δ)
-            @spawn bcs!(SOL, BC_u.right, Δ)
-            @spawn bcs!(SOL, BC_u.bottom, Δ)
-            @spawn bcs!(SOL, BC_u.top, Δ)
-
-            @spawn bcs!(LIQ, BC_u.left, Δ)
-            @spawn bcs!(LIQ, BC_u.right, Δ)
-            @spawn bcs!(LIQ, BC_u.bottom, Δ)
-            @spawn bcs!(LIQ, BC_u.top, Δ)
         end
 
         current_i -= 1

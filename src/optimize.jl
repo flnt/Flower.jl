@@ -24,10 +24,10 @@ function fg!(F, G, x, des, opt, num, idx, initial_levelset, basis)
   boundary_values = basis(num.H, p.param)
 
   MIXED, SOLID, LIQUID = run_forward(num, idx, tmp, fwd,
-      BC_TL = Boundaries(top = Boundary(f = dirichlet, val = boundary_values),
-      bottom = Boundary(f = dirichlet, val = boundary_values[end:-1:1]),
-      right = Boundary(f = dirichlet, val = boundary_values),
-      left = Boundary(f = dirichlet, val = boundary_values[end:-1:1])),
+      BC_TL = Boundaries(top = Boundary(t = dir, f = dirichlet, val = boundary_values),
+      bottom = Boundary(t = dir, f = dirichlet, val = boundary_values[end:-1:1]),
+      right = Boundary(t = dir, f = dirichlet, val = boundary_values),
+      left = Boundary(t = dir, f = dirichlet, val = boundary_values[end:-1:1])),
       stefan = true,
       heat = true,
       liquid_phase = true,
@@ -36,7 +36,7 @@ function fg!(F, G, x, des, opt, num, idx, initial_levelset, basis)
       advection = true
       );
   s = similar(fwd.u)
-  adj = my_Adjoint(s, fwd.u, opt.γ[1].*(des.TS - fwd.TS), opt.γ[1].*(des.TL - fwd.TL), s, s)
+  adj = my_Adjoint(s, fwd.u, opt.γ[1].*(des.TS - fwd.TS), opt.γ[1].*(des.TL - fwd.TL), s, s, s, s)
   tmp, fwd_ = init_fields(num, idx)
   run_backward(num, idx, tmp, fwd, adj,
       stefan = true,
@@ -72,10 +72,10 @@ function gradient_based_optimization(x_desired, x_initial, opt, num, idx, initia
     boundary_values = basis(num.H, p.param)
     @show (p.param)
     @time MIXED, SOLID, LIQUID = run_forward(num, idx, tmp, fwd,
-        BC_TL = Boundaries(top = Boundary(f = dirichlet, val = boundary_values),
-        bottom = Boundary(f = dirichlet, val = boundary_values[end:-1:1]),
-        right = Boundary(f = dirichlet, val = boundary_values),
-        left = Boundary(f = dirichlet, val = boundary_values[end:-1:1])),
+        BC_TL = Boundaries(top = Boundary(t = dir, f = dirichlet, val = boundary_values),
+        bottom = Boundary(t = dir, f = dirichlet, val = boundary_values[end:-1:1]),
+        right = Boundary(t = dir, f = dirichlet, val = boundary_values),
+        left = Boundary(t = dir, f = dirichlet, val = boundary_values[end:-1:1])),
         stefan = true,
         heat = true,
         liquid_phase = true,

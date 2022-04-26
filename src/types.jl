@@ -29,7 +29,7 @@ abstract type AbstractOptimizer end
     ϵ_κ::Float64 = 0.0
     ϵ_V::Float64 = 0.0
     case::String = "notmycase"
-    cases::String = "Planar, Sphere, Crystal, Mullins"
+    cases::String = "Planar, Sphere, Crystal, Mullins, Nothing"
     A::Float64 = 0.05
     N::Int64 = 2
     R::Float64 = 0.5
@@ -39,6 +39,7 @@ abstract type AbstractOptimizer end
 end
 
 @with_kw mutable struct Indices{T <: Int64} <: NumericalParameters
+    all_indices::Array{CartesianIndex{2},2}
     inside::CartesianIndices{2, Tuple{OffsetArrays.IdOffsetRange{T, Base.OneTo{T}}, OffsetArrays.IdOffsetRange{T, Base.OneTo{T}}}}
     periodicL::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
     periodicR::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
@@ -78,6 +79,11 @@ mutable struct TempArrays{T <: Float64} <: MutatingFields
     LIQ::Array{T,3}
     sol_projection::Array{Gradient{T}, 2}
     liq_projection::Array{Gradient{T}, 2}
+    sol_centroid::Array{Point{T},2}
+    liq_centroid::Array{Point{T},2}
+    mid_point::Array{Point{T},2}
+    LTS::SparseMatrixCSC{T, Int64}
+    LTL::SparseMatrixCSC{T, Int64}
     AS::SparseMatrixCSC{T, Int64}
     AL::SparseMatrixCSC{T, Int64}
     BS::SparseMatrixCSC{T, Int64}
@@ -92,6 +98,8 @@ mutable struct Forward{T <: Float64} <: MutatingFields
     TS::Array{T,2}
     TL::Array{T,2}
     Tall::Array{T,2}
+    DTS::Array{T,2}
+    DTL::Array{T,2}
     V::Array{T,2}
     κ::Array{T, 2}
     usave::Array{T,3}
@@ -127,11 +135,23 @@ mutable struct my_Adjoint{T <: Float64} <: MutatingFields
     u::Array{T,2}
     TS::Array{T,2}
     TL::Array{T,2}
+    DTS::Array{T,2}
+    DTL::Array{T,2}
     V::Array{T,2}
     κ::Array{T, 2}
 end
 
-@with_kw mutable struct Boundary{L, T, N} <: NumericalParameters
+abstract type BoundaryCondition end
+
+struct Dirichlet <: BoundaryCondition end
+const dir = Dirichlet()
+struct Neumann <: BoundaryCondition end
+const neu = Neumann()
+struct Periodic <: BoundaryCondition end
+const per = Periodic()
+
+@with_kw mutable struct Boundary{BC, L, T, N} <: NumericalParameters
+   t::BC = neu
    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
    f::Function = neumann
    val::N = 0.0
