@@ -121,9 +121,9 @@ function run_forward(num, idx, tmp, fwd;
     bcSx, bcSy = set_bc_bnds(bcS, HS, BC_TS)
     bcLx, bcLy = set_bc_bnds(bcL, HL, BC_TL)
 
-    laplacian!(dir, LTS, SCUT, bcSx, bcSy, SOL, n, num.Δ, BC_TS, all_indices, LIQUID,
+    laplacian!(dir, LTS, SCUT, bcSx, bcSy, SOL, n, num.Δ, BC_TS, inside, LIQUID,
                 b_left[1], b_bottom[1], b_right[1], b_top[1])
-    laplacian!(dir, LTL, LCUT, bcLx, bcLy, LIQ, n, num.Δ, BC_TL, all_indices, SOLID,
+    laplacian!(dir, LTL, LCUT, bcLx, bcLy, LIQ, n, num.Δ, BC_TL, inside, SOLID,
                 b_left[1], b_bottom[1], b_right[1], b_top[1])
     crank_nicolson!(LTS, AS, BS, SOL, τ, n, Δ, all_indices)
     crank_nicolson!(LTL, AL, BL, LIQ, τ, n, Δ, all_indices)
@@ -159,7 +159,7 @@ function run_forward(num, idx, tmp, fwd;
                     end
                     bcSx, bcSy = set_bc_bnds(bcS, HS, BC_TS)
 
-                    laplacian!(dir, LTS, SCUT, bcSx, bcSy, SOL, n, num.Δ, BC_TS, all_indices, LIQUID,
+                    laplacian!(dir, LTS, SCUT, bcSx, bcSy, SOL, n, num.Δ, BC_TS, inside, LIQUID,
                                 b_left[1], b_bottom[1], b_right[1], b_top[1])
                     crank_nicolson!(LTS, AS, BS, SOL, τ, n, Δ, all_indices)
                     TS .= reshape(gmres(AS,(BS*vec(TS) .+ 2.0*τ*SCUT)), (n,n))
@@ -177,7 +177,7 @@ function run_forward(num, idx, tmp, fwd;
                     end
                     bcLx, bcLy = set_bc_bnds(bcL, HL, BC_TL)
 
-                    laplacian!(dir, LTL, LCUT, bcLx, bcLy, LIQ, n, num.Δ, BC_TL, all_indices, SOLID,
+                    laplacian!(dir, LTL, LCUT, bcLx, bcLy, LIQ, n, num.Δ, BC_TL, inside, SOLID,
                                 b_left[1], b_bottom[1], b_right[1], b_top[1])
                     crank_nicolson!(LTL, AL, BL, LIQ, τ, n, Δ, all_indices)
                     TL .= reshape(gmres(AL,(BL*vec(TL) .+ 2.0*τ*LCUT)), (n,n))
@@ -406,9 +406,9 @@ function run_backward(num, idx, tmp, fwd, adj;
     bcSx, bcSy = set_bc_bnds(bcS, HS, BC_TS)
     bcLx, bcLy = set_bc_bnds(bcL, HL, BC_TL)
 
-    laplacian!(dir, LTS, SCUT, bcSx, bcSy, SOL, n, num.Δ, BC_TS, all_indices, LIQUID,
+    laplacian!(dir, LTS, SCUT, bcSx, bcSy, SOL, n, num.Δ, BC_TS, inside, LIQUID,
                 b_left[1], b_bottom[1], b_right[1], b_top[1])
-    laplacian!(dir, LTL, LCUT, bcLx, bcLy, LIQ, n, num.Δ, BC_TL, all_indices, SOLID,
+    laplacian!(dir, LTL, LCUT, bcLx, bcLy, LIQ, n, num.Δ, BC_TL, inside, SOLID,
                 b_left[1], b_bottom[1], b_right[1], b_top[1])
     crank_nicolson!(LTS, AS, BS, SOL, τ, n, Δ, all_indices)
     crank_nicolson!(LTL, AL, BL, LIQ, τ, n, Δ, all_indices)
@@ -433,7 +433,7 @@ function run_backward(num, idx, tmp, fwd, adj;
                     end
                     bcSx, bcSy = set_bc_bnds(bcS, HS, BC_TS)
 
-                    laplacian!(dir, LTS, SCUT, bcSx, bcSy, SOL, n, num.Δ, BC_TS, all_indices, LIQUID,
+                    laplacian!(dir, LTS, SCUT, bcSx, bcSy, SOL, n, num.Δ, BC_TS, inside, LIQUID,
                                 b_left[1], b_bottom[1], b_right[1], b_top[1])
                     crank_nicolson!(LTS, AS, BS, SOL, τ, n, Δ, all_indices)
                     TS .= reshape(gmres(AS,(BS*vec(TS) + 2.0*τ*SCUT)), (n,n))
@@ -451,7 +451,7 @@ function run_backward(num, idx, tmp, fwd, adj;
                     end
                     bcLx, bcLy = set_bc_bnds(bcL, HL, BC_TL)
 
-                    laplacian!(dir, LTL, LCUT, bcLx, bcLy, LIQ, n, num.Δ, BC_TL, all_indices, SOLID,
+                    laplacian!(dir, LTL, LCUT, bcLx, bcLy, LIQ, n, num.Δ, BC_TL, inside, SOLID,
                                 b_left[1], b_bottom[1], b_right[1], b_top[1])
                     crank_nicolson!(LTL, AL, BL, LIQ, τ, n, Δ, all_indices)
                     TL .= reshape(gmres(AL,(BL*vec(TL) + 2.0*τ*LCUT)), (n,n))
