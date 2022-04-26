@@ -97,7 +97,7 @@ function laplacian!(::Dirichlet, L, B, Dx, Dy, cap, n, Δ, BC, inside, empty, b_
         @inbounds B[pII] += B2 / W2 * (A2 - cap[δy⁻(II),7]*Δ) * Dy[δy⁻(II)]
     end
 
-    @inbounds @threads for II in vcat(b_left, b_bottom[1:end-1], b_top[1:end-1])
+    @inbounds @threads for II in vcat(b_left, b_bottom[2:end-1], b_right, b_top[2:end-1])
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(cap, II, Δ)
         
@@ -107,6 +107,10 @@ function laplacian!(::Dirichlet, L, B, Dx, Dy, cap, n, Δ, BC, inside, empty, b_
         @inbounds B[pII] += B1 / W1 * (B1 - A1) * Dx[II]
         @inbounds B[pII] += -B2 / W4 * (A4 - B2) * Dy[II]
         @inbounds B[pII] += B2 / W2 * (B2 - A2) * Dy[II]
+    end
+    @inbounds @threads for II in vcat(b_left, b_bottom[1:end-1], b_top[1:end-1])
+        pII = lexicographic(II, n)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(cap, II, Δ)
 
         @inbounds L[pII,pII+n] = B1 / W3 * cap[δx⁺(II),6]*Δ
         @inbounds B[pII] += -B1 / W3 * (cap[δx⁺(II),6]*Δ - A3) * Dx[δx⁺(II)]
@@ -114,13 +118,6 @@ function laplacian!(::Dirichlet, L, B, Dx, Dy, cap, n, Δ, BC, inside, empty, b_
     @inbounds @threads for II in vcat(b_bottom[2:end], b_right, b_top[2:end])
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(cap, II, Δ)
-        
-        @inbounds L[pII,pII] = -B1 * (B1/W3 + B1/W1) - B2 * (B2/W4 + B2/W2)
-
-        @inbounds B[pII] += -B1 / W3 * (A3 - B1) * Dx[II]
-        @inbounds B[pII] += B1 / W1 * (B1 - A1) * Dx[II]
-        @inbounds B[pII] += -B2 / W4 * (A4 - B2) * Dy[II]
-        @inbounds B[pII] += B2 / W2 * (B2 - A2) * Dy[II]
 
         @inbounds L[pII,pII-n] = B1 / W1 * cap[δx⁻(II),6]*Δ
         @inbounds B[pII] += B1 / W1 * (A1 - cap[δx⁻(II),6]*Δ) * Dx[δx⁻(II)]
@@ -128,13 +125,6 @@ function laplacian!(::Dirichlet, L, B, Dx, Dy, cap, n, Δ, BC, inside, empty, b_
     @inbounds @threads for II in vcat(b_left[1:end-1], b_bottom, b_right[1:end-1])
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(cap, II, Δ)
-        
-        @inbounds L[pII,pII] = -B1 * (B1/W3 + B1/W1) - B2 * (B2/W4 + B2/W2)
-
-        @inbounds B[pII] += -B1 / W3 * (A3 - B1) * Dx[II]
-        @inbounds B[pII] += B1 / W1 * (B1 - A1) * Dx[II]
-        @inbounds B[pII] += -B2 / W4 * (A4 - B2) * Dy[II]
-        @inbounds B[pII] += B2 / W2 * (B2 - A2) * Dy[II]
 
         @inbounds L[pII,pII+1] = B2 / W4 * cap[δy⁺(II),7]*Δ
         @inbounds B[pII] += -B2 / W4 * (cap[δy⁺(II),7]*Δ - A4) * Dy[δy⁺(II)]
@@ -142,13 +132,6 @@ function laplacian!(::Dirichlet, L, B, Dx, Dy, cap, n, Δ, BC, inside, empty, b_
     @inbounds @threads for II in vcat(b_left[2:end], b_right[2:end], b_top)
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(cap, II, Δ)
-        
-        @inbounds L[pII,pII] = -B1 * (B1/W3 + B1/W1) - B2 * (B2/W4 + B2/W2)
-
-        @inbounds B[pII] += -B1 / W3 * (A3 - B1) * Dx[II]
-        @inbounds B[pII] += B1 / W1 * (B1 - A1) * Dx[II]
-        @inbounds B[pII] += -B2 / W4 * (A4 - B2) * Dy[II]
-        @inbounds B[pII] += B2 / W2 * (B2 - A2) * Dy[II]
 
         @inbounds L[pII,pII-1] = B2 / W2 * cap[δy⁻(II),7]*Δ
         @inbounds B[pII] += B2 / W2 * (A2 - cap[δy⁻(II),7]*Δ) * Dy[δy⁻(II)]
@@ -202,7 +185,7 @@ function laplacian!(::Neumann, L, B, Nx, Ny, cap, n, Δ, BC, inside, empty, b_le
         @inbounds L[pII,pII-1] = A2^2 / W2
     end
 
-    @inbounds @threads for II in vcat(b_left, b_bottom[1:end-1], b_top[1:end-1])
+    @inbounds @threads for II in vcat(b_left, b_bottom[2:end-1], b_right, b_top[2:end-1])
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(cap, II, Δ)
         
@@ -210,39 +193,28 @@ function laplacian!(::Neumann, L, B, Nx, Ny, cap, n, Δ, BC, inside, empty, b_le
 
         @inbounds B[pII] += -(A3 - B1) * Nx[II] - (B1 - A1) * Nx[II]
         @inbounds B[pII] += -(A4 - B2) * Ny[II] - (B2 - A2) * Ny[II]
+    end
+    @inbounds @threads for II in vcat(b_left, b_bottom[1:end-1], b_top[1:end-1])
+        pII = lexicographic(II, n)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(cap, II, Δ)
 
         @inbounds L[pII,pII+n] = A3^2 / W3
     end
     @inbounds @threads for II in vcat(b_bottom[2:end], b_right, b_top[2:end])
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(cap, II, Δ)
-        
-        @inbounds L[pII,pII] = -(A1^2 / W1 + A2^2 / W2 + A3^2 / W3 + A4^2 / W4)
-
-        @inbounds B[pII] += -(A3 - B1) * Nx[II] - (B1 - A1) * Nx[II]
-        @inbounds B[pII] += -(A4 - B2) * Ny[II] - (B2 - A2) * Ny[II]
 
         @inbounds L[pII,pII-n] = A1^2 / W1
     end
     @inbounds @threads for II in vcat(b_left[1:end-1], b_bottom, b_right[1:end-1])
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(cap, II, Δ)
-        
-        @inbounds L[pII,pII] = -(A1^2 / W1 + A2^2 / W2 + A3^2 / W3 + A4^2 / W4)
-
-        @inbounds B[pII] += -(A3 - B1) * Nx[II] - (B1 - A1) * Nx[II]
-        @inbounds B[pII] += -(A4 - B2) * Ny[II] - (B2 - A2) * Ny[II]
 
         @inbounds L[pII,pII+1] = A4^2 / W4
     end
     @inbounds @threads for II in vcat(b_left[2:end], b_right[2:end], b_top)
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(cap, II, Δ)
-        
-        @inbounds L[pII,pII] = -(A1^2 / W1 + A2^2 / W2 + A3^2 / W3 + A4^2 / W4)
-
-        @inbounds B[pII] += -(A3 - B1) * Nx[II] - (B1 - A1) * Nx[II]
-        @inbounds B[pII] += -(A4 - B2) * Ny[II] - (B2 - A2) * Ny[II]
 
         @inbounds L[pII,pII-1] = A2^2 / W2
     end
