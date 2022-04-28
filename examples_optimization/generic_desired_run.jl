@@ -4,70 +4,54 @@ using Flower
 BLAS.set_num_threads(1)
 
 
-num = Numerical(T_inf = -0.6,
-    case = "3Crystals",
-    θd = 0.,
-    ϵ_κ = 0.0005,
-    ϵ_V = 0.0000,
-    L0 = 4.,
-    n = 100,
+num = Numerical(T_inf = 1.1,
+    case = "Mullins_cos",
+    L0 = 2.,
+    n = 64,
     CFL = 0.5,
-    TEND = 0.45,
-    aniso = true,
-    θ₀ = 0.5*pi,
-    m = 4,
-    A = 0.2,
-    N = 4,
-    R = 0.14,
-    #max_iterations = 1
+    TEND = 0.6,
+    A = -0.1,
+    N = 2,
     )
 
 idx = set_indices(num.n)
+
 tmp, fwd = init_fields(num, idx)
 
-x_c = 0.2
-y_c = 0.2
-
 @. model(t, p) =
-    p[1]*sin(π*t) + p[2]*cos(π*t) +
-    p[3]*cos(π*t)^2 + p[4]*sin(π*t)^2 +
-    p[5]*cos(π*t)^3 + p[6]*sin(π*t)^3 +
-    p[7]*cos(π*t)^4 + p[8]*sin(π*t)^4;
+    p[1]*cos(π*t) + p[2]*cos(π*t)^2 +
+    p[3]*cos(π*t)^3 + p[4]*cos(π*t)^4 - p[5];
 
-@. model_desired(t, p) = p[1]*(cos(num.N*pi*t/8) - 0.5);
+@. model_desired(t, p) = p[1]*((1 + cos(pi*t))/2)^4 - 1.8
+
+@. gradient(field, opt, x) = -(opt.γ[3]*x + field[opt.bc_indices])
 
 nprobes = num.n
 step = num.n÷(nprobes)
 ind = [i*step for i in 1:nprobes]
+x_desired = model_desired(num.H[ind], [10.0])
+p = 0*ones(8)
+x_initial = model(num.H[ind], [0, 3, 0, 0, 1.0])
 
-p = [-0.027580156399409195,
- -40.408381949607566,
-  40.57605950959059,
-  14.710086551973449]
 
-boundary_values = model_desired(num.H[ind], [0.0])
+opt = Optim_parameters(nprobes, ind, idx.b_top[1][ind], [1.0, 1.0, 1e-4, 1.0, 1.0], [p], [zeros(num.n,num.n)], [zeros(num.n,num.n)], [zeros(num.max_iterations+1, num.n,num.n)])
 
-f = Figure()
-ax = Axis(f[1,1])
-f = lines!(boundary_values)
-f = current_figure()
+initial_levelset = fwd.u
+initial_temperature = fwd.TL
 
-@time MIXED, SOLID, LIQUID = run_forward(num, idx, tmp, fwd,
-    BC_TL = Boundaries(top = Boundary(f = neumann, val = boundary_values),
-    bottom = Boundary(f = neumann, val = boundary_values[end:-1:1]),
-    right = Boundary(f = neumann, val = boundary_values),
-    left = Boundary(f = neumann, val = boundary_values[end:-1:1])),
+#fwd.TS .= -1.0
+MIXED, SOLID, LIQUID = run_forward(num, idx, tmp, fwd,
+    BC_TL = Boundaries(top = Boundary(f = neumann, val = x_desired)),
     stefan = true,
     heat = true,
     liquid_phase = true,
-    solid_phase = true,
-    verbose = true,
+    solid_phase = false,
     advection = true,
-    show_every = 100,
-    #periodic_x = true,
-    #periodic_y = true
+    verbose = true,
+    show_every = 100
     );
 
+#des = Desired(x_desired, fwd.u, fwd.usave, fwd.TL, fwd.TS)
 
 fontsize_theme = Theme(fontsize = 30)
 set_theme!(fontsize_theme)

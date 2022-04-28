@@ -49,32 +49,52 @@ f = current_figure()
 
 #Makie.save("./figures/paper_figures/circle_opt_cost.png", f)
 
-step = num.max_iterations÷10
-Iterations = [3, 5, 8, 20]
-bp = findmax(des.TL - opt.TLsave[Iterations[1]])[1]
-bm = findmin(des.TL - opt.TLsave[Iterations[1]])[1]
+
 f = Figure(resolution = (4000, 4000))
+step = num.max_iterations÷10
+bp = maximum(des.TL)
+bm = minimum(des.TL)
+Iterations = [3, 5, 7, 17]
+x = [1:9, 10:18]; y = [1:8, 9:16]; x_s = [2:9, 11:18]; c = 0;
 fontsize_theme = Theme(fontsize = 80)
 set_theme!(fontsize_theme)
-
-for i in 1:4
-    j = i
-    ix = 1
-    if i > 2
-        ix = 2
-        j = i-2
+for i in axes(x,1)
+    for j in axes(y,1)
+        c += 1
+        ax = Axis(f[x_s[i], y[j]])
+        hidedecorations!(ax)
+        hidespines!(ax)
+        heatmap!(f[x_s[i], y[j]], opt.TLsave[Iterations[c]][1:end-1,1:end-1]', colormap=:BuGn_9, colorrange = (bm, bp))
+        for ii in 1:step:num.max_iterations
+            contour!(f[x_s[i], y[j]], opt.usave[Iterations[c]][ii,:,:]', levels = 0:0, color=:black, linewidth = 5);
+        end
+        contour!(f[x_s[i], y[j]], des.usave[end,:,:]', levels = 0:0, color=(:blue, 0.7), linewidth = 7);
+        contour!(f[x_s[i], y[j]], opt.usave[Iterations[c]][end,:,:]', levels = 0:0, color=:red, linewidth = 7);
+        ax2 = Axis(f[x[i][1], y[j]], ylabel = "u", title = @sprintf "Iteration %d" Iterations[c] - 2)
+        hidedecorations!(ax2)
+        hidespines!(ax2)
+        xlims!(-1, 1)
+        ylims!(-2, 4.5)
+        lines!(f[x[i][1], y[j]], num.H, model(num.H, opt.p[Iterations[c]]), linewidth = 7, color=:red)
+        lines!(f[x[i][1], y[j]], num.H, model(num.H, p1), linewidth = 7, color=(:blue, 0.7))
+        hlines!(ax2, [0], color = :black, linestyle =:dash, linewidth = 3)
+        #Box(f[x[i], y[j]], color = :white, strokewidth = 5)
+        Box(f[x[i][1], y[j]], color = :white, strokewidth = 5)
     end
-    ax = Axis(f[ix, j], title = @sprintf "Iteration %d" Iterations[i])#$(N_array[i])
-    colsize!(f.layout, j, Aspect(1, 1.0))
-    hidedecorations!(ax)
-    #heatmap!(f[ix, j], (des.TL - opt.TLsave[Iterations[i]])', colorrange = (bm, bp))
-    for ii in 1:step:num.max_iterations
-        contour!(f[ix, j], opt.usave[Iterations[i]][ii,:,:]', levels = 0:0, color=:black, linewidth = 5);
-    end
-    contour!(f[ix, j], des.usave[end,:,:]', levels = 0:0, color=(:red, 0.7), linewidth = 7);
-    contour!(f[ix, j], opt.usave[Iterations[i]][end,:,:]', levels = 0:0, color=:blue, linewidth = 7);
 end
-#Colorbar(f[1:2, 3], limits = (bm, bp), label = "Error")
+Colorbar(f[1:18, 17], limits = (bm, bp), label = "Temperature", colormap=:BuGn_9)
+resize_to_layout!(f)
 f = current_figure()
 
-#Makie.save("./figures/paper_figures/circle_opt_noheatmap.png", f)
+
+#Makie.save("./figures/paper_figures/circle_opt_heatmap_actuator.png", f)
+
+f = Figure()
+fontsize_theme = Theme(fontsize = 20)
+set_theme!(fontsize_theme)
+ax = Axis(f[1,1])
+lines!(f[1,1], num.H, model(num.H, p1), linewidth = 3, linecolor=:black)
+for i in Iterations
+    lines!(f[1,1], num.H, model(num.H, opt.p[i]), linewidth = 3)
+end
+f = current_figure()

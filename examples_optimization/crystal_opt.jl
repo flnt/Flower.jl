@@ -26,7 +26,7 @@ tmp, fwd = init_fields(num, idx)
 @. model(t, p) =
     p[1]*cos(0.5π*t) +
     p[2]*cos(0.5π*t)^2 + p[3]*sin(0.5π*t)^2;
-    
+
 @. model2(t, p) = p[1]*(cos(num.N*pi*t/8) - 0.5) + p[2]*(cos(num.N*pi*t/8) - 0.5);
 
 @. model_desired(t, p) = p[1]*(cos(num.N*pi*t/8) - 0.5);

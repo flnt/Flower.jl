@@ -41,7 +41,7 @@ function crank_nicolson(SCUT, LCUT, SOL, LIQ, AS, AL, BS, BL, n, inside, CFL, θ
         AL[p,p], BL[p,p], LCUT_= fill_matrices!(Lavg, LV, Lf, Lbc, AL, BL, p, n, CFL)
         ϵ_c = anisotropy(ϵ_κ, m, sol_projection[II].angle, θ₀)
         ϵ_v = anisotropy(ϵ_V, m, sol_projection[II].angle, θ₀)
-        SCUT[p] = SCUT_*(θd - ϵ_c*κ[II] - ϵ_V*V[II])
+        SCUT[p] = SCUT_*(θd - ϵ_c*κ[II] - ϵ_v*V[II])
         LCUT[p] = LCUT_*(θd - ϵ_c*κ[II] - ϵ_v*V[II])
     end
     return nothing

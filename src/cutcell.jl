@@ -1,7 +1,7 @@
-@inline SOUTH_face(itp) = 0.5 + find_zero(x -> biquadratic(itp, x, -0.5), (-0.5,0.5), FalsePosition(), maxevals = 10, atol = 1e-15)
-@inline WEST_face(itp) = 0.5 + find_zero(y -> biquadratic(itp, -0.5, y), (-0.5,0.5), FalsePosition(), maxevals = 10, atol = 1e-15)
-@inline NORTH_face(itp) = 0.5 + find_zero(x -> biquadratic(itp, x, 0.5), (-0.5,0.5), FalsePosition(), maxevals = 10, atol = 1e-15)
-@inline EAST_face(itp) = 0.5 + find_zero(y -> biquadratic(itp, 0.5, y), (-0.5,0.5), FalsePosition(), maxevals = 10, atol = 1e-15)
+@inline SOUTH_face(itp) = 0.5 + find_zero(x -> biquadratic(itp, x, -0.5), (-0.5,0.5), FalsePosition(), maxevals = 10, atol = 1e-9)
+@inline WEST_face(itp) = 0.5 + find_zero(y -> biquadratic(itp, -0.5, y), (-0.5,0.5), FalsePosition(), maxevals = 10, atol = 1e-9)
+@inline NORTH_face(itp) = 0.5 + find_zero(x -> biquadratic(itp, x, 0.5), (-0.5,0.5), FalsePosition(), maxevals = 10, atol = 1e-9)
+@inline EAST_face(itp) = 0.5 + find_zero(y -> biquadratic(itp, 0.5, y), (-0.5,0.5), FalsePosition(), maxevals = 10, atol = 1e-9)
 
 @inline WE(a, II) = 0.5*(a[II,1] + a[δx⁻(II), 3])
 @inline EW(a, II) = 0.5*(a[II,3] + a[δx⁺(II), 1])
@@ -141,7 +141,7 @@ function marching_squares!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_
 end
 
 function get_iterface_location!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, Δ, L0, B, BT, inside_indices, ϵ, n, faces)
-    @inbounds @threads for II in inside_indices
+    @inbounds for II in inside_indices
         ISO = iso[II]
         f = average_face_capacities(faces, ISO, II)
         SOL[II,:], LIQ[II,:], α, sol_centroid, liq_centroid, mid_point = capacities(f, ISO)
