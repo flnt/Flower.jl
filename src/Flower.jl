@@ -30,6 +30,8 @@ import Base.abs
 @reexport using IterativeSolvers
 @reexport using LsqFit
 @reexport using Polynomials
+@reexport using DataFrames
+@reexport using CSV
 
 include("types.jl")
 include("init.jl")

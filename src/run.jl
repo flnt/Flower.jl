@@ -136,14 +136,14 @@ function run_forward(num, idx, tmp, fwd;
             end
             try
                 if solid_phase
-                    TS .= reshape(gmres(AS,(BS*vec(TS) + 2.0*SCUT)), (n,n))
+                    TS .= reshape(idrs(AS,(BS*vec(TS) + 2.0*SCUT)), (n,n))
                     bcs!(TS, BC_TS.left, Δ)
                     bcs!(TS, BC_TS.right, Δ)
                     bcs!(TS, BC_TS.bottom, Δ)
                     bcs!(TS, BC_TS.top, Δ)
                 end
                 if liquid_phase
-                    TL .= reshape(gmres(AL,(BL*vec(TL) + 2.0*LCUT)), (n,n))
+                    TL .= reshape(idrs(AL,(BL*vec(TL) + 2.0*LCUT)), (n,n))
                     bcs!(TL, BC_TL.left, Δ)
                     bcs!(TL, BC_TL.right, Δ)
                     bcs!(TL, BC_TL.bottom, Δ)
@@ -167,7 +167,7 @@ function run_forward(num, idx, tmp, fwd;
         if advection
             IIOE(LSA, LSB, u, V, inside, CFL, Δ, n)
             try
-                u .= reshape(gmres(LSA,(LSB*vec(u))), (n,n))
+                u .= reshape(idrs(LSA,(LSB*vec(u))), (n,n))
             catch
                 @error ("Inadequate level set function, iteration $current_i")
                 break
@@ -389,14 +389,14 @@ function run_backward(num, idx, tmp, fwd, adj;
             end
             try
                 if solid_phase
-                    TS .= reshape(gmres(AS,(BS*vec(TS) + 2.0*SCUT)), (n,n))
+                    TS .= reshape(idrs(AS,(BS*vec(TS) + 2.0*SCUT)), (n,n))
                     bcs!(TS, BC_TS.left, Δ)
                     bcs!(TS, BC_TS.right, Δ)
                     bcs!(TS, BC_TS.bottom, Δ)
                     bcs!(TS, BC_TS.top, Δ)
                 end
                 if liquid_phase
-                    TL .= reshape(gmres(AL,(BL*vec(TL) + 2.0*LCUT)), (n,n))
+                    TL .= reshape(idrs(AL,(BL*vec(TL) + 2.0*LCUT)), (n,n))
                     bcs!(TL, BC_TL.left, Δ)
                     bcs!(TL, BC_TL.right, Δ)
                     bcs!(TL, BC_TL.bottom, Δ)

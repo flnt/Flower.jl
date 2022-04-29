@@ -26,7 +26,7 @@ tmp, fwd = init_fields(num, idx)
 nprobes = num.n
 step = num.n÷(nprobes)
 ind = [i*step for i in 1:nprobes]
-x_desired = model_desired(num.H[ind], [10.0])
+x_desired = model_desired(num.H[ind], [11.5])
 p = 0*ones(8)
 x_initial = model(num.H[ind], [0, 3, 0, 0, 1.0])
 
@@ -101,7 +101,7 @@ function gradient_based_optimization2(x_desired, x_initial, opt, num, idx, des, 
 end
 
 res = gradient_based_optimization2(x_desired, x_initial, opt, num, idx, des, initial_levelset, initial_temperature, model,
-    opt_iter = 20,
+    opt_iter = 40,
     method_opt = LBFGS(linesearch = Optim.LineSearches.BackTracking()))
 
 store = zeros(length(res.trace), 2)
@@ -111,14 +111,23 @@ for i in axes(store,1)
 end
 
 
+df = DataFrame(iteration = [res.trace[i].iteration for i in 1:length(res.trace)],
+    value = [res.trace[i].value for i in 1:length(res.trace)],
+    g_norm = [res.trace[i].g_norm for i in 1:length(res.trace)],
+    p = opt.p[2:end]);
+CSV.write("examples_optimization/data/opt_mullins.csv", df);
+df2 = DataFrame(res = res);
+CSV.write("examples_optimization/data/res_mullins.csv", df2);
 
+#dfi = DataFrame(CSV.File("examples_optimization/data/res_mullins"));
 
 f = Figure(resolution = (4000, 4000))
 step = num.max_iterations÷10
 bp = maximum(des.TL)
 bm = minimum(des.TL)
-Iterations = [3, 12, 14, 19]
-x = [1:9, 10:18]; y = [1:8, 9:16]; x_s = [2:9, 11:18]; c = 0;
+Iterations = [2, 4, 9, 17]
+x = [1:9, 10:18]; y = [1:8, 9:16]; x_s = [2:9, 11:18];
+c = 0;
 fontsize_theme = Theme(fontsize = 80)
 set_theme!(fontsize_theme)
 for i in axes(x,1)
@@ -133,7 +142,7 @@ for i in axes(x,1)
         end
         contour!(f[x_s[i], y[j]], des.usave[end,:,:]', levels = 0:0, color=(:blue, 0.7), linewidth = 7);
         contour!(f[x_s[i], y[j]], opt.usave[Iterations[c]][end,:,:]', levels = 0:0, color=:red, linewidth = 7);
-        ax2 = Axis(f[x[i][1], y[j]], ylabel = "u", title = @sprintf "Iteration %d" Iterations[c] - 2)
+        ax2 = Axis(f[x[i][1], y[j]], ylabel = "u", title = @sprintf "Iteration %d" Iterations[c] - 1)
         hidedecorations!(ax2)
         hidespines!(ax2)
         #xlims!(-1, 1)
@@ -149,7 +158,7 @@ Colorbar(f[1:18, 17], limits = (bm, bp), label = "Temperature", colormap=:BuGn_9
 resize_to_layout!(f)
 f = current_figure()
 
-Makie.save("./figures/paper_figures/mullins_opt_heatmap_actuator.png", f)
+#Makie.save("./figures/paper_figures/mullins_opt_heatmap_actuator.png", f)
 
 
 f = Figure()

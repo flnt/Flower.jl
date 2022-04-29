@@ -29,7 +29,7 @@ tmp, fwd = init_fields(num, idx)
 nprobes = num.n
 step = num.n÷(nprobes)
 ind = [i*step for i in 1:nprobes]
-x_desired = model_desired(num.H[ind], [10.0])
+x_desired = model_desired(num.H[ind], [11.0])
 p = 0*ones(8)
 x_initial = model(num.H[ind], [0, 3, 0, 0, 1.0])
 
