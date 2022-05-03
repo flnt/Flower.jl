@@ -18,9 +18,9 @@ function test_NB(NB_array; n = 128, ϵ_κ = 0.005, R = 0.5, case = "Crystal")
             N = 6
             )
 
-        idx = set_indices(num.n)
-        tmp, fwd = init_fields(num, idx)
-        MIXED = run_forward(num, idx, tmp, fwd,
+        idx, idxu, idxv = set_indices(num.n)
+        tmp, fwd = init_fields(num, idx, idxu, idxv)
+        MIXED = run_forward(num, idx, idxu, idxv, tmp, fwd,
             stefan = true)
         for II in CartesianIndices(fwd.V)
             if fwd.V[II] == 0. fwd.V[II] = NaN end

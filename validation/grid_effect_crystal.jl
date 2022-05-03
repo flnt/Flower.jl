@@ -33,12 +33,12 @@ function grid_effect(x;
             TEND = TEND
             )
 
-        idx = set_indices(num.n)
-        tmp, fwd = init_fields(num, idx)
+        idx, idxu, idxv = set_indices(num.n)
+        tmp, fwd = init_fields(num, idx, idxu, idxv)
         fwd.TL[:,:] .= num.T_inf
         fwd.u = @. (sqrt((num.X)^2 + num.Y^2)*(0.1 + 0.02*cos(4*atan((num.X)/num.Y))) - 0.01);
 
-        MIXED = run_forward(num, idx, tmp, fwd,
+        MIXED = run_forward(num, idx, idxu, idxv, tmp, fwd,
             stefan = true,
             advection = true,
             heat = true,

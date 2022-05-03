@@ -304,3 +304,122 @@ function velocity_extension2!(V, u, inside, MIXED, n, h, NB, B, BT, pos)
     end
     return tmp1, tmp2
 end
+
+@inline faces_LS(itp) = [biquadratic(itp, -0.5, 0.0),
+                                biquadratic(itp, 0.0, -0.5),
+                                biquadratic(itp, 0.5, 0.0),
+                                biquadratic(itp, 0.0, 0.5)]
+
+@inline faces_LS_left(itp) = [biquadratic(itp, -1.5, 0.0),
+                                biquadratic(itp, -1.0, -0.5),
+                                biquadratic(itp, -0.5, 0.0),
+                                biquadratic(itp, -1.0, 0.5)]
+
+@inline faces_LS_left_bottom(itp) = [biquadratic(itp, -1.5, -1.0),
+                                biquadratic(itp, -1.0, -1.5),
+                                biquadratic(itp, -0.5, -1.0),
+                                biquadratic(itp, -1.0, -0.5)]
+
+@inline faces_LS_left_top(itp) = [biquadratic(itp, -1.5, 1.0),
+                                biquadratic(itp, -1.0, 0.5),
+                                biquadratic(itp, -0.5, .0),
+                                biquadratic(itp, -1.0, 1.5)]
+
+@inline faces_LS_bottom(itp) = [biquadratic(itp, -0.5, -1.0),
+                                biquadratic(itp, 0.0, -1.5),
+                                biquadratic(itp, 0.5, -1.0),
+                                biquadratic(itp, 0.0, -0.5)]
+
+@inline faces_LS_right(itp) = [biquadratic(itp, 0.5, 0.0),
+                                biquadratic(itp, 1.0, -0.5),
+                                biquadratic(itp, 1.5, 0.0),
+                                biquadratic(itp, 1.0, 0.5)]
+
+@inline faces_LS_right_bottom(itp) = [biquadratic(itp, 0.5, -1.0),
+                                biquadratic(itp, 1.0, -1.5),
+                                biquadratic(itp, 1.5, -1.0),
+                                biquadratic(itp, 1.0, -0.5)]
+
+@inline faces_LS_right_top(itp) = [biquadratic(itp, 0.5, 1.0),
+                                biquadratic(itp, 1.0, 0.5),
+                                biquadratic(itp, 1.5, 1.0),
+                                biquadratic(itp, 1.0, 1.5)]
+
+@inline faces_LS_top(itp) = [biquadratic(itp, -0.5, 1.0),
+                                biquadratic(itp, 0.0, 0.5),
+                                biquadratic(itp, 0.5, 1.0),
+                                biquadratic(itp, 0.0, 1.5)]
+
+function interpolate_LS!(u, uu, uv, B, BT, n, inside, b_left, b_bottom, b_right, b_top)
+    u_faces = zeros(n,n,4)
+
+    @inbounds @threads for II in inside
+        st = static_stencil(u, II)
+        itp = B*st*BT
+        faces = faces_LS(itp)
+        @inbounds u_faces[II,:] .= faces
+    end
+
+    @inbounds @threads for II in b_left[2:end-1]
+        st = static_stencil(u, δx⁺(II))
+        itp = B*st*BT
+        faces = faces_LS_left(itp)
+        @inbounds u_faces[II,:] .= faces
+    end
+
+    II = b_left[1]
+    st = static_stencil(u, δy⁺(δx⁺(II)))
+    itp = B*st*BT
+    faces = faces_LS_left_bottom(itp)
+    @inbounds u_faces[II,:] .= faces
+
+    II = b_left[end]
+    st = static_stencil(u, δy⁻(δx⁺(II)))
+    itp = B*st*BT
+    faces = faces_LS_left_top(itp)
+    @inbounds u_faces[II,:] .= faces
+
+    @inbounds @threads for II in b_bottom[2:end-1]
+        st = static_stencil(u, δy⁺(II))
+        itp = B*st*BT
+        faces = faces_LS_bottom(itp)
+        @inbounds u_faces[II,:] .= faces
+    end
+
+    @inbounds @threads for II in b_right[2:end-1]
+        st = static_stencil(u, δx⁻(II))
+        itp = B*st*BT
+        faces = faces_LS_right(itp)
+        @inbounds u_faces[II,:] .= faces
+    end
+
+    II = b_right[1]
+    st = static_stencil(u, δy⁺(δx⁻(II)))
+    itp = B*st*BT
+    faces = faces_LS_right_bottom(itp)
+    @inbounds u_faces[II,:] .= faces
+
+    II = b_right[end]
+    st = static_stencil(u, δy⁻(δx⁻(II)))
+    itp = B*st*BT
+    faces = faces_LS_right_top(itp)
+    @inbounds u_faces[II,:] .= faces
+
+    @inbounds @threads for II in b_top[2:end-1]
+        st = static_stencil(u, δy⁻(II))
+        itp = B*st*BT
+        faces = faces_LS_top(itp)
+        @inbounds u_faces[II,:] .= faces
+    end
+
+    @inbounds uu[:,1] .= u_faces[:,1,1]
+    @inbounds uu[:,end] .= u_faces[:,end,3]
+
+    @inbounds uv[1,:] .= u_faces[1,:,2]
+    @inbounds uv[end,:] .= u_faces[end,:,4]
+
+    @inbounds uu[:,2:end-1] .= 0.5 * (u_faces[:,1:end-1,3] .+ u_faces[:,2:end,1])
+    @inbounds uv[2:end-1,:] .= 0.5 * (u_faces[1:end-1,:,4] .+ u_faces[2:end,:,2])
+    
+    return nothing
+end

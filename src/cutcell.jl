@@ -101,10 +101,10 @@ end
     return cap
 end
 
-function marching_squares!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, Δ, L0, B, BT, inside_indices, ϵ, n, faces)
+function marching_squares!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, Δ, L0, B, BT, inside_indices, ϵ, nx, ny, faces)
     empty_capacities = vcat(zeros(7), zeros(4))
     full_capacities = vcat(ones(7), 0.5.*ones(4))
-    κ .= zeros(n,n)
+    κ .= zeros(ny,nx)
     @inbounds @threads for II in inside_indices
         st = static_stencil(u, II)
         a = sign(u[II])
@@ -164,14 +164,40 @@ function marching_squares!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_
     return nothing
 end
 
-function get_iterface_location!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, Δ, L0, B, BT, idx, inside_indices, ϵ, n, faces, periodic_x, periodic_y)
+function get_iterface_location!(::GridCC, x, y, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, Δ, L0, B, BT, idx, inside_indices, ϵ, n, faces, periodic_x, periodic_y)
     @inbounds @threads for II in inside_indices
         f = average_face_capacities(faces, iso[II], II)
         SOL[II,:], LIQ[II,:], α, sol_centroid[II], liq_centroid[II], mid_point[II], cut_points = capacities(f, iso[II])
-        absolute_position = Point(H[II.I[2]], H[II.I[1]])
+        absolute_position = Point(x[II], y[II])
         sol_projection[II], liq_projection[II] = projection_2points(absolute_position, mid_point[II], α, L0, Δ)
     end
-    set_cap_bcs!(SOL, LIQ, mid_point, u, idx.b_left[1], idx.b_bottom[1], idx.b_right[1], idx.b_top[1], periodic_x, periodic_y, n)
+    set_cap_bcs!(gcc, SOL, LIQ, sol_centroid, liq_centroid, mid_point, u, idx.b_left[1], idx.b_bottom[1], idx.b_right[1], idx.b_top[1], periodic_x, periodic_y, n)
+    Wcapacities!(SOL, periodic_x, periodic_y)
+    Wcapacities!(LIQ, periodic_x, periodic_y)
+    return nothing
+end
+
+function get_iterface_location!(::GridFCx, x, y, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, Δ, L0, B, BT, idx, inside_indices, ϵ, n, faces, periodic_x, periodic_y)
+    @inbounds @threads for II in inside_indices
+        f = average_face_capacities(faces, iso[II], II)
+        SOL[II,:], LIQ[II,:], α, sol_centroid[II], liq_centroid[II], mid_point[II], cut_points = capacities(f, iso[II])
+        absolute_position = Point(x[II], y[II])
+        sol_projection[II], liq_projection[II] = projection_2points(absolute_position, mid_point[II], α, L0, Δ)
+    end
+    set_cap_bcs!(gfcx, SOL, LIQ, sol_centroid, liq_centroid, mid_point, u, idx.b_left[1], idx.b_bottom[1], idx.b_right[1], idx.b_top[1], periodic_x, periodic_y, n)
+    Wcapacities!(SOL, periodic_x, periodic_y)
+    Wcapacities!(LIQ, periodic_x, periodic_y)
+    return nothing
+end
+
+function get_iterface_location!(::GridFCy, x, y, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, Δ, L0, B, BT, idx, inside_indices, ϵ, n, faces, periodic_x, periodic_y)
+    @inbounds @threads for II in inside_indices
+        f = average_face_capacities(faces, iso[II], II)
+        SOL[II,:], LIQ[II,:], α, sol_centroid[II], liq_centroid[II], mid_point[II], cut_points = capacities(f, iso[II])
+        absolute_position = Point(x[II], y[II])
+        sol_projection[II], liq_projection[II] = projection_2points(absolute_position, mid_point[II], α, L0, Δ)
+    end
+    set_cap_bcs!(gfcy, SOL, LIQ, sol_centroid, liq_centroid, mid_point, u, idx.b_left[1], idx.b_bottom[1], idx.b_right[1], idx.b_top[1], periodic_x, periodic_y, n)
     Wcapacities!(SOL, periodic_x, periodic_y)
     Wcapacities!(LIQ, periodic_x, periodic_y)
     return nothing
@@ -630,69 +656,242 @@ function capacities(F, case)
     return cap_sol, cap_liq, min(float(π),max(-float(π),α)), sol_centroid, liq_centroid, mid_point, cut_points
 end
 
-function set_cap_bcs!(SOL, LIQ, mid_point, u, b_left, b_bottom, b_right, b_top, periodic_x, periodic_y, n)
-    empty_capacities = vcat(zeros(7), zeros(4))
-    full_capacities = vcat(ones(7), 0.5.*ones(4))
+function set_cap_bcs!(::GridCC, SOL, LIQ, sol_centroid, liq_centroid, mid_point, u, b_left, b_bottom, b_right, b_top, periodic_x, periodic_y, n)
+    empty_capacities = SA_F64[vcat(zeros(7), zeros(4))...]
+    full_capacities = SA_F64[vcat(ones(7), 0.5.*ones(4))...]
 
     # fill boundary capacities
-    @inbounds for (IL, IB, IR, IT) in zip(b_left, b_bottom, b_right, b_top)
-        if u[IL] >= 0.0
-            LIQ[IL,:] .= full_capacities
+    @inbounds @threads for II in b_left
+        if u[II] >= 0.0
+            @inbounds SOL[II,:] .= empty_capacities
+            @inbounds LIQ[II,:] .= full_capacities
         else
-            LIQ[IL,:] .= empty_capacities
+            @inbounds SOL[II,:] .= full_capacities
+            @inbounds LIQ[II,:] .= empty_capacities
         end
-        if u[IB] >= 0.0
-            LIQ[IB,:] .= full_capacities
+    end
+    @inbounds @threads for II in b_bottom
+        if u[II] >= 0.0
+            @inbounds SOL[II,:] .= empty_capacities
+            @inbounds LIQ[II,:] .= full_capacities
         else
-            LIQ[IB,:] .= empty_capacities
+            @inbounds SOL[II,:] .= full_capacities
+            @inbounds LIQ[II,:] .= empty_capacities
         end
-        if u[IR] >= 0.0
-            LIQ[IR,:] .= full_capacities
+    end
+    @inbounds @threads for II in b_right
+        if u[II] >= 0.0
+            @inbounds SOL[II,:] .= empty_capacities
+            @inbounds LIQ[II,:] .= full_capacities
         else
-            LIQ[IR,:] .= empty_capacities
+            @inbounds SOL[II,:] .= full_capacities
+            @inbounds LIQ[II,:] .= empty_capacities
         end
-        if u[IT] >= 0.0
-            LIQ[IT,:] .= full_capacities
+    end
+    @inbounds @threads for II in b_top
+        if u[II] >= 0.0
+            @inbounds SOL[II,:] .= empty_capacities
+            @inbounds LIQ[II,:] .= full_capacities
         else
-            LIQ[IT,:] .= empty_capacities
+            @inbounds SOL[II,:] .= full_capacities
+            @inbounds LIQ[II,:] .= empty_capacities
+        end
+    end
+
+    # set A and mid_point at the boundaries to 0 if not periodic in that direction
+    if !periodic_x
+        @inbounds @threads for i = 1:n
+            @inbounds SOL[i,1,1] = 0.0
+            @inbounds SOL[i,end,3] = 0.0
+            @inbounds LIQ[i,1,1] = 0.0
+            @inbounds LIQ[i,end,3] = 0.0
+            @inbounds mid_point[i,1] += Point(-0.5, 0.0)
+            @inbounds mid_point[i,end] += Point(0.5, 0.0)
+        end
+    end
+    if !periodic_y
+        @inbounds @threads for i = 1:n
+            @inbounds SOL[1,i,2] = 0.0
+            @inbounds SOL[end,i,4] = 0.0
+            @inbounds LIQ[1,i,2] = 0.0
+            @inbounds LIQ[end,i,4] = 0.0
+            @inbounds mid_point[1,i] += Point(0.0, -0.5)
+            @inbounds mid_point[end,i] += Point(0.0, 0.5)
+        end
+    end
+end
+
+function set_cap_bcs!(::GridFCx, SOL, LIQ, sol_centroid, liq_centroid, mid_point, u, b_left, b_bottom, b_right, b_top, periodic_x, periodic_y, n)
+    f = SA_F64[0.5, 0.5]
+    empty_capacities = SA_F64[vcat(zeros(7), zeros(4))...]
+    full_capacities = SA_F64[vcat(ones(7), 0.5.*ones(4))...]
+    capacities_6 = capacities(f, 6.0)
+    capacities_9 = capacities(f, 9.0)
+
+    # fill boundary capacities
+    if periodic_x
+        @inbounds @threads for II in b_left
+            if u[II] >= 0.0
+                @inbounds SOL[II,:] .= empty_capacities
+                @inbounds LIQ[II,:] .= full_capacities
+            else
+                @inbounds SOL[II,:] .= full_capacities
+                @inbounds LIQ[II,:] .= empty_capacities
+            end
+        end
+        @inbounds @threads for II in b_right
+            if u[II] >= 0.0
+                @inbounds SOL[II,:] .= empty_capacities
+                @inbounds LIQ[II,:] .= full_capacities
+            else
+                @inbounds SOL[II,:] .= full_capacities
+                @inbounds LIQ[II,:] .= empty_capacities
+            end
+        end
+    else
+        @inbounds @threads for II in b_left
+            if u[II] >= 0.0
+                @inbounds SOL[II,:] .= empty_capacities
+                @inbounds _, LIQ[II,:], _, _, liq_centroid[II], mid_point[II], _ = capacities_9
+            else
+                @inbounds SOL[II,:], _, _, sol_centroid[II], _, mid_point[II], _ = capacities_6
+                @inbounds LIQ[II,:] .= empty_capacities
+            end
+        end
+        @inbounds @threads for II in b_right
+            if u[II] >= 0.0
+                @inbounds SOL[II,:] .= empty_capacities
+                @inbounds _, LIQ[II,:], _, _, liq_centroid[II], mid_point[II], _ = capacities_6
+            else
+                @inbounds SOL[II,:], _, _, sol_centroid[II], _, mid_point[II], _ = capacities_9
+                @inbounds LIQ[II,:] .= empty_capacities
+            end
+        end
+    end
+    @inbounds @threads for II in b_bottom
+        if II ∉ b_left && II ∉ b_right && u[II] >= 0.0
+            @inbounds SOL[II,:] .= empty_capacities
+            @inbounds LIQ[II,:] .= full_capacities
+        elseif II ∉ b_left && II ∉ b_right
+            @inbounds SOL[II,:] .= full_capacities
+            @inbounds LIQ[II,:] .= empty_capacities
+        end
+    end
+    @inbounds @threads for II in b_top
+        if II ∉ b_left && II ∉ b_right && u[II] >= 0.0
+            @inbounds SOL[II,:] .= empty_capacities
+            @inbounds LIQ[II,:] .= full_capacities
+        elseif II ∉ b_left && II ∉ b_right
+            @inbounds SOL[II,:] .= full_capacities
+            @inbounds LIQ[II,:] .= empty_capacities
+        end
+    end
+
+    # set A at the boundaries
+    if !periodic_y
+        @inbounds @threads for i = 1:n+1
+            @inbounds SOL[1,i,2] = 0.0
+            @inbounds SOL[end,i,4] = 0.0
+            @inbounds LIQ[1,i,2] = 0.0
+            @inbounds LIQ[end,i,4] = 0.0
+        end
+    end
+
+    # set mid_point in the outer boundaries
+    if !periodic_y
+        @inbounds @threads for i = 2:n
+            @inbounds mid_point[1,i] += Point(0.0, -0.5)
+            @inbounds mid_point[end,i] += Point(0.0, 0.5)
+        end
+    end
+end
+
+function set_cap_bcs!(::GridFCy, SOL, LIQ, sol_centroid, liq_centroid, mid_point, u, b_left, b_bottom, b_right, b_top, periodic_x, periodic_y, n)
+    f = SA_F64[0.5, 0.5]
+    empty_capacities = SA_F64[vcat(zeros(7), zeros(4))...]
+    full_capacities = SA_F64[vcat(ones(7), 0.5.*ones(4))...]
+    capacities_3 = capacities(f, 3.0)
+    capacities_12 = capacities(f, 12.0)
+
+    # fill boundary capacities
+    @inbounds @threads for II in b_left
+        if II ∉ b_bottom && II ∉ b_top && u[II] >= 0.0
+            @inbounds SOL[II,:] .= empty_capacities
+            @inbounds LIQ[II,:] .= full_capacities
+        elseif II ∉ b_bottom && II ∉ b_top
+            @inbounds SOL[II,:] .= full_capacities
+            @inbounds LIQ[II,:] .= empty_capacities
+        end
+    end
+    @inbounds @threads for II in b_right
+        if II ∉ b_bottom && II ∉ b_top && u[II] >= 0.0
+            @inbounds SOL[II,:] .= empty_capacities
+            @inbounds LIQ[II,:] .= full_capacities
+        elseif II ∉ b_bottom && II ∉ b_top
+            @inbounds SOL[II,:] .= full_capacities
+            @inbounds LIQ[II,:] .= empty_capacities
+        end
+    end
+    if periodic_y
+        @inbounds @threads for II in b_bottom
+            if u[II] >= 0.0
+                @inbounds SOL[II,:] .= empty_capacities
+                @inbounds LIQ[II,:] .= full_capacities
+            else
+                @inbounds SOL[II,:] .= full_capacities
+                @inbounds LIQ[II,:] .= empty_capacities
+            end
+        end
+        @inbounds @threads for II in b_top
+            if u[II] >= 0.0
+                @inbounds SOL[II,:] .= empty_capacities
+                @inbounds LIQ[II,:] .= full_capacities
+            else
+                @inbounds SOL[II,:], _, _, sol_centroid[II], _, mid_point[II], _ = capacities_3
+                @inbounds LIQ[II,:] .= empty_capacities
+            end
+        end
+    else
+        @inbounds @threads for II in b_bottom
+            if u[II] >= 0.0
+                @inbounds SOL[II,:] .= empty_capacities
+                @inbounds _, LIQ[II,:], _, _, liq_centroid[II], mid_point[II], _ = capacities_3
+            else
+                @inbounds SOL[II,:], _, _, sol_centroid[II], _, mid_point[II], _ = capacities_12
+                @inbounds LIQ[II,:] .= empty_capacities
+            end
+        end
+        @inbounds @threads for II in b_top
+            if u[II] >= 0.0
+                @inbounds SOL[II,:] .= empty_capacities
+                @inbounds _, LIQ[II,:], _, _, liq_centroid[II], mid_point[II], _ = capacities_12
+            else
+                @inbounds SOL[II,:], _, _, sol_centroid[II], _, mid_point[II], _ = capacities_3
+                @inbounds LIQ[II,:] .= empty_capacities
+            end
         end
     end
 
     # set A at the boundaries to 0 if not periodic in that direction
     if !periodic_x
-        SOL[:,1,1] .= 0.0
-        SOL[:,end,3] .= 0.0
-    end
-    if !periodic_y
-        SOL[1,:,2] .= 0.0
-        SOL[end,:,4] .= 0.0
-    end
-
-    if !periodic_x
-        LIQ[:,1,1] .= 0.0
-        LIQ[:,end,3] .= 0.0
-    end
-    if !periodic_y
-        LIQ[1,:,2] .= 0.0
-        LIQ[end,:,4] .= 0.0
+        @inbounds @threads for i = 1:n+1
+            @inbounds SOL[i,1,1] = 0.0
+            @inbounds SOL[i,end,3] = 0.0
+            @inbounds LIQ[i,1,1] = 0.0
+            @inbounds LIQ[i,end,3] = 0.0
+        end
     end
 
     # set mid_point in the outer boundaries
-    for i = 1:n
-        if !periodic_x
-            mid_point[i,1] += Point(-0.5, 0.0)
-            mid_point[i,end] += Point(0.5, 0.0)
-        end
-        if !periodic_y
-            mid_point[1,i] += Point(0.0, -0.5)
-            mid_point[end,i] += Point(0.0, 0.5)
+    if !periodic_y
+        @inbounds @threads for i = 2:n
+            @inbounds mid_point[1,i] += Point(0.0, -0.5)
+            @inbounds mid_point[end,i] += Point(0.0, 0.5)
         end
     end
 end
 
 function Bcapacities(cut_points, sol_centroid, liq_centroid)
-    sol = zeros(2)
-    liq = zeros(2)
     l_int = Line(cut_points[1], cut_points[2])
 
     ly = Line(sol_centroid, sol_centroid+Point(0.0,1.0))
@@ -700,36 +899,33 @@ function Bcapacities(cut_points, sol_centroid, liq_centroid)
     s_ipy = line_intersection(l_int, ly)
     s_ipx = line_intersection(l_int, lx)
 
-    sol[1] = Bcaps(s_ipy.y, sol_centroid.y)
-    sol[2] = Bcaps(s_ipx.x, sol_centroid.x)
+    sol = [Bcaps(s_ipy.y, sol_centroid.y), Bcaps(s_ipx.x, sol_centroid.x)]
 
     ly = Line(liq_centroid, liq_centroid+Point(0.0,1.0))
     lx = Line(liq_centroid, liq_centroid+Point(1.0,0.0))
     l_ipy = line_intersection(l_int, ly)
     l_ipx = line_intersection(l_int, lx)
 
-    liq[1] = Bcaps(l_ipy.y, liq_centroid.y)
-    liq[2] = Bcaps(l_ipx.x, liq_centroid.x)
+    liq = [Bcaps(l_ipy.y, liq_centroid.y), Bcaps(l_ipx.x, liq_centroid.x)]
 
     return sol, liq, s_ipx, s_ipy, l_ipx, l_ipy
 end
 
 function Wcapacities!(cap, periodic_x, periodic_y)
-    tmp = similar(cap)
-    tmp .= cap
+    tmp = copy(cap)
 
-    cap[:,2:end,8] .= tmp[:,2:end,8] .+ tmp[:,1:end-1,10]
-    cap[:,1:end-1,10] .= tmp[:,1:end-1,10] .+ tmp[:,2:end,8]
-    cap[2:end,:,9] .= tmp[2:end,:,9] .+ tmp[1:end-1,:,11]
-    cap[1:end-1,:,11] .= tmp[1:end-1,:,11] .+ tmp[2:end,:,9]
+    @inbounds cap[:,2:end,8] .= tmp[:,2:end,8] .+ tmp[:,1:end-1,10]
+    @inbounds cap[:,1:end-1,10] .= tmp[:,1:end-1,10] .+ tmp[:,2:end,8]
+    @inbounds cap[2:end,:,9] .= tmp[2:end,:,9] .+ tmp[1:end-1,:,11]
+    @inbounds cap[1:end-1,:,11] .= tmp[1:end-1,:,11] .+ tmp[2:end,:,9]
 
     if periodic_x
-        cap[:,1,:8] .= tmp[:,1,8] .+ tmp[:,end,10]
-        cap[:,end,:10] .= tmp[:,end,10] .+ tmp[:,1,8]
+        @inbounds cap[:,1,8] .= tmp[:,1,8] .+ tmp[:,end,10]
+        @inbounds cap[:,end,10] .= tmp[:,end,10] .+ tmp[:,1,8]
     end
     if periodic_y
-        cap[1,:,:9] .= tmp[1,:,9] .+ tmp[end,:,11]
-        cap[end,:,:11] .= tmp[end,:,11] .+ tmp[1,:,9]
+        @inbounds cap[1,:,9] .= tmp[1,:,9] .+ tmp[end,:,11]
+        @inbounds cap[end,:,11] .= tmp[end,:,11] .+ tmp[1,:,9]
     end
 
     return nothing
@@ -914,6 +1110,12 @@ function projection_2points(absolute_position, mid, α, L0, h)
     end
     pos = absolute_position + h*mid
     return Gradient(Sflag, β, mid, S1, S2, distance(mid, S1), distance(mid, S2), pos), Gradient(Lflag, α, mid, L1, L2, distance(mid, L1), distance(mid, L2), pos)
+end
+
+function kill_dead_cells!(T, EMPTY)
+    @inbounds @threads for II in EMPTY
+        T[II] = 0.
+    end
 end
 
 function init_fresh_cells!(T, projection, FRESH)

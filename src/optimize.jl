@@ -16,14 +16,14 @@ function cost_functional(u, u_desired, T_all, T_desired, inside, MIXED, BC_indic
     return γ[1]*s1/(2*(length(inside)-length(MIXED))) + γ[2]*s2/(2*length(MIXED)) + γ[3]*s3/(2*length(BC_indices))
 end
 
-function fg!(F, G, x, des, opt, num, idx, initial_levelset, basis)
-  tmp, fwd = init_fields(num, idx)
+function fg!(F, G, x, des, opt, num, idx, idxu, idxv, initial_levelset, basis)
+  tmp, fwd = init_fields(num, idx, idxu, idxv)
   fwd.u .= initial_levelset
   xdata = num.H[opt.ind];
   p = curve_fit(basis, xdata, x, zeros(4))
   boundary_values = basis(num.H, p.param)
 
-  MIXED, SOLID, LIQUID = run_forward(num, idx, tmp, fwd,
+  MIXED, SOLID, LIQUID = run_forward(num, idx, idxu, idxv, tmp, fwd,
       BC_TL = Boundaries(top = Boundary(t = dir, f = dirichlet, val = boundary_values),
       bottom = Boundary(t = dir, f = dirichlet, val = boundary_values[end:-1:1]),
       right = Boundary(t = dir, f = dirichlet, val = boundary_values),
@@ -37,7 +37,7 @@ function fg!(F, G, x, des, opt, num, idx, initial_levelset, basis)
       );
   s = similar(fwd.u)
   adj = my_Adjoint(s, fwd.u, opt.γ[1].*(des.TS - fwd.TS), opt.γ[1].*(des.TL - fwd.TL), s, s, s, s)
-  tmp, fwd_ = init_fields(num, idx)
+  tmp, fwd = init_fields(num, idx, idxu, idxv)
   run_backward(num, idx, tmp, fwd, adj,
       stefan = true,
       heat = true,
@@ -61,17 +61,17 @@ function fg!(F, G, x, des, opt, num, idx, initial_levelset, basis)
   end
 end
 
-function gradient_based_optimization(x_desired, x_initial, opt, num, idx, initial_levelset, basis;
+function gradient_based_optimization(x_desired, x_initial, opt, num, idx, idxu, idxv, initial_levelset, basis;
     method_opt = ConjugateGradient(),
     opt_iter = 10)
 
-    tmp, fwd = init_fields(num, idx)
+    tmp, fwd = init_fields(num, idx, idxu, idxv)
     fwd.u .= initial_levelset
     xdata = num.H[opt.ind];
     p = curve_fit(basis, xdata, x_desired, zeros(4))
     boundary_values = basis(num.H, p.param)
     @show (p.param)
-    @time MIXED, SOLID, LIQUID = run_forward(num, idx, tmp, fwd,
+    @time MIXED, SOLID, LIQUID = run_forward(num, idx, idxu, idxv, tmp, fwd,
         BC_TL = Boundaries(top = Boundary(t = dir, f = dirichlet, val = boundary_values),
         bottom = Boundary(t = dir, f = dirichlet, val = boundary_values[end:-1:1]),
         right = Boundary(t = dir, f = dirichlet, val = boundary_values),
@@ -85,7 +85,7 @@ function gradient_based_optimization(x_desired, x_initial, opt, num, idx, initia
         show_every = 20
         );
     des = Desired(x_desired, fwd.u, fwd.usave, fwd.TL, fwd.TS)
-    res = optimize(Optim.only_fg!((F, G, x)->fg!(F, G, x, des, opt, num, idx, initial_levelset, basis)), x_initial, method_opt,
+    res = optimize(Optim.only_fg!((F, G, x)->fg!(F, G, x, des, opt, num, idx, idxu, idxv, initial_levelset, basis)), x_initial, method_opt,
     Optim.Options(store_trace = true, show_trace=true, iterations = opt_iter, allow_f_increases = true))
 
     @show Optim.minimizer(res)

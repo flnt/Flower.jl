@@ -19,9 +19,9 @@ num = Numerical(T_inf = -0.6,
     #max_iterations = 1
     )
 
-idx = set_indices(num.n)
+idx, idxu, idxv = set_indices(num.n)
 
-tmp, fwd = init_fields(num, idx)
+tmp, fwd = init_fields(num, idx, idxu, idxv)
 
 @. model(t, p) =
     p[1]*cos(0.5π*t) +
@@ -48,7 +48,7 @@ global y_c = 0.2
 initial_levelset = fwd.u
 initial_temperature = fwd.TL
 
-MIXED, SOLID, LIQUID = run_forward(num, idx, tmp, fwd,
+MIXED, SOLID, LIQUID = run_forward(num, idx, idxu, idxv, tmp, fwd,
     BC_TL = Boundaries(top = Boundary(f = neumann, val = x_desired),
     bottom = Boundary(f = neumann, val = x_desired[end:-1:1]),
     right = Boundary(f = neumann, val = x_desired),
@@ -63,14 +63,14 @@ MIXED, SOLID, LIQUID = run_forward(num, idx, tmp, fwd,
 
 des = Desired(x_desired, fwd.u, fwd.usave, fwd.TL, fwd.TS)
 
-function fg2!(F, G, x, des, opt, num, idx, initial_levelset, initial_temperature, basis)
+function fg2!(F, G, x, des, opt, num, idx, idxu, idxv, initial_levelset, initial_temperature, basis)
 
-  tmp, fwd = init_fields(num, idx)
+  tmp, fwd = init_fields(num, idx, idxu, idxv)
   xdata = num.H[opt.ind];
   p = curve_fit(basis, xdata, x, zeros(8))
   @show (p.param)
   boundary_values = basis(num.H, p.param)
-  MIXED, SOLID, LIQUID = run_forward(num, idx, tmp, fwd,
+  MIXED, SOLID, LIQUID = run_forward(num, idx, idxu, idxv, tmp, fwd,
       BC_TL = Boundaries(top = Boundary(f = neumann, val = boundary_values),
       bottom = Boundary(f = neumann, val = boundary_values[end:-1:1]),
       right = Boundary(f = neumann, val = boundary_values),
@@ -84,7 +84,7 @@ function fg2!(F, G, x, des, opt, num, idx, initial_levelset, initial_temperature
       );
   s = similar(fwd.u)
   adj = my_Adjoint(s, fwd.u, opt.γ[1].*(des.TS - fwd.TS), opt.γ[1].*(des.TL - fwd.TL), s, s, s, s)
-  tmp, fwd_ = init_fields(num, idx)
+  tmp, fwd = init_fields(num, idx, idxu, idxv)
   run_backward(num, idx, tmp, fwd, adj,
       stefan = true,
       heat = true,
@@ -107,11 +107,11 @@ function fg2!(F, G, x, des, opt, num, idx, initial_levelset, initial_temperature
   end
 end
 
-function gradient_based_optimization2(x_desired, x_initial, opt, num, idx, des, initial_levelset, initial_temperature, basis;
+function gradient_based_optimization2(x_desired, x_initial, opt, num, idx, idxu, idxv, des, initial_levelset, initial_temperature, basis;
     method_opt = ConjugateGradient(),
     opt_iter = 10)
 
-    res = optimize(Optim.only_fg!((F, G, x)->fg2!(F, G, x, des, opt, num, idx, initial_levelset, initial_temperature, basis)), x_initial, method_opt,
+    res = optimize(Optim.only_fg!((F, G, x)->fg2!(F, G, x, des, opt, num, idx, idxu, idxv, initial_levelset, initial_temperature, basis)), x_initial, method_opt,
     Optim.Options(store_trace = true, show_trace=true, iterations = opt_iter, allow_f_increases = false))
 
     @show Optim.minimizer(res)
@@ -119,7 +119,7 @@ function gradient_based_optimization2(x_desired, x_initial, opt, num, idx, des, 
     return res
 end
 
-res = gradient_based_optimization2(x_desired, x_initial, opt, num, idx, des, initial_levelset, initial_temperature, model2,
+res = gradient_based_optimization2(x_desired, x_initial, opt, num, idx, idxu, idxv, des, initial_levelset, initial_temperature, model2,
     opt_iter = 5,
     method_opt = LBFGS(linesearch = Optim.LineSearches.BackTracking()))
 

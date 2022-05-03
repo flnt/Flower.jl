@@ -19,12 +19,12 @@ num = Numerical(T_inf = -0.8,
     #max_iterations = 1
     )
 
-idx = set_indices(num.n)
-tmp, fwd = init_fields(num, idx)
+idx, idxu, idxv = set_indices(num.n)
+tmp, fwd = init_fields(num, idx, idxu, idxv)
 
 fwd.TL .= num.T_inf;
 
-@time MIXED, SOLID, LIQUID = run_forward(num, idx, tmp, fwd,
+@time MIXED, SOLID, LIQUID = run_forward(num, idx, idxu, idxv, tmp, fwd,
     stefan = true,
     heat = true,
     liquid_phase = true,

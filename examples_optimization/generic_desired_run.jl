@@ -22,8 +22,8 @@ num = Numerical(T_inf = -0.6,
     #max_iterations = 1
     )
 
-idx = set_indices(num.n)
-tmp, fwd = init_fields(num, idx)
+idx, idxu, idxv = set_indices(num.n)
+tmp, fwd = init_fields(num, idx, idxu, idxv)
 
 x_c = 0.2
 y_c = 0.2
@@ -52,7 +52,7 @@ ax = Axis(f[1,1])
 f = lines!(boundary_values)
 f = current_figure()
 
-@time MIXED, SOLID, LIQUID = run_forward(num, idx, tmp, fwd,
+@time MIXED, SOLID, LIQUID = run_forward(num, idx, idxu, idxv, tmp, fwd,
     BC_TL = Boundaries(top = Boundary(f = neumann, val = boundary_values),
     bottom = Boundary(f = neumann, val = boundary_values[end:-1:1]),
     right = Boundary(f = neumann, val = boundary_values),

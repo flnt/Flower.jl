@@ -168,11 +168,8 @@ end
 end
 
 function fit_order(x, y)
-    @gp "func(x) = a + b*x"
-    name = "\$MyDataSet1"
-    @gp :- name=>(log.(x), log.(y)) "fit func(x) $name via a, b"
-    vars = gpvars()
-    return exp(vars.a), -vars.b
+    coeffs = fit(log.(x), log.(y), 1).coeffs
+    return exp(coeffs[1]), -coeffs[2]
 end
 
 @inline function arc_length2(POS, ind, h)
@@ -211,6 +208,15 @@ function find_2closest_points(POS, ind, II)
     end
     return closest_cartesian_indices
 end
+
+@inline is_dirichlet(::Dirichlet) = true
+@inline is_dirichlet(::BoundaryCondition) = false
+
+@inline is_neumann(::Neumann) = true
+@inline is_neumann(::BoundaryCondition) = false
+
+@inline is_periodic(::Periodic) = true
+@inline is_periodic(::BoundaryCondition) = false
 
 @inline dirichlet(target, Δ, λ, val) = muladd(2.0, val, -target)
 @inline neumann(target, Δ, λ, val) = muladd(Δ, val, target)

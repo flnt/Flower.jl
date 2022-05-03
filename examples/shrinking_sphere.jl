@@ -17,11 +17,11 @@ num = Numerical(case = "Sphere",
     TEND = 0.5,
     R = 0.7)
 
-idx = set_indices(num.n)
-tmp, fwd = init_fields(num, idx)
+idx, idxu, idxv = set_indices(num.n)
+tmp, fwd = init_fields(num, idx, idxu, idxv)
 fwd.TL .= 0.
 
-MIXED = run_forward(num, idx, tmp, fwd,
+MIXED = run_forward(num, idx, idxu, idxv, tmp, fwd,
 BC_TL = Boundaries(top = Boundary(t = dir, f = dirichlet, val = 1.0)),
 stefan = true,
 advection = true,

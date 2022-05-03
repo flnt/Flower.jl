@@ -11,16 +11,16 @@ num = Numerical(R = 0.5,
     TEND = 0.1,
     )
 
-idx = set_indices(num.n)
+idx, idxu, idxv = set_indices(num.n)
 
-tmp, fwd = init_fields(num, idx)
-MIXED = run_forward(num, idx, tmp, fwd,
+tmp, fwd = init_fields(num, idx, idxu, idxv)
+MIXED = run_forward(num, idx, idxu, idxv, tmp, fwd,
     advection = true,
     speed = -3
     )
 
-tmp, fwd2 = init_fields(num, idx)
-MIXED = run_forward(num, idx, tmp, fwd2,
+tmp, fwd2 = init_fields(num, idx, idxu, idxv)
+MIXED = run_forward(num, idx, idxu, idxv, tmp, fwd2,
     advection = true,
     speed = 3
     )
@@ -36,14 +36,14 @@ num = Numerical(R = 0.5,
     N = 4
     )
 
-tmp, fwd3 = init_fields(num, idx)
-MIXED = run_forward(num, idx, tmp, fwd3,
+tmp, fwd3 = init_fields(num, idx, idxu, idxv)
+MIXED = run_forward(num, idx, idxu, idxv, tmp, fwd3,
     advection = true,
     speed = -3
     )
 
-tmp, fwd4 = init_fields(num, idx)
-MIXED = run_forward(num, idx, tmp, fwd4,
+tmp, fwd = init_fields(num, idx, idxu, idxv)
+MIXED = run_forward(num, idx, idxu, idxv, tmp, fwd4,
     advection = true,
     speed = 3
     )

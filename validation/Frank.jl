@@ -37,9 +37,9 @@ function conv_Frank(x;
             TEND = TEND,
             R = R
             );
-        idx = set_indices(num.n);
-        tmp, fwd = init_fields(num, idx);
-        MIXED, SOLID, LIQUID, radius = run_forward(num, idx, tmp, fwd,
+        idx, idxu, idxv = set_indices(num.n);
+        tmp, fwd = init_fields(num, idx, idxu, idxv);
+        MIXED, SOLID, LIQUID, radius = run_forward(num, idx, idxu, idxv, tmp, fwd,
         heat = true,
         solid_phase = solid,
         liquid_phase = liquid,
