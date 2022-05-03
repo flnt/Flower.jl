@@ -42,7 +42,7 @@ MIXED = run_forward(num, idx, idxu, idxv, tmp, fwd3,
     speed = -3
     )
 
-tmp, fwd = init_fields(num, idx, idxu, idxv)
+tmp, fwd4 = init_fields(num, idx, idxu, idxv)
 MIXED = run_forward(num, idx, idxu, idxv, tmp, fwd4,
     advection = true,
     speed = 3
