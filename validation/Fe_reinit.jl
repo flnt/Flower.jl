@@ -10,7 +10,7 @@ idx = set_indices(num.n)
 tmp, fwd = init_fields(num, idx)
 
 r = 1.
-a = .7
+a = 0.7
 
 @inline kink(q,s,d,R) = (q + s)/sqrt((q + s)^2 + d^2) >= abs(q)/abs(R)
 

@@ -54,7 +54,7 @@ function Stefan_velocity!(TS, TL, sol_projection, liq_projection, V, MIXED, κ, 
     V .= 0
     @inbounds @threads for II in MIXED
         ϵ_c = ifelse(aniso, anisotropy(ϵ_κ, m, sol_projection[II].angle, θ₀), ϵ_κ)
-        ϵ_v = ifelse(aniso, anisotropy(ϵ_V, m, sol_projection[II].angle, θ₀), ϵ_κ)
+        ϵ_v = ifelse(aniso, anisotropy(ϵ_V, m, sol_projection[II].angle, θ₀), ϵ_V)
         θ_d = (θd - ϵ_c*κ[II] - ϵ_v*V[II])
         dTS = 0.
         dTL = 0.

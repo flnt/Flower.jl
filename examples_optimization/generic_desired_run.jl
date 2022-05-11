@@ -1,15 +1,13 @@
 using Revise
 using Flower
 
-BLAS.set_num_threads(1)
-
-
-num = Numerical(T_inf = 1.1,
+num = Numerical(T_inf = 3.0,
     case = "Mullins_cos",
     L0 = 2.,
-    n = 64,
+    n = 50,
     CFL = 0.5,
-    TEND = 0.6,
+    TEND = 0.2,
+    ϵ_κ = 0.00005,
     A = -0.1,
     N = 2,
     )
@@ -22,26 +20,25 @@ tmp, fwd = init_fields(num, idx)
     p[1]*cos(π*t) + p[2]*cos(π*t)^2 +
     p[3]*cos(π*t)^3 + p[4]*cos(π*t)^4 - p[5];
 
-@. model_desired(t, p) = p[1]*((1 + cos(pi*t))/2)^4 - 1.8
+@. model_desired(t, p) = p[1]*((1 + cos(pi*t))/2)^4
 
-@. gradient(field, opt, x) = -(opt.γ[3]*x + field[opt.bc_indices])
+@. gradient(field, opt, x) = (opt.γ[3]*x - field[opt.bc_indices])
 
 nprobes = num.n
 step = num.n÷(nprobes)
 ind = [i*step for i in 1:nprobes]
-x_desired = model_desired(num.H[ind], [11.0])
+x_desired = model_desired(num.H[ind], [10.0, 0.0])
 p = 0*ones(8)
-x_initial = model(num.H[ind], [0, 3, 0, 0, 1.0])
+x_initial = model_desired(num.H[ind], [0.0, 0.0])
 
-
-opt = Optim_parameters(nprobes, ind, idx.b_top[1][ind], [1.0, 1.0, 1e-4, 1.0, 1.0], [p], [zeros(num.n,num.n)], [zeros(num.n,num.n)], [zeros(num.max_iterations+1, num.n,num.n)])
+#opt = Optim_parameters(nprobes, ind, idx.b_top[1][ind], [1.0, 1.0, 1e-4, 1.0, 1.0], [p], [zeros(num.n,num.n)], [zeros(num.n,num.n)], [zeros(num.max_iterations+1, num.n,num.n)])
 
 initial_levelset = fwd.u
 initial_temperature = fwd.TL
 
 #fwd.TS .= -1.0
 MIXED, SOLID, LIQUID = run_forward(num, idx, tmp, fwd,
-    BC_TL = Boundaries(top = Boundary(f = neumann, val = x_desired)),
+    BC_TL = Boundaries(top = Boundary(f = neumann, val = 0.0)),
     stefan = true,
     heat = true,
     liquid_phase = true,

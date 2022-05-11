@@ -99,7 +99,7 @@ function advection(a, gx, gy,
     F = SA_F64[gx[p],
     gy[p],
     -gx[p],
-    -gy[p]]
+    -gy[p]] .* h
     return F
 end
 
@@ -152,7 +152,7 @@ function level_update_IIOE!(A, B, u, Vx, Vy, inside, CFL, h, n)
     end
 end
 
-function level_update_koening!(A, B, u, V, Vx, Vy, inside, CFL, h, n)
+function level_update_koenig!(A, B, u, V, Vx, Vy, inside, CFL, h, n)
     @inbounds @threads for II in inside
         p = lexicographic(II, n)
         U = diamond(u, p, n)
@@ -244,7 +244,7 @@ function FE_reinit(u, h, n, nb_reinit, BC_u, idx)
 
             tmp[II] = u[II] - cfl * h_ * sign_u0 * (gdv - 1.0)
         end
-        u .= tmp
+        u[inside] .= tmp[inside]
         @sync begin
             @spawn bcs!(u, BC_u.left, h)
             @spawn bcs!(u, BC_u.right, h)
