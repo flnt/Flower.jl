@@ -1,51 +1,60 @@
 using Revise
 using Flower
 
-num = Numerical(T_inf = 3.0,
-    case = "Mullins_cos",
-    L0 = 2.,
-    n = 50,
+num = Numerical(T_inf = -0.6,
+    case = "3Crystals",
+    θd = 0.,
+    ϵ_κ = 0.0005,
+    ϵ_V = 0.002,
+    L0 = 4.,
+    n = 100,
     CFL = 0.5,
-    TEND = 0.2,
-    ϵ_κ = 0.00005,
-    A = -0.1,
-    N = 2,
+    TEND = 0.45,
+    aniso = true,
+    θ₀ = 0.5*pi,
+    m = 4,
+    A = 0.2,
+    N = 4,
+    R = 0.14,
+    #max_iterations = 1
     )
 
 idx = set_indices(num.n)
 
 tmp, fwd = init_fields(num, idx)
 
-@. model(t, p) =
-    p[1]*cos(π*t) + p[2]*cos(π*t)^2 +
-    p[3]*cos(π*t)^3 + p[4]*cos(π*t)^4 - p[5];
+@. model(t, p) = p[1]*sin(num.N*pi*t/8) + p[2]*cos(num.N*pi*t/8) + p[3]*cos(num.N*pi*t/8)^2 + p[4]*sin(num.N*pi*t/8)^2;
 
-@. model_desired(t, p) = p[1]*((1 + cos(pi*t))/2)^4
+@. model2(t, p) = p[1]*(cos(num.N*pi*t/8) - 0.5) + p[2]*(cos(num.N*pi*t/8) - 0.5);
 
-@. gradient(field, opt, x) = (opt.γ[3]*x - field[opt.bc_indices])
+# @. model_desired(t, p) = p[1]*(cos(num.N*pi*t/8) - 0.5);
+@. model_desired(t, p) = p[1]*((1 + cos(num.N*pi*t/8))/2)^4 + p[2]
+
+@. gradient(field, opt, x) = -(opt.γ[3]*x + field[opt.bc_indices])
 
 nprobes = num.n
 step = num.n÷(nprobes)
 ind = [i*step for i in 1:nprobes]
-x_desired = model_desired(num.H[ind], [10.0, 0.0])
+x_desired = model_desired(num.H[ind], [10., 0.])
 p = 0*ones(8)
-x_initial = model_desired(num.H[ind], [0.0, 0.0])
+x_initial = model_desired(num.H[ind], [0., 0.])
 
-#opt = Optim_parameters(nprobes, ind, idx.b_top[1][ind], [1.0, 1.0, 1e-4, 1.0, 1.0], [p], [zeros(num.n,num.n)], [zeros(num.n,num.n)], [zeros(num.max_iterations+1, num.n,num.n)])
+opt = Optim_parameters(nprobes, ind, idx.b_top[1][ind], [1.0, 10.0, 1e-2, 1.0, 1.0], [p], [zeros(num.n,num.n)], [zeros(num.n,num.n)], [zeros(num.max_iterations+1, num.n,num.n)])
 
 initial_levelset = fwd.u
 initial_temperature = fwd.TL
 
-#fwd.TS .= -1.0
 MIXED, SOLID, LIQUID = run_forward(num, idx, tmp, fwd,
-    BC_TL = Boundaries(top = Boundary(f = neumann, val = 0.0)),
+    BC_TL = Boundaries(top = Boundary(f = neumann, val = x_desired),
+    bottom = Boundary(f = neumann, val = x_desired[end:-1:1]),
+    right = Boundary(f = neumann, val = x_desired),
+    left = Boundary(f = neumann, val = x_desired[end:-1:1])),
     stefan = true,
     heat = true,
     liquid_phase = true,
-    solid_phase = false,
+    solid_phase = true,
     advection = true,
     verbose = true,
-    show_every = 100
     );
 
 #des = Desired(x_desired, fwd.u, fwd.usave, fwd.TL, fwd.TS)

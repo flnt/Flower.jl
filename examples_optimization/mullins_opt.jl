@@ -1,13 +1,13 @@
 using Revise
 using Flower
 
-num = Numerical(T_inf = 3.0,
+num = Numerical(T_inf = 1.0,
     case = "Mullins_cos",
     L0 = 2.,
     n = 64,
     CFL = 0.5,
-    TEND = 0.2,
-    ϵ_κ = 0.00005,
+    TEND = 0.5,
+    ϵ_κ = 2e-5,
     A = -0.1,
     N = 2,
     )
@@ -29,11 +29,11 @@ tmp, fwd = init_fields(num, idx)
 nprobes = num.n
 step = num.n÷(nprobes)
 ind = [i*step for i in 1:nprobes]
-x_desired = model_desired(num.H[ind], [10.0, 0.0])
+x_desired = model_desired(num.H[ind], [0.0, 3.0])
 p = 0*ones(8)
 x_initial = model_desired(num.H[ind], [0.0, 0.0])
 
-opt = Optim_parameters(nprobes, ind, idx.b_top[1][ind], [1.0, 1.0, 1e-3, 1.0, 1.0], [p], [zeros(num.n,num.n)], [zeros(num.n,num.n)], [zeros(num.max_iterations+1, num.n,num.n)])
+opt = Optim_parameters(nprobes, ind, idx.b_top[1][ind], [1.0, 1.0, 1e-2, 1.0, 1.0], [p], [zeros(num.n,num.n)], [zeros(num.n,num.n)], [zeros(num.max_iterations+1, num.n,num.n)])
 
 initial_levelset = fwd.u
 initial_temperature = fwd.TL
@@ -128,9 +128,9 @@ CSV.write("examples_optimization/data/res_mullins.csv", df2);
 let c = 0
     f = Figure(resolution = (4000, 4000))
     step = num.max_iterations÷10
-    bp = maximum(des.TL)
-    bm = minimum(des.TL)
-    Iterations = [3, 7, 10, 13]
+    Iterations = [2, 4, 6, 11]
+    bp = maximum(abs.(des.TL - opt.TLsave[2]))
+    bm = minimum(abs.(des.TL - opt.TLsave[2]))
     x = [1:9, 10:18]; y = [1:8, 9:16]; x_s = [2:9, 11:18];
     fontsize_theme = Theme(fontsize = 80)
     set_theme!(fontsize_theme)
@@ -140,17 +140,17 @@ let c = 0
             ax = Axis(f[x_s[i], y[j]])
             hidedecorations!(ax)
             hidespines!(ax)
-            heatmap!(f[x_s[i], y[j]], opt.TLsave[Iterations[c]][1:end-1,1:end-1]', colormap=:BuGn_9, colorrange = (bm, bp))
+            heatmap!(f[x_s[i], y[j]], abs.(des.TL[1:end-1,1:end-1] - opt.TLsave[Iterations[c]][1:end-1,1:end-1])', colormap=:BuGn_9, colorrange = (bm, bp))
             for ii in 1:step:num.max_iterations
                 contour!(f[x_s[i], y[j]], opt.usave[Iterations[c]][ii,:,:]', levels = 0:0, color=:black, linewidth = 5);
             end
             contour!(f[x_s[i], y[j]], des.usave[end,:,:]', levels = 0:0, color=(:blue, 0.7), linewidth = 7);
             contour!(f[x_s[i], y[j]], opt.usave[Iterations[c]][end,:,:]', levels = 0:0, color=:red, linewidth = 7);
-            ax2 = Axis(f[x[i][1], y[j]], ylabel = "u", title = @sprintf "Iteration %d" Iterations[c] - 1)
+            ax2 = Axis(f[x[i][1], y[j]], ylabel = "u", title = @sprintf "Iteration %d" Iterations[c] - 2)
             hidedecorations!(ax2)
             hidespines!(ax2)
             #xlims!(-1, 1)
-            #ylims!(-2, 4.5)
+            ylims!(-1, 4)
             lines!(f[x[i][1], y[j]], num.H, model(num.H, opt.p[Iterations[c]]), linewidth = 7, color=:red)
             lines!(f[x[i][1], y[j]], num.H, x_desired, linewidth = 7, color=(:blue, 0.7))
             hlines!(ax2, [0], color = :black, linestyle =:dash, linewidth = 3)
@@ -158,15 +158,15 @@ let c = 0
             Box(f[x[i][1], y[j]], color = :white, strokewidth = 5)
         end
     end
-    Colorbar(f[1:18, 17], limits = (bm, bp), label = "Temperature", colormap=:BuGn_9)
+    Colorbar(f[1:18, 17], limits = (bm, bp), label = "Temperature error", colormap=:BuGn_9)
     resize_to_layout!(f)
     f = current_figure()
-    #Makie.save("./figures/paper_figures/mullins_opt_heatmap_actuator.png", f)
+    Makie.save("./figures/paper_figures/mullins_opt_heatmap_actuator.png", f)
 end
 
 
 f = Figure()
-fontsize_theme = Theme(fontsize = 20)
+fontsize_theme = Theme(fontsize = 30)
 set_theme!(fontsize_theme)
 ax = Axis(f[1,1], yscale = log10, xlabel = "Iteration", ylabel = L" J / J_0")
 

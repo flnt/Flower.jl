@@ -2,7 +2,7 @@ res
 " * Status: failure (line search failed)
 
  * Candidate solution
-    Final objective value:     3.904751e-01
+    Final objective value:     5.283716e-03
 
  * Found with
     Algorithm:     L-BFGS
@@ -10,13 +10,13 @@ res
  * Convergence measures
     |x - x'|               = 0.00e+00 ≤ 0.0e+00
     |x - x'|/|x'|          = 0.00e+00 ≤ 0.0e+00
-    |f(x) - f(x')|         = 1.07e-03 ≰ 0.0e+00
-    |f(x) - f(x')|/|f(x')| = 2.73e-03 ≰ 0.0e+00
-    |g(x)|                 = 1.56e-02 ≰ 1.0e-08
+    |f(x) - f(x')|         = 2.70e-03 ≰ 0.0e+00
+    |f(x) - f(x')|/|f(x')| = 5.11e-01 ≰ 0.0e+00
+    |g(x)|                 = 2.00e-04 ≰ 1.0e-08
 
  * Work counters
-    Seconds run:   136  (vs limit Inf)
-    Iterations:    6
-    f(x) calls:    33
-    ∇f(x) calls:   6
+    Seconds run:   725  (vs limit Inf)
+    Iterations:    10
+    f(x) calls:    54
+    ∇f(x) calls:   10
 "

@@ -5,7 +5,7 @@ num = Numerical(T_inf = -0.6,
     case = "3Crystals",
     θd = 0.,
     ϵ_κ = 0.0005,
-    ϵ_V = 0.0000,
+    ϵ_V = 0.002,
     L0 = 4.,
     n = 100,
     CFL = 0.5,
@@ -24,26 +24,25 @@ idx = set_indices(num.n)
 tmp, fwd = init_fields(num, idx)
 
 @. model(t, p) =
-    p[1]*cos(0.5π*t) +
-    p[2]*cos(0.5π*t)^2 + p[3]*sin(0.5π*t)^2;
+    p[1]*cos(num.N*pi*t/8) + p[2]*cos(num.N*pi*t/8)^2 +
+    p[3]*cos(num.N*pi*t/8)^3 + p[4]*cos(num.N*pi*t/8)^4 +
+    p[5]*sin(num.N*pi*t/8) + p[6]*sin(num.N*pi*t/8)^2 +
+    p[7]*sin(num.N*pi*t/8)^3 + p[8]*sin(num.N*pi*t/8)^4 ;
 
 @. model2(t, p) = p[1]*(cos(num.N*pi*t/8) - 0.5) + p[2]*(cos(num.N*pi*t/8) - 0.5);
 
-@. model_desired(t, p) = p[1]*(cos(num.N*pi*t/8) - 0.5);
+@. model_desired(t, p) = p[1]*((1 + cos(num.N*pi*t/8))/2)^4
 
-@. gradient(field, opt, x) = -(opt.γ[3]*x + field[opt.bc_indices])
+@. gradient(field, opt, x) = (opt.γ[3]*x - field[opt.bc_indices])
 
 nprobes = num.n
 step = num.n÷(nprobes)
 ind = [i*step for i in 1:nprobes]
-x_desired = model_desired(num.H[ind], [-1.5])
+x_desired = model_desired(num.H[ind], [10., 0.])
 p = 0*ones(8)
-x_initial = model_desired(num.H[ind], [0.5])
+x_initial = model_desired(num.H[ind], [0., 0.])
 
 opt = Optim_parameters(nprobes, ind, idx.b_top[1][ind], [1.0, 1.0, 1e-4, 1.0, 1.0], [p], [zeros(num.n,num.n)], [zeros(num.n,num.n)], [zeros(num.max_iterations+1, num.n,num.n)])
-
-global x_c = 0.2
-global y_c = 0.2
 
 initial_levelset = fwd.u
 initial_temperature = fwd.TL
@@ -119,8 +118,8 @@ function gradient_based_optimization2(x_desired, x_initial, opt, num, idx, des, 
     return res
 end
 
-res = gradient_based_optimization2(x_desired, x_initial, opt, num, idx, des, initial_levelset, initial_temperature, model2,
-    opt_iter = 5,
+res = gradient_based_optimization2(x_desired, x_initial, opt, num, idx, des, initial_levelset, initial_temperature, model_desired,
+    opt_iter = 20,
     method_opt = LBFGS(linesearch = Optim.LineSearches.BackTracking()))
 
 store = zeros(length(res.trace), 2)
@@ -129,40 +128,57 @@ for i in axes(store,1)
     store[i, 2] = res.trace[i].value
 end
 
+df = DataFrame(iteration = [res.trace[i].iteration for i in 1:length(res.trace)],
+    value = [res.trace[i].value for i in 1:length(res.trace)],
+    g_norm = [res.trace[i].g_norm for i in 1:length(res.trace)],
+    p = opt.p[2:end]);
+CSV.write("examples_optimization/data/opt_crystal.csv", df);
+df2 = DataFrame(res = res);
+CSV.write("examples_optimization/data/res_crystal.csv", df2);
 
-step = num.max_iterations÷10
-Iterations = [2, 3, 4, 5]
-bp = findmax(des.TL - opt.TLsave[Iterations[1]])[1]
-bm = findmin(des.TL - opt.TLsave[Iterations[1]])[1]
-f = Figure(resolution = (4000, 4000))
-fontsize_theme = Theme(fontsize = 80)
-set_theme!(fontsize_theme)
 
-for i in 1:4
-    j = i
-    ix = 1
-    if i > 2
-        ix = 2
-        j = i-2
+let c = 0
+    f = Figure(resolution = (4000, 4000))
+    step = num.max_iterations÷10
+    Iterations = [2, 17, 19, 22]
+    bp = maximum(abs.(des.TL - opt.TLsave[2]))
+    bm = minimum(abs.(des.TL - opt.TLsave[2]))
+    x = [1:9, 10:18]; y = [1:8, 9:16]; x_s = [2:9, 11:18];
+    fontsize_theme = Theme(fontsize = 80)
+    set_theme!(fontsize_theme)
+    for i in axes(x,1)
+        for j in axes(y,1)
+            c += 1
+            ax = Axis(f[x_s[i], y[j]])
+            hidedecorations!(ax)
+            hidespines!(ax)
+            heatmap!(f[x_s[i], y[j]], abs.(des.TL[1:end-1,1:end-1] - opt.TLsave[Iterations[c]][1:end-1,1:end-1])', colormap=:BuGn_9, colorrange = (bm, bp))
+            for ii in 1:step:num.max_iterations
+                contour!(f[x_s[i], y[j]], opt.usave[Iterations[c]][ii,:,:]', levels = 0:0, color=:black, linewidth = 5);
+            end
+            contour!(f[x_s[i], y[j]], des.usave[end,:,:]', levels = 0:0, color=(:blue, 0.7), linewidth = 7);
+            contour!(f[x_s[i], y[j]], opt.usave[Iterations[c]][end,:,:]', levels = 0:0, color=:red, linewidth = 7);
+            ax2 = Axis(f[x[i][1], y[j]], ylabel = "u", title = @sprintf "Iteration %d" Iterations[c] - 2)
+            hidedecorations!(ax2)
+            hidespines!(ax2)
+            #xlims!(-1, 1)
+            ylims!(-1, 15)
+            lines!(f[x[i][1], y[j]], num.H, model_desired(num.H, opt.p[Iterations[c]]), linewidth = 7, color=:red)
+            lines!(f[x[i][1], y[j]], num.H, x_desired, linewidth = 7, color=(:blue, 0.7))
+            hlines!(ax2, [0], color = :black, linestyle =:dash, linewidth = 3)
+            Box(f[x[i], y[j]], color = :white, strokewidth = 5)
+            Box(f[x[i][1], y[j]], color = :white, strokewidth = 5)
+        end
     end
-    ax = Axis(f[ix, j], title = @sprintf "Iteration %d" Iterations[i])#$(N_array[i])
-    colsize!(f.layout, j, Aspect(1, 1.0))
-    hidedecorations!(ax)
-    #heatmap!(f[ix, j], (des.TL - opt.TLsave[Iterations[i]])', colorrange = (bm, bp))
-    for ii in 1:step:num.max_iterations
-        contour!(f[ix, j], opt.usave[Iterations[i]][ii,:,:]', levels = 0:0, color=:black, linewidth = 5);
-    end
-    contour!(f[ix, j], des.usave[end,:,:]', levels = 0:0, color=(:red, 0.7), linewidth = 7);
-    contour!(f[ix, j], opt.usave[Iterations[i]][end,:,:]', levels = 0:0, color=:blue, linewidth = 7);
+    Colorbar(f[1:18, 17], limits = (bm, bp), label = "Temperature error", colormap=:BuGn_9)
+    resize_to_layout!(f)
+    f = current_figure()
+    Makie.save("./figures/paper_figures/crystal_opt_heatmap_actuator.png", f)
 end
-#Colorbar(f[1:2, 3], limits = (bm, bp), label = "Error")
-f = current_figure()
-
-#Makie.save("./figures/paper_figures/crystal_opt_noheatmap.png", f)
 
 
 f = Figure()
-fontsize_theme = Theme(fontsize = 20)
+fontsize_theme = Theme(fontsize = 30)
 set_theme!(fontsize_theme)
 ax = Axis(f[1,1], yscale = log10, xlabel = "Iteration", ylabel = L" J / J_0")
 
@@ -171,4 +187,4 @@ scatter!(f[1,1], store[:,1], store[:,2]./store[1,2], markersize = 10, color =:bl
 
 f = current_figure()
 
-#Makie.save("./figures/paper_figures/crystal_opt_cost.png", f)
+Makie.save("./figures/paper_figures/crystal_opt_cost.png", f)
