@@ -35,7 +35,7 @@ function run_koenig(num, idx, tmp, fwd, s_l, u_x, u_y;
         Vy = u_y(t)
 
         V = zeros(n,n)
-        V[MIXED] = s_l(t, MIXED)
+        V[MIXED] = s_l(t, MIXED) # MIXED is the array of indices at the interface
         velocity_extension!(V, u, vcat(SOLID,LIQUID), n, Δ, NB, BC_u)
 
         level_update_koenig!(LSA, LSB, u, V, Vx, Vy, inside, CFL, Δ, n)
@@ -54,9 +54,10 @@ end
 # Numerical setup
 num = Numerical(
     L0 = 2., # Box size
-    n = 64, # Points per dimension
+    n = 64, # Points per dimension 32, 64, 128, 256
     TEND = 0.5, # Final time
-    R = 0.2 # Initial radius
+    R = 0.2, # Initial radius
+    # max_iterations = 1 # Uncomment this to see the initial shape
     )
 
 # Initialize indices and fields
@@ -71,8 +72,8 @@ tmp, fwd = init_fields(num, idx)
 
 # Define time and space dependent velocities
 @. s_l(t, ind) = 1*cos(6π*t/num.TEND)*(num.Y[ind] + num.L0/2) # The normal component is only defined in interfacial (ind) cells
-@. u_x(t) = 3*cos(4π*t/num.TEND)*(num.Y + num.L0/2) # The x-component of the velocity is defined everywhere
-@. u_y(t) = 1*cos(4π*t/num.TEND)*(num.Y + num.L0/2) # The y-component of the velocity is defined everywhere
+@. u_x(t) = 1*cos(4π*t/num.TEND)*(num.Y + num.L0/2) # The x-component of the velocity is defined everywhere
+@. u_y(t) = 3*cos(4π*t/num.TEND)*(num.Y + num.L0/2) # The y-component of the velocity is defined everywhere
 
 # Run the simulation
 @time Vsave, Vxsave, Vysave = run_koenig(num, idx, tmp, fwd, s_l, u_x, u_y);
@@ -80,28 +81,28 @@ tmp, fwd = init_fields(num, idx)
 
 # Uncomment for movie
 
-Vsave .= replace!(Vsave, 0 => NaN);
-
-TIME = Makie.Observable(1)
-
-u = @lift(fwd.usave[$TIME+1,:,:]')
-V = @lift(Vsave[$TIME+1,:,:]')
-Vx = @lift(Vxsave[$TIME+1,:,:]')
-Vy = @lift(Vysave[$TIME+1,:,:]')
-
-fontsize_theme = Theme(fontsize = 15)
-
-# fig = heatmap(num.H, num.H, V)
-# contour!(num.H, num.H, u, levels = 0:0, color=:black, linewidth = 2);
-fig = contour(num.H, num.H, u, levels = 0:0, color=:black, linewidth = 2);
-
-framerate = 24
-TIMEstamps = range(1, num.max_iterations, step=5)
-
-record(fig, "test_koenig.mp4", TIMEstamps;
-        framerate = framerate) do t
-    TIME[] = t
-end
+# Vsave .= replace!(Vsave, 0 => NaN);
+#
+# TIME = Makie.Observable(1)
+#
+# u = @lift(fwd.usave[$TIME+1,:,:]')
+# V = @lift(Vsave[$TIME+1,:,:]')
+# Vx = @lift(Vxsave[$TIME+1,:,:]')
+# Vy = @lift(Vysave[$TIME+1,:,:]')
+#
+# fontsize_theme = Theme(fontsize = 15)
+#
+# # fig = heatmap(num.H, num.H, V)
+# # contour!(num.H, num.H, u, levels = 0:0, color=:black, linewidth = 2);
+# fig = contour(num.H, num.H, u, levels = 0:0, color=:black, linewidth = 2);
+#
+# framerate = 24
+# TIMEstamps = range(1, num.max_iterations, step=5)
+#
+# record(fig, "test_koenig.mp4", TIMEstamps;
+#         framerate = framerate) do t
+#     TIME[] = t
+# end
 
 
 # Uncomment for plot
@@ -114,7 +115,7 @@ end
 # resize_to_layout!(f)
 # hidedecorations!(ax)
 #
-# step = num.max_iterations÷10
+# step = num.max_iterations÷20
 #
 # f = contour!(num.H, num.H, fwd.usave[1,:,:]', levels = 0:0, color=:red, linewidth = 3);
 #
