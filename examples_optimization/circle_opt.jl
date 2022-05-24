@@ -39,13 +39,13 @@ for i in axes(store,1)
     store[i, 2] = res.trace[i].value
 end
 
-df = DataFrame(iteration = [res.trace[i].iteration for i in 1:length(res.trace)],
-    value = [res.trace[i].value for i in 1:length(res.trace)],
-    g_norm = [res.trace[i].g_norm for i in 1:length(res.trace)],
-    p = opt.p[2:end]);
-CSV.write("examples_optimization/data/opt_circle.csv", df);
-df2 = DataFrame(res = res);
-CSV.write("examples_optimization/data/res_circle.csv", df2);
+# df = DataFrame(iteration = [res.trace[i].iteration for i in 1:length(res.trace)],
+#     value = [res.trace[i].value for i in 1:length(res.trace)],
+#     g_norm = [res.trace[i].g_norm for i in 1:length(res.trace)],
+#     p = opt.p[2:end]);
+# CSV.write("examples_optimization/data/opt_circle.csv", df);
+# df2 = DataFrame(res = res);
+# CSV.write("examples_optimization/data/res_circle.csv", df2);
 
 
 let c = 0
@@ -81,10 +81,10 @@ let c = 0
             Box(f[x[i][1], y[j]], color = :white, strokewidth = 5)
         end
     end
-    Colorbar(f[1:18, 17], limits = (bm, bp), label = "Temperature error", colormap=:BuGn_9)
-    resize_to_layout!(f)
+    Colorbar(f[1:18, 17], limits = (bm-0.05, bp), label = "Temperature error", colormap=:BuGn_9)
+    # resize_to_layout!(f)
     f = current_figure()
-    Makie.save("./figures/paper_figures/circle_opt_heatmap_actuator.png", f)
+    Makie.save("./figures/paper_figures/circle_opt_heatmap_actuator_new.png", f)
 end
 
 
@@ -98,4 +98,4 @@ scatter!(f[1,1], store[:,1], store[:,2]./store[1,2], markersize = 10, color =:bl
 
 f = current_figure()
 
-Makie.save("./figures/paper_figures/circle_opt_cost.png", f)
+# Makie.save("./figures/paper_figures/circle_opt_cost.png", f)

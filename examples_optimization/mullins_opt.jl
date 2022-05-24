@@ -33,7 +33,7 @@ x_desired = model_desired(num.H[ind], [0.0, 3.0])
 p = 0*ones(8)
 x_initial = model_desired(num.H[ind], [0.0, 0.0])
 
-opt = Optim_parameters(nprobes, ind, idx.b_top[1][ind], [1.0, 1.0, 1e-2, 1.0, 1.0], [p], [zeros(num.n,num.n)], [zeros(num.n,num.n)], [zeros(num.max_iterations+1, num.n,num.n)])
+opt = Optim_parameters(nprobes, ind, idx.b_top[1][ind], [1.0, 1.0, 1e-3, 1.0, 1.0], [p], [zeros(num.n,num.n)], [zeros(num.n,num.n)], [zeros(num.max_iterations+1, num.n,num.n)])
 
 initial_levelset = fwd.u
 initial_temperature = fwd.TL
@@ -115,20 +115,20 @@ for i in axes(store,1)
 end
 
 
-df = DataFrame(iteration = [res.trace[i].iteration for i in 1:length(res.trace)],
-    value = [res.trace[i].value for i in 1:length(res.trace)],
-    g_norm = [res.trace[i].g_norm for i in 1:length(res.trace)],
-    p = opt.p[2:end]);
-CSV.write("examples_optimization/data/opt_mullins.csv", df);
-df2 = DataFrame(res = res);
-CSV.write("examples_optimization/data/res_mullins.csv", df2);
+# df = DataFrame(iteration = [res.trace[i].iteration for i in 1:length(res.trace)],
+#     value = [res.trace[i].value for i in 1:length(res.trace)],
+#     g_norm = [res.trace[i].g_norm for i in 1:length(res.trace)],
+#     p = opt.p[2:end]);
+# CSV.write("examples_optimization/data/opt_mullins.csv", df);
+# df2 = DataFrame(res = res);
+# CSV.write("examples_optimization/data/res_mullins.csv", df2);
 
-#dfi = DataFrame(CSV.File("examples_optimization/data/res_mullins"));
+# dfi = DataFrame(CSV.File("examples_optimization/data/res_mullins"));
 
 let c = 0
     f = Figure(resolution = (4000, 4000))
     step = num.max_iterations÷10
-    Iterations = [2, 4, 6, 11]
+    Iterations = [2, 4, 5, 11]
     bp = maximum(abs.(des.TL - opt.TLsave[2]))
     bm = minimum(abs.(des.TL - opt.TLsave[2]))
     x = [1:9, 10:18]; y = [1:8, 9:16]; x_s = [2:9, 11:18];
@@ -150,7 +150,7 @@ let c = 0
             hidedecorations!(ax2)
             hidespines!(ax2)
             #xlims!(-1, 1)
-            ylims!(-1, 4)
+            ylims!(-1, 5)
             lines!(f[x[i][1], y[j]], num.H, model(num.H, opt.p[Iterations[c]]), linewidth = 7, color=:red)
             lines!(f[x[i][1], y[j]], num.H, x_desired, linewidth = 7, color=(:blue, 0.7))
             hlines!(ax2, [0], color = :black, linestyle =:dash, linewidth = 3)
@@ -158,10 +158,10 @@ let c = 0
             Box(f[x[i][1], y[j]], color = :white, strokewidth = 5)
         end
     end
-    Colorbar(f[1:18, 17], limits = (bm, bp), label = "Temperature error", colormap=:BuGn_9)
+    Colorbar(f[1:18, 17], limits = (bm-0.03, bp), label = "Temperature error", colormap=:BuGn_9, ticks = -0:1:2)
     resize_to_layout!(f)
     f = current_figure()
-    Makie.save("./figures/paper_figures/mullins_opt_heatmap_actuator.png", f)
+    Makie.save("./figures/paper_figures/mullins_opt_heatmap_actuator_new.png", f)
 end
 
 
@@ -175,4 +175,4 @@ scatter!(f[1,1], store[:,1], store[:,2]./store[1,2], markersize = 10, color =:bl
 
 f = current_figure()
 
-#Makie.save("./figures/paper_figures/mullins_opt_cost.png", f)
+# Makie.save("./figures/paper_figures/mullins_opt_cost_new.png", f)
