@@ -259,3 +259,48 @@ function export_all()
         end
     end
 end
+
+function mat_op!(mat1, mat2, op)
+    rows = rowvals(mat2)
+    vals = nonzeros(mat2)
+    m, n = size(mat2)
+    @inbounds @threads for j = 1:n
+        for i in nzrange(mat2, j)
+            @inbounds row = rows[i]
+            @inbounds val = vals[i]
+            @inbounds mat1[row,j] = op(val)
+        end
+    end
+
+    return nothing
+end
+
+function mat_T_op!(mat1, mat2, op)
+    rows = rowvals(mat2)
+    vals = nonzeros(mat2)
+    m, n = size(mat2)
+    @inbounds @threads for j = 1:n
+        for i in nzrange(mat2, j)
+            @inbounds row = rows[i]
+            @inbounds val = vals[i]
+            @inbounds mat1[j,row] = op(val)
+        end
+    end
+
+    return nothing
+end
+
+function mat_op(mat1, mat2, op)
+    rows = rowvals(mat2)
+    vals = nonzeros(mat2)
+    m, n = size(mat2)
+    @inbounds @threads for j = 1:n
+        for i in nzrange(mat2, j)
+            @inbounds row = rows[i]
+            @inbounds val = vals[i]
+            @inbounds mat1[row,j] = op(val)
+        end
+    end
+
+    return mat1
+end

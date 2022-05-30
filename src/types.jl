@@ -16,6 +16,7 @@ abstract type AbstractOptimizer end
     τ::Float64 = min(CFL*Δ^2*Re, CFL*Δ)
     max_iterations::Int = TEND÷τ
     current_i::Int = 1
+    save_every::Int = 1
     reinit_every::Int = 1
     nb_reinit::Int = n÷8
     ϵ::Float64 = 0.00
@@ -36,7 +37,7 @@ abstract type AbstractOptimizer end
     ϵ_κ::Float64 = 0.0
     ϵ_V::Float64 = 0.0
     case::String = "notmycase"
-    cases::String = "Planar, Sphere, Crystal, Mullins, Nothing"
+    cases::String = "Planar, Sphere, Cylinder, Crystal, Mullins, Nothing"
     A::Float64 = 0.05
     N::Int64 = 2
     R::Float64 = 0.5
@@ -92,6 +93,16 @@ mutable struct TempArrays{T <: Float64} <: MutatingFields
     SCUTDy::Array{T,1}
     LCUTDx::Array{T,1}
     LCUTDy::Array{T,1}
+    SCUTCT::Array{T,1}
+    LCUTCT::Array{T,1}
+    SCUTGxT::Array{T,1}
+    LCUTGxT::Array{T,1}
+    SCUTGyT::Array{T,1}
+    LCUTGyT::Array{T,1}
+    SCUTCu::Array{T,1}
+    LCUTCu::Array{T,1}
+    SCUTCv::Array{T,1}
+    LCUTCv::Array{T,1}
     SOL::Array{T,3}
     LIQ::Array{T,3}
     SOLu::Array{T,3}
@@ -113,6 +124,9 @@ mutable struct TempArrays{T <: Float64} <: MutatingFields
     sol_centroidv::Array{Point{T},2}
     liq_centroidv::Array{Point{T},2}
     mid_pointv::Array{Point{T},2}
+    α::Array{T,2}
+    αu::Array{T,2}
+    αv::Array{T,2}
     LTS::SparseMatrixCSC{T, Int64}
     LTL::SparseMatrixCSC{T, Int64}
     LpS::SparseMatrixCSC{T, Int64}
@@ -141,6 +155,20 @@ mutable struct TempArrays{T <: Float64} <: MutatingFields
     AuL::SparseMatrixCSC{T, Int64}
     AvS::SparseMatrixCSC{T, Int64}
     AvL::SparseMatrixCSC{T, Int64}
+    CTS::SparseMatrixCSC{T, Int64}
+    CTL::SparseMatrixCSC{T, Int64}
+    GxTS::SparseMatrixCSC{T, Int64}
+    GxTL::SparseMatrixCSC{T, Int64}
+    GyTS::SparseMatrixCSC{T, Int64}
+    GyTL::SparseMatrixCSC{T, Int64}
+    ftcGxTS::SparseMatrixCSC{T, Int64}
+    ftcGxTL::SparseMatrixCSC{T, Int64}
+    ftcGyTS::SparseMatrixCSC{T, Int64}
+    ftcGyTL::SparseMatrixCSC{T, Int64}
+    CuS::SparseMatrixCSC{T, Int64}
+    CuL::SparseMatrixCSC{T, Int64}
+    CvS::SparseMatrixCSC{T, Int64}
+    CvL::SparseMatrixCSC{T, Int64}
 end
 
 mutable struct Forward{T <: Float64} <: MutatingFields
@@ -154,6 +182,8 @@ mutable struct Forward{T <: Float64} <: MutatingFields
     TL::Array{T,2}
     pS::Array{T,2}
     pL::Array{T,2}
+    ϕS::Array{T,2}
+    ϕL::Array{T,2}
     uS::Array{T,2}
     uL::Array{T,2}
     vS::Array{T,2}
@@ -162,10 +192,14 @@ mutable struct Forward{T <: Float64} <: MutatingFields
     DTS::Array{T,2}
     DTL::Array{T,2}
     V::Array{T,2}
+    Vu::Array{T,2}
+    Vv::Array{T,2}
     κ::Array{T, 2}
     κu::Array{T, 2}
     κv::Array{T, 2}
     usave::Array{T,3}
+    uusave::Array{T,3}
+    uvsave::Array{T,3}
     TSsave::Array{T,3}
     TLsave::Array{T,3}
     Tsave::Array{T,3}

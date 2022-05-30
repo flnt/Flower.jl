@@ -26,9 +26,10 @@ BC_TL = Boundaries(top = Boundary(t = dir, f = dirichlet, val = 1.0)),
 stefan = true,
 advection = true,
 heat = true,
-solid_phase = false,
-liquid_phase = true,
-verbose = false
+heat_solid_phase = false,
+heat_liquid_phase = true,
+verbose = true,
+show_every = 1
 )
 
 f = heatmap!(num.H, num.H, (fwd.TL+fwd.TS)', colormap= Reverse(:ice))

@@ -31,6 +31,8 @@ import Base.abs
 @reexport using PETSc
 @reexport using LsqFit
 @reexport using Polynomials
+@reexport using ImageFiltering
+@reexport using JLD
 
 include("types.jl")
 include("init.jl")
@@ -44,6 +46,7 @@ include("solver.jl")
 include("run.jl")
 include("optimize.jl")
 include("viz.jl")
+include("tools.jl")
 
 export_all()
 

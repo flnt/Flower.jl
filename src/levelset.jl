@@ -93,6 +93,16 @@ function grad_IIOE(a, gx, gy,
     return F
 end
 
+function advection(a, gx, gy,
+    U::SArray{Tuple{4},Float64,1,4},
+    h::Float64, p::Int64, n::Int64)
+    F = SA_F64[gx[p],
+    gy[p],
+    -gx[p],
+    -gy[p]] .* h
+    return F
+end
+
 function inflow_outflow(F::SArray{Tuple{4},Float64,1,4})
     a_in = @SVector[max(0,F[1]),
     max(0,F[2]),
@@ -135,13 +145,35 @@ function level_update_IIOE!(A, B, u, Vx, Vy, inside, CFL, h, n)
     @inbounds @threads for II in inside
         p = lexicographic(II, n)
         U = diamond(u, p, n)
-        F = grad_IIOE(u, Vx, Vy, U, h, p, n)
+        F = advection(u, Vx, Vy, U, h, p, n)
         a_in, a_ou = inflow_outflow(F)
         S = sumloc(a_in, a_ou)
         A[p,p], B[p,p] = fill_matrices2!(a_in, a_ou, S, A, B, p, n, CFL)
     end
 end
 
+function level_update_koenig!(A, B, u, V, Vx, Vy, inside, CFL, h, n)
+    @inbounds @threads for II in inside
+        p = lexicographic(II, n)
+        U = diamond(u, p, n)
+        F = grad(u, V, U, h, p, n)
+        a_in, a_ou = inflow_outflow(F)
+        S = sumloc(a_in, a_ou)
+        if S[1] < -S[2]
+            D = quadratic_recons(u, U, p, n)
+            D_ = quadratic_recons(D)
+            F = 2*grad(u, V, U, D, D_[1], h, p, n)
+            a_in, a_ou = inflow_outflow(F)
+            S = sumloc(a_in, a_ou)
+        end
+        F2 = advection(u, Vx, Vy, U, h, p, n)
+        a_in2, a_ou2 = inflow_outflow(F2)
+        a_in_tot = a_in + a_in2
+        a_ou_tot = a_ou + a_ou2
+        S = sumloc(a_in_tot, a_ou_tot)
+        A[p,p], B[p,p] = fill_matrices2!(a_in_tot, a_ou_tot, S, A, B, p, n, CFL)
+    end
+end
 
 @inline function fill_matrices2!(a_in::SArray{Tuple{4},Float64,1,4}, a_ou::SArray{Tuple{4},Float64,1,4},
     S, A, B, p, n, CFL)
@@ -212,7 +244,7 @@ function FE_reinit(u, h, n, nb_reinit, BC_u, idx)
 
             tmp[II] = u[II] - cfl * h_ * sign_u0 * (gdv - 1.0)
         end
-        u .= tmp
+        u[inside] .= tmp[inside]
         @sync begin
             @spawn bcs!(u, BC_u.left, h)
             @spawn bcs!(u, BC_u.right, h)
@@ -220,41 +252,6 @@ function FE_reinit(u, h, n, nb_reinit, BC_u, idx)
             @spawn bcs!(u, BC_u.top, h)
         end
     end
-end
-
-function hamiltonian(u, inside, h, n, BC_u)
-    ham = similar(u)
-    f, a, b, c = (Dxx, Dxx, Dyy, Dyy), (1, 2, 3, 4), (-1, 1, -1, 1), (2, 2, 1, 1)
-    @inbounds @threads for II in inside
-        h_ = h
-        sign_u = sign(u[II])
-        shift = central_differences(u, II, h, n)
-        eno = finite_difference_eno(u, II, shift, h)
-        if is_near_interface(u, II)
-            eno_interface = convert(Vector{Float64}, eno)
-            h_ = 1e30
-            for (JJ, i, j) in zip((δx⁺(II), δx⁻(II), δy⁺(II), δy⁻(II)), a, c)
-                if u[II]*u[JJ] < 0
-                    uxx = minmod(f[i](u, II), ifelse(in_bounds(JJ[j], n), f[i](u, JJ), 0.))
-                    D = (uxx/2 - u[II] - u[JJ])^2 - 4*u[II]*u[JJ]
-                    Δx = root_extraction(u, uxx, D, II, JJ, h, 1e-10)
-                    if Δx < h_ h_ = Δx end
-                    eno_interface[i] = b[i]*(u[II]/Δx + (Δx/2) * shift[i])
-                end
-            end
-            gdv = Godunov(sign_u, eno_interface)
-        else
-            gdv = Godunov(sign_u, eno)
-        end
-        ham[II] = gdv
-    end
-    @sync begin
-        @spawn bcs!(u, BC_u.left, h)
-        @spawn bcs!(u, BC_u.right, h)
-        @spawn bcs!(u, BC_u.bottom, h)
-        @spawn bcs!(u, BC_u.top, h)
-    end
-    return ham
 end
 
 function velocity_extension!(V, u, inside, n, h, NB, BC_u)
@@ -305,110 +302,110 @@ function velocity_extension2!(V, u, inside, MIXED, n, h, NB, B, BT, pos)
     return tmp1, tmp2
 end
 
-@inline faces_LS(itp) = [biquadratic(itp, -0.5, 0.0),
+@inline faces_scalar(itp) = [biquadratic(itp, -0.5, 0.0),
                                 biquadratic(itp, 0.0, -0.5),
                                 biquadratic(itp, 0.5, 0.0),
                                 biquadratic(itp, 0.0, 0.5)]
 
-@inline faces_LS_left(itp) = [biquadratic(itp, -1.5, 0.0),
+@inline faces_scalar_left(itp) = [biquadratic(itp, -1.5, 0.0),
                                 biquadratic(itp, -1.0, -0.5),
                                 biquadratic(itp, -0.5, 0.0),
                                 biquadratic(itp, -1.0, 0.5)]
 
-@inline faces_LS_left_bottom(itp) = [biquadratic(itp, -1.5, -1.0),
+@inline faces_scalar_left_bottom(itp) = [biquadratic(itp, -1.5, -1.0),
                                 biquadratic(itp, -1.0, -1.5),
                                 biquadratic(itp, -0.5, -1.0),
                                 biquadratic(itp, -1.0, -0.5)]
 
-@inline faces_LS_left_top(itp) = [biquadratic(itp, -1.5, 1.0),
+@inline faces_scalar_left_top(itp) = [biquadratic(itp, -1.5, 1.0),
                                 biquadratic(itp, -1.0, 0.5),
                                 biquadratic(itp, -0.5, .0),
                                 biquadratic(itp, -1.0, 1.5)]
 
-@inline faces_LS_bottom(itp) = [biquadratic(itp, -0.5, -1.0),
+@inline faces_scalar_bottom(itp) = [biquadratic(itp, -0.5, -1.0),
                                 biquadratic(itp, 0.0, -1.5),
                                 biquadratic(itp, 0.5, -1.0),
                                 biquadratic(itp, 0.0, -0.5)]
 
-@inline faces_LS_right(itp) = [biquadratic(itp, 0.5, 0.0),
+@inline faces_scalar_right(itp) = [biquadratic(itp, 0.5, 0.0),
                                 biquadratic(itp, 1.0, -0.5),
                                 biquadratic(itp, 1.5, 0.0),
                                 biquadratic(itp, 1.0, 0.5)]
 
-@inline faces_LS_right_bottom(itp) = [biquadratic(itp, 0.5, -1.0),
+@inline faces_scalar_right_bottom(itp) = [biquadratic(itp, 0.5, -1.0),
                                 biquadratic(itp, 1.0, -1.5),
                                 biquadratic(itp, 1.5, -1.0),
                                 biquadratic(itp, 1.0, -0.5)]
 
-@inline faces_LS_right_top(itp) = [biquadratic(itp, 0.5, 1.0),
+@inline faces_scalar_right_top(itp) = [biquadratic(itp, 0.5, 1.0),
                                 biquadratic(itp, 1.0, 0.5),
                                 biquadratic(itp, 1.5, 1.0),
                                 biquadratic(itp, 1.0, 1.5)]
 
-@inline faces_LS_top(itp) = [biquadratic(itp, -0.5, 1.0),
+@inline faces_scalar_top(itp) = [biquadratic(itp, -0.5, 1.0),
                                 biquadratic(itp, 0.0, 0.5),
                                 biquadratic(itp, 0.5, 1.0),
                                 biquadratic(itp, 0.0, 1.5)]
 
-function interpolate_LS!(u, uu, uv, B, BT, n, inside, b_left, b_bottom, b_right, b_top)
+function interpolate_scalar!(u, uu, uv, B, BT, n, inside, b_left, b_bottom, b_right, b_top)
     u_faces = zeros(n,n,4)
 
     @inbounds @threads for II in inside
         st = static_stencil(u, II)
         itp = B*st*BT
-        faces = faces_LS(itp)
+        faces = faces_scalar(itp)
         @inbounds u_faces[II,:] .= faces
     end
 
-    @inbounds @threads for II in b_left[2:end-1]
+    @inbounds for II in b_left[2:end-1]
         st = static_stencil(u, δx⁺(II))
         itp = B*st*BT
-        faces = faces_LS_left(itp)
+        faces = faces_scalar_left(itp)
         @inbounds u_faces[II,:] .= faces
     end
 
     II = b_left[1]
     st = static_stencil(u, δy⁺(δx⁺(II)))
     itp = B*st*BT
-    faces = faces_LS_left_bottom(itp)
+    faces = faces_scalar_left_bottom(itp)
     @inbounds u_faces[II,:] .= faces
 
     II = b_left[end]
     st = static_stencil(u, δy⁻(δx⁺(II)))
     itp = B*st*BT
-    faces = faces_LS_left_top(itp)
+    faces = faces_scalar_left_top(itp)
     @inbounds u_faces[II,:] .= faces
 
-    @inbounds @threads for II in b_bottom[2:end-1]
+    @inbounds for II in b_bottom[2:end-1]
         st = static_stencil(u, δy⁺(II))
         itp = B*st*BT
-        faces = faces_LS_bottom(itp)
+        faces = faces_scalar_bottom(itp)
         @inbounds u_faces[II,:] .= faces
     end
 
-    @inbounds @threads for II in b_right[2:end-1]
+    @inbounds for II in b_right[2:end-1]
         st = static_stencil(u, δx⁻(II))
         itp = B*st*BT
-        faces = faces_LS_right(itp)
+        faces = faces_scalar_right(itp)
         @inbounds u_faces[II,:] .= faces
     end
 
     II = b_right[1]
     st = static_stencil(u, δy⁺(δx⁻(II)))
     itp = B*st*BT
-    faces = faces_LS_right_bottom(itp)
+    faces = faces_scalar_right_bottom(itp)
     @inbounds u_faces[II,:] .= faces
 
     II = b_right[end]
     st = static_stencil(u, δy⁻(δx⁻(II)))
     itp = B*st*BT
-    faces = faces_LS_right_top(itp)
+    faces = faces_scalar_right_top(itp)
     @inbounds u_faces[II,:] .= faces
 
-    @inbounds @threads for II in b_top[2:end-1]
+    @inbounds for II in b_top[2:end-1]
         st = static_stencil(u, δy⁻(II))
         itp = B*st*BT
-        faces = faces_LS_top(itp)
+        faces = faces_scalar_top(itp)
         @inbounds u_faces[II,:] .= faces
     end
 
@@ -418,8 +415,10 @@ function interpolate_LS!(u, uu, uv, B, BT, n, inside, b_left, b_bottom, b_right,
     @inbounds uv[1,:] .= u_faces[1,:,2]
     @inbounds uv[end,:] .= u_faces[end,:,4]
 
-    @inbounds uu[:,2:end-1] .= 0.5 * (u_faces[:,1:end-1,3] .+ u_faces[:,2:end,1])
-    @inbounds uv[2:end-1,:] .= 0.5 * (u_faces[1:end-1,:,4] .+ u_faces[2:end,:,2])
+    @inbounds @threads for i = 1:n
+        @inbounds uu[i,2:end-1] .= 0.5 * (u_faces[i,1:end-1,3] .+ u_faces[i,2:end,1])
+        @inbounds uv[2:end-1,i] .= 0.5 * (u_faces[1:end-1,i,4] .+ u_faces[2:end,i,2])
+    end
     
     return nothing
 end

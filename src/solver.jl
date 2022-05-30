@@ -1,4 +1,4 @@
-function init_ksp_solver(A, nullspace=false, ns_vec=nothing;
+function init_ksp_solver(A, n, nullspace=false, ns_vec=nothing;
                          ksp_monitor_true_residual = false,
                          ksp_converged_reason = false,
                          ksp_constant_null_space = false)
@@ -11,38 +11,68 @@ function init_ksp_solver(A, nullspace=false, ns_vec=nothing;
         ns = PETSc.MatNullSpace{Float64}(comm, PETSc.PETSC_FALSE, 1, [vecseq])
         PETSc.MatSetNullSpace!(mat, ns)
 
-        ksp = PETSc.KSP(mat;
-                        ksp_monitor_true_residual = ksp_monitor_true_residual,
-                        ksp_converged_reason = ksp_converged_reason,
-                        ksp_constant_null_space = ksp_constant_null_space,
-                        ksp_type = "cg",
-                        ksp_rtol = 1e-8,
-                        pc_type = "gamg",
-                        pc_gamg_agg_nsmooths = 1,
-                        pc_gamg_threshold = 0.02,
-                        mg_levels_ksp_type = "chebyshev",
-                        mg_levels_pc_type = "sor",
-                        mg_levels_ksp_max_it = 5,
-        )
+        if n <= 400
+            ksp = PETSc.KSP(mat;
+                            ksp_monitor_true_residual = ksp_monitor_true_residual,
+                            ksp_converged_reason = ksp_converged_reason,
+                            ksp_constant_null_space = ksp_constant_null_space,
+                            ksp_type = "preonly",
+                            ksp_rtol = 1e-8,
+                            pc_type = "lu",
+                            # ksp_type = "cg",
+                            # ksp_rtol = 1e-8,
+                            # pc_type = "gamg",
+                            # pc_gamg_agg_nsmooths = 1,
+                            # pc_gamg_threshold = 0.02,
+                            # mg_levels_ksp_type = "chebyshev",
+                            # mg_levels_ksp_max_it = 5,
+                            # mg_levels_pc_type = "sor",
+            )
+        else
+            ksp = PETSc.KSP(mat;
+                            ksp_monitor_true_residual = ksp_monitor_true_residual,
+                            ksp_converged_reason = ksp_converged_reason,
+                            ksp_constant_null_space = ksp_constant_null_space,
+                            ksp_type = "cg",
+                            ksp_rtol = 1e-8,
+                            pc_type = "gamg",
+                            pc_gamg_agg_nsmooths = 1,
+                            pc_gamg_threshold = 0.02,
+                            mg_levels_ksp_type = "chebyshev",
+                            mg_levels_ksp_max_it = 5,
+                            mg_levels_pc_type = "sor",
+            )
+        end
 
         PETSc.destroy(vecseq)
         PETSc.destroy(mat)
 
         return ksp, ns
     else
-        ksp = PETSc.KSP(mat;
-                        ksp_monitor_true_residual = ksp_monitor_true_residual,
-                        ksp_converged_reason = ksp_converged_reason,
-                        ksp_constant_null_space = ksp_constant_null_space,
-                        ksp_type = "cg",
-                        ksp_rtol = 1e-8,
-                        pc_type = "gamg",
-                        pc_gamg_agg_nsmooths = 1,
-                        pc_gamg_threshold = 0.02,
-                        mg_levels_ksp_type = "chebyshev",
-                        mg_levels_pc_type = "sor",
-                        mg_levels_ksp_max_it = 5,
-        )
+        if n <= 400
+            ksp = PETSc.KSP(mat;
+                            ksp_monitor_true_residual = ksp_monitor_true_residual,
+                            ksp_converged_reason = ksp_converged_reason,
+                            ksp_constant_null_space = ksp_constant_null_space,
+                            ksp_type = "preonly",
+                            ksp_rtol = 1e-8,
+                            pc_type = "lu",
+            )
+        else
+            ksp = PETSc.KSP(mat;
+                            ksp_monitor_true_residual = ksp_monitor_true_residual,
+                            ksp_converged_reason = ksp_converged_reason,
+                            ksp_constant_null_space = ksp_constant_null_space,
+                            ksp_type = "cg",
+                            ksp_rtol = 1e-8,
+                            pc_type = "gamg",
+                            pc_gamg_agg_nsmooths = 1,
+                            pc_gamg_threshold = 0.02,
+                            mg_levels_ksp_type = "chebyshev",
+                            mg_levels_ksp_max_it = 5,
+                            mg_levels_pc_type = "sor",
+            )
+        end
 
         PETSc.destroy(mat)
 

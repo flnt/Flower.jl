@@ -43,7 +43,7 @@ function set_indices(n)
 end
 
 function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::NumericalParameters, idxv::NumericalParameters)
-    @unpack N, T_inf, u_inf, v_inf, A, R, n, L0, Δ, shifted, X, Y, Xu, Yu, Xv, Yv, H, max_iterations, CFL = num
+    @unpack N, T_inf, u_inf, v_inf, A, R, n, L0, Δ, shifted, X, Y, Xu, Yu, Xv, Yv, H, max_iterations, save_every, CFL = num
 
     SCUTT = zeros(n^2)
     LCUTT = zeros(n^2)
@@ -61,6 +61,19 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
     SCUTDy = zeros(n^2)
     LCUTDx = zeros(n^2)
     LCUTDy = zeros(n^2)
+
+    SCUTCT = zeros(n^2)
+    LCUTCT = zeros(n^2)
+
+    SCUTGxT = zeros(n*(n+1))
+    LCUTGxT = zeros(n*(n+1))
+    SCUTGyT = zeros(n*(n+1))
+    LCUTGyT = zeros(n*(n+1))
+
+    SCUTCu = zeros(n*(n+1))
+    LCUTCu = zeros(n*(n+1))
+    SCUTCv = zeros(n*(n+1))
+    LCUTCv = zeros(n*(n+1))
 
     SOL = zeros(n,n,11)
     LIQ = ones(n,n,11)
@@ -111,6 +124,15 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
         mid_pointv[II] = Point(0.0, 0.0)
     end
 
+    α = zeros(n,n)
+    α .= NaN
+
+    αu = zeros(n,n+1)
+    αu.= NaN
+
+    αv = zeros(n+1,n)
+    αv .= NaN
+
     ii = collect(i for i = 1:n^2)
     iw = collect(i for i = n+1:n^2)
     is = collect(i for i = 2:n^2)
@@ -136,6 +158,7 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
     JJ = vcat(jj,jw,js,jn,je,jwp,jsp,jnp,jep)
 
     a = ones(length(jj))
+    _a = zeros(length(jj))
     b = zeros(length(jw)+length(js)+length(jn)+length(je))
     c = zeros(length(jwp)+length(jsp)+length(jnp)+length(jep))
 
@@ -149,6 +172,8 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
     BL = sparse(II,JJ,vcat(a,b,c))
     ApS = sparse(II,JJ,vcat(a,b,c))
     ApL = sparse(II,JJ,vcat(a,b,c))
+    CTS = sparse(II,JJ,vcat(_a,b,c))
+    CTL = sparse(II,JJ,vcat(_a,b,c))
 
     LSA = sparse(II,JJ,vcat(a,b,c))
     LSB = sparse(II,JJ,vcat(a,b,c))
@@ -185,6 +210,8 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
     LuL = sparse(II,JJ,vcat(a,b,c))
     AuS = sparse(II,JJ,vcat(a,b,c))
     AuL = sparse(II,JJ,vcat(a,b,c))
+    CuS = sparse(II,JJ,vcat(a,b,c))
+    CuL = sparse(II,JJ,vcat(a,b,c))
 
     ii = collect(i for i = 1:(n+1)*n)
     iw = collect(i for i = n+2:(n+1)*n)
@@ -218,6 +245,8 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
     LvL = sparse(II,JJ,vcat(a,b,c))
     AvS = sparse(II,JJ,vcat(a,b,c))
     AvL = sparse(II,JJ,vcat(a,b,c))
+    CvS = sparse(II,JJ,vcat(a,b,c))
+    CvL = sparse(II,JJ,vcat(a,b,c))
 
     iw = collect(i for i = n+1:n*(n+1))
     ie = collect(i for i = 1:n*n)
@@ -237,6 +266,8 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
 
     GxpS = sparse(II,JJ,a)
     GxpL = sparse(II,JJ,a)
+    GxTS = sparse(II,JJ,a)
+    GxTL = sparse(II,JJ,a)
 
     is = collect(i for i = 2:n+1)
     for j=2:n
@@ -262,6 +293,8 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
 
     GypS = sparse(II,JJ,a)
     GypL = sparse(II,JJ,a)
+    GyTS = sparse(II,JJ,a)
+    GyTL = sparse(II,JJ,a)
 
     iw = collect(i for i = 1:n*n)
     ie = collect(i for i = 1:n*n)
@@ -275,6 +308,8 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
 
     DxuS = sparse(II,JJ,a)
     DxuL = sparse(II,JJ,a)
+    ftcGxTS = sparse(II,JJ,a)
+    ftcGxTL = sparse(II,JJ,a)
 
     is = collect(i for i = 1:n*n)
     iN = collect(i for i = 1:n*n)
@@ -294,6 +329,8 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
 
     DyvS = sparse(II,JJ,a)
     DyvL = sparse(II,JJ,a)
+    ftcGyTS = sparse(II,JJ,a)
+    ftcGyTL = sparse(II,JJ,a)
 
     iso = zeros(n, n)
     isou = zeros(n, n+1)
@@ -305,6 +342,8 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
     TL = zeros(n, n)
     pS = zeros(n, n)
     pL = zeros(n, n)
+    ϕS = zeros(n, n)
+    ϕL = zeros(n, n)
     uS = zeros(n, n+1)
     uL = zeros(n, n+1)
     vS = zeros(n+1, n)
@@ -313,20 +352,26 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
     DTS = zeros(n, n)
     DTL = zeros(n, n)
     V = zeros(n, n)
+    Vu = zeros(n, n+1)
+    Vv = zeros(n+1, n)
     κ = zeros(n, n)
     κu = zeros(n, n+1)
     κv = zeros(n+1, n)
 
-    usave = zeros(max_iterations+1, n, n)
-    TSsave = zeros(max_iterations+1, n, n)
-    TLsave = zeros(max_iterations+1, n, n)
-    Tsave = zeros(max_iterations+1, n, n)
-    psave = zeros(max_iterations+1, n, n)
-    Uxsave = zeros(max_iterations+1, n, n+1)
-    Uysave = zeros(max_iterations+1, n+1, n)
-    Vsave = zeros(max_iterations+1, n, n)
-    κsave = zeros(max_iterations+1, n, n)
-    lengthsave = zeros(max_iterations+1)
+    n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
+    
+    usave = zeros(n_snaps, n, n)
+    uusave = zeros(n_snaps, n, n+1)
+    uvsave = zeros(n_snaps, n+1, n)
+    TSsave = zeros(n_snaps, n, n)
+    TLsave = zeros(n_snaps, n, n)
+    Tsave = zeros(n_snaps, n, n)
+    psave = zeros(n_snaps, n, n)
+    Uxsave = zeros(n_snaps, n, n+1)
+    Uysave = zeros(n_snaps, n+1, n)
+    Vsave = zeros(n_snaps, n, n)
+    κsave = zeros(n_snaps, n, n)
+    lengthsave = zeros(n_snaps)
 
     TL[:,:] = zeros(n, n)
     TS[:,:] = zeros(n, n)
@@ -337,7 +382,23 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
         u[:,:] = sqrt.((X .+ shifted).^ 2 + Y .^ 2) - (R) * ones(n, n);
         init_franck!(TL, R, T_inf, H, n, 0)
 
-        su = sqrt.(Xu.^2 .+ Yu.^2)
+        # su = sqrt.(Xu.^2 .+ Yu.^2)
+        # R1 = R + 3.0*Δ
+        # uL .= u_inf
+        # vL .= v_inf
+        # bl = 4.0
+        # for II in idxu.all_indices
+        #     if su[II] <= R1
+        #         uL[II] = 0.0
+        #     elseif su[II] > R1
+        #         uL[II] = tanh(bl*(su[II]-R1))
+        #     end
+        # end
+    elseif num.case == "Cylinder"
+        u[:,:] = sqrt.((X .+ shifted).^ 2 + Y .^ 2) - (R) * ones(n, n);
+        init_franck!(TL, R, T_inf, H, n, 0)
+
+        su = sqrt.((Xu .+ shifted).^2 .+ Yu.^2)
         R1 = R + 3.0*Δ
         uL .= u_inf
         vL .= v_inf
@@ -376,7 +437,7 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
         u .= sqrt.(X.^2 + Y.^2) .+ 1e-8
     end
 
-    return TempArrays(SCUTT, LCUTT, SCUTp, LCUTp, SCUTu, LCUTu, SCUTv, LCUTv, SCUTDx, SCUTDy, LCUTDx, LCUTDy, SOL, LIQ, SOLu, LIQu, SOLv, LIQv, sol_projection, liq_projection, sol_projectionu, liq_projectionu, sol_projectionv, liq_projectionv, sol_centroid, liq_centroid, mid_point, sol_centroidu, liq_centroidu, mid_pointu, sol_centroidv, liq_centroidv, mid_pointv, LTS, LTL, LpS, LpL, LuS, LuL, LvS, LvL, AS, AL, BS, BL, LSA, LSB, GxpS, GxpL, GypS, GypL, DxuS, DxuL, DyvS, DyvL, ApS, ApL, AuS, AuL, AvS, AvL), Forward(iso, isou, isov, u, uu, uv, TS, TL, pS, pL, uS, uL, vS, vL, Tall, DTS, DTL, V, κ, κu, κv, usave, TSsave, TLsave, Tsave, psave, Uxsave, Uysave, Vsave, κsave, lengthsave)
+    return TempArrays(SCUTT, LCUTT, SCUTp, LCUTp, SCUTu, LCUTu, SCUTv, LCUTv, SCUTDx, SCUTDy, LCUTDx, LCUTDy, SCUTCT, LCUTCT, SCUTGxT, LCUTGxT, SCUTGyT, LCUTGyT, SCUTCu, LCUTCu, SCUTCv, LCUTCv, SOL, LIQ, SOLu, LIQu, SOLv, LIQv, sol_projection, liq_projection, sol_projectionu, liq_projectionu, sol_projectionv, liq_projectionv, sol_centroid, liq_centroid, mid_point, sol_centroidu, liq_centroidu, mid_pointu, sol_centroidv, liq_centroidv, mid_pointv, α, αu, αv, LTS, LTL, LpS, LpL, LuS, LuL, LvS, LvL, AS, AL, BS, BL, LSA, LSB, GxpS, GxpL, GypS, GypL, DxuS, DxuL, DyvS, DyvL, ApS, ApL, AuS, AuL, AvS, AvL, CTS, CTL, GxTS, GxTL, GyTS, GyTL, ftcGxTS, ftcGxTL, ftcGyTS, ftcGyTL, CuS, CuL, CvS, CvL), Forward(iso, isou, isov, u, uu, uv, TS, TL, pS, pL, ϕS, ϕL, uS, uL, vS, vL, Tall, DTS, DTL, V, Vu, Vv, κ, κu, κv, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, Uxsave, Uysave, Vsave, κsave, lengthsave)
 end
 
 function init_mullins!(T, V, t, A, N, n, H, shift)

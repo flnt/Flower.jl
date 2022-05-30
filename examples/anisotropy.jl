@@ -16,7 +16,7 @@ num = Numerical(T_inf = -0.8,
     A = -0.2,
     N = 6,
     R = 0.1,
-    #max_iterations = 1
+    # max_iterations = 1
     )
 
 idx, idxu, idxv = set_indices(num.n)
@@ -27,11 +27,11 @@ fwd.TL .= num.T_inf;
 @time MIXED, SOLID, LIQUID = run_forward(num, idx, idxu, idxv, tmp, fwd,
     stefan = true,
     heat = true,
-    liquid_phase = true,
-    solid_phase = true,
+    heat_liquid_phase = true,
+    heat_solid_phase = true,
     verbose = true,
     advection = true,
-    show_every = 50
+    show_every = 1
     );
 
 
@@ -62,3 +62,7 @@ end
 f = current_figure()
 
 #Makie.save("./figures/paper_figures/aniso_theta_pi_4.png", f)
+
+# pref = "/Users/alex/Documents/PhD/Cutcell/New_ops/stokes/shrinking/"
+# make_video(num, fwd, "T"; title_prefix=pref,
+#         title_suffix="", framerate=20)

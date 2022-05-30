@@ -1,7 +1,12 @@
-@inline SOUTH_face(itp) = 0.5 + find_zero(x -> biquadratic(itp, x, -0.5), (-0.5,0.5), FalsePosition(), maxevals = 10, atol = 1e-12)
-@inline WEST_face(itp) = 0.5 + find_zero(y -> biquadratic(itp, -0.5, y), (-0.5,0.5), FalsePosition(), maxevals = 10, atol = 1e-12)
-@inline NORTH_face(itp) = 0.5 + find_zero(x -> biquadratic(itp, x, 0.5), (-0.5,0.5), FalsePosition(), maxevals = 10, atol = 1e-12)
-@inline EAST_face(itp) = 0.5 + find_zero(y -> biquadratic(itp, 0.5, y), (-0.5,0.5), FalsePosition(), maxevals = 10, atol = 1e-12)
+@inline SOUTH_face(itp) = 0.5 + find_zero(x -> biquadratic(itp, x, -0.5), (-0.5,0.5), FalsePosition(), maxevals = 10, atol = 1e-9)
+@inline WEST_face(itp) = 0.5 + find_zero(y -> biquadratic(itp, -0.5, y), (-0.5,0.5), FalsePosition(), maxevals = 10, atol = 1e-9)
+@inline NORTH_face(itp) = 0.5 + find_zero(x -> biquadratic(itp, x, 0.5), (-0.5,0.5), FalsePosition(), maxevals = 10, atol = 1e-9)
+@inline EAST_face(itp) = 0.5 + find_zero(y -> biquadratic(itp, 0.5, y), (-0.5,0.5), FalsePosition(), maxevals = 10, atol = 1e-9)
+
+@inline WE(a, cases, II, l_face, s_face) = ismixed(cases[δx⁻(II)]) ? 0.5*(a[II,1] + a[δx⁻(II), 3]) : (is_liquid(cases[δx⁻(II)]) ? l_face : s_face)
+@inline EW(a, cases, II, l_face, s_face) = ismixed(cases[δx⁺(II)]) ? 0.5*(a[II,3] + a[δx⁺(II), 1]) : (is_liquid(cases[δx⁺(II)]) ? l_face : s_face)
+@inline SN(a, cases, II, l_face, s_face) = ismixed(cases[δy⁻(II)]) ? 0.5*(a[II,2] + a[δy⁻(II), 4]) : (is_liquid(cases[δy⁻(II)]) ? l_face : s_face)
+@inline NS(a, cases, II, l_face, s_face) = ismixed(cases[δy⁺(II)]) ? 0.5*(a[II,4] + a[δy⁺(II), 2]) : (is_liquid(cases[δy⁺(II)]) ? l_face : s_face)
 
 @inline WE(a, II) = 0.5*(a[II,1] + a[δx⁻(II), 3])
 @inline EW(a, II) = 0.5*(a[II,3] + a[δx⁺(II), 1])
@@ -153,53 +158,59 @@ function marching_squares!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_
         if is_solid(ISO)
             SOL[II,:] .= full_capacities
             LIQ[II,:] .= empty_capacities
-            TL[II] = 0.0
+            # TL[II] = 0.0
         elseif is_liquid(ISO)
             SOL[II,:] .= empty_capacities
             LIQ[II,:] .= full_capacities
-            TS[II] = 0.0
+            # TS[II] = 0.0
         end
         iso[II] = ISO
     end
     return nothing
 end
 
-function get_iterface_location!(::GridCC, x, y, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, Δ, L0, B, BT, idx, inside_indices, ϵ, n, faces, periodic_x, periodic_y)
+function get_iterface_location!(::GridCC, x, y, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, α, Δ, L0, B, BT, idx, inside_indices, ϵ, n, faces, periodic_x, periodic_y)
     @inbounds @threads for II in inside_indices
-        f = average_face_capacities(faces, iso[II], II)
-        SOL[II,:], LIQ[II,:], α, sol_centroid[II], liq_centroid[II], mid_point[II], cut_points = capacities(f, iso[II])
+        f = average_face_capacities(faces, iso[II], iso, II)
+        SOL[II,:], LIQ[II,:], α[II], sol_centroid[II], liq_centroid[II], mid_point[II], cut_points = capacities(f, iso[II])
         absolute_position = Point(x[II], y[II])
-        sol_projection[II], liq_projection[II] = projection_2points(absolute_position, mid_point[II], α, L0, Δ)
+        sol_projection[II], liq_projection[II] = projection_2points(absolute_position, mid_point[II], α[II], L0, Δ)
     end
     set_cap_bcs!(gcc, SOL, LIQ, sol_centroid, liq_centroid, mid_point, u, idx.b_left[1], idx.b_bottom[1], idx.b_right[1], idx.b_top[1], periodic_x, periodic_y, n)
     Wcapacities!(SOL, periodic_x, periodic_y)
     Wcapacities!(LIQ, periodic_x, periodic_y)
+    average_face_capacities!(SOL)
+    average_face_capacities!(LIQ)
     return nothing
 end
 
-function get_iterface_location!(::GridFCx, x, y, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, Δ, L0, B, BT, idx, inside_indices, ϵ, n, faces, periodic_x, periodic_y)
+function get_iterface_location!(::GridFCx, x, y, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, α, Δ, L0, B, BT, idx, inside_indices, ϵ, n, faces, periodic_x, periodic_y)
     @inbounds @threads for II in inside_indices
-        f = average_face_capacities(faces, iso[II], II)
-        SOL[II,:], LIQ[II,:], α, sol_centroid[II], liq_centroid[II], mid_point[II], cut_points = capacities(f, iso[II])
+        f = average_face_capacities(faces, iso[II], iso, II)
+        SOL[II,:], LIQ[II,:], α[II], sol_centroid[II], liq_centroid[II], mid_point[II], cut_points = capacities(f, iso[II])
         absolute_position = Point(x[II], y[II])
-        sol_projection[II], liq_projection[II] = projection_2points(absolute_position, mid_point[II], α, L0, Δ)
+        sol_projection[II], liq_projection[II] = projection_2points(absolute_position, mid_point[II], α[II], L0, Δ)
     end
     set_cap_bcs!(gfcx, SOL, LIQ, sol_centroid, liq_centroid, mid_point, u, idx.b_left[1], idx.b_bottom[1], idx.b_right[1], idx.b_top[1], periodic_x, periodic_y, n)
     Wcapacities!(SOL, periodic_x, periodic_y)
     Wcapacities!(LIQ, periodic_x, periodic_y)
+    average_face_capacities!(SOL)
+    average_face_capacities!(LIQ)
     return nothing
 end
 
-function get_iterface_location!(::GridFCy, x, y, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, Δ, L0, B, BT, idx, inside_indices, ϵ, n, faces, periodic_x, periodic_y)
+function get_iterface_location!(::GridFCy, x, y, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, α, Δ, L0, B, BT, idx, inside_indices, ϵ, n, faces, periodic_x, periodic_y)
     @inbounds @threads for II in inside_indices
-        f = average_face_capacities(faces, iso[II], II)
-        SOL[II,:], LIQ[II,:], α, sol_centroid[II], liq_centroid[II], mid_point[II], cut_points = capacities(f, iso[II])
+        f = average_face_capacities(faces, iso[II], iso, II)
+        SOL[II,:], LIQ[II,:], α[II], sol_centroid[II], liq_centroid[II], mid_point[II], cut_points = capacities(f, iso[II])
         absolute_position = Point(x[II], y[II])
-        sol_projection[II], liq_projection[II] = projection_2points(absolute_position, mid_point[II], α, L0, Δ)
+        sol_projection[II], liq_projection[II] = projection_2points(absolute_position, mid_point[II], α[II], L0, Δ)
     end
     set_cap_bcs!(gfcy, SOL, LIQ, sol_centroid, liq_centroid, mid_point, u, idx.b_left[1], idx.b_bottom[1], idx.b_right[1], idx.b_top[1], periodic_x, periodic_y, n)
     Wcapacities!(SOL, periodic_x, periodic_y)
     Wcapacities!(LIQ, periodic_x, periodic_y)
+    average_face_capacities!(SOL)
+    average_face_capacities!(LIQ)
     return nothing
 end
 
@@ -972,24 +983,75 @@ function face_capacities(a, itp, case, II)
     end
 end
 
-function average_face_capacities(a, case, II)
-    if case == 1.0 || case == 14.0
-        f = SA_F64[WE(a, II), SN(a, II)]
-    elseif case == 2.0 || case == 13.0
-        f = SA_F64[SN(a, II), EW(a,II)]
-    elseif case == 3.0 || case == 12.0
-        f = SA_F64[WE(a, II), EW(a,II)]
-    elseif case == 4.0 || case == 11.0
-        f = SA_F64[EW(a,II), NS(a, II)]
-    elseif case == 6.0 || case == 9.0
-        f = SA_F64[SN(a, II), NS(a, II)]
-    elseif case == 7.0 || case == 8.0
-        f = SA_F64[WE(a, II), NS(a, II)]
+function average_face_capacities(a, case, cases, II)
+    if case == 1.0
+        f = SA_F64[WE(a, cases, II, 0.0, 1.0), SN(a, cases, II, 0.0, 1.0)]
+    elseif case == 14.0
+        f = SA_F64[WE(a, cases, II, 1.0, 0.0), SN(a, cases, II, 1.0, 0.0)]
+    elseif case == 2.0
+        f = SA_F64[SN(a, cases, II, 1.0, 0.0), EW(a, cases,II, 0.0, 1.0)]
+    elseif case == 13.0
+        f = SA_F64[SN(a, cases, II, 0.0, 1.0), EW(a, cases,II, 1.0, 0.0)]
+    elseif case == 3.0
+        f = SA_F64[WE(a, cases, II, 0.0, 1.0), EW(a, cases,II, 0.0, 1.0)]
+    elseif case == 12.0
+        f = SA_F64[WE(a, cases, II, 1.0, 0.0), EW(a, cases,II, 1.0, 0.0)]
+    elseif case == 4.0
+        f = SA_F64[EW(a, cases, II, 1.0, 0.0), NS(a, cases, II, 1.0, 0.0)]
+    elseif case == 11.0
+        f = SA_F64[EW(a, cases, II, 0.0, 1.0), NS(a, cases, II, 0.0, 1.0)]
+    elseif case == 6.0
+        f = SA_F64[SN(a, cases, II, 1.0, 0.0), NS(a, cases, II, 1.0, 0.0)]
+    elseif case == 9.0
+        f = SA_F64[SN(a, cases, II, 0.0, 1.0), NS(a, cases, II, 0.0, 1.0)]
+    elseif case == 7.0
+        f = SA_F64[WE(a, cases, II, 0.0, 1.0), NS(a, cases, II, 1.0, 0.0)]
+    elseif case == 8.0
+        f = SA_F64[WE(a, cases, II, 1.0, 0.0), NS(a, cases, II, 0.0, 1.0)]
     else
         f = @SVector zeros(2)
     end
     return float(f)
 end
+
+function average_face_capacities!(a)
+    # average face capacities due to mismatch in iso 
+    n = size(a,1)
+    @inbounds @threads for i = 1:n
+        @inbounds tmp1 = a[i,1:end-1,3]
+        @inbounds tmp2 = a[i,2:end,1]
+        @inbounds avg_cap = 0.5*(tmp1 .+ tmp2)
+        @inbounds a[i,1:end-1,3] .= avg_cap
+        @inbounds a[i,2:end,1] .= avg_cap
+    end
+    n = size(a,2)
+    @inbounds @threads for i = 1:n
+        @inbounds tmp1 = a[1:end-1,i,4]
+        @inbounds tmp2 = a[2:end,i,2]
+        @inbounds avg_cap = 0.5*(tmp1 .+ tmp2)
+        @inbounds a[1:end-1,i,4] .= avg_cap
+        @inbounds a[2:end,i,2] .= avg_cap
+    end
+end
+
+# function average_face_capacities(a, case, cases, II)
+#     if case == 1.0 || case == 14.0
+#         f = SA_F64[WE(a, II), SN(a, II)]
+#     elseif case == 2.0 || case == 13.0
+#         f = SA_F64[SN(a, II), EW(a,II)]
+#     elseif case == 3.0 || case == 12.0
+#         f = SA_F64[WE(a, II), EW(a,II)]
+#     elseif case == 4.0 || case == 11.0
+#         f = SA_F64[EW(a,II), NS(a, II)]
+#     elseif case == 6.0 || case == 9.0
+#         f = SA_F64[SN(a, II), NS(a, II)]
+#     elseif case == 7.0 || case == 8.0
+#         f = SA_F64[WE(a, II), NS(a, II)]
+#     else
+#         f = @SVector zeros(2)
+#     end
+#     return float(f)
+# end
 
 
 function get_cells_indices(iso, inside)
@@ -1010,6 +1072,39 @@ function get_cells_indices(iso, inside)
              MIXED[M] = II
              M+=1
          end
+    end
+    resize!(MIXED, M-1); resize!(SOLID, S-1); resize!(LIQUID, L-1);
+    sizehint!(MIXED, length(MIXED)); sizehint!(SOLID, length(SOLID)); sizehint!(LIQUID, length(LIQUID))
+    return MIXED, SOLID, LIQUID
+end
+
+function get_cells_indices(iso, u, inside, boundaries)
+    local M = 1
+    local S = 1
+    local L = 1
+    MIXED = Vector{CartesianIndex{2}}(undef, length(inside)+length(boundaries))
+    SOLID = Vector{CartesianIndex{2}}(undef, length(inside)+length(boundaries))
+    LIQUID = Vector{CartesianIndex{2}}(undef, length(inside)+length(boundaries))
+    @simd for II in inside
+         @inbounds if is_solid(iso[II])
+             SOLID[S] = II
+             S+=1
+         elseif is_liquid(iso[II])
+             LIQUID[L] = II
+             L+=1
+         else
+             MIXED[M] = II
+             M+=1
+         end
+    end
+    @simd for II in boundaries
+        @inbounds if u[II] <= 0.
+            SOLID[S] = II
+            S+=1
+        else
+            LIQUID[L] = II
+            L+=1
+        end
     end
     resize!(MIXED, M-1); resize!(SOLID, S-1); resize!(LIQUID, L-1);
     sizehint!(MIXED, length(MIXED)); sizehint!(SOLID, length(SOLID)); sizehint!(LIQUID, length(LIQUID))
@@ -1126,6 +1221,19 @@ function init_fresh_cells!(T, projection, FRESH)
                 T[II] = y_extrapolation(T_1, T_2, projection[II].point1, projection[II].point2, projection[II].mid_point)
             else
                 T[II] = x_extrapolation(T_1, T_2, projection[II].point1, projection[II].point2, projection[II].mid_point)
+            end
+        end
+    end
+end
+
+function init_fresh_cells!(u, V, projection, FRESH)
+    @inbounds @threads for II in FRESH
+        if projection[II].flag
+            u_1, u_2 = interpolated_temperature(projection[II].angle, projection[II].point1, projection[II].point2, V, II)
+            if π/4 <= projection[II].angle <= 3π/4 || -π/4 >= projection[II].angle >= -3π/4
+                u[II] = y_extrapolation(u_1, u_2, projection[II].point1, projection[II].point2, projection[II].mid_point)
+            else
+                u[II] = x_extrapolation(u_1, u_2, projection[II].point1, projection[II].point2, projection[II].mid_point)
             end
         end
     end

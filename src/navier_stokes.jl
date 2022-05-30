@@ -1,11 +1,37 @@
-function set_stokes!(bcpx, bcpy, BC_p, Lp, CUTp, CAP, n, Δ,
+function no_slip_condition!(V, Vu, Vv, αu, αv, B, BT, n, inside, b_left, b_bottom, b_right, b_top)
+    interpolate_scalar!(V, Vu, Vv, B, BT, n, inside, b_left, b_bottom, b_right, b_top)
+
+    normalx = cos.(αu)
+    normaly = sin.(αv)
+
+    Vu .*= normalx
+    Vv .*= normaly
+
+    replace!(Vu, NaN=>0.0)
+    replace!(Vv, NaN=>0.0)
+
+    return nothing
+end
+
+function set_stokes!(bcpx, bcpy, BC_p, Lp, Lpm1, CUTp, CUTpm1, CAP, n, Δ, ns_advection,
                 inside, empty, b_left, b_bottom, b_right, b_top,
-                Hu, centroidu, mid_pointu, Du, bcu, BC_u, Lu, CUTu, CAPu, 
+                Hu, centroidu, mid_pointu, Du, Vu, bcu, BC_u, Lu, Lum1, CUTu, CUTum1, CAPu, 
                 inside_u, empty_u, b_left_u, b_bottom_u, b_right_u, b_top_u,
-                Hv, centroidv, mid_pointv, Dv, bcv, BC_v, Lv, CUTv, CAPv, 
+                Hv, centroidv, mid_pointv, Dv, Vv, bcv, BC_v, Lv, Lvm1, CUTv, CUTvm1, CAPv, 
                 inside_v, empty_v, b_left_v, b_bottom_v, b_right_v, b_top_v,
                 Dxu, Dyv, CUTDx, CUTDy, all_indices,
-                Gxp, Gyp)
+                Gxp, Gyp, Gxpm1, Gypm1,
+                CUTCu, CUTCv, Cu, Cv, u, v
+    )
+    Gxpm1 .= Gxp
+    Gypm1 .= Gyp
+    Lpm1 .= Lp
+    Lum1 .= Lu
+    Lvm1 .= Lv
+    CUTpm1 .= CUTp
+    CUTum1 .= CUTu
+    CUTvm1 .= CUTv
+
     bcpx .= 0.
     bcpy .= 0.
     bcpx, bcpy = set_bc_bnds(neu, bcpx, bcpy, BC_p)
@@ -18,7 +44,7 @@ function set_stokes!(bcpx, bcpy, BC_p, Lp, CUTp, CAP, n, Δ,
         Hu[II] = distance(mid_pointu[II], centroidu[II]) * Δ
     end
 
-    Du .= 0. # set to V
+    Du .= Vu
     bcu .= Du
     bcux, bcuy = set_bc_bnds(dir, bcu, Hu, BC_u)
 
@@ -30,7 +56,7 @@ function set_stokes!(bcpx, bcpy, BC_p, Lp, CUTp, CAP, n, Δ,
         Hv[II] = distance(mid_pointv[II], centroidv[II]) * Δ
     end
 
-    Dv .= 0. # set to V
+    Dv .= Vv
     bcv .= Dv
     bcvx, bcvy = set_bc_bnds(dir, bcv, Hv, BC_v)
 
@@ -40,33 +66,133 @@ function set_stokes!(bcpx, bcpy, BC_p, Lp, CUTp, CAP, n, Δ,
     divergence!(dir, Dxu, Dyv, CUTDx, CUTDy, bcux, bcvy, CAP, CAPu, CAPv, n, Δ, all_indices)
     gradient!(neu, Gxp, Gyp, Dxu, Dyv, CAP, CAPu, CAPv, n, Δ, BC_p, b_left_u[1], b_bottom_v[1], b_right_u[1], b_top_v[1], b_left[1], b_bottom[1], b_right[1], b_top[1])
     divergence_boundaries(dir, Dxu, Dyv, bcux, bcvy, CAP, CAPu, CAPv, n, Δ, BC_u, BC_v, b_left[1], b_bottom[1], b_right[1], b_top[1])
+
+    if ns_advection
+        bcuCu1_x, bcuCu1_y, bcuCu2_x, bcuCu2_y, bcvCu_x, bcvCu_y = set_bc_bnds(dir, gfcx, Du, Dv, Hu, Hv, u, v, BC_u, BC_v)
+        bcvCv1_x, bcvCv1_y, bcvCv2_x, bcvCv2_y, bcuCv_x, bcuCv_y = set_bc_bnds(dir, gfcy, Dv, Du, Hv, Hu, v, u, BC_v, BC_u)
+
+        vector_convection!(dir, gfcx, Cu, CUTCu, u, v, bcuCu1_x, bcuCu1_y, bcuCu2_x, bcuCu2_y, bcvCu_x, bcvCu_y, CAP, n, Δ, BC_u, inside_u, b_left_u[1], b_bottom_u[1], b_right_u[1], b_top_u[1])
+        vector_convection!(dir, gfcy, Cv, CUTCv, u, v, bcuCv_x, bcuCv_y, bcvCv1_x, bcvCv1_y, bcvCv2_x, bcvCv2_y, CAP, n, Δ, BC_v, inside_v, b_left_v[1], b_bottom_v[1], b_right_v[1], b_top_v[1])
+    end
     
     return nothing
 end
 
-function pressure_projection!(p, u, v, Ap, Au, Av, Lp, Lu, Lv,
-                            CUTp, CUTu, CUTv,
+function pressure_projection!(p, ϕ, u, v, ns_advection,
+                            Gxm1, Gym1, Ap, Au, Av, Lp, Lu, Lv, Lpm1, Lum1, Lvm1,
+                            CUTp, CUTu, CUTv, CUTpm1, CUTum1, CUTvm1,
+                            Cu, Cv, CUTCu, CUTCv, Cum1, Cvm1,
                             kspp, kspu, kspv, ns, ns_vec,
-                            Gxp, Gyp, Dxu, Dyv, CUTDx, CUTDy,
+                            Gxp, Gyp, Gxpm1, Gypm1, Dxu, Dyv, CUTDx, CUTDy,
                             Mp, iMp, Mu, Mv, iMGx, iMGy, iMDx, iMDy,
-                            τ, iRe, n, b_right)
-    Ap .= -τ .* Lp
+                            iMu, iMv, iMpm1, iMum1, iMvm1, iMGxm1, iMGym1,
+                            τ, iRe, Δ, n,
+                            Vu, Vv, projection, projectionu, projectionv,
+                            MIXED, MIXED_u, MIXED_v, FULL, EMPTY, EMPTY_u, EMPTY_v,
+                            FRESH, FRESH_u, FRESH_v, WAS_MIXED_u, WAS_MIXED_v)
+    mat_op!(Ap, Lp, x->-x)
     Au .= Mu .- 0.5.*iRe.*τ.*Lu
     Av .= Mv .- 0.5.*iRe.*τ.*Lv
 
     PETSc.destroy(ns)
     ns = update_ksp_solver!(kspp, Ap, true, ns_vec)
+
+    Δm1um1 = Mu * (iMum1 * (Lum1 * vec(u) .+ CUTum1))
+    Δm1vm1 = Mv * (iMvm1 * (Lvm1 * vec(v) .+ CUTvm1))
+
+    # Gxm1 = iMGxm1 * Gxpm1 * vec(p)
+    # Gym1 = iMGym1 * Gypm1 * vec(p)
+
+    Gxϕ = iMGxm1 * (Gxpm1 * vec(ϕ))
+    Gyϕ = iMGym1 * (Gypm1 * vec(ϕ))
+    Gxm1 .= Mu * (Gxm1 .+ Gxϕ .- iRe.*τ.*0.5 .* (iMum1 * (Lum1 * Gxϕ)))
+    Gym1 .= Mv * (Gym1 .+ Gyϕ .- iRe.*τ.*0.5 .* (iMvm1 * (Lvm1 * Gyϕ)))
+
+    # Δϕ = iMpm1 * (Lpm1 * vec(ϕ) .+ CUTpm1)
+    # Gxm1 .= Gxm1 .+ Gxϕ .- iRe.*τ.*0.5 .* iMGxm1 * Gxpm1 * Δϕ
+    # Gym1 .= Gym1 .+ Gyϕ .- iRe.*τ.*0.5 .* iMGym1 * Gypm1 * Δϕ
+
+    if ns_advection
+        Convu = 1.5 .* (Cu * vec(u) .+ CUTCu) .- 0.5 .* Cum1
+        Convv = 1.5 .* (Cv * vec(v) .+ CUTCv) .- 0.5 .* Cvm1
+    else
+        Convu = zeros(n*(n+1))
+        Convv = zeros(n*(n+1))
+    end
+
+    Cum1 .= Cu * vec(u) .+ CUTCu
+    Cvm1 .= Cv * vec(v) .+ CUTCv
+
+    kill_dead_cells!(p, EMPTY)
+    kill_dead_cells!(u, EMPTY_u)
+    kill_dead_cells!(v, EMPTY_v)
+    init_fresh_cells!(p, projection, FRESH)
+    init_fresh_cells!(u, Vu, projectionu, FRESH_u)
+    init_fresh_cells!(v, Vv, projectionv, FRESH_v)
+
+    Δum1 = Lu * vec(u) .+ CUTu
+    Δvm1 = Lv * vec(v) .+ CUTv
+
+    Δu = 0.5 .* (Δum1 .+ Δm1um1)
+    Δv = 0.5 .* (Δvm1 .+ Δm1vm1)
+
+    # Δu = Δum1
+    # Δv = Δvm1
+
+    Bδucorr = τ .* (iRe .* Δu .- Gxm1 .- Convu)
+    Bδvcorr = τ .* (iRe .* Δv .- Gym1 .- Convv)
+
+    @inbounds @threads for II in EMPTY_u
+        pII = lexicographic(II, n)
+        Bδucorr[pII] = 0.
+    end
+    @inbounds @threads for II in EMPTY_v
+        pII = lexicographic(II, n+1)
+        Bδvcorr[pII] = 0.
+    end
+
+    # @inbounds @threads for II in FRESH_u
+    #     pII = lexicographic(II, n)
+        
+    #     Bδucorr[pII] = (Δ^2 + 0.5*iRe*τ*4.0) * Vu[II]
+    #     Bδucorr[pII+n] += -Au[pII+n,pII] * Vu[II]
+    #     Bδucorr[pII-n] += -Au[pII-n,pII] * Vu[II]
+    #     Bδucorr[pII+1] += -Au[pII+1,pII] * Vu[II]
+    #     Bδucorr[pII-1] += -Au[pII-1,pII] * Vu[II]
+
+    #     Au[pII,pII] = Δ^2 + 0.5*iRe*τ*4.0
+    #     Au[pII,pII+n] = 0.
+    #     Au[pII,pII-n] = 0.
+    #     Au[pII,pII+1] = 0.
+    #     Au[pII,pII-1] = 0.
+
+    #     Au[pII+n,pII] = 0.
+    #     Au[pII-n,pII] = 0.
+    #     Au[pII+1,pII] = 0.
+    #     Au[pII-1,pII] = 0.
+    # end
+    # @inbounds @threads for II in FRESH_v
+    #     pII = lexicographic(II, n+1)
+        
+    #     Bδvcorr[pII] = (Δ^2 + 0.5*iRe*τ*4.0) * Vv[II]
+    #     Bδvcorr[pII+n+1] += -Av[pII+n+1,pII] * Vv[II]
+    #     Bδvcorr[pII-n-1] += -Av[pII-n-1,pII] * Vv[II]
+    #     Bδvcorr[pII+1] += -Av[pII+1,pII] * Vv[II]
+    #     Bδvcorr[pII-1] += -Av[pII-1,pII] * Vv[II]
+
+    #     Av[pII,pII] = Δ^2 + 0.5*iRe*τ*4.0
+    #     Av[pII,pII+n+1] = 0.
+    #     Av[pII,pII-n-1] = 0.
+    #     Av[pII,pII+1] = 0.
+    #     Av[pII,pII-1] = 0.
+
+    #     Av[pII+n+1,pII] = 0.
+    #     Av[pII-n-1,pII] = 0.
+    #     Av[pII+1,pII] = 0.
+    #     Av[pII-1,pII] = 0.
+    # end
     update_ksp_solver!(kspu, Au)
     update_ksp_solver!(kspv, Av)
-
-    Lu = iRe .* (Lu * vec(u) .+ CUTu)
-    Lv = iRe .* (Lv * vec(v) .+ CUTv)
-
-    Gx = Mu * iMGx * Gxp * vec(p)
-    Gy = Mv * iMGy * Gyp * vec(p)
-
-    Bδucorr = τ .* (Lu .- Gx)
-    Bδvcorr = τ .* (Lv .- Gy)
 
     δucorr = reshape(kspu \ Bδucorr, (n, n+1))
     δvcorr = reshape(kspv \ Bδvcorr, (n+1, n))
@@ -74,21 +200,31 @@ function pressure_projection!(p, u, v, Ap, Au, Av, Lp, Lu, Lv,
     vcorr = δvcorr .+ v
 
     Duv = Mp * (iMDx * (Dxu * vec(ucorr) .+ CUTDx) .+ iMDy * (Dyv * vec(vcorr) .+ CUTDy))
-    Bϕ = -Duv .+ τ .* CUTp
+    Bϕ = -Duv./τ .+ CUTp
     sum_Bϕ = sum(Bϕ)
-    @inbounds @threads for II in b_right[1]
+    sumMp = sum(Mp[diagind(Mp)])
+
+    non_empty = vcat(FULL, MIXED)
+    n_non_empty = length(non_empty)
+
+    @inbounds @threads for II in non_empty
         pII = lexicographic(II, n)
-        @inbounds Bϕ[pII] -= sum_Bϕ/n
+        # @inbounds Bϕ[pII] -= sum_Bϕ/n_non_empty
+        @inbounds Bϕ[pII] -= sum_Bϕ * Mp[pII,pII] / sumMp
     end
     vecseq = PETSc.VecSeq(Bϕ)
     PETSc.MatNullSpaceRemove!(ns, vecseq)
 
-    ϕ = reshape(kspp \ vecseq, (n,n))
+    ϕ .= reshape(kspp \ vecseq, (n,n))
     PETSc.destroy(vecseq)
 
-    p .+= ϕ .- iRe.*τ.*0.5.*reshape(iMp * (Lp * vec(ϕ) .+ CUTp), (n,n))
-    u .= ucorr .- τ.*reshape(iMGx * Gxp * vec(ϕ), (n,n+1))
-    v .= vcorr .- τ.*reshape(iMGy * Gyp * vec(ϕ), (n+1,n))
+    # Δϕ = reshape(iMp * (Lp * vec(ϕ) .+ CUTp), (n,n))
+    # p .+= ϕ .- iRe.*τ.*0.5.*Δϕ
+    Gx = reshape(iMGx * (Gxp * vec(ϕ)), (n,n+1))
+    Gy = reshape(iMGy * (Gyp * vec(ϕ)), (n+1,n))
+
+    u .= ucorr .- τ .* Gx
+    v .= vcorr .- τ .* Gy
 
     return nothing
 end
