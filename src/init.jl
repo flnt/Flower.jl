@@ -43,7 +43,7 @@ function set_indices(n)
 end
 
 function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::NumericalParameters, idxv::NumericalParameters)
-    @unpack N, T_inf, u_inf, v_inf, A, R, n, L0, Δ, shifted, X, Y, Xu, Yu, Xv, Yv, H, max_iterations, save_every, CFL = num
+    @unpack N, T_inf, u_inf, v_inf, A, R, n, L0, Δ, shifted, X, Y, Xu, Yu, Xv, Yv, H, max_iterations, save_every, CFL, x_airfoil, y_airfoil = num
 
     SCUTT = zeros(n^2)
     LCUTT = zeros(n^2)
@@ -344,6 +344,10 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
     pL = zeros(n, n)
     ϕS = zeros(n, n)
     ϕL = zeros(n, n)
+    Gxm1S = zeros(n*(n+1))
+    Gym1S = zeros(n*(n+1))
+    Gxm1L = zeros(n*(n+1))
+    Gym1L = zeros(n*(n+1))
     uS = zeros(n, n+1)
     uL = zeros(n, n+1)
     vS = zeros(n+1, n)
@@ -435,9 +439,36 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
         TL .= T_inf;
     elseif num.case == "Nothing"
         u .= sqrt.(X.^2 + Y.^2) .+ 1e-8
+    elseif num.case == "Airfoil"
+        @inbounds @threads for II in idx.all_indices
+            d = 2L0
+            count = 0
+            @inbounds for (x1, y1, x2, y2) in zip(x_airfoil[1:end-1], y_airfoil[1:end-1], x_airfoil[2:end], y_airfoil[2:end])
+                # compute distance from the cell center to the closest point in the solid
+                den = (x2-x1)^2 + (y2-y1)^2
+                t = -((x1-X[II])*(x2-x1) + (y1-Y[II])*(y2-y1)) / den
+                if t >= 0 && t <= 1.0
+                    d1 = abs((x2-x1)*(y1-Y[II]) - (y2-y1)*(x1-X[II])) / sqrt(den)
+                    d = min(d1, d)
+                else
+                    d1 = sqrt((x1-X[II])^2 + (y1-Y[II])^2)
+                    d2 = sqrt((x2-X[II])^2 + (y2-Y[II])^2)
+                    d = min(d1, d2, d)
+                end
+                
+                # compute the sign of the distance
+                if ((y1 ≤ Y[II] && y2 ≥ Y[II]) || (y1 > Y[II] && y2 < Y[II])) && (x1 ≥ X[II] || x2 ≥ X[II])
+                    count += 1
+                end
+            end
+
+            @inbounds u[II] = iseven(count) ? d : -d
+        end
+        uL .= u_inf
+        vL .= v_inf
     end
 
-    return TempArrays(SCUTT, LCUTT, SCUTp, LCUTp, SCUTu, LCUTu, SCUTv, LCUTv, SCUTDx, SCUTDy, LCUTDx, LCUTDy, SCUTCT, LCUTCT, SCUTGxT, LCUTGxT, SCUTGyT, LCUTGyT, SCUTCu, LCUTCu, SCUTCv, LCUTCv, SOL, LIQ, SOLu, LIQu, SOLv, LIQv, sol_projection, liq_projection, sol_projectionu, liq_projectionu, sol_projectionv, liq_projectionv, sol_centroid, liq_centroid, mid_point, sol_centroidu, liq_centroidu, mid_pointu, sol_centroidv, liq_centroidv, mid_pointv, α, αu, αv, LTS, LTL, LpS, LpL, LuS, LuL, LvS, LvL, AS, AL, BS, BL, LSA, LSB, GxpS, GxpL, GypS, GypL, DxuS, DxuL, DyvS, DyvL, ApS, ApL, AuS, AuL, AvS, AvL, CTS, CTL, GxTS, GxTL, GyTS, GyTL, ftcGxTS, ftcGxTL, ftcGyTS, ftcGyTL, CuS, CuL, CvS, CvL), Forward(iso, isou, isov, u, uu, uv, TS, TL, pS, pL, ϕS, ϕL, uS, uL, vS, vL, Tall, DTS, DTL, V, Vu, Vv, κ, κu, κv, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, Uxsave, Uysave, Vsave, κsave, lengthsave)
+    return TempArrays(SCUTT, LCUTT, SCUTp, LCUTp, SCUTu, LCUTu, SCUTv, LCUTv, SCUTDx, SCUTDy, LCUTDx, LCUTDy, SCUTCT, LCUTCT, SCUTGxT, LCUTGxT, SCUTGyT, LCUTGyT, SCUTCu, LCUTCu, SCUTCv, LCUTCv, SOL, LIQ, SOLu, LIQu, SOLv, LIQv, sol_projection, liq_projection, sol_projectionu, liq_projectionu, sol_projectionv, liq_projectionv, sol_centroid, liq_centroid, mid_point, sol_centroidu, liq_centroidu, mid_pointu, sol_centroidv, liq_centroidv, mid_pointv, α, αu, αv, LTS, LTL, LpS, LpL, LuS, LuL, LvS, LvL, AS, AL, BS, BL, LSA, LSB, GxpS, GxpL, GypS, GypL, DxuS, DxuL, DyvS, DyvL, ApS, ApL, AuS, AuL, AvS, AvL, CTS, CTL, GxTS, GxTL, GyTS, GyTL, ftcGxTS, ftcGxTL, ftcGyTS, ftcGyTL, CuS, CuL, CvS, CvL), Forward(iso, isou, isov, u, uu, uv, TS, TL, pS, pL, ϕS, ϕL, Gxm1S, Gym1S, Gxm1L, Gym1L, uS, uL, vS, vL, Tall, DTS, DTL, V, Vu, Vv, κ, κu, κv, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, Uxsave, Uysave, Vsave, κsave, lengthsave)
 end
 
 function init_mullins!(T, V, t, A, N, n, H, shift)

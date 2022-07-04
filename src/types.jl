@@ -37,12 +37,14 @@ abstract type AbstractOptimizer end
     ϵ_κ::Float64 = 0.0
     ϵ_V::Float64 = 0.0
     case::String = "notmycase"
-    cases::String = "Planar, Sphere, Cylinder, Crystal, Mullins, Nothing"
+    cases::String = "Planar, Sphere, Cylinder, Crystal, Mullins, Nothing, Airfoil, Square"
     A::Float64 = 0.05
     N::Int64 = 2
     R::Float64 = 0.5
     m::Int64 = 4
     θ₀::Float64 = pi/4
+    x_airfoil::Array{Float64} = [0.0]
+    y_airfoil::Array{Float64} = [0.0]
     aniso::Bool = false
 end
 
@@ -184,6 +186,10 @@ mutable struct Forward{T <: Float64} <: MutatingFields
     pL::Array{T,2}
     ϕS::Array{T,2}
     ϕL::Array{T,2}
+    Gxm1S::Array{T,1}
+    Gym1S::Array{T,1}
+    Gxm1L::Array{T,1}
+    Gym1L::Array{T,1}
     uS::Array{T,2}
     uL::Array{T,2}
     vS::Array{T,2}
