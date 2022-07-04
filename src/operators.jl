@@ -758,12 +758,8 @@ end
         pII = lexicographic(II, n)
         @inbounds O[pII,pII] += -0.25 * (A3[fun_cap(II)] - B1[fun_cap(II)])*Δ * Du[fun1(II)]
         @inbounds O[pII,pII] += -0.25 * (B1[fun_cap(II)] - A1[fun_cap(II)])*Δ * Du[fun2(II)]
-        # @inbounds O[pII,pII] += -1/3 * (A3[fun_cap(II)] - B1[fun_cap(II)])*Δ * Du[fun1(II)]
-        # @inbounds O[pII,pII] += -1/3 * (B1[fun_cap(II)] - A1[fun_cap(II)])*Δ * Du[fun2(II)]
         @inbounds O[pII,pII] += -0.25 * (A4[fun_cap(II)] - B2[fun_cap(II)])*Δ * Dv[fun3(II)]
         @inbounds O[pII,pII] += -0.25 * (B2[fun_cap(II)] - A2[fun_cap(II)])*Δ * Dv[fun4(II)]
-        # @inbounds O[pII,pII] += -1/3 * (A4[fun_cap(II)] - B2[fun_cap(II)])*Δ * Dv[fun3(II)]
-        # @inbounds O[pII,pII] += -1/3 * (B2[fun_cap(II)] - A2[fun_cap(II)])*Δ * Dv[fun4(II)]
     end
     return nothing
 end
@@ -809,14 +805,23 @@ function vector_convection!(::Dirichlet, ::GridFCx, O, B, u, v, Du1_x, Du1_y, Du
         @inbounds O[pII,pII] += -0.25 * (A4_2 - B2_2) * Dv_y[δy⁺(II)]
         @inbounds O[pII,pII] += -0.25 * (B2_2 - A2_2) * Dv_y[II]
 
-        @inbounds B[pII] += -0.25 * Du2_x[II] * (A3_2 - B1_2) * Du1_x[δx⁺(II)]
-        @inbounds B[pII] += -0.25 * Du2_x[II] * (B1_2 - B1_1) * Du1_x[II]
-        @inbounds B[pII] += -0.25 * Du2_x[II] * (B1_1 - A1_1) * Du1_x[δx⁻(II)]
+        # @inbounds B[pII] += -0.25 * Du2_x[II] * (A3_2 - B1_2) * Du1_x[δx⁺(II)]
+        # @inbounds B[pII] += -0.25 * Du2_x[II] * (B1_2 - B1_1) * Du1_x[II]
+        # @inbounds B[pII] += -0.25 * Du2_x[II] * (B1_1 - A1_1) * Du1_x[δx⁻(II)]
 
-        @inbounds B[pII] += -0.25 * Du2_y[II] * (A4_1 - B2_1) * Dv_y[δx⁻(δy⁺(II))]
-        @inbounds B[pII] += -0.25 * Du2_y[II] * (B2_1 - A2_1) * Dv_y[δx⁻(II)]
-        @inbounds B[pII] += -0.25 * Du2_y[II] * (A4_2 - B2_2) * Dv_y[δy⁺(II)]
-        @inbounds B[pII] += -0.25 * Du2_y[II] * (B2_2 - A2_2) * Dv_y[II]
+        # @inbounds B[pII] += -0.25 * Du2_y[II] * (A4_1 - B2_1) * Dv_y[δx⁻(δy⁺(II))]
+        # @inbounds B[pII] += -0.25 * Du2_y[II] * (B2_1 - A2_1) * Dv_y[δx⁻(II)]
+        # @inbounds B[pII] += -0.25 * Du2_y[II] * (A4_2 - B2_2) * Dv_y[δy⁺(II)]
+        # @inbounds B[pII] += -0.25 * Du2_y[II] * (B2_2 - A2_2) * Dv_y[II]
+
+        @inbounds B[pII] += -0.25 * Du1_x[II] * (A3_2 - B1_2) * Du1_x[δx⁺(II)]
+        @inbounds B[pII] += -0.25 * Du1_x[II] * (B1_2 - B1_1) * Du1_x[II]
+        @inbounds B[pII] += -0.25 * Du1_x[II] * (B1_1 - A1_1) * Du1_x[δx⁻(II)]
+
+        @inbounds B[pII] += -0.25 * Du1_y[II] * (A4_1 - B2_1) * Dv_y[δx⁻(δy⁺(II))]
+        @inbounds B[pII] += -0.25 * Du1_y[II] * (B2_1 - A2_1) * Dv_y[δx⁻(II)]
+        @inbounds B[pII] += -0.25 * Du1_y[II] * (A4_2 - B2_2) * Dv_y[δy⁺(II)]
+        @inbounds B[pII] += -0.25 * Du1_y[II] * (B2_2 - A2_2) * Dv_y[II]
     end
 
     @inbounds @threads for II in vcat(b_left, b_bottom[2:end-1], b_right, b_top[2:end-1])
@@ -824,7 +829,7 @@ function vector_convection!(::Dirichlet, ::GridFCx, O, B, u, v, Du1_x, Du1_y, Du
         @inbounds O[pII,pII] = 0.0
     end
     bnds = (b_left, b_bottom[2:end-1], b_top[2:end-1])
-    bc = ((Du1_x, Du2_x, Dv_x), (Du1_y, Du2_y, Dv_y), (Du1_y, Du2_y, Dv_y))
+    bc = ((Du1_x, Du1_x, Dv_x), (Du1_y, Du1_y, Dv_y), (Du1_y, Du1_y, Dv_y))
     for (bnd, (Du1, Du2, Dv)) in zip(bnds, bc)
         @inbounds @threads for II in bnd
             pII = lexicographic(II, n)
@@ -851,7 +856,7 @@ function vector_convection!(::Dirichlet, ::GridFCx, O, B, u, v, Du1_x, Du1_y, Du
         end
     end
     bnds = (b_bottom[2:end-1], b_right, b_top[2:end-1])
-    bc = ((Du1_y, Du2_y, Dv_y), (Du1_x, Du2_x, Dv_x), (Du1_y, Du2_y, Dv_y))
+    bc = ((Du1_y, Du1_y, Dv_y), (Du1_x, Du1_x, Dv_x), (Du1_y, Du1_y, Dv_y))
     for (bnd, (Du1, Du2, Dv)) in zip(bnds, bc)
         @inbounds @threads for II in bnd
             pII = lexicographic(II, n)
@@ -955,12 +960,12 @@ function vector_convection!(::Dirichlet, ::GridFCx, O, B, u, v, Du1_x, Du1_y, Du
     @inbounds _B1 = cap[:,:,6]
     @inbounds _B2 = cap[:,:,7]
 
-    set_vec_conv_bnd!(dir, BC.left.t, O, x->x, δx⁺, x->x,  δy⁺, x->x, _A3, _B1, _A1, _A4, _B2, _A2, Du1_x, Dv_x, n, Δ, b_left, b_right)
-    set_vec_conv_bnd!(dir, BC.bottom.t, O, x->x,  δx⁺, x->x, δy⁺, x->x, _A3, _B1, _A1, _A4, _B2, _A2, Du1_y, Dv_y, n, Δ, b_bottom[1:end-1], b_top[1:end-1])
-    set_vec_conv_bnd!(dir, BC.bottom.t, O, δx⁻, x->x, δx⁻, (δx⁻ ∘ δy⁺), δx⁻, _A3, _B1, _A1, _A4, _B2, _A2, Du1_y, Dv_y, n, Δ, b_bottom[2:end], b_top[2:end])
-    set_vec_conv_bnd!(dir, BC.right.t, O, δx⁻, x->x, δx⁻, (δx⁻ ∘ δy⁺), δx⁻, _A3, _B1, _A1, _A4, _B2, _A2, Du1_x, Dv_x, n, Δ, b_right, b_left)
-    set_vec_conv_bnd!(dir, BC.bottom.t, O, x->x, δx⁺, x->x, δy⁺, x->x, _A3, _B1, _A1, _A4, _B2, _A2, Du1_y, Dv_y, n, Δ, b_top[1:end-1], b_bottom[1:end-1])
-    set_vec_conv_bnd!(dir, BC.bottom.t, O, δx⁻, x->x, δx⁻, (δx⁻ ∘ δy⁺), δx⁻, _A3, _B1, _A1, _A4, _B2, _A2, Du1_y, Dv_y, n, Δ, b_top[2:end], b_bottom[2:end])
+    # set_vec_conv_bnd!(dir, BC.left.t, O, x->x, δx⁺, x->x,  δy⁺, x->x, _A3, _B1, _A1, _A4, _B2, _A2, Du1_x, Dv_x, n, Δ, b_left, b_right)
+    # set_vec_conv_bnd!(dir, BC.bottom.t, O, x->x,  δx⁺, x->x, δy⁺, x->x, _A3, _B1, _A1, _A4, _B2, _A2, Du1_y, Dv_y, n, Δ, b_bottom[1:end-1], b_top[1:end-1])
+    # set_vec_conv_bnd!(dir, BC.bottom.t, O, δx⁻, x->x, δx⁻, (δx⁻ ∘ δy⁺), δx⁻, _A3, _B1, _A1, _A4, _B2, _A2, Du1_y, Dv_y, n, Δ, b_bottom[2:end], b_top[2:end])
+    # set_vec_conv_bnd!(dir, BC.right.t, O, δx⁻, x->x, δx⁻, (δx⁻ ∘ δy⁺), δx⁻, _A3, _B1, _A1, _A4, _B2, _A2, Du1_x, Dv_x, n, Δ, b_right, b_left)
+    # set_vec_conv_bnd!(dir, BC.top.t, O, x->x, δx⁺, x->x, δy⁺, x->x, _A3, _B1, _A1, _A4, _B2, _A2, Du1_y, Dv_y, n, Δ, b_top[1:end-1], b_bottom[1:end-1])
+    # set_vec_conv_bnd!(dir, BC.top.t, O, δx⁻, x->x, δx⁻, (δx⁻ ∘ δy⁺), δx⁻, _A3, _B1, _A1, _A4, _B2, _A2, Du1_y, Dv_y, n, Δ, b_top[2:end], b_bottom[2:end])
 
     return nothing
 end
@@ -996,14 +1001,23 @@ function vector_convection!(::Dirichlet, ::GridFCy, O, B, u, v, Du_x, Du_y, Dv1_
         @inbounds O[pII,pII] += -0.25 * (A3_2 - B1_2) * Du_x[δx⁺(II)]
         @inbounds O[pII,pII] += -0.25 * (B1_2 - A1_2) * Du_x[II]
 
-        @inbounds B[pII] += -0.25 * Dv2_y[II] * (A4_2 - B2_2) * Dv1_y[δy⁺(II)]
-        @inbounds B[pII] += -0.25 * Dv2_y[II] * (B2_2 - B2_1) * Dv1_y[II]
-        @inbounds B[pII] += -0.25 * Dv2_y[II] * (B2_1 - A2_1) * Dv1_y[δy⁻(II)]
+        # @inbounds B[pII] += -0.25 * Dv2_y[II] * (A4_2 - B2_2) * Dv1_y[δy⁺(II)]
+        # @inbounds B[pII] += -0.25 * Dv2_y[II] * (B2_2 - B2_1) * Dv1_y[II]
+        # @inbounds B[pII] += -0.25 * Dv2_y[II] * (B2_1 - A2_1) * Dv1_y[δy⁻(II)]
 
-        @inbounds B[pII] += -0.25 * Dv2_x[II] * (A3_1 - B1_1) * Du_x[δy⁻(δx⁺(II))]
-        @inbounds B[pII] += -0.25 * Dv2_x[II] * (B1_1 - A1_1) * Du_x[δy⁻(II)]
-        @inbounds B[pII] += -0.25 * Dv2_x[II] * (A3_2 - B1_2) * Du_x[δx⁺(II)]
-        @inbounds B[pII] += -0.25 * Dv2_x[II] * (B1_2 - A1_2) * Du_x[II]
+        # @inbounds B[pII] += -0.25 * Dv2_x[II] * (A3_1 - B1_1) * Du_x[δy⁻(δx⁺(II))]
+        # @inbounds B[pII] += -0.25 * Dv2_x[II] * (B1_1 - A1_1) * Du_x[δy⁻(II)]
+        # @inbounds B[pII] += -0.25 * Dv2_x[II] * (A3_2 - B1_2) * Du_x[δx⁺(II)]
+        # @inbounds B[pII] += -0.25 * Dv2_x[II] * (B1_2 - A1_2) * Du_x[II]
+
+        @inbounds B[pII] += -0.25 * Dv1_y[II] * (A4_2 - B2_2) * Dv1_y[δy⁺(II)]
+        @inbounds B[pII] += -0.25 * Dv1_y[II] * (B2_2 - B2_1) * Dv1_y[II]
+        @inbounds B[pII] += -0.25 * Dv1_y[II] * (B2_1 - A2_1) * Dv1_y[δy⁻(II)]
+
+        @inbounds B[pII] += -0.25 * Dv1_x[II] * (A3_1 - B1_1) * Du_x[δy⁻(δx⁺(II))]
+        @inbounds B[pII] += -0.25 * Dv1_x[II] * (B1_1 - A1_1) * Du_x[δy⁻(II)]
+        @inbounds B[pII] += -0.25 * Dv1_x[II] * (A3_2 - B1_2) * Du_x[δx⁺(II)]
+        @inbounds B[pII] += -0.25 * Dv1_x[II] * (B1_2 - A1_2) * Du_x[II]
     end
 
     @inbounds @threads for II in vcat(b_left, b_bottom[2:end-1], b_right, b_top[2:end-1])
@@ -1011,7 +1025,7 @@ function vector_convection!(::Dirichlet, ::GridFCy, O, B, u, v, Du_x, Du_y, Dv1_
         @inbounds O[pII,pII] = 0.0
     end
     bnds = (b_left[2:end-1], b_bottom, b_right[2:end-1])
-    bc = ((Du_x, Dv1_x, Dv2_x), (Du_y, Dv1_y, Dv2_y), (Du_x, Dv1_x, Dv2_x))
+    bc = ((Du_x, Dv1_x, Dv1_x), (Du_y, Dv1_y, Dv1_y), (Du_x, Dv1_x, Dv1_x))
     for (bnd, (Du, Dv1, Dv2)) in zip(bnds, bc)
         @inbounds @threads for II in bnd
             pII = lexicographic(II, n+1)
@@ -1038,7 +1052,7 @@ function vector_convection!(::Dirichlet, ::GridFCy, O, B, u, v, Du_x, Du_y, Dv1_
         end
     end
     bnds = (b_left[2:end-1], b_right[2:end-1], b_top)
-    bc = ((Du_x, Dv1_x, Dv2_x), (Du_x, Dv1_x, Dv2_x), (Du_y, Dv1_y, Dv2_y))
+    bc = ((Du_x, Dv1_x, Dv1_x), (Du_x, Dv1_x, Dv1_x), (Du_y, Dv1_y, Dv1_y))
     for (bnd, (Du, Dv1, Dv2)) in zip(bnds, bc)
         @inbounds @threads for II in bnd
             pII = lexicographic(II, n+1)
@@ -1142,12 +1156,12 @@ function vector_convection!(::Dirichlet, ::GridFCy, O, B, u, v, Du_x, Du_y, Dv1_
     @inbounds _B1 = cap[:,:,6]
     @inbounds _B2 = cap[:,:,7]
 
-    set_vec_conv_bnd!(dir, BC.left.t, O, x->x, δy⁺, x->x, δx⁺, x->x, _A4, _B2, _A2, _A3, _B1, _A1, Dv1_x, Du_x, n+1, Δ, b_left[1:end-1], b_right[1:end-1])
-    set_vec_conv_bnd!(dir, BC.left.t, O, δy⁻, x->x, δy⁻, (δy⁻ ∘ δx⁺), δy⁻, _A4, _B2, _A2, _A3, _B1, _A1, Dv1_x, Du_x, n+1, Δ, b_left[2:end], b_right[2:end])
-    set_vec_conv_bnd!(dir, BC.bottom.t, O, x->x, δy⁺, x->x, δx⁺, x->x, _A4, _B2, _A2, _A3, _B1, _A1, Dv1_y, Du_y, n+1, Δ, b_bottom, b_top)
-    set_vec_conv_bnd!(dir, BC.right.t, O, x->x, δy⁺, x->x, δx⁺, x->x, _A4, _B2, _A2, _A3, _B1, _A1, Dv1_x, Du_x, n+1, Δ, b_right[1:end-1], b_left[1:end-1])
-    set_vec_conv_bnd!(dir, BC.right.t, O, δy⁻, x->x, δy⁻, (δy⁻ ∘ δx⁺), δy⁻, _A4, _B2, _A2, _A3, _B1, _A1, Dv1_x, Du_x, n+1, Δ, b_right[2:end], b_left[2:end])
-    set_vec_conv_bnd!(dir, BC.top.t, O, δy⁻, x->x, δy⁻, (δy⁻ ∘ δx⁺), δy⁻, _A4, _B2, _A2, _A3, _B1, _A1, Dv1_y, Du_y, n+1, Δ, b_top, b_bottom)
+    # set_vec_conv_bnd!(dir, BC.left.t, O, x->x, δy⁺, x->x, δx⁺, x->x, _A4, _B2, _A2, _A3, _B1, _A1, Dv1_x, Du_x, n+1, Δ, b_left[1:end-1], b_right[1:end-1])
+    # set_vec_conv_bnd!(dir, BC.left.t, O, δy⁻, x->x, δy⁻, (δy⁻ ∘ δx⁺), δy⁻, _A4, _B2, _A2, _A3, _B1, _A1, Dv1_x, Du_x, n+1, Δ, b_left[2:end], b_right[2:end])
+    # set_vec_conv_bnd!(dir, BC.bottom.t, O, x->x, δy⁺, x->x, δx⁺, x->x, _A4, _B2, _A2, _A3, _B1, _A1, Dv1_y, Du_y, n+1, Δ, b_bottom, b_top)
+    # set_vec_conv_bnd!(dir, BC.right.t, O, x->x, δy⁺, x->x, δx⁺, x->x, _A4, _B2, _A2, _A3, _B1, _A1, Dv1_x, Du_x, n+1, Δ, b_right[1:end-1], b_left[1:end-1])
+    # set_vec_conv_bnd!(dir, BC.right.t, O, δy⁻, x->x, δy⁻, (δy⁻ ∘ δx⁺), δy⁻, _A4, _B2, _A2, _A3, _B1, _A1, Dv1_x, Du_x, n+1, Δ, b_right[2:end], b_left[2:end])
+    # set_vec_conv_bnd!(dir, BC.top.t, O, δy⁻, x->x, δy⁻, (δy⁻ ∘ δx⁺), δy⁻, _A4, _B2, _A2, _A3, _B1, _A1, Dv1_y, Du_y, n+1, Δ, b_top, b_bottom)
 
     return nothing
 end
