@@ -21,7 +21,8 @@ function set_stokes!(bcpx, bcpy, BC_p, Lp, Lpm1, CUTp, CUTpm1, CAP, n, Δ, ns_ad
                 inside_v, empty_v, b_left_v, b_bottom_v, b_right_v, b_top_v,
                 Dxu, Dyv, CUTDx, CUTDy, all_indices,
                 Gxp, Gyp, Gxpm1, Gypm1,
-                CUTCu, CUTCv, Cu, Cv, u, v
+                CUTCu, CUTCv, Cu, Cv, u, v,
+                current_i
     )
     Gxpm1 .= Gxp
     Gypm1 .= Gyp
@@ -100,8 +101,8 @@ function pressure_projection!(p, ϕ, u, v, ns_advection,
     Δm1um1 = Mu * (iMum1 * (Lum1 * vec(u) .+ CUTum1))
     Δm1vm1 = Mv * (iMvm1 * (Lvm1 * vec(v) .+ CUTvm1))
 
-    # Gxm1 = iMGxm1 * Gxpm1 * vec(p)
-    # Gym1 = iMGym1 * Gypm1 * vec(p)
+    # Gxm1 .= Mu * iMGxm1 * Gxpm1 * vec(p)
+    # Gym1 .= Mv * iMGym1 * Gypm1 * vec(p)
 
     Gxϕ = iMGxm1 * (Gxpm1 * vec(ϕ))
     Gyϕ = iMGym1 * (Gypm1 * vec(ϕ))
@@ -139,6 +140,8 @@ function pressure_projection!(p, ϕ, u, v, ns_advection,
     # Δu = Δum1
     # Δv = Δvm1
 
+    # Bδucorr = τ .* (iRe .* Δu .- Mu * Gxm1 .- Convu)
+    # Bδvcorr = τ .* (iRe .* Δv .- Mv * Gym1 .- Convv)
     Bδucorr = τ .* (iRe .* Δu .- Gxm1 .- Convu)
     Bδvcorr = τ .* (iRe .* Δv .- Gym1 .- Convv)
 
@@ -151,46 +154,6 @@ function pressure_projection!(p, ϕ, u, v, ns_advection,
         Bδvcorr[pII] = 0.
     end
 
-    # @inbounds @threads for II in FRESH_u
-    #     pII = lexicographic(II, n)
-        
-    #     Bδucorr[pII] = (Δ^2 + 0.5*iRe*τ*4.0) * Vu[II]
-    #     Bδucorr[pII+n] += -Au[pII+n,pII] * Vu[II]
-    #     Bδucorr[pII-n] += -Au[pII-n,pII] * Vu[II]
-    #     Bδucorr[pII+1] += -Au[pII+1,pII] * Vu[II]
-    #     Bδucorr[pII-1] += -Au[pII-1,pII] * Vu[II]
-
-    #     Au[pII,pII] = Δ^2 + 0.5*iRe*τ*4.0
-    #     Au[pII,pII+n] = 0.
-    #     Au[pII,pII-n] = 0.
-    #     Au[pII,pII+1] = 0.
-    #     Au[pII,pII-1] = 0.
-
-    #     Au[pII+n,pII] = 0.
-    #     Au[pII-n,pII] = 0.
-    #     Au[pII+1,pII] = 0.
-    #     Au[pII-1,pII] = 0.
-    # end
-    # @inbounds @threads for II in FRESH_v
-    #     pII = lexicographic(II, n+1)
-        
-    #     Bδvcorr[pII] = (Δ^2 + 0.5*iRe*τ*4.0) * Vv[II]
-    #     Bδvcorr[pII+n+1] += -Av[pII+n+1,pII] * Vv[II]
-    #     Bδvcorr[pII-n-1] += -Av[pII-n-1,pII] * Vv[II]
-    #     Bδvcorr[pII+1] += -Av[pII+1,pII] * Vv[II]
-    #     Bδvcorr[pII-1] += -Av[pII-1,pII] * Vv[II]
-
-    #     Av[pII,pII] = Δ^2 + 0.5*iRe*τ*4.0
-    #     Av[pII,pII+n+1] = 0.
-    #     Av[pII,pII-n-1] = 0.
-    #     Av[pII,pII+1] = 0.
-    #     Av[pII,pII-1] = 0.
-
-    #     Av[pII+n+1,pII] = 0.
-    #     Av[pII-n-1,pII] = 0.
-    #     Av[pII+1,pII] = 0.
-    #     Av[pII-1,pII] = 0.
-    # end
     update_ksp_solver!(kspu, Au)
     update_ksp_solver!(kspv, Av)
 
@@ -218,8 +181,8 @@ function pressure_projection!(p, ϕ, u, v, ns_advection,
     ϕ .= reshape(kspp \ vecseq, (n,n))
     PETSc.destroy(vecseq)
 
-    # Δϕ = reshape(iMp * (Lp * vec(ϕ) .+ CUTp), (n,n))
-    # p .+= ϕ .- iRe.*τ.*0.5.*Δϕ
+    Δϕ = reshape(iMp * (Lp * vec(ϕ) .+ CUTp), (n,n))
+    p .+= ϕ .- iRe.*τ.*0.5.*Δϕ
     Gx = reshape(iMGx * (Gxp * vec(ϕ)), (n,n+1))
     Gy = reshape(iMGy * (Gyp * vec(ϕ)), (n+1,n))
 

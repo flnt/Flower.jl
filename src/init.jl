@@ -99,29 +99,35 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
     sol_centroid = Array{Point{Float64}, 2}(undef, n, n)
     liq_centroid = Array{Point{Float64}, 2}(undef, n, n)
     mid_point = Array{Point{Float64}, 2}(undef, n, n)
+    cut_points = Array{Vector{Point{Float64}}, 2}(undef, n, n)
 
     sol_centroidu = Array{Point{Float64}, 2}(undef, n, n+1)
     liq_centroidu = Array{Point{Float64}, 2}(undef, n, n+1)
     mid_pointu = Array{Point{Float64}, 2}(undef, n, n+1)
+    cut_pointsu = Array{Vector{Point{Float64}}, 2}(undef, n, n+1)
 
     sol_centroidv = Array{Point{Float64}, 2}(undef, n+1, n)
     liq_centroidv = Array{Point{Float64}, 2}(undef, n+1, n)
     mid_pointv = Array{Point{Float64}, 2}(undef, n+1, n)
+    cut_pointsv = Array{Vector{Point{Float64}}, 2}(undef, n+1, n)
 
     @inbounds @threads for II in eachindex(sol_centroid)
         sol_centroid[II] = Point(0.0, 0.0)
         liq_centroid[II] = Point(0.0, 0.0)
         mid_point[II] = Point(0.0, 0.0)
+        cut_points[II] = [Point(0.0, 0.0), Point(0.0, 0.0)]
     end
     @inbounds @threads for II in eachindex(sol_centroidu)
         sol_centroidu[II] = Point(0.0, 0.0)
         liq_centroidu[II] = Point(0.0, 0.0)
         mid_pointu[II] = Point(0.0, 0.0)
+        cut_pointsu[II] = [Point(0.0, 0.0), Point(0.0, 0.0)]
     end
     @inbounds @threads for II in eachindex(sol_centroidv)
         sol_centroidv[II] = Point(0.0, 0.0)
         liq_centroidv[II] = Point(0.0, 0.0)
         mid_pointv[II] = Point(0.0, 0.0)
+        cut_pointsv[II] = [Point(0.0, 0.0), Point(0.0, 0.0)]
     end
 
     α = zeros(n,n)
@@ -468,7 +474,7 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
         vL .= v_inf
     end
 
-    return TempArrays(SCUTT, LCUTT, SCUTp, LCUTp, SCUTu, LCUTu, SCUTv, LCUTv, SCUTDx, SCUTDy, LCUTDx, LCUTDy, SCUTCT, LCUTCT, SCUTGxT, LCUTGxT, SCUTGyT, LCUTGyT, SCUTCu, LCUTCu, SCUTCv, LCUTCv, SOL, LIQ, SOLu, LIQu, SOLv, LIQv, sol_projection, liq_projection, sol_projectionu, liq_projectionu, sol_projectionv, liq_projectionv, sol_centroid, liq_centroid, mid_point, sol_centroidu, liq_centroidu, mid_pointu, sol_centroidv, liq_centroidv, mid_pointv, α, αu, αv, LTS, LTL, LpS, LpL, LuS, LuL, LvS, LvL, AS, AL, BS, BL, LSA, LSB, GxpS, GxpL, GypS, GypL, DxuS, DxuL, DyvS, DyvL, ApS, ApL, AuS, AuL, AvS, AvL, CTS, CTL, GxTS, GxTL, GyTS, GyTL, ftcGxTS, ftcGxTL, ftcGyTS, ftcGyTL, CuS, CuL, CvS, CvL), Forward(iso, isou, isov, u, uu, uv, TS, TL, pS, pL, ϕS, ϕL, Gxm1S, Gym1S, Gxm1L, Gym1L, uS, uL, vS, vL, Tall, DTS, DTL, V, Vu, Vv, κ, κu, κv, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, Uxsave, Uysave, Vsave, κsave, lengthsave)
+    return TempArrays(SCUTT, LCUTT, SCUTp, LCUTp, SCUTu, LCUTu, SCUTv, LCUTv, SCUTDx, SCUTDy, LCUTDx, LCUTDy, SCUTCT, LCUTCT, SCUTGxT, LCUTGxT, SCUTGyT, LCUTGyT, SCUTCu, LCUTCu, SCUTCv, LCUTCv, SOL, LIQ, SOLu, LIQu, SOLv, LIQv, sol_projection, liq_projection, sol_projectionu, liq_projectionu, sol_projectionv, liq_projectionv, sol_centroid, liq_centroid, mid_point, cut_points, sol_centroidu, liq_centroidu, mid_pointu, cut_pointsu, sol_centroidv, liq_centroidv, mid_pointv, cut_pointsv, α, αu, αv, LTS, LTL, LpS, LpL, LuS, LuL, LvS, LvL, AS, AL, BS, BL, LSA, LSB, GxpS, GxpL, GypS, GypL, DxuS, DxuL, DyvS, DyvL, ApS, ApL, AuS, AuL, AvS, AvL, CTS, CTL, GxTS, GxTL, GyTS, GyTL, ftcGxTS, ftcGxTL, ftcGyTS, ftcGyTL, CuS, CuL, CvS, CvL), Forward(iso, isou, isov, u, uu, uv, TS, TL, pS, pL, ϕS, ϕL, Gxm1S, Gym1S, Gxm1L, Gym1L, uS, uL, vS, vL, Tall, DTS, DTL, V, Vu, Vv, κ, κu, κv, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, Uxsave, Uysave, Vsave, κsave, lengthsave)
 end
 
 function init_mullins!(T, V, t, A, N, n, H, shift)

@@ -120,12 +120,15 @@ mutable struct TempArrays{T <: Float64} <: MutatingFields
     sol_centroid::Array{Point{T},2}
     liq_centroid::Array{Point{T},2}
     mid_point::Array{Point{T},2}
+    cut_points::Array{Vector{Point{T}},2}
     sol_centroidu::Array{Point{T},2}
     liq_centroidu::Array{Point{T},2}
     mid_pointu::Array{Point{T},2}
+    cut_pointsu::Array{Vector{Point{T}},2}
     sol_centroidv::Array{Point{T},2}
     liq_centroidv::Array{Point{T},2}
     mid_pointv::Array{Point{T},2}
+    cut_pointsv::Array{Vector{Point{T}},2}
     α::Array{T,2}
     αu::Array{T,2}
     αv::Array{T,2}

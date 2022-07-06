@@ -75,8 +75,8 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = idxv
     all_indices_v, inside_v, b_left_v, b_bottom_v, b_right_v, b_top_v = all_indices, inside, b_left, b_bottom, b_right, b_top
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = idx
-    @unpack SCUTT, LCUTT, SCUTp, LCUTp, SCUTu, LCUTu, SCUTv, LCUTv, SCUTDx, SCUTDy, LCUTDx, LCUTDy, SCUTCT, LCUTCT, SCUTGxT, LCUTGxT, SCUTGyT, LCUTGyT, SCUTCu, LCUTCu, SCUTCv, LCUTCv, LTS, LTL, LpS, LpL, LuS, LuL, LvS, LvL, AS, AL, BS, BL, LSA, LSB, GxpS, GxpL, GypS, GypL, DxuS, DxuL, DyvS, DyvL, ApS, ApL, AuS, AuL, AvS, AvL, CTS, CTL, GxTS, GxTL, GyTS, GyTL, ftcGxTS, ftcGxTL, ftcGyTS, ftcGyTL, CuS, CuL, CvS, CvL, SOL, LIQ, SOLu, LIQu, SOLv, LIQv, sol_projection, liq_projection, sol_projectionu, liq_projectionu, sol_projectionv, liq_projectionv, sol_centroid, liq_centroid, mid_point, sol_centroidu, liq_centroidu, mid_pointu, sol_centroidv, liq_centroidv, mid_pointv, α, αu, αv = tmp
-    @unpack iso, isou, isov, u, uu, uv, TS, TL, pS, pL, ϕS, ϕL, uS, uL, vS, vL, Tall, DTS, DTL, V, Vu, Vv, κ, κu, κv, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, Uxsave, Uysave, Vsave, κsave, lengthsave = fwd
+    @unpack SCUTT, LCUTT, SCUTp, LCUTp, SCUTu, LCUTu, SCUTv, LCUTv, SCUTDx, SCUTDy, LCUTDx, LCUTDy, SCUTCT, LCUTCT, SCUTGxT, LCUTGxT, SCUTGyT, LCUTGyT, SCUTCu, LCUTCu, SCUTCv, LCUTCv, LTS, LTL, LpS, LpL, LuS, LuL, LvS, LvL, AS, AL, BS, BL, LSA, LSB, GxpS, GxpL, GypS, GypL, DxuS, DxuL, DyvS, DyvL, ApS, ApL, AuS, AuL, AvS, AvL, CTS, CTL, GxTS, GxTL, GyTS, GyTL, ftcGxTS, ftcGxTL, ftcGyTS, ftcGyTL, CuS, CuL, CvS, CvL, SOL, LIQ, SOLu, LIQu, SOLv, LIQv, sol_projection, liq_projection, sol_projectionu, liq_projectionu, sol_projectionv, liq_projectionv, sol_centroid, liq_centroid, mid_point, cut_points, sol_centroidu, liq_centroidu, mid_pointu, cut_pointsu, sol_centroidv, liq_centroidv, mid_pointv, cut_pointsv, α, αu, αv = tmp
+    @unpack iso, isou, isov, u, uu, uv, TS, TL, pS, pL, ϕS, ϕL, Gxm1S, Gym1S, Gxm1L, Gym1L, uS, uL, vS, vL, Tall, DTS, DTL, V, Vu, Vv, κ, κu, κv, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, Uxsave, Uysave, Vsave, κsave, lengthsave = fwd
 
     MPI.Initialized() || MPI.Init()
     PETSc.initialize()
@@ -105,11 +105,6 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
     local faces = zeros(n,n,4);
     local facesu = zeros(n,n+1,4);
     local facesv = zeros(n+1,n,4);
-
-    local Gxm1S = zeros(n*(n+1))
-    local Gym1S = zeros((n+1)*n)
-    local Gxm1L = zeros(n*(n+1))
-    local Gym1L = zeros((n+1)*n)
 
     local Cum1S = zeros(n*(n+1))
     local Cum1L = zeros(n*(n+1))
@@ -159,8 +154,6 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
     bcvS = zeros(n+1,n)
     bcvL = zeros(n+1,n)
 
-    # Ip = spdiagm(0 => ones(n^2))
-    # Iuv = spdiagm(0 => ones(n*(n+1)))
     Ip = Diagonal(ones(n^2))
     Iuv = Diagonal(ones(n*(n+1)))
     MpS = copy(Ip)
@@ -205,7 +198,7 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
         BC_u.right.ind = idx.periodicR;
         BC_u.left.f = BC_u.right.f = periodic
     else
-        BC_u.left.ind =b_left;
+        BC_u.left.ind = b_left;
         BC_u.right.ind = b_right;
     end
 
@@ -225,12 +218,13 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
     Uysave[1, :, :] .= vL[:,:] .+ vS[:,:]
 
     if levelset
-        marching_squares!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, Δ, L0, B, BT, inside, ϵ, n, n, faces)
+        marching_squares!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, Δ, L0, B, BT, all_indices, inside, b_left[1], b_bottom[1], b_right[1], b_top[1], ϵ, n, n, faces)
         interpolate_scalar!(u, uu, uv, B, BT, n, inside,b_left[1], b_bottom[1], b_right[1], b_top[1])
         uusave[1, :, :] .= uu[:,:]
         uvsave[1, :, :] .= uv[:,:]
-        marching_squares!(H, isou, uu, uS, uL, κu, SOLu, LIQu, sol_projectionu, liq_projectionu, Δ, L0, B, BT, inside_u, ϵ, n+1, n, facesu)
-        marching_squares!(H, isov, uv, vS, vL, κv, SOLv, LIQv, sol_projectionv, liq_projectionv, Δ, L0, B, BT, inside_v, ϵ, n, n+1, facesv)
+        marching_squares!(H, isou, uu, uS, uL, κu, SOLu, LIQu, sol_projectionu, liq_projectionu, Δ, L0, B, BT, all_indices_u, inside_u, b_left_u[1], b_bottom_u[1], b_right_u[1], b_top_u[1], ϵ, n+1, n, facesu)
+        
+        marching_squares!(H, isov, uv, vS, vL, κv, SOLv, LIQv, sol_projectionv, liq_projectionv, Δ, L0, B, BT, all_indices_v, inside_v, b_left_v[1], b_bottom_v[1], b_right_v[1], b_top_v[1], ϵ, n, n+1, facesv)
 
         bcs!(faces, BC_u.left, Δ)
         bcs!(faces, BC_u.right, Δ)
@@ -250,9 +244,9 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
         NB_indices_base = get_NB_width_indices_base(NB)
 
         MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, inside)
-        MIXED, SOLID, LIQUID = get_cells_indices(iso, u, inside, vcat(b_left[1], b_bottom[1][2:end-1], b_right[1], b_top[1][2:end-1]))
-        MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(isou, uu, inside_u, vcat(b_left_u[1], b_bottom_u[1][2:end-1], b_right_u[1], b_top_u[1][2:end-1]))
-        MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(isov, uv, inside_v, vcat(b_left_v[1], b_bottom_v[1][2:end-1], b_right_v[1], b_top_v[1][2:end-1]))
+        MIXED, SOLID, LIQUID = get_cells_indices(iso, all_indices)
+        MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(isou, all_indices_u)
+        MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(isov, all_indices_v)
 
         kill_dead_cells!(TS, LIQUID)
         kill_dead_cells!(TL, SOLID)
@@ -279,9 +273,9 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
         ns_vecL ./= norm(ns_vecL)
 
         NB_indices = get_NB_width(MIXED, NB_indices_base)
-        get_iterface_location!(gcc, X, Y, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, α, Δ, L0, B, BT, idx, MIXED, ϵ, n, faces, periodic_x, periodic_y)
-        get_iterface_location!(gfcx, Xu, Yu, isou, uu, uS, uL, κu, SOLu, LIQu, sol_projectionu, liq_projectionu, sol_centroidu, liq_centroidu, mid_pointu, αu, Δ, L0, B, BT, idxu, MIXED_u, ϵ, n, facesu, periodic_x, periodic_y)
-        get_iterface_location!(gfcy, Xv, Yv, isov, uv, vS, vL, κv, SOLv, LIQv, sol_projectionv, liq_projectionv, sol_centroidv, liq_centroidv, mid_pointv, αv, Δ, L0, B, BT, idxv, MIXED_v, ϵ, n, facesv, periodic_x, periodic_y)
+        get_iterface_location!(gcc, X, Y, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, cut_points, α, Δ, L0, B, BT, idx, MIXED, ϵ, n, faces, periodic_x, periodic_y)
+        get_iterface_location!(gfcx, Xu, Yu, isou, uu, uS, uL, κu, SOLu, LIQu, sol_projectionu, liq_projectionu, sol_centroidu, liq_centroidu, mid_pointu, cut_pointsu, αu, Δ, L0, B, BT, idxu, MIXED_u, ϵ, n, facesu, periodic_x, periodic_y)
+        get_iterface_location!(gfcy, Xv, Yv, isov, uv, vS, vL, κv, SOLv, LIQv, sol_projectionv, liq_projectionv, sol_centroidv, liq_centroidv, mid_pointv, cut_pointsv, αv, Δ, L0, B, BT, idxv, MIXED_v, ϵ, n, facesv, periodic_x, periodic_y)
 
         @inbounds @threads for II in all_indices
             pII = lexicographic(II, n)
@@ -395,7 +389,8 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
                 inside_v, LIQUID_v, b_left_v, b_bottom_v, b_right_v, b_top_v,
                 DxuS, DyvS, SCUTDx, SCUTDy, all_indices,
                 GxpS, GypS, GxpSm1, GypSm1,
-                SCUTCu, SCUTCv, CuS, CvS, uS, vS)
+                SCUTCu, SCUTCv, CuS, CvS, uS, vS,
+                current_i)
                             
     set_stokes!(bcpLx, bcpLy, BC_pL, LpL, LpLm1, LCUTp, LCUTpm1, LIQ, n, Δ, ns_advection,
                 inside, SOLID, b_left, b_bottom, b_right, b_top,
@@ -405,12 +400,8 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
                 inside_v, SOLID_v, b_left_v, b_bottom_v, b_right_v, b_top_v,
                 DxuL, DyvL, LCUTDx, LCUTDy, all_indices,
                 GxpL, GypL, GxpLm1, GypLm1,
-                LCUTCu, LCUTCv, CuL, CvL, uL, vL)
-
-    Gxm1S .= iMGxSm1 * GxpSm1 * vec(pS)
-    Gym1S .= iMGySm1 * GypSm1 * vec(pS)
-    Gxm1L .= iMGxLm1 * GxpLm1 * vec(pL)
-    Gym1L .= iMGyLm1 * GypLm1 * vec(pL)
+                LCUTCu, LCUTCv, CuL, CvL, uL, vL,
+                current_i)
 
     if ns_advection
         Cum1S .= CuS * vec(uS) .+ SCUTCu
@@ -427,7 +418,8 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
     kspuL = init_ksp_solver(LuL, n)
     kspvL = init_ksp_solver(LvL, n)
 
-    IIOE(LSA, LSB, u, V, inside, CFL, Δ, n)
+    CFL_sc = CFL*Δ^2*Re < CFL*Δ ? CFL : CFL/Δ
+    IIOE(LSA, LSB, u, V, inside, CFL_sc, Δ, n)
 
     if save_length
         lengthsave[1] = arc_length2(sol_projection, MIXED, Δ)
@@ -534,10 +526,10 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
 
 
         if levelset
-            marching_squares!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, Δ, L0, B, BT, inside, ϵ, n, n, faces)
+            marching_squares!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, Δ, L0, B, BT, all_indices, inside, b_left[1], b_bottom[1], b_right[1], b_top[1], ϵ, n, n, faces)
             interpolate_scalar!(u, uu, uv, B, BT, n, inside,b_left[1], b_bottom[1], b_right[1], b_top[1])
-            marching_squares!(H, isou, uu, uS, uL, κu, SOLu, LIQu, sol_projectionu, liq_projectionu, Δ, L0, B, BT, inside_u, ϵ, n+1, n, facesu)
-            marching_squares!(H, isov, uv, vS, vL, κv, SOLv, LIQv, sol_projectionv, liq_projectionv, Δ, L0, B, BT, inside_v, ϵ, n, n+1, facesv)
+            marching_squares!(H, isou, uu, uS, uL, κu, SOLu, LIQu, sol_projectionu, liq_projectionu, Δ, L0, B, BT, all_indices_u, inside_u, b_left_u[1], b_bottom_u[1], b_right_u[1], b_top_u[1], ϵ, n+1, n, facesu)
+            marching_squares!(H, isov, uv, vS, vL, κv, SOLv, LIQv, sol_projectionv, liq_projectionv, Δ, L0, B, BT, all_indices_v, inside_v, b_left_v[1], b_bottom_v[1], b_right_v[1], b_top_v[1], ϵ, n, n+1, facesv)
 
             bcs!(faces, BC_u.left, Δ)
             bcs!(faces, BC_u.right, Δ)
@@ -564,10 +556,10 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
             WAS_SOLID_v = copy(SOLID_v)
 
             MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, inside)
-            MIXED, SOLID, LIQUID = get_cells_indices(iso, u, inside, vcat(b_left[1], b_bottom[1][2:end-1], b_right[1], b_top[1][2:end-1]))
-            MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(isou, uu, inside_u, vcat(b_left_u[1], b_bottom_u[1][2:end-1], b_right_u[1], b_top_u[1][2:end-1]))
-            MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(isov, uv, inside_v, vcat(b_left_v[1], b_bottom_v[1][2:end-1], b_right_v[1], b_top_v[1][2:end-1]))
-            
+            MIXED, SOLID, LIQUID = get_cells_indices(iso, all_indices)
+            MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(isou, all_indices_u)
+            MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(isov, all_indices_v)
+
             kill_dead_cells!(TS, LIQUID)
             kill_dead_cells!(TL, SOLID)
             # kill_dead_cells!(pS, LIQUID)
@@ -596,9 +588,9 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
 
             NB_indices = get_NB_width(MIXED, NB_indices_base)
 
-            get_iterface_location!(gcc, X, Y, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, α, Δ, L0, B, BT, idx, MIXED, ϵ, n, faces, periodic_x, periodic_y)
-            get_iterface_location!(gfcx, Xu, Yu, isou, uu, uS, uL, κu, SOLu, LIQu, sol_projectionu, liq_projectionu, sol_centroidu, liq_centroidu, mid_pointu, αu, Δ, L0, B, BT, idxu, MIXED_u, ϵ, n, facesu, periodic_x, periodic_y)
-            get_iterface_location!(gfcy, Xv, Yv, isov, uv, vS, vL, κv, SOLv, LIQv, sol_projectionv, liq_projectionv, sol_centroidv, liq_centroidv, mid_pointv, αv, Δ, L0, B, BT, idxv, MIXED_v, ϵ, n, facesv, periodic_x, periodic_y)
+            get_iterface_location!(gcc, X, Y, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, cut_points, α, Δ, L0, B, BT, idx, MIXED, ϵ, n, faces, periodic_x, periodic_y)
+            get_iterface_location!(gfcx, Xu, Yu, isou, uu, uS, uL, κu, SOLu, LIQu, sol_projectionu, liq_projectionu, sol_centroidu, liq_centroidu, mid_pointu, cut_pointsu, αu, Δ, L0, B, BT, idxu, MIXED_u, ϵ, n, facesu, periodic_x, periodic_y)
+            get_iterface_location!(gfcy, Xv, Yv, isov, uv, vS, vL, κv, SOLv, LIQv, sol_projectionv, liq_projectionv, sol_centroidv, liq_centroidv, mid_pointv, cut_pointsv, αv, Δ, L0, B, BT, idxv, MIXED_v, ϵ, n, facesv, periodic_x, periodic_y)
             
             @inbounds @threads for II in all_indices
                 pII = lexicographic(II, n)
@@ -721,7 +713,8 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
                             inside_v, LIQUID_v, b_left_v, b_bottom_v, b_right_v, b_top_v,
                             DxuS, DyvS, SCUTDx, SCUTDy, all_indices,
                             GxpS, GypS, GxpSm1, GypSm1,
-                            SCUTCu, SCUTCv, CuS, CvS, uS, vS)
+                            SCUTCu, SCUTCv, CuS, CvS, uS, vS,
+                            current_i)
 
                 pressure_projection!(pS, ϕS, uS, vS, ns_advection,
                             Gxm1S, Gym1S, ApS, AuS, AvS, LpS, LuS, LvS, LpSm1, LuSm1, LvSm1,
@@ -746,7 +739,8 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
                            inside_v, SOLID_v, b_left_v, b_bottom_v, b_right_v, b_top_v,
                            DxuL, DyvL, LCUTDx, LCUTDy, all_indices,
                            GxpL, GypL, GxpLm1, GypLm1,
-                           LCUTCu, LCUTCv, CuL, CvL, uL, vL)
+                           LCUTCu, LCUTCv, CuL, CvL, uL, vL,
+                           current_i)
 
                 pressure_projection!(pL, ϕL, uL, vL, ns_advection,
                             Gxm1L, Gym1L, ApL, AuL, AvL, LpL, LuL, LvL, LpLm1, LuLm1, LvLm1,
@@ -844,13 +838,7 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
         PETSc.destroy(kspuL)
         PETSc.destroy(kspvL)
         
-        return MIXED, SOLID, LIQUID, iMDxL, iMDyL, LCUTDx, LCUTDy
-        # return (pL, uL, vL, ApL, AuL, AvL, LpL, LuL, LvL,
-        #         LCUTp, LCUTu, LCUTv,
-        #         ksppL, kspuL, kspvL, nsL, ns_vecL,
-        #         GxpL, GypL, DxuL, DyvL, LCUTDx, LCUTDy,
-        #         MpL, iMpL, MuL, MvL, iMGxL, iMGyL, iMDxL, iMDyL,
-        #         τ, iRe, n, MIXED, LIQUID)
+        return MIXED, SOLID, LIQUID
     else
         PETSc.destroy(nsS)
         PETSc.destroy(ksppS)
