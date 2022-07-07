@@ -177,6 +177,7 @@ mutable struct TempArrays{T <: Float64} <: MutatingFields
     E11::SparseMatrixCSC{T, Int64}
     E12_x::SparseMatrixCSC{T, Int64}
     E12_y::SparseMatrixCSC{T, Int64}
+    E22::SparseMatrixCSC{T, Int64}
 end
 
 mutable struct Forward{T <: Float64} <: MutatingFields

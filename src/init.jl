@@ -338,6 +338,7 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
     DyvL = sparse(II,JJ,a)
     ftcGyTS = sparse(II,JJ,a)
     ftcGyTL = sparse(II,JJ,a)
+    E22 = sparse(II,JJ,a)
 
     is = collect(i for i = 1:n*n)
     iN = collect(i for i = 1:n*n)
@@ -507,7 +508,7 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
         vL .= v_inf
     end
 
-    return TempArrays(SCUTT, LCUTT, SCUTp, LCUTp, SCUTu, LCUTu, SCUTv, LCUTv, SCUTDx, SCUTDy, LCUTDx, LCUTDy, SCUTCT, LCUTCT, SCUTGxT, LCUTGxT, SCUTGyT, LCUTGyT, SCUTCu, LCUTCu, SCUTCv, LCUTCv, SOL, LIQ, SOLu, LIQu, SOLv, LIQv, sol_projection, liq_projection, sol_projectionu, liq_projectionu, sol_projectionv, liq_projectionv, sol_centroid, liq_centroid, mid_point, cut_points, sol_centroidu, liq_centroidu, mid_pointu, cut_pointsu, sol_centroidv, liq_centroidv, mid_pointv, cut_pointsv, α, αu, αv, LTS, LTL, LpS, LpL, LuS, LuL, LvS, LvL, AS, AL, BS, BL, LSA, LSB, GxpS, GxpL, GypS, GypL, DxuS, DxuL, DyvS, DyvL, ApS, ApL, AuS, AuL, AvS, AvL, CTS, CTL, GxTS, GxTL, GyTS, GyTL, ftcGxTS, ftcGxTL, ftcGyTS, ftcGyTL, CuS, CuL, CvS, CvL, E11, E12_x, E12_y), Forward(iso, isou, isov, u, uu, uv, TS, TL, pS, pL, ϕS, ϕL, Gxm1S, Gym1S, Gxm1L, Gym1L, uS, uL, vS, vL, Tall, DTS, DTL, V, Vu, Vv, κ, κu, κv, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, Uxsave, Uysave, Vsave, κsave, lengthsave)
+    return TempArrays(SCUTT, LCUTT, SCUTp, LCUTp, SCUTu, LCUTu, SCUTv, LCUTv, SCUTDx, SCUTDy, LCUTDx, LCUTDy, SCUTCT, LCUTCT, SCUTGxT, LCUTGxT, SCUTGyT, LCUTGyT, SCUTCu, LCUTCu, SCUTCv, LCUTCv, SOL, LIQ, SOLu, LIQu, SOLv, LIQv, sol_projection, liq_projection, sol_projectionu, liq_projectionu, sol_projectionv, liq_projectionv, sol_centroid, liq_centroid, mid_point, cut_points, sol_centroidu, liq_centroidu, mid_pointu, cut_pointsu, sol_centroidv, liq_centroidv, mid_pointv, cut_pointsv, α, αu, αv, LTS, LTL, LpS, LpL, LuS, LuL, LvS, LvL, AS, AL, BS, BL, LSA, LSB, GxpS, GxpL, GypS, GypL, DxuS, DxuL, DyvS, DyvL, ApS, ApL, AuS, AuL, AvS, AvL, CTS, CTL, GxTS, GxTL, GyTS, GyTL, ftcGxTS, ftcGxTL, ftcGyTS, ftcGyTL, CuS, CuL, CvS, CvL, E11, E12_x, E12_y, E22), Forward(iso, isou, isov, u, uu, uv, TS, TL, pS, pL, ϕS, ϕL, Gxm1S, Gym1S, Gxm1L, Gym1L, uS, uL, vS, vL, Tall, DTS, DTL, V, Vu, Vv, κ, κu, κv, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, Uxsave, Uysave, Vsave, κsave, lengthsave)
 end
 
 function init_mullins!(T, V, t, A, N, n, H, shift)

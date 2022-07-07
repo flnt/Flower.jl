@@ -506,16 +506,26 @@ end
 # Didn't implement the inhomogeneous BC term for the moment
 # since we only need this operator to compute forces inside
 # the domain and we have the no-slip condition at the wall
-function strain_rate!(::Dirichlet, O11, O12_x, O12_y, cap_x, cap_y, n, Δ, all_indices, inside)
+function strain_rate!(::Dirichlet, O11, O12_x, O12_y, O22, cap_x, cap_y, n, Δ, all_indices, inside)
     @inbounds @threads for II in inside
-        JJ = δx⁺(II)
         pII = lexicographic(II, n)
+
+        JJ = δx⁺(II)
         pJJ = lexicographic(JJ, n)
         A1_1, A2_1, A3_1, A4_1, B1_1, B2_1, W1_1, W2_1, W3_1, W4_1 = get_capacities(cap_x, II, Δ)
         A1_2, A2_2, A3_2, A4_2, B1_2, B2_2, W1_2, W2_2, W3_2, W4_2 = get_capacities(cap_x, JJ, Δ)
 
         @inbounds O11[pII,pII] = -B1_1 / W3_1
         @inbounds O11[pII,pJJ] = B1_2 / W3_1
+
+        JJ = δy⁺(II)
+        _pII = lexicographic(II, n+1)
+        pJJ = lexicographic(JJ, n+1)
+        A1_1, A2_1, A3_1, A4_1, B1_1, B2_1, W1_1, W2_1, W3_1, W4_1 = get_capacities(cap_y, II, Δ)
+        A1_2, A2_2, A3_2, A4_2, B1_2, B2_2, W1_2, W2_2, W3_2, W4_2 = get_capacities(cap_y, JJ, Δ)
+
+        @inbounds O22[pII,_pII] = -B2_1 / W4_1
+        @inbounds O22[pII,pJJ] = B2_2 / W4_1
     end
     @inbounds @threads for II in all_indices[1:end-1,2:end]
         pII = lexicographic(II, n)
