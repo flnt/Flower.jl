@@ -503,6 +503,54 @@ function face_to_cell_gradient!(::Dirichlet, Ox, Oy, Gx, Gy, cap, n, all_indices
     return nothing
 end
 
+# Didn't implement the inhomogeneous BC term for the moment
+# since we only need this operator to compute forces inside
+# the domain and we have the no-slip condition at the wall
+function strain_rate!(::Dirichlet, O11, O12_x, O12_y, cap_x, cap_y, n, Δ, all_indices, inside)
+    @inbounds @threads for II in inside
+        JJ = δx⁺(II)
+        pII = lexicographic(II, n)
+        pJJ = lexicographic(JJ, n)
+        A1_1, A2_1, A3_1, A4_1, B1_1, B2_1, W1_1, W2_1, W3_1, W4_1 = get_capacities(cap_x, II, Δ)
+        A1_2, A2_2, A3_2, A4_2, B1_2, B2_2, W1_2, W2_2, W3_2, W4_2 = get_capacities(cap_x, JJ, Δ)
+
+        @inbounds O11[pII,pII] = -B1_1 / W3_1
+        @inbounds O11[pII,pJJ] = B1_2 / W3_1
+    end
+    @inbounds @threads for II in all_indices[1:end-1,2:end]
+        pII = lexicographic(II, n)
+
+        JJ_1 = II
+        JJ_2 = δy⁺(II)
+        pJJ_1 = lexicographic(JJ_1, n)
+        pJJ_2 = lexicographic(JJ_2, n)
+        A1_1_x, A2_1_x, A3_1_x, A4_1_x, B1_1_x, B2_1_x, W1_1_x, W2_1_x, W3_1_x, W4_1_x = get_capacities(cap_x, JJ_1, Δ)
+        A1_2_x, A2_2_x, A3_2_x, A4_2_x, B1_2_x, B2_2_x, W1_2_x, W2_2_x, W3_2_x, W4_2_x = get_capacities(cap_x, JJ_2, Δ)
+
+        @inbounds O12_x[pII,pJJ_1] = -B2_1_x / 2W4_1_x
+        @inbounds O12_x[pII,pJJ_2] = B2_2_x / 2W4_1_x
+
+        JJ_1 = δy⁺(δx⁻(II))
+        JJ_2 = δy⁺(II)
+        pJJ_1 = lexicographic(JJ_1, n+1)
+        pJJ_2 = lexicographic(JJ_2, n+1)
+        A1_1_y, A2_1_y, A3_1_y, A4_1_y, B1_1_y, B2_1_y, W1_1_y, W2_1_y, W3_1_y, W4_1_y = get_capacities(cap_y, JJ_1, Δ)
+        A1_2_y, A2_2_y, A3_2_y, A4_2_y, B1_2_y, B2_2_y, W1_2_y, W2_2_y, W3_2_y, W4_2_y = get_capacities(cap_y, JJ_2, Δ)
+
+        # Harmonic average of volume capacities
+        if W4_1_x < 1e-8 || W3_1_y < 1e-8
+            Ŵ =  W4_1_x + W3_1_y
+        else
+            Ŵ = 2 * W4_1_x * W3_1_y / (W4_1_x + W3_1_y)
+        end
+
+        @inbounds O12_y[pII,pJJ_1] = -B1_1_y / 2Ŵ
+        @inbounds O12_y[pII,pJJ_2] = B1_2_y / 2Ŵ
+    end
+
+    return nothing
+end
+
 function set_bc_bnds(::Dirichlet, Du, Dv, Hu, Hv, u, v, BC_u, BC_v)
     Dx = copy(Du)
     Dy = copy(Dv)
@@ -555,7 +603,6 @@ end
     @inbounds for (II, JJ) in zip(b_indices, b_periodic)
         pII = lexicographic(II, n)
         pJJ = lexicographic(JJ, n)
-        println("$II $JJ")
         @inbounds O[pII,pJJ] += -0.5 * ((A2[II] - B1[II])*Δ * D[fun(II)] + (B1[II] - A1[II])*Δ * D[II])
     end
     return nothing
