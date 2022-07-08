@@ -360,11 +360,11 @@ function init_fields(num::NumericalParameters, idx::NumericalParameters, idxu::N
 
     jw = []
     for j=2:n
-        jw = vcat(jw, collect(i for i = (j-1)*(n+1)-2:(j-1)*(n+1)-3+n))
+        jw = vcat(jw, collect(i for i = (j-1)*(n+1)-(n-1):(j-1)*(n+1)))
     end
     je = []
     for j=1:n
-        je = vcat(je, collect(i for i = j*(n+1)-2:j*(n+1)-3+n))
+        je = vcat(je, collect(i for i = j*(n+1)-(n-1):j*(n+1)))
     end
     JJ = vcat(jw,je)
 
