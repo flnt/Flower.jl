@@ -76,7 +76,7 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
     all_indices_v, inside_v, b_left_v, b_bottom_v, b_right_v, b_top_v = all_indices, inside, b_left, b_bottom, b_right, b_top
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = idx
     @unpack SCUTT, LCUTT, SCUTp, LCUTp, SCUTu, LCUTu, SCUTv, LCUTv, SCUTDx, SCUTDy, LCUTDx, LCUTDy, SCUTCT, LCUTCT, SCUTGxT, LCUTGxT, SCUTGyT, LCUTGyT, SCUTCu, LCUTCu, SCUTCv, LCUTCv, LTS, LTL, LpS, LpL, LuS, LuL, LvS, LvL, AS, AL, BS, BL, LSA, LSB, GxpS, GxpL, GypS, GypL, DxuS, DxuL, DyvS, DyvL, ApS, ApL, AuS, AuL, AvS, AvL, CTS, CTL, GxTS, GxTL, GyTS, GyTL, ftcGxTS, ftcGxTL, ftcGyTS, ftcGyTL, CuS, CuL, CvS, CvL, SOL, LIQ, SOLu, LIQu, SOLv, LIQv, sol_projection, liq_projection, sol_projectionu, liq_projectionu, sol_projectionv, liq_projectionv, sol_centroid, liq_centroid, mid_point, cut_points, sol_centroidu, liq_centroidu, mid_pointu, cut_pointsu, sol_centroidv, liq_centroidv, mid_pointv, cut_pointsv, α, αu, αv = tmp
-    @unpack iso, isou, isov, u, uu, uv, TS, TL, pS, pL, ϕS, ϕL, Gxm1S, Gym1S, Gxm1L, Gym1L, uS, uL, vS, vL, Tall, DTS, DTL, V, Vu, Vv, κ, κu, κv, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, Uxsave, Uysave, Vsave, κsave, lengthsave = fwd
+    @unpack iso, isou, isov, u, uu, uv, TS, TL, pS, pL, ϕS, ϕL, Gxm1S, Gym1S, Gxm1L, Gym1L, uS, uL, vS, vL, Tall, DTS, DTL, V, Vu, Vv, κ, κu, κv, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, Uxsave, Uysave, Vsave, κsave, lengthsave, Cd, Cl = fwd
 
     MPI.Initialized() || MPI.Init()
     PETSc.initialize()
@@ -771,6 +771,7 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
                 psave[snap, :, :] .= pL[:,:].*LIQ[:,:,5] .+ pS[:,:].*SOL[:,:,5]
                 Uxsave[snap, :, :] .= uL[:,:].*LIQu[:,:,5] .+ uS[:,:].*SOLu[:,:,5]
                 Uysave[snap, :, :] .= vL[:,:].*LIQv[:,:,5] .+ vS[:,:].*SOLv[:,:,5]
+                Cd[snap], Cl[snap] = force_coefficients(fwd, tmp, num, idx; step=snap)
             elseif ns_solid_phase
                 psave[snap, :, :] .= pS[:,:]
                 Uxsave[snap, :, :] .= uS[:,:]
@@ -779,6 +780,7 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
                 psave[snap, :, :] .= pL[:,:]
                 Uxsave[snap, :, :] .= uL[:,:]
                 Uysave[snap, :, :] .= vL[:,:]
+                Cd[snap], Cl[snap] = force_coefficients(fwd, tmp, num, idx; step=snap)
             end
         end
 
