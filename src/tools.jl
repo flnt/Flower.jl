@@ -26,17 +26,15 @@ function force_coefficients(fwd, tmp, num, idx; A=1., p0=0., step=size(fwd.psave
         D_p += -(p[II] - p0) * (tmp.LIQ[II,3] - tmp.LIQ[II,1]) * num.Δ
         L_p += -(p[II] - p0) * (tmp.LIQ[II,4] - tmp.LIQ[II,2]) * num.Δ
 
-        #viscous forces (diagonal term)
+        # friction forces (diagonal terms)
         D_ν += τ11[II] * (tmp.LIQu[δx⁺(II),6] - tmp.LIQu[II,6]) * num.Δ
         L_ν += τ22[II] * (tmp.LIQv[δy⁺(II),7] - tmp.LIQv[II,7]) * num.Δ
     end
     @inbounds for II in idx.all_indices[1:end-1,2:end]
-        #viscous forces (off-diagonal term)
+        # friction forces (off-diagonal terms)
         D_ν += τ12[II] * (tmp.LIQu[δy⁺(II),7] - tmp.LIQu[II,7]) * num.Δ
         L_ν += τ12[II] * (tmp.LIQv[δy⁺(II),6] - tmp.LIQv[δx⁻(δy⁺(II)),6]) * num.Δ
     end
-
-    # println("$D_p $D_ν")
 
     D = D_p + D_ν
     L = L_p + L_ν

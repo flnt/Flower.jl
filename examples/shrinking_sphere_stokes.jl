@@ -15,10 +15,8 @@ num = Numerical(case = "Sphere",
     n = 64,
     CFL = 1.0,
     u_inf = 0.0,
-#     TEND = 0.5,
-    # TEND = 0.1,
     R = 0.7,
-    max_iterations = 200)
+    max_iterations = 100)
 
 idx, idxu, idxv = set_indices(num.n)
 tmp, fwd = init_fields(num, idx, idxu, idxv)
@@ -114,10 +112,10 @@ resize_to_layout!(fp)
 
 # pref = "/Users/alex/Documents/PhD/Cutcell/New_ops/stokes/shrinking/"
 # make_video(num, fwd, "u"; title_prefix=pref,
-#         title_suffix="", framerate=20, limitsx=(-1.0,1.0), limitsy=(-1.0,1.0), minv = -0.5, maxv = 0.5)
+#         title_suffix="_2", framerate=20, limitsx=(-1.0,1.0), limitsy=(-1.0,1.0), minv = -0.5, maxv = 0.5)
 # make_video(num, fwd, "v"; title_prefix=pref,
-#         title_suffix="", framerate=20, limitsx=(-1.0,1.0), limitsy=(-1.0,1.0))#, minv = -0.3, maxv = 0.3)
+#         title_suffix="_2", framerate=20, limitsx=(-1.0,1.0), limitsy=(-1.0,1.0))#, minv = -0.3, maxv = 0.3)
 # make_video(num, fwd, "p"; title_prefix=pref,
-#         title_suffix="", framerate=20, limitsx=(-1.0,1.0), limitsy=(-1.0,1.0))#, minv = -0.01, maxv = 0.01)
+#         title_suffix="_2", framerate=20, limitsx=(-1.0,1.0), limitsy=(-1.0,1.0), minv = -0.03, maxv = 0.03)
 # make_video(num, fwd, "T"; title_prefix=pref,
-#         title_suffix="", framerate=20)
+#         title_suffix="_2", framerate=20)

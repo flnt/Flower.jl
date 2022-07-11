@@ -248,34 +248,74 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
         MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(isou, all_indices_u)
         MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(isov, all_indices_v)
 
-        kill_dead_cells!(TS, LIQUID)
-        kill_dead_cells!(TL, SOLID)
-        kill_dead_cells!(pS, LIQUID)
-        kill_dead_cells!(pL, SOLID)
-        kill_dead_cells!(uS, LIQUID_u)
-        kill_dead_cells!(uL, SOLID_u)
-        kill_dead_cells!(vS, LIQUID_v)
-        kill_dead_cells!(vL, SOLID_v)
+        kill_dead_cells!(TS, LTS, LIQUID, MIXED, n)
+        kill_dead_cells!(TL, LTL, SOLID, MIXED, n)
+        kill_dead_cells!(pS, LpS, LIQUID, MIXED, n)
+        kill_dead_cells!(pL, LpL, SOLID, MIXED, n)
+        kill_dead_cells!(uS, LuS, LIQUID_u, MIXED_u, n)
+        kill_dead_cells!(uL, LuL, SOLID_u, MIXED_u, n)
+        kill_dead_cells!(vS, LvS, LIQUID_v, MIXED_v, n+1)
+        kill_dead_cells!(vL, LvL, SOLID_v, MIXED_v, n+1)
 
-        @inbounds @threads for II in MIXED
-            TS[II] = θd
-            TL[II] = θd
-        end
-        @inbounds @threads for II in LIQUID
-            pII = lexicographic(II, n)
-            @inbounds ns_vecS[pII] = 0.
-        end
-        @inbounds @threads for II in SOLID
-            pII = lexicographic(II, n)
-            @inbounds ns_vecL[pII] = 0.
-        end
-        ns_vecS ./= norm(ns_vecS)
-        ns_vecL ./= norm(ns_vecL)
+        # @inbounds @threads for II in MIXED
+        #     TS[II] = θd
+        #     TL[II] = θd
+        # end
 
         NB_indices = get_NB_width(MIXED, NB_indices_base)
         get_iterface_location!(gcc, X, Y, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, cut_points, α, Δ, L0, B, BT, idx, MIXED, ϵ, n, faces, periodic_x, periodic_y)
         get_iterface_location!(gfcx, Xu, Yu, isou, uu, uS, uL, κu, SOLu, LIQu, sol_projectionu, liq_projectionu, sol_centroidu, liq_centroidu, mid_pointu, cut_pointsu, αu, Δ, L0, B, BT, idxu, MIXED_u, ϵ, n, facesu, periodic_x, periodic_y)
         get_iterface_location!(gfcy, Xv, Yv, isov, uv, vS, vL, κv, SOLv, LIQv, sol_projectionv, liq_projectionv, sol_centroidv, liq_centroidv, mid_pointv, cut_pointsv, αv, Δ, L0, B, BT, idxv, MIXED_v, ϵ, n, facesv, periodic_x, periodic_y)
+
+        # If A_i = 0, V_i = 0
+        @inbounds for II in inside[:,1:end-1]
+            if LIQ[II,3] < 1e-10
+                LIQu[δx⁺(II),1:7] .= 0.
+                LIQu[II,3] = 0.
+                LIQu[δx⁺(δx⁺(II)),1] = 0.
+                if II[1] != 1
+                    LIQu[δy⁻(δx⁺(II)),4] = 0.
+                end
+                if II[1] != n
+                    LIQu[δy⁺(δx⁺(II)),2] = 0.
+                end
+            end
+            if SOL[II,3] < 1e-10
+                SOLu[δx⁺(II),1:7] .= 0.
+                SOLu[II,3] = 0.
+                SOLu[δx⁺(δx⁺(II)),1] = 0.
+                if II[1] != 1
+                    SOLu[δy⁻(δx⁺(II)),4] = 0.
+                end
+                if II[1] != n
+                    SOLu[δy⁺(δx⁺(II)),2] = 0.
+                end
+            end
+        end
+        @inbounds for II in inside[1:end-1,:]
+            if LIQ[II,4] < 1e-10
+                LIQv[δy⁺(II),1:7] .= 0.
+                LIQv[II,4] = 0.
+                LIQv[δy⁺(δy⁺(II)),2] = 0.
+                if II[2] != 1
+                    LIQv[δx⁻(δy⁺(II)),3] = 0.
+                end
+                if II[2] != n
+                    LIQv[δx⁺(δy⁺(II)),1] = 0.
+                end
+            end
+            if SOL[II,4] < 1e-10
+                SOLv[δy⁺(II),1:7] .= 0.
+                SOLv[II,4] = 0.
+                SOLv[δy⁺(δy⁺(II)),2] = 0.
+                if II[2] != 1
+                    SOLv[δx⁻(δy⁺(II)),3] = 0.
+                end
+                if II[2] != n
+                    SOLv[δx⁺(δy⁺(II)),1] = 0.
+                end
+            end
+        end
 
         @inbounds @threads for II in all_indices
             pII = lexicographic(II, n)
@@ -390,7 +430,7 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
                 DxuS, DyvS, SCUTDx, SCUTDy, all_indices,
                 GxpS, GypS, GxpSm1, GypSm1,
                 SCUTCu, SCUTCv, CuS, CvS, uS, vS,
-                current_i)
+                current_i, ns_vecS, MIXED_u, MIXED_v)
                             
     set_stokes!(bcpLx, bcpLy, BC_pL, LpL, LpLm1, LCUTp, LCUTpm1, LIQ, n, Δ, ns_advection,
                 inside, SOLID, b_left, b_bottom, b_right, b_top,
@@ -401,7 +441,7 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
                 DxuL, DyvL, LCUTDx, LCUTDy, all_indices,
                 GxpL, GypL, GxpLm1, GypLm1,
                 LCUTCu, LCUTCv, CuL, CvL, uL, vL,
-                current_i)
+                current_i, ns_vecL, MIXED_u, MIXED_v)
 
     if ns_advection
         Cum1S .= CuS * vec(uS) .+ SCUTCu
@@ -560,8 +600,8 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
             MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(isou, all_indices_u)
             MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(isov, all_indices_v)
 
-            kill_dead_cells!(TS, LIQUID)
-            kill_dead_cells!(TL, SOLID)
+            kill_dead_cells!(TS, LTS, LIQUID, MIXED, n)
+            kill_dead_cells!(TL, LTL, SOLID, MIXED, n)
             # kill_dead_cells!(pS, LIQUID)
             # kill_dead_cells!(pL, SOLID)
             # kill_dead_cells!(uS, LIQUID_u)
@@ -573,25 +613,63 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
             #     TS[II] = θd
             #     TL[II] = θd
             # end
-            ns_vecS .= 1.
-            ns_vecL .= 1.
-            @inbounds @threads for II in LIQUID
-                pII = lexicographic(II, n)
-                @inbounds ns_vecS[pII] = 0.
-            end
-            @inbounds @threads for II in SOLID
-                pII = lexicographic(II, n)
-                @inbounds ns_vecL[pII] = 0.
-            end
-            ns_vecS ./= norm(ns_vecS)
-            ns_vecL ./= norm(ns_vecL)
 
             NB_indices = get_NB_width(MIXED, NB_indices_base)
 
             get_iterface_location!(gcc, X, Y, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, cut_points, α, Δ, L0, B, BT, idx, MIXED, ϵ, n, faces, periodic_x, periodic_y)
             get_iterface_location!(gfcx, Xu, Yu, isou, uu, uS, uL, κu, SOLu, LIQu, sol_projectionu, liq_projectionu, sol_centroidu, liq_centroidu, mid_pointu, cut_pointsu, αu, Δ, L0, B, BT, idxu, MIXED_u, ϵ, n, facesu, periodic_x, periodic_y)
             get_iterface_location!(gfcy, Xv, Yv, isov, uv, vS, vL, κv, SOLv, LIQv, sol_projectionv, liq_projectionv, sol_centroidv, liq_centroidv, mid_pointv, cut_pointsv, αv, Δ, L0, B, BT, idxv, MIXED_v, ϵ, n, facesv, periodic_x, periodic_y)
-            
+
+            # If A_i = 0, V_i = 0
+            @inbounds for II in inside[:,1:end-1]
+                if LIQ[II,3] < 1e-10
+                    LIQu[δx⁺(II),1:7] .= 0.
+                    LIQu[II,3] = 0.
+                    LIQu[δx⁺(δx⁺(II)),1] = 0.
+                    if II[1] != 1
+                        LIQu[δy⁻(δx⁺(II)),4] = 0.
+                    end
+                    if II[1] != n
+                        LIQu[δy⁺(δx⁺(II)),2] = 0.
+                    end
+                end
+                if SOL[II,3] < 1e-10
+                    SOLu[δx⁺(II),1:7] .= 0.
+                    SOLu[II,3] = 0.
+                    SOLu[δx⁺(δx⁺(II)),1] = 0.
+                    if II[1] != 1
+                        SOLu[δy⁻(δx⁺(II)),4] = 0.
+                    end
+                    if II[1] != n
+                        SOLu[δy⁺(δx⁺(II)),2] = 0.
+                    end
+                end
+            end
+            @inbounds for II in inside[1:end-1,:]
+                if LIQ[II,4] < 1e-10
+                    LIQv[δy⁺(II),1:7] .= 0.
+                    LIQv[II,4] = 0.
+                    LIQv[δy⁺(δy⁺(II)),2] = 0.
+                    if II[2] != 1
+                        LIQv[δx⁻(δy⁺(II)),3] = 0.
+                    end
+                    if II[2] != n
+                        LIQv[δx⁺(δy⁺(II)),1] = 0.
+                    end
+                end
+                if SOL[II,4] < 1e-10
+                    SOLv[δy⁺(II),1:7] .= 0.
+                    SOLv[II,4] = 0.
+                    SOLv[δy⁺(δy⁺(II)),2] = 0.
+                    if II[2] != 1
+                        SOLv[δx⁻(δy⁺(II)),3] = 0.
+                    end
+                    if II[2] != n
+                        SOLv[δx⁺(δy⁺(II)),1] = 0.
+                    end
+                end
+            end
+
             @inbounds @threads for II in all_indices
                 pII = lexicographic(II, n)
                 pJJ = lexicographic(II, n+1)
@@ -714,7 +792,7 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
                             DxuS, DyvS, SCUTDx, SCUTDy, all_indices,
                             GxpS, GypS, GxpSm1, GypSm1,
                             SCUTCu, SCUTCv, CuS, CvS, uS, vS,
-                            current_i)
+                            current_i, ns_vecS, MIXED_u, MIXED_v)
 
                 pressure_projection!(pS, ϕS, uS, vS, ns_advection,
                             Gxm1S, Gym1S, ApS, AuS, AvS, LpS, LuS, LvS, LpSm1, LuSm1, LvSm1,
@@ -740,7 +818,7 @@ function run_forward(num, idx, idxu, idxv, tmp, fwd;
                            DxuL, DyvL, LCUTDx, LCUTDy, all_indices,
                            GxpL, GypL, GxpLm1, GypLm1,
                            LCUTCu, LCUTCv, CuL, CvL, uL, vL,
-                           current_i)
+                           current_i, ns_vecL, MIXED_u, MIXED_v)
 
                 pressure_projection!(pL, ϕL, uL, vL, ns_advection,
                             Gxm1L, Gym1L, ApL, AuL, AvL, LpL, LuL, LvL, LpLm1, LuLm1, LvLm1,
@@ -924,7 +1002,7 @@ function run_backward(num, idx, tmp, fwd, adj;
     current_i = max_iterations + 1
 
     if levelset
-        marching_squares!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, Δ, L0, B, BT, inside, ϵ, n, n, faces)
+        marching_squares!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, Δ, L0, B, BT, all_indices, inside, b_left[1], b_bottom[1], b_right[1], b_top[1], ϵ, n, n, faces)
 
         bcs!(faces, BC_u.left, Δ)
         bcs!(faces, BC_u.right, Δ)
@@ -936,7 +1014,7 @@ function run_backward(num, idx, tmp, fwd, adj;
         MIXED, SOLID, LIQUID = get_cells_indices(iso, inside)
         NB_indices = get_NB_width(MIXED, NB_indices_base)
 
-        get_iterface_location!(gcc, X, Y, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, α, Δ, L0, B, BT, idx, MIXED, ϵ, n, faces, periodic_x, periodic_y)
+        get_iterface_location!(gcc, X, Y, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, cut_points, α, Δ, L0, B, BT, idx, MIXED, ϵ, n, faces, periodic_x, periodic_y)
         get_curvature(u, liq_projection, κ, B, BT, Δ, MIXED)
     elseif !levelset
         MIXED = [CartesianIndex(-1,-1)]
@@ -966,9 +1044,9 @@ function run_backward(num, idx, tmp, fwd, adj;
     bcLx, bcLy = set_bc_bnds(dir, bcL, HL, BC_TL)
 
     laplacian!(dir, LTS, SCUTT, bcSx, bcSy, SOL, n, num.Δ, BC_TS, inside, LIQUID,
-                b_left[1], b_bottom[1], b_right[1], b_top[1])
+                MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
     laplacian!(dir, LTL, LCUTT, bcLx, bcLy, LIQ, n, num.Δ, BC_TL, inside, SOLID,
-                b_left[1], b_bottom[1], b_right[1], b_top[1])
+                MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
 
     while current_i > 1
 
@@ -991,7 +1069,7 @@ function run_backward(num, idx, tmp, fwd, adj;
                     bcSx, bcSy = set_bc_bnds(dir, bcS, HS, BC_TS)
 
                     laplacian!(dir, LTS, SCUTT, bcSx, bcSy, SOL, n, num.Δ, BC_TS, inside, LIQUID,
-                                b_left[1], b_bottom[1], b_right[1], b_top[1])
+                                MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
                     crank_nicolson!(LTS, AS, BS, CTS, SOL, τ, n, Δ, all_indices)
                     TS .= reshape(gmres(AS,(BS*vec(TS) + 2.0*τ*SCUTT)), (n,n))
                 end
@@ -1009,7 +1087,7 @@ function run_backward(num, idx, tmp, fwd, adj;
                     bcLx, bcLy = set_bc_bnds(dir, bcL, HL, BC_TL)
 
                     laplacian!(dir, LTL, LCUTT, bcLx, bcLy, LIQ, n, num.Δ, BC_TL, inside, SOLID,
-                                b_left[1], b_bottom[1], b_right[1], b_top[1])
+                                MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
                     crank_nicolson!(LTL, AL, BL, CTL, LIQ, τ, n, Δ, all_indices)
                     TL .= reshape(gmres(AL,(BL*vec(TL) + 2.0*τ*LCUTT)), (n,n))
                 end
@@ -1032,7 +1110,7 @@ function run_backward(num, idx, tmp, fwd, adj;
         end
 
         if levelset
-            marching_squares!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, Δ, L0, B, BT, inside, ϵ, n, n, faces)
+        marching_squares!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, Δ, L0, B, BT, all_indices, inside, b_left[1], b_bottom[1], b_right[1], b_top[1], ϵ, n, n, faces)
 
             bcs!(faces, BC_u.left, Δ)
             bcs!(faces, BC_u.right, Δ)
@@ -1045,7 +1123,7 @@ function run_backward(num, idx, tmp, fwd, adj;
             MIXED, SOLID, LIQUID = get_cells_indices(iso, inside)
             NB_indices = Flower.get_NB_width(MIXED, NB_indices_base)
 
-            get_iterface_location!(gcc, X, Y, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, α, Δ, L0, B, BT, idx, MIXED, ϵ, n, faces, periodic_x, periodic_y)
+            get_iterface_location!(gcc, X, Y, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, sol_centroid, liq_centroid, mid_point, cut_points, α, Δ, L0, B, BT, idx, MIXED, ϵ, n, faces, periodic_x, periodic_y)
 
             FRESH_L = intersect(MIXED, WAS_SOLID)
             FRESH_S = intersect(MIXED, WAS_LIQUID)

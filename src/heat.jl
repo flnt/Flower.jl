@@ -53,7 +53,7 @@ function set_heat!(HT, DT, θd, bcT, BC_T, κ, ϵ_κ, ϵ_V, V, m, θ₀, τ, ani
     bcTx, bcTy = set_bc_bnds(dir, bcT, HT, BC_T)
 
     laplacian!(dir, LT, CUTT, bcTx, bcTy, CAP, n, Δ, BC_T, inside, empty,
-                b_left[1], b_bottom[1], b_right[1], b_top[1])
+                MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
     if convection
         bcU, bcV = set_bc_bnds(dir, Du, Dv, Hu, Hv, u, v, BC_u, BC_v)
         scalar_convection!(dir, C, CUTCT, u, v, bcTx, bcTy, bcU, bcV, CAP, n, Δ, BC_T, inside, b_left[1], b_bottom[1], b_right[1], b_top[1])

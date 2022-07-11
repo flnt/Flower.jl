@@ -11,7 +11,7 @@ num = Numerical(case = "Cylinder",
     CFL = 1.0,
     TEND = 0.5,
     R = 0.5,
-    u_inf=1)
+    u_inf = 1)
 
 idx, idxu, idxv = set_indices(num.n)
 tmp, fwd = init_fields(num, idx, idxu, idxv)
@@ -19,12 +19,14 @@ tmp, fwd = init_fields(num, idx, idxu, idxv)
 @time MIXED, SOLID, LIQUID = run_forward(num, idx, idxu, idxv, tmp, fwd,
 BC_uL = Boundaries(
     left = Boundary(t = dir, f = dirichlet, val = num.u_inf),
-    bottom = Boundary(t = dir, f = dirichlet, val = num.u_inf),
-    top = Boundary(t = dir, f = dirichlet, val = num.u_inf)),
+    # bottom = Boundary(t = dir, f = dirichlet, val = num.u_inf),
+    # top = Boundary(t = dir, f = dirichlet, val = num.u_inf)
+    ),
 BC_vL = Boundaries(
     left = Boundary(t = dir, f = dirichlet, val = 0.0),
-    bottom = Boundary(t = dir, f = dirichlet, val = 0.0),
-    top = Boundary(t = dir, f = dirichlet, val = 0.0)),
+    # bottom = Boundary(t = dir, f = dirichlet, val = 0.0),
+    # top = Boundary(t = dir, f = dirichlet, val = 0.0)
+    ),
 stefan = false,
 advection = false,
 heat = false,
@@ -65,3 +67,10 @@ heatmap!(num.X[1,:], num.Y[:,1], (fwd.pL.*num.τ)', colorrange=(pavg-pstd, pavg+
 contour!(num.H, num.H, fwd.u', levels = 0:0, color=:red, linewidrth = 3);
 limits!(ax, -lim, lim, -lim, lim)
 resize_to_layout!(fp)
+
+fCd = Figure(resolution = (1600, 1000))
+colsize!(fCd.layout, 1, Aspect(1, 1.0))
+ax = Axis(fCd[1,1], xlabel="it", ylabel="Cd")  # customized as you see fit
+lines!(fwd.Cd)
+limits!(ax, 0, size(fwd.Cd, 1), 0, 10)
+resize_to_layout!(fCd)

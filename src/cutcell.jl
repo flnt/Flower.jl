@@ -1187,9 +1187,33 @@ function projection_2points(absolute_position, mid, α, L0, h)
     return Gradient(Sflag, β, mid, S1, S2, distance(mid, S1), distance(mid, S2), pos), Gradient(Lflag, α, mid, L1, L2, distance(mid, L1), distance(mid, L2), pos)
 end
 
-function kill_dead_cells!(T, EMPTY)
+function kill_dead_cells!(T::Matrix, L, EMPTY, MIXED, n)
     @inbounds @threads for II in EMPTY
-        T[II] = 0.
+        pII = lexicographic(II, n)
+        if sum(abs.(L[pII,:])) <= (4.0 + 1e-7) && sum(abs.(L[pII,:])) >= (4.0 - 1e-7)
+            T[II] = 0.
+        end
+    end
+    @inbounds @threads for II in MIXED
+        pII = lexicographic(II, n)
+        if sum(abs.(L[pII,:])) <= (4.0 + 1e-7) && sum(abs.(L[pII,:])) >= (4.0 - 1e-7)
+            T[II] = 0.
+        end
+    end
+end
+
+function kill_dead_cells!(T::Vector, L, EMPTY, MIXED, n)
+    @inbounds @threads for II in EMPTY
+        pII = lexicographic(II, n)
+        if sum(abs.(L[pII,:])) <= (4.0 + 1e-7) && sum(abs.(L[pII,:])) >= (4.0 - 1e-7)
+            T[pII] = 0.
+        end
+    end
+    @inbounds @threads for II in MIXED
+        pII = lexicographic(II, n)
+        if sum(abs.(L[pII,:])) <= (4.0 + 1e-7) && sum(abs.(L[pII,:])) >= (4.0 - 1e-7)
+            T[pII] = 0.
+        end
     end
 end
 
@@ -1206,7 +1230,21 @@ function init_fresh_cells!(T, projection, FRESH)
     end
 end
 
-function init_fresh_cells!(u, V, projection, FRESH)
+function init_fresh_cells!(T::Vector, projection, FRESH, n)
+    @inbounds @threads for II in FRESH
+        if projection[II].flag
+            pII = lexicographic(II, n)
+            T_1, T_2 = interpolated_temperature(projection[II].angle, projection[II].point1, projection[II].point2, T, II)
+            if π/4 <= projection[II].angle <= 3π/4 || -π/4 >= projection[II].angle >= -3π/4
+                T[pII] = y_extrapolation(T_1, T_2, projection[II].point1, projection[II].point2, projection[II].mid_point)
+            else
+                T[pII] = x_extrapolation(T_1, T_2, projection[II].point1, projection[II].point2, projection[II].mid_point)
+            end
+        end
+    end
+end
+
+function init_fresh_cells!(u::Matrix, V, projection, FRESH)
     @inbounds @threads for II in FRESH
         if projection[II].flag
             u_1, u_2 = interpolated_temperature(projection[II].angle, projection[II].point1, projection[II].point2, V, II)

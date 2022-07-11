@@ -78,7 +78,7 @@ end
     return nothing
 end
 
-function laplacian!(::Dirichlet, L, B, Dx, Dy, cap, n, Δ, BC, inside, empty, b_left, b_bottom, b_right, b_top)
+function laplacian!(::Dirichlet, L, B, Dx, Dy, cap, n, Δ, BC, inside, empty, MIXED, b_left, b_bottom, b_right, b_top)
     B .= 0.0
     @inbounds @threads for II in inside
         pII = lexicographic(II, n)
@@ -146,7 +146,15 @@ function laplacian!(::Dirichlet, L, B, Dx, Dy, cap, n, Δ, BC, inside, empty, b_
 
     @inbounds @threads for II in empty
         pII = lexicographic(II, n)
-        @inbounds L[pII,pII] = -4.0
+        if sum(abs.(L[pII,:])) <= 1e-10
+            @inbounds L[pII,pII] = -4.0
+        end
+    end
+    @inbounds @threads for II in MIXED
+        pII = lexicographic(II, n)
+        if sum(abs.(L[pII,:])) <= 1e-10
+            @inbounds L[pII,pII] = -4.0
+        end
     end
 
     @inbounds _A1 = cap[:,:,1]
@@ -203,7 +211,7 @@ end
     return nothing
 end
 
-function laplacian!(::Neumann, L, B, Nx, Ny, cap, n, Δ, BC, inside, empty, b_left, b_bottom, b_right, b_top)
+function laplacian!(::Neumann, L, B, Nx, Ny, cap, n, Δ, BC, inside, empty, ns_vec, b_left, b_bottom, b_right, b_top)
     B .= 0.0
     @inbounds @threads for II in inside
         pII = lexicographic(II, n)
@@ -254,10 +262,15 @@ function laplacian!(::Neumann, L, B, Nx, Ny, cap, n, Δ, BC, inside, empty, b_le
         @inbounds L[pII,pII-1] = A2^2 / W2
     end
 
+    ns_vec .= 1.
     @inbounds @threads for II in empty
         pII = lexicographic(II, n)
-        @inbounds L[pII,pII] = -4.0
+        if sum(abs.(L[pII,:])) <= 1e-10
+            @inbounds L[pII,pII] = -4.0
+            @inbounds ns_vec[pII] = 0.
+        end
     end
+    ns_vec ./= norm(ns_vec)
 
     @inbounds _A1 = cap[:,:,1]
     @inbounds _A2 = cap[:,:,2]

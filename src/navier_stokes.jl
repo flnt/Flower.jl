@@ -22,7 +22,7 @@ function set_stokes!(bcpx, bcpy, BC_p, Lp, Lpm1, CUTp, CUTpm1, CAP, n, Δ, ns_ad
                 Dxu, Dyv, CUTDx, CUTDy, all_indices,
                 Gxp, Gyp, Gxpm1, Gypm1,
                 CUTCu, CUTCv, Cu, Cv, u, v,
-                current_i
+                current_i, ns_vec, MIXED_u, MIXED_v
     )
     Gxpm1 .= Gxp
     Gypm1 .= Gyp
@@ -38,7 +38,7 @@ function set_stokes!(bcpx, bcpy, BC_p, Lp, Lpm1, CUTp, CUTpm1, CAP, n, Δ, ns_ad
     bcpx, bcpy = set_bc_bnds(neu, bcpx, bcpy, BC_p)
 
     laplacian!(neu, Lp, CUTp, bcpx, bcpy, CAP, n, Δ, BC_p, inside, empty,
-                b_left[1], b_bottom[1], b_right[1], b_top[1])
+                ns_vec, b_left[1], b_bottom[1], b_right[1], b_top[1])
 
     Hu .= 0.
     for II in vcat(b_left_u[1], b_bottom_u[1], b_right_u[1], b_top_u[1])
@@ -50,7 +50,7 @@ function set_stokes!(bcpx, bcpy, BC_p, Lp, Lpm1, CUTp, CUTpm1, CAP, n, Δ, ns_ad
     bcux, bcuy = set_bc_bnds(dir, bcu, Hu, BC_u)
 
     laplacian!(dir, Lu, CUTu, bcux, bcuy, CAPu, n, Δ, BC_u, inside_u, empty_u,
-                b_left_u[1], b_bottom_u[1], b_right_u[1], b_top_u[1])
+                MIXED_u, b_left_u[1], b_bottom_u[1], b_right_u[1], b_top_u[1])
 
     Hv .= 0.
     for II in vcat(b_left_v[1], b_bottom_v[1], b_right_v[1], b_top_v[1])
@@ -62,7 +62,7 @@ function set_stokes!(bcpx, bcpy, BC_p, Lp, Lpm1, CUTp, CUTpm1, CAP, n, Δ, ns_ad
     bcvx, bcvy = set_bc_bnds(dir, bcv, Hv, BC_v)
 
     laplacian!(dir, Lv, CUTv, bcvx, bcvy, CAPv, n+1, Δ, BC_v, inside_v, empty_v,
-                b_left_v[1], b_bottom_v[1], b_right_v[1], b_top_v[1])
+                MIXED_v, b_left_v[1], b_bottom_v[1], b_right_v[1], b_top_v[1])
 
     divergence!(dir, Dxu, Dyv, CUTDx, CUTDy, bcux, bcvy, CAP, CAPu, CAPv, n, Δ, all_indices)
     gradient!(neu, Gxp, Gyp, Dxu, Dyv, CAP, CAPu, CAPv, n, Δ, BC_p, b_left_u[1], b_bottom_v[1], b_right_u[1], b_top_v[1], b_left[1], b_bottom[1], b_right[1], b_top[1])
@@ -101,17 +101,13 @@ function pressure_projection!(p, ϕ, u, v, ns_advection,
     Δm1um1 = Mu * (iMum1 * (Lum1 * vec(u) .+ CUTum1))
     Δm1vm1 = Mv * (iMvm1 * (Lvm1 * vec(v) .+ CUTvm1))
 
-    # Gxm1 .= Mu * iMGxm1 * Gxpm1 * vec(p)
-    # Gym1 .= Mv * iMGym1 * Gypm1 * vec(p)
+    Gxm1 .= Mu * iMGxm1 * Gxpm1 * vec(p)
+    Gym1 .= Mv * iMGym1 * Gypm1 * vec(p)
 
-    Gxϕ = iMGxm1 * (Gxpm1 * vec(ϕ))
-    Gyϕ = iMGym1 * (Gypm1 * vec(ϕ))
-    Gxm1 .= Mu * (Gxm1 .+ Gxϕ .- iRe.*τ.*0.5 .* (iMum1 * (Lum1 * Gxϕ)))
-    Gym1 .= Mv * (Gym1 .+ Gyϕ .- iRe.*τ.*0.5 .* (iMvm1 * (Lvm1 * Gyϕ)))
-
-    # Δϕ = iMpm1 * (Lpm1 * vec(ϕ) .+ CUTpm1)
-    # Gxm1 .= Gxm1 .+ Gxϕ .- iRe.*τ.*0.5 .* iMGxm1 * Gxpm1 * Δϕ
-    # Gym1 .= Gym1 .+ Gyϕ .- iRe.*τ.*0.5 .* iMGym1 * Gypm1 * Δϕ
+    # Gxϕ = iMGxm1 * (Gxpm1 * vec(ϕ))
+    # Gyϕ = iMGym1 * (Gypm1 * vec(ϕ))
+    # Gxm1 .= Mu * (Gxm1 .+ Gxϕ .- iRe.*τ.*0.5 .* (iMum1 * (Lum1 * Gxϕ)))
+    # Gym1 .= Mv * (Gym1 .+ Gyϕ .- iRe.*τ.*0.5 .* (iMvm1 * (Lvm1 * Gyϕ)))
 
     if ns_advection
         Convu = 1.5 .* (Cu * vec(u) .+ CUTCu) .- 0.5 .* Cum1
@@ -124,12 +120,16 @@ function pressure_projection!(p, ϕ, u, v, ns_advection,
     Cum1 .= Cu * vec(u) .+ CUTCu
     Cvm1 .= Cv * vec(v) .+ CUTCv
 
-    kill_dead_cells!(p, EMPTY)
-    kill_dead_cells!(u, EMPTY_u)
-    kill_dead_cells!(v, EMPTY_v)
     init_fresh_cells!(p, projection, FRESH)
     init_fresh_cells!(u, Vu, projectionu, FRESH_u)
     init_fresh_cells!(v, Vv, projectionv, FRESH_v)
+    # init_fresh_cells!(Gxm1, projectionu, FRESH_u, n)
+    # init_fresh_cells!(Gym1, projectionv, FRESH_v, n+1)
+    kill_dead_cells!(p, Lp, EMPTY, MIXED, n)
+    kill_dead_cells!(u, Lu, EMPTY_u, MIXED_u, n)
+    kill_dead_cells!(v, Lv, EMPTY_v, MIXED_v, n+1)
+    kill_dead_cells!(Gxm1, Lu, EMPTY_u, MIXED_u, n)
+    kill_dead_cells!(Gym1, Lv, EMPTY_v, MIXED_v, n+1)
 
     Δum1 = Lu * vec(u) .+ CUTu
     Δvm1 = Lv * vec(v) .+ CUTv
@@ -140,8 +140,6 @@ function pressure_projection!(p, ϕ, u, v, ns_advection,
     # Δu = Δum1
     # Δv = Δvm1
 
-    # Bδucorr = τ .* (iRe .* Δu .- Mu * Gxm1 .- Convu)
-    # Bδvcorr = τ .* (iRe .* Δv .- Mv * Gym1 .- Convv)
     Bδucorr = τ .* (iRe .* Δu .- Gxm1 .- Convu)
     Bδvcorr = τ .* (iRe .* Δv .- Gym1 .- Convv)
 
@@ -164,6 +162,7 @@ function pressure_projection!(p, ϕ, u, v, ns_advection,
 
     Duv = Mp * (iMDx * (Dxu * vec(ucorr) .+ CUTDx) .+ iMDy * (Dyv * vec(vcorr) .+ CUTDy))
     Bϕ = -Duv./τ .+ CUTp
+
     sum_Bϕ = sum(Bϕ)
     sumMp = sum(Mp[diagind(Mp)])
 
