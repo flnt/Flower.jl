@@ -743,7 +743,7 @@ function scalar_convection!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, Δ,
     return nothing
 end
 
-function set_bc_bnds(::Dirichlet, ::Union{GridFCx,GridFCy}, Du, Dv, Hu, Hv, u, v, BC_u, BC_v)
+function set_bc_bnds(::Dirichlet, ::Union{Type{GridFCx},Type{GridFCy}}, Du, Dv, Hu, Hv, u, v, BC_u, BC_v)
     Du1_x = copy(Du)
     Du1_y = copy(Du)
     Du2_x = copy(Du)
@@ -884,7 +884,7 @@ end
     return nothing
 end
 
-function fill_inside_conv!(::GridFCx, O, B, u, v, Du1_x, Du1_y, Dv_y, cap, n, Δ, II)
+function fill_inside_conv!(::Type{GridFCx}, O, B, u, v, Du1_x, Du1_y, Dv_y, cap, n, Δ, II)
     pII = lexicographic(II, n)
     A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δx⁻(II), Δ)
     A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II, Δ)
@@ -934,10 +934,10 @@ function fill_inside_conv!(::GridFCx, O, B, u, v, Du1_x, Du1_y, Dv_y, cap, n, Δ
     return nothing
 end
 
-function vector_convection!(::Dirichlet, ::GridFCx, O, B, u, v, Du1_x, Du1_y, Du2_x, Du2_y, Dv_x, Dv_y, cap, n, Δ, BC, inside, b_left, b_bottom, b_right, b_top)
+function vector_convection!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, Du1_x, Du1_y, Du2_x, Du2_y, Dv_x, Dv_y, cap, n, Δ, BC, inside, b_left, b_bottom, b_right, b_top)
     B .= 0.0
     @inbounds @threads for II in inside
-        fill_inside_conv!(gfcx, O, B, u, v, Du1_x, Du1_y, Dv_y, cap, n, Δ, II)
+        fill_inside_conv!(GridFCx, O, B, u, v, Du1_x, Du1_y, Dv_y, cap, n, Δ, II)
     end
 
     @inbounds @threads for II in vcat(b_left, b_bottom[2:end-1], b_right, b_top[2:end-1])
@@ -1260,24 +1260,10 @@ function vector_convection!(::Dirichlet, ::GridFCx, O, B, u, v, Du1_x, Du1_y, Du
         @inbounds O[pii,pJJ] = 0.5 * Au4
     end
 
-    # @inbounds _A1 = cap[:,:,1]
-    # @inbounds _A2 = cap[:,:,2]
-    # @inbounds _A3 = cap[:,:,3]
-    # @inbounds _A4 = cap[:,:,4]
-    # @inbounds _B1 = cap[:,:,6]
-    # @inbounds _B2 = cap[:,:,7]
-
-    # set_vec_conv_bnd!(dir, BC.left.t, O, x->x, δx⁺, x->x,  δy⁺, x->x, _A3, _B1, _A1, _A4, _B2, _A2, Du1_x, Dv_x, n, Δ, b_left, b_right)
-    # set_vec_conv_bnd!(dir, BC.bottom.t, O, x->x,  δx⁺, x->x, δy⁺, x->x, _A3, _B1, _A1, _A4, _B2, _A2, Du1_y, Dv_y, n, Δ, b_bottom[1:end-1], b_top[1:end-1])
-    # set_vec_conv_bnd!(dir, BC.bottom.t, O, δx⁻, x->x, δx⁻, (δx⁻ ∘ δy⁺), δx⁻, _A3, _B1, _A1, _A4, _B2, _A2, Du1_y, Dv_y, n, Δ, b_bottom[2:end], b_top[2:end])
-    # set_vec_conv_bnd!(dir, BC.right.t, O, δx⁻, x->x, δx⁻, (δx⁻ ∘ δy⁺), δx⁻, _A3, _B1, _A1, _A4, _B2, _A2, Du1_x, Dv_x, n, Δ, b_right, b_left)
-    # set_vec_conv_bnd!(dir, BC.top.t, O, x->x, δx⁺, x->x, δy⁺, x->x, _A3, _B1, _A1, _A4, _B2, _A2, Du1_y, Dv_y, n, Δ, b_top[1:end-1], b_bottom[1:end-1])
-    # set_vec_conv_bnd!(dir, BC.top.t, O, δx⁻, x->x, δx⁻, (δx⁻ ∘ δy⁺), δx⁻, _A3, _B1, _A1, _A4, _B2, _A2, Du1_y, Dv_y, n, Δ, b_top[2:end], b_bottom[2:end])
-
     return nothing
 end
 
-function fill_inside_conv!(::GridFCy, O, B, u, v, Du_x, Dv1_x, Dv1_y, cap, n, Δ, II)
+function fill_inside_conv!(::Type{GridFCy}, O, B, u, v, Du_x, Dv1_x, Dv1_y, cap, n, Δ, II)
     pII = lexicographic(II, n+1)
     A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δy⁻(II), Δ)
     A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II, Δ)
@@ -1325,10 +1311,10 @@ function fill_inside_conv!(::GridFCy, O, B, u, v, Du_x, Dv1_x, Dv1_y, cap, n, Δ
     @inbounds B[pII] += -0.25 * Dv1_x[II] * (B1_2 - A1_2) * Du_x[II]
 end
 
-function vector_convection!(::Dirichlet, ::GridFCy, O, B, u, v, Du_x, Du_y, Dv1_x, Dv1_y, Dv2_x, Dv2_y, cap, n, Δ, BC, inside, b_left, b_bottom, b_right, b_top)
+function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y, Dv1_x, Dv1_y, Dv2_x, Dv2_y, cap, n, Δ, BC, inside, b_left, b_bottom, b_right, b_top)
     B .= 0.0
     @inbounds @threads for II in inside
-        fill_inside_conv!(gfcy, O, B, u, v, Du_x, Dv1_x, Dv1_y, cap, n, Δ, II)
+        fill_inside_conv!(GridFCy, O, B, u, v, Du_x, Dv1_x, Dv1_y, cap, n, Δ, II)
     end
 
     @inbounds @threads for II in vcat(b_left, b_bottom[2:end-1], b_right, b_top[2:end-1])
@@ -1650,20 +1636,6 @@ function vector_convection!(::Dirichlet, ::GridFCy, O, B, u, v, Du_x, Du_y, Dv1_
         @inbounds O[pii,pii] += 0.5 * Au3
         @inbounds O[pii,pJJ] = 0.5 * Au3
     end
-
-    # @inbounds _A1 = cap[:,:,1]
-    # @inbounds _A2 = cap[:,:,2]
-    # @inbounds _A3 = cap[:,:,3]
-    # @inbounds _A4 = cap[:,:,4]
-    # @inbounds _B1 = cap[:,:,6]
-    # @inbounds _B2 = cap[:,:,7]
-
-    # set_vec_conv_bnd!(dir, BC.left.t, O, x->x, δy⁺, x->x, δx⁺, x->x, _A4, _B2, _A2, _A3, _B1, _A1, Dv1_x, Du_x, n+1, Δ, b_left[1:end-1], b_right[1:end-1])
-    # set_vec_conv_bnd!(dir, BC.left.t, O, δy⁻, x->x, δy⁻, (δy⁻ ∘ δx⁺), δy⁻, _A4, _B2, _A2, _A3, _B1, _A1, Dv1_x, Du_x, n+1, Δ, b_left[2:end], b_right[2:end])
-    # set_vec_conv_bnd!(dir, BC.bottom.t, O, x->x, δy⁺, x->x, δx⁺, x->x, _A4, _B2, _A2, _A3, _B1, _A1, Dv1_y, Du_y, n+1, Δ, b_bottom, b_top)
-    # set_vec_conv_bnd!(dir, BC.right.t, O, x->x, δy⁺, x->x, δx⁺, x->x, _A4, _B2, _A2, _A3, _B1, _A1, Dv1_x, Du_x, n+1, Δ, b_right[1:end-1], b_left[1:end-1])
-    # set_vec_conv_bnd!(dir, BC.right.t, O, δy⁻, x->x, δy⁻, (δy⁻ ∘ δx⁺), δy⁻, _A4, _B2, _A2, _A3, _B1, _A1, Dv1_x, Du_x, n+1, Δ, b_right[2:end], b_left[2:end])
-    # set_vec_conv_bnd!(dir, BC.top.t, O, δy⁻, x->x, δy⁻, (δy⁻ ∘ δx⁺), δy⁻, _A4, _B2, _A2, _A3, _B1, _A1, Dv1_y, Du_y, n+1, Δ, b_top, b_bottom)
 
     return nothing
 end

@@ -1,13 +1,19 @@
 @inline anisotropy(ϵ, m, θ, θ₀) = ϵ*(1 + 0.4*((8/3)*sin(0.5*m*(θ - θ₀))^4 - 1))
 
-@inline function apply_curvature(bc, D, κ, ϵ_κ, ϵ_V, V, all_indices)
+@inline function apply_curvature(bc, D, num, grid, all_indices)
+    @unpack ϵ_κ, ϵ_V = num
+    @unpack κ, V = grid
+
     @inbounds @threads for II in all_indices
         @inbounds bc[II] = D[II] - ϵ_κ*κ[II] - ϵ_V*V[II]
     end
     return nothing
 end
 
-@inline function apply_anisotropy(bc, D, MIXED, κ, ϵ_κ, ϵ_V, V, m, θ₀, sol_projection)
+@inline function apply_anisotropy(bc, D, MIXED, num, grid, sol_projection)
+    @unpack ϵ_κ, ϵ_V, m, θ₀ = num
+    @unpack κ, V = grid
+
     @inbounds @threads for II in MIXED
         ϵ_c = anisotropy(ϵ_κ, m, sol_projection[II].angle, θ₀)
         ϵ_v = anisotropy(ϵ_V, m, sol_projection[II].angle, θ₀)
@@ -16,80 +22,88 @@ end
     return nothing
 end
 
-function crank_nicolson!(L, A, B, C, cap, τ, n, Δ, all_indices)
-    @inbounds V = cap[:,:,5] .* Δ^2
+function crank_nicolson!(num, grid, geo, op)
+    @unpack Δ, τ = num
+    @unpack LT, A, B, CT = op
 
-    @inbounds A .= -L .* τ
-    @inbounds B .= (L .- C)  .* τ
-    @inbounds @threads for II in all_indices
-        pII = lexicographic(II, n)
+    @inbounds V = geo.cap[:,:,5] .* Δ^2
+
+    @inbounds A .= -LT .* τ
+    @inbounds B .= (LT .- CT)  .* τ
+    @inbounds @threads for II in grid.ind.all_indices
+        pII = lexicographic(II, grid.ny)
         @inbounds B[pII,pII] += V[II] * 2.
         @inbounds A[pII,pII] += V[II] * 2.
     end
     return nothing
 end
 
-function set_heat!(HT, DT, θd, bcT, BC_T, κ, ϵ_κ, ϵ_V, V, m, θ₀, τ, aniso, convection,
-            LT, CUTT, CAP, A, B, C,
-            Du, Dv, Hu, Hv, u, v, BC_u, BC_v, CUTCT,
-            Gx, Gy, CUTGx, CUTGy, ftcGx, ftcGy,
-            centroid, mid_point, sol_projection,
-            all_indices, inside, MIXED, empty, b_left, b_bottom, b_right, b_top, n, Δ)
-    # rhs = B*vec(T) .+ τ*CUTT
-    # for II in empty
-    #     pII = lexicographic(II, n)
-    #     rhs[pII] = 0.
-    # end
+function set_heat!(num, grid, geo, projection, op, ph, 
+            HT, bcT, Hu, Hv,
+            BC_T, BC_u, BC_v,
+            MIXED, empty, convection
+    )
+    @unpack Δ, τ, θd, ϵ_κ, ϵ_V, m, θ₀, aniso = num
+    @unpack nx, ny, ind, mid_point, κ, V = grid
+    @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
+    @unpack cap, centroid = geo
+    @unpack LT, CUTT, A, B, CT, CUTCT, GxT, GyT, CUTGxT, CUTGyT, ftcGxT, ftcGyT = op
+    @unpack u, v, DT, Du, Dv = ph
+
     HT .= 0.
     @inbounds @threads for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
         HT[II] = distance(mid_point[II], centroid[II]) * Δ
     end
 
     DT .= θd
-    apply_curvature(bcT, DT, κ, ϵ_κ, ϵ_V, V, all_indices)
+    apply_curvature(bcT, DT, num, grid, all_indices)
     if aniso
-        apply_anisotropy(bcT, DT, MIXED, κ, ϵ_κ, ϵ_V, V, m, θ₀, sol_projection)
+        apply_anisotropy(bcT, DT, MIXED, num, grid, projection)
     end
     bcTx, bcTy = set_bc_bnds(dir, bcT, HT, BC_T)
 
-    laplacian!(dir, LT, CUTT, bcTx, bcTy, CAP, n, Δ, BC_T, inside, empty,
+    laplacian!(dir, LT, CUTT, bcTx, bcTy, cap, ny, Δ, BC_T, inside, empty,
                 MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
+
     if convection
         bcU, bcV = set_bc_bnds(dir, Du, Dv, Hu, Hv, u, v, BC_u, BC_v)
-        scalar_convection!(dir, C, CUTCT, u, v, bcTx, bcTy, bcU, bcV, CAP, n, Δ, BC_T, inside, b_left[1], b_bottom[1], b_right[1], b_top[1])
+        scalar_convection!(dir, CT, CUTCT, u, v, bcTx, bcTy, bcU, bcV, cap, ny, Δ, BC_T, inside, b_left[1], b_bottom[1], b_right[1], b_top[1])
     end
-    crank_nicolson!(LT, A, B, C, CAP, τ, n, Δ, all_indices)
+    crank_nicolson!(num, grid, geo, op)
 
-    gradient!(dir, Gx, Gy, CUTGx, CUTGy, bcTx, bcTy, CAP, n, Δ, BC_T, all_indices, b_left[1], b_bottom[1], b_right[1], b_top[1])
-    face_to_cell_gradient!(dir, ftcGx, ftcGy, Gx, Gy, CAP, n, all_indices)
+    gradient!(dir, GxT, GyT, CUTGxT, CUTGyT, bcTx, bcTy, cap, ny, Δ, BC_T, all_indices, b_left[1], b_bottom[1], b_right[1], b_top[1])
+    face_to_cell_gradient!(dir, ftcGxT, ftcGyT, GxT, GyT, cap, ny, all_indices)
 
     return nothing
 end
 
 
-function Stefan_velocity!(TS, TL, sol_projection, liq_projection, V, MIXED, κ, ϵ_κ, ϵ_V, θd, h, m, θ₀, aniso)
+function Stefan_velocity!(num, grid, TS, TL, MIXED)
+    @unpack Δ, θd, ϵ_κ, ϵ_V, m, θ₀, aniso = num
+    @unpack geoS, geoL, κ, V = grid
+
     V .= 0
     @inbounds @threads for II in MIXED
-        ϵ_c = ifelse(aniso, anisotropy(ϵ_κ, m, sol_projection[II].angle, θ₀), ϵ_κ)
-        ϵ_v = ifelse(aniso, anisotropy(ϵ_V, m, sol_projection[II].angle, θ₀), ϵ_V)
+        ϵ_c = ifelse(aniso, anisotropy(ϵ_κ, m, geoS.projection[II].angle, θ₀), ϵ_κ)
+        ϵ_v = ifelse(aniso, anisotropy(ϵ_V, m, geoS.projection[II].angle, θ₀), ϵ_V)
         θ_d = (θd - ϵ_c*κ[II] - ϵ_v*V[II])
         dTS = 0.
         dTL = 0.
-        if sol_projection[II].flag
-            T_1, T_2 = interpolated_temperature(sol_projection[II].angle, sol_projection[II].point1, sol_projection[II].point2, TS, II)
-            dTS = normal_gradient(sol_projection[II].d1, sol_projection[II].d2, T_1, T_2, θ_d)
+        if geoS.projection[II].flag
+            T_1, T_2 = interpolated_temperature(geoS.projection[II].angle, geoS.projection[II].point1, geoS.projection[II].point2, TS, II)
+            dTS = normal_gradient(geoS.projection[II].d1, geoS.projection[II].d2, T_1, T_2, θ_d)
         else
-            T_1 = interpolated_temperature(sol_projection[II].angle, sol_projection[II].point1, TS, II)
-            dTS = normal_gradient(sol_projection[II].d1, T_1, θ_d)
+            T_1 = interpolated_temperature(geoS.projection[II].angle, geoS.projection[II].point1, TS, II)
+            dTS = normal_gradient(geoS.projection[II].d1, T_1, θ_d)
         end
-        if liq_projection[II].flag
-            T_1, T_2 = interpolated_temperature(liq_projection[II].angle, liq_projection[II].point1, liq_projection[II].point2, TL, II)
-            dTL = normal_gradient(liq_projection[II].d1, liq_projection[II].d2, T_1, T_2, θ_d)
+        if geoL.projection[II].flag
+            T_1, T_2 = interpolated_temperature(geoL.projection[II].angle, geoL.projection[II].point1, geoL.projection[II].point2, TL, II)
+            dTL = normal_gradient(geoL.projection[II].d1, geoL.projection[II].d2, T_1, T_2, θ_d)
         else
-            T_1 = interpolated_temperature(liq_projection[II].angle, liq_projection[II].point1, TL, II)
-            dTL = normal_gradient(liq_projection[II].d1, T_1, θ_d)
+            T_1 = interpolated_temperature(geoL.projection[II].angle, geoL.projection[II].point1, TL, II)
+            dTL = normal_gradient(geoL.projection[II].d1, T_1, θ_d)
         end
-        V[II] = (dTL + dTS)/h
+        V[II] = (dTL + dTS)/Δ
     end
     return nothing
 end

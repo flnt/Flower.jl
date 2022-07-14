@@ -5,7 +5,7 @@ Returns the index of type `Int` corresponding to the 1D view of a `n × n` array
 
 """
 @inline lexicographic(II, n) = muladd(n, II[2]-1, II[1])
-@inline within_bounds(i, n) = 1 <= i <= n^2
+@inline within_bounds(i, grid) = 1 <= i <= grid.nx*grid.ny
 
 const newaxis = [CartesianIndex()]
 

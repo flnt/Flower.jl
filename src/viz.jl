@@ -20,28 +20,22 @@ custom_formatter(values) = map(
     values
 )
 
-function make_video(num, fwd, field="u";
+function make_video(num, fwd, grid, field="u";
                     title_prefix=field, title_suffix="", xlabel="x", ylabel="y", colormap=:viridis,
                     minv=0.0, maxv=0.0, limitsx=false, limitsy=false, framerate=24, step=1, step0=1)
+    x = grid.x[1,:]
+    y = grid.y[:,1]
     if field == "T"
-        x = num.X[1,:]
-        y = num.Y[:,1]
         z = fwd.Tsave[step0:end,:,:]
         u = fwd.usave[step0:end,:,:]
         colormap = Reverse(:ice)
     elseif field == "u"
-        x = num.Xu[1,:]
-        y = num.Yu[:,1]
         z = fwd.Uxsave[step0:end,:,:]
         u = fwd.uusave[step0:end,:,:]
     elseif field == "v"
-        x = num.Xv[1,:]
-        y = num.Yv[:,1]
         z = fwd.Uysave[step0:end,:,:]
         u = fwd.uvsave[step0:end,:,:]
     elseif field == "p"
-        x = num.X[1,:]  
-        y = num.Y[:,1]
         z = fwd.psave[step0:end,:,:].*num.τ
         u = fwd.usave[step0:end,:,:]
     else

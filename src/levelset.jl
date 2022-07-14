@@ -185,11 +185,11 @@ end
     return 2 + CFL*S[1], 2 - CFL*S[2]
 end
 
-@inline central_differences(u, II, h, n) =
-    @SVector[minmod(Dxx(u, II, h), ifelse(in_bounds(δx⁺(II)[2], n), Dxx(u, δx⁺(II), h), 0.)),
-            minmod(Dxx(u, II, h), ifelse(in_bounds(δx⁻(II)[2], n), Dxx(u, δx⁻(II), h), 0.)),
-            minmod(Dyy(u, II, h), ifelse(in_bounds(δy⁺(II)[1], n), Dyy(u, δy⁺(II), h), 0.)),
-            minmod(Dyy(u, II, h), ifelse(in_bounds(δy⁻(II)[1], n), Dyy(u, δy⁻(II), h), 0.))]
+@inline central_differences(u, II, h, nx, ny) =
+    @SVector[minmod(Dxx(u, II, h), ifelse(in_bounds(δx⁺(II)[2], nx), Dxx(u, δx⁺(II), h), 0.)),
+            minmod(Dxx(u, II, h), ifelse(in_bounds(δx⁻(II)[2], nx), Dxx(u, δx⁻(II), h), 0.)),
+            minmod(Dyy(u, II, h), ifelse(in_bounds(δy⁺(II)[1], ny), Dyy(u, δy⁺(II), h), 0.)),
+            minmod(Dyy(u, II, h), ifelse(in_bounds(δy⁻(II)[1], ny), Dyy(u, δy⁻(II), h), 0.))]
 
 @inline finite_difference_eno(u, II, a::AbstractArray, h) =
     @SVector[∇x⁺(u, II)/h - (h/2)*a[1],
@@ -206,8 +206,10 @@ end
     h*(0.5 + ((u[II] - u[JJ] - mysign(u[II] - u[JJ]) * sqrt(D))/uxx)),
     h*(u[II]/(u[II]-u[JJ])))
 
-function FE_reinit(u, h, n, nb_reinit, BC_u, idx)
-    @unpack inside, b_left, b_bottom, b_right, b_top = idx
+function FE_reinit(grid, ind, u, h, nb_reinit, BC_u)
+    @unpack nx, ny = grid
+    @unpack inside = ind
+
     local cfl = 0.45
     @sync begin
         @spawn bcs!(u, BC_u.left, h)
@@ -222,7 +224,7 @@ function FE_reinit(u, h, n, nb_reinit, BC_u, idx)
         @inbounds @threads for II in inside
             h_ = h
             sign_u0 = sign(u0[II])
-            shift = central_differences(u, II, h, n)
+            shift = central_differences(u, II, h, nx, ny)
             eno = finite_difference_eno(u, II, shift, h)
 
             if is_near_interface(u0, II)
@@ -230,7 +232,7 @@ function FE_reinit(u, h, n, nb_reinit, BC_u, idx)
                 h_ = 1e30
                 for (JJ, i, j) in zip((δx⁺(II), δx⁻(II), δy⁺(II), δy⁻(II)), a, c)
                     if u0[II]*u0[JJ] < 0
-                        uxx = minmod(f[i](u, II), ifelse(in_bounds(JJ[j], n), f[i](u, JJ), 0.))
+                        uxx = minmod(f[i](u, II), ifelse(in_bounds(JJ[j], (j == 1 ? ny : nx)), f[i](u, JJ), 0.))
                         D = (uxx/2 - u0[II] - u0[JJ])^2 - 4*u0[II]*u0[JJ]
                         Δx = root_extraction(u0, uxx, D, II, JJ, h, 1e-10)
                         if Δx < h_ h_ = Δx end
@@ -254,13 +256,15 @@ function FE_reinit(u, h, n, nb_reinit, BC_u, idx)
     end
 end
 
-function velocity_extension!(V, u, inside, n, h, NB, BC_u)
+function velocity_extension!(grid, inside, NB, Δ)
+    @unpack V, u = grid
+
     local cfl = 0.45
     local Vt = similar(V)
     for j = 1:NB
         Vt .= V
         @inbounds @threads for II in inside
-            s = mysign(u[II], h)
+            s = mysign(u[II], Δ)
             nx = mysign(c∇x(u, II), c∇y(u, II))
             ny = mysign(c∇y(u, II), c∇x(u, II))
             V[II] = Vt[II] - cfl*(⁺(s*nx)*(-∇x⁻(Vt, II)) +
@@ -291,7 +295,7 @@ function velocity_extension2!(V, u, inside, MIXED, n, h, NB, B, BT, pos)
         end
         for II in MIXED
             st = static_stencil(V, II)
-            itp = B*st*BT
+            itp = B * st * BT
             a = biquadratic(itp, pos[II].mid_point.x, pos[II].mid_point.y)
             b = abs(V[II]-a)
             c = sqrt(pos[II].mid_point.x^2 + pos[II].mid_point.y^2)
@@ -347,77 +351,83 @@ end
                                 biquadratic(itp, 0.5, 1.0),
                                 biquadratic(itp, 0.0, 1.5)]
 
-function interpolate_scalar!(u, uu, uv, B, BT, n, inside, b_left, b_bottom, b_right, b_top)
-    u_faces = zeros(n,n,4)
+function interpolate_scalar!(num, grid, grid_u, grid_v)
+    @unpack B, BT = num
+    @unpack nx, ny, ind, u = grid
+    @unpack inside, b_left, b_bottom, b_right, b_top = ind
+
+    u_faces = zeros(ny, nx, 4)
 
     @inbounds @threads for II in inside
         st = static_stencil(u, II)
-        itp = B*st*BT
+        itp = B * st * BT
         faces = faces_scalar(itp)
         @inbounds u_faces[II,:] .= faces
     end
 
-    @inbounds for II in b_left[2:end-1]
+    @inbounds for II in b_left[1][2:end-1]
         st = static_stencil(u, δx⁺(II))
-        itp = B*st*BT
+        itp = B * st * BT
         faces = faces_scalar_left(itp)
         @inbounds u_faces[II,:] .= faces
     end
 
-    II = b_left[1]
+    II = b_left[1][1]
     st = static_stencil(u, δy⁺(δx⁺(II)))
-    itp = B*st*BT
+    itp = B * st * BT
     faces = faces_scalar_left_bottom(itp)
     @inbounds u_faces[II,:] .= faces
 
-    II = b_left[end]
+    II = b_left[1][end]
     st = static_stencil(u, δy⁻(δx⁺(II)))
-    itp = B*st*BT
+    itp = B * st * BT
     faces = faces_scalar_left_top(itp)
     @inbounds u_faces[II,:] .= faces
 
-    @inbounds for II in b_bottom[2:end-1]
+    @inbounds for II in b_bottom[1][2:end-1]
         st = static_stencil(u, δy⁺(II))
-        itp = B*st*BT
+        itp = B * st * BT
         faces = faces_scalar_bottom(itp)
         @inbounds u_faces[II,:] .= faces
     end
 
-    @inbounds for II in b_right[2:end-1]
+    @inbounds for II in b_right[1][2:end-1]
         st = static_stencil(u, δx⁻(II))
-        itp = B*st*BT
+        itp = B * st * BT
         faces = faces_scalar_right(itp)
         @inbounds u_faces[II,:] .= faces
     end
 
-    II = b_right[1]
+    II = b_right[1][1]
     st = static_stencil(u, δy⁺(δx⁻(II)))
-    itp = B*st*BT
+    itp = B * st * BT
     faces = faces_scalar_right_bottom(itp)
     @inbounds u_faces[II,:] .= faces
 
-    II = b_right[end]
+    II = b_right[1][end]
     st = static_stencil(u, δy⁻(δx⁻(II)))
-    itp = B*st*BT
+    itp = B * st * BT
     faces = faces_scalar_right_top(itp)
     @inbounds u_faces[II,:] .= faces
 
-    @inbounds for II in b_top[2:end-1]
+    @inbounds for II in b_top[1][2:end-1]
         st = static_stencil(u, δy⁻(II))
-        itp = B*st*BT
+        itp = B * st * BT
         faces = faces_scalar_top(itp)
         @inbounds u_faces[II,:] .= faces
     end
 
-    @inbounds uu[:,1] .= u_faces[:,1,1]
-    @inbounds uu[:,end] .= u_faces[:,end,3]
+    @inbounds grid_u.u[:,1] .= u_faces[:,1,1]
+    @inbounds grid_u.u[:,end] .= u_faces[:,end,3]
 
-    @inbounds uv[1,:] .= u_faces[1,:,2]
-    @inbounds uv[end,:] .= u_faces[end,:,4]
+    @inbounds grid_v.u[1,:] .= u_faces[1,:,2]
+    @inbounds grid_v.u[end,:] .= u_faces[end,:,4]
 
-    @inbounds @threads for i = 1:n
-        @inbounds uu[i,2:end-1] .= 0.5 * (u_faces[i,1:end-1,3] .+ u_faces[i,2:end,1])
-        @inbounds uv[2:end-1,i] .= 0.5 * (u_faces[1:end-1,i,4] .+ u_faces[2:end,i,2])
+    @inbounds @threads for i = 1:grid_u.ny
+        @inbounds grid_u.u[i,2:end-1] .= 0.5 * (u_faces[i,1:end-1,3] .+ u_faces[i,2:end,1])
+    end
+    @inbounds @threads for i = 1:grid_v.nx
+        @inbounds grid_v.u[2:end-1,i] .= 0.5 * (u_faces[1:end-1,i,4] .+ u_faces[2:end,i,2])
     end
     
     return nothing
