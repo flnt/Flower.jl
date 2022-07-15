@@ -4,6 +4,27 @@ end
 
 load_field(path::String) = load(path)
 
+function stretching(n::Int, dn0::Float64, dn1::Float64, ds::Float64, ws=12, we=12, maxs=0.04)
+    ns = ceil(Int, ds÷dn0)
+    ne = ns + log(dn1 / dn0) / log(1 + maxs)
+
+    s = [maxs * 0.25 * (1 + erf(6 * (i - ns) / (ws))) * (1 - erf(6 * (i - ne) / we)) for i = 0:n-1]
+
+    f_ = zeros(size(s))
+    f_[1] = dn0
+    for k = 2:length(f_)
+        f_[k] = f_[k - 1] * (1 + s[k])
+    end
+    
+    f = zeros(size(s))
+    f[1] = 0.0
+    for k = 2:length(f)
+        f[k] = f[k - 1] + f_[k]
+    end
+
+    return f
+end
+
 function force_coefficients!(num, grid, grid_u, grid_v, op, fwd; A=1., p0=0., step=size(fwd.psave,1))
     @unpack Δ, Re = num
     @unpack nx, ny, ind, geoL = grid
