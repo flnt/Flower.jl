@@ -306,115 +306,62 @@ function velocity_extension2!(V, u, inside, MIXED, n, h, NB, B, BT, pos)
     return tmp1, tmp2
 end
 
-@inline faces_scalar(itp) = [biquadratic(itp, -0.5, 0.0),
-                                biquadratic(itp, 0.0, -0.5),
-                                biquadratic(itp, 0.5, 0.0),
-                                biquadratic(itp, 0.0, 0.5)]
+@inline faces_scalar(itp, II_0, II, x, y, dx, dy) = 
+    @SVector [biquadratic(itp, x[II] - x[II_0] - dx/2, y[II] - y[II_0])
+    biquadratic(itp, x[II] - x[II_0], y[II] - y[II_0] - dy/2)
+    biquadratic(itp, x[II] - x[II_0] + dx/2, y[II] - y[II_0])
+    biquadratic(itp, x[II] - x[II_0], y[II] - y[II_0] + dy/2)]
 
-@inline faces_scalar_left(itp) = [biquadratic(itp, -1.5, 0.0),
-                                biquadratic(itp, -1.0, -0.5),
-                                biquadratic(itp, -0.5, 0.0),
-                                biquadratic(itp, -1.0, 0.5)]
+function aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
+    st = static_stencil(u, II_0)
+    B, BT = B_BT(II_0, x)
+    itp = B * st * BT
+    faces = faces_scalar(itp, II_0, II, x, y, dx[II], dy[II])
+    @inbounds u_faces[II,:] .= faces
 
-@inline faces_scalar_left_bottom(itp) = [biquadratic(itp, -1.5, -1.0),
-                                biquadratic(itp, -1.0, -1.5),
-                                biquadratic(itp, -0.5, -1.0),
-                                biquadratic(itp, -1.0, -0.5)]
+    return nothing
+end
 
-@inline faces_scalar_left_top(itp) = [biquadratic(itp, -1.5, 1.0),
-                                biquadratic(itp, -1.0, 0.5),
-                                biquadratic(itp, -0.5, .0),
-                                biquadratic(itp, -1.0, 1.5)]
-
-@inline faces_scalar_bottom(itp) = [biquadratic(itp, -0.5, -1.0),
-                                biquadratic(itp, 0.0, -1.5),
-                                biquadratic(itp, 0.5, -1.0),
-                                biquadratic(itp, 0.0, -0.5)]
-
-@inline faces_scalar_right(itp) = [biquadratic(itp, 0.5, 0.0),
-                                biquadratic(itp, 1.0, -0.5),
-                                biquadratic(itp, 1.5, 0.0),
-                                biquadratic(itp, 1.0, 0.5)]
-
-@inline faces_scalar_right_bottom(itp) = [biquadratic(itp, 0.5, -1.0),
-                                biquadratic(itp, 1.0, -1.5),
-                                biquadratic(itp, 1.5, -1.0),
-                                biquadratic(itp, 1.0, -0.5)]
-
-@inline faces_scalar_right_top(itp) = [biquadratic(itp, 0.5, 1.0),
-                                biquadratic(itp, 1.0, 0.5),
-                                biquadratic(itp, 1.5, 1.0),
-                                biquadratic(itp, 1.0, 1.5)]
-
-@inline faces_scalar_top(itp) = [biquadratic(itp, -0.5, 1.0),
-                                biquadratic(itp, 0.0, 0.5),
-                                biquadratic(itp, 0.5, 1.0),
-                                biquadratic(itp, 0.0, 1.5)]
-
-function interpolate_scalar!(num, grid, grid_u, grid_v)
-    @unpack B, BT = num
-    @unpack nx, ny, ind, u = grid
+function interpolate_scalar!(grid, grid_u, grid_v)
+    @unpack x, y, nx, ny, dx, dy, ind, u = grid
     @unpack inside, b_left, b_bottom, b_right, b_top = ind
 
     u_faces = zeros(ny, nx, 4)
 
     @inbounds @threads for II in inside
-        st = static_stencil(u, II)
-        itp = B * st * BT
-        faces = faces_scalar(itp)
-        @inbounds u_faces[II,:] .= faces
+        aux_interpolate_scalar!(II, II, u, x, y, dx, dy, u_faces)
     end
 
-    @inbounds for II in b_left[1][2:end-1]
-        st = static_stencil(u, δx⁺(II))
-        itp = B * st * BT
-        faces = faces_scalar_left(itp)
-        @inbounds u_faces[II,:] .= faces
+    @inbounds @threads for II in b_left[1][2:end-1]
+        aux_interpolate_scalar!(δx⁺(II), II, u, x, y, dx, dy, u_faces)
     end
 
     II = b_left[1][1]
-    st = static_stencil(u, δy⁺(δx⁺(II)))
-    itp = B * st * BT
-    faces = faces_scalar_left_bottom(itp)
-    @inbounds u_faces[II,:] .= faces
+    II_0 = δy⁺(δx⁺(II))
+    aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
 
     II = b_left[1][end]
-    st = static_stencil(u, δy⁻(δx⁺(II)))
-    itp = B * st * BT
-    faces = faces_scalar_left_top(itp)
-    @inbounds u_faces[II,:] .= faces
+    II_0 = δy⁻(δx⁺(II))
+    aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
 
-    @inbounds for II in b_bottom[1][2:end-1]
-        st = static_stencil(u, δy⁺(II))
-        itp = B * st * BT
-        faces = faces_scalar_bottom(itp)
-        @inbounds u_faces[II,:] .= faces
+    @inbounds @threads for II in b_bottom[1][2:end-1]
+        aux_interpolate_scalar!(δy⁺(II), II, u, x, y, dx, dy, u_faces)
     end
 
-    @inbounds for II in b_right[1][2:end-1]
-        st = static_stencil(u, δx⁻(II))
-        itp = B * st * BT
-        faces = faces_scalar_right(itp)
-        @inbounds u_faces[II,:] .= faces
+    @inbounds @threads for II in b_right[1][2:end-1]
+        aux_interpolate_scalar!(δx⁻(II), II, u, x, y, dx, dy, u_faces)
     end
 
     II = b_right[1][1]
-    st = static_stencil(u, δy⁺(δx⁻(II)))
-    itp = B * st * BT
-    faces = faces_scalar_right_bottom(itp)
-    @inbounds u_faces[II,:] .= faces
+    II_0 = δy⁺(δx⁻(II))
+    aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
 
     II = b_right[1][end]
-    st = static_stencil(u, δy⁻(δx⁻(II)))
-    itp = B * st * BT
-    faces = faces_scalar_right_top(itp)
-    @inbounds u_faces[II,:] .= faces
+    II_0 = δy⁻(δx⁻(II))
+    aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
 
-    @inbounds for II in b_top[1][2:end-1]
-        st = static_stencil(u, δy⁻(II))
-        itp = B * st * BT
-        faces = faces_scalar_top(itp)
-        @inbounds u_faces[II,:] .= faces
+    @inbounds @threads for II in b_top[1][2:end-1]
+        aux_interpolate_scalar!(δy⁻(II), II, u, x, y, dx, dy, u_faces)
     end
 
     @inbounds grid_u.u[:,1] .= u_faces[:,1,1]

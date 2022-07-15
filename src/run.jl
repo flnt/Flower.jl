@@ -70,7 +70,7 @@ function run_forward(num, grid, grid_u, grid_v,
     save_radius = false
     )
 
-    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, H, B, BT, m, θ₀, aniso = num
+    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, H, m, θ₀, aniso = num
     @unpack x, y, nx, ny, ind, u, iso, faces, geoS, geoL, V, κ, LSA, LSB = grid
     @unpack Tall, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, Uxsave, Uysave, Vsave, κsave, lengthsave, Cd, Cl = fwd
 
@@ -205,7 +205,7 @@ function run_forward(num, grid, grid_u, grid_v,
 
     if levelset
         marching_squares!(num, grid)
-        interpolate_scalar!(num, grid, grid_u, grid_v)
+        interpolate_scalar!(grid, grid_u, grid_v)
         uusave[1,:,:] .= grid_u.u
         uvsave[1,:,:] .= grid_v.u
         marching_squares!(num, grid_u)        
@@ -533,7 +533,7 @@ function run_forward(num, grid, grid_u, grid_v,
 
         if levelset
             marching_squares!(num, grid)
-            interpolate_scalar!(num, grid, grid_u, grid_v)
+            interpolate_scalar!(grid, grid_u, grid_v)
             marching_squares!(num, grid_u)
             marching_squares!(num, grid_v)
 
@@ -727,7 +727,7 @@ function run_forward(num, grid, grid_u, grid_v,
         end
 
         if navier_stokes
-            no_slip_condition!(num, grid, grid_u, grid_v)
+            no_slip_condition!(grid, grid_u, grid_v)
             grid_u.V .= imfilter(grid_u.V, Kernel.gaussian(2))
             grid_v.V .= imfilter(grid_v.V, Kernel.gaussian(2))
             # grid_u.V .= Δ / (1 * τ)
@@ -898,7 +898,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
     save_radius = false
     )
 
-    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, τ, L0, NB, Δ, CFL, max_iterations, current_i, reinit_every, nb_reinit, ϵ, H, B, BT, m, θ₀, aniso = num
+    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, τ, L0, NB, Δ, CFL, max_iterations, current_i, reinit_every, nb_reinit, ϵ, H, m, θ₀, aniso = num
     @unpack nx, ny, ind, faces, geoS, geoL = grid
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
     @unpack usave, TSsave, TLsave, Tsave, Vsave, κsave = fwd

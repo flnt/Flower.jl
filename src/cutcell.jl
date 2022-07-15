@@ -1,7 +1,7 @@
-@inline SOUTH_face(itp, p=Point(0.0,-0.5)) = 0.5 - p.x + find_zero(x -> biquadratic(itp, x, p.y), (-0.5+p.x,0.5+p.x), FalsePosition(), maxevals = 10, atol = 1e-9)
-@inline WEST_face(itp, p=Point(-0.5,0.0)) = 0.5 - p.y + find_zero(y -> biquadratic(itp, p.x, y), (-0.5+p.y,0.5+p.y), FalsePosition(), maxevals = 10, atol = 1e-9)
-@inline NORTH_face(itp, p=Point(0.0,0.5)) = 0.5 - p.x + find_zero(x -> biquadratic(itp, x, p.y), (-0.5+p.x,0.5+p.x), FalsePosition(), maxevals = 10, atol = 1e-9)
-@inline EAST_face(itp, p=Point(0.5,0.0)) = 0.5 - p.y + find_zero(y -> biquadratic(itp, p.x, y), (-0.5+p.y,0.5+p.y), FalsePosition(), maxevals = 10, atol = 1e-9)
+@inline SOUTH_face(itp, p=Point(0.0,-0.5), dx=1.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y), (-dx/2+p.x,dx/2+p.x), FalsePosition(), maxevals = 10, atol = 1e-9)
+@inline WEST_face(itp, p=Point(-0.5,0.0), dy=1.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x, y), (-dy/2+p.y,dy/2+p.y), FalsePosition(), maxevals = 10, atol = 1e-9)
+@inline NORTH_face(itp, p=Point(0.0,0.5), dx=1.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y), (-dx/2+p.x,dx/2+p.x), FalsePosition(), maxevals = 10, atol = 1e-9)
+@inline EAST_face(itp, p=Point(0.5,0.0), dy=1.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x, y), (-dy/2+p.y,dy/2+p.y), FalsePosition(), maxevals = 10, atol = 1e-9)
 
 @inline WE(a, cases, II, l_face, s_face) = ismixed(cases[δx⁻(II)]) ? 0.5*(a[II,1] + a[δx⁻(II), 3]) : (is_liquid(cases[δx⁻(II)]) ? l_face : s_face)
 @inline WE_border(a, cases, II, l_face, s_face) = a[II,1]
@@ -20,50 +20,17 @@
 @inline ispositive(a) = min(max(a,0),1)
 @inline isovalue(v::SVector{4,Float64}) = 4. * v[1] + 2. * v[2] + v[3] + 0.5 * v[4]
 
-@inline vertices_sign(itp) = 1 .- sign.(@SVector [biquadratic(itp, -0.5, 0.5),
-                            biquadratic(itp, 0.5, 0.5),
-                            biquadratic(itp, 0.5, -0.5),
-                            biquadratic(itp, -0.5, -0.5)])
+@inline vertices_sign(itp, II_0, II, x, y, dx, dy) = 
+    1 .- sign.(@SVector [biquadratic(itp, x[II] - x[II_0] - dx/2, y[II] - y[II_0] + dy/2),
+                        biquadratic(itp, x[II] - x[II_0] + dx/2, y[II] - y[II_0] + dy/2),
+                        biquadratic(itp, x[II] - x[II_0] + dx/2, y[II] - y[II_0] - dy/2),
+                        biquadratic(itp, x[II] - x[II_0] - dx/2, y[II] - y[II_0] - dy/2)])
 
-@inline vertices_sign_left(itp) = 1 .- sign.(@SVector [biquadratic(itp, -1.5, 0.5),
-                            biquadratic(itp, -0.5, 0.5),
-                            biquadratic(itp, -0.5, -0.5),
-                            biquadratic(itp, -1.5, -0.5)])
-
-@inline vertices_sign_left_bottom(itp) = 1 .- sign.(@SVector [biquadratic(itp, -1.5, -0.5),
-                            biquadratic(itp, -0.5, -0.5),
-                            biquadratic(itp, -0.5, -1.5),
-                            biquadratic(itp, -1.5, -1.5)])
-
-@inline vertices_sign_left_top(itp) = 1 .- sign.(@SVector [biquadratic(itp, -1.5, 1.5),
-                            biquadratic(itp, -0.5, 1.5),
-                            biquadratic(itp, -0.5, 0.5),
-                            biquadratic(itp, -1.5, 0.5)])
-
-@inline vertices_sign_bottom(itp) = 1 .- sign.(@SVector [biquadratic(itp, -0.5, -0.5),
-                            biquadratic(itp, 0.5, -0.5),
-                            biquadratic(itp, 0.5, -1.5),
-                            biquadratic(itp, -0.5, -1.5)])
-
-@inline vertices_sign_right(itp) = 1 .- sign.(@SVector [biquadratic(itp, 0.5, 0.5),
-                            biquadratic(itp, 1.5, 0.5),
-                            biquadratic(itp, 1.5, -0.5),
-                            biquadratic(itp, 0.5, -0.5)])
-
-@inline vertices_sign_right_bottom(itp) = 1 .- sign.(@SVector [biquadratic(itp, 0.5, -0.5),
-                            biquadratic(itp, 1.5, -0.5),
-                            biquadratic(itp, 1.5, -1.5),
-                            biquadratic(itp, 0.5, -1.5)])
-
-@inline vertices_sign_right_top(itp) = 1 .- sign.(@SVector [biquadratic(itp, 0.5, 1.5),
-                            biquadratic(itp, 1.5, 1.5),
-                            biquadratic(itp, 1.5, 0.5),
-                            biquadratic(itp, 0.5, 0.5)])
-
-@inline vertices_sign_top(itp) = 1 .- sign.(@SVector [biquadratic(itp, -0.5, 1.5),
-                            biquadratic(itp, 0.5, 1.5),
-                            biquadratic(itp, 0.5, 0.5),
-                            biquadratic(itp, -0.5, 0.5)])
+@inline face_pos(II_0, II, x, y, dx, dy) =
+    (Point(x[II] - x[II_0] - dx/2, y[II] - y[II_0]),
+    Point(x[II] - x[II_0], y[II] - y[II_0] - dy/2),
+    Point(x[II] - x[II_0] + dx/2, y[II] - y[II_0]),
+    Point(x[II] - x[II_0], y[II] - y[II_0] + dy/2))
 
 @inline is_near_interface(a, st) = @inbounds ifelse(a != sign(st[2,1]) || a != sign(st[1,2]) || a != sign(st[2,3]) || a != sign(st[3,2]), true, false)
 
@@ -109,16 +76,14 @@ end
 end
 
 function find_radius(num, grid, MIXED)
-    @unpack H, Δ, B, BT = num
-    @unpack u, iso = grid
+    @unpack H, Δ = num
+    @unpack x, u, iso = grid
 
     radius = Vector{Float64}(undef,0)
     for II in MIXED
-        st = static_stencil(u, II)
-        itp = B * st * BT
         try
-            faces = face_capacities(itp, iso[II])
-            a, b, c, d, e, mid_point = capacities(faces, iso[II])
+            faces = average_face_capacities(grid, II)
+            _, _, _, _, _, mid_point, _ = capacities(faces, iso[II])
             radius_ = distance(Point(0.,0.), Point(H[II.I[2]]+Δ*mid_point.x,  H[II.I[1]]+Δ*mid_point.y))
             if !isnan(radius_) push!(radius, radius_) end
         catch
@@ -154,50 +119,34 @@ end
 end
 
 function marching_squares!(num, grid)
-    @unpack nx, ny, ind, u, iso, faces, geoS, geoL, mid_point, α, κ = grid
+    @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, mid_point, α, κ = grid
 
     empty_capacities = vcat(zeros(7), zeros(4))
     full_capacities = vcat(ones(7), 0.5.*ones(4))
     κ .= zeros(ny,nx)
     @inbounds @threads for II in ind.all_indices
         if II in ind.inside
-            st = static_stencil(u, II)
-            vertices_fun = vertices_sign
-            posW, posS, posE, posN = Point(-0.5,0.0), Point(0.0,-0.5), Point(0.5,0.0), Point(0.0,0.5)
+            II_0 = II
         elseif II in ind.b_left[1][2:end-1]
-            st = static_stencil(u, δx⁺(II))
-            vertices_fun = vertices_sign_left
-            posW, posS, posE, posN = Point(-1.5,0.0), Point(-1.0,-0.5), Point(-0.5,0.0), Point(-1.0,0.5)
+            II_0 = δx⁺(II)
         elseif II in ind.b_bottom[1][2:end-1]
-            st = static_stencil(u, δy⁺(II))
-            vertices_fun = vertices_sign_bottom
-            posW, posS, posE, posN = Point(-0.5,-1.0), Point(0.0,-1.5), Point(0.5,-1.0), Point(0.0,-0.5)
+            II_0 = δy⁺(II)
         elseif II in ind.b_right[1][2:end-1]
-            st = static_stencil(u, δx⁻(II))
-            vertices_fun = vertices_sign_right
-            posW, posS, posE, posN = Point(0.5,0.0), Point(1.0,-0.5), Point(1.5,0.0), Point(1.0,0.5)
+            II_0 = δx⁻(II)
         elseif II in ind.b_top[1][2:end-1]
-            st = static_stencil(u, δy⁻(II))
-            vertices_fun = vertices_sign_top
-            posW, posS, posE, posN = Point(-0.5,1.0), Point(0.0,0.5), Point(0.5,1.0), Point(0.0,1.5)
+            II_0 = δy⁻(II)
         elseif II == ind.b_left[1][1]
-            st = static_stencil(u, δy⁺(δx⁺(II)))
-            vertices_fun = vertices_sign_left_bottom
-            posW, posS, posE, posN = Point(-1.5,-1.0), Point(-1.0,-1.5), Point(-0.5,-1.0), Point(-1.0,-0.5)
+            II_0 = δy⁺(δx⁺(II))
         elseif II == ind.b_left[1][end]
-            st = static_stencil(u, δy⁻(δx⁺(II)))
-            vertices_fun = vertices_sign_left_top
-            posW, posS, posE, posN = Point(-1.5,1.0), Point(-1.0,0.5), Point(-0.5,1.0), Point(-1.0,1.5)
+            II_0 = δy⁻(δx⁺(II))
         elseif II == ind.b_right[1][1]
-            st = static_stencil(u, δy⁺(δx⁻(II)))
-            vertices_fun = vertices_sign_right_bottom
-            posW, posS, posE, posN = Point(0.5,-1.0), Point(1.0,-1.5), Point(1.5,-1.0), Point(1.0,-0.5)
+            II_0 = δy⁺(δx⁻(II))
         elseif II == ind.b_right[1][end]
-            st = static_stencil(u, δy⁻(δx⁻(II)))
-            vertices_fun = vertices_sign_right_top
-            posW, posS, posE, posN = 0.5, 0.5, 1.5, 1.5
-            posW, posS, posE, posN = Point(0.5,1.0), Point(1.0,0.5), Point(1.5,1.0), Point(1.0,1.5)
+            II_0 = δy⁻(δx⁻(II))
         end
+
+        st = static_stencil(u, II_0)
+        posW, posS, posE, posN = face_pos(II_0, II, x, y, dx[II], dy[II])
         
         a = sign(u[II])
         ISO = ifelse(a > 0, 0., 15.)
@@ -219,12 +168,13 @@ function marching_squares!(num, grid)
                     geoL.cap[II,:] .= empty_capacities
                 end
             else
-                itp = num.B * st * num.BT
-                vertices = vertices_fun(itp)
+                B, BT = B_BT(II_0, x)
+                itp = B * st * BT
+                vertices = vertices_sign(itp, II_0, II, x, y, dx[II], dy[II])
                 ISO = isovalue(vertices)
 
                 if is_not_mixed(ISO) @goto notmixed end
-                face_capacities(faces, itp, ISO, II, posW, posS, posE, posN)
+                face_capacities(grid, itp, ISO, II, posW, posS, posE, posN, num.Δ)
 
             end
             if ISO == -1
@@ -265,12 +215,32 @@ function get_iterface_location!(num, grid, indices, periodic_x, periodic_y)
 end
 
 function get_curvature(num, grid, inside)
-    @unpack B, BT, Δ = num
-    @unpack u, geoL, κ = grid
+    @unpack Δ = num
+    @unpack x, dx, dy, ind, u, geoL, κ = grid
 
     @inbounds for II in inside
+        if II in ind.inside
+            II_0 = II
+        elseif II in ind.b_left[1][2:end-1]
+            II_0 = δx⁺(II)
+        elseif II in ind.b_bottom[1][2:end-1]
+            II_0 = δy⁺(II)
+        elseif II in ind.b_right[1][2:end-1]
+            II_0 = δx⁻(II)
+        elseif II in ind.b_top[1][2:end-1]
+            II_0 = δy⁻(II)
+        elseif II == ind.b_left[1][1]
+            II_0 = δy⁺(δx⁺(II))
+        elseif II == ind.b_left[1][end]
+            II_0 = δy⁻(δx⁺(II))
+        elseif II == ind.b_right[1][1]
+            II_0 = δy⁺(δx⁻(II))
+        elseif II == ind.b_right[1][end]
+            II_0 = δy⁻(δx⁻(II))
+        end
         mid_point = geoL.projection[II].mid_point
-        st = static_stencil(u, II)
+        st = static_stencil(u, II_0)
+        B, BT = B_BT(II_0, x)
         itp = B * st * BT
         κ[II] = parabola_fit_curvature(itp, mid_point, Δ)
     end
@@ -902,44 +872,27 @@ function Wcapacities!(cap, periodic_x, periodic_y)
     return nothing
 end
 
-function face_capacities(itp, case)
-    if case == 1.0 || case == 14.0
-        f = SA_F64[ispositive(WEST_face(itp)), ispositive(SOUTH_face(itp))]
-    elseif case == 2.0 || case == 13.0
-        f = SA_F64[ispositive(SOUTH_face(itp)), ispositive(EAST_face(itp))]
-    elseif case == 3.0 || case == 12.0
-        f = SA_F64[ispositive(WEST_face(itp)), ispositive(EAST_face(itp))]
-    elseif case == 4.0 || case == 11.0
-        f = SA_F64[ispositive(EAST_face(itp)), ispositive(NORTH_face(itp))]
-    elseif case == 6.0 || case == 9.0
-        f = SA_F64[ispositive(SOUTH_face(itp)), ispositive(NORTH_face(itp))]
-    elseif case == 7.0 || case == 8.0
-        f = SA_F64[ispositive(WEST_face(itp)), ispositive(NORTH_face(itp))]
-    else
-        f = @SVector zeros(2)
-    end
-    return float(f)
-end
+function face_capacities(grid, itp, case, II, posW, posS, posE, posN, Δ)
+    @unpack dx, dy, faces = grid
 
-function face_capacities(a, itp, case, II, posW, posS, posE, posN)
     if case == 1.0 || case == 14.0
-        a[II, 1] = ispositive(WEST_face(itp, posW))
-        a[II, 2] = ispositive(SOUTH_face(itp, posS))
+        faces[II, 1] = ispositive(WEST_face(itp, posW, dy[II]))/Δ
+        faces[II, 2] = ispositive(SOUTH_face(itp, posS, dx[II]))/Δ
     elseif case == 2.0 || case == 13.0
-        a[II, 2] = ispositive(SOUTH_face(itp, posS))
-        a[II, 3] = ispositive(EAST_face(itp, posE))
+        faces[II, 2] = ispositive(SOUTH_face(itp, posS, dx[II]))/Δ
+        faces[II, 3] = ispositive(EAST_face(itp, posE, dy[II]))/Δ
     elseif case == 3.0 || case == 12.0
-        a[II, 1] = ispositive(WEST_face(itp, posW))
-        a[II, 3] = ispositive(EAST_face(itp, posE))
+        faces[II, 1] = ispositive(WEST_face(itp, posW, dy[II]))/Δ
+        faces[II, 3] = ispositive(EAST_face(itp, posE, dy[II]))/Δ
     elseif case == 4.0 || case == 11.0
-        a[II, 3] = ispositive(EAST_face(itp, posE))
-        a[II, 4] = ispositive(NORTH_face(itp, posN))
+        faces[II, 3] = ispositive(EAST_face(itp, posE, dy[II]))/Δ
+        faces[II, 4] = ispositive(NORTH_face(itp, posN, dx[II]))/Δ
     elseif case == 6.0 || case == 9.0
-        a[II, 2] = ispositive(SOUTH_face(itp, posS))
-        a[II, 4] = ispositive(NORTH_face(itp, posN))
+        faces[II, 2] = ispositive(SOUTH_face(itp, posS, dx[II]))/Δ
+        faces[II, 4] = ispositive(NORTH_face(itp, posN, dx[II]))/Δ
     elseif case == 7.0 || case == 8.0
-        a[II, 1] = ispositive(WEST_face(itp, posW))
-        a[II, 4] = ispositive(NORTH_face(itp, posN))
+        faces[II, 1] = ispositive(WEST_face(itp, posW, dy[II]))/Δ
+        faces[II, 4] = ispositive(NORTH_face(itp, posN, dx[II]))/Δ
     end
 end
 

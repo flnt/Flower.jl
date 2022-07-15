@@ -24,8 +24,6 @@ abstract type AbstractOptimizer end
     ϵ::Float64 = 0.00
     NB::Int64 = nb_reinit÷2
     H::Array{Float64, 1} = [-L0 / 2 + i * Δ for i = 0:n-1]
-    B::SMatrix{3, 3, Float64, 9} = @SMatrix [0.5 -1.0 0.5; -0.5 -0.0 0.5; 0.0 1.0 0.0]
-    BT::SMatrix{3, 3, Float64, 9} = @SMatrix [0.5 -0.5 0.0; -1.0 -0.0 1.0; 0.5 0.5 0.0]
     T_inf::Float64 = 0.0
     u_inf::Float64 = 1.0
     v_inf::Float64 = 0.0

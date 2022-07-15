@@ -1,5 +1,5 @@
-function no_slip_condition!(num, grid, grid_u, grid_v)
-    interpolate_scalar!(num, grid, grid_u, grid_v)
+function no_slip_condition!(grid, grid_u, grid_v)
+    interpolate_scalar!(grid, grid_u, grid_v)
 
     normalx = cos.(grid_u.α)
     normaly = sin.(grid_v.α)
