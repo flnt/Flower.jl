@@ -10,20 +10,26 @@ ax = Axis(f[1,1], aspect = 1, xticks = -1:1:1, yticks = -1:1:1)  # customized as
 
 resize_to_layout!(f)
 
+L0 = 2.0
+n = 64
+x = LinRange(-L0/2, L0/2, n+1)
+y = LinRange(-L0/2, L0/2, n+1)
+
 num = Numerical(case = "Mullins_cos",
+    x = x,
+    y = y,
     T_inf = 1.0,
-    L0 = 2.,
-    n = 64,
     CFL = 0.5,
     TEND = 0.5,
     A = -0.05,
     N = 2
 )
 
-idx, idxu, idxv = set_indices(num.n)
-tmp, fwd = init_fields(num, idx, idxu, idxv)
+gp, gu, gv = init_meshes(num)
+opS, opL, phS, phL, fwd = init_fields(num, gp, gu, gv)
 
-@time MIXED = run_forward(num, idx, idxu, idxv, tmp, fwd,
+@time MIXED = run_forward(num, gp, gu, gv,
+    opS, opL, phS, phL, fwd,
     periodic_x = true,
     BC_TL = Boundaries(
         top = Boundary(t = dir, f = dirichlet, val = -num.T_inf),
@@ -47,11 +53,11 @@ tmp, fwd = init_fields(num, idx, idxu, idxv)
     show_every = 1
 )
 
-f = heatmap!(num.H, num.H, (fwd.TL+fwd.TS)', colormap= :ice)
-f = contour!(num.H, num.H, fwd.usave[1,:,:]', levels = 0:0, color=:red, linewidth = 3);
+f = heatmap!(gp.x[1,:], gp.y[:,1], (phL.T+phS.T)', colormap= :ice)
+f = contour!(gp.x[1,:], gp.y[:,1], fwd.usave[1,:,:]', levels = 0:0, color=:red, linewidth = 3);
 
 for j = num.max_iterations÷5:num.max_iterations÷5:num.max_iterations
-    f = contour!(num.H, num.H, fwd.usave[j,:,:]', levels = 0:0, color=:black, linewidth = 3);
+    f = contour!(gp.x[1,:], gp.y[:,1], fwd.usave[j,:,:]', levels = 0:0, color=:black, linewidth = 3);
 end
 
 f = current_figure()

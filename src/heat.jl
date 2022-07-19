@@ -126,19 +126,19 @@ end
 @inline normal_gradient(d1, T_1, θd) = (θd - T_1)/d1
 
 @inline function Acpm(grid, II_0, II)
-    @unpack x, nx, ny = grid
-    if II[1] < 2 || II[2] < 2
-        Ac = B_BT(II_0, x)[1]
-        Ap = B_BT(II_0, x, δx⁺)[1]
-        Am = B_BT(II_0, grid)[1]
-    elseif II[1] > ny-1 || II[2] > nx-1
-        Ac = B_BT(II_0, x)[1]
-        Ap = B_BT(II_0, grid)[1]
-        Am = B_BT(II_0, x, δx⁻)[1]
+    @unpack x, y, nx, ny = grid
+    if II_0[1] < 3 || II_0[2] < 3
+        Ac = B_BT(II, grid)[1]
+        Ap = B_BT(II, grid)[1]
+        Am = B_BT(II, grid)[1]
+    elseif II_0[1] > ny-2 || II_0[2] > nx-2
+        Ac = B_BT(II, grid)[1]
+        Ap = B_BT(II, grid)[1]
+        Am = B_BT(II, grid)[1]
     else
-        Ac = B_BT(II_0, x)[1]
-        Ap = B_BT(II_0, x, δx⁺)[1]
-        Am = B_BT(II_0, x, δx⁻)[1]
+        Ac = B_BT(II_0, x, y)[1]
+        Ap = B_BT(II_0, x, y, δx⁺)[1]
+        Am = B_BT(II_0, x, y, δx⁻)[1]
     end
 
     return Ac, Ap, Am
@@ -232,7 +232,22 @@ end
 end
 
 @inline function interpolated_temperature(grid, α, P1, temp, II)
-    A = B_BT(II, grid.x)[1]
+    if II[1] == 1
+        f = δy⁺
+    elseif II[1] == grid.ny
+        f = δy⁻
+    else
+        f = x->x
+    end
+    if II[2] == 1
+        f = f ∘ δx⁺
+    elseif II[2] == grid.nx
+        f = f ∘ δx⁻
+    else
+        f = f ∘ (x->x)
+    end
+
+    A = B_BT(II, grid.x, grid.y, f)[1]
     T_1 = 0.
     st = static_stencil(temp, II)
     if π/4 <= α < 3π/4

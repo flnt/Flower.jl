@@ -83,20 +83,28 @@ end
                a[II.I[1]+1, II.I[2]-1] a[II.I[1]+1, II.I[2]] a[II.I[1]+1, II.I[2]+1]]
 end
 
-@inline function B_BT(II, x, f=x->x)
+@inline function B_BT(II, x, y, f=x->x)
     B = inv(@SMatrix [(x[f(δx⁻(II))]-x[II])^2 x[f(δx⁻(II))]-x[II] 1.0;
                       (x[f(II)]-x[II])^2 x[f(II)]-x[II] 1.0;
                       (x[f(δx⁺(II))]-x[II])^2 x[f(δx⁺(II))]-x[II] 1.0])
+
+    BT = inv(@SMatrix [(y[f(δy⁻(II))]-y[II])^2 (y[f(II)]-y[II])^2 (y[f(δy⁺(II))]-y[II])^2;
+                        y[f(δy⁻(II))]-y[II] y[f(II)]-y[II] y[f(δy⁺(II))]-y[II];
+                        1.0 1.0 1.0])
     
-    return B, transpose(B)
+    return B, BT
 end
 
 @inline function B_BT(II::CartesianIndex, grid::G) where {G<:Grid}
     B = inv(@SMatrix [grid.dx[II]^2 -grid.dx[II] 1.0;
                       0.0 0.0 1.0;
                       grid.dx[II]^2 grid.dx[II] 1.0])
+
+    BT = inv(@SMatrix [grid.dy[II]^2 -grid.dy[II] 1.0;
+                        0.0 0.0 1.0;
+                        grid.dy[II]^2 grid.dy[II] 1.0])
     
-    return B, transpose(B)
+    return B, BT
 end
 
 @inline big_static_stencil(a, II::CartesianIndex) = @inbounds @SMatrix [a[II.I[1]-2, II.I[2]-2] a[II.I[1]-2, II.I[2]-1] a[II.I[1]-2, II.I[2]] a[II.I[1]-2, II.I[2]+1] a[II.I[1]-2, II.I[2]+2];

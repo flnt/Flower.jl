@@ -318,7 +318,7 @@ end
 
 function aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
     st = static_stencil(u, II_0)
-    B, BT = B_BT(II_0, x)
+    B, BT = B_BT(II_0, x, y)
     itp = B * st * BT
     faces = faces_scalar(itp, II_0, II, x, y, dx[II], dy[II])
     @inbounds u_faces[II,:] .= faces

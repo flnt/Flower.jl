@@ -184,7 +184,7 @@ function marching_squares!(num, grid)
                     geoL.cap[II,:] .= empty_capacities
                 end
             else
-                B, BT = B_BT(II_0, x)
+                B, BT = B_BT(II_0, x, y)
                 itp = B * st * BT
                 vertices = vertices_sign(itp, II_0, II, x, y, dx[II], dy[II])
                 ISO = isovalue(vertices)
@@ -232,7 +232,7 @@ end
 
 function get_curvature(num, grid, inside)
     @unpack Δ = num
-    @unpack x, dx, dy, ind, u, geoL, κ = grid
+    @unpack x, y, dx, dy, ind, u, geoL, κ = grid
 
     @inbounds for II in inside
         if II in ind.inside
@@ -256,7 +256,7 @@ function get_curvature(num, grid, inside)
         end
         mid_point = geoL.projection[II].mid_point
         st = static_stencil(u, II_0)
-        B, BT = B_BT(II_0, x)
+        B, BT = B_BT(II_0, x, y)
         itp = B * st * BT
         κ[II] = parabola_fit_curvature(itp, mid_point)
     end
