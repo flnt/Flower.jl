@@ -4,12 +4,17 @@ using Flower
 fontsize_theme = Theme(fontsize = 30)
 set_theme!(fontsize_theme)
 
+L0 = 6
+n = 64
+x = LinRange(-L0/2, L0/2, 2n+1)
+y = LinRange(-L0/2, L0/2, n+1)
+
 num = Numerical(case = "Cylinder",
-    L0 = 6.,
-    n = 64,
-    Re = 1.0,
     CFL = 1.0,
+    Re = 1.0,
     TEND = 0.5,
+    x = x,
+    y = y,
     R = 0.5,
     u_inf = 1)
 
@@ -65,7 +70,7 @@ fp = Figure(resolution = (1600, 1000))
 colsize!(fp.layout, 1, Aspect(1, 1.0))
 ax = Axis(fp[1,1], aspect = 1, xticks = tcks, yticks = tcks)  # customized as you see fit
 heatmap!(gp.x[1,:], gp.y[:,1], (phL.p.*num.τ)', colorrange=(pavg-pstd, pavg+pstd))
-contour!(num.H, num.H, gp.u', levels = 0:0, color=:red, linewidrth = 3);
+contour!(gp.x[1,:], gp.y[:,1], gp.u', levels = 0:0, color=:red, linewidrth = 3);
 limits!(ax, -lim, lim, -lim, lim)
 resize_to_layout!(fp)
 
@@ -75,3 +80,5 @@ ax = Axis(fCd[1,1], xlabel="it", ylabel="Cd")  # customized as you see fit
 lines!(fwd.Cd)
 limits!(ax, 0, size(fwd.Cd, 1), 0, 10)
 resize_to_layout!(fCd)
+
+f_grid = plot_grid(gu; limitsx=(-1.0, 1.0), limitsy=(-1.0, 1.0));

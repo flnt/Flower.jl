@@ -1,5 +1,5 @@
-function save_field(path::String, num::Numerical, fwd::Forward)
-    JLD.save(path, "u", fwd.uL, "v", fwd.vL, "gx", fwd.Gxm1L, "gy", fwd.Gym1L, "p", fwd.pL)
+function save_field(path::String, num::Numerical, ph::Phase)
+    JLD.save(path, "u", ph.u, "v", ph.v, "gx", ph.Gxm1, "gy", ph.Gym1, "p", ph.p)
 end
 
 load_field(path::String) = load(path)
@@ -26,7 +26,7 @@ function stretching(n::Int, dn0::Float64, dn1::Float64, ds::Float64, ws=12, we=1
 end
 
 function force_coefficients!(num, grid, grid_u, grid_v, op, fwd; A=1., p0=0., step=size(fwd.psave,1))
-    @unpack Δ, Re = num
+    @unpack Re = num
     @unpack nx, ny, ind, geoL = grid
     @unpack E11, E12_x, E12_y, E22 = op
     @unpack psave, Uxsave, Uysave, Cd, Cl = fwd
@@ -40,8 +40,8 @@ function force_coefficients!(num, grid, grid_u, grid_v, op, fwd; A=1., p0=0., st
     u = Uxsave[step,:,:]
     v = Uysave[step,:,:]
 
-    strain_rate!(dir, E11, E12_x, E12_y, E22, grid_u.geoL.cap, grid_v.geoL.cap,
-                 ny, Δ, ind.all_indices, ind.inside)
+    strain_rate!(dir, E11, E12_x, E12_y, E22, grid_u.geoL.dcap, grid_v.geoL.dcap,
+                 ny, ind.all_indices, ind.inside)
 
     τ11 = reshape(2 ./ Re .* E11 * vec(u), (ny, nx))
     τ12 = reshape(2 ./ Re .* (E12_x * vec(u) .+ E12_y * vec(v)), (ny, nx))
@@ -49,17 +49,17 @@ function force_coefficients!(num, grid, grid_u, grid_v, op, fwd; A=1., p0=0., st
 
     @inbounds for II in ind.inside
         # pressure forces
-        D_p += -(p[II] - p0) * (geoL.cap[II,3] - geoL.cap[II,1]) * Δ
-        L_p += -(p[II] - p0) * (geoL.cap[II,4] - geoL.cap[II,2]) * Δ
+        D_p += -(p[II] - p0) * (geoL.dcap[II,3] - geoL.dcap[II,1])
+        L_p += -(p[II] - p0) * (geoL.dcap[II,4] - geoL.dcap[II,2])
 
         # friction forces (diagonal terms)
-        D_ν += τ11[II] * (grid_u.geoL.cap[δx⁺(II),6] - grid_u.geoL.cap[II,6]) * Δ
-        L_ν += τ22[II] * (grid_v.geoL.cap[δy⁺(II),7] - grid_v.geoL.cap[II,7]) * Δ
+        D_ν += τ11[II] * (grid_u.geoL.dcap[δx⁺(II),6] - grid_u.geoL.dcap[II,6])
+        L_ν += τ22[II] * (grid_v.geoL.dcap[δy⁺(II),7] - grid_v.geoL.dcap[II,7])
     end
     @inbounds for II in ind.all_indices[1:end-1,2:end]
         # friction forces (off-diagonal terms)
-        D_ν += τ12[II] * (grid_u.geoL.cap[δy⁺(II),7] - grid_u.geoL.cap[II,7]) * Δ
-        L_ν += τ12[II] * (grid_v.geoL.cap[δy⁺(II),6] - grid_v.geoL.cap[δx⁻(δy⁺(II)),6]) * Δ
+        D_ν += τ12[II] * (grid_u.geoL.dcap[δy⁺(II),7] - grid_u.geoL.dcap[II,7])
+        L_ν += τ12[II] * (grid_v.geoL.dcap[δy⁺(II),6] - grid_v.geoL.dcap[δx⁻(δy⁺(II)),6])
     end
 
     D = D_p + D_ν

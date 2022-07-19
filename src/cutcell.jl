@@ -75,16 +75,13 @@ end
    return Point((x/=area) - 0.5, (y/=area) - 0.5)
 end
 
-function find_radius(num, grid, MIXED)
-    @unpack H, Δ = num
-    @unpack x, u, iso = grid
+function find_radius(grid, MIXED)
+    @unpack x, y, mid_point = grid
 
     radius = Vector{Float64}(undef,0)
     for II in MIXED
         try
-            faces = average_face_capacities(grid, II)
-            _, _, _, _, _, mid_point, _ = capacities(faces, iso[II])
-            radius_ = distance(Point(0.,0.), Point(H[II.I[2]]+Δ*mid_point.x,  H[II.I[1]]+Δ*mid_point.y))
+            radius_ = distance(Point(0.,0.), Point(x[II]+mid_point[II].x, y[II]+mid_point[II].y))
             if !isnan(radius_) push!(radius, radius_) end
         catch
             @goto endofloop
@@ -116,6 +113,25 @@ end
         cap = 0.5 + abs(ip)
     end
     return cap
+end
+
+function dimensionalize(grid, geo)
+    @unpack dx, dy = grid
+    @unpack cap, dcap = geo
+
+    dcap[:,:,1] .= cap[:,:,1] .* dy
+    dcap[:,:,2] .= cap[:,:,2] .* dx
+    dcap[:,:,3] .= cap[:,:,3] .* dy
+    dcap[:,:,4] .= cap[:,:,4] .* dx
+    dcap[:,:,5] .= cap[:,:,5] .* dx .* dy
+    dcap[:,:,6] .= cap[:,:,6] .* dy
+    dcap[:,:,7] .= cap[:,:,7] .* dx
+    dcap[:,:,8] .= cap[:,:,8] .* dx .* dy
+    dcap[:,:,9] .= cap[:,:,9] .* dx .* dy
+    dcap[:,:,10] .= cap[:,:,10] .* dx .* dy
+    dcap[:,:,11] .= cap[:,:,11] .* dx .* dy
+
+    return nothing
 end
 
 function marching_squares!(num, grid)
@@ -174,7 +190,7 @@ function marching_squares!(num, grid)
                 ISO = isovalue(vertices)
 
                 if is_not_mixed(ISO) @goto notmixed end
-                face_capacities(grid, itp, ISO, II, posW, posS, posE, posN, num.Δ)
+                face_capacities(grid, itp, ISO, II, posW, posS, posE, posN)
 
             end
             if ISO == -1
@@ -196,21 +212,21 @@ function marching_squares!(num, grid)
     return nothing
 end
 
-function get_iterface_location!(num, grid, indices, periodic_x, periodic_y)
-    @unpack L0, Δ = num
+function get_iterface_location!(grid, indices, periodic_x, periodic_y)
     @unpack x, y, iso, geoS, geoL, mid_point, cut_points, α = grid
 
     @inbounds @threads for II in indices
         f = average_face_capacities(grid, II)
         geoS.cap[II,:], geoL.cap[II,:], α[II], geoS.centroid[II], geoL.centroid[II], mid_point[II], cut_points[II] = capacities(f, iso[II])
-        absolute_position = Point(x[II], y[II])
-        geoS.projection[II], geoL.projection[II] = projection_2points(absolute_position, mid_point[II], α[II], L0, Δ)
+        geoS.projection[II], geoL.projection[II] = projection_2points(grid, II)
     end
     set_cap_bcs!(grid, periodic_x, periodic_y)
-    Wcapacities!(geoS.cap, periodic_x, periodic_y)
-    Wcapacities!(geoL.cap, periodic_x, periodic_y)
-    average_face_capacities!(geoS.cap)
-    average_face_capacities!(geoL.cap)
+    dimensionalize(grid, geoS)
+    dimensionalize(grid, geoL)
+    Wcapacities!(geoS.dcap, periodic_x, periodic_y)
+    Wcapacities!(geoL.dcap, periodic_x, periodic_y)
+    average_face_capacities!(geoS.dcap)
+    average_face_capacities!(geoL.dcap)
     return nothing
 end
 
@@ -242,7 +258,7 @@ function get_curvature(num, grid, inside)
         st = static_stencil(u, II_0)
         B, BT = B_BT(II_0, x)
         itp = B * st * BT
-        κ[II] = parabola_fit_curvature(itp, mid_point, Δ)
+        κ[II] = parabola_fit_curvature(itp, mid_point)
     end
 end
 
@@ -872,27 +888,27 @@ function Wcapacities!(cap, periodic_x, periodic_y)
     return nothing
 end
 
-function face_capacities(grid, itp, case, II, posW, posS, posE, posN, Δ)
+function face_capacities(grid, itp, case, II, posW, posS, posE, posN)
     @unpack dx, dy, faces = grid
 
     if case == 1.0 || case == 14.0
-        faces[II, 1] = ispositive(WEST_face(itp, posW, dy[II]))/Δ
-        faces[II, 2] = ispositive(SOUTH_face(itp, posS, dx[II]))/Δ
+        faces[II, 1] = ispositive(WEST_face(itp, posW, dy[II])) / dy[II]
+        faces[II, 2] = ispositive(SOUTH_face(itp, posS, dx[II])) / dx[II]
     elseif case == 2.0 || case == 13.0
-        faces[II, 2] = ispositive(SOUTH_face(itp, posS, dx[II]))/Δ
-        faces[II, 3] = ispositive(EAST_face(itp, posE, dy[II]))/Δ
+        faces[II, 2] = ispositive(SOUTH_face(itp, posS, dx[II])) / dx[II]
+        faces[II, 3] = ispositive(EAST_face(itp, posE, dy[II])) / dy[II]
     elseif case == 3.0 || case == 12.0
-        faces[II, 1] = ispositive(WEST_face(itp, posW, dy[II]))/Δ
-        faces[II, 3] = ispositive(EAST_face(itp, posE, dy[II]))/Δ
+        faces[II, 1] = ispositive(WEST_face(itp, posW, dy[II])) / dy[II]
+        faces[II, 3] = ispositive(EAST_face(itp, posE, dy[II])) / dy[II]
     elseif case == 4.0 || case == 11.0
-        faces[II, 3] = ispositive(EAST_face(itp, posE, dy[II]))/Δ
-        faces[II, 4] = ispositive(NORTH_face(itp, posN, dx[II]))/Δ
+        faces[II, 3] = ispositive(EAST_face(itp, posE, dy[II])) / dy[II]
+        faces[II, 4] = ispositive(NORTH_face(itp, posN, dx[II])) / dx[II]
     elseif case == 6.0 || case == 9.0
-        faces[II, 2] = ispositive(SOUTH_face(itp, posS, dx[II]))/Δ
-        faces[II, 4] = ispositive(NORTH_face(itp, posN, dx[II]))/Δ
+        faces[II, 2] = ispositive(SOUTH_face(itp, posS, dx[II])) / dx[II]
+        faces[II, 4] = ispositive(NORTH_face(itp, posN, dx[II])) / dx[II]
     elseif case == 7.0 || case == 8.0
-        faces[II, 1] = ispositive(WEST_face(itp, posW, dy[II]))/Δ
-        faces[II, 4] = ispositive(NORTH_face(itp, posN, dx[II]))/Δ
+        faces[II, 1] = ispositive(WEST_face(itp, posW, dy[II])) / dy[II]
+        faces[II, 4] = ispositive(NORTH_face(itp, posN, dx[II])) / dx[II]
     end
 end
 
@@ -1055,41 +1071,81 @@ end
     end
 end
 
-function projection_2points(absolute_position, mid, α, L0, h)
-    β = opposite(α)
-    tmpS = Point(mid.x + cos(α), mid.y + sin(α))
-    tmpL = Point(mid.x + cos(β), mid.y + sin(β))
+function projection_2points(grid, II)
+    @unpack x, y, nx, ny, dx, dy, mid_point, α = grid
+
+    h = Point(dx[II], dy[II])
+    ĥ = sqrt(h.x^2 + h.y^2)
+    absolute_position = Point(x[II], y[II])
+    mid = mid_point[II]*h
+    β = opposite(α[II])
+    tmpS = Point(mid.x + cos(α[II])*ĥ, mid.y + sin(α[II])*ĥ)
+    tmpL = Point(mid.x + cos(β)*ĥ, mid.y + sin(β)*ĥ)
     S2 = Point(NaN, NaN)
     L2 = Point(NaN, NaN)
     Sflag = false
     Lflag = false
-    if -π/4 < α <= π/4
-        S1 = affine(mid, tmpS, Point(-1., NaN))
-        S2 = affine(mid, tmpS, Point(-2., NaN))
-        L1 = affine(mid, tmpL, Point(1., NaN))
-        L2 = affine(mid, tmpL, Point(2., NaN))
-    elseif π/4 < α <= 3π/4
-        S1 = affine(mid, tmpS, Point(NaN, -1.))
-        S2 = affine(mid, tmpS, Point(NaN, -2.))
-        L1 = affine(mid, tmpL, Point(NaN, 1.))
-        L2 = affine(mid, tmpL, Point(NaN, 2.))
-    elseif α > 3π/4 || α <= -3π/4
-        S1 = affine(mid, tmpS, Point(1., NaN))
-        S2 = affine(mid, tmpS, Point(2., NaN))
-        L1 = affine(mid, tmpL, Point(-1., NaN))
-        L2 = affine(mid, tmpL, Point(-2., NaN))
-    elseif -3π/4 < α <= -π/4
-        S1 = affine(mid, tmpS, Point(NaN, 1.))
-        S2 = affine(mid, tmpS, Point(NaN, 2.))
-        L1 = affine(mid, tmpL, Point(NaN, -1.))
-        L2 = affine(mid, tmpL, Point(NaN, -2.))
+    
+    if II[2] < 3
+        mx = -dx[II]
+        m2x = -2*dx[II]
+        px = x[δx⁺(II)] - x[II]
+        p2x = 2*(x[δx⁺(II)] - x[II])
+    elseif II[2] > nx-2
+        mx = x[δx⁻(II)] - x[II]
+        m2x = 2*(x[δx⁻(II)] - x[II])
+        px = dx[II]
+        p2x = 2*dx[II]
+    else
+        mx = x[δx⁻(II)] - x[II]
+        m2x = 2*(x[δx⁻(II)] - x[II])
+        px = x[δx⁺(II)] - x[II]
+        p2x = 2*(x[δx⁺(II)] - x[II])
+    end
+    if II[1] < 3
+        my = -dy[II]
+        m2y = -2*dy[II]
+        py = y[δy⁺(II)] - y[II]
+        p2y = 2*(y[δy⁺(II)] - y[II])
+    elseif II[1] > ny-2
+        my = y[δy⁻(II)] - y[II]
+        m2y = 2*(y[δy⁻(II)] - y[II])
+        py = dy[II]
+        p2y = 2*dy[II]
+    else
+        my = y[δy⁻(II)] - y[II]
+        m2y = 2*(y[δy⁻(II)] - y[II])
+        py = y[δy⁺(II)] - y[II]
+        p2y = 2*(y[δy⁺(II)] - y[II])
+    end
+    
+    if -π/4 < α[II] <= π/4
+        S1 = affine(mid, tmpS, Point(mx, NaN))
+        S2 = affine(mid, tmpS, Point(m2x, NaN))
+        L1 = affine(mid, tmpL, Point(px, NaN))
+        L2 = affine(mid, tmpL, Point(p2x, NaN))
+    elseif π/4 < α[II] <= 3π/4
+        S1 = affine(mid, tmpS, Point(NaN, my))
+        S2 = affine(mid, tmpS, Point(NaN, m2y))
+        L1 = affine(mid, tmpL, Point(NaN, py))
+        L2 = affine(mid, tmpL, Point(NaN, p2y))
+    elseif α[II] > 3π/4 || α[II] <= -3π/4
+        S1 = affine(mid, tmpS, Point(px, NaN))
+        S2 = affine(mid, tmpS, Point(p2x, NaN))
+        L1 = affine(mid, tmpL, Point(mx, NaN))
+        L2 = affine(mid, tmpL, Point(m2x, NaN))
+    elseif -3π/4 < α[II] <= -π/4
+        S1 = affine(mid, tmpS, Point(NaN, py))
+        S2 = affine(mid, tmpS, Point(NaN, p2y))
+        L1 = affine(mid, tmpL, Point(NaN, my))
+        L2 = affine(mid, tmpL, Point(NaN, m2y))
     end
     if S2 != Point(NaN, NaN) && L2 != Point(NaN, NaN)
-        Sflag = absolute_position + h*S2 < L0
-        Lflag = absolute_position + h*L2 < L0
+        Sflag = indomain(absolute_position + S2, x, y)
+        Lflag = indomain(absolute_position + L2, x, y)
     end
-    pos = absolute_position + h*mid
-    return Gradient(Sflag, β, mid, S1, S2, distance(mid, S1), distance(mid, S2), pos), Gradient(Lflag, α, mid, L1, L2, distance(mid, L1), distance(mid, L2), pos)
+    pos = absolute_position + mid
+    return Gradient(Sflag, β, mid, S1, S2, distance(mid, S1), distance(mid, S2), pos), Gradient(Lflag, α[II], mid, L1, L2, distance(mid, L1), distance(mid, L2), pos)
 end
 
 function kill_dead_cells!(T::Matrix, L, EMPTY, MIXED, n)
@@ -1122,10 +1178,10 @@ function kill_dead_cells!(T::Vector, L, EMPTY, MIXED, n)
     end
 end
 
-function init_fresh_cells!(T, projection, FRESH)
+function init_fresh_cells!(grid, T, projection, FRESH)
     @inbounds @threads for II in FRESH
         if projection[II].flag
-            T_1, T_2 = interpolated_temperature(projection[II].angle, projection[II].point1, projection[II].point2, T, II)
+            T_1, T_2 = interpolated_temperature(grid, projection[II].angle, projection[II].point1, projection[II].point2, T, II)
             if π/4 <= projection[II].angle <= 3π/4 || -π/4 >= projection[II].angle >= -3π/4
                 T[II] = y_extrapolation(T_1, T_2, projection[II].point1, projection[II].point2, projection[II].mid_point)
             else
@@ -1135,11 +1191,11 @@ function init_fresh_cells!(T, projection, FRESH)
     end
 end
 
-function init_fresh_cells!(T::Vector, projection, FRESH, n)
+function init_fresh_cells!(grid, T::Vector, projection, FRESH, n)
     @inbounds @threads for II in FRESH
         if projection[II].flag
             pII = lexicographic(II, n)
-            T_1, T_2 = interpolated_temperature(projection[II].angle, projection[II].point1, projection[II].point2, T, II)
+            T_1, T_2 = interpolated_temperature(grid, projection[II].angle, projection[II].point1, projection[II].point2, T, II)
             if π/4 <= projection[II].angle <= 3π/4 || -π/4 >= projection[II].angle >= -3π/4
                 T[pII] = y_extrapolation(T_1, T_2, projection[II].point1, projection[II].point2, projection[II].mid_point)
             else
@@ -1149,10 +1205,10 @@ function init_fresh_cells!(T::Vector, projection, FRESH, n)
     end
 end
 
-function init_fresh_cells!(u::Matrix, V, projection, FRESH)
+function init_fresh_cells!(grid, u::Matrix, V, projection, FRESH)
     @inbounds @threads for II in FRESH
         if projection[II].flag
-            u_1, u_2 = interpolated_temperature(projection[II].angle, projection[II].point1, projection[II].point2, V, II)
+            u_1, u_2 = interpolated_temperature(grid, projection[II].angle, projection[II].point1, projection[II].point2, V, II)
             if π/4 <= projection[II].angle <= 3π/4 || -π/4 >= projection[II].angle >= -3π/4
                 u[II] = y_extrapolation(u_1, u_2, projection[II].point1, projection[II].point2, projection[II].mid_point)
             else

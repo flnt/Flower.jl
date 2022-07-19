@@ -5,14 +5,13 @@ abstract type MutatingFields end
 abstract type AbstractOptimizer end
 
 @with_kw struct Numerical <: NumericalParameters
-    n::Int64 = 128
-    L0::Float64 = 2.0
     CFL::Float64 = 0.5
     Re::Float64 = 1.0
     TEND::Float64 = 0.0
-    Δ::Float64 = L0/(n-1)
-    x::Array{Float64,1} = [-L0 / 2 - Δ / 2 + i * Δ for i = 0:n]
-    y::Array{Float64,1} = [-L0 / 2 - Δ / 2 + i * Δ for i = 0:n]
+    x::Vector{Float64} = [-0.5 - 1/127 / 2 + i * 1/127 for i = 0:128]
+    y::Vector{Float64} = [-0.5 - 1/127 / 2 + i * 1/127 for i = 0:128]
+    L0::Float64 = max(x[end]-x[1], y[end]-y[1])
+    Δ::Float64 = min(diff(x)...)
     shift::Float64 = 0.0
     shifted::Float64 = shift*Δ
     τ::Float64 = min(CFL*Δ^2*Re, CFL*Δ)
@@ -20,10 +19,9 @@ abstract type AbstractOptimizer end
     current_i::Int = 1
     save_every::Int = 1
     reinit_every::Int = 1
-    nb_reinit::Int = n÷8
+    nb_reinit::Int = length(x)÷8
     ϵ::Float64 = 0.00
     NB::Int64 = nb_reinit÷2
-    H::Array{Float64, 1} = [-L0 / 2 + i * Δ for i = 0:n-1]
     T_inf::Float64 = 0.0
     u_inf::Float64 = 1.0
     v_inf::Float64 = 0.0
@@ -78,6 +76,7 @@ end
 
 mutable struct GeometricInfo{T} <: MutatingFields
     cap::Array{T,3}
+    dcap::Array{T,3}
     projection::Array{Gradient{T},2}
     centroid::Array{Point{T},2}
 end

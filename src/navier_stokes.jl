@@ -1,5 +1,5 @@
 function no_slip_condition!(grid, grid_u, grid_v)
-    interpolate_scalar!(grid, grid_u, grid_v)
+    interpolate_scalar!(grid, grid_u, grid_v, grid.V, grid_u.V, grid_v.V)
 
     normalx = cos.(grid_u.α)
     normaly = sin.(grid_v.α)
@@ -13,13 +13,12 @@ function no_slip_condition!(grid, grid_u, grid_v)
     return nothing
 end
 
-function set_stokes!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
+function set_stokes!(grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
                     bcpx, bcpy, BC_p, Lpm1, CUTpm1, Gxpm1, Gypm1, empty,
                     Hu, bcu, BC_u, Lum1, CUTum1, empty_u,
                     Hv, bcv, BC_v, Lvm1, CUTvm1, empty_v,
                     ns_vec, MIXED_u, MIXED_v, ns_advection
     )
-    @unpack Δ = num
     @unpack Lp, CUTp, Lu, CUTu, Lv, CUTv, Dxu, CUTDx, Dyv, CUTDy, Gxp, Gyp, Cu, CUTCu, Cv, CUTCv = op
     @unpack u, v, Du, Dv = ph
 
@@ -32,43 +31,47 @@ function set_stokes!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
     CUTum1 .= CUTu
     CUTvm1 .= CUTv
 
+    empty_laplacian(grid, Lpm1)
+    empty_laplacian(grid_u, Lum1)
+    empty_laplacian(grid_v, Lvm1)
+
     bcpx .= 0.
     bcpy .= 0.
     bcpx, bcpy = set_bc_bnds(neu, bcpx, bcpy, BC_p)
 
-    laplacian!(neu, Lp, CUTp, bcpx, bcpy, geo.cap, grid.ny, Δ, BC_p, grid.ind.inside, empty,
+    laplacian!(neu, Lp, CUTp, bcpx, bcpy, geo.dcap, grid.ny, BC_p, grid.ind.inside, empty,
             ns_vec, grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1], grid.ind.b_top[1])
 
     Hu .= 0.
     for II in vcat(grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1])
-        Hu[II] = distance(grid_u.mid_point[II], geo_u.centroid[II]) * Δ
+        Hu[II] = distance(grid_u.mid_point[II], geo_u.centroid[II], grid_u.dx[II], grid_u.dy[II])
     end
 
     Du .= grid_u.V
     bcu .= Du
     bcux, bcuy = set_bc_bnds(dir, bcu, Hu, BC_u)
 
-    laplacian!(dir, Lu, CUTu, bcux, bcuy, geo_u.cap, grid_u.ny, Δ, BC_u, grid_u.ind.inside, empty_u,
+    laplacian!(dir, Lu, CUTu, bcux, bcuy, geo_u.dcap, grid_u.ny, BC_u, grid_u.ind.inside, empty_u,
             MIXED_u, grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1])
 
     Hv .= 0.
     for II in vcat(grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1])
-        Hv[II] = distance(grid_v.mid_point[II], geo_v.centroid[II]) * Δ
+        Hv[II] = distance(grid_v.mid_point[II], geo_v.centroid[II], grid_v.dx[II], grid_v.dy[II])
     end
 
     Dv .= grid_v.V
     bcv .= Dv
     bcvx, bcvy = set_bc_bnds(dir, bcv, Hv, BC_v)
 
-    laplacian!(dir, Lv, CUTv, bcvx, bcvy, geo_v.cap, grid_v.ny, Δ, BC_v, grid_v.ind.inside, empty_v,
+    laplacian!(dir, Lv, CUTv, bcvx, bcvy, geo_v.dcap, grid_v.ny, BC_v, grid_v.ind.inside, empty_v,
             MIXED_v, grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1])
 
-    divergence!(dir, Dxu, Dyv, CUTDx, CUTDy, bcux, bcvy, geo.cap, geo_u.cap, geo_v.cap, grid.ny, Δ, 
+    divergence!(dir, Dxu, Dyv, CUTDx, CUTDy, bcux, bcvy, geo.dcap, geo_u.dcap, geo_v.dcap, grid.ny, 
             grid.ind.all_indices)
-    gradient!(neu, Gxp, Gyp, Dxu, Dyv, geo.cap, geo_u.cap, geo_v.cap, grid.ny, Δ, BC_p,
+    gradient!(neu, Gxp, Gyp, Dxu, Dyv, geo.dcap, geo_u.dcap, geo_v.dcap, grid.ny, BC_p,
             grid_u.ind.b_left[1], grid_v.ind.b_bottom[1], grid_u.ind.b_right[1], grid_v.ind.b_top[1],
             grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1], grid.ind.b_top[1])
-    divergence_boundaries(dir, Dxu, Dyv, bcux, bcvy, geo.cap, geo_u.cap, geo_v.cap, grid.ny, Δ, BC_u, BC_v,
+    divergence_boundaries(dir, Dxu, Dyv, bcux, bcvy, geo.dcap, geo_u.dcap, geo_v.dcap, grid.ny, BC_u, BC_v,
             grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1], grid.ind.b_top[1])
 
     if ns_advection
@@ -76,10 +79,10 @@ function set_stokes!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
         bcvCv1_x, bcvCv1_y, bcvCv2_x, bcvCv2_y, bcuCv_x, bcuCv_y = set_bc_bnds(dir, GridFCy, Dv, Du, Hv, Hu, v, u, BC_v, BC_u)
 
         vector_convection!(dir, GridFCx, Cu, CUTCu, u, v, bcuCu1_x, bcuCu1_y, bcuCu2_x, bcuCu2_y, bcvCu_x, bcvCu_y,
-                geo.cap, grid.ny, Δ, BC_u, grid_u.ind.inside,
+                geo.dcap, grid.ny, BC_u, grid_u.ind.inside,
                 grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1])
         vector_convection!(dir, GridFCy, Cv, CUTCv, u, v, bcuCv_x, bcuCv_y, bcvCv1_x, bcvCv1_y, bcvCv2_x, bcvCv2_y,
-                geo.cap, grid.ny, Δ, BC_v, grid_v.ind.inside,
+                geo.dcap, grid.ny, BC_v, grid_v.ind.inside,
                 grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1])
     end
     
@@ -94,7 +97,7 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
                             MIXED, MIXED_u, MIXED_v, FULL, EMPTY, EMPTY_u, EMPTY_v,
                             FRESH, FRESH_u, FRESH_v, ns_advection
     )
-    @unpack Re, Δ, τ = num
+    @unpack Re, τ = num
     @unpack Lp, CUTp, Lu, CUTu, Lv, CUTv, Dxu, CUTDx, Dyv, CUTDy, Ap, Au, Av, Gxp, Gyp, Cu, CUTCu, Cv, CUTCv = op
     @unpack p, ϕ, Gxm1, Gym1, u, v, Du, Dv = ph
 
@@ -129,9 +132,9 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
     Cum1 .= Cu * vec(u) .+ CUTCu
     Cvm1 .= Cv * vec(v) .+ CUTCv
 
-    init_fresh_cells!(p, geo.projection, FRESH)
-    init_fresh_cells!(u, grid_u.V, geo_u.projection, FRESH_u)
-    init_fresh_cells!(v, grid_v.V, geo_v.projection, FRESH_v)
+    init_fresh_cells!(grid, p, geo.projection, FRESH)
+    init_fresh_cells!(grid_u, u, grid_u.V, geo_u.projection, FRESH_u)
+    init_fresh_cells!(grid_v, v, grid_v.V, geo_v.projection, FRESH_v)
     # init_fresh_cells!(Gxm1, projectionu, FRESH_u, grid_u.ny)
     # init_fresh_cells!(Gym1, projectionv, FRESH_v, grid_v.ny)
     kill_dead_cells!(p, Lp, EMPTY, MIXED, grid.ny)
@@ -189,8 +192,12 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
     ϕ .= reshape(kspp \ vecseq, (grid.ny,grid.nx))
     PETSc.destroy(vecseq)
 
+    # We shouldn't do this but seems to help a little bit
+    # with the oscillations at the interface
+    init_fresh_cells!(grid, ϕ, geo.projection, FRESH)
+
     Δϕ = reshape(iMp * (Lp * vec(ϕ) .+ CUTp), (grid.ny,grid.nx))
-    p .+= ϕ .- iRe.*τ.*0.5.*Δϕ
+    p .+= ϕ #.- iRe.*τ.*0.5.*Δϕ
     Gx = reshape(iMGx * (Gxp * vec(ϕ)), (grid_u.ny,grid_u.nx))
     Gy = reshape(iMGy * (Gyp * vec(ϕ)), (grid_v.ny,grid_v.nx))
 

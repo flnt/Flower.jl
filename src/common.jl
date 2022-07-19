@@ -16,9 +16,14 @@ const newaxis = [CartesianIndex()]
 
 @inline opposite(α) = ifelse(α >= 0. ,α - π, α + π)
 
-@inline distance(A::Point, B::Point) = sqrt((A.x-B.x)^2 + (A.y-B.y)^2)
+@inline distance(A::Point, B::Point, dx=1.0, dy=1.0) =
+    sqrt(((A.x-B.x)*dx)^2 + ((A.y-B.y)*dy)^2)
 
 @inline midpoint(A::Point, B::Point) = Point((A.x + B.x)/2 - 0.5, (A.y + B.y)/2 - 0.5)
+
+@inline indomain(A::Point{T}, x::Array{T,2}, y::Array{T,2}) where {T} =
+    ifelse(A.x >= x[1,1] && A.x <= x[1,end] &&
+           A.y >= y[1,1] && A.y <= y[end,1], true, false)
 
 @inline <(A::Point{T}, L::T) where {T} = ifelse(abs(A.x) <= L/2 && abs(A.y) <= L/2, true, false)
 @inline isnan(A::Point{T}) where {T} = ifelse(isnan(A.x) || isnan(A.y), true, false)
@@ -26,6 +31,7 @@ const newaxis = [CartesianIndex()]
 @inline -(A::Point{T}, B::Point{T}) where {T} = Point(A.x - B.x, A.y - B.y)
 @inline *(A::Point{T}, m::N) where {T, N} = Point(m*A.x, m*A.y)
 @inline *(m::N, A::Point{T}) where {T, N} = Point(m*A.x, m*A.y)
+@inline *(A::Point{T}, B::Point{T}) where {T} = Point(A.x*B.x, A.y*B.y)
 @inline abs(A::Point) = Point(abs(A.x), abs(A.y))
 
 @inline mysign(a,b) = a/sqrt(a^2 + b^2)
@@ -49,8 +55,10 @@ const newaxis = [CartesianIndex()]
 @inline minmod(a, b) = ifelse(a*b <= 0, 0.0, myabs(a,b))
 @inline myabs(a, b) = ifelse(abs(a) < abs(b), a, b)
 
-@inline Dxx(u, II, h) = @inbounds (u[δx⁺(II)] - 2u[II] + u[δx⁻(II)])/h^2
-@inline Dyy(u, II, h) = @inbounds (u[δy⁺(II)] - 2u[II] + u[δy⁻(II)])/h^2
+@inline Dxx(u, II, dx) = @inbounds (2.0 * (u[δx⁺(II)] - u[II]) / (dx[δx⁺(II)] + dx[II]) -
+                                    2.0 * (u[II] - u[δx⁻(II)]) / (dx[δx⁻(II)] + dx[II])) / dx[II]
+@inline Dyy(u, II, dy) = @inbounds (2.0 * (u[δy⁺(II)] - u[II]) / (dy[δy⁺(II)] + dy[II]) -
+                                    2.0 * (u[II] - u[δy⁻(II)]) / (dy[δy⁻(II)] + dy[II])) / dy[II]
 
 @inline Dxx(u, II) = @inbounds u[δx⁺(II)] - 2u[II] + u[δx⁻(II)]
 @inline Dyy(u, II) = @inbounds u[δy⁺(II)] - 2u[II] + u[δy⁻(II)]
@@ -75,10 +83,18 @@ end
                a[II.I[1]+1, II.I[2]-1] a[II.I[1]+1, II.I[2]] a[II.I[1]+1, II.I[2]+1]]
 end
 
-@inline function B_BT(II, x) 
-    B = inv(@SMatrix [(x[δx⁻(II)]-x[II])^2 x[δx⁻(II)]-x[II] 1.0;
+@inline function B_BT(II, x, f=x->x)
+    B = inv(@SMatrix [(x[f(δx⁻(II))]-x[II])^2 x[f(δx⁻(II))]-x[II] 1.0;
+                      (x[f(II)]-x[II])^2 x[f(II)]-x[II] 1.0;
+                      (x[f(δx⁺(II))]-x[II])^2 x[f(δx⁺(II))]-x[II] 1.0])
+    
+    return B, transpose(B)
+end
+
+@inline function B_BT(II::CartesianIndex, grid::G) where {G<:Grid}
+    B = inv(@SMatrix [grid.dx[II]^2 -grid.dx[II] 1.0;
                       0.0 0.0 1.0;
-                      (x[δx⁺(II)]-x[II])^2 x[δx⁺(II)]-x[II] 1.0])
+                      grid.dx[II]^2 grid.dx[II] 1.0])
     
     return B, transpose(B)
 end
@@ -118,8 +134,8 @@ function mean_curvature_interpolated(u, II, h, B, BT, mid)
 end
 
 
-@inline parabola_fit_curvature(itp, mid_point, h) =
-    @inbounds (2*itp[1,3]/((1+(2*itp[1,3]*mid_point.y + itp[2,3])^2)^1.5) + 2*itp[3,1]/((1+(2*itp[3,1]*mid_point.x + itp[3,2])^2)^1.5))/h^2
+@inline parabola_fit_curvature(itp, mid_point) =
+    @inbounds 2*itp[1,3]/((1+(2*itp[1,3]*mid_point.y + itp[2,3])^2)^1.5) + 2*itp[3,1]/((1+(2*itp[3,1]*mid_point.x + itp[3,2])^2)^1.5)
 
 
 @inline function linear_fit(a, b, x)
@@ -180,7 +196,7 @@ function fit_order(x, y)
     return exp(coeffs[1]), -coeffs[2]
 end
 
-@inline function arc_length2(POS, ind, h)
+@inline function arc_length2(POS, ind)
     d_tot = 0.
     d_ = 0.
     ind_ = copy(ind)

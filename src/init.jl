@@ -40,6 +40,9 @@ function Mesh(grid, x_nodes, y_nodes)
     LIQ = ones(ny, nx, 11)
     LIQ[:,:,8:end] .*= 0.5
 
+    dSOL = zeros(ny, nx, 11)
+    dLIQ = ones(ny, nx, 11)
+
     liq_projection = Array{Gradient{Float64}, 2}(undef, ny, nx)
     sol_projection = Array{Gradient{Float64}, 2}(undef, ny, nx)
 
@@ -54,8 +57,8 @@ function Mesh(grid, x_nodes, y_nodes)
         cut_points[II] = [Point(0.0, 0.0), Point(0.0, 0.0)]
     end
 
-    geoS = GeometricInfo(SOL, sol_projection, sol_centroid)
-    geoL = GeometricInfo(LIQ, liq_projection, liq_centroid)
+    geoS = GeometricInfo(SOL, dSOL, sol_projection, sol_centroid)
+    geoL = GeometricInfo(LIQ, dLIQ, liq_projection, liq_centroid)
 
     α = zeros(ny, nx)
     α .= NaN
@@ -110,7 +113,7 @@ function init_meshes(num::NumericalParameters)
 end
 
 function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
-    @unpack N, T_inf, u_inf, v_inf, A, R, L0, Δ, shifted, H, max_iterations, save_every, CFL, x_airfoil, y_airfoil = num
+    @unpack N, T_inf, u_inf, v_inf, A, R, L0, Δ, shifted, max_iterations, save_every, CFL, x_airfoil, y_airfoil = num
     @unpack x, y, nx, ny, u, ind = grid
 
     SCUTT = zeros(nx*ny)
@@ -428,7 +431,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
         u .= y .+ shifted
     elseif num.case == "Sphere"
         u .= sqrt.((x .+ shifted).^ 2 + y .^ 2) - (R) * ones(ny, nx);
-        init_franck!(TL, R, T_inf, H, nx, ny, 0)
+        init_franck!(grid, TL, R, T_inf, 0)
 
         # su = sqrt.(Xu.^2 .+ Yu.^2)
         # R1 = R + 3.0*Δ
@@ -444,7 +447,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
         # end
     elseif num.case == "Cylinder"
         u .= sqrt.((x .+ shifted).^ 2 + y .^ 2) - (R) * ones(ny, nx);
-        init_franck!(TL, R, T_inf, H, nx, ny, 0)
+        init_franck!(grid, TL, R, T_inf, 0)
 
         su = sqrt.((grid_u.x .+ shifted).^2 .+ grid_u.y.^2)
         R1 = R + 3.0*Δ
@@ -460,13 +463,13 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
         end
     elseif num.case == "Mullins"
         u .= y .+ shifted .+ A*sin.(N*pi*x) .+ L0/4;
-        init_mullins!(TL, T_inf, 0., A, N, nx, ny, H, L0/4)
+        init_mullins!(grid, TL, T_inf, 0., A, N, L0/4)
     elseif num.case == "Mullins_cos"
         @. u = y + 0.6L0/2 - 0Δ + A*cos(N*pi*x)
-        init_mullins2!(TL, T_inf, 0., A, N, nx, ny, H, 0.6L0/2)
+        init_mullins2!(grid, TL, T_inf, 0., A, N, 0.6L0/2)
     elseif num.case == "Crystal"
         u .= -R*ones(ny, nx) + sqrt.(x.^2 + y.^2).*(ones(ny, nx) + A*cos.(N*atan.(x./(y + 1E-30*ones(ny, nx)))))
-        init_franck!(TL, R, T_inf, H, nx, ny, 0)
+        init_franck!(grid, TL, R, T_inf, 0)
     elseif num.case == "3Crystals"
         x_c = 0.2
         y_c = 0.2
@@ -519,35 +522,38 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
             Forward(Tall, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, Uxsave, Uysave, Vsave, κsave, lengthsave, Cd, Cl))
 end
 
-function init_mullins!(T, V, t, A, N, nx, ny, H, shift)
-    @inbounds for j = 1:nx
-        @inbounds for i = 1:ny
-            ystar = shift + H[i] + A*sin(N*pi*(H[j]))
-            if ystar > V*t
-                T[i, j] = -1+exp(-V*(ystar-V*t))
-            end
+function init_mullins!(grid, T, V, t, A, N, shift)
+    @unpack x, y, nx, ny, ind = grid
+    @unpack all_indices = ind
+    
+    @inbounds for II in all_indices
+        ystar = shift + y[II] + A*sin(N*pi*x[II])
+        if ystar > V*t
+            T[II] = -1+exp(-V*(ystar-V*t))
         end
     end
 end
 
-function init_mullins2!(T, V, t, A, N, nx, ny, H, shift)
-    @inbounds for j = 1:nx
-        @inbounds for i = 1:ny
-            ystar = shift + H[i] + A*cos(N*pi*(H[j]))
-            if ystar > V*t
-                T[i, j] = -1+exp(-V*(ystar-V*t))
-            end
+function init_mullins2!(grid, T, V, t, A, N, shift)
+    @unpack x, y, nx, ny, ind = grid
+    @unpack all_indices = ind
+
+    @inbounds for II in all_indices
+        ystar = shift + y[II] + A*cos(N*pi*x[II])
+        if ystar > V*t
+            T[II] = -1+exp(-V*(ystar-V*t))
         end
     end
 end
 
-function init_franck!(temp, R, T_inf, H, nx, ny, h)
-    @inbounds for j = 1:nx
-        @inbounds for i = 1:ny
-            s = sqrt(H[j]^2+H[i]^2)
-            if s >= (R - h)
-                temp[i, j] = T_inf*(1-(expint(0.25*s^2))/(expint(0.25*R^2)))
-            end
+function init_franck!(grid, temp, R, T_inf, h)
+    @unpack x, y, nx, ny, ind = grid
+    @unpack all_indices = ind
+
+    @inbounds for II in all_indices
+        s = sqrt(x[II]^2 + y[II]^2)
+        if s >= (R - h)
+            temp[II] = T_inf*(1-(expint(0.25*s^2))/(expint(0.25*R^2)))
         end
     end
 end

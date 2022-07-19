@@ -20,6 +20,40 @@ custom_formatter(values) = map(
     values
 )
 
+function plot_grid(grid; linewidth=0.5, limitsx=false, limitsy=false, hide=false)
+    x = grid.x[1,:]
+    y = grid.y[:,1]
+    if isa(limitsx, Tuple{Float64,Float64}) || isa(limitsx, Tuple{Int,Int})
+        lx = limitsx        
+    else
+        lx = (min(x...), max(x...))
+    end
+    if isa(limitsy, Tuple{Float64,Float64}) || isa(limitsy, Tuple{Int,Int})
+        ly = limitsy
+    else
+        ly = (min(y...), max(y...))
+    end
+
+    fig = Figure()
+    ax = Axis(fig[1,1], aspect=1, xlabel="x", ylabel="y",
+            xtickalign=0,  ytickalign=0)
+    if hide
+        hidedecorations!(ax, ticks=false, ticklabels=false)
+    end
+    for i = 1:grid.nx
+        lines!(ones(grid.ny).*grid.x[1,i], grid.y[:,1], linewidth=linewidth, color=:black)
+    end
+    for i = 1:grid.ny
+        lines!(grid.x[1,:], ones(grid.nx).*grid.y[i,1], linewidth=linewidth, color=:black)
+    end
+    contour!(grid.x[1,:], grid.y[:,1], grid.u', levels=[0.0], color=:red, linewidth=2.0)
+    limits!(ax, lx[1], lx[2], ly[1], ly[2])
+    resize_to_layout!(fig)
+
+
+    return fig
+end
+
 function make_video(num, fwd, grid, field="u";
                     title_prefix=field, title_suffix="", xlabel="x", ylabel="y", colormap=:viridis,
                     minv=0.0, maxv=0.0, limitsx=false, limitsy=false, framerate=24, step=1, step0=1)
@@ -49,7 +83,7 @@ function make_video(num, fwd, grid, field="u";
         var_colorrange = false
     end
 
-    if isa(limitsx, Tuple{Float64,Float64}) || isa(limitsy, Tuple{Int,Int})
+    if isa(limitsx, Tuple{Float64,Float64}) || isa(limitsx, Tuple{Int,Int})
         lx = limitsx
     else
         lx = (min(x...), max(x...))
