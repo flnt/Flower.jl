@@ -336,19 +336,3 @@ function mat_op(mat1, mat2, op)
 
     return mat1
 end
-
-function (*)(a::SparseMatrixCSC{T,N}, c::Vector{T}) where {T,N}
-    rows = rowvals(a)
-    vals = nonzeros(a)
-    m, n = size(a)
-    b = zeros(m)
-    @inbounds @threads for j = 1:n
-        for i in nzrange(a, j)
-            @inbounds row = rows[i]
-            @inbounds val = vals[i]
-            b[row] += val * c[j]
-        end
-    end
-
-    return b
-end
