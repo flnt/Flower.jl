@@ -402,11 +402,7 @@ function run_forward(num, grid, grid_u, grid_v,
     while current_i < max_iterations + 1
 
         if !stefan
-            if current_i<320
-                V .= speed*ones(ny, nx)
-            else
-                V .= speed*zeros(ny, nx)
-            end
+            V .= speed*ones(ny, nx)
         end
 
 

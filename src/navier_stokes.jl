@@ -112,22 +112,11 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
     iRe = 1/Re
 
     mat_op!(Ap, Lp, x->-x)
-    Au .= Mu - 0.5*iRe*τ*Lu
-    Av .= Mv - 0.5*iRe*τ*Lv
+    Au .= Mu - iRe*τ*Lu
+    Av .= Mv - iRe*τ*Lv
 
     PETSc.destroy(ns)
     ns = update_ksp_solver!(kspp, Ap, true, ns_vec)
-
-    Δm1um1 = Mu * (iMum1 * (Lum1 * vec(u) .+ CUTum1))
-    Δm1vm1 = Mv * (iMvm1 * (Lvm1 * vec(v) .+ CUTvm1))
-
-    Gxm1 .= Mu * iMGxm1 * Gxpm1 * vec(p)
-    Gym1 .= Mv * iMGym1 * Gypm1 * vec(p)
-
-    # Gxϕ = iMGxm1 * (Gxpm1 * vec(ϕ))
-    # Gyϕ = iMGym1 * (Gypm1 * vec(ϕ))
-    # Gxm1 .= Mu * (Gxm1 .+ Gxϕ .- iRe.*τ.*0.5 .* (iMum1 * (Lum1 * Gxϕ)))
-    # Gym1 .= Mv * (Gym1 .+ Gyϕ .- iRe.*τ.*0.5 .* (iMvm1 * (Lvm1 * Gyϕ)))
 
     if ns_advection
         Convu = 1.5 .* (Cu * vec(u) .+ CUTCu) .- 0.5 .* Cum1
@@ -137,28 +126,23 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
         Convv = zeros(grid_v.nx*grid_v.ny)
     end
 
+    Gxm1 .= Mu * iMGxm1 * Gxpm1 * vec(p)
+    Gym1 .= Mv * iMGym1 * Gypm1 * vec(p)
+
     Cum1 .= Cu * vec(u) .+ CUTCu
     Cvm1 .= Cv * vec(v) .+ CUTCv
 
     init_fresh_cells!(grid, p, geo.projection, FRESH)
     init_fresh_cells!(grid_u, u, grid_u.V, geo_u.projection, FRESH_u)
     init_fresh_cells!(grid_v, v, grid_v.V, geo_v.projection, FRESH_v)
-    # init_fresh_cells!(Gxm1, projectionu, FRESH_u, grid_u.ny)
-    # init_fresh_cells!(Gym1, projectionv, FRESH_v, grid_v.ny)
     kill_dead_cells!(p, Lp, EMPTY, MIXED, grid.ny)
     kill_dead_cells!(u, Lu, EMPTY_u, MIXED_u, grid_u.ny)
     kill_dead_cells!(v, Lv, EMPTY_v, MIXED_v, grid_v.ny)
     kill_dead_cells!(Gxm1, Lu, EMPTY_u, MIXED_u, grid_u.ny)
     kill_dead_cells!(Gym1, Lv, EMPTY_v, MIXED_v, grid_v.ny)
 
-    Δum1 = Lu * vec(u) .+ CUTu
-    Δvm1 = Lv * vec(v) .+ CUTv
-
-    Δu = 0.5 .* (Δum1 .+ Δm1um1)
-    Δv = 0.5 .* (Δvm1 .+ Δm1vm1)
-
-    # Δu = Δum1
-    # Δv = Δvm1
+    Δu = Lu * vec(u) .+ CUTu
+    Δv = Lv * vec(v) .+ CUTv
 
     Bδucorr = τ .* (iRe .* Δu .- Gxm1 .- Convu)
     Bδvcorr = τ .* (iRe .* Δv .- Gym1 .- Convv)
@@ -201,7 +185,7 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
     PETSc.destroy(vecseq)
 
     Δϕ = reshape(iMp * (Lp * vec(ϕ) .+ CUTp), (grid.ny,grid.nx))
-    p .+= ϕ #.- iRe*0.5.*reshape(Duv, (grid.ny,grid.nx))
+    p .+= ϕ #.- iRe.*τ.*Δϕ#reshape(Duv, (grid.ny,grid.nx))
     Gx = reshape(iMGx * (Gxp * vec(ϕ)), (grid_u.ny,grid_u.nx))
     Gy = reshape(iMGy * (Gyp * vec(ϕ)), (grid_v.ny,grid_v.nx))
 
