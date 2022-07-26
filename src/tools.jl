@@ -1,8 +1,14 @@
 function save_field(path::String, num::Numerical, ph::Phase)
-    JLD.save(path, "u", ph.u, "v", ph.v, "gx", ph.Gxm1, "gy", ph.Gym1, "p", ph.p)
+    JLD.save(path, "u", ph.u, "v", ph.v, "gx", ph.Gxm1, "gy", ph.Gym1, "p", ph.p, "x", num.x, "y", num.y)
 end
 
-load_field(path::String) = load(path)
+function load_phase!(data, ph::Phase)
+    ph.u .= data["u"]
+    ph.v .= data["v"]
+    ph.p .= data["p"]
+    ph.Gxm1 .= data["gx"]
+    ph.Gym1 .= data["gy"]
+end
 
 function stretching(n::Int, dn0::Float64, dn1::Float64, ds::Float64, ws=12, we=12, maxs=0.04)
     ns = ceil(Int, ds÷dn0)
@@ -43,9 +49,9 @@ function force_coefficients!(num, grid, grid_u, grid_v, op, fwd; A=1., p0=0., st
     strain_rate!(dir, E11, E12_x, E12_y, E22, grid_u.geoL.dcap, grid_v.geoL.dcap,
                  ny, ind.all_indices, ind.inside)
 
-    τ11 = reshape(2 ./ Re .* E11 * vec(u), (ny, nx))
+    τ11 = reshape(2 ./ Re .* (E11 * vec(u)), (ny, nx))
     τ12 = reshape(2 ./ Re .* (E12_x * vec(u) .+ E12_y * vec(v)), (ny, nx))
-    τ22 = reshape(2 ./ Re .* E22 * vec(v), (ny, nx))
+    τ22 = reshape(2 ./ Re .* (E22 * vec(v)), (ny, nx))
 
     @inbounds for II in ind.inside
         # pressure forces

@@ -21,8 +21,8 @@ custom_formatter(values) = map(
 )
 
 function plot_grid(grid; linewidth=0.5, limitsx=false, limitsy=false, hide=false)
-    x = grid.x[1,:]
-    y = grid.y[:,1]
+    x = grid.x_nodes
+    y = grid.y_nodes
     if isa(limitsx, Tuple{Float64,Float64}) || isa(limitsx, Tuple{Int,Int})
         lx = limitsx        
     else
@@ -34,17 +34,17 @@ function plot_grid(grid; linewidth=0.5, limitsx=false, limitsy=false, hide=false
         ly = (min(y...), max(y...))
     end
 
-    fig = Figure()
-    ax = Axis(fig[1,1], aspect=1, xlabel="x", ylabel="y",
+    fig = Figure(resolution = (1600, 1000))
+    ax = Axis(fig[1,1], aspect=DataAspect(), xlabel="x", ylabel="y",
             xtickalign=0,  ytickalign=0)
     if hide
         hidedecorations!(ax, ticks=false, ticklabels=false)
     end
-    for i = 1:grid.nx
-        lines!(ones(grid.ny).*grid.x[1,i], grid.y[:,1], linewidth=linewidth, color=:black)
+    for i = 1:grid.nx+1
+        lines!(ones(grid.ny+1).*grid.x_nodes[i], grid.y_nodes, linewidth=linewidth, color=:black)
     end
-    for i = 1:grid.ny
-        lines!(grid.x[1,:], ones(grid.nx).*grid.y[i,1], linewidth=linewidth, color=:black)
+    for i = 1:grid.ny+1
+        lines!(grid.x_nodes, ones(grid.nx+1).*grid.y_nodes[i], linewidth=linewidth, color=:black)
     end
     contour!(grid.x[1,:], grid.y[:,1], grid.u', levels=[0.0], color=:red, linewidth=2.0)
     limits!(ax, lx[1], lx[2], ly[1], ly[2])
@@ -101,8 +101,8 @@ function make_video(num, fwd, grid, field="u";
     set_theme!(fontsize_theme)
 
     fig = Figure(resolution = (1600, 1000))
-    colsize!(fig.layout, 1, Aspect(1, 1.0))
-    ax  = Axis(fig[1,1], aspect=1, xlabel=xlabel, ylabel=ylabel,
+    # colsize!(fig.layout, 1, Aspect(1, 1.0))
+    ax  = Axis(fig[1,1], aspect=DataAspect(), xlabel=xlabel, ylabel=ylabel,
             title=field, xtickalign=0,  ytickalign=0)
     if !var_colorrange
         hmap = heatmap!(x, y, @lift(z[$obs,:,:]'), colormap=colormap, colorrange=(minv, maxv))

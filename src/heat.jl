@@ -28,8 +28,8 @@ function crank_nicolson!(num, grid, geo, op)
 
     @inbounds V = geo.dcap[:,:,5]
 
-    @inbounds A .= -LT .* τ
-    @inbounds B .= (LT .- CT)  .* τ
+    @inbounds A .= -LT * τ
+    @inbounds B .= (LT - CT) * τ
     @inbounds @threads for II in grid.ind.all_indices
         pII = lexicographic(II, grid.ny)
         @inbounds B[pII,pII] += V[II] * 2.

@@ -94,9 +94,9 @@ function run_forward(num, grid, grid_u, grid_v,
     local WAS_MIXED_u; local WAS_SOLID_u; local WAS_LIQUID_u;
     local WAS_MIXED_v; local WAS_SOLID_v; local WAS_LIQUID_v;
     local NB_indices_base; local NB_indices;
-    local FRESH_L; local FRESH_S;
-    local FRESH_L_u; local FRESH_S_u;
-    local FRESH_L_v; local FRESH_S_v;
+    local FRESH_L = []; local FRESH_S = [];
+    local FRESH_L_u = []; local FRESH_S_u = [];
+    local FRESH_L_v = []; local FRESH_S_v = [];
 
     local Cum1S = zeros(grid_u.nx*grid_u.ny)
     local Cum1L = zeros(grid_u.nx*grid_u.ny)
@@ -249,59 +249,13 @@ function run_forward(num, grid, grid_u, grid_v,
         # end
 
         NB_indices = get_NB_width(MIXED, NB_indices_base)
-        get_iterface_location!(grid, MIXED, periodic_x, periodic_y)
-        get_iterface_location!(grid_u, MIXED_u, periodic_x, periodic_y)
-        get_iterface_location!(grid_v, MIXED_v, periodic_x, periodic_y)
+        get_iterface_location!(grid, MIXED)
+        get_iterface_location!(grid_u, MIXED_u)
+        get_iterface_location!(grid_v, MIXED_v)
+        get_interface_location_borders!(grid_u, periodic_x, periodic_y)
+        get_interface_location_borders!(grid_v, periodic_x, periodic_y)
 
-        # If A_i = 0, V_i = 0
-        @inbounds for II in ind.inside[:,1:end-1]
-            if geoL.cap[II,3] < 1e-10
-                grid_u.geoL.dcap[δx⁺(II),1:7] .= 0.
-                grid_u.geoL.dcap[II,3] = 0.
-                grid_u.geoL.dcap[δx⁺(δx⁺(II)),1] = 0.
-                if II[1] != 1
-                    grid_u.geoL.dcap[δy⁻(δx⁺(II)),4] = 0.
-                end
-                if II[1] != ny
-                    grid_u.geoL.dcap[δy⁺(δx⁺(II)),2] = 0.
-                end
-            end
-            if geoS.cap[II,3] < 1e-10
-                grid_u.geoS.dcap[δx⁺(II),1:7] .= 0.
-                grid_u.geoS.dcap[II,3] = 0.
-                grid_u.geoS.dcap[δx⁺(δx⁺(II)),1] = 0.
-                if II[1] != 1
-                    grid_u.geoS.dcap[δy⁻(δx⁺(II)),4] = 0.
-                end
-                if II[1] != ny
-                    grid_u.geoS.dcap[δy⁺(δx⁺(II)),2] = 0.
-                end
-            end
-        end
-        @inbounds for II in ind.inside[1:end-1,:]
-            if geoL.cap[II,4] < 1e-10
-                grid_v.geoL.dcap[δy⁺(II),1:7] .= 0.
-                grid_v.geoL.dcap[II,4] = 0.
-                grid_v.geoL.dcap[δy⁺(δy⁺(II)),2] = 0.
-                if II[2] != 1
-                    grid_v.geoL.dcap[δx⁻(δy⁺(II)),3] = 0.
-                end
-                if II[2] != nx
-                    grid_v.geoL.dcap[δx⁺(δy⁺(II)),1] = 0.
-                end
-            end
-            if geoS.cap[II,4] < 1e-10
-                grid_v.geoS.dcap[δy⁺(II),1:7] .= 0.
-                grid_v.geoS.dcap[II,4] = 0.
-                grid_v.geoS.dcap[δy⁺(δy⁺(II)),2] = 0.
-                if II[2] != 1
-                    grid_v.geoS.dcap[δx⁻(δy⁺(II)),3] = 0.
-                end
-                if II[2] != nx
-                    grid_v.geoS.dcap[δx⁺(δy⁺(II)),1] = 0.
-                end
-            end
-        end
+        postprocess_grids!(grid, grid_u, grid_v, MIXED, periodic_x, periodic_y, ϵ)
 
         @inbounds @threads for II in ind.all_indices
             pII = lexicographic(II, ny)
@@ -326,6 +280,10 @@ function run_forward(num, grid, grid_u, grid_v,
             @inbounds iMGyS[pJJ,pJJ] = 1. / (geoS.dcap[II,9] + eps(0.01))
             @inbounds iMGxL[pII,pII] = 1. / (geoL.dcap[II,8] + eps(0.01))
             @inbounds iMGyL[pJJ,pJJ] = 1. / (geoL.dcap[II,9] + eps(0.01))
+            # @inbounds iMGxS[pII,pII] = 1. / (grid_u.geoS.dcap[II,5] + eps(0.01))
+            # @inbounds iMGyS[pJJ,pJJ] = 1. / (grid_v.geoS.dcap[II,5] + eps(0.01))
+            # @inbounds iMGxL[pII,pII] = 1. / (grid_u.geoL.dcap[II,5] + eps(0.01))
+            # @inbounds iMGyL[pJJ,pJJ] = 1. / (grid_v.geoL.dcap[II,5] + eps(0.01))
         end
         @inbounds @threads for II in grid_u.ind.b_right[1]
             pII = lexicographic(II, grid_u.ny)
@@ -335,6 +293,8 @@ function run_forward(num, grid, grid_u, grid_v,
 
             @inbounds iMGxS[pII,pII] = 1. / (geoS.dcap[δx⁻(II),10] + eps(0.01))
             @inbounds iMGxL[pII,pII] = 1. / (geoL.dcap[δx⁻(II),10] + eps(0.01))
+            # @inbounds iMGxS[pII,pII] = 1. / (grid_u.geoS.dcap[II,5] + eps(0.01))
+            # @inbounds iMGxL[pII,pII] = 1. / (grid_u.geoL.dcap[II,5] + eps(0.01))
         end
         @inbounds @threads for II in grid_v.ind.b_top[1]
             pII = lexicographic(II, grid_v.ny)
@@ -344,6 +304,8 @@ function run_forward(num, grid, grid_u, grid_v,
 
             @inbounds iMGyS[pII,pII] = 1. / (geoS.dcap[δy⁻(II),11] + eps(0.01))
             @inbounds iMGyL[pII,pII] = 1. / (geoL.dcap[δy⁻(II),11] + eps(0.01))
+            # @inbounds iMGyS[pII,pII] = 1. / (grid_v.geoS.dcap[II,5] + eps(0.01))
+            # @inbounds iMGyL[pII,pII] = 1. / (grid_v.geoL.dcap[II,5] + eps(0.01))
         end
         @inbounds @threads for II in grid_u.ind.all_indices
             pII = lexicographic(II, grid_u.ny)
@@ -404,14 +366,14 @@ function run_forward(num, grid, grid_u, grid_v,
                 bcpSx, bcpSy, BC_pS, LpSm1, SCUTpm1, GxpSm1, GypSm1, LIQUID,
                 HuS, bcuS, BC_uS, LuSm1, SCUTum1, LIQUID_u,
                 HvS, bcvS, BC_vS, LvSm1, SCUTvm1, LIQUID_v,
-                ns_vecS, MIXED_u, MIXED_v, ns_advection
+                ns_vecS, MIXED, MIXED_u, MIXED_v, true, ns_advection
     )
     
     set_stokes!(grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, opL, phL,
                 bcpLx, bcpLy, BC_pL, LpLm1, LCUTpm1, GxpLm1, GypLm1, SOLID,
                 HuL, bcuL, BC_uL, LuLm1, LCUTum1, SOLID_u,
                 HvL, bcvL, BC_vL, LvLm1, LCUTvm1, SOLID_v,
-                ns_vecL, MIXED_u, MIXED_v, ns_advection
+                ns_vecL, MIXED, MIXED_u, MIXED_v, true, ns_advection
     )
 
     if ns_advection
@@ -487,7 +449,7 @@ function run_forward(num, grid, grid_u, grid_v,
             IIOE(LSA, LSB, u, V, ind.inside, CFL_sc, ny)
             try
                 u .= reshape(gmres(LSA,(LSB*vec(u))), (ny,nx))
-                # u .= sqrt.((X .- current_i*Δ/1).^ 2 + (Y) .^ 2) - (0.5) * ones(n, n);
+                # u .= sqrt.((x .- current_i*Δ/1).^ 2 + y .^ 2) - (0.5) * ones(nx, ny);
             catch
                 @error ("Inadequate level set function, iteration $current_i")
                 break
@@ -531,7 +493,7 @@ function run_forward(num, grid, grid_u, grid_v,
         end
 
 
-        if levelset
+        if levelset && (advection || current_i<2)
             marching_squares!(num, grid)
             interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.u, grid_v.u)
             marching_squares!(num, grid_u)
@@ -576,59 +538,13 @@ function run_forward(num, grid, grid_u, grid_v,
 
             NB_indices = get_NB_width(MIXED, NB_indices_base)
 
-            get_iterface_location!(grid, MIXED, periodic_x, periodic_y)
-            get_iterface_location!(grid_u, MIXED_u, periodic_x, periodic_y)
-            get_iterface_location!(grid_v, MIXED_v, periodic_x, periodic_y)
+            get_iterface_location!(grid, MIXED)
+            get_iterface_location!(grid_u, MIXED_u)
+            get_iterface_location!(grid_v, MIXED_v)
+            get_interface_location_borders!(grid_u, periodic_x, periodic_y)
+            get_interface_location_borders!(grid_v, periodic_x, periodic_y)
 
-            # If A_i = 0, V_i = 0
-            @inbounds for II in ind.inside[:,1:end-1]
-                if geoL.cap[II,3] < 1e-10
-                    grid_u.geoL.dcap[δx⁺(II),1:7] .= 0.
-                    grid_u.geoL.dcap[II,3] = 0.
-                    grid_u.geoL.dcap[δx⁺(δx⁺(II)),1] = 0.
-                    if II[1] != 1
-                        grid_u.geoL.dcap[δy⁻(δx⁺(II)),4] = 0.
-                    end
-                    if II[1] != ny
-                        grid_u.geoL.dcap[δy⁺(δx⁺(II)),2] = 0.
-                    end
-                end
-                if geoS.cap[II,3] < 1e-10
-                    grid_u.geoS.dcap[δx⁺(II),1:7] .= 0.
-                    grid_u.geoS.dcap[II,3] = 0.
-                    grid_u.geoS.dcap[δx⁺(δx⁺(II)),1] = 0.
-                    if II[1] != 1
-                        grid_u.geoS.dcap[δy⁻(δx⁺(II)),4] = 0.
-                    end
-                    if II[1] != ny
-                        grid_u.geoS.dcap[δy⁺(δx⁺(II)),2] = 0.
-                    end
-                end
-            end
-            @inbounds for II in ind.inside[1:end-1,:]
-                if geoL.cap[II,4] < 1e-10
-                    grid_v.geoL.dcap[δy⁺(II),1:7] .= 0.
-                    grid_v.geoL.dcap[II,4] = 0.
-                    grid_v.geoL.dcap[δy⁺(δy⁺(II)),2] = 0.
-                    if II[2] != 1
-                        grid_v.geoL.dcap[δx⁻(δy⁺(II)),3] = 0.
-                    end
-                    if II[2] != nx
-                        grid_v.geoL.dcap[δx⁺(δy⁺(II)),1] = 0.
-                    end
-                end
-                if geoS.cap[II,4] < 1e-10
-                    grid_v.geoS.dcap[δy⁺(II),1:7] .= 0.
-                    grid_v.geoS.dcap[II,4] = 0.
-                    grid_v.geoS.dcap[δy⁺(δy⁺(II)),2] = 0.
-                    if II[2] != 1
-                        grid_v.geoS.dcap[δx⁻(δy⁺(II)),3] = 0.
-                    end
-                    if II[2] != nx
-                        grid_v.geoS.dcap[δx⁺(δy⁺(II)),1] = 0.
-                    end
-                end
-            end
+            postprocess_grids!(grid, grid_u, grid_v, MIXED, periodic_x, periodic_y, ϵ)
 
             @inbounds @threads for II in ind.all_indices
                 pII = lexicographic(II, ny)
@@ -653,24 +569,32 @@ function run_forward(num, grid, grid_u, grid_v,
                 @inbounds iMGyS[pJJ,pJJ] = 1. / (geoS.dcap[II,9] + eps(0.01))
                 @inbounds iMGxL[pII,pII] = 1. / (geoL.dcap[II,8] + eps(0.01))
                 @inbounds iMGyL[pJJ,pJJ] = 1. / (geoL.dcap[II,9] + eps(0.01))
+                # @inbounds iMGxS[pII,pII] = 1. / (grid_u.geoS.dcap[II,5] + eps(0.01))
+                # @inbounds iMGyS[pJJ,pJJ] = 1. / (grid_v.geoS.dcap[II,5] + eps(0.01))
+                # @inbounds iMGxL[pII,pII] = 1. / (grid_u.geoL.dcap[II,5] + eps(0.01))
+                # @inbounds iMGyL[pJJ,pJJ] = 1. / (grid_v.geoL.dcap[II,5] + eps(0.01))
             end
             @inbounds @threads for II in grid_u.ind.b_right[1]
                 pII = lexicographic(II, grid_u.ny)
-    
+
                 @inbounds iMGxSm1[pII,pII] = iMGxS[pII,pII]
                 @inbounds iMGxLm1[pII,pII] = iMGxL[pII,pII]
-    
+
                 @inbounds iMGxS[pII,pII] = 1. / (geoS.dcap[δx⁻(II),10] + eps(0.01))
                 @inbounds iMGxL[pII,pII] = 1. / (geoL.dcap[δx⁻(II),10] + eps(0.01))
+                # @inbounds iMGxS[pII,pII] = 1. / (grid_u.geoS.dcap[II,5] + eps(0.01))
+                # @inbounds iMGxL[pII,pII] = 1. / (grid_u.geoL.dcap[II,5] + eps(0.01))
             end
             @inbounds @threads for II in grid_v.ind.b_top[1]
                 pII = lexicographic(II, grid_v.ny)
-    
+
                 @inbounds iMGySm1[pII,pII] = iMGyS[pII,pII]
                 @inbounds iMGyLm1[pII,pII] = iMGyL[pII,pII]
-    
+
                 @inbounds iMGyS[pII,pII] = 1. / (geoS.dcap[δy⁻(II),11] + eps(0.01))
                 @inbounds iMGyL[pII,pII] = 1. / (geoL.dcap[δy⁻(II),11] + eps(0.01))
+                # @inbounds iMGyS[pII,pII] = 1. / (grid_v.geoS.dcap[II,5] + eps(0.01))
+                # @inbounds iMGyL[pII,pII] = 1. / (grid_v.geoL.dcap[II,5] + eps(0.01))
             end
             @inbounds @threads for II in grid_u.ind.all_indices
                 pII = lexicographic(II, grid_u.ny)
@@ -737,7 +661,7 @@ function run_forward(num, grid, grid_u, grid_v,
                             bcpSx, bcpSy, BC_pS, LpSm1, SCUTpm1, GxpSm1, GypSm1, LIQUID,
                             HuS, bcuS, BC_uS, LuSm1, SCUTum1, LIQUID_u,
                             HvS, bcvS, BC_vS, LvSm1, SCUTvm1, LIQUID_v,
-                            ns_vecS, MIXED_u, MIXED_v, ns_advection)
+                            ns_vecS, MIXED, MIXED_u, MIXED_v, advection, ns_advection)
 
                 pressure_projection!(num, grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, opS, phS,
                             LuSm1, LvSm1, SCUTum1, SCUTvm1, Cum1S, Cvm1S,
@@ -753,7 +677,7 @@ function run_forward(num, grid, grid_u, grid_v,
                             bcpLx, bcpLy, BC_pL, LpLm1, LCUTpm1, GxpLm1, GypLm1, SOLID,
                             HuL, bcuL, BC_uL, LuLm1, LCUTum1, SOLID_u,
                             HvL, bcvL, BC_vL, LvLm1, LCUTvm1, SOLID_v,
-                            ns_vecL, MIXED_u, MIXED_v, ns_advection)
+                            ns_vecL, MIXED, MIXED_u, MIXED_v, advection, ns_advection)
 
                 pressure_projection!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, opL, phL,
                             LuLm1, LvLm1, LCUTum1, LCUTvm1, Cum1L, Cvm1L,
@@ -942,7 +866,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
         MIXED, SOLID, LIQUID = get_cells_indices(iso, inside)
         NB_indices = get_NB_width(MIXED, NB_indices_base)
 
-        get_iterface_location!(grid, MIXED, periodic_x, periodic_y)
+        get_iterface_location!(grid, MIXED)
         get_curvature(num, grid, MIXED)
     elseif !levelset
         MIXED = [CartesianIndex(-1,-1)]
@@ -1051,7 +975,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
             MIXED, SOLID, LIQUID = get_cells_indices(iso, inside)
             NB_indices = Flower.get_NB_width(MIXED, NB_indices_base)
 
-            get_iterface_location!(grid, MIXED, periodic_x, periodic_y)
+            get_iterface_location!(grid, MIXED)
 
             FRESH_L = intersect(MIXED, WAS_SOLID)
             FRESH_S = intersect(MIXED, WAS_LIQUID)

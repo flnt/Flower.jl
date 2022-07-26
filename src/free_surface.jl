@@ -13,11 +13,11 @@ function no_slip_condition!(grid, grid_u, grid_v)
     return nothing
 end
 
-function set_stokes!(grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
+function set_free_surface!(grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
                     bcpx, bcpy, BC_p, Lpm1, CUTpm1, Gxpm1, Gypm1, empty,
                     Hu, bcu, BC_u, Lum1, CUTum1, empty_u,
                     Hv, bcv, BC_v, Lvm1, CUTvm1, empty_v,
-                    ns_vec, MIXED, MIXED_u, MIXED_v, advection, ns_advection
+                    ns_vec, MIXED_u, MIXED_v, ns_advection
     )
     @unpack Lp, CUTp, Lu, CUTu, Lv, CUTv, Dxu, CUTDx, Dyv, CUTDy, Gxp, Gyp, Cu, CUTCu, Cv, CUTCv = op
     @unpack u, v, Du, Dv = ph
@@ -37,14 +37,10 @@ function set_stokes!(grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
 
     bcpx .= 0.
     bcpy .= 0.
-    bcpx, bcpy = set_bc_bnds(neu, bcpx, bcpy, BC_p, grid.dx, grid.dy)
+    bcpx, bcpy = set_bc_bnds(neu, bcpx, bcpy, BC_p)
 
-    if advection
-        laplacian!(neu, Lp, CUTp, bcpx, bcpy, geo.dcap, grid.dx, grid.dy, grid.ny, BC_p, grid.ind.inside, empty, MIXED,
-                ns_vec, grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1], grid.ind.b_top[1])
-        # laplacian!(neu, Lp, CUTp, bcpx, bcpy, geo.dcap, geo_u.dcap, geo_v.dcap, grid.ny, BC_p, grid.ind.inside, empty, MIXED,
-        #         ns_vec, grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1], grid.ind.b_top[1])
-    end
+    laplacian!(neu, Lp, CUTp, bcpx, bcpy, geo.dcap, grid.ny, BC_p, grid.ind.inside, empty,
+            ns_vec, grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1], grid.ind.b_top[1])
 
     Hu .= 0.
     for II in vcat(grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1])
@@ -55,10 +51,8 @@ function set_stokes!(grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
     bcu .= Du
     bcux, bcuy = set_bc_bnds(dir, bcu, Hu, BC_u)
 
-    if advection
-        laplacian!(dir, Lu, CUTu, bcux, bcuy, geo_u.dcap, grid_u.ny, BC_u, grid_u.ind.inside, empty_u,
-                MIXED_u, grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1])
-    end
+    laplacian!(dir, Lu, CUTu, bcux, bcuy, geo_u.dcap, grid_u.ny, BC_u, grid_u.ind.inside, empty_u,
+            MIXED_u, grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1])
 
     Hv .= 0.
     for II in vcat(grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1])
@@ -69,18 +63,16 @@ function set_stokes!(grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
     bcv .= Dv
     bcvx, bcvy = set_bc_bnds(dir, bcv, Hv, BC_v)
 
-    if advection
-        laplacian!(dir, Lv, CUTv, bcvx, bcvy, geo_v.dcap, grid_v.ny, BC_v, grid_v.ind.inside, empty_v,
-                MIXED_v, grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1])
+    laplacian!(dir, Lv, CUTv, bcvx, bcvy, geo_v.dcap, grid_v.ny, BC_v, grid_v.ind.inside, empty_v,
+            MIXED_v, grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1])
 
-        divergence!(dir, Dxu, Dyv, CUTDx, CUTDy, bcux, bcvy, geo.dcap, geo_u.dcap, geo_v.dcap, grid.ny, 
-                grid.ind.all_indices)
-        gradient!(neu, Gxp, Gyp, Dxu, Dyv, geo.dcap, geo_u.dcap, geo_v.dcap, grid.ny, BC_p,
-                grid_u.ind.b_left[1], grid_v.ind.b_bottom[1], grid_u.ind.b_right[1], grid_v.ind.b_top[1],
-                grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1], grid.ind.b_top[1])
-        divergence_boundaries(dir, Dxu, Dyv, bcux, bcvy, geo.dcap, geo_u.dcap, geo_v.dcap, grid.ny, BC_u, BC_v,
-                grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1], grid.ind.b_top[1])
-    end
+    divergence!(dir, Dxu, Dyv, CUTDx, CUTDy, bcux, bcvy, geo.dcap, geo_u.dcap, geo_v.dcap, grid.ny, 
+            grid.ind.all_indices)
+    gradient!(neu, Gxp, Gyp, Dxu, Dyv, geo.dcap, geo_u.dcap, geo_v.dcap, grid.ny, BC_p,
+            grid_u.ind.b_left[1], grid_v.ind.b_bottom[1], grid_u.ind.b_right[1], grid_v.ind.b_top[1],
+            grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1], grid.ind.b_top[1])
+    divergence_boundaries(dir, Dxu, Dyv, bcux, bcvy, geo.dcap, geo_u.dcap, geo_v.dcap, grid.ny, BC_u, BC_v,
+            grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1], grid.ind.b_top[1])
 
     if ns_advection
         bcuCu1_x, bcuCu1_y, bcuCu2_x, bcuCu2_y, bcvCu_x, bcvCu_y = set_bc_bnds(dir, GridFCx, Du, Dv, Hu, Hv, u, v, BC_u, BC_v)
@@ -97,37 +89,37 @@ function set_stokes!(grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
     return nothing
 end
 
-function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
-                            Lum1, Lvm1, CUTum1, CUTvm1, Cum1, Cvm1,
-                            kspp, kspu, kspv, ns, ns_vec, Gxpm1, Gypm1,
-                            Mp, iMp, Mu, Mv, iMGx, iMGy, iMDx, iMDy,
-                            iMum1, iMvm1, iMGxm1, iMGym1,
-                            MIXED, MIXED_u, MIXED_v, FULL, EMPTY, EMPTY_u, EMPTY_v,
-                            FRESH, FRESH_u, FRESH_v, ns_advection
-    )
-    @unpack Re, τ = num
-    @unpack Lp, CUTp, Lu, CUTu, Lv, CUTv, Dxu, CUTDx, Dyv, CUTDy, Ap, Au, Av, Gxp, Gyp, Cu, CUTCu, Cv, CUTCv = op
-    @unpack p, ϕ, Gxm1, Gym1, u, v, Du, Dv = ph
+# function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
+#                             Lum1, Lvm1, CUTum1, CUTvm1, Cum1, Cvm1,
+#                             kspp, kspu, kspv, ns, ns_vec, Gxpm1, Gypm1,
+#                             Mp, iMp, Mu, Mv, iMGx, iMGy, iMDx, iMDy,
+#                             iMum1, iMvm1, iMGxm1, iMGym1,
+#                             MIXED, MIXED_u, MIXED_v, FULL, EMPTY, EMPTY_u, EMPTY_v,
+#                             FRESH, FRESH_u, FRESH_v, ns_advection
+#     )
+#     @unpack Re, τ = num
+#     @unpack Lp, CUTp, Lu, CUTu, Lv, CUTv, Dxu, CUTDx, Dyv, CUTDy, Ap, Au, Av, Gxp, Gyp, Cu, CUTCu, Cv, CUTCv = op
+#     @unpack p, ϕ, Gxm1, Gym1, u, v, Du, Dv = ph
 
-    iRe = 1/Re
+#     iRe = 1/Re
 
-    mat_op!(Ap, Lp, x->-x)
-    Au .= Mu - 0.5*iRe*τ*Lu
-    Av .= Mv - 0.5*iRe*τ*Lv
+#     mat_op!(Ap, Lp, x->-x)
+#     Au .= Mu .- 0.5.*iRe.*τ.*Lu
+#     Av .= Mv .- 0.5.*iRe.*τ.*Lv
 
-    PETSc.destroy(ns)
-    ns = update_ksp_solver!(kspp, Ap, true, ns_vec)
+#     PETSc.destroy(ns)
+#     ns = update_ksp_solver!(kspp, Ap, true, ns_vec)
 
-    Δm1um1 = Mu * (iMum1 * (Lum1 * vec(u) .+ CUTum1))
-    Δm1vm1 = Mv * (iMvm1 * (Lvm1 * vec(v) .+ CUTvm1))
+#     Δm1um1 = Mu * (iMum1 * (Lum1 * vec(u) .+ CUTum1))
+#     Δm1vm1 = Mv * (iMvm1 * (Lvm1 * vec(v) .+ CUTvm1))
 
-    Gxm1 .= Mu * iMGxm1 * Gxpm1 * vec(p)
-    Gym1 .= Mv * iMGym1 * Gypm1 * vec(p)
+#     Gxm1 .= Mu * iMGxm1 * Gxpm1 * vec(p)
+#     Gym1 .= Mv * iMGym1 * Gypm1 * vec(p)
 
-    # Gxϕ = iMGxm1 * (Gxpm1 * vec(ϕ))
-    # Gyϕ = iMGym1 * (Gypm1 * vec(ϕ))
-    # Gxm1 .= Mu * (Gxm1 .+ Gxϕ .- iRe.*τ.*0.5 .* (iMum1 * (Lum1 * Gxϕ)))
-    # Gym1 .= Mv * (Gym1 .+ Gyϕ .- iRe.*τ.*0.5 .* (iMvm1 * (Lvm1 * Gyϕ)))
+#     # Gxϕ = iMGxm1 * (Gxpm1 * vec(ϕ))
+#     # Gyϕ = iMGym1 * (Gypm1 * vec(ϕ))
+#     # Gxm1 .= Mu * (Gxm1 .+ Gxϕ .- iRe.*τ.*0.5 .* (iMum1 * (Lum1 * Gxϕ)))
+#     # Gym1 .= Mv * (Gym1 .+ Gyϕ .- iRe.*τ.*0.5 .* (iMvm1 * (Lvm1 * Gyϕ)))
 
     if ns_advection
         Convu = 1.5 .* (Cu * vec(u) .+ CUTCu) .- 0.5 .* Cum1
@@ -200,8 +192,12 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
     ϕ .= reshape(kspp \ vecseq, (grid.ny,grid.nx))
     PETSc.destroy(vecseq)
 
+    # We shouldn't do this but seems to help a little bit
+    # with the oscillations at the interface
+    init_fresh_cells!(grid, ϕ, geo.projection, FRESH)
+
     Δϕ = reshape(iMp * (Lp * vec(ϕ) .+ CUTp), (grid.ny,grid.nx))
-    p .+= ϕ #.- iRe*0.5.*reshape(Duv, (grid.ny,grid.nx))
+    p .+= ϕ #.- iRe.*τ.*0.5.*Δϕ
     Gx = reshape(iMGx * (Gxp * vec(ϕ)), (grid_u.ny,grid_u.nx))
     Gy = reshape(iMGy * (Gyp * vec(ϕ)), (grid_v.ny,grid_v.nx))
 

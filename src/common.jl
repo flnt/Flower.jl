@@ -84,13 +84,13 @@ end
 end
 
 @inline function B_BT(II, x, y, f=x->x)
-    B = inv(@SMatrix [(x[f(δx⁻(II))]-x[II])^2 x[f(δx⁻(II))]-x[II] 1.0;
-                      (x[f(II)]-x[II])^2 x[f(II)]-x[II] 1.0;
-                      (x[f(δx⁺(II))]-x[II])^2 x[f(δx⁺(II))]-x[II] 1.0])
+    B = inv((@SMatrix [((x[f(δx⁻(II))]-x[II])/(x[f(δx⁺(II))] - x[f(δx⁻(II))]))^2 (x[f(δx⁻(II))]-x[II])/(x[f(δx⁺(II))] - x[f(δx⁻(II))]) 1.0;
+                      ((x[f(II)]-x[II])/(x[f(δx⁺(II))] - x[f(δx⁻(II))]))^2 (x[f(II)]-x[II])/(x[f(δx⁺(II))] - x[f(δx⁻(II))]) 1.0;
+                      ((x[f(δx⁺(II))]-x[II])/(x[f(δx⁺(II))] - x[f(δx⁻(II))]))^2 (x[f(δx⁺(II))]-x[II])/(x[f(δx⁺(II))] - x[f(δx⁻(II))]) 1.0]))
 
-    BT = inv(@SMatrix [(y[f(δy⁻(II))]-y[II])^2 (y[f(II)]-y[II])^2 (y[f(δy⁺(II))]-y[II])^2;
-                        y[f(δy⁻(II))]-y[II] y[f(II)]-y[II] y[f(δy⁺(II))]-y[II];
-                        1.0 1.0 1.0])
+    BT = inv((@SMatrix [((y[f(δy⁻(II))]-y[II])/(y[f(δy⁺(II))] - y[f(δy⁻(II))]))^2 ((y[f(II)]-y[II])/(y[f(δy⁺(II))] - y[f(δy⁻(II))]))^2 ((y[f(δy⁺(II))]-y[II])/(y[f(δy⁺(II))] - y[f(δy⁻(II))]))^2;
+                        (y[f(δy⁻(II))]-y[II])/(y[f(δy⁺(II))] - y[f(δy⁻(II))]) (y[f(II)]-y[II])/(y[f(δy⁺(II))] - y[f(δy⁻(II))]) (y[f(δy⁺(II))]-y[II])/(y[f(δy⁺(II))] - y[f(δy⁻(II))]);
+                        1.0 1.0 1.0]))
     
     return B, BT
 end
@@ -322,17 +322,60 @@ function mat_T_op!(mat1, mat2, op)
     return nothing
 end
 
-function mat_op(mat1, mat2, op)
-    rows = rowvals(mat2)
-    vals = nonzeros(mat2)
-    m, n = size(mat2)
-    @inbounds @threads for j = 1:n
-        for i in nzrange(mat2, j)
-            @inbounds row = rows[i]
-            @inbounds val = vals[i]
-            @inbounds mat1[row,j] = op(val)
+# Operations on sparse arrays that can be parallelized
+for op ∈ (:*, :+, :-)
+    @eval begin
+        function $op(A::AbstractSparseMatrix{Tv,Ti}, B::Tv) where {Tv<:Number,Ti}
+            C = SparseMatrixCSC{Tv,Ti}(A.m, A.n, A.colptr, A.rowval, zeros(length(A.nzval)))
+            @inbounds @threads for col in 1:size(A, 2)
+                for j in nzrange(A, col)
+                    C.nzval[j] = $op(A.nzval[j], B)
+                end
+            end
+            C
+        end
+        function $op(B::Tv, A::AbstractSparseMatrix{Tv,Ti}) where {Tv<:Number,Ti}
+            C = SparseMatrixCSC{Tv,Ti}(A.m, A.n, A.colptr, A.rowval, zeros(length(A.nzval)))
+            @inbounds @threads for col in 1:size(A, 2)
+                for j in nzrange(A, col)
+                    C.nzval[j] = $op(B, A.nzval[j])
+                end
+            end
+            C
+        end
+
+        function $op(A::AbstractSparseMatrix{Tv,Ti}, B::AbstractSparseMatrix{Tv,Ti}) where {Tv<:Number,Ti}
+            C = SparseMatrixCSC{Tv,Ti}(A.m, A.n, A.colptr, A.rowval, zeros(length(A.nzval)))
+            @inbounds @threads for col in 1:size(A, 2)
+                for j in nzrange(A, col)
+                    C.nzval[j] = $op(A.nzval[j], B.nzval[j])
+                end
+            end
+            C
+        end
+        function $op(A::AbstractSparseMatrix{Tv,Ti}, B::Diagonal{Tv,Vector{Tv}}) where {Tv<:Number,Ti}
+            C = SparseMatrixCSC{Tv,Ti}(A.m, A.n, A.colptr, A.rowval, copy(A.nzval))
+            b = B.diag
+            nzv = nonzeros(A)
+            rv = rowvals(A)
+            @inbounds @threads for col in 1:size(A, 2)
+                nz = nzrange(A, col)
+                j = nz[findfirst(x->rv[x]==col, collect(nz))]
+                C.nzval[j] = $op(A.nzval[j], b[col])
+            end
+            C
         end
     end
-
-    return mat1
+end
+function (-)(B::Diagonal{Tv,Vector{Tv}}, A::AbstractSparseMatrix{Tv,Ti}) where {Tv<:Number,Ti}
+    C = SparseMatrixCSC{Tv,Ti}(A.m, A.n, A.colptr, A.rowval, -A.nzval)
+    b = B.diag
+    nzv = nonzeros(A)
+    rv = rowvals(A)
+    @inbounds @threads for col in 1:size(A, 2)
+        nz = nzrange(A, col)
+        j = nz[findfirst(x->rv[x]==col, collect(nz))]
+        C.nzval[j] += b[col]
+    end
+    C
 end

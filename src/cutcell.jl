@@ -1,7 +1,7 @@
-@inline SOUTH_face(itp, p=Point(0.0,-0.5), dx=1.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y), (-dx/2+p.x,dx/2+p.x), FalsePosition(), maxevals = 10, atol = 1e-9)
-@inline WEST_face(itp, p=Point(-0.5,0.0), dy=1.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x, y), (-dy/2+p.y,dy/2+p.y), FalsePosition(), maxevals = 10, atol = 1e-9)
-@inline NORTH_face(itp, p=Point(0.0,0.5), dx=1.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y), (-dx/2+p.x,dx/2+p.x), FalsePosition(), maxevals = 10, atol = 1e-9)
-@inline EAST_face(itp, p=Point(0.5,0.0), dy=1.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x, y), (-dy/2+p.y,dy/2+p.y), FalsePosition(), maxevals = 10, atol = 1e-9)
+@inline SOUTH_face(itp, g, II_0, p=Point(0.0,-0.5), dx=1.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y/(g.y[δy⁺(II_0)] - g.y[δy⁻(II_0)])), (-dx/2+p.x,dx/2+p.x)./(g.x[δx⁺(II_0)] - g.x[δx⁻(II_0)]), FalsePosition(), maxevals = 10, atol = 1e-9) * (g.x[δx⁺(II_0)] - g.x[δx⁻(II_0)])
+@inline WEST_face(itp, g, II_0, p=Point(-0.5,0.0), dy=1.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x/(g.x[δx⁺(II_0)] - g.x[δx⁻(II_0)]), y), (-dy/2+p.y,dy/2+p.y)./(g.y[δy⁺(II_0)] - g.y[δy⁻(II_0)]), FalsePosition(), maxevals = 10, atol = 1e-9) * (g.y[δy⁺(II_0)] - g.y[δy⁻(II_0)])
+@inline NORTH_face(itp, g, II_0, p=Point(0.0,0.5), dx=1.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y/(g.y[δy⁺(II_0)] - g.y[δy⁻(II_0)])), (-dx/2+p.x,dx/2+p.x)./(g.x[δx⁺(II_0)] - g.x[δx⁻(II_0)]), FalsePosition(), maxevals = 10, atol = 1e-9) * (g.x[δx⁺(II_0)] - g.x[δx⁻(II_0)])
+@inline EAST_face(itp, g, II_0, p=Point(0.5,0.0), dy=1.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x/(g.x[δx⁺(II_0)] - g.x[δx⁻(II_0)]), y), (-dy/2+p.y,dy/2+p.y)./(g.y[δy⁺(II_0)] - g.y[δy⁻(II_0)]), FalsePosition(), maxevals = 10, atol = 1e-9) * (g.y[δy⁺(II_0)] - g.y[δy⁻(II_0)])
 
 @inline WE(a, cases, II, l_face, s_face) = ismixed(cases[δx⁻(II)]) ? 0.5*(a[II,1] + a[δx⁻(II), 3]) : (is_liquid(cases[δx⁻(II)]) ? l_face : s_face)
 @inline WE_border(a, cases, II, l_face, s_face) = a[II,1]
@@ -21,10 +21,14 @@
 @inline isovalue(v::SVector{4,Float64}) = 4. * v[1] + 2. * v[2] + v[3] + 0.5 * v[4]
 
 @inline vertices_sign(itp, II_0, II, x, y, dx, dy) = 
-    1 .- sign.(@SVector [biquadratic(itp, x[II] - x[II_0] - dx/2, y[II] - y[II_0] + dy/2),
-                        biquadratic(itp, x[II] - x[II_0] + dx/2, y[II] - y[II_0] + dy/2),
-                        biquadratic(itp, x[II] - x[II_0] + dx/2, y[II] - y[II_0] - dy/2),
-                        biquadratic(itp, x[II] - x[II_0] - dx/2, y[II] - y[II_0] - dy/2)])
+    1 .- sign.(@SVector [biquadratic(itp, (x[II] - x[II_0] - dx/2)/(x[δx⁺(II_0)] - x[δx⁻(II_0)]),
+                            (y[II] - y[II_0] + dy/2)/(y[δy⁺(II_0)] - y[δy⁻(II_0)])),
+                        biquadratic(itp, (x[II] - x[II_0] + dx/2)/(x[δx⁺(II_0)] - x[δx⁻(II_0)]),
+                            (y[II] - y[II_0] + dy/2)/(y[δy⁺(II_0)] - y[δy⁻(II_0)])),
+                        biquadratic(itp, (x[II] - x[II_0] + dx/2)/(x[δx⁺(II_0)] - x[δx⁻(II_0)]),
+                            (y[II] - y[II_0] - dy/2)/(y[δy⁺(II_0)] - y[δy⁻(II_0)])),
+                        biquadratic(itp, (x[II] - x[II_0] - dx/2)/(x[δx⁺(II_0)] - x[δx⁻(II_0)]),
+                            (y[II] - y[II_0] - dy/2)/(y[δy⁺(II_0)] - y[δy⁻(II_0)]))])
 
 @inline face_pos(II_0, II, x, y, dx, dy) =
     (Point(x[II] - x[II_0] - dx/2, y[II] - y[II_0]),
@@ -115,7 +119,280 @@ end
     return cap
 end
 
-function dimensionalize(grid, geo)
+function clip_large_cell!(geo, II, ϵ, nx, ny)
+    if geo.cap[II,5] > (1.0-ϵ)
+        geo.cap[II,:] .= vcat(ones(7), 0.5.*ones(4))
+        if II[2] > 1
+            geo.cap[δx⁻(II),3] = 1.0
+        end
+        if II[1] > 1
+            geo.cap[δy⁻(II),4] = 1.0
+        end
+        if II[2] < nx
+            geo.cap[δx⁺(II),1] = 1.0
+        end
+        if II[1] < ny
+            geo.cap[δy⁺(II),2] = 1.0
+        end
+    end
+    return nothing
+end
+
+function clip_small_cell!(geo, II, ϵ, nx, ny)
+    if geo.cap[II,5] < ϵ
+        geo.cap[II,:] .= 0.
+        if II[2] > 1
+            geo.cap[δx⁻(II),3] = 0.
+        end
+        if II[1] > 1
+            geo.cap[δy⁻(II),4] = 0.
+        end
+        if II[2] < nx
+            geo.cap[δx⁺(II),1] = 0.
+        end
+        if II[1] < ny
+            geo.cap[δy⁺(II),2] = 0.
+        end
+    end
+    return nothing
+end
+
+function clip_cells!(grid, MIXED, ϵ)
+    @unpack nx, ny, ind, geoS, geoL = grid
+
+    @inbounds @threads for II in ind.inside
+        clip_large_cell!(geoS, II, ϵ, nx, ny)
+        clip_large_cell!(geoL, II, ϵ, nx, ny)
+    end
+    @inbounds @threads for II in ind.inside
+        clip_small_cell!(geoS, II, ϵ, nx, ny)
+        clip_small_cell!(geoL, II, ϵ, nx, ny)
+    end
+    @inbounds @threads for II in ind.b_left[1][2:end-1]
+        if geoS.cap[II,5] > (1.0-ϵ)
+            geoS.cap[II,2:11] .= vcat(ones(6), 0.5.*ones(4))
+            geoS.cap[δy⁻(II),4] = 1.0
+            geoS.cap[δx⁺(II),1] = 1.0
+            geoS.cap[δy⁺(II),2] = 1.0
+        end
+    end
+    @inbounds @threads for II in ind.b_left[1][2:end-1]
+        if geoS.cap[II,5] < ϵ
+            geoS.cap[II,:] .= 0.
+            geoS.cap[δy⁻(II),4] = 0.
+            geoS.cap[δx⁺(II),1] = 0.
+            geoS.cap[δy⁺(II),2] = 0.
+        end
+    end
+    @inbounds @threads for II in ind.b_bottom[1][2:end-1]
+        if geoS.cap[II,5] > (1.0-ϵ)
+            geoS.cap[II,1] = 1.0
+            geoS.cap[II,3:11] .= vcat(ones(5), 0.5.*ones(4))
+            geoS.cap[δx⁻(II),3] = 1.0
+            geoS.cap[δx⁺(II),1] = 1.0
+            geoS.cap[δy⁺(II),2] = 1.0
+        end
+    end
+    @inbounds @threads for II in ind.b_bottom[1][2:end-1]
+        if geoS.cap[II,5] < ϵ
+            geoS.cap[II,:] .= 0.
+            geoS.cap[δx⁻(II),3] = 0.
+            geoS.cap[δx⁺(II),1] = 0.
+            geoS.cap[δy⁺(II),2] = 0.
+        end
+    end
+    @inbounds @threads for II in ind.b_right[1][2:end-1]
+        if geoS.cap[II,5] > (1.0-ϵ)
+            geoS.cap[II,1:2] .= ones(2)
+            geoS.cap[II,4:11] .= vcat(ones(4), 0.5.*ones(4))
+            geoS.cap[δx⁻(II),3] = 1.0
+            geoS.cap[δy⁻(II),4] = 1.0
+            geoS.cap[δy⁺(II),2] = 1.0
+        end
+    end
+    @inbounds @threads for II in ind.b_right[1][2:end-1]
+        if geoS.cap[II,5] < ϵ
+            geoS.cap[II,:] .= 0.
+            geoS.cap[δx⁻(II),3] = 0.
+            geoS.cap[δy⁻(II),4] = 0.
+            geoS.cap[δy⁺(II),2] = 0.
+        end
+    end
+    @inbounds @threads for II in ind.b_top[1][2:end-1]
+        if geoS.cap[II,5] > (1.0-ϵ)
+            geoS.cap[II,1:3] .= ones(3)
+            geoS.cap[II,5:11] .= vcat(ones(3), 0.5.*ones(4))
+            geoS.cap[δx⁻(II),3] = 1.0
+            geoS.cap[δy⁻(II),4] = 1.0
+            geoS.cap[δx⁺(II),1] = 1.0
+        end
+    end
+    @inbounds @threads for II in ind.b_top[1][2:end-1]
+        if geoS.cap[II,5] < ϵ
+            geoS.cap[II,:] .= 0.
+            geoS.cap[δx⁻(II),3] = 0.
+            geoS.cap[δy⁻(II),4] = 0.
+            geoS.cap[δx⁺(II),1] = 0.
+        end
+    end
+    @inbounds @threads for II in ind.b_left[1][2:end-1]
+        if geoL.cap[II,5] > (1.0-ϵ)
+            geoL.cap[II,2:11] .= vcat(ones(6), 0.5.*ones(4))
+            geoL.cap[δy⁻(II),4] = 1.0
+            geoL.cap[δx⁺(II),1] = 1.0
+            geoL.cap[δy⁺(II),2] = 1.0
+        end
+    end
+    @inbounds @threads for II in ind.b_left[1][2:end-1]
+        if geoL.cap[II,5] < ϵ
+            geoL.cap[II,:] .= 0.
+            geoL.cap[δy⁻(II),4] = 0.
+            geoL.cap[δx⁺(II),1] = 0.
+            geoL.cap[δy⁺(II),2] = 0.
+        end
+    end
+    @inbounds @threads for II in ind.b_bottom[1][2:end-1]
+        if geoL.cap[II,5] > (1.0-ϵ)
+            geoL.cap[II,1] = 1.0
+            geoL.cap[II,3:11] .= vcat(ones(5), 0.5.*ones(4))
+            geoL.cap[δx⁻(II),3] = 1.0
+            geoL.cap[δx⁺(II),1] = 1.0
+            geoL.cap[δy⁺(II),2] = 1.0
+        end
+    end
+    @inbounds @threads for II in ind.b_bottom[1][2:end-1]
+        if geoL.cap[II,5] < ϵ
+            geoL.cap[II,:] .= 0.
+            geoL.cap[δx⁻(II),3] = 0.
+            geoL.cap[δx⁺(II),1] = 0.
+            geoL.cap[δy⁺(II),2] = 0.
+        end
+    end
+    @inbounds @threads for II in ind.b_right[1][2:end-1]
+        if geoL.cap[II,5] > (1.0-ϵ)
+            geoL.cap[II,1:2] .= ones(2)
+            geoL.cap[II,4:11] .= vcat(ones(4), 0.5.*ones(4))
+            geoL.cap[δx⁻(II),3] = 1.0
+            geoL.cap[δy⁻(II),4] = 1.0
+            geoL.cap[δy⁺(II),2] = 1.0
+        end
+    end
+    @inbounds @threads for II in ind.b_right[1][2:end-1]
+        if geoL.cap[II,5] < ϵ
+            geoL.cap[II,:] .= 0.
+            geoL.cap[δx⁻(II),3] = 0.
+            geoL.cap[δy⁻(II),4] = 0.
+            geoL.cap[δy⁺(II),2] = 0.
+        end
+    end
+    @inbounds @threads for II in ind.b_top[1][2:end-1]
+        if geoL.cap[II,5] > (1.0-ϵ)
+            geoL.cap[II,1:3] .= ones(3)
+            geoL.cap[II,5:11] .= vcat(ones(3), 0.5.*ones(4))
+            geoL.cap[δx⁻(II),3] = 1.0
+            geoL.cap[δy⁻(II),4] = 1.0
+            geoL.cap[δx⁺(II),1] = 1.0
+        end
+    end
+    @inbounds @threads for II in ind.b_top[1][2:end-1]
+        if geoL.cap[II,5] < ϵ
+            geoL.cap[II,:] .= 0.
+            geoL.cap[δx⁻(II),3] = 0.
+            geoL.cap[δy⁻(II),4] = 0.
+            geoL.cap[δx⁺(II),1] = 0.
+        end
+    end
+    return nothing
+end
+
+function empty_cell_u!(geo, geo_u, II, ny)
+    if geo.cap[II,3] < 1e-10
+        geo_u.dcap[δx⁺(II),:] .= 0.
+        geo_u.dcap[II,3] = 0.
+        geo_u.dcap[δx⁺(δx⁺(II)),1] = 0.
+        if II[1] != 1
+            geo_u.dcap[δy⁻(δx⁺(II)),4] = 0.
+        end
+        if II[1] != ny
+            geo_u.dcap[δy⁺(δx⁺(II)),2] = 0.
+        end
+    end
+    return nothing
+end
+
+function empty_cell_v!(geo, geo_v, II, nx)
+    if geo.cap[II,4] < 1e-10
+        geo_v.dcap[δy⁺(II),:] .= 0.
+        geo_v.dcap[II,4] = 0.
+        geo_v.dcap[δy⁺(δy⁺(II)),2] = 0.
+        if II[2] != 1
+            geo_v.dcap[δx⁻(δy⁺(II)),3] = 0.
+        end
+        if II[2] != nx
+            geo_v.dcap[δx⁺(δy⁺(II)),1] = 0.
+        end
+    end
+    return nothing
+end
+
+function empty_cells_uv!(grid, grid_u, grid_v)
+    @unpack nx, ny, ind, geoS, geoL = grid
+
+    # If A_i = 0, V_i = 0
+    @inbounds @threads for II in ind.inside
+        empty_cell_u!(geoS, grid_u.geoS, II, ny)
+        empty_cell_u!(geoL, grid_u.geoL, II, ny)
+
+        empty_cell_v!(geoS, grid_v.geoS, II, nx)
+        empty_cell_v!(geoL, grid_v.geoL, II, nx)
+    end
+    @inbounds @threads for II in ind.b_left[1]
+        if geoS.cap[II,1] < 1e-10
+            grid_u.geoS.dcap[II,:] .= 0.
+            grid_u.geoS.dcap[δx⁺(II),1] = 0.
+            if II[1] != 1
+                grid_u.geoS.dcap[δy⁻(II),4] = 0.
+            end
+            if II[1] != ny
+                grid_u.geoS.dcap[δy⁺(II),2] = 0.
+            end
+        end
+        if geoL.cap[II,1] < 1e-10
+            grid_u.geoL.dcap[II,:] .= 0.
+            grid_u.geoL.dcap[δx⁺(II),1] = 0.
+            if II[1] != 1
+                grid_u.geoL.dcap[δy⁻(II),4] = 0.
+            end
+            if II[1] != ny
+                grid_u.geoL.dcap[δy⁺(II),2] = 0.
+            end
+        end
+    end
+    @inbounds @threads for II in ind.b_bottom[1]
+        if geoS.cap[II,2] < 1e-10
+            grid_v.geoS.dcap[II,:] .= 0.
+            grid_v.geoS.dcap[δy⁺(II),2] = 0.
+            if II[2] != 1
+                grid_v.geoS.dcap[δx⁻(II),3] = 0.
+            end
+            if II[2] != nx
+                grid_v.geoS.dcap[δx⁺(II),1] = 0.
+            end
+        end
+        if geoL.cap[II,2] < 1e-10
+            grid_v.geoL.dcap[II,:] .= 0.
+            grid_v.geoL.dcap[δy⁺(II),2] = 0.
+            if II[2] != 1
+                grid_v.geoL.dcap[δx⁻(II),3] = 0.
+            end
+            if II[2] != nx
+                grid_v.geoL.dcap[δx⁺(II),1] = 0.
+            end
+        end
+    end
+end
+
+function dimensionalize!(grid, geo)
     @unpack dx, dy = grid
     @unpack cap, dcap = geo
 
@@ -132,6 +409,37 @@ function dimensionalize(grid, geo)
     dcap[:,:,11] .= cap[:,:,11] .* dx .* dy
 
     return nothing
+end
+
+function postprocess_grids!(grid, grid_u, grid_v, MIXED, periodic_x, periodic_y, ϵ)
+    clip_cells!(grid, MIXED, ϵ)
+    
+    dimensionalize!(grid, grid.geoS)
+    dimensionalize!(grid, grid.geoL)
+    dimensionalize!(grid_u, grid_u.geoS)
+    dimensionalize!(grid_u, grid_u.geoL)
+    dimensionalize!(grid_v, grid_v.geoS)
+    dimensionalize!(grid_v, grid_v.geoL)
+
+    empty_cells_uv!(grid, grid_u, grid_v)
+
+    set_cap_bcs!(grid, periodic_x, periodic_y)
+    set_cap_bcs!(grid_u, periodic_x, periodic_y)
+    set_cap_bcs!(grid_v, periodic_x, periodic_y)
+
+    Wcapacities!(grid.geoS.dcap, periodic_x, periodic_y)
+    Wcapacities!(grid.geoL.dcap, periodic_x, periodic_y)
+    Wcapacities!(grid_u.geoS.dcap, periodic_x, periodic_y)
+    Wcapacities!(grid_u.geoL.dcap, periodic_x, periodic_y)
+    Wcapacities!(grid_v.geoS.dcap, periodic_x, periodic_y)
+    Wcapacities!(grid_v.geoL.dcap, periodic_x, periodic_y)
+
+    average_face_capacities!(grid.geoS.dcap)
+    average_face_capacities!(grid.geoL.dcap)
+    average_face_capacities!(grid_u.geoS.dcap)
+    average_face_capacities!(grid_u.geoL.dcap)
+    average_face_capacities!(grid_v.geoS.dcap)
+    average_face_capacities!(grid_v.geoL.dcap)
 end
 
 function marching_squares!(num, grid)
@@ -169,7 +477,7 @@ function marching_squares!(num, grid)
         if is_near_interface(a, st)
             κ_ = 0.
             if II in ind.inside
-                grid_alignement = check_grid_alignement(u, II, κ_, num.ϵ)
+                grid_alignement = check_grid_alignement(u, II, κ_, 0.0)
             else
                 grid_alignement = false
             end
@@ -190,7 +498,7 @@ function marching_squares!(num, grid)
                 ISO = isovalue(vertices)
 
                 if is_not_mixed(ISO) @goto notmixed end
-                face_capacities(grid, itp, ISO, II, posW, posS, posE, posN)
+                face_capacities(grid, itp, ISO, II_0, II, posW, posS, posE, posN)
 
             end
             if ISO == -1
@@ -212,7 +520,7 @@ function marching_squares!(num, grid)
     return nothing
 end
 
-function get_iterface_location!(grid, indices, periodic_x, periodic_y)
+function get_iterface_location!(grid, indices)
     @unpack x, y, iso, geoS, geoL, mid_point, cut_points, α = grid
 
     @inbounds @threads for II in indices
@@ -220,14 +528,70 @@ function get_iterface_location!(grid, indices, periodic_x, periodic_y)
         geoS.cap[II,:], geoL.cap[II,:], α[II], geoS.centroid[II], geoL.centroid[II], mid_point[II], cut_points[II] = capacities(f, iso[II])
         geoS.projection[II], geoL.projection[II] = projection_2points(grid, II)
     end
-    set_cap_bcs!(grid, periodic_x, periodic_y)
-    dimensionalize(grid, geoS)
-    dimensionalize(grid, geoL)
-    Wcapacities!(geoS.dcap, periodic_x, periodic_y)
-    Wcapacities!(geoL.dcap, periodic_x, periodic_y)
-    average_face_capacities!(geoS.dcap)
-    average_face_capacities!(geoL.dcap)
     return nothing
+end
+
+function get_interface_location_borders!(grid::Mesh{GridFCx,T,N}, periodic_x, periodic_y) where {T,N}
+    @unpack nx, ny, ind, u, geoS, geoL, mid_point, cut_points = grid
+    @unpack b_left, b_bottom, b_right, b_top = ind
+
+    f = SA_F64[0.5, 0.5]
+    empty_capacities = SA_F64[vcat(zeros(7), zeros(4))...]
+    capacities_6 = capacities(f, 6.0)
+    capacities_9 = capacities(f, 9.0)
+
+    if !periodic_x
+        @inbounds @threads for II in b_left[1]
+            if u[II] >= 0.0
+                @inbounds geoS.cap[II,:] .= empty_capacities
+                @inbounds _, geoL.cap[II,:], _, _, geoL.centroid[II], mid_point[II], cut_points[II] = capacities_9
+            else
+                @inbounds geoS.cap[II,:], _, _, geoS.centroid[II], _, mid_point[II], cut_points[II] = capacities_6
+                @inbounds geoL.cap[II,:] .= empty_capacities
+            end
+        end
+        @inbounds @threads for II in b_right[1]
+            if u[II] >= 0.0
+                @inbounds geoS.cap[II,:] .= empty_capacities
+                @inbounds _, geoL.cap[II,:], _, _, geoL.centroid[II], mid_point[II], cut_points[II] = capacities_6
+            else
+                @inbounds geoS.cap[II,:], _, _, geoS.centroid[II], _, mid_point[II], cut_points[II] = capacities_9
+                @inbounds geoL.cap[II,:] .= empty_capacities
+            end
+        end
+    end
+    return nothing
+end
+
+function get_interface_location_borders!(grid::Mesh{GridFCy,T,N}, periodic_x, periodic_y) where {T,N}
+    @unpack ind, u, geoS, geoL, mid_point, cut_points = grid
+    @unpack b_left, b_bottom, b_right, b_top = ind
+
+    f = SA_F64[0.5, 0.5]
+    empty_capacities = SA_F64[vcat(zeros(7), zeros(4))...]
+    capacities_3 = capacities(f, 3.0)
+    capacities_12 = capacities(f, 12.0)
+
+    if !periodic_y
+        @inbounds @threads for II in b_bottom[1]
+            if u[II] >= 0.0
+                @inbounds geoS.cap[II,:] .= empty_capacities
+                @inbounds _, geoL.cap[II,:], _, _, geoL.centroid[II], mid_point[II], cut_points[II] = capacities_3
+            else
+                @inbounds geoS.cap[II,:], _, _, geoS.centroid[II], _, mid_point[II], cut_points[II] = capacities_12
+                @inbounds geoL.cap[II,:] .= empty_capacities
+            end
+        end
+        @inbounds @threads for II in b_top[1]
+            if u[II] >= 0.0
+                @inbounds geoS.cap[II,:] .= empty_capacities
+                @inbounds _, geoL.cap[II,:], _, _, geoL.centroid[II], mid_point[II], cut_points[II] = capacities_12
+            else
+                @inbounds geoS.cap[II,:], _, _, geoS.centroid[II], _, mid_point[II], cut_points[II] = capacities_3
+                @inbounds geoL.cap[II,:] .= empty_capacities
+            end
+        end
+    end
 end
 
 function get_curvature(num, grid, inside)
@@ -724,20 +1088,20 @@ function set_cap_bcs!(grid::Mesh{GridCC,T,N}, periodic_x, periodic_y) where {T,N
     # set A and mid_point at the boundaries to 0 if not periodic in that direction
     if !periodic_x
         @inbounds @threads for i = 1:ny
-            @inbounds geoS.cap[i,1,1] = 0.0
-            @inbounds geoS.cap[i,end,3] = 0.0
-            @inbounds geoL.cap[i,1,1] = 0.0
-            @inbounds geoL.cap[i,end,3] = 0.0
+            @inbounds geoS.dcap[i,1,1] = 0.0
+            @inbounds geoS.dcap[i,end,3] = 0.0
+            @inbounds geoL.dcap[i,1,1] = 0.0
+            @inbounds geoL.dcap[i,end,3] = 0.0
             @inbounds mid_point[i,1] += Point(-0.5, 0.0)
             @inbounds mid_point[i,end] += Point(0.5, 0.0)
         end
     end
     if !periodic_y
         @inbounds @threads for i = 1:nx
-            @inbounds geoS.cap[1,i,2] = 0.0
-            @inbounds geoS.cap[end,i,4] = 0.0
-            @inbounds geoL.cap[1,i,2] = 0.0
-            @inbounds geoL.cap[end,i,4] = 0.0
+            @inbounds geoS.dcap[1,i,2] = 0.0
+            @inbounds geoS.dcap[end,i,4] = 0.0
+            @inbounds geoL.dcap[1,i,2] = 0.0
+            @inbounds geoL.dcap[end,i,4] = 0.0
             @inbounds mid_point[1,i] += Point(0.0, -0.5)
             @inbounds mid_point[end,i] += Point(0.0, 0.5)
         end
@@ -750,39 +1114,13 @@ function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, periodic_x, periodic_y) where {T,
     @unpack nx, ny, ind, u, geoS, geoL, mid_point, cut_points = grid
     @unpack b_left, b_bottom, b_right, b_top = ind
 
-    f = SA_F64[0.5, 0.5]
-    empty_capacities = SA_F64[vcat(zeros(7), zeros(4))...]
-    capacities_6 = capacities(f, 6.0)
-    capacities_9 = capacities(f, 9.0)
-
-    if !periodic_x
-        @inbounds @threads for II in b_left[1]
-            if u[II] >= 0.0
-                @inbounds geoS.cap[II,:] .= empty_capacities
-                @inbounds _, geoL.cap[II,:], _, _, geoL.centroid[II], mid_point[II], cut_points[II] = capacities_9
-            else
-                @inbounds geoS.cap[II,:], _, _, geoS.centroid[II], _, mid_point[II], cut_points[II] = capacities_6
-                @inbounds geoL.cap[II,:] .= empty_capacities
-            end
-        end
-        @inbounds @threads for II in b_right[1]
-            if u[II] >= 0.0
-                @inbounds geoS.cap[II,:] .= empty_capacities
-                @inbounds _, geoL.cap[II,:], _, _, geoL.centroid[II], mid_point[II], cut_points[II] = capacities_6
-            else
-                @inbounds geoS.cap[II,:], _, _, geoS.centroid[II], _, mid_point[II], cut_points[II] = capacities_9
-                @inbounds geoL.cap[II,:] .= empty_capacities
-            end
-        end
-    end
-
     # set A at the boundaries
     if !periodic_y
         @inbounds @threads for i = 1:nx
-            @inbounds geoS.cap[1,i,2] = 0.0
-            @inbounds geoS.cap[end,i,4] = 0.0
-            @inbounds geoL.cap[1,i,2] = 0.0
-            @inbounds geoL.cap[end,i,4] = 0.0
+            @inbounds geoS.dcap[1,i,2] = 0.0
+            @inbounds geoS.dcap[end,i,4] = 0.0
+            @inbounds geoL.dcap[1,i,2] = 0.0
+            @inbounds geoL.dcap[end,i,4] = 0.0
         end
     end
 
@@ -801,39 +1139,13 @@ function set_cap_bcs!(grid::Mesh{GridFCy,T,N}, periodic_x, periodic_y) where {T,
     @unpack nx, ny, ind, u, geoS, geoL, mid_point, cut_points = grid
     @unpack b_left, b_bottom, b_right, b_top = ind
 
-    f = SA_F64[0.5, 0.5]
-    empty_capacities = SA_F64[vcat(zeros(7), zeros(4))...]
-    capacities_3 = capacities(f, 3.0)
-    capacities_12 = capacities(f, 12.0)
-
-    if !periodic_y
-        @inbounds @threads for II in b_bottom[1]
-            if u[II] >= 0.0
-                @inbounds geoS.cap[II,:] .= empty_capacities
-                @inbounds _, geoL.cap[II,:], _, _, geoL.centroid[II], mid_point[II], cut_points[II] = capacities_3
-            else
-                @inbounds geoS.cap[II,:], _, _, geoS.centroid[II], _, mid_point[II], cut_points[II] = capacities_12
-                @inbounds geoL.cap[II,:] .= empty_capacities
-            end
-        end
-        @inbounds @threads for II in b_top[1]
-            if u[II] >= 0.0
-                @inbounds geoS.cap[II,:] .= empty_capacities
-                @inbounds _, geoL.cap[II,:], _, _, geoL.centroid[II], mid_point[II], cut_points[II] = capacities_12
-            else
-                @inbounds geoS.cap[II,:], _, _, geoS.centroid[II], _, mid_point[II], cut_points[II] = capacities_3
-                @inbounds geoL.cap[II,:] .= empty_capacities
-            end
-        end
-    end
-
     # set A at the boundaries to 0 if not periodic in that direction
     if !periodic_x
         @inbounds @threads for i = 1:ny
-            @inbounds geoS.cap[i,1,1] = 0.0
-            @inbounds geoS.cap[i,end,3] = 0.0
-            @inbounds geoL.cap[i,1,1] = 0.0
-            @inbounds geoL.cap[i,end,3] = 0.0
+            @inbounds geoS.dcap[i,1,1] = 0.0
+            @inbounds geoS.dcap[i,end,3] = 0.0
+            @inbounds geoL.dcap[i,1,1] = 0.0
+            @inbounds geoL.dcap[i,end,3] = 0.0
         end
     end
 
@@ -888,27 +1200,27 @@ function Wcapacities!(cap, periodic_x, periodic_y)
     return nothing
 end
 
-function face_capacities(grid, itp, case, II, posW, posS, posE, posN)
+function face_capacities(grid, itp, case, II_0, II, posW, posS, posE, posN)
     @unpack dx, dy, faces = grid
 
     if case == 1.0 || case == 14.0
-        faces[II, 1] = ispositive(WEST_face(itp, posW, dy[II])) / dy[II]
-        faces[II, 2] = ispositive(SOUTH_face(itp, posS, dx[II])) / dx[II]
+        faces[II, 1] = ispositive(WEST_face(itp, grid, II_0, posW, dy[II])) / dy[II]
+        faces[II, 2] = ispositive(SOUTH_face(itp, grid, II_0, posS, dx[II])) / dx[II]
     elseif case == 2.0 || case == 13.0
-        faces[II, 2] = ispositive(SOUTH_face(itp, posS, dx[II])) / dx[II]
-        faces[II, 3] = ispositive(EAST_face(itp, posE, dy[II])) / dy[II]
+        faces[II, 2] = ispositive(SOUTH_face(itp, grid, II_0, posS, dx[II])) / dx[II]
+        faces[II, 3] = ispositive(EAST_face(itp, grid, II_0, posE, dy[II])) / dy[II]
     elseif case == 3.0 || case == 12.0
-        faces[II, 1] = ispositive(WEST_face(itp, posW, dy[II])) / dy[II]
-        faces[II, 3] = ispositive(EAST_face(itp, posE, dy[II])) / dy[II]
+        faces[II, 1] = ispositive(WEST_face(itp, grid, II_0, posW, dy[II])) / dy[II]
+        faces[II, 3] = ispositive(EAST_face(itp, grid, II_0, posE, dy[II])) / dy[II]
     elseif case == 4.0 || case == 11.0
-        faces[II, 3] = ispositive(EAST_face(itp, posE, dy[II])) / dy[II]
-        faces[II, 4] = ispositive(NORTH_face(itp, posN, dx[II])) / dx[II]
+        faces[II, 3] = ispositive(EAST_face(itp, grid, II_0, posE, dy[II])) / dy[II]
+        faces[II, 4] = ispositive(NORTH_face(itp, grid, II_0, posN, dx[II])) / dx[II]
     elseif case == 6.0 || case == 9.0
-        faces[II, 2] = ispositive(SOUTH_face(itp, posS, dx[II])) / dx[II]
-        faces[II, 4] = ispositive(NORTH_face(itp, posN, dx[II])) / dx[II]
+        faces[II, 2] = ispositive(SOUTH_face(itp, grid, II_0, posS, dx[II])) / dx[II]
+        faces[II, 4] = ispositive(NORTH_face(itp, grid, II_0, posN, dx[II])) / dx[II]
     elseif case == 7.0 || case == 8.0
-        faces[II, 1] = ispositive(WEST_face(itp, posW, dy[II])) / dy[II]
-        faces[II, 4] = ispositive(NORTH_face(itp, posN, dx[II])) / dx[II]
+        faces[II, 1] = ispositive(WEST_face(itp, grid, II_0, posW, dy[II])) / dy[II]
+        faces[II, 4] = ispositive(NORTH_face(itp, grid, II_0, posN, dx[II])) / dx[II]
     end
 end
 

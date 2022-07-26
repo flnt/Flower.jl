@@ -29,7 +29,7 @@ abstract type AbstractOptimizer end
     ϵ_κ::Float64 = 0.0
     ϵ_V::Float64 = 0.0
     case::String = "notmycase"
-    cases::String = "Planar, Sphere, Cylinder, Crystal, Mullins, Nothing, Airfoil, Square"
+    cases::String = "Planar, Sphere, Cylinder, Crystal, Mullins, Nothing, Airfoil"
     A::Float64 = 0.05
     N::Int64 = 2
     R::Float64 = 0.5

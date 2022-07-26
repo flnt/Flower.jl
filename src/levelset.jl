@@ -311,10 +311,14 @@ function velocity_extension2!(V, u, inside, MIXED, n, h, NB, B, BT, pos)
 end
 
 @inline faces_scalar(itp, II_0, II, x, y, dx, dy) = 
-    @SVector [biquadratic(itp, x[II] - x[II_0] - dx/2, y[II] - y[II_0])
-    biquadratic(itp, x[II] - x[II_0], y[II] - y[II_0] - dy/2)
-    biquadratic(itp, x[II] - x[II_0] + dx/2, y[II] - y[II_0])
-    biquadratic(itp, x[II] - x[II_0], y[II] - y[II_0] + dy/2)]
+    @SVector [biquadratic(itp, (x[II] - x[II_0] - dx/2)/(x[δx⁺(II_0)] - x[δx⁻(II_0)]),
+        (y[II] - y[II_0])/(y[δy⁺(II_0)] - y[δy⁻(II_0)]))
+    biquadratic(itp, (x[II] - x[II_0])/(x[δx⁺(II_0)] - x[δx⁻(II_0)]),
+        (y[II] - y[II_0] - dy/2)/(y[δy⁺(II_0)] - y[δy⁻(II_0)]))
+    biquadratic(itp, (x[II] - x[II_0] + dx/2)/(x[δx⁺(II_0)] - x[δx⁻(II_0)]),
+        (y[II] - y[II_0])/(y[δy⁺(II_0)] - y[δy⁻(II_0)]))
+    biquadratic(itp, (x[II] - x[II_0])/(x[δx⁺(II_0)] - x[δx⁻(II_0)]),
+        (y[II] - y[II_0] + dy/2)/(y[δy⁺(II_0)] - y[δy⁻(II_0)]))]
 
 function aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
     st = static_stencil(u, II_0)

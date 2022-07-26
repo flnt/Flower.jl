@@ -175,33 +175,45 @@ function laplacian!(::Dirichlet, L, B, Dx, Dy, cap, n, BC, inside, empty, MIXED,
     return nothing
 end
 
-function set_bc_bnds(::Neumann, Nx, Ny, BC)
+function set_bc_bnds(::Neumann, Nx, Ny, BC, dx, dy)
     if is_neumann(BC.left.t)
         @inbounds Nx[:,1] .= BC.left.val
+    elseif is_dirichlet(BC.left.t)
+        @inbounds Nx[:,1] .= BC.left.val ./ dx[:,1] ./ 2.0
     end
     if is_neumann(BC.bottom.t)
-        @inbounds Ny[1,:] .= BC.bottom.val 
+        @inbounds Ny[1,:] .= BC.bottom.val
+    elseif is_dirichlet(BC.bottom.t)
+        @inbounds Ny[1,:] .= BC.bottom.val ./ dy[1,:] ./ 2.0
     end
     if is_neumann(BC.right.t)
-        @inbounds Nx[:,end] .= BC.right.val 
+        @inbounds Nx[:,end] .= BC.right.val
+    elseif is_dirichlet(BC.right.t)
+        @inbounds Nx[:,end] .= BC.right.val ./ dx[:,end] ./ 2.0
     end
     if is_neumann(BC.top.t)
-        @inbounds Ny[end,:] .= BC.top.val 
+        @inbounds Ny[end,:] .= BC.top.val
+    elseif is_dirichlet(BC.top.t)
+        @inbounds Ny[end,:] .= BC.top.val ./ dy[end,:] ./ 2.0
     end
 
     return Nx, Ny
 end
 
-@inline function set_lapl_bnd!(::Neumann, ::Dirichlet, L, A, W, n, b_indices, b_periodic)
-    @error ("Not implemented yet.\nTry Neumann or Periodic in the outer BCs.")
+@inline function set_lapl_bnd!(::Neumann, ::Dirichlet, L, A, A1, A3, B1, dx, W, n, b_indices, b_periodic)
+    # @error ("Not implemented yet.\nTry Neumann or Periodic in the outer BCs.")
+    @inbounds for II in b_indices
+        pII = lexicographic(II, n)
+        @inbounds L[pII,pII] += (A3[II] - B1[II] + B1[II] - A1[II]) / dx[II] / 2.0
+    end
     return nothing
 end
 
-@inline function set_lapl_bnd!(::Neumann, ::Neumann, L, A, W, n, b_indices, b_periodic)
+@inline function set_lapl_bnd!(::Neumann, ::Neumann, L, A, A1, A3, B1, dx, W, n, b_indices, b_periodic)
     return nothing
 end
 
-@inline function set_lapl_bnd!(::Neumann, ::Periodic, L, A, W, n, b_indices, b_periodic)
+@inline function set_lapl_bnd!(::Neumann, ::Periodic, L, A, A1, A3, B1, dx, W, n, b_indices, b_periodic)
     @inbounds for (II, JJ) in zip(b_indices, b_periodic)
         pII = lexicographic(II, n)
         pJJ = lexicographic(JJ, n)
@@ -210,7 +222,104 @@ end
     return nothing
 end
 
-function laplacian!(::Neumann, L, B, Nx, Ny, cap, n, BC, inside, empty, ns_vec, b_left, b_bottom, b_right, b_top)
+function laplacian!(::Neumann, L, B, Nx, Ny, cap, capu, capv, dx, dy, n, BC, inside, empty, MIXED, ns_vec, b_left, b_bottom, b_right, b_top)
+    B .= 0.0
+    @inbounds @threads for II in inside
+        pII = lexicographic(II, n)
+        A1, A2, A3, A4, B1, B2, _, _, _, _ = get_capacities(cap, II)
+        @inbounds W1 = capu[II, 5] + eps(0.01)
+        @inbounds W2 = capv[II, 5] + eps(0.01)
+        @inbounds W3 = capu[δx⁺(II), 5] + eps(0.01)
+        @inbounds W4 = capv[δy⁺(II), 5] + eps(0.01)
+
+        @inbounds L[pII,pII] = -(A1^2 / W1 + A2^2 / W2 + A3^2 / W3 + A4^2 / W4)
+
+        @inbounds B[pII] += -(A3 - B1) * Nx[II] - (B1 - A1) * Nx[II]
+        @inbounds B[pII] += -(A4 - B2) * Ny[II] - (B2 - A2) * Ny[II]
+
+        @inbounds L[pII,pII+n] = A3^2 / W3
+        @inbounds L[pII,pII-n] = A1^2 / W1
+        @inbounds L[pII,pII+1] = A4^2 / W4
+        @inbounds L[pII,pII-1] = A2^2 / W2
+    end
+
+    @inbounds @threads for II in vcat(b_left, b_bottom[2:end-1], b_right, b_top[2:end-1])
+        pII = lexicographic(II, n)
+        A1, A2, A3, A4, B1, B2, _, _, _, _ = get_capacities(cap, II)
+        @inbounds W1 = capu[II, 5] + eps(0.01)
+        @inbounds W2 = capv[II, 5] + eps(0.01)
+        @inbounds W3 = capu[δx⁺(II), 5] + eps(0.01)
+        @inbounds W4 = capv[δy⁺(II), 5] + eps(0.01)
+        
+        @inbounds L[pII,pII] = -(A1^2 / W1 + A2^2 / W2 + A3^2 / W3 + A4^2 / W4)
+
+        @inbounds B[pII] += -(A3 - B1) * Nx[II] - (B1 - A1) * Nx[II]
+        @inbounds B[pII] += -(A4 - B2) * Ny[II] - (B2 - A2) * Ny[II]
+    end
+    @inbounds @threads for II in vcat(b_left, b_bottom[2:end-1], b_top[2:end-1])
+        pII = lexicographic(II, n)
+        A1, A2, A3, A4, B1, B2, _, _, _, _ = get_capacities(cap, II)
+        @inbounds W3 = capu[δx⁺(II), 5] + eps(0.01)
+
+        @inbounds L[pII,pII+n] = A3^2 / W3
+    end
+    @inbounds @threads for II in vcat(b_bottom[2:end-1], b_right, b_top[2:end-1])
+        pII = lexicographic(II, n)
+        A1, A2, A3, A4, B1, B2, _, _, _, _ = get_capacities(cap, II)
+        @inbounds W1 = capu[II, 5] + eps(0.01)
+
+        @inbounds L[pII,pII-n] = A1^2 / W1
+    end
+    @inbounds @threads for II in vcat(b_left[2:end-1], b_bottom, b_right[2:end-1])
+        pII = lexicographic(II, n)
+        A1, A2, A3, A4, B1, B2, _, _, _, _ = get_capacities(cap, II)
+        @inbounds W4 = capv[δy⁺(II), 5] + eps(0.01)
+
+        @inbounds L[pII,pII+1] = A4^2 / W4
+    end
+    @inbounds @threads for II in vcat(b_left[2:end-1], b_right[2:end-1], b_top)
+        pII = lexicographic(II, n)
+        A1, A2, A3, A4, B1, B2, _, _, _, _ = get_capacities(cap, II)
+        @inbounds W2 = capv[II, 5] + eps(0.01)
+
+        @inbounds L[pII,pII-1] = A2^2 / W2
+    end
+
+    ns_vec .= 1.
+    @inbounds @threads for II in empty
+        pII = lexicographic(II, n)
+        if sum(abs.(L[pII,:])) <= 1e-10
+            @inbounds L[pII,pII] = -4.0
+            @inbounds ns_vec[pII] = 0.
+        end
+    end
+    @inbounds @threads for II in MIXED
+        pII = lexicographic(II, n)
+        if sum(abs.(L[pII,:])) <= 1e-10
+            @inbounds L[pII,pII] = -4.0
+            @inbounds ns_vec[pII] = 0.
+        end
+    end
+    ns_vec ./= norm(ns_vec)
+
+    @inbounds _A1 = cap[:,:,1]
+    @inbounds _A2 = cap[:,:,2]
+    @inbounds _A3 = cap[:,:,3]
+    @inbounds _A4 = cap[:,:,4]
+    @inbounds _W1 = capu[:,1:end-1,5]
+    @inbounds _W2 = capv[1:end-1,:,5]
+    @inbounds _W3 = capu[:,2:end,5]
+    @inbounds _W4 = capv[2:end,:,5]
+
+    set_lapl_bnd!(neu, BC.left.t, L, _A1, A1, A3, B1, dx, _W1, n, b_left, b_right)
+    set_lapl_bnd!(neu, BC.bottom.t, L, _A2, A2, A4, B2, dy, _W2, n, b_bottom, b_top)
+    set_lapl_bnd!(neu, BC.right.t, L, _A3, A1, A3, B1, dx, _W3, n, b_right, b_left)
+    set_lapl_bnd!(neu, BC.top.t, L, _A4, A2, A4, B2, dy, _W4, n, b_top, b_bottom)
+
+    return nothing
+end
+
+function laplacian!(::Neumann, L, B, Nx, Ny, cap, dx, dy, n, BC, inside, empty, MIXED, ns_vec, b_left, b_bottom, b_right, b_top)
     B .= 0.0
     @inbounds @threads for II in inside
         pII = lexicographic(II, n)
@@ -269,21 +378,30 @@ function laplacian!(::Neumann, L, B, Nx, Ny, cap, n, BC, inside, empty, ns_vec, 
             @inbounds ns_vec[pII] = 0.
         end
     end
+    @inbounds @threads for II in MIXED
+        pII = lexicographic(II, n)
+        if sum(abs.(L[pII,:])) <= 1e-10
+            @inbounds L[pII,pII] = -4.0
+            @inbounds ns_vec[pII] = 0.
+        end
+    end
     ns_vec ./= norm(ns_vec)
 
     @inbounds _A1 = cap[:,:,1]
     @inbounds _A2 = cap[:,:,2]
     @inbounds _A3 = cap[:,:,3]
     @inbounds _A4 = cap[:,:,4]
+    @inbounds _B1 = cap[:,:,6]
+    @inbounds _B2 = cap[:,:,7]
     @inbounds _W1 = cap[:,:,8]
     @inbounds _W2 = cap[:,:,9]
     @inbounds _W3 = cap[:,:,10]
     @inbounds _W4 = cap[:,:,11]
 
-    set_lapl_bnd!(neu, BC.left.t, L, _A1, _W1, n, b_left, b_right)
-    set_lapl_bnd!(neu, BC.bottom.t, L, _A2, _W2, n, b_bottom, b_top)
-    set_lapl_bnd!(neu, BC.right.t, L, _A3, _W3, n, b_right, b_left)
-    set_lapl_bnd!(neu, BC.top.t, L, _A4, _W4, n, b_top, b_bottom)
+    set_lapl_bnd!(neu, BC.left.t, L, _A1, _A1, _A3, _B1, dx, _W1, n, b_left, b_right)
+    set_lapl_bnd!(neu, BC.bottom.t, L, _A2, _A2, _A4, _B2, dy, _W2, n, b_bottom, b_top)
+    set_lapl_bnd!(neu, BC.right.t, L, _A3, _A1, _A3, _B1, dx, _W3, n, b_right, b_left)
+    set_lapl_bnd!(neu, BC.top.t, L, _A4, _A2, _A4, _B2, dy, _W4, n, b_top, b_bottom)
 
     return nothing
 end
@@ -340,7 +458,7 @@ function divergence!(::Dirichlet, Ox, Oy, Bx, By, Dx, Dy, cap, capu, capv, n, al
 end
 
 @inline function set_grad_bnd!(::Neumann, ::Dirichlet, O, B, nuv, np, b_indices, b_periodic)
-    @error ("Not implemented yet.\nTry Neumann or Periodic in the outer BCs.")
+    # @error ("Not implemented yet.\nTry Neumann or Periodic in the outer BCs.")
     return nothing
 end
 
