@@ -31,9 +31,9 @@ function set_stokes!(grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
     CUTum1 .= CUTu
     CUTvm1 .= CUTv
 
-    empty_laplacian(grid, Lpm1)
-    empty_laplacian(grid_u, Lum1)
-    empty_laplacian(grid_v, Lvm1)
+    empty_laplacian(grid, Lpm1, empty, MIXED)
+    empty_laplacian(grid_u, Lum1, empty_u, MIXED_u)
+    empty_laplacian(grid_v, Lvm1, empty_v, MIXED_v)
 
     bcpx .= 0.
     bcpy .= 0.

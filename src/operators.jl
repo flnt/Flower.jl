@@ -1,5 +1,5 @@
-function empty_laplacian(grid, O)
-    @inbounds @threads for II in grid.ind.inside
+function empty_laplacian(grid, O, empty, MIXED)
+    @inbounds @threads for II in vcat(empty, MIXED)
         pII = lexicographic(II, grid.ny)
         if (sum(abs.(O[pII,:]))-4.0) <= 1e-8
             O[pII,pII] = 0.0
