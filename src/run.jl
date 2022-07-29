@@ -666,7 +666,6 @@ function run_forward(num, grid, grid_u, grid_v,
                             iMuSm1, iMvSm1, iMGxSm1, iMGySm1,
                             MIXED, MIXED_u, MIXED_v, SOLID, LIQUID, LIQUID_u, LIQUID_v,
                             FRESH_S, FRESH_S_u, FRESH_S_v, ns_advection)
-                
             end
             if ns_liquid_phase
                 set_stokes!(grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, opL, phL,

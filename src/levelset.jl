@@ -372,17 +372,17 @@ function interpolate_scalar!(grid, grid_u, grid_v, u, uu, uv)
         aux_interpolate_scalar!(δy⁻(II), II, u, x, y, dx, dy, u_faces)
     end
 
-    @inbounds uu[:,1] .= u_faces[:,1,1]
-    @inbounds uu[:,end] .= u_faces[:,end,3]
+    @inbounds uu[:,1] .= @view u_faces[:,1,1]
+    @inbounds uu[:,end] .= @view u_faces[:,end,3]
 
-    @inbounds uv[1,:] .= u_faces[1,:,2]
-    @inbounds uv[end,:] .= u_faces[end,:,4]
+    @inbounds uv[1,:] .= @view u_faces[1,:,2]
+    @inbounds uv[end,:] .= @view u_faces[end,:,4]
 
     @inbounds @threads for i = 1:grid_u.ny
-        @inbounds uu[i,2:end-1] .= 0.5 * (u_faces[i,1:end-1,3] .+ u_faces[i,2:end,1])
+        @inbounds uu[i,2:end-1] .= @views 0.5 * (u_faces[i,1:end-1,3] .+ u_faces[i,2:end,1])
     end
     @inbounds @threads for i = 1:grid_v.nx
-        @inbounds uv[2:end-1,i] .= 0.5 * (u_faces[1:end-1,i,4] .+ u_faces[2:end,i,2])
+        @inbounds uv[2:end-1,i] .= @views 0.5 * (u_faces[1:end-1,i,4] .+ u_faces[2:end,i,2])
     end
     
     return nothing

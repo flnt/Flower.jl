@@ -168,7 +168,7 @@ function clip_cells!(grid, MIXED, ϵ)
         clip_small_cell!(geoS, II, ϵ, nx, ny)
         clip_small_cell!(geoL, II, ϵ, nx, ny)
     end
-    @inbounds @threads for II in ind.b_left[1][2:end-1]
+    @inbounds @threads for II in @view ind.b_left[1][2:end-1]
         if geoS.cap[II,5] > (1.0-ϵ)
             geoS.cap[II,2:11] .= vcat(ones(6), 0.5.*ones(4))
             geoS.cap[δy⁻(II),4] = 1.0
@@ -176,7 +176,7 @@ function clip_cells!(grid, MIXED, ϵ)
             geoS.cap[δy⁺(II),2] = 1.0
         end
     end
-    @inbounds @threads for II in ind.b_left[1][2:end-1]
+    @inbounds @threads for II in @view ind.b_left[1][2:end-1]
         if geoS.cap[II,5] < ϵ
             geoS.cap[II,:] .= 0.
             geoS.cap[δy⁻(II),4] = 0.
@@ -184,7 +184,7 @@ function clip_cells!(grid, MIXED, ϵ)
             geoS.cap[δy⁺(II),2] = 0.
         end
     end
-    @inbounds @threads for II in ind.b_bottom[1][2:end-1]
+    @inbounds @threads for II in @view ind.b_bottom[1][2:end-1]
         if geoS.cap[II,5] > (1.0-ϵ)
             geoS.cap[II,1] = 1.0
             geoS.cap[II,3:11] .= vcat(ones(5), 0.5.*ones(4))
@@ -193,7 +193,7 @@ function clip_cells!(grid, MIXED, ϵ)
             geoS.cap[δy⁺(II),2] = 1.0
         end
     end
-    @inbounds @threads for II in ind.b_bottom[1][2:end-1]
+    @inbounds @threads for II in @view ind.b_bottom[1][2:end-1]
         if geoS.cap[II,5] < ϵ
             geoS.cap[II,:] .= 0.
             geoS.cap[δx⁻(II),3] = 0.
@@ -201,7 +201,7 @@ function clip_cells!(grid, MIXED, ϵ)
             geoS.cap[δy⁺(II),2] = 0.
         end
     end
-    @inbounds @threads for II in ind.b_right[1][2:end-1]
+    @inbounds @threads for II in @view ind.b_right[1][2:end-1]
         if geoS.cap[II,5] > (1.0-ϵ)
             geoS.cap[II,1:2] .= ones(2)
             geoS.cap[II,4:11] .= vcat(ones(4), 0.5.*ones(4))
@@ -210,7 +210,7 @@ function clip_cells!(grid, MIXED, ϵ)
             geoS.cap[δy⁺(II),2] = 1.0
         end
     end
-    @inbounds @threads for II in ind.b_right[1][2:end-1]
+    @inbounds @threads for II in @view ind.b_right[1][2:end-1]
         if geoS.cap[II,5] < ϵ
             geoS.cap[II,:] .= 0.
             geoS.cap[δx⁻(II),3] = 0.
@@ -218,7 +218,7 @@ function clip_cells!(grid, MIXED, ϵ)
             geoS.cap[δy⁺(II),2] = 0.
         end
     end
-    @inbounds @threads for II in ind.b_top[1][2:end-1]
+    @inbounds @threads for II in @view ind.b_top[1][2:end-1]
         if geoS.cap[II,5] > (1.0-ϵ)
             geoS.cap[II,1:3] .= ones(3)
             geoS.cap[II,5:11] .= vcat(ones(3), 0.5.*ones(4))
@@ -227,7 +227,7 @@ function clip_cells!(grid, MIXED, ϵ)
             geoS.cap[δx⁺(II),1] = 1.0
         end
     end
-    @inbounds @threads for II in ind.b_top[1][2:end-1]
+    @inbounds @threads for II in @view ind.b_top[1][2:end-1]
         if geoS.cap[II,5] < ϵ
             geoS.cap[II,:] .= 0.
             geoS.cap[δx⁻(II),3] = 0.
@@ -235,7 +235,7 @@ function clip_cells!(grid, MIXED, ϵ)
             geoS.cap[δx⁺(II),1] = 0.
         end
     end
-    @inbounds @threads for II in ind.b_left[1][2:end-1]
+    @inbounds @threads for II in @view ind.b_left[1][2:end-1]
         if geoL.cap[II,5] > (1.0-ϵ)
             geoL.cap[II,2:11] .= vcat(ones(6), 0.5.*ones(4))
             geoL.cap[δy⁻(II),4] = 1.0
@@ -243,7 +243,7 @@ function clip_cells!(grid, MIXED, ϵ)
             geoL.cap[δy⁺(II),2] = 1.0
         end
     end
-    @inbounds @threads for II in ind.b_left[1][2:end-1]
+    @inbounds @threads for II in @view ind.b_left[1][2:end-1]
         if geoL.cap[II,5] < ϵ
             geoL.cap[II,:] .= 0.
             geoL.cap[δy⁻(II),4] = 0.
@@ -251,7 +251,7 @@ function clip_cells!(grid, MIXED, ϵ)
             geoL.cap[δy⁺(II),2] = 0.
         end
     end
-    @inbounds @threads for II in ind.b_bottom[1][2:end-1]
+    @inbounds @threads for II in @view ind.b_bottom[1][2:end-1]
         if geoL.cap[II,5] > (1.0-ϵ)
             geoL.cap[II,1] = 1.0
             geoL.cap[II,3:11] .= vcat(ones(5), 0.5.*ones(4))
@@ -260,7 +260,7 @@ function clip_cells!(grid, MIXED, ϵ)
             geoL.cap[δy⁺(II),2] = 1.0
         end
     end
-    @inbounds @threads for II in ind.b_bottom[1][2:end-1]
+    @inbounds @threads for II in @view ind.b_bottom[1][2:end-1]
         if geoL.cap[II,5] < ϵ
             geoL.cap[II,:] .= 0.
             geoL.cap[δx⁻(II),3] = 0.
@@ -268,7 +268,7 @@ function clip_cells!(grid, MIXED, ϵ)
             geoL.cap[δy⁺(II),2] = 0.
         end
     end
-    @inbounds @threads for II in ind.b_right[1][2:end-1]
+    @inbounds @threads for II in @view ind.b_right[1][2:end-1]
         if geoL.cap[II,5] > (1.0-ϵ)
             geoL.cap[II,1:2] .= ones(2)
             geoL.cap[II,4:11] .= vcat(ones(4), 0.5.*ones(4))
@@ -277,7 +277,7 @@ function clip_cells!(grid, MIXED, ϵ)
             geoL.cap[δy⁺(II),2] = 1.0
         end
     end
-    @inbounds @threads for II in ind.b_right[1][2:end-1]
+    @inbounds @threads for II in @view ind.b_right[1][2:end-1]
         if geoL.cap[II,5] < ϵ
             geoL.cap[II,:] .= 0.
             geoL.cap[δx⁻(II),3] = 0.
@@ -285,7 +285,7 @@ function clip_cells!(grid, MIXED, ϵ)
             geoL.cap[δy⁺(II),2] = 0.
         end
     end
-    @inbounds @threads for II in ind.b_top[1][2:end-1]
+    @inbounds @threads for II in @view ind.b_top[1][2:end-1]
         if geoL.cap[II,5] > (1.0-ϵ)
             geoL.cap[II,1:3] .= ones(3)
             geoL.cap[II,5:11] .= vcat(ones(3), 0.5.*ones(4))
@@ -294,7 +294,7 @@ function clip_cells!(grid, MIXED, ϵ)
             geoL.cap[δx⁺(II),1] = 1.0
         end
     end
-    @inbounds @threads for II in ind.b_top[1][2:end-1]
+    @inbounds @threads for II in @view ind.b_top[1][2:end-1]
         if geoL.cap[II,5] < ϵ
             geoL.cap[II,:] .= 0.
             geoL.cap[δx⁻(II),3] = 0.
@@ -396,17 +396,17 @@ function dimensionalize!(grid, geo)
     @unpack dx, dy = grid
     @unpack cap, dcap = geo
 
-    dcap[:,:,1] .= cap[:,:,1] .* dy
-    dcap[:,:,2] .= cap[:,:,2] .* dx
-    dcap[:,:,3] .= cap[:,:,3] .* dy
-    dcap[:,:,4] .= cap[:,:,4] .* dx
-    dcap[:,:,5] .= cap[:,:,5] .* dx .* dy
-    dcap[:,:,6] .= cap[:,:,6] .* dy
-    dcap[:,:,7] .= cap[:,:,7] .* dx
-    dcap[:,:,8] .= cap[:,:,8] .* dx .* dy
-    dcap[:,:,9] .= cap[:,:,9] .* dx .* dy
-    dcap[:,:,10] .= cap[:,:,10] .* dx .* dy
-    dcap[:,:,11] .= cap[:,:,11] .* dx .* dy
+    @inbounds dcap[:,:,1] .= view(cap,:,:,1) .* dy
+    @inbounds dcap[:,:,2] .= view(cap,:,:,2) .* dx
+    @inbounds dcap[:,:,3] .= view(cap,:,:,3) .* dy
+    @inbounds dcap[:,:,4] .= view(cap,:,:,4) .* dx
+    @inbounds dcap[:,:,5] .= view(cap,:,:,5) .* dx .* dy
+    @inbounds dcap[:,:,6] .= view(cap,:,:,6) .* dy
+    @inbounds dcap[:,:,7] .= view(cap,:,:,7) .* dx
+    @inbounds dcap[:,:,8] .= view(cap,:,:,8) .* dx .* dy
+    @inbounds dcap[:,:,9] .= view(cap,:,:,9) .* dx .* dy
+    @inbounds dcap[:,:,10] .= view(cap,:,:,10) .* dx .* dy
+    @inbounds dcap[:,:,11] .= view(cap,:,:,11) .* dx .* dy
 
     return nothing
 end
@@ -1183,18 +1183,18 @@ end
 function Wcapacities!(cap, periodic_x, periodic_y)
     tmp = copy(cap)
 
-    @inbounds cap[:,2:end,8] .= tmp[:,2:end,8] .+ tmp[:,1:end-1,10]
-    @inbounds cap[:,1:end-1,10] .= tmp[:,1:end-1,10] .+ tmp[:,2:end,8]
-    @inbounds cap[2:end,:,9] .= tmp[2:end,:,9] .+ tmp[1:end-1,:,11]
-    @inbounds cap[1:end-1,:,11] .= tmp[1:end-1,:,11] .+ tmp[2:end,:,9]
+    @inbounds cap[:,2:end,8] .= @views tmp[:,2:end,8] .+ tmp[:,1:end-1,10]
+    @inbounds cap[:,1:end-1,10] .= @views tmp[:,1:end-1,10] .+ tmp[:,2:end,8]
+    @inbounds cap[2:end,:,9] .= @views tmp[2:end,:,9] .+ tmp[1:end-1,:,11]
+    @inbounds cap[1:end-1,:,11] .= @views tmp[1:end-1,:,11] .+ tmp[2:end,:,9]
 
     if periodic_x
-        @inbounds cap[:,1,8] .= tmp[:,1,8] .+ tmp[:,end,10]
-        @inbounds cap[:,end,10] .= tmp[:,end,10] .+ tmp[:,1,8]
+        @inbounds cap[:,1,8] .= @views tmp[:,1,8] .+ tmp[:,end,10]
+        @inbounds cap[:,end,10] .= @views tmp[:,end,10] .+ tmp[:,1,8]
     end
     if periodic_y
-        @inbounds cap[1,:,9] .= tmp[1,:,9] .+ tmp[end,:,11]
-        @inbounds cap[end,:,11] .= tmp[end,:,11] .+ tmp[1,:,9]
+        @inbounds cap[1,:,9] .= @views tmp[1,:,9] .+ tmp[end,:,11]
+        @inbounds cap[end,:,11] .= @views tmp[end,:,11] .+ tmp[1,:,9]
     end
 
     return nothing
@@ -1284,16 +1284,16 @@ function average_face_capacities!(a)
     # average face capacities due to mismatch in iso 
     n = size(a,1)
     @inbounds @threads for i = 1:n
-        @inbounds tmp1 = a[i,1:end-1,3]
-        @inbounds tmp2 = a[i,2:end,1]
+        @inbounds tmp1 = @view a[i,1:end-1,3]
+        @inbounds tmp2 = @view a[i,2:end,1]
         @inbounds avg_cap = 0.5*(tmp1 .+ tmp2)
         @inbounds a[i,1:end-1,3] .= avg_cap
         @inbounds a[i,2:end,1] .= avg_cap
     end
     n = size(a,2)
     @inbounds @threads for i = 1:n
-        @inbounds tmp1 = a[1:end-1,i,4]
-        @inbounds tmp2 = a[2:end,i,2]
+        @inbounds tmp1 = @view a[1:end-1,i,4]
+        @inbounds tmp2 = @view a[2:end,i,2]
         @inbounds avg_cap = 0.5*(tmp1 .+ tmp2)
         @inbounds a[1:end-1,i,4] .= avg_cap
         @inbounds a[2:end,i,2] .= avg_cap
@@ -1463,13 +1463,15 @@ end
 function kill_dead_cells!(T::Matrix, L, EMPTY, MIXED, n)
     @inbounds @threads for II in EMPTY
         pII = lexicographic(II, n)
-        if sum(abs.(L[pII,:])) <= (4.0 + 1e-7) && sum(abs.(L[pII,:])) >= (4.0 - 1e-7)
+        sumL = abs(sum(abs.(L[:,pII])) - 4.0)
+        if sumL <= 1e-8
             T[II] = 0.
         end
     end
     @inbounds @threads for II in MIXED
         pII = lexicographic(II, n)
-        if sum(abs.(L[pII,:])) <= (4.0 + 1e-7) && sum(abs.(L[pII,:])) >= (4.0 - 1e-7)
+        sumL = abs(sum(abs.(L[:,pII])) - 4.0)
+        if sumL <= 1e-8
             T[II] = 0.
         end
     end
@@ -1478,13 +1480,15 @@ end
 function kill_dead_cells!(T::Vector, L, EMPTY, MIXED, n)
     @inbounds @threads for II in EMPTY
         pII = lexicographic(II, n)
-        if sum(abs.(L[pII,:])) <= (4.0 + 1e-7) && sum(abs.(L[pII,:])) >= (4.0 - 1e-7)
+        sumL = abs(sum(abs.(L[:,pII])) - 4.0)
+        if sumL <= 1e-8
             T[pII] = 0.
         end
     end
     @inbounds @threads for II in MIXED
         pII = lexicographic(II, n)
-        if sum(abs.(L[pII,:])) <= (4.0 + 1e-7) && sum(abs.(L[pII,:])) >= (4.0 - 1e-7)
+        sumL = abs(sum(abs.(L[:,pII])) - 4.0)
+        if sumL <= 1e-8
             T[pII] = 0.
         end
     end

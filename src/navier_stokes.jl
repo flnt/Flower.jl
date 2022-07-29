@@ -138,8 +138,6 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
     kill_dead_cells!(p, Lp, EMPTY, MIXED, grid.ny)
     kill_dead_cells!(u, Lu, EMPTY_u, MIXED_u, grid_u.ny)
     kill_dead_cells!(v, Lv, EMPTY_v, MIXED_v, grid_v.ny)
-    kill_dead_cells!(Gxm1, Lu, EMPTY_u, MIXED_u, grid_u.ny)
-    kill_dead_cells!(Gym1, Lv, EMPTY_v, MIXED_v, grid_v.ny)
 
     Δu = Lu * vec(u) .+ CUTu
     Δv = Lv * vec(v) .+ CUTv
@@ -156,11 +154,12 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
         Bδvcorr[pII] = 0.
     end
 
-    update_ksp_solver!(kspu, Au)
-    update_ksp_solver!(kspv, Av)
-
-    δucorr = reshape(kspu \ Bδucorr, (grid_u.ny, grid_u.nx))
-    δvcorr = reshape(kspv \ Bδvcorr, (grid_v.ny, grid_v.nx))
+    # update_ksp_solver!(kspu, Au)
+    # update_ksp_solver!(kspv, Av)
+    # δucorr = reshape(kspu \ Bδucorr, (grid_u.ny, grid_u.nx))
+    # δvcorr = reshape(kspv \ Bδvcorr, (grid_v.ny, grid_v.nx))
+    δucorr = reshape(cg(Au, Bδucorr), (grid_u.ny, grid_u.nx))
+    δvcorr = reshape(cg(Av, Bδvcorr), (grid_v.ny, grid_v.nx))
     ucorr = δucorr .+ u
     vcorr = δvcorr .+ v
 

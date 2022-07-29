@@ -1,7 +1,7 @@
 function empty_laplacian(grid, O, empty, MIXED)
     @inbounds @threads for II in vcat(empty, MIXED)
         pII = lexicographic(II, grid.ny)
-        if (sum(abs.(O[pII,:]))-4.0) <= 1e-8
+        if (sum(abs.(O[:,pII]))-4.0) <= 1e-8
             O[pII,pII] = 0.0
         end
     end
@@ -145,27 +145,27 @@ function laplacian!(::Dirichlet, L, B, Dx, Dy, cap, n, BC, inside, empty, MIXED,
 
     @inbounds @threads for II in empty
         pII = lexicographic(II, n)
-        if sum(abs.(L[pII,:])) <= 1e-10
+        if sum(abs.(L[:,pII])) <= 1e-10
             @inbounds L[pII,pII] = -4.0
         end
     end
     @inbounds @threads for II in MIXED
         pII = lexicographic(II, n)
-        if sum(abs.(L[pII,:])) <= 1e-10
+        if sum(abs.(L[:,pII])) <= 1e-10
             @inbounds L[pII,pII] = -4.0
         end
     end
 
-    @inbounds _A1 = cap[:,:,1]
-    @inbounds _A2 = cap[:,:,2]
-    @inbounds _A3 = cap[:,:,3]
-    @inbounds _A4 = cap[:,:,4]
-    @inbounds _B1 = cap[:,:,6]
-    @inbounds _B2 = cap[:,:,7]
-    @inbounds _W1 = cap[:,:,8]
-    @inbounds _W2 = cap[:,:,9]
-    @inbounds _W3 = cap[:,:,10]
-    @inbounds _W4 = cap[:,:,11]
+    @inbounds _A1 = @view cap[:,:,1]
+    @inbounds _A2 = @view cap[:,:,2]
+    @inbounds _A3 = @view cap[:,:,3]
+    @inbounds _A4 = @view cap[:,:,4]
+    @inbounds _B1 = @view cap[:,:,6]
+    @inbounds _B2 = @view cap[:,:,7]
+    @inbounds _W1 = @view cap[:,:,8]
+    @inbounds _W2 = @view cap[:,:,9]
+    @inbounds _W3 = @view cap[:,:,10]
+    @inbounds _W4 = @view cap[:,:,11]
 
     set_lapl_bnd!(dir, BC.left.t, L, _B1, _W1, _A1, n, b_left, b_right)
     set_lapl_bnd!(dir, BC.bottom.t, L, _B2, _W2, _A2, n, b_bottom, b_top)
@@ -288,28 +288,28 @@ function laplacian!(::Neumann, L, B, Nx, Ny, cap, capu, capv, dx, dy, n, BC, ins
     ns_vec .= 1.
     @inbounds @threads for II in empty
         pII = lexicographic(II, n)
-        if sum(abs.(L[pII,:])) <= 1e-10
+        if sum(abs.(L[:,pII])) <= 1e-10
             @inbounds L[pII,pII] = -4.0
             @inbounds ns_vec[pII] = 0.
         end
     end
     @inbounds @threads for II in MIXED
         pII = lexicographic(II, n)
-        if sum(abs.(L[pII,:])) <= 1e-10
+        if sum(abs.(L[:,pII])) <= 1e-10
             @inbounds L[pII,pII] = -4.0
             @inbounds ns_vec[pII] = 0.
         end
     end
     ns_vec ./= norm(ns_vec)
 
-    @inbounds _A1 = cap[:,:,1]
-    @inbounds _A2 = cap[:,:,2]
-    @inbounds _A3 = cap[:,:,3]
-    @inbounds _A4 = cap[:,:,4]
-    @inbounds _W1 = capu[:,1:end-1,5]
-    @inbounds _W2 = capv[1:end-1,:,5]
-    @inbounds _W3 = capu[:,2:end,5]
-    @inbounds _W4 = capv[2:end,:,5]
+    @inbounds _A1 = @view cap[:,:,1]
+    @inbounds _A2 = @view cap[:,:,2]
+    @inbounds _A3 = @view cap[:,:,3]
+    @inbounds _A4 = @view cap[:,:,4]
+    @inbounds _W1 = @view capu[:,1:end-1,5]
+    @inbounds _W2 = @view capv[1:end-1,:,5]
+    @inbounds _W3 = @view capu[:,2:end,5]
+    @inbounds _W4 = @view capv[2:end,:,5]
 
     set_lapl_bnd!(neu, BC.left.t, L, _A1, A1, A3, B1, dx, _W1, n, b_left, b_right)
     set_lapl_bnd!(neu, BC.bottom.t, L, _A2, A2, A4, B2, dy, _W2, n, b_bottom, b_top)
@@ -373,30 +373,30 @@ function laplacian!(::Neumann, L, B, Nx, Ny, cap, dx, dy, n, BC, inside, empty, 
     ns_vec .= 1.
     @inbounds @threads for II in empty
         pII = lexicographic(II, n)
-        if sum(abs.(L[pII,:])) <= 1e-10
+        if sum(abs.(L[:,pII])) <= 1e-10
             @inbounds L[pII,pII] = -4.0
             @inbounds ns_vec[pII] = 0.
         end
     end
     @inbounds @threads for II in MIXED
         pII = lexicographic(II, n)
-        if sum(abs.(L[pII,:])) <= 1e-10
+        if sum(abs.(L[:,pII])) <= 1e-10
             @inbounds L[pII,pII] = -4.0
             @inbounds ns_vec[pII] = 0.
         end
     end
     ns_vec ./= norm(ns_vec)
 
-    @inbounds _A1 = cap[:,:,1]
-    @inbounds _A2 = cap[:,:,2]
-    @inbounds _A3 = cap[:,:,3]
-    @inbounds _A4 = cap[:,:,4]
-    @inbounds _B1 = cap[:,:,6]
-    @inbounds _B2 = cap[:,:,7]
-    @inbounds _W1 = cap[:,:,8]
-    @inbounds _W2 = cap[:,:,9]
-    @inbounds _W3 = cap[:,:,10]
-    @inbounds _W4 = cap[:,:,11]
+    @inbounds _A1 = @view cap[:,:,1]
+    @inbounds _A2 = @view cap[:,:,2]
+    @inbounds _A3 = @view cap[:,:,3]
+    @inbounds _A4 = @view cap[:,:,4]
+    @inbounds _B1 = @view cap[:,:,6]
+    @inbounds _B2 = @view cap[:,:,7]
+    @inbounds _W1 = @view cap[:,:,8]
+    @inbounds _W2 = @view cap[:,:,9]
+    @inbounds _W3 = @view cap[:,:,10]
+    @inbounds _W4 = @view cap[:,:,11]
 
     set_lapl_bnd!(neu, BC.left.t, L, _A1, _A1, _A3, _B1, dx, _W1, n, b_left, b_right)
     set_lapl_bnd!(neu, BC.bottom.t, L, _A2, _A2, _A4, _B2, dy, _W2, n, b_bottom, b_top)
@@ -424,10 +424,10 @@ end
 end
 
 @inline function divergence_boundaries(::Dirichlet, Ox, Oy, Dx, Dy, cap, capu, capv, n, BCu, BCv, b_left, b_bottom, b_right, b_top)
-    set_div_bnd!(dir, BCu.left.t, x->x, Ox, cap[:,:,6], cap[:,:,1], n, n, b_left)
-    set_div_bnd!(dir, BCv.bottom.t, x->x, Oy, cap[:,:,7], cap[:,:,2], n, n+1, b_bottom)
-    set_div_bnd!(dir, BCu.right.t, δx⁺, Ox, cap[:,:,3], cap[:,:,6], n, n, b_right)
-    set_div_bnd!(dir, BCv.top.t, δy⁺, Oy, cap[:,:,4], cap[:,:,7], n, n+1, b_top)
+    set_div_bnd!(dir, BCu.left.t, x->x, Ox, view(cap,:,:,6), view(cap,:,:,1), n, n, b_left)
+    set_div_bnd!(dir, BCv.bottom.t, x->x, Oy, view(cap,:,:,7), view(cap,:,:,2), n, n+1, b_bottom)
+    set_div_bnd!(dir, BCu.right.t, δx⁺, Ox, view(cap,:,:,3), view(cap,:,:,6), n, n, b_right)
+    set_div_bnd!(dir, BCv.top.t, δy⁺, Oy, view(cap,:,:,4), view(cap,:,:,7), n, n+1, b_top)
 end
 
 function divergence!(::Dirichlet, Ox, Oy, Bx, By, Dx, Dy, cap, capu, capv, n, all_indices)
@@ -479,10 +479,10 @@ function gradient!(::Neumann, Ox, Oy, Divx, Divy, cap, capu, capv, n, BC, b_left
     mat_T_op!(Ox, Divx, x->-x)
     mat_T_op!(Oy, Divy, x->-x)
 
-    set_grad_bnd!(neu, BC.left.t, Ox, -cap[:,:,1], n, n, b_left_u, b_right_p)
-    set_grad_bnd!(neu, BC.bottom.t, Oy, -cap[:,:,2], n+1, n, b_bottom_v, b_top_p)
-    set_grad_bnd!(neu, BC.right.t, Ox, cap[:,:,3], n, n, b_right_u, b_left_p)
-    set_grad_bnd!(neu, BC.top.t, Oy, cap[:,:,4], n+1, n, b_top_v, b_bottom_p)
+    set_grad_bnd!(neu, BC.left.t, Ox, -view(cap,:,:,1), n, n, b_left_u, b_right_p)
+    set_grad_bnd!(neu, BC.bottom.t, Oy, -view(cap,:,:,2), n+1, n, b_bottom_v, b_top_p)
+    set_grad_bnd!(neu, BC.right.t, Ox, view(cap,:,:,3), n, n, b_right_u, b_left_p)
+    set_grad_bnd!(neu, BC.top.t, Oy, view(cap,:,:,4), n+1, n, b_top_v, b_bottom_p)
 
     return nothing
 end
@@ -533,10 +533,10 @@ function gradient!(::Dirichlet, Ox, Oy, Bx, By, Dx, Dy, cap, n, BC, all_indices,
         @inbounds By[pJJ_2] += -(A4 - B2) * Dy[II]
     end
 
-    set_grad_bnd!(dir, BC.left.t, x->x, Ox, cap[:,:,6], cap[:,:,1], n, n, b_left, b_right)
-    set_grad_bnd!(dir, BC.bottom.t, x->x, Oy, cap[:,:,7], cap[:,:,2], n+1, n, b_bottom, b_top)
-    set_grad_bnd!(dir, BC.right.t, δx⁺, Ox, cap[:,:,3], cap[:,:,6], n, n, b_right, b_left)
-    set_grad_bnd!(dir, BC.top.t, δy⁺, Oy, cap[:,:,4], cap[:,:,7], n+1, n, b_top, b_bottom)
+    set_grad_bnd!(dir, BC.left.t, x->x, Ox, view(cap,:,:,6), view(cap,:,:,1), n, n, b_left, b_right)
+    set_grad_bnd!(dir, BC.bottom.t, x->x, Oy, view(cap,:,:,7), view(cap,:,:,2), n+1, n, b_bottom, b_top)
+    set_grad_bnd!(dir, BC.right.t, δx⁺, Ox, view(cap,:,:,3), view(cap,:,:,6), n, n, b_right, b_left)
+    set_grad_bnd!(dir, BC.top.t, δy⁺, Oy, view(cap,:,:,4), view(cap,:,:,7), n+1, n, b_top, b_bottom)
 
     return nothing
 end
@@ -769,12 +769,12 @@ function scalar_convection!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC,
         end
     end
 
-    @inbounds _A1 = cap[:,:,1]
-    @inbounds _A2 = cap[:,:,2]
-    @inbounds _A3 = cap[:,:,3]
-    @inbounds _A4 = cap[:,:,4]
-    @inbounds _B1 = cap[:,:,6]
-    @inbounds _B2 = cap[:,:,7]
+    @inbounds _A1 = @view cap[:,:,1]
+    @inbounds _A2 = @view cap[:,:,2]
+    @inbounds _A3 = @view cap[:,:,3]
+    @inbounds _A4 = @view cap[:,:,4]
+    @inbounds _B1 = @view cap[:,:,6]
+    @inbounds _B2 = @view cap[:,:,7]
 
     set_sca_conv_bnd!(dir, BC.left.t, O, δx⁺, _A1, _A3, _B1, Du, n, b_left, b_right)
     set_sca_conv_bnd!(dir, BC.bottom.t, O, δy⁺, _A2, _A4, _B2, Dv, n, b_bottom, b_top)
@@ -894,6 +894,7 @@ function set_bc_bnds(::Dirichlet, ::Union{Type{GridFCx},Type{GridFCy}}, Du, Dv, 
         @inbounds Dv_y[end,:] .= BC_v.top.val
         @inbounds Dv_y[end-1,:] .= BC_v.top.val
     elseif is_periodic(BC_v.top.t)
+        @inbounds Dv_y[end,:] .= v[1,:]
         @inbounds Dv_y[end-1,:] .= v[end-1,:]
     end
 
