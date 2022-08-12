@@ -49,7 +49,7 @@ function init_ksp_solver(A, n, nullspace=false, ns_vec=nothing;
 
         return ksp, ns
     else
-        if n <= 400
+        if n <= 600
             ksp = PETSc.KSP(mat;
                             ksp_monitor_true_residual = ksp_monitor_true_residual,
                             ksp_converged_reason = ksp_converged_reason,
@@ -76,7 +76,7 @@ function init_ksp_solver(A, n, nullspace=false, ns_vec=nothing;
 
         PETSc.destroy(mat)
 
-        return ksp
+        return ksp, false
     end
 end
 
@@ -100,6 +100,6 @@ function update_ksp_solver!(ksp, A, nullspace=false, ns_vec=nothing)
         PETSc.setoperators!(ksp, mat)
         PETSc.destroy(mat)
 
-        return nothing
+        return false
     end
 end

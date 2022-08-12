@@ -119,7 +119,7 @@ end
     return cap
 end
 
-function clip_large_cell!(geo, II, ϵ, nx, ny)
+function clip_large_cell!(grid, geo, II, ϵ, nx, ny)
     if geo.cap[II,5] > (1.0-ϵ)
         geo.cap[II,:] .= vcat(ones(7), 0.5.*ones(4))
         if II[2] > 1
@@ -134,13 +134,16 @@ function clip_large_cell!(geo, II, ϵ, nx, ny)
         if II[1] < ny
             geo.cap[δy⁺(II),2] = 1.0
         end
+        geo.centroid[II] = Point(0.0, 0.0)
+        grid.mid_point[II] = Point(0.0, 0.0)
     end
     return nothing
 end
 
-function clip_small_cell!(geo, II, ϵ, nx, ny)
+function clip_small_cell!(grid, geo, II, ϵ, nx, ny)
     if geo.cap[II,5] < ϵ
         geo.cap[II,:] .= 0.
+        geo.emptied[II] = true
         if II[2] > 1
             geo.cap[δx⁻(II),3] = 0.
         end
@@ -153,20 +156,22 @@ function clip_small_cell!(geo, II, ϵ, nx, ny)
         if II[1] < ny
             geo.cap[δy⁺(II),2] = 0.
         end
+        geo.centroid[II] = Point(0.0, 0.0)
+        grid.mid_point[II] = Point(0.0, 0.0)
     end
     return nothing
 end
 
-function clip_cells!(grid, MIXED, ϵ)
+function clip_cells!(grid, ϵ)
     @unpack nx, ny, ind, geoS, geoL = grid
 
     @inbounds @threads for II in ind.inside
-        clip_large_cell!(geoS, II, ϵ, nx, ny)
-        clip_large_cell!(geoL, II, ϵ, nx, ny)
+        clip_large_cell!(grid, geoS, II, ϵ, nx, ny)
+        clip_large_cell!(grid, geoL, II, ϵ, nx, ny)
     end
     @inbounds @threads for II in ind.inside
-        clip_small_cell!(geoS, II, ϵ, nx, ny)
-        clip_small_cell!(geoL, II, ϵ, nx, ny)
+        clip_small_cell!(grid, geoS, II, ϵ, nx, ny)
+        clip_small_cell!(grid, geoL, II, ϵ, nx, ny)
     end
     @inbounds @threads for II in @view ind.b_left[1][2:end-1]
         if geoS.cap[II,5] > (1.0-ϵ)
@@ -179,6 +184,7 @@ function clip_cells!(grid, MIXED, ϵ)
     @inbounds @threads for II in @view ind.b_left[1][2:end-1]
         if geoS.cap[II,5] < ϵ
             geoS.cap[II,:] .= 0.
+            geoS.emptied[II] = true
             geoS.cap[δy⁻(II),4] = 0.
             geoS.cap[δx⁺(II),1] = 0.
             geoS.cap[δy⁺(II),2] = 0.
@@ -196,6 +202,7 @@ function clip_cells!(grid, MIXED, ϵ)
     @inbounds @threads for II in @view ind.b_bottom[1][2:end-1]
         if geoS.cap[II,5] < ϵ
             geoS.cap[II,:] .= 0.
+            geoS.emptied[II] = true
             geoS.cap[δx⁻(II),3] = 0.
             geoS.cap[δx⁺(II),1] = 0.
             geoS.cap[δy⁺(II),2] = 0.
@@ -213,6 +220,7 @@ function clip_cells!(grid, MIXED, ϵ)
     @inbounds @threads for II in @view ind.b_right[1][2:end-1]
         if geoS.cap[II,5] < ϵ
             geoS.cap[II,:] .= 0.
+            geoS.emptied[II] = true
             geoS.cap[δx⁻(II),3] = 0.
             geoS.cap[δy⁻(II),4] = 0.
             geoS.cap[δy⁺(II),2] = 0.
@@ -230,6 +238,7 @@ function clip_cells!(grid, MIXED, ϵ)
     @inbounds @threads for II in @view ind.b_top[1][2:end-1]
         if geoS.cap[II,5] < ϵ
             geoS.cap[II,:] .= 0.
+            geoS.emptied[II] = true
             geoS.cap[δx⁻(II),3] = 0.
             geoS.cap[δy⁻(II),4] = 0.
             geoS.cap[δx⁺(II),1] = 0.
@@ -246,6 +255,7 @@ function clip_cells!(grid, MIXED, ϵ)
     @inbounds @threads for II in @view ind.b_left[1][2:end-1]
         if geoL.cap[II,5] < ϵ
             geoL.cap[II,:] .= 0.
+            geoL.emptied[II] = true
             geoL.cap[δy⁻(II),4] = 0.
             geoL.cap[δx⁺(II),1] = 0.
             geoL.cap[δy⁺(II),2] = 0.
@@ -263,6 +273,7 @@ function clip_cells!(grid, MIXED, ϵ)
     @inbounds @threads for II in @view ind.b_bottom[1][2:end-1]
         if geoL.cap[II,5] < ϵ
             geoL.cap[II,:] .= 0.
+            geoL.emptied[II] = true
             geoL.cap[δx⁻(II),3] = 0.
             geoL.cap[δx⁺(II),1] = 0.
             geoL.cap[δy⁺(II),2] = 0.
@@ -280,6 +291,7 @@ function clip_cells!(grid, MIXED, ϵ)
     @inbounds @threads for II in @view ind.b_right[1][2:end-1]
         if geoL.cap[II,5] < ϵ
             geoL.cap[II,:] .= 0.
+            geoL.emptied[II] = true
             geoL.cap[δx⁻(II),3] = 0.
             geoL.cap[δy⁻(II),4] = 0.
             geoL.cap[δy⁺(II),2] = 0.
@@ -297,6 +309,7 @@ function clip_cells!(grid, MIXED, ϵ)
     @inbounds @threads for II in @view ind.b_top[1][2:end-1]
         if geoL.cap[II,5] < ϵ
             geoL.cap[II,:] .= 0.
+            geoL.emptied[II] = true
             geoL.cap[δx⁻(II),3] = 0.
             geoL.cap[δy⁻(II),4] = 0.
             geoL.cap[δx⁺(II),1] = 0.
@@ -308,6 +321,7 @@ end
 function empty_cell_u!(geo, geo_u, II, ny)
     if geo.cap[II,3] < 1e-10
         geo_u.dcap[δx⁺(II),:] .= 0.
+        geo_u.emptied[δx⁺(II)] = true
         geo_u.dcap[II,3] = 0.
         geo_u.dcap[δx⁺(δx⁺(II)),1] = 0.
         if II[1] != 1
@@ -323,6 +337,7 @@ end
 function empty_cell_v!(geo, geo_v, II, nx)
     if geo.cap[II,4] < 1e-10
         geo_v.dcap[δy⁺(II),:] .= 0.
+        geo_v.emptied[δy⁺(II)] = true
         geo_v.dcap[II,4] = 0.
         geo_v.dcap[δy⁺(δy⁺(II)),2] = 0.
         if II[2] != 1
@@ -349,6 +364,7 @@ function empty_cells_uv!(grid, grid_u, grid_v)
     @inbounds @threads for II in ind.b_left[1]
         if geoS.cap[II,1] < 1e-10
             grid_u.geoS.dcap[II,:] .= 0.
+            grid_u.geoS.emptied[II] = true
             grid_u.geoS.dcap[δx⁺(II),1] = 0.
             if II[1] != 1
                 grid_u.geoS.dcap[δy⁻(II),4] = 0.
@@ -359,6 +375,7 @@ function empty_cells_uv!(grid, grid_u, grid_v)
         end
         if geoL.cap[II,1] < 1e-10
             grid_u.geoL.dcap[II,:] .= 0.
+            grid_u.geoL.emptied[II] = true
             grid_u.geoL.dcap[δx⁺(II),1] = 0.
             if II[1] != 1
                 grid_u.geoL.dcap[δy⁻(II),4] = 0.
@@ -371,6 +388,7 @@ function empty_cells_uv!(grid, grid_u, grid_v)
     @inbounds @threads for II in ind.b_bottom[1]
         if geoS.cap[II,2] < 1e-10
             grid_v.geoS.dcap[II,:] .= 0.
+            grid_v.geoS.emptied[II] = true
             grid_v.geoS.dcap[δy⁺(II),2] = 0.
             if II[2] != 1
                 grid_v.geoS.dcap[δx⁻(II),3] = 0.
@@ -381,6 +399,7 @@ function empty_cells_uv!(grid, grid_u, grid_v)
         end
         if geoL.cap[II,2] < 1e-10
             grid_v.geoL.dcap[II,:] .= 0.
+            grid_v.geoL.emptied[II] = true
             grid_v.geoL.dcap[δy⁺(II),2] = 0.
             if II[2] != 1
                 grid_v.geoL.dcap[δx⁻(II),3] = 0.
@@ -411,8 +430,8 @@ function dimensionalize!(grid, geo)
     return nothing
 end
 
-function postprocess_grids!(grid, grid_u, grid_v, MIXED, periodic_x, periodic_y, ϵ)
-    clip_cells!(grid, MIXED, ϵ)
+function postprocess_grids!(grid, grid_u, grid_v, MIXED, periodic_x, periodic_y, advection, ϵ)
+    clip_cells!(grid, ϵ)
     
     dimensionalize!(grid, grid.geoS)
     dimensionalize!(grid, grid.geoL)

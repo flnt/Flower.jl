@@ -69,8 +69,17 @@ function make_video(num, fwd, grid, field="u";
     elseif field == "v"
         z = fwd.Uysave[step0:end,:,:]
         u = fwd.uvsave[step0:end,:,:]
+    elseif field == "ucorr"
+        z = fwd.Uxcorrsave[step0:end,:,:]
+        u = fwd.uusave[step0:end,:,:]
+    elseif field == "vcorr"
+        z = fwd.Uycorrsave[step0:end,:,:]
+        u = fwd.uvsave[step0:end,:,:]
     elseif field == "p"
         z = fwd.psave[step0:end,:,:].*num.τ
+        u = fwd.usave[step0:end,:,:]
+    elseif field == "ϕ"
+        z = fwd.ϕsave[step0:end,:,:].*num.τ
         u = fwd.usave[step0:end,:,:]
     else
         @error ("Possible fields are T, u, v and p")

@@ -57,8 +57,11 @@ function Mesh(grid, x_nodes, y_nodes)
         cut_points[II] = [Point(0.0, 0.0), Point(0.0, 0.0)]
     end
 
-    geoS = GeometricInfo(SOL, dSOL, sol_projection, sol_centroid)
-    geoL = GeometricInfo(LIQ, dLIQ, liq_projection, liq_centroid)
+    emptiedS = zeros(Bool, ny, nx)
+    emptiedL = zeros(Bool, ny, nx)
+
+    geoS = GeometricInfo(SOL, dSOL, sol_projection, sol_centroid, emptiedS)
+    geoL = GeometricInfo(LIQ, dLIQ, liq_projection, liq_centroid, emptiedL)
 
     α = zeros(ny, nx)
     α .= NaN
@@ -140,6 +143,16 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     LCUTGxT = zeros(grid_u.nx*grid_u.ny)
     SCUTGyT = zeros(grid_v.nx*grid_v.ny)
     LCUTGyT = zeros(grid_v.nx*grid_v.ny)
+
+    SCUTGxp = zeros(grid_u.nx*grid_u.ny)
+    LCUTGxp = zeros(grid_u.nx*grid_u.ny)
+    SCUTGyp = zeros(grid_v.nx*grid_v.ny)
+    LCUTGyp = zeros(grid_v.nx*grid_v.ny)
+
+    SCUTGxϕ = zeros(grid_u.nx*grid_u.ny)
+    LCUTGxϕ = zeros(grid_u.nx*grid_u.ny)
+    SCUTGyϕ = zeros(grid_v.nx*grid_v.ny)
+    LCUTGyϕ = zeros(grid_v.nx*grid_v.ny)
 
     SCUTCu = zeros(grid_u.nx*grid_u.ny)
     LCUTCu = zeros(grid_u.nx*grid_u.ny)
@@ -274,7 +287,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     jwp = collect(i for i = nx*ny-ny+1:nx*ny)
     jep = collect(i for i = 1:ny)
 
-    JJ = vcat(jw,je,jwp,jwp)
+    JJ = vcat(jw,je,jwp,jep)
 
     a = zeros(length(jw)+length(je)+length(jwp)+length(jep))
 
@@ -282,6 +295,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     GxpL = sparse(II,JJ,a)
     GxTS = sparse(II,JJ,a)
     GxTL = sparse(II,JJ,a)
+    GxϕS = sparse(II,JJ,a)
+    GxϕL = sparse(II,JJ,a)
 
     # 2 points stencil (p grid to v grid)
     is = collect(i for i = 2:grid_v.ny)
@@ -310,6 +325,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     GypL = sparse(II,JJ,a)
     GyTS = sparse(II,JJ,a)
     GyTL = sparse(II,JJ,a)
+    GyϕS = sparse(II,JJ,a)
+    GyϕL = sparse(II,JJ,a)
 
     # 2 points stencil (u grid to p grid)
     iw = collect(i for i = 1:nx*ny)
@@ -327,6 +344,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     ftcGxTS = sparse(II,JJ,a)
     ftcGxTL = sparse(II,JJ,a)
     E11 = sparse(II,JJ,a)
+    utpS = sparse(II,JJ,a)
+    utpL = sparse(II,JJ,a)
 
     # 2 points stencil (v grid to p grid)
     is = collect(i for i = 1:nx*ny)
@@ -350,6 +369,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     ftcGyTS = sparse(II,JJ,a)
     ftcGyTL = sparse(II,JJ,a)
     E22 = sparse(II,JJ,a)
+    vtpS = sparse(II,JJ,a)
+    vtpL = sparse(II,JJ,a)
 
     # 2 points stencil (u grid to p' grid)
     is = collect(i for i = 1:nx*ny)
@@ -399,6 +420,10 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     uL = zeros(grid_u.ny, grid_u.nx)
     vS = zeros(grid_v.ny, grid_v.nx)
     vL = zeros(grid_v.ny, grid_v.nx)
+    ucorrS = zeros(grid_u.ny, grid_u.nx)
+    ucorrL = zeros(grid_u.ny, grid_u.nx)
+    vcorrS = zeros(grid_v.ny, grid_v.nx)
+    vcorrL = zeros(grid_v.ny, grid_v.nx)
     Tall = zeros(ny, nx)
     DTS = zeros(ny, nx)
     DTL = zeros(ny, nx)
@@ -406,6 +431,10 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     DuL = zeros(grid_u.ny, grid_u.nx)
     DvS = zeros(grid_v.ny, grid_v.nx)
     DvL = zeros(grid_v.ny, grid_v.nx)
+    tmpS = zeros(grid_u.ny, grid_u.nx)
+    tmpL = zeros(grid_u.ny, grid_u.nx)
+    # tmpS = zeros(ny, nx)
+    # tmpL = zeros(ny, nx)
 
     n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
     
@@ -416,8 +445,11 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     TLsave = zeros(n_snaps, ny, nx)
     Tsave = zeros(n_snaps, ny, nx)
     psave = zeros(n_snaps, ny, nx)
+    ϕsave = zeros(n_snaps, ny, nx)
     Uxsave = zeros(n_snaps, grid_u.ny, grid_u.nx)
     Uysave = zeros(n_snaps, grid_v.ny, grid_v.nx)
+    Uxcorrsave = zeros(n_snaps, grid_u.ny, grid_u.nx)
+    Uycorrsave = zeros(n_snaps, grid_v.ny, grid_v.nx)
     Vsave = zeros(n_snaps, ny, nx)
     κsave = zeros(n_snaps, ny, nx)
     lengthsave = zeros(n_snaps)
@@ -515,11 +547,11 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
         vL .= v_inf
     end
 
-    return (Operators(SCUTT, SCUTp, SCUTu, SCUTv, SCUTDx, SCUTDy, SCUTCT, SCUTGxT, SCUTGyT, SCUTCu, SCUTCv, LTS, LpS, LuS, LvS, AS, BS, GxpS, GypS, DxuS, DyvS, ApS, AuS, AvS, CTS, GxTS, GyTS, ftcGxTS, ftcGyTS, CuS, CvS, E11, E12_x, E12_y, E22),
-            Operators(LCUTT, LCUTp, LCUTu, LCUTv, LCUTDx, LCUTDy, LCUTCT, LCUTGxT, LCUTGyT, LCUTCu, LCUTCv, LTL, LpL, LuL, LvL, AL, BL, GxpL, GypL, DxuL, DyvL, ApL, AuL, AvL, CTL, GxTL, GyTL, ftcGxTL, ftcGyTL, CuL, CvL, E11, E12_x, E12_y, E22),
-            Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, DTS, DuS, DvS),
-            Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, DTL, DuL, DvL),
-            Forward(Tall, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, Uxsave, Uysave, Vsave, κsave, lengthsave, Cd, Cl))
+    return (Operators(SCUTT, SCUTp, SCUTu, SCUTv, SCUTDx, SCUTDy, SCUTCT, SCUTGxT, SCUTGyT, SCUTGxp, SCUTGyp, SCUTGxϕ, SCUTGyϕ, SCUTCu, SCUTCv, LTS, LpS, LuS, LvS, AS, BS, GxpS, GypS, GxϕS, GyϕS, DxuS, DyvS, ApS, AuS, AvS, CTS, GxTS, GyTS, ftcGxTS, ftcGyTS, CuS, CvS, E11, E12_x, E12_y, E22, utpS, vtpS),
+            Operators(LCUTT, LCUTp, LCUTu, LCUTv, LCUTDx, LCUTDy, LCUTCT, LCUTGxT, LCUTGyT, LCUTGxp, LCUTGyp, LCUTGxϕ, LCUTGyϕ, LCUTCu, LCUTCv, LTL, LpL, LuL, LvL, AL, BL, GxpL, GypL, GxϕL, GyϕL, DxuL, DyvL, ApL, AuL, AvL, CTL, GxTL, GyTL, ftcGxTL, ftcGyTL, CuL, CvL, E11, E12_x, E12_y, E22, utpL, vtpL),
+            Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DuS, DvS, tmpS),
+            Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DuL, DvL, tmpL),
+            Forward(Tall, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, ϕsave, Uxsave, Uysave, Uxcorrsave, Uycorrsave, Vsave, κsave, lengthsave, Cd, Cl))
 end
 
 function init_mullins!(grid, T, V, t, A, N, shift)

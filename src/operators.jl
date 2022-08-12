@@ -73,6 +73,9 @@ end
         pII = lexicographic(II, n)
         pJJ = lexicographic(JJ, n)
         @inbounds L[pII,pJJ] = B1[II] / (W[II]+eps(0.01)) * B1[JJ]
+        if abs(L[pII,pJJ]) < 1e-8
+            L[pII,pII] = -4.0
+        end
     end
     return nothing
 end
@@ -179,32 +182,31 @@ function set_bc_bnds(::Neumann, Nx, Ny, BC, dx, dy)
     if is_neumann(BC.left.t)
         @inbounds Nx[:,1] .= BC.left.val
     elseif is_dirichlet(BC.left.t)
-        @inbounds Nx[:,1] .= BC.left.val ./ dx[:,1] ./ 2.0
+        @inbounds Nx[:,1] .= BC.left.val ./ dx[:,1] .* 2.0
     end
     if is_neumann(BC.bottom.t)
         @inbounds Ny[1,:] .= BC.bottom.val
     elseif is_dirichlet(BC.bottom.t)
-        @inbounds Ny[1,:] .= BC.bottom.val ./ dy[1,:] ./ 2.0
+        @inbounds Ny[1,:] .= BC.bottom.val ./ dy[1,:] .* 2.0
     end
     if is_neumann(BC.right.t)
         @inbounds Nx[:,end] .= BC.right.val
     elseif is_dirichlet(BC.right.t)
-        @inbounds Nx[:,end] .= BC.right.val ./ dx[:,end] ./ 2.0
+        @inbounds Nx[:,end] .= BC.right.val ./ dx[:,end] .* 2.0
     end
     if is_neumann(BC.top.t)
         @inbounds Ny[end,:] .= BC.top.val
     elseif is_dirichlet(BC.top.t)
-        @inbounds Ny[end,:] .= BC.top.val ./ dy[end,:] ./ 2.0
+        @inbounds Ny[end,:] .= BC.top.val ./ dy[end,:] .* 2.0
     end
 
     return Nx, Ny
 end
 
 @inline function set_lapl_bnd!(::Neumann, ::Dirichlet, L, A, A1, A3, B1, dx, W, n, b_indices, b_periodic)
-    # @error ("Not implemented yet.\nTry Neumann or Periodic in the outer BCs.")
-    @inbounds for II in b_indices
+    @inbounds @threads for II in b_indices
         pII = lexicographic(II, n)
-        @inbounds L[pII,pII] += (A3[II] - B1[II] + B1[II] - A1[II]) / dx[II] / 2.0
+        @inbounds L[pII,pII] += (A3[II] - A1[II]) / dx[II] * 2.0
     end
     return nothing
 end
@@ -218,108 +220,14 @@ end
         pII = lexicographic(II, n)
         pJJ = lexicographic(JJ, n)
         @inbounds L[pII,pJJ] = A[II]^2 / (W[II]+eps(0.01))
+        if abs(L[pII,pJJ]) < 1e-8
+            L[pII,pII] = -4.0
+        end
     end
     return nothing
 end
 
-function laplacian!(::Neumann, L, B, Nx, Ny, cap, capu, capv, dx, dy, n, BC, inside, empty, MIXED, ns_vec, b_left, b_bottom, b_right, b_top)
-    B .= 0.0
-    @inbounds @threads for II in inside
-        pII = lexicographic(II, n)
-        A1, A2, A3, A4, B1, B2, _, _, _, _ = get_capacities(cap, II)
-        @inbounds W1 = capu[II, 5] + eps(0.01)
-        @inbounds W2 = capv[II, 5] + eps(0.01)
-        @inbounds W3 = capu[δx⁺(II), 5] + eps(0.01)
-        @inbounds W4 = capv[δy⁺(II), 5] + eps(0.01)
-
-        @inbounds L[pII,pII] = -(A1^2 / W1 + A2^2 / W2 + A3^2 / W3 + A4^2 / W4)
-
-        @inbounds B[pII] += -(A3 - B1) * Nx[II] - (B1 - A1) * Nx[II]
-        @inbounds B[pII] += -(A4 - B2) * Ny[II] - (B2 - A2) * Ny[II]
-
-        @inbounds L[pII,pII+n] = A3^2 / W3
-        @inbounds L[pII,pII-n] = A1^2 / W1
-        @inbounds L[pII,pII+1] = A4^2 / W4
-        @inbounds L[pII,pII-1] = A2^2 / W2
-    end
-
-    @inbounds @threads for II in vcat(b_left, b_bottom[2:end-1], b_right, b_top[2:end-1])
-        pII = lexicographic(II, n)
-        A1, A2, A3, A4, B1, B2, _, _, _, _ = get_capacities(cap, II)
-        @inbounds W1 = capu[II, 5] + eps(0.01)
-        @inbounds W2 = capv[II, 5] + eps(0.01)
-        @inbounds W3 = capu[δx⁺(II), 5] + eps(0.01)
-        @inbounds W4 = capv[δy⁺(II), 5] + eps(0.01)
-        
-        @inbounds L[pII,pII] = -(A1^2 / W1 + A2^2 / W2 + A3^2 / W3 + A4^2 / W4)
-
-        @inbounds B[pII] += -(A3 - B1) * Nx[II] - (B1 - A1) * Nx[II]
-        @inbounds B[pII] += -(A4 - B2) * Ny[II] - (B2 - A2) * Ny[II]
-    end
-    @inbounds @threads for II in vcat(b_left, b_bottom[2:end-1], b_top[2:end-1])
-        pII = lexicographic(II, n)
-        A1, A2, A3, A4, B1, B2, _, _, _, _ = get_capacities(cap, II)
-        @inbounds W3 = capu[δx⁺(II), 5] + eps(0.01)
-
-        @inbounds L[pII,pII+n] = A3^2 / W3
-    end
-    @inbounds @threads for II in vcat(b_bottom[2:end-1], b_right, b_top[2:end-1])
-        pII = lexicographic(II, n)
-        A1, A2, A3, A4, B1, B2, _, _, _, _ = get_capacities(cap, II)
-        @inbounds W1 = capu[II, 5] + eps(0.01)
-
-        @inbounds L[pII,pII-n] = A1^2 / W1
-    end
-    @inbounds @threads for II in vcat(b_left[2:end-1], b_bottom, b_right[2:end-1])
-        pII = lexicographic(II, n)
-        A1, A2, A3, A4, B1, B2, _, _, _, _ = get_capacities(cap, II)
-        @inbounds W4 = capv[δy⁺(II), 5] + eps(0.01)
-
-        @inbounds L[pII,pII+1] = A4^2 / W4
-    end
-    @inbounds @threads for II in vcat(b_left[2:end-1], b_right[2:end-1], b_top)
-        pII = lexicographic(II, n)
-        A1, A2, A3, A4, B1, B2, _, _, _, _ = get_capacities(cap, II)
-        @inbounds W2 = capv[II, 5] + eps(0.01)
-
-        @inbounds L[pII,pII-1] = A2^2 / W2
-    end
-
-    ns_vec .= 1.
-    @inbounds @threads for II in empty
-        pII = lexicographic(II, n)
-        if sum(abs.(L[:,pII])) <= 1e-10
-            @inbounds L[pII,pII] = -4.0
-            @inbounds ns_vec[pII] = 0.
-        end
-    end
-    @inbounds @threads for II in MIXED
-        pII = lexicographic(II, n)
-        if sum(abs.(L[:,pII])) <= 1e-10
-            @inbounds L[pII,pII] = -4.0
-            @inbounds ns_vec[pII] = 0.
-        end
-    end
-    ns_vec ./= norm(ns_vec)
-
-    @inbounds _A1 = @view cap[:,:,1]
-    @inbounds _A2 = @view cap[:,:,2]
-    @inbounds _A3 = @view cap[:,:,3]
-    @inbounds _A4 = @view cap[:,:,4]
-    @inbounds _W1 = @view capu[:,1:end-1,5]
-    @inbounds _W2 = @view capv[1:end-1,:,5]
-    @inbounds _W3 = @view capu[:,2:end,5]
-    @inbounds _W4 = @view capv[2:end,:,5]
-
-    set_lapl_bnd!(neu, BC.left.t, L, _A1, A1, A3, B1, dx, _W1, n, b_left, b_right)
-    set_lapl_bnd!(neu, BC.bottom.t, L, _A2, A2, A4, B2, dy, _W2, n, b_bottom, b_top)
-    set_lapl_bnd!(neu, BC.right.t, L, _A3, A1, A3, B1, dx, _W3, n, b_right, b_left)
-    set_lapl_bnd!(neu, BC.top.t, L, _A4, A2, A4, B2, dy, _W4, n, b_top, b_bottom)
-
-    return nothing
-end
-
-function laplacian!(::Neumann, L, B, Nx, Ny, cap, dx, dy, n, BC, inside, empty, MIXED, ns_vec, b_left, b_bottom, b_right, b_top)
+function laplacian!(::Neumann, L, B, Nx, Ny, HNx, HNy, cap, dx, dy, n, BC, inside, empty, MIXED, ns_vec, b_left, b_bottom, b_right, b_top)
     B .= 0.0
     @inbounds @threads for II in inside
         pII = lexicographic(II, n)
@@ -329,6 +237,11 @@ function laplacian!(::Neumann, L, B, Nx, Ny, cap, dx, dy, n, BC, inside, empty, 
 
         @inbounds B[pII] += -(A3 - B1) * Nx[II] - (B1 - A1) * Nx[II]
         @inbounds B[pII] += -(A4 - B2) * Ny[II] - (B2 - A2) * Ny[II]
+
+        @inbounds B[pII] += -A3 / W3 * ((cap[δx⁺(II),6] - A3) * HNx[δx⁺(II)] + (A3 - B1) * HNx[II])
+        @inbounds B[pII] += A1 / W1 * ((B1 - A1) * HNx[II] + (A1 - cap[δx⁻(II),6]) * HNx[δx⁻(II)])
+        @inbounds B[pII] += -A4 / W4 * ((cap[δy⁺(II),7] - A4) * HNy[δy⁺(II)] + (A4 - B2) * HNy[II])
+        @inbounds B[pII] += A2 / W2 * ((B2 - A2) * HNy[II] + (A2 - cap[δy⁻(II),7]) * HNy[δy⁻(II)])
 
         @inbounds L[pII,pII+n] = A3^2 / W3
         @inbounds L[pII,pII-n] = A1^2 / W1
@@ -344,10 +257,17 @@ function laplacian!(::Neumann, L, B, Nx, Ny, cap, dx, dy, n, BC, inside, empty, 
 
         @inbounds B[pII] += -(A3 - B1) * Nx[II] - (B1 - A1) * Nx[II]
         @inbounds B[pII] += -(A4 - B2) * Ny[II] - (B2 - A2) * Ny[II]
+
+        @inbounds B[pII] += -A3 / W3 * (A3 - B1) * HNx[II]
+        @inbounds B[pII] += A1 / W1 * (B1 - A1) * HNx[II]
+        @inbounds B[pII] += -A4 / W4 * (A4 - B2) * HNy[II]
+        @inbounds B[pII] += A2 / W2 * (B2 - A2) * HNy[II]
     end
     @inbounds @threads for II in vcat(b_left, b_bottom[2:end-1], b_top[2:end-1])
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(cap, II)
+
+        @inbounds B[pII] += -A3 / W3 * (cap[δx⁺(II),6] - A3) * HNx[δx⁺(II)]
 
         @inbounds L[pII,pII+n] = A3^2 / W3
     end
@@ -355,17 +275,23 @@ function laplacian!(::Neumann, L, B, Nx, Ny, cap, dx, dy, n, BC, inside, empty, 
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(cap, II)
 
+        @inbounds B[pII] += A1 / W1 * (A1 - cap[δx⁻(II),6]) * HNx[δx⁻(II)]
+
         @inbounds L[pII,pII-n] = A1^2 / W1
     end
     @inbounds @threads for II in vcat(b_left[2:end-1], b_bottom, b_right[2:end-1])
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(cap, II)
 
+        @inbounds B[pII] += -A4 / W4 * (cap[δy⁺(II),7] - A4) * HNy[δy⁺(II)]
+
         @inbounds L[pII,pII+1] = A4^2 / W4
     end
     @inbounds @threads for II in vcat(b_left[2:end-1], b_right[2:end-1], b_top)
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(cap, II)
+
+        @inbounds B[pII] += A2 / W2 * (A2 - cap[δy⁻(II),7]) * HNy[δy⁻(II)]
 
         @inbounds L[pII,pII-1] = A2^2 / W2
     end
@@ -398,8 +324,8 @@ function laplacian!(::Neumann, L, B, Nx, Ny, cap, dx, dy, n, BC, inside, empty, 
     @inbounds _W3 = @view cap[:,:,10]
     @inbounds _W4 = @view cap[:,:,11]
 
-    set_lapl_bnd!(neu, BC.left.t, L, _A1, _A1, _A3, _B1, dx, _W1, n, b_left, b_right)
-    set_lapl_bnd!(neu, BC.bottom.t, L, _A2, _A2, _A4, _B2, dy, _W2, n, b_bottom, b_top)
+    set_lapl_bnd!(neu, BC.left.t, L, _A1, _A3, _A1, _B1, dx, _W1, n, b_left, b_right)
+    set_lapl_bnd!(neu, BC.bottom.t, L, _A2, _A4, _A2, _B2, dy, _W2, n, b_bottom, b_top)
     set_lapl_bnd!(neu, BC.right.t, L, _A3, _A1, _A3, _B1, dx, _W3, n, b_right, b_left)
     set_lapl_bnd!(neu, BC.top.t, L, _A4, _A2, _A4, _B2, dy, _W4, n, b_top, b_bottom)
 
@@ -457,32 +383,118 @@ function divergence!(::Dirichlet, Ox, Oy, Bx, By, Dx, Dy, cap, capu, capv, n, al
     return nothing
 end
 
-@inline function set_grad_bnd!(::Neumann, ::Dirichlet, O, B, nuv, np, b_indices, b_periodic)
-    # @error ("Not implemented yet.\nTry Neumann or Periodic in the outer BCs.")
-    return nothing
+function set_bc_bnds(::Neumann, HNx, HNy, BC, dx, dy, Hx, Hy)
+    if is_neumann(BC.left.t)
+        @inbounds HNx[:,1] .= Hx[:,1] .* BC.left.val
+    elseif is_dirichlet(BC.left.t)
+        @inbounds HNx[:,1] .= BC.left.val
+    end
+    if is_neumann(BC.bottom.t)
+        @inbounds HNy[1,:] .= Hy[1,:] .* BC.bottom.val
+    elseif is_dirichlet(BC.bottom.t)
+        @inbounds HNy[1,:] .= BC.bottom.val
+    end
+    if is_neumann(BC.right.t)
+        @inbounds HNx[:,end] .= Hx[:,end] .* BC.right.val
+    elseif is_dirichlet(BC.right.t)
+        @inbounds HNx[:,end] .= BC.right.val
+    end
+    if is_neumann(BC.top.t)
+        @inbounds HNy[end,:] .= Hy[end,:] .* BC.top.val
+    elseif is_dirichlet(BC.top.t)
+        @inbounds HNy[end,:] .= BC.top.val
+    end
+
+    return HNx, HNy
 end
 
-@inline function set_grad_bnd!(::Neumann, ::Neumann, O, B, nuv, np, b_indices, b_periodic)
-    return nothing
-end
-
-@inline function set_grad_bnd!(::Neumann, ::Periodic, O, B, nuv, np, b_indices, b_periodic)
-    @inbounds for (II, JJ) in zip(b_indices, b_periodic)
+@inline function set_grad_bnd!(::Neumann, ::Dirichlet, fun, O, B, B1, A1, nuv, np, b_indices, b_periodic)
+    @inbounds @threads for II in b_indices
         pII = lexicographic(II, nuv)
-        pJJ = lexicographic(JJ, np)
-        @inbounds O[pII,pJJ] = B[II]
+        pJJ = lexicographic(fun(II), np)
+        @inbounds O[pII,pJJ] += B1[fun(II)] - A1[fun(II)]
     end
     return nothing
 end
 
-function gradient!(::Neumann, Ox, Oy, Divx, Divy, cap, capu, capv, n, BC, b_left_u, b_bottom_v, b_right_u, b_top_v, b_left_p, b_bottom_p, b_right_p, b_top_p)
+@inline function set_grad_bnd!(::Neumann, ::Neumann, fun, O, B, B1, A1, nuv, np, b_indices, b_periodic)
+    return nothing
+end
+
+@inline function set_grad_bnd!(::Neumann, ::Periodic, fun, O, B, B1, A1, nuv, np, b_indices, b_periodic)
+    @inbounds for (II, JJ) in zip(b_indices, b_periodic)
+        pII = lexicographic(II, nuv)
+        pJJ = lexicographic(JJ, np)
+        @inbounds O[pII,pJJ] = B[fun(II)]
+    end
+    return nothing
+end
+
+function gradient!(::Neumann, Ox, Oy, Bx, By, HNx, HNy, Divx, Divy, cap, dcap, dcapu, dcapv, dx, dy, n, BC, all_indices, b_left_u, b_bottom_v, b_right_u, b_top_v, b_left_p, b_bottom_p, b_right_p, b_top_p)
     mat_T_op!(Ox, Divx, x->-x)
     mat_T_op!(Oy, Divy, x->-x)
 
-    set_grad_bnd!(neu, BC.left.t, Ox, -view(cap,:,:,1), n, n, b_left_u, b_right_p)
-    set_grad_bnd!(neu, BC.bottom.t, Oy, -view(cap,:,:,2), n+1, n, b_bottom_v, b_top_p)
-    set_grad_bnd!(neu, BC.right.t, Ox, view(cap,:,:,3), n, n, b_right_u, b_left_p)
-    set_grad_bnd!(neu, BC.top.t, Oy, view(cap,:,:,4), n+1, n, b_top_v, b_bottom_p)
+    Bx .= 0.
+    By .= 0.
+    @inbounds @threads for II in @view all_indices[2:end,2:end]
+        pII = lexicographic(II, n)
+        pJJ = lexicographic(II, n+1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Bx[pII] += -((B1 - A1) * HNx[II] + (A1 - dcap[δx⁻(II),6]) * HNx[δx⁻(II)])
+        @inbounds By[pJJ] += -((B2 - A2) * HNy[II] + (A2 - dcap[δy⁻(II),7]) * HNy[δy⁻(II)])
+    end
+
+    @inbounds @threads for II in @view all_indices[:,1]
+        pII = lexicographic(II, n)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Bx[pII] += -((B1 - A1) * HNx[II])
+    end
+    @inbounds @threads for II in @view all_indices[:,end]
+        pII = lexicographic(δx⁺(II), n)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Bx[pII] += -((A3 - B1) * HNx[II])
+    end
+    @inbounds @threads for II in @views vcat(all_indices[1,2:end], all_indices[end,2:end])
+        pII = lexicographic(II, n)
+        pJJ = lexicographic(II, n+1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Bx[pII] += -((B1 - A1) * HNx[II] + (A1 - dcap[δx⁻(II),6]) * HNx[δx⁻(II)])
+    end
+
+    @inbounds @threads for II in @view all_indices[1,:]
+        pJJ = lexicographic(II, n+1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds By[pJJ] += -((B2 - A2) * HNy[II])
+    end
+    @inbounds @threads for II in @view all_indices[end,:]
+        pJJ = lexicographic(δy⁺(II), n+1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds By[pJJ] += -((A4 - B2) * HNy[II])
+    end
+    @inbounds @threads for II in @views vcat(all_indices[2:end,1], all_indices[2:end,end])
+        pJJ = lexicographic(II, n+1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds By[pJJ] += -((B2 - A2) * HNy[II] + (A2 - dcap[δy⁻(II),7]) * HNy[δy⁻(II)])
+    end
+
+    @inbounds _A1 = @view dcap[:,:,1]
+    @inbounds _A2 = @view dcap[:,:,2]
+    @inbounds _A3 = @view dcap[:,:,3]
+    @inbounds _A4 = @view dcap[:,:,4]
+    @inbounds _B1 = @view dcap[:,:,6]
+    @inbounds _B2 = @view dcap[:,:,7]
+
+    set_grad_bnd!(neu, BC.left.t, x->x, Ox, -_A1, _B1, _A1, n, n, b_left_u, b_right_p)
+    set_grad_bnd!(neu, BC.bottom.t, x->x, Oy, -_A2, _B2, _A2, n+1, n, b_bottom_v, b_top_p)
+    set_grad_bnd!(neu, BC.right.t, δx⁻, Ox, _A3, _A3, _B1, n, n, b_right_u, b_left_p)
+    set_grad_bnd!(neu, BC.top.t, δy⁻, Oy, _A4, _A4, _B2, n+1, n, b_top_v, b_bottom_p)
 
     return nothing
 end
@@ -541,17 +553,32 @@ function gradient!(::Dirichlet, Ox, Oy, Bx, By, Dx, Dy, cap, n, BC, all_indices,
     return nothing
 end
 
-function face_to_cell_gradient!(::Dirichlet, Ox, Oy, Gx, Gy, cap, n, all_indices)
+function face_to_cell_gradient!(::Dirichlet, Ox, Oy, cap, n, all_indices)
     @inbounds @threads for II in all_indices
         pII = lexicographic(II, n)
         pJJ = lexicographic(II, n+1)
-        A1, A2, A3, A4, V, B1, B2 = cap[II,1:7]
+        A1, A2, A3, A4, V, B1, B2 = @view cap[II,1:7]
 
         @inbounds Ox[pII,pII] = B1 - A1
         @inbounds Ox[pII,pII+n] = A3 - B1
 
         @inbounds Oy[pII,pJJ] = B2 - A2
         @inbounds Oy[pII,pJJ+1] = A4 - B2
+    end
+
+    return nothing
+end
+
+function uv_to_p!(Ox, Oy, cap, dx, dy, n, all_indices)
+    @inbounds @threads for II in all_indices
+        pII = lexicographic(II, n)
+        pJJ = lexicographic(II, n+1)
+
+        @inbounds Ox[pII,pII] = 0.5
+        @inbounds Ox[pII,pII+n] = 0.5
+
+        @inbounds Oy[pII,pJJ] = 0.5
+        @inbounds Oy[pII,pJJ+1] = 0.5
     end
 
     return nothing

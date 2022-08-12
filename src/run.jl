@@ -72,7 +72,7 @@ function run_forward(num, grid, grid_u, grid_v,
 
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
     @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, V, κ, LSA, LSB = grid
-    @unpack Tall, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, Uxsave, Uysave, Vsave, κsave, lengthsave, Cd, Cl = fwd
+    @unpack Tall, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, ϕsave, Uxsave, Uysave, Uxcorrsave, Uycorrsave, Vsave, κsave, lengthsave, Cd, Cl = fwd
 
     MPI.Initialized() || MPI.Init()
     PETSc.initialize()
@@ -90,7 +90,7 @@ function run_forward(num, grid, grid_u, grid_v,
     local MIXED_vel_ext; local SOLID_vel_ext; local LIQUID_vel_ext;
     local MIXED_u; local SOLID_u; local LIQUID_u;
     local MIXED_v; local SOLID_v; local LIQUID_v;
-    local WAS_SOLID; local WAS_LIQUID;
+    local WAS_MIXED; local WAS_SOLID; local WAS_LIQUID;
     local WAS_MIXED_u; local WAS_SOLID_u; local WAS_LIQUID_u;
     local WAS_MIXED_v; local WAS_SOLID_v; local WAS_LIQUID_v;
     local NB_indices_base; local NB_indices;
@@ -127,10 +127,23 @@ function run_forward(num, grid, grid_u, grid_v,
     bcTS = copy(phS.DT)
     bcTL = copy(phL.DT)
 
-    bcpSx = zeros(ny,nx)
-    bcpSy = zeros(ny,nx)
-    bcpLx = zeros(ny,nx)
-    bcpLy = zeros(ny,nx)
+    bcϕSx = zeros(ny,nx)
+    bcϕSy = zeros(ny,nx)
+    bcϕLx = zeros(ny,nx)
+    bcϕLy = zeros(ny,nx)
+
+    HxS = zeros(ny,nx)
+    HxL = zeros(ny,nx)
+    bcgpSx = zeros(ny,nx)
+    bcgpLx = zeros(ny,nx)
+    bcgϕSx = zeros(ny,nx)
+    bcgϕLx = zeros(ny,nx)
+    HyS = zeros(ny,nx)
+    HyL = zeros(ny,nx)
+    bcgpSy = zeros(ny,nx)
+    bcgpLy = zeros(ny,nx)
+    bcgϕSy = zeros(ny,nx)
+    bcgϕLy = zeros(ny,nx)
 
     HuS = zeros(grid_u.ny,grid_u.nx)
     HuL = zeros(grid_u.ny,grid_u.nx)
@@ -176,6 +189,15 @@ function run_forward(num, grid, grid_u, grid_v,
     iMGySm1 = copy(Iv)
     iMGxLm1 = copy(Iu)
     iMGyLm1 = copy(Iv)
+
+    nullspaceS = true
+    if BC_pS.left.t == dir || BC_pS.bottom.t == dir || BC_pS.right.t == dir || BC_pS.top.t == dir
+        nullspaceS = false
+    end
+    nullspaceL = true
+    if BC_pL.left.t == dir || BC_pL.bottom.t == dir || BC_pL.right.t == dir || BC_pL.top.t == dir
+        nullspaceL = false
+    end
 
     ns_vecS = ones(ny*nx)
     ns_vecL = ones(ny*nx)
@@ -255,7 +277,7 @@ function run_forward(num, grid, grid_u, grid_v,
         get_interface_location_borders!(grid_u, periodic_x, periodic_y)
         get_interface_location_borders!(grid_v, periodic_x, periodic_y)
 
-        postprocess_grids!(grid, grid_u, grid_v, MIXED, periodic_x, periodic_y, ϵ)
+        postprocess_grids!(grid, grid_u, grid_v, MIXED, periodic_x, periodic_y, advection, ϵ)
 
         @inbounds @threads for II in ind.all_indices
             pII = lexicographic(II, ny)
@@ -363,17 +385,23 @@ function run_forward(num, grid, grid_u, grid_v,
 
     # Navier-Stokes
     set_stokes!(grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, opS, phS,
-                bcpSx, bcpSy, BC_pS, LpSm1, SCUTpm1, GxpSm1, GypSm1, LIQUID,
+                HxS, HyS, bcgpSx, bcgpSy, bcϕSx, bcϕSy, bcgϕSx, bcgϕSy, BC_pS,
+                LpSm1, SCUTpm1, GxpSm1, GypSm1, LIQUID,
                 HuS, bcuS, BC_uS, LuSm1, SCUTum1, LIQUID_u,
                 HvS, bcvS, BC_vS, LvSm1, SCUTvm1, LIQUID_v,
-                ns_vecS, MIXED, MIXED_u, MIXED_v, true, ns_advection
+                ns_vecS, MIXED, MIXED_u, MIXED_v,
+                iMuS, iMvS, FRESH_S_u, FRESH_S_v,
+                num.Re, true, ns_advection
     )
     
     set_stokes!(grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, opL, phL,
-                bcpLx, bcpLy, BC_pL, LpLm1, LCUTpm1, GxpLm1, GypLm1, SOLID,
+                HxL, HyL, bcgpLx, bcgpLy, bcϕLx, bcϕLy, bcgϕLx, bcgϕLy, BC_pL,
+                LpLm1, LCUTpm1, GxpLm1, GypLm1, SOLID,
                 HuL, bcuL, BC_uL, LuLm1, LCUTum1, SOLID_u,
                 HvL, bcvL, BC_vL, LvLm1, LCUTvm1, SOLID_v,
-                ns_vecL, MIXED, MIXED_u, MIXED_v, true, ns_advection
+                ns_vecL, MIXED, MIXED_u, MIXED_v,
+                iMuL, iMvL, FRESH_L_u, FRESH_L_v,
+                num.Re, true, ns_advection
     )
 
     if ns_advection
@@ -383,13 +411,13 @@ function run_forward(num, grid, grid_u, grid_v,
         Cvm1L .= opL.Cv * vec(phL.v) .+ opL.CUTCv
     end
 
-    ksppS, nsS = init_ksp_solver(opS.Lp, nx, true, ns_vecS)
-    kspuS = init_ksp_solver(opS.Lu, grid_u.nx)
-    kspvS = init_ksp_solver(opS.Lv, grid_v.nx)
+    ksppS, nsS = init_ksp_solver(opS.Lp, nx, nullspaceS, ns_vecS)
+    kspuS, _ = init_ksp_solver(opS.Lu, grid_u.nx)
+    kspvS, _ = init_ksp_solver(opS.Lv, grid_v.nx)
 
-    ksppL, nsL = init_ksp_solver(opL.Lp, nx, true, ns_vecL)
-    kspuL = init_ksp_solver(opL.Lu, grid_u.nx)
-    kspvL = init_ksp_solver(opL.Lv, grid_v.nx)
+    ksppL, nsL = init_ksp_solver(opL.Lp, nx, nullspaceL, ns_vecL)
+    kspuL, _ = init_ksp_solver(opL.Lu, grid_u.nx)
+    kspvL, _ = init_ksp_solver(opL.Lv, grid_v.nx)
 
     CFL_sc = CFL*Δ^2*Re < CFL*Δ ? CFL : CFL/Δ
     IIOE(LSA, LSB, u, V, ind.inside, CFL_sc, ny)
@@ -490,6 +518,12 @@ function run_forward(num, grid, grid_u, grid_v,
 
 
         if levelset && (advection || current_i<2)
+            grid.α .= NaN
+            grid_u.α .= NaN
+            grid_v.α .= NaN
+            faces .= 0.
+            grid_u.faces .= 0.
+            grid_v.faces .= 0.
             marching_squares!(num, grid)
             interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.u, grid_v.u)
             marching_squares!(num, grid_u)
@@ -510,6 +544,7 @@ function run_forward(num, grid, grid_u, grid_v,
             bcs!(grid_v.faces, BC_u.bottom, grid_v.dy[1,1])
             bcs!(grid_v.faces, BC_u.top, grid_v.dy[end,1])
 
+            WAS_MIXED = copy(MIXED)
             WAS_LIQUID = copy(LIQUID)
             WAS_SOLID = copy(SOLID)
             WAS_MIXED_u = copy(MIXED_u)
@@ -540,7 +575,21 @@ function run_forward(num, grid, grid_u, grid_v,
             get_interface_location_borders!(grid_u, periodic_x, periodic_y)
             get_interface_location_borders!(grid_v, periodic_x, periodic_y)
 
-            postprocess_grids!(grid, grid_u, grid_v, MIXED, periodic_x, periodic_y, ϵ)
+            tmpFRESH_L = intersect(findall(geoL.emptied), WAS_MIXED)
+            tmpFRESH_S = intersect(findall(geoS.emptied), WAS_MIXED)
+            tmpFRESH_L_u = intersect(findall(grid_u.geoL.emptied), WAS_MIXED_u)
+            tmpFRESH_S_u = intersect(findall(grid_u.geoS.emptied), WAS_MIXED_u)
+            tmpFRESH_L_v = intersect(findall(grid_v.geoL.emptied), WAS_MIXED_v)
+            tmpFRESH_S_v = intersect(findall(grid_v.geoS.emptied), WAS_MIXED_v)
+
+            geoL.emptied .= false
+            geoS.emptied .= false
+            grid_u.geoL.emptied .= false
+            grid_u.geoS.emptied .= false
+            grid_v.geoL.emptied .= false
+            grid_v.geoS.emptied .= false
+
+            postprocess_grids!(grid, grid_u, grid_v, MIXED, periodic_x, periodic_y, advection, ϵ)
 
             @inbounds @threads for II in ind.all_indices
                 pII = lexicographic(II, ny)
@@ -617,12 +666,12 @@ function run_forward(num, grid, grid_u, grid_v,
 
             get_curvature(num, grid, MIXED)
 
-            FRESH_L = intersect(MIXED, WAS_SOLID)
-            FRESH_S = intersect(MIXED, WAS_LIQUID)
-            FRESH_L_u = intersect(MIXED_u, WAS_SOLID_u)
-            FRESH_S_u = intersect(MIXED_u, WAS_LIQUID_u)
-            FRESH_L_v = intersect(MIXED_v, WAS_SOLID_v)
-            FRESH_S_v = intersect(MIXED_v, WAS_LIQUID_v)
+            FRESH_L = union(tmpFRESH_L, intersect(MIXED, WAS_SOLID))
+            FRESH_S = union(tmpFRESH_S, intersect(MIXED, WAS_LIQUID))
+            FRESH_L_u = union(tmpFRESH_L_u, intersect(MIXED_u, WAS_SOLID_u))
+            FRESH_S_u = union(tmpFRESH_S_u, intersect(MIXED_u, WAS_LIQUID_u))
+            FRESH_L_v = union(tmpFRESH_L_v, intersect(MIXED_v, WAS_SOLID_v))
+            FRESH_S_v = union(tmpFRESH_S_v, intersect(MIXED_v, WAS_LIQUID_v))
 
             init_fresh_cells!(grid, phS.T, geoS.projection, FRESH_S)
             init_fresh_cells!(grid, phL.T, geoL.projection, FRESH_L)
@@ -654,10 +703,13 @@ function run_forward(num, grid, grid_u, grid_v,
             # grid_v.V .= 0.0
             if ns_solid_phase
                 set_stokes!(grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, opS, phS,
-                            bcpSx, bcpSy, BC_pS, LpSm1, SCUTpm1, GxpSm1, GypSm1, LIQUID,
+                            HxS ,HyS, bcgpSx, bcgpSy, bcϕSx, bcϕSy, bcgϕSx, bcgϕSy, BC_pS,
+                            LpSm1, SCUTpm1, GxpSm1, GypSm1, LIQUID,
                             HuS, bcuS, BC_uS, LuSm1, SCUTum1, LIQUID_u,
                             HvS, bcvS, BC_vS, LvSm1, SCUTvm1, LIQUID_v,
-                            ns_vecS, MIXED, MIXED_u, MIXED_v, advection, ns_advection)
+                            ns_vecS, MIXED, MIXED_u, MIXED_v,
+                            iMuS, iMvS, FRESH_S_u, FRESH_S_v,
+                            num.Re, advection, ns_advection)
 
                 pressure_projection!(num, grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, opS, phS,
                             LuSm1, LvSm1, SCUTum1, SCUTvm1, Cum1S, Cvm1S,
@@ -665,14 +717,17 @@ function run_forward(num, grid, grid_u, grid_v,
                             MpS, iMpS, MuS, MvS, iMGxS, iMGyS, iMDxS, iMDyS,
                             iMuSm1, iMvSm1, iMGxSm1, iMGySm1,
                             MIXED, MIXED_u, MIXED_v, SOLID, LIQUID, LIQUID_u, LIQUID_v,
-                            FRESH_S, FRESH_S_u, FRESH_S_v, ns_advection)
+                            FRESH_S, FRESH_S_u, FRESH_S_v, nullspaceS, ns_advection)
             end
             if ns_liquid_phase
                 set_stokes!(grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, opL, phL,
-                            bcpLx, bcpLy, BC_pL, LpLm1, LCUTpm1, GxpLm1, GypLm1, SOLID,
+                            HxL, HyL, bcgpLx, bcgpLy, bcϕLx, bcϕLy, bcgϕLx, bcgϕLy, BC_pL,
+                            LpLm1, LCUTpm1, GxpLm1, GypLm1, SOLID,
                             HuL, bcuL, BC_uL, LuLm1, LCUTum1, SOLID_u,
                             HvL, bcvL, BC_vL, LvLm1, LCUTvm1, SOLID_v,
-                            ns_vecL, MIXED, MIXED_u, MIXED_v, advection, ns_advection)
+                            ns_vecL, MIXED, MIXED_u, MIXED_v,
+                            iMuL, iMvL, FRESH_L_u, FRESH_L_v,
+                            num.Re, advection, ns_advection)
 
                 pressure_projection!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, opL, phL,
                             LuLm1, LvLm1, LCUTum1, LCUTvm1, Cum1L, Cvm1L,
@@ -680,7 +735,7 @@ function run_forward(num, grid, grid_u, grid_v,
                             MpL, iMpL, MuL, MvL, iMGxL, iMGyL, iMDxL, iMDyL,
                             iMuLm1, iMvLm1, iMGxLm1, iMGyLm1,
                             MIXED, MIXED_u, MIXED_v, LIQUID, SOLID, SOLID_u, SOLID_v,
-                            FRESH_L, FRESH_L_u, FRESH_L_v, ns_advection)
+                            FRESH_L, FRESH_L_u, FRESH_L_v, nullspaceL, ns_advection)
             end
         end
 
@@ -696,17 +751,26 @@ function run_forward(num, grid, grid_u, grid_v,
             Tsave[snap,:,:] .= phL.T .+ phS.T
             if ns_solid_phase && ns_liquid_phase
                 psave[snap,:,:] .= phL.p[:,:].*geoL.cap[:,:,5] .+ phS.p[:,:].*geoS.cap[:,:,5]
+                ϕsave[snap,:,:] .= phL.ϕ[:,:].*geoL.cap[:,:,5] .+ phS.ϕ[:,:].*geoS.cap[:,:,5]
                 Uxsave[snap,:,:] .= phL.u[:,:].*grid_u.geoL.cap[:,:,5] .+ phS.u[:,:].*geoS.capu[:,:,5]
                 Uysave[snap,:,:] .= phL.v[:,:].*grid_v.geoL.cap[:,:,5] .+ phS.v[:,:].*geoS.capv[:,:,5]
+                Uxcorrsave[snap,:,:] .= phL.ucorr[:,:].*grid_u.geoL.cap[:,:,5] .+ phS.ucorr[:,:].*geoS.capu[:,:,5]
+                Uycorrsave[snap,:,:] .= phL.vcorr[:,:].*grid_v.geoL.cap[:,:,5] .+ phS.vcorr[:,:].*geoS.capv[:,:,5]
                 force_coefficients!(num, grid, grid_u, grid_v, opL, fwd; step=snap)
             elseif ns_solid_phase
                 psave[snap,:,:] .= phS.p[:,:]
+                ϕsave[snap,:,:] .= phS.ϕ[:,:]
                 Uxsave[snap,:,:] .= phS.u[:,:]
                 Uysave[snap,:,:] .= phS.v[:,:]
+                Uxcorrsave[snap,:,:] .= phS.ucorr[:,:]
+                Uycorrsave[snap,:,:] .= phS.vcorr[:,:]
             elseif ns_liquid_phase
                 psave[snap,:,:] .= phL.p[:,:]
+                ϕsave[snap,:,:] .= phL.ϕ[:,:]
                 Uxsave[snap,:,:] .= phL.u[:,:]
                 Uysave[snap,:,:] .= phL.v[:,:]
+                Uxcorrsave[snap,:,:] .= phL.ucorr[:,:]
+                Uycorrsave[snap,:,:] .= phL.vcorr[:,:]
                 force_coefficients!(num, grid, grid_u, grid_v, opL, fwd; step=snap)
             end
         end
@@ -741,43 +805,26 @@ function run_forward(num, grid, grid_u, grid_v,
         end
     end
 
+    if nullspaceS
+        PETSc.destroy(nsS)
+    end
+    PETSc.destroy(ksppS)
+    PETSc.destroy(kspuS)
+    PETSc.destroy(kspvS)
+
+    if nullspaceL
+        PETSc.destroy(nsL)
+    end
+    PETSc.destroy(ksppL)
+    PETSc.destroy(kspuL)
+    PETSc.destroy(kspvL)
+
     if levelset
         if save_radius || hill
-
-            PETSc.destroy(nsS)
-            PETSc.destroy(ksppS)
-            PETSc.destroy(kspuS)
-            PETSc.destroy(kspvS)
-
-            PETSc.destroy(nsL)
-            PETSc.destroy(ksppL)
-            PETSc.destroy(kspuL)
-            PETSc.destroy(kspvL)
-
             return MIXED, SOLID, LIQUID, radius
         end
-
-        PETSc.destroy(nsS)
-        PETSc.destroy(ksppS)
-        PETSc.destroy(kspuS)
-        PETSc.destroy(kspvS)
-
-        PETSc.destroy(nsL)
-        PETSc.destroy(ksppL)
-        PETSc.destroy(kspuL)
-        PETSc.destroy(kspvL)
-        
         return MIXED, SOLID, LIQUID
     else
-        PETSc.destroy(nsS)
-        PETSc.destroy(ksppS)
-        PETSc.destroy(kspuS)
-        PETSc.destroy(kspvS)
-
-        PETSc.destroy(nsL)
-        PETSc.destroy(ksppL)
-        PETSc.destroy(kspuL)
-        PETSc.destroy(kspvL)
         return MIXED
     end
 end

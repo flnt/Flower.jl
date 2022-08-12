@@ -72,7 +72,7 @@ function set_heat!(num, grid, geo, projection, op, ph,
     crank_nicolson!(num, grid, geo, op)
 
     gradient!(dir, GxT, GyT, CUTGxT, CUTGyT, bcTx, bcTy, dcap, ny, BC_T, all_indices, b_left[1], b_bottom[1], b_right[1], b_top[1])
-    face_to_cell_gradient!(dir, ftcGxT, ftcGyT, GxT, GyT, dcap, ny, all_indices)
+    face_to_cell_gradient!(dir, ftcGxT, ftcGyT, dcap, ny, all_indices)
 
     return nothing
 end

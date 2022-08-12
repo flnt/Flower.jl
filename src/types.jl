@@ -79,6 +79,7 @@ mutable struct GeometricInfo{T} <: MutatingFields
     dcap::Array{T,3}
     projection::Array{Gradient{T},2}
     centroid::Array{Point{T},2}
+    emptied::Array{Bool,2}
 end
 
 abstract type Grid <: MutatingFields end
@@ -121,6 +122,10 @@ mutable struct Operators{T <: Float64} <: MutatingFields
     CUTCT::Array{T,1}
     CUTGxT::Array{T,1}
     CUTGyT::Array{T,1}
+    CUTGxp::Array{T,1}
+    CUTGyp::Array{T,1}
+    CUTGxϕ::Array{T,1}
+    CUTGyϕ::Array{T,1}
     CUTCu::Array{T,1}
     CUTCv::Array{T,1}
     LT::SparseMatrixCSC{T,Int64}
@@ -131,6 +136,8 @@ mutable struct Operators{T <: Float64} <: MutatingFields
     B::SparseMatrixCSC{T,Int64}
     Gxp::SparseMatrixCSC{T,Int64}
     Gyp::SparseMatrixCSC{T,Int64}
+    Gxϕ::SparseMatrixCSC{T,Int64}
+    Gyϕ::SparseMatrixCSC{T,Int64}
     Dxu::SparseMatrixCSC{T,Int64}
     Dyv::SparseMatrixCSC{T,Int64}
     Ap::SparseMatrixCSC{T,Int64}
@@ -147,6 +154,8 @@ mutable struct Operators{T <: Float64} <: MutatingFields
     E12_x::SparseMatrixCSC{T,Int64}
     E12_y::SparseMatrixCSC{T,Int64}
     E22::SparseMatrixCSC{T,Int64}
+    utp::SparseMatrixCSC{T,Int64}
+    vtp::SparseMatrixCSC{T,Int64}
 end
 
 mutable struct Phase{T <: Float64} <: MutatingFields
@@ -157,9 +166,12 @@ mutable struct Phase{T <: Float64} <: MutatingFields
     Gym1::Array{T,1}
     u::Array{T,2}
     v::Array{T,2}
+    ucorr::Array{T,2}
+    vcorr::Array{T,2}
     DT::Array{T,2}
     Du::Array{T,2}
     Dv::Array{T,2}
+    tmp::Array{T,2}
 end
 
 mutable struct Forward{T <: Float64} <: MutatingFields
@@ -171,8 +183,11 @@ mutable struct Forward{T <: Float64} <: MutatingFields
     TLsave::Array{T,3}
     Tsave::Array{T,3}
     psave::Array{T,3}
+    ϕsave::Array{T,3}
     Uxsave::Array{T,3}
     Uysave::Array{T,3}
+    Uxcorrsave::Array{T,3}
+    Uycorrsave::Array{T,3}
     Vsave::Array{T,3}
     κsave::Array{T,3}
     lengthsave::Array{T,1}
