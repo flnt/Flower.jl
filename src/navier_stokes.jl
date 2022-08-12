@@ -155,7 +155,7 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
                             Mp, iMp, Mu, Mv, iMGx, iMGy, iMDx, iMDy,
                             iMum1, iMvm1, iMGxm1, iMGym1,
                             MIXED, MIXED_u, MIXED_v, FULL, EMPTY, EMPTY_u, EMPTY_v,
-                            FRESH, FRESH_u, FRESH_v, nullspace, ns_advection
+                            FRESH, FRESH_u, FRESH_v, nullspace, ns_advection, Ra
     )
     @unpack Re, τ = num
     @unpack Lp, CUTp, Lu, CUTu, Lv, CUTv, Dxu, CUTDx, Dyv, CUTDy, Ap, Au, Av, Gxp, CUTGxp, Gyp, CUTGyp, Gxϕ, CUTGxϕ, Gyϕ, CUTGyϕ, Cu, CUTCu, Cv, CUTCv = op
@@ -196,11 +196,13 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
     Δu = Lu * vec(u) .+ CUTu
     Δv = Lv * vec(v) .+ CUTv
 
-    Bδucorr = τ .* (iRe .* Δu .- Gxm1 .- Convu)
-    Bδvcorr = τ .* (iRe .* Δv .- Gym1 .- Convv)
-    # Bδucorr = τ .* (iRe .* Δu .- Convu)
-    # Bδvcorr = τ .* (iRe .* Δv .- Convv)
+    Grav = Ra*vcat(vec(ph.T), 0*mean(ph.T)*ones(grid_v.nx))
 
+    Bδucorr = τ .* (iRe .* Δu .- Gxm1 .- Convu .+ Grav)
+    Bδvcorr = τ .* (iRe .* Δv .- Gym1 .- Convv)
+    # Bδucorr = τ .* (iRe .* Δu .- Convu .+ Grav)
+    # Bδvcorr = τ .* (iRe .* Δv .- Convv)
+    
     @inbounds @threads for II in EMPTY_u
         pII = lexicographic(II, grid_u.ny)
         Bδucorr[pII] = 0.

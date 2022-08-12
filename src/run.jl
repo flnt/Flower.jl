@@ -67,7 +67,9 @@ function run_forward(num, grid, grid_u, grid_v,
     verbose = false,
     show_every = 100,
     save_length = false,
-    save_radius = false
+    save_radius = false,
+    Ra = 0,
+    λ = 1,
     )
 
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
@@ -460,6 +462,7 @@ function run_forward(num, grid, grid_u, grid_v,
 
         if stefan
             Stefan_velocity!(num, grid, phS.T, phL.T, MIXED)
+            V[MIXED] .*= 1. ./ λ
             if Vmean
                 a = mean(V[MIXED])
                 V[MIXED] .= a
@@ -484,7 +487,9 @@ function run_forward(num, grid, grid_u, grid_v,
                 u[ind.b_left[1]] .= sqrt.(x[ind.b_left[1]] .^ 2 + y[ind.b_left[1]] .^ 2) .- (num.R + speed*current_i*τ);
                 u[ind.b_right[1]] .= sqrt.(x[ind.b_right[1]] .^ 2 + y[ind.b_right[1]] .^ 2) .- (num.R + speed*current_i*τ);
             elseif nb_reinit > 0
-                FE_reinit(grid, ind, u, nb_reinit, BC_u)
+                if current_i%num.reinit_every == 0
+                    FE_reinit(grid, ind, u, nb_reinit, BC_u)
+                end
             end
         end
 
@@ -717,7 +722,7 @@ function run_forward(num, grid, grid_u, grid_v,
                             MpS, iMpS, MuS, MvS, iMGxS, iMGyS, iMDxS, iMDyS,
                             iMuSm1, iMvSm1, iMGxSm1, iMGySm1,
                             MIXED, MIXED_u, MIXED_v, SOLID, LIQUID, LIQUID_u, LIQUID_v,
-                            FRESH_S, FRESH_S_u, FRESH_S_v, nullspaceS, ns_advection)
+                            FRESH_S, FRESH_S_u, FRESH_S_v, nullspaceS, ns_advection, Ra)
             end
             if ns_liquid_phase
                 set_stokes!(grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, opL, phL,
@@ -735,7 +740,7 @@ function run_forward(num, grid, grid_u, grid_v,
                             MpL, iMpL, MuL, MvL, iMGxL, iMGyL, iMDxL, iMDyL,
                             iMuLm1, iMvLm1, iMGxLm1, iMGyLm1,
                             MIXED, MIXED_u, MIXED_v, LIQUID, SOLID, SOLID_u, SOLID_v,
-                            FRESH_L, FRESH_L_u, FRESH_L_v, nullspaceL, ns_advection)
+                            FRESH_L, FRESH_L_u, FRESH_L_v, nullspaceL, ns_advection, Ra)
             end
         end
 
