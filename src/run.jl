@@ -172,7 +172,7 @@ function run_forward(num, grid, grid_u, grid_v,
     MuL = copy(Iu)
     MvS = copy(Iv)
     MvL = copy(Iv)
-    iMuS = copy(Iv)
+    iMuS = copy(Iu)
     iMuL = copy(Iu)
     iMvS = copy(Iv)
     iMvL = copy(Iv)

@@ -196,7 +196,7 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
     Δu = Lu * vec(u) .+ CUTu
     Δv = Lv * vec(v) .+ CUTv
 
-    Grav = Ra*vcat(vec(ph.T), 0*mean(ph.T)*ones(grid_v.nx))
+    Grav = Ra*vcat(vec(ph.T), 0*mean(ph.T)*ones(grid_u.ny))
 
     Bδucorr = τ .* (iRe .* Δu .- Gxm1 .- Convu .+ Grav)
     Bδvcorr = τ .* (iRe .* Δv .- Gym1 .- Convv)
