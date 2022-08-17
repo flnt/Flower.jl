@@ -385,6 +385,48 @@ function empty_cells_uv!(grid, grid_u, grid_v)
             end
         end
     end
+    @inbounds @threads for II in ind.b_left[1]
+        empty_cell_u!(geoS, grid_u.geoS, II, ny)
+        empty_cell_u!(geoL, grid_u.geoL, II, ny)
+    end
+    @inbounds @threads for II in ind.b_right[1]
+        if geoS.cap[II,3] < 1e-10
+            grid_u.geoS.dcap[δx⁺(II),:] .= 0.
+            grid_u.geoS.emptied[II] = true
+            grid_u.geoS.dcap[II,3] = 0.
+            if II[1] != 1
+                grid_u.geoS.dcap[δy⁻(δx⁺(II)),4] = 0.
+            end
+            if II[1] != ny
+                grid_u.geoS.dcap[δy⁺(δx⁺(II)),2] = 0.
+            end
+        end
+        if geoL.cap[II,3] < 1e-10
+            grid_u.geoL.dcap[δx⁺(II),:] .= 0.
+            grid_u.geoL.emptied[II] = true
+            grid_u.geoL.dcap[II,3] = 0.
+            if II[1] != 1
+                grid_u.geoL.dcap[δy⁻(δx⁺(II)),4] = 0.
+            end
+            if II[1] != ny
+                grid_u.geoL.dcap[δy⁺(δx⁺(II)),2] = 0.
+            end
+        end
+    end
+    @inbounds @threads for II in vcat(ind.b_bottom[1][2:end-1], ind.b_top[1][2:end-1])
+        if geoS.cap[II,3] < 1e-10
+            grid_u.geoS.dcap[δx⁺(II),:] .= 0.
+            grid_u.geoS.emptied[δx⁺(II)] = true
+            grid_u.geoS.dcap[II,3] = 0.
+            grid_u.geoS.dcap[δx⁺(δx⁺(II)),1] = 0.
+        end
+        if geoL.cap[II,3] < 1e-10
+            grid_u.geoL.dcap[δx⁺(II),:] .= 0.
+            grid_u.geoL.emptied[δx⁺(II)] = true
+            grid_u.geoL.dcap[II,3] = 0.
+            grid_u.geoL.dcap[δx⁺(δx⁺(II)),1] = 0.
+        end
+    end
     @inbounds @threads for II in ind.b_bottom[1]
         if geoS.cap[II,2] < 1e-10
             grid_v.geoS.dcap[II,:] .= 0.
@@ -407,6 +449,48 @@ function empty_cells_uv!(grid, grid_u, grid_v)
             if II[2] != nx
                 grid_v.geoL.dcap[δx⁺(II),1] = 0.
             end
+        end
+    end
+    @inbounds @threads for II in ind.b_bottom[1]
+        empty_cell_v!(geoS, grid_v.geoS, II, nx)
+        empty_cell_v!(geoL, grid_v.geoL, II, nx)
+    end
+    @inbounds @threads for II in ind.b_top[1]
+        if geoS.cap[II,4] < 1e-10
+            grid_v.geoS.dcap[δy⁺(II),:] .= 0.
+            grid_v.geoS.emptied[II] = true
+            grid_v.geoS.dcap[II,4] = 0.
+            if II[2] != 1
+                grid_v.geoS.dcap[δx⁻(δy⁺(II)),3] = 0.
+            end
+            if II[2] != nx
+                grid_v.geoS.dcap[δx⁺(δy⁺(II)),1] = 0.
+            end
+        end
+        if geoL.cap[II,4] < 1e-10
+            grid_v.geoL.dcap[δy⁺(II),:] .= 0.
+            grid_v.geoL.emptied[II] = true
+            grid_v.geoL.dcap[II,4] = 0.
+            if II[2] != 1
+                grid_v.geoL.dcap[δx⁻(δy⁺(II)),3] = 0.
+            end
+            if II[2] != nx
+                grid_v.geoL.dcap[δx⁺(δy⁺(II)),1] = 0.
+            end
+        end
+    end
+    @inbounds @threads for II in vcat(ind.b_left[1][2:end-1], ind.b_right[1][2:end-1])
+        if geoS.cap[II,4] < 1e-10
+            grid_v.geoS.dcap[δy⁺(II),:] .= 0.
+            grid_v.geoS.emptied[δy⁺(II)] = true
+            grid_v.geoS.dcap[II,4] = 0.
+            grid_v.geoS.dcap[δy⁺(δy⁺(II)),2] = 0.
+        end
+        if geoL.cap[II,4] < 1e-10
+            grid_v.geoL.dcap[δy⁺(II),:] .= 0.
+            grid_v.geoL.emptied[δy⁺(II)] = true
+            grid_v.geoL.dcap[II,4] = 0.
+            grid_v.geoL.dcap[δy⁺(δy⁺(II)),2] = 0.
         end
     end
 end
