@@ -183,6 +183,10 @@ function run_forward(num, grid, grid_u, grid_v,
 
     iMpSm1 = copy(Ip)
     iMpLm1 = copy(Ip)
+    MuSm1 = copy(Iu)
+    MuLm1 = copy(Iu)
+    MvSm1 = copy(Iv)
+    MvLm1 = copy(Iv)
     iMuSm1 = copy(Iu)
     iMuLm1 = copy(Iu)
     iMvSm1 = copy(Iv)
@@ -334,6 +338,8 @@ function run_forward(num, grid, grid_u, grid_v,
         @inbounds @threads for II in grid_u.ind.all_indices
             pII = lexicographic(II, grid_u.ny)
 
+            @inbounds MuSm1[pII,pII] = MuS[pII,pII]
+            @inbounds MuLm1[pII,pII] = MuL[pII,pII]
             @inbounds iMuSm1[pII,pII] = 1. / (MuS[pII,pII] + eps(0.01))
             @inbounds iMuLm1[pII,pII] = 1. / (MuL[pII,pII] + eps(0.01))
 
@@ -345,6 +351,8 @@ function run_forward(num, grid, grid_u, grid_v,
         @inbounds @threads for II in grid_v.ind.all_indices
             pII = lexicographic(II, grid_v.ny)
 
+            @inbounds MvSm1[pII,pII] = MvS[pII,pII]
+            @inbounds MvLm1[pII,pII] = MvL[pII,pII]
             @inbounds iMvSm1[pII,pII] = 1. / (MvS[pII,pII] + eps(0.01))
             @inbounds iMvLm1[pII,pII] = 1. / (MvL[pII,pII] + eps(0.01))
 
@@ -469,6 +477,14 @@ function run_forward(num, grid, grid_u, grid_v,
             end
             # V .= imfilter(V, Kernel.gaussian(0.1))
             velocity_extension!(grid, vcat(SOLID_vel_ext,LIQUID_vel_ext), NB)
+            if periodic_x
+                @inbounds grid.V[:,1] .= @view grid.V[:,2]
+                @inbounds grid.V[:,end] .= @view grid.V[:,end-1]
+            end
+            if periodic_y
+                @inbounds grid.V[1,:] .= @view grid.V[2,:]
+                @inbounds grid.V[end,:] .= @view grid.V[end-1,:]
+            end
         end
 
         if advection
@@ -649,6 +665,8 @@ function run_forward(num, grid, grid_u, grid_v,
             @inbounds @threads for II in grid_u.ind.all_indices
                 pII = lexicographic(II, grid_u.ny)
     
+                @inbounds MuSm1[pII,pII] = MuS[pII,pII]
+                @inbounds MuLm1[pII,pII] = MuL[pII,pII]
                 @inbounds iMuSm1[pII,pII] = 1. / (MuS[pII,pII] + eps(0.01))
                 @inbounds iMuLm1[pII,pII] = 1. / (MuL[pII,pII] + eps(0.01))
     
@@ -660,6 +678,8 @@ function run_forward(num, grid, grid_u, grid_v,
             @inbounds @threads for II in grid_v.ind.all_indices
                 pII = lexicographic(II, grid_v.ny)
     
+                @inbounds MvSm1[pII,pII] = MvS[pII,pII]
+                @inbounds MvLm1[pII,pII] = MvL[pII,pII]
                 @inbounds iMvSm1[pII,pII] = 1. / (MvS[pII,pII] + eps(0.01))
                 @inbounds iMvLm1[pII,pII] = 1. / (MvL[pII,pII] + eps(0.01))
     
@@ -720,9 +740,10 @@ function run_forward(num, grid, grid_u, grid_v,
                             LuSm1, LvSm1, SCUTum1, SCUTvm1, Cum1S, Cvm1S,
                             ksppS, kspuS, kspvS, nsS, ns_vecS, GxpSm1, GypSm1,
                             MpS, iMpS, MuS, MvS, iMGxS, iMGyS, iMDxS, iMDyS,
-                            iMuSm1, iMvSm1, iMGxSm1, iMGySm1,
+                            iMuSm1, iMvSm1, iMGxSm1, iMGySm1, MuSm1, MvSm1,
                             MIXED, MIXED_u, MIXED_v, SOLID, LIQUID, LIQUID_u, LIQUID_v,
-                            FRESH_S, FRESH_S_u, FRESH_S_v, nullspaceS, ns_advection, Ra)
+                            FRESH_S, FRESH_S_u, FRESH_S_v, nullspaceS, ns_advection, Ra,
+                            periodic_x, periodic_y)
             end
             if ns_liquid_phase
                 set_stokes!(grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, opL, phL,
@@ -738,9 +759,10 @@ function run_forward(num, grid, grid_u, grid_v,
                             LuLm1, LvLm1, LCUTum1, LCUTvm1, Cum1L, Cvm1L,
                             ksppL, kspuL, kspvL, nsL, ns_vecL, GxpLm1, GypLm1,
                             MpL, iMpL, MuL, MvL, iMGxL, iMGyL, iMDxL, iMDyL,
-                            iMuLm1, iMvLm1, iMGxLm1, iMGyLm1,
+                            iMuLm1, iMvLm1, iMGxLm1, iMGyLm1, MuLm1, MvLm1,
                             MIXED, MIXED_u, MIXED_v, LIQUID, SOLID, SOLID_u, SOLID_v,
-                            FRESH_L, FRESH_L_u, FRESH_L_v, nullspaceL, ns_advection, Ra)
+                            FRESH_L, FRESH_L_u, FRESH_L_v, nullspaceL, ns_advection, Ra,
+                            periodic_x, periodic_y)
             end
         end
 

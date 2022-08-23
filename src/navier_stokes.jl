@@ -1,6 +1,9 @@
 function no_slip_condition!(grid, grid_u, grid_v)
     interpolate_scalar!(grid, grid_u, grid_v, grid.V, grid_u.V, grid_v.V)
 
+    @inbounds grid_u.α[(abs.(grid_u.α) .- π) .< 1e-8] .= π
+    @inbounds grid_v.α[(abs.(grid_v.α) .- π) .< 1e-8] .= π
+
     normalx = cos.(grid_u.α)
     normaly = sin.(grid_v.α)
 
@@ -24,6 +27,68 @@ function extrapolate_boundary!(cap, grid_u, dcapu, u, projection, inside)
             end
         end
     end
+end
+
+function periodic_velocity!(grid_u, grid_v, Lu, Lv, Bu, Bv, periodic_x, periodic_y)
+    if periodic_x
+        @inbounds for II in grid_u.ind.b_left[1]
+            pII = lexicographic(II, grid_u.ny)
+
+            Lu[pII,pII] = -4.0
+            
+            Lu[pII+grid_u.ny,end-grid_v.ny+pII] = Lu[pII+grid_u.ny,pII]
+            Lu[end-grid_v.ny+pII,pII+grid_u.ny] = Lu[end-grid_v.ny+pII,pII]
+
+            Lu[pII,pII+grid_u.ny] = 0.0
+            Lu[pII,end-grid_v.ny+pII] = 0.0
+            
+            Lu[pII+grid_u.ny,pII] = 0.0
+            Lu[end-grid_v.ny+pII,pII] = 0.0
+
+
+            if II[1] != 1
+                Lu[pII-1,pII] = 0.0
+                Lu[pII,pII-1] = 0.0
+            end
+            if II[1] != grid_u.nx
+                Lu[pII+1,pII] = 0.0
+                Lu[pII,pII+1] = 0.0
+            end
+
+            Bu[pII] = 0.0
+        end
+    end
+
+    if periodic_y
+        @inbounds for II in grid_v.ind.b_bottom[1]
+            pII = lexicographic(II, grid_v.ny)
+
+            Lv[pII,pII] = -4.0
+            
+            Lv[pII+1,pII+grid_v.ny-1] = Lv[pII+1,pII]
+            Lv[pII+grid_v.ny-1,pII+1] = Lv[pII+grid_v.ny-1,pII]
+
+            Lv[pII,pII+1] = 0.0
+            Lv[pII,pII+grid_v.ny-1] = 0.0
+            
+            Lv[pII+1,pII] = 0.0
+            Lv[pII+grid_v.ny-1,pII] = 0.0
+
+
+            if II[2] != 1
+                Lv[pII-grid_v.ny,pII] = 0.0
+                Lv[pII,pII-grid_v.ny] = 0.0
+            end
+            if II[2] != grid_v.nx
+                Lv[pII+grid_v.ny,pII] = 0.0
+                Lv[pII,pII+grid_v.ny] = 0.0
+            end
+
+            Bv[pII] = 0.0
+        end
+    end
+
+    return nothing
 end
 
 function set_stokes!(grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
@@ -153,9 +218,10 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
                             Lum1, Lvm1, CUTum1, CUTvm1, Cum1, Cvm1,
                             kspp, kspu, kspv, ns, ns_vec, Gxpm1, Gypm1,
                             Mp, iMp, Mu, Mv, iMGx, iMGy, iMDx, iMDy,
-                            iMum1, iMvm1, iMGxm1, iMGym1,
+                            iMum1, iMvm1, iMGxm1, iMGym1, Mum1, Mvm1,
                             MIXED, MIXED_u, MIXED_v, FULL, EMPTY, EMPTY_u, EMPTY_v,
-                            FRESH, FRESH_u, FRESH_v, nullspace, ns_advection, Ra
+                            FRESH, FRESH_u, FRESH_v, nullspace, ns_advection, Ra,
+                            periodic_x, periodic_y
     )
     @unpack Re, τ = num
     @unpack Lp, CUTp, Lu, CUTu, Lv, CUTv, Dxu, CUTDx, Dyv, CUTDy, Ap, Au, Av, Gxp, CUTGxp, Gyp, CUTGyp, Gxϕ, CUTGxϕ, Gyϕ, CUTGyϕ, Cu, CUTCu, Cv, CUTCv = op
@@ -164,8 +230,6 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
     iRe = 1/Re
 
     mat_op!(Ap, Lp, x->-x)
-    Au .= Mu - iRe*τ*Lu
-    Av .= Mv - iRe*τ*Lv
 
     if nullspace
         PETSc.destroy(ns)
@@ -184,6 +248,25 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
     Cvm1 .= Cv * vec(v) .+ CUTCv
 
     init_fresh_cells!(grid, p, geo.projection, FRESH)
+    # Hardfix to ensure periodic borders are initialized
+    if periodic_y
+        @inbounds @threads for II in FRESH
+            if II[1] == 1
+                p[II] = p[δy⁺(II)]
+            elseif II[1] == grid.ny
+                p[II] = p[δy⁻(II)]
+            end
+        end
+    end
+    if periodic_x
+        @inbounds @threads for II in FRESH
+            if II[2] == 1
+                p[II] = p[δx⁺(II)]
+            elseif II[2] == grid.nx
+                p[II] = p[δx⁻(II)]
+            end
+        end
+    end
     init_fresh_cells!(grid_u, u, geo_u.projection, FRESH_u)
     init_fresh_cells!(grid_v, v, geo_v.projection, FRESH_v)
     kill_dead_cells!(p, Lp, EMPTY, MIXED, grid.ny)
@@ -192,34 +275,45 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
 
     Gxm1 .= Mu * iMGx * (Gxp * vec(p) .+ CUTGxp)
     Gym1 .= Mv * iMGy * (Gyp * vec(p) .+ CUTGyp)
+    # Gxm1 .= Mum1 * iMGxm1 * Gxpm1 * vec(p)
+    # Gym1 .= Mvm1 * iMGym1 * Gypm1 * vec(p)
 
     Δu = Lu * vec(u) .+ CUTu
     Δv = Lv * vec(v) .+ CUTv
 
-    Grav = Ra*vcat(vec(ph.T), 0*mean(ph.T)*ones(grid_u.ny))
+    Grav = Ra*vcat(0*mean(ph.T)*ones(grid_u.ny), vec(ph.T))
 
-    Bδucorr = τ .* (iRe .* Δu .- Gxm1 .- Convu .+ Grav)
-    Bδvcorr = τ .* (iRe .* Δv .- Gym1 .- Convv)
-    # Bδucorr = τ .* (iRe .* Δu .- Convu .+ Grav)
-    # Bδvcorr = τ .* (iRe .* Δv .- Convv)
+    @inbounds @threads for II in findall(geo_u.emptied)
+        pII = lexicographic(II, grid_u.ny)
+        Grav[pII] = 0.
+    end
+
+    Bucorr = Mum1 * vec(u) .+ τ .* (iRe.*CUTu .-Gxm1 .- Convu .- Grav)
+    Bvcorr = Mvm1 * vec(v) .+ τ .* (iRe.*CUTv .-Gym1 .- Convv)
     
     @inbounds @threads for II in EMPTY_u
         pII = lexicographic(II, grid_u.ny)
-        Bδucorr[pII] = 0.
+        Bucorr[pII] = 0.
     end
     @inbounds @threads for II in EMPTY_v
         pII = lexicographic(II, grid_v.ny)
-        Bδvcorr[pII] = 0.
+        Bvcorr[pII] = 0.
     end
 
-    # update_ksp_solver!(kspu, Au)
-    # update_ksp_solver!(kspv, Av)
-    # δucorr = reshape(kspu \ Bδucorr, (grid_u.ny, grid_u.nx))
-    # δvcorr = reshape(kspv \ Bδvcorr, (grid_v.ny, grid_v.nx))
-    δucorr = reshape(cg(Au, Bδucorr), (grid_u.ny, grid_u.nx))
-    δvcorr = reshape(cg(Av, Bδvcorr), (grid_v.ny, grid_v.nx))
-    ucorr .= δucorr .+ u
-    vcorr .= δvcorr .+ v
+    periodic_velocity!(grid_u, grid_v, Lu, Lv, Bucorr, Bvcorr, periodic_x, periodic_y)
+
+    Au .= Mu - iRe*τ*Lu
+    Av .= Mv - iRe*τ*Lv
+
+    ucorr .= reshape(cg(Au, Bucorr), (grid_u.ny, grid_u.nx))
+    vcorr .= reshape(cg(Av, Bvcorr), (grid_v.ny, grid_v.nx))
+
+    if periodic_x
+        @inbounds ucorr[:,1] .= @view ucorr[:,end]
+    end
+    if periodic_y
+        @inbounds vcorr[1,:] .= @view vcorr[end,:]
+    end
 
     Duv = iMDx * (Dxu * vec(ucorr) .+ CUTDx) .+ iMDy * (Dyv * vec(vcorr) .+ CUTDy)
     Bϕ = - 1. ./ τ .* Mp * Duv .+ CUTp

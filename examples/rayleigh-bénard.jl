@@ -7,7 +7,7 @@ set_theme!(fontsize_theme)
 ratio = 1
 L0 = 1.
 nx = 64
-ny = 64
+ny = ratio * 64
 
 x = LinRange(-L0/2, L0/2, nx+1)
 y = LinRange(-ratio*L0/2, ratio*L0/2, ny+1)
@@ -23,17 +23,18 @@ num = Numerical(case = "Mullins",
     save_every = 1,
     shifted = 0.000,
     N = 1,
-    max_iterations = 25,
+    max_iterations = 5000,
     A = 0.0,
     ϵ_κ = 0.00000,
     θd = 0.0,
     NB = 2,
     reinit_every = 1,
-    )
+    ϵ = 0.05
+)
 
-Ra = 0.0
-λ = 10.0
-H0 = 0.2
+Ra = 1e5
+λ = 1.0
+H0 = 0.05
 T1 = 1.0
 T2 = 0.0
 
@@ -72,15 +73,18 @@ opS, opL, phS, phL, fwd = init_fields(num, gp, gu, gv)
     BC_uL = Boundaries(
         top = Boundary(t = per, f = periodic),
         bottom = Boundary(t = per, f = periodic),
+        left = Boundary(t = dir, f = dirichlet, val = 0.0),
+        right = Boundary(t = dir, f = dirichlet, val = 0.0),
     ),
     BC_vL = Boundaries(
         top = Boundary(t = per, f = periodic),
         bottom = Boundary(t = per, f = periodic),
+        left = Boundary(t = dir, f = dirichlet, val = 0.0),
+        right = Boundary(t = dir, f = dirichlet, val = 0.0),
     ),
     BC_pL = Boundaries(
         top = Boundary(t = per, f = periodic),
         bottom = Boundary(t = per, f = periodic),
-        left = Boundary(t = dir, f = dirichlet, val = 0.0)
     ),
     stefan = true,
     advection = true,
@@ -137,14 +141,41 @@ resize_to_layout!(fv)
 fv = current_figure()
 
 
-prefix = "/Users/alex/codes/backup/Flower.jl/figures/rayleigh/"
+prefix = "/Users/alex/codes/Flower.jl/figures/rayleigh/"
 suffix = "_Ra$(abs(Ra))_λ$(λ)"
 
 make_video(num, fwd, gu, "u"; title_prefix=prefix,
-        title_suffix=suffix, framerate=100, limitsx=(-lim,lim), limitsy=(-lim,lim))
-
+        title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-lim,lim), limitsy=(-lim,lim))
 make_video(num, fwd, gv, "v"; title_prefix=prefix,
-        title_suffix=suffix, framerate=100, limitsx=(-lim,lim), limitsy=(-lim,lim))
-
+        title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-lim,lim), limitsy=(-lim,lim))
+make_video(num, fwd, gp, "p"; title_prefix=prefix,
+        title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-lim,lim), limitsy=(-lim,lim))
 make_video(num, fwd, gp, "T"; title_prefix=prefix,
-        title_suffix=suffix, framerate=100, minv=num.θd, maxv=T1, limitsx=(-lim,lim), limitsy=(-lim,lim))
+        title_suffix=suffix, framerate=500÷num.save_every, minv=num.θd, maxv=T1, limitsx=(-lim,lim), limitsy=(-lim,lim))
+# make_video(num, fwd, gu, "ucorr"; title_prefix=prefix,
+#         title_suffix=suffix, framerate=100, limitsx=(-lim,lim), limitsy=(-lim,lim))
+# make_video(num, fwd, gp, "ϕ"; title_prefix=prefix,
+#         title_suffix=suffix, framerate=100, limitsx=(-lim,lim), limitsy=(-lim,lim))
+
+
+using Interpolations
+height = zeros(size(fwd.usave)[1:2])
+
+for i in 1:size(fwd.usave,1)
+    for j in 1:size(fwd.usave,2)
+        itp = LinearInterpolation(reverse(fwd.usave[i,j,2:end-1]), reverse(gp.x[1,2:end-1]))
+        height[i,j] = itp(0.0)
+    end
+end
+
+av_height1 = mean(height, dims=2)[:,1] .+ 0.5 .- H0
+
+eRa = av_height1.^3 .* Ra .* (1.0 .- num.θd)
+
+# fh = Figure(resolution = (1600, 1000))
+# colsize!(fh.layout, 1, Aspect(1, 1.0))
+# ax = Axis(fh[1,1], aspect = 1)
+# lines!(av_height1)
+# lines!(av_height2)
+# lines!(av_height3)
+# resize_to_layout!(fh)
