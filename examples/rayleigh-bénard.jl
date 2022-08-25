@@ -23,7 +23,7 @@ num = Numerical(case = "Mullins",
     save_every = 1,
     shifted = 0.000,
     N = 1,
-    max_iterations = 5000,
+    max_iterations = 1000,
     A = 0.0,
     ϵ_κ = 0.00000,
     θd = 0.0,
@@ -32,7 +32,7 @@ num = Numerical(case = "Mullins",
     ϵ = 0.05
 )
 
-Ra = 1e5
+Ra = 1e3
 λ = 1.0
 H0 = 0.05
 T1 = 1.0
@@ -102,6 +102,8 @@ opS, opL, phS, phL, fwd = init_fields(num, gp, gu, gv)
 
     verbose = true,
     show_every = 1,
+
+    adaptative_CFL = true,
 
     Ra = Ra,
     λ = λ,
@@ -175,7 +177,7 @@ eRa = av_height1.^3 .* Ra .* (1.0 .- num.θd)
 # fh = Figure(resolution = (1600, 1000))
 # colsize!(fh.layout, 1, Aspect(1, 1.0))
 # ax = Axis(fh[1,1], aspect = 1)
-# lines!(av_height1)
-# lines!(av_height2)
-# lines!(av_height3)
+# lines!(fwd.time, av_height1)
+# lines!(fwd.time, av_height2)
+# # lines!(fwd.time, av_height3)
 # resize_to_layout!(fh)

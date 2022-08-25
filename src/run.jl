@@ -68,13 +68,14 @@ function run_forward(num, grid, grid_u, grid_v,
     show_every = 100,
     save_length = false,
     save_radius = false,
+    adaptative_CFL = false,
     Ra = 0,
     λ = 1,
     )
 
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
     @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, V, κ, LSA, LSB = grid
-    @unpack Tall, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, ϕsave, Uxsave, Uysave, Uxcorrsave, Uycorrsave, Vsave, κsave, lengthsave, Cd, Cl = fwd
+    @unpack Tall, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, ϕsave, Uxsave, Uysave, Uxcorrsave, Uycorrsave, Vsave, κsave, lengthsave, time, Cd, Cl = fwd
 
     MPI.Initialized() || MPI.Init()
     PETSc.initialize()
@@ -437,53 +438,64 @@ function run_forward(num, grid, grid_u, grid_v,
         κsave[1,:,:] .= κ
     end
 
+    current_t = 0.
     while current_i < max_iterations + 1
 
         if !stefan
             V .= speed*ones(ny, nx)
         end
 
+        while true
+            if heat
+                try
+                    if heat_solid_phase
+                        set_heat!(num, grid, geoS, geoS.projection,
+                                opS, phS, HTS, bcTS, HuS, HvS,
+                                BC_TS, BC_uS, BC_vS,
+                                MIXED, LIQUID, heat_convection)
+                        phS.tmp .= reshape(gmres(opS.A,(opS.B*vec(phS.T) .+ 2.0.*τ.*opS.CUTT .- τ.*opS.CUTCT)), (ny,nx))
+                        # TS .= reshape(gmres(AS,(rhs .+ τ*SCUTT)), (n,n))
+                    end
+                    if heat_liquid_phase
+                        set_heat!(num, grid, geoL, geoS.projection,
+                                opL, phL, HTL, bcTL, HuL, HvL,
+                                BC_TL, BC_uL, BC_vL,
+                                MIXED, SOLID, heat_convection)
+                        phL.tmp .= reshape(gmres(opL.A,(opL.B*vec(phL.T) .+ 2.0.*τ.*opL.CUTT .- τ.*opL.CUTCT)), (ny,nx))
+                        # TL .= reshape(gmres(AL,(rhs .+ τ*LCUTT)), (n,n))
+                    end
+                catch
+                    @error ("Unphysical temperature field, iteration $current_i")
+                    break
+                end
+            end
 
-        if heat
-            try
-                if heat_solid_phase
-                    set_heat!(num, grid, geoS, geoS.projection,
-                            opS, phS, HTS, bcTS, HuS, HvS,
-                            BC_TS, BC_uS, BC_vS,
-                            MIXED, LIQUID, heat_convection)
-                    phS.T .= reshape(gmres(opS.A,(opS.B*vec(phS.T) .+ 2.0.*τ.*opS.CUTT .- τ.*opS.CUTCT)), (ny,nx))
-                    # TS .= reshape(gmres(AS,(rhs .+ τ*SCUTT)), (n,n))
+            if stefan
+                Stefan_velocity!(num, grid, phS.T, phL.T, MIXED)
+                V[MIXED] .*= 1. ./ λ
+                if Vmean
+                    a = mean(V[MIXED])
+                    V[MIXED] .= a
                 end
-                if heat_liquid_phase
-                    set_heat!(num, grid, geoL, geoS.projection,
-                            opL, phL, HTL, bcTL, HuL, HvL,
-                            BC_TL, BC_uL, BC_vL,
-                            MIXED, SOLID, heat_convection)
-                    phL.T .= reshape(gmres(opL.A,(opL.B*vec(phL.T) .+ 2.0.*τ.*opL.CUTT .- τ.*opL.CUTCT)), (ny,nx))
-                    # TL .= reshape(gmres(AL,(rhs .+ τ*LCUTT)), (n,n))
+                # V .= imfilter(V, Kernel.gaussian(0.1))
+                velocity_extension!(grid, vcat(SOLID_vel_ext,LIQUID_vel_ext), NB)
+                if periodic_x
+                    @inbounds grid.V[:,1] .= @view grid.V[:,2]
+                    @inbounds grid.V[:,end] .= @view grid.V[:,end-1]
                 end
-            catch
-                @error ("Unphysical temperature field, iteration $current_i")
+                if periodic_y
+                    @inbounds grid.V[1,:] .= @view grid.V[2,:]
+                    @inbounds grid.V[end,:] .= @view grid.V[end-1,:]
+                end
+            end
+
+            if adaptative_CFL && (max(abs.(V)...) >= (Δ / τ) || max(abs.(phL.u)...) >= (0.01 * Δ / τ))
+                CFL /= 5.0
+                τ /= 5.0
+            else
+                phS.T .= phS.tmp
+                phL.T .= phL.tmp
                 break
-            end
-        end
-
-        if stefan
-            Stefan_velocity!(num, grid, phS.T, phL.T, MIXED)
-            V[MIXED] .*= 1. ./ λ
-            if Vmean
-                a = mean(V[MIXED])
-                V[MIXED] .= a
-            end
-            # V .= imfilter(V, Kernel.gaussian(0.1))
-            velocity_extension!(grid, vcat(SOLID_vel_ext,LIQUID_vel_ext), NB)
-            if periodic_x
-                @inbounds grid.V[:,1] .= @view grid.V[:,2]
-                @inbounds grid.V[:,end] .= @view grid.V[:,end-1]
-            end
-            if periodic_y
-                @inbounds grid.V[1,:] .= @view grid.V[2,:]
-                @inbounds grid.V[end,:] .= @view grid.V[end-1,:]
             end
         end
 
@@ -766,11 +778,13 @@ function run_forward(num, grid, grid_u, grid_v,
             end
         end
 
+        current_t += τ
         if iszero(current_i%save_every) || current_i==max_iterations
             snap = current_i÷save_every+1
             if current_i==max_iterations
                 snap = size(Tsave,1)
             end
+            time[snap] = current_t
             Vsave[snap,:,:] .= V
             usave[snap,:,:] .= u
             uusave[snap,:,:] .= grid_u.u

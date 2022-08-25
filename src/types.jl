@@ -191,6 +191,7 @@ mutable struct Forward{T <: Float64} <: MutatingFields
     Vsave::Array{T,3}
     κsave::Array{T,3}
     lengthsave::Array{T,1}
+    time::Array{T,1}
     Cd::Array{T,1}
     Cl::Array{T,1}
 end

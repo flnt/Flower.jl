@@ -116,7 +116,7 @@ function init_meshes(num::NumericalParameters)
 end
 
 function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
-    @unpack N, T_inf, u_inf, v_inf, A, R, L0, Δ, shifted, max_iterations, save_every, CFL, x_airfoil, y_airfoil = num
+    @unpack τ, N, T_inf, u_inf, v_inf, A, R, L0, Δ, shifted, max_iterations, save_every, CFL, x_airfoil, y_airfoil = num
     @unpack x, y, nx, ny, u, ind = grid
 
     SCUTT = zeros(nx*ny)
@@ -431,10 +431,10 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     DuL = zeros(grid_u.ny, grid_u.nx)
     DvS = zeros(grid_v.ny, grid_v.nx)
     DvL = zeros(grid_v.ny, grid_v.nx)
-    tmpS = zeros(grid_u.ny, grid_u.nx)
-    tmpL = zeros(grid_u.ny, grid_u.nx)
-    # tmpS = zeros(ny, nx)
-    # tmpL = zeros(ny, nx)
+    # tmpS = zeros(grid_u.ny, grid_u.nx)
+    # tmpL = zeros(grid_u.ny, grid_u.nx)
+    tmpS = zeros(ny, nx)
+    tmpL = zeros(ny, nx)
 
     n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
     
@@ -453,6 +453,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     Vsave = zeros(n_snaps, ny, nx)
     κsave = zeros(n_snaps, ny, nx)
     lengthsave = zeros(n_snaps)
+    time = zeros(n_snaps)
     Cd = zeros(n_snaps)
     Cl = zeros(n_snaps)
 
@@ -551,7 +552,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
             Operators(LCUTT, LCUTp, LCUTu, LCUTv, LCUTDx, LCUTDy, LCUTCT, LCUTGxT, LCUTGyT, LCUTGxp, LCUTGyp, LCUTGxϕ, LCUTGyϕ, LCUTCu, LCUTCv, LTL, LpL, LuL, LvL, AL, BL, GxpL, GypL, GxϕL, GyϕL, DxuL, DyvL, ApL, AuL, AvL, CTL, GxTL, GyTL, ftcGxTL, ftcGyTL, CuL, CvL, E11, E12_x, E12_y, E22, utpL, vtpL),
             Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DuS, DvS, tmpS),
             Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DuL, DvL, tmpL),
-            Forward(Tall, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, ϕsave, Uxsave, Uysave, Uxcorrsave, Uycorrsave, Vsave, κsave, lengthsave, Cd, Cl))
+            Forward(Tall, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, ϕsave, Uxsave, Uysave, Uxcorrsave, Uycorrsave, Vsave, κsave, lengthsave, time, Cd, Cl))
 end
 
 function init_mullins!(grid, T, V, t, A, N, shift)
