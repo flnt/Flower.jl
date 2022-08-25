@@ -234,7 +234,9 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
     if nullspace
         PETSc.destroy(ns)
     end
-    ns = update_ksp_solver!(kspp, Ap, nullspace, ns_vec)
+    PETSc.destroy(kspp)
+    kspp, ns = init_ksp_solver(Ap, grid.nx, nullspace, ns_vec)
+    # ns = update_ksp_solver!(kspp, Ap, nullspace, ns_vec)
 
     if ns_advection
         Convu = 1.5 .* (Cu * vec(u) .+ CUTCu) .- 0.5 .* Cum1
@@ -288,7 +290,7 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
         Grav[pII] = 0.
     end
 
-    Bucorr = Mum1 * vec(u) .+ τ .* (iRe.*CUTu .-Gxm1 .- Convu .- Grav)
+    Bucorr = Mum1 * vec(u) .+ τ .* (iRe.*CUTu .-Gxm1 .- Convu .+ Grav)
     Bvcorr = Mvm1 * vec(v) .+ τ .* (iRe.*CUTv .-Gym1 .- Convv)
     
     @inbounds @threads for II in EMPTY_u
