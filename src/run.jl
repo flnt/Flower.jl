@@ -490,14 +490,16 @@ function run_forward(num, grid, grid_u, grid_v,
             end
 
             if adaptative_CFL && (max(abs.(V)...) >= (Δ / τ) || max(abs.(phL.u)...) >= (0.01 * Δ / τ))
-                CFL /= 5.0
-                τ /= 5.0
+                CFL /= 2.0
+                τ /= 2.0
             else
                 phS.T .= phS.tmp
                 phL.T .= phL.tmp
                 break
             end
         end
+
+        println("τ = $τ")
 
         if advection
             CFL_sc = CFL*Δ^2*Re < CFL*Δ ? CFL : CFL/Δ

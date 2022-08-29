@@ -302,20 +302,11 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
         Bvcorr[pII] = 0.
     end
 
-    periodic_velocity!(grid_u, grid_v, Lu, Lv, Bucorr, Bvcorr, periodic_x, periodic_y)
-
     Au .= Mu - iRe*τ*Lu
     Av .= Mv - iRe*τ*Lv
 
     ucorr .= reshape(cg(Au, Bucorr), (grid_u.ny, grid_u.nx))
     vcorr .= reshape(cg(Av, Bvcorr), (grid_v.ny, grid_v.nx))
-
-    if periodic_x
-        @inbounds ucorr[:,1] .= @view ucorr[:,end]
-    end
-    if periodic_y
-        @inbounds vcorr[1,:] .= @view vcorr[end,:]
-    end
 
     Duv = iMDx * (Dxu * vec(ucorr) .+ CUTDx) .+ iMDy * (Dyv * vec(vcorr) .+ CUTDy)
     Bϕ = - 1. ./ τ .* Mp * Duv .+ CUTp
