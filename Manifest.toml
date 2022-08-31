@@ -2,7 +2,7 @@
 
 julia_version = "1.8.0-beta3"
 manifest_format = "2.0"
-project_hash = "45d421b8336ba21f7c5bf144cb937351eded70db"
+project_hash = "a891d4d31bf09f955a7cff94229eedac98f00ffe"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -780,10 +780,16 @@ uuid = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 version = "0.19.2"
 
 [[deps.MPICH_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "9f781ffc4020c24ca05d83fa4eb4df0d34832b18"
+deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "MPIPreferences", "Pkg", "TOML"]
+git-tree-sha1 = "089ec72dbf7d7a853626f438d140d0a642ddbda4"
 uuid = "7cb0a576-ebde-5e09-9194-50597f1243b4"
-version = "4.0.2+1"
+version = "4.0.2+4"
+
+[[deps.MPIPreferences]]
+deps = ["Libdl", "Preferences"]
+git-tree-sha1 = "49f10d34284610c125421c7a4e6f913e4bc00897"
+uuid = "3da0fdf6-3ccc-4f1b-acd9-58baa6c99267"
+version = "0.1.3"
 
 [[deps.MacroTools]]
 deps = ["Markdown", "Random"]
@@ -938,10 +944,10 @@ uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
 version = "0.8.1+0"
 
 [[deps.OpenMPI_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "Pkg"]
-git-tree-sha1 = "19ec7d0311aa5fb5fe537dc6eeaec86942b64caf"
+deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "MPIPreferences", "Pkg", "TOML"]
+git-tree-sha1 = "f603a060218ca6818055be3608d4969e937d81bb"
 uuid = "fe0851c0-eecd-5654-98d4-656369965a5c"
-version = "4.1.3+0"
+version = "4.1.3+2"
 
 [[deps.OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -991,7 +997,7 @@ uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
 version = "0.11.10"
 
 [[deps.PETSc]]
-deps = ["Libdl", "LinearAlgebra", "MPI", "PETSc_jll", "SparseArrays"]
+deps = ["Libdl", "LinearAlgebra", "MPI", "PETSc_jll", "SparseArrays", "SparseMatricesCSR"]
 path = "/Users/alex/codes/PETSc.jl"
 uuid = "ace2c81b-2b5f-4b1e-a30d-d662738edfe0"
 version = "0.1.3"
@@ -1260,6 +1266,12 @@ version = "1.0.1"
 [[deps.SparseArrays]]
 deps = ["LinearAlgebra", "Random"]
 uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+
+[[deps.SparseMatricesCSR]]
+deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse"]
+git-tree-sha1 = "4870b3e7db7063927b163fb981bd579410b68b2d"
+uuid = "a0a7dd2c-ebf4-11e9-1f05-cf50bc540ca1"
+version = "0.6.6"
 
 [[deps.SpecialFunctions]]
 deps = ["ChainRulesCore", "IrrationalConstants", "LogExpFunctions", "OpenLibm_jll", "OpenSpecFun_jll"]
