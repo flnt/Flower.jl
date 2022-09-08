@@ -427,6 +427,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     Tall = zeros(ny, nx)
     DTS = zeros(ny, nx)
     DTL = zeros(ny, nx)
+    DϕS = zeros(ny, nx)
+    DϕL = zeros(ny, nx)
     DuS = zeros(grid_u.ny, grid_u.nx)
     DuL = zeros(grid_u.ny, grid_u.nx)
     DvS = zeros(grid_v.ny, grid_v.nx)
@@ -494,6 +496,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
                 uL[II] = tanh(bl*(su[II]-R1))
             end
         end
+    elseif num.case == "Ellipse"
+        u .= sqrt.((x .+ shifted) .^ 2 + (2.0 .* y) .^ 2) - (R) * ones(ny, nx);
     elseif num.case == "Mullins"
         u .= y .+ shifted .+ A*sin.(N*pi*x) .+ L0/4;
         init_mullins!(grid, TL, T_inf, 0., A, N, L0/4)
@@ -546,12 +550,18 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
         end
         uL .= u_inf
         vL .= v_inf
+    elseif num.case == "Jet"
+        Δy = max(y...) - min(y...)
+        u .= y .- min(y...) .- Δy ./ 2. .+ R .+ A.*cos.(N.*pi.*x)
+        @inbounds for i = 0:(ny÷2-1)
+            u[end-i,:] = u[i+1,:]
+        end
     end
 
     return (Operators(SCUTT, SCUTp, SCUTu, SCUTv, SCUTDx, SCUTDy, SCUTCT, SCUTGxT, SCUTGyT, SCUTGxp, SCUTGyp, SCUTGxϕ, SCUTGyϕ, SCUTCu, SCUTCv, LTS, LpS, LuS, LvS, AS, BS, GxpS, GypS, GxϕS, GyϕS, DxuS, DyvS, ApS, AuS, AvS, CTS, GxTS, GyTS, ftcGxTS, ftcGyTS, CuS, CvS, E11, E12_x, E12_y, E22, utpS, vtpS),
             Operators(LCUTT, LCUTp, LCUTu, LCUTv, LCUTDx, LCUTDy, LCUTCT, LCUTGxT, LCUTGyT, LCUTGxp, LCUTGyp, LCUTGxϕ, LCUTGyϕ, LCUTCu, LCUTCv, LTL, LpL, LuL, LvL, AL, BL, GxpL, GypL, GxϕL, GyϕL, DxuL, DyvL, ApL, AuL, AvL, CTL, GxTL, GyTL, ftcGxTL, ftcGyTL, CuL, CvL, E11, E12_x, E12_y, E22, utpL, vtpL),
-            Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DuS, DvS, tmpS),
-            Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DuL, DvL, tmpL),
+            Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DϕS, DuS, DvS, tmpS),
+            Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DϕL, DuL, DvL, tmpL),
             Forward(Tall, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, ϕsave, Uxsave, Uysave, Uxcorrsave, Uycorrsave, Vsave, κsave, lengthsave, time, Cd, Cl))
 end
 
