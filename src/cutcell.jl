@@ -39,6 +39,7 @@
 @inline is_near_interface(a, st) = @inbounds ifelse(a != sign(st[2,1]) || a != sign(st[1,2]) || a != sign(st[2,3]) || a != sign(st[3,2]), true, false)
 
 @inline is_near_interface(u, II::CartesianIndex) = @inbounds ifelse(u[II]*u[δx⁺(II)] < 0 || u[II]*u[δy⁺(II)] < 0 || u[II]*u[δx⁻(II)] < 0 || u[II]*u[δy⁻(II)] < 0, true, false)
+@inline is_near_interface(u, II::CartesianIndex, nx, ny, per_x, per_y) = @inbounds ifelse(u[II]*u[δx⁺(II, nx, per_x)] < 0 || u[II]*u[δy⁺(II, ny, per_y)] < 0 || u[II]*u[δx⁻(II, nx, per_x)] < 0 || u[II]*u[δy⁻(II, ny, per_y)] < 0, true, false)
 
 @inline ismixed(a) = a !== 0.0 && a !== 15.0
 @inline is_not_mixed(a) = a == 0.0 || a == 15.0
@@ -1189,7 +1190,12 @@ end
 function set_cap_bcs!(grid::Mesh{GridCC,T,N}, periodic_x, periodic_y) where {T,N}
     @unpack nx, ny, geoS, geoL, mid_point = grid
     # set A and mid_point at the boundaries to 0 if not periodic in that direction
-    if !periodic_x
+    if periodic_x
+        @inbounds @threads for i = 1:ny
+            @inbounds geoS.dcap[i,1,1] = geoS.dcap[i,end,3]
+            @inbounds geoL.dcap[i,1,1] = geoL.dcap[i,end,3]
+        end
+    else
         @inbounds @threads for i = 1:ny
             @inbounds geoS.dcap[i,1,1] = 0.0
             @inbounds geoS.dcap[i,end,3] = 0.0
@@ -1199,7 +1205,12 @@ function set_cap_bcs!(grid::Mesh{GridCC,T,N}, periodic_x, periodic_y) where {T,N
             @inbounds mid_point[i,end] += Point(0.5, 0.0)
         end
     end
-    if !periodic_y
+    if periodic_y
+        @inbounds @threads for i = 1:nx
+            @inbounds geoS.dcap[1,i,2] = geoS.dcap[end,i,4]
+            @inbounds geoL.dcap[1,i,2] = geoL.dcap[end,i,4]
+        end
+    else
         @inbounds @threads for i = 1:nx
             @inbounds geoS.dcap[1,i,2] = 0.0
             @inbounds geoS.dcap[end,i,4] = 0.0
@@ -1218,7 +1229,12 @@ function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, periodic_x, periodic_y) where {T,
     @unpack b_left, b_bottom, b_right, b_top = ind
 
     # set A at the boundaries
-    if !periodic_y
+    if periodic_y
+        @inbounds @threads for i = 1:nx
+            @inbounds geoS.dcap[1,i,2] = geoS.dcap[end,i,4]
+            @inbounds geoL.dcap[1,i,2] = geoL.dcap[end,i,4]
+        end
+    else
         @inbounds @threads for i = 1:nx
             @inbounds geoS.dcap[1,i,2] = 0.0
             @inbounds geoS.dcap[end,i,4] = 0.0
@@ -1228,7 +1244,12 @@ function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, periodic_x, periodic_y) where {T,
     end
 
     # set mid_point in the outer boundaries
-    if !periodic_x
+    if periodic_x
+        @inbounds @threads for i = 1:ny
+            @inbounds geoS.dcap[i,1,1] = geoS.dcap[i,end,3]
+            @inbounds geoL.dcap[i,1,1] = geoL.dcap[i,end,3]
+        end
+    else
         @inbounds @threads for i = 1:ny
             @inbounds mid_point[i,1] += Point(-0.5, 0.0)
             @inbounds mid_point[i,end] += Point(0.5, 0.0)
@@ -1243,7 +1264,12 @@ function set_cap_bcs!(grid::Mesh{GridFCy,T,N}, periodic_x, periodic_y) where {T,
     @unpack b_left, b_bottom, b_right, b_top = ind
 
     # set A at the boundaries to 0 if not periodic in that direction
-    if !periodic_x
+    if periodic_x
+        @inbounds @threads for i = 1:ny
+            @inbounds geoS.dcap[i,1,1] = geoS.dcap[i,end,3]
+            @inbounds geoL.dcap[i,1,1] = geoL.dcap[i,end,3]
+        end
+    else
         @inbounds @threads for i = 1:ny
             @inbounds geoS.dcap[i,1,1] = 0.0
             @inbounds geoS.dcap[i,end,3] = 0.0
@@ -1253,7 +1279,12 @@ function set_cap_bcs!(grid::Mesh{GridFCy,T,N}, periodic_x, periodic_y) where {T,
     end
 
     # set mid_point in the outer boundaries
-    if !periodic_y
+    if periodic_y
+        @inbounds @threads for i = 1:nx
+            @inbounds geoS.dcap[1,i,2] = geoS.dcap[end,i,4]
+            @inbounds geoL.dcap[1,i,2] = geoL.dcap[end,i,4]
+        end
+    else
         @inbounds @threads for i = 1:nx
             @inbounds mid_point[1,i] += Point(0.0, -0.5)
             @inbounds mid_point[end,i] += Point(0.0, 0.5)
@@ -1487,7 +1518,7 @@ end
 end
 
 function projection_2points(grid, II)
-    @unpack x, y, nx, ny, dx, dy, mid_point, α = grid
+    @unpack x_nodes, y_nodes, x, y, nx, ny, dx, dy, mid_point, α = grid
 
     h = Point(dx[II], dy[II])
     ĥ = sqrt(h.x^2 + h.y^2)
@@ -1556,8 +1587,8 @@ function projection_2points(grid, II)
         L2 = affine(mid, tmpL, Point(NaN, m2y))
     end
     if S2 != Point(NaN, NaN) && L2 != Point(NaN, NaN)
-        Sflag = indomain(absolute_position + S2, x, y)
-        Lflag = indomain(absolute_position + L2, x, y)
+        Sflag = indomain(absolute_position + S2, x_nodes, y_nodes)
+        Lflag = indomain(absolute_position + L2, x_nodes, y_nodes)
     end
     pos = absolute_position + mid
     return Gradient(Sflag, β, mid, S1, S2, distance(mid, S1), distance(mid, S2), pos), Gradient(Lflag, α[II], mid, L1, L2, distance(mid, L1), distance(mid, L2), pos)
@@ -1597,10 +1628,10 @@ function kill_dead_cells!(T::Vector, L, EMPTY, MIXED, n)
     end
 end
 
-function init_fresh_cells!(grid, T, projection, FRESH)
+function init_fresh_cells!(grid, T, projection, FRESH, periodic_x, periodic_y)
     @inbounds @threads for II in FRESH
         if projection[II].flag
-            T_1, T_2 = interpolated_temperature(grid, projection[II].angle, projection[II].point1, projection[II].point2, T, II)
+            T_1, T_2 = interpolated_temperature(grid, projection[II].angle, projection[II].point1, projection[II].point2, T, II, periodic_x, periodic_y)
             if π/4 <= projection[II].angle <= 3π/4 || -π/4 >= projection[II].angle >= -3π/4
                 T[II] = y_extrapolation(T_1, T_2, projection[II].point1, projection[II].point2, projection[II].mid_point)
             else
@@ -1610,11 +1641,11 @@ function init_fresh_cells!(grid, T, projection, FRESH)
     end
 end
 
-function init_fresh_cells!(grid, T::Vector, projection, FRESH, n)
+function init_fresh_cells!(grid, T::Vector, projection, FRESH, n, periodic_x, periodic_y)
     @inbounds @threads for II in FRESH
         if projection[II].flag
             pII = lexicographic(II, n)
-            T_1, T_2 = interpolated_temperature(grid, projection[II].angle, projection[II].point1, projection[II].point2, T, II)
+            T_1, T_2 = interpolated_temperature(grid, projection[II].angle, projection[II].point1, projection[II].point2, T, II, periodic_x, periodic_y)
             if π/4 <= projection[II].angle <= 3π/4 || -π/4 >= projection[II].angle >= -3π/4
                 T[pII] = y_extrapolation(T_1, T_2, projection[II].point1, projection[II].point2, projection[II].mid_point)
             else
@@ -1624,10 +1655,10 @@ function init_fresh_cells!(grid, T::Vector, projection, FRESH, n)
     end
 end
 
-function init_fresh_cells!(grid, u::Matrix, V, projection, FRESH)
+function init_fresh_cells!(grid, u::Matrix, V, projection, FRESH, periodic_x, periodic_y)
     @inbounds @threads for II in FRESH
         if projection[II].flag
-            u_1, u_2 = interpolated_temperature(grid, projection[II].angle, projection[II].point1, projection[II].point2, V, II)
+            u_1, u_2 = interpolated_temperature(grid, projection[II].angle, projection[II].point1, projection[II].point2, V, II, periodic_x, periodic_y)
             if π/4 <= projection[II].angle <= 3π/4 || -π/4 >= projection[II].angle >= -3π/4
                 u[II] = y_extrapolation(u_1, u_2, projection[II].point1, projection[II].point2, projection[II].mid_point)
             else
