@@ -217,8 +217,6 @@ function run_forward(num, grid, grid_u, grid_v,
     ns_vecL = ones(ny*nx)
 
     if periodic_x
-        # BC_u.left.ind = ind.periodicL;
-        # BC_u.right.ind = ind.periodicR;
         BC_u.left.ind = ind.b_left;
         BC_u.right.ind = ind.b_right;
         BC_u.left.f = BC_u.right.f = periodic
@@ -228,8 +226,6 @@ function run_forward(num, grid, grid_u, grid_v,
     end
 
     if periodic_y
-        # BC_u.bottom.ind = ind.periodicB;
-        # BC_u.top.ind = ind.periodicT;
         BC_u.bottom.ind = ind.b_bottom;
         BC_u.top.ind = ind.b_top;
         BC_u.bottom.f = BC_u.top.f = periodic
@@ -496,15 +492,6 @@ function run_forward(num, grid, grid_u, grid_v,
                     V[MIXED] .= a
                 end
                 velocity_extension!(grid, vcat(SOLID_vel_ext,LIQUID_vel_ext), NB, periodic_x, periodic_y)
-                # velocity_extension!(grid, vcat(SOLID_vel_ext,LIQUID_vel_ext), NB)
-                # if periodic_x
-                #     @inbounds grid.V[:,1] .= @view grid.V[:,2]
-                #     @inbounds grid.V[:,end] .= @view grid.V[:,end-1]
-                # end
-                # if periodic_y
-                #     @inbounds grid.V[1,:] .= @view grid.V[2,:]
-                #     @inbounds grid.V[end,:] .= @view grid.V[end-1,:]
-                # end
             end
 
             if free_surface
@@ -512,15 +499,6 @@ function run_forward(num, grid, grid_u, grid_v,
                                     phL.u, phL.v, MIXED, MIXED_u, MIXED_v, periodic_x, periodic_y)
 
                 velocity_extension!(grid, vcat(SOLID_vel_ext,LIQUID_vel_ext), NB, periodic_x, periodic_y)
-                # velocity_extension!(grid, vcat(SOLID_vel_ext,LIQUID_vel_ext), NB)
-                # if periodic_x
-                #     @inbounds grid.V[:,1] .= @view grid.V[:,2]
-                #     @inbounds grid.V[:,end] .= @view grid.V[:,end-1]
-                # end
-                # if periodic_y
-                #     @inbounds grid.V[1,:] .= @view grid.V[2,:]
-                #     @inbounds grid.V[end,:] .= @view grid.V[end-1,:]
-                # end
             end
 
             if adaptative_CFL && (max(abs.(V)...) >= (Δ / τ) || max(abs.(phL.u)...) >= (0.01 * Δ / τ))
@@ -539,7 +517,6 @@ function run_forward(num, grid, grid_u, grid_v,
 
         if advection
             CFL_sc = CFL*Δ^2*Re < CFL*Δ ? CFL : CFL/Δ
-            # IIOE(LSA, LSB, u, V, ind.inside, CFL_sc, ny)
             IIOE(grid, LSA, LSB, u, V, CFL_sc, periodic_x, periodic_y)
             try
                 u .= reshape(gmres(LSA,(LSB*vec(u))), (ny,nx))
