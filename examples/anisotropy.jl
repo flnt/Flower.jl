@@ -4,8 +4,8 @@ using Flower
 L0 = 4.
 n = 300
 
-x = LinRange(-L0/2, L0/2, n)
-y = LinRange(-L0/2, L0/2, n)
+x = LinRange(-L0/2.0 - L0/2.0/n, L0/2.0 + L0/2.0/n, n+1)
+y = LinRange(-L0/2.0 - L0/2.0/n, L0/2.0 + L0/2.0/n, n+1)
 
 num = Numerical(T_inf = -0.8,
     case = "Crystal",
@@ -15,14 +15,15 @@ num = Numerical(T_inf = -0.8,
     x = x,
     y = y,
     CFL = 0.5,
-    # TEND = 0.045,
-    max_iterations = 100,
+    TEND = 0.09,
     aniso = true,
-    θ₀ = 0.5*pi,
+    θ₀ = 0.25*pi,
     m = 6,
     A = -0.2,
     N = 6,
-    R = 1.0,
+    R = 0.1,
+    # max_iterations = 1,
+    ϵ = 0.05
     )
 
 gp, gu, gv = init_meshes(num)
@@ -32,12 +33,12 @@ phL.T .= num.T_inf;
 
 @time MIXED, SOLID, LIQUID = run_forward(num, gp, gu, gv,
     opS, opL, phS, phL, fwd,
-    stefan = false,
+    stefan = true,
     heat = true,
     heat_liquid_phase = true,
     heat_solid_phase = true,
     verbose = true,
-    advection = false,
+    advection = true,
     show_every = 1
     );
 
@@ -52,23 +53,20 @@ colsize!(f.layout, 1, Aspect(1, 1))
 
 resize_to_layout!(f)
 hidedecorations!(ax)
-f = heatmap!(gp.x[1,:], gp.y[:,1], phS.T', colormap=:ice)
+f = heatmap!(gp.x[1,:], gp.y[:,1], phL.T', colormap=:ice, colorrange=(-0.8, 0.0))
 
 
-# step = num.max_iterations÷20
-# #f = contour!(gp.x[1,:], gp.y[:,1], fwd.usave[1,:,:]', levels = 0:0, color=:red, linewidth = 3);
+step = num.max_iterations÷20
+# f = contour!(gp.x[1,:], gp.y[:,1], fwd.usave[1,:,:]', levels = 0:0, color=:red, linewidth = 3);
 
-# if step != 0
-# for i in 1:step:num.max_iterations
-#     f = contour!(gp.x[1,:], gp.y[:,1], fwd.usave[i,:,:]', levels = 0:0, color=:black, linewidth = 3);
-# end
-# f = contour!(gp.x[1,:], gp.y[:,1], fwd.usave[end,:,:]', levels = 0:0, color=:black, linewidth = 3);
-# end
+if step != 0
+for i in 1:step:num.max_iterations
+    f = contour!(gp.x[1,:], gp.y[:,1], fwd.usave[i,:,:]', levels = 0:0, color=:black, linewidth = 3);
+end
+f = contour!(gp.x[1,:], gp.y[:,1], fwd.usave[end,:,:]', levels = 0:0, color=:black, linewidth = 3);
+end
 
 
 f = current_figure()
 
 #Makie.save("./figures/paper_figures/aniso_theta_pi_4.png", f)
-
-make_video(num, fwd, gp, "T"; title_prefix="/Users/alex/Documents/PhD/Cutcell/New_ops/heat/anisotropy/",
-        title_suffix="", framerate=24, minv=-0.8, maxv=0.0)

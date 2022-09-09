@@ -169,9 +169,8 @@ function mean_curvature_interpolated(u, II, h, B, BT, mid)
 end
 
 
-@inline parabola_fit_curvature(itp, mid_point) =
-    @inbounds 2*itp[1,3]/((1+(2*itp[1,3]*mid_point.y + itp[2,3])^2)^1.5) + 2*itp[3,1]/((1+(2*itp[3,1]*mid_point.x + itp[3,2])^2)^1.5)
-
+@inline parabola_fit_curvature(itp, mid_point, dx2, dy2) =
+    @inbounds 2*itp[1,3]/((1+(2*itp[1,3]*mid_point.y/dy2 + itp[2,3])^2)^1.5) + 2*itp[3,1]/((1+(2*itp[3,1]*mid_point.x/dx2 + itp[3,2])^2)^1.5)
 
 @inline function linear_fit(a, b, x)
     a = (a - b)/sign(x+eps(0.1))

@@ -723,10 +723,14 @@ function get_curvature(num, grid, inside)
             II_0 = δy⁻(δx⁻(II))
         end
         mid_point = geoL.projection[II].mid_point
+        Δx2 = x[δx⁺(II_0)] - x[δx⁻(II_0)]
+        Δy2 = y[δy⁺(II_0)] - y[δy⁻(II_0)]
         st = static_stencil(u, II_0)
         B, BT = B_BT(II_0, x, y)
         itp = B * st * BT
-        κ[II] = parabola_fit_curvature(itp, mid_point)
+        # If someone finds why it works with this scaling factor
+        # ( * 0.25 / (dx[II]*dy[II]) ), I pay him a beer (Alex)
+        κ[II] = parabola_fit_curvature(itp, mid_point, Δx2, Δy2) * 0.25 / (dx[II]*dy[II])
     end
 end
 
