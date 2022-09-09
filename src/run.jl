@@ -489,7 +489,7 @@ function run_forward(num, grid, grid_u, grid_v,
             end
 
             if stefan
-                Stefan_velocity!(num, grid, phS.T, phL.T, MIXED, periodic_x, periodic_y)
+                Stefan_velocity!(num, grid, phS.tmp, phL.tmp, MIXED, periodic_x, periodic_y)
                 V[MIXED] .*= 1. ./ λ
                 if Vmean
                     a = mean(V[MIXED])
