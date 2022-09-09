@@ -182,12 +182,12 @@ function set_bc_bnds(::Neumann, Nx, Ny, BC, dx, dy)
     if is_neumann(BC.left.t)
         @inbounds Nx[:,1] .= BC.left.val
     elseif is_dirichlet(BC.left.t)
-        @inbounds Nx[:,1] .= BC.left.val ./ dx[:,1] .* 2.0
+        @inbounds Nx[:,1] .= -BC.left.val ./ dx[:,1] .* 2.0
     end
     if is_neumann(BC.bottom.t)
         @inbounds Ny[1,:] .= BC.bottom.val
     elseif is_dirichlet(BC.bottom.t)
-        @inbounds Ny[1,:] .= BC.bottom.val ./ dy[1,:] .* 2.0
+        @inbounds Ny[1,:] .= -BC.bottom.val ./ dy[1,:] .* 2.0
     end
     if is_neumann(BC.right.t)
         @inbounds Nx[:,end] .= BC.right.val
@@ -220,7 +220,8 @@ end
         pII = lexicographic(II, n)
         pJJ = lexicographic(JJ, n)
         @inbounds L[pII,pJJ] = A[II]^2 / (W[II]+eps(0.01))
-        if abs(L[pII,pJJ]) < 1e-8
+        # if abs(L[pII,pJJ]) < 1e-8
+        if sum(abs.(L[pII,:])) <= 1e-10
             L[pII,pII] = -4.0
         end
     end
@@ -349,14 +350,14 @@ end
     return nothing
 end
 
-@inline function divergence_boundaries(::Dirichlet, Ox, Oy, Dx, Dy, cap, capu, capv, n, BCu, BCv, b_left, b_bottom, b_right, b_top)
+@inline function divergence_boundaries(::Dirichlet, Ox, Oy, Dx, Dy, cap, n, BCu, BCv, b_left, b_bottom, b_right, b_top)
     set_div_bnd!(dir, BCu.left.t, x->x, Ox, view(cap,:,:,6), view(cap,:,:,1), n, n, b_left)
     set_div_bnd!(dir, BCv.bottom.t, x->x, Oy, view(cap,:,:,7), view(cap,:,:,2), n, n+1, b_bottom)
     set_div_bnd!(dir, BCu.right.t, δx⁺, Ox, view(cap,:,:,3), view(cap,:,:,6), n, n, b_right)
     set_div_bnd!(dir, BCv.top.t, δy⁺, Oy, view(cap,:,:,4), view(cap,:,:,7), n, n+1, b_top)
 end
 
-function divergence!(::Dirichlet, Ox, Oy, Bx, By, Dx, Dy, cap, capu, capv, n, all_indices)
+function divergence!(::Dirichlet, Ox, Oy, Bx, By, Dx, Dy, cap, n, all_indices)
     Bx .= 0.0
     By .= 0.0
     @inbounds @threads for II in all_indices
@@ -383,24 +384,24 @@ function divergence!(::Dirichlet, Ox, Oy, Bx, By, Dx, Dy, cap, capu, capv, n, al
     return nothing
 end
 
-function set_bc_bnds(::Neumann, HNx, HNy, BC, dx, dy, Hx, Hy)
+function set_bc_bnds(::Neumann, HNx, HNy, BC, dx, dy, H)
     if is_neumann(BC.left.t)
-        @inbounds HNx[:,1] .= Hx[:,1] .* BC.left.val
+        @inbounds HNx[:,1] .= H[:,1] .* BC.left.val
     elseif is_dirichlet(BC.left.t)
         @inbounds HNx[:,1] .= BC.left.val
     end
     if is_neumann(BC.bottom.t)
-        @inbounds HNy[1,:] .= Hy[1,:] .* BC.bottom.val
+        @inbounds HNy[1,:] .= H[1,:] .* BC.bottom.val
     elseif is_dirichlet(BC.bottom.t)
         @inbounds HNy[1,:] .= BC.bottom.val
     end
     if is_neumann(BC.right.t)
-        @inbounds HNx[:,end] .= Hx[:,end] .* BC.right.val
+        @inbounds HNx[:,end] .= H[:,end] .* BC.right.val
     elseif is_dirichlet(BC.right.t)
         @inbounds HNx[:,end] .= BC.right.val
     end
     if is_neumann(BC.top.t)
-        @inbounds HNy[end,:] .= Hy[end,:] .* BC.top.val
+        @inbounds HNy[end,:] .= H[end,:] .* BC.top.val
     elseif is_dirichlet(BC.top.t)
         @inbounds HNy[end,:] .= BC.top.val
     end
@@ -430,7 +431,7 @@ end
     return nothing
 end
 
-function gradient!(::Neumann, Ox, Oy, Bx, By, HNx, HNy, Divx, Divy, cap, dcap, dcapu, dcapv, dx, dy, n, BC, all_indices, b_left_u, b_bottom_v, b_right_u, b_top_v, b_left_p, b_bottom_p, b_right_p, b_top_p)
+function gradient!(::Neumann, Ox, Oy, Bx, By, HNx, HNy, Divx, Divy, dcap, n, BC, all_indices, b_left_u, b_bottom_v, b_right_u, b_top_v, b_left_p, b_bottom_p, b_right_p, b_top_p)
     mat_T_op!(Ox, Divx, x->-x)
     mat_T_op!(Oy, Divy, x->-x)
 
@@ -499,72 +500,147 @@ function gradient!(::Neumann, Ox, Oy, Bx, By, HNx, HNy, Divx, Divy, cap, dcap, d
     return nothing
 end
 
-@inline function set_grad_bnd!(::Dirichlet, ::Dirichlet, fun, O, B1, B2, nuv, np, b_indices, b_periodic)
-    return nothing
-end
-
-@inline function set_grad_bnd!(::Dirichlet, ::Neumann, fun, O, B1, B2, nuv, np, b_indices, b_periodic)
+@inline function set_div_bnd!(::Neumann, ::Dirichlet, fun, O, B1, B2, np, nuv, b_indices)
     @inbounds @threads for II in b_indices
         pII = lexicographic(II, np)
         pJJ = lexicographic(fun(II), nuv)
-        @inbounds O[pJJ,pII] += -(B1[II] - B2[II])
+        @inbounds O[pII,pJJ] += (B1[II] - B2[II])
     end
+
     return nothing
 end
 
-@inline function set_grad_bnd!(::Dirichlet, ::Periodic, fun, O, B1, B2, nuv, np, b_indices, b_periodic)
-    @inbounds for (II, JJ) in zip(b_indices, b_periodic)
-        pII = lexicographic(II, np)
-        pJJ = lexicographic(JJ, nuv)
-        @inbounds O[pJJ,pII] = -(B1[II] - B2[II])
-    end
+@inline function set_div_bnd!(::Neumann, ::Neumann, fun, O, B1, B2, np, nuv, b_indices)
     return nothing
 end
 
-function gradient!(::Dirichlet, Ox, Oy, Bx, By, Dx, Dy, cap, n, BC, all_indices, b_left, b_bottom, b_right, b_top)
+@inline function set_div_bnd!(::Neumann, ::Periodic, fun, O, B1, B2, np, nuv, b_indices)
+    return nothing
+end
+
+@inline function divergence_boundaries(::Neumann, Ox, Oy, Dx, Dy, cap, n, BCu, BCv, b_left, b_bottom, b_right, b_top)
+    set_div_bnd!(neu, BCu.left.t, x->x, Ox, view(cap,:,:,6), view(cap,:,:,1), n, n, b_left)
+    set_div_bnd!(neu, BCv.bottom.t, x->x, Oy, view(cap,:,:,7), view(cap,:,:,2), n, n+1, b_bottom)
+    set_div_bnd!(neu, BCu.right.t, δx⁺, Ox, view(cap,:,:,3), view(cap,:,:,6), n, n, b_right)
+    set_div_bnd!(neu, BCv.top.t, δy⁺, Oy, view(cap,:,:,4), view(cap,:,:,7), n, n+1, b_top)
+end
+
+function divergence!(::Neumann, Ox, Oy, Bx, By, NHx, NHy, cap, n, all_indices)
     Bx .= 0.0
     By .= 0.0
     @inbounds @threads for II in all_indices
         pII_1 = lexicographic(II, n)
         pII_2 = lexicographic(δx⁺(II), n)
+        
         A1, A3, B1 = get_capacities_x(cap, II)
+        A2, A4, B2 = get_capacities_y(cap, II)
 
         pJJ_1 = lexicographic(II, n+1)
         pJJ_2 = lexicographic(δy⁺(II), n+1)
-        A2, A4, B2 = get_capacities_y(cap, II)
         
-        @inbounds Ox[pII_1,pII_1] = B1
-        @inbounds Ox[pII_2,pII_1] = -B1
+        @inbounds Ox[pII_1,pII_1] = -B1
+        @inbounds Ox[pII_1,pII_2] = B1
 
-        @inbounds Oy[pJJ_1,pII_1] = B2
-        @inbounds Oy[pJJ_2,pII_1] = -B2
+        @inbounds Oy[pII_1,pJJ_1] = -B2
+        @inbounds Oy[pII_1,pJJ_2] = B2
 
-        @inbounds Bx[pII_1] += -(B1 - A1) * Dx[II]
-        @inbounds Bx[pII_2] += -(A3 - B1) * Dx[II]
-        @inbounds By[pJJ_1] += -(B2 - A2) * Dy[II]
-        @inbounds By[pJJ_2] += -(A4 - B2) * Dy[II]
+        @inbounds Bx[pII_1] += -(A3 - B1) * NHx[δx⁺(II)]
+        @inbounds Bx[pII_1] += -(B1 - A1) * NHx[II]
+        @inbounds By[pII_1] += -(A4 - B2) * NHy[δy⁺(II)]
+        @inbounds By[pII_1] += -(B2 - A2) * NHy[II]
     end
-
-    set_grad_bnd!(dir, BC.left.t, x->x, Ox, view(cap,:,:,6), view(cap,:,:,1), n, n, b_left, b_right)
-    set_grad_bnd!(dir, BC.bottom.t, x->x, Oy, view(cap,:,:,7), view(cap,:,:,2), n+1, n, b_bottom, b_top)
-    set_grad_bnd!(dir, BC.right.t, δx⁺, Ox, view(cap,:,:,3), view(cap,:,:,6), n, n, b_right, b_left)
-    set_grad_bnd!(dir, BC.top.t, δy⁺, Oy, view(cap,:,:,4), view(cap,:,:,7), n+1, n, b_top, b_bottom)
 
     return nothing
 end
 
-function face_to_cell_gradient!(::Dirichlet, Ox, Oy, cap, n, all_indices)
-    @inbounds @threads for II in all_indices
+@inline function set_grad_bnd!(::Dirichlet, ::Dirichlet, fun, O, B, B1, A1, nuv, np, b_indices, b_periodic)
+    return nothing
+end
+
+@inline function set_grad_bnd!(::Dirichlet, ::Neumann, fun, O, B, B1, A1, nuv, np, b_indices, b_periodic)
+    @inbounds @threads for II in b_indices
+        pII = lexicographic(II, nuv)
+        pJJ = lexicographic(fun(II), np)
+        @inbounds O[pII,pJJ] += -(B1[fun(II)] - A1[fun(II)])
+    end
+
+    return nothing
+end
+
+@inline function set_grad_bnd!(::Dirichlet, ::Periodic, fun, O, B, B1, A1, nuv, np, b_indices, b_periodic)
+    @inbounds for (II, JJ) in zip(b_indices, b_periodic)
+        pII = lexicographic(II, nuv)
+        pJJ = lexicographic(JJ, np)
+        @inbounds O[pII,pJJ] = B[JJ]
+    end
+    return nothing
+end
+
+function gradient!(::Dirichlet, Ox, Oy, Bx, By, Dx, Dy, Divx, Divy, dcap, n, BC, all_indices, b_left_u, b_bottom_v, b_right_u, b_top_v, b_left_p, b_bottom_p, b_right_p, b_top_p)
+    mat_T_op!(Ox, Divx, x->-x)
+    mat_T_op!(Oy, Divy, x->-x)
+
+    Bx .= 0.
+    By .= 0.
+    @inbounds @threads for II in @view all_indices[2:end,2:end]
         pII = lexicographic(II, n)
         pJJ = lexicographic(II, n+1)
-        A1, A2, A3, A4, V, B1, B2 = @view cap[II,1:7]
-
-        @inbounds Ox[pII,pII] = B1 - A1
-        @inbounds Ox[pII,pII+n] = A3 - B1
-
-        @inbounds Oy[pII,pJJ] = B2 - A2
-        @inbounds Oy[pII,pJJ+1] = A4 - B2
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Bx[pII] += -((B1 - A1) * Dx[II] + (A1 - dcap[δx⁻(II),6]) * Dx[δx⁻(II)])
+        @inbounds By[pJJ] += -((B2 - A2) * Dy[II] + (A2 - dcap[δy⁻(II),7]) * Dy[δy⁻(II)])
     end
+
+    @inbounds @threads for II in @view all_indices[:,1]
+        pII = lexicographic(II, n)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Bx[pII] += -((B1 - A1) * Dx[II])
+    end
+    @inbounds @threads for II in @view all_indices[:,end]
+        pII = lexicographic(δx⁺(II), n)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Bx[pII] += -((A3 - B1) * Dx[II])
+    end
+    @inbounds @threads for II in @views vcat(all_indices[1,2:end], all_indices[end,2:end])
+        pII = lexicographic(II, n)
+        pJJ = lexicographic(II, n+1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Bx[pII] += -((B1 - A1) * Dx[II] + (A1 - dcap[δx⁻(II),6]) * Dx[δx⁻(II)])
+    end
+
+    @inbounds @threads for II in @view all_indices[1,:]
+        pJJ = lexicographic(II, n+1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds By[pJJ] += -((B2 - A2) * Dy[II])
+    end
+    @inbounds @threads for II in @view all_indices[end,:]
+        pJJ = lexicographic(δy⁺(II), n+1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds By[pJJ] += -((A4 - B2) * Dy[II])
+    end
+    @inbounds @threads for II in @views vcat(all_indices[2:end,1], all_indices[2:end,end])
+        pJJ = lexicographic(II, n+1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds By[pJJ] += -((B2 - A2) * Dy[II] + (A2 - dcap[δy⁻(II),7]) * Dy[δy⁻(II)])
+    end
+
+    @inbounds _A1 = @view dcap[:,:,1]
+    @inbounds _A2 = @view dcap[:,:,2]
+    @inbounds _A3 = @view dcap[:,:,3]
+    @inbounds _A4 = @view dcap[:,:,4]
+    @inbounds _B1 = @view dcap[:,:,6]
+    @inbounds _B2 = @view dcap[:,:,7]
+
+    set_grad_bnd!(dir, BC.left.t, x->x, Ox, -_B1, _B1, _A1, n, n, b_left_u, b_right_p)
+    set_grad_bnd!(dir, BC.bottom.t, x->x, Oy, -_B2, _B2, _A2, n+1, n, b_bottom_v, b_top_p)
+    set_grad_bnd!(dir, BC.right.t, δx⁻, Ox, _B1, _A3, _B1, n, n, b_right_u, b_left_p)
+    set_grad_bnd!(dir, BC.top.t, δy⁻, Oy, _B2, _A4, _B2, n+1, n, b_top_v, b_bottom_p)
 
     return nothing
 end

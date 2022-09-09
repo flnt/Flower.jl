@@ -28,13 +28,16 @@ abstract type AbstractOptimizer end
     θd::Float64 = 0.0
     ϵ_κ::Float64 = 0.0
     ϵ_V::Float64 = 0.0
+    σ::Float64 = 1.0
     case::String = "notmycase"
-    cases::String = "Planar, Sphere, Cylinder, Crystal, Mullins, Nothing, Airfoil"
+    cases::String = "Planar, Sphere, Cylinder, Ellipse, Crystal, Mullins, Nothing, Airfoil, Jet"
     A::Float64 = 0.05
     N::Int64 = 2
     R::Float64 = 0.5
     m::Int64 = 4
     θ₀::Float64 = pi/4
+    g::Float64 = 0.0
+    β::Float64 = 0.0
     x_airfoil::Array{Float64} = [0.0]
     y_airfoil::Array{Float64} = [0.0]
     aniso::Bool = false
@@ -169,6 +172,7 @@ mutable struct Phase{T <: Float64} <: MutatingFields
     ucorr::Array{T,2}
     vcorr::Array{T,2}
     DT::Array{T,2}
+    Dϕ::Array{T,2}
     Du::Array{T,2}
     Dv::Array{T,2}
     tmp::Array{T,2}

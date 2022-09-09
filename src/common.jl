@@ -14,6 +14,11 @@ const newaxis = [CartesianIndex()]
 @inline δx⁺(II) = CartesianIndex(II[1], II[2]+1)
 @inline δx⁻(II) = CartesianIndex(II[1], II[2]-1)
 
+@inline δy⁺(II, ny, per) = per && II[1]==ny ? CartesianIndex(1, II[2]) : δy⁺(II)
+@inline δy⁻(II, ny, per) = per && II[1]==1 ? CartesianIndex(ny, II[2]) : δy⁻(II)
+@inline δx⁺(II, nx, per) = per && II[2]==nx ? CartesianIndex(II[1], 1) : δx⁺(II)
+@inline δx⁻(II, nx, per) = per && II[2]==1 ? CartesianIndex(II[1], nx) : δx⁻(II)
+
 @inline opposite(α) = ifelse(α >= 0. ,α - π, α + π)
 
 @inline distance(A::Point, B::Point, dx=1.0, dy=1.0) =
@@ -21,9 +26,9 @@ const newaxis = [CartesianIndex()]
 
 @inline midpoint(A::Point, B::Point) = Point((A.x + B.x)/2 - 0.5, (A.y + B.y)/2 - 0.5)
 
-@inline indomain(A::Point{T}, x::Array{T,2}, y::Array{T,2}) where {T} =
-    ifelse(A.x >= x[1,1] && A.x <= x[1,end] &&
-           A.y >= y[1,1] && A.y <= y[end,1], true, false)
+@inline indomain(A::Point{T}, x::Vector{T}, y::Vector{T}) where {T} =
+    ifelse(A.x >= x[1] && A.x <= x[end] &&
+           A.y >= y[1] && A.y <= y[end], true, false)
 
 @inline <(A::Point{T}, L::T) where {T} = ifelse(abs(A.x) <= L/2 && abs(A.y) <= L/2, true, false)
 @inline isnan(A::Point{T}) where {T} = ifelse(isnan(A.x) || isnan(A.y), true, false)
@@ -42,6 +47,8 @@ const newaxis = [CartesianIndex()]
 
 @inline c∇x(u, II) = @inbounds u[δx⁺(II)] - u[δx⁻(II)]
 @inline c∇y(u, II) = @inbounds u[δy⁺(II)] - u[δy⁻(II)]
+@inline c∇x(u, II, nx, per) = @inbounds u[δx⁺(II, nx, per)] - u[δx⁻(II, nx, per)]
+@inline c∇y(u, II, ny, per) = @inbounds u[δy⁺(II, ny, per)] - u[δy⁻(II, ny, per)]
 @inline c∇x(u, II, h) = @inbounds (u[δx⁺(II)] - u[δx⁻(II)])/2h
 @inline c∇y(u, II, h) = @inbounds (u[δy⁺(II)] - u[δy⁻(II)])/2h
 
@@ -49,6 +56,11 @@ const newaxis = [CartesianIndex()]
 @inline ∇y⁺(u, II) = @inbounds u[δy⁺(II)] - u[II]
 @inline ∇x⁻(u, II) = @inbounds u[δx⁻(II)] - u[II]
 @inline ∇y⁻(u, II) = @inbounds u[δy⁻(II)] - u[II]
+
+@inline ∇x⁺(u, II, nx, per) = @inbounds u[δx⁺(II, nx, per)] - u[II]
+@inline ∇y⁺(u, II, ny, per) = @inbounds u[δy⁺(II, ny, per)] - u[II]
+@inline ∇x⁻(u, II, nx, per) = @inbounds u[δx⁻(II, nx, per)] - u[II]
+@inline ∇y⁻(u, II, ny, per) = @inbounds u[δy⁻(II, ny, per)] - u[II]
 
 @inline normal(u, II) = @SVector [mysign(c∇x(u, II), c∇y(u, II)), mysign(c∇y(u, II), c∇x(u, II))]
 
@@ -60,8 +72,16 @@ const newaxis = [CartesianIndex()]
 @inline Dyy(u, II, dy) = @inbounds (2.0 * (u[δy⁺(II)] - u[II]) / (dy[δy⁺(II)] + dy[II]) -
                                     2.0 * (u[II] - u[δy⁻(II)]) / (dy[δy⁻(II)] + dy[II])) / dy[II]
 
+@inline Dxx(u, II, dx, nx, per) = @inbounds (2.0 * (u[δx⁺(II, nx, per)] - u[II]) / (dx[δx⁺(II, nx, per)] + dx[II]) -
+                                    2.0 * (u[II] - u[δx⁻(II, nx, per)]) / (dx[δx⁻(II, nx, per)] + dx[II])) / dx[II]
+@inline Dyy(u, II, dy, ny, per) = @inbounds (2.0 * (u[δy⁺(II, ny, per)] - u[II]) / (dy[δy⁺(II, ny, per)] + dy[II]) -
+                                    2.0 * (u[II] - u[δy⁻(II, ny, per)]) / (dy[δy⁻(II, ny, per)] + dy[II])) / dy[II]
+
 @inline Dxx(u, II) = @inbounds u[δx⁺(II)] - 2u[II] + u[δx⁻(II)]
 @inline Dyy(u, II) = @inbounds u[δy⁺(II)] - 2u[II] + u[δy⁻(II)]
+
+@inline Dxx(u, II, nx, per) = @inbounds u[δx⁺(II, nx, per)] - 2u[II] + u[δx⁻(II, nx, per)]
+@inline Dyy(u, II, ny, per) = @inbounds u[δy⁺(II, ny, per)] - 2u[II] + u[δy⁻(II, ny, per)]
 
 @inline Dxy(u, II, h) = @inbounds (u[δx⁻(δy⁻(II))] + u[δx⁺(δy⁺(II))] - u[δx⁻(δy⁺(II))] - u[δx⁺(δy⁻(II))])/4h^2
 
@@ -76,12 +96,19 @@ function smekerka_curvature(u, II, h)
 end
 
 @inline in_bounds(a, n) = ifelse(a > 2 && a < n-1, true, false)
+@inline in_bounds(a, n, per) = per ? ifelse(a > 1 && a < n, true, false) : in_bounds(a, n)
 
 @inline function static_stencil(a, II::CartesianIndex)
    return @inbounds SA_F64[a[II.I[1]-1, II.I[2]-1] a[II.I[1]-1, II.I[2]] a[II.I[1]-1, II.I[2]+1];
                a[II.I[1], II.I[2]-1] a[II.I[1], II.I[2]] a[II.I[1], II.I[2]+1];
                a[II.I[1]+1, II.I[2]-1] a[II.I[1]+1, II.I[2]] a[II.I[1]+1, II.I[2]+1]]
 end
+
+@inline function static_stencil(a, II::CartesianIndex, nx, ny, per_x, per_y)
+    return @inbounds SA_F64[a[δx⁻(δy⁻(II, ny, per_y), nx, per_x)] a[δy⁻(II, ny, per_y)] a[δx⁺(δy⁻(II, ny, per_y), nx, per_x)];
+                a[δx⁻(II, nx, per_x)] a[II] a[δx⁺(II, nx, per_x)];
+                a[δx⁻(δy⁺(II, ny, per_y), nx, per_x)] a[δy⁺(II, ny, per_y)] a[δx⁺(δy⁺(II, ny, per_y), nx, per_x)]]
+ end
 
 @inline function B_BT(II, x, y, f=x->x)
     B = inv((@SMatrix [((x[f(δx⁻(II))]-x[II])/(x[f(δx⁺(II))] - x[f(δx⁻(II))]))^2 (x[f(δx⁻(II))]-x[II])/(x[f(δx⁺(II))] - x[f(δx⁻(II))]) 1.0;
@@ -96,13 +123,13 @@ end
 end
 
 @inline function B_BT(II::CartesianIndex, grid::G) where {G<:Grid}
-    B = inv(@SMatrix [grid.dx[II]^2 -grid.dx[II] 1.0;
+    B = inv(@SMatrix [0.25 -0.5 1.0;
                       0.0 0.0 1.0;
-                      grid.dx[II]^2 grid.dx[II] 1.0])
+                      0.25 0.5 1.0])
 
-    BT = inv(@SMatrix [grid.dy[II]^2 -grid.dy[II] 1.0;
+    BT = inv(@SMatrix [0.25 -0.5 1.0;
                         0.0 0.0 1.0;
-                        grid.dy[II]^2 grid.dy[II] 1.0])
+                        0.25 0.5 1.0])
     
     return B, BT
 end
@@ -142,9 +169,8 @@ function mean_curvature_interpolated(u, II, h, B, BT, mid)
 end
 
 
-@inline parabola_fit_curvature(itp, mid_point) =
-    @inbounds 2*itp[1,3]/((1+(2*itp[1,3]*mid_point.y + itp[2,3])^2)^1.5) + 2*itp[3,1]/((1+(2*itp[3,1]*mid_point.x + itp[3,2])^2)^1.5)
-
+@inline parabola_fit_curvature(itp, mid_point, dx2, dy2) =
+    @inbounds 2*itp[1,3]/((1+(2*itp[1,3]*mid_point.y/dy2 + itp[2,3])^2)^1.5) + 2*itp[3,1]/((1+(2*itp[3,1]*mid_point.x/dx2 + itp[3,2])^2)^1.5)
 
 @inline function linear_fit(a, b, x)
     a = (a - b)/sign(x+eps(0.1))

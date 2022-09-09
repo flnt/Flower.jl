@@ -32,7 +32,7 @@ num = Numerical(case = "Mullins",
     ϵ = 0.05
 )
 
-Ra = 1e3
+Ra = 1e5
 λ = 1.0
 H0 = 0.05
 T1 = 1.0
@@ -153,7 +153,7 @@ make_video(num, fwd, gv, "v"; title_prefix=prefix,
 make_video(num, fwd, gp, "p"; title_prefix=prefix,
         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-lim,lim), limitsy=(-lim,lim))
 make_video(num, fwd, gp, "T"; title_prefix=prefix,
-        title_suffix=suffix, framerate=500÷num.save_every, minv=num.θd, maxv=T1, limitsx=(-lim,lim), limitsy=(-lim,lim))
+        title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-lim,lim), limitsy=(-lim,lim))
 # make_video(num, fwd, gu, "ucorr"; title_prefix=prefix,
 #         title_suffix=suffix, framerate=100, limitsx=(-lim,lim), limitsy=(-lim,lim))
 # make_video(num, fwd, gp, "ϕ"; title_prefix=prefix,
@@ -174,10 +174,10 @@ av_height1 = mean(height, dims=2)[:,1] .+ 0.5 .- H0
 
 eRa = av_height1.^3 .* Ra .* (1.0 .- num.θd)
 
-# fh = Figure(resolution = (1600, 1000))
-# colsize!(fh.layout, 1, Aspect(1, 1.0))
-# ax = Axis(fh[1,1], aspect = 1)
-# lines!(fwd.time, av_height1)
-# lines!(fwd.time, av_height2)
-# # lines!(fwd.time, av_height3)
-# resize_to_layout!(fh)
+fh = Figure(resolution = (1600, 1000))
+colsize!(fh.layout, 1, Aspect(1, 1.0))
+ax = Axis(fh[1,1], aspect = 1)
+lines!(fwd.time, av_height1)
+lines!(fwd.time, av_height2)
+# lines!(fwd.time, av_height3)
+resize_to_layout!(fh)

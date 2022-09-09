@@ -6,12 +6,29 @@ function diamond(a, p, n)
     return U
 end
 
+function diamond(a, II, nx, ny, per_x, per_y)
+    U = @SVector[0.25(a[II]+a[δx⁻(II, nx, per_x)]+a[δx⁻(δy⁻(II, ny, per_y), nx, per_x)]+a[δy⁻(II, ny, per_y)]),
+                0.25(a[II]+a[δy⁻(II, ny, per_y)]+a[δy⁻(δx⁺(II, nx, per_x), ny, per_y)]+a[δx⁺(II, nx, per_x)]),
+                0.25(a[II]+a[δx⁺(II, nx, per_x)]+a[δx⁺(δy⁺(II, ny, per_y), nx, per_x)]+a[δy⁺(II, ny, per_y)]),
+                0.25(a[II]+a[δy⁺(II, ny, per_y)]+a[δy⁺(δx⁻(II, nx, per_x), ny, per_y)]+a[δx⁻(II, nx, per_x)])]
+    return U
+end
+
 function quadratic_recons(a, U::SArray{Tuple{4},Float64,1,4},
     p::Int64, n::Int64)
     D = @SVector [0.25*(a[p]+a[p-n]+U[1]+U[4]),
     0.25*(a[p]+a[p-1]+U[1]+U[2]),
     0.25*(a[p]+a[p+n]+U[2]+U[3]),
     0.25*(a[p]+a[p+1]+U[3]+U[4])]
+    return D
+end
+
+function quadratic_recons(a, U::SArray{Tuple{4},Float64,1,4},
+    II::CartesianIndex{2}, nx::Int64, ny::Int64, per_x::Bool, per_y::Bool)
+    D = @SVector [0.25*(a[II]+a[δx⁻(II, nx, per_x)]+U[1]+U[4]),
+                0.25*(a[II]+a[δy⁻(II, ny, per_y)]+U[1]+U[2]),
+                0.25*(a[II]+a[δx⁺(II, nx, per_x)]+U[2]+U[3]),
+                0.25*(a[II]+a[δy⁺(II, ny, per_y)]+U[3]+U[4])]
     return D
 end
 
@@ -69,6 +86,16 @@ function grad(a, g,
     g[p]*(a[p]-a[p-1]),
     g[p]*(a[p]-a[p+n]),
     g[p]*(a[p]-a[p+1])]
+    return F
+end
+
+function grad(a, g,
+    U::SArray{Tuple{4},Float64,1,4},
+    II::CartesianIndex{2}, nx::Int64, ny::Int64, per_x::Bool, per_y::Bool)
+    F = SA_F64[g[II]*(a[II]-a[δx⁻(II, nx, per_x)]),
+            g[II]*(a[II]-a[δy⁻(II, ny, per_y)]),
+            g[II]*(a[II]-a[δx⁺(II, nx, per_x)]),
+            g[II]*(a[II]-a[δy⁺(II, ny, per_y)])]
     return F
 end
 
@@ -140,6 +167,37 @@ function IIOE(A, B, u, V, inside, CFL, n)
     end
 end
 
+function IIOE(grid, A, B, u, V, CFL, periodic_x, periodic_y)
+    @unpack nx, ny, ind = grid
+    @unpack inside, all_indices = ind
+
+    if !periodic_x && !periodic_y
+        indices = inside
+    elseif periodic_x && periodic_y
+        indices = all_indices
+    elseif periodic_x
+        indices = @view all_indices[2:end-1,:]
+    else
+        indices = @view all_indices[:,2:end-1]
+    end
+
+    @inbounds @threads for II in indices
+        p = lexicographic(II, ny)
+        U = diamond(u, II, nx, ny, periodic_x, periodic_y)
+        F = grad(u, V, U, II, nx, ny, periodic_x, periodic_y)
+        a_in, a_ou = inflow_outflow(F)
+        S = sumloc(a_in, a_ou)
+        if S[1] < -S[2]
+            D = quadratic_recons(u, U, II, nx, ny, periodic_x, periodic_y)
+            D_ = quadratic_recons(D)
+            F = 2*grad(u, V, U, D, D_[1], p, ny)
+            a_in, a_ou = inflow_outflow(F)
+            S = sumloc(a_in, a_ou)
+        end
+        A[p,p], B[p,p] = fill_matrices2!(a_in, a_ou, S, A, B, II, nx, ny, CFL, periodic_x, periodic_y)
+    end
+end
+
 
 function level_update_IIOE!(A, B, u, Vx, Vy, inside, CFL, h, n)
     @inbounds @threads for II in inside
@@ -185,17 +243,31 @@ end
     return 2 + CFL*S[1], 2 - CFL*S[2]
 end
 
-@inline central_differences(u, II, dx, dy, nx, ny) =
-    @SVector[minmod(Dxx(u, II, dx), ifelse(in_bounds(δx⁺(II)[2], nx), Dxx(u, δx⁺(II), dx), 0.)),
-            minmod(Dxx(u, II, dx), ifelse(in_bounds(δx⁻(II)[2], nx), Dxx(u, δx⁻(II), dx), 0.)),
-            minmod(Dyy(u, II, dy), ifelse(in_bounds(δy⁺(II)[1], ny), Dyy(u, δy⁺(II), dy), 0.)),
-            minmod(Dyy(u, II, dy), ifelse(in_bounds(δy⁻(II)[1], ny), Dyy(u, δy⁻(II), dy), 0.))]
+@inline function fill_matrices2!(a_in::SArray{Tuple{4},Float64,1,4}, a_ou::SArray{Tuple{4},Float64,1,4},
+    S, A, B, II, nx, ny, CFL, per_x, per_y)
+    p = lexicographic(II, ny)
+    a = (lexicographic(δx⁻(II, nx, per_x), ny),
+         lexicographic(δy⁻(II, ny, per_y), ny), 
+         lexicographic(δx⁺(II, nx, per_x), ny),
+         lexicographic(δy⁺(II, ny, per_y), ny))
+    @inbounds for (i,j) in zip(1:4,a)
+        @inbounds A[p, j] = -CFL*a_in[i]
+        @inbounds B[p, j] = CFL*a_ou[i]
+    end
+    return 2 + CFL*S[1], 2 - CFL*S[2]
+end
 
-@inline finite_difference_eno(u, II, a::AbstractArray, dx, dy) =
-    @SVector[2*∇x⁺(u, II)/(dx[δx⁺(II)]+dx[II]) - ((dx[δx⁺(II)]+dx[II])/4)*a[1],
-            -2*∇x⁻(u, II)/(dx[δx⁻(II)]+dx[II]) + ((dx[δx⁻(II)]+dx[II])/4)*a[2],
-            2*∇y⁺(u, II)/(dy[δy⁺(II)]+dy[II]) - ((dy[δy⁺(II)]+dy[II])/4)*a[3],
-            -2*∇y⁻(u, II)/(dy[δy⁻(II)]+dy[II]) + ((dy[δy⁻(II)]+dy[II])/4)*a[4]]
+@inline central_differences(u, II, dx, dy, nx, ny, per_x, per_y) =
+    @SVector[minmod(Dxx(u, II, dx, nx, per_x), ifelse(in_bounds(δx⁺(II, nx, per_x)[2], nx, per_x), Dxx(u, δx⁺(II, nx, per_x), dx, nx, per_x), 0.)),
+            minmod(Dxx(u, II, dx, nx, per_x), ifelse(in_bounds(δx⁻(II, nx, per_x)[2], nx, per_x), Dxx(u, δx⁻(II, nx, per_x), dx, nx, per_x), 0.)),
+            minmod(Dyy(u, II, dy, ny, per_y), ifelse(in_bounds(δy⁺(II, ny, per_y)[1], ny, per_y), Dyy(u, δy⁺(II, ny, per_y), dy, ny, per_y), 0.)),
+            minmod(Dyy(u, II, dy, ny, per_y), ifelse(in_bounds(δy⁻(II, ny, per_y)[1], ny, per_y), Dyy(u, δy⁻(II, ny, per_y), dy, ny, per_y), 0.))]
+
+@inline finite_difference_eno(u, II, a::AbstractArray, dx, dy, nx, ny, per_x, per_y) =
+    @SVector[2*∇x⁺(u, II, nx, per_x)/(dx[δx⁺(II, nx, per_x)]+dx[II]) - ((dx[δx⁺(II, nx, per_x)]+dx[II])/4)*a[1],
+            -2*∇x⁻(u, II, nx, per_x)/(dx[δx⁻(II, nx, per_x)]+dx[II]) + ((dx[δx⁻(II, nx, per_x)]+dx[II])/4)*a[2],
+            2*∇y⁺(u, II, ny, per_y)/(dy[δy⁺(II, ny, per_y)]+dy[II]) - ((dy[δy⁺(II, ny, per_y)]+dy[II])/4)*a[3],
+            -2*∇y⁻(u, II, ny, per_y)/(dy[δy⁻(II, ny, per_y)]+dy[II]) + ((dy[δy⁻(II, ny, per_y)]+dy[II])/4)*a[4]]
 
 @inline Godunov(s, a::AbstractArray) = ifelse(s >= 0,
     sqrt(max(⁻(a[1])^2, ⁺(a[2])^2) + max(⁻(a[3])^2, ⁺(a[4])^2)),
@@ -206,36 +278,64 @@ end
     h*(0.5 + ((u[II] - u[JJ] - mysign(u[II] - u[JJ]) * sqrt(D))/uxx)),
     h*(u[II]/(u[II]-u[JJ])))
 
-function FE_reinit(grid, ind, u, nb_reinit, BC_u)
+function levelset_BC!(u, BC_u, dx, dy, periodic_x, periodic_y)
+    if periodic_x
+        @sync begin
+            @spawn bcs!(u, BC_u.bottom, dy[1,1])
+            @spawn bcs!(u, BC_u.top, dy[end,1])
+        end
+    elseif periodic_y
+        @sync begin
+            @spawn bcs!(u, BC_u.left, dx[1,1])
+            @spawn bcs!(u, BC_u.right, dx[1,end])
+        end
+    else
+        @sync begin
+            @spawn bcs!(u, BC_u.left, dx[1,1])
+            @spawn bcs!(u, BC_u.right, dx[1,end])
+            @spawn bcs!(u, BC_u.bottom, dy[1,1])
+            @spawn bcs!(u, BC_u.top, dy[end,1])
+        end
+    end
+end
+
+function FE_reinit(grid, ind, u, nb_reinit, BC_u, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy = grid
-    @unpack inside = ind
+    @unpack inside, all_indices = ind
+
+    if !periodic_x && !periodic_y
+        indices = inside
+    elseif periodic_x && periodic_y
+        indices = all_indices
+    elseif periodic_x
+        indices = @view all_indices[2:end-1,:]
+    else
+        indices = @view all_indices[:,2:end-1]
+    end
 
     local cfl = 0.45
-    @sync begin
-        @spawn bcs!(u, BC_u.left, dx[1,1])
-        @spawn bcs!(u, BC_u.right, dx[1,end])
-        @spawn bcs!(u, BC_u.bottom, dy[1,1])
-        @spawn bcs!(u, BC_u.top, dy[end,1])
-    end
+    levelset_BC!(u, BC_u, dx, dy, periodic_x, periodic_y)
     u0 = copy(u)
     tmp = similar(u)
-    f, a, b, c = (Dxx, Dxx, Dyy, Dyy), (1, 2, 3, 4), (-1, 1, -1, 1), (2, 2, 1, 1)
-    for i = 1:nb_reinit
-        @inbounds @threads for II in inside
-            h_ = min(0.5*(dx[II]+dx[δx⁺(II)]), 0.5*(dx[II]+dx[δx⁻(II)]),
-                     0.5*(dy[II]+dy[δy⁺(II)]), 0.5*(dy[II]+dy[δy⁻(II)]))
-            sign_u0 = sign(u0[II])
-            shift = central_differences(u, II, dx, dy, nx, ny)
-            eno = finite_difference_eno(u, II, shift, dx, dy)
+    a, b, c = (1, 2, 3, 4), (-1, 1, -1, 1), (2, 2, 1, 1)
+    f, d, e = (Dxx, Dxx, Dyy, Dyy), (nx, nx, ny, ny), (periodic_x, periodic_x, periodic_y, periodic_y)
 
-            if is_near_interface(u0, II)
+    for i = 1:nb_reinit
+        @inbounds @threads for II in indices
+            h_ = min(0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
+                     0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)]))
+            sign_u0 = sign(u0[II])
+            shift = central_differences(u, II, dx, dy, nx, ny, periodic_x, periodic_y)
+            eno = finite_difference_eno(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+
+            if is_near_interface(u0, II, nx, ny, periodic_x, periodic_y)
                 eno_interface = convert(Vector{Float64}, eno)
                 h_ = 1e30
-                d = (0.5*(dx[II]+dx[δx⁺(II)]), 0.5*(dx[II]+dx[δx⁻(II)]),
-                     0.5*(dy[II]+dy[δy⁺(II)]), 0.5*(dy[II]+dy[δy⁻(II)]))
-                for (JJ, i, j, k) in zip((δx⁺(II), δx⁻(II), δy⁺(II), δy⁻(II)), a, c, d)
+                g = (0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
+                     0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)]))
+                for (JJ, i, j, k) in zip((δx⁺(II, nx, periodic_x), δx⁻(II, nx, periodic_x), δy⁺(II, ny, periodic_y), δy⁻(II, ny, periodic_y)), a, c, g)
                     if u0[II]*u0[JJ] < 0
-                        uxx = minmod(f[i](u, II), ifelse(in_bounds(JJ[j], (j == 1 ? ny : nx)), f[i](u, JJ), 0.))
+                        uxx = minmod(f[i](u, II, d[i], e[i]), ifelse(in_bounds(JJ[j], (j == 1 ? ny : nx), (j == 1 ? periodic_y : periodic_x)), f[i](u, JJ, d[i], e[i]), 0.))
                         D = (uxx/2 - u0[II] - u0[JJ])^2 - 4*u0[II]*u0[JJ]
                         Δx = root_extraction(u0, uxx, D, II, JJ, k, 1e-10)
                         if Δx < h_ h_ = Δx end
@@ -249,13 +349,9 @@ function FE_reinit(grid, ind, u, nb_reinit, BC_u)
 
             tmp[II] = u[II] - cfl * h_ * sign_u0 * (gdv - 1.0)
         end
-        u[inside] .= tmp[inside]
-        @sync begin
-            @spawn bcs!(u, BC_u.left, dx[1,1])
-            @spawn bcs!(u, BC_u.right, dx[1,end])
-            @spawn bcs!(u, BC_u.bottom, dy[1,1])
-            @spawn bcs!(u, BC_u.top, dy[end,1])
-        end
+        u[indices] .= tmp[indices]
+
+        levelset_BC!(u, BC_u, dx, dy, periodic_x, periodic_y)
     end
 end
 
@@ -275,6 +371,34 @@ function velocity_extension!(grid, inside, NB)
             ⁻(sx*nx)*(∇x⁺(Vt, II)) +
             ⁺(sy*ny)*(-∇y⁻(Vt, II)) +
             ⁻(sy*ny)*(∇y⁺(Vt, II)))
+        end
+    end
+end
+
+function velocity_extension!(grid, indices, NB, periodic_x, periodic_y)
+    @unpack nx, ny, dx, dy, V, u, ind = grid
+
+    local cfl = 0.45
+    local Vt = similar(V)
+    if periodic_x && periodic_y
+        indices = vcat(indices, ind.b_left[1], ind.b_right[1], ind.b_bottom[1], ind.b_top[1])
+    elseif periodic_x
+        indices = vcat(indices, ind.b_left[1][2:end-1], ind.b_right[1][2:end-1])
+    elseif periodic_y
+        indices = vcat(indices, ind.b_bottom[1][2:end-1], ind.b_top[1][2:end-1])
+    end
+
+    for j = 1:NB
+        Vt .= V
+        @inbounds @threads for II in indices
+            sx = mysign(u[II], dx[II])
+            sy = mysign(u[II], dy[II])
+            nnx = mysign(c∇x(u, II, nx, periodic_x), c∇y(u, II, ny, periodic_y))
+            nny = mysign(c∇y(u, II, ny, periodic_y), c∇x(u, II, nx, periodic_x))
+            V[II] = Vt[II] - cfl*(⁺(sx*nnx)*(-∇x⁻(Vt, II, nx, periodic_x)) +
+            ⁻(sx*nnx)*(∇x⁺(Vt, II, nx, periodic_x)) +
+            ⁺(sy*nny)*(-∇y⁻(Vt, II, ny, periodic_y)) +
+            ⁻(sy*nny)*(∇y⁺(Vt, II, ny, periodic_y)))
         end
     end
 end

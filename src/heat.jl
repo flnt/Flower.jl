@@ -26,7 +26,7 @@ function crank_nicolson!(num, grid, geo, op)
     @unpack τ = num
     @unpack LT, A, B, CT = op
 
-    @inbounds V = geo.dcap[:,:,5]
+    @inbounds V = @view geo.dcap[:,:,5]
 
     @inbounds A .= -LT * τ
     @inbounds B .= (LT - CT) * τ
@@ -71,14 +71,11 @@ function set_heat!(num, grid, geo, projection, op, ph,
     end
     crank_nicolson!(num, grid, geo, op)
 
-    gradient!(dir, GxT, GyT, CUTGxT, CUTGyT, bcTx, bcTy, dcap, ny, BC_T, all_indices, b_left[1], b_bottom[1], b_right[1], b_top[1])
-    face_to_cell_gradient!(dir, ftcGxT, ftcGyT, dcap, ny, all_indices)
-
     return nothing
 end
 
 
-function Stefan_velocity!(num, grid, TS, TL, MIXED)
+function Stefan_velocity!(num, grid, TS, TL, MIXED, periodic_x, periodic_y)
     @unpack θd, ϵ_κ, ϵ_V, m, θ₀, aniso = num
     @unpack geoS, geoL, κ, V = grid
 
@@ -90,35 +87,21 @@ function Stefan_velocity!(num, grid, TS, TL, MIXED)
         dTS = 0.
         dTL = 0.
         if geoS.projection[II].flag
-            T_1, T_2 = interpolated_temperature(grid, geoS.projection[II].angle, geoS.projection[II].point1, geoS.projection[II].point2, TS, II)
+            T_1, T_2 = interpolated_temperature(grid, geoS.projection[II].angle, geoS.projection[II].point1, geoS.projection[II].point2, TS, II, periodic_x, periodic_y)
             dTS = normal_gradient(geoS.projection[II].d1, geoS.projection[II].d2, T_1, T_2, θ_d)
         else
-            T_1 = interpolated_temperature(grid, geoS.projection[II].angle, geoS.projection[II].point1, TS, II)
+            T_1 = interpolated_temperature(grid, geoS.projection[II].angle, geoS.projection[II].point1, TS, II, periodic_x, periodic_y)
             dTS = normal_gradient(geoS.projection[II].d1, T_1, θ_d)
         end
         if geoL.projection[II].flag
-            T_1, T_2 = interpolated_temperature(grid, geoL.projection[II].angle, geoL.projection[II].point1, geoL.projection[II].point2, TL, II)
+            T_1, T_2 = interpolated_temperature(grid, geoL.projection[II].angle, geoL.projection[II].point1, geoL.projection[II].point2, TL, II, periodic_x, periodic_y)
             dTL = normal_gradient(geoL.projection[II].d1, geoL.projection[II].d2, T_1, T_2, θ_d)
         else
-            T_1 = interpolated_temperature(grid, geoL.projection[II].angle, geoL.projection[II].point1, TL, II)
+            T_1 = interpolated_temperature(grid, geoL.projection[II].angle, geoL.projection[II].point1, TL, II, periodic_x, periodic_y)
             dTL = normal_gradient(geoL.projection[II].d1, T_1, θ_d)
         end
         V[II] = dTL + dTS
     end
-    return nothing
-end
-
-function Stefan_vel!(TS, TL, V, MIXED, GxTS, GxTL, GyTS, GyTL, ftcGxTS, ftcGxTL, ftcGyTS, ftcGyTL, SCUTGxT, LCUTGxT, SCUTGyT, LCUTGyT, iMxS, iMyS, iMxL, iMyL, n)
-    gS = reshape(sqrt.((ftcGxTS * iMxS * (GxTS * vec(TS) .+ SCUTGxT)).^2 .+
-                       (ftcGyTS * iMyS * (GyTS * vec(TS) .+ SCUTGyT)).^2), (n,n))
-    gL = reshape(sqrt.((ftcGxTL * iMxL * (GxTL * vec(TL) .+ LCUTGxT)).^2 .+
-                       (ftcGyTL * iMyL * (GyTL * vec(TL) .+ LCUTGyT)).^2), (n,n))
-
-    V .= 0.
-    @inbounds @threads for II in MIXED
-        @inbounds V[II] = -(gS[II] + gL[II])
-    end
-
     return nothing
 end
 
@@ -144,94 +127,97 @@ end
     return Ac, Ap, Am
 end
 
-@inline function interpolated_temperature(grid, α, P1, P2, temp, II)
+@inline function interpolated_temperature(grid, α, P1, P2, temp, II, periodic_x, periodic_y)
+    @unpack nx, ny, dx, dy = grid
     T_1 = 0.
     T_2 = 0.
     if π/8 < α < 3π/8
         II_0 = δx⁺(δy⁺(II))
-        st = static_stencil(temp, II_0)
+        st = static_stencil(temp, II_0, nx, ny, periodic_x, periodic_y)
         Ac, Ap, Am = Acpm(grid, II_0, II)
         if α > π/4
             a = @view st[2,1:3]
             b = @view st[3,1:3]
-            T_1, T_2 = quadratic_interp(Ap, a, b, P1.x, P2.x)
+            T_1, T_2 = quadratic_interp(Ap, a, b, P1.x/(2*dx[II]), P2.x/(2*dx[II]))
         else
             a = @view st[1:3,2]
             b = @view st[1:3,3]
-            T_1, T_2 = quadratic_interp(Ap, a, b, P1.y, P2.y)
+            T_1, T_2 = quadratic_interp(Ap, a, b, P1.y/(2*dy[II]), P2.y/(2*dy[II]))
         end
     elseif 5π/8 < α < 7π/8
         II_0 = δx⁻(δy⁺(II))
-        st = static_stencil(temp, II_0)
+        st = static_stencil(temp, II_0, nx, ny, periodic_x, periodic_y)
         Ac, Ap, Am = Acpm(grid, II_0, II)
         if α < 3π/4
             a = @view st[2,1:3]
             b = @view st[3,1:3]
-            T_1, T_2 = quadratic_interp(Am, a, b, P1.x, P2.x)
+            T_1, T_2 = quadratic_interp(Am, a, b, P1.x/(2*dx[II]), P2.x/(2*dx[II]))
         else
             a = @view st[1:3,2]
             b = @view st[1:3,1]
-            T_1, T_2 = quadratic_interp(Ap, a, b, P1.y, P2.y)
+            T_1, T_2 = quadratic_interp(Ap, a, b, P1.y/(2*dy[II]), P2.y/(2*dy[II]))
         end
     elseif -3π/8 < α < -π/8
         II_0 = δx⁺(δy⁻(II))
-        st = static_stencil(temp, II_0)
+        st = static_stencil(temp, II_0, nx, ny, periodic_x, periodic_y)
         Ac, Ap, Am = Acpm(grid, II_0, II)
         if α < -π/4
             a = @view st[2,1:3]
             b = @view st[1,1:3]
-            T_1, T_2 = quadratic_interp(Ap, a, b, P1.x, P2.x)
+            T_1, T_2 = quadratic_interp(Ap, a, b, P1.x/(2*dx[II]), P2.x/(2*dx[II]))
         else
             a = @view st[1:3,2]
             b = @view st[1:3,3]
-            T_1, T_2 = quadratic_interp(Am, a, b, P1.y, P2.y)
+            T_1, T_2 = quadratic_interp(Am, a, b, P1.y/(2*dy[II]), P2.y/(2*dy[II]))
         end
     elseif -7π/8 < α < -5π/8
         II_0 = δx⁻(δy⁻(II))
-        st = static_stencil(temp, II_0)
+        st = static_stencil(temp, II_0, nx, ny, periodic_x, periodic_y)
         Ac, Ap, Am = Acpm(grid, II_0, II)
         if α > -3π/4
             a = @view st[2,1:3]
             b = @view st[1,1:3]
-            T_1, T_2 = quadratic_interp(Am, a, b, P1.x, P2.x)
+            T_1, T_2 = quadratic_interp(Am, a, b, P1.x/(2*dx[II]), P2.x/(2*dx[II]))
         else
             a = @view st[1:3,2]
             b = @view st[1:3,1]
-            T_1, T_2 = quadratic_interp(Am, a, b, P1.y, P2.y)
+            T_1, T_2 = quadratic_interp(Am, a, b, P1.y/(2*dy[II]), P2.y/(2*dy[II]))
         end
     elseif -π/8 <= α <= π/8
         II_0 = δx⁺(II)
-        st = static_stencil(temp, II_0)
+        st = static_stencil(temp, II_0, nx, ny, periodic_x, periodic_y)
         Ac, Ap, Am = Acpm(grid, II_0, II)
         a = @view st[1:3,2]
         b = @view st[1:3,3]
-        T_1, T_2 = quadratic_interp(Ac, a, b, P1.y, P2.y)
+        T_1, T_2 = quadratic_interp(Ac, a, b, P1.y/(2*dy[II]), P2.y/(2*dy[II]))
     elseif 3π/8 <= α <= 5π/8
         II_0 = δy⁺(II)
-        st = static_stencil(temp, II_0)
+        st = static_stencil(temp, II_0, nx, ny, periodic_x, periodic_y)
         Ac, Ap, Am = Acpm(grid, II_0, II)
         a = @view st[2,1:3]
         b = @view st[3,1:3]
-        T_1, T_2 = quadratic_interp(Ac, a, b, P1.x, P2.x)
+        T_1, T_2 = quadratic_interp(Ac, a, b, P1.x/(2*dx[II]), P2.x/(2*dx[II]))
     elseif α >= 7π/8 || α <= -7π/8
         II_0 = δx⁻(II)
-        st = static_stencil(temp, II_0)
+        st = static_stencil(temp, II_0, nx, ny, periodic_x, periodic_y)
         Ac, Ap, Am = Acpm(grid, II_0, II)
         a = @view st[1:3,2]
         b = @view st[1:3,1]
-        T_1, T_2 = quadratic_interp(Ac, a, b, P1.y, P2.y)
+        T_1, T_2 = quadratic_interp(Ac, a, b, P1.y/(2*dy[II]), P2.y/(2*dy[II]))
     elseif -5π/8 <= α <= -3π/8
         II_0 = δy⁻(II)
-        st = static_stencil(temp, II_0)
+        st = static_stencil(temp, II_0, nx, ny, periodic_x, periodic_y)
         Ac, Ap, Am = Acpm(grid, II_0, II)
         a = @view st[2,1:3]
         b = @view st[1,1:3]
-        T_1, T_2 = quadratic_interp(Ac, a, b, P1.x, P2.x)
+        T_1, T_2 = quadratic_interp(Ac, a, b, P1.x/(2*dx[II]), P2.x/(2*dx[II]))
     end
     return T_1, T_2
 end
 
-@inline function interpolated_temperature(grid, α, P1, temp, II)
+@inline function interpolated_temperature(grid, α, P1, temp, II, periodic_x, periodic_y)
+    @unpack nx, ny, dx, dy = grid
+
     if II[1] == 1
         f = δy⁺
     elseif II[1] == grid.ny
@@ -249,19 +235,19 @@ end
 
     A = B_BT(II, grid.x, grid.y, f)[1]
     T_1 = 0.
-    st = static_stencil(temp, II)
+    st = static_stencil(temp, II, nx, ny, periodic_x, periodic_y)
     if π/4 <= α < 3π/4
         a = @view st[3,1:3]
-        T_1 = quadratic_interp(A, a, P1.x)
+        T_1 = quadratic_interp(A, a, P1.x/(2*dx[II]))
     elseif α >= 3π/4 || α < -3π/4
         a = @view st[1:3,1]
-        T_1 = quadratic_interp(A, a, P1.y)
+        T_1 = quadratic_interp(A, a, P1.y/(2*dy[II]))
     elseif -π/4 > α >= -3π/4
         a = @view st[1,1:3]
-        T_1 = quadratic_interp(A, a, P1.x)
+        T_1 = quadratic_interp(A, a, P1.x/(2*dx[II]))
     elseif -π/4 <= α < π/4
         a = @view st[1:3,3]
-        T_1 = quadratic_interp(A, a, P1.y)
+        T_1 = quadratic_interp(A, a, P1.y/(2*dy[II]))
     end
     return T_1
 end
