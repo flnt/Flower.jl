@@ -1,5 +1,3 @@
-using MPI
-
 function run_forward(num, grid, grid_u, grid_v,
     opS, opL, phS, phL, fwd;
     periodic_x = false,
@@ -69,7 +67,7 @@ function run_forward(num, grid, grid_u, grid_v,
     show_every = 100,
     save_length = false,
     save_radius = false,
-    adaptative_CFL = false,
+    adaptative_t = false,
     Ra = 0,
     λ = 1,
     )
@@ -81,18 +79,6 @@ function run_forward(num, grid, grid_u, grid_v,
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
     @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, V, κ, LSA, LSB = grid
     @unpack Tall, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, ϕsave, Uxsave, Uysave, Uxcorrsave, Uycorrsave, Vsave, κsave, lengthsave, time, Cd, Cl = fwd
-
-    MPI.Initialized() || MPI.Init()
-    PETSc.initialize()
-
-    local ksppS
-    local kspuS
-    local kspvS
-    local nsS
-    local ksppL
-    local kspuL
-    local kspvL
-    local nsL
 
     local MIXED; local SOLID; local LIQUID;
     local MIXED_vel_ext; local SOLID_vel_ext; local LIQUID_vel_ext;
@@ -436,15 +422,7 @@ function run_forward(num, grid, grid_u, grid_v,
         Cvm1L .= opL.Cv * vec(phL.v) .+ opL.CUTCv
     end
 
-    ksppS, nsS = init_ksp_solver(opS.Lp, nx, nullspaceS, ns_vecS)
-    kspuS, _ = init_ksp_solver(opS.Lu, grid_u.nx)
-    kspvS, _ = init_ksp_solver(opS.Lv, grid_v.nx)
-
-    ksppL, nsL = init_ksp_solver(opL.Lp, nx, nullspaceL, ns_vecL)
-    kspuL, _ = init_ksp_solver(opL.Lu, grid_u.nx)
-    kspvL, _ = init_ksp_solver(opL.Lv, grid_v.nx)
-
-    CFL_sc = CFL*Δ^2*Re < CFL*Δ ? CFL : CFL/Δ
+    CFL_sc = τ / (Δ^2 * Re)
     IIOE(LSA, LSB, u, V, ind.inside, CFL_sc, ny)
 
     if save_length
@@ -459,64 +437,53 @@ function run_forward(num, grid, grid_u, grid_v,
             V .= speed*ones(ny, nx)
         end
 
-        while true
-            if heat
-                try
-                    if heat_solid_phase
-                        set_heat!(num, grid, geoS, geoS.projection,
-                                opS, phS, HTS, bcTS, HuS, HvS,
-                                BC_TS, BC_uS, BC_vS,
-                                MIXED, LIQUID, heat_convection)
-                        phS.tmp .= reshape(gmres(opS.A,(opS.B*vec(phS.T) .+ 2.0.*τ.*opS.CUTT .- τ.*opS.CUTCT)), (ny,nx))
-                        # TS .= reshape(gmres(AS,(rhs .+ τ*SCUTT)), (n,n))
-                    end
-                    if heat_liquid_phase
-                        set_heat!(num, grid, geoL, geoS.projection,
-                                opL, phL, HTL, bcTL, HuL, HvL,
-                                BC_TL, BC_uL, BC_vL,
-                                MIXED, SOLID, heat_convection)
-                        phL.tmp .= reshape(gmres(opL.A,(opL.B*vec(phL.T) .+ 2.0.*τ.*opL.CUTT .- τ.*opL.CUTCT)), (ny,nx))
-                        # TL .= reshape(gmres(AL,(rhs .+ τ*LCUTT)), (n,n))
-                    end
-                catch
-                    @error ("Unphysical temperature field, iteration $current_i")
-                    break
+        if heat
+            try
+                if heat_solid_phase
+                    set_heat!(num, grid, geoS, geoS.projection,
+                            opS, phS, HTS, bcTS, HuS, HvS,
+                            BC_TS, BC_uS, BC_vS,
+                            MIXED, LIQUID, heat_convection)
+                    phS.T .= reshape(gmres(opS.A,(opS.B*vec(phS.T) .+ 2.0.*τ.*opS.CUTT .- τ.*opS.CUTCT)), (ny,nx))
+                    # TS .= reshape(gmres(AS,(rhs .+ τ*SCUTT)), (n,n))
                 end
-            end
-
-            if stefan
-                Stefan_velocity!(num, grid, phS.tmp, phL.tmp, MIXED, periodic_x, periodic_y)
-                V[MIXED] .*= 1. ./ λ
-                if Vmean
-                    a = mean(V[MIXED])
-                    V[MIXED] .= a
+                if heat_liquid_phase
+                    set_heat!(num, grid, geoL, geoS.projection,
+                            opL, phL, HTL, bcTL, HuL, HvL,
+                            BC_TL, BC_uL, BC_vL,
+                            MIXED, SOLID, heat_convection)
+                    phL.T .= reshape(gmres(opL.A,(opL.B*vec(phL.T) .+ 2.0.*τ.*opL.CUTT .- τ.*opL.CUTCT)), (ny,nx))
+                    # TL .= reshape(gmres(AL,(rhs .+ τ*LCUTT)), (n,n))
                 end
-                velocity_extension!(grid, vcat(SOLID_vel_ext,LIQUID_vel_ext), NB, periodic_x, periodic_y)
-            end
-
-            if free_surface
-                free_surface_velocity!(grid, grid_u, grid_u.geoL.projection, grid_v, grid_v.geoL.projection,
-                                    phL.u, phL.v, MIXED, MIXED_u, MIXED_v, periodic_x, periodic_y)
-
-                velocity_extension!(grid, vcat(SOLID_vel_ext,LIQUID_vel_ext), NB, periodic_x, periodic_y)
-            end
-
-            if adaptative_CFL && (max(abs.(V)...) >= (Δ / τ) || max(abs.(phL.u)...) >= (0.01 * Δ / τ))
-                CFL /= 2.0
-                τ /= 2.0
-            else
-                phS.T .= phS.tmp
-                phL.T .= phL.tmp
+            catch
+                @error ("Unphysical temperature field, iteration $current_i")
                 break
             end
         end
 
-        if verbose && adaptative_CFL
+        if stefan
+            Stefan_velocity!(num, grid, phS.T, phL.T, MIXED, periodic_x, periodic_y)
+            V[MIXED] .*= 1. ./ λ
+            if Vmean
+                a = mean(V[MIXED])
+                V[MIXED] .= a
+            end
+            velocity_extension!(grid, vcat(SOLID_vel_ext,LIQUID_vel_ext), NB, periodic_x, periodic_y)
+        end
+
+        if free_surface
+            free_surface_velocity!(grid, grid_u, grid_u.geoL.projection, grid_v, grid_v.geoL.projection,
+                                phL.u, phL.v, MIXED, MIXED_u, MIXED_v, periodic_x, periodic_y)
+
+            velocity_extension!(grid, vcat(SOLID_vel_ext,LIQUID_vel_ext), NB, periodic_x, periodic_y)
+        end
+
+        if verbose && adaptative_t
             println("τ = $τ")
         end
 
         if advection
-            CFL_sc = CFL*Δ^2*Re < CFL*Δ ? CFL : CFL/Δ
+            CFL_sc = τ / (Δ^2 * Re)
             IIOE(grid, LSA, LSB, u, V, CFL_sc, periodic_x, periodic_y)
             try
                 u .= reshape(gmres(LSA,(LSB*vec(u))), (ny,nx))
@@ -765,7 +732,7 @@ function run_forward(num, grid, grid_u, grid_v,
                 end
                 pressure_projection!(num, grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, opS, phS,
                                 LuSm1, LvSm1, SCUTum1, SCUTvm1, Cum1S, Cvm1S,
-                                ksppS, kspuS, kspvS, nsS, ns_vecS, GxpSm1, GypSm1,
+                                ns_vecS, GxpSm1, GypSm1,
                                 MpS, iMpS, MuS, MvS, iMGxS, iMGyS, iMDxS, iMDyS,
                                 iMuSm1, iMvSm1, iMGxSm1, iMGySm1, MuSm1, MvSm1,
                                 MIXED, MIXED_u, MIXED_v, SOLID, LIQUID, LIQUID_u, LIQUID_v,
@@ -795,7 +762,7 @@ function run_forward(num, grid, grid_u, grid_v,
 
                 pressure_projection!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, opL, phL,
                             LuLm1, LvLm1, LCUTum1, LCUTvm1, Cum1L, Cvm1L,
-                            ksppL, kspuL, kspvL, nsL, ns_vecL, GxpLm1, GypLm1,
+                            ns_vecL, GxpLm1, GypLm1,
                             MpL, iMpL, MuL, MvL, iMGxL, iMGyL, iMDxL, iMDyL,
                             iMuLm1, iMvLm1, iMGxLm1, iMGyLm1, MuLm1, MvLm1,
                             MIXED, MIXED_u, MIXED_v, LIQUID, SOLID, SOLID_u, SOLID_v,
@@ -843,6 +810,10 @@ function run_forward(num, grid, grid_u, grid_v,
         end
 
         current_i += 1
+
+        if adaptative_t
+            τ = min(CFL*Δ^2*Re, CFL*Δ/max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...))
+        end
     end
 
     if verbose
@@ -871,20 +842,6 @@ function run_forward(num, grid, grid_u, grid_v,
             @show (length(MIXED))
         end
     end
-
-    if nullspaceS
-        PETSc.destroy(nsS)
-    end
-    PETSc.destroy(ksppS)
-    PETSc.destroy(kspuS)
-    PETSc.destroy(kspvS)
-
-    if nullspaceL
-        PETSc.destroy(nsL)
-    end
-    PETSc.destroy(ksppL)
-    PETSc.destroy(kspuL)
-    PETSc.destroy(kspvL)
 
     if levelset
         if save_radius || hill

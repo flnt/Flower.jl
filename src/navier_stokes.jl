@@ -318,7 +318,7 @@ end
 
 function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
                             Lum1, Lvm1, CUTum1, CUTvm1, Cum1, Cvm1,
-                            kspp, kspu, kspv, ns, ns_vec, Gxpm1, Gypm1,
+                            ns_vec, Gxpm1, Gypm1,
                             Mp, iMp, Mu, Mv, iMGx, iMGy, iMDx, iMDy,
                             iMum1, iMvm1, iMGxm1, iMGym1, Mum1, Mvm1,
                             MIXED, MIXED_u, MIXED_v, FULL, EMPTY, EMPTY_u, EMPTY_v,
@@ -332,12 +332,6 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
     iRe = 1/Re
 
     mat_op!(Ap, Lp, x->-x)
-
-    if nullspace
-        PETSc.destroy(ns)
-    end
-    PETSc.destroy(kspp)
-    kspp, ns = init_ksp_solver(Ap, grid.nx, nullspace, ns_vec)
 
     if ns_advection
         Convu = 1.5 .* (Cu * vec(u) .+ CUTCu) .- 0.5 .* Cum1
@@ -438,13 +432,8 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
             @inbounds Bϕ[pII] -= sum_Bϕ * Mp[pII,pII] / sumMp
         end
     end
-    vecseq = PETSc.VecSeq(Bϕ)
-    if nullspace
-        PETSc.MatNullSpaceRemove!(ns, vecseq)
-    end
 
-    ϕ .= reshape(kspp \ vecseq, (grid.ny,grid.nx))
-    PETSc.destroy(vecseq)
+    ϕ .= reshape(cg(Ap, Bϕ), (grid.ny,grid.nx))
 
     Δϕ = reshape(iMp * (Lp * vec(ϕ) .+ CUTp), (grid.ny,grid.nx))
     p .+= ϕ #.- iRe.*reshape(Duv, (grid.ny,grid.nx))#τ.*Δϕ

@@ -4,7 +4,7 @@ using Flower
 fontsize_theme = Theme(fontsize = 30)
 set_theme!(fontsize_theme)
 
-ratio = 1
+ratio = 8
 L0 = 1.
 nx = 64
 ny = ratio * 64
@@ -14,16 +14,16 @@ y = LinRange(-ratio*L0/2, ratio*L0/2, ny+1)
 
 num = Numerical(case = "Mullins",
     Re = 1.0,
-    CFL = 0.1,
+    CFL = 0.5,
     TEND = 1.0,
     x = x,
     y = y,
     R = 0.5,
     u_inf = 0.0,
-    save_every = 5,
+    save_every = 80,
     shifted = 0.000,
     N = 1,
-    max_iterations = 2000,
+    max_iterations = 8000,
     A = 0.0,
     ϵ_κ = 0.00000,
     θd = 0.0,
@@ -32,7 +32,7 @@ num = Numerical(case = "Mullins",
     ϵ = 0.05
 )
 
-Ra = 1e5
+Ra = 1e6
 λ = 1.0
 H0 = 0.05
 T1 = 1.0
@@ -103,7 +103,7 @@ opS, opL, phS, phL, fwd = init_fields(num, gp, gu, gv)
     verbose = true,
     show_every = 1,
 
-    adaptative_CFL = true,
+    adaptative_t = true,
 
     Ra = Ra,
     λ = λ,
@@ -154,11 +154,6 @@ make_video(num, fwd, gp, "p"; title_prefix=prefix,
         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-lim,lim), limitsy=(-lim,lim))
 make_video(num, fwd, gp, "T"; title_prefix=prefix,
         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-lim,lim), limitsy=(-lim,lim))
-# make_video(num, fwd, gu, "ucorr"; title_prefix=prefix,
-#         title_suffix=suffix, framerate=100, limitsx=(-lim,lim), limitsy=(-lim,lim))
-# make_video(num, fwd, gp, "ϕ"; title_prefix=prefix,
-#         title_suffix=suffix, framerate=100, limitsx=(-lim,lim), limitsy=(-lim,lim))
-
 
 using Interpolations
 height = zeros(size(fwd.usave)[1:2])
@@ -178,6 +173,6 @@ fh = Figure(resolution = (1600, 1000))
 colsize!(fh.layout, 1, Aspect(1, 1.0))
 ax = Axis(fh[1,1], aspect = 1)
 lines!(fwd.time, av_height1)
-lines!(fwd.time, av_height2)
+# lines!(fwd.time, av_height2)
 # lines!(fwd.time, av_height3)
 resize_to_layout!(fh)
