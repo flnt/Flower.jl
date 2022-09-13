@@ -91,6 +91,7 @@ function update_ksp_solver!(ksp, A, nullspace=false, ns_vec=nothing)
         PETSc.MatSetNullSpace!(mat, ns)
 
         PETSc.setoperators!(ksp, mat)
+        PETSc.setfromoptions!(ksp)
 
         PETSc.destroy(vecseq)
         PETSc.destroy(mat)
@@ -98,6 +99,8 @@ function update_ksp_solver!(ksp, A, nullspace=false, ns_vec=nothing)
         return ns
     else
         PETSc.setoperators!(ksp, mat)
+        PETSc.setfromoptions!(ksp)
+
         PETSc.destroy(mat)
 
         return false

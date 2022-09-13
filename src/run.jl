@@ -1,3 +1,5 @@
+using MPI
+
 function run_forward(num, grid, grid_u, grid_v,
     opS, opL, phS, phL, fwd;
     periodic_x = false,
@@ -79,6 +81,14 @@ function run_forward(num, grid, grid_u, grid_v,
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
     @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, V, κ, LSA, LSB = grid
     @unpack Tall, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, ϕsave, Uxsave, Uysave, Uxcorrsave, Uycorrsave, Vsave, κsave, lengthsave, time, Cd, Cl = fwd
+
+    MPI.Initialized() || MPI.Init()
+    PETSc.initialize()
+
+    local ksppS
+    local nsS
+    local ksppL
+    local nsL
 
     local MIXED; local SOLID; local LIQUID;
     local MIXED_vel_ext; local SOLID_vel_ext; local LIQUID_vel_ext;
@@ -425,6 +435,9 @@ function run_forward(num, grid, grid_u, grid_v,
         Cum1L .= opL.Cu * vec(phL.u) .+ opL.CUTCu
         Cvm1L .= opL.Cv * vec(phL.v) .+ opL.CUTCv
     end
+
+    ksppS, nsS = init_ksp_solver(opS.Lp, nx, nullspaceS, ns_vecS)
+    ksppL, nsL = init_ksp_solver(opL.Lp, nx, nullspaceL, ns_vecL)
 
     CFL_sc = τ / Δ^2
     IIOE(LSA, LSB, u, V, ind.inside, CFL_sc, ny)
@@ -846,6 +859,16 @@ function run_forward(num, grid, grid_u, grid_v,
             @show (length(MIXED))
         end
     end
+
+    if nullspaceS
+        PETSc.destroy(nsS)
+    end
+    PETSc.destroy(ksppS)
+
+    if nullspaceL
+        PETSc.destroy(nsL)
+    end
+    PETSc.destroy(ksppL)
 
     if levelset
         if save_radius || hill
