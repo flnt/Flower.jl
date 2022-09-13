@@ -318,7 +318,7 @@ end
 
 function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
                             Lum1, Lvm1, CUTum1, CUTvm1, Cum1, Cvm1,
-                            ns_vec, Gxpm1, Gypm1,
+                            kspp, ns, ns_vec, Gxpm1, Gypm1,
                             Mp, iMp, Mu, Mv, iMGx, iMGy, iMDx, iMDy,
                             iMum1, iMvm1, iMGxm1, iMGym1, Mum1, Mvm1,
                             MIXED, MIXED_u, MIXED_v, FULL, EMPTY, EMPTY_u, EMPTY_v,

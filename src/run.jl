@@ -203,6 +203,8 @@ function run_forward(num, grid, grid_u, grid_v,
     ns_vecL = ones(ny*nx)
 
     if periodic_x
+        # BC_u.left.ind = ind.periodicL;
+        # BC_u.right.ind = ind.periodicR;
         BC_u.left.ind = ind.b_left;
         BC_u.right.ind = ind.b_right;
         BC_u.left.f = BC_u.right.f = periodic
@@ -212,6 +214,8 @@ function run_forward(num, grid, grid_u, grid_v,
     end
 
     if periodic_y
+        # BC_u.bottom.ind = ind.periodicB;
+        # BC_u.top.ind = ind.periodicT;
         BC_u.bottom.ind = ind.b_bottom;
         BC_u.top.ind = ind.b_top;
         BC_u.bottom.f = BC_u.top.f = periodic
@@ -422,7 +426,7 @@ function run_forward(num, grid, grid_u, grid_v,
         Cvm1L .= opL.Cv * vec(phL.v) .+ opL.CUTCv
     end
 
-    CFL_sc = τ / (Δ^2 * Re)
+    CFL_sc = τ / Δ^2
     IIOE(LSA, LSB, u, V, ind.inside, CFL_sc, ny)
 
     if save_length
@@ -483,7 +487,7 @@ function run_forward(num, grid, grid_u, grid_v,
         end
 
         if advection
-            CFL_sc = τ / (Δ^2 * Re)
+            CFL_sc = τ / Δ^2
             IIOE(grid, LSA, LSB, u, V, CFL_sc, periodic_x, periodic_y)
             try
                 u .= reshape(gmres(LSA,(LSB*vec(u))), (ny,nx))
@@ -732,7 +736,7 @@ function run_forward(num, grid, grid_u, grid_v,
                 end
                 pressure_projection!(num, grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, opS, phS,
                                 LuSm1, LvSm1, SCUTum1, SCUTvm1, Cum1S, Cvm1S,
-                                ns_vecS, GxpSm1, GypSm1,
+                                ksppS, nsS, ns_vecS, GxpSm1, GypSm1,
                                 MpS, iMpS, MuS, MvS, iMGxS, iMGyS, iMDxS, iMDyS,
                                 iMuSm1, iMvSm1, iMGxSm1, iMGySm1, MuSm1, MvSm1,
                                 MIXED, MIXED_u, MIXED_v, SOLID, LIQUID, LIQUID_u, LIQUID_v,
@@ -762,7 +766,7 @@ function run_forward(num, grid, grid_u, grid_v,
 
                 pressure_projection!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, opL, phL,
                             LuLm1, LvLm1, LCUTum1, LCUTvm1, Cum1L, Cvm1L,
-                            ns_vecL, GxpLm1, GypLm1,
+                            ksppL, nsL, ns_vecL, GxpLm1, GypLm1,
                             MpL, iMpL, MuL, MvL, iMGxL, iMGyL, iMDxL, iMDyL,
                             iMuLm1, iMvLm1, iMGxLm1, iMGyLm1, MuLm1, MvLm1,
                             MIXED, MIXED_u, MIXED_v, LIQUID, SOLID, SOLID_u, SOLID_v,
