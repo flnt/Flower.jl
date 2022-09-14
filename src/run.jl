@@ -799,7 +799,15 @@ function run_forward(num, grid, grid_u, grid_v,
             usave[snap,:,:] .= u
             uusave[snap,:,:] .= grid_u.u
             uvsave[snap,:,:] .= grid_v.u
-            Tsave[snap,:,:] .= phL.T .+ phS.T
+
+            if heat_solid_phase && heat_liquid_phase
+                Tsave[snap,:,:] .= phL.T[:,:].*geoL.cap[:,:,5] .+ phS.T[:,:].*geoS.cap[:,:,5]
+            elseif heat_solid_phase
+                Tsave[snap,:,:] .= phS.T[:,:]
+            elseif heat_liquid_phase
+                Tsave[snap,:,:] .= phL.T[:,:]
+            end
+
             if ns_solid_phase && ns_liquid_phase
                 psave[snap,:,:] .= phL.p[:,:].*geoL.cap[:,:,5] .+ phS.p[:,:].*geoS.cap[:,:,5]
                 ϕsave[snap,:,:] .= phL.ϕ[:,:].*geoL.cap[:,:,5] .+ phS.ϕ[:,:].*geoS.cap[:,:,5]
