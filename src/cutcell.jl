@@ -1268,6 +1268,8 @@ function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, periodic_x, periodic_y) where {T,
             @inbounds geoS.dcap[end,i,4] = 0.0
             @inbounds geoL.dcap[1,i,2] = 0.0
             @inbounds geoL.dcap[end,i,4] = 0.0
+            @inbounds mid_point[1,i] += Point(0.0, -0.5)
+            @inbounds mid_point[end,i] += Point(0.0, 0.5)
         end
     end
 
@@ -1276,11 +1278,6 @@ function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, periodic_x, periodic_y) where {T,
         @inbounds @threads for i = 1:ny
             @inbounds geoS.dcap[i,1,1] = geoS.dcap[i,end,3]
             @inbounds geoL.dcap[i,1,1] = geoL.dcap[i,end,3]
-        end
-    else
-        @inbounds @threads for i = 1:ny
-            @inbounds mid_point[i,1] += Point(-0.5, 0.0)
-            @inbounds mid_point[i,end] += Point(0.5, 0.0)
         end
     end
 
@@ -1303,6 +1300,8 @@ function set_cap_bcs!(grid::Mesh{GridFCy,T,N}, periodic_x, periodic_y) where {T,
             @inbounds geoS.dcap[i,end,3] = 0.0
             @inbounds geoL.dcap[i,1,1] = 0.0
             @inbounds geoL.dcap[i,end,3] = 0.0
+            @inbounds mid_point[i,1] += Point(-0.5, 0.0)
+            @inbounds mid_point[i,end] += Point(0.5, 0.0)
         end
     end
 
@@ -1311,11 +1310,6 @@ function set_cap_bcs!(grid::Mesh{GridFCy,T,N}, periodic_x, periodic_y) where {T,
         @inbounds @threads for i = 1:nx
             @inbounds geoS.dcap[1,i,2] = geoS.dcap[end,i,4]
             @inbounds geoL.dcap[1,i,2] = geoL.dcap[end,i,4]
-        end
-    else
-        @inbounds @threads for i = 1:nx
-            @inbounds mid_point[1,i] += Point(0.0, -0.5)
-            @inbounds mid_point[end,i] += Point(0.0, 0.5)
         end
     end
 

@@ -241,6 +241,10 @@ function run_forward(num, grid, grid_u, grid_v,
     Uysave[1,:,:] .= phL.v .+ phS.v
 
     if levelset
+        grid.mid_point .= [Point(0.0, 0.0)]
+        grid_u.mid_point .= [Point(0.0, 0.0)]
+        grid_v.mid_point .= [Point(0.0, 0.0)]
+        
         marching_squares!(num, grid)
         interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.u, grid_v.u)
         uusave[1,:,:] .= grid_u.u
@@ -557,6 +561,10 @@ function run_forward(num, grid, grid_u, grid_v,
             faces .= 0.
             grid_u.faces .= 0.
             grid_v.faces .= 0.
+            grid.mid_point .= [Point(0.0, 0.0)]
+            grid_u.mid_point .= [Point(0.0, 0.0)]
+            grid_v.mid_point .= [Point(0.0, 0.0)]
+
             marching_squares!(num, grid)
             interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.u, grid_v.u)
             marching_squares!(num, grid_u)
