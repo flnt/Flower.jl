@@ -163,7 +163,7 @@ function clip_small_cell!(grid, geo, II, ϵ, nx, ny)
     return nothing
 end
 
-function clip_cells!(grid, ϵ)
+function clip_cells!(grid, ϵ, periodic_x, periodic_y)
     @unpack nx, ny, ind, geoS, geoL = grid
 
     @inbounds @threads for II in ind.inside
@@ -176,6 +176,9 @@ function clip_cells!(grid, ϵ)
     end
     @inbounds @threads for II in @view ind.b_left[1][2:end-1]
         if geoS.cap[II,5] > (1.0-ϵ)
+            if periodic_x
+                geoS.cap[II,1] = 1.0
+            end
             geoS.cap[II,2:11] .= vcat(ones(6), 0.5.*ones(4))
             geoS.cap[δy⁻(II),4] = 1.0
             geoS.cap[δx⁺(II),1] = 1.0
@@ -194,6 +197,9 @@ function clip_cells!(grid, ϵ)
     @inbounds @threads for II in @view ind.b_bottom[1][2:end-1]
         if geoS.cap[II,5] > (1.0-ϵ)
             geoS.cap[II,1] = 1.0
+            if periodic_y
+                geoS.cap[II,2] = 1.0
+            end
             geoS.cap[II,3:11] .= vcat(ones(5), 0.5.*ones(4))
             geoS.cap[δx⁻(II),3] = 1.0
             geoS.cap[δx⁺(II),1] = 1.0
@@ -212,6 +218,9 @@ function clip_cells!(grid, ϵ)
     @inbounds @threads for II in @view ind.b_right[1][2:end-1]
         if geoS.cap[II,5] > (1.0-ϵ)
             geoS.cap[II,1:2] .= ones(2)
+            if periodic_x
+                geoS.cap[II,3] = 1.0
+            end
             geoS.cap[II,4:11] .= vcat(ones(4), 0.5.*ones(4))
             geoS.cap[δx⁻(II),3] = 1.0
             geoS.cap[δy⁻(II),4] = 1.0
@@ -230,6 +239,9 @@ function clip_cells!(grid, ϵ)
     @inbounds @threads for II in @view ind.b_top[1][2:end-1]
         if geoS.cap[II,5] > (1.0-ϵ)
             geoS.cap[II,1:3] .= ones(3)
+            if periodic_y
+                geoS.cap[II,4] = 1.0
+            end
             geoS.cap[II,5:11] .= vcat(ones(3), 0.5.*ones(4))
             geoS.cap[δx⁻(II),3] = 1.0
             geoS.cap[δy⁻(II),4] = 1.0
@@ -247,6 +259,9 @@ function clip_cells!(grid, ϵ)
     end
     @inbounds @threads for II in @view ind.b_left[1][2:end-1]
         if geoL.cap[II,5] > (1.0-ϵ)
+            if periodic_x
+                geoL.cap[II,1] = 1.0
+            end
             geoL.cap[II,2:11] .= vcat(ones(6), 0.5.*ones(4))
             geoL.cap[δy⁻(II),4] = 1.0
             geoL.cap[δx⁺(II),1] = 1.0
@@ -265,6 +280,9 @@ function clip_cells!(grid, ϵ)
     @inbounds @threads for II in @view ind.b_bottom[1][2:end-1]
         if geoL.cap[II,5] > (1.0-ϵ)
             geoL.cap[II,1] = 1.0
+            if periodic_y
+                geoL.cap[II,2] = 1.0
+            end
             geoL.cap[II,3:11] .= vcat(ones(5), 0.5.*ones(4))
             geoL.cap[δx⁻(II),3] = 1.0
             geoL.cap[δx⁺(II),1] = 1.0
@@ -283,6 +301,9 @@ function clip_cells!(grid, ϵ)
     @inbounds @threads for II in @view ind.b_right[1][2:end-1]
         if geoL.cap[II,5] > (1.0-ϵ)
             geoL.cap[II,1:2] .= ones(2)
+            if periodic_x
+                geoL.cap[II,3] = 1.0
+            end
             geoL.cap[II,4:11] .= vcat(ones(4), 0.5.*ones(4))
             geoL.cap[δx⁻(II),3] = 1.0
             geoL.cap[δy⁻(II),4] = 1.0
@@ -301,6 +322,9 @@ function clip_cells!(grid, ϵ)
     @inbounds @threads for II in @view ind.b_top[1][2:end-1]
         if geoL.cap[II,5] > (1.0-ϵ)
             geoL.cap[II,1:3] .= ones(3)
+            if periodic_y
+                geoL.cap[II,4] = 1.0
+            end
             geoL.cap[II,5:11] .= vcat(ones(3), 0.5.*ones(4))
             geoL.cap[δx⁻(II),3] = 1.0
             geoL.cap[δy⁻(II),4] = 1.0
@@ -516,7 +540,7 @@ function dimensionalize!(grid, geo)
 end
 
 function postprocess_grids!(grid, grid_u, grid_v, MIXED, periodic_x, periodic_y, advection, ϵ)
-    clip_cells!(grid, ϵ)
+    clip_cells!(grid, ϵ, periodic_x, periodic_y)
     
     dimensionalize!(grid, grid.geoS)
     dimensionalize!(grid, grid.geoL)
@@ -1456,6 +1480,34 @@ function get_cells_indices(iso, all)
              MIXED[M] = II
              M+=1
          end
+    end
+    resize!(MIXED, M-1); resize!(SOLID, S-1); resize!(LIQUID, L-1);
+    sizehint!(MIXED, length(MIXED)); sizehint!(SOLID, length(SOLID)); sizehint!(LIQUID, length(LIQUID))
+    return MIXED, SOLID, LIQUID
+end
+
+function get_cells_indices(iso, all, nx, ny, periodic_x, periodic_y)
+    local M = 1
+    local S = 1
+    local L = 1
+    MIXED = Vector{CartesianIndex{2}}(undef, length(all))
+    SOLID = Vector{CartesianIndex{2}}(undef, length(all))
+    LIQUID = Vector{CartesianIndex{2}}(undef, length(all))
+    @simd for II in all
+        @inbounds if !periodic_x && (II[2] == 1 || II[2] == nx)
+
+        elseif  !periodic_y && (II[1] == 1 || II[1] == ny)
+         
+        elseif is_solid(iso[II])
+            SOLID[S] = II
+            S+=1
+        elseif is_liquid(iso[II])
+            LIQUID[L] = II
+            L+=1
+        else
+            MIXED[M] = II
+            M+=1
+        end
     end
     resize!(MIXED, M-1); resize!(SOLID, S-1); resize!(LIQUID, L-1);
     sizehint!(MIXED, length(MIXED)); sizehint!(SOLID, length(SOLID)); sizehint!(LIQUID, length(LIQUID))

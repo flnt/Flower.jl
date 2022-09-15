@@ -380,13 +380,6 @@ function velocity_extension!(grid, indices, NB, periodic_x, periodic_y)
 
     local cfl = 0.45
     local Vt = similar(V)
-    if periodic_x && periodic_y
-        indices = vcat(indices, ind.b_left[1], ind.b_right[1], ind.b_bottom[1], ind.b_top[1])
-    elseif periodic_x
-        indices = vcat(indices, ind.b_left[1][2:end-1], ind.b_right[1][2:end-1])
-    elseif periodic_y
-        indices = vcat(indices, ind.b_bottom[1][2:end-1], ind.b_top[1][2:end-1])
-    end
 
     for j = 1:NB
         Vt .= V

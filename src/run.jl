@@ -250,7 +250,7 @@ function run_forward(num, grid, grid_u, grid_v,
 
         NB_indices_base = get_NB_width_indices_base(NB)
 
-        MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, ind.inside)
+        MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, ind.all_indices, nx, ny, periodic_x, periodic_y)
         MIXED, SOLID, LIQUID = get_cells_indices(iso, ind.all_indices)
         MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(grid_u.iso, grid_u.ind.all_indices)
         MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(grid_v.iso, grid_v.ind.all_indices)
@@ -525,7 +525,7 @@ function run_forward(num, grid, grid_u, grid_v,
             if current_i%show_every == 0
                 try
                     printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) \n" (current_i-1) 100*(current_i-1)/max_iterations)
-                    if heat || free_surface
+                    if (heat && length(MIXED) != 0) || free_surface
                         print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f\n" mean(V[MIXED]) findmax(V[MIXED])[1] findmin(V[MIXED])[1])
                         print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f\n" mean(κ[MIXED]) findmax(κ[MIXED])[1] findmin(κ[MIXED])[1])
                     end
@@ -572,7 +572,7 @@ function run_forward(num, grid, grid_u, grid_v,
             WAS_LIQUID_v = copy(LIQUID_v)
             WAS_SOLID_v = copy(SOLID_v)
 
-            MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, ind.inside)
+            MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, ind.all_indices, nx, ny, periodic_x, periodic_y)
             MIXED, SOLID, LIQUID = get_cells_indices(iso, ind.all_indices)
             MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(grid_u.iso, grid_u.ind.all_indices)
             MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(grid_v.iso, grid_v.ind.all_indices)
