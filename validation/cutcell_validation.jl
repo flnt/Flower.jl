@@ -5,22 +5,6 @@ N_array = 2 .^[4, 5, 6, 7, 8]
 plt = ("partial", "full", "all")
 plt2 = ("1", "2", "∞")
 
-function interpolate_field(base, target, cap)
-    interpolated_field = similar(target)
-    initial = copy(base)
-    @. initial *= cap 
-    N = Int(size(initial, 1)/size(target, 1))
-    for i = 1:size(target, 1)
-        for j = 1:size(target, 1)
-            startj = 1 + N*(j-1)
-            starti = 1 + N*(i-1)
-            tmp = @view initial[startj:startj+(N-1), starti:starti+(N-1)]
-            interpolated_field[j,i] = sum(tmp)/N^2
-        end
-    end
-    return interpolated_field
-end
-
 function conv_cutcell_CN(arr;
     case = "Sphere",
     L0 = 2.,
