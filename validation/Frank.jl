@@ -69,8 +69,9 @@ N_array = 2 .^[5, 6, 7]
 plt = ("partial", "full", "all")
 plt2 = ("1", "2", "∞")
 
-function conv_Frank(x;
+function conv_Frank(arr;
     case = "Sphere",
+    CFL = 0.5,
     L0 = 16.,
     R = 1.56,
     TEND = 1.0,
@@ -79,8 +80,7 @@ function conv_Frank(x;
     liquid = true,
     verbose = true)
 
-    N = length(x)
-    r = (x[end])/(x[end-1])
+    N = length(arr)
     ERR = zeros(3,3,N,2)
     T_data = Vector{Matrix{Float64}}(undef, 0)
     u_data1 = Vector{Matrix{Float64}}(undef, 0)
@@ -93,53 +93,69 @@ function conv_Frank(x;
     analytical_temperature_data = Vector{Matrix{Float64}}(undef, 0)
 
     for i in 1:N
+        x = LinRange(-L0/2, L0/2, arr[i]+1)
+        y = LinRange(-L0/2, L0/2, arr[i]+1)
+
         num = Numerical(case = case,
             T_inf = T_inf,
             L0 = L0,
-            n = x[i],
-            CFL = 0.1,
+            x = x,
+            y = y,
+            CFL = CFL,
             TEND = TEND,
             R = R
             );
-        idx, idxu, idxv = set_indices(num.n);
-        tmp, fwd = init_fields(num, idx, idxu, idxv);
-        MIXED, SOLID, LIQUID, radius = run_forward(num, idx, idxu, idxv, tmp, fwd,
-        heat = true,
-        solid_phase = solid,
-        liquid_phase = liquid,
-        stefan = true,
-        advection = true,
-        verbose = verbose,
-        save_radius = true
+        gp, gu, gv = init_meshes(num)
+        opS, opL, phS, phL, fwd = init_fields(num, gp, gu, gv)
+        @time MIXED, SOLID, LIQUID, radius = run_forward(num, gp, gu, gv,
+            opS, opL, phS, phL, fwd,
+            stefan = true,
+            advection = true,
+            heat = true,
+            heat_solid_phase = false,
+            heat_liquid_phase = true,
+            verbose = verbose,
+            show_every = 1,
+            save_radius = true
         )
 
-        analytical_temperature = zeros(num.n,num.n)
-        init_franck!(analytical_temperature, R*sqrt(1+TEND), T_inf, num.H, num.n, 0)
-
+        analytical_temperature = similar(phL.T)
+        analytical_temperature .= 0.
+        # init_franck!(analytical_temperature, R*sqrt(1+TEND), T_inf, num.x, arr[i], 0)
+        init_franck!(gp, analytical_temperature, R, T_inf, 0, 2)
         push!(u_data1, fwd.usave[1,:,:])
         push!(u_data2, fwd.usave[end÷2,:,:])
         push!(u_data3, fwd.usave[end,:,:])
 
-        push!(T_data, fwd.TL)
+        push!(T_data, phL.T)
         push!(analytical_temperature_data, analytical_temperature)
 
 
-        push!(grid, num.H)
+        push!(grid, gp.x[1,:])
         push!(radius_data, radius)
         time = [1 + i*num.τ for i in 0:num.max_iterations]
         push!(time_data, time)
 
-        e = analytical_temperature - fwd.TL
+        e = analytical_temperature - phL.T
 
         if solid
-            ERR[1, :, i, 1] .= normf(e, MIXED, tmp.SOL[:,:,5], num.Δ)
-            ERR[2, :, i, 1] .= normf(e, SOLID, tmp.SOL[:,:,5], num.Δ)
-            ERR[3, :, i, 1] .= normf(e, vcat(SOLID, MIXED), tmp.SOL[:,:,5], num.Δ)
+            ERR[1, :, i, 1] .= normf(e, MIXED, gp.geoS.cap[:,:,5], num.Δ)
+            ERR[2, :, i, 1] .= normf(e, SOLID, gp.geoS.cap[:,:,5], num.Δ)
+            ERR[3, :, i, 1] .= normf(e, vcat(SOLID, MIXED), gp.geoS.cap[:,:,5], num.Δ)
         elseif liquid
-            ERR[1, :, i, 1] .= normf(e, MIXED, tmp.LIQ[:,:,5], num.Δ)
-            ERR[2, :, i, 1] .= normf(e, LIQUID, tmp.LIQ[:,:,5], num.Δ)
-            ERR[3, :, i, 1] .= normf(e, vcat(LIQUID, MIXED), tmp.LIQ[:,:,5], num.Δ)
+            ERR[1, :, i, 1] .= normf(e, MIXED, gp.geoL.cap[:,:,5], num.Δ)
+            ERR[2, :, i, 1] .= normf(e, LIQUID, gp.geoL.cap[:,:,5], num.Δ)
+            ERR[3, :, i, 1] .= normf(e, vcat(LIQUID, MIXED), gp.geoL.cap[:,:,5], num.Δ)
         end
+        # if solid
+        #     ERR[1, :, i, 1] .= normf(e, MIXED, tmp.SOL[:,:,5], num.Δ)
+        #     ERR[2, :, i, 1] .= normf(e, SOLID, tmp.SOL[:,:,5], num.Δ)
+        #     ERR[3, :, i, 1] .= normf(e, vcat(SOLID, MIXED), tmp.SOL[:,:,5], num.Δ)
+        # elseif liquid
+        #     ERR[1, :, i, 1] .= normf(e, MIXED, tmp.LIQ[:,:,5], num.Δ)
+        #     ERR[2, :, i, 1] .= normf(e, LIQUID, tmp.LIQ[:,:,5], num.Δ)
+        #     ERR[3, :, i, 1] .= normf(e, vcat(LIQUID, MIXED), tmp.LIQ[:,:,5], num.Δ)
+        # end
 
         for i = 1:3
             for j = 1:3
@@ -150,7 +166,7 @@ function conv_Frank(x;
     return ERR, grid, analytical_radius, analytical_temperature_data, T_data, radius_data, time_data, u_data1, u_data2, u_data3
 end
 
-ERR, grid, analytical_radius, analytical_temperature_data, T_data, radius_data, time_data, u_data1, u_data2, u_data3 = conv_Frank(N_array, verbose = false, TEND= 1.0)
+ERR, grid, analytical_radius, analytical_temperature_data, T_data, radius_data, time_data, u_data1, u_data2, u_data3 = conv_Frank(N_array, verbose = true, TEND= 1.0, CFL = 0.1);
 
 N = length(N_array)
 
@@ -191,13 +207,38 @@ lines!(f[1,1],1:1/(length(analytical_radius)-1):2, analytical_radius, label = "A
 
 axislegend(position = :lt)
 
-ax2 = Axis(f[2, 1], xscale = log2, yscale = log2,
-xticks = N_array, xlabel = "Points per dimension", ylabel = "Error")
+struct IntegerTicks end
 
+Makie.get_tickvalues(::IntegerTicks, vmin, vmax) = ceil(Int, vmin) : floor(Int, vmax)
 
-scatter!(f[2,1], N_array, err_radius, label = "Radius error", markersize = 25, color =:black, marker=:utriangle)
-a, b = fit_order(N_array, err_radius)
+ax = Axis(f[2,1], xscale = log2, yscale = log10,
+xticks = N_array, yticks = LogTicks(IntegerTicks()), xlabel = "Points per dimension", ylabel = "Error")
+
+XX = ERR[1, 2, :, 1]
+
+scatter!(f[2,1], N_array, XX, label = "Mixed cells, L-2 norm", markersize = 25, color =:black, marker=:rect)
+a, b = fit_order(N_array, XX)
+lines!(f[2,1], N_array, a*(1 ./ N_array).^b, linewidth = 3, linestyle =:dash, color =:black, label = @sprintf "order %.2f" b)
+
+YY = ERR[2, 2, :, 1]
+
+scatter!(f[2,1], N_array, YY, label = "Full cells, L-2 norm", markersize = 25, color =:black, marker=:utriangle)
+a, b = fit_order(N_array, YY)
 lines!(f[2,1], N_array, a*(1 ./ N_array).^b, linewidth = 3, linestyle =:dashdot, color =:black, label = @sprintf "order %.2f" b)
+
+ZZ = ERR[3, 2, :, 1]
+
+scatter!(f[2,1], N_array, ZZ, label = "All cells, L-2 norm", markersize = 25, color =:black, marker=:circle)
+a, b = fit_order(N_array, ZZ)
+lines!(f[2,1], N_array, a*(1 ./ N_array).^b, linewidth = 3, linestyle =:dot, color =:black, label = @sprintf "order %.2f" b)
+
+# ax2 = Axis(f[2, 1], xscale = log2, yscale = log2,
+# xticks = N_array, xlabel = "Points per dimension", ylabel = "Error")
+
+
+# scatter!(f[2,1], N_array, ERR[3,2,:,2], label = "Radius error", markersize = 25, color =:black, marker=:utriangle)
+# a, b = fit_order(N_array, ERR[3,2,:,2])
+# lines!(f[2,1], N_array, a*(1 ./ N_array).^b, linewidth = 3, linestyle =:dashdot, color =:black, label = @sprintf "order %.2f" b)
 
 
 axislegend(position = :lb)
@@ -210,9 +251,9 @@ ylims!(-2.5, 2.5)
 
 ax3.xticks = [1.560, 2.206]
 hideydecorations!(ax3)
-hm = heatmap!(f[1:2,2], grid[N], grid[N], err_map, colormap=:greys)
+hm = heatmap!(f[1:2,2], grid[N], grid[N], err_map)#, colormap=Reverse(:greys))
 resize_to_layout!(f)
-Colorbar(f[1:2, 3], vertical = true, flipaxis = true,  ticks = 0:1, label = "Normalized error", colormap=:greys)
+Colorbar(f[1:2, 3], vertical = true, flipaxis = true,  ticks = 0:1, label = "Normalized error")#, colormap=Reverse(:greys))
 
 for i in 1:N
     lines!(f[1:2,2],[-10000, -99999], [-10000, -99999], color=my_colors[i], linewidth = 5, label = "N = $(N_array[i])")
@@ -224,7 +265,7 @@ vlines!(ax3, [1.560, 2.206], color = :black, linestyle =:dash, linewidth = 3)
 hlines!(ax3, [1.560, 2.206], color = :black, linestyle =:dash, linewidth = 3)
 
 axislegend(position = :lb)
-rm("fit.log")
+
 resize_to_layout!(f)
 f = current_figure()
 

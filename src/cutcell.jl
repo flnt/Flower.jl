@@ -86,7 +86,8 @@ function find_radius(grid, MIXED)
     radius = Vector{Float64}(undef,0)
     for II in MIXED
         try
-            radius_ = distance(Point(0.,0.), Point(x[II]+mid_point[II].x, y[II]+mid_point[II].y))
+            # radius_ = distance(Point(0.,0.), Point(x[II]+mid_point[II].x, y[II]+mid_point[II].y))
+            radius_ = sqrt(x[II]+mid_point[II].x + y[II]+mid_point[II].y)
             if !isnan(radius_) push!(radius, radius_) end
         catch
             @goto endofloop

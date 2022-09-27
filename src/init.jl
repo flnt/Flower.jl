@@ -603,6 +603,18 @@ function init_franck!(grid, temp, R, T_inf, h)
     end
 end
 
+function init_franck!(grid, temp, R, T_inf, h, t)
+    @unpack x, y, nx, ny, ind = grid
+    @unpack all_indices = ind
+
+    @inbounds for II in all_indices
+        s = sqrt(x[II]^2 + y[II]^2)/√t
+        if s >= (R - h)
+            temp[II] = T_inf*(1-(expint(0.25*s^2))/(expint(0.25*R^2)))
+        end
+    end
+end
+
 function init_smooth(X, Y)
     u = similar(X)
     @. u = ((X-1)^2 + (Y-1)^2 + 0.1 )*(sqrt(X^2 + Y^2) - 1.0)
