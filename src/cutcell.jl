@@ -80,14 +80,13 @@ end
    return Point((x/=area) - 0.5, (y/=area) - 0.5)
 end
 
-function find_radius(grid, MIXED)
+function find_radius(grid, MIXED, h)
     @unpack x, y, mid_point = grid
-
+    H = x[1,:]
     radius = Vector{Float64}(undef,0)
     for II in MIXED
         try
-            # radius_ = distance(Point(0.,0.), Point(x[II]+mid_point[II].x, y[II]+mid_point[II].y))
-            radius_ = sqrt(x[II]+mid_point[II].x + y[II]+mid_point[II].y)
+            radius_ = distance(Point(0.,0.), Point(H[II.I[2]]+h*mid_point[II].x, H[II.I[1]]+h*mid_point[II].y))
             if !isnan(radius_) push!(radius, radius_) end
         catch
             @goto endofloop

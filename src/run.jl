@@ -363,7 +363,7 @@ function run_forward(num, grid, grid_u, grid_v,
         if save_radius
             n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
             local radius = zeros(n_snaps)
-            radius[1] = find_radius(grid, MIXED)
+            radius[1] = find_radius(grid, MIXED, Δ)
         end
         if hill
             local radius = zeros(max_iterations+1)
@@ -709,7 +709,7 @@ function run_forward(num, grid, grid_u, grid_v,
             if iszero(current_i%save_every) || current_i==max_iterations
                 snap = current_i÷save_every+1
                 if save_radius
-                    radius[snap] = find_radius(grid, MIXED)
+                    radius[snap] = find_radius(grid, MIXED, Δ)
                 end
                 if hill
                     a = zeros(length(MIXED))

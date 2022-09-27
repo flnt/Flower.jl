@@ -103,7 +103,8 @@ function conv_Frank(arr;
             y = y,
             CFL = CFL,
             TEND = TEND,
-            R = R
+            R = R,
+            ϵ = 0.00
             );
         gp, gu, gv = init_meshes(num)
         opS, opL, phS, phL, fwd = init_fields(num, gp, gu, gv)
@@ -116,7 +117,8 @@ function conv_Frank(arr;
             heat_liquid_phase = true,
             verbose = verbose,
             show_every = 1,
-            save_radius = true
+            save_radius = true,
+            Vmean = true
         )
 
         analytical_temperature = similar(phL.T)
