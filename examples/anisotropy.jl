@@ -2,7 +2,7 @@ using Revise
 using Flower
 
 L0 = 4.
-n = 300
+n = 512
 
 x = LinRange(-L0/2.0 - L0/2.0/n, L0/2.0 + L0/2.0/n, n+1)
 y = LinRange(-L0/2.0 - L0/2.0/n, L0/2.0 + L0/2.0/n, n+1)
@@ -10,14 +10,14 @@ y = LinRange(-L0/2.0 - L0/2.0/n, L0/2.0 + L0/2.0/n, n+1)
 num = Numerical(T_inf = -0.8,
     case = "Crystal",
     θd = 0.,
-    ϵ_κ = 0.003,
+    ϵ_κ = 0.001,
     ϵ_V = 0.000,
     x = x,
     y = y,
     CFL = 0.5,
-    TEND = 0.09,
+    TEND = 0.036,
     aniso = true,
-    θ₀ = 0.25*pi,
+    θ₀ = 0.5*pi,
     m = 6,
     A = -0.2,
     N = 6,

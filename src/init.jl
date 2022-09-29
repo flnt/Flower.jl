@@ -463,7 +463,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     TS[:,:] = zeros(ny, nx)
     Tall[:,:] = zeros(ny, nx)
     if num.case == "Planar"
-        u .= y .+ shifted .+ Δ/4
+        u .= y .+ shifted
     elseif num.case == "Square"
         @. u = max((-y - R),(y - R),(-x - R),(x - R))
     elseif num.case == "Sphere"

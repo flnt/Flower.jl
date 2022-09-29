@@ -366,12 +366,15 @@ function run_forward(num, grid, grid_u, grid_v,
             radius[1] = find_radius(grid, MIXED, Δ)
         end
         if hill
-            local radius = zeros(max_iterations+1)
-            a = zeros(length(MIXED))
-            for i in 1:length(MIXED)
-                a[i] = geoL.projection[MIXED[i]].pos.y
-            end
-            radius[1] = mean(a)
+            # local radius = zeros(max_iterations+1)
+            # a = zeros(length(MIXED))
+            # for i in 1:length(MIXED)
+            #     a[i] = geoL.projection[MIXED[i]].pos.y
+            # end
+            # BC_TL.top.val = -1+exp(-1*(grid.x[1,end]-1*(0.3)))
+            n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
+            local radius = zeros(n_snaps)
+            radius[1] = find_position_hill(grid, MIXED, Δ)
         end
     elseif !levelset
         MIXED = [CartesianIndex(-1,-1)]
@@ -712,11 +715,13 @@ function run_forward(num, grid, grid_u, grid_v,
                     radius[snap] = find_radius(grid, MIXED, Δ)
                 end
                 if hill
-                    a = zeros(length(MIXED))
-                    for i in 1:length(MIXED)
-                        a[i] = geoL.projection[MIXED[i]].pos.y
-                    end
-                    radius[snap] = mean(a)
+                    # a = zeros(length(MIXED))
+                    # for i in 1:length(MIXED)
+                    #     a[i] = geoL.projection[MIXED[i]].pos.y
+                    # end
+                    # radius[snap] = mean(a)
+                    # BC_TL.top.val = -1+exp(-1*(grid.x[1,end]-1*(current_t+0.3)))
+                    radius[snap] = find_position_hill(grid, MIXED, Δ)
                 end
                 if save_length
                     lengthsave[snap] = arc_length2(geoS.projection, MIXED)
