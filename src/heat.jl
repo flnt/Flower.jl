@@ -16,7 +16,7 @@ end
 
     @inbounds @threads for II in MIXED
         ϵ_c = anisotropy(ϵ_κ, m, sol_projection[II].angle, θ₀)
-        ϵ_v = ϵ_V # anisotropy(ϵ_V, m, sol_projection[II].angle, θ₀)
+        ϵ_v = anisotropy(ϵ_V, m, sol_projection[II].angle, θ₀)
         @inbounds bc[II] = D[II] - ϵ_c*κ[II] - ϵ_v*V[II]
     end
     return nothing

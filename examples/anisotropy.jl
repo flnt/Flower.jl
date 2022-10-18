@@ -10,7 +10,7 @@ y = LinRange(-L0/2.0 - L0/2.0/n, L0/2.0 + L0/2.0/n, n+1)
 num = Numerical(T_inf = -0.8,
     case = "Crystal",
     θd = 0.,
-    ϵ_κ = 0.001,
+    ϵ_κ = 0.003,
     ϵ_V = 0.000,
     x = x,
     y = y,
@@ -23,7 +23,7 @@ num = Numerical(T_inf = -0.8,
     N = 6,
     R = 0.1,
     # max_iterations = 1,
-    ϵ = 0.05
+    ϵ = 0.00
     )
 
 gp, gu, gv = init_meshes(num)
