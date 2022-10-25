@@ -1,5 +1,7 @@
 using Revise
 using Flower
+using Interpolations
+using JLD2
 
 
 for vRa = [1e3, 1e4, 1e5, 2e5, 4e5, 6e5, 8e5, 1e6]
@@ -22,10 +24,10 @@ for vRa = [1e3, 1e4, 1e5, 2e5, 4e5, 6e5, 8e5, 1e6]
         y = y,
         R = 0.5,
         u_inf = 0.0,
-        save_every = 1,
+        save_every = 100,
         shifted = 0.000,
         N = 1,
-        max_iterations = 10,
+        max_iterations = 10000,
         A = 0.0,
         ϵ_κ = 0.00000,
         θd = 0.0,
@@ -55,7 +57,7 @@ for vRa = [1e3, 1e4, 1e5, 2e5, 4e5, 6e5, 8e5, 1e6]
     # end
 
 
-    @time MIXED, SOLID, LIQUID = run_forward(num, gp, gu, gv,
+    @time MIXED, SOLID, LIQUID, radius = run_forward(num, gp, gu, gv,
         opS, opL, phS, phL, fwd,
         periodic_y = true,
         BC_TL = Boundaries(
@@ -107,6 +109,8 @@ for vRa = [1e3, 1e4, 1e5, 2e5, 4e5, 6e5, 8e5, 1e6]
 
         adaptative_t = true,
 
+        hill = true,
+
         Ra = Ra,
         λ = λ,
     )
@@ -125,7 +129,7 @@ for vRa = [1e3, 1e4, 1e5, 2e5, 4e5, 6e5, 8e5, 1e6]
         contour!(gp.y[:,1], gp.x[1,:], fwd.usave[i,:,:], levels = 0:0, color=:black, linewidth = 2);
         # limits!(ax, -lim, lim, -lim, lim)
         resize_to_layout!(fp)
-        Makie.save("/media/tf/be46b01f-eb0c-4298-a160-d10e4e87b3b9/julia-data/Figures/rayleigh-nx_$(nx)-ny_$(ny)-ratio_$(ratio)-maxiter_$(@sprintf("%.1e", num.max_iterations))-TM_$(num.θd)-T1_$(T1)-T2_$(T2)-λ_$(λ)-Ra_$(@sprintf("%.1e", Ra))-t$(fwd.time[i]).png", fp)
+        # Makie.save("/media/tf/be46b01f-eb0c-4298-a160-d10e4e87b3b9/julia-data/Figures/rayleigh-nx_$(nx)-ny_$(ny)-ratio_$(ratio)-maxiter_$(@sprintf("%.1e", num.max_iterations))-TM_$(num.θd)-T1_$(T1)-T2_$(T2)-λ_$(λ)-Ra_$(@sprintf("%.1e", Ra))-t$(fwd.time[i]).png", fp)
     # end
 
     # fp = current_figure()
@@ -163,7 +167,7 @@ for vRa = [1e3, 1e4, 1e5, 2e5, 4e5, 6e5, 8e5, 1e6]
     # make_video(num, fwd, gp, "T"; title_prefix=prefix,
     #         title_suffix=suffix, framerate=500÷num.save_every)
 
-    using Interpolations
+    
     height = zeros(size(fwd.usave)[1:2])
 
     for i in 1:size(fwd.usave,1)
@@ -185,6 +189,6 @@ for vRa = [1e3, 1e4, 1e5, 2e5, 4e5, 6e5, 8e5, 1e6]
     # lines!(fwd.time, av_height3)
     resize_to_layout!(fh)
 
-    using JLD2
-    JLD2.@save "/media/tf/be46b01f-eb0c-4298-a160-d10e4e87b3b9/julia-data/rayleigh-nx_$(nx)-ny_$(ny)-ratio_$(ratio)-maxiter_$(@sprintf("%.1e", num.max_iterations))-TM_$(num.θd)-T1_$(T1)-T2_$(T2)-λ_$(λ)-Ra_$(@sprintf("%.1e", Ra)).jld2" num gp gu gv phS phL fwd av_height1 eRa
+    
+    # JLD2.@save "/media/tf/be46b01f-eb0c-4298-a160-d10e4e87b3b9/julia-data/rayleigh-nx_$(nx)-ny_$(ny)-ratio_$(ratio)-maxiter_$(@sprintf("%.1e", num.max_iterations))-TM_$(num.θd)-T1_$(T1)-T2_$(T2)-λ_$(λ)-Ra_$(@sprintf("%.1e", Ra)).jld2" num gp gu gv phS phL fwd av_height1 eRa radius
 end

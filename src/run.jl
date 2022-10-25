@@ -1,4 +1,5 @@
 using MPI
+using Interpolations
 
 function run_forward(num, grid, grid_u, grid_v,
     opS, opL, phS, phL, fwd;
@@ -374,7 +375,7 @@ function run_forward(num, grid, grid_u, grid_v,
             # BC_TL.top.val = -1+exp(-1*(grid.x[1,end]-1*(0.3)))
             n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
             local radius = zeros(n_snaps)
-            radius[1] = find_position_hill(grid, MIXED, Δ)
+            radius[1] = find_position_hill_x(grid, MIXED, Δ)
         end
     elseif !levelset
         MIXED = [CartesianIndex(-1,-1)]
@@ -721,7 +722,7 @@ function run_forward(num, grid, grid_u, grid_v,
                     # end
                     # radius[snap] = mean(a)
                     # BC_TL.top.val = -1+exp(-1*(grid.x[1,end]-1*(current_t+0.3)))
-                    radius[snap] = find_position_hill(grid, MIXED, Δ)
+                    radius[snap] = find_position_hill_x(grid, MIXED, Δ)
                 end
                 if save_length
                     lengthsave[snap] = arc_length2(geoS.projection, MIXED)
@@ -851,6 +852,14 @@ function run_forward(num, grid, grid_u, grid_v,
 
         if adaptative_t
             τ = min(CFL*Δ^2*Re, CFL*Δ/max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...))
+        end
+        
+        av_height1 = find_position_hill_x(grid, MIXED, Δ) + 0.5 - 0.05
+
+        @show (av_height1)
+        if av_height1 > 0.005
+            @show ("exit")
+            return MIXED, SOLID, LIQUID, radius
         end
     end
 

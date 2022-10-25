@@ -112,6 +112,21 @@ function find_position_hill(grid, MIXED, h)
     return mean(radius)
 end
 
+function find_position_hill_x(grid, MIXED, h)
+    @unpack x, y, mid_point = grid
+    H = x[1,:]
+    radius = Vector{Float64}(undef,0)
+    for II in MIXED
+        try
+            radius_ = H[II.I[2]]+h*mid_point[II].x
+            if !isnan(radius_) push!(radius, radius_) end
+        catch
+            @goto endofloop
+        end
+        @label endofloop
+    end
+    return mean(radius)
+end
 
 @inline function line_intersection(l1::Line, l2::Line)
     x1, y1 = l1.p1.x, l1.p1.y

@@ -33,6 +33,7 @@ import Base.abs
 @reexport using Polynomials
 @reexport using ImageFiltering
 @reexport using JLD
+@reexport using Interpolations
 
 include("types.jl")
 include("init.jl")
