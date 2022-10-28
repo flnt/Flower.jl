@@ -107,6 +107,30 @@ eRa4 = (1/Ratio)*avhRa4_f.^3 .* 1e4 .* (1.0 .- num_Ra4.θd)
 eRa5 = (1/Ratio)*avhRa5_f.^3 .* 1e5 .* (1.0 .- num_Ra5.θd)
 eRa6 = (1/Ratio)*avhRa6_f.^3 .* 1e6 .* (1.0 .- num_Ra6.θd)
 
+tmp_Ra3 = findall(x -> x <= 1707.76, eRa3)
+tmp_Ra4 = findall(x -> x <= 1707.76, eRa4)
+tmp_Ra5 = findall(x -> x <= 1707.76, eRa5)
+tmp_Ra6 = findall(x -> x <= 1707.76, eRa6)
+
+# iRae_Ra3 = length(tmp_Ra3)
+# iRae_Ra4 = length(tmp_Ra4)
+iRae_Ra5 = length(tmp_Ra5)
+iRae_Ra6 = length(tmp_Ra6)
+
+# tRae_Ra3 = 0.5*(fwd_Ra3.time[iRae_Ra3] + fwd_Ra3.time[iRae_Ra3+1])
+# tRae_Ra4 = 0.5*(fwd_Ra4.time[iRae_Ra4] + fwd_Ra4.time[iRae_Ra4+1])
+tRae_Ra5 = 0.5*(fwd_Ra5.time[iRae_Ra5] + fwd_Ra5.time[iRae_Ra5+1])
+tRae_Ra6 = 0.5*(fwd_Ra6.time[iRae_Ra6] + fwd_Ra6.time[iRae_Ra6+1])
+
+# val_Rae_Ra3 = 0.5*(eRa3[iRae_Ra3] + eRa3[iRae_Ra3+1])
+# val_Rae_Ra4 = 0.5*(eRa4[iRae_Ra4] + eRa4[iRae_Ra4+1])
+val_Rae_Ra5 = 0.5*(eRa5[iRae_Ra5] + eRa5[iRae_Ra5+1])
+val_Rae_Ra6 = 0.5*(eRa6[iRae_Ra6] + eRa6[iRae_Ra6+1])
+
+# avh_Rae_Ra3 = 0.5*(avhRa3_f[iRae_Ra3] + avhRa3_f[iRae_Ra3+1])
+# avh_Rae_Ra4 = 0.5*(avhRa4_f[iRae_Ra4] + avhRa4_f[iRae_Ra4+1])
+avh_Rae_Ra5 = 0.5*(avhRa5_f[iRae_Ra5] + avhRa5_f[iRae_Ra5+1])
+avh_Rae_Ra6 = 0.5*(avhRa6_f[iRae_Ra6] + avhRa6_f[iRae_Ra6+1])
 
 #-------------------------------------------------#
 #PLOT DATA
@@ -116,55 +140,63 @@ struct IntegerTicks end
 
 Makie.get_tickvalues(::IntegerTicks, vmin, vmax) = ceil(Int, vmin) : floor(Int, vmax)
 
-# fh = Figure(resolution = (1600, 1000))
-fh = Figure()
+fh = Figure(resolution = (1600, 1600))
+fontsize_theme = Theme(fontsize = 50)
+set_theme!(fontsize_theme)
 colsize!(fh.layout, 1, Aspect(1, 1.0))
-ax = Axis(fh[1,1], aspect = 1, xlabel = "Dimensionless time", ylabel = "Dimensionless height")
-lines!(fwd_Ra3.time[1:iRa3], avhRa3_f, linewidth = 3, label = "Ra = 10³")
-lines!(fwd_Ra4.time[1:iRa4], avhRa4_f, linewidth = 3, label = "Ra = 10⁴")
-lines!(fwd_Ra5.time[1:iRa5], avhRa5_f, linewidth = 3, label = "Ra = 10⁵")
-lines!(fwd_Ra6.time[1:iRa6], avhRa6_f, linewidth = 3, label = "Ra = 10⁶")
+ax = Axis(fh[1,1], aspect = 1, xlabel = "Dimensionless time", ylabel = "Normalized height")
+lines!(fwd_Ra3.time[1:iRa3], avhRa3_f, linewidth = 7, label = "Ra = 10³")
+lines!(fwd_Ra4.time[1:iRa4], avhRa4_f, linewidth = 7, label = "Ra = 10⁴")
+lines!(fwd_Ra5.time[1:iRa5], avhRa5_f, linewidth = 7, label = "Ra = 10⁵")
+lines!(fwd_Ra6.time[1:iRa6], avhRa6_f, linewidth = 7, label = "Ra = 10⁶")
+scatter!(tRae_Ra5, avh_Rae_Ra5, color =:black, markersize = 25)
+scatter!(tRae_Ra6, avh_Rae_Ra6, color =:black, markersize = 25, label = "Raₑ = 1707.76")
 resize_to_layout!(fh)
 axislegend(position = :rb)
 fh = current_figure()
 
+Makie.save("./figures/avheight.png", fh)
 
-feRa = Figure()
+
+feRa = Figure(resolution = (1600, 1600))
+fontsize_theme = Theme(fontsize = 50)
+set_theme!(fontsize_theme)
 colsize!(feRa.layout, 1, Aspect(1, 1.0))
-ax = Axis(feRa[1,1], aspect = 1, xlabel = "Dimensionless time", ylabel = "Effective Rayleigh number",
+ax = Axis(feRa[1,1], aspect = 1, xlabel = "Dimensionless time", ylabel = "Raₑ",
     yscale = log10, yticks = LogTicks(IntegerTicks()))
-lines!(fwd_Ra3.time[2:iRa3], eRa3[2:end], linewidth = 3, label = "Ra = 10³")
-lines!(fwd_Ra4.time[2:iRa4], eRa4[2:end], linewidth = 3, label = "Ra = 10⁴")
-lines!(fwd_Ra5.time[2:iRa5], eRa5[2:end], linewidth = 3, label = "Ra = 10⁵")
-lines!(fwd_Ra6.time[2:iRa6], eRa6[2:end], linewidth = 3, label = "Ra = 10⁶")
-hlines!(ax, [1707.76], color = :black, linestyle =:dash, linewidth = 3, label = "Raₑ = 1707.76")
+lines!(fwd_Ra3.time[2:iRa3], eRa3[2:end], linewidth = 7, label = "Ra = 10³")
+lines!(fwd_Ra4.time[2:iRa4], eRa4[2:end], linewidth = 7, label = "Ra = 10⁴")
+lines!(fwd_Ra5.time[2:iRa5], eRa5[2:end], linewidth = 7, label = "Ra = 10⁵")
+lines!(fwd_Ra6.time[4:iRa6], eRa6[4:end], linewidth = 7, label = "Ra = 10⁶")
+hlines!(ax, [1707.76], color = :black, linestyle =:dash, linewidth = 7, label = "Raₑ = 1707.76")
 resize_to_layout!(feRa)
 axislegend(position = :rb)
 feRa = current_figure()
 
+Makie.save("./figures/eRa.png", feRa)
 
-fp = Figure(resolution = (1600, 1000))
-colsize!(fp.layout, 1, Aspect(1, Ratio))
-for i = 1:iRa6
-    ax = Axis(fp[1,1], aspect = Ratio, xticks = tcks, yticks = tcks)  # customized as you see fit
-    hidedecorations!(ax)
-    heatmap!(gp_Ra6.y[:,1], gp_Ra6.x[1,:], fwd_Ra6.Tsave[i,:,:], colormap = :thermal)
-    contour!(gp_Ra6.y[:,1], gp_Ra6.x[1,:], fwd_Ra6.usave[i,:,:], levels = 0:0, color=:black, linewidth = 2);
-    resize_to_layout!(fp)
-    Makie.save("/media/tf/be46b01f-eb0c-4298-a160-d10e4e87b3b9/julia-data/Figures_iterations/Ra_$(@sprintf("%.1e", Ra6))-i$(i).png", fp)
-end
+# fp = Figure(resolution = (1600, 1000))
+# colsize!(fp.layout, 1, Aspect(1, Ratio))
+# for i = 1:iRa6
+#     ax = Axis(fp[1,1], aspect = Ratio, xticks = tcks, yticks = tcks)  # customized as you see fit
+#     hidedecorations!(ax)
+#     heatmap!(gp_Ra6.y[:,1], gp_Ra6.x[1,:], fwd_Ra6.Tsave[i,:,:], colormap = :thermal)
+#     contour!(gp_Ra6.y[:,1], gp_Ra6.x[1,:], fwd_Ra6.usave[i,:,:], levels = 0:0, color=:black, linewidth = 2);
+#     resize_to_layout!(fp)
+#     Makie.save("/media/tf/be46b01f-eb0c-4298-a160-d10e4e87b3b9/julia-data/Figures_iterations/Ra_$(@sprintf("%.1e", Ra6))-i$(i).png", fp)
+# end
 
 
-fp = Figure(resolution = (1600, 1000))
-colsize!(fp.layout, 1, Aspect(1, Ratio))
-for i = 1:iRa5
-    ax = Axis(fp[1,1], aspect = Ratio, xticks = tcks, yticks = tcks)  # customized as you see fit
-    hidedecorations!(ax)
-    heatmap!(gp_Ra5.y[:,1], gp_Ra5.x[1,:], fwd_Ra5.Tsave[i,:,:], colormap = :thermal)
-    contour!(gp_Ra5.y[:,1], gp_Ra5.x[1,:], fwd_Ra5.usave[i,:,:], levels = 0:0, color=:black, linewidth = 2);
-    resize_to_layout!(fp)
-    Makie.save("/media/tf/be46b01f-eb0c-4298-a160-d10e4e87b3b9/julia-data/Figures_iterations/Ra_$(@sprintf("%.1e", Ra5))_λ2-i$(i).png", fp)
-end
+# fp = Figure(resolution = (1600, 1000))
+# colsize!(fp.layout, 1, Aspect(1, Ratio))
+# for i = 1:iRa5
+#     ax = Axis(fp[1,1], aspect = Ratio, xticks = tcks, yticks = tcks)  # customized as you see fit
+#     hidedecorations!(ax)
+#     heatmap!(gp_Ra5.y[:,1], gp_Ra5.x[1,:], fwd_Ra5.Tsave[i,:,:], colormap = :thermal)
+#     contour!(gp_Ra5.y[:,1], gp_Ra5.x[1,:], fwd_Ra5.usave[i,:,:], levels = 0:0, color=:black, linewidth = 2);
+#     resize_to_layout!(fp)
+#     Makie.save("/media/tf/be46b01f-eb0c-4298-a160-d10e4e87b3b9/julia-data/Figures_iterations/Ra_$(@sprintf("%.1e", Ra5))_λ2-i$(i).png", fp)
+# end
 
 
 #-------------------------------------------------#

@@ -192,3 +192,5 @@ for vRa = [1e3, 1e4, 1e5, 2e5, 4e5, 6e5, 8e5, 1e6]
     
     # JLD2.@save "/media/tf/be46b01f-eb0c-4298-a160-d10e4e87b3b9/julia-data/rayleigh-nx_$(nx)-ny_$(ny)-ratio_$(ratio)-maxiter_$(@sprintf("%.1e", num.max_iterations))-TM_$(num.θd)-T1_$(T1)-T2_$(T2)-λ_$(λ)-Ra_$(@sprintf("%.1e", Ra)).jld2" num gp gu gv phS phL fwd av_height1 eRa radius
 end
+
+
