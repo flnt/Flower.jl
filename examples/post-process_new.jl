@@ -208,15 +208,17 @@ Makie.save("./figures/eRa.png", feRa)
 time = Makie.Observable(1)
 u = @lift(fwd_Ra6.usave[$time,:,:])
 T = @lift(fwd_Ra6.Tsave[$time,:,:])
-fp = Figure(resolution = (1600, 1000))
+# fp = Figure(resolution = (1600, 200))
+fp = Figure()
 colsize!(fp.layout, 1, Aspect(1, Ratio))
 ax = Axis(fp[1,1], aspect = Ratio, xticks = tcks, yticks = tcks)  # customized as you see fit
 hidedecorations!(ax)
-heatmap!(gp_Ra6.y[:,1], gp_Ra6.x[1,:], T, colormap = :thermal)
-contour!(gp_Ra6.y[:,1], gp_Ra6.x[1,:], u, levels = 0:0, color=:black, linewidth = 2);
+heatmap!(fp[1,1],gp_Ra6.y[:,1], gp_Ra6.x[1,:], T, colormap = :thermal)
+contour!(fp[1,1],gp_Ra6.y[:,1], gp_Ra6.x[1,:], u, levels = 0:0, color=:black, linewidth = 2);
 resize_to_layout!(fp)
+trim!(fp.layout)
 # contour!(num.H, num.H, u, levels = 0:0, color=:black, linewidth = 2);
-framerate = 30
+framerate = 15
 timestamps = range(2, iRa6, step=1)
 record(fp, "test.mp4", timestamps;
         framerate = framerate) do t

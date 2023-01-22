@@ -1,6 +1,30 @@
 using Revise
 using Flower
 
+function init_franck!(grid, temp, R, T_inf, h)
+    @unpack x, y, nx, ny, ind = grid
+    @unpack all_indices = ind
+
+    @inbounds for II in all_indices
+        s = sqrt(x[II]^2 + y[II]^2)
+        if s >= (R - h)
+            temp[II] = T_inf*(1-(expint(0.25*s^2))/(expint(0.25*R^2)))
+        end
+    end
+end
+
+function init_franck!(grid, temp, R, T_inf, h, t)
+    @unpack x, y, nx, ny, ind = grid
+    @unpack all_indices = ind
+
+    @inbounds for II in all_indices
+        s = sqrt(x[II]^2 + y[II]^2)/√t
+        if s >= (R - h)
+            temp[II] = T_inf*(1-(expint(0.25*s^2))/(expint(0.25*R^2)))
+        end
+    end
+end
+
 N_array = 2 .^[5, 6, 7]
 plt = ("partial", "full", "all")
 plt2 = ("1", "2", "∞")
@@ -116,56 +140,67 @@ end
 my_colors = ("green", "blue", "red")
 
 
+
+
+
+
+
+
+
+
+
+
+
 f = Figure(resolution = (1200, 1200))
 # f = Figure()
-fontsize_theme = Theme(fontsize = 30)
+fontsize_theme = Theme(fontsize = 40)
 set_theme!(fontsize_theme)
 
-ax = Axis(f[1, 1], xlabel = "Dimensionless time", ylabel = "Dimensionless radius")
-colsize!(f.layout, 1, Aspect(1, 2))
-resize_to_layout!(f)
-xlims!(1, 2.02)
-ylims!(1.56, 2.22)
+# ax = Axis(f[1, 1], xlabel = "Dimensionless time", ylabel = "Dimensionless radius")
+# colsize!(f.layout, 1, Aspect(1, 2))
+# resize_to_layout!(f)
+# xlims!(1, 2.02)
+# ylims!(1.56, 2.22)
 
-ax.xticks = [1.0 + 0.1*i for i = 0:10]
+# ax.xticks = [1.0 + 0.1*i for i = 0:10]
 
-for i in 1:N
-    scatter!(f[1,1],time_data[i][end:-2*i:2], radius_data[i][end:-2*i:2], color=(my_colors[i], 1.0), markersize = 10, label = "N = $(N_array[i])")
-end
-lines!(f[1,1],1:1/(length(analytical_radius)-1):2, analytical_radius, label = "Analytical solution", linewidth = 5,color=:black)
+# for i in 1:N
+#     scatter!(f[1,1],time_data[i][end:-2*i:2], radius_data[i][end:-2*i:2], color=(my_colors[i], 1.0), markersize = 10, label = "N = $(N_array[i])")
+# end
+# lines!(f[1,1],1:1/(length(analytical_radius)-1):2, analytical_radius, label = "Analytical solution", linewidth = 5,color=:black)
 
-axislegend(position = :lt)
+
 
 struct IntegerTicks end
 
 Makie.get_tickvalues(::IntegerTicks, vmin, vmax) = ceil(Int, vmin) : floor(Int, vmax)
 
-ax = Axis(f[2,1], xscale = log2, yscale = log10,
+ax = Axis(f[1:2,1], xscale = log2, yscale = log10,
 xticks = N_array, yticks = LogTicks(IntegerTicks()), xlabel = "Points per dimension", ylabel = "Error")
-
+colsize!(f.layout, 1, Aspect(1, 2))
 XX = ERR[1, 2, :, 1]
 
-scatter!(f[2,1], N_array, XX, label = "Mixed cells, L-2 norm", markersize = 25, color =:black, marker=:rect)
+scatter!(f[1:2,1], N_array, XX, label = "Mixed cells, L-2 norm", markersize = 35, color =:black, marker=:rect)
 a, b = fit_order(N_array, XX)
-lines!(f[2,1], N_array, a*(1 ./ N_array).^b, linewidth = 3, linestyle =:dash, color =:black, label = @sprintf "order %.2f" b)
+lines!(f[1:2,1], N_array, a*(1 ./ N_array).^b, linewidth = 5, linestyle =:dash, color =:black, label = @sprintf "order %.2f" b)
 
 YY = ERR[2, 2, :, 1]
 
-scatter!(f[2,1], N_array, YY, label = "Full cells, L-2 norm", markersize = 25, color =:black, marker=:utriangle)
+scatter!(f[1:2,1], N_array, YY, label = "Full cells, L-2 norm", markersize = 35, color =:black, marker=:utriangle)
 a, b = fit_order(N_array, YY)
-lines!(f[2,1], N_array, a*(1 ./ N_array).^b, linewidth = 3, linestyle =:dashdot, color =:black, label = @sprintf "order %.2f" b)
+lines!(f[1:2,1], N_array, a*(1 ./ N_array).^b, linewidth = 5, linestyle =:dashdot, color =:black, label = @sprintf "order %.2f" b)
 
 ZZ = ERR[3, 2, :, 1]
 
-scatter!(f[2,1], N_array, ZZ, label = "All cells, L-2 norm", markersize = 25, color =:black, marker=:circle)
+scatter!(f[1:2,1], N_array, ZZ, label = "All cells, L-2 norm", markersize = 35, color =:black, marker=:circle)
 a, b = fit_order(N_array, ZZ)
-lines!(f[2,1], N_array, a*(1 ./ N_array).^b, linewidth = 3, linestyle =:dot, color =:black, label = @sprintf "order %.2f" b)
+lines!(f[1:2,1], N_array, a*(1 ./ N_array).^b, linewidth = 5, linestyle =:dot, color =:black, label = @sprintf "order %.2f" b)
 
 axislegend(position = :lb)
 
 
 ax3 = Axis(f[1:2,2], xlabel = "x")
-
+colsize!(f.layout, 2, Aspect(1, 2))
 xlims!(-2.5, 2.5)
 ylims!(-2.5, 2.5)
 
@@ -189,7 +224,7 @@ axislegend(position = :lb)
 resize_to_layout!(f)
 f = current_figure()
 
-#Makie.save("./figures/paper_figures/Frank_convergence.png", f)
+Makie.save("./figures/paper_figures/Frank_convergence_new.png", f)
 
 
 
