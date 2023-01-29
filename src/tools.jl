@@ -76,3 +76,11 @@ function force_coefficients!(num, grid, grid_u, grid_v, op, fwd; A=1., p0=0., st
 
     return Cd[step], Cl[step]
 end
+
+function vorticity(grid, ph)
+    ω = similar(ph.p)
+    ω .= (ph.u[:,1:end-1] .- ph.u[:,2:end]) ./ grid.dy
+    ω .+= (ph.v[2:end,:] .- ph.v[1:end-1,:]) ./ grid.dx
+    
+    return ω
+end

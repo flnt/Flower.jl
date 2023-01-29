@@ -1,6 +1,6 @@
 @inline anisotropy(ϵ, m, θ, θ₀) = ϵ*(1 + 0.4*((8/3)*sin(0.5*m*(θ - θ₀))^4 - 1))
 
-@inline function apply_curvature(bc, D, num, grid, all_indices)
+@inline function apply_curvature(num, grid, bc, D, all_indices)
     @unpack ϵ_κ, ϵ_V = num
     @unpack κ, V = grid
 
@@ -10,7 +10,7 @@
     return nothing
 end
 
-@inline function apply_anisotropy(bc, D, MIXED, num, grid, sol_projection)
+@inline function apply_anisotropy(num, grid, bc, D, MIXED, sol_projection)
     @unpack ϵ_κ, ϵ_V, m, θ₀ = num
     @unpack κ, V = grid
 
@@ -56,9 +56,9 @@ function set_heat!(num, grid, geo, projection, op, ph,
     end
 
     DT .= θd
-    apply_curvature(bcT, DT, num, grid, all_indices)
+    apply_curvature(num, grid, bcT, DT, all_indices)
     if aniso
-        apply_anisotropy(bcT, DT, MIXED, num, grid, projection)
+        apply_anisotropy(num, grid, bcT, DT, MIXED, projection)
     end
     bcTx, bcTy = set_bc_bnds(dir, bcT, HT, BC_T)
 

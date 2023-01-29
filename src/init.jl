@@ -13,8 +13,8 @@ function Indices(nx, ny)
     TOP = filter(x->x.I[1]==ny, all_indices)
     TOP2 = filter(x->x.I[1]==ny-1, all_indices)
 
-    return Indices(all_indices, inside, (LEFT, RIGHT2), (RIGHT, LEFT2), (BOTTOM, TOP2),
-                (TOP, BOTTOM2), (LEFT, LEFT2), (BOTTOM, BOTTOM2), (RIGHT, RIGHT2), (TOP, TOP2))
+    return Indices(all_indices, inside, (LEFT, RIGHT), (BOTTOM, TOP),
+                   (LEFT, LEFT2), (BOTTOM, BOTTOM2), (RIGHT, RIGHT2), (TOP, TOP2))
 end
 
 function Mesh(grid, x_nodes, y_nodes)
@@ -60,8 +60,11 @@ function Mesh(grid, x_nodes, y_nodes)
     emptiedS = zeros(Bool, ny, nx)
     emptiedL = zeros(Bool, ny, nx)
 
-    geoS = GeometricInfo(SOL, dSOL, sol_projection, sol_centroid, emptiedS)
-    geoL = GeometricInfo(LIQ, dLIQ, liq_projection, liq_centroid, emptiedL)
+    freshS = zeros(Bool, ny, nx)
+    freshL = zeros(Bool, ny, nx)
+
+    geoS = GeometricInfo(SOL, dSOL, sol_projection, sol_centroid, emptiedS, freshS)
+    geoL = GeometricInfo(LIQ, dLIQ, liq_projection, liq_centroid, emptiedL, freshL)
 
     α = zeros(ny, nx)
     α .= NaN
@@ -114,6 +117,116 @@ function init_meshes(num::NumericalParameters)
 
     return (mesh_cc, mesh_stx, mesh_sty)
 end
+
+function init_sparse_Bx(grid)
+    @unpack nx, ny = grid
+    iw = collect(i for i = ny+1:(nx+1)*ny)
+    ie = collect(i for i = 1:nx*ny)
+    iwp = collect(i for i = 1:ny)
+    iep = collect(i for i = nx*ny+1:(nx+1)*ny)
+
+    II = vcat(iw,ie,iwp,iep)
+
+    jw = collect(i for i = 1:nx*ny)
+    je = collect(i for i = 1:nx*ny)
+    jwp = collect(i for i = (nx-1)*ny+1:(nx)*ny)
+    jep = collect(i for i = 1:ny)
+
+    JJ = vcat(jw,je,jwp,jep)
+
+    a = zeros(length(jw)+length(je)+length(jwp)+length(jep))
+
+    Bx = sparse(II,JJ,a)
+end
+
+function init_sparse_By(grid)
+    @unpack nx, ny = grid
+
+    is = collect(i for i = 2:(ny+1))
+    for j=2:nx
+        is = vcat(is, collect(i for i = (j-1)*(ny+1)+2:j*(ny+1)))
+    end
+    iN = collect(i for i = 1:ny)
+    for j=2:nx
+        iN = vcat(iN, collect(i for i = (j-1)*(ny+1)+1:(j-1)*(ny+1)+ny))
+    end
+    isp = collect(i for i = 1:(ny+1):nx*(ny+1))
+    inp = collect(i for i = (ny+1):(ny+1):nx*(ny+1))
+    
+    II = vcat(is,iN,isp,inp)
+
+    js = collect(i for i = 1:nx*ny)
+    jn = collect(i for i = 1:nx*ny)
+    jsp = collect(i for i = ny:ny:nx*ny)
+    jnp = collect(i for i = 1:ny:nx*ny)
+
+    JJ = vcat(js,jn,jsp,jnp)
+
+    a = zeros(length(js)+length(jn)+length(jsp)+length(jnp))
+
+    By = sparse(II,JJ,a)
+end
+
+function init_sparse_BxT(grid)
+    @unpack nx, ny = grid
+
+    iw = collect(i for i = 1:nx*ny)
+    ie = collect(i for i = 1:nx*ny)
+    II = vcat(iw,ie)
+
+    jw = collect(i for i = 1:nx*ny)
+    je = collect(i for i = ny+1:(nx+1)*ny)
+    JJ = vcat(jw,je)
+
+    a = zeros(length(jw)+length(je))
+
+    BxT = sparse(II,JJ,a)    
+end
+
+function init_sparse_ByT(grid)
+    @unpack nx, ny = grid
+
+    is = collect(i for i = 1:nx*ny)
+    iN = collect(i for i = 1:nx*ny)
+    II = vcat(is,iN)
+
+    js = collect(i for i = 1:ny)
+    for j=2:nx
+        js = vcat(js, collect(i for i = (j-1)*(ny+1)+1:j*(ny+1)-1))
+    end
+    jn = collect(i for i = 2:(ny+1))
+    for j=2:nx
+        jn = vcat(jn, collect(i for i = (j-1)*(ny+1)+2:j*(ny+1)))
+    end
+    JJ = vcat(js,jn)
+
+    a = zeros(length(js)+length(jn))
+
+    ByT = sparse(II,JJ,a)
+end
+
+function init_block_array(grid::Mesh, n::Int64)
+    @unpack nx, ny = grid
+
+    data = Vector{Vector{Float64}}(undef, n)
+    for i = 1:n
+        data[i] = zeros(ny * nx)
+    end
+    A = blockarray(data)
+end
+
+function init_block_array(grids::Vector{Mesh{G,Float64,Int64} where G}, nv::Vector{Int64})
+    data = Vector{Vector{Float64}}(undef, sum(nv))
+    c = 1
+    for (grid,n) in zip(grids, nv)
+        for i = 1:n
+            data[c] = zeros(grid.ny * grid.nx)
+            c += 1
+        end
+    end
+    A = blockarray(data)
+end
+
 
 function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     @unpack τ, N, T_inf, u_inf, v_inf, A, R, L0, Δ, shifted, max_iterations, save_every, CFL, x_airfoil, y_airfoil = num
@@ -275,102 +388,146 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     CvL = sparse(II,JJ,vcat(a,b,c))
 
     # 2 points stencil (p grid to u grid)
-    iw = collect(i for i = grid_u.ny+1:grid_u.nx*grid_u.ny)
-    ie = collect(i for i = 1:grid_u.nx*grid_u.ny-grid_u.ny)
-    iwp = collect(i for i = 1:grid_u.ny)
-    iep = collect(i for i = grid_u.nx*grid_u.ny-grid_u.ny+1:grid_u.nx*grid_u.ny)
+    GxpS = init_sparse_Bx(grid)
+    GxpL = init_sparse_Bx(grid)
+    GxTS = init_sparse_Bx(grid)
+    GxTL = init_sparse_Bx(grid)
+    GxϕS = init_sparse_Bx(grid)
+    GxϕL = init_sparse_Bx(grid)
 
-    II = vcat(iw,ie,iwp,iep)
+    # Coupled system operators
+    Bx_TS = init_sparse_Bx(grid)
+    Bx_TL = init_sparse_Bx(grid)
+    Hx_TS = init_sparse_Bx(grid)
+    Hx_TL = init_sparse_Bx(grid)
 
-    jw = collect(i for i = 1:nx*ny)
-    je = collect(i for i = 1:nx*ny)
-    jwp = collect(i for i = nx*ny-ny+1:nx*ny)
-    jep = collect(i for i = 1:ny)
+    Bx_pS = init_sparse_Bx(grid)
+    Bx_pL = init_sparse_Bx(grid)
+    Hx_pS = init_sparse_Bx(grid)
+    Hx_pL = init_sparse_Bx(grid)
+    Gx_S = init_sparse_Bx(grid)
+    Gx_L = init_sparse_Bx(grid)
 
-    JJ = vcat(jw,je,jwp,jep)
+    Bx_uS = init_sparse_Bx(grid_u)
+    Bx_uL = init_sparse_Bx(grid_u)
+    Hx_uS = init_sparse_Bx(grid_u)
+    Hx_uL = init_sparse_Bx(grid_u)
 
-    a = zeros(length(jw)+length(je)+length(jwp)+length(jep))
-
-    GxpS = sparse(II,JJ,a)
-    GxpL = sparse(II,JJ,a)
-    GxTS = sparse(II,JJ,a)
-    GxTL = sparse(II,JJ,a)
-    GxϕS = sparse(II,JJ,a)
-    GxϕL = sparse(II,JJ,a)
+    Bx_vS = init_sparse_Bx(grid_v)
+    Bx_vL = init_sparse_Bx(grid_v)
+    Hx_vS = init_sparse_Bx(grid_v)
+    Hx_vL = init_sparse_Bx(grid_v)
 
     # 2 points stencil (p grid to v grid)
-    is = collect(i for i = 2:grid_v.ny)
-    for j=2:grid_v.nx
-        is = vcat(is, collect(i for i = (j-1)*grid_v.ny+2:(j-1)*grid_v.ny+grid_v.ny))
-    end
-    iN = collect(i for i = 1:grid_v.ny-1)
-    for j=2:grid_v.nx
-        iN = vcat(iN, collect(i for i = (j-1)*grid_v.ny+1:(j-1)*grid_v.ny+grid_v.ny-1))
-    end
-    isp = collect(i for i = 1:grid_v.ny:grid_v.nx*grid_v.ny)
-    inp = collect(i for i = grid_v.ny:grid_v.ny:grid_v.nx*grid_v.ny)
-    
-    II = vcat(is,iN,isp,inp)
+    GypS = init_sparse_By(grid)
+    GypL = init_sparse_By(grid)
+    GyTS = init_sparse_By(grid)
+    GyTL = init_sparse_By(grid)
+    GyϕS = init_sparse_By(grid)
+    GyϕL = init_sparse_By(grid)
 
-    js = collect(i for i = 1:nx*ny)
-    jn = collect(i for i = 1:nx*ny)
-    jsp = collect(i for i = ny:ny:nx*ny)
-    jnp = collect(i for i = 1:ny:nx*ny)
+    # Coupled system operators
+    By_TS = init_sparse_By(grid)
+    By_TL = init_sparse_By(grid)
+    Hy_TS = init_sparse_By(grid)
+    Hy_TL = init_sparse_By(grid)
 
-    JJ = vcat(js,jn,jsp,jnp)
+    By_pS = init_sparse_By(grid)
+    By_pL = init_sparse_By(grid)
+    Hy_pS = init_sparse_By(grid)
+    Hy_pL = init_sparse_By(grid)
+    Gy_S = init_sparse_By(grid)
+    Gy_L = init_sparse_By(grid)
 
-    a = zeros(length(js)+length(jn)+length(jsp)+length(jnp))
+    By_uS = init_sparse_By(grid_u)
+    By_uL = init_sparse_By(grid_u)
+    Hy_uS = init_sparse_By(grid_u)
+    Hy_uL = init_sparse_By(grid_u)
 
-    GypS = sparse(II,JJ,a)
-    GypL = sparse(II,JJ,a)
-    GyTS = sparse(II,JJ,a)
-    GyTL = sparse(II,JJ,a)
-    GyϕS = sparse(II,JJ,a)
-    GyϕL = sparse(II,JJ,a)
+    By_vS = init_sparse_By(grid_v)
+    By_vL = init_sparse_By(grid_v)
+    Hy_vS = init_sparse_By(grid_v)
+    Hy_vL = init_sparse_By(grid_v)
 
     # 2 points stencil (u grid to p grid)
-    iw = collect(i for i = 1:nx*ny)
-    ie = collect(i for i = 1:nx*ny)
-    II = vcat(iw,ie)
+    DxuS = init_sparse_BxT(grid)
+    DxuL = init_sparse_BxT(grid)
+    ftcGxTS = init_sparse_BxT(grid)
+    ftcGxTL = init_sparse_BxT(grid)
+    E11 = init_sparse_BxT(grid)
+    utpS = init_sparse_BxT(grid)
+    utpL = init_sparse_BxT(grid)
 
-    jw = collect(i for i = 1:grid_u.nx*grid_u.ny-grid_u.ny)
-    je = collect(i for i = grid_u.ny+1:grid_u.nx*grid_u.ny)
-    JJ = vcat(jw,je)
+    # Coupled system operators
+    AxT_TS = init_sparse_BxT(grid)
+    AxT_TL = init_sparse_BxT(grid)
+    BxT_TS = init_sparse_BxT(grid)
+    BxT_TL = init_sparse_BxT(grid)
+    HxT_TS = init_sparse_BxT(grid)
+    HxT_TL = init_sparse_BxT(grid)
 
-    a = zeros(length(jw)+length(je))
+    AxT_pS = init_sparse_BxT(grid)
+    AxT_pL = init_sparse_BxT(grid)
+    BxT_pS = init_sparse_BxT(grid)
+    BxT_pL = init_sparse_BxT(grid)
+    HxT_pS = init_sparse_BxT(grid)
+    HxT_pL = init_sparse_BxT(grid)
+    GxT_S = init_sparse_BxT(grid)
+    GxT_L = init_sparse_BxT(grid)
 
-    DxuS = sparse(II,JJ,a)
-    DxuL = sparse(II,JJ,a)
-    ftcGxTS = sparse(II,JJ,a)
-    ftcGxTL = sparse(II,JJ,a)
-    E11 = sparse(II,JJ,a)
-    utpS = sparse(II,JJ,a)
-    utpL = sparse(II,JJ,a)
+    AxT_uS = init_sparse_BxT(grid_u)
+    AxT_uL = init_sparse_BxT(grid_u)
+    BxT_uS = init_sparse_BxT(grid_u)
+    BxT_uL = init_sparse_BxT(grid_u)
+    HxT_uS = init_sparse_BxT(grid_u)
+    HxT_uL = init_sparse_BxT(grid_u)
+
+    AxT_vS = init_sparse_BxT(grid_v)
+    AxT_vL = init_sparse_BxT(grid_v)
+    BxT_vS = init_sparse_BxT(grid_v)
+    BxT_vL = init_sparse_BxT(grid_v)
+    HxT_vS = init_sparse_BxT(grid_v)
+    HxT_vL = init_sparse_BxT(grid_v)
 
     # 2 points stencil (v grid to p grid)
-    is = collect(i for i = 1:nx*ny)
-    iN = collect(i for i = 1:nx*ny)
-    II = vcat(is,iN)
+    DyvS = init_sparse_ByT(grid)
+    DyvL = init_sparse_ByT(grid)
+    ftcGyTS = init_sparse_ByT(grid)
+    ftcGyTL = init_sparse_ByT(grid)
+    E22 = init_sparse_ByT(grid)
+    vtpS = init_sparse_ByT(grid)
+    vtpL = init_sparse_ByT(grid)
 
-    js = collect(i for i = 1:grid_v.ny-1)
-    for j=2:grid_v.nx
-        js = vcat(js, collect(i for i = (j-1)*grid_v.ny+1:(j-1)*grid_v.ny+grid_v.ny-1))
-    end
-    jn = collect(i for i = 2:grid_v.ny)
-    for j=2:grid_v.nx
-        jn = vcat(jn, collect(i for i = (j-1)*grid_v.ny+2:(j-1)*grid_v.ny+grid_v.ny))
-    end
-    JJ = vcat(js,jn)
+    # Coupled system operators
+    AyT_TS = init_sparse_ByT(grid)
+    AyT_TL = init_sparse_ByT(grid)
+    ByT_TS = init_sparse_ByT(grid)
+    ByT_TL = init_sparse_ByT(grid)
+    HyT_TS = init_sparse_ByT(grid)
+    HyT_TL = init_sparse_ByT(grid)
 
-    a = zeros(length(js)+length(jn))
+    AyT_pS = init_sparse_ByT(grid)
+    AyT_pL = init_sparse_ByT(grid)
+    ByT_pS = init_sparse_ByT(grid)
+    ByT_pL = init_sparse_ByT(grid)
+    HyT_pS = init_sparse_ByT(grid)
+    HyT_pL = init_sparse_ByT(grid)
+    GyT_S = init_sparse_ByT(grid)
+    GyT_L = init_sparse_ByT(grid)
 
-    DyvS = sparse(II,JJ,a)
-    DyvL = sparse(II,JJ,a)
-    ftcGyTS = sparse(II,JJ,a)
-    ftcGyTL = sparse(II,JJ,a)
-    E22 = sparse(II,JJ,a)
-    vtpS = sparse(II,JJ,a)
-    vtpL = sparse(II,JJ,a)
+    AyT_uS = init_sparse_ByT(grid_u)
+    AyT_uL = init_sparse_ByT(grid_u)
+    ByT_uS = init_sparse_ByT(grid_u)
+    ByT_uL = init_sparse_ByT(grid_u)
+    HyT_uS = init_sparse_ByT(grid_u)
+    HyT_uL = init_sparse_ByT(grid_u)
+
+    AyT_vS = init_sparse_ByT(grid_v)
+    AyT_vL = init_sparse_ByT(grid_v)
+    ByT_vS = init_sparse_ByT(grid_v)
+    ByT_vL = init_sparse_ByT(grid_v)
+    HyT_vS = init_sparse_ByT(grid_v)
+    HyT_vL = init_sparse_ByT(grid_v)
 
     # 2 points stencil (u grid to p' grid)
     is = collect(i for i = 1:nx*ny)
@@ -406,6 +563,113 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
 
     E12_y = sparse(II,JJ,a)
 
+    # Auxiliar matrices from cell centered to 2-staggered
+    ii = collect(i for i = ny+1:ny+nx*ny)
+    ie = collect(i for i = (nx+1)*ny+1:(nx+2)*ny)
+    iwp = collect(i for i = 1:ny)
+    iep = collect(i for i = (nx+1)*ny+1:(nx+2)*ny)
+
+    jj = collect(i for i = 1:nx*ny)
+    je = collect(i for i = (nx-1)*ny+1:nx*ny)
+    jwp = collect(i for i = (nx-1)*ny+1:nx*ny)
+    jep = collect(i for i = 1:ny)
+
+    II = vcat(ii,ie,iwp,iep)
+    JJ = vcat(jj,je,jwp,jep)
+    a = ones(length(jj))
+    b = zeros(length(je)+length(jwp)+length(jep))
+    Rx = sparse(II,JJ,vcat(a,b))
+
+    ii = []
+    for j=1:nx
+        ii = vcat(ii, collect(i for i = 2+(j-1)*(ny+2):ny+1+(j-1)*(ny+2)))
+    end
+    is = []
+    for j=1:nx
+        is = vcat(is, 1+(j-1)*(ny+2))
+    end
+    iN = []
+    for j=1:nx
+        iN = vcat(iN, ny+2+(j-1)*(ny+2))
+    end
+    isp = collect(i for i = 1:ny+2:(nx-1)*(ny+2)+1)
+    inp = collect(i for i = ny+2:ny+2:nx*(ny+2))
+
+    jj = []
+    for j=1:nx
+        jj = vcat(jj, collect(i for i = 1+(j-1)*ny:ny+(j-1)*ny))
+    end
+    js = []
+    for j=1:nx
+        js = vcat(js, 1+(j-1)*ny)
+    end
+    jn = []
+    for j=1:nx
+        jn = vcat(jn, ny+(j-1)*ny)
+    end
+    jsp = collect(i for i = ny:ny:nx*ny)
+    jnp = collect(i for i = 1:ny:(nx-1)*ny+1)
+
+    II = vcat(ii,iN,isp,inp)
+    JJ = vcat(jj,jn,jsp,jnp)
+    a = ones(length(jj))
+    b = zeros(length(jn)+length(jsp)+length(jnp))
+    Ry = sparse(II,JJ,vcat(a,b))
+
+    tmp_x_TS = copy(Bx_TS)
+    tmp_x_TL = copy(Bx_TL)
+    tmp_x_pS = copy(Bx_pS)
+    tmp_x_pL = copy(Bx_pL)
+    tmp_x_uS = copy(Bx_uS)
+    tmp_x_uL = copy(Bx_uL)
+    tmp_x_vS = copy(Bx_vS)
+    tmp_x_vL = copy(Bx_vL)
+
+    tmp_y_TS = copy(By_TS)
+    tmp_y_TL = copy(By_TL)
+    tmp_y_pS = copy(By_pS)
+    tmp_y_pL = copy(By_pL)
+    tmp_y_uS = copy(By_uS)
+    tmp_y_uL = copy(By_uL)
+    tmp_y_vS = copy(By_vS)
+    tmp_y_vL = copy(By_vL)
+
+    M_TS = Diagonal(zeros(nx*ny))
+    M_TL = Diagonal(zeros(nx*ny))
+    iMx_TS = Diagonal(zeros((nx+1)*ny))
+    iMx_TL = Diagonal(zeros((nx+1)*ny))
+    iMy_TS = Diagonal(zeros(nx*(ny+1)))
+    iMy_TL = Diagonal(zeros(nx*(ny+1)))
+    χ_TS = Diagonal(zeros(nx*ny))
+    χ_TL = Diagonal(zeros(nx*ny))
+
+    M_pS = Diagonal(zeros(nx*ny))
+    M_pL = Diagonal(zeros(nx*ny))
+    iMx_pS = Diagonal(zeros((nx+1)*ny))
+    iMx_pL = Diagonal(zeros((nx+1)*ny))
+    iMy_pS = Diagonal(zeros(nx*(ny+1)))
+    iMy_pL = Diagonal(zeros(nx*(ny+1)))
+    χ_pS = Diagonal(zeros(nx*ny))
+    χ_pL = Diagonal(zeros(nx*ny))
+
+    M_uS = Diagonal(zeros(grid_u.nx*grid_u.ny))
+    M_uL = Diagonal(zeros(grid_u.nx*grid_u.ny))
+    iMx_uS = Diagonal(zeros((grid_u.nx+1)*grid_u.ny))
+    iMx_uL = Diagonal(zeros((grid_u.nx+1)*grid_u.ny))
+    iMy_uS = Diagonal(zeros(grid_u.nx*(grid_u.ny+1)))
+    iMy_uL = Diagonal(zeros(grid_u.nx*(grid_u.ny+1)))
+    χ_uS = Diagonal(zeros(grid_u.nx*grid_u.ny))
+    χ_uL = Diagonal(zeros(grid_u.nx*grid_u.ny))
+
+    M_vS = Diagonal(zeros(grid_v.nx*grid_v.ny))
+    M_vL = Diagonal(zeros(grid_v.nx*grid_v.ny))
+    iMx_vS = Diagonal(zeros((grid_v.nx+1)*grid_v.ny))
+    iMx_vL = Diagonal(zeros((grid_v.nx+1)*grid_v.ny))
+    iMy_vS = Diagonal(zeros(grid_v.nx*(grid_v.ny+1)))
+    iMy_vL = Diagonal(zeros(grid_v.nx*(grid_v.ny+1)))
+    χ_vS = Diagonal(zeros(grid_v.nx*grid_v.ny))
+    χ_vL = Diagonal(zeros(grid_v.nx*grid_v.ny))
+
     TS = zeros(ny, nx)
     TL = zeros(ny, nx)
     pS = zeros(ny, nx)
@@ -435,8 +699,22 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     DvL = zeros(grid_v.ny, grid_v.nx)
     # tmpS = zeros(grid_u.ny, grid_u.nx)
     # tmpL = zeros(grid_u.ny, grid_u.nx)
-    tmpS = zeros(ny, nx)
-    tmpL = zeros(ny, nx)
+    # tmpS = zeros(2*ny*nx)
+    # tmpL = zeros(2*ny*nx)
+    TDS = init_block_array(grid, 2)
+    TDL = init_block_array(grid, 2)
+    pDS = init_block_array(grid, 2)
+    pDL = init_block_array(grid, 2)
+    ϕDS = init_block_array(grid, 2)
+    ϕDL = init_block_array(grid, 2)
+    uDS = init_block_array(grid_u, 2)
+    uDL = init_block_array(grid_u, 2)
+    vDS = init_block_array(grid_v, 2)
+    vDL = init_block_array(grid_v, 2)
+    uvDS = init_block_array([grid_u, grid_v], [2, 2])
+    uvDL = init_block_array([grid_u, grid_v], [2, 2])
+    uvϕDS = init_block_array([grid_u, grid_v, grid], [2, 2, 2])
+    uvϕDL = init_block_array([grid_u, grid_v, grid], [2, 2, 2])
 
     n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
     
@@ -502,8 +780,11 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
         u .= y .+ shifted .+ A*sin.(N*pi*x) .+ L0/4;
         init_mullins!(grid, TL, T_inf, 0., A, N, L0/4)
     elseif num.case == "Mullins_cos"
-        @. u = y + 0.6L0/2 - 0Δ + A*cos(N*pi*x)
+        @. u = y + shifted + 0.6L0/2 - 0Δ + A*cos(N*pi*x)
         init_mullins2!(grid, TL, T_inf, 0., A, N, 0.6L0/2)
+    elseif num.case == "Drop"
+        maxy = max(y...)
+        @. u = y - (maxy - R) + R*A*cos(2*pi*x/(x[end]-x[1])) + shifted
     elseif num.case == "Crystal"
         u .= -R*ones(ny, nx) + sqrt.(x.^2 + y.^2).*(ones(ny, nx) + A*cos.(N*atan.(x./(y + 1E-30*ones(ny, nx)))))
         init_franck!(grid, TL, R, T_inf, 0)
@@ -560,8 +841,16 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
 
     return (Operators(SCUTT, SCUTp, SCUTu, SCUTv, SCUTDx, SCUTDy, SCUTCT, SCUTGxT, SCUTGyT, SCUTGxp, SCUTGyp, SCUTGxϕ, SCUTGyϕ, SCUTCu, SCUTCv, LTS, LpS, LuS, LvS, AS, BS, GxpS, GypS, GxϕS, GyϕS, DxuS, DyvS, ApS, AuS, AvS, CTS, GxTS, GyTS, ftcGxTS, ftcGyTS, CuS, CvS, E11, E12_x, E12_y, E22, utpS, vtpS),
             Operators(LCUTT, LCUTp, LCUTu, LCUTv, LCUTDx, LCUTDy, LCUTCT, LCUTGxT, LCUTGyT, LCUTGxp, LCUTGyp, LCUTGxϕ, LCUTGyϕ, LCUTCu, LCUTCv, LTL, LpL, LuL, LvL, AL, BL, GxpL, GypL, GxϕL, GyϕL, DxuL, DyvL, ApL, AuL, AvL, CTL, GxTL, GyTL, ftcGxTL, ftcGyTL, CuL, CvL, E11, E12_x, E12_y, E22, utpL, vtpL),
-            Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DϕS, DuS, DvS, tmpS),
-            Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DϕL, DuL, DvL, tmpL),
+            OperatorsCoupled(AxT_TS, AyT_TS, Bx_TS, By_TS, BxT_TS, ByT_TS, Hx_TS, Hy_TS, HxT_TS, HyT_TS, tmp_x_TS, tmp_y_TS, M_TS, iMx_TS, iMy_TS, χ_TS, Rx, Ry, GxT_S, GyT_S),
+            OperatorsCoupled(AxT_TL, AyT_TL, Bx_TL, By_TL, BxT_TL, ByT_TL, Hx_TL, Hy_TL, HxT_TL, HyT_TL, tmp_x_TL, tmp_y_TL, M_TL, iMx_TL, iMy_TL, χ_TL, Rx, Ry, GxT_L, GyT_L),
+            OperatorsCoupled(AxT_pS, AyT_pS, Bx_pS, By_pS, BxT_pS, ByT_pS, Hx_pS, Hy_pS, HxT_pS, HyT_pS, tmp_x_pS, tmp_y_pS, M_pS, iMx_pS, iMy_pS, χ_pS, Rx, Ry, GxT_S, GyT_S),
+            OperatorsCoupled(AxT_pL, AyT_pL, Bx_pL, By_pL, BxT_pL, ByT_pL, Hx_pL, Hy_pL, HxT_pL, HyT_pL, tmp_x_pL, tmp_y_pL, M_pL, iMx_pL, iMy_pL, χ_pL, Rx, Ry, GxT_L, GyT_L),
+            OperatorsCoupled(AxT_uS, AyT_uS, Bx_uS, By_uS, BxT_uS, ByT_uS, Hx_uS, Hy_uS, HxT_uS, HyT_uS, tmp_x_uS, tmp_y_uS, M_uS, iMx_uS, iMy_uS, χ_uS, Rx, Ry, Gx_S, Gy_S),
+            OperatorsCoupled(AxT_uL, AyT_uL, Bx_uL, By_uL, BxT_uL, ByT_uL, Hx_uL, Hy_uL, HxT_uL, HyT_uL, tmp_x_uL, tmp_y_uL, M_uL, iMx_uL, iMy_uL, χ_uL, Rx, Ry, Gx_L, Gy_L),
+            OperatorsCoupled(AxT_vS, AyT_vS, Bx_vS, By_vS, BxT_vS, ByT_vS, Hx_vS, Hy_vS, HxT_vS, HyT_vS, tmp_x_vS, tmp_y_vS, M_vS, iMx_vS, iMy_vS, χ_vS, Rx, Ry, Gx_S, Gy_S),
+            OperatorsCoupled(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L),
+            Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DϕS, DuS, DvS, TDS, pDS, ϕDS, uDS, vDS, uvDS, uvϕDS),
+            Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DϕL, DuL, DvL, TDL, pDL, ϕDL, uDL, vDL, uvDL, uvϕDL),
             Forward(Tall, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, ϕsave, Uxsave, Uysave, Uxcorrsave, Uycorrsave, Vsave, κsave, lengthsave, time, Cd, Cl))
 end
 

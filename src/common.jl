@@ -6,6 +6,7 @@ Returns the index of type `Int` corresponding to the 1D view of a `n × n` array
 """
 @inline lexicographic(II, n) = muladd(n, II[2]-1, II[1])
 @inline within_bounds(i, grid) = 1 <= i <= grid.nx*grid.ny
+@inline within_bounds(i::CartesianIndex, grid) = 1 <= i[1] <= grid.ny && 1 <= i[2] <= grid.nx
 
 const newaxis = [CartesianIndex()]
 
@@ -51,6 +52,8 @@ const newaxis = [CartesianIndex()]
 @inline c∇y(u, II, ny, per) = @inbounds u[δy⁺(II, ny, per)] - u[δy⁻(II, ny, per)]
 @inline c∇x(u, II, h) = @inbounds (u[δx⁺(II)] - u[δx⁻(II)])/2h
 @inline c∇y(u, II, h) = @inbounds (u[δy⁺(II)] - u[δy⁻(II)])/2h
+@inline c∇x(u, II, h, nx, per) = @inbounds (u[δx⁺(II, nx, per)] - u[δx⁻(II, nx, per)])/h
+@inline c∇y(u, II, h, ny, per) = @inbounds (u[δy⁺(II, ny, per)] - u[δy⁻(II, ny, per)])/h
 
 @inline ∇x⁺(u, II) = @inbounds u[δx⁺(II)] - u[II]
 @inline ∇y⁺(u, II) = @inbounds u[δy⁺(II)] - u[II]
@@ -122,6 +125,59 @@ end
     return B, BT
 end
 
+@inline function B_BT(II::CartesianIndex, grid::G, per_x, per_y) where {G<:Grid}
+    @unpack x, y, nx, ny, dx, dy, α = grid
+
+    _dx = dx[II]
+    _dy = dy[II]
+
+    Δx⁺ = 0.5 * (dx[II] + dx[δx⁺(II, nx, per_x)])
+    Δx⁻ = 0.5 * (dx[δx⁻(II, nx, per_x)] + dx[II])
+
+    Δy⁺ = 0.5 * (dy[II] + dy[δy⁺(II, ny, per_y)])
+    Δy⁻ = 0.5 * (dy[δy⁻(II, ny, per_y)] + dy[II])
+
+    # if 0 <= α[II] < π/2
+        dx⁺ = Δx⁺
+        dx⁻ = Δx⁻
+        dy⁺ = Δy⁺
+        dy⁻ = Δy⁻
+    # elseif π/2 <= α[II] <= π
+    #     dx⁺ = Δx⁻
+    #     dx⁻ = Δx⁺
+    #     dy⁺ = Δy⁺
+    #     dy⁻ = Δy⁻
+    # elseif -π <= α[II] < -π/2
+    #     dx⁺ = Δx⁺
+    #     dx⁻ = Δx⁻
+    #     dy⁺ = Δy⁻
+    #     dy⁻ = Δy⁺
+    # else
+    #     dx⁺ = Δx⁻
+    #     dx⁻ = Δx⁺
+    #     dy⁺ = Δy⁻
+    #     dy⁻ = Δy⁺
+    # end
+
+    # B = inv((@SMatrix [(dx⁻/_dx)^2 -dx⁻/_dx 1.0;
+    #                     0.0 0.0 1.0;
+    #                     (dx⁺/_dx)^2 dx⁺/_dx 1.0]))
+
+    # BT = inv((@SMatrix [(dy⁻/_dy)^2 0.0 (dy⁺/_dy)^2;
+    #                     -dy⁻/_dy 0.0 dy⁺/_dy;
+    #                     1.0 1.0 1.0]))
+
+    B = inv((@SMatrix [(dy⁻/_dy)^2 -dy⁻/_dy 1.0;
+        0.0 0.0 1.0;
+        (dy⁺/_dy)^2 dy⁺/_dy 1.0]))
+
+    BT = inv((@SMatrix [(dx⁻/_dx)^2 0.0 (dx⁺/_dx)^2;
+        -dx⁻/_dx 0.0 dx⁺/_dx;
+        1.0 1.0 1.0]))
+
+    return B, BT
+end
+
 @inline function B_BT(II::CartesianIndex, grid::G) where {G<:Grid}
     B = inv(@SMatrix [0.25 -0.5 1.0;
                       0.0 0.0 1.0;
@@ -169,8 +225,28 @@ function mean_curvature_interpolated(u, II, h, B, BT, mid)
 end
 
 
-@inline parabola_fit_curvature(itp, mid_point, dx2, dy2) =
-    @inbounds 2*itp[1,3]/((1+(2*itp[1,3]*mid_point.y/dy2 + itp[2,3])^2)^1.5) + 2*itp[3,1]/((1+(2*itp[3,1]*mid_point.x/dx2 + itp[3,2])^2)^1.5)
+@inline parabola_fit_curvature(itp, mid_point, dx, dy) =
+    @inbounds 2*itp[1,3]/((1+(2*itp[1,3]*mid_point.y/dy + itp[2,3])^2)^1.5)/(dy)^2 +
+              2*itp[3,1]/((1+(2*itp[3,1]*mid_point.x/dx + itp[3,2])^2)^1.5)/(dx)^2
+    
+# @inline parabola_fit_curvature(itp, mid_point, dx2, dy2) =
+#     @inbounds 2*itp[1,3]/((1+(1/dy2)^2*(2*itp[1,3]*mid_point.y/dy2 + itp[2,3])^2)^1.5)/(dy2)^2 +
+#               2*itp[3,1]/((1+(1/dx2)^2*(2*itp[3,1]*mid_point.x/dx2 + itp[3,2])^2)^1.5)/(dx2)^2
+
+# function parabola_fit_curvature(itp, mid_point, dx, dy)
+#     x = mid_point.x / dx
+#     y = mid_point.y / dy
+
+#     ay = itp[1,1] * x ^ 2 + itp[1,2] * x + itp[1,3]
+#     by = itp[2,1] * x ^ 2 + itp[2,2] * x + itp[2,3]
+#     ax = itp[1,1] * y ^ 2 + itp[2,1] * y + itp[3,1]
+#     bx = itp[1,2] * y ^ 2 + itp[2,2] * y + itp[3,2]
+
+#     κ = 2*ay/((1+(2*ay*mid_point.y/dy + by)^2)^1.5)/(dy)^2 +
+#         2*ax/((1+(2*ax*mid_point.x/dx + bx)^2)^1.5)/(dx)^2
+
+#     return κ
+# end
 
 @inline function linear_fit(a, b, x)
     a = (a - b)/sign(x+eps(0.1))
@@ -217,6 +293,26 @@ end
         if (v > MAX) MAX = v end
     end
     return AVG/VOLUME, sqrt(RMS/VOLUME), MAX
+end
+
+@inline function norma(field, pos, cap, h)
+    AVG = 0.
+    RMS = 0.
+    VOLUME = 0.
+    MAX = 0.
+    dv = 0.
+    @inbounds for II in pos
+        v = abs(field[II])
+        dv = cap[II]*h^2
+        # dv = h^2
+        if dv > 0.
+            VOLUME += dv
+            AVG += dv*v
+            RMS += dv*v^2
+            if (v > MAX) MAX = v end
+        end
+    end
+    return AVG/VOLUME, sqrt(RMS), MAX
 end
 
 @inline function Richardson_extrapolation(e, r)
@@ -267,11 +363,24 @@ function find_2closest_points(POS, ind, II)
     return closest_cartesian_indices
 end
 
+function monitor(header, history, it)
+    println("****** ", header, " ******")
+    if it > 0
+        println("res[0] = ", first(history))
+        println("res[", it, "] = ", history[it+1]) 
+    else
+        println("x0 is a solution")
+    end
+end
+
 @inline is_dirichlet(::Dirichlet) = true
 @inline is_dirichlet(::BoundaryCondition) = false
 
 @inline is_neumann(::Neumann) = true
 @inline is_neumann(::BoundaryCondition) = false
+
+@inline is_robin(::Robin) = true
+@inline is_robin(::BoundaryCondition) = false
 
 @inline is_periodic(::Periodic) = true
 @inline is_periodic(::BoundaryCondition) = false
@@ -298,6 +407,38 @@ function bcs!(field, BC::Boundary{B, N, T, Vector{T}}, Δ) where {B, N, T}
     end
     return nothing
 end
+
+function get_fresh_cells!(grid, geo, Mm1, indices)
+    @inbounds @threads for II in indices
+        pII = lexicographic(II, grid.ny)
+        if Mm1.diag[pII]/(grid.dx[II]*grid.dy[II]) < 1e-8 && geo.cap[II,5] > 1e-8
+            geo.fresh[II] = true
+        end
+    end
+    return nothing
+end
+
+function kill_dead_cells!(T::Matrix, grid, geo)
+    @unpack ind = grid
+
+    @inbounds @threads for II in ind.all_indices
+        if geo.cap[II,5] < 1e-12
+            T[II] = 0.
+        end
+    end
+end
+
+function kill_dead_cells!(T::Vector, grid, geo)
+    @unpack ny, ind = grid
+
+    @inbounds @threads for II in ind.all_indices
+        pII = lexicographic(II, ny)
+        if geo.cap[II,5] < 1e-12
+            T[pII] = 0.
+        end
+    end
+end
+
 """
     export_all()
 
@@ -318,7 +459,36 @@ function export_all()
     end
 end
 
+function mat_assign!(mat1, mat2)
+    mat1.nzval .= 0.
+    rows = rowvals(mat2)
+    m, n = size(mat2)
+    @inbounds @threads for j = 1:n
+        for i in nzrange(mat2, j)
+            @inbounds row = rows[i]
+            mat1[row,j] = mat2[row,j]
+        end
+    end
+
+    return nothing
+end
+
+function mat_assign_T!(mat1, mat2)
+    mat1.nzval .= 0.
+    rows = rowvals(mat1)
+    m, n = size(mat1)
+    @inbounds @threads for j = 1:n
+        for i in nzrange(mat1, j)
+            @inbounds row = rows[i]
+            mat1[row,j] = mat2[row,j]
+        end
+    end
+
+    return nothing
+end
+
 function mat_op!(mat1, mat2, op)
+    mat1.nzval .= 0.
     rows = rowvals(mat2)
     vals = nonzeros(mat2)
     m, n = size(mat2)
@@ -334,6 +504,7 @@ function mat_op!(mat1, mat2, op)
 end
 
 function mat_T_op!(mat1, mat2, op)
+    mat1.nzval .= 0.
     rows = rowvals(mat2)
     vals = nonzeros(mat2)
     m, n = size(mat2)
@@ -370,27 +541,27 @@ for op ∈ (:*, :+, :-)
             C
         end
 
-        function $op(A::AbstractSparseMatrix{Tv,Ti}, B::AbstractSparseMatrix{Tv,Ti}) where {Tv<:Number,Ti}
-            C = SparseMatrixCSC{Tv,Ti}(A.m, A.n, A.colptr, A.rowval, zeros(length(A.nzval)))
-            @inbounds @threads for col in 1:size(A, 2)
-                for j in nzrange(A, col)
-                    C.nzval[j] = $op(A.nzval[j], B.nzval[j])
-                end
-            end
-            C
-        end
-        function $op(A::AbstractSparseMatrix{Tv,Ti}, B::Diagonal{Tv,Vector{Tv}}) where {Tv<:Number,Ti}
-            C = SparseMatrixCSC{Tv,Ti}(A.m, A.n, A.colptr, A.rowval, copy(A.nzval))
-            b = B.diag
-            nzv = nonzeros(A)
-            rv = rowvals(A)
-            @inbounds @threads for col in 1:size(A, 2)
-                nz = nzrange(A, col)
-                j = nz[findfirst(x->rv[x]==col, collect(nz))]
-                C.nzval[j] = $op(A.nzval[j], b[col])
-            end
-            C
-        end
+        # function $op(A::AbstractSparseMatrix{Tv,Ti}, B::AbstractSparseMatrix{Tv,Ti}) where {Tv<:Number,Ti}
+        #     C = SparseMatrixCSC{Tv,Ti}(A.m, A.n, A.colptr, A.rowval, zeros(length(A.nzval)))
+        #     @inbounds @threads for col in 1:size(A, 2)
+        #         for j in nzrange(A, col)
+        #             C.nzval[j] = $op(A.nzval[j], B.nzval[j])
+        #         end
+        #     end
+        #     C
+        # end
+        # function $op(A::AbstractSparseMatrix{Tv,Ti}, B::Diagonal{Tv,Vector{Tv}}) where {Tv<:Number,Ti}
+        #     C = SparseMatrixCSC{Tv,Ti}(A.m, A.n, A.colptr, A.rowval, copy(A.nzval))
+        #     b = B.diag
+        #     nzv = nonzeros(A)
+        #     rv = rowvals(A)
+        #     @inbounds @threads for col in 1:size(A, 2)
+        #         nz = nzrange(A, col)
+        #         j = nz[findfirst(x->rv[x]==col, collect(nz))]
+        #         C.nzval[j] = $op(A.nzval[j], b[col])
+        #     end
+        #     C
+        # end
     end
 end
 function (-)(B::Diagonal{Tv,Vector{Tv}}, A::AbstractSparseMatrix{Tv,Ti}) where {Tv<:Number,Ti}

@@ -4,25 +4,34 @@ using Flower
 fontsize_theme = Theme(fontsize = 30)
 set_theme!(fontsize_theme)
 
+L0 = 4.
+n = 128
+Δ = L0/(n-1)
+x = [-L0 / 2 - Δ / 2 + i * Δ for i = 0:n]
+y = [-L0 / 2 - Δ / 2 + i * Δ for i = 0:n]
+x = LinRange(-L0/2, L0/2, n+1)
+y = LinRange(-L0/2, L0/2, n+1)
+
 num = Numerical(case = "Sphere",
-    L0 = 9.,
-    n = 192,
-    Re = 1.0,
-    CFL = 1.0,
-    R = 0.5,
+    x = x,
+    y = y,
+    CFL = 0.5,
     u_inf = 0.0,
-    max_iterations = 90)
+    R = 0.5,
+    max_iterations = 30,
+    ϵ = 0.05)
 
-idx, idxu, idxv = set_indices(num.n)
-tmp, fwd = init_fields(num, idx, idxu, idxv)
+gp, gu, gv = init_meshes(num)
+opS, opL, phS, phL, fwd = init_fields(num, gp, gu, gv)
+phL.T .= 0.
 
-# (pL, uL, vL, ApL, AuL, AvL, LpL, LuL, LvL,
-# LCUTp, LCUTu, LCUTv,
-# ksppL, kspuL, kspvL, nsL, ns_vecL,
-# GxpL, GypL, DxuL, DyvL, LCUTDx, LCUTDy,
-# MpL, iMpL, MuL, MvL, iMGxL, iMGyL, iMDxL, iMDyL,
-# τ, iRe, n, MIXED, LIQUID) = run_forward(num, idx, idxu, idxv, tmp, fwd,
-MIXED, SOLID, LIQUID, iMDx, iMDy, CUTDx, CUTDy = run_forward(num, idx, idxu, idxv, tmp, fwd,
+@time MIXED, SOLID, LIQUID  = run_forward(num, gp, gu, gv,
+opS, opL, phS, phL, fwd,
+BC_pL = Boundaries(top = Boundary(t = dir, f = dirichlet, val = 0.0),
+    left = Boundary(t = dir, f = dirichlet, val = 0.0),
+    right = Boundary(t = dir, f = dirichlet, val = 0.0),
+    bottom = Boundary(t = dir, f = dirichlet, val = 0.0),
+),
 # BC_uL = Boundaries(
 #     left = Boundary(t = dir, f = dirichlet, val = 1.0),
 #     bottom = Boundary(t = dir, f = dirichlet, val = 1.0),
@@ -37,7 +46,7 @@ heat = false,
 navier_stokes = true,
 ns_solid_phase = false,
 ns_liquid_phase = true,
-# speed = -num.Δ / 32. / num.τ,
+speed = -num.Δ / 1. / num.τ,
 verbose = true,
 show_every = 1
 )
@@ -46,56 +55,40 @@ lim = 1.5
 lim = num.L0 / 2
 # lim = 1.0
 
-prefix = "/Users/alex/Documents/PhD/Cutcell/New_ops/stokes/moving/rigid_solid/"
-suffix = "_192_1"
-# suffix = ""
+pref = "/Users/alex/Documents/PhD/Cutcell/New_ops/stokes/moving/rigid_solid/"
+suff = ""
+make_video(num, fwd, gu, "u"; title_prefix=pref,
+        title_suffix=suff, framerate=20, limitsx=(-lim,lim), limitsy=(-lim,lim))#, minv = -0.5, maxv = 0.5)
+make_video(num, fwd, gu, "ucorr"; title_prefix=pref,
+        title_suffix=suff, framerate=20, limitsx=(-lim,lim), limitsy=(-lim,lim))#, minv = -0.5, maxv = 0.5)
+make_video(num, fwd, gv, "v"; title_prefix=pref,
+        title_suffix=suff, framerate=20, limitsx=(-lim,lim), limitsy=(-lim,lim))#, minv = -0.3, maxv = 0.3)
+make_video(num, fwd, gp, "p"; title_prefix=pref,
+        title_suffix=suff, framerate=20, limitsx=(-lim,lim), limitsy=(-lim,lim))#, minv = -0.003, maxv = 0.003)
+make_video(num, fwd, gp, "ϕ"; title_prefix=pref,
+        title_suffix=suff, framerate=20, limitsx=(-lim,lim), limitsy=(-lim,lim))#, minv = -0.003, maxv = 0.003)
+# make_video(num, fwd, gp, "T"; title_prefix=pref,
+#         title_suffix=suff, framerate=20, limitsx=(-lim,lim), limitsy=(-lim,lim))
 
-fu = Figure(resolution = (1600, 1000))
-colsize!(fu.layout, 1, Aspect(1, 1.0))
-ax = Axis(fu[1,1], aspect = 1, xticks = -4:1:4, yticks = -4:1:4)  # customized as you see fit
-heatmap!(num.Xu[1,:], num.Yu[:,1], fwd.uL')
-contour!(num.Xu[1,:], num.Yu[:,1], fwd.uu', levels = 0:0, color=:red, linewidth = 3);
+lim = 1.0
+
+fgx = Figure(resolution = (1600, 1000))
+colsize!(fgx.layout, 1, Aspect(1, 1.0))
+ax = Axis(fgx[1,1], aspect = 1, xticks = -4:0.5:4, yticks = -4:0.5:4)  # customized as you see fit
+# hmap = heatmap!(gu.x[1,:], gu.y[:,1], reshape(opL.CUTGxp, (gu.ny, gu.nx))')
+hmap = heatmap!(gu.x[1,:], gu.y[:,1], reshape(phL.Gxm1, (gu.ny, gu.nx))')
+# hmap = heatmap!(gu.x[1,:], gu.y[:,1], reshape(opL.CUTu, (gu.ny, gu.nx))')
+contour!(gu.x[1,:], gu.y[:,1], gu.u', levels = 0:0, color=:red, linewidrth = 3);
+cbar = fgx[1,2] = Colorbar(fgx, hmap)
 limits!(ax, -lim, lim, -lim, lim)
-resize_to_layout!(fu)
+resize_to_layout!(fgx)
 
-make_video(num, fwd, "u"; title_prefix=prefix,
-        title_suffix=suffix, framerate=20, minv=0.0, maxv=25.6, limitsx=(-lim,lim), limitsy=(-lim,lim))
- 
-fv = Figure(resolution = (1600, 1000))
-colsize!(fv.layout, 1, Aspect(1, 1.0))
-ax = Axis(fv[1,1], aspect = 1, xticks = -4:1:4, yticks = -4:1:4)  # customized as you see fit
-heatmap!(num.Xv[1,:], num.Yv[:,1], fwd.vL')
-contour!(num.Xv[1,:], num.Yv[:,1], fwd.uv', levels = 0:0, color=:red, linewidth = 3);
+ftmp = Figure(resolution = (1600, 1000))
+colsize!(ftmp.layout, 1, Aspect(1, 1.0))
+ax = Axis(ftmp[1,1], aspect = 1, xticks = -4:0.5:4, yticks = -4:0.5:4)  # customized as you see fit
+hmap = heatmap!(gu.x[1,:], gu.y[:,1], phL.tmp')
+# hmap = heatmap!(gp.x[1,:], gp.y[:,1], phL.tmp')
+contour!(gu.x[1,:], gu.y[:,1], gu.u', levels = 0:0, color=:red, linewidrth = 3);
+cbar = ftmp[1,2] = Colorbar(fgx, hmap)
 limits!(ax, -lim, lim, -lim, lim)
-resize_to_layout!(fv)
-
-# make_video(num, fwd, "v"; title_prefix=prefix,
-#         title_suffix=suffix, framerate=20, minv=-0.4, maxv=0.4, limitsx=(-lim,lim), limitsy=(-lim,lim))
-
-pavg = mean(fwd.pL[LIQUID].*num.τ)
-pstd = std(fwd.pL[LIQUID].*num.τ)*2
-
-fp = Figure(resolution = (1600, 1000))
-colsize!(fp.layout, 1, Aspect(1, 1.0))
-ax = Axis(fp[1,1], aspect = 1, xticks = -4:1:4, yticks = -4:1:4)  # customized as you see fit
-heatmap!(num.X[1,:], num.Y[:,1], (fwd.pL.*num.τ)')
-contour!(num.H, num.H, fwd.u', levels = 0:0, color=:red, linewidth = 3);
-limits!(ax, -lim, lim, -lim, lim)
-resize_to_layout!(fp)
-
-# make_video(num, fwd, "p"; title_prefix=prefix,
-#         # minv=pavg-pstd, maxv=pavg+pstd,
-#         # minv = -0.25, maxv = 0.25,
-#         step0 = 2,
-#         title_suffix=suffix, framerate=20, limitsx=(-lim,lim), limitsy=(-lim,lim))
-
-divu = reshape(iMDx * (tmp.DxuL * vec(fwd.uL) .+ CUTDx) .+ iMDy * (tmp.DyvL * vec(fwd.vL) .+ CUTDy), (num.n, num.n))
-
-fdu = Figure(resolution = (1600, 1000))
-colsize!(fdu.layout, 1, Aspect(1, 1.0))
-ax = Axis(fdu[1,1], aspect = 1, xticks = -4:1:4, yticks = -4:1:4)  # customized as you see fit
-hmap = heatmap!(num.X[1,:], num.Y[:,1], divu')
-contour!(num.X[1,:], num.Y[:,1], fwd.u', levels = 0:0, color=:red, linewidth = 3);
-cbar = fdu[1,2] = Colorbar(fdu, hmap, labelpadding=0)
-limits!(ax, -lim, lim, -lim, lim)
-resize_to_layout!(fdu)
+resize_to_layout!(ftmp)

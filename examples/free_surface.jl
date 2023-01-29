@@ -31,13 +31,13 @@ num = Numerical(
     # A = -0.2,
     N = 2,
     save_every = 10,
-    σ = 200.0,
+    σ = 1.0,
     ϵ = 0.05,
     R = 0.2,
 )
 
 gp, gu, gv = init_meshes(num)
-opS, opL, phS, phL, fwd = init_fields(num, gp, gu, gv)
+opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd = init_fields(num, gp, gu, gv)
 
 gp.u .*= -1.
 # gp.u .+= 0.5

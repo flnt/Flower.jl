@@ -11,7 +11,7 @@ abstract type AbstractOptimizer end
     x::Vector{Float64} = [-0.5 - 1/127 / 2 + i * 1/127 for i = 0:128]
     y::Vector{Float64} = [-0.5 - 1/127 / 2 + i * 1/127 for i = 0:128]
     L0::Float64 = max(x[end]-x[1], y[end]-y[1])
-    Δ::Float64 = min(diff(x)...)
+    Δ::Float64 = min(diff(x)..., diff(y)...)
     shift::Float64 = 0.0
     shifted::Float64 = shift*Δ
     τ::Float64 = min(CFL*Δ^2*Re, CFL*Δ)
@@ -30,7 +30,7 @@ abstract type AbstractOptimizer end
     ϵ_V::Float64 = 0.0
     σ::Float64 = 1.0
     case::String = "notmycase"
-    cases::String = "Planar, Sphere, Cylinder, Ellipse, Crystal, Mullins, Nothing, Airfoil, Jet"
+    cases::String = "Planar, Sphere, Cylinder, Ellipse, Crystal, Mullins, Nothing, Airfoil, Jet, Drop"
     A::Float64 = 0.05
     N::Int64 = 2
     R::Float64 = 0.5
@@ -46,10 +46,8 @@ end
 @with_kw mutable struct Indices{T <: Int64} <: NumericalParameters
     all_indices::Array{CartesianIndex{2},2}
     inside::CartesianIndices{2, Tuple{OffsetArrays.IdOffsetRange{T, Base.OneTo{T}}, OffsetArrays.IdOffsetRange{T, Base.OneTo{T}}}}
-    periodicL::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
-    periodicR::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
-    periodicB::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
-    periodicT::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
+    periodic_x::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
+    periodic_y::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
     b_left::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
     b_bottom::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
     b_right::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
@@ -83,6 +81,7 @@ mutable struct GeometricInfo{T} <: MutatingFields
     projection::Array{Gradient{T},2}
     centroid::Array{Point{T},2}
     emptied::Array{Bool,2}
+    fresh::Array{Bool,2}
 end
 
 abstract type Grid <: MutatingFields end
@@ -161,6 +160,29 @@ mutable struct Operators{T <: Float64} <: MutatingFields
     vtp::SparseMatrixCSC{T,Int64}
 end
 
+mutable struct OperatorsCoupled{T <: Float64} <: MutatingFields
+    AxT::SparseMatrixCSC{T,Int64}
+    AyT::SparseMatrixCSC{T,Int64}
+    Bx::SparseMatrixCSC{T,Int64}
+    By::SparseMatrixCSC{T,Int64}
+    BxT::SparseMatrixCSC{T,Int64}
+    ByT::SparseMatrixCSC{T,Int64}
+    Hx::SparseMatrixCSC{T,Int64}
+    Hy::SparseMatrixCSC{T,Int64}
+    HxT::SparseMatrixCSC{T,Int64}
+    HyT::SparseMatrixCSC{T,Int64}
+    tmp_x::SparseMatrixCSC{T,Int64}
+    tmp_y::SparseMatrixCSC{T,Int64}
+    M::Diagonal{T,Vector{T}}
+    iMx::Diagonal{T,Vector{T}}
+    iMy::Diagonal{T,Vector{T}}
+    χ::Diagonal{T,Vector{T}}
+    Rx::SparseMatrixCSC{T,Int64}
+    Ry::SparseMatrixCSC{T,Int64}
+    Gx::SparseMatrixCSC{T,Int64}
+    Gy::SparseMatrixCSC{T,Int64}
+end
+
 mutable struct Phase{T <: Float64} <: MutatingFields
     T::Array{T,2}
     p::Array{T,2}
@@ -175,7 +197,14 @@ mutable struct Phase{T <: Float64} <: MutatingFields
     Dϕ::Array{T,2}
     Du::Array{T,2}
     Dv::Array{T,2}
-    tmp::Array{T,2}
+    # tmp::Vector{T}
+    TD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
+    pD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
+    ϕD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
+    uD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
+    vD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
+    uvD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
+    uvϕD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
 end
 
 mutable struct Forward{T <: Float64} <: MutatingFields
@@ -236,6 +265,8 @@ struct Dirichlet <: BoundaryCondition end
 const dir = Dirichlet()
 struct Neumann <: BoundaryCondition end
 const neu = Neumann()
+struct Robin <: BoundaryCondition end
+const rob = Robin()
 struct Periodic <: BoundaryCondition end
 const per = Periodic()
 

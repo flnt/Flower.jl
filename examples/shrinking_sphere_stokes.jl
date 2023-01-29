@@ -24,31 +24,37 @@ num = Numerical(case = "Sphere",
     CFL = 0.5,
     u_inf = 0.0,
     R = 0.7,
-    max_iterations = 200)
+    max_iterations = 300,
+    ϵ = 0.07)
 
 gp, gu, gv = init_meshes(num)
 opS, opL, phS, phL, fwd = init_fields(num, gp, gu, gv)
 phL.T .= 0.
 
-MIXED, SOLID, LIQUID  = run_forward(num, gp, gu, gv,
-opS, opL, phS, phL, fwd,
-BC_TL = Boundaries(top = Boundary(t = dir, f = dirichlet, val = 1.0),
-    left = Boundary(t = dir, f = dirichlet, val = 1.0),
-    right = Boundary(t = dir, f = dirichlet, val = 1.0),
-    bottom = Boundary(t = dir, f = dirichlet, val = 1.0),
-),
-stefan = true,
-advection = true,
-heat = true,
-heat_convection = true,
-heat_solid_phase = false,
-heat_liquid_phase = true,
-navier_stokes = true,
-ns_advection = true,
-ns_solid_phase = false,
-ns_liquid_phase = true,
-verbose = true,
-show_every = 1
+@time MIXED, SOLID, LIQUID  = run_forward(num, gp, gu, gv,
+    opS, opL, phS, phL, fwd,
+    BC_TL = Boundaries(top = Boundary(t = dir, f = dirichlet, val = 1.0),
+        left = Boundary(t = dir, f = dirichlet, val = 1.0),
+        right = Boundary(t = dir, f = dirichlet, val = 1.0),
+        bottom = Boundary(t = dir, f = dirichlet, val = 1.0),
+    ),
+    # BC_pL = Boundaries(top = Boundary(t = dir, f = dirichlet, val = 0.0),
+    #     left = Boundary(t = dir, f = dirichlet, val = 0.0),
+    #     right = Boundary(t = dir, f = dirichlet, val = 0.0),
+    #     bottom = Boundary(t = dir, f = dirichlet, val = 0.0),
+    # ),
+    stefan = true,
+    advection = true,
+    heat = true,
+    heat_convection = true,
+    heat_solid_phase = false,
+    heat_liquid_phase = true,
+    navier_stokes = true,
+    ns_advection = true,
+    ns_solid_phase = false,
+    ns_liquid_phase = true,
+    verbose = true,
+    show_every = 1
 )
 
 # f = heatmap!(num.H, num.H, (fwd.TL+fwd.TS)', colormap= Reverse(:ice))
@@ -67,7 +73,7 @@ colsize!(fT.layout, 1, Aspect(1, 1.0))
 ax = Axis(fT[1,1], aspect = 1, xticks = -4:0.5:4, yticks = -4:0.5:4)  # customized as you see fit
 hmap = heatmap!(gp.x[1,:], gp.y[:,1], phL.T')
 contour!(gp.x[1,:], gp.y[:,1], gp.u', levels = 0:0, color=:red, linewidrth = 3);
-cbar = fT[1,2] = Colorbar(fp, hmap)
+cbar = fT[1,2] = Colorbar(fT, hmap)
 limits!(ax, -lim, lim, -lim, lim)
 resize_to_layout!(fT)
 
@@ -107,13 +113,13 @@ cbar = fphi[1,2] = Colorbar(fphi, hmap)
 limits!(ax, -lim, lim, -lim, lim)
 resize_to_layout!(fphi)
 
-# pref = "/Users/alex/Documents/PhD/Cutcell/New_ops/stokes/shrinking/"
-# suff = ""
-# make_video(num, fwd, gu, "u"; title_prefix=pref,
-#         title_suffix=suff, framerate=20, limitsx=(-1.0,1.0), limitsy=(-1.0,1.0), minv = -0.5, maxv = 0.5)
-# make_video(num, fwd, gv, "v"; title_prefix=pref,
-#         title_suffix=suff, framerate=20, limitsx=(-1.0,1.0), limitsy=(-1.0,1.0))#, minv = -0.3, maxv = 0.3)
-# make_video(num, fwd, gp, "p"; title_prefix=pref,
-#         title_suffix=suff, framerate=20, limitsx=(-1.0,1.0), limitsy=(-1.0,1.0), minv = -0.003, maxv = 0.003)
-# make_video(num, fwd, gp, "T"; title_prefix=pref,
-#         title_suffix=suff, framerate=20)
+pref = "/Users/alex/Documents/PhD/Cutcell/New_ops/stokes/shrinking/"
+suff = "_$(num.ϵ)_2"
+make_video(num, fwd, gu, "u"; title_prefix=pref,
+        title_suffix=suff, framerate=20, limitsx=(-1.0,1.0), limitsy=(-1.0,1.0), minv = -0.5, maxv = 0.5)
+make_video(num, fwd, gv, "v"; title_prefix=pref,
+        title_suffix=suff, framerate=20, limitsx=(-1.0,1.0), limitsy=(-1.0,1.0))#, minv = -0.3, maxv = 0.3)
+make_video(num, fwd, gp, "p"; title_prefix=pref,
+        title_suffix=suff, framerate=20, limitsx=(-1.0,1.0), limitsy=(-1.0,1.0), minv = -0.003, maxv = 0.003)
+make_video(num, fwd, gp, "T"; title_prefix=pref,
+        title_suffix=suff, framerate=20)

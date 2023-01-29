@@ -1058,15 +1058,6 @@ function fill_inside_conv!(::Type{GridFCx}, O, B, u, v, Du1_x, Du1_y, Dv_y, cap,
     @inbounds O[pII,pII] += -0.25 * (A4_2 - B2_2) * Dv_y[δy⁺(II)]
     @inbounds O[pII,pII] += -0.25 * (B2_2 - A2_2) * Dv_y[II]
 
-    # @inbounds B[pII] += -0.25 * Du2_x[II] * (A3_2 - B1_2) * Du1_x[δx⁺(II)]
-    # @inbounds B[pII] += -0.25 * Du2_x[II] * (B1_2 - B1_1) * Du1_x[II]
-    # @inbounds B[pII] += -0.25 * Du2_x[II] * (B1_1 - A1_1) * Du1_x[δx⁻(II)]
-
-    # @inbounds B[pII] += -0.25 * Du2_y[II] * (A4_1 - B2_1) * Dv_y[δx⁻(δy⁺(II))]
-    # @inbounds B[pII] += -0.25 * Du2_y[II] * (B2_1 - A2_1) * Dv_y[δx⁻(II)]
-    # @inbounds B[pII] += -0.25 * Du2_y[II] * (A4_2 - B2_2) * Dv_y[δy⁺(II)]
-    # @inbounds B[pII] += -0.25 * Du2_y[II] * (B2_2 - A2_2) * Dv_y[II]
-
     @inbounds B[pII] += -0.25 * Du1_x[II] * (A3_2 - B1_2) * Du1_x[δx⁺(II)]
     @inbounds B[pII] += -0.25 * Du1_x[II] * (B1_2 - B1_1) * Du1_x[II]
     @inbounds B[pII] += -0.25 * Du1_x[II] * (B1_1 - A1_1) * Du1_x[δx⁻(II)]
@@ -1436,15 +1427,6 @@ function fill_inside_conv!(::Type{GridFCy}, O, B, u, v, Du_x, Dv1_x, Dv1_y, cap,
     @inbounds O[pII,pII] += -0.25 * (B1_1 - A1_1) * Du_x[δy⁻(II)]
     @inbounds O[pII,pII] += -0.25 * (A3_2 - B1_2) * Du_x[δx⁺(II)]
     @inbounds O[pII,pII] += -0.25 * (B1_2 - A1_2) * Du_x[II]
-
-    # @inbounds B[pII] += -0.25 * Dv2_y[II] * (A4_2 - B2_2) * Dv1_y[δy⁺(II)]
-    # @inbounds B[pII] += -0.25 * Dv2_y[II] * (B2_2 - B2_1) * Dv1_y[II]
-    # @inbounds B[pII] += -0.25 * Dv2_y[II] * (B2_1 - A2_1) * Dv1_y[δy⁻(II)]
-
-    # @inbounds B[pII] += -0.25 * Dv2_x[II] * (A3_1 - B1_1) * Du_x[δy⁻(δx⁺(II))]
-    # @inbounds B[pII] += -0.25 * Dv2_x[II] * (B1_1 - A1_1) * Du_x[δy⁻(II)]
-    # @inbounds B[pII] += -0.25 * Dv2_x[II] * (A3_2 - B1_2) * Du_x[δx⁺(II)]
-    # @inbounds B[pII] += -0.25 * Dv2_x[II] * (B1_2 - A1_2) * Du_x[II]
 
     @inbounds B[pII] += -0.25 * Dv1_y[II] * (A4_2 - B2_2) * Dv1_y[δy⁺(II)]
     @inbounds B[pII] += -0.25 * Dv1_y[II] * (B2_2 - B2_1) * Dv1_y[II]

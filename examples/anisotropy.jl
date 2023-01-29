@@ -22,17 +22,19 @@ num = Numerical(T_inf = -0.8,
     A = -0.2,
     N = 6,
     R = 0.1,
-    # max_iterations = 1,
+    max_iterations = 1,
     ϵ = 0.05
     )
 
 gp, gu, gv = init_meshes(num)
-opS, opL, phS, phL, fwd = init_fields(num, gp, gu, gv)
+opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd = init_fields(num, gp, gu, gv)
 
 phL.T .= num.T_inf;
 
-@time MIXED, SOLID, LIQUID = run_forward(num, gp, gu, gv,
-    opS, opL, phS, phL, fwd,
+# @profview MIXED, SOLID, LIQUID, A = run_forward(num, gp, gu, gv,
+@time MIXED, SOLID, LIQUID, A = run_forward(num, gp, gu, gv,
+    opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL,
+    phS, phL, fwd,
     stefan = true,
     heat = true,
     heat_liquid_phase = true,
@@ -40,7 +42,7 @@ phL.T .= num.T_inf;
     verbose = true,
     advection = true,
     show_every = 1
-    );
+);
 
 
 fontsize_theme = Theme(fontsize = 30)
@@ -53,11 +55,12 @@ colsize!(f.layout, 1, Aspect(1, 1))
 
 resize_to_layout!(f)
 hidedecorations!(ax)
-f = heatmap!(gp.x[1,:], gp.y[:,1], phL.T', colormap=:ice, colorrange=(-0.8, 0.0))
+f = heatmap!(gp.x[1,:], gp.y[:,1], phL.T', colormap=:ice)#, colorrange=(num.T_inf, 0.0))
+# f = heatmap!(gp.x[1,:], gp.y[:,1], phS.T', colormap=:ice)
 
 
 step = num.max_iterations÷20
-# f = contour!(gp.x[1,:], gp.y[:,1], fwd.usave[1,:,:]', levels = 0:0, color=:red, linewidth = 3);
+f = contour!(gp.x[1,:], gp.y[:,1], fwd.usave[end-1,:,:]', levels = 0:0, color=:red, linewidth = 3);
 
 if step != 0
 for i in 1:step:num.max_iterations
@@ -66,7 +69,9 @@ end
 f = contour!(gp.x[1,:], gp.y[:,1], fwd.usave[end,:,:]', levels = 0:0, color=:black, linewidth = 3);
 end
 
+limits!(ax, -0.2, 0.2, -0.2, 0.2)
+
 
 f = current_figure()
 
-#Makie.save("./figures/paper_figures/aniso_theta_pi_4.png", f)
+# Makie.save("./figures/paper_figures/aniso_theta_pi_4.png", f)

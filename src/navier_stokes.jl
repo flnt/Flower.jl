@@ -1,8 +1,8 @@
 function no_slip_condition!(grid, grid_u, grid_v)
     interpolate_scalar!(grid, grid_u, grid_v, grid.V, grid_u.V, grid_v.V)
 
-    @inbounds grid_u.α[(abs.(grid_u.α) .- π) .< 1e-8] .= π
-    @inbounds grid_v.α[(abs.(grid_v.α) .- π) .< 1e-8] .= π
+    # @inbounds grid_u.α[(abs.(grid_u.α) .- π) .< 1e-8] .= π
+    # @inbounds grid_v.α[(abs.(grid_v.α) .- π) .< 1e-8] .= π
 
     normalx = cos.(grid_u.α)
     normaly = sin.(grid_v.α)
@@ -81,7 +81,7 @@ function set_free_surface!(grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
                     Re, σ, advection, ns_advection
     )
     @unpack Lp, CUTp, Lu, CUTu, Lv, CUTv, Dxu, CUTDx, Dyv, CUTDy, Gxp, CUTGxp, Gyp, CUTGyp, Gxϕ, CUTGxϕ, Gyϕ, CUTGyϕ, Cu, CUTCu, Cv, CUTCv, utp, vtp = op
-    @unpack u, v, Dϕ, Du, Dv, tmp = ph
+    @unpack u, v, Dϕ, Du, Dv = ph
 
     iRe = 1 / Re
 
@@ -208,7 +208,7 @@ function set_stokes!(grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
                     Re, advection, ns_advection, periodic_x, periodic_y
     )
     @unpack Lp, CUTp, Lu, CUTu, Lv, CUTv, Dxu, CUTDx, Dyv, CUTDy, Gxp, CUTGxp, Gyp, CUTGyp, Gxϕ, CUTGxϕ, Gyϕ, CUTGyϕ, Cu, CUTCu, Cv, CUTCv, utp, vtp = op
-    @unpack u, v, Du, Dv, tmp = ph
+    @unpack u, v, Du, Dv = ph
 
     iRe = 1 / Re
 
@@ -327,7 +327,7 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
     )
     @unpack Re, τ, g, β = num
     @unpack Lp, CUTp, Lu, CUTu, Lv, CUTv, Dxu, CUTDx, Dyv, CUTDy, Ap, Au, Av, Gxp, CUTGxp, Gyp, CUTGyp, Gxϕ, CUTGxϕ, Gyϕ, CUTGyϕ, Cu, CUTCu, Cv, CUTCv = op
-    @unpack p, ϕ, Gxm1, Gym1, u, v, ucorr, vcorr, Du, Dv, tmp = ph
+    @unpack p, ϕ, Gxm1, Gym1, u, v, ucorr, vcorr, Du, Dv = ph
 
     iRe = 1/Re
 
@@ -339,6 +339,9 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
     else
         update_ksp_solver!(kspp, Ap, false, nothing)
     end
+
+    Δm1um1 = Mu * (iMum1 * (Lum1 * vec(u) .+ CUTum1))
+    Δm1vm1 = Mv * (iMvm1 * (Lvm1 * vec(v) .+ CUTvm1))
 
     if ns_advection
         Convu = 1.5 .* (Cu * vec(u) .+ CUTCu) .- 0.5 .* Cum1
@@ -382,8 +385,8 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
     # Gxm1 .= Mum1 * iMGxm1 * Gxpm1 * vec(p)
     # Gym1 .= Mvm1 * iMGym1 * Gypm1 * vec(p)
 
-    Δu = Lu * vec(u) .+ CUTu
-    Δv = Lv * vec(v) .+ CUTv
+    Δu = 0.5 .* Δm1um1
+    Δv = 0.5 .* Δm1vm1
 
     Grav = Ra*vcat(0*mean(ph.T)*ones(grid_u.ny), vec(ph.T))
 
@@ -405,8 +408,8 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
         grav_y[pII] = 0.0
     end
 
-    Bucorr = Mum1 * vec(u) .+ τ .* (iRe.*CUTu .-Gxm1 .- Convu .+ Mu * Grav .+ grav_x)
-    Bvcorr = Mvm1 * vec(v) .+ τ .* (iRe.*CUTv .-Gym1 .- Convv .+ grav_y)
+    Bucorr = Mum1 * vec(u) .+ τ .* (iRe.*(CUTu .+ Δu) .-Gxm1 .- Convu .+ Mu * Grav .+ grav_x)
+    Bvcorr = Mvm1 * vec(v) .+ τ .* (iRe.*(CUTv .+ Δv) .-Gym1 .- Convv .+ grav_y)
     
     @inbounds @threads for II in EMPTY_u
         pII = lexicographic(II, grid_u.ny)
@@ -417,11 +420,11 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
         Bvcorr[pII] = 0.
     end
 
-    Au .= Mu - iRe*τ*Lu
-    Av .= Mv - iRe*τ*Lv
+    Au .= Mu - 0.5*iRe*τ*Lu
+    Av .= Mv - 0.5*iRe*τ*Lv
 
-    ucorr .= reshape(cg(Au, Bucorr), (grid_u.ny, grid_u.nx))
-    vcorr .= reshape(cg(Av, Bvcorr), (grid_v.ny, grid_v.nx))
+    ucorr .= reshape(IterativeSolvers.cg(Au, Bucorr), (grid_u.ny, grid_u.nx))
+    vcorr .= reshape(IterativeSolvers.cg(Av, Bvcorr), (grid_v.ny, grid_v.nx))
 
     Duv = iMDx * (Dxu * vec(ucorr) .+ CUTDx) .+ iMDy * (Dyv * vec(vcorr) .+ CUTDy)
     Bϕ = - 1. ./ τ .* Mp * Duv .+ CUTp
@@ -448,7 +451,7 @@ function pressure_projection!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, op, 
     PETSc.destroy(vecseq)
 
     Δϕ = reshape(iMp * (Lp * vec(ϕ) .+ CUTp), (grid.ny,grid.nx))
-    p .+= ϕ #.- iRe.*reshape(Duv, (grid.ny,grid.nx))#τ.*Δϕ
+    p .+= ϕ .- 0.5.*iRe.*reshape(Duv, (grid.ny,grid.nx))#τ.*Δϕ
     Gx = reshape(iMGx * (Gxϕ * vec(ϕ) .+ CUTGxϕ), (grid_u.ny,grid_u.nx))
     Gy = reshape(iMGy * (Gyϕ * vec(ϕ) .+ CUTGyϕ), (grid_v.ny,grid_v.nx))
 

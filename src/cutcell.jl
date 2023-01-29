@@ -120,7 +120,9 @@ end
     return cap
 end
 
-function clip_large_cell!(grid, geo, II, ϵ, nx, ny)
+function clip_large_cell!(grid, geo, II, ϵ)
+    @unpack nx, ny = grid
+
     if geo.cap[II,5] > (1.0-ϵ)
         geo.cap[II,:] .= vcat(ones(7), 0.5.*ones(4))
         if II[2] > 1
@@ -141,7 +143,9 @@ function clip_large_cell!(grid, geo, II, ϵ, nx, ny)
     return nothing
 end
 
-function clip_small_cell!(grid, geo, II, ϵ, nx, ny)
+function clip_small_cell!(grid, geo, II, ϵ)
+    @unpack nx, ny = grid
+
     if geo.cap[II,5] < ϵ
         geo.cap[II,:] .= 0.
         geo.emptied[II] = true
@@ -167,12 +171,12 @@ function clip_cells!(grid, ϵ, periodic_x, periodic_y)
     @unpack nx, ny, ind, geoS, geoL = grid
 
     @inbounds @threads for II in ind.inside
-        clip_large_cell!(grid, geoS, II, ϵ, nx, ny)
-        clip_large_cell!(grid, geoL, II, ϵ, nx, ny)
+        clip_large_cell!(grid, geoS, II, ϵ)
+        clip_large_cell!(grid, geoL, II, ϵ)
     end
     @inbounds @threads for II in ind.inside
-        clip_small_cell!(grid, geoS, II, ϵ, nx, ny)
-        clip_small_cell!(grid, geoL, II, ϵ, nx, ny)
+        clip_small_cell!(grid, geoS, II, ϵ)
+        clip_small_cell!(grid, geoL, II, ϵ)
     end
     @inbounds @threads for II in @view ind.b_left[1][2:end-1]
         if geoS.cap[II,5] > (1.0-ϵ)
@@ -343,181 +347,38 @@ function clip_cells!(grid, ϵ, periodic_x, periodic_y)
     return nothing
 end
 
-function empty_cell_u!(geo, geo_u, II, ny)
-    if geo.cap[II,3] < 1e-10
-        geo_u.dcap[δx⁺(II),:] .= 0.
-        geo_u.emptied[δx⁺(II)] = true
-        geo_u.dcap[II,3] = 0.
-        geo_u.dcap[δx⁺(δx⁺(II)),1] = 0.
-        if II[1] != 1
-            geo_u.dcap[δy⁻(δx⁺(II)),4] = 0.
+function clip_A_acc_to_V(grid, grid_u, grid_v, geo, geo_u, geo_v, ϵ)
+    @unpack ind = grid
+    @inbounds @threads for II in ind.all_indices
+        if geo.cap[II,5] < 1e-3
+        # if geo.cap[II,5] < ϵ
+            geo_u.cap[II,3] = 0.
+            geo_u.cap[δx⁺(II),1] = 0.
+            geo_v.cap[II,4] = 0.
+            geo_v.cap[δy⁺(II),2] = 0.
         end
-        if II[1] != ny
-            geo_u.dcap[δy⁺(δx⁺(II)),2] = 0.
+    end
+    @inbounds @threads for II in grid_u.ind.all_indices
+        if geo_u.cap[II,5] < ϵ
+            if II[2] > 1
+                geo.cap[δx⁻(II),3] = 0.
+            end
+            if II[2] < grid_u.nx
+                geo.cap[II,1] = 0.
+            end
+        end
+    end
+    @inbounds @threads for II in grid_v.ind.all_indices
+        if geo_v.cap[II,5] < ϵ
+            if II[1] > 1
+                geo.cap[δy⁻(II),4] = 0.
+            end
+            if II[1] < grid_v.ny
+                geo.cap[II,2] = 0.
+            end
         end
     end
     return nothing
-end
-
-function empty_cell_v!(geo, geo_v, II, nx)
-    if geo.cap[II,4] < 1e-10
-        geo_v.dcap[δy⁺(II),:] .= 0.
-        geo_v.emptied[δy⁺(II)] = true
-        geo_v.dcap[II,4] = 0.
-        geo_v.dcap[δy⁺(δy⁺(II)),2] = 0.
-        if II[2] != 1
-            geo_v.dcap[δx⁻(δy⁺(II)),3] = 0.
-        end
-        if II[2] != nx
-            geo_v.dcap[δx⁺(δy⁺(II)),1] = 0.
-        end
-    end
-    return nothing
-end
-
-function empty_cells_uv!(grid, grid_u, grid_v)
-    @unpack nx, ny, ind, geoS, geoL = grid
-
-    # If A_i = 0, V_i = 0
-    @inbounds @threads for II in ind.inside
-        empty_cell_u!(geoS, grid_u.geoS, II, ny)
-        empty_cell_u!(geoL, grid_u.geoL, II, ny)
-
-        empty_cell_v!(geoS, grid_v.geoS, II, nx)
-        empty_cell_v!(geoL, grid_v.geoL, II, nx)
-    end
-    @inbounds @threads for II in ind.b_left[1]
-        if geoS.cap[II,1] < 1e-10
-            grid_u.geoS.dcap[II,:] .= 0.
-            grid_u.geoS.emptied[II] = true
-            grid_u.geoS.dcap[δx⁺(II),1] = 0.
-            if II[1] != 1
-                grid_u.geoS.dcap[δy⁻(II),4] = 0.
-            end
-            if II[1] != ny
-                grid_u.geoS.dcap[δy⁺(II),2] = 0.
-            end
-        end
-        if geoL.cap[II,1] < 1e-10
-            grid_u.geoL.dcap[II,:] .= 0.
-            grid_u.geoL.emptied[II] = true
-            grid_u.geoL.dcap[δx⁺(II),1] = 0.
-            if II[1] != 1
-                grid_u.geoL.dcap[δy⁻(II),4] = 0.
-            end
-            if II[1] != ny
-                grid_u.geoL.dcap[δy⁺(II),2] = 0.
-            end
-        end
-    end
-    @inbounds @threads for II in ind.b_left[1]
-        empty_cell_u!(geoS, grid_u.geoS, II, ny)
-        empty_cell_u!(geoL, grid_u.geoL, II, ny)
-    end
-    @inbounds @threads for II in ind.b_right[1]
-        if geoS.cap[II,3] < 1e-10
-            grid_u.geoS.dcap[δx⁺(II),:] .= 0.
-            grid_u.geoS.emptied[II] = true
-            grid_u.geoS.dcap[II,3] = 0.
-            if II[1] != 1
-                grid_u.geoS.dcap[δy⁻(δx⁺(II)),4] = 0.
-            end
-            if II[1] != ny
-                grid_u.geoS.dcap[δy⁺(δx⁺(II)),2] = 0.
-            end
-        end
-        if geoL.cap[II,3] < 1e-10
-            grid_u.geoL.dcap[δx⁺(II),:] .= 0.
-            grid_u.geoL.emptied[II] = true
-            grid_u.geoL.dcap[II,3] = 0.
-            if II[1] != 1
-                grid_u.geoL.dcap[δy⁻(δx⁺(II)),4] = 0.
-            end
-            if II[1] != ny
-                grid_u.geoL.dcap[δy⁺(δx⁺(II)),2] = 0.
-            end
-        end
-    end
-    @inbounds @threads for II in vcat(ind.b_bottom[1][2:end-1], ind.b_top[1][2:end-1])
-        if geoS.cap[II,3] < 1e-10
-            grid_u.geoS.dcap[δx⁺(II),:] .= 0.
-            grid_u.geoS.emptied[δx⁺(II)] = true
-            grid_u.geoS.dcap[II,3] = 0.
-            grid_u.geoS.dcap[δx⁺(δx⁺(II)),1] = 0.
-        end
-        if geoL.cap[II,3] < 1e-10
-            grid_u.geoL.dcap[δx⁺(II),:] .= 0.
-            grid_u.geoL.emptied[δx⁺(II)] = true
-            grid_u.geoL.dcap[II,3] = 0.
-            grid_u.geoL.dcap[δx⁺(δx⁺(II)),1] = 0.
-        end
-    end
-    @inbounds @threads for II in ind.b_bottom[1]
-        if geoS.cap[II,2] < 1e-10
-            grid_v.geoS.dcap[II,:] .= 0.
-            grid_v.geoS.emptied[II] = true
-            grid_v.geoS.dcap[δy⁺(II),2] = 0.
-            if II[2] != 1
-                grid_v.geoS.dcap[δx⁻(II),3] = 0.
-            end
-            if II[2] != nx
-                grid_v.geoS.dcap[δx⁺(II),1] = 0.
-            end
-        end
-        if geoL.cap[II,2] < 1e-10
-            grid_v.geoL.dcap[II,:] .= 0.
-            grid_v.geoL.emptied[II] = true
-            grid_v.geoL.dcap[δy⁺(II),2] = 0.
-            if II[2] != 1
-                grid_v.geoL.dcap[δx⁻(II),3] = 0.
-            end
-            if II[2] != nx
-                grid_v.geoL.dcap[δx⁺(II),1] = 0.
-            end
-        end
-    end
-    @inbounds @threads for II in ind.b_bottom[1]
-        empty_cell_v!(geoS, grid_v.geoS, II, nx)
-        empty_cell_v!(geoL, grid_v.geoL, II, nx)
-    end
-    @inbounds @threads for II in ind.b_top[1]
-        if geoS.cap[II,4] < 1e-10
-            grid_v.geoS.dcap[δy⁺(II),:] .= 0.
-            grid_v.geoS.emptied[II] = true
-            grid_v.geoS.dcap[II,4] = 0.
-            if II[2] != 1
-                grid_v.geoS.dcap[δx⁻(δy⁺(II)),3] = 0.
-            end
-            if II[2] != nx
-                grid_v.geoS.dcap[δx⁺(δy⁺(II)),1] = 0.
-            end
-        end
-        if geoL.cap[II,4] < 1e-10
-            grid_v.geoL.dcap[δy⁺(II),:] .= 0.
-            grid_v.geoL.emptied[II] = true
-            grid_v.geoL.dcap[II,4] = 0.
-            if II[2] != 1
-                grid_v.geoL.dcap[δx⁻(δy⁺(II)),3] = 0.
-            end
-            if II[2] != nx
-                grid_v.geoL.dcap[δx⁺(δy⁺(II)),1] = 0.
-            end
-        end
-    end
-    @inbounds @threads for II in vcat(ind.b_left[1][2:end-1], ind.b_right[1][2:end-1])
-        if geoS.cap[II,4] < 1e-10
-            grid_v.geoS.dcap[δy⁺(II),:] .= 0.
-            grid_v.geoS.emptied[δy⁺(II)] = true
-            grid_v.geoS.dcap[II,4] = 0.
-            grid_v.geoS.dcap[δy⁺(δy⁺(II)),2] = 0.
-        end
-        if geoL.cap[II,4] < 1e-10
-            grid_v.geoL.dcap[δy⁺(II),:] .= 0.
-            grid_v.geoL.emptied[δy⁺(II)] = true
-            grid_v.geoL.dcap[II,4] = 0.
-            grid_v.geoL.dcap[δy⁺(δy⁺(II)),2] = 0.
-        end
-    end
 end
 
 function dimensionalize!(grid, geo)
@@ -539,8 +400,123 @@ function dimensionalize!(grid, geo)
     return nothing
 end
 
-function postprocess_grids!(grid, grid_u, grid_v, MIXED, periodic_x, periodic_y, advection, ϵ)
-    clip_cells!(grid, ϵ, periodic_x, periodic_y)
+function clip_new!(grid, indices, per_x, per_y, ϵ_c, ϵ)
+    @unpack nx, ny, dx, dy, ind, geoL, geoS = grid
+    @unpack all_indices = ind
+
+    V = dx .* dy
+    @inbounds @threads for II in indices
+        dim_ϵ_c = ϵ_c * V[II]
+        dim_ϵ = 0.05 * V[II]
+
+        if dim_ϵ_c <= geoS.dcap[II,5] && geoS.dcap[II,5] < dim_ϵ
+            geoS.dcap[II,5] = dim_ϵ
+        end
+        if dim_ϵ_c <= geoL.dcap[II,5] && geoL.dcap[II,5] < dim_ϵ
+            geoL.dcap[II,5] = dim_ϵ
+        end
+
+        dim_ϵ = ϵ * V[II]
+
+        if geoS.dcap[II,8] < dim_ϵ
+            dif = dim_ϵ - geoS.dcap[II,8]
+            geoS.dcap[II,8] = dim_ϵ
+            geoS.dcap[II,5] += dif
+            if within_bounds(δx⁻(II, nx, per_x), grid)
+                geoS.dcap[δx⁻(II, nx, per_x),10] = dim_ϵ
+                geoS.dcap[δx⁻(II, nx, per_x),5] += dif
+            end
+        end
+        if geoL.dcap[II,8] < dim_ϵ
+            dif = dim_ϵ - geoL.dcap[II,8]
+            geoL.dcap[II,8] = dim_ϵ
+            geoL.dcap[II,5] += dif
+            if within_bounds(δx⁻(II, nx, per_x), grid)
+                geoL.dcap[δx⁻(II, nx, per_x),10] = dim_ϵ
+                geoL.dcap[δx⁻(II, nx, per_x),5] += dif
+            end
+        end
+
+        if geoS.dcap[II,9] < dim_ϵ
+            dif = dim_ϵ - geoS.dcap[II,9]
+            geoS.dcap[II,9] = dim_ϵ
+            geoS.dcap[II,5] += dif
+            if within_bounds(δy⁻(II, ny, per_y), grid)
+                geoS.dcap[δy⁻(II, ny, per_y),11] = dim_ϵ
+                geoS.dcap[δy⁻(II, ny, per_y),5] += dif
+            end
+        end
+        if geoL.dcap[II,9] < dim_ϵ
+            dif = dim_ϵ - geoL.dcap[II,9]
+            geoL.dcap[II,9] = dim_ϵ
+            geoL.dcap[II,5] += dif
+            if within_bounds(δy⁻(II, ny, per_y), grid)
+                geoL.dcap[δy⁻(II, ny, per_y),11] = dim_ϵ
+                geoL.dcap[δy⁻(II, ny, per_y),5] += dif
+            end
+        end
+
+        if geoS.dcap[II,10] < dim_ϵ
+            dif = dim_ϵ - geoS.dcap[II,10]
+            geoS.dcap[II,10] = dim_ϵ
+            geoS.dcap[II,5] += dif
+            if within_bounds(δx⁺(II, nx, per_x), grid)
+                geoS.dcap[δx⁺(II, nx, per_x),8] = dim_ϵ
+                geoS.dcap[δx⁺(II, nx, per_x),5] += dif
+            end
+        end
+        if geoL.dcap[II,10] < dim_ϵ
+            dif = dim_ϵ - geoL.dcap[II,10]
+            geoL.dcap[II,10] = dim_ϵ
+            geoL.dcap[II,5] += dif
+            if within_bounds(δx⁺(II, nx, per_x), grid)
+                geoL.dcap[δx⁺(II, nx, per_x),8] = dim_ϵ
+                geoL.dcap[δx⁺(II, nx, per_x),5] += dif
+            end
+        end
+
+        if geoS.dcap[II,11] < dim_ϵ
+            dif = dim_ϵ - geoS.dcap[II,11]
+            geoS.dcap[II,11] = dim_ϵ
+            geoS.dcap[II,5] += dif
+            if within_bounds(δy⁺(II, ny, per_y), grid)
+                geoS.dcap[δy⁺(II, ny, per_y),9] = dim_ϵ
+                geoS.dcap[δy⁺(II, ny, per_y),5] += dif
+            end
+        end
+        if geoL.dcap[II,11] < dim_ϵ
+            dif = dim_ϵ - geoL.dcap[II,11]
+            geoL.dcap[II,11] = dim_ϵ
+            geoS.dcap[II,5] += dif
+            if within_bounds(δy⁺(II, ny, per_y), grid)
+                geoL.dcap[δy⁺(II, ny, per_y),9] = dim_ϵ
+                geoL.dcap[δy⁺(II, ny, per_y),5] += dif
+            end
+        end
+    end
+    
+    return nothing
+end
+
+function postprocess_grids!(grid, grid_u, grid_v, MIXED, MIXED_u, MIXED_v, periodic_x, periodic_y, advection, ϵ)
+    ϵ_c = 4e-2
+    ϵ_c = 5e-2
+
+    # id = CartesianIndex(53,3)
+    # @show (grid.geoL.cap[id,1:5])
+    # @show (grid.geoL.cap[δy⁻(id),1:5])
+
+    clip_cells!(grid, 1e-3, periodic_x, periodic_y)
+    # clip_cells!(grid, ϵ_c, periodic_x, periodic_y)
+    clip_cells!(grid_u, ϵ_c, periodic_x, periodic_y)
+    clip_cells!(grid_v, ϵ_c, periodic_x, periodic_y)
+
+    clip_A_acc_to_V(grid, grid_u, grid_v, grid.geoS, grid_u.geoS, grid_v.geoS, ϵ_c)
+    clip_A_acc_to_V(grid, grid_u, grid_v, grid.geoL, grid_u.geoL, grid_v.geoL, ϵ_c)
+
+    # id = CartesianIndex(53,3)
+    # @show (grid.geoL.cap[id,1:5])
+    # @show (grid.geoL.cap[δy⁻(id),1:5])
     
     dimensionalize!(grid, grid.geoS)
     dimensionalize!(grid, grid.geoL)
@@ -548,8 +524,6 @@ function postprocess_grids!(grid, grid_u, grid_v, MIXED, periodic_x, periodic_y,
     dimensionalize!(grid_u, grid_u.geoL)
     dimensionalize!(grid_v, grid_v.geoS)
     dimensionalize!(grid_v, grid_v.geoL)
-
-    empty_cells_uv!(grid, grid_u, grid_v)
 
     set_cap_bcs!(grid, periodic_x, periodic_y)
     set_cap_bcs!(grid_u, periodic_x, periodic_y)
@@ -568,6 +542,10 @@ function postprocess_grids!(grid, grid_u, grid_v, MIXED, periodic_x, periodic_y,
     average_face_capacities!(grid_u.geoL.dcap)
     average_face_capacities!(grid_v.geoS.dcap)
     average_face_capacities!(grid_v.geoL.dcap)
+
+    # clip_new!(grid, MIXED, periodic_x, periodic_y, 1e-3, ϵ)
+    # clip_new!(grid_u, MIXED_u, periodic_x, periodic_y, ϵ_c, ϵ)
+    # clip_new!(grid_v, MIXED_v, periodic_x, periodic_y, ϵ_c, ϵ)
 end
 
 function marching_squares!(num, grid)
@@ -722,39 +700,78 @@ function get_interface_location_borders!(grid::Mesh{GridFCy,T,N}, periodic_x, pe
     end
 end
 
-function get_curvature(num, grid, inside)
+function get_curvature(num, grid, inside, per_x, per_y)
     @unpack Δ = num
-    @unpack x, y, dx, dy, ind, u, geoL, κ = grid
+    @unpack x, y, nx, ny, ind, u, geoL, κ = grid
 
     @inbounds for II in inside
-        if II in ind.inside
-            II_0 = II
-        elseif II in ind.b_left[1][2:end-1]
-            II_0 = δx⁺(II)
-        elseif II in ind.b_bottom[1][2:end-1]
-            II_0 = δy⁺(II)
-        elseif II in ind.b_right[1][2:end-1]
-            II_0 = δx⁻(II)
-        elseif II in ind.b_top[1][2:end-1]
-            II_0 = δy⁻(II)
-        elseif II == ind.b_left[1][1]
-            II_0 = δy⁺(δx⁺(II))
-        elseif II == ind.b_left[1][end]
-            II_0 = δy⁻(δx⁺(II))
-        elseif II == ind.b_right[1][1]
-            II_0 = δy⁺(δx⁻(II))
-        elseif II == ind.b_right[1][end]
-            II_0 = δy⁻(δx⁻(II))
+        if !per_x && !per_y
+            if II in ind.inside
+                II_0 = II
+            elseif II in ind.b_left[1][2:end-1]
+                II_0 = δx⁺(II)
+            elseif II in ind.b_bottom[1][2:end-1]
+                II_0 = δy⁺(II)
+            elseif II in ind.b_right[1][2:end-1]
+                II_0 = δx⁻(II)
+            elseif II in ind.b_top[1][2:end-1]
+                II_0 = δy⁻(II)
+            elseif II == ind.b_left[1][1]
+                II_0 = δy⁺(δx⁺(II))
+            elseif II == ind.b_left[1][end]
+                II_0 = δy⁻(δx⁺(II))
+            elseif II == ind.b_right[1][1]
+                II_0 = δy⁺(δx⁻(II))
+            elseif II == ind.b_right[1][end]
+                II_0 = δy⁻(δx⁻(II))
+            end
+        elseif per_x && !per_y
+            if II in ind.inside || II in ind.b_left[1][2:end-1] || II in ind.b_right[1][2:end-1]
+                II_0 = II
+            elseif II in ind.b_bottom[1]
+                II_0 = δy⁺(II)
+            elseif II in ind.b_top[1]
+                II_0 = δy⁻(II)
+            end
+        else
+            if II in ind.inside || II in ind.b_bottom[1][2:end-1] || II in ind.b_top[1][2:end-1]
+                II_0 = II
+            elseif II in ind.b_left[1]
+                II_0 = δx⁺(II)
+            elseif II in ind.b_right[1]
+                II_0 = δx⁻(II)
+            end
         end
         mid_point = geoL.projection[II].mid_point
-        Δx2 = x[δx⁺(II_0)] - x[δx⁻(II_0)]
-        Δy2 = y[δy⁺(II_0)] - y[δy⁻(II_0)]
-        st = static_stencil(u, II_0)
-        B, BT = B_BT(II_0, x, y)
+        st = static_stencil(u, II_0, nx, ny, per_x, per_y)
+        B, BT = B_BT(II_0, grid, per_x, per_y)
         itp = B * st * BT
-        # If someone finds why it works with this scaling factor
-        # ( * 0.25 / (dx[II]*dy[II]) ), I pay him a beer (Alex)
-        κ[II] = parabola_fit_curvature(itp, mid_point, Δx2, Δy2) * 0.25 / (dx[II]*dy[II])
+        
+        dx = grid.dx[II]
+        dy = grid.dy[II]
+
+        κ[II] = parabola_fit_curvature(itp, mid_point, dx, dy)
+
+        # id1 = CartesianIndex(24,22)
+        # id2 = CartesianIndex(9,41)
+        # id3 = CartesianIndex(24,41) 
+        # if II == id2 || II == id3
+        #     @show (II)
+        #     @show (B[1,:])
+        #     @show (B[2,:])
+        #     @show (B[3,:])
+        #     @show (st[1,:])
+        #     @show (st[2,:])
+        #     @show (st[3,:])
+        #     # @show (BT)
+        #     # println(sum(B[1,:] .* st[:,2]) .* BT[2,3])
+        #     # @show (itp[1,3])
+        #     # @show (κ[II])
+        #     # println(2*itp[1,3]/((1+(2*itp[1,3]*mid_point.y/dy + itp[2,3])^2)^1.5)/(dy)^2)
+        #     # println(2*itp[3,1]/((1+(2*itp[3,1]*mid_point.x/dx + itp[3,2])^2)^1.5)/(dx)^2)
+        #     println([0.0 0.0 1] * itp * [0.25 -0.5 1]')
+        #     println()
+        # end
     end
 end
 
@@ -1550,6 +1567,20 @@ function get_NB_width(MIXED, NB_indices_base)
         return unique!(NB_indices)
 end
 
+function get_NB_width(grid, MIXED, NB_indices_base)
+    @unpack nx, ny = grid
+    NB_indices = Vector{CartesianIndex{2}}(undef, 0)
+    for II in MIXED
+        for JJ in NB_indices_base
+            KK = II + JJ
+            if KK[1] > 0 && KK[2] > 0 && KK[1] < ny+1 && KK[2] < nx+1
+                push!(NB_indices, KK)
+            end
+        end
+    end
+    return unique!(NB_indices)
+end
+
 
 @inline function affine(A, B, C)
     if isnan(C.y)
@@ -1691,11 +1722,12 @@ function init_fresh_cells!(grid, T, projection, FRESH, periodic_x, periodic_y)
     end
 end
 
-function init_fresh_cells!(grid, T::Vector, projection, FRESH, n, periodic_x, periodic_y)
+function init_fresh_cells!(grid, T::Vector, projection, FRESH, periodic_x, periodic_y)
+    _T = reshape(T, (grid.ny, grid.nx))
     @inbounds @threads for II in FRESH
         if projection[II].flag
-            pII = lexicographic(II, n)
-            T_1, T_2 = interpolated_temperature(grid, projection[II].angle, projection[II].point1, projection[II].point2, T, II, periodic_x, periodic_y)
+            pII = lexicographic(II, grid.ny)
+            T_1, T_2 = interpolated_temperature(grid, projection[II].angle, projection[II].point1, projection[II].point2, _T, II, periodic_x, periodic_y)
             if π/4 <= projection[II].angle <= 3π/4 || -π/4 >= projection[II].angle >= -3π/4
                 T[pII] = y_extrapolation(T_1, T_2, projection[II].point1, projection[II].point2, projection[II].mid_point)
             else
@@ -1705,7 +1737,7 @@ function init_fresh_cells!(grid, T::Vector, projection, FRESH, n, periodic_x, pe
     end
 end
 
-function init_fresh_cells!(grid, u::Matrix, V, projection, FRESH, periodic_x, periodic_y)
+function init_fresh_cells!(grid, u::Matrix, V::Matrix, projection, FRESH, periodic_x, periodic_y)
     @inbounds @threads for II in FRESH
         if projection[II].flag
             u_1, u_2 = interpolated_temperature(grid, projection[II].angle, projection[II].point1, projection[II].point2, V, II, periodic_x, periodic_y)
@@ -1713,6 +1745,21 @@ function init_fresh_cells!(grid, u::Matrix, V, projection, FRESH, periodic_x, pe
                 u[II] = y_extrapolation(u_1, u_2, projection[II].point1, projection[II].point2, projection[II].mid_point)
             else
                 u[II] = x_extrapolation(u_1, u_2, projection[II].point1, projection[II].point2, projection[II].mid_point)
+            end
+        end
+    end
+end
+
+function init_fresh_cells!(grid, u::Vector, V, projection, FRESH, periodic_x, periodic_y)
+    _V = reshape(V, (grid.ny, grid.nx))
+    @inbounds @threads for II in FRESH
+        if projection[II].flag
+            pII = lexicographic(II, grid.ny)
+            u_1, u_2 = interpolated_temperature(grid, projection[II].angle, projection[II].point1, projection[II].point2, _V, II, periodic_x, periodic_y)
+            if π/4 <= projection[II].angle <= 3π/4 || -π/4 >= projection[II].angle >= -3π/4
+                u[pII] = y_extrapolation(u_1, u_2, projection[II].point1, projection[II].point2, projection[II].mid_point)
+            else
+                u[pII] = x_extrapolation(u_1, u_2, projection[II].point1, projection[II].point2, projection[II].mid_point)
             end
         end
     end
