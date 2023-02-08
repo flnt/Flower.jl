@@ -137,35 +137,10 @@ end
     Δy⁺ = 0.5 * (dy[II] + dy[δy⁺(II, ny, per_y)])
     Δy⁻ = 0.5 * (dy[δy⁻(II, ny, per_y)] + dy[II])
 
-    # if 0 <= α[II] < π/2
-        dx⁺ = Δx⁺
-        dx⁻ = Δx⁻
-        dy⁺ = Δy⁺
-        dy⁻ = Δy⁻
-    # elseif π/2 <= α[II] <= π
-    #     dx⁺ = Δx⁻
-    #     dx⁻ = Δx⁺
-    #     dy⁺ = Δy⁺
-    #     dy⁻ = Δy⁻
-    # elseif -π <= α[II] < -π/2
-    #     dx⁺ = Δx⁺
-    #     dx⁻ = Δx⁻
-    #     dy⁺ = Δy⁻
-    #     dy⁻ = Δy⁺
-    # else
-    #     dx⁺ = Δx⁻
-    #     dx⁻ = Δx⁺
-    #     dy⁺ = Δy⁻
-    #     dy⁻ = Δy⁺
-    # end
-
-    # B = inv((@SMatrix [(dx⁻/_dx)^2 -dx⁻/_dx 1.0;
-    #                     0.0 0.0 1.0;
-    #                     (dx⁺/_dx)^2 dx⁺/_dx 1.0]))
-
-    # BT = inv((@SMatrix [(dy⁻/_dy)^2 0.0 (dy⁺/_dy)^2;
-    #                     -dy⁻/_dy 0.0 dy⁺/_dy;
-    #                     1.0 1.0 1.0]))
+    dx⁺ = Δx⁺
+    dx⁻ = Δx⁻
+    dy⁺ = Δy⁺
+    dy⁻ = Δy⁻
 
     B = inv((@SMatrix [(dy⁻/_dy)^2 -dy⁻/_dy 1.0;
         0.0 0.0 1.0;
@@ -575,4 +550,36 @@ function (-)(B::Diagonal{Tv,Vector{Tv}}, A::AbstractSparseMatrix{Tv,Ti}) where {
         C.nzval[j] += b[col]
     end
     C
+end
+
+function mytime_print(elapsedtime, gctime=0)
+    timestr = Base.Ryu.writefixed(Float64(elapsedtime/1e9), 6)
+    str = sprint() do io
+        print(io, length(timestr) < 10 ? (" "^(10 - length(timestr))) : "")
+        print(io, timestr, " seconds")
+        parens = gctime > 0
+        parens && print(io, " (")
+        if gctime > 0
+            print(io, Base.Ryu.writefixed(Float64(gctime/1e9), 6), " gc time")
+        end
+        parens && print(io, " )")
+    end
+    println(str)
+    nothing
+end
+
+# macro that computes time removing the
+# garbage collector time
+macro mytime(ex)
+    quote
+        Base.Experimental.@force_compile
+        local stats = Base.gc_num()
+        local elapsedtime = Base.time_ns()
+        local val = $(esc(ex))
+        elapsedtime = Base.time_ns() - elapsedtime
+        local diff = Base.GC_Diff(Base.gc_num(), stats)
+        local t = elapsedtime - diff.total_time
+        mytime_print(t, diff.total_time)
+        (time=t/1e9, gctime=diff.total_time/1e9)
+    end
 end
