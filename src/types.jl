@@ -41,6 +41,8 @@ abstract type AbstractOptimizer end
     x_airfoil::Array{Float64} = [0.0]
     y_airfoil::Array{Float64} = [0.0]
     aniso::Bool = false
+    subdomains::Int64 = 2
+    overlaps::Int64 = 1
 end
 
 @with_kw mutable struct Indices{T <: Int64} <: NumericalParameters
@@ -112,6 +114,8 @@ mutable struct Mesh{G,T,N} <: Grid where {G<:Grid}
     V::Array{T,2}
     LSA::SparseMatrixCSC{T,N}
     LSB::SparseMatrixCSC{T,N}
+    domdec::DomainDecomposition{TS,3,D,A,O,W} where {TS,D,A,O,W}
+    pou::DomainDecomposedVector{T,3,DomainDecomposition{TS,3,D,A,O,W},A2} where {TS,D,A,O,W,A2}
 end
 
 mutable struct Operators{T <: Float64} <: MutatingFields
@@ -198,11 +202,16 @@ mutable struct Phase{T <: Float64} <: MutatingFields
     Du::Array{T,2}
     Dv::Array{T,2}
     # tmp::Vector{T}
-    TD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
-    pD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
-    ϕD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
-    uD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
-    vD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
+    # TD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
+    TD::Array{T,1}
+    # pD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
+    # ϕD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
+    # uD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
+    # vD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
+    pD::Array{T,1}
+    ϕD::Array{T,1}
+    uD::Array{T,1}
+    vD::Array{T,1}
     uvD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
     uvϕD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
 end
@@ -224,7 +233,7 @@ mutable struct Forward{T <: Float64} <: MutatingFields
     Vsave::Array{T,3}
     κsave::Array{T,3}
     lengthsave::Array{T,1}
-    time::Array{T,1}
+    tv::Array{T,1}
     Cd::Array{T,1}
     Cl::Array{T,1}
 end

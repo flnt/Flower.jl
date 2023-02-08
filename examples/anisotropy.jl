@@ -22,8 +22,10 @@ num = Numerical(T_inf = -0.8,
     A = -0.2,
     N = 6,
     R = 0.1,
-    max_iterations = 1,
-    ϵ = 0.05
+    # max_iterations = 1,
+    ϵ = 0.05,
+    subdomains = 4,
+    overlaps = 1
     )
 
 gp, gu, gv = init_meshes(num)
@@ -32,7 +34,7 @@ opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, p
 phL.T .= num.T_inf;
 
 # @profview MIXED, SOLID, LIQUID, A = run_forward(num, gp, gu, gv,
-@time MIXED, SOLID, LIQUID, A = run_forward(num, gp, gu, gv,
+@time MIXED, _, _, SOLID, LIQUID = run_forward(num, gp, gu, gv,
     opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL,
     phS, phL, fwd,
     stefan = true,
@@ -69,7 +71,7 @@ end
 f = contour!(gp.x[1,:], gp.y[:,1], fwd.usave[end,:,:]', levels = 0:0, color=:black, linewidth = 3);
 end
 
-limits!(ax, -0.2, 0.2, -0.2, 0.2)
+limits!(ax, -L0/2., L0/2., -L0/2., L0/2.)
 
 
 f = current_figure()

@@ -82,7 +82,7 @@ end
 function set_heat!(bc_type, num, grid, op, geo, BC_T, MIXED, projection)
     @unpack τ, θd, aniso = num
     @unpack nx, ny, ind = grid
-    @unpack Bx, By, BxT, ByT, Hx, Hy, HxT, HyT = op
+    @unpack Bx, By, BxT, ByT, Hx, Hy, HxT, HyT, iMx, iMy, χ = op
 
     if bc_type == dir
         __a1 = -1.
@@ -110,7 +110,7 @@ function set_heat!(bc_type, num, grid, op, geo, BC_T, MIXED, projection)
 
     χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
     χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
-    χ = Diagonal(sqrt.(vec(χx .+ χy))) 
+    χ .= Diagonal(sqrt.(vec(χx .+ χy))) 
 
     # Mass matrices
     M = Diagonal(vec(geo.dcap[:,:,5]))
@@ -128,8 +128,8 @@ function set_heat!(bc_type, num, grid, op, geo, BC_T, MIXED, projection)
     for II in ind.b_top[1]
         My[δy⁺(II)] = geo.dcap[II,11]
     end
-    iMx = Diagonal(1. ./ (vec(Mx) .+ eps(0.01)))
-    iMy = Diagonal(1. ./ (vec(My) .+ eps(0.01)))
+    iMx.diag .= 1. ./ (vec(Mx) .+ eps(0.01))
+    iMy.diag .= 1. ./ (vec(My) .+ eps(0.01))
 
     # Discrete gradient and divergence operators
     divergence_B!(BxT, ByT, geo.dcap, ny, ind.all_indices)
@@ -151,30 +151,27 @@ function set_heat!(bc_type, num, grid, op, geo, BC_T, MIXED, projection)
     dataA[1,2] = - 0.5 .* τ .* LD
     dataA[2,1] = b * (HxT * iMx * Bx .+ HyT * iMy * By)
     dataA[2,2] = pad(b * (HxT * iMx * Hx .+ HyT * iMy * Hy) .- χ * a1)
-    A = blockarray(dataA)
+    # A = blockarray(dataA)
+    A  = [dataA[1,1] dataA[1,2];
+          dataA[2,1] dataA[2,2]]
 
     dataB = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 2, 2)
     dataB[1,1] = M .+ 0.5 .* τ .* LT 
     dataB[1,2] = 0.5 .* τ .* LD
     dataB[2,1] = spdiagm(0 => zeros(nx*ny))
     dataB[2,2] = spdiagm(0 => zeros(nx*ny))
-    B = blockarray(dataB)
-
-    # Build block matrix for Crank-Nicolson
-    # mat_assign!(A, [M.-0.5.*τ.*LT -0.5.*τ.*LD;
-    #     b*(HxT * iMx * Bx .+ HyT * iMy * By) b*(HxT * iMx * Hx .+ HyT * iMy * Hy).-χ*a1])
-    # mat_assign!(B, [;.+0.5.*τ.*LT 0.5.*τ.*LD;
-    #     spdiagm(0 => zeros(nx*ny)) spdiagm(0 => zeros(nx*ny))])
+    # B = blockarray(dataB)
+    B  = [dataB[1,1] dataB[1,2];
+          dataB[2,1] dataB[2,2]]
 
     # Boundary conditions
-    data_rhs = Vector{Vector{Float64}}(undef, 2)
-    data_rhs[1] = zeros(nx*ny)
-    data_rhs[2] = χ * vec(a0)
-    rhs = blockarray(data_rhs)
+    # data_rhs = Vector{Vector{Float64}}(undef, 2)
+    # data_rhs[1] = zeros(nx*ny)
+    # data_rhs[2] = χ * vec(a0)
+    # rhs = blockarray(data_rhs)
 
-    # rhs = zeros(2*nx*ny)
-    # rhs[nx*ny+1:end] .= χ * vec(a0)
-    # fill_empty_rows!(num, grid, geo, A)
+    rhs = zeros(2*nx*ny)
+    rhs[nx*ny+1:end] .= χ * vec(a0)
 
     return A, B, rhs
     # return rhs

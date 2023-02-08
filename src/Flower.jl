@@ -10,6 +10,7 @@ import Base.*
 import Base.+
 import Base.-
 import Base.abs
+import Base.OneTo
 
 @reexport using Printf
 @reexport using Statistics
@@ -37,6 +38,7 @@ import Base.abs
 @reexport using BlockArrays
 @reexport using YAK
 @reexport using Krylov
+@reexport using DDM
 
 include("types.jl")
 include("init.jl")

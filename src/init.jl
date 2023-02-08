@@ -17,7 +17,7 @@ function Indices(nx, ny)
                    (LEFT, LEFT2), (BOTTOM, BOTTOM2), (RIGHT, RIGHT2), (TOP, TOP2))
 end
 
-function Mesh(grid, x_nodes, y_nodes)
+function Mesh(grid, x_nodes, y_nodes, s, o)
     nx = length(x_nodes) - 1
     ny = length(y_nodes) - 1
 
@@ -102,18 +102,27 @@ function Mesh(grid, x_nodes, y_nodes)
     LSA = sparse(II,JJ,vcat(a,b,c))
     LSB = sparse(II,JJ,vcat(a,b,c))
 
+    dom = domain((OneTo(ny), OneTo(nx), OneTo(2)))
+    subs = (s, s, 1)
+    over = (o, o, 0)
+    dec = DDM.decompose(dom, subs, over)
+
+    domdec = decomposition(dom, dec)
+
+    pou = uniform(domdec)
+
     return Mesh{grid,Float64,Int64}(x_nodes, y_nodes, x, y, nx, ny, dx, dy, ind, u, iso, faces, 
-                geoS, geoL, mid_point, cut_points, α, κ, V, LSA, LSB)
+                geoS, geoL, mid_point, cut_points, α, κ, V, LSA, LSB, domdec, pou)
 end
 
 function init_meshes(num::NumericalParameters)
-    mesh_cc = Mesh(GridCC, num.x, num.y)
+    mesh_cc = Mesh(GridCC, num.x, num.y, num.subdomains, num.overlaps)
 
     xx = vcat(num.x[1] - mesh_cc.dx[1,1]/2, num.x[1:end-1] .+ mesh_cc.dx[1,:]/2, num.x[end] + mesh_cc.dx[1,end]/2)
-    mesh_stx = Mesh(GridFCx, xx, num.y)
+    mesh_stx = Mesh(GridFCx, xx, num.y, num.subdomains, num.overlaps)
 
     yy = vcat(num.y[1] - mesh_cc.dy[1,1]/2, num.y[1:end-1] .+ mesh_cc.dy[:,1]/2, num.y[end] + mesh_cc.dy[end,1]/2)
-    mesh_sty = Mesh(GridFCy, num.x, yy)
+    mesh_sty = Mesh(GridFCy, num.x, yy, num.subdomains, num.overlaps)
 
     return (mesh_cc, mesh_stx, mesh_sty)
 end
@@ -697,20 +706,26 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     DuL = zeros(grid_u.ny, grid_u.nx)
     DvS = zeros(grid_v.ny, grid_v.nx)
     DvL = zeros(grid_v.ny, grid_v.nx)
-    # tmpS = zeros(grid_u.ny, grid_u.nx)
-    # tmpL = zeros(grid_u.ny, grid_u.nx)
-    # tmpS = zeros(2*ny*nx)
-    # tmpL = zeros(2*ny*nx)
-    TDS = init_block_array(grid, 2)
-    TDL = init_block_array(grid, 2)
-    pDS = init_block_array(grid, 2)
-    pDL = init_block_array(grid, 2)
-    ϕDS = init_block_array(grid, 2)
-    ϕDL = init_block_array(grid, 2)
-    uDS = init_block_array(grid_u, 2)
-    uDL = init_block_array(grid_u, 2)
-    vDS = init_block_array(grid_v, 2)
-    vDL = init_block_array(grid_v, 2)
+    # TDS = init_block_array(grid, 2)
+    # TDL = init_block_array(grid, 2)
+    TDS = zeros(2*ny*nx)
+    TDL = zeros(2*ny*nx)
+    # pDS = init_block_array(grid, 2)
+    # pDL = init_block_array(grid, 2)
+    # ϕDS = init_block_array(grid, 2)
+    # ϕDL = init_block_array(grid, 2)
+    # uDS = init_block_array(grid_u, 2)
+    # uDL = init_block_array(grid_u, 2)
+    # vDS = init_block_array(grid_v, 2)
+    # vDL = init_block_array(grid_v, 2)
+    pDS = zeros(2*ny*nx)
+    pDL = zeros(2*ny*nx)
+    ϕDS = zeros(2*ny*nx)
+    ϕDL = zeros(2*ny*nx)
+    uDS = zeros(2*grid_u.ny*grid_u.nx)
+    uDL = zeros(2*grid_u.ny*grid_u.nx)
+    vDS = zeros(2*grid_v.ny*grid_v.nx)
+    vDL = zeros(2*grid_v.ny*grid_v.nx)
     uvDS = init_block_array([grid_u, grid_v], [2, 2])
     uvDL = init_block_array([grid_u, grid_v], [2, 2])
     uvϕDS = init_block_array([grid_u, grid_v, grid], [2, 2, 2])

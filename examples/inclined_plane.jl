@@ -11,13 +11,13 @@ L0x = 2.0
 L0y = 2.0 * Ny
 n = 64
 
-x = LinRange(-L0x/2, L0x/2, 2n+1)
+x = LinRange(-L0x/2, L0x/2, n+1)
 y = LinRange(-L0y/2, L0y/2, Ny*n+1)
 
-d1 = x[2] - x[1]
-d0 = d1 / 2
-s = stretching(n, d0, d1, 0.1, 16, 16, 0.08)
-x = vcat(-reverse(s),s[2:end])
+# d1 = x[2] - x[1]
+# d0 = d1 / 2
+# s = stretching(n, d0, d1, 0.1, 16, 16, 0.08)
+# x = vcat(-reverse(s),s[2:end])
 
 num = Numerical(
     # case = "Mullins_cos",
@@ -27,11 +27,11 @@ num = Numerical(
     y = y,
     Re = 1.0,
     CFL = 0.1,
-    max_iterations = 10000,
+    max_iterations = 100,
     u_inf = 0.0,
     v_inf = 0.0,
     shifted = 0.0,
-    save_every = 50,
+    save_every = 1,
     σ = 1.0,
     ϵ = 0.05,
     g = 10.0,
@@ -40,7 +40,9 @@ num = Numerical(
     β = 0,
     R = h0,
     A = 0.3,
-    NB = 12
+    NB = 12,
+    subdomains = 2,
+    overlaps = 1
 )
 
 gp, gu, gv = init_meshes(num)
@@ -55,7 +57,7 @@ phL.v .= num.v_inf
 #     phL.pD.data[2][pII] = - num.g*cos(num.β) * gp.dy[1,1] / 2
 # end
 
-@time MIXED, MIXED_u, MIXED_v, SOLID, LIQUID, A = run_forward(num, gp, gu, gv,
+@time MIXED, MIXED_u, MIXED_v, SOLID, LIQUID = run_forward(num, gp, gu, gv,
     opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL,
     phS, phL, fwd,
     periodic_x = true,
@@ -136,16 +138,16 @@ suffix = "_dripping_β$(num.β)_g$(num.g)_A$(num.A)_it$(num.max_iterations)_ext_
 
 limx = lim
 limy = lim * Ny
-make_video(num, fwd, gu, "u"; title_prefix=prefix,
-        title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx-num.Δ/2,limx+num.Δ/2), limitsy=(-limy,limy))
-make_video(num, fwd, gv, "v"; title_prefix=prefix,
-        title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy-num.Δ/2,limy+num.Δ/2))
-make_video(num, fwd, gp, "p"; title_prefix=prefix,
-        title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))
-make_video(num, fwd, gp, "κ"; title_prefix=prefix,
-        title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))#, minv=-4.0, maxv=4.0)
-make_video(num, fwd, gp, "none"; title_prefix=prefix,
-        title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))
+# make_video(num, fwd, gu, "u"; title_prefix=prefix,
+#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx-num.Δ/2,limx+num.Δ/2), limitsy=(-limy,limy))
+# make_video(num, fwd, gv, "v"; title_prefix=prefix,
+#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy-num.Δ/2,limy+num.Δ/2))
+# make_video(num, fwd, gp, "p"; title_prefix=prefix,
+#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))
+# make_video(num, fwd, gp, "κ"; title_prefix=prefix,
+#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))#, minv=-4.0, maxv=4.0)
+# make_video(num, fwd, gp, "none"; title_prefix=prefix,
+#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))
 
 # fp = Figure()
 # ax = Axis(fp[1,1])

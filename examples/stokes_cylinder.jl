@@ -26,62 +26,63 @@ num = Numerical(case = "Cylinder",
     TEND = 0.5,
     x = x,
     y = y,
-    max_iterations = 1,
+    max_iterations = 100,
     R = 0.5,
     u_inf = 1,
-    ϵ = 0.02)
+    ϵ = 0.02,
+    subdomains = 2,
+    overlaps = 1
+)
 
 gp, gu, gv = init_meshes(num)
 opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd = init_fields(num, gp, gu, gv)
 
 @time MIXED, SOLID, LIQUID = run_forward(num, gp, gu, gv,
 # @profview MIXED, SOLID, LIQUID = run_forward(num, gp, gu, gv,
-opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL,
-phS, phL, fwd,
-BC_uL = Boundaries(
-left = Boundary(t = dir, f = dirichlet, val = num.u_inf),
-bottom = Boundary(t = dir, f = dirichlet, val = num.u_inf),
-top = Boundary(t = dir, f = dirichlet, val = num.u_inf)
-),
-BC_vL = Boundaries(
-left = Boundary(t = dir, f = dirichlet, val = num.v_inf),
-bottom = Boundary(t = dir, f = dirichlet, val = num.v_inf),
-top = Boundary(t = dir, f = dirichlet, val = num.v_inf)
-),
-BC_pL = Boundaries(
-        # bottom = Boundary(t = dir, f = dirichlet, val = 0.0),
-        right = Boundary(t = dir, f = dirichlet, val = 0.0),
-        # top = Boundary(t = dir, f = dirichlet, val = 0.0)
-        ),
-stefan = false,
-advection = false,
-heat = false,
-navier_stokes = true,
-ns_advection = false,
-ns_solid_phase = false,
-ns_liquid_phase = true,
-verbose = true,
-show_every = 1
+    opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL,
+    phS, phL, fwd,
+    BC_uL = Boundaries(
+        left = Boundary(t = dir, f = dirichlet, val = num.u_inf),
+        bottom = Boundary(t = dir, f = dirichlet, val = num.u_inf),
+        top = Boundary(t = dir, f = dirichlet, val = num.u_inf)
+    ),
+    BC_vL = Boundaries(
+        left = Boundary(t = dir, f = dirichlet, val = num.v_inf),
+        bottom = Boundary(t = dir, f = dirichlet, val = num.v_inf),
+        top = Boundary(t = dir, f = dirichlet, val = num.v_inf)
+    ),
+    BC_pL = Boundaries(
+            right = Boundary(t = dir, f = dirichlet, val = 0.0),
+            ),
+    stefan = false,
+    advection = false,
+    heat = false,
+    navier_stokes = true,
+    ns_advection = false,
+    ns_solid_phase = false,
+    ns_liquid_phase = true,
+    verbose = true,
+    show_every = 1
 )
 
-# tcks = -num.L0/2:2:num.L0
-# lim = num.L0 / 2
+tcks = -num.L0/2:2:num.L0
+lim = num.L0 / 2
 
-# fu = Figure(resolution = (1600, 1000))
-# colsize!(fu.layout, 1, Aspect(1, 1.0))
-# ax = Axis(fu[1,1], aspect = 1, xticks = tcks, yticks = tcks)  # customized as you see fit
-# heatmap!(gu.x[1,:], gu.y[:,1], phL.u')
-# contour!(gu.x[1,:], gu.y[:,1], gu.u', levels = 0:0, color=:red, linewidth = 3);
+fu = Figure(resolution = (1600, 1000))
+colsize!(fu.layout, 1, Aspect(1, 1.0))
+ax = Axis(fu[1,1], aspect = 1, xticks = tcks, yticks = tcks)
+heatmap!(gu.x[1,:], gu.y[:,1], phL.u')
+contour!(gu.x[1,:], gu.y[:,1], gu.u', levels = 0:0, color=:red, linewidth = 3);
 # limits!(ax, -lim, lim, -lim, lim)
-# resize_to_layout!(fu)
+resize_to_layout!(fu)
 
-# fv = Figure(resolution = (1600, 1000))
-# colsize!(fv.layout, 1, Aspect(1, 1.0))
-# ax = Axis(fv[1,1], aspect = 1, xticks = tcks, yticks = tcks)  # customized as you see fit
-# heatmap!(gv.x[1,:], gv.y[:,1], phL.v')
-# contour!(gv.x[1,:], gv.y[:,1], gv.u', levels = 0:0, color=:red, linewidth = 3);
+fv = Figure(resolution = (1600, 1000))
+colsize!(fv.layout, 1, Aspect(1, 1.0))
+ax = Axis(fv[1,1], aspect = 1, xticks = tcks, yticks = tcks)
+heatmap!(gv.x[1,:], gv.y[:,1], phL.v')
+contour!(gv.x[1,:], gv.y[:,1], gv.u', levels = 0:0, color=:red, linewidth = 3);
 # limits!(ax, -lim, lim, -lim, lim)
-# resize_to_layout!(fv)
+resize_to_layout!(fv)
 
 # pavg = mean(phL.p[LIQUID].*num.τ)
 # pstd = std(phL.p[LIQUID].*num.τ)*2
