@@ -413,51 +413,51 @@ function projection_no_slip!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     a0_p = zeros(grid.ny, grid.nx)
     A_p, rhs_p = set_poisson_block(neu, grid, a0_p, opC_p, Lp, bc_Lp, BC_p)
 
-    uD[1:grid_u.ny*grid_u.nx] .= vec(u)
+    veci(uD,grid_u,1) .= vec(u)
     update_dirichlet_field!(grid_u, uD, u, BC_u)
     mul!(rhs_u, B_u, uD, 1.0, 1.0)
-    rhs_u[1:grid_u.ny*grid_u.nx] .+= -τ .* (opC_p.Bx * pD[1:grid.ny*grid.nx] .+ opC_p.Hx * pD[grid.ny*grid.nx+1:end])
+    veci(rhs_u,grid_u,1) .+= -τ .* (opC_p.Bx * veci(pD,grid,1) .+ opC_p.Hx * veci(pD,grid,2))
     blocks = DDM.decompose(A_u, grid_u.domdec, grid_u.domdec)
     @mytime _, ch = bicgstabl!(uD, A_u, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
     println(ch)
-    ucorr .= reshape(uD[1:grid_u.ny*grid_u.nx], (grid_u.ny, grid_u.nx))
+    ucorr .= reshape(veci(uD,grid_u,1), (grid_u.ny, grid_u.nx))
 
-    vD[1:grid_v.ny*grid_v.nx] .= vec(v)
+    veci(vD,grid_v,1) .= vec(v)
     update_dirichlet_field!(grid_v, vD, v, BC_v)
     mul!(rhs_v, B_v, vD, 1.0, 1.0)
-    rhs_v[1:grid_v.ny*grid_v.nx] .+= -τ .* (opC_p.By * pD[1:grid.ny*grid.nx] .+ opC_p.Hy * pD[grid.ny*grid.nx+1:end])
+    veci(rhs_v,grid_v,1) .+= -τ .* (opC_p.By * veci(pD,grid,1) .+ opC_p.Hy * veci(pD,grid,2))
     blocks = DDM.decompose(A_v, grid_v.domdec, grid_v.domdec)
     @mytime _, ch = bicgstabl!(vD, A_v, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
     println(ch)
-    vcorr .= reshape(vD[1:grid_v.ny*grid_v.nx], (grid_v.ny, grid_v.nx))
+    vcorr .= reshape(veci(vD,grid_v,1), (grid_v.ny, grid_v.nx))
 
-    Duv = opC_p.AxT * uD[1:grid_u.ny*grid_u.nx] .+ opC_p.HxT * uD[grid_u.ny*grid_u.nx+1:end] .+
-          opC_p.AyT * vD[1:grid_v.ny*grid_v.nx] .+ opC_p.HyT * vD[grid_v.ny*grid_v.nx+1:end]
-    rhs_p[1:grid.ny*grid.nx] .=  iτ .* Duv
+    Duv = opC_p.AxT * veci(uD,grid_u,1) .+ opC_p.HxT * veci(uD,grid_u,2) .+
+          opC_p.AyT * veci(vD,grid_v,1) .+ opC_p.HyT * veci(vD,grid_v,2)
+    veci(rhs_p,grid,1) .=  iτ .* Duv
 
-    sum_rhs = sum(rhs_p[1:grid.ny*grid.nx])
+    sum_rhs = sum(veci(rhs_p,grid,1))
     sum_Mp = sum(geo.dcap[:,:,5])
     non_empty = vcat(FULL, MIXED)
     @inbounds @threads for II in non_empty
         pII = lexicographic(II, grid.ny)
-        @inbounds rhs_p[1:grid.ny*grid.nx][pII] -= sum_rhs * geo.dcap[II,5] / sum_Mp
+        @inbounds veci(rhs_p,grid,1)[pII] -= sum_rhs * geo.dcap[II,5] / sum_Mp
     end
 
-    ϕD[1:grid.ny*grid.nx] .= 0.
-    ϕD[grid.ny*grid.nx+1:end] .= 0.
+    veci(ϕD,grid,1) .= 0.
+    veci(ϕD,grid,2) .= 0.
     blocks = DDM.decompose(A_p, grid.domdec, grid.domdec)
     @mytime _, ch = bicgstabl!(ϕD, A_p, rhs_p, Pl=ras(blocks,grid.pou), log=true)
     println(ch)
-    ϕ .= reshape(ϕD[1:grid.ny*grid.nx], (grid.ny, grid.nx))
+    ϕ .= reshape(veci(ϕD,grid,1), (grid.ny, grid.nx))
 
     iM = Diagonal(1. ./ (vec(geo.dcap[:,:,5]) .+ eps(0.01)))
-    pD[1:grid.ny*grid.nx] .= vec(p)
-    pD[1:grid.ny*grid.nx] .+= vec(ϕ) .- 0.5 .* iRe .* iM * Duv
-    pD[grid.ny*grid.nx+1:end] .+= ϕD[grid.ny*grid.nx+1:end]
-    p .= reshape(pD[1:grid.ny*grid.nx], (grid.ny, grid.nx))
+    veci(pD,grid,1) .= vec(p)
+    veci(pD,grid,1) .+= vec(ϕ) .- 0.5 .* iRe .* iM * Duv
+    veci(pD,grid,2) .+= veci(ϕD,grid,2)
+    p .= reshape(veci(pD,grid,1), (grid.ny, grid.nx))
 
-    u .= ucorr .- τ .* reshape(opC_p.iMx * (opC_p.Bx * vec(ϕ) .+ opC_p.Hx * ϕD[grid.ny*grid.nx+1:end]), (grid_u.ny, grid_u.nx))
-    v .= vcorr .- τ .* reshape(opC_p.iMy * (opC_p.By * vec(ϕ) .+ opC_p.Hy * ϕD[grid.ny*grid.nx+1:end]), (grid_v.ny, grid_v.nx))
+    u .= ucorr .- τ .* reshape(opC_p.iMx * (opC_p.Bx * vec(ϕ) .+ opC_p.Hx * veci(ϕD,grid,2)), (grid_u.ny, grid_u.nx))
+    v .= vcorr .- τ .* reshape(opC_p.iMy * (opC_p.By * vec(ϕ) .+ opC_p.Hy * veci(ϕD,grid,2)), (grid_v.ny, grid_v.nx))
 
     return Lu, bc_Lu, Lv, bc_Lv, opC_u.M, opC_v.M
 end
@@ -616,9 +616,6 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     b0_v = Diagonal(vec(_b0_v))
     b0_p = Diagonal(vec(_b0_p))
 
-    no_fs_u = I - b0_u
-    no_fs_v = I - b0_v
-
     rhs_uvϕ[1] .+= Mum1 * vec(u)
     rhs_uvϕ[3] .+= Mvm1 * vec(v)
 
@@ -649,33 +646,33 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
 
     rhs_ϕ = vcat(rhs_uvϕ[5], rhs_uvϕ[6])
 
-    Duv = opC_p.AxT * uD[1:grid_u.ny*grid_u.nx] .+ opC_p.Gx * uD[grid_u.ny*grid_u.nx+1:end] .+
-          opC_p.AyT * vD[1:grid_v.ny*grid_v.nx] .+ opC_p.Gy * vD[grid_v.ny*grid_v.nx+1:end]
+    Duv = opC_p.AxT * veci(uD,grid_u,1) .+ opC_p.Gx * veci(uD,grid_u,2) .+
+          opC_p.AyT * veci(vD,grid_v,1) .+ opC_p.Gy * veci(vD,grid_v,2)
     rhs_ϕ[1:grid.ny*grid.nx] .= iτ .* Duv
 
     GxT = opC_u.Gx'
     GyT = opC_v.Gy'
-    S = GxT * ((2 .* opC_u.HxT * opC_u.iMx * opC_u.Bx .+ opC_u.HyT * opC_u.iMy * opC_u.By) * uD[1:grid_u.ny*grid_u.nx] .+
-               (2 .* opC_u.HxT * opC_u.iMx * opC_u.Hx .+ opC_u.HyT * opC_u.iMy * opC_u.Hy) * uD[grid_u.ny*grid_u.nx+1:end]) .+
-        GyT * ((2 .* opC_v.HyT * opC_v.iMy * opC_v.By .+ opC_v.HxT * opC_v.iMx * opC_v.Bx) * vD[1:grid_v.ny*grid_v.nx] .+
-               (2 .* opC_v.HyT * opC_v.iMy * opC_v.Hy .+ opC_v.HxT * opC_v.iMx * opC_v.Hx) * vD[grid_v.ny*grid_v.nx+1:end])
+    S = GxT * ((2 .* opC_u.HxT * opC_u.iMx * opC_u.Bx .+ opC_u.HyT * opC_u.iMy * opC_u.By) * veci(uD,grid_u,1) .+
+               (2 .* opC_u.HxT * opC_u.iMx * opC_u.Hx .+ opC_u.HyT * opC_u.iMy * opC_u.Hy) * veci(uD,grid_u,2)) .+
+        GyT * ((2 .* opC_v.HyT * opC_v.iMy * opC_v.By .+ opC_v.HxT * opC_v.iMx * opC_v.Bx) * veci(vD,grid_v,1) .+
+               (2 .* opC_v.HyT * opC_v.iMy * opC_v.Hy .+ opC_v.HxT * opC_v.iMx * opC_v.Hx) * veci(vD,grid_v,2))
 
-    rhs_ϕ[grid.ny*grid.nx+1:end] .= b0_p * (iRe .* S .- σ .* (GxT * opC_u.Gx .+ GyT * opC_v.Gy) * vec(grid.κ))
+    veci(rhs_ϕ,grid,2) .= b0_p * (iRe .* S .- σ .* (GxT * opC_u.Gx .+ GyT * opC_v.Gy) * vec(grid.κ))
     Aϕ = [A_uvϕ[5,5] A_uvϕ[5,6];
           A_uvϕ[6,5] A_uvϕ[6,6]]
     blocks = DDM.decompose(Aϕ, grid.domdec, grid.domdec)
     @mytime _, ch = bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl=ras(blocks,grid.pou), log=true)
     println(ch)
 
-    ucorr .= reshape(uD[1:grid_u.ny*grid_u.nx], (grid_u.ny, grid_u.nx))
-    vcorr .= reshape(vD[1:grid_v.ny*grid_v.nx], (grid_v.ny, grid_v.nx))
-    ϕ .= reshape(ϕD[1:grid.ny*grid.nx], (grid.ny, grid.nx))
+    ucorr .= reshape(veci(uD,grid_u,1), (grid_u.ny, grid_u.nx))
+    vcorr .= reshape(veci(vD,grid_v,1), (grid_v.ny, grid_v.nx))
+    ϕ .= reshape(veci(ϕD,grid,1), (grid.ny, grid.nx))
 
     iMu = Diagonal(1 ./ (opC_u.M.diag .+ eps(0.01)))
     iMv = Diagonal(1 ./ (opC_v.M.diag .+ eps(0.01)))
 
-    ∇ϕ_x = opC_u.AxT * opC_u.Rx * ϕD[1:grid.ny*grid.nx] .+ opC_u.Gx * ϕD[grid.ny*grid.nx+1:end]
-    ∇ϕ_y = opC_v.AyT * opC_v.Ry * ϕD[1:grid.ny*grid.nx] .+ opC_v.Gy * ϕD[grid.ny*grid.nx+1:end]
+    ∇ϕ_x = opC_u.AxT * opC_u.Rx * veci(ϕD,grid,1) .+ opC_u.Gx * veci(ϕD,grid,2)
+    ∇ϕ_y = opC_v.AyT * opC_v.Ry * veci(ϕD,grid,1) .+ opC_v.Gy * veci(ϕD,grid,2)
 
     p .= ϕ
     Gxm1 .= ∇ϕ_x

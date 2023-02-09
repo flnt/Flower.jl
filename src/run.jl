@@ -184,9 +184,9 @@ function run_forward(num, grid, grid_u, grid_v,
         kill_dead_cells!(phL.T, opL.LT, SOLID, MIXED, ny)
 
         NB_indices = get_NB_width(grid, MIXED, NB_indices_base)
-        get_iterface_location!(grid, MIXED)
-        get_iterface_location!(grid_u, MIXED_u)
-        get_iterface_location!(grid_v, MIXED_v)
+        get_interface_location!(grid, MIXED)
+        get_interface_location!(grid_u, MIXED_u)
+        get_interface_location!(grid_v, MIXED_v)
         get_interface_location_borders!(grid_u, periodic_x, periodic_y)
         get_interface_location_borders!(grid_v, periodic_x, periodic_y)
 
@@ -207,7 +207,7 @@ function run_forward(num, grid, grid_u, grid_v,
         if hill
             local radius = zeros(max_iterations+1)
             a = zeros(length(MIXED))
-            for i in 1:length(MIXED)
+            for i in eachindex(MIXED)
                 a[i] = geoL.projection[MIXED[i]].pos.y
             end
             radius[1] = mean(a)
@@ -249,22 +249,22 @@ function run_forward(num, grid, grid_u, grid_v,
     tmpDL = copy(phL.T)
     tmpDL[2:end-1,2:end-1] .= θd
 
-    phS.TD[nx*ny+1:end] .= vec(tmpDS)
-    phL.TD[nx*ny+1:end] .= vec(tmpDL)
+    veci(phS.TD,grid,2) .= vec(tmpDS)
+    veci(phL.TD,grid,2) .= vec(tmpDL)
 
     tmpu = ones(grid_u.ny, grid_u.nx) .* num.u_inf
     tmpu[2:end-1,2:end-1] .= 0.0
-    phS.uD[1:grid_u.ny*grid_u.nx] .= vec(phS.u)
-    phS.uD[grid_u.ny*grid_u.nx+1:end] .= vec(tmpu)
-    phL.uD[1:grid_u.ny*grid_u.nx] .= vec(phL.u)
-    phL.uD[grid_u.ny*grid_u.nx+1:end] .= vec(tmpu)
+    veci(phS.uD,grid_u,1) .= vec(phS.u)
+    veci(phS.uD,grid_u,2) .= vec(tmpu)
+    veci(phL.uD,grid_u,1) .= vec(phL.u)
+    veci(phL.uD,grid_u,2) .= vec(tmpu)
 
     tmpv = ones(grid_v.ny, grid_v.nx) .* num.v_inf
     tmpv[2:end-1,2:end-1] .= 0.0
-    phS.vD[1:grid_v.ny*grid_v.nx] .= vec(phS.v)
-    phS.vD[grid_v.ny*grid_v.nx+1:end] .= vec(tmpv)
-    phL.vD[1:grid_v.ny*grid_v.nx] .= vec(phL.v)
-    phL.vD[grid_v.ny*grid_v.nx+1:end] .= vec(tmpv)
+    veci(phS.vD,grid_v,1) .= vec(phS.v)
+    veci(phS.vD,grid_v,2) .= vec(tmpv)
+    veci(phL.vD,grid_v,1) .= vec(phL.v)
+    veci(phL.vD,grid_v,2) .= vec(tmpv)
 
     if free_surface
         Lpm1_S, bc_Lpm1_S, Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Lpm1_fs_S, bc_Lpm1_fs_S, Lum1_fs_S, bc_Lum1_fs_S, Lvm1_fs_S, bc_Lvm1_fs_S = set_laplacians!(grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
@@ -302,24 +302,24 @@ function run_forward(num, grid, grid_u, grid_v,
 
         if heat
             if heat_solid_phase
-                phS.TD[1:ny*nx] .= vec(phS.T)
+                veci(phS.TD,grid,1) .= vec(phS.T)
                 A_T, B, rhs = set_heat!(dir, num, grid, opC_TS, geoS, BC_TS, MIXED, geoS.projection)
                 mul!(rhs, B, phS.TD, 1.0, 1.0)
                 @mytime blocks = DDM.decompose(A_T, grid.domdec, grid.domdec)
 
-                @mytime (_, ch) = bicgstabl!(phS.TD, A_T, rhs, Pl=ras(blocks,grid.pou)#=deflation(blocks, grid.pou, true)=#, log=true)
+                @mytime (_, ch) = bicgstabl!(phS.TD, A_T, rhs, Pl=ras(blocks,grid.pou), log=true)
                 println(ch)
-                phS.T .= reshape(phS.TD[1:ny*nx], (ny, nx))
+                phS.T .= reshape(veci(phS.TD,grid,1), (ny, nx))
             end
             if heat_liquid_phase
-                phL.TD[1:ny*nx] .= vec(phL.T)
+                veci(phL.TD,grid,1) .= vec(phL.T)
                 A_T, B, rhs = set_heat!(dir, num, grid, opC_TL, geoL, BC_TL, MIXED, geoL.projection)
                 mul!(rhs, B, phL.TD, 1.0, 1.0)
                 @mytime blocks = DDM.decompose(A_T, grid.domdec, grid.domdec)
 
-                @mytime (_, ch) = bicgstabl!(phL.TD, A_T, rhs, Pl=ras(blocks,grid.pou)#=deflation(blocks, grid.pou, true)=#, log=true)
+                @mytime (_, ch) = bicgstabl!(phL.TD, A_T, rhs, Pl=ras(blocks,grid.pou), log=true)
                 println(ch)
-                phL.T .= reshape(phL.TD[1:ny*nx], (ny, nx))
+                phL.T .= reshape(veci(phL.TD,grid,1), (ny, nx))
             end
         end
 
@@ -338,8 +338,8 @@ function run_forward(num, grid, grid_u, grid_v,
         end
 
         if free_surface
-            grid_u.V .= reshape(phL.uD[grid_u.ny*grid_u.nx+1:end], (grid_u.ny, grid_u.nx))
-            grid_v.V .= reshape(phL.vD[grid_v.ny*grid_v.nx+1:end], (grid_v.ny, grid_v.nx))
+            grid_u.V .= reshape(veci(phL.uD,grid_u,2), (grid_u.ny, grid_u.nx))
+            grid_v.V .= reshape(veci(phL.vD,grid_v,2), (grid_v.ny, grid_v.nx))
 
             _MIXED_L_u_vel_ext = intersect(findall(grid_u.geoL.emptied),
                                            MIXED_u_vel_ext)
@@ -475,16 +475,11 @@ function run_forward(num, grid, grid_u, grid_v,
             kill_dead_cells!(phS.T, opS.LT, LIQUID, MIXED, ny)
             kill_dead_cells!(phL.T, opL.LT, SOLID, MIXED, ny)
 
-            # @inbounds @threads for II in MIXED
-            #     TS[II] = θd
-            #     TL[II] = θd
-            # end
-
             NB_indices = get_NB_width(grid, MIXED, NB_indices_base)
 
-            get_iterface_location!(grid, MIXED)
-            get_iterface_location!(grid_u, MIXED_u)
-            get_iterface_location!(grid_v, MIXED_v)
+            get_interface_location!(grid, MIXED)
+            get_interface_location!(grid_u, MIXED_u)
+            get_interface_location!(grid_v, MIXED_v)
             get_interface_location_borders!(grid_u, periodic_x, periodic_y)
             get_interface_location_borders!(grid_v, periodic_x, periodic_y)
 
@@ -535,7 +530,7 @@ function run_forward(num, grid, grid_u, grid_v,
                 end
                 if hill
                     a = zeros(length(MIXED))
-                    for i in 1:length(MIXED)
+                    for i in eachindex(MIXED)
                         a[i] = geoL.projection[MIXED[i]].pos.y
                     end
                     radius[snap] = mean(a)
@@ -598,41 +593,41 @@ function run_forward(num, grid, grid_u, grid_v,
                 snap = size(Tsave,1)
             end
             tv[snap] = current_t
-            Vsave[snap,:,:] .= V
-            usave[snap,:,:] .= u
-            uusave[snap,:,:] .= grid_u.u
-            uvsave[snap,:,:] .= grid_v.u
+            @views Vsave[snap,:,:] .= V
+            @views usave[snap,:,:] .= u
+            @views uusave[snap,:,:] .= grid_u.u
+            @views uvsave[snap,:,:] .= grid_v.u
 
             if heat_solid_phase && heat_liquid_phase
-                Tsave[snap,:,:] .= phL.T[:,:].*geoL.cap[:,:,5] .+ phS.T[:,:].*geoS.cap[:,:,5]
+                @views Tsave[snap,:,:] .= phL.T[:,:].*geoL.cap[:,:,5] .+ phS.T[:,:].*geoS.cap[:,:,5]
             elseif heat_solid_phase
-                Tsave[snap,:,:] .= phS.T[:,:]
+                @views Tsave[snap,:,:] .= phS.T[:,:]
             elseif heat_liquid_phase
-                Tsave[snap,:,:] .= phL.T[:,:]
+                @views Tsave[snap,:,:] .= phL.T[:,:]
             end
 
             if ns_solid_phase && ns_liquid_phase
-                psave[snap,:,:] .= phL.p[:,:].*geoL.cap[:,:,5] .+ phS.p[:,:].*geoS.cap[:,:,5]
-                ϕsave[snap,:,:] .= phL.ϕ[:,:].*geoL.cap[:,:,5] .+ phS.ϕ[:,:].*geoS.cap[:,:,5]
-                Uxsave[snap,:,:] .= phL.u[:,:].*grid_u.geoL.cap[:,:,5] .+ phS.u[:,:].*geoS.capu[:,:,5]
-                Uysave[snap,:,:] .= phL.v[:,:].*grid_v.geoL.cap[:,:,5] .+ phS.v[:,:].*geoS.capv[:,:,5]
-                Uxcorrsave[snap,:,:] .= phL.ucorr[:,:].*grid_u.geoL.cap[:,:,5] .+ phS.ucorr[:,:].*geoS.capu[:,:,5]
-                Uycorrsave[snap,:,:] .= phL.vcorr[:,:].*grid_v.geoL.cap[:,:,5] .+ phS.vcorr[:,:].*geoS.capv[:,:,5]
+                @views psave[snap,:,:] .= phL.p[:,:].*geoL.cap[:,:,5] .+ phS.p[:,:].*geoS.cap[:,:,5]
+                @views ϕsave[snap,:,:] .= phL.ϕ[:,:].*geoL.cap[:,:,5] .+ phS.ϕ[:,:].*geoS.cap[:,:,5]
+                @views Uxsave[snap,:,:] .= phL.u[:,:].*grid_u.geoL.cap[:,:,5] .+ phS.u[:,:].*geoS.capu[:,:,5]
+                @views Uysave[snap,:,:] .= phL.v[:,:].*grid_v.geoL.cap[:,:,5] .+ phS.v[:,:].*geoS.capv[:,:,5]
+                @views Uxcorrsave[snap,:,:] .= phL.ucorr[:,:].*grid_u.geoL.cap[:,:,5] .+ phS.ucorr[:,:].*geoS.capu[:,:,5]
+                @views Uycorrsave[snap,:,:] .= phL.vcorr[:,:].*grid_v.geoL.cap[:,:,5] .+ phS.vcorr[:,:].*geoS.capv[:,:,5]
                 force_coefficients!(num, grid, grid_u, grid_v, opL, fwd; step=snap)
             elseif ns_solid_phase
-                psave[snap,:,:] .= phS.p[:,:]
-                ϕsave[snap,:,:] .= phS.ϕ[:,:]
-                Uxsave[snap,:,:] .= phS.u[:,:]
-                Uysave[snap,:,:] .= phS.v[:,:]
-                Uxcorrsave[snap,:,:] .= phS.ucorr[:,:]
-                Uycorrsave[snap,:,:] .= phS.vcorr[:,:]
+                @views psave[snap,:,:] .= phS.p[:,:]
+                @views ϕsave[snap,:,:] .= phS.ϕ[:,:]
+                @views Uxsave[snap,:,:] .= phS.u[:,:]
+                @views Uysave[snap,:,:] .= phS.v[:,:]
+                @views Uxcorrsave[snap,:,:] .= phS.ucorr[:,:]
+                @views Uycorrsave[snap,:,:] .= phS.vcorr[:,:]
             elseif ns_liquid_phase
-                psave[snap,:,:] .= phL.p[:,:]
-                ϕsave[snap,:,:] .= phL.ϕ[:,:]
-                Uxsave[snap,:,:] .= phL.u[:,:]
-                Uysave[snap,:,:] .= phL.v[:,:]
-                Uxcorrsave[snap,:,:] .= phL.ucorr[:,:]
-                Uycorrsave[snap,:,:] .= phL.vcorr[:,:]
+                @views psave[snap,:,:] .= phL.p[:,:]
+                @views ϕsave[snap,:,:] .= phL.ϕ[:,:]
+                @views Uxsave[snap,:,:] .= phL.u[:,:]
+                @views Uysave[snap,:,:] .= phL.v[:,:]
+                @views Uxcorrsave[snap,:,:] .= phL.ucorr[:,:]
+                @views Uycorrsave[snap,:,:] .= phL.vcorr[:,:]
                 force_coefficients!(num, grid, grid_u, grid_v, opL, fwd; step=snap)
             end
         end
@@ -874,8 +869,8 @@ function run_backward(num, grid, opS, opL, fwd, adj;
             FRESH_L = intersect(MIXED, WAS_SOLID)
             FRESH_S = intersect(MIXED, WAS_LIQUID)
 
-            init_fresh_cells!(grid, TS, geoS.projection, FRESH_S)
-            init_fresh_cells!(grid, TL, geoL.projection, FRESH_L)
+            init_fresh_cells!(grid, TS, geoS.projection, FRESH_S, periodic_x, periodic_y)
+            init_fresh_cells!(grid, TL, geoL.projection, FRESH_L, periodic_x, periodic_y)
 
             get_curvature(num, grid, MIXED, periodic_x, periodic_y)
         end

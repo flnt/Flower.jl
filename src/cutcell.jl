@@ -626,7 +626,7 @@ function marching_squares!(num, grid)
     return nothing
 end
 
-function get_iterface_location!(grid, indices)
+function get_interface_location!(grid, indices)
     @unpack x, y, iso, geoS, geoL, mid_point, cut_points, α = grid
 
     @inbounds @threads for II in indices
