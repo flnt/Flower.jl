@@ -20,6 +20,23 @@ const newaxis = [CartesianIndex()]
 @inline δx⁺(II, nx, per) = per && II[2]==nx ? CartesianIndex(II[1], 1) : δx⁺(II)
 @inline δx⁻(II, nx, per) = per && II[2]==1 ? CartesianIndex(II[1], nx) : δx⁻(II)
 
+# Temporary function to get a certain field from a vector with 
+# multiple fields. To be removed when working with decomposed 
+# vectors directly
+veci(a, g::G, p::Int) where {G<:Grid} = @view a[g.ny*g.nx*(p-1)+1:g.ny*g.nx*p]
+
+function veci(a, g::Vector{G}, p::Int) where {G<:Grid}
+    c0 = 1
+    c1 = g[1].ny * g[1].nx
+    for i = 2:p
+        ii = (p - 1) ÷ 2 + 1
+        c0 += g[ii].ny * g[ii].nx
+        c1 += g[ii].ny * g[ii].nx
+    end
+
+    return @view a[c0:c1]
+end
+
 @inline opposite(α) = ifelse(α >= 0. ,α - π, α + π)
 
 @inline distance(A::Point, B::Point, dx=1.0, dy=1.0) =

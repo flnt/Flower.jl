@@ -206,8 +206,8 @@ mutable struct Phase{T <: Float64} <: MutatingFields
     ϕD::Array{T,1}
     uD::Array{T,1}
     vD::Array{T,1}
-    uvD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
-    uvϕD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
+    uvD::Array{T,1}
+    uvϕD::Array{T,1}
 end
 
 mutable struct Forward{T <: Float64} <: MutatingFields

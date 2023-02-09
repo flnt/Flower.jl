@@ -523,10 +523,6 @@ function set_crank_nicolson_block(bc_type, num,
     data_A = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 6, 6)
     data_A[1,1] = pad_crank_nicolson(opC_u.M .- τ .* Lu, grid_u, τ)
     data_A[1,2] = - τ .* bc_Lu
-    data_A[1,3] = spdiagm(grid_u.nx*grid_u.ny, grid_v.nx*grid_v.ny, 0 => zeros(size_zeros))
-    data_A[1,4] = spdiagm(grid_u.nx*grid_u.ny, grid_v.nx*grid_v.ny, 0 => zeros(size_zeros))
-    data_A[1,5] = spdiagm(grid_u.nx*grid_u.ny, grid.nx*grid.ny, 0 => zeros(grid.nx*grid.ny))
-    data_A[1,6] = spdiagm(grid_u.nx*grid_u.ny, grid.nx*grid.ny, 0 => zeros(grid.nx*grid.ny))
 
     data_A[2,1] = #=-b0_u * opC_u.χ .+=#
                   (b0_u .+ b1_u) * (opC_u.HxT * opC_u.iMx * opC_u.Bx .+
@@ -535,20 +531,10 @@ function set_crank_nicolson_block(bc_type, num,
                       (b0_u .+ b1_u) * (opC_u.HxT * opC_u.iMx * opC_u.Hx .+
                               opC_u.HyT * opC_u.iMy * opC_u.Hy) .-
                       opC_u.χ * a1_u)
-    data_A[2,3] = spdiagm(grid_u.nx*grid_u.ny, grid_v.nx*grid_v.ny, 0 => zeros(size_zeros))
-    data_A[2,4] = spdiagm(grid_u.nx*grid_u.ny, grid_v.nx*grid_v.ny, 0 => zeros(size_zeros))
-    data_A[2,5] = spdiagm(grid_u.nx*grid_u.ny, grid.nx*grid.ny, 0 => zeros(grid.nx*grid.ny))
-    data_A[2,6] = spdiagm(grid_u.nx*grid_u.ny, grid.nx*grid.ny, 0 => zeros(grid.nx*grid.ny))
 
-    data_A[3,1] = spdiagm(grid_v.nx*grid_v.ny, grid_u.nx*grid_u.ny, 0 => zeros(size_zeros))
-    data_A[3,2] = spdiagm(grid_v.nx*grid_v.ny, grid_u.nx*grid_u.ny, 0 => zeros(size_zeros))
     data_A[3,3] = pad_crank_nicolson(opC_v.M .- τ .* Lv, grid_v, τ)
     data_A[3,4] = - τ .* bc_Lv
-    data_A[3,5] = spdiagm(grid_v.nx*grid_v.ny, grid.nx*grid.ny, 0 => zeros(grid.nx*grid.ny))
-    data_A[3,6] = spdiagm(grid_v.nx*grid_v.ny, grid.nx*grid.ny, 0 => zeros(grid.nx*grid.ny))
 
-    data_A[4,1] = spdiagm(grid_v.nx*grid_v.ny, grid_u.nx*grid_u.ny, 0 => zeros(size_zeros))
-    data_A[4,2] = spdiagm(grid_v.nx*grid_v.ny, grid_u.nx*grid_u.ny, 0 => zeros(size_zeros))
     data_A[4,3] = #=-b0_v * opC_v.χ .+=#
                   (b0_v .+ b1_v) * (opC_v.HyT * opC_v.iMy * opC_v.By .+
                           opC_v.HxT * opC_v.iMx * opC_v.Bx)
@@ -556,20 +542,10 @@ function set_crank_nicolson_block(bc_type, num,
                       (b0_v .+ b1_v) * (opC_v.HyT * opC_v.iMy * opC_v.Hy .+
                               opC_v.HxT * opC_v.iMx * opC_v.Hx) .-
                       opC_v.χ * a1_v)
-    data_A[4,5] = spdiagm(grid_v.nx*grid_v.ny, grid.nx*grid.ny, 0 => zeros(grid.nx*grid.ny))
-    data_A[4,6] = spdiagm(grid_v.nx*grid_v.ny, grid.nx*grid.ny, 0 => zeros(grid.nx*grid.ny))
 
-    data_A[5,1] = spdiagm(grid.nx*grid.ny, grid_u.nx*grid_u.ny, 0 => zeros(grid.nx*grid.ny))
-    data_A[5,2] = spdiagm(grid.nx*grid.ny, grid_u.nx*grid_u.ny, 0 => zeros(grid.nx*grid.ny))
-    data_A[5,3] = spdiagm(grid.nx*grid.ny, grid_v.nx*grid_v.ny, 0 => zeros(grid.nx*grid.ny))
-    data_A[5,4] = spdiagm(grid.nx*grid.ny, grid_v.nx*grid_v.ny, 0 => zeros(grid.nx*grid.ny))
     data_A[5,5] = pad(Lp, -4.0)
     data_A[5,6] = bc_Lp
 
-    data_A[6,1] = spdiagm(grid.nx*grid.ny, grid_u.nx*grid_u.ny, 0 => zeros(grid.nx*grid.ny))
-    data_A[6,2] = spdiagm(grid.nx*grid.ny, grid_u.nx*grid_u.ny, 0 => zeros(grid.nx*grid.ny))
-    data_A[6,3] = spdiagm(grid.nx*grid.ny, grid_v.nx*grid_v.ny, 0 => zeros(grid.nx*grid.ny))
-    data_A[6,4] = spdiagm(grid.nx*grid.ny, grid_v.nx*grid_v.ny, 0 => zeros(grid.nx*grid.ny))
     # data_A[6,5] = b0_p * opC_p.χ * Lp .+
     #               b1_p * (opC_p.HxT * opC_p.iMx * opC_p.Bx .+
     #                       opC_p.HyT * opC_p.iMy * opC_p.By)
@@ -586,8 +562,6 @@ function set_crank_nicolson_block(bc_type, num,
                               opC_p.HyT * opC_p.iMy * opC_p.Hy) .-
                       opC_p.χ * a1_p)
 
-    A = blockarray(data_A)
-
     data_rhs = Vector{Vector{Float64}}(undef, 6)
     data_rhs[1] = zeros(grid_u.nx*grid_u.ny)
     data_rhs[2] = opC_u.χ * vec(a0_u)
@@ -595,10 +569,8 @@ function set_crank_nicolson_block(bc_type, num,
     data_rhs[4] = opC_v.χ * vec(a0_v)
     data_rhs[5] = zeros(grid.nx*grid.ny)
     data_rhs[6] = opC_p.χ * vec(a0_p)
-
-    rhs = blockarray(data_rhs)
     
-    return A, rhs
+    return data_A, data_rhs
 end
 
 function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
@@ -648,35 +620,35 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     no_fs_u = I - b0_u
     no_fs_v = I - b0_v
 
-    rhs_uvϕ.data[1] .+= Mum1 * vec(u)
-    rhs_uvϕ.data[3] .+= Mvm1 * vec(v)
+    rhs_uvϕ[1] .+= Mum1 * vec(u)
+    rhs_uvϕ[3] .+= Mvm1 * vec(v)
 
     grav_x = g .* sin(β) .* Mum1 * ones(grid_u.nx * grid_u.ny)
     grav_y = g .* cos(β) .* Mvm1 * ones(grid_v.nx * grid_v.ny)
 
-    rhs_uvϕ.data[1] .+= τ .* grav_x
-    rhs_uvϕ.data[3] .+= - τ .* grav_y
+    rhs_uvϕ[1] .+= τ .* grav_x
+    rhs_uvϕ[3] .+= - τ .* grav_y
 
-    kill_dead_cells!(rhs_uvϕ.data[1], grid_u, geo_u)
-    kill_dead_cells!(rhs_uvϕ.data[2], grid_u, geo_u)
-    kill_dead_cells!(rhs_uvϕ.data[3], grid_v, geo_v)
-    kill_dead_cells!(rhs_uvϕ.data[4], grid_v, geo_v)
+    kill_dead_cells!(rhs_uvϕ[1], grid_u, geo_u)
+    kill_dead_cells!(rhs_uvϕ[2], grid_u, geo_u)
+    kill_dead_cells!(rhs_uvϕ[3], grid_v, geo_v)
+    kill_dead_cells!(rhs_uvϕ[4], grid_v, geo_v)
 
-    Au = [A_uvϕ.data[1,1] A_uvϕ.data[1,2];
-          A_uvϕ.data[2,1] A_uvϕ.data[2,2]]
-    rhs_u = vcat(rhs_uvϕ.data[1], rhs_uvϕ.data[2])
+    Au = [A_uvϕ[1,1] A_uvϕ[1,2];
+          A_uvϕ[2,1] A_uvϕ[2,2]]
+    rhs_u = vcat(rhs_uvϕ[1], rhs_uvϕ[2])
     blocks = DDM.decompose(Au, grid_u.domdec, grid_u.domdec)
     @mytime _, ch = bicgstabl!(uD, Au, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
     println(ch)
 
-    Av = [A_uvϕ.data[3,3] A_uvϕ.data[3,4];
-          A_uvϕ.data[4,3] A_uvϕ.data[4,4]]
-    rhs_v = vcat(rhs_uvϕ.data[3], rhs_uvϕ.data[4])
+    Av = [A_uvϕ[3,3] A_uvϕ[3,4];
+          A_uvϕ[4,3] A_uvϕ[4,4]]
+    rhs_v = vcat(rhs_uvϕ[3], rhs_uvϕ[4])
     blocks = DDM.decompose(Av, grid_v.domdec, grid_v.domdec)
     @mytime _, ch = bicgstabl!(vD, Av, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
     println(ch)
 
-    rhs_ϕ = vcat(rhs_uvϕ.data[5], rhs_uvϕ.data[6])
+    rhs_ϕ = vcat(rhs_uvϕ[5], rhs_uvϕ[6])
 
     Duv = opC_p.AxT * uD[1:grid_u.ny*grid_u.nx] .+ opC_p.Gx * uD[grid_u.ny*grid_u.nx+1:end] .+
           opC_p.AyT * vD[1:grid_v.ny*grid_v.nx] .+ opC_p.Gy * vD[grid_v.ny*grid_v.nx+1:end]
@@ -690,8 +662,8 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
                (2 .* opC_v.HyT * opC_v.iMy * opC_v.Hy .+ opC_v.HxT * opC_v.iMx * opC_v.Hx) * vD[grid_v.ny*grid_v.nx+1:end])
 
     rhs_ϕ[grid.ny*grid.nx+1:end] .= b0_p * (iRe .* S .- σ .* (GxT * opC_u.Gx .+ GyT * opC_v.Gy) * vec(grid.κ))
-    Aϕ = [A_uvϕ.data[5,5] A_uvϕ.data[5,6];
-          A_uvϕ.data[6,5] A_uvϕ.data[6,6]]
+    Aϕ = [A_uvϕ[5,5] A_uvϕ[5,6];
+          A_uvϕ[6,5] A_uvϕ[6,6]]
     blocks = DDM.decompose(Aϕ, grid.domdec, grid.domdec)
     @mytime _, ch = bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl=ras(blocks,grid.pou), log=true)
     println(ch)

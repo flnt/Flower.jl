@@ -34,7 +34,6 @@ import Base.OneTo
 @reexport using ImageFiltering
 @reexport using JLD
 @reexport using SuiteSparse
-@reexport using BlockArrays
 @reexport using Krylov
 @reexport using DDM
 

@@ -2,7 +2,7 @@
 
 julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "65adfe7ee66c356e22d7e16c97b97b45ffc91eb8"
+project_hash = "86076899f4ff828ed812d76cce4a127a590f2817"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -78,12 +78,6 @@ deps = ["Static"]
 git-tree-sha1 = "eaee37f76339077f86679787a71990c4e465477f"
 uuid = "62783981-4cbd-42fc-bca8-16325de8dc4b"
 version = "0.1.4"
-
-[[deps.BlockArrays]]
-deps = ["LinearAlgebra", "SparseArrays"]
-path = "/Users/alex/.julia/dev/BlockArrays"
-uuid = "a6c3cd3a-0588-4485-ad9c-1cd5ebe55495"
-version = "0.1.1"
 
 [[deps.Blosc]]
 deps = ["Blosc_jll"]
@@ -1603,12 +1597,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "79c31e7844f6ecf779705fbc12146eb190b7d845"
 uuid = "c5fb5394-a638-5e4d-96e5-b29de1b5cf10"
 version = "1.4.0+3"
-
-[[deps.YAK]]
-deps = ["Krylov", "LinearAlgebra"]
-path = "/Users/alex/.julia/dev/YAK"
-uuid = "bb469232-cda0-4212-9922-edc2ca06342f"
-version = "0.1.2"
 
 [[deps.Zlib_jll]]
 deps = ["Libdl"]

@@ -214,29 +214,6 @@ function init_sparse_ByT(grid)
     ByT = sparse(II,JJ,a)
 end
 
-function init_block_array(grid::Mesh, n::Int64)
-    @unpack nx, ny = grid
-
-    data = Vector{Vector{Float64}}(undef, n)
-    for i = 1:n
-        data[i] = zeros(ny * nx)
-    end
-    A = blockarray(data)
-end
-
-function init_block_array(grids::Vector{Mesh{G,Float64,Int64} where G}, nv::Vector{Int64})
-    data = Vector{Vector{Float64}}(undef, sum(nv))
-    c = 1
-    for (grid,n) in zip(grids, nv)
-        for i = 1:n
-            data[c] = zeros(grid.ny * grid.nx)
-            c += 1
-        end
-    end
-    A = blockarray(data)
-end
-
-
 function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     @unpack τ, N, T_inf, u_inf, v_inf, A, R, L0, Δ, shifted, max_iterations, save_every, CFL, x_airfoil, y_airfoil = num
     @unpack x, y, nx, ny, u, ind = grid
@@ -706,18 +683,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     DuL = zeros(grid_u.ny, grid_u.nx)
     DvS = zeros(grid_v.ny, grid_v.nx)
     DvL = zeros(grid_v.ny, grid_v.nx)
-    # TDS = init_block_array(grid, 2)
-    # TDL = init_block_array(grid, 2)
     TDS = zeros(2*ny*nx)
     TDL = zeros(2*ny*nx)
-    # pDS = init_block_array(grid, 2)
-    # pDL = init_block_array(grid, 2)
-    # ϕDS = init_block_array(grid, 2)
-    # ϕDL = init_block_array(grid, 2)
-    # uDS = init_block_array(grid_u, 2)
-    # uDL = init_block_array(grid_u, 2)
-    # vDS = init_block_array(grid_v, 2)
-    # vDL = init_block_array(grid_v, 2)
     pDS = zeros(2*ny*nx)
     pDL = zeros(2*ny*nx)
     ϕDS = zeros(2*ny*nx)
@@ -726,10 +693,10 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     uDL = zeros(2*grid_u.ny*grid_u.nx)
     vDS = zeros(2*grid_v.ny*grid_v.nx)
     vDL = zeros(2*grid_v.ny*grid_v.nx)
-    uvDS = init_block_array([grid_u, grid_v], [2, 2])
-    uvDL = init_block_array([grid_u, grid_v], [2, 2])
-    uvϕDS = init_block_array([grid_u, grid_v, grid], [2, 2, 2])
-    uvϕDL = init_block_array([grid_u, grid_v, grid], [2, 2, 2])
+    uvDS = zeros(2*grid_u.ny*grid_u.nx + 2*grid_v.ny*grid_v.nx)
+    uvDL = zeros(2*grid_u.ny*grid_u.nx + 2*grid_v.ny*grid_v.nx)
+    uvϕDS = zeros(2*grid_u.ny*grid_u.nx + 2*grid_v.ny*grid_v.nx + 2*grid.ny*grid.nx)
+    uvϕDL = zeros(2*grid_u.ny*grid_u.nx + 2*grid_v.ny*grid_v.nx + 2*grid.ny*grid.nx)
 
     n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
     
