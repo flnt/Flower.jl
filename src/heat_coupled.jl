@@ -151,7 +151,6 @@ function set_heat!(bc_type, num, grid, op, geo, BC_T, MIXED, projection)
     dataA[1,2] = - 0.5 .* τ .* LD
     dataA[2,1] = b * (HxT * iMx * Bx .+ HyT * iMy * By)
     dataA[2,2] = pad(b * (HxT * iMx * Hx .+ HyT * iMy * Hy) .- χ * a1)
-    # A = blockarray(dataA)
     A  = [dataA[1,1] dataA[1,2];
           dataA[2,1] dataA[2,2]]
 
@@ -160,19 +159,11 @@ function set_heat!(bc_type, num, grid, op, geo, BC_T, MIXED, projection)
     dataB[1,2] = 0.5 .* τ .* LD
     dataB[2,1] = spdiagm(0 => zeros(nx*ny))
     dataB[2,2] = spdiagm(0 => zeros(nx*ny))
-    # B = blockarray(dataB)
     B  = [dataB[1,1] dataB[1,2];
           dataB[2,1] dataB[2,2]]
-
-    # Boundary conditions
-    # data_rhs = Vector{Vector{Float64}}(undef, 2)
-    # data_rhs[1] = zeros(nx*ny)
-    # data_rhs[2] = χ * vec(a0)
-    # rhs = blockarray(data_rhs)
 
     rhs = zeros(2*nx*ny)
     rhs[nx*ny+1:end] .= χ * vec(a0)
 
     return A, B, rhs
-    # return rhs
 end

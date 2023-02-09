@@ -201,13 +201,7 @@ mutable struct Phase{T <: Float64} <: MutatingFields
     Dϕ::Array{T,2}
     Du::Array{T,2}
     Dv::Array{T,2}
-    # tmp::Vector{T}
-    # TD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
     TD::Array{T,1}
-    # pD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
-    # ϕD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
-    # uD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
-    # vD::BlockDenseVector{Float64, Vector{Vector{Float64}}}
     pD::Array{T,1}
     ϕD::Array{T,1}
     uD::Array{T,1}

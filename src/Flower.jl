@@ -29,14 +29,12 @@ import Base.OneTo
 @reexport using CairoMakie
 @reexport using Gnuplot
 @reexport using IterativeSolvers
-@reexport using PETSc
 @reexport using LsqFit
 @reexport using Polynomials
 @reexport using ImageFiltering
 @reexport using JLD
 @reexport using SuiteSparse
 @reexport using BlockArrays
-@reexport using YAK
 @reexport using Krylov
 @reexport using DDM
 
@@ -50,8 +48,7 @@ include("operators_coupled.jl")
 include("heat.jl")
 include("heat_coupled.jl")
 include("navier_stokes.jl")
-include("navier_stokes_coupled_2.jl")
-include("solver.jl")
+include("navier_stokes_coupled.jl")
 include("run.jl")
 include("optimize.jl")
 include("viz.jl")
