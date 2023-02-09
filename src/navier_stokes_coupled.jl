@@ -395,7 +395,6 @@ end
 function projection_no_slip!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
                             BC_u, BC_v, BC_p,
                             opC_p, opC_u, opC_v,
-                            ws_p, history_p, ws_u, history_u, ws_v, history_v,
                             Lum1, bc_Lum1, Lvm1, bc_Lvm1, Mum1, Mvm1,
                             FULL, MIXED, periodic_x, periodic_y
     )
