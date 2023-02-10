@@ -148,16 +148,11 @@ end
     _dx = dx[II]
     _dy = dy[II]
 
-    Δx⁺ = 0.5 * (dx[II] + dx[δx⁺(II, nx, per_x)])
-    Δx⁻ = 0.5 * (dx[δx⁻(II, nx, per_x)] + dx[II])
+    dx⁺ = 0.5 * (dx[II] + dx[δx⁺(II, nx, per_x)])
+    dx⁻ = 0.5 * (dx[δx⁻(II, nx, per_x)] + dx[II])
 
-    Δy⁺ = 0.5 * (dy[II] + dy[δy⁺(II, ny, per_y)])
-    Δy⁻ = 0.5 * (dy[δy⁻(II, ny, per_y)] + dy[II])
-
-    dx⁺ = Δx⁺
-    dx⁻ = Δx⁻
-    dy⁺ = Δy⁺
-    dy⁻ = Δy⁻
+    dy⁺ = 0.5 * (dy[II] + dy[δy⁺(II, ny, per_y)])
+    dy⁻ = 0.5 * (dy[δy⁻(II, ny, per_y)] + dy[II])
 
     B = inv((@SMatrix [(dy⁻/_dy)^2 -dy⁻/_dy 1.0;
         0.0 0.0 1.0;

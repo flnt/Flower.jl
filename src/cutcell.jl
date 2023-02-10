@@ -66,7 +66,7 @@ end
    x = 0.; y = 0.; area = 0.; k = 0.;
    c = nodes[end]
    d = nodes[end]
-   @inbounds for i in 1:length(nodes)
+   @inbounds for i in eachindex(nodes)
       c = nodes[i]
 
       k = c.y*d.x - c.x*d.y
@@ -499,24 +499,12 @@ function clip_new!(grid, indices, per_x, per_y, ϵ_c, ϵ)
 end
 
 function postprocess_grids!(grid, grid_u, grid_v, MIXED, MIXED_u, MIXED_v, periodic_x, periodic_y, advection, ϵ)
-    ϵ_c = 4e-2
-    ϵ_c = 5e-2
+    clip_cells!(grid, ϵ, periodic_x, periodic_y)
+    clip_cells!(grid_u, ϵ, periodic_x, periodic_y)
+    clip_cells!(grid_v, ϵ, periodic_x, periodic_y)
 
-    # id = CartesianIndex(53,3)
-    # @show (grid.geoL.cap[id,1:5])
-    # @show (grid.geoL.cap[δy⁻(id),1:5])
-
-    clip_cells!(grid, 1e-3, periodic_x, periodic_y)
-    # clip_cells!(grid, ϵ_c, periodic_x, periodic_y)
-    clip_cells!(grid_u, ϵ_c, periodic_x, periodic_y)
-    clip_cells!(grid_v, ϵ_c, periodic_x, periodic_y)
-
-    clip_A_acc_to_V(grid, grid_u, grid_v, grid.geoS, grid_u.geoS, grid_v.geoS, ϵ_c)
-    clip_A_acc_to_V(grid, grid_u, grid_v, grid.geoL, grid_u.geoL, grid_v.geoL, ϵ_c)
-
-    # id = CartesianIndex(53,3)
-    # @show (grid.geoL.cap[id,1:5])
-    # @show (grid.geoL.cap[δy⁻(id),1:5])
+    clip_A_acc_to_V(grid, grid_u, grid_v, grid.geoS, grid_u.geoS, grid_v.geoS, ϵ)
+    clip_A_acc_to_V(grid, grid_u, grid_v, grid.geoL, grid_u.geoL, grid_v.geoL, ϵ)
     
     dimensionalize!(grid, grid.geoS)
     dimensionalize!(grid, grid.geoL)
@@ -751,27 +739,6 @@ function get_curvature(num, grid, inside, per_x, per_y)
         dy = grid.dy[II]
 
         κ[II] = parabola_fit_curvature(itp, mid_point, dx, dy)
-
-        # id1 = CartesianIndex(24,22)
-        # id2 = CartesianIndex(9,41)
-        # id3 = CartesianIndex(24,41) 
-        # if II == id2 || II == id3
-        #     @show (II)
-        #     @show (B[1,:])
-        #     @show (B[2,:])
-        #     @show (B[3,:])
-        #     @show (st[1,:])
-        #     @show (st[2,:])
-        #     @show (st[3,:])
-        #     # @show (BT)
-        #     # println(sum(B[1,:] .* st[:,2]) .* BT[2,3])
-        #     # @show (itp[1,3])
-        #     # @show (κ[II])
-        #     # println(2*itp[1,3]/((1+(2*itp[1,3]*mid_point.y/dy + itp[2,3])^2)^1.5)/(dy)^2)
-        #     # println(2*itp[3,1]/((1+(2*itp[3,1]*mid_point.x/dx + itp[3,2])^2)^1.5)/(dx)^2)
-        #     println([0.0 0.0 1] * itp * [0.25 -0.5 1]')
-        #     println()
-        # end
     end
 end
 
