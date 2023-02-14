@@ -614,12 +614,16 @@ function marching_squares!(num, grid)
     return nothing
 end
 
-function get_interface_location!(grid, indices)
+function get_iterface_location!(grid, indices, one_phase)
     @unpack x, y, iso, geoS, geoL, mid_point, cut_points, α = grid
 
     @inbounds @threads for II in indices
         f = average_face_capacities(grid, II)
         geoS.cap[II,:], geoL.cap[II,:], α[II], geoS.centroid[II], geoL.centroid[II], mid_point[II], cut_points[II] = capacities(f, iso[II])
+        if one_phase # forcing capacoties to be one 
+            geoS.cap[II, 1:7] .= 1.0
+            geoS.cap[II, 8:11] .= 0.5
+        end
         geoS.projection[II], geoL.projection[II] = projection_2points(grid, II)
     end
     return nothing

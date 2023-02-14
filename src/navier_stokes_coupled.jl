@@ -577,9 +577,9 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
                         opC_p, opC_u, opC_v,
                         Lum1, bc_Lum1, Lvm1, bc_Lvm1, Mum1, Mvm1,
                         FRESH, FRESH_u, FRESH_v,
-                        FULL, MIXED, periodic_x, periodic_y, current_i
+    FULL, MIXED, periodic_x, periodic_y, current_i, show_every
     )
-    @unpack Re, τ, σ, g, β = num
+    @unpack Re, τ, σ, g, β, tolu, tolp = num
     @unpack p, pD, ϕ, ϕD, Gxm1, Gym1, u, v, uD, vD, uvD, uvϕD, ucorr, vcorr = ph
 
     iRe = 1.0 / Re
@@ -630,19 +630,34 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     kill_dead_cells!(rhs_uvϕ[3], grid_v, geo_v)
     kill_dead_cells!(rhs_uvϕ[4], grid_v, geo_v)
 
-    Au = [A_uvϕ[1,1] A_uvϕ[1,2];
-          A_uvϕ[2,1] A_uvϕ[2,2]]
+    showlog = false
+    if current_i % show_every == 0
+        showlog = true
+    end
+
+    Au = [A_uvϕ[1, 1] A_uvϕ[1, 2]
+        A_uvϕ[2, 1] A_uvϕ[2, 2]]
+    if showlog
+        #     println("cond Au: ", cond(Matrix(Au)))
+        #println("Au is symmetric: ", issymmetric(Au))
+    end
     rhs_u = vcat(rhs_uvϕ[1], rhs_uvϕ[2])
     blocks = DDM.decompose(Au, grid_u.domdec, grid_u.domdec)
-    @mytime _, ch = bicgstabl!(uD, Au, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
-    println(ch)
+    #@mytime 
+    _, ch = bicgstabl!(uD, Au, rhs_u, Pl=ras(blocks, grid_u.pou), abstol=tolu, log=showlog)
+    if showlog
+        println("Solving u: ", ch, " tol: ", tolu)
+    end
 
     Av = [A_uvϕ[3,3] A_uvϕ[3,4];
           A_uvϕ[4,3] A_uvϕ[4,4]]
     rhs_v = vcat(rhs_uvϕ[3], rhs_uvϕ[4])
     blocks = DDM.decompose(Av, grid_v.domdec, grid_v.domdec)
-    @mytime _, ch = bicgstabl!(vD, Av, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
-    println(ch)
+    #@mytime 
+    _, ch = bicgstabl!(vD, Av, rhs_v, Pl=ras(blocks, grid_v.pou), abstol=tolu, log=showlog)
+    if showlog
+        println("Solving v: ", ch, " tol: ", tolu)
+    end
 
     rhs_ϕ = vcat(rhs_uvϕ[5], rhs_uvϕ[6])
 
@@ -661,8 +676,11 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     Aϕ = [A_uvϕ[5,5] A_uvϕ[5,6];
           A_uvϕ[6,5] A_uvϕ[6,6]]
     blocks = DDM.decompose(Aϕ, grid.domdec, grid.domdec)
-    @mytime _, ch = bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl=ras(blocks,grid.pou), log=true)
-    println(ch)
+    #@mytime 
+    _, ch = bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl=ras(blocks, grid.pou), abstol=tolp, log=showlog)
+    if showlog
+        println("Solving ϕ: ", ch, " tol: ", tolp)
+    end
 
     ucorr .= reshape(veci(uD,grid_u,1), (grid_u.ny, grid_u.nx))
     vcorr .= reshape(veci(vD,grid_v,1), (grid_v.ny, grid_v.nx))

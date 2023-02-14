@@ -215,7 +215,7 @@ function init_sparse_ByT(grid)
 end
 
 function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
-    @unpack τ, N, T_inf, u_inf, v_inf, A, R, L0, Δ, shifted, max_iterations, save_every, CFL, x_airfoil, y_airfoil = num
+    @unpack τ, N, T_inf, u_inf, v_inf, A, R, L0, Δ, shifted, shift_y, max_iterations, save_every, CFL, x_airfoil, y_airfoil = num
     @unpack x, y, nx, ny, u, ind = grid
 
     SCUTT = zeros(nx*ny)
@@ -741,10 +741,10 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
         #     end
         # end
     elseif num.case == "Cylinder"
-        u .= sqrt.((x .+ shifted).^ 2 + y .^ 2) - (R) * ones(ny, nx);
+        u .= sqrt.((x .+ shifted).^ 2 + (y .+ shift_y) .^ 2) - (R) * ones(ny, nx);
         init_franck!(grid, TL, R, T_inf, 0)
 
-        su = sqrt.((grid_u.x .+ shifted).^2 .+ grid_u.y.^2)
+        su = sqrt.((grid_u.x .+ shifted).^2 .+ (grid_u.y .+ shift_y).^2)
         R1 = R + 3.0*Δ
         uL .= u_inf
         vL .= v_inf

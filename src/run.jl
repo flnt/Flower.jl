@@ -62,6 +62,7 @@ function run_forward(num, grid, grid_u, grid_v,
     hill = false,
     Vmean = false,
     levelset = true,
+    one_phase=false,
     speed = 0,
     analytical = false,
     verbose = false,
@@ -180,13 +181,23 @@ function run_forward(num, grid, grid_u, grid_v,
         MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(grid_u.iso, grid_u.ind.all_indices)
         MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(grid_v.iso, grid_v.ind.all_indices)
 
+        if one_phase
+            SOLID_u = []
+            SOLID_v = []
+            SOLID = []
+
+            LIQUID_u = vec(grid_u.ind.all_indices)
+            LIQUID_v = vec(grid_v.ind.all_indices)
+            LIQUID = vec(grid.ind.all_indices)
+        end
+
         kill_dead_cells!(phS.T, opS.LT, LIQUID, MIXED, ny)
         kill_dead_cells!(phL.T, opL.LT, SOLID, MIXED, ny)
 
         NB_indices = get_NB_width(grid, MIXED, NB_indices_base)
-        get_interface_location!(grid, MIXED)
-        get_interface_location!(grid_u, MIXED_u)
-        get_interface_location!(grid_v, MIXED_v)
+        get_iterface_location!(grid, MIXED, one_phase)
+        get_iterface_location!(grid_u, MIXED_u, one_phase)
+        get_iterface_location!(grid_v, MIXED_v, one_phase)
         get_interface_location_borders!(grid_u, periodic_x, periodic_y)
         get_interface_location_borders!(grid_v, periodic_x, periodic_y)
 
@@ -292,7 +303,7 @@ function run_forward(num, grid, grid_u, grid_v,
         Mvm1_S = copy(opC_vS.M)
     end
 
-    current_t = 0.
+    current_t = 0.0
 
     while current_i < max_iterations + 1
 
@@ -359,9 +370,9 @@ function run_forward(num, grid, grid_u, grid_v,
             velocity_extension!(grid_v, indices_v_vel_ext, NB, periodic_x, periodic_y)
         end
 
-        if verbose && adaptative_t
-            println("τ = $τ")
-        end
+        #if verbose && adaptative_t
+        #    println("τ = $τ")
+        #end
 
         if advection
             CFL_sc = τ / Δ^2
@@ -408,8 +419,12 @@ function run_forward(num, grid, grid_u, grid_v,
             if current_i%show_every == 0
                 try
                     printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) \n" (current_i-1) 100*(current_i-1)/max_iterations)
+                    print(@sprintf "t = %3.2f  dt = %.6f\n" current_t τ)
                     if (heat && length(MIXED) != 0)
-                        print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f\n" mean(V[MIXED]) findmax(V[MIXED])[1] findmin(V[MIXED])[1])
+                        Vmean = mean(V[MIXED])
+                        V_max = findmax(V[MIXED])[1]
+                        V_min = findmin(V[MIXED])[1]
+                        print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f\n" Vmean V_max V_min)
                         print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f\n" mean(κ[MIXED]) findmax(κ[MIXED])[1] findmin(κ[MIXED])[1])
                     elseif free_surface
                         V_mean = mean([mean(grid_u.V[MIXED]), mean(grid_v.V[MIXED])])
@@ -417,6 +432,11 @@ function run_forward(num, grid, grid_u, grid_v,
                         V_min = min(findmin(grid_u.V[MIXED])[1], findmin(grid_v.V[MIXED])[1])
                         print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f\n" V_mean V_max V_min)
                         print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f\n" mean(κ[MIXED]) findmax(κ[MIXED])[1] findmin(κ[MIXED])[1])
+                    end
+                    if V_max > 10 # crash control 
+                        printstyled(color=:red,"V_max > 10... simulation diverged: STOP!")
+                        println()
+                        max_iterations = current_i
                     end
                     if navier_stokes
                         if ns_solid_phase
@@ -472,14 +492,24 @@ function run_forward(num, grid, grid_u, grid_v,
             MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(grid_u.iso, grid_u.ind.all_indices)
             MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(grid_v.iso, grid_v.ind.all_indices)
 
+            if one_phase
+                SOLID_u = []
+                SOLID_v = []
+                SOLID = []
+
+                LIQUID_u = vec(grid_u.ind.all_indices)
+                LIQUID_v = vec(grid_v.ind.all_indices)
+                LIQUID = vec(grid.ind.all_indices)
+            end
+
             kill_dead_cells!(phS.T, opS.LT, LIQUID, MIXED, ny)
             kill_dead_cells!(phL.T, opL.LT, SOLID, MIXED, ny)
 
             NB_indices = get_NB_width(grid, MIXED, NB_indices_base)
 
-            get_interface_location!(grid, MIXED)
-            get_interface_location!(grid_u, MIXED_u)
-            get_interface_location!(grid_v, MIXED_v)
+            get_iterface_location!(grid, MIXED, one_phase)
+            get_iterface_location!(grid_u, MIXED_u, one_phase)
+            get_iterface_location!(grid_v, MIXED_v, one_phase)
             get_interface_location_borders!(grid_u, periodic_x, periodic_y)
             get_interface_location_borders!(grid_v, periodic_x, periodic_y)
 
@@ -558,7 +588,7 @@ function run_forward(num, grid, grid_u, grid_v,
                                                                                           opC_pS, opC_uS, opC_vS,
                                                                                           Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S,
                                                                                           FRESH_S, FRESH_S_u, FRESH_S_v,
-                                                                                          SOLID, MIXED, periodic_x, periodic_y, current_i)
+                        SOLID, MIXED, periodic_x, periodic_y, current_i, show_every)
                 else
                     Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S = projection_no_slip!(num, grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, phS,
                                                                                                BC_uS, BC_vS, BC_pS,
@@ -575,7 +605,7 @@ function run_forward(num, grid, grid_u, grid_v,
                                                                                           opC_pL, opC_uL, opC_vL,
                                                                                           Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L,
                                                                                           FRESH_L, FRESH_L_u, FRESH_L_v,
-                                                                                          LIQUID, MIXED, periodic_x, periodic_y, current_i)
+                        LIQUID, MIXED, periodic_x, periodic_y, current_i, show_every)
                 else
                    Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L = projection_no_slip!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,
                                                                                               BC_uL, BC_vL, BC_pL,
@@ -864,7 +894,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
             MIXED, SOLID, LIQUID = get_cells_indices(iso, inside)
             NB_indices = Flower.get_NB_width(MIXED, NB_indices_base)
 
-            get_iterface_location!(grid, MIXED)
+            get_iterface_location!(grid, MIXED, one_phase)
 
             FRESH_L = intersect(MIXED, WAS_SOLID)
             FRESH_S = intersect(MIXED, WAS_LIQUID)

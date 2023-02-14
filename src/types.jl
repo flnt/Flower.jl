@@ -14,6 +14,7 @@ abstract type AbstractOptimizer end
     Δ::Float64 = min(diff(x)..., diff(y)...)
     shift::Float64 = 0.0
     shifted::Float64 = shift*Δ
+    shift_y::Float64 = shift * Δ
     τ::Float64 = min(CFL*Δ^2*Re, CFL*Δ)
     max_iterations::Int = TEND÷τ
     current_i::Int = 1
@@ -43,6 +44,9 @@ abstract type AbstractOptimizer end
     aniso::Bool = false
     subdomains::Int64 = 2
     overlaps::Int64 = 1
+    tolu::Float64 = 1.0e-6
+    tolp::Float64 = 1.0e-6
+    tolt::Float64 = 1.0e-6
 end
 
 @with_kw mutable struct Indices{T <: Int64} <: NumericalParameters
