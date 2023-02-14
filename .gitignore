@@ -6,3 +6,4 @@
 *.ps
 *.gz
 *DS_Store
+.vscode/

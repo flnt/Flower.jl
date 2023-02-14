@@ -30,7 +30,7 @@ num = Numerical( # defined in types.jl
     save_every=1, #
     σ=1.0, # surface tension
     ϵ=0.05, # 
-    g=10.0, # gravity
+    g=0.0, # gravity
     β=0, # angle of inclination
     # case="Cylinder", # params: shifted
     # shifted=0,
@@ -51,8 +51,8 @@ num = Numerical( # defined in types.jl
 gp, gu, gv = init_meshes(num)
 opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd = init_fields(num, gp, gu, gv)
 
-phL.u .= num.u_inf
-phL.v .= num.v_inf
+# phL.u .= num.u_inf
+# phL.v .= num.v_inf
 
 # set inital pDirichlet field so that there's a pressure gradient at the bottom
 # @inbounds @threads for II in gp.ind.b_bottom[1]
@@ -83,20 +83,20 @@ phL.v .= num.v_inf
         bottom=Boundary(t=neu, f=neumann, val=0.0),
         top=Boundary(t=neu, f=neumann, val=0.0),
     ),
-    # u velocity (Solid)
-    BC_uS=Boundaries(
-        left=Boundary(t=dir, f=dirichlet, val=0.0),
-        right=Boundary(t=neu, f=neumann, val=0.0),
-        bottom=Boundary(t=neu, f=neumann, val=0.0),
-        top=Boundary(t=neu, f=neumann, val=0.0),
-    ),
-    # v velocity (Solid)
-    BC_vS=Boundaries(
-        left=Boundary(t=dir, f=dirichlet, val=num.v_inf),
-        right=Boundary(t=neu, f=neumann, val=0.0),
-        bottom=Boundary(t=neu, f=neumann, val=0.0),
-        top=Boundary(t=neu, f=neumann, val=0.0),
-    ),
+    # # u velocity (Solid)
+    # BC_uS=Boundaries(
+    #     left=Boundary(t=dir, f=dirichlet, val=0.0),
+    #     right=Boundary(t=neu, f=neumann, val=0.0),
+    #     bottom=Boundary(t=neu, f=neumann, val=0.0),
+    #     top=Boundary(t=neu, f=neumann, val=0.0),
+    # ),
+    # # v velocity (Solid)
+    # BC_vS=Boundaries(
+    #     left=Boundary(t=dir, f=dirichlet, val=num.v_inf),
+    #     right=Boundary(t=neu, f=neumann, val=0.0),
+    #     bottom=Boundary(t=neu, f=neumann, val=0.0),
+    #     top=Boundary(t=neu, f=neumann, val=0.0),
+    # ),
     # pressure (Liquid)
     # dirichlet wherever you put Neumann in the velocity and viceversa
     BC_pL=Boundaries(
@@ -169,7 +169,7 @@ contour!(gu.x[1, :], gu.y[:, 1], fwd.uusave[end, :, :]', # interpolated
     levels=0:0, color=:blue, linewidth=3)
 contour!(gp.x[1, :], gp.y[:, 1], fwd.usave[end, :, :]', # real one
     levels=0:0, color=:red, linewidth=3)
-Makie.save("inclined_plane_fu.png", fu)
+# Makie.save("inclined_plane_fu.png", fu)
 
 fv = Figure();
 ax = Axis(fv[1, 1],
@@ -180,7 +180,7 @@ hm = heatmap!(gv.x[1, :], gv.y[:, 1], fwd.Uysave[end, :, :]')
 Colorbar(fv[1, 2], hm, label="v")
 contour!(gp.x[1, :], gp.y[:, 1], gp.u',
     levels=0:0, color=:red, linewidth=3);
-Makie.save("inclined_plane_fv.png", fv)
+# Makie.save("inclined_plane_fv.png", fv)
 
 fp = Figure()
 ax = Axis(fp[1, 1],
@@ -191,7 +191,7 @@ hm = heatmap!(gp.x[1, :], gp.y[:, 1], fwd.psave[end, :, :]')
 Colorbar(fp[1, 2], hm, label="p")
 contour!(gp.x[1, :], gp.y[:, 1], gp.u',
     levels=0:0, color=:red, linewidth=3);
-Makie.save("inclined_plane_fp.png", fp)
+# Makie.save("inclined_plane_fp.png", fp)
 
 # fk = Figure(resolution=(1600, 1000))
 # colsize!(fk.layout, 1, Aspect(1, 1.0))
