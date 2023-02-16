@@ -157,12 +157,12 @@ function run_forward(num, grid, grid_u, grid_v,
         grid_u.mid_point .= [Point(0.0, 0.0)]
         grid_v.mid_point .= [Point(0.0, 0.0)]
         
-        marching_squares!(num, grid)
+        marching_squares!(num, grid, u)
         interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.u, grid_v.u)
         uusave[1,:,:] .= grid_u.u
         uvsave[1,:,:] .= grid_v.u
-        marching_squares!(num, grid_u)        
-        marching_squares!(num, grid_v)
+        marching_squares!(num, grid_u, grid_u.u)
+        marching_squares!(num, grid_v, grid_v.u)
 
         MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, ind.all_indices, nx, ny, periodic_x, periodic_y)
         MIXED_u_vel_ext, SOLID_u_vel_ext, LIQUID_u_vel_ext = get_cells_indices(grid_u.iso, grid_u.ind.all_indices, grid_u.nx, grid_u.ny, periodic_x, periodic_y)
@@ -177,10 +177,10 @@ function run_forward(num, grid, grid_u, grid_v,
         get_interface_location!(grid, MIXED)
         get_interface_location!(grid_u, MIXED_u)
         get_interface_location!(grid_v, MIXED_v)
-        get_interface_location_borders!(grid_u, periodic_x, periodic_y)
-        get_interface_location_borders!(grid_v, periodic_x, periodic_y)
+        get_interface_location_borders!(grid_u, grid_u.u, periodic_x, periodic_y)
+        get_interface_location_borders!(grid_v, grid_v.u, periodic_x, periodic_y)
 
-        get_curvature(num, grid, MIXED, periodic_x, periodic_y)
+        get_curvature(num, grid, u, MIXED, periodic_x, periodic_y)
         postprocess_grids!(grid, grid_u, grid_v, MIXED, MIXED_u, MIXED_v, periodic_x, periodic_y, advection, ϵ)
         _MIXED_L_vel_ext = intersect(findall(geoL.emptied), MIXED_vel_ext)
         _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
@@ -440,10 +440,10 @@ function run_forward(num, grid, grid_u, grid_v,
             grid_u.mid_point .= [Point(0.0, 0.0)]
             grid_v.mid_point .= [Point(0.0, 0.0)]
 
-            marching_squares!(num, grid)
+            marching_squares!(num, grid, u)
             interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.u, grid_v.u)
-            marching_squares!(num, grid_u)
-            marching_squares!(num, grid_v)
+            marching_squares!(num, grid_u, grid_u.u)
+            marching_squares!(num, grid_v, grid_v.u)
 
             MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, ind.all_indices, nx, ny, periodic_x, periodic_y)
             MIXED_u_vel_ext, SOLID_u_vel_ext, LIQUID_u_vel_ext = get_cells_indices(grid_u.iso, grid_u.ind.all_indices, grid_u.nx, grid_u.ny, periodic_x, periodic_y)
@@ -458,8 +458,8 @@ function run_forward(num, grid, grid_u, grid_v,
             get_interface_location!(grid, MIXED)
             get_interface_location!(grid_u, MIXED_u)
             get_interface_location!(grid_v, MIXED_v)
-            get_interface_location_borders!(grid_u, periodic_x, periodic_y)
-            get_interface_location_borders!(grid_v, periodic_x, periodic_y)
+            get_interface_location_borders!(grid_u, grid_u.u, periodic_x, periodic_y)
+            get_interface_location_borders!(grid_v, grid_v.u, periodic_x, periodic_y)
 
             geoL.emptied .= false
             geoS.emptied .= false
@@ -468,7 +468,7 @@ function run_forward(num, grid, grid_u, grid_v,
             grid_v.geoL.emptied .= false
             grid_v.geoS.emptied .= false
 
-            get_curvature(num, grid, MIXED, periodic_x, periodic_y)
+            get_curvature(num, grid, u, MIXED, periodic_x, periodic_y)
             postprocess_grids!(grid, grid_u, grid_v, MIXED, MIXED_u, MIXED_v, periodic_x, periodic_y, advection, ϵ)
 
             _MIXED_L_vel_ext = intersect(findall(geoL.emptied), MIXED_vel_ext)
@@ -703,7 +703,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
     current_i = max_iterations + 1
 
     if levelset
-        marching_squares!(num, grid)
+        marching_squares!(num, grid, u)
 
         bcs!(faces, BC_u.left, dx[1,1])
         bcs!(faces, BC_u.right, dx[1,end])
@@ -716,7 +716,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
         NB_indices = get_NB_width(MIXED, NB_indices_base)
 
         get_iterface_location!(grid, MIXED)
-        get_curvature(num, grid, MIXED, periodic_x, periodic_y)
+        get_curvature(num, grid, u, MIXED, periodic_x, periodic_y)
     elseif !levelset
         MIXED = [CartesianIndex(-1,-1)]
     end
@@ -811,7 +811,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
         end
 
         if levelset
-            marching_squares!(num, grid)
+            marching_squares!(num, grid, u)
 
             bcs!(faces, BC_u.left, dx[1,1])
             bcs!(faces, BC_u.right, dx[1,end])
@@ -832,7 +832,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
             init_fresh_cells!(grid, TS, geoS.projection, FRESH_S, periodic_x, periodic_y)
             init_fresh_cells!(grid, TL, geoL.projection, FRESH_L, periodic_x, periodic_y)
 
-            get_curvature(num, grid, MIXED, periodic_x, periodic_y)
+            get_curvature(num, grid, u, MIXED, periodic_x, periodic_y)
         end
 
         current_i -= 1

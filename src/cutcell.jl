@@ -536,8 +536,8 @@ function postprocess_grids!(grid, grid_u, grid_v, MIXED, MIXED_u, MIXED_v, perio
     # clip_new!(grid_v, MIXED_v, periodic_x, periodic_y, ϵ_c, ϵ)
 end
 
-function marching_squares!(num, grid)
-    @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, mid_point, α, κ = grid
+function marching_squares!(num, grid, u)
+    @unpack x, y, nx, ny, dx, dy, ind, iso, faces, geoS, geoL, mid_point, α, κ = grid
 
     empty_capacities = vcat(zeros(7), zeros(4))
     full_capacities = vcat(ones(7), 0.5.*ones(4))
@@ -625,8 +625,8 @@ function get_interface_location!(grid, indices)
     return nothing
 end
 
-function get_interface_location_borders!(grid::Mesh{GridFCx,T,N}, periodic_x, periodic_y) where {T,N}
-    @unpack nx, ny, ind, u, geoS, geoL, mid_point, cut_points = grid
+function get_interface_location_borders!(grid::Mesh{GridFCx,T,N}, u, periodic_x, periodic_y) where {T,N}
+    @unpack nx, ny, ind, geoS, geoL, mid_point, cut_points = grid
     @unpack b_left, b_bottom, b_right, b_top = ind
 
     f = SA_F64[0.5, 0.5]
@@ -657,8 +657,8 @@ function get_interface_location_borders!(grid::Mesh{GridFCx,T,N}, periodic_x, pe
     return nothing
 end
 
-function get_interface_location_borders!(grid::Mesh{GridFCy,T,N}, periodic_x, periodic_y) where {T,N}
-    @unpack ind, u, geoS, geoL, mid_point, cut_points = grid
+function get_interface_location_borders!(grid::Mesh{GridFCy,T,N}, u, periodic_x, periodic_y) where {T,N}
+    @unpack ind, geoS, geoL, mid_point, cut_points = grid
     @unpack b_left, b_bottom, b_right, b_top = ind
 
     f = SA_F64[0.5, 0.5]
@@ -688,9 +688,9 @@ function get_interface_location_borders!(grid::Mesh{GridFCy,T,N}, periodic_x, pe
     end
 end
 
-function get_curvature(num, grid, inside, per_x, per_y)
+function get_curvature(num, grid, u, inside, per_x, per_y)
     @unpack Δ = num
-    @unpack x, y, nx, ny, ind, u, geoL, κ = grid
+    @unpack x, y, nx, ny, ind, geoL, κ = grid
 
     @inbounds for II in inside
         if !per_x && !per_y
@@ -1237,7 +1237,7 @@ function set_cap_bcs!(grid::Mesh{GridCC,T,N}, periodic_x, periodic_y) where {T,N
 end
 
 function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, periodic_x, periodic_y) where {T,N}
-    @unpack nx, ny, ind, u, geoS, geoL, mid_point, cut_points = grid
+    @unpack nx, ny, ind, geoS, geoL, mid_point, cut_points = grid
     @unpack b_left, b_bottom, b_right, b_top = ind
 
     # set A at the boundaries
@@ -1269,7 +1269,7 @@ function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, periodic_x, periodic_y) where {T,
 end
 
 function set_cap_bcs!(grid::Mesh{GridFCy,T,N}, periodic_x, periodic_y) where {T,N}
-    @unpack nx, ny, ind, u, geoS, geoL, mid_point, cut_points = grid
+    @unpack nx, ny, ind, geoS, geoL, mid_point, cut_points = grid
     @unpack b_left, b_bottom, b_right, b_top = ind
 
     # set A at the boundaries to 0 if not periodic in that direction
