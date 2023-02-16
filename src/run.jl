@@ -79,7 +79,7 @@ function run_forward(num, grid, grid_u, grid_v,
 
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
     @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, V, κ, LSA, LSB = grid
-    @unpack Tall, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, ϕsave, Uxsave, Uysave, Uxcorrsave, Uycorrsave, Vsave, κsave, lengthsave, tv, Cd, Cl = fwd
+    @unpack Tall, usave, uusave, uvsave, TSsave, TLsave, TDSsave, TDLsave, Tsave, psave, ϕsave, Uxsave, Uysave, Uxcorrsave, Uycorrsave, Vsave, κsave, lengthsave, tv, Cd, Cl = fwd
 
     iRe = 1.0 / Re
 
@@ -90,13 +90,6 @@ function run_forward(num, grid, grid_u, grid_v,
     local indices_u_vel_ext;
     local MIXED_u; local SOLID_u; local LIQUID_u;
     local MIXED_v; local SOLID_v; local LIQUID_v;
-    local WAS_MIXED; local WAS_SOLID; local WAS_LIQUID;
-    local WAS_MIXED_u; local WAS_SOLID_u; local WAS_LIQUID_u;
-    local WAS_MIXED_v; local WAS_SOLID_v; local WAS_LIQUID_v;
-    local NB_indices_base; local NB_indices;
-    local FRESH_L = []; local FRESH_S = [];
-    local FRESH_L_u = []; local FRESH_S_u = [];
-    local FRESH_L_v = []; local FRESH_S_v = [];
 
     local Cum1S = zeros(grid_u.nx*grid_u.ny)
     local Cum1L = zeros(grid_u.nx*grid_u.ny)
@@ -171,8 +164,6 @@ function run_forward(num, grid, grid_u, grid_v,
         marching_squares!(num, grid_u)        
         marching_squares!(num, grid_v)
 
-        NB_indices_base = get_NB_width_indices_base(1)
-
         MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, ind.all_indices, nx, ny, periodic_x, periodic_y)
         MIXED_u_vel_ext, SOLID_u_vel_ext, LIQUID_u_vel_ext = get_cells_indices(grid_u.iso, grid_u.ind.all_indices, grid_u.nx, grid_u.ny, periodic_x, periodic_y)
         MIXED_v_vel_ext, SOLID_v_vel_ext, LIQUID_v_vel_ext = get_cells_indices(grid_v.iso, grid_v.ind.all_indices, grid_v.nx, grid_v.ny, periodic_x, periodic_y)
@@ -183,7 +174,6 @@ function run_forward(num, grid, grid_u, grid_v,
         kill_dead_cells!(phS.T, opS.LT, LIQUID, MIXED, ny)
         kill_dead_cells!(phL.T, opL.LT, SOLID, MIXED, ny)
 
-        NB_indices = get_NB_width(grid, MIXED, NB_indices_base)
         get_interface_location!(grid, MIXED)
         get_interface_location!(grid_u, MIXED_u)
         get_interface_location!(grid_v, MIXED_v)
@@ -368,7 +358,7 @@ function run_forward(num, grid, grid_u, grid_v,
             if stefan
                 IIOE(grid, LSA, LSB, u, V, CFL_sc, periodic_x, periodic_y)
                 try
-                    u .= reshape(IterativeSolvers.gmres(LSA,(LSB*vec(u))), (ny,nx))
+                    u .= reshape(gmres(LSA,(LSB*vec(u))), (ny,nx))
                     # u .= sqrt.((x .- current_i*Δ/1).^ 2 + y .^ 2) - (0.5) * ones(nx, ny);
                 catch
                     @error ("Inadequate level set function, iteration $current_i")
@@ -377,14 +367,14 @@ function run_forward(num, grid, grid_u, grid_v,
             elseif free_surface
                 level_update_IIOE!(grid, grid_u, grid_v, LSA, LSB, θ_out, MIXED, τ, periodic_x, periodic_y)
                 try
-                    utmp .= reshape(IterativeSolvers.gmres(LSA,(LSB*vec(u))), (ny,nx))
+                    utmp .= reshape(gmres(LSA,(LSB*vec(u))), (ny,nx))
                 catch
                     @error ("Inadequate level set function, iteration $current_i")
                     break
                 end
                 S2IIOE!(grid, grid_u, grid_v, LSA, LSB, utmp, u, θ_out, MIXED, τ, periodic_x, periodic_y)
                 try
-                    u .= reshape(IterativeSolvers.gmres(LSA,(LSB*vec(u))), (ny,nx))
+                    u .= reshape(gmres(LSA,(LSB*vec(u))), (ny,nx))
                 catch
                     @error ("Inadequate level set function, iteration $current_i")
                     break
@@ -455,16 +445,6 @@ function run_forward(num, grid, grid_u, grid_v,
             marching_squares!(num, grid_u)
             marching_squares!(num, grid_v)
 
-            WAS_MIXED = copy(MIXED)
-            WAS_LIQUID = copy(LIQUID)
-            WAS_SOLID = copy(SOLID)
-            WAS_MIXED_u = copy(MIXED_u)
-            WAS_LIQUID_u = copy(LIQUID_u)
-            WAS_SOLID_u = copy(SOLID_u)
-            WAS_MIXED_v = copy(MIXED_v)
-            WAS_LIQUID_v = copy(LIQUID_v)
-            WAS_SOLID_v = copy(SOLID_v)
-
             MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, ind.all_indices, nx, ny, periodic_x, periodic_y)
             MIXED_u_vel_ext, SOLID_u_vel_ext, LIQUID_u_vel_ext = get_cells_indices(grid_u.iso, grid_u.ind.all_indices, grid_u.nx, grid_u.ny, periodic_x, periodic_y)
             MIXED_v_vel_ext, SOLID_v_vel_ext, LIQUID_v_vel_ext = get_cells_indices(grid_v.iso, grid_v.ind.all_indices, grid_v.nx, grid_v.ny, periodic_x, periodic_y)
@@ -474,8 +454,6 @@ function run_forward(num, grid, grid_u, grid_v,
 
             kill_dead_cells!(phS.T, opS.LT, LIQUID, MIXED, ny)
             kill_dead_cells!(phL.T, opL.LT, SOLID, MIXED, ny)
-
-            NB_indices = get_NB_width(grid, MIXED, NB_indices_base)
 
             get_interface_location!(grid, MIXED)
             get_interface_location!(grid_u, MIXED_u)
@@ -498,30 +476,6 @@ function run_forward(num, grid, grid_u, grid_v,
             _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
             indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
             field_extension!(grid, grid.κ, indices_vel_ext, NB, periodic_x, periodic_y)
-
-            geoL.fresh .= false
-            geoS.fresh .= false
-            grid_u.geoL.fresh .= false
-            grid_u.geoS.fresh .= false
-            grid_v.geoL.fresh .= false
-            grid_v.geoS.fresh .= false
-
-            get_fresh_cells!(grid, geoS, Mm1_S, ind.all_indices)
-            get_fresh_cells!(grid, geoL, Mm1_L, ind.all_indices)
-            get_fresh_cells!(grid_u, grid_u.geoS, Mum1_S, grid_u.ind.all_indices)
-            get_fresh_cells!(grid_u, grid_u.geoL, Mum1_L, grid_u.ind.all_indices)
-            get_fresh_cells!(grid_v, grid_v.geoS, Mvm1_S, grid_v.ind.all_indices)
-            get_fresh_cells!(grid_v, grid_v.geoL, Mvm1_L, grid_v.ind.all_indices)
-
-            FRESH_L = findall(geoL.fresh)
-            FRESH_S = findall(geoS.fresh)
-            FRESH_L_u = findall(grid_u.geoL.fresh)
-            FRESH_S_u = findall(grid_u.geoS.fresh)
-            FRESH_L_v = findall(grid_v.geoL.fresh)
-            FRESH_S_v = findall(grid_v.geoS.fresh)
-
-            # init_fresh_cells!(grid, phS.T, geoS.projection, FRESH_S, periodic_x, periodic_y)
-            # init_fresh_cells!(grid, phL.T, geoL.projection, FRESH_L, periodic_x, periodic_y)
 
             if iszero(current_i%save_every) || current_i==max_iterations
                 snap = current_i÷save_every+1
@@ -557,7 +511,6 @@ function run_forward(num, grid, grid_u, grid_v,
                                                                                           BC_uS, BC_vS, BC_pS,
                                                                                           opC_pS, opC_uS, opC_vS,
                                                                                           Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S,
-                                                                                          FRESH_S, FRESH_S_u, FRESH_S_v,
                                                                                           SOLID, MIXED, periodic_x, periodic_y, current_i)
                 else
                     Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S = projection_no_slip!(num, grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, phS,
@@ -574,7 +527,6 @@ function run_forward(num, grid, grid_u, grid_v,
                                                                                           BC_uL, BC_vL, BC_pL,
                                                                                           opC_pL, opC_uL, opC_vL,
                                                                                           Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L,
-                                                                                          FRESH_L, FRESH_L_u, FRESH_L_v,
                                                                                           LIQUID, MIXED, periodic_x, periodic_y, current_i)
                 else
                    Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L = projection_no_slip!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,
@@ -599,35 +551,43 @@ function run_forward(num, grid, grid_u, grid_v,
             @views uvsave[snap,:,:] .= grid_v.u
 
             if heat_solid_phase && heat_liquid_phase
-                @views Tsave[snap,:,:] .= phL.T[:,:].*geoL.cap[:,:,5] .+ phS.T[:,:].*geoS.cap[:,:,5]
+                @views Tsave[snap,:,:] .= phL.T.*geoL.cap[:,:,5] .+ phS.T[:,:].*geoS.cap[:,:,5]
+                @views TLsave[snap,:,:] .= phL.T
+                @views TDLsave[snap,:,:] .= phL.TD
+                @views TSsave[snap,:,:] .= phS.T
+                @views TDSsave[snap,:,:] .= phS.TD
             elseif heat_solid_phase
-                @views Tsave[snap,:,:] .= phS.T[:,:]
+                @views Tsave[snap,:,:] .= phS.T
+                @views TSsave[snap,:,:] .= phS.T
+                @views TDSsave[snap,:,:] .= phS.TD
             elseif heat_liquid_phase
-                @views Tsave[snap,:,:] .= phL.T[:,:]
+                @views Tsave[snap,:,:] .= phL.T
+                @views TLsave[snap,:,:] .= phL.T
+                @views TDLsave[snap,:,:] .= phL.TD
             end
 
             if ns_solid_phase && ns_liquid_phase
-                @views psave[snap,:,:] .= phL.p[:,:].*geoL.cap[:,:,5] .+ phS.p[:,:].*geoS.cap[:,:,5]
-                @views ϕsave[snap,:,:] .= phL.ϕ[:,:].*geoL.cap[:,:,5] .+ phS.ϕ[:,:].*geoS.cap[:,:,5]
-                @views Uxsave[snap,:,:] .= phL.u[:,:].*grid_u.geoL.cap[:,:,5] .+ phS.u[:,:].*geoS.capu[:,:,5]
-                @views Uysave[snap,:,:] .= phL.v[:,:].*grid_v.geoL.cap[:,:,5] .+ phS.v[:,:].*geoS.capv[:,:,5]
-                @views Uxcorrsave[snap,:,:] .= phL.ucorr[:,:].*grid_u.geoL.cap[:,:,5] .+ phS.ucorr[:,:].*geoS.capu[:,:,5]
-                @views Uycorrsave[snap,:,:] .= phL.vcorr[:,:].*grid_v.geoL.cap[:,:,5] .+ phS.vcorr[:,:].*geoS.capv[:,:,5]
+                @views psave[snap,:,:] .= phL.p.*geoL.cap[:,:,5] .+ phS.p.*geoS.cap[:,:,5]
+                @views ϕsave[snap,:,:] .= phL.ϕ.*geoL.cap[:,:,5] .+ phS.ϕ.*geoS.cap[:,:,5]
+                @views Uxsave[snap,:,:] .= phL.u.*grid_u.geoL.cap[:,:,5] .+ phS.u.*geoS.capu[:,:,5]
+                @views Uysave[snap,:,:] .= phL.v.*grid_v.geoL.cap[:,:,5] .+ phS.v.*geoS.capv[:,:,5]
+                @views Uxcorrsave[snap,:,:] .= phL.ucorr.*grid_u.geoL.cap[:,:,5] .+ phS.ucorr.*geoS.capu[:,:,5]
+                @views Uycorrsave[snap,:,:] .= phL.vcorr.*grid_v.geoL.cap[:,:,5] .+ phS.vcorr.*geoS.capv[:,:,5]
                 force_coefficients!(num, grid, grid_u, grid_v, opL, fwd; step=snap)
             elseif ns_solid_phase
-                @views psave[snap,:,:] .= phS.p[:,:]
-                @views ϕsave[snap,:,:] .= phS.ϕ[:,:]
-                @views Uxsave[snap,:,:] .= phS.u[:,:]
-                @views Uysave[snap,:,:] .= phS.v[:,:]
-                @views Uxcorrsave[snap,:,:] .= phS.ucorr[:,:]
-                @views Uycorrsave[snap,:,:] .= phS.vcorr[:,:]
+                @views psave[snap,:,:] .= phS.p
+                @views ϕsave[snap,:,:] .= phS.ϕ
+                @views Uxsave[snap,:,:] .= phS.u
+                @views Uysave[snap,:,:] .= phS.v
+                @views Uxcorrsave[snap,:,:] .= phS.ucorr
+                @views Uycorrsave[snap,:,:] .= phS.vcorr
             elseif ns_liquid_phase
-                @views psave[snap,:,:] .= phL.p[:,:]
-                @views ϕsave[snap,:,:] .= phL.ϕ[:,:]
-                @views Uxsave[snap,:,:] .= phL.u[:,:]
-                @views Uysave[snap,:,:] .= phL.v[:,:]
-                @views Uxcorrsave[snap,:,:] .= phL.ucorr[:,:]
-                @views Uycorrsave[snap,:,:] .= phL.vcorr[:,:]
+                @views psave[snap,:,:] .= phL.p
+                @views ϕsave[snap,:,:] .= phL.ϕ
+                @views Uxsave[snap,:,:] .= phL.u
+                @views Uysave[snap,:,:] .= phL.v
+                @views Uxcorrsave[snap,:,:] .= phL.ucorr
+                @views Uycorrsave[snap,:,:] .= phL.vcorr
                 force_coefficients!(num, grid, grid_u, grid_v, opL, fwd; step=snap)
             end
         end

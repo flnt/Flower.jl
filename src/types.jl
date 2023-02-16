@@ -230,6 +230,8 @@ mutable struct Forward{T <: Float64} <: MutatingFields
     tv::Array{T,1}
     Cd::Array{T,1}
     Cl::Array{T,1}
+    TDSsave::Array{T,2}
+    TDLsave::Array{T,2}
 end
 
 mutable struct Desired{T <: Float64} <: AbstractOptimizer
@@ -260,6 +262,12 @@ mutable struct my_Adjoint{T <: Float64} <: MutatingFields
     DTL::Array{T,2}
     V::Array{T,2}
     κ::Array{T, 2}
+end
+
+mutable struct discrete_adjoint{T <: Float64} <: MutatingFields
+    TDS::Array{T,2}
+    TDL::Array{T,2}
+    u::Array{T,2}
 end
 
 abstract type BoundaryCondition end

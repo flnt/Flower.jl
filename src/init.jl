@@ -718,6 +718,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     time = zeros(n_snaps)
     Cd = zeros(n_snaps)
     Cl = zeros(n_snaps)
+    TDSsave = zeros(n_snaps, 2*ny*nx)
+    TDLsave = zeros(n_snaps, 2*ny*nx)
 
     TL[:,:] = zeros(ny, nx)
     TS[:,:] = zeros(ny, nx)
@@ -833,7 +835,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
             OperatorsCoupled(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L),
             Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DϕS, DuS, DvS, TDS, pDS, ϕDS, uDS, vDS, uvDS, uvϕDS),
             Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DϕL, DuL, DvL, TDL, pDL, ϕDL, uDL, vDL, uvDL, uvϕDL),
-            Forward(Tall, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, ϕsave, Uxsave, Uysave, Uxcorrsave, Uycorrsave, Vsave, κsave, lengthsave, time, Cd, Cl))
+            Forward(Tall, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, ϕsave, Uxsave, Uysave, Uxcorrsave, Uycorrsave, Vsave, κsave, lengthsave, time, Cd, Cl, TDSsave, TDLsave))
 end
 
 function init_mullins!(grid, T, V, t, A, N, shift)
