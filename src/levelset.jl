@@ -482,8 +482,8 @@ function FE_reinit(grid, ind, u, nb_reinit, BC_u, periodic_x, periodic_y)
     end
 end
 
-function velocity_extension!(grid, inside, NB)
-    @unpack dx, dy, V, u = grid
+function velocity_extension!(grid, V, inside, NB)
+    @unpack dx, dy, u = grid
 
     local cfl = 0.45
     local Vt = similar(V)
@@ -502,8 +502,8 @@ function velocity_extension!(grid, inside, NB)
     end
 end
 
-function velocity_extension!(grid, indices, NB, periodic_x, periodic_y)
-    @unpack nx, ny, dx, dy, V, u, ind = grid
+function velocity_extension!(grid, V, indices, NB, periodic_x, periodic_y)
+    @unpack nx, ny, dx, dy, u, ind = grid
 
     local cfl = 0.45
     local Vt = similar(V)

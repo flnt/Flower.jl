@@ -75,9 +75,9 @@ function set_heat!(num, grid, geo, projection, op, ph,
 end
 
 
-function Stefan_velocity!(num, grid, TS, TL, MIXED, periodic_x, periodic_y)
+function Stefan_velocity!(num, grid, V, TS, TL, MIXED, periodic_x, periodic_y)
     @unpack θd, ϵ_κ, ϵ_V, m, θ₀, aniso = num
-    @unpack geoS, geoL, κ, V = grid
+    @unpack geoS, geoL, κ = grid
 
     V .= 0
     @inbounds @threads for II in MIXED

@@ -181,7 +181,7 @@ function run_forward(num, grid, grid_u, grid_v,
         get_interface_location_borders!(grid_v, grid_v.u, periodic_x, periodic_y)
 
         get_curvature(num, grid, u, MIXED, periodic_x, periodic_y)
-        postprocess_grids!(grid, grid_u, grid_v, MIXED, MIXED_u, MIXED_v, periodic_x, periodic_y, advection, ϵ)
+        postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, ϵ)
         _MIXED_L_vel_ext = intersect(findall(geoL.emptied), MIXED_vel_ext)
         _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
         _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
@@ -314,7 +314,7 @@ function run_forward(num, grid, grid_u, grid_v,
         end
 
         if stefan
-            Stefan_velocity!(num, grid, phS.T, phL.T, MIXED, periodic_x, periodic_y)
+            Stefan_velocity!(num, grid, V, phS.T, phL.T, MIXED, periodic_x, periodic_y)
             V[MIXED] .*= 1. ./ λ
             if Vmean
                 a = mean(V[MIXED])
@@ -324,7 +324,7 @@ function run_forward(num, grid, grid_u, grid_v,
             _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
             _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
             indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-            velocity_extension!(grid, indices_vel_ext, NB, periodic_x, periodic_y)
+            velocity_extension!(grid, V, indices_vel_ext, NB, periodic_x, periodic_y)
         end
 
         if free_surface
@@ -345,8 +345,8 @@ function run_forward(num, grid, grid_u, grid_v,
             _MIXED_v_vel_ext = vcat(_MIXED_L_v_vel_ext, _MIXED_S_v_vel_ext)
             indices_v_vel_ext = vcat(SOLID_v_vel_ext, _MIXED_v_vel_ext, LIQUID_v_vel_ext)
 
-            velocity_extension!(grid_u, indices_u_vel_ext, NB, periodic_x, periodic_y)
-            velocity_extension!(grid_v, indices_v_vel_ext, NB, periodic_x, periodic_y)
+            velocity_extension!(grid_u, grid_u.V, indices_u_vel_ext, NB, periodic_x, periodic_y)
+            velocity_extension!(grid_v, grid_v.V, indices_v_vel_ext, NB, periodic_x, periodic_y)
         end
 
         if verbose && adaptative_t
@@ -469,7 +469,7 @@ function run_forward(num, grid, grid_u, grid_v,
             grid_v.geoS.emptied .= false
 
             get_curvature(num, grid, u, MIXED, periodic_x, periodic_y)
-            postprocess_grids!(grid, grid_u, grid_v, MIXED, MIXED_u, MIXED_v, periodic_x, periodic_y, advection, ϵ)
+            postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, ϵ)
 
             _MIXED_L_vel_ext = intersect(findall(geoL.emptied), MIXED_vel_ext)
             _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)

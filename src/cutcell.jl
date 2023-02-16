@@ -498,7 +498,7 @@ function clip_new!(grid, indices, per_x, per_y, ϵ_c, ϵ)
     return nothing
 end
 
-function postprocess_grids!(grid, grid_u, grid_v, MIXED, MIXED_u, MIXED_v, periodic_x, periodic_y, advection, ϵ)
+function postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, ϵ)
     clip_cells!(grid, ϵ, periodic_x, periodic_y)
     clip_cells!(grid_u, ϵ, periodic_x, periodic_y)
     clip_cells!(grid_v, ϵ, periodic_x, periodic_y)
