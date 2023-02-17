@@ -293,7 +293,8 @@ function run_forward(num, grid, grid_u, grid_v,
         if heat
             if heat_solid_phase
                 veci(phS.TD,grid,1) .= vec(phS.T)
-                A_T, B, rhs = set_heat!(dir, num, grid, opC_TS, geoS, BC_TS, MIXED, geoS.projection)
+                A_T, B, rhs = set_heat!(dir, num, grid, opC_TS, geoS, BC_TS, MIXED, geoS.projection,
+                                        periodic_x, periodic_y)
                 mul!(rhs, B, phS.TD, 1.0, 1.0)
                 @mytime blocks = DDM.decompose(A_T, grid.domdec, grid.domdec)
 
@@ -303,7 +304,8 @@ function run_forward(num, grid, grid_u, grid_v,
             end
             if heat_liquid_phase
                 veci(phL.TD,grid,1) .= vec(phL.T)
-                A_T, B, rhs = set_heat!(dir, num, grid, opC_TL, geoL, BC_TL, MIXED, geoL.projection)
+                A_T, B, rhs = set_heat!(dir, num, grid, opC_TL, geoL, BC_TL, MIXED, geoL.projection,
+                                        periodic_x, periodic_y)
                 mul!(rhs, B, phL.TD, 1.0, 1.0)
                 @mytime blocks = DDM.decompose(A_T, grid.domdec, grid.domdec)
 

@@ -33,6 +33,8 @@ function set_species_borders!(grid, a0, a1, b, BC_T)
     elseif is_robin(BC_T.left.t)
         @inbounds a1[:,1] .= -1.
         @inbounds b[:,1] .= 1.
+    elseif is_periodic(BC_T.left.t)
+        nothing
     else
         @error ("Not implemented yet")
     end
@@ -46,6 +48,8 @@ function set_species_borders!(grid, a0, a1, b, BC_T)
     elseif is_robin(BC_T.bottom.t)
         @inbounds a1[1,:] .= -1.
         @inbounds b[1,:] .= 1.
+    elseif is_periodic(BC_T.bottom.t)
+        nothing
     else
         @error ("Not implemented yet")
     end
@@ -59,6 +63,8 @@ function set_species_borders!(grid, a0, a1, b, BC_T)
     elseif is_robin(BC_T.right.t)
         @inbounds a1[:,end] .= -1.
         @inbounds b[:,end] .= 1.
+    elseif is_periodic(BC_T.right.t)
+        nothing
     else
         @error ("Not implemented yet")
     end
@@ -72,6 +78,8 @@ function set_species_borders!(grid, a0, a1, b, BC_T)
     elseif is_robin(BC_T.top.t)
         @inbounds a1[end,:] .= -1.
         @inbounds b[end,:] .= 1.
+    elseif is_periodic(BC_T.top.t)
+        nothing
     else
         @error ("Not implemented yet")
     end
@@ -79,7 +87,7 @@ function set_species_borders!(grid, a0, a1, b, BC_T)
     return nothing
 end
 
-function set_heat!(bc_type, num, grid, op, geo, BC_T, MIXED, projection)
+function set_heat!(bc_type, num, grid, op, geo, BC_T, MIXED, projection, periodic_x, periodic_y)
     @unpack τ, θd, aniso = num
     @unpack nx, ny, ind = grid
     @unpack Bx, By, BxT, ByT, Hx, Hy, HxT, HyT, iMx, iMy, χ = op
@@ -134,14 +142,16 @@ function set_heat!(bc_type, num, grid, op, geo, BC_T, MIXED, projection)
     # Discrete gradient and divergence operators
     divergence_B!(BxT, ByT, geo.dcap, ny, ind.all_indices)
 
-    Bx .= -BxT'
-    By .= -ByT'
+    mat_assign!(Bx, sparse(-BxT'))
+    mat_assign!(By, sparse(-ByT'))
 
     # Matrices for BCs
     bc_matrix!(Hx, Hy, geo.dcap, ny, ind.all_indices)
 
-    HxT .= Hx'
-    HyT .= Hy' 
+    mat_assign_T!(HxT, sparse(Hx'))
+    mat_assign_T!(HyT, sparse(Hy'))
+
+    periodic_bcs!(grid, Bx, By, Hx, Hy, periodic_x, periodic_y)
     
     LT = BxT * iMx * Bx .+ ByT * iMy * By
     LD = BxT * iMx * Hx .+ ByT * iMy * Hy
