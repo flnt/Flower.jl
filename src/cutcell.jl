@@ -629,6 +629,17 @@ function get_iterface_location!(grid, indices, one_phase)
     return nothing
 end
 
+function get_iterface_location!(grid, indices)
+    @unpack x, y, iso, geoS, geoL, mid_point, cut_points, α = grid
+
+    @inbounds @threads for II in indices
+        f = average_face_capacities(grid, II)
+        geoS.cap[II,:], geoL.cap[II,:], α[II], geoS.centroid[II], geoL.centroid[II], mid_point[II], cut_points[II] = capacities(f, iso[II])
+        geoS.projection[II], geoL.projection[II] = projection_2points(grid, II)
+    end
+    return nothing
+end
+
 function get_interface_location_borders!(grid::Mesh{GridFCx,T,N}, periodic_x, periodic_y) where {T,N}
     @unpack nx, ny, ind, u, geoS, geoL, mid_point, cut_points = grid
     @unpack b_left, b_bottom, b_right, b_top = ind

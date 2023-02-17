@@ -418,7 +418,7 @@ function projection_no_slip!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     mul!(rhs_u, B_u, uD, 1.0, 1.0)
     veci(rhs_u,grid_u,1) .+= -τ .* (opC_p.Bx * veci(pD,grid,1) .+ opC_p.Hx * veci(pD,grid,2))
     blocks = DDM.decompose(A_u, grid_u.domdec, grid_u.domdec)
-    @mytime _, ch = bicgstabl!(uD, A_u, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
+    _, ch = bicgstabl!(uD, A_u, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
     println(ch)
     ucorr .= reshape(veci(uD,grid_u,1), (grid_u.ny, grid_u.nx))
 
@@ -427,7 +427,7 @@ function projection_no_slip!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     mul!(rhs_v, B_v, vD, 1.0, 1.0)
     veci(rhs_v,grid_v,1) .+= -τ .* (opC_p.By * veci(pD,grid,1) .+ opC_p.Hy * veci(pD,grid,2))
     blocks = DDM.decompose(A_v, grid_v.domdec, grid_v.domdec)
-    @mytime _, ch = bicgstabl!(vD, A_v, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
+    _, ch = bicgstabl!(vD, A_v, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
     println(ch)
     vcorr .= reshape(veci(vD,grid_v,1), (grid_v.ny, grid_v.nx))
 
@@ -446,7 +446,7 @@ function projection_no_slip!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     veci(ϕD,grid,1) .= 0.
     veci(ϕD,grid,2) .= 0.
     blocks = DDM.decompose(A_p, grid.domdec, grid.domdec)
-    @mytime _, ch = bicgstabl!(ϕD, A_p, rhs_p, Pl=ras(blocks,grid.pou), log=true)
+    _, ch = bicgstabl!(ϕD, A_p, rhs_p, Pl=ras(blocks,grid.pou), log=true)
     println(ch)
     ϕ .= reshape(veci(ϕD,grid,1), (grid.ny, grid.nx))
 

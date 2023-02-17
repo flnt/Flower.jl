@@ -19,12 +19,12 @@ num = Numerical( # defined in types.jl
     tolp=1e-8, # pressure
     tolt=1e-8, # temperature
     # discrete ranges
-    x=LinRange(0, Lx, nx + 1),
+    x=LinRange(-Lx / 2, Lx / 2, nx + 1),
     y=LinRange(-Ly / 2, Ly / 2, ny + 1),
     # physical parameters
     Re=1.0,
-    CFL=0.1, # backwards Euler
-    max_iterations=1000,
+    CFL=1.0, # backwards Euler
+    max_iterations=100,
     u_inf=0.0,
     v_inf=1.0,
     save_every=1, #
@@ -32,11 +32,10 @@ num = Numerical( # defined in types.jl
     ϵ=0.05, # 
     g=0.0, # gravity
     β=0, # angle of inclination
-    # case="Cylinder", # params: shifted
     # shifted=0,
     # R=1.0,
     # shift_y=1.5,
-
+    nb_reinit = 8,
     case="Planar", # params: shifted
     shifted=-1.e-3,
 
@@ -45,105 +44,57 @@ num = Numerical( # defined in types.jl
     # R=h0, # radius of drop
     # A=0.02, # amplitude of perturbation
 
-    NB=nx, # number of cells that the velocity is extended from the interface
+    NB=2, # number of cells that the velocity is extended from the interface
 )
 
 gp, gu, gv = init_meshes(num)
 opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd = init_fields(num, gp, gu, gv)
 
-# phL.u .= num.u_inf
-# phL.v .= num.v_inf
+@. gp.u = gp.x + num.shifted
+tracer = copy(gp.u)
+gp.u .= 1.; #level set is always equal to 1 => only LIQUID phase
+initial_tracer = copy(tracer)
 
-# set inital pDirichlet field so that there's a pressure gradient at the bottom
-# @inbounds @threads for II in gp.ind.b_bottom[1]
-#     pII = lexicographic(II, gp.ny)
-#     phL.pD.data[2][pII] = - num.g*cos(num.β) * gp.dy[1,1] / 2
-# end
-
-@time MIXED, MIXED_u, MIXED_v, SOLID, LIQUID = run_forward(num, gp, gu, gv,
-    opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL,
-    phS, phL, fwd,
-    # periodic_x=false, # default
-    # periodic_y=false, # default
-
-    # BCs 
-    # neumann is default 
-
-    # u velocity (Liquid)
+@time MIXED, MIXED_u, MIXED_v, SOLID, LIQUID = run_forward_one_phase(num, gp, gu, gv,
+    opL, opC_pL, opC_uL, opC_vL, 
+    phL, fwd, tracer;
+    periodic_x = true,
     BC_uL=Boundaries(
-        left=Boundary(t=dir, f=dirichlet, val=0.0),
-        right=Boundary(t=neu, f=neumann, val=0.0),
-        bottom=Boundary(t=neu, f=neumann, val=0.0),
-        top=Boundary(t=neu, f=neumann, val=0.0),
+        left = Boundary(t = per, f = periodic),
+        right = Boundary(t = per, f = periodic),
+        bottom=Boundary(t=dir, f=dirichlet, val=num.v_inf),
     ),
-    # v velocity (Liquid)
     BC_vL=Boundaries(
-        left=Boundary(t=dir, f=dirichlet, val=num.v_inf),
-        right=Boundary(t=neu, f=neumann, val=0.0),
-        bottom=Boundary(t=neu, f=neumann, val=0.0),
-        top=Boundary(t=neu, f=neumann, val=0.0),
+        left = Boundary(t = per, f = periodic),
+        right = Boundary(t = per, f = periodic),
+        bottom=Boundary(t=dir, f=dirichlet, val=0.0),
     ),
-    # # u velocity (Solid)
-    # BC_uS=Boundaries(
-    #     left=Boundary(t=dir, f=dirichlet, val=0.0),
-    #     right=Boundary(t=neu, f=neumann, val=0.0),
-    #     bottom=Boundary(t=neu, f=neumann, val=0.0),
-    #     top=Boundary(t=neu, f=neumann, val=0.0),
-    # ),
-    # # v velocity (Solid)
-    # BC_vS=Boundaries(
-    #     left=Boundary(t=dir, f=dirichlet, val=num.v_inf),
-    #     right=Boundary(t=neu, f=neumann, val=0.0),
-    #     bottom=Boundary(t=neu, f=neumann, val=0.0),
-    #     top=Boundary(t=neu, f=neumann, val=0.0),
-    # ),
-    # pressure (Liquid)
-    # dirichlet wherever you put Neumann in the velocity and viceversa
     BC_pL=Boundaries(
-        left=Boundary(t=neu, f=neumann, val=0.0),
-        right=Boundary(t=dir, f=dirichlet, val=0.0),
-        bottom=Boundary(t=dir, f=dirichlet, val=0.0),
-        top=Boundary(t=dir, f=dirichlet, val=0.0),
-    ),
-    BC_pS=Boundaries(
-        left=Boundary(t=neu, f=neumann, val=0.0),
-        right=Boundary(t=dir, f=dirichlet, val=0.0),
-        bottom=Boundary(t=dir, f=dirichlet, val=0.0),
-        top=Boundary(t=dir, f=dirichlet, val=0.0),
-    ),
-    # levelset field -> start with Neumann
-    BC_u=Boundaries(
-        left=Boundary(t=neu, f=neumann, val=0.0),
-        right=Boundary(t=neu, f=neumann, val=0.0),
         bottom=Boundary(t=neu, f=neumann, val=0.0),
-        top=Boundary(t=neu, f=neumann, val=0.0),
+        left = Boundary(t = per, f = periodic),
+        right = Boundary(t = per, f = periodic),
+        top=Boundary(t=dir, f=dirichlet, val=0.0),
     ),
-    # defined in run.jl 
-    stefan=false,
-    advection=true,
-    heat=false,
-    heat_convection=false,
-    ns_advection=false,
-    navier_stokes=true,
-    heat_liquid_phase=false,
-    heat_solid_phase=false,
-    ns_liquid_phase=true,
-    ns_solid_phase=false,
-    free_surface=true,
-    hill=false,
-    Vmean=false,
-    levelset=true,
-    one_phase=true,
-    speed=0,
-    analytical=false,
-    verbose=true,
-    show_every=10,
-    save_length=true,
-    save_radius=false,
-    adaptative_t=true,
-    Ra=0,
-    λ=1
-)
+    BC_u = Boundaries(
+        left = Boundary(t = per, f = periodic),
+        right = Boundary(t = per, f = periodic),
+    ),
+    advection = true, #move the level set
+
+    ns_advection = true,
+
+    navier_stokes = true,
+
+    levelset = true,
+    
+    verbose = true,
+    
+    adaptative_t = false,
+
+    show_every = 100,
+    )
+
+@show (initial_tracer == tracer)
 
 # tcks = -num.L0/2:2:num.L0
 # lim = (num.L0 + num.Δ) / 2
@@ -167,7 +118,7 @@ hm = heatmap!(gu.x[1, :], gu.y[:, 1], fwd.Uxsave[end, :, :]')
 Colorbar(fu[1, 2], hm, label="u")
 contour!(gu.x[1, :], gu.y[:, 1], fwd.uusave[end, :, :]', # interpolated
     levels=0:0, color=:blue, linewidth=3)
-contour!(gp.x[1, :], gp.y[:, 1], fwd.usave[end, :, :]', # real one
+contour!(gp.x[1, :], gp.y[:, 1], tracer', # real one
     levels=0:0, color=:red, linewidth=3)
 # Makie.save("inclined_plane_fu.png", fu)
 
@@ -178,7 +129,7 @@ ax = Axis(fv[1, 1],
     ylabel="y")
 hm = heatmap!(gv.x[1, :], gv.y[:, 1], fwd.Uysave[end, :, :]')
 Colorbar(fv[1, 2], hm, label="v")
-contour!(gp.x[1, :], gp.y[:, 1], gp.u',
+contour!(gp.x[1, :], gp.y[:, 1], tracer',
     levels=0:0, color=:red, linewidth=3);
 # Makie.save("inclined_plane_fv.png", fv)
 
@@ -189,7 +140,7 @@ ax = Axis(fp[1, 1],
     ylabel="y")
 hm = heatmap!(gp.x[1, :], gp.y[:, 1], fwd.psave[end, :, :]')
 Colorbar(fp[1, 2], hm, label="p")
-contour!(gp.x[1, :], gp.y[:, 1], gp.u',
+contour!(gp.x[1, :], gp.y[:, 1], tracer',
     levels=0:0, color=:red, linewidth=3);
 # Makie.save("inclined_plane_fp.png", fp)
 
