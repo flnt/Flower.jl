@@ -20,7 +20,7 @@ end
     return nothing
 end
 
-function set_species_borders!(grid, a0, a1, b, BC_T)
+function set_heat_borders!(grid, a0, a1, b, BC_T)
     @unpack ny, ind = grid
     
     @inbounds a0[:,1] .= BC_T.left.val
@@ -112,7 +112,7 @@ function set_heat!(bc_type, num, grid, op, geo, BC_T, MIXED, projection, periodi
     end
     _a1 = ones(ny, nx) .* __a1
     _b = ones(ny, nx) .* __b
-    set_species_borders!(grid, a0, _a1, _b, BC_T)
+    set_borders!(grid, a0, _a1, _b, BC_T)
     a1 = Diagonal(vec(_a1))
     b = Diagonal(vec(_b))
 
