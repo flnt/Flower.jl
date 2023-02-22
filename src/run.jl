@@ -148,6 +148,8 @@ function run_forward(num, grid, grid_u, grid_v,
 
     usave[1,:,:] .= u
     Tsave[1,:,:] .= phL.T .+ phS.T
+    TLsave[1,:,:] .= phL.T
+    TSsave[1,:,:] .= phS.T
     psave[1,:,:] .= phL.p .+ phS.p
     Uxsave[1,:,:] .= phL.u .+ phS.u
     Uysave[1,:,:] .= phL.v .+ phS.v
@@ -236,11 +238,17 @@ function run_forward(num, grid, grid_u, grid_v,
 
     tmpDS = copy(phS.T)
     tmpDS[2:end-1,2:end-1] .= θd
+    init_borders!(tmpDS, BC_TS, θd)
     tmpDL = copy(phL.T)
     tmpDL[2:end-1,2:end-1] .= θd
+    init_borders!(tmpDL, BC_TL, θd)
 
+    veci(phS.TD,grid,1) .= vec(phS.T)
+    veci(phL.TD,grid,1) .= vec(phL.T)
     veci(phS.TD,grid,2) .= vec(tmpDS)
     veci(phL.TD,grid,2) .= vec(tmpDL)
+    @views TDLsave[1,:] .= phL.TD
+    @views TDSsave[1,:] .= phS.TD
 
     tmpu = ones(grid_u.ny, grid_u.nx) .* num.u_inf
     tmpu[2:end-1,2:end-1] .= 0.0
@@ -555,17 +563,17 @@ function run_forward(num, grid, grid_u, grid_v,
             if heat_solid_phase && heat_liquid_phase
                 @views Tsave[snap,:,:] .= phL.T.*geoL.cap[:,:,5] .+ phS.T[:,:].*geoS.cap[:,:,5]
                 @views TLsave[snap,:,:] .= phL.T
-                @views TDLsave[snap,:,:] .= phL.TD
+                @views TDLsave[snap,:] .= phL.TD
                 @views TSsave[snap,:,:] .= phS.T
-                @views TDSsave[snap,:,:] .= phS.TD
+                @views TDSsave[snap,:] .= phS.TD
             elseif heat_solid_phase
                 @views Tsave[snap,:,:] .= phS.T
                 @views TSsave[snap,:,:] .= phS.T
-                @views TDSsave[snap,:,:] .= phS.TD
+                @views TDSsave[snap,:] .= phS.TD
             elseif heat_liquid_phase
                 @views Tsave[snap,:,:] .= phL.T
                 @views TLsave[snap,:,:] .= phL.T
-                @views TDLsave[snap,:,:] .= phL.TD
+                @views TDLsave[snap,:] .= phL.TD
             end
 
             if ns_solid_phase && ns_liquid_phase

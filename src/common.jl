@@ -426,6 +426,40 @@ function kill_dead_cells!(T::Vector, grid, geo)
     end
 end
 
+function kill_dead_cells!(S::SubArray{T,N,P,I,L}, grid, geo) where {T,N,P<:Vector{T},I,L}
+    @unpack ny, ind = grid
+
+    @inbounds @threads for II in ind.all_indices
+        pII = lexicographic(II, ny)
+        if geo.cap[II,5] < 1e-12
+            S[pII] = 0.
+        end
+    end
+end
+
+function init_borders!(T::Matrix, BC_T, val=0.0)
+    if is_dirichlet(BC_T.left.t)
+        T[2:end-1,1] .= BC_T.left.val
+    elseif is_periodic(BC_T.left.t)
+        T[2:end-1,1] .= val
+    end
+    if is_dirichlet(BC_T.bottom.t)
+        T[1,:] .= BC_T.bottom.val
+    elseif is_periodic(BC_T.bottom.t)
+        T[1,:] .= val
+    end
+    if is_dirichlet(BC_T.right.t)
+        T[2:end-1,end] .= BC_T.right.val
+    elseif is_periodic(BC_T.right.t)
+        T[2:end-1,end] .= val
+    end
+    if is_dirichlet(BC_T.top.t)
+        T[end,:] .= BC_T.top.val
+    elseif is_periodic(BC_T.top.t)
+        T[end,:] .= val
+    end
+end
+
 """
     export_all()
 
