@@ -154,12 +154,12 @@ end
     dy⁺ = 0.5 * (dy[II] + dy[δy⁺(II, ny, per_y)])
     dy⁻ = 0.5 * (dy[δy⁻(II, ny, per_y)] + dy[II])
 
-    B = inv((@SMatrix [(dy⁻/_dy)^2 -dy⁻/_dy 1.0;
+    B = inv((@SMatrix [(dx⁻/_dx)^2 -dx⁻/_dx 1.0;
         0.0 0.0 1.0;
-        (dy⁺/_dy)^2 dy⁺/_dy 1.0]))
+        (dx⁺/_dx)^2 dx⁺/_dx 1.0]))
 
-    BT = inv((@SMatrix [(dx⁻/_dx)^2 0.0 (dx⁺/_dx)^2;
-        -dx⁻/_dx 0.0 dx⁺/_dx;
+    BT = inv((@SMatrix [(dy⁻/_dy)^2 0.0 (dy⁺/_dy)^2;
+        -dy⁻/_dy 0.0 dy⁺/_dy;
         1.0 1.0 1.0]))
 
     return B, BT
@@ -213,27 +213,8 @@ end
 
 
 @inline parabola_fit_curvature(itp, mid_point, dx, dy) =
-    @inbounds 2*itp[1,3]/((1+(2*itp[1,3]*mid_point.y/dy + itp[2,3])^2)^1.5)/(dy)^2 +
-              2*itp[3,1]/((1+(2*itp[3,1]*mid_point.x/dx + itp[3,2])^2)^1.5)/(dx)^2
-    
-# @inline parabola_fit_curvature(itp, mid_point, dx2, dy2) =
-#     @inbounds 2*itp[1,3]/((1+(1/dy2)^2*(2*itp[1,3]*mid_point.y/dy2 + itp[2,3])^2)^1.5)/(dy2)^2 +
-#               2*itp[3,1]/((1+(1/dx2)^2*(2*itp[3,1]*mid_point.x/dx2 + itp[3,2])^2)^1.5)/(dx2)^2
-
-# function parabola_fit_curvature(itp, mid_point, dx, dy)
-#     x = mid_point.x / dx
-#     y = mid_point.y / dy
-
-#     ay = itp[1,1] * x ^ 2 + itp[1,2] * x + itp[1,3]
-#     by = itp[2,1] * x ^ 2 + itp[2,2] * x + itp[2,3]
-#     ax = itp[1,1] * y ^ 2 + itp[2,1] * y + itp[3,1]
-#     bx = itp[1,2] * y ^ 2 + itp[2,2] * y + itp[3,2]
-
-#     κ = 2*ay/((1+(2*ay*mid_point.y/dy + by)^2)^1.5)/(dy)^2 +
-#         2*ax/((1+(2*ax*mid_point.x/dx + bx)^2)^1.5)/(dx)^2
-
-#     return κ
-# end
+    @inbounds 2*itp[1,3]/((1+(2*itp[1,3]*mid_point.x/dx + itp[2,3])^2)^1.5)/(dx)^2 +
+              2*itp[3,1]/((1+(2*itp[3,1]*mid_point.y/dy + itp[3,2])^2)^1.5)/(dy)^2
 
 @inline function linear_fit(a, b, x)
     a = (a - b)/sign(x+eps(0.1))

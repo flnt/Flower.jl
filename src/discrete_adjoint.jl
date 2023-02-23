@@ -5,28 +5,34 @@ function R_qi(num, grid, grid_u, grid_v, um1,
     CFL_sc, periodic_x, periodic_y, ϵ, λ)
 
     @unpack NB = num
-    @unpack nx, ny, ind, V, iso, geoS, geoL = grid
+    @unpack nx, ny, ind, V, iso, faces, geoS, geoL = grid
     uj = copy(um1)
 
     TS = reshape(veci(TD1_S, grid, 1), (ny, nx))
     TL = reshape(veci(TD1_L, grid, 1), (ny, nx))
 
-    res_TS = spdiagm(2ny*nx, ny*nx, 0 => zeros(ny*nx))
-    res_TS.nzval .= 0.
+    # res_TS = spdiagm(2ny*nx, ny*nx, 0 => zeros(ny*nx))
+    # res_TS.nzval .= 0.
+    res_TS = zeros(2ny*nx, ny*nx)
+
     derA_S = copy(A_S)
     derA_S.nzval .= 0.
     derB_S = copy(B_S)
     derB_S.nzval .= 0.
 
-    res_TL = spdiagm(2ny*nx, ny*nx, 0 => zeros(ny*nx))
-    res_TL.nzval .= 0.
+    # res_TL = spdiagm(2ny*nx, ny*nx, 0 => zeros(ny*nx))
+    # res_TL.nzval .= 0.
+    res_TL = zeros(2ny*nx, ny*nx)
+
     derA_L = copy(A_L)
     derA_L.nzval .= 0.
     derB_L = copy(B_L)
     derB_L.nzval .= 0.
 
-    res_u = copy(LSA)
-    res_u.nzval .= 0.
+    # res_u = copy(LSA)
+    # res_u.nzval .= 0.
+    res_u = zeros(ny*nx, ny*nx)
+
     derLSA = copy(LSA)
     derLSA.nzval .= 0.
     derLSB = copy(LSB)
@@ -41,25 +47,38 @@ function R_qi(num, grid, grid_u, grid_v, um1,
         uj[JJ] += ϵ
 
         # Compute capacities
+        grid.α .= NaN
+        grid_u.α .= NaN
+        grid_v.α .= NaN
+        faces .= 0.
+        grid_u.faces .= 0.
+        grid_v.faces .= 0.
         grid.mid_point .= [Point(0.0, 0.0)]
         grid_u.mid_point .= [Point(0.0, 0.0)]
         grid_v.mid_point .= [Point(0.0, 0.0)]
         
-        marching_squares!(num, grid, uj)
+        marching_squares!(num, grid, uj, periodic_x, periodic_y)
         interpolate_scalar!(grid, grid_u, grid_v, uj, grid_u.u, grid_v.u)
-        marching_squares!(num, grid_u, grid_u.u)
-        marching_squares!(num, grid_v, grid_v.u)
+        marching_squares!(num, grid_u, grid_u.u, periodic_x, periodic_y)
+        marching_squares!(num, grid_v, grid_v.u, periodic_x, periodic_y)
 
         MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, ind.all_indices, nx, ny, periodic_x, periodic_y)
         MIXED, SOLID, LIQUID = get_cells_indices(iso, ind.all_indices)
         MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(grid_u.iso, grid_u.ind.all_indices)
         MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(grid_v.iso, grid_v.ind.all_indices)
 
-        get_interface_location!(grid, MIXED)
-        get_interface_location!(grid_u, MIXED_u)
-        get_interface_location!(grid_v, MIXED_v)
+        get_interface_location!(grid, MIXED, periodic_x, periodic_y)
+        get_interface_location!(grid_u, MIXED_u, periodic_x, periodic_y)
+        get_interface_location!(grid_v, MIXED_v, periodic_x, periodic_y)
         get_interface_location_borders!(grid_u, grid_u.u, periodic_x, periodic_y)
         get_interface_location_borders!(grid_v, grid_v.u, periodic_x, periodic_y)
+
+        geoL.emptied .= false
+        geoS.emptied .= false
+        grid_u.geoL.emptied .= false
+        grid_u.geoS.emptied .= false
+        grid_v.geoL.emptied .= false
+        grid_v.geoS.emptied .= false
 
         get_curvature(num, grid, uj, MIXED, periodic_x, periodic_y)
         postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, ϵ)
@@ -84,6 +103,24 @@ function R_qi(num, grid, grid_u, grid_v, um1,
         derB_S .= (Bj_S .- B_S) ./ ϵ
         Rj_S = derA_S * TD1_S .- derB_S * TD0_S
 
+        # if JJ[1] == 4 && current_i > 49
+        #     @show (JJ, j)
+        #     # st = static_stencil(uj, JJ, grid.nx, grid.ny, periodic_x, periodic_y)
+        #     # println(st[1,:])
+        #     # println(st[2,:])
+        #     # println(st[3,:])
+        #     # println(Rj_S[j-2:j+2])
+        #     # println(A_S[j,:])
+        #     # println()
+        #     # println(Aj_S[j,:])
+        #     # println()
+        #     # println(derA_S[j,:])
+        #     # println()
+        #     # println(opC_TS.iMx[j,j])
+        #     println(grid.geoS.dcap[JJ,5])
+        #     println()
+        # end
+
         Aj_L, Bj_L, _ = set_heat!(dir, num, grid, opC_TL, geoL, BC_TL, MIXED, geoL.projection,
                                 periodic_x, periodic_y)
         derA_L .= (Aj_L .- A_L) ./ ϵ
@@ -97,27 +134,18 @@ function R_qi(num, grid, grid_u, grid_v, um1,
         utmp[JJ] = 1.0
         Rj_u = derLSA * vec(u1) .- derLSB * vec(u0) .- LSB * vec(utmp)
 
-        # if j == 14
-        #     println(Rj_u)
-        #     println(sum(abs.(Rj_u)))
-        #     println()
-        #     # tmp = derLSA * vec(u1)
-        #     # println(tmp)
-        #     # println()
-        #     # tmp = derLSB * vec(u0)
-        #     # println(tmp)
-        #     # println()
+        # for i in nzrange(A_S, j)
+        #     @inbounds row = rows_T[i]
+        #     @inbounds res_TS[row,j] = Rj_S[row]
+        #     @inbounds res_TL[row,j] = Rj_L[row]
         # end
-
-        for i in nzrange(A_S, j)
-            @inbounds row = rows_T[i]
-            @inbounds res_TS[row,j] = Rj_S[row]
-            @inbounds res_TL[row,j] = Rj_L[row]
-        end
-        for i in nzrange(LSA, j)
-            @inbounds row = rows_u[i]
-            @inbounds res_u[row,j] = Rj_u[row]
-        end
+        # for i in nzrange(LSA, j)
+        #     @inbounds row = rows_u[i]
+        #     @inbounds res_u[row,j] = Rj_u[row]
+        # end
+        @inbounds res_TS[:,j] .= Rj_S
+        @inbounds res_TL[:,j] .= Rj_L
+        @inbounds res_u[:,j] .= Rj_u
 
         uj .= um1
     end
@@ -138,10 +166,12 @@ function R_qi1(num, grid, grid_u, grid_v,
     TSj = copy(TS)
     TLj = copy(TL)
 
-    res_TS = spdiagm(ny*nx, 2ny*nx, 0 => zeros(ny*nx))
-    res_TS.nzval .= 0.
-    res_TL = spdiagm(ny*nx, 2ny*nx, 0 => zeros(ny*nx))
-    res_TL.nzval .= 0.
+    # res_TS = spdiagm(ny*nx, 2ny*nx, 0 => zeros(ny*nx))
+    # res_TS.nzval .= 0.
+    # res_TL = spdiagm(ny*nx, 2ny*nx, 0 => zeros(ny*nx))
+    # res_TL.nzval .= 0.
+    res_TS = zeros(ny*nx, 2ny*nx)
+    res_TL = zeros(ny*nx, 2ny*nx)
     
     derLSA_S = copy(LSA)
     derLSA_S.nzval .= 0.
@@ -166,19 +196,19 @@ function R_qi1(num, grid, grid_u, grid_v,
         grid_u.mid_point .= [Point(0.0, 0.0)]
         grid_v.mid_point .= [Point(0.0, 0.0)]
         
-        marching_squares!(num, grid, u)
+        marching_squares!(num, grid, u, periodic_x, periodic_y)
         interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.u, grid_v.u)
-        marching_squares!(num, grid_u, grid_u.u)
-        marching_squares!(num, grid_v, grid_v.u)
+        marching_squares!(num, grid_u, grid_u.u, periodic_x, periodic_y)
+        marching_squares!(num, grid_v, grid_v.u, periodic_x, periodic_y)
 
         MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, ind.all_indices, nx, ny, periodic_x, periodic_y)
         MIXED, SOLID, LIQUID = get_cells_indices(iso, ind.all_indices)
         MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(grid_u.iso, grid_u.ind.all_indices)
         MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(grid_v.iso, grid_v.ind.all_indices)
 
-        get_interface_location!(grid, MIXED)
-        get_interface_location!(grid_u, MIXED_u)
-        get_interface_location!(grid_v, MIXED_v)
+        get_interface_location!(grid, MIXED, periodic_x, periodic_y)
+        get_interface_location!(grid_u, MIXED_u, periodic_x, periodic_y)
+        get_interface_location!(grid_v, MIXED_v, periodic_x, periodic_y)
         get_interface_location_borders!(grid_u, grid_u.u, periodic_x, periodic_y)
         get_interface_location_borders!(grid_v, grid_v.u, periodic_x, periodic_y)
 
@@ -219,23 +249,13 @@ function R_qi1(num, grid, grid_u, grid_v,
 
         Rj_L = derLSA_L * vec(u1) .- derLSB_L * vec(u0)
 
-        # if j == 14
-        #     println(Rj_L)
-        #     println(sum(abs.(Rj_L)))
-        #     println()
-        #     # tmp = derLSA * vec(u1)
-        #     # println(tmp)
-        #     # println()
-        #     # tmp = derLSB * vec(u0)
-        #     # println(tmp)
-        #     # println()
+        # for i in nzrange(LSA, j)
+        #     @inbounds row = rows[i]
+        #     @inbounds res_TS[row,j] = Rj_S[row]
+        #     @inbounds res_TL[row,j] = Rj_L[row]
         # end
-
-        for i in nzrange(LSA, j)
-            @inbounds row = rows[i]
-            @inbounds res_TS[row,j] = Rj_S[row]
-            @inbounds res_TL[row,j] = Rj_L[row]
-        end
+        @inbounds res_TS[:,j] .= Rj_S
+        @inbounds res_TL[:,j] .= Rj_L
 
         TSj .= TS
         TLj .= TL

@@ -38,6 +38,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, V, κ, LSA, LSB = grid
     @unpack usave, uusave, uvsave, TSsave, TLsave, TDSsave, TDLsave = fwd
 
+    local LSA; local LSB;
     local LSAm1; local LSBm1;
     local AS; local AL;
     local BS; local BL;
@@ -82,19 +83,19 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         grid_u.mid_point .= [Point(0.0, 0.0)]
         grid_v.mid_point .= [Point(0.0, 0.0)]
         
-        marching_squares!(num, grid, u)
+        marching_squares!(num, grid, u, periodic_x, periodic_y)
         interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.u, grid_v.u)
-        marching_squares!(num, grid_u, grid_u.u)        
-        marching_squares!(num, grid_v, grid_v.u)
+        marching_squares!(num, grid_u, grid_u.u, periodic_x, periodic_y)        
+        marching_squares!(num, grid_v, grid_v.u, periodic_x, periodic_y)
 
         MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, ind.all_indices, nx, ny, periodic_x, periodic_y)
         MIXED, SOLID, LIQUID = get_cells_indices(iso, ind.all_indices)
         MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(grid_u.iso, grid_u.ind.all_indices)
         MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(grid_v.iso, grid_v.ind.all_indices)
 
-        get_interface_location!(grid, MIXED)
-        get_interface_location!(grid_u, MIXED_u)
-        get_interface_location!(grid_v, MIXED_v)
+        get_interface_location!(grid, MIXED, periodic_x, periodic_y)
+        get_interface_location!(grid_u, MIXED_u, periodic_x, periodic_y)
+        get_interface_location!(grid_v, MIXED_v, periodic_x, periodic_y)
         get_interface_location_borders!(grid_u, grid_u.u, periodic_x, periodic_y)
         get_interface_location_borders!(grid_v, grid_v.u, periodic_x, periodic_y)
 
@@ -161,9 +162,9 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         if heat_liquid_phase
             rhs = J_TL(grid, fwd.TDSsave, fwd.TDLsave, u)
             rhs .-= R3_TL_T * adj.u[current_i,:]
-            @mytime blocks = DDM.decompose(AL, grid.domdec, grid.domdec)
+            @mytime blocks = DDM.decompose(transpose(AL), grid.domdec, grid.domdec)
 
-            @views @mytime (_, ch) = bicgstabl!(adj.TDL[current_i,:], AL, rhs, Pl=ras(blocks,grid.pou), log=true)
+            @views @mytime (_, ch) = bicgstabl!(adj.TDL[current_i,:], transpose(AL), rhs, Pl=ras(blocks,grid.pou), log=true)
             println(ch)
         end
     end
@@ -171,33 +172,45 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     current_i -= 1
 
     while current_i > 1
-        u .= fwd.usave[current_i-1,:,:]
-    
+        @views u .= fwd.usave[current_i-1,:,:]
         @views phS.T .= fwd.TSsave[current_i,:,:]
         @views phL.T .= fwd.TLsave[current_i,:,:]
         @views phS.TD .= fwd.TDSsave[current_i,:]
         @views phL.TD .= fwd.TDLsave[current_i,:]
     
         if levelset
+            grid.α .= NaN
+            grid_u.α .= NaN
+            grid_v.α .= NaN
+            faces .= 0.
+            grid_u.faces .= 0.
+            grid_v.faces .= 0.
             grid.mid_point .= [Point(0.0, 0.0)]
             grid_u.mid_point .= [Point(0.0, 0.0)]
             grid_v.mid_point .= [Point(0.0, 0.0)]
             
-            marching_squares!(num, grid, u)
+            marching_squares!(num, grid, u, periodic_x, periodic_y)
             interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.u, grid_v.u)
-            marching_squares!(num, grid_u, grid_u.u)
-            marching_squares!(num, grid_v, grid_v.u)
+            marching_squares!(num, grid_u, grid_u.u, periodic_x, periodic_y)
+            marching_squares!(num, grid_v, grid_v.u, periodic_x, periodic_y)
     
             MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, ind.all_indices, nx, ny, periodic_x, periodic_y)
             MIXED, SOLID, LIQUID = get_cells_indices(iso, ind.all_indices)
             MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(grid_u.iso, grid_u.ind.all_indices)
             MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(grid_v.iso, grid_v.ind.all_indices)
     
-            get_interface_location!(grid, MIXED)
-            get_interface_location!(grid_u, MIXED_u)
-            get_interface_location!(grid_v, MIXED_v)
+            get_interface_location!(grid, MIXED, periodic_x, periodic_y)
+            get_interface_location!(grid_u, MIXED_u, periodic_x, periodic_y)
+            get_interface_location!(grid_v, MIXED_v, periodic_x, periodic_y)
             get_interface_location_borders!(grid_u, grid_u.u, periodic_x, periodic_y)
             get_interface_location_borders!(grid_v, grid_v.u, periodic_x, periodic_y)
+
+            geoL.emptied .= false
+            geoS.emptied .= false
+            grid_u.geoL.emptied .= false
+            grid_u.geoS.emptied .= false
+            grid_v.geoL.emptied .= false
+            grid_v.geoS.emptied .= false
     
             get_curvature(num, grid, u, MIXED, periodic_x, periodic_y)
             postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, ϵ)
@@ -266,23 +279,27 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
             if heat_solid_phase
                 rhs = J_TS(grid, fwd.TDSsave, fwd.TDLsave, u)
                 rhs .-= R3_TS_T * adj.u[current_i,:]
-                rhs .+= BSm1 * adj.TDS[current_i+1,:]
+                rhs .+= transpose(BSm1) * adj.TDS[current_i+1,:]
+                kill_dead_cells!(veci(rhs, grid, 1), grid, geoS)
+                kill_dead_cells!(veci(rhs, grid, 2), grid, geoS)
                 ASm1 .= AS
                 BSm1 .= BS
-                @mytime blocks = DDM.decompose(AS, grid.domdec, grid.domdec)
+                @mytime blocks = DDM.decompose(transpose(AS), grid.domdec, grid.domdec)
     
-                @views @mytime (_, ch) = bicgstabl!(adj.TDS[current_i,:], AS, rhs, Pl=ras(blocks,grid.pou), log=true)
+                @views @mytime (_, ch) = bicgstabl!(adj.TDS[current_i,:], transpose(AS), rhs, Pl=ras(blocks,grid.pou), log=true)
                 println(ch)
             end
             if heat_liquid_phase
                 rhs = J_TL(grid, fwd.TDSsave, fwd.TDLsave, u)
                 rhs .-= R3_TL_T * adj.u[current_i,:]
-                rhs .+= BLm1 * adj.TDL[current_i+1,:]
+                rhs .+= transpose(BLm1) * adj.TDL[current_i+1,:]
+                kill_dead_cells!(veci(rhs, grid, 1), grid, geoL)
+                kill_dead_cells!(veci(rhs, grid, 2), grid, geoL)
                 ALm1 .= AL
                 BLm1 .= BL
-                @mytime blocks = DDM.decompose(AL, grid.domdec, grid.domdec)
+                @mytime blocks = DDM.decompose(transpose(AL), grid.domdec, grid.domdec)
     
-                @views @mytime (_, ch) = bicgstabl!(adj.TDL[current_i,:], AL, rhs, Pl=ras(blocks,grid.pou), log=true)
+                @views @mytime (_, ch) = bicgstabl!(adj.TDL[current_i,:], transpose(AL), rhs, Pl=ras(blocks,grid.pou), log=true)
                 println(ch)
             end
         end
@@ -294,6 +311,11 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
                     if (heat && length(MIXED) != 0)
                         print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f\n" mean(V[MIXED]) findmax(V[MIXED])[1] findmin(V[MIXED])[1])
                         print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f\n" mean(κ[MIXED]) findmax(κ[MIXED])[1] findmin(κ[MIXED])[1])
+                        println(length(SOLID))
+                        normTL = norm(adj.TDL[current_i,:])
+                        normTS = norm(adj.TDS[current_i,:])
+                        normu = norm(adj.u[current_i,:])
+                        print("$(@sprintf("norm(ψ) %.6e", normu))\t$(@sprintf("norm(ΘS) %.6e", normTS))\t$(@sprintf("norm(ΘL) %.6e", normTL))\n")
                     end
                 catch
                     @show (MIXED)

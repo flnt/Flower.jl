@@ -151,12 +151,12 @@ function run_forward(num, grid, grid_u, grid_v,
         grid_u.mid_point .= [Point(0.0, 0.0)]
         grid_v.mid_point .= [Point(0.0, 0.0)]
         
-        marching_squares!(num, grid, u)
+        marching_squares!(num, grid, u, periodic_x, periodic_y)
         interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.u, grid_v.u)
         uusave[1,:,:] .= grid_u.u
         uvsave[1,:,:] .= grid_v.u
-        marching_squares!(num, grid_u, grid_u.u)
-        marching_squares!(num, grid_v, grid_v.u)
+        marching_squares!(num, grid_u, grid_u.u, periodic_x, periodic_y)
+        marching_squares!(num, grid_v, grid_v.u, periodic_x, periodic_y)
 
         MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, ind.all_indices, nx, ny, periodic_x, periodic_y)
         MIXED_u_vel_ext, SOLID_u_vel_ext, LIQUID_u_vel_ext = get_cells_indices(grid_u.iso, grid_u.ind.all_indices, grid_u.nx, grid_u.ny, periodic_x, periodic_y)
@@ -168,9 +168,9 @@ function run_forward(num, grid, grid_u, grid_v,
         kill_dead_cells!(phS.T, grid, geoS)
         kill_dead_cells!(phL.T, grid, geoL)
 
-        get_interface_location!(grid, MIXED)
-        get_interface_location!(grid_u, MIXED_u)
-        get_interface_location!(grid_v, MIXED_v)
+        get_interface_location!(grid, MIXED, periodic_x, periodic_y)
+        get_interface_location!(grid_u, MIXED_u, periodic_x, periodic_y)
+        get_interface_location!(grid_v, MIXED_v, periodic_x, periodic_y)
         get_interface_location_borders!(grid_u, grid_u.u, periodic_x, periodic_y)
         get_interface_location_borders!(grid_v, grid_v.u, periodic_x, periodic_y)
 
@@ -182,7 +182,6 @@ function run_forward(num, grid, grid_u, grid_v,
         indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
         field_extension!(grid, grid.κ, indices_vel_ext, NB, periodic_x, periodic_y)
 
-        # get_curvature(num, grid, MIXED, periodic_x, periodic_y)
         if save_radius
             n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
             local radius = zeros(n_snaps)
@@ -450,10 +449,10 @@ function run_forward(num, grid, grid_u, grid_v,
             grid_u.mid_point .= [Point(0.0, 0.0)]
             grid_v.mid_point .= [Point(0.0, 0.0)]
 
-            marching_squares!(num, grid, u)
+            marching_squares!(num, grid, u, periodic_x, periodic_y)
             interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.u, grid_v.u)
-            marching_squares!(num, grid_u, grid_u.u)
-            marching_squares!(num, grid_v, grid_v.u)
+            marching_squares!(num, grid_u, grid_u.u, periodic_x, periodic_y)
+            marching_squares!(num, grid_v, grid_v.u, periodic_x, periodic_y)
 
             MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, ind.all_indices, nx, ny, periodic_x, periodic_y)
             MIXED_u_vel_ext, SOLID_u_vel_ext, LIQUID_u_vel_ext = get_cells_indices(grid_u.iso, grid_u.ind.all_indices, grid_u.nx, grid_u.ny, periodic_x, periodic_y)
@@ -465,9 +464,9 @@ function run_forward(num, grid, grid_u, grid_v,
             kill_dead_cells!(phS.T, grid, geoS)
             kill_dead_cells!(phL.T, grid, geoL)
 
-            get_interface_location!(grid, MIXED)
-            get_interface_location!(grid_u, MIXED_u)
-            get_interface_location!(grid_v, MIXED_v)
+            get_interface_location!(grid, MIXED, periodic_x, periodic_y)
+            get_interface_location!(grid_u, MIXED_u, periodic_x, periodic_y)
+            get_interface_location!(grid_v, MIXED_v, periodic_x, periodic_y)
             get_interface_location_borders!(grid_u, grid_u.u, periodic_x, periodic_y)
             get_interface_location_borders!(grid_v, grid_v.u, periodic_x, periodic_y)
 
@@ -713,7 +712,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
     current_i = max_iterations + 1
 
     if levelset
-        marching_squares!(num, grid, u)
+        marching_squares!(num, grid, u, periodic_x, periodic_y)
 
         bcs!(faces, BC_u.left, dx[1,1])
         bcs!(faces, BC_u.right, dx[1,end])
@@ -821,7 +820,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
         end
 
         if levelset
-            marching_squares!(num, grid, u)
+            marching_squares!(num, grid, u, periodic_x, periodic_y)
 
             bcs!(faces, BC_u.left, dx[1,1])
             bcs!(faces, BC_u.right, dx[1,end])
