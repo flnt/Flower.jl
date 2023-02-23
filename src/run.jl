@@ -146,14 +146,6 @@ function run_forward(num, grid, grid_u, grid_v,
         BC_u.top.ind = ind.b_top;
     end
 
-    usave[1,:,:] .= u
-    Tsave[1,:,:] .= phL.T .+ phS.T
-    TLsave[1,:,:] .= phL.T
-    TSsave[1,:,:] .= phS.T
-    psave[1,:,:] .= phL.p .+ phS.p
-    Uxsave[1,:,:] .= phL.u .+ phS.u
-    Uysave[1,:,:] .= phL.v .+ phS.v
-
     if levelset
         grid.mid_point .= [Point(0.0, 0.0)]
         grid_u.mid_point .= [Point(0.0, 0.0)]
@@ -173,8 +165,8 @@ function run_forward(num, grid, grid_u, grid_v,
         MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(grid_u.iso, grid_u.ind.all_indices)
         MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(grid_v.iso, grid_v.ind.all_indices)
 
-        kill_dead_cells!(phS.T, opS.LT, LIQUID, MIXED, ny)
-        kill_dead_cells!(phL.T, opL.LT, SOLID, MIXED, ny)
+        kill_dead_cells!(phS.T, grid, geoS)
+        kill_dead_cells!(phL.T, grid, geoL)
 
         get_interface_location!(grid, MIXED)
         get_interface_location!(grid_u, MIXED_u)
@@ -235,6 +227,14 @@ function run_forward(num, grid, grid_u, grid_v,
         lengthsave[1] = arc_length2(geoS.projection, MIXED)
         κsave[1,:,:] .= κ
     end
+
+    usave[1,:,:] .= u
+    Tsave[1,:,:] .= phL.T.*geoL.cap[:,:,5] .+ phS.T[:,:].*geoS.cap[:,:,5]
+    TLsave[1,:,:] .= phL.T
+    TSsave[1,:,:] .= phS.T
+    psave[1,:,:] .= phL.p .+ phS.p
+    Uxsave[1,:,:] .= phL.u .+ phS.u
+    Uysave[1,:,:] .= phL.v .+ phS.v
 
     tmpDS = copy(phS.T)
     tmpDS[2:end-1,2:end-1] .= θd
@@ -462,8 +462,8 @@ function run_forward(num, grid, grid_u, grid_v,
             MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(grid_u.iso, grid_u.ind.all_indices)
             MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(grid_v.iso, grid_v.ind.all_indices)
 
-            kill_dead_cells!(phS.T, opS.LT, LIQUID, MIXED, ny)
-            kill_dead_cells!(phL.T, opL.LT, SOLID, MIXED, ny)
+            kill_dead_cells!(phS.T, grid, geoS)
+            kill_dead_cells!(phL.T, grid, geoL)
 
             get_interface_location!(grid, MIXED)
             get_interface_location!(grid_u, MIXED_u)
