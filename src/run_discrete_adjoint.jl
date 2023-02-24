@@ -145,14 +145,14 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         CFL_sc, periodic_x, periodic_y, ϵ_adj, λ)
     
     if levelset
-        rhs = J_u(grid, fwd.TDSsave, fwd.TDLsave, u)
+        rhs = J_u(num, grid, fwd.TDSsave, fwd.TDLsave, u, current_i-1)
         @views @mytime (_, ch) = gmres!(adj.u[current_i,:], transpose(LSA), rhs, log=true)
         println(ch)
     end
 
     if heat
         if heat_solid_phase
-            rhs = J_TS(grid, fwd.TDSsave, fwd.TDLsave, u)
+            rhs = J_TS(num, grid, fwd.TDSsave, fwd.TDLsave, u, current_i-1)
             rhs .-= R3_TS_T * adj.u[current_i,:]
             @mytime blocks = DDM.decompose(transpose(AS), grid.domdec, grid.domdec)
 
@@ -160,7 +160,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
             println(ch)
         end
         if heat_liquid_phase
-            rhs = J_TL(grid, fwd.TDSsave, fwd.TDLsave, u)
+            rhs = J_TL(num, grid, fwd.TDSsave, fwd.TDLsave, u, current_i-1)
             rhs .-= R3_TL_T * adj.u[current_i,:]
             @mytime blocks = DDM.decompose(transpose(AL), grid.domdec, grid.domdec)
 
@@ -252,20 +252,14 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
             fwd.usave[current_i,:,:], fwd.usave[current_i+1,:,:], LSAm1, LSBm1,
             CFL_sc, periodic_x, periodic_y, ϵ_adj, λ)
 
-        # @show (findmax(abs.(R1_u_T)))
-        # @show (findmax(abs.(R2_u_T)))
-        # @show (findmax(abs.(R3_u_T)))
-
         @views R3_TS_T, R3_TL_T = R_qi1(num, grid, grid_u, grid_v, 
             phS.TD, phL.TD,
             fwd.usave[current_i-1,:,:], fwd.usave[current_i,:,:], LSA, LSB,
             CFL_sc, periodic_x, periodic_y, ϵ_adj, λ)
 
-        # @show (findmax(abs.(R3_TS_T)))
-        # @show (findmax(abs.(R3_TL_T)))
         
         if levelset
-            rhs = J_u(grid, fwd.TDSsave, fwd.TDLsave, u)
+            rhs = J_u(num, grid, fwd.TDSsave, fwd.TDLsave, u, current_i-1)
             rhs .-= R1_u_T * adj.TDL[current_i+1,:]
             rhs .-= R2_u_T * adj.TDS[current_i+1,:]
             rhs .-= R3_u_T * adj.u[current_i+1,:]
@@ -277,7 +271,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     
         if heat
             if heat_solid_phase
-                rhs = J_TS(grid, fwd.TDSsave, fwd.TDLsave, u)
+                rhs = J_TS(num, grid, fwd.TDSsave, fwd.TDLsave, u, current_i-1)
                 rhs .-= R3_TS_T * adj.u[current_i,:]
                 rhs .+= transpose(BSm1) * adj.TDS[current_i+1,:]
                 kill_dead_cells!(veci(rhs, grid, 1), grid, geoS)
@@ -290,7 +284,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
                 println(ch)
             end
             if heat_liquid_phase
-                rhs = J_TL(grid, fwd.TDSsave, fwd.TDLsave, u)
+                rhs = J_TL(num, grid, fwd.TDSsave, fwd.TDLsave, u, current_i-1)
                 rhs .-= R3_TL_T * adj.u[current_i,:]
                 rhs .+= transpose(BLm1) * adj.TDL[current_i+1,:]
                 kill_dead_cells!(veci(rhs, grid, 1), grid, geoL)
@@ -311,7 +305,6 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
                     if (heat && length(MIXED) != 0)
                         print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f\n" mean(V[MIXED]) findmax(V[MIXED])[1] findmin(V[MIXED])[1])
                         print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f\n" mean(κ[MIXED]) findmax(κ[MIXED])[1] findmin(κ[MIXED])[1])
-                        println(length(SOLID))
                         normTL = norm(adj.TDL[current_i,:])
                         normTS = norm(adj.TDS[current_i,:])
                         normu = norm(adj.u[current_i,:])
