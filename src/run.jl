@@ -180,7 +180,7 @@ function run_forward(num, grid, grid_u, grid_v,
         _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
         _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
         indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-        field_extension!(grid, grid.κ, indices_vel_ext, NB, periodic_x, periodic_y)
+        field_extension!(grid, u, κ, indices_vel_ext, NB, periodic_x, periodic_y)
 
         if save_radius
             n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
@@ -333,7 +333,7 @@ function run_forward(num, grid, grid_u, grid_v,
             _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
             _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
             indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-            velocity_extension!(grid, V, indices_vel_ext, NB, periodic_x, periodic_y)
+            velocity_extension!(grid, u, V, indices_vel_ext, NB, periodic_x, periodic_y)
         end
 
         if free_surface
@@ -354,8 +354,8 @@ function run_forward(num, grid, grid_u, grid_v,
             _MIXED_v_vel_ext = vcat(_MIXED_L_v_vel_ext, _MIXED_S_v_vel_ext)
             indices_v_vel_ext = vcat(SOLID_v_vel_ext, _MIXED_v_vel_ext, LIQUID_v_vel_ext)
 
-            velocity_extension!(grid_u, grid_u.V, indices_u_vel_ext, NB, periodic_x, periodic_y)
-            velocity_extension!(grid_v, grid_v.V, indices_v_vel_ext, NB, periodic_x, periodic_y)
+            velocity_extension!(grid_u, grid_u.u, grid_u.V, indices_u_vel_ext, NB, periodic_x, periodic_y)
+            velocity_extension!(grid_v, grid_v.u, grid_v.V, indices_v_vel_ext, NB, periodic_x, periodic_y)
         end
 
         if verbose && adaptative_t
@@ -484,7 +484,7 @@ function run_forward(num, grid, grid_u, grid_v,
             _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
             _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
             indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-            field_extension!(grid, grid.κ, indices_vel_ext, NB, periodic_x, periodic_y)
+            field_extension!(grid, u, κ, indices_vel_ext, NB, periodic_x, periodic_y)
 
             if iszero(current_i%save_every) || current_i==max_iterations
                 snap = current_i÷save_every+1

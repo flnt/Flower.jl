@@ -502,8 +502,8 @@ function velocity_extension!(grid, V, inside, NB)
     end
 end
 
-function velocity_extension!(grid, V, indices, NB, periodic_x, periodic_y)
-    @unpack nx, ny, dx, dy, u, ind = grid
+function velocity_extension!(grid, u, V, indices, NB, periodic_x, periodic_y)
+    @unpack nx, ny, dx, dy, ind = grid
 
     local cfl = 0.45
     local Vt = similar(V)
@@ -529,8 +529,8 @@ function velocity_extension!(grid, V, indices, NB, periodic_x, periodic_y)
     end
 end
 
-function field_extension!(grid, f, indices, NB, periodic_x, periodic_y)
-    @unpack nx, ny, dx, dy, u = grid
+function field_extension!(grid, u, f, indices, NB, periodic_x, periodic_y)
+    @unpack nx, ny, dx, dy = grid
 
     local cfl = 0.45
     local ft = similar(f)

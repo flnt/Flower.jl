@@ -86,7 +86,7 @@ function R_qi(num, grid, grid_u, grid_v, um1,
         _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
         _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
         indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-        field_extension!(grid, grid.κ, indices_vel_ext, NB, periodic_x, periodic_y)
+        field_extension!(grid, uj, grid.κ, indices_vel_ext, NB, periodic_x, periodic_y)
 
         Stefan_velocity!(num, grid, V, TS, TL, MIXED, periodic_x, periodic_y)
         V[MIXED] .*= 1. ./ λ
@@ -94,7 +94,7 @@ function R_qi(num, grid, grid_u, grid_v, um1,
         _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
         _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
         indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-        velocity_extension!(grid, V, indices_vel_ext, NB, periodic_x, periodic_y)
+        velocity_extension!(grid, uj, V, indices_vel_ext, NB, periodic_x, periodic_y)
 
         # get perturbed matrices
         Aj_S, Bj_S, _ = set_heat!(dir, num, grid, opC_TS, geoS, BC_TS, MIXED, geoS.projection,
@@ -103,21 +103,14 @@ function R_qi(num, grid, grid_u, grid_v, um1,
         derB_S .= (Bj_S .- B_S) ./ ϵ
         Rj_S = derA_S * TD1_S .- derB_S * TD0_S
 
-        # if JJ[1] == 4 && current_i > 49
+        # if JJ[2] == 4
         #     @show (JJ, j)
-        #     # st = static_stencil(uj, JJ, grid.nx, grid.ny, periodic_x, periodic_y)
-        #     # println(st[1,:])
-        #     # println(st[2,:])
-        #     # println(st[3,:])
-        #     # println(Rj_S[j-2:j+2])
+        #     println(Rj_S[j-3:j+7])
         #     # println(A_S[j,:])
         #     # println()
         #     # println(Aj_S[j,:])
         #     # println()
         #     # println(derA_S[j,:])
-        #     # println()
-        #     # println(opC_TS.iMx[j,j])
-        #     println(grid.geoS.dcap[JJ,5])
         #     println()
         # end
 
@@ -218,7 +211,7 @@ function R_qi1(num, grid, grid_u, grid_v,
         _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
         _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
         indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-        field_extension!(grid, grid.κ, indices_vel_ext, NB, periodic_x, periodic_y)
+        field_extension!(grid, u, grid.κ, indices_vel_ext, NB, periodic_x, periodic_y)
 
         # get perturbed matrices
         Stefan_velocity!(num, grid, V, TSj, TL, MIXED, periodic_x, periodic_y)
@@ -227,7 +220,7 @@ function R_qi1(num, grid, grid_u, grid_v,
         _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
         _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
         indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-        velocity_extension!(grid, V, indices_vel_ext, NB, periodic_x, periodic_y)
+        velocity_extension!(grid, u, V, indices_vel_ext, NB, periodic_x, periodic_y)
 
         IIOE(grid, LSAj, LSBj, u, V, CFL_sc, periodic_x, periodic_y)
         derLSA_S .= (LSAj .- LSA) ./ ϵ
@@ -241,7 +234,7 @@ function R_qi1(num, grid, grid_u, grid_v,
         _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
         _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
         indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-        velocity_extension!(grid, V, indices_vel_ext, NB, periodic_x, periodic_y)
+        velocity_extension!(grid, u, V, indices_vel_ext, NB, periodic_x, periodic_y)
 
         IIOE(grid, LSAj, LSBj, u, V, CFL_sc, periodic_x, periodic_y)
         derLSA_L .= (LSAj .- LSA) ./ ϵ

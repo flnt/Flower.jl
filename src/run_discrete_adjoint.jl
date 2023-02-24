@@ -105,7 +105,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
         _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
         indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-        field_extension!(grid, grid.κ, indices_vel_ext, NB, periodic_x, periodic_y)
+        field_extension!(grid, u, κ, indices_vel_ext, NB, periodic_x, periodic_y)
     end
 
     if stefan
@@ -115,7 +115,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
         _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
         indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-        velocity_extension!(grid, V, indices_vel_ext, NB, periodic_x, periodic_y)
+        velocity_extension!(grid, u, V, indices_vel_ext, NB, periodic_x, periodic_y)
     end
 
     if levelset
@@ -218,17 +218,17 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
             _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
             _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
             indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-            field_extension!(grid, grid.κ, indices_vel_ext, NB, periodic_x, periodic_y)
+            field_extension!(grid, u, κ, indices_vel_ext, NB, periodic_x, periodic_y)
         end
 
-        if stefan
+        if stefan   
             Stefan_velocity!(num, grid, V, phS.T, phL.T, MIXED, periodic_x, periodic_y)
             V[MIXED] .*= 1. ./ λ
             _MIXED_L_vel_ext = intersect(findall(geoL.emptied), MIXED_vel_ext)
             _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
             _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
             indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-            velocity_extension!(grid, V, indices_vel_ext, NB, periodic_x, periodic_y)
+            velocity_extension!(grid, u, V, indices_vel_ext, NB, periodic_x, periodic_y)
         end
 
         if levelset
