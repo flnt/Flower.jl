@@ -152,7 +152,7 @@ function R_qi1(num, grid, grid_u, grid_v,
     CFL_sc, periodic_x, periodic_y, ϵ, λ)
 
     @unpack NB = num
-    @unpack nx, ny, ind, u, V, iso, geoS, geoL = grid
+    @unpack nx, ny, ind, u, V, faces, iso, geoS, geoL = grid
 
     TS = reshape(veci(TD_S, grid, 1), (ny, nx))
     TL = reshape(veci(TD_L, grid, 1), (ny, nx))
@@ -185,6 +185,12 @@ function R_qi1(num, grid, grid_u, grid_v,
         TLj[j] += ϵ
 
         # Compute capacities
+        grid.α .= NaN
+        grid_u.α .= NaN
+        grid_v.α .= NaN
+        faces .= 0.
+        grid_u.faces .= 0.
+        grid_v.faces .= 0.
         grid.mid_point .= [Point(0.0, 0.0)]
         grid_u.mid_point .= [Point(0.0, 0.0)]
         grid_v.mid_point .= [Point(0.0, 0.0)]
@@ -204,6 +210,13 @@ function R_qi1(num, grid, grid_u, grid_v,
         get_interface_location!(grid_v, MIXED_v, periodic_x, periodic_y)
         get_interface_location_borders!(grid_u, grid_u.u, periodic_x, periodic_y)
         get_interface_location_borders!(grid_v, grid_v.u, periodic_x, periodic_y)
+
+        geoL.emptied .= false
+        geoS.emptied .= false
+        grid_u.geoL.emptied .= false
+        grid_u.geoS.emptied .= false
+        grid_v.geoL.emptied .= false
+        grid_v.geoS.emptied .= false
 
         get_curvature(num, grid, u, MIXED, periodic_x, periodic_y)
         postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, ϵ)
