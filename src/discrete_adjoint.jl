@@ -2,7 +2,7 @@ function R_qi(num, grid, grid_u, grid_v, um1,
     TD0_S, TD1_S, A_S, B_S, opC_TS, BC_TS,
     TD0_L, TD1_L, A_L, B_L, opC_TL, BC_TL,
     u0, u1, LSA, LSB,
-    CFL_sc, periodic_x, periodic_y, ϵ, λ)
+    CFL_sc, periodic_x, periodic_y, ϵ, ϵ_adj, λ)
 
     @unpack NB = num
     @unpack nx, ny, ind, V, iso, faces, geoS, geoL = grid
@@ -44,7 +44,7 @@ function R_qi(num, grid, grid_u, grid_v, um1,
     rows_u = rowvals(LSA)
     @inbounds for JJ in ind.all_indices
         j = lexicographic(JJ, ny)
-        uj[JJ] += ϵ
+        uj[JJ] += ϵ_adj
 
         # Compute capacities
         grid.α .= NaN
@@ -99,8 +99,8 @@ function R_qi(num, grid, grid_u, grid_v, um1,
         # get perturbed matrices
         Aj_S, Bj_S, _ = set_heat!(dir, num, grid, opC_TS, geoS, BC_TS, MIXED, geoS.projection,
                                 periodic_x, periodic_y)
-        derA_S .= (Aj_S .- A_S) ./ ϵ
-        derB_S .= (Bj_S .- B_S) ./ ϵ
+        derA_S .= (Aj_S .- A_S) ./ ϵ_adj
+        derB_S .= (Bj_S .- B_S) ./ ϵ_adj
         Rj_S = derA_S * TD1_S .- derB_S * TD0_S
 
         # if JJ[2] == 4
@@ -116,13 +116,13 @@ function R_qi(num, grid, grid_u, grid_v, um1,
 
         Aj_L, Bj_L, _ = set_heat!(dir, num, grid, opC_TL, geoL, BC_TL, MIXED, geoL.projection,
                                 periodic_x, periodic_y)
-        derA_L .= (Aj_L .- A_L) ./ ϵ
-        derB_L .= (Bj_L .- B_L) ./ ϵ
+        derA_L .= (Aj_L .- A_L) ./ ϵ_adj
+        derB_L .= (Bj_L .- B_L) ./ ϵ_adj
         Rj_L = derA_L * TD1_L .- derB_L * TD0_L
 
         IIOE(grid, LSAj, LSBj, uj, V, CFL_sc, periodic_x, periodic_y)
-        derLSA .= (LSAj .- LSA) ./ ϵ
-        derLSB .= (LSBj .- LSB) ./ ϵ
+        derLSA .= (LSAj .- LSA) ./ ϵ_adj
+        derLSB .= (LSBj .- LSB) ./ ϵ_adj
         utmp = zeros(ny, nx)
         utmp[JJ] = 1.0
         Rj_u = derLSA * vec(u1) .- derLSB * vec(u0) .- LSB * vec(utmp)
@@ -149,7 +149,7 @@ end
 function R_qi1(num, grid, grid_u, grid_v, 
     TD_S, TD_L,
     u0, u1, LSA, LSB,
-    CFL_sc, periodic_x, periodic_y, ϵ, λ)
+    CFL_sc, periodic_x, periodic_y, ϵ, ϵ_adj, λ)
 
     @unpack NB = num
     @unpack nx, ny, ind, u, V, faces, iso, geoS, geoL = grid
@@ -181,8 +181,8 @@ function R_qi1(num, grid, grid_u, grid_v,
 
     rows = rowvals(LSA)
     @inbounds for j = 1:ny*nx
-        TSj[j] += ϵ
-        TLj[j] += ϵ
+        TSj[j] += ϵ_adj
+        TLj[j] += ϵ_adj
 
         # Compute capacities
         grid.α .= NaN
@@ -236,8 +236,8 @@ function R_qi1(num, grid, grid_u, grid_v,
         velocity_extension!(grid, u, V, indices_vel_ext, NB, periodic_x, periodic_y)
 
         IIOE(grid, LSAj, LSBj, u, V, CFL_sc, periodic_x, periodic_y)
-        derLSA_S .= (LSAj .- LSA) ./ ϵ
-        derLSB_S .= (LSBj .- LSB) ./ ϵ
+        derLSA_S .= (LSAj .- LSA) ./ ϵ_adj
+        derLSB_S .= (LSBj .- LSB) ./ ϵ_adj
 
         Rj_S = derLSA_S * vec(u1) .- derLSB_S * vec(u0)
 
@@ -250,8 +250,8 @@ function R_qi1(num, grid, grid_u, grid_v,
         velocity_extension!(grid, u, V, indices_vel_ext, NB, periodic_x, periodic_y)
 
         IIOE(grid, LSAj, LSBj, u, V, CFL_sc, periodic_x, periodic_y)
-        derLSA_L .= (LSAj .- LSA) ./ ϵ
-        derLSB_L .= (LSBj .- LSB) ./ ϵ
+        derLSA_L .= (LSAj .- LSA) ./ ϵ_adj
+        derLSB_L .= (LSBj .- LSB) ./ ϵ_adj
 
         Rj_L = derLSA_L * vec(u1) .- derLSB_L * vec(u0)
 
