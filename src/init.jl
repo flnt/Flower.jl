@@ -127,6 +127,16 @@ function init_meshes(num::NumericalParameters)
     return (mesh_cc, mesh_stx, mesh_sty)
 end
 
+function discrete_adjoint(grid, TDS, TDL, u)
+    tmp = star3(grid)
+    R1_u = [tmp; tmp]
+    R2_u = [tmp; tmp]
+    R3_u = copy(tmp)
+    R3_TS = [tmp tmp]
+    R3_TL = [tmp tmp]
+    return discrete_adjoint{Float64}(TDS, TDL, u, R1_u, R2_u, R3_u, R3_TS, R3_TL)
+end
+
 function init_sparse_Bx(grid)
     @unpack nx, ny = grid
     iw = collect(i for i = ny+1:(nx+1)*ny)

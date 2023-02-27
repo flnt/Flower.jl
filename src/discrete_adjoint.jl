@@ -1,4 +1,4 @@
-function R_qi(num, grid, grid_u, grid_v, um1,
+function R_qi(num, grid, grid_u, grid_v, adj, um1,
     TD0_S, TD1_S, A_S, B_S, opC_TS, BC_TS,
     TD0_L, TD1_L, A_L, B_L, opC_TL, BC_TL,
     u0, u1, LSA, LSB,
@@ -6,32 +6,25 @@ function R_qi(num, grid, grid_u, grid_v, um1,
 
     @unpack ϵ, NB = num
     @unpack nx, ny, ind, V, iso, faces, geoS, geoL = grid
+    @unpack R1_u, R2_u, R3_u = adj
+    
+    R1_u.nzval .= 0.
+    R2_u.nzval .= 0.
+    R3_u.nzval .= 0.
     uj = copy(um1)
 
     TS = reshape(veci(TD1_S, grid, 1), (ny, nx))
     TL = reshape(veci(TD1_L, grid, 1), (ny, nx))
-
-    # res_TS = spdiagm(2ny*nx, ny*nx, 0 => zeros(ny*nx))
-    # res_TS.nzval .= 0.
-    res_TS = zeros(2ny*nx, ny*nx)
 
     derA_S = copy(A_S)
     derA_S.nzval .= 0.
     derB_S = copy(B_S)
     derB_S.nzval .= 0.
 
-    # res_TL = spdiagm(2ny*nx, ny*nx, 0 => zeros(ny*nx))
-    # res_TL.nzval .= 0.
-    res_TL = zeros(2ny*nx, ny*nx)
-
     derA_L = copy(A_L)
     derA_L.nzval .= 0.
     derB_L = copy(B_L)
     derB_L.nzval .= 0.
-
-    # res_u = copy(LSA)
-    # res_u.nzval .= 0.
-    res_u = zeros(ny*nx, ny*nx)
 
     derLSA = copy(LSA)
     derLSA.nzval .= 0.
@@ -40,8 +33,6 @@ function R_qi(num, grid, grid_u, grid_v, um1,
     LSAj = copy(LSA)
     LSBj = copy(LSB)
 
-    rows_T = rowvals(A_S)
-    rows_u = rowvals(LSA)
     @inbounds for JJ in ind.all_indices
         j = lexicographic(JJ, ny)
         uj[JJ] += ϵ_adj
@@ -101,70 +92,61 @@ function R_qi(num, grid, grid_u, grid_v, um1,
                                 periodic_x, periodic_y)
         derA_S .= (Aj_S .- A_S) ./ ϵ_adj
         derB_S .= (Bj_S .- B_S) ./ ϵ_adj
-        Rj_S = derA_S * TD1_S .- derB_S * TD0_S
-
-        # if JJ[2] == 4
-        #     @show (JJ, j)
-        #     println(Rj_S[j-3:j+7])
-        #     # println(A_S[j,:])
-        #     # println()
-        #     # println(Aj_S[j,:])
-        #     # println()
-        #     # println(derA_S[j,:])
-        #     println()
-        # end
+        Rj_S = sparse(derA_S * TD1_S .- derB_S * TD0_S)
 
         Aj_L, Bj_L, _ = set_heat!(dir, num, grid, opC_TL, geoL, BC_TL, MIXED, geoL.projection,
                                 periodic_x, periodic_y)
         derA_L .= (Aj_L .- A_L) ./ ϵ_adj
         derB_L .= (Bj_L .- B_L) ./ ϵ_adj
-        Rj_L = derA_L * TD1_L .- derB_L * TD0_L
+        Rj_L = sparse(derA_L * TD1_L .- derB_L * TD0_L)
 
         IIOE(grid, LSAj, LSBj, uj, V, CFL_sc, periodic_x, periodic_y)
         derLSA .= (LSAj .- LSA) ./ ϵ_adj
         derLSB .= (LSBj .- LSB) ./ ϵ_adj
         utmp = zeros(ny, nx)
         utmp[JJ] = 1.0
-        Rj_u = derLSA * vec(u1) .- derLSB * vec(u0) .- LSB * vec(utmp)
+        Rj_u = sparse(derLSA * vec(u1) .- derLSB * vec(u0) .- LSB * vec(utmp))
 
-        # for i in nzrange(A_S, j)
-        #     @inbounds row = rows_T[i]
-        #     @inbounds res_TS[row,j] = Rj_S[row]
-        #     @inbounds res_TL[row,j] = Rj_L[row]
-        # end
-        # for i in nzrange(LSA, j)
-        #     @inbounds row = rows_u[i]
-        #     @inbounds res_u[row,j] = Rj_u[row]
-        # end
-        @inbounds res_TS[:,j] .= Rj_S
-        @inbounds res_TL[:,j] .= Rj_L
-        @inbounds res_u[:,j] .= Rj_u
+        # Do NOT parallelize. Sparsity pattern changes due to periodic BCs
+        # not being preallocated
+        rows = rowvals(Rj_S)
+        for i in nzrange(Rj_S, 1)
+            @inbounds row = rows[i]
+            @inbounds R1_u[row,j] = Rj_S[row]
+        end
+        rows = rowvals(Rj_L)
+        for i in nzrange(Rj_L, 1)
+            @inbounds row = rows[i]
+            @inbounds R2_u[row,j] = Rj_L[row]
+        end
+        rows = rowvals(Rj_u)
+        for i in nzrange(Rj_u, 1)
+            @inbounds row = rows[i]
+            @inbounds R3_u[row,j] = Rj_u[row]
+        end
 
         uj .= um1
     end
 
-    return transpose(res_TS), transpose(res_TL), transpose(res_u)
+    return nothing
 end
 
-function R_qi1(num, grid, grid_u, grid_v, 
+function R_qi1(num, grid, grid_u, grid_v, adj, 
     TD_S, TD_L,
     u0, u1, LSA, LSB,
     CFL_sc, periodic_x, periodic_y, ϵ_adj, λ)
 
     @unpack ϵ, NB = num
     @unpack nx, ny, ind, u, V, faces, iso, geoS, geoL = grid
+    @unpack R3_TS, R3_TL = adj
+    
+    R3_TS.nzval .= 0.
+    R3_TL.nzval .= 0.
 
     TS = reshape(veci(TD_S, grid, 1), (ny, nx))
     TL = reshape(veci(TD_L, grid, 1), (ny, nx))
     TSj = copy(TS)
     TLj = copy(TL)
-
-    # res_TS = spdiagm(ny*nx, 2ny*nx, 0 => zeros(ny*nx))
-    # res_TS.nzval .= 0.
-    # res_TL = spdiagm(ny*nx, 2ny*nx, 0 => zeros(ny*nx))
-    # res_TL.nzval .= 0.
-    res_TS = zeros(ny*nx, 2ny*nx)
-    res_TL = zeros(ny*nx, 2ny*nx)
     
     derLSA_S = copy(LSA)
     derLSA_S.nzval .= 0.
@@ -179,7 +161,6 @@ function R_qi1(num, grid, grid_u, grid_v,
     LSAj = copy(LSA)
     LSBj = copy(LSB)
 
-    rows = rowvals(LSA)
     @inbounds for j = 1:ny*nx
         TSj[j] += ϵ_adj
         TLj[j] += ϵ_adj
@@ -239,7 +220,7 @@ function R_qi1(num, grid, grid_u, grid_v,
         derLSA_S .= (LSAj .- LSA) ./ ϵ_adj
         derLSB_S .= (LSBj .- LSB) ./ ϵ_adj
 
-        Rj_S = derLSA_S * vec(u1) .- derLSB_S * vec(u0)
+        Rj_S = sparse(derLSA_S * vec(u1) .- derLSB_S * vec(u0))
 
         Stefan_velocity!(num, grid, V, TS, TLj, MIXED, periodic_x, periodic_y)
         V[MIXED] .*= 1. ./ λ
@@ -253,19 +234,24 @@ function R_qi1(num, grid, grid_u, grid_v,
         derLSA_L .= (LSAj .- LSA) ./ ϵ_adj
         derLSB_L .= (LSBj .- LSB) ./ ϵ_adj
 
-        Rj_L = derLSA_L * vec(u1) .- derLSB_L * vec(u0)
+        Rj_L = sparse(derLSA_L * vec(u1) .- derLSB_L * vec(u0))
 
-        # for i in nzrange(LSA, j)
-        #     @inbounds row = rows[i]
-        #     @inbounds res_TS[row,j] = Rj_S[row]
-        #     @inbounds res_TL[row,j] = Rj_L[row]
-        # end
-        @inbounds res_TS[:,j] .= Rj_S
-        @inbounds res_TL[:,j] .= Rj_L
+        # Do NOT parallelize. Sparsity pattern changes due to periodic BCs
+        # not being preallocated
+        rows = rowvals(Rj_S)
+        for i in nzrange(Rj_S, 1)
+            @inbounds row = rows[i]
+            @inbounds R3_TS[row,j] = Rj_S[row]
+        end
+        rows = rowvals(Rj_L)
+        for i in nzrange(Rj_L, 1)
+            @inbounds row = rows[i]
+            @inbounds R3_TL[row,j] = Rj_L[row]
+        end
 
         TSj .= TS
         TLj .= TL
     end
 
-    return transpose(res_TS), transpose(res_TL)
+    return nothing
 end

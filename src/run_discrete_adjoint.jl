@@ -37,6 +37,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
     @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, V, κ, LSA, LSB = grid
     @unpack usave, uusave, uvsave, TSsave, TLsave, TDSsave, TDLsave = fwd
+    @unpack R1_u, R2_u, R3_u, R3_TS, R3_TL = adj
 
     local LSA; local LSB;
     local LSAm1; local LSBm1;
@@ -139,7 +140,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         end
     end
 
-    @views R3_TS_T, R3_TL_T = R_qi1(num, grid, grid_u, grid_v, 
+    @views R_qi1(num, grid, grid_u, grid_v, adj,
         phS.TD, phL.TD,
         fwd.usave[current_i-1,:,:], fwd.usave[current_i,:,:], LSA, LSB,
         CFL_sc, periodic_x, periodic_y, ϵ_adj, λ)
@@ -153,7 +154,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     if heat
         if heat_solid_phase
             rhs = J_TS(num, grid, fwd.TDSsave, fwd.TDLsave, u, current_i-1)
-            rhs .-= R3_TS_T * adj.u[current_i,:]
+            rhs .-= transpose(R3_TS) * adj.u[current_i,:]
             @mytime blocks = DDM.decompose(transpose(AS), grid.domdec, grid.domdec)
 
             @views @mytime (_, ch) = bicgstabl!(adj.TDS[current_i,:], transpose(AS), rhs, Pl=ras(blocks,grid.pou), log=true)
@@ -161,7 +162,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         end
         if heat_liquid_phase
             rhs = J_TL(num, grid, fwd.TDSsave, fwd.TDLsave, u, current_i-1)
-            rhs .-= R3_TL_T * adj.u[current_i,:]
+            rhs .-= transpose(R3_TL) * adj.u[current_i,:]
             @mytime blocks = DDM.decompose(transpose(AL), grid.domdec, grid.domdec)
 
             @views @mytime (_, ch) = bicgstabl!(adj.TDL[current_i,:], transpose(AL), rhs, Pl=ras(blocks,grid.pou), log=true)
@@ -246,13 +247,13 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
             end
         end
 
-        @views R1_u_T, R2_u_T, R3_u_T = R_qi(num, grid, grid_u, grid_v, fwd.usave[current_i,:,:],
+        @views R_qi(num, grid, grid_u, grid_v, adj, fwd.usave[current_i,:,:],
             fwd.TDSsave[current_i,:], fwd.TDSsave[current_i+1,:], ASm1, BSm1, opC_TS, BC_TS,
             fwd.TDLsave[current_i,:], fwd.TDLsave[current_i+1,:], ALm1, BLm1, opC_TL, BC_TL,
             fwd.usave[current_i,:,:], fwd.usave[current_i+1,:,:], LSAm1, LSBm1,
             CFL_sc, periodic_x, periodic_y, ϵ_adj, λ)
 
-        @views R3_TS_T, R3_TL_T = R_qi1(num, grid, grid_u, grid_v, 
+        @views R_qi1(num, grid, grid_u, grid_v, adj,
             phS.TD, phL.TD,
             fwd.usave[current_i-1,:,:], fwd.usave[current_i,:,:], LSA, LSB,
             CFL_sc, periodic_x, periodic_y, ϵ_adj, λ)
@@ -260,9 +261,9 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         
         if levelset
             rhs = J_u(num, grid, fwd.TDSsave, fwd.TDLsave, u, current_i-1)
-            rhs .-= R1_u_T * adj.TDS[current_i+1,:]
-            rhs .-= R2_u_T * adj.TDL[current_i+1,:]
-            rhs .-= R3_u_T * adj.u[current_i+1,:]
+            rhs .-= transpose(R1_u) * adj.TDS[current_i+1,:]
+            rhs .-= transpose(R2_u) * adj.TDL[current_i+1,:]
+            rhs .-= transpose(R3_u) * adj.u[current_i+1,:]
             @views @mytime (_, ch) = gmres!(adj.u[current_i,:], transpose(LSA), rhs, log=true)
             println(ch)
             LSAm1 .= LSA
@@ -272,7 +273,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         if heat
             if heat_solid_phase
                 rhs = J_TS(num, grid, fwd.TDSsave, fwd.TDLsave, u, current_i-1)
-                rhs .-= R3_TS_T * adj.u[current_i,:]
+                rhs .-= transpose(R3_TS) * adj.u[current_i,:]
                 rhs .+= transpose(BSm1) * adj.TDS[current_i+1,:]
                 kill_dead_cells!(veci(rhs, grid, 1), grid, geoS)
                 kill_dead_cells!(veci(rhs, grid, 2), grid, geoS)
@@ -285,7 +286,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
             end
             if heat_liquid_phase
                 rhs = J_TL(num, grid, fwd.TDSsave, fwd.TDLsave, u, current_i-1)
-                rhs .-= R3_TL_T * adj.u[current_i,:]
+                rhs .-= transpose(R3_TL) * adj.u[current_i,:]
                 rhs .+= transpose(BLm1) * adj.TDL[current_i+1,:]
                 kill_dead_cells!(veci(rhs, grid, 1), grid, geoL)
                 kill_dead_cells!(veci(rhs, grid, 2), grid, geoL)

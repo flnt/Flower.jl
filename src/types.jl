@@ -268,6 +268,11 @@ mutable struct discrete_adjoint{T <: Float64} <: MutatingFields
     TDS::Array{T,2}
     TDL::Array{T,2}
     u::Array{T,2}
+    R1_u::SparseMatrixCSC{T,Int64}
+    R2_u::SparseMatrixCSC{T,Int64}
+    R3_u::SparseMatrixCSC{T,Int64}
+    R3_TS::SparseMatrixCSC{T,Int64}
+    R3_TL::SparseMatrixCSC{T,Int64}
 end
 
 abstract type BoundaryCondition end

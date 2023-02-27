@@ -89,7 +89,7 @@ num = Numerical(T_inf = 0.0,
     y = y,
     CFL = 0.5,
     shifted = 1e-1,
-    max_iterations = 50,
+    max_iterations = 100,
     save_every = 1,
     NB = 1,
     ϵ = 5e-3,
@@ -159,7 +159,7 @@ TDS = zeros(num.max_iterations + 1, 2*gp.ny*gp.nx)
 TDL = zeros(num.max_iterations + 1, 2*gp.ny*gp.nx)
 u = zeros(num.max_iterations + 1, gp.ny*gp.nx)
 
-adj = discrete_adjoint(TDS, TDL, u)
+adj = discrete_adjoint(gp, TDS, TDL, u)
 
 @time MIXED, _, _, SOLID, LIQUID = run_backward_discrete(num, gp, gu, gv,
     fwd0, adj, phS, phL,
@@ -186,7 +186,7 @@ adj = discrete_adjoint(TDS, TDL, u)
     heat_solid_phase = true,
     verbose = true,
     show_every = 1,
-    ϵ_adj = 1e-7
+    ϵ_adj = 1e-8
 );
 
 g_adj = dJ_dx(gp, opC_TL, 1.0, adj)

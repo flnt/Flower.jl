@@ -441,6 +441,65 @@ function init_borders!(T::Matrix, BC_T, val=0.0)
     end
 end
 
+@inline function star0(grid, val=0.0)
+    spdiagm(0 => val.*ones(grid.ny*grid.nx))
+end
+
+@inline function star1(g, val=0.0)
+    spdiagm(0 => val.*ones(g.ny*g.nx), # i,j
+            -g.ny => val.*ones(g.ny*(g.nx-1)), # i-1,j
+            -1 => val.*ones(g.ny*g.nx-1), # i,j-1
+            g.ny => val.*ones(g.ny*(g.nx-1)), # i+1,j
+            1 => val.*ones(g.ny*g.nx-1), # i,j+1
+    )
+end
+
+@inline function star2(g, val=0.0)
+    spdiagm(0 => val.*ones(g.ny*g.nx), # i,j
+            -g.ny => val.*ones(g.ny*(g.nx-1)), # i-1,j
+            -1 => val.*ones(g.ny*g.nx-1), # i,j-1
+            g.ny => val.*ones(g.ny*(g.nx-1)), # i+1,j
+            1 => val.*ones(g.ny*g.nx-1), # i,j+1
+            -2g.ny => val.*ones(g.ny*(g.nx-2)), # i-2,j
+            -2 => val.*ones(g.ny*g.nx-2), # i,j-2
+            2g.ny => val.*ones(g.ny*(g.nx-2)), # i+2,j
+            2 => val.*ones(g.ny*g.nx-2), # i,j+2
+            -g.ny-1 => val.*ones(g.ny*(g.nx-1)-1), # i-1,j-1
+            g.ny-1 => val.*ones(g.ny*(g.nx-1)+1), # i+1,j-1
+            g.ny+1 => val.*ones(g.ny*(g.nx-1)-1), # i+1,j+1
+            -g.ny+1 => val.*ones(g.ny*(g.nx-1)+1), # i-1,j+1
+    )
+end
+
+@inline function star3(g, val=0.0)
+    spdiagm(0 => val.*ones(g.ny*g.nx), # i,j
+            -g.ny => val.*ones(g.ny*(g.nx-1)), # i-1,j
+            -1 => val.*ones(g.ny*g.nx-1), # i,j-1
+            g.ny => val.*ones(g.ny*(g.nx-1)), # i+1,j
+            1 => val.*ones(g.ny*g.nx-1), # i,j+1
+            -2g.ny => val.*ones(g.ny*(g.nx-2)), # i-2,j
+            -2 => val.*ones(g.ny*g.nx-2), # i,j-2
+            2g.ny => val.*ones(g.ny*(g.nx-2)), # i+2,j
+            2 => val.*ones(g.ny*g.nx-2), # i,j+2
+            -g.ny-1 => val.*ones(g.ny*(g.nx-1)-1), # i-1,j-1
+            g.ny-1 => val.*ones(g.ny*(g.nx-1)+1), # i+1,j-1
+            g.ny+1 => val.*ones(g.ny*(g.nx-1)-1), # i+1,j+1
+            -g.ny+1 => val.*ones(g.ny*(g.nx-1)+1), # i-1,j+1
+            -3g.ny => val.*ones(g.ny*(g.nx-3)), # i-3,j
+            -3 => val.*ones(g.ny*g.nx-3), # i,j-3
+            3g.ny => val.*ones(g.ny*(g.nx-3)), # i+3,j
+            3 => val.*ones(g.ny*g.nx-3), # i,j+3
+            -g.ny-2 => val.*ones(g.ny*(g.nx-1)-2), # i-1,j-2
+            g.ny-2 => val.*ones(g.ny*(g.nx-1)+2), # i+1,j-2
+            g.ny+2 => val.*ones(g.ny*(g.nx-1)-2), # i+1,j+2
+            -g.ny+2 => val.*ones(g.ny*(g.nx-1)+2), # i-1,j+2
+            -2g.ny-1 => val.*ones(g.ny*(g.nx-2)-1), # i-2,j-1
+            2g.ny-1 => val.*ones(g.ny*(g.nx-2)+1), # i+2,j-1
+            2g.ny+1 => val.*ones(g.ny*(g.nx-2)-1), # i+2,j+1
+            -2g.ny+1 => val.*ones(g.ny*(g.nx-2)+1), # i-2,j+1
+    )
+end
+
 """
     export_all()
 
