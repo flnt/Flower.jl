@@ -11,7 +11,7 @@ function J(grid, TDS, TDL, u, x, α=0.)
     @unpack nx, ny = grid
     its, npts = size(TDS)
 
-    id = nx-3
+    id = ny-3
     TS = reshape(TDS[end,1:ny*nx], (ny, nx))
     res = (mean(TS[id,:]) + 0.8) ^ 2
 
@@ -25,7 +25,7 @@ function J_TS(num, grid, TDS, TDL, u, i)
     its, npts = size(TDS)
     res = zeros(npts)
 
-    id = nx-3
+    id = ny-3
     s = 0
     if i == num.max_iterations
         TS = reshape(TDS[end,1:ny*nx], (ny, nx))
@@ -70,7 +70,7 @@ function dJ_dx(grid, opC_TL, x, adj)
     res = J_x(x)
     for i = 2:its
         res -= sum(adj.TDL[i,:] .* rx)
-        println(sum(adj.TDL[i,:] .* rx))
+        # println(sum(adj.TDL[i,:] .* rx))
     end
 
     return res
@@ -92,7 +92,7 @@ num = Numerical(T_inf = 0.0,
     max_iterations = 50,
     save_every = 1,
     NB = 1,
-    ϵ = 1e-8,
+    ϵ = 5e-3,
     subdomains = 2,
     overlaps = 1
     )
@@ -133,27 +133,27 @@ function planar_motion(num, gp, gu, gv, eps)
         show_every = 1
     );
 
-    return fwd
+    return fwd, phS, phL, opC_TS, opC_TL
 end
 
-fwd0 = planar_motion(num, gp, gu, gv, 0.0)
+fwd0, phS, phL, opC_TS, opC_TL = planar_motion(num, gp, gu, gv, 0.0)
 J0 = J(gp, fwd0.TDSsave, fwd0.TDLsave, fwd0.usave, 1.0, 0.0)
 
 make_video(num, fwd0, gp, "T"; title_prefix=prefix, title_suffix=suffix)
 
-# eps_v = [1e-1 / (10 ^ (i/2.0)) for i = 0:20]
-# Jv = zero(eps_v)
-# grads = zero(eps_v)
-# for (i, epsi) in enumerate(eps_v)
-#     fwd = planar_motion(num, gp, gu, gv, epsi)
-#     Jv[i] = J(gp, fwd.TDSsave, fwd.TDLsave, fwd.usave, 1.0 + epsi, 0.0)
-#     grads[i] = (Jv[i] - J0) / epsi
-# end
+eps_v = [1e-1 / (10 ^ (i/2.0)) for i = 0:5]
+Jv = zero(eps_v)
+grads = zero(eps_v)
+for (i, epsi) in enumerate(eps_v)
+    fwd = planar_motion(num, gp, gu, gv, epsi)[1]
+    Jv[i] = J(gp, fwd.TDSsave, fwd.TDLsave, fwd.usave, 1.0 + epsi, 0.0)
+    grads[i] = (Jv[i] - J0) / epsi
+end
 
-# fdf = Figure(resolution = (1600, 1600))
-# ax = Axis(fdf[1,1], title="Finite differences", xlabel="eps", ylabel="grad"; xscale=log10)#, yscale=log10)
-# fdf = lines!(eps_v, grads)
-# fdf = current_figure()
+fdf = Figure(resolution = (1600, 1600))
+ax = Axis(fdf[1,1], title="Finite differences", xlabel="eps", ylabel="grad"; xscale=log10)#, yscale=log10)
+fdf = lines!(eps_v, grads)
+fdf = current_figure()
 
 TDS = zeros(num.max_iterations + 1, 2*gp.ny*gp.nx)
 TDL = zeros(num.max_iterations + 1, 2*gp.ny*gp.nx)
@@ -196,8 +196,8 @@ ax = Axis(f[1,1])
 colsize!(f.layout, 1, Aspect(1, 1))
 resize_to_layout!(f)
 hidedecorations!(ax)
-f = heatmap!(gp.x[1,:], gp.y[:,1], fwd.TLsave[end,:,:]', colormap=:ice)
-f = contour!(gp.x[1,:], gp.y[:,1], fwd.usave[end,:,:]', levels = 0:0, color=:red, linewidth = 3);
+f = heatmap!(gp.x[1,:], gp.y[:,1], fwd0.TLsave[end,:,:]', colormap=:ice)
+f = contour!(gp.x[1,:], gp.y[:,1], fwd0.usave[end,:,:]', levels = 0:0, color=:red, linewidth = 3);
 limits!(ax, -L0/2., L0/2., -L0/2., L0/2.)
 f = current_figure()
 
@@ -234,5 +234,7 @@ fu = current_figure();
 make_video(gp, adj.TDS, fwd0.usave; title_prefix=prefix*"adj_TS", title_suffix=suffix, step0=2)
 make_video(gp, adj.TDL, fwd0.usave; title_prefix=prefix*"adj_TL", title_suffix=suffix, step0=2)
 make_video(gp, adj.u, fwd0.usave; title_prefix=prefix*"adj_u", title_suffix=suffix, step0=2)
+
+println("Rel error: $(100*abs((grads[4] - g_adj) / grads[4]))%")
 
 nothing

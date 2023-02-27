@@ -2,9 +2,9 @@ function R_qi(num, grid, grid_u, grid_v, um1,
     TD0_S, TD1_S, A_S, B_S, opC_TS, BC_TS,
     TD0_L, TD1_L, A_L, B_L, opC_TL, BC_TL,
     u0, u1, LSA, LSB,
-    CFL_sc, periodic_x, periodic_y, ϵ, ϵ_adj, λ)
+    CFL_sc, periodic_x, periodic_y, ϵ_adj, λ)
 
-    @unpack NB = num
+    @unpack ϵ, NB = num
     @unpack nx, ny, ind, V, iso, faces, geoS, geoL = grid
     uj = copy(um1)
 
@@ -149,9 +149,9 @@ end
 function R_qi1(num, grid, grid_u, grid_v, 
     TD_S, TD_L,
     u0, u1, LSA, LSB,
-    CFL_sc, periodic_x, periodic_y, ϵ, ϵ_adj, λ)
+    CFL_sc, periodic_x, periodic_y, ϵ_adj, λ)
 
-    @unpack NB = num
+    @unpack ϵ, NB = num
     @unpack nx, ny, ind, u, V, faces, iso, geoS, geoL = grid
 
     TS = reshape(veci(TD_S, grid, 1), (ny, nx))
