@@ -260,8 +260,8 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         
         if levelset
             rhs = J_u(num, grid, fwd.TDSsave, fwd.TDLsave, u, current_i-1)
-            rhs .-= R1_u_T * adj.TDL[current_i+1,:]
-            rhs .-= R2_u_T * adj.TDS[current_i+1,:]
+            rhs .-= R1_u_T * adj.TDS[current_i+1,:]
+            rhs .-= R2_u_T * adj.TDL[current_i+1,:]
             rhs .-= R3_u_T * adj.u[current_i+1,:]
             @views @mytime (_, ch) = gmres!(adj.u[current_i,:], transpose(LSA), rhs, log=true)
             println(ch)
