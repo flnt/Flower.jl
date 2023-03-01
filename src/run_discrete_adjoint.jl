@@ -105,7 +105,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         end
     end
 
-    @views R_qi1(num, grid, grid_u, grid_v, adj,
+    @views Rheat_T(num, grid, grid_u, grid_v, adj,
         phS.TD, phL.TD,
         fwd.usave[current_i-1,:,:], fwd.usave[current_i,:,:], LSA, LSB,
         CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)
@@ -167,13 +167,13 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
             end
         end
 
-        @views R_qi(num, grid, grid_u, grid_v, adj, fwd.usave[current_i,:,:],
+        @views Rheat_u(num, grid, grid_u, grid_v, adj, fwd.usave[current_i,:,:],
             fwd.TDSsave[current_i,:], fwd.TDSsave[current_i+1,:], ASm1, BSm1, opC_TS, BC_TS,
             fwd.TDLsave[current_i,:], fwd.TDLsave[current_i+1,:], ALm1, BLm1, opC_TL, BC_TL,
             fwd.usave[current_i,:,:], fwd.usave[current_i+1,:,:], LSAm1, LSBm1,
             CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)
 
-        @views R_qi1(num, grid, grid_u, grid_v, adj,
+        @views Rheat_T(num, grid, grid_u, grid_v, adj,
             phS.TD, phL.TD,
             fwd.usave[current_i-1,:,:], fwd.usave[current_i,:,:], LSA, LSB,
             CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)

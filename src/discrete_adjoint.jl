@@ -62,7 +62,7 @@ function relocate!(indices, px0, py0)
     end
 end
 
-function R_qi(num, grid, grid_u, grid_v, adj, um1,
+function Rheat_u(num, grid, grid_u, grid_v, adj, um1,
     TD0_S, TD1_S, A_S, B_S, opC_TS, BC_TS,
     TD0_L, TD1_L, A_L, B_L, opC_TL, BC_TL,
     u0, u1, LSA, LSB,
@@ -188,7 +188,7 @@ function R_qi(num, grid, grid_u, grid_v, adj, um1,
     return nothing
 end
 
-function R_qi1(num, grid, grid_u, grid_v, adj, 
+function Rheat_T(num, grid, grid_u, grid_v, adj, 
     TD_S, TD_L,
     u0, u1, LSA, LSB,
     CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)

@@ -292,25 +292,7 @@ function run_forward(num, grid, grid_u, grid_v,
         end
 
         if free_surface
-            grid_u.V .= reshape(veci(phL.uD,grid_u,2), (grid_u.ny, grid_u.nx))
-            grid_v.V .= reshape(veci(phL.vD,grid_v,2), (grid_v.ny, grid_v.nx))
-
-            _MIXED_L_u_ext = intersect(findall(grid_u.geoL.emptied),
-                                            grid_u.ind.MIXED_ext)
-            _MIXED_S_u_ext = intersect(findall(grid_u.geoS.emptied),
-                                            grid_u.ind.MIXED_ext)
-            _MIXED_u_ext = vcat(_MIXED_L_u_ext, _MIXED_S_u_ext)
-            indices_u_ext = vcat(grid_u.SOLID_ext, _MIXED_u_ext, grid_u.LIQUID_ext)
-
-            _MIXED_L_v_ext = intersect(findall(grid_v.geoL.emptied),
-                                            grid_v.ind.MIXED_ext)
-            _MIXED_S_v_ext = intersect(findall(grid_v.geoS.emptied),
-                                            grid_v.ind.MIXED_ext)
-            _MIXED_v_ext = vcat(_MIXED_L_v_ext, _MIXED_S_v_ext)
-            indices_v_ext = vcat(grid_v.SOLID_ext, _MIXED_v_ext, grid_v.LIQUID_ext)
-
-            velocity_extension!(grid_u, grid_u.u, grid_u.V, indices_u_ext, NB, periodic_x, periodic_y)
-            velocity_extension!(grid_v, grid_v.u, grid_v.V, indices_v_ext, NB, periodic_x, periodic_y)
+            update_free_surface_velocity(num, grid_u, grid_v, phL.uD, phL.vD, periodic_x, periodic_y)
         end
 
         if verbose && adaptative_t
