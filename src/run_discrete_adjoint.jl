@@ -27,6 +27,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     levelset = true,
     heat_liquid_phase = false,
     heat_solid_phase = false,
+    Vmean = false,
     verbose = false,
     show_every = 100,
     Ra = 0,
@@ -36,6 +37,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
 
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
     @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, V, κ, LSA, LSB = grid
+    @unpack MIXED, SOLID, LIQUID = ind
     @unpack usave, uusave, uvsave, TSsave, TLsave, TDSsave, TDLsave = fwd
     @unpack R1_u, R2_u, R3_u, R3_TS, R3_TL = adj
 
@@ -45,11 +47,6 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     local BS; local BL;
     local ASm1; local ALm1;
     local BSm1; local BLm1;
-
-    local MIXED; local SOLID; local LIQUID;
-    local MIXED_vel_ext; local SOLID_vel_ext; local LIQUID_vel_ext;
-    local MIXED_u; local SOLID_u; local LIQUID_u;
-    local MIXED_v; local SOLID_v; local LIQUID_v;
 
     if periodic_x
         BC_u.left.ind = ind.b_left;
@@ -80,43 +77,11 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     @views phL.TD .= fwd.TDLsave[end,:]
 
     if levelset
-        grid.mid_point .= [Point(0.0, 0.0)]
-        grid_u.mid_point .= [Point(0.0, 0.0)]
-        grid_v.mid_point .= [Point(0.0, 0.0)]
-        
-        marching_squares!(num, grid, u, periodic_x, periodic_y)
-        interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.u, grid_v.u)
-        marching_squares!(num, grid_u, grid_u.u, periodic_x, periodic_y)        
-        marching_squares!(num, grid_v, grid_v.u, periodic_x, periodic_y)
-
-        MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, ind.all_indices, nx, ny, periodic_x, periodic_y)
-        MIXED, SOLID, LIQUID = get_cells_indices(iso, ind.all_indices)
-        MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(grid_u.iso, grid_u.ind.all_indices)
-        MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(grid_v.iso, grid_v.ind.all_indices)
-
-        get_interface_location!(grid, MIXED, periodic_x, periodic_y)
-        get_interface_location!(grid_u, MIXED_u, periodic_x, periodic_y)
-        get_interface_location!(grid_v, MIXED_v, periodic_x, periodic_y)
-        get_interface_location_borders!(grid_u, grid_u.u, periodic_x, periodic_y)
-        get_interface_location_borders!(grid_v, grid_v.u, periodic_x, periodic_y)
-
-        get_curvature(num, grid, u, MIXED, periodic_x, periodic_y)
-        postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, ϵ)
-        _MIXED_L_vel_ext = intersect(findall(geoL.emptied), MIXED_vel_ext)
-        _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
-        _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
-        indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-        field_extension!(grid, u, κ, indices_vel_ext, NB, periodic_x, periodic_y)
+        update_ls_data(num, grid, grid_u, grid_v, u, periodic_x, periodic_y)
     end
 
     if stefan
-        Stefan_velocity!(num, grid, V, phS.T, phL.T, MIXED, periodic_x, periodic_y)
-        V[MIXED] .*= 1. ./ λ
-        _MIXED_L_vel_ext = intersect(findall(geoL.emptied), MIXED_vel_ext)
-        _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
-        _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
-        indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-        velocity_extension!(grid, u, V, indices_vel_ext, NB, periodic_x, periodic_y)
+        update_stefan_velocity(num, grid, u, phS.T, phL.T, periodic_x, periodic_y, λ, Vmean)
     end
 
     if levelset
@@ -143,7 +108,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     @views R_qi1(num, grid, grid_u, grid_v, adj,
         phS.TD, phL.TD,
         fwd.usave[current_i-1,:,:], fwd.usave[current_i,:,:], LSA, LSB,
-        CFL_sc, periodic_x, periodic_y, ϵ_adj, λ)
+        CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)
     
     if levelset
         rhs = J_u(num, grid, fwd.TDSsave, fwd.TDLsave, u, current_i-1)
@@ -180,56 +145,11 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         @views phL.TD .= fwd.TDLsave[current_i,:]
     
         if levelset
-            grid.α .= NaN
-            grid_u.α .= NaN
-            grid_v.α .= NaN
-            faces .= 0.
-            grid_u.faces .= 0.
-            grid_v.faces .= 0.
-            grid.mid_point .= [Point(0.0, 0.0)]
-            grid_u.mid_point .= [Point(0.0, 0.0)]
-            grid_v.mid_point .= [Point(0.0, 0.0)]
-            
-            marching_squares!(num, grid, u, periodic_x, periodic_y)
-            interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.u, grid_v.u)
-            marching_squares!(num, grid_u, grid_u.u, periodic_x, periodic_y)
-            marching_squares!(num, grid_v, grid_v.u, periodic_x, periodic_y)
-    
-            MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, ind.all_indices, nx, ny, periodic_x, periodic_y)
-            MIXED, SOLID, LIQUID = get_cells_indices(iso, ind.all_indices)
-            MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(grid_u.iso, grid_u.ind.all_indices)
-            MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(grid_v.iso, grid_v.ind.all_indices)
-    
-            get_interface_location!(grid, MIXED, periodic_x, periodic_y)
-            get_interface_location!(grid_u, MIXED_u, periodic_x, periodic_y)
-            get_interface_location!(grid_v, MIXED_v, periodic_x, periodic_y)
-            get_interface_location_borders!(grid_u, grid_u.u, periodic_x, periodic_y)
-            get_interface_location_borders!(grid_v, grid_v.u, periodic_x, periodic_y)
-
-            geoL.emptied .= false
-            geoS.emptied .= false
-            grid_u.geoL.emptied .= false
-            grid_u.geoS.emptied .= false
-            grid_v.geoL.emptied .= false
-            grid_v.geoS.emptied .= false
-    
-            get_curvature(num, grid, u, MIXED, periodic_x, periodic_y)
-            postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, ϵ)
-            _MIXED_L_vel_ext = intersect(findall(geoL.emptied), MIXED_vel_ext)
-            _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
-            _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
-            indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-            field_extension!(grid, u, κ, indices_vel_ext, NB, periodic_x, periodic_y)
+            update_ls_data(num, grid, grid_u, grid_v, u, periodic_x, periodic_y)
         end
 
         if stefan   
-            Stefan_velocity!(num, grid, V, phS.T, phL.T, MIXED, periodic_x, periodic_y)
-            V[MIXED] .*= 1. ./ λ
-            _MIXED_L_vel_ext = intersect(findall(geoL.emptied), MIXED_vel_ext)
-            _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
-            _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
-            indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-            velocity_extension!(grid, u, V, indices_vel_ext, NB, periodic_x, periodic_y)
+            update_stefan_velocity(num, grid, u, phS.T, phL.T, periodic_x, periodic_y, λ, Vmean)
         end
 
         if levelset
@@ -251,12 +171,12 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
             fwd.TDSsave[current_i,:], fwd.TDSsave[current_i+1,:], ASm1, BSm1, opC_TS, BC_TS,
             fwd.TDLsave[current_i,:], fwd.TDLsave[current_i+1,:], ALm1, BLm1, opC_TL, BC_TL,
             fwd.usave[current_i,:,:], fwd.usave[current_i+1,:,:], LSAm1, LSBm1,
-            CFL_sc, periodic_x, periodic_y, ϵ_adj, λ)
+            CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)
 
         @views R_qi1(num, grid, grid_u, grid_v, adj,
             phS.TD, phL.TD,
             fwd.usave[current_i-1,:,:], fwd.usave[current_i,:,:], LSA, LSB,
-            CFL_sc, periodic_x, periodic_y, ϵ_adj, λ)
+            CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)
 
         
         if levelset
@@ -334,7 +254,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     end
     
     if levelset
-        return MIXED, MIXED_u, MIXED_v, SOLID, LIQUID
+        return MIXED, SOLID, LIQUID
     else
         return MIXED
     end

@@ -54,6 +54,12 @@ end
     b_bottom::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
     b_right::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
     b_top::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
+    MIXED::Vector{CartesianIndex{2}}
+    MIXED_ext::Vector{CartesianIndex{2}}
+    LIQUID::Vector{CartesianIndex{2}}
+    LIQUID_ext::Vector{CartesianIndex{2}}
+    SOLID::Vector{CartesianIndex{2}}
+    SOLID_ext::Vector{CartesianIndex{2}}
 end
 
 struct Point{T <: Number}

@@ -79,17 +79,10 @@ function run_forward(num, grid, grid_u, grid_v,
 
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
     @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, V, κ, LSA, LSB = grid
+    @unpack MIXED, LIQUID, SOLID = ind
     @unpack Tall, usave, uusave, uvsave, TSsave, TLsave, TDSsave, TDLsave, Tsave, psave, ϕsave, Uxsave, Uysave, Uxcorrsave, Uycorrsave, Vsave, κsave, lengthsave, tv, Cd, Cl = fwd
 
     iRe = 1.0 / Re
-
-    local MIXED; local SOLID; local LIQUID;
-    local MIXED_vel_ext; local SOLID_vel_ext; local LIQUID_vel_ext;
-    local MIXED_u_vel_ext; local SOLID_u_vel_ext; local LIQUID_u_vel_ext;
-    local MIXED_v_vel_ext; local SOLID_v_vel_ext; local LIQUID_v_vel_ext;
-    local indices_u_vel_ext;
-    local MIXED_u; local SOLID_u; local LIQUID_u;
-    local MIXED_v; local SOLID_v; local LIQUID_v;
 
     local Cum1S = zeros(grid_u.nx*grid_u.ny)
     local Cum1L = zeros(grid_u.nx*grid_u.ny)
@@ -147,40 +140,7 @@ function run_forward(num, grid, grid_u, grid_v,
     end
 
     if levelset
-        grid.mid_point .= [Point(0.0, 0.0)]
-        grid_u.mid_point .= [Point(0.0, 0.0)]
-        grid_v.mid_point .= [Point(0.0, 0.0)]
-        
-        marching_squares!(num, grid, u, periodic_x, periodic_y)
-        interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.u, grid_v.u)
-        uusave[1,:,:] .= grid_u.u
-        uvsave[1,:,:] .= grid_v.u
-        marching_squares!(num, grid_u, grid_u.u, periodic_x, periodic_y)
-        marching_squares!(num, grid_v, grid_v.u, periodic_x, periodic_y)
-
-        MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, ind.all_indices, nx, ny, periodic_x, periodic_y)
-        MIXED_u_vel_ext, SOLID_u_vel_ext, LIQUID_u_vel_ext = get_cells_indices(grid_u.iso, grid_u.ind.all_indices, grid_u.nx, grid_u.ny, periodic_x, periodic_y)
-        MIXED_v_vel_ext, SOLID_v_vel_ext, LIQUID_v_vel_ext = get_cells_indices(grid_v.iso, grid_v.ind.all_indices, grid_v.nx, grid_v.ny, periodic_x, periodic_y)
-        MIXED, SOLID, LIQUID = get_cells_indices(iso, ind.all_indices)
-        MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(grid_u.iso, grid_u.ind.all_indices)
-        MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(grid_v.iso, grid_v.ind.all_indices)
-
-        kill_dead_cells!(phS.T, grid, geoS)
-        kill_dead_cells!(phL.T, grid, geoL)
-
-        get_interface_location!(grid, MIXED, periodic_x, periodic_y)
-        get_interface_location!(grid_u, MIXED_u, periodic_x, periodic_y)
-        get_interface_location!(grid_v, MIXED_v, periodic_x, periodic_y)
-        get_interface_location_borders!(grid_u, grid_u.u, periodic_x, periodic_y)
-        get_interface_location_borders!(grid_v, grid_v.u, periodic_x, periodic_y)
-
-        get_curvature(num, grid, u, MIXED, periodic_x, periodic_y)
-        postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, ϵ)
-        _MIXED_L_vel_ext = intersect(findall(geoL.emptied), MIXED_vel_ext)
-        _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
-        _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
-        indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-        field_extension!(grid, u, κ, indices_vel_ext, NB, periodic_x, periodic_y)
+        update_ls_data(num, grid, grid_u, grid_v, u, periodic_x, periodic_y)
 
         if save_radius
             n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
@@ -197,8 +157,8 @@ function run_forward(num, grid, grid_u, grid_v,
         end
     elseif !levelset
         MIXED = [CartesianIndex(-1,-1)]
-        MIXED_u = [CartesianIndex(-1,-1)]
-        MIXED_v = [CartesianIndex(-1,-1)]
+        grid_u.ind.MIXED = [CartesianIndex(-1,-1)]
+        grid_v.ind.MIXED = [CartesianIndex(-1,-1)]
     end
 
     # Heat
@@ -227,6 +187,9 @@ function run_forward(num, grid, grid_u, grid_v,
         κsave[1,:,:] .= κ
     end
 
+    kill_dead_cells!(phS.T, grid, geoS)
+    kill_dead_cells!(phL.T, grid, geoL)
+    
     usave[1,:,:] .= u
     Tsave[1,:,:] .= phL.T.*geoL.cap[:,:,5] .+ phS.T[:,:].*geoS.cap[:,:,5]
     TLsave[1,:,:] .= phL.T
@@ -299,6 +262,7 @@ function run_forward(num, grid, grid_u, grid_v,
 
         if heat
             if heat_solid_phase
+                kill_dead_cells!(phS.T, grid, geoS)
                 veci(phS.TD,grid,1) .= vec(phS.T)
                 A_T, B, rhs = set_heat!(dir, num, grid, opC_TS, geoS, BC_TS, MIXED, geoS.projection,
                                         periodic_x, periodic_y)
@@ -310,6 +274,7 @@ function run_forward(num, grid, grid_u, grid_v,
                 phS.T .= reshape(veci(phS.TD,grid,1), (ny, nx))
             end
             if heat_liquid_phase
+                kill_dead_cells!(phL.T, grid, geoL)
                 veci(phL.TD,grid,1) .= vec(phL.T)
                 A_T, B, rhs = set_heat!(dir, num, grid, opC_TL, geoL, BC_TL, MIXED, geoL.projection,
                                         periodic_x, periodic_y)
@@ -323,39 +288,29 @@ function run_forward(num, grid, grid_u, grid_v,
         end
 
         if stefan
-            Stefan_velocity!(num, grid, V, phS.T, phL.T, MIXED, periodic_x, periodic_y)
-            V[MIXED] .*= 1. ./ λ
-            if Vmean
-                a = mean(V[MIXED])
-                V[MIXED] .= a
-            end
-            _MIXED_L_vel_ext = intersect(findall(geoL.emptied), MIXED_vel_ext)
-            _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
-            _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
-            indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-            velocity_extension!(grid, u, V, indices_vel_ext, NB, periodic_x, periodic_y)
+            update_stefan_velocity(num, grid, u, phS.T, phL.T, periodic_x, periodic_y, λ, Vmean)
         end
 
         if free_surface
             grid_u.V .= reshape(veci(phL.uD,grid_u,2), (grid_u.ny, grid_u.nx))
             grid_v.V .= reshape(veci(phL.vD,grid_v,2), (grid_v.ny, grid_v.nx))
 
-            _MIXED_L_u_vel_ext = intersect(findall(grid_u.geoL.emptied),
-                                           MIXED_u_vel_ext)
-            _MIXED_S_u_vel_ext = intersect(findall(grid_u.geoS.emptied),
-                                           MIXED_u_vel_ext)
-            _MIXED_u_vel_ext = vcat(_MIXED_L_u_vel_ext, _MIXED_S_u_vel_ext)
-            indices_u_vel_ext = vcat(SOLID_u_vel_ext, _MIXED_u_vel_ext, LIQUID_u_vel_ext)
+            _MIXED_L_u_ext = intersect(findall(grid_u.geoL.emptied),
+                                            grid_u.ind.MIXED_ext)
+            _MIXED_S_u_ext = intersect(findall(grid_u.geoS.emptied),
+                                            grid_u.ind.MIXED_ext)
+            _MIXED_u_ext = vcat(_MIXED_L_u_ext, _MIXED_S_u_ext)
+            indices_u_ext = vcat(grid_u.SOLID_ext, _MIXED_u_ext, grid_u.LIQUID_ext)
 
-            _MIXED_L_v_vel_ext = intersect(findall(grid_v.geoL.emptied),
-                                           MIXED_v_vel_ext)
-            _MIXED_S_v_vel_ext = intersect(findall(grid_v.geoS.emptied),
-                                           MIXED_v_vel_ext)
-            _MIXED_v_vel_ext = vcat(_MIXED_L_v_vel_ext, _MIXED_S_v_vel_ext)
-            indices_v_vel_ext = vcat(SOLID_v_vel_ext, _MIXED_v_vel_ext, LIQUID_v_vel_ext)
+            _MIXED_L_v_ext = intersect(findall(grid_v.geoL.emptied),
+                                            grid_v.ind.MIXED_ext)
+            _MIXED_S_v_ext = intersect(findall(grid_v.geoS.emptied),
+                                            grid_v.ind.MIXED_ext)
+            _MIXED_v_ext = vcat(_MIXED_L_v_ext, _MIXED_S_v_ext)
+            indices_v_ext = vcat(grid_v.SOLID_ext, _MIXED_v_ext, grid_v.LIQUID_ext)
 
-            velocity_extension!(grid_u, grid_u.u, grid_u.V, indices_u_vel_ext, NB, periodic_x, periodic_y)
-            velocity_extension!(grid_v, grid_v.u, grid_v.V, indices_v_vel_ext, NB, periodic_x, periodic_y)
+            velocity_extension!(grid_u, grid_u.u, grid_u.V, indices_u_ext, NB, periodic_x, periodic_y)
+            velocity_extension!(grid_v, grid_v.u, grid_v.V, indices_v_ext, NB, periodic_x, periodic_y)
         end
 
         if verbose && adaptative_t
@@ -439,52 +394,7 @@ function run_forward(num, grid, grid_u, grid_v,
 
 
         if levelset && (advection || current_i<2)
-            grid.α .= NaN
-            grid_u.α .= NaN
-            grid_v.α .= NaN
-            faces .= 0.
-            grid_u.faces .= 0.
-            grid_v.faces .= 0.
-            grid.mid_point .= [Point(0.0, 0.0)]
-            grid_u.mid_point .= [Point(0.0, 0.0)]
-            grid_v.mid_point .= [Point(0.0, 0.0)]
-
-            marching_squares!(num, grid, u, periodic_x, periodic_y)
-            interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.u, grid_v.u)
-            marching_squares!(num, grid_u, grid_u.u, periodic_x, periodic_y)
-            marching_squares!(num, grid_v, grid_v.u, periodic_x, periodic_y)
-
-            MIXED_vel_ext, SOLID_vel_ext, LIQUID_vel_ext = get_cells_indices(iso, ind.all_indices, nx, ny, periodic_x, periodic_y)
-            MIXED_u_vel_ext, SOLID_u_vel_ext, LIQUID_u_vel_ext = get_cells_indices(grid_u.iso, grid_u.ind.all_indices, grid_u.nx, grid_u.ny, periodic_x, periodic_y)
-            MIXED_v_vel_ext, SOLID_v_vel_ext, LIQUID_v_vel_ext = get_cells_indices(grid_v.iso, grid_v.ind.all_indices, grid_v.nx, grid_v.ny, periodic_x, periodic_y)
-            MIXED, SOLID, LIQUID = get_cells_indices(iso, ind.all_indices)
-            MIXED_u, SOLID_u, LIQUID_u = get_cells_indices(grid_u.iso, grid_u.ind.all_indices)
-            MIXED_v, SOLID_v, LIQUID_v = get_cells_indices(grid_v.iso, grid_v.ind.all_indices)
-
-            kill_dead_cells!(phS.T, grid, geoS)
-            kill_dead_cells!(phL.T, grid, geoL)
-
-            get_interface_location!(grid, MIXED, periodic_x, periodic_y)
-            get_interface_location!(grid_u, MIXED_u, periodic_x, periodic_y)
-            get_interface_location!(grid_v, MIXED_v, periodic_x, periodic_y)
-            get_interface_location_borders!(grid_u, grid_u.u, periodic_x, periodic_y)
-            get_interface_location_borders!(grid_v, grid_v.u, periodic_x, periodic_y)
-
-            geoL.emptied .= false
-            geoS.emptied .= false
-            grid_u.geoL.emptied .= false
-            grid_u.geoS.emptied .= false
-            grid_v.geoL.emptied .= false
-            grid_v.geoS.emptied .= false
-
-            get_curvature(num, grid, u, MIXED, periodic_x, periodic_y)
-            postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, ϵ)
-
-            _MIXED_L_vel_ext = intersect(findall(geoL.emptied), MIXED_vel_ext)
-            _MIXED_S_vel_ext = intersect(findall(geoS.emptied), MIXED_vel_ext)
-            _MIXED_vel_ext = vcat(_MIXED_L_vel_ext, _MIXED_S_vel_ext)
-            indices_vel_ext = vcat(SOLID_vel_ext, _MIXED_vel_ext, LIQUID_vel_ext)
-            field_extension!(grid, u, κ, indices_vel_ext, NB, periodic_x, periodic_y)
+            update_ls_data(num, grid, grid_u, grid_v, u, periodic_x, periodic_y)
 
             if iszero(current_i%save_every) || current_i==max_iterations
                 snap = current_i÷save_every+1
@@ -560,7 +470,7 @@ function run_forward(num, grid, grid_u, grid_v,
             @views uvsave[snap,:,:] .= grid_v.u
 
             if heat_solid_phase && heat_liquid_phase
-                @views Tsave[snap,:,:] .= phL.T.*geoL.cap[:,:,5] .+ phS.T[:,:].*geoS.cap[:,:,5]
+                @views Tsave[snap,:,:] .= phL.T.*geoL.cap[:,:,5] .+ phS.T.*geoS.cap[:,:,5]
                 @views TLsave[snap,:,:] .= phL.T
                 @views TDLsave[snap,:] .= phL.TD
                 @views TSsave[snap,:,:] .= phS.T
@@ -639,7 +549,7 @@ function run_forward(num, grid, grid_u, grid_v,
         if save_radius || hill
             return MIXED, SOLID, LIQUID, radius
         end
-        return MIXED, MIXED_u, MIXED_v, SOLID, LIQUID
+        return MIXED, SOLID, LIQUID
     else
         return MIXED
     end

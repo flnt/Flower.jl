@@ -70,7 +70,6 @@ function dJ_dx(grid, opC_TL, x, adj)
     res = J_x(x)
     for i = 2:its
         res -= sum(adj.TDL[i,:] .* rx)
-        # println(sum(adj.TDL[i,:] .* rx))
     end
 
     return res
@@ -89,7 +88,7 @@ num = Numerical(T_inf = 0.0,
     y = y,
     CFL = 0.5,
     shifted = 1e-1,
-    max_iterations = 100,
+    max_iterations = 20,
     save_every = 1,
     NB = 1,
     ϵ = 5e-3,
@@ -106,7 +105,7 @@ function planar_motion(num, gp, gu, gv, eps)
     phL.T .= num.T_inf;
     phS.T .-= num.T_inf;
     
-    @time MIXED, _, _, SOLID, LIQUID = run_forward(num, gp, gu, gv,
+    @time MIXED, SOLID, LIQUID = run_forward(num, gp, gu, gv,
         opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL,
         phS, phL, fwd,
         periodic_x = true,
@@ -161,7 +160,7 @@ u = zeros(num.max_iterations + 1, gp.ny*gp.nx)
 
 adj = discrete_adjoint(gp, TDS, TDL, u)
 
-@time MIXED, _, _, SOLID, LIQUID = run_backward_discrete(num, gp, gu, gv,
+@time MIXED, SOLID, LIQUID = run_backward_discrete(num, gp, gu, gv,
     fwd0, adj, phS, phL,
     opC_TS, opC_TL,
     J_TS, J_TL, J_u,

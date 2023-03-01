@@ -13,8 +13,16 @@ function Indices(nx, ny)
     TOP = filter(x->x.I[1]==ny, all_indices)
     TOP2 = filter(x->x.I[1]==ny-1, all_indices)
 
+    MIXED = Vector{CartesianIndex{2}}()
+    MIXED_ext = Vector{CartesianIndex{2}}()
+    LIQUID = Vector{CartesianIndex{2}}()
+    LIQUID_ext = Vector{CartesianIndex{2}}()
+    SOLID = Vector{CartesianIndex{2}}()
+    SOLID_ext = Vector{CartesianIndex{2}}()
+
     return Indices(all_indices, inside, (LEFT, RIGHT), (BOTTOM, TOP),
-                   (LEFT, LEFT2), (BOTTOM, BOTTOM2), (RIGHT, RIGHT2), (TOP, TOP2))
+                   (LEFT, LEFT2), (BOTTOM, BOTTOM2), (RIGHT, RIGHT2), (TOP, TOP2),
+                   MIXED, MIXED_ext, LIQUID, LIQUID_ext, SOLID, SOLID_ext)
 end
 
 function Mesh(grid, x_nodes, y_nodes, s, o)
