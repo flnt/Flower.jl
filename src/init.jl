@@ -157,14 +157,37 @@ function adjoint_fields(num, gp, gu, gv)
     return adjoint_fields(u, phS, phL)
 end
 
-function adjoint_derivatives(grid)
+function adjoint_derivatives(grid, grid_u, grid_v)
     tmp = star3(grid)
-    RheatS_u = [tmp; tmp]
-    RheatL_u = [tmp; tmp]
-    RlsS_u = copy(tmp)
+    RheatS_ls = [tmp; tmp]
+    RheatL_ls = [tmp; tmp]
+    RlsS_ls = copy(tmp)
     RlsS_TS = [tmp tmp]
     RlsS_TL = [tmp tmp]
-    return adjoint_derivatives{Float64}(RheatS_u, RheatL_u, RlsS_u, RlsS_TS, RlsS_TL)
+    RlsFS_ls = copy(tmp)
+    RpS_ls = [tmp; tmp]
+    RpL_ls = [tmp; tmp]
+
+    tmp = star3(grid_u)
+    RucorrS_ls = [tmp; tmp]
+    RucorrL_ls = [tmp; tmp]
+    RuS_ls = copy(tmp)
+    RuL_ls = copy(tmp)
+    RlsFS_uS = [tmp tmp]
+    RlsFS_uL = [tmp tmp]
+
+    tmp = star3(grid_v)
+    RvcorrS_ls = [tmp; tmp]
+    RvcorrL_ls = [tmp; tmp]
+    RvS_ls = copy(tmp)
+    RvL_ls = copy(tmp)
+    RlsFS_vS = [tmp tmp]
+    RlsFS_vL = [tmp tmp]
+
+    return adjoint_derivatives{Float64}(RheatS_ls, RheatL_ls, RlsS_ls, RlsS_TS, RlsS_TL,
+                                        RucorrS_ls, RucorrL_ls, RvcorrS_ls, RvcorrL_ls,
+                                        RpS_ls, RpL_ls, RuS_ls, RuL_ls, RvS_ls, RvL_ls,
+                                        RlsFS_ls, RlsFS_uS, RlsFS_uL, RlsFS_vS, RlsFS_vL)
 end
 
 function init_sparse_Bx(grid)

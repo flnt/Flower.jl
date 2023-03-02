@@ -70,11 +70,11 @@ function Rheat_u(num, grid, grid_u, grid_v, adj_der, um1,
 
     @unpack ϵ, NB = num
     @unpack nx, ny, ind, V, iso, faces, geoS, geoL = grid
-    @unpack RheatS_u, RheatL_u, RlsS_u = adj_der
+    @unpack RheatS_ls, RheatL_ls, RlsS_ls = adj_der
     
-    RheatS_u.nzval .= 0.
-    RheatL_u.nzval .= 0.
-    RlsS_u.nzval .= 0.
+    RheatS_ls.nzval .= 0.
+    RheatL_ls.nzval .= 0.
+    RlsS_ls.nzval .= 0.
     uj = copy(um1)
 
     TS = reshape(veci(TD1_S, grid, 1), (ny, nx))
@@ -151,16 +151,16 @@ function Rheat_u(num, grid, grid_u, grid_v, adj_der, um1,
                                     periodic_x, periodic_y)
             derA_S .= (Aj_S .- A_S) ./ ϵ_adj
             derB_S .= (Bj_S .- B_S) ./ ϵ_adj
-            derχ_S .= (opc_TS.χ .-  tmpχ_S) ./ ϵ_adj
-            bc_S = derχ_S * a0
+            derχ_S .= (opC_TS.χ .-  tmpχ_S) ./ ϵ_adj
+            bc_S[ny*nx+1:end] .= derχ_S * a0
             Rj_S = sparse(derA_S * TD1_S .- derB_S * TD0_S .- bc_S)
 
             Aj_L, Bj_L, _ = set_heat!(dir, num, grid, opC_TL, geoL, BC_TL, grid.ind.MIXED, geoL.projection,
                                     periodic_x, periodic_y)
             derA_L .= (Aj_L .- A_L) ./ ϵ_adj
             derB_L .= (Bj_L .- B_L) ./ ϵ_adj
-            derχ_L .= (opc_TL.χ .-  tmpχ_L) ./ ϵ_adj
-            bc_L = derχ_L * a0
+            derχ_L .= (opC_TL.χ .-  tmpχ_L) ./ ϵ_adj
+            bc_L[ny*nx+1:end] .= derχ_L * a0
             Rj_L = sparse(derA_L * TD1_L .- derB_L * TD0_L .- bc_L)
 
             IIOE(grid, LSAj, LSBj, uj, V, CFL_sc, periodic_x, periodic_y)
@@ -176,19 +176,19 @@ function Rheat_u(num, grid, grid_u, grid_v, adj_der, um1,
             for i in nzrange(Rj_S, 1)
                 @inbounds row = rows[i]
                 j = graph[row]
-                @inbounds RheatS_u[row,j] = Rj_S[row]
+                @inbounds RheatS_ls[row,j] = Rj_S[row]
             end
             rows = rowvals(Rj_L)
             for i in nzrange(Rj_L, 1)
                 @inbounds row = rows[i]
                 j = graph[row]
-                @inbounds RheatL_u[row,j] = Rj_L[row]
+                @inbounds RheatL_ls[row,j] = Rj_L[row]
             end
             rows = rowvals(Rj_u)
             for i in nzrange(Rj_u, 1)
                 @inbounds row = rows[i]
                 j = graph[row]
-                @inbounds RlsS_u[row,j] = Rj_u[row]
+                @inbounds RlsS_ls[row,j] = Rj_u[row]
             end
 
             uj .= um1

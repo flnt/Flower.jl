@@ -289,11 +289,26 @@ mutable struct adjoint_fields{T <: Float64} <: MutatingFields
 end
 
 mutable struct adjoint_derivatives{T <: Float64} <: MutatingFields
-    RheatS_u::SparseMatrixCSC{T,Int64} # Derivative of solid phase heat eq. wrt. levelset
-    RheatL_u::SparseMatrixCSC{T,Int64} # Derivative of liquid phase heat eq. wrt. levelset
-    RlsS_u::SparseMatrixCSC{T,Int64} # Derivative of Stefan levelset advection eq. wrt. levelset
+    RheatS_ls::SparseMatrixCSC{T,Int64} # Derivative of solid phase heat eq. wrt. levelset
+    RheatL_ls::SparseMatrixCSC{T,Int64} # Derivative of liquid phase heat eq. wrt. levelset
+    RlsS_ls::SparseMatrixCSC{T,Int64} # Derivative of Stefan levelset advection eq. wrt. levelset
     RlsS_TS::SparseMatrixCSC{T,Int64} # Derivative of Stefan levelset advection eq. wrt. solid temperature 
     RlsS_TL::SparseMatrixCSC{T,Int64} # Derivative of Stefan levelset advection eq. wrt. liquid temperature
+    RucorrS_ls::SparseMatrixCSC{T,Int64} # Derivative of solid phase prediction step in x wrt. levelset
+    RucorrL_ls::SparseMatrixCSC{T,Int64} # Derivative of liquid phase prediction step in x wrt. levelset
+    RvcorrS_ls::SparseMatrixCSC{T,Int64} # Derivative of solid phase prediction step in y wrt. levelset
+    RvcorrL_ls::SparseMatrixCSC{T,Int64} # Derivative of liquid phase prediction step in y wrt. levelset
+    RpS_ls::SparseMatrixCSC{T,Int64} # Derivative of solid phase Poisson eq. wrt. levelset
+    RpL_ls::SparseMatrixCSC{T,Int64} # Derivative of liquid phase Poisson eq. wrt. levelset
+    RuS_ls::SparseMatrixCSC{T,Int64} # Derivative of solid phase projection step in x wrt. levelset
+    RuL_ls::SparseMatrixCSC{T,Int64} # Derivative of liquid phase projection step in x wrt. levelset
+    RvS_ls::SparseMatrixCSC{T,Int64} # Derivative of solid phase projection step in y wrt. levelset
+    RvL_ls::SparseMatrixCSC{T,Int64} # Derivative of liquid phase projection step in y wrt. levelset
+    RlsFS_ls::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. levelset
+    RlsFS_uS::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. solid horizontal velocity 
+    RlsFS_uL::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. liquid horizontal velocity 
+    RlsFS_vS::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. solid vertical velocity
+    RlsFS_vL::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. liquid vertical velocity
 end
 
 abstract type BoundaryCondition end

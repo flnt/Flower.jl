@@ -38,7 +38,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
     @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, V, κ, LSA, LSB = grid
     @unpack MIXED, SOLID, LIQUID = ind
-    @unpack RheatS_u, RheatL_u, RlsS_u, RlsS_TS, RlsS_TL = adj_der
+    @unpack RheatS_ls, RheatL_ls, RlsS_ls, RlsS_TS, RlsS_TL = adj_der
 
     local LSA; local LSB;
     local LSAm1; local LSBm1;
@@ -182,9 +182,9 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         
         if levelset
             rhs = J_u(num, grid, fwdS.TD, fwdL.TD, u, current_i-1)
-            rhs .-= transpose(RheatS_u) * adj.phS.TD[current_i+1,:]
-            rhs .-= transpose(RheatL_u) * adj.phL.TD[current_i+1,:]
-            rhs .-= transpose(RlsS_u) * adj.u[current_i+1,:]
+            rhs .-= transpose(RheatS_ls) * adj.phS.TD[current_i+1,:]
+            rhs .-= transpose(RheatL_ls) * adj.phL.TD[current_i+1,:]
+            rhs .-= transpose(RlsS_ls) * adj.u[current_i+1,:]
             @views @mytime (_, ch) = gmres!(adj.u[current_i,:], transpose(LSA), rhs, log=true)
             println(ch)
             LSAm1 .= LSA

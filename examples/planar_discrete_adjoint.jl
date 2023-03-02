@@ -155,7 +155,7 @@ fdf = lines!(eps_v, grads)
 fdf = current_figure()
 
 adj = adjoint_fields(num, gp, gu, gv)
-adj_der = adjoint_derivatives(gp)
+adj_der = adjoint_derivatives(gp, gu, gv)
 
 @time MIXED, SOLID, LIQUID = run_backward_discrete(num, gp, gu, gv,
     fwd0, fwdS0, fwdL0, adj, adj_der, phS, phL,
