@@ -63,13 +63,13 @@ function R_x(grid, opC_TL)
 end
 
 function dJ_dx(grid, opC_TL, x, adj)
-    its, npts = size(adj.TDS)
+    its, npts = size(adj.phS.TD)
 
     rx = R_x(grid, opC_TL)
 
     res = J_x(x)
     for i = 2:its
-        res -= sum(adj.TDL[i,:] .* rx)
+        res -= sum(adj.phL.TD[i,:] .* rx)
     end
 
     return res
@@ -154,14 +154,11 @@ ax = Axis(fdf[1,1], title="Finite differences", xlabel="eps", ylabel="grad"; xsc
 fdf = lines!(eps_v, grads)
 fdf = current_figure()
 
-TDS = zeros(num.max_iterations + 1, 2*gp.ny*gp.nx)
-TDL = zeros(num.max_iterations + 1, 2*gp.ny*gp.nx)
-u = zeros(num.max_iterations + 1, gp.ny*gp.nx)
-
-adj = discrete_adjoint(gp, TDS, TDL, u)
+adj = adjoint_fields(num, gp, gu, gv)
+adj_der = adjoint_derivatives(gp)
 
 @time MIXED, SOLID, LIQUID = run_backward_discrete(num, gp, gu, gv,
-    fwd0, fwdS0, fwdL0, adj, phS, phL,
+    fwd0, fwdS0, fwdL0, adj, adj_der, phS, phL,
     opC_TS, opC_TL,
     J_TS, J_TL, J_u,
     periodic_x = true,
@@ -205,7 +202,7 @@ ax = Axis(fS[1,1])
 colsize!(fS.layout, 1, Aspect(1, 1))
 resize_to_layout!(fS)
 hidedecorations!(ax)
-fS = heatmap!(gp.x[1,:], gp.y[:,1], reshape(veci(adj.TDS[2,:], gp, 1), (gp.ny, gp.nx))', colormap=:ice)
+fS = heatmap!(gp.x[1,:], gp.y[:,1], reshape(veci(adj.phS.TD[2,:], gp, 1), (gp.ny, gp.nx))', colormap=:ice)
 fS = contour!(gp.x[1,:], gp.y[:,1], fwd0.u[2,:,:]', levels = 0:0, color=:red, linewidth = 3);
 limits!(ax, -L0/2., L0/2., -L0/2., L0/2.)
 fS = current_figure();
@@ -215,7 +212,7 @@ ax = Axis(fL[1,1])
 colsize!(fL.layout, 1, Aspect(1, 1))
 resize_to_layout!(fL)
 hidedecorations!(ax)
-fL = heatmap!(gp.x[1,:], gp.y[:,1], reshape(veci(adj.TDL[2,:], gp, 1), (gp.ny, gp.nx))', colormap=:ice)
+fL = heatmap!(gp.x[1,:], gp.y[:,1], reshape(veci(adj.phL.TD[2,:], gp, 1), (gp.ny, gp.nx))', colormap=:ice)
 fL = contour!(gp.x[1,:], gp.y[:,1], fwd0.u[2,:,:]', levels = 0:0, color=:red, linewidth = 3);
 limits!(ax, -L0/2., L0/2., -L0/2., L0/2.)
 fL = current_figure();
@@ -230,8 +227,8 @@ fu = contour!(gp.x[1,:], gp.y[:,1], fwd0.u[2,:,:]', levels = 0:0, color=:red, li
 limits!(ax, -L0/2., L0/2., -L0/2., L0/2.)
 fu = current_figure();
 
-make_video(gp, fwd0.u, adj.TDS; title_prefix=prefix*"adj_TS", title_suffix=suffix, step0=2)
-make_video(gp, fwd0.u, adj.TDL; title_prefix=prefix*"adj_TL", title_suffix=suffix, step0=2)
+make_video(gp, fwd0.u, adj.phS.TD; title_prefix=prefix*"adj_TS", title_suffix=suffix, step0=2)
+make_video(gp, fwd0.u, adj.phL.TD; title_prefix=prefix*"adj_TL", title_suffix=suffix, step0=2)
 make_video(gp, fwd0.u, adj.u; title_prefix=prefix*"adj_u", title_suffix=suffix, step0=2)
 
 println("Rel error: $(100*abs((grads[4] - g_adj) / grads[4]))%")

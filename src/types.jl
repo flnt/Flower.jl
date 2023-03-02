@@ -273,15 +273,27 @@ mutable struct my_Adjoint{T <: Float64} <: MutatingFields
     κ::Array{T, 2}
 end
 
-mutable struct discrete_adjoint{T <: Float64} <: MutatingFields
-    TDS::Array{T,2}
-    TDL::Array{T,2}
+mutable struct adjoint_phase{T <: Float64} <: MutatingFields
+    TD::Array{T,2}
+    pD::Array{T,2}
     u::Array{T,2}
-    R1_u::SparseMatrixCSC{T,Int64}
-    R2_u::SparseMatrixCSC{T,Int64}
-    R3_u::SparseMatrixCSC{T,Int64}
-    R3_TS::SparseMatrixCSC{T,Int64}
-    R3_TL::SparseMatrixCSC{T,Int64}
+    v::Array{T,2}
+    ucorrD::Array{T,2}
+    vcorrD::Array{T,2}
+end
+
+mutable struct adjoint_fields{T <: Float64} <: MutatingFields
+    u::Array{T,2}
+    phS::adjoint_phase{T}
+    phL::adjoint_phase{T}
+end
+
+mutable struct adjoint_derivatives{T <: Float64} <: MutatingFields
+    RheatS_u::SparseMatrixCSC{T,Int64} # Derivative of solid phase heat eq. wrt. levelset
+    RheatL_u::SparseMatrixCSC{T,Int64} # Derivative of liquid phase heat eq. wrt. levelset
+    RlsS_u::SparseMatrixCSC{T,Int64} # Derivative of Stefan levelset advection eq. wrt. levelset
+    RlsS_TS::SparseMatrixCSC{T,Int64} # Derivative of Stefan levelset advection eq. wrt. solid temperature 
+    RlsS_TL::SparseMatrixCSC{T,Int64} # Derivative of Stefan levelset advection eq. wrt. liquid temperature
 end
 
 abstract type BoundaryCondition end

@@ -62,7 +62,7 @@ function relocate!(indices, px0, py0)
     end
 end
 
-function Rheat_u(num, grid, grid_u, grid_v, adj, um1,
+function Rheat_u(num, grid, grid_u, grid_v, adj_der, um1,
     TD0_S, TD1_S, A_S, B_S, opC_TS, BC_TS,
     TD0_L, TD1_L, A_L, B_L, opC_TL, BC_TL,
     u0, u1, LSA, LSB,
@@ -70,11 +70,11 @@ function Rheat_u(num, grid, grid_u, grid_v, adj, um1,
 
     @unpack ϵ, NB = num
     @unpack nx, ny, ind, V, iso, faces, geoS, geoL = grid
-    @unpack R1_u, R2_u, R3_u = adj
+    @unpack RheatS_u, RheatL_u, RlsS_u = adj_der
     
-    R1_u.nzval .= 0.
-    R2_u.nzval .= 0.
-    R3_u.nzval .= 0.
+    RheatS_u.nzval .= 0.
+    RheatL_u.nzval .= 0.
+    RlsS_u.nzval .= 0.
     uj = copy(um1)
 
     TS = reshape(veci(TD1_S, grid, 1), (ny, nx))
@@ -166,19 +166,19 @@ function Rheat_u(num, grid, grid_u, grid_v, adj, um1,
             for i in nzrange(Rj_S, 1)
                 @inbounds row = rows[i]
                 j = graph[row]
-                @inbounds R1_u[row,j] = Rj_S[row]
+                @inbounds RheatS_u[row,j] = Rj_S[row]
             end
             rows = rowvals(Rj_L)
             for i in nzrange(Rj_L, 1)
                 @inbounds row = rows[i]
                 j = graph[row]
-                @inbounds R2_u[row,j] = Rj_L[row]
+                @inbounds RheatL_u[row,j] = Rj_L[row]
             end
             rows = rowvals(Rj_u)
             for i in nzrange(Rj_u, 1)
                 @inbounds row = rows[i]
                 j = graph[row]
-                @inbounds R3_u[row,j] = Rj_u[row]
+                @inbounds RlsS_u[row,j] = Rj_u[row]
             end
 
             uj .= um1
@@ -188,17 +188,17 @@ function Rheat_u(num, grid, grid_u, grid_v, adj, um1,
     return nothing
 end
 
-function Rheat_T(num, grid, grid_u, grid_v, adj, 
+function Rheat_T(num, grid, grid_u, grid_v, adj_der, 
     TD_S, TD_L,
     u0, u1, LSA, LSB,
     CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)
 
     @unpack ϵ, NB = num
     @unpack nx, ny, ind, u, V, faces, iso, geoS, geoL = grid
-    @unpack R3_TS, R3_TL = adj
+    @unpack RlsS_TS, RlsS_TL = adj_der
     
-    R3_TS.nzval .= 0.
-    R3_TL.nzval .= 0.
+    RlsS_TS.nzval .= 0.
+    RlsS_TL.nzval .= 0.
 
     TS = reshape(veci(TD_S, grid, 1), (ny, nx))
     TL = reshape(veci(TD_L, grid, 1), (ny, nx))
@@ -281,13 +281,13 @@ function Rheat_T(num, grid, grid_u, grid_v, adj,
             for i in nzrange(Rj_S, 1)
                 @inbounds row = rows[i]
                 j = graph[row]
-                @inbounds R3_TS[row,j] = Rj_S[row]
+                @inbounds RlsS_TS[row,j] = Rj_S[row]
             end
             rows = rowvals(Rj_L)
             for i in nzrange(Rj_L, 1)
                 @inbounds row = rows[i]
                 j = graph[row]
-                @inbounds R3_TL[row,j] = Rj_L[row]
+                @inbounds RlsS_TL[row,j] = Rj_L[row]
             end
 
             TSj .= TS

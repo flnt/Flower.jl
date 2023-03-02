@@ -135,14 +135,36 @@ function init_meshes(num::NumericalParameters)
     return (mesh_cc, mesh_stx, mesh_sty)
 end
 
-function discrete_adjoint(grid, TDS, TDL, u)
+function adjoint_fields(num, gp, gu, gv)
+    u = zeros(num.max_iterations+1, gp.ny*gp.nx)
+
+    TDS = zeros(num.max_iterations+1, 2*gp.ny*gp.nx)
+    TDL = zeros(num.max_iterations+1, 2*gp.ny*gp.nx)
+    pDS = zeros(num.max_iterations+1, 2*gp.ny*gp.nx)
+    pDL = zeros(num.max_iterations+1, 2*gp.ny*gp.nx)
+    uS = zeros(num.max_iterations+1, gu.ny*gu.nx)
+    uL = zeros(num.max_iterations+1, gu.ny*gu.nx)
+    vS = zeros(num.max_iterations+1, gv.ny*gv.nx)
+    vL = zeros(num.max_iterations+1, gv.ny*gv.nx)
+    ucorrDS = zeros(num.max_iterations+1, 2*gu.ny*gu.nx)
+    ucorrDL = zeros(num.max_iterations+1, 2*gu.ny*gu.nx)
+    vcorrDS = zeros(num.max_iterations+1, 2*gv.ny*gv.nx)
+    vcorrDL = zeros(num.max_iterations+1, 2*gv.ny*gv.nx)
+
+    phS = adjoint_phase(TDS, pDS, uS, vS, ucorrDS, vcorrDS)
+    phL = adjoint_phase(TDL, pDL, uL, vL, ucorrDL, vcorrDL)
+
+    return adjoint_fields(u, phS, phL)
+end
+
+function adjoint_derivatives(grid)
     tmp = star3(grid)
-    R1_u = [tmp; tmp]
-    R2_u = [tmp; tmp]
-    R3_u = copy(tmp)
-    R3_TS = [tmp tmp]
-    R3_TL = [tmp tmp]
-    return discrete_adjoint{Float64}(TDS, TDL, u, R1_u, R2_u, R3_u, R3_TS, R3_TL)
+    RheatS_u = [tmp; tmp]
+    RheatL_u = [tmp; tmp]
+    RlsS_u = copy(tmp)
+    RlsS_TS = [tmp tmp]
+    RlsS_TL = [tmp tmp]
+    return adjoint_derivatives{Float64}(RheatS_u, RheatL_u, RlsS_u, RlsS_TS, RlsS_TL)
 end
 
 function init_sparse_Bx(grid)
