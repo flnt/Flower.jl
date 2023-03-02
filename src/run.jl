@@ -1,6 +1,6 @@
 function run_forward(num, grid, grid_u, grid_v,
     opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, 
-    phS, phL, fwd;
+    phS, phL, fwd, fwdS, fwdL;
     periodic_x = false,
     periodic_y = false,
     BC_TS = Boundaries(
@@ -79,8 +79,6 @@ function run_forward(num, grid, grid_u, grid_v,
 
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
     @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, V, κ, LSA, LSB = grid
-    @unpack MIXED, LIQUID, SOLID = ind
-    @unpack Tall, usave, uusave, uvsave, TSsave, TLsave, TDSsave, TDLsave, Tsave, psave, ϕsave, Uxsave, Uysave, Uxcorrsave, Uycorrsave, Vsave, κsave, lengthsave, tv, Cd, Cl = fwd
 
     iRe = 1.0 / Re
 
@@ -145,18 +143,18 @@ function run_forward(num, grid, grid_u, grid_v,
         if save_radius
             n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
             local radius = zeros(n_snaps)
-            radius[1] = find_radius(grid, MIXED)
+            radius[1] = find_radius(grid, ind.MIXED)
         end
         if hill
             local radius = zeros(max_iterations+1)
-            a = zeros(length(MIXED))
-            for i in eachindex(MIXED)
-                a[i] = geoL.projection[MIXED[i]].pos.y
+            a = zeros(length(ind.MIXED))
+            for i in eachindex(ind.MIXED)
+                a[i] = geoL.projection[ind.MIXED[i]].pos.y
             end
             radius[1] = mean(a)
         end
     elseif !levelset
-        MIXED = [CartesianIndex(-1,-1)]
+        ind.MIXED = [CartesianIndex(-1,-1)]
         grid_u.ind.MIXED = [CartesianIndex(-1,-1)]
         grid_v.ind.MIXED = [CartesianIndex(-1,-1)]
     end
@@ -165,12 +163,12 @@ function run_forward(num, grid, grid_u, grid_v,
     set_heat!(num, grid, geoS, geoS.projection,
             opS, phS, HTS, bcTS, HuS, HvS,
             BC_TS, BC_uS, BC_vS,
-            MIXED, LIQUID, heat_convection)
+            ind.MIXED, ind.LIQUID, heat_convection)
     
     set_heat!(num, grid, geoL, geoS.projection,
             opL, phL, HTL, bcTL, HuL, HvL,
             BC_TL, BC_uL, BC_vL,
-            MIXED, SOLID, heat_convection)
+            ind.MIXED, ind.SOLID, heat_convection)
 
     if ns_advection
         Cum1S .= opS.Cu * vec(phS.u) .+ opS.CUTCu
@@ -183,48 +181,60 @@ function run_forward(num, grid, grid_u, grid_v,
     IIOE(LSA, LSB, u, V, ind.inside, CFL_sc, ny)
 
     if save_length
-        lengthsave[1] = arc_length2(geoS.projection, MIXED)
-        κsave[1,:,:] .= κ
+        fwd.length[1] = arc_length2(geoS.projection, ind.MIXED)
+        fwd.κ[1,:,:] .= κ
     end
 
     kill_dead_cells!(phS.T, grid, geoS)
     kill_dead_cells!(phL.T, grid, geoL)
     
-    usave[1,:,:] .= u
-    Tsave[1,:,:] .= phL.T.*geoL.cap[:,:,5] .+ phS.T[:,:].*geoS.cap[:,:,5]
-    TLsave[1,:,:] .= phL.T
-    TSsave[1,:,:] .= phS.T
-    psave[1,:,:] .= phL.p .+ phS.p
-    Uxsave[1,:,:] .= phL.u .+ phS.u
-    Uysave[1,:,:] .= phL.v .+ phS.v
+    @views fwd.u[1,:,:] .= u
+    @views fwd.ux[1,:,:] .= grid_u.u
+    @views fwd.uy[1,:,:] .= grid_v.u
+    @views fwd.T[1,:,:] .= phL.T.*geoL.cap[:,:,5] .+ phS.T[:,:].*geoS.cap[:,:,5]
+    @views fwdL.T[1,:,:] .= phL.T
+    @views fwdS.T[1,:,:] .= phS.T
+    @views fwdS.p[1,:,:] .= phS.p
+    @views fwdL.p[1,:,:] .= phL.p
+    @views fwdS.u[1,:,:] .= phS.u
+    @views fwdS.v[1,:,:] .= phS.v
+    @views fwdL.u[1,:,:] .= phL.u
+    @views fwdL.v[1,:,:] .= phL.v
 
-    tmpDS = copy(phS.T)
-    tmpDS[2:end-1,2:end-1] .= θd
-    init_borders!(tmpDS, BC_TS, θd)
-    tmpDL = copy(phL.T)
-    tmpDL[2:end-1,2:end-1] .= θd
-    init_borders!(tmpDL, BC_TL, θd)
-
+    tmp = copy(phS.T)
+    tmp[2:end-1,2:end-1] .= θd
+    init_borders!(tmp, BC_TS, θd)
     veci(phS.TD,grid,1) .= vec(phS.T)
+    veci(phS.TD,grid,2) .= vec(tmp)
+    @views fwdS.TD[1,:] .= phS.TD
+
+    tmp = copy(phL.T)
+    tmp[2:end-1,2:end-1] .= θd
+    init_borders!(tmp, BC_TL, θd)    
     veci(phL.TD,grid,1) .= vec(phL.T)
-    veci(phS.TD,grid,2) .= vec(tmpDS)
-    veci(phL.TD,grid,2) .= vec(tmpDL)
-    @views TDLsave[1,:] .= phL.TD
-    @views TDSsave[1,:] .= phS.TD
+    veci(phL.TD,grid,2) .= vec(tmp)
+    @views fwdL.TD[1,:] .= phL.TD
 
-    tmpu = ones(grid_u.ny, grid_u.nx) .* num.u_inf
-    tmpu[2:end-1,2:end-1] .= 0.0
+    tmp = ones(grid_u.ny, grid_u.nx) .* num.u_inf
+    tmp[2:end-1,2:end-1] .= 0.0
     veci(phS.uD,grid_u,1) .= vec(phS.u)
-    veci(phS.uD,grid_u,2) .= vec(tmpu)
+    veci(phS.uD,grid_u,2) .= vec(tmp)
     veci(phL.uD,grid_u,1) .= vec(phL.u)
-    veci(phL.uD,grid_u,2) .= vec(tmpu)
+    veci(phL.uD,grid_u,2) .= vec(tmp)
+    @views fwdS.ucorrD[1,:,:] .= phS.uD
+    @views fwdL.ucorrD[1,:,:] .= phL.uD
 
-    tmpv = ones(grid_v.ny, grid_v.nx) .* num.v_inf
-    tmpv[2:end-1,2:end-1] .= 0.0
+    tmp = ones(grid_v.ny, grid_v.nx) .* num.v_inf
+    tmp[2:end-1,2:end-1] .= 0.0
     veci(phS.vD,grid_v,1) .= vec(phS.v)
-    veci(phS.vD,grid_v,2) .= vec(tmpv)
+    veci(phS.vD,grid_v,2) .= vec(tmp)
     veci(phL.vD,grid_v,1) .= vec(phL.v)
-    veci(phL.vD,grid_v,2) .= vec(tmpv)
+    veci(phL.vD,grid_v,2) .= vec(tmp)
+    @views fwdS.vcorrD[1,:,:] .= phS.vD
+    @views fwdL.vcorrD[1,:,:] .= phL.vD
+
+    @views fwdL.pD[1,:] .= phL.pD
+    @views fwdS.pD[1,:] .= phS.pD
 
     if free_surface
         Lpm1_S, bc_Lpm1_S, Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Lpm1_fs_S, bc_Lpm1_fs_S, Lum1_fs_S, bc_Lum1_fs_S, Lvm1_fs_S, bc_Lvm1_fs_S = set_laplacians!(grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
@@ -264,7 +274,7 @@ function run_forward(num, grid, grid_u, grid_v,
             if heat_solid_phase
                 kill_dead_cells!(phS.T, grid, geoS)
                 veci(phS.TD,grid,1) .= vec(phS.T)
-                A_T, B, rhs = set_heat!(dir, num, grid, opC_TS, geoS, BC_TS, MIXED, geoS.projection,
+                A_T, B, rhs = set_heat!(dir, num, grid, opC_TS, geoS, BC_TS, ind.MIXED, geoS.projection,
                                         periodic_x, periodic_y)
                 mul!(rhs, B, phS.TD, 1.0, 1.0)
                 @mytime blocks = DDM.decompose(A_T, grid.domdec, grid.domdec)
@@ -276,7 +286,7 @@ function run_forward(num, grid, grid_u, grid_v,
             if heat_liquid_phase
                 kill_dead_cells!(phL.T, grid, geoL)
                 veci(phL.TD,grid,1) .= vec(phL.T)
-                A_T, B, rhs = set_heat!(dir, num, grid, opC_TL, geoL, BC_TL, MIXED, geoL.projection,
+                A_T, B, rhs = set_heat!(dir, num, grid, opC_TL, geoL, BC_TL, ind.MIXED, geoL.projection,
                                         periodic_x, periodic_y)
                 mul!(rhs, B, phL.TD, 1.0, 1.0)
                 @mytime blocks = DDM.decompose(A_T, grid.domdec, grid.domdec)
@@ -311,14 +321,14 @@ function run_forward(num, grid, grid_u, grid_v,
                     break
                 end
             elseif free_surface
-                level_update_IIOE!(grid, grid_u, grid_v, LSA, LSB, θ_out, MIXED, τ, periodic_x, periodic_y)
+                level_update_IIOE!(grid, grid_u, grid_v, LSA, LSB, θ_out, ind.MIXED, τ, periodic_x, periodic_y)
                 try
                     utmp .= reshape(gmres(LSA,(LSB*vec(u))), (ny,nx))
                 catch
                     @error ("Inadequate level set function, iteration $current_i")
                     break
                 end
-                S2IIOE!(grid, grid_u, grid_v, LSA, LSB, utmp, u, θ_out, MIXED, τ, periodic_x, periodic_y)
+                S2IIOE!(grid, grid_u, grid_v, LSA, LSB, utmp, u, θ_out, ind.MIXED, τ, periodic_x, periodic_y)
                 try
                     u .= reshape(gmres(LSA,(LSB*vec(u))), (ny,nx))
                 catch
@@ -344,15 +354,15 @@ function run_forward(num, grid, grid_u, grid_v,
             if current_i%show_every == 0
                 try
                     printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) \n" (current_i-1) 100*(current_i-1)/max_iterations)
-                    if (heat && length(MIXED) != 0)
-                        print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f\n" mean(V[MIXED]) findmax(V[MIXED])[1] findmin(V[MIXED])[1])
-                        print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f\n" mean(κ[MIXED]) findmax(κ[MIXED])[1] findmin(κ[MIXED])[1])
+                    if (heat && length(ind.MIXED) != 0)
+                        print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f\n" mean(V[ind.MIXED]) findmax(V[ind.MIXED])[1] findmin(V[ind.MIXED])[1])
+                        print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f\n" mean(κ[ind.MIXED]) findmax(κ[ind.MIXED])[1] findmin(κ[ind.MIXED])[1])
                     elseif free_surface
-                        V_mean = mean([mean(grid_u.V[MIXED]), mean(grid_v.V[MIXED])])
-                        V_max = max(findmax(grid_u.V[MIXED])[1], findmax(grid_v.V[MIXED])[1])
-                        V_min = min(findmin(grid_u.V[MIXED])[1], findmin(grid_v.V[MIXED])[1])
+                        V_mean = mean([mean(grid_u.V[ind.MIXED]), mean(grid_v.V[ind.MIXED])])
+                        V_max = max(findmax(grid_u.V[ind.MIXED])[1], findmax(grid_v.V[ind.MIXED])[1])
+                        V_min = min(findmin(grid_u.V[ind.MIXED])[1], findmin(grid_v.V[ind.MIXED])[1])
                         print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f\n" V_mean V_max V_min)
-                        print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f\n" mean(κ[MIXED]) findmax(κ[MIXED])[1] findmin(κ[MIXED])[1])
+                        print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f\n" mean(κ[ind.MIXED]) findmax(κ[ind.MIXED])[1] findmin(κ[ind.MIXED])[1])
                     end
                     if navier_stokes
                         if ns_solid_phase
@@ -369,7 +379,7 @@ function run_forward(num, grid, grid_u, grid_v,
                         end
                     end
                 catch
-                    @show (MIXED)
+                    @show (ind.MIXED)
                 end
             end
         end
@@ -381,18 +391,18 @@ function run_forward(num, grid, grid_u, grid_v,
             if iszero(current_i%save_every) || current_i==max_iterations
                 snap = current_i÷save_every+1
                 if save_radius
-                    radius[snap] = find_radius(grid, MIXED)
+                    radius[snap] = find_radius(grid, ind.MIXED)
                 end
                 if hill
-                    a = zeros(length(MIXED))
-                    for i in eachindex(MIXED)
-                        a[i] = geoL.projection[MIXED[i]].pos.y
+                    a = zeros(length(ind.MIXED))
+                    for i in eachindex(ind.MIXED)
+                        a[i] = geoL.projection[ind.MIXED[i]].pos.y
                     end
                     radius[snap] = mean(a)
                 end
                 if save_length
-                    lengthsave[snap] = arc_length2(geoS.projection, MIXED)
-                    κsave[snap,:,:] .= κ
+                    fwd.length[snap] = arc_length2(geoS.projection, ind.MIXED)
+                    fwd.κ[snap,:,:] .= κ
                 end
             end
         end
@@ -412,13 +422,13 @@ function run_forward(num, grid, grid_u, grid_v,
                                                                                           BC_uS, BC_vS, BC_pS,
                                                                                           opC_pS, opC_uS, opC_vS,
                                                                                           Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S,
-                                                                                          SOLID, MIXED, periodic_x, periodic_y, current_i)
+                                                                                          ind.SOLID, ind.MIXED, periodic_x, periodic_y, current_i)
                 else
                     Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S = projection_no_slip!(num, grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, phS,
                                                                                                BC_uS, BC_vS, BC_pS,
                                                                                                opC_pS, opC_uS, opC_vS,
                                                                                                Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S,
-                                                                                               SOLID, MIXED, periodic_x, periodic_y)
+                                                                                               ind.SOLID, ind.MIXED, periodic_x, periodic_y)
                 end
                 
             end
@@ -428,13 +438,13 @@ function run_forward(num, grid, grid_u, grid_v,
                                                                                           BC_uL, BC_vL, BC_pL,
                                                                                           opC_pL, opC_uL, opC_vL,
                                                                                           Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L,
-                                                                                          LIQUID, MIXED, periodic_x, periodic_y, current_i)
+                                                                                          ind.LIQUID, ind.MIXED, periodic_x, periodic_y, current_i)
                 else
                    Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L = projection_no_slip!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,
                                                                                               BC_uL, BC_vL, BC_pL,
                                                                                               opC_pL, opC_uL, opC_vL,
                                                                                               Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L,
-                                                                                              LIQUID, MIXED, periodic_x, periodic_y)
+                                                                                              ind.LIQUID, ind.MIXED, periodic_x, periodic_y)
                 end
             end
         end
@@ -443,53 +453,71 @@ function run_forward(num, grid, grid_u, grid_v,
         if iszero(current_i%save_every) || current_i==max_iterations
             snap = current_i÷save_every+1
             if current_i==max_iterations
-                snap = size(Tsave,1)
+                snap = size(fwd.T,1)
             end
-            tv[snap] = current_t
-            @views Vsave[snap,:,:] .= V
-            @views usave[snap,:,:] .= u
-            @views uusave[snap,:,:] .= grid_u.u
-            @views uvsave[snap,:,:] .= grid_v.u
+            fwd.t[snap] = current_t
+            @views fwd.V[snap,:,:] .= V
+            @views fwd.u[snap,:,:] .= u
+            @views fwd.ux[snap,:,:] .= grid_u.u
+            @views fwd.uy[snap,:,:] .= grid_v.u
 
             if heat_solid_phase && heat_liquid_phase
-                @views Tsave[snap,:,:] .= phL.T.*geoL.cap[:,:,5] .+ phS.T.*geoS.cap[:,:,5]
-                @views TLsave[snap,:,:] .= phL.T
-                @views TDLsave[snap,:] .= phL.TD
-                @views TSsave[snap,:,:] .= phS.T
-                @views TDSsave[snap,:] .= phS.TD
+                @views fwd.T[snap,:,:] .= phL.T.*geoL.cap[:,:,5] .+ phS.T.*geoS.cap[:,:,5]
+                @views fwdL.T[snap,:,:] .= phL.T
+                @views fwdL.TD[snap,:] .= phL.TD
+                @views fwdS.T[snap,:,:] .= phS.T
+                @views fwdS.TD[snap,:] .= phS.TD
             elseif heat_solid_phase
-                @views Tsave[snap,:,:] .= phS.T
-                @views TSsave[snap,:,:] .= phS.T
-                @views TDSsave[snap,:] .= phS.TD
+                @views fwd.T[snap,:,:] .= phS.T
+                @views fwdS.T[snap,:,:] .= phS.T
+                @views fwdS.TD[snap,:] .= phS.TD
             elseif heat_liquid_phase
-                @views Tsave[snap,:,:] .= phL.T
-                @views TLsave[snap,:,:] .= phL.T
-                @views TDLsave[snap,:] .= phL.TD
+                @views fwd.T[snap,:,:] .= phL.T
+                @views fwdL.T[snap,:,:] .= phL.T
+                @views fwdL.TD[snap,:] .= phL.TD
             end
 
             if ns_solid_phase && ns_liquid_phase
-                @views psave[snap,:,:] .= phL.p.*geoL.cap[:,:,5] .+ phS.p.*geoS.cap[:,:,5]
-                @views ϕsave[snap,:,:] .= phL.ϕ.*geoL.cap[:,:,5] .+ phS.ϕ.*geoS.cap[:,:,5]
-                @views Uxsave[snap,:,:] .= phL.u.*grid_u.geoL.cap[:,:,5] .+ phS.u.*geoS.capu[:,:,5]
-                @views Uysave[snap,:,:] .= phL.v.*grid_v.geoL.cap[:,:,5] .+ phS.v.*geoS.capv[:,:,5]
-                @views Uxcorrsave[snap,:,:] .= phL.ucorr.*grid_u.geoL.cap[:,:,5] .+ phS.ucorr.*geoS.capu[:,:,5]
-                @views Uycorrsave[snap,:,:] .= phL.vcorr.*grid_v.geoL.cap[:,:,5] .+ phS.vcorr.*geoS.capv[:,:,5]
-                force_coefficients!(num, grid, grid_u, grid_v, opL, fwd; step=snap)
+                @views fwdS.p[snap,:,:] .= phS.p
+                @views fwdL.p[snap,:,:] .= phL.p
+                @views fwdL.pD[snap,:] .= phL.pD
+                @views fwdS.pD[snap,:] .= phS.pD
+                @views fwdS.ϕ[snap,:,:] .= phS.ϕ
+                @views fwdL.ϕ[snap,:,:] .= phL.ϕ
+                @views fwdS.u[snap,:,:] .= phS.u
+                @views fwdL.u[snap,:,:] .= phL.u
+                @views fwdS.v[snap,:,:] .= phS.v
+                @views fwdL.v[snap,:,:] .= phL.v
+                @views fwdS.ucorr[snap,:,:] .= phS.ucorr
+                @views fwdL.ucorr[snap,:,:] .= phL.ucorr
+                @views fwdS.vcorr[snap,:,:] .= phS.vcorr
+                @views fwdL.vcorr[snap,:,:] .= phL.vcorr
+                @views fwdS.ucorrD[snap,:,:] .= phS.uD
+                @views fwdL.ucorrD[snap,:,:] .= phL.uD
+                @views fwdS.vcorrD[snap,:,:] .= phS.vD
+                @views fwdL.vcorrD[snap,:,:] .= phL.vD
+                force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, fwdL; step=snap)
             elseif ns_solid_phase
-                @views psave[snap,:,:] .= phS.p
-                @views ϕsave[snap,:,:] .= phS.ϕ
-                @views Uxsave[snap,:,:] .= phS.u
-                @views Uysave[snap,:,:] .= phS.v
-                @views Uxcorrsave[snap,:,:] .= phS.ucorr
-                @views Uycorrsave[snap,:,:] .= phS.vcorr
+                @views fwdS.p[snap,:,:] .= phS.p
+                @views fwdS.pD[snap,:] .= phS.pD
+                @views fwdS.ϕ[snap,:,:] .= phS.ϕ
+                @views fwdS.u[snap,:,:] .= phS.u
+                @views fwdS.v[snap,:,:] .= phS.v
+                @views fwdS.ucorr[snap,:,:] .= phS.ucorr
+                @views fwdS.vcorr[snap,:,:] .= phS.vcorr
+                @views fwdS.ucorrD[snap,:,:] .= phS.uD
+                @views fwdS.vcorrD[snap,:,:] .= phS.vD
             elseif ns_liquid_phase
-                @views psave[snap,:,:] .= phL.p
-                @views ϕsave[snap,:,:] .= phL.ϕ
-                @views Uxsave[snap,:,:] .= phL.u
-                @views Uysave[snap,:,:] .= phL.v
-                @views Uxcorrsave[snap,:,:] .= phL.ucorr
-                @views Uycorrsave[snap,:,:] .= phL.vcorr
-                force_coefficients!(num, grid, grid_u, grid_v, opL, fwd; step=snap)
+                @views fwdL.p[snap,:,:] .= phL.p
+                @views fwdL.pD[snap,:] .= phL.pD
+                @views fwdL.ϕ[snap,:,:] .= phL.ϕ
+                @views fwdL.u[snap,:,:] .= phL.u
+                @views fwdL.v[snap,:,:] .= phL.v
+                @views fwdL.ucorr[snap,:,:] .= phL.ucorr
+                @views fwdL.vcorr[snap,:,:] .= phL.vcorr
+                @views fwdL.ucorrD[snap,:,:] .= phL.uD
+                @views fwdL.vcorrD[snap,:,:] .= phL.vD
+                force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, fwdL; step=snap)
             end
         end
 
@@ -504,8 +532,8 @@ function run_forward(num, grid, grid_u, grid_v,
         try
             printstyled(color=:blue, @sprintf "\n Final iteration : %d (%d%%) \n" (current_i-1) 100*(current_i-1)/max_iterations)
             if heat || free_surface
-                print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f  V_stdev = %.5f\n" mean(V[MIXED]) findmax(V[MIXED])[1] findmin(V[MIXED])[1] std(V[MIXED]))
-                print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f  κ_stdev = %.5f\n" mean(κ[MIXED]) findmax(κ[MIXED])[1] findmin(κ[MIXED])[1] std(κ[MIXED]))
+                print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f  V_stdev = %.5f\n" mean(V[ind.MIXED]) findmax(V[ind.MIXED])[1] findmin(V[ind.MIXED])[1] std(V[ind.MIXED]))
+                print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f  κ_stdev = %.5f\n" mean(κ[ind.MIXED]) findmax(κ[ind.MIXED])[1] findmin(κ[ind.MIXED])[1] std(κ[ind.MIXED]))
             end
             if navier_stokes
                 if ns_solid_phase
@@ -523,17 +551,17 @@ function run_forward(num, grid, grid_u, grid_v,
             end
             print("\n\n")
         catch
-            @show (length(MIXED))
+            @show (length(ind.MIXED))
         end
     end
 
     if levelset
         if save_radius || hill
-            return MIXED, SOLID, LIQUID, radius
+            return ind.MIXED, ind.SOLID, ind.LIQUID, radius
         end
-        return MIXED, SOLID, LIQUID
+        return ind.MIXED, ind.SOLID, ind.LIQUID
     else
-        return MIXED
+        return ind.MIXED
     end
 end
 

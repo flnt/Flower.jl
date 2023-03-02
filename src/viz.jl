@@ -71,41 +71,22 @@ function plot_grid(grid; linewidth=0.5, limitsx=false, limitsy=false, hide=false
     return fig
 end
 
-function make_video(num, fwd, grid, field::String;
-                    title_prefix=field, title_suffix="", xlabel="x", ylabel="y", colormap=:viridis,
-                    minv=0.0, maxv=0.0, limitsx=false, limitsy=false, framerate=24, step=1, step0=1, stepf=size(fwd.usave,1))
+function make_video(grid, field_u, field=nothing;
+                    title_prefix="video", title_suffix="", xlabel="x", ylabel="y", colormap=:viridis,
+                    minv=0.0, maxv=0.0, limitsx=false, limitsy=false, framerate=24, step=1, step0=1, stepf=size(field_u,1))
     x = grid.x[1,:]
     y = grid.y[:,1]
+
+    u = field_u[step0:stepf,:,:]
     plot_hmap = true
-    if field == "T"
-        z = fwd.Tsave[step0:stepf,:,:]
-        u = fwd.usave[step0:stepf,:,:]
-        colormap = Reverse(:ice)
-    elseif field == "u"
-        z = fwd.Uxsave[step0:stepf,:,:]
-        u = fwd.uusave[step0:stepf,:,:]
-    elseif field == "v"
-        z = fwd.Uysave[step0:stepf,:,:]
-        u = fwd.uvsave[step0:stepf,:,:]
-    elseif field == "ucorr"
-        z = fwd.Uxcorrsave[step0:stepf,:,:]
-        u = fwd.uusave[step0:stepf,:,:]
-    elseif field == "vcorr"
-        z = fwd.Uycorrsave[step0:stepf,:,:]
-        u = fwd.uvsave[step0:stepf,:,:]
-    elseif field == "p"
-        z = fwd.psave[step0:stepf,:,:].*num.τ
-        u = fwd.usave[step0:stepf,:,:]
-    elseif field == "ϕ"
-        z = fwd.ϕsave[step0:stepf,:,:].*num.τ
-        u = fwd.usave[step0:stepf,:,:]
-    elseif field == "κ"
-        z = fwd.κsave[step0:stepf,:,:]
-        u = fwd.usave[step0:stepf,:,:]
-    else
+    if isnothing(field)
         plot_hmap = false
-        z = fwd.usave[step0:stepf,:,:]
-        u = fwd.usave[step0:stepf,:,:]
+    else
+        if length(size(field)) == 2
+            z = reshape(field[step0:stepf,1:grid.ny*grid.nx], (stepf-step0+1,grid.ny,grid.nx))
+        else
+            z = field[step0:stepf,:,:]
+        end
     end
 
     if minv == maxv == 0.0
@@ -126,14 +107,14 @@ function make_video(num, fwd, grid, field::String;
     end
 
     obs = Observable{Int32}(1)
-    iterator = range(0, size(z, 1)-1, step=step)
+    iterator = range(0, size(u, 1)-1, step=step)
 
     fontsize_theme = Theme(fontsize = 30)
     set_theme!(fontsize_theme)
 
     fig = Figure(resolution = (1600, 1000))
     ax  = Axis(fig[1,1], aspect=DataAspect(), xlabel=xlabel, ylabel=ylabel,
-            title=field, xtickalign=0,  ytickalign=0)
+            xtickalign=0,  ytickalign=0)
     if plot_hmap
         if !var_colorrange
             hmap = heatmap!(x, y, @lift(z[$obs,:,:]'), colormap=colormap, colorrange=(minv, maxv))
@@ -145,60 +126,6 @@ function make_video(num, fwd, grid, field::String;
     if plot_hmap
         cbar = fig[1,2] = Colorbar(fig, hmap, labelpadding=0)
     end
-    limits!(ax, lx[1], lx[2], ly[1], ly[2])
-    colgap!(fig.layout, 10)
-    rowgap!(fig.layout, 10)
-    resize_to_layout!(fig)
-
-    vid = record(fig, title_prefix*field*"_field"*title_suffix*".mp4", iterator; framerate = framerate) do it
-        obs[] = it+1
-    end
-
-    return nothing
-end
-
-function make_video(grid, field, field_u;
-                    title_prefix="video", title_suffix="", xlabel="x", ylabel="y", colormap=:viridis,
-                    minv=0.0, maxv=0.0, limitsx=false, limitsy=false, framerate=24, step=1, step0=1, stepf=size(field,1))
-    x = grid.x[1,:]
-    y = grid.y[:,1]
-
-    z = reshape(field[step0:stepf,1:grid.ny*grid.nx], (stepf-step0+1,grid.ny,grid.nx))
-    u = field_u[step0:stepf,:,:]
-
-    if minv == maxv == 0.0
-        var_colorrange = true
-    else
-        var_colorrange = false
-    end
-
-    if isa(limitsx, Tuple{Float64,Float64}) || isa(limitsx, Tuple{Int,Int})
-        lx = limitsx
-    else
-        lx = (min(x...), max(x...))
-    end
-    if isa(limitsy, Tuple{Float64,Float64}) || isa(limitsy, Tuple{Int,Int})
-        ly = limitsy
-    else
-        ly = (min(y...), max(y...))
-    end
-
-    obs = Observable{Int32}(1)
-    iterator = range(0, size(z, 1)-1, step=step)
-
-    fontsize_theme = Theme(fontsize = 30)
-    set_theme!(fontsize_theme)
-
-    fig = Figure(resolution = (1600, 1000))
-    ax  = Axis(fig[1,1], aspect=DataAspect(), xlabel=xlabel, ylabel=ylabel,
-            xtickalign=0,  ytickalign=0)
-    if !var_colorrange
-        hmap = heatmap!(x, y, @lift(z[$obs,:,:]'), colormap=colormap, colorrange=(minv, maxv))
-    else
-        hmap = heatmap!(x, y, @lift(z[$obs,:,:]'), colormap=colormap)
-    end
-    contour!(x, y, @lift(u[$obs,:,:]'), levels=[0.0], color=:red, linewidth=2.0)
-    cbar = fig[1,2] = Colorbar(fig, hmap, labelpadding=0)
     limits!(ax, lx[1], lx[2], ly[1], ly[2])
     colgap!(fig.layout, 10)
     rowgap!(fig.layout, 10)

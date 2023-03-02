@@ -31,20 +31,20 @@ function stretching(n::Int, dn0::Float64, dn1::Float64, ds::Float64, ws=12, we=1
     return f
 end
 
-function force_coefficients!(num, grid, grid_u, grid_v, op, fwd; A=1., p0=0., step=size(fwd.psave,1))
+function force_coefficients!(num, grid, grid_u, grid_v, op, fwd, fwdPh; A=1., p0=0., step=size(fwd.psave,1))
     @unpack Re = num
     @unpack nx, ny, ind, geoL = grid
     @unpack E11, E12_x, E12_y, E22 = op
-    @unpack psave, Uxsave, Uysave, Cd, Cl = fwd
+    @unpack Cd, Cl = fwd
 
     D_p = 0.
     D_ν = 0.
     L_p = 0.
     L_ν = 0.
 
-    p = psave[step,:,:]
-    u = Uxsave[step,:,:]
-    v = Uysave[step,:,:]
+    p = fwdPh.p[step,:,:]
+    u = fwdPh.u[step,:,:]
+    v = fwdPh.v[step,:,:]
 
     strain_rate!(dir, E11, E12_x, E12_y, E22, grid_u.geoL.dcap, grid_v.geoL.dcap,
                  ny, ind.all_indices, ind.inside)

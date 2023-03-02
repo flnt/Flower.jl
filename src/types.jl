@@ -217,27 +217,30 @@ mutable struct Phase{T <: Float64} <: MutatingFields
 end
 
 mutable struct Forward{T <: Float64} <: MutatingFields
-    Tall::Array{T,2}
-    usave::Array{T,3}
-    uusave::Array{T,3}
-    uvsave::Array{T,3}
-    TSsave::Array{T,3}
-    TLsave::Array{T,3}
-    Tsave::Array{T,3}
-    psave::Array{T,3}
-    ϕsave::Array{T,3}
-    Uxsave::Array{T,3}
-    Uysave::Array{T,3}
-    Uxcorrsave::Array{T,3}
-    Uycorrsave::Array{T,3}
-    Vsave::Array{T,3}
-    κsave::Array{T,3}
-    lengthsave::Array{T,1}
-    tv::Array{T,1}
+    T::Array{T,3}
+    u::Array{T,3}
+    ux::Array{T,3}
+    uy::Array{T,3}
+    V::Array{T,3}
+    κ::Array{T,3}
+    length::Array{T,1}
+    t::Array{T,1}
     Cd::Array{T,1}
     Cl::Array{T,1}
-    TDSsave::Array{T,2}
-    TDLsave::Array{T,2}
+end
+
+mutable struct ForwardPhase{T <: Float64} <: MutatingFields
+    T::Array{T,3}
+    p::Array{T,3}
+    ϕ::Array{T,3}
+    u::Array{T,3}
+    v::Array{T,3}
+    ucorr::Array{T,3}
+    vcorr::Array{T,3}
+    TD::Array{T,2}
+    pD::Array{T,2}
+    ucorrD::Array{T,2}
+    vcorrD::Array{T,2}
 end
 
 mutable struct Desired{T <: Float64} <: AbstractOptimizer

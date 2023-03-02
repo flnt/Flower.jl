@@ -6,7 +6,7 @@ set_theme!(fontsize_theme)
 
 h0 = 0.5
 
-Ny = 4
+Ny = 2
 L0x = 2.0
 L0y = 2.0 * Ny
 n = 64
@@ -20,18 +20,17 @@ y = LinRange(-L0y/2, L0y/2, Ny*n+1)
 # x = vcat(-reverse(s),s[2:end])
 
 num = Numerical(
-    # case = "Mullins_cos",
     case = "Drop",
     # case = "Cylinder",
     x = x,
     y = y,
     Re = 1.0,
-    CFL = 0.1,
-    max_iterations = 100,
+    CFL = 0.7,
+    max_iterations = 200,
     u_inf = 0.0,
     v_inf = 0.0,
     shifted = 0.0,
-    save_every = 1,
+    save_every = 20,
     σ = 1.0,
     ϵ = 0.05,
     g = 10.0,
@@ -46,7 +45,7 @@ num = Numerical(
 )
 
 gp, gu, gv = init_meshes(num)
-opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd = init_fields(num, gp, gu, gv)
+opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
 phL.u .= num.u_inf
 phL.v .= num.v_inf
@@ -57,9 +56,10 @@ phL.v .= num.v_inf
 #     phL.pD.data[2][pII] = - num.g*cos(num.β) * gp.dy[1,1] / 2
 # end
 
-@time MIXED, MIXED_u, MIXED_v, SOLID, LIQUID = run_forward(num, gp, gu, gv,
+@time MIXED, SOLID, LIQUID = run_forward(num, gp, gu, gv,
+# @profview MIXED, MIXED_u, MIXED_v, SOLID, LIQUID = run_forward(num, gp, gu, gv,
     opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL,
-    phS, phL, fwd,
+    phS, phL, fwd, fwdS, fwdL,
     periodic_x = true,
     BC_uL = Boundaries(
         left = Boundary(t = per, f = periodic),
@@ -134,23 +134,17 @@ cbar = fk[1,2] = Colorbar(fk, hmap, labelpadding=0)
 resize_to_layout!(fk)
 
 prefix = "/Users/alex/Documents/PhD/Cutcell/New_ops/robin/free_surface/"
-suffix = "_dripping_β$(num.β)_g$(num.g)_A$(num.A)_it$(num.max_iterations)_ext_2"
+suffix = "_dripping_β$(num.β)_g$(num.g)_A$(num.A)_it$(num.max_iterations)_ext_st"
 
-limx = lim
-limy = lim * Ny
-# make_video(num, fwd, gu, "u"; title_prefix=prefix,
-#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx-num.Δ/2,limx+num.Δ/2), limitsy=(-limy,limy))
-# make_video(num, fwd, gv, "v"; title_prefix=prefix,
-#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy-num.Δ/2,limy+num.Δ/2))
-# make_video(num, fwd, gp, "p"; title_prefix=prefix,
-#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))
-# make_video(num, fwd, gp, "κ"; title_prefix=prefix,
-#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))#, minv=-4.0, maxv=4.0)
-# make_video(num, fwd, gp, "none"; title_prefix=prefix,
-#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))
-
-# fp = Figure()
-# ax = Axis(fp[1,1])
-# heatmap!(fwd.psave[417,:,:]')
-# scatter!(3, 53, color=:red)
-# resize_to_layout!(fp)
+limx = num.x[end]
+limy = num.y[end]
+make_video(gu, fwd.ux, fwdL.u; title_prefix=prefix*"u_field",
+        title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx-num.Δ/2,limx+num.Δ/2), limitsy=(-limy,limy))
+make_video(gv, fwd.uy, fwdL.v; title_prefix=prefix*"v_field",
+        title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy-num.Δ/2,limy+num.Δ/2))
+make_video(gp, fwd.u, fwdL.p; title_prefix=prefix*"p_field",
+        title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))
+make_video(gp, fwd.u, fwd.κ; title_prefix=prefix*"k_field",
+        title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))#, minv=-4.0, maxv=4.0)
+make_video(gp, fwd.u; title_prefix=prefix*"none",
+        title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))

@@ -692,7 +692,6 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     ucorrL = zeros(grid_u.ny, grid_u.nx)
     vcorrS = zeros(grid_v.ny, grid_v.nx)
     vcorrL = zeros(grid_v.ny, grid_v.nx)
-    Tall = zeros(ny, nx)
     DTS = zeros(ny, nx)
     DTL = zeros(ny, nx)
     DϕS = zeros(ny, nx)
@@ -719,17 +718,23 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
     
     usave = zeros(n_snaps, ny, nx)
-    uusave = zeros(n_snaps, grid_u.ny, grid_u.nx)
-    uvsave = zeros(n_snaps, grid_v.ny, grid_v.nx)
+    uxsave = zeros(n_snaps, grid_u.ny, grid_u.nx)
+    uysave = zeros(n_snaps, grid_v.ny, grid_v.nx)
     TSsave = zeros(n_snaps, ny, nx)
     TLsave = zeros(n_snaps, ny, nx)
     Tsave = zeros(n_snaps, ny, nx)
-    psave = zeros(n_snaps, ny, nx)
-    ϕsave = zeros(n_snaps, ny, nx)
-    Uxsave = zeros(n_snaps, grid_u.ny, grid_u.nx)
-    Uysave = zeros(n_snaps, grid_v.ny, grid_v.nx)
-    Uxcorrsave = zeros(n_snaps, grid_u.ny, grid_u.nx)
-    Uycorrsave = zeros(n_snaps, grid_v.ny, grid_v.nx)
+    pSsave = zeros(n_snaps, ny, nx)
+    pLsave = zeros(n_snaps, ny, nx)
+    ϕSsave = zeros(n_snaps, ny, nx)
+    ϕLsave = zeros(n_snaps, ny, nx)
+    uSsave = zeros(n_snaps, grid_u.ny, grid_u.nx)
+    uLsave = zeros(n_snaps, grid_u.ny, grid_u.nx)
+    vSsave = zeros(n_snaps, grid_v.ny, grid_v.nx)
+    vLsave = zeros(n_snaps, grid_v.ny, grid_v.nx)
+    ucorrSsave = zeros(n_snaps, grid_u.ny, grid_u.nx)
+    ucorrLsave = zeros(n_snaps, grid_u.ny, grid_u.nx)
+    vcorrSsave = zeros(n_snaps, grid_v.ny, grid_v.nx)
+    vcorrLsave = zeros(n_snaps, grid_v.ny, grid_v.nx)
     Vsave = zeros(n_snaps, ny, nx)
     κsave = zeros(n_snaps, ny, nx)
     lengthsave = zeros(n_snaps)
@@ -738,10 +743,13 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     Cl = zeros(n_snaps)
     TDSsave = zeros(n_snaps, 2*ny*nx)
     TDLsave = zeros(n_snaps, 2*ny*nx)
+    pDSsave = zeros(n_snaps, 2*ny*nx)
+    pDLsave = zeros(n_snaps, 2*ny*nx)
+    ucorrDSsave = zeros(n_snaps, 2*grid_u.ny*grid_u.nx)
+    ucorrDLsave = zeros(n_snaps, 2*grid_u.ny*grid_u.nx)
+    vcorrDSsave = zeros(n_snaps, 2*grid_v.ny*grid_v.nx)
+    vcorrDLsave = zeros(n_snaps, 2*grid_v.ny*grid_v.nx)
 
-    TL[:,:] = zeros(ny, nx)
-    TS[:,:] = zeros(ny, nx)
-    Tall[:,:] = zeros(ny, nx)
     if num.case == "Planar"
         u .= y .+ shifted
     elseif num.case == "Sphere"
@@ -853,7 +861,9 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
             OperatorsCoupled(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L),
             Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DϕS, DuS, DvS, TDS, pDS, ϕDS, uDS, vDS, uvDS, uvϕDS),
             Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DϕL, DuL, DvL, TDL, pDL, ϕDL, uDL, vDL, uvDL, uvϕDL),
-            Forward(Tall, usave, uusave, uvsave, TSsave, TLsave, Tsave, psave, ϕsave, Uxsave, Uysave, Uxcorrsave, Uycorrsave, Vsave, κsave, lengthsave, time, Cd, Cl, TDSsave, TDLsave))
+            Forward(Tsave, usave, uxsave, uysave, Vsave, κsave, lengthsave, time, Cd, Cl),
+            ForwardPhase(TSsave, pSsave, ϕSsave, uSsave, vSsave, ucorrSsave, vcorrSsave, TDSsave, pDSsave, ucorrDSsave, vcorrDSsave),
+            ForwardPhase(TLsave, pLsave, ϕLsave, uLsave, vLsave, ucorrLsave, vcorrLsave, TDLsave, pDLsave, ucorrDLsave, vcorrDLsave))
 end
 
 function init_mullins!(grid, T, V, t, A, N, shift)

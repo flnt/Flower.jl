@@ -99,7 +99,7 @@ num = Numerical(T_inf = 0.0,
 gp, gu, gv = init_meshes(num)
 
 function planar_motion(num, gp, gu, gv, eps)
-    opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd = init_fields(num, gp, gu, gv)
+    opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
     
     gp.u .*= -1.
     phL.T .= num.T_inf;
@@ -107,7 +107,7 @@ function planar_motion(num, gp, gu, gv, eps)
     
     @time MIXED, SOLID, LIQUID = run_forward(num, gp, gu, gv,
         opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL,
-        phS, phL, fwd,
+        phS, phL, fwd, fwdS, fwdL,
         periodic_x = true,
         BC_TL = Boundaries(
             left = Boundary(t = per, f = periodic),
@@ -132,20 +132,20 @@ function planar_motion(num, gp, gu, gv, eps)
         show_every = 1
     );
 
-    return fwd, phS, phL, opC_TS, opC_TL
+    return fwd, fwdS, fwdL, phS, phL, opC_TS, opC_TL
 end
 
-fwd0, phS, phL, opC_TS, opC_TL = planar_motion(num, gp, gu, gv, 0.0)
-J0 = J(gp, fwd0.TDSsave, fwd0.TDLsave, fwd0.usave, 1.0, 0.0)
+fwd0, fwdS0, fwdL0, phS, phL, opC_TS, opC_TL = planar_motion(num, gp, gu, gv, 0.0)
+J0 = J(gp, fwdS0.TD, fwdL0.TD, fwd0.u, 1.0, 0.0)
 
-make_video(num, fwd0, gp, "T"; title_prefix=prefix, title_suffix=suffix)
+make_video(gp, fwd0.u, fwd0.T; title_prefix=prefix*"T_field", title_suffix=suffix, colormap=Reverse(:ice))
 
 eps_v = [1e-1 / (10 ^ (i/2.0)) for i = 0:5]
 Jv = zero(eps_v)
 grads = zero(eps_v)
 for (i, epsi) in enumerate(eps_v)
-    fwd = planar_motion(num, gp, gu, gv, epsi)[1]
-    Jv[i] = J(gp, fwd.TDSsave, fwd.TDLsave, fwd.usave, 1.0 + epsi, 0.0)
+    fwd, fwdS, fwdL = planar_motion(num, gp, gu, gv, epsi)[1:3]
+    Jv[i] = J(gp, fwdS.TD, fwdL.TD, fwd.u, 1.0 + epsi, 0.0)
     grads[i] = (Jv[i] - J0) / epsi
 end
 
@@ -161,7 +161,7 @@ u = zeros(num.max_iterations + 1, gp.ny*gp.nx)
 adj = discrete_adjoint(gp, TDS, TDL, u)
 
 @time MIXED, SOLID, LIQUID = run_backward_discrete(num, gp, gu, gv,
-    fwd0, adj, phS, phL,
+    fwd0, fwdS0, fwdL0, adj, phS, phL,
     opC_TS, opC_TL,
     J_TS, J_TL, J_u,
     periodic_x = true,
@@ -195,8 +195,8 @@ ax = Axis(f[1,1])
 colsize!(f.layout, 1, Aspect(1, 1))
 resize_to_layout!(f)
 hidedecorations!(ax)
-f = heatmap!(gp.x[1,:], gp.y[:,1], fwd0.TLsave[end,:,:]', colormap=:ice)
-f = contour!(gp.x[1,:], gp.y[:,1], fwd0.usave[end,:,:]', levels = 0:0, color=:red, linewidth = 3);
+f = heatmap!(gp.x[1,:], gp.y[:,1], fwdL0.T[end,:,:]', colormap=:ice)
+f = contour!(gp.x[1,:], gp.y[:,1], fwd0.u[end,:,:]', levels = 0:0, color=:red, linewidth = 3);
 limits!(ax, -L0/2., L0/2., -L0/2., L0/2.)
 f = current_figure()
 
@@ -206,7 +206,7 @@ colsize!(fS.layout, 1, Aspect(1, 1))
 resize_to_layout!(fS)
 hidedecorations!(ax)
 fS = heatmap!(gp.x[1,:], gp.y[:,1], reshape(veci(adj.TDS[2,:], gp, 1), (gp.ny, gp.nx))', colormap=:ice)
-fS = contour!(gp.x[1,:], gp.y[:,1], fwd0.usave[2,:,:]', levels = 0:0, color=:red, linewidth = 3);
+fS = contour!(gp.x[1,:], gp.y[:,1], fwd0.u[2,:,:]', levels = 0:0, color=:red, linewidth = 3);
 limits!(ax, -L0/2., L0/2., -L0/2., L0/2.)
 fS = current_figure();
 
@@ -216,7 +216,7 @@ colsize!(fL.layout, 1, Aspect(1, 1))
 resize_to_layout!(fL)
 hidedecorations!(ax)
 fL = heatmap!(gp.x[1,:], gp.y[:,1], reshape(veci(adj.TDL[2,:], gp, 1), (gp.ny, gp.nx))', colormap=:ice)
-fL = contour!(gp.x[1,:], gp.y[:,1], fwd0.usave[2,:,:]', levels = 0:0, color=:red, linewidth = 3);
+fL = contour!(gp.x[1,:], gp.y[:,1], fwd0.u[2,:,:]', levels = 0:0, color=:red, linewidth = 3);
 limits!(ax, -L0/2., L0/2., -L0/2., L0/2.)
 fL = current_figure();
 
@@ -226,13 +226,13 @@ colsize!(fu.layout, 1, Aspect(1, 1))
 resize_to_layout!(fu)
 hidedecorations!(ax)
 fu = heatmap!(gp.x[1,:], gp.y[:,1], reshape(veci(adj.u[2,:], gp, 1), (gp.ny, gp.nx))', colormap=:ice)
-fu = contour!(gp.x[1,:], gp.y[:,1], fwd0.usave[2,:,:]', levels = 0:0, color=:red, linewidth = 3);
+fu = contour!(gp.x[1,:], gp.y[:,1], fwd0.u[2,:,:]', levels = 0:0, color=:red, linewidth = 3);
 limits!(ax, -L0/2., L0/2., -L0/2., L0/2.)
 fu = current_figure();
 
-make_video(gp, adj.TDS, fwd0.usave; title_prefix=prefix*"adj_TS", title_suffix=suffix, step0=2)
-make_video(gp, adj.TDL, fwd0.usave; title_prefix=prefix*"adj_TL", title_suffix=suffix, step0=2)
-make_video(gp, adj.u, fwd0.usave; title_prefix=prefix*"adj_u", title_suffix=suffix, step0=2)
+make_video(gp, fwd0.u, adj.TDS; title_prefix=prefix*"adj_TS", title_suffix=suffix, step0=2)
+make_video(gp, fwd0.u, adj.TDL; title_prefix=prefix*"adj_TL", title_suffix=suffix, step0=2)
+make_video(gp, fwd0.u, adj.u; title_prefix=prefix*"adj_u", title_suffix=suffix, step0=2)
 
 println("Rel error: $(100*abs((grads[4] - g_adj) / grads[4]))%")
 

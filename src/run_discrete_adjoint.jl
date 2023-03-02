@@ -1,5 +1,5 @@
 function run_backward_discrete(num, grid, grid_u, grid_v,
-    fwd, adj, phS, phL,
+    fwd, fwdS, fwdL, adj, phS, phL,
     opC_TS, opC_TL,
     J_TS, J_TL, J_u;
     periodic_x = false,
@@ -38,7 +38,6 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
     @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, V, κ, LSA, LSB = grid
     @unpack MIXED, SOLID, LIQUID = ind
-    @unpack usave, uusave, uvsave, TSsave, TLsave, TDSsave, TDLsave = fwd
     @unpack R1_u, R2_u, R3_u, R3_TS, R3_TL = adj
 
     local LSA; local LSB;
@@ -69,12 +68,12 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     CFL_sc = τ / Δ^2
 
     current_i = max_iterations + 1
-    u .= fwd.usave[end-1,:,:]
+    u .= fwd.u[end-1,:,:]
 
-    @views phS.T .= fwd.TSsave[end,:,:]
-    @views phL.T .= fwd.TLsave[end,:,:]
-    @views phS.TD .= fwd.TDSsave[end,:]
-    @views phL.TD .= fwd.TDLsave[end,:]
+    @views phS.T .= fwdS.T[end,:,:]
+    @views phL.T .= fwdL.T[end,:,:]
+    @views phS.TD .= fwdS.TD[end,:]
+    @views phL.TD .= fwdL.TD[end,:]
 
     if levelset
         update_ls_data(num, grid, grid_u, grid_v, u, periodic_x, periodic_y)
@@ -107,18 +106,18 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
 
     @views Rheat_T(num, grid, grid_u, grid_v, adj,
         phS.TD, phL.TD,
-        fwd.usave[current_i-1,:,:], fwd.usave[current_i,:,:], LSA, LSB,
+        fwd.u[current_i-1,:,:], fwd.u[current_i,:,:], LSA, LSB,
         CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)
     
     if levelset
-        rhs = J_u(num, grid, fwd.TDSsave, fwd.TDLsave, u, current_i-1)
+        rhs = J_u(num, grid, fwdS.TD, fwdL.TD, u, current_i-1)
         @views @mytime (_, ch) = gmres!(adj.u[current_i,:], transpose(LSA), rhs, log=true)
         println(ch)
     end
 
     if heat
         if heat_solid_phase
-            rhs = J_TS(num, grid, fwd.TDSsave, fwd.TDLsave, u, current_i-1)
+            rhs = J_TS(num, grid, fwdS.TD, fwdL.TD, u, current_i-1)
             rhs .-= transpose(R3_TS) * adj.u[current_i,:]
             @mytime blocks = DDM.decompose(transpose(AS), grid.domdec, grid.domdec)
 
@@ -126,7 +125,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
             println(ch)
         end
         if heat_liquid_phase
-            rhs = J_TL(num, grid, fwd.TDSsave, fwd.TDLsave, u, current_i-1)
+            rhs = J_TL(num, grid, fwdS.TD, fwdL.TD, u, current_i-1)
             rhs .-= transpose(R3_TL) * adj.u[current_i,:]
             @mytime blocks = DDM.decompose(transpose(AL), grid.domdec, grid.domdec)
 
@@ -138,11 +137,11 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     current_i -= 1
 
     while current_i > 1
-        @views u .= fwd.usave[current_i-1,:,:]
-        @views phS.T .= fwd.TSsave[current_i,:,:]
-        @views phL.T .= fwd.TLsave[current_i,:,:]
-        @views phS.TD .= fwd.TDSsave[current_i,:]
-        @views phL.TD .= fwd.TDLsave[current_i,:]
+        @views u .= fwd.u[current_i-1,:,:]
+        @views phS.T .= fwdS.T[current_i,:,:]
+        @views phL.T .= fwdL.T[current_i,:,:]
+        @views phS.TD .= fwdS.TD[current_i,:]
+        @views phL.TD .= fwdL.TD[current_i,:]
     
         if levelset
             update_ls_data(num, grid, grid_u, grid_v, u, periodic_x, periodic_y)
@@ -167,20 +166,20 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
             end
         end
 
-        @views Rheat_u(num, grid, grid_u, grid_v, adj, fwd.usave[current_i,:,:],
-            fwd.TDSsave[current_i,:], fwd.TDSsave[current_i+1,:], ASm1, BSm1, opC_TS, BC_TS,
-            fwd.TDLsave[current_i,:], fwd.TDLsave[current_i+1,:], ALm1, BLm1, opC_TL, BC_TL,
-            fwd.usave[current_i,:,:], fwd.usave[current_i+1,:,:], LSAm1, LSBm1,
+        @views Rheat_u(num, grid, grid_u, grid_v, adj, fwd.u[current_i,:,:],
+            fwdS.TD[current_i,:], fwdS.TD[current_i+1,:], ASm1, BSm1, opC_TS, BC_TS,
+            fwdL.TD[current_i,:], fwdL.TD[current_i+1,:], ALm1, BLm1, opC_TL, BC_TL,
+            fwd.u[current_i,:,:], fwd.u[current_i+1,:,:], LSAm1, LSBm1,
             CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)
 
         @views Rheat_T(num, grid, grid_u, grid_v, adj,
             phS.TD, phL.TD,
-            fwd.usave[current_i-1,:,:], fwd.usave[current_i,:,:], LSA, LSB,
+            fwd.u[current_i-1,:,:], fwd.u[current_i,:,:], LSA, LSB,
             CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)
 
         
         if levelset
-            rhs = J_u(num, grid, fwd.TDSsave, fwd.TDLsave, u, current_i-1)
+            rhs = J_u(num, grid, fwdS.TD, fwdL.TD, u, current_i-1)
             rhs .-= transpose(R1_u) * adj.TDS[current_i+1,:]
             rhs .-= transpose(R2_u) * adj.TDL[current_i+1,:]
             rhs .-= transpose(R3_u) * adj.u[current_i+1,:]
@@ -192,7 +191,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     
         if heat
             if heat_solid_phase
-                rhs = J_TS(num, grid, fwd.TDSsave, fwd.TDLsave, u, current_i-1)
+                rhs = J_TS(num, grid, fwdS.TD, fwdL.TD, u, current_i-1)
                 rhs .-= transpose(R3_TS) * adj.u[current_i,:]
                 rhs .+= transpose(BSm1) * adj.TDS[current_i+1,:]
                 kill_dead_cells!(veci(rhs, grid, 1), grid, geoS)
@@ -205,7 +204,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
                 println(ch)
             end
             if heat_liquid_phase
-                rhs = J_TL(num, grid, fwd.TDSsave, fwd.TDLsave, u, current_i-1)
+                rhs = J_TL(num, grid, fwdS.TD, fwdL.TD, u, current_i-1)
                 rhs .-= transpose(R3_TL) * adj.u[current_i,:]
                 rhs .+= transpose(BLm1) * adj.TDL[current_i+1,:]
                 kill_dead_cells!(veci(rhs, grid, 1), grid, geoL)
