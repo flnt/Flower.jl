@@ -755,10 +755,10 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     uDL = zeros(2*grid_u.ny*grid_u.nx)
     vDS = zeros(2*grid_v.ny*grid_v.nx)
     vDL = zeros(2*grid_v.ny*grid_v.nx)
-    uvDS = zeros(2*grid_u.ny*grid_u.nx + 2*grid_v.ny*grid_v.nx)
-    uvDL = zeros(2*grid_u.ny*grid_u.nx + 2*grid_v.ny*grid_v.nx)
-    uvϕDS = zeros(2*grid_u.ny*grid_u.nx + 2*grid_v.ny*grid_v.nx + 2*grid.ny*grid.nx)
-    uvϕDL = zeros(2*grid_u.ny*grid_u.nx + 2*grid_v.ny*grid_v.nx + 2*grid.ny*grid.nx)
+    ucorrDS = zeros(2*grid_u.ny*grid_u.nx)
+    ucorrDL = zeros(2*grid_u.ny*grid_u.nx)
+    vcorrDS = zeros(2*grid_v.ny*grid_v.nx)
+    vcorrDL = zeros(2*grid_v.ny*grid_v.nx)
 
     n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
     
@@ -904,8 +904,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
             OperatorsCoupled(AxT_uL, AyT_uL, Bx_uL, By_uL, BxT_uL, ByT_uL, Hx_uL, Hy_uL, HxT_uL, HyT_uL, tmp_x_uL, tmp_y_uL, M_uL, iMx_uL, iMy_uL, χ_uL, Rx, Ry, Gx_L, Gy_L),
             OperatorsCoupled(AxT_vS, AyT_vS, Bx_vS, By_vS, BxT_vS, ByT_vS, Hx_vS, Hy_vS, HxT_vS, HyT_vS, tmp_x_vS, tmp_y_vS, M_vS, iMx_vS, iMy_vS, χ_vS, Rx, Ry, Gx_S, Gy_S),
             OperatorsCoupled(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L),
-            Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DϕS, DuS, DvS, TDS, pDS, ϕDS, uDS, vDS, uvDS, uvϕDS),
-            Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DϕL, DuL, DvL, TDL, pDL, ϕDL, uDL, vDL, uvDL, uvϕDL),
+            Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DϕS, DuS, DvS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS),
+            Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DϕL, DuL, DvL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL),
             Forward(Tsave, usave, uxsave, uysave, Vsave, κsave, lengthsave, time, Cd, Cl),
             ForwardPhase(TSsave, pSsave, ϕSsave, uSsave, vSsave, ucorrSsave, vcorrSsave, TDSsave, pDSsave, ucorrDSsave, vcorrDSsave),
             ForwardPhase(TLsave, pLsave, ϕLsave, uLsave, vLsave, ucorrLsave, vcorrLsave, TDLsave, pDLsave, ucorrDLsave, vcorrDLsave))
