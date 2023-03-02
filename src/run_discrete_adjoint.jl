@@ -166,10 +166,12 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
             end
         end
 
+        tmpχ_S = opC_TS.χ
+        tmpχ_L = opC_TL.χ
         @views Rheat_u(num, grid, grid_u, grid_v, adj_der, fwd.u[current_i,:,:],
             fwdS.TD[current_i,:], fwdS.TD[current_i+1,:], ASm1, BSm1, opC_TS, BC_TS,
             fwdL.TD[current_i,:], fwdL.TD[current_i+1,:], ALm1, BLm1, opC_TL, BC_TL,
-            fwd.u[current_i,:,:], fwd.u[current_i+1,:,:], LSAm1, LSBm1,
+            fwd.u[current_i,:,:], fwd.u[current_i+1,:,:], LSAm1, LSBm1, tmpχ_S, tmpχ_L,
             CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)
 
         @views Rheat_T(num, grid, grid_u, grid_v, adj_der,

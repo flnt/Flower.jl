@@ -65,7 +65,7 @@ end
 function Rheat_u(num, grid, grid_u, grid_v, adj_der, um1,
     TD0_S, TD1_S, A_S, B_S, opC_TS, BC_TS,
     TD0_L, TD1_L, A_L, B_L, opC_TL, BC_TL,
-    u0, u1, LSA, LSB,
+    u0, u1, LSA, LSB, tmpχ_S, tmpχ_L,
     CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)
 
     @unpack ϵ, NB = num
@@ -96,6 +96,12 @@ function Rheat_u(num, grid, grid_u, grid_v, adj_der, um1,
     derLSB.nzval .= 0.
     LSAj = copy(LSA)
     LSBj = copy(LSB)
+
+    derχ_S = copy(opC_TS.χ)
+    derχ_L = copy(opC_TL.χ)
+    bc_S = zeros(2*ny*nx)
+    bc_L = zeros(2*ny*nx)
+    a0 = num.θd .* ones(nx*ny)
 
     # graph coloring
     stencil = 7
@@ -145,13 +151,17 @@ function Rheat_u(num, grid, grid_u, grid_v, adj_der, um1,
                                     periodic_x, periodic_y)
             derA_S .= (Aj_S .- A_S) ./ ϵ_adj
             derB_S .= (Bj_S .- B_S) ./ ϵ_adj
-            Rj_S = sparse(derA_S * TD1_S .- derB_S * TD0_S)
+            derχ_S .= (opc_TS.χ .-  tmpχ_S) ./ ϵ_adj
+            bc_S = derχ_S * a0
+            Rj_S = sparse(derA_S * TD1_S .- derB_S * TD0_S .- bc_S)
 
             Aj_L, Bj_L, _ = set_heat!(dir, num, grid, opC_TL, geoL, BC_TL, grid.ind.MIXED, geoL.projection,
                                     periodic_x, periodic_y)
             derA_L .= (Aj_L .- A_L) ./ ϵ_adj
             derB_L .= (Bj_L .- B_L) ./ ϵ_adj
-            Rj_L = sparse(derA_L * TD1_L .- derB_L * TD0_L)
+            derχ_L .= (opc_TL.χ .-  tmpχ_L) ./ ϵ_adj
+            bc_L = derχ_L * a0
+            Rj_L = sparse(derA_L * TD1_L .- derB_L * TD0_L .- bc_L)
 
             IIOE(grid, LSAj, LSBj, uj, V, CFL_sc, periodic_x, periodic_y)
             derLSA .= (LSAj .- LSA) ./ ϵ_adj
