@@ -1,4 +1,4 @@
-function update_ls_data(num, grid, grid_u, grid_v, u, periodic_x, periodic_y)
+function update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y)
     grid.α .= NaN
     grid_u.α .= NaN
     grid_v.α .= NaN
@@ -41,7 +41,7 @@ function update_ls_data(num, grid, grid_u, grid_v, u, periodic_x, periodic_y)
     _MIXED_S_ext = intersect(findall(grid.geoS.emptied), grid.ind.MIXED_ext)
     _MIXED_ext = vcat(_MIXED_L_ext, _MIXED_S_ext)
     indices_ext = vcat(grid.ind.SOLID_ext, _MIXED_ext, grid.ind.LIQUID_ext)
-    field_extension!(grid, u, grid.κ, indices_ext, num.NB, periodic_x, periodic_y)
+    field_extension!(grid, u, κ, indices_ext, num.NB, periodic_x, periodic_y)
 end
 
 function update_stefan_velocity(num, grid, u, TS, TL, periodic_x, periodic_y, λ, Vmean)

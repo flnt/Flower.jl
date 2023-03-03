@@ -35,7 +35,8 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     ϵ_adj = 1e-8
     )
 
-    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
+    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re,
+            max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
     @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, V, κ, LSA, LSB = grid
     @unpack MIXED, SOLID, LIQUID = ind
     @unpack RheatS_ls, RheatL_ls, RlsS_ls, RlsS_TS, RlsS_TL = adj_der
@@ -76,7 +77,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     @views phL.TD .= fwdL.TD[end,:]
 
     if levelset
-        update_ls_data(num, grid, grid_u, grid_v, u, periodic_x, periodic_y)
+        update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y)
     end
 
     if stefan
@@ -104,7 +105,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         end
     end
 
-    @views Rheat_T(num, grid, grid_u, grid_v, adj_der,
+    @views Rheat_q1(num, grid, grid_u, grid_v, adj_der,
         phS.TD, phL.TD,
         fwd.u[current_i-1,:,:], fwd.u[current_i,:,:], LSA, LSB,
         CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)
@@ -144,7 +145,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         @views phL.TD .= fwdL.TD[current_i,:]
     
         if levelset
-            update_ls_data(num, grid, grid_u, grid_v, u, periodic_x, periodic_y)
+            update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y)
         end
 
         if stefan   
@@ -168,13 +169,13 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
 
         tmpχ_S = opC_TS.χ
         tmpχ_L = opC_TL.χ
-        @views Rheat_u(num, grid, grid_u, grid_v, adj_der, fwd.u[current_i,:,:],
+        @views Rheat_q0(num, grid, grid_u, grid_v, adj_der,
             fwdS.TD[current_i,:], fwdS.TD[current_i+1,:], ASm1, BSm1, opC_TS, BC_TS,
             fwdL.TD[current_i,:], fwdL.TD[current_i+1,:], ALm1, BLm1, opC_TL, BC_TL,
             fwd.u[current_i,:,:], fwd.u[current_i+1,:,:], LSAm1, LSBm1, tmpχ_S, tmpχ_L,
             CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)
 
-        @views Rheat_T(num, grid, grid_u, grid_v, adj_der,
+        @views Rheat_q1(num, grid, grid_u, grid_v, adj_der,
             phS.TD, phL.TD,
             fwd.u[current_i-1,:,:], fwd.u[current_i,:,:], LSA, LSB,
             CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)

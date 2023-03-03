@@ -77,7 +77,8 @@ function run_forward(num, grid, grid_u, grid_v,
         @error ("Cannot advect the levelset using both free-surface and stefan condition.")
     end
 
-    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
+    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re,
+            max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
     @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, V, κ, LSA, LSB = grid
 
     iRe = 1.0 / Re
@@ -138,7 +139,7 @@ function run_forward(num, grid, grid_u, grid_v,
     end
 
     if levelset
-        update_ls_data(num, grid, grid_u, grid_v, u, periodic_x, periodic_y)
+        update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y)
 
         if save_radius
             n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
@@ -221,8 +222,12 @@ function run_forward(num, grid, grid_u, grid_v,
     veci(phS.uD,grid_u,2) .= vec(tmp)
     veci(phL.uD,grid_u,1) .= vec(phL.u)
     veci(phL.uD,grid_u,2) .= vec(tmp)
-    @views fwdS.ucorrD[1,:,:] .= phS.uD
-    @views fwdL.ucorrD[1,:,:] .= phL.uD
+    veci(phS.ucorrD,grid_u,1) .= vec(phS.u)
+    veci(phS.ucorrD,grid_u,2) .= vec(tmp)
+    veci(phL.ucorrD,grid_u,1) .= vec(phL.u)
+    veci(phL.ucorrD,grid_u,2) .= vec(tmp)
+    @views fwdS.ucorrD[1,:,:] .= phS.ucorrD
+    @views fwdL.ucorrD[1,:,:] .= phL.ucorrD
 
     tmp = ones(grid_v.ny, grid_v.nx) .* num.v_inf
     tmp[2:end-1,2:end-1] .= 0.0
@@ -230,8 +235,12 @@ function run_forward(num, grid, grid_u, grid_v,
     veci(phS.vD,grid_v,2) .= vec(tmp)
     veci(phL.vD,grid_v,1) .= vec(phL.v)
     veci(phL.vD,grid_v,2) .= vec(tmp)
-    @views fwdS.vcorrD[1,:,:] .= phS.vD
-    @views fwdL.vcorrD[1,:,:] .= phL.vD
+    veci(phS.vcorrD,grid_v,1) .= vec(phS.v)
+    veci(phS.vcorrD,grid_v,2) .= vec(tmp)
+    veci(phL.vcorrD,grid_v,1) .= vec(phL.v)
+    veci(phL.vcorrD,grid_v,2) .= vec(tmp)
+    @views fwdS.vcorrD[1,:,:] .= phS.vcorrD
+    @views fwdL.vcorrD[1,:,:] .= phL.vcorrD
 
     @views fwdL.pD[1,:] .= phL.pD
     @views fwdS.pD[1,:] .= phS.pD
@@ -386,7 +395,7 @@ function run_forward(num, grid, grid_u, grid_v,
 
 
         if levelset && (advection || current_i<2)
-            update_ls_data(num, grid, grid_u, grid_v, u, periodic_x, periodic_y)
+            update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y)
 
             if iszero(current_i%save_every) || current_i==max_iterations
                 snap = current_i÷save_every+1
@@ -492,10 +501,10 @@ function run_forward(num, grid, grid_u, grid_v,
                 @views fwdL.ucorr[snap,:,:] .= phL.ucorr
                 @views fwdS.vcorr[snap,:,:] .= phS.vcorr
                 @views fwdL.vcorr[snap,:,:] .= phL.vcorr
-                @views fwdS.ucorrD[snap,:,:] .= phS.uD
-                @views fwdL.ucorrD[snap,:,:] .= phL.uD
-                @views fwdS.vcorrD[snap,:,:] .= phS.vD
-                @views fwdL.vcorrD[snap,:,:] .= phL.vD
+                @views fwdS.ucorrD[snap,:,:] .= phS.ucorrD
+                @views fwdL.ucorrD[snap,:,:] .= phL.ucorrD
+                @views fwdS.vcorrD[snap,:,:] .= phS.vcorrD
+                @views fwdL.vcorrD[snap,:,:] .= phL.vcorrD
                 force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, fwdL; step=snap)
             elseif ns_solid_phase
                 @views fwdS.p[snap,:,:] .= phS.p
@@ -505,8 +514,8 @@ function run_forward(num, grid, grid_u, grid_v,
                 @views fwdS.v[snap,:,:] .= phS.v
                 @views fwdS.ucorr[snap,:,:] .= phS.ucorr
                 @views fwdS.vcorr[snap,:,:] .= phS.vcorr
-                @views fwdS.ucorrD[snap,:,:] .= phS.uD
-                @views fwdS.vcorrD[snap,:,:] .= phS.vD
+                @views fwdS.ucorrD[snap,:,:] .= phS.ucorrD
+                @views fwdS.vcorrD[snap,:,:] .= phS.vcorrD
             elseif ns_liquid_phase
                 @views fwdL.p[snap,:,:] .= phL.p
                 @views fwdL.pD[snap,:] .= phL.pD
@@ -515,8 +524,8 @@ function run_forward(num, grid, grid_u, grid_v,
                 @views fwdL.v[snap,:,:] .= phL.v
                 @views fwdL.ucorr[snap,:,:] .= phL.ucorr
                 @views fwdL.vcorr[snap,:,:] .= phL.vcorr
-                @views fwdL.ucorrD[snap,:,:] .= phL.uD
-                @views fwdL.vcorrD[snap,:,:] .= phL.vD
+                @views fwdL.ucorrD[snap,:,:] .= phL.ucorrD
+                @views fwdL.vcorrD[snap,:,:] .= phL.vcorrD
                 force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, fwdL; step=snap)
             end
         end
