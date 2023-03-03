@@ -310,6 +310,19 @@ function set_laplacians!(grid, geo, grid_u, geo_u, grid_v, geo_v,
     end
 end
 
+function strain_rate(opC_u, opC_v)
+    GxT = opC_u.Gx'
+    GyT = opC_v.Gy'
+
+    data = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 2, 2)
+    data[1,1] = GxT * (2 .* opC_u.HxT * opC_u.iMx * opC_u.Bx .+ opC_u.HyT * opC_u.iMy * opC_u.By)
+    data[1,2] = GxT * (2 .* opC_u.HxT * opC_u.iMx * opC_u.Hx .+ opC_u.HyT * opC_u.iMy * opC_u.Hy)
+    data[2,1] = GyT * (2 .* opC_v.HyT * opC_v.iMy * opC_v.By .+ opC_v.HxT * opC_v.iMx * opC_v.Bx)
+    data[2,2] = GyT * (2 .* opC_v.HyT * opC_v.iMy * opC_v.Hy .+ opC_v.HxT * opC_v.iMx * opC_v.Hx)
+
+    return data
+end
+
 function set_crank_nicolson_block(bc_type, num, grid, opC, L, bc_L, Lm1, bc_Lm1, Mm1, BC)
     @unpack τ = num
     @unpack nx, ny = grid
@@ -620,18 +633,18 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
         grid_u, opC_u, iRe.*Lu, iRe.*bc_Lu, iRe.*Lum1, iRe.*bc_Lum1, Mum1, BC_u,
         grid_v, opC_v, iRe.*Lv, iRe.*bc_Lv, iRe.*Lvm1, iRe.*bc_Lvm1, Mvm1, BC_v)
 
-    a0_u = zeros(grid_u.ny, grid_u.nx)
-    _a1_u = zeros(grid_u.ny, grid_u.nx)
-    _b0_u = ones(grid_u.ny, grid_u.nx)
-    _b1_u = zeros(grid_u.ny, grid_u.nx)
-    a0_v = zeros(grid_v.ny, grid_v.nx)
-    _a1_v = zeros(grid_v.ny, grid_v.nx)
-    _b0_v = ones(grid_v.ny, grid_v.nx)
-    _b1_v = zeros(grid_v.ny, grid_v.nx)
-    a0_p = zeros(grid.ny, grid.nx)
-    _a1_p = zeros(grid.ny, grid.nx)
-    _b0_p = ones(grid.ny, grid.nx)
-    _b1_p = zeros(grid.ny, grid.nx)
+    a0_u = zeros(grid_u)
+    _a1_u = zeros(grid_u)
+    _b0_u = ones(grid_u)
+    _b1_u = zeros(grid_u)
+    a0_v = zeros(grid_v)
+    _a1_v = zeros(grid_v)
+    _b0_v = ones(grid_v)
+    _b1_v = zeros(grid_v)
+    a0_p = zeros(grid)
+    _a1_p = zeros(grid)
+    _b0_p = ones(grid)
+    _b1_p = zeros(grid)
     set_borders!(grid_u, a0_u, _a1_u, _b0_u, _b1_u, BC_u)
     set_borders!(grid_v, a0_v, _a1_v, _b0_v, _b1_v, BC_v)
     set_borders!(grid, a0_p, _a1_p, _b0_p, _b1_p, BC_p)
@@ -642,8 +655,8 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     mul!(rhs_u, Bu, uD, 1.0, 1.0)
     mul!(rhs_v, Bv, vD, 1.0, 1.0)
 
-    grav_x = g .* sin(β) .* opC_u.M * ones(grid_u.nx * grid_u.ny)
-    grav_y = g .* cos(β) .* opC_v.M * ones(grid_v.nx * grid_v.ny)
+    grav_x = g .* sin(β) .* opC_u.M * fones(grid_u)
+    grav_y = g .* cos(β) .* opC_v.M * fones(grid_v)
 
     veci(rhs_u,grid_u,1) .+= τ .* grav_x
     veci(rhs_v,grid_v,1) .+= - τ .* grav_y
@@ -665,12 +678,9 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
           opC_p.AyT * veci(vcorrD,grid_v,1) .+ opC_p.Gy * veci(vcorrD,grid_v,2)
     veci(rhs_ϕ,grid,1) .= iτ .* Duv
 
-    GxT = opC_u.Gx'
-    GyT = opC_v.Gy'
-    S = GxT * ((2 .* opC_u.HxT * opC_u.iMx * opC_u.Bx .+ opC_u.HyT * opC_u.iMy * opC_u.By) * veci(ucorrD,grid_u,1) .+
-               (2 .* opC_u.HxT * opC_u.iMx * opC_u.Hx .+ opC_u.HyT * opC_u.iMy * opC_u.Hy) * veci(ucorrD,grid_u,2)) .+
-        GyT * ((2 .* opC_v.HyT * opC_v.iMy * opC_v.By .+ opC_v.HxT * opC_v.iMx * opC_v.Bx) * veci(vcorrD,grid_v,1) .+
-               (2 .* opC_v.HyT * opC_v.iMy * opC_v.Hy .+ opC_v.HxT * opC_v.iMx * opC_v.Hx) * veci(vcorrD,grid_v,2))
+    Smat = strain_rate(opC_u, opC_v)
+    S = Smat[1,1] * veci(ucorrD,grid_u,1) .+ Smat[1,2] * veci(ucorrD,grid_u,2) .+
+        Smat[2,1] * veci(vcorrD,grid_v,1) .+ Smat[2,2] * veci(vcorrD,grid_v,2)
 
     veci(rhs_ϕ,grid,2) .= b0_p * (iRe .* S .- σ .* (GxT * opC_u.Gx .+ GyT * opC_v.Gy) * vec(grid.κ))
     blocks = DDM.decompose(Aϕ, grid.domdec, grid.domdec)
@@ -688,8 +698,7 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     ∇ϕ_y = opC_v.AyT * opC_v.Ry * veci(ϕD,grid,1) .+ opC_v.Gy * veci(ϕD,grid,2)
 
     iM = Diagonal(1. ./ (vec(geo.dcap[:,:,5]) .+ eps(0.01)))
-    p .= ϕ .- iRe .* reshape(iM * Duv, (grid.ny,grid.nx))
-    # p .= ϕ
+    p .= ϕ #.- iRe .* reshape(iM * Duv, (grid.ny,grid.nx))
     Gxm1 .= ∇ϕ_x
     Gym1 .= ∇ϕ_y
 
