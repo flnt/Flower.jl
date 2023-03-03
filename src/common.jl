@@ -20,6 +20,20 @@ const newaxis = [CartesianIndex()]
 @inline δx⁺(II, nx, per) = per && II[2]==nx ? CartesianIndex(II[1], 1) : δx⁺(II)
 @inline δx⁻(II, nx, per) = per && II[2]==1 ? CartesianIndex(II[1], nx) : δx⁻(II)
 
+@inline fzeros(g::G) where {G<:Grid} = zeros(g.ny*g.nx)
+@inline fones(g::G) where {G<:Grid} = ones(g.ny*g.nx)
+@inline zeros(g::G) where {G<:Grid} = zeros(g.ny,g.nx)
+@inline ones(g::G) where {G<:Grid} = ones(g.ny,g.nx)
+
+@inline fzeros(a,g::G) where {G<:Grid} = zeros(a,g.ny*g.nx)
+@inline fones(a,g::G) where {G<:Grid} = ones(a,g.ny*g.nx)
+@inline fzeros(g::G,a) where {G<:Grid} = zeros(g.ny*g.nx,a)
+@inline fones(g::G,a) where {G<:Grid} = ones(g.ny*g.nx,a)
+@inline zeros(a,g::G) where {G<:Grid} = zeros(a,g.ny,g.nx)
+@inline ones(a,g::G) where {G<:Grid} = ones(a,g.ny,g.nx)
+@inline zeros(g::G,a) where {G<:Grid} = zeros(g.ny,g.nx,a)
+@inline ones(g::G,a) where {G<:Grid} = ones(g.ny,g.nx,a)
+
 # Temporary function to get a certain field from a vector with 
 # multiple fields. To be removed when working with decomposed 
 # vectors directly
