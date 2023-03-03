@@ -11,6 +11,8 @@ import Base.+
 import Base.-
 import Base.abs
 import Base.OneTo
+import Base.ones
+import Base.zeros
 
 @reexport using Printf
 @reexport using Statistics
