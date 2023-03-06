@@ -101,7 +101,8 @@ function Rheat_q0(num, grid, grid_u, grid_v, adj_der,
     TD0_S, TD1_S, A_S, B_S, opC_TS, BC_TS,
     TD0_L, TD1_L, A_L, B_L, opC_TL, BC_TL,
     u0, u1, LSA, LSB, tmpχ_S, tmpχ_L,
-    CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)
+    CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean,
+    heat_solid_phase, heat_liquid_phase)
 
     @unpack ϵ, NB = num
     @unpack nx, ny, ind, V, iso, faces, geoS, geoL = grid
@@ -149,38 +150,42 @@ function Rheat_q0(num, grid, grid_u, grid_v, adj_der,
             update_stefan_velocity(num, grid, uj, TS, TL, periodic_x, periodic_y, λ, Vmean)
 
             # get perturbed matrices
-            Aj, Bj, _ = set_heat!(dir, num, grid, opC_TS, geoS, BC_TS, grid.ind.MIXED, geoS.projection,
-                                    periodic_x, periodic_y)
-            derA .= (Aj .- A_S) ./ ϵ_adj
-            derB .= (Bj .- B_S) ./ ϵ_adj
-            derχ .= (opC_TS.χ .-  tmpχ_S) ./ ϵ_adj
-            bc[ny*nx+1:end] .= derχ * a0
-            Rj = sparse(derA * TD1_S .- derB * TD0_S .- bc)
+            if heat_solid_phase
+                Aj, Bj, _ = set_heat!(dir, num, grid, opC_TS, geoS, BC_TS, grid.ind.MIXED, geoS.projection,
+                                        periodic_x, periodic_y)
+                derA .= (Aj .- A_S) ./ ϵ_adj
+                derB .= (Bj .- B_S) ./ ϵ_adj
+                derχ .= (opC_TS.χ .-  tmpχ_S) ./ ϵ_adj
+                bc[ny*nx+1:end] .= derχ * a0
+                Rj = sparse(derA * TD1_S .- derB * TD0_S .- bc)
 
-            # Do NOT parallelize. Sparsity pattern changes due to periodic BCs
-            # not being preallocated
-            rows = rowvals(Rj)
-            for i in nzrange(Rj, 1)
-                @inbounds row = rows[i]
-                j = graph[row]
-                @inbounds RheatS_ls[row,j] = Rj[row]
+                # Do NOT parallelize. Sparsity pattern changes due to periodic BCs
+                # not being preallocated
+                rows = rowvals(Rj)
+                for i in nzrange(Rj, 1)
+                    @inbounds row = rows[i]
+                    j = graph[row]
+                    @inbounds RheatS_ls[row,j] = Rj[row]
+                end
             end
 
-            Aj, Bj, _ = set_heat!(dir, num, grid, opC_TL, geoL, BC_TL, grid.ind.MIXED, geoL.projection,
-                                    periodic_x, periodic_y)
-            derA .= (Aj .- A_L) ./ ϵ_adj
-            derB .= (Bj .- B_L) ./ ϵ_adj
-            derχ .= (opC_TL.χ .-  tmpχ_L) ./ ϵ_adj
-            bc[ny*nx+1:end] .= derχ * a0
-            Rj = sparse(derA * TD1_L .- derB * TD0_L .- bc)
+            if heat_liquid_phase
+                Aj, Bj, _ = set_heat!(dir, num, grid, opC_TL, geoL, BC_TL, grid.ind.MIXED, geoL.projection,
+                                        periodic_x, periodic_y)
+                derA .= (Aj .- A_L) ./ ϵ_adj
+                derB .= (Bj .- B_L) ./ ϵ_adj
+                derχ .= (opC_TL.χ .-  tmpχ_L) ./ ϵ_adj
+                bc[ny*nx+1:end] .= derχ * a0
+                Rj = sparse(derA * TD1_L .- derB * TD0_L .- bc)
 
-            # Do NOT parallelize. Sparsity pattern changes due to periodic BCs
-            # not being preallocated
-            rows = rowvals(Rj)
-            for i in nzrange(Rj, 1)
-                @inbounds row = rows[i]
-                j = graph[row]
-                @inbounds RheatL_ls[row,j] = Rj[row]
+                # Do NOT parallelize. Sparsity pattern changes due to periodic BCs
+                # not being preallocated
+                rows = rowvals(Rj)
+                for i in nzrange(Rj, 1)
+                    @inbounds row = rows[i]
+                    j = graph[row]
+                    @inbounds RheatL_ls[row,j] = Rj[row]
+                end
             end
 
             IIOE(grid, LSAj, LSBj, uj, V, CFL_sc, periodic_x, periodic_y)
@@ -209,7 +214,8 @@ end
 function Rheat_q1(num, grid, grid_u, grid_v, adj_der, 
     TD_S, TD_L,
     u0, u1, LSA, LSB,
-    CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)
+    CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean,
+    heat_solid_phase, heat_liquid_phase)
 
     @unpack ϵ, NB = num
     @unpack nx, ny, ind, u, V, faces, iso, geoS, geoL = grid
@@ -250,34 +256,38 @@ function Rheat_q1(num, grid, grid_u, grid_v, adj_der,
             update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y)
 
             # get perturbed matrices
-            update_stefan_velocity(num, grid, u, TSj, TL, periodic_x, periodic_y, λ, Vmean)
-            IIOE(grid, LSAj, LSBj, u, V, CFL_sc, periodic_x, periodic_y)
-            derLSA .= (LSAj .- LSA) ./ ϵ_adj
-            derLSB .= (LSBj .- LSB) ./ ϵ_adj
-            Rj = sparse(derLSA * vec(u1) .- derLSB * vec(u0))
+            if heat_solid_phase
+                update_stefan_velocity(num, grid, u, TSj, TL, periodic_x, periodic_y, λ, Vmean)
+                IIOE(grid, LSAj, LSBj, u, V, CFL_sc, periodic_x, periodic_y)
+                derLSA .= (LSAj .- LSA) ./ ϵ_adj
+                derLSB .= (LSBj .- LSB) ./ ϵ_adj
+                Rj = sparse(derLSA * vec(u1) .- derLSB * vec(u0))
 
-            # Do NOT parallelize. Sparsity pattern changes due to periodic BCs
-            # not being preallocated
-            rows = rowvals(Rj)
-            for i in nzrange(Rj, 1)
-                @inbounds row = rows[i]
-                j = graph[row]
-                @inbounds RlsS_TS[row,j] = Rj[row]
+                # Do NOT parallelize. Sparsity pattern changes due to periodic BCs
+                # not being preallocated
+                rows = rowvals(Rj)
+                for i in nzrange(Rj, 1)
+                    @inbounds row = rows[i]
+                    j = graph[row]
+                    @inbounds RlsS_TS[row,j] = Rj[row]
+                end
             end
 
-            update_stefan_velocity(num, grid, u, TS, TLj, periodic_x, periodic_y, λ, Vmean)
-            IIOE(grid, LSAj, LSBj, u, V, CFL_sc, periodic_x, periodic_y)
-            derLSA .= (LSAj .- LSA) ./ ϵ_adj
-            derLSB .= (LSBj .- LSB) ./ ϵ_adj
-            Rj = sparse(derLSA * vec(u1) .- derLSB * vec(u0))
+            if heat_liquid_phase
+                update_stefan_velocity(num, grid, u, TS, TLj, periodic_x, periodic_y, λ, Vmean)
+                IIOE(grid, LSAj, LSBj, u, V, CFL_sc, periodic_x, periodic_y)
+                derLSA .= (LSAj .- LSA) ./ ϵ_adj
+                derLSB .= (LSBj .- LSB) ./ ϵ_adj
+                Rj = sparse(derLSA * vec(u1) .- derLSB * vec(u0))
 
-            # Do NOT parallelize. Sparsity pattern changes due to periodic BCs
-            # not being preallocated
-            rows = rowvals(Rj)
-            for i in nzrange(Rj, 1)
-                @inbounds row = rows[i]
-                j = graph[row]
-                @inbounds RlsS_TL[row,j] = Rj[row]
+                # Do NOT parallelize. Sparsity pattern changes due to periodic BCs
+                # not being preallocated
+                rows = rowvals(Rj)
+                for i in nzrange(Rj, 1)
+                    @inbounds row = rows[i]
+                    j = graph[row]
+                    @inbounds RlsS_TL[row,j] = Rj[row]
+                end
             end
 
             TSj .= TS

@@ -23,11 +23,12 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         top = Boundary()
     ),
     stefan = false,
+    advection = false,
     heat = false,
-    levelset = true,
     heat_liquid_phase = false,
     heat_solid_phase = false,
     Vmean = false,
+    levelset = true,
     verbose = false,
     show_every = 100,
     Ra = 0,
@@ -105,10 +106,13 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         end
     end
 
-    @views Rheat_q1(num, grid, grid_u, grid_v, adj_der,
-        phS.TD, phL.TD,
-        fwd.u[current_i-1,:,:], fwd.u[current_i,:,:], LSA, LSB,
-        CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)
+    if levelset && advection
+        @views Rheat_q1(num, grid, grid_u, grid_v, adj_der,
+            phS.TD, phL.TD,
+            fwd.u[current_i-1,:,:], fwd.u[current_i,:,:], LSA, LSB,
+            CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean,
+            heat_solid_phase, heat_liquid_phase)
+    end
     
     if levelset
         rhs = J_u(num, grid, fwdS.TD, fwdL.TD, u, current_i-1)
@@ -167,19 +171,22 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
             end
         end
 
-        tmpχ_S = opC_TS.χ
-        tmpχ_L = opC_TL.χ
-        @views Rheat_q0(num, grid, grid_u, grid_v, adj_der,
-            fwdS.TD[current_i,:], fwdS.TD[current_i+1,:], ASm1, BSm1, opC_TS, BC_TS,
-            fwdL.TD[current_i,:], fwdL.TD[current_i+1,:], ALm1, BLm1, opC_TL, BC_TL,
-            fwd.u[current_i,:,:], fwd.u[current_i+1,:,:], LSAm1, LSBm1, tmpχ_S, tmpχ_L,
-            CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)
+        if levelset && advection
+            tmpχ_S = opC_TS.χ
+            tmpχ_L = opC_TL.χ
+            @views Rheat_q0(num, grid, grid_u, grid_v, adj_der,
+                fwdS.TD[current_i,:], fwdS.TD[current_i+1,:], ASm1, BSm1, opC_TS, BC_TS,
+                fwdL.TD[current_i,:], fwdL.TD[current_i+1,:], ALm1, BLm1, opC_TL, BC_TL,
+                fwd.u[current_i,:,:], fwd.u[current_i+1,:,:], LSAm1, LSBm1, tmpχ_S, tmpχ_L,
+                CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean,
+                heat_solid_phase, heat_liquid_phase)
 
-        @views Rheat_q1(num, grid, grid_u, grid_v, adj_der,
-            phS.TD, phL.TD,
-            fwd.u[current_i-1,:,:], fwd.u[current_i,:,:], LSA, LSB,
-            CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean)
-
+            @views Rheat_q1(num, grid, grid_u, grid_v, adj_der,
+                phS.TD, phL.TD,
+                fwd.u[current_i-1,:,:], fwd.u[current_i,:,:], LSA, LSB,
+                CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean,
+                heat_solid_phase, heat_liquid_phase)
+        end
         
         if levelset
             rhs = J_u(num, grid, fwdS.TD, fwdL.TD, u, current_i-1)

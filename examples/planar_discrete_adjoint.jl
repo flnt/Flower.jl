@@ -177,6 +177,7 @@ adj_der = adjoint_derivatives(gp, gu, gv)
         right = Boundary(t = per, f = periodic),
     ),
     stefan = true,
+    advection = true,
     heat = true,
     heat_liquid_phase = true,
     heat_solid_phase = true,
