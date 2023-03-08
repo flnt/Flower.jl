@@ -682,6 +682,8 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     S = Smat[1,1] * veci(ucorrD,grid_u,1) .+ Smat[1,2] * veci(ucorrD,grid_u,2) .+
         Smat[2,1] * veci(vcorrD,grid_v,1) .+ Smat[2,2] * veci(vcorrD,grid_v,2)
 
+    GxT = opC_u.Gx'
+    GyT = opC_v.Gy'
     veci(rhs_ϕ,grid,2) .= b0_p * (iRe .* S .- σ .* (GxT * opC_u.Gx .+ GyT * opC_v.Gy) * vec(grid.κ))
     blocks = DDM.decompose(Aϕ, grid.domdec, grid.domdec)
     @mytime _, ch = bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl=ras(blocks,grid.pou), log=true)
