@@ -372,10 +372,14 @@ end
 @inline is_periodic(::Periodic) = true
 @inline is_periodic(::BoundaryCondition) = false
 
+@inline is_navier(::Navier) = true
+@inline is_navier(::BoundaryCondition) = false
+
 @inline dirichlet(target, Δ, λ, val) = muladd(2.0, val, -target)
 @inline neumann(target, Δ, λ, val) = muladd(Δ, val, target)
 @inline robin(target, Δ, λ, val) = muladd((2*λ-Δ)/(2*λ+Δ), target, (2*Δ*val)/(Δ+2*λ))
 @inline periodic(target, Δ, λ, val) = target
+@inline navier(target, Δ, λ, val) = muladd(Δ, val, target)
 
 function bcs!(field, BC::Boundary{B, N, T, T}, Δ) where {B, N, T}
     @inbounds for KK in axes(field,3)

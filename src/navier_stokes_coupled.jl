@@ -30,6 +30,9 @@ function set_borders!(grid, a0, a1, b, BC)
     elseif is_periodic(BC.bottom.t)
         # @inbounds a1[1,2:end-1] .= 0.
         # @inbounds b[1,2:end-1] .= 0.
+    elseif is_navier(BC.bottom.t)
+        @inbounds a1[1,:] .= -1.
+        @inbounds b[1,:] .= 1.     
     else
         @error ("Not implemented yet")
     end
@@ -89,6 +92,10 @@ function set_borders!(grid, a0, a1, b0, b1, BC)
         # @inbounds a1[:,1] .= 0.
         # @inbounds b0[:,1] .= 0.
         # @inbounds b1[:,1] .= 0.
+    elseif is_navier(BC.left.t)
+        @inbounds a1[2:end-1,1] .= -1.
+        @inbounds b0[2:end-1,1] .= 0.
+        @inbounds b1[2:end-1,1] .= λCA
     else
         @error ("Not implemented yet")
     end
@@ -109,6 +116,10 @@ function set_borders!(grid, a0, a1, b0, b1, BC)
         # @inbounds a1[1,2:end-1] .= 0.
         # @inbounds b0[1,2:end-1] .= 0.
         # @inbounds b1[1,2:end-1] .= 0.
+    elseif is_navier(BC.bottom.t)
+        @inbounds a1[1,:] .= -1.
+        @inbounds b0[1,:] .= 0.
+        @inbounds b1[1,:] .= λCA
     else
         @error ("Not implemented yet")
     end
@@ -129,6 +140,10 @@ function set_borders!(grid, a0, a1, b0, b1, BC)
         # @inbounds a1[:,end] .= 0.
         # @inbounds b0[:,end] .= 0.
         # @inbounds b1[:,end] .= 0.
+    elseif is_navier(BC.right.t)
+        @inbounds a1[2:end-1,end] .= -1.
+        @inbounds b0[2:end-1,end] .= 0.
+        @inbounds b1[2:end-1,end] .= λCA
     else
         @error ("Not implemented yet")
     end
@@ -149,6 +164,10 @@ function set_borders!(grid, a0, a1, b0, b1, BC)
         # @inbounds a1[end,2:end-1] .= 0.
         # @inbounds b0[end,2:end-1] .= 0.
         # @inbounds b1[end,2:end-1] .= 0.
+    elseif is_navier(BC.top.t)
+        @inbounds a1[end,:] .= -1.
+        @inbounds b0[end,:] .= 0.
+        @inbounds b1[end,:] .= λCA
     else
         @error ("Not implemented yet")
     end

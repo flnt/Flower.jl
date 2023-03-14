@@ -1,3 +1,53 @@
+
+# function locate_index(grid, geo, indices)
+#     index_CL = falses(indices) # bolean vector all false with size of indices
+#     @inbounds @threads for II in indices # loop over the indices
+#     if gp.iso[II] in (1,2,6,9,13,14)
+#         index_CL[II] = true  #then we are in a CL cell
+#     end
+#     return index_CL
+# end
+
+# # make this function general to work with any direction
+# function get_cut_points(grid, geo, indices)
+#     for i in findall(index_CL) # loop over true values of index_CL
+#         x = gp.cut_points[i, :] # n,n matrix
+
+#         # check which one has the value -0.5
+#         # only one can have a value of -0.5
+#         if x[1] == -0.5
+#             gp.x = x_CL
+#         end
+#         if x[2] == -0.5
+#             gp.x = x_CL
+#         end
+#     end
+# end
+
+# function compute_bell_function(x_CL)
+#     bell_function # vector of n size with all zeros
+#     for i in findall(x_CL) # loop over all contact points 
+#         relative_position = direction[target_index] - x_CL
+#         bell_function += (1.0-tanh^2(relative_position/εCA))/εCA
+#     end 
+#     return bell_function
+# end
+
+# # sum all the bell functions (we can have several for each contact point)
+
+# # value to fill a0 
+# function compute_young_stress()
+#     x_CL = get_cut_points()
+#     bell_function = compute_bell_function(x_CL)
+#     for i in x_CL
+#         II = 
+#         JJ =
+#         YS = 
+#         bell_function*(1.0/Ca)*(cos(gp.α[II,JJ]* π/180)-cos(θe*π/180))
+#     end
+#     return YS
+# end
+
 function run_forward_one_phase(num, grid, grid_u, grid_v,
     opL, opC_pL, opC_uL, opC_vL, 
     phL, fwd, tracer;
@@ -76,6 +126,9 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
     utmp = copy(u)
 
     tmp_tracer = copy(tracer)
+
+    utarget = copy(u) # set dirichlet value target fot the contact angle GNBC
+    LSC = copy(LSA) # copy matrix for the contact angle GNBC (used to apply utarget)
 
     if periodic_x
         BC_u.left.ind = ind.b_left;
@@ -188,6 +241,9 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
         LSB[i,i] = 0. # set 1st row of LSB to 0
 
         LSA[i,j] = -1. # set 2nd row of LSA to -1
+
+        # do we need an LSC or can we use LSA?
+        #LSC[i,i] = utarget
         end
     end
 

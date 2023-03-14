@@ -47,6 +47,11 @@ abstract type AbstractOptimizer end
     tolu::Float64 = 1.0e-6
     tolp::Float64 = 1.0e-6
     tolt::Float64 = 1.0e-6
+    # contact angle models parameters
+    Ca::Float64 = 0.00 # Capillary number
+    εCA::Float64 = 0.00 # width
+    λCA::Float64 = 0.00 # slip lenght
+    θe::Float64 = 0.00 # prescribed contact angle
 end
 
 @with_kw mutable struct Indices{T <: Int64} <: NumericalParameters
@@ -276,6 +281,8 @@ struct Robin <: BoundaryCondition end
 const rob = Robin()
 struct Periodic <: BoundaryCondition end
 const per = Periodic()
+struct Navier <: BoundaryCondition end
+const nav = Navier()
 
 @with_kw mutable struct Boundary{BC, L, T, N} <: NumericalParameters
    t::BC = neu
