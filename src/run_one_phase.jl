@@ -173,6 +173,24 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
     Mvm1_S = copy(opC_vS.M)
 
     current_t = 0.0
+
+    # Imposing Newman boundary condition to the levelset function
+    # LSA contains the product of the mass matrix and the Laplacian for the advection scheme
+    # LSAΦ^{n+1}=LSBΦ^{n}+LSC*u_target 
+    # 1*Φ^{n+1}=1*Φ^{n}
+    # Φ^{n+1}_{i,j}+Φ^{n+1}_{i,j+1}=0
+    if ! periodic_y
+        for (II,JJ) in zip(gp.ind.b_bottom[1], gp.ind.b_bottom[2]) # first and second rows
+        i = lexicographic(II, gp.ny)
+        j = lexicographic(JJ, gp.ny)
+
+        LSA[i,i] = 1. # set 1st row of LSA to 1
+        LSB[i,i] = 0. # set 1st row of LSB to 0
+
+        LSA[i,j] = -1. # set 2nd row of LSA to -1
+        end
+    end
+
 #-----------------------------------------------------------------------------------------------------
     # LOOP STARTS HERE
     while current_i < max_iterations + 1
@@ -181,7 +199,9 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
         grid_v.V .= reshape(veci(phL.vD,grid_v,1), (grid_v.ny, grid_v.nx))
 
         if advection
-            
+            # using Inflow-Implicit Outflow-Explicit (IIOE) Eq. 12 from Mikula (2014)
+            # First θ=1/2 (constant coefficient; Stefan problem)
+            # Second θ=min() following Eq. 19/20 from Mikula (2014) (general case)
             level_update_IIOE!(grid, grid_u, grid_v, LSA, LSB, θ_out, MIXED, τ, false, false)
             try
                 tmp_tracer .= reshape(IterativeSolvers.gmres(LSA,(LSB*vec(tracer))), (ny,nx))
@@ -226,7 +246,6 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
                 end
             end
         end
-
 
         if levelset && current_i<2
             grid.α .= NaN
@@ -294,6 +313,7 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
             @views usave[snap,:,:] .= u
             @views uusave[snap,:,:] .= grid_u.u
             @views uvsave[snap,:,:] .= grid_v.u
+            @views Tsave[snap,:,:] .= tracer
 
             @views psave[snap,:,:] .= phL.p[:,:]
             @views ϕsave[snap,:,:] .= phL.ϕ[:,:]

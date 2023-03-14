@@ -1,15 +1,16 @@
 using Revise
 using Flower
+include("../src/run_one_phase.jl")
 
 fontsize_theme = Theme(fontsize=30)
 set_theme!(fontsize_theme)
 
 T = Float64 # not used 
 
-Lx = 1.5
-Ly = 4.0
-nx = 32
-ny = 32
+Lx = 4
+Ly = 4
+nx = 64
+ny = nx
 
 num = Numerical( # defined in types.jl
     # DDM parameters
@@ -24,7 +25,7 @@ num = Numerical( # defined in types.jl
     # physical parameters
     Re=1.0,
     CFL=1.0, # backwards Euler
-    max_iterations=100,
+    max_iterations=200,
     u_inf=0.0,
     v_inf=1.0,
     save_every=1, #
@@ -35,7 +36,7 @@ num = Numerical( # defined in types.jl
     # shifted=0,
     # R=1.0,
     # shift_y=1.5,
-    nb_reinit = 8,
+    nb_reinit = ny,
     case="Planar", # params: shifted
     shifted=-1.e-3,
 
@@ -44,7 +45,7 @@ num = Numerical( # defined in types.jl
     # R=h0, # radius of drop
     # A=0.02, # amplitude of perturbation
 
-    NB=2, # number of cells that the velocity is extended from the interface
+    NB=0, # number of cells that the velocity is extended from the interface
 )
 
 gp, gu, gv = init_meshes(num)
@@ -80,25 +81,15 @@ initial_tracer = copy(tracer)
         right = Boundary(t = per, f = periodic),
     ),
     advection = true, #move the level set
-
     ns_advection = true,
-
     navier_stokes = true,
-
     levelset = true,
-    
     verbose = true,
-    
     adaptative_t = false,
-
-    show_every = 100,
+    show_every = 100
     )
 
-@show (initial_tracer == tracer)
-
-# tcks = -num.L0/2:2:num.L0
-# lim = (num.L0 + num.Δ) / 2
-# lim = 1.0
+# @show (initial_tracer == tracer)
 
 # 3 different grids: 
 # gp - we use for temperature and pressure, 
@@ -116,11 +107,11 @@ ax = Axis(fu[1, 1],
     ylabel="y")
 hm = heatmap!(gu.x[1, :], gu.y[:, 1], fwd.Uxsave[end, :, :]')
 Colorbar(fu[1, 2], hm, label="u")
-contour!(gu.x[1, :], gu.y[:, 1], fwd.uusave[end, :, :]', # interpolated
-    levels=0:0, color=:blue, linewidth=3)
-contour!(gp.x[1, :], gp.y[:, 1], tracer', # real one
-    levels=0:0, color=:red, linewidth=3)
-# Makie.save("inclined_plane_fu.png", fu)
+#contour!(gu.x[1, :], gu.y[:, 1], fwd.uusave[end, :, :]',levels=0:0, color=:blue, linewidth=3)
+
+contour!(gp.x[1, :], gp.y[:, 1], fwd.Tsave[2,:,:]', levels=0:0, color=:red, linewidth=2.,linestyle=:dash)
+contour!(gp.x[1, :], gp.y[:, 1], tracer', levels=0:0, color=:red, linewidth=3)
+Makie.save("contact_line_fu.png", fu)
 
 fv = Figure();
 ax = Axis(fv[1, 1],
@@ -131,7 +122,7 @@ hm = heatmap!(gv.x[1, :], gv.y[:, 1], fwd.Uysave[end, :, :]')
 Colorbar(fv[1, 2], hm, label="v")
 contour!(gp.x[1, :], gp.y[:, 1], tracer',
     levels=0:0, color=:red, linewidth=3);
-# Makie.save("inclined_plane_fv.png", fv)
+Makie.save("contact_line_fv.png", fv)
 
 fp = Figure()
 ax = Axis(fp[1, 1],
@@ -142,36 +133,4 @@ hm = heatmap!(gp.x[1, :], gp.y[:, 1], fwd.psave[end, :, :]')
 Colorbar(fp[1, 2], hm, label="p")
 contour!(gp.x[1, :], gp.y[:, 1], tracer',
     levels=0:0, color=:red, linewidth=3);
-# Makie.save("inclined_plane_fp.png", fp)
-
-# fk = Figure(resolution=(1600, 1000))
-# colsize!(fk.layout, 1, Aspect(1, 1.0))
-# ax = Axis(fk[1, 1], aspect=1, xticks=tcks, yticks=tcks)  # customized as you see fit
-# hmap = heatmap!(gp.x[1, :], gp.y[:, 1], gp.κ')#, colorrange=(-1.5, 1.5))
-# contour!(gp.x[1, :], gp.y[:, 1], gp.u', levels=0:0, color=:red, linewidth=3);
-# cbar = fk[1, 2] = Colorbar(fk, hmap, labelpadding=0)
-# # limits!(ax, -lim, lim, -lim, lim)
-# resize_to_layout!(fk)
-
-# prefix = ""
-# suffix = "_dripping_β$(num.β)_g$(num.g)_A$(num.A)_it$(num.max_iterations)_ext_2"
-
-# Makie.save(suffix, fk)
-# limx = lim
-# limy = lim * Ny
-# make_video(num, fwd, gu, "u"; title_prefix=prefix,
-#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx-num.Δ/2,limx+num.Δ/2), limitsy=(-limy,limy))
-# make_video(num, fwd, gv, "v"; title_prefix=prefix,
-#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy-num.Δ/2,limy+num.Δ/2))
-# make_video(num, fwd, gp, "p"; title_prefix=prefix,
-#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))
-# make_video(num, fwd, gp, "κ"; title_prefix=prefix,
-#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))#, minv=-4.0, maxv=4.0)
-# make_video(num, fwd, gp, "none"; title_prefix=prefix,
-#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))
-
-# fp = Figure()
-# ax = Axis(fp[1,1])
-# heatmap!(fwd.psave[417,:,:]')
-# scatter!(3, 53, color=:red)
-# resize_to_layout!(fp)
+Makie.save("contact_line_fp.png", fp)
