@@ -1,52 +1,88 @@
 
-# function locate_index(grid, geo, indices)
-#     index_CL = falses(indices) # bolean vector all false with size of indices
+# function locate_index(gp, indices)
+#     index_CL = zeros(Bool,size(indices)) # bolean vector all false with size of indices
 #     @inbounds @threads for II in indices # loop over the indices
-#     if gp.iso[II] in (1,2,6,9,13,14)
-#         index_CL[II] = true  #then we are in a CL cell
+#         if gp.iso[II] in (1.,2.,6.,9.,13.,14.)
+#             index_CL[II] = true  #then we are in a CL cell
+#         end
 #     end
-#     return index_CL
+#     return index_CL # CL contact line 
 # end
+
+function locate_index(gp, ind)
+    index_CL = zeros(Bool, size(ind))
+    @inbounds @threads for i in eachindex(ind)
+        iso_value = gp.iso[ind[i]]
+        index_CL[i] = iso_value != 0.0 && iso_value in (1., 2., 6., 9., 13., 14.) ? true : index_CL[i]
+        #@show(i, ind[i], iso_value)
+    end
+    return index_CL
+end
+
 
 # # make this function general to work with any direction
-# function get_cut_points(grid, geo, indices)
-#     for i in findall(index_CL) # loop over true values of index_CL
-#         x = gp.cut_points[i, :] # n,n matrix
+function get_cut_points(gp, indices, index_CL)
+    x_Cl_vec = zeros(size(indices)) # zero vector of size indices
+    for i in findall(index_CL) # loop over true values of index_CL
+    if indices == gp.ind.b_bottom[1]
+        x = gp.cut_points[1,i] # n,n matrix
+        if x[1].y == -0.5
+            x_Cl_vec[i] = x[1].x
+        elseif x[2].y == -0.5
+            x_Cl_vec[i] = x[2].x
+        end
+    elseif indices == gp.ind.b_top[1]
+        x = gp.cut_points[end,i]
+        if x[1].y == 0.5
+            x_Cl_vec[i] = x[1].x
+        elseif x[2].y == 0.5
+            x_Cl_vec[i] = x[2].x
+        end
+    elseif indices == gp.ind.b_left[1]
+        x = gp.cut_points[i,1]
+        if x[1].x == -0.5
+            x_Cl_vec[i] = x[1].y
+        elseif x[2].x == -0.5
+            x_Cl_vec[i] = x[2].y
+        end
+    elseif indices == gp.ind.b_right[1]
+        x = gp.cut_points[i,end]
+        if x[1].x == 0.5
+            x_Cl_vec[i] = x[1].y
+        elseif x[2].x == 0.5
+            x_Cl_vec[i] = x[2].y
+        end
+    end
+end
+    return x_Cl_vec
+end
 
-#         # check which one has the value -0.5
-#         # only one can have a value of -0.5
-#         if x[1] == -0.5
-#             gp.x = x_CL
-#         end
-#         if x[2] == -0.5
-#             gp.x = x_CL
-#         end
-#     end
-# end
+function compute_bell_function(gp,num,x_Cl_vec,index_CL,indices)
+    bell_function = zero(x_Cl_vec)
+    for i in findall(index_CL) # loop over all non-zeros
+        if indices == gp.ind.b_bottom[1]
+            rel_x = gp.x[1,i] .- x_Cl_vec[i]
+        elseif indices == gp.ind.b_top[1]
+            rel_x = gp.x[end,i] .- x_Cl_vec[i]
+        elseif indices == gp.ind.b_left[1]
+            rel_x = gp.y[i,1] .- x_Cl_vec[i]
+        elseif indices == gp.ind.b_right[1]
+            rel_x = gp.y[i,end] .- x_Cl_vec[i]
+        end
+        bell_function .+= (1.0-tanh^2(rel_x/num.εCA))/num.εCA
+    end 
+    return bell_function
+end
 
-# function compute_bell_function(x_CL)
-#     bell_function # vector of n size with all zeros
-#     for i in findall(x_CL) # loop over all contact points 
-#         relative_position = direction[target_index] - x_CL
-#         bell_function += (1.0-tanh^2(relative_position/εCA))/εCA
-#     end 
-#     return bell_function
-# end
-
-# # sum all the bell functions (we can have several for each contact point)
-
-# # value to fill a0 
-# function compute_young_stress()
-#     x_CL = get_cut_points()
-#     bell_function = compute_bell_function(x_CL)
-#     for i in x_CL
-#         II = 
-#         JJ =
-#         YS = 
-#         bell_function*(1.0/Ca)*(cos(gp.α[II,JJ]* π/180)-cos(θe*π/180))
-#     end
-#     return YS
-# end
+# value to fill a0 
+function compute_young_stress(gp,num,indices)
+    if indices == gp.ind.b_bottom[1]
+        index_CL = locate_index(gp, indices)
+        x_Cl_vec = get_cut_points(gp, indices, index_CL)
+        bellf = compute_bell_function(gp,num,x_Cl_vec,index_CL,indices)
+        return bellf[:].*(1.0/num.Ca).*(cos.(gp.α[1,:]).-cos(num.θe*π/180))
+    end
+end
 
 function run_forward_one_phase(num, grid, grid_u, grid_v,
     opL, opC_pL, opC_uL, opC_vL, 
@@ -127,9 +163,6 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
 
     tmp_tracer = copy(tracer)
 
-    utarget = copy(u) # set dirichlet value target fot the contact angle GNBC
-    LSC = copy(LSA) # copy matrix for the contact angle GNBC (used to apply utarget)
-
     if periodic_x
         BC_u.left.ind = ind.b_left;
         BC_u.right.ind = ind.b_right;
@@ -193,37 +226,26 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
     end
 
     if ns_advection
-        Cum1S .= opS.Cu * vec(phS.u) .+ opS.CUTCu
-        Cvm1S .= opS.Cv * vec(phS.v) .+ opS.CUTCv
         Cum1L .= opL.Cu * vec(phL.u) .+ opL.CUTCu
         Cvm1L .= opL.Cv * vec(phL.v) .+ opL.CUTCv
     end
 
     tmpu = ones(grid_u.ny, grid_u.nx) .* num.u_inf
     tmpu[2:end-1,2:end-1] .= 0.0
-    veci(phS.uD,grid_u,1) .= vec(phS.u)
-    veci(phS.uD,grid_u,2) .= vec(tmpu)
     veci(phL.uD,grid_u,1) .= vec(phL.u)
     veci(phL.uD,grid_u,2) .= vec(tmpu)
 
     tmpv = ones(grid_v.ny, grid_v.nx) .* num.v_inf
     tmpv[2:end-1,2:end-1] .= 0.0
-    veci(phS.vD,grid_v,1) .= vec(phS.v)
-    veci(phS.vD,grid_v,2) .= vec(tmpv)
     veci(phL.vD,grid_v,1) .= vec(phL.v)
     veci(phL.vD,grid_v,2) .= vec(tmpv)
 
-    _, _, Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S = set_laplacians!(grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
-                                                opC_pS, opC_uS, opC_vS, periodic_x, periodic_y)
     _, _, Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L = set_laplacians!(grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
                                                 opC_pL, opC_uL, opC_vL, periodic_x, periodic_y)
     
     Mm1_L = copy(opC_pL.M)
-    Mm1_S = copy(opC_pS.M)
     Mum1_L = copy(opC_uL.M)
-    Mum1_S = copy(opC_uS.M)
     Mvm1_L = copy(opC_vL.M)
-    Mvm1_S = copy(opC_vS.M)
 
     current_t = 0.0
 
@@ -233,9 +255,9 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
     # 1*Φ^{n+1}=1*Φ^{n}
     # Φ^{n+1}_{i,j}+Φ^{n+1}_{i,j+1}=0
     if ! periodic_y
-        for (II,JJ) in zip(gp.ind.b_bottom[1], gp.ind.b_bottom[2]) # first and second rows
-        i = lexicographic(II, gp.ny)
-        j = lexicographic(JJ, gp.ny)
+        for (II,JJ) in zip(grid.ind.b_bottom[1], grid.ind.b_bottom[2]) # first and second rows
+        i = lexicographic(II, grid.ny)
+        j = lexicographic(JJ, grid.ny)
 
         LSA[i,i] = 1. # set 1st row of LSA to 1
         LSB[i,i] = 0. # set 1st row of LSB to 0

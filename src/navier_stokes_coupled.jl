@@ -1,4 +1,4 @@
-function set_borders!(grid, a0, a1, b, BC)
+function set_borders!(grid, num, a0, a1, b, BC)
     @unpack ny, ind = grid
     
     @inbounds a0[2:end-1,1] .= BC.left.val
@@ -14,6 +14,9 @@ function set_borders!(grid, a0, a1, b, BC)
     elseif is_periodic(BC.left.t)
         # @inbounds a1[:,1] .= 0.
         # @inbounds b[:,1] .= 0.
+    elseif is_navier(BC.left.t)
+        @inbounds a1[2:end-1,1] .= -1.
+        @inbounds b[2:end-1,1] .= num.λCA
     else
         @error ("Not implemented yet")
     end
@@ -32,7 +35,9 @@ function set_borders!(grid, a0, a1, b, BC)
         # @inbounds b[1,2:end-1] .= 0.
     elseif is_navier(BC.bottom.t)
         @inbounds a1[1,:] .= -1.
-        @inbounds b[1,:] .= 1.     
+        @inbounds b[1,:] .= num.λCA
+        @inbounds a0[1,:] .= 1 
+        compute_young_stress(grid, num, grid.ind.b_bottom[1])
     else
         @error ("Not implemented yet")
     end
@@ -49,6 +54,9 @@ function set_borders!(grid, a0, a1, b, BC)
     elseif is_periodic(BC.right.t)
         # @inbounds a1[:,end] .= 0.
         # @inbounds b[:,end] .= 0.
+    elseif is_navier(BC.right.t)
+        @inbounds a1[2:end-1,end] .= -1.
+        @inbounds b[2:end-1,end] .= num.λCA
     else
         @error ("Not implemented yet")
     end
@@ -65,6 +73,9 @@ function set_borders!(grid, a0, a1, b, BC)
     elseif is_periodic(BC.top.t)
         # @inbounds a1[end,2:end-1] .= 0.
         # @inbounds b[end,2:end-1] .= 0.
+    elseif is_navier(BC.top.t)
+        @inbounds a1[end,:] .= -1.
+        @inbounds b[end,:] .= num.λCA
     else
         @error ("Not implemented yet")
     end
@@ -72,7 +83,7 @@ function set_borders!(grid, a0, a1, b, BC)
     return nothing
 end
 
-function set_borders!(grid, a0, a1, b0, b1, BC)
+function set_borders!(grid, num, a0, a1, b0, b1, BC)
     @unpack ny, ind = grid
     
     @inbounds a0[:,1] .= BC.left.val
@@ -95,7 +106,7 @@ function set_borders!(grid, a0, a1, b0, b1, BC)
     elseif is_navier(BC.left.t)
         @inbounds a1[2:end-1,1] .= -1.
         @inbounds b0[2:end-1,1] .= 0.
-        @inbounds b1[2:end-1,1] .= λCA
+        @inbounds b1[2:end-1,1] .= num.λCA
     else
         @error ("Not implemented yet")
     end
@@ -119,7 +130,7 @@ function set_borders!(grid, a0, a1, b0, b1, BC)
     elseif is_navier(BC.bottom.t)
         @inbounds a1[1,:] .= -1.
         @inbounds b0[1,:] .= 0.
-        @inbounds b1[1,:] .= λCA
+        @inbounds b1[1,:] .= num.λCA
     else
         @error ("Not implemented yet")
     end
@@ -143,7 +154,7 @@ function set_borders!(grid, a0, a1, b0, b1, BC)
     elseif is_navier(BC.right.t)
         @inbounds a1[2:end-1,end] .= -1.
         @inbounds b0[2:end-1,end] .= 0.
-        @inbounds b1[2:end-1,end] .= λCA
+        @inbounds b1[2:end-1,end] .= num.λCA
     else
         @error ("Not implemented yet")
     end
@@ -167,7 +178,7 @@ function set_borders!(grid, a0, a1, b0, b1, BC)
     elseif is_navier(BC.top.t)
         @inbounds a1[end,:] .= -1.
         @inbounds b0[end,:] .= 0.
-        @inbounds b1[end,:] .= λCA
+        @inbounds b1[end,:] .= num.λCA
     else
         @error ("Not implemented yet")
     end
@@ -348,7 +359,7 @@ function set_crank_nicolson_block(bc_type, num, grid, opC, L, bc_L, Lm1, bc_Lm1,
     a0 = ones(ny, nx) .* grid.V
     _a1 = ones(ny, nx) .* __a1
     _b = ones(ny, nx) .* __b
-    set_borders!(grid, a0, _a1, _b, BC)
+    set_borders!(grid, num, a0, _a1, _b, BC)
     a1 = Diagonal(vec(_a1))
     b = Diagonal(vec(_b))
 
@@ -376,7 +387,7 @@ function set_crank_nicolson_block(bc_type, num, grid, opC, L, bc_L, Lm1, bc_Lm1,
     return A, B, rhs
 end
 
-function set_poisson_block(bc_type, grid, a0, opC, L, bc_L, BC)
+function set_poisson_block(bc_type, grid, num, a0, opC, L, bc_L, BC)
     @unpack nx, ny = grid
     @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy = opC
 
@@ -393,7 +404,7 @@ function set_poisson_block(bc_type, grid, a0, opC, L, bc_L, BC)
 
     _a1 = ones(ny, nx) .* __a1
     _b = ones(ny, nx) .* __b
-    set_borders!(grid, a0, _a1, _b, BC)
+    set_borders!(grid, num, a0, _a1, _b, BC)
     a1 = Diagonal(vec(_a1))
     b = Diagonal(vec(_b))
 
@@ -430,7 +441,7 @@ function projection_no_slip!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     A_u, B_u, rhs_u = set_crank_nicolson_block(dir, num, grid_u, opC_u, iRe.*Lu, iRe.*bc_Lu, iRe.*Lum1, iRe.*bc_Lum1, Mum1, BC_u)
     A_v, B_v, rhs_v = set_crank_nicolson_block(dir, num, grid_v, opC_v, iRe.*Lv, iRe.*bc_Lv, iRe.*Lvm1, iRe.*bc_Lvm1, Mvm1, BC_v)
     a0_p = zeros(grid.ny, grid.nx)
-    A_p, rhs_p = set_poisson_block(neu, grid, a0_p, opC_p, Lp, bc_Lp, BC_p)
+    A_p, rhs_p = set_poisson_block(neu, grid, num, a0_p, opC_p, Lp, bc_Lp, BC_p)
 
     veci(uD,grid_u,1) .= vec(u)
     update_dirichlet_field!(grid_u, uD, u, BC_u)
@@ -517,9 +528,9 @@ function set_crank_nicolson_block(bc_type, num,
     _a1_p = ones(grid.ny, grid.nx) .* (-1.)
     _b0_p = ones(grid.ny, grid.nx) .* 0.
     _b1_p = ones(grid.ny, grid.nx) .* 0.
-    set_borders!(grid_u, a0_u, _a1_u, _b0_u, _b1_u, BC_u)
-    set_borders!(grid_v, a0_v, _a1_v, _b0_v, _b1_v, BC_v)
-    set_borders!(grid, a0_p, _a1_p, _b0_p, _b1_p, BC_p)
+    set_borders!(grid_u, num, a0_u, _a1_u, _b0_u, _b1_u, BC_u)
+    set_borders!(grid_v, num, a0_v, _a1_v, _b0_v, _b1_v, BC_v)
+    set_borders!(grid, num, a0_p, _a1_p, _b0_p, _b1_p, BC_p)
     a1_u = Diagonal(vec(_a1_u))
     b0_u = Diagonal(vec(_b0_u))
     b1_u = Diagonal(vec(_b1_u))
@@ -628,9 +639,9 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     _a1_p = zeros(grid.ny, grid.nx)
     _b0_p = ones(grid.ny, grid.nx)
     _b1_p = zeros(grid.ny, grid.nx)
-    set_borders!(grid_u, a0_u, _a1_u, _b0_u, _b1_u, BC_u)
-    set_borders!(grid_v, a0_v, _a1_v, _b0_v, _b1_v, BC_v)
-    set_borders!(grid, a0_p, _a1_p, _b0_p, _b1_p, BC_p)
+    set_borders!(grid_u, num, a0_u, _a1_u, _b0_u, _b1_u, BC_u)
+    set_borders!(grid_v, num, a0_v, _a1_v, _b0_v, _b1_v, BC_v)
+    set_borders!(grid, num, a0_p, _a1_p, _b0_p, _b1_p, BC_p)
     b0_u = Diagonal(vec(_b0_u))
     b0_v = Diagonal(vec(_b0_v))
     b0_p = Diagonal(vec(_b0_p))

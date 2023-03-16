@@ -1,6 +1,5 @@
 using Revise
 using Flower
-include("../src/run_one_phase.jl")
 
 fontsize_theme = Theme(fontsize=30)
 set_theme!(fontsize_theme)
@@ -50,7 +49,7 @@ num = Numerical( # defined in types.jl
     # Contact angle parameters
     Ca=0.1, # Capillary number
     εCA=0.078125, # width
-    λCA=0.1, # slip lenght
+    λCA=0.0012, # slip lenght
     θe=70.0, # prescribed contact angle
 )
 
@@ -69,18 +68,18 @@ initial_tracer = copy(tracer)
     BC_uL=Boundaries(
         left=Boundary(t=per, f=periodic),
         right=Boundary(t=per, f=periodic),
-        bottom=Boundary(t=dir, f=dirichlet, val=num.v_inf),
+        bottom=Boundary(t=nav, f=navier),
     ),
     BC_vL=Boundaries(
         left=Boundary(t=per, f=periodic),
         right=Boundary(t=per, f=periodic),
-        bottom=Boundary(t=dir, f=dirichlet, val=0.0),
+        bottom=Boundary(t=nav, f=navier),
     ),
-    BC_pL=Boundaries(
+    BC_pL=Boundaries( # pressure 
         left=Boundary(t=per, f=periodic),
         right=Boundary(t=per, f=periodic),
         top=Boundary(t=dir, f=dirichlet, val=0.0),
-        bottom=Boundary(t=neu, f=navier, val=0.0),
+        bottom=Boundary(t=neu, f=neumann, val=0.0),
     ),
     BC_u=Boundaries(
         left=Boundary(t=per, f=periodic),
