@@ -664,3 +664,31 @@ function interpolate_scalar!(grid, grid_u, grid_v, u, uu, uv)
     
     return nothing
 end
+
+function breakup(u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, ϵ_break)
+    u_copy = copy(u)
+    local count = 0
+    for II in NB_indices
+        if !((II[2] == 1 || II[2] == nx) && !periodic_x)
+            if (u_copy[II]*u_copy[δx⁺(II, nx, periodic_x)] < 0) && (u_copy[II]*u_copy[δx⁻(II, nx, periodic_x)] < 0)
+                if (abs(u_copy[δx⁺(II, nx, periodic_x)]) < (dx[δx⁺(II, nx, periodic_x)]/2 - ϵ_break) &&
+                    abs(u_copy[δx⁻(II, nx, periodic_x)]) < (dx[δx⁻(II, nx, periodic_x)]/2 - ϵ_break) &&
+                    abs(u_copy[II]) > (dx[II]/2))
+                    u[II] *= -1
+                    count += 1
+                end
+            end
+        end
+        if !((II[1] == 1 || II[1] == ny) && !periodic_y)
+            if (u_copy[II]*u_copy[δy⁺(II, ny, periodic_y)] < 0) && (u_copy[II]*u_copy[δy⁻(II, ny, periodic_y)] < 0)
+                if (abs(u_copy[δy⁺(II, ny, periodic_y)]) < (dy[δy⁺(II, ny, periodic_y)]/2 - ϵ_break) &&
+                    abs(u_copy[δy⁻(II, ny, periodic_y)]) < (dy[δy⁻(II, ny, periodic_y)]/2 - ϵ_break) &&
+                    abs(u_copy[II]) > (dy[II]/2))
+                    u[II] *= -1
+                    count += 1
+                end
+            end
+        end
+    end
+    return count
+end

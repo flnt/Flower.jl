@@ -537,11 +537,10 @@ function postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, ϵ)
 end
 
 function marching_squares!(num, grid, u, periodic_x, periodic_y)
-    @unpack x, y, nx, ny, dx, dy, ind, iso, faces, geoS, geoL, mid_point, α, κ = grid
+    @unpack x, y, nx, ny, dx, dy, ind, iso, faces, geoS, geoL, mid_point, α = grid
 
     empty_capacities = vcat(zeros(7), zeros(4))
     full_capacities = vcat(ones(7), 0.5.*ones(4))
-    κ .= zeros(ny,nx)
     @inbounds @threads for II in ind.all_indices
         if II in ind.b_left[1][2:end-1] && !periodic_x
             II_0 = δx⁺(II)
@@ -581,7 +580,6 @@ function marching_squares!(num, grid, u, periodic_x, periodic_y)
                     @goto notmixed
                 else
                     ISO = -1.
-                    κ[II] = 0.
                     geoS.cap[II,:] .= full_capacities
                     geoL.cap[II,:] .= empty_capacities
                 end
@@ -688,10 +686,11 @@ function get_interface_location_borders!(grid::Mesh{GridFCy,T,N}, u, periodic_x,
     end
 end
 
-function get_curvature(num, grid, u, inside, per_x, per_y)
+function get_curvature(num, grid, u, κ, inside, per_x, per_y)
     @unpack Δ = num
-    @unpack x, y, nx, ny, ind, geoL, κ = grid
+    @unpack x, y, nx, ny, ind, geoL = grid
 
+    κ .= zeros(grid)
     @inbounds for II in inside
         if !per_x && !per_y
             if II in ind.inside

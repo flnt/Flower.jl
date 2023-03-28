@@ -481,8 +481,8 @@ end
 
 function set_crank_nicolson_block(bc_type, num, 
     grid, opC_p, Lp, bc_Lp, Lp_fs, bc_Lp_fs, BC_p,
-    grid_u, opC_u, Lu, bc_Lu, Lum1, bc_Lum1, Mum1, BC_u,
-    grid_v, opC_v, Lv, bc_Lv, Lvm1, bc_Lvm1, Mvm1, BC_v)
+    grid_u, opC_u, Lu, bc_Lu, Mum1, BC_u,
+    grid_v, opC_v, Lv, bc_Lv, Mvm1, BC_v)
     @unpack Re, τ = num
 
     iRe = 1 / Re
@@ -609,6 +609,22 @@ function set_crank_nicolson_block(bc_type, num,
     return Au, Bu, rhs_u, Av, Bv, rhs_v, Ap, rhs_p
 end
 
+function set_navier_stokes(num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+                           opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
+                           Mum1, Mvm1, iRe,
+                           periodic_x, periodic_y)
+    Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv, Lp_fs, bc_Lp_fs, Lu_fs, bc_Lu_fs, Lv_fs, bc_Lv_fs = set_laplacians!(grid, geo, grid_u, geo_u, grid_v, geo_v,
+        opC_p, opC_u, opC_v,
+        periodic_x, periodic_y, true)
+
+    Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ = set_crank_nicolson_block(neu, num,
+        grid, opC_p, Lp, bc_Lp, Lp_fs, bc_Lp_fs, BC_p,
+        grid_u, opC_u, iRe.*Lu, iRe.*bc_Lu, Mum1, BC_u,
+        grid_v, opC_v, iRe.*Lv, iRe.*bc_Lv, Mvm1, BC_v)
+
+    return Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ
+end
+
 function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
                         BC_u, BC_v, BC_p,
                         opC_p, opC_u, opC_v,
@@ -621,17 +637,10 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     iRe = 1.0 / Re
     iτ = 1.0 / τ
 
-    opC_u_m1 = deepcopy(opC_u)
-    opC_v_m1 = deepcopy(opC_v)
-
-    Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv, Lp_fs, bc_Lp_fs, Lu_fs, bc_Lu_fs, Lv_fs, bc_Lv_fs = set_laplacians!(grid, geo, grid_u, geo_u, grid_v, geo_v,
-        opC_p, opC_u, opC_v,
-        periodic_x, periodic_y, true)
-
-    Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ = set_crank_nicolson_block(neu, num,
-        grid, opC_p, Lp, bc_Lp, Lp_fs, bc_Lp_fs, BC_p,
-        grid_u, opC_u, iRe.*Lu, iRe.*bc_Lu, iRe.*Lum1, iRe.*bc_Lum1, Mum1, BC_u,
-        grid_v, opC_v, iRe.*Lv, iRe.*bc_Lv, iRe.*Lvm1, iRe.*bc_Lvm1, Mvm1, BC_v)
+    Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ = set_navier_stokes(num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+                                                                opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
+                                                                Mum1, Mvm1, iRe,
+                                                                periodic_x, periodic_y)
 
     a0_u = zeros(grid_u)
     _a1_u = zeros(grid_u)
@@ -715,5 +724,5 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     veci(vD,grid_v,1) .= vec(v)
     veci(vD,grid_v,2) .= veci(vcorrD,grid_v,2)
 
-    return Lu, bc_Lu, Lv, bc_Lv, opC_p.M, opC_u.M, opC_v.M
+    return opC_p.M, opC_u.M, opC_v.M
 end

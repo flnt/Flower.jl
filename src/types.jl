@@ -309,10 +309,10 @@ mutable struct adjoint_derivatives{T <: Float64} <: MutatingFields
     RvS_ls::SparseMatrixCSC{T,Int64} # Derivative of solid phase projection step in y wrt. levelset
     RvL_ls::SparseMatrixCSC{T,Int64} # Derivative of liquid phase projection step in y wrt. levelset
     RlsFS_ls::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. levelset
-    RlsFS_uS::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. solid horizontal velocity 
-    RlsFS_uL::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. liquid horizontal velocity 
-    RlsFS_vS::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. solid vertical velocity
-    RlsFS_vL::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. liquid vertical velocity
+    RlsFS_ucorrS::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. solid horizontal velocity 
+    RlsFS_ucorrL::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. liquid horizontal velocity 
+    RlsFS_vcorrS::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. solid vertical velocity
+    RlsFS_vcorrL::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. liquid vertical velocity
 end
 
 abstract type BoundaryCondition end

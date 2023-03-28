@@ -87,8 +87,8 @@ function set_heat_borders!(grid, a0, a1, b, BC_T)
     return nothing
 end
 
-function set_heat!(bc_type, num, grid, op, geo, BC_T, MIXED, projection, periodic_x, periodic_y)
-    @unpack τ, θd, aniso = num
+function set_heat!(bc_type, num, grid, op, geo, θd, BC_T, MIXED, projection, periodic_x, periodic_y)
+    @unpack τ, aniso = num
     @unpack nx, ny, ind = grid
     @unpack Bx, By, BxT, ByT, Hx, Hy, HxT, HyT, iMx, iMy, χ = op
 

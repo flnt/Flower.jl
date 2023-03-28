@@ -113,6 +113,7 @@ function make_video(grid, field_u, field=nothing;
     set_theme!(fontsize_theme)
 
     fig = Figure(resolution = (1600, 1000))
+    colsize!(fig.layout, 1, Aspect(1, 1.0))
     ax  = Axis(fig[1,1], aspect=DataAspect(), xlabel=xlabel, ylabel=ylabel,
             xtickalign=0,  ytickalign=0)
     if plot_hmap

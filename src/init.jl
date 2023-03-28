@@ -168,25 +168,29 @@ function adjoint_derivatives(grid, grid_u, grid_v)
     RpS_ls = [tmp; tmp]
     RpL_ls = [tmp; tmp]
 
-    tmp = star3(grid_u)
+    # tmp = star3(grid_u)
+    tmp = spdiagm(grid_u.ny*grid_u.nx, grid.ny*grid.nx, 0 => zeros(grid.ny*grid.nx))
+    tmpT = transpose(tmp)
     RucorrS_ls0 = [tmp; tmp]
     RucorrL_ls0 = [tmp; tmp]
     RucorrS_ls1 = [tmp; tmp]
     RucorrL_ls1 = [tmp; tmp]
     RuS_ls = copy(tmp)
     RuL_ls = copy(tmp)
-    RlsFS_uS = [tmp tmp]
-    RlsFS_uL = [tmp tmp]
+    RlsFS_uS = [tmpT tmpT]
+    RlsFS_uL = [tmpT tmpT]
 
-    tmp = star3(grid_v)
+    # tmp = star3(grid_v)
+    tmp = spdiagm(grid_u.ny*grid_u.nx, grid.ny*grid.nx, 0 => zeros(grid.ny*grid.nx))
+    tmpT = transpose(tmp)
     RvcorrS_ls0 = [tmp; tmp]
     RvcorrL_ls0 = [tmp; tmp]
     RvcorrS_ls1 = [tmp; tmp]
     RvcorrL_ls1 = [tmp; tmp]
     RvS_ls = copy(tmp)
     RvL_ls = copy(tmp)
-    RlsFS_vS = [tmp tmp]
-    RlsFS_vL = [tmp tmp]
+    RlsFS_vS = [tmpT tmpT]
+    RlsFS_vL = [tmpT tmpT]
 
     return adjoint_derivatives{Float64}(RheatS_ls, RheatL_ls, RlsS_ls, RlsS_TS, RlsS_TL,
                                         RucorrS_ls0, RucorrS_ls1, RucorrL_ls0, RucorrL_ls1,

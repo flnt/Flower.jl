@@ -434,22 +434,26 @@ end
 
 function init_borders!(T::Matrix, BC_T, val=0.0)
     if is_dirichlet(BC_T.left.t)
-        T[2:end-1,1] .= BC_T.left.val
+        BCval = ones(size(T[:,1],1)) .* BC_T.left.val
+        T[2:end-1,1] .= BCval[2:end-1]
     elseif is_periodic(BC_T.left.t)
         T[2:end-1,1] .= val
     end
     if is_dirichlet(BC_T.bottom.t)
-        T[1,:] .= BC_T.bottom.val
+        BCval = ones(size(T[1,:],1)).* BC_T.bottom.val
+        T[1,:] .= BCval
     elseif is_periodic(BC_T.bottom.t)
         T[1,:] .= val
     end
     if is_dirichlet(BC_T.right.t)
-        T[2:end-1,end] .= BC_T.right.val
+        BCval = ones(size(T[:,end],1)) .* BC_T.right.val
+        T[2:end-1,end] .= BCval[2:end-1]
     elseif is_periodic(BC_T.right.t)
         T[2:end-1,end] .= val
     end
     if is_dirichlet(BC_T.top.t)
-        T[end,:] .= BC_T.top.val
+        BCval = ones(size(T[end,:],1)) .* BC_T.bottom.val
+        T[end,:] .= BCval
     elseif is_periodic(BC_T.top.t)
         T[end,:] .= val
     end
@@ -513,6 +517,8 @@ end
             -2g.ny+1 => val.*ones(g.ny*(g.nx-2)+1), # i-2,j+1
     )
 end
+
+Base.copy(x::T) where T = T([getfield(x, k) for k ∈ fieldnames(T)]...)
 
 """
     export_all()

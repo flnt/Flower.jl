@@ -4,8 +4,8 @@ using Flower
 fontsize_theme = Theme(fontsize = 50)
 set_theme!(fontsize_theme)
 
-prefix = "/Users/alex/Documents/PhD/Cutcell/New_ops/robin/adjoint/"
-suffix = "_planar_motion"
+prefix = "/Users/alex/Documents/PhD/Cutcell/New_ops/robin/adjoint/planar_motion/"
+suffix = ""
 
 function J(grid, TDS, TDL, u, x, α=0.)
     @unpack nx, ny = grid
@@ -133,7 +133,7 @@ function planar_motion(num, gp, gu, gv, eps)
     );
 
     return fwd, fwdS, fwdL, phS, phL, opC_TS, opC_TL
-end
+end 
 
 fwd0, fwdS0, fwdL0, phS, phL, opC_TS, opC_TL = planar_motion(num, gp, gu, gv, 0.0)
 J0 = J(gp, fwdS0.TD, fwdL0.TD, fwd0.u, 1.0, 0.0)
@@ -160,7 +160,7 @@ adj_der = adjoint_derivatives(gp, gu, gv)
 @time MIXED, SOLID, LIQUID = run_backward_discrete(num, gp, gu, gv,
     fwd0, fwdS0, fwdL0, adj, adj_der, phS, phL,
     opC_TS, opC_TL,
-    J_TS, J_TL, J_u,
+    J_TS = J_TS, J_TL = J_TL, J_u = J_u,
     periodic_x = true,
     BC_TL = Boundaries(
         left = Boundary(t = per, f = periodic),
