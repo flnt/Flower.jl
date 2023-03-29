@@ -1743,6 +1743,21 @@ function init_fresh_cells!(grid, u::Vector, V, projection, FRESH, periodic_x, pe
     end
 end
 
+function init_fresh_cells!(grid, u::SubArray{T,N,P,I,L}, V, projection, FRESH, periodic_x, periodic_y) where {T,N,P<:Vector{T},I,L}
+    _V = reshape(V, (grid.ny, grid.nx))
+    @inbounds @threads for II in FRESH
+        if projection[II].flag
+            pII = lexicographic(II, grid.ny)
+            u_1, u_2 = interpolated_temperature(grid, projection[II].angle, projection[II].point1, projection[II].point2, _V, II, periodic_x, periodic_y)
+            if π/4 <= projection[II].angle <= 3π/4 || -π/4 >= projection[II].angle >= -3π/4
+                u[pII] = y_extrapolation(u_1, u_2, projection[II].point1, projection[II].point2, projection[II].mid_point)
+            else
+                u[pII] = x_extrapolation(u_1, u_2, projection[II].point1, projection[II].point2, projection[II].mid_point)
+            end
+        end
+    end
+end
+
 function x_extrapolation(T_1, T_2, p1, p2, pnew)
     a1 = (T_2 - T_1)/(p2.x - p1.x)
     a0 = T_2 - a1*p2.x

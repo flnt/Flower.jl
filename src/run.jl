@@ -398,6 +398,35 @@ function run_forward(num, grid, grid_u, grid_v,
         if levelset && (advection || current_i<2)
             NB_indices = update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y)
 
+            grid.geoL.fresh .= false
+            grid.geoS.fresh .= false
+            grid_u.geoL.fresh .= false
+            grid_u.geoS.fresh .= false
+            grid_v.geoL.fresh .= false
+            grid_v.geoS.fresh .= false
+
+            get_fresh_cells!(grid, grid.geoS, Mm1_S, grid.ind.all_indices)
+            get_fresh_cells!(grid, grid.geoL, Mm1_L, grid.ind.all_indices)
+            get_fresh_cells!(grid_u, grid_u.geoS, Mum1_S, grid_u.ind.all_indices)
+            get_fresh_cells!(grid_u, grid_u.geoL, Mum1_L, grid_u.ind.all_indices)
+            get_fresh_cells!(grid_v, grid_v.geoS, Mvm1_S, grid_v.ind.all_indices)
+            get_fresh_cells!(grid_v, grid_v.geoL, Mvm1_L, grid_v.ind.all_indices)
+
+            FRESH_L_u = findall(grid_u.geoL.fresh)
+            FRESH_S_u = findall(grid_u.geoS.fresh)
+            FRESH_L_v = findall(grid_v.geoL.fresh)
+            FRESH_S_v = findall(grid_v.geoS.fresh)
+
+            init_fresh_cells!(grid_u, veci(phS.uD,grid_u,1), veci(phS.uD,grid_u,1), grid_u.geoS.projection, FRESH_S_u, periodic_x, periodic_y)
+            init_fresh_cells!(grid_v, veci(phS.vD,grid_v,1), veci(phS.vD,grid_v,1), grid_v.geoS.projection, FRESH_S_v, periodic_x, periodic_y)
+            init_fresh_cells!(grid_u, veci(phS.uD,grid_u,2), veci(phS.uD,grid_u,1), grid_u.geoS.projection, FRESH_S_u, periodic_x, periodic_y)
+            init_fresh_cells!(grid_v, veci(phS.vD,grid_v,2), veci(phS.vD,grid_v,1), grid_v.geoS.projection, FRESH_S_v, periodic_x, periodic_y)
+
+            init_fresh_cells!(grid_u, veci(phL.uD,grid_u,1), veci(phL.uD,grid_u,1), grid_u.geoL.projection, FRESH_L_u, periodic_x, periodic_y)
+            init_fresh_cells!(grid_v, veci(phL.vD,grid_v,1), veci(phL.vD,grid_v,1), grid_v.geoL.projection, FRESH_L_v, periodic_x, periodic_y)
+            init_fresh_cells!(grid_u, veci(phL.uD,grid_u,2), veci(phL.uD,grid_u,1), grid_u.geoL.projection, FRESH_L_u, periodic_x, periodic_y)
+            init_fresh_cells!(grid_v, veci(phL.vD,grid_v,2), veci(phL.vD,grid_v,1), grid_v.geoL.projection, FRESH_L_v, periodic_x, periodic_y)
+
             if iszero(current_i%save_every) || current_i==max_iterations
                 snap = current_i÷save_every+1
                 if save_radius
@@ -529,6 +558,11 @@ function run_forward(num, grid, grid_u, grid_v,
                 @views fwdL.vcorrD[snap,:,:] .= phL.vcorrD
                 force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, fwdL; step=snap)
             end
+        end
+
+        if any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || any(isnan, phS.uD) || any(isnan, phS.vD) || any(isnan, phS.TD)
+            println(@sprintf "\n CRASHED after %d iterations \n" current_i)
+            return ind.MIXED, ind.SOLID, ind.LIQUID
         end
 
         current_i += 1
