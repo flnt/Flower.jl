@@ -54,21 +54,20 @@ num = Numerical( # defined in types.jl
 )
 
 gp, gu, gv = init_meshes(num)
-opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd = init_fields(num, gp, gu, gv)
+opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd, fwdL, fwdS = init_fields(num, gp, gu, gv)
 
 @. gp.u = gp.x + num.shifted
 tracer = copy(gp.u)
 gp.u .= 1.0; #level set is always equal to 1 => only LIQUID phase
 initial_tracer = copy(tracer)
 
-@time MIXED, MIXED_u, MIXED_v, SOLID, LIQUID = run_forward_one_phase(num, gp, gu, gv,
-    opL, opC_pL, opC_uL, opC_vL,
-    phL, fwd, tracer;
+@time run_forward_one_phase(num, gp, gu, gv, opL, opC_pL, opC_uL, opC_vL,
+    phL, fwd, fwdL, tracer;
     periodic_x=true,
     BC_uL=Boundaries(
         left=Boundary(t=per, f=periodic),
         right=Boundary(t=per, f=periodic),
-        bottom=Boundary(t=nav, f=navier),
+        bottom=Boundary(t=nav, f=navier, val=1.0),
     ),
     BC_vL=Boundaries(
         left=Boundary(t=per, f=periodic),
@@ -81,7 +80,7 @@ initial_tracer = copy(tracer)
         top=Boundary(t=dir, f=dirichlet, val=0.0),
         bottom=Boundary(t=neu, f=neumann, val=0.0),
     ),
-    BC_u=Boundaries(
+    BC_u=Boundaries( # levelset/tracer 
         left=Boundary(t=per, f=periodic),
         right=Boundary(t=per, f=periodic),
     ),
@@ -107,23 +106,23 @@ initial_tracer = copy(tracer)
 
 fu = Figure();
 ax = Axis(fu[1, 1],
-    title="t=$(round(fwd.tv[end], digits=3))",
+    title="t=$(round(fwd.t[end], digits=3))",
     xlabel="x",
     ylabel="y")
-hm = heatmap!(gu.x[1, :], gu.y[:, 1], fwd.Uxsave[end, :, :]')
+hm = heatmap!(gu.x[1, :], gu.y[:, 1], fwdL.u[end, :, :]')
 Colorbar(fu[1, 2], hm, label="u")
 #contour!(gu.x[1, :], gu.y[:, 1], fwd.uusave[end, :, :]',levels=0:0, color=:blue, linewidth=3)
 
-contour!(gp.x[1, :], gp.y[:, 1], fwd.Tsave[2, :, :]', levels=0:0, color=:red, linewidth=2.0, linestyle=:dash)
+contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[2, :, :]', levels=0:0, color=:red, linewidth=2.0, linestyle=:dash)
 contour!(gp.x[1, :], gp.y[:, 1], tracer', levels=0:0, color=:red, linewidth=3)
 Makie.save("contact_line_fu.png", fu)
 
 fv = Figure();
 ax = Axis(fv[1, 1],
-    title="t=$(round(fwd.tv[end], digits=3))",
+    title="t=$(round(fwd.t[end], digits=3))",
     xlabel="x",
     ylabel="y")
-hm = heatmap!(gv.x[1, :], gv.y[:, 1], fwd.Uysave[end, :, :]')
+hm = heatmap!(gv.x[1, :], gv.y[:, 1], fwdL.v[end, :, :]')
 Colorbar(fv[1, 2], hm, label="v")
 contour!(gp.x[1, :], gp.y[:, 1], tracer',
     levels=0:0, color=:red, linewidth=3);
@@ -131,11 +130,11 @@ Makie.save("contact_line_fv.png", fv)
 
 fp = Figure()
 ax = Axis(fp[1, 1],
-    title="t=$(round(fwd.tv[end], digits=3))",
+    title="t=$(round(fwd.t[end], digits=3))",
     xlabel="x",
     ylabel="y")
-hm = heatmap!(gp.x[1, :], gp.y[:, 1], fwd.psave[end, :, :]')
+hm = heatmap!(gp.x[1, :], gp.y[:, 1], fwdL.p[end, :, :]')
 Colorbar(fp[1, 2], hm, label="p")
 contour!(gp.x[1, :], gp.y[:, 1], tracer',
-    levels=0:0, color=:red, linewidth=3);
+levels=0:0, color=:red, linewidth=3);
 Makie.save("contact_line_fp.png", fp)
