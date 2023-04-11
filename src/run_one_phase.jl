@@ -157,10 +157,7 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
 
     if levelset
         
-        ind.MIXED = [CartesianIndex(-1,-1)]
-        grid_u.ind.MIXED = [CartesianIndex(-1,-1)]
-        grid_v.ind.MIXED = [CartesianIndex(-1,-1)]
-
+        NB_indices = update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y)
 
     if ns_advection
 
@@ -170,14 +167,6 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
 
     CFL_sc = τ / Δ^2
     IIOE(LSA, LSB, u, V, ind.inside, CFL_sc, ny)
-
-    if save_length
-        fwd.length[1] = arc_length2(geoS.projection, ind.MIXED)
-        fwd.κ[1,:,:] .= κ
-    end
-
-    kill_dead_cells!(phS.T, grid, geoS)
-    kill_dead_cells!(phL.T, grid, geoL)
     
     @views fwd.u[1,:,:] .= u
     @views fwd.ux[1,:,:] .= grid_u.u
@@ -262,20 +251,16 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
                         # using Inflow-Implicit Outflow-Explicit (IIOE) Eq. 12 from Mikula (2014)
             # First θ=1/2 (constant coefficient; Stefan problem)
             # Second θ=min() following Eq. 19/20 from Mikula (2014) (general case)
-            #level_update_IIOE!(grid, grid_u, grid_v, LSA, LSB, θ_out, ind.MIXED, τ, periodic_x, periodic_y)
             level_update_IIOE!(grid, grid_u, grid_v, LSA, LSB, θ_out, ind.MIXED, τ, false, false)
 
             try
-                #utmp .= reshape(gmres(LSA,(LSB*vec(u))), (ny,nx))
                 tmp_tracer .= reshape(gmres(LSA,(LSB*vec(tracer))), (ny,nx))
             catch
                 @error ("Inadequate level set function, iteration $current_i")
                 break
             end
-            #S2IIOE!(grid, grid_u, grid_v, LSA, LSB, utmp, u, θ_out, ind.MIXED, τ, periodic_x, periodic_y)
-            S2IIOE!(grid, grid_u, grid_v, LSA, LSB, tmp_tracer, tracer, θ_out, MIXED, τ, false, false)
+            S2IIOE!(grid, grid_u, grid_v, LSA, LSB, tmp_tracer, tracer, θ_out, ind.MIXED, τ, false, false)
             try
-                #u .= reshape(gmres(LSA,(LSB*vec(u))), (ny,nx))
                 tracer .= reshape(gmres(LSA,(LSB*vec(tracer))), (ny,nx))
             catch
                 @error ("Inadequate level set function, iteration $current_i")
@@ -284,7 +269,6 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
 
             if nb_reinit > 0
                 if current_i%num.reinit_every == 0
-                    #FE_reinit(grid, ind, u, nb_reinit, BC_u, periodic_x, periodic_y)
                     FE_reinit(grid, ind, tracer, nb_reinit, Boundaries(), false, false)
                 end
             end
@@ -338,45 +322,13 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
         end
 
         if navier_stokes
-            if !free_surface
-                no_slip_condition!(grid, grid_u, grid_v)
-                grid_u.V .= imfilter(grid_u.V, Kernel.gaussian(2))
-                grid_v.V .= imfilter(grid_v.V, Kernel.gaussian(2))
-                # grid_u.V .= Δ / (1 * τ)
-                # grid_v.V .= 0.0
-            end
+            no_slip_condition!(grid, grid_u, grid_v)
 
-            if ns_solid_phase
-                if free_surface
-                    Mm1_S, Mum1_S, Mvm1_S = projection_fs!(num, grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, phS,
-                                                            BC_uS, BC_vS, BC_pS,
-                                                            opC_pS, opC_uS, opC_vS,
-                                                            Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S,
-                                                            ind.SOLID, ind.MIXED, periodic_x, periodic_y, current_i)
-                else
-                    Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S = projection_no_slip!(num, grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, phS,
-                                                                                               BC_uS, BC_vS, BC_pS,
-                                                                                               opC_pS, opC_uS, opC_vS,
-                                                                                               Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S,
-                                                                                               ind.SOLID, ind.MIXED, periodic_x, periodic_y)
-                end
-                
-            end
-            if ns_liquid_phase
-                if free_surface
-                    Mm1_L, Mum1_L, Mvm1_L = projection_fs!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,
-                                                            BC_uL, BC_vL, BC_pL,
-                                                            opC_pL, opC_uL, opC_vL,
-                                                            Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L,
-                                                            ind.LIQUID, ind.MIXED, periodic_x, periodic_y, current_i)
-                else
-                   Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L = projection_no_slip!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,
-                                                                                              BC_uL, BC_vL, BC_pL,
-                                                                                              opC_pL, opC_uL, opC_vL,
-                                                                                              Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L,
-                                                                                              ind.LIQUID, ind.MIXED, periodic_x, periodic_y)
-                end
-            end
+            Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L = projection_no_slip!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,
+                                                                                        BC_uL, BC_vL, BC_pL,
+                                                                                        opC_pL, opC_uL, opC_vL,
+                                                                                        Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L,
+                                                                                        ind.LIQUID, ind.MIXED, periodic_x, periodic_y)
         end
 
         current_t += τ
