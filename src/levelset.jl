@@ -482,8 +482,8 @@ function FE_reinit(grid, ind, u, nb_reinit, BC_u, periodic_x, periodic_y)
     end
 end
 
-function velocity_extension!(grid, inside, NB)
-    @unpack dx, dy, V, u = grid
+function velocity_extension!(grid, V, inside, NB)
+    @unpack dx, dy, u = grid
 
     local cfl = 0.45
     local Vt = similar(V)
@@ -502,8 +502,8 @@ function velocity_extension!(grid, inside, NB)
     end
 end
 
-function velocity_extension!(grid, indices, NB, periodic_x, periodic_y)
-    @unpack nx, ny, dx, dy, V, u, ind = grid
+function velocity_extension!(grid, u, V, indices, NB, periodic_x, periodic_y)
+    @unpack nx, ny, dx, dy, ind = grid
 
     local cfl = 0.45
     local Vt = similar(V)
@@ -529,8 +529,8 @@ function velocity_extension!(grid, indices, NB, periodic_x, periodic_y)
     end
 end
 
-function field_extension!(grid, f, indices, NB, periodic_x, periodic_y)
-    @unpack nx, ny, dx, dy, u = grid
+function field_extension!(grid, u, f, indices, NB, periodic_x, periodic_y)
+    @unpack nx, ny, dx, dy = grid
 
     local cfl = 0.45
     local ft = similar(f)
@@ -663,4 +663,32 @@ function interpolate_scalar!(grid, grid_u, grid_v, u, uu, uv)
     end
     
     return nothing
+end
+
+function breakup(u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, ϵ_break)
+    u_copy = copy(u)
+    local count = 0
+    for II in NB_indices
+        if !((II[2] == 1 || II[2] == nx) && !periodic_x)
+            if (u_copy[II]*u_copy[δx⁺(II, nx, periodic_x)] < 0) && (u_copy[II]*u_copy[δx⁻(II, nx, periodic_x)] < 0)
+                if (abs(u_copy[δx⁺(II, nx, periodic_x)]) < (dx[δx⁺(II, nx, periodic_x)]/2 - ϵ_break) &&
+                    abs(u_copy[δx⁻(II, nx, periodic_x)]) < (dx[δx⁻(II, nx, periodic_x)]/2 - ϵ_break) &&
+                    abs(u_copy[II]) > (dx[II]/2))
+                    u[II] *= -1
+                    count += 1
+                end
+            end
+        end
+        if !((II[1] == 1 || II[1] == ny) && !periodic_y)
+            if (u_copy[II]*u_copy[δy⁺(II, ny, periodic_y)] < 0) && (u_copy[II]*u_copy[δy⁻(II, ny, periodic_y)] < 0)
+                if (abs(u_copy[δy⁺(II, ny, periodic_y)]) < (dy[δy⁺(II, ny, periodic_y)]/2 - ϵ_break) &&
+                    abs(u_copy[δy⁻(II, ny, periodic_y)]) < (dy[δy⁻(II, ny, periodic_y)]/2 - ϵ_break) &&
+                    abs(u_copy[II]) > (dy[II]/2))
+                    u[II] *= -1
+                    count += 1
+                end
+            end
+        end
+    end
+    return count
 end

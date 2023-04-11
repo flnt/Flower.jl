@@ -11,6 +11,8 @@ import Base.+
 import Base.-
 import Base.abs
 import Base.OneTo
+import Base.ones
+import Base.zeros
 
 @reexport using Printf
 @reexport using Statistics
@@ -34,7 +36,6 @@ import Base.OneTo
 @reexport using ImageFiltering
 @reexport using JLD
 @reexport using SuiteSparse
-@reexport using Krylov
 @reexport using DDM
 
 include("types.jl")
@@ -49,10 +50,13 @@ include("heat_coupled.jl")
 include("navier_stokes.jl")
 include("navier_stokes_coupled.jl")
 include("run.jl")
-include("run_one_phase.jl")
+include("discrete_adjoint.jl")
+include("run_discrete_adjoint.jl")
+include("common_run.jl")
 include("optimize.jl")
 include("viz.jl")
 include("tools.jl")
+include("run_one_phase.jl")
 
 export_all()
 

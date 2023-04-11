@@ -14,7 +14,6 @@ abstract type AbstractOptimizer end
     Δ::Float64 = min(diff(x)..., diff(y)...)
     shift::Float64 = 0.0
     shifted::Float64 = shift*Δ
-    shift_y::Float64 = shift * Δ
     τ::Float64 = min(CFL*Δ^2*Re, CFL*Δ)
     max_iterations::Int = TEND÷τ
     current_i::Int = 1
@@ -63,6 +62,12 @@ end
     b_bottom::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
     b_right::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
     b_top::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
+    MIXED::Vector{CartesianIndex{2}}
+    MIXED_ext::Vector{CartesianIndex{2}}
+    LIQUID::Vector{CartesianIndex{2}}
+    LIQUID_ext::Vector{CartesianIndex{2}}
+    SOLID::Vector{CartesianIndex{2}}
+    SOLID_ext::Vector{CartesianIndex{2}}
 end
 
 struct Point{T <: Number}
@@ -215,30 +220,35 @@ mutable struct Phase{T <: Float64} <: MutatingFields
     ϕD::Array{T,1}
     uD::Array{T,1}
     vD::Array{T,1}
-    uvD::Array{T,1}
-    uvϕD::Array{T,1}
+    ucorrD::Array{T,1}
+    vcorrD::Array{T,1}
 end
 
 mutable struct Forward{T <: Float64} <: MutatingFields
-    Tall::Array{T,2}
-    usave::Array{T,3}
-    uusave::Array{T,3}
-    uvsave::Array{T,3}
-    TSsave::Array{T,3}
-    TLsave::Array{T,3}
-    Tsave::Array{T,3}
-    psave::Array{T,3}
-    ϕsave::Array{T,3}
-    Uxsave::Array{T,3}
-    Uysave::Array{T,3}
-    Uxcorrsave::Array{T,3}
-    Uycorrsave::Array{T,3}
-    Vsave::Array{T,3}
-    κsave::Array{T,3}
-    lengthsave::Array{T,1}
-    tv::Array{T,1}
+    T::Array{T,3}
+    u::Array{T,3}
+    ux::Array{T,3}
+    uy::Array{T,3}
+    V::Array{T,3}
+    κ::Array{T,3}
+    length::Array{T,1}
+    t::Array{T,1}
     Cd::Array{T,1}
     Cl::Array{T,1}
+end
+
+mutable struct ForwardPhase{T <: Float64} <: MutatingFields
+    T::Array{T,3}
+    p::Array{T,3}
+    ϕ::Array{T,3}
+    u::Array{T,3}
+    v::Array{T,3}
+    ucorr::Array{T,3}
+    vcorr::Array{T,3}
+    TD::Array{T,2}
+    pD::Array{T,2}
+    ucorrD::Array{T,2}
+    vcorrD::Array{T,2}
 end
 
 mutable struct Desired{T <: Float64} <: AbstractOptimizer
@@ -269,6 +279,48 @@ mutable struct my_Adjoint{T <: Float64} <: MutatingFields
     DTL::Array{T,2}
     V::Array{T,2}
     κ::Array{T, 2}
+end
+
+mutable struct adjoint_phase{T <: Float64} <: MutatingFields
+    TD::Array{T,2}
+    pD::Array{T,2}
+    u::Array{T,2}
+    v::Array{T,2}
+    ucorrD::Array{T,2}
+    vcorrD::Array{T,2}
+end
+
+mutable struct adjoint_fields{T <: Float64} <: MutatingFields
+    u::Array{T,2}
+    phS::adjoint_phase{T}
+    phL::adjoint_phase{T}
+end
+
+mutable struct adjoint_derivatives{T <: Float64} <: MutatingFields
+    RheatS_ls::SparseMatrixCSC{T,Int64} # Derivative of solid phase heat eq. wrt. levelset
+    RheatL_ls::SparseMatrixCSC{T,Int64} # Derivative of liquid phase heat eq. wrt. levelset
+    RlsS_ls::SparseMatrixCSC{T,Int64} # Derivative of Stefan levelset advection eq. wrt. levelset
+    RlsS_TS::SparseMatrixCSC{T,Int64} # Derivative of Stefan levelset advection eq. wrt. solid temperature 
+    RlsS_TL::SparseMatrixCSC{T,Int64} # Derivative of Stefan levelset advection eq. wrt. liquid temperature
+    RucorrS_ls0::SparseMatrixCSC{T,Int64} # Derivative of solid phase prediction step in x wrt. levelset at prev. it.
+    RucorrS_ls1::SparseMatrixCSC{T,Int64} # Derivative of solid phase prediction step in x wrt. levelset
+    RucorrL_ls0::SparseMatrixCSC{T,Int64} # Derivative of liquid phase prediction step in x wrt. levelset at prev. it.
+    RucorrL_ls1::SparseMatrixCSC{T,Int64} # Derivative of liquid phase prediction step in x wrt. levelset
+    RvcorrS_ls0::SparseMatrixCSC{T,Int64} # Derivative of solid phase prediction step in y wrt. levelset at prev. it.
+    RvcorrS_ls1::SparseMatrixCSC{T,Int64} # Derivative of solid phase prediction step in y wrt. levelset
+    RvcorrL_ls0::SparseMatrixCSC{T,Int64} # Derivative of liquid phase prediction step in y wrt. levelset at prev. it.
+    RvcorrL_ls1::SparseMatrixCSC{T,Int64} # Derivative of liquid phase prediction step in y wrt. levelset
+    RpS_ls::SparseMatrixCSC{T,Int64} # Derivative of solid phase Poisson eq. wrt. levelset
+    RpL_ls::SparseMatrixCSC{T,Int64} # Derivative of liquid phase Poisson eq. wrt. levelset
+    RuS_ls::SparseMatrixCSC{T,Int64} # Derivative of solid phase projection step in x wrt. levelset
+    RuL_ls::SparseMatrixCSC{T,Int64} # Derivative of liquid phase projection step in x wrt. levelset
+    RvS_ls::SparseMatrixCSC{T,Int64} # Derivative of solid phase projection step in y wrt. levelset
+    RvL_ls::SparseMatrixCSC{T,Int64} # Derivative of liquid phase projection step in y wrt. levelset
+    RlsFS_ls::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. levelset
+    RlsFS_ucorrS::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. solid horizontal velocity 
+    RlsFS_ucorrL::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. liquid horizontal velocity 
+    RlsFS_vcorrS::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. solid vertical velocity
+    RlsFS_vcorrL::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. liquid vertical velocity
 end
 
 abstract type BoundaryCondition end

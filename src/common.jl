@@ -20,6 +20,20 @@ const newaxis = [CartesianIndex()]
 @inline δx⁺(II, nx, per) = per && II[2]==nx ? CartesianIndex(II[1], 1) : δx⁺(II)
 @inline δx⁻(II, nx, per) = per && II[2]==1 ? CartesianIndex(II[1], nx) : δx⁻(II)
 
+@inline fzeros(g::G) where {G<:Grid} = zeros(g.ny*g.nx)
+@inline fones(g::G) where {G<:Grid} = ones(g.ny*g.nx)
+@inline zeros(g::G) where {G<:Grid} = zeros(g.ny,g.nx)
+@inline ones(g::G) where {G<:Grid} = ones(g.ny,g.nx)
+
+@inline fzeros(a,g::G) where {G<:Grid} = zeros(a,g.ny*g.nx)
+@inline fones(a,g::G) where {G<:Grid} = ones(a,g.ny*g.nx)
+@inline fzeros(g::G,a) where {G<:Grid} = zeros(g.ny*g.nx,a)
+@inline fones(g::G,a) where {G<:Grid} = ones(g.ny*g.nx,a)
+@inline zeros(a,g::G) where {G<:Grid} = zeros(a,g.ny,g.nx)
+@inline ones(a,g::G) where {G<:Grid} = ones(a,g.ny,g.nx)
+@inline zeros(g::G,a) where {G<:Grid} = zeros(g.ny,g.nx,a)
+@inline ones(g::G,a) where {G<:Grid} = ones(g.ny,g.nx,a)
+
 # Temporary function to get a certain field from a vector with 
 # multiple fields. To be removed when working with decomposed 
 # vectors directly
@@ -154,12 +168,12 @@ end
     dy⁺ = 0.5 * (dy[II] + dy[δy⁺(II, ny, per_y)])
     dy⁻ = 0.5 * (dy[δy⁻(II, ny, per_y)] + dy[II])
 
-    B = inv((@SMatrix [(dy⁻/_dy)^2 -dy⁻/_dy 1.0;
+    B = inv((@SMatrix [(dx⁻/_dx)^2 -dx⁻/_dx 1.0;
         0.0 0.0 1.0;
-        (dy⁺/_dy)^2 dy⁺/_dy 1.0]))
+        (dx⁺/_dx)^2 dx⁺/_dx 1.0]))
 
-    BT = inv((@SMatrix [(dx⁻/_dx)^2 0.0 (dx⁺/_dx)^2;
-        -dx⁻/_dx 0.0 dx⁺/_dx;
+    BT = inv((@SMatrix [(dy⁻/_dy)^2 0.0 (dy⁺/_dy)^2;
+        -dy⁻/_dy 0.0 dy⁺/_dy;
         1.0 1.0 1.0]))
 
     return B, BT
@@ -213,27 +227,8 @@ end
 
 
 @inline parabola_fit_curvature(itp, mid_point, dx, dy) =
-    @inbounds 2*itp[1,3]/((1+(2*itp[1,3]*mid_point.y/dy + itp[2,3])^2)^1.5)/(dy)^2 +
-              2*itp[3,1]/((1+(2*itp[3,1]*mid_point.x/dx + itp[3,2])^2)^1.5)/(dx)^2
-    
-# @inline parabola_fit_curvature(itp, mid_point, dx2, dy2) =
-#     @inbounds 2*itp[1,3]/((1+(1/dy2)^2*(2*itp[1,3]*mid_point.y/dy2 + itp[2,3])^2)^1.5)/(dy2)^2 +
-#               2*itp[3,1]/((1+(1/dx2)^2*(2*itp[3,1]*mid_point.x/dx2 + itp[3,2])^2)^1.5)/(dx2)^2
-
-# function parabola_fit_curvature(itp, mid_point, dx, dy)
-#     x = mid_point.x / dx
-#     y = mid_point.y / dy
-
-#     ay = itp[1,1] * x ^ 2 + itp[1,2] * x + itp[1,3]
-#     by = itp[2,1] * x ^ 2 + itp[2,2] * x + itp[2,3]
-#     ax = itp[1,1] * y ^ 2 + itp[2,1] * y + itp[3,1]
-#     bx = itp[1,2] * y ^ 2 + itp[2,2] * y + itp[3,2]
-
-#     κ = 2*ay/((1+(2*ay*mid_point.y/dy + by)^2)^1.5)/(dy)^2 +
-#         2*ax/((1+(2*ax*mid_point.x/dx + bx)^2)^1.5)/(dx)^2
-
-#     return κ
-# end
+    @inbounds 2*itp[1,3]/((1+(2*itp[1,3]*mid_point.x/dx + itp[2,3])^2)^1.5)/(dx)^2 +
+              2*itp[3,1]/((1+(2*itp[3,1]*mid_point.y/dy + itp[3,2])^2)^1.5)/(dy)^2
 
 @inline function linear_fit(a, b, x)
     a = (a - b)/sign(x+eps(0.1))
@@ -429,6 +424,105 @@ function kill_dead_cells!(T::Vector, grid, geo)
         end
     end
 end
+
+function kill_dead_cells!(S::SubArray{T,N,P,I,L}, grid, geo) where {T,N,P<:Vector{T},I,L}
+    @unpack ny, ind = grid
+
+    @inbounds @threads for II in ind.all_indices
+        pII = lexicographic(II, ny)
+        if geo.cap[II,5] < 1e-12
+            S[pII] = 0.
+        end
+    end
+end
+
+function init_borders!(T::Matrix, BC_T, val=0.0)
+    if is_dirichlet(BC_T.left.t)
+        BCval = ones(size(T[:,1],1)) .* BC_T.left.val
+        T[2:end-1,1] .= BCval[2:end-1]
+    elseif is_periodic(BC_T.left.t)
+        T[2:end-1,1] .= val
+    end
+    if is_dirichlet(BC_T.bottom.t)
+        BCval = ones(size(T[1,:],1)).* BC_T.bottom.val
+        T[1,:] .= BCval
+    elseif is_periodic(BC_T.bottom.t)
+        T[1,:] .= val
+    end
+    if is_dirichlet(BC_T.right.t)
+        BCval = ones(size(T[:,end],1)) .* BC_T.right.val
+        T[2:end-1,end] .= BCval[2:end-1]
+    elseif is_periodic(BC_T.right.t)
+        T[2:end-1,end] .= val
+    end
+    if is_dirichlet(BC_T.top.t)
+        BCval = ones(size(T[end,:],1)) .* BC_T.bottom.val
+        T[end,:] .= BCval
+    elseif is_periodic(BC_T.top.t)
+        T[end,:] .= val
+    end
+end
+
+@inline function star0(grid, val=0.0)
+    spdiagm(0 => val.*ones(grid.ny*grid.nx))
+end
+
+@inline function star1(g, val=0.0)
+    spdiagm(0 => val.*ones(g.ny*g.nx), # i,j
+            -g.ny => val.*ones(g.ny*(g.nx-1)), # i-1,j
+            -1 => val.*ones(g.ny*g.nx-1), # i,j-1
+            g.ny => val.*ones(g.ny*(g.nx-1)), # i+1,j
+            1 => val.*ones(g.ny*g.nx-1), # i,j+1
+    )
+end
+
+@inline function star2(g, val=0.0)
+    spdiagm(0 => val.*ones(g.ny*g.nx), # i,j
+            -g.ny => val.*ones(g.ny*(g.nx-1)), # i-1,j
+            -1 => val.*ones(g.ny*g.nx-1), # i,j-1
+            g.ny => val.*ones(g.ny*(g.nx-1)), # i+1,j
+            1 => val.*ones(g.ny*g.nx-1), # i,j+1
+            -2g.ny => val.*ones(g.ny*(g.nx-2)), # i-2,j
+            -2 => val.*ones(g.ny*g.nx-2), # i,j-2
+            2g.ny => val.*ones(g.ny*(g.nx-2)), # i+2,j
+            2 => val.*ones(g.ny*g.nx-2), # i,j+2
+            -g.ny-1 => val.*ones(g.ny*(g.nx-1)-1), # i-1,j-1
+            g.ny-1 => val.*ones(g.ny*(g.nx-1)+1), # i+1,j-1
+            g.ny+1 => val.*ones(g.ny*(g.nx-1)-1), # i+1,j+1
+            -g.ny+1 => val.*ones(g.ny*(g.nx-1)+1), # i-1,j+1
+    )
+end
+
+@inline function star3(g, val=0.0)
+    spdiagm(0 => val.*ones(g.ny*g.nx), # i,j
+            -g.ny => val.*ones(g.ny*(g.nx-1)), # i-1,j
+            -1 => val.*ones(g.ny*g.nx-1), # i,j-1
+            g.ny => val.*ones(g.ny*(g.nx-1)), # i+1,j
+            1 => val.*ones(g.ny*g.nx-1), # i,j+1
+            -2g.ny => val.*ones(g.ny*(g.nx-2)), # i-2,j
+            -2 => val.*ones(g.ny*g.nx-2), # i,j-2
+            2g.ny => val.*ones(g.ny*(g.nx-2)), # i+2,j
+            2 => val.*ones(g.ny*g.nx-2), # i,j+2
+            -g.ny-1 => val.*ones(g.ny*(g.nx-1)-1), # i-1,j-1
+            g.ny-1 => val.*ones(g.ny*(g.nx-1)+1), # i+1,j-1
+            g.ny+1 => val.*ones(g.ny*(g.nx-1)-1), # i+1,j+1
+            -g.ny+1 => val.*ones(g.ny*(g.nx-1)+1), # i-1,j+1
+            -3g.ny => val.*ones(g.ny*(g.nx-3)), # i-3,j
+            -3 => val.*ones(g.ny*g.nx-3), # i,j-3
+            3g.ny => val.*ones(g.ny*(g.nx-3)), # i+3,j
+            3 => val.*ones(g.ny*g.nx-3), # i,j+3
+            -g.ny-2 => val.*ones(g.ny*(g.nx-1)-2), # i-1,j-2
+            g.ny-2 => val.*ones(g.ny*(g.nx-1)+2), # i+1,j-2
+            g.ny+2 => val.*ones(g.ny*(g.nx-1)-2), # i+1,j+2
+            -g.ny+2 => val.*ones(g.ny*(g.nx-1)+2), # i-1,j+2
+            -2g.ny-1 => val.*ones(g.ny*(g.nx-2)-1), # i-2,j-1
+            2g.ny-1 => val.*ones(g.ny*(g.nx-2)+1), # i+2,j-1
+            2g.ny+1 => val.*ones(g.ny*(g.nx-2)-1), # i+2,j+1
+            -2g.ny+1 => val.*ones(g.ny*(g.nx-2)+1), # i-2,j+1
+    )
+end
+
+Base.copy(x::T) where T = T([getfield(x, k) for k ∈ fieldnames(T)]...)
 
 """
     export_all()
