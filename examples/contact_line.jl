@@ -8,8 +8,9 @@ T = Float64 # not used
 
 Lx = 1
 Ly = 1
-nx = 32
-ny = nx
+nx = 30
+ny = 12
+dx = Lx/nx
 
 num = Numerical( # defined in types.jl
     # DDM parameters
@@ -48,8 +49,8 @@ num = Numerical( # defined in types.jl
 
     # Contact angle parameters
     Ca=0.1, # Capillary number
-    εCA=0.078125, # width
-    λCA=0.0012, # slip lenght
+    εCA=dx, # width
+    λCA=dx, # slip lenght
     θe=70.0, # prescribed contact angle
 )
 
@@ -117,24 +118,30 @@ contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[2, :, :]', levels=0:0, color=:red, linew
 contour!(gp.x[1, :], gp.y[:, 1], tracer', levels=0:0, color=:red, linewidth=3)
 Makie.save("contact_line_fu.png", fu)
 
-fv = Figure();
-ax = Axis(fv[1, 1],
-    title="t=$(round(fwd.t[end], digits=3))",
-    xlabel="x",
-    ylabel="y")
-hm = heatmap!(gv.x[1, :], gv.y[:, 1], fwdL.v[end, :, :]')
-Colorbar(fv[1, 2], hm, label="v")
-contour!(gp.x[1, :], gp.y[:, 1], tracer',
-    levels=0:0, color=:red, linewidth=3);
-Makie.save("contact_line_fv.png", fv)
+# fv = Figure();
+# ax = Axis(fv[1, 1],
+#     title="t=$(round(fwd.t[end], digits=3))",
+#     xlabel="x",
+#     ylabel="y")
+# hm = heatmap!(gv.x[1, :], gv.y[:, 1], fwdL.v[end, :, :]')
+# Colorbar(fv[1, 2], hm, label="v")
+# contour!(gp.x[1, :], gp.y[:, 1], tracer',
+#     levels=0:0, color=:red, linewidth=3);
+# Makie.save("contact_line_fv.png", fv)
 
-fp = Figure()
-ax = Axis(fp[1, 1],
-    title="t=$(round(fwd.t[end], digits=3))",
-    xlabel="x",
-    ylabel="y")
-hm = heatmap!(gp.x[1, :], gp.y[:, 1], fwdL.p[end, :, :]')
-Colorbar(fp[1, 2], hm, label="p")
-contour!(gp.x[1, :], gp.y[:, 1], tracer',
-levels=0:0, color=:red, linewidth=3);
-Makie.save("contact_line_fp.png", fp)
+# fp = Figure()
+# ax = Axis(fp[1, 1],
+#     title="t=$(round(fwd.t[end], digits=3))",
+#     xlabel="x",
+#     ylabel="y")
+# hm = heatmap!(gp.x[1, :], gp.y[:, 1], fwdL.p[end, :, :]')
+# Colorbar(fp[1, 2], hm, label="p")
+# contour!(gp.x[1, :], gp.y[:, 1], tracer',
+# levels=0:0, color=:red, linewidth=3);
+# Makie.save("contact_line_fp.png", fp)
+
+
+index_CL, x_Cl_vec, bell_function = ricardotest(gp,num)
+@show index_CL
+@show x_Cl_vec
+@show bell_function
