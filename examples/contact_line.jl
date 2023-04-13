@@ -8,9 +8,8 @@ T = Float64 # not used
 
 Lx = 1
 Ly = 1
-nx = 30
-ny = 12
-dx = Lx/nx
+nx = 32
+ny = 16
 
 num = Numerical( # defined in types.jl
     # DDM parameters
@@ -49,8 +48,8 @@ num = Numerical( # defined in types.jl
 
     # Contact angle parameters
     Ca=0.1, # Capillary number
-    εCA=dx, # width
-    λCA=dx, # slip lenght
+    εCA=0.03125, # width
+    λCA=0.03125, # slip lenght
     θe=70.0, # prescribed contact angle
 )
 
@@ -104,7 +103,6 @@ initial_tracer = copy(tracer)
 #  that is used to compute the corresponding capacities
 # The actual levelset is gp.u, which is the one that is advected
 # gu.u and gv.u are just interpolated fields from gp.u
-
 fu = Figure();
 ax = Axis(fu[1, 1],
     title="t=$(round(fwd.t[end], digits=3))",
@@ -116,6 +114,20 @@ Colorbar(fu[1, 2], hm, label="u")
 
 contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[2, :, :]', levels=0:0, color=:red, linewidth=2.0, linestyle=:dash)
 contour!(gp.x[1, :], gp.y[:, 1], tracer', levels=0:0, color=:red, linewidth=3)
+
+#lines!(myplot, rand(10), color = myplot[:plot_color])
+
+
+youngstress= zeros(size(gp.ind.b_bottom[1]))
+youngstress = compute_young_stress(gp,num,gp.ind.b_bottom[1])
+
+lines!(gp.x[1,:], youngstress)
+
+bell = zeros(size(gp.ind.b_bottom[1]))
+bell = test_bell(gp,num)
+lines!(gp.x[1,:], bell.+gp.y[1, 1])
+
+
 Makie.save("contact_line_fu.png", fu)
 
 # fv = Figure();
@@ -139,9 +151,3 @@ Makie.save("contact_line_fu.png", fu)
 # contour!(gp.x[1, :], gp.y[:, 1], tracer',
 # levels=0:0, color=:red, linewidth=3);
 # Makie.save("contact_line_fp.png", fp)
-
-
-index_CL, x_Cl_vec, bell_function = ricardotest(gp,num)
-@show index_CL
-@show x_Cl_vec
-@show bell_function
