@@ -903,6 +903,10 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
         @inbounds for i = 0:(ny÷2-1)
             u[end-i,:] = u[i+1,:]
         end
+    elseif num.case == "Square"
+
+        u .= max.(abs.(x), abs.(y)) .- (R) * ones(ny,nx)
+
     end
 
     return (Operators(SCUTT, SCUTp, SCUTu, SCUTv, SCUTDx, SCUTDy, SCUTCT, SCUTGxT, SCUTGyT, SCUTGxp, SCUTGyp, SCUTGxϕ, SCUTGyϕ, SCUTCu, SCUTCv, LTS, LpS, LuS, LvS, AS, BS, GxpS, GypS, GxϕS, GyϕS, DxuS, DyvS, ApS, AuS, AvS, CTS, GxTS, GyTS, ftcGxTS, ftcGyTS, CuS, CvS, E11, E12_x, E12_y, E22, utpS, vtpS),

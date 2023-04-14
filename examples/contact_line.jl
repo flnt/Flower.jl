@@ -13,6 +13,8 @@ ny = 16
 dx= Lx/nx
 dy= Ly/ny
 
+@show dx, dy
+
 num = Numerical( # defined in types.jl
     # DDM parameters
     subdomains=2,
@@ -24,9 +26,9 @@ num = Numerical( # defined in types.jl
     x=LinRange(-Lx / 2, Lx / 2, nx + 1),
     y=LinRange(-Ly / 2, Ly / 2, ny + 1),
     # physical parameters
-    Re=1.0,
+    Re=20.0,
     CFL=1.0, # backwards Euler
-    max_iterations=400,
+    max_iterations=300,
     u_inf=0.0,
     v_inf=1.0,
     save_every=1, #
@@ -38,30 +40,34 @@ num = Numerical( # defined in types.jl
     # R=1.0,
     # shift_y=1.5,
     nb_reinit=ny,
-    case="Planar", # params: shifted
+
+    case="Square",
     shifted=-1.e-3,
+    R = float(Lx/10),
 
     # case="Drop", # params: R, A, shifter 
     # shifted=0.0, 
     # R=h0, # radius of drop
     # A=0.02, # amplitude of perturbation
 
-    NB=0, # number of cells that the velocity is extended from the interface
+    NB=4, # number of cells that the velocity is extended from the interface
 
     # Contact angle parameters
     Ca=0.1, # Capillary number
-    εCA=0.03125, # width
-    λCA=0.03125, # slip lenght
-    θe=70.0, # prescribed contact angle
+    λCA=3*dy, # slip lenght > dy 
+    εCA=3*dy, # width
+    θe=40.0, # prescribed contact angle
 )
 
 gp, gu, gv = init_meshes(num)
 opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd, fwdL, fwdS = init_fields(num, gp, gu, gv)
 
-@. gp.u = gp.x + num.shifted
-tracer = copy(gp.u)
-gp.u .= 1.0; #level set is always equal to 1 => only LIQUID phase
-initial_tracer = copy(tracer)
+
+# Set initial condition to the level set 
+# Done in init.jl -> cases 
+
+# Set initial condition to the tracer 
+tracer = gp.x .+ num.shifted .+ float(Lx/7)
 
 @time run_forward_one_phase(num, gp, gu, gv, opL, opC_pL, opC_uL, opC_vL,
     phL, fwd, fwdL, tracer;
@@ -95,35 +101,48 @@ initial_tracer = copy(tracer)
     show_every=100
     )
 
-    fu = Figure();
+fu = Figure(resolution = (500, 500));
 ax = Axis(fu[1, 1],
     title="t=$(round(fwd.t[end], digits=3))",
     xlabel="x",
     ylabel="y")
+colsize!(fu.layout, 1, Aspect(1, 1.0))
+
+# Plot the velocity field u 
 hm = heatmap!(gu.x[1, :], gu.y[:, 1], fwdL.u[end, :, :]')
 Colorbar(fu[1, 2], hm, label="u")
-#contour!(gu.x[1, :], gu.y[:, 1], fwd.uusave[end, :, :]',levels=0:0, color=:blue, linewidth=3)
 
+for x in gp.x[1, :]
+    lines!(ax, [x, x], [minimum(gp.y), maximum(gp.y)], linewidth=0.5, color=:black)
+end
+for y in gp.y[:, 1]
+    lines!(ax, [minimum(gp.x), maximum(gp.x)], [y, y], linewidth=0.5, color=:black)
+end
+
+# Plot object (i.e. the levelset gp.u)
+contour!(gp.x[1, :], gp.y[:, 1], gp.u', levels = 0:0, color=:gray, linewidth=7)
+
+# Plot the initial and current tacer 
 contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[2, :, :]', levels=0:0, color=:red, linewidth=2.0, linestyle=:dash)
 contour!(gp.x[1, :], gp.y[:, 1], tracer', levels=0:0, color=:red, linewidth=3)
 
-# for x in gp.x[1, :]
-#     lines!(ax, [x, x], [minimum(gp.y), maximum(gp.y)], linewidth=1, color=:red)
-# end
-# for y in gp.y[:, 1]
-#     lines!(ax, [minimum(gp.x), maximum(gp.x)], [y, y], linewidth=1, color=:red)
-# end
 
-# youngstress= zeros(size(gp.ind.b_bottom[1]))
-# youngstress = compute_young_stress(gp,num,gp.ind.b_bottom[1])
-# @show youngstress
-# lines!(gp.x[1,:], youngstress)
+yss= zeros(size(gp.ind.b_bottom[1]))
+yss = compute_young_stress(gp,num,gp.ind.b_bottom[1])
+yss = yss./maximum(yss)/3
+@show yss
+lines!(gp.x[1,:], yss.+gp.y[1, 1], color=:green, linewidth=3)
 
-#bell = zeros(size(gp.ind.b_bottom[1]))
-bell = test_bell(gp,num)
-lines!(gp.x[1,:], ((bell/10) .+gp.y[1, 1]))
+# bell = test_bell(gp,num)
+# normalized_bell = bell/maximum(bell)/3
+# lines!(gp.x[1,:], normalized_bell.+gp.y[1, 1], color=:blue, linewidth=2)
+
+resize_to_layout!(fu)
 Makie.save("contact_line_fu.png", fu)
 
+
+
+#compute_young_stress(gp,num,gp.ind.b_bottom[1]) 
 # fv = Figure();
 # ax = Axis(fv[1, 1],
 #     title="t=$(round(fwd.t[end], digits=3))",

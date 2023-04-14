@@ -57,6 +57,7 @@ include("optimize.jl")
 include("viz.jl")
 include("tools.jl")
 include("run_one_phase.jl")
+include("contact_line.jl")
 
 export_all()
 
