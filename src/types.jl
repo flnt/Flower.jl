@@ -124,6 +124,7 @@ mutable struct Mesh{G,T,N} <: Grid where {G<:Grid}
     mid_point::Array{Point{T},2}
     cut_points::Array{Vector{Point{T}},2}
     α::Array{T,2}
+    Young::Array{T,2} # maybe transform in sparse ?
     κ::Array{T,2}
     V::Array{T,2}
     LSA::SparseMatrixCSC{T,N}

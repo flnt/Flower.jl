@@ -76,6 +76,8 @@ function Mesh(grid, x_nodes, y_nodes, s, o)
 
     α = zeros(ny, nx)
     α .= NaN
+    Young = zeros(ny, nx)
+
     κ = zeros(ny, nx)
     V = zeros(ny, nx)
 
@@ -120,7 +122,7 @@ function Mesh(grid, x_nodes, y_nodes, s, o)
     pou = uniform(domdec)
 
     return Mesh{grid,Float64,Int64}(x_nodes, y_nodes, x, y, nx, ny, dx, dy, ind, u, iso, faces, 
-                geoS, geoL, mid_point, cut_points, α, κ, V, LSA, LSB, domdec, pou)
+                geoS, geoL, mid_point, cut_points, α, Young, κ, V, LSA, LSB, domdec, pou)
 end
 
 function init_meshes(num::NumericalParameters)

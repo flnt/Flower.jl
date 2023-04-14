@@ -10,6 +10,8 @@ Lx = 1
 Ly = 1
 nx = 32
 ny = 16
+dx= Lx/nx
+dy= Ly/ny
 
 num = Numerical( # defined in types.jl
     # DDM parameters
@@ -24,7 +26,7 @@ num = Numerical( # defined in types.jl
     # physical parameters
     Re=1.0,
     CFL=1.0, # backwards Euler
-    max_iterations=120,
+    max_iterations=400,
     u_inf=0.0,
     v_inf=1.0,
     save_every=1, #
@@ -72,7 +74,7 @@ initial_tracer = copy(tracer)
     BC_vL=Boundaries(
         left=Boundary(t=per, f=periodic),
         right=Boundary(t=per, f=periodic),
-        bottom=Boundary(t=nav, f=navier),
+        bottom=Boundary(t=nav, f=navier, val=0.0),
     ),
     BC_pL=Boundaries( # pressure 
         left=Boundary(t=per, f=periodic),
@@ -93,17 +95,7 @@ initial_tracer = copy(tracer)
     show_every=100
     )
 
-# @show (initial_tracer == tracer)
-
-# 3 different grids: 
-# gp - we use for temperature and pressure, 
-# gu - we use for the velocity u
-# gv - we use for the velocity v
-# Each grid has a levelset (gp.u, gu.u and gv.u) 
-#  that is used to compute the corresponding capacities
-# The actual levelset is gp.u, which is the one that is advected
-# gu.u and gv.u are just interpolated fields from gp.u
-fu = Figure();
+    fu = Figure();
 ax = Axis(fu[1, 1],
     title="t=$(round(fwd.t[end], digits=3))",
     xlabel="x",
@@ -115,19 +107,21 @@ Colorbar(fu[1, 2], hm, label="u")
 contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[2, :, :]', levels=0:0, color=:red, linewidth=2.0, linestyle=:dash)
 contour!(gp.x[1, :], gp.y[:, 1], tracer', levels=0:0, color=:red, linewidth=3)
 
-#lines!(myplot, rand(10), color = myplot[:plot_color])
+# for x in gp.x[1, :]
+#     lines!(ax, [x, x], [minimum(gp.y), maximum(gp.y)], linewidth=1, color=:red)
+# end
+# for y in gp.y[:, 1]
+#     lines!(ax, [minimum(gp.x), maximum(gp.x)], [y, y], linewidth=1, color=:red)
+# end
 
+# youngstress= zeros(size(gp.ind.b_bottom[1]))
+# youngstress = compute_young_stress(gp,num,gp.ind.b_bottom[1])
+# @show youngstress
+# lines!(gp.x[1,:], youngstress)
 
-youngstress= zeros(size(gp.ind.b_bottom[1]))
-youngstress = compute_young_stress(gp,num,gp.ind.b_bottom[1])
-
-lines!(gp.x[1,:], youngstress)
-
-bell = zeros(size(gp.ind.b_bottom[1]))
+#bell = zeros(size(gp.ind.b_bottom[1]))
 bell = test_bell(gp,num)
-lines!(gp.x[1,:], bell.+gp.y[1, 1])
-
-
+lines!(gp.x[1,:], ((bell/10) .+gp.y[1, 1]))
 Makie.save("contact_line_fu.png", fu)
 
 # fv = Figure();

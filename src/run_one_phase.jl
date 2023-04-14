@@ -1,36 +1,44 @@
-
-# function locate_index(gp, indices)
-#     index_CL = zeros(Bool,size(indices)) # bolean vector all false with size of indices
-#     @inbounds @threads for II in indices # loop over the indices
-#         if gp.iso[II] in (1.,2.,6.,9.,13.,14.)
-#             index_CL[II] = true  #then we are in a CL cell
-#         end
-#     end
-#     return index_CL # CL contact line 
-# end
-
-function locate_index(gp, ind)
+function locate_index(iso, ind)
     index_CL = zeros(Bool, size(ind))
-    @inbounds @threads for i in eachindex(ind)
-        iso_value = gp.iso[ind[i]]
+    @inbounds for i in eachindex(ind)
+        iso_value = iso[ind[i]]
         index_CL[i] = iso_value != 0.0 && iso_value in (1., 2., 6., 9., 13., 14.) ? true : index_CL[i]
         #@show(i, ind[i], iso_value)
     end
     return index_CL
 end
 
+# for II in gp.ind.MIXED
+#     if gp.ind.MIXED[II] != 0 or gp.ind.MIXED[II] != 15
+#          = get x and y coord 
+#         x = gp.cut_points[1,i] # n,n matrix
+#         @show x
+#         if x[1].y == -0.5
+#             x_Cl_vec[i] = x[1].x
+#         elseif x[2].y == -0.5
+#             x_Cl_vec[i] = x[2].x
+#         end
+#         x_Cl_vec[i] *= gp.dx[1,i]
+#         x_Cl_vec[i] += gp.x[1,i]
+#         gp.Young[II] = 
+#     end
+# end
 
+#    
 # # make this function general to work with any direction
 function get_cut_points(gp, indices, index_CL)
     x_Cl_vec = zeros(size(indices)) # zero vector of size indices
     for i in findall(index_CL) # loop over true values of index_CL
     if indices == gp.ind.b_bottom[1]
         x = gp.cut_points[1,i] # n,n matrix
+        @show x
         if x[1].y == -0.5
             x_Cl_vec[i] = x[1].x
         elseif x[2].y == -0.5
             x_Cl_vec[i] = x[2].x
         end
+        x_Cl_vec[i] *= gp.dx[1,i]
+        x_Cl_vec[i] += gp.x[1,i]
     elseif indices == gp.ind.b_top[1]
         x = gp.cut_points[end,i]
         if x[1].y == 0.5
@@ -58,35 +66,42 @@ end
 end
 
 function compute_bell_function(gp,num,x_Cl_vec,index_CL,indices)
-    bell_function = zero(x_Cl_vec)
+    bell_function, rel_x = zeros(size(x_Cl_vec)), similar(x_Cl_vec)
     for i in findall(index_CL) # loop over all non-zeros
+        @show i,x_Cl_vec[i]
         if indices == gp.ind.b_bottom[1]
-            rel_x = gp.x[1,i] .- x_Cl_vec[i]
+            rel_x .= gp.x[1,:] .- x_Cl_vec[i]
         elseif indices == gp.ind.b_top[1]
-            rel_x = gp.x[end,i] .- x_Cl_vec[i]
+            rel_x .= gp.x[end,i] .- x_Cl_vec[i]
         elseif indices == gp.ind.b_left[1]
-            rel_x = gp.y[i,1] .- x_Cl_vec[i]
+            rel_x .= gp.y[i,1] .- x_Cl_vec[i]
         elseif indices == gp.ind.b_right[1]
-            rel_x = gp.y[i,end] .- x_Cl_vec[i]
+            rel_x .= gp.y[i,end] .- x_Cl_vec[i]
         end
-        bell_function .+= (1.0-tanh^2(rel_x/num.εCA))/num.εCA
+        bell_function .+= (1.0 .- tanh.(rel_x ./ num.εCA).^2)/1 #num.εCA
     end 
     return bell_function
 end
 
-# value to fill a0 
-function compute_young_stress(gp,num,indices)
-    if indices == gp.ind.b_bottom[1]
-        index_CL = locate_index(gp, indices)
-        x_Cl_vec = get_cut_points(gp, indices, index_CL)
-        bellf = compute_bell_function(gp,num,x_Cl_vec,index_CL,indices)
-        return bellf[:].*(1.0/num.Ca).*(cos.(gp.α[1,:]).-cos(num.θe*π/180))
-    end
+function test_bell(gp,num)
+    indices = gp.ind.b_bottom[1]
+    index_CL = locate_index(gp.iso,indices)
+    x_Cl_vec = get_cut_points(gp, indices, index_CL)
+    return compute_bell_function(gp,num,x_Cl_vec,index_CL,indices)
 end
 
-function run_forward_one_phase(num, grid, grid_u, grid_v,
-    opL, opC_pL, opC_uL, opC_vL, 
-    phL, fwd, tracer;
+# value to fill a0 
+function compute_young_stress(gp,num,indices)
+    index_CL = locate_index(gp.iso,indices)
+    x_Cl_vec = get_cut_points(gp, indices, index_CL)
+    bellf = zero(indices)
+    bellf = compute_bell_function(gp,num,x_Cl_vec,index_CL,indices)
+    stress = bellf[:].*(1.0/num.Ca).*(cos.(gp.α[1,:]).-cos(num.θe*π/180))
+    replace!(stress, NaN=>0.0)
+    return stress
+end
+
+function run_forward_one_phase(num, grid, grid_u, grid_v,opL, opC_pL, opC_uL, opC_vL, phL, fwd, fwdL, tracer;
     periodic_x = false,
     periodic_y = false,
     BC_pL = Boundaries(
@@ -120,21 +135,17 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
 
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re,
             max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
-    @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, V, κ, LSA, LSB = grid
+    @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, V, κ, LSA, LSB, α = grid
 
 
     local NB_indices;
-
     local Cum1L = zeros(grid_u.nx*grid_u.ny)
     local Cvm1L = zeros(grid_v.nx*grid_v.ny)
-
     local Mm1_L
     local Mum1_L
     local Mvm1_L
 
     θ_out = zeros(grid, 4)
-    utmp = copy(u)
-
     tmp_tracer = copy(tracer)
 
     if periodic_x
@@ -155,12 +166,12 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
         BC_u.top.ind = ind.b_top;
     end
 
-    if levelset
-        
-        NB_indices = update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y)
+    NB_indices = update_ls_data(num, grid, grid_u, grid_v, tracer, κ, periodic_x, periodic_y)
+    gp_iso_tmp = copy(iso); gp_alpha_tmp = copy(α)
+    NB_indices = update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y)       
+    iso .= gp_iso_tmp; α .= gp_alpha_tmp
 
     if ns_advection
-
         Cum1L .= opL.Cu * vec(phL.u) .+ opL.CUTCu
         Cvm1L .= opL.Cv * vec(phL.v) .+ opL.CUTCv
     end
@@ -171,40 +182,17 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
     @views fwd.u[1,:,:] .= u
     @views fwd.ux[1,:,:] .= grid_u.u
     @views fwd.uy[1,:,:] .= grid_v.u
-    @views fwd.T[1,:,:] .= phL.T.*geoL.cap[:,:,5] .+ phS.T[:,:].*geoS.cap[:,:,5]
-    @views fwdL.T[1,:,:] .= phL.T
-    @views fwdS.T[1,:,:] .= phS.T
-    @views fwdS.p[1,:,:] .= phS.p
     @views fwdL.p[1,:,:] .= phL.p
-    @views fwdS.u[1,:,:] .= phS.u
-    @views fwdS.v[1,:,:] .= phS.v
     @views fwdL.u[1,:,:] .= phL.u
     @views fwdL.v[1,:,:] .= phL.v
-
-    tmp = copy(phS.T)
-    tmp[2:end-1,2:end-1] .= θd
-    init_borders!(tmp, BC_TS, θd)
-    veci(phS.TD,grid,1) .= vec(phS.T)
-    veci(phS.TD,grid,2) .= vec(tmp)
-    @views fwdS.TD[1,:] .= phS.TD
-
-    tmp = copy(phL.T)
-    tmp[2:end-1,2:end-1] .= θd
-    init_borders!(tmp, BC_TL, θd)
-    veci(phL.TD,grid,1) .= vec(phL.T)
-    veci(phL.TD,grid,2) .= vec(tmp)
-    @views fwdL.TD[1,:] .= phL.TD
 
     tmp = ones(grid_u.ny, grid_u.nx) .* num.u_inf
     tmp[2:end-1,2:end-1] .= 0.0
     veci(phL.uD,grid_u,1) .= vec(phL.u)
     veci(phL.uD,grid_u,2) .= vec(tmp)
 
-    veci(phS.ucorrD,grid_u,1) .= vec(phS.u)
-    veci(phS.ucorrD,grid_u,2) .= vec(tmp)
     veci(phL.ucorrD,grid_u,1) .= vec(phL.u)
     veci(phL.ucorrD,grid_u,2) .= vec(tmp)
-    @views fwdS.ucorrD[1,:,:] .= phS.ucorrD
     @views fwdL.ucorrD[1,:,:] .= phL.ucorrD
 
     tmpv = ones(grid_v.ny, grid_v.nx) .* num.v_inf
@@ -242,26 +230,28 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
     # LOOP STARTS HERE
     while current_i < max_iterations + 1
 
-        if free_surface
-            update_free_surface_velocity(num, grid_u, grid_v, phL.uD, phL.vD, periodic_x, periodic_y)
-        end
+        #update_free_surface_velocity(num, grid_u, grid_v, phL.uD, phL.vD, periodic_x, periodic_y)
+        
+        # 1 is bulk field 
+        grid_u.V .= reshape(veci(phL.uD,grid_u,1), (grid_u.ny, grid_u.nx))
+        grid_v.V .= reshape(veci(phL.vD,grid_v,1), (grid_v.ny, grid_v.nx))
 
         if advection
             CFL_sc = τ / Δ^2
-                        # using Inflow-Implicit Outflow-Explicit (IIOE) Eq. 12 from Mikula (2014)
+            # using Inflow-Implicit Outflow-Explicit (IIOE) Eq. 12 from Mikula (2014)
             # First θ=1/2 (constant coefficient; Stefan problem)
             # Second θ=min() following Eq. 19/20 from Mikula (2014) (general case)
             level_update_IIOE!(grid, grid_u, grid_v, LSA, LSB, θ_out, ind.MIXED, τ, false, false)
 
             try
-                tmp_tracer .= reshape(gmres(LSA,(LSB*vec(tracer))), (ny,nx))
+                tmp_tracer .= reshape(gmres(LSA,(LSB*vec(tracer));verbose=false,log=false), (ny,nx))
             catch
                 @error ("Inadequate level set function, iteration $current_i")
                 break
             end
             S2IIOE!(grid, grid_u, grid_v, LSA, LSB, tmp_tracer, tracer, θ_out, ind.MIXED, τ, false, false)
             try
-                tracer .= reshape(gmres(LSA,(LSB*vec(tracer))), (ny,nx))
+                tracer .= reshape(gmres(LSA,(LSB*vec(tracer));verbose=false,log=false), (ny,nx))
             catch
                 @error ("Inadequate level set function, iteration $current_i")
                 break
@@ -272,8 +262,7 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
                     FE_reinit(grid, ind, tracer, nb_reinit, Boundaries(), false, false)
                 end
             end
-            # # numerical breakup
-            # if free_surface
+            # if free_surface # numerical breakup
             #     count = breakup(u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, 1e-5)
             #     if count > 0
             #         FE_reinit(grid, ind, u, nb_reinit, BC_u, periodic_x, periodic_y)
@@ -305,25 +294,21 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
             end
         end
 
-
         if levelset && (advection || current_i<2)
-            NB_indices = update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y)
+
+
+            NB_indices = update_ls_data(num, grid, grid_u, grid_v, tracer, κ, periodic_x, periodic_y)
+            gp_iso_tmp = copy(iso); gp_alpha_tmp = copy(α)
+            NB_indices = update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y)       
+            iso .= gp_iso_tmp; α .= gp_alpha_tmp
 
             if iszero(current_i%save_every) || current_i==max_iterations
                 snap = current_i÷save_every+1
-                if save_radius
-                    radius[snap] = find_radius(grid, ind.MIXED)
-                end
-                if save_length
-                    fwd.length[snap] = arc_length2(geoS.projection, ind.MIXED)
-                    fwd.κ[snap,:,:] .= κ
-                end
             end
         end
 
         if navier_stokes
             no_slip_condition!(grid, grid_u, grid_v)
-
             Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L = projection_no_slip!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,
                                                                                         BC_uL, BC_vL, BC_pL,
                                                                                         opC_pL, opC_uL, opC_vL,
@@ -342,7 +327,7 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
             @views fwd.u[snap,:,:] .= u
             @views fwd.ux[snap,:,:] .= grid_u.u
             @views fwd.uy[snap,:,:] .= grid_v.u
-            @views Tsave[snap,:,:] .= tracer
+            @views fwdL.T[snap,:,:] .= tracer
             @views fwdL.p[snap,:,:] .= phL.p
             @views fwdL.ϕ[snap,:,:] .= phL.ϕ
             @views fwdL.u[snap,:,:] .= phL.u
@@ -352,12 +337,11 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
         end
         current_i += 1
         if adaptative_t
-            τ = min(CFL*Δ^2*Re, CFL*Δ/max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...))
+            τ = min(CFL*Δ^2*Re, CFL*Δ/max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)...))
         end
     end
     # LOOP ENDS HERE
 #-----------------------------------------------------------------------------------------------------
-
     if verbose
         try
             printstyled(color=:blue, @sprintf "\n Final iteration : %d (%d%%) \n" (current_i-1) 100*(current_i-1)/max_iterations)
@@ -372,3 +356,4 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,
             @show (length(ind.MIXED))
         end
     end
+end

@@ -36,8 +36,7 @@ function set_borders!(grid, num, a0, a1, b, BC)
     elseif is_navier(BC.bottom.t)
         @inbounds a1[1,:] .= -1.
         @inbounds b[1,:] .= num.λCA
-        @inbounds a0[1,:] .= 1 
-        compute_young_stress(grid, num, grid.ind.b_bottom[1])
+        @inbounds a0[1,:] .= BC.bottom.val .+ compute_young_stress(grid, num, grid.ind.b_bottom[1])
     else
         @error ("Not implemented yet")
     end
@@ -460,8 +459,8 @@ function projection_no_slip!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     mul!(rhs_u, B_u, uD, 1.0, 1.0)
     veci(rhs_u,grid_u,1) .+= -τ .* (opC_p.Bx * veci(pD,grid,1) .+ opC_p.Hx * veci(pD,grid,2))
     blocks = DDM.decompose(A_u, grid_u.domdec, grid_u.domdec)
-    @mytime _, ch = bicgstabl!(ucorrD, A_u, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
-    println(ch)
+     _, ch = bicgstabl!(ucorrD, A_u, rhs_u, Pl=ras(blocks,grid_u.pou), log=false,verbose=false)
+    #println(ch)
     ucorr .= reshape(veci(ucorrD,grid_u,1), (grid_u.ny, grid_u.nx))
 
     veci(vD,grid_v,1) .= vec(v)
@@ -469,8 +468,8 @@ function projection_no_slip!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     mul!(rhs_v, B_v, vD, 1.0, 1.0)
     veci(rhs_v,grid_v,1) .+= -τ .* (opC_p.By * veci(pD,grid,1) .+ opC_p.Hy * veci(pD,grid,2))
     blocks = DDM.decompose(A_v, grid_v.domdec, grid_v.domdec)
-    @mytime _, ch = bicgstabl!(vcorrD, A_v, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
-    println(ch)
+     _, ch = bicgstabl!(vcorrD, A_v, rhs_v, Pl=ras(blocks,grid_v.pou), log=false,verbose=false)
+    #println(ch)
     vcorr .= reshape(veci(vcorrD,grid_v,1), (grid_v.ny, grid_v.nx))
 
     Duv = opC_p.AxT * veci(ucorrD,grid_u,1) .+ opC_p.HxT * veci(ucorrD,grid_u,2) .+
@@ -488,8 +487,8 @@ function projection_no_slip!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     veci(ϕD,grid,1) .= 0.
     veci(ϕD,grid,2) .= 0.
     blocks = DDM.decompose(A_p, grid.domdec, grid.domdec)
-    @mytime _, ch = bicgstabl!(ϕD, A_p, rhs_p, Pl=ras(blocks,grid.pou), log=true)
-    println(ch)
+     _, ch = bicgstabl!(ϕD, A_p, rhs_p, Pl=ras(blocks,grid.pou), log=false,verbose=false)
+    #println(ch)
     ϕ .= reshape(veci(ϕD,grid,1), (grid.ny, grid.nx))
 
     iM = Diagonal(1. ./ (vec(geo.dcap[:,:,5]) .+ eps(0.01)))
@@ -533,11 +532,11 @@ function set_crank_nicolson_block(bc_type, num,
         __b1 = 0.
     end
 
-    a0_u = zeros(grid_u.ny, grid_u.nx)
+    a0_u = zeros(grid_u.ny, grid_u.nx) # U + stress curvature here
     _a1_u = ones(grid_u.ny, grid_u.nx) .* __a1
     _b0_u = ones(grid_u.ny, grid_u.nx) .* __b0
     _b1_u = ones(grid_u.ny, grid_u.nx) .* __b1
-    a0_v = zeros(grid_v.ny, grid_v.nx)
+    a0_v = zeros(grid_v.ny, grid_v.nx)  # + stress
     _a1_v = ones(grid_v.ny, grid_v.nx) .* __a1
     _b0_v = ones(grid_v.ny, grid_v.nx) .* __b0
     _b1_v = ones(grid_v.ny, grid_v.nx) .* __b1
@@ -706,12 +705,12 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     kill_dead_cells!(veci(rhs_v,grid_v,2), grid_v, geo_v)
 
     blocks = DDM.decompose(Au, grid_u.domdec, grid_u.domdec)
-    @mytime _, ch = bicgstabl!(ucorrD, Au, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
-    println(ch)
+     _, ch = bicgstabl!(ucorrD, Au, rhs_u, Pl=ras(blocks,grid_u.pou), log=false,verbose=false)
+    #println(ch)
 
     blocks = DDM.decompose(Av, grid_v.domdec, grid_v.domdec)
-    @mytime _, ch = bicgstabl!(vcorrD, Av, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
-    println(ch)
+     _, ch = bicgstabl!(vcorrD, Av, rhs_v, Pl=ras(blocks,grid_v.pou), log=false,verbose=false)
+    #println(ch)
 
     Duv = opC_p.AxT * veci(ucorrD,grid_u,1) .+ opC_p.Gx * veci(ucorrD,grid_u,2) .+
           opC_p.AyT * veci(vcorrD,grid_v,1) .+ opC_p.Gy * veci(vcorrD,grid_v,2)
@@ -725,8 +724,8 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     GyT = opC_v.Gy'
     veci(rhs_ϕ,grid,2) .= b0_p * (iRe .* S .- σ .* (GxT * opC_u.Gx .+ GyT * opC_v.Gy) * vec(grid.κ))
     blocks = DDM.decompose(Aϕ, grid.domdec, grid.domdec)
-    @mytime _, ch = bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl=ras(blocks,grid.pou), log=true)
-    println(ch)
+     _, ch = bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl=ras(blocks,grid.pou), log=true)
+    #println(ch)
 
     ucorr .= reshape(veci(ucorrD,grid_u,1), (grid_u.ny, grid_u.nx))
     vcorr .= reshape(veci(vcorrD,grid_v,1), (grid_v.ny, grid_v.nx))
