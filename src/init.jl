@@ -848,7 +848,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
         init_mullins2!(grid, TL, T_inf, 0., A, N, 0.6L0/2)
     elseif num.case == "Drop"
         maxy = max(y...)
-        @. u = y - (maxy - R) + R*A*cos(2*pi*x/(x[end]-x[1])) + shifted
+        @. u = y - (maxy - R) + R*A*cos(N*pi*x/(x[end]-x[1])) + shifted
     elseif num.case == "Crystal"
         u .= -R*ones(ny, nx) + sqrt.(x.^2 + y.^2).*(ones(ny, nx) + A*cos.(N*atan.(x./(y + 1E-30*ones(ny, nx)))))
         init_franck!(grid, TL, R, T_inf, 0)
@@ -901,6 +901,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
         @inbounds for i = 0:(ny÷2-1)
             u[end-i,:] = u[i+1,:]
         end
+    elseif num.case == "Monte"
+        u .= max.(abs.(x .+ 1.5 .+ 1e-3), abs.(y .+ 2. .+ 1e-3)) .- (num.R) * ones(ny, nx) .+ 1e-8
     end
 
     return (Operators(SCUTT, SCUTp, SCUTu, SCUTv, SCUTDx, SCUTDy, SCUTCT, SCUTGxT, SCUTGyT, SCUTGxp, SCUTGyp, SCUTGxϕ, SCUTGyϕ, SCUTCu, SCUTCv, LTS, LpS, LuS, LvS, AS, BS, GxpS, GypS, GxϕS, GyϕS, DxuS, DyvS, ApS, AuS, AvS, CTS, GxTS, GyTS, ftcGxTS, ftcGyTS, CuS, CvS, E11, E12_x, E12_y, E22, utpS, vtpS),

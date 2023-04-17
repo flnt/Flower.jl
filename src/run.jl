@@ -165,6 +165,12 @@ function run_forward(num, grid, grid_u, grid_v,
             BC_TL, BC_uL, BC_vL,
             ind.MIXED, ind.SOLID, heat_convection)
 
+    HuL = zeros(grid_u)
+    HvL = zeros(grid_v)
+
+    set_stokes!(grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, opL, phL,
+            HuL, BC_uL, HvL, BC_vL, ns_advection)
+
     if ns_advection
         Cum1S .= opS.Cu * vec(phS.u) .+ opS.CUTCu
         Cvm1S .= opS.Cv * vec(phS.v) .+ opS.CUTCv
@@ -277,7 +283,7 @@ function run_forward(num, grid, grid_u, grid_v,
             if heat_solid_phase
                 kill_dead_cells!(phS.T, grid, geoS)
                 veci(phS.TD,grid,1) .= vec(phS.T)
-                A_T, B, rhs = set_heat!(rob, num, grid, opC_TS, geoS, θd, BC_TS, ind.MIXED, geoS.projection,
+                A_T, B, rhs = set_heat!(dir, num, grid, opC_TS, geoS, θd, BC_TS, ind.MIXED, geoS.projection,
                                         periodic_x, periodic_y)
                 mul!(rhs, B, phS.TD, 1.0, 1.0)
                 @mytime blocks = DDM.decompose(A_T, grid.domdec, grid.domdec)
@@ -289,7 +295,7 @@ function run_forward(num, grid, grid_u, grid_v,
             if heat_liquid_phase
                 kill_dead_cells!(phL.T, grid, geoL)
                 veci(phL.TD,grid,1) .= vec(phL.T)
-                A_T, B, rhs = set_heat!(rob, num, grid, opC_TL, geoL, θd, BC_TL, ind.MIXED, geoL.projection,
+                A_T, B, rhs = set_heat!(dir, num, grid, opC_TL, geoL, θd, BC_TL, ind.MIXED, geoL.projection,
                                         periodic_x, periodic_y)
                 mul!(rhs, B, phL.TD, 1.0, 1.0)
                 @mytime blocks = DDM.decompose(A_T, grid.domdec, grid.domdec)
@@ -352,12 +358,12 @@ function run_forward(num, grid, grid_u, grid_v,
                 end
             end
             # numerical breakup
-            if free_surface
-                count = breakup(u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, 1e-5)
-                if count > 0
-                    FE_reinit(grid, ind, u, nb_reinit, BC_u, periodic_x, periodic_y)
-                end
-            end
+            # if free_surface
+            #     count = breakup(u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, 1e-5)
+            #     if count > 0
+            #         FE_reinit(grid, ind, u, nb_reinit, BC_u, periodic_x, periodic_y)
+            #     end
+            # end
         end
 
         if verbose
@@ -457,11 +463,12 @@ function run_forward(num, grid, grid_u, grid_v,
 
             if ns_solid_phase
                 if free_surface
-                    Mm1_S, Mum1_S, Mvm1_S = projection_fs!(num, grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, phS,
-                                                            BC_uS, BC_vS, BC_pS,
-                                                            opC_pS, opC_uS, opC_vS,
+                    Mm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = projection_fs!(num, grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, phS,
+                                                            BC_uS, BC_vS, BC_pS, Cum1S, Cvm1S,
+                                                            opS, opC_pS, opC_uS, opC_vS,
                                                             Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S,
-                                                            ind.SOLID, ind.MIXED, periodic_x, periodic_y, current_i)
+                                                            ind.SOLID, ind.MIXED, periodic_x, periodic_y, current_i,
+                                                            ns_advection)
                 else
                     Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S = projection_no_slip!(num, grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, phS,
                                                                                                BC_uS, BC_vS, BC_pS,
@@ -472,19 +479,23 @@ function run_forward(num, grid, grid_u, grid_v,
                 
             end
             if ns_liquid_phase
-                if free_surface
-                    Mm1_L, Mum1_L, Mvm1_L = projection_fs!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,
-                                                            BC_uL, BC_vL, BC_pL,
-                                                            opC_pL, opC_uL, opC_vL,
+                # if free_surface
+                set_stokes!(grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, opL, phL,
+                    HuL, BC_uL, HvL, BC_vL, ns_advection)
+                    
+                Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = projection_fs!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,
+                                                            BC_uL, BC_vL, BC_pL, Cum1L, Cvm1L,
+                                                            opL, opC_pL, opC_uL, opC_vL,
                                                             Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L,
-                                                            ind.LIQUID, ind.MIXED, periodic_x, periodic_y, current_i)
-                else
-                   Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L = projection_no_slip!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,
-                                                                                              BC_uL, BC_vL, BC_pL,
-                                                                                              opC_pL, opC_uL, opC_vL,
-                                                                                              Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L,
-                                                                                              ind.LIQUID, ind.MIXED, periodic_x, periodic_y)
-                end
+                                                            ind.LIQUID, ind.MIXED, periodic_x, periodic_y, current_i,
+                                                            ns_advection)
+                # else
+                #    Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L = projection_no_slip!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,
+                #                                                                               BC_uL, BC_vL, BC_pL,
+                #                                                                               opC_pL, opC_uL, opC_vL,
+                #                                                                               Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L,
+                #                                                                               ind.LIQUID, ind.MIXED, periodic_x, periodic_y)
+                # end
             end
         end
 

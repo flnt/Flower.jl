@@ -199,107 +199,99 @@ function set_free_surface!(grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
 end
 
 function set_stokes!(grid, geo, grid_u, geo_u, grid_v, geo_v, op, ph,
-                    Hϕ, bcgpx, bcgpy, bcϕx, bcϕy, bcgϕx, bcgϕy, BC_p,
-                    Lpm1, CUTpm1, Gxpm1, Gypm1, empty,
-                    Hu, BC_u, Lum1, CUTum1, empty_u,
-                    Hv, BC_v, Lvm1, CUTvm1, empty_v,
-                    ns_vec, MIXED, MIXED_u, MIXED_v,
-                    iMu, iMv, FRESH_u, FRESH_v,
-                    Re, advection, ns_advection, periodic_x, periodic_y
+                    Hu, BC_u, Hv, BC_v, ns_advection
     )
-    @unpack Lp, CUTp, Lu, CUTu, Lv, CUTv, Dxu, CUTDx, Dyv, CUTDy, Gxp, CUTGxp, Gyp, CUTGyp, Gxϕ, CUTGxϕ, Gyϕ, CUTGyϕ, Cu, CUTCu, Cv, CUTCv, utp, vtp = op
-    @unpack u, v, Du, Dv = ph
+    @unpack Cu, CUTCu, Cv, CUTCv = op
+    @unpack u, v = ph
 
-    iRe = 1 / Re
+    # Gxpm1 .= Gxp
+    # Gypm1 .= Gyp
+    # Lpm1 .= Lp
+    # Lum1 .= Lu
+    # Lvm1 .= Lv
+    # CUTpm1 .= CUTp
+    # CUTum1 .= CUTu
+    # CUTvm1 .= CUTv
 
-    Gxpm1 .= Gxp
-    Gypm1 .= Gyp
-    Lpm1 .= Lp
-    Lum1 .= Lu
-    Lvm1 .= Lv
-    CUTpm1 .= CUTp
-    CUTum1 .= CUTu
-    CUTvm1 .= CUTv
+    # empty_laplacian(grid, Lpm1, empty, MIXED)
+    # empty_laplacian(grid_u, Lum1, empty_u, MIXED_u)
+    # empty_laplacian(grid_v, Lvm1, empty_v, MIXED_v)
 
-    empty_laplacian(grid, Lpm1, empty, MIXED)
-    empty_laplacian(grid_u, Lum1, empty_u, MIXED_u)
-    empty_laplacian(grid_v, Lvm1, empty_v, MIXED_v)
+    # Hϕ .= 0.
+    # for II in vcat(grid.ind.all_indices)
+    #     Hϕ[II] = distance(grid.mid_point[II], geo.centroid[II], grid.dx[II], grid.dy[II])
+    # end
 
-    Hϕ .= 0.
-    for II in vcat(grid.ind.all_indices)
-        Hϕ[II] = distance(grid.mid_point[II], geo.centroid[II], grid.dx[II], grid.dy[II])
-    end
+    # bcϕx .= 0.
+    # bcϕy .= 0.
+    # bcϕx, bcϕy = set_bc_bnds(neu, bcϕx, bcϕy, BC_p, grid.dx, grid.dy)
 
-    bcϕx .= 0.
-    bcϕy .= 0.
-    bcϕx, bcϕy = set_bc_bnds(neu, bcϕx, bcϕy, BC_p, grid.dx, grid.dy)
-
-    bcgϕx .= 0.
-    bcgϕy .= 0.
-    bcgϕx, bcgϕy = set_bc_bnds(neu, bcgϕx, bcgϕy, BC_p, grid.dx, grid.dy, Hϕ)
+    # bcgϕx .= 0.
+    # bcgϕy .= 0.
+    # bcgϕx, bcgϕy = set_bc_bnds(neu, bcgϕx, bcgϕy, BC_p, grid.dx, grid.dy, Hϕ)
 
     Hu .= 0.
     for II in vcat(grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1])
         Hu[II] = distance(grid_u.mid_point[II], geo_u.centroid[II], grid_u.dx[II], grid_u.dy[II])
     end
 
-    Du .= grid_u.V
-    bcux, bcuy = set_bc_bnds(dir, Du, Hu, BC_u)
+    Du = zeros(grid_u)
+    # bcux, bcuy = set_bc_bnds(dir, Du, Hu, BC_u)
 
     Hv .= 0.
     for II in vcat(grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1])
         Hv[II] = distance(grid_v.mid_point[II], geo_v.centroid[II], grid_v.dx[II], grid_v.dy[II])
     end
 
-    Dv .= grid_v.V
-    bcvx, bcvy = set_bc_bnds(dir, Dv, Hv, BC_v)
+    Dv = zeros(grid_v)
+    # bcvx, bcvy = set_bc_bnds(dir, Dv, Hv, BC_v)
 
-    if advection
-        laplacian!(neu, Lp, CUTp, bcϕx, bcϕy, bcgϕx, bcgϕy, geo.dcap, grid.dx, grid.dy, grid.ny, BC_p, grid.ind.inside, empty, MIXED,
-                ns_vec, grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1], grid.ind.b_top[1])
+    # if advection
+    #     laplacian!(neu, Lp, CUTp, bcϕx, bcϕy, bcgϕx, bcgϕy, geo.dcap, grid.dx, grid.dy, grid.ny, BC_p, grid.ind.inside, empty, MIXED,
+    #             ns_vec, grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1], grid.ind.b_top[1])
 
-        laplacian!(dir, Lu, CUTu, bcux, bcuy, geo_u.dcap, grid_u.ny, BC_u, grid_u.ind.inside, empty_u,
-                MIXED_u, grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1])
+    #     laplacian!(dir, Lu, CUTu, bcux, bcuy, geo_u.dcap, grid_u.ny, BC_u, grid_u.ind.inside, empty_u,
+    #             MIXED_u, grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1])
 
-        laplacian!(dir, Lv, CUTv, bcvx, bcvy, geo_v.dcap, grid_v.ny, BC_v, grid_v.ind.inside, empty_v,
-                MIXED_v, grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1])
-    end
+    #     laplacian!(dir, Lv, CUTv, bcvx, bcvy, geo_v.dcap, grid_v.ny, BC_v, grid_v.ind.inside, empty_v,
+    #             MIXED_v, grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1])
+    # end
 
-    uv_to_p!(utp, vtp, geo.dcap, grid.dx, grid.dy, grid.ny, grid.ind.all_indices)
+    # uv_to_p!(utp, vtp, geo.dcap, grid.dx, grid.dy, grid.ny, grid.ind.all_indices)
 
-    u_tmp = copy(u)
-    v_tmp = copy(v)
+    # u_tmp = copy(u)
+    # v_tmp = copy(v)
 
-    init_fresh_cells!(grid_u, u_tmp, geo_u.projection, FRESH_u, periodic_x, periodic_y)
-    init_fresh_cells!(grid_v, v_tmp, geo_v.projection, FRESH_v, periodic_x, periodic_y)
-    kill_dead_cells!(u_tmp, Lu, empty_u, MIXED_u, grid_u.ny)
-    kill_dead_cells!(v_tmp, Lv, empty_v, MIXED_v, grid_v.ny)
+    # init_fresh_cells!(grid_u, u_tmp, geo_u.projection, FRESH_u, periodic_x, periodic_y)
+    # init_fresh_cells!(grid_v, v_tmp, geo_v.projection, FRESH_v, periodic_x, periodic_y)
+    # kill_dead_cells!(u_tmp, Lu, empty_u, MIXED_u, grid_u.ny)
+    # kill_dead_cells!(v_tmp, Lv, empty_v, MIXED_v, grid_v.ny)
 
-    Δu = iMu * (Lu * vec(u_tmp) .+ CUTu)
-    Δv = iMv * (Lv * vec(v_tmp) .+ CUTv)
+    # Δu = iMu * (Lu * vec(u_tmp) .+ CUTu)
+    # Δv = iMv * (Lv * vec(v_tmp) .+ CUTv)
 
-    bcgpx .= Hϕ .* reshape(iRe .* (utp * Δu .+ vtp * Δv), (grid.ny, grid.nx))
-    bcgpy .= bcgpx
-    # bcgpx .= 0.
-    # bcgpy .= 0.
-    bcgpx, bcgpy = set_bc_bnds(neu, bcgpx, bcgpy, BC_p, grid.dx, grid.dy, Hϕ)
+    # bcgpx .= Hϕ .* reshape(iRe .* (utp * Δu .+ vtp * Δv), (grid.ny, grid.nx))
+    # bcgpy .= bcgpx
+    # # bcgpx .= 0.
+    # # bcgpy .= 0.
+    # bcgpx, bcgpy = set_bc_bnds(neu, bcgpx, bcgpy, BC_p, grid.dx, grid.dy, Hϕ)
 
-    if advection
-        divergence!(dir, Dxu, Dyv, CUTDx, CUTDy, bcux, bcvy, geo.dcap, grid.ny, grid.ind.all_indices)
+    # if advection
+    #     divergence!(dir, Dxu, Dyv, CUTDx, CUTDy, bcux, bcvy, geo.dcap, grid.ny, grid.ind.all_indices)
 
-        gradient!(neu, Gxp, Gyp, CUTGxp, CUTGyp, bcgpx, bcgpy, Dxu, Dyv, geo.dcap,
-                grid.ny, BC_p, grid.ind.all_indices,
-                grid_u.ind.b_left[1], grid_v.ind.b_bottom[1], grid_u.ind.b_right[1], grid_v.ind.b_top[1],
-                grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1], grid.ind.b_top[1])
+    #     gradient!(neu, Gxp, Gyp, CUTGxp, CUTGyp, bcgpx, bcgpy, Dxu, Dyv, geo.dcap,
+    #             grid.ny, BC_p, grid.ind.all_indices,
+    #             grid_u.ind.b_left[1], grid_v.ind.b_bottom[1], grid_u.ind.b_right[1], grid_v.ind.b_top[1],
+    #             grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1], grid.ind.b_top[1])
 
-        gradient!(neu, Gxϕ, Gyϕ, CUTGxϕ, CUTGyϕ, bcgϕx, bcgϕy, Dxu, Dyv, geo.dcap,
-                grid.ny, BC_p, grid.ind.all_indices,
-                grid_u.ind.b_left[1], grid_v.ind.b_bottom[1], grid_u.ind.b_right[1], grid_v.ind.b_top[1],
-                grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1], grid.ind.b_top[1])
+    #     gradient!(neu, Gxϕ, Gyϕ, CUTGxϕ, CUTGyϕ, bcgϕx, bcgϕy, Dxu, Dyv, geo.dcap,
+    #             grid.ny, BC_p, grid.ind.all_indices,
+    #             grid_u.ind.b_left[1], grid_v.ind.b_bottom[1], grid_u.ind.b_right[1], grid_v.ind.b_top[1],
+    #             grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1], grid.ind.b_top[1])
 
-        divergence_boundaries(dir, Dxu, Dyv, bcux, bcvy, geo.dcap, grid.ny, BC_u, BC_v,
-                grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1], grid.ind.b_top[1])
-    end
+    #     divergence_boundaries(dir, Dxu, Dyv, bcux, bcvy, geo.dcap, grid.ny, BC_u, BC_v,
+    #             grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1], grid.ind.b_top[1])
+    # end
 
     if ns_advection
         bcuCu1_x, bcuCu1_y, bcuCu2_x, bcuCu2_y, bcvCu_x, bcvCu_y = set_bc_bnds(dir, GridFCx, Du, Dv, Hu, Hv, u, v, BC_u, BC_v)

@@ -1,5 +1,5 @@
 function set_borders!(grid, a0, a1, b, BC)
-    @unpack ny, ind = grid
+    @unpack nx, ny, ind = grid
     
     @inbounds a0[2:end-1,1] .= BC.left.val
     if is_dirichlet(BC.left.t)
@@ -9,7 +9,7 @@ function set_borders!(grid, a0, a1, b, BC)
         @inbounds a1[2:end-1,1] .= 0.
         @inbounds b[2:end-1,1] .= 1.
     elseif is_robin(BC.left.t)
-        @inbounds a1[2:end-1,1] .= -1.
+        @inbounds a1[2:end-1,1] .= 1.
         @inbounds b[2:end-1,1] .= 1.
     elseif is_periodic(BC.left.t)
         # @inbounds a1[:,1] .= 0.
@@ -25,7 +25,7 @@ function set_borders!(grid, a0, a1, b, BC)
         @inbounds a1[1,:] .= 0.
         @inbounds b[1,:] .= 1.
     elseif is_robin(BC.bottom.t)
-        @inbounds a1[1,:] .= -1.
+        @inbounds a1[1,:] .= 1.
         @inbounds b[1,:] .= 1.
     elseif is_periodic(BC.bottom.t)
         # @inbounds a1[1,2:end-1] .= 0.
@@ -41,7 +41,7 @@ function set_borders!(grid, a0, a1, b, BC)
         @inbounds a1[2:end-1,end] .= 0.
         @inbounds b[2:end-1,end] .= 1.
     elseif is_robin(BC.right.t)
-        @inbounds a1[2:end-1,end] .= -1.
+        @inbounds a1[2:end-1,end] .= 1.
         @inbounds b[2:end-1,end] .= 1.
     elseif is_periodic(BC.right.t)
         # @inbounds a1[:,end] .= 0.
@@ -57,7 +57,7 @@ function set_borders!(grid, a0, a1, b, BC)
         @inbounds a1[end,:] .= 0.
         @inbounds b[end,:] .= 1.
     elseif is_robin(BC.top.t)
-        @inbounds a1[end,:] .= -1.
+        @inbounds a1[end,:] .= 1.
         @inbounds b[end,:] .= 1.
     elseif is_periodic(BC.top.t)
         # @inbounds a1[end,2:end-1] .= 0.
@@ -315,10 +315,14 @@ function strain_rate(opC_u, opC_v)
     GyT = opC_v.Gy'
 
     data = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 2, 2)
-    data[1,1] = GxT * (2 .* opC_u.HxT * opC_u.iMx * opC_u.Bx .+ opC_u.HyT * opC_u.iMy * opC_u.By)
-    data[1,2] = GxT * (2 .* opC_u.HxT * opC_u.iMx * opC_u.Hx .+ opC_u.HyT * opC_u.iMy * opC_u.Hy)
-    data[2,1] = GyT * (2 .* opC_v.HyT * opC_v.iMy * opC_v.By .+ opC_v.HxT * opC_v.iMx * opC_v.Bx)
-    data[2,2] = GyT * (2 .* opC_v.HyT * opC_v.iMy * opC_v.Hy .+ opC_v.HxT * opC_v.iMx * opC_v.Hx)
+    data[1,1] = GxT * (2 .* opC_u.HxT * opC_u.iMx * opC_u.Bx .+ opC_u.HyT * opC_u.iMy * opC_u.By) .+
+                GyT * opC_v.HxT * opC_u.iMy * opC_u.By
+    data[1,2] = GxT * (2 .* opC_u.HxT * opC_u.iMx * opC_u.Hx .+ opC_u.HyT * opC_u.iMy * opC_u.Hy) .+
+                GyT * opC_v.HxT * opC_u.iMy * opC_u.Hy
+    data[2,1] = GyT * (2 .* opC_v.HyT * opC_v.iMy * opC_v.By .+ opC_v.HxT * opC_v.iMx * opC_v.Bx) .+
+                GxT * opC_u.HyT * opC_v.iMx * opC_v.Bx
+    data[2,2] = GyT * (2 .* opC_v.HyT * opC_v.iMy * opC_v.Hy .+ opC_v.HxT * opC_v.iMx * opC_v.Hx) .+
+                GxT * opC_u.HyT * opC_v.iMx * opC_v.Hx
 
     return data
 end
@@ -368,6 +372,95 @@ function set_crank_nicolson_block(bc_type, num, grid, opC, L, bc_L, Lm1, bc_Lm1,
     rhs[nx*ny+1:end] .= χ * vec(a0)
     
     return A, B, rhs
+end
+
+function set_crank_nicolson_block(bc_type, num, grid_u, grid_v, opC_u, opC_v, 
+    Lu, bc_Lu, Lum1, bc_Lum1, Mum1, BC_u,
+    Lv, bc_Lv, Lvm1, bc_Lvm1, Mvm1, BC_v)
+    @unpack τ = num
+
+    lamb = -0.01
+
+    if bc_type == dir
+        __a1 = -1.
+        __b = 0.
+    elseif bc_type == neu
+        __a1 = 0.
+        __b = 1.
+    elseif bc_type == rob
+        __a1 = 1.
+        __b = 1.
+    end
+
+    a0_u = zeros(grid_u)
+    _a1_u = ones(grid_u) .* __a1
+    _b_u = ones(grid_u) .* __b
+    set_borders!(grid_u, a0_u, _a1_u, _b_u, BC_u)
+    a1_u = Diagonal(vec(_a1_u))
+    b_u = lamb .* Diagonal(vec(_b_u))
+
+    a0_v = zeros(grid_v)
+    _a1_v = ones(grid_v) .* __a1
+    _b_v = ones(grid_v) .* __b
+    set_borders!(grid_v, a0_v, _a1_v, _b_v, BC_v)
+    a1_v = Diagonal(vec(_a1_v))
+    b_v = lamb .* Diagonal(vec(_b_v))
+
+    τ_2 = 0.5 * τ
+
+    data_A = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 4, 4)
+    data_A[1,1] = pad_crank_nicolson(opC_u.M .- τ_2 .* Lu, grid_u, τ)
+    data_A[1,2] = - τ_2 .* bc_Lu
+    data_A[1,3] = spdiagm(0 => fzeros(grid_u))
+    data_A[1,4] = spdiagm(0 => fzeros(grid_u))
+
+    data_A[2,1] = b_u * (opC_u.HxT * opC_u.iMx * opC_u.Bx .+ 0.5 .* opC_u.HyT * opC_u.iMy * opC_u.By)
+    data_A[2,2] = pad(b_u * (opC_u.HxT * opC_u.iMx * opC_u.Hx .+ 0.5 .* opC_u.HyT * opC_u.iMy * opC_u.Hy) .- opC_u.χ * a1_u)
+    data_A[2,3] = 0.5 .* b_u * opC_u.HyT * opC_v.iMx * opC_v.Bx
+    data_A[2,4] = 0.5 .* b_u * opC_u.HyT * opC_v.iMx * opC_v.Hx
+
+    data_A[3,1] = spdiagm(0 => fzeros(grid_v))
+    data_A[3,2] = spdiagm(0 => fzeros(grid_v))
+    data_A[3,3] = pad_crank_nicolson(opC_v.M .- τ_2 .* Lv, grid_v, τ)
+    data_A[3,4] = - τ_2 .* bc_Lv
+
+    data_A[4,1] = 0.5 .* b_v * opC_v.HxT * opC_u.iMy * opC_u.By
+    data_A[4,2] = 0.5 .* b_v * opC_v.HxT * opC_u.iMy * opC_u.Hy
+    data_A[4,3] = b_v * (opC_v.HxT * opC_v.iMx * opC_v.Bx .+ 0.5 .* opC_v.HyT * opC_v.iMy * opC_v.By)
+    data_A[4,4] = pad(b_v * (opC_v.HxT * opC_v.iMx * opC_v.Hx .+ 0.5 .* opC_v.HyT * opC_v.iMy * opC_v.Hy) .- opC_v.χ * a1_v)
+
+    A = [data_A[1,1] data_A[1,2] data_A[1,3] data_A[1,4];
+         data_A[2,1] data_A[2,2] data_A[2,3] data_A[2,4];
+         data_A[3,1] data_A[3,2] data_A[3,3] data_A[3,4];
+         data_A[4,1] data_A[4,2] data_A[4,3] data_A[4,4]]
+
+    data_Bu = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 2, 2)
+    data_Bu[1,1] = Mum1 .+ τ_2 .* Lum1
+    data_Bu[1,2] = τ_2 .* bc_Lum1
+
+    data_Bu[2,1] = spdiagm(0 => fzeros(grid_u))
+    data_Bu[2,2] = spdiagm(0 => fzeros(grid_u))
+
+    Bu = [data_Bu[1,1] data_Bu[1,2];
+          data_Bu[2,1] data_Bu[2,2]]
+
+    data_Bv = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 2, 2)
+    data_Bv[1,1] = Mvm1 .+ τ_2 .* Lvm1
+    data_Bv[1,2] = τ_2 .* bc_Lvm1
+
+    data_Bv[2,1] = spdiagm(0 => fzeros(grid_v))
+    data_Bv[2,2] = spdiagm(0 => fzeros(grid_v))
+
+    Bv = [data_Bv[1,1] data_Bv[1,2];
+          data_Bv[2,1] data_Bv[2,2]]
+
+    rhs_u = zeros(2*grid_u.nx*grid_u.ny)
+    veci(rhs_u,grid_u,2) .= opC_u.χ * vec(a0_u)
+
+    rhs_v = zeros(2*grid_v.nx*grid_v.ny)
+    veci(rhs_v,grid_v,2) .= opC_v.χ * vec(a0_v)
+    
+    return A, Bu, Bv, rhs_u, rhs_v
 end
 
 function set_poisson_block(bc_type, grid, a0, opC, L, bc_L, BC)
@@ -424,7 +517,7 @@ function projection_no_slip!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     A_u, B_u, rhs_u = set_crank_nicolson_block(dir, num, grid_u, opC_u, iRe.*Lu, iRe.*bc_Lu, iRe.*Lum1, iRe.*bc_Lum1, Mum1, BC_u)
     A_v, B_v, rhs_v = set_crank_nicolson_block(dir, num, grid_v, opC_v, iRe.*Lv, iRe.*bc_Lv, iRe.*Lvm1, iRe.*bc_Lvm1, Mvm1, BC_v)
     a0_p = zeros(grid.ny, grid.nx)
-    A_p, rhs_p = set_poisson_block(neu, grid, a0_p, opC_p, Lp, bc_Lp, BC_p)
+    A_p, rhs_p = set_poisson_block(dir, grid, a0_p, opC_p, Lp, bc_Lp, BC_p)
 
     update_dirichlet_field!(grid_u, uD, u, BC_u)
     mul!(rhs_u, B_u, uD, 1.0, 1.0)
@@ -512,9 +605,12 @@ function set_crank_nicolson_block(bc_type, num,
     _b0_v = ones(grid_v.ny, grid_v.nx) .* __b0
     _b1_v = ones(grid_v.ny, grid_v.nx) .* __b1
     a0_p = zeros(grid.ny, grid.nx)
-    _a1_p = ones(grid.ny, grid.nx) .* (-1.)
+    # _a1_p = ones(grid.ny, grid.nx) .* (-1.)
+    # _b0_p = ones(grid.ny, grid.nx) .* 0.
+    # _b1_p = ones(grid.ny, grid.nx) .* 0.
+    _a1_p = ones(grid.ny, grid.nx) .* 0.
     _b0_p = ones(grid.ny, grid.nx) .* 0.
-    _b1_p = ones(grid.ny, grid.nx) .* 0.
+    _b1_p = ones(grid.ny, grid.nx) .* 1.
     set_borders!(grid_u, a0_u, _a1_u, _b0_u, _b1_u, BC_u)
     set_borders!(grid_v, a0_v, _a1_v, _b0_v, _b1_v, BC_v)
     set_borders!(grid, a0_p, _a1_p, _b0_p, _b1_p, BC_p)
@@ -617,7 +713,12 @@ function set_navier_stokes(num, grid, geo, grid_u, geo_u, grid_v, geo_v,
         opC_p, opC_u, opC_v,
         periodic_x, periodic_y, true)
 
-    Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ = set_crank_nicolson_block(neu, num,
+    # Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ = set_crank_nicolson_block(neu, num,
+    #     grid, opC_p, Lp, bc_Lp, Lp_fs, bc_Lp_fs, BC_p,
+    #     grid_u, opC_u, iRe.*Lu, iRe.*bc_Lu, Mum1, BC_u,
+    #     grid_v, opC_v, iRe.*Lv, iRe.*bc_Lv, Mvm1, BC_v)
+
+    Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ = set_crank_nicolson_block(dir, num,
         grid, opC_p, Lp, bc_Lp, Lp_fs, bc_Lp_fs, BC_p,
         grid_u, opC_u, iRe.*Lu, iRe.*bc_Lu, Mum1, BC_u,
         grid_v, opC_v, iRe.*Lv, iRe.*bc_Lv, Mvm1, BC_v)
@@ -626,10 +727,11 @@ function set_navier_stokes(num, grid, geo, grid_u, geo_u, grid_v, geo_v,
 end
 
 function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
-                        BC_u, BC_v, BC_p,
-                        opC_p, opC_u, opC_v,
+                        BC_u, BC_v, BC_p, Cum1, Cvm1,
+                        op, opC_p, opC_u, opC_v,
                         Lum1, bc_Lum1, Lvm1, bc_Lvm1, Mum1, Mvm1,
-                        FULL, MIXED, periodic_x, periodic_y, current_i
+                        FULL, MIXED, periodic_x, periodic_y, current_i,
+                        ns_advection
     )
     @unpack Re, τ, σ, g, β = num
     @unpack p, pD, ϕ, ϕD, Gxm1, Gym1, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr = ph
@@ -669,6 +771,20 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
 
     veci(rhs_u,grid_u,1) .+= τ .* grav_x
     veci(rhs_v,grid_v,1) .+= - τ .* grav_y
+
+    if ns_advection
+        Convu = 1.5 .* (op.Cu * vec(u) .+ op.CUTCu) .- 0.5 .* Cum1
+        Convv = 1.5 .* (op.Cv * vec(v) .+ op.CUTCv) .- 0.5 .* Cvm1
+    else
+        Convu = fzeros(grid_u)
+        Convv = fzeros(grid_v)
+    end
+
+    Cum1 .= op.Cu * vec(u) .+ op.CUTCu
+    Cvm1 .= op.Cv * vec(v) .+ op.CUTCv
+
+    veci(rhs_u,grid_u,1) .-= τ .* Convu
+    veci(rhs_v,grid_v,1) .-= τ .* Convv
 
     kill_dead_cells!(veci(rhs_u,grid_u,1), grid_u, geo_u)
     kill_dead_cells!(veci(rhs_u,grid_u,2), grid_u, geo_u)
@@ -724,5 +840,5 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     veci(vD,grid_v,1) .= vec(v)
     veci(vD,grid_v,2) .= veci(vcorrD,grid_v,2)
 
-    return opC_p.M, opC_u.M, opC_v.M
+    return opC_p.M, opC_u.M, opC_v.M, Cum1, Cvm1
 end
