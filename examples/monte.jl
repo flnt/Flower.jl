@@ -4,16 +4,14 @@ using Flower
 fontsize_theme = Theme(fontsize = 30)
 set_theme!(fontsize_theme)
 
-h0 = 1
-
-L0x = 4
-L0y = 4
+Lx = 2
+Ly = 1
 n = 64
-nx = n
+nx = Lx * n
 ny = n
 
-x = LinRange(-L0x/2, L0x/2, n+1)
-y = LinRange(-L0y/2, L0y/2, n+1)
+x = LinRange(-Lx/2, Lx/2, nx+1)
+y = LinRange(-Ly/2, Ly/2, ny+1)
 
 nu = 0.0044
 
@@ -26,11 +24,8 @@ num = Numerical(
     max_iterations = 1000,
     u_inf = 1.0,
     v_inf = 0.0,
-    shifted = 0.0,
     save_every = 10,
     ϵ = 0.05,
-    R = h0,
-    A = 0.02,
     NB = 12,
     subdomains = 2,
     overlaps = 1
@@ -40,7 +35,7 @@ gp, gu, gv = init_meshes(num)
 opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
 uy = zeros(ny)
-uy[ny÷4+2:end] .= 1.0/(4nu) * (1.5 ^ 2 .- (gp.y[ny÷4+2:end,1] .- 0.5) .^ 2)
+uy[ny÷4+2:end] .= 1.0/(4nu) * ((3*Ly/8) ^ 2 .- (gp.y[ny÷4+2:end,1] .- Ly./8.) .^ 2)
 uy ./= findmax(uy)[1]
 
 phL.u .= num.u_inf

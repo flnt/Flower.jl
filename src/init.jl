@@ -902,7 +902,9 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
             u[end-i,:] = u[i+1,:]
         end
     elseif num.case == "Monte"
-        u .= max.(abs.(x .+ 1.5 .+ 1e-3), abs.(y .+ 2. .+ 1e-3)) .- (num.R) * ones(ny, nx) .+ 1e-8
+        Lx = max(x...) - min(x...)
+        Ly = max(y...) - min(y...)
+        u .= max.(abs.(x .+ Lx .+ 1e-4), abs.(y .+ Lx .+ Ly ./ 4 .+ 1e-4)) .- Lx * ones(ny, nx) .+ 1e-8
     end
 
     return (Operators(SCUTT, SCUTp, SCUTu, SCUTv, SCUTDx, SCUTDy, SCUTCT, SCUTGxT, SCUTGyT, SCUTGxp, SCUTGyp, SCUTGxϕ, SCUTGyϕ, SCUTCu, SCUTCv, LTS, LpS, LuS, LvS, AS, BS, GxpS, GypS, GxϕS, GyϕS, DxuS, DyvS, ApS, AuS, AvS, CTS, GxTS, GyTS, ftcGxTS, ftcGyTS, CuS, CvS, E11, E12_x, E12_y, E22, utpS, vtpS),
