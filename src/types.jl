@@ -325,6 +325,8 @@ struct Robin <: BoundaryCondition end
 const rob = Robin()
 struct Periodic <: BoundaryCondition end
 const per = Periodic()
+struct Pulsating <: BoundaryCondition end
+const pul = Pulsating()
 
 @with_kw mutable struct Boundary{BC, L, T, N} <: NumericalParameters
    t::BC = neu

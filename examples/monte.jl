@@ -4,7 +4,7 @@ using Flower
 fontsize_theme = Theme(fontsize = 30)
 set_theme!(fontsize_theme)
 
-Lx = 2
+Lx = 10
 Ly = 1
 n = 64
 nx = Lx * n
@@ -21,10 +21,10 @@ num = Numerical(
     y = y,
     Re = 1000.0,
     CFL = 0.8,
-    max_iterations = 1000,
+    max_iterations = 960,
     u_inf = 1.0,
     v_inf = 0.0,
-    save_every = 10,
+    save_every = 5,
     ϵ = 0.05,
     NB = 12,
     subdomains = 2,
@@ -47,7 +47,7 @@ phL.v .= num.v_inf
     BC_uL = Boundaries(
         bottom = Boundary(t = dir, f = dirichlet),
         top = Boundary(t = dir, f = dirichlet),
-        left = Boundary(t = dir, f = dirichlet, val=uy),
+        left = Boundary(t = pul, f = dirichlet, val=uy),
         right = Boundary(t = neu, f = neumann)
     ),
     BC_vL = Boundaries(
@@ -74,6 +74,8 @@ phL.v .= num.v_inf
     ns_liquid_phase = true,
     verbose = true,
     show_every = 1,
+    T = 1,
+    nT0 = 10,
 )
 
 fu = Figure(resolution = (1600, 1000))

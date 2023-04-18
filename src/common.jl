@@ -367,6 +367,9 @@ end
 @inline is_periodic(::Periodic) = true
 @inline is_periodic(::BoundaryCondition) = false
 
+@inline is_pulsating(::Pulsating) = true
+@inline is_pulsating(::BoundaryCondition) = false
+
 @inline dirichlet(target, Δ, λ, val) = muladd(2.0, val, -target)
 @inline neumann(target, Δ, λ, val) = muladd(Δ, val, target)
 @inline robin(target, Δ, λ, val) = muladd((2*λ-Δ)/(2*λ+Δ), target, (2*Δ*val)/(Δ+2*λ))

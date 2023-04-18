@@ -69,7 +69,7 @@ function set_borders!(grid, a0, a1, b, BC)
     return nothing
 end
 
-function set_borders!(grid, a0, a1, b0, b1, BC)
+function set_borders!(grid, a0, a1, b0, b1, BC, t, T, nT0)
     @unpack ny, ind = grid
     
     @inbounds a0[:,1] .= BC.left.val
@@ -89,6 +89,15 @@ function set_borders!(grid, a0, a1, b0, b1, BC)
         # @inbounds a1[:,1] .= 0.
         # @inbounds b0[:,1] .= 0.
         # @inbounds b1[:,1] .= 0.
+    elseif is_pulsating(BC.left.t)
+        tT = t/T
+        dec = tT - floor(tT)
+        if t > nT0*T && dec > 1.0/3.0
+            a0 .*= 0.
+        end
+        @inbounds a1[2:end-1,1] .= -1.
+        @inbounds b0[2:end-1,1] .= 0.
+        @inbounds b1[2:end-1,1] .= 0.
     else
         @error ("Not implemented yet")
     end
@@ -575,7 +584,8 @@ end
 function set_crank_nicolson_block(bc_type, num, 
     grid, opC_p, Lp, bc_Lp, Lp_fs, bc_Lp_fs, BC_p,
     grid_u, opC_u, Lu, bc_Lu, Mum1, BC_u,
-    grid_v, opC_v, Lv, bc_Lv, Mvm1, BC_v)
+    grid_v, opC_v, Lv, bc_Lv, Mvm1, BC_v,
+    Lum1, bc_Lum1, Lvm1, bc_Lvm1, t, T, nT0)
     @unpack Re, τ = num
 
     iRe = 1 / Re
@@ -611,9 +621,9 @@ function set_crank_nicolson_block(bc_type, num,
     _a1_p = ones(grid.ny, grid.nx) .* 0.
     _b0_p = ones(grid.ny, grid.nx) .* 0.
     _b1_p = ones(grid.ny, grid.nx) .* 1.
-    set_borders!(grid_u, a0_u, _a1_u, _b0_u, _b1_u, BC_u)
-    set_borders!(grid_v, a0_v, _a1_v, _b0_v, _b1_v, BC_v)
-    set_borders!(grid, a0_p, _a1_p, _b0_p, _b1_p, BC_p)
+    set_borders!(grid_u, a0_u, _a1_u, _b0_u, _b1_u, BC_u, t, T, nT0)
+    set_borders!(grid_v, a0_v, _a1_v, _b0_v, _b1_v, BC_v, t, T, nT0)
+    set_borders!(grid, a0_p, _a1_p, _b0_p, _b1_p, BC_p, t, T, nT0)
     a1_u = Diagonal(vec(_a1_u))
     b0_u = Diagonal(vec(_b0_u))
     b1_u = Diagonal(vec(_b1_u))
@@ -646,9 +656,9 @@ function set_crank_nicolson_block(bc_type, num,
           data_A[2,1] data_A[2,2]]
 
     data_B = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 2, 2)
-    data_B[1,1] = Mum1 #.+ τ_2 .* Lum1
-    # data_B[1,2] = τ_2 .* bc_Lum1
-    data_B[1,2] = spdiagm(0 => zeros(grid_u.nx*grid_u.ny))
+    data_B[1,1] = Mum1 .+ τ_2 .* Lum1
+    data_B[1,2] = τ_2 .* bc_Lum1
+    # data_B[1,2] = spdiagm(0 => zeros(grid_u.nx*grid_u.ny))
     data_B[2,1] = spdiagm(0 => zeros(grid_u.nx*grid_u.ny))
     data_B[2,2] = spdiagm(0 => zeros(grid_u.nx*grid_u.ny))
     Bu = [data_B[1,1] data_B[1,2];
@@ -666,9 +676,9 @@ function set_crank_nicolson_block(bc_type, num,
     Av = [data_A[1,1] data_A[1,2];
           data_A[2,1] data_A[2,2]]
 
-    data_B[1,1] = Mvm1 #.+ τ_2 .* Lvm1
-    # data_B[1,2] = τ_2 .* bc_Lvm1
-    data_B[1,2] = spdiagm(0 => zeros(grid_v.nx*grid_v.ny))
+    data_B[1,1] = Mvm1 .+ τ_2 .* Lvm1
+    data_B[1,2] = τ_2 .* bc_Lvm1
+    # data_B[1,2] = spdiagm(0 => zeros(grid_v.nx*grid_v.ny))
     data_B[2,1] = spdiagm(0 => zeros(grid_v.nx*grid_v.ny))
     data_B[2,2] = spdiagm(0 => zeros(grid_v.nx*grid_v.ny))
     Bv = [data_B[1,1] data_B[1,2];
@@ -707,8 +717,9 @@ end
 
 function set_navier_stokes(num, grid, geo, grid_u, geo_u, grid_v, geo_v,
                            opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
-                           Mum1, Mvm1, iRe,
-                           periodic_x, periodic_y)
+                           Lum1, bc_Lum1, Lvm1, bc_Lvm1, Mum1, Mvm1, iRe,
+                           periodic_x, periodic_y,
+                           t, T, nT0)
     Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv, Lp_fs, bc_Lp_fs, Lu_fs, bc_Lu_fs, Lv_fs, bc_Lv_fs = set_laplacians!(grid, geo, grid_u, geo_u, grid_v, geo_v,
         opC_p, opC_u, opC_v,
         periodic_x, periodic_y, true)
@@ -721,9 +732,10 @@ function set_navier_stokes(num, grid, geo, grid_u, geo_u, grid_v, geo_v,
     Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ = set_crank_nicolson_block(dir, num,
         grid, opC_p, Lp, bc_Lp, Lp_fs, bc_Lp_fs, BC_p,
         grid_u, opC_u, iRe.*Lu, iRe.*bc_Lu, Mum1, BC_u,
-        grid_v, opC_v, iRe.*Lv, iRe.*bc_Lv, Mvm1, BC_v)
+        grid_v, opC_v, iRe.*Lv, iRe.*bc_Lv, Mvm1, BC_v,
+        iRe.*Lum1, iRe.*bc_Lum1, iRe.*Lvm1, iRe.*bc_Lvm1, t, T, nT0)
 
-    return Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ
+    return Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ, Lu, bc_Lu, Lv, bc_Lv
 end
 
 function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
@@ -731,7 +743,7 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
                         op, opC_p, opC_u, opC_v,
                         Lum1, bc_Lum1, Lvm1, bc_Lvm1, Mum1, Mvm1,
                         FULL, MIXED, periodic_x, periodic_y, current_i,
-                        ns_advection
+                        ns_advection, t, T, nT0
     )
     @unpack Re, τ, σ, g, β = num
     @unpack p, pD, ϕ, ϕD, Gxm1, Gym1, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr = ph
@@ -739,10 +751,11 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     iRe = 1.0 / Re
     iτ = 1.0 / τ
 
-    Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ = set_navier_stokes(num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+    Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ, Lu, bc_Lu, Lv, bc_Lv = set_navier_stokes(num, grid, geo, grid_u, geo_u, grid_v, geo_v,
                                                                 opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
-                                                                Mum1, Mvm1, iRe,
-                                                                periodic_x, periodic_y)
+                                                                Lum1, bc_Lum1, Lvm1, bc_Lvm1, Mum1, Mvm1, iRe,
+                                                                periodic_x, periodic_y,
+                                                                t, T, nT0)
 
     a0_u = zeros(grid_u)
     _a1_u = zeros(grid_u)
@@ -756,9 +769,9 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     _a1_p = zeros(grid)
     _b0_p = ones(grid)
     _b1_p = zeros(grid)
-    set_borders!(grid_u, a0_u, _a1_u, _b0_u, _b1_u, BC_u)
-    set_borders!(grid_v, a0_v, _a1_v, _b0_v, _b1_v, BC_v)
-    set_borders!(grid, a0_p, _a1_p, _b0_p, _b1_p, BC_p)
+    set_borders!(grid_u, a0_u, _a1_u, _b0_u, _b1_u, BC_u, t, T, nT0)
+    set_borders!(grid_v, a0_v, _a1_v, _b0_v, _b1_v, BC_v, t, T, nT0)
+    set_borders!(grid, a0_p, _a1_p, _b0_p, _b1_p, BC_p, t, T, nT0)
     b0_u = Diagonal(vec(_b0_u))
     b0_v = Diagonal(vec(_b0_v))
     b0_p = Diagonal(vec(_b0_p))
@@ -840,5 +853,5 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     veci(vD,grid_v,1) .= vec(v)
     veci(vD,grid_v,2) .= veci(vcorrD,grid_v,2)
 
-    return opC_p.M, opC_u.M, opC_v.M, Cum1, Cvm1
+    return Lu, bc_Lu, Lv, bc_Lv, opC_p.M, opC_u.M, opC_v.M, Cum1, Cvm1
 end
