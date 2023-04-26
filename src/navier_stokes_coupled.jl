@@ -537,8 +537,8 @@ function set_crank_nicolson_block(bc_type, num,
     end
 
     data_A = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 2, 2)
-    data_A[1,1] = pad_crank_nicolson(opC_u.M .- τ_2 .* Lu, grid_u, τ)
-    data_A[1,2] = - τ_2 .* bc_Lu
+    data_A[1,1] = pad_crank_nicolson(opC_u.M .- τ .* Lu, grid_u, τ)
+    data_A[1,2] = - τ .* bc_Lu
     data_A[2,1] = #=-b0_u * opC_u.χ .+=#
                   (b0_u .+ b1_u) * (opC_u.HxT * opC_u.iMx * opC_u.Bx .+
                           opC_u.HyT * opC_u.iMy * opC_u.By)
@@ -558,8 +558,8 @@ function set_crank_nicolson_block(bc_type, num,
     Bu = [data_B[1,1] data_B[1,2];
           data_B[2,1] data_B[2,2]]
 
-    data_A[1,1] = pad_crank_nicolson(opC_v.M .- τ_2 .* Lv, grid_v, τ)
-    data_A[1,2] = - τ_2 .* bc_Lv
+    data_A[1,1] = pad_crank_nicolson(opC_v.M .- τ .* Lv, grid_v, τ)
+    data_A[1,2] = - τ .* bc_Lv
     data_A[2,1] = #=-b0_v * opC_v.χ .+=#
                   (b0_v .+ b1_v) * (opC_v.HyT * opC_v.iMy * opC_v.By .+
                           opC_v.HxT * opC_v.iMx * opC_v.Bx)
