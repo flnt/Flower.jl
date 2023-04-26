@@ -323,6 +323,53 @@ function strain_rate(opC_u, opC_v)
     return data
 end
 
+function no_slip_condition!(grid, grid_u, grid_v)
+    interpolate_scalar!(grid, grid_u, grid_v, grid.V, grid_u.V, grid_v.V)
+
+    normalx = cos.(grid_u.α)
+    normaly = sin.(grid_v.α)
+
+    grid_u.V .*= normalx
+    grid_v.V .*= normaly
+
+    replace!(grid_u.V, NaN=>0.0)
+    replace!(grid_v.V, NaN=>0.0)
+
+    return nothing
+end
+
+function set_convection!(grid, geo, grid_u, geo_u, grid_v, geo_v,
+                         op, ph, BC_u, BC_v
+    )
+    @unpack Cu, CUTCu, Cv, CUTCv = op
+    @unpack u, v, uD, vD = ph
+
+    Du = reshape(veci(uD,grid_u,2), (grid_u.ny, grid_u.nx))
+    Dv = reshape(veci(vD,grid_v,2), (grid_v.ny, grid_v.nx))
+
+    Hu = zeros(grid_u)
+    for II in vcat(grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1])
+        Hu[II] = distance(grid_u.mid_point[II], geo_u.centroid[II], grid_u.dx[II], grid_u.dy[II])
+    end
+
+    Hv = zeros(grid_v)
+    for II in vcat(grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1])
+        Hv[II] = distance(grid_v.mid_point[II], geo_v.centroid[II], grid_v.dx[II], grid_v.dy[II])
+    end
+
+    bcuCu_x, bcuCu_y, bcvCu_x, bcvCu_y = set_bc_bnds(dir, GridFCx, Du, Dv, Hu, Hv, u, v, BC_u, BC_v)
+    bcvCv_x, bcvCv_y, bcuCv_x, bcuCv_y = set_bc_bnds(dir, GridFCy, Dv, Du, Hv, Hu, v, u, BC_v, BC_u)
+
+    vector_convection!(dir, GridFCx, Cu, CUTCu, u, v, bcuCu_x, bcuCu_y, bcvCu_x, bcvCu_y,
+            geo.dcap, grid.ny, BC_u, grid_u.ind.inside,
+            grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1])
+    vector_convection!(dir, GridFCy, Cv, CUTCv, u, v, bcuCv_x, bcuCv_y, bcvCv_x, bcvCv_y,
+            geo.dcap, grid.ny, BC_v, grid_v.ind.inside,
+            grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1])
+    
+    return nothing
+end
+
 function set_crank_nicolson_block(bc_type, num, grid, opC, L, bc_L, Lm1, bc_Lm1, Mm1, BC)
     @unpack τ = num
     @unpack nx, ny = grid
@@ -407,12 +454,14 @@ end
 
 function projection_no_slip!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
                             BC_u, BC_v, BC_p,
-                            opC_p, opC_u, opC_v,
+                            opC_p, opC_u, opC_v, op_conv,
                             Lum1, bc_Lum1, Lvm1, bc_Lvm1, Mum1, Mvm1,
-                            FULL, MIXED, periodic_x, periodic_y
+                            Cum1, Cvm1,
+                            FULL, MIXED, periodic_x, periodic_y, advection
     )
     @unpack Re, τ = num
     @unpack p, pD, ϕ, ϕD, Gxm1, Gym1, u, uD, v, vD, ucorr, vcorr, ucorrD, vcorrD = ph
+    @unpack Cu, Cv, CUTCu, CUTCv = op_conv
 
     iRe = 1.0 / Re
     iτ = 1.0 / τ
@@ -421,14 +470,30 @@ function projection_no_slip!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
                                                       opC_p, opC_u, opC_v,
                                                       periodic_x, periodic_y)
 
+    if advection
+        set_convection!(grid, geo, grid_u, geo_u, grid_v, geo_v, op_conv, ph, BC_u, BC_v)
+    end
+
     A_u, B_u, rhs_u = set_crank_nicolson_block(dir, num, grid_u, opC_u, iRe.*Lu, iRe.*bc_Lu, iRe.*Lum1, iRe.*bc_Lum1, Mum1, BC_u)
     A_v, B_v, rhs_v = set_crank_nicolson_block(dir, num, grid_v, opC_v, iRe.*Lv, iRe.*bc_Lv, iRe.*Lvm1, iRe.*bc_Lvm1, Mvm1, BC_v)
     a0_p = zeros(grid.ny, grid.nx)
     A_p, rhs_p = set_poisson_block(neu, grid, a0_p, opC_p, Lp, bc_Lp, BC_p)
 
+    Convu = fzeros(grid_u)
+    Convv = fzeros(grid_v)
+    Cui = Cu * vec(u) .+ CUTCu
+    Cvi = Cv * vec(v) .+ CUTCv
+    if advection
+        Convu .+= 1.5 .* Cui .- 0.5 .* Cum1
+        Convv .+= 1.5 .* Cvi .- 0.5 .* Cvm1
+    end
+
     update_dirichlet_field!(grid_u, uD, u, BC_u)
     mul!(rhs_u, B_u, uD, 1.0, 1.0)
     veci(rhs_u,grid_u,1) .+= -τ .* (opC_p.Bx * veci(pD,grid,1) .+ opC_p.Hx * veci(pD,grid,2))
+    veci(rhs_u,grid_u,1) .-= τ .* Convu
+    kill_dead_cells!(veci(rhs_u,grid_u,1), grid_u, geo_u)
+    kill_dead_cells!(veci(rhs_u,grid_u,2), grid_u, geo_u)
     blocks = DDM.decompose(A_u, grid_u.domdec, grid_u.domdec)
     @mytime _, ch = bicgstabl!(ucorrD, A_u, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
     println(ch)
@@ -438,6 +503,9 @@ function projection_no_slip!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     update_dirichlet_field!(grid_v, vD, v, BC_v)
     mul!(rhs_v, B_v, vD, 1.0, 1.0)
     veci(rhs_v,grid_v,1) .+= -τ .* (opC_p.By * veci(pD,grid,1) .+ opC_p.Hy * veci(pD,grid,2))
+    veci(rhs_v,grid_v,1) .-= τ .* Convv
+    kill_dead_cells!(veci(rhs_v,grid_v,1), grid_v, geo_v)
+    kill_dead_cells!(veci(rhs_v,grid_v,2), grid_v, geo_v)
     blocks = DDM.decompose(A_v, grid_v.domdec, grid_v.domdec)
     @mytime _, ch = bicgstabl!(vcorrD, A_v, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
     println(ch)
@@ -476,7 +544,7 @@ function projection_no_slip!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     veci(vD,grid_v,1) .= vec(v)
     veci(vD,grid_v,2) .= veci(vcorrD,grid_v,2)
 
-    return Lu, bc_Lu, Lv, bc_Lv, opC_u.M, opC_v.M
+    return Lu, bc_Lu, Lv, bc_Lv, opC_u.M, opC_v.M, Cui, Cvi
 end
 
 function set_crank_nicolson_block(bc_type, num, 
@@ -612,10 +680,16 @@ end
 function set_navier_stokes(num, grid, geo, grid_u, geo_u, grid_v, geo_v,
                            opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
                            Mum1, Mvm1, iRe,
-                           periodic_x, periodic_y)
-    Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv, Lp_fs, bc_Lp_fs, Lu_fs, bc_Lu_fs, Lv_fs, bc_Lv_fs = set_laplacians!(grid, geo, grid_u, geo_u, grid_v, geo_v,
-        opC_p, opC_u, opC_v,
-        periodic_x, periodic_y, true)
+                           op_conv, ph,
+                           periodic_x, periodic_y, advection)
+    laps = set_laplacians!(grid, geo, grid_u, geo_u, grid_v, geo_v,
+                        opC_p, opC_u, opC_v,
+                        periodic_x, periodic_y, true)
+    Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv, Lp_fs, bc_Lp_fs, Lu_fs, bc_Lu_fs, Lv_fs, bc_Lv_fs = laps
+
+    if advection
+        set_convection!(grid, geo, grid_u, geo_u, grid_v, geo_v, op_conv, ph, BC_u, BC_v)
+    end
 
     Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ = set_crank_nicolson_block(neu, num,
         grid, opC_p, Lp, bc_Lp, Lp_fs, bc_Lp_fs, BC_p,
@@ -627,12 +701,13 @@ end
 
 function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
                         BC_u, BC_v, BC_p,
-                        opC_p, opC_u, opC_v,
-                        Lum1, bc_Lum1, Lvm1, bc_Lvm1, Mum1, Mvm1,
-                        FULL, MIXED, periodic_x, periodic_y, current_i
+                        opC_p, opC_u, opC_v, op_conv,
+                        Cum1, Cvm1, Mum1, Mvm1,
+                        periodic_x, periodic_y, advection
     )
     @unpack Re, τ, σ, g, β = num
     @unpack p, pD, ϕ, ϕD, Gxm1, Gym1, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr = ph
+    @unpack Cu, Cv, CUTCu, CUTCv = op_conv
 
     iRe = 1.0 / Re
     iτ = 1.0 / τ
@@ -640,7 +715,8 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ = set_navier_stokes(num, grid, geo, grid_u, geo_u, grid_v, geo_v,
                                                                 opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
                                                                 Mum1, Mvm1, iRe,
-                                                                periodic_x, periodic_y)
+                                                                op_conv, ph,
+                                                                periodic_x, periodic_y, advection)
 
     a0_u = zeros(grid_u)
     _a1_u = zeros(grid_u)
@@ -666,9 +742,19 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
 
     grav_x = g .* sin(β) .* opC_u.M * fones(grid_u)
     grav_y = g .* cos(β) .* opC_v.M * fones(grid_v)
-
     veci(rhs_u,grid_u,1) .+= τ .* grav_x
     veci(rhs_v,grid_v,1) .+= - τ .* grav_y
+
+    Convu = fzeros(grid_u)
+    Convv = fzeros(grid_v)
+    Cui = Cu * vec(u) .+ CUTCu
+    Cvi = Cv * vec(v) .+ CUTCv
+    if advection
+        Convu .+= 1.5 .* Cui .- 0.5 .* Cum1
+        Convv .+= 1.5 .* Cvi .- 0.5 .* Cvm1
+    end
+    veci(rhs_u,grid_u,1) .-= τ .* Convu
+    veci(rhs_v,grid_v,1) .-= τ .* Convv
 
     kill_dead_cells!(veci(rhs_u,grid_u,1), grid_u, geo_u)
     kill_dead_cells!(veci(rhs_u,grid_u,2), grid_u, geo_u)
@@ -724,5 +810,5 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     veci(vD,grid_v,1) .= vec(v)
     veci(vD,grid_v,2) .= veci(vcorrD,grid_v,2)
 
-    return opC_p.M, opC_u.M, opC_v.M
+    return opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
 end

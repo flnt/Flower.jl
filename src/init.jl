@@ -181,7 +181,7 @@ function adjoint_derivatives(grid, grid_u, grid_v)
     RlsFS_uL = [tmpT tmpT]
 
     # tmp = star3(grid_v)
-    tmp = spdiagm(grid_u.ny*grid_u.nx, grid.ny*grid.nx, 0 => zeros(grid.ny*grid.nx))
+    tmp = spdiagm(grid_v.ny*grid_v.nx, grid.ny*grid.nx, 0 => zeros(grid.ny*grid.nx))
     tmpT = transpose(tmp)
     RvcorrS_ls0 = [tmp; tmp]
     RvcorrL_ls0 = [tmp; tmp]
@@ -290,41 +290,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     @unpack τ, N, T_inf, u_inf, v_inf, A, R, L0, Δ, shifted, max_iterations, save_every, CFL, x_airfoil, y_airfoil = num
     @unpack x, y, nx, ny, u, ind = grid
 
-    SCUTT = zeros(nx*ny)
-    LCUTT = zeros(nx*ny)
-
-    SCUTp = zeros(nx*ny)
-    LCUTp = zeros(nx*ny)
-
-    SCUTu = zeros(grid_u.nx*grid_u.ny)
-    LCUTu = zeros(grid_u.nx*grid_u.ny)
-
-    SCUTv = zeros(grid_v.nx*grid_v.ny)
-    LCUTv = zeros(grid_v.nx*grid_v.ny)
-
-    SCUTDx = zeros(nx*ny)
-    SCUTDy = zeros(nx*ny)
-    LCUTDx = zeros(nx*ny)
-    LCUTDy = zeros(nx*ny)
-
     SCUTCT = zeros(nx*ny)
     LCUTCT = zeros(nx*ny)
-
-    SCUTGxT = zeros(grid_u.nx*grid_u.ny)
-    LCUTGxT = zeros(grid_u.nx*grid_u.ny)
-    SCUTGyT = zeros(grid_v.nx*grid_v.ny)
-    LCUTGyT = zeros(grid_v.nx*grid_v.ny)
-
-    SCUTGxp = zeros(grid_u.nx*grid_u.ny)
-    LCUTGxp = zeros(grid_u.nx*grid_u.ny)
-    SCUTGyp = zeros(grid_v.nx*grid_v.ny)
-    LCUTGyp = zeros(grid_v.nx*grid_v.ny)
-
-    SCUTGxϕ = zeros(grid_u.nx*grid_u.ny)
-    LCUTGxϕ = zeros(grid_u.nx*grid_u.ny)
-    SCUTGyϕ = zeros(grid_v.nx*grid_v.ny)
-    LCUTGyϕ = zeros(grid_v.nx*grid_v.ny)
-
     SCUTCu = zeros(grid_u.nx*grid_u.ny)
     LCUTCu = zeros(grid_u.nx*grid_u.ny)
     SCUTCv = zeros(grid_v.nx*grid_v.ny)
@@ -360,16 +327,6 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     b = zeros(length(jw)+length(js)+length(jn)+length(je))
     c = zeros(length(jwp)+length(jsp)+length(jnp)+length(jep))
 
-    LTS = sparse(II,JJ,vcat(a,b,c))
-    LTL = sparse(II,JJ,vcat(a,b,c))
-    LpS = sparse(II,JJ,vcat(a,b,c))
-    LpL = sparse(II,JJ,vcat(a,b,c))
-    AS = sparse(II,JJ,vcat(a,b,c))
-    AL = sparse(II,JJ,vcat(a,b,c))
-    BS = sparse(II,JJ,vcat(a,b,c))
-    BL = sparse(II,JJ,vcat(a,b,c))
-    ApS = sparse(II,JJ,vcat(a,b,c))
-    ApL = sparse(II,JJ,vcat(a,b,c))
     CTS = sparse(II,JJ,vcat(_a,b,c))
     CTL = sparse(II,JJ,vcat(_a,b,c))
 
@@ -402,10 +359,6 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     b = zeros(length(jw)+length(js)+length(jn)+length(je))
     c = zeros(length(jwp)+length(jsp)+length(jnp)+length(jep))
 
-    LuS = sparse(II,JJ,vcat(a,b,c))
-    LuL = sparse(II,JJ,vcat(a,b,c))
-    AuS = sparse(II,JJ,vcat(a,b,c))
-    AuL = sparse(II,JJ,vcat(a,b,c))
     CuS = sparse(II,JJ,vcat(a,b,c))
     CuL = sparse(II,JJ,vcat(a,b,c))
 
@@ -438,21 +391,10 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     b = zeros(length(jw)+length(js)+length(jn)+length(je))
     c = zeros(length(jwp)+length(jsp)+length(jnp)+length(jep))
 
-    LvS = sparse(II,JJ,vcat(a,b,c))
-    LvL = sparse(II,JJ,vcat(a,b,c))
-    AvS = sparse(II,JJ,vcat(a,b,c))
-    AvL = sparse(II,JJ,vcat(a,b,c))
     CvS = sparse(II,JJ,vcat(a,b,c))
     CvL = sparse(II,JJ,vcat(a,b,c))
 
     # 2 points stencil (p grid to u grid)
-    GxpS = init_sparse_Bx(grid)
-    GxpL = init_sparse_Bx(grid)
-    GxTS = init_sparse_Bx(grid)
-    GxTL = init_sparse_Bx(grid)
-    GxϕS = init_sparse_Bx(grid)
-    GxϕL = init_sparse_Bx(grid)
-
     # Coupled system operators
     Bx_TS = init_sparse_Bx(grid)
     Bx_TL = init_sparse_Bx(grid)
@@ -477,13 +419,6 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     Hx_vL = init_sparse_Bx(grid_v)
 
     # 2 points stencil (p grid to v grid)
-    GypS = init_sparse_By(grid)
-    GypL = init_sparse_By(grid)
-    GyTS = init_sparse_By(grid)
-    GyTL = init_sparse_By(grid)
-    GyϕS = init_sparse_By(grid)
-    GyϕL = init_sparse_By(grid)
-
     # Coupled system operators
     By_TS = init_sparse_By(grid)
     By_TL = init_sparse_By(grid)
@@ -508,13 +443,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     Hy_vL = init_sparse_By(grid_v)
 
     # 2 points stencil (u grid to p grid)
-    DxuS = init_sparse_BxT(grid)
-    DxuL = init_sparse_BxT(grid)
-    ftcGxTS = init_sparse_BxT(grid)
-    ftcGxTL = init_sparse_BxT(grid)
     E11 = init_sparse_BxT(grid)
-    utpS = init_sparse_BxT(grid)
-    utpL = init_sparse_BxT(grid)
 
     # Coupled system operators
     AxT_TS = init_sparse_BxT(grid)
@@ -548,13 +477,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     HxT_vL = init_sparse_BxT(grid_v)
 
     # 2 points stencil (v grid to p grid)
-    DyvS = init_sparse_ByT(grid)
-    DyvL = init_sparse_ByT(grid)
-    ftcGyTS = init_sparse_ByT(grid)
-    ftcGyTL = init_sparse_ByT(grid)
     E22 = init_sparse_ByT(grid)
-    vtpS = init_sparse_ByT(grid)
-    vtpL = init_sparse_ByT(grid)
 
     # Coupled system operators
     AyT_TS = init_sparse_ByT(grid)
@@ -903,16 +826,16 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
         end
     end
 
-    return (Operators(SCUTT, SCUTp, SCUTu, SCUTv, SCUTDx, SCUTDy, SCUTCT, SCUTGxT, SCUTGyT, SCUTGxp, SCUTGyp, SCUTGxϕ, SCUTGyϕ, SCUTCu, SCUTCv, LTS, LpS, LuS, LvS, AS, BS, GxpS, GypS, GxϕS, GyϕS, DxuS, DyvS, ApS, AuS, AvS, CTS, GxTS, GyTS, ftcGxTS, ftcGyTS, CuS, CvS, E11, E12_x, E12_y, E22, utpS, vtpS),
-            Operators(LCUTT, LCUTp, LCUTu, LCUTv, LCUTDx, LCUTDy, LCUTCT, LCUTGxT, LCUTGyT, LCUTGxp, LCUTGyp, LCUTGxϕ, LCUTGyϕ, LCUTCu, LCUTCv, LTL, LpL, LuL, LvL, AL, BL, GxpL, GypL, GxϕL, GyϕL, DxuL, DyvL, ApL, AuL, AvL, CTL, GxTL, GyTL, ftcGxTL, ftcGyTL, CuL, CvL, E11, E12_x, E12_y, E22, utpL, vtpL),
-            OperatorsCoupled(AxT_TS, AyT_TS, Bx_TS, By_TS, BxT_TS, ByT_TS, Hx_TS, Hy_TS, HxT_TS, HyT_TS, tmp_x_TS, tmp_y_TS, M_TS, iMx_TS, iMy_TS, χ_TS, Rx, Ry, GxT_S, GyT_S),
-            OperatorsCoupled(AxT_TL, AyT_TL, Bx_TL, By_TL, BxT_TL, ByT_TL, Hx_TL, Hy_TL, HxT_TL, HyT_TL, tmp_x_TL, tmp_y_TL, M_TL, iMx_TL, iMy_TL, χ_TL, Rx, Ry, GxT_L, GyT_L),
-            OperatorsCoupled(AxT_pS, AyT_pS, Bx_pS, By_pS, BxT_pS, ByT_pS, Hx_pS, Hy_pS, HxT_pS, HyT_pS, tmp_x_pS, tmp_y_pS, M_pS, iMx_pS, iMy_pS, χ_pS, Rx, Ry, GxT_S, GyT_S),
-            OperatorsCoupled(AxT_pL, AyT_pL, Bx_pL, By_pL, BxT_pL, ByT_pL, Hx_pL, Hy_pL, HxT_pL, HyT_pL, tmp_x_pL, tmp_y_pL, M_pL, iMx_pL, iMy_pL, χ_pL, Rx, Ry, GxT_L, GyT_L),
-            OperatorsCoupled(AxT_uS, AyT_uS, Bx_uS, By_uS, BxT_uS, ByT_uS, Hx_uS, Hy_uS, HxT_uS, HyT_uS, tmp_x_uS, tmp_y_uS, M_uS, iMx_uS, iMy_uS, χ_uS, Rx, Ry, Gx_S, Gy_S),
-            OperatorsCoupled(AxT_uL, AyT_uL, Bx_uL, By_uL, BxT_uL, ByT_uL, Hx_uL, Hy_uL, HxT_uL, HyT_uL, tmp_x_uL, tmp_y_uL, M_uL, iMx_uL, iMy_uL, χ_uL, Rx, Ry, Gx_L, Gy_L),
-            OperatorsCoupled(AxT_vS, AyT_vS, Bx_vS, By_vS, BxT_vS, ByT_vS, Hx_vS, Hy_vS, HxT_vS, HyT_vS, tmp_x_vS, tmp_y_vS, M_vS, iMx_vS, iMy_vS, χ_vS, Rx, Ry, Gx_S, Gy_S),
-            OperatorsCoupled(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L),
+    return (OperatorsConvection(SCUTCT, SCUTCu, SCUTCv, CTS, CuS, CvS, E11, E12_x, E12_y, E22),
+            OperatorsConvection(LCUTCT, LCUTCu, LCUTCv, CTL, CuL, CvL, E11, E12_x, E12_y, E22),
+            Operators(AxT_TS, AyT_TS, Bx_TS, By_TS, BxT_TS, ByT_TS, Hx_TS, Hy_TS, HxT_TS, HyT_TS, tmp_x_TS, tmp_y_TS, M_TS, iMx_TS, iMy_TS, χ_TS, Rx, Ry, GxT_S, GyT_S),
+            Operators(AxT_TL, AyT_TL, Bx_TL, By_TL, BxT_TL, ByT_TL, Hx_TL, Hy_TL, HxT_TL, HyT_TL, tmp_x_TL, tmp_y_TL, M_TL, iMx_TL, iMy_TL, χ_TL, Rx, Ry, GxT_L, GyT_L),
+            Operators(AxT_pS, AyT_pS, Bx_pS, By_pS, BxT_pS, ByT_pS, Hx_pS, Hy_pS, HxT_pS, HyT_pS, tmp_x_pS, tmp_y_pS, M_pS, iMx_pS, iMy_pS, χ_pS, Rx, Ry, GxT_S, GyT_S),
+            Operators(AxT_pL, AyT_pL, Bx_pL, By_pL, BxT_pL, ByT_pL, Hx_pL, Hy_pL, HxT_pL, HyT_pL, tmp_x_pL, tmp_y_pL, M_pL, iMx_pL, iMy_pL, χ_pL, Rx, Ry, GxT_L, GyT_L),
+            Operators(AxT_uS, AyT_uS, Bx_uS, By_uS, BxT_uS, ByT_uS, Hx_uS, Hy_uS, HxT_uS, HyT_uS, tmp_x_uS, tmp_y_uS, M_uS, iMx_uS, iMy_uS, χ_uS, Rx, Ry, Gx_S, Gy_S),
+            Operators(AxT_uL, AyT_uL, Bx_uL, By_uL, BxT_uL, ByT_uL, Hx_uL, Hy_uL, HxT_uL, HyT_uL, tmp_x_uL, tmp_y_uL, M_uL, iMx_uL, iMy_uL, χ_uL, Rx, Ry, Gx_L, Gy_L),
+            Operators(AxT_vS, AyT_vS, Bx_vS, By_vS, BxT_vS, ByT_vS, Hx_vS, Hy_vS, HxT_vS, HyT_vS, tmp_x_vS, tmp_y_vS, M_vS, iMx_vS, iMy_vS, χ_vS, Rx, Ry, Gx_S, Gy_S),
+            Operators(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L),
             Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DϕS, DuS, DvS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS),
             Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DϕL, DuL, DvL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL),
             Forward(Tsave, usave, uxsave, uysave, Vsave, κsave, lengthsave, time, Cd, Cl),

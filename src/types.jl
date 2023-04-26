@@ -124,53 +124,20 @@ mutable struct Mesh{G,T,N} <: Grid where {G<:Grid}
     pou::DomainDecomposedVector{T,3,DomainDecomposition{TS,3,D,A,O,W},A2} where {TS,D,A,O,W,A2}
 end
 
-mutable struct Operators{T <: Float64} <: MutatingFields
-    CUTT::Array{T,1}
-    CUTp::Array{T,1}
-    CUTu::Array{T,1}
-    CUTv::Array{T,1}
-    CUTDx::Array{T,1}
-    CUTDy::Array{T,1}
+mutable struct OperatorsConvection{T <: Float64} <: MutatingFields
     CUTCT::Array{T,1}
-    CUTGxT::Array{T,1}
-    CUTGyT::Array{T,1}
-    CUTGxp::Array{T,1}
-    CUTGyp::Array{T,1}
-    CUTGxϕ::Array{T,1}
-    CUTGyϕ::Array{T,1}
     CUTCu::Array{T,1}
     CUTCv::Array{T,1}
-    LT::SparseMatrixCSC{T,Int64}
-    Lp::SparseMatrixCSC{T,Int64}
-    Lu::SparseMatrixCSC{T,Int64}
-    Lv::SparseMatrixCSC{T,Int64}
-    A::SparseMatrixCSC{T,Int64}
-    B::SparseMatrixCSC{T,Int64}
-    Gxp::SparseMatrixCSC{T,Int64}
-    Gyp::SparseMatrixCSC{T,Int64}
-    Gxϕ::SparseMatrixCSC{T,Int64}
-    Gyϕ::SparseMatrixCSC{T,Int64}
-    Dxu::SparseMatrixCSC{T,Int64}
-    Dyv::SparseMatrixCSC{T,Int64}
-    Ap::SparseMatrixCSC{T,Int64}
-    Au::SparseMatrixCSC{T,Int64}
-    Av::SparseMatrixCSC{T,Int64}
     CT::SparseMatrixCSC{T,Int64}
-    GxT::SparseMatrixCSC{T,Int64}
-    GyT::SparseMatrixCSC{T,Int64}
-    ftcGxT::SparseMatrixCSC{T,Int64}
-    ftcGyT::SparseMatrixCSC{T,Int64}
     Cu::SparseMatrixCSC{T,Int64}
     Cv::SparseMatrixCSC{T,Int64}
     E11::SparseMatrixCSC{T,Int64}
     E12_x::SparseMatrixCSC{T,Int64}
     E12_y::SparseMatrixCSC{T,Int64}
     E22::SparseMatrixCSC{T,Int64}
-    utp::SparseMatrixCSC{T,Int64}
-    vtp::SparseMatrixCSC{T,Int64}
 end
 
-mutable struct OperatorsCoupled{T <: Float64} <: MutatingFields
+mutable struct Operators{T <: Float64} <: MutatingFields
     AxT::SparseMatrixCSC{T,Int64}
     AyT::SparseMatrixCSC{T,Int64}
     Bx::SparseMatrixCSC{T,Int64}

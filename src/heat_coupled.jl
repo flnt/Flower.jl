@@ -87,10 +87,15 @@ function set_heat_borders!(grid, a0, a1, b, BC_T)
     return nothing
 end
 
-function set_heat!(bc_type, num, grid, op, geo, θd, BC_T, MIXED, projection, periodic_x, periodic_y)
+function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection,
+    op_conv, grid_u, geo_u, grid_v, geo_v,
+    periodic_x, periodic_y, convection)
     @unpack τ, aniso = num
-    @unpack nx, ny, ind = grid
+    @unpack nx, ny, dx, dy, ind, mid_point = grid
+    @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
     @unpack Bx, By, BxT, ByT, Hx, Hy, HxT, HyT, iMx, iMy, χ = op
+    @unpack CT, CUTCT = op_conv
+    @unpack u, v, uD, vD = ph
 
     if bc_type == dir
         __a1 = -1.
@@ -104,17 +109,39 @@ function set_heat!(bc_type, num, grid, op, geo, θd, BC_T, MIXED, projection, pe
     end
 
     # Flags with BCs
-    a0 = ones(ny, nx) .* θd
+    a0 = ones(grid) .* θd
     if aniso
         apply_anisotropy(num, grid, a0, MIXED, projection)
     else
-        apply_curvature(num, grid, a0, ind.all_indices)
+        apply_curvature(num, grid, a0, all_indices)
     end
     _a1 = ones(ny, nx) .* __a1
     _b = ones(ny, nx) .* __b
     set_borders!(grid, a0, _a1, _b, BC_T)
     a1 = Diagonal(vec(_a1))
     b = Diagonal(vec(_b))
+
+    if convection
+        HT = zeros(grid)
+        @inbounds @threads for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
+            HT[II] = distance(mid_point[II], geo.centroid[II], dx[II], dy[II])
+        end    
+        bcTx, bcTy = set_bc_bnds(dir, a0, HT, BC_T)
+    
+        Hu = zeros(grid_u)
+        for II in vcat(grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1])
+            Hu[II] = distance(grid_u.mid_point[II], geo_u.centroid[II], grid_u.dx[II], grid_u.dy[II])
+        end
+    
+        Hv = zeros(grid_v) 
+        for II in vcat(grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1])
+            Hv[II] = distance(grid_v.mid_point[II], geo_v.centroid[II], grid_v.dx[II], grid_v.dy[II])
+        end
+    
+        bcU = reshape(veci(uD,grid_u,2), (grid_u.ny, grid_u.nx))
+        bcV = reshape(veci(vD,grid_v,2), (grid_v.ny, grid_v.nx))
+        scalar_convection!(dir, CT, CUTCT, u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, BC_T, inside, b_left[1], b_bottom[1], b_right[1], b_top[1])
+    end
 
     χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
     χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
@@ -165,7 +192,10 @@ function set_heat!(bc_type, num, grid, op, geo, θd, BC_T, MIXED, projection, pe
           dataA[2,1] dataA[2,2]]
 
     dataB = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 2, 2)
-    dataB[1,1] = M .+ 0.5 .* τ .* LT 
+    dataB[1,1] = M .+ 0.5 .* τ .* LT
+    if convection
+       dataB[1,1] .-= τ .* CT
+    end
     dataB[1,2] = 0.5 .* τ .* LD
     dataB[2,1] = spdiagm(0 => zeros(nx*ny))
     dataB[2,2] = spdiagm(0 => zeros(nx*ny))
@@ -173,7 +203,10 @@ function set_heat!(bc_type, num, grid, op, geo, θd, BC_T, MIXED, projection, pe
           dataB[2,1] dataB[2,2]]
 
     rhs = zeros(2*nx*ny)
-    rhs[nx*ny+1:end] .= χ * vec(a0)
+    if convection
+        veci(rhs,grid,1) .-= τ .* CUTCT
+    end
+    veci(rhs,grid,2) .+= χ * vec(a0)
 
     return A, B, rhs
 end

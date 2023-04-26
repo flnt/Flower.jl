@@ -22,59 +22,6 @@ end
     return nothing
 end
 
-function crank_nicolson!(num, grid, geo, op)
-    @unpack τ = num
-    @unpack LT, A, B, CT = op
-
-    @inbounds V = @view geo.dcap[:,:,5]
-
-    @inbounds A .= -LT * τ
-    @inbounds B .= (LT - CT) * τ
-    @inbounds @threads for II in grid.ind.all_indices
-        pII = lexicographic(II, grid.ny)
-        @inbounds B[pII,pII] += V[II] * 2.
-        @inbounds A[pII,pII] += V[II] * 2.
-    end
-    return nothing
-end
-
-function set_heat!(num, grid, geo, projection, op, ph, 
-            HT, bcT, Hu, Hv,
-            BC_T, BC_u, BC_v,
-            MIXED, empty, convection
-    )
-    @unpack τ, θd, ϵ_κ, ϵ_V, m, θ₀, aniso = num
-    @unpack nx, ny, dx, dy, ind, mid_point, κ, V = grid
-    @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
-    @unpack dcap, centroid = geo
-    @unpack LT, CUTT, A, B, CT, CUTCT, GxT, GyT, CUTGxT, CUTGyT, ftcGxT, ftcGyT = op
-    @unpack u, v, DT, Du, Dv = ph
-
-    HT .= 0.
-    @inbounds @threads for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
-        HT[II] = distance(mid_point[II], centroid[II], dx[II], dy[II])
-    end
-
-    DT .= θd
-    apply_curvature(num, grid, bcT, DT, all_indices)
-    if aniso
-        apply_anisotropy(num, grid, bcT, DT, MIXED, projection)
-    end
-    bcTx, bcTy = set_bc_bnds(dir, bcT, HT, BC_T)
-
-    laplacian!(dir, LT, CUTT, bcTx, bcTy, dcap, ny, BC_T, inside, empty,
-                MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
-
-    if convection
-        bcU, bcV = set_bc_bnds(dir, Du, Dv, Hu, Hv, u, v, BC_u, BC_v)
-        scalar_convection!(dir, CT, CUTCT, u, v, bcTx, bcTy, bcU, bcV, dcap, ny, BC_T, inside, b_left[1], b_bottom[1], b_right[1], b_top[1])
-    end
-    crank_nicolson!(num, grid, geo, op)
-
-    return nothing
-end
-
-
 function Stefan_velocity!(num, grid, V, TS, TL, MIXED, periodic_x, periodic_y)
     @unpack θd, ϵ_κ, ϵ_V, m, θ₀, aniso = num
     @unpack geoS, geoL, κ = grid

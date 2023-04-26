@@ -888,76 +888,50 @@ function scalar_convection!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC,
 end
 
 function set_bc_bnds(::Dirichlet, ::Union{Type{GridFCx},Type{GridFCy}}, Du, Dv, Hu, Hv, u, v, BC_u, BC_v)
-    Du1_x = copy(Du)
-    Du1_y = copy(Du)
-    Du2_x = copy(Du)
-    Du2_y = copy(Du)
+    Du_x = copy(Du)
+    Du_y = copy(Du)
     Dv_x = copy(Dv)
     Dv_y = copy(Dv)
 
     if is_neumann(BC_u.left.t)
-        @inbounds Du1_x[:,1] .= u[:,1] .+ Hu[:,1] .* BC_u.left.val
-        @inbounds Du1_x[:,2] .= u[:,2]
-        @inbounds Du2_x[:,1] .= Hu[:,1] .* BC_u.left.val
-        @inbounds Du2_x[:,2] .= u[:,2]
+        @inbounds Du_x[:,1] .= u[:,1] .+ Hu[:,1] .* BC_u.left.val
+        @inbounds Du_x[:,2] .= u[:,2]
     elseif is_dirichlet(BC_u.left.t)
-        @inbounds Du1_x[:,1] .= BC_u.left.val
-        @inbounds Du1_x[:,2] .= BC_u.left.val
-        @inbounds Du2_x[:,1] .= BC_u.left.val
-        @inbounds Du2_x[:,2] .= BC_u.left.val
+        @inbounds Du_x[:,1] .= BC_u.left.val
+        @inbounds Du_x[:,2] .= BC_u.left.val
     elseif is_periodic(BC_u.left.t)
-        @inbounds Du1_x[:,1] .= u[:,end]
-        @inbounds Du1_x[:,2] .= u[:,2]
-        @inbounds Du2_x[:,1] .= 0.0
-        @inbounds Du2_x[:,2] .= u[:,2]
+        @inbounds Du_x[:,1] .= u[:,end]
+        @inbounds Du_x[:,2] .= u[:,2]
     end
     if is_neumann(BC_u.bottom.t)
-        @inbounds Du1_y[1,:] .= u[1,:] .+ Hu[1,:] .* BC_u.bottom.val
-        @inbounds Du1_y[2,:] .= u[2,:]
-        @inbounds Du2_y[1,:] .= Hu[1,:] .* BC_u.bottom.val
-        @inbounds Du2_y[2,:] .= u[2,:]
+        @inbounds Du_y[1,:] .= u[1,:] .+ Hu[1,:] .* BC_u.bottom.val
+        @inbounds Du_y[2,:] .= u[2,:]
     elseif is_dirichlet(BC_u.bottom.t)
-        @inbounds Du1_y[1,:] .= BC_u.bottom.val
-        @inbounds Du1_y[2,:] .= BC_u.bottom.val
-        @inbounds Du2_y[1,:] .= BC_u.bottom.val
-        @inbounds Du2_y[2,:] .= BC_u.bottom.val
+        @inbounds Du_y[1,:] .= BC_u.bottom.val
+        @inbounds Du_y[2,:] .= BC_u.bottom.val
     elseif is_periodic(BC_u.bottom.t)
-        @inbounds Du1_y[1,:] .= u[end,:]
-        @inbounds Du1_y[2,:] .= u[2,:]
-        @inbounds Du2_y[1,:] .= 0.0
-        @inbounds Du2_y[2,:] .= u[2,:]
+        @inbounds Du_y[1,:] .= u[end,:]
+        @inbounds Du_y[2,:] .= u[2,:]
     end
     if is_neumann(BC_u.right.t)
-        @inbounds Du1_x[:,end] .= u[:,end] .+ Hu[:,end] .* BC_u.right.val 
-        @inbounds Du1_x[:,end-1] .= u[:,end-1]
-        @inbounds Du2_x[:,end] .= Hu[:,end] .* BC_u.right.val
-        @inbounds Du2_x[:,end-1] .= u[:,end-1]
+        @inbounds Du_x[:,end] .= u[:,end] .+ Hu[:,end] .* BC_u.right.val 
+        @inbounds Du_x[:,end-1] .= u[:,end-1]
     elseif is_dirichlet(BC_u.right.t)
-        @inbounds Du1_x[:,end] .= BC_u.right.val
-        @inbounds Du1_x[:,end-1] .= BC_u.right.val
-        @inbounds Du2_x[:,end] .= BC_u.right.val
-        @inbounds Du2_x[:,end-1] .= BC_u.right.val
+        @inbounds Du_x[:,end] .= BC_u.right.val
+        @inbounds Du_x[:,end-1] .= BC_u.right.val
     elseif is_periodic(BC_u.right.t)
-        @inbounds Du1_x[:,end] .= u[:,1]
-        @inbounds Du1_x[:,end-1] .= u[:,end-1]
-        @inbounds Du2_x[:,end] .= 0.0
-        @inbounds Du2_x[:,end-1] .= u[:,end-1]
+        @inbounds Du_x[:,end] .= u[:,1]
+        @inbounds Du_x[:,end-1] .= u[:,end-1]
     end
     if is_neumann(BC_u.top.t)
-        @inbounds Du1_y[end,:] .= u[end,:] .+ Hu[end,:] .* BC_u.top.val
-        @inbounds Du1_y[end-1,:] .= u[end-1,:]
-        @inbounds Du2_y[end,:] .= Hu[end,:] .* BC_u.top.val
-        @inbounds Du2_y[end-1,:] .= u[end-1,:]
+        @inbounds Du_y[end,:] .= u[end,:] .+ Hu[end,:] .* BC_u.top.val
+        @inbounds Du_y[end-1,:] .= u[end-1,:]
     elseif is_dirichlet(BC_u.top.t)
-        @inbounds Du1_y[end,:] .= BC_u.top.val
-        @inbounds Du1_y[end-1,:] .= BC_u.top.val
-        @inbounds Du2_y[end,:] .= BC_u.top.val
-        @inbounds Du2_y[end-1,:] .= BC_u.top.val
+        @inbounds Du_y[end,:] .= BC_u.top.val
+        @inbounds Du_y[end-1,:] .= BC_u.top.val
     elseif is_periodic(BC_u.top.t)
-        @inbounds Du1_y[end,:] .= u[1,:]
-        @inbounds Du1_y[end-1,:] .= u[end-1,:]
-        @inbounds Du2_y[end,:] .= 0.0
-        @inbounds Du2_y[end-1,:] .= u[end-1,:]
+        @inbounds Du_y[end,:] .= u[1,:]
+        @inbounds Du_y[end-1,:] .= u[end-1,:]
     end
 
     if is_neumann(BC_v.left.t)
@@ -1001,7 +975,7 @@ function set_bc_bnds(::Dirichlet, ::Union{Type{GridFCx},Type{GridFCy}}, Du, Dv, 
         @inbounds Dv_y[end-1,:] .= v[end-1,:]
     end
 
-    return Du1_x, Du1_y, Du2_x, Du2_y, Dv_x, Dv_y
+    return Du_x, Du_y, Dv_x, Dv_y
 end
 
 @inline function set_vec_conv_bnd!(::Dirichlet, ::Dirichlet, O, fun_cap, fun1, fun2, fun3, fun4, A1, A2, A3, A4, B1, B2, Du, Dv, n, b_indices, b_periodic)
@@ -1070,7 +1044,175 @@ function fill_inside_conv!(::Type{GridFCx}, O, B, u, v, Du1_x, Du1_y, Dv_y, cap,
     return nothing
 end
 
-function vector_convection!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, Du1_x, Du1_y, Du2_x, Du2_y, Dv_x, Dv_y, cap, n, BC, inside, b_left, b_bottom, b_right, b_top)
+function vec_convx_1!(II, O, B, u, Du1, Du2, Dv, cap, n)
+    pII = lexicographic(II, n)
+    A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
+    
+    Aui, Auip1 = A1_2 * u[II], A3_2 * u[δx⁺(II)]
+
+    Au3 = 0.5 * (Aui + Auip1)
+
+    @inbounds O[pII,pII] += 0.5 * Au3
+    @inbounds O[pII,pII+n] = 0.5 * Au3
+
+    @inbounds O[pII,pII] += -0.25 * (A3_2 - B1_2) * Du1[δx⁺(II)]
+    @inbounds O[pII,pII] += -0.25 * (B1_2 - A1_2) * Du1[II]
+
+    @inbounds O[pII,pII] += -0.25 * (A4_2 - B2_2) * Dv[δy⁺(II)]
+    @inbounds O[pII,pII] += -0.25 * (B2_2 - A2_2) * Dv[II]
+
+    @inbounds B[pII] += -0.25 * Du2[II] * (A3_2 - B1_2) * Du1[δx⁺(II)]
+    @inbounds B[pII] += -0.25 * Du2[II] * (B1_2 - A1_2) * Du1[II]
+
+    @inbounds B[pII] += -0.25 * Du2[II] * (A4_2 - B2_2) * Dv[δy⁺(II)]
+    @inbounds B[pII] += -0.25 * Du2[II] * (B2_2 - A2_2) * Dv[II]
+
+    return nothing
+end
+
+function vec_convx_2!(II, O, B, u, Du1, Du2, Dv, cap, n)
+    pII = lexicographic(II, n)
+    A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δx⁻(II))
+    
+    Auim1, Aui = A1_1 * u[δx⁻(II)], A3_1 * u[II]
+
+    Au1 = 0.5 * (Auim1 + Aui)
+
+    @inbounds O[pII,pII] += -0.5 * Au1
+    @inbounds O[pII,pII-n] = -0.5 * Au1
+
+    @inbounds O[pII,pII] += -0.25 * (A3_1 - B1_1) * Du1[II]
+    @inbounds O[pII,pII] += -0.25 * (B1_1 - A1_1) * Du1[δx⁻(II)]
+
+    @inbounds O[pII,pII] += -0.25 * (A4_1 - B2_1) * Dv[δx⁻(δy⁺(II))]
+    @inbounds O[pII,pII] += -0.25 * (B2_1 - A2_1) * Dv[δx⁻(II)]
+
+    @inbounds B[pII] += -0.25 * Du2[II] * (A3_1 - B1_1) * Du1[II]
+    @inbounds B[pII] += -0.25 * Du2[II] * (B1_1 - A1_1) * Du1[δx⁻(II)]
+
+    @inbounds B[pII] += -0.25 * Du2[II] * (A4_1 - B2_1) * Dv[δx⁻(δy⁺(II))]
+    @inbounds B[pII] += -0.25 * Du2[II] * (B2_1 - A2_1) * Dv[δx⁻(II)]
+
+    return nothing
+end
+
+function vec_convx_3!(II, O, v, cap, n)
+    pII = lexicographic(II, n)
+    A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δx⁻(II))
+    A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
+    
+    Avim1jp1 = A4_1 * v[δy⁺(δx⁻(II))]
+    Avip1jp1 = A4_2 * v[δy⁺(II)]
+
+    Au4 = 0.5 * (Avim1jp1 + Avip1jp1)
+
+    @inbounds O[pII,pII] += 0.5 * Au4
+    @inbounds O[pII,pII+1] = 0.5 * Au4
+
+    return nothing
+end
+
+function vec_convx_4!(II, O, v, cap, n)
+    pII = lexicographic(II, n)
+    A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δx⁻(II))
+    A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
+    
+    Avim1jm1 = A2_1 * v[δx⁻(II)]
+    Avip1jm1 = A2_2 * v[II]
+
+    Au2 = 0.5 * (Avim1jm1 + Avip1jm1)
+
+    @inbounds O[pII,pII] += -0.5 * Au2
+    @inbounds O[pII,pII-1] = -0.5 * Au2
+
+    return nothing
+end
+
+function vec_convx_5!(II, O, v, cap, n, BC)
+    pII = lexicographic(II, n)
+    A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
+    
+    Avip1jm1 = A2_2 * v[II]
+
+    Au2 = 0.5 * Avip1jm1
+
+    if is_periodic(BC.left.t)
+        JJ = II + CartesianIndex(0, n)
+        A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
+        Avim1jm1 = A2_1 * v[δx⁻(JJ)]
+        Au2 += 0.5 * Avim1jm1
+    end
+
+    @inbounds O[pII,pII] += -0.5 * Au2
+    @inbounds O[pII,pII-1] = -0.5 * Au2
+
+    return nothing
+end
+
+function vec_convx_6!(II, O, v, cap, n, BC)
+    pII = lexicographic(II, n)
+    A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
+    
+    Avip1jp1 = A4_2 * v[δy⁺(II)]
+
+    Au4 = 0.5 * Avip1jp1
+
+    if is_periodic(BC.left.t)
+        JJ = II + CartesianIndex(0, n)
+        A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
+        Avim1jp1 = A4_1 * v[δy⁺(δx⁻(JJ))]
+        Au4 += 0.5 * Avim1jp1
+    end
+
+    @inbounds O[pII,pII] += 0.5 * Au4
+    @inbounds O[pII,pII+1] = 0.5 * Au4
+
+    return nothing
+end
+
+function vec_convx_7!(II, O, v, cap, n, BC)
+    pII = lexicographic(II, n)
+    A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δx⁻(II))
+    
+    Avim1jm1 = A2_1 * v[δx⁻(II)]
+
+    Au2 = 0.5 * Avim1jm1
+
+    if is_periodic(BC.right.t)
+        JJ = II + CartesianIndex(0, -n)
+        A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, JJ)
+        Avip1jm1 = A2_2 * v[JJ]
+        Au2 += 0.5 * Avip1jm1
+    end
+
+    @inbounds O[pII,pII] += -0.5 * Au2
+    @inbounds O[pII,pII-1] = -0.5 * Au2
+
+    return nothing
+end
+
+function vec_convx_8!(II, O, v, cap, n, BC)
+    pII = lexicographic(II, n)
+    A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δx⁻(II))
+    
+    Avim1jp1 = A4_1 * v[δy⁺(δx⁻(II))]
+
+    Au4 = 0.5 * Avim1jp1
+
+    if is_periodic(BC.right.t)
+        JJ = II + CartesianIndex(0, -n)
+        A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, JJ)
+        Avip1jp1 = A4_2 * v[δy⁺(JJ)]
+        Au4 += 0.5 * Avip1jp1
+    end
+
+    @inbounds O[pII,pII] += 0.5 * Au4
+    @inbounds O[pII,pII+1] = 0.5 * Au4
+
+    return nothing
+end
+
+function vector_convection!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, Du1_x, Du1_y, Dv_x, Dv_y, cap, n, BC, inside, b_left, b_bottom, b_right, b_top)
     B .= 0.0
     @inbounds @threads for II in inside
         fill_inside_conv!(GridFCx, O, B, u, v, Du1_x, Du1_y, Dv_y, cap, n, II)
@@ -1083,154 +1225,34 @@ function vector_convection!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, Du1_x, Du1
     bnds = (b_left, b_bottom[2:end-1], b_top[2:end-1])
     bc = ((Du1_x, Du1_x, Dv_x), (Du1_y, Du1_y, Dv_y), (Du1_y, Du1_y, Dv_y))
     for (bnd, (Du1, Du2, Dv)) in zip(bnds, bc)
-        @inbounds for II in bnd
-            pII = lexicographic(II, n)
-            A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
-            
-            Aui, Auip1 = A1_2 * u[II], A3_2 * u[δx⁺(II)]
-
-            Au3 = 0.5 * (Aui + Auip1)
-
-            @inbounds O[pII,pII] += 0.5 * Au3
-            @inbounds O[pII,pII+n] = 0.5 * Au3
-
-            @inbounds O[pII,pII] += -0.25 * (A3_2 - B1_2) * Du1[δx⁺(II)]
-            @inbounds O[pII,pII] += -0.25 * (B1_2 - A1_2) * Du1[II]
-
-            @inbounds O[pII,pII] += -0.25 * (A4_2 - B2_2) * Dv[δy⁺(II)]
-            @inbounds O[pII,pII] += -0.25 * (B2_2 - A2_2) * Dv[II]
-
-            @inbounds B[pII] += -0.25 * Du2[II] * (A3_2 - B1_2) * Du1[δx⁺(II)]
-            @inbounds B[pII] += -0.25 * Du2[II] * (B1_2 - A1_2) * Du1[II]
-
-            @inbounds B[pII] += -0.25 * Du2[II] * (A4_2 - B2_2) * Dv[δy⁺(II)]
-            @inbounds B[pII] += -0.25 * Du2[II] * (B2_2 - A2_2) * Dv[II]
+        @inbounds @threads for II in bnd
+            vec_convx_1!(II, O, B, u, Du1, Du2, Dv, cap, n)
         end
     end
     bnds = (b_bottom[2:end-1], b_right, b_top[2:end-1])
     bc = ((Du1_y, Du1_y, Dv_y), (Du1_x, Du1_x, Dv_x), (Du1_y, Du1_y, Dv_y))
     for (bnd, (Du1, Du2, Dv)) in zip(bnds, bc)
-        @inbounds for II in bnd
-            pII = lexicographic(II, n)
-            A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δx⁻(II))
-            
-            Auim1, Aui = A1_1 * u[δx⁻(II)], A3_1 * u[II]
-
-            Au1 = 0.5 * (Auim1 + Aui)
-
-            @inbounds O[pII,pII] += -0.5 * Au1
-            @inbounds O[pII,pII-n] = -0.5 * Au1
-
-            @inbounds O[pII,pII] += -0.25 * (A3_1 - B1_1) * Du1[II]
-            @inbounds O[pII,pII] += -0.25 * (B1_1 - A1_1) * Du1[δx⁻(II)]
-
-            @inbounds O[pII,pII] += -0.25 * (A4_1 - B2_1) * Dv[δx⁻(δy⁺(II))]
-            @inbounds O[pII,pII] += -0.25 * (B2_1 - A2_1) * Dv[δx⁻(II)]
-
-            @inbounds B[pII] += -0.25 * Du2[II] * (A3_1 - B1_1) * Du1[II]
-            @inbounds B[pII] += -0.25 * Du2[II] * (B1_1 - A1_1) * Du1[δx⁻(II)]
-
-            @inbounds B[pII] += -0.25 * Du2[II] * (A4_1 - B2_1) * Dv[δx⁻(δy⁺(II))]
-            @inbounds B[pII] += -0.25 * Du2[II] * (B2_1 - A2_1) * Dv[δx⁻(II)]
+        @inbounds @threads for II in bnd
+            vec_convx_2!(II, O, B, u, Du1, Du2, Dv, cap, n)
         end
     end
-    @inbounds for II in b_bottom[2:end-1]
-        pII = lexicographic(II, n)
-        A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δx⁻(II))
-        A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
-        
-        Avim1jp1 = A4_1 * v[δy⁺(δx⁻(II))]
-        Avip1jp1 = A4_2 * v[δy⁺(II)]
-
-        Au4 = 0.5 * (Avim1jp1 + Avip1jp1)
-
-        @inbounds O[pII,pII] += 0.5 * Au4
-        @inbounds O[pII,pII+1] = 0.5 * Au4
+    @inbounds @threads for II in b_bottom[2:end-1]
+        vec_convx_3!(II, O, v, cap, n)
     end
-    @inbounds for II in b_top[2:end-1]
-        pII = lexicographic(II, n)
-        A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δx⁻(II))
-        A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
-        
-        Avim1jm1 = A2_1 * v[δx⁻(II)]
-        Avip1jm1 = A2_2 * v[II]
-
-        Au2 = 0.5 * (Avim1jm1 + Avip1jm1)
-
-        @inbounds O[pII,pII] += -0.5 * Au2
-        @inbounds O[pII,pII-1] = -0.5 * Au2
+    @inbounds @threads for II in b_top[2:end-1]
+        vec_convx_4!(II, O, v, cap, n)
     end
-    @inbounds for II in b_left[2:end]
-        pII = lexicographic(II, n)
-        A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
-        
-        Avip1jm1 = A2_2 * v[II]
-
-        Au2 = 0.5 * Avip1jm1
-
-        if is_periodic(BC.left.t)
-            JJ = II + CartesianIndex(0, n)
-            A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
-            Avim1jm1 = A2_1 * v[δx⁻(JJ)]
-            Au2 += 0.5 * Avim1jm1
-        end
-
-        @inbounds O[pII,pII] += -0.5 * Au2
-        @inbounds O[pII,pII-1] = -0.5 * Au2
+    @inbounds @threads for II in b_left[2:end]
+        vec_convx_5!(II, O, v, cap, n, BC)
     end
-    @inbounds for II in b_left[1:end-1]
-        pII = lexicographic(II, n)
-        A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
-        
-        Avip1jp1 = A4_2 * v[δy⁺(II)]
-
-        Au4 = 0.5 * Avip1jp1
-
-        if is_periodic(BC.left.t)
-            JJ = II + CartesianIndex(0, n)
-            A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
-            Avim1jp1 = A4_1 * v[δy⁺(δx⁻(JJ))]
-            Au4 += 0.5 * Avim1jp1
-        end
-
-        @inbounds O[pII,pII] += 0.5 * Au4
-        @inbounds O[pII,pII+1] = 0.5 * Au4
+    @inbounds @threads for II in b_left[1:end-1]
+        vec_convx_6!(II, O, v, cap, n, BC)
     end
-    @inbounds for II in b_right[2:end]
-        pII = lexicographic(II, n)
-        A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δx⁻(II))
-        
-        Avim1jm1 = A2_1 * v[δx⁻(II)]
-
-        Au2 = 0.5 * Avim1jm1
-
-        if is_periodic(BC.right.t)
-            JJ = II + CartesianIndex(0, -n)
-            A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, JJ)
-            Avip1jm1 = A2_2 * v[JJ]
-            Au2 += 0.5 * Avip1jm1
-        end
-
-        @inbounds O[pII,pII] += -0.5 * Au2
-        @inbounds O[pII,pII-1] = -0.5 * Au2
+    @inbounds @threads for II in b_right[2:end]
+        vec_convx_7!(II, O, v, cap, n, BC)
     end
-    @inbounds for II in b_right[1:end-1]
-        pII = lexicographic(II, n)
-        A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δx⁻(II))
-        
-        Avim1jp1 = A4_1 * v[δy⁺(δx⁻(II))]
-
-        Au4 = 0.5 * Avim1jp1
-
-        if is_periodic(BC.right.t)
-            JJ = II + CartesianIndex(0, -n)
-            A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, JJ)
-            Avip1jp1 = A4_2 * v[δy⁺(JJ)]
-            Au4 += 0.5 * Avip1jp1
-        end
-
-        @inbounds O[pII,pII] += 0.5 * Au4
-        @inbounds O[pII,pII+1] = 0.5 * Au4
+    @inbounds @threads for II in b_right[1:end-1]
+        vec_convx_8!(II, O, v, cap, n, BC)
     end
 
     if is_periodic(BC.left.t) && is_periodic(BC.right.t)
@@ -1438,7 +1460,175 @@ function fill_inside_conv!(::Type{GridFCy}, O, B, u, v, Du_x, Dv1_x, Dv1_y, cap,
     @inbounds B[pII] += -0.25 * Dv1_x[II] * (B1_2 - A1_2) * Du_x[II]
 end
 
-function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y, Dv1_x, Dv1_y, Dv2_x, Dv2_y, cap, n, BC, inside, b_left, b_bottom, b_right, b_top)
+function vec_convy_1!(II, O, B, v, Du, Dv1, Dv2, cap, n)
+    pII = lexicographic(II, n+1)
+    A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
+    
+    Avi, Avip1 = A2_2 * v[II], A4_2 * v[δy⁺(II)]
+
+    Au4 = 0.5 * (Avi + Avip1)
+
+    @inbounds O[pII,pII] += 0.5 * Au4
+    @inbounds O[pII,pII+1] = 0.5 * Au4
+
+    @inbounds O[pII,pII] += -0.25 * (A4_2 - B2_2) * Dv1[δy⁺(II)]
+    @inbounds O[pII,pII] += -0.25 * (B2_2 - A2_2) * Dv1[II]
+
+    @inbounds O[pII,pII] += -0.25 * (A3_2 - B1_2) * Du[δx⁺(II)]
+    @inbounds O[pII,pII] += -0.25 * (B1_2 - A1_2) * Du[II]
+
+    @inbounds B[pII] += -0.25 * Dv2[II] * (A4_2 - B2_2) * Dv1[δy⁺(II)]
+    @inbounds B[pII] += -0.25 * Dv2[II] * (B2_2 - A2_2) * Dv1[II]
+
+    @inbounds B[pII] += -0.25 * Dv2[II] * (A3_2 - B1_2) * Du[δx⁺(II)]
+    @inbounds B[pII] += -0.25 * Dv2[II] * (B1_2 - A1_2) * Du[II]
+
+    return nothing
+end
+
+function vec_convy_2!(II, O, B, v, Du, Dv1, Dv2, cap, n)
+    pII = lexicographic(II, n+1)
+    A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δy⁻(II))
+    
+    Avim1, Avi = A2_1 * v[δy⁻(II)], A4_1 * v[II]
+
+    Au2 = 0.5 * (Avim1 + Avi)
+
+    @inbounds O[pII,pII] += -0.5 * Au2
+    @inbounds O[pII,pII-1] = -0.5 * Au2
+
+    @inbounds O[pII,pII] += -0.25 * (A4_1 - B2_1) * Dv1[II]
+    @inbounds O[pII,pII] += -0.25 * (B2_1 - A2_1) * Dv1[δy⁻(II)]
+
+    @inbounds O[pII,pII] += -0.25 * (A3_1 - B1_1) * Du[δy⁻(δx⁺(II))]
+    @inbounds O[pII,pII] += -0.25 * (B1_1 - A1_1) * Du[δy⁻(II)]
+
+    @inbounds B[pII] += -0.25 * Dv2[II] * (A4_1 - B2_1) * Dv1[II]
+    @inbounds B[pII] += -0.25 * Dv2[II] * (B2_1 - A2_1) * Dv1[δy⁻(II)]
+
+    @inbounds B[pII] += -0.25 * Dv2[II] * (A3_1 - B1_1) * Du[δy⁻(δx⁺(II))]
+    @inbounds B[pII] += -0.25 * Dv2[II] * (B1_1 - A1_1) * Du[δy⁻(II)]
+
+    return nothing
+end
+
+function vec_convy_3!(II, O, u, cap, n)
+    pII = lexicographic(II, n+1)
+    A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δy⁻(II))
+    A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
+    
+    Auip1jm1 = A3_1 * u[δx⁺(δy⁻(II))]
+    Auip1jp1 = A3_2 * u[δx⁺(II)]
+
+    Au3 = 0.5 * (Auip1jm1 + Auip1jp1)
+
+    @inbounds O[pII,pII] += 0.5 * Au3
+    @inbounds O[pII,pII+n+1] = 0.5 * Au3
+
+    return nothing
+end
+
+function vec_convy_4!(II, O, u, cap, n)
+    pII = lexicographic(II, n+1)
+    A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δy⁻(II))
+    A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
+    
+    Auim1jm1 = A1_1 * u[δy⁻(II)]
+    Auim1jp1 = A1_2 * u[II]
+
+    Au1 = 0.5 * (Auim1jm1 + Auim1jp1)
+
+    @inbounds O[pII,pII] += -0.5 * Au1
+    @inbounds O[pII,pII-n-1] = -0.5 * Au1
+
+    return nothing
+end
+
+function vec_convy_5!(II, O, u, cap, n, BC)
+    pII = lexicographic(II, n+1)
+    A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
+    
+    Auim1jp1 = A1_2 * u[II]
+
+    Au1 = 0.5 * Auim1jp1
+
+    if is_periodic(BC.bottom.t)
+        JJ = II + CartesianIndex(n, 0)
+        A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
+        Auim1jm1 = A1_1 * u[JJ]
+        Au1 += 0.5 * Auim1jm1
+    end
+
+    @inbounds O[pII,pII] += -0.5 * Au1
+    @inbounds O[pII,pII-n-1] = -0.5 * Au1
+
+    return nothing
+end
+
+function vec_convy_6!(II, O, u, cap, n, BC)
+    pII = lexicographic(II, n+1)
+    A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
+    
+    Auip1jp1 = A3_2 * u[δx⁺(II)]
+
+    Au3 = 0.5 * Auip1jp1
+
+    if is_periodic(BC.bottom.t)
+        JJ = II + CartesianIndex(n, 0)
+        A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
+        Auip1jm1 = A3_1 * u[δx⁺(JJ)]
+        Au3 += 0.5 * Auip1jm1
+    end
+
+    @inbounds O[pII,pII] += 0.5 * Au3
+    @inbounds O[pII,pII+n+1] = 0.5 * Au3
+
+    return nothing
+end
+
+function vec_convy_7!(II, O, u, cap, n, BC)
+    pII = lexicographic(II, n+1)
+    A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δy⁻(II))
+    
+    Auim1jm1 = A1_1 * u[δy⁻(II)]
+
+    Au1 = 0.5 * Auim1jm1
+
+    if is_periodic(BC.top.t)
+        JJ = II + CartesianIndex(-n, 0)
+        A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, JJ)
+        Auim1jp1 = A1_2 * u[JJ]
+        Au1 += 0.5 * Auim1jp1
+    end
+
+    @inbounds O[pII,pII] += -0.5 * Au1
+    @inbounds O[pII,pII-n-1] = -0.5 * Au1
+
+    return nothing
+end
+
+function vec_convy_8!(II, O, u, cap, n, BC)
+    pII = lexicographic(II, n+1)
+    A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δy⁻(II))
+    
+    Auip1jm1 = A3_1 * u[δx⁺(δy⁻(II))]
+
+    Au3 = 0.5 * Auip1jm1
+
+    if is_periodic(BC.top.t)
+        JJ = II + CartesianIndex(n, 0)
+        A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, JJ)
+        Auip1jp1 = A3_2 * u[δx⁺(JJ)]
+        Au3 += 0.5 * Auip1jp1
+    end
+
+    @inbounds O[pII,pII] += 0.5 * Au3
+    @inbounds O[pII,pII+n+1] = 0.5 * Au3
+
+    return nothing
+end
+
+function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y, Dv1_x, Dv1_y, cap, n, BC, inside, b_left, b_bottom, b_right, b_top)
     B .= 0.0
     @inbounds @threads for II in inside
         fill_inside_conv!(GridFCy, O, B, u, v, Du_x, Dv1_x, Dv1_y, cap, n, II)
@@ -1451,154 +1641,34 @@ function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y
     bnds = (b_left[2:end-1], b_bottom, b_right[2:end-1])
     bc = ((Du_x, Dv1_x, Dv1_x), (Du_y, Dv1_y, Dv1_y), (Du_x, Dv1_x, Dv1_x))
     for (bnd, (Du, Dv1, Dv2)) in zip(bnds, bc)
-        @inbounds for II in bnd
-            pII = lexicographic(II, n+1)
-            A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
-            
-            Avi, Avip1 = A2_2 * v[II], A4_2 * v[δy⁺(II)]
-
-            Au4 = 0.5 * (Avi + Avip1)
-
-            @inbounds O[pII,pII] += 0.5 * Au4
-            @inbounds O[pII,pII+1] = 0.5 * Au4
-
-            @inbounds O[pII,pII] += -0.25 * (A4_2 - B2_2) * Dv1[δy⁺(II)]
-            @inbounds O[pII,pII] += -0.25 * (B2_2 - A2_2) * Dv1[II]
-
-            @inbounds O[pII,pII] += -0.25 * (A3_2 - B1_2) * Du[δx⁺(II)]
-            @inbounds O[pII,pII] += -0.25 * (B1_2 - A1_2) * Du[II]
-
-            @inbounds B[pII] += -0.25 * Dv2[II] * (A4_2 - B2_2) * Dv1[δy⁺(II)]
-            @inbounds B[pII] += -0.25 * Dv2[II] * (B2_2 - A2_2) * Dv1[II]
-
-            @inbounds B[pII] += -0.25 * Dv2[II] * (A3_2 - B1_2) * Du[δx⁺(II)]
-            @inbounds B[pII] += -0.25 * Dv2[II] * (B1_2 - A1_2) * Du[II]
+        @inbounds @threads for II in bnd
+            vec_convy_1!(II, O, B, v, Du, Dv1, Dv2, cap, n)
         end
     end
     bnds = (b_left[2:end-1], b_right[2:end-1], b_top)
     bc = ((Du_x, Dv1_x, Dv1_x), (Du_x, Dv1_x, Dv1_x), (Du_y, Dv1_y, Dv1_y))
     for (bnd, (Du, Dv1, Dv2)) in zip(bnds, bc)
-        @inbounds for II in bnd
-            pII = lexicographic(II, n+1)
-            A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δy⁻(II))
-            
-            Avim1, Avi = A2_1 * v[δy⁻(II)], A4_1 * v[II]
-
-            Au2 = 0.5 * (Avim1 + Avi)
-
-            @inbounds O[pII,pII] += -0.5 * Au2
-            @inbounds O[pII,pII-1] = -0.5 * Au2
-
-            @inbounds O[pII,pII] += -0.25 * (A4_1 - B2_1) * Dv1[II]
-            @inbounds O[pII,pII] += -0.25 * (B2_1 - A2_1) * Dv1[δy⁻(II)]
-
-            @inbounds O[pII,pII] += -0.25 * (A3_1 - B1_1) * Du[δy⁻(δx⁺(II))]
-            @inbounds O[pII,pII] += -0.25 * (B1_1 - A1_1) * Du[δy⁻(II)]
-
-            @inbounds B[pII] += -0.25 * Dv2[II] * (A4_1 - B2_1) * Dv1[II]
-            @inbounds B[pII] += -0.25 * Dv2[II] * (B2_1 - A2_1) * Dv1[δy⁻(II)]
-
-            @inbounds B[pII] += -0.25 * Dv2[II] * (A3_1 - B1_1) * Du[δy⁻(δx⁺(II))]
-            @inbounds B[pII] += -0.25 * Dv2[II] * (B1_1 - A1_1) * Du[δy⁻(II)]
+        @inbounds @threads for II in bnd
+            vec_convy_2!(II, O, B, v, Du, Dv1, Dv2, cap, n)
         end
     end
-    @inbounds for II in b_left[2:end-1]
-        pII = lexicographic(II, n+1)
-        A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δy⁻(II))
-        A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
-        
-        Auip1jm1 = A3_1 * u[δx⁺(δy⁻(II))]
-        Auip1jp1 = A3_2 * u[δx⁺(II)]
-
-        Au3 = 0.5 * (Auip1jm1 + Auip1jp1)
-
-        @inbounds O[pII,pII] += 0.5 * Au3
-        @inbounds O[pII,pII+n+1] = 0.5 * Au3
+    @inbounds @threads for II in b_left[2:end-1]
+        vec_convy_3!(II, O, u, cap, n)
     end
-    @inbounds for II in b_right[2:end-1]
-        pII = lexicographic(II, n+1)
-        A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δy⁻(II))
-        A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
-        
-        Auim1jm1 = A1_1 * u[δy⁻(II)]
-        Auim1jp1 = A1_2 * u[II]
-
-        Au1 = 0.5 * (Auim1jm1 + Auim1jp1)
-
-        @inbounds O[pII,pII] += -0.5 * Au1
-        @inbounds O[pII,pII-n-1] = -0.5 * Au1
+    @inbounds @threads for II in b_right[2:end-1]
+        vec_convy_4!(II, O, u, cap, n)
     end
-    @inbounds for II in b_bottom[2:end]
-        pII = lexicographic(II, n+1)
-        A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
-        
-        Auim1jp1 = A1_2 * u[II]
-
-        Au1 = 0.5 * Auim1jp1
-
-        if is_periodic(BC.bottom.t)
-            JJ = II + CartesianIndex(n, 0)
-            A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
-            Auim1jm1 = A1_1 * u[JJ]
-            Au1 += 0.5 * Auim1jm1
-        end
-
-        @inbounds O[pII,pII] += -0.5 * Au1
-        @inbounds O[pII,pII-n-1] = -0.5 * Au1
+    @inbounds @threads for II in b_bottom[2:end]
+        vec_convy_5!(II, O, u, cap, n, BC)
     end
-    @inbounds for II in b_bottom[1:end-1]
-        pII = lexicographic(II, n+1)
-        A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
-        
-        Auip1jp1 = A3_2 * u[δx⁺(II)]
-
-        Au3 = 0.5 * Auip1jp1
-
-        if is_periodic(BC.bottom.t)
-            JJ = II + CartesianIndex(n, 0)
-            A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
-            Auip1jm1 = A3_1 * u[δx⁺(JJ)]
-            Au3 += 0.5 * Auip1jm1
-        end
-
-        @inbounds O[pII,pII] += 0.5 * Au3
-        @inbounds O[pII,pII+n+1] = 0.5 * Au3
+    @inbounds @threads for II in b_bottom[1:end-1]
+        vec_convy_6!(II, O, u, cap, n, BC)
     end
-    @inbounds for II in b_top[2:end]
-        pII = lexicographic(II, n+1)
-        A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δy⁻(II))
-        
-        Auim1jm1 = A1_1 * u[δy⁻(II)]
-
-        Au1 = 0.5 * Auim1jm1
-
-        if is_periodic(BC.top.t)
-            JJ = II + CartesianIndex(-n, 0)
-            A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, JJ)
-            Auim1jp1 = A1_2 * u[JJ]
-            Au1 += 0.5 * Auim1jp1
-        end
-
-        @inbounds O[pII,pII] += -0.5 * Au1
-        @inbounds O[pII,pII-n-1] = -0.5 * Au1
+    @inbounds @threads for II in b_top[2:end]
+        vec_convy_7!(II, O, u, cap, n, BC)
     end
-    @inbounds for II in b_top[1:end-1]
-        pII = lexicographic(II, n+1)
-        A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δy⁻(II))
-        
-        Auip1jm1 = A3_1 * u[δx⁺(δy⁻(II))]
-
-        Au3 = 0.5 * Auip1jm1
-
-        if is_periodic(BC.top.t)
-            JJ = II + CartesianIndex(n, 0)
-            A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, JJ)
-            Auip1jp1 = A3_2 * u[δx⁺(JJ)]
-            Au3 += 0.5 * Auip1jp1
-        end
-
-        @inbounds O[pII,pII] += 0.5 * Au3
-        @inbounds O[pII,pII+n+1] = 0.5 * Au3
+    @inbounds @threads for II in b_top[1:end-1]
+        vec_convy_8!(II, O, u, cap, n, BC)
     end
 
     if is_periodic(BC.bottom.t) && is_periodic(BC.top.t)

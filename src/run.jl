@@ -154,22 +154,17 @@ function run_forward(num, grid, grid_u, grid_v,
         grid_v.ind.MIXED = [CartesianIndex(-1,-1)]
     end
 
-    # Heat
-    set_heat!(num, grid, geoS, geoS.projection,
-            opS, phS, HTS, bcTS, HuS, HvS,
-            BC_TS, BC_uS, BC_vS,
-            ind.MIXED, ind.LIQUID, heat_convection)
-    
-    set_heat!(num, grid, geoL, geoS.projection,
-            opL, phL, HTL, bcTL, HuL, HvL,
-            BC_TL, BC_uL, BC_vL,
-            ind.MIXED, ind.SOLID, heat_convection)
-
     if ns_advection
-        Cum1S .= opS.Cu * vec(phS.u) .+ opS.CUTCu
-        Cvm1S .= opS.Cv * vec(phS.v) .+ opS.CUTCv
-        Cum1L .= opL.Cu * vec(phL.u) .+ opL.CUTCu
-        Cvm1L .= opL.Cv * vec(phL.v) .+ opL.CUTCv
+        if ns_solid_phase
+            set_convection!(grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, opL, phS, BC_uS, BC_vS)
+            Cum1S .= opS.Cu * vec(phS.u) .+ opS.CUTCu
+            Cvm1S .= opS.Cv * vec(phS.v) .+ opS.CUTCv
+        end
+        if ns_liquid_phase
+            set_convection!(grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, opL, phL, BC_uL, BC_vL)
+            Cum1L .= opL.Cu * vec(phL.u) .+ opL.CUTCu
+            Cvm1L .= opL.Cv * vec(phL.v) .+ opL.CUTCv
+        end
     end
 
     CFL_sc = τ / Δ^2
@@ -277,8 +272,9 @@ function run_forward(num, grid, grid_u, grid_v,
             if heat_solid_phase
                 kill_dead_cells!(phS.T, grid, geoS)
                 veci(phS.TD,grid,1) .= vec(phS.T)
-                A_T, B, rhs = set_heat!(rob, num, grid, opC_TS, geoS, θd, BC_TS, ind.MIXED, geoS.projection,
-                                        periodic_x, periodic_y)
+                A_T, B, rhs = set_heat!(dir, num, grid, opC_TS, geoS, phS, θd, BC_TS, ind.MIXED, geoS.projection,
+                                        opS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
+                                        periodic_x, periodic_y, heat_convection)
                 mul!(rhs, B, phS.TD, 1.0, 1.0)
                 @mytime blocks = DDM.decompose(A_T, grid.domdec, grid.domdec)
 
@@ -289,8 +285,9 @@ function run_forward(num, grid, grid_u, grid_v,
             if heat_liquid_phase
                 kill_dead_cells!(phL.T, grid, geoL)
                 veci(phL.TD,grid,1) .= vec(phL.T)
-                A_T, B, rhs = set_heat!(rob, num, grid, opC_TL, geoL, θd, BC_TL, ind.MIXED, geoL.projection,
-                                        periodic_x, periodic_y)
+                A_T, B, rhs = set_heat!(dir, num, grid, opC_TL, geoL, phL, θd, BC_TL, ind.MIXED, geoL.projection,
+                                        opL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
+                                        periodic_x, periodic_y, heat_convection)
                 mul!(rhs, B, phL.TD, 1.0, 1.0)
                 @mytime blocks = DDM.decompose(A_T, grid.domdec, grid.domdec)
 
@@ -457,33 +454,35 @@ function run_forward(num, grid, grid_u, grid_v,
 
             if ns_solid_phase
                 if free_surface
-                    Mm1_S, Mum1_S, Mvm1_S = projection_fs!(num, grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, phS,
+                    Mm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = projection_fs!(num, grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, phS,
                                                             BC_uS, BC_vS, BC_pS,
-                                                            opC_pS, opC_uS, opC_vS,
-                                                            Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S,
-                                                            ind.SOLID, ind.MIXED, periodic_x, periodic_y, current_i)
+                                                            opC_pS, opC_uS, opC_vS, opS,
+                                                            Cum1S, Cvm1S, Mum1_S, Mvm1_S,
+                                                            periodic_x, periodic_y, ns_advection)
                 else
-                    Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S = projection_no_slip!(num, grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, phS,
+                    Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = projection_no_slip!(num, grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, phS,
                                                                                                BC_uS, BC_vS, BC_pS,
-                                                                                               opC_pS, opC_uS, opC_vS,
+                                                                                               opC_pS, opC_uS, opC_vS, opS,
                                                                                                Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S,
-                                                                                               ind.SOLID, ind.MIXED, periodic_x, periodic_y)
+                                                                                               Cum1S, Cvm1S,
+                                                                                               ind.SOLID, ind.MIXED, periodic_x, periodic_y, ns_advection)
                 end
                 
             end
             if ns_liquid_phase
                 if free_surface
-                    Mm1_L, Mum1_L, Mvm1_L = projection_fs!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,
+                    Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = projection_fs!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,
                                                             BC_uL, BC_vL, BC_pL,
-                                                            opC_pL, opC_uL, opC_vL,
-                                                            Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L,
-                                                            ind.LIQUID, ind.MIXED, periodic_x, periodic_y, current_i)
+                                                            opC_pL, opC_uL, opC_vL, opL,
+                                                            Cum1L, Cvm1L, Mum1_L, Mvm1_L,
+                                                            periodic_x, periodic_y, ns_advection)
                 else
-                   Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L = projection_no_slip!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,
+                   Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = projection_no_slip!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,
                                                                                               BC_uL, BC_vL, BC_pL,
-                                                                                              opC_pL, opC_uL, opC_vL,
+                                                                                              opC_pL, opC_uL, opC_vL, opL,
                                                                                               Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L,
-                                                                                              ind.LIQUID, ind.MIXED, periodic_x, periodic_y)
+                                                                                              Cum1L, Cvm1L,
+                                                                                              ind.LIQUID, ind.MIXED, periodic_x, periodic_y, ns_advection)
                 end
             end
         end
@@ -560,7 +559,8 @@ function run_forward(num, grid, grid_u, grid_v,
             end
         end
 
-        if any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || any(isnan, phS.uD) || any(isnan, phS.vD) || any(isnan, phS.TD)
+        if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || any(isnan, phS.uD) || any(isnan, phS.vD) || any(isnan, phS.TD) ||
+            norm(phL.u) > 1e8 || norm(phS.u) > 1e8)
             println(@sprintf "\n CRASHED after %d iterations \n" current_i)
             return ind.MIXED, ind.SOLID, ind.LIQUID
         end

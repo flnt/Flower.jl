@@ -1,5 +1,5 @@
-function save_field(path::String, num::Numerical, ph::Phase)
-    JLD.save(path, "u", ph.u, "v", ph.v, "gx", ph.Gxm1, "gy", ph.Gym1, "p", ph.p, "x", num.x, "y", num.y)
+function save_field(path::String, num::Numerical, ph::Phase, fwd::ForwardPhase)
+    JLD.save(path, "num", num, "ph", ph, "fwd", fwd)
 end
 
 function load_phase!(data, ph::Phase)

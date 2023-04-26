@@ -37,35 +37,18 @@ function plot_grid(grid; linewidth=0.5, limitsx=false, limitsy=false, hide=false
     fig = Figure(resolution = (1300, 1000))
     ax = Axis(fig[1,1], aspect=DataAspect(), xlabel="x", ylabel="y",
             xtickalign=0,  ytickalign=0)
-    # ax.xticks = [-0.5, 0.0, 0.5]
-    # ax.yticks = [-0.5, 0.0, 0.5]
-    ax.xticks = collect(-15:5:30)
-    ax.yticks = collect(-15:5:15)
     if hide
         hidedecorations!(ax, ticks=false, ticklabels=false)
     end
-    # for i = 1:stepx:grid.nx+1
-    #     lines!(ones(grid.ny+1).*x[i], y, linewidth=linewidth, color=:black)
-    # end
-    # for i = 1:stepy:grid.ny+1
-    #     lines!(x, ones(grid.nx+1).*y[i], linewidth=linewidth, color=:black)
-    # end
-    x = collect(-15:1:30)
-    y = collect(-15:1:15)
-    lines!(x, -15*ones(size(x)), color=:black, linewidth = 5)
-    lines!(x, 15*ones(size(x)), color=:black, linewidth = 5)
-    lines!(-15*ones(size(y)), y, color=:black, linewidth = 5)
-    lines!(30*ones(size(y)), y, color=:black, linewidth = 5)
-
-    x = collect(-0.75:0.1:0.75)
-    y = collect(-0.75:0.1:0.75)
-    lines!(x, -0.75*ones(size(x)), color=:black, linewidth = 3)
-    lines!(x, 0.75*ones(size(x)), color=:black, linewidth = 3)
-    lines!(-0.75*ones(size(y)), y, color=:black, linewidth = 3)
-    lines!(0.75*ones(size(y)), y, color=:black, linewidth = 3)
+    for i = 1:stepx:grid.nx+1
+        lines!(ones(grid.ny+1).*x[i], y, linewidth=linewidth, color=:black)
+    end
+    for i = 1:stepy:grid.ny+1
+        lines!(x, ones(grid.nx+1).*y[i], linewidth=linewidth, color=:black)
+    end
 
     contour!(grid.x[1,:], grid.y[:,1], grid.u', levels=[0.0], color=:red, linewidth=2.0)
-    limits!(ax, lx[1], 33, ly[1], ly[2])
+    limits!(ax, lx[1], lx[2], ly[1], ly[2])
     # resize_to_layout!(fig)
 
     return fig
