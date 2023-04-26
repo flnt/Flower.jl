@@ -156,17 +156,28 @@ function set_heat!(bc_type, num, grid, op, geo, θd, BC_T, MIXED, projection, pe
     LT = BxT * iMx * Bx .+ ByT * iMy * By
     LD = BxT * iMx * Hx .+ ByT * iMy * Hy
 
+    # refU = num.Re / 200
+    # refL = 0.01
+    # refT = refU / refL
+    # refD = refU * refL
+
+    # Dpt = 1.6e-13 / refD
+    # α = 7e-13 / refD
+    # γ = 5 / refT
+
+    Dp = 1e-2
+
     dataA = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 2, 2)
-    dataA[1,1] = pad_crank_nicolson(M .- 0.5 .* τ .* LT, grid, τ)
-    dataA[1,2] = - 0.5 .* τ .* LD
+    dataA[1,1] = pad_crank_nicolson(M .- Dp .* 0.5 .* τ .* LT, grid, τ)
+    dataA[1,2] = - Dp .* 0.5 .* τ .* LD
     dataA[2,1] = b * (HxT * iMx * Bx .+ HyT * iMy * By)
     dataA[2,2] = pad(b * (HxT * iMx * Hx .+ HyT * iMy * Hy) .- χ * a1)
     A  = [dataA[1,1] dataA[1,2];
           dataA[2,1] dataA[2,2]]
 
     dataB = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 2, 2)
-    dataB[1,1] = M .+ 0.5 .* τ .* LT 
-    dataB[1,2] = 0.5 .* τ .* LD
+    dataB[1,1] = M .+ Dp .* 0.5 .* τ .* LT 
+    dataB[1,2] = Dp .* 0.5 .* τ .* LD
     dataB[2,1] = spdiagm(0 => zeros(nx*ny))
     dataB[2,2] = spdiagm(0 => zeros(nx*ny))
     B  = [dataB[1,1] dataB[1,2];

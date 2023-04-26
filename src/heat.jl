@@ -38,38 +38,41 @@ function crank_nicolson!(num, grid, geo, op)
     return nothing
 end
 
-function set_heat!(num, grid, geo, projection, op, ph, 
+function set_heat2!(num, grid, grid_u, grid_v, geo, op, ph, 
             HT, bcT, Hu, Hv,
             BC_T, BC_u, BC_v,
-            MIXED, empty, convection
+            convection
     )
     @unpack τ, θd, ϵ_κ, ϵ_V, m, θ₀, aniso = num
     @unpack nx, ny, dx, dy, ind, mid_point, κ, V = grid
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
     @unpack dcap, centroid = geo
-    @unpack LT, CUTT, A, B, CT, CUTCT, GxT, GyT, CUTGxT, CUTGyT, ftcGxT, ftcGyT = op
-    @unpack u, v, DT, Du, Dv = ph
+    @unpack CT, CUTCT = op
+    @unpack u, v = ph
 
     HT .= 0.
     @inbounds @threads for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
         HT[II] = distance(mid_point[II], centroid[II], dx[II], dy[II])
     end
 
-    DT .= θd
+    # DT .= θd
+    DT = zeros(grid)
     apply_curvature(num, grid, bcT, DT, all_indices)
-    if aniso
-        apply_anisotropy(num, grid, bcT, DT, MIXED, projection)
-    end
+    # if aniso
+    #     apply_anisotropy(num, grid, bcT, DT, MIXED, projection)
+    # end
     bcTx, bcTy = set_bc_bnds(dir, bcT, HT, BC_T)
 
-    laplacian!(dir, LT, CUTT, bcTx, bcTy, dcap, ny, BC_T, inside, empty,
-                MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
+    # laplacian!(dir, LT, CUTT, bcTx, bcTy, dcap, ny, BC_T, inside, empty,
+    #             MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
 
+    Du = zeros(grid_u)
+    Dv = zeros(grid_v)
     if convection
         bcU, bcV = set_bc_bnds(dir, Du, Dv, Hu, Hv, u, v, BC_u, BC_v)
         scalar_convection!(dir, CT, CUTCT, u, v, bcTx, bcTy, bcU, bcV, dcap, ny, BC_T, inside, b_left[1], b_bottom[1], b_right[1], b_top[1])
     end
-    crank_nicolson!(num, grid, geo, op)
+    # crank_nicolson!(num, grid, geo, op)
 
     return nothing
 end

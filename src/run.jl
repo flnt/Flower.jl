@@ -157,15 +157,15 @@ function run_forward(num, grid, grid_u, grid_v,
     end
 
     # Heat
-    set_heat!(num, grid, geoS, geoS.projection,
+    set_heat2!(num, grid, grid_u, grid_v, geoS,
             opS, phS, HTS, bcTS, HuS, HvS,
             BC_TS, BC_uS, BC_vS,
-            ind.MIXED, ind.LIQUID, heat_convection)
+            heat_convection)
     
-    set_heat!(num, grid, geoL, geoS.projection,
+    set_heat2!(num, grid, grid_u, grid_v, geoL,
             opL, phL, HTL, bcTL, HuL, HvL,
             BC_TL, BC_uL, BC_vL,
-            ind.MIXED, ind.SOLID, heat_convection)
+            heat_convection)
 
     HuL = zeros(grid_u)
     HvL = zeros(grid_v)
@@ -297,9 +297,14 @@ function run_forward(num, grid, grid_u, grid_v,
             if heat_liquid_phase
                 kill_dead_cells!(phL.T, grid, geoL)
                 veci(phL.TD,grid,1) .= vec(phL.T)
-                A_T, B, rhs = set_heat!(dir, num, grid, opC_TL, geoL, θd, BC_TL, ind.MIXED, geoL.projection,
+                A_T, B, rhs = set_heat!(neu, num, grid, opC_TL, geoL, θd, BC_TL, ind.MIXED, geoL.projection,
                                         periodic_x, periodic_y)
+                set_heat2!(num, grid, grid_u, grid_v, grid.geoL, opL, phL, 
+                            HTL, bcTL, HuL, HvL,
+                            BC_TL, BC_uL, BC_vL,
+                            heat_convection)
                 mul!(rhs, B, phL.TD, 1.0, 1.0)
+                veci(rhs,grid,1) .+= -τ .* (opL.CT * veci(phL.TD,grid,1) .+ opL.CUTCT)
                 @mytime blocks = DDM.decompose(A_T, grid.domdec, grid.domdec)
 
                 @mytime (_, ch) = bicgstabl!(phL.TD, A_T, rhs, Pl=ras(blocks,grid.pou), log=true)
@@ -390,10 +395,11 @@ function run_forward(num, grid, grid_u, grid_v,
                             print("$(@sprintf("norm(uS) %.6e", normuS))\t$(@sprintf("norm(vS) %.6e", normvS))\t$(@sprintf("norm(pS) %.6e", normpS))\n")
                         end
                         if ns_liquid_phase
+                            normTL = norm(phL.T)
                             normuL = norm(phL.u)
                             normvL = norm(phL.v)
                             normpL = norm(phL.p.*τ)
-                            print("$(@sprintf("norm(uL) %.6e", normuL))\t$(@sprintf("norm(vL) %.6e", normvL))\t$(@sprintf("norm(pL) %.6e", normpL))\n")
+                            print("$(@sprintf("norm(TL) %.6e", normTL))\t$(@sprintf("norm(uL) %.6e", normuL))\t$(@sprintf("norm(vL) %.6e", normvL))\t$(@sprintf("norm(pL) %.6e", normpL))\n")
                         end
                     end
                 catch

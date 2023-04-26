@@ -92,8 +92,16 @@ function set_borders!(grid, a0, a1, b0, b1, BC, t, T, nT0)
     elseif is_pulsating(BC.left.t)
         tT = t/T
         dec = tT - floor(tT)
-        if t > nT0*T && dec > 1.0/3.0
-            a0 .*= 0.
+        if t > nT0*T
+            if dec < 0.3
+                a0 .*= 1.0
+            elseif dec > 0.9
+                a0 .*= (dec .- 0.9) .* 10
+            elseif dec < 0.4
+                a0 .*= (0.4 .- dec) .* 10
+            else
+                a0 .*= 0.0
+            end
         end
         @inbounds a1[2:end-1,1] .= -1.
         @inbounds b0[2:end-1,1] .= 0.
@@ -824,8 +832,10 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     GyT = opC_v.Gy'
     veci(rhs_ϕ,grid,2) .= b0_p * (iRe .* S .- σ .* (GxT * opC_u.Gx .+ GyT * opC_v.Gy) * vec(grid.κ))
     blocks = DDM.decompose(Aϕ, grid.domdec, grid.domdec)
-    @mytime _, ch = bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl=ras(blocks,grid.pou), log=true)
-    println(ch)
+    # @mytime _, ch = bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl=ras(blocks,grid.pou), log=true)
+    # @mytime _, ch = bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl=lu(Aϕ), log=true)
+    @mytime ϕD .= Aϕ \ rhs_ϕ
+    # println(ch)
 
     ucorr .= reshape(veci(ucorrD,grid_u,1), (grid_u.ny, grid_u.nx))
     vcorr .= reshape(veci(vcorrD,grid_v,1), (grid_v.ny, grid_v.nx))
