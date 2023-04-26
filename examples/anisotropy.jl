@@ -2,7 +2,7 @@ using Revise
 using Flower
 
 L0 = 4.
-n = 300
+n = 128
 
 x = LinRange(-L0/2.0 - L0/2.0/n, L0/2.0 + L0/2.0/n, n+1)
 y = LinRange(-L0/2.0 - L0/2.0/n, L0/2.0 + L0/2.0/n, n+1)
@@ -24,19 +24,18 @@ num = Numerical(T_inf = -0.8,
     R = 0.1,
     # max_iterations = 1,
     ϵ = 0.05,
-    subdomains = 4,
+    subdomains = 2,
     overlaps = 1
-    )
+)
 
 gp, gu, gv = init_meshes(num)
-opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd = init_fields(num, gp, gu, gv)
+opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
 phL.T .= num.T_inf;
 
-# @profview MIXED, SOLID, LIQUID, A = run_forward(num, gp, gu, gv,
-@time MIXED, _, _, SOLID, LIQUID = run_forward(num, gp, gu, gv,
+@time MIXED, SOLID, LIQUID = run_forward(num, gp, gu, gv,
     opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL,
-    phS, phL, fwd,
+    phS, phL, fwd, fwdS, fwdL,
     stefan = true,
     heat = true,
     heat_liquid_phase = true,
@@ -57,18 +56,17 @@ colsize!(f.layout, 1, Aspect(1, 1))
 
 resize_to_layout!(f)
 hidedecorations!(ax)
-f = heatmap!(gp.x[1,:], gp.y[:,1], phL.T', colormap=:ice)#, colorrange=(num.T_inf, 0.0))
-# f = heatmap!(gp.x[1,:], gp.y[:,1], phS.T', colormap=:ice)
+f = heatmap!(gp.x[1,:], gp.y[:,1], phL.T', colormap=:ice)
 
 
 step = num.max_iterations÷20
-f = contour!(gp.x[1,:], gp.y[:,1], fwd.usave[end-1,:,:]', levels = 0:0, color=:red, linewidth = 3);
+f = contour!(gp.x[1,:], gp.y[:,1], fwd.u[end-1,:,:]', levels = 0:0, color=:red, linewidth = 3);
 
 if step != 0
 for i in 1:step:num.max_iterations
-    f = contour!(gp.x[1,:], gp.y[:,1], fwd.usave[i,:,:]', levels = 0:0, color=:black, linewidth = 3);
+    f = contour!(gp.x[1,:], gp.y[:,1], fwd.u[i,:,:]', levels = 0:0, color=:black, linewidth = 3);
 end
-f = contour!(gp.x[1,:], gp.y[:,1], fwd.usave[end,:,:]', levels = 0:0, color=:black, linewidth = 3);
+f = contour!(gp.x[1,:], gp.y[:,1], fwd.u[end,:,:]', levels = 0:0, color=:black, linewidth = 3);
 end
 
 limits!(ax, -L0/2., L0/2., -L0/2., L0/2.)

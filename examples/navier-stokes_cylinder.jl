@@ -10,16 +10,16 @@ set_theme!(fontsize_theme)
 prefix = "/Users/alex/Documents/PhD/Cutcell/New_ops/navier-stokes/cylinder/stretching/grid3/"
 
 
-# L0 = 16.
-# n = 128
-# x = LinRange(-L0/2, L0/2, n+1)
-# y = LinRange(-L0/2, L0/2, n+1)
+L0 = 10.
+n = 128
+x = LinRange(-L0/2, L0/2, n+1)
+y = LinRange(-L0/2, L0/2, n+1)
 
 ##### Grid 1 #####
-d0 = 0.03
-n = 128
-s1 = stretching(2n÷3, d0, 0.1, 0.55)
-s2 = stretching(n+2n÷3, d0, 0.07, 0.55)
+# d0 = 0.03
+# n = 128
+# s1 = stretching(2n÷3, d0, 0.1, 0.55)
+# s2 = stretching(n+2n÷3, d0, 0.07, 0.55)
 
 ##### Grid 2 #####
 # d0 = 0.015
@@ -44,24 +44,24 @@ s2 = stretching(n+2n÷3, d0, 0.07, 0.55)
 # n = 94
 # s1 = stretching(6n÷6, d0, 0.2, 0.55)
 # s2 = stretching(n+8n÷6, d0, 0.15, 0.55)
-x = vcat(-reverse(s1),s2[2:end])
-y = vcat(-reverse(s1),s1[2:end])
+# x = vcat(-reverse(s1),s2[2:end])
+# y = vcat(-reverse(s1),s1[2:end])
 
 num = Numerical(case = "Cylinder",
     Re = 100.0,
     CFL = 0.5,
     # TEND = 150.0,
-    max_iterations = 0,
+    max_iterations = 100,
     x = x,
     y = y,
     R = 0.5,
     u_inf = 1.0,
-    save_every = 20,
+    save_every = 1,
     shifted = 0.0,
     ϵ = 0.05)
 
 gp, gu, gv = init_meshes(num)
-opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd = init_fields(num, gp, gu, gv)
+opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 fgrid = plot_grid(gp);
 lim = 0.75
 fgrid2 = plot_grid(gp; limitsx = (-lim, lim), limitsy = (-lim, lim));
@@ -70,7 +70,7 @@ fgrid2 = plot_grid(gp; limitsx = (-lim, lim), limitsy = (-lim, lim));
 
 @time MIXED, SOLID, LIQUID = run_forward(num, gp, gu, gv,
     opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL,
-    phS, phL, fwd,
+    phS, phL, fwd, fwdS, fwdL,
     BC_uL = Boundaries(
         left = Boundary(t = dir, f = dirichlet, val = num.u_inf),
     ),
@@ -92,6 +92,13 @@ fgrid2 = plot_grid(gp; limitsx = (-lim, lim), limitsy = (-lim, lim));
     verbose = true,
     show_every = 1
 )
+
+# make_video(gu, fwd.ux, fwdL.u; title_prefix="u_field",
+#         title_suffix="", framerate=240)
+# make_video(gv, fwd.uy, fwdL.v; title_prefix="v_field",
+#         title_suffix="", framerate=240)
+# make_video(gp, fwd.u, fwdL.p; title_prefix="p_field",
+#         title_suffix="", framerate=240)
 
 # fu = Figure(resolution = (1600, 1000))
 # colsize!(fu.layout, 1, Aspect(1, 1.0))
