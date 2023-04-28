@@ -89,7 +89,8 @@ end
 function adjoint_projection_fs(num, grid, grid_u, grid_v,
     adj, adj_ph, RlsFS_ucorr, RlsFS_vcorr,
     Au, Bu, Av, Bv, Aϕ,
-    opC_p, opC_u, opC_v, BC_p, current_i, last_it)
+    opC_p, opC_u, opC_v, BC_p, current_i, last_it,
+    periodic_x, periodic_y)
     @unpack Re, τ = num
     @unpack nx, ny = grid
 
@@ -127,6 +128,31 @@ function adjoint_projection_fs(num, grid, grid_u, grid_v,
     # Adjoint prediction step
     Du = transpose(iτ .* [opC_p.AxT opC_p.Gx])
     Dv = transpose(iτ .* [opC_p.AyT opC_p.Gy])
+
+    # Du and Dv have to be modified updated into an equivalent
+    # matrix for the adjoint system when periodic BCs are imposed.
+    if periodic_x
+        for i = 1:grid_u.ny
+            II = CartesianIndex(i,1)
+            JJ = CartesianIndex(i,grid_u.nx)
+            pII_1 = lexicographic(II, grid.ny)
+            pII_2 = lexicographic(II, grid_u.ny)
+            pJJ = lexicographic(JJ, grid_u.ny)
+            Du[pJJ,pII_1] = Du[pII_2,pII_1]
+            Du[pII_2,pII_1] = 0.
+        end
+    end
+    if periodic_y
+        @inbounds @threads for i = 1:grid_v.nx
+            II = CartesianIndex(1,i)
+            JJ = CartesianIndex(grid_v.ny,i)
+            pII_1 = lexicographic(II, grid.ny)
+            pII_2 = lexicographic(II, grid_v.ny)
+            pJJ = lexicographic(JJ, grid_v.ny)
+            @inbounds Dv[pJJ,pII_1] = Dv[pII_2,pII_1]
+            @inbounds Dv[pII_2,pII_1] = 0.0
+        end
+    end
 
     Smat = strain_rate(opC_u, opC_v)
     Su = transpose(iRe .* b0_p * [Smat[1,1] Smat[1,2]])

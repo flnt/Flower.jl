@@ -101,19 +101,6 @@ function run_forward(num, grid, grid_u, grid_v,
     θ_out = zeros(grid, 4)
     utmp = copy(u)
 
-    HTS = zeros(ny,nx)
-    HTL = zeros(ny,nx)
-    phS.DT .= phS.T
-    phL.DT .= phL.T
-    bcTS = copy(phS.DT)
-    bcTL = copy(phL.DT)
-
-    HuS = zeros(grid_u.ny,grid_u.nx)
-    HuL = zeros(grid_u.ny,grid_u.nx)
-
-    HvS = zeros(grid_v.ny,grid_v.nx)
-    HvL = zeros(grid_v.ny,grid_v.nx)
-
     if periodic_x
         BC_u.left.ind = ind.b_left;
         BC_u.right.ind = ind.b_right;
@@ -560,7 +547,7 @@ function run_forward(num, grid, grid_u, grid_v,
         end
 
         if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || any(isnan, phS.uD) || any(isnan, phS.vD) || any(isnan, phS.TD) ||
-            norm(phL.u) > 1e8 || norm(phS.u) > 1e8)
+            norm(phL.u) > 1e8 || norm(phS.u) > 1e8 || norm(phL.T) > 1e8 || norm(phS.T) > 1e8)
             println(@sprintf "\n CRASHED after %d iterations \n" current_i)
             return ind.MIXED, ind.SOLID, ind.LIQUID
         end

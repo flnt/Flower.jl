@@ -132,10 +132,10 @@ function planar_motion(num, gp, gu, gv, eps)
         show_every = 1
     );
 
-    return fwd, fwdS, fwdL, phS, phL, opC_TS, opC_TL
+    return fwd, fwdS, fwdL, phS, phL, opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL
 end 
 
-fwd0, fwdS0, fwdL0, phS, phL, opC_TS, opC_TL = planar_motion(num, gp, gu, gv, 0.0)
+fwd0, fwdS0, fwdL0, phS, phL, opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL = planar_motion(num, gp, gu, gv, 0.0)
 J0 = J(gp, fwdS0.TD, fwdL0.TD, fwd0.u, 1.0, 0.0)
 
 make_video(gp, fwd0.u, fwd0.T; title_prefix=prefix*"T_field", title_suffix=suffix, colormap=Reverse(:ice))
@@ -159,7 +159,7 @@ adj_der = adjoint_derivatives(gp, gu, gv)
 
 @time MIXED, SOLID, LIQUID = run_backward_discrete(num, gp, gu, gv,
     fwd0, fwdS0, fwdL0, adj, adj_der, phS, phL,
-    opC_TS, opC_TL,
+    opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL,
     J_TS = J_TS, J_TL = J_TL, J_u = J_u,
     periodic_x = true,
     BC_TL = Boundaries(

@@ -166,7 +166,8 @@ function Rheat_q0(num, grid, grid_u, grid_v, adj_der,
     TD0_L, TD1_L, A_L, B_L, opC_TL, BC_TL,
     u0, u1, LSA, LSB, tmpχ_S, tmpχ_L,
     CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean,
-    heat_solid_phase, heat_liquid_phase)
+    opS, phS, opL, phL,
+    heat_solid_phase, heat_liquid_phase, heat_convection)
 
     @unpack ϵ, NB = num
     @unpack nx, ny, ind, V, iso, faces, geoS, geoL = grid
@@ -215,8 +216,9 @@ function Rheat_q0(num, grid, grid_u, grid_v, adj_der,
 
             # get perturbed matrices
             if heat_solid_phase
-                Aj, Bj, _ = set_heat!(dir, num, grid, opC_TS, geoS, num.θd, BC_TS, grid.ind.MIXED, geoS.projection,
-                                        periodic_x, periodic_y)
+                Aj, Bj, _ = set_heat!(dir, num, grid, opC_TS, geoS, phS, num.θd, BC_TS, grid.ind.MIXED, geoS.projection,
+                                    opS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
+                                    periodic_x, periodic_y, heat_convection)
                 derA .= (Aj .- A_S) ./ ϵ_adj
                 derB .= (Bj .- B_S) ./ ϵ_adj
                 derχ .= (opC_TS.χ .-  tmpχ_S) ./ ϵ_adj
@@ -234,8 +236,9 @@ function Rheat_q0(num, grid, grid_u, grid_v, adj_der,
             end
 
             if heat_liquid_phase
-                Aj, Bj, _ = set_heat!(dir, num, grid, opC_TL, geoL, num.θd, BC_TL, grid.ind.MIXED, geoL.projection,
-                                        periodic_x, periodic_y)
+                Aj, Bj, _ = set_heat!(dir, num, grid, opC_TL, geoL, phL, num.θd, BC_TL, grid.ind.MIXED, geoL.projection,
+                                    opL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,    
+                                    periodic_x, periodic_y, heat_convection)
                 derA .= (Aj .- A_L) ./ ϵ_adj
                 derB .= (Bj .- B_L) ./ ϵ_adj
                 derχ .= (opC_TL.χ .-  tmpχ_L) ./ ϵ_adj
@@ -369,8 +372,8 @@ function Rproj_q1(num, grid, grid_u, grid_v, adj_der,
     ucorrD1_S, ucorrD1_L, vcorrD1_S, vcorrD1_L,
     Mum1_S, Mum1_L, Mvm1_S, Mvm1_L,
     u1, periodic_x, periodic_y, ϵ_adj,
-    ns_solid_phase,
-    ns_liquid_phase)
+    opS, phS, opL, phL,
+    ns_solid_phase, ns_liquid_phase, ns_advection)
 
     @unpack Re, τ, σ, g, β, ϵ, NB = num
     @unpack nx, ny, ind, V, iso, faces, geoS, geoL = grid
@@ -402,9 +405,10 @@ function Rproj_q1(num, grid, grid_u, grid_v, adj_der,
         RpS_ls.nzval .= 0.
 
         AuS, _, _, AvS, _, _, AϕS, _ = set_navier_stokes(num, grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
-            opC_pS, opC_uS, opC_vS, BC_pS, BC_uS, BC_vS,
-            Mum1_S, Mvm1_S, iRe,
-            periodic_x, periodic_y)
+                                                        opC_pS, opC_uS, opC_vS, BC_pS, BC_uS, BC_vS,
+                                                        Mum1_S, Mvm1_S, iRe,
+                                                        opS, phS,
+                                                        periodic_x, periodic_y, ns_advection)
     
         SmatS = iRe .* strain_rate(opC_uS, opC_vS)
     
@@ -430,9 +434,10 @@ function Rproj_q1(num, grid, grid_u, grid_v, adj_der,
         RpL_ls.nzval .= 0.
 
         AuL, _, _, AvL, _, _, AϕL, _ = set_navier_stokes(num, grid, grid.geoL, grid_u, grid_u.geoL,      grid_v, grid_v.geoL,
-            opC_pL, opC_uL, opC_vL, BC_pL, BC_uL, BC_vL,
-            Mum1_L, Mvm1_L, iRe,
-            periodic_x, periodic_y)
+                                                        opC_pL, opC_uL, opC_vL, BC_pL, BC_uL, BC_vL,
+                                                        Mum1_L, Mvm1_L, iRe,
+                                                        opL, phL,
+                                                        periodic_x, periodic_y, ns_advection)
 
         SmatL = iRe .* strain_rate(opC_uL, opC_vL)
 
@@ -493,9 +498,10 @@ function Rproj_q1(num, grid, grid_u, grid_v, adj_der,
                 update_free_surface_velocity(num, grid_u, grid_v, uD0_S, vD0_S, periodic_x, periodic_y)
 
                 Auj, _, _, Avj, _, _, Aϕj, _ = set_navier_stokes(num, grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
-                    opC_pj, opC_uj, opC_vj, BC_pS, BC_uS, BC_vS,
-                    Mum1_S, Mvm1_S, iRe,
-                    periodic_x, periodic_y)
+                                                                opC_pj, opC_uj, opC_vj, BC_pS, BC_uS, BC_vS,
+                                                                Mum1_S, Mvm1_S, iRe,
+                                                                opS, phS,
+                                                                periodic_x, periodic_y, ns_advection)
 
                 Smatj = iRe .* strain_rate(opC_uj, opC_vj)
 
@@ -582,9 +588,10 @@ function Rproj_q1(num, grid, grid_u, grid_v, adj_der,
                 update_free_surface_velocity(num, grid_u, grid_v, uD0_L, vD0_L, periodic_x, periodic_y)
 
                 Auj, _, _, Avj, _, _, Aϕj, _ = set_navier_stokes(num, grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
-                    opC_pj, opC_uj, opC_vj, BC_pL, BC_uL, BC_vL,
-                    Mum1_L, Mvm1_L, iRe,
-                    periodic_x, periodic_y)
+                                                                opC_pj, opC_uj, opC_vj, BC_pL, BC_uL, BC_vL,
+                                                                Mum1_L, Mvm1_L, iRe,
+                                                                opL, phL,
+                                                                periodic_x, periodic_y, ns_advection)
 
                 Smatj = iRe .* strain_rate(opC_uj, opC_vj)
 

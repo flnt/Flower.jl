@@ -1,6 +1,6 @@
 function run_backward_discrete(num, grid, grid_u, grid_v,
     fwd, fwdS, fwdL, adj, adj_der, phS, phL,
-    opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL;
+    opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL;
     J_TS = x -> zero(phS.TD),
     J_TL = x -> zero(phL.TD),
     J_u = x -> fzeros(grid),
@@ -65,9 +65,11 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     heat = false,
     heat_liquid_phase = false,
     heat_solid_phase = false,
+    heat_convection = false,
     navier_stokes = false,
     ns_liquid_phase = false,
     ns_solid_phase = false,
+    ns_advection = false,
     free_surface = false,
     Vmean = false,
     levelset = true,
@@ -108,6 +110,15 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
 
     tmp_su = star2(grid_u)
     tmp_sv = star2(grid_v)
+    BuS = [tmp_su tmp_su;
+           tmp_su tmp_su]
+    BvS = [tmp_sv tmp_sv;
+           tmp_sv tmp_sv]
+    BuL = [tmp_su tmp_su;
+           tmp_su tmp_su]
+    BvL = [tmp_sv tmp_sv;
+           tmp_sv tmp_sv]
+
     BuSm1 = [tmp_su tmp_su;
              tmp_su tmp_su]
     BvSm1 = [tmp_sv tmp_sv;
@@ -120,7 +131,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     local Mum1_S; local Mvm1_S
     local Mum1_L; local Mvm1_L
 
-    θ_out = zeros(ny, nx, 4)
+    θ_out = zeros(grid, 4)
     utmp = copy(u)
 
     if periodic_x
@@ -186,14 +197,16 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
 
     if heat
         if heat_solid_phase
-            AS, BS, _ = set_heat!(dir, num, grid, opC_TS, geoS, θd, BC_TS, MIXED, geoS.projection,
-                                    periodic_x, periodic_y)
+            AS, BS, _ = set_heat!(dir, num, grid, opC_TS, geoS, phS, θd, BC_TS, MIXED, geoS.projection,
+                                opS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
+                                periodic_x, periodic_y, heat_convection)
             ASm1 = copy(AS)
             BSm1 = copy(BS)
         end
         if heat_liquid_phase
-            AL, BL, _ = set_heat!(dir, num, grid, opC_TL, geoL, θd, BC_TL, MIXED, geoL.projection,
-                                    periodic_x, periodic_y)
+            AL, BL, _ = set_heat!(dir, num, grid, opC_TL, geoL, phL, θd, BC_TL, MIXED, geoL.projection,
+                                opL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
+                                periodic_x, periodic_y, heat_convection)
             ALm1 = copy(AL)
             BLm1 = copy(BL)
         end
@@ -255,17 +268,19 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     if navier_stokes && free_surface
         if ns_solid_phase
             AuS, BuS, _, AvS, BvS, _, AϕS, _ = set_navier_stokes(num, grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
-                opC_pS, opC_uS, opC_vS, BC_pS, BC_uS, BC_vS,
-                Mum1_S, Mvm1_S, iRe,
-                periodic_x, periodic_y)
+                                                                opC_pS, opC_uS, opC_vS, BC_pS, BC_uS, BC_vS,
+                                                                Mum1_S, Mvm1_S, iRe,
+                                                                opS, phS,
+                                                                periodic_x, periodic_y, ns_advection)
             BuSm1 .= BuS
             BvSm1 .= BvS
         end
         if ns_liquid_phase
             AuL, BuL, _, AvL, BvL, _, AϕL, _ = set_navier_stokes(num, grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
-                opC_pL, opC_uL, opC_vL, BC_pL, BC_uL, BC_vL,
-                Mum1_L, Mvm1_L, iRe,
-                periodic_x, periodic_y)
+                                                                opC_pL, opC_uL, opC_vL, BC_pL, BC_uL, BC_vL,
+                                                                Mum1_L, Mvm1_L, iRe,
+                                                                opL, phL,
+                                                                periodic_x, periodic_y, ns_advection)
             BuLm1 .= BuL
             BvLm1 .= BvL
         end
@@ -283,7 +298,8 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
                 fwdS.vcorrD[current_i,:], fwdL.vcorrD[current_i,:],
                 Mum1_S, Mum1_L, Mvm1_S, Mvm1_L,
                 u1, periodic_x, periodic_y, ϵ_adj,
-                ns_solid_phase, ns_liquid_phase)
+                opS, phS, opL, phL,
+                ns_solid_phase, ns_liquid_phase, ns_advection)
     end
 
     if navier_stokes
@@ -292,14 +308,14 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
                                   adj, adj.phS, RlsFS_ucorrS, RlsFS_vcorrS,
                                   AuS, BuS, AvS, BvS, AϕS,
                                   opC_pS, opC_uS, opC_vS, BC_pS,
-                                  current_i, true)
+                                  current_i, true, periodic_x, periodic_y)
         end
         if ns_liquid_phase
             adjoint_projection_fs(num, grid, grid_u, grid_v, 
                                   adj, adj.phL, RlsFS_ucorrL, RlsFS_vcorrL,
                                   AuL, BuL, AvL, BvL, AϕL,
                                   opC_pL, opC_uL, opC_vL, BC_pL,
-                                  current_i, true)
+                                  current_i, true, periodic_x, periodic_y)
         end
     end
 
@@ -402,12 +418,14 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
 
         if heat
             if heat_solid_phase
-                AS, BS, _ = set_heat!(dir, num, grid, opC_TS, geoS, θd, BC_TS, MIXED, geoS.projection,
-                                    periodic_x, periodic_y)
+                AS, BS, _ = set_heat!(dir, num, grid, opC_TS, geoS, phS, θd, BC_TS, MIXED, geoS.projection,
+                                    opS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
+                                    periodic_x, periodic_y, heat_convection)
             end
             if heat_liquid_phase
-                AL, BL, _ = set_heat!(dir, num, grid, opC_TL, geoL, θd, BC_TL, MIXED, geoL.projection,
-                                    periodic_x, periodic_y)
+                AL, BL, _ = set_heat!(dir, num, grid, opC_TL, geoL, phL, θd, BC_TL, MIXED, geoL.projection,
+                                    opL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
+                                    periodic_x, periodic_y, heat_convection)
             end
         end
 
@@ -419,7 +437,8 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
                 phL.TD, fwdL.TD[current_i+1,:], ALm1, BLm1, opC_TL, BC_TL,
                 u1, fwd.u[current_i+1,:,:], LSAm1, LSBm1, tmpχ_S, tmpχ_L,
                 CFL_sc, periodic_x, periodic_y, ϵ_adj, λ, Vmean,
-                heat_solid_phase, heat_liquid_phase)
+                opS, phS, opL, phL,
+                heat_solid_phase, heat_liquid_phase, heat_convection)
 
             @views Rheat_q1(num, grid, grid_u, grid_v, adj_der,
                 phS.TD, phL.TD,
@@ -489,15 +508,17 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         if navier_stokes && free_surface
             if ns_solid_phase
                 AuS, BuS, _, AvS, BvS, _, AϕS, _ = set_navier_stokes(num, grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
-                    opC_pS, opC_uS, opC_vS, BC_pS, BC_uS, BC_vS,
-                    Mum1_S, Mvm1_S, iRe,
-                    periodic_x, periodic_y)
+                                                                    opC_pS, opC_uS, opC_vS, BC_pS, BC_uS, BC_vS,
+                                                                    Mum1_S, Mvm1_S, iRe,
+                                                                    opS, phS,
+                                                                    periodic_x, periodic_y, ns_advection)
             end
             if ns_liquid_phase
                 AuL, BuL, _, AvL, BvL, _, AϕL, _ = set_navier_stokes(num, grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
-                    opC_pL, opC_uL, opC_vL, BC_pL, BC_uL, BC_vL,
-                    Mum1_L, Mvm1_L, iRe,
-                    periodic_x, periodic_y)
+                                                                    opC_pL, opC_uL, opC_vL, BC_pL, BC_uL, BC_vL,
+                                                                    Mum1_L, Mvm1_L, iRe,
+                                                                    opL, phL,
+                                                                    periodic_x, periodic_y, ns_advection)
             end
         end
 
@@ -508,7 +529,8 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
                     fwdL.ucorrD[current_i,:], BC_uL,
                     fwdS.vcorrD[current_i,:], opC_vS, BC_vS,
                     fwdL.vcorrD[current_i,:], BC_vL,
-                    BuSm1, BuLm1, BvSm1, BvLm1,
+                    # BuSm1, BuLm1, BvSm1, BvLm1,
+                    BuS, BuL, BvS, BvL,
                     opC_uS.M, opC_uL.M, opC_vS.M, opC_vL.M,
                     u1, fwd.u[current_i+1,:,:], LSAm1, LSBm1,
                     periodic_x, periodic_y, ϵ_adj,
@@ -525,7 +547,8 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
                     fwdS.vcorrD[current_i,:], fwdL.vcorrD[current_i,:],
                     Mum1_S, Mum1_L, Mvm1_S, Mvm1_L,
                     u1, periodic_x, periodic_y, ϵ_adj,
-                    ns_solid_phase, ns_liquid_phase)
+                    opS, phS, opL, phL,
+                    ns_solid_phase, ns_liquid_phase, ns_advection)
         end
 
         if navier_stokes
@@ -534,7 +557,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
                                       adj, adj.phS, RlsFS_ucorrS, RlsFS_vcorrS,
                                       AuS, BuS, AvS, BvS, AϕS,
                                       opC_pS, opC_uS, opC_vS, BC_pS,
-                                      current_i, false)
+                                      current_i, false, periodic_x, periodic_y)
 
                 BuSm1 .= BuS
                 BvSm1 .= BvS
@@ -544,7 +567,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
                                       adj, adj.phL, RlsFS_ucorrL, RlsFS_vcorrL,
                                       AuL, BuL, AvL, BvL, AϕL,
                                       opC_pL, opC_uL, opC_vL, BC_pL,
-                                      current_i, false)
+                                      current_i, false, periodic_x, periodic_y)
                             
                 BuLm1 .= BuL
                 BvLm1 .= BvL
