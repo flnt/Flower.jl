@@ -20,11 +20,17 @@ const newaxis = [CartesianIndex()]
 @inline δx⁺(II, nx, per) = per && II[2]==nx ? CartesianIndex(II[1], 1) : δx⁺(II)
 @inline δx⁻(II, nx, per) = per && II[2]==1 ? CartesianIndex(II[1], nx) : δx⁻(II)
 
+@inline f2zeros(g::G) where {G<:Grid} = zeros(2*g.ny*g.nx)
+@inline f2ones(g::G) where {G<:Grid} = ones(2*g.ny*g.nx)
 @inline fzeros(g::G) where {G<:Grid} = zeros(g.ny*g.nx)
 @inline fones(g::G) where {G<:Grid} = ones(g.ny*g.nx)
 @inline zeros(g::G) where {G<:Grid} = zeros(g.ny,g.nx)
 @inline ones(g::G) where {G<:Grid} = ones(g.ny,g.nx)
 
+@inline f2zeros(a,g::G) where {G<:Grid} = zeros(a,2*g.ny*g.nx)
+@inline f2ones(a,g::G) where {G<:Grid} = ones(a,2*g.ny*g.nx)
+@inline f2zeros(g::G,a) where {G<:Grid} = zeros(2*g.ny*g.nx,a)
+@inline f2ones(g::G,a) where {G<:Grid} = ones(2*g.ny*g.nx,a)
 @inline fzeros(a,g::G) where {G<:Grid} = zeros(a,g.ny*g.nx)
 @inline fones(a,g::G) where {G<:Grid} = ones(a,g.ny*g.nx)
 @inline fzeros(g::G,a) where {G<:Grid} = zeros(g.ny*g.nx,a)
