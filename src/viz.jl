@@ -56,7 +56,8 @@ end
 
 function make_video(grid, field_u, field=nothing;
                     title_prefix="video", title_suffix="", xlabel="x", ylabel="y", colormap=:viridis,
-                    minv=0.0, maxv=0.0, limitsx=false, limitsy=false, framerate=24, step=1, step0=1, stepf=size(field_u,1))
+                    minv=0.0, maxv=0.0, limitsx=false, limitsy=false, var=1,
+                    framerate=24, step=1, step0=1, stepf=size(field_u,1))
     x = grid.x[1,:]
     y = grid.y[:,1]
 
@@ -66,7 +67,11 @@ function make_video(grid, field_u, field=nothing;
         plot_hmap = false
     else
         if length(size(field)) == 2
-            z = reshape(field[step0:stepf,1:grid.ny*grid.nx], (stepf-step0+1,grid.ny,grid.nx))
+            if var==1
+                z = reshape(field[step0:stepf,1:grid.ny*grid.nx], (stepf-step0+1,grid.ny,grid.nx))
+            else
+                z = reshape(field[step0:stepf,grid.ny*grid.nx+1:end], (stepf-step0+1,grid.ny,grid.nx))
+            end
         else
             z = field[step0:stepf,:,:]
         end
@@ -81,12 +86,12 @@ function make_video(grid, field_u, field=nothing;
     if isa(limitsx, Tuple{Float64,Float64}) || isa(limitsx, Tuple{Int,Int})
         lx = limitsx
     else
-        lx = (min(x...), max(x...))
+        lx = (min(x...)-grid.dx[1,1]/2, max(x...)+grid.dx[1,end]/2)
     end
     if isa(limitsy, Tuple{Float64,Float64}) || isa(limitsy, Tuple{Int,Int})
         ly = limitsy
     else
-        ly = (min(y...), max(y...))
+        ly = (min(y...)-grid.dy[1,1]/2, max(y...)+grid.dy[end,1]/2)
     end
 
     obs = Observable{Int32}(1)
