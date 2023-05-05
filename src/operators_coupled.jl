@@ -247,13 +247,14 @@ function periodic_bcs!(grid, Gx, Gy, Hx, Hy, periodic_x, periodic_y)
             JJ = grid.ind.periodic_y[2][i]
             pII = lexicographic(II, ny)
             pJJ = lexicographic(JJ, ny)
+            pII_y = lexicographic(II, ny+1)
             pJJ_y = lexicographic(δy⁺(JJ), ny+1)
 
-            Gy[pII,pJJ] = Gy[pJJ+1,pJJ]
-            Gy[pJJ+1,pII] = Gy[pII,pII]
+            Gy[pII_y,pJJ] = Gy[pJJ_y,pJJ]
+            Gy[pJJ_y,pII] = Gy[pII_y,pII]
 
-            Hy[pII,pJJ] = Hy[pJJ+1,pJJ]
-            Hy[pJJ_y,pII] = Hy[pII,pII]
+            Hy[pII_y,pJJ] = Hy[pJJ_y,pJJ]
+            Hy[pJJ_y,pII] = Hy[pII_y,pII]
         end
     end
 
