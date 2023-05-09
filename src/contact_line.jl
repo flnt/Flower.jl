@@ -5,7 +5,7 @@
 
 function update_Young_stress(gp,num)
 
-    gp.Young[1,:] = compute_young_stress(gp,num,gp.ind.b_bottom[1])
+    gp.Young[1,:] .= 1 #compute_young_stress(gp,num,gp.ind.b_bottom[1])
 
 end 
 

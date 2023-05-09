@@ -28,7 +28,7 @@ num = Numerical( # defined in types.jl
     # physical parameters
     Re=20.0,
     CFL=1.0, # backwards Euler
-    max_iterations=300,
+    max_iterations=200,
     u_inf=0.0,
     v_inf=1.0,
     save_every=1, #
@@ -127,10 +127,10 @@ contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[2, :, :]', levels=0:0, color=:red, linew
 contour!(gp.x[1, :], gp.y[:, 1], tracer', levels=0:0, color=:red, linewidth=3)
 
 
-yss= zeros(size(gp.ind.b_bottom[1]))
-yss = compute_young_stress(gp,num,gp.ind.b_bottom[1])
-yss = yss./maximum(yss)/3
+yss = gp.Young[1,:]
 @show yss
+
+yss = yss./maximum(yss)/3
 lines!(gp.x[1,:], yss.+gp.y[1, 1], color=:green, linewidth=3)
 
 # bell = test_bell(gp,num)
