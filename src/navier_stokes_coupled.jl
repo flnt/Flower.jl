@@ -84,7 +84,6 @@ end
 
 # function set_borders!(grid, num, a0, a1, b0, b1, BC)
 #     @unpack ny, ind = grid
-    
 #     @inbounds a0[:,1] .= BC.left.val
 #     if is_dirichlet(BC.left.t)
 #         @inbounds a1[2:end-1,1] .= -1.
@@ -127,15 +126,10 @@ end
 #         # @inbounds b0[1,2:end-1] .= 0.
 #         # @inbounds b1[1,2:end-1] .= 0.
 #     elseif is_navier(BC.bottom.t)
-
-
 #         @inbounds a1[1,:] .= -1.
 #         @inbounds b0[1,:] .= 0.
 #         @inbounds b1[1,:] .= num.λCA
 #         @inbounds a0[1,:] .= BC.bottom.val .+ compute_young_stress(grid, num, grid.ind.b_bottom[1])
-
-
-        
 #     else
 #         @error ("Not implemented yet")
 #     end
@@ -185,6 +179,12 @@ end
 #         @inbounds b0[end,:] .= 0.
 #         @inbounds b1[end,:] .= num.λCA
 #     else
+#         @error ("Not implemented yet")
+#     end
+
+#     return nothing
+# end
+
 #         @error ("Not implemented yet")
 #     end
 

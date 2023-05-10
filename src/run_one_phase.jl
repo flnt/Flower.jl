@@ -32,7 +32,7 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,opL, opC_pL, opC_uL, op
 
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re,
             max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
-    @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, V, κ, LSA, LSB, α = grid
+    @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, V, κ, θext, LSA, LSB, α = grid
 
     local NB_indices;
     local Cum1L = zeros(grid_u.nx*grid_u.ny)
@@ -43,6 +43,7 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,opL, opC_pL, opC_uL, op
 
     θ_out = zeros(grid, 4)
     tmp_tracer = copy(tracer)
+    LSRHS = fzeros(grid)
 
     if periodic_x
         BC_u.left.ind = ind.b_left;
@@ -63,9 +64,14 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,opL, opC_pL, opC_uL, op
     end
 
     NB_indices = update_ls_data(num, grid, grid_u, grid_v, tracer, κ, periodic_x, periodic_y)
-    gp_iso_tmp = copy(iso); gp_alpha_tmp = copy(α)
-    NB_indices = update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y)       
-    iso .= gp_iso_tmp; α .= gp_alpha_tmp
+    gp_iso_tmp  = copy(grid.iso);   gp_α_tmp  = copy(grid.α)
+    gpu_iso_tmp = copy(grid_u.iso); gpu_α_tmp = copy(grid_u.α)
+    gpv_iso_tmp = copy(grid_v.iso); gpv_α_tmp = copy(grid_v.α)
+
+    NB_indices = update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y)
+    grid.iso   .=  gp_iso_tmp;   grid.α .= gp_α_tmp
+    grid_u.iso .= gpu_iso_tmp; grid_u.α .= gpu_α_tmp
+    grid_v.iso .= gpv_iso_tmp; grid_v.α .= gpv_α_tmp
 
     if ns_advection
         Cum1L .= opL.Cu * vec(phL.u) .+ opL.CUTCu
@@ -106,24 +112,8 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,opL, opC_pL, opC_uL, op
 #-----------------------------------------------------------------------------------------------------
 # LOOP STARTS HERE
     current_t = 0.
+    update_levelset_matrices(periodic_x,periodic_y,grid,LSA,LSB)
 
-    # Imposing Newman boundary condition to the levelset function
-    # LSA contains the product of the mass matrix and the Laplacian for the advection scheme
-    # LSAΦ^{n+1}=LSBΦ^{n}+LSC*u_target 
-    # 1*Φ^{n+1}=1*Φ^{n}
-    # Φ^{n+1}_{i,j}+Φ^{n+1}_{i,j+1}=0
-
-    if ! periodic_y
-        for (II,JJ) in zip(grid.ind.b_bottom[1], grid.ind.b_bottom[2]) # first and second rows
-        i = lexicographic(II, grid.ny)
-        j = lexicographic(JJ, grid.ny)
-        LSA[i,i] = 1. # set 1st row of LSA to 1
-        LSB[i,i] = 0. # set 1st row of LSB to 0
-        LSA[i,j] = -1. # set 2nd row of LSA to -1
-        end
-    end
-#-----------------------------------------------------------------------------------------------------
-    # LOOP STARTS HERE
     while current_i < max_iterations + 1
 
         #update_free_surface_velocity(num, grid_u, grid_v, phL.uD, phL.vD, periodic_x, periodic_y)
@@ -131,6 +121,8 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,opL, opC_pL, opC_uL, op
         # 1 is bulk field 
         grid_u.V .= reshape(veci(phL.uD,grid_u,1), (grid_u.ny, grid_u.nx))
         grid_v.V .= reshape(veci(phL.vD,grid_v,1), (grid_v.ny, grid_v.nx))
+
+        update_levelset_contact_angle(periodic_x,periodic_y,grid,tracer,LSRHS) # here only gp 
 
         if advection
             CFL_sc = τ / Δ^2
@@ -140,24 +132,24 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,opL, opC_pL, opC_uL, op
             level_update_IIOE!(grid, grid_u, grid_v, LSA, LSB, θ_out, ind.MIXED, τ, false, false)
 
             try
-                tmp_tracer .= reshape(gmres(LSA,(LSB*vec(tracer));verbose=false,log=false), (ny,nx))
+                tmp_tracer .= reshape(gmres(LSA,(LSB*vec(tracer).+LSRHS);verbose=false,log=false), (ny,nx))
             catch
                 @error ("Inadequate level set function, iteration $current_i")
                 break
             end
             S2IIOE!(grid, grid_u, grid_v, LSA, LSB, tmp_tracer, tracer, θ_out, ind.MIXED, τ, false, false)
             try
-                tracer .= reshape(gmres(LSA,(LSB*vec(tracer));verbose=false,log=false), (ny,nx))
+                tracer .= reshape(gmres(LSA,(LSB*vec(tracer).+LSRHS);verbose=false,log=false), (ny,nx))
             catch
                 @error ("Inadequate level set function, iteration $current_i")
                 break
             end
 
-            if nb_reinit > 0
-                if current_i%num.reinit_every == 0
-                    FE_reinit(grid, ind, tracer, nb_reinit, Boundaries(), false, false)
-                end
-            end
+            # if nb_reinit > 0
+            #     if current_i%num.reinit_every == 0
+            #         FE_reinit(grid, ind, tracer, nb_reinit, Boundaries(), false, false)
+            #     end
+            # end
             # if free_surface # numerical breakup
             #     count = breakup(u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, 1e-5)
             #     if count > 0
@@ -192,20 +184,24 @@ function run_forward_one_phase(num, grid, grid_u, grid_v,opL, opC_pL, opC_uL, op
 
         if levelset && (advection || current_i<2)
 
-
             NB_indices = update_ls_data(num, grid, grid_u, grid_v, tracer, κ, periodic_x, periodic_y)
-            gp_iso_tmp = copy(iso); gp_alpha_tmp = copy(α)
-            NB_indices = update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y)       
-            iso .= gp_iso_tmp; α .= gp_alpha_tmp
+            gp_iso_tmp  = copy(grid.iso);   gp_α_tmp  = copy(grid.α)
+            gpu_iso_tmp = copy(grid_u.iso); gpu_α_tmp = copy(grid_u.α)
+            gpv_iso_tmp = copy(grid_v.iso); gpv_α_tmp = copy(grid_v.α)
 
+            NB_indices = update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y)
+            grid.iso   .= gp_iso_tmp;  grid.α   .= gp_α_tmp
+            grid_u.iso .= gpu_iso_tmp; grid_u.α .= gpu_α_tmp
+            grid_v.iso .= gpv_iso_tmp; grid_v.α .= gpv_α_tmp
+            
             if iszero(current_i%save_every) || current_i==max_iterations
                 snap = current_i÷save_every+1
             end
         end
 
         #if contact_lines
-        update_Young_stress(grid,num)
-
+        update_Young_stress(ind.MIXED, grid_u, grid_v, num)
+        
         if navier_stokes
             no_slip_condition!(grid, grid_u, grid_v)
             Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L = projection_no_slip!(num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,

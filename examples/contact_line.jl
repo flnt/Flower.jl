@@ -1,10 +1,5 @@
-using Revise
-using Flower
-
-fontsize_theme = Theme(fontsize=30)
-set_theme!(fontsize_theme)
-
-T = Float64 # not used 
+using Revise, Flower
+#set_theme!(fontsize_theme)
 
 Lx = 1
 Ly = 1
@@ -12,7 +7,6 @@ nx = 32
 ny = 16
 dx= Lx/nx
 dy= Ly/ny
-
 @show dx, dy
 
 num = Numerical( # defined in types.jl
@@ -27,8 +21,8 @@ num = Numerical( # defined in types.jl
     y=LinRange(-Ly / 2, Ly / 2, ny + 1),
     # physical parameters
     Re=20.0,
-    CFL=1.0, # backwards Euler
-    max_iterations=200,
+    CFL=0.5, # backwards Euler
+    max_iterations=500,
     u_inf=0.0,
     v_inf=1.0,
     save_every=1, #
@@ -55,13 +49,12 @@ num = Numerical( # defined in types.jl
     # Contact angle parameters
     Ca=0.1, # Capillary number
     λCA=3*dy, # slip lenght > dy 
-    εCA=3*dy, # width
-    θe=40.0, # prescribed contact angle
+    εCA=3*dx, # width
+    θe=70.0, # prescribed contact angle
 )
 
 gp, gu, gv = init_meshes(num)
 opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd, fwdL, fwdS = init_fields(num, gp, gu, gv)
-
 
 # Set initial condition to the level set 
 # Done in init.jl -> cases 
@@ -101,66 +94,56 @@ tracer = gp.x .+ num.shifted .+ float(Lx/7)
     show_every=100
     )
 
+
+time = num.max_iterations
 fu = Figure(resolution = (500, 500));
-ax = Axis(fu[1, 1],
-    title="t=$(round(fwd.t[end], digits=3))",
-    xlabel="x",
-    ylabel="y")
+ax = Axis(fu[1, 1],title="θe=$(num.θe), t=$(round(fwd.t[time], digits=3))",xlabel="x",ylabel="y")
 colsize!(fu.layout, 1, Aspect(1, 1.0))
-
-# Plot the velocity field u 
-hm = heatmap!(gu.x[1, :], gu.y[:, 1], fwdL.u[end, :, :]')
-Colorbar(fu[1, 2], hm, label="u")
-
+hm = heatmap!(gu.x[1, :], gu.y[:, 1], fwdL.u[time, :, :]')
+max_vel = maximum(fwdL.u[time, :, :])
+min_vel = minimum(fwdL.u[time, :, :])
+@show min_vel, max_vel
+Colorbar(fu[1, 2], hm, label="u", ticks=[round(min_vel,digits=5),round(max_vel,digits=5)])
 for x in gp.x[1, :]
-    lines!(ax, [x, x], [minimum(gp.y), maximum(gp.y)], linewidth=0.5, color=:black)
+    lines!(ax, [x, x], [minimum(gp.y), maximum(gp.y)], linewidth=0.2, color=:black)
 end
 for y in gp.y[:, 1]
-    lines!(ax, [minimum(gp.x), maximum(gp.x)], [y, y], linewidth=0.5, color=:black)
+    lines!(ax, [minimum(gp.x), maximum(gp.x)], [y, y], linewidth=0.2, color=:black)
 end
-
 # Plot object (i.e. the levelset gp.u)
-contour!(gp.x[1, :], gp.y[:, 1], gp.u', levels = 0:0, color=:gray, linewidth=7)
-
+#contour!(gp.x[1, :], gp.y[:, 1], fwdL.u[end, :, :]', levels = 0:0, color=:gray, linewidth=7)
+contour!(gp.x[1, :], gp.y[:, 1], gp.u', levels = 0:0, color=:gray, linewidth=1)
 # Plot the initial and current tacer 
 contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[2, :, :]', levels=0:0, color=:red, linewidth=2.0, linestyle=:dash)
-contour!(gp.x[1, :], gp.y[:, 1], tracer', levels=0:0, color=:red, linewidth=3)
+contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[time, :, :]', levels=0:0, color=:red, linewidth=3)
 
+yss = gu.Young[1,:]; yss = yss./maximum(yss)/3
+lines!(gu.x[1,:], yss.+gu.y[1, 1], color=:green, linewidth=3)
+fname = "contact_line_fu_theta_e_$(num.θe).png"
+@show fname
+Makie.save(fname, fu)
 
-yss = gp.Young[1,:]
-@show yss
+# function gif(fwdL, gp, gu, num)
+#     function create_frame(fwdL, gp, gu, θe, time)
+#         fu = Figure(resolution = (500, 500))
+#         ax = Axis(fu[1, 1], title="θe=$θe, t=$(round(time, digits=3))", xlabel="x", ylabel="y")
+#         colsize!(fu.layout, 1, Aspect(1, 1.0))
+#         hm = heatmap!(gu.x[1, :], gu.y[:, 1], fwdL.u[time, :, :]')
+#         Colorbar(fu[1, 2], hm, label="u")
+#         contour!(gp.x[1, :], gp.y[:, 1], gp.u', levels = 0:0.001:0, color=:gray, linewidth=7)
+#         contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[2, :, :]', levels=0:0.001:0, color=:red, linewidth=2.0, linestyle=:dash)
+#         contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[time, :, :]', levels=0:0.001:0, color=:red, linewidth=3)
+#         yss = gu.Young[1,:]
+#         yss = yss ./ maximum(yss) / 3
+#         lines!(gu.x[1,:], yss .+ gu.y[1, 1], color=:green, linewidth=3)
+#         return fu
+#     end
+    
+#     frames = [create_frame(fwdL, gp, gu, num.θe, time) for time in 1:num.max_iterations]
+    
+#     record("contact_line_fu_theta_e_$(num.θe).mp4", frames, framerate = 15)
+# end
 
-yss = yss./maximum(yss)/3
-lines!(gp.x[1,:], yss.+gp.y[1, 1], color=:green, linewidth=3)
-
-# bell = test_bell(gp,num)
-# normalized_bell = bell/maximum(bell)/3
-# lines!(gp.x[1,:], normalized_bell.+gp.y[1, 1], color=:blue, linewidth=2)
-
-resize_to_layout!(fu)
-Makie.save("contact_line_fu.png", fu)
-
-
-
-#compute_young_stress(gp,num,gp.ind.b_bottom[1]) 
-# fv = Figure();
-# ax = Axis(fv[1, 1],
-#     title="t=$(round(fwd.t[end], digits=3))",
-#     xlabel="x",
-#     ylabel="y")
-# hm = heatmap!(gv.x[1, :], gv.y[:, 1], fwdL.v[end, :, :]')
-# Colorbar(fv[1, 2], hm, label="v")
-# contour!(gp.x[1, :], gp.y[:, 1], tracer',
-#     levels=0:0, color=:red, linewidth=3);
-# Makie.save("contact_line_fv.png", fv)
-
-# fp = Figure()
-# ax = Axis(fp[1, 1],
-#     title="t=$(round(fwd.t[end], digits=3))",
-#     xlabel="x",
-#     ylabel="y")
-# hm = heatmap!(gp.x[1, :], gp.y[:, 1], fwdL.p[end, :, :]')
-# Colorbar(fp[1, 2], hm, label="p")
-# contour!(gp.x[1, :], gp.y[:, 1], tracer',
-# levels=0:0, color=:red, linewidth=3);
-# Makie.save("contact_line_fp.png", fp)
+# prefix = "/Users/r/Desktop/Codes/Flower.jl/examples/"
+# suffix = "_Re$(abs(Re))_λ$(λ)_θe$(num.θe)"
+# make_video(gu, fwd, u; title_prefix=prefix,title_suffix=suffix, xlabel="x", ylabel="y", colormap=:viridis,minv=0.0, maxv=0.0, limitsx=(-Lx/2,Lx/2), limitsy=(-Ly/2,Ly/2), framerate=24, step=1, step0=1, stepf=size(field_u,1))
