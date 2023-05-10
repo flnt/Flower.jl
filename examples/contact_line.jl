@@ -5,8 +5,8 @@ Lx = 1
 Ly = 1
 nx = 32
 ny = 16
-dx= Lx/nx
-dy= Ly/ny
+dx = Lx / nx
+dy = Ly / ny
 @show dx, dy
 
 num = Numerical( # defined in types.jl
@@ -33,11 +33,9 @@ num = Numerical( # defined in types.jl
     # shifted=0,
     # R=1.0,
     # shift_y=1.5,
-    nb_reinit=ny,
-
-    case="Square",
+    nb_reinit=ny, case="Square",
     shifted=-1.e-3,
-    R = float(Lx/10),
+    R=float(Lx / 10),
 
     # case="Drop", # params: R, A, shifter 
     # shifted=0.0, 
@@ -48,8 +46,8 @@ num = Numerical( # defined in types.jl
 
     # Contact angle parameters
     Ca=0.1, # Capillary number
-    λCA=3*dy, # slip lenght > dy 
-    εCA=3*dx, # width
+    λCA=3 * dy, # slip lenght > dy 
+    εCA=3 * dx, # width
     θe=70.0, # prescribed contact angle
 )
 
@@ -60,7 +58,7 @@ opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, p
 # Done in init.jl -> cases 
 
 # Set initial condition to the tracer 
-tracer = gp.x .+ num.shifted .+ float(Lx/7)
+tracer = gp.x .+ num.shifted .+ float(Lx / 7)
 
 @time run_forward_one_phase(num, gp, gu, gv, opL, opC_pL, opC_uL, opC_vL,
     phL, fwd, fwdL, tracer;
@@ -92,18 +90,18 @@ tracer = gp.x .+ num.shifted .+ float(Lx/7)
     verbose=true,
     adaptative_t=false,
     show_every=100
-    )
+)
 
 
 time = num.max_iterations
-fu = Figure(resolution = (500, 500));
-ax = Axis(fu[1, 1],title="θe=$(num.θe), t=$(round(fwd.t[time], digits=3))",xlabel="x",ylabel="y")
+fu = Figure(resolution=(500, 500));
+ax = Axis(fu[1, 1], title="θe=$(num.θe), t=$(round(fwd.t[time], digits=3))", xlabel="x", ylabel="y")
 colsize!(fu.layout, 1, Aspect(1, 1.0))
 hm = heatmap!(gu.x[1, :], gu.y[:, 1], fwdL.u[time, :, :]')
 max_vel = maximum(fwdL.u[time, :, :])
 min_vel = minimum(fwdL.u[time, :, :])
 @show min_vel, max_vel
-Colorbar(fu[1, 2], hm, label="u", ticks=[round(min_vel,digits=5),round(max_vel,digits=5)])
+Colorbar(fu[1, 2], hm, label="u", ticks=[round(min_vel, digits=5), round(max_vel, digits=5)])
 for x in gp.x[1, :]
     lines!(ax, [x, x], [minimum(gp.y), maximum(gp.y)], linewidth=0.2, color=:black)
 end
@@ -112,13 +110,14 @@ for y in gp.y[:, 1]
 end
 # Plot object (i.e. the levelset gp.u)
 #contour!(gp.x[1, :], gp.y[:, 1], fwdL.u[end, :, :]', levels = 0:0, color=:gray, linewidth=7)
-contour!(gp.x[1, :], gp.y[:, 1], gp.u', levels = 0:0, color=:gray, linewidth=1)
+contour!(gp.x[1, :], gp.y[:, 1], gp.u', levels=0:0, color=:gray, linewidth=1)
 # Plot the initial and current tacer 
 contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[2, :, :]', levels=0:0, color=:red, linewidth=2.0, linestyle=:dash)
 contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[time, :, :]', levels=0:0, color=:red, linewidth=3)
 
-yss = gu.Young[1,:]; yss = yss./maximum(yss)/3
-lines!(gu.x[1,:], yss.+gu.y[1, 1], color=:green, linewidth=3)
+yss = gu.Young[1, :];
+yss = yss ./ maximum(yss) / 3;
+lines!(gu.x[1, :], yss .+ gu.y[1, 1], color=:green, linewidth=3)
 fname = "contact_line_fu_theta_e_$(num.θe).png"
 @show fname
 Makie.save(fname, fu)
@@ -138,9 +137,9 @@ Makie.save(fname, fu)
 #         lines!(gu.x[1,:], yss .+ gu.y[1, 1], color=:green, linewidth=3)
 #         return fu
 #     end
-    
+
 #     frames = [create_frame(fwdL, gp, gu, num.θe, time) for time in 1:num.max_iterations]
-    
+
 #     record("contact_line_fu_theta_e_$(num.θe).mp4", frames, framerate = 15)
 # end
 
