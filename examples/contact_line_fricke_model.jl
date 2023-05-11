@@ -1,13 +1,12 @@
 using Revise, Flower
 #set_theme!(fontsize_theme)
 
-Lx = 1
-Ly = 1
+Lx = 2
+Ly = 2
 nx = 32
 ny = 32
 dx= Lx/nx
 dy= Ly/ny
-@show dx, dy
 
 num = Numerical( # defined in types.jl
     # DDM parameters
@@ -20,9 +19,9 @@ num = Numerical( # defined in types.jl
     x=LinRange(-Lx / 2, Lx / 2, nx + 1),
     y=LinRange(-Ly / 2, Ly / 2, ny + 1),
     # physical parameters
-    Re=20.0,
+    Re=1.0,
     CFL=0.5, # backwards Euler
-    max_iterations=300,
+    max_iterations=100,
     u_inf=0.0,
     v_inf=1.0,
     save_every=1, #
@@ -30,23 +29,11 @@ num = Numerical( # defined in types.jl
     ϵ=0.05, # 
     g=0.0, # gravity
     β=0, # angle of inclination
-    # shifted=0,
-    # R=1.0,
-    # shift_y=1.5,
-    nb_reinit=ny,
 
     case="Square",
     shifted=-1.e-3,
     R = float(Lx/10),
-
-    # case="Drop", # params: R, A, shifter 
-    # shifted=0.0, 
-    # R=h0, # radius of drop
-    # A=0.02, # amplitude of perturbation
-
     NB=4, # number of cells that the velocity is extended from the interface
-
-    # Contact angle parameters
     Ca=0.1, # Capillary number
     λCA=3*dy, # slip lenght > dy 
     εCA=3*dx, # width
@@ -119,31 +106,6 @@ contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[time, :, :]', levels=0:0, color=:red, li
 
 # yss = gu.Young[1,:]; yss = yss./maximum(yss)/3
 # lines!(gu.x[1,:], yss.+gu.y[1, 1], color=:green, linewidth=3)
-fname = "contact_line_fu_theta_e_$(num.θe).png"
+fname = "contact_line_fricke_fu_theta_e_$(num.θe).png"
 @show fname
 Makie.save(fname, fu)
-
-# function gif(fwdL, gp, gu, num)
-#     function create_frame(fwdL, gp, gu, θe, time)
-#         fu = Figure(resolution = (500, 500))
-#         ax = Axis(fu[1, 1], title="θe=$θe, t=$(round(time, digits=3))", xlabel="x", ylabel="y")
-#         colsize!(fu.layout, 1, Aspect(1, 1.0))
-#         hm = heatmap!(gu.x[1, :], gu.y[:, 1], fwdL.u[time, :, :]')
-#         Colorbar(fu[1, 2], hm, label="u")
-#         contour!(gp.x[1, :], gp.y[:, 1], gp.u', levels = 0:0.001:0, color=:gray, linewidth=7)
-#         contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[2, :, :]', levels=0:0.001:0, color=:red, linewidth=2.0, linestyle=:dash)
-#         contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[time, :, :]', levels=0:0.001:0, color=:red, linewidth=3)
-#         yss = gu.Young[1,:]
-#         yss = yss ./ maximum(yss) / 3
-#         lines!(gu.x[1,:], yss .+ gu.y[1, 1], color=:green, linewidth=3)
-#         return fu
-#     end
-    
-#     frames = [create_frame(fwdL, gp, gu, num.θe, time) for time in 1:num.max_iterations]
-    
-#     record("contact_line_fu_theta_e_$(num.θe).mp4", frames, framerate = 15)
-# end
-
-# prefix = "/Users/r/Desktop/Codes/Flower.jl/examples/"
-# suffix = "_Re$(abs(Re))_λ$(λ)_θe$(num.θe)"
-# make_video(gu, fwd, u; title_prefix=prefix,title_suffix=suffix, xlabel="x", ylabel="y", colormap=:viridis,minv=0.0, maxv=0.0, limitsx=(-Lx/2,Lx/2), limitsy=(-Ly/2,Ly/2), framerate=24, step=1, step0=1, stepf=size(field_u,1))

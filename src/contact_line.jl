@@ -3,29 +3,31 @@
 ## It gives values to gp.Young as function of the BCs and the levelset (gp.u) on the domain.
 ## @author: R. A. S. Frantz (2023)
 
-function prtnn(arr) # for debug 
-    flattened = vec(arr)
-    non_zero_non_nan_values = [x for x in flattened if x != 0 && !isnan(x)]
-    println("Non-zero, non-NaN values: ", non_zero_non_nan_values)
+function prtnn(r) # for debug 
+    println("Values: ", [x for x in vec(r) if x != 0 && !isnan(x)])
 end
 
 function update_levelset_contact_angle(periodic_x, periodic_y, gp, tracer, LSRHS)
 
     function compute_theta_ext(gp, tracer)
-        for (II) in gp.ind.b_bottom[1]
+        for II in gp.ind.b_bottom[1]
+            if !isnothing(gp.α[II]) && gp.α[II] > 0
 
-            # compute first order derivative of the tracer in the normal direction
-            dh = (tracer[δy⁺(δy⁺(II))] - tracer[II]) / (gp.dy[δy⁺(II)] + gp.dy[II])
+                θapp = gp.α[δy⁺(II)] # apparent is located on grid above the boundary
 
-            θapp = gp.α[δy⁺(II)] # apparent is located on grid above the boundary
+                # compute first order derivative of the tracer in the normal direction
+                dh = (tracer[δy⁺(δy⁺(II))] - tracer[II]) / (gp.dy[δy⁺(II)] + gp.dy[II])
 
-            # compute extrapolated angle using apparent angle 
-            gp.θext[II] = θapp + 1.5 * gp.dy[II] * ((gp.κ[II] * sqrt(1.0 + dh)) / sin(θapp))
+                # compute extrapolated angle using apparent angle 
+                gp.θext[II] = θapp + 1.5 * gp.dy[II] * ((gp.κ[II] * sqrt(1.0 + dh)) / sin(θapp))
 
-            #gp.θext[II] = 90. * π / 180 # forcing angle normal to the boundary
+                @show θapp, gp.α[II], gp.θext[II]
 
+            end
         end
     end
+
+    compute_theta_ext(gp, tracer)
 
     if !periodic_y
         # for (II) in gp.ind.b_top[1]
@@ -34,7 +36,9 @@ function update_levelset_contact_angle(periodic_x, periodic_y, gp, tracer, LSRHS
         # end
         for (II) in gp.ind.b_bottom[1]
             i = lexicographic(II, gp.ny)
-            LSRHS[i] = cos(gp.θext[II])
+            LSRHS[i] = -cos(gp.θext[II])
+            #LSRHS[i] = -cos(90.0 * pi / 180.0)
+
         end
     end
     return LSRHS
@@ -74,7 +78,7 @@ function update_Young_stress(mixed, grid_u, grid_v, num)
 
     #compute_young_stress_internal(mixed, grid_u, grid_v, num)
     grid_u.Young[1, :] .= compute_young_stress_boundary(grid_u, num, grid_u.ind.b_bottom[1])
-    #grid_v.Young[1,:] .= compute_young_stress(grid_v,num,grid_v.ind.b_bottom[1])
+    #grid_v.Young[1,:] .= compute_young_stress_boundary(grid_v, num, grid_v.ind.b_bottom[1])
 
 end
 

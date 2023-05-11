@@ -107,15 +107,18 @@ function run_forward_one_phase(num, grid, grid_u, grid_v, opL, opC_pL, opC_uL, o
 
     _, _, Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L = set_laplacians!(grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
         opC_pL, opC_uL, opC_vL, periodic_x, periodic_y)
-
-    Mm1_L = copy(opC_pL.M)
-    Mum1_L = copy(opC_uL.M)
-    Mvm1_L = copy(opC_vL.M)
+    Mm1_L, Mum1_L, Mvm1_L = copy(opC_pL.M), copy(opC_uL.M), copy(opC_vL.M)
 
     #-----------------------------------------------------------------------------------------------------
     # LOOP STARTS HERE
     current_t = 0.0
     update_levelset_matrices(periodic_x, periodic_y, grid, LSA, LSB)
+
+    # for i in eachindex(grid.α)
+    #     if !isnan(grid.α[i])
+    #         θext[i] = π * 0.50
+    #     end
+    # end
 
     while current_i < max_iterations + 1
 
