@@ -1,195 +1,75 @@
-function set_borders!(gp, num, a0, a1, b, BC)    
-    @inbounds a0[2:end-1,1] .= BC.left.val
-    if is_dirichlet(BC.left.t)
-        @inbounds a1[2:end-1,1] .= -1.
-        @inbounds b[2:end-1,1] .= 0.
-    elseif is_neumann(BC.left.t)
-        @inbounds a1[2:end-1,1] .= 0.
-        @inbounds b[2:end-1,1] .= 1.
-    elseif is_robin(BC.left.t)
-        @inbounds a1[2:end-1,1] .= -1.
-        @inbounds b[2:end-1,1] .= 1.
-    elseif is_periodic(BC.left.t)
-        # @inbounds a1[:,1] .= 0.
-        # @inbounds b[:,1] .= 0.
-    elseif is_navier(BC.left.t)
-        @inbounds a1[2:end-1,1] .= -1.
-        @inbounds b[2:end-1,1] .= num.λCA
-        @inbounds a0[2:end-1,1] .+= gp.Young[2:end-1,1]
-    else
-        @error ("Not implemented yet")
-    end
-    @inbounds a0[1,:] .= BC.bottom.val
-    if is_dirichlet(BC.bottom.t)
-        @inbounds a1[1,:] .= -1.
-        @inbounds b[1,:] .= 0.
-    elseif is_neumann(BC.bottom.t)
-        @inbounds a1[1,:] .= 0.
-        @inbounds b[1,:] .= 1.
-    elseif is_robin(BC.bottom.t)
-        @inbounds a1[1,:] .= -1.
-        @inbounds b[1,:] .= 1.
-    elseif is_periodic(BC.bottom.t)
-        # @inbounds a1[1,2:end-1] .= 0.
-        # @inbounds b[1,2:end-1] .= 0.
-    elseif is_navier(BC.bottom.t)
-        @inbounds a1[1,:] .= -1.
-        @inbounds b[1,:] .= num.λCA
-        @inbounds a0[1,:] .+= gp.Young[1,:]
-    else
-        @error ("Not implemented yet")
-    end
-    @inbounds a0[2:end-1,end] .= BC.right.val
-    if is_dirichlet(BC.right.t)
-        @inbounds a1[2:end-1,end] .= -1.
-        @inbounds b[2:end-1,end] .= 0.
-    elseif is_neumann(BC.right.t)
-        @inbounds a1[2:end-1,end] .= 0.
-        @inbounds b[2:end-1,end] .= 1.
-    elseif is_robin(BC.right.t)
-        @inbounds a1[2:end-1,end] .= -1.
-        @inbounds b[2:end-1,end] .= 1.
-    elseif is_periodic(BC.right.t)
-        # @inbounds a1[:,end] .= 0.
-        # @inbounds b[:,end] .= 0.
-    elseif is_navier(BC.right.t)
-        @inbounds a1[2:end-1,end] .= -1.
-        @inbounds b[2:end-1,end] .= num.λCA
-        @inbounds a0[2:end-1,end] .+= gp.Young[2:end-1,end]
-    else
-        @error ("Not implemented yet")
-    end
-    @inbounds a0[end,:] .= BC.top.val
-    if is_dirichlet(BC.top.t)
-        @inbounds a1[end,:] .= -1.
-        @inbounds b[end,:] .= 0.
-    elseif is_neumann(BC.top.t)
-        @inbounds a1[end,:] .= 0.
-        @inbounds b[end,:] .= 1.
-    elseif is_robin(BC.top.t)
-        @inbounds a1[end,:] .= -1.
-        @inbounds b[end,:] .= 1.
-    elseif is_periodic(BC.top.t)
-        # @inbounds a1[end,2:end-1] .= 0.
-        # @inbounds b[end,2:end-1] .= 0.
-    elseif is_navier(BC.top.t)
-        @inbounds a1[end,:] .= -1.
-        @inbounds b[end,:] .= num.λCA
-        @inbounds a0[end,:] .+= gp.Young[end,:]
-    else
-        @error ("Not implemented yet")
-    end
-    return nothing
+function set_borders!(gp, num, a0, a1, b, BC)
+    @inbounds begin
+
+        # Left border
+        a0[2:end-1,1] .= BC.left.val
+        if is_dirichlet(BC.left.t)
+            a1[2:end-1,1] .= -1.
+            b[2:end-1,1] .= 0.
+        elseif is_neumann(BC.left.t)
+            a1[2:end-1,1] .= 0.
+            b[2:end-1,1] .= 1.
+        elseif is_robin(BC.left.t)
+            a1[2:end-1,1] .= -1.
+            b[2:end-1,1] .= 1.
+        elseif is_navier(BC.left.t)
+            a1[2:end-1,1] .= -1.
+            b[2:end-1,1] .= num.λCA
+            a0[2:end-1,1] .+= gp.Young[2:end-1,1]
+        end
+
+        # Bottom border
+        a0[1,:] .= BC.bottom.val
+        if is_dirichlet(BC.bottom.t)
+            a1[1,:] .= -1.
+            b[1,:] .= 0.
+        elseif is_neumann(BC.bottom.t)
+            a1[1,:] .= 0.
+            b[1,:] .= 1.
+        elseif is_robin(BC.bottom.t)
+            a1[1,:] .= -1.
+            b[1,:] .= 1.
+        elseif is_navier(BC.bottom.t)
+            a1[1,:] .= -1.
+            b[1,:] .= num.λCA
+            a0[1,:] .+= gp.Young[1,:]
+        end
+
+        # Right border
+        a0[2:end-1,end] .= BC.right.val
+        if is_dirichlet(BC.right.t)
+            a1[2:end-1,end] .= -1.
+            b[2:end-1,end] .= 0.
+        elseif is_neumann(BC.right.t)
+            a1[2:end-1,end] .= 0.
+            b[2:end-1,end] .= 1.
+        elseif is_robin(BC.right.t)
+            a1[2:end-1,end] .= -1.
+            b[2:end-1,end] .= 1.
+        elseif is_navier(BC.right.t)
+            a1[2:end-1,end] .= -1.
+            b[2:end-1,end] .= num.λCA
+            a0[2:end-1,end] .+= gp.Young[2:end-1,end]
+        end
+
+        # Top border
+        a0[end,:] .= BC.top.val
+        if is_dirichlet(BC.top.t)
+            a1[end,:] .= -1.
+            b[end,:] .= 0.
+        elseif is_neumann(BC.top.t)
+            a1[end,:] .= 0.
+            b[end,:] .= 1.
+        elseif is_robin(BC.top.t)
+            a1[end,:] .= -1.
+            b[end,:] .= 1.
+        elseif is_navier(BC.top.t)
+            a1[end,:] .= -1.
+            b[end,:] .= num.λCA
+            a0[end,:] .+= gp.Young[end,:]
+        end
+    end # @inbounds
 end
-
-# function set_borders!(grid, num, a0, a1, b0, b1, BC)
-#     @unpack ny, ind = grid
-#     @inbounds a0[:,1] .= BC.left.val
-#     if is_dirichlet(BC.left.t)
-#         @inbounds a1[2:end-1,1] .= -1.
-#         @inbounds b0[2:end-1,1] .= 0.
-#         @inbounds b1[2:end-1,1] .= 0.
-#     elseif is_neumann(BC.left.t)
-#         @inbounds a1[2:end-1,1] .= 0.
-#         @inbounds b0[2:end-1,1] .= 0.
-#         @inbounds b1[2:end-1,1] .= 1.
-#     elseif is_robin(BC.left.t)
-#         @inbounds a1[2:end-1,1] .= -1.
-#         @inbounds b0[2:end-1,1] .= 0.
-#         @inbounds b1[2:end-1,1] .= 1.
-#     elseif is_periodic(BC.left.t)
-#         # @inbounds a1[:,1] .= 0.
-#         # @inbounds b0[:,1] .= 0.
-#         # @inbounds b1[:,1] .= 0.
-#     elseif is_navier(BC.left.t)
-#         @inbounds a1[2:end-1,1] .= -1.
-#         @inbounds b0[2:end-1,1] .= 0.
-#         @inbounds b1[2:end-1,1] .= num.λCA
-#     else
-#         @error ("Not implemented yet")
-#     end
-#     @inbounds a0[1,2:end-1] .= BC.bottom.val
-#     if is_dirichlet(BC.bottom.t)
-#         @inbounds a1[1,:] .= -1.
-#         @inbounds b0[1,:] .= 0.
-#         @inbounds b1[1,:] .= 0.
-#     elseif is_neumann(BC.bottom.t)
-#         @inbounds a1[1,:] .= 0.
-#         @inbounds b0[1,:] .= 0.
-#         @inbounds b1[1,:] .= 1.
-#     elseif is_robin(BC.bottom.t)
-#         @inbounds a1[1,:] .= -1.
-#         @inbounds b0[1,:] .= 0.
-#         @inbounds b1[1,:] .= 1.
-#     elseif is_periodic(BC.bottom.t)
-#         # @inbounds a1[1,2:end-1] .= 0.
-#         # @inbounds b0[1,2:end-1] .= 0.
-#         # @inbounds b1[1,2:end-1] .= 0.
-#     elseif is_navier(BC.bottom.t)
-#         @inbounds a1[1,:] .= -1.
-#         @inbounds b0[1,:] .= 0.
-#         @inbounds b1[1,:] .= num.λCA
-#         @inbounds a0[1,:] .= BC.bottom.val .+ compute_young_stress(grid, num, grid.ind.b_bottom[1])
-#     else
-#         @error ("Not implemented yet")
-#     end
-#     @inbounds a0[:,end] .= BC.right.val
-#     if is_dirichlet(BC.right.t)
-#         @inbounds a1[2:end-1,end] .= -1.
-#         @inbounds b0[2:end-1,end] .= 0.
-#         @inbounds b1[2:end-1,end] .= 0.
-#     elseif is_neumann(BC.right.t)
-#         @inbounds a1[2:end-1,end] .= 0.
-#         @inbounds b0[2:end-1,end] .= 0.
-#         @inbounds b1[2:end-1,end] .= 1.
-#     elseif is_robin(BC.right.t)
-#         @inbounds a1[2:end-1,end] .= -1.
-#         @inbounds b0[2:end-1,end] .= 0.
-#         @inbounds b1[2:end-1,end] .= 1.
-#     elseif is_periodic(BC.right.t)
-#         # @inbounds a1[:,end] .= 0.
-#         # @inbounds b0[:,end] .= 0.
-#         # @inbounds b1[:,end] .= 0.
-#     elseif is_navier(BC.right.t)
-#         @inbounds a1[2:end-1,end] .= -1.
-#         @inbounds b0[2:end-1,end] .= 0.
-#         @inbounds b1[2:end-1,end] .= num.λCA
-#     else
-#         @error ("Not implemented yet")
-#     end
-#     @inbounds a0[end,2:end-1] .= BC.top.val
-#     if is_dirichlet(BC.top.t)
-#         @inbounds a1[end,:] .= -1.
-#         @inbounds b0[end,:] .= 0.
-#         @inbounds b1[end,:] .= 0.
-#     elseif is_neumann(BC.top.t)
-#         @inbounds a1[end,:] .= 0.
-#         @inbounds b0[end,:] .= 0.
-#         @inbounds b1[end,:] .= 1.
-#     elseif is_robin(BC.top.t)
-#         @inbounds a1[end,:] .= -1.
-#         @inbounds b0[end,:] .= 0.
-#         @inbounds b1[end,:] .= 1.
-#     elseif is_periodic(BC.top.t)
-#         # @inbounds a1[end,2:end-1] .= 0.
-#         # @inbounds b0[end,2:end-1] .= 0.
-#         # @inbounds b1[end,2:end-1] .= 0.
-#     elseif is_navier(BC.top.t)
-#         @inbounds a1[end,:] .= -1.
-#         @inbounds b0[end,:] .= 0.
-#         @inbounds b1[end,:] .= num.λCA
-#     else
-#         @error ("Not implemented yet")
-#     end
-
-#     return nothing
-# end
-
-#         @error ("Not implemented yet")
-#     end
-
-#     return nothing
-# end
 
 function update_dirichlet_field!(grid, bv, v, BC)
     tmp = zeros(size(v))

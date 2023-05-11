@@ -31,7 +31,7 @@ function update_levelset_contact_angle(periodic_x, periodic_y, BC, gp, tracer, L
 
     if !periodic_y
 
-        if is_navier(BC.bottom.t)
+        if is_navier(BC.top.t)
             for (II) in gp.ind.b_top[1]
                 i = lexicographic(II, gp.ny)
                 LSRHS[i] = cos(gp.θext[II])
@@ -40,8 +40,8 @@ function update_levelset_contact_angle(periodic_x, periodic_y, BC, gp, tracer, L
         if is_navier(BC.bottom.t)
             for (II) in gp.ind.b_bottom[1]
                 i = lexicographic(II, gp.ny)
-                LSRHS[i] = cos(gp.θext[II])
-                #LSRHS[i] = -cos(90.0 * pi / 180.0)
+                #LSRHS[i] = cos(gp.θext[II])
+                LSRHS[i] = cos(90.0 * pi / 180.0)
 
             end
         end
@@ -91,12 +91,12 @@ function update_Young_stress(mixed, bc, gu, gv, num)
     if is_navier(bc.bottom.t)
         gu.Young[1, :] .= Young_stress_boundary(gu, num, gu.ind.b_bottom[1])
     end
-    if is_navier(bc.left.t)
-        gu.Young[:, 1] .= Young_stress_boundary(gu, num, gu.ind.b_left[1])
-    end
-    if is_navier(bc.right.t)
-        gu.Young[:, end] .= Young_stress_boundary(gu, num, gu.ind.b_right[1])
-    end
+    # if is_navier(bc.left.t)
+    #     gu.Young[:, 1] .= Young_stress_boundary(gu, num, gu.ind.b_left[1])
+    # end
+    # if is_navier(bc.right.t)
+    #     gu.Young[:, end] .= Young_stress_boundary(gu, num, gu.ind.b_right[1])
+    # end
 end
 
 function Young_stress_boundary(gp, num, indices)

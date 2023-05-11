@@ -22,22 +22,16 @@ num = Numerical( # defined in types.jl
     # physical parameters
     Re=20.0,
     CFL=0.5, # backwards Euler
-    max_iterations=300,
-    u_inf=0.0,
-    v_inf=1.0,
+    max_iterations=200,
     save_every=1, #
     σ=1.0, # surface tension
     ϵ=0.05, # 
     g=0.0, # gravity
     β=0, # angle of inclination
-    # shifted=0,
-    # R=1.0,
-    # shift_y=1.5,
     nb_reinit=ny,
-
     case="Square",
-    shifted=-1.e-3,
-    R = float(Lx/10),
+    shifted=-1.e-6,
+    R = float(Lx/20),
 
     # case="Drop", # params: R, A, shifter 
     # shifted=0.0, 
@@ -47,7 +41,7 @@ num = Numerical( # defined in types.jl
     NB=4, # number of cells that the velocity is extended from the interface
 
     # Contact angle parameters
-    Ca=0.1, # Capillary number
+    Ca=0.12, # Capillary number
     λCA=3*dy, # slip lenght > dy 
     εCA=3*dx, # width
     θe=70.0, # prescribed contact angle
@@ -60,7 +54,7 @@ opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, p
 # Done in init.jl -> cases 
 
 # Set initial condition to the tracer 
-tracer = gp.x .+ num.shifted .+ float(Lx/7)
+tracer = gp.x .+ num.shifted .+ float(Lx/4)
 
 @time run_forward_one_phase(num, gp, gu, gv, opL, opC_pL, opC_uL, opC_vL,
     phL, fwd, fwdL, tracer;
@@ -96,7 +90,7 @@ tracer = gp.x .+ num.shifted .+ float(Lx/7)
 
 
 time = num.max_iterations
-fu = Figure(resolution = (500, 500));
+fu = Figure(resolution = (700, 500));
 ax = Axis(fu[1, 1],title="θe=$(num.θe), t=$(round(fwd.t[time], digits=3))",xlabel="x",ylabel="y")
 colsize!(fu.layout, 1, Aspect(1, 1.0))
 hm = heatmap!(gu.x[1, :], gu.y[:, 1], fwdL.u[time, :, :]')
@@ -117,8 +111,9 @@ contour!(gp.x[1, :], gp.y[:, 1], gp.u', levels = 0:0, color=:gray, linewidth=1)
 contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[2, :, :]', levels=0:0, color=:red, linewidth=2.0, linestyle=:dash)
 contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[time, :, :]', levels=0:0, color=:red, linewidth=3)
 
-# yss = gu.Young[1,:]; yss = yss./maximum(yss)/3
-# lines!(gu.x[1,:], yss.+gu.y[1, 1], color=:green, linewidth=3)
+yss = gu.Young[1,:]; yss = yss./maximum(yss)/3
+lines!(gu.x[1,:], yss.+gu.y[1, 1], color=:green, linewidth=3)
+
 fname = "contact_line_fu_theta_e_$(num.θe).png"
 @show fname
 Makie.save(fname, fu)
