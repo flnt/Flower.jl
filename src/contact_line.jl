@@ -7,7 +7,7 @@ function prtnn(r) # for debug
     println("Values: ", [x for x in vec(r) if x != 0 && !isnan(x)])
 end
 
-function update_levelset_contact_angle(periodic_x, periodic_y, gp, tracer, LSRHS)
+function update_levelset_contact_angle(periodic_x, periodic_y, BC, gp, tracer, LSRHS)
 
     function compute_theta_ext(gp, tracer)
         for II in gp.ind.b_bottom[1]
@@ -21,7 +21,7 @@ function update_levelset_contact_angle(periodic_x, periodic_y, gp, tracer, LSRHS
                 # compute extrapolated angle using apparent angle 
                 gp.θext[II] = θapp + 1.5 * gp.dy[II] * ((gp.κ[II] * sqrt(1.0 + dh)) / sin(θapp))
 
-                @show θapp, gp.α[II], gp.θext[II]
+                # @show θapp, gp.α[II], gp.θext[II]
 
             end
         end
@@ -30,21 +30,26 @@ function update_levelset_contact_angle(periodic_x, periodic_y, gp, tracer, LSRHS
     compute_theta_ext(gp, tracer)
 
     if !periodic_y
-        # for (II) in gp.ind.b_top[1]
-        #     i = lexicographic(II, gp.ny)
-        #     LSRHS[i] = cos(gp.θext[II])
-        # end
-        for (II) in gp.ind.b_bottom[1]
-            i = lexicographic(II, gp.ny)
-            LSRHS[i] = -cos(gp.θext[II])
-            #LSRHS[i] = -cos(90.0 * pi / 180.0)
 
+        if is_navier(BC.bottom.t)
+            for (II) in gp.ind.b_top[1]
+                i = lexicographic(II, gp.ny)
+                LSRHS[i] = cos(gp.θext[II])
+            end
+        end
+        if is_navier(BC.bottom.t)
+            for (II) in gp.ind.b_bottom[1]
+                i = lexicographic(II, gp.ny)
+                LSRHS[i] = cos(gp.θext[II])
+                #LSRHS[i] = -cos(90.0 * pi / 180.0)
+
+            end
         end
     end
     return LSRHS
 end
 
-function update_levelset_matrices(periodic_x, periodic_y, grid, LSA, LSB)
+function update_levelset_matrices(periodic_x, periodic_y, BC, grid, LSA, LSB)
     # Imposing Newman boundary condition to the levelset function
     # LSA contains the product of the mass matrix and the Laplacian for the advection scheme
     # LSAΦ^{n+1} = LSBΦ^{n} + LSC * u_target 
@@ -52,39 +57,51 @@ function update_levelset_matrices(periodic_x, periodic_y, grid, LSA, LSB)
 
     if !periodic_y
 
-        # Handle bottom boundary
-        for (II, JJ) in zip(grid.ind.b_bottom[1], grid.ind.b_bottom[2]) # first and second rows
-            i = lexicographic(II, grid.ny)
-            j = lexicographic(JJ, grid.ny)
-            LSA[i, i] = 1.0 # set 1st row of LSA to 1
-            LSB[i, i] = 0.0 # set 1st row of LSB to 0
-            LSA[i, j] = -1.0 # set 2nd row of LSA to -1
+        if is_navier(BC.bottom.t)
+            for (II, JJ) in zip(grid.ind.b_bottom[1], grid.ind.b_bottom[2]) # first and second rows
+                i = lexicographic(II, grid.ny)
+                j = lexicographic(JJ, grid.ny)
+                LSA[i, i] = 1.0 # set 1st row of LSA to 1
+                LSB[i, i] = 0.0 # set 1st row of LSB to 0
+                LSA[i, j] = -1.0 # set 2nd row of LSA to -1
+            end
         end
 
-        # Handle top boundary
-        # for (II,JJ) in zip(grid.ind.b_top[1], grid.ind.b_top[2]) # first and second rows
-        #     i = lexicographic(II, grid.ny)
-        #     j = lexicographic(JJ, grid.ny)
-        #     LSA[i,i] = 1. # set 1st row of LSA to 1
-        #     LSB[i,i] = 0. # set 1st row of LSB to 0
-        #     LSA[i,j] = -1. # set 2nd row of LSA to -1
-        # end
+        if is_navier(BC.top.t)
+            for (II, JJ) in zip(grid.ind.b_top[1], grid.ind.b_top[2]) # first and second rows
+                i = lexicographic(II, grid.ny)
+                j = lexicographic(JJ, grid.ny)
+                LSA[i, i] = 1.0 # set 1st row of LSA to 1
+                LSB[i, i] = 0.0 # set 1st row of LSB to 0
+                LSA[i, j] = -1.0 # set 2nd row of LSA to -1
+            end
+        end
 
     end
     return LSA, LSB
 end
 
-function update_Young_stress(mixed, grid_u, grid_v, num)
+function update_Young_stress(mixed, bc, gu, gv, num)
 
-    #compute_young_stress_internal(mixed, grid_u, grid_v, num)
-    grid_u.Young[1, :] .= compute_young_stress_boundary(grid_u, num, grid_u.ind.b_bottom[1])
-    #grid_v.Young[1,:] .= compute_young_stress_boundary(grid_v, num, grid_v.ind.b_bottom[1])
+    #Young_stress_internal(mixed, gu, gv, num)
 
+    if is_navier(bc.top.t)
+        gu.Young[end, :] .= Young_stress_boundary(gu, num, gu.ind.b_top[1])
+    end
+    if is_navier(bc.bottom.t)
+        gu.Young[1, :] .= Young_stress_boundary(gu, num, gu.ind.b_bottom[1])
+    end
+    if is_navier(bc.left.t)
+        gu.Young[:, 1] .= Young_stress_boundary(gu, num, gu.ind.b_left[1])
+    end
+    if is_navier(bc.right.t)
+        gu.Young[:, end] .= Young_stress_boundary(gu, num, gu.ind.b_right[1])
+    end
 end
 
-function compute_young_stress_boundary(gp, num, indices)
+function Young_stress_boundary(gp, num, indices)
 
-    function locate_index_domain_boundary(gp, ind)
+    function locate_index_boundary(gp, ind)
         index_CL = falses(length(ind)) # Initialize boolean array of same length as `ind`    
         # Loop over indices in `ind`
         @inbounds for i in eachindex(ind)
@@ -147,7 +164,7 @@ function compute_young_stress_boundary(gp, num, indices)
     end
 
     # find the indices of the domain boundary where the contact line is located
-    index_CL = locate_index_domain_boundary(gp, indices)
+    index_CL = locate_index_boundary(gp, indices)
     # get the x coordinates of the contact line at the boundary
     x_CL_vec = get_contact_line_points_boundary(gp, indices, index_CL)
     # initialize stress vector and create a temporary array for relative x coordinates
@@ -181,7 +198,7 @@ function compute_young_stress_boundary(gp, num, indices)
 end
 
 
-function compute_young_stress_internal(mixed, grid_u, grid_v, num)
+function Young_stress_internal(mixed, grid_u, grid_v, num)
 
     function locate_CL_coordinates(gp, mixed)
         mixed_CL = CartesianIndex{2}[]

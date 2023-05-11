@@ -1,10 +1,13 @@
 using Revise, Flower
-#set_theme!(fontsize_theme)
+fontsize_theme = Theme(fontsize = 30)
+set_theme!(fontsize_theme)
 
-Lx = 4
 Ly = 1
-nx = 64
-ny = 64
+ny = 32
+
+Lx = 1
+nx = 32
+
 dx= Lx/nx
 dy= Ly/ny
 
@@ -47,12 +50,11 @@ opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, p
 tracer = gp.x .+ num.shifted
 
 # initial condition of the velocity field -> Poiseuille profile u = 1 - y^2
-for i in 1:nx
-    phL.u[i,:] .= 1.0 .- num.y[:].^2
+for i in 1:gu.ny
+    phL.u[i,:] .= 1.0 .- gu.y[1,:].^2
 end
 
-@time run_forward_one_phase(num, gp, gu, gv, opL, opC_pL, opC_uL, opC_vL,
-    phL, fwd, fwdL, tracer;
+@time run_forward_one_phase(num, gp, gu, gv, opL, opC_pL, opC_uL, opC_vL, phL, fwd, fwdL, tracer;
     periodic_x=true,
     BC_uL=Boundaries(
         left  =Boundary(t=per, f=periodic),
@@ -75,10 +77,10 @@ end
     BC_u=Boundaries( # levelset/tracer 
         left  =Boundary(t=per, f=periodic),
         right =Boundary(t=per, f=periodic),
-        bottom=Boundary(t=neu, f=neumann, val=0.0),
-        top   =Boundary(t=neu, f=neumann, val=0.0),
+        # bottom=Boundary(t=neu, f=neumann, val=0.0),
+        # top   =Boundary(t=neu, f=neumann, val=0.0),
     ),
-    advection=true, #move the level set
+    advection=true,
     ns_advection=true,
     navier_stokes=true,
     levelset=true,
@@ -87,12 +89,15 @@ end
     show_every=100
     )
 
-yres = 200
+time = num.max_iterations # time to plot figure 
+
+yres = 500 # figure vertical resolutin
 xres=yres*float(Lx/Ly)
-time = num.max_iterations
-fu = Figure(resolution = (xres, yres));
+fu = Figure(resolution = (xres, yres))
+
 ax = Axis(fu[1, 1],title="θe=$(num.θe), t=$(round(fwd.t[time], digits=3))",xlabel="x",ylabel="y")
 colsize!(fu.layout, 1, Aspect(1,float(Lx/Ly)))
+
 hm = heatmap!(gu.x[1, :], gu.y[:, 1], fwdL.u[time, :, :]')
 Colorbar(fu[1, 2], hm, label="u")
 
@@ -100,10 +105,13 @@ Colorbar(fu[1, 2], hm, label="u")
 # lines!(ax, [x, x], [minimum(gp.y), maximum(gp.y)], linewidth=0.5, color=:black)
 
 # mid = nx/2
-# lines!(gu.x[:,mid], fwdL.u[1, :, mid])
+# lines!(gu.x[mid,:], fwdL.u[1, mid, 2])
 
-contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[2, :, :]', levels=0:0, color=:red, linewidth=2, linestyle=:dash)
-contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[time, :, :]', levels=0:0, color=:red, linewidth=2, linestyle=:solid)
+# contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[2, :, :]', levels=0:0, color=:red, linewidth=2, linestyle=:dash)
+# contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[time, :, :]', levels=0:0, color=:red, linewidth=2, linestyle=:solid)
+
+#resize_to_layout!(fu)
+
 fname = "contact_line_periodic_channel_fu_theta_e_$(num.θe).png"
 @show fname
 Makie.save(fname, fu)

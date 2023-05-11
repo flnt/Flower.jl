@@ -1,27 +1,11 @@
 function run_forward_one_phase(num, grid, grid_u, grid_v, opL, opC_pL, opC_uL, opC_vL, phL, fwd, fwdL, tracer;
     periodic_x=false,
     periodic_y=false,
-    BC_pL=Boundaries(
-        left=Boundary(),
-        right=Boundary(),
-        bottom=Boundary(),
-        top=Boundary()),
-    BC_uL=Boundaries(
-        left=Boundary(),
-        right=Boundary(),
-        bottom=Boundary(),
-        top=Boundary()),
-    BC_vL=Boundaries(
-        left=Boundary(),
-        right=Boundary(),
-        bottom=Boundary(),
-        top=Boundary()),
-    BC_u=Boundaries(
-        left=Boundary(),
-        right=Boundary(),
-        bottom=Boundary(),
-        top=Boundary()),
-    advection=false, #move the level set
+    BC_pL=Boundaries(left=Boundary(),right=Boundary(),bottom=Boundary(),top=Boundary()),
+    BC_uL=Boundaries(left=Boundary(),right=Boundary(),bottom=Boundary(),top=Boundary()),
+    BC_vL=Boundaries(left=Boundary(),right=Boundary(),bottom=Boundary(),top=Boundary()),
+    BC_u =Boundaries(left=Boundary(),right=Boundary(),bottom=Boundary(),top=Boundary()),
+    advection=false,
     ns_advection=false,
     navier_stokes=false,
     levelset=true,
@@ -112,13 +96,7 @@ function run_forward_one_phase(num, grid, grid_u, grid_v, opL, opC_pL, opC_uL, o
     #-----------------------------------------------------------------------------------------------------
     # LOOP STARTS HERE
     current_t = 0.0
-    update_levelset_matrices(periodic_x, periodic_y, grid, LSA, LSB)
-
-    # for i in eachindex(grid.α)
-    #     if !isnan(grid.α[i])
-    #         θext[i] = π * 0.50
-    #     end
-    # end
+    update_levelset_matrices(periodic_x, periodic_y, BC_uL, grid, LSA, LSB)
 
     while current_i < max_iterations + 1
 
@@ -128,7 +106,7 @@ function run_forward_one_phase(num, grid, grid_u, grid_v, opL, opC_pL, opC_uL, o
         grid_u.V .= reshape(veci(phL.uD, grid_u, 1), (grid_u.ny, grid_u.nx))
         grid_v.V .= reshape(veci(phL.vD, grid_v, 1), (grid_v.ny, grid_v.nx))
 
-        update_levelset_contact_angle(periodic_x, periodic_y, grid, tracer, LSRHS) # here only gp 
+        update_levelset_contact_angle(periodic_x, periodic_y, BC_uL, grid, tracer, LSRHS) # here only gp 
 
         if advection
             CFL_sc = τ / Δ^2
@@ -212,7 +190,7 @@ function run_forward_one_phase(num, grid, grid_u, grid_v, opL, opC_pL, opC_uL, o
         end
 
         #if contact_lines
-        update_Young_stress(ind.MIXED, grid_u, grid_v, num)
+        update_Young_stress(ind.MIXED, BC_uL, grid_u, grid_v, num)
 
         if navier_stokes
             no_slip_condition!(grid, grid_u, grid_v)
