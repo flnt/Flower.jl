@@ -80,6 +80,7 @@ function Mesh(grid, x_nodes, y_nodes, s, o)
 
     κ = zeros(ny, nx)
     θext = zeros(ny, nx)
+    θe = zeros(ny, nx)
     V = zeros(ny, nx)
 
     ii = collect(i for i = 1:nx*ny)
@@ -123,7 +124,7 @@ function Mesh(grid, x_nodes, y_nodes, s, o)
     pou = uniform(domdec)
 
     return Mesh{grid,Float64,Int64}(x_nodes, y_nodes, x, y, nx, ny, dx, dy, ind, u, iso, faces, 
-                geoS, geoL, mid_point, cut_points, α, Young, κ, θext, V, LSA, LSB, domdec, pou)
+                geoS, geoL, mid_point, cut_points, α, Young, κ, θext, θe, V, LSA, LSB, domdec, pou)
 end
 
 function init_meshes(num::NumericalParameters)

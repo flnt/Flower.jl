@@ -36,7 +36,7 @@ num = Numerical( # defined in types.jl
     # physical parameters
     Re=100.0,
     CFL=0.5, # backwards Euler
-    max_iterations=20,
+    max_iterations=2,
     u_inf=0.0,
     v_inf=1.0,
     save_every=1, #
@@ -131,8 +131,6 @@ lines!(fwdL.u[1,:,mid], gu.y[:,mid], color=:gray)
 #contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[2, :, :]', levels=0:0, color=:red, linewidth=3, linestyle=:dash)
 contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[time, :, :]', levels=0:0, color=:red, linewidth=3, linestyle=:solid)
 
-# fu = current_figure();
-
-fname = "contact_line_periodic_channel_fu_theta_e_$(num.θe).png"
+fname = "contact_line_Poiseuille_fu_theta_e_$(num.θe).png"
 @show fname
 Makie.save(fname, fu)

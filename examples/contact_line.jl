@@ -114,7 +114,8 @@ contour!(gp.x[1, :], gp.y[:, 1], fwdL.T[time, :, :]', levels=0:0, color=:red, li
 yss = gu.Young[1,:]; yss = yss./maximum(yss)/3
 lines!(gu.x[1,:], yss.+gu.y[1, 1], color=:green, linewidth=3)
 
-fname = "contact_line_fu_theta_e_$(num.θe).png"
+#fname = "contact_line_fu_theta_e_$(num.θe).png"
+fname = "contact_line.png"
 @show fname
 Makie.save(fname, fu)
 

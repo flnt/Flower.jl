@@ -127,6 +127,7 @@ mutable struct Mesh{G,T,N} <: Grid where {G<:Grid}
     Young::Array{T,2} # maybe transform in sparse ?
     κ::Array{T,2}
     θext::Array{T,2}
+    θe::Array{T,2}
     V::Array{T,2}
     LSA::SparseMatrixCSC{T,N}
     LSB::SparseMatrixCSC{T,N}
