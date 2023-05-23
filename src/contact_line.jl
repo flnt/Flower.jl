@@ -10,19 +10,27 @@ end
 function update_levelset_contact_angle(periodic_x, periodic_y, BC, gp, tracer, LSRHS)
 
     function compute_theta_ext(gp, tracer)
-        for II in gp.ind.b_bottom[1]
-            if !isnothing(gp.α[II]) && gp.α[II] > 0
-
-                θapp = gp.α[δy⁺(II)] # apparent is located on grid above the boundary
-
-                # compute first order derivative of the tracer in the normal direction
-                dh = (tracer[δy⁺(δy⁺(II))] - tracer[II]) / (gp.dy[δy⁺(II)] + gp.dy[II])
-
-                # compute extrapolated angle using apparent angle 
-                gp.θext[II] = θapp + 1.5 * gp.dy[II] * ((gp.κ[II] * sqrt(1.0 + dh)) / sin(θapp))
-
-                # @show θapp, gp.α[II], gp.θext[II]
-
+        if is_navier(BC.bottom.t)
+            for II in gp.ind.b_bottom[1]
+                if !isnothing(gp.α[II]) && gp.α[II] > 0
+                    θapp = gp.α[δy⁺(II)] # apparent is located on grid above the boundary
+                    # compute first order derivative of the tracer in the normal direction
+                    dh = (tracer[δy⁺(δy⁺(II))] - tracer[II]) / (gp.dy[δy⁺(II)] + gp.dy[II])
+                    println("dh bot: ", dh)
+                    # compute extrapolated angle using apparent angle 
+                    gp.θext[II] = θapp + 1.5 * gp.dy[II] * ((gp.κ[II] * sqrt(1.0 + dh)) / sin(θapp))
+                    # @show θapp, gp.α[II], gp.θext[II]
+                end
+            end
+        end 
+        if is_navier(BC.top.t)
+            for II in gp.ind.b_top[1]
+                if !isnothing(gp.α[II]) && gp.α[II] > 0
+                    θapp = gp.α[δy⁻(II)]
+                    dh = (tracer[δy⁻(δy⁻(II))] - tracer[II]) / (gp.dy[δy⁻(II)] + gp.dy[II])
+                    println("dh up: ", dh)
+                    gp.θext[II] = θapp + 1.5 * gp.dy[II] * ((gp.κ[II] * sqrt(1.0 + dh)) / sin(θapp))
+                end
             end
         end
     end
@@ -34,18 +42,25 @@ function update_levelset_contact_angle(periodic_x, periodic_y, BC, gp, tracer, L
         if is_navier(BC.top.t)
             for (II) in gp.ind.b_top[1]
                 i = lexicographic(II, gp.ny)
-                LSRHS[i] = cos(gp.θext[II])
+                #LSRHS[i] = cos(gp.θext[II])
+                LSRHS[i] = cosd(90)
+
             end
-        end
+        end # is_navier(BC.top.t)
+
         if is_navier(BC.bottom.t)
             for (II) in gp.ind.b_bottom[1]
                 i = lexicographic(II, gp.ny)
-                #LSRHS[i] = cos(gp.θext[II])
-                LSRHS[i] = cos(90.0 * pi / 180.0)
+                # LSRHS[i] = cos(gp.θext[II])
+                # if LSRHS[i] != 1
+                #     @show LSRHS[i]
+                # end
+                LSRHS[i] = cosd(90)
 
             end
-        end
-    end
+        
+        end # is_navier(BC.bottom.t)
+    end # periodic_y
     return LSRHS
 end
 
@@ -188,8 +203,8 @@ function Young_stress_boundary(gp, num, indices)
         end
         # compute the cosine value of the contact angle and apply stress only if it is less than the threshold
         cos_value = (cos(contact_angle) - cos(num.θe * π / 180)) / num.Ca
-        cos_boolean = isless(contact_angle, num.θe * π / 180)
-        cos_value *= cos_boolean ? 1.0 : 0.0
+        #cos_boolean = isless(contact_angle, num.θe * π / 180)
+        #cos_value *= cos_boolean ? 1.0 : 0.0
         # compute the bell function for the current x coordinates and add to the stress vector
         bell_function .= (1.0 .- tanh.(rel_x[:] ./ num.εCA) .^ 2) ./ num.εCA
         stress_vector .+= bell_function .* cos_value
