@@ -20,12 +20,16 @@ function Indices(nx, ny)
     SOLID = Vector{CartesianIndex{2}}()
     SOLID_ext = Vector{CartesianIndex{2}}()
 
-    return Indices(all_indices, inside, (LEFT, RIGHT), (BOTTOM, TOP),
-                   (LEFT, LEFT2), (BOTTOM, BOTTOM2), (RIGHT, RIGHT2), (TOP, TOP2),
-                   MIXED, MIXED_ext, LIQUID, LIQUID_ext, SOLID, SOLID_ext)
+    cl = Vector{CartesianIndex{2}}()
+
+    return Indices(
+        all_indices, inside, (LEFT, RIGHT), (BOTTOM, TOP), (LEFT, LEFT2),
+        (BOTTOM, BOTTOM2), (RIGHT, RIGHT2), (TOP, TOP2), MIXED, MIXED_ext, LIQUID,
+        LIQUID_ext, SOLID, SOLID_ext, cl
+    )
 end
 
-function Mesh(grid, x_nodes, y_nodes, s, o)
+function Mesh(gridType, x_nodes, y_nodes, s, o)
     nx = length(x_nodes) - 1
     ny = length(y_nodes) - 1
 
@@ -119,7 +123,7 @@ function Mesh(grid, x_nodes, y_nodes, s, o)
 
     pou = uniform(domdec)
 
-    return Mesh{grid,Float64,Int64}(x_nodes, y_nodes, x, y, nx, ny, dx, dy, ind, u, iso, faces, 
+    return Mesh{gridType,Float64,Int64}(x_nodes, y_nodes, x, y, nx, ny, dx, dy, ind, u, iso, faces, 
                 geoS, geoL, mid_point, cut_points, α, κ, V, LSA, LSB, domdec, pou)
 end
 
@@ -136,23 +140,25 @@ function init_meshes(num::NumericalParameters)
 end
 
 function adjoint_fields(num, gp, gu, gv)
-    u = zeros(num.max_iterations+1, gp.ny*gp.nx)
+    u = fzeros(num.max_iterations+1, gp)
 
-    TDS = zeros(num.max_iterations+1, 2*gp.ny*gp.nx)
-    TDL = zeros(num.max_iterations+1, 2*gp.ny*gp.nx)
-    pDS = zeros(num.max_iterations+1, 2*gp.ny*gp.nx)
-    pDL = zeros(num.max_iterations+1, 2*gp.ny*gp.nx)
-    uS = zeros(num.max_iterations+1, gu.ny*gu.nx)
-    uL = zeros(num.max_iterations+1, gu.ny*gu.nx)
-    vS = zeros(num.max_iterations+1, gv.ny*gv.nx)
-    vL = zeros(num.max_iterations+1, gv.ny*gv.nx)
-    ucorrDS = zeros(num.max_iterations+1, 2*gu.ny*gu.nx)
-    ucorrDL = zeros(num.max_iterations+1, 2*gu.ny*gu.nx)
-    vcorrDS = zeros(num.max_iterations+1, 2*gv.ny*gv.nx)
-    vcorrDL = zeros(num.max_iterations+1, 2*gv.ny*gv.nx)
+    TDS = f2zeros(num.max_iterations+1, gp)
+    TDL = f2zeros(num.max_iterations+1, gp)
+    ϕDS = f2zeros(num.max_iterations+1, gp)
+    ϕDL = f2zeros(num.max_iterations+1, gp)
+    pDS = f2zeros(num.max_iterations+1, gp)
+    pDL = f2zeros(num.max_iterations+1, gp)
+    uDS = f2zeros(num.max_iterations+1, gu)
+    uDL = f2zeros(num.max_iterations+1, gu)
+    vDS = f2zeros(num.max_iterations+1, gv)
+    vDL = f2zeros(num.max_iterations+1, gv)
+    ucorrDS = f2zeros(num.max_iterations+1, gu)
+    ucorrDL = f2zeros(num.max_iterations+1, gu)
+    vcorrDS = f2zeros(num.max_iterations+1, gv)
+    vcorrDL = f2zeros(num.max_iterations+1, gv)
 
-    phS = adjoint_phase(TDS, pDS, uS, vS, ucorrDS, vcorrDS)
-    phL = adjoint_phase(TDL, pDL, uL, vL, ucorrDL, vcorrDL)
+    phS = adjoint_phase(TDS, ϕDS, pDS, uDS, vDS, ucorrDS, vcorrDS)
+    phL = adjoint_phase(TDL, ϕDL, pDL, uDL, vDL, ucorrDL, vcorrDL)
 
     return adjoint_fields(u, phS, phL)
 end
@@ -169,7 +175,7 @@ function adjoint_derivatives(grid, grid_u, grid_v)
     RpL_ls = [tmp; tmp]
 
     # tmp = star3(grid_u)
-    tmp = spdiagm(grid_u.ny*grid_u.nx, grid.ny*grid.nx, 0 => zeros(grid.ny*grid.nx))
+    tmp = spdiagm(grid_u.ny*grid_u.nx, grid.ny*grid.nx, 0 => fzeros(grid))
     tmpT = transpose(tmp)
     RucorrS_ls0 = [tmp; tmp]
     RucorrL_ls0 = [tmp; tmp]
@@ -181,7 +187,7 @@ function adjoint_derivatives(grid, grid_u, grid_v)
     RlsFS_uL = [tmpT tmpT]
 
     # tmp = star3(grid_v)
-    tmp = spdiagm(grid_v.ny*grid_v.nx, grid.ny*grid.nx, 0 => zeros(grid.ny*grid.nx))
+    tmp = spdiagm(grid_v.ny*grid_v.nx, grid.ny*grid.nx, 0 => fzeros(grid))
     tmpT = transpose(tmp)
     RvcorrS_ls0 = [tmp; tmp]
     RvcorrL_ls0 = [tmp; tmp]
@@ -290,12 +296,12 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     @unpack τ, N, T_inf, u_inf, v_inf, A, R, L0, Δ, shifted, max_iterations, save_every, CFL, x_airfoil, y_airfoil = num
     @unpack x, y, nx, ny, u, ind = grid
 
-    SCUTCT = zeros(nx*ny)
-    LCUTCT = zeros(nx*ny)
-    SCUTCu = zeros(grid_u.nx*grid_u.ny)
-    LCUTCu = zeros(grid_u.nx*grid_u.ny)
-    SCUTCv = zeros(grid_v.nx*grid_v.ny)
-    LCUTCv = zeros(grid_v.nx*grid_v.ny)
+    SCUTCT = fzeros(grid)
+    LCUTCT = fzeros(grid)
+    SCUTCu = fzeros(grid_u)
+    LCUTCu = fzeros(grid_u)
+    SCUTCv = fzeros(grid_v)
+    LCUTCv = fzeros(grid_v)
 
     # Star stencil (p and T grid)
     ii = collect(i for i = 1:nx*ny)
@@ -615,117 +621,117 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     tmp_y_vS = copy(By_vS)
     tmp_y_vL = copy(By_vL)
 
-    M_TS = Diagonal(zeros(nx*ny))
-    M_TL = Diagonal(zeros(nx*ny))
+    M_TS = Diagonal(fzeros(grid))
+    M_TL = Diagonal(fzeros(grid))
     iMx_TS = Diagonal(zeros((nx+1)*ny))
     iMx_TL = Diagonal(zeros((nx+1)*ny))
     iMy_TS = Diagonal(zeros(nx*(ny+1)))
     iMy_TL = Diagonal(zeros(nx*(ny+1)))
-    χ_TS = Diagonal(zeros(nx*ny))
-    χ_TL = Diagonal(zeros(nx*ny))
+    χ_TS = Diagonal(fzeros(grid))
+    χ_TL = Diagonal(fzeros(grid))
 
-    M_pS = Diagonal(zeros(nx*ny))
-    M_pL = Diagonal(zeros(nx*ny))
+    M_pS = Diagonal(fzeros(grid))
+    M_pL = Diagonal(fzeros(grid))
     iMx_pS = Diagonal(zeros((nx+1)*ny))
     iMx_pL = Diagonal(zeros((nx+1)*ny))
     iMy_pS = Diagonal(zeros(nx*(ny+1)))
     iMy_pL = Diagonal(zeros(nx*(ny+1)))
-    χ_pS = Diagonal(zeros(nx*ny))
-    χ_pL = Diagonal(zeros(nx*ny))
+    χ_pS = Diagonal(fzeros(grid))
+    χ_pL = Diagonal(fzeros(grid))
 
-    M_uS = Diagonal(zeros(grid_u.nx*grid_u.ny))
-    M_uL = Diagonal(zeros(grid_u.nx*grid_u.ny))
+    M_uS = Diagonal(fzeros(grid_u))
+    M_uL = Diagonal(fzeros(grid_u))
     iMx_uS = Diagonal(zeros((grid_u.nx+1)*grid_u.ny))
     iMx_uL = Diagonal(zeros((grid_u.nx+1)*grid_u.ny))
     iMy_uS = Diagonal(zeros(grid_u.nx*(grid_u.ny+1)))
     iMy_uL = Diagonal(zeros(grid_u.nx*(grid_u.ny+1)))
-    χ_uS = Diagonal(zeros(grid_u.nx*grid_u.ny))
-    χ_uL = Diagonal(zeros(grid_u.nx*grid_u.ny))
+    χ_uS = Diagonal(fzeros(grid_u))
+    χ_uL = Diagonal(fzeros(grid_u))
 
-    M_vS = Diagonal(zeros(grid_v.nx*grid_v.ny))
-    M_vL = Diagonal(zeros(grid_v.nx*grid_v.ny))
+    M_vS = Diagonal(fzeros(grid_v))
+    M_vL = Diagonal(fzeros(grid_v))
     iMx_vS = Diagonal(zeros((grid_v.nx+1)*grid_v.ny))
     iMx_vL = Diagonal(zeros((grid_v.nx+1)*grid_v.ny))
     iMy_vS = Diagonal(zeros(grid_v.nx*(grid_v.ny+1)))
     iMy_vL = Diagonal(zeros(grid_v.nx*(grid_v.ny+1)))
-    χ_vS = Diagonal(zeros(grid_v.nx*grid_v.ny))
-    χ_vL = Diagonal(zeros(grid_v.nx*grid_v.ny))
+    χ_vS = Diagonal(fzeros(grid_v))
+    χ_vL = Diagonal(fzeros(grid_v))
 
-    TS = zeros(ny, nx)
-    TL = zeros(ny, nx)
-    pS = zeros(ny, nx)
-    pL = zeros(ny, nx)
-    ϕS = zeros(ny, nx)
-    ϕL = zeros(ny, nx)
-    Gxm1S = zeros(grid_u.nx*grid_u.ny)
-    Gym1S = zeros(grid_v.nx*grid_v.ny)
-    Gxm1L = zeros(grid_u.nx*grid_u.ny)
-    Gym1L = zeros(grid_v.nx*grid_v.ny)
-    uS = zeros(grid_u.ny, grid_u.nx)
-    uL = zeros(grid_u.ny, grid_u.nx)
-    vS = zeros(grid_v.ny, grid_v.nx)
-    vL = zeros(grid_v.ny, grid_v.nx)
-    ucorrS = zeros(grid_u.ny, grid_u.nx)
-    ucorrL = zeros(grid_u.ny, grid_u.nx)
-    vcorrS = zeros(grid_v.ny, grid_v.nx)
-    vcorrL = zeros(grid_v.ny, grid_v.nx)
-    DTS = zeros(ny, nx)
-    DTL = zeros(ny, nx)
-    DϕS = zeros(ny, nx)
-    DϕL = zeros(ny, nx)
-    DuS = zeros(grid_u.ny, grid_u.nx)
-    DuL = zeros(grid_u.ny, grid_u.nx)
-    DvS = zeros(grid_v.ny, grid_v.nx)
-    DvL = zeros(grid_v.ny, grid_v.nx)
-    TDS = zeros(2*ny*nx)
-    TDL = zeros(2*ny*nx)
-    pDS = zeros(2*ny*nx)
-    pDL = zeros(2*ny*nx)
-    ϕDS = zeros(2*ny*nx)
-    ϕDL = zeros(2*ny*nx)
-    uDS = zeros(2*grid_u.ny*grid_u.nx)
-    uDL = zeros(2*grid_u.ny*grid_u.nx)
-    vDS = zeros(2*grid_v.ny*grid_v.nx)
-    vDL = zeros(2*grid_v.ny*grid_v.nx)
-    ucorrDS = zeros(2*grid_u.ny*grid_u.nx)
-    ucorrDL = zeros(2*grid_u.ny*grid_u.nx)
-    vcorrDS = zeros(2*grid_v.ny*grid_v.nx)
-    vcorrDL = zeros(2*grid_v.ny*grid_v.nx)
+    TS = zeros(grid)
+    TL = zeros(grid)
+    pS = zeros(grid)
+    pL = zeros(grid)
+    ϕS = zeros(grid)
+    ϕL = zeros(grid)
+    Gxm1S = fzeros(grid_u)
+    Gym1S = fzeros(grid_v)
+    Gxm1L = fzeros(grid_u)
+    Gym1L = fzeros(grid_v)
+    uS = zeros(grid_u)
+    uL = zeros(grid_u)
+    vS = zeros(grid_v)
+    vL = zeros(grid_v)
+    ucorrS = zeros(grid_u)
+    ucorrL = zeros(grid_u)
+    vcorrS = zeros(grid_v)
+    vcorrL = zeros(grid_v)
+    DTS = zeros(grid)
+    DTL = zeros(grid)
+    DϕS = zeros(grid)
+    DϕL = zeros(grid)
+    DuS = zeros(grid_u)
+    DuL = zeros(grid_u)
+    DvS = zeros(grid_v)
+    DvL = zeros(grid_v)
+    TDS = f2zeros(grid)
+    TDL = f2zeros(grid)
+    pDS = f2zeros(grid)
+    pDL = f2zeros(grid)
+    ϕDS = f2zeros(grid)
+    ϕDL = f2zeros(grid)
+    uDS = f2zeros(grid_u)
+    uDL = f2zeros(grid_u)
+    vDS = f2zeros(grid_v)
+    vDL = f2zeros(grid_v)
+    ucorrDS = f2zeros(grid_u)
+    ucorrDL = f2zeros(grid_u)
+    vcorrDS = f2zeros(grid_v)
+    vcorrDL = f2zeros(grid_v)
 
     n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
     
-    usave = zeros(n_snaps, ny, nx)
-    uxsave = zeros(n_snaps, grid_u.ny, grid_u.nx)
-    uysave = zeros(n_snaps, grid_v.ny, grid_v.nx)
-    TSsave = zeros(n_snaps, ny, nx)
-    TLsave = zeros(n_snaps, ny, nx)
-    Tsave = zeros(n_snaps, ny, nx)
-    pSsave = zeros(n_snaps, ny, nx)
-    pLsave = zeros(n_snaps, ny, nx)
-    ϕSsave = zeros(n_snaps, ny, nx)
-    ϕLsave = zeros(n_snaps, ny, nx)
-    uSsave = zeros(n_snaps, grid_u.ny, grid_u.nx)
-    uLsave = zeros(n_snaps, grid_u.ny, grid_u.nx)
-    vSsave = zeros(n_snaps, grid_v.ny, grid_v.nx)
-    vLsave = zeros(n_snaps, grid_v.ny, grid_v.nx)
-    ucorrSsave = zeros(n_snaps, grid_u.ny, grid_u.nx)
-    ucorrLsave = zeros(n_snaps, grid_u.ny, grid_u.nx)
-    vcorrSsave = zeros(n_snaps, grid_v.ny, grid_v.nx)
-    vcorrLsave = zeros(n_snaps, grid_v.ny, grid_v.nx)
-    Vsave = zeros(n_snaps, ny, nx)
-    κsave = zeros(n_snaps, ny, nx)
+    usave = zeros(n_snaps, grid)
+    uxsave = zeros(n_snaps, grid_u)
+    uysave = zeros(n_snaps, grid_v)
+    TSsave = zeros(n_snaps, grid)
+    TLsave = zeros(n_snaps, grid)
+    Tsave = zeros(n_snaps, grid)
+    pSsave = zeros(n_snaps, grid)
+    pLsave = zeros(n_snaps, grid)
+    ϕSsave = zeros(n_snaps, grid)
+    ϕLsave = zeros(n_snaps, grid)
+    uSsave = zeros(n_snaps, grid_u)
+    uLsave = zeros(n_snaps, grid_u)
+    vSsave = zeros(n_snaps, grid_v)
+    vLsave = zeros(n_snaps, grid_v)
+    ucorrSsave = zeros(n_snaps, grid_u)
+    ucorrLsave = zeros(n_snaps, grid_u)
+    vcorrSsave = zeros(n_snaps, grid_v)
+    vcorrLsave = zeros(n_snaps, grid_v)
+    Vsave = zeros(n_snaps, grid)
+    κsave = zeros(n_snaps, grid)
     lengthsave = zeros(n_snaps)
     time = zeros(n_snaps)
     Cd = zeros(n_snaps)
     Cl = zeros(n_snaps)
-    TDSsave = zeros(n_snaps, 2*ny*nx)
-    TDLsave = zeros(n_snaps, 2*ny*nx)
-    pDSsave = zeros(n_snaps, 2*ny*nx)
-    pDLsave = zeros(n_snaps, 2*ny*nx)
-    ucorrDSsave = zeros(n_snaps, 2*grid_u.ny*grid_u.nx)
-    ucorrDLsave = zeros(n_snaps, 2*grid_u.ny*grid_u.nx)
-    vcorrDSsave = zeros(n_snaps, 2*grid_v.ny*grid_v.nx)
-    vcorrDLsave = zeros(n_snaps, 2*grid_v.ny*grid_v.nx)
+    TDSsave = f2zeros(n_snaps, grid)
+    TDLsave = f2zeros(n_snaps, grid)
+    pDSsave = f2zeros(n_snaps, grid)
+    pDLsave = f2zeros(n_snaps, grid)
+    ucorrDSsave = f2zeros(n_snaps, grid_u)
+    ucorrDLsave = f2zeros(n_snaps, grid_u)
+    vcorrDSsave = f2zeros(n_snaps, grid_v)
+    vcorrDLsave = f2zeros(n_snaps, grid_v)
 
     if num.case == "Planar"
         u .= y .+ shifted
@@ -826,7 +832,9 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
         end
     end
 
-    return (OperatorsConvection(SCUTCT, SCUTCu, SCUTCv, CTS, CuS, CvS, E11, E12_x, E12_y, E22),
+    return (
+        DiscreteOperators(
+            OperatorsConvection(SCUTCT, SCUTCu, SCUTCv, CTS, CuS, CvS, E11, E12_x, E12_y, E22),
             OperatorsConvection(LCUTCT, LCUTCu, LCUTCv, CTL, CuL, CvL, E11, E12_x, E12_y, E22),
             Operators(AxT_TS, AyT_TS, Bx_TS, By_TS, BxT_TS, ByT_TS, Hx_TS, Hy_TS, HxT_TS, HyT_TS, tmp_x_TS, tmp_y_TS, M_TS, iMx_TS, iMy_TS, χ_TS, Rx, Ry, GxT_S, GyT_S),
             Operators(AxT_TL, AyT_TL, Bx_TL, By_TL, BxT_TL, ByT_TL, Hx_TL, Hy_TL, HxT_TL, HyT_TL, tmp_x_TL, tmp_y_TL, M_TL, iMx_TL, iMy_TL, χ_TL, Rx, Ry, GxT_L, GyT_L),
@@ -835,12 +843,14 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
             Operators(AxT_uS, AyT_uS, Bx_uS, By_uS, BxT_uS, ByT_uS, Hx_uS, Hy_uS, HxT_uS, HyT_uS, tmp_x_uS, tmp_y_uS, M_uS, iMx_uS, iMy_uS, χ_uS, Rx, Ry, Gx_S, Gy_S),
             Operators(AxT_uL, AyT_uL, Bx_uL, By_uL, BxT_uL, ByT_uL, Hx_uL, Hy_uL, HxT_uL, HyT_uL, tmp_x_uL, tmp_y_uL, M_uL, iMx_uL, iMy_uL, χ_uL, Rx, Ry, Gx_L, Gy_L),
             Operators(AxT_vS, AyT_vS, Bx_vS, By_vS, BxT_vS, ByT_vS, Hx_vS, Hy_vS, HxT_vS, HyT_vS, tmp_x_vS, tmp_y_vS, M_vS, iMx_vS, iMy_vS, χ_vS, Rx, Ry, Gx_S, Gy_S),
-            Operators(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L),
-            Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DϕS, DuS, DvS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS),
-            Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DϕL, DuL, DvL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL),
-            Forward(Tsave, usave, uxsave, uysave, Vsave, κsave, lengthsave, time, Cd, Cl),
-            ForwardPhase(TSsave, pSsave, ϕSsave, uSsave, vSsave, ucorrSsave, vcorrSsave, TDSsave, pDSsave, ucorrDSsave, vcorrDSsave),
-            ForwardPhase(TLsave, pLsave, ϕLsave, uLsave, vLsave, ucorrLsave, vcorrLsave, TDLsave, pDLsave, ucorrDLsave, vcorrDLsave))
+            Operators(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L)
+        ),
+        Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DϕS, DuS, DvS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS),
+        Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DϕL, DuL, DvL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL),
+        Forward(Tsave, usave, uxsave, uysave, Vsave, κsave, lengthsave, time, Cd, Cl),
+        ForwardPhase(TSsave, pSsave, ϕSsave, uSsave, vSsave, ucorrSsave, vcorrSsave, TDSsave, pDSsave, ucorrDSsave, vcorrDSsave),
+        ForwardPhase(TLsave, pLsave, ϕLsave, uLsave, vLsave, ucorrLsave, vcorrLsave, TDLsave, pDLsave, ucorrDLsave, vcorrDLsave)
+    )
 end
 
 function init_mullins!(grid, T, V, t, A, N, shift)

@@ -20,32 +20,38 @@ const newaxis = [CartesianIndex()]
 @inline δx⁺(II, nx, per) = per && II[2]==nx ? CartesianIndex(II[1], 1) : δx⁺(II)
 @inline δx⁻(II, nx, per) = per && II[2]==1 ? CartesianIndex(II[1], nx) : δx⁻(II)
 
-@inline f2zeros(g::G) where {G<:Grid} = zeros(2*g.ny*g.nx)
-@inline f2ones(g::G) where {G<:Grid} = ones(2*g.ny*g.nx)
-@inline fzeros(g::G) where {G<:Grid} = zeros(g.ny*g.nx)
-@inline fones(g::G) where {G<:Grid} = ones(g.ny*g.nx)
-@inline zeros(g::G) where {G<:Grid} = zeros(g.ny,g.nx)
-@inline ones(g::G) where {G<:Grid} = ones(g.ny,g.nx)
+@inline zeros(g::Grid) = zeros(g.ny, g.nx)
+@inline zeros(a::Integer, g::Grid) = zeros(a, g.ny, g.nx)
+@inline zeros(g::Grid, a::Integer) = zeros(g.ny, g.nx,a)
 
-@inline f2zeros(a,g::G) where {G<:Grid} = zeros(a,2*g.ny*g.nx)
-@inline f2ones(a,g::G) where {G<:Grid} = ones(a,2*g.ny*g.nx)
-@inline f2zeros(g::G,a) where {G<:Grid} = zeros(2*g.ny*g.nx,a)
-@inline f2ones(g::G,a) where {G<:Grid} = ones(2*g.ny*g.nx,a)
-@inline fzeros(a,g::G) where {G<:Grid} = zeros(a,g.ny*g.nx)
-@inline fones(a,g::G) where {G<:Grid} = ones(a,g.ny*g.nx)
-@inline fzeros(g::G,a) where {G<:Grid} = zeros(g.ny*g.nx,a)
-@inline fones(g::G,a) where {G<:Grid} = ones(g.ny*g.nx,a)
-@inline zeros(a,g::G) where {G<:Grid} = zeros(a,g.ny,g.nx)
-@inline ones(a,g::G) where {G<:Grid} = ones(a,g.ny,g.nx)
-@inline zeros(g::G,a) where {G<:Grid} = zeros(g.ny,g.nx,a)
-@inline ones(g::G,a) where {G<:Grid} = ones(g.ny,g.nx,a)
+@inline fzeros(g::Grid) = zeros(g.ny * g.nx)
+@inline fzeros(a::Integer, g::Grid) = zeros(a, g.ny * g.nx)
+@inline fzeros(g::Grid, a::Integer) = zeros(g.ny * g.nx, a)
+
+@inline f2zeros(g::Grid) = zeros(2 * g.ny * g.nx)
+@inline f2zeros(a::Integer, g::Grid) = zeros(a, 2 * g.ny * g.nx)
+@inline f2zeros(g::Grid, a::Integer) = zeros(2 * g.ny * g.nx, a)
+
+@inline ones(g::Grid) = ones(g.ny, g.nx)
+@inline ones(a::Integer, g::Grid) = ones(a, g.ny, g.nx)
+@inline ones(g::Grid, a::Integer) = ones(g.ny, g.nx,a)
+
+@inline fones(g::Grid) = ones(g.ny * g.nx)
+@inline fones(a::Integer, g::Grid) = ones(a, g.ny * g.nx)
+@inline fones(g::Grid, a::Integer) = ones(g.ny * g.nx, a)
+
+@inline f2ones(g::Grid) = ones(2 * g.ny * g.nx)
+@inline f2ones(a::Integer, g::Grid) = ones(a, 2 * g.ny * g.nx)
+@inline f2ones(g::Grid, a::Integer) = ones(2 * g.ny * g.nx, a)
+
+@inline reshape(a, g::Grid) = reshape(a, (g.ny, g.nx))
 
 # Temporary function to get a certain field from a vector with 
 # multiple fields. To be removed when working with decomposed 
 # vectors directly
-veci(a, g::G, p::Int) where {G<:Grid} = @view a[g.ny*g.nx*(p-1)+1:g.ny*g.nx*p]
+veci(a, g::G, p::Integer) where {G<:Grid} = @view a[g.ny*g.nx*(p-1)+1:g.ny*g.nx*p]
 
-function veci(a, g::Vector{G}, p::Int) where {G<:Grid}
+function veci(a, g::Vector{G}, p::Integer) where {G<:Grid}
     c0 = 1
     c1 = g[1].ny * g[1].nx
     for i = 2:p
@@ -56,6 +62,13 @@ function veci(a, g::Vector{G}, p::Int) where {G<:Grid}
 
     return @view a[c0:c1]
 end
+
+"""
+    volume(geo::GeometricInfo)
+
+Compute the volume of a phase.
+"""
+@inline volume(geo::GeometricInfo) = sum(geo.dcap[:,:,5])
 
 @inline opposite(α) = ifelse(α >= 0. ,α - π, α + π)
 
@@ -361,6 +374,15 @@ function monitor(header, history, it)
     end
 end
 
+@inline is_FE(::ForwardEuler) = true
+@inline is_FE(::TemporalIntegration) = false
+
+@inline is_CN(::CrankNicolson) = true
+@inline is_CN(::TemporalIntegration) = false
+
+const FE = ForwardEuler()
+const CN = CrankNicolson()
+
 @inline is_dirichlet(::Dirichlet) = true
 @inline is_dirichlet(::BoundaryCondition) = false
 
@@ -373,12 +395,31 @@ end
 @inline is_periodic(::Periodic) = true
 @inline is_periodic(::BoundaryCondition) = false
 
+@inline is_navier(::Navier) = true
+@inline is_navier(::BoundaryCondition) = false
+
+@inline is_navier_cl(::Navier_cl) = true
+@inline is_navier_cl(::BoundaryCondition) = false
+
+@inline is_gnbc(::GNBC) = true
+@inline is_gnbc(::BoundaryCondition) = false
+
 @inline dirichlet(target, Δ, λ, val) = muladd(2.0, val, -target)
 @inline neumann(target, Δ, λ, val) = muladd(Δ, val, target)
 @inline robin(target, Δ, λ, val) = muladd((2*λ-Δ)/(2*λ+Δ), target, (2*Δ*val)/(Δ+2*λ))
 @inline periodic(target, Δ, λ, val) = target
+@inline navier(target, Δ, λ, val) = muladd(Δ, val, target)
+@inline navier_cl(target, Δ, λ, val) = muladd(Δ, val, target)
+@inline gnbc(target, Δ, λ, val) = muladd(Δ, val, target)
 
-function bcs!(field, BC::Boundary{B, N, T, T}, Δ) where {B, N, T}
+const neu = Neumann()
+const dir = Dirichlet()
+const per = Periodic()
+const rob = Robin()
+const nav = Navier()
+const nav_cl = Navier_cl()
+
+function bcs!(field, BC::BoundaryCondition{N,T,T}, Δ) where {N,T}
     @inbounds for KK in axes(field,3)
         for (II,JJ) in zip(BC.ind[1], BC.ind[2])
             field[II,KK] = BC.f(field[JJ,KK], Δ, BC.λ, BC.val)
@@ -387,7 +428,7 @@ function bcs!(field, BC::Boundary{B, N, T, T}, Δ) where {B, N, T}
     return nothing
 end
 
-function bcs!(field, BC::Boundary{B, N, T, Vector{T}}, Δ) where {B, N, T}
+function bcs!(field, BC::BoundaryCondition{N,T,Vector{T}}, Δ) where {N,T}
     @inbounds for KK in axes(field,3)
         for (II,JJ,LL) in zip(BC.ind[1], BC.ind[2], axes(field,1))
             field[II,KK] = BC.f(field[JJ,KK], Δ, BC.λ, BC.val[LL])
@@ -439,28 +480,28 @@ function kill_dead_cells!(S::SubArray{T,N,P,I,L}, grid, geo) where {T,N,P<:Vecto
 end
 
 function init_borders!(T::Matrix, BC_T, val=0.0)
-    if is_dirichlet(BC_T.left.t)
+    if is_dirichlet(BC_T.left)
         BCval = ones(size(T[:,1],1)) .* BC_T.left.val
         T[2:end-1,1] .= BCval[2:end-1]
-    elseif is_periodic(BC_T.left.t)
+    elseif is_periodic(BC_T.left)
         T[2:end-1,1] .= val
     end
-    if is_dirichlet(BC_T.bottom.t)
+    if is_dirichlet(BC_T.bottom)
         BCval = ones(size(T[1,:],1)).* BC_T.bottom.val
         T[1,:] .= BCval
-    elseif is_periodic(BC_T.bottom.t)
+    elseif is_periodic(BC_T.bottom)
         T[1,:] .= val
     end
-    if is_dirichlet(BC_T.right.t)
+    if is_dirichlet(BC_T.right)
         BCval = ones(size(T[:,end],1)) .* BC_T.right.val
         T[2:end-1,end] .= BCval[2:end-1]
-    elseif is_periodic(BC_T.right.t)
+    elseif is_periodic(BC_T.right)
         T[2:end-1,end] .= val
     end
-    if is_dirichlet(BC_T.top.t)
+    if is_dirichlet(BC_T.top)
         BCval = ones(size(T[end,:],1)) .* BC_T.bottom.val
         T[end,:] .= BCval
-    elseif is_periodic(BC_T.top.t)
+    elseif is_periodic(BC_T.top)
         T[end,:] .= val
     end
 end

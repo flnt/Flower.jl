@@ -29,13 +29,12 @@ num = Numerical(T_inf = -0.8,
 )
 
 gp, gu, gv = init_meshes(num)
-opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
+op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
 phL.T .= num.T_inf;
 
-@time MIXED, SOLID, LIQUID = run_forward(num, gp, gu, gv,
-    opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL,
-    phS, phL, fwd, fwdS, fwdL,
+@time MIXED, SOLID, LIQUID = run_forward(
+    num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
     stefan = true,
     heat = true,
     heat_liquid_phase = true,

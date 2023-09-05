@@ -20,65 +20,73 @@ end
     return nothing
 end
 
-function set_heat_borders!(grid, a0, a1, b, BC_T)
+function set_heat_borders!(grid, a0, a1, b, BC_T, per_x, per_y)
     @unpack ny, ind = grid
     
-    @inbounds a0[:,1] .= BC_T.left.val
-    if is_dirichlet(BC_T.left.t)
-        @inbounds a1[:,1] .= -1.
-        @inbounds b[:,1] .= 0.
-    elseif is_neumann(BC_T.left.t)
-        @inbounds a1[:,1] .= 0.
-        @inbounds b[:,1] .= 1.
-    elseif is_robin(BC_T.left.t)
-        @inbounds a1[:,1] .= -1.
-        @inbounds b[:,1] .= 1.
-    elseif is_periodic(BC_T.left.t)
+    if per_y
+        ind_x = 2:nx-1
+        ind_y = 1:ny
+    else
+        ind_x = 1:nx
+        ind_y = 2:ny-1
+    end
+
+    @inbounds a0[ind_y,1] .= BC_T.left.val
+    if is_dirichlet(BC_T.left)
+        @inbounds a1[ind_y,1] .= -1.
+        @inbounds b[ind_y,1] .= 0.
+    elseif is_neumann(BC_T.left)
+        @inbounds a1[ind_y,1] .= 0.
+        @inbounds b[ind_y,1] .= 1.
+    elseif is_robin(BC_T.left)
+        @inbounds a1[ind_y,1] .= -1.
+        @inbounds b[ind_y,1] .= 1.
+    elseif is_periodic(BC_T.left)
         nothing
     else
         @error ("Not implemented yet")
     end
-    @inbounds a0[1,:] .= BC_T.bottom.val
-    if is_dirichlet(BC_T.bottom.t)
-        @inbounds a1[1,:] .= -1.
-        @inbounds b[1,:] .= 0.
-    elseif is_neumann(BC_T.bottom.t)
-        @inbounds a1[1,:] .= 0.
-        @inbounds b[1,:] .= 1.
-    elseif is_robin(BC_T.bottom.t)
-        @inbounds a1[1,:] .= -1.
-        @inbounds b[1,:] .= 1.
-    elseif is_periodic(BC_T.bottom.t)
+    @inbounds a0[1,ind_x] .= BC_T.bottom.val
+    if is_dirichlet(BC_T.bottom)
+        @inbounds a1[1,ind_x] .= -1.
+        @inbounds b[1,ind_x] .= 0.
+    elseif is_neumann(BC_T.bottom)
+        @inbounds a1[1,ind_x] .= 0.
+        @inbounds b[1,ind_x] .= 1.
+    elseif is_robin(BC_T.bottom)
+        @inbounds a1[1,ind_x] .= -1.
+        @inbounds b[1,ind_x] .= 1.
+    elseif is_periodic(BC_T.bottom)
         nothing
     else
         @error ("Not implemented yet")
     end
-    @inbounds a0[:,end] .= BC_T.right.val
-    if is_dirichlet(BC_T.right.t)
-        @inbounds a1[:,end] .= -1.
-        @inbounds b[:,end] .= 0.
-    elseif is_neumann(BC_T.right.t)
-        @inbounds a1[:,end] .= 0.
-        @inbounds b[:,end] .= 1.
-    elseif is_robin(BC_T.right.t)
-        @inbounds a1[:,end] .= -1.
-        @inbounds b[:,end] .= 1.
-    elseif is_periodic(BC_T.right.t)
+    @inbounds a0[ind_y,end] .= BC_T.right.val
+    if is_dirichlet(BC_T.right)
+        @inbounds a1[ind_y,end] .= -1.
+        @inbounds b[ind_y,end] .= 0.
+    elseif is_neumann(BC_T.right)
+        @inbounds a1[ind_y,end] .= 0.
+        @inbounds b[ind_y,end] .= 1.
+    elseif is_robin(BC_T.right)
+        @inbounds a1[ind_y,end] .= -1.
+        @inbounds b[ind_y,end] .= 1.
+    elseif is_periodic(BC_T.right)
         nothing
     else
         @error ("Not implemented yet")
     end
-    @inbounds a0[end,:] .= BC_T.top.val
-    if is_dirichlet(BC_T.top.t)
-        @inbounds a1[end,:] .= -1.
-        @inbounds b[end,:] .= 0.
-    elseif is_neumann(BC_T.top.t)
-        @inbounds a1[end,:] .= 0.
-        @inbounds b[end,:] .= 1.
-    elseif is_robin(BC_T.top.t)
-        @inbounds a1[end,:] .= -1.
-        @inbounds b[end,:] .= 1.
-    elseif is_periodic(BC_T.top.t)
+    @inbounds a0[end,ind_x] .= BC_T.top.val
+    if is_dirichlet(BC_T.top)
+        @inbounds a1[end,ind_x] .= -1.
+        @inbounds b[end,ind_x] .= 0.
+    elseif is_neumann(BC_T.top)
+        @inbounds a1[end,ind_x] .= 0.
+        @inbounds b[end,ind_x] .= 1.
+    elseif is_robin(BC_T.top)
+        @inbounds a1[end,ind_x] .= -1.
+        @inbounds b[end,ind_x] .= 1.
+    elseif is_periodic(BC_T.top)
         nothing
     else
         @error ("Not implemented yet")
@@ -117,7 +125,7 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
     end
     _a1 = ones(ny, nx) .* __a1
     _b = ones(ny, nx) .* __b
-    set_borders!(grid, a0, _a1, _b, BC_T)
+    set_borders!(grid, a0, _a1, _b, BC_T, periodic_x, periodic_y)
     a1 = Diagonal(vec(_a1))
     b = Diagonal(vec(_b))
 

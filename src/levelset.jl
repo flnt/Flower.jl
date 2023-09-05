@@ -205,25 +205,12 @@ function sumloc(a_in::SizedVector{4,Float64,Vector{Float64}},
     return S
 end
 
-function IIOE(A, B, u, V, inside, CFL, n)
-    @inbounds @threads for II in inside
-        p = lexicographic(II, n)
-        U = diamond(u, p, n)
-        F = grad(u, V, U, p, n)
-        a_in, a_ou = inflow_outflow(F)
-        S = sumloc(a_in, a_ou)
-        if S[1] < -S[2]
-            D = quadratic_recons(u, U, p, n)
-            D_ = quadratic_recons(D)
-            F = 2*grad(u, V, U, D, D_[1], p, n)
-            a_in, a_ou = inflow_outflow(F)
-            S = sumloc(a_in, a_ou)
-        end
-        A[p,p], B[p,p] = fill_matrices2!(a_in, a_ou, S, A, B, p, n, CFL)
-    end
-end
+"""
+    IIOE_normal!(grid, A, B, u, V, CFL, periodic_x, periodic_y)
 
-function IIOE(grid, A, B, u, V, CFL, periodic_x, periodic_y)
+Advection of the levelset in the normal direction  (Mikula et al. 2014).
+"""
+function IIOE_normal!(grid, A, B, u, V, CFL, periodic_x, periodic_y)
     @unpack nx, ny, ind = grid
     @unpack inside, all_indices = ind
 
@@ -255,7 +242,12 @@ function IIOE(grid, A, B, u, V, CFL, periodic_x, periodic_y)
 end
 
 
-function level_update_IIOE!(grid, grid_u, grid_v, A, B, θ_out, MIXED, τ, periodic_x, periodic_y)
+"""
+    IIOE!(grid, grid_u, grid_v, A, B, θ_out, τ, periodic_x, periodic_y)
+
+Advection of the levelset using the basic IIOE scheme (Mikula et al. 2014).
+"""
+function IIOE!(grid, grid_u, grid_v, A, B, θ_out, τ, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy, ind = grid
     @unpack inside, all_indices = ind
 
@@ -282,7 +274,12 @@ function level_update_IIOE!(grid, grid_u, grid_v, A, B, θ_out, MIXED, τ, perio
     end
 end
 
-function S2IIOE!(grid, grid_u, grid_v, A, B, utmp, u, θ_out, MIXED, τ, periodic_x, periodic_y)
+"""
+    S2IIOE!(grid, grid_u, grid_v, A, B, utmp, u, θ_out, τ, periodic_x, periodic_y)
+
+Advection of the levelset using the S2IIOE scheme (Mikula et al. 2014).
+"""
+function S2IIOE!(grid, grid_u, grid_v, A, B, utmp, u, θ_out, τ, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy, ind = grid
     @unpack inside, all_indices = ind
 
@@ -321,39 +318,6 @@ function S2IIOE!(grid, grid_u, grid_v, A, B, utmp, u, θ_out, MIXED, τ, periodi
             A[p,p], B[p,p] = fill_matrices2!(a_in, a_ou, θ_in, θ_out[II,:], S, A, B, II, nx, ny, mp, τ, periodic_x, periodic_y)
         end
     end
-end
-
-function level_update_koenig!(A, B, u, V, Vx, Vy, inside, CFL, h, n)
-    @inbounds @threads for II in inside
-        p = lexicographic(II, n)
-        U = diamond(u, p, n)
-        F = grad(u, V, U, p, n)
-        a_in, a_ou = inflow_outflow(F)
-        S = sumloc(a_in, a_ou)
-        if S[1] < -S[2]
-            D = quadratic_recons(u, U, p, n)
-            D_ = quadratic_recons(D)
-            F = 2*grad(u, V, U, D, D_[1], p, n)
-            a_in, a_ou = inflow_outflow(F)
-            S = sumloc(a_in, a_ou)
-        end
-        F2 = advection(u, Vx, Vy, U, h, p, n)
-        a_in2, a_ou2 = inflow_outflow(F2)
-        a_in_tot = a_in + a_in2
-        a_ou_tot = a_ou + a_ou2
-        S = sumloc(a_in_tot, a_ou_tot)
-        A[p,p], B[p,p] = fill_matrices2!(a_in_tot, a_ou_tot, S, A, B, p, n, CFL)
-    end
-end
-
-@inline function fill_matrices2!(a_in::SArray{Tuple{4},Float64,1,4}, a_ou::SArray{Tuple{4},Float64,1,4},
-    S, A, B, p, n, CFL)
-    a = (-n, -1, n, 1)
-    @inbounds for (i,j) in zip(1:4,a)
-        @inbounds A[p, p + j] = -CFL*a_in[i]
-        @inbounds B[p, p + j] = CFL*a_ou[i]
-    end
-    return 2 + CFL*S[1], 2 - CFL*S[2]
 end
 
 @inline function fill_matrices2!(a_in::SArray{Tuple{4},Float64,1,4}, a_ou::SArray{Tuple{4},Float64,1,4},
@@ -405,28 +369,73 @@ end
     h*(0.5 + ((u[II] - u[JJ] - mysign(u[II] - u[JJ]) * sqrt(D))/uxx)),
     h*(u[II]/(u[II]-u[JJ])))
 
-function levelset_BC!(u, BC_u, dx, dy, periodic_x, periodic_y)
-    if periodic_x
-        @sync begin
-            @spawn bcs!(u, BC_u.bottom, dy[1,1])
-            @spawn bcs!(u, BC_u.top, dy[end,1])
+"""
+    reinit(grid, u, u0, periodic_x, periodic_y)
+
+Run one reinitilization iteration of the levelset `u` as defined in (Min 2010).
+"""
+function reinit(grid, indices, u, u0, periodic_x, periodic_y)
+    @unpack nx, ny, dx, dy = grid
+
+    local cfl = 0.45
+    u1 = zeros(grid)
+    a, b, c = (1, 2, 3, 4), (-1, 1, -1, 1), (2, 2, 1, 1)
+    f, d, e = (Dxx, Dxx, Dyy, Dyy), (nx, nx, ny, ny), (periodic_x, periodic_x, periodic_y, periodic_y)
+
+    @inbounds @threads for II in indices
+        h_ = min(
+            0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
+            0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
+        )
+        sign_u0 = sign(u0[II])
+        shift = central_differences(u, II, dx, dy, nx, ny, periodic_x, periodic_y)
+        eno = finite_difference_eno(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+
+        if is_near_interface(u0, II, nx, ny, periodic_x, periodic_y)
+            eno_interface = convert(Vector{Float64}, eno)
+            h_ = 1e30
+            g = (0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
+                 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)]))
+            for (JJ, i, j, k) in zip((δx⁺(II, nx, periodic_x), δx⁻(II, nx, periodic_x), δy⁺(II, ny, periodic_y), δy⁻(II, ny, periodic_y)), a, c, g)
+                if u0[II] * u0[JJ] < 0
+                    uxx = minmod(
+                        f[i](u, II, d[i], e[i]), 
+                        ifelse(
+                            in_bounds(
+                                JJ[j], 
+                                (j == 1 ? ny : nx), 
+                                (j == 1 ? periodic_y : periodic_x)
+                            ), 
+                            f[i](u, JJ, d[i], e[i]), 
+                            0.0
+                        )
+                    )
+                    D = (uxx / 2.0 - u0[II] - u0[JJ])^2 - 4.0 * u0[II] * u0[JJ]
+                    Δx = root_extraction(u0, uxx, D, II, JJ, k, 1e-10)
+                    if Δx < h_ h_ = Δx end
+                    eno_interface[i] = b[i] * (u[II] / Δx + (Δx / 2.0) * shift[i])
+                end
+            end
+            gdv = Godunov(sign_u0, eno_interface)
+        else
+            gdv = Godunov(sign_u0, eno)
         end
-    elseif periodic_y
-        @sync begin
-            @spawn bcs!(u, BC_u.left, dx[1,1])
-            @spawn bcs!(u, BC_u.right, dx[1,end])
-        end
-    else
-        @sync begin
-            @spawn bcs!(u, BC_u.left, dx[1,1])
-            @spawn bcs!(u, BC_u.right, dx[1,end])
-            @spawn bcs!(u, BC_u.bottom, dy[1,1])
-            @spawn bcs!(u, BC_u.top, dy[end,1])
-        end
+
+        u1[II] = u[II] - cfl * h_ * sign_u0 * (gdv - 1.0)
     end
+
+    return u1
 end
 
-function FE_reinit(grid, ind, u, nb_reinit, BC_u, periodic_x, periodic_y)
+"""
+    FE_reinit!(grid, ind, u, nb_reinit, BC_u, periodic_x, periodic_y)
+
+Reinitializes a levelset `u` using a Forward Euler integration scheme.
+
+`nb_reinit` iterations are performed to reach the stationary state. The actual work is done
+in the `reinit` function.
+"""
+function FE_reinit!(grid, ind, u, nb_reinit, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy = grid
     @unpack inside, all_indices = ind
 
@@ -440,46 +449,50 @@ function FE_reinit(grid, ind, u, nb_reinit, BC_u, periodic_x, periodic_y)
         indices = @view all_indices[:,2:end-1]
     end
 
-    local cfl = 0.45
-    levelset_BC!(u, BC_u, dx, dy, periodic_x, periodic_y)
     u0 = copy(u)
     tmp = similar(u)
-    a, b, c = (1, 2, 3, 4), (-1, 1, -1, 1), (2, 2, 1, 1)
-    f, d, e = (Dxx, Dxx, Dyy, Dyy), (nx, nx, ny, ny), (periodic_x, periodic_x, periodic_y, periodic_y)
 
-    for i = 1:nb_reinit
-        @inbounds @threads for II in indices
-            h_ = min(0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
-                     0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)]))
-            sign_u0 = sign(u0[II])
-            shift = central_differences(u, II, dx, dy, nx, ny, periodic_x, periodic_y)
-            eno = finite_difference_eno(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
-
-            if is_near_interface(u0, II, nx, ny, periodic_x, periodic_y)
-                eno_interface = convert(Vector{Float64}, eno)
-                h_ = 1e30
-                g = (0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
-                     0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)]))
-                for (JJ, i, j, k) in zip((δx⁺(II, nx, periodic_x), δx⁻(II, nx, periodic_x), δy⁺(II, ny, periodic_y), δy⁻(II, ny, periodic_y)), a, c, g)
-                    if u0[II]*u0[JJ] < 0
-                        uxx = minmod(f[i](u, II, d[i], e[i]), ifelse(in_bounds(JJ[j], (j == 1 ? ny : nx), (j == 1 ? periodic_y : periodic_x)), f[i](u, JJ, d[i], e[i]), 0.))
-                        D = (uxx/2 - u0[II] - u0[JJ])^2 - 4*u0[II]*u0[JJ]
-                        Δx = root_extraction(u0, uxx, D, II, JJ, k, 1e-10)
-                        if Δx < h_ h_ = Δx end
-                        eno_interface[i] = b[i]*(u[II]/Δx + (Δx/2) * shift[i])
-                    end
-                end
-                gdv = Godunov(sign_u0, eno_interface)
-            else
-                gdv = Godunov(sign_u0, eno)
-            end
-
-            tmp[II] = u[II] - cfl * h_ * sign_u0 * (gdv - 1.0)
-        end
+    for nb = 1:nb_reinit
+        tmp .= reinit(grid, indices, u, u0, periodic_x, periodic_y)
         u[indices] .= tmp[indices]
-
-        levelset_BC!(u, BC_u, dx, dy, periodic_x, periodic_y)
     end
+
+    return nothing
+end
+
+"""
+    RK2_reinit!(grid, ind, u, nb_reinit, BC_u, periodic_x, periodic_y)
+
+Reinitializes a levelset using a second-order Runge-Kutta integration scheme.
+
+`nb_reinit` iterations are performed to reach the stationary state. The actual work is done
+in the `reinit` function.
+"""
+function RK2_reinit!(grid, ind, u, nb_reinit, periodic_x, periodic_y)
+    @unpack nx, ny, dx, dy = grid
+    @unpack inside, all_indices = ind
+
+    if !periodic_x && !periodic_y
+        indices = inside
+    elseif periodic_x && periodic_y
+        indices = all_indices
+    elseif periodic_x
+        indices = @view all_indices[2:end-1,:]
+    else
+        indices = @view all_indices[:,2:end-1]
+    end
+
+    u0 = copy(u)
+    tmp1 = similar(u)
+    tmp2 = similar(u)
+
+    for nb in 1:nb_reinit
+        tmp1 .= reinit(grid, indices, u, u0, periodic_x, periodic_y)
+        tmp2 .= reinit(grid, indices, tmp1, u0, periodic_x, periodic_y)
+        u[indices] .= 0.5 .* (u[indices] .+ tmp2[indices])
+    end
+
+    return nothing
 end
 
 function velocity_extension!(grid, V, inside, NB)

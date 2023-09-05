@@ -255,7 +255,7 @@ function Rheat_q0(num, grid, grid_u, grid_v, adj_der,
                 end
             end
 
-            IIOE(grid, LSAj, LSBj, uj, V, CFL_sc, periodic_x, periodic_y)
+            IIOE_normal!(grid, LSAj, LSBj, uj, V, CFL_sc, periodic_x, periodic_y)
             derLSA .= (LSAj .- LSA) ./ ϵ_adj
             derLSB .= (LSBj .- LSB) ./ ϵ_adj
             utmp = zeros(ny, nx)
@@ -325,7 +325,7 @@ function Rheat_q1(num, grid, grid_u, grid_v, adj_der,
             # get perturbed matrices
             if heat_solid_phase
                 update_stefan_velocity(num, grid, u0, TSj, TL, periodic_x, periodic_y, λ, Vmean)
-                IIOE(grid, LSAj, LSBj, u0, V, CFL_sc, periodic_x, periodic_y)
+                IIOE_normal!(grid, LSAj, LSBj, u0, V, CFL_sc, periodic_x, periodic_y)
                 derLSA .= (LSAj .- LSA) ./ ϵ_adj
                 derLSB .= (LSBj .- LSB) ./ ϵ_adj
                 Rj = sparse(derLSA * vec(u1) .- derLSB * vec(u0))
@@ -342,7 +342,7 @@ function Rheat_q1(num, grid, grid_u, grid_v, adj_der,
 
             if heat_liquid_phase
                 update_stefan_velocity(num, grid, u0, TS, TLj, periodic_x, periodic_y, λ, Vmean)
-                IIOE(grid, LSAj, LSBj, u0, V, CFL_sc, periodic_x, periodic_y)
+                IIOE_normal!(grid, LSAj, LSBj, u0, V, CFL_sc, periodic_x, periodic_y)
                 derLSA .= (LSAj .- LSA) ./ ϵ_adj
                 derLSB .= (LSBj .- LSB) ./ ϵ_adj
                 Rj = sparse(derLSA * vec(u1) .- derLSB * vec(u0))
@@ -370,10 +370,13 @@ function Rproj_q1(num, grid, grid_u, grid_v, adj_der,
     uD0_S, opC_uS, BC_uS, uD0_L, opC_uL, BC_uL,
     vD0_S, opC_vS, BC_vS, vD0_L, opC_vL, BC_vL,
     ucorrD1_S, ucorrD1_L, vcorrD1_S, vcorrD1_L,
+    Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S,
+    Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L,
     Mum1_S, Mum1_L, Mvm1_S, Mvm1_L,
     u1, periodic_x, periodic_y, ϵ_adj,
     opS, phS, opL, phL,
-    ns_solid_phase, ns_liquid_phase, ns_advection)
+    ns_solid_phase, ns_liquid_phase,
+    free_surface, ns_advection)
 
     @unpack Re, τ, σ, g, β, ϵ, NB = num
     @unpack nx, ny, ind, V, iso, faces, geoS, geoL = grid
@@ -404,11 +407,19 @@ function Rproj_q1(num, grid, grid_u, grid_v, adj_der,
         
         RpS_ls.nzval .= 0.
 
-        AuS, _, _, AvS, _, _, AϕS, _ = set_navier_stokes(num, grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
+        if free_surface
+            AuS, _, _, AvS, _, _, AϕS = set_navier_stokes(neu, num, grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
                                                         opC_pS, opC_uS, opC_vS, BC_pS, BC_uS, BC_vS,
                                                         Mum1_S, Mvm1_S, iRe,
                                                         opS, phS,
-                                                        periodic_x, periodic_y, ns_advection)
+                                                        periodic_x, periodic_y, ns_advection)[1:7]
+        else
+            AuS, _, _, AvS, _, _, AϕS = set_navier_stokes(dir, num, grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
+                                                        opC_pS, opC_uS, opC_vS, BC_pS, BC_uS, BC_vS,
+                                                        Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S, iRe,
+                                                        opS, phS,
+                                                        periodic_x, periodic_y, ns_advection)[1:7]
+        end
     
         SmatS = iRe .* strain_rate(opC_uS, opC_vS)
     
@@ -433,11 +444,19 @@ function Rproj_q1(num, grid, grid_u, grid_v, adj_der,
 
         RpL_ls.nzval .= 0.
 
-        AuL, _, _, AvL, _, _, AϕL, _ = set_navier_stokes(num, grid, grid.geoL, grid_u, grid_u.geoL,      grid_v, grid_v.geoL,
+        if free_surface
+            AuL, _, _, AvL, _, _, AϕL = set_navier_stokes(neu, num, grid, grid.geoL, grid_u, grid_u.geoL,      grid_v, grid_v.geoL,
                                                         opC_pL, opC_uL, opC_vL, BC_pL, BC_uL, BC_vL,
                                                         Mum1_L, Mvm1_L, iRe,
                                                         opL, phL,
-                                                        periodic_x, periodic_y, ns_advection)
+                                                        periodic_x, periodic_y, ns_advection)[1:7]
+        else
+            AuL, _, _, AvL, _, _, AϕL = set_navier_stokes(dir, num, grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
+                                                        opC_pL, opC_uL, opC_vL, BC_pL, BC_uL, BC_vL,
+                                                        Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L, iRe,
+                                                        opL, phL,
+                                                        periodic_x, periodic_y, ns_advection)[1:7]
+        end
 
         SmatL = iRe .* strain_rate(opC_uL, opC_vL)
 
@@ -453,7 +472,7 @@ function Rproj_q1(num, grid, grid_u, grid_v, adj_der,
     _a1_p = zeros(grid)
     _b0_p = ones(grid)
     _b1_p = zeros(grid)
-    set_borders!(grid, a0_p, _a1_p, _b0_p, _b1_p, BC_pL)
+    set_borders!(grid, a0_p, _a1_p, _b0_p, _b1_p, BC_pL, periodic_x, periodic_y)
     b0_p = Diagonal(vec(_b0_p))
 
     derAϕ = copy(AϕL)
@@ -497,11 +516,20 @@ function Rproj_q1(num, grid, grid_u, grid_v, adj_der,
                 update_ls_data(num, grid, grid_u, grid_v, uj, κj, periodic_x, periodic_y)
                 update_free_surface_velocity(num, grid_u, grid_v, uD0_S, vD0_S, periodic_x, periodic_y)
 
-                Auj, _, _, Avj, _, _, Aϕj, _ = set_navier_stokes(num, grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
+
+                if free_surface
+                    Auj, _, _, Avj, _, _, Aϕj = set_navier_stokes(neu, num, grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
                                                                 opC_pj, opC_uj, opC_vj, BC_pS, BC_uS, BC_vS,
                                                                 Mum1_S, Mvm1_S, iRe,
                                                                 opS, phS,
-                                                                periodic_x, periodic_y, ns_advection)
+                                                                periodic_x, periodic_y, ns_advection)[1:7]
+                else
+                    Auj, _, _, Avj, _, _, Aϕj = set_navier_stokes(dir, num, grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
+                                                                opC_pj, opC_uj, opC_vj, BC_pj, BC_uS, BC_vS,
+                                                                Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S, iRe,
+                                                                opS, phS,
+                                                                periodic_x, periodic_y, ns_advection)[1:7]
+                end
 
                 Smatj = iRe .* strain_rate(opC_uj, opC_vj)
 
@@ -587,11 +615,19 @@ function Rproj_q1(num, grid, grid_u, grid_v, adj_der,
                 update_ls_data(num, grid, grid_u, grid_v, uj, κj, periodic_x, periodic_y)
                 update_free_surface_velocity(num, grid_u, grid_v, uD0_L, vD0_L, periodic_x, periodic_y)
 
-                Auj, _, _, Avj, _, _, Aϕj, _ = set_navier_stokes(num, grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
+                if free_surface
+                    Auj, _, _, Avj, _, _, Aϕj = set_navier_stokes(neu, num, grid, grid.geoL, grid_u, grid_u.geoL,      grid_v, grid_v.geoL,
                                                                 opC_pj, opC_uj, opC_vj, BC_pL, BC_uL, BC_vL,
                                                                 Mum1_L, Mvm1_L, iRe,
                                                                 opL, phL,
-                                                                periodic_x, periodic_y, ns_advection)
+                                                                periodic_x, periodic_y, ns_advection)[1:7]
+                else
+                    Auj, _, _, Avj, _, _, Aϕj = set_navier_stokes(dir, num, grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
+                                                                opC_pj, opC_uj, opC_vj, BC_pL, BC_uL, BC_vL,
+                                                                Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L, iRe,
+                                                                opL, phL,
+                                                                periodic_x, periodic_y, ns_advection)[1:7]
+                end
 
                 Smatj = iRe .* strain_rate(opC_uj, opC_vj)
 
@@ -794,14 +830,15 @@ function Rproj_q0(num, grid, grid_u, grid_v, adj_der,
                 update_ls_data(num, grid, grid_u, grid_v, uj, κj, periodic_x, periodic_y)
                 update_free_surface_velocity(num, grid_u, grid_v, uD0_S, vD0_S, periodic_x, periodic_y)
 
-                Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv, Lp_fs, bc_Lp_fs, Lu_fs, bc_Lu_fs, Lv_fs, bc_Lv_fs = set_laplacians!(grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
+                Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv = set_laplacians!(grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
                     opC_pj, opC_uj, opC_vj,
-                    periodic_x, periodic_y, true)
+                    periodic_x, periodic_y)
             
                 _, Buj, _, _, Bvj, _, _, _ = set_crank_nicolson_block(neu, num,
                     grid, opC_pj, Lp, bc_Lp, Lp_fs, bc_Lp_fs, BC_pS,
                     grid_u, opC_uj, iRe.*Lu, iRe.*bc_Lu, Mum1_S, BC_uS,
-                    grid_v, opC_vj, iRe.*Lv, iRe.*bc_Lv, Mvm1_S, BC_vS)
+                    grid_v, opC_vj, iRe.*Lv, iRe.*bc_Lv, Mvm1_S, BC_vS,
+                    periodic_x, periodic_y)
 
                 # prediction step derivatives
                 derBu .= (Buj .- BuSm1) ./ ϵ_adj
@@ -826,9 +863,9 @@ function Rproj_q0(num, grid, grid_u, grid_v, adj_der,
                 # levelset advection derivatives
                 update_ls_data(num, grid, grid_u, grid_v, u0, grid.κ, periodic_x, periodic_y)
                 update_free_surface_velocity(num, grid_u, grid_v, uD0_Sj, vD0_S, periodic_x, periodic_y)
-                level_update_IIOE!(grid, grid_u, grid_v, LSAj, LSBj, θ_out, ind.MIXED, τ, periodic_x, periodic_y)
+                IIOE!(grid, grid_u, grid_v, LSAj, LSBj, θ_out, τ, periodic_x, periodic_y)
                 utmp = reshape(gmres(LSAj,(LSBj*vec(u0))), (ny,nx))
-                S2IIOE!(grid, grid_u, grid_v, LSAj, LSBj, utmp, u0, θ_out, ind.MIXED, τ, periodic_x, periodic_y)
+                S2IIOE!(grid, grid_u, grid_v, LSAj, LSBj, utmp, u0, θ_out, τ, periodic_x, periodic_y)
 
                 derLSA .= (LSAj .- LSA) ./ ϵ_adj
                 derLSB .= (LSBj .- LSB) ./ ϵ_adj
@@ -843,9 +880,9 @@ function Rproj_q0(num, grid, grid_u, grid_v, adj_der,
 
                 update_ls_data(num, grid, grid_u, grid_v, u0, grid.κ, periodic_x, periodic_y)
                 update_free_surface_velocity(num, grid_u, grid_v, uD0_S, vD0_Sj, periodic_x, periodic_y)
-                level_update_IIOE!(grid, grid_u, grid_v, LSAj, LSBj, θ_out, ind.MIXED, τ, periodic_x, periodic_y)
+                IIOE!(grid, grid_u, grid_v, LSAj, LSBj, θ_out, τ, periodic_x, periodic_y)
                 utmp = reshape(gmres(LSAj,(LSBj*vec(u0))), (ny,nx))
-                S2IIOE!(grid, grid_u, grid_v, LSAj, LSBj, utmp, u0, θ_out, ind.MIXED, τ, periodic_x, periodic_y)
+                S2IIOE!(grid, grid_u, grid_v, LSAj, LSBj, utmp, u0, θ_out, τ, periodic_x, periodic_y)
 
                 derLSA .= (LSAj .- LSA) ./ ϵ_adj
                 derLSB .= (LSBj .- LSB) ./ ϵ_adj
@@ -864,14 +901,15 @@ function Rproj_q0(num, grid, grid_u, grid_v, adj_der,
                 update_ls_data(num, grid, grid_u, grid_v, uj, κj, periodic_x, periodic_y)
                 update_free_surface_velocity(num, grid_u, grid_v, uD0_L, vD0_L, periodic_x, periodic_y)
 
-                Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv, Lp_fs, bc_Lp_fs, Lu_fs, bc_Lu_fs, Lv_fs, bc_Lv_fs = set_laplacians!(grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
+                Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv, Lp_fs, bc_Lp_fs = set_laplacians!(grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
                     opC_pj, opC_uj, opC_vj,
-                    periodic_x, periodic_y, true)
+                    periodic_x, periodic_y)
             
                 _, Buj, _, _, Bvj, _, _, _ = set_crank_nicolson_block(neu, num,
                     grid, opC_pj, Lp, bc_Lp, Lp_fs, bc_Lp_fs, BC_pL,
                     grid_u, opC_uj, iRe.*Lu, iRe.*bc_Lu, Mum1_L, BC_uL,
-                    grid_v, opC_vj, iRe.*Lv, iRe.*bc_Lv, Mvm1_L, BC_vL)
+                    grid_v, opC_vj, iRe.*Lv, iRe.*bc_Lv, Mvm1_L, BC_vL,
+                    periodic_x, periodic_y)
 
                 # prediction step derivatives
                 derBu .= (Buj .- BuLm1) ./ ϵ_adj
@@ -896,9 +934,9 @@ function Rproj_q0(num, grid, grid_u, grid_v, adj_der,
                 end
 
                 # levelset advection derivatives
-                level_update_IIOE!(grid, grid_u, grid_v, LSAj, LSBj, θ_out, ind.MIXED, τ, periodic_x, periodic_y)
+                IIOE!(grid, grid_u, grid_v, LSAj, LSBj, θ_out, τ, periodic_x, periodic_y)
                 utmp = reshape(gmres(LSAj,(LSBj*vec(uj))), (ny,nx))
-                S2IIOE!(grid, grid_u, grid_v, LSAj, LSBj, utmp, uj, θ_out, ind.MIXED, τ, periodic_x, periodic_y)
+                S2IIOE!(grid, grid_u, grid_v, LSAj, LSBj, utmp, uj, θ_out, τ, periodic_x, periodic_y)
 
                 derLSA .= (LSAj .- LSA) ./ ϵ_adj
                 derLSB .= (LSBj .- LSB) ./ ϵ_adj
@@ -923,9 +961,9 @@ function Rproj_q0(num, grid, grid_u, grid_v, adj_der,
 
                 update_ls_data(num, grid, grid_u, grid_v, u0, grid.κ, periodic_x, periodic_y)
                 update_free_surface_velocity(num, grid_u, grid_v, uD0_Lj, vD0_L, periodic_x, periodic_y)
-                level_update_IIOE!(grid, grid_u, grid_v, LSAj, LSBj, θ_out, ind.MIXED, τ, periodic_x, periodic_y)
+                IIOE!(grid, grid_u, grid_v, LSAj, LSBj, θ_out, τ, periodic_x, periodic_y)
                 utmp = reshape(gmres(LSAj,(LSBj*vec(u0))), (ny,nx))
-                S2IIOE!(grid, grid_u, grid_v, LSAj, LSBj, utmp, u0, θ_out, ind.MIXED, τ, periodic_x, periodic_y)
+                S2IIOE!(grid, grid_u, grid_v, LSAj, LSBj, utmp, u0, θ_out, τ, periodic_x, periodic_y)
 
                 derLSA .= (LSAj .- LSA) ./ ϵ_adj
                 derLSB .= (LSBj .- LSB) ./ ϵ_adj
@@ -940,9 +978,9 @@ function Rproj_q0(num, grid, grid_u, grid_v, adj_der,
 
                 update_ls_data(num, grid, grid_u, grid_v, u0, grid.κ, periodic_x, periodic_y)
                 update_free_surface_velocity(num, grid_u, grid_v, uD0_L, vD0_Lj, periodic_x, periodic_y)
-                level_update_IIOE!(grid, grid_u, grid_v, LSAj, LSBj, θ_out, ind.MIXED, τ, periodic_x, periodic_y)
+                IIOE!(grid, grid_u, grid_v, LSAj, LSBj, θ_out, τ, periodic_x, periodic_y)
                 utmp = reshape(gmres(LSAj,(LSBj*vec(u0))), (ny,nx))
-                S2IIOE!(grid, grid_u, grid_v, LSAj, LSBj, utmp, u0, θ_out, ind.MIXED, τ, periodic_x, periodic_y)
+                S2IIOE!(grid, grid_u, grid_v, LSAj, LSBj, utmp, u0, θ_out, τ, periodic_x, periodic_y)
 
                 derLSA .= (LSAj .- LSA) ./ ϵ_adj
                 derLSB .= (LSBj .- LSB) ./ ϵ_adj

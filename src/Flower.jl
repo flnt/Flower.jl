@@ -13,6 +13,7 @@ import Base.abs
 import Base.OneTo
 import Base.ones
 import Base.zeros
+import Base.reshape
 
 @reexport using Printf
 @reexport using Statistics
@@ -52,6 +53,7 @@ include("run.jl")
 include("discrete_adjoint.jl")
 include("run_discrete_adjoint.jl")
 include("common_run.jl")
+include("contact_line.jl")
 include("optimize.jl")
 include("viz.jl")
 include("tools.jl")

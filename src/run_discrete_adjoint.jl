@@ -4,6 +4,10 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     J_TS = x -> zero(phS.TD),
     J_TL = x -> zero(phL.TD),
     J_u = x -> fzeros(grid),
+    J_uS = x -> fzeros(grid_u),
+    J_uL = x -> fzeros(grid_u),
+    J_vS = x -> fzeros(grid_v),
+    J_vL = x -> fzeros(grid_v),
     periodic_x = false,
     periodic_y = false,
     BC_TS = Boundaries(
@@ -128,8 +132,12 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     BvLm1 = [tmp_sv tmp_sv;
              tmp_sv tmp_sv]
 
-    local Mum1_S; local Mvm1_S
-    local Mum1_L; local Mvm1_L
+    local Mum1_S; local Mvm1_S;
+    local Mum1_L; local Mvm1_L;
+    local Lum1_S; local bc_Lum1_S;
+    local Lvm1_S; local bc_Lvm1_S;
+    local Lum1_L; local bc_Lum1_L;
+    local Lvm1_L; local bc_Lvm1_L;
 
     θ_out = zeros(grid, 4)
     utmp = copy(u)
@@ -186,9 +194,9 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
                 update_free_surface_velocity(num, grid_u, grid_v, phS.uD, phS.vD, periodic_x, periodic_y)
             end
     
-            level_update_IIOE!(grid, grid_u, grid_v, LSA, LSB, θ_out, ind.MIXED, τ, periodic_x, periodic_y)
+            IIOE!(grid, grid_u, grid_v, LSA, LSB, θ_out, τ, periodic_x, periodic_y)
             utmp .= reshape(gmres(LSA,(LSB*vec(u0))), (ny,nx))
-            S2IIOE!(grid, grid_u, grid_v, LSA, LSB, utmp, u0, θ_out, ind.MIXED, τ, periodic_x, periodic_y)
+            S2IIOE!(grid, grid_u, grid_v, LSA, LSB, utmp, u0, θ_out, τ, periodic_x, periodic_y)
         end
 
         LSAm1 = copy(LSA)
@@ -229,11 +237,13 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     if heat
         if heat_solid_phase
             rhs = J_TS(num, grid, fwdS.TD, fwdL.TD, u0, current_i-1)
+            println(rhs)
             rhs .-= transpose(RlsS_TS) * adj.u[current_i,:]
             @mytime blocks = DDM.decompose(transpose(AS), grid.domdec, grid.domdec)
 
             @views @mytime (_, ch) = bicgstabl!(adj.phS.TD[current_i,:], transpose(AS), rhs, Pl=ras(blocks,grid.pou), log=true)
             println(ch)
+            println(adj.phS.TD[current_i,:])
         end
         if heat_liquid_phase
             rhs = J_TL(num, grid, fwdS.TD, fwdL.TD, u0, current_i-1)
@@ -245,17 +255,16 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         end
     end
 
-    if levelset && navier_stokes
-        if ns_solid_phase
-            _ = set_laplacians!(grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
-                opC_pS, opC_uS, opC_vS,
-                periodic_x, periodic_y, true)
-        end
-        if ns_liquid_phase
-            _ = set_laplacians!(grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
-                opC_pL, opC_uL, opC_vL,
-                periodic_x, periodic_y, true)
-        end
+    if navier_stokes
+        laps = set_laplacians!(grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
+                            opC_pS, opC_uS, opC_vS,
+                            periodic_x, periodic_y)
+        Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S = laps[3:6]
+
+        laps = set_laplacians!(grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
+                            opC_pL, opC_uL, opC_vL,
+                            periodic_x, periodic_y)
+        Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L = laps[3:6]
 
         Mum1_S = copy(opC_uS.M)
         Mvm1_S = copy(opC_vS.M)
@@ -265,28 +274,44 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
         NB_indices = update_ls_data(num, grid, grid_u, grid_v, u1, κ, periodic_x, periodic_y)
     end
 
-    if navier_stokes && free_surface
+    if navier_stokes
         if ns_solid_phase
-            AuS, BuS, _, AvS, BvS, _, AϕS, _ = set_navier_stokes(num, grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
+            if free_surface
+                AuS, BuS, _, AvS, BvS, _, AϕS = set_navier_stokes(neu, num, grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
                                                                 opC_pS, opC_uS, opC_vS, BC_pS, BC_uS, BC_vS,
                                                                 Mum1_S, Mvm1_S, iRe,
                                                                 opS, phS,
-                                                                periodic_x, periodic_y, ns_advection)
+                                                                periodic_x, periodic_y, ns_advection)[1:7]
+            else 
+                AuS, BuS, _, AvS, BvS, _, AϕS = set_navier_stokes(dir, num, grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
+                                                                opC_pS, opC_uS, opC_vS, BC_pS, BC_uS, BC_vS,
+                                                                Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S, iRe,
+                                                                opS, phS,
+                                                                periodic_x, periodic_y, ns_advection)[1:7]
+            end
             BuSm1 .= BuS
             BvSm1 .= BvS
         end
         if ns_liquid_phase
-            AuL, BuL, _, AvL, BvL, _, AϕL, _ = set_navier_stokes(num, grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
+            if free_surface
+                AuL, BuL, _, AvL, BvL, _, AϕL = set_navier_stokes(neu, num, grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
                                                                 opC_pL, opC_uL, opC_vL, BC_pL, BC_uL, BC_vL,
                                                                 Mum1_L, Mvm1_L, iRe,
                                                                 opL, phL,
-                                                                periodic_x, periodic_y, ns_advection)
+                                                                periodic_x, periodic_y, ns_advection)[1:7]
+            else
+                AuL, BuL, _, AvL, BvL, _, AϕL = set_navier_stokes(dir, num, grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
+                                                                opC_pL, opC_uL, opC_vL, BC_pL, BC_uL, BC_vL,
+                                                                Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L, iRe,
+                                                                opL, phL,
+                                                                periodic_x, periodic_y, ns_advection)[1:7]
+            end
             BuLm1 .= BuL
             BvLm1 .= BvL
         end
     end
 
-    if levelset && navier_stokes
+    if levelset && free_surface
         Rproj_q1(num, grid, grid_u, grid_v, adj_der,
                 fwdS.pD[current_i,:], opC_pS, BC_pS,
                 fwdL.pD[current_i,:], opC_pL, BC_pL,
@@ -296,36 +321,43 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
                 fwdS.vcorrD[current_i-1,:], opC_vL, BC_vL,
                 fwdS.ucorrD[current_i,:], fwdL.ucorrD[current_i,:],
                 fwdS.vcorrD[current_i,:], fwdL.vcorrD[current_i,:],
+                Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S,
+                Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L,
                 Mum1_S, Mum1_L, Mvm1_S, Mvm1_L,
                 u1, periodic_x, periodic_y, ϵ_adj,
                 opS, phS, opL, phL,
-                ns_solid_phase, ns_liquid_phase, ns_advection)
+                ns_solid_phase, ns_liquid_phase,
+                free_surface, ns_advection)
     end
 
     if navier_stokes
         if ns_solid_phase
             adjoint_projection_fs(num, grid, grid_u, grid_v,
-                                  adj, adj.phS, RlsFS_ucorrS, RlsFS_vcorrS,
+                                  J_uS, J_vS, adj, adj.phS, phS,
+                                  RlsFS_ucorrS, RlsFS_vcorrS,
                                   AuS, BuS, AvS, BvS, AϕS,
                                   opC_pS, opC_uS, opC_vS, BC_pS,
-                                  current_i, true, periodic_x, periodic_y)
+                                  current_i, true, periodic_x, periodic_y,
+                                  ns_advection, free_surface)
         end
         if ns_liquid_phase
             adjoint_projection_fs(num, grid, grid_u, grid_v, 
-                                  adj, adj.phL, RlsFS_ucorrL, RlsFS_vcorrL,
+                                  J_uL, J_vL, adj, adj.phL, phL,
+                                  RlsFS_ucorrL, RlsFS_vcorrL,
                                   AuL, BuL, AvL, BvL, AϕL,
                                   opC_pL, opC_uL, opC_vL, BC_pL,
-                                  current_i, true, periodic_x, periodic_y)
+                                  current_i, true, periodic_x, periodic_y,
+                                  ns_advection, free_surface)
         end
     end
 
     if levelset && free_surface
         rhs = J_u(num, grid, fwd.u[current_i,:,:], current_i-1)
 
-        rhs .-= transpose(RuS_ls) * adj.phS.u[current_i,:]
-        rhs .-= transpose(RuL_ls) * adj.phL.u[current_i,:]
-        rhs .-= transpose(RvS_ls) * adj.phS.v[current_i,:]
-        rhs .-= transpose(RvL_ls) * adj.phL.v[current_i,:]
+        rhs .-= transpose(RuS_ls) * veci(adj.phS.uD[current_i,:],grid_u,1)
+        rhs .-= transpose(RuL_ls) * veci(adj.phL.uD[current_i,:],grid_u,1)
+        rhs .-= transpose(RvS_ls) * veci(adj.phS.vD[current_i,:],grid_v,1)
+        rhs .-= transpose(RvL_ls) * veci(adj.phL.vD[current_i,:],grid_v,1)
         
         rhs .-= transpose(RpS_ls) * adj.phS.pD[current_i,:]
         rhs .-= transpose(RpL_ls) * adj.phL.pD[current_i,:]
@@ -354,20 +386,22 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
                 if navier_stokes
                     normΨ = norm(adj.u[current_i,:])
                     if ns_solid_phase
-                        normu = norm(adj.phS.u[current_i,:])
-                        normv = norm(adj.phS.v[current_i,:])
+                        normu = norm(adj.phS.uD[current_i,:])
+                        normv = norm(adj.phS.vD[current_i,:])
                         normp = norm(adj.phS.pD[current_i,:])
+                        normϕ = norm(adj.phS.ϕD[current_i,:])
                         normucorr = norm(adj.phS.ucorrD[current_i,:])
                         normvcorr = norm(adj.phS.vcorrD[current_i,:])
-                        print("$(@sprintf("norm(uS) %.6e", normu))\t$(@sprintf("norm(vS) %.6e", normv))\t$(@sprintf("norm(pS) %.6e", normp))\t$(@sprintf("norm(ucorrS) %.6e", normucorr))\t$(@sprintf("norm(vcorrS) %.6e", normvcorr))\t$(@sprintf("norm(ψ) %.6e", normΨ))\n")
+                        print("$(@sprintf("norm(uS) %.6e", normu))\t$(@sprintf("norm(vS) %.6e", normv))\t$(@sprintf("norm(pS) %.6e", normp))\t$(@sprintf("norm(ϕS) %.6e", normϕ))\t$(@sprintf("norm(ucorrS) %.6e", normucorr))\t$(@sprintf("norm(vcorrS) %.6e", normvcorr))\t$(@sprintf("norm(ψ) %.6e", normΨ))\n")
                     end
                     if ns_liquid_phase
-                        normu = norm(adj.phL.u[current_i,:])
-                        normv = norm(adj.phL.v[current_i,:])
+                        normu = norm(adj.phL.uD[current_i,:])
+                        normv = norm(adj.phL.vD[current_i,:])
                         normp = norm(adj.phL.pD[current_i,:])
+                        normϕ = norm(adj.phL.ϕD[current_i,:])
                         normucorr = norm(adj.phL.ucorrD[current_i,:])
                         normvcorr = norm(adj.phL.vcorrD[current_i,:])
-                        print("$(@sprintf("norm(uL) %.6e", normu))\t$(@sprintf("norm(vL) %.6e", normv))\t$(@sprintf("norm(pL) %.6e", normp))\t$(@sprintf("norm(ucorrL) %.6e", normucorr))\t$(@sprintf("norm(vcorrL) %.6e", normvcorr))\t$(@sprintf("norm(ψ) %.6e", normΨ))\n")
+                        print("$(@sprintf("norm(uL) %.6e", normu))\t$(@sprintf("norm(vL) %.6e", normv))\t$(@sprintf("norm(pL) %.6e", normp))\t$(@sprintf("norm(ϕL) %.6e", normϕ))\t$(@sprintf("norm(ucorrL) %.6e", normucorr))\t$(@sprintf("norm(vcorrL) %.6e", normvcorr))\t$(@sprintf("norm(ψ) %.6e", normΨ))\n")
                     end
                 end
                 println()
@@ -410,9 +444,9 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
                     update_free_surface_velocity(num, grid_u, grid_v, phS.uD, phS.vD, periodic_x, periodic_y)
                 end
         
-                level_update_IIOE!(grid, grid_u, grid_v, LSA, LSB, θ_out, ind.MIXED, τ, periodic_x, periodic_y)
+                IIOE!(grid, grid_u, grid_v, LSA, LSB, θ_out, τ, periodic_x, periodic_y)
                 utmp .= reshape(gmres(LSA,(LSB*vec(u0))), (ny,nx))
-                S2IIOE!(grid, grid_u, grid_v, LSA, LSB, utmp, u0, θ_out, ind.MIXED, τ, periodic_x, periodic_y)
+                S2IIOE!(grid, grid_u, grid_v, LSA, LSB, utmp, u0, θ_out, τ, periodic_x, periodic_y)
             end
         end
 
@@ -487,42 +521,62 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
             end
         end
 
-        if levelset && navier_stokes
+        if navier_stokes && ns_advection
             if ns_solid_phase
-                _ = set_laplacians!(grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
+                laps = set_laplacians!(grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
                     opC_pS, opC_uS, opC_vS,
-                    periodic_x, periodic_y, true)
+                    periodic_x, periodic_y)
+                
+                Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S = laps[3:6]
                 Mum1_S = opC_uS.M
                 Mvm1_S = opC_vS.M
             end
             if ns_liquid_phase
-                _ = set_laplacians!(grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
+                laps = set_laplacians!(grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
                     opC_pL, opC_uL, opC_vL,
-                    periodic_x, periodic_y, true)
+                    periodic_x, periodic_y)
+                
+                Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L = laps[3:6]
                 Mum1_L = opC_uL.M
                 Mvm1_L = opC_vL.M
             end
             NB_indices = update_ls_data(num, grid, grid_u, grid_v, u1, κ, periodic_x, periodic_y)
         end
 
-        if navier_stokes && free_surface
+        if navier_stokes && ns_advection
             if ns_solid_phase
-                AuS, BuS, _, AvS, BvS, _, AϕS, _ = set_navier_stokes(num, grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
+                if free_surface
+                    AuS, BuS, _, AvS, BvS, _, AϕS = set_navier_stokes(neu, num, grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
                                                                     opC_pS, opC_uS, opC_vS, BC_pS, BC_uS, BC_vS,
-                                                                    Mum1_S, Mvm1_S, iRe,
+                                                                    Mum1_S, Mvm1_mºS, iRe,
                                                                     opS, phS,
-                                                                    periodic_x, periodic_y, ns_advection)
+                                                                    periodic_x, periodic_y, ns_advection)[1:7]
+                else 
+                    AuS, BuS, _, AvS, BvS, _, AϕS = set_navier_stokes(dir, num, grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
+                                                                    opC_pS, opC_uS, opC_vS, BC_pS, BC_uS, BC_vS,
+                                                                    Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mum1_S, Mvm1_S, iRe,
+                                                                    opS, phS,
+                                                                    periodic_x, periodic_y, ns_advection)[1:7]
+                end
             end
             if ns_liquid_phase
-                AuL, BuL, _, AvL, BvL, _, AϕL, _ = set_navier_stokes(num, grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
+                if free_surface
+                    AuL, BuL, _, AvL, BvL, _, AϕL = set_navier_stokes(neu, num, grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
                                                                     opC_pL, opC_uL, opC_vL, BC_pL, BC_uL, BC_vL,
                                                                     Mum1_L, Mvm1_L, iRe,
                                                                     opL, phL,
-                                                                    periodic_x, periodic_y, ns_advection)
+                                                                    periodic_x, periodic_y, ns_advection)[1:7]
+                else
+                    AuL, BuL, _, AvL, BvL, _, AϕL = set_navier_stokes(dir, num, grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
+                                                                    opC_pL, opC_uL, opC_vL, BC_pL, BC_uL, BC_vL,
+                                                                    Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mum1_L, Mvm1_L, iRe,
+                                                                    opL, phL,
+                                                                    periodic_x, periodic_y, ns_advection)[1:7]
+                end
             end
         end
 
-        if levelset && navier_stokes
+        if levelset && free_surface
             Rproj_q0(num, grid, grid_u, grid_v, adj_der,
                     opC_pS, BC_pS, BC_pL,
                     fwdS.ucorrD[current_i,:], opC_uS, BC_uS,
@@ -545,29 +599,36 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
                     phL.vD, opC_vL, BC_vL,
                     fwdS.ucorrD[current_i,:], fwdL.ucorrD[current_i,:],
                     fwdS.vcorrD[current_i,:], fwdL.vcorrD[current_i,:],
+                    Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S,
+                    Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L,
                     Mum1_S, Mum1_L, Mvm1_S, Mvm1_L,
                     u1, periodic_x, periodic_y, ϵ_adj,
                     opS, phS, opL, phL,
-                    ns_solid_phase, ns_liquid_phase, ns_advection)
+                    ns_solid_phase, ns_liquid_phase,
+                    free_surface, ns_advection)
         end
 
         if navier_stokes
             if ns_solid_phase
                 adjoint_projection_fs(num, grid, grid_u, grid_v,
-                                      adj, adj.phS, RlsFS_ucorrS, RlsFS_vcorrS,
+                                      J_uS, J_vS, adj, adj.phS, phS,
+                                      RlsFS_ucorrS, RlsFS_vcorrS,
                                       AuS, BuS, AvS, BvS, AϕS,
                                       opC_pS, opC_uS, opC_vS, BC_pS,
-                                      current_i, false, periodic_x, periodic_y)
+                                      current_i, false, periodic_x, periodic_y,
+                                      ns_advection, free_surface)
 
                 BuSm1 .= BuS
                 BvSm1 .= BvS
             end
             if ns_liquid_phase
                 adjoint_projection_fs(num, grid, grid_u, grid_v, 
-                                      adj, adj.phL, RlsFS_ucorrL, RlsFS_vcorrL,
+                                      J_uL, J_vL, adj, adj.phL, phL,
+                                      RlsFS_ucorrL, RlsFS_vcorrL,
                                       AuL, BuL, AvL, BvL, AϕL,
                                       opC_pL, opC_uL, opC_vL, BC_pL,
-                                      current_i, false, periodic_x, periodic_y)
+                                      current_i, false, periodic_x, periodic_y,
+                                      ns_advection, free_surface)
                             
                 BuLm1 .= BuL
                 BvLm1 .= BvL
@@ -576,10 +637,10 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
 
         if levelset && free_surface
             rhs = J_u(num, grid, fwd.u[current_i,:,:], current_i-1)
-            rhs .-= transpose(RuS_ls) * adj.phS.u[current_i,:]
-            rhs .-= transpose(RuL_ls) * adj.phL.u[current_i,:]
-            rhs .-= transpose(RvS_ls) * adj.phS.v[current_i,:]
-            rhs .-= transpose(RvL_ls) * adj.phL.v[current_i,:]
+            rhs .-= transpose(RuS_ls) * veci(adj.phS.uD[current_i,:],grid_u,1)
+            rhs .-= transpose(RuL_ls) * veci(adj.phL.uD[current_i,:],grid_u,1)
+            rhs .-= transpose(RvS_ls) * veci(adj.phS.vD[current_i,:],grid_v,1)
+            rhs .-= transpose(RvL_ls) * veci(adj.phL.vD[current_i,:],grid_v,1)
             
             rhs .-= transpose(RpS_ls) * adj.phS.pD[current_i,:]
             rhs .-= transpose(RpL_ls) * adj.phL.pD[current_i,:]
@@ -616,16 +677,16 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
                     if navier_stokes
                         normΨ = norm(adj.u[current_i,:])
                         if ns_solid_phase
-                            normu = norm(adj.phS.u[current_i,:])
-                            normv = norm(adj.phS.v[current_i,:])
+                            normu = norm(adj.phS.uD[current_i,:])
+                            normv = norm(adj.phS.vD[current_i,:])
                             normp = norm(adj.phS.pD[current_i,:])
                             normucorr = norm(adj.phS.ucorrD[current_i,:])
                             normvcorr = norm(adj.phS.vcorrD[current_i,:])
                             print("$(@sprintf("norm(uS) %.6e", normu))\t$(@sprintf("norm(vS) %.6e", normv))\t$(@sprintf("norm(pS) %.6e", normp))\t$(@sprintf("norm(ucorrS) %.6e", normucorr))\t$(@sprintf("norm(vcorrS) %.6e", normvcorr))\t$(@sprintf("norm(ψ) %.6e", normΨ))\n")
                         end
                         if ns_liquid_phase
-                            normu = norm(adj.phL.u[current_i,:])
-                            normv = norm(adj.phL.v[current_i,:])
+                            normu = norm(adj.phL.uD[current_i,:])
+                            normv = norm(adj.phL.vD[current_i,:])
                             normp = norm(adj.phL.pD[current_i,:])
                             normucorr = norm(adj.phL.ucorrD[current_i,:])
                             normvcorr = norm(adj.phL.vcorrD[current_i,:])
@@ -656,7 +717,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     end
     
     if levelset
-        return MIXED, SOLID, LIQUID
+        return MIXED, SOLID, LIQUID, AuL, AϕL
     else
         return MIXED
     end

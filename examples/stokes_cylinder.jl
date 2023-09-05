@@ -28,35 +28,30 @@ num = Numerical(case = "Cylinder",
     y = y,
     max_iterations = 100,
     R = 0.5,
-    u_inf = 1,
+    u_inf = 1.0,
     ϵ = 0.02,
     subdomains = 2,
     overlaps = 1
 )
 
 gp, gu, gv = init_meshes(num)
-opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd = init_fields(num, gp, gu, gv)
+op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
-@time MIXED, SOLID, LIQUID = run_forward(num, gp, gu, gv,
-# @profview MIXED, SOLID, LIQUID = run_forward(num, gp, gu, gv,
-    opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL,
-    phS, phL, fwd,
+@time MIXED, SOLID, LIQUID = run_forward(
+    num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
     BC_uL = Boundaries(
-        left = Boundary(t = dir, f = dirichlet, val = num.u_inf),
-        bottom = Boundary(t = dir, f = dirichlet, val = num.u_inf),
-        top = Boundary(t = dir, f = dirichlet, val = num.u_inf)
+        left = Dirichlet(val = num.u_inf),
+        bottom = Dirichlet(val = num.u_inf),
+        top = Dirichlet(val = num.u_inf)
     ),
     BC_vL = Boundaries(
-        left = Boundary(t = dir, f = dirichlet, val = num.v_inf),
-        bottom = Boundary(t = dir, f = dirichlet, val = num.v_inf),
-        top = Boundary(t = dir, f = dirichlet, val = num.v_inf)
+        left = Dirichlet(val = num.v_inf),
+        bottom = Dirichlet(val = num.v_inf),
+        top = Dirichlet(val = num.v_inf)
     ),
     BC_pL = Boundaries(
-            right = Boundary(t = dir, f = dirichlet, val = 0.0),
+            right = Dirichlet(),
             ),
-    stefan = false,
-    advection = false,
-    heat = false,
     navier_stokes = true,
     ns_advection = false,
     ns_solid_phase = false,

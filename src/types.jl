@@ -4,48 +4,49 @@ abstract type MutatingFields end
 
 abstract type AbstractOptimizer end
 
-@with_kw struct Numerical <: NumericalParameters
-    CFL::Float64 = 0.5
-    Re::Float64 = 1.0
-    TEND::Float64 = 0.0
-    x::Vector{Float64} = [-0.5 - 1/127 / 2 + i * 1/127 for i = 0:128]
-    y::Vector{Float64} = [-0.5 - 1/127 / 2 + i * 1/127 for i = 0:128]
-    L0::Float64 = max(x[end]-x[1], y[end]-y[1])
-    Δ::Float64 = min(diff(x)..., diff(y)...)
-    shift::Float64 = 0.0
-    shifted::Float64 = shift*Δ
-    τ::Float64 = min(CFL*Δ^2*Re, CFL*Δ)
-    max_iterations::Int = TEND÷τ
-    current_i::Int = 1
-    save_every::Int = 1
-    reinit_every::Int = 1
-    nb_reinit::Int = length(x)÷8
-    ϵ::Float64 = 0.00
-    NB::Int64 = nb_reinit÷2
-    T_inf::Float64 = 0.0
-    u_inf::Float64 = 1.0
-    v_inf::Float64 = 0.0
-    θd::Float64 = 0.0
-    ϵ_κ::Float64 = 0.0
-    ϵ_V::Float64 = 0.0
-    σ::Float64 = 1.0
+@with_kw struct Numerical{T <: Real, D <: Integer} <: NumericalParameters
+    CFL::T = 0.5
+    Re::T = 1.0
+    TEND::T = 0.0
+    x::Union{Vector{T},LinRange{T,D}} = [-0.5 - 1/127 / 2 + i * 1/127 for i = 0:128]
+    y::Union{Vector{T},LinRange{T,D}} = [-0.5 - 1/127 / 2 + i * 1/127 for i = 0:128]
+    L0::T = max(x[end]-x[1], y[end]-y[1])
+    Δ::T = min(diff(x)..., diff(y)...)
+    shift::T = 0.0
+    shifted::T = shift*Δ
+    τ::T = min(CFL*Δ^2*Re, CFL*Δ)
+    max_iterations::D = TEND÷τ
+    current_i::D = 1
+    save_every::D = 1
+    reinit_every::D = 1
+    nb_reinit::D = length(x)÷8
+    ϵ::T = 0.00
+    NB::D = nb_reinit÷2
+    T_inf::T = 0.0
+    u_inf::T = 1.0
+    v_inf::T = 0.0
+    θd::T = 0.0
+    ϵ_κ::T = 0.0
+    ϵ_V::T = 0.0
+    σ::T = 0.0
     case::String = "notmycase"
     cases::String = "Planar, Sphere, Cylinder, Ellipse, Crystal, Mullins, Nothing, Airfoil, Jet, Drop"
-    A::Float64 = 0.05
-    N::Int64 = 2
-    R::Float64 = 0.5
-    m::Int64 = 4
-    θ₀::Float64 = pi/4
-    g::Float64 = 0.0
-    β::Float64 = 0.0
-    x_airfoil::Array{Float64} = [0.0]
-    y_airfoil::Array{Float64} = [0.0]
+    A::T = 0.05
+    N::D = 2
+    R::T = 0.5
+    m::D = 4
+    θ₀::T = pi/4
+    g::T = 0.0
+    β::T = 0.0
+    θe::T = pi/2
+    x_airfoil::Array{T} = [0.0]
+    y_airfoil::Array{T} = [0.0]
     aniso::Bool = false
-    subdomains::Int64 = 2
-    overlaps::Int64 = 1
+    subdomains::D = 2
+    overlaps::D = 1
 end
 
-@with_kw mutable struct Indices{T <: Int64} <: NumericalParameters
+@with_kw mutable struct Indices{T <: Integer} <: NumericalParameters
     all_indices::Array{CartesianIndex{2},2}
     inside::CartesianIndices{2, Tuple{OffsetArrays.IdOffsetRange{T, Base.OneTo{T}}, OffsetArrays.IdOffsetRange{T, Base.OneTo{T}}}}
     periodic_x::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
@@ -60,6 +61,7 @@ end
     LIQUID_ext::Vector{CartesianIndex{2}}
     SOLID::Vector{CartesianIndex{2}}
     SOLID_ext::Vector{CartesianIndex{2}}
+    cl::Vector{CartesianIndex{2}}
 end
 
 struct Point{T <: Number}
@@ -72,7 +74,7 @@ struct Line{T <: Number}
     p2::Point{T}
 end
 
-mutable struct Gradient{T <: Float64}
+mutable struct Gradient{T <: Real}
     flag::Bool
     angle::T
     mid_point::Point{T}
@@ -83,7 +85,7 @@ mutable struct Gradient{T <: Float64}
     pos::Point{T}
 end
 
-mutable struct GeometricInfo{T} <: MutatingFields
+mutable struct GeometricInfo{T <: Real} <: MutatingFields
     cap::Array{T,3}
     dcap::Array{T,3}
     projection::Array{Gradient{T},2}
@@ -124,43 +126,56 @@ mutable struct Mesh{G,T,N} <: Grid where {G<:Grid}
     pou::DomainDecomposedVector{T,3,DomainDecomposition{TS,3,D,A,O,W},A2} where {TS,D,A,O,W,A2}
 end
 
-mutable struct OperatorsConvection{T <: Float64} <: MutatingFields
+mutable struct OperatorsConvection{T <: Real, D <: Integer} <: MutatingFields
     CUTCT::Array{T,1}
     CUTCu::Array{T,1}
     CUTCv::Array{T,1}
-    CT::SparseMatrixCSC{T,Int64}
-    Cu::SparseMatrixCSC{T,Int64}
-    Cv::SparseMatrixCSC{T,Int64}
-    E11::SparseMatrixCSC{T,Int64}
-    E12_x::SparseMatrixCSC{T,Int64}
-    E12_y::SparseMatrixCSC{T,Int64}
-    E22::SparseMatrixCSC{T,Int64}
+    CT::SparseMatrixCSC{T,D}
+    Cu::SparseMatrixCSC{T,D}
+    Cv::SparseMatrixCSC{T,D}
+    E11::SparseMatrixCSC{T,D}
+    E12_x::SparseMatrixCSC{T,D}
+    E12_y::SparseMatrixCSC{T,D}
+    E22::SparseMatrixCSC{T,D}
 end
 
-mutable struct Operators{T <: Float64} <: MutatingFields
-    AxT::SparseMatrixCSC{T,Int64}
-    AyT::SparseMatrixCSC{T,Int64}
-    Bx::SparseMatrixCSC{T,Int64}
-    By::SparseMatrixCSC{T,Int64}
-    BxT::SparseMatrixCSC{T,Int64}
-    ByT::SparseMatrixCSC{T,Int64}
-    Hx::SparseMatrixCSC{T,Int64}
-    Hy::SparseMatrixCSC{T,Int64}
-    HxT::SparseMatrixCSC{T,Int64}
-    HyT::SparseMatrixCSC{T,Int64}
-    tmp_x::SparseMatrixCSC{T,Int64}
-    tmp_y::SparseMatrixCSC{T,Int64}
+mutable struct Operators{T <: Real, D <: Integer} <: MutatingFields
+    AxT::SparseMatrixCSC{T,D}
+    AyT::SparseMatrixCSC{T,D}
+    Bx::SparseMatrixCSC{T,D}
+    By::SparseMatrixCSC{T,D}
+    BxT::SparseMatrixCSC{T,D}
+    ByT::SparseMatrixCSC{T,D}
+    Hx::SparseMatrixCSC{T,D}
+    Hy::SparseMatrixCSC{T,D}
+    HxT::SparseMatrixCSC{T,D}
+    HyT::SparseMatrixCSC{T,D}
+    tmp_x::SparseMatrixCSC{T,D}
+    tmp_y::SparseMatrixCSC{T,D}
     M::Diagonal{T,Vector{T}}
     iMx::Diagonal{T,Vector{T}}
     iMy::Diagonal{T,Vector{T}}
     χ::Diagonal{T,Vector{T}}
-    Rx::SparseMatrixCSC{T,Int64}
-    Ry::SparseMatrixCSC{T,Int64}
-    Gx::SparseMatrixCSC{T,Int64}
-    Gy::SparseMatrixCSC{T,Int64}
+    Rx::SparseMatrixCSC{T,D}
+    Ry::SparseMatrixCSC{T,D}
+    Gx::SparseMatrixCSC{T,D}
+    Gy::SparseMatrixCSC{T,D}
 end
 
-mutable struct Phase{T <: Float64} <: MutatingFields
+struct DiscreteOperators{T <: Real, D <: Integer}
+    opS::OperatorsConvection{T,D}
+    opL::OperatorsConvection{T,D}
+    opC_TS::Operators{T,D}
+    opC_TL::Operators{T,D}
+    opC_pS::Operators{T,D}
+    opC_pL::Operators{T,D}
+    opC_uS::Operators{T,D}
+    opC_uL::Operators{T,D}
+    opC_vS::Operators{T,D}
+    opC_vL::Operators{T,D}
+end
+
+mutable struct Phase{T <: Real} <: MutatingFields
     T::Array{T,2}
     p::Array{T,2}
     ϕ::Array{T,2}
@@ -183,7 +198,7 @@ mutable struct Phase{T <: Float64} <: MutatingFields
     vcorrD::Array{T,1}
 end
 
-mutable struct Forward{T <: Float64} <: MutatingFields
+mutable struct Forward{T <: Real} <: MutatingFields
     T::Array{T,3}
     u::Array{T,3}
     ux::Array{T,3}
@@ -196,7 +211,7 @@ mutable struct Forward{T <: Float64} <: MutatingFields
     Cl::Array{T,1}
 end
 
-mutable struct ForwardPhase{T <: Float64} <: MutatingFields
+mutable struct ForwardPhase{T <: Real} <: MutatingFields
     T::Array{T,3}
     p::Array{T,3}
     ϕ::Array{T,3}
@@ -210,7 +225,7 @@ mutable struct ForwardPhase{T <: Float64} <: MutatingFields
     vcorrD::Array{T,2}
 end
 
-mutable struct Desired{T <: Float64} <: AbstractOptimizer
+mutable struct Desired{T <: Real} <: AbstractOptimizer
     x_desired::Vector{T}
     u::Matrix{T}
     usave::Array{T, 3}
@@ -218,7 +233,7 @@ mutable struct Desired{T <: Float64} <: AbstractOptimizer
     TS::Matrix{T}
 end
 
-mutable struct Optim_parameters{T <: Float64, N <: Int64} <: AbstractOptimizer
+mutable struct Optim_parameters{T <: Real, N <: Integer} <: AbstractOptimizer
     nprobes::N
     ind::Vector{N}
     bc_indices::Vector{CartesianIndex{2}}
@@ -229,7 +244,7 @@ mutable struct Optim_parameters{T <: Float64, N <: Int64} <: AbstractOptimizer
     usave::Vector{Array{T, 3}}
 end
 
-mutable struct my_Adjoint{T <: Float64} <: MutatingFields
+mutable struct my_Adjoint{T <: Real} <: MutatingFields
     iso::Array{T, 2}
     u::Array{T,2}
     TS::Array{T,2}
@@ -240,70 +255,135 @@ mutable struct my_Adjoint{T <: Float64} <: MutatingFields
     κ::Array{T, 2}
 end
 
-mutable struct adjoint_phase{T <: Float64} <: MutatingFields
+mutable struct adjoint_phase{T <: Real} <: MutatingFields
     TD::Array{T,2}
+    ϕD::Array{T,2}
     pD::Array{T,2}
-    u::Array{T,2}
-    v::Array{T,2}
+    uD::Array{T,2}
+    vD::Array{T,2}
     ucorrD::Array{T,2}
     vcorrD::Array{T,2}
 end
 
-mutable struct adjoint_fields{T <: Float64} <: MutatingFields
+mutable struct adjoint_fields{T <: Real} <: MutatingFields
     u::Array{T,2}
     phS::adjoint_phase{T}
     phL::adjoint_phase{T}
 end
 
-mutable struct adjoint_derivatives{T <: Float64} <: MutatingFields
-    RheatS_ls::SparseMatrixCSC{T,Int64} # Derivative of solid phase heat eq. wrt. levelset
-    RheatL_ls::SparseMatrixCSC{T,Int64} # Derivative of liquid phase heat eq. wrt. levelset
-    RlsS_ls::SparseMatrixCSC{T,Int64} # Derivative of Stefan levelset advection eq. wrt. levelset
-    RlsS_TS::SparseMatrixCSC{T,Int64} # Derivative of Stefan levelset advection eq. wrt. solid temperature 
-    RlsS_TL::SparseMatrixCSC{T,Int64} # Derivative of Stefan levelset advection eq. wrt. liquid temperature
-    RucorrS_ls0::SparseMatrixCSC{T,Int64} # Derivative of solid phase prediction step in x wrt. levelset at prev. it.
-    RucorrS_ls1::SparseMatrixCSC{T,Int64} # Derivative of solid phase prediction step in x wrt. levelset
-    RucorrL_ls0::SparseMatrixCSC{T,Int64} # Derivative of liquid phase prediction step in x wrt. levelset at prev. it.
-    RucorrL_ls1::SparseMatrixCSC{T,Int64} # Derivative of liquid phase prediction step in x wrt. levelset
-    RvcorrS_ls0::SparseMatrixCSC{T,Int64} # Derivative of solid phase prediction step in y wrt. levelset at prev. it.
-    RvcorrS_ls1::SparseMatrixCSC{T,Int64} # Derivative of solid phase prediction step in y wrt. levelset
-    RvcorrL_ls0::SparseMatrixCSC{T,Int64} # Derivative of liquid phase prediction step in y wrt. levelset at prev. it.
-    RvcorrL_ls1::SparseMatrixCSC{T,Int64} # Derivative of liquid phase prediction step in y wrt. levelset
-    RpS_ls::SparseMatrixCSC{T,Int64} # Derivative of solid phase Poisson eq. wrt. levelset
-    RpL_ls::SparseMatrixCSC{T,Int64} # Derivative of liquid phase Poisson eq. wrt. levelset
-    RuS_ls::SparseMatrixCSC{T,Int64} # Derivative of solid phase projection step in x wrt. levelset
-    RuL_ls::SparseMatrixCSC{T,Int64} # Derivative of liquid phase projection step in x wrt. levelset
-    RvS_ls::SparseMatrixCSC{T,Int64} # Derivative of solid phase projection step in y wrt. levelset
-    RvL_ls::SparseMatrixCSC{T,Int64} # Derivative of liquid phase projection step in y wrt. levelset
-    RlsFS_ls::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. levelset
-    RlsFS_ucorrS::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. solid horizontal velocity 
-    RlsFS_ucorrL::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. liquid horizontal velocity 
-    RlsFS_vcorrS::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. solid vertical velocity
-    RlsFS_vcorrL::SparseMatrixCSC{T,Int64} # Derivative of Free Surface levelset advection eq. wrt. liquid vertical velocity
+mutable struct adjoint_derivatives{T <: Real, D <: Integer} <: MutatingFields
+    RheatS_ls::SparseMatrixCSC{T,D} # Derivative of solid phase heat eq. wrt. levelset
+    RheatL_ls::SparseMatrixCSC{T,D} # Derivative of liquid phase heat eq. wrt. levelset
+    RlsS_ls::SparseMatrixCSC{T,D} # Derivative of Stefan levelset advection eq. wrt. levelset
+    RlsS_TS::SparseMatrixCSC{T,D} # Derivative of Stefan levelset advection eq. wrt. solid temperature 
+    RlsS_TL::SparseMatrixCSC{T,D} # Derivative of Stefan levelset advection eq. wrt. liquid temperature
+    RucorrS_ls0::SparseMatrixCSC{T,D} # Derivative of solid phase prediction step in x wrt. levelset at prev. it.
+    RucorrS_ls1::SparseMatrixCSC{T,D} # Derivative of solid phase prediction step in x wrt. levelset
+    RucorrL_ls0::SparseMatrixCSC{T,D} # Derivative of liquid phase prediction step in x wrt. levelset at prev. it.
+    RucorrL_ls1::SparseMatrixCSC{T,D} # Derivative of liquid phase prediction step in x wrt. levelset
+    RvcorrS_ls0::SparseMatrixCSC{T,D} # Derivative of solid phase prediction step in y wrt. levelset at prev. it.
+    RvcorrS_ls1::SparseMatrixCSC{T,D} # Derivative of solid phase prediction step in y wrt. levelset
+    RvcorrL_ls0::SparseMatrixCSC{T,D} # Derivative of liquid phase prediction step in y wrt. levelset at prev. it.
+    RvcorrL_ls1::SparseMatrixCSC{T,D} # Derivative of liquid phase prediction step in y wrt. levelset
+    RpS_ls::SparseMatrixCSC{T,D} # Derivative of solid phase Poisson eq. wrt. levelset
+    RpL_ls::SparseMatrixCSC{T,D} # Derivative of liquid phase Poisson eq. wrt. levelset
+    RuS_ls::SparseMatrixCSC{T,D} # Derivative of solid phase projection step in x wrt. levelset
+    RuL_ls::SparseMatrixCSC{T,D} # Derivative of liquid phase projection step in x wrt. levelset
+    RvS_ls::SparseMatrixCSC{T,D} # Derivative of solid phase projection step in y wrt. levelset
+    RvL_ls::SparseMatrixCSC{T,D} # Derivative of liquid phase projection step in y wrt. levelset
+    RlsFS_ls::SparseMatrixCSC{T,D} # Derivative of Free Surface levelset advection eq. wrt. levelset
+    RlsFS_ucorrS::SparseMatrixCSC{T,D} # Derivative of Free Surface levelset advection eq. wrt. solid horizontal velocity 
+    RlsFS_ucorrL::SparseMatrixCSC{T,D} # Derivative of Free Surface levelset advection eq. wrt. liquid horizontal velocity 
+    RlsFS_vcorrS::SparseMatrixCSC{T,D} # Derivative of Free Surface levelset advection eq. wrt. solid vertical velocity
+    RlsFS_vcorrL::SparseMatrixCSC{T,D} # Derivative of Free Surface levelset advection eq. wrt. liquid vertical velocity
 end
 
-abstract type BoundaryCondition end
+abstract type TemporalIntegration end
+struct ForwardEuler <: TemporalIntegration end
+struct CrankNicolson <: TemporalIntegration end
 
-struct Dirichlet <: BoundaryCondition end
-const dir = Dirichlet()
-struct Neumann <: BoundaryCondition end
-const neu = Neumann()
-struct Robin <: BoundaryCondition end
-const rob = Robin()
-struct Periodic <: BoundaryCondition end
-const per = Periodic()
+abstract type BoundaryCondition{L,T,N} end
 
-@with_kw mutable struct Boundary{BC, L, T, N} <: NumericalParameters
-   t::BC = neu
+@with_kw mutable struct Neumann{L,T,N} <: BoundaryCondition{L,T,N}
    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
    f::Function = neumann
    val::N = 0.0
    λ::T = 0.0
 end
 
+@with_kw mutable struct Dirichlet{L,T,N} <: BoundaryCondition{L,T,N}
+    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
+    f::Function = dirichlet
+    val::N = 0.0
+    λ::T = 0.0
+end
+
+@with_kw mutable struct Periodic{L,T,N} <: BoundaryCondition{L,T,N}
+    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
+    f::Function = periodic
+    val::N = 0.0
+    λ::T = 0.0
+end
+
+@with_kw mutable struct Robin{L,T,N} <: BoundaryCondition{L,T,N}
+    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
+    f::Function = robin
+    val::N = 0.0
+    λ::T = 0.0
+end
+
+"""
+    Navier{L,T,N} <: BoundaryCondition{L,T,N}
+
+Navier boundary condition applied at the contact lines. Elsewhere, Dirichlet is
+applied. The boundary condition is given by:
+
+``u - \\lambda \\dfrac{\\partial u}{\\partial n} = U``
+"""
+@with_kw mutable struct Navier{L,T,N} <: BoundaryCondition{L,T,N}
+    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
+    f::Function = navier
+    val::N = 0.0
+    λ::T = 0.0
+end
+
+"""
+    Navier_cl{L,T,N} <: BoundaryCondition{L,T,N}
+
+Navier boundary condition applied at the contact lines. Elsewhere, Dirichlet is
+applied. The boundary condition is given by:
+
+``u - \\lambda \\dfrac{\\partial u}{\\partial n} = U``
+"""
+@with_kw mutable struct Navier_cl{L,T,N} <: BoundaryCondition{L,T,N}
+    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
+    f::Function = navier
+    val::N = 0.0
+    λ::T = 0.0
+end
+
+"""
+    GNBC{L,T,N} <: BoundaryCondition{L,T,N}
+
+Generalized Navier boundary condition. It is only applied at the contact lines. Elsewhere,
+Dirichlet is applied. The boundary condition is given by:
+
+``u - \\lambda \\dfrac{\\partial u}{\\partial n} = U f ( x / \\epsilon ) \\sigma / \\mu ( \\cos \\theta _ d - \\cos \\theta _ e)``
+"""
+@with_kw mutable struct GNBC{L,T,N} <: BoundaryCondition{L,T,N}
+    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
+    f::Function = gnbc
+    val::N = 0.0
+    λ::T = 0.0
+    ϵ::T = 1.0
+    σ::T = 1.0
+    μ::T = 1.0
+    θe::T = π / 2
+end
+
 @with_kw mutable struct Boundaries <: NumericalParameters
-    left::Boundary = Boundary()
-    right::Boundary = Boundary()
-    bottom::Boundary = Boundary()
-    top::Boundary = Boundary()
+    left::BoundaryCondition = Neumann()
+    right::BoundaryCondition = Neumann()
+    bottom::BoundaryCondition = Neumann()
+    top::BoundaryCondition = Neumann()
 end

@@ -39,6 +39,8 @@ function update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y
     grid_v.geoS.emptied .= false
 
     get_curvature(num, grid, u, κ, grid.ind.MIXED, periodic_x, periodic_y)
+    get_curvature(num, grid_u, grid_u.u, grid_u.κ, grid_u.ind.MIXED, periodic_x, periodic_y)
+    get_curvature(num, grid_v, grid_v.u, grid_v.κ, grid_v.ind.MIXED, periodic_x, periodic_y)
     postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, num.ϵ)
 
     _MIXED_L_ext = intersect(findall(grid.geoL.emptied), grid.ind.MIXED_ext)
@@ -46,6 +48,10 @@ function update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y
     _MIXED_ext = vcat(_MIXED_L_ext, _MIXED_S_ext)
     indices_ext = vcat(grid.ind.SOLID_ext, _MIXED_ext, grid.ind.LIQUID_ext)
     field_extension!(grid, u, κ, indices_ext, num.NB, periodic_x, periodic_y)
+
+    locate_contact_line!(grid)
+    locate_contact_line!(grid_u)
+    locate_contact_line!(grid_v)
 
     return NB_indices
 end
@@ -87,10 +93,12 @@ function update_free_surface_velocity(num, grid_u, grid_v, uD, vD, periodic_x, p
 end
 
 function adjoint_projection_fs(num, grid, grid_u, grid_v,
-    adj, adj_ph, RlsFS_ucorr, RlsFS_vcorr,
+    J_u, J_v, adj, adj_ph, ph,
+    RlsFS_ucorr, RlsFS_vcorr,
     Au, Bu, Av, Bv, Aϕ,
-    opC_p, opC_u, opC_v, BC_p, current_i, last_it,
-    periodic_x, periodic_y)
+    opC_p, opC_u, opC_v, BC_p,
+    current_i, last_it, periodic_x, periodic_y,
+    ns_advection, free_surface)
     @unpack Re, τ = num
     @unpack nx, ny = grid
 
@@ -101,15 +109,25 @@ function adjoint_projection_fs(num, grid, grid_u, grid_v,
     _a1_p = zeros(grid)
     _b0_p = ones(grid)
     _b1_p = zeros(grid)
-    set_borders!(grid, a0_p, _a1_p, _b0_p, _b1_p, BC_p)
+    set_borders!(grid, a0_p, _a1_p, _b0_p, _b1_p, BC_p, periodic_x, periodic_y)
     b0_p = Diagonal(vec(_b0_p))
 
     # Adjoint projection step
-    @views adj_ph.u[current_i,:] .= 0
-    @views adj_ph.v[current_i,:] .= 0
+    @views adj_ph.uD[current_i,:] .= J_u(ph.u, current_i, grid_u)
+    @views adj_ph.vD[current_i,:] .= J_v(ph.v, current_i, grid_v)
     if !last_it
-        adj_ph.u[current_i,:] .+= veci(transpose(Bu) * adj_ph.ucorrD[current_i+1,:], grid_u, 1)
-        adj_ph.v[current_i,:] .+= veci(transpose(Bv) * adj_ph.vcorrD[current_i+1,:], grid_v, 1)
+        adj_ph.uD[current_i,:] .+= transpose(Bu) * adj_ph.ucorrD[current_i+1,:]
+        adj_ph.vD[current_i,:] .+= transpose(Bv) * adj_ph.vcorrD[current_i+1,:]
+    end
+
+    # Adjoint pressure update step
+    if !free_surface && !last_it
+        GxT = τ .* transpose([opC_u.AxT * opC_u.Rx opC_u.Gx])
+        GyT = τ .* transpose([opC_v.AyT * opC_u.Ry opC_v.Gy])
+
+        @views adj_ph.pD[current_i,:] .+= adj_ph.pD[current_i+1,:]
+        adj_ph.pD[current_i,:] .-= GxT * veci(adj_ph.ucorrD[current_i+1,:],grid_u,1)
+        adj_ph.pD[current_i,:] .-= GyT * veci(adj_ph.vcorrD[current_i+1,:],grid_v,1)
     end
 
     # Adjoint Poisson equation
@@ -118,16 +136,18 @@ function adjoint_projection_fs(num, grid, grid_u, grid_v,
     GxT = τ .* transpose([iMu * opC_u.AxT * opC_u.Rx iMu * opC_u.Gx])
     GyT = τ .* transpose([iMv * opC_v.AyT * opC_u.Ry iMv * opC_v.Gy])
 
-    rhs_ϕ = zeros(2*ny*nx)
-    @views rhs_ϕ .-= GxT * adj_ph.u[current_i,:] .+ GyT * adj_ph.v[current_i,:]
+    rhs_ϕ = f2zeros(grid)
+    @views rhs_ϕ .+= adj_ph.pD[current_i,:]
+    @views rhs_ϕ .-= GxT * veci(adj_ph.uD[current_i,:],grid_u,1) .+ GyT * veci(adj_ph.vD[current_i,:],grid_v,1)
 
     blocks = DDM.decompose(transpose(Aϕ), grid.domdec, grid.domdec)
-    @views @mytime _, ch = bicgstabl!(adj_ph.pD[current_i,:], transpose(Aϕ), rhs_ϕ, Pl=ras(blocks,grid.pou), log=true)
-    println(ch)
+    # @views @mytime _, ch = bicgstabl!(adj_ph.ϕD[current_i,:], transpose(Aϕ), rhs_ϕ, Pl=ras(blocks,grid.pou), log=true)
+    adj_ph.ϕD[current_i,:] .= transpose(Aϕ) \ rhs_ϕ
+    # println(ch)
 
     # Adjoint prediction step
-    Du = transpose(iτ .* [opC_p.AxT opC_p.Gx])
-    Dv = transpose(iτ .* [opC_p.AyT opC_p.Gy])
+    Du = iτ .* transpose([opC_p.AxT opC_p.Gx])
+    Dv = iτ .* transpose([opC_p.AyT opC_p.Gy])
 
     # Du and Dv have to be modified updated into an equivalent
     # matrix for the adjoint system when periodic BCs are imposed.
@@ -154,33 +174,39 @@ function adjoint_projection_fs(num, grid, grid_u, grid_v,
         end
     end
 
-    Smat = strain_rate(opC_u, opC_v)
-    Su = transpose(iRe .* b0_p * [Smat[1,1] Smat[1,2]])
-    Sv = transpose(iRe .* b0_p * [Smat[2,1] Smat[2,2]])
-
-    rhs_u = zeros(2*grid_u.ny*grid_u.nx)
-    veci(rhs_u,grid_u,1) .+= adj_ph.u[current_i,:]
+    rhs_u = f2zeros(grid_u)
+    rhs_u .+= adj_ph.uD[current_i,:]
     rhs_u .+= Du * veci(adj_ph.pD[current_i,:],grid,1)
-    rhs_u .+= Su * veci(adj_ph.pD[current_i,:],grid,2)
-    if !last_it
-        @views rhs_u .-= transpose(RlsFS_ucorr) * adj.u[current_i+1,:]
-    end
-    
-    rhs_v = zeros(2*grid_v.ny*grid_v.nx)
-    veci(rhs_v,grid_v,1) .+= adj_ph.v[current_i,:]
+
+    rhs_v = f2zeros(grid_v)
+    rhs_v .+= adj_ph.vD[current_i,:]
     rhs_v .+= Dv * veci(adj_ph.pD[current_i,:],grid,1)
-    rhs_v .+= Sv * veci(adj_ph.pD[current_i,:],grid,2)
-    if !last_it
-        @views rhs_v .-= transpose(RlsFS_vcorr) * adj.u[current_i+1,:]
+
+    if free_surface
+        Smat = strain_rate(opC_u, opC_v)
+        Su = transpose(iRe .* b0_p * [Smat[1,1] Smat[1,2]])
+        Sv = transpose(iRe .* b0_p * [Smat[2,1] Smat[2,2]])
+
+        rhs_u .+= Su * veci(adj_ph.pD[current_i,:],grid,2)
+        if !last_it
+            @views rhs_u .-= transpose(RlsFS_ucorr) * adj.u[current_i+1,:]
+        end
+        
+        rhs_v .+= Sv * veci(adj_ph.pD[current_i,:],grid,2)
+        if !last_it
+            @views rhs_v .-= transpose(RlsFS_vcorr) * adj.u[current_i+1,:]
+        end
     end
 
     blocks = DDM.decompose(transpose(Au), grid_u.domdec, grid_u.domdec)
-    @views @mytime _, ch = bicgstabl!(adj_ph.ucorrD[current_i,:], transpose(Au), rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
-    println(ch)
+    # @views @mytime _, ch = bicgstabl!(adj_ph.ucorrD[current_i,:], transpose(Au), rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
+    adj_ph.ucorrD[current_i,:] .= transpose(Au) \ rhs_u
+    # println(ch)
 
     blocks = DDM.decompose(transpose(Av), grid_v.domdec, grid_v.domdec)
-    @views @mytime _, ch = bicgstabl!(adj_ph.vcorrD[current_i,:], transpose(Av), rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
-    println(ch)
+    # @views @mytime _, ch = bicgstabl!(adj_ph.vcorrD[current_i,:], transpose(Av), rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
+    adj_ph.vcorrD[current_i,:] .= transpose(Av) \ rhs_v
+    # println(ch)
 
     return nothing
 end

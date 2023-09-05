@@ -2,13 +2,10 @@ using Revise
 using Flower
 using Peaks
 
-BLAS.set_num_threads(1)
-
-fontsize_theme = Theme(fontsize = 60)
+fontsize_theme = Theme(fonts=(;regular="CMU Serif"), fontsize = 30)
 set_theme!(fontsize_theme)
 
 prefix = "/Users/alex/Documents/PhD/Cutcell/New_ops/navier-stokes/cylinder/stretching/grid3/"
-
 
 L0 = 10.
 n = 128
@@ -61,30 +58,27 @@ num = Numerical(case = "Cylinder",
     ϵ = 0.05)
 
 gp, gu, gv = init_meshes(num)
-opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
+op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 fgrid = plot_grid(gp);
 lim = 0.75
 fgrid2 = plot_grid(gp; limitsx = (-lim, lim), limitsy = (-lim, lim));
 
 # Makie.save(prefix*"grid_close_G1.pdf", fgrid2)
 
-@time MIXED, SOLID, LIQUID = run_forward(num, gp, gu, gv,
-    opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL,
-    phS, phL, fwd, fwdS, fwdL,
+@time MIXED, SOLID, LIQUID = run_forward(
+    num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
     BC_uL = Boundaries(
-        left = Boundary(t = dir, f = dirichlet, val = num.u_inf),
+        left = Dirichlet(val = num.u_inf),
     ),
     BC_vL = Boundaries(
-        left = Boundary(t = dir, f = dirichlet, val = 0.0),
+        left = Dirichlet(),
     ),
     BC_pL = Boundaries(
-        bottom = Boundary(t = dir, f = dirichlet, val = 0.0),
-        right = Boundary(t = dir, f = dirichlet, val = 0.0),
-        top = Boundary(t = dir, f = dirichlet, val = 0.0),
+        bottom = Dirichlet(),
+        right =Dirichlet(),
+        top = Dirichlet(),
     ),
-    stefan = false,
-    advection = false,
-    heat = false,
+    time_scheme = CN,
     navier_stokes = true,
     ns_advection = true,
     ns_solid_phase = false,
@@ -100,29 +94,29 @@ fgrid2 = plot_grid(gp; limitsx = (-lim, lim), limitsy = (-lim, lim));
 # make_video(gp, fwd.u, fwdL.p; title_prefix="p_field",
 #         title_suffix="", framerate=240)
 
-# fu = Figure(resolution = (1600, 1000))
-# colsize!(fu.layout, 1, Aspect(1, 1.0))
-# ax = Axis(fu[1,1], aspect = DataAspect())
-# hmap = heatmap!(gu.x[1,:], gu.y[:,1], fwd.Uxsave[end-1,:,:]')
-# contour!(gu.x[1,:], gu.y[:,1], gu.u', levels = 0:0, color=:red, linewidth = 3);
-# resize_to_layout!(fu)
+fu = Figure(resolution = (1600, 1000))
+colsize!(fu.layout, 1, Aspect(1, 1.0))
+ax = Axis(fu[1,1], aspect = DataAspect())
+hmap = heatmap!(gu.x[1,:], gu.y[:,1], phL.u')
+contour!(gu.x[1,:], gu.y[:,1], gu.u', levels = 0:0, color=:red, linewidth = 3);
+resize_to_layout!(fu)
 
-# fv = Figure(resolution = (1600, 1000))
-# colsize!(fv.layout, 1, Aspect(1, 1.0))
-# ax = Axis(fv[1,1], aspect = DataAspect())
-# hmap = heatmap!(gv.x[1,:], gv.y[:,1], phL.v')
-# contour!(gv.x[1,:], gv.y[:,1], gv.u', levels = 0:0, color=:red, linewidth = 3);
-# resize_to_layout!(fv)
+fv = Figure(resolution = (1600, 1000))
+colsize!(fv.layout, 1, Aspect(1, 1.0))
+ax = Axis(fv[1,1], aspect = DataAspect())
+hmap = heatmap!(gv.x[1,:], gv.y[:,1], phL.v')
+contour!(gv.x[1,:], gv.y[:,1], gv.u', levels = 0:0, color=:red, linewidth = 3);
+resize_to_layout!(fv)
 
-# pavg = mean(phL.p[LIQUID].*num.τ)
-# pstd = std(phL.p[LIQUID].*num.τ)*2
+pavg = mean(phL.p[LIQUID].*num.τ)
+pstd = std(phL.p[LIQUID].*num.τ)*2
 
-# fp = Figure(resolution = (1600, 1000))
-# colsize!(fp.layout, 1, Aspect(1, 1.0))
-# ax = Axis(fp[1,1], aspect = DataAspect())
-# heatmap!(gp.x[1,:], gp.y[:,1], (phL.p.*num.τ)', colorrange=(pavg-pstd, pavg+pstd))
-# contour!(gp.x[1,:], gp.y[:,1], gp.u', levels = 0:0, color=:red, linewidth = 3);
-# resize_to_layout!(fp)
+fp = Figure(resolution = (1600, 1000))
+colsize!(fp.layout, 1, Aspect(1, 1.0))
+ax = Axis(fp[1,1], aspect = DataAspect())
+heatmap!(gp.x[1,:], gp.y[:,1], (phL.p.*num.τ)', colorrange=(pavg-pstd, pavg+pstd))
+contour!(gp.x[1,:], gp.y[:,1], gp.u', levels = 0:0, color=:red, linewidth = 3);
+resize_to_layout!(fp)
 
 # fCd = Figure(resolution = (1600, 1000))
 # colsize!(fCd.layout, 1, Aspect(1, 1.0))

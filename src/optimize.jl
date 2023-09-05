@@ -24,10 +24,11 @@ function fg!(F, G, x, des, opt, num, idx, idxu, idxv, initial_levelset, basis)
   boundary_values = basis(num.H, p.param)
 
   MIXED, SOLID, LIQUID = run_forward(num, idx, idxu, idxv, tmp, fwd,
-      BC_TL = Boundaries(top = Boundary(t = dir, f = dirichlet, val = boundary_values),
-      bottom = Boundary(t = dir, f = dirichlet, val = boundary_values[end:-1:1]),
-      right = Boundary(t = dir, f = dirichlet, val = boundary_values),
-      left = Boundary(t = dir, f = dirichlet, val = boundary_values[end:-1:1])),
+      BC_TL = Boundaries(top = Dirichlet(val = boundary_values),
+        bottom = Dirichlet(val = boundary_values[end:-1:1]),
+        right = Dirichlet(val = boundary_values),
+        left = Dirichlet(val = boundary_values[end:-1:1])
+        ),
       stefan = true,
       heat = true,
       liquid_phase = true,
@@ -72,10 +73,11 @@ function gradient_based_optimization(x_desired, x_initial, opt, num, idx, idxu, 
     boundary_values = basis(num.H, p.param)
     @show (p.param)
     @time MIXED, SOLID, LIQUID = run_forward(num, idx, idxu, idxv, tmp, fwd,
-        BC_TL = Boundaries(top = Boundary(t = dir, f = dirichlet, val = boundary_values),
-        bottom = Boundary(t = dir, f = dirichlet, val = boundary_values[end:-1:1]),
-        right = Boundary(t = dir, f = dirichlet, val = boundary_values),
-        left = Boundary(t = dir, f = dirichlet, val = boundary_values[end:-1:1])),
+        BC_TL = Boundaries(top = Dirichlet(val = boundary_values),
+            bottom = Dirichlet(val = boundary_values[end:-1:1]),
+            right = Dirichlet(val = boundary_values),
+            left = Dirichlet(val = boundary_values[end:-1:1])
+        ),
         stefan = true,
         heat = true,
         liquid_phase = true,

@@ -39,7 +39,7 @@ T1 = 1.0
 T2 = 0.0
 
 gp, gu, gv = init_meshes(num)
-opS, opL, phS, phL, fwd = init_fields(num, gp, gu, gv)
+op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
 @. gp.u = -gp.x - L0/2 + H0 + 0.0001
 
@@ -53,39 +53,41 @@ opS, opL, phS, phL, fwd = init_fields(num, gp, gu, gv)
 # end
 
 
-@time MIXED, SOLID, LIQUID = run_forward(num, gp, gu, gv,
-    opS, opL, phS, phL, fwd,
+@time MIXED, SOLID, LIQUID = run_forward(
+    num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
     periodic_y = true,
     BC_TL = Boundaries(
-        left = Boundary(t = dir, f = dirichlet, val = T1),
-        top = Boundary(t = per, f = periodic),
-        bottom = Boundary(t = per, f = periodic),
+        left = Dirichlet(val = T1),
+        top = Periodic(),
+        bottom = Periodic(),
     ),
     BC_TS = Boundaries(
-        right = Boundary(t = dir, f = dirichlet, val = T2),
-        top = Boundary(t = per, f = periodic),
-        bottom = Boundary(t = per, f = periodic),
+        right = Dirichlet(val = T2),
+        top = Periodic(),
+        bottom = Periodic(),
     ),
     BC_u = Boundaries(
-        top = Boundary(t = per, f = periodic),
-        bottom = Boundary(t = per, f = periodic),
+        top = Periodic(),
+        bottom = Periodic(),
     ),
     BC_uL = Boundaries(
-        top = Boundary(t = per, f = periodic),
-        bottom = Boundary(t = per, f = periodic),
-        left = Boundary(t = dir, f = dirichlet, val = 0.0),
-        right = Boundary(t = dir, f = dirichlet, val = 0.0),
+        top = Periodic(),
+        bottom = Periodic(),
+        left = Dirichlet(),
+        right = Dirichlet(),
     ),
     BC_vL = Boundaries(
-        top = Boundary(t = per, f = periodic),
-        bottom = Boundary(t = per, f = periodic),
-        left = Boundary(t = dir, f = dirichlet, val = 0.0),
-        right = Boundary(t = dir, f = dirichlet, val = 0.0),
+        top = Periodic(),
+        bottom = Periodic(),
+        left = Dirichlet(),
+        right = Dirichlet(),
     ),
     BC_pL = Boundaries(
-        top = Boundary(t = per, f = periodic),
-        bottom = Boundary(t = per, f = periodic),
+        top = Periodic(),
+        bottom = Periodic(),
     ),
+    time_scheme = FE,
+    
     stefan = true,
     advection = true,
 

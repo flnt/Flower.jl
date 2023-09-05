@@ -32,24 +32,24 @@ function set_bc_bnds(::Dirichlet, D, H, BC)
     Dx = copy(D)
     Dy = copy(D)
 
-    if is_neumann(BC.left.t)
+    if is_neumann(BC.left)
         @inbounds Dx[:,1] .= H[:,1] .* BC.left.val
-    elseif is_dirichlet(BC.left.t)
+    elseif is_dirichlet(BC.left)
         @inbounds Dx[:,1] .= BC.left.val
     end
-    if is_neumann(BC.bottom.t)
+    if is_neumann(BC.bottom)
         @inbounds Dy[1,:] .= H[1,:] .* BC.bottom.val 
-    elseif is_dirichlet(BC.bottom.t)
+    elseif is_dirichlet(BC.bottom)
         @inbounds Dy[1,:] .= BC.bottom.val
     end
-    if is_neumann(BC.right.t)
+    if is_neumann(BC.right)
         @inbounds Dx[:,end] .= H[:,end] .* BC.right.val 
-    elseif is_dirichlet(BC.right.t)
+    elseif is_dirichlet(BC.right)
         @inbounds Dx[:,end] .= BC.right.val
     end
-    if is_neumann(BC.top.t)
+    if is_neumann(BC.top)
         @inbounds Dy[end,:] .= H[end,:] .* BC.top.val 
-    elseif is_dirichlet(BC.top.t)
+    elseif is_dirichlet(BC.top)
         @inbounds Dy[end,:] .= BC.top.val
     end
 
@@ -170,33 +170,33 @@ function laplacian!(::Dirichlet, L, B, Dx, Dy, cap, n, BC, inside, empty, MIXED,
     @inbounds _W3 = @view cap[:,:,10]
     @inbounds _W4 = @view cap[:,:,11]
 
-    set_lapl_bnd!(dir, BC.left.t, L, _B1, _W1, _A1, n, b_left, b_right)
-    set_lapl_bnd!(dir, BC.bottom.t, L, _B2, _W2, _A2, n, b_bottom, b_top)
-    set_lapl_bnd!(dir, BC.right.t, L, _B1, _W3, _A3, n, b_right, b_left)
-    set_lapl_bnd!(dir, BC.top.t, L, _B2, _W4, _A4, n, b_top, b_bottom)
+    set_lapl_bnd!(dir, BC.left, L, _B1, _W1, _A1, n, b_left, b_right)
+    set_lapl_bnd!(dir, BC.bottom, L, _B2, _W2, _A2, n, b_bottom, b_top)
+    set_lapl_bnd!(dir, BC.right, L, _B1, _W3, _A3, n, b_right, b_left)
+    set_lapl_bnd!(dir, BC.top, L, _B2, _W4, _A4, n, b_top, b_bottom)
     
     return nothing
 end
 
 function set_bc_bnds(::Neumann, Nx, Ny, BC, dx, dy)
-    if is_neumann(BC.left.t)
+    if is_neumann(BC.left)
         @inbounds Nx[:,1] .= BC.left.val
-    elseif is_dirichlet(BC.left.t)
+    elseif is_dirichlet(BC.left)
         @inbounds Nx[:,1] .= -BC.left.val ./ dx[:,1] .* 2.0
     end
-    if is_neumann(BC.bottom.t)
+    if is_neumann(BC.bottom)
         @inbounds Ny[1,:] .= BC.bottom.val
-    elseif is_dirichlet(BC.bottom.t)
+    elseif is_dirichlet(BC.bottom)
         @inbounds Ny[1,:] .= -BC.bottom.val ./ dy[1,:] .* 2.0
     end
-    if is_neumann(BC.right.t)
+    if is_neumann(BC.right)
         @inbounds Nx[:,end] .= BC.right.val
-    elseif is_dirichlet(BC.right.t)
+    elseif is_dirichlet(BC.right)
         @inbounds Nx[:,end] .= BC.right.val ./ dx[:,end] .* 2.0
     end
-    if is_neumann(BC.top.t)
+    if is_neumann(BC.top)
         @inbounds Ny[end,:] .= BC.top.val
-    elseif is_dirichlet(BC.top.t)
+    elseif is_dirichlet(BC.top)
         @inbounds Ny[end,:] .= BC.top.val ./ dy[end,:] .* 2.0
     end
 
@@ -325,10 +325,10 @@ function laplacian!(::Neumann, L, B, Nx, Ny, HNx, HNy, cap, dx, dy, n, BC, insid
     @inbounds _W3 = @view cap[:,:,10]
     @inbounds _W4 = @view cap[:,:,11]
 
-    set_lapl_bnd!(neu, BC.left.t, L, _A1, _A3, _A1, _B1, dx, _W1, n, b_left, b_right)
-    set_lapl_bnd!(neu, BC.bottom.t, L, _A2, _A4, _A2, _B2, dy, _W2, n, b_bottom, b_top)
-    set_lapl_bnd!(neu, BC.right.t, L, _A3, _A1, _A3, _B1, dx, _W3, n, b_right, b_left)
-    set_lapl_bnd!(neu, BC.top.t, L, _A4, _A2, _A4, _B2, dy, _W4, n, b_top, b_bottom)
+    set_lapl_bnd!(neu, BC.left, L, _A1, _A3, _A1, _B1, dx, _W1, n, b_left, b_right)
+    set_lapl_bnd!(neu, BC.bottom, L, _A2, _A4, _A2, _B2, dy, _W2, n, b_bottom, b_top)
+    set_lapl_bnd!(neu, BC.right, L, _A3, _A1, _A3, _B1, dx, _W3, n, b_right, b_left)
+    set_lapl_bnd!(neu, BC.top, L, _A4, _A2, _A4, _B2, dy, _W4, n, b_top, b_bottom)
 
     return nothing
 end
@@ -351,10 +351,10 @@ end
 end
 
 @inline function divergence_boundaries(::Dirichlet, Ox, Oy, Dx, Dy, cap, n, BCu, BCv, b_left, b_bottom, b_right, b_top)
-    set_div_bnd!(dir, BCu.left.t, x->x, Ox, view(cap,:,:,6), view(cap,:,:,1), n, n, b_left)
-    set_div_bnd!(dir, BCv.bottom.t, x->x, Oy, view(cap,:,:,7), view(cap,:,:,2), n, n+1, b_bottom)
-    set_div_bnd!(dir, BCu.right.t, δx⁺, Ox, view(cap,:,:,3), view(cap,:,:,6), n, n, b_right)
-    set_div_bnd!(dir, BCv.top.t, δy⁺, Oy, view(cap,:,:,4), view(cap,:,:,7), n, n+1, b_top)
+    set_div_bnd!(dir, BCu.left, x->x, Ox, view(cap,:,:,6), view(cap,:,:,1), n, n, b_left)
+    set_div_bnd!(dir, BCv.bottom, x->x, Oy, view(cap,:,:,7), view(cap,:,:,2), n, n+1, b_bottom)
+    set_div_bnd!(dir, BCu.right, δx⁺, Ox, view(cap,:,:,3), view(cap,:,:,6), n, n, b_right)
+    set_div_bnd!(dir, BCv.top, δy⁺, Oy, view(cap,:,:,4), view(cap,:,:,7), n, n+1, b_top)
 end
 
 function divergence!(::Dirichlet, Ox, Oy, Bx, By, Dx, Dy, cap, n, all_indices)
@@ -385,24 +385,24 @@ function divergence!(::Dirichlet, Ox, Oy, Bx, By, Dx, Dy, cap, n, all_indices)
 end
 
 function set_bc_bnds(::Neumann, HNx, HNy, BC, dx, dy, H)
-    if is_neumann(BC.left.t)
+    if is_neumann(BC.left)
         @inbounds HNx[:,1] .= H[:,1] .* BC.left.val
-    elseif is_dirichlet(BC.left.t)
+    elseif is_dirichlet(BC.left)
         @inbounds HNx[:,1] .= BC.left.val
     end
-    if is_neumann(BC.bottom.t)
+    if is_neumann(BC.bottom)
         @inbounds HNy[1,:] .= H[1,:] .* BC.bottom.val
-    elseif is_dirichlet(BC.bottom.t)
+    elseif is_dirichlet(BC.bottom)
         @inbounds HNy[1,:] .= BC.bottom.val
     end
-    if is_neumann(BC.right.t)
+    if is_neumann(BC.right)
         @inbounds HNx[:,end] .= H[:,end] .* BC.right.val
-    elseif is_dirichlet(BC.right.t)
+    elseif is_dirichlet(BC.right)
         @inbounds HNx[:,end] .= BC.right.val
     end
-    if is_neumann(BC.top.t)
+    if is_neumann(BC.top)
         @inbounds HNy[end,:] .= H[end,:] .* BC.top.val
-    elseif is_dirichlet(BC.top.t)
+    elseif is_dirichlet(BC.top)
         @inbounds HNy[end,:] .= BC.top.val
     end
 
@@ -492,10 +492,10 @@ function gradient!(::Neumann, Ox, Oy, Bx, By, HNx, HNy, Divx, Divy, dcap, n, BC,
     @inbounds _B1 = @view dcap[:,:,6]
     @inbounds _B2 = @view dcap[:,:,7]
 
-    set_grad_bnd!(neu, BC.left.t, x->x, Ox, -_A1, _B1, _A1, n, n, b_left_u, b_right_p)
-    set_grad_bnd!(neu, BC.bottom.t, x->x, Oy, -_A2, _B2, _A2, n+1, n, b_bottom_v, b_top_p)
-    set_grad_bnd!(neu, BC.right.t, δx⁻, Ox, _A3, _A3, _B1, n, n, b_right_u, b_left_p)
-    set_grad_bnd!(neu, BC.top.t, δy⁻, Oy, _A4, _A4, _B2, n+1, n, b_top_v, b_bottom_p)
+    set_grad_bnd!(neu, BC.left, x->x, Ox, -_A1, _B1, _A1, n, n, b_left_u, b_right_p)
+    set_grad_bnd!(neu, BC.bottom, x->x, Oy, -_A2, _B2, _A2, n+1, n, b_bottom_v, b_top_p)
+    set_grad_bnd!(neu, BC.right, δx⁻, Ox, _A3, _A3, _B1, n, n, b_right_u, b_left_p)
+    set_grad_bnd!(neu, BC.top, δy⁻, Oy, _A4, _A4, _B2, n+1, n, b_top_v, b_bottom_p)
 
     return nothing
 end
@@ -519,10 +519,10 @@ end
 end
 
 @inline function divergence_boundaries(::Neumann, Ox, Oy, Dx, Dy, cap, n, BCu, BCv, b_left, b_bottom, b_right, b_top)
-    set_div_bnd!(neu, BCu.left.t, x->x, Ox, view(cap,:,:,6), view(cap,:,:,1), n, n, b_left)
-    set_div_bnd!(neu, BCv.bottom.t, x->x, Oy, view(cap,:,:,7), view(cap,:,:,2), n, n+1, b_bottom)
-    set_div_bnd!(neu, BCu.right.t, δx⁺, Ox, view(cap,:,:,3), view(cap,:,:,6), n, n, b_right)
-    set_div_bnd!(neu, BCv.top.t, δy⁺, Oy, view(cap,:,:,4), view(cap,:,:,7), n, n+1, b_top)
+    set_div_bnd!(neu, BCu.left, x->x, Ox, view(cap,:,:,6), view(cap,:,:,1), n, n, b_left)
+    set_div_bnd!(neu, BCv.bottom, x->x, Oy, view(cap,:,:,7), view(cap,:,:,2), n, n+1, b_bottom)
+    set_div_bnd!(neu, BCu.right, δx⁺, Ox, view(cap,:,:,3), view(cap,:,:,6), n, n, b_right)
+    set_div_bnd!(neu, BCv.top, δy⁺, Oy, view(cap,:,:,4), view(cap,:,:,7), n, n+1, b_top)
 end
 
 function divergence!(::Neumann, Ox, Oy, Bx, By, NHx, NHy, cap, n, all_indices)
@@ -637,10 +637,10 @@ function gradient!(::Dirichlet, Ox, Oy, Bx, By, Dx, Dy, Divx, Divy, dcap, n, BC,
     @inbounds _B1 = @view dcap[:,:,6]
     @inbounds _B2 = @view dcap[:,:,7]
 
-    set_grad_bnd!(dir, BC.left.t, x->x, Ox, -_B1, _B1, _A1, n, n, b_left_u, b_right_p)
-    set_grad_bnd!(dir, BC.bottom.t, x->x, Oy, -_B2, _B2, _A2, n+1, n, b_bottom_v, b_top_p)
-    set_grad_bnd!(dir, BC.right.t, δx⁻, Ox, _B1, _A3, _B1, n, n, b_right_u, b_left_p)
-    set_grad_bnd!(dir, BC.top.t, δy⁻, Oy, _B2, _A4, _B2, n+1, n, b_top_v, b_bottom_p)
+    set_grad_bnd!(dir, BC.left, x->x, Ox, -_B1, _B1, _A1, n, n, b_left_u, b_right_p)
+    set_grad_bnd!(dir, BC.bottom, x->x, Oy, -_B2, _B2, _A2, n+1, n, b_bottom_v, b_top_p)
+    set_grad_bnd!(dir, BC.right, δx⁻, Ox, _B1, _A3, _B1, n, n, b_right_u, b_left_p)
+    set_grad_bnd!(dir, BC.top, δy⁻, Oy, _B2, _A4, _B2, n+1, n, b_top_v, b_bottom_p)
 
     return nothing
 end
@@ -728,32 +728,32 @@ function set_bc_bnds(::Dirichlet, Du, Dv, Hu, Hv, u, v, BC_u, BC_v)
     Dx = copy(Du)
     Dy = copy(Dv)
 
-    if is_neumann(BC_u.left.t)
+    if is_neumann(BC_u.left)
         @inbounds Dx[:,1] .= u[:,1] .+ Hu[:,1] .* BC_u.left.val
-    elseif is_dirichlet(BC_u.left.t)
+    elseif is_dirichlet(BC_u.left)
         @inbounds Dx[:,1] .= BC_u.left.val
-    elseif is_periodic(BC_u.left.t)
+    elseif is_periodic(BC_u.left)
         @inbounds Dx[:,1] .= u[:,end]
     end
-    if is_neumann(BC_v.bottom.t)
+    if is_neumann(BC_v.bottom)
         @inbounds Dy[1,:] .= v[1,:] .+ Hv[1,:] .* BC_v.bottom.val 
-    elseif is_dirichlet(BC_v.bottom.t)
+    elseif is_dirichlet(BC_v.bottom)
         @inbounds Dy[1,:] .= BC_v.bottom.val
-    elseif is_periodic(BC_v.bottom.t)
+    elseif is_periodic(BC_v.bottom)
         @inbounds Dy[1,:] .= v[end,:]
     end
-    if is_neumann(BC_u.right.t)
+    if is_neumann(BC_u.right)
         @inbounds Dx[:,end] .= u[:,end] .+ Hu[:,end] .* BC_u.right.val 
-    elseif is_dirichlet(BC_u.right.t)
+    elseif is_dirichlet(BC_u.right)
         @inbounds Dx[:,end] .= BC_u.right.val
-    elseif is_periodic(BC_u.right.t)
+    elseif is_periodic(BC_u.right)
         @inbounds Dx[:,end] .= u[:,1]
     end
-    if is_neumann(BC_v.top.t)
+    if is_neumann(BC_v.top)
         @inbounds Dy[end,:] .= v[end,:] .+ Hv[end,:] .* BC_v.top.val 
-    elseif is_dirichlet(BC_v.top.t)
+    elseif is_dirichlet(BC_v.top)
         @inbounds Dy[end,:] .= BC_v.top.val
-    elseif is_periodic(BC_v.top.t)
+    elseif is_periodic(BC_v.top)
         @inbounds Dy[end,:] .= v[1,:]
     end
 
@@ -839,7 +839,7 @@ function scalar_convection!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC,
         @inbounds O[pII,pII-1] = -0.5 * A2 * v[II]
     end
 
-    if is_periodic(BC.left.t) && is_periodic(BC.right.t)
+    if is_periodic(BC.left) && is_periodic(BC.right)
         @inbounds for (II,JJ) in zip(b_right, b_left)
             pII = lexicographic(II, n)
             pJJ = lexicographic(JJ, n)
@@ -855,7 +855,7 @@ function scalar_convection!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC,
             @inbounds O[pII,pJJ] = -0.5 * A1 * u[II]
         end
     end
-    if is_periodic(BC.bottom.t) && is_periodic(BC.top.t)
+    if is_periodic(BC.bottom) && is_periodic(BC.top)
         @inbounds for (II,JJ) in zip(b_top, b_bottom)
             pII = lexicographic(II, n)
             pJJ = lexicographic(JJ, n)
@@ -879,10 +879,10 @@ function scalar_convection!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC,
     @inbounds _B1 = @view cap[:,:,6]
     @inbounds _B2 = @view cap[:,:,7]
 
-    set_sca_conv_bnd!(dir, BC.left.t, O, δx⁺, _A1, _A3, _B1, Du, n, b_left, b_right)
-    set_sca_conv_bnd!(dir, BC.bottom.t, O, δy⁺, _A2, _A4, _B2, Dv, n, b_bottom, b_top)
-    set_sca_conv_bnd!(dir, BC.right.t, O, δx⁺, _A1, _A3, _B1, Du, n, b_right, b_left)
-    set_sca_conv_bnd!(dir, BC.top.t, O, δy⁺, _A2, _A4, _B2, Dv, n, b_top, b_bottom)
+    set_sca_conv_bnd!(dir, BC.left, O, δx⁺, _A1, _A3, _B1, Du, n, b_left, b_right)
+    set_sca_conv_bnd!(dir, BC.bottom, O, δy⁺, _A2, _A4, _B2, Dv, n, b_bottom, b_top)
+    set_sca_conv_bnd!(dir, BC.right, O, δx⁺, _A1, _A3, _B1, Du, n, b_right, b_left)
+    set_sca_conv_bnd!(dir, BC.top, O, δy⁺, _A2, _A4, _B2, Dv, n, b_top, b_bottom)
 
     return nothing
 end
@@ -893,84 +893,84 @@ function set_bc_bnds(::Dirichlet, ::Union{Type{GridFCx},Type{GridFCy}}, Du, Dv, 
     Dv_x = copy(Dv)
     Dv_y = copy(Dv)
 
-    if is_neumann(BC_u.left.t)
+    if is_neumann(BC_u.left)
         @inbounds Du_x[:,1] .= u[:,1] .+ Hu[:,1] .* BC_u.left.val
         @inbounds Du_x[:,2] .= u[:,2]
-    elseif is_dirichlet(BC_u.left.t)
+    elseif is_dirichlet(BC_u.left)
         @inbounds Du_x[:,1] .= BC_u.left.val
         @inbounds Du_x[:,2] .= BC_u.left.val
-    elseif is_periodic(BC_u.left.t)
+    elseif is_periodic(BC_u.left)
         @inbounds Du_x[:,1] .= u[:,end]
         @inbounds Du_x[:,2] .= u[:,2]
     end
-    if is_neumann(BC_u.bottom.t)
+    if is_neumann(BC_u.bottom)
         @inbounds Du_y[1,:] .= u[1,:] .+ Hu[1,:] .* BC_u.bottom.val
         @inbounds Du_y[2,:] .= u[2,:]
-    elseif is_dirichlet(BC_u.bottom.t)
+    elseif is_dirichlet(BC_u.bottom)
         @inbounds Du_y[1,:] .= BC_u.bottom.val
         @inbounds Du_y[2,:] .= BC_u.bottom.val
-    elseif is_periodic(BC_u.bottom.t)
+    elseif is_periodic(BC_u.bottom)
         @inbounds Du_y[1,:] .= u[end,:]
         @inbounds Du_y[2,:] .= u[2,:]
     end
-    if is_neumann(BC_u.right.t)
+    if is_neumann(BC_u.right)
         @inbounds Du_x[:,end] .= u[:,end] .+ Hu[:,end] .* BC_u.right.val 
         @inbounds Du_x[:,end-1] .= u[:,end-1]
-    elseif is_dirichlet(BC_u.right.t)
+    elseif is_dirichlet(BC_u.right)
         @inbounds Du_x[:,end] .= BC_u.right.val
         @inbounds Du_x[:,end-1] .= BC_u.right.val
-    elseif is_periodic(BC_u.right.t)
+    elseif is_periodic(BC_u.right)
         @inbounds Du_x[:,end] .= u[:,1]
         @inbounds Du_x[:,end-1] .= u[:,end-1]
     end
-    if is_neumann(BC_u.top.t)
+    if is_neumann(BC_u.top)
         @inbounds Du_y[end,:] .= u[end,:] .+ Hu[end,:] .* BC_u.top.val
         @inbounds Du_y[end-1,:] .= u[end-1,:]
-    elseif is_dirichlet(BC_u.top.t)
+    elseif is_dirichlet(BC_u.top)
         @inbounds Du_y[end,:] .= BC_u.top.val
         @inbounds Du_y[end-1,:] .= BC_u.top.val
-    elseif is_periodic(BC_u.top.t)
+    elseif is_periodic(BC_u.top)
         @inbounds Du_y[end,:] .= u[1,:]
         @inbounds Du_y[end-1,:] .= u[end-1,:]
     end
 
-    if is_neumann(BC_v.left.t)
+    if is_neumann(BC_v.left)
         @inbounds Dv_x[:,1] .= v[:,1] .+ Hv[:,1] .* BC_v.left.val 
         @inbounds Dv_x[:,2] .= v[:,2]
-    elseif is_dirichlet(BC_v.left.t)
+    elseif is_dirichlet(BC_v.left)
         @inbounds Dv_x[:,1] .= BC_v.left.val
         @inbounds Dv_x[:,2] .= BC_v.left.val
-    elseif is_periodic(BC_v.left.t)
+    elseif is_periodic(BC_v.left)
         @inbounds Dv_x[:,1] .= v[:,end]
         @inbounds Dv_x[:,2] .= v[:,2]
     end
-    if is_neumann(BC_v.bottom.t)
+    if is_neumann(BC_v.bottom)
         @inbounds Dv_y[1,:] .= v[1,:] .+ Hv[1,:] .* BC_v.bottom.val 
         @inbounds Dv_y[2,:] .= v[2,:]
-    elseif is_dirichlet(BC_v.bottom.t)
+    elseif is_dirichlet(BC_v.bottom)
         @inbounds Dv_y[1,:] .= BC_v.bottom.val
         @inbounds Dv_y[2,:] .= BC_v.bottom.val
-    elseif is_periodic(BC_v.bottom.t)
+    elseif is_periodic(BC_v.bottom)
         @inbounds Dv_y[1,:] .= v[end,:]
         @inbounds Dv_y[2,:] .= v[2,:]
     end
-    if is_neumann(BC_v.right.t)
+    if is_neumann(BC_v.right)
         @inbounds Dv_x[:,end] .= v[:,end] .+ Hv[:,end] .* BC_v.right.val 
         @inbounds Dv_x[:,end-1] .= v[:,end-1]
-    elseif is_dirichlet(BC_v.right.t)
+    elseif is_dirichlet(BC_v.right)
         @inbounds Dv_x[:,end] .= BC_v.right.val
         @inbounds Dv_x[:,end-1] .= BC_v.right.val
-    elseif is_periodic(BC_v.right.t)
+    elseif is_periodic(BC_v.right)
         @inbounds Dv_x[:,end] .= v[:,1]
         @inbounds Dv_x[:,end-1] .= v[:,end-1]
     end
-    if is_neumann(BC_v.top.t)
+    if is_neumann(BC_v.top)
         @inbounds Dv_y[end,:] .= v[end,:] .+ Hv[end,:] .* BC_v.top.val 
         @inbounds Dv_y[end-1,:] .= v[end-1,:]
-    elseif is_dirichlet(BC_v.top.t)
+    elseif is_dirichlet(BC_v.top)
         @inbounds Dv_y[end,:] .= BC_v.top.val
         @inbounds Dv_y[end-1,:] .= BC_v.top.val
-    elseif is_periodic(BC_v.top.t)
+    elseif is_periodic(BC_v.top)
         @inbounds Dv_y[end,:] .= v[1,:]
         @inbounds Dv_y[end-1,:] .= v[end-1,:]
     end
@@ -1136,7 +1136,7 @@ function vec_convx_5!(II, O, v, cap, n, BC)
 
     Au2 = 0.5 * Avip1jm1
 
-    if is_periodic(BC.left.t)
+    if is_periodic(BC.left)
         JJ = II + CartesianIndex(0, n)
         A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
         Avim1jm1 = A2_1 * v[δx⁻(JJ)]
@@ -1157,7 +1157,7 @@ function vec_convx_6!(II, O, v, cap, n, BC)
 
     Au4 = 0.5 * Avip1jp1
 
-    if is_periodic(BC.left.t)
+    if is_periodic(BC.left)
         JJ = II + CartesianIndex(0, n)
         A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
         Avim1jp1 = A4_1 * v[δy⁺(δx⁻(JJ))]
@@ -1178,7 +1178,7 @@ function vec_convx_7!(II, O, v, cap, n, BC)
 
     Au2 = 0.5 * Avim1jm1
 
-    if is_periodic(BC.right.t)
+    if is_periodic(BC.right)
         JJ = II + CartesianIndex(0, -n)
         A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, JJ)
         Avip1jm1 = A2_2 * v[JJ]
@@ -1199,7 +1199,7 @@ function vec_convx_8!(II, O, v, cap, n, BC)
 
     Au4 = 0.5 * Avim1jp1
 
-    if is_periodic(BC.right.t)
+    if is_periodic(BC.right)
         JJ = II + CartesianIndex(0, -n)
         A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, JJ)
         Avip1jp1 = A4_2 * v[δy⁺(JJ)]
@@ -1255,7 +1255,7 @@ function vector_convection!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, Du1_x, Du1
         vec_convx_8!(II, O, v, cap, n, BC)
     end
 
-    if is_periodic(BC.left.t) && is_periodic(BC.right.t)
+    if is_periodic(BC.left) && is_periodic(BC.right)
         (Du1, Du2, Dv) = (Du1_x, Du1_x, Dv_x)
         @inbounds for (II,JJ) in zip(b_left, b_right)
             pII = lexicographic(II, n)
@@ -1307,7 +1307,7 @@ function vector_convection!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, Du1_x, Du1
             @inbounds B[pII] += -0.25 * Du2[II] * (B2_2 - A2_2) * Dv[II]
         end
     end
-    if is_periodic(BC.bottom.t) && is_periodic(BC.top.t)
+    if is_periodic(BC.bottom) && is_periodic(BC.top)
         @inbounds for (II,JJ) in zip(b_bottom[2:end-1], b_top[2:end-1])
             pII = lexicographic(II, n)
             pJJ = lexicographic(JJ, n)
@@ -1345,7 +1345,7 @@ function vector_convection!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, Du1_x, Du1
 
         Au2 = 0.5 * Avip1jm1
 
-        if is_periodic(BC.left.t)
+        if is_periodic(BC.left)
             JJ = ii + CartesianIndex(0, n)
             A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
             Avim1jm1 = A2_1 * v[δx⁻(JJ)]
@@ -1365,7 +1365,7 @@ function vector_convection!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, Du1_x, Du1
 
         Au4 = 0.5 * Avip1jp1
 
-        if is_periodic(BC.left.t)
+        if is_periodic(BC.left)
             JJ = ii + CartesianIndex(0, n)
             A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
             Avim1jp1 = A4_1 * v[δy⁺(δx⁻(JJ))]
@@ -1385,7 +1385,7 @@ function vector_convection!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, Du1_x, Du1
 
         Au2 = 0.5 * Avim1jm1
 
-        if is_periodic(BC.right.t)
+        if is_periodic(BC.right)
             JJ = ii + CartesianIndex(0, -n)
             A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, JJ)
             Avip1jm1 = A2_2 * v[JJ]
@@ -1405,7 +1405,7 @@ function vector_convection!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, Du1_x, Du1
 
         Au4 = 0.5 * Avim1jp1
 
-        if is_periodic(BC.right.t)
+        if is_periodic(BC.right)
             JJ = ii + CartesianIndex(0, -n)
             A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, JJ)
             Avip1jp1 = A4_2 * v[δy⁺(JJ)]
@@ -1552,7 +1552,7 @@ function vec_convy_5!(II, O, u, cap, n, BC)
 
     Au1 = 0.5 * Auim1jp1
 
-    if is_periodic(BC.bottom.t)
+    if is_periodic(BC.bottom)
         JJ = II + CartesianIndex(n, 0)
         A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
         Auim1jm1 = A1_1 * u[JJ]
@@ -1573,7 +1573,7 @@ function vec_convy_6!(II, O, u, cap, n, BC)
 
     Au3 = 0.5 * Auip1jp1
 
-    if is_periodic(BC.bottom.t)
+    if is_periodic(BC.bottom)
         JJ = II + CartesianIndex(n, 0)
         A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
         Auip1jm1 = A3_1 * u[δx⁺(JJ)]
@@ -1594,7 +1594,7 @@ function vec_convy_7!(II, O, u, cap, n, BC)
 
     Au1 = 0.5 * Auim1jm1
 
-    if is_periodic(BC.top.t)
+    if is_periodic(BC.top)
         JJ = II + CartesianIndex(-n, 0)
         A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, JJ)
         Auim1jp1 = A1_2 * u[JJ]
@@ -1615,7 +1615,7 @@ function vec_convy_8!(II, O, u, cap, n, BC)
 
     Au3 = 0.5 * Auip1jm1
 
-    if is_periodic(BC.top.t)
+    if is_periodic(BC.top)
         JJ = II + CartesianIndex(n, 0)
         A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, JJ)
         Auip1jp1 = A3_2 * u[δx⁺(JJ)]
@@ -1671,7 +1671,7 @@ function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y
         vec_convy_8!(II, O, u, cap, n, BC)
     end
 
-    if is_periodic(BC.bottom.t) && is_periodic(BC.top.t)
+    if is_periodic(BC.bottom) && is_periodic(BC.top)
         (Du, Dv1, Dv2) = (Du_y, Dv1_y, Dv1_y)
         @inbounds for (II, JJ) in zip(b_bottom, b_top)
             pII = lexicographic(II, n+1)
@@ -1723,7 +1723,7 @@ function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y
             @inbounds B[pII] += -0.25 * Dv2[II] * (B1_2 - A1_2) * Du[II]
         end
     end
-    if is_periodic(BC.left.t) && is_periodic(BC.right.t)
+    if is_periodic(BC.left) && is_periodic(BC.right)
         @inbounds for (II,JJ) in zip(b_left[2:end-1], b_right[2:end-1])
             pII = lexicographic(II, n+1)
             pJJ = lexicographic(JJ, n+1)
@@ -1761,7 +1761,7 @@ function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y
 
         Au1 = 0.5 * Auim1jp1
 
-        if is_periodic(BC.bottom.t)
+        if is_periodic(BC.bottom)
             JJ = ii + CartesianIndex(n, 0)
             A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
             Auim1jm1 = A1_1 * u[JJ]
@@ -1781,7 +1781,7 @@ function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y
 
         Au3 = 0.5 * Auip1jp1
 
-        if is_periodic(BC.bottom.t)
+        if is_periodic(BC.bottom)
             JJ = II + CartesianIndex(n, 0)
             A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
             Auip1jm1 = A3_1 * u[δx⁺(JJ)]
@@ -1801,7 +1801,7 @@ function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y
 
         Au1 = 0.5 * Auim1jm1
 
-        if is_periodic(BC.top.t)
+        if is_periodic(BC.top)
             JJ = II + CartesianIndex(-n, 0)
             A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, JJ)
             Auim1jp1 = A1_2 * u[JJ]
@@ -1821,7 +1821,7 @@ function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y
 
         Au3 = 0.5 * Auip1jm1
 
-        if is_periodic(BC.top.t)
+        if is_periodic(BC.top)
             JJ = II + CartesianIndex(n, 0)
             A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, JJ)
             Auip1jp1 = A3_2 * u[δx⁺(JJ)]

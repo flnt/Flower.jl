@@ -1,67 +1,110 @@
-function set_borders!(grid, a0, a1, b, BC)
-    @unpack ny, ind = grid
+function set_borders!(grid, a0, a1, b, BC, per_x, per_y)
+    @unpack nx, ny, ind = grid
+
+    if per_y
+        ind_x = 2:nx-1
+        ind_y = 1:ny
+    else
+        ind_x = 1:nx
+        ind_y = 2:ny-1
+    end
     
-    @inbounds a0[2:end-1,1] .= BC.left.val
-    if is_dirichlet(BC.left.t)
-        @inbounds a1[2:end-1,1] .= -1.
-        @inbounds b[2:end-1,1] .= 0.
-    elseif is_neumann(BC.left.t)
-        @inbounds a1[2:end-1,1] .= 0.
-        @inbounds b[2:end-1,1] .= 1.
-    elseif is_robin(BC.left.t)
-        @inbounds a1[2:end-1,1] .= -1.
-        @inbounds b[2:end-1,1] .= 1.
-    elseif is_periodic(BC.left.t)
-        # @inbounds a1[:,1] .= 0.
-        # @inbounds b[:,1] .= 0.
+    idx = CartesianIndices((ind_y,1))
+    @inbounds a0[idx] .= (BC.left.val .* ones(grid))[idx]
+    if is_dirichlet(BC.left)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= 0.0
+    elseif is_neumann(BC.left)
+        @inbounds a1[idx] .= 0.0
+        @inbounds b[idx] .= 1.0
+    elseif is_robin(BC.left)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= 1.0
+    elseif is_periodic(BC.left)
+        nothing
+    elseif is_navier(BC.left)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= BC.left.λ
+    elseif is_navier_cl(BC.left)
+        @inbounds a1[intersect(idx, ind.cl)] .= -1.0
+        @inbounds a1[symdiff(idx, ind.cl)] .= -1.0
+        @inbounds b[intersect(idx, ind.cl)] .= BC.left.λ
+        @inbounds b[symdiff(idx, ind.cl)] .= 0.0
     else
         @error ("Not implemented yet")
     end
-    @inbounds a0[1,:] .= BC.bottom.val
-    if is_dirichlet(BC.bottom.t)
-        @inbounds a1[1,:] .= -1.
-        @inbounds b[1,:] .= 0.
-    elseif is_neumann(BC.bottom.t)
-        @inbounds a1[1,:] .= 0.
-        @inbounds b[1,:] .= 1.
-    elseif is_robin(BC.bottom.t)
-        @inbounds a1[1,:] .= -1.
-        @inbounds b[1,:] .= 1.
-    elseif is_periodic(BC.bottom.t)
-        # @inbounds a1[1,2:end-1] .= 0.
-        # @inbounds b[1,2:end-1] .= 0.
+
+    idx = CartesianIndices((1,ind_x))
+    @inbounds a0[idx] .= (BC.bottom.val .* ones(grid))[idx]
+    if is_dirichlet(BC.bottom)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= 0.0
+    elseif is_neumann(BC.bottom)
+        @inbounds a1[idx] .= 0.0
+        @inbounds b[idx] .= 1.0
+    elseif is_robin(BC.bottom)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= 1.0
+    elseif is_periodic(BC.bottom)
+        nothing
+    elseif is_navier(BC.bottom)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= BC.bottom.λ
+    elseif is_navier_cl(BC.bottom)
+        @inbounds a1[intersect(idx, ind.cl)] .= -1.0
+        @inbounds a1[symdiff(idx, ind.cl)] .= -1.0
+        @inbounds b[intersect(idx, ind.cl)] .= BC.bottom.λ
+        @inbounds b[symdiff(idx, ind.cl)] .= 0.0
     else
         @error ("Not implemented yet")
     end
-    @inbounds a0[2:end-1,end] .= BC.right.val
-    if is_dirichlet(BC.right.t)
-        @inbounds a1[2:end-1,end] .= -1.
-        @inbounds b[2:end-1,end] .= 0.
-    elseif is_neumann(BC.right.t)
-        @inbounds a1[2:end-1,end] .= 0.
-        @inbounds b[2:end-1,end] .= 1.
-    elseif is_robin(BC.right.t)
-        @inbounds a1[2:end-1,end] .= -1.
-        @inbounds b[2:end-1,end] .= 1.
-    elseif is_periodic(BC.right.t)
-        # @inbounds a1[:,end] .= 0.
-        # @inbounds b[:,end] .= 0.
+
+    idx = CartesianIndices((ind_y,nx:nx))
+    @inbounds a0[idx] .= (BC.right.val .* ones(grid))[idx]
+    if is_dirichlet(BC.right)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= 0.0
+    elseif is_neumann(BC.right)
+        @inbounds a1[idx] .= 0.0
+        @inbounds b[idx] .= 1.0
+    elseif is_robin(BC.right)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= 1.0
+    elseif is_periodic(BC.right)
+        nothing
+    elseif is_navier(BC.right)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= BC.right.λ
+    elseif is_navier_cl(BC.right)
+        @inbounds a1[intersect(idx, ind.cl)] .= -1.0
+        @inbounds a1[symdiff(idx, ind.cl)] .= -1.0
+        @inbounds b[intersect(idx, ind.cl)] .= BC.right.λ
+        @inbounds b[symdiff(idx, ind.cl)] .= 0.0
     else
         @error ("Not implemented yet")
     end
-    @inbounds a0[end,:] .= BC.top.val
-    if is_dirichlet(BC.top.t)
-        @inbounds a1[end,:] .= -1.
-        @inbounds b[end,:] .= 0.
-    elseif is_neumann(BC.top.t)
-        @inbounds a1[end,:] .= 0.
-        @inbounds b[end,:] .= 1.
-    elseif is_robin(BC.top.t)
-        @inbounds a1[end,:] .= -1.
-        @inbounds b[end,:] .= 1.
-    elseif is_periodic(BC.top.t)
-        # @inbounds a1[end,2:end-1] .= 0.
-        # @inbounds b[end,2:end-1] .= 0.
+
+    idx = CartesianIndices((ny:ny,ind_x))
+    @inbounds a0[idx] .= (BC.top.val .* ones(grid))[idx]
+    if is_dirichlet(BC.top)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= 0.0
+    elseif is_neumann(BC.top)
+        @inbounds a1[idx] .= 0.0
+        @inbounds b[idx] .= 1.0
+    elseif is_robin(BC.top)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= 1.0
+    elseif is_periodic(BC.top)
+        nothing
+    elseif is_navier(BC.top)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= BC.top.λ
+    elseif is_navier_cl(BC.top)
+        @inbounds a1[intersect(idx, ind.cl)] .= -1.0
+        @inbounds a1[symdiff(idx, ind.cl)] .= -1.0
+        @inbounds b[intersect(idx, ind.cl)] .= BC.top.λ
+        @inbounds b[symdiff(idx, ind.cl)] .= 0.0
     else
         @error ("Not implemented yet")
     end
@@ -69,86 +112,153 @@ function set_borders!(grid, a0, a1, b, BC)
     return nothing
 end
 
-function set_borders!(grid, a0, a1, b0, b1, BC)
-    @unpack ny, ind = grid
+function set_borders!(grid, geo, a0, a1, b, BC, per_x, per_y)
+    @unpack nx, ny, x, y, u, ind = grid
     
-    @inbounds a0[:,1] .= BC.left.val
-    if is_dirichlet(BC.left.t)
-        @inbounds a1[2:end-1,1] .= -1.
-        @inbounds b0[2:end-1,1] .= 0.
-        @inbounds b1[2:end-1,1] .= 0.
-    elseif is_neumann(BC.left.t)
-        @inbounds a1[2:end-1,1] .= 0.
-        @inbounds b0[2:end-1,1] .= 0.
-        @inbounds b1[2:end-1,1] .= 1.
-    elseif is_robin(BC.left.t)
-        @inbounds a1[2:end-1,1] .= -1.
-        @inbounds b0[2:end-1,1] .= 0.
-        @inbounds b1[2:end-1,1] .= 1.
-    elseif is_periodic(BC.left.t)
-        # @inbounds a1[:,1] .= 0.
-        # @inbounds b0[:,1] .= 0.
-        # @inbounds b1[:,1] .= 0.
+    if per_y
+        ind_x = 2:nx-1
+        ind_y = 1:ny
+    else
+        ind_x = 1:nx
+        ind_y = 2:ny-1
+    end
+
+    χx = abs.(geo.dcap[:,:,3] .- geo.dcap[:,:,1])
+    χy = abs.(geo.dcap[:,:,4] .- geo.dcap[:,:,2])
+
+    idx = CartesianIndices((ind_y,1))
+    @inbounds a0[idx] .= χx[idx] .* (BC.left.val .* ones(grid))[idx]
+    if is_dirichlet(BC.left)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= 0.0
+    elseif is_neumann(BC.left)
+        @inbounds a1[idx] .= 0.0
+        @inbounds b[idx] .= 1.0
+    elseif is_robin(BC.left)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= 1.0
+    elseif is_periodic(BC.left)
+        nothing
+    elseif is_navier(BC.left)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= BC.left.λ
+    elseif is_navier_cl(BC.left)
+        idx_cl = intersect(idx, ind.cl)
+        ϵb = 5.0 .* sqrt.((x[δx⁺.(idx_cl)] .- x[idx_cl]).^2 .+ (y[δx⁺.(idx_cl)] .- y[idx_cl]).^2)
+
+        @inbounds a1[idx_cl] .= -1.0
+        @inbounds a1[symdiff(idx, ind.cl)] .= -1.0
+        @inbounds b[idx_cl] .= BC.left.λ .* bell_function2.(u[idx_cl], ϵb)
+        @inbounds b[symdiff(idx, ind.cl)] .= 0.0
+    elseif is_gnbc(BC.left)
+        bell = bell_function(grid, BC.ϵ)
+        @inbounds a0[idx] .+= bell[idx] .* BC.σ ./ BC.μ .* (cos(θd) .- cos(BC.θe))
+        @inbounds a1[intersect(idx, ind.cl)] .= -1.0
+        @inbounds a1[symdiff(idx, ind.cl)] .= -1.0
+        @inbounds b[intersect(idx, ind.cl)] .= BC.left.λ
+        @inbounds b[symdiff(idx, ind.cl)] .= 0.0
     else
         @error ("Not implemented yet")
     end
-    @inbounds a0[1,2:end-1] .= BC.bottom.val
-    if is_dirichlet(BC.bottom.t)
-        @inbounds a1[1,:] .= -1.
-        @inbounds b0[1,:] .= 0.
-        @inbounds b1[1,:] .= 0.
-    elseif is_neumann(BC.bottom.t)
-        @inbounds a1[1,:] .= 0.
-        @inbounds b0[1,:] .= 0.
-        @inbounds b1[1,:] .= 1.
-    elseif is_robin(BC.bottom.t)
-        @inbounds a1[1,:] .= -1.
-        @inbounds b0[1,:] .= 0.
-        @inbounds b1[1,:] .= 1.
-    elseif is_periodic(BC.bottom.t)
-        # @inbounds a1[1,2:end-1] .= 0.
-        # @inbounds b0[1,2:end-1] .= 0.
-        # @inbounds b1[1,2:end-1] .= 0.
+
+    idx = CartesianIndices((1,ind_x))
+    @inbounds a0[idx] .= χy[idx] .* (BC.bottom.val .* ones(grid))[idx]
+    if is_dirichlet(BC.bottom)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= 0.0
+    elseif is_neumann(BC.bottom)
+        @inbounds a1[idx] .= 0.0
+        @inbounds b[idx] .= 1.0
+    elseif is_robin(BC.bottom)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= 1.0
+    elseif is_periodic(BC.bottom)
+        nothing
+    elseif is_navier(BC.bottom)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= BC.bottom.λ
+    elseif is_navier_cl(BC.bottom)
+        idx_cl = intersect(idx, ind.cl)
+        ϵb = 5.0 .* sqrt.((x[δy⁺.(idx_cl)] .- x[idx_cl]).^2 .+ (y[δy⁺.(idx_cl)] .- y[idx_cl]).^2)
+
+        @inbounds a1[idx_cl] .= -1.0
+        @inbounds a1[symdiff(idx, ind.cl)] .= -1.0
+        @inbounds b[idx_cl] .= BC.bottom.λ .* bell_function2.(u[idx_cl], ϵb)
+        @inbounds b[symdiff(idx, ind.cl)] .= 0.0
+    elseif is_gnbc(BC.bottom)
+        @inbounds a0[idx] .+= bell[idx] .* BC.σ ./ BC.μ .* (cos(θd) .- cos(BC.θe))
+        @inbounds a1[intersect(idx, ind.cl)] .= -1.0
+        @inbounds a1[symdiff(idx, ind.cl)] .= -1.0
+        @inbounds b[intersect(idx, ind.cl)] .= BC.bottom.λ
+        @inbounds b[symdiff(idx, ind.cl)] .= 0.0
     else
         @error ("Not implemented yet")
     end
-    @inbounds a0[:,end] .= BC.right.val
-    if is_dirichlet(BC.right.t)
-        @inbounds a1[2:end-1,end] .= -1.
-        @inbounds b0[2:end-1,end] .= 0.
-        @inbounds b1[2:end-1,end] .= 0.
-    elseif is_neumann(BC.right.t)
-        @inbounds a1[2:end-1,end] .= 0.
-        @inbounds b0[2:end-1,end] .= 0.
-        @inbounds b1[2:end-1,end] .= 1.
-    elseif is_robin(BC.right.t)
-        @inbounds a1[2:end-1,end] .= -1.
-        @inbounds b0[2:end-1,end] .= 0.
-        @inbounds b1[2:end-1,end] .= 1.
-    elseif is_periodic(BC.right.t)
-        # @inbounds a1[:,end] .= 0.
-        # @inbounds b0[:,end] .= 0.
-        # @inbounds b1[:,end] .= 0.
+
+    idx = CartesianIndices((ind_y,nx:nx))
+    @inbounds a0[idx] .= χx[idx] .* (BC.right.val .* ones(grid))[idx]
+    if is_dirichlet(BC.right)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= 0.0
+    elseif is_neumann(BC.right)
+        @inbounds a1[idx] .= 0.0
+        @inbounds b[idx] .= 1.0
+    elseif is_robin(BC.right)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= 1.0
+    elseif is_periodic(BC.right)
+        nothing
+    elseif is_navier(BC.right)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= BC.right.λ
+    elseif is_navier_cl(BC.right)
+        idx_cl = intersect(idx, ind.cl)
+        ϵb = 5.0 .* sqrt.((x[δx⁻.(idx_cl)] .- x[idx_cl]).^2 .+ (y[δx⁻.(idx_cl)] .- y[idx_cl]).^2)
+
+        @inbounds a1[idx_cl] .= -1.0
+        @inbounds a1[symdiff(idx, ind.cl)] .= -1.0
+        @inbounds b[idx_cl] .= BC.right.λ .* bell_function2.(u[idx_cl], ϵb)
+        @inbounds b[symdiff(idx, ind.cl)] .= 0.0
+    elseif is_gnbc(BC.right)
+        @inbounds a0[idx] .+= bell[idx] .* BC.σ ./ BC.μ .* (cos(θd) .- cos(BC.θe))
+        @inbounds a1[intersect(idx, ind.cl)] .= -1.0
+        @inbounds a1[symdiff(idx, ind.cl)] .= -1.0
+        @inbounds b[intersect(idx, ind.cl)] .= BC.right.λ
+        @inbounds b[symdiff(idx, ind.cl)] .= 0.0
     else
         @error ("Not implemented yet")
     end
-    @inbounds a0[end,2:end-1] .= BC.top.val
-    if is_dirichlet(BC.top.t)
-        @inbounds a1[end,:] .= -1.
-        @inbounds b0[end,:] .= 0.
-        @inbounds b1[end,:] .= 0.
-    elseif is_neumann(BC.top.t)
-        @inbounds a1[end,:] .= 0.
-        @inbounds b0[end,:] .= 0.
-        @inbounds b1[end,:] .= 1.
-    elseif is_robin(BC.top.t)
-        @inbounds a1[end,:] .= -1.
-        @inbounds b0[end,:] .= 0.
-        @inbounds b1[end,:] .= 1.
-    elseif is_periodic(BC.top.t)
-        # @inbounds a1[end,2:end-1] .= 0.
-        # @inbounds b0[end,2:end-1] .= 0.
-        # @inbounds b1[end,2:end-1] .= 0.
+
+    idx = CartesianIndices((ny:ny,ind_x))
+    @inbounds a0[idx] .= χy[idx] .* (BC.top.val .* ones(grid))[idx]
+    if is_dirichlet(BC.top)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= 0.0
+    elseif is_neumann(BC.top)
+        @inbounds a1[idx] .= 0.0
+        @inbounds b[idx] .= 1.0
+    elseif is_robin(BC.top)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= 1.0
+    elseif is_periodic(BC.top)
+        nothing
+    elseif is_navier(BC.top)
+        @inbounds a1[idx] .= -1.0
+        @inbounds b[idx] .= BC.top.λ
+    elseif is_navier_cl(BC.top)
+        idx_cl = intersect(idx, ind.cl)
+        ϵb = 5.0 .* sqrt.((x[δy⁻.(idx_cl)] .- x[idx_cl]).^2 .+ (y[δy⁻.(idx_cl)] .- y[idx_cl]).^2)
+
+        @inbounds a1[idx_cl] .= -1.0
+        @inbounds a1[symdiff(idx, ind.cl)] .= -1.0
+        @inbounds b[idx_cl] .= BC.top.λ .* bell_function2.(u[idx_cl], ϵb)
+        @inbounds b[symdiff(idx, ind.cl)] .= 0.0
+    elseif is_gnbc(BC.top)
+        @inbounds a0[idx] .+= bell[idx] .* BC.σ ./ BC.μ .* (cos(θd) .- cos(BC.θe))
+        @inbounds a1[intersect(idx, ind.cl)] .= -1.0
+        @inbounds a1[symdiff(idx, ind.cl)] .= -1.0
+        @inbounds b[intersect(idx, ind.cl)] .= BC.top.λ
+        @inbounds b[symdiff(idx, ind.cl)] .= 0.0
     else
         @error ("Not implemented yet")
     end
@@ -156,31 +266,44 @@ function set_borders!(grid, a0, a1, b0, b1, BC)
     return nothing
 end
 
-function update_dirichlet_field!(grid, bv, v, BC)
+function update_dirichlet_field!(grid, bv, v, BC, per_x, per_y)
+    @unpack nx, ny = grid
     tmp = zeros(size(v))
 
-    if is_dirichlet(BC.left.t)
-        @inbounds tmp[2:end-1,1] .= BC.left.val
-    elseif is_neumann(BC.left.t)
-        @inbounds tmp[2:end-1,1] .= v[2:end-1,1] .- BC.left.val .* 0.5 .* grid.dx[2:end-1,1]
+    if per_y
+        ind_x = 2:nx-1
+        ind_y = 1:ny
+    else
+        ind_x = 1:nx
+        ind_y = 2:ny-1
     end
 
-    if is_dirichlet(BC.bottom.t)
-        @inbounds tmp[1,:] .= BC.bottom.val
-    elseif is_neumann(BC.bottom.t)
-        @inbounds tmp[1,:] .= v[1,:] .- BC.bottom.val .* 0.5 .* grid.dy[1,:]
+    val = (BC.left.val .* ones(ny))[ind_y]
+    if is_dirichlet(BC.left)
+        @inbounds tmp[ind_y,1] .= val
+    elseif is_neumann(BC.left)
+        @inbounds tmp[ind_y,1] .= v[ind_y,1] .- val .* 0.5 .* grid.dx[ind_y,1]
     end
 
-    if is_dirichlet(BC.right.t)
-        @inbounds tmp[2:end-1,end] .= BC.right.val
-    elseif is_neumann(BC.right.t)
-        @inbounds tmp[2:end-1,end] .= BC.right.val .* 0.5 .* grid.dx[2:end-1,end] .+ v[2:end-1,end]
+    val = (BC.bottom.val .* ones(nx))[ind_x]
+    if is_dirichlet(BC.bottom)
+        @inbounds tmp[1,ind_x] .= val
+    elseif is_neumann(BC.bottom)
+        @inbounds tmp[1,ind_x] .= v[1,ind_x] .- val .* 0.5 .* grid.dy[1,ind_x]
     end
 
-    if is_dirichlet(BC.top.t)
-        @inbounds tmp[end,:] .= BC.top.val
-    elseif is_neumann(BC.top.t)
-        @inbounds tmp[end,:] .= BC.top.val .* 0.5 .* grid.dy[end,:]  .+ v[end,:]
+    val = (BC.right.val .* ones(ny))[ind_y]
+    if is_dirichlet(BC.right)
+        @inbounds tmp[ind_y,end] .= val
+    elseif is_neumann(BC.right)
+        @inbounds tmp[ind_y,end] .= val .* 0.5 .* grid.dx[ind_y,end] .+ v[ind_y,end]
+    end
+
+    val = (BC.top.val .* ones(nx))[ind_x]
+    if is_dirichlet(BC.top)
+        @inbounds tmp[end,ind_x] .= val
+    elseif is_neumann(BC.top)
+        @inbounds tmp[end,ind_x] .= val .* 0.5 .* grid.dy[end,ind_x]  .+ v[end,ind_x]
     end
 
     bv[grid.ny*grid.nx+1:end] .= vec(tmp)
@@ -254,38 +377,18 @@ function laplacian(opC)
     L = BxT * tmp_x
     mul!(tmp_y, iMy, By)
     L = L .+ ByT * tmp_y
-    # mul!(L, ByT, tmp, 1.0, 1.0) # BxT * iMx * Bx .+ ByT * iMy * By
 
     mul!(tmp_x, iMx, Hx)
     bc_L = BxT * tmp_x
     mul!(tmp_y, iMy, Hy)
     bc_L = bc_L .+ ByT * tmp_y
-    # mul!(bc_L, ByT, tmp, 1.0, 1.0) # BxT * iMx * Hx .+ ByT * iMy * Hy
-
-    return L, bc_L
-end
-
-function laplacian_fs(opC)
-    @unpack AxT, AyT, Bx, By, Hx, Hy, iMx, iMy, tmp_x, tmp_y = opC
-
-    mul!(tmp_x, iMx, Bx)
-    L = AxT * tmp_x
-    mul!(tmp_y, iMy, By)
-    L = L .+ AyT * tmp_y
-    # mul!(L, ByT, tmp, 1.0, 1.0) # BxT * iMx * Bx .+ ByT * iMy * By
-
-    mul!(tmp_x, iMx, Hx)
-    bc_L = AxT * tmp_x
-    mul!(tmp_y, iMy, Hy)
-    bc_L = bc_L .+ AyT * tmp_y
-    # mul!(bc_L, ByT, tmp, 1.0, 1.0) # BxT * iMx * Hx .+ ByT * iMy * Hy
 
     return L, bc_L
 end
 
 function set_laplacians!(grid, geo, grid_u, geo_u, grid_v, geo_v,
                          opC_p, opC_u, opC_v,
-                         periodic_x, periodic_y, fs=false
+                         periodic_x, periodic_y
     )
     @unpack ny, ind = grid
 
@@ -299,15 +402,7 @@ function set_laplacians!(grid, geo, grid_u, geo_u, grid_v, geo_v,
     Lu, bc_Lu = laplacian(opC_u)
     Lv, bc_Lv = laplacian(opC_v)
 
-    if fs
-        Lp_fs, bc_Lp_fs = laplacian_fs(opC_p)
-        Lu_fs, bc_Lu_fs = laplacian_fs(opC_u)
-        Lv_fs, bc_Lv_fs = laplacian_fs(opC_v)
-
-        return Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv, Lp_fs, bc_Lp_fs, Lu_fs, bc_Lu_fs, Lv_fs, bc_Lv_fs
-    else
-        return Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv
-    end
+    return Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv
 end
 
 function strain_rate(opC_u, opC_v)
@@ -370,26 +465,32 @@ function set_convection!(grid, geo, grid_u, geo_u, grid_v, geo_v,
     return nothing
 end
 
-function set_crank_nicolson_block(bc_type, num, grid, opC, L, bc_L, Lm1, bc_Lm1, Mm1, BC)
+function CN_set_momentum(
+    bc_type, num, grid, geo, opC,
+    L, bc_L, Lm1, bc_Lm1, Mm1, BC,
+    per_x, per_y
+    )
     @unpack τ = num
-    @unpack nx, ny = grid
     @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy = opC
 
     if bc_type == dir
-        __a1 = -1.
-        __b = 0.
+        vel = copy(grid.V)
+        __a1 = -1.0
+        __b = 0.0
     elseif bc_type == neu
-        __a1 = 0.
-        __b = 1.
+        vel = 0.0
+        __a1 = 0.0
+        __b = 0.0
     elseif bc_type == rob
-        __a1 = -1.
-        __b = 1.
+        vel = 0.0
+        __a1 = -1.0
+        __b = 1.0
     end
 
-    a0 = ones(ny, nx) .* grid.V
-    _a1 = ones(ny, nx) .* __a1
-    _b = ones(ny, nx) .* __b
-    set_borders!(grid, a0, _a1, _b, BC)
+    a0 = ones(grid) .* vel
+    _a1 = ones(grid) .* __a1
+    _b = ones(grid) .* __b
+    set_borders!(grid, geo, a0, _a1, _b, BC, per_x, per_y)
     a1 = Diagonal(vec(_a1))
     b = Diagonal(vec(_b))
 
@@ -406,19 +507,69 @@ function set_crank_nicolson_block(bc_type, num, grid, opC, L, bc_L, Lm1, bc_Lm1,
     data_B = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 2, 2)
     data_B[1,1] = Mm1 .+ τ_2 .* Lm1
     data_B[1,2] = τ_2 .* bc_Lm1
-    data_B[2,1] = spdiagm(0 => zeros(nx*ny))
-    data_B[2,2] = spdiagm(0 => zeros(nx*ny))
+    data_B[2,1] = spdiagm(0 => fzeros(grid))
+    data_B[2,2] = spdiagm(0 => fzeros(grid))
     B  = [data_B[1,1] data_B[1,2];
           data_B[2,1] data_B[2,2]]
 
-    rhs = zeros(2*nx*ny)
-    rhs[nx*ny+1:end] .= χ * vec(a0)
+    rhs = f2zeros(grid)
+    veci(rhs,grid,2) .= vec(a0)
     
     return A, B, rhs
 end
 
-function set_poisson_block(bc_type, grid, a0, opC, L, bc_L, BC)
-    @unpack nx, ny = grid
+function FE_set_momentum(
+    bc_type, num, grid, geo, opC,
+    L, bc_L, Mm1, BC,
+    per_x, per_y
+    )
+    @unpack τ = num
+    @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy = opC
+
+    if bc_type == dir
+        vel = copy(grid.V)
+        __a1 = -1.0
+        __b = 0.0
+    elseif bc_type == neu
+        vel = 0.0
+        __a1 = 0.0
+        __b = 0.0
+    elseif bc_type == rob
+        vel = 0.0
+        __a1 = -1.0
+        __b = 1.0
+    end
+
+    a0 = ones(grid) .* vel
+    _a1 = ones(grid) .* __a1
+    _b = ones(grid) .* __b
+    set_borders!(grid, geo, a0, _a1, _b, BC, per_x, per_y)
+    a1 = Diagonal(vec(_a1))
+    b = Diagonal(vec(_b))
+
+    data_A = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 2, 2)
+    data_A[1,1] = pad_crank_nicolson(M .- τ .* L, grid, τ)
+    data_A[1,2] = - τ .* bc_L
+    data_A[2,1] = b * (HxT * iMx * Bx .+ HyT * iMy * By)
+    data_A[2,2] = pad(b * (HxT * iMx * Hx .+ HyT * iMy * Hy) .- χ * a1)
+    A  = [data_A[1,1] data_A[1,2];
+          data_A[2,1] data_A[2,2]]
+
+    data_B = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 2, 2)
+    data_B[1,1] = Mm1
+    data_B[1,2] = spdiagm(0 => fzeros(grid))
+    data_B[2,1] = spdiagm(0 => fzeros(grid))
+    data_B[2,2] = spdiagm(0 => fzeros(grid))
+    B  = [data_B[1,1] data_B[1,2];
+          data_B[2,1] data_B[2,2]]
+
+    rhs = f2zeros(grid)
+    veci(rhs,grid,2) .= vec(a0)
+    
+    return A, B, rhs
+end
+
+function set_poisson(bc_type, grid, geo, a0, opC, L, bc_L, BC, per_x, per_y)
     @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy = opC
 
     if bc_type == dir
@@ -432,9 +583,9 @@ function set_poisson_block(bc_type, grid, a0, opC, L, bc_L, BC)
         __b = 1.
     end
 
-    _a1 = ones(ny, nx) .* __a1
-    _b = ones(ny, nx) .* __b
-    set_borders!(grid, a0, _a1, _b, BC)
+    _a1 = ones(grid) .* __a1
+    _b = ones(grid) .* __b
+    set_borders!(grid, geo, a0, _a1, _b, BC, per_x, per_y)
     a1 = Diagonal(vec(_a1))
     b = Diagonal(vec(_b))
 
@@ -446,304 +597,122 @@ function set_poisson_block(bc_type, grid, a0, opC, L, bc_L, BC)
     A  = [data_A[1,1] data_A[1,2];
           data_A[2,1] data_A[2,2]]
 
-    rhs = zeros(2*nx*ny)
-    rhs[nx*ny+1:end] .= χ * vec(a0)
+    rhs = f2zeros(grid)
+    veci(rhs,grid,2) .= vec(a0)
     
     return A, rhs
 end
 
-function projection_no_slip!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
-                            BC_u, BC_v, BC_p,
-                            opC_p, opC_u, opC_v, op_conv,
-                            Lum1, bc_Lum1, Lvm1, bc_Lvm1, Mum1, Mvm1,
-                            Cum1, Cvm1,
-                            FULL, MIXED, periodic_x, periodic_y, advection
+function set_CN!(
+    bc_type_u, bc_type_p, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+    opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
+    Lum1, bc_Lum1, Lvm1, bc_Lvm1, Mum1, Mvm1, iRe,
+    op_conv, ph,
+    periodic_x, periodic_y, advection
     )
-    @unpack Re, τ = num
-    @unpack p, pD, ϕ, ϕD, Gxm1, Gym1, u, uD, v, vD, ucorr, vcorr, ucorrD, vcorrD = ph
-    @unpack Cu, Cv, CUTCu, CUTCv = op_conv
 
-    iRe = 1.0 / Re
-    iτ = 1.0 / τ
-
-    Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv = set_laplacians!(grid, geo, grid_u, geo_u, grid_v, geo_v,
-                                                      opC_p, opC_u, opC_v,
-                                                      periodic_x, periodic_y)
-
+    laps = set_laplacians!(
+        grid, geo, grid_u, geo_u, grid_v, geo_v,
+        opC_p, opC_u, opC_v,
+        periodic_x, periodic_y
+    )
+    Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv = laps
+    
     if advection
         set_convection!(grid, geo, grid_u, geo_u, grid_v, geo_v, op_conv, ph, BC_u, BC_v)
     end
 
-    A_u, B_u, rhs_u = set_crank_nicolson_block(dir, num, grid_u, opC_u, iRe.*Lu, iRe.*bc_Lu, iRe.*Lum1, iRe.*bc_Lum1, Mum1, BC_u)
-    A_v, B_v, rhs_v = set_crank_nicolson_block(dir, num, grid_v, opC_v, iRe.*Lv, iRe.*bc_Lv, iRe.*Lvm1, iRe.*bc_Lvm1, Mvm1, BC_v)
-    a0_p = zeros(grid.ny, grid.nx)
-    A_p, rhs_p = set_poisson_block(neu, grid, a0_p, opC_p, Lp, bc_Lp, BC_p)
+    Au, Bu, rhs_u = CN_set_momentum(
+        bc_type_u, num, grid_u, geo_u, opC_u,
+        iRe.*Lu, iRe.*bc_Lu, iRe.*Lum1, iRe.*bc_Lum1, Mum1, BC_u,
+        periodic_x, periodic_y
+    )
+    Av, Bv, rhs_v = CN_set_momentum(
+        bc_type_u, num, grid_v, geo_v, opC_v,
+        iRe.*Lv, iRe.*bc_Lv, iRe.*Lvm1, iRe.*bc_Lvm1, Mvm1, BC_v,
+        periodic_x, periodic_y
+    )
+    a0_p = zeros(grid)
+    Aϕ, rhs_ϕ = set_poisson(bc_type_p, grid, geo, a0_p, opC_p, Lp, bc_Lp, BC_p, periodic_x, periodic_y)
 
-    Convu = fzeros(grid_u)
-    Convv = fzeros(grid_v)
-    Cui = Cu * vec(u) .+ CUTCu
-    Cvi = Cv * vec(v) .+ CUTCv
-    if advection
-        Convu .+= 1.5 .* Cui .- 0.5 .* Cum1
-        Convv .+= 1.5 .* Cvi .- 0.5 .* Cvm1
-    end
-
-    update_dirichlet_field!(grid_u, uD, u, BC_u)
-    mul!(rhs_u, B_u, uD, 1.0, 1.0)
-    veci(rhs_u,grid_u,1) .+= -τ .* (opC_p.Bx * veci(pD,grid,1) .+ opC_p.Hx * veci(pD,grid,2))
-    veci(rhs_u,grid_u,1) .-= τ .* Convu
-    kill_dead_cells!(veci(rhs_u,grid_u,1), grid_u, geo_u)
-    kill_dead_cells!(veci(rhs_u,grid_u,2), grid_u, geo_u)
-    blocks = DDM.decompose(A_u, grid_u.domdec, grid_u.domdec)
-    @mytime _, ch = bicgstabl!(ucorrD, A_u, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
-    println(ch)
-    ucorr .= reshape(veci(ucorrD,grid_u,1), (grid_u.ny, grid_u.nx))
-
-    veci(vD,grid_v,1) .= vec(v)
-    update_dirichlet_field!(grid_v, vD, v, BC_v)
-    mul!(rhs_v, B_v, vD, 1.0, 1.0)
-    veci(rhs_v,grid_v,1) .+= -τ .* (opC_p.By * veci(pD,grid,1) .+ opC_p.Hy * veci(pD,grid,2))
-    veci(rhs_v,grid_v,1) .-= τ .* Convv
-    kill_dead_cells!(veci(rhs_v,grid_v,1), grid_v, geo_v)
-    kill_dead_cells!(veci(rhs_v,grid_v,2), grid_v, geo_v)
-    blocks = DDM.decompose(A_v, grid_v.domdec, grid_v.domdec)
-    @mytime _, ch = bicgstabl!(vcorrD, A_v, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
-    println(ch)
-    vcorr .= reshape(veci(vcorrD,grid_v,1), (grid_v.ny, grid_v.nx))
-
-    Duv = opC_p.AxT * veci(ucorrD,grid_u,1) .+ opC_p.HxT * veci(ucorrD,grid_u,2) .+
-          opC_p.AyT * veci(vcorrD,grid_v,1) .+ opC_p.HyT * veci(vcorrD,grid_v,2)
-    veci(rhs_p,grid,1) .=  iτ .* Duv
-
-    sum_rhs = sum(veci(rhs_p,grid,1))
-    sum_Mp = sum(geo.dcap[:,:,5])
-    non_empty = vcat(FULL, MIXED)
-    @inbounds @threads for II in non_empty
-        pII = lexicographic(II, grid.ny)
-        @inbounds veci(rhs_p,grid,1)[pII] -= sum_rhs * geo.dcap[II,5] / sum_Mp
-    end
-
-    veci(ϕD,grid,1) .= 0.
-    veci(ϕD,grid,2) .= 0.
-    blocks = DDM.decompose(A_p, grid.domdec, grid.domdec)
-    @mytime _, ch = bicgstabl!(ϕD, A_p, rhs_p, Pl=ras(blocks,grid.pou), log=true)
-    println(ch)
-    ϕ .= reshape(veci(ϕD,grid,1), (grid.ny, grid.nx))
-
-    iM = Diagonal(1. ./ (vec(geo.dcap[:,:,5]) .+ eps(0.01)))
-    veci(pD,grid,1) .= vec(p)
-    veci(pD,grid,1) .+= vec(ϕ) .- 0.5 .* iRe .* iM * Duv
-    veci(pD,grid,2) .+= veci(ϕD,grid,2)
-    p .= reshape(veci(pD,grid,1), (grid.ny, grid.nx))
-
-    u .= ucorr .- τ .* reshape(opC_p.iMx * (opC_p.Bx * vec(ϕ) .+ opC_p.Hx * veci(ϕD,grid,2)), (grid_u.ny, grid_u.nx))
-    v .= vcorr .- τ .* reshape(opC_p.iMy * (opC_p.By * vec(ϕ) .+ opC_p.Hy * veci(ϕD,grid,2)), (grid_v.ny, grid_v.nx))
-
-    veci(uD,grid_u,1) .= vec(u)
-    veci(uD,grid_u,2) .= veci(ucorrD,grid_u,2)
-    veci(vD,grid_v,1) .= vec(v)
-    veci(vD,grid_v,2) .= veci(vcorrD,grid_v,2)
-
-    return Lu, bc_Lu, Lv, bc_Lv, opC_u.M, opC_v.M, Cui, Cvi
+    return Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ, Lu, bc_Lu, Lv, bc_Lv
 end
 
-function set_crank_nicolson_block(bc_type, num, 
-    grid, opC_p, Lp, bc_Lp, Lp_fs, bc_Lp_fs, BC_p,
-    grid_u, opC_u, Lu, bc_Lu, Mum1, BC_u,
-    grid_v, opC_v, Lv, bc_Lv, Mvm1, BC_v)
-    @unpack Re, τ = num
-
-    iRe = 1 / Re
-
-    if bc_type == dir
-        __a1 = -1.
-        __b0 = 0.
-        __b1 = 0.
-    elseif bc_type == neu
-        __a1 = 0.
-        # __b0 = 1.
-        # __b1 = 0.
-        __b0 = 0.
-        __b1 = 1.
-    elseif bc_type == rob
-        __a1 = -1.
-        __b0 = 1.
-        __b1 = 0.
-    end
-
-    a0_u = zeros(grid_u.ny, grid_u.nx)
-    _a1_u = ones(grid_u.ny, grid_u.nx) .* __a1
-    _b0_u = ones(grid_u.ny, grid_u.nx) .* __b0
-    _b1_u = ones(grid_u.ny, grid_u.nx) .* __b1
-    a0_v = zeros(grid_v.ny, grid_v.nx)
-    _a1_v = ones(grid_v.ny, grid_v.nx) .* __a1
-    _b0_v = ones(grid_v.ny, grid_v.nx) .* __b0
-    _b1_v = ones(grid_v.ny, grid_v.nx) .* __b1
-    a0_p = zeros(grid.ny, grid.nx)
-    _a1_p = ones(grid.ny, grid.nx) .* (-1.)
-    _b0_p = ones(grid.ny, grid.nx) .* 0.
-    _b1_p = ones(grid.ny, grid.nx) .* 0.
-    set_borders!(grid_u, a0_u, _a1_u, _b0_u, _b1_u, BC_u)
-    set_borders!(grid_v, a0_v, _a1_v, _b0_v, _b1_v, BC_v)
-    set_borders!(grid, a0_p, _a1_p, _b0_p, _b1_p, BC_p)
-    a1_u = Diagonal(vec(_a1_u))
-    b0_u = Diagonal(vec(_b0_u))
-    b1_u = Diagonal(vec(_b1_u))
-    a1_v = Diagonal(vec(_a1_v))
-    b0_v = Diagonal(vec(_b0_v))
-    b1_v = Diagonal(vec(_b1_v))
-    a1_p = Diagonal(vec(_a1_p))
-    b0_p = Diagonal(vec(_b0_p))
-    b1_p = Diagonal(vec(_b1_p))
-
-    τ_2 = 0.5 * τ
-
-    if grid_u.nx*grid_u.ny < grid_v.nx*grid_v.ny
-        size_zeros = grid_u.nx*grid_u.ny
-    else
-        size_zeros = grid_v.nx*grid_v.ny
-    end
-
-    data_A = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 2, 2)
-    data_A[1,1] = pad_crank_nicolson(opC_u.M .- τ .* Lu, grid_u, τ)
-    data_A[1,2] = - τ .* bc_Lu
-    data_A[2,1] = #=-b0_u * opC_u.χ .+=#
-                  (b0_u .+ b1_u) * (opC_u.HxT * opC_u.iMx * opC_u.Bx .+
-                          opC_u.HyT * opC_u.iMy * opC_u.By)
-    data_A[2,2] = pad(#=b0_u * opC_u.χ .+=#
-                      (b0_u .+ b1_u) * (opC_u.HxT * opC_u.iMx * opC_u.Hx .+
-                              opC_u.HyT * opC_u.iMy * opC_u.Hy) .-
-                      opC_u.χ * a1_u)
-    Au = [data_A[1,1] data_A[1,2];
-          data_A[2,1] data_A[2,2]]
-
-    data_B = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 2, 2)
-    data_B[1,1] = Mum1 #.+ τ_2 .* Lum1
-    # data_B[1,2] = τ_2 .* bc_Lum1
-    data_B[1,2] = spdiagm(0 => zeros(grid_u.nx*grid_u.ny))
-    data_B[2,1] = spdiagm(0 => zeros(grid_u.nx*grid_u.ny))
-    data_B[2,2] = spdiagm(0 => zeros(grid_u.nx*grid_u.ny))
-    Bu = [data_B[1,1] data_B[1,2];
-          data_B[2,1] data_B[2,2]]
-
-    data_A[1,1] = pad_crank_nicolson(opC_v.M .- τ .* Lv, grid_v, τ)
-    data_A[1,2] = - τ .* bc_Lv
-    data_A[2,1] = #=-b0_v * opC_v.χ .+=#
-                  (b0_v .+ b1_v) * (opC_v.HyT * opC_v.iMy * opC_v.By .+
-                          opC_v.HxT * opC_v.iMx * opC_v.Bx)
-    data_A[2,2] = pad(#=b0_v * opC_v.χ .+=#
-                      (b0_v .+ b1_v) * (opC_v.HyT * opC_v.iMy * opC_v.Hy .+
-                              opC_v.HxT * opC_v.iMx * opC_v.Hx) .-
-                      opC_v.χ * a1_v)
-    Av = [data_A[1,1] data_A[1,2];
-          data_A[2,1] data_A[2,2]]
-
-    data_B[1,1] = Mvm1 #.+ τ_2 .* Lvm1
-    # data_B[1,2] = τ_2 .* bc_Lvm1
-    data_B[1,2] = spdiagm(0 => zeros(grid_v.nx*grid_v.ny))
-    data_B[2,1] = spdiagm(0 => zeros(grid_v.nx*grid_v.ny))
-    data_B[2,2] = spdiagm(0 => zeros(grid_v.nx*grid_v.ny))
-    Bv = [data_B[1,1] data_B[1,2];
-          data_B[2,1] data_B[2,2]]
-    
-    data_A[1,1] = pad(Lp, -4.0)
-    data_A[1,2] = bc_Lp
-    # data_A[6,5] = b0_p * opC_p.χ * Lp .+
-    #               b1_p * (opC_p.HxT * opC_p.iMx * opC_p.Bx .+
-    #                       opC_p.HyT * opC_p.iMy * opC_p.By)
-    # data_A[6,6] = pad(b0_p * opC_p.χ * bc_Lp .+
-    #                   b1_p * (opC_p.HxT * opC_p.iMx * opC_p.Hx .+
-    #                           opC_p.HyT * opC_p.iMy * opC_p.Hy) .-
-    #                   opC_p.χ * a1_p)
-    GxT = opC_u.Gx'
-    GyT = opC_v.Gy'
-    data_A[2,1] = b1_p * (opC_p.HxT * opC_p.iMx * opC_p.Bx .+
-                          opC_p.HyT * opC_p.iMy * opC_p.By)
-    data_A[2,2] = pad(b0_p * (GxT * opC_u.Gx .+ GyT * opC_v.Gy) .+
-                      b1_p * (opC_p.HxT * opC_p.iMx * opC_p.Hx .+
-                              opC_p.HyT * opC_p.iMy * opC_p.Hy) .-
-                      opC_p.χ * a1_p)
-
-    Ap = [data_A[1,1] data_A[1,2];
-          data_A[2,1] data_A[2,2]]
-
-    rhs_u = zeros(2*grid_u.nx*grid_u.ny)
-    veci(rhs_u,grid_u,2) .= opC_u.χ * vec(a0_u)
-    rhs_v = zeros(2*grid_v.nx*grid_v.ny)
-    veci(rhs_v,grid_v,2) .= opC_v.χ * vec(a0_v)
-    rhs_p = zeros(2*grid.nx*grid.ny)
-    veci(rhs_p,grid,2) .= opC_p.χ * vec(a0_p)
-    
-    return Au, Bu, rhs_u, Av, Bv, rhs_v, Ap, rhs_p
-end
-
-function set_navier_stokes(num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+function set_FE!(bc_type_u, bc_type_p, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
                            opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
                            Mum1, Mvm1, iRe,
                            op_conv, ph,
                            periodic_x, periodic_y, advection)
-    laps = set_laplacians!(grid, geo, grid_u, geo_u, grid_v, geo_v,
-                        opC_p, opC_u, opC_v,
-                        periodic_x, periodic_y, true)
-    Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv, Lp_fs, bc_Lp_fs, Lu_fs, bc_Lu_fs, Lv_fs, bc_Lv_fs = laps
+
+    laps = set_laplacians!(
+        grid, geo, grid_u, geo_u, grid_v, geo_v,
+        opC_p, opC_u, opC_v,
+        periodic_x, periodic_y
+    )
+    Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv = laps
 
     if advection
         set_convection!(grid, geo, grid_u, geo_u, grid_v, geo_v, op_conv, ph, BC_u, BC_v)
     end
 
-    Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ = set_crank_nicolson_block(neu, num,
-        grid, opC_p, Lp, bc_Lp, Lp_fs, bc_Lp_fs, BC_p,
-        grid_u, opC_u, iRe.*Lu, iRe.*bc_Lu, Mum1, BC_u,
-        grid_v, opC_v, iRe.*Lv, iRe.*bc_Lv, Mvm1, BC_v)
+    Au, Bu, rhs_u = FE_set_momentum(
+        bc_type_u, num, grid_u, geo_u, opC_u,
+        iRe.*Lu, iRe.*bc_Lu, Mum1, BC_u,
+        periodic_x, periodic_y
+    )
+    Av, Bv, rhs_v = FE_set_momentum(
+        bc_type_u, num, grid_v, geo_v, opC_v,
+        iRe.*Lv, iRe.*bc_Lv, Mvm1, BC_v,
+        periodic_x, periodic_y
+    )
+    a0_p = zeros(grid)
+    Aϕ, rhs_ϕ = set_poisson(bc_type_p, grid, geo, a0_p, opC_p, Lp, bc_Lp, BC_p, periodic_x, periodic_y)
 
-    return Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ
+    return Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ, Lu, bc_Lu, Lv, bc_Lv
 end
 
-function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
-                        BC_u, BC_v, BC_p,
-                        opC_p, opC_u, opC_v, op_conv,
-                        Cum1, Cvm1, Mum1, Mvm1,
-                        periodic_x, periodic_y, advection
+function pressure_projection!(
+    time_scheme, bc_type_u, bc_type_p,
+    num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
+    BC_u, BC_v, BC_p,
+    opC_p, opC_u, opC_v, op_conv,
+    Lum1, bc_Lum1, Lvm1, bc_Lvm1,
+    Cum1, Cvm1, Mum1, Mvm1,
+    periodic_x, periodic_y, advection
     )
     @unpack Re, τ, σ, g, β = num
-    @unpack p, pD, ϕ, ϕD, Gxm1, Gym1, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr = ph
+    @unpack p, pD, ϕ, ϕD, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr = ph
     @unpack Cu, Cv, CUTCu, CUTCv = op_conv
 
     iRe = 1.0 / Re
     iτ = 1.0 / τ
 
-    Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ = set_navier_stokes(num, grid, geo, grid_u, geo_u, grid_v, geo_v,
-                                                                opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
-                                                                Mum1, Mvm1, iRe,
-                                                                op_conv, ph,
-                                                                periodic_x, periodic_y, advection)
+    if is_FE(time_scheme)
+        Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ, Lu, bc_Lu, Lv, bc_Lv = set_FE!(
+            bc_type_u, bc_type_p, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+            opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
+            Mum1, Mvm1, iRe,
+            op_conv, ph,
+            periodic_x, periodic_y, advection
+        )
+    elseif is_CN(time_scheme)
+        Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ, Lu, bc_Lu, Lv, bc_Lv = set_CN!(
+            bc_type_u, bc_type_p, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+            opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
+            Lum1, bc_Lum1, Lvm1, bc_Lvm1, Mum1, Mvm1, iRe,
+            op_conv, ph,
+            periodic_x, periodic_y, advection
+        )
+    end
 
-    a0_u = zeros(grid_u)
-    _a1_u = zeros(grid_u)
-    _b0_u = ones(grid_u)
-    _b1_u = zeros(grid_u)
-    a0_v = zeros(grid_v)
-    _a1_v = zeros(grid_v)
-    _b0_v = ones(grid_v)
-    _b1_v = zeros(grid_v)
     a0_p = zeros(grid)
     _a1_p = zeros(grid)
-    _b0_p = ones(grid)
-    _b1_p = zeros(grid)
-    set_borders!(grid_u, a0_u, _a1_u, _b0_u, _b1_u, BC_u)
-    set_borders!(grid_v, a0_v, _a1_v, _b0_v, _b1_v, BC_v)
-    set_borders!(grid, a0_p, _a1_p, _b0_p, _b1_p, BC_p)
-    b0_u = Diagonal(vec(_b0_u))
-    b0_v = Diagonal(vec(_b0_v))
-    b0_p = Diagonal(vec(_b0_p))
-
-    mul!(rhs_u, Bu, uD, 1.0, 1.0)
-    mul!(rhs_v, Bv, vD, 1.0, 1.0)
+    _b_p = ones(grid)
+    set_borders!(grid, geo, a0_p, _a1_p, _b_p, BC_p, periodic_x, periodic_y)
+    b_p = Diagonal(vec(_b_p))
 
     grav_x = g .* sin(β) .* opC_u.M * fones(grid_u)
     grav_y = g .* cos(β) .* opC_v.M * fones(grid_v)
-    veci(rhs_u,grid_u,1) .+= τ .* grav_x
-    veci(rhs_v,grid_v,1) .+= - τ .* grav_y
 
     Convu = fzeros(grid_u)
     Convv = fzeros(grid_v)
@@ -753,62 +722,82 @@ function projection_fs!(num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
         Convu .+= 1.5 .* Cui .- 0.5 .* Cum1
         Convv .+= 1.5 .* Cvi .- 0.5 .* Cvm1
     end
-    veci(rhs_u,grid_u,1) .-= τ .* Convu
-    veci(rhs_v,grid_v,1) .-= τ .* Convv
 
+    if is_dirichlet(bc_type_u)
+        veci(uD,grid_u,1) .= vec(u)
+        update_dirichlet_field!(grid_u, uD, u, BC_u, periodic_x, periodic_y)
+        veci(rhs_u,grid_u,1) .+= -τ .* (opC_u.AxT * opC_u.Rx * veci(pD,grid,1) .+ opC_u.Gx * veci(pD,grid,2))
+    end
+    mul!(rhs_u, Bu, uD, 1.0, 1.0)
+    veci(rhs_u,grid_u,1) .+= τ .* grav_x
+    veci(rhs_u,grid_u,1) .-= τ .* Convu
     kill_dead_cells!(veci(rhs_u,grid_u,1), grid_u, geo_u)
     kill_dead_cells!(veci(rhs_u,grid_u,2), grid_u, geo_u)
+    blocks = DDM.decompose(Au, grid_u.domdec, grid_u.domdec)
+    bicgstabl!(ucorrD, Au, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
+    # @mytime _, ch = bicgstabl!(ucorrD, Au, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
+    # println(ch)
+    ucorr .= reshape(veci(ucorrD,grid_u,1), grid_u)
+
+    if is_dirichlet(bc_type_u)
+        veci(vD,grid_v,1) .= vec(v)
+        update_dirichlet_field!(grid_v, vD, v, BC_v, periodic_x, periodic_y)
+        veci(rhs_v,grid_v,1) .+= -τ .* (opC_v.AyT * opC_v.Ry * veci(pD,grid,1) .+ opC_v.Gy * veci(pD,grid,2))
+    end
+    mul!(rhs_v, Bv, vD, 1.0, 1.0)
+    veci(rhs_v,grid_v,1) .+= - τ .* grav_y
+    veci(rhs_v,grid_v,1) .-= τ .* Convv
     kill_dead_cells!(veci(rhs_v,grid_v,1), grid_v, geo_v)
     kill_dead_cells!(veci(rhs_v,grid_v,2), grid_v, geo_v)
-
-    blocks = DDM.decompose(Au, grid_u.domdec, grid_u.domdec)
-    @mytime _, ch = bicgstabl!(ucorrD, Au, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
-    println(ch)
-
     blocks = DDM.decompose(Av, grid_v.domdec, grid_v.domdec)
-    @mytime _, ch = bicgstabl!(vcorrD, Av, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
-    println(ch)
+    bicgstabl!(vcorrD, Av, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
+    # @mytime _, ch = bicgstabl!(vcorrD, Av, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
+    # println(ch)
+    vcorr .= reshape(veci(vcorrD,grid_v,1), grid_v)
 
     Duv = opC_p.AxT * veci(ucorrD,grid_u,1) .+ opC_p.Gx * veci(ucorrD,grid_u,2) .+
           opC_p.AyT * veci(vcorrD,grid_v,1) .+ opC_p.Gy * veci(vcorrD,grid_v,2)
     veci(rhs_ϕ,grid,1) .= iτ .* Duv
 
-    Smat = strain_rate(opC_u, opC_v)
-    S = Smat[1,1] * veci(ucorrD,grid_u,1) .+ Smat[1,2] * veci(ucorrD,grid_u,2) .+
-        Smat[2,1] * veci(vcorrD,grid_v,1) .+ Smat[2,2] * veci(vcorrD,grid_v,2)
+    if is_dirichlet(bc_type_p)
+        Smat = strain_rate(opC_u, opC_v)
+        S = Smat[1,1] * veci(ucorrD,grid_u,1) .+ Smat[1,2] * veci(ucorrD,grid_u,2) .+
+            Smat[2,1] * veci(vcorrD,grid_v,1) .+ Smat[2,2] * veci(vcorrD,grid_v,2)
 
-    GxT = opC_u.Gx'
-    GyT = opC_v.Gy'
-    veci(rhs_ϕ,grid,2) .= b0_p * (iRe .* S .- σ .* (GxT * opC_u.Gx .+ GyT * opC_v.Gy) * vec(grid.κ))
+        GxT = opC_u.Gx'
+        GyT = opC_v.Gy'
+        veci(rhs_ϕ,grid,2) .= b_p * (iRe .* S .- σ .* (GxT * opC_u.Gx .+ GyT * opC_v.Gy) * vec(grid.κ))
+    end
     blocks = DDM.decompose(Aϕ, grid.domdec, grid.domdec)
-    @mytime _, ch = bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl=ras(blocks,grid.pou), log=true)
-    println(ch)
-
-    ucorr .= reshape(veci(ucorrD,grid_u,1), (grid_u.ny, grid_u.nx))
-    vcorr .= reshape(veci(vcorrD,grid_v,1), (grid_v.ny, grid_v.nx))
-    ϕ .= reshape(veci(ϕD,grid,1), (grid.ny, grid.nx))
+    bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl=ras(blocks,grid.pou), log=true)
+    # @mytime _, ch = bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl=ras(blocks,grid.pou), log=true)
+    # println(ch)
+    ϕ .= reshape(veci(ϕD,grid,1), grid)
 
     iMu = Diagonal(1 ./ (opC_u.M.diag .+ eps(0.01)))
     iMv = Diagonal(1 ./ (opC_v.M.diag .+ eps(0.01)))
 
-    ∇ϕ_x = opC_u.AxT * opC_u.Rx * veci(ϕD,grid,1) .+ opC_u.Gx * veci(ϕD,grid,2)
-    ∇ϕ_y = opC_v.AyT * opC_v.Ry * veci(ϕD,grid,1) .+ opC_v.Gy * veci(ϕD,grid,2)
+    ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec(ϕ) .+ opC_u.Gx * veci(ϕD,grid,2)
+    ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec(ϕ) .+ opC_v.Gy * veci(ϕD,grid,2)
 
     iM = Diagonal(1. ./ (vec(geo.dcap[:,:,5]) .+ eps(0.01)))
-    p .= ϕ #.- iRe .* reshape(iM * Duv, (grid.ny,grid.nx))
-    Gxm1 .= ∇ϕ_x
-    Gym1 .= ∇ϕ_y
-
-    kill_dead_cells!(Gxm1, grid_u, geo_u)
-    kill_dead_cells!(Gym1, grid_v, geo_v)
-
-    u .= ucorr .- τ .* reshape(iMu * ∇ϕ_x, (grid_u.ny, grid_u.nx))
-    v .= vcorr .- τ .* reshape(iMv * ∇ϕ_y, (grid_v.ny, grid_v.nx))
+    if is_dirichlet(bc_type_p)
+        veci(pD,grid,1) .= vec(ϕ) #.- iRe .* reshape(iM * Duv, grid))
+        veci(pD,grid,2) .+= veci(ϕD,grid,2)
+        p .= reshape(veci(pD,grid,1), grid)
+    else
+        veci(pD,grid,1) .= vec(p) .+ vec(ϕ) #.- iRe .* iM * Duv
+        veci(pD,grid,2) .+= veci(ϕD,grid,2)
+        p .= reshape(veci(pD,grid,1), grid)
+    end
+    
+    u .= ucorr .- τ .* reshape(iMu * ∇ϕ_x, grid_u)
+    v .= vcorr .- τ .* reshape(iMv * ∇ϕ_y, grid_v)
 
     veci(uD,grid_u,1) .= vec(u)
     veci(uD,grid_u,2) .= veci(ucorrD,grid_u,2)
     veci(vD,grid_v,1) .= vec(v)
     veci(vD,grid_v,2) .= veci(vcorrD,grid_v,2)
 
-    return opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
+    return Lu, bc_Lu, Lv, bc_Lv, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
 end
