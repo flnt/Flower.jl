@@ -256,12 +256,12 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
     end
 
     if navier_stokes
-        laps = set_laplacians!(grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
+        laps = set_matrices!(grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
                             opC_pS, opC_uS, opC_vS,
                             periodic_x, periodic_y)
         Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S = laps[3:6]
 
-        laps = set_laplacians!(grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
+        laps = set_matrices!(grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
                             opC_pL, opC_uL, opC_vL,
                             periodic_x, periodic_y)
         Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L = laps[3:6]
@@ -523,7 +523,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
 
         if navier_stokes && ns_advection
             if ns_solid_phase
-                laps = set_laplacians!(grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
+                laps = set_matrices!(grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
                     opC_pS, opC_uS, opC_vS,
                     periodic_x, periodic_y)
                 
@@ -532,7 +532,7 @@ function run_backward_discrete(num, grid, grid_u, grid_v,
                 Mvm1_S = opC_vS.M
             end
             if ns_liquid_phase
-                laps = set_laplacians!(grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
+                laps = set_matrices!(grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
                     opC_pL, opC_uL, opC_vL,
                     periodic_x, periodic_y)
                 

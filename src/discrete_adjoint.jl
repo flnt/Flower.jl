@@ -830,7 +830,7 @@ function Rproj_q0(num, grid, grid_u, grid_v, adj_der,
                 update_ls_data(num, grid, grid_u, grid_v, uj, κj, periodic_x, periodic_y)
                 update_free_surface_velocity(num, grid_u, grid_v, uD0_S, vD0_S, periodic_x, periodic_y)
 
-                Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv = set_laplacians!(grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
+                Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv = set_matrices!(grid, grid.geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
                     opC_pj, opC_uj, opC_vj,
                     periodic_x, periodic_y)
             
@@ -901,7 +901,7 @@ function Rproj_q0(num, grid, grid_u, grid_v, adj_der,
                 update_ls_data(num, grid, grid_u, grid_v, uj, κj, periodic_x, periodic_y)
                 update_free_surface_velocity(num, grid_u, grid_v, uD0_L, vD0_L, periodic_x, periodic_y)
 
-                Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv, Lp_fs, bc_Lp_fs = set_laplacians!(grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
+                Lp, bc_Lp, Lu, bc_Lu, Lv, bc_Lv, Lp_fs, bc_Lp_fs = set_matrices!(grid, grid.geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
                     opC_pj, opC_uj, opC_vj,
                     periodic_x, periodic_y)
             

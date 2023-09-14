@@ -400,105 +400,7 @@ function dimensionalize!(grid, geo)
     return nothing
 end
 
-function clip_new!(grid, indices, per_x, per_y, ϵ_c, ϵ)
-    @unpack nx, ny, dx, dy, ind, geoL, geoS = grid
-    @unpack all_indices = ind
-
-    V = dx .* dy
-    @inbounds @threads for II in indices
-        dim_ϵ_c = ϵ_c * V[II]
-        dim_ϵ = 0.05 * V[II]
-
-        if dim_ϵ_c <= geoS.dcap[II,5] && geoS.dcap[II,5] < dim_ϵ
-            geoS.dcap[II,5] = dim_ϵ
-        end
-        if dim_ϵ_c <= geoL.dcap[II,5] && geoL.dcap[II,5] < dim_ϵ
-            geoL.dcap[II,5] = dim_ϵ
-        end
-
-        dim_ϵ = ϵ * V[II]
-
-        if geoS.dcap[II,8] < dim_ϵ
-            dif = dim_ϵ - geoS.dcap[II,8]
-            geoS.dcap[II,8] = dim_ϵ
-            geoS.dcap[II,5] += dif
-            if within_bounds(δx⁻(II, nx, per_x), grid)
-                geoS.dcap[δx⁻(II, nx, per_x),10] = dim_ϵ
-                geoS.dcap[δx⁻(II, nx, per_x),5] += dif
-            end
-        end
-        if geoL.dcap[II,8] < dim_ϵ
-            dif = dim_ϵ - geoL.dcap[II,8]
-            geoL.dcap[II,8] = dim_ϵ
-            geoL.dcap[II,5] += dif
-            if within_bounds(δx⁻(II, nx, per_x), grid)
-                geoL.dcap[δx⁻(II, nx, per_x),10] = dim_ϵ
-                geoL.dcap[δx⁻(II, nx, per_x),5] += dif
-            end
-        end
-
-        if geoS.dcap[II,9] < dim_ϵ
-            dif = dim_ϵ - geoS.dcap[II,9]
-            geoS.dcap[II,9] = dim_ϵ
-            geoS.dcap[II,5] += dif
-            if within_bounds(δy⁻(II, ny, per_y), grid)
-                geoS.dcap[δy⁻(II, ny, per_y),11] = dim_ϵ
-                geoS.dcap[δy⁻(II, ny, per_y),5] += dif
-            end
-        end
-        if geoL.dcap[II,9] < dim_ϵ
-            dif = dim_ϵ - geoL.dcap[II,9]
-            geoL.dcap[II,9] = dim_ϵ
-            geoL.dcap[II,5] += dif
-            if within_bounds(δy⁻(II, ny, per_y), grid)
-                geoL.dcap[δy⁻(II, ny, per_y),11] = dim_ϵ
-                geoL.dcap[δy⁻(II, ny, per_y),5] += dif
-            end
-        end
-
-        if geoS.dcap[II,10] < dim_ϵ
-            dif = dim_ϵ - geoS.dcap[II,10]
-            geoS.dcap[II,10] = dim_ϵ
-            geoS.dcap[II,5] += dif
-            if within_bounds(δx⁺(II, nx, per_x), grid)
-                geoS.dcap[δx⁺(II, nx, per_x),8] = dim_ϵ
-                geoS.dcap[δx⁺(II, nx, per_x),5] += dif
-            end
-        end
-        if geoL.dcap[II,10] < dim_ϵ
-            dif = dim_ϵ - geoL.dcap[II,10]
-            geoL.dcap[II,10] = dim_ϵ
-            geoL.dcap[II,5] += dif
-            if within_bounds(δx⁺(II, nx, per_x), grid)
-                geoL.dcap[δx⁺(II, nx, per_x),8] = dim_ϵ
-                geoL.dcap[δx⁺(II, nx, per_x),5] += dif
-            end
-        end
-
-        if geoS.dcap[II,11] < dim_ϵ
-            dif = dim_ϵ - geoS.dcap[II,11]
-            geoS.dcap[II,11] = dim_ϵ
-            geoS.dcap[II,5] += dif
-            if within_bounds(δy⁺(II, ny, per_y), grid)
-                geoS.dcap[δy⁺(II, ny, per_y),9] = dim_ϵ
-                geoS.dcap[δy⁺(II, ny, per_y),5] += dif
-            end
-        end
-        if geoL.dcap[II,11] < dim_ϵ
-            dif = dim_ϵ - geoL.dcap[II,11]
-            geoL.dcap[II,11] = dim_ϵ
-            geoS.dcap[II,5] += dif
-            if within_bounds(δy⁺(II, ny, per_y), grid)
-                geoL.dcap[δy⁺(II, ny, per_y),9] = dim_ϵ
-                geoL.dcap[δy⁺(II, ny, per_y),5] += dif
-            end
-        end
-    end
-    
-    return nothing
-end
-
-function postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, ϵ)
+function postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, ϵ, empty)
     clip_cells!(grid, ϵ, periodic_x, periodic_y)
     clip_cells!(grid_u, ϵ, periodic_x, periodic_y)
     clip_cells!(grid_v, ϵ, periodic_x, periodic_y)
@@ -506,16 +408,16 @@ function postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, ϵ)
     clip_A_acc_to_V(grid, grid_u, grid_v, grid.geoS, grid_u.geoS, grid_v.geoS, ϵ)
     clip_A_acc_to_V(grid, grid_u, grid_v, grid.geoL, grid_u.geoL, grid_v.geoL, ϵ)
     
+    set_cap_bcs!(grid, periodic_x, periodic_y, empty)
+    set_cap_bcs!(grid_u, periodic_x, periodic_y, empty)
+    set_cap_bcs!(grid_v, periodic_x, periodic_y, empty)
+
     dimensionalize!(grid, grid.geoS)
     dimensionalize!(grid, grid.geoL)
     dimensionalize!(grid_u, grid_u.geoS)
     dimensionalize!(grid_u, grid_u.geoL)
     dimensionalize!(grid_v, grid_v.geoS)
     dimensionalize!(grid_v, grid_v.geoL)
-
-    set_cap_bcs!(grid, periodic_x, periodic_y)
-    set_cap_bcs!(grid_u, periodic_x, periodic_y)
-    set_cap_bcs!(grid_v, periodic_x, periodic_y)
 
     Wcapacities!(grid.geoS.dcap, periodic_x, periodic_y)
     Wcapacities!(grid.geoL.dcap, periodic_x, periodic_y)
@@ -531,9 +433,7 @@ function postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, ϵ)
     average_face_capacities!(grid_v.geoS.dcap, periodic_x, periodic_y)
     average_face_capacities!(grid_v.geoL.dcap, periodic_x, periodic_y)
 
-    # clip_new!(grid, MIXED, periodic_x, periodic_y, 1e-3, ϵ)
-    # clip_new!(grid_u, MIXED_u, periodic_x, periodic_y, ϵ_c, ϵ)
-    # clip_new!(grid_v, MIXED_v, periodic_x, periodic_y, ϵ_c, ϵ)
+    return nothing
 end
 
 function marching_squares!(num, grid, u, periodic_x, periodic_y)
@@ -623,7 +523,7 @@ function get_interface_location!(grid, indices, periodic_x, periodic_y)
     return nothing
 end
 
-function get_interface_location_borders!(grid::Mesh{GridFCx,T,N}, u, periodic_x, periodic_y) where {T,N}
+function get_interface_location_borders!(grid::Mesh{GridFCx,T,N}, u, periodic_x) where {T,N}
     @unpack nx, ny, ind, geoS, geoL, mid_point, cut_points = grid
     @unpack b_left, b_bottom, b_right, b_top = ind
 
@@ -636,26 +536,27 @@ function get_interface_location_borders!(grid::Mesh{GridFCx,T,N}, u, periodic_x,
         @inbounds @threads for II in b_left[1]
             if u[II] >= 0.0
                 @inbounds geoS.cap[II,:] .= empty_capacities
-                @inbounds _, geoL.cap[II,:], _, _, geoL.centroid[II], mid_point[II], cut_points[II] = capacities_9
+                @inbounds _, geoL.cap[II,:], _, _, _, _, _ = capacities_9
             else
-                @inbounds geoS.cap[II,:], _, _, geoS.centroid[II], _, mid_point[II], cut_points[II] = capacities_6
+                @inbounds geoS.cap[II,:], _, _, _, _, _, _ = capacities_6
                 @inbounds geoL.cap[II,:] .= empty_capacities
             end
         end
         @inbounds @threads for II in b_right[1]
             if u[II] >= 0.0
                 @inbounds geoS.cap[II,:] .= empty_capacities
-                @inbounds _, geoL.cap[II,:], _, _, geoL.centroid[II], mid_point[II], cut_points[II] = capacities_6
+                @inbounds _, geoL.cap[II,:], _, _, _, _, _ = capacities_6
             else
-                @inbounds geoS.cap[II,:], _, _, geoS.centroid[II], _, mid_point[II], cut_points[II] = capacities_9
+                @inbounds geoS.cap[II,:], _, _, _, _, _, _ = capacities_9
                 @inbounds geoL.cap[II,:] .= empty_capacities
             end
         end
     end
+
     return nothing
 end
 
-function get_interface_location_borders!(grid::Mesh{GridFCy,T,N}, u, periodic_x, periodic_y) where {T,N}
+function get_interface_location_borders!(grid::Mesh{GridFCy,T,N}, u, periodic_y) where {T,N}
     @unpack ind, geoS, geoL, mid_point, cut_points = grid
     @unpack b_left, b_bottom, b_right, b_top = ind
 
@@ -668,22 +569,24 @@ function get_interface_location_borders!(grid::Mesh{GridFCy,T,N}, u, periodic_x,
         @inbounds @threads for II in b_bottom[1]
             if u[II] >= 0.0
                 @inbounds geoS.cap[II,:] .= empty_capacities
-                @inbounds _, geoL.cap[II,:], _, _, geoL.centroid[II], mid_point[II], cut_points[II] = capacities_3
+                @inbounds _, geoL.cap[II,:], _, _, _, _, _ = capacities_3
             else
-                @inbounds geoS.cap[II,:], _, _, geoS.centroid[II], _, mid_point[II], cut_points[II] = capacities_12
+                @inbounds geoS.cap[II,:], _, _, _, _, _, _ = capacities_12
                 @inbounds geoL.cap[II,:] .= empty_capacities
             end
         end
         @inbounds @threads for II in b_top[1]
             if u[II] >= 0.0
                 @inbounds geoS.cap[II,:] .= empty_capacities
-                @inbounds _, geoL.cap[II,:], _, _, geoL.centroid[II], mid_point[II], cut_points[II] = capacities_12
+                @inbounds _, geoL.cap[II,:], _, _, _, _, _ = capacities_12
             else
-                @inbounds geoS.cap[II,:], _, _, geoS.centroid[II], _, mid_point[II], cut_points[II] = capacities_3
+                @inbounds geoS.cap[II,:], _, _, _, _, _, _ = capacities_3
                 @inbounds geoL.cap[II,:] .= empty_capacities
             end
         end
     end
+
+    return nothing
 end
 
 function get_curvature(num, grid, u, κ, inside, per_x, per_y)
@@ -1198,35 +1101,35 @@ function capacities(F_prev, case)
     return cap_sol, cap_liq, min(float(π),max(-float(π),α)), sol_centroid, liq_centroid, mid_point, cut_points
 end
 
-function set_cap_bcs!(grid::Mesh{GridCC,T,N}, periodic_x, periodic_y) where {T,N}
+function set_cap_bcs!(grid::Mesh{GridCC,T,N}, periodic_x, periodic_y, empty = true) where {T,N}
     @unpack nx, ny, geoS, geoL, mid_point = grid
     # set A and mid_point at the boundaries to 0 if not periodic in that direction
     if periodic_x
         @inbounds @threads for i = 1:ny
-            @inbounds geoS.dcap[i,1,1] = geoS.dcap[i,end,3]
-            @inbounds geoL.dcap[i,1,1] = geoL.dcap[i,end,3]
+            @inbounds geoS.cap[i,1,1] = geoS.cap[i,end,3]
+            @inbounds geoL.cap[i,1,1] = geoL.cap[i,end,3]
         end
-    else
+    elseif empty
         @inbounds @threads for i = 1:ny
-            @inbounds geoS.dcap[i,1,1] = 0.0
-            @inbounds geoS.dcap[i,end,3] = 0.0
-            @inbounds geoL.dcap[i,1,1] = 0.0
-            @inbounds geoL.dcap[i,end,3] = 0.0
+            @inbounds geoS.cap[i,1,1] = 0.0
+            @inbounds geoS.cap[i,end,3] = 0.0
+            @inbounds geoL.cap[i,1,1] = 0.0
+            @inbounds geoL.cap[i,end,3] = 0.0
             @inbounds mid_point[i,1] += Point(-0.5, 0.0)
             @inbounds mid_point[i,end] += Point(0.5, 0.0)
         end
     end
     if periodic_y
         @inbounds @threads for i = 1:nx
-            @inbounds geoS.dcap[1,i,2] = geoS.dcap[end,i,4]
-            @inbounds geoL.dcap[1,i,2] = geoL.dcap[end,i,4]
+            @inbounds geoS.cap[1,i,2] = geoS.cap[end,i,4]
+            @inbounds geoL.cap[1,i,2] = geoL.cap[end,i,4]
         end
-    else
+    elseif empty
         @inbounds @threads for i = 1:nx
-            @inbounds geoS.dcap[1,i,2] = 0.0
-            @inbounds geoS.dcap[end,i,4] = 0.0
-            @inbounds geoL.dcap[1,i,2] = 0.0
-            @inbounds geoL.dcap[end,i,4] = 0.0
+            @inbounds geoS.cap[1,i,2] = 0.0
+            @inbounds geoS.cap[end,i,4] = 0.0
+            @inbounds geoL.cap[1,i,2] = 0.0
+            @inbounds geoL.cap[end,i,4] = 0.0
             @inbounds mid_point[1,i] += Point(0.0, -0.5)
             @inbounds mid_point[end,i] += Point(0.0, 0.5)
         end
@@ -1235,22 +1138,22 @@ function set_cap_bcs!(grid::Mesh{GridCC,T,N}, periodic_x, periodic_y) where {T,N
     return nothing
 end
 
-function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, periodic_x, periodic_y) where {T,N}
-    @unpack nx, ny, ind, geoS, geoL, mid_point, cut_points = grid
+function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, periodic_x, periodic_y, empty = true) where {T,N}
+    @unpack nx, ny, ind, geoS, geoL, mid_point, cut_points, iso = grid
     @unpack b_left, b_bottom, b_right, b_top = ind
 
     # set A at the boundaries
     if periodic_y
         @inbounds @threads for i = 1:nx
-            @inbounds geoS.dcap[1,i,2] = geoS.dcap[end,i,4]
-            @inbounds geoL.dcap[1,i,2] = geoL.dcap[end,i,4]
+            @inbounds geoS.cap[1,i,2] = geoS.cap[end,i,4]
+            @inbounds geoL.cap[1,i,2] = geoL.cap[end,i,4]
         end
-    else
+    elseif empty
         @inbounds @threads for i = 1:nx
-            @inbounds geoS.dcap[1,i,2] = 0.0
-            @inbounds geoS.dcap[end,i,4] = 0.0
-            @inbounds geoL.dcap[1,i,2] = 0.0
-            @inbounds geoL.dcap[end,i,4] = 0.0
+            @inbounds geoS.cap[1,i,2] = 0.0
+            @inbounds geoS.cap[end,i,4] = 0.0
+            @inbounds geoL.cap[1,i,2] = 0.0
+            @inbounds geoL.cap[end,i,4] = 0.0
             @inbounds mid_point[1,i] += Point(0.0, -0.5)
             @inbounds mid_point[end,i] += Point(0.0, 0.5)
         end
@@ -1259,30 +1162,151 @@ function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, periodic_x, periodic_y) where {T,
     # set mid_point in the outer boundaries
     if periodic_x
         @inbounds @threads for i = 1:ny
-            @inbounds geoS.dcap[i,1,1] = geoS.dcap[i,end,3]
-            @inbounds geoL.dcap[i,1,1] = geoL.dcap[i,end,3]
+            @inbounds geoS.cap[i,1,1] = geoS.cap[i,end,3]
+            @inbounds geoL.cap[i,1,1] = geoL.cap[i,end,3]
+        end
+    elseif !empty
+        @inbounds @threads for II in b_left[1]
+            @inbounds geoS.cap[II,1] = 0.0
+            @inbounds geoL.cap[II,1] = 0.0
+            if iso[II] == 0
+                @inbounds geoL.cap[II,2] = 0.5
+                @inbounds geoL.cap[II,4] = 0.5
+                tmpS = 0.0
+                tmpL = 0.5
+                @inbounds geoL.centroid[II] = geoL.centroid[II] + Point(0.25,0.0)
+            elseif iso[II] == 15
+                @inbounds geoS.cap[II,2] = 0.5
+                @inbounds geoS.cap[II,4] = 0.5
+                tmpS = 0.5
+                tmpL = 0.0
+                @inbounds geoS.centroid[II] = geoS.centroid[II] + Point(0.25,0.0)
+            end
+            if iso[II] == 1 || iso[II] == 9 || iso[II] == 13
+                @inbounds geoS.cap[II,2] = max(geoS.cap[II,2] - 0.5, 0.0)
+                @inbounds geoL.cap[II,2] = min(geoL.cap[II,2], 0.5)
+                tmpS = max(geoS.cap[II,7] - 0.5, 0.0)
+                tmpL = min(geoL.cap[II,7], 0.5)
+            elseif iso[II] == 2 || iso[II] == 6 || iso[II] == 14
+                @inbounds geoS.cap[II,2] = min(geoS.cap[II,2], 0.5)
+                @inbounds geoL.cap[II,2] = max(geoL.cap[II,2] - 0.5, 0.0)
+                tmpS = min(geoS.cap[II,7], 0.5)
+                tmpL = max(geoL.cap[II,7] - 0.5, 0.0)
+            elseif iso[II] == 3 || iso[II] == 4 || iso[II] == 7 || iso[II] == 8 || iso[II] == 11 || iso[II] == 12
+                @inbounds geoS.cap[II,2] *= 0.5
+                @inbounds geoL.cap[II,2] *= 0.5
+            end
+            if iso[II] == 4 || iso[II] == 6 || iso[II] == 7
+                @inbounds geoS.cap[II,4] = min(geoS.cap[II,4], 0.5)
+                @inbounds geoL.cap[II,4] = max(geoL.cap[II,4] - 0.5, 0.0)
+                tmpS = min(geoS.cap[II,7], 0.5)
+                tmpL = max(geoL.cap[II,7] - 0.5, 0.0)
+            elseif iso[II] == 8 || iso[II] == 9 || iso[II] == 11
+                @inbounds geoS.cap[II,4] = max(geoS.cap[II,4] - 0.5, 0.0)
+                @inbounds geoL.cap[II,4] = min(geoL.cap[II,4], 0.5)
+                tmpS = max(geoS.cap[II,7] - 0.5, 0.0)
+                tmpL = min(geoL.cap[II,7], 0.5)
+            elseif iso[II] == 1 || iso[II] == 2 || iso[II] == 3 || iso[II] == 12 || iso[II] == 13 || iso[II] == 14
+                @inbounds geoS.cap[II,4] *= 0.5
+                @inbounds geoL.cap[II,4] *= 0.5
+            end
+            if iso[II] == 3
+                tmpS = min(geoS.cap[II,7], 0.5)
+                tmpL = max(geoL.cap[II,7] - 0.5, 0.0)
+            elseif iso[II] == 12
+                tmpS = max(geoS.cap[II,7] - 0.5, 0.0)
+                tmpL = min(geoL.cap[II,7], 0.5)
+            end
+            @inbounds geoS.cap[II,5] = geoS.cap[II,5] * (geoS.cap[II,7] - tmpS) / (geoS.cap[II,7]+eps(0.01))
+            @inbounds geoL.cap[II,5] = geoL.cap[II,5] * (geoL.cap[II,7] - tmpL) / (geoL.cap[II,7]+eps(0.01))
+            @inbounds geoS.cap[II,7] = tmpS
+            @inbounds geoL.cap[II,7] = tmpL
+            @inbounds geoS.cap[II,8:11] .= geoS.cap[II,5] * 0.5
+            @inbounds geoL.cap[II,8:11] .= geoL.cap[II,5] * 0.5
+            @inbounds geoS.centroid[II] = Point(0.5 * geoS.cap[II,7],0.0)
+            @inbounds geoL.centroid[II] = Point(0.5 * geoL.cap[II,7],0.0)
+        end
+        @inbounds @threads for II in b_right[1]
+            @inbounds geoS.cap[II,3] = 0.0
+            @inbounds geoL.cap[II,3] = 0.0
+            if iso[II] == 0
+                @inbounds geoL.cap[II,2] = 0.5
+                @inbounds geoL.cap[II,4] = 0.5
+                tmpS = 0.0
+                tmpL = 0.5
+                @inbounds geoL.centroid[II] = geoL.centroid[II] - Point(0.25,0.0)
+            elseif iso[II] == 15
+                @inbounds geoS.cap[II,2] = 0.5
+                @inbounds geoS.cap[II,4] = 0.5
+                tmpS = 0.5
+                tmpL = 0.0
+                @inbounds geoS.centroid[II] = geoS.centroid[II] - Point(0.25,0.0)
+            end
+            if iso[II] == 1 || iso[II] == 9 || iso[II] == 13
+                @inbounds geoS.cap[II,2] = min(geoS.cap[II,2], 0.5)
+                @inbounds geoL.cap[II,2] = max(geoL.cap[II,2] - 0.5, 0.0)
+                tmpS = min(geoS.cap[II,7], 0.5)
+                tmpL = max(geoL.cap[II,7] - 0.5, 0.0)
+            elseif iso[II] == 2 || iso[II] == 6 || iso[II] == 14
+                @inbounds geoS.cap[II,2] = max(geoS.cap[II,2] - 0.5, 0.0)
+                @inbounds geoL.cap[II,2] = min(geoL.cap[II,2], 0.5)
+                tmpS = max(geoS.cap[II,7] - 0.5, 0.0)
+                tmpL = min(geoL.cap[II,7], 0.5)
+            elseif iso[II] == 3 || iso[II] == 4 || iso[II] == 7 || iso[II] == 8 || iso[II] == 11 || iso[II] == 12
+                @inbounds geoS.cap[II,2] *= 0.5
+                @inbounds geoL.cap[II,2] *= 0.5
+            end
+            if iso[II] == 4 || iso[II] == 6 || iso[II] == 7
+                @inbounds geoS.cap[II,4] = max(geoS.cap[II,4] - 0.5, 0.0)
+                @inbounds geoL.cap[II,4] = min(geoL.cap[II,4], 0.5)
+                tmpS = max(geoS.cap[II,7] - 0.5, 0.0)
+                tmpL = min(geoL.cap[II,7], 0.5)
+            elseif iso[II] == 8 || iso[II] == 9 || iso[II] == 11
+                @inbounds geoS.cap[II,4] = min(geoS.cap[II,4], 0.5)
+                @inbounds geoL.cap[II,4] = max(geoL.cap[II,4] - 0.5, 0.0)
+                tmpS = min(geoS.cap[II,7], 0.5)
+                tmpL = max(geoL.cap[II,7] - 0.5, 0.0)
+            elseif iso[II] == 1 || iso[II] == 2 || iso[II] == 3 || iso[II] == 12 || iso[II] == 13 || iso[II] == 14
+                @inbounds geoS.cap[II,4] *= 0.5
+                @inbounds geoL.cap[II,4] *= 0.5
+            end
+            if iso[II] == 3
+                tmpS = max(geoS.cap[II,7] - 0.5, 0.0)
+                tmpL = min(geoL.cap[II,7], 0.5)
+            elseif iso[II] == 12
+                tmpS = min(geoS.cap[II,7], 0.5)
+                tmpL = max(geoL.cap[II,7] - 0.5, 0.0)
+            end
+            @inbounds geoS.cap[II,5] = geoS.cap[II,5] * (geoS.cap[II,7] - tmpS) / (geoS.cap[II,7]+eps(0.01))
+            @inbounds geoL.cap[II,5] = geoL.cap[II,5] * (geoL.cap[II,7] - tmpL) / (geoL.cap[II,7]+eps(0.01))
+            @inbounds geoS.cap[II,7] = tmpS
+            @inbounds geoL.cap[II,7] = tmpL
+            @inbounds geoS.cap[II,8:11] .= geoS.cap[II,5] * 0.5
+            @inbounds geoL.cap[II,8:11] .= geoL.cap[II,5] * 0.5
+            @inbounds geoS.centroid[II] = Point(-0.5 * geoS.cap[II,7],0.0)
+            @inbounds geoL.centroid[II] = Point(-0.5 * geoL.cap[II,7],0.0)
         end
     end
 
     return nothing
 end
 
-function set_cap_bcs!(grid::Mesh{GridFCy,T,N}, periodic_x, periodic_y) where {T,N}
-    @unpack nx, ny, ind, geoS, geoL, mid_point, cut_points = grid
+function set_cap_bcs!(grid::Mesh{GridFCy,T,N}, periodic_x, periodic_y, empty = true) where {T,N}
+    @unpack nx, ny, ind, geoS, geoL, mid_point, cut_points, iso = grid
     @unpack b_left, b_bottom, b_right, b_top = ind
 
     # set A at the boundaries to 0 if not periodic in that direction
     if periodic_x
         @inbounds @threads for i = 1:ny
-            @inbounds geoS.dcap[i,1,1] = geoS.dcap[i,end,3]
-            @inbounds geoL.dcap[i,1,1] = geoL.dcap[i,end,3]
+            @inbounds geoS.cap[i,1,1] = geoS.cap[i,end,3]
+            @inbounds geoL.cap[i,1,1] = geoL.cap[i,end,3]
         end
-    else
+    elseif empty
         @inbounds @threads for i = 1:ny
-            @inbounds geoS.dcap[i,1,1] = 0.0
-            @inbounds geoS.dcap[i,end,3] = 0.0
-            @inbounds geoL.dcap[i,1,1] = 0.0
-            @inbounds geoL.dcap[i,end,3] = 0.0
+            @inbounds geoS.cap[i,1,1] = 0.0
+            @inbounds geoS.cap[i,end,3] = 0.0
+            @inbounds geoL.cap[i,1,1] = 0.0
+            @inbounds geoL.cap[i,end,3] = 0.0
             @inbounds mid_point[i,1] += Point(-0.5, 0.0)
             @inbounds mid_point[i,end] += Point(0.5, 0.0)
         end
@@ -1291,8 +1315,129 @@ function set_cap_bcs!(grid::Mesh{GridFCy,T,N}, periodic_x, periodic_y) where {T,
     # set mid_point in the outer boundaries
     if periodic_y
         @inbounds @threads for i = 1:nx
-            @inbounds geoS.dcap[1,i,2] = geoS.dcap[end,i,4]
-            @inbounds geoL.dcap[1,i,2] = geoL.dcap[end,i,4]
+            @inbounds geoS.cap[1,i,2] = geoS.cap[end,i,4]
+            @inbounds geoL.cap[1,i,2] = geoL.cap[end,i,4]
+        end
+    elseif !empty
+        @inbounds @threads for II in b_bottom[1]
+            @inbounds geoS.cap[II,2] = 0.0
+            @inbounds geoL.cap[II,2] = 0.0
+            if iso[II] == 0
+                @inbounds geoL.cap[II,1] = 0.5
+                @inbounds geoL.cap[II,3] = 0.5
+                tmpS = 0.0
+                tmpL = 0.5
+                @inbounds geoL.centroid[II] = geoL.centroid[II] + Point(0.0,0.25)
+            elseif iso[II] == 15
+                @inbounds geoS.cap[II,1] = 0.5
+                @inbounds geoS.cap[II,3] = 0.5
+                tmpS = 0.5
+                tmpL = 0.0
+                @inbounds geoS.centroid[II] = geoS.centroid[II] + Point(0.0,0.25)
+            end
+            if iso[II] == 1 || iso[II] == 3 || iso[II] == 7
+                @inbounds geoS.cap[II,1] = max(geoS.cap[II,1] - 0.5, 0.0)
+                @inbounds geoL.cap[II,1] = min(geoL.cap[II,1], 0.5)
+                tmpS = max(geoS.cap[II,6] - 0.5, 0.0)
+                tmpL = min(geoL.cap[II,6], 0.5)
+            elseif iso[II] == 8 || iso[II] == 12 || iso[II] == 14
+                @inbounds geoS.cap[II,1] = min(geoS.cap[II,1], 0.5)
+                @inbounds geoL.cap[II,1] = max(geoL.cap[II,1] - 0.5, 0.0)
+                tmpS = min(geoS.cap[II,6], 0.5)
+                tmpL = max(geoL.cap[II,6] - 0.5, 0.0)
+            elseif iso[II] == 2 || iso[II] == 4 || iso[II] == 6 || iso[II] == 9 || iso[II] == 11 || iso[II] == 12
+                @inbounds geoS.cap[II,1] *= 0.5
+                @inbounds geoL.cap[II,1] *= 0.5
+            end
+            if iso[II] == 4 || iso[II] == 12 || iso[II] == 13
+                @inbounds geoS.cap[II,3] = min(geoS.cap[II,3], 0.5)
+                @inbounds geoL.cap[II,3] = max(geoL.cap[II,3] - 0.5, 0.0)
+                tmpS = min(geoS.cap[II,6], 0.5)
+                tmpL = max(geoL.cap[II,6] - 0.5, 0.0)
+            elseif iso[II] == 2 || iso[II] == 3 || iso[II] == 11
+                @inbounds geoS.cap[II,3] = max(geoS.cap[II,3] - 0.5, 0.0)
+                @inbounds geoL.cap[II,3] = min(geoL.cap[II,3], 0.5)
+                tmpS = max(geoS.cap[II,6] - 0.5, 0.0)
+                tmpL = min(geoL.cap[II,6], 0.5)
+            elseif iso[II] == 1 || iso[II] == 6 || iso[II] == 7 || iso[II] == 8 || iso[II] == 9 || iso[II] == 14
+                @inbounds geoS.cap[II,3] *= 0.5
+                @inbounds geoL.cap[II,3] *= 0.5
+            end
+            if iso[II] == 9
+                tmpS = min(geoS.cap[II,6], 0.5)
+                tmpL = max(geoL.cap[II,6] - 0.5, 0.0)
+            elseif iso[II] == 6
+                tmpS = max(geoS.cap[II,6] - 0.5, 0.0)
+                tmpL = min(geoL.cap[II,6], 0.5)
+            end
+            @inbounds geoS.cap[II,5] = geoS.cap[II,5] * (geoS.cap[II,6] - tmpS) / (geoS.cap[II,6]+eps(0.01))
+            @inbounds geoL.cap[II,5] = geoL.cap[II,5] * (geoL.cap[II,6] - tmpL) / (geoL.cap[II,6]+eps(0.01))
+            @inbounds geoS.cap[II,6] = tmpS
+            @inbounds geoL.cap[II,6] = tmpL
+            @inbounds geoS.cap[II,8:11] .= geoS.cap[II,5] * 0.5
+            @inbounds geoL.cap[II,8:11] .= geoL.cap[II,5] * 0.5
+            @inbounds geoS.centroid[II] = Point(0.0, 0.5 * geoS.cap[II,6])
+            @inbounds geoL.centroid[II] = Point(0.0, 0.5 * geoL.cap[II,6])
+        end
+        @inbounds @threads for II in b_top[1]
+            @inbounds geoS.cap[II,4] = 0.0
+            @inbounds geoL.cap[II,4] = 0.0
+            if iso[II] == 0
+                @inbounds geoL.cap[II,1] = 0.5
+                @inbounds geoL.cap[II,3] = 0.5
+                tmpS = 0.0
+                tmpL = 0.5
+                @inbounds geoL.centroid[II] = geoL.centroid[II] - Point(0.0,0.25)
+            elseif iso[II] == 15
+                @inbounds geoS.cap[II,1] = 0.5
+                @inbounds geoS.cap[II,3] = 0.5
+                tmpS = 0.5
+                tmpL = 0.0
+                @inbounds geoS.centroid[II] = geoS.centroid[II] - Point(0.0,0.25)
+            end
+            if iso[II] == 1 || iso[II] == 3 || iso[II] == 7
+                @inbounds geoS.cap[II,1] = min(geoS.cap[II,1], 0.5)
+                @inbounds geoL.cap[II,1] = max(geoL.cap[II,1] - 0.5, 0.0)
+                tmpS = min(geoS.cap[II,6], 0.5)
+                tmpL = max(geoL.cap[II,6] - 0.5, 0.0)
+            elseif iso[II] == 8 || iso[II] == 12 || iso[II] == 14
+                @inbounds geoS.cap[II,1] = max(geoS.cap[II,1] - 0.5, 0.0)
+                @inbounds geoL.cap[II,1] = min(geoL.cap[II,1], 0.5)
+                tmpS = max(geoS.cap[II,6] - 0.5, 0.0)
+                tmpL = min(geoL.cap[II,6], 0.5)
+            elseif iso[II] == 2 || iso[II] == 4 || iso[II] == 6 || iso[II] == 9 || iso[II] == 11 || iso[II] == 12
+                @inbounds geoS.cap[II,1] *= 0.5
+                @inbounds geoL.cap[II,1] *= 0.5
+            end
+            if iso[II] == 4 || iso[II] == 12 || iso[II] == 13
+                @inbounds geoS.cap[II,3] = max(geoS.cap[II,3] - 0.5, 0.0)
+                @inbounds geoL.cap[II,3] = min(geoL.cap[II,3], 0.5)
+                tmpS = max(geoS.cap[II,6] - 0.5, 0.0)
+                tmpL = min(geoL.cap[II,6], 0.5)
+            elseif iso[II] == 2 || iso[II] == 3 || iso[II] == 11
+                @inbounds geoS.cap[II,3] = min(geoS.cap[II,3], 0.5)
+                @inbounds geoL.cap[II,3] = max(geoL.cap[II,3] - 0.5, 0.0)
+                tmpS = min(geoS.cap[II,6], 0.5)
+                tmpL = max(geoL.cap[II,6] - 0.5, 0.0)
+            elseif iso[II] == 1 || iso[II] == 6 || iso[II] == 7 || iso[II] == 8 || iso[II] == 9 || iso[II] == 14
+                @inbounds geoS.cap[II,3] *= 0.5
+                @inbounds geoL.cap[II,3] *= 0.5
+            end
+            if iso[II] == 9
+                tmpS = max(geoS.cap[II,6] - 0.5, 0.0)
+                tmpL = min(geoL.cap[II,6], 0.5)
+            elseif iso[II] == 6
+                tmpS = min(geoS.cap[II,6], 0.5)
+                tmpL = max(geoL.cap[II,6] - 0.5, 0.0)
+            end
+            @inbounds geoS.cap[II,5] = geoS.cap[II,5] * (geoS.cap[II,6] - tmpS) / (geoS.cap[II,6]+eps(0.01))
+            @inbounds geoL.cap[II,5] = geoL.cap[II,5] * (geoL.cap[II,6] - tmpL) / (geoL.cap[II,6]+eps(0.01))
+            @inbounds geoS.cap[II,6] = tmpS
+            @inbounds geoL.cap[II,6] = tmpL
+            @inbounds geoS.cap[II,8:11] .= geoS.cap[II,5] * 0.5
+            @inbounds geoL.cap[II,8:11] .= geoL.cap[II,5] * 0.5
+            @inbounds geoS.centroid[II] = Point(0.0,-0.5 * geoS.cap[II,6])
+            @inbounds geoL.centroid[II] = Point(0.0,-0.5 * geoL.cap[II,6])
         end
     end
 

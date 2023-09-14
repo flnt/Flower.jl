@@ -627,8 +627,15 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     iMx_TL = Diagonal(zeros((nx+1)*ny))
     iMy_TS = Diagonal(zeros(nx*(ny+1)))
     iMy_TL = Diagonal(zeros(nx*(ny+1)))
+    iMx_bd_TS = Diagonal(zeros(2*nx+2*ny))
+    iMx_bd_TL = Diagonal(zeros(2*nx+2*ny))
+    iMy_bd_TS = Diagonal(zeros(2*nx+2*ny))
+    iMy_bd_TL = Diagonal(zeros(2*nx+2*ny))
     χ_TS = Diagonal(fzeros(grid))
     χ_TL = Diagonal(fzeros(grid))
+    χ_b_TS = Diagonal(zeros(2*grid.nx+2*grid.ny))
+    χ_b_TL = Diagonal(zeros(2*grid.nx+2*grid.ny))
+
 
     M_pS = Diagonal(fzeros(grid))
     M_pL = Diagonal(fzeros(grid))
@@ -636,8 +643,14 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     iMx_pL = Diagonal(zeros((nx+1)*ny))
     iMy_pS = Diagonal(zeros(nx*(ny+1)))
     iMy_pL = Diagonal(zeros(nx*(ny+1)))
+    iMx_bd_pS = Diagonal(zeros(2*nx+2*ny))
+    iMx_bd_pL = Diagonal(zeros(2*nx+2*ny))
+    iMy_bd_pS = Diagonal(zeros(2*nx+2*ny))
+    iMy_bd_pL = Diagonal(zeros(2*nx+2*ny))
     χ_pS = Diagonal(fzeros(grid))
     χ_pL = Diagonal(fzeros(grid))
+    χ_b_pS = Diagonal(zeros(2*grid.nx+2*grid.ny))
+    χ_b_pL = Diagonal(zeros(2*grid.nx+2*grid.ny))
 
     M_uS = Diagonal(fzeros(grid_u))
     M_uL = Diagonal(fzeros(grid_u))
@@ -645,8 +658,14 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     iMx_uL = Diagonal(zeros((grid_u.nx+1)*grid_u.ny))
     iMy_uS = Diagonal(zeros(grid_u.nx*(grid_u.ny+1)))
     iMy_uL = Diagonal(zeros(grid_u.nx*(grid_u.ny+1)))
+    iMx_bd_uS = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
+    iMx_bd_uL = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
+    iMy_bd_uS = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
+    iMy_bd_uL = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
     χ_uS = Diagonal(fzeros(grid_u))
     χ_uL = Diagonal(fzeros(grid_u))
+    χ_b_uS = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
+    χ_b_uL = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
 
     M_vS = Diagonal(fzeros(grid_v))
     M_vL = Diagonal(fzeros(grid_v))
@@ -654,8 +673,228 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     iMx_vL = Diagonal(zeros((grid_v.nx+1)*grid_v.ny))
     iMy_vS = Diagonal(zeros(grid_v.nx*(grid_v.ny+1)))
     iMy_vL = Diagonal(zeros(grid_v.nx*(grid_v.ny+1)))
+    iMx_bd_vS = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
+    iMx_bd_vL = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
+    iMy_bd_vS = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
+    iMy_bd_vL = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
     χ_vS = Diagonal(fzeros(grid_v))
     χ_vL = Diagonal(fzeros(grid_v))
+    χ_b_vS = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
+    χ_b_vL = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
+
+    # Outer borders cutcell matrices
+    ii = collect(i for i = 1:2*ny+2*nx)
+    ip = collect(i for i = 1:nx+ny)
+    im = collect(i for i = nx+ny+1:2*nx+2*ny)
+
+    jj = collect(j for j = 1:2*ny+2*nx)
+    jp = collect(j for j = nx+ny+1:2*nx+2*ny)
+    jm = collect(j for j = 1:nx+ny)
+
+    II = vcat(ii,ip,im)
+    JJ = vcat(jj,jp,jm)
+    a = zeros(length(jj))
+    b = zeros(length(jp)+length(jm))
+    Hx_b_pS = sparse(II,JJ,vcat(a,b))
+    Hx_b_pL = copy(Hx_b_pS)
+    Hy_b_pS = copy(Hx_b_pS)
+    Hy_b_pL = copy(Hx_b_pS)
+    HxT_b_pS = copy(Hx_b_pS)
+    HxT_b_pL = copy(Hx_b_pS)
+    HyT_b_pS = copy(Hx_b_pS)
+    HyT_b_pL = copy(Hx_b_pS)
+    Hx_b_TS = copy(Hx_b_pS)
+    Hx_b_TL = copy(Hx_b_TS)
+    Hy_b_TS = copy(Hx_b_TS)
+    Hy_b_TL = copy(Hx_b_TS)
+    HxT_b_TS = copy(Hx_b_TS)
+    HxT_b_TL = copy(Hx_b_TS)
+    HyT_b_TS = copy(Hx_b_TS)
+    HyT_b_TL = copy(Hx_b_TS)
+
+    iw = collect(i for i = 1:ny)
+    ie = collect(i for i = (nx-1)*ny+1:nx*ny)
+    iF = [nx*ny]
+
+    jw = collect(j for j = 1:grid_u.ny)
+    je = collect(j for j = grid_u.nx+grid_u.ny+1:2*grid_u.ny+grid_u.nx)
+    jf = [2*grid_u.nx+2*grid_u.ny]
+
+    II = vcat(iw,ie,iF)
+    JJ = vcat(jw,je,jf)
+    a = zeros(length(jw)+length(je)+1)
+    Gx_b_pS = sparse(II,JJ,a)
+    Gx_b_pL = copy(Gx_b_pS)
+    Gx_b_TS = copy(Gx_b_pS)
+    Gx_b_TL = copy(Gx_b_pS)
+
+    is = collect(i for i = 1:ny:(nx-1)*ny+1)
+    iN = collect(i for i = ny:ny:ny*nx)
+
+    js = collect(j for j = grid_v.ny+1:grid_v.ny+grid_v.nx)
+    jn = collect(j for j = 2*grid_v.ny+grid_v.nx+1:2*grid_v.ny+2*grid_v.nx)
+
+    II = vcat(is,iN)
+    JJ = vcat(js,jn)
+    a = zeros(length(js)+length(jn))
+    Gy_b_pS = sparse(II,JJ,a)
+    Gy_b_pL = copy(Gy_b_pS)
+    Gy_b_TS = copy(Gy_b_pS)
+    Gy_b_TL = copy(Gy_b_pS)
+
+    ii = collect(i for i = 1:2*grid_u.ny+2*grid_u.nx)
+    ip = collect(i for i = 1:grid_u.nx+grid_u.ny)
+    im = collect(i for i = grid_u.nx+grid_u.ny+1:2*grid_u.nx+2*grid_u.ny)
+
+    jj = collect(j for j = 1:2*grid_u.ny+2*grid_u.nx)
+    jp = collect(j for j = grid_u.nx+grid_u.ny+1:2*grid_u.nx+2*grid_u.ny)
+    jm = collect(j for j = 1:grid_u.nx+grid_u.ny)
+
+    II = vcat(ii,ip,im)
+    JJ = vcat(jj,jp,jm)
+    a = zeros(length(jj))
+    b = zeros(length(jp)+length(jm))
+    Hx_b_uS = sparse(II,JJ,vcat(a,b))
+    Hx_b_uL = copy(Hx_b_uS)
+    Hy_b_uS = copy(Hx_b_uS)
+    Hy_b_uL = copy(Hx_b_uS)
+    HxT_b_uS = copy(Hx_b_uS)
+    HxT_b_uL = copy(Hx_b_uS)
+    HyT_b_uS = copy(Hx_b_uS)
+    HyT_b_uL = copy(Hx_b_uS)
+
+    iw = collect(i for i = 1:grid_u.ny)
+    ie = collect(i for i = (grid_u.nx-1)*grid_u.ny+1:grid_u.nx*grid_u.ny)
+    iF = [grid_u.nx*grid_u.ny]
+
+    jw = collect(j for j = 1:ny)
+    je = collect(j for j = nx+ny+1:2*ny+nx)
+    jf = [2*nx+2*ny]
+
+    II = vcat(iw,ie,iF)
+    JJ = vcat(jw,je,jf)
+    a = zeros(length(jw)+length(je)+1)
+    Gx_b_uS = sparse(II,JJ,a)
+    Gx_b_uL = copy(Gx_b_uS)
+    Gy_b_uS = copy(Gx_b_uS)
+    Gy_b_uL = copy(Gx_b_uS)
+
+    ii = collect(i for i = 1:2*grid_v.ny+2*grid_v.nx)
+    ip = collect(i for i = 1:grid_v.nx+grid_v.ny)
+    im = collect(i for i = grid_v.nx+grid_v.ny+1:2*grid_v.nx+2*grid_v.ny)
+
+    jj = collect(j for j = 1:2*grid_v.ny+2*grid_v.nx)
+    jp = collect(j for j = grid_v.nx+grid_v.ny+1:2*grid_v.nx+2*grid_v.ny)
+    jm = collect(j for j = 1:grid_v.nx+grid_v.ny)
+
+    II = vcat(ii,ip,im)
+    JJ = vcat(jj,jp,jm)
+    a = zeros(length(jj))
+    b = zeros(length(jp)+length(jp))
+    Hx_b_vS = sparse(II,JJ,vcat(a,b))
+    Hx_b_vL = copy(Hx_b_vS)
+    Hy_b_vS = copy(Hx_b_vS)
+    Hy_b_vL = copy(Hx_b_vS)
+    HxT_b_vS = copy(Hx_b_vS)
+    HxT_b_vL = copy(Hx_b_vS)
+    HyT_b_vS = copy(Hx_b_vS)
+    HyT_b_vL = copy(Hx_b_vS)
+
+    is = collect(i for i = 1:grid_v.ny:(grid_v.nx-1)*grid_v.ny+1)
+    iN = collect(i for i = grid_v.ny:grid_v.ny:grid_v.ny*grid_v.nx)
+
+    js = collect(j for j = ny+1:ny+nx)
+    jn = collect(j for j = 2*ny+nx+1:2*ny+2*nx)
+
+    II = vcat(is,iN)
+    JJ = vcat(js,jn)
+    a = zeros(length(js)+length(jn))
+    Gx_b_vS = sparse(II,JJ,a)
+    Gx_b_vL = copy(Gx_b_vS)
+    Gy_b_vS = copy(Gx_b_vS)
+    Gy_b_vL = copy(Gx_b_vS)
+
+    ie = collect(i for i = 1:ny)
+    iw = collect(i for i = nx*ny+1:(nx+1)*ny)
+    iF = [(nx+1)*ny]
+
+    je = collect(j for j = 1:ny)
+    jw = collect(j for j = nx+ny+1:nx+2*ny)
+    jf = [2*nx+2*ny]
+
+    II = vcat(ie,iw,iF)
+    JJ = vcat(je,jw,jf)
+    a = zeros(length(je)+length(jw)+1)
+    iMx_b_pS = sparse(II,JJ,a)
+    iMx_b_pL = copy(iMx_b_pS)
+    iMx_b_TS = copy(iMx_b_pS)
+    iMx_b_TL = copy(iMx_b_pS)
+
+    is = collect(i for i = 1:ny+1:(nx-1)*(ny+1)+1)
+    iN = collect(i for i = ny+1:ny+1:nx*(ny+1))
+
+    js = collect(j for j = ny+1:nx+ny)
+    jn = collect(j for j = nx+2*ny+1:2*nx+2*ny)
+
+    II = vcat(is,iN)
+    JJ = vcat(js,jn)
+    a = zeros(length(js)+length(jn))
+    iMy_b_pS = sparse(II,JJ,a)
+    iMy_b_pL = copy(iMy_b_pS)
+    iMy_b_TS = copy(iMy_b_pS)
+    iMy_b_TL = copy(iMy_b_pS)
+
+    ie = collect(i for i = 1:grid_u.ny)
+    iw = collect(i for i = grid_u.nx*grid_u.ny+1:(grid_u.nx+1)*grid_u.ny)
+    iF = [(grid_u.nx+1)*grid_u.ny]
+
+    je = collect(j for j = 1:grid_u.ny)
+    jw = collect(j for j = grid_u.nx+grid_u.ny+1:grid_u.nx+2*grid_u.ny)
+    jf = [2*grid_u.nx+2*grid_u.ny]
+
+    II = vcat(ie,iw,iF)
+    JJ = vcat(je,jw,jf)
+    a = zeros(length(je)+length(jw)+1)
+    iMx_b_uS = sparse(II,JJ,a)
+    iMx_b_uL = copy(iMx_b_uS)
+
+    is = collect(i for i = 1:grid_u.ny+1:(grid_u.nx-1)*(grid_u.ny+1)+1)
+    iN = collect(i for i = grid_u.ny+1:grid_u.ny+1:grid_u.nx*(grid_u.ny+1))
+
+    js = collect(j for j = grid_u.ny+1:grid_u.nx+grid_u.ny)
+    jn = collect(j for j = grid_u.nx+2*grid_u.ny+1:2*grid_u.nx+2*grid_u.ny)
+
+    II = vcat(is,iN)
+    JJ = vcat(js,jn)
+    a = zeros(length(js)+length(jn))
+    iMy_b_uS = sparse(II,JJ,a)
+    iMy_b_uL = copy(iMy_b_uS)
+
+    ie = collect(i for i = 1:grid_v.ny)
+    iw = collect(i for i = grid_v.nx*grid_v.ny+1:(grid_v.nx+1)*grid_v.ny)
+    iF = [(grid_v.nx+1)*grid_v.ny]
+
+    je = collect(j for j = 1:grid_v.ny)
+    jw = collect(j for j = grid_v.nx+grid_v.ny+1:grid_v.nx+2*grid_v.ny)
+    jf = [2*grid_v.nx+2*grid_v.ny]
+
+    II = vcat(ie,iw,iF)
+    JJ = vcat(je,jw,jf)
+    a = zeros(length(je)+length(jw)+1)
+    iMx_b_vS = sparse(II,JJ,a)
+    iMx_b_vL = copy(iMx_b_vS)
+
+    is = collect(i for i = 1:grid_v.ny+1:(grid_v.nx-1)*(grid_v.ny+1)+1)
+    iN = collect(i for i = grid_v.ny+1:grid_v.ny+1:grid_v.nx*(grid_v.ny+1))
+
+    js = collect(j for j = grid_v.ny+1:grid_v.nx+grid_v.ny)
+    jn = collect(j for j = grid_v.nx+2*grid_v.ny+1:2*grid_v.nx+2*grid_v.ny)
+
+    II = vcat(is,iN)
+    JJ = vcat(js,jn)
+    a = zeros(length(js)+length(jn))
+    iMy_b_vS = sparse(II,JJ,a)
+    iMy_b_vL = copy(iMy_b_vS)
 
     TS = zeros(grid)
     TL = zeros(grid)
@@ -683,20 +922,20 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     DuL = zeros(grid_u)
     DvS = zeros(grid_v)
     DvL = zeros(grid_v)
-    TDS = f2zeros(grid)
-    TDL = f2zeros(grid)
-    pDS = f2zeros(grid)
-    pDL = f2zeros(grid)
-    ϕDS = f2zeros(grid)
-    ϕDL = f2zeros(grid)
-    uDS = f2zeros(grid_u)
-    uDL = f2zeros(grid_u)
-    vDS = f2zeros(grid_v)
-    vDL = f2zeros(grid_v)
-    ucorrDS = f2zeros(grid_u)
-    ucorrDL = f2zeros(grid_u)
-    vcorrDS = f2zeros(grid_v)
-    vcorrDL = f2zeros(grid_v)
+    TDS = f3zeros(grid)
+    TDL = f3zeros(grid)
+    pDS = f3zeros(grid)
+    pDL = f3zeros(grid)
+    ϕDS = f3zeros(grid)
+    ϕDL = f3zeros(grid)
+    uDS = f3zeros(grid_u)
+    uDL = f3zeros(grid_u)
+    vDS = f3zeros(grid_v)
+    vDL = f3zeros(grid_v)
+    ucorrDS = f3zeros(grid_u)
+    ucorrDL = f3zeros(grid_u)
+    vcorrDS = f3zeros(grid_v)
+    vcorrDL = f3zeros(grid_v)
 
     n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
     
@@ -724,14 +963,14 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     time = zeros(n_snaps)
     Cd = zeros(n_snaps)
     Cl = zeros(n_snaps)
-    TDSsave = f2zeros(n_snaps, grid)
-    TDLsave = f2zeros(n_snaps, grid)
-    pDSsave = f2zeros(n_snaps, grid)
-    pDLsave = f2zeros(n_snaps, grid)
-    ucorrDSsave = f2zeros(n_snaps, grid_u)
-    ucorrDLsave = f2zeros(n_snaps, grid_u)
-    vcorrDSsave = f2zeros(n_snaps, grid_v)
-    vcorrDLsave = f2zeros(n_snaps, grid_v)
+    TDSsave = f3zeros(n_snaps, grid)
+    TDLsave = f3zeros(n_snaps, grid)
+    pDSsave = f3zeros(n_snaps, grid)
+    pDLsave = f3zeros(n_snaps, grid)
+    ucorrDSsave = f3zeros(n_snaps, grid_u)
+    ucorrDLsave = f3zeros(n_snaps, grid_u)
+    vcorrDSsave = f3zeros(n_snaps, grid_v)
+    vcorrDLsave = f3zeros(n_snaps, grid_v)
 
     if num.case == "Planar"
         u .= y .+ shifted
@@ -836,14 +1075,14 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
         DiscreteOperators(
             OperatorsConvection(SCUTCT, SCUTCu, SCUTCv, CTS, CuS, CvS, E11, E12_x, E12_y, E22),
             OperatorsConvection(LCUTCT, LCUTCu, LCUTCv, CTL, CuL, CvL, E11, E12_x, E12_y, E22),
-            Operators(AxT_TS, AyT_TS, Bx_TS, By_TS, BxT_TS, ByT_TS, Hx_TS, Hy_TS, HxT_TS, HyT_TS, tmp_x_TS, tmp_y_TS, M_TS, iMx_TS, iMy_TS, χ_TS, Rx, Ry, GxT_S, GyT_S),
-            Operators(AxT_TL, AyT_TL, Bx_TL, By_TL, BxT_TL, ByT_TL, Hx_TL, Hy_TL, HxT_TL, HyT_TL, tmp_x_TL, tmp_y_TL, M_TL, iMx_TL, iMy_TL, χ_TL, Rx, Ry, GxT_L, GyT_L),
-            Operators(AxT_pS, AyT_pS, Bx_pS, By_pS, BxT_pS, ByT_pS, Hx_pS, Hy_pS, HxT_pS, HyT_pS, tmp_x_pS, tmp_y_pS, M_pS, iMx_pS, iMy_pS, χ_pS, Rx, Ry, GxT_S, GyT_S),
-            Operators(AxT_pL, AyT_pL, Bx_pL, By_pL, BxT_pL, ByT_pL, Hx_pL, Hy_pL, HxT_pL, HyT_pL, tmp_x_pL, tmp_y_pL, M_pL, iMx_pL, iMy_pL, χ_pL, Rx, Ry, GxT_L, GyT_L),
-            Operators(AxT_uS, AyT_uS, Bx_uS, By_uS, BxT_uS, ByT_uS, Hx_uS, Hy_uS, HxT_uS, HyT_uS, tmp_x_uS, tmp_y_uS, M_uS, iMx_uS, iMy_uS, χ_uS, Rx, Ry, Gx_S, Gy_S),
-            Operators(AxT_uL, AyT_uL, Bx_uL, By_uL, BxT_uL, ByT_uL, Hx_uL, Hy_uL, HxT_uL, HyT_uL, tmp_x_uL, tmp_y_uL, M_uL, iMx_uL, iMy_uL, χ_uL, Rx, Ry, Gx_L, Gy_L),
-            Operators(AxT_vS, AyT_vS, Bx_vS, By_vS, BxT_vS, ByT_vS, Hx_vS, Hy_vS, HxT_vS, HyT_vS, tmp_x_vS, tmp_y_vS, M_vS, iMx_vS, iMy_vS, χ_vS, Rx, Ry, Gx_S, Gy_S),
-            Operators(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L)
+            Operators(AxT_TS, AyT_TS, Bx_TS, By_TS, BxT_TS, ByT_TS, Hx_TS, Hy_TS, HxT_TS, HyT_TS, tmp_x_TS, tmp_y_TS, M_TS, iMx_TS, iMy_TS, χ_TS, Rx, Ry, GxT_S, GyT_S, Hx_b_TS, Hy_b_TS, HxT_b_TS, HyT_b_TS, iMx_b_TS, iMy_b_TS, iMx_bd_TS, iMy_bd_TS, Gx_b_TS, Gy_b_TS, χ_b_TS),
+            Operators(AxT_TL, AyT_TL, Bx_TL, By_TL, BxT_TL, ByT_TL, Hx_TL, Hy_TL, HxT_TL, HyT_TL, tmp_x_TL, tmp_y_TL, M_TL, iMx_TL, iMy_TL, χ_TL, Rx, Ry, GxT_L, GyT_L, Hx_b_TL, Hy_b_TL, HxT_b_TL, HyT_b_TL, iMx_b_TL, iMy_b_TL, iMx_bd_TL, iMy_bd_TL, Gx_b_TL, Gy_b_TL, χ_b_TL),
+            Operators(AxT_pS, AyT_pS, Bx_pS, By_pS, BxT_pS, ByT_pS, Hx_pS, Hy_pS, HxT_pS, HyT_pS, tmp_x_pS, tmp_y_pS, M_pS, iMx_pS, iMy_pS, χ_pS, Rx, Ry, GxT_S, GyT_S, Hx_b_pS, Hy_b_pS, HxT_b_pS, HyT_b_pS, iMx_b_pS, iMy_b_pS, iMx_bd_pS, iMy_bd_pS, Gx_b_pS, Gy_b_pS, χ_b_pS),
+            Operators(AxT_pL, AyT_pL, Bx_pL, By_pL, BxT_pL, ByT_pL, Hx_pL, Hy_pL, HxT_pL, HyT_pL, tmp_x_pL, tmp_y_pL, M_pL, iMx_pL, iMy_pL, χ_pL, Rx, Ry, GxT_L, GyT_L, Hx_b_pL, Hy_b_pL, HxT_b_pL, HyT_b_pL, iMx_b_pL, iMy_b_pL, iMx_bd_pL, iMy_bd_pL, Gx_b_pL, Gy_b_pL, χ_b_pL),
+            Operators(AxT_uS, AyT_uS, Bx_uS, By_uS, BxT_uS, ByT_uS, Hx_uS, Hy_uS, HxT_uS, HyT_uS, tmp_x_uS, tmp_y_uS, M_uS, iMx_uS, iMy_uS, χ_uS, Rx, Ry, Gx_S, Gy_S, Hx_b_uS, Hy_b_uS, HxT_b_uS, HyT_b_uS, iMx_b_uS, iMy_b_uS, iMx_bd_uS, iMy_bd_uS, Gx_b_uS, Gy_b_uS, χ_b_uS),
+            Operators(AxT_uL, AyT_uL, Bx_uL, By_uL, BxT_uL, ByT_uL, Hx_uL, Hy_uL, HxT_uL, HyT_uL, tmp_x_uL, tmp_y_uL, M_uL, iMx_uL, iMy_uL, χ_uL, Rx, Ry, Gx_L, Gy_L, Hx_b_uL, Hy_b_uL, HxT_b_uL, HyT_b_uL, iMx_b_uL, iMy_b_uL, iMx_bd_uL, iMy_bd_uL, Gx_b_uL, Gy_b_uL, χ_b_uL),
+            Operators(AxT_vS, AyT_vS, Bx_vS, By_vS, BxT_vS, ByT_vS, Hx_vS, Hy_vS, HxT_vS, HyT_vS, tmp_x_vS, tmp_y_vS, M_vS, iMx_vS, iMy_vS, χ_vS, Rx, Ry, Gx_S, Gy_S, Hx_b_vS, Hy_b_vS, HxT_b_vS, HyT_b_vS, iMx_b_vS, iMy_b_vS, iMx_bd_vS, iMy_bd_vS, Gx_b_vS, Gy_b_vS, χ_b_vS),
+            Operators(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L, Hx_b_vL, Hy_b_vL, HxT_b_vL, HyT_b_vL, iMx_b_vL, iMy_b_vL, iMx_bd_vL, iMy_bd_vL, Gx_b_vL, Gy_b_vL, χ_b_vL)
         ),
         Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DϕS, DuS, DvS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS),
         Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DϕL, DuL, DvL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL),

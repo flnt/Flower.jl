@@ -39,6 +39,7 @@ abstract type AbstractOptimizer end
     g::T = 0.0
     β::T = 0.0
     θe::T = pi/2
+    n_ext_cl::D = 5
     x_airfoil::Array{T} = [0.0]
     y_airfoil::Array{T} = [0.0]
     aniso::Bool = false
@@ -160,6 +161,17 @@ mutable struct Operators{T <: Real, D <: Integer} <: MutatingFields
     Ry::SparseMatrixCSC{T,D}
     Gx::SparseMatrixCSC{T,D}
     Gy::SparseMatrixCSC{T,D}
+    Hx_b::SparseMatrixCSC{T,D}
+    Hy_b::SparseMatrixCSC{T,D}
+    HxT_b::SparseMatrixCSC{T,D}
+    HyT_b::SparseMatrixCSC{T,D}
+    iMx_b::SparseMatrixCSC{T,D}
+    iMy_b::SparseMatrixCSC{T,D}
+    iMx_bd::Diagonal{T,Vector{T}}
+    iMy_bd::Diagonal{T,Vector{T}}
+    Gx_b::SparseMatrixCSC{T,D}
+    Gy_b::SparseMatrixCSC{T,D}
+    χ_b::Diagonal{T,Vector{T}}
 end
 
 struct DiscreteOperators{T <: Real, D <: Integer}

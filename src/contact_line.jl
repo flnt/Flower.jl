@@ -4,13 +4,10 @@
 Update levelset matrices to apply inhomogeneous Neumann boundary conditions in presence of
 contact lines.
 """
-function BC_LS!(grid, A, B, rhs, BC)
+function BC_LS!(grid, A, B, rhs, BC, n_ext)
     @unpack x, y, nx, ny, dx, dy, ind, u = grid
     @unpack b_left, b_bottom, b_right, b_top, cl = ind
     @unpack left, bottom, right, top = BC
-
-    # Apply inhomogeneous BC to more than one grid point by extending the contact line
-    extend_contact_line!(grid, 5)
 
     boundaries_idx = [b_left, b_bottom, b_right, b_top]
     boundaries_per = [b_right, b_top, b_left, b_bottom]
@@ -22,17 +19,13 @@ function BC_LS!(grid, A, B, rhs, BC)
                 pII = lexicographic(II, grid.ny)
                 pJJ = lexicographic(JJ, grid.ny)
 
-                ϵb = 5 * sqrt((x[JJ] - x[II])^2 + (y[JJ] - y[II])^2)
+                ϵb = n_ext * sqrt((x[JJ] - x[II])^2 + (y[JJ] - y[II])^2)
 
+                A[pII,pII] = 1.0
+                A[pII,pJJ] = -1.0
+                B[pII,pII] = 0.0
                 if II in cl && u[II] < ϵb
-                    A[pII,pII] = 1.0
-                    A[pII,pJJ] = -1.0
-                    B[pII,pII] = 0.0
                     rhs[pII] = boundaries_t[i].val * bell_function2(u[II], ϵb)
-                else
-                    A[pII,pII] = 1.0
-                    A[pII,pJJ] = -1.0
-                    B[pII,pII] = 0.0
                 end
             end
         end
@@ -90,7 +83,7 @@ end
 Extend every contact line point by `n` points parallel to the boundary so that the
 inhomogeneous Neumann boundary conditions are also applied on them.
 """
-function extend_contact_line!(grid, n)
+function extend_contact_line!(grid, n_ext)
     @unpack nx, ny, ind = grid
     @unpack b_left, b_bottom, b_right, b_top, cl = ind
 
@@ -106,7 +99,7 @@ function extend_contact_line!(grid, n)
             if II in boundary[1]
                 JJm = II
                 JJp = II
-                for j in 1:n            
+                for j in 1:n_ext
                     if II[ai] >= 1 + j
                         JJm = ci(JJm)
                         push!(_cl, JJm)

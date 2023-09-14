@@ -32,6 +32,10 @@ const newaxis = [CartesianIndex()]
 @inline f2zeros(a::Integer, g::Grid) = zeros(a, 2 * g.ny * g.nx)
 @inline f2zeros(g::Grid, a::Integer) = zeros(2 * g.ny * g.nx, a)
 
+@inline f3zeros(g::Grid) = zeros(2 * g.ny * g.nx + 2 * g.nx + 2 * g.ny)
+@inline f3zeros(a::Integer, g::Grid) = zeros(a, 2 * g.ny * g.nx + 2 * g.nx + 2 * g.ny)
+@inline f3zeros(g::Grid, a::Integer) = zeros(2 * g.ny * g.nx + 2 * g.nx + 2 * g.ny, a)
+
 @inline ones(g::Grid) = ones(g.ny, g.nx)
 @inline ones(a::Integer, g::Grid) = ones(a, g.ny, g.nx)
 @inline ones(g::Grid, a::Integer) = ones(g.ny, g.nx,a)
@@ -44,12 +48,23 @@ const newaxis = [CartesianIndex()]
 @inline f2ones(a::Integer, g::Grid) = ones(a, 2 * g.ny * g.nx)
 @inline f2ones(g::Grid, a::Integer) = ones(2 * g.ny * g.nx, a)
 
+@inline f3ones(g::Grid) = ones(2 * g.ny * g.nx + 2 * g.nx + 2 * g.ny)
+@inline f3ones(a::Integer, g::Grid) = ones(a, 2 * g.ny * g.nx + 2 * g.nx + 2 * g.ny)
+@inline f3ones(g::Grid, a::Integer) = ones(2 * g.ny * g.nx + 2 * g.nx + 2 * g.ny, a)
+
 @inline reshape(a, g::Grid) = reshape(a, (g.ny, g.nx))
 
 # Temporary function to get a certain field from a vector with 
 # multiple fields. To be removed when working with decomposed 
 # vectors directly
 veci(a, g::G, p::Integer) where {G<:Grid} = @view a[g.ny*g.nx*(p-1)+1:g.ny*g.nx*p]
+vec1(a, g::G) where {G<:Grid} = @view a[1:g.ny*g.nx]
+vec2(a, g::G) where {G<:Grid} = @view a[g.ny*g.nx+1:g.ny*g.nx*2]
+vec3(a, g::G) where {G<:Grid} = @view a[g.ny*g.nx*2+1:end]
+vec3_L(a,g::G) where {G<:Grid} = @view vec3(a, g)[1:g.ny]
+vec3_B(a,g::G) where {G<:Grid} = @view vec3(a, g)[g.ny+1:g.ny+g.nx]
+vec3_R(a,g::G) where {G<:Grid} = @view vec3(a, g)[g.ny+g.nx+1:2*g.ny+g.nx]
+vec3_T(a,g::G) where {G<:Grid} = @view vec3(a, g)[2*g.ny+g.nx+1:2*g.ny+2*g.nx]
 
 function veci(a, g::Vector{G}, p::Integer) where {G<:Grid}
     c0 = 1
@@ -383,6 +398,9 @@ end
 const FE = ForwardEuler()
 const CN = CrankNicolson()
 
+isCC(::Mesh{GridCC,T,N}) where {T,N} = true
+isCC(::Mesh) = false
+
 @inline is_dirichlet(::Dirichlet) = true
 @inline is_dirichlet(::BoundaryCondition) = false
 
@@ -479,30 +497,26 @@ function kill_dead_cells!(S::SubArray{T,N,P,I,L}, grid, geo) where {T,N,P<:Vecto
     end
 end
 
-function init_borders!(T::Matrix, BC_T, val=0.0)
-    if is_dirichlet(BC_T.left)
-        BCval = ones(size(T[:,1],1)) .* BC_T.left.val
-        T[2:end-1,1] .= BCval[2:end-1]
-    elseif is_periodic(BC_T.left)
-        T[2:end-1,1] .= val
+function init_borders!(T, BC, val=0.0)
+    if is_dirichlet(BC.left)
+        T[1:ny] .= BC.left.val
+    elseif is_periodic(BC.left)
+        T[1:ny] .= val
     end
-    if is_dirichlet(BC_T.bottom)
-        BCval = ones(size(T[1,:],1)).* BC_T.bottom.val
-        T[1,:] .= BCval
-    elseif is_periodic(BC_T.bottom)
-        T[1,:] .= val
+    if is_dirichlet(BC.bottom)
+        T[ny+1:ny+nx] .= BC.bottom.val
+    elseif is_periodic(BC.bottom)
+        T[ny+1:ny+nx] .= val
     end
-    if is_dirichlet(BC_T.right)
-        BCval = ones(size(T[:,end],1)) .* BC_T.right.val
-        T[2:end-1,end] .= BCval[2:end-1]
-    elseif is_periodic(BC_T.right)
-        T[2:end-1,end] .= val
+    if is_dirichlet(BC.right)
+        T[ny+nx+1:2*ny+nx] .= BC.right.val
+    elseif is_periodic(BC.right)
+        T[ny+nx+1:2*ny+nx] .= val
     end
-    if is_dirichlet(BC_T.top)
-        BCval = ones(size(T[end,:],1)) .* BC_T.bottom.val
-        T[end,:] .= BCval
-    elseif is_periodic(BC_T.top)
-        T[end,:] .= val
+    if is_dirichlet(BC.top)
+        T[2*ny+nx+1:2*ny+2*nx] .= BC.top.val
+    elseif is_periodic(BC.top)
+        T[2*ny+nx+1:2*ny+2*nx] .= val
     end
 end
 

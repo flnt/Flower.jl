@@ -1,4 +1,4 @@
-function update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y)
+function update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y, empty = true)
     grid.α .= NaN
     grid_u.α .= NaN
     grid_v.α .= NaN
@@ -28,8 +28,10 @@ function update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y
     get_interface_location!(grid, grid.ind.MIXED, periodic_x, periodic_y)
     get_interface_location!(grid_u, grid_u.ind.MIXED, periodic_x, periodic_y)
     get_interface_location!(grid_v, grid_v.ind.MIXED, periodic_x, periodic_y)
-    get_interface_location_borders!(grid_u, grid_u.u, periodic_x, periodic_y)
-    get_interface_location_borders!(grid_v, grid_v.u, periodic_x, periodic_y)
+    if empty
+        get_interface_location_borders!(grid_u, grid_u.u, periodic_x)
+        get_interface_location_borders!(grid_v, grid_v.u, periodic_y)
+    end
 
     grid.geoL.emptied .= false
     grid.geoS.emptied .= false
@@ -41,7 +43,7 @@ function update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y
     get_curvature(num, grid, u, κ, grid.ind.MIXED, periodic_x, periodic_y)
     get_curvature(num, grid_u, grid_u.u, grid_u.κ, grid_u.ind.MIXED, periodic_x, periodic_y)
     get_curvature(num, grid_v, grid_v.u, grid_v.κ, grid_v.ind.MIXED, periodic_x, periodic_y)
-    postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, num.ϵ)
+    postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, num.ϵ, empty)
 
     _MIXED_L_ext = intersect(findall(grid.geoL.emptied), grid.ind.MIXED_ext)
     _MIXED_S_ext = intersect(findall(grid.geoS.emptied), grid.ind.MIXED_ext)
@@ -52,6 +54,11 @@ function update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y
     locate_contact_line!(grid)
     locate_contact_line!(grid_u)
     locate_contact_line!(grid_v)
+
+    # Apply inhomogeneous BC to more than one grid point by extending the contact line
+    extend_contact_line!(grid, num.n_ext_cl)
+    extend_contact_line!(grid_u, num.n_ext_cl)
+    extend_contact_line!(grid_v, num.n_ext_cl)
 
     return NB_indices
 end

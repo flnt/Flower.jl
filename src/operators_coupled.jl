@@ -76,7 +76,7 @@ function divergence_B!(Ox, Oy, dcap, n, all_indices)
     return nothing
 end
 
-function divergence_A!(Ox, Oy, dcap, n, all_indices)
+function divergence_A!(Ox, Oy, dcap, n, all_indices, empty)
     @inbounds @threads for II in all_indices
         pII_1 = lexicographic(II, n)
         pII_2 = lexicographic(δx⁺(II), n)
@@ -95,11 +95,36 @@ function divergence_A!(Ox, Oy, dcap, n, all_indices)
         @inbounds Oy[pII_1,pJJ_1] = -A2
         @inbounds Oy[pII_1,pJJ_2] = A4
     end
+    if empty
+        @inbounds @threads for II in all_indices[:,1]
+            pII_1 = lexicographic(II, n)
+            
+            @inbounds Ox[pII_1,pII_1] = 0.0
+        end
+        @inbounds @threads for II in all_indices[1,:]
+            pII_1 = lexicographic(II, n)
+            pJJ_1 = lexicographic(II, n+1)
+            
+            @inbounds Oy[pII_1,pJJ_1] = 0.0
+        end
+        @inbounds @threads for II in all_indices[:,end]
+            pII_1 = lexicographic(II, n)
+            pII_2 = lexicographic(δx⁺(II), n)
+            
+            @inbounds Ox[pII_1,pII_2] = 0.0
+        end
+        @inbounds @threads for II in all_indices[end,:]
+            pII_1 = lexicographic(II, n)
+            pJJ_2 = lexicographic(δy⁺(II), n+1)
+            
+            @inbounds Oy[pII_1,pJJ_2] = 0.0
+        end
+    end
 
     return nothing
 end
 
-function bc_matrix!(Hx, Hy, dcap, n, all_indices)
+function bc_matrix!(grid::Mesh{GridCC,T,N}, Hx, Hy, dcap, dcap_p, n, all_indices) where {T,N}
     @inbounds @threads for II in @view all_indices[2:end,2:end]
         pII = lexicographic(II, n)
         pJJ = lexicographic(II, n+1)
@@ -158,7 +183,124 @@ function bc_matrix!(Hx, Hy, dcap, n, all_indices)
     return nothing
 end
 
-function bc_matrix!(Hx, Hy, dcap, dcap_u, dcap_v, n, all_indices)
+function bc_matrix!(grid::Mesh{GridFCx,T,N}, Hx, Hy, dcap, dcap_p, n, all_indices) where {T,N}
+    @inbounds @threads for II in @view all_indices[2:end,2:end]
+        pII = lexicographic(II, n)
+        pJJ = lexicographic(II, n+1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Hx[pII, pII-n] = -(A1 - dcap[δx⁻(II),6])
+        @inbounds Hx[pII, pII] = -(B1 - A1)
+        @inbounds Hy[pJJ, pII-1] = -(A2 - dcap[δy⁻(II),7])
+        @inbounds Hy[pJJ, pII] = -(B2 - A2)
+    end
+    @inbounds for II in @view all_indices[:,1]
+        pII = lexicographic(II, n)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Hx[pII, pII] = -(B1 - dcap_p[II,1])
+    end
+    @inbounds for II in @view all_indices[:,end]
+        pII = lexicographic(δx⁺(II), n)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Hx[pII, pII-n] = -(dcap_p[δx⁻(II),3] - B1)
+    end
+    @inbounds for II in @views vcat(all_indices[1,2:end], all_indices[end,2:end])
+        pII = lexicographic(II, n)
+        pJJ = lexicographic(II, n+1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Hx[pII, pII-n] = -(A1 - dcap[δx⁻(II),6])
+        @inbounds Hx[pII, pII] = -(B1 - A1)
+    end
+
+    @inbounds @threads for II in @view all_indices[1,:]
+        pII = lexicographic(II, n)
+        pJJ = lexicographic(II, n+1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Hy[pJJ, pII] = -(B2 - A2)
+    end
+    @inbounds @threads for II in @view all_indices[end,:]
+        pII = lexicographic(II, n)
+        pJJ = lexicographic(δy⁺(II), n+1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Hy[pJJ, pII] = -(A4 - B2)
+    end
+    @inbounds @threads for II in @views vcat(all_indices[2:end,1], all_indices[2:end,end])
+        pII = lexicographic(II, n)
+        pJJ = lexicographic(II, n+1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Hy[pJJ, pII-1] = -(A2 - dcap[δy⁻(II),7])
+        @inbounds Hy[pJJ, pII] = -(B2 - A2)
+    end
+
+    return nothing
+end
+
+function bc_matrix!(grid::Mesh{GridFCy,T,N}, Hx, Hy, dcap, dcap_p, n, all_indices) where {T,N}
+    @inbounds @threads for II in @view all_indices[2:end,2:end]
+        pII = lexicographic(II, n)
+        pJJ = lexicographic(II, n+1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Hx[pII, pII-n] = -(A1 - dcap[δx⁻(II),6])
+        @inbounds Hx[pII, pII] = -(B1 - A1)
+        @inbounds Hy[pJJ, pII-1] = -(A2 - dcap[δy⁻(II),7])
+        @inbounds Hy[pJJ, pII] = -(B2 - A2)
+    end
+
+    @inbounds for II in @view all_indices[:,1]
+        pII = lexicographic(II, n)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Hx[pII, pII] = -(B1 - A1)
+    end
+    @inbounds for II in @view all_indices[:,end]
+        pII = lexicographic(δx⁺(II), n)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Hx[pII, pII-n] = -(A3 - B1)
+    end
+    @inbounds for II in @views vcat(all_indices[1,2:end], all_indices[end,2:end])
+        pII = lexicographic(II, n)
+        pJJ = lexicographic(II, n+1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Hx[pII, pII-n] = -(A1 - dcap[δx⁻(II),6])
+        @inbounds Hx[pII, pII] = -(B1 - A1)
+    end
+
+    @inbounds @threads for II in @view all_indices[1,:]
+        pII = lexicographic(II, n)
+        pJJ = lexicographic(II, n+1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Hy[pJJ, pII] = -(B2 - dcap_p[II,2])
+    end
+    @inbounds @threads for II in @view all_indices[end,:]
+        pII = lexicographic(II, n)
+        pJJ = lexicographic(δy⁺(II), n+1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Hy[pJJ, pII] = -(dcap_p[δy⁻(II),4] - B2)
+    end
+    @inbounds @threads for II in @views vcat(all_indices[2:end,1], all_indices[2:end,end])
+        pII = lexicographic(II, n)
+        pJJ = lexicographic(II, n+1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
+        
+        @inbounds Hy[pJJ, pII-1] = -(A2 - dcap[δy⁻(II),7])
+        @inbounds Hy[pJJ, pII] = -(B2 - A2)
+    end
+
+    return nothing
+end
+
+function bc_matrix!(grid, Hx, Hy, dcap, dcap_u, dcap_v, n, all_indices)
     @inbounds @threads for II in @view all_indices[2:end,2:end]
         pII = lexicographic(II, n)
         pJJ = lexicographic(II, n+1)
@@ -292,64 +434,183 @@ function periodic_bcs_R!(grid, Rx, Ry, periodic_x, periodic_y)
     return nothing
 end
 
-function weighted_interpolation!(grid, Ix, Iy, IxT, IyT, dcap)
-    @unpack ny, dx, dy, ind = grid
+function mass_matrix_borders!(ind, iMx_b, iMy_b, iMx_bd, iMy_bd, dcap, n)
+    @unpack b_left, b_bottom, b_right, b_top = ind
 
-    @inbounds for II in ind.all_indices
-        pII = lexicographic(II, ny)
-        pJJ = lexicographic(II, ny+1)
-        A1, A2, A3, A4 = @view dcap[II,1:4]
-
-        IxT[pII,pII] = A1 / (A1 + A3 + eps(0.01))
-        IxT[pII,pII+ny] = A3 / (A1 + A3 + eps(0.01))
-
-        IyT[pII,pJJ] = A2 / (A2 + A4 + eps(0.01))
-        IyT[pII,pJJ+1] = A4 / (A2 + A4 + eps(0.01))
+    idx = 1
+    @inbounds for II in b_left[1]
+        pII = lexicographic(II, n)
+        @inbounds iMx_b[pII, idx] = 1 / (dcap[II,8]+eps(0.01))
+        @inbounds iMx_bd[idx, idx] = 1 / (dcap[II,8]+eps(0.01))
+        idx += 1
+    end
+    @inbounds for II in b_bottom[1]
+        pII = lexicographic(II, n+1)
+        @inbounds iMy_b[pII, idx] = 1 / (dcap[II,9]+eps(0.01))
+        @inbounds iMy_bd[idx, idx] = 1 / (dcap[II,9]+eps(0.01))
+        idx += 1
+    end
+    @inbounds for II in b_right[1]
+        pII = lexicographic(δx⁺(II), n)
+        @inbounds iMx_b[pII, idx] = 1 / (dcap[II,10]+eps(0.01))
+        @inbounds iMx_bd[idx, idx] = 1 / (dcap[II,10]+eps(0.01))
+        idx += 1
+    end
+    @inbounds for II in b_top[1]
+        pII = lexicographic(δy⁺(II), n+1)
+        @inbounds iMy_b[pII, idx] = 1 / (dcap[II,11]+eps(0.01))
+        @inbounds iMy_bd[idx, idx] = 1 / (dcap[II,11]+eps(0.01))
+        idx += 1
     end
 
-    @inbounds for II in ind.all_indices[1:end,1:end-1]
-        pII = lexicographic(II, ny)
-        B1_1 = dcap[II,6]
-        B1_2 = dcap[δx⁺(II),6]
+    return nothing
+end
 
-        Ix[pII+ny,pII] = B1_1 / (B1_1 + B1_2 + eps(0.01))
-        Ix[pII+ny,pII+ny] = B1_2 / (B1_1 + B1_2 + eps(0.01))
+function bc_matrix_borders!(grid::Mesh{GridCC,T,N}, ind, Hx, Hy, dcap) where {T,N}
+    @unpack nx, ny = grid
+    @unpack b_left, b_bottom, b_right, b_top = ind
+
+    @inbounds @threads for idx in 1:ny
+        II = CartesianIndex(idx,1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, b_left[1][idx])
+        @inbounds Hx[idx, idx] = -A1
     end
-    @inbounds for II in ind.b_left[1]
-        pII = lexicographic(II, ny)
-        B1 = dcap[II,6]
-
-        Ix[pII,pII] = B1 / dy[II]
+    @inbounds @threads for idx in 1:nx
+        II = CartesianIndex(1,idx)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, b_bottom[1][idx])
+        @inbounds Hy[idx+ny, idx+ny] = -A2
     end
-    @inbounds for II in ind.b_right[1]
-        pII = lexicographic(II, ny)
-        B1 = dcap[II,6]
-
-        Ix[pII+ny,pII] = B1 / dy[II]
+    @inbounds @threads for idx in 1:ny
+        II = CartesianIndex(idx,nx)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, b_right[1][idx])
+        @inbounds Hx[idx+ny+nx, idx+ny+nx] = A3
+    end
+    @inbounds @threads for idx in 1:nx
+        II = CartesianIndex(ny,idx)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, b_top[1][idx])
+        @inbounds Hy[idx+2*ny+nx, idx+2*ny+nx] = A4
     end
 
-    @inbounds for II in ind.all_indices[1:end-1,1:end]
-        pII = lexicographic(II, ny)
-        pJJ = lexicographic(II, ny+1)
-        B2_1 = dcap[II,7]
-        B2_2 = dcap[δy⁺(II),7]
+    return nothing
+end
 
-        Iy[pJJ+1,pII] = B2_1 / (B2_1 + B2_2 + eps(0.01))
-        Iy[pJJ+1,pII+1] = B2_2 / (B2_1 + B2_2 + eps(0.01))
+function bc_matrix_borders!(grid::Mesh{GridFCx,T,N}, ind, ind_u, Hx, Hy, dcap, dcap_u) where {T,N}
+    @unpack nx, ny = grid
+    @unpack b_left, b_right = ind
+    @unpack b_bottom, b_top = ind_u
+
+    @inbounds @threads for idx in 1:ny
+        II = CartesianIndex(idx,1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, b_left[1][idx])
+        @inbounds Hx[idx, idx] = -A1
     end
-    @inbounds for II in ind.b_bottom[1]
-        pII = lexicographic(II, ny)
-        pJJ = lexicographic(II, ny+1)
-        B2 = dcap[II,7]
-
-        Iy[pJJ,pII] = B2 / dx[II]
+    @inbounds @threads for idx in 1:nx
+        II = CartesianIndex(1,idx)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap_u, b_bottom[1][idx])
+        @inbounds Hy[idx+ny, idx+ny] = -A2
     end
-    @inbounds for II in ind.b_top[1]
-        pII = lexicographic(II, ny)
-        pJJ = lexicographic(II, ny+1)
-        B2 = dcap[II,7]
+    @inbounds @threads for idx in 1:ny
+        II = CartesianIndex(idx,nx)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, b_right[1][idx])
+        @inbounds Hx[idx+ny+nx, idx+ny+nx] = A3
+    end
+    @inbounds @threads for idx in 1:nx
+        II = CartesianIndex(ny,idx)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap_u, b_top[1][idx])
+        @inbounds Hy[idx+2*ny+nx, idx+2*ny+nx] = A4
+    end
 
-        Iy[pJJ+1,pII] = B2 / dx[II]
+    return nothing
+end
+
+function bc_matrix_borders!(grid::Mesh{GridFCy,T,N}, ind, ind_v, Hx, Hy, dcap, dcap_v) where {T,N}
+    @unpack nx, ny = grid
+    @unpack b_bottom, b_top = ind
+    @unpack b_left, b_right = ind_v
+
+    @inbounds @threads for idx in 1:ny
+        II = CartesianIndex(idx,1)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap_v, b_left[1][idx])
+        @inbounds Hx[idx, idx] = -A1
+    end
+    @inbounds @threads for idx in 1:nx
+        II = CartesianIndex(1,idx)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, b_bottom[1][idx])
+        @inbounds Hy[idx+ny, idx+ny] = -A2
+    end
+    @inbounds @threads for idx in 1:ny
+        II = CartesianIndex(idx,nx)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap_v, b_right[1][idx])
+        @inbounds Hx[idx+ny+nx, idx+ny+nx] = A3
+    end
+    @inbounds @threads for idx in 1:nx
+        II = CartesianIndex(ny,idx)
+        A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, b_top[1][idx])
+        @inbounds Hy[idx+2*ny+nx, idx+2*ny+nx] = A4
+    end
+
+    return nothing
+end
+
+function bc_matrix_borders!(grid, Hx_u, Hy_v, Hx_p, Hy_p, dcap)
+    @unpack nx, ny, ind = grid
+    @unpack b_left, b_bottom, b_right, b_top = ind
+
+    @inbounds @threads for i in 1:ny
+        II = CartesianIndex(i,1)
+        pII = lexicographic(II, ny)
+        @inbounds A1 = dcap[II,1]
+
+        @inbounds Hx_u[pII, i] = -A1
+        @inbounds Hx_p[pII, i] = -A1
+    end
+    @inbounds @threads for i in 1:nx
+        II = CartesianIndex(1,i)
+        pII = lexicographic(II, ny+1)
+        pJJ = lexicographic(II, ny)
+        @inbounds A2 = dcap[II,2]
+        
+        @inbounds Hy_v[pII, i+ny] = -A2
+        @inbounds Hy_p[pJJ, i+ny+1] = -A2
+    end
+    @inbounds @threads for i in 1:ny
+        II = CartesianIndex(i,nx)
+        pII = lexicographic(δx⁺(II), ny)
+        pJJ = lexicographic(II, ny)
+        @inbounds A3 = dcap[II,3]
+        
+        @inbounds Hx_u[pII, i+ny+nx] = A3
+        @inbounds Hx_p[pJJ, i+ny+nx+1] = A3
+    end
+    @inbounds @threads for i in 1:nx
+        II = CartesianIndex(ny,i)
+        pII = lexicographic(δy⁺(II), ny+1)
+        pJJ = lexicographic(II, ny)
+        @inbounds A4 = dcap[II,4]
+        
+        @inbounds Hy_v[pII, i+2*ny+nx] = A4
+        @inbounds Hy_p[pJJ, i+2*(ny+1)+nx] = A4
+    end
+
+    return nothing
+end
+
+function periodic_bcs_borders!(grid, Hx, Hy, periodic_x, periodic_y)
+    @unpack nx, ny = grid
+
+    if periodic_x
+        @inbounds @threads for idx in 1:ny
+            pII = lexicographic(CartesianIndex(idx,1), ny)
+            pJJ = lexicographic(CartesianIndex(idx,nx+1), ny)
+            @inbounds Hx[pII,idx+nx+ny] = Hx[pJJ,idx]
+        end
+    end
+    if periodic_y
+        @inbounds @threads for idx in ny+1:ny+1+nx
+            pII = lexicographic(CartesianIndex(idx,1), ny)
+            pJJ = lexicographic(CartesianIndex(idx,nx+1), ny)
+            @inbounds Hy[pII,idx+nx+ny] = Hy[pJJ,idx]
+        end
     end
 
     return nothing

@@ -50,10 +50,10 @@ function run_forward(
 
     local NB_indices;
 
-    local Cum1S = zeros(grid_u.nx*grid_u.ny)
-    local Cum1L = zeros(grid_u.nx*grid_u.ny)
-    local Cvm1S = zeros(grid_v.nx*grid_v.ny)
-    local Cvm1L = zeros(grid_v.nx*grid_v.ny)
+    local Cum1S = fzeros(grid_u)
+    local Cum1L = fzeros(grid_u)
+    local Cvm1S = fzeros(grid_v)
+    local Cvm1L = fzeros(grid_v)
 
     local Mm1_S
     local Mum1_S
@@ -116,19 +116,6 @@ function run_forward(
         grid_v.ind.MIXED = [CartesianIndex(-1,-1)]
     end
 
-    if ns_advection
-        if ns_solid_phase
-            set_convection!(grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, opL, phS, BC_uS, BC_vS)
-            Cum1S .= opS.Cu * vec(phS.u) .+ opS.CUTCu
-            Cvm1S .= opS.Cv * vec(phS.v) .+ opS.CUTCv
-        end
-        if ns_liquid_phase
-            set_convection!(grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, opL, phL, BC_uL, BC_vL)
-            Cum1L .= opL.Cu * vec(phL.u) .+ opL.CUTCu
-            Cvm1L .= opL.Cv * vec(phL.v) .+ opL.CUTCv
-        end
-    end
-
     CFL_sc = τ / Δ^2
     IIOE_normal!(grid, LSA, LSB, u, V, CFL_sc, periodic_x, periodic_y)
     rhs_LS = fzeros(grid)
@@ -154,55 +141,70 @@ function run_forward(
     @views fwdL.u[1,:,:] .= phL.u
     @views fwdL.v[1,:,:] .= phL.v
 
-    tmp = copy(phS.T)
-    tmp[2:end-1,2:end-1] .= θd
-    init_borders!(tmp, BC_TS, θd)
     veci(phS.TD,grid,1) .= vec(phS.T)
-    veci(phS.TD,grid,2) .= vec(tmp)
+    veci(phS.TD,grid,2) .= θd
+    init_borders!(vec3(phS.TD,grid), BC_TS, θd)
     @views fwdS.TD[1,:] .= phS.TD
 
-    tmp = copy(phL.T)
-    tmp[2:end-1,2:end-1] .= θd
-    init_borders!(tmp, BC_TL, θd)
     veci(phL.TD,grid,1) .= vec(phL.T)
-    veci(phL.TD,grid,2) .= vec(tmp)
+    veci(phL.TD,grid,2) .= θd
+    init_borders!(vec3(phL.TD,grid), BC_TL, θd)
     @views fwdL.TD[1,:] .= phL.TD
 
-    tmp = ones(grid_u.ny, grid_u.nx) .* num.u_inf
-    tmp[2:end-1,2:end-1] .= 0.0
     veci(phS.uD,grid_u,1) .= vec(phS.u)
-    veci(phS.uD,grid_u,2) .= vec(tmp)
+    veci(phS.uD,grid_u,2) .= 0.0
+    vec3(phS.uD,grid_u) .= num.u_inf
     veci(phL.uD,grid_u,1) .= vec(phL.u)
-    veci(phL.uD,grid_u,2) .= vec(tmp)
+    veci(phL.uD,grid_u,2) .= 0.0
+    vec3(phL.uD,grid_u) .= num.u_inf
     veci(phS.ucorrD,grid_u,1) .= vec(phS.u)
-    veci(phS.ucorrD,grid_u,2) .= vec(tmp)
+    veci(phS.ucorrD,grid_u,2) .= 0.0
+    vec3(phS.ucorrD,grid_u) .= num.u_inf
     veci(phL.ucorrD,grid_u,1) .= vec(phL.u)
-    veci(phL.ucorrD,grid_u,2) .= vec(tmp)
+    veci(phL.ucorrD,grid_u,2) .= 0.0
+    vec3(phL.ucorrD,grid_u) .= num.u_inf
     @views fwdS.ucorrD[1,:,:] .= phS.ucorrD
     @views fwdL.ucorrD[1,:,:] .= phL.ucorrD
 
-    tmp = ones(grid_v.ny, grid_v.nx) .* num.v_inf
-    tmp[2:end-1,2:end-1] .= 0.0
     veci(phS.vD,grid_v,1) .= vec(phS.v)
-    veci(phS.vD,grid_v,2) .= vec(tmp)
+    veci(phS.vD,grid_v,2) .= 0.0
+    vec3(phS.vD,grid_v) .= num.v_inf
     veci(phL.vD,grid_v,1) .= vec(phL.v)
-    veci(phL.vD,grid_v,2) .= vec(tmp)
+    veci(phL.vD,grid_v,2) .= 0.0
+    vec3(phL.vD,grid_v) .= num.v_inf
     veci(phS.vcorrD,grid_v,1) .= vec(phS.v)
-    veci(phS.vcorrD,grid_v,2) .= vec(tmp)
+    veci(phS.vcorrD,grid_v,2) .= 0.0
+    vec3(phS.vcorrD,grid_v) .= num.v_inf
     veci(phL.vcorrD,grid_v,1) .= vec(phL.v)
-    veci(phL.vcorrD,grid_v,2) .= vec(tmp)
+    veci(phL.vcorrD,grid_v,2) .= 0.0
+    vec3(phL.vcorrD,grid_v) .= num.v_inf
     @views fwdS.vcorrD[1,:,:] .= phS.vcorrD
     @views fwdL.vcorrD[1,:,:] .= phL.vcorrD
 
     @views fwdL.pD[1,:] .= phL.pD
     @views fwdS.pD[1,:] .= phS.pD
 
+    if ns_advection
+        if ns_solid_phase
+            set_convection!(grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, opL, phS, BC_uS, BC_vS)
+            Cum1S .= opS.Cu * vec(phS.u) .+ opS.CUTCu
+            Cvm1S .= opS.Cv * vec(phS.v) .+ opS.CUTCv
+        end
+        if ns_liquid_phase
+            set_convection!(grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, opL, phL, BC_uL, BC_vL)
+            Cum1L .= opL.Cu * vec(phL.u) .+ opL.CUTCu
+            Cvm1L .= opL.Cv * vec(phL.v) .+ opL.CUTCv
+        end
+    end
+
     if is_FE(time_scheme) || is_CN(time_scheme)
-        Lpm1_S, bc_Lpm1_S, Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S = set_laplacians!(
+        update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y, false)
+
+        Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S = set_matrices!(
             grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS,
             opC_pS, opC_uS, opC_vS, periodic_x, periodic_y
         )
-        Lpm1_L, bc_Lpm1_L, Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L = set_laplacians!(
+        Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L = set_matrices!(
             grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL,
             opC_pL, opC_uL, opC_vL, periodic_x, periodic_y
         )
@@ -276,11 +278,11 @@ function run_forward(
                 # u .= sqrt.((x .- current_i*Δ/1).^ 2 + y .^ 2) - (0.5) * ones(nx, ny);
             elseif free_surface
                 IIOE!(grid, grid_u, grid_v, LSA, LSB, θ_out, τ, periodic_x, periodic_y)
-                BC_LS!(grid, LSA, LSB, rhs_LS, BC_u)
+                BC_LS!(grid, LSA, LSB, rhs_LS, BC_u, num.n_ext_cl)
                 utmp .= reshape(gmres(LSA, (LSB * vec(u))) .+ rhs_LS, grid)
 
                 S2IIOE!(grid, grid_u, grid_v, LSA, LSB, utmp, u, θ_out, τ, periodic_x, periodic_y)
-                BC_LS!(grid, LSA, LSB, rhs_LS, BC_u)
+                BC_LS!(grid, LSA, LSB, rhs_LS, BC_u, num.n_ext_cl)
                 u .= reshape(gmres(LSA, (LSB * vec(u))) .+ rhs_LS, grid)
             else
                 @error ("Set either stefan or free_surface to true in order to advect the levelset")
@@ -396,25 +398,25 @@ function run_forward(
             end
 
             if ns_solid_phase
-                Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S, Mm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = pressure_projection!(
+                Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,Mm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = pressure_projection!(
                     time_scheme, bc_type_u, bc_type_p,
                     num, grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, phS,
                     BC_uS, BC_vS, BC_pS,
                     opC_pS, opC_uS, opC_vS, opS,
-                    Lum1_S, bc_Lum1_S, Lvm1_S, bc_Lvm1_S,
+                    Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,
                     Cum1S, Cvm1S, Mum1_S, Mvm1_S,
-                    periodic_x, periodic_y, ns_advection
+                    periodic_x, periodic_y, ns_advection, advection
                 )
             end
             if ns_liquid_phase
-                Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = pressure_projection!(
+                Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = pressure_projection!(
                     time_scheme, bc_type_u, bc_type_p,
                     num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,
                     BC_uL, BC_vL, BC_pL,
                     opC_pL, opC_uL, opC_vL, opL,
-                    Lum1_L, bc_Lum1_L, Lvm1_L, bc_Lvm1_L,
+                    Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
                     Cum1L, Cvm1L, Mum1_L, Mvm1_L,
-                    periodic_x, periodic_y, ns_advection
+                    periodic_x, periodic_y, ns_advection, advection
                 )
             end
         end
