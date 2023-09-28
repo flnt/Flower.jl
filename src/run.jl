@@ -277,10 +277,12 @@ function run_forward(
                 u .= reshape(gmres(LSA, (LSB * vec(u))), grid)
                 # u .= sqrt.((x .- current_i*Δ/1).^ 2 + y .^ 2) - (0.5) * ones(nx, ny);
             elseif free_surface
+                rhs_LS .= 0.0
                 IIOE!(grid, grid_u, grid_v, LSA, LSB, θ_out, τ, periodic_x, periodic_y)
                 BC_LS!(grid, LSA, LSB, rhs_LS, BC_u, num.n_ext_cl)
                 utmp .= reshape(gmres(LSA, (LSB * vec(u))) .+ rhs_LS, grid)
 
+                rhs_LS .= 0.0
                 S2IIOE!(grid, grid_u, grid_v, LSA, LSB, utmp, u, θ_out, τ, periodic_x, periodic_y)
                 BC_LS!(grid, LSA, LSB, rhs_LS, BC_u, num.n_ext_cl)
                 u .= reshape(gmres(LSA, (LSB * vec(u))) .+ rhs_LS, grid)
