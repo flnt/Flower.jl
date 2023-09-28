@@ -647,15 +647,15 @@ function CN_set_momentum(
     @unpack τ = num
     @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
 
-    if bc_type == dir
+    if is_dirichlet(bc_type)
         vel = copy(grid.V)
         __a1 = -1.0
         __b = 0.0
-    elseif bc_type == neu
+    elseif is_neumann(bc_type)
         vel = 0.0
         __a1 = 0.0
         __b = 1.0
-    elseif bc_type == rob
+    elseif is_robin(bc_type)
         vel = 0.0
         __a1 = -1.0
         __b = 1.0
@@ -729,15 +729,15 @@ function FE_set_momentum(
     @unpack τ = num
     @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
 
-    if bc_type == dir
+    if is_dirichlet(bc_type)
         vel = copy(grid.V)
         __a1 = -1.0
         __b = 0.0
-    elseif bc_type == neu
+    elseif is_neumann(bc_type)
         vel = 0.0
         __a1 = 0.0
         __b = 1.0
-    elseif bc_type == rob
+    elseif is_robin(bc_type)
         vel = 0.0
         __a1 = -1.0
         __b = 1.0
@@ -799,18 +799,25 @@ function FE_set_momentum(
     return A, B, rhs
 end
 
-function set_poisson(bc_type, num, grid, a0, opC, L, bc_L, bc_L_b, BC)
+function set_poisson(bc_type, num, grid, a0, opC, opC_u, opC_v, L, bc_L, bc_L_b, BC)
     @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
 
-    if bc_type == dir
-        __a1 = -1.
-        __b = 0.
-    elseif bc_type == neu
-        __a1 = 0.
-        __b = 1.
-    elseif bc_type == rob
-        __a1 = -1.
-        __b = 1.
+    if is_dirichlet(bc_type)
+        __a1 = -1.0
+        __a2 = 0.0
+        __b = 0.0
+    elseif is_neumann(bc_type)
+        __a1 = 0.0
+        __a2 = 0.0
+        __b = 1.0
+    elseif is_robin(bc_type)
+        __a1 = -1.0
+        __a2 = 0.0
+        __b = 1.0
+    elseif is_fs(bc_type)
+        __a1 = 0.0
+        __a2 = 1.0
+        __b = 0.0
     end
 
     # Number of points in outer boundaries (corners duplicated)
@@ -818,6 +825,8 @@ function set_poisson(bc_type, num, grid, a0, opC, L, bc_L, bc_L_b, BC)
 
     _a1 = ones(grid) .* __a1
     a1 = Diagonal(vec(_a1))
+    _a2 = ones(grid) .* __a2
+    a2 = Diagonal(vec(_a2))
     _b = ones(grid) .* __b
     b = Diagonal(vec(_b))
 
@@ -828,6 +837,9 @@ function set_poisson(bc_type, num, grid, a0, opC, L, bc_L, bc_L_b, BC)
     a1_b = Diagonal(vec(_a1_b))
     b_b = Diagonal(vec(_b_b))
 
+    GxT = opC_u.Gx'
+    GyT = opC_v.Gy'
+
     data_A = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 3, 3)
     # Poisson equation
     data_A[1,1] = pad(L, -4.0)
@@ -835,7 +847,10 @@ function set_poisson(bc_type, num, grid, a0, opC, L, bc_L, bc_L_b, BC)
     data_A[1,3] = bc_L_b
     # Boundary conditions for inner boundaries
     data_A[2,1] = b * (HxT * iMx * Bx .+ HyT * iMy * By)
-    data_A[2,2] = pad(b * (HxT * iMx * Hx .+ HyT * iMy * Hy) .- χ * a1)
+    data_A[2,2] = pad(
+        b * (HxT * iMx * Hx .+ HyT * iMy * Hy) .- χ * a1 .+
+        a2 * (GxT * opC_u.Gx .+ GyT * opC_v.Gy)
+    )
     data_A[2,3] = spdiagm(grid.nx*grid.ny, nb, zeros(nb))
     # Boundary conditions for outer boundaries
     data_A[3,1] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
@@ -888,7 +903,7 @@ function set_CN!(
         iRe.*Lvm1, iRe.*bc_Lvm1, iRe.*bc_Lvm1_b, Mvm1, BC_v
     )
     a0_p = zeros(grid)
-    Aϕ, rhs_ϕ = set_poisson(bc_type_p, num, grid, a0_p, opC_p, Lp, bc_Lp, bc_Lp_b, BC_p)
+    Aϕ, rhs_ϕ = set_poisson(bc_type_p, num, grid, a0_p, opC_p, opC_u, opC_v, Lp, bc_Lp, bc_Lp_b, BC_p)
 
     return Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b
 end
@@ -927,7 +942,7 @@ function set_FE!(
         iRe.*Lv, iRe.*bc_Lv, iRe.*bc_Lv_b, Mvm1, BC_v
     )
     a0_p = zeros(grid)
-    Aϕ, rhs_ϕ = set_poisson(bc_type_p, num, grid, a0_p, opC_p, Lp, bc_Lp, bc_Lp_b, BC_p)
+    Aϕ, rhs_ϕ = set_poisson(bc_type_p, num, grid, a0_p, opC_p, opC_u, opC_v, Lp, bc_Lp, bc_Lp_b, BC_p)
 
     return Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b
 end
@@ -990,7 +1005,8 @@ function pressure_projection!(
     kill_dead_cells!(veci(rhs_u,grid_u,2), grid_u, geo_u)
     # blocks = DDM.decompose(Au, grid_u.domdec, grid_u.domdec)
     # bicgstabl!(ucorrD, Au, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
-    bicgstabl!(ucorrD, Au, rhs_u, log=true)
+    # @time bicgstabl!(ucorrD, Au, rhs_u, log=true)
+    ucorrD .= Au \ rhs_u
     # @mytime _, ch = bicgstabl!(ucorrD, Au, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
     # println(ch)
     ucorr .= reshape(veci(ucorrD,grid_u,1), grid_u)
@@ -1007,7 +1023,8 @@ function pressure_projection!(
     kill_dead_cells!(veci(rhs_v,grid_v,2), grid_v, geo_v)
     # blocks = DDM.decompose(Av, grid_v.domdec, grid_v.domdec)
     # bicgstabl!(vcorrD, Av, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
-    bicgstabl!(vcorrD, Av, rhs_v, log=true)
+    # bicgstabl!(vcorrD, Av, rhs_v, log=true)
+    vcorrD .= Av \ rhs_v
     # @mytime _, ch = bicgstabl!(vcorrD, Av, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
     # println(ch)
     vcorr .= reshape(veci(vcorrD,grid_v,1), grid_v)
@@ -1016,7 +1033,7 @@ function pressure_projection!(
           opC_p.AyT * veci(vcorrD,grid_v,1) .+ opC_p.Gy * veci(vcorrD,grid_v,2) .+ opC_p.Gy_b * vec3(vcorrD,grid_v)
     veci(rhs_ϕ,grid,1) .= iτ .* Duv
 
-    if is_dirichlet(bc_type_p)
+    if is_fs(bc_type_p)
         Smat = strain_rate(opC_u, opC_v)
         S = Smat[1,1] * veci(ucorrD,grid_u,1) .+ Smat[1,2] * veci(ucorrD,grid_u,2) .+
             Smat[2,1] * veci(vcorrD,grid_v,1) .+ Smat[2,2] * veci(vcorrD,grid_v,2)

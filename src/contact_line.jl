@@ -21,6 +21,7 @@ function BC_LS!(grid, A, B, rhs, BC, n_ext)
 
                 ϵb = n_ext * sqrt((x[JJ] - x[II])^2 + (y[JJ] - y[II])^2)
 
+                A[pII,:] .= 0.0
                 A[pII,pII] = 1.0
                 A[pII,pJJ] = -1.0
                 B[pII,pII] = 0.0

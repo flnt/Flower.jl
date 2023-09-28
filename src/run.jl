@@ -87,7 +87,7 @@ function run_forward(
     if navier_stokes
         if free_surface
             bc_type_u = neu
-            bc_type_p = dir
+            bc_type_p = fs
         else
             bc_type_u = dir
             bc_type_p = neu

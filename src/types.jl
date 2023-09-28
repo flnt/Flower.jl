@@ -374,6 +374,12 @@ applied. The boundary condition is given by:
     λ::T = 0.0
 end
 
+@with_kw mutable struct FreeSurface{L,T,N} <: BoundaryCondition{L,T,N}
+    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
+    val::N = 0.0
+    λ::T = 0.0
+end
+
 """
     GNBC{L,T,N} <: BoundaryCondition{L,T,N}
 

@@ -422,6 +422,9 @@ isCC(::Mesh) = false
 @inline is_gnbc(::GNBC) = true
 @inline is_gnbc(::BoundaryCondition) = false
 
+@inline is_fs(::FreeSurface) = true
+@inline is_fs(::BoundaryCondition) = false
+
 @inline dirichlet(target, Δ, λ, val) = muladd(2.0, val, -target)
 @inline neumann(target, Δ, λ, val) = muladd(Δ, val, target)
 @inline robin(target, Δ, λ, val) = muladd((2*λ-Δ)/(2*λ+Δ), target, (2*Δ*val)/(Δ+2*λ))
@@ -436,6 +439,7 @@ const per = Periodic()
 const rob = Robin()
 const nav = Navier()
 const nav_cl = Navier_cl()
+const fs = FreeSurface()
 
 function bcs!(field, BC::BoundaryCondition{N,T,T}, Δ) where {N,T}
     @inbounds for KK in axes(field,3)

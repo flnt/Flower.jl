@@ -37,6 +37,10 @@
     Point(x[II] - x[II_0], y[II] - y[II_0] + dy/2))
 
 @inline is_near_interface(a, st) = @inbounds ifelse(a != sign(st[2,1]) || a != sign(st[1,2]) || a != sign(st[2,3]) || a != sign(st[3,2]), true, false)
+@inline is_near_interface_l(a, st) = @inbounds ifelse(a != sign(st[1,1]) || a != sign(st[3,1]) || a != sign(st[2,2]), true, false)
+@inline is_near_interface_b(a, st) = @inbounds ifelse(a != sign(st[1,1]) || a != sign(st[1,3]) || a != sign(st[2,2]), true, false)
+@inline is_near_interface_r(a, st) = @inbounds ifelse(a != sign(st[1,3]) || a != sign(st[3,3]) || a != sign(st[2,2]), true, false)
+@inline is_near_interface_t(a, st) = @inbounds ifelse(a != sign(st[3,1]) || a != sign(st[3,3]) || a != sign(st[2,2]), true, false)
 
 @inline is_near_interface(u, II::CartesianIndex) = @inbounds ifelse(u[II]*u[δx⁺(II)] < 0 || u[II]*u[δy⁺(II)] < 0 || u[II]*u[δx⁻(II)] < 0 || u[II]*u[δy⁻(II)] < 0, true, false)
 @inline is_near_interface(u, II::CartesianIndex, nx, ny, per_x, per_y) = @inbounds ifelse(u[II]*u[δx⁺(II, nx, per_x)] < 0 || u[II]*u[δy⁺(II, ny, per_y)] < 0 || u[II]*u[δx⁻(II, nx, per_x)] < 0 || u[II]*u[δy⁻(II, ny, per_y)] < 0, true, false)
@@ -467,7 +471,9 @@ function marching_squares!(num, grid, u, periodic_x, periodic_y)
         
         a = sign(u[II])
         ISO = ifelse(a > 0, 0., 15.)
-        if is_near_interface(a, st)
+        if (is_near_interface(a, st) || is_near_interface_l(a, st) || 
+            is_near_interface_b(a, st) || is_near_interface_r(a, st) || 
+            is_near_interface_t(a, st))
             κ_ = 0.
             if II in ind.inside
                 grid_alignement = check_grid_alignement(u, II, κ_, 0.0)
@@ -1165,7 +1171,7 @@ function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, periodic_x, periodic_y, empty = t
             @inbounds geoS.cap[i,1,1] = geoS.cap[i,end,3]
             @inbounds geoL.cap[i,1,1] = geoL.cap[i,end,3]
         end
-    elseif !empty
+    else
         @inbounds @threads for II in b_left[1]
             @inbounds geoS.cap[II,1] = 0.0
             @inbounds geoL.cap[II,1] = 0.0
@@ -1318,7 +1324,7 @@ function set_cap_bcs!(grid::Mesh{GridFCy,T,N}, periodic_x, periodic_y, empty = t
             @inbounds geoS.cap[1,i,2] = geoS.cap[end,i,4]
             @inbounds geoL.cap[1,i,2] = geoL.cap[end,i,4]
         end
-    elseif !empty
+    else
         @inbounds @threads for II in b_bottom[1]
             @inbounds geoS.cap[II,2] = 0.0
             @inbounds geoL.cap[II,2] = 0.0

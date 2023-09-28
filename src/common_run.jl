@@ -28,10 +28,6 @@ function update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y
     get_interface_location!(grid, grid.ind.MIXED, periodic_x, periodic_y)
     get_interface_location!(grid_u, grid_u.ind.MIXED, periodic_x, periodic_y)
     get_interface_location!(grid_v, grid_v.ind.MIXED, periodic_x, periodic_y)
-    if empty
-        get_interface_location_borders!(grid_u, grid_u.u, periodic_x)
-        get_interface_location_borders!(grid_v, grid_v.u, periodic_y)
-    end
 
     grid.geoL.emptied .= false
     grid.geoS.emptied .= false
