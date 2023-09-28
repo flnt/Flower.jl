@@ -1057,7 +1057,7 @@ function pressure_projection!(
     ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec(ϕ) .+ opC_v.Gy * veci(ϕD,grid,2) .+ opC_v.Gy_b * vec3(ϕD,grid)
 
     iM = Diagonal(1. ./ (vec(geo.dcap[:,:,5]) .+ eps(0.01)))
-    if is_dirichlet(bc_type_p)
+    if is_fs(bc_type_p)
         veci(pD,grid,1) .= vec(ϕ) #.- iRe .* reshape(iM * Duv, grid))
         veci(pD,grid,2) .= veci(ϕD,grid,2)
         vec3(pD,grid) .= vec3(ϕD,grid)
