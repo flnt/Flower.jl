@@ -604,38 +604,44 @@ function get_curvature(num, grid, u, κ, inside, per_x, per_y)
         if !per_x && !per_y
             if II in ind.inside
                 II_0 = II
-            elseif II in ind.b_left[1][2:end-1]
-                II_0 = δx⁺(II)
-            elseif II in ind.b_bottom[1][2:end-1]
-                II_0 = δy⁺(II)
-            elseif II in ind.b_right[1][2:end-1]
-                II_0 = δx⁻(II)
-            elseif II in ind.b_top[1][2:end-1]
-                II_0 = δy⁻(II)
-            elseif II == ind.b_left[1][1]
-                II_0 = δy⁺(δx⁺(II))
-            elseif II == ind.b_left[1][end]
-                II_0 = δy⁻(δx⁺(II))
-            elseif II == ind.b_right[1][1]
-                II_0 = δy⁺(δx⁻(II))
-            elseif II == ind.b_right[1][end]
-                II_0 = δy⁻(δx⁻(II))
+            # elseif II in ind.b_left[1][2:end-1]
+            #     II_0 = δx⁺(II)
+            # elseif II in ind.b_bottom[1][2:end-1]
+            #     II_0 = δy⁺(II)
+            # elseif II in ind.b_right[1][2:end-1]
+            #     II_0 = δx⁻(II)
+            # elseif II in ind.b_top[1][2:end-1]
+            #     II_0 = δy⁻(II)
+            # elseif II == ind.b_left[1][1]
+            #     II_0 = δy⁺(δx⁺(II))
+            # elseif II == ind.b_left[1][end]
+            #     II_0 = δy⁻(δx⁺(II))
+            # elseif II == ind.b_right[1][1]
+            #     II_0 = δy⁺(δx⁻(II))
+            # elseif II == ind.b_right[1][end]
+            #     II_0 = δy⁻(δx⁻(II))
+            else
+                continue
             end
         elseif per_x && !per_y
             if II in ind.inside || II in ind.b_left[1][2:end-1] || II in ind.b_right[1][2:end-1]
                 II_0 = II
-            elseif II in ind.b_bottom[1]
-                II_0 = δy⁺(II)
-            elseif II in ind.b_top[1]
-                II_0 = δy⁻(II)
+            # elseif II in ind.b_bottom[1]
+            #     II_0 = δy⁺(II)
+            # elseif II in ind.b_top[1]
+            #     II_0 = δy⁻(II)
+            else 
+                continue
             end
         else
             if II in ind.inside || II in ind.b_bottom[1][2:end-1] || II in ind.b_top[1][2:end-1]
                 II_0 = II
-            elseif II in ind.b_left[1]
-                II_0 = δx⁺(II)
-            elseif II in ind.b_right[1]
-                II_0 = δx⁻(II)
+            # elseif II in ind.b_left[1]
+            #     II_0 = δx⁺(II)
+            # elseif II in ind.b_right[1]
+            #     II_0 = δx⁻(II)
+            else
+                continue
             end
         end
         mid_point = geoL.projection[II].mid_point
