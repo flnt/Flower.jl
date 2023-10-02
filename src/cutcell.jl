@@ -1229,8 +1229,20 @@ function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, periodic_x, periodic_y, empty = t
                 tmpS = max(geoS.cap[II,7] - 0.5, 0.0)
                 tmpL = min(geoL.cap[II,7], 0.5)
             end
-            @inbounds geoS.cap[II,5] = geoS.cap[II,5] * (geoS.cap[II,7] - tmpS) / (geoS.cap[II,7]+eps(0.01))
-            @inbounds geoL.cap[II,5] = geoL.cap[II,5] * (geoL.cap[II,7] - tmpL) / (geoL.cap[II,7]+eps(0.01))
+
+            diffS = geoS.cap[II,7] - tmpS
+            if diffS > 0.0
+                @inbounds geoS.cap[II,5] = geoS.cap[II,5] * diffS / (geoS.cap[II,7]+eps(0.01))
+            else
+                @inbounds geoS.cap[II,5] = geoS.cap[II,5] * 0.5
+            end
+            diffL = geoL.cap[II,7] - tmpL
+            if diffL > 0.0
+                @inbounds geoL.cap[II,5] = geoL.cap[II,5] * diffL / (geoL.cap[II,7]+eps(0.01))
+            else
+                @inbounds geoL.cap[II,5] = geoL.cap[II,5] * 0.5
+            end
+
             @inbounds geoS.cap[II,7] = tmpS
             @inbounds geoL.cap[II,7] = tmpL
             @inbounds geoS.cap[II,8:11] .= geoS.cap[II,5] * 0.5
@@ -1289,8 +1301,20 @@ function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, periodic_x, periodic_y, empty = t
                 tmpS = min(geoS.cap[II,7], 0.5)
                 tmpL = max(geoL.cap[II,7] - 0.5, 0.0)
             end
-            @inbounds geoS.cap[II,5] = geoS.cap[II,5] * (geoS.cap[II,7] - tmpS) / (geoS.cap[II,7]+eps(0.01))
-            @inbounds geoL.cap[II,5] = geoL.cap[II,5] * (geoL.cap[II,7] - tmpL) / (geoL.cap[II,7]+eps(0.01))
+
+            diffS = geoS.cap[II,7] - tmpS
+            if diffS > 0.0
+                @inbounds geoS.cap[II,5] = geoS.cap[II,5] * diffS / (geoS.cap[II,7]+eps(0.01))
+            else
+                @inbounds geoS.cap[II,5] = geoS.cap[II,5] * 0.5
+            end
+            diffL = geoL.cap[II,7] - tmpL
+            if diffL > 0.0
+                @inbounds geoL.cap[II,5] = geoL.cap[II,5] * diffL / (geoL.cap[II,7]+eps(0.01))
+            else
+                @inbounds geoL.cap[II,5] = geoL.cap[II,5] * 0.5
+            end
+
             @inbounds geoS.cap[II,7] = tmpS
             @inbounds geoL.cap[II,7] = tmpL
             @inbounds geoS.cap[II,8:11] .= geoS.cap[II,5] * 0.5
@@ -1357,7 +1381,7 @@ function set_cap_bcs!(grid::Mesh{GridFCy,T,N}, periodic_x, periodic_y, empty = t
                 @inbounds geoL.cap[II,1] = max(geoL.cap[II,1] - 0.5, 0.0)
                 tmpS = min(geoS.cap[II,6], 0.5)
                 tmpL = max(geoL.cap[II,6] - 0.5, 0.0)
-            elseif iso[II] == 2 || iso[II] == 4 || iso[II] == 6 || iso[II] == 9 || iso[II] == 11 || iso[II] == 12
+            elseif iso[II] == 2 || iso[II] == 4 || iso[II] == 6 || iso[II] == 9 || iso[II] == 11 || iso[II] == 13
                 @inbounds geoS.cap[II,1] *= 0.5
                 @inbounds geoL.cap[II,1] *= 0.5
             end
@@ -1382,8 +1406,20 @@ function set_cap_bcs!(grid::Mesh{GridFCy,T,N}, periodic_x, periodic_y, empty = t
                 tmpS = max(geoS.cap[II,6] - 0.5, 0.0)
                 tmpL = min(geoL.cap[II,6], 0.5)
             end
-            @inbounds geoS.cap[II,5] = geoS.cap[II,5] * (geoS.cap[II,6] - tmpS) / (geoS.cap[II,6]+eps(0.01))
-            @inbounds geoL.cap[II,5] = geoL.cap[II,5] * (geoL.cap[II,6] - tmpL) / (geoL.cap[II,6]+eps(0.01))
+
+            diffS = geoS.cap[II,6] - tmpS
+            if diffS > 0.0
+                @inbounds geoS.cap[II,5] = geoS.cap[II,5] * diffS / (geoS.cap[II,6]+eps(0.01))
+            else
+                @inbounds geoS.cap[II,5] = geoS.cap[II,5] * 0.5
+            end
+            diffL = geoL.cap[II,6] - tmpL
+            if diffL > 0.0
+                @inbounds geoL.cap[II,5] = geoL.cap[II,5] * diffL / (geoL.cap[II,6]+eps(0.01))
+            else
+                @inbounds geoL.cap[II,5] = geoL.cap[II,5] * 0.5
+            end
+
             @inbounds geoS.cap[II,6] = tmpS
             @inbounds geoL.cap[II,6] = tmpL
             @inbounds geoS.cap[II,8:11] .= geoS.cap[II,5] * 0.5
@@ -1417,7 +1453,7 @@ function set_cap_bcs!(grid::Mesh{GridFCy,T,N}, periodic_x, periodic_y, empty = t
                 @inbounds geoL.cap[II,1] = min(geoL.cap[II,1], 0.5)
                 tmpS = max(geoS.cap[II,6] - 0.5, 0.0)
                 tmpL = min(geoL.cap[II,6], 0.5)
-            elseif iso[II] == 2 || iso[II] == 4 || iso[II] == 6 || iso[II] == 9 || iso[II] == 11 || iso[II] == 12
+            elseif iso[II] == 2 || iso[II] == 4 || iso[II] == 6 || iso[II] == 9 || iso[II] == 11 || iso[II] == 13
                 @inbounds geoS.cap[II,1] *= 0.5
                 @inbounds geoL.cap[II,1] *= 0.5
             end
@@ -1442,8 +1478,20 @@ function set_cap_bcs!(grid::Mesh{GridFCy,T,N}, periodic_x, periodic_y, empty = t
                 tmpS = min(geoS.cap[II,6], 0.5)
                 tmpL = max(geoL.cap[II,6] - 0.5, 0.0)
             end
-            @inbounds geoS.cap[II,5] = geoS.cap[II,5] * (geoS.cap[II,6] - tmpS) / (geoS.cap[II,6]+eps(0.01))
-            @inbounds geoL.cap[II,5] = geoL.cap[II,5] * (geoL.cap[II,6] - tmpL) / (geoL.cap[II,6]+eps(0.01))
+
+            diffS = geoS.cap[II,6] - tmpS
+            if diffS > 0.0
+                @inbounds geoS.cap[II,5] = geoS.cap[II,5] * diffS / (geoS.cap[II,6]+eps(0.01))
+            else
+                @inbounds geoS.cap[II,5] = geoS.cap[II,5] * 0.5
+            end
+            diffL = geoL.cap[II,6] - tmpL
+            if diffL > 0.0
+                @inbounds geoL.cap[II,5] = geoL.cap[II,5] * diffL / (geoL.cap[II,6]+eps(0.01))
+            else
+                @inbounds geoL.cap[II,5] = geoL.cap[II,5] * 0.5
+            end
+
             @inbounds geoS.cap[II,6] = tmpS
             @inbounds geoL.cap[II,6] = tmpL
             @inbounds geoS.cap[II,8:11] .= geoS.cap[II,5] * 0.5
