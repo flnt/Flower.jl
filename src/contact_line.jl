@@ -19,14 +19,32 @@ function BC_LS!(grid, A, B, rhs, BC, n_ext)
                 pII = lexicographic(II, grid.ny)
                 pJJ = lexicographic(JJ, grid.ny)
 
-                ϵb = n_ext * sqrt((x[JJ] - x[II])^2 + (y[JJ] - y[II])^2)
+                dist = sqrt((x[JJ] - x[II])^2 + (y[JJ] - y[II])^2)
+                ϵb = n_ext * dist
 
                 A[pII,:] .= 0.0
                 A[pII,pII] = 1.0
                 A[pII,pJJ] = -1.0
                 B[pII,pII] = 0.0
                 if II in cl && u[II] < ϵb
-                    rhs[pII] = boundaries_t[i].val * bell_function2(u[II], ϵb)
+                    # Gradually change the contact angle
+                    Δθe = 5 * π / 180
+                    old = u[II] - u[JJ]
+                    if abs(old) > dist
+                        old = sign(old) * dist
+                    end
+                    θe_old = acos(old / dist)
+                    new = boundaries_t[i].val * bell_function2(u[II], ϵb)
+                    if abs(new) > dist
+                        new = sign(new) * dist
+                    end
+                    θe_new = acos(new / dist)
+                    
+                    if abs(θe_new - θe_old) > Δθe
+                        new = dist * cos(θe_old + sign(old - new) * Δθe)
+                    end
+
+                    rhs[pII] = new
                 end
             end
         end

@@ -33,6 +33,7 @@ function run_forward(
     save_length = false,
     save_radius = false,
     adaptative_t = false,
+    breakup = false,
     Ra = 0,
     λ = 1,
     )
@@ -300,7 +301,7 @@ function run_forward(
                 end
             end
             # numerical breakup
-            if free_surface
+            if free_surface && breakup
                 count = breakup(u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, 1e-5)
                 if count > 0
                     FE_reinit!(grid, ind, u, nb_reinit, periodic_x, periodic_y)
