@@ -220,6 +220,9 @@ function run_forward(
         error("Unknown time scheme. Available options are ForwardEuler and CrankNicolson")
     end
 
+    V0S = volume(grid.geoS)
+    V0L = volume(grid.geoL)
+
     current_t = 0.
 
     while current_i < max_iterations + 1
@@ -472,6 +475,8 @@ function run_forward(
                 @views fwdS.vcorrD[snap,:,:] .= phS.vcorrD
                 @views fwdL.vcorrD[snap,:,:] .= phL.vcorrD
                 force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, fwdL; step=snap)
+                fwdS.Vratio[snap] = volume(grid.geoS) / V0S
+                fwdL.Vratio[snap] = volume(grid.geoL) / V0L
             elseif ns_solid_phase
                 @views fwdS.p[snap,:,:] .= phS.p
                 @views fwdS.pD[snap,:] .= phS.pD
@@ -482,6 +487,7 @@ function run_forward(
                 @views fwdS.vcorr[snap,:,:] .= phS.vcorr
                 @views fwdS.ucorrD[snap,:,:] .= phS.ucorrD
                 @views fwdS.vcorrD[snap,:,:] .= phS.vcorrD
+                fwdS.Vratio[snap] = volume(grid.geoS) / V0S
             elseif ns_liquid_phase
                 @views fwdL.p[snap,:,:] .= phL.p
                 @views fwdL.pD[snap,:] .= phL.pD
@@ -493,6 +499,7 @@ function run_forward(
                 @views fwdL.ucorrD[snap,:,:] .= phL.ucorrD
                 @views fwdL.vcorrD[snap,:,:] .= phL.vcorrD
                 force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, fwdL; step=snap)
+                fwdL.Vratio[snap] = volume(grid.geoL) / V0L
             end
         end
 

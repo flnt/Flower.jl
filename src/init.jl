@@ -971,6 +971,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     ucorrDLsave = f3zeros(n_snaps, grid_u)
     vcorrDSsave = f3zeros(n_snaps, grid_v)
     vcorrDLsave = f3zeros(n_snaps, grid_v)
+    VratioS = ones(n_snaps)
+    VratioL = ones(n_snaps)
 
     if num.case == "Planar"
         u .= y .+ shifted
@@ -1087,8 +1089,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
         Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DϕS, DuS, DvS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS),
         Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DϕL, DuL, DvL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL),
         Forward(Tsave, usave, uxsave, uysave, Vsave, κsave, lengthsave, time, Cd, Cl),
-        ForwardPhase(TSsave, pSsave, ϕSsave, uSsave, vSsave, ucorrSsave, vcorrSsave, TDSsave, pDSsave, ucorrDSsave, vcorrDSsave),
-        ForwardPhase(TLsave, pLsave, ϕLsave, uLsave, vLsave, ucorrLsave, vcorrLsave, TDLsave, pDLsave, ucorrDLsave, vcorrDLsave)
+        ForwardPhase(TSsave, pSsave, ϕSsave, uSsave, vSsave, ucorrSsave, vcorrSsave, TDSsave, pDSsave, ucorrDSsave, vcorrDSsave, VratioS),
+        ForwardPhase(TLsave, pLsave, ϕLsave, uLsave, vLsave, ucorrLsave, vcorrLsave, TDLsave, pDLsave, ucorrDLsave, vcorrDLsave, VratioL)
     )
 end
 

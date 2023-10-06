@@ -235,6 +235,7 @@ mutable struct ForwardPhase{T <: Real} <: MutatingFields
     pD::Array{T,2}
     ucorrD::Array{T,2}
     vcorrD::Array{T,2}
+    Vratio::Vector{T}
 end
 
 mutable struct Desired{T <: Real} <: AbstractOptimizer
