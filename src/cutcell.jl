@@ -41,6 +41,11 @@
 @inline is_near_interface_b(a, st) = @inbounds ifelse(a != sign(st[1,1]) || a != sign(st[1,3]) || a != sign(st[2,2]), true, false)
 @inline is_near_interface_r(a, st) = @inbounds ifelse(a != sign(st[1,3]) || a != sign(st[3,3]) || a != sign(st[2,2]), true, false)
 @inline is_near_interface_t(a, st) = @inbounds ifelse(a != sign(st[3,1]) || a != sign(st[3,3]) || a != sign(st[2,2]), true, false)
+@inline is_near_interface_bl(a, st) = @inbounds ifelse(a != sign(st[1,2]) || a != sign(st[2,1]), true, false)
+@inline is_near_interface_br(a, st) = @inbounds ifelse(a != sign(st[1,2]) || a != sign(st[2,3]), true, false)
+@inline is_near_interface_tr(a, st) = @inbounds ifelse(a != sign(st[3,2]) || a != sign(st[2,3]), true, false)
+@inline is_near_interface_tl(a, st) = @inbounds ifelse(a != sign(st[3,2]) || a != sign(st[2,1]), true, false)
+
 
 @inline is_near_interface(u, II::CartesianIndex) = @inbounds ifelse(u[II]*u[δx⁺(II)] < 0 || u[II]*u[δy⁺(II)] < 0 || u[II]*u[δx⁻(II)] < 0 || u[II]*u[δy⁻(II)] < 0, true, false)
 @inline is_near_interface(u, II::CartesianIndex, nx, ny, per_x, per_y) = @inbounds ifelse(u[II]*u[δx⁺(II, nx, per_x)] < 0 || u[II]*u[δy⁺(II, ny, per_y)] < 0 || u[II]*u[δx⁻(II, nx, per_x)] < 0 || u[II]*u[δy⁻(II, ny, per_y)] < 0, true, false)
@@ -448,22 +453,31 @@ function marching_squares!(num, grid, u, periodic_x, periodic_y)
     @inbounds @threads for II in ind.all_indices
         if II in ind.b_left[1][2:end-1] && !periodic_x
             II_0 = δx⁺(II)
+            near_interface = is_near_interface_l
         elseif II in ind.b_bottom[1][2:end-1] && !periodic_y
             II_0 = δy⁺(II)
+            near_interface = is_near_interface_b
         elseif II in ind.b_right[1][2:end-1] && !periodic_x
             II_0 = δx⁻(II)
+            near_interface = is_near_interface_r
         elseif II in ind.b_top[1][2:end-1] && !periodic_y
             II_0 = δy⁻(II)
+            near_interface = is_near_interface_t
         elseif II == ind.b_left[1][1]
             II_0 = δy⁺(δx⁺(II))
+            near_interface = is_near_interface_bl
         elseif II == ind.b_left[1][end]
             II_0 = δy⁻(δx⁺(II))
+            near_interface = is_near_interface_tl
         elseif II == ind.b_right[1][1]
             II_0 = δy⁺(δx⁻(II))
+            near_interface = is_near_interface_br
         elseif II == ind.b_right[1][end]
             II_0 = δy⁻(δx⁻(II))
+            near_interface = is_near_interface_tr
         else
             II_0 = II
+            near_interface = is_near_interface
         end
 
         st = static_stencil(u, II_0, nx, ny, periodic_x, periodic_y)
@@ -471,9 +485,7 @@ function marching_squares!(num, grid, u, periodic_x, periodic_y)
         
         a = sign(u[II])
         ISO = ifelse(a > 0, 0., 15.)
-        if (is_near_interface(a, st) || is_near_interface_l(a, st) || 
-            is_near_interface_b(a, st) || is_near_interface_r(a, st) || 
-            is_near_interface_t(a, st))
+        if near_interface(a, st)
             κ_ = 0.
             if II in ind.inside
                 grid_alignement = check_grid_alignement(u, II, κ_, 0.0)
