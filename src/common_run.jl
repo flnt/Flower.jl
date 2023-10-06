@@ -36,6 +36,9 @@ function update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y
     grid_v.geoL.emptied .= false
     grid_v.geoS.emptied .= false
 
+    κ .= 0.0
+    grid_u.κ .= 0.0
+    grid_v.κ .= 0.0
     get_curvature(num, grid, u, κ, grid.ind.MIXED, periodic_x, periodic_y)
     get_curvature(num, grid_u, grid_u.u, grid_u.κ, grid_u.ind.MIXED, periodic_x, periodic_y)
     get_curvature(num, grid_v, grid_v.u, grid_v.κ, grid_v.ind.MIXED, periodic_x, periodic_y)
@@ -46,6 +49,10 @@ function update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y
     _MIXED_ext = vcat(_MIXED_L_ext, _MIXED_S_ext)
     indices_ext = vcat(grid.ind.SOLID_ext, _MIXED_ext, grid.ind.LIQUID_ext)
     field_extension!(grid, u, κ, indices_ext, num.NB, periodic_x, periodic_y)
+    κ[grid.ind.b_left[1]] .= κ[grid.ind.b_left[2]]
+    κ[grid.ind.b_bottom[1]] .= κ[grid.ind.b_bottom[2]]
+    κ[grid.ind.b_right[1]] .= κ[grid.ind.b_right[2]]
+    κ[grid.ind.b_top[1]] .= κ[grid.ind.b_top[2]]
 
     locate_contact_line!(grid)
     locate_contact_line!(grid_u)

@@ -141,15 +141,31 @@ Compute the volume of a phase.
                                     2.0 * (u[II] - u[δy⁻(II)]) / (dy[δy⁻(II)] + dy[II])) / dy[II]
 
 @inline Dxx(u, II, dx, nx, per) = @inbounds (2.0 * (u[δx⁺(II, nx, per)] - u[II]) / (dx[δx⁺(II, nx, per)] + dx[II]) -
-                                    2.0 * (u[II] - u[δx⁻(II, nx, per)]) / (dx[δx⁻(II, nx, per)] + dx[II])) / dx[II]
+    2.0 * (u[II] - u[δx⁻(II, nx, per)]) / (dx[δx⁻(II, nx, per)] + dx[II])) / dx[II]
+@inline Dxx_l(u, II, dx, nx, per) = @inbounds (2.0 * (u[δx⁺(δx⁺(II))] - u[δx⁺(II)]) / (dx[δx⁺(δx⁺(II))] + dx[δx⁺(II)]) -
+    2.0 * (u[δx⁺(II)] - u[II]) / (dx[δx⁺(II)] + dx[II])) / dx[δx⁺(II)]
+@inline Dxx_r(u, II, dx, nx, per) = @inbounds (2.0 * (u[II] - u[δx⁻(II)]) / (dx[II] + dx[δx⁻(II)]) -
+    2.0 * (u[δx⁻(II)] - u[δx⁻(δx⁻(II))]) / (dx[δx⁻(II)] + dx[δx⁻(δx⁻(II))])) / dx[δx⁻(II)]
 @inline Dyy(u, II, dy, ny, per) = @inbounds (2.0 * (u[δy⁺(II, ny, per)] - u[II]) / (dy[δy⁺(II, ny, per)] + dy[II]) -
-                                    2.0 * (u[II] - u[δy⁻(II, ny, per)]) / (dy[δy⁻(II, ny, per)] + dy[II])) / dy[II]
+    2.0 * (u[II] - u[δy⁻(II, ny, per)]) / (dy[δy⁻(II, ny, per)] + dy[II])) / dy[II]
+@inline Dyy_b(u, II, dy, ny, per) = @inbounds (2.0 * (u[δy⁺(δy⁺(II))] - u[δy⁺(II)]) / (dy[δy⁺(δy⁺(II))] + dy[δy⁺(II)]) -
+    2.0 * (u[δy⁺(II)] - u[II]) / (dy[δy⁺(II)] + dy[II])) / dy[δy⁺(II)]
+@inline Dyy_t(u, II, dy, ny, per) = @inbounds (2.0 * (u[II] - u[δy⁻(II)]) / (dy[II] + dy[δy⁻(II)]) -
+    2.0 * (u[δy⁻(II)] - u[δy⁻(δy⁻(II))]) / (dy[δy⁻(II)] + dy[δy⁻(δy⁻(II))])) / dy[δy⁻(II)]
 
 @inline Dxx(u, II) = @inbounds u[δx⁺(II)] - 2u[II] + u[δx⁻(II)]
 @inline Dyy(u, II) = @inbounds u[δy⁺(II)] - 2u[II] + u[δy⁻(II)]
 
 @inline Dxx(u, II, nx, per) = @inbounds u[δx⁺(II, nx, per)] - 2u[II] + u[δx⁻(II, nx, per)]
+@inline Dxx_l(u, II, nx, per) = @inbounds ifelse(per, u[δx⁺(II, nx, per)] - 2u[II] + u[δx⁻(II, nx, per)],
+    u[δx⁺(δx⁺(II))] - 2*u[δx⁺(II)] + u[II])
+@inline Dxx_r(u, II, nx, per) = @inbounds ifelse(per, u[δx⁺(II, nx, per)] - 2u[II] + u[δx⁻(II, nx, per)],
+    u[δx⁻(δx⁻(II))] - 2*u[δx⁻(II)] + u[II])
 @inline Dyy(u, II, ny, per) = @inbounds u[δy⁺(II, ny, per)] - 2u[II] + u[δy⁻(II, ny, per)]
+@inline Dyy_b(u, II, ny, per) = @inbounds ifelse(per, u[δy⁺(II, ny, per)] - 2u[II] + u[δy⁻(II, ny, per)],
+    u[δy⁺(δy⁺(II))] - 2*u[δy⁺(II)] + u[II])
+@inline Dyy_t(u, II, ny, per) = @inbounds ifelse(per, u[δy⁺(II, ny, per)] - 2u[II] + u[δy⁻(II, ny, per)],
+    u[δy⁻(δy⁻(II))] - 2*u[δy⁻(II)] + u[II])
 
 @inline Dxy(u, II, h) = @inbounds (u[δx⁻(δy⁻(II))] + u[δx⁺(δy⁺(II))] - u[δx⁻(δy⁺(II))] - u[δx⁺(δy⁻(II))])/4h^2
 
