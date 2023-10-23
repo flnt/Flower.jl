@@ -49,10 +49,6 @@ function update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y
     _MIXED_ext = vcat(_MIXED_L_ext, _MIXED_S_ext)
     indices_ext = vcat(grid.ind.SOLID_ext, _MIXED_ext, grid.ind.LIQUID_ext)
     field_extension!(grid, u, κ, indices_ext, num.NB, periodic_x, periodic_y)
-    κ[grid.ind.b_left[1]] .= κ[grid.ind.b_left[2]]
-    κ[grid.ind.b_bottom[1]] .= κ[grid.ind.b_bottom[2]]
-    κ[grid.ind.b_right[1]] .= κ[grid.ind.b_right[2]]
-    κ[grid.ind.b_top[1]] .= κ[grid.ind.b_top[2]]
 
     locate_contact_line!(grid)
     locate_contact_line!(grid_u)

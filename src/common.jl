@@ -130,6 +130,11 @@ Compute the volume of a phase.
 @inline ∇x⁻(u, II, nx, per) = @inbounds u[δx⁻(II, nx, per)] - u[II]
 @inline ∇y⁻(u, II, ny, per) = @inbounds u[δy⁻(II, ny, per)] - u[II]
 
+@inline ∇x⁺(u, II, nx, h, per) = @inbounds (u[δx⁺(II, nx, per)] - u[II]) / h[II]
+@inline ∇y⁺(u, II, ny, h, per) = @inbounds (u[δy⁺(II, ny, per)] - u[II]) / h[II]
+@inline ∇x⁻(u, II, nx, h, per) = @inbounds (u[II] - u[δx⁻(II, nx, per)]) / h[II]
+@inline ∇y⁻(u, II, ny, h, per) = @inbounds (u[II] - u[δy⁻(II, ny, per)]) / h[II]
+
 @inline normal(u, II) = @SVector [mysign(c∇x(u, II), c∇y(u, II)), mysign(c∇y(u, II), c∇x(u, II))]
 
 @inline minmod(a, b) = ifelse(a*b <= 0, 0.0, myabs(a,b))
@@ -404,6 +409,15 @@ function monitor(header, history, it)
         println("x0 is a solution")
     end
 end
+
+@inline is_weno(::WENO5) = true
+@inline is_weno(::LevelsetDiscretization) = false
+
+@inline is_eno(::ENO2) = true
+@inline is_eno(::LevelsetDiscretization) = false
+
+const weno5 = WENO5()
+const eno2 = ENO2()
 
 @inline is_FE(::ForwardEuler) = true
 @inline is_FE(::TemporalIntegration) = false

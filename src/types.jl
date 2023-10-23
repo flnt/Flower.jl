@@ -315,6 +315,10 @@ abstract type TemporalIntegration end
 struct ForwardEuler <: TemporalIntegration end
 struct CrankNicolson <: TemporalIntegration end
 
+abstract type LevelsetDiscretization end
+struct WENO5 <: LevelsetDiscretization end
+struct ENO2 <: LevelsetDiscretization end
+
 abstract type BoundaryCondition{L,T,N} end
 
 @with_kw mutable struct Neumann{L,T,N} <: BoundaryCondition{L,T,N}

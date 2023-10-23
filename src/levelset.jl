@@ -353,54 +353,86 @@ end
             minmod(Dxx(u, II, dx, nx, per_x), ifelse(in_bounds(δx⁻(II, nx, per_x)[2], nx, per_x), Dxx(u, δx⁻(II, nx, per_x), dx, nx, per_x), 0.)),
             minmod(Dyy(u, II, dy, ny, per_y), ifelse(in_bounds(δy⁺(II, ny, per_y)[1], ny, per_y), Dyy(u, δy⁺(II, ny, per_y), dy, ny, per_y), 0.)),
             minmod(Dyy(u, II, dy, ny, per_y), ifelse(in_bounds(δy⁻(II, ny, per_y)[1], ny, per_y), Dyy(u, δy⁻(II, ny, per_y), dy, ny, per_y), 0.))
-    ]
+]
 @inline central_differences_l(u, II, dx, dy, nx, ny, per_x, per_y, dxx) =
     @SVector[minmod(dxx(u, II, dx, nx, per_x), ifelse(in_bounds(δx⁺(II, nx, per_x)[2], nx, per_x), dxx(u, δx⁺(II, nx, per_x), dx, nx, per_x), 0.)),
             minmod(Dyy(u, II, dy, ny, per_y), ifelse(in_bounds(δy⁺(II, ny, per_y)[1], ny, per_y), Dyy(u, δy⁺(II, ny, per_y), dy, ny, per_y), 0.)),
             minmod(Dyy(u, II, dy, ny, per_y), ifelse(in_bounds(δy⁻(II, ny, per_y)[1], ny, per_y), Dyy(u, δy⁻(II, ny, per_y), dy, ny, per_y), 0.))
-    ]
+]
 @inline central_differences_b(u, II, dx, dy, nx, ny, per_x, per_y, dyy) =
     @SVector[minmod(Dxx(u, II, dx, nx, per_x), ifelse(in_bounds(δx⁺(II, nx, per_x)[2], nx, per_x), Dxx(u, δx⁺(II, nx, per_x), dx, nx, per_x), 0.)),
             minmod(Dxx(u, II, dx, nx, per_x), ifelse(in_bounds(δx⁻(II, nx, per_x)[2], nx, per_x), Dxx(u, δx⁻(II, nx, per_x), dx, nx, per_x), 0.)),
             minmod(dyy(u, II, dy, ny, per_y), ifelse(in_bounds(δy⁺(II, ny, per_y)[1], ny, per_y), dyy(u, δy⁺(II, ny, per_y), dy, ny, per_y), 0.))
-    ]
+]
 @inline central_differences_r(u, II, dx, dy, nx, ny, per_x, per_y, dxx) =
     @SVector[minmod(dxx(u, II, dx, nx, per_x), ifelse(in_bounds(δx⁻(II, nx, per_x)[2], nx, per_x), dxx(u, δx⁻(II, nx, per_x), dx, nx, per_x), 0.)),
             minmod(Dyy(u, II, dy, ny, per_y), ifelse(in_bounds(δy⁺(II, ny, per_y)[1], ny, per_y), Dyy(u, δy⁺(II, ny, per_y), dy, ny, per_y), 0.)),
             minmod(Dyy(u, II, dy, ny, per_y), ifelse(in_bounds(δy⁻(II, ny, per_y)[1], ny, per_y), Dyy(u, δy⁻(II, ny, per_y), dy, ny, per_y), 0.))
-    ]
+]
 @inline central_differences_t(u, II, dx, dy, nx, ny, per_x, per_y, dyy) =
     @SVector[minmod(Dxx(u, II, dx, nx, per_x), ifelse(in_bounds(δx⁺(II, nx, per_x)[2], nx, per_x), Dxx(u, δx⁺(II, nx, per_x), dx, nx, per_x), 0.)),
             minmod(Dxx(u, II, dx, nx, per_x), ifelse(in_bounds(δx⁻(II, nx, per_x)[2], nx, per_x), Dxx(u, δx⁻(II, nx, per_x), dx, nx, per_x), 0.)),
             minmod(dyy(u, II, dy, ny, per_y), ifelse(in_bounds(δy⁻(II, ny, per_y)[1], ny, per_y), dyy(u, δy⁻(II, ny, per_y), dy, ny, per_y), 0.))
-    ]
+]
+@inline central_differences_bl(u, II, dx, dy, nx, ny, per_x, per_y, dxx, dyy) =
+    @SVector[minmod(dxx(u, II, dx, nx, per_x), ifelse(in_bounds(δx⁺(II, nx, per_x)[2], nx, per_x), dxx(u, δx⁺(II, nx, per_x), dx, nx, per_x), 0.)),
+            minmod(dyy(u, II, dy, ny, per_y), ifelse(in_bounds(δy⁺(II, ny, per_y)[1], ny, per_y), dyy(u, δy⁺(II, ny, per_y), dy, ny, per_y), 0.))
+]
+@inline central_differences_br(u, II, dx, dy, nx, ny, per_x, per_y, dxx, dyy) =
+    @SVector[minmod(dxx(u, II, dx, nx, per_x), ifelse(in_bounds(δx⁻(II, nx, per_x)[2], nx, per_x), dxx(u, δx⁻(II, nx, per_x), dx, nx, per_x), 0.)),
+            minmod(dyy(u, II, dy, ny, per_y), ifelse(in_bounds(δy⁺(II, ny, per_y)[1], ny, per_y), dyy(u, δy⁺(II, ny, per_y), dy, ny, per_y), 0.))
+]
+@inline central_differences_tr(u, II, dx, dy, nx, ny, per_x, per_y, dxx, dyy) =
+    @SVector[minmod(dxx(u, II, dx, nx, per_x), ifelse(in_bounds(δx⁻(II, nx, per_x)[2], nx, per_x), dxx(u, δx⁻(II, nx, per_x), dx, nx, per_x), 0.)),
+            minmod(dyy(u, II, dy, ny, per_y), ifelse(in_bounds(δy⁻(II, ny, per_y)[1], ny, per_y), dyy(u, δy⁻(II, ny, per_y), dy, ny, per_y), 0.))
+]
+@inline central_differences_tl(u, II, dx, dy, nx, ny, per_x, per_y, dxx, dyy) =
+    @SVector[minmod(dxx(u, II, dx, nx, per_x), ifelse(in_bounds(δx⁺(II, nx, per_x)[2], nx, per_x), dxx(u, δx⁺(II, nx, per_x), dx, nx, per_x), 0.)),
+            minmod(dyy(u, II, dy, ny, per_y), ifelse(in_bounds(δy⁻(II, ny, per_y)[1], ny, per_y), dyy(u, δy⁻(II, ny, per_y), dy, ny, per_y), 0.))
+]
 
 @inline finite_difference_eno(u, II, a::AbstractArray, dx, dy, nx, ny, per_x, per_y) =
     @SVector[2*∇x⁺(u, II, nx, per_x)/(dx[δx⁺(II, nx, per_x)]+dx[II]) - ((dx[δx⁺(II, nx, per_x)]+dx[II])/4)*a[1],
             -2*∇x⁻(u, II, nx, per_x)/(dx[δx⁻(II, nx, per_x)]+dx[II]) + ((dx[δx⁻(II, nx, per_x)]+dx[II])/4)*a[2],
             2*∇y⁺(u, II, ny, per_y)/(dy[δy⁺(II, ny, per_y)]+dy[II]) - ((dy[δy⁺(II, ny, per_y)]+dy[II])/4)*a[3],
             -2*∇y⁻(u, II, ny, per_y)/(dy[δy⁻(II, ny, per_y)]+dy[II]) + ((dy[δy⁻(II, ny, per_y)]+dy[II])/4)*a[4]
-    ]
+]
 @inline finite_difference_eno_l(u, II, a::AbstractArray, dx, dy, nx, ny, per_x, per_y) =
     @SVector[2*∇x⁺(u, II, nx, per_x)/(dx[δx⁺(II, nx, per_x)]+dx[II]) - ((dx[δx⁺(II, nx, per_x)]+dx[II])/4)*a[1],
             2*∇y⁺(u, II, ny, per_y)/(dy[δy⁺(II, ny, per_y)]+dy[II]) - ((dy[δy⁺(II, ny, per_y)]+dy[II])/4)*a[2],
             -2*∇y⁻(u, II, ny, per_y)/(dy[δy⁻(II, ny, per_y)]+dy[II]) + ((dy[δy⁻(II, ny, per_y)]+dy[II])/4)*a[3]
-    ]
+]
 @inline finite_difference_eno_b(u, II, a::AbstractArray, dx, dy, nx, ny, per_x, per_y) =
     @SVector[2*∇x⁺(u, II, nx, per_x)/(dx[δx⁺(II, nx, per_x)]+dx[II]) - ((dx[δx⁺(II, nx, per_x)]+dx[II])/4)*a[1],
             -2*∇x⁻(u, II, nx, per_x)/(dx[δx⁻(II, nx, per_x)]+dx[II]) + ((dx[δx⁻(II, nx, per_x)]+dx[II])/4)*a[2],
             2*∇y⁺(u, II, ny, per_y)/(dy[δy⁺(II, ny, per_y)]+dy[II]) - ((dy[δy⁺(II, ny, per_y)]+dy[II])/4)*a[3]
-    ]
+]
 @inline finite_difference_eno_r(u, II, a::AbstractArray, dx, dy, nx, ny, per_x, per_y) =
     @SVector[-2*∇x⁻(u, II, nx, per_x)/(dx[δx⁻(II, nx, per_x)]+dx[II]) + ((dx[δx⁻(II, nx, per_x)]+dx[II])/4)*a[1],
             2*∇y⁺(u, II, ny, per_y)/(dy[δy⁺(II, ny, per_y)]+dy[II]) - ((dy[δy⁺(II, ny, per_y)]+dy[II])/4)*a[2],
             -2*∇y⁻(u, II, ny, per_y)/(dy[δy⁻(II, ny, per_y)]+dy[II]) + ((dy[δy⁻(II, ny, per_y)]+dy[II])/4)*a[3]
-    ]
+]
 @inline finite_difference_eno_t(u, II, a::AbstractArray, dx, dy, nx, ny, per_x, per_y) =
     @SVector[2*∇x⁺(u, II, nx, per_x)/(dx[δx⁺(II, nx, per_x)]+dx[II]) - ((dx[δx⁺(II, nx, per_x)]+dx[II])/4)*a[1],
             -2*∇x⁻(u, II, nx, per_x)/(dx[δx⁻(II, nx, per_x)]+dx[II]) + ((dx[δx⁻(II, nx, per_x)]+dx[II])/4)*a[2],
             -2*∇y⁻(u, II, ny, per_y)/(dy[δy⁻(II, ny, per_y)]+dy[II]) + ((dy[δy⁻(II, ny, per_y)]+dy[II])/4)*a[3]
-    ]
+]
+@inline finite_difference_eno_bl(u, II, a::AbstractArray, dx, dy, nx, ny, per_x, per_y) =
+    @SVector[2*∇x⁺(u, II, nx, per_x)/(dx[δx⁺(II, nx, per_x)]+dx[II]) - ((dx[δx⁺(II, nx, per_x)]+dx[II])/4)*a[1],
+            2*∇y⁺(u, II, ny, per_y)/(dy[δy⁺(II, ny, per_y)]+dy[II]) - ((dy[δy⁺(II, ny, per_y)]+dy[II])/4)*a[2]
+]
+@inline finite_difference_eno_br(u, II, a::AbstractArray, dx, dy, nx, ny, per_x, per_y) =
+    @SVector[-2*∇x⁻(u, II, nx, per_x)/(dx[δx⁻(II, nx, per_x)]+dx[II]) + ((dx[δx⁻(II, nx, per_x)]+dx[II])/4)*a[1],
+            2*∇y⁺(u, II, ny, per_y)/(dy[δy⁺(II, ny, per_y)]+dy[II]) - ((dy[δy⁺(II, ny, per_y)]+dy[II])/4)*a[2]
+]
+@inline finite_difference_eno_tr(u, II, a::AbstractArray, dx, dy, nx, ny, per_x, per_y) =
+    @SVector[-2*∇x⁻(u, II, nx, per_x)/(dx[δx⁻(II, nx, per_x)]+dx[II]) + ((dx[δx⁻(II, nx, per_x)]+dx[II])/4)*a[1],
+            -2*∇y⁻(u, II, ny, per_y)/(dy[δy⁻(II, ny, per_y)]+dy[II]) + ((dy[δy⁻(II, ny, per_y)]+dy[II])/4)*a[2]
+]
+@inline finite_difference_eno_tl(u, II, a::AbstractArray, dx, dy, nx, ny, per_x, per_y) =
+    @SVector[2*∇x⁺(u, II, nx, per_x)/(dx[δx⁺(II, nx, per_x)]+dx[II]) - ((dx[δx⁺(II, nx, per_x)]+dx[II])/4)*a[1],
+            -2*∇y⁻(u, II, ny, per_y)/(dy[δy⁻(II, ny, per_y)]+dy[II]) + ((dy[δy⁻(II, ny, per_y)]+dy[II])/4)*a[2]
+]
 
 @inline Godunov(s, a::AbstractArray) = ifelse(s >= 0,
     sqrt(max(⁻(a[1])^2, ⁺(a[2])^2) + max(⁻(a[3])^2, ⁺(a[4])^2)),
@@ -417,6 +449,18 @@ end
 @inline Godunov_t(s, a::AbstractArray) = ifelse(s >= 0,
     sqrt(max(⁻(a[1])^2, ⁺(a[2])^2) + ⁺(a[3])^2),
     sqrt(max(⁺(a[1])^2, ⁻(a[2])^2) + ⁻(a[3])^2))
+@inline Godunov_bl(s, a::AbstractArray) = ifelse(s >= 0,
+    sqrt(⁻(a[1])^2 + ⁻(a[2])^2),
+    sqrt(⁺(a[1])^2 + ⁺(a[2])^2))
+@inline Godunov_br(s, a::AbstractArray) = ifelse(s >= 0,
+    sqrt(⁺(a[1])^2 + ⁻(a[2])^2),
+    sqrt(⁻(a[1])^2 + ⁺(a[2])^2))
+@inline Godunov_tr(s, a::AbstractArray) = ifelse(s >= 0,
+    sqrt(⁺(a[1])^2 + ⁺(a[2])^2),
+    sqrt(⁻(a[1])^2 + ⁻(a[2])^2))
+@inline Godunov_tl(s, a::AbstractArray) = ifelse(s >= 0,
+    sqrt(⁻(a[1])^2 + ⁺(a[2])^2),
+    sqrt(⁺(a[1])^2 + ⁻(a[2])^2))
 
 @inline root_extraction(u, uxx, D, II, JJ, h, eps) =
     ifelse(abs(uxx) > eps,
@@ -424,11 +468,193 @@ end
     h*(u[II]/(u[II]-u[JJ])))
 
 """
-    reinit(grid, u, u0, periodic_x, periodic_y)
+    Φweno(a)
 
-Run one reinitilization iteration of the levelset `u` as defined in (Min 2010).
+Intermediate function for the 5th-order WENO as defined in (Jiang and Pen, 2000).
 """
-function reinit(grid, u, u0, periodic_x, periodic_y)
+Φweno(a) = (
+    1.0 / 3.0 * ω0(a) * (a[1] - 2.0 * a[2] + a[3]) + 
+    1.0 / 6.0 * (ω2(a) - 0.5) * (a[2] - 2.0 * a[3] + a[4])
+)
+
+"""
+    Φeno(a)
+
+Intermediate function for the 3rd-order ENO as defined in (Jiang and Pen, 2000).
+"""
+function Φeno(a)
+    u1 = - 1.0 / 12.0 * (a[2] - 2.0 * a[3] + a[4])
+
+    if abs(a[2]) < abs(a[3]) && abs(a[1] - a[2]) < abs(a[2] - a[3])
+        return u1 + 1.0 / 3.0 * (a[1] - 2.0 * a[2] + a[3])
+    elseif abs(a[2]) > abs(a[3]) && abs(a[2] - a[3]) > abs(a[3] - a[4])
+        return -u1
+    else
+        return u1
+    end
+end
+
+"""
+    finite_difference_weno5(u, II, nx, ny, dx, dy, per_x, per_y)
+
+5th order WENO scheme as defined in (Jiang and Pen, 2000).
+
+Replace Φweno by Φeno to use the 3rd-order ENO scheme.
+"""
+function finite_difference_weno5(grid, u, II, nx, ny, dx, dy, per_x, per_y)
+    II_1 = δx⁻(II, nx, per_x)
+    II_2 = δx⁻(II_1, nx, per_x)
+    II_3 = δx⁻(II_2, nx, per_x)
+    II1 = δx⁺(II, nx, per_x)
+    II2 = δx⁺(II1, nx, per_x)
+    II3 = δx⁺(II2, nx, per_x)
+
+    if II[2] > 4
+        d_3 = ∇x⁺(u, II_3, nx, dx, per_x)
+        d_2 = ∇x⁺(u, II_2, nx, dx, per_x)
+        d_1 = ∇x⁺(u, II_1, nx, dx, per_x)
+        if within_bounds(II1, grid)
+            d = ∇x⁺(u, II, nx, dx, per_x)
+        else
+            d = d_1
+        end
+        if within_bounds(II2, grid)
+            d1 = ∇x⁺(u, II1, nx, dx, per_x)
+        else
+            d1 = d
+        end
+        if within_bounds(II3, grid)
+            d2 = ∇x⁺(u, II2, nx, dx, per_x)
+        else
+            d2 = d1
+        end
+    else
+        d2 = ∇x⁺(u, II2, nx, dx, per_x)
+        d1 = ∇x⁺(u, II1, nx, dx, per_x)
+        d = ∇x⁺(u, II, nx, dx, per_x)
+        if within_bounds(II_1, grid)
+            d_1 = ∇x⁺(u, II_1, nx, dx, per_x)
+        else
+            d_1 = d
+        end
+        if within_bounds(II_2, grid)
+            d_2 = ∇x⁺(u, II_2, nx, dx, per_x)
+        else
+            d_2 = d_1
+        end
+        if within_bounds(II_3, grid)
+            d_3 = ∇x⁺(u, II_3, nx, dx, per_x)
+        else
+            d_3 = d_2
+        end
+    end
+
+    fdx⁺ = (
+        1.0 / 12.0 * (-d_2 + 7.0 * d_1 + 7.0 * d - d1) +
+        Φweno([d2 - d1, d1 - d, d - d_1, d_1 - d_2])
+    )
+    fdx⁻ = (
+        1.0 / 12.0 * (-d_2 + 7.0 * d_1 + 7.0 * d - d1) -
+        Φweno([d_2 - d_3, d_1 - d_2, d - d_1, d1 - d])
+    )
+
+    II_1 = δy⁻(II, ny, per_y)
+    II_2 = δy⁻(II_1, ny, per_y)
+    II_3 = δy⁻(II_2, ny, per_y)
+    II1 = δy⁺(II, ny, per_y)
+    II2 = δy⁺(II1, ny, per_y)
+    II3 = δy⁺(II2, ny, per_y)
+
+    if II[1] > 4
+        d_3 = ∇y⁺(u, II_3, ny, dy, per_y)
+        d_2 = ∇y⁺(u, II_2, ny, dy, per_y)
+        d_1 = ∇y⁺(u, II_1, ny, dy, per_y)
+        if within_bounds(II1, grid)
+            d = ∇y⁺(u, II, ny, dy, per_y)
+        else
+            d = d_1
+        end
+        if within_bounds(II2, grid)
+            d1 = ∇y⁺(u, II1, ny, dy, per_y)
+        else
+            d1 = d
+        end
+        if within_bounds(II3, grid)
+            d2 = ∇y⁺(u, II2, ny, dy, per_y)
+        else
+            d2 = d1
+        end
+    else
+        d2 = ∇y⁺(u, II2, ny, dy, per_y)
+        d1 = ∇y⁺(u, II1, ny, dy, per_y)
+        d = ∇y⁺(u, II, ny, dy, per_y)
+        if within_bounds(II_1, grid)
+            d_1 = ∇y⁺(u, II_1, ny, dy, per_y)
+        else
+            d_1 = d
+        end
+        if within_bounds(II_2, grid)
+            d_2 = ∇y⁺(u, II_2, ny, dy, per_y)
+        else
+            d_2 = d_1
+        end
+        if within_bounds(II_3, grid)
+            d_3 = ∇y⁺(u, II_3, ny, dy, per_y)
+        else
+            d_3 = d_2
+        end
+    end
+
+    fdy⁺ = (
+        1.0 / 12.0 * (-d_2 + 7.0 * d_1 + 7.0 * d - d1) +
+        Φweno([d2 - d1, d1 - d, d - d_1, d_1 - d_2])
+    )
+    fdy⁻ = (
+        1.0 / 12.0 * (-d_2 + 7.0 * d_1 + 7.0 * d - d1) -
+        Φweno([d_2 - d_3, d_1 - d_2, d - d_1, d1 - d])
+    )
+
+    return @SVector[fdx⁺, fdx⁻, fdy⁺, fdy⁻]
+end
+
+s0(a) = 13.0 * (a[1] - a[2])^2 + 3.0 * (a[1] - 3.0 * a[2])^2
+s1(a) = 13.0 * (a[2] - a[3])^2 + 3.0 * (a[2] + a[3])^2
+s2(a) = 13.0 * (a[3] - a[4])^2 + 3.0 * (3.0 * a[3] - a[4])^2
+
+α0(a) = 1.0 / (1e-6 + s0(a))^2
+α1(a) = 6.0 / (1e-6 + s1(a))^2
+α2(a) = 3.0 / (1e-6 + s2(a))^2
+
+ω0(a) = α0(a) / (α0(a) + α1(a) + α2(a))
+ω2(a) = α2(a) / (α0(a) + α1(a) + α2(a))
+
+"""
+    δ0(u, II, ϵ, nx, ny, per_x, per_y)
+
+δ function for (Russo and Smereka, 2000) subcell fix.
+
+Not used in the code as (Hartmann et al., 2010) works better.
+
+TODO: only works with periodic BCs for now!!
+"""
+function δ0(u, II, ϵ, nx, ny, per_x, per_y)
+    return maximum([
+        abs(u[δx⁺(II,nx,per_x)] - u[II]), abs(u[δx⁻(II,nx,per_x)] - u[II]),
+        abs(u[δy⁺(II,ny,per_y)] - u[II]), abs(u[δy⁻(II,ny,per_y)] - u[II]),
+        sqrt((u[δx⁺(II,nx,per_x)] - u[δx⁻(II,nx,per_x)])^2 + 
+             (u[δy⁺(II,ny,per_y)] - u[δy⁻(II,ny,per_y)])^2)/ 2.0, ϵ]
+    )
+end
+
+"""
+    reinit_min(scheme, grid, u, u0, periodic_x, periodic_y)
+
+Run one reinitilization iteration using the subcell fix of (Min, 2010).
+
+`scheme` can be either the 5th-order WENO scheme `weno5` (Jiang and Pen, 2000) or
+the 2nd-order ENO `eno2`.
+"""
+function reinit_min(scheme, grid, u, u0, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy, ind = grid
     @unpack inside, b_left, b_bottom, b_right, b_top = ind
 
@@ -452,6 +678,11 @@ function reinit(grid, u, u0, periodic_x, periodic_y)
             neighbour = (δx⁺(II, nx, periodic_x), δx⁻(II, nx, periodic_x), δy⁺(II, ny, periodic_y), δy⁻(II, ny, periodic_y))
             shift = central_differences(u, II, dx, dy, nx, ny, periodic_x, periodic_y)
             eno = finite_difference_eno(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            if is_eno(scheme)
+                diffs = copy(eno)
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+            end
             god = Godunov
         elseif II in b_left[1]
             II_0 = δx⁺(II)
@@ -468,6 +699,11 @@ function reinit(grid, u, u0, periodic_x, periodic_y)
             neighbour = (δx⁺(II, nx, periodic_x), δy⁺(II, ny, periodic_y), δy⁻(II, ny, periodic_y))
             shift = central_differences_l(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_l)
             eno = finite_difference_eno_l(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            if is_eno(scheme)
+                diffs = copy(eno)
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+            end
             god = Godunov_l
         elseif II in b_bottom[1]
             II_0 = δy⁺(II)
@@ -484,6 +720,11 @@ function reinit(grid, u, u0, periodic_x, periodic_y)
             neighbour = (δx⁺(II, nx, periodic_x), δx⁻(II, nx, periodic_x), δy⁺(II, ny, periodic_y))
             shift = central_differences_b(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dyy_b)
             eno = finite_difference_eno_b(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            if is_eno(scheme)
+                diffs = copy(eno)
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+            end
             god = Godunov_b
         elseif II in b_right[1]
             II_0 = δx⁻(II)
@@ -500,6 +741,11 @@ function reinit(grid, u, u0, periodic_x, periodic_y)
             neighbour = (δx⁻(II, nx, periodic_x), δy⁺(II, ny, periodic_y), δy⁻(II, ny, periodic_y))
             shift = central_differences_r(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_r)
             eno = finite_difference_eno_r(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            if is_eno(scheme)
+                diffs = copy(eno)
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+            end
             god = Godunov_r
         elseif II in b_top[1]
             II_0 = δy⁻(II)
@@ -516,10 +762,15 @@ function reinit(grid, u, u0, periodic_x, periodic_y)
             neighbour = (δx⁺(II, nx, periodic_x), δx⁻(II, nx, periodic_x), δy⁻(II, ny, periodic_y))
             shift = central_differences_t(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dyy_t)
             eno = finite_difference_eno_t(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            if is_eno(scheme)
+                diffs = copy(eno)
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+            end
             god = Godunov_t
         end
 
-        if near_interface(sign(u0[II]), st)
+        if near_interface(u0, II, nx, ny, periodic_x, periodic_y)
             eno_interface = convert(Vector{Float64}, eno)
             h_ = 1e30
             for (JJ, i, j, k) in zip(neighbour, a, c, g)
@@ -543,55 +794,339 @@ function reinit(grid, u, u0, periodic_x, periodic_y)
                 end
             end
             gdv = god(sign_u0, eno_interface)
+            u1[II] = u[II] - cfl * h_ * sign_u0 * (gdv - 1.0)
         else
-            gdv = god(sign_u0, eno)
+            gdv = god(sign_u0, diffs)
+            u1[II] = u[II] - cfl * h_ * sign_u0 * (gdv - 1.0)
         end
-
-        u1[II] = u[II] - cfl * h_ * sign_u0 * (gdv - 1.0)
     end
 
-    u1[1,1] = ifelse(u1[1,1] > 0.0, max(u1[1,2],u1[2,1],u1[2,2]) + dx[1,1],
-        min(u1[1,2],u1[2,1],u1[2,2]) - dx[1,1])
-    u1[1,end] = ifelse(u1[1,end] > 0.0, max(u1[1,end-1],u1[2,end],u1[2,end-1]) + dx[1,end],
-        min(u1[1,end-1],u1[2,end],u1[2,end-1]) - dx[1,end])
-    u1[end,1] = ifelse(u1[end,1] > 0.0, max(u1[end-1,1],u1[end,2],u1[end-1,2]) + dx[end,1],
-        min(u1[end-1,1],u1[end,2],u1[end-1,2]) - dx[end,1])
-    u1[end,end] = ifelse(u1[end,end] > 0.0, max(u1[end-1,end],u1[end,end-1],u1[end-1,end-1]) + dx[end,1],
-        min(u1[end-1,end],u1[end,end-1],u1[end-1,end-1]) - dx[end,1])
+    if !periodic_x && !periodic_y
+        u1[1,1] = ifelse(u1[1,1] > 0.0, max(u1[1,2],u1[2,1],u1[2,2]) + dx[1,1],
+            min(u1[1,2],u1[2,1],u1[2,2]) - dx[1,1])
+        u1[1,end] = ifelse(u1[1,end] > 0.0, max(u1[1,end-1],u1[2,end],u1[2,end-1]) + dx[1,end],
+            min(u1[1,end-1],u1[2,end],u1[2,end-1]) - dx[1,end])
+        u1[end,1] = ifelse(u1[end,1] > 0.0, max(u1[end-1,1],u1[end,2],u1[end-1,2]) + dx[end,1],
+            min(u1[end-1,1],u1[end,2],u1[end-1,2]) - dx[end,1])
+        u1[end,end] = ifelse(u1[end,end] > 0.0, max(u1[end-1,end],u1[end,end-1],u1[end-1,end-1]) + dx[end,1],
+            min(u1[end-1,end],u1[end,end-1],u1[end-1,end-1]) - dx[end,1])
+    end
 
     return u1
 end
 
 """
-    FE_reinit!(grid, ind, u, nb_reinit, BC_u, periodic_x, periodic_y)
+    reinit_rs(scheme, grid, u, u0, periodic_x, periodic_y)
+
+Run one reinitilization iteration using the subcell fix of (Russo and Smereka, 2000).
+
+`scheme` can be either the 5th-order WENO scheme `weno5` (Jiang and Pen, 2000) or
+the 2nd-order ENO `eno2`.
+"""
+function reinit_rs(scheme, grid, u, u0, periodic_x, periodic_y)
+    @unpack nx, ny, dx, dy, ind = grid
+    @unpack inside, b_left, b_bottom, b_right, b_top = ind
+
+    local cfl = 0.45
+    u1 = copy(u0)
+
+    @inbounds @threads for II in vcat(vec(inside), b_left[1][2:end-1], b_bottom[1][2:end-1], b_right[1][2:end-1], b_top[1][2:end-1])
+        sign_u0 = sign(u0[II])
+        if II in inside || ((II in b_left[1] || II in b_right[1]) && periodic_x) || ((II in b_bottom[1] || II in b_top[1]) && periodic_y)
+            if is_eno(scheme)
+                shift = central_differences(u, II, dx, dy, nx, ny, periodic_x, periodic_y)
+                diffs = finite_difference_eno(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+            end
+            h_ = min(
+                0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
+                0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
+            )
+            god = Godunov
+            near_interface = is_near_interface
+        elseif II in b_left[1]
+            if is_eno(scheme)
+                shift = central_differences_l(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_l)
+                diffs = finite_difference_eno_l(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+            end
+            h_ = min(
+                0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]),
+                0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
+            )
+            god = Godunov_l
+            near_interface = is_near_interface_l
+        elseif II in b_bottom[1]
+            if is_eno(scheme)
+                shift = central_differences_b(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dyy_b)
+                diffs = finite_difference_eno_b(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+            end
+            h_ = min(
+                0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
+                0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)])
+            )
+            god = Godunov_b
+            near_interface = is_near_interface_b
+        elseif II in b_right[1]
+            if is_eno(scheme)
+                shift = central_differences_r(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_r)
+                diffs = finite_difference_eno_r(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+            end
+            h_ = min(
+                0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
+                0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
+            )
+            god = Godunov_r
+            near_interface = is_near_interface_r
+        elseif II in b_top[1]
+            if is_eno(scheme)
+                shift = central_differences_t(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dyy_t)
+                diffs = finite_difference_eno_t(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+            end
+            h_ = min(
+                0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
+                0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
+            )
+            god = Godunov_t
+            near_interface = is_near_interface_t
+        end
+
+        if near_interface(u0, II, nx, ny, periodic_x, periodic_y)
+            d = h_ * u0[II] / δ0(u0, II, h_, nx, ny, periodic_x, periodic_y)
+            u1[II] = u[II] - cfl * (sign_u0 * abs(u[II]) - d)
+        else
+            gdv = god(sign_u0, diffs)
+            u1[II] = u[II] - cfl * h_ * sign_u0 * (gdv - 1.0)
+        end
+    end
+
+    if !periodic_x && !periodic_y
+        u1[1,1] = ifelse(u1[1,1] > 0.0, max(u1[1,2],u1[2,1],u1[2,2]) + dx[1,1],
+            min(u1[1,2],u1[2,1],u1[2,2]) - dx[1,1])
+        u1[1,end] = ifelse(u1[1,end] > 0.0, max(u1[1,end-1],u1[2,end],u1[2,end-1]) + dx[1,end],
+            min(u1[1,end-1],u1[2,end],u1[2,end-1]) - dx[1,end])
+        u1[end,1] = ifelse(u1[end,1] > 0.0, max(u1[end-1,1],u1[end,2],u1[end-1,2]) + dx[end,1],
+            min(u1[end-1,1],u1[end,2],u1[end-1,2]) - dx[end,1])
+        u1[end,end] = ifelse(u1[end,end] > 0.0, max(u1[end-1,end],u1[end,end-1],u1[end-1,end-1]) + dx[end,1],
+            min(u1[end-1,end],u1[end,end-1],u1[end-1,end-1]) - dx[end,1])
+    end
+
+    return u1
+end
+
+"""
+    reinit_hartmann(scheme, grid, u, u0, periodic_x, periodic_y)
+
+Run one reinitilization iteration following (Hartmann et al., 2010).
+
+`scheme` can be either the 5th-order WENO scheme `weno5` (Jiang and Pen, 2000) or
+the 2nd-order ENO `eno2`.
+"""
+function reinit_hartmann(scheme, grid, u, u0, periodic_x, periodic_y)
+    @unpack nx, ny, dx, dy, ind = grid
+    @unpack inside, b_left, b_bottom, b_right, b_top = ind
+
+    local cfl = 0.45
+    u1 = copy(u0)
+    utmp = copy(u0)
+
+    @inbounds @threads for II in vcat(vec(inside), b_left[1][2:end-1], b_bottom[1], b_right[1][2:end-1], b_top[1])
+        sign_u0 = sign(u0[II])
+        if II in inside || ((II in b_left[1] || II in b_right[1]) && periodic_x) || ((II in b_bottom[1] || II in b_top[1]) && periodic_y)
+            if is_eno(scheme)
+                shift = central_differences(u, II, dx, dy, nx, ny, periodic_x, periodic_y)
+                diffs = finite_difference_eno(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+            end
+            idx = [
+                δx⁻(II, nx, periodic_x), δy⁻(II, ny, periodic_y), 
+                δx⁺(II, nx, periodic_x), δy⁺(II, ny, periodic_y)
+            ]
+            h_ = min(
+                0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
+                0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
+            )
+            god = Godunov
+            near_interface = is_near_interface
+        elseif II == b_bottom[1][1]
+            if is_eno(scheme)
+                shift = central_differences_bl(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_l, Dyy_b)
+                diffs = finite_difference_eno_bl(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+            end
+            idx = [δx⁺(II, nx, periodic_x), δy⁺(II, ny, periodic_y)]
+            h_ = min(0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]))
+            god = Godunov_bl
+            near_interface = is_near_interface_bl
+        elseif II == b_bottom[1][end]
+            if is_eno(scheme)
+                shift = central_differences_br(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_r, Dyy_b)
+                diffs = finite_difference_eno_br(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+            end
+            idx = [δx⁻(II, nx, periodic_x), δy⁺(II, ny, periodic_y)]
+            h_ = min(0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]))
+            god = Godunov_br
+            near_interface = is_near_interface_br
+        elseif II == b_top[1][end]
+            if is_eno(scheme)
+                shift = central_differences_tr(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_r, Dyy_t)
+                diffs = finite_difference_eno_tr(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+            end
+            idx = [δx⁻(II, nx, periodic_x), δy⁻(II, ny, periodic_y)]
+            h_ = min(0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)]))
+            god = Godunov_tr
+            near_interface = is_near_interface_tr
+        elseif II == b_top[1][1]
+            if is_eno(scheme)
+                shift = central_differences_tl(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_l, Dyy_t)
+                diffs = finite_difference_eno_tl(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+            end
+            idx = [δy⁻(II, ny, periodic_y), δx⁺(II, nx, periodic_x)]
+            h_ = min(0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)]))
+            god = Godunov_tl
+            near_interface = is_near_interface_tl
+        elseif II in b_left[1]
+            if is_eno(scheme)
+                shift = central_differences_l(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_l)
+                diffs = finite_difference_eno_l(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+            end
+            idx = [δy⁻(II, ny, periodic_y), δx⁺(II, nx, periodic_x), δy⁺(II, ny, periodic_y)]
+            h_ = min(
+                0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]),
+                0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
+            )
+            god = Godunov_l
+            near_interface = is_near_interface_l
+        elseif II in b_bottom[1]
+            if is_eno(scheme)
+                shift = central_differences_b(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dyy_b)
+                diffs = finite_difference_eno_b(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+            end
+            idx = [δx⁻(II, nx, periodic_x), δx⁺(II, nx, periodic_x), δy⁺(II, ny, periodic_y)]
+            h_ = min(
+                0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
+                0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)])
+            )
+            god = Godunov_b
+            near_interface = is_near_interface_b
+        elseif II in b_right[1]
+            if is_eno(scheme)
+                shift = central_differences_r(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_r)
+                diffs = finite_difference_eno_r(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+            end
+            idx = [δx⁻(II, nx, periodic_x), δy⁻(II, ny, periodic_y), δy⁺(II, ny, periodic_y)]
+            h_ = min(
+                0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
+                0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
+            )
+            god = Godunov_r
+            near_interface = is_near_interface_r
+        elseif II in b_top[1]
+            if is_eno(scheme)
+                shift = central_differences_t(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dyy_t)
+                diffs = finite_difference_eno_t(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+            end
+            idx = [δx⁻(II, nx, periodic_x), δy⁻(II, ny, periodic_y), δx⁺(II, nx, periodic_x)]
+            h_ = min(
+                0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
+                0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
+            )
+            god = Godunov_t
+            near_interface = is_near_interface_t
+        end
+        
+        ssign_u0 = mysign(u0[II], h_)
+
+        if near_interface(u0, II, nx, ny, periodic_x, periodic_y)
+            neighbours = Vector{CartesianIndex}(undef, 4)
+            m = 0
+            for JJ in idx
+                if u0[JJ] * u0[II] < 0
+                    m += 1
+                    neighbours[m] = JJ
+                end
+            end
+
+            gdv = god(sign_u0, diffs)
+            utmp[II] = u[II] - cfl * h_ * ssign_u0 * (gdv - 1.0)
+
+            fix = true
+            for i in 1:m
+                if u[neighbours[i]] * u[II] > 0
+                    fix = false
+                end
+            end
+
+            if fix
+                @inbounds r = u0[II] / sum(u0[neighbours[1:m]])
+                @inbounds F = 1.0 / h_ * (r * sum(utmp[neighbours[1:m]]) - utmp[II])
+                u1[II] = utmp[II] + cfl * h_ * 0.5 * F
+            else
+                u1[II] = utmp[II]
+            end
+        else
+            gdv = god(sign_u0, diffs)
+            u1[II] = u[II] - cfl * h_ * ssign_u0 * (gdv - 1.0)
+        end
+    end
+
+    return u1
+end
+
+"""
+    FE_reinit!(scheme, grid, ind, u, nb_reinit, BC_u, periodic_x, periodic_y)
 
 Reinitializes a levelset `u` using a Forward Euler integration scheme.
 
 `nb_reinit` iterations are performed to reach the stationary state. The actual work is done
-in the `reinit` function.
+in the `reinit_hartmann` function.
 """
-function FE_reinit!(grid, ind, u, nb_reinit, periodic_x, periodic_y)
+function FE_reinit!(scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy = grid
     @unpack inside, all_indices = ind
 
     u0 = copy(u)
 
     for nb = 1:nb_reinit
-        u .= reinit(grid, u, u0, periodic_x, periodic_y)
+        u .= reinit_hartmann(scheme, grid, u, u0, periodic_x, periodic_y)
     end
 
     return nothing
 end
 
 """
-    RK2_reinit!(grid, ind, u, nb_reinit, BC_u, periodic_x, periodic_y)
+    RK2_reinit!(scheme, grid, ind, u, nb_reinit, BC_u, periodic_x, periodic_y)
 
-Reinitializes a levelset using a second-order Runge-Kutta integration scheme.
+Reinitializes a levelset using a 2nd-order Runge-Kutta integration scheme.
 
 `nb_reinit` iterations are performed to reach the stationary state. The actual work is done
-in the `reinit` function.
+in the `reinit_hartmann` function.
 """
-function RK2_reinit!(grid, ind, u, nb_reinit, periodic_x, periodic_y)
+function RK2_reinit!(scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy = grid
     @unpack inside, all_indices = ind
 
@@ -600,8 +1135,8 @@ function RK2_reinit!(grid, ind, u, nb_reinit, periodic_x, periodic_y)
     tmp2 = copy(u)
 
     for nb in 1:nb_reinit
-        tmp1 .= reinit(grid, u, u0, periodic_x, periodic_y)
-        tmp2 .= reinit(grid, tmp1, u0, periodic_x, periodic_y)
+        tmp1 .= reinit_hartmann(scheme, grid, u, u0, periodic_x, periodic_y)
+        tmp2 .= reinit_hartmann(scheme, grid, tmp1, u0, periodic_x, periodic_y)
         u[all_indices] .= 0.5 .* (u[all_indices] .+ tmp2[all_indices])
     end
 

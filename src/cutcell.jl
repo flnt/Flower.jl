@@ -49,6 +49,14 @@
 
 @inline is_near_interface(u, II::CartesianIndex) = @inbounds ifelse(u[II]*u[δx⁺(II)] < 0 || u[II]*u[δy⁺(II)] < 0 || u[II]*u[δx⁻(II)] < 0 || u[II]*u[δy⁻(II)] < 0, true, false)
 @inline is_near_interface(u, II::CartesianIndex, nx, ny, per_x, per_y) = @inbounds ifelse(u[II]*u[δx⁺(II, nx, per_x)] < 0 || u[II]*u[δy⁺(II, ny, per_y)] < 0 || u[II]*u[δx⁻(II, nx, per_x)] < 0 || u[II]*u[δy⁻(II, ny, per_y)] < 0, true, false)
+@inline is_near_interface_l(u, II::CartesianIndex, nx, ny, per_x, per_y) = @inbounds ifelse(u[II]*u[δx⁺(II, nx, per_x)] < 0 || u[II]*u[δy⁺(II, ny, per_y)] < 0 || u[II]*u[δy⁻(II, ny, per_y)] < 0, true, false)
+@inline is_near_interface_b(u, II::CartesianIndex, nx, ny, per_x, per_y) = @inbounds ifelse(u[II]*u[δx⁺(II, nx, per_x)] < 0 || u[II]*u[δy⁺(II, ny, per_y)] < 0 || u[II]*u[δx⁻(II, nx, per_x)] < 0, true, false)
+@inline is_near_interface_r(u, II::CartesianIndex, nx, ny, per_x, per_y) = @inbounds ifelse(u[II]*u[δy⁺(II, ny, per_y)] < 0 || u[II]*u[δx⁻(II, nx, per_x)] < 0 || u[II]*u[δy⁻(II, ny, per_y)] < 0, true, false)
+@inline is_near_interface_t(u, II::CartesianIndex, nx, ny, per_x, per_y) = @inbounds ifelse(u[II]*u[δx⁺(II, nx, per_x)] < 0 || u[II]*u[δx⁻(II, nx, per_x)] < 0 || u[II]*u[δy⁻(II, ny, per_y)] < 0, true, false)
+@inline is_near_interface_bl(u, II::CartesianIndex, nx, ny, per_x, per_y) = @inbounds ifelse(u[II]*u[δx⁺(II, nx, per_x)] < 0 || u[II]*u[δy⁺(II, ny, per_y)] < 0, true, false)
+@inline is_near_interface_br(u, II::CartesianIndex, nx, ny, per_x, per_y) = @inbounds ifelse(u[II]*u[δy⁺(II, ny, per_y)] < 0 || u[II]*u[δx⁻(II, nx, per_x)] < 0, true, false)
+@inline is_near_interface_tr(u, II::CartesianIndex, nx, ny, per_x, per_y) = @inbounds ifelse(u[II]*u[δx⁻(II, nx, per_x)] < 0 || u[II]*u[δy⁻(II, ny, per_y)] < 0, true, false)
+@inline is_near_interface_tl(u, II::CartesianIndex, nx, ny, per_x, per_y) = @inbounds ifelse(u[II]*u[δx⁺(II, nx, per_x)] < 0 || u[II]*u[δy⁻(II, ny, per_y)] < 0, true, false)
 
 @inline ismixed(a) = a !== 0.0 && a !== 15.0
 @inline is_not_mixed(a) = a == 0.0 || a == 15.0
@@ -616,42 +624,42 @@ function get_curvature(num, grid, u, κ, inside, per_x, per_y)
         if !per_x && !per_y
             if II in ind.inside
                 II_0 = II
-            # elseif II in ind.b_left[1][2:end-1]
-            #     II_0 = δx⁺(II)
-            # elseif II in ind.b_bottom[1][2:end-1]
-            #     II_0 = δy⁺(II)
-            # elseif II in ind.b_right[1][2:end-1]
-            #     II_0 = δx⁻(II)
-            # elseif II in ind.b_top[1][2:end-1]
-            #     II_0 = δy⁻(II)
-            # elseif II == ind.b_left[1][1]
-            #     II_0 = δy⁺(δx⁺(II))
-            # elseif II == ind.b_left[1][end]
-            #     II_0 = δy⁻(δx⁺(II))
-            # elseif II == ind.b_right[1][1]
-            #     II_0 = δy⁺(δx⁻(II))
-            # elseif II == ind.b_right[1][end]
-            #     II_0 = δy⁻(δx⁻(II))
+            elseif II in ind.b_left[1][2:end-1]
+                II_0 = δx⁺(II)
+            elseif II in ind.b_bottom[1][2:end-1]
+                II_0 = δy⁺(II)
+            elseif II in ind.b_right[1][2:end-1]
+                II_0 = δx⁻(II)
+            elseif II in ind.b_top[1][2:end-1]
+                II_0 = δy⁻(II)
+            elseif II == ind.b_left[1][1]
+                II_0 = δy⁺(δx⁺(II))
+            elseif II == ind.b_left[1][end]
+                II_0 = δy⁻(δx⁺(II))
+            elseif II == ind.b_right[1][1]
+                II_0 = δy⁺(δx⁻(II))
+            elseif II == ind.b_right[1][end]
+                II_0 = δy⁻(δx⁻(II))
             else
                 continue
             end
         elseif per_x && !per_y
             if II in ind.inside || II in ind.b_left[1][2:end-1] || II in ind.b_right[1][2:end-1]
                 II_0 = II
-            # elseif II in ind.b_bottom[1]
-            #     II_0 = δy⁺(II)
-            # elseif II in ind.b_top[1]
-            #     II_0 = δy⁻(II)
+            elseif II in ind.b_bottom[1]
+                II_0 = δy⁺(II)
+            elseif II in ind.b_top[1]
+                II_0 = δy⁻(II)
             else 
                 continue
             end
         else
             if II in ind.inside || II in ind.b_bottom[1][2:end-1] || II in ind.b_top[1][2:end-1]
                 II_0 = II
-            # elseif II in ind.b_left[1]
-            #     II_0 = δx⁺(II)
-            # elseif II in ind.b_right[1]
-            #     II_0 = δx⁻(II)
+            elseif II in ind.b_left[1]
+                II_0 = δx⁺(II)
+            elseif II in ind.b_right[1]
+                II_0 = δx⁻(II)
             else
                 continue
             end
