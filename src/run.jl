@@ -627,11 +627,6 @@ function run_backward(num, grid, opS, opL, fwd, adj;
     if levelset
         marching_squares!(num, grid, u, periodic_x, periodic_y)
 
-        bcs!(faces, BC_u.left, dx[1,1])
-        bcs!(faces, BC_u.right, dx[1,end])
-        bcs!(faces, BC_u.bottom, dy[1,1])
-        bcs!(faces, BC_u.top, dy[end,1])
-
         NB_indices_base = get_NB_width_indices_base(NB)
 
         MIXED, SOLID, LIQUID = get_cells_indices(iso, inside)
@@ -734,11 +729,6 @@ function run_backward(num, grid, opS, opL, fwd, adj;
 
         if levelset
             marching_squares!(num, grid, u, periodic_x, periodic_y)
-
-            bcs!(faces, BC_u.left, dx[1,1])
-            bcs!(faces, BC_u.right, dx[1,end])
-            bcs!(faces, BC_u.bottom, dy[1,1])
-            bcs!(faces, BC_u.top, dy[end,1])
 
             WAS_LIQUID = copy(LIQUID)
             WAS_SOLID = copy(SOLID)

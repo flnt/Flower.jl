@@ -437,6 +437,9 @@ isCC(::Mesh) = false
 @inline is_neumann(::Neumann) = true
 @inline is_neumann(::BoundaryCondition) = false
 
+@inline is_neumann_cl(::Neumann_cl) = true
+@inline is_neumann_cl(::BoundaryCondition) = false
+
 @inline is_robin(::Robin) = true
 @inline is_robin(::BoundaryCondition) = false
 
@@ -455,39 +458,14 @@ isCC(::Mesh) = false
 @inline is_fs(::FreeSurface) = true
 @inline is_fs(::BoundaryCondition) = false
 
-@inline dirichlet(target, Δ, λ, val) = muladd(2.0, val, -target)
-@inline neumann(target, Δ, λ, val) = muladd(Δ, val, target)
-@inline robin(target, Δ, λ, val) = muladd((2*λ-Δ)/(2*λ+Δ), target, (2*Δ*val)/(Δ+2*λ))
-@inline periodic(target, Δ, λ, val) = target
-@inline navier(target, Δ, λ, val) = muladd(Δ, val, target)
-@inline navier_cl(target, Δ, λ, val) = muladd(Δ, val, target)
-@inline gnbc(target, Δ, λ, val) = muladd(Δ, val, target)
-
 const neu = Neumann()
+const neu_cl = Neumann_cl()
 const dir = Dirichlet()
 const per = Periodic()
 const rob = Robin()
 const nav = Navier()
 const nav_cl = Navier_cl()
 const fs = FreeSurface()
-
-function bcs!(field, BC::BoundaryCondition{N,T,T}, Δ) where {N,T}
-    @inbounds for KK in axes(field,3)
-        for (II,JJ) in zip(BC.ind[1], BC.ind[2])
-            field[II,KK] = BC.f(field[JJ,KK], Δ, BC.λ, BC.val)
-        end
-    end
-    return nothing
-end
-
-function bcs!(field, BC::BoundaryCondition{N,T,Vector{T}}, Δ) where {N,T}
-    @inbounds for KK in axes(field,3)
-        for (II,JJ,LL) in zip(BC.ind[1], BC.ind[2], axes(field,1))
-            field[II,KK] = BC.f(field[JJ,KK], Δ, BC.λ, BC.val[LL])
-        end
-    end
-    return nothing
-end
 
 function get_fresh_cells!(grid, geo, Mm1, indices)
     @inbounds @threads for II in indices

@@ -323,28 +323,31 @@ abstract type BoundaryCondition{L,T,N} end
 
 @with_kw mutable struct Neumann{L,T,N} <: BoundaryCondition{L,T,N}
    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
-   f::Function = neumann
    val::N = 0.0
    λ::T = 0.0
 end
 
+@with_kw mutable struct Neumann_cl{L,T,N} <: BoundaryCondition{L,T,N}
+    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
+    val::N = 0.0
+    λ::T = 0.0
+    θe::T = π / 2
+ end
+
 @with_kw mutable struct Dirichlet{L,T,N} <: BoundaryCondition{L,T,N}
     ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
-    f::Function = dirichlet
     val::N = 0.0
     λ::T = 0.0
 end
 
 @with_kw mutable struct Periodic{L,T,N} <: BoundaryCondition{L,T,N}
     ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
-    f::Function = periodic
     val::N = 0.0
     λ::T = 0.0
 end
 
 @with_kw mutable struct Robin{L,T,N} <: BoundaryCondition{L,T,N}
     ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
-    f::Function = robin
     val::N = 0.0
     λ::T = 0.0
 end
@@ -359,7 +362,6 @@ applied. The boundary condition is given by:
 """
 @with_kw mutable struct Navier{L,T,N} <: BoundaryCondition{L,T,N}
     ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
-    f::Function = navier
     val::N = 0.0
     λ::T = 0.0
 end
@@ -374,7 +376,6 @@ applied. The boundary condition is given by:
 """
 @with_kw mutable struct Navier_cl{L,T,N} <: BoundaryCondition{L,T,N}
     ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
-    f::Function = navier
     val::N = 0.0
     λ::T = 0.0
 end
@@ -395,7 +396,6 @@ Dirichlet is applied. The boundary condition is given by:
 """
 @with_kw mutable struct GNBC{L,T,N} <: BoundaryCondition{L,T,N}
     ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
-    f::Function = gnbc
     val::N = 0.0
     λ::T = 0.0
     ϵ::T = 1.0
