@@ -236,7 +236,7 @@ function make_video(
                 )
             else
                 z = reshape(
-                    field[step0:stepf, grid.ny*grid.nx+1:end],
+                    field[step0:stepf, grid.ny*grid.nx+1:2*grid.ny*grid.nx],
                     (stepf-step0+1, grid.ny,grid.nx)
                 )
             end
@@ -277,6 +277,9 @@ function make_video(
         end
     end
     contour!(x, y, @lift(u[$obs,:,:]'), levels = [0.0], color = :red, linewidth = 2.0)
+    if !plot_hmap
+        contour!(x, y, @lift(u[$obs,:,:]'), levels = -10:0.02:10, linewidth = 1.0)
+    end
     if plot_hmap
         cbar = fig[1,2] = Colorbar(fig, hmap, labelpadding = 0)
     end
