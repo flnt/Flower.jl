@@ -47,7 +47,10 @@ function update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y
     _MIXED_L_ext = intersect(findall(grid.geoL.emptied), grid.ind.MIXED_ext)
     _MIXED_S_ext = intersect(findall(grid.geoS.emptied), grid.ind.MIXED_ext)
     _MIXED_ext = vcat(_MIXED_L_ext, _MIXED_S_ext)
-    indices_ext = vcat(grid.ind.SOLID_ext, _MIXED_ext, grid.ind.LIQUID_ext)
+    indices_ext = vcat(
+        vec(grid.ind.inside), grid.ind.b_left[1][2:end-1], grid.ind.b_bottom[1][2:end-1],
+        grid.ind.b_right[1][2:end-1], grid.ind.b_top[1][2:end-1]
+    )
     field_extension!(grid, u, κ, indices_ext, num.NB, periodic_x, periodic_y)
 
     locate_contact_line!(grid)
@@ -55,7 +58,6 @@ function update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y
     locate_contact_line!(grid_v)
 
     # Apply inhomogeneous BC to more than one grid point by extending the contact line
-    extend_contact_line!(grid, num.n_ext_cl)
     extend_contact_line!(grid_u, num.n_ext_cl)
     extend_contact_line!(grid_v, num.n_ext_cl)
 
