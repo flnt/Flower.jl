@@ -2,20 +2,41 @@
     BC_LS!(num, grid, A, B, rhs, BC)
 
 Update levelset matrices to apply inhomogeneous Neumann boundary conditions in presence of
-contact lines.
+contact lines. 
+
+Outside, the contact angle asimptotically converges to an angle of 90°. Inside, the contact
+angle converges to an angle of 0° if the imposed contact angle at the contact line is
+smaller than 90° and to an angle of 180° if the imposed contact angle is bigger than 90°.
 """
 function BC_LS!(grid, A, B, rhs, BC, n_ext)
     @unpack x, y, nx, ny, dx, dy, ind, u = grid
-    @unpack b_left, b_bottom, b_right, b_top, cl = ind
+    @unpack all_indices, b_left, b_bottom, b_right, b_top, cl = ind
     @unpack left, bottom, right, top = BC
 
-    boundaries_idx = [b_left, b_bottom, b_right, b_top]
-    boundaries_per = [b_right, b_top, b_left, b_bottom]
+    π2 = π / 2.0
+
+    boundaries_idx = [b_left[1], b_bottom[1], b_right[1], b_top[1]]
+
+    left2 = vcat(all_indices[2,2], all_indices[2:end-1,2], all_indices[end-1,2])
+    bottom2 = vcat(all_indices[2,2], all_indices[2,2:end-1], all_indices[2,end-1])
+    right2 = vcat(all_indices[2,end-1], all_indices[2:end-1,end-1], all_indices[end-1,end-1])
+    top2 = vcat(all_indices[end-1,2], all_indices[end-1,2:end-1], all_indices[end-1,end-1])
+    boundaries2 = [left2, bottom2, right2, top2]
+
+    left3 = vcat(all_indices[3,3], all_indices[2:end-1,3], all_indices[end-2,3])
+    bottom3 = vcat(all_indices[3,3], all_indices[3,2:end-1], all_indices[3,end-2])
+    right3 = vcat(all_indices[3,end-2], all_indices[2:end-1,end-2], all_indices[end-2,end-2])
+    top3 = vcat(all_indices[end-2,3], all_indices[end-2,2:end-1], all_indices[end-2,end-2])
+    boundaries3 = [left3, bottom3, right3, top3]
+
     boundaries_t = [left, bottom, right, top]
 
-    for (i, (idx, per)) in enumerate(zip(boundaries_idx, boundaries_per))
+    direction = [y, x, y, x]
+
+    for (i, (idx, idx2, idx3, xy)) in enumerate(zip(boundaries_idx, boundaries2, boundaries3, direction))
+        pks, vals = findminima(abs.(u[idx]))
         if is_neumann(boundaries_t[i])
-            for (II, JJ) in zip(idx[1], idx[2])
+            for (II, JJ) in zip(idx, idx2)
                 pII = lexicographic(II, grid.ny)
                 pJJ = lexicographic(JJ, grid.ny)
 
@@ -28,8 +49,10 @@ function BC_LS!(grid, A, B, rhs, BC, n_ext)
                 B[pII,pII] = 0.0
                 if II in cl && u[II] < ϵb
                     # Gradually change the contact angle
-                    Δθe = 5 * π / 180
+                    Δθe = 0.1 * π / 180
                     old = u[II] - u[JJ]
+                    # Levelset difference between two consecutive points might be bigger
+                    # than the distance between them if it's not reinitialized often enough
                     if abs(old) > dist
                         old = sign(old) * dist
                     end
@@ -46,6 +69,77 @@ function BC_LS!(grid, A, B, rhs, BC, n_ext)
 
                     rhs[pII] = new
                 end
+            end
+        elseif is_neumann_cl(boundaries_t[i]) && maximum(u[idx]) > 0.0 && minimum(u[idx]) < 0.0 && length(pks) >= 2
+            # Gradually update the contact angle
+            Δθe = 0.1 * π / 180
+
+            # Find current contact angle
+            dist = sqrt((x[idx2[pks[1]]] - x[idx[pks[1]]])^2 + (y[idx2[pks[1]]] - y[idx[pks[1]]])^2)
+            old = u[idx[pks[1]]] - u[idx2[pks[1]]]
+            # Levelset difference between two consecutive points might be bigger
+            # than the distance between them if it's not reinitialized often enough
+            if abs(old) > dist
+                old = sign(old) * dist
+            end
+            θe_old = acos(old / dist)
+
+            # Compute new contact angle
+            if abs(boundaries_t[i].θe - θe_old) > Δθe
+                θe = θe_old + sign(boundaries_t[i].θe - θe_old) * Δθe
+            else
+                θe = boundaries_t[i].θe
+            end
+
+            # Angle at the boundary:
+            # if θe <= π/2: -π/2 * exp.(-a * ratio * abs(x)) .+ π/2
+            # if θe > π/2: π/2 * exp.(-a * ratio * abs(x)) .+ π/2
+            # where `a` is a constant to be computed so that the contact angle is imposed
+            # at the exact location
+            # center of the drop
+            xyc = (xy[idx[pks[1]]] + xy[idx[pks[end]]]) / 2.0
+            # distance between the center of the drop and the contact line
+            d = sqrt(
+                (x[idx[pks[1]]] - x[idx[pks[end]]])^2.0 + 
+                (y[idx[pks[1]]] - y[idx[pks[end]]])^2.0
+            ) / 2.0
+            # radius of the drop
+            R = d / θe
+            ratio = 0.5 / R
+            if θe <= π2
+                a = -log(1.0 - θe / (π2)) / (0.5 * θe)^(1.0)
+            else
+                a = -log(θe / (π2) - 1.0) / (0.5 * θe)^(1.0)
+            end
+
+            if θe < π2
+                newθ = -π2 .* exp.(-a .* (ratio .* abs.(xy .- xyc)).^(1.0)) .+ π2
+            else
+                newθ = π2 .* exp.(-a .* (ratio .* abs.(xy .- xyc)).^(1.0)) .+ π2
+            end
+
+            for (II, JJ) in zip(idx[2:end-1], idx2[2:end-1])
+                pII = lexicographic(II, grid.ny)
+                pJJ = lexicographic(JJ, grid.ny)
+
+                A[pII,:] .= 0.0
+                A[pII,pII] = 1.0
+                A[pII,pJJ] = -1.0
+                B[pII,pII] = 0.0
+
+                rhs[pII] = dist * cos(newθ[II])
+            end
+        else is_neumann_inh(boundaries_t[i])
+            for (II, JJ, KK) in zip(idx, idx2, idx3)
+                pII = lexicographic(II, grid.ny)
+                pJJ = lexicographic(JJ, grid.ny)
+
+                A[pII,:] .= 0.0
+                A[pII,pII] = 1.0
+                A[pII,pJJ] = -1.0
+                B[pII,pII] = 0.0
+
+                rhs[pII] = u[JJ] - u[KK]
             end
         end
     end

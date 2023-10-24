@@ -38,6 +38,7 @@ import Base.reshape
 @reexport using JLD
 @reexport using SuiteSparse
 @reexport using DDM
+@reexport using Peaks
 
 include("types.jl")
 include("init.jl")
