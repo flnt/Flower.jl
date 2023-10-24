@@ -440,6 +440,9 @@ isCC(::Mesh) = false
 @inline is_neumann_cl(::Neumann_cl) = true
 @inline is_neumann_cl(::BoundaryCondition) = false
 
+@inline is_neumann_inh(::Neumann_inh) = true
+@inline is_neumann_inh(::BoundaryCondition) = false
+
 @inline is_robin(::Robin) = true
 @inline is_robin(::BoundaryCondition) = false
 
@@ -460,6 +463,7 @@ isCC(::Mesh) = false
 
 const neu = Neumann()
 const neu_cl = Neumann_cl()
+const neu_inh = Neumann_inh()
 const dir = Dirichlet()
 const per = Periodic()
 const rob = Robin()

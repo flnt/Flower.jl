@@ -332,7 +332,13 @@ end
     val::N = 0.0
     λ::T = 0.0
     θe::T = π / 2
- end
+end
+
+@with_kw mutable struct Neumann_inh{L,T,N} <: BoundaryCondition{L,T,N}
+    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
+    val::N = 0.0
+    λ::T = 0.0
+end
 
 @with_kw mutable struct Dirichlet{L,T,N} <: BoundaryCondition{L,T,N}
     ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
