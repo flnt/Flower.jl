@@ -854,7 +854,7 @@ function set_poisson(bc_type, num, grid, a0, opC, opC_u, opC_v, L, bc_L, bc_L_b,
     data_A[2,3] = spdiagm(grid.nx*grid.ny, nb, zeros(nb))
     # Boundary conditions for outer boundaries
     data_A[3,1] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
-    data_A[3,2] = spdiagm(nb, grid.nx*grid.ny, zeros(nb))
+    data_A[3,2] = b_b * (HxT_b * iMx_b' * Hx .+ HyT_b * iMy_b' * Hy)
     data_A[3,3] = pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b)
     A  = [data_A[1,1] data_A[1,2] data_A[1,3];
           data_A[2,1] data_A[2,2] data_A[2,3];
@@ -1006,7 +1006,12 @@ function pressure_projection!(
     # blocks = DDM.decompose(Au, grid_u.domdec, grid_u.domdec)
     # bicgstabl!(ucorrD, Au, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
     # @time bicgstabl!(ucorrD, Au, rhs_u, log=true)
-    ucorrD .= Au \ rhs_u
+    try
+        ucorrD .= Au \ rhs_u
+    catch e
+        ucorrD .= Inf
+        println(e)
+    end
     # @mytime _, ch = bicgstabl!(ucorrD, Au, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
     # println(ch)
     ucorr .= reshape(veci(ucorrD,grid_u,1), grid_u)
@@ -1024,7 +1029,12 @@ function pressure_projection!(
     # blocks = DDM.decompose(Av, grid_v.domdec, grid_v.domdec)
     # bicgstabl!(vcorrD, Av, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
     # bicgstabl!(vcorrD, Av, rhs_v, log=true)
-    vcorrD .= Av \ rhs_v
+    try
+        vcorrD .= Av \ rhs_v
+    catch e
+        vcorrD .= Inf
+        println(e)
+    end
     # @mytime _, ch = bicgstabl!(vcorrD, Av, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
     # println(ch)
     vcorr .= reshape(veci(vcorrD,grid_v,1), grid_v)
