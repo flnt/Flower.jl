@@ -71,7 +71,6 @@ function run_forward(
     if periodic_x
         BC_u.left.ind = ind.b_left;
         BC_u.right.ind = ind.b_right;
-        BC_u.left.f = BC_u.right.f = periodic
     else
         BC_u.left.ind = ind.b_left;
         BC_u.right.ind = ind.b_right;
@@ -80,7 +79,6 @@ function run_forward(
     if periodic_y
         BC_u.bottom.ind = ind.b_bottom;
         BC_u.top.ind = ind.b_top;
-        BC_u.bottom.f = BC_u.top.f = periodic
     else
         BC_u.bottom.ind = ind.b_bottom;
         BC_u.top.ind = ind.b_top;
@@ -321,7 +319,7 @@ function run_forward(
                 if heat && length(ind.MIXED) != 0
                     print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f\n" mean(V[ind.MIXED]) findmax(V[ind.MIXED])[1] findmin(V[ind.MIXED])[1])
                     print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f\n" mean(κ[ind.MIXED]) findmax(κ[ind.MIXED])[1] findmin(κ[ind.MIXED])[1])
-                elseif advection && free_surface && length(ind.MIXED) != 0
+                elseif advection && (free_surface || stefan) && length(ind.MIXED) != 0
                     V_mean = mean([mean(grid_u.V[ind.MIXED]), mean(grid_v.V[ind.MIXED])])
                     V_max = max(findmax(grid_u.V[ind.MIXED])[1], findmax(grid_v.V[ind.MIXED])[1])
                     V_min = min(findmin(grid_u.V[ind.MIXED])[1], findmin(grid_v.V[ind.MIXED])[1])
