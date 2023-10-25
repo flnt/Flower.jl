@@ -938,7 +938,7 @@ Run one reinitilization iteration following (Hartmann et al., 2010).
 `scheme` can be either the 5th-order WENO scheme `weno5` (Jiang and Pen, 2000) or
 the 2nd-order ENO `eno2`.
 """
-function reinit_hartmann(scheme, grid, u, u0, periodic_x, periodic_y)
+function reinit_hartmann(scheme, grid, u, u0, indices, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy, ind = grid
     @unpack inside, b_left, b_bottom, b_right, b_top = ind
 
@@ -946,8 +946,7 @@ function reinit_hartmann(scheme, grid, u, u0, periodic_x, periodic_y)
     u1 = copy(u0)
     utmp = copy(u0)
 
-    # @inbounds @threads for II in vcat(vec(inside), b_left[1][2:end-1], b_bottom[1], b_right[1][2:end-1], b_top[1])
-    @inbounds for II in vcat(vec(inside), b_left[1][2:end-1], b_right[1][2:end-1], b_top[1])
+    @inbounds @threads for II in indices
         sign_u0 = sign(u0[II])
         if II in inside || ((II in b_left[1] || II in b_right[1]) && periodic_x) || ((II in b_bottom[1] || II in b_top[1]) && periodic_y)
             if is_eno(scheme)
@@ -1122,14 +1121,22 @@ Reinitializes a levelset `u` using a Forward Euler integration scheme.
 `nb_reinit` iterations are performed to reach the stationary state. The actual work is done
 in the `reinit_hartmann` function.
 """
-function FE_reinit!(scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y)
+function FE_reinit!(scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y, BC)
     @unpack nx, ny, dx, dy = grid
-    @unpack inside, all_indices = ind
+    @unpack inside, b_left, b_bottom, b_right, b_top = ind
 
     u0 = copy(u)
 
+    indices = vcat(
+        vec(inside), 
+        !is_neumann_cl(BC.left) ? b_left[1][2:end-1] : [], 
+        !is_neumann_cl(BC.bottom) ? b_bottom[1] : [],
+        !is_neumann_cl(BC.right) ? b_right[1][2:end-1] : [],
+        !is_neumann_cl(BC.top) ? b_top[1] : []
+    )
+
     for nb = 1:nb_reinit
-        u .= reinit_hartmann(scheme, grid, u, u0, periodic_x, periodic_y)
+        u .= reinit_hartmann(scheme, grid, u, u0, indices, periodic_x, periodic_y)
     end
 
     return nothing
@@ -1143,18 +1150,26 @@ Reinitializes a levelset using a 2nd-order Runge-Kutta integration scheme.
 `nb_reinit` iterations are performed to reach the stationary state. The actual work is done
 in the `reinit_hartmann` function.
 """
-function RK2_reinit!(scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y)
+function RK2_reinit!(scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y, BC)
     @unpack nx, ny, dx, dy = grid
-    @unpack inside, all_indices = ind
+    @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
 
     u0 = copy(u)
     tmp1 = copy(u)
     tmp2 = copy(u)
 
+    indices = vcat(
+        vec(inside), 
+        !is_neumann_cl(BC.left) ? b_left[1][2:end-1] : [], 
+        !is_neumann_cl(BC.bottom) ? b_bottom[1] : [],
+        !is_neumann_cl(BC.right) ? b_right[1][2:end-1] : [],
+        !is_neumann_cl(BC.top) ? b_top[1] : []
+    )
+
     for nb in 1:nb_reinit
-        tmp1 .= reinit_hartmann(scheme, grid, u, u0, periodic_x, periodic_y)
-        tmp2 .= reinit_hartmann(scheme, grid, tmp1, u0, periodic_x, periodic_y)
-        u[all_indices] .= 0.5 .* (u[all_indices] .+ tmp2[all_indices])
+        tmp1 .= reinit_hartmann(scheme, grid, u, u0, indices, periodic_x, periodic_y)
+        tmp2 .= reinit_hartmann(scheme, grid, tmp1, u0, indices, periodic_x, periodic_y)
+        u .= 0.5 .* (u .+ tmp2)
     end
 
     return nothing

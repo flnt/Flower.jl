@@ -301,14 +301,14 @@ function run_forward(
                 u[ind.b_right[1]] .= sqrt.(x[ind.b_right[1]] .^ 2 + y[ind.b_right[1]] .^ 2) .- (num.R + speed*current_i*τ);
             elseif nb_reinit > 0
                 if current_i%num.reinit_every == 0
-                    RK2_reinit!(ls_scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y)
+                    RK2_reinit!(ls_scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y, BC_u)
                 end
             end
             # numerical breakup
             if free_surface && breakup
                 count = breakup(u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, 1e-5)
                 if count > 0
-                    RK2_reinit!(ls_scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y)
+                    RK2_reinit!(ls_scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y, BC_u)
                 end
             end
         end
