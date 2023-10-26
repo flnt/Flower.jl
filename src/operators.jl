@@ -1252,7 +1252,7 @@ function vector_convection!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, Du_x, Du_y
     end
 
     if is_periodic(BC.left) && is_periodic(BC.right)
-        (Du, Dv) = (Du, Dv_x)
+        (Du, Dv) = (Du_x, Dv_x)
         @inbounds for (II,JJ) in zip(b_left, b_right)
             pII = lexicographic(II, n)
             pJJ = lexicographic(JJ, n)
