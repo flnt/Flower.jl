@@ -1549,7 +1549,7 @@ function vec_convy_5!(II, O, u, cap, n, BC)
     Au1 = 0.5 * Auim1jp1
 
     if is_periodic(BC.bottom)
-        JJ = II + CartesianIndex(n, 0)
+        JJ = II + CartesianIndex(n-1, 0)
         A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
         Auim1jm1 = A1_1 * u[JJ]
         Au1 += 0.5 * Auim1jm1
@@ -1570,7 +1570,7 @@ function vec_convy_6!(II, O, u, cap, n, BC)
     Au3 = 0.5 * Auip1jp1
 
     if is_periodic(BC.bottom)
-        JJ = II + CartesianIndex(n, 0)
+        JJ = II + CartesianIndex(n-1, 0)
         A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
         Auip1jm1 = A3_1 * u[δx⁺(JJ)]
         Au3 += 0.5 * Auip1jm1
@@ -1612,7 +1612,7 @@ function vec_convy_8!(II, O, u, cap, n, BC)
     Au3 = 0.5 * Auip1jm1
 
     if is_periodic(BC.top)
-        JJ = II + CartesianIndex(n, 0)
+        JJ = II + CartesianIndex(-n, 0)
         A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, JJ)
         Auip1jp1 = A3_2 * u[δx⁺(JJ)]
         Au3 += 0.5 * Auip1jp1
@@ -1758,7 +1758,7 @@ function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y
         Au1 = 0.5 * Auim1jp1
 
         if is_periodic(BC.bottom)
-            JJ = ii + CartesianIndex(n, 0)
+            JJ = ii + CartesianIndex(n-1, 0)
             A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
             Auim1jm1 = A1_1 * u[JJ]
             Au1 += 0.5 * Auim1jm1
@@ -1778,7 +1778,7 @@ function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y
         Au3 = 0.5 * Auip1jp1
 
         if is_periodic(BC.bottom)
-            JJ = II + CartesianIndex(n, 0)
+            JJ = ii + CartesianIndex(n-1, 0)
             A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, JJ)
             Auip1jm1 = A3_1 * u[δx⁺(JJ)]
             Au3 += 0.5 * Auip1jm1
@@ -1798,7 +1798,7 @@ function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y
         Au1 = 0.5 * Auim1jm1
 
         if is_periodic(BC.top)
-            JJ = II + CartesianIndex(-n, 0)
+            JJ = ii + CartesianIndex(-n, 0)
             A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, JJ)
             Auim1jp1 = A1_2 * u[JJ]
             Au1 += 0.5 * Auim1jp1
@@ -1818,7 +1818,7 @@ function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y
         Au3 = 0.5 * Auip1jm1
 
         if is_periodic(BC.top)
-            JJ = II + CartesianIndex(n, 0)
+            JJ = ii + CartesianIndex(-n, 0)
             A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, JJ)
             Auip1jp1 = A3_2 * u[δx⁺(JJ)]
             Au3 += 0.5 * Auip1jp1
