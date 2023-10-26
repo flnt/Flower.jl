@@ -1187,6 +1187,69 @@ function RK2_reinit!(scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y, BC
     return nothing
 end
 
+
+"""
+    rg(grid, periodic_x, periodic_y)
+
+Compute the deviation of the levelset from a distance function following (Luddens et al., 2015).
+
+Computes rg(∇ϕ) = \| |∇ϕ| - 1 \| _ {L ^ 1}.
+"""
+function rg(grid, periodic_x, periodic_y)
+    @unpack nx, ny, dx, dy, ind, u = grid
+    @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
+
+    tmp = zeros(grid)
+
+    @inbounds @threads for II in all_indices
+        if II in inside || ((II in b_left[1] || II in b_right[1]) && periodic_x) || ((II in b_bottom[1] || II in b_top[1]) && periodic_y)
+            hx = dx[II] + dx[δx⁺(II, nx, periodic_x)] / 2.0 + dx[δx⁻(II, nx, periodic_x)] / 2.0
+            hy = dy[II] + dy[δy⁺(II, ny, periodic_y)] / 2.0 + dy[δy⁻(II, ny, periodic_y)] / 2.0
+            gx = c∇x(u, II, hx, nx, periodic_x)
+            gy = c∇y(u, II, hy, ny, periodic_y)
+            tmp[II] = sqrt(gx^2 + gy^2) - 1.0
+        elseif II == b_bottom[1][1]
+            gx = ∇x⁺(u, II, nx, dx, periodic_x)
+            gy = ∇y⁺(u, II, ny, dy, periodic_y)
+            tmp[II] = sqrt(gx^2 + gy^2) - 1.0
+        elseif II == b_bottom[1][end]
+            gx = ∇x⁻(u, II, nx, dx, periodic_x)
+            gy = ∇y⁺(u, II, ny, dy, periodic_y)
+            tmp[II] = sqrt(gx^2 + gy^2) - 1.0
+        elseif II == b_top[1][end]
+            gx = ∇x⁻(u, II, nx, dx, periodic_x)
+            gy = ∇y⁻(u, II, ny, dy, periodic_y)
+            tmp[II] = sqrt(gx^2 + gy^2) - 1.0
+        elseif II == b_top[1][1]
+            gx = ∇x⁺(u, II, nx, dx, periodic_x)
+            gy = ∇y⁻(u, II, ny, dy, periodic_y)
+            tmp[II] = sqrt(gx^2 + gy^2) - 1.0
+        elseif II in b_left[1]
+            hy = dy[II] + dy[δy⁺(II, ny, periodic_y)] / 2.0 + dy[δy⁻(II, ny, periodic_y)] / 2.0
+            gx = ∇x⁺(u, II, nx, dx, periodic_x)
+            gy = c∇y(u, II, hy, ny, periodic_y)
+            tmp[II] = sqrt(gx^2 + gy^2) - 1.0
+        elseif II in b_bottom[1]
+            hx = dx[II] + dx[δx⁺(II, nx, periodic_x)] / 2.0 + dx[δx⁻(II, nx, periodic_x)] / 2.0
+            gx = c∇x(u, II, hx, nx, periodic_x)
+            gy = ∇y⁺(u, II, ny, dy, periodic_y)
+            tmp[II] = sqrt(gx^2 + gy^2) - 1.0
+        elseif II in b_right[1]
+            hy = dy[II] + dy[δy⁺(II, ny, periodic_y)] / 2.0 + dy[δy⁻(II, ny, periodic_y)] / 2.0
+            gx = ∇x⁻(u, II, nx, dx, periodic_x)
+            gy = c∇y(u, II, hy, ny, periodic_y)
+            tmp[II] = sqrt(gx^2 + gy^2) - 1.0
+        elseif II in b_top[1]
+            hx = dx[II] + dx[δx⁺(II, nx, periodic_x)] / 2.0 + dx[δx⁻(II, nx, periodic_x)] / 2.0
+            gx = c∇x(u, II, hx, nx, periodic_x)
+            gy = ∇y⁻(u, II, ny, dy, periodic_y)
+            tmp[II] = sqrt(gx^2 + gy^2) - 1.0
+        end
+    end
+
+    return sum(abs.(tmp))
+end
+
 function velocity_extension!(grid, V, inside, NB)
     @unpack dx, dy, u = grid
 

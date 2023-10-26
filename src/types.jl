@@ -20,6 +20,7 @@ abstract type AbstractOptimizer end
     save_every::D = 1
     reinit_every::D = 1
     nb_reinit::D = length(x)÷8
+    δreinit::T = 0.01
     ϵ::T = 0.00
     NB::D = nb_reinit÷2
     T_inf::T = 0.0

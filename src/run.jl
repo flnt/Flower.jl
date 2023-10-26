@@ -15,6 +15,7 @@ function run_forward(
     ls_scheme = weno5,
     stefan = false,
     advection = false,
+    auto_reinit = false,
     heat = false,
     heat_convection = false,
     ns_advection = false,
@@ -43,8 +44,8 @@ function run_forward(
         @error ("Cannot advect the levelset using both free-surface and stefan condition.")
     end
 
-    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re,
-            max_iterations, current_i, save_every, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
+    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations,
+            current_i, save_every, reinit_every, nb_reinit, δreinit, ϵ, m, θ₀, aniso = num
     @unpack opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL = op
     @unpack x, y, nx, ny, dx, dy, ind, u, iso, faces, geoS, geoL, V, κ, LSA, LSB = grid
 
@@ -300,8 +301,14 @@ function run_forward(
                 u[ind.b_left[1]] .= sqrt.(x[ind.b_left[1]] .^ 2 + y[ind.b_left[1]] .^ 2) .- (num.R + speed*current_i*τ);
                 u[ind.b_right[1]] .= sqrt.(x[ind.b_right[1]] .^ 2 + y[ind.b_right[1]] .^ 2) .- (num.R + speed*current_i*τ);
             elseif nb_reinit > 0
-                if current_i%num.reinit_every == 0
-                    RK2_reinit!(ls_scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y, BC_u)
+                if auto_reinit
+                    if rg(grid, periodic_x, periodic_y) >= δreinit
+                        RK2_reinit!(ls_scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y, BC_u)
+                    end
+                else
+                    if current_i%num.reinit_every == 0
+                        RK2_reinit!(ls_scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y, BC_u)
+                    end
                 end
             end
             # numerical breakup
