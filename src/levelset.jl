@@ -502,6 +502,8 @@ end
 Replace Φweno by Φeno to use the 3rd-order ENO scheme.
 """
 function finite_difference_weno5(grid, u, II, nx, ny, dx, dy, per_x, per_y)
+    a = Vector{Float64}(undef, 4)
+
     II_1 = δx⁻(II, nx, per_x)
     II_2 = δx⁻(II_1, nx, per_x)
     II_3 = δx⁻(II_2, nx, per_x)
@@ -549,14 +551,19 @@ function finite_difference_weno5(grid, u, II, nx, ny, dx, dy, per_x, per_y)
         end
     end
 
-    fdx⁺ = (
-        1.0 / 12.0 * (-d_2 + 7.0 * d_1 + 7.0 * d - d1) +
-        Φweno([d2 - d1, d1 - d, d - d_1, d_1 - d_2])
-    )
-    fdx⁻ = (
-        1.0 / 12.0 * (-d_2 + 7.0 * d_1 + 7.0 * d - d1) -
-        Φweno([d_2 - d_3, d_1 - d_2, d - d_1, d1 - d])
-    )
+    cnst = 1.0 / 12.0 * (-d_2 + 7.0 * d_1 + 7.0 * d - d1)
+
+    @inbounds a[1] = d2 - d1
+    @inbounds a[2] = d1 - d
+    @inbounds a[3] = d - d_1
+    @inbounds a[4] = d_1 - d_2
+    fdx⁺ = cnst + Φweno(a)
+
+    @inbounds a[1] = d_2 - d_3
+    @inbounds a[2] = d_1 - d_2
+    @inbounds a[3] = d - d_1
+    @inbounds a[4] = d1 - d
+    fdx⁻ = cnst - Φweno(a)
 
     II_1 = δy⁻(II, ny, per_y)
     II_2 = δy⁻(II_1, ny, per_y)
@@ -605,14 +612,19 @@ function finite_difference_weno5(grid, u, II, nx, ny, dx, dy, per_x, per_y)
         end
     end
 
-    fdy⁺ = (
-        1.0 / 12.0 * (-d_2 + 7.0 * d_1 + 7.0 * d - d1) +
-        Φweno([d2 - d1, d1 - d, d - d_1, d_1 - d_2])
-    )
-    fdy⁻ = (
-        1.0 / 12.0 * (-d_2 + 7.0 * d_1 + 7.0 * d - d1) -
-        Φweno([d_2 - d_3, d_1 - d_2, d - d_1, d1 - d])
-    )
+    cnst = 1.0 / 12.0 * (-d_2 + 7.0 * d_1 + 7.0 * d - d1)
+
+    @inbounds a[1] = d2 - d1
+    @inbounds a[2] = d1 - d
+    @inbounds a[3] = d - d_1
+    @inbounds a[4] = d_1 - d_2
+    fdy⁺ = cnst + Φweno(a)
+
+    @inbounds a[1] = d_2 - d_3
+    @inbounds a[2] = d_1 - d_2
+    @inbounds a[3] = d - d_1
+    @inbounds a[4] = d1 - d
+    fdy⁻ = cnst - Φweno(a)
 
     return @SVector[fdx⁺, fdx⁻, fdy⁺, fdy⁻]
 end
@@ -955,10 +967,10 @@ function reinit_hartmann(scheme, grid, u, u0, indices, periodic_x, periodic_y)
             else
                 diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
             end
-            idx = [
+            idx = (
                 δx⁻(II, nx, periodic_x), δy⁻(II, ny, periodic_y), 
                 δx⁺(II, nx, periodic_x), δy⁺(II, ny, periodic_y)
-            ]
+            )
             h_ = min(
                 0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
                 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
@@ -986,7 +998,7 @@ function reinit_hartmann(scheme, grid, u, u0, indices, periodic_x, periodic_y)
                 diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
                 god = Godunov
             end
-            idx = [δx⁻(II, nx, periodic_x), δy⁺(II, ny, periodic_y)]
+            idx =(δx⁻(II, nx, periodic_x), δy⁺(II, ny, periodic_y))
             h_ = min(0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]))
             near_interface = is_near_interface_br
         elseif II == b_top[1][end]
@@ -998,7 +1010,7 @@ function reinit_hartmann(scheme, grid, u, u0, indices, periodic_x, periodic_y)
                 diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
                 god = Godunov
             end
-            idx = [δx⁻(II, nx, periodic_x), δy⁻(II, ny, periodic_y)]
+            idx = (δx⁻(II, nx, periodic_x), δy⁻(II, ny, periodic_y))
             h_ = min(0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)]))
             near_interface = is_near_interface_tr
         elseif II == b_top[1][1]
@@ -1010,7 +1022,7 @@ function reinit_hartmann(scheme, grid, u, u0, indices, periodic_x, periodic_y)
                 diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
                 god = Godunov
             end
-            idx = [δy⁻(II, ny, periodic_y), δx⁺(II, nx, periodic_x)]
+            idx = (δy⁻(II, ny, periodic_y), δx⁺(II, nx, periodic_x))
             h_ = min(0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)]))
             near_interface = is_near_interface_tl
         elseif II in b_left[1]
@@ -1022,7 +1034,7 @@ function reinit_hartmann(scheme, grid, u, u0, indices, periodic_x, periodic_y)
                 diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
                 god = Godunov
             end
-            idx = [δy⁻(II, ny, periodic_y), δx⁺(II, nx, periodic_x), δy⁺(II, ny, periodic_y)]
+            idx = (δy⁻(II, ny, periodic_y), δx⁺(II, nx, periodic_x), δy⁺(II, ny, periodic_y))
             h_ = min(
                 0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]),
                 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
@@ -1037,7 +1049,7 @@ function reinit_hartmann(scheme, grid, u, u0, indices, periodic_x, periodic_y)
                 diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
                 god = Godunov
             end
-            idx = [δx⁻(II, nx, periodic_x), δx⁺(II, nx, periodic_x), δy⁺(II, ny, periodic_y)]
+            idx = (δx⁻(II, nx, periodic_x), δx⁺(II, nx, periodic_x), δy⁺(II, ny, periodic_y))
             h_ = min(
                 0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
                 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)])
@@ -1052,7 +1064,7 @@ function reinit_hartmann(scheme, grid, u, u0, indices, periodic_x, periodic_y)
                 diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
                 god = Godunov
             end
-            idx = [δx⁻(II, nx, periodic_x), δy⁻(II, ny, periodic_y), δy⁺(II, ny, periodic_y)]
+            idx = (δx⁻(II, nx, periodic_x), δy⁻(II, ny, periodic_y), δy⁺(II, ny, periodic_y))
             h_ = min(
                 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
                 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
@@ -1067,7 +1079,7 @@ function reinit_hartmann(scheme, grid, u, u0, indices, periodic_x, periodic_y)
                 diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
                 god = Godunov
             end
-            idx = [δx⁻(II, nx, periodic_x), δy⁻(II, ny, periodic_y), δx⁺(II, nx, periodic_x)]
+            idx = (δx⁻(II, nx, periodic_x), δy⁻(II, ny, periodic_y), δx⁺(II, nx, periodic_x))
             h_ = min(
                 0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
                 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
