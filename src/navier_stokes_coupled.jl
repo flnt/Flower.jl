@@ -359,7 +359,7 @@ function set_cutcell_matrices!(grid, geo, geo_p, opC, periodic_x, periodic_y)
     iMy.diag .= 1. ./ (vec(My) .+ eps(0.01))
 
     # Discrete gradient and divergence operators
-    divergence_A!(AxT, AyT, geo.dcap, ny, ind.all_indices, isCC(grid))
+    divergence_A!(AxT, AyT, geo.dcap, ny, ind.all_indices, periodic_x, periodic_y)
     divergence_B!(BxT, ByT, geo.dcap, ny, ind.all_indices)
 
     mat_assign!(Bx, sparse(-BxT'))

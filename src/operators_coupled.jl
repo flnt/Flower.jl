@@ -76,7 +76,7 @@ function divergence_B!(Ox, Oy, dcap, n, all_indices)
     return nothing
 end
 
-function divergence_A!(Ox, Oy, dcap, n, all_indices, empty)
+function divergence_A!(Ox, Oy, dcap, n, all_indices, per_x, per_y)
     @inbounds @threads for II in all_indices
         pII_1 = lexicographic(II, n)
         pII_2 = lexicographic(δx⁺(II), n)
@@ -95,23 +95,25 @@ function divergence_A!(Ox, Oy, dcap, n, all_indices, empty)
         @inbounds Oy[pII_1,pJJ_1] = -A2
         @inbounds Oy[pII_1,pJJ_2] = A4
     end
-    if empty
+    if !per_x
         @inbounds @threads for II in all_indices[:,1]
             pII_1 = lexicographic(II, n)
             
             @inbounds Ox[pII_1,pII_1] = 0.0
-        end
-        @inbounds @threads for II in all_indices[1,:]
-            pII_1 = lexicographic(II, n)
-            pJJ_1 = lexicographic(II, n+1)
-            
-            @inbounds Oy[pII_1,pJJ_1] = 0.0
         end
         @inbounds @threads for II in all_indices[:,end]
             pII_1 = lexicographic(II, n)
             pII_2 = lexicographic(δx⁺(II), n)
             
             @inbounds Ox[pII_1,pII_2] = 0.0
+        end
+    end
+    if !per_y
+        @inbounds @threads for II in all_indices[1,:]
+            pII_1 = lexicographic(II, n)
+            pJJ_1 = lexicographic(II, n+1)
+            
+            @inbounds Oy[pII_1,pJJ_1] = 0.0
         end
         @inbounds @threads for II in all_indices[end,:]
             pII_1 = lexicographic(II, n)
