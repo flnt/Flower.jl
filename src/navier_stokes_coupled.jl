@@ -630,10 +630,10 @@ function set_convection!(
     set_bc_bnds(dir, GridFCy, Dv_x, Dv_y, Du_x, Du_y, Hv, Hu, v, u, BC_v, BC_u)
 
     vector_convection!(dir, GridFCx, Cu, CUTCu, u, v, Du_x, Du_y, Dv_x, Dv_y,
-            geo.dcap, grid.ny, BC_u, grid_u.ind.inside,
+            geo.dcap, grid.nx, grid.ny, BC_u, grid_u.ind.inside,
             grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1])
     vector_convection!(dir, GridFCy, Cv, CUTCv, u, v, Du_x, Du_y, Dv_x, Dv_y,
-            geo.dcap, grid.ny, BC_v, grid_v.ind.inside,
+            geo.dcap, grid.nx, grid.ny, BC_v, grid_v.ind.inside,
             grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1])
     
     return nothing
