@@ -600,16 +600,12 @@ function periodic_bcs_borders!(grid, Hx, Hy, periodic_x, periodic_y)
 
     if periodic_x
         @inbounds @threads for idx in 1:ny
-            pII = lexicographic(CartesianIndex(idx,1), ny)
-            pJJ = lexicographic(CartesianIndex(idx,nx+1), ny)
-            @inbounds Hx[pII,idx+nx+ny] = Hx[pJJ,idx]
+            @inbounds Hx[idx,idx+nx+ny] = Hx[idx+nx+ny,idx]
         end
     end
     if periodic_y
-        @inbounds @threads for idx in ny+1:ny+1+nx
-            pII = lexicographic(CartesianIndex(idx,1), ny)
-            pJJ = lexicographic(CartesianIndex(idx,nx+1), ny)
-            @inbounds Hy[pII,idx+nx+ny] = Hy[pJJ,idx]
+        @inbounds @threads for idx in ny+1:ny+nx
+            @inbounds Hy[idx,idx+nx+ny] = Hy[idx+nx+ny,idx]
         end
     end
 
