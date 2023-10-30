@@ -197,9 +197,7 @@ function clip_cells!(grid, ϵ, periodic_x, periodic_y)
     end
     @inbounds @threads for II in @view ind.b_left[1][2:end-1]
         if geoS.cap[II,5] > (1.0-ϵ)
-            if periodic_x
-                geoS.cap[II,1] = 1.0
-            end
+            geoS.cap[II,1] = 1.0
             geoS.cap[II,2:11] .= vcat(ones(6), 0.5.*ones(4))
             geoS.cap[δy⁻(II),4] = 1.0
             geoS.cap[δx⁺(II),1] = 1.0
@@ -218,9 +216,7 @@ function clip_cells!(grid, ϵ, periodic_x, periodic_y)
     @inbounds @threads for II in @view ind.b_bottom[1][2:end-1]
         if geoS.cap[II,5] > (1.0-ϵ)
             geoS.cap[II,1] = 1.0
-            if periodic_y
-                geoS.cap[II,2] = 1.0
-            end
+            geoS.cap[II,2] = 1.0
             geoS.cap[II,3:11] .= vcat(ones(5), 0.5.*ones(4))
             geoS.cap[δx⁻(II),3] = 1.0
             geoS.cap[δx⁺(II),1] = 1.0
@@ -239,9 +235,7 @@ function clip_cells!(grid, ϵ, periodic_x, periodic_y)
     @inbounds @threads for II in @view ind.b_right[1][2:end-1]
         if geoS.cap[II,5] > (1.0-ϵ)
             geoS.cap[II,1:2] .= ones(2)
-            if periodic_x
-                geoS.cap[II,3] = 1.0
-            end
+            geoS.cap[II,3] = 1.0
             geoS.cap[II,4:11] .= vcat(ones(4), 0.5.*ones(4))
             geoS.cap[δx⁻(II),3] = 1.0
             geoS.cap[δy⁻(II),4] = 1.0
@@ -260,9 +254,7 @@ function clip_cells!(grid, ϵ, periodic_x, periodic_y)
     @inbounds @threads for II in @view ind.b_top[1][2:end-1]
         if geoS.cap[II,5] > (1.0-ϵ)
             geoS.cap[II,1:3] .= ones(3)
-            if periodic_y
-                geoS.cap[II,4] = 1.0
-            end
+            geoS.cap[II,4] = 1.0
             geoS.cap[II,5:11] .= vcat(ones(3), 0.5.*ones(4))
             geoS.cap[δx⁻(II),3] = 1.0
             geoS.cap[δy⁻(II),4] = 1.0
@@ -280,9 +272,7 @@ function clip_cells!(grid, ϵ, periodic_x, periodic_y)
     end
     @inbounds @threads for II in @view ind.b_left[1][2:end-1]
         if geoL.cap[II,5] > (1.0-ϵ)
-            if periodic_x
-                geoL.cap[II,1] = 1.0
-            end
+            geoL.cap[II,1] = 1.0
             geoL.cap[II,2:11] .= vcat(ones(6), 0.5.*ones(4))
             geoL.cap[δy⁻(II),4] = 1.0
             geoL.cap[δx⁺(II),1] = 1.0
@@ -301,9 +291,7 @@ function clip_cells!(grid, ϵ, periodic_x, periodic_y)
     @inbounds @threads for II in @view ind.b_bottom[1][2:end-1]
         if geoL.cap[II,5] > (1.0-ϵ)
             geoL.cap[II,1] = 1.0
-            if periodic_y
-                geoL.cap[II,2] = 1.0
-            end
+            geoL.cap[II,2] = 1.0
             geoL.cap[II,3:11] .= vcat(ones(5), 0.5.*ones(4))
             geoL.cap[δx⁻(II),3] = 1.0
             geoL.cap[δx⁺(II),1] = 1.0
@@ -322,9 +310,7 @@ function clip_cells!(grid, ϵ, periodic_x, periodic_y)
     @inbounds @threads for II in @view ind.b_right[1][2:end-1]
         if geoL.cap[II,5] > (1.0-ϵ)
             geoL.cap[II,1:2] .= ones(2)
-            if periodic_x
-                geoL.cap[II,3] = 1.0
-            end
+            geoL.cap[II,3] = 1.0
             geoL.cap[II,4:11] .= vcat(ones(4), 0.5.*ones(4))
             geoL.cap[δx⁻(II),3] = 1.0
             geoL.cap[δy⁻(II),4] = 1.0
@@ -343,9 +329,7 @@ function clip_cells!(grid, ϵ, periodic_x, periodic_y)
     @inbounds @threads for II in @view ind.b_top[1][2:end-1]
         if geoL.cap[II,5] > (1.0-ϵ)
             geoL.cap[II,1:3] .= ones(3)
-            if periodic_y
-                geoL.cap[II,4] = 1.0
-            end
+            geoL.cap[II,4] = 1.0
             geoL.cap[II,5:11] .= vcat(ones(3), 0.5.*ones(4))
             geoL.cap[δx⁻(II),3] = 1.0
             geoL.cap[δy⁻(II),4] = 1.0
@@ -367,8 +351,7 @@ end
 function clip_A_acc_to_V(grid, grid_u, grid_v, geo, geo_u, geo_v, ϵ)
     @unpack ind = grid
     @inbounds @threads for II in ind.all_indices
-        if geo.cap[II,5] < 1e-3
-        # if geo.cap[II,5] < ϵ
+        if geo.cap[II,5] < ϵ
             geo_u.cap[II,3] = 0.
             geo_u.cap[δx⁺(II),1] = 0.
             geo_v.cap[II,4] = 0.
