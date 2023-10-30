@@ -431,6 +431,12 @@ const CN = CrankNicolson()
 isCC(::Mesh{GridCC,T,N}) where {T,N} = true
 isCC(::Mesh) = false
 
+isFCx(::Mesh{GridFCx,T,N}) where {T,N} = true
+isFCx(::Mesh) = false
+
+isFCy(::Mesh{GridFCy,T,N}) where {T,N} = true
+isFCy(::Mesh) = false
+
 @inline is_dirichlet(::Dirichlet) = true
 @inline is_dirichlet(::BoundaryCondition) = false
 

@@ -254,42 +254,53 @@ function init_sparse_By(grid)
     By = sparse(II,JJ,a)
 end
 
-function init_sparse_BxT(grid)
+function init_sparse_BxT(grid) 
     @unpack nx, ny = grid
-
-    iw = collect(i for i = 1:nx*ny)
+    iw = collect(i for i = ny+1:(nx+1)*ny)
     ie = collect(i for i = 1:nx*ny)
-    II = vcat(iw,ie)
+    iwp = collect(i for i = 1:ny)
+    iep = collect(i for i = nx*ny+1:(nx+1)*ny)
+
+    II = vcat(iw,ie,iwp,iep)
 
     jw = collect(i for i = 1:nx*ny)
-    je = collect(i for i = ny+1:(nx+1)*ny)
-    JJ = vcat(jw,je)
+    je = collect(i for i = 1:nx*ny)
+    jwp = collect(i for i = (nx-1)*ny+1:(nx)*ny)
+    jep = collect(i for i = 1:ny)
 
-    a = zeros(length(jw)+length(je))
+    JJ = vcat(jw,je,jwp,jep)
 
-    BxT = sparse(II,JJ,a)    
+    a = zeros(length(jw)+length(je)+length(jwp)+length(jep))
+
+    BxT = sparse(JJ,II,a)
 end
 
 function init_sparse_ByT(grid)
     @unpack nx, ny = grid
 
-    is = collect(i for i = 1:nx*ny)
-    iN = collect(i for i = 1:nx*ny)
-    II = vcat(is,iN)
-
-    js = collect(i for i = 1:ny)
+    is = collect(i for i = 2:(ny+1))
     for j=2:nx
-        js = vcat(js, collect(i for i = (j-1)*(ny+1)+1:j*(ny+1)-1))
+        is = vcat(is, collect(i for i = (j-1)*(ny+1)+2:j*(ny+1)))
     end
-    jn = collect(i for i = 2:(ny+1))
+    iN = collect(i for i = 1:ny)
     for j=2:nx
-        jn = vcat(jn, collect(i for i = (j-1)*(ny+1)+2:j*(ny+1)))
+        iN = vcat(iN, collect(i for i = (j-1)*(ny+1)+1:(j-1)*(ny+1)+ny))
     end
-    JJ = vcat(js,jn)
+    isp = collect(i for i = 1:(ny+1):nx*(ny+1))
+    inp = collect(i for i = (ny+1):(ny+1):nx*(ny+1))
+    
+    II = vcat(is,iN,isp,inp)
 
-    a = zeros(length(js)+length(jn))
+    js = collect(i for i = 1:nx*ny)
+    jn = collect(i for i = 1:nx*ny)
+    jsp = collect(i for i = ny:ny:nx*ny)
+    jnp = collect(i for i = 1:ny:nx*ny)
 
-    ByT = sparse(II,JJ,a)
+    JJ = vcat(js,jn,jsp,jnp)
+
+    a = zeros(length(js)+length(jn)+length(jsp)+length(jnp))
+
+    ByT = sparse(JJ,II,a)
 end
 
 function init_fields(num::NumericalParameters, grid, grid_u, grid_v)

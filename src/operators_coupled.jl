@@ -76,7 +76,7 @@ function divergence_B!(Ox, Oy, dcap, n, all_indices)
     return nothing
 end
 
-function divergence_A!(Ox, Oy, dcap, n, all_indices, per_x, per_y)
+function divergence_A!(grid, Ox, Oy, dcap, n, all_indices, per_x, per_y)
     @inbounds @threads for II in all_indices
         pII_1 = lexicographic(II, n)
         pII_2 = lexicographic(δx⁺(II), n)
@@ -107,6 +107,16 @@ function divergence_A!(Ox, Oy, dcap, n, all_indices, per_x, per_y)
             
             @inbounds Ox[pII_1,pII_2] = 0.0
         end
+    elseif isFCx(grid)
+        @inbounds @threads for II in all_indices[:,1]
+            pII_1 = lexicographic(II, n)
+            pII_2 = lexicographic(δx⁺(II), n)
+            pJJ_1 = lexicographic(II + CartesianIndex(0,grid.nx-1), n)
+            pJJ_2 = lexicographic(II + CartesianIndex(0,grid.nx), n)
+            
+            @inbounds Ox[pII_1,pII_1] = Ox[pJJ_1,pJJ_1]
+            @inbounds Ox[pJJ_1,pJJ_2] = Ox[pII_1,pII_2]
+        end
     end
     if !per_y
         @inbounds @threads for II in all_indices[1,:]
@@ -120,6 +130,16 @@ function divergence_A!(Ox, Oy, dcap, n, all_indices, per_x, per_y)
             pJJ_2 = lexicographic(δy⁺(II), n+1)
             
             @inbounds Oy[pII_1,pJJ_2] = 0.0
+        end
+    elseif isFCy(grid)
+        @inbounds @threads for II in all_indices[1,:]
+            pII_1 = lexicographic(II, n)
+            pII_2 = lexicographic(δy⁺(II), n)
+            pJJ_1 = lexicographic(II + CartesianIndex(grid.ny-1,0), n)
+            pJJ_2 = lexicographic(II + CartesianIndex(grid.ny,0), n)
+            
+            @inbounds Oy[pII_1,pII_1] = Oy[pJJ_1,pJJ_1]
+            @inbounds Oy[pJJ_1,pJJ_2] = Oy[pII_1,pII_2]
         end
     end
 

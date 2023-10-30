@@ -26,6 +26,8 @@ abstract type AbstractOptimizer end
     T_inf::T = 0.0
     u_inf::T = 1.0
     v_inf::T = 0.0
+    uD::T = 0.0
+    vD::T = 0.0
     θd::T = 0.0
     ϵ_κ::T = 0.0
     ϵ_V::T = 0.0
