@@ -597,18 +597,26 @@ function set_convection!(
     Du_x[grid_u.ind.MIXED] .= reshape(veci(uD,grid_u,2), grid_u)[grid_u.ind.MIXED]
     Du_y[grid_u.ind.MIXED] .= reshape(veci(uD,grid_u,2), grid_u)[grid_u.ind.MIXED]
     Du_x[:,1] .= vec3_L(uD,grid_u)
+    Du_x[:,2] .= u[:,2]
     Du_y[1,:] .= vec3_B(uD,grid_u)
+    Du_y[2,:] .= u[2,:]
     Du_x[:,end] .= vec3_R(uD,grid_u)
+    Du_x[:,end-1] .= u[:,end-1]
     Du_y[end,:] .= vec3_T(uD,grid_u)
+    Du_y[end-1,:] .= u[end-1,:]
 
     Dv_x = reshape(veci(vD,grid_v,1), grid_v)
     Dv_y = reshape(veci(vD,grid_v,1), grid_v)
     Dv_x[grid_v.ind.MIXED] .= reshape(veci(vD,grid_v,2), grid_v)[grid_v.ind.MIXED]
     Dv_y[grid_v.ind.MIXED] .= reshape(veci(vD,grid_v,2), grid_v)[grid_v.ind.MIXED]
     Dv_x[:,1] .= vec3_L(vD,grid_v)
+    Dv_x[:,2] .= v[:,2]
     Dv_y[1,:] .= vec3_B(vD,grid_v)
+    Dv_y[2,:] .= v[2,:]
     Dv_x[:,end] .= vec3_R(vD,grid_v)
+    Dv_x[:,end-1] .= v[:,end-1]
     Dv_y[end,:] .= vec3_T(vD,grid_v)
+    Dv_y[end-1,:] .= v[end-1,:]
 
     bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
     bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
