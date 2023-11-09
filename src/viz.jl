@@ -17,7 +17,7 @@ function MakieLayout.get_minor_tickvalues(::LogMinorTicks, scale, tickvalues, vm
 end
 
 function custom_formatter(values)
-    map( v -> "10" * Makie.UnicodeFun.to_superscript("$(round(v, digits = 1))"), values)
+    map( v -> L"10 ^ {%$(round(v, digits = 1))}", values)
 end
 
 """
