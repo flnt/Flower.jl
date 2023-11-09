@@ -89,7 +89,7 @@ mutable struct Gradient{T <: Real}
     pos::Point{T}
 end
 
-mutable struct GeometricInfo{T <: Real} <: MutatingFields
+struct GeometricInfo{T <: Real} <: MutatingFields
     cap::Array{T,3}
     dcap::Array{T,3}
     projection::Array{Gradient{T},2}
@@ -104,7 +104,7 @@ struct GridCC <: Grid end
 struct GridFCx <: Grid end
 struct GridFCy <: Grid end
 
-mutable struct Mesh{G,T,N} <: Grid where {G<:Grid}
+struct Mesh{G,T,N} <: Grid where {G<:Grid}
     x_nodes::Vector{T}
     y_nodes::Vector{T}
     x::Array{T,2}
@@ -130,7 +130,7 @@ mutable struct Mesh{G,T,N} <: Grid where {G<:Grid}
     pou::DomainDecomposedVector{T,3,DomainDecomposition{TS,3,D,A,O,W},A2} where {TS,D,A,O,W,A2}
 end
 
-mutable struct OperatorsConvection{T <: Real, D <: Integer} <: MutatingFields
+struct OperatorsConvection{T <: Real, D <: Integer} <: MutatingFields
     CUTCT::Array{T,1}
     CUTCu::Array{T,1}
     CUTCv::Array{T,1}
@@ -143,7 +143,7 @@ mutable struct OperatorsConvection{T <: Real, D <: Integer} <: MutatingFields
     E22::SparseMatrixCSC{T,D}
 end
 
-mutable struct Operators{T <: Real, D <: Integer} <: MutatingFields
+struct Operators{T <: Real, D <: Integer} <: MutatingFields
     AxT::SparseMatrixCSC{T,D}
     AyT::SparseMatrixCSC{T,D}
     Bx::SparseMatrixCSC{T,D}
@@ -190,7 +190,7 @@ struct DiscreteOperators{T <: Real, D <: Integer}
     opC_vL::Operators{T,D}
 end
 
-mutable struct Phase{T <: Real} <: MutatingFields
+struct Phase{T <: Real} <: MutatingFields
     T::Array{T,2}
     p::Array{T,2}
     ϕ::Array{T,2}
@@ -213,7 +213,7 @@ mutable struct Phase{T <: Real} <: MutatingFields
     vcorrD::Array{T,1}
 end
 
-mutable struct Forward{T <: Real} <: MutatingFields
+struct Forward{T <: Real} <: MutatingFields
     T::Array{T,3}
     u::Array{T,3}
     ux::Array{T,3}
@@ -226,7 +226,7 @@ mutable struct Forward{T <: Real} <: MutatingFields
     Cl::Array{T,1}
 end
 
-mutable struct ForwardPhase{T <: Real} <: MutatingFields
+struct ForwardPhase{T <: Real} <: MutatingFields
     T::Array{T,3}
     p::Array{T,3}
     ϕ::Array{T,3}
