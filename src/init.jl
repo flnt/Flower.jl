@@ -372,7 +372,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
 
     JJ = vcat(jj,jw,js,jn,je,jwp,jsp,jnp,jep)
 
-    a = ones(length(jj))
+    a = zeros(length(jj))
     b = zeros(length(jw)+length(js)+length(jn)+length(je))
     c = zeros(length(jwp)+length(jsp)+length(jnp)+length(jep))
 
@@ -404,7 +404,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
 
     JJ = vcat(jj,jw,js,jn,je,jwp,jsp,jnp,jep)
 
-    a = ones(length(jj))
+    a = zeros(length(jj))
     b = zeros(length(jw)+length(js)+length(jn)+length(je))
     c = zeros(length(jwp)+length(jsp)+length(jnp)+length(jep))
 
