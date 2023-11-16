@@ -587,13 +587,15 @@ end
 
 function set_convection!(
     grid, geo, grid_u, geo_u, grid_v, geo_v,
-    op, ph, BC_u, BC_v
+    u, v, op, ph, BC_u, BC_v
     )
     @unpack Cu, CUTCu, Cv, CUTCv = op
-    @unpack u, v, uD, vD = ph
+    @unpack uD, vD = ph
 
-    Du_x = reshape(veci(uD,grid_u,1), grid_u)
-    Du_y = reshape(veci(uD,grid_u,1), grid_u)
+    Du_x = zeros(grid_u)
+    Du_y = zeros(grid_u)
+    Du_x .= reshape(veci(uD,grid_u,1), grid_u)
+    Du_y .= reshape(veci(uD,grid_u,1), grid_u)
     Du_x[grid_u.ind.MIXED] .= reshape(veci(uD,grid_u,2), grid_u)[grid_u.ind.MIXED]
     Du_y[grid_u.ind.MIXED] .= reshape(veci(uD,grid_u,2), grid_u)[grid_u.ind.MIXED]
     Du_x[:,1] .= vec3_L(uD,grid_u)
@@ -605,8 +607,10 @@ function set_convection!(
     Du_y[end,:] .= vec3_T(uD,grid_u)
     Du_y[end-1,:] .= u[end-1,:]
 
-    Dv_x = reshape(veci(vD,grid_v,1), grid_v)
-    Dv_y = reshape(veci(vD,grid_v,1), grid_v)
+    Dv_x = zeros(grid_v)
+    Dv_y = zeros(grid_v)
+    Dv_x .= reshape(veci(vD,grid_v,1), grid_v)
+    Dv_y .= reshape(veci(vD,grid_v,1), grid_v)
     Dv_x[grid_v.ind.MIXED] .= reshape(veci(vD,grid_v,2), grid_v)[grid_v.ind.MIXED]
     Dv_y[grid_v.ind.MIXED] .= reshape(veci(vD,grid_v,2), grid_v)[grid_v.ind.MIXED]
     Dv_x[:,1] .= vec3_L(vD,grid_v)
@@ -639,6 +643,11 @@ function set_convection!(
 
     set_bc_bnds(dir, GridFCx, Du_x, Du_y, Dv_x, Dv_y, Hu, Hv, u, v, BC_u, BC_v)
     set_bc_bnds(dir, GridFCy, Dv_x, Dv_y, Du_x, Du_y, Hv, Hu, v, u, BC_v, BC_u)
+
+    # Du_x .= 0.0
+    # Du_y .= 0.0
+    # Dv_x .= 0.0
+    # Dv_y .= 0.0
 
     vector_convection!(dir, GridFCx, Cu, CUTCu, u, v, Du_x, Du_y, Dv_x, Dv_y,
             geo.dcap, grid.nx, grid.ny, BC_u, grid_u.ind.inside,
@@ -857,25 +866,25 @@ function set_poisson(bc_type, num, grid, a0, opC, opC_u, opC_v, L, bc_L, bc_L_b,
     data_A[1,2] = bc_L
     data_A[1,3] = bc_L_b
     # Boundary conditions for inner boundaries
-    data_A[2,1] = b * (HxT * iMx * Bx .+ HyT * iMy * By)
-    data_A[2,2] = pad(
+    data_A[2,1] = -b * (HxT * iMx * Bx .+ HyT * iMy * By)
+    data_A[2,2] = -pad(
         b * (HxT * iMx * Hx .+ HyT * iMy * Hy) .- χ * a1 .+
-        a2 * (GxT * opC_u.Gx .+ GyT * opC_v.Gy)
+        a2 * (GxT * opC_u.Gx .+ GyT * opC_v.Gy), 4.0
     )
     data_A[2,3] = spdiagm(grid.nx*grid.ny, nb, zeros(nb))
     # Boundary conditions for outer boundaries
-    data_A[3,1] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
-    data_A[3,2] = b_b * (HxT_b * iMx_b' * Hx .+ HyT_b * iMy_b' * Hy)
-    data_A[3,3] = pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b)
+    data_A[3,1] = -b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
+    data_A[3,2] = -b_b * (HxT_b * iMx_b' * Hx .+ HyT_b * iMy_b' * Hy)
+    data_A[3,3] = -pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b, 4.0)
     A  = [data_A[1,1] data_A[1,2] data_A[1,3];
           data_A[2,1] data_A[2,2] data_A[2,3];
           data_A[3,1] data_A[3,2] data_A[3,3]]
 
     rhs = f3zeros(grid)
-    veci(rhs,grid,2) .= χ * vec(a0)
-    vec3(rhs,grid) .= χ_b * vec(a0_b)
+    veci(rhs,grid,2) .= -χ * vec(a0)
+    vec3(rhs,grid) .= -χ_b * vec(a0_b)
     
-    return A, rhs
+    return A, rhs, data_A
 end
 
 function set_CN!(
@@ -887,7 +896,7 @@ function set_CN!(
     )
 
     if advection
-        set_convection!(grid, geo, grid_u, geo_u, grid_v, geo_v, op_conv, ph, BC_u, BC_v)
+        set_convection!(grid, geo, grid_u, geo_u, grid_v, geo_v, ph.u, ph.v, op_conv, ph, BC_u, BC_v)
     end
 
     if ls_advection
@@ -928,7 +937,7 @@ function set_FE!(
     )
 
     if advection
-        set_convection!(grid, geo, grid_u, geo_u, grid_v, geo_v, op_conv, ph, BC_u, BC_v)
+        set_convection!(grid, geo, grid_u, geo_u, grid_v, geo_v, ph.u, ph.v, op_conv, ph, BC_u, BC_v)
     end
 
     if ls_advection
@@ -965,7 +974,7 @@ function pressure_projection!(
     opC_p, opC_u, opC_v, op_conv,
     Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
     Cum1, Cvm1, Mum1, Mvm1,
-    periodic_x, periodic_y, advection, ls_advection
+    periodic_x, periodic_y, advection, ls_advection, current_i
     )
     @unpack Re, τ, σ, g, β = num
     @unpack p, pD, ϕ, ϕD, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr = ph
@@ -1000,8 +1009,13 @@ function pressure_projection!(
     Cui = Cu * vec(u) .+ CUTCu
     Cvi = Cv * vec(v) .+ CUTCv
     if advection
-        Convu .+= 1.5 .* Cui .- 0.5 .* Cum1
-        Convv .+= 1.5 .* Cvi .- 0.5 .* Cvm1
+        if current_i == 1
+            Convu .+= Cui
+            Convv .+= Cvi
+        else
+            Convu .+= 1.5 .* Cui .- 0.5 .* Cum1
+            Convv .+= 1.5 .* Cvi .- 0.5 .* Cvm1
+        end
     end
 
     if is_dirichlet(bc_type_u)
@@ -1061,7 +1075,11 @@ function pressure_projection!(
 
         GxT = opC_u.Gx'
         GyT = opC_v.Gy'
-        veci(rhs_ϕ,grid,2) .= iRe .* S .- σ .* (GxT * opC_u.Gx .+ GyT * opC_v.Gy) * vec(grid.κ)
+        veci(rhs_ϕ,grid,2) .= -iRe .* S .+ σ .* (GxT * opC_u.Gx .+ GyT * opC_v.Gy) * vec(grid.κ)
+    end
+    # Remove nullspace by adding small quantity to main diagonal
+    @inbounds @threads for i in 1:Aϕ.m
+        @inbounds Aϕ[i,i] += 1e-10
     end
     # blocks = DDM.decompose(Aϕ, grid.domdec, grid.domdec)
     # bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl = ras(blocks,grid.pou), log = true)
@@ -1101,4 +1119,127 @@ function pressure_projection!(
     vec3(vD,grid_v) .= vec3(vcorrD,grid_v)
 
     return Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
+end
+
+"""
+    linear_advection!(
+        num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
+        BC_u, BC_v, op_conv
+    )
+
+Solves the linear advection equation for a vector field (u, v) with slip BCs.
+
+Convective term is solved implicitly using the midopint rule coupled with a Newton
+algorithm.
+"""
+function linear_advection!(
+    num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
+    BC_u, BC_v, op_conv
+    )
+    @unpack τ = num
+    @unpack u, v, uD, vD = ph
+    @unpack Cu, Cv, CUTCu, CUTCv = op_conv
+
+    Convu = fzeros(grid_u)
+    rhs_u = f3zeros(grid_u)
+    Convv = fzeros(grid_v)
+    rhs_v = f3zeros(grid_v)
+
+    res = vcat(fones(grid_u), fones(grid_v))
+    dres = vcat(fzeros(grid_u), fzeros(grid_v))
+
+    vec1(uD, grid_u) .= vec(u)
+    kill_dead_cells!(vec1(uD, grid_u), grid_u, geo_u)
+    kill_dead_cells!(vec2(uD, grid_u), grid_u, geo_u)
+    u .= reshape(vec1(uD, grid_u), grid_u)
+    u_guess = copy(u)
+
+    vec1(vD, grid_v) .= vec(v)
+    kill_dead_cells!(vec1(vD, grid_v), grid_v, geo_v)
+    kill_dead_cells!(vec2(vD, grid_v), grid_v, geo_v)
+    v .= reshape(vec1(vD, grid_v), grid_v)
+    v_guess = copy(v)
+
+    # Newton algorithm to solve the implicit midpoint method
+    i = 0
+    while sum(res) > 1e-8
+        ϵ = 1e-10
+        
+        res .= residual(u_guess, v_guess, num, grid, geo, grid_u, geo_u, grid_v, geo_v, u, v, op_conv, ph, BC_u, BC_v)
+        dres .= dresidual(u_guess, v_guess, res, ϵ, num, grid, geo, grid_u, geo_u, grid_v, geo_v, u, v, op_conv, ph, BC_u, BC_v)
+
+        u_guess .= u_guess .- reshape((res ./ dres)[1:grid_u.nx*grid_u.ny], grid_u)
+        v_guess .= v_guess .- reshape((res ./ dres)[grid_u.nx*grid_u.ny+1:end], grid_v)
+
+        i += 1
+    end
+
+    u_midp = 0.5 .* (u .+ u_guess)
+    v_midp = 0.5 .* (v .+ v_guess)
+    set_convection!(grid, geo, grid_u, geo_u, grid_v, geo_v, u_midp, v_midp, op_conv, ph, BC_u, BC_v)
+
+    Convu .= Cu * vec(u_midp) .+ CUTCu
+    vec1(rhs_u, grid_u) .-= τ .* Convu
+    kill_dead_cells!(vec1(rhs_u, grid_u), grid_u, geo_u)
+    kill_dead_cells!(vec2(rhs_u, grid_u), grid_u, geo_u)
+
+    Convv .= Cv * vec(v_midp) .+ CUTCv
+    vec1(rhs_v, grid_v) .-= τ .* Convv
+    kill_dead_cells!(vec1(rhs_v, grid_v), grid_v, geo_v)
+    kill_dead_cells!(vec2(rhs_v, grid_v), grid_v, geo_v)
+    
+    uD .= uD .+ rhs_u
+    u .= reshape(vec1(uD, grid_u), grid_u)
+    vD .= vD .+ rhs_v
+    v .= reshape(vec1(vD, grid_v), grid_v)
+
+    return nothing
+end
+
+function residual(u_guess, v_guess, num, grid, geo, grid_u, geo_u, grid_v, geo_v, u, v, op_conv, ph, BC_u, BC_v)
+    @unpack τ = num
+    @unpack uD, vD = ph
+    @unpack Cu, Cv, CUTCu, CUTCv = op_conv
+
+    res = vcat(fones(grid_u), fones(grid_v))
+
+    Convu = fzeros(grid_u)
+    rhs_u = f3zeros(grid_u)
+    _u = copy(u)
+    _uD = copy(uD)
+
+    Convv = fzeros(grid_v)
+    rhs_v = f3zeros(grid_v)
+    _v = copy(v)
+    _vD = copy(vD)
+
+    u_midp = 0.5 .* (u .+ u_guess)
+    v_midp = 0.5 .* (v .+ v_guess)
+
+    set_convection!(grid, geo, grid_u, geo_u, grid_v, geo_v, u_midp, v_midp, op_conv, ph, BC_u, BC_v)
+    Convu .= Cu * vec(u_midp) .+ CUTCu
+    Convv .= Cv * vec(v_midp) .+ CUTCv
+    vec1(rhs_u, grid_u) .-= τ .* Convu
+    vec1(rhs_v, grid_v) .-= τ .* Convv
+    
+    kill_dead_cells!(vec1(rhs_u, grid_u), grid_u, geo_u)
+    kill_dead_cells!(vec2(rhs_u, grid_u), grid_u, geo_u)
+    kill_dead_cells!(vec1(rhs_v, grid_v), grid_v, geo_v)
+    kill_dead_cells!(vec2(rhs_v, grid_v), grid_v, geo_v)
+
+    _uD .= uD .+ rhs_u
+    _u .= reshape(vec1(_uD, grid_u), grid_u)
+    _vD .= vD .+ rhs_v
+    _v .= reshape(vec1(_vD, grid_v), grid_v)
+
+    res .= vcat(vec(abs.(_u .- u_guess)), vec(abs.(_v .- v_guess)))
+
+    return res
+end
+
+function dresidual(u_guess, v_guess, res0, eps, num, grid, geo, grid_u, geo_u, grid_v, geo_v, u, v, op_conv, ph, BC_u, BC_v)
+    res1 = residual(u_guess .+ eps, v_guess .+ eps, num, grid, geo, grid_u, geo_u, grid_v, geo_v, u, v, op_conv, ph, BC_u, BC_v)
+    dres = (res1 .- res0) ./ eps
+
+    return dres
 end

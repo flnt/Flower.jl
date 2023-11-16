@@ -146,8 +146,8 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
             Hv[II] = distance(grid_v.mid_point[II], geo_v.centroid[II], grid_v.dx[II], grid_v.dy[II])
         end
     
-        bcU = reshape(veci(uD,grid_u,2), (grid_u.ny, grid_u.nx))
-        bcV = reshape(veci(vD,grid_v,2), (grid_v.ny, grid_v.nx))
+        bcU = copy(reshape(veci(uD,grid_u,2), (grid_u.ny, grid_u.nx)))
+        bcV = copy(reshape(veci(vD,grid_v,2), (grid_v.ny, grid_v.nx)))
         scalar_convection!(dir, CT, CUTCT, u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, BC_T, inside, b_left[1], b_bottom[1], b_right[1], b_top[1])
     end
 

@@ -185,19 +185,6 @@ function run_forward(
     @views fwdL.pD[1,:] .= phL.pD
     @views fwdS.pD[1,:] .= phS.pD
 
-    if ns_advection
-        if ns_solid_phase
-            set_convection!(grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, opL, phS, BC_uS, BC_vS)
-            Cum1S .= opS.Cu * vec(phS.u) .+ opS.CUTCu
-            Cvm1S .= opS.Cv * vec(phS.v) .+ opS.CUTCv
-        end
-        if ns_liquid_phase
-            set_convection!(grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, opL, phL, BC_uL, BC_vL)
-            Cum1L .= opL.Cu * vec(phL.u) .+ opL.CUTCu
-            Cvm1L .= opL.Cv * vec(phL.v) .+ opL.CUTCv
-        end
-    end
-
     if is_FE(time_scheme) || is_CN(time_scheme)
         update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y, false)
 
@@ -421,7 +408,7 @@ function run_forward(
                     opC_pS, opC_uS, opC_vS, opS,
                     Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,
                     Cum1S, Cvm1S, Mum1_S, Mvm1_S,
-                    periodic_x, periodic_y, ns_advection, advection
+                    periodic_x, periodic_y, ns_advection, advection, current_i
                 )
             end
             if ns_liquid_phase
@@ -432,8 +419,12 @@ function run_forward(
                     opC_pL, opC_uL, opC_vL, opL,
                     Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
                     Cum1L, Cvm1L, Mum1_L, Mvm1_L,
-                    periodic_x, periodic_y, ns_advection, advection
+                    periodic_x, periodic_y, ns_advection, advection, current_i
                 )
+                # linear_advection!(
+                #     num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,
+                #     BC_uL, BC_vL, opL
+                # )
             end
         end
 
