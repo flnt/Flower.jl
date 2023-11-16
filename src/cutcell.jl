@@ -662,16 +662,16 @@ end
 function capacities(F_prev, case)
     # add some little volume so that weird cases don't appear
     F = [F_prev[1], F_prev[2]]
-    if F[1] <= 1e-8
-        F[1] += 1e-8
-    elseif  F[1] >= (1.0-1e-8)
-        F[1] -= 1e-8
-    end
-    if F[2] <= 1e-8
-        F[2] += 1e-8
-    elseif  F[2] >= (1.0-1e-8)
-        F[2] -= 1e-8
-    end
+    # if F[1] <= 1e-8
+    #     F[1] += 1e-8
+    # elseif  F[1] >= (1.0-1e-8)
+    #     F[1] -= 1e-8
+    # end
+    # if F[2] <= 1e-8
+    #     F[2] += 1e-8
+    # elseif  F[2] >= (1.0-1e-8)
+    #     F[2] -= 1e-8
+    # end
 
     cap_sol = @SVector zeros(11)
     cap_liq = @SVector zeros(11)
