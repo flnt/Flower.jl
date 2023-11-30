@@ -1303,17 +1303,28 @@ end
 
 function field_extension!(grid, u, f, indices, NB, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy, ind = grid
-    @unpack b_left, b_bottom, b_right, b_top = ind
+    @unpack all_indices, b_left, b_bottom, b_right, b_top = ind
 
     local cfl = 0.45
     local ft = similar(f)
 
     τ = cfl * max(dx..., dy...)
 
+    if periodic_x && periodic_y
+        _indices = indices
+    elseif !periodic_x && periodic_y
+        _indices = all_indices[:,2:end-1]
+    elseif periodic_x && !periodic_y
+        _indices = all_indices[2:end-1,:]
+    else
+        _indices = all_indices[2:end-1,2:end-1]
+    end
+
     for j = 1:NB
         ft .= f
-        @inbounds @threads for II in indices
-            if II in b_left[1] && !periodic_x
+
+        if !periodic_x
+            @inbounds @threads for II in b_left[1][2:end-1]
                 cfl_x = τ / dx[II]
                 cfl_y = τ / dy[II]
                 sx = mysign(u[II], dx[II])
@@ -1326,20 +1337,8 @@ function field_extension!(grid, u, f, indices, NB, periodic_x, periodic_y)
                                         ⁻(sx*nnx)*(∇x⁺(ft, II, nx, periodic_x))) -
                                 cfl_y * (⁺(sy*nny)*(-∇y⁻(ft, II, ny, periodic_y)) +
                                         ⁻(sy*nny)*(∇y⁺(ft, II, ny, periodic_y)))
-            elseif II in b_bottom[1] && !periodic_y
-                cfl_x = τ / dx[II]
-                cfl_y = τ / dy[II]
-                sx = mysign(u[II], dx[II])
-                sy = mysign(u[II], dy[II])
-                II_0 = δy⁺(II, ny, periodic_y)
-                hx = dx[II] + dx[δx⁺(II, nx, periodic_x)] / 2.0 + dx[δx⁻(II, nx, periodic_x)] / 2.0
-                nnx = mysign(c∇x(u, II, hx, nx, periodic_x), ∇y⁺(u, II, ny, dy, periodic_y))
-                nny = mysign(∇y⁺(u, II, ny, dy, periodic_y), c∇x(u, II, hx, nx, periodic_x))
-                f[II] = ft[II] - cfl_x * (⁺(sx*nnx)*(-∇x⁻(ft, II, nx, periodic_x)) +
-                                        ⁻(sx*nnx)*(∇x⁺(ft, II, nx, periodic_x))) -
-                                cfl_y * (⁺(sy*nny)*(-∇y⁻(ft, II_0, ny, periodic_y)) +
-                                        ⁻(sy*nny)*(∇y⁺(ft, II, ny, periodic_y)))
-            elseif II in b_right[1] && !periodic_x
+            end
+            @inbounds @threads for II in b_right[1][2:end-1]
                 cfl_x = τ / dx[II]
                 cfl_y = τ / dy[II]
                 sx = mysign(u[II], dx[II])
@@ -1352,7 +1351,24 @@ function field_extension!(grid, u, f, indices, NB, periodic_x, periodic_y)
                                         ⁻(sx*nnx)*(∇x⁺(ft, II_0, nx, periodic_x))) -
                                 cfl_y * (⁺(sy*nny)*(-∇y⁻(ft, II, ny, periodic_y)) +
                                         ⁻(sy*nny)*(∇y⁺(ft, II, ny, periodic_y)))
-            elseif II in b_top[1] && !periodic_y
+            end
+        end
+        if !periodic_y
+            @inbounds @threads for II in b_bottom[1][2:end-1]
+                cfl_x = τ / dx[II]
+                cfl_y = τ / dy[II]
+                sx = mysign(u[II], dx[II])
+                sy = mysign(u[II], dy[II])
+                II_0 = δy⁺(II, ny, periodic_y)
+                hx = dx[II] + dx[δx⁺(II, nx, periodic_x)] / 2.0 + dx[δx⁻(II, nx, periodic_x)] / 2.0
+                nnx = mysign(c∇x(u, II, hx, nx, periodic_x), ∇y⁺(u, II, ny, dy, periodic_y))
+                nny = mysign(∇y⁺(u, II, ny, dy, periodic_y), c∇x(u, II, hx, nx, periodic_x))
+                f[II] = ft[II] - cfl_x * (⁺(sx*nnx)*(-∇x⁻(ft, II, nx, periodic_x)) +
+                                        ⁻(sx*nnx)*(∇x⁺(ft, II, nx, periodic_x))) -
+                                cfl_y * (⁺(sy*nny)*(-∇y⁻(ft, II_0, ny, periodic_y)) +
+                                        ⁻(sy*nny)*(∇y⁺(ft, II, ny, periodic_y)))
+            end
+            @inbounds @threads for II in b_top[1][2:end-1]
                 cfl_x = τ / dx[II]
                 cfl_y = τ / dy[II]
                 sx = mysign(u[II], dx[II])
@@ -1365,20 +1381,22 @@ function field_extension!(grid, u, f, indices, NB, periodic_x, periodic_y)
                                         ⁻(sx*nnx)*(∇x⁺(ft, II, nx, periodic_x))) -
                                 cfl_y * (⁺(sy*nny)*(-∇y⁻(ft, II, ny, periodic_y)) +
                                         ⁻(sy*nny)*(∇y⁺(ft, II_0, ny, periodic_y)))
-            else
-                cfl_x = τ / dx[II]
-                cfl_y = τ / dy[II]
-                sx = mysign(u[II], dx[II])
-                sy = mysign(u[II], dy[II])
-                hx = dx[II] + dx[δx⁺(II, nx, periodic_x)] / 2.0 + dx[δx⁻(II, nx, periodic_x)] / 2.0
-                hy = dy[II] + dy[δy⁺(II, ny, periodic_y)] / 2.0 + dy[δy⁻(II, ny, periodic_y)] / 2.0
-                nnx = mysign(c∇x(u, II, hx, nx, periodic_x), c∇y(u, II, hy, ny, periodic_y))
-                nny = mysign(c∇y(u, II, hy, ny, periodic_y), c∇x(u, II, hx, nx, periodic_x))
-                f[II] = ft[II] - cfl_x * (⁺(sx*nnx)*(-∇x⁻(ft, II, nx, periodic_x)) +
-                                        ⁻(sx*nnx)*(∇x⁺(ft, II, nx, periodic_x))) -
-                                cfl_y * (⁺(sy*nny)*(-∇y⁻(ft, II, ny, periodic_y)) +
-                                        ⁻(sy*nny)*(∇y⁺(ft, II, ny, periodic_y)))
             end
+        end
+
+        @inbounds @threads for II in _indices
+            cfl_x = τ / dx[II]
+            cfl_y = τ / dy[II]
+            sx = mysign(u[II], dx[II])
+            sy = mysign(u[II], dy[II])
+            hx = dx[II] + dx[δx⁺(II, nx, periodic_x)] / 2.0 + dx[δx⁻(II, nx, periodic_x)] / 2.0
+            hy = dy[II] + dy[δy⁺(II, ny, periodic_y)] / 2.0 + dy[δy⁻(II, ny, periodic_y)] / 2.0
+            nnx = mysign(c∇x(u, II, hx, nx, periodic_x), c∇y(u, II, hy, ny, periodic_y))
+            nny = mysign(c∇y(u, II, hy, ny, periodic_y), c∇x(u, II, hx, nx, periodic_x))
+            f[II] = ft[II] - cfl_x * (⁺(sx*nnx)*(-∇x⁻(ft, II, nx, periodic_x)) +
+                                    ⁻(sx*nnx)*(∇x⁺(ft, II, nx, periodic_x))) -
+                            cfl_y * (⁺(sy*nny)*(-∇y⁻(ft, II, ny, periodic_y)) +
+                                    ⁻(sy*nny)*(∇y⁺(ft, II, ny, periodic_y)))
         end
     end
 end
