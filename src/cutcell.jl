@@ -436,87 +436,117 @@ function postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, ϵ, em
     return nothing
 end
 
-function marching_squares!(num, grid, u, periodic_x, periodic_y)
+function _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, near_interface)
     @unpack x, y, nx, ny, dx, dy, ind, iso, faces, geoS, geoL, mid_point, α = grid
 
     empty_capacities = vcat(zeros(7), zeros(4))
     full_capacities = vcat(ones(7), 0.5.*ones(4))
-    @inbounds @threads for II in ind.all_indices
-        if II in ind.b_left[1][2:end-1] && !periodic_x
-            II_0 = δx⁺(II)
-            near_interface = is_near_interface_l
-        elseif II in ind.b_bottom[1][2:end-1] && !periodic_y
-            II_0 = δy⁺(II)
-            near_interface = is_near_interface_b
-        elseif II in ind.b_right[1][2:end-1] && !periodic_x
-            II_0 = δx⁻(II)
-            near_interface = is_near_interface_r
-        elseif II in ind.b_top[1][2:end-1] && !periodic_y
-            II_0 = δy⁻(II)
-            near_interface = is_near_interface_t
-        elseif II == ind.b_left[1][1]
-            II_0 = δy⁺(δx⁺(II))
-            near_interface = is_near_interface_bl
-        elseif II == ind.b_left[1][end]
-            II_0 = δy⁻(δx⁺(II))
-            near_interface = is_near_interface_tl
-        elseif II == ind.b_right[1][1]
-            II_0 = δy⁺(δx⁻(II))
-            near_interface = is_near_interface_br
-        elseif II == ind.b_right[1][end]
-            II_0 = δy⁻(δx⁻(II))
-            near_interface = is_near_interface_tr
+
+    st = static_stencil(u, II_0, nx, ny, periodic_x, periodic_y)
+    posW, posS, posE, posN = face_pos(II_0, II, x, y, dx[II], dy[II])
+    
+    a = sign(u[II])
+    ISO = ifelse(a > 0, 0., 15.)
+    if near_interface(a, st)
+        κ_ = 0.
+        if II in ind.inside
+            grid_alignement = check_grid_alignement(u, II, κ_, 0.0)
         else
-            II_0 = II
-            near_interface = is_near_interface
+            grid_alignement = false
         end
-
-        st = static_stencil(u, II_0, nx, ny, periodic_x, periodic_y)
-        posW, posS, posE, posN = face_pos(II_0, II, x, y, dx[II], dy[II])
-        
-        a = sign(u[II])
-        ISO = ifelse(a > 0, 0., 15.)
-        if near_interface(a, st)
-            κ_ = 0.
-            if II in ind.inside
-                grid_alignement = check_grid_alignement(u, II, κ_, 0.0)
+        if is_aligned_with_grid(grid_alignement)
+            if a > 0
+                ISO = 0.
+                @goto notmixed
             else
-                grid_alignement = false
+                ISO = -1.
+                geoS.cap[II,:] .= full_capacities
+                geoL.cap[II,:] .= empty_capacities
             end
-            if is_aligned_with_grid(grid_alignement)
-                if a > 0
-                    ISO = 0.
-                    @goto notmixed
-                else
-                    ISO = -1.
-                    geoS.cap[II,:] .= full_capacities
-                    geoL.cap[II,:] .= empty_capacities
-                end
-            else
-                B, BT = B_BT(II_0, grid, periodic_x, periodic_y)
-                itp = B * st * BT
-                vertices = vertices_sign(itp, grid, II_0, II, dx[II], dy[II], dx[II_0], dy[II_0])
-                ISO = isovalue(vertices)
+        else
+            B, BT = B_BT(II_0, grid, periodic_x, periodic_y)
+            itp = B * st * BT
+            vertices = vertices_sign(itp, grid, II_0, II, dx[II], dy[II], dx[II_0], dy[II_0])
+            ISO = isovalue(vertices)
 
-                if is_not_mixed(ISO) @goto notmixed end
-                face_capacities(grid, itp, ISO, II_0, II, posW, posS, posE, posN)
+            if is_not_mixed(ISO) @goto notmixed end
+            face_capacities(grid, itp, ISO, II_0, II, posW, posS, posE, posN)
 
-            end
-            if ISO == -1
-                geoS.projection[II].flag = false
-                geoL.projection[II].flag = false
-            end
         end
-        @label notmixed
-        if is_solid(ISO)
-            geoS.cap[II,:] .= full_capacities
-            geoL.cap[II,:] .= empty_capacities
-        elseif is_liquid(ISO)
-            geoS.cap[II,:] .= empty_capacities
-            geoL.cap[II,:] .= full_capacities
+        if ISO == -1
+            geoS.projection[II].flag = false
+            geoL.projection[II].flag = false
         end
-        iso[II] = ISO
     end
+    @label notmixed
+    if is_solid(ISO)
+        geoS.cap[II,:] .= full_capacities
+        geoL.cap[II,:] .= empty_capacities
+    elseif is_liquid(ISO)
+        geoS.cap[II,:] .= empty_capacities
+        geoL.cap[II,:] .= full_capacities
+    end
+    iso[II] = ISO
+end
+
+function marching_squares!(num, grid, u, periodic_x, periodic_y)
+    @unpack x, y, nx, ny, dx, dy, ind, iso, faces, geoS, geoL, mid_point, α = grid
+
+    indices = vcat(
+        vec(ind.inside), ind.b_left[1][2:end-1], ind.b_bottom[1][2:end-1],
+        ind.b_right[1][2:end-1], ind.b_top[1][2:end-1]
+    )
+
+    if periodic_x && periodic_y
+        _indices = indices
+    elseif !periodic_x && periodic_y
+        _indices = ind.all_indices[:,2:end-1]
+    elseif periodic_x && !periodic_y
+        _indices = ind.all_indices[2:end-1,:]
+    else
+        _indices = ind.all_indices[2:end-1,2:end-1]
+    end
+
+    if !periodic_x
+        @inbounds @threads for II in ind.b_left[1][2:end-1]
+            II_0 = δx⁺(II)
+            _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, is_near_interface_l)
+        end
+        @inbounds @threads for II in ind.b_right[1][2:end-1]
+            II_0 = δx⁻(II)
+            _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, is_near_interface_r)
+        end
+    end
+    if !periodic_y
+        @inbounds @threads for II in ind.b_bottom[1][2:end-1]
+            II_0 = δy⁺(II)
+            _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, is_near_interface_b)
+        end
+        @inbounds @threads for II in ind.b_top[1][2:end-1]
+            II_0 = δy⁻(II)
+            _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, is_near_interface_t)
+        end
+    end
+
+    @inbounds @threads for II in _indices
+        _marching_squares!(grid, u, periodic_x, periodic_y, II, II, is_near_interface)
+    end
+
+    II = ind.b_left[1][1]
+    II_0 = δy⁺(δx⁺(II))
+    _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, is_near_interface_bl)
+    
+    II = ind.b_left[1][end]
+    II_0 = δy⁻(δx⁺(II))
+    _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, is_near_interface_tl)
+    
+    II = ind.b_right[1][1]
+    II_0 = δy⁺(δx⁻(II))
+    _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, is_near_interface_br)
+    
+    II = ind.b_right[1][end]
+    II_0 = δy⁻(δx⁻(II))
+    _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, is_near_interface_tr)
     
     return nothing
 end
