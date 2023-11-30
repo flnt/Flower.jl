@@ -960,7 +960,11 @@ function reinit_hartmann(scheme, grid, u, u0, indices, periodic_x, periodic_y)
 
     @inbounds @threads for II in indices
         sign_u0 = sign(u0[II])
-        if II in inside || ((II in b_left[1] || II in b_right[1]) && periodic_x) || ((II in b_bottom[1] || II in b_top[1]) && periodic_y)
+        if (II in inside || 
+            ((II in b_left[1][2:end-1] || II in b_right[1][2:end-1]) && periodic_x) || 
+            ((II in b_bottom[1][2:end-1] || II in b_top[1][2:end-1]) && periodic_y) ||
+            ((II == b_left[1][1] || II == b_left[1][end] || II == b_right[1][1] || II == b_right[1][end]) && periodic_x && periodic_y)
+            )
             if is_eno(scheme)
                 shift = central_differences(u, II, dx, dy, nx, ny, periodic_x, periodic_y)
                 diffs = finite_difference_eno(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
