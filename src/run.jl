@@ -496,7 +496,7 @@ function run_forward(
                 @views fwdL.vcorr[snap,:,:] .= phL.vcorr
                 @views fwdL.ucorrD[snap,:,:] .= phL.ucorrD
                 @views fwdL.vcorrD[snap,:,:] .= phL.vcorrD
-                force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, fwdL; step=snap)
+                force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, phL; step=snap)
             end
             if advection
                 fwdS.Vratio[snap] = volume(grid.geoS) / V0S
