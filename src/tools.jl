@@ -2,6 +2,10 @@ function save_field(path::String, num::Numerical, gp::Mesh, ph::Phase, fwdPh::Fo
     JLD.save(path, "num", num, "gp", gp, "ph", ph, "fwdPh", fwdPh, "fwd", fwd)
 end
 
+function save_field(path::String, num::Numerical, gp::Mesh, ph::Phase)
+    JLD.save(path, "num", num, "gp", gp, "ph", ph)
+end
+
 function load_phase!(data, ph::Phase)
     ph.u .= data["u"]
     ph.v .= data["v"]
