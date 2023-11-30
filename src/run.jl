@@ -300,7 +300,7 @@ function run_forward(
             end
             # numerical breakup
             if free_surface && breakup
-                count = breakup(u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, 1e-5)
+                count = breakup_f(u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, 1e-5)
                 if count > 0
                     RK2_reinit!(ls_scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y, BC_u)
                 end

@@ -1492,7 +1492,7 @@ function interpolate_scalar!(grid, grid_u, grid_v, u, uu, uv)
     return nothing
 end
 
-function breakup(u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, ϵ_break)
+function breakup_f(u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, ϵ_break)
     u_copy = copy(u)
     local count = 0
     for II in NB_indices
