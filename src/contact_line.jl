@@ -129,7 +129,7 @@ function BC_LS!(grid, A, B, rhs, BC, n_ext)
 
                 rhs[pII] = dist * cos(newθ[II])
             end
-        else is_neumann_inh(boundaries_t[i])
+        elseif is_neumann_inh(boundaries_t[i])
             for (II, JJ, KK) in zip(idx, idx2, idx3)
                 pII = lexicographic(II, grid.ny)
                 pJJ = lexicographic(JJ, grid.ny)
