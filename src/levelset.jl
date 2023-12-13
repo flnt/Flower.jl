@@ -666,16 +666,20 @@ Run one reinitilization iteration using the subcell fix of (Min, 2010).
 `scheme` can be either the 5th-order WENO scheme `weno5` (Jiang and Pen, 2000) or
 the 2nd-order ENO `eno2`.
 """
-function reinit_min(scheme, grid, u, u0, periodic_x, periodic_y)
+function reinit_min(scheme, grid, u, u0, indices, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy, ind = grid
     @unpack inside, b_left, b_bottom, b_right, b_top = ind
 
     local cfl = 0.45
     u1 = copy(u0)
 
-    @inbounds @threads for II in vcat(vec(inside), b_left[1][2:end-1], b_bottom[1][2:end-1], b_right[1][2:end-1], b_top[1][2:end-1])
+    @inbounds @threads for II in indices
         sign_u0 = sign(u0[II])
-        if II in inside || ((II in b_left[1] || II in b_right[1]) && periodic_x) || ((II in b_bottom[1] || II in b_top[1]) && periodic_y)
+        if (II in inside || 
+            ((II in b_left[1][2:end-1] || II in b_right[1][2:end-1]) && periodic_x) || 
+            ((II in b_bottom[1][2:end-1] || II in b_top[1][2:end-1]) && periodic_y) ||
+            ((II == b_left[1][1] || II == b_left[1][end] || II == b_right[1][1] || II == b_right[1][end]) && periodic_x && periodic_y)
+            )
             II_0 = II
             st = static_stencil(u, II_0, nx, ny, periodic_x, periodic_y)
             near_interface = is_near_interface
@@ -696,6 +700,86 @@ function reinit_min(scheme, grid, u, u0, periodic_x, periodic_y)
                 diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
             end
             god = Godunov
+        elseif II == b_bottom[1][1]
+            II_0 = δy⁺(δx⁺(II))
+            st = static_stencil(u, II_0, nx, ny, periodic_x, periodic_y)
+            near_interface = is_near_interface_bl
+            a, b, c = (1, 2), (-1, -1), (2, 1)
+            f, d, e = (Dxx_l, Dyy_b), (nx, ny), (periodic_x, periodic_y)
+            g = (0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]))
+            h_ = min(
+                0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)])
+            )
+            neighbour = (δx⁺(II, nx, periodic_x), δy⁺(II, ny, periodic_y))
+            shift = central_differences_bl(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_l, Dyy_b)
+            eno = finite_difference_eno_bl(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            if is_eno(scheme)
+                diffs = copy(eno)
+                god = Godunov_bl
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+                god = Godunov
+            end
+        elseif II == b_bottom[1][end]
+            II_0 = δy⁺(δx⁻(II))
+            st = static_stencil(u, II_0, nx, ny, periodic_x, periodic_y)
+            near_interface = is_near_interface_br
+            a, b, c = (1, 2), (1, -1), (2, 1)
+            f, d, e = (Dxx_r, Dyy_b), (nx, ny), (periodic_x, periodic_y)
+            g = (0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]))
+            h_ = min(
+                0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)])
+            )
+            neighbour = (δx⁻(II, nx, periodic_x), δy⁺(II, ny, periodic_y))
+            shift = central_differences_br(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_r, Dyy_b)
+            eno = finite_difference_eno_br(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            if is_eno(scheme)
+                diffs = copy(eno)
+                god = Godunov_br
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+                god = Godunov
+            end
+        elseif II == b_top[1][1]
+            II_0 = δy⁻(δx⁺(II))
+            st = static_stencil(u, II_0, nx, ny, periodic_x, periodic_y)
+            near_interface = is_near_interface_tl
+            a, b, c = (1, 2), (-1, 1), (2, 1)
+            f, d, e = (Dxx_l, Dyy_t), (nx, ny), (periodic_x, periodic_y)
+            g = (0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)]))
+            h_ = min(
+                0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
+            )
+            neighbour = (δx⁺(II, nx, periodic_x), δy⁻(II, ny, periodic_y))
+            shift = central_differences_tl(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_l, Dyy_t)
+            eno = finite_difference_eno_tl(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            if is_eno(scheme)
+                diffs = copy(eno)
+                god = Godunov_tl
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+                god = Godunov
+            end
+        elseif II == b_top[1][end]
+            II_0 = δy⁻(δx⁻(II))
+            st = static_stencil(u, II_0, nx, ny, periodic_x, periodic_y)
+            near_interface = is_near_interface_tr
+            a, b, c = (1, 2), (1, 1), (2, 1)
+            f, d, e = (Dxx_r, Dyy_t), (nx, ny), (periodic_x, periodic_y)
+            g = (0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)]))
+            h_ = min(
+                0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
+            )
+            neighbour = (δx⁻(II, nx, periodic_x), δy⁻(II, ny, periodic_y))
+            shift = central_differences_tr(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_r, Dyy_t)
+            eno = finite_difference_eno_tr(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            if is_eno(scheme)
+                diffs = copy(eno)
+                god = Godunov_tr
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+                god = Godunov
+            end
         elseif II in b_left[1]
             II_0 = δx⁺(II)
             st = static_stencil(u, II_0, nx, ny, periodic_x, periodic_y)
@@ -817,17 +901,6 @@ function reinit_min(scheme, grid, u, u0, periodic_x, periodic_y)
         end
     end
 
-    if !periodic_x && !periodic_y
-        u1[1,1] = ifelse(u1[1,1] > 0.0, max(u1[1,2],u1[2,1],u1[2,2]) + dx[1,1],
-            min(u1[1,2],u1[2,1],u1[2,2]) - dx[1,1])
-        u1[1,end] = ifelse(u1[1,end] > 0.0, max(u1[1,end-1],u1[2,end],u1[2,end-1]) + dx[1,end],
-            min(u1[1,end-1],u1[2,end],u1[2,end-1]) - dx[1,end])
-        u1[end,1] = ifelse(u1[end,1] > 0.0, max(u1[end-1,1],u1[end,2],u1[end-1,2]) + dx[end,1],
-            min(u1[end-1,1],u1[end,2],u1[end-1,2]) - dx[end,1])
-        u1[end,end] = ifelse(u1[end,end] > 0.0, max(u1[end-1,end],u1[end,end-1],u1[end-1,end-1]) + dx[end,1],
-            min(u1[end-1,end],u1[end,end-1],u1[end-1,end-1]) - dx[end,1])
-    end
-
     return u1
 end
 
@@ -839,16 +912,20 @@ Run one reinitilization iteration using the subcell fix of (Russo and Smereka, 2
 `scheme` can be either the 5th-order WENO scheme `weno5` (Jiang and Pen, 2000) or
 the 2nd-order ENO `eno2`.
 """
-function reinit_rs(scheme, grid, u, u0, periodic_x, periodic_y)
+function reinit_rs(scheme, grid, u, u0, indices, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy, ind = grid
     @unpack inside, b_left, b_bottom, b_right, b_top = ind
 
     local cfl = 0.45
     u1 = copy(u0)
 
-    @inbounds @threads for II in vcat(vec(inside), b_left[1][2:end-1], b_bottom[1][2:end-1], b_right[1][2:end-1], b_top[1][2:end-1])
+    @inbounds @threads for II in indices
         sign_u0 = sign(u0[II])
-        if II in inside || ((II in b_left[1] || II in b_right[1]) && periodic_x) || ((II in b_bottom[1] || II in b_top[1]) && periodic_y)
+        if (II in inside || 
+            ((II in b_left[1][2:end-1] || II in b_right[1][2:end-1]) && periodic_x) || 
+            ((II in b_bottom[1][2:end-1] || II in b_top[1][2:end-1]) && periodic_y) ||
+            ((II == b_left[1][1] || II == b_left[1][end] || II == b_right[1][1] || II == b_right[1][end]) && periodic_x && periodic_y)
+            )
             if is_eno(scheme)
                 shift = central_differences(u, II, dx, dy, nx, ny, periodic_x, periodic_y)
                 diffs = finite_difference_eno(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
@@ -861,6 +938,58 @@ function reinit_rs(scheme, grid, u, u0, periodic_x, periodic_y)
             )
             god = Godunov
             near_interface = is_near_interface
+        elseif II in b_bottom[1][1]
+            if is_eno(scheme)
+                shift = central_differences_bl(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_l, Dyy_b)
+                diffs = finite_difference_eno_bl(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+                god = Godunov_bl
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+                god = Godunov
+            end
+            h_ = min(
+                0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)])
+            )
+            near_interface = is_near_interface_bl
+        elseif II in b_bottom[1][end]
+            if is_eno(scheme)
+                shift = central_differences_br(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_r, Dyy_b)
+                diffs = finite_difference_eno_br(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+                god = Godunov_br
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+                god = Godunov
+            end
+            h_ = min(
+                0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)])
+            )
+            near_interface = is_near_interface_br
+        elseif II in b_top[1][1]
+            if is_eno(scheme)
+                shift = central_differences_tl(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_l, Dyy_t)
+                diffs = finite_difference_eno_tl(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+                god = Godunov_tl
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+                god = Godunov
+            end
+            h_ = min(
+                0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
+            )
+            near_interface = is_near_interface_tl
+        elseif II in b_top[1][end]
+            if is_eno(scheme)
+                shift = central_differences_tr(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_r, Dyy_t)
+                diffs = finite_difference_eno_tr(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+                god = Godunov_tr
+            else
+                diffs = finite_difference_weno5(grid, u, II, nx, ny, dx, dy, periodic_x, periodic_y)
+                god = Godunov
+            end
+            h_ = min(
+                0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
+            )
+            near_interface = is_near_interface_tr
         elseif II in b_left[1]
             if is_eno(scheme)
                 shift = central_differences_l(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_l)
@@ -926,17 +1055,6 @@ function reinit_rs(scheme, grid, u, u0, periodic_x, periodic_y)
             gdv = god(sign_u0, diffs)
             u1[II] = u[II] - cfl * h_ * sign_u0 * (gdv - 1.0)
         end
-    end
-
-    if !periodic_x && !periodic_y
-        u1[1,1] = ifelse(u1[1,1] > 0.0, max(u1[1,2],u1[2,1],u1[2,2]) + dx[1,1],
-            min(u1[1,2],u1[2,1],u1[2,2]) - dx[1,1])
-        u1[1,end] = ifelse(u1[1,end] > 0.0, max(u1[1,end-1],u1[2,end],u1[2,end-1]) + dx[1,end],
-            min(u1[1,end-1],u1[2,end],u1[2,end-1]) - dx[1,end])
-        u1[end,1] = ifelse(u1[end,1] > 0.0, max(u1[end-1,1],u1[end,2],u1[end-1,2]) + dx[end,1],
-            min(u1[end-1,1],u1[end,2],u1[end-1,2]) - dx[end,1])
-        u1[end,end] = ifelse(u1[end,end] > 0.0, max(u1[end-1,end],u1[end,end-1],u1[end-1,end-1]) + dx[end,1],
-            min(u1[end-1,end],u1[end,end-1],u1[end-1,end-1]) - dx[end,1])
     end
 
     return u1
