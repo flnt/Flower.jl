@@ -405,17 +405,19 @@ function run_forward(
                     num, grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, phS,
                     BC_uS, BC_vS, BC_pS,
                     opC_pS, opC_uS, opC_vS, opS,
+                    AuS, BuS, AvS, BvS, AϕS,
                     Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,
                     Cum1S, Cvm1S, Mum1_S, Mvm1_S,
                     periodic_x, periodic_y, ns_advection, advection, current_i
                 )
             end
             if ns_liquid_phase
-                Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = pressure_projection!(
+                AϕL, Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, AuL, BvL, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, AvL, BvL, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = pressure_projection!(
                     time_scheme, bc_type_u, bc_type_p,
                     num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,
                     BC_uL, BC_vL, BC_pL,
                     opC_pL, opC_uL, opC_vL, opL,
+                    AuL, BuL, AvL, BvL, AϕL,
                     Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
                     Cum1L, Cvm1L, Mum1_L, Mvm1_L,
                     periodic_x, periodic_y, ns_advection, advection, current_i
@@ -438,7 +440,7 @@ function run_forward(
             @views fwd.u[snap,:,:] .= u
             @views fwd.ux[snap,:,:] .= grid_u.u
             @views fwd.uy[snap,:,:] .= grid_v.u
-
+                AϕS, Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, AuS, BuS, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, AvS, BvS, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,Mm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = pressure_projection!(
             if heat_solid_phase && heat_liquid_phase
                 @views fwd.T[snap,:,:] .= phL.T.*geoL.cap[:,:,5] .+ phS.T.*geoS.cap[:,:,5]
                 @views fwdL.T[snap,:,:] .= phL.T

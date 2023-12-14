@@ -661,8 +661,10 @@ end
 
 function CN_set_momentum(
     bc_type, num, grid, opC,
+    A, B,
     L, bc_L, bc_L_b,
-    Lm1, bc_Lm1, bc_Lm1_b, Mm1, BC
+    Lm1, bc_Lm1, bc_Lm1_b, Mm1, BC,
+    ls_advection
     )
     @unpack τ = num
     @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
@@ -699,41 +701,43 @@ function CN_set_momentum(
 
     τ_2 = 0.5 * τ
 
-    data_A = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 3, 3)
-    # Implicit part of viscous term
-    data_A[1,1] = pad_crank_nicolson(M .- τ_2 .* L, grid, τ)
-    # Contribution to implicit part of viscous term from inner boundaries
-    data_A[1,2] = - τ_2 .* bc_L
-    # Contribution to implicit part of viscous term from outer boundaries
-    data_A[1,3] = - τ_2 .* bc_L_b
-    # Boundary conditions for inner boundaries
-    data_A[2,1] = b * (HxT * iMx * Bx .+ HyT * iMy * By)
-    data_A[2,2] = pad(b * (HxT * iMx * Hx .+ HyT * iMy * Hy) .- χ * a1)
-    data_A[2,3] = spdiagm(grid.nx*grid.ny, nb, zeros(nb))
-    # Boundary conditions for outer boundaries
-    data_A[3,1] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
-    data_A[3,2] = spdiagm(nb, grid.nx*grid.ny, zeros(nb))
-    data_A[3,3] = pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b)
-    A  = [data_A[1,1] data_A[1,2] data_A[1,3];
-          data_A[2,1] data_A[2,2] data_A[2,3];
-          data_A[3,1] data_A[3,2] data_A[3,3]]
+    if ls_advection
+        data_A = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 3, 3)
+        # Implicit part of viscous term
+        data_A[1,1] = pad_crank_nicolson(M .- τ_2 .* L, grid, τ)
+        # Contribution to implicit part of viscous term from inner boundaries
+        data_A[1,2] = - τ_2 .* bc_L
+        # Contribution to implicit part of viscous term from outer boundaries
+        data_A[1,3] = - τ_2 .* bc_L_b
+        # Boundary conditions for inner boundaries
+        data_A[2,1] = b * (HxT * iMx * Bx .+ HyT * iMy * By)
+        data_A[2,2] = pad(b * (HxT * iMx * Hx .+ HyT * iMy * Hy) .- χ * a1)
+        data_A[2,3] = spdiagm(grid.nx*grid.ny, nb, zeros(nb))
+        # Boundary conditions for outer boundaries
+        data_A[3,1] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
+        data_A[3,2] = spdiagm(nb, grid.nx*grid.ny, zeros(nb))
+        data_A[3,3] = pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b)
+        A  = [data_A[1,1] data_A[1,2] data_A[1,3];
+            data_A[2,1] data_A[2,2] data_A[2,3];
+            data_A[3,1] data_A[3,2] data_A[3,3]]
 
-    data_B = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 3, 3)
-    # Explicit part of viscous term
-    data_B[1,1] = Mm1 .+ τ_2 .* Lm1
-    # Contribution to implicit part of viscous term from inner boundaries
-    data_B[1,2] = τ_2 .* bc_Lm1
-    # Contribution to implicit part of viscous term from outer boundaries
-    data_B[1,3] = τ_2 .* bc_Lm1_b
-    data_B[2,1] = spdiagm(0 => fzeros(grid))
-    data_B[2,2] = spdiagm(0 => fzeros(grid))
-    data_B[2,3] = spdiagm(grid.nx*grid.ny, nb, zeros(nb))
-    data_B[3,1] = spdiagm(nb, grid.nx*grid.ny, zeros(nb))
-    data_B[3,2] = spdiagm(nb, grid.nx*grid.ny, zeros(nb))
-    data_B[3,3] = spdiagm(nb, nb, zeros(nb))
-    B  = [data_B[1,1] data_B[1,2] data_B[1,3];
-          data_B[2,1] data_B[2,2] data_B[2,3];
-          data_B[3,1] data_B[3,2] data_B[3,3]]
+        data_B = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 3, 3)
+        # Explicit part of viscous term
+        data_B[1,1] = Mm1 .+ τ_2 .* Lm1
+        # Contribution to implicit part of viscous term from inner boundaries
+        data_B[1,2] = τ_2 .* bc_Lm1
+        # Contribution to implicit part of viscous term from outer boundaries
+        data_B[1,3] = τ_2 .* bc_Lm1_b
+        data_B[2,1] = spdiagm(0 => fzeros(grid))
+        data_B[2,2] = spdiagm(0 => fzeros(grid))
+        data_B[2,3] = spdiagm(grid.nx*grid.ny, nb, zeros(nb))
+        data_B[3,1] = spdiagm(nb, grid.nx*grid.ny, zeros(nb))
+        data_B[3,2] = spdiagm(nb, grid.nx*grid.ny, zeros(nb))
+        data_B[3,3] = spdiagm(nb, nb, zeros(nb))
+        B  = [data_B[1,1] data_B[1,2] data_B[1,3];
+            data_B[2,1] data_B[2,2] data_B[2,3];
+            data_B[3,1] data_B[3,2] data_B[3,3]]
+    end
 
     rhs = f3zeros(grid)
     veci(rhs,grid,2) .= χ * vec(a0)
@@ -744,7 +748,9 @@ end
 
 function FE_set_momentum(
     bc_type, num, grid, opC,
-    L, bc_L, bc_L_b, Mm1, BC
+    A, B,
+    L, bc_L, bc_L_b, Mm1, BC,
+    ls_advection
     )
     @unpack τ = num
     @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
@@ -779,38 +785,40 @@ function FE_set_momentum(
     a1_b = Diagonal(vec(_a1_b))
     b_b = Diagonal(vec(_b_b))
 
-    data_A = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 3, 3)
-    # Implicit part of viscous term
-    data_A[1,1] = pad_crank_nicolson(M .- τ .* L, grid, τ)
-    # Contribution to implicit part of viscous term from inner boundaries
-    data_A[1,2] = - τ .* bc_L
-    # Contribution to implicit part of viscous term from outer boundaries
-    data_A[1,3] = - τ .* bc_L_b
-    # Boundary conditions for inner boundaries
-    data_A[2,1] = b * (HxT * iMx * Bx .+ HyT * iMy * By)
-    data_A[2,2] = pad(b * (HxT * iMx * Hx .+ HyT * iMy * Hy) .- χ * a1)
-    data_A[2,3] = spdiagm(grid.nx*grid.ny, nb, zeros(nb))
-    # Boundary conditions for outer boundaries
-    data_A[3,1] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
-    data_A[3,2] = spdiagm(nb, grid.nx*grid.ny, zeros(nb))
-    data_A[3,3] = pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b)
-    A  = [data_A[1,1] data_A[1,2] data_A[1,3];
-          data_A[2,1] data_A[2,2] data_A[2,3];
-          data_A[3,1] data_A[3,2] data_A[3,3]]
+    if ls_advection
+        data_A = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 3, 3)
+        # Implicit part of viscous term
+        data_A[1,1] = pad_crank_nicolson(M .- τ .* L, grid, τ)
+        # Contribution to implicit part of viscous term from inner boundaries
+        data_A[1,2] = - τ .* bc_L
+        # Contribution to implicit part of viscous term from outer boundaries
+        data_A[1,3] = - τ .* bc_L_b
+        # Boundary conditions for inner boundaries
+        data_A[2,1] = b * (HxT * iMx * Bx .+ HyT * iMy * By)
+        data_A[2,2] = pad(b * (HxT * iMx * Hx .+ HyT * iMy * Hy) .- χ * a1)
+        data_A[2,3] = spdiagm(grid.nx*grid.ny, nb, zeros(nb))
+        # Boundary conditions for outer boundaries
+        data_A[3,1] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
+        data_A[3,2] = spdiagm(nb, grid.nx*grid.ny, zeros(nb))
+        data_A[3,3] = pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b)
+        A  = [data_A[1,1] data_A[1,2] data_A[1,3];
+            data_A[2,1] data_A[2,2] data_A[2,3];
+            data_A[3,1] data_A[3,2] data_A[3,3]]
 
-    data_B = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 3, 3)
-    data_B[1,1] = Mm1
-    data_B[1,2] = spdiagm(0 => fzeros(grid))
-    data_B[1,3] = spdiagm(grid.nx*grid.ny, nb, zeros(nb))
-    data_B[2,1] = spdiagm(0 => fzeros(grid))
-    data_B[2,2] = spdiagm(0 => fzeros(grid))
-    data_B[2,3] = spdiagm(grid.nx*grid.ny, nb, zeros(nb))
-    data_B[3,1] = spdiagm(nb, grid.nx*grid.ny, zeros(nb))
-    data_B[3,2] = spdiagm(nb, grid.nx*grid.ny, zeros(nb))
-    data_B[3,3] = spdiagm(nb, nb, zeros(nb))
-    B  = [data_B[1,1] data_B[1,2] data_B[1,3];
-          data_B[2,1] data_B[2,2] data_B[2,3];
-          data_B[3,1] data_B[3,2] data_B[3,3]]
+        data_B = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 3, 3)
+        data_B[1,1] = Mm1
+        data_B[1,2] = spdiagm(0 => fzeros(grid))
+        data_B[1,3] = spdiagm(grid.nx*grid.ny, nb, zeros(nb))
+        data_B[2,1] = spdiagm(0 => fzeros(grid))
+        data_B[2,2] = spdiagm(0 => fzeros(grid))
+        data_B[2,3] = spdiagm(grid.nx*grid.ny, nb, zeros(nb))
+        data_B[3,1] = spdiagm(nb, grid.nx*grid.ny, zeros(nb))
+        data_B[3,2] = spdiagm(nb, grid.nx*grid.ny, zeros(nb))
+        data_B[3,3] = spdiagm(nb, nb, zeros(nb))
+        B  = [data_B[1,1] data_B[1,2] data_B[1,3];
+            data_B[2,1] data_B[2,2] data_B[2,3];
+            data_B[3,1] data_B[3,2] data_B[3,3]]
+    end
 
     rhs = f3zeros(grid)
     veci(rhs,grid,2) .= χ * vec(a0)
@@ -819,7 +827,10 @@ function FE_set_momentum(
     return A, B, rhs
 end
 
-function set_poisson(bc_type, num, grid, a0, opC, opC_u, opC_v, L, bc_L, bc_L_b, BC)
+function set_poisson(
+    bc_type, num, grid, a0, opC, opC_u, opC_v,
+    A, L, bc_L, bc_L_b, BC,
+    ls_advection)
     @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
 
     if is_dirichlet(bc_type)
@@ -857,39 +868,42 @@ function set_poisson(bc_type, num, grid, a0, opC, opC_u, opC_v, L, bc_L, bc_L_b,
     a1_b = Diagonal(vec(_a1_b))
     b_b = Diagonal(vec(_b_b))
 
-    GxT = opC_u.Gx'
-    GyT = opC_v.Gy'
-
-    data_A = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 3, 3)
-    # Poisson equation
-    data_A[1,1] = pad(L, -4.0)
-    data_A[1,2] = bc_L
-    data_A[1,3] = bc_L_b
-    # Boundary conditions for inner boundaries
-    data_A[2,1] = -b * (HxT * iMx * Bx .+ HyT * iMy * By)
-    data_A[2,2] = -pad(
-        b * (HxT * iMx * Hx .+ HyT * iMy * Hy) .- χ * a1 .+
-        a2 * (GxT * opC_u.Gx .+ GyT * opC_v.Gy), 4.0
-    )
-    data_A[2,3] = spdiagm(grid.nx*grid.ny, nb, zeros(nb))
-    # Boundary conditions for outer boundaries
-    data_A[3,1] = -b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
-    data_A[3,2] = -b_b * (HxT_b * iMx_b' * Hx .+ HyT_b * iMy_b' * Hy)
-    data_A[3,3] = -pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b, 4.0)
-    A  = [data_A[1,1] data_A[1,2] data_A[1,3];
-          data_A[2,1] data_A[2,2] data_A[2,3];
-          data_A[3,1] data_A[3,2] data_A[3,3]]
+    if ls_advection
+        GxT = opC_u.Gx'
+        GyT = opC_v.Gy'
+        
+        data_A = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 3, 3)
+        # Poisson equation
+        data_A[1,1] = pad(L, -4.0)
+        data_A[1,2] = bc_L
+        data_A[1,3] = bc_L_b
+        # Boundary conditions for inner boundaries
+        data_A[2,1] = -b * (HxT * iMx * Bx .+ HyT * iMy * By)
+        data_A[2,2] = -pad(
+            b * (HxT * iMx * Hx .+ HyT * iMy * Hy) .- χ * a1 .+
+            a2 * (GxT * opC_u.Gx .+ GyT * opC_v.Gy), 4.0
+        )
+        data_A[2,3] = spdiagm(grid.nx*grid.ny, nb, zeros(nb))
+        # Boundary conditions for outer boundaries
+        data_A[3,1] = -b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
+        data_A[3,2] = -b_b * (HxT_b * iMx_b' * Hx .+ HyT_b * iMy_b' * Hy)
+        data_A[3,3] = -pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b, 4.0)
+        A  = [data_A[1,1] data_A[1,2] data_A[1,3];
+            data_A[2,1] data_A[2,2] data_A[2,3];
+            data_A[3,1] data_A[3,2] data_A[3,3]]
+    end
 
     rhs = f3zeros(grid)
     veci(rhs,grid,2) .= -χ * vec(a0)
     vec3(rhs,grid) .= -χ_b * vec(a0_b)
     
-    return A, rhs, data_A
+    return A, rhs
 end
 
 function set_CN!(
     bc_type_u, bc_type_p, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
     opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
+    Au, Bu, Av, Bv, Aϕ,
     Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b, 
     Mum1, Mvm1, iRe, op_conv, ph,
     periodic_x, periodic_y, advection, ls_advection
@@ -914,16 +928,24 @@ function set_CN!(
 
     Au, Bu, rhs_u = CN_set_momentum(
         bc_type_u, num, grid_u, opC_u,
+        Au, Bu,
         iRe.*Lu, iRe.*bc_Lu, iRe.*bc_Lu_b,
-        iRe.*Lum1, iRe.*bc_Lum1, iRe.*bc_Lum1_b, Mum1, BC_u
+        iRe.*Lum1, iRe.*bc_Lum1, iRe.*bc_Lum1_b, Mum1, BC_u,
+        ls_advection
     )
     Av, Bv, rhs_v = CN_set_momentum(
         bc_type_u, num, grid_v, opC_v,
+        Av, Bv,
         iRe.*Lv, iRe.*bc_Lv, iRe.*bc_Lv_b,
-        iRe.*Lvm1, iRe.*bc_Lvm1, iRe.*bc_Lvm1_b, Mvm1, BC_v
+        iRe.*Lvm1, iRe.*bc_Lvm1, iRe.*bc_Lvm1_b, Mvm1, BC_v,
+        ls_advection
     )
     a0_p = zeros(grid)
-    Aϕ, rhs_ϕ = set_poisson(bc_type_p, num, grid, a0_p, opC_p, opC_u, opC_v, Lp, bc_Lp, bc_Lp_b, BC_p)
+    Aϕ, rhs_ϕ = set_poisson(
+        bc_type_p, num, grid, a0_p, opC_p, opC_u, opC_v,
+        Aϕ, Lp, bc_Lp, bc_Lp_b, BC_p,
+        ls_advection
+    )
 
     return Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b
 end
@@ -931,6 +953,7 @@ end
 function set_FE!(
     bc_type_u, bc_type_p, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
     opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
+    Au, Bu, Av, Bv, Aϕ,
     Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
     Mum1, Mvm1, iRe, op_conv, ph,
     periodic_x, periodic_y, advection, ls_advection
@@ -955,14 +978,22 @@ function set_FE!(
 
     Au, Bu, rhs_u = FE_set_momentum(
         bc_type_u, num, grid_u, opC_u,
-        iRe.*Lu, iRe.*bc_Lu, iRe.*bc_Lu_b, Mum1, BC_u
+        Au, Bu,
+        iRe.*Lu, iRe.*bc_Lu, iRe.*bc_Lu_b, Mum1, BC_u,
+        ls_advection
     )
     Av, Bv, rhs_v = FE_set_momentum(
         bc_type_u, num, grid_v, opC_v,
-        iRe.*Lv, iRe.*bc_Lv, iRe.*bc_Lv_b, Mvm1, BC_v
+        Av, Bv,
+        iRe.*Lv, iRe.*bc_Lv, iRe.*bc_Lv_b, Mvm1, BC_v,
+        ls_advection
     )
     a0_p = zeros(grid)
-    Aϕ, rhs_ϕ = set_poisson(bc_type_p, num, grid, a0_p, opC_p, opC_u, opC_v, Lp, bc_Lp, bc_Lp_b, BC_p)
+    Aϕ, rhs_ϕ = set_poisson(
+        bc_type_p, num, grid, a0_p, opC_p, opC_u, opC_v,
+        Aϕ, Lp, bc_Lp, bc_Lp_b, BC_p,
+        ls_advection
+    )
 
     return Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b
 end
@@ -972,6 +1003,7 @@ function pressure_projection!(
     num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     BC_u, BC_v, BC_p,
     opC_p, opC_u, opC_v, op_conv,
+    Au, Bu, Av, Bv, Aϕ,
     Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
     Cum1, Cvm1, Mum1, Mvm1,
     periodic_x, periodic_y, advection, ls_advection, current_i
@@ -987,6 +1019,7 @@ function pressure_projection!(
         Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_FE!(
             bc_type_u, bc_type_p, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
             opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
+            Au, Bu, Av, Bv, Aϕ,
             Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
             Mum1, Mvm1, iRe, op_conv, ph,
             periodic_x, periodic_y, advection, ls_advection
@@ -995,6 +1028,7 @@ function pressure_projection!(
         Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_CN!(
             bc_type_u, bc_type_p, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
             opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
+            Au, Bu, Av, Bv, Aϕ,
             Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
             Mum1, Mvm1, iRe, op_conv, ph,
             periodic_x, periodic_y, advection, ls_advection
@@ -1032,7 +1066,8 @@ function pressure_projection!(
     # bicgstabl!(ucorrD, Au, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
     # @time bicgstabl!(ucorrD, Au, rhs_u, log=true)
     try
-        ucorrD .= Au \ rhs_u
+        # @time bicgstabl!(ucorrD, Au, rhs_u, Pl=Diagonal(Au), log=true)
+        @time ucorrD .= Au \ rhs_u
     catch e
         ucorrD .= Inf
         println(e)
@@ -1055,7 +1090,8 @@ function pressure_projection!(
     # bicgstabl!(vcorrD, Av, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
     # bicgstabl!(vcorrD, Av, rhs_v, log=true)
     try
-        vcorrD .= Av \ rhs_v
+        # @time bicgstabl!(vcorrD, Av, rhs_v, Pl=Diagonal(Av), log=true)
+        @time vcorrD .= Av \ rhs_v
     catch e
         vcorrD .= Inf
         println(e)
@@ -1084,7 +1120,7 @@ function pressure_projection!(
     # blocks = DDM.decompose(Aϕ, grid.domdec, grid.domdec)
     # bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl = ras(blocks,grid.pou), log = true)
     # @time bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl = Diagonal(Aϕ), log = true)
-    ϕD .= Aϕ \ rhs_ϕ
+    @time ϕD .= Aϕ \ rhs_ϕ
     # @mytime _, ch = bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl = ras(blocks,grid.pou), log = true)
     # println(ch)
     ϕ .= reshape(veci(ϕD,grid,1), grid)
@@ -1118,7 +1154,7 @@ function pressure_projection!(
     veci(vD,grid_v,2) .= veci(vcorrD,grid_v,2)
     vec3(vD,grid_v) .= vec3(vcorrD,grid_v)
 
-    return Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
+    return Aϕ, Lp, bc_Lp, bc_Lp_b, Au, Bu, Lu, bc_Lu, bc_Lu_b, Av, Bv, Lv, bc_Lv, bc_Lv_b, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
 end
 
 """
