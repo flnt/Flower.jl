@@ -633,7 +633,7 @@ function get_curvature(num, grid, u, κ, inside, per_x, per_y)
     @unpack x, y, nx, ny, ind, geoL = grid
 
     κ .= zeros(grid)
-    @inbounds for II in inside
+    @inbounds @threads for II in inside
         if !per_x && !per_y
             if II in ind.inside
                 II_0 = II
