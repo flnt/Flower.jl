@@ -938,7 +938,7 @@ function reinit_rs(scheme, grid, u, u0, indices, periodic_x, periodic_y)
             )
             god = Godunov
             near_interface = is_near_interface
-        elseif II in b_bottom[1][1]
+        elseif II == b_bottom[1][1]
             if is_eno(scheme)
                 shift = central_differences_bl(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_l, Dyy_b)
                 diffs = finite_difference_eno_bl(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
@@ -951,7 +951,7 @@ function reinit_rs(scheme, grid, u, u0, indices, periodic_x, periodic_y)
                 0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)])
             )
             near_interface = is_near_interface_bl
-        elseif II in b_bottom[1][end]
+        elseif II == b_bottom[1][end]
             if is_eno(scheme)
                 shift = central_differences_br(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_r, Dyy_b)
                 diffs = finite_difference_eno_br(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
@@ -964,7 +964,7 @@ function reinit_rs(scheme, grid, u, u0, indices, periodic_x, periodic_y)
                 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)])
             )
             near_interface = is_near_interface_br
-        elseif II in b_top[1][1]
+        elseif II == b_top[1][1]
             if is_eno(scheme)
                 shift = central_differences_tl(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_l, Dyy_t)
                 diffs = finite_difference_eno_tl(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
@@ -977,7 +977,7 @@ function reinit_rs(scheme, grid, u, u0, indices, periodic_x, periodic_y)
                 0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
             )
             near_interface = is_near_interface_tl
-        elseif II in b_top[1][end]
+        elseif II == b_top[1][end]
             if is_eno(scheme)
                 shift = central_differences_tr(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_r, Dyy_t)
                 diffs = finite_difference_eno_tr(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
