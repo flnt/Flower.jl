@@ -562,10 +562,10 @@ function strain_rate(opC_u, opC_v)
     GyT = opC_v.Gy'
 
     data = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 2, 2)
-    data[1,1] = GxT * (2 .* opC_u.HxT * opC_u.iMx * opC_u.Bx .+ opC_u.HyT * opC_u.iMy * opC_u.By)
-    data[1,2] = GxT * (2 .* opC_u.HxT * opC_u.iMx * opC_u.Hx .+ opC_u.HyT * opC_u.iMy * opC_u.Hy)
-    data[2,1] = GyT * (2 .* opC_v.HyT * opC_v.iMy * opC_v.By .+ opC_v.HxT * opC_v.iMx * opC_v.Bx)
-    data[2,2] = GyT * (2 .* opC_v.HyT * opC_v.iMy * opC_v.Hy .+ opC_v.HxT * opC_v.iMx * opC_v.Hx)
+    data[1,1] = 2 .* GxT * (opC_u.HxT * opC_u.iMx * opC_u.Bx .+ opC_u.HyT * opC_u.iMy * opC_u.By)
+    data[1,2] = 2 .* GxT * (opC_u.HxT * opC_u.iMx * opC_u.Hx .+ opC_u.HyT * opC_u.iMy * opC_u.Hy)
+    data[2,1] = 2 .* GyT * (opC_v.HyT * opC_v.iMy * opC_v.By .+ opC_v.HxT * opC_v.iMx * opC_v.Bx)
+    data[2,2] = 2 .* GyT * (opC_v.HyT * opC_v.iMy * opC_v.Hy .+ opC_v.HxT * opC_v.iMx * opC_v.Hx)
 
     return data
 end
