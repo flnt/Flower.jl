@@ -198,13 +198,53 @@ function run_forward(
                 opC_pL, opC_uL, opC_vL, periodic_x, periodic_y
             )
         end
-            
+
         Mm1_L = copy(opC_pL.M)
         Mm1_S = copy(opC_pS.M)
         Mum1_L = copy(opC_uL.M)
         Mum1_S = copy(opC_uS.M)
         Mvm1_L = copy(opC_vL.M)
         Mvm1_S = copy(opC_vS.M)
+
+        if navier_stokes || heat
+            AuS, BuS, _ = FE_set_momentum(
+                bc_type_u, num, grid_u, opC_uS,
+                false, false,
+                iRe.*Lum1_S, iRe.*bc_Lum1_S, iRe.*bc_Lum1_b_S, Mum1_S, BC_uS,
+                true
+            )
+            AvS, BvS, _ = FE_set_momentum(
+                bc_type_u, num, grid_v, opC_vS,
+                false, false,
+                iRe.*Lvm1_S, iRe.*bc_Lvm1_S, iRe.*bc_Lvm1_b_S, Mvm1_S, BC_vS,
+                true
+            )
+            a0_p = zeros(grid)
+            AϕS, _ = set_poisson(
+                bc_type_p, num, grid, a0_p, opC_pS, opC_uS, opC_vS,
+                false, Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, BC_pS,
+                true
+            )
+
+            AuL, BuL, _ = FE_set_momentum(
+                bc_type_u, num, grid_u, opC_uL,
+                false, false,
+                iRe.*Lum1_L, iRe.*bc_Lum1_L, iRe.*bc_Lum1_b_L, Mum1_L, BC_uL,
+                true
+            )
+            AvL, BvL, _ = FE_set_momentum(
+                bc_type_u, num, grid_v, opC_vL,
+                false, false,
+                iRe.*Lvm1_L, iRe.*bc_Lvm1_L, iRe.*bc_Lvm1_b_L, Mvm1_L, BC_vL,
+                true
+            )
+            a0_p = zeros(grid)
+            AϕL, _ = set_poisson(
+                bc_type_p, num, grid, a0_p, opC_pL, opC_uL, opC_vL,
+                false, Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, BC_pL,
+                true
+            )
+        end
     else
         error("Unknown time scheme. Available options are ForwardEuler and CrankNicolson")
     end
@@ -400,7 +440,7 @@ function run_forward(
             end
 
             if ns_solid_phase
-                Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,Mm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = pressure_projection!(
+                AϕS, Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, AuS, BuS, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, AvS, BvS, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,Mm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = pressure_projection!(
                     time_scheme, bc_type_u, bc_type_p,
                     num, grid, geoS, grid_u, grid_u.geoS, grid_v, grid_v.geoS, phS,
                     BC_uS, BC_vS, BC_pS,
@@ -440,7 +480,7 @@ function run_forward(
             @views fwd.u[snap,:,:] .= u
             @views fwd.ux[snap,:,:] .= grid_u.u
             @views fwd.uy[snap,:,:] .= grid_v.u
-                AϕS, Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, AuS, BuS, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, AvS, BvS, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,Mm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = pressure_projection!(
+
             if heat_solid_phase && heat_liquid_phase
                 @views fwd.T[snap,:,:] .= phL.T.*geoL.cap[:,:,5] .+ phS.T.*geoS.cap[:,:,5]
                 @views fwdL.T[snap,:,:] .= phL.T
@@ -504,6 +544,7 @@ function run_forward(
                 fwdL.Vratio[snap] = volume(grid.geoL) / V0L
             end
         end
+        # force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, phL; step=current_i+1)
 
         if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || any(isnan, phS.uD) || any(isnan, phS.vD) || any(isnan, phS.TD) ||
             norm(phL.u) > 1e8 || norm(phS.u) > 1e8 || norm(phL.T) > 1e8 || norm(phS.T) > 1e8)
