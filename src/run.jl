@@ -288,14 +288,13 @@ function run_forward(
                 u[ind.b_left[1]] .= sqrt.(x[ind.b_left[1]] .^ 2 + y[ind.b_left[1]] .^ 2) .- (num.R + speed*current_i*τ);
                 u[ind.b_right[1]] .= sqrt.(x[ind.b_right[1]] .^ 2 + y[ind.b_right[1]] .^ 2) .- (num.R + speed*current_i*τ);
             elseif nb_reinit > 0
-                if auto_reinit
-                    if rg(grid, periodic_x, periodic_y) >= δreinit
+                if auto_reinit && current_i%num.reinit_every == 0
+                    ls_rg = rg(grid, periodic_x, periodic_y)
+                    if ls_rg >= δreinit
                         RK2_reinit!(ls_scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y, BC_u)
                     end
-                else
-                    if current_i%num.reinit_every == 0
-                        RK2_reinit!(ls_scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y, BC_u)
-                    end
+                elseif current_i%num.reinit_every == 0
+                    RK2_reinit!(ls_scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y, BC_u)
                 end
             end
             # numerical breakup
