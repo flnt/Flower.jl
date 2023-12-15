@@ -44,11 +44,32 @@ function update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y
     get_curvature(num, grid_v, grid_v.u, grid_v.κ, grid_v.ind.MIXED, periodic_x, periodic_y)
     postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, num.ϵ, empty)
 
-    indices_ext = vcat(
-        vec(grid.ind.inside), grid.ind.b_left[1][2:end-1], grid.ind.b_bottom[1][2:end-1],
-        grid.ind.b_right[1][2:end-1], grid.ind.b_top[1][2:end-1]
-    )
-    field_extension!(grid, u, κ, indices_ext, num.NB, periodic_x, periodic_y)
+    _MIXED_L = intersect(findall(grid.geoL.emptied), grid.ind.MIXED)
+    _MIXED_S = intersect(findall(grid.geoS.emptied), grid.ind.MIXED)
+    _MIXED = vcat(_MIXED_L, _MIXED_S)
+    indices_ext1 = vcat(grid.ind.SOLID, _MIXED, grid.ind.LIQUID)
+
+    if periodic_x && periodic_y
+        indices_ext = intersect(indices_ext1, vcat(
+            vec(grid.ind.inside), grid.ind.b_left[1][2:end-1], grid.ind.b_bottom[1][2:end-1],
+            grid.ind.b_right[1][2:end-1], grid.ind.b_top[1][2:end-1]
+        ))
+    elseif !periodic_x && periodic_y
+        indices_ext = intersect(indices_ext1, vcat(
+            vec(grid.ind.inside), grid.ind.b_bottom[1][2:end-1], grid.ind.b_top[1][2:end-1]
+        ))
+    elseif periodic_x && !periodic_y
+        indices_ext = intersect(indices_ext1, vcat(
+            vec(grid.ind.inside), grid.ind.b_left[1][2:end-1], grid.ind.b_right[1][2:end-1]
+        ))
+    else
+        indices_ext = intersect(indices_ext1, vec(grid.ind.inside))
+    end
+    left_ext = intersect(indices_ext1, grid.ind.b_left[1][2:end-1])
+    bottom_ext = intersect(indices_ext1, grid.ind.b_bottom[1][2:end-1])
+    right_ext = intersect(indices_ext1, grid.ind.b_right[1][2:end-1])
+    top_ext = intersect(indices_ext1, grid.ind.b_top[1][2:end-1])
+    field_extension!(grid, u, κ, indices_ext, left_ext, bottom_ext, right_ext, top_ext, num.NB, periodic_x, periodic_y)
 
     locate_contact_line!(grid)
     locate_contact_line!(grid_u)

@@ -1419,30 +1419,19 @@ function velocity_extension!(grid, u, V, indices, NB, periodic_x, periodic_y)
     end
 end
 
-function field_extension!(grid, u, f, indices, NB, periodic_x, periodic_y)
+function field_extension!(grid, u, f, indices_ext, left_ext, bottom_ext, right_ext, top_ext, NB, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy, ind = grid
-    @unpack all_indices, b_left, b_bottom, b_right, b_top = ind
 
     local cfl = 0.45
     local ft = similar(f)
 
     τ = cfl * max(dx..., dy...)
 
-    if periodic_x && periodic_y
-        _indices = indices
-    elseif !periodic_x && periodic_y
-        _indices = all_indices[:,2:end-1]
-    elseif periodic_x && !periodic_y
-        _indices = all_indices[2:end-1,:]
-    else
-        _indices = all_indices[2:end-1,2:end-1]
-    end
-
     for j = 1:NB
         ft .= f
 
         if !periodic_x
-            @inbounds @threads for II in b_left[1][2:end-1]
+            @inbounds @threads for II in left_ext
                 cfl_x = τ / dx[II]
                 cfl_y = τ / dy[II]
                 sx = mysign(u[II], dx[II])
@@ -1456,7 +1445,7 @@ function field_extension!(grid, u, f, indices, NB, periodic_x, periodic_y)
                                 cfl_y * (⁺(sy*nny)*(-∇y⁻(ft, II, ny, periodic_y)) +
                                         ⁻(sy*nny)*(∇y⁺(ft, II, ny, periodic_y)))
             end
-            @inbounds @threads for II in b_right[1][2:end-1]
+            @inbounds @threads for II in right_ext
                 cfl_x = τ / dx[II]
                 cfl_y = τ / dy[II]
                 sx = mysign(u[II], dx[II])
@@ -1472,7 +1461,7 @@ function field_extension!(grid, u, f, indices, NB, periodic_x, periodic_y)
             end
         end
         if !periodic_y
-            @inbounds @threads for II in b_bottom[1][2:end-1]
+            @inbounds @threads for II in bottom_ext
                 cfl_x = τ / dx[II]
                 cfl_y = τ / dy[II]
                 sx = mysign(u[II], dx[II])
@@ -1486,7 +1475,7 @@ function field_extension!(grid, u, f, indices, NB, periodic_x, periodic_y)
                                 cfl_y * (⁺(sy*nny)*(-∇y⁻(ft, II_0, ny, periodic_y)) +
                                         ⁻(sy*nny)*(∇y⁺(ft, II, ny, periodic_y)))
             end
-            @inbounds @threads for II in b_top[1][2:end-1]
+            @inbounds @threads for II in top_ext
                 cfl_x = τ / dx[II]
                 cfl_y = τ / dy[II]
                 sx = mysign(u[II], dx[II])
@@ -1502,7 +1491,7 @@ function field_extension!(grid, u, f, indices, NB, periodic_x, periodic_y)
             end
         end
 
-        @inbounds @threads for II in _indices
+        @inbounds @threads for II in indices_ext
             cfl_x = τ / dx[II]
             cfl_y = τ / dy[II]
             sx = mysign(u[II], dx[II])
