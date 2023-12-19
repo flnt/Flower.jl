@@ -16,9 +16,6 @@ function update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y
 
     NB_indices_base = get_NB_width_indices_base(num.NB)
 
-    grid.ind.MIXED_ext, grid.ind.SOLID_ext, grid.ind.LIQUID_ext = get_cells_indices(grid.iso, grid.ind.all_indices, grid.nx, grid.ny, periodic_x, periodic_y)
-    grid_u.ind.MIXED_ext, grid_u.ind.SOLID_ext, grid_u.ind.LIQUID_ext = get_cells_indices(grid_u.iso, grid_u.ind.all_indices, grid_u.nx, grid_u.ny, periodic_x, periodic_y)
-    grid_v.ind.MIXED_ext, grid_v.ind.SOLID_ext, grid_v.ind.LIQUID_ext = get_cells_indices(grid_v.iso, grid_v.ind.all_indices, grid_v.nx, grid_v.ny, periodic_x, periodic_y)
     grid.ind.MIXED, grid.ind.SOLID, grid.ind.LIQUID = get_cells_indices(grid.iso, grid.ind.all_indices)
     grid_u.ind.MIXED, grid_u.ind.SOLID, grid_u.ind.LIQUID = get_cells_indices(grid_u.iso, grid_u.ind.all_indices)
     grid_v.ind.MIXED, grid_v.ind.SOLID, grid_v.ind.LIQUID = get_cells_indices(grid_v.iso, grid_v.ind.all_indices)
