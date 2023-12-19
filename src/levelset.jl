@@ -1372,53 +1372,6 @@ function rg(grid, periodic_x, periodic_y)
     return sum(abs.(tmp))
 end
 
-function velocity_extension!(grid, V, inside, NB)
-    @unpack dx, dy, u = grid
-
-    local cfl = 0.45
-    local Vt = similar(V)
-    for j = 1:NB
-        Vt .= V
-        @inbounds @threads for II in inside
-            sx = mysign(u[II], dx[II])
-            sy = mysign(u[II], dy[II])
-            nx = mysign(c∇x(u, II), c∇y(u, II))
-            ny = mysign(c∇y(u, II), c∇x(u, II))
-            V[II] = Vt[II] - cfl*(⁺(sx*nx)*(-∇x⁻(Vt, II)) +
-            ⁻(sx*nx)*(∇x⁺(Vt, II)) +
-            ⁺(sy*ny)*(-∇y⁻(Vt, II)) +
-            ⁻(sy*ny)*(∇y⁺(Vt, II)))
-        end
-    end
-end
-
-function velocity_extension!(grid, u, V, indices, NB, periodic_x, periodic_y)
-    @unpack nx, ny, dx, dy, ind = grid
-
-    local cfl = 0.45
-    local Vt = similar(V)
-
-    τ = cfl * max(dx..., dy...)
-
-    for j = 1:NB
-        Vt .= V
-        @inbounds @threads for II in indices
-            cfl_x = τ / dx[II]
-            cfl_y = τ / dy[II]
-            sx = mysign(u[II], dx[II])
-            sy = mysign(u[II], dy[II])
-            hx = dx[II] + dx[δx⁺(II, nx, periodic_x)] / 2.0 + dx[δx⁻(II, nx, periodic_x)] / 2.0
-            hy = dy[II] + dy[δy⁺(II, ny, periodic_y)] / 2.0 + dy[δy⁻(II, ny, periodic_y)] / 2.0
-            nnx = mysign(c∇x(u, II, hx, nx, periodic_x), c∇y(u, II, hy, ny, periodic_y))
-            nny = mysign(c∇y(u, II, hy, ny, periodic_y), c∇x(u, II, hx, nx, periodic_x))
-            V[II] = Vt[II] - cfl_x * (⁺(sx*nnx)*(-∇x⁻(Vt, II, nx, periodic_x)) +
-                                      ⁻(sx*nnx)*(∇x⁺(Vt, II, nx, periodic_x))) -
-                             cfl_y * (⁺(sy*nny)*(-∇y⁻(Vt, II, ny, periodic_y)) +
-                                      ⁻(sy*nny)*(∇y⁺(Vt, II, ny, periodic_y)))
-        end
-    end
-end
-
 function field_extension!(grid, u, f, indices_ext, left_ext, bottom_ext, right_ext, top_ext, NB, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy, ind = grid
 
@@ -1506,37 +1459,6 @@ function field_extension!(grid, u, f, indices_ext, left_ext, bottom_ext, right_e
                                     ⁻(sy*nny)*(∇y⁺(ft, II, ny, periodic_y)))
         end
     end
-end
-
-function velocity_extension2!(V, u, inside, MIXED, n, h, NB, B, BT, pos)
-    local cfl = 0.45
-    local Vt = similar(V)
-    local tmp1 = Vector{Float64}(undef, 0)
-    local tmp2 = Vector{Float64}(undef, 0)
-    for k = 1:1
-        for j = 1:NB
-            Vt .= V
-            @inbounds @threads for II in inside
-                s = mysign(u[II], h)
-                nx = mysign(c∇x(u, II), c∇y(u, II))
-                ny = mysign(c∇y(u, II), c∇x(u, II))
-                V[II] = Vt[II] - cfl*(⁺(s*nx)*(-∇x⁻(Vt, II)) +
-                ⁻(s*nx)*(∇x⁺(Vt, II)) +
-                ⁺(s*ny)*(-∇y⁻(Vt, II)) +
-                ⁻(s*ny)*(∇y⁺(Vt, II)))
-            end
-        end
-        for II in MIXED
-            st = static_stencil(V, II)
-            itp = B * st * BT
-            a = biquadratic(itp, pos[II].mid_point.x, pos[II].mid_point.y)
-            b = abs(V[II]-a)
-            c = sqrt(pos[II].mid_point.x^2 + pos[II].mid_point.y^2)
-            push!(tmp1, V[II])
-            push!(tmp2, V[II] + h*b/(1-c))
-        end
-    end
-    return tmp1, tmp2
 end
 
 @inline faces_scalar(itp, II_0, II, x, y, dx, dy) = 
