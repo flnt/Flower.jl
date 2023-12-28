@@ -323,89 +323,74 @@ abstract type LevelsetDiscretization end
 struct WENO5 <: LevelsetDiscretization end
 struct ENO2 <: LevelsetDiscretization end
 
-abstract type BoundaryCondition{L,T,N} end
+abstract type BoundaryCondition end
 
-@with_kw mutable struct Neumann{L,T,N} <: BoundaryCondition{L,T,N}
-   ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
+@with_kw mutable struct Neumann{T,N} <: BoundaryCondition
    val::N = 0.0
    λ::T = 0.0
 end
 
-@with_kw mutable struct Neumann_cl{L,T,N} <: BoundaryCondition{L,T,N}
-    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
+@with_kw mutable struct Neumann_cl{T,N} <: BoundaryCondition
     val::N = 0.0
     λ::T = 0.0
     θe::T = π / 2
 end
 
-@with_kw mutable struct Neumann_inh{L,T,N} <: BoundaryCondition{L,T,N}
-    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
+@with_kw mutable struct Neumann_inh{T,N} <: BoundaryCondition
     val::N = 0.0
     λ::T = 0.0
 end
 
-@with_kw mutable struct Dirichlet{L,T,N} <: BoundaryCondition{L,T,N}
-    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
+@with_kw mutable struct Dirichlet{T,N} <: BoundaryCondition
     val::N = 0.0
     λ::T = 0.0
 end
 
-@with_kw mutable struct Periodic{L,T,N} <: BoundaryCondition{L,T,N}
-    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
+@with_kw mutable struct Periodic{T,N} <: BoundaryCondition
     val::N = 0.0
     λ::T = 0.0
 end
 
-@with_kw mutable struct Robin{L,T,N} <: BoundaryCondition{L,T,N}
-    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
+@with_kw mutable struct Robin{T,N} <: BoundaryCondition
     val::N = 0.0
     λ::T = 0.0
 end
 
 """
-    Navier{L,T,N} <: BoundaryCondition{L,T,N}
+    Navier{T,N} <: BoundaryCondition
 
 Navier boundary condition applied at the contact lines. Elsewhere, Dirichlet is
 applied. The boundary condition is given by:
 
 ``u - \\lambda \\dfrac{\\partial u}{\\partial n} = U``
 """
-@with_kw mutable struct Navier{L,T,N} <: BoundaryCondition{L,T,N}
-    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
+@with_kw mutable struct Navier{T,N} <: BoundaryCondition
     val::N = 0.0
     λ::T = 0.0
 end
 
 """
-    Navier_cl{L,T,N} <: BoundaryCondition{L,T,N}
+    Navier_cl{T,N} <: BoundaryCondition
 
 Navier boundary condition applied at the contact lines. Elsewhere, Dirichlet is
 applied. The boundary condition is given by:
 
 ``u - \\lambda \\dfrac{\\partial u}{\\partial n} = U``
 """
-@with_kw mutable struct Navier_cl{L,T,N} <: BoundaryCondition{L,T,N}
-    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
-    val::N = 0.0
-    λ::T = 0.0
-end
-
-@with_kw mutable struct FreeSurface{L,T,N} <: BoundaryCondition{L,T,N}
-    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
+@with_kw mutable struct Navier_cl{T,N} <: BoundaryCondition
     val::N = 0.0
     λ::T = 0.0
 end
 
 """
-    GNBC{L,T,N} <: BoundaryCondition{L,T,N}
+    GNBC{T,N} <: BoundaryCondition
 
 Generalized Navier boundary condition. It is only applied at the contact lines. Elsewhere,
 Dirichlet is applied. The boundary condition is given by:
 
 ``u - \\lambda \\dfrac{\\partial u}{\\partial n} = U f ( x / \\epsilon ) \\sigma / \\mu ( \\cos \\theta _ d - \\cos \\theta _ e)``
 """
-@with_kw mutable struct GNBC{L,T,N} <: BoundaryCondition{L,T,N}
-    ind::L = ([CartesianIndex(0,0)], [CartesianIndex(0,0)])
+@with_kw mutable struct GNBC{T,N} <: BoundaryCondition
     val::N = 0.0
     λ::T = 0.0
     ϵ::T = 1.0
@@ -419,4 +404,19 @@ end
     right::BoundaryCondition = Neumann()
     bottom::BoundaryCondition = Neumann()
     top::BoundaryCondition = Neumann()
+end
+
+@with_kw mutable struct Stefan{T,N} <: BoundaryCondition
+    val::N = 0.0
+    λ::T = 0.0
+end
+
+@with_kw mutable struct FreeSurface{T,N} <: BoundaryCondition
+    val::N = 0.0
+    λ::T = 0.0
+end
+
+@with_kw mutable struct Wall{T,N} <: BoundaryCondition
+    val::N = 0.0
+    λ::T = 0.0
 end

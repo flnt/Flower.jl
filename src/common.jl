@@ -529,8 +529,14 @@ isFCy(::Mesh) = false
 @inline is_gnbc(::GNBC) = true
 @inline is_gnbc(::BoundaryCondition) = false
 
+@inline is_stefan(::Stefan) = true
+@inline is_stefan(::BoundaryCondition) = false
+
 @inline is_fs(::FreeSurface) = true
 @inline is_fs(::BoundaryCondition) = false
+
+@inline is_wall(::Wall) = true
+@inline is_wall(::BoundaryCondition) = false
 
 const neu = Neumann()
 const neu_cl = Neumann_cl()

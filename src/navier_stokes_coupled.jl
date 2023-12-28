@@ -681,6 +681,14 @@ function CN_set_momentum(
         vel = 0.0
         __a1 = -1.0
         __b = 1.0
+    elseif is_fs(bc_type)
+        vel = 0.0
+        __a1 = 0.0
+        __b = 1.0
+    else
+        vel = copy(grid.V)
+        __a1 = -1.0
+        __b = 0.0
     end
 
     # Number of points in outer boundaries (corners duplicated)
@@ -767,6 +775,14 @@ function FE_set_momentum(
         vel = 0.0
         __a1 = -1.0
         __b = 1.0
+    elseif is_fs(bc_type)
+        vel = 0.0
+        __a1 = 0.0
+        __b = 1.0
+    else
+        vel = copy(grid.V)
+        __a1 = -1.0
+        __b = 0.0
     end
 
     # Number of points in outer boundaries (corners duplicated)
@@ -849,6 +865,10 @@ function set_poisson(
         __a1 = 0.0
         __a2 = 1.0
         __b = 0.0
+    else
+        __a1 = 0.0
+        __a2 = 0.0
+        __b = 1.0
     end
 
     # Number of points in outer boundaries (corners duplicated)
@@ -901,7 +921,7 @@ function set_poisson(
 end
 
 function set_CN!(
-    bc_type_u, bc_type_p, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+    bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
     opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
     Au, Bu, Av, Bv, Aϕ,
     Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b, 
@@ -927,14 +947,14 @@ function set_CN!(
     Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = laps
 
     Au, Bu, rhs_u = CN_set_momentum(
-        bc_type_u, num, grid_u, opC_u,
+        bc_int, num, grid_u, opC_u,
         Au, Bu,
         iRe.*Lu, iRe.*bc_Lu, iRe.*bc_Lu_b,
         iRe.*Lum1, iRe.*bc_Lum1, iRe.*bc_Lum1_b, Mum1, BC_u,
         ls_advection
     )
     Av, Bv, rhs_v = CN_set_momentum(
-        bc_type_u, num, grid_v, opC_v,
+        bc_int, num, grid_v, opC_v,
         Av, Bv,
         iRe.*Lv, iRe.*bc_Lv, iRe.*bc_Lv_b,
         iRe.*Lvm1, iRe.*bc_Lvm1, iRe.*bc_Lvm1_b, Mvm1, BC_v,
@@ -942,7 +962,7 @@ function set_CN!(
     )
     a0_p = zeros(grid)
     Aϕ, rhs_ϕ = set_poisson(
-        bc_type_p, num, grid, a0_p, opC_p, opC_u, opC_v,
+        bc_int, num, grid, a0_p, opC_p, opC_u, opC_v,
         Aϕ, Lp, bc_Lp, bc_Lp_b, BC_p,
         ls_advection
     )
@@ -951,7 +971,7 @@ function set_CN!(
 end
 
 function set_FE!(
-    bc_type_u, bc_type_p, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+    bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
     opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
     Au, Bu, Av, Bv, Aϕ,
     Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
@@ -977,20 +997,20 @@ function set_FE!(
     Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = laps
 
     Au, Bu, rhs_u = FE_set_momentum(
-        bc_type_u, num, grid_u, opC_u,
+        bc_int, num, grid_u, opC_u,
         Au, Bu,
         iRe.*Lu, iRe.*bc_Lu, iRe.*bc_Lu_b, Mum1, BC_u,
         ls_advection
     )
     Av, Bv, rhs_v = FE_set_momentum(
-        bc_type_u, num, grid_v, opC_v,
+        bc_int, num, grid_v, opC_v,
         Av, Bv,
         iRe.*Lv, iRe.*bc_Lv, iRe.*bc_Lv_b, Mvm1, BC_v,
         ls_advection
     )
     a0_p = zeros(grid)
     Aϕ, rhs_ϕ = set_poisson(
-        bc_type_p, num, grid, a0_p, opC_p, opC_u, opC_v,
+        bc_int, num, grid, a0_p, opC_p, opC_u, opC_v,
         Aϕ, Lp, bc_Lp, bc_Lp_b, BC_p,
         ls_advection
     )
@@ -999,7 +1019,7 @@ function set_FE!(
 end
 
 function pressure_projection!(
-    time_scheme, bc_type_u, bc_type_p,
+    time_scheme, bc_int,
     num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     BC_u, BC_v, BC_p,
     opC_p, opC_u, opC_v, op_conv,
@@ -1017,7 +1037,7 @@ function pressure_projection!(
 
     if is_FE(time_scheme)
         Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_FE!(
-            bc_type_u, bc_type_p, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+            bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
             opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
             Au, Bu, Av, Bv, Aϕ,
             Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
@@ -1026,7 +1046,7 @@ function pressure_projection!(
         )
     elseif is_CN(time_scheme)
         Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_CN!(
-            bc_type_u, bc_type_p, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+            bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
             opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
             Au, Bu, Av, Bv, Aϕ,
             Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
@@ -1052,7 +1072,7 @@ function pressure_projection!(
         end
     end
 
-    if is_dirichlet(bc_type_u)
+    if is_wall(bc_int)
         veci(uD,grid_u,1) .= vec(u)
         # update_dirichlet_field!(grid_u, uD, u, BC_u)
         veci(rhs_u,grid_u,1) .+= -τ .* (opC_u.AxT * opC_u.Rx * veci(pD,grid,1) .+ opC_u.Gx * veci(pD,grid,2) .+ opC_u.Gx_b * vec3(pD,grid))
@@ -1076,7 +1096,7 @@ function pressure_projection!(
     # println(ch)
     ucorr .= reshape(veci(ucorrD,grid_u,1), grid_u)
 
-    if is_dirichlet(bc_type_u)
+    if is_wall(bc_int)
         veci(vD,grid_v,1) .= vec(v)
         # update_dirichlet_field!(grid_v, vD, v, BC_v)
         veci(rhs_v,grid_v,1) .+= -τ .* (opC_v.AyT * opC_v.Ry * veci(pD,grid,1) .+ opC_v.Gy * veci(pD,grid,2) .+ opC_v.Gy_b * vec3(pD,grid))
@@ -1104,7 +1124,7 @@ function pressure_projection!(
           opC_p.AyT * veci(vcorrD,grid_v,1) .+ opC_p.Gy * veci(vcorrD,grid_v,2) .+ opC_p.Gy_b * vec3(vcorrD,grid_v)
     veci(rhs_ϕ,grid,1) .= iτ .* Duv
 
-    if is_fs(bc_type_p)
+    if is_fs(bc_int)
         Smat = strain_rate(opC_u, opC_v)
         S = Smat[1,1] * veci(ucorrD,grid_u,1) .+ Smat[1,2] * veci(ucorrD,grid_u,2) .+
             Smat[2,1] * veci(vcorrD,grid_v,1) .+ Smat[2,2] * veci(vcorrD,grid_v,2)
@@ -1132,7 +1152,7 @@ function pressure_projection!(
     ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec(ϕ) .+ opC_v.Gy * veci(ϕD,grid,2) .+ opC_v.Gy_b * vec3(ϕD,grid)
 
     iM = Diagonal(1. ./ (vec(geo.dcap[:,:,5]) .+ eps(0.01)))
-    if is_fs(bc_type_p)
+    if is_fs(bc_int)
         veci(pD,grid,1) .= vec(ϕ) #.- iRe .* reshape(iM * Duv, grid))
         veci(pD,grid,2) .= veci(ϕD,grid,2)
         vec3(pD,grid) .= vec3(ϕD,grid)
