@@ -1,50 +1,8 @@
-function update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y, empty = true)
-    grid.α .= NaN
-    grid_u.α .= NaN
-    grid_v.α .= NaN
-    grid.faces .= 0.
-    grid_u.faces .= 0.
-    grid_v.faces .= 0.
-    grid.mid_point .= [Point(0.0, 0.0)]
-    grid_u.mid_point .= [Point(0.0, 0.0)]
-    grid_v.mid_point .= [Point(0.0, 0.0)]
-
-    marching_squares!(num, grid, u, periodic_x, periodic_y)
-    interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.u, grid_v.u)
-    marching_squares!(num, grid_u, grid_u.u, periodic_x, periodic_y)
-    marching_squares!(num, grid_v, grid_v.u, periodic_x, periodic_y)
-
-    NB_indices_base = get_NB_width_indices_base(num.NB)
-
-    grid.ind.MIXED, grid.ind.SOLID, grid.ind.LIQUID = get_cells_indices(grid.iso, grid.ind.all_indices)
-    grid_u.ind.MIXED, grid_u.ind.SOLID, grid_u.ind.LIQUID = get_cells_indices(grid_u.iso, grid_u.ind.all_indices)
-    grid_v.ind.MIXED, grid_v.ind.SOLID, grid_v.ind.LIQUID = get_cells_indices(grid_v.iso, grid_v.ind.all_indices)
-
-    NB_indices = get_NB_width(grid, grid.ind.MIXED, NB_indices_base)
-
-    get_interface_location!(grid, grid.ind.MIXED, periodic_x, periodic_y)
-    get_interface_location!(grid_u, grid_u.ind.MIXED, periodic_x, periodic_y)
-    get_interface_location!(grid_v, grid_v.ind.MIXED, periodic_x, periodic_y)
-
-    grid.geoL.emptied .= false
-    grid.geoS.emptied .= false
-    grid_u.geoL.emptied .= false
-    grid_u.geoS.emptied .= false
-    grid_v.geoL.emptied .= false
-    grid_v.geoS.emptied .= false
-
-    κ .= 0.0
-    grid_u.κ .= 0.0
-    grid_v.κ .= 0.0
-    get_curvature(num, grid, u, κ, grid.ind.MIXED, periodic_x, periodic_y)
-    get_curvature(num, grid_u, grid_u.u, grid_u.κ, grid_u.ind.MIXED, periodic_x, periodic_y)
-    get_curvature(num, grid_v, grid_v.u, grid_v.κ, grid_v.ind.MIXED, periodic_x, periodic_y)
-    postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, num.ϵ, empty)
-
-    _MIXED_L = intersect(findall(grid.geoL.emptied), grid.ind.MIXED)
-    _MIXED_S = intersect(findall(grid.geoS.emptied), grid.ind.MIXED)
+function indices_extension(grid, LS, periodic_x, periodic_y)
+    _MIXED_L = intersect(findall(LS.geoL.emptied), LS.MIXED)
+    _MIXED_S = intersect(findall(LS.geoS.emptied), LS.MIXED)
     _MIXED = vcat(_MIXED_L, _MIXED_S)
-    indices_ext1 = vcat(grid.ind.SOLID, _MIXED, grid.ind.LIQUID)
+    indices_ext1 = vcat(LS.SOLID, _MIXED, LS.LIQUID)
 
     if periodic_x && periodic_y
         indices_ext = intersect(indices_ext1, vcat(
@@ -62,117 +20,82 @@ function update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y
     else
         indices_ext = intersect(indices_ext1, vec(grid.ind.inside))
     end
+
     left_ext = intersect(indices_ext1, grid.ind.b_left[1][2:end-1])
     bottom_ext = intersect(indices_ext1, grid.ind.b_bottom[1][2:end-1])
     right_ext = intersect(indices_ext1, grid.ind.b_right[1][2:end-1])
     top_ext = intersect(indices_ext1, grid.ind.b_top[1][2:end-1])
-    field_extension!(grid, u, κ, indices_ext, left_ext, bottom_ext, right_ext, top_ext, num.NB, periodic_x, periodic_y)
 
-    locate_contact_line!(grid)
-    locate_contact_line!(grid_u)
-    locate_contact_line!(grid_v)
+    return indices_ext, left_ext, bottom_ext, right_ext, top_ext
+end
+
+function update_ls_data(num, grid, grid_u, grid_v, u, κ, periodic_x, periodic_y, empty = true)
+    NB_indices = update_ls_data_grid(num, grid, grid.LS[1], u, κ, periodic_x, periodic_y, empty)
+
+    interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.LS[1].u, grid_v.LS[1].u)
+
+    _ = update_ls_data_grid(num, grid_u, grid_u.LS[1], grid_u.LS[1].u, grid_u.LS[1].κ, periodic_x, periodic_y, empty)
+    _ = update_ls_data_grid(num, grid_v, grid_v.LS[1], grid_v.LS[1].u, grid_v.LS[1].κ, periodic_x, periodic_y, empty)
+
+    postprocess_grids!(grid, grid.LS[1], grid_u, grid_u.LS[1], grid_v, grid_v.LS[1], periodic_x, periodic_y, num.ϵ, empty)
+
+    i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, grid.LS[1], periodic_x, periodic_y)
+    field_extension!(grid, u, κ, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
+
+    locate_contact_line!(grid, grid.LS[1].cl, grid.LS[1].MIXED)
+    locate_contact_line!(grid_u, grid_u.LS[1].cl, grid_u.LS[1].MIXED)
+    locate_contact_line!(grid_v, grid_v.LS[1].cl, grid_v.LS[1].MIXED)
 
     # Apply inhomogeneous BC to more than one grid point by extending the contact line
-    extend_contact_line!(grid_u, num.n_ext_cl)
-    extend_contact_line!(grid_v, num.n_ext_cl)
+    extend_contact_line!(grid_u, grid_u.LS[1].cl, num.n_ext_cl)
+    extend_contact_line!(grid_v, grid_v.LS[1].cl, num.n_ext_cl)
+
+    return NB_indices
+end
+
+function update_ls_data_grid(num, grid, LS, u, κ, periodic_x, periodic_y, empty = true)
+    LS.α .= NaN
+    LS.faces .= 0.0
+    LS.mid_point .= [Point(0.0, 0.0)]
+
+    marching_squares!(grid, LS, u, periodic_x, periodic_y)
+
+    LS.MIXED, LS.SOLID, LS.LIQUID = get_cells_indices(LS.iso, grid.ind.all_indices)
+    NB_indices_base = get_NB_width_indices_base(num.NB)
+    NB_indices = get_NB_width(grid, LS.MIXED, NB_indices_base)
+
+    get_interface_location!(grid, LS, periodic_x, periodic_y)
+
+    LS.geoL.emptied .= false
+    LS.geoS.emptied .= false
+
+    κ .= 0.0
+    get_curvature(num, grid, LS.geoL, u, κ, LS.MIXED, periodic_x, periodic_y)
 
     return NB_indices
 end
 
 function update_stefan_velocity(num, grid, u, TS, TL, periodic_x, periodic_y, λ, Vmean)
-    Stefan_velocity!(num, grid, grid.V, TS, TL, grid.ind.MIXED, periodic_x, periodic_y)
-    grid.V[grid.ind.MIXED] .*= 1. ./ λ
+    Stefan_velocity!(num, grid, grid.V, TS, TL, grid.LS[1].MIXED, periodic_x, periodic_y)
+    grid.V[grid.LS[1].MIXED] .*= 1. ./ λ
     if Vmean
-        a = mean(grid.V[grid.ind.MIXED])
-        grid.V[grid.ind.MIXED] .= a
+        a = mean(grid.V[grid.LS[1].MIXED])
+        grid.V[grid.LS[1].MIXED] .= a
     end
-    
-    _MIXED_L = intersect(findall(grid.geoL.emptied), grid.ind.MIXED)
-    _MIXED_S = intersect(findall(grid.geoS.emptied), grid.ind.MIXED)
-    _MIXED = vcat(_MIXED_L, _MIXED_S)
-    indices_ext1 = vcat(grid.ind.SOLID, _MIXED, grid.ind.LIQUID)
 
-    if periodic_x && periodic_y
-        indices_ext = intersect(indices_ext1, vcat(
-            vec(grid.ind.inside), grid.ind.b_left[1][2:end-1], grid.ind.b_bottom[1][2:end-1],
-            grid.ind.b_right[1][2:end-1], grid.ind.b_top[1][2:end-1]
-        ))
-    elseif !periodic_x && periodic_y
-        indices_ext = intersect(indices_ext1, vcat(
-            vec(grid.ind.inside), grid.ind.b_bottom[1][2:end-1], grid.ind.b_top[1][2:end-1]
-        ))
-    elseif periodic_x && !periodic_y
-        indices_ext = intersect(indices_ext1, vcat(
-            vec(grid.ind.inside), grid.ind.b_left[1][2:end-1], grid.ind.b_right[1][2:end-1]
-        ))
-    else
-        indices_ext = intersect(indices_ext1, vec(grid.ind.inside))
-    end
-    left_ext = intersect(indices_ext1, grid.ind.b_left[1][2:end-1])
-    bottom_ext = intersect(indices_ext1, grid.ind.b_bottom[1][2:end-1])
-    right_ext = intersect(indices_ext1, grid.ind.b_right[1][2:end-1])
-    top_ext = intersect(indices_ext1, grid.ind.b_top[1][2:end-1])
-    field_extension!(grid, u, grid.V, indices_ext, left_ext, bottom_ext, right_ext, top_ext, num.NB, periodic_x, periodic_y)
+    i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, grid.LS[1], periodic_x, periodic_y)
+    field_extension!(grid, u, grid.V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
 end
 
 function update_free_surface_velocity(num, grid_u, grid_v, uD, vD, periodic_x, periodic_y)
     grid_u.V .= reshape(veci(uD,grid_u,2), (grid_u.ny, grid_u.nx))
     grid_v.V .= reshape(veci(vD,grid_v,2), (grid_v.ny, grid_v.nx))
 
-    _MIXED_u_L = intersect(findall(grid_u.geoL.emptied), grid_u.ind.MIXED)
-    _MIXED_u_S = intersect(findall(grid_u.geoS.emptied), grid_u.ind.MIXED)
-    _MIXED_u = vcat(_MIXED_u_L, _MIXED_u_S)
-    indices_u_ext1 = vcat(grid_u.ind.SOLID, _MIXED_u, grid_u.ind.LIQUID)
+    i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext = indices_extension(grid_u, grid_u.LS[1], periodic_x, periodic_y)
+    i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext = indices_extension(grid_v, grid_v.LS[1], periodic_x, periodic_y)
 
-    if periodic_x && periodic_y
-        indices_u_ext = intersect(indices_u_ext1, vcat(
-            vec(grid_u.ind.inside), grid_u.ind.b_left[1][2:end-1], grid_u.ind.b_bottom[1][2:end-1],
-            grid_u.ind.b_right[1][2:end-1], grid_u.ind.b_top[1][2:end-1]
-        ))
-    elseif !periodic_x && periodic_y
-        indices_u_ext = intersect(indices_u_ext1, vcat(
-            vec(grid_u.ind.inside), grid_u.ind.b_bottom[1][2:end-1], grid_u.ind.b_top[1][2:end-1]
-        ))
-    elseif periodic_x && !periodic_y
-        indices_u_ext = intersect(indices_u_ext1, vcat(
-            vec(grid_u.ind.inside), grid_u.ind.b_left[1][2:end-1], grid_u.ind.b_right[1][2:end-1]
-        ))
-    else
-        indices_u_ext = intersect(indices_u_ext1, vec(grid_u.ind.inside))
-    end
-    left_u_ext = intersect(indices_u_ext1, grid_u.ind.b_left[1][2:end-1])
-    bottom_u_ext = intersect(indices_u_ext1, grid_u.ind.b_bottom[1][2:end-1])
-    right_u_ext = intersect(indices_u_ext1, grid_u.ind.b_right[1][2:end-1])
-    top_u_ext = intersect(indices_u_ext1, grid_u.ind.b_top[1][2:end-1])
-
-    _MIXED_v_L = intersect(findall(grid_v.geoL.emptied), grid_v.ind.MIXED)
-    _MIXED_v_S = intersect(findall(grid_v.geoS.emptied), grid_v.ind.MIXED)
-    _MIXED_v = vcat(_MIXED_v_L, _MIXED_v_S)
-    indices_v_ext1 = vcat(grid_v.ind.SOLID, _MIXED_v, grid_v.ind.LIQUID)
-
-    if periodic_x && periodic_y
-        indices_v_ext = intersect(indices_v_ext1, vcat(
-            vec(grid_v.ind.inside), grid_v.ind.b_left[1][2:end-1], grid_v.ind.b_bottom[1][2:end-1],
-            grid_v.ind.b_right[1][2:end-1], grid_v.ind.b_top[1][2:end-1]
-        ))
-    elseif !periodic_x && periodic_y
-        indices_v_ext = intersect(indices_v_ext1, vcat(
-            vec(grid_v.ind.inside), grid_v.ind.b_bottom[1][2:end-1], grid_v.ind.b_top[1][2:end-1]
-        ))
-    elseif periodic_x && !periodic_y
-        indices_v_ext = intersect(indices_v_ext1, vcat(
-            vec(grid_v.ind.inside), grid_v.ind.b_left[1][2:end-1], grid_v.ind.b_right[1][2:end-1]
-        ))
-    else
-        indices_v_ext = intersect(indices_v_ext1, vec(grid_v.ind.inside))
-    end
-    left_v_ext = intersect(indices_v_ext1, grid_v.ind.b_left[1][2:end-1])
-    bottom_v_ext = intersect(indices_v_ext1, grid_v.ind.b_bottom[1][2:end-1])
-    right_v_ext = intersect(indices_v_ext1, grid_v.ind.b_right[1][2:end-1])
-    top_v_ext = intersect(indices_v_ext1, grid_v.ind.b_top[1][2:end-1])
-
-    field_extension!(grid_u, grid_u.u, grid_u.V, indices_u_ext, left_u_ext, bottom_u_ext, right_u_ext, top_u_ext, num.NB, periodic_x, periodic_y)
-    field_extension!(grid_v, grid_v.u, grid_v.V, indices_v_ext, left_v_ext, bottom_v_ext, right_v_ext, top_v_ext, num.NB, periodic_x, periodic_y)
+    field_extension!(grid_u, grid_u.LS[1].u, grid_u.V, i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext, num.NB, periodic_x, periodic_y)
+    field_extension!(grid_v, grid_v.LS[1].u, grid_v.V, i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext, num.NB, periodic_x, periodic_y)
 end
 
 function adjoint_projection_fs(num, grid, grid_u, grid_v,

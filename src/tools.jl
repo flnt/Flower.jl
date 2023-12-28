@@ -37,7 +37,7 @@ end
 
 function force_coefficients!(num, grid, grid_u, grid_v, op, fwd, ph; A=1., p0=0., step=size(fwd.psave,1))
     @unpack Re = num
-    @unpack nx, ny, ind, geoL = grid
+    @unpack nx, ny, ind, LS = grid
     @unpack E11, E12_x, E12_y, E22 = op
     @unpack Cd, Cl = fwd
 
@@ -50,7 +50,7 @@ function force_coefficients!(num, grid, grid_u, grid_v, op, fwd, ph; A=1., p0=0.
     u = ph.u[:,:]
     v = ph.v[:,:]
 
-    strain_rate!(dir, E11, E12_x, E12_y, E22, grid_u.geoL.dcap, grid_v.geoL.dcap,
+    strain_rate!(dir, E11, E12_x, E12_y, E22, grid_u.LS[1].geoL.dcap, grid_v.LS[1].geoL.dcap,
                  ny, ind.all_indices, ind.inside)
 
     τ11 = reshape(2 ./ Re .* (E11 * vec(u)), (ny, nx))
@@ -59,17 +59,17 @@ function force_coefficients!(num, grid, grid_u, grid_v, op, fwd, ph; A=1., p0=0.
 
     @inbounds for II in ind.inside
         # pressure forces
-        D_p += -(p[II] - p0) * (geoL.dcap[II,3] - geoL.dcap[II,1])
-        L_p += -(p[II] - p0) * (geoL.dcap[II,4] - geoL.dcap[II,2])
+        D_p += -(p[II] - p0) * (LS[1].geoL.dcap[II,3] - LS[1].geoL.dcap[II,1])
+        L_p += -(p[II] - p0) * (LS[1].geoL.dcap[II,4] - LS[1].geoL.dcap[II,2])
 
         # friction forces (diagonal terms)
-        D_ν += τ11[II] * (grid_u.geoL.dcap[δx⁺(II),6] - grid_u.geoL.dcap[II,6])
-        L_ν += τ22[II] * (grid_v.geoL.dcap[δy⁺(II),7] - grid_v.geoL.dcap[II,7])
+        D_ν += τ11[II] * (grid_u.LS[1].geoL.dcap[δx⁺(II),6] - grid_u.LS[1].geoL.dcap[II,6])
+        L_ν += τ22[II] * (grid_v.LS[1].geoL.dcap[δy⁺(II),7] - grid_v.LS[1].geoL.dcap[II,7])
     end
     @inbounds for II in ind.all_indices[1:end-1,2:end]
         # friction forces (off-diagonal terms)
-        D_ν += τ12[II] * (grid_u.geoL.dcap[δy⁺(II),7] - grid_u.geoL.dcap[II,7])
-        L_ν += τ12[II] * (grid_v.geoL.dcap[δy⁺(II),6] - grid_v.geoL.dcap[δx⁻(δy⁺(II)),6])
+        D_ν += τ12[II] * (grid_u.LS[1].geoL.dcap[δy⁺(II),7] - grid_u.LS[1].geoL.dcap[II,7])
+        L_ν += τ12[II] * (grid_v.LS[1].geoL.dcap[δy⁺(II),6] - grid_v.LS[1].geoL.dcap[δx⁻(δy⁺(II)),6])
     end
 
     D = D_p + D_ν

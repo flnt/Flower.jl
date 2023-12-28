@@ -46,11 +46,13 @@ abstract type AbstractOptimizer end
     x_airfoil::Array{T} = [0.0]
     y_airfoil::Array{T} = [0.0]
     aniso::Bool = false
+    nLS::D = 1
+    _nLS::D = nLS == 1 ? 1 : nLS + 1
     subdomains::D = 2
     overlaps::D = 1
 end
 
-@with_kw mutable struct Indices{T <: Integer} <: NumericalParameters
+@with_kw struct Indices{T <: Integer} <: NumericalParameters
     all_indices::Array{CartesianIndex{2},2}
     inside::CartesianIndices{2, Tuple{OffsetArrays.IdOffsetRange{T, Base.OneTo{T}}, OffsetArrays.IdOffsetRange{T, Base.OneTo{T}}}}
     periodic_x::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
@@ -59,10 +61,6 @@ end
     b_bottom::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
     b_right::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
     b_top::Tuple{Vector{CartesianIndex{2}}, Vector{CartesianIndex{2}}}
-    MIXED::Vector{CartesianIndex{2}}
-    LIQUID::Vector{CartesianIndex{2}}
-    SOLID::Vector{CartesianIndex{2}}
-    cl::Vector{CartesianIndex{2}}
 end
 
 struct Point{T <: Number}
@@ -95,6 +93,24 @@ struct GeometricInfo{T <: Real} <: MutatingFields
     fresh::Array{Bool,2}
 end
 
+mutable struct Levelset{T,N}
+    u::Matrix{T}
+    iso::Matrix{T}
+    faces::Array{T,3}
+    geoS::GeometricInfo{T}
+    geoL::GeometricInfo{T}
+    mid_point::Matrix{Point{T}}
+    cut_points::Matrix{Vector{Point{T}}}
+    α::Matrix{T}
+    κ::Matrix{T}
+    A::SparseMatrixCSC{T,N}
+    B::SparseMatrixCSC{T,N}
+    MIXED::Vector{CartesianIndex{2}}
+    LIQUID::Vector{CartesianIndex{2}}
+    SOLID::Vector{CartesianIndex{2}}
+    cl::Vector{CartesianIndex{2}}
+end
+
 abstract type Grid <: MutatingFields end
 
 struct GridCC <: Grid end
@@ -110,19 +126,9 @@ struct Mesh{G,T,N} <: Grid where {G<:Grid}
     ny::N
     dx::Array{T,2}
     dy::Array{T,2}
+    LS::Vector{Levelset}
     ind::Indices{N}
-    u::Array{T,2}
-    iso::Array{T,2}
-    faces::Array{T,3}
-    geoS::GeometricInfo{T}
-    geoL::GeometricInfo{T}
-    mid_point::Array{Point{T},2}
-    cut_points::Array{Vector{Point{T}},2}
-    α::Array{T,2}
-    κ::Array{T,2}
     V::Array{T,2}
-    LSA::SparseMatrixCSC{T,N}
-    LSB::SparseMatrixCSC{T,N}
     domdec::DomainDecomposition{TS,3,D,A,O,W} where {TS,D,A,O,W}
     pou::DomainDecomposedVector{T,3,DomainDecomposition{TS,3,D,A,O,W},A2} where {TS,D,A,O,W,A2}
 end
@@ -212,11 +218,11 @@ end
 
 struct Forward{T <: Real} <: MutatingFields
     T::Array{T,3}
-    u::Array{T,3}
-    ux::Array{T,3}
-    uy::Array{T,3}
+    u::Array{T,4}
+    ux::Array{T,4}
+    uy::Array{T,4}
     V::Array{T,3}
-    κ::Array{T,3}
+    κ::Array{T,4}
     length::Array{T,1}
     t::Array{T,1}
     Cd::Array{T,1}
@@ -229,8 +235,6 @@ struct ForwardPhase{T <: Real} <: MutatingFields
     ϕ::Array{T,3}
     u::Array{T,3}
     v::Array{T,3}
-    ucorr::Array{T,3}
-    vcorr::Array{T,3}
     TD::Array{T,2}
     pD::Array{T,2}
     ucorrD::Array{T,2}

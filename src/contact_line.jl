@@ -1,5 +1,5 @@
 """
-    BC_LS!(num, grid, A, B, rhs, BC)
+    BC_LS!(num, cl, grid, A, B, rhs, BC)
 
 Update levelset matrices to apply inhomogeneous Neumann boundary conditions in presence of
 contact lines. 
@@ -8,9 +8,9 @@ Outside, the contact angle asimptotically converges to an angle of 90°. Inside,
 angle converges to an angle of 0° if the imposed contact angle at the contact line is
 smaller than 90° and to an angle of 180° if the imposed contact angle is bigger than 90°.
 """
-function BC_LS!(grid, A, B, rhs, BC, n_ext)
-    @unpack x, y, nx, ny, dx, dy, ind, u = grid
-    @unpack all_indices, b_left, b_bottom, b_right, b_top, cl = ind
+function BC_LS!(grid, u, A, B, rhs, BC, n_ext)
+    @unpack x, y, nx, ny, dx, dy, ind = grid
+    @unpack all_indices, b_left, b_bottom, b_right, b_top = ind
     @unpack left, bottom, right, top = BC
 
     π2 = π / 2.0
@@ -120,13 +120,13 @@ Intersection between mixed cells and borders of the domain.
 At some point it should include the intersection of two levelsets, for contact lines with
 non-planar shapes.
 """
-function locate_contact_line!(grid)
+function locate_contact_line!(grid, cl, MIXED)
     @unpack ind = grid
 
     boundaries_idx = [ind.b_left, ind.b_bottom, ind.b_right, ind.b_top]
-    ind.cl = []
+    cl = []
     for idx in boundaries_idx
-        append!(ind.cl, intersect(ind.MIXED, idx[1]))
+        append!(cl, intersect(MIXED, idx[1]))
     end
 
     return nothing
@@ -140,15 +140,15 @@ Intersection between mixed cells and borders of the domain.
 At some point it should include the intersection of two levelsets, for contact lines with
 non-planar shapes.
 """
-function locate_contact_line!(num, grid, grid_u, grid_v, u, per_x, per_y)
+function locate_contact_line!(num, grid, cl, MIXED, grid_u, grid_v, u, per_x, per_y)
     @unpack ind = grid
 
     update_ls_data(num, grid, grid_u, grid_v, u, grid.κ, per_x, per_y)
 
     boundaries_idx = [ind.b_left, ind.b_bottom, ind.b_right, ind.b_top]
-    ind.cl = []
+    cl = []
     for idx in boundaries_idx
-        append!(ind.cl, intersect(ind.MIXED, idx[1]))
+        append!(cl, intersect(MIXED, idx[1]))
     end
 
     return nothing
@@ -160,9 +160,9 @@ end
 Extend every contact line point by `n` points parallel to the boundary so that the
 inhomogeneous Neumann boundary conditions are also applied on them.
 """
-function extend_contact_line!(grid, n_ext)
+function extend_contact_line!(grid, cl, n_ext)
     @unpack nx, ny, ind = grid
-    @unpack b_left, b_bottom, b_right, b_top, cl = ind
+    @unpack b_left, b_bottom, b_right, b_top = ind
 
     boundaries = [b_left, b_bottom, b_right, b_top]
     a = [1, 2, 1, 2]

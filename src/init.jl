@@ -13,34 +13,12 @@ function Indices(nx, ny)
     TOP = filter(x->x.I[1]==ny, all_indices)
     TOP2 = filter(x->x.I[1]==ny-1, all_indices)
 
-    MIXED = Vector{CartesianIndex{2}}()
-    LIQUID = Vector{CartesianIndex{2}}()
-    SOLID = Vector{CartesianIndex{2}}()
-
-    cl = Vector{CartesianIndex{2}}()
-
     return Indices(
         all_indices, inside, (LEFT, RIGHT), (BOTTOM, TOP), (LEFT, LEFT2),
-        (BOTTOM, BOTTOM2), (RIGHT, RIGHT2), (TOP, TOP2), MIXED, LIQUID,
-        SOLID, cl
+        (BOTTOM, BOTTOM2), (RIGHT, RIGHT2), (TOP, TOP2)
     )
 end
-
-function Mesh(gridType, x_nodes, y_nodes, s, o)
-    nx = length(x_nodes) - 1
-    ny = length(y_nodes) - 1
-
-    _dx = diff(x_nodes)
-    _dy = diff(y_nodes)
-
-    x = Matrix(transpose([x_nodes[i] + _dx[i]/2 for i = 1:nx, j = 1:ny]))
-    y = [y_nodes[i] + _dy[i]/2 for i = 1:ny, j = 1:nx]
-
-    dx = Matrix(transpose(repeat(_dx, 1, ny)))
-    dy = repeat(_dy, 1, nx)
-
-    ind = Indices(nx, ny)
-
+function Levelset(nx, ny)
     u = zeros(ny, nx)
     iso = zeros(ny, nx)
     faces = zeros(ny, nx, 4)
@@ -78,8 +56,7 @@ function Mesh(gridType, x_nodes, y_nodes, s, o)
     α = zeros(ny, nx)
     α .= NaN
     κ = zeros(ny, nx)
-    V = zeros(ny, nx)
-
+    
     ii = collect(i for i = 1:nx*ny)
     iw = collect(i for i = ny+1:nx*ny)
     is = collect(i for i = 2:nx*ny)
@@ -108,8 +85,42 @@ function Mesh(gridType, x_nodes, y_nodes, s, o)
     b = zeros(length(jw)+length(js)+length(jn)+length(je))
     c = zeros(length(jwp)+length(jsp)+length(jnp)+length(jep))
 
-    LSA = sparse(II,JJ,vcat(a,b,c))
-    LSB = sparse(II,JJ,vcat(a,b,c))
+    A = sparse(II,JJ,vcat(a,b,c))
+    B = sparse(II,JJ,vcat(a,b,c))
+
+    MIXED = Vector{CartesianIndex{2}}()
+    LIQUID = Vector{CartesianIndex{2}}()
+    SOLID = Vector{CartesianIndex{2}}()
+
+    cl = Vector{CartesianIndex{2}}()
+
+    return Levelset(
+        u, iso, faces, geoS, geoL, mid_point, cut_points,
+        α, κ, A, B, MIXED, LIQUID, SOLID, cl
+    )
+end
+
+function Mesh(gridType, x_nodes, y_nodes, nLS, s, o)
+    nx = length(x_nodes) - 1
+    ny = length(y_nodes) - 1
+
+    _dx = diff(x_nodes)
+    _dy = diff(y_nodes)
+
+    x = Matrix(transpose([x_nodes[i] + _dx[i]/2 for i = 1:nx, j = 1:ny]))
+    y = [y_nodes[i] + _dy[i]/2 for i = 1:ny, j = 1:nx]
+
+    dx = Matrix(transpose(repeat(_dx, 1, ny)))
+    dy = repeat(_dy, 1, nx)
+
+    ind = Indices(nx, ny)
+
+    LS = Vector{Levelset}(undef, nLS)
+    for i in 1:nLS
+        LS[i] = Levelset(nx, ny)
+    end
+
+    V = zeros(ny, nx)
 
     dom = domain((OneTo(ny), OneTo(nx), OneTo(2)))
     subs = (s, s, 1)
@@ -117,21 +128,19 @@ function Mesh(gridType, x_nodes, y_nodes, s, o)
     dec = DDM.decompose(dom, subs, over)
 
     domdec = decomposition(dom, dec)
-
     pou = uniform(domdec)
 
-    return Mesh{gridType,Float64,Int64}(x_nodes, y_nodes, x, y, nx, ny, dx, dy, ind, u, iso, faces, 
-                geoS, geoL, mid_point, cut_points, α, κ, V, LSA, LSB, domdec, pou)
+    return Mesh{gridType,Float64,Int64}(x_nodes, y_nodes, x, y, nx, ny, dx, dy, LS, ind, V, domdec, pou)
 end
 
 function init_meshes(num::NumericalParameters)
-    mesh_cc = Mesh(GridCC, num.x, num.y, num.subdomains, num.overlaps)
+    mesh_cc = Mesh(GridCC, num.x, num.y, num._nLS, num.subdomains, num.overlaps)
 
     xx = vcat(num.x[1] - mesh_cc.dx[1,1]/2, num.x[1:end-1] .+ mesh_cc.dx[1,:]/2, num.x[end] + mesh_cc.dx[1,end]/2)
-    mesh_stx = Mesh(GridFCx, xx, num.y, num.subdomains, num.overlaps)
+    mesh_stx = Mesh(GridFCx, xx, num.y, num._nLS, num.subdomains, num.overlaps)
 
     yy = vcat(num.y[1] - mesh_cc.dy[1,1]/2, num.y[1:end-1] .+ mesh_cc.dy[:,1]/2, num.y[end] + mesh_cc.dy[end,1]/2)
-    mesh_sty = Mesh(GridFCy, num.x, yy, num.subdomains, num.overlaps)
+    mesh_sty = Mesh(GridFCy, num.x, yy, num._nLS, num.subdomains, num.overlaps)
 
     return (mesh_cc, mesh_stx, mesh_sty)
 end
@@ -301,8 +310,8 @@ function init_sparse_ByT(grid)
 end
 
 function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
-    @unpack τ, N, T_inf, u_inf, v_inf, A, R, L0, Δ, shifted, max_iterations, save_every, CFL, x_airfoil, y_airfoil = num
-    @unpack x, y, nx, ny, u, ind = grid
+    @unpack τ, N, T_inf, u_inf, v_inf, A, R, L0, Δ, shifted, max_iterations, save_every, CFL, x_airfoil, y_airfoil, _nLS = num
+    @unpack x, y, nx, ny, LS, ind = grid
 
     SCUTCT = fzeros(grid)
     LCUTCT = fzeros(grid)
@@ -947,9 +956,9 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
 
     n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
     
-    usave = zeros(n_snaps, grid)
-    uxsave = zeros(n_snaps, grid_u)
-    uysave = zeros(n_snaps, grid_v)
+    usave = zeros(_nLS, n_snaps, grid.ny, grid.nx)
+    uxsave = zeros(_nLS, n_snaps, grid_u.ny, grid_u.nx)
+    uysave = zeros(_nLS, n_snaps, grid_v.ny, grid_v.nx)
     TSsave = zeros(n_snaps, grid)
     TLsave = zeros(n_snaps, grid)
     Tsave = zeros(n_snaps, grid)
@@ -961,12 +970,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     uLsave = zeros(n_snaps, grid_u)
     vSsave = zeros(n_snaps, grid_v)
     vLsave = zeros(n_snaps, grid_v)
-    ucorrSsave = zeros(n_snaps, grid_u)
-    ucorrLsave = zeros(n_snaps, grid_u)
-    vcorrSsave = zeros(n_snaps, grid_v)
-    vcorrLsave = zeros(n_snaps, grid_v)
     Vsave = zeros(n_snaps, grid)
-    κsave = zeros(n_snaps, grid)
+    κsave = zeros(_nLS, n_snaps, grid.ny, grid.nx)
     lengthsave = zeros(n_snaps)
     time = zeros(n_snaps)
     Cd = zeros(n_snaps)
@@ -983,9 +988,9 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     VratioL = ones(n_snaps)
 
     if num.case == "Planar"
-        u .= y .+ shifted
+        LS[1].u .= y .+ shifted
     elseif num.case == "Sphere"
-        u .= sqrt.((x .+ shifted).^ 2 + y .^ 2) - (R) * ones(ny, nx);
+        LS[1].u .= sqrt.((x .+ shifted).^ 2 + y .^ 2) - (R) * ones(ny, nx);
         init_franck!(grid, TL, R, T_inf, 0)
 
         # su = sqrt.(Xu.^2 .+ Yu.^2)
@@ -1001,7 +1006,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
         #     end
         # end
     elseif num.case == "Cylinder"
-        u .= sqrt.((x .+ shifted).^ 2 + y .^ 2) - (R) * ones(ny, nx);
+        LS[1].u .= sqrt.((x .+ shifted).^ 2 + y .^ 2) - (R) * ones(ny, nx);
         init_franck!(grid, TL, R, T_inf, 0)
 
         su = sqrt.((grid_u.x .+ shifted).^2 .+ grid_u.y.^2)
@@ -1017,23 +1022,23 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
             end
         end
     elseif num.case == "Ellipse"
-        u .= sqrt.((x .+ shifted) .^ 2 + (2.0 .* y) .^ 2) - (R) * ones(ny, nx);
+        LS[1].u .= sqrt.((x .+ shifted) .^ 2 + (2.0 .* y) .^ 2) - (R) * ones(ny, nx);
     elseif num.case == "Mullins"
-        u .= y .+ shifted .+ A*sin.(N*pi*x) .+ L0/4;
+        LS[1].u .= y .+ shifted .+ A*sin.(N*pi*x) .+ L0/4;
         init_mullins!(grid, TL, T_inf, 0., A, N, L0/4)
     elseif num.case == "Mullins_cos"
-        @. u = y + shifted + 0.6L0/2 - 0Δ + A*cos(N*pi*x)
+        @. LS[1].u = y + shifted + 0.6L0/2 - 0Δ + A*cos(N*pi*x)
         init_mullins2!(grid, TL, T_inf, 0., A, N, 0.6L0/2)
     elseif num.case == "Drop"
         maxy = max(y...)
-        @. u = y - (maxy - R) + R*A*cos(2*pi*x/(x[end]-x[1])) + shifted
+        @. LS[1].u = y - (maxy - R) + R*A*cos(2*pi*x/(x[end]-x[1])) + shifted
     elseif num.case == "Crystal"
-        u .= -R*ones(ny, nx) + sqrt.(x.^2 + y.^2).*(ones(ny, nx) + A*cos.(N*atan.(x./(y + 1E-30*ones(ny, nx)))))
+        LS[1].u .= -R*ones(ny, nx) + sqrt.(x.^2 + y.^2).*(ones(ny, nx) + A*cos.(N*atan.(x./(y + 1E-30*ones(ny, nx)))))
         init_franck!(grid, TL, R, T_inf, 0)
     elseif num.case == "3Crystals"
         x_c = 0.2
         y_c = 0.2
-        for II in CartesianIndices(u)
+        for II in CartesianIndices(LS[1].u)
             x_ = x[II]
             y_ = y[II]
             u1 = -R + sqrt((x_+x_c)^2 + (y_+y_c)^2)*(1 + A*cos(N*atan((x_+x_c)/(y_+y_c))))
@@ -1041,11 +1046,11 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
             u3 = -R + sqrt((x_+x_c)^2 + (y_-y_c)^2)*(1 + A*cos(N*atan((x_+x_c)/(y_-y_c))))
             u4 = -R + sqrt((x_-x_c)^2 + (y_-y_c)^2)*(1 + A*cos(N*atan((x_-x_c)/(y_-y_c))))
             u5 = -R + sqrt((x_)^2 + (y_)^2)*(1 + A*cos(N*atan((x_)/(y_))))
-            u[II] = min(u1,u2,u3)
+            LS[1].u[II] = min(u1,u2,u3)
         end
         TL .= T_inf;
     elseif num.case == "Nothing"
-        u .= sqrt.(x.^2 + y.^2) .+ 1e-8
+        LS[1].u .= sqrt.(x.^2 + y.^2) .+ 1e-8
     elseif num.case == "Airfoil"
         @inbounds @threads for II in ind.all_indices
             d = 2L0
@@ -1069,15 +1074,15 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
                 end
             end
 
-            @inbounds u[II] = iseven(count) ? d : -d
+            @inbounds LS[1].u[II] = iseven(count) ? d : -d
         end
         uL .= u_inf
         vL .= v_inf
     elseif num.case == "Jet"
         Δy = max(y...) - min(y...)
-        u .= y .- min(y...) .- Δy ./ 2. .+ R .+ A.*cos.(N.*pi.*x)
+        LS[1].u .= y .- min(y...) .- Δy ./ 2. .+ R .+ A.*cos.(N.*pi.*x)
         @inbounds for i = 0:(ny÷2-1)
-            u[end-i,:] = u[i+1,:]
+            LS[1].u[end-i,:] = LS[1].u[i+1,:]
         end
     end
 
@@ -1097,8 +1102,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
         Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DϕS, DuS, DvS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS),
         Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DϕL, DuL, DvL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL),
         Forward(Tsave, usave, uxsave, uysave, Vsave, κsave, lengthsave, time, Cd, Cl),
-        ForwardPhase(TSsave, pSsave, ϕSsave, uSsave, vSsave, ucorrSsave, vcorrSsave, TDSsave, pDSsave, ucorrDSsave, vcorrDSsave, VratioS),
-        ForwardPhase(TLsave, pLsave, ϕLsave, uLsave, vLsave, ucorrLsave, vcorrLsave, TDLsave, pDLsave, ucorrDLsave, vcorrDLsave, VratioL)
+        ForwardPhase(TSsave, pSsave, ϕSsave, uSsave, vSsave, TDSsave, pDSsave, ucorrDSsave, vcorrDSsave, VratioS),
+        ForwardPhase(TLsave, pLsave, ϕLsave, uLsave, vLsave, TDLsave, pDLsave, ucorrDLsave, vcorrDLsave, VratioL)
     )
 end
 

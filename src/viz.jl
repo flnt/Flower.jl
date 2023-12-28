@@ -75,6 +75,7 @@ function plot_grid(
     contour!(grid.x[1,:], grid.y[:,1], grid.u', levels = [0.0], color = :red,
         linewidth = 2.0)
     limits!(ax, lx[1], lx[2], ly[1], ly[2])
+    rowsize!(fig.layout, 1, Aspect(1, 1.1))
     resize_to_layout!(fig)
 
     return fig
@@ -181,6 +182,55 @@ function plot_field(
     return fig
 end
 
+struct Stream{Gu,Gv,T}
+    gu::Gu
+    gv::Gv
+    u::Matrix{T}
+    v::Matrix{T}
+end
+
+function add_streamlines(fig, gu, gv, u, v, xlims, ylims;
+    arrow_size = 15,
+    colormap = :viridis,
+    linewidth = 1.0,
+    density = 1.0,
+    maxsteps = 100,
+    stepsize = 0.01,
+    )
+    
+    function fstream(x, S::Stream)
+        dist_u = sqrt.((S.gu.x .- x[1]).^2.0 .+ (S.gu.y .- x[2]).^2.0)
+        IIu = findmin(dist_u)[2]
+        Bu, BuT = B_BT(IIu, S.gu, false, false)
+        stu = static_stencil(S.u, IIu)
+        itpu = Bu * stu * BuT
+        uint = biquadratic(itpu, x[1], x[2])
+    
+        dist_v = sqrt.((S.gv.x .- x[1]).^2.0 .+ (S.gv.y .- x[2]).^2.0)
+        IIv = findmin(dist_v)[2]
+        Bv, BvT = B_BT(IIv, S.gv, false, false)
+        stv = static_stencil(S.v, IIv)
+        itpv = Bv * stv * BvT
+        vint = biquadratic(itpv, x[1], x[2])
+    
+        return Point2f(uint, vint)
+    end
+
+    S = Stream(gu, gv, u, v)
+    fstream(x) = fstream(x, S)
+
+    streamplot!(fig[1,1], fstream, xlims[1] .. xlims[2], ylims[1] .. ylims[2];
+        arrow_size = arrow_size,
+        colormap = colormap,
+        linewidth = linewidth,
+        density = density,
+        maxsteps = maxsteps,
+        stepsize = stepsize
+    )
+
+    return fig
+end
+
 """
     make_video(
         grid, field_u, field = nothing;
@@ -276,10 +326,10 @@ function make_video(
             hmap = heatmap!(x, y, @lift(z[$obs,:,:]'), colormap = colormap)
         end
     end
-    contour!(x, y, @lift(u[$obs,:,:]'), levels = [0.0], color = :red, linewidth = 2.0)
     if !plot_hmap
-        contour!(x, y, @lift(u[$obs,:,:]'), levels = -10:0.02:10, linewidth = 1.0)
+        contour!(x, y, @lift(u[$obs,:,:]'), levels = -10:0.1:10, linewidth = 2.0)
     end
+    contour!(x, y, @lift(u[$obs,:,:]'), levels = [0.0], color = :red, linewidth = 3.0)
     if plot_hmap
         cbar = fig[1,2] = Colorbar(fig, hmap, labelpadding = 0)
     end

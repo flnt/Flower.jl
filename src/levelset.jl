@@ -1311,14 +1311,14 @@ end
 
 
 """
-    rg(grid, periodic_x, periodic_y)
+    rg(grid, u, periodic_x, periodic_y)
 
 Compute the deviation of the levelset from a distance function following (Luddens et al., 2015).
 
 Computes rg(∇ϕ) = (|∇ϕ| - 1) _ {L ^ 1}.
 """
-function rg(grid, periodic_x, periodic_y)
-    @unpack nx, ny, dx, dy, ind, u = grid
+function rg(grid, u, periodic_x, periodic_y)
+    @unpack nx, ny, dx, dy, ind = grid
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
 
     tmp = zeros(grid)

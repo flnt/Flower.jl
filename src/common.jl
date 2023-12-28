@@ -22,7 +22,7 @@ const newaxis = [CartesianIndex()]
 
 @inline zeros(g::Grid) = zeros(g.ny, g.nx)
 @inline zeros(a::Integer, g::Grid) = zeros(a, g.ny, g.nx)
-@inline zeros(g::Grid, a::Integer) = zeros(g.ny, g.nx,a)
+@inline zeros(g::Grid, a::Integer) = zeros(g.ny, g.nx, a)
 
 @inline fzeros(g::Grid) = zeros(g.ny * g.nx)
 @inline fzeros(a::Integer, g::Grid) = zeros(a, g.ny * g.nx)
@@ -212,7 +212,7 @@ end
 end
 
 @inline function B_BT(II::CartesianIndex, grid::G, per_x, per_y) where {G<:Grid}
-    @unpack x, y, nx, ny, dx, dy, α = grid
+    @unpack x, y, nx, ny, dx, dy = grid
 
     _dx = dx[II]
     _dy = dy[II]
@@ -259,10 +259,15 @@ end
     return (s[1]*(f[2])^2 - 2*f[1]*f[2]*m[1] + s[2]*(f[1])^2)/(f[1]^2 + f[2]^2)^1.5
 end
 
-@inline function mean_curvature_indices(a, II, h)
-    f = @SVector [(a[δx⁺(II)]-a[δx⁻(II)])/2h, (a[δy⁺(II)]-a[δy⁻(II)])/2h]
-    s = @SVector [(a[δx⁻(II)]-2a[II]+a[δx⁺(II)])/h^2, (a[δy⁻(II)]-2a[II]+a[δy⁺(II)])/h^2]
-    m = @SVector [(a[δx⁻(δy⁻(II))]+a[δx⁺(δy⁺(II))]-a[δx⁻(δy⁺(II))]+a[δx⁺(δy⁻(II))])/4h^2]
+@inline function mean_curvature_indices(a, II, nx, ny, dx, dy, per_x, per_y)
+    f = @SVector [(a[δx⁺(II,nx,per_x)]-a[δx⁻(II,nx,per_x)])/2dx, (a[δy⁺(II,ny,per_y)]-a[δy⁻(II,ny,per_y)])/2dy]
+    s = @SVector [(a[δx⁻(II,nx,per_x)]-2a[II]+a[δx⁺(II,nx,per_x)])/dx^2, (a[δy⁻(II,ny,per_y)]-2a[II]+a[δy⁺(II,ny,per_y)])/dy^2]
+    m = (
+        a[δx⁻(δy⁻(II,ny,per_y),nx,per_x)]+
+        a[δx⁺(δy⁺(II,ny,per_y),nx,per_x)]-
+        a[δx⁻(δy⁺(II,ny,per_y),nx,per_x)]-
+        a[δx⁺(δy⁻(II,ny,per_y),nx,per_x)]
+    )/(4*(dx*dy)^2)
     return (s[1]*(f[2])^2 - 2*f[1]*f[2]*m[1] + s[2]*(f[1])^2)/(1e-10 + f[1]^2 + f[2]^2)^1.5
 end
 
@@ -280,6 +285,66 @@ function mean_curvature_interpolated(u, II, h, B, BT, mid)
     return min(max(mean(tmp),-1/h), 1/h)
 end
 
+function interpolated_curvature(grid, II, per_x, per_y)
+    @unpack nx, ny, u, mid_point, ind = grid
+
+    dx = grid.dx[II]
+    dy = grid.dy[II]
+
+    ii = [δy⁻, (x,n,p)->x, δy⁺]
+    jj = [δx⁻, (x,n,p)->x, δx⁺]
+
+    tmp = zeros(3,3)
+    for i in -1:1
+        for j in -1:1
+            JJ = ii[i+2](jj[j+2](II, nx, per_x), ny, per_y)
+            if !per_x && !per_y
+                if JJ in ind.inside
+                    JJ_0 = JJ
+                elseif JJ in ind.b_left[1][2:end-1]
+                    JJ_0 = δx⁺(JJ)
+                elseif JJ in ind.b_bottom[1][2:end-1]
+                    JJ_0 = δy⁺(JJ)
+                elseif JJ in ind.b_right[1][2:end-1]
+                    JJ_0 = δx⁻(JJ)
+                elseif JJ in ind.b_top[1][2:end-1]
+                    JJ_0 = δy⁻(JJ)
+                elseif JJ == ind.b_left[1][1]
+                    JJ_0 = δy⁺(δx⁺(JJ))
+                elseif JJ == ind.b_left[1][end]
+                    JJ_0 = δy⁻(δx⁺(JJ))
+                elseif JJ == ind.b_right[1][1]
+                    JJ_0 = δy⁺(δx⁻(JJ))
+                elseif JJ == ind.b_right[1][end]
+                    JJ_0 = δy⁻(δx⁻(JJ))
+                end
+            elseif per_x && !per_y
+                if JJ in ind.inside || JJ in ind.b_left[1][2:end-1] || JJ in ind.b_right[1][2:end-1]
+                    JJ_0 = JJ
+                elseif JJ in ind.b_bottom[1]
+                    JJ_0 = δy⁺(JJ)
+                elseif JJ in ind.b_top[1]
+                    JJ_0 = δy⁻(JJ)
+                end
+            else
+                if JJ in ind.inside || JJ in ind.b_bottom[1][2:end-1] || JJ in ind.b_top[1][2:end-1]
+                    JJ_0 = JJ
+                elseif JJ in ind.b_left[1]
+                    JJ_0 = δx⁺(JJ)
+                elseif JJ in ind.b_right[1]
+                    JJ_0 = δx⁻(JJ)
+                end
+            end
+            tmp[2+i, 2+j] = mean_curvature_indices(u, JJ_0, nx, ny, dx, dy, per_x, per_y)
+        end
+    end
+
+    B, BT = B_BT(II, grid, per_x, per_y)
+    itp = B*tmp*BT
+    κ = biquadratic(itp, mid_point[II].x, mid_point[II].y)
+
+    return κ
+end
 
 @inline parabola_fit_curvature(itp, mid_point, dx, dy) =
     @inbounds 2*itp[1,3]/((1+(2*itp[1,3]*mid_point.x/dx + itp[2,3])^2)^1.5)/(dx)^2 +

@@ -3,14 +3,14 @@
 @inline NORTH_face(itp, p=Point(0.0,0.5), dx=1.0, dx2=2.0, dy2=2.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), maxevals = 10, atol = 1e-9) * dx2
 @inline EAST_face(itp, p=Point(0.5,0.0), dy=1.0, dx2=2.0, dy2=2.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x/dx2, y), (-dy/2+p.y,dy/2+p.y)./dy2, FalsePosition(), maxevals = 10, atol = 1e-9) * dy2
 
-@inline WE(g, II, l_face, s_face, per) = ismixed(g.iso[δx⁻(II, g.nx, per)]) ? 0.5*(g.faces[II,1] + g.faces[δx⁻(II, g.nx, per), 3]) : (is_liquid(g.iso[δx⁻(II, g.nx, per)]) ? l_face : s_face)
-@inline WE_border(g, II, l_face, s_face, per) = g.faces[II,1]
-@inline EW(g, II, l_face, s_face, per) = ismixed(g.iso[δx⁺(II, g.nx, per)]) ? 0.5*(g.faces[II,3] + g.faces[δx⁺(II, g.nx, per), 1]) : (is_liquid(g.iso[δx⁺(II, g.nx, per)]) ? l_face : s_face)
-@inline EW_border(g, II, l_face, s_face, per) = g.faces[II,3]
-@inline SN(g, II, l_face, s_face, per) = ismixed(g.iso[δy⁻(II, g.ny, per)]) ? 0.5*(g.faces[II,2] + g.faces[δy⁻(II, g.ny, per), 4]) : (is_liquid(g.iso[δy⁻(II, g.ny, per)]) ? l_face : s_face)
-@inline SN_border(g, II, l_face, s_face, per) = g.faces[II,2]
-@inline NS(g, II, l_face, s_face, per) = ismixed(g.iso[δy⁺(II, g.ny, per)]) ? 0.5*(g.faces[II,4] + g.faces[δy⁺(II, g.ny, per), 2]) : (is_liquid(g.iso[δy⁺(II, g.ny, per)]) ? l_face : s_face)
-@inline NS_border(g, II, l_face, s_face, per) = g.faces[II,4]
+@inline WE(g, LS, II, l_face, s_face, per) = ismixed(LS.iso[δx⁻(II, g.nx, per)]) ? 0.5*(LS.faces[II,1] + LS.faces[δx⁻(II, g.nx, per), 3]) : (is_liquid(LS.iso[δx⁻(II, g.nx, per)]) ? l_face : s_face)
+@inline WE_border(g, LS, II, l_face, s_face, per) = LS.faces[II,1]
+@inline EW(g, LS, II, l_face, s_face, per) = ismixed(LS.iso[δx⁺(II, g.nx, per)]) ? 0.5*(LS.faces[II,3] + LS.faces[δx⁺(II, g.nx, per), 1]) : (is_liquid(LS.iso[δx⁺(II, g.nx, per)]) ? l_face : s_face)
+@inline EW_border(g, LS, II, l_face, s_face, per) = LS.faces[II,3]
+@inline SN(g, LS, II, l_face, s_face, per) = ismixed(LS.iso[δy⁻(II, g.ny, per)]) ? 0.5*(LS.faces[II,2] + LS.faces[δy⁻(II, g.ny, per), 4]) : (is_liquid(LS.iso[δy⁻(II, g.ny, per)]) ? l_face : s_face)
+@inline SN_border(g, LS, II, l_face, s_face, per) = LS.faces[II,2]
+@inline NS(g, LS, II, l_face, s_face, per) = ismixed(LS.iso[δy⁺(II, g.ny, per)]) ? 0.5*(LS.faces[II,4] + LS.faces[δy⁺(II, g.ny, per), 2]) : (is_liquid(LS.iso[δy⁺(II, g.ny, per)]) ? l_face : s_face)
+@inline NS_border(g, LS, II, l_face, s_face, per) = LS.faces[II,4]
 
 @inline WE(a, II) = 0.5*(a[II,1] + a[δx⁻(II), 3])
 @inline EW(a, II) = 0.5*(a[II,3] + a[δx⁺(II), 1])
@@ -97,8 +97,9 @@ end
    return Point((x/=area) - 0.5, (y/=area) - 0.5)
 end
 
-function find_radius(grid, MIXED)
-    @unpack x, y, mid_point = grid
+function find_radius(grid, LS)
+    @unpack x, y = grid
+    @unpack mid_point, MIXED = LS
 
     radius = Vector{Float64}(undef,0)
     for II in MIXED
@@ -137,7 +138,7 @@ end
     return cap
 end
 
-function clip_large_cell!(grid, geo, II, ϵ)
+function clip_large_cell!(grid, LS, geo, II, ϵ)
     @unpack nx, ny = grid
 
     if geo.cap[II,5] > (1.0-ϵ)
@@ -155,12 +156,12 @@ function clip_large_cell!(grid, geo, II, ϵ)
             geo.cap[δy⁺(II),2] = 1.0
         end
         geo.centroid[II] = Point(0.0, 0.0)
-        grid.mid_point[II] = Point(0.0, 0.0)
+        LS.mid_point[II] = Point(0.0, 0.0)
     end
     return nothing
 end
 
-function clip_small_cell!(grid, geo, II, ϵ)
+function clip_small_cell!(grid, LS, geo, II, ϵ)
     @unpack nx, ny = grid
 
     if geo.cap[II,5] < ϵ
@@ -179,21 +180,22 @@ function clip_small_cell!(grid, geo, II, ϵ)
             geo.cap[δy⁺(II),2] = 0.
         end
         geo.centroid[II] = Point(0.0, 0.0)
-        grid.mid_point[II] = Point(0.0, 0.0)
+        LS.mid_point[II] = Point(0.0, 0.0)
     end
     return nothing
 end
 
-function clip_cells!(grid, ϵ, periodic_x, periodic_y)
-    @unpack nx, ny, ind, geoS, geoL = grid
+function clip_cells!(grid, LS, ϵ, periodic_x, periodic_y)
+    @unpack nx, ny, ind = grid
+    @unpack geoS, geoL = LS
 
     @inbounds @threads for II in ind.inside
-        clip_large_cell!(grid, geoS, II, ϵ)
-        clip_large_cell!(grid, geoL, II, ϵ)
+        clip_large_cell!(grid, LS, geoS, II, ϵ)
+        clip_large_cell!(grid, LS, geoL, II, ϵ)
     end
     @inbounds @threads for II in ind.inside
-        clip_small_cell!(grid, geoS, II, ϵ)
-        clip_small_cell!(grid, geoL, II, ϵ)
+        clip_small_cell!(grid, LS, geoS, II, ϵ)
+        clip_small_cell!(grid, LS, geoL, II, ϵ)
     end
     @inbounds @threads for II in @view ind.b_left[1][2:end-1]
         if geoS.cap[II,5] > (1.0-ϵ)
@@ -400,44 +402,45 @@ function dimensionalize!(grid, geo)
     return nothing
 end
 
-function postprocess_grids!(grid, grid_u, grid_v, periodic_x, periodic_y, ϵ, empty)
-    clip_cells!(grid, ϵ, periodic_x, periodic_y)
-    clip_cells!(grid_u, ϵ, periodic_x, periodic_y)
-    clip_cells!(grid_v, ϵ, periodic_x, periodic_y)
+function postprocess_grids!(grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, periodic_y, ϵ, empty)
+    clip_cells!(grid, LS, ϵ, periodic_x, periodic_y)
+    clip_cells!(grid_u, LS_u, ϵ, periodic_x, periodic_y)
+    clip_cells!(grid_v, LS_v, ϵ, periodic_x, periodic_y)
 
-    clip_A_acc_to_V(grid, grid_u, grid_v, grid.geoS, grid_u.geoS, grid_v.geoS, ϵ)
-    clip_A_acc_to_V(grid, grid_u, grid_v, grid.geoL, grid_u.geoL, grid_v.geoL, ϵ)
+    clip_A_acc_to_V(grid, grid_u, grid_v, LS.geoS, LS_u.geoS, LS_v.geoS, ϵ)
+    clip_A_acc_to_V(grid, grid_u, grid_v, LS.geoL, LS_u.geoL, LS_v.geoL, ϵ)
     
-    set_cap_bcs!(grid, periodic_x, periodic_y, empty)
-    set_cap_bcs!(grid_u, periodic_x, periodic_y, empty)
-    set_cap_bcs!(grid_v, periodic_x, periodic_y, empty)
+    set_cap_bcs!(grid, LS, periodic_x, periodic_y, empty)
+    set_cap_bcs!(grid_u, LS_u, periodic_x, periodic_y, empty)
+    set_cap_bcs!(grid_v, LS_v, periodic_x, periodic_y, empty)
 
-    dimensionalize!(grid, grid.geoS)
-    dimensionalize!(grid, grid.geoL)
-    dimensionalize!(grid_u, grid_u.geoS)
-    dimensionalize!(grid_u, grid_u.geoL)
-    dimensionalize!(grid_v, grid_v.geoS)
-    dimensionalize!(grid_v, grid_v.geoL)
+    dimensionalize!(grid, LS.geoS)
+    dimensionalize!(grid, LS.geoL)
+    dimensionalize!(grid_u, LS_u.geoS)
+    dimensionalize!(grid_u, LS_u.geoL)
+    dimensionalize!(grid_v, LS_v.geoS)
+    dimensionalize!(grid_v, LS_v.geoL)
 
-    Wcapacities!(grid.geoS.dcap, periodic_x, periodic_y)
-    Wcapacities!(grid.geoL.dcap, periodic_x, periodic_y)
-    Wcapacities!(grid_u.geoS.dcap, periodic_x, periodic_y)
-    Wcapacities!(grid_u.geoL.dcap, periodic_x, periodic_y)
-    Wcapacities!(grid_v.geoS.dcap, periodic_x, periodic_y)
-    Wcapacities!(grid_v.geoL.dcap, periodic_x, periodic_y)
+    Wcapacities!(LS.geoS.dcap, periodic_x, periodic_y)
+    Wcapacities!(LS.geoL.dcap, periodic_x, periodic_y)
+    Wcapacities!(LS_u.geoS.dcap, periodic_x, periodic_y)
+    Wcapacities!(LS_u.geoL.dcap, periodic_x, periodic_y)
+    Wcapacities!(LS_v.geoS.dcap, periodic_x, periodic_y)
+    Wcapacities!(LS_v.geoL.dcap, periodic_x, periodic_y)
 
-    average_face_capacities!(grid.geoS.dcap, periodic_x, periodic_y)
-    average_face_capacities!(grid.geoL.dcap, periodic_x, periodic_y)
-    average_face_capacities!(grid_u.geoS.dcap, periodic_x, periodic_y)
-    average_face_capacities!(grid_u.geoL.dcap, periodic_x, periodic_y)
-    average_face_capacities!(grid_v.geoS.dcap, periodic_x, periodic_y)
-    average_face_capacities!(grid_v.geoL.dcap, periodic_x, periodic_y)
+    average_face_capacities!(LS.geoS.dcap, periodic_x, periodic_y)
+    average_face_capacities!(LS.geoL.dcap, periodic_x, periodic_y)
+    average_face_capacities!(LS_u.geoS.dcap, periodic_x, periodic_y)
+    average_face_capacities!(LS_u.geoL.dcap, periodic_x, periodic_y)
+    average_face_capacities!(LS_v.geoS.dcap, periodic_x, periodic_y)
+    average_face_capacities!(LS_v.geoL.dcap, periodic_x, periodic_y)
 
     return nothing
 end
 
-function _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, near_interface)
-    @unpack x, y, nx, ny, dx, dy, ind, iso, faces, geoS, geoL, mid_point, α = grid
+function _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, near_interface)
+    @unpack x, y, nx, ny, dx, dy, ind = grid
+    @unpack iso, faces, geoS, geoL, mid_point, α = LS
 
     empty_capacities = vcat(zeros(7), zeros(4))
     full_capacities = vcat(ones(7), 0.5.*ones(4))
@@ -470,7 +473,7 @@ function _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, near_inte
             ISO = isovalue(vertices)
 
             if is_not_mixed(ISO) @goto notmixed end
-            face_capacities(grid, itp, ISO, II_0, II, posW, posS, posE, posN)
+            face_capacities(grid, faces, itp, ISO, II_0, II, posW, posS, posE, posN)
 
         end
         if ISO == -1
@@ -489,8 +492,8 @@ function _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, near_inte
     iso[II] = ISO
 end
 
-function marching_squares!(num, grid, u, periodic_x, periodic_y)
-    @unpack x, y, nx, ny, dx, dy, ind, iso, faces, geoS, geoL, mid_point, α = grid
+function marching_squares!(grid, LS, u, periodic_x, periodic_y)
+    @unpack x, y, nx, ny, dx, dy, ind = grid
 
     indices = vcat(
         vec(ind.inside), ind.b_left[1][2:end-1], ind.b_bottom[1][2:end-1],
@@ -510,54 +513,55 @@ function marching_squares!(num, grid, u, periodic_x, periodic_y)
     if !periodic_x
         @inbounds @threads for II in ind.b_left[1][2:end-1]
             II_0 = δx⁺(II)
-            _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, is_near_interface_l)
+            _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_l)
         end
         @inbounds @threads for II in ind.b_right[1][2:end-1]
             II_0 = δx⁻(II)
-            _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, is_near_interface_r)
+            _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_r)
         end
     end
     if !periodic_y
         @inbounds @threads for II in ind.b_bottom[1][2:end-1]
             II_0 = δy⁺(II)
-            _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, is_near_interface_b)
+            _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_b)
         end
         @inbounds @threads for II in ind.b_top[1][2:end-1]
             II_0 = δy⁻(II)
-            _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, is_near_interface_t)
+            _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_t)
         end
     end
 
     @inbounds @threads for II in _indices
-        _marching_squares!(grid, u, periodic_x, periodic_y, II, II, is_near_interface)
+        _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II, is_near_interface)
     end
 
     II = ind.b_left[1][1]
     II_0 = δy⁺(δx⁺(II))
-    _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, is_near_interface_bl)
+    _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_bl)
     
     II = ind.b_left[1][end]
     II_0 = δy⁻(δx⁺(II))
-    _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, is_near_interface_tl)
+    _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_tl)
     
     II = ind.b_right[1][1]
     II_0 = δy⁺(δx⁻(II))
-    _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, is_near_interface_br)
+    _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_br)
     
     II = ind.b_right[1][end]
     II_0 = δy⁻(δx⁻(II))
-    _marching_squares!(grid, u, periodic_x, periodic_y, II, II_0, is_near_interface_tr)
+    _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_tr)
     
     return nothing
 end
 
-function get_interface_location!(grid, indices, periodic_x, periodic_y)
-    @unpack x, y, iso, geoS, geoL, mid_point, cut_points, α = grid
+function get_interface_location!(grid, LS, periodic_x, periodic_y)
+    @unpack x, y = grid
+    @unpack iso, geoS, geoL, mid_point, cut_points, α, MIXED = LS
 
-    @inbounds @threads for II in indices
-        f = average_face_capacities(grid, II, periodic_x, periodic_y)
+    @inbounds @threads for II in MIXED
+        f = average_face_capacities(grid, LS, iso, II, periodic_x, periodic_y)
         geoS.cap[II,:], geoL.cap[II,:], α[II], geoS.centroid[II], geoL.centroid[II], mid_point[II], cut_points[II] = capacities(f, iso[II])
-        geoS.projection[II], geoL.projection[II] = projection_2points(grid, II)
+        geoS.projection[II], geoL.projection[II] = projection_2points(grid, LS, II)
     end
     return nothing
 end
@@ -628,9 +632,9 @@ function get_interface_location_borders!(grid::Mesh{GridFCy,T,N}, u, periodic_y)
     return nothing
 end
 
-function get_curvature(num, grid, u, κ, inside, per_x, per_y)
+function get_curvature(num, grid, geoL, u, κ, inside, per_x, per_y)
     @unpack Δ = num
-    @unpack x, y, nx, ny, ind, geoL = grid
+    @unpack x, y, nx, ny, ind = grid
 
     κ .= zeros(grid)
     @inbounds @threads for II in inside
@@ -1146,8 +1150,10 @@ function capacities(F_prev, case)
     return cap_sol, cap_liq, min(float(π),max(-float(π),α)), sol_centroid, liq_centroid, mid_point, cut_points
 end
 
-function set_cap_bcs!(grid::Mesh{GridCC,T,N}, periodic_x, periodic_y, empty = true) where {T,N}
-    @unpack nx, ny, geoS, geoL, mid_point = grid
+function set_cap_bcs!(grid::Mesh{GridCC,T,N}, LS, periodic_x, periodic_y, empty = true) where {T,N}
+    @unpack nx, ny = grid
+    @unpack geoS, geoL, mid_point = LS
+
     # set A and mid_point at the boundaries to 0 if not periodic in that direction
     if periodic_x
         @inbounds @threads for i = 1:ny
@@ -1183,9 +1189,10 @@ function set_cap_bcs!(grid::Mesh{GridCC,T,N}, periodic_x, periodic_y, empty = tr
     return nothing
 end
 
-function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, periodic_x, periodic_y, empty = true) where {T,N}
-    @unpack nx, ny, ind, geoS, geoL, mid_point, cut_points, iso = grid
+function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, LS, periodic_x, periodic_y, empty = true) where {T,N}
+    @unpack nx, ny, ind = grid
     @unpack b_left, b_bottom, b_right, b_top = ind
+    @unpack geoS, geoL, mid_point, cut_points, iso = LS
 
     # set A at the boundaries
     if periodic_y
@@ -1360,9 +1367,11 @@ function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, periodic_x, periodic_y, empty = t
     return nothing
 end
 
-function set_cap_bcs!(grid::Mesh{GridFCy,T,N}, periodic_x, periodic_y, empty = true) where {T,N}
-    @unpack nx, ny, ind, geoS, geoL, mid_point, cut_points, iso = grid
+function set_cap_bcs!(grid::Mesh{GridFCy,T,N}, LS, periodic_x, periodic_y, empty = true) where {T,N}
+    @unpack nx, ny, ind = grid
     @unpack b_left, b_bottom, b_right, b_top = ind
+    @unpack geoS, geoL, mid_point, cut_points, iso = LS
+
 
     # set A at the boundaries to 0 if not periodic in that direction
     if periodic_x
@@ -1577,8 +1586,8 @@ function Wcapacities!(cap, periodic_x, periodic_y)
     return nothing
 end
 
-function face_capacities(grid, itp, case, II_0, II, posW, posS, posE, posN)
-    @unpack nx, ny, dx, dy, faces = grid
+function face_capacities(grid, faces, itp, case, II_0, II, posW, posS, posE, posN)
+    @unpack nx, ny, dx, dy = grid
 
     if case == 1.0 || case == 14.0
         faces[II, 1] = ispositive(WEST_face(itp, posW, dy[II], dx[II_0], dy[II_0])) / dy[II]
@@ -1601,8 +1610,8 @@ function face_capacities(grid, itp, case, II_0, II, posW, posS, posE, posN)
     end
 end
 
-function average_face_capacities(grid, II, per_x, per_y)
-    @unpack nx, ny, ind, iso, faces = grid
+function average_face_capacities(grid, LS, iso, II, per_x, per_y)
+    @unpack nx, ny, ind = grid
     @unpack b_left, b_bottom, b_right, b_top = ind
 
     case = iso[II]
@@ -1628,29 +1637,29 @@ function average_face_capacities(grid, II, per_x, per_y)
         NS_fun = NS
     end
     if case == 1.0
-        f = SA_F64[WE_fun(grid, II, 0.0, 1.0, per_x), SN_fun(grid, II, 0.0, 1.0, per_y)]
+        f = SA_F64[WE_fun(grid, LS, II, 0.0, 1.0, per_x), SN_fun(grid, LS, II, 0.0, 1.0, per_y)]
     elseif case == 14.0
-        f = SA_F64[WE_fun(grid, II, 1.0, 0.0, per_x), SN_fun(grid, II, 1.0, 0.0, per_y)]
+        f = SA_F64[WE_fun(grid, LS, II, 1.0, 0.0, per_x), SN_fun(grid, LS, II, 1.0, 0.0, per_y)]
     elseif case == 2.0
-        f = SA_F64[SN_fun(grid, II, 1.0, 0.0, per_y), EW_fun(grid, II, 0.0, 1.0, per_x)]
+        f = SA_F64[SN_fun(grid, LS, II, 1.0, 0.0, per_y), EW_fun(grid, LS, II, 0.0, 1.0, per_x)]
     elseif case == 13.0
-        f = SA_F64[SN_fun(grid, II, 0.0, 1.0, per_y), EW_fun(grid, II, 1.0, 0.0, per_x)]
+        f = SA_F64[SN_fun(grid, LS, II, 0.0, 1.0, per_y), EW_fun(grid, LS, II, 1.0, 0.0, per_x)]
     elseif case == 3.0
-        f = SA_F64[WE_fun(grid, II, 0.0, 1.0, per_x), EW_fun(grid, II, 0.0, 1.0, per_x)]
+        f = SA_F64[WE_fun(grid, LS, II, 0.0, 1.0, per_x), EW_fun(grid, LS, II, 0.0, 1.0, per_x)]
     elseif case == 12.0
-        f = SA_F64[WE_fun(grid, II, 1.0, 0.0, per_x), EW_fun(grid, II, 1.0, 0.0, per_x)]
+        f = SA_F64[WE_fun(grid, LS, II, 1.0, 0.0, per_x), EW_fun(grid, LS, II, 1.0, 0.0, per_x)]
     elseif case == 4.0
-        f = SA_F64[EW_fun(grid, II, 1.0, 0.0, per_x), NS_fun(grid, II, 1.0, 0.0, per_y)]
+        f = SA_F64[EW_fun(grid, LS, II, 1.0, 0.0, per_x), NS_fun(grid, LS, II, 1.0, 0.0, per_y)]
     elseif case == 11.0
-        f = SA_F64[EW_fun(grid, II, 0.0, 1.0, per_x), NS_fun(grid, II, 0.0, 1.0, per_y)]
+        f = SA_F64[EW_fun(grid, LS, II, 0.0, 1.0, per_x), NS_fun(grid, LS, II, 0.0, 1.0, per_y)]
     elseif case == 6.0
-        f = SA_F64[SN_fun(grid, II, 1.0, 0.0, per_y), NS_fun(grid, II, 1.0, 0.0, per_y)]
+        f = SA_F64[SN_fun(grid, LS, II, 1.0, 0.0, per_y), NS_fun(grid, LS, II, 1.0, 0.0, per_y)]
     elseif case == 9.0
-        f = SA_F64[SN_fun(grid, II, 0.0, 1.0, per_y), NS_fun(grid, II, 0.0, 1.0, per_y)]
+        f = SA_F64[SN_fun(grid, LS, II, 0.0, 1.0, per_y), NS_fun(grid, LS, II, 0.0, 1.0, per_y)]
     elseif case == 7.0
-        f = SA_F64[WE_fun(grid, II, 0.0, 1.0, per_x), NS_fun(grid, II, 1.0, 0.0, per_y)]
+        f = SA_F64[WE_fun(grid, LS, II, 0.0, 1.0, per_x), NS_fun(grid, LS, II, 1.0, 0.0, per_y)]
     elseif case == 8.0
-        f = SA_F64[WE_fun(grid, II, 1.0, 0.0, per_x), NS_fun(grid, II, 0.0, 1.0, per_y)]
+        f = SA_F64[WE_fun(grid, LS, II, 1.0, 0.0, per_x), NS_fun(grid, LS, II, 0.0, 1.0, per_y)]
     else
         f = @SVector zeros(2)
     end
@@ -1814,8 +1823,9 @@ end
     end
 end
 
-function projection_2points(grid, II)
-    @unpack x_nodes, y_nodes, x, y, nx, ny, dx, dy, mid_point, α = grid
+function projection_2points(grid, LS, II)
+    @unpack x_nodes, y_nodes, x, y, nx, ny, dx, dy = grid
+    @unpack mid_point, α = LS
 
     h = Point(dx[II], dy[II])
     ĥ = sqrt(h.x^2 + h.y^2)

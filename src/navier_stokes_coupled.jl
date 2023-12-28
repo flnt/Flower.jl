@@ -1,4 +1,4 @@
-function set_borders!(grid, a0, a1, b, BC, per_x, per_y)
+function set_borders!(grid, cl, u, a0, a1, b, BC, per_x, per_y)
     @unpack nx, ny, ind = grid
 
     if per_y
@@ -26,10 +26,10 @@ function set_borders!(grid, a0, a1, b, BC, per_x, per_y)
         @inbounds a1[idx] .= -1.0
         @inbounds b[idx] .= BC.left.λ
     elseif is_navier_cl(BC.left)
-        @inbounds a1[intersect(idx, ind.cl)] .= -1.0
-        @inbounds a1[symdiff(idx, ind.cl)] .= -1.0
-        @inbounds b[intersect(idx, ind.cl)] .= BC.left.λ
-        @inbounds b[symdiff(idx, ind.cl)] .= 0.0
+        @inbounds a1[intersect(idx, cl)] .= -1.0
+        @inbounds a1[symdiff(idx, cl)] .= -1.0
+        @inbounds b[intersect(idx, cl)] .= BC.left.λ
+        @inbounds b[symdiff(idx, cl)] .= 0.0
     else
         @error ("Not implemented yet")
     end
@@ -51,10 +51,10 @@ function set_borders!(grid, a0, a1, b, BC, per_x, per_y)
         @inbounds a1[idx] .= -1.0
         @inbounds b[idx] .= BC.bottom.λ
     elseif is_navier_cl(BC.bottom)
-        @inbounds a1[intersect(idx, ind.cl)] .= -1.0
-        @inbounds a1[symdiff(idx, ind.cl)] .= -1.0
-        @inbounds b[intersect(idx, ind.cl)] .= BC.bottom.λ
-        @inbounds b[symdiff(idx, ind.cl)] .= 0.0
+        @inbounds a1[intersect(idx, cl)] .= -1.0
+        @inbounds a1[symdiff(idx, cl)] .= -1.0
+        @inbounds b[intersect(idx, cl)] .= BC.bottom.λ
+        @inbounds b[symdiff(idx, cl)] .= 0.0
     else
         @error ("Not implemented yet")
     end
@@ -76,10 +76,10 @@ function set_borders!(grid, a0, a1, b, BC, per_x, per_y)
         @inbounds a1[idx] .= -1.0
         @inbounds b[idx] .= BC.right.λ
     elseif is_navier_cl(BC.right)
-        @inbounds a1[intersect(idx, ind.cl)] .= -1.0
-        @inbounds a1[symdiff(idx, ind.cl)] .= -1.0
-        @inbounds b[intersect(idx, ind.cl)] .= BC.right.λ
-        @inbounds b[symdiff(idx, ind.cl)] .= 0.0
+        @inbounds a1[intersect(idx, cl)] .= -1.0
+        @inbounds a1[symdiff(idx, cl)] .= -1.0
+        @inbounds b[intersect(idx, cl)] .= BC.right.λ
+        @inbounds b[symdiff(idx, cl)] .= 0.0
     else
         @error ("Not implemented yet")
     end
@@ -101,10 +101,10 @@ function set_borders!(grid, a0, a1, b, BC, per_x, per_y)
         @inbounds a1[idx] .= -1.0
         @inbounds b[idx] .= BC.top.λ
     elseif is_navier_cl(BC.top)
-        @inbounds a1[intersect(idx, ind.cl)] .= -1.0
-        @inbounds a1[symdiff(idx, ind.cl)] .= -1.0
-        @inbounds b[intersect(idx, ind.cl)] .= BC.top.λ
-        @inbounds b[symdiff(idx, ind.cl)] .= 0.0
+        @inbounds a1[intersect(idx, cl)] .= -1.0
+        @inbounds a1[symdiff(idx, cl)] .= -1.0
+        @inbounds b[intersect(idx, cl)] .= BC.top.λ
+        @inbounds b[symdiff(idx, cl)] .= 0.0
     else
         @error ("Not implemented yet")
     end
@@ -112,8 +112,8 @@ function set_borders!(grid, a0, a1, b, BC, per_x, per_y)
     return nothing
 end
 
-function set_borders!(grid, a0, a1, b, BC, n_ext)
-    @unpack nx, ny, x, y, dx, dy, u, ind = grid
+function set_borders!(grid, cl, u, a0, a1, b, BC, n_ext)
+    @unpack nx, ny, x, y, dx, dy, ind = grid
 
     idx = 1:ny
     @inbounds a0[idx] .= BC.left.val .* ones(ny)
@@ -132,8 +132,8 @@ function set_borders!(grid, a0, a1, b, BC, n_ext)
         @inbounds a1[idx] .= -1.0
         @inbounds b[idx] .= BC.left.λ
     elseif is_navier_cl(BC.left)
-        idx_cl = intersect(CartesianIndices((idx,1)), ind.cl)
-        idx_no = symdiff(CartesianIndices((idx,1)), ind.cl)
+        idx_cl = intersect(CartesianIndices((idx,1)), cl)
+        idx_no = symdiff(CartesianIndices((idx,1)), cl)
         ϵb = zeros(grid)
         ϵb[idx_cl] .= n_ext .* dx[idx_cl]
 
@@ -146,8 +146,8 @@ function set_borders!(grid, a0, a1, b, BC, n_ext)
             @inbounds b[II[1]] = 0.0
         end
     elseif is_gnbc(BC.left)
-        # idx_cl = intersect(CartesianIndices((idx,1)), ind.cl)
-        # idx_no = symdiff(CartesianIndices((idx,1)), ind.cl)
+        # idx_cl = intersect(CartesianIndices((idx,1)), cl)
+        # idx_no = symdiff(CartesianIndices((idx,1)), cl)
 
         # bell = bell_function(grid, BC.ϵ)
         # @inbounds a0[idx] .+= bell[idx] .* BC.σ ./ BC.μ .* (cos(θd) .- cos(BC.θe))
@@ -182,8 +182,8 @@ function set_borders!(grid, a0, a1, b, BC, n_ext)
         @inbounds a1[_idx] .= -1.0
         @inbounds b[_idx] .= BC.bottom.λ
     elseif is_navier_cl(BC.bottom)
-        idx_cl = intersect(CartesianIndices((1,idx)), ind.cl)
-        idx_no = symdiff(CartesianIndices((1,idx)), ind.cl)
+        idx_cl = intersect(CartesianIndices((1,idx)), cl)
+        idx_no = symdiff(CartesianIndices((1,idx)), cl)
         ϵb = zeros(grid)
         ϵb[idx_cl] .= n_ext .* dy[idx_cl]
 
@@ -197,10 +197,10 @@ function set_borders!(grid, a0, a1, b, BC, n_ext)
         end
     elseif is_gnbc(BC.bottom)
         # @inbounds a0[idx] .+= bell[idx] .* BC.σ ./ BC.μ .* (cos(θd) .- cos(BC.θe))
-        # @inbounds a1[intersect(idx, ind.cl)] .= -1.0
-        # @inbounds a1[symdiff(idx, ind.cl)] .= -1.0
-        # @inbounds b[intersect(idx, ind.cl)] .= BC.bottom.λ
-        # @inbounds b[symdiff(idx, ind.cl)] .= 0.0
+        # @inbounds a1[intersect(idx, cl)] .= -1.0
+        # @inbounds a1[symdiff(idx, cl)] .= -1.0
+        # @inbounds b[intersect(idx, cl)] .= BC.bottom.λ
+        # @inbounds b[symdiff(idx, cl)] .= 0.0
         nothing
     else
         @error ("Not implemented yet")
@@ -224,8 +224,8 @@ function set_borders!(grid, a0, a1, b, BC, n_ext)
         @inbounds a1[_idx] .= -1.0
         @inbounds b[_idx] .= BC.right.λ
     elseif is_navier_cl(BC.right)
-        idx_cl = intersect(CartesianIndices((idx,nx)), ind.cl)
-        idx_no = symdiff(CartesianIndices((idx,nx)), ind.cl)
+        idx_cl = intersect(CartesianIndices((idx,nx)), cl)
+        idx_no = symdiff(CartesianIndices((idx,nx)), cl)
         ϵb = zeros(grid)
         ϵb[idx_cl] .= n_ext .* dx[idx_cl]
 
@@ -239,10 +239,10 @@ function set_borders!(grid, a0, a1, b, BC, n_ext)
         end
     elseif is_gnbc(BC.right)
         # @inbounds a0[idx] .+= bell[idx] .* BC.σ ./ BC.μ .* (cos(θd) .- cos(BC.θe))
-        # @inbounds a1[intersect(idx, ind.cl)] .= -1.0
-        # @inbounds a1[symdiff(idx, ind.cl)] .= -1.0
-        # @inbounds b[intersect(idx, ind.cl)] .= BC.right.λ
-        # @inbounds b[symdiff(idx, ind.cl)] .= 0.0
+        # @inbounds a1[intersect(idx, cl)] .= -1.0
+        # @inbounds a1[symdiff(idx, cl)] .= -1.0
+        # @inbounds b[intersect(idx, cl)] .= BC.right.λ
+        # @inbounds b[symdiff(idx, cl)] .= 0.0
         nothing
     else
         @error ("Not implemented yet")
@@ -266,8 +266,8 @@ function set_borders!(grid, a0, a1, b, BC, n_ext)
         @inbounds a1[_idx] .= -1.0
         @inbounds b[_idx] .= BC.top.λ
     elseif is_navier_cl(BC.top)
-        idx_cl = intersect(CartesianIndices((1,idx)), ind.cl)
-        idx_no = symdiff(CartesianIndices((1,idx)), ind.cl)
+        idx_cl = intersect(CartesianIndices((1,idx)), cl)
+        idx_no = symdiff(CartesianIndices((1,idx)), cl)
         ϵb = zeros(grid)
         ϵb[idx_cl] .= n_ext .* dy[idx_cl]
 
@@ -281,10 +281,10 @@ function set_borders!(grid, a0, a1, b, BC, n_ext)
         end
     elseif is_gnbc(BC.top)
         # @inbounds a0[idx] .+= bell[idx] .* BC.σ ./ BC.μ .* (cos(θd) .- cos(BC.θe))
-        # @inbounds a1[intersect(idx, ind.cl)] .= -1.0
-        # @inbounds a1[symdiff(idx, ind.cl)] .= -1.0
-        # @inbounds b[intersect(idx, ind.cl)] .= BC.top.λ
-        # @inbounds b[symdiff(idx, ind.cl)] .= 0.0
+        # @inbounds a1[intersect(idx, cl)] .= -1.0
+        # @inbounds a1[symdiff(idx, cl)] .= -1.0
+        # @inbounds b[intersect(idx, cl)] .= BC.top.λ
+        # @inbounds b[symdiff(idx, cl)] .= 0.0
         nothing
     else
         @error ("Not implemented yet")
@@ -570,11 +570,11 @@ function strain_rate(opC_u, opC_v)
     return data
 end
 
-function no_slip_condition!(grid, grid_u, grid_v)
+function no_slip_condition!(grid, grid_u, LS_u, grid_v, LS_v)
     interpolate_scalar!(grid, grid_u, grid_v, grid.V, grid_u.V, grid_v.V)
 
-    normalx = cos.(grid_u.α)
-    normaly = sin.(grid_v.α)
+    normalx = cos.(LS_u.α)
+    normaly = sin.(LS_v.α)
 
     grid_u.V .*= normalx
     grid_v.V .*= normaly
@@ -586,7 +586,7 @@ function no_slip_condition!(grid, grid_u, grid_v)
 end
 
 function set_convection!(
-    grid, geo, grid_u, geo_u, grid_v, geo_v,
+    grid, geo, grid_u, LS_u, grid_v, LS_v,
     u, v, op, ph, BC_u, BC_v
     )
     @unpack Cu, CUTCu, Cv, CUTCv = op
@@ -596,8 +596,8 @@ function set_convection!(
     Du_y = zeros(grid_u)
     Du_x .= reshape(veci(uD,grid_u,1), grid_u)
     Du_y .= reshape(veci(uD,grid_u,1), grid_u)
-    Du_x[grid_u.ind.MIXED] .= reshape(veci(uD,grid_u,2), grid_u)[grid_u.ind.MIXED]
-    Du_y[grid_u.ind.MIXED] .= reshape(veci(uD,grid_u,2), grid_u)[grid_u.ind.MIXED]
+    Du_x[LS_u.MIXED] .= reshape(veci(uD,grid_u,2), grid_u)[LS_u.MIXED]
+    Du_y[LS_u.MIXED] .= reshape(veci(uD,grid_u,2), grid_u)[LS_u.MIXED]
     Du_x[:,1] .= vec3_L(uD,grid_u)
     Du_x[:,2] .= u[:,2]
     Du_y[1,:] .= vec3_B(uD,grid_u)
@@ -611,8 +611,8 @@ function set_convection!(
     Dv_y = zeros(grid_v)
     Dv_x .= reshape(veci(vD,grid_v,1), grid_v)
     Dv_y .= reshape(veci(vD,grid_v,1), grid_v)
-    Dv_x[grid_v.ind.MIXED] .= reshape(veci(vD,grid_v,2), grid_v)[grid_v.ind.MIXED]
-    Dv_y[grid_v.ind.MIXED] .= reshape(veci(vD,grid_v,2), grid_v)[grid_v.ind.MIXED]
+    Dv_x[LS_v.MIXED] .= reshape(veci(vD,grid_v,2), grid_v)[LS_v.MIXED]
+    Dv_y[LS_v.MIXED] .= reshape(veci(vD,grid_v,2), grid_v)[LS_v.MIXED]
     Dv_x[:,1] .= vec3_L(vD,grid_v)
     Dv_x[:,2] .= v[:,2]
     Dv_y[1,:] .= vec3_B(vD,grid_v)
@@ -695,7 +695,7 @@ function CN_set_momentum(
     a0_b = zeros(nb)
     _a1_b = zeros(nb)
     _b_b = zeros(nb)
-    set_borders!(grid, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
+    set_borders!(grid, grid.LS[1].cl, grid.LS[1].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
     a1_b = Diagonal(vec(_a1_b))
     b_b = Diagonal(vec(_b_b))
 
@@ -781,7 +781,7 @@ function FE_set_momentum(
     a0_b = zeros(nb)
     _a1_b = zeros(nb)
     _b_b = zeros(nb)
-    set_borders!(grid, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
+    set_borders!(grid, grid.LS[1].cl, grid.LS[1].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
     a1_b = Diagonal(vec(_a1_b))
     b_b = Diagonal(vec(_b_b))
 
@@ -864,7 +864,7 @@ function set_poisson(
     a0_b = zeros(nb)
     _a1_b = zeros(nb)
     _b_b = zeros(nb)
-    set_borders!(grid, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
+    set_borders!(grid, grid.LS[1].cl, grid.LS[1].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
     a1_b = Diagonal(vec(_a1_b))
     b_b = Diagonal(vec(_b_b))
 
@@ -910,11 +910,11 @@ function set_CN!(
     )
 
     if advection
-        set_convection!(grid, geo, grid_u, geo_u, grid_v, geo_v, ph.u, ph.v, op_conv, ph, BC_u, BC_v)
+        set_convection!(grid, geo, grid_u, grid_u.LS[1], grid_v, grid_v.LS[1], ph.u, ph.v, op_conv, ph, BC_u, BC_v)
     end
 
     if ls_advection
-        update_ls_data(num, grid, grid_u, grid_v, grid.u, grid.κ, periodic_x, periodic_y, false)
+        update_ls_data(num, grid, grid_u, grid_v, grid.LS[1].u, grid.LS[1].κ, periodic_x, periodic_y, false)
 
         laps = set_matrices!(
             grid, geo, grid_u, geo_u, grid_v, geo_v,
@@ -960,11 +960,11 @@ function set_FE!(
     )
 
     if advection
-        set_convection!(grid, geo, grid_u, geo_u, grid_v, geo_v, ph.u, ph.v, op_conv, ph, BC_u, BC_v)
+        set_convection!(grid, geo, grid_u, grid_u.LS[1], grid_v, grid_v.LS[1], ph.u, ph.v, op_conv, ph, BC_u, BC_v)
     end
 
     if ls_advection
-        update_ls_data(num, grid, grid_u, grid_v, grid.u, grid.κ, periodic_x, periodic_y, false)
+        update_ls_data(num, grid, grid_u, grid_v, grid.LS[1].u, grid.LS[1].κ, periodic_x, periodic_y, false)
 
         laps = set_matrices!(
             grid, geo, grid_u, geo_u, grid_v, geo_v,
@@ -1111,7 +1111,7 @@ function pressure_projection!(
 
         GxT = opC_u.Gx'
         GyT = opC_v.Gy'
-        veci(rhs_ϕ,grid,2) .= -iRe .* S .+ σ .* (GxT * opC_u.Gx .+ GyT * opC_v.Gy) * vec(grid.κ)
+        veci(rhs_ϕ,grid,2) .= -iRe .* S .+ σ .* (GxT * opC_u.Gx .+ GyT * opC_v.Gy) * vec(grid.LS[1].κ)
     end
     # Remove nullspace by adding small quantity to main diagonal
     @inbounds @threads for i in 1:Aϕ.m
@@ -1212,7 +1212,7 @@ function linear_advection!(
 
     u_midp = 0.5 .* (u .+ u_guess)
     v_midp = 0.5 .* (v .+ v_guess)
-    set_convection!(grid, geo, grid_u, geo_u, grid_v, geo_v, u_midp, v_midp, op_conv, ph, BC_u, BC_v)
+    set_convection!(grid, geo, grid_u, grid_u.LS[1], grid_v, grid_v.LS[1], u_midp, v_midp, op_conv, ph, BC_u, BC_v)
 
     Convu .= Cu * vec(u_midp) .+ CUTCu
     vec1(rhs_u, grid_u) .-= τ .* Convu
@@ -1252,7 +1252,7 @@ function residual(u_guess, v_guess, num, grid, geo, grid_u, geo_u, grid_v, geo_v
     u_midp = 0.5 .* (u .+ u_guess)
     v_midp = 0.5 .* (v .+ v_guess)
 
-    set_convection!(grid, geo, grid_u, geo_u, grid_v, geo_v, u_midp, v_midp, op_conv, ph, BC_u, BC_v)
+    set_convection!(grid, geo, grid_u, grid_u.LS[1], grid_v, grid_v.LS[1], u_midp, v_midp, op_conv, ph, BC_u, BC_v)
     Convu .= Cu * vec(u_midp) .+ CUTCu
     Convv .= Cv * vec(v_midp) .+ CUTCv
     vec1(rhs_u, grid_u) .-= τ .* Convu
