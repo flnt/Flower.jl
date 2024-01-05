@@ -153,20 +153,20 @@ struct Operators{T <: Real, D <: Integer} <: MutatingFields
     By::SparseMatrixCSC{T,D}
     BxT::SparseMatrixCSC{T,D}
     ByT::SparseMatrixCSC{T,D}
-    Hx::SparseMatrixCSC{T,D}
-    Hy::SparseMatrixCSC{T,D}
-    HxT::SparseMatrixCSC{T,D}
-    HyT::SparseMatrixCSC{T,D}
+    Hx::Vector{SparseMatrixCSC{T,D}}
+    Hy::Vector{SparseMatrixCSC{T,D}}
+    HxT::Vector{SparseMatrixCSC{T,D}}
+    HyT::Vector{SparseMatrixCSC{T,D}}
     tmp_x::SparseMatrixCSC{T,D}
     tmp_y::SparseMatrixCSC{T,D}
     M::Diagonal{T,Vector{T}}
     iMx::Diagonal{T,Vector{T}}
     iMy::Diagonal{T,Vector{T}}
-    χ::Diagonal{T,Vector{T}}
+    χ::Vector{Diagonal{T,Vector{T}}}
     Rx::SparseMatrixCSC{T,D}
     Ry::SparseMatrixCSC{T,D}
-    Gx::SparseMatrixCSC{T,D}
-    Gy::SparseMatrixCSC{T,D}
+    Gx::Vector{SparseMatrixCSC{T,D}}
+    Gy::Vector{SparseMatrixCSC{T,D}}
     Hx_b::SparseMatrixCSC{T,D}
     Hy_b::SparseMatrixCSC{T,D}
     HxT_b::SparseMatrixCSC{T,D}

@@ -38,12 +38,12 @@ function run_forward(
     λ = 1,
     )
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations,
-            current_i, save_every, reinit_every, nb_reinit, δreinit, ϵ, m, θ₀, aniso, _nLS = num
+            current_i, save_every, reinit_every, nb_reinit, δreinit, ϵ, m, θ₀, aniso, nLS, _nLS = num
     @unpack opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL = op
     @unpack x, y, nx, ny, dx, dy, ind, LS, V = grid
 
-    if length(BC_int) != num.nLS
-        @error ("You have to specify $(num.nLS) boundary conditions.")
+    if length(BC_int) != nLS
+        @error ("You have to specify $(nLS) boundary conditions.")
         return nothing
     end
 
@@ -88,7 +88,11 @@ function run_forward(
     rhs_LS = fzeros(grid)
 
     if levelset
-        NB_indices = update_ls_data(num, grid, grid_u, grid_v, LS[1].u, LS[1].κ, periodic_x, periodic_y)
+        for iLS in 1:nLS
+            update_ls_data(num, grid, grid_u, grid_v, iLS, LS[iLS].u, LS[iLS].κ, periodic_x, periodic_y)
+        end
+        combine_levelsets!(num, grid)
+        NB_indices = update_ls_data(num, grid, grid_u, grid_v, _nLS, LS[end].u, LS[end].κ, periodic_x, periodic_y)
 
         if save_radius
             n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
@@ -113,14 +117,16 @@ function run_forward(
         fwd.length[1] = arc_length2(LS[1].geoS.projection, LS[1].MIXED)
     end
 
-    kill_dead_cells!(phS.T, grid, LS[1].geoS)
-    kill_dead_cells!(phL.T, grid, LS[1].geoL)
+    kill_dead_cells!(phS.T, grid, LS[end].geoS)
+    kill_dead_cells!(phL.T, grid, LS[end].geoL)
     
-    @views fwd.u[1,1,:,:] .= LS[1].u
-    @views fwd.ux[1,1,:,:] .= grid_u.LS[1].u
-    @views fwd.uy[1,1,:,:] .= grid_v.LS[1].u
-    @views fwd.κ[1,1,:,:] .= LS[1].κ
-    @views fwd.T[1,:,:] .= phL.T.*LS[1].geoL.cap[:,:,5] .+ phS.T[:,:].*LS[1].geoS.cap[:,:,5]
+    for iLS in 1:nLS
+        @views fwd.u[iLS,1,:,:] .= LS[iLS].u
+        @views fwd.ux[iLS,1,:,:] .= grid_u.LS[iLS].u
+        @views fwd.uy[iLS,1,:,:] .= grid_v.LS[iLS].u
+        @views fwd.κ[iLS,1,:,:] .= LS[iLS].κ
+    end
+    @views fwd.T[1,:,:] .= phL.T.*LS[end].geoL.cap[:,:,5] .+ phS.T[:,:].*LS[end].geoS.cap[:,:,5]
     @views fwdL.T[1,:,:] .= phL.T
     @views fwdS.T[1,:,:] .= phS.T
     @views fwdS.p[1,:,:] .= phS.p
@@ -130,43 +136,43 @@ function run_forward(
     @views fwdL.u[1,:,:] .= phL.u
     @views fwdL.v[1,:,:] .= phL.v
 
-    veci(phS.TD,grid,1) .= vec(phS.T)
-    veci(phS.TD,grid,2) .= θd
-    init_borders!(vec3(phS.TD,grid), BC_TS, θd)
+    vec1(phS.TD,grid) .= vec(phS.T)
+    vec2(phS.TD,grid) .= θd
+    init_borders!(vecb(phS.TD,grid), BC_TS, θd)
     @views fwdS.TD[1,:] .= phS.TD
 
-    veci(phL.TD,grid,1) .= vec(phL.T)
-    veci(phL.TD,grid,2) .= θd
-    init_borders!(vec3(phL.TD,grid), BC_TL, θd)
+    vec1(phL.TD,grid) .= vec(phL.T)
+    vec2(phL.TD,grid) .= θd
+    init_borders!(vecb(phL.TD,grid), BC_TL, θd)
     @views fwdL.TD[1,:] .= phL.TD
 
-    veci(phS.uD,grid_u,1) .= vec(phS.u)
-    veci(phS.uD,grid_u,2) .= num.uD
-    vec3(phS.uD,grid_u) .= num.u_inf
-    veci(phL.uD,grid_u,1) .= vec(phL.u)
-    veci(phL.uD,grid_u,2) .= num.uD
-    vec3(phL.uD,grid_u) .= num.u_inf
-    veci(phS.ucorrD,grid_u,1) .= vec(phS.u)
-    veci(phS.ucorrD,grid_u,2) .= num.uD
-    vec3(phS.ucorrD,grid_u) .= num.u_inf
-    veci(phL.ucorrD,grid_u,1) .= vec(phL.u)
-    veci(phL.ucorrD,grid_u,2) .= num.uD
-    vec3(phL.ucorrD,grid_u) .= num.u_inf
+    vec1(phS.uD,grid_u) .= vec(phS.u)
+    vec2(phS.uD,grid_u) .= num.uD
+    vecb(phS.uD,grid_u) .= num.u_inf
+    vec1(phL.uD,grid_u) .= vec(phL.u)
+    vec2(phL.uD,grid_u) .= num.uD
+    vecb(phL.uD,grid_u) .= num.u_inf
+    vec1(phS.ucorrD,grid_u) .= vec(phS.u)
+    vec2(phS.ucorrD,grid_u) .= num.uD
+    vecb(phS.ucorrD,grid_u) .= num.u_inf
+    vec1(phL.ucorrD,grid_u) .= vec(phL.u)
+    vec2(phL.ucorrD,grid_u) .= num.uD
+    vecb(phL.ucorrD,grid_u) .= num.u_inf
     @views fwdS.ucorrD[1,:,:] .= phS.ucorrD
     @views fwdL.ucorrD[1,:,:] .= phL.ucorrD
 
-    veci(phS.vD,grid_v,1) .= vec(phS.v)
-    veci(phS.vD,grid_v,2) .= num.vD
-    vec3(phS.vD,grid_v) .= num.v_inf
-    veci(phL.vD,grid_v,1) .= vec(phL.v)
-    veci(phL.vD,grid_v,2) .= num.vD
-    vec3(phL.vD,grid_v) .= num.v_inf
-    veci(phS.vcorrD,grid_v,1) .= vec(phS.v)
-    veci(phS.vcorrD,grid_v,2) .= num.vD
-    vec3(phS.vcorrD,grid_v) .= num.v_inf
-    veci(phL.vcorrD,grid_v,1) .= vec(phL.v)
-    veci(phL.vcorrD,grid_v,2) .= num.vD
-    vec3(phL.vcorrD,grid_v) .= num.v_inf
+    vec1(phS.vD,grid_v) .= vec(phS.v)
+    vec2(phS.vD,grid_v) .= num.vD
+    vecb(phS.vD,grid_v) .= num.v_inf
+    vec1(phL.vD,grid_v) .= vec(phL.v)
+    vec2(phL.vD,grid_v) .= num.vD
+    vecb(phL.vD,grid_v) .= num.v_inf
+    vec1(phS.vcorrD,grid_v) .= vec(phS.v)
+    vec2(phS.vcorrD,grid_v) .= num.vD
+    vecb(phS.vcorrD,grid_v) .= num.v_inf
+    vec1(phL.vcorrD,grid_v) .= vec(phL.v)
+    vec2(phL.vcorrD,grid_v) .= num.vD
+    vecb(phL.vcorrD,grid_v) .= num.v_inf
     @views fwdS.vcorrD[1,:,:] .= phS.vcorrD
     @views fwdL.vcorrD[1,:,:] .= phL.vcorrD
 
@@ -174,15 +180,25 @@ function run_forward(
     @views fwdS.pD[1,:] .= phS.pD
 
     if is_FE(time_scheme) || is_CN(time_scheme)
-        update_ls_data(num, grid, grid_u, grid_v, LS[1].u, LS[1].κ, periodic_x, periodic_y, false)
+        for iLS in 1:nLS
+            update_ls_data(num, grid, grid_u, grid_v, iLS, LS[iLS].u, LS[iLS].κ, periodic_x, periodic_y, false)
+        end
+        NB_indices = update_ls_data(num, grid, grid_u, grid_v, _nLS, LS[end].u, LS[end].κ, periodic_x, periodic_y, false)
 
         if navier_stokes || heat
+            geoS = [LS[iLS].geoS for iLS in 1:nLS]
+            geo_uS = [grid_u.LS[iLS].geoS for iLS in 1:nLS]
+            geo_vS = [grid_v.LS[iLS].geoS for iLS in 1:nLS]
             Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S = set_matrices!(
-                grid, LS[1].geoS, grid_u, grid_u.LS[1].geoS, grid_v, grid_v.LS[1].geoS,
+                num, grid, geoS, grid_u, geo_uS, grid_v, geo_vS,
                 opC_pS, opC_uS, opC_vS, periodic_x, periodic_y
             )
+
+            geoL = [LS[iLS].geoL for iLS in 1:nLS]
+            geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:nLS]
+            geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:nLS]
             Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L = set_matrices!(
-                grid, LS[1].geoL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
+                num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL,
                 opC_pL, opC_uL, opC_vL, periodic_x, periodic_y
             )
         end
@@ -196,39 +212,45 @@ function run_forward(
 
         if navier_stokes || heat
             AuS, BuS, _ = FE_set_momentum(
-                BC_int[1], num, grid_u, opC_uS,
+                BC_int, num, grid_u, opC_uS,
                 false, false,
                 iRe.*Lum1_S, iRe.*bc_Lum1_S, iRe.*bc_Lum1_b_S, Mum1_S, BC_uS,
                 true
             )
             AvS, BvS, _ = FE_set_momentum(
-                BC_int[1], num, grid_v, opC_vS,
+                BC_int, num, grid_v, opC_vS,
                 false, false,
                 iRe.*Lvm1_S, iRe.*bc_Lvm1_S, iRe.*bc_Lvm1_b_S, Mvm1_S, BC_vS,
                 true
             )
-            a0_p = zeros(grid)
+            a0_p = []
+            for i in 1:num.nLS
+                push!(a0_p, zeros(grid))
+            end
             AϕS, _ = set_poisson(
-                BC_int[1], num, grid, a0_p, opC_pS, opC_uS, opC_vS,
+                BC_int, num, grid, a0_p, opC_pS, opC_uS, opC_vS,
                 false, Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, BC_pS,
                 true
             )
 
             AuL, BuL, _ = FE_set_momentum(
-                BC_int[1], num, grid_u, opC_uL,
+                BC_int, num, grid_u, opC_uL,
                 false, false,
                 iRe.*Lum1_L, iRe.*bc_Lum1_L, iRe.*bc_Lum1_b_L, Mum1_L, BC_uL,
                 true
             )
             AvL, BvL, _ = FE_set_momentum(
-                BC_int[1], num, grid_v, opC_vL,
+                BC_int, num, grid_v, opC_vL,
                 false, false,
                 iRe.*Lvm1_L, iRe.*bc_Lvm1_L, iRe.*bc_Lvm1_b_L, Mvm1_L, BC_vL,
                 true
             )
-            a0_p = zeros(grid)
+            a0_p = []
+            for i in 1:num.nLS
+                push!(a0_p, zeros(grid))
+            end
             AϕL, _ = set_poisson(
-                BC_int[1], num, grid, a0_p, opC_pL, opC_uL, opC_vL,
+                BC_int, num, grid, a0_p, opC_pL, opC_uL, opC_vL,
                 false, Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, BC_pL,
                 true
             )
@@ -237,8 +259,8 @@ function run_forward(
         error("Unknown time scheme. Available options are ForwardEuler and CrankNicolson")
     end
 
-    V0S = volume(LS[1].geoS)
-    V0L = volume(LS[1].geoL)
+    V0S = volume(LS[end].geoS)
+    V0L = volume(LS[end].geoL)
 
     current_t = 0.
 
@@ -290,20 +312,22 @@ function run_forward(
         end
 
         if advection
-            if stefan
-                IIOE_normal!(grid, LS[1].A, LS[1].B, LS[1].u, V, CFL_sc, periodic_x, periodic_y)
-                u .= reshape(gmres(LS[1].A, (LS[1].B * vec(LS[1].u))), grid)
-                # u .= sqrt.((x .- current_i*Δ/1).^ 2 + y .^ 2) - (0.5) * ones(nx, ny);
-            elseif free_surface
-                rhs_LS .= 0.0
-                IIOE!(grid, grid_u, grid_v, LS[1].A, LS[1].B, θ_out, τ, periodic_x, periodic_y)
-                BC_LS!(grid, LS[1].u, LS[1].A, LS[1].B, rhs_LS, BC_u, num.n_ext_cl)
-                utmp .= reshape(gmres(LS[1].A, (LS[1].B * vec(LS[1].u))) .+ rhs_LS, grid)
-
-                rhs_LS .= 0.0
-                S2IIOE!(grid, grid_u, grid_v, LS[1].A, LS[1].B, utmp, LS[1].u, θ_out, τ, periodic_x, periodic_y)
-                BC_LS!(grid, LS[1].u, LS[1].A, LS[1].B, rhs_LS, BC_u, num.n_ext_cl)
-                LS[1].u .= reshape(gmres(LS[1].A, (LS[1].B * vec(LS[1].u))) .+ rhs_LS, grid)
+            for (iLS, bc) in enumerate(BC_int)
+                if is_stefan(bc)
+                    IIOE_normal!(grid, LS[iLS].A, LS[iLS].B, LS[iLS].u, V, CFL_sc, periodic_x, periodic_y)
+                    LS[iLS].u .= reshape(gmres(LS[iLS].A, (LS[iLS].B * vec(LS[iLS].u))), grid)
+                    # u .= sqrt.((x .- current_i*Δ/1).^ 2 + y .^ 2) - (0.5) * ones(nx, ny);
+                elseif is_fs(bc)
+                    rhs_LS .= 0.0
+                    IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, θ_out, τ, periodic_x, periodic_y)
+                    BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u, num.n_ext_cl)
+                    utmp .= reshape(gmres(LS[iLS].A, (LS[iLS].B * vec(LS[iLS].u))) .+ rhs_LS, grid)
+    
+                    rhs_LS .= 0.0
+                    S2IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, utmp, LS[iLS].u, θ_out, τ, periodic_x, periodic_y)
+                    BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u, num.n_ext_cl)
+                    LS[iLS].u .= reshape(gmres(LS[iLS].A, (LS[iLS].B * vec(LS[iLS].u))) .+ rhs_LS, grid)
+                end
             end
             if analytical
                 u[ind.b_top[1]] .= sqrt.(x[ind.b_top[1]] .^ 2 + y[ind.b_top[1]] .^ 2) .- (num.R + speed*current_i*τ);
@@ -312,12 +336,16 @@ function run_forward(
                 u[ind.b_right[1]] .= sqrt.(x[ind.b_right[1]] .^ 2 + y[ind.b_right[1]] .^ 2) .- (num.R + speed*current_i*τ);
             elseif nb_reinit > 0
                 if auto_reinit && current_i%num.reinit_every == 0
-                    ls_rg = rg(grid, LS[1].u, periodic_x, periodic_y)
-                    if ls_rg >= δreinit
-                        RK2_reinit!(ls_scheme, grid, ind, LS[1].u, nb_reinit, periodic_x, periodic_y, BC_u)
+                    for iLS in 1:nLS
+                        ls_rg = rg(grid, LS[iLS].u, periodic_x, periodic_y)
+                        if ls_rg >= δreinit
+                            RK2_reinit!(ls_scheme, grid, ind, LS[iLS].u, nb_reinit, periodic_x, periodic_y, BC_u)
+                        end
                     end
                 elseif current_i%num.reinit_every == 0
-                    RK2_reinit!(ls_scheme, grid, ind, LS[1].u, nb_reinit, periodic_x, periodic_y, BC_u)
+                    for iLS in 1:nLS
+                        RK2_reinit!(ls_scheme, grid, ind, LS[iLS].u, nb_reinit, periodic_x, periodic_y, BC_u)
+                    end
                 end
             end
             # numerical breakup
@@ -332,10 +360,10 @@ function run_forward(
         if verbose
             if (current_i-1)%show_every == 0
                 printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) \n" (current_i-1) 100*(current_i-1)/max_iterations)
-                if heat && length(LS[1].MIXED) != 0
+                if heat && length(LS[end].MIXED) != 0
                     print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f\n" mean(V[LS[1].MIXED]) findmax(V[LS[1].MIXED])[1] findmin(V[LS[1].MIXED])[1])
                     print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f\n" mean(LS[1].κ[LS[1].MIXED]) findmax(LS[1].κ[LS[1].MIXED])[1] findmin(LS[1].κ[LS[1].MIXED])[1])
-                elseif advection && length(LS[1].MIXED) != 0
+                elseif advection && length(LS[end].MIXED) != 0
                     V_mean = mean([mean(grid_u.V[LS[1].MIXED]), mean(grid_v.V[LS[1].MIXED])])
                     V_max = max(findmax(grid_u.V[LS[1].MIXED])[1], findmax(grid_v.V[LS[1].MIXED])[1])
                     V_min = min(findmin(grid_u.V[LS[1].MIXED])[1], findmin(grid_v.V[LS[1].MIXED])[1])
@@ -361,37 +389,41 @@ function run_forward(
 
 
         if levelset && (advection || current_i<2)
-            NB_indices = update_ls_data(num, grid, grid_u, grid_v, LS[1].u, LS[1].κ, periodic_x, periodic_y)
+            for iLS in 1:nLS
+                update_ls_data(num, grid, grid_u, grid_v, iLS, LS[iLS].u, LS[iLS].κ, periodic_x, periodic_y)
+            end
+            combine_levelsets!(num, grid)
+            NB_indices = update_ls_data(num, grid, grid_u, grid_v, _nLS, LS[end].u, LS[end].κ, periodic_x, periodic_y)
 
-            LS[1].geoL.fresh .= false
-            LS[1].geoS.fresh .= false
-            grid_u.LS[1].geoL.fresh .= false
-            grid_u.LS[1].geoS.fresh .= false
-            grid_v.LS[1].geoL.fresh .= false
-            grid_v.LS[1].geoS.fresh .= false
+            LS[end].geoL.fresh .= false
+            LS[end].geoS.fresh .= false
+            grid_u.LS[end].geoL.fresh .= false
+            grid_u.LS[end].geoS.fresh .= false
+            grid_v.LS[end].geoL.fresh .= false
+            grid_v.LS[end].geoS.fresh .= false
 
-            get_fresh_cells!(grid, grid.LS[1].geoS, Mm1_S, grid.ind.all_indices)
-            get_fresh_cells!(grid, grid.LS[1].geoL, Mm1_L, grid.ind.all_indices)
-            get_fresh_cells!(grid_u, grid_u.LS[1].geoS, Mum1_S, grid_u.ind.all_indices)
-            get_fresh_cells!(grid_u, grid_u.LS[1].geoL, Mum1_L, grid_u.ind.all_indices)
-            get_fresh_cells!(grid_v, grid_v.LS[1].geoS, Mvm1_S, grid_v.ind.all_indices)
-            get_fresh_cells!(grid_v, grid_v.LS[1].geoL, Mvm1_L, grid_v.ind.all_indices)
+            get_fresh_cells!(grid, grid.LS[end].geoS, Mm1_S, grid.ind.all_indices)
+            get_fresh_cells!(grid, grid.LS[end].geoL, Mm1_L, grid.ind.all_indices)
+            get_fresh_cells!(grid_u, grid_u.LS[end].geoS, Mum1_S, grid_u.ind.all_indices)
+            get_fresh_cells!(grid_u, grid_u.LS[end].geoL, Mum1_L, grid_u.ind.all_indices)
+            get_fresh_cells!(grid_v, grid_v.LS[end].geoS, Mvm1_S, grid_v.ind.all_indices)
+            get_fresh_cells!(grid_v, grid_v.LS[end].geoL, Mvm1_L, grid_v.ind.all_indices)
 
-            FRESH_L_u = findall(grid_u.LS[1].geoL.fresh)
-            FRESH_S_u = findall(grid_u.LS[1].geoS.fresh)
-            FRESH_L_v = findall(grid_v.LS[1].geoL.fresh)
-            FRESH_S_v = findall(grid_v.LS[1].geoS.fresh)
+            FRESH_L_u = findall(grid_u.LS[end].geoL.fresh)
+            FRESH_S_u = findall(grid_u.LS[end].geoS.fresh)
+            FRESH_L_v = findall(grid_v.LS[end].geoL.fresh)
+            FRESH_S_v = findall(grid_v.LS[end].geoS.fresh)
 
             if navier_stokes
-                init_fresh_cells!(grid_u, veci(phS.uD,grid_u,1), veci(phS.uD,grid_u,1), grid_u.LS[1].geoS.projection, FRESH_S_u, periodic_x, periodic_y)
-                init_fresh_cells!(grid_v, veci(phS.vD,grid_v,1), veci(phS.vD,grid_v,1), grid_v.LS[1].geoS.projection, FRESH_S_v, periodic_x, periodic_y)
-                init_fresh_cells!(grid_u, veci(phS.uD,grid_u,2), veci(phS.uD,grid_u,1), grid_u.LS[1].geoS.projection, FRESH_S_u, periodic_x, periodic_y)
-                init_fresh_cells!(grid_v, veci(phS.vD,grid_v,2), veci(phS.vD,grid_v,1), grid_v.LS[1].geoS.projection, FRESH_S_v, periodic_x, periodic_y)
+                init_fresh_cells!(grid_u, veci(phS.uD,grid_u,1), veci(phS.uD,grid_u,1), grid_u.LS[end].geoS.projection, FRESH_S_u, periodic_x, periodic_y)
+                init_fresh_cells!(grid_v, veci(phS.vD,grid_v,1), veci(phS.vD,grid_v,1), grid_v.LS[end].geoS.projection, FRESH_S_v, periodic_x, periodic_y)
+                init_fresh_cells!(grid_u, veci(phS.uD,grid_u,2), veci(phS.uD,grid_u,1), grid_u.LS[end].geoS.projection, FRESH_S_u, periodic_x, periodic_y)
+                init_fresh_cells!(grid_v, veci(phS.vD,grid_v,2), veci(phS.vD,grid_v,1), grid_v.LS[end].geoS.projection, FRESH_S_v, periodic_x, periodic_y)
 
-                init_fresh_cells!(grid_u, veci(phL.uD,grid_u,1), veci(phL.uD,grid_u,1), grid_u.LS[1].geoL.projection, FRESH_L_u, periodic_x, periodic_y)
-                init_fresh_cells!(grid_v, veci(phL.vD,grid_v,1), veci(phL.vD,grid_v,1), grid_v.LS[1].geoL.projection, FRESH_L_v, periodic_x, periodic_y)
-                init_fresh_cells!(grid_u, veci(phL.uD,grid_u,2), veci(phL.uD,grid_u,1), grid_u.LS[1].geoL.projection, FRESH_L_u, periodic_x, periodic_y)
-                init_fresh_cells!(grid_v, veci(phL.vD,grid_v,2), veci(phL.vD,grid_v,1), grid_v.LS[1].geoL.projection, FRESH_L_v, periodic_x, periodic_y)
+                init_fresh_cells!(grid_u, veci(phL.uD,grid_u,1), veci(phL.uD,grid_u,1), grid_u.LS[end].geoL.projection, FRESH_L_u, periodic_x, periodic_y)
+                init_fresh_cells!(grid_v, veci(phL.vD,grid_v,1), veci(phL.vD,grid_v,1), grid_v.LS[end].geoL.projection, FRESH_L_v, periodic_x, periodic_y)
+                init_fresh_cells!(grid_u, veci(phL.uD,grid_u,2), veci(phL.uD,grid_u,1), grid_u.LS[end].geoL.projection, FRESH_L_u, periodic_x, periodic_y)
+                init_fresh_cells!(grid_v, veci(phL.vD,grid_v,2), veci(phL.vD,grid_v,1), grid_v.LS[end].geoL.projection, FRESH_L_v, periodic_x, periodic_y)
             end
 
             if iszero(current_i%save_every) || current_i==max_iterations
@@ -422,9 +454,12 @@ function run_forward(
             end
 
             if ns_solid_phase
+                geoS = [LS[iLS].geoS for iLS in 1:nLS]
+                geo_uS = [grid_u.LS[iLS].geoS for iLS in 1:nLS]
+                geo_vS = [grid_v.LS[iLS].geoS for iLS in 1:nLS]
                 AϕS, Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, AuS, BuS, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, AvS, BvS, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,Mm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = pressure_projection!(
-                    time_scheme, BC_int[1],
-                    num, grid, LS[1].geoS, grid_u, grid_u.LS[1].geoS, grid_v, grid_v.LS[1].geoS, phS,
+                    time_scheme, BC_int,
+                    num, grid, geoS, grid_u, geo_uS, grid_v, geo_vS, phS,
                     BC_uS, BC_vS, BC_pS,
                     opC_pS, opC_uS, opC_vS, opS,
                     AuS, BuS, AvS, BvS, AϕS,
@@ -434,9 +469,12 @@ function run_forward(
                 )
             end
             if ns_liquid_phase
+                geoL = [LS[iLS].geoL for iLS in 1:nLS]
+                geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:nLS]
+                geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:nLS]
                 AϕL, Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, AuL, BvL, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, AvL, BvL, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = pressure_projection!(
-                    time_scheme, BC_int[1],
-                    num, grid, LS[1].geoL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL, phL,
+                    time_scheme, BC_int,
+                    num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
                     BC_uL, BC_vL, BC_pL,
                     opC_pL, opC_uL, opC_vL, opL,
                     AuL, BuL, AvL, BvL, AϕL,
@@ -459,44 +497,28 @@ function run_forward(
             end
             fwd.t[snap] = current_t
             @views fwd.V[snap,:,:] .= V
-            @views fwd.u[1,snap,:,:] .= LS[1].u
-            @views fwd.ux[1,snap,:,:] .= grid_u.LS[1].u
-            @views fwd.uy[1,snap,:,:] .= grid_v.LS[1].u
-            @views fwd.κ[1,snap,:,:] .= LS[1].κ
+            for iLS in 1:nLS
+                @views fwd.u[iLS,snap,:,:] .= LS[iLS].u
+                @views fwd.ux[iLS,snap,:,:] .= grid_u.LS[iLS].u
+                @views fwd.uy[iLS,snap,:,:] .= grid_v.LS[iLS].u
+                @views fwd.κ[iLS,snap,:,:] .= LS[iLS].κ
+            end
 
             if heat_solid_phase && heat_liquid_phase
-                @views fwd.T[snap,:,:] .= phL.T.*LS[1].geoL.cap[:,:,5] .+ phS.T.*LS[1].geoS.cap[:,:,5]
-                @views fwdL.T[snap,:,:] .= phL.T
-                @views fwdL.TD[snap,:] .= phL.TD
-                @views fwdS.T[snap,:,:] .= phS.T
-                @views fwdS.TD[snap,:] .= phS.TD
-            elseif heat_solid_phase
+                @views fwd.T[snap,:,:] .= phL.T.*LS[end].geoL.cap[:,:,5] .+ phS.T.*LS[end].geoS.cap[:,:,5]
+            end
+            if heat_solid_phase
                 @views fwd.T[snap,:,:] .= phS.T
                 @views fwdS.T[snap,:,:] .= phS.T
                 @views fwdS.TD[snap,:] .= phS.TD
-            elseif heat_liquid_phase
+            end
+            if heat_liquid_phase
                 @views fwd.T[snap,:,:] .= phL.T
                 @views fwdL.T[snap,:,:] .= phL.T
                 @views fwdL.TD[snap,:] .= phL.TD
             end
 
-            if ns_solid_phase && ns_liquid_phase
-                @views fwdS.p[snap,:,:] .= phS.p
-                @views fwdL.p[snap,:,:] .= phL.p
-                @views fwdL.pD[snap,:] .= phL.pD
-                @views fwdS.pD[snap,:] .= phS.pD
-                @views fwdS.ϕ[snap,:,:] .= phS.ϕ
-                @views fwdL.ϕ[snap,:,:] .= phL.ϕ
-                @views fwdS.u[snap,:,:] .= phS.u
-                @views fwdL.u[snap,:,:] .= phL.u
-                @views fwdS.v[snap,:,:] .= phS.v
-                @views fwdL.v[snap,:,:] .= phL.v
-                @views fwdS.ucorrD[snap,:,:] .= phS.ucorrD
-                @views fwdL.ucorrD[snap,:,:] .= phL.ucorrD
-                @views fwdS.vcorrD[snap,:,:] .= phS.vcorrD
-                @views fwdL.vcorrD[snap,:,:] .= phL.vcorrD
-                force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, fwdL; step=snap)
-            elseif ns_solid_phase
+            if ns_solid_phase
                 @views fwdS.p[snap,:,:] .= phS.p
                 @views fwdS.pD[snap,:] .= phS.pD
                 @views fwdS.ϕ[snap,:,:] .= phS.ϕ
@@ -504,7 +526,8 @@ function run_forward(
                 @views fwdS.v[snap,:,:] .= phS.v
                 @views fwdS.ucorrD[snap,:,:] .= phS.ucorrD
                 @views fwdS.vcorrD[snap,:,:] .= phS.vcorrD
-            elseif ns_liquid_phase
+            end
+            if ns_liquid_phase
                 @views fwdL.p[snap,:,:] .= phL.p
                 @views fwdL.pD[snap,:] .= phL.pD
                 @views fwdL.ϕ[snap,:,:] .= phL.ϕ
@@ -515,8 +538,8 @@ function run_forward(
                 force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, phL; step=snap)
             end
             if advection
-                fwdS.Vratio[snap] = volume(LS[1].geoS) / V0S
-                fwdL.Vratio[snap] = volume(LS[1].geoL) / V0L
+                fwdS.Vratio[snap] = volume(LS[end].geoS) / V0S
+                fwdL.Vratio[snap] = volume(LS[end].geoL) / V0L
             end
         end
         # force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, phL; step=current_i+1)
@@ -557,7 +580,7 @@ function run_forward(
             end
             print("\n\n")
         catch
-            @show (length(LS[1].MIXED))
+            @show (length(LS[end].MIXED))
         end
     end
 

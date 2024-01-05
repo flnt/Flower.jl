@@ -1578,3 +1578,13 @@ function breakup_f(u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, ϵ_bre
     end
     return count
 end
+
+function combine_levelsets!(num, grid)
+    @unpack ind = grid
+    
+    @inbounds @threads for II in ind.all_indices
+        grid.LS[end].u[II] = minimum([grid.LS[iLS].u[II] for iLS in 1:num.nLS])
+    end
+
+    return nothing
+end

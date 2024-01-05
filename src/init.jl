@@ -310,7 +310,7 @@ function init_sparse_ByT(grid)
 end
 
 function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
-    @unpack τ, N, T_inf, u_inf, v_inf, A, R, L0, Δ, shifted, max_iterations, save_every, CFL, x_airfoil, y_airfoil, _nLS = num
+    @unpack τ, N, T_inf, u_inf, v_inf, A, R, L0, Δ, shifted, max_iterations, save_every, CFL, x_airfoil, y_airfoil, nLS, _nLS = num
     @unpack x, y, nx, ny, LS, ind = grid
 
     SCUTCT = fzeros(grid)
@@ -421,49 +421,49 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     # Coupled system operators
     Bx_TS = init_sparse_Bx(grid)
     Bx_TL = init_sparse_Bx(grid)
-    Hx_TS = init_sparse_Bx(grid)
-    Hx_TL = init_sparse_Bx(grid)
+    Hx_TS = [init_sparse_Bx(grid) for iLS in 1:nLS]
+    Hx_TL = [init_sparse_Bx(grid) for iLS in 1:nLS]
 
     Bx_pS = init_sparse_Bx(grid)
     Bx_pL = init_sparse_Bx(grid)
-    Hx_pS = init_sparse_Bx(grid)
-    Hx_pL = init_sparse_Bx(grid)
-    Gx_S = init_sparse_Bx(grid)
-    Gx_L = init_sparse_Bx(grid)
+    Hx_pS = [init_sparse_Bx(grid) for iLS in 1:nLS]
+    Hx_pL = [init_sparse_Bx(grid) for iLS in 1:nLS]
+    Gx_S = [init_sparse_Bx(grid) for iLS in 1:nLS]
+    Gx_L = [init_sparse_Bx(grid) for iLS in 1:nLS]
 
     Bx_uS = init_sparse_Bx(grid_u)
     Bx_uL = init_sparse_Bx(grid_u)
-    Hx_uS = init_sparse_Bx(grid_u)
-    Hx_uL = init_sparse_Bx(grid_u)
+    Hx_uS = [init_sparse_Bx(grid_u) for iLS in 1:nLS]
+    Hx_uL = [init_sparse_Bx(grid_u) for iLS in 1:nLS]
 
     Bx_vS = init_sparse_Bx(grid_v)
     Bx_vL = init_sparse_Bx(grid_v)
-    Hx_vS = init_sparse_Bx(grid_v)
-    Hx_vL = init_sparse_Bx(grid_v)
+    Hx_vS = [init_sparse_Bx(grid_v) for iLS in 1:nLS]
+    Hx_vL = [init_sparse_Bx(grid_v) for iLS in 1:nLS]
 
     # 2 points stencil (p grid to v grid)
     # Coupled system operators
     By_TS = init_sparse_By(grid)
     By_TL = init_sparse_By(grid)
-    Hy_TS = init_sparse_By(grid)
-    Hy_TL = init_sparse_By(grid)
+    Hy_TS = [init_sparse_By(grid) for iLS in 1:nLS]
+    Hy_TL = [init_sparse_By(grid) for iLS in 1:nLS]
 
     By_pS = init_sparse_By(grid)
     By_pL = init_sparse_By(grid)
-    Hy_pS = init_sparse_By(grid)
-    Hy_pL = init_sparse_By(grid)
-    Gy_S = init_sparse_By(grid)
-    Gy_L = init_sparse_By(grid)
+    Hy_pS = [init_sparse_By(grid) for iLS in 1:nLS]
+    Hy_pL = [init_sparse_By(grid) for iLS in 1:nLS]
+    Gy_S = [init_sparse_By(grid) for iLS in 1:nLS]
+    Gy_L = [init_sparse_By(grid) for iLS in 1:nLS]
 
     By_uS = init_sparse_By(grid_u)
     By_uL = init_sparse_By(grid_u)
-    Hy_uS = init_sparse_By(grid_u)
-    Hy_uL = init_sparse_By(grid_u)
+    Hy_uS = [init_sparse_By(grid_u) for iLS in 1:nLS]
+    Hy_uL = [init_sparse_By(grid_u) for iLS in 1:nLS]
 
     By_vS = init_sparse_By(grid_v)
     By_vL = init_sparse_By(grid_v)
-    Hy_vS = init_sparse_By(grid_v)
-    Hy_vL = init_sparse_By(grid_v)
+    Hy_vS = [init_sparse_By(grid_v) for iLS in 1:nLS]
+    Hy_vL = [init_sparse_By(grid_v) for iLS in 1:nLS]
 
     # 2 points stencil (u grid to p grid)
     E11 = init_sparse_BxT(grid)
@@ -473,31 +473,31 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     AxT_TL = init_sparse_BxT(grid)
     BxT_TS = init_sparse_BxT(grid)
     BxT_TL = init_sparse_BxT(grid)
-    HxT_TS = init_sparse_BxT(grid)
-    HxT_TL = init_sparse_BxT(grid)
+    HxT_TS = [init_sparse_BxT(grid) for iLS in 1:nLS]
+    HxT_TL = [init_sparse_BxT(grid) for iLS in 1:nLS]
 
     AxT_pS = init_sparse_BxT(grid)
     AxT_pL = init_sparse_BxT(grid)
     BxT_pS = init_sparse_BxT(grid)
     BxT_pL = init_sparse_BxT(grid)
-    HxT_pS = init_sparse_BxT(grid)
-    HxT_pL = init_sparse_BxT(grid)
-    GxT_S = init_sparse_BxT(grid)
-    GxT_L = init_sparse_BxT(grid)
+    HxT_pS = [init_sparse_BxT(grid) for iLS in 1:nLS]
+    HxT_pL = [init_sparse_BxT(grid) for iLS in 1:nLS]
+    GxT_S = [init_sparse_BxT(grid) for iLS in 1:nLS]
+    GxT_L = [init_sparse_BxT(grid) for iLS in 1:nLS]
 
     AxT_uS = init_sparse_BxT(grid_u)
     AxT_uL = init_sparse_BxT(grid_u)
     BxT_uS = init_sparse_BxT(grid_u)
     BxT_uL = init_sparse_BxT(grid_u)
-    HxT_uS = init_sparse_BxT(grid_u)
-    HxT_uL = init_sparse_BxT(grid_u)
+    HxT_uS = [init_sparse_BxT(grid_u) for iLS in 1:nLS]
+    HxT_uL = [init_sparse_BxT(grid_u) for iLS in 1:nLS]
 
     AxT_vS = init_sparse_BxT(grid_v)
     AxT_vL = init_sparse_BxT(grid_v)
     BxT_vS = init_sparse_BxT(grid_v)
     BxT_vL = init_sparse_BxT(grid_v)
-    HxT_vS = init_sparse_BxT(grid_v)
-    HxT_vL = init_sparse_BxT(grid_v)
+    HxT_vS = [init_sparse_BxT(grid_v) for iLS in 1:nLS]
+    HxT_vL = [init_sparse_BxT(grid_v) for iLS in 1:nLS]
 
     # 2 points stencil (v grid to p grid)
     E22 = init_sparse_ByT(grid)
@@ -507,31 +507,31 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     AyT_TL = init_sparse_ByT(grid)
     ByT_TS = init_sparse_ByT(grid)
     ByT_TL = init_sparse_ByT(grid)
-    HyT_TS = init_sparse_ByT(grid)
-    HyT_TL = init_sparse_ByT(grid)
+    HyT_TS = [init_sparse_ByT(grid) for iLS in 1:nLS]
+    HyT_TL = [init_sparse_ByT(grid) for iLS in 1:nLS]
 
     AyT_pS = init_sparse_ByT(grid)
     AyT_pL = init_sparse_ByT(grid)
     ByT_pS = init_sparse_ByT(grid)
     ByT_pL = init_sparse_ByT(grid)
-    HyT_pS = init_sparse_ByT(grid)
-    HyT_pL = init_sparse_ByT(grid)
-    GyT_S = init_sparse_ByT(grid)
-    GyT_L = init_sparse_ByT(grid)
+    HyT_pS = [init_sparse_ByT(grid) for iLS in 1:nLS]
+    HyT_pL = [init_sparse_ByT(grid) for iLS in 1:nLS]
+    GyT_S = [init_sparse_ByT(grid) for iLS in 1:nLS]
+    GyT_L = [init_sparse_ByT(grid) for iLS in 1:nLS]
 
     AyT_uS = init_sparse_ByT(grid_u)
     AyT_uL = init_sparse_ByT(grid_u)
     ByT_uS = init_sparse_ByT(grid_u)
     ByT_uL = init_sparse_ByT(grid_u)
-    HyT_uS = init_sparse_ByT(grid_u)
-    HyT_uL = init_sparse_ByT(grid_u)
+    HyT_uS = [init_sparse_ByT(grid_u) for iLS in 1:nLS]
+    HyT_uL = [init_sparse_ByT(grid_u) for iLS in 1:nLS]
 
     AyT_vS = init_sparse_ByT(grid_v)
     AyT_vL = init_sparse_ByT(grid_v)
     ByT_vS = init_sparse_ByT(grid_v)
     ByT_vL = init_sparse_ByT(grid_v)
-    HyT_vS = init_sparse_ByT(grid_v)
-    HyT_vL = init_sparse_ByT(grid_v)
+    HyT_vS = [init_sparse_ByT(grid_v) for iLS in 1:nLS]
+    HyT_vL = [init_sparse_ByT(grid_v) for iLS in 1:nLS]
 
     # 2 points stencil (u grid to p' grid)
     is = collect(i for i = 1:nx*ny)
@@ -648,8 +648,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     iMx_bd_TL = Diagonal(zeros(2*nx+2*ny))
     iMy_bd_TS = Diagonal(zeros(2*nx+2*ny))
     iMy_bd_TL = Diagonal(zeros(2*nx+2*ny))
-    χ_TS = Diagonal(fzeros(grid))
-    χ_TL = Diagonal(fzeros(grid))
+    χ_TS = [Diagonal(fzeros(grid)) for iLS in 1:nLS]
+    χ_TL = [Diagonal(fzeros(grid)) for iLS in 1:nLS]
     χ_b_TS = Diagonal(zeros(2*grid.nx+2*grid.ny))
     χ_b_TL = Diagonal(zeros(2*grid.nx+2*grid.ny))
 
@@ -664,8 +664,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     iMx_bd_pL = Diagonal(zeros(2*nx+2*ny))
     iMy_bd_pS = Diagonal(zeros(2*nx+2*ny))
     iMy_bd_pL = Diagonal(zeros(2*nx+2*ny))
-    χ_pS = Diagonal(fzeros(grid))
-    χ_pL = Diagonal(fzeros(grid))
+    χ_pS = [Diagonal(fzeros(grid)) for iLS in 1:nLS]
+    χ_pL = [Diagonal(fzeros(grid)) for iLS in 1:nLS]
     χ_b_pS = Diagonal(zeros(2*grid.nx+2*grid.ny))
     χ_b_pL = Diagonal(zeros(2*grid.nx+2*grid.ny))
 
@@ -679,8 +679,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     iMx_bd_uL = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
     iMy_bd_uS = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
     iMy_bd_uL = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
-    χ_uS = Diagonal(fzeros(grid_u))
-    χ_uL = Diagonal(fzeros(grid_u))
+    χ_uS = [Diagonal(fzeros(grid_u)) for iLS in 1:nLS]
+    χ_uL = [Diagonal(fzeros(grid_u)) for iLS in 1:nLS]
     χ_b_uS = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
     χ_b_uL = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
 
@@ -694,8 +694,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     iMx_bd_vL = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
     iMy_bd_vS = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
     iMy_bd_vL = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
-    χ_vS = Diagonal(fzeros(grid_v))
-    χ_vL = Diagonal(fzeros(grid_v))
+    χ_vS = [Diagonal(fzeros(grid_v)) for iLS in 1:nLS]
+    χ_vL = [Diagonal(fzeros(grid_v)) for iLS in 1:nLS]
     χ_b_vS = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
     χ_b_vL = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
 
@@ -939,20 +939,20 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     DuL = zeros(grid_u)
     DvS = zeros(grid_v)
     DvL = zeros(grid_v)
-    TDS = f3zeros(grid)
-    TDL = f3zeros(grid)
-    pDS = f3zeros(grid)
-    pDL = f3zeros(grid)
-    ϕDS = f3zeros(grid)
-    ϕDL = f3zeros(grid)
-    uDS = f3zeros(grid_u)
-    uDL = f3zeros(grid_u)
-    vDS = f3zeros(grid_v)
-    vDL = f3zeros(grid_v)
-    ucorrDS = f3zeros(grid_u)
-    ucorrDL = f3zeros(grid_u)
-    vcorrDS = f3zeros(grid_v)
-    vcorrDL = f3zeros(grid_v)
+    TDS = fnzeros(grid, num)
+    TDL = fnzeros(grid, num)
+    pDS = fnzeros(grid, num)
+    pDL = fnzeros(grid, num)
+    ϕDS = fnzeros(grid, num)
+    ϕDL = fnzeros(grid, num)
+    uDS = fnzeros(grid_u, num)
+    uDL = fnzeros(grid_u, num)
+    vDS = fnzeros(grid_v, num)
+    vDL = fnzeros(grid_v, num)
+    ucorrDS = fnzeros(grid_u, num)
+    ucorrDL = fnzeros(grid_u, num)
+    vcorrDS = fnzeros(grid_v, num)
+    vcorrDL = fnzeros(grid_v, num)
 
     n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
     
@@ -976,14 +976,14 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     time = zeros(n_snaps)
     Cd = zeros(n_snaps)
     Cl = zeros(n_snaps)
-    TDSsave = f3zeros(n_snaps, grid)
-    TDLsave = f3zeros(n_snaps, grid)
-    pDSsave = f3zeros(n_snaps, grid)
-    pDLsave = f3zeros(n_snaps, grid)
-    ucorrDSsave = f3zeros(n_snaps, grid_u)
-    ucorrDLsave = f3zeros(n_snaps, grid_u)
-    vcorrDSsave = f3zeros(n_snaps, grid_v)
-    vcorrDLsave = f3zeros(n_snaps, grid_v)
+    TDSsave = fnzeros(n_snaps, grid, num)
+    TDLsave = fnzeros(n_snaps, grid, num)
+    pDSsave = fnzeros(n_snaps, grid, num)
+    pDLsave = fnzeros(n_snaps, grid, num)
+    ucorrDSsave = fnzeros(n_snaps, grid_u, num)
+    ucorrDLsave = fnzeros(n_snaps, grid_u, num)
+    vcorrDSsave = fnzeros(n_snaps, grid_v, num)
+    vcorrDLsave = fnzeros(n_snaps, grid_v, num)
     VratioS = ones(n_snaps)
     VratioL = ones(n_snaps)
 

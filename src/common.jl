@@ -36,6 +36,10 @@ const newaxis = [CartesianIndex()]
 @inline f3zeros(a::Integer, g::Grid) = zeros(a, 2 * g.ny * g.nx + 2 * g.nx + 2 * g.ny)
 @inline f3zeros(g::Grid, a::Integer) = zeros(2 * g.ny * g.nx + 2 * g.nx + 2 * g.ny, a)
 
+@inline fnzeros(g::Grid, n::Numerical) = zeros((n.nLS + 1) * g.ny * g.nx + 2 * g.nx + 2 * g.ny)
+@inline fnzeros(a::Integer, g::Grid, n::Numerical) = zeros(a, (n.nLS + 1) * g.ny * g.nx + 2 * g.nx + 2 * g.ny)
+@inline fnzeros(g::Grid, n::Numerical, a::Integer) = zeros((n.nLS + 1) * g.ny * g.nx + 2 * g.nx + 2 * g.ny, a)
+
 @inline ones(g::Grid) = ones(g.ny, g.nx)
 @inline ones(a::Integer, g::Grid) = ones(a, g.ny, g.nx)
 @inline ones(g::Grid, a::Integer) = ones(g.ny, g.nx,a)
@@ -52,19 +56,24 @@ const newaxis = [CartesianIndex()]
 @inline f3ones(a::Integer, g::Grid) = ones(a, 2 * g.ny * g.nx + 2 * g.nx + 2 * g.ny)
 @inline f3ones(g::Grid, a::Integer) = ones(2 * g.ny * g.nx + 2 * g.nx + 2 * g.ny, a)
 
+@inline fnones(g::Grid, n::Numerical) = ones((n.nLS + 1) * g.ny * g.nx + 2 * g.nx + 2 * g.ny)
+@inline fnones(a::Integer, g::Grid, n::Numerical) = ones(a, (n.nLS + 1) * g.ny * g.nx + 2 * g.nx + 2 * g.ny)
+@inline fnones(g::Grid, n::Numerical, a::Integer) = ones((n.nLS + 1) * g.ny * g.nx + 2 * g.nx + 2 * g.ny, a)
+
 @inline reshape(a, g::Grid) = reshape(a, (g.ny, g.nx))
 
 # Temporary function to get a certain field from a vector with 
 # multiple fields. To be removed when working with decomposed 
 # vectors directly
-veci(a, g::G, p::Integer) where {G<:Grid} = @view a[g.ny*g.nx*(p-1)+1:g.ny*g.nx*p]
+veci(a, g::G, p::Integer = 1) where {G<:Grid} = @view a[g.ny*g.nx*(p-1)+1:g.ny*g.nx*p]
 vec1(a, g::G) where {G<:Grid} = @view a[1:g.ny*g.nx]
 vec2(a, g::G) where {G<:Grid} = @view a[g.ny*g.nx+1:g.ny*g.nx*2]
-vec3(a, g::G) where {G<:Grid} = @view a[g.ny*g.nx*2+1:end]
-vec3_L(a,g::G) where {G<:Grid} = @view vec3(a, g)[1:g.ny]
-vec3_B(a,g::G) where {G<:Grid} = @view vec3(a, g)[g.ny+1:g.ny+g.nx]
-vec3_R(a,g::G) where {G<:Grid} = @view vec3(a, g)[g.ny+g.nx+1:2*g.ny+g.nx]
-vec3_T(a,g::G) where {G<:Grid} = @view vec3(a, g)[2*g.ny+g.nx+1:2*g.ny+2*g.nx]
+vec3(a, g::G) where {G<:Grid} = @view a[g.ny*g.nx*2+1:g.ny*g.nx*3]
+vecb(a, g::G) where {G<:Grid} = @view a[end-2*g.ny-2*g.nx+1:end]
+vecb_L(a,g::G) where {G<:Grid} = @view vecb(a, g)[1:g.ny]
+vecb_B(a,g::G) where {G<:Grid} = @view vecb(a, g)[g.ny+1:g.ny+g.nx]
+vecb_R(a,g::G) where {G<:Grid} = @view vecb(a, g)[g.ny+g.nx+1:2*g.ny+g.nx]
+vecb_T(a,g::G) where {G<:Grid} = @view vecb(a, g)[2*g.ny+g.nx+1:2*g.ny+2*g.nx]
 
 function veci(a, g::Vector{G}, p::Integer) where {G<:Grid}
     c0 = 1
