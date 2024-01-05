@@ -120,7 +120,7 @@ function run_forward(
     kill_dead_cells!(phS.T, grid, LS[end].geoS)
     kill_dead_cells!(phL.T, grid, LS[end].geoL)
     
-    for iLS in 1:nLS
+    for iLS in 1:_nLS
         @views fwd.u[iLS,1,:,:] .= LS[iLS].u
         @views fwd.ux[iLS,1,:,:] .= grid_u.LS[iLS].u
         @views fwd.uy[iLS,1,:,:] .= grid_v.LS[iLS].u
@@ -183,20 +183,21 @@ function run_forward(
         for iLS in 1:nLS
             update_ls_data(num, grid, grid_u, grid_v, iLS, LS[iLS].u, LS[iLS].κ, periodic_x, periodic_y, false)
         end
+        combine_levelsets!(num, grid)
         NB_indices = update_ls_data(num, grid, grid_u, grid_v, _nLS, LS[end].u, LS[end].κ, periodic_x, periodic_y, false)
 
         if navier_stokes || heat
-            geoS = [LS[iLS].geoS for iLS in 1:nLS]
-            geo_uS = [grid_u.LS[iLS].geoS for iLS in 1:nLS]
-            geo_vS = [grid_v.LS[iLS].geoS for iLS in 1:nLS]
+            geoS = [LS[iLS].geoS for iLS in 1:_nLS]
+            geo_uS = [grid_u.LS[iLS].geoS for iLS in 1:_nLS]
+            geo_vS = [grid_v.LS[iLS].geoS for iLS in 1:_nLS]
             Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S = set_matrices!(
                 num, grid, geoS, grid_u, geo_uS, grid_v, geo_vS,
                 opC_pS, opC_uS, opC_vS, periodic_x, periodic_y
             )
 
-            geoL = [LS[iLS].geoL for iLS in 1:nLS]
-            geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:nLS]
-            geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:nLS]
+            geoL = [LS[iLS].geoL for iLS in 1:_nLS]
+            geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:_nLS]
+            geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:_nLS]
             Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L = set_matrices!(
                 num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL,
                 opC_pL, opC_uL, opC_vL, periodic_x, periodic_y
@@ -301,10 +302,12 @@ function run_forward(
             end
         end
 
-        if stefan
-            update_stefan_velocity(num, grid, LS[1].u, phS.T, phL.T, periodic_x, periodic_y, λ, Vmean)
-        elseif free_surface
-            update_free_surface_velocity(num, grid_u, grid_v, phL.uD, phL.vD, periodic_x, periodic_y)
+        for iLS in 1:nLS
+            if is_stefan(BC_int[iLS])
+                update_stefan_velocity(num, grid, iLS, LS[iLS].u, phS.T, phL.T, periodic_x, periodic_y, λ, Vmean)
+            elseif is_fs(BC_int[iLS])
+                update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y)
+            end
         end
 
         if verbose && adaptative_t
@@ -415,15 +418,23 @@ function run_forward(
             FRESH_S_v = findall(grid_v.LS[end].geoS.fresh)
 
             if navier_stokes
-                init_fresh_cells!(grid_u, veci(phS.uD,grid_u,1), veci(phS.uD,grid_u,1), grid_u.LS[end].geoS.projection, FRESH_S_u, periodic_x, periodic_y)
-                init_fresh_cells!(grid_v, veci(phS.vD,grid_v,1), veci(phS.vD,grid_v,1), grid_v.LS[end].geoS.projection, FRESH_S_v, periodic_x, periodic_y)
-                init_fresh_cells!(grid_u, veci(phS.uD,grid_u,2), veci(phS.uD,grid_u,1), grid_u.LS[end].geoS.projection, FRESH_S_u, periodic_x, periodic_y)
-                init_fresh_cells!(grid_v, veci(phS.vD,grid_v,2), veci(phS.vD,grid_v,1), grid_v.LS[end].geoS.projection, FRESH_S_v, periodic_x, periodic_y)
+                init_fresh_cells!(grid_u, veci(phS.uD,grid_u,1), veci(phS.uD,grid_u,1),
+                    grid_u.LS[end].geoS.projection, FRESH_S_u, periodic_x, periodic_y)
+                init_fresh_cells!(grid_v, veci(phS.vD,grid_v,1), veci(phS.vD,grid_v,1),
+                    grid_v.LS[end].geoS.projection, FRESH_S_v, periodic_x, periodic_y)
+                init_fresh_cells!(grid_u, veci(phS.uD,grid_u,2), veci(phS.uD,grid_u,1),
+                    grid_u.LS[end].geoS.projection, FRESH_S_u, periodic_x, periodic_y)
+                init_fresh_cells!(grid_v, veci(phS.vD,grid_v,2), veci(phS.vD,grid_v,1),
+                    grid_v.LS[end].geoS.projection, FRESH_S_v, periodic_x, periodic_y)
 
-                init_fresh_cells!(grid_u, veci(phL.uD,grid_u,1), veci(phL.uD,grid_u,1), grid_u.LS[end].geoL.projection, FRESH_L_u, periodic_x, periodic_y)
-                init_fresh_cells!(grid_v, veci(phL.vD,grid_v,1), veci(phL.vD,grid_v,1), grid_v.LS[end].geoL.projection, FRESH_L_v, periodic_x, periodic_y)
-                init_fresh_cells!(grid_u, veci(phL.uD,grid_u,2), veci(phL.uD,grid_u,1), grid_u.LS[end].geoL.projection, FRESH_L_u, periodic_x, periodic_y)
-                init_fresh_cells!(grid_v, veci(phL.vD,grid_v,2), veci(phL.vD,grid_v,1), grid_v.LS[end].geoL.projection, FRESH_L_v, periodic_x, periodic_y)
+                init_fresh_cells!(grid_u, veci(phL.uD,grid_u,1), veci(phL.uD,grid_u,1),
+                    grid_u.LS[end].geoL.projection, FRESH_L_u, periodic_x, periodic_y)
+                init_fresh_cells!(grid_v, veci(phL.vD,grid_v,1), veci(phL.vD,grid_v,1),
+                    grid_v.LS[end].geoL.projection, FRESH_L_v, periodic_x, periodic_y)
+                init_fresh_cells!(grid_u, veci(phL.uD,grid_u,2), veci(phL.uD,grid_u,1),
+                    grid_u.LS[end].geoL.projection, FRESH_L_u, periodic_x, periodic_y)
+                init_fresh_cells!(grid_v, veci(phL.vD,grid_v,2), veci(phL.vD,grid_v,1),
+                    grid_v.LS[end].geoL.projection, FRESH_L_v, periodic_x, periodic_y)
             end
 
             if iszero(current_i%save_every) || current_i==max_iterations
@@ -454,9 +465,9 @@ function run_forward(
             end
 
             if ns_solid_phase
-                geoS = [LS[iLS].geoS for iLS in 1:nLS]
-                geo_uS = [grid_u.LS[iLS].geoS for iLS in 1:nLS]
-                geo_vS = [grid_v.LS[iLS].geoS for iLS in 1:nLS]
+                geoS = [LS[iLS].geoS for iLS in 1:_nLS]
+                geo_uS = [grid_u.LS[iLS].geoS for iLS in 1:_nLS]
+                geo_vS = [grid_v.LS[iLS].geoS for iLS in 1:_nLS]
                 AϕS, Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, AuS, BuS, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, AvS, BvS, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,Mm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = pressure_projection!(
                     time_scheme, BC_int,
                     num, grid, geoS, grid_u, geo_uS, grid_v, geo_vS, phS,
@@ -469,9 +480,9 @@ function run_forward(
                 )
             end
             if ns_liquid_phase
-                geoL = [LS[iLS].geoL for iLS in 1:nLS]
-                geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:nLS]
-                geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:nLS]
+                geoL = [LS[iLS].geoL for iLS in 1:_nLS]
+                geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:_nLS]
+                geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:_nLS]
                 AϕL, Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, AuL, BvL, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, AvL, BvL, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = pressure_projection!(
                     time_scheme, BC_int,
                     num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
@@ -497,7 +508,7 @@ function run_forward(
             end
             fwd.t[snap] = current_t
             @views fwd.V[snap,:,:] .= V
-            for iLS in 1:nLS
+            for iLS in 1:_nLS
                 @views fwd.u[iLS,snap,:,:] .= LS[iLS].u
                 @views fwd.ux[iLS,snap,:,:] .= grid_u.LS[iLS].u
                 @views fwd.uy[iLS,snap,:,:] .= grid_v.LS[iLS].u

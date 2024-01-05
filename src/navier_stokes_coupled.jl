@@ -729,7 +729,7 @@ function CN_set_momentum(
             __a1 = 0.0
             __b = 1.0
         else
-            vel = copy(grid.V)
+            vel = bc_type[iLS].val
             __a1 = -1.0
             __b = 0.0
         end
@@ -817,7 +817,7 @@ function FE_set_momentum(
             __a1 = 0.0
             __b = 1.0
         else
-            vel = copy(grid.V)
+            vel = bc_type[iLS].val
             __a1 = -1.0
             __b = 0.0
         end

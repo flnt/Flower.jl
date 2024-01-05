@@ -75,27 +75,27 @@ function update_ls_data_grid(num, grid, LS, u, κ, periodic_x, periodic_y, empty
     return NB_indices
 end
 
-function update_stefan_velocity(num, grid, u, TS, TL, periodic_x, periodic_y, λ, Vmean)
-    Stefan_velocity!(num, grid, grid.V, TS, TL, grid.LS[1].MIXED, periodic_x, periodic_y)
-    grid.V[grid.LS[1].MIXED] .*= 1. ./ λ
+function update_stefan_velocity(num, grid, iLS, u, TS, TL, periodic_x, periodic_y, λ, Vmean)
+    Stefan_velocity!(num, grid, grid.V, TS, TL, grid.LS[iLS].MIXED, periodic_x, periodic_y)
+    grid.V[grid.LS[iLS].MIXED] .*= 1. ./ λ
     if Vmean
-        a = mean(grid.V[grid.LS[1].MIXED])
-        grid.V[grid.LS[1].MIXED] .= a
+        a = mean(grid.V[grid.LS[iLS].MIXED])
+        grid.V[grid.LS[iLS].MIXED] .= a
     end
 
-    i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, grid.LS[1], periodic_x, periodic_y)
+    i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, grid.LS[iLS], periodic_x, periodic_y)
     field_extension!(grid, u, grid.V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
 end
 
-function update_free_surface_velocity(num, grid_u, grid_v, uD, vD, periodic_x, periodic_y)
-    grid_u.V .= reshape(veci(uD,grid_u,2), (grid_u.ny, grid_u.nx))
-    grid_v.V .= reshape(veci(vD,grid_v,2), (grid_v.ny, grid_v.nx))
+function update_free_surface_velocity(num, grid_u, grid_v, iLS, uD, vD, periodic_x, periodic_y)
+    grid_u.V .= reshape(veci(uD,grid_u,iLS+1), (grid_u.ny, grid_u.nx))
+    grid_v.V .= reshape(veci(vD,grid_v,iLS+1), (grid_v.ny, grid_v.nx))
 
-    i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext = indices_extension(grid_u, grid_u.LS[1], periodic_x, periodic_y)
-    i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext = indices_extension(grid_v, grid_v.LS[1], periodic_x, periodic_y)
+    i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext = indices_extension(grid_u, grid_u.LS[iLS], periodic_x, periodic_y)
+    i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext = indices_extension(grid_v, grid_v.LS[iLS], periodic_x, periodic_y)
 
-    field_extension!(grid_u, grid_u.LS[1].u, grid_u.V, i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext, num.NB, periodic_x, periodic_y)
-    field_extension!(grid_v, grid_v.LS[1].u, grid_v.V, i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext, num.NB, periodic_x, periodic_y)
+    field_extension!(grid_u, grid_u.LS[iLS].u, grid_u.V, i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext, num.NB, periodic_x, periodic_y)
+    field_extension!(grid_v, grid_v.LS[iLS].u, grid_v.V, i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext, num.NB, periodic_x, periodic_y)
 end
 
 function adjoint_projection_fs(num, grid, grid_u, grid_v,

@@ -1579,6 +1579,12 @@ function breakup_f(u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, ϵ_bre
     return count
 end
 
+
+"""
+    combine_levelsets!(num, grid)
+
+Combine levelsets in `grid.LS` into the last one.
+"""
 function combine_levelsets!(num, grid)
     @unpack ind = grid
     
