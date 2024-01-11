@@ -948,7 +948,7 @@ function set_CN!(
     end
 
     if ls_advection
-        NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
+        NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, bc_int, periodic_x, periodic_y, false)
 
         laps = set_matrices!(
             num, grid, geo, grid_u, geo_u, grid_v, geo_v,
@@ -1001,7 +1001,7 @@ function set_FE!(
     end
 
     if ls_advection
-        NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
+        NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, bc_int, periodic_x, periodic_y, false)
 
         laps = set_matrices!(
             num, grid, geo, grid_u, geo_u, grid_v, geo_v,
