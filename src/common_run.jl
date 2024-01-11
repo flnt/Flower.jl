@@ -30,14 +30,15 @@ function indices_extension(grid, LS, periodic_x, periodic_y)
 end
 
 function update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, empty = true)
-    for iLS in 1:num.nLS
-        update_ls_data(num, grid, grid_u, grid_v, iLS, grid.LS[iLS].u, grid.LS[iLS].κ, BC_int, BC_int[iLS], periodic_x, periodic_y, empty)
-    end
-
     if num.nLS > 1
+        for iLS in 1:num.nLS
+            update_ls_data(num, grid, grid_u, grid_v, iLS, grid.LS[iLS].u, grid.LS[iLS].κ, BC_int, BC_int[iLS], periodic_x, periodic_y, empty)
+        end
         combine_levelsets!(num, grid)
         NB_indices = update_ls_data(num, grid, grid_u, grid_v, num._nLS, grid.LS[end].u, grid.LS[end].κ, BC_int, DummyBC(), periodic_x, periodic_y, empty)
         crossing_2levelsets!(grid, grid.LS[1], grid.LS[2], periodic_x, periodic_y)
+    else
+        NB_indices = update_ls_data(num, grid, grid_u, grid_v, 1, grid.LS[1].u, grid.LS[1].κ, BC_int, BC_int[1], periodic_x, periodic_y, empty)
     end
     
     for iLS in 1:num._nLS
