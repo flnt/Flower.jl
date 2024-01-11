@@ -88,11 +88,7 @@ function run_forward(
     rhs_LS = fzeros(grid)
 
     if levelset
-        for iLS in 1:nLS
-            update_ls_data(num, grid, grid_u, grid_v, iLS, LS[iLS].u, LS[iLS].κ, periodic_x, periodic_y)
-        end
-        combine_levelsets!(num, grid)
-        NB_indices = update_ls_data(num, grid, grid_u, grid_v, _nLS, LS[end].u, LS[end].κ, periodic_x, periodic_y)
+        NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
 
         if save_radius
             n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
@@ -180,11 +176,7 @@ function run_forward(
     @views fwdS.pD[1,:] .= phS.pD
 
     if is_FE(time_scheme) || is_CN(time_scheme)
-        for iLS in 1:nLS
-            update_ls_data(num, grid, grid_u, grid_v, iLS, LS[iLS].u, LS[iLS].κ, periodic_x, periodic_y, false)
-        end
-        combine_levelsets!(num, grid)
-        NB_indices = update_ls_data(num, grid, grid_u, grid_v, _nLS, LS[end].u, LS[end].κ, periodic_x, periodic_y, false)
+        NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
 
         if navier_stokes || heat
             geoS = [LS[iLS].geoS for iLS in 1:_nLS]
@@ -392,11 +384,7 @@ function run_forward(
 
 
         if levelset && (advection || current_i<2)
-            for iLS in 1:nLS
-                update_ls_data(num, grid, grid_u, grid_v, iLS, LS[iLS].u, LS[iLS].κ, periodic_x, periodic_y)
-            end
-            combine_levelsets!(num, grid)
-            NB_indices = update_ls_data(num, grid, grid_u, grid_v, _nLS, LS[end].u, LS[end].κ, periodic_x, periodic_y)
+            NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
 
             LS[end].geoL.fresh .= false
             LS[end].geoS.fresh .= false

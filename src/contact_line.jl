@@ -40,9 +40,6 @@ function BC_LS!(grid, u, A, B, rhs, BC, n_ext)
                 pII = lexicographic(II, grid.ny)
                 pJJ = lexicographic(JJ, grid.ny)
 
-                dist = sqrt((x[JJ] - x[II])^2 + (y[JJ] - y[II])^2)
-                ϵb = n_ext * dist
-
                 A[pII,:] .= 0.0
                 A[pII,pII] = 1.0
                 A[pII,pJJ] = -1.0
@@ -120,35 +117,27 @@ Intersection between mixed cells and borders of the domain.
 At some point it should include the intersection of two levelsets, for contact lines with
 non-planar shapes.
 """
-function locate_contact_line!(grid, cl, MIXED)
-    @unpack ind = grid
+function locate_contact_line!(num, grid, iLS, cl, MIXED, BC_int)
+    @unpack LS, ind = grid
 
+    # Contact lines at domain borders
     boundaries_idx = [ind.b_left, ind.b_bottom, ind.b_right, ind.b_top]
-    cl = []
     for idx in boundaries_idx
         append!(cl, intersect(MIXED, idx[1]))
     end
 
-    return nothing
-end
-
-"""
-    locate_contact_line!(num, grid, grid_u, grid_v, u, per_x, per_y)
-
-Intersection between mixed cells and borders of the domain.
-
-At some point it should include the intersection of two levelsets, for contact lines with
-non-planar shapes.
-"""
-function locate_contact_line!(num, grid, cl, MIXED, grid_u, grid_v, u, per_x, per_y)
-    @unpack ind = grid
-
-    update_ls_data(num, grid, grid_u, grid_v, u, grid.κ, per_x, per_y)
-
-    boundaries_idx = [ind.b_left, ind.b_bottom, ind.b_right, ind.b_top]
-    cl = []
-    for idx in boundaries_idx
-        append!(cl, intersect(MIXED, idx[1]))
+    # Contact lines as intersection of two levelsets
+    for i in 1:num.nLS
+        if i != iLS
+            for II in intersect(MIXED, LS[i].MIXED)
+                l1 = Line(LS[iLS].cut_points[II][1], LS[iLS].cut_points[II][2])
+                l2 = Line(LS[i].cut_points[II][1], LS[i].cut_points[II][2])
+                p = line_intersection(l1, l2)
+                if within_cell(p) && is_fs(BC_int[i])
+                    push!(cl, II)
+                end
+            end
+        end
     end
 
     return nothing

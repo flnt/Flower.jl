@@ -29,7 +29,25 @@ function indices_extension(grid, LS, periodic_x, periodic_y)
     return indices_ext, left_ext, bottom_ext, right_ext, top_ext
 end
 
-function update_ls_data(num, grid, grid_u, grid_v, iLS, u, κ, periodic_x, periodic_y, empty = true)
+function update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, empty = true)
+    for iLS in 1:num.nLS
+        update_ls_data(num, grid, grid_u, grid_v, iLS, grid.LS[iLS].u, grid.LS[iLS].κ, BC_int, BC_int[iLS], periodic_x, periodic_y, empty)
+    end
+
+    if num.nLS > 1
+        combine_levelsets!(num, grid)
+        NB_indices = update_ls_data(num, grid, grid_u, grid_v, num._nLS, grid.LS[end].u, grid.LS[end].κ, BC_int, DummyBC(), periodic_x, periodic_y, empty)
+        crossing_2levelsets!(grid, grid.LS[1], grid.LS[2], periodic_x, periodic_y)
+    end
+    
+    for iLS in 1:num._nLS
+        postprocess_grids2!(grid, grid.LS[iLS], grid_u, grid_u.LS[iLS], grid_v, grid_v.LS[iLS], periodic_x, periodic_y)
+    end
+
+    return NB_indices
+end
+
+function update_ls_data(num, grid, grid_u, grid_v, iLS, u, κ, BC_int, bc_int, periodic_x, periodic_y, empty = true)
     NB_indices = update_ls_data_grid(num, grid, grid.LS[iLS], u, κ, periodic_x, periodic_y, empty)
 
     interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.LS[iLS].u, grid_v.LS[iLS].u)
@@ -37,18 +55,20 @@ function update_ls_data(num, grid, grid_u, grid_v, iLS, u, κ, periodic_x, perio
     _ = update_ls_data_grid(num, grid_u, grid_u.LS[iLS], grid_u.LS[iLS].u, grid_u.LS[iLS].κ, periodic_x, periodic_y, empty)
     _ = update_ls_data_grid(num, grid_v, grid_v.LS[iLS], grid_v.LS[iLS].u, grid_v.LS[iLS].κ, periodic_x, periodic_y, empty)
 
-    postprocess_grids!(grid, grid.LS[iLS], grid_u, grid_u.LS[iLS], grid_v, grid_v.LS[iLS], periodic_x, periodic_y, num.ϵ, empty)
+    postprocess_grids1!(grid, grid.LS[iLS], grid_u, grid_u.LS[iLS], grid_v, grid_v.LS[iLS], periodic_x, periodic_y, num.ϵ, empty)
 
     i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, grid.LS[iLS], periodic_x, periodic_y)
     field_extension!(grid, u, κ, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
 
-    locate_contact_line!(grid, grid.LS[iLS].cl, grid.LS[iLS].MIXED)
-    locate_contact_line!(grid_u, grid_u.LS[iLS].cl, grid_u.LS[iLS].MIXED)
-    locate_contact_line!(grid_v, grid_v.LS[iLS].cl, grid_v.LS[iLS].MIXED)
+    if is_wall(bc_int)
+        locate_contact_line!(num, grid, iLS, grid.LS[iLS].cl, grid.LS[iLS].MIXED, BC_int)
+        locate_contact_line!(num, grid_u, iLS, grid_u.LS[iLS].cl, grid_u.LS[iLS].MIXED, BC_int)
+        locate_contact_line!(num, grid_v, iLS, grid_v.LS[iLS].cl, grid_v.LS[iLS].MIXED, BC_int)
 
-    # Apply inhomogeneous BC to more than one grid point by extending the contact line
-    extend_contact_line!(grid_u, grid_u.LS[iLS].cl, num.n_ext_cl)
-    extend_contact_line!(grid_v, grid_v.LS[iLS].cl, num.n_ext_cl)
+        # Apply inhomogeneous BC to more than one grid point by extending the contact line
+        extend_contact_line!(grid_u, grid_u.LS[iLS].cl, num.n_ext_cl)
+        extend_contact_line!(grid_v, grid_v.LS[iLS].cl, num.n_ext_cl)
+    end
 
     return NB_indices
 end

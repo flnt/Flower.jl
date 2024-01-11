@@ -30,18 +30,22 @@ function Levelset(nx, ny)
     dSOL = zeros(ny, nx, 11)
     dLIQ = ones(ny, nx, 11)
 
-    liq_projection = Array{Gradient{Float64}, 2}(undef, ny, nx)
-    sol_projection = Array{Gradient{Float64}, 2}(undef, ny, nx)
+    liq_projection = Matrix{Gradient{Float64}}(undef, ny, nx)
+    sol_projection = Matrix{Gradient{Float64}}(undef, ny, nx)
 
-    sol_centroid = Array{Point{Float64}, 2}(undef, ny, nx)
-    liq_centroid = Array{Point{Float64}, 2}(undef, ny, nx)
-    mid_point = Array{Point{Float64}, 2}(undef, ny, nx)
-    cut_points = Array{Vector{Point{Float64}}, 2}(undef, ny, nx)
+    sol_centroid = Matrix{Point{Float64}}(undef, ny, nx)
+    liq_centroid = Matrix{Point{Float64}}(undef, ny, nx)
+    mid_point = Matrix{Point{Float64}}(undef, ny, nx)
+    cut_points = Matrix{Vector{Point{Float64}}}(undef, ny, nx)
+    verticesS = Matrix{Vector{Point{Float64}}}(undef, ny, nx)
+    verticesL = Matrix{Vector{Point{Float64}}}(undef, ny, nx)
     @inbounds @threads for II in eachindex(sol_centroid)
         sol_centroid[II] = Point(0.0, 0.0)
         liq_centroid[II] = Point(0.0, 0.0)
         mid_point[II] = Point(0.0, 0.0)
         cut_points[II] = [Point(0.0, 0.0), Point(0.0, 0.0)]
+        verticesS[II] = Vector{Point{Float64}}()
+        verticesL[II] = Vector{Point{Float64}}()
     end
 
     emptiedS = zeros(Bool, ny, nx)
@@ -50,8 +54,8 @@ function Levelset(nx, ny)
     freshS = zeros(Bool, ny, nx)
     freshL = zeros(Bool, ny, nx)
 
-    geoS = GeometricInfo(SOL, dSOL, sol_projection, sol_centroid, emptiedS, freshS)
-    geoL = GeometricInfo(LIQ, dLIQ, liq_projection, liq_centroid, emptiedL, freshL)
+    geoS = GeometricInfo(SOL, dSOL, sol_projection, sol_centroid, verticesS, emptiedS, freshS)
+    geoL = GeometricInfo(LIQ, dLIQ, liq_projection, liq_centroid, verticesL, emptiedL, freshL)
 
     α = zeros(ny, nx)
     α .= NaN

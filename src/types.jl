@@ -89,6 +89,7 @@ struct GeometricInfo{T <: Real} <: MutatingFields
     dcap::Array{T,3}
     projection::Array{Gradient{T},2}
     centroid::Array{Point{T},2}
+    vertices::Array{Vector{Point{T}},2}
     emptied::Array{Bool,2}
     fresh::Array{Bool,2}
 end
@@ -406,6 +407,10 @@ end
     top::BoundaryCondition = Neumann()
 end
 
+@with_kw mutable struct DummyBC{T,N} <: BoundaryCondition
+    val::N = 0.0
+    λ::T = 0.0
+end
 @with_kw mutable struct Stefan{T,N} <: BoundaryCondition
     val::N = 0.0
     λ::T = 0.0

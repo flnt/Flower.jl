@@ -948,11 +948,7 @@ function set_CN!(
     end
 
     if ls_advection
-        for iLS in 1:num.nLS
-            update_ls_data(num, grid, grid_u, grid_v, iLS, grid.LS[iLS].u, grid.LS[iLS].κ, periodic_x, periodic_y, false)
-        end
-        combine_levelsets!(num, grid)
-        update_ls_data(num, grid, grid_u, grid_v, num._nLS, grid.LS[end].u, grid.LS[end].κ, periodic_x, periodic_y, false)
+        NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
 
         laps = set_matrices!(
             num, grid, geo, grid_u, geo_u, grid_v, geo_v,
@@ -1005,11 +1001,7 @@ function set_FE!(
     end
 
     if ls_advection
-        for iLS in 1:num.nLS
-            update_ls_data(num, grid, grid_u, grid_v, iLS, grid.LS[iLS].u, grid.LS[iLS].κ, periodic_x, periodic_y, false)
-        end
-        combine_levelsets!(num, grid)
-        update_ls_data(num, grid, grid_u, grid_v, num._nLS, grid.LS[end].u, grid.LS[end].κ, periodic_x, periodic_y, false)
+        NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
 
         laps = set_matrices!(
             num, grid, geo, grid_u, geo_u, grid_v, geo_v,

@@ -484,6 +484,25 @@ function monitor(header, history, it)
     end
 end
 
+function within_cell(p::Point)
+    if p.x >= -0.5 && p.x <= 0.5 && p.y >= -0.5 && p.y <= 0.5
+        return true
+    else
+        return false
+    end
+end
+
+function points2polygon(points)
+    str = "POLYGON(("
+    str *= "$(points[1].x) $(points[1].y)"
+    for p in points
+        str *= ",$(p.x) $(p.y)"
+    end
+    str *= "))"
+
+    return readgeom(str)
+end
+
 @inline is_weno(::WENO5) = true
 @inline is_weno(::LevelsetDiscretization) = false
 

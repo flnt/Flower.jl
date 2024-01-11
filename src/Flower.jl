@@ -39,6 +39,9 @@ import Base.reshape
 @reexport using SuiteSparse
 @reexport using DDM
 @reexport using Peaks
+@reexport using GeometryBasics
+@reexport using GeoInterface
+@reexport using LibGEOS
 
 include("types.jl")
 include("init.jl")
