@@ -495,7 +495,7 @@ end
 function points2polygon(points)
     str = "POLYGON(("
     str *= "$(points[1].x) $(points[1].y)"
-    for p in points
+    for p in points[2:end]
         str *= ",$(p.x) $(p.y)"
     end
     str *= "))"
