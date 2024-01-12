@@ -646,8 +646,6 @@ s2(a) = 13.0 * (a[3] - a[4])^2 + 3.0 * (3.0 * a[3] - a[4])^2
 δ function for (Russo and Smereka, 2000) subcell fix.
 
 Not used in the code as (Hartmann et al., 2010) works better.
-
-TODO: only works with periodic BCs for now!!
 """
 function δ0(u, II, ϵ, nx, ny, per_x, per_y)
     return maximum([
@@ -655,6 +653,58 @@ function δ0(u, II, ϵ, nx, ny, per_x, per_y)
         abs(u[δy⁺(II,ny,per_y)] - u[II]), abs(u[δy⁻(II,ny,per_y)] - u[II]),
         sqrt((u[δx⁺(II,nx,per_x)] - u[δx⁻(II,nx,per_x)])^2 + 
              (u[δy⁺(II,ny,per_y)] - u[δy⁻(II,ny,per_y)])^2)/ 2.0, ϵ]
+    )
+end
+function δ0_l(u, II, ϵ, nx, ny, per_x, per_y)
+    return maximum([
+        abs(u[δx⁺(II,nx,per_x)] - u[II]),
+        abs(u[δy⁺(II,ny,per_y)] - u[II]), abs(u[δy⁻(II,ny,per_y)] - u[II]),
+        sqrt((u[δy⁺(II,ny,per_y)] - u[δy⁻(II,ny,per_y)])^2)/ 2.0, ϵ]
+    )
+end
+function δ0_b(u, II, ϵ, nx, ny, per_x, per_y)
+    return maximum([
+        abs(u[δx⁺(II,nx,per_x)] - u[II]), abs(u[δx⁻(II,nx,per_x)] - u[II]),
+        abs(u[δy⁺(II,ny,per_y)] - u[II]),
+        sqrt((u[δx⁺(II,nx,per_x)] - u[δx⁻(II,nx,per_x)])^2)/ 2.0, ϵ]
+    )
+end
+function δ0_r(u, II, ϵ, nx, ny, per_x, per_y)
+    return maximum([
+        abs(u[δx⁻(II,nx,per_x)] - u[II]),
+        abs(u[δy⁺(II,ny,per_y)] - u[II]), abs(u[δy⁻(II,ny,per_y)] - u[II]),
+        sqrt((u[δy⁺(II,ny,per_y)] - u[δy⁻(II,ny,per_y)])^2)/ 2.0, ϵ]
+    )
+end
+function δ0_t(u, II, ϵ, nx, ny, per_x, per_y)
+    return maximum([
+        abs(u[δx⁺(II,nx,per_x)] - u[II]), abs(u[δx⁻(II,nx,per_x)] - u[II]),
+        abs(u[δy⁻(II,ny,per_y)] - u[II]),
+        sqrt((u[δx⁺(II,nx,per_x)] - u[δx⁻(II,nx,per_x)])^2)/ 2.0, ϵ]
+    )
+end
+function δ0_bl(u, II, ϵ, nx, ny, per_x, per_y)
+    return maximum([
+        abs(u[δx⁺(II,nx,per_x)] - u[II]), abs(u[δy⁺(II,ny,per_y)] - u[II]), 
+        ϵ]
+    )
+end
+function δ0_br(u, II, ϵ, nx, ny, per_x, per_y)
+    return maximum([
+        abs(u[δx⁻(II,nx,per_x)] - u[II]), abs(u[δy⁺(II,ny,per_y)] - u[II]),
+        ϵ]
+    )
+end
+function δ0_tl(u, II, ϵ, nx, ny, per_x, per_y)
+    return maximum([
+        abs(u[δx⁺(II,nx,per_x)] - u[II]), abs(u[δy⁻(II,ny,per_y)] - u[II]),
+        ϵ]
+    )
+end
+function δ0_tr(u, II, ϵ, nx, ny, per_x, per_y)
+    return maximum([
+        abs(u[δx⁻(II,nx,per_x)] - u[II]), abs(u[δy⁻(II,ny,per_y)] - u[II]),
+        ϵ]
     )
 end
 
@@ -694,6 +744,7 @@ function reinit_min(scheme, grid, u, u0, indices, periodic_x, periodic_y)
             neighbour = (δx⁺(II, nx, periodic_x), δx⁻(II, nx, periodic_x), δy⁺(II, ny, periodic_y), δy⁻(II, ny, periodic_y))
             shift = central_differences(u, II, dx, dy, nx, ny, periodic_x, periodic_y)
             eno = finite_difference_eno(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            god_eno = Godunov
             if is_eno(scheme)
                 diffs = copy(eno)
             else
@@ -713,6 +764,7 @@ function reinit_min(scheme, grid, u, u0, indices, periodic_x, periodic_y)
             neighbour = (δx⁺(II, nx, periodic_x), δy⁺(II, ny, periodic_y))
             shift = central_differences_bl(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_l, Dyy_b)
             eno = finite_difference_eno_bl(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            god_eno = Godunov_bl
             if is_eno(scheme)
                 diffs = copy(eno)
                 god = Godunov_bl
@@ -733,6 +785,7 @@ function reinit_min(scheme, grid, u, u0, indices, periodic_x, periodic_y)
             neighbour = (δx⁻(II, nx, periodic_x), δy⁺(II, ny, periodic_y))
             shift = central_differences_br(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_r, Dyy_b)
             eno = finite_difference_eno_br(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            god_eno = Godunov_br
             if is_eno(scheme)
                 diffs = copy(eno)
                 god = Godunov_br
@@ -753,6 +806,7 @@ function reinit_min(scheme, grid, u, u0, indices, periodic_x, periodic_y)
             neighbour = (δx⁺(II, nx, periodic_x), δy⁻(II, ny, periodic_y))
             shift = central_differences_tl(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_l, Dyy_t)
             eno = finite_difference_eno_tl(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            god_eno = Godunov_tl
             if is_eno(scheme)
                 diffs = copy(eno)
                 god = Godunov_tl
@@ -773,6 +827,7 @@ function reinit_min(scheme, grid, u, u0, indices, periodic_x, periodic_y)
             neighbour = (δx⁻(II, nx, periodic_x), δy⁻(II, ny, periodic_y))
             shift = central_differences_tr(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_r, Dyy_t)
             eno = finite_difference_eno_tr(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            god_eno = Godunov_tr
             if is_eno(scheme)
                 diffs = copy(eno)
                 god = Godunov_tr
@@ -795,6 +850,7 @@ function reinit_min(scheme, grid, u, u0, indices, periodic_x, periodic_y)
             neighbour = (δx⁺(II, nx, periodic_x), δy⁺(II, ny, periodic_y), δy⁻(II, ny, periodic_y))
             shift = central_differences_l(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_l)
             eno = finite_difference_eno_l(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            god_eno = Godunov_l
             if is_eno(scheme)
                 diffs = copy(eno)
                 god = Godunov_l
@@ -817,6 +873,7 @@ function reinit_min(scheme, grid, u, u0, indices, periodic_x, periodic_y)
             neighbour = (δx⁺(II, nx, periodic_x), δx⁻(II, nx, periodic_x), δy⁺(II, ny, periodic_y))
             shift = central_differences_b(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dyy_b)
             eno = finite_difference_eno_b(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            god_eno = Godunov_b
             if is_eno(scheme)
                 diffs = copy(eno)
                 god = Godunov_b
@@ -839,6 +896,7 @@ function reinit_min(scheme, grid, u, u0, indices, periodic_x, periodic_y)
             neighbour = (δx⁻(II, nx, periodic_x), δy⁺(II, ny, periodic_y), δy⁻(II, ny, periodic_y))
             shift = central_differences_r(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dxx_r)
             eno = finite_difference_eno_r(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            god_eno = Godunov_r
             if is_eno(scheme)
                 diffs = copy(eno)
                 god = Godunov_r
@@ -861,6 +919,7 @@ function reinit_min(scheme, grid, u, u0, indices, periodic_x, periodic_y)
             neighbour = (δx⁺(II, nx, periodic_x), δx⁻(II, nx, periodic_x), δy⁻(II, ny, periodic_y))
             shift = central_differences_t(u, II, dx, dy, nx, ny, periodic_x, periodic_y, Dyy_t)
             eno = finite_difference_eno_t(u, II, shift, dx, dy, nx, ny, periodic_x, periodic_y)
+            god_eno = Godunov_t
             if is_eno(scheme)
                 diffs = copy(eno)
                 god = Godunov_t
@@ -893,7 +952,7 @@ function reinit_min(scheme, grid, u, u0, indices, periodic_x, periodic_y)
                     eno_interface[i] = b[i] * (u[II] / Δx + (Δx / 2.0) * shift[i])
                 end
             end
-            gdv = god(sign_u0, eno_interface)
+            gdv = god_eno(sign_u0, eno_interface)
             u1[II] = u[II] - cfl * h_ * sign_u0 * (gdv - 1.0)
         else
             gdv = god(sign_u0, diffs)
@@ -936,6 +995,7 @@ function reinit_rs(scheme, grid, u, u0, indices, periodic_x, periodic_y)
                 0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
                 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
             )
+            _δ0 = δ0
             god = Godunov
             near_interface = is_near_interface
         elseif II == b_bottom[1][1]
@@ -950,6 +1010,7 @@ function reinit_rs(scheme, grid, u, u0, indices, periodic_x, periodic_y)
             h_ = min(
                 0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)])
             )
+            _δ0 = δ0_bl
             near_interface = is_near_interface_bl
         elseif II == b_bottom[1][end]
             if is_eno(scheme)
@@ -963,6 +1024,7 @@ function reinit_rs(scheme, grid, u, u0, indices, periodic_x, periodic_y)
             h_ = min(
                 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)])
             )
+            _δ0 = δ0_br
             near_interface = is_near_interface_br
         elseif II == b_top[1][1]
             if is_eno(scheme)
@@ -976,6 +1038,7 @@ function reinit_rs(scheme, grid, u, u0, indices, periodic_x, periodic_y)
             h_ = min(
                 0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
             )
+            _δ0 = δ0_tl
             near_interface = is_near_interface_tl
         elseif II == b_top[1][end]
             if is_eno(scheme)
@@ -989,6 +1052,7 @@ function reinit_rs(scheme, grid, u, u0, indices, periodic_x, periodic_y)
             h_ = min(
                 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
             )
+            _δ0 = δ0_tr
             near_interface = is_near_interface_tr
         elseif II in b_left[1]
             if is_eno(scheme)
@@ -1003,6 +1067,7 @@ function reinit_rs(scheme, grid, u, u0, indices, periodic_x, periodic_y)
                 0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]),
                 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
             )
+            _δ0 = δ0_l
             near_interface = is_near_interface_l
         elseif II in b_bottom[1]
             if is_eno(scheme)
@@ -1017,6 +1082,7 @@ function reinit_rs(scheme, grid, u, u0, indices, periodic_x, periodic_y)
                 0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
                 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)])
             )
+            _δ0 = δ0_b
             near_interface = is_near_interface_b
         elseif II in b_right[1]
             if is_eno(scheme)
@@ -1031,6 +1097,7 @@ function reinit_rs(scheme, grid, u, u0, indices, periodic_x, periodic_y)
                 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
                 0.5*(dy[II]+dy[δy⁺(II, ny, periodic_y)]), 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
             )
+            _δ0 = δ0_r
             near_interface = is_near_interface_r
         elseif II in b_top[1]
             if is_eno(scheme)
@@ -1045,11 +1112,12 @@ function reinit_rs(scheme, grid, u, u0, indices, periodic_x, periodic_y)
                 0.5*(dx[II]+dx[δx⁺(II, nx, periodic_x)]), 0.5*(dx[II]+dx[δx⁻(II, nx, periodic_x)]),
                 0.5*(dy[II]+dy[δy⁻(II, ny, periodic_y)])
             )
+            _δ0 = δ0_t
             near_interface = is_near_interface_t
         end
 
         if near_interface(u0, II, nx, ny, periodic_x, periodic_y)
-            d = h_ * u0[II] / δ0(u0, II, h_, nx, ny, periodic_x, periodic_y)
+            d = h_ * u0[II] / _δ0(u0, II, h_, nx, ny, periodic_x, periodic_y)
             u1[II] = u[II] - cfl * (sign_u0 * abs(u[II]) - d)
         else
             gdv = god(sign_u0, diffs)
