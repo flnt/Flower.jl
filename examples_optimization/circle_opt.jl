@@ -16,7 +16,7 @@ num = Numerical(T_inf = 0.0,
     R = 0.75
     )
 
-idx = set_indices(num.n)
+idx, idxu, idxv = set_indices(num.n)
 
 nprobes = num.n
 step = num.n÷(nprobes)
@@ -30,7 +30,7 @@ opt = Optim_parameters(nprobes, ind, idx.b_top[1][ind], [1.0, 1.0, 1e-5, 1.0, 1.
 
 initial_levelset = @. sqrt(num.X^ 2 + num.Y^ 2) - (num.R)
 
-res, des = gradient_based_optimization(x_desired, x_initial, opt, num, idx, initial_levelset, model, opt_iter = 20,
+res, des = gradient_based_optimization(x_desired, x_initial, opt, num, idx, idxu, idxv, initial_levelset, model, opt_iter = 20,
 method_opt = LBFGS(linesearch = Optim.LineSearches.BackTracking()))
 
 store = zeros(length(res.trace), 2)
