@@ -88,11 +88,7 @@ function run_forward(
     rhs_LS = fzeros(grid)
 
     if levelset
-        for iLS in 1:nLS
-            update_ls_data(num, grid, grid_u, grid_v, iLS, LS[iLS].u, LS[iLS].κ, periodic_x, periodic_y)
-        end
-        combine_levelsets!(num, grid)
-        NB_indices = update_ls_data(num, grid, grid_u, grid_v, _nLS, LS[end].u, LS[end].κ, periodic_x, periodic_y)
+        NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
 
         if save_radius
             n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
@@ -180,11 +176,7 @@ function run_forward(
     @views fwdS.pD[1,:] .= phS.pD
 
     if is_FE(time_scheme) || is_CN(time_scheme)
-        for iLS in 1:nLS
-            update_ls_data(num, grid, grid_u, grid_v, iLS, LS[iLS].u, LS[iLS].κ, periodic_x, periodic_y, false)
-        end
-        combine_levelsets!(num, grid)
-        NB_indices = update_ls_data(num, grid, grid_u, grid_v, _nLS, LS[end].u, LS[end].κ, periodic_x, periodic_y, false)
+        NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
 
         if navier_stokes || heat
             geoS = [LS[iLS].geoS for iLS in 1:_nLS]
@@ -306,7 +298,7 @@ function run_forward(
             if is_stefan(BC_int[iLS])
                 update_stefan_velocity(num, grid, iLS, LS[iLS].u, phS.T, phL.T, periodic_x, periodic_y, λ, Vmean)
             elseif is_fs(BC_int[iLS])
-                update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y)
+                update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.ucorrD, phL.vcorrD, periodic_x, periodic_y)
             end
         end
 
@@ -321,14 +313,46 @@ function run_forward(
                     LS[iLS].u .= reshape(gmres(LS[iLS].A, (LS[iLS].B * vec(LS[iLS].u))), grid)
                     # u .= sqrt.((x .- current_i*Δ/1).^ 2 + y .^ 2) - (0.5) * ones(nx, ny);
                 elseif is_fs(bc)
+                    # rhs_LS .= 0.0
+                    # LS[iLS].A.nzval .= 0.0
+                    # LS[iLS].B.nzval .= 0.0
+                    # IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, θ_out, τ, periodic_x, periodic_y)
+                    # BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
+                    # BC_LS_interior!(num, grid, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
+                    # utmp .= reshape(gmres(LS[iLS].A, (LS[iLS].B * vec(LS[iLS].u))) .+ rhs_LS, grid)
+
+                    # rhs_LS .= 0.0
+                    # S2IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, utmp, LS[iLS].u, θ_out, τ, periodic_x, periodic_y)
+                    # BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
+                    # BC_LS_interior!(num, grid, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
+                    # LS[iLS].u .= reshape(gmres(LS[iLS].A, (LS[iLS].B * vec(LS[iLS].u))) .+ rhs_LS, grid)
+
+                    # Project velocities to the normal and use advecion scheme for advection just
+                    # in the normal direction
+                    tmpVx = zeros(grid)
+                    tmpVy = zeros(grid)
+                    V .= 0.0
+                    @inbounds @threads for II in grid.LS[iLS].MIXED
+                        cap1 = grid_u.LS[iLS].geoL.cap[II,5]
+                        cap3 = grid_u.LS[iLS].geoL.cap[δx⁺(II),5]
+                        tmpVx[II] = (grid_u.V[II] * cap1 + grid_u.V[δx⁺(II)] * cap3) / (cap1 + cap3 + eps(0.01))
+
+                        cap2 = grid_v.LS[iLS].geoL.cap[II,5]
+                        cap4 = grid_v.LS[iLS].geoL.cap[δy⁺(II),5]
+                        tmpVy[II] = (grid_v.V[II] * cap2 + grid_v.V[δy⁺(II)] * cap4) / (cap2 + cap4 + eps(0.01))
+
+                        tmpV = sqrt(tmpVx[II]^2 + tmpVy[II]^2)
+                        β = atan(tmpVy[II], tmpVx[II])
+                        V[II] = tmpV * cos(β - grid.LS[iLS].α[II])
+                    end
+
+                    i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, grid.LS[iLS], grid.ind.inside, periodic_x, periodic_y)
+                    field_extension!(grid, grid.LS[iLS].u, grid.V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
+
                     rhs_LS .= 0.0
-                    IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, θ_out, τ, periodic_x, periodic_y)
-                    BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u, num.n_ext_cl)
-                    utmp .= reshape(gmres(LS[iLS].A, (LS[iLS].B * vec(LS[iLS].u))) .+ rhs_LS, grid)
-    
-                    rhs_LS .= 0.0
-                    S2IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, utmp, LS[iLS].u, θ_out, τ, periodic_x, periodic_y)
-                    BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u, num.n_ext_cl)
+                    IIOE_normal!(grid, LS[iLS].A, LS[iLS].B, LS[iLS].u, V, CFL_sc, periodic_x, periodic_y)
+                    BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
+                    BC_LS_interior!(num, grid, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
                     LS[iLS].u .= reshape(gmres(LS[iLS].A, (LS[iLS].B * vec(LS[iLS].u))) .+ rhs_LS, grid)
                 end
             end
@@ -340,14 +364,16 @@ function run_forward(
             elseif nb_reinit > 0
                 if auto_reinit && current_i%num.reinit_every == 0
                     for iLS in 1:nLS
-                        ls_rg = rg(grid, LS[iLS].u, periodic_x, periodic_y)
-                        if ls_rg >= δreinit
-                            RK2_reinit!(ls_scheme, grid, ind, LS[iLS].u, nb_reinit, periodic_x, periodic_y, BC_u)
+                        if !is_wall(BC_int[iLS])
+                            ls_rg = rg(num, grid, LS[iLS].u, periodic_x, periodic_y, BC_int)
+                            if ls_rg >= δreinit
+                                RK2_reinit!(ls_scheme, grid, ind, iLS, LS[iLS].u, nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
+                            end
                         end
                     end
                 elseif current_i%num.reinit_every == 0
                     for iLS in 1:nLS
-                        RK2_reinit!(ls_scheme, grid, ind, LS[iLS].u, nb_reinit, periodic_x, periodic_y, BC_u)
+                        RK2_reinit!(ls_scheme, grid, ind, iLS, LS[iLS].u, nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
                     end
                 end
             end
@@ -355,7 +381,7 @@ function run_forward(
             if free_surface && breakup
                 count = breakup_f(LS[1].u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, 1e-5)
                 if count > 0
-                    RK2_reinit!(ls_scheme, grid, ind, LS[1].u, nb_reinit, periodic_x, periodic_y, BC_u)
+                    RK2_reinit!(ls_scheme, grid, ind, 1, LS[1].u, nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
                 end
             end
         end
@@ -364,14 +390,15 @@ function run_forward(
             if (current_i-1)%show_every == 0
                 printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) \n" (current_i-1) 100*(current_i-1)/max_iterations)
                 if heat && length(LS[end].MIXED) != 0
-                    print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f\n" mean(V[LS[1].MIXED]) findmax(V[LS[1].MIXED])[1] findmin(V[LS[1].MIXED])[1])
-                    print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f\n" mean(LS[1].κ[LS[1].MIXED]) findmax(LS[1].κ[LS[1].MIXED])[1] findmin(LS[1].κ[LS[1].MIXED])[1])
+                    print(@sprintf "V_mean = %.2e  V_max = %.2e  V_min = %.2e\n" mean(V[LS[1].MIXED]) findmax(V[LS[1].MIXED])[1] findmin(V[LS[1].MIXED])[1])
+                    print(@sprintf "κ_mean = %.2e  κ_max = %.2e  κ_min = %.2e\n" mean(LS[1].κ[LS[1].MIXED]) findmax(LS[1].κ[LS[1].MIXED])[1] findmin(LS[1].κ[LS[1].MIXED])[1])
                 elseif advection && length(LS[end].MIXED) != 0
                     V_mean = mean([mean(grid_u.V[LS[1].MIXED]), mean(grid_v.V[LS[1].MIXED])])
                     V_max = max(findmax(grid_u.V[LS[1].MIXED])[1], findmax(grid_v.V[LS[1].MIXED])[1])
                     V_min = min(findmin(grid_u.V[LS[1].MIXED])[1], findmin(grid_v.V[LS[1].MIXED])[1])
-                    print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f\n" V_mean V_max V_min)
-                    print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f\n" mean(LS[1].κ[LS[1].MIXED]) findmax(LS[1].κ[LS[1].MIXED])[1] findmin(LS[1].κ[LS[1].MIXED])[1])
+                    print(@sprintf "Vol_ratio = %.3f%%\n" (volume(LS[end].geoL) / V0L * 100))
+                    print(@sprintf "V_mean = %.2e  V_max = %.2e  V_min = %.2e\n" V_mean V_max V_min)
+                    print(@sprintf "κ_mean = %.2e  κ_max = %.2e  κ_min = %.2e\n" mean(LS[1].κ[LS[1].MIXED]) findmax(LS[1].κ[LS[1].MIXED])[1] findmin(LS[1].κ[LS[1].MIXED])[1])
                 end
                 if navier_stokes
                     if ns_solid_phase
@@ -392,11 +419,7 @@ function run_forward(
 
 
         if levelset && (advection || current_i<2)
-            for iLS in 1:nLS
-                update_ls_data(num, grid, grid_u, grid_v, iLS, LS[iLS].u, LS[iLS].κ, periodic_x, periodic_y)
-            end
-            combine_levelsets!(num, grid)
-            NB_indices = update_ls_data(num, grid, grid_u, grid_v, _nLS, LS[end].u, LS[end].κ, periodic_x, periodic_y)
+            NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
 
             LS[end].geoL.fresh .= false
             LS[end].geoS.fresh .= false
@@ -457,9 +480,7 @@ function run_forward(
 
         if navier_stokes
             if !advection
-                no_slip_condition!(grid, grid_u, grid_u.LS[1], grid_v, grid_v.LS[1])
-                grid_u.V .= imfilter(grid_u.V, Kernel.gaussian(2))
-                grid_v.V .= imfilter(grid_v.V, Kernel.gaussian(2))
+                no_slip_condition!(num, grid, grid_u, grid_u.LS[1], grid_v, grid_v.LS[1], periodic_x, periodic_y)
                 # grid_u.V .= Δ / (1 * τ)
                 # grid_v.V .= 0.0
             end
@@ -493,8 +514,14 @@ function run_forward(
                     Cum1L, Cvm1L, Mum1_L, Mvm1_L,
                     periodic_x, periodic_y, ns_advection, advection, current_i
                 )
+                # if current_i == 1
+                #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
+                #     phL.v .= 0.5 .* grid_v.x .+ getproperty.(grid_v.LS[1].geoL.centroid, :x) .* grid_v.dx
+                #     phL.u[grid_u.LS[1].SOLID] .= 0.0
+                #     phL.v[grid_v.LS[1].SOLID] .= 0.0
+                # end
                 # linear_advection!(
-                #     num, grid, geoL, grid_u, grid_u.geoL, grid_v, grid_v.geoL, phL,
+                #     num, grid, LS[1].geoL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL, phL,
                 #     BC_uL, BC_vL, opL
                 # )
             end
@@ -571,9 +598,14 @@ function run_forward(
     if verbose
         try
             printstyled(color=:blue, @sprintf "\n Final iteration : %d (%d%%) \n" (current_i-1) 100*(current_i-1)/max_iterations)
-            if heat || advection
-                print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f  V_stdev = %.5f\n" mean(V[LS[1].MIXED]) findmax(V[LS[1].MIXED])[1] findmin(V[LS[1].MIXED])[1] std(V[LS[1].MIXED]))
-                print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f  κ_stdev = %.5f\n" mean(LS[1].κ[LS[1].MIXED]) findmax(LS[1].κ[LS[1].MIXED])[1] findmin(LS[1].κ[LS[1].MIXED])[1] std(LS[1].κ[LS[1].MIXED]))
+            if stefan && advection
+                print(@sprintf "V_mean = %.2e  V_max = %.2e  V_min = %.2e  V_stdev = %.5f\n" mean(V[LS[1].MIXED]) findmax(V[LS[1].MIXED])[1] findmin(V[LS[1].MIXED])[1] std(V[LS[1].MIXED]))
+                print(@sprintf "κ_mean = %.2e  κ_max = %.2e  κ_min = %.2e  κ_stdev = %.5f\n" mean(LS[1].κ[LS[1].MIXED]) findmax(LS[1].κ[LS[1].MIXED])[1] findmin(LS[1].κ[LS[1].MIXED])[1] std(LS[1].κ[LS[1].MIXED]))
+            end
+            if free_surface && advection
+                print(@sprintf "Vol_ratio = %.3f%%\n" (volume(LS[end].geoL) / V0L * 100))
+                print(@sprintf "V_mean = %.2e  V_max = %.2e  V_min = %.2e  V_stdev = %.5f\n" mean(V[LS[1].MIXED]) findmax(V[LS[1].MIXED])[1] findmin(V[LS[1].MIXED])[1] std(V[LS[1].MIXED]))
+                print(@sprintf "κ_mean = %.2e  κ_max = %.2e  κ_min = %.2e  κ_stdev = %.5f\n" mean(LS[1].κ[LS[1].MIXED]) findmax(LS[1].κ[LS[1].MIXED])[1] findmin(LS[1].κ[LS[1].MIXED])[1] std(LS[1].κ[LS[1].MIXED]))
             end
             if navier_stokes
                 if ns_solid_phase

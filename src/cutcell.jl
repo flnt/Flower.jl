@@ -185,6 +185,30 @@ function clip_small_cell!(grid, LS, geo, II, ϵ)
     return nothing
 end
 
+function empty_cell!(grid, LS, geo, II, neighbours = true)
+    @unpack nx, ny = grid
+    
+    geo.cap[II,:] .= 0.0
+    geo.emptied[II] = true
+    if neighbours
+        if II[2] > 1
+            geo.cap[δx⁻(II),3] = 0.0
+        end
+        if II[1] > 1
+            geo.cap[δy⁻(II),4] = 0.0
+        end
+        if II[2] < nx
+            geo.cap[δx⁺(II),1] = 0.0
+        end
+        if II[1] < ny
+            geo.cap[δy⁺(II),2] = 0.0
+        end
+    end
+    geo.centroid[II] = Point(0.0, 0.0)
+    LS.mid_point[II] = Point(0.0, 0.0)
+    LS.iso[II] = 15.0
+end
+
 function clip_cells!(grid, LS, ϵ, periodic_x, periodic_y)
     @unpack nx, ny, ind = grid
     @unpack geoS, geoL = LS
@@ -402,7 +426,7 @@ function dimensionalize!(grid, geo)
     return nothing
 end
 
-function postprocess_grids!(grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, periodic_y, ϵ, empty)
+function postprocess_grids1!(grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, periodic_y, ϵ, empty)
     clip_cells!(grid, LS, ϵ, periodic_x, periodic_y)
     clip_cells!(grid_u, LS_u, ϵ, periodic_x, periodic_y)
     clip_cells!(grid_v, LS_v, ϵ, periodic_x, periodic_y)
@@ -414,6 +438,10 @@ function postprocess_grids!(grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, pe
     set_cap_bcs!(grid_u, LS_u, periodic_x, periodic_y, empty)
     set_cap_bcs!(grid_v, LS_v, periodic_x, periodic_y, empty)
 
+    return nothing
+end
+
+function postprocess_grids2!(grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, periodic_y, average)
     dimensionalize!(grid, LS.geoS)
     dimensionalize!(grid, LS.geoL)
     dimensionalize!(grid_u, LS_u.geoS)
@@ -428,14 +456,204 @@ function postprocess_grids!(grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, pe
     Wcapacities!(LS_v.geoS.dcap, periodic_x, periodic_y)
     Wcapacities!(LS_v.geoL.dcap, periodic_x, periodic_y)
 
-    average_face_capacities!(LS.geoS.dcap, periodic_x, periodic_y)
-    average_face_capacities!(LS.geoL.dcap, periodic_x, periodic_y)
-    average_face_capacities!(LS_u.geoS.dcap, periodic_x, periodic_y)
-    average_face_capacities!(LS_u.geoL.dcap, periodic_x, periodic_y)
-    average_face_capacities!(LS_v.geoS.dcap, periodic_x, periodic_y)
-    average_face_capacities!(LS_v.geoL.dcap, periodic_x, periodic_y)
+    if average
+        average_face_capacities!(LS.geoS.dcap, periodic_x, periodic_y)
+        average_face_capacities!(LS.geoL.dcap, periodic_x, periodic_y)
+        average_face_capacities!(LS_u.geoS.dcap, periodic_x, periodic_y)
+        average_face_capacities!(LS_u.geoL.dcap, periodic_x, periodic_y)
+        average_face_capacities!(LS_v.geoS.dcap, periodic_x, periodic_y)
+        average_face_capacities!(LS_v.geoL.dcap, periodic_x, periodic_y)
+    end
 
     return nothing
+end
+
+"""
+    ilp2cap()
+
+Compute the length of a line intersecting a polygon.
+"""
+function ilp2cap(l, p)
+    inters = LibGEOS.intersection(l, p)
+    obj = GeoInterface.convert(GeometryBasics, inters)
+    if typeof(obj) == Point2{Float64}
+        len = 0.0
+    else
+        len = LibGEOS.distance(obj.points[1][1], obj.points[1][2])
+    end
+
+    return len
+end
+
+"""
+    crossing_2levelsets(grid, LS1, LS2)
+
+Update geometric moments when two interfaces cross.
+"""
+function crossing_2levelsets!(num, grid, LS1, LS2, periodic_x, periodic_y, BC_int)
+    @unpack x, y, nx, ny, dx, dy, ind = grid
+
+    full_mixed = intersect(LS1.LIQUID, LS2.MIXED)
+    mixed_full = intersect(LS2.LIQUID, LS1.MIXED)
+    @inbounds @threads for II in full_mixed
+        grid.LS[end].geoL.cap[II,:] .= LS2.geoL.cap[II,:]
+        grid.LS[end].geoL.centroid[II] = LS2.geoL.centroid[II]
+    end
+    @inbounds @threads for II in mixed_full
+        grid.LS[end].geoL.cap[II,:] .= LS1.geoL.cap[II,:]
+        grid.LS[end].geoL.centroid[II] = LS1.geoL.centroid[II]
+    end
+
+    mixed_mixed = intersect(LS1.MIXED, LS2.MIXED)
+    Acap = [3,4,1,2]
+    @inbounds for II in mixed_mixed
+        if is_fs(BC_int[1])
+            append!(LS1.cl, [II])
+        elseif is_fs(BC_int[2])
+            append!(LS2.cl, [II])
+        end
+        if (abs(LS1.cut_points[II][1].x) == 0.5 && abs(LS1.cut_points[II][1].y) == 0.5)
+            LS1.cut_points[II][1] -= Point(1e-12 * sign(LS1.cut_points[II][1].x), 1e-12 * sign(LS1.cut_points[II][1].y))
+        end
+        if (abs(LS1.cut_points[II][2].x) == 0.5 && abs(LS1.cut_points[II][2].y) == 0.5)
+            LS1.cut_points[II][2] -= Point(1e-12 * sign(LS1.cut_points[II][2].x), 1e-12 * sign(LS1.cut_points[II][2].y))
+        end
+        if (abs(LS2.cut_points[II][1].x) == 0.5 && abs(LS2.cut_points[II][1].y) == 0.5)
+            LS2.cut_points[II][1] -= Point(1e-12 * sign(LS2.cut_points[II][1].x), 1e-12 * sign(LS2.cut_points[II][1].y))
+        end
+        if (abs(LS2.cut_points[II][2].x) == 0.5 && abs(LS2.cut_points[II][2].y) == 0.5)
+            LS2.cut_points[II][2] -= Point(1e-12 * sign(LS2.cut_points[II][2].x), 1e-12 * sign(LS2.cut_points[II][2].y))
+        end
+        l1 = Line(LS1.cut_points[II][1], LS1.cut_points[II][2])
+        l2 = Line(LS2.cut_points[II][1], LS2.cut_points[II][2])
+        p = line_intersection(l1, l2)
+
+        poly1 = points2polygon(LS1.geoL.vertices[II])
+        poly2 = points2polygon(LS2.geoL.vertices[II])
+        poly = LibGEOS.intersection(poly1, poly2)
+        vol = LibGEOS.area(poly)
+
+        # If the intersection is not empty
+        if vol > num.ϵ
+            # Add point as contact line point
+            _cent = LibGEOS.centroid(poly)
+            cent = GeoInterface.convert(GeometryBasics, _cent)
+
+            lx = readgeom(
+                "LINESTRING($(cent.data[1]) $(cent.data[2]-2.0),
+                $(cent.data[1]) $(cent.data[2]+2.0))"
+            )
+            ly = readgeom(
+                "LINESTRING($(cent.data[1]-2.0) $(cent.data[2]),
+                $(cent.data[1]+2.0) $(cent.data[2]))"
+            )
+            Bx = ilp2cap(lx, poly)
+            By = ilp2cap(ly, poly)
+
+            grid.LS[end].geoL.cap[II,1] = minimum([LS1.geoL.cap[II,1], LS2.geoL.cap[II,1]])
+            grid.LS[end].geoL.cap[II,2] = minimum([LS1.geoL.cap[II,2], LS2.geoL.cap[II,2]])
+            grid.LS[end].geoL.cap[II,3] = minimum([LS1.geoL.cap[II,3], LS2.geoL.cap[II,3]])
+            grid.LS[end].geoL.cap[II,4] = minimum([LS1.geoL.cap[II,4], LS2.geoL.cap[II,4]])
+            grid.LS[end].geoL.cap[II,5] = vol
+            grid.LS[end].geoL.cap[II,6] = Bx
+            grid.LS[end].geoL.cap[II,7] = By
+            grid.LS[end].geoL.cap[II,8:11] .= 0.5 * vol
+            grid.LS[end].geoL.centroid[II] = Point(cent.data[1], cent.data[2])
+
+            if within_cell(p)
+                # The smallest keeps its value and the largest the intersection value
+                for capn in 1:4
+                    set_crossing_caps!(capn, LS1, LS2, II, poly1, poly2, p)
+                end
+    
+                st = static_stencil(LS1.u, II, nx, ny, periodic_x, periodic_y)
+                B, BT = B_BT(II, grid, periodic_x, periodic_y)
+                itp = B * st * BT
+                _verts = vertices_sign(itp, grid, II, II, dx[II], dy[II], dx[II], dy[II])
+                vertices1 = [[_verts[1], _verts[4]], [_verts[4], _verts[3]], [_verts[3], _verts[2]], [_verts[2], _verts[1]]]
+    
+                st = static_stencil(LS2.u, II, nx, ny, periodic_x, periodic_y)
+                B, BT = B_BT(II, grid, periodic_x, periodic_y)
+                itp = B * st * BT
+                _verts = vertices_sign(itp, grid, II, II, dx[II], dy[II], dx[II], dy[II])
+                vertices2 = [[_verts[1], _verts[4]], [_verts[4], _verts[3]], [_verts[3], _verts[2]], [_verts[2], _verts[1]]]
+    
+                # If both corners of both faces are full, both keep its value
+                for capn in 1:4
+                    if vertices1[capn][1] < 0.5 && vertices1[capn][2] < 0.5 && vertices2[capn][1] < 0.5 && vertices2[capn][2] < 0.5
+                        set_crossing_caps_full!(Acap[capn], LS1, LS2, II, poly1, poly2, p)
+                    end
+                end
+            end
+        else
+            empty_cell!(grid, grid.LS[end], grid.LS[end].geoL, II)
+            empty_cell!(grid, LS1, LS1.geoL, II, false)
+            empty_cell!(grid, LS2, LS2.geoL, II, false)
+        end
+    end
+
+    empty_LS1 = findall(LS1.geoL.emptied)
+    empty_LS2 = findall(LS2.geoL.emptied)
+    @inbounds @threads for II in empty_LS1
+        empty_cell!(grid, grid.LS[end], grid.LS[end].geoL, II)
+    end
+    @inbounds @threads for II in empty_LS2
+        empty_cell!(grid, grid.LS[end], grid.LS[end].geoL, II)
+    end
+    
+    return nothing
+end
+
+function set_crossing_caps!(capn, LS1, LS2, II, poly1, poly2, p)
+    iLS = findmin([LS1.geoL.cap[II,capn], LS2.geoL.cap[II,capn]])
+
+    if capn == 1 || capn == 3
+        l = readgeom(
+            "LINESTRING($(p.x+0.5) $(p.y-2.0),
+            $(p.x+0.5) $(p.y+2.0))"
+        )
+        b = 6
+    else
+        l = readgeom(
+            "LINESTRING($(p.x-2.0) $(p.y+0.5),
+            $(p.x+2.0) $(p.y+0.5))"
+        )
+        b = 7
+    end
+
+    if iLS == 1
+        cap = ilp2cap(l, poly2)
+        LS2.geoL.cap[II,capn] = cap
+        LS2.geoL.cap[II,b] = cap
+    elseif iLS == 2
+        cap = ilp2cap(l, poly1)
+        LS1.geoL.cap[II,capn] = cap
+        LS1.geoL.cap[II,b] = cap
+    end
+end
+
+function set_crossing_caps_full!(Acap, LS1, LS2, II, poly1, poly2, p)
+    if Acap == 1 || Acap == 3
+        l = readgeom(
+            "LINESTRING($(p.x+0.5) $(p.y-2.0),
+            $(p.x+0.5) $(p.y+2.0))"
+        )
+        b = 6
+    else
+        l = readgeom(
+            "LINESTRING($(p.x-2.0) $(p.y+0.5),
+            $(p.x+2.0) $(p.y+0.5))"
+        )
+        b = 7
+    end
+
+    cap1 = ilp2cap(l, poly1)
+    LS1.geoL.cap[II,Acap] = cap1
+    LS1.geoL.cap[II,b] = cap1
+
+    cap2 = 1.0 - cap1
+    LS2.geoL.cap[II,Acap] = cap2
+    LS2.geoL.cap[II,b] = cap2
 end
 
 function _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, near_interface)
@@ -560,7 +778,7 @@ function get_interface_location!(grid, LS, periodic_x, periodic_y)
 
     @inbounds @threads for II in MIXED
         f = average_face_capacities(grid, LS, iso, II, periodic_x, periodic_y)
-        geoS.cap[II,:], geoL.cap[II,:], α[II], geoS.centroid[II], geoL.centroid[II], mid_point[II], cut_points[II] = capacities(f, iso[II])
+        geoS.cap[II,:], geoL.cap[II,:], α[II], geoS.centroid[II], geoL.centroid[II], mid_point[II], cut_points[II], geoS.vertices[II], geoL.vertices[II] = capacities(f, iso[II])
         geoS.projection[II], geoL.projection[II] = projection_2points(grid, LS, II)
     end
     return nothing
@@ -579,18 +797,18 @@ function get_interface_location_borders!(grid::Mesh{GridFCx,T,N}, u, periodic_x)
         @inbounds @threads for II in b_left[1]
             if u[II] >= 0.0
                 @inbounds geoS.cap[II,:] .= empty_capacities
-                @inbounds _, geoL.cap[II,:], _, _, _, _, _ = capacities_9
+                @inbounds _, geoL.cap[II,:], _, _, _, _, _, _, _ = capacities_9
             else
-                @inbounds geoS.cap[II,:], _, _, _, _, _, _ = capacities_6
+                @inbounds geoS.cap[II,:], _, _, _, _, _, _, _, _ = capacities_6
                 @inbounds geoL.cap[II,:] .= empty_capacities
             end
         end
         @inbounds @threads for II in b_right[1]
             if u[II] >= 0.0
                 @inbounds geoS.cap[II,:] .= empty_capacities
-                @inbounds _, geoL.cap[II,:], _, _, _, _, _ = capacities_6
+                @inbounds _, geoL.cap[II,:], _, _, _, _, _, _, _ = capacities_6
             else
-                @inbounds geoS.cap[II,:], _, _, _, _, _, _ = capacities_9
+                @inbounds geoS.cap[II,:], _, _, _, _, _, _, _, _ = capacities_9
                 @inbounds geoL.cap[II,:] .= empty_capacities
             end
         end
@@ -612,18 +830,18 @@ function get_interface_location_borders!(grid::Mesh{GridFCy,T,N}, u, periodic_y)
         @inbounds @threads for II in b_bottom[1]
             if u[II] >= 0.0
                 @inbounds geoS.cap[II,:] .= empty_capacities
-                @inbounds _, geoL.cap[II,:], _, _, _, _, _ = capacities_3
+                @inbounds _, geoL.cap[II,:], _, _, _, _, _, _, _ = capacities_3
             else
-                @inbounds geoS.cap[II,:], _, _, _, _, _, _ = capacities_12
+                @inbounds geoS.cap[II,:], _, _, _, _, _, _, _, _ = capacities_12
                 @inbounds geoL.cap[II,:] .= empty_capacities
             end
         end
         @inbounds @threads for II in b_top[1]
             if u[II] >= 0.0
                 @inbounds geoS.cap[II,:] .= empty_capacities
-                @inbounds _, geoL.cap[II,:], _, _, _, _, _ = capacities_12
+                @inbounds _, geoL.cap[II,:], _, _, _, _, _, _, _ = capacities_12
             else
-                @inbounds geoS.cap[II,:], _, _, _, _, _, _ = capacities_3
+                @inbounds geoS.cap[II,:], _, _, _, _, _, _, _, _ = capacities_3
                 @inbounds geoL.cap[II,:] .= empty_capacities
             end
         end
@@ -714,11 +932,13 @@ function capacities(F_prev, case)
     liq_centroid = Point(NaN, NaN)
     mid_point = Point(NaN, NaN)
     cut_points = [Point(NaN, NaN), Point(NaN, NaN)]
+    vertS = [Point(NaN, NaN)]
+    vertL = [Point(NaN, NaN)]
     if case == 1.0 #W S
-        s1 = (Point(0.,0.), Point(F[2],0.), Point(0.,F[1]), Point(0.,0.))
-        l1 = (Point(1.,0.), Point(F[2],0.), Point(0., F[1]), Point(0.,1.), Point(1.,1.), Point(1., 0.))
-        sol_centroid = get_centroid(s1)
-        liq_centroid = get_centroid(l1)
+        vertS = [Point(0.,0.), Point(F[2],0.), Point(0.,F[1]), Point(0.,0.)]
+        vertL = [Point(1.,0.), Point(F[2],0.), Point(0., F[1]), Point(0.,1.), Point(1.,1.), Point(1., 0.)]
+        sol_centroid = get_centroid(vertS)
+        liq_centroid = get_centroid(vertL)
         α = atan(F[2], F[1])
         mid_point = midpoint(Point(F[2],0.), Point(0.,F[1]))
         cut_points = [Point(F[2],0.) - Point(0.5,0.5), Point(0.,F[1]) - Point(0.5,0.5)]
@@ -749,10 +969,10 @@ function capacities(F_prev, case)
         cap_sol = SA_F64[F[1], F[2], 0, 0, svol, bsol..., s_w1, s_w2, s_w3, s_w4]
         cap_liq = SA_F64[1.0 - F[1], 1.0 - F[2], 1.0, 1.0, lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     elseif case == 2.0 #S E
-        s2 = (Point(F[1],0.), Point(1.,0.), Point(1.,F[2]), Point(F[1],0.))
-        l2 = (Point(0.,0.), Point(F[1],0.), Point(1., F[2]), Point(1.,1.), Point(0.,1.), Point(0., 0.))
-        sol_centroid = get_centroid(s2)
-        liq_centroid = get_centroid(l2)
+        vertS = [Point(F[1],0.), Point(1.,0.), Point(1.,F[2]), Point(F[1],0.)]
+        vertL = [Point(0.,0.), Point(F[1],0.), Point(1., F[2]), Point(1.,1.), Point(0.,1.), Point(0., 0.)]
+        sol_centroid = get_centroid(vertS)
+        liq_centroid = get_centroid(vertL)
         α = atan(1- F[1], -F[2])
         mid_point = midpoint(Point(F[1],0.), Point(1.,F[2]))
         cut_points = [Point(F[1],0.) - Point(0.5,0.5), Point(1.,F[2]) - Point(0.5,0.5)]
@@ -783,10 +1003,10 @@ function capacities(F_prev, case)
         cap_sol = SA_F64[0.0, 1 - F[1], F[2], 0.0, svol, bsol..., s_w1, s_w2, s_w3, s_w4]
         cap_liq = SA_F64[1.0, F[1], 1.0 - F[2], 1.0, lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     elseif case == 3.0 #W E
-        s3 = (Point(0.,0.), Point(1.,0.), Point(1.,F[2]), Point(0.,F[1]), Point(0.,0.))
-        l3 = (Point(1.,1.), Point(0.,1.), Point(0.,F[1]), Point(1.,F[2]), Point(1.,1.))
-        sol_centroid = get_centroid(s3)
-        liq_centroid = get_centroid(l3)
+        vertS = [Point(0.,0.), Point(1.,0.), Point(1.,F[2]), Point(0.,F[1]), Point(0.,0.)]
+        vertL = [Point(1.,1.), Point(0.,1.), Point(0.,F[1]), Point(1.,F[2]), Point(1.,1.)]
+        sol_centroid = get_centroid(vertS)
+        liq_centroid = get_centroid(vertL)
         α = atan(1. , F[1]-F[2])
         mid_point = midpoint(Point(1.,F[2]), Point(0.,F[1]))
         cut_points = [Point(1.,F[2]) - Point(0.5,0.5), Point(0.,F[1]) - Point(0.5,0.5)]
@@ -823,10 +1043,10 @@ function capacities(F_prev, case)
         cap_sol = SA_F64[F[1], 1.0, F[2], 0.0, svol, bsol..., s_w1, s_w2, s_w3, s_w4]
         cap_liq = SA_F64[1.0 - F[1], 0.0, 1.0 - F[2], 1.0, lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     elseif case == 4.0 #E N
-        s4 = (Point(1.,1.), Point(F[2],1.), Point(1.,F[1]), Point(1.,1.))
-        l4 = (Point(0.,0.), Point(1.,0.), Point(1.,F[1]), Point(F[2],1.), Point(0.,1.), Point(0.,0.))
-        sol_centroid = get_centroid(s4)
-        liq_centroid = get_centroid(l4)
+        vertS = [Point(1.,1.), Point(F[2],1.), Point(1.,F[1]), Point(1.,1.)]
+        vertL = [Point(0.,0.), Point(1.,0.), Point(1.,F[1]), Point(F[2],1.), Point(0.,1.), Point(0.,0.)]
+        sol_centroid = get_centroid(vertS)
+        liq_centroid = get_centroid(vertL)
         α = atan(-1+F[2], -1 +F[1])
         mid_point = midpoint(Point(F[2],1.), Point(1.,F[1]))
         cut_points = [Point(F[2],1.) - Point(0.5,0.5), Point(1.,F[1]) - Point(0.5,0.5)]
@@ -857,10 +1077,10 @@ function capacities(F_prev, case)
         cap_liq = SA_F64[1.0, 1.0, F[1], F[2], lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
         cap_sol = SA_F64[0.0, 0.0, 1. - F[1], 1. - F[2], svol, bsol..., s_w1, s_w2, s_w3, s_w4]
     elseif case == 6.0 #S N
-        s6 = (Point(1.,1.), Point(F[2],1.), Point(F[1],0.), Point(1.,0.), Point(1.,1.))
-        l6 = (Point(0.,0.), Point(F[1],0.), Point(F[2],1.), Point(0.,1.), Point(0.,0.))
-        sol_centroid = get_centroid(s6)
-        liq_centroid = get_centroid(l6)
+        vertS = [Point(1.,1.), Point(F[2],1.), Point(F[1],0.), Point(1.,0.), Point(1.,1.)]
+        vertL = [Point(0.,0.), Point(F[1],0.), Point(F[2],1.), Point(0.,1.), Point(0.,0.)]
+        sol_centroid = get_centroid(vertS)
+        liq_centroid = get_centroid(vertL)
         α = atan(F[2]-F[1], -1.)
         mid_point = midpoint(Point(F[2],1.), Point(F[1],0.))
         cut_points = [Point(F[2],1.) - Point(0.5,0.5), Point(F[1],0.) - Point(0.5,0.5)]
@@ -897,10 +1117,10 @@ function capacities(F_prev, case)
         cap_liq = SA_F64[1.0, F[1], 0.0, F[2], lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
         cap_sol = SA_F64[0.0, 1. - F[1], 1.0, 1. - F[2], svol, bsol..., s_w1, s_w2, s_w3, s_w4]
     elseif case == 7.0 #W N
-        s7 = (Point(0.,0.), Point(1.,0.), Point(1.,1.), Point(F[2],1.), Point(0.,F[1]), Point(0.,0.))
-        l7 = (Point(0.,1.), Point(0.,F[1]), Point(F[2],1.), Point(0.,1.))
-        sol_centroid = get_centroid(s7)
-        liq_centroid = get_centroid(l7)
+        vertS = [Point(0.,0.), Point(1.,0.), Point(1.,1.), Point(F[2],1.), Point(0.,F[1]), Point(0.,0.)]
+        vertL = [Point(0.,1.), Point(0.,F[1]), Point(F[2],1.), Point(0.,1.)]
+        sol_centroid = get_centroid(vertS)
+        liq_centroid = get_centroid(vertL)
         α = atan(F[2], -1. + F[1])
         mid_point = midpoint(Point(F[2],1.), Point(0.,F[1]))
         cut_points = [Point(F[2],1.) - Point(0.5,0.5), Point(0.,F[1]) - Point(0.5,0.5)]
@@ -931,10 +1151,10 @@ function capacities(F_prev, case)
         cap_sol = SA_F64[F[1], 1.0, 1.0, 1. - F[2], svol, bsol..., s_w1, s_w2, s_w3, s_w4]
         cap_liq = SA_F64[1.0 - F[1], 0.0, 0.0, F[2], lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     elseif case == 8.0 #W N
-        s8 = (Point(0.,1.), Point(0.,F[1]), Point(F[2],1.), Point(0.,1.))
-        l8 = (Point(0.,0.), Point(1.,0.), Point(1.,1.), Point(F[2],1.), Point(0.,F[1]), Point(0.,0.))
-        sol_centroid = get_centroid(s8)
-        liq_centroid = get_centroid(l8)
+        vertS = [Point(0.,1.), Point(0.,F[1]), Point(F[2],1.), Point(0.,1.)]
+        vertL = [Point(0.,0.), Point(1.,0.), Point(1.,1.), Point(F[2],1.), Point(0.,F[1]), Point(0.,0.)]
+        sol_centroid = get_centroid(vertS)
+        liq_centroid = get_centroid(vertL)
         α = atan(-F[2], 1. - F[1])
         mid_point = midpoint(Point(0.,F[1]), Point(F[2],1.))
         cut_points = [Point(0.,F[1]) - Point(0.5,0.5), Point(F[2],1.) - Point(0.5,0.5)]
@@ -965,10 +1185,10 @@ function capacities(F_prev, case)
         cap_sol = SA_F64[1. - F[1], 0.0, 0.0, F[2], svol, bsol..., s_w1, s_w2, s_w3, s_w4]
         cap_liq = SA_F64[F[1], 1.0, 1.0, 1. - F[2], lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     elseif case == 9.0 #S N
-        s9 = (Point(0.,0.), Point(F[1],0.), Point(F[2],1.), Point(0.,1.), Point(0.,0.))
-        l9 = (Point(1.,1.), Point(F[2],1.), Point(F[1],0.), Point(1.,0.), Point(1.,1.))
-        sol_centroid = get_centroid(s9)
-        liq_centroid = get_centroid(l9)
+        vertS = [Point(0.,0.), Point(F[1],0.), Point(F[2],1.), Point(0.,1.), Point(0.,0.)]
+        vertL = [Point(1.,1.), Point(F[2],1.), Point(F[1],0.), Point(1.,0.), Point(1.,1.)]
+        sol_centroid = get_centroid(vertS)
+        liq_centroid = get_centroid(vertL)
         α = atan(F[1]-F[2], 1.)
         mid_point = midpoint(Point(F[1],0.), Point(F[2],1.))
         cut_points = [Point(F[1],0.) - Point(0.5,0.5), Point(F[2],1.) - Point(0.5,0.5)]
@@ -1005,10 +1225,10 @@ function capacities(F_prev, case)
         cap_sol = SA_F64[1.0, F[1], 0.0, F[2], svol, bsol..., s_w1, s_w2, s_w3, s_w4]
         cap_liq = SA_F64[0, 1.0 - F[1], 1.0, 1.0 - F[2], lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     elseif case == 11.0 #E N
-        s11 = (Point(0.,0.), Point(1.,0.), Point(1.,F[1]), Point(F[2],1.), Point(0.,1.), Point(0.,0.))
-        l11 = (Point(1.,1.), Point(F[2],1.), Point(1.,F[1]), Point(1.,1.))
-        sol_centroid = get_centroid(s11)
-        liq_centroid = get_centroid(l11)
+        vertS = [Point(0.,0.), Point(1.,0.), Point(1.,F[1]), Point(F[2],1.), Point(0.,1.), Point(0.,0.)]
+        vertL = [Point(1.,1.), Point(F[2],1.), Point(1.,F[1]), Point(1.,1.)]
+        sol_centroid = get_centroid(vertS)
+        liq_centroid = get_centroid(vertL)
         α = atan(1. - F[2], 1. - F[1])
         mid_point = midpoint(Point(1.,F[1]), Point(F[2],1.))
         cut_points = [Point(1.,F[1]) - Point(0.5,0.5), Point(F[2],1.) - Point(0.5,0.5)]
@@ -1039,10 +1259,10 @@ function capacities(F_prev, case)
         cap_sol = SA_F64[1.0, 1.0, F[1], F[2], svol, bsol..., s_w1, s_w2, s_w3, s_w4]
         cap_liq = SA_F64[0.0, 0.0, 1. - F[1], 1. - F[2], lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     elseif case == 12.0 #W E
-        s12 = (Point(1.,1.), Point(0.,1.), Point(0.,F[1]), Point(1.,F[2]), Point(1.,1.))
-        l12 = (Point(0.,0.), Point(1.,0.), Point(1.,F[2]), Point(0.,F[1]), Point(0.,0.))
-        sol_centroid = get_centroid(s12)
-        liq_centroid = get_centroid(l12)
+        vertS = [Point(1.,1.), Point(0.,1.), Point(0.,F[1]), Point(1.,F[2]), Point(1.,1.)]
+        vertL = [Point(0.,0.), Point(1.,0.), Point(1.,F[2]), Point(0.,F[1]), Point(0.,0.)]
+        sol_centroid = get_centroid(vertS)
+        liq_centroid = get_centroid(vertL)
         α = atan(-1., (1. - F[1])-(1. - F[2]))
         mid_point = midpoint(Point(0.,F[1]), Point(1.,F[2]))
         cut_points = [Point(0.,F[1]) - Point(0.5,0.5), Point(1.,F[2]) - Point(0.5,0.5)]
@@ -1079,10 +1299,10 @@ function capacities(F_prev, case)
         cap_sol = SA_F64[1. - F[1], 0.0, 1. - F[2], 1.0, svol, bsol..., s_w1, s_w2, s_w3, s_w4]
         cap_liq = SA_F64[F[1], 1.0, F[2], 0.0, lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     elseif case == 13.0 #S E
-        s13 = (Point(0.,0.), Point(F[1],0.), Point(1.,F[2]), Point(1.,1.), Point(0.,1.), Point(0.,0.))
-        l13 = (Point(1.,0.), Point(1.,F[2]), Point(F[1],0.), Point(1.,0.))
-        sol_centroid = get_centroid(s13)
-        liq_centroid = get_centroid(l13)
+        vertS = [Point(0.,0.), Point(F[1],0.), Point(1.,F[2]), Point(1.,1.), Point(0.,1.), Point(0.,0.)]
+        vertL = [Point(1.,0.), Point(1.,F[2]), Point(F[1],0.), Point(1.,0.)]
+        sol_centroid = get_centroid(vertS)
+        liq_centroid = get_centroid(vertL)
         α = atan(-1.0+F[1], F[2])
         mid_point = midpoint(Point(F[1],0.), Point(1.,F[2]))
         cut_points = [Point(F[1],0.) - Point(0.5,0.5), Point(1.,F[2]) - Point(0.5,0.5)]
@@ -1113,10 +1333,10 @@ function capacities(F_prev, case)
         cap_sol = SA_F64[1.0, F[1], 1. - F[2], 1.0, svol, bsol..., s_w1, s_w2, s_w3, s_w4]
         cap_liq = SA_F64[0.0, 1.0 - F[1], F[2], 0.0, lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     elseif case == 14.0 #W S
-        s14 = (Point(1.,1.), Point(0.,1.), Point(0.,F[1]), Point(F[2],0.), Point(1.,0.), Point(1.,1.))
-        l14 = (Point(0.,0.), Point(F[2],0.), Point(0.,F[1]), Point(0.,0.))
-        sol_centroid = get_centroid(s14)
-        liq_centroid = get_centroid(l14)
+        vertS = [Point(1.,1.), Point(0.,1.), Point(0.,F[1]), Point(F[2],0.), Point(1.,0.), Point(1.,1.)]
+        vertL = [Point(0.,0.), Point(F[2],0.), Point(0.,F[1]), Point(0.,0.)]
+        sol_centroid = get_centroid(vertS)
+        liq_centroid = get_centroid(vertL)
         α = atan(-F[2], -F[1])
         mid_point = midpoint(Point(0.,F[1]), Point(F[2],0.))
         cut_points = [Point(0.,F[1]) - Point(0.5,0.5), Point(F[2],0.) - Point(0.5,0.5)]
@@ -1147,7 +1367,7 @@ function capacities(F_prev, case)
         cap_sol = SA_F64[1.0 - F[1], 1.0 - F[2], 1.0, 1.0, svol, bsol..., s_w1, s_w2, s_w3, s_w4]
         cap_liq = SA_F64[F[1], F[2], 0.0, 0.0, lvol, bliq..., l_w1, l_w2, l_w3, l_w4]
     end
-    return cap_sol, cap_liq, min(float(π),max(-float(π),α)), sol_centroid, liq_centroid, mid_point, cut_points
+    return cap_sol, cap_liq, min(float(π),max(-float(π),α)), sol_centroid, liq_centroid, mid_point, cut_points, vertS, vertL
 end
 
 function set_cap_bcs!(grid::Mesh{GridCC,T,N}, LS, periodic_x, periodic_y, empty = true) where {T,N}
@@ -1994,6 +2214,9 @@ end
 function init_fresh_cells!(grid, u::SubArray{T,N,P,I,L}, V, projection, FRESH, periodic_x, periodic_y) where {T,N,P<:Vector{T},I,L}
     _V = reshape(V, (grid.ny, grid.nx))
     @inbounds @threads for II in FRESH
+        if !isassigned(projection, II)
+            continue
+        end
         if projection[II].flag
             pII = lexicographic(II, grid.ny)
             u_1, u_2 = interpolated_temperature(grid, projection[II].angle, projection[II].point1, projection[II].point2, _V, II, periodic_x, periodic_y)

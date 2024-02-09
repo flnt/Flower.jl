@@ -98,6 +98,7 @@ Compute the volume of a phase.
 
 @inline distance(A::Point, B::Point, dx=1.0, dy=1.0) =
     sqrt(((A.x-B.x)*dx)^2 + ((A.y-B.y)*dy)^2)
+@inline distance(xp, yp, θ, xl, yl) = abs(cos(θ) * (yl - yp) - sin(θ) * (xl - xp))
 
 @inline midpoint(A::Point, B::Point) = Point((A.x + B.x)/2 - 0.5, (A.y + B.y)/2 - 0.5)
 
@@ -372,6 +373,10 @@ function get_NB_width_indices_base(n)
     return vcat(x,y)
 end
 
+function get_NB_width_indices_base1(n)
+    return vcat([[CartesianIndex(i,j) for i in -n:n] for j in -n:n]...)
+end
+
 @inline function normf(field, pos, cap, h)
     AVG = 0.
     RMS = 0.
@@ -482,6 +487,25 @@ function monitor(header, history, it)
     else
         println("x0 is a solution")
     end
+end
+
+function within_cell(p::Point)
+    if p.x >= -0.5 && p.x <= 0.5 && p.y >= -0.5 && p.y <= 0.5
+        return true
+    else
+        return false
+    end
+end
+
+function points2polygon(points)
+    str = "POLYGON(("
+    str *= "$(points[1].x) $(points[1].y)"
+    for p in points[2:end]
+        str *= ",$(p.x) $(p.y)"
+    end
+    str *= "))"
+
+    return readgeom(str)
 end
 
 @inline is_weno(::WENO5) = true

@@ -152,9 +152,9 @@ function bc_matrix!(grid::Mesh{GridCC,T,N}, Hx, Hy, dcap, dcap_p, n, all_indices
         pJJ = lexicographic(II, n+1)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
         
-        @inbounds Hx[pII, pII-n] = -(A1 - dcap[δx⁻(II),6])
+        @inbounds Hx[pII, pII-n] = -(dcap[δx⁻(II),3] - dcap[δx⁻(II),6])
         @inbounds Hx[pII, pII] = -(B1 - A1)
-        @inbounds Hy[pJJ, pII-1] = -(A2 - dcap[δy⁻(II),7])
+        @inbounds Hy[pJJ, pII-1] = -(dcap[δy⁻(II),4] - dcap[δy⁻(II),7])
         @inbounds Hy[pJJ, pII] = -(B2 - A2)
     end
 
@@ -175,7 +175,7 @@ function bc_matrix!(grid::Mesh{GridCC,T,N}, Hx, Hy, dcap, dcap_p, n, all_indices
         pJJ = lexicographic(II, n+1)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
         
-        @inbounds Hx[pII, pII-n] = -(A1 - dcap[δx⁻(II),6])
+        @inbounds Hx[pII, pII-n] = -(dcap[δx⁻(II),3] - dcap[δx⁻(II),6])
         @inbounds Hx[pII, pII] = -(B1 - A1)
     end
 
@@ -198,7 +198,7 @@ function bc_matrix!(grid::Mesh{GridCC,T,N}, Hx, Hy, dcap, dcap_p, n, all_indices
         pJJ = lexicographic(II, n+1)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
         
-        @inbounds Hy[pJJ, pII-1] = -(A2 - dcap[δy⁻(II),7])
+        @inbounds Hy[pJJ, pII-1] = -(dcap[δy⁻(II),4] - dcap[δy⁻(II),7])
         @inbounds Hy[pJJ, pII] = -(B2 - A2)
     end
 
@@ -211,9 +211,9 @@ function bc_matrix!(grid::Mesh{GridFCx,T,N}, Hx, Hy, dcap, dcap_p, n, all_indice
         pJJ = lexicographic(II, n+1)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
         
-        @inbounds Hx[pII, pII-n] = -(A1 - dcap[δx⁻(II),6])
+        @inbounds Hx[pII, pII-n] = -(dcap[δx⁻(II),3] - dcap[δx⁻(II),6])
         @inbounds Hx[pII, pII] = -(B1 - A1)
-        @inbounds Hy[pJJ, pII-1] = -(A2 - dcap[δy⁻(II),7])
+        @inbounds Hy[pJJ, pII-1] = -(dcap[δy⁻(II),4] - dcap[δy⁻(II),7])
         @inbounds Hy[pJJ, pII] = -(B2 - A2)
     end
     @inbounds for II in @view all_indices[:,1]
@@ -233,7 +233,7 @@ function bc_matrix!(grid::Mesh{GridFCx,T,N}, Hx, Hy, dcap, dcap_p, n, all_indice
         pJJ = lexicographic(II, n+1)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
         
-        @inbounds Hx[pII, pII-n] = -(A1 - dcap[δx⁻(II),6])
+        @inbounds Hx[pII, pII-n] = -(dcap[δx⁻(II),3] - dcap[δx⁻(II),6])
         @inbounds Hx[pII, pII] = -(B1 - A1)
     end
 
@@ -256,7 +256,7 @@ function bc_matrix!(grid::Mesh{GridFCx,T,N}, Hx, Hy, dcap, dcap_p, n, all_indice
         pJJ = lexicographic(II, n+1)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
         
-        @inbounds Hy[pJJ, pII-1] = -(A2 - dcap[δy⁻(II),7])
+        @inbounds Hy[pJJ, pII-1] = -(dcap[δy⁻(II),4] - dcap[δy⁻(II),7])
         @inbounds Hy[pJJ, pII] = -(B2 - A2)
     end
 
@@ -269,9 +269,9 @@ function bc_matrix!(grid::Mesh{GridFCy,T,N}, Hx, Hy, dcap, dcap_p, n, all_indice
         pJJ = lexicographic(II, n+1)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
         
-        @inbounds Hx[pII, pII-n] = -(A1 - dcap[δx⁻(II),6])
+        @inbounds Hx[pII, pII-n] = -(dcap[δx⁻(II),3] - dcap[δx⁻(II),6])
         @inbounds Hx[pII, pII] = -(B1 - A1)
-        @inbounds Hy[pJJ, pII-1] = -(A2 - dcap[δy⁻(II),7])
+        @inbounds Hy[pJJ, pII-1] = -(dcap[δy⁻(II),4] - dcap[δy⁻(II),7])
         @inbounds Hy[pJJ, pII] = -(B2 - A2)
     end
 
@@ -292,7 +292,7 @@ function bc_matrix!(grid::Mesh{GridFCy,T,N}, Hx, Hy, dcap, dcap_p, n, all_indice
         pJJ = lexicographic(II, n+1)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
         
-        @inbounds Hx[pII, pII-n] = -(A1 - dcap[δx⁻(II),6])
+        @inbounds Hx[pII, pII-n] = -(dcap[δx⁻(II),3] - dcap[δx⁻(II),6])
         @inbounds Hx[pII, pII] = -(B1 - A1)
     end
 
@@ -315,7 +315,7 @@ function bc_matrix!(grid::Mesh{GridFCy,T,N}, Hx, Hy, dcap, dcap_p, n, all_indice
         pJJ = lexicographic(II, n+1)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, II)
         
-        @inbounds Hy[pJJ, pII-1] = -(A2 - dcap[δy⁻(II),7])
+        @inbounds Hy[pJJ, pII-1] = -(dcap[δy⁻(II),4] - dcap[δy⁻(II),7])
         @inbounds Hy[pJJ, pII] = -(B2 - A2)
     end
 
