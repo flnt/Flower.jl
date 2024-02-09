@@ -37,7 +37,7 @@ Generates a `Figure` displaying the `grid`.
 visualization.
 """
 function plot_grid(
-    grid;
+    num, grid;
     linewidth = 0.5,
     limitsx = false,
     limitsy = false,
@@ -71,9 +71,11 @@ function plot_grid(
     for i = 1:skipy+1:grid.ny+1
         lines!(x, ones(grid.nx+1) .* y[i], linewidth = linewidth, color = :black)
     end
-
-    contour!(grid.x[1,:], grid.y[:,1], grid.u', levels = [0.0], color = :red,
-        linewidth = 2.0)
+    for iLS in 1:num.nLS
+        contour!(grid.x[1,:], grid.y[:,1], grid.LS[iLS].u', 
+            levels = [0.0], color = :red, linewidth = 3.0
+        )
+    end
     limits!(ax, lx[1], lx[2], ly[1], ly[2])
     colsize!(fig.layout, 1, widths(ax.scene.viewport[])[1])
     rowsize!(fig.layout, 1, widths(ax.scene.viewport[])[2])
@@ -100,7 +102,7 @@ Generates a `Figure` displaying a `field` and an interface `field_u` if given fo
 `grid`.
 """
 function plot_field(
-    grid, field_u = nothing, field = nothing;
+    num, grid, field_u = nothing, field = nothing;
     title = "",
     xlabel = L"x",
     ylabel = L"y",
@@ -165,7 +167,11 @@ function plot_field(
         end
     end
     if plot_u
-        contour!(x, y, u', levels = [0.0], color = :red, linewidth = 3.0)
+        for iLS in 1:num.nLS
+            contour!(x, y, grid.LS[iLS].u', 
+                levels = [0.0], color = :red, linewidth = 3.0
+            )
+        end
     end
     if plot_hmap
         cbar = fig[1,2] = Colorbar(fig, hmap, labelpadding = 0)
