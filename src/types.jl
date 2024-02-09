@@ -5,33 +5,33 @@ abstract type MutatingFields end
 abstract type AbstractOptimizer end
 
 @with_kw struct Numerical{T <: Real, D <: Integer} <: NumericalParameters
-    CFL::T = 0.5
-    Re::T = 1.0
-    TEND::T = 0.0
-    x::Union{Vector{T},LinRange{T,D}} = [-0.5 - 1/127 / 2 + i * 1/127 for i = 0:128]
-    y::Union{Vector{T},LinRange{T,D}} = [-0.5 - 1/127 / 2 + i * 1/127 for i = 0:128]
+    CFL::T = 0.5 # Courant number
+    Re::T = 1.0 # Reynolds number
+    TEND::T = 0.0 # Final time of the simulation
+    x::Union{Vector{T},LinRange{T,D}} = [-0.5 - 1/127 / 2 + i * 1/127 for i = 0:128] # Vector of cells positions in x
+    y::Union{Vector{T},LinRange{T,D}} = [-0.5 - 1/127 / 2 + i * 1/127 for i = 0:128] # Vector of cells positions in y
     L0::T = max(x[end]-x[1], y[end]-y[1])
     Δ::T = min(diff(x)..., diff(y)...)
     shift::T = 0.0
     shifted::T = shift*Δ
-    τ::T = min(CFL*Δ^2*Re, CFL*Δ)
-    max_iterations::D = TEND÷τ
+    τ::T = min(CFL*Δ^2*Re, CFL*Δ) # timestep
+    max_iterations::D = TEND÷τ # maximum number of iterations
     current_i::D = 1
     save_every::D = 1
-    reinit_every::D = 1
-    nb_reinit::D = length(x)÷8
-    δreinit::T = 0.01
-    ϵ::T = 0.00
-    NB::D = nb_reinit÷2
-    T_inf::T = 0.0
-    u_inf::T = 1.0
-    v_inf::T = 0.0
+    reinit_every::D = 1 # period of levelset reinialization
+    nb_reinit::D = length(x)÷8 # number of reinitializations
+    δreinit::T = 10.0 # delta for automatic reinitialization
+    ϵ::T = 0.00 # cell-clipping threshold
+    NB::D = nb_reinit÷2 # number of cells the velocity is extended
+    T_inf::T = 0.0 # value of temperature at ∞
+    u_inf::T = 1.0 # value of horizontal velocity at infinity
+    v_inf::T = 0.0 # value of vertical velocity at infinity
     uD::T = 0.0
     vD::T = 0.0
-    θd::T = 0.0
-    ϵ_κ::T = 0.0
-    ϵ_V::T = 0.0
-    σ::T = 0.0
+    θd::T = 0.0 # value of temperature at the interface
+    ϵ_κ::T = 0.0 # surface tension coefficient for Stefan BCs
+    ϵ_V::T = 0.0 # molecular kinetic coefficient for Stefan BCs
+    σ::T = 0.0 # surface tension coefficient
     case::String = "notmycase"
     cases::String = "Planar, Sphere, Cylinder, Ellipse, Crystal, Mullins, Nothing, Airfoil, Jet, Drop"
     A::T = 0.05
@@ -39,13 +39,13 @@ abstract type AbstractOptimizer end
     R::T = 0.5
     m::D = 4
     θ₀::T = pi/4
-    g::T = 0.0
-    β::T = 0.0
+    g::T = 0.0 # gravity
+    β::T = 0.0 # angle of the gravity
     n_ext_cl::D = 5
     x_airfoil::Array{T} = [0.0]
     y_airfoil::Array{T} = [0.0]
-    aniso::Bool = false
-    nLS::D = 1
+    aniso::Bool = false # anisotropy for Stefan problem BCs
+    nLS::D = 1 # number of levelsets
     _nLS::D = nLS == 1 ? 1 : nLS + 1
     subdomains::D = 2
     overlaps::D = 1

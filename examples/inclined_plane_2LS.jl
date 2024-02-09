@@ -15,7 +15,6 @@ x = LinRange(-L0x/2, L0x/2, n+1)
 y = LinRange(-L0y/2, L0y/2, Ny*n+1)
 
 max_its = 17400
-max_its = 15000
 
 num = Numerical(
     case = "Drop",
@@ -39,15 +38,13 @@ num = Numerical(
     R = h0,
     A = 0.3,
     NB = 24,
-    nLS = 2,
-    subdomains = 2,
-    overlaps = 1
+    nLS = 2
 )
 
 gp, gu, gv = init_meshes(num)
 op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv);
 
-gp.LS[2].u .= 3.7 .-gp.y
+gp.LS[2].u .= 3.7 .- gp.y
 # combine_levelsets!(num, gp)
 
 phL.u .= num.u_inf
@@ -92,20 +89,22 @@ tcks = -num.L0/2:2:num.L0
 lim = (num.L0 + num.Δ) / 2
 lim = 1.0
 
-fu = Figure(resolution = (1600, 1000))
-colsize!(fu.layout, 1, Aspect(1, 1.0))
-ax = Axis(fu[1,1], aspect = 1, xticks = tcks, yticks = tcks)
+fu = Figure(size = (200, 800))
+ax = Axis(fu[1,1], aspect = DataAspect(), xticks = tcks, yticks = tcks)
 heatmap!(gu.x[1,:], gu.y[:,1], phL.u')
 contour!(gu.x[1,:], gu.y[:,1], gu.LS[end].u', levels = 0:0, color=:red, linewidth = 3);
 # limits!(ax, -lim, lim, -lim, lim)
+colsize!(fu.layout, 1, widths(ax.scene.viewport[])[1])
+rowsize!(fu.layout, 1, widths(ax.scene.viewport[])[2])
 resize_to_layout!(fu)
 
-fv = Figure(resolution = (1600, 1000))
-colsize!(fv.layout, 1, Aspect(1, 1.0))
-ax = Axis(fv[1,1], aspect = 1, xticks = tcks, yticks = tcks)
+fv = Figure(size = (200, 800))
+ax = Axis(fv[1,1], aspect = DataAspect(), xticks = tcks, yticks = tcks)
 heatmap!(gv.x[1,:], gv.y[:,1], phL.v')
 contour!(gv.x[1,:], gv.y[:,1], gv.LS[end].u', levels = 0:0, color=:red, linewidth = 3);
 # limits!(ax, -lim, lim, -lim, lim)
+colsize!(fv.layout, 1, widths(ax.scene.viewport[])[1])
+rowsize!(fv.layout, 1, widths(ax.scene.viewport[])[2])
 resize_to_layout!(fv)
 
 prefix = "/Users/alex/Documents/PhD/Cutcell/New_ops/robin/free_surface/2LS/"
@@ -113,15 +112,15 @@ suffix = "_drip_β$(num.β)_g$(num.g)_A$(num.A)_it$(num.max_iterations)"
 
 limx = num.x[end]
 limy = num.y[end]
-make_video(gu, fwd.ux[end,:,:,:], fwdL.u; title_prefix=prefix*"u_field",
-        title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx-num.Δ/2,limx+num.Δ/2), limitsy=(-limy,limy))
-make_video(gv, fwd.uy[end,:,:,:], fwdL.v; title_prefix=prefix*"v_field",
-        title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy-num.Δ/2,limy+num.Δ/2))
-make_video(gp, fwd.u[end,:,:,:], fwdL.p; title_prefix=prefix*"p_field",
-        title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))
-make_video(gp, fwd.u[end,:,:,:], fwd.κ[end,:,:,:]; title_prefix=prefix*"k_field",
-        title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))#, minv=-4.0, maxv=4.0)
-make_video(gp, fwd.u[end,:,:,:]; title_prefix=prefix*"none",
-        title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))#, stepf=444)
+# make_video(num, gu, fwd.ux, fwdL.u; title_prefix=prefix*"u_field",
+#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx-num.Δ/2,limx+num.Δ/2), limitsy=(-limy,limy))
+# make_video(num, gv, fwd.uy, fwdL.v; title_prefix=prefix*"v_field",
+#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy-num.Δ/2,limy+num.Δ/2))
+# make_video(num, gp, fwd.u, fwdL.p; title_prefix=prefix*"p_field",
+#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))
+# make_video(num, gp, fwd.u, fwd.κ[end,:,:,:]; title_prefix=prefix*"k_field",
+#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))#, minv=-4.0, maxv=4.0)
+# make_video(num, gp, fwd.u title_prefix=prefix*"none",
+#         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-limx,limx), limitsy=(-limy,limy))#, stepf=444)
 
 nothing

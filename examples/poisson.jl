@@ -1,11 +1,10 @@
 using Revise
 using Flower
-using IncompleteLU
 
-fontsize_theme = Theme(fonts=(;regular="CMU Serif"), fontsize = 40)
+fontsize_theme = Theme(fonts=(;regular="CMU Serif"), fontsize = 60)
 set_theme!(fontsize_theme)
 
-prefix = "/Users/alex/Documents/PhD/papers/cutcell_NS_stationary/CPC/figures/"
+prefix = "/Users/alex/Documents/PhD/Comite de Suivi/2023/figures/"
 
 function f(x, y)
     return cos(π^2 * x * y)*sin(π^2 * x * y)
@@ -38,25 +37,25 @@ function regression(x, y, x_reg)
 end
 
 function dirichlet_bcs!(gp, D)
-    @unpack x, y, dx, dy, mid_point, ind, α = gp
+    @unpack x, y, dx, dy, LS, ind = gp
 
     @inbounds @threads for II in ind.inside
-        x_bc = mid_point[II].x * dx[II] + x[II]
-        y_bc = mid_point[II].y * dy[II] + y[II]
+        x_bc = LS[1].mid_point[II].x * dx[II] + x[II]
+        y_bc = LS[1].mid_point[II].y * dy[II] + y[II]
         D[II] = f(x_bc, y_bc)
     end
 end
 
 function neumann_bcs!(gp, N)
-    @unpack x, y, dx, dy, mid_point, ind, α = gp
+    @unpack x, y, dx, dy, LS, ind = gp
 
     @inbounds @threads for II in ind.inside
-        x_bc = mid_point[II].x * dx[II] + x[II]
-        y_bc = mid_point[II].y * dy[II] + y[II]
+        x_bc = LS[1].mid_point[II].x * dx[II] + x[II]
+        y_bc = LS[1].mid_point[II].y * dy[II] + y[II]
         Nx = ∇fx(x_bc, y_bc)
         Ny = ∇fy(x_bc, y_bc)
 
-        N[II] = Nx * cos(α[II]+π) + Ny * sin(α[II]+π)
+        N[II] = Nx * cos(LS[1].α[II]+π) + Ny * sin(LS[1].α[II]+π)
     end
 
     replace!(N, NaN=>0.0)
@@ -65,15 +64,15 @@ function neumann_bcs!(gp, N)
 end
 
 function robin_bcs!(gp, R)
-    @unpack x, y, dx, dy, mid_point, ind, α = gp
+    @unpack x, y, dx, dy, LS, ind = gp
 
     @inbounds @threads for II in ind.inside
-        x_bc = mid_point[II].x * dx[II] + x[II]
-        y_bc = mid_point[II].y * dy[II] + y[II]
+        x_bc = LS[1].mid_point[II].x * dx[II] + x[II]
+        y_bc = LS[1].mid_point[II].y * dy[II] + y[II]
         Nx = ∇fx(x_bc, y_bc)
         Ny = ∇fy(x_bc, y_bc)
 
-        R[II] = Nx * cos(α[II]+π) + Ny * sin(α[II]+π) + f(x_bc, y_bc)
+        R[II] = Nx * cos(LS[1].α[II]+π) + Ny * sin(LS[1].α[II]+π) + f(x_bc, y_bc)
     end
 
     replace!(R, NaN=>0.0)
@@ -81,8 +80,8 @@ function robin_bcs!(gp, R)
     return nothing
 end
 
-ϵ = 0.01
-bc = neu
+ϵ = 0.001
+bc = rob
 if is_dirichlet(bc)
     bc_str = "dir"
 elseif is_neumann(bc)
@@ -109,7 +108,7 @@ st_case = 6
 npts = 2 .^ [st_case:(st_case+n_cases-1)...]
 
 i = 1
-n = 32
+n = 512
 # for (i,n) in enumerate(npts)
     x = LinRange(-L0 / 2.0, L0 / 2.0, n + 1)
     y = LinRange(-L0 / 2.0, L0 / 2.0, n + 1)
@@ -126,10 +125,11 @@ n = 32
 
     gp, gu, gv = init_meshes(num)
     op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
-    gp.u .*= -1.0
+    gp.LS[1].u .*= -1.0
 
-    MIXED, SOLID, LIQUID = run_forward(num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL)
+    run_forward(num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL)
     BC = Boundaries(left = per, bottom = per, right = per, top = per)
+    BC_int = [bc]
 
     θd = zeros(gp)
     if is_dirichlet(bc)
@@ -140,14 +140,15 @@ n = 32
         robin_bcs!(gp, θd)
     end
 
-    update_ls_data(num, gp, gu, gv, gp.u, gp.κ, true, true, false)
-    laps = set_matrices!(gp, gp.geoL, gu, gu.geoL, gv, gv.geoL, op.opC_pL, op.opC_uL, op.opC_vL, true, true)
+    update_all_ls_data(num, gp, gu, gv, BC_int, true, true, false)
+    laps = set_matrices!(num, gp, [gp.LS[1].geoL], gu, [gu.LS[1].geoL], gv, [gv.LS[1].geoL], op.opC_pL, op.opC_uL, op.opC_vL, true, true)
     Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = laps
-    A, rhs, data_A = set_poisson(bc, num, gp, θd, op.opC_pL, op.opC_uL, op.opC_vL, Lp, bc_Lp, bc_Lp_b, BC)
+    a0_p = [θd]
+    A, rhs = set_poisson(BC_int, num, gp, a0_p, op.opC_pL, op.opC_uL, op.opC_vL, 1, Lp, bc_Lp, bc_Lp_b, BC, true)
 
     b = Δf.(
-        gp.x .+ getproperty.(gp.geoL.centroid, :x) .* gp.dx,
-        gp.y .+ getproperty.(gp.geoL.centroid, :y) .* gp.dy
+        gp.x .+ getproperty.(gp.LS[1].geoL.centroid, :x) .* gp.dx,
+        gp.y .+ getproperty.(gp.LS[1].geoL.centroid, :y) .* gp.dy
     )
     veci(rhs,gp,1) .+= op.opC_pL.M * vec(b)
 
@@ -161,12 +162,12 @@ n = 32
     T = reshape(vec1(res, gp), gp)
     D = reshape(vec2(res, gp), gp)
     Tana = f.(
-        gp.x .+ getproperty.(gp.geoL.centroid, :x) .* gp.dx,
-        gp.y .+ getproperty.(gp.geoL.centroid, :y) .* gp.dy
+        gp.x .+ getproperty.(gp.LS[1].geoL.centroid, :x) .* gp.dx,
+        gp.y .+ getproperty.(gp.LS[1].geoL.centroid, :y) .* gp.dy
     )
 
     for II in gp.ind.all_indices
-        if gp.geoL.cap[II,5] < 1e-12
+        if gp.LS[1].geoL.cap[II,5] < 1e-12
             Tana[II] = 0.0
             T[II] = 0.0
         end
@@ -175,16 +176,16 @@ n = 32
     vlim = maximum(abs.(Tana))
     err = abs.(Tana .- T)
 
-    LIQUID = gp.ind.all_indices[gp.geoL.cap[:,:,5] .> (1-1e-16)]
-    MIXED = gp.ind.all_indices[gp.geoL.cap[:,:,5] .<= (1-1e-16) .&& gp.geoL.cap[:,:,5] .> 1e-16]
+    LIQUID = gp.ind.all_indices[gp.LS[1].geoL.cap[:,:,5] .> (1-1e-16)]
+    MIXED = gp.ind.all_indices[gp.LS[1].geoL.cap[:,:,5] .<= (1-1e-16) .&& gp.LS[1].geoL.cap[:,:,5] .> 1e-16]
 
     println("$(length(MIXED) * 100 / (length(LIQUID) + length(MIXED)))% of mixed cells")
 
-    norm_all = normf(err, vcat(LIQUID, MIXED), gp.geoL.cap[:,:,5], num.Δ)
+    norm_all = normf(err, vcat(LIQUID, MIXED), gp.LS[1].geoL.cap[:,:,5], num.Δ)
     println("ALL: $norm_all")
-    norm_mixed = normf(err, MIXED, gp.geoL.cap[:,:,5], num.Δ)
+    norm_mixed = normf(err, MIXED, gp.LS[1].geoL.cap[:,:,5], num.Δ)
     println("MIXED: $norm_mixed")
-    norm_full = normf(err, LIQUID, gp.geoL.cap[:,:,5], num.Δ)
+    norm_full = normf(err, LIQUID, gp.LS[1].geoL.cap[:,:,5], num.Δ)
     println("FULL: $norm_full")
 
     l1[i] = norm_all[1]
@@ -227,10 +228,10 @@ n = 32
 # conv_loo_full = regression(npts, loo_full, x_reg)
 
 # fl1 = Figure(resolution = (1600, 1000))
-# ax = Axis(fl1[1,1], aspect = 0.5, xscale=log10, yscale=log10,
+# ax = Axis(fl1[1,1], aspect = 1.0, xscale=log10, yscale=log10,
 #             xlabel="pts", ylabel=L"$L _ 1$ Error", xticks = npts
 # )
-# colsize!(fl1.layout, 1, Aspect(1, 0.5))
+# colsize!(fl1.layout, 1, Aspect(1, 1.0))
 # fl1 = lines!(x_reg, conv_l1_mixed.yreg, label="order $(@sprintf("%.2f", conv_l1_mixed.coef1))", linewidth=6.0)
 # fl1 = scatter!(npts, l1_mixed, label="Partial cells", markersize=40)
 # fl1 = lines!(x_reg, conv_l1.yreg, label="order $(@sprintf("%.2f", conv_l1.coef1))", linewidth=6.0)
@@ -243,10 +244,10 @@ n = 32
 # Makie.save(prefix*"conv_l1_"*bc_str*"_eps$(ϵ).pdf", fl1)
 
 # fl2 = Figure(figure_padding=(0, 50, 50, 50), resolution = (1600, 1000))
-# ax = Axis(fl2[1,1], aspect = 0.5, xscale=log10, yscale=log10,
+# ax = Axis(fl2[1,1], aspect = 1.0, xscale=log10, yscale=log10,
 #             xlabel="pts", ylabel=L"$L _ 2$ error", xticks = npts
 # )
-# colsize!(fl2.layout, 1, Aspect(1, 0.5))
+# colsize!(fl2.layout, 1, Aspect(1, 1.0))
 # lines!(x_reg, conv_l2_mixed.yreg, label="order $(@sprintf("%.2f", conv_l2_mixed.coef1))", linewidth=6.0)
 # scatter!(npts, l2_mixed, label="Partial cells", markersize=40)
 # lines!(x_reg, conv_l2.yreg, label="order $(@sprintf("%.2f", conv_l2.coef1))", linewidth=6.0)
@@ -260,10 +261,10 @@ n = 32
 # Makie.save(prefix*"conv_l2_"*bc_str*"_eps$(ϵ).pdf", fl2)
 
 # floo = Figure(figure_padding=(0, 50, 50, 50), resolution = (1600, 1000))
-# ax = Axis(floo[1,1], aspect = 0.5, xscale=log10, yscale=log10,
+# ax = Axis(floo[1,1], aspect = 1.0, xscale=log10, yscale=log10,
 #             xlabel="pts", ylabel=L"$L _ \infty$ error", xticks = npts
 # )
-# colsize!(floo.layout, 1, Aspect(1, 0.5))
+# colsize!(floo.layout, 1, Aspect(1, 1.0))
 # floo = lines!(x_reg, conv_loo_mixed.yreg, label="order $(@sprintf("%.2f", conv_loo_mixed.coef1))", linewidth=6.0)
 # floo = scatter!(npts, loo_mixed, label="Partial cells", markersize=40)
 # floo = lines!(x_reg, conv_loo.yreg, label="order $(@sprintf("%.2f", conv_loo.coef1))", linewidth=6.0)
@@ -277,36 +278,67 @@ n = 32
 
 tcks = -num.L0:0.5:num.L0
 
-fa = Figure(figure_padding=(0, 50, 50, 50), resolution = (1600, 1000))
-colsize!(fa.layout, 1, Aspect(1, 1.0))
+fa = Figure(figure_padding=(0, 50, 50, 50), size = (1600, 1000))
 ax = Axis(fa[1,1], aspect = 1, xlabel=L"x", ylabel=L"y", xticks = tcks, yticks = tcks,
     xgridvisible=false, ygridvisible=false)
 hmap = heatmap!(gp.x[1,:], gp.y[:,1], Tana', colorrange=(-vlim, vlim))
 cbar = fa[1,2] = Colorbar(fa, hmap, labelpadding=0)
+colsize!(fa.layout, 1, widths(ax.scene.viewport[])[1])
+rowsize!(fa.layout, 1, widths(ax.scene.viewport[])[2])
 resize_to_layout!(fa)
 
-ft = Figure(figure_padding=(0, 50, 50, 50), resolution = (1600, 1000))
-colsize!(ft.layout, 1, Aspect(1, 1.0))
+ft = Figure(figure_padding=(0, 50, 50, 50), size = (1000, 1000))
 ax = Axis(ft[1,1], aspect = 1, xlabel=L"x", ylabel=L"y", xticks = tcks, yticks = tcks,
     xgridvisible=false, ygridvisible=false)
 hmap = heatmap!(gp.x[1,:], gp.y[:,1], T', colorrange=(-vlim, vlim))
 cbar = ft[1,2] = Colorbar(ft, hmap, labelpadding=0)
+colsize!(ft.layout, 1, widths(ax.scene.viewport[])[1])
+rowsize!(ft.layout, 1, widths(ax.scene.viewport[])[2])
 resize_to_layout!(ft)
 
-fe = Figure(figure_padding=(0, 50, 50, 50), resolution = (1600, 1100))
-colsize!(fe.layout, 1, Aspect(1, 1.0))
-ax = Axis(fe[1,1], aspect = 1, xlabel=L"x", ylabel=L"y", xticks = tcks, yticks = tcks,
+fd = Figure(figure_padding=(0, 50, 50, 50), size = (1600, 1000))
+ax = Axis(fd[1,1], aspect = 1, xlabel=L"x", ylabel=L"y", xticks = tcks, yticks = tcks,
     xgridvisible=false, ygridvisible=false)
-hmap = heatmap!(gp.x[1,:], gp.y[:,1], log10.(err)', colorrange=(-5.5, -1.0))
-cbar = fe[1,2] = Colorbar(fe, hmap, labelpadding=0;
-    tickformat=custom_formatter,
-    minorticksvisible=true,
-    minorticks=LogMinorTicks(),
-)
-resize_to_layout!(fe)
+hmap = heatmap!(gp.x[1,:], gp.y[:,1], D', colorrange=(-vlim, vlim))
+cbar = fd[1,2] = Colorbar(fd, hmap, labelpadding=0)
+colsize!(fd.layout, 1, widths(ax.scene.viewport[])[1])
+rowsize!(fd.layout, 1, widths(ax.scene.viewport[])[2])
+resize_to_layout!(fd)
+
+# fe = Figure(figure_padding=(0, 50, 50, 50), size = (1600, 1100))
+# ax = Axis(fe[1,1], aspect = 1, xlabel=L"x", ylabel=L"y", xticks = tcks, yticks = tcks,
+#     xgridvisible=false, ygridvisible=false)
+# hmap = heatmap!(gp.x[1,:], gp.y[:,1], log10.(err)', colorrange=(-5.5, -1.0))
+# cbar = fe[1,2] = Colorbar(fe, hmap, labelpadding=0;
+#     tickformat=custom_formatter,
+#     minorticksvisible=true,
+#     minorticks=LogMinorTicks(),
+# )
+# colsize!(fe.layout, 1, widths(ax.scene.viewport[])[1])
+# rowsize!(fe.layout, 1, widths(ax.scene.viewport[])[2])
+# resize_to_layout!(fe)
+
+x_cen = getproperty.(gp.LS[1].mid_point[gp.LS[1].MIXED], :x)
+y_cen = getproperty.(gp.LS[1].mid_point[gp.LS[1].MIXED], :y)
+x_mix = gp.x[gp.LS[1].MIXED] .+ x_cen .* gp.dx[gp.LS[1].MIXED]
+y_mix = gp.y[gp.LS[1].MIXED] .+ y_cen .* gp.dy[gp.LS[1].MIXED]
+θ = atan.(y_mix, x_mix) .* 180 ./ pi
+
+perm = sortperm(θ)
+θp = θ[perm]
+Dp = D[gp.LS[1].MIXED][perm]
+
+fd2 = Figure(size = (1600, 1000))
+ax = Axis(fd2[1,1], aspect=1, xlabel=L"\theta", ylabel=L"p ^ \gamma", xticks = -180:45:180)
+lines!(θp[.!isnan.(Dp)], Dp[.!isnan.(Dp)], linewidth = 3)
+limits!(ax, -180, -135, -0.6, 0.6)
+colsize!(fd2.layout, 1, widths(ax.scene.viewport[])[1])
+rowsize!(fd2.layout, 1, widths(ax.scene.viewport[])[2])
+resize_to_layout!(fd2)
 
 # Makie.save(prefix*"f_ana.pdf", fa)
-# Makie.save(prefix*"f_cut.pdf", ft)
+# Makie.save(prefix*"f_bulk.pdf", ft)
+# Makie.save(prefix*"f_bound.pdf", fd2)
 # Makie.save(prefix*"f_err.pdf", fe)
 
 nothing
