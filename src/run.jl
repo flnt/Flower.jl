@@ -446,8 +446,6 @@ function run_forward(
         if navier_stokes
             if !advection
                 no_slip_condition!(grid, grid_u, grid_u.LS[1], grid_v, grid_v.LS[1])
-                grid_u.V .= imfilter(grid_u.V, Kernel.gaussian(2))
-                grid_v.V .= imfilter(grid_v.V, Kernel.gaussian(2))
                 # grid_u.V .= Δ / (1 * τ)
                 # grid_v.V .= 0.0
             end

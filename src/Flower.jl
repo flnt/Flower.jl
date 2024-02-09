@@ -22,7 +22,6 @@ import Base.reshape
 @reexport using SparseArrays
 @reexport using BenchmarkTools
 @reexport using Parameters
-@reexport using Optim
 @reexport using StaticArrays
 @reexport using OffsetArrays
 @reexport using Roots
@@ -30,11 +29,11 @@ import Base.reshape
 @reexport using Test
 @reexport using Makie
 @reexport using CairoMakie
+@reexport using LaTeXStrings
 @reexport using Gnuplot
 @reexport using IterativeSolvers
 @reexport using LsqFit
 @reexport using Polynomials
-@reexport using ImageFiltering
 @reexport using JLD
 @reexport using SuiteSparse
 @reexport using DDM

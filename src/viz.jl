@@ -3,7 +3,7 @@ set_theme!(fontsize_theme)
 
 struct LogMinorTicks end
 	
-function MakieLayout.get_minor_tickvalues(::LogMinorTicks, scale, tickvalues, vmin, vmax)
+function get_minor_tickvalues(::LogMinorTicks, scale, tickvalues, vmin, vmax)
     vals = Float64[]
     for (lo, hi) in zip(
             @view(tickvalues[1:end-1]),
