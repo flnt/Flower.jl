@@ -623,26 +623,26 @@ function kill_dead_cells!(S::SubArray{T,N,P,I,L}, grid, geo) where {T,N,P<:Vecto
     end
 end
 
-function init_borders!(T, BC, val=0.0)
+function init_borders!(T, grid, BC, val=0.0)
     if is_dirichlet(BC.left)
-        T[1:ny] .= BC.left.val
+        vecb_L(T, grid) .= BC.left.val
     elseif is_periodic(BC.left)
-        T[1:ny] .= val
+        vecb_L(T, grid) .= val
     end
     if is_dirichlet(BC.bottom)
-        T[ny+1:ny+nx] .= BC.bottom.val
+        vecb_B(T, grid) .= BC.bottom.val
     elseif is_periodic(BC.bottom)
-        T[ny+1:ny+nx] .= val
+        vecb_B(T, grid) .= val
     end
     if is_dirichlet(BC.right)
-        T[ny+nx+1:2*ny+nx] .= BC.right.val
+        vecb_R(T, grid) .= BC.right.val
     elseif is_periodic(BC.right)
-        T[ny+nx+1:2*ny+nx] .= val
+        vecb_R(T, grid) .= val
     end
     if is_dirichlet(BC.top)
-        T[2*ny+nx+1:2*ny+2*nx] .= BC.top.val
+        vecb_T(T, grid) .= BC.top.val
     elseif is_periodic(BC.top)
-        T[2*ny+nx+1:2*ny+2*nx] .= val
+        vecb_T(T, grid) .= val
     end
 end
 

@@ -134,12 +134,12 @@ function run_forward(
 
     vec1(phS.TD,grid) .= vec(phS.T)
     vec2(phS.TD,grid) .= θd
-    init_borders!(vecb(phS.TD,grid), BC_TS, θd)
+    init_borders!(phS.TD, grid, BC_TS, θd)
     @views fwdS.TD[1,:] .= phS.TD
 
     vec1(phL.TD,grid) .= vec(phL.T)
     vec2(phL.TD,grid) .= θd
-    init_borders!(vecb(phL.TD,grid), BC_TL, θd)
+    init_borders!(phL.TD, grid, BC_TL, θd)
     @views fwdL.TD[1,:] .= phL.TD
 
     vec1(phS.uD,grid_u) .= vec(phS.u)
@@ -267,29 +267,23 @@ function run_forward(
             if heat_solid_phase
                 kill_dead_cells!(phS.T, grid, LS[1].geoS)
                 veci(phS.TD,grid,1) .= vec(phS.T)
-                A_T, B, rhs = set_heat!(dir, num, grid, opC_TS, LS[1].geoS, phS, θd, BC_TS, LS[1].MIXED, LS[1].geoS.projection,
+                A_T, B, rhs = set_heat!(BC_int[1], num, grid, opC_TS, LS[1].geoS, phS, θd, BC_TS, LS[1].MIXED, LS[1].geoS.projection,
                                         opS, grid_u, grid_u.LS[1].geoS, grid_v, grid_v.LS[1].geoS,
                                         periodic_x, periodic_y, heat_convection)
                 mul!(rhs, B, phS.TD, 1.0, 1.0)
-                @mytime blocks = DDM.decompose(A_T, grid.domdec, grid.domdec)
 
-                bicgstabl!(phS.TD, A_T, rhs, Pl=ras(blocks,grid.pou), log=true)
-                # @mytime (_, ch) = bicgstabl!(phS.TD, A_T, rhs, Pl=ras(blocks,grid.pou), log=true)
-                # println(ch)
+                phS.TD .= A_T \ rhs
                 phS.T .= reshape(veci(phS.TD,grid,1), grid)
             end
             if heat_liquid_phase
-                kill_dead_cells!(phL.T, grid, geoL)
+                kill_dead_cells!(phL.T, grid, LS[1].geoL)
                 veci(phL.TD,grid,1) .= vec(phL.T)
-                A_T, B, rhs = set_heat!(dir, num, grid, opC_TL, LS[1].geoL, phL, θd, BC_TL, LS[1].MIXED, LS[1].geoL.projection,
+                A_T, B, rhs = set_heat!(BC_int[1], num, grid, opC_TL, LS[1].geoL, phL, θd, BC_TL, LS[1].MIXED, LS[1].geoL.projection,
                                         opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
                                         periodic_x, periodic_y, heat_convection)
                 mul!(rhs, B, phL.TD, 1.0, 1.0)
-                @mytime blocks = DDM.decompose(A_T, grid.domdec, grid.domdec)
 
-                bicgstabl!(phL.TD, A_T, rhs, Pl=ras(blocks,grid.pou), log=true)
-                # @mytime (_, ch) = bicgstabl!(phL.TD, A_T, rhs, Pl=ras(blocks,grid.pou), log=true)
-                # println(ch)
+                phL.TD .= A_T \ rhs
                 phL.T .= reshape(veci(phL.TD,grid,1), grid)
             end
         end
@@ -366,7 +360,9 @@ function run_forward(
                     for iLS in 1:nLS
                         if !is_wall(BC_int[iLS])
                             ls_rg = rg(num, grid, LS[iLS].u, periodic_x, periodic_y, BC_int)
+                            println(ls_rg)
                             if ls_rg >= δreinit
+                                println("yes")
                                 RK2_reinit!(ls_scheme, grid, ind, iLS, LS[iLS].u, nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
                             end
                         end
