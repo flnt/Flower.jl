@@ -185,25 +185,28 @@ function clip_small_cell!(grid, LS, geo, II, ϵ)
     return nothing
 end
 
-function empty_cell!(grid, LS, geo, II)
+function empty_cell!(grid, LS, geo, II, neighbours = true)
     @unpack nx, ny = grid
     
     geo.cap[II,:] .= 0.0
     geo.emptied[II] = true
-    if II[2] > 1
-        geo.cap[δx⁻(II),3] = 0.0
-    end
-    if II[1] > 1
-        geo.cap[δy⁻(II),4] = 0.0
-    end
-    if II[2] < nx
-        geo.cap[δx⁺(II),1] = 0.0
-    end
-    if II[1] < ny
-        geo.cap[δy⁺(II),2] = 0.0
+    if neighbours
+        if II[2] > 1
+            geo.cap[δx⁻(II),3] = 0.0
+        end
+        if II[1] > 1
+            geo.cap[δy⁻(II),4] = 0.0
+        end
+        if II[2] < nx
+            geo.cap[δx⁺(II),1] = 0.0
+        end
+        if II[1] < ny
+            geo.cap[δy⁺(II),2] = 0.0
+        end
     end
     geo.centroid[II] = Point(0.0, 0.0)
     LS.mid_point[II] = Point(0.0, 0.0)
+    LS.iso[II] = 15.0
 end
 
 function clip_cells!(grid, LS, ϵ, periodic_x, periodic_y)
@@ -438,7 +441,7 @@ function postprocess_grids1!(grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, p
     return nothing
 end
 
-function postprocess_grids2!(grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, periodic_y)
+function postprocess_grids2!(grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, periodic_y, average)
     dimensionalize!(grid, LS.geoS)
     dimensionalize!(grid, LS.geoL)
     dimensionalize!(grid_u, LS_u.geoS)
@@ -453,12 +456,14 @@ function postprocess_grids2!(grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, p
     Wcapacities!(LS_v.geoS.dcap, periodic_x, periodic_y)
     Wcapacities!(LS_v.geoL.dcap, periodic_x, periodic_y)
 
-    average_face_capacities!(LS.geoS.dcap, periodic_x, periodic_y)
-    average_face_capacities!(LS.geoL.dcap, periodic_x, periodic_y)
-    average_face_capacities!(LS_u.geoS.dcap, periodic_x, periodic_y)
-    average_face_capacities!(LS_u.geoL.dcap, periodic_x, periodic_y)
-    average_face_capacities!(LS_v.geoS.dcap, periodic_x, periodic_y)
-    average_face_capacities!(LS_v.geoL.dcap, periodic_x, periodic_y)
+    if average
+        average_face_capacities!(LS.geoS.dcap, periodic_x, periodic_y)
+        average_face_capacities!(LS.geoL.dcap, periodic_x, periodic_y)
+        average_face_capacities!(LS_u.geoS.dcap, periodic_x, periodic_y)
+        average_face_capacities!(LS_u.geoL.dcap, periodic_x, periodic_y)
+        average_face_capacities!(LS_v.geoS.dcap, periodic_x, periodic_y)
+        average_face_capacities!(LS_v.geoL.dcap, periodic_x, periodic_y)
+    end
 
     return nothing
 end
@@ -471,38 +476,54 @@ Compute the length of a line intersecting a polygon.
 function ilp2cap(l, p)
     inters = LibGEOS.intersection(l, p)
     obj = GeoInterface.convert(GeometryBasics, inters)
-    len = LibGEOS.distance(obj.points[1][1], obj.points[1][2])
+    if typeof(obj) == Point2{Float64}
+        len = 0.0
+    else
+        len = LibGEOS.distance(obj.points[1][1], obj.points[1][2])
+    end
 
     return len
 end
 
 """
     crossing_2levelsets(grid, LS1, LS2)
-"""
-function crossing_2levelsets!(grid, LS1, LS2, periodic_x, periodic_y)
-    @unpack nx, ny, dx, dy = grid
 
-    @inbounds @threads for II in LS1.SOLID
-        empty_cell!(grid, LS2, LS2.geoL, II)
-        empty_cell!(grid, grid.LS[end], grid.LS[end].geoL, II)
-    end
-    @inbounds @threads for II in LS2.SOLID
-        empty_cell!(grid, LS1, LS1.geoL, II)
-        empty_cell!(grid, grid.LS[end], grid.LS[end].geoL, II)
-    end
+Update geometric moments when two interfaces cross.
+"""
+function crossing_2levelsets!(num, grid, LS1, LS2, periodic_x, periodic_y, BC_int)
+    @unpack x, y, nx, ny, dx, dy, ind = grid
 
     full_mixed = intersect(LS1.LIQUID, LS2.MIXED)
     mixed_full = intersect(LS2.LIQUID, LS1.MIXED)
     @inbounds @threads for II in full_mixed
         grid.LS[end].geoL.cap[II,:] .= LS2.geoL.cap[II,:]
+        grid.LS[end].geoL.centroid[II] = LS2.geoL.centroid[II]
     end
     @inbounds @threads for II in mixed_full
         grid.LS[end].geoL.cap[II,:] .= LS1.geoL.cap[II,:]
+        grid.LS[end].geoL.centroid[II] = LS1.geoL.centroid[II]
     end
 
     mixed_mixed = intersect(LS1.MIXED, LS2.MIXED)
     Acap = [3,4,1,2]
-    @inbounds @threads for II in mixed_mixed
+    @inbounds for II in mixed_mixed
+        if is_fs(BC_int[1])
+            append!(LS1.cl, [II])
+        elseif is_fs(BC_int[2])
+            append!(LS2.cl, [II])
+        end
+        if (abs(LS1.cut_points[II][1].x) == 0.5 && abs(LS1.cut_points[II][1].y) == 0.5)
+            LS1.cut_points[II][1] -= Point(1e-12 * sign(LS1.cut_points[II][1].x), 1e-12 * sign(LS1.cut_points[II][1].y))
+        end
+        if (abs(LS1.cut_points[II][2].x) == 0.5 && abs(LS1.cut_points[II][2].y) == 0.5)
+            LS1.cut_points[II][2] -= Point(1e-12 * sign(LS1.cut_points[II][2].x), 1e-12 * sign(LS1.cut_points[II][2].y))
+        end
+        if (abs(LS2.cut_points[II][1].x) == 0.5 && abs(LS2.cut_points[II][1].y) == 0.5)
+            LS2.cut_points[II][1] -= Point(1e-12 * sign(LS2.cut_points[II][1].x), 1e-12 * sign(LS2.cut_points[II][1].y))
+        end
+        if (abs(LS2.cut_points[II][2].x) == 0.5 && abs(LS2.cut_points[II][2].y) == 0.5)
+            LS2.cut_points[II][2] -= Point(1e-12 * sign(LS2.cut_points[II][2].x), 1e-12 * sign(LS2.cut_points[II][2].y))
+        end
         l1 = Line(LS1.cut_points[II][1], LS1.cut_points[II][2])
         l2 = Line(LS2.cut_points[II][1], LS2.cut_points[II][2])
         p = line_intersection(l1, l2)
@@ -510,65 +531,74 @@ function crossing_2levelsets!(grid, LS1, LS2, periodic_x, periodic_y)
         poly1 = points2polygon(LS1.geoL.vertices[II])
         poly2 = points2polygon(LS2.geoL.vertices[II])
         poly = LibGEOS.intersection(poly1, poly2)
-
-        gpoly1 = GeoInterface.convert(GeometryBasics, poly1)
-        gpoly2 = GeoInterface.convert(GeometryBasics, poly2)
-        gpoly = GeoInterface.convert(GeometryBasics, poly)
-
         vol = LibGEOS.area(poly)
-        _cent = LibGEOS.centroid(poly)
-        cent = GeoInterface.convert(GeometryBasics, _cent)
 
-        lx = readgeom(
-            "LINESTRING($(cent.data[1]) $(cent.data[2]-2.0),
-            $(cent.data[1]) $(cent.data[2]+2.0))"
-        )
-        ly = readgeom(
-            "LINESTRING($(cent.data[1]-2.0) $(cent.data[2]),
-            $(cent.data[1]+2.0) $(cent.data[2]))"
-        )
-        Bx = ilp2cap(lx, poly)
-        By = ilp2cap(ly, poly)
+        # If the intersection is not empty
+        if vol > num.ϵ
+            # Add point as contact line point
+            _cent = LibGEOS.centroid(poly)
+            cent = GeoInterface.convert(GeometryBasics, _cent)
 
-        grid.LS[end].geoL.cap[II,1] = minimum([LS1.geoL.cap[II,1], LS2.geoL.cap[II,1]])
-        grid.LS[end].geoL.cap[II,2] = minimum([LS1.geoL.cap[II,2], LS2.geoL.cap[II,2]])
-        grid.LS[end].geoL.cap[II,3] = minimum([LS1.geoL.cap[II,3], LS2.geoL.cap[II,3]])
-        grid.LS[end].geoL.cap[II,4] = minimum([LS1.geoL.cap[II,4], LS2.geoL.cap[II,4]])
-        grid.LS[end].geoL.cap[II,5] = vol
-        grid.LS[end].geoL.cap[II,6] = Bx
-        grid.LS[end].geoL.cap[II,7] = By
-        grid.LS[end].geoL.cap[II,8:11] .= 0.5 * vol
-        grid.LS[end].geoL.centroid[II] = Point(cent.data[1], cent.data[2])
+            lx = readgeom(
+                "LINESTRING($(cent.data[1]) $(cent.data[2]-2.0),
+                $(cent.data[1]) $(cent.data[2]+2.0))"
+            )
+            ly = readgeom(
+                "LINESTRING($(cent.data[1]-2.0) $(cent.data[2]),
+                $(cent.data[1]+2.0) $(cent.data[2]))"
+            )
+            Bx = ilp2cap(lx, poly)
+            By = ilp2cap(ly, poly)
 
-        if within_cell(p)
-            # The smallest keeps its value and the largest the intersection value
-            for capn in 1:4
-                set_crossing_caps!(capn, LS1, LS2, II, poly1, poly2, p)
-            end
+            grid.LS[end].geoL.cap[II,1] = minimum([LS1.geoL.cap[II,1], LS2.geoL.cap[II,1]])
+            grid.LS[end].geoL.cap[II,2] = minimum([LS1.geoL.cap[II,2], LS2.geoL.cap[II,2]])
+            grid.LS[end].geoL.cap[II,3] = minimum([LS1.geoL.cap[II,3], LS2.geoL.cap[II,3]])
+            grid.LS[end].geoL.cap[II,4] = minimum([LS1.geoL.cap[II,4], LS2.geoL.cap[II,4]])
+            grid.LS[end].geoL.cap[II,5] = vol
+            grid.LS[end].geoL.cap[II,6] = Bx
+            grid.LS[end].geoL.cap[II,7] = By
+            grid.LS[end].geoL.cap[II,8:11] .= 0.5 * vol
+            grid.LS[end].geoL.centroid[II] = Point(cent.data[1], cent.data[2])
 
-            st = static_stencil(LS1.u, II, nx, ny, periodic_x, periodic_y)
-            B, BT = B_BT(II, grid, periodic_x, periodic_y)
-            itp = B * st * BT
-            _verts = vertices_sign(itp, grid, II, II, dx[II], dy[II], dx[II], dy[II])
-            vertices1 = [[_verts[1], _verts[4]], [_verts[4], _verts[3]], [_verts[3], _verts[2]], [_verts[2], _verts[1]]]
-
-            st = static_stencil(LS2.u, II, nx, ny, periodic_x, periodic_y)
-            B, BT = B_BT(II, grid, periodic_x, periodic_y)
-            itp = B * st * BT
-            _verts = vertices_sign(itp, grid, II, II, dx[II], dy[II], dx[II], dy[II])
-            vertices2 = [[_verts[1], _verts[4]], [_verts[4], _verts[3]], [_verts[3], _verts[2]], [_verts[2], _verts[1]]]
-
-            # If both corners of both faces are full, both keep its value
-            for capn in 1:4
-                if vertices1[capn][1] > 0.5 && vertices1[capn][2] > 0.5 && vertices2[capn][1] > 0.5 && vertices2[capn][2] > 0.5
-                    set_crossing_caps_full!(Acap, LS1, LS2, II, poly1, poly2, p)
+            if within_cell(p)
+                # The smallest keeps its value and the largest the intersection value
+                for capn in 1:4
+                    set_crossing_caps!(capn, LS1, LS2, II, poly1, poly2, p)
+                end
+    
+                st = static_stencil(LS1.u, II, nx, ny, periodic_x, periodic_y)
+                B, BT = B_BT(II, grid, periodic_x, periodic_y)
+                itp = B * st * BT
+                _verts = vertices_sign(itp, grid, II, II, dx[II], dy[II], dx[II], dy[II])
+                vertices1 = [[_verts[1], _verts[4]], [_verts[4], _verts[3]], [_verts[3], _verts[2]], [_verts[2], _verts[1]]]
+    
+                st = static_stencil(LS2.u, II, nx, ny, periodic_x, periodic_y)
+                B, BT = B_BT(II, grid, periodic_x, periodic_y)
+                itp = B * st * BT
+                _verts = vertices_sign(itp, grid, II, II, dx[II], dy[II], dx[II], dy[II])
+                vertices2 = [[_verts[1], _verts[4]], [_verts[4], _verts[3]], [_verts[3], _verts[2]], [_verts[2], _verts[1]]]
+    
+                # If both corners of both faces are full, both keep its value
+                for capn in 1:4
+                    if vertices1[capn][1] < 0.5 && vertices1[capn][2] < 0.5 && vertices2[capn][1] < 0.5 && vertices2[capn][2] < 0.5
+                        set_crossing_caps_full!(Acap[capn], LS1, LS2, II, poly1, poly2, p)
+                    end
                 end
             end
-        elseif gpoly == gpoly1
-            grid.LS2.geoL.cap[II,:] .= 0.0
-        elseif gpoly == gpoly2
-            grid.LS1.geoL.cap[II,:] .= 0.0
+        else
+            empty_cell!(grid, grid.LS[end], grid.LS[end].geoL, II)
+            empty_cell!(grid, LS1, LS1.geoL, II, false)
+            empty_cell!(grid, LS2, LS2.geoL, II, false)
         end
+    end
+
+    empty_LS1 = findall(LS1.geoL.emptied)
+    empty_LS2 = findall(LS2.geoL.emptied)
+    @inbounds @threads for II in empty_LS1
+        empty_cell!(grid, grid.LS[end], grid.LS[end].geoL, II)
+    end
+    @inbounds @threads for II in empty_LS2
+        empty_cell!(grid, grid.LS[end], grid.LS[end].geoL, II)
     end
     
     return nothing
@@ -579,14 +609,14 @@ function set_crossing_caps!(capn, LS1, LS2, II, poly1, poly2, p)
 
     if capn == 1 || capn == 3
         l = readgeom(
-            "LINESTRING($(p.x) $(p.y-2.0),
-            $(p.x) $(p.y+2.0))"
+            "LINESTRING($(p.x+0.5) $(p.y-2.0),
+            $(p.x+0.5) $(p.y+2.0))"
         )
         b = 6
     else
         l = readgeom(
-            "LINESTRING($(p.x-2.0) $(p.y),
-            $(p.x+2.0) $(p.y))"
+            "LINESTRING($(p.x-2.0) $(p.y+0.5),
+            $(p.x+2.0) $(p.y+0.5))"
         )
         b = 7
     end
@@ -605,25 +635,25 @@ end
 function set_crossing_caps_full!(Acap, LS1, LS2, II, poly1, poly2, p)
     if Acap == 1 || Acap == 3
         l = readgeom(
-            "LINESTRING($(p.x) $(p.y-2.0),
-            $(p.x) $(p.y+2.0))"
+            "LINESTRING($(p.x+0.5) $(p.y-2.0),
+            $(p.x+0.5) $(p.y+2.0))"
         )
         b = 6
     else
         l = readgeom(
-            "LINESTRING($(p.x-2.0) $(p.y),
-            $(p.x+2.0) $(p.y))"
+            "LINESTRING($(p.x-2.0) $(p.y+0.5),
+            $(p.x+2.0) $(p.y+0.5))"
         )
         b = 7
     end
 
-    cap = ilp2cap(l, poly1)
-    LS1.geoL.cap[II,Acap] = cap
-    LS1.geoL.cap[II,b] = cap
+    cap1 = ilp2cap(l, poly1)
+    LS1.geoL.cap[II,Acap] = cap1
+    LS1.geoL.cap[II,b] = cap1
 
-    cap = ilp2cap(l, poly2)
-    LS2.geoL.cap[II,Acap] = cap
-    LS2.geoL.cap[II,b] = cap
+    cap2 = 1.0 - cap1
+    LS2.geoL.cap[II,Acap] = cap2
+    LS2.geoL.cap[II,b] = cap2
 end
 
 function _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, near_interface)
@@ -902,6 +932,8 @@ function capacities(F_prev, case)
     liq_centroid = Point(NaN, NaN)
     mid_point = Point(NaN, NaN)
     cut_points = [Point(NaN, NaN), Point(NaN, NaN)]
+    vertS = [Point(NaN, NaN)]
+    vertL = [Point(NaN, NaN)]
     if case == 1.0 #W S
         vertS = [Point(0.,0.), Point(F[2],0.), Point(0.,F[1]), Point(0.,0.)]
         vertL = [Point(1.,0.), Point(F[2],0.), Point(0., F[1]), Point(0.,1.), Point(1.,1.), Point(1., 0.)]
@@ -2182,6 +2214,9 @@ end
 function init_fresh_cells!(grid, u::SubArray{T,N,P,I,L}, V, projection, FRESH, periodic_x, periodic_y) where {T,N,P<:Vector{T},I,L}
     _V = reshape(V, (grid.ny, grid.nx))
     @inbounds @threads for II in FRESH
+        if !isassigned(projection, II)
+            continue
+        end
         if projection[II].flag
             pII = lexicographic(II, grid.ny)
             u_1, u_2 = interpolated_temperature(grid, projection[II].angle, projection[II].point1, projection[II].point2, _V, II, periodic_x, periodic_y)

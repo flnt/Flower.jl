@@ -98,6 +98,7 @@ Compute the volume of a phase.
 
 @inline distance(A::Point, B::Point, dx=1.0, dy=1.0) =
     sqrt(((A.x-B.x)*dx)^2 + ((A.y-B.y)*dy)^2)
+@inline distance(xp, yp, θ, xl, yl) = abs(cos(θ) * (yl - yp) - sin(θ) * (xl - xp))
 
 @inline midpoint(A::Point, B::Point) = Point((A.x + B.x)/2 - 0.5, (A.y + B.y)/2 - 0.5)
 
@@ -370,6 +371,10 @@ function get_NB_width_indices_base(n)
     x = [CartesianIndex(i,0) for i in -n:n]
     y = [CartesianIndex(0,j) for j in -n:n]
     return vcat(x,y)
+end
+
+function get_NB_width_indices_base1(n)
+    return vcat([[CartesianIndex(i,j) for i in -n:n] for j in -n:n]...)
 end
 
 @inline function normf(field, pos, cap, h)

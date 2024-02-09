@@ -41,7 +41,6 @@ abstract type AbstractOptimizer end
     θ₀::T = pi/4
     g::T = 0.0
     β::T = 0.0
-    θe::T = pi/2
     n_ext_cl::D = 5
     x_airfoil::Array{T} = [0.0]
     y_airfoil::Array{T} = [0.0]
@@ -424,4 +423,5 @@ end
 @with_kw mutable struct Wall{T,N} <: BoundaryCondition
     val::N = 0.0
     λ::T = 0.0
+    θe::T = π / 2
 end

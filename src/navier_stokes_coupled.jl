@@ -574,7 +574,7 @@ function strain_rate(iLS, opC_u, opC_v)
     return data
 end
 
-function no_slip_condition!(grid, grid_u, LS_u, grid_v, LS_v)
+function no_slip_condition!(num, grid, grid_u, LS_u, grid_v, LS_v, periodic_x, periodic_y)
     interpolate_scalar!(grid, grid_u, grid_v, grid.V, grid_u.V, grid_v.V)
 
     normalx = cos.(LS_u.α)
@@ -585,6 +585,12 @@ function no_slip_condition!(grid, grid_u, LS_u, grid_v, LS_v)
 
     replace!(grid_u.V, NaN=>0.0)
     replace!(grid_v.V, NaN=>0.0)
+
+    i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext = indices_extension(grid_u, LS_u, grid_u.ind.inside, periodic_x, periodic_y)
+    i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext = indices_extension(grid_v, LS_v, grid_v.ind.inside, periodic_x, periodic_y)
+
+    field_extension!(grid_u, LS_u.u, grid_u.V, i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext, num.NB, periodic_x, periodic_y)
+    field_extension!(grid_v, LS_v.u, grid_v.V, i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext, num.NB, periodic_x, periodic_y)
 
     return nothing
 end
@@ -701,8 +707,8 @@ function CN_set_momentum(
         # Contribution to implicit part of viscous term from outer boundaries
         A[1:ni,end-nb+1:end] = - τ2 .* bc_L_b
         # Boundary conditions for outer boundaries
-        data_A[end-nb+1:end,1:ni] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
-        data_A[end-nb+1:end,end-nb+1:end] = pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b)
+        A[end-nb+1:end,1:ni] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
+        A[end-nb+1:end,end-nb+1:end] = pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b)
 
         B = spzeros(nt, nt)
         # Explicit part of viscous term
@@ -744,13 +750,18 @@ function CN_set_momentum(
 
         if ls_advection
             # Contribution to implicit part of viscous term from inner boundaries
-            data_A[1,sb] = - τ2 .* bc_L[iLS]
+            A[1:ni,sb] = - τ2 .* bc_L[iLS]
             # Boundary conditions for inner boundaries
-            data_A[sb,1:ni] = b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
-            data_A[sb,sb] = pad(b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .- χ[iLS] * a1)
+            A[sb,1:ni] = b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
+            for i in 1:num.nLS
+                if i != iLS
+                    A[sb,i*ni+1:(i+1)*ni] = b * (HxT[iLS] * iMx * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
+                end
+            end
+            A[sb,sb] = pad(b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .- χ[iLS] * a1)
 
             # Contribution to implicit part of viscous term from inner boundaries
-            data_B[1:ni,sb] = τ2 .* bc_Lm1[iLS]
+            B[1:ni,sb] = τ2 .* bc_Lm1[iLS]
         end
 
         vec2(rhs,grid) .= χ[iLS] * vec(a0)
@@ -835,6 +846,12 @@ function FE_set_momentum(
             A[1:ni,sb] = - τ .* bc_L[iLS]
             # Boundary conditions for inner boundaries
             A[sb,1:ni] = b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
+            # Contribution to Neumann BC from other boundaries
+            for i in 1:num.nLS
+                if i != iLS
+                    A[sb,i*ni+1:(i+1)*ni] = b * (HxT[iLS] * iMx * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
+                end
+            end
             A[sb,sb] = pad(b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .- χ[iLS] * a1)
         end
 
@@ -912,15 +929,23 @@ function set_poisson(
             GxT = opC_u.Gx[iLS]'
             GyT = opC_v.Gy[iLS]'
 
+            fs_mat = GxT * opC_u.Gx[iLS] .+ GyT * opC_v.Gy[iLS]
+
             sb = iLS*ni+1:(iLS+1)*ni
             
             # Poisson equation
             A[1:ni,sb] = bc_L[iLS]
             # Boundary conditions for inner boundaries
             A[sb,1:ni] = -b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
+            # Contribution to Neumann BC from other boundaries
+            for i in 1:num.nLS
+                if i != iLS
+                    A[sb,i*ni+1:(i+1)*ni] = -b * (HxT[iLS] * iMx * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
+                end
+            end
             A[sb,sb] = -pad(
                 b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .- χ[iLS] * a1 .+
-                a2 * (GxT * opC_u.Gx[iLS] .+ GyT * opC_v.Gy[iLS]), 4.0
+                a2 * Diagonal(diag(fs_mat)), 4.0
             )
             # Boundary conditions for outer boundaries
             A[end-nb+1:end,sb] = -b_b * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
@@ -948,7 +973,7 @@ function set_CN!(
     end
 
     if ls_advection
-        NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, bc_int, periodic_x, periodic_y, false)
+        update_all_ls_data(num, grid, grid_u, grid_v, bc_int, periodic_x, periodic_y, false)
 
         laps = set_matrices!(
             num, grid, geo, grid_u, geo_u, grid_v, geo_v,
@@ -1001,7 +1026,7 @@ function set_FE!(
     end
 
     if ls_advection
-        NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, bc_int, periodic_x, periodic_y, false)
+        update_all_ls_data(num, grid, grid_u, grid_v, bc_int, periodic_x, periodic_y, false)
 
         laps = set_matrices!(
             num, grid, geo, grid_u, geo_u, grid_v, geo_v,
@@ -1117,6 +1142,10 @@ function pressure_projection!(
         ucorrD .= Inf
         println(e)
     end
+    kill_dead_cells!(vec1(ucorrD,grid_u), grid_u, geo_u[end])
+    for iLS in 1:nLS
+        kill_dead_cells!(veci(ucorrD,grid_u,iLS+1), grid_u, geo_u[end])
+    end
     # @mytime _, ch = bicgstabl!(ucorrD, Au, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
     # println(ch)
     ucorr .= reshape(vec1(ucorrD,grid_u), grid_u)
@@ -1145,6 +1174,10 @@ function pressure_projection!(
     catch e
         vcorrD .= Inf
         println(e)
+    end
+    kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])
+    for iLS in 1:nLS
+        kill_dead_cells!(veci(vcorrD,grid_v,iLS+1), grid_v, geo_v[end])
     end
     # @mytime _, ch = bicgstabl!(vcorrD, Av, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
     # println(ch)
@@ -1176,10 +1209,18 @@ function pressure_projection!(
     @inbounds @threads for i in 1:Aϕ.m
         @inbounds Aϕ[i,i] += 1e-10
     end
+    kill_dead_cells!(vec1(rhs_ϕ,grid), grid, geo[end])
+    for iLS in 1:nLS
+        kill_dead_cells!(veci(rhs_ϕ,grid,iLS+1), grid, geo[end])
+    end
     # blocks = DDM.decompose(Aϕ, grid.domdec, grid.domdec)
     # bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl = ras(blocks,grid.pou), log = true)
     # @time bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl = Diagonal(Aϕ), log = true)
     @time ϕD .= Aϕ \ rhs_ϕ
+    kill_dead_cells!(vec1(ϕD,grid), grid, geo[end])
+    for iLS in 1:nLS
+        kill_dead_cells!(veci(ϕD,grid,iLS+1), grid, geo[end])
+    end
     # @mytime _, ch = bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl = ras(blocks,grid.pou), log = true)
     # println(ch)
     ϕ .= reshape(vec1(ϕD,grid), grid)
@@ -1212,6 +1253,9 @@ function pressure_projection!(
     u .= ucorr .- τ .* reshape(iMu * ∇ϕ_x, grid_u)
     v .= vcorr .- τ .* reshape(iMv * ∇ϕ_y, grid_v)
 
+    kill_dead_cells!(u, grid_u, geo_u[end])
+    kill_dead_cells!(v, grid_v, geo_v[end])
+
     vec1(uD,grid_u) .= vec(u)
     vecb(uD,grid_u) .= vecb(ucorrD,grid_u)
     vec1(vD,grid_v) .= vec(v)
@@ -1219,6 +1263,20 @@ function pressure_projection!(
     for iLS in 1:nLS
         veci(uD,grid_u,iLS+1) .= veci(ucorrD,grid_u,iLS+1)
         veci(vD,grid_v,iLS+1) .= veci(vcorrD,grid_v,iLS+1)
+        if is_fs(bc_int[iLS])
+            @inbounds for II in grid_u.ind.all_indices
+                pII = lexicographic(II, grid_u.ny)
+                if abs(veci(ucorrD,grid_u,iLS+1)[pII]) > 1e-12
+                    veci(ucorrD,grid_u,iLS+1)[pII] -= (τ .* iMu * ∇ϕ_x)[pII]
+                end
+            end
+            @inbounds for II in grid_v.ind.all_indices
+                pII = lexicographic(II, grid_v.ny)
+                if abs(veci(vcorrD,grid_v,iLS+1)[pII]) > 1e-12
+                    veci(vcorrD,grid_v,iLS+1)[pII] -= (τ .* iMv * ∇ϕ_y)[pII]
+                end
+            end
+        end
     end
 
     return Aϕ, Lp, bc_Lp, bc_Lp_b, Au, Bu, Lu, bc_Lu, bc_Lu_b, Av, Bv, Lv, bc_Lv, bc_Lv_b, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
@@ -1264,22 +1322,26 @@ function linear_advection!(
     v_guess = copy(v)
 
     # Newton algorithm to solve the implicit midpoint method
-    i = 0
-    while sum(res) > 1e-8
-        ϵ = 1e-10
+    # i = 0
+    # while sum(res) > 1e-8
+    # for i in 1:1
+    #     ϵ = 1e-10
         
-        res .= residual(u_guess, v_guess, num, grid, geo, grid_u, geo_u, grid_v, geo_v, u, v, op_conv, ph, BC_u, BC_v)
-        dres .= dresidual(u_guess, v_guess, res, ϵ, num, grid, geo, grid_u, geo_u, grid_v, geo_v, u, v, op_conv, ph, BC_u, BC_v)
+    #     res .= residual(u_guess, v_guess, num, grid, geo, grid_u, geo_u, grid_v, geo_v, u, v, op_conv, ph, BC_u, BC_v)
+    #     dres .= dresidual(u_guess, v_guess, res, ϵ, num, grid, geo, grid_u, geo_u, grid_v, geo_v, u, v, op_conv, ph, BC_u, BC_v)
 
-        u_guess .= u_guess .- reshape((res ./ dres)[1:grid_u.nx*grid_u.ny], grid_u)
-        v_guess .= v_guess .- reshape((res ./ dres)[grid_u.nx*grid_u.ny+1:end], grid_v)
+    #     u_guess .= u_guess .- reshape((res ./ dres)[1:grid_u.nx*grid_u.ny], grid_u)
+    #     v_guess .= v_guess .- reshape((res ./ dres)[grid_u.nx*grid_u.ny+1:end], grid_v)
 
-        i += 1
-    end
+    #     i += 1
+    #     println("sum: $(sum(res)) | max: $(maximum(res))")
+    # end
 
-    u_midp = 0.5 .* (u .+ u_guess)
-    v_midp = 0.5 .* (v .+ v_guess)
-    set_convection!(num, grid, geo, grid_u, grid_u.LS[1], grid_v, grid_v.LS[1], u_midp, v_midp, op_conv, ph, BC_u, BC_v)
+    # u_midp = 0.5 .* (u .+ u_guess)
+    # v_midp = 0.5 .* (v .+ v_guess)
+    u_midp = copy(u)
+    v_midp = copy(v)
+    set_convection!(num, grid, geo, grid_u, grid_u.LS, grid_v, grid_v.LS, u_midp, v_midp, op_conv, ph, BC_u, BC_v)
 
     Convu .= Cu * vec(u_midp) .+ CUTCu
     vec1(rhs_u, grid_u) .-= τ .* Convu
@@ -1319,7 +1381,7 @@ function residual(u_guess, v_guess, num, grid, geo, grid_u, geo_u, grid_v, geo_v
     u_midp = 0.5 .* (u .+ u_guess)
     v_midp = 0.5 .* (v .+ v_guess)
 
-    set_convection!(num, grid, geo, grid_u, grid_u.LS[1], grid_v, grid_v.LS[1], u_midp, v_midp, op_conv, ph, BC_u, BC_v)
+    set_convection!(num, grid, geo, grid_u, grid_u.LS, grid_v, grid_v.LS, u_midp, v_midp, op_conv, ph, BC_u, BC_v)
     Convu .= Cu * vec(u_midp) .+ CUTCu
     Convv .= Cv * vec(v_midp) .+ CUTCv
     vec1(rhs_u, grid_u) .-= τ .* Convu

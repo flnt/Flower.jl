@@ -1352,7 +1352,7 @@ Reinitializes a levelset using a 2nd-order Runge-Kutta integration scheme.
 `nb_reinit` iterations are performed to reach the stationary state. The actual work is done
 in the `reinit_hartmann` function.
 """
-function RK2_reinit!(scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y, BC)
+function RK2_reinit!(scheme, grid, ind, iLS, u, nb_reinit, periodic_x, periodic_y, BC, BC_int)
     @unpack nx, ny, dx, dy = grid
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
 
@@ -1360,13 +1360,22 @@ function RK2_reinit!(scheme, grid, ind, u, nb_reinit, periodic_x, periodic_y, BC
     tmp1 = copy(u)
     tmp2 = copy(u)
 
-    indices = vcat(
-        vec(inside), 
-        !is_neumann_cl(BC.left) ? b_left[1][2:end-1] : [], 
-        !is_neumann_cl(BC.bottom) ? b_bottom[1] : [],
-        !is_neumann_cl(BC.right) ? b_right[1][2:end-1] : [],
-        !is_neumann_cl(BC.top) ? b_top[1] : []
-    )
+    if !any(is_wall, BC_int)
+        indices = vcat(
+            vec(inside), 
+            !is_neumann_cl(BC.left) ? b_left[1][2:end-1] : [], 
+            !is_neumann_cl(BC.bottom) ? b_bottom[1] : [],
+            !is_neumann_cl(BC.right) ? b_right[1][2:end-1] : [],
+            !is_neumann_cl(BC.top) ? b_top[1] : []
+        )
+    else
+        indices = collect(vec(all_indices))
+        @inbounds for II in all_indices
+            if II == CartesianIndex(1,1) || II == CartesianIndex(1,nx) || II == CartesianIndex(ny,1) || II == CartesianIndex(ny,nx)
+                deleteat!(indices, findfirst(x -> x == II, indices))
+            end
+        end
+    end
 
     for nb in 1:nb_reinit
         tmp1 .= reinit_hartmann(scheme, grid, u, u0, indices, periodic_x, periodic_y)
@@ -1385,14 +1394,18 @@ Compute the deviation of the levelset from a distance function following (Ludden
 
 Computes rg(∇ϕ) = (|∇ϕ| - 1) _ {L ^ 1}.
 """
-function rg(grid, u, periodic_x, periodic_y)
+function rg(num, grid, u, periodic_x, periodic_y, BC_int)
     @unpack nx, ny, dx, dy, ind = grid
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
 
     tmp = zeros(grid)
 
     @inbounds @threads for II in all_indices
-        if II in inside || ((II in b_left[1] || II in b_right[1]) && periodic_x) || ((II in b_bottom[1] || II in b_top[1]) && periodic_y)
+        if (II in inside || 
+            ((II in b_left[1][2:end-1] || II in b_right[1][2:end-1]) && periodic_x) || 
+            ((II in b_bottom[1][2:end-1] || II in b_top[1][2:end-1]) && periodic_y) ||
+            ((II == b_left[1][1] || II == b_left[1][end] || II == b_right[1][1] || II == b_right[1][end]) && periodic_x && periodic_y)
+            )
             hx = dx[II] + dx[δx⁺(II, nx, periodic_x)] / 2.0 + dx[δx⁻(II, nx, periodic_x)] / 2.0
             hy = dy[II] + dy[δy⁺(II, ny, periodic_y)] / 2.0 + dy[δy⁻(II, ny, periodic_y)] / 2.0
             gx = c∇x(u, II, hx, nx, periodic_x)
@@ -1437,7 +1450,16 @@ function rg(grid, u, periodic_x, periodic_y)
         end
     end
 
-    return sum(abs.(tmp))
+    if num.nLS == 1
+        return sum(abs.(tmp))
+    else
+        for iLS in 1:num.nLS
+            if is_wall(BC_int[iLS])
+                idx = intersect(grid.LS[iLS].LIQUID, grid.ind.inside)
+                return sum(abs.(tmp[idx]))
+            end
+        end
+    end
 end
 
 function field_extension!(grid, u, f, indices_ext, left_ext, bottom_ext, right_ext, top_ext, NB, periodic_x, periodic_y)

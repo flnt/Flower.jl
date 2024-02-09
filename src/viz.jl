@@ -75,7 +75,8 @@ function plot_grid(
     contour!(grid.x[1,:], grid.y[:,1], grid.u', levels = [0.0], color = :red,
         linewidth = 2.0)
     limits!(ax, lx[1], lx[2], ly[1], ly[2])
-    rowsize!(fig.layout, 1, Aspect(1, 1.1))
+    colsize!(fig.layout, 1, widths(ax.scene.viewport[])[1])
+    rowsize!(fig.layout, 1, widths(ax.scene.viewport[])[2])
     resize_to_layout!(fig)
 
     return fig
@@ -154,7 +155,6 @@ function plot_field(
     end
 
     fig = Figure(resolution = (1600, 1000))
-    colsize!(fig.layout, 1, Aspect(1, 1.0))
     ax  = Axis(fig[1,1], aspect = DataAspect(), xlabel = xlabel, ylabel = ylabel,
         xtickalign = 0,  ytickalign = 0)
     if plot_hmap
@@ -173,6 +173,8 @@ function plot_field(
     limits!(ax, lx[1], lx[2], ly[1], ly[2])
     colgap!(fig.layout, 10)
     rowgap!(fig.layout, 10)
+    colsize!(fig.layout, 1, widths(ax.scene.viewport[])[1])
+    rowsize!(fig.layout, 1, widths(ax.scene.viewport[])[2])
     resize_to_layout!(fig)
 
     if !isempty(title_prefix)
@@ -253,12 +255,13 @@ end
 Generates and saves a video displaying a `field` and an interface `field_u`.
 """
 function make_video(
-    grid, field_u, field = nothing;
+    num, grid, field_u, field = nothing;
     title_prefix = "video",
     title_suffix = "",
     xlabel = L"x",
     ylabel = L"y",
     colormap = :viridis,
+    sz = (1600, 1000),
     minv = 0.0,
     maxv = 0.0,
     limitsx = false,
@@ -267,13 +270,13 @@ function make_video(
     framerate = 24,
     step = 1,
     step0 = 1,
-    stepf = size(field_u, 1)
+    stepf = size(field_u, 2)
     )
 
     x = grid.x[1,:]
     y = grid.y[:,1]
 
-    u = field_u[step0:stepf,:,:]
+    u = field_u[:,step0:stepf,:,:]
     plot_hmap = true
     if isnothing(field)
         plot_hmap = false
@@ -313,9 +316,9 @@ function make_video(
     end
 
     obs = Observable{Int32}(1)
-    iterator = range(0, size(u, 1)-1, step=step)
+    iterator = range(0, size(u, 2) - 1, step=step)
 
-    fig = Figure(resolution = (1600, 1000))
+    fig = Figure(size = sz)
     ax  = Axis(fig[1,1], aspect=DataAspect(), xlabel = xlabel, ylabel = ylabel,
         xtickalign = 0,  ytickalign = 0)
     if plot_hmap
@@ -327,16 +330,20 @@ function make_video(
         end
     end
     if !plot_hmap
-        contour!(x, y, @lift(u[$obs,:,:]'), levels = -10:0.1:10, linewidth = 2.0)
+        contour!(x, y, @lift(u[1,$obs,:,:]'), levels = -10:grid.dx[1,1]:10, linewidth = 2.0)
     end
-    contour!(x, y, @lift(u[$obs,:,:]'), levels = [0.0], color = :red, linewidth = 3.0)
+    for iLS in 1:num.nLS
+        contour!(x, y, @lift(u[iLS,$obs,:,:]'), levels = [0.0], color = :red, linewidth = 3.0)
+    end
+    # contourf!(x, y, u[2,1,:,:]', levels = 0:0, color = :red, linewidth = 3, extendlow = :gray);
     if plot_hmap
         cbar = fig[1,2] = Colorbar(fig, hmap, labelpadding = 0)
     end
     limits!(ax, lx[1], lx[2], ly[1], ly[2])
     colgap!(fig.layout, 10)
     rowgap!(fig.layout, 10)
-    colsize!(fig.layout, 1, Auto(1))
+    colsize!(fig.layout, 1, widths(ax.scene.viewport[])[1])
+    rowsize!(fig.layout, 1, widths(ax.scene.viewport[])[2])
     resize_to_layout!(fig)
 
     vid = record(
