@@ -4,7 +4,8 @@ using Flower
 fontsize_theme = Theme(fonts=(;regular="CMU Serif"), fontsize = 60)
 set_theme!(fontsize_theme)
 
-prefix = "/Users/alex/Documents/PhD/Comite de Suivi/2023/figures/"
+#prefix = "/Users/alex/Documents/PhD/Comite de Suivi/2023/figures/"
+prefix="/local/home/pr277828/flower/test"
 
 function f(x, y)
     return cos(π^2 * x * y)*sin(π^2 * x * y)
