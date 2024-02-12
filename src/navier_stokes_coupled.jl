@@ -335,7 +335,6 @@ function set_cutcell_matrices!(num, grid, geo, geo_p, opC, periodic_x, periodic_
     @unpack AxT, AyT, Bx, By, BxT, ByT, Hx, Hy, HxT, HyT, M, iMx, iMy, χ = opC
 
     M.diag .= vec(geo[end].dcap[:,:,5])
-
     Mx = zeros(ny,nx+1)
     for II in ind.all_indices
         Mx[II] = geo[end].dcap[II,8]

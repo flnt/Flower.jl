@@ -67,7 +67,8 @@ function update_ls_data(num, grid, grid_u, grid_v, iLS, u, κ, BC_int, bc_int, p
 
     for i in 1:num.nLS
         if is_wall(BC_int[i])
-            @inbounds κ[grid.LS[i].SOLID] .= 0.0
+            idx_solid = Base.union(grid.LS[i].SOLID, findall(grid.LS[i].geoL.emptied))
+            @inbounds κ[idx_solid] .= 0.0
         end
     end
 
@@ -103,6 +104,9 @@ function update_ls_data_grid(num, grid, LS, u, κ, periodic_x, periodic_y, empty
 
     LS.geoL.emptied .= false
     LS.geoS.emptied .= false
+
+    LS.geoL.double_emptied .= false
+    LS.geoS.double_emptied .= false
 
     κ .= 0.0
     get_curvature(num, grid, LS.geoL, u, κ, LS.MIXED, periodic_x, periodic_y)

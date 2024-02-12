@@ -19,7 +19,7 @@ n = 96
 x = collect(LinRange(-L0x / 2, L0x / 2, n + 1))
 y = collect(LinRange(-L0y / 2, 0, n ÷ 3 + 1))
 
-θe = 60
+θe = 45
 # function run_sessile(θe = 90)
     # if θe < 40
     #     max_its = 35000
@@ -35,7 +35,7 @@ y = collect(LinRange(-L0y / 2, 0, n ÷ 3 + 1))
     #     n_ext = 10
     #     CFL = 0.5
     # end
-    max_its = 500
+    max_its = 3000
     if max_its <= 100
         save_every = 1
     else
@@ -87,7 +87,7 @@ y = collect(LinRange(-L0y / 2, 0, n ÷ 3 + 1))
         ),
         BC_pL = Boundaries(),
         BC_u = Boundaries(
-            bottom = Neumann_angle(θe = θe * π / 180),
+            bottom = Neumann_inh(),
             top = Neumann_inh(),
             left = Neumann_inh(),
             right = Neumann_inh()
@@ -169,6 +169,9 @@ y = collect(LinRange(-L0y / 2, 0, n ÷ 3 + 1))
         xtickalign=0,  ytickalign=0, yticks = tcks)
     hmap = heatmap!(gp.x[1,:], gp.y[:,1], gp.LS[1].κ')
     contour!(gp.x[1,:], gp.y[:,1], gp.LS[1].u', levels = 0:0, color=:red, linewidth = 3);
+    for iLS in 1:num.nLS
+        contour!(gp.x[1,:], gp.y[:,1], gp.LS[iLS].u', levels = 0:0, color=:red, linewidth = 3);
+    end
     limits!(ax, -1.0, 1.0, -1.0, 0.0)
     colsize!(fk.layout, 1, widths(ax.scene.viewport[])[1])
     rowsize!(fk.layout, 1, widths(ax.scene.viewport[])[2])
@@ -187,7 +190,6 @@ y = collect(LinRange(-L0y / 2, 0, n ÷ 3 + 1))
     resize_to_layout!(fLS)
 
     fLS0 = Figure(size = (1600, 1000))
-    colsize!(fLS0.layout, 1, Aspect(1, 1.0))
     ax = Axis(fLS0[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y",
         xtickalign=0,  ytickalign=0, yticks = tcks)
     heatmap!(gp.x[1,:], gp.y[:,1], fwd.u[3,1,:,:]')
