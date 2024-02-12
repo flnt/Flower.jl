@@ -1,27 +1,3 @@
-@inline anisotropy(ϵ, m, θ, θ₀) = ϵ*(1 + 0.4*((8/3)*sin(0.5*m*(θ - θ₀))^4 - 1))
-
-@inline function apply_curvature(num, grid, bc, D, all_indices)
-    @unpack ϵ_κ, ϵ_V = num
-    @unpack κ, V = grid
-
-    @inbounds @threads for II in all_indices
-        @inbounds bc[II] = D[II] - ϵ_κ*κ[II] - ϵ_V*V[II]
-    end
-    return nothing
-end
-
-@inline function apply_anisotropy(num, grid, bc, D, MIXED, sol_projection)
-    @unpack ϵ_κ, ϵ_V, m, θ₀ = num
-    @unpack κ, V = grid
-
-    @inbounds @threads for II in MIXED
-        ϵ_c = anisotropy(ϵ_κ, m, sol_projection[II].angle, θ₀)
-        ϵ_v = anisotropy(ϵ_V, m, sol_projection[II].angle, θ₀)
-        @inbounds bc[II] = D[II] - ϵ_c*κ[II] - ϵ_v*V[II]
-    end
-    return nothing
-end
-
 function Stefan_velocity!(num, grid, LS, V, TS, TL, MIXED, periodic_x, periodic_y)
     @unpack θd, ϵ_κ, ϵ_V, m, θ₀, aniso = num
     @unpack geoS, geoL, κ = LS
