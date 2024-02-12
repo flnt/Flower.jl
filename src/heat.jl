@@ -22,9 +22,9 @@ end
     return nothing
 end
 
-function Stefan_velocity!(num, grid, V, TS, TL, MIXED, periodic_x, periodic_y)
+function Stefan_velocity!(num, grid, LS, V, TS, TL, MIXED, periodic_x, periodic_y)
     @unpack θd, ϵ_κ, ϵ_V, m, θ₀, aniso = num
-    @unpack geoS, geoL, κ = grid
+    @unpack geoS, geoL, κ = LS
 
     V .= 0
     @inbounds @threads for II in MIXED

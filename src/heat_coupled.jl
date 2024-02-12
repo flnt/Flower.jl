@@ -1,6 +1,6 @@
-@inline function apply_curvature(num, grid, bc, all_indices)
+@inline function apply_curvature(num, grid, κ, bc, all_indices)
     @unpack ϵ_κ, ϵ_V = num
-    @unpack κ, V = grid
+    @unpack V = grid
 
     @inbounds @threads for II in all_indices
         @inbounds bc[II] = bc[II] - ϵ_κ*κ[II] - ϵ_V*V[II]
@@ -8,9 +8,9 @@
     return nothing
 end
 
-@inline function apply_anisotropy(num, grid, bc, MIXED, sol_projection)
+@inline function apply_anisotropy(num, grid, κ, bc, MIXED, sol_projection)
     @unpack ϵ_κ, ϵ_V, m, θ₀ = num
-    @unpack κ, V = grid
+    @unpack V = grid
 
     @inbounds @threads for II in MIXED
         ϵ_c = anisotropy(ϵ_κ, m, sol_projection[II].angle, θ₀)
@@ -99,64 +99,96 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
     op_conv, grid_u, geo_u, grid_v, geo_v,
     periodic_x, periodic_y, convection)
     @unpack τ, aniso = num
-    @unpack nx, ny, dx, dy, ind, mid_point = grid
+    @unpack nx, ny, dx, dy, ind  = grid
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
-    @unpack Bx, By, BxT, ByT, Hx, Hy, HxT, HyT, iMx, iMy, χ = op
+    @unpack Bx, By, BxT, ByT, Hx, Hy, HxT, HyT, M, iMx, iMy, χ = op
     @unpack CT, CUTCT = op_conv
     @unpack u, v, uD, vD = ph
 
-    if bc_type == dir
+    ni = nx * ny
+    nb = 2 * nx + 2 * ny
+    nt = 2 * ni + nb
+
+    if is_dirichlet(bc_type)
         __a1 = -1.
         __b = 0.
-    elseif bc_type == neu
+    elseif is_neumann(bc_type)
         __a1 = 0.
         __b = 1.
-    elseif bc_type == rob
+    elseif is_robin(bc_type)
         __a1 = -1.
         __b = 1.
+    elseif is_stefan(bc_type)
+        __a1 = -1.
+        __b = 0.
     end
 
     # Flags with BCs
     a0 = ones(grid) .* θd
     if aniso
-        apply_anisotropy(num, grid, a0, MIXED, projection)
+        apply_anisotropy(num, grid, grid.LS[1].κ, a0, MIXED, projection)
     else
-        apply_curvature(num, grid, a0, all_indices)
+        apply_curvature(num, grid, grid.LS[1].κ, a0, all_indices)
     end
-    _a1 = ones(ny, nx) .* __a1
-    _b = ones(ny, nx) .* __b
-    set_borders!(grid, a0, _a1, _b, BC_T, periodic_x, periodic_y)
+    _a1 = ones(grid) .* __a1
     a1 = Diagonal(vec(_a1))
+    _b = ones(grid) .* __b
     b = Diagonal(vec(_b))
+
+    a0_b = zeros(nb)
+    _a1_b = zeros(nb)
+    _b_b = zeros(nb)
+    set_borders!(grid, grid.LS[1].cl, grid.LS[1].u, a0_b, _a1_b, _b_b, BC_T, num.n_ext_cl)
+    a1_b = Diagonal(vec(_a1_b))
+    b_b = Diagonal(vec(_b_b))
 
     if convection
         HT = zeros(grid)
         @inbounds @threads for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
-            HT[II] = distance(mid_point[II], geo.centroid[II], dx[II], dy[II])
+            HT[II] = distance(grid.LS[1].mid_point[II], geo.centroid[II], dx[II], dy[II])
         end    
         bcTx, bcTy = set_bc_bnds(dir, a0, HT, BC_T)
     
+        bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
+        bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
+        Δu = [grid_u.dx[1,1], grid_u.dy[1,1], grid_u.dx[end,end], grid_u.dy[end,end]] .* 0.5
+        Δv = [grid_v.dx[1,1], grid_v.dy[1,1], grid_v.dx[end,end], grid_v.dy[end,end]] .* 0.5
+        
         Hu = zeros(grid_u)
-        for II in vcat(grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1])
-            Hu[II] = distance(grid_u.mid_point[II], geo_u.centroid[II], grid_u.dx[II], grid_u.dy[II])
+        for i in eachindex(bnds_u)
+            for II in bnds_u[i]
+                Hu[II] = Δu[i]
+            end
+        end
+
+        Hv = zeros(grid_v)
+        for i in eachindex(bnds_v)
+            for II in bnds_v[i]
+                Hv[II] = Δv[i]
+            end
         end
     
-        Hv = zeros(grid_v) 
-        for II in vcat(grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1])
-            Hv[II] = distance(grid_v.mid_point[II], geo_v.centroid[II], grid_v.dx[II], grid_v.dy[II])
-        end
-    
-        bcU = copy(reshape(veci(uD,grid_u,2), (grid_u.ny, grid_u.nx)))
-        bcV = copy(reshape(veci(vD,grid_v,2), (grid_v.ny, grid_v.nx)))
-        scalar_convection!(dir, CT, CUTCT, u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, BC_T, inside, b_left[1], b_bottom[1], b_right[1], b_top[1])
+        bcU = zeros(grid_u)
+        bcU .= reshape(vec2(uD,grid_u), grid_u)
+        bcU[:,1] .= vecb_L(uD, grid_u)
+        bcU[1,:] .= vecb_B(uD, grid_u)
+        bcU[:,end] .= vecb_R(uD, grid_u)
+        bcU[end,:] .= vecb_T(uD, grid_u)
+        
+        bcV = zeros(grid_v)
+        bcV .= reshape(vec2(vD,grid_v), grid_v)
+        bcV[:,1] .= vecb_L(vD, grid_v)
+        bcV[1,:] .= vecb_B(vD, grid_v)
+        bcV[:,end] .= vecb_R(vD, grid_v)
+        bcV[end,:] .= vecb_T(vD, grid_v)
+
+        scalar_convection!(dir, CT, CUTCT, u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 
+            BC_T, inside, b_left[1], b_bottom[1], b_right[1], b_top[1]
+        )
     end
 
-    χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
-    χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
-    χ .= Diagonal(sqrt.(vec(χx .+ χy))) 
-
     # Mass matrices
-    M = Diagonal(vec(geo.dcap[:,:,5]))
+    M.diag .= vec(geo.dcap[:,:,5])
     Mx = zeros(ny,nx+1)
     for II in ind.all_indices
         Mx[II] = geo.dcap[II,8]
@@ -176,45 +208,67 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
 
     # Discrete gradient and divergence operators
     divergence_B!(BxT, ByT, geo.dcap, ny, ind.all_indices)
-
     mat_assign!(Bx, sparse(-BxT'))
     mat_assign!(By, sparse(-ByT'))
 
-    # Matrices for BCs
-    bc_matrix!(Hx, Hy, geo.dcap, ny, ind.all_indices)
+    # Matrices for interior BCs
+    for iLS in 1:num.nLS
+        bc_matrix!(grid, Hx[iLS], Hy[iLS], geo.dcap, geo.dcap, ny, ind.all_indices)
 
-    mat_assign_T!(HxT, sparse(Hx'))
-    mat_assign_T!(HyT, sparse(Hy'))
+        mat_assign_T!(HxT[iLS], sparse(Hx[iLS]'))
+        mat_assign_T!(HyT[iLS], sparse(Hy[iLS]'))
 
-    periodic_bcs!(grid, Bx, By, Hx, Hy, periodic_x, periodic_y)
-    
+        periodic_bcs!(grid, Bx, By, Hx[iLS], Hy[iLS], periodic_x, periodic_y)
+
+        χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
+        χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
+        χ[iLS].diag .= sqrt.(vec(χx .+ χy))
+    end
+    mat_assign!(BxT, sparse(-Bx'))
+    mat_assign!(ByT, sparse(-By'))
+
+    # Matrices for borders BCs
+    set_boundary_indicator!(grid, geo, geo, op)
+    mass_matrix_borders!(ind, op.iMx_b, op.iMy_b, op.iMx_bd, op.iMy_bd, geo.dcap, ny)
+    bc_matrix_borders!(grid, ind, op.Hx_b, op.Hy_b, geo.dcap)
+    mat_assign_T!(op.HxT_b, sparse(op.Hx_b'))
+    mat_assign_T!(op.HyT_b, sparse(op.Hy_b'))
+    periodic_bcs_borders!(grid, op.Hx_b, op.Hy_b, periodic_x, periodic_y)
+
     LT = BxT * iMx * Bx .+ ByT * iMy * By
-    LD = BxT * iMx * Hx .+ ByT * iMy * Hy
+    LD = BxT * iMx * Hx[1] .+ ByT * iMy * Hy[1]
+    LD_b = BxT * op.iMx_b * op.Hx_b .+ ByT * op.iMy_b * op.Hy_b
 
-    dataA = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 2, 2)
-    dataA[1,1] = pad_crank_nicolson(M .- 0.5 .* τ .* LT, grid, τ)
-    dataA[1,2] = - 0.5 .* τ .* LD
-    dataA[2,1] = b * (HxT * iMx * Bx .+ HyT * iMy * By)
-    dataA[2,2] = pad(b * (HxT * iMx * Hx .+ HyT * iMy * Hy) .- χ * a1)
-    A  = [dataA[1,1] dataA[1,2];
-          dataA[2,1] dataA[2,2]]
+    A = spzeros(nt, nt)
+    # Implicit part of heat equation
+    A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* τ .* LT, grid, τ)
+    A[1:ni,ni+1:2*ni] = - 0.5 .* τ .* LD
+    A[1:ni,end-nb+1:end] = - 0.5 .* τ .* LD_b
 
-    dataB = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 2, 2)
-    dataB[1,1] = M .+ 0.5 .* τ .* LT
+    # Interior BC
+    A[ni+1:2*ni,1:ni] = b * (HxT[1] * iMx * Bx .+ HyT[1] * iMy * By)
+    A[ni+1:2*ni,ni+1:2*ni] = pad(b * (HxT[1] * iMx * Hx[1] .+ HyT[1] * iMy * Hy[1]) .- χ[1] * a1)
+
+    # Border BCs
+    A[end-nb+1:end,1:ni] = b_b * (op.HxT_b * op.iMx_b' * Bx .+ op.HyT_b * op.iMy_b' * By)
+    A[end-nb+1:end,ni+1:2*ni] = b_b * (op.HxT_b * op.iMx_b' * Hx[1] .+ op.HyT_b * op.iMy_b' * op.Hy[1])
+    A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b, 4.0)
+
+    # Explicit part of heat equation
+    B = spzeros(nt, nt)
+    B[1:ni,1:ni] = M .+ 0.5 .* τ .* LT
     if convection
-       dataB[1,1] .-= τ .* CT
+       B[1:ni,1:ni] .-= τ .* CT
     end
-    dataB[1,2] = 0.5 .* τ .* LD
-    dataB[2,1] = spdiagm(0 => zeros(nx*ny))
-    dataB[2,2] = spdiagm(0 => zeros(nx*ny))
-    B  = [dataB[1,1] dataB[1,2];
-          dataB[2,1] dataB[2,2]]
+    B[1:ni,ni+1:2*ni] = 0.5 .* τ .* LD
+    B[1:ni,end-nb+1:end] = 0.5 .* τ .* LD_b
 
-    rhs = zeros(2*nx*ny)
+    rhs = fnzeros(grid, num)
     if convection
-        veci(rhs,grid,1) .-= τ .* CUTCT
+        vec1(rhs,grid) .-= τ .* CUTCT
     end
-    veci(rhs,grid,2) .+= χ * vec(a0)
+    vec2(rhs,grid) .+= χ[1] * vec(a0)
+    vecb(rhs,grid) .+= op.χ_b * vec(a0_b)
 
     return A, B, rhs
 end
