@@ -19,7 +19,7 @@ n = 96
 x = collect(LinRange(-L0x / 2, L0x / 2, n + 1))
 y = collect(LinRange(-L0y / 2, 0, n ÷ 3 + 1))
 
-θe = 120
+θe = 60
 # function run_sessile(θe = 90)
     # if θe < 40
     #     max_its = 35000
@@ -87,7 +87,7 @@ y = collect(LinRange(-L0y / 2, 0, n ÷ 3 + 1))
         ),
         BC_pL = Boundaries(),
         BC_u = Boundaries(
-            bottom = Neumann_inh(),
+            bottom = Neumann_angle(θe = θe * π / 180),
             top = Neumann_inh(),
             left = Neumann_inh(),
             right = Neumann_inh()
@@ -132,7 +132,6 @@ y = collect(LinRange(-L0y / 2, 0, n ÷ 3 + 1))
     for iLS in 1:num.nLS
         contour!(gu.x[1,:], gu.y[:,1], gu.LS[iLS].u', levels = 0:0, color=:red, linewidth = 3);
     end
-    scatter!([gu.x[id]], [gu.y[id]], color=:red)
     # cbar = fu[1,2] = Colorbar(fu, hmap, labelpadding=0)
     limits!(ax, -1, 1, -1, 0)
     colsize!(fu.layout, 1, widths(ax.scene.viewport[])[1])
