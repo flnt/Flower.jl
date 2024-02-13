@@ -1,3 +1,5 @@
+@inline anisotropy(ϵ, m, θ, θ₀) = ϵ*(1 + 0.4*((8/3)*sin(0.5*m*(θ - θ₀))^4 - 1))
+
 @inline function apply_curvature(num, grid, κ, bc, all_indices)
     @unpack ϵ_κ, ϵ_V = num
     @unpack V = grid

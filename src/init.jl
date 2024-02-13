@@ -51,11 +51,18 @@ function Levelset(nx, ny)
     emptiedS = zeros(Bool, ny, nx)
     emptiedL = zeros(Bool, ny, nx)
 
+    double_emptiedS = zeros(Bool, ny, nx)
+    double_emptiedL = zeros(Bool, ny, nx)
+
     freshS = zeros(Bool, ny, nx)
     freshL = zeros(Bool, ny, nx)
 
-    geoS = GeometricInfo(SOL, dSOL, sol_projection, sol_centroid, verticesS, emptiedS, freshS)
-    geoL = GeometricInfo(LIQ, dLIQ, liq_projection, liq_centroid, verticesL, emptiedL, freshL)
+    geoS = GeometricInfo(
+        SOL, dSOL, sol_projection, sol_centroid,
+        verticesS, emptiedS, double_emptiedS, freshS)
+    geoL = GeometricInfo(
+        LIQ, dLIQ, liq_projection, liq_centroid,
+        verticesL, emptiedL, double_emptiedL, freshL)
 
     α = zeros(ny, nx)
     α .= NaN

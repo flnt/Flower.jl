@@ -589,6 +589,11 @@ function crossing_2levelsets!(num, grid, LS1, LS2, periodic_x, periodic_y, BC_in
             empty_cell!(grid, grid.LS[end], grid.LS[end].geoL, II)
             empty_cell!(grid, LS1, LS1.geoL, II, false)
             empty_cell!(grid, LS2, LS2.geoL, II, false)
+            if vol > 1e-12
+                grid.LS[end].geoL.double_emptied[II] = true
+                LS1.geoL.double_emptied[II] = true
+                LS2.geoL.double_emptied[II] = true
+            end
         end
     end
 

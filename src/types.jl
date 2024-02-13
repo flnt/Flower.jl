@@ -90,6 +90,7 @@ struct GeometricInfo{T <: Real} <: MutatingFields
     centroid::Array{Point{T},2}
     vertices::Array{Vector{Point{T}},2}
     emptied::Array{Bool,2}
+    double_emptied::Array{Bool,2}
     fresh::Array{Bool,2}
 end
 

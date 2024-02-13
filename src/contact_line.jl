@@ -43,7 +43,7 @@ function BC_LS!(grid, u, A, B, rhs, BC)
                 A[pII,:] .= 0.0
                 A[pII,pII] = 1.0
                 A[pII,pJJ] = -1.0
-                B[pII,pII] = 0.0
+                B[pII,:] .= 0.0
             end
         elseif is_neumann_cl(boundaries_t[i]) && maximum(u[idx]) > 0.0 && minimum(u[idx]) < 0.0 && length(pks) >= 2
             pks1 = idx[pks[1]]
@@ -79,7 +79,7 @@ function BC_LS!(grid, u, A, B, rhs, BC)
                 A[pII,:] .= 0.0
                 A[pII,pII] = 1.0
                 A[pII,pJJ] = -1.0
-                B[pII,pII] = 0.0
+                B[pII,:] .= 0.0
 
                 # Compute levelset angle at a distance u[II] from the contact line
                 if θe < π2
@@ -98,7 +98,7 @@ function BC_LS!(grid, u, A, B, rhs, BC)
                 A[pII,:] .= 0.0
                 A[pII,pII] = 1.0
                 A[pII,pJJ] = -1.0
-                B[pII,pII] = 0.0
+                B[pII,:] .= 0.0
 
                 rhs[pII] = u[JJ] - u[KK]
             end
@@ -332,7 +332,7 @@ function BC_LS_interior!(num, grid, iLS, A, B, rhs, BC_int, periodic_x, periodic
                     end
 
                     β = newθ# + mult[idmin] * sign(LS[iLS].u[KK] - LS[iLS].u[II]) * (LS[i].α[II] - s[idmin])
-                    βtmp[II] = β
+                    βtmp[II] = BC_int[i].θe#β
 
                     # rhs[pLL] = d * cos(β)
 
@@ -355,18 +355,25 @@ function BC_LS_interior!(num, grid, iLS, A, B, rhs, BC_int, periodic_x, periodic
                     # rhs[pLL] = 2d * cos(β + 5*β1)
                 end
 
-                @inbounds for II in LS[i].SOLID
+                # Remove small clipped cells from mixed cells
+                # and add them to the solid phase
+                mixed_mixed = intersect(LS[iLS].MIXED, LS[i].MIXED)
+                mixed_emptied = intersect(mixed_mixed, findall(grid.LS[i].geoL.double_emptied))
+                idx_solid = Base.union(LS[i].SOLID, mixed_emptied)
+                idx_mixed = symdiff(idx, mixed_emptied)
+
+                @inbounds for II in idx_solid
                     pII = lexicographic(II, ny)
                     pointII = Point(x[II], y[II])
 
-                    dist = zeros(size(idx))
-                    for (k, neigh) in enumerate(idx)
+                    dist = zeros(size(idx_mixed))
+                    for (k, neigh) in enumerate(idx_mixed)
                         pointk = Point(x[neigh], y[neigh])
                         midpoint = LS[i].mid_point[neigh]
                         dist[k] = distance(pointk, pointII) - LS[i].u[neigh]
                     end
 
-                    KK = idx[findmin(dist)[2]]
+                    KK = idx_mixed[findmin(dist)[2]]
                     pKK = lexicographic(KK, ny)
                     pointKK = Point(x[KK], y[KK])
 
