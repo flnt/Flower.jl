@@ -6,7 +6,7 @@ using Flower
 fontsize_theme = Theme(fonts=(;regular="CMU Serif"), fontsize = 60)
 set_theme!(fontsize_theme)
 
-prefix="/local/home/pr277828/flower/test"
+prefix="/local/home/pr277828/flower/test/"
 
 
 function f(x, y)
@@ -213,71 +213,7 @@ n = 512
             D[II] = NaN
         end
     end
-# end
 
-# x_reg = 2^st_case:2^(st_case+n_cases-1)
-# y_tcks = [1e0, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7]
-
-# conv_l1 = regression(npts, l1, x_reg)
-# conv_l2 = regression(npts, l2, x_reg)
-# conv_loo = regression(npts, loo, x_reg)
-
-# conv_l1_mixed = regression(npts, l1_mixed, x_reg)
-# conv_l2_mixed = regression(npts, l2_mixed, x_reg)
-# conv_loo_mixed = regression(npts, loo_mixed, x_reg)
-
-# conv_l1_full = regression(npts, l1_full, x_reg)
-# conv_l2_full = regression(npts, l2_full, x_reg)
-# conv_loo_full = regression(npts, loo_full, x_reg)
-
-# fl1 = Figure(resolution = (1600, 1000))
-# ax = Axis(fl1[1,1], aspect = 1.0, xscale=log10, yscale=log10,
-#             xlabel="pts", ylabel=L"$L _ 1$ Error", xticks = npts
-# )
-# colsize!(fl1.layout, 1, Aspect(1, 1.0))
-# fl1 = lines!(x_reg, conv_l1_mixed.yreg, label="order $(@sprintf("%.2f", conv_l1_mixed.coef1))", linewidth=6.0)
-# fl1 = scatter!(npts, l1_mixed, label="Partial cells", markersize=40)
-# fl1 = lines!(x_reg, conv_l1.yreg, label="order $(@sprintf("%.2f", conv_l1.coef1))", linewidth=6.0)
-# fl1 = scatter!(npts, l1, marker=:rect, label="All cells", markersize=40)
-# fl1 = lines!(x_reg, conv_l1_full.yreg, label="order $(@sprintf("%.2f", conv_l1_full.coef1))", linewidth=6.0)
-# fl1 = scatter!(npts, l1_full, marker=:diamond, label="Full cells", markersize=40)
-# axislegend(position = :lb)
-# fl1 = current_figure()
-# resize_to_layout!(fl1)
-# Makie.save(prefix*"conv_l1_"*bc_str*"_eps$(ϵ).pdf", fl1)
-
-# fl2 = Figure(figure_padding=(0, 50, 50, 50), resolution = (1600, 1000))
-# ax = Axis(fl2[1,1], aspect = 1.0, xscale=log10, yscale=log10,
-#             xlabel="pts", ylabel=L"$L _ 2$ error", xticks = npts
-# )
-# colsize!(fl2.layout, 1, Aspect(1, 1.0))
-# lines!(x_reg, conv_l2_mixed.yreg, label="order $(@sprintf("%.2f", conv_l2_mixed.coef1))", linewidth=6.0)
-# scatter!(npts, l2_mixed, label="Partial cells", markersize=40)
-# lines!(x_reg, conv_l2.yreg, label="order $(@sprintf("%.2f", conv_l2.coef1))", linewidth=6.0)
-# scatter!(npts, l2, marker=:rect, label="All cells", markersize=40)
-# lines!(x_reg, conv_l2_full.yreg, label="order $(@sprintf("%.2f", conv_l2_full.coef1))", linewidth=6.0)
-# scatter!(npts, l2_full, marker=:diamond, label="Full cells", markersize=40)
-# # fl2[1,1] = Legend(fl2, ax, framevisible = false)
-# axislegend(position = :lb)
-# fl2 = current_figure()
-# resize_to_layout!(fl2)
-# Makie.save(prefix*"conv_l2_"*bc_str*"_eps$(ϵ).pdf", fl2)
-
-# floo = Figure(figure_padding=(0, 50, 50, 50), resolution = (1600, 1000))
-# ax = Axis(floo[1,1], aspect = 1.0, xscale=log10, yscale=log10,
-#             xlabel="pts", ylabel=L"$L _ \infty$ error", xticks = npts
-# )
-# colsize!(floo.layout, 1, Aspect(1, 1.0))
-# floo = lines!(x_reg, conv_loo_mixed.yreg, label="order $(@sprintf("%.2f", conv_loo_mixed.coef1))", linewidth=6.0)
-# floo = scatter!(npts, loo_mixed, label="Partial cells", markersize=40)
-# floo = lines!(x_reg, conv_loo.yreg, label="order $(@sprintf("%.2f", conv_loo.coef1))", linewidth=6.0)
-# floo = scatter!(npts, loo, marker=:rect, label="All cells", markersize=40)
-# floo = lines!(x_reg, conv_loo_full.yreg, label="order $(@sprintf("%.2f", conv_loo_full.coef1))", linewidth=6.0)
-# floo = scatter!(npts, loo_full, marker=:diamond, label="Full cells", markersize=40)
-# axislegend(position = :lb)
-# floo = current_figure()
-# resize_to_layout!(floo)
-# Makie.save(prefix*"conv_loo_"*bc_str*"_eps$(ϵ).pdf", floo)
 
 tcks = -num.L0:0.5:num.L0
 
@@ -307,19 +243,6 @@ cbar = fd[1,2] = Colorbar(fd, hmap, labelpadding=0)
 colsize!(fd.layout, 1, widths(ax.scene.viewport[])[1])
 rowsize!(fd.layout, 1, widths(ax.scene.viewport[])[2])
 resize_to_layout!(fd)
-
-# fe = Figure(figure_padding=(0, 50, 50, 50), size = (1600, 1100))
-# ax = Axis(fe[1,1], aspect = 1, xlabel=L"x", ylabel=L"y", xticks = tcks, yticks = tcks,
-#     xgridvisible=false, ygridvisible=false)
-# hmap = heatmap!(gp.x[1,:], gp.y[:,1], log10.(err)', colorrange=(-5.5, -1.0))
-# cbar = fe[1,2] = Colorbar(fe, hmap, labelpadding=0;
-#     tickformat=custom_formatter,
-#     minorticksvisible=true,
-#     minorticks=LogMinorTicks(),
-# )
-# colsize!(fe.layout, 1, widths(ax.scene.viewport[])[1])
-# rowsize!(fe.layout, 1, widths(ax.scene.viewport[])[2])
-# resize_to_layout!(fe)
 
 x_cen = getproperty.(gp.LS[1].mid_point[gp.LS[1].MIXED], :x)
 y_cen = getproperty.(gp.LS[1].mid_point[gp.LS[1].MIXED], :y)
