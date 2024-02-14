@@ -956,7 +956,7 @@ function pressure_projection!(
     Au, Bu, Av, Bv, Aϕ,
     Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
     Cum1, Cvm1, Mum1, Mvm1,
-    periodic_x, periodic_y, advection, ls_advection, current_i
+    periodic_x, periodic_y, advection, ls_advection, current_i, Ra
     )
     @unpack Re, τ, σ, g, β, nLS = num
     @unpack p, pD, ϕ, ϕD, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr = ph
@@ -984,6 +984,9 @@ function pressure_projection!(
             periodic_x, periodic_y, advection, ls_advection
         )
     end
+
+    ra_x = Ra .* sin(β) .* opC_u.M * vec(hcat(zeros(grid_u.ny), ph.T))
+    ra_y = Ra .* cos(β) .* opC_v.M * vec(vcat(zeros(1,grid_v.ny), ph.T))
 
     grav_x = g .* sin(β) .* opC_u.M * fones(grid_u)
     grav_y = g .* cos(β) .* opC_v.M * fones(grid_v)
@@ -1013,6 +1016,7 @@ function pressure_projection!(
     mul!(rhs_u, Bu, uD, 1.0, 1.0)
     vec1(rhs_u,grid_u) .+= τ .* grav_x
     vec1(rhs_u,grid_u) .-= τ .* Convu
+    vec1(rhs_u,grid_u) .+= τ .* ra_x
     kill_dead_cells!(vec1(rhs_u,grid_u), grid_u, geo_u[end])
     for iLS in 1:nLS
         kill_dead_cells!(veci(rhs_u,grid_u,iLS+1), grid_u, geo_u[end])
@@ -1046,6 +1050,7 @@ function pressure_projection!(
     mul!(rhs_v, Bv, vD, 1.0, 1.0)
     vec1(rhs_v,grid_v) .+= - τ .* grav_y
     vec1(rhs_v,grid_v) .-= τ .* Convv
+    vec1(rhs_v,grid_v) .+= τ .* ra_y
     kill_dead_cells!(vec1(rhs_v,grid_v), grid_v, geo_v[end])
     for iLS in 1:nLS
         kill_dead_cells!(veci(rhs_v,grid_v,iLS+1), grid_v, geo_v[end])
