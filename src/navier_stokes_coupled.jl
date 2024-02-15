@@ -986,7 +986,7 @@ function pressure_projection!(
     end
 
     ra_x = Ra .* sin(β) .* opC_u.M * vec(hcat(zeros(grid_u.ny), ph.T))
-    ra_y = Ra .* cos(β) .* opC_v.M * vec(vcat(zeros(1,grid_v.ny), ph.T))
+    ra_y = Ra .* cos(β) .* opC_v.M * vec(vcat(zeros(1,grid_v.nx), ph.T))
 
     grav_x = g .* sin(β) .* opC_u.M * fones(grid_u)
     grav_y = g .* cos(β) .* opC_v.M * fones(grid_v)
