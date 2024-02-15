@@ -34,7 +34,7 @@ function run_forward(
     save_radius = false,
     adaptative_t = false,
     breakup = false,
-    Ra = 0,
+    Ra = 0.0,
     λ = 1,
     )
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations,
@@ -493,7 +493,7 @@ function run_forward(
                     AuS, BuS, AvS, BvS, AϕS,
                     Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,
                     Cum1S, Cvm1S, Mum1_S, Mvm1_S,
-                    periodic_x, periodic_y, ns_advection, advection, current_i
+                    periodic_x, periodic_y, ns_advection, advection, current_i, Ra
                 )
             end
             if ns_liquid_phase
@@ -508,7 +508,7 @@ function run_forward(
                     AuL, BuL, AvL, BvL, AϕL,
                     Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
                     Cum1L, Cvm1L, Mum1_L, Mvm1_L,
-                    periodic_x, periodic_y, ns_advection, advection, current_i
+                    periodic_x, periodic_y, ns_advection, advection, current_i, Ra
                 )
                 # if current_i == 1
                 #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
