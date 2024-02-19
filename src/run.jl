@@ -204,15 +204,37 @@ function run_forward(
         Mvm1_S = copy(opC_vS.M)
 
         if navier_stokes || heat
-            AuS, BuS, _ = FE_set_momentum(
+            ni = grid.nx * grid.ny
+            nb = 2 * grid.nx + 2 * grid.ny
+            nt = (num.nLS + 1) * ni + nb
+            AϕS = spzeros(nt, nt)
+            AϕL = spzeros(nt, nt)
+
+            ni = grid_u.nx * grid_u.ny
+            nb = 2 * grid_u.nx + 2 * grid_u.ny
+            nt = (num.nLS + 1) * ni + nb
+            AuS = spzeros(nt, nt)
+            AuL = spzeros(nt, nt)
+            BuS = spzeros(nt, nt)
+            BuL = spzeros(nt, nt)
+
+            ni = grid_v.nx * grid_v.ny
+            nb = 2 * grid_v.nx + 2 * grid_v.ny
+            nt = (num.nLS + 1) * ni + nb
+            AvS = spzeros(nt, nt)
+            AvL = spzeros(nt, nt)
+            BvS = spzeros(nt, nt)
+            BvL = spzeros(nt, nt)
+
+            _ = FE_set_momentum(
                 BC_int, num, grid_u, opC_uS,
-                false, false,
+                AuS, BuS,
                 iRe.*Lum1_S, iRe.*bc_Lum1_S, iRe.*bc_Lum1_b_S, Mum1_S, BC_uS,
                 true
             )
-            AvS, BvS, _ = FE_set_momentum(
+            _ = FE_set_momentum(
                 BC_int, num, grid_v, opC_vS,
-                false, false,
+                AvS, BvS,
                 iRe.*Lvm1_S, iRe.*bc_Lvm1_S, iRe.*bc_Lvm1_b_S, Mvm1_S, BC_vS,
                 true
             )
@@ -220,21 +242,21 @@ function run_forward(
             for i in 1:num.nLS
                 push!(a0_p, zeros(grid))
             end
-            AϕS, _ = set_poisson(
+            _ = set_poisson(
                 BC_int, num, grid, a0_p, opC_pS, opC_uS, opC_vS,
-                false, Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, BC_pS,
+                AϕS, Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, BC_pS,
                 true
             )
 
-            AuL, BuL, _ = FE_set_momentum(
+            _ = FE_set_momentum(
                 BC_int, num, grid_u, opC_uL,
-                false, false,
+                AuL, BuL,
                 iRe.*Lum1_L, iRe.*bc_Lum1_L, iRe.*bc_Lum1_b_L, Mum1_L, BC_uL,
                 true
             )
-            AvL, BvL, _ = FE_set_momentum(
+            _ = FE_set_momentum(
                 BC_int, num, grid_v, opC_vL,
-                false, false,
+                AvL, BvL,
                 iRe.*Lvm1_L, iRe.*bc_Lvm1_L, iRe.*bc_Lvm1_b_L, Mvm1_L, BC_vL,
                 true
             )
@@ -242,9 +264,9 @@ function run_forward(
             for i in 1:num.nLS
                 push!(a0_p, zeros(grid))
             end
-            AϕL, _ = set_poisson(
+            _ = set_poisson(
                 BC_int, num, grid, a0_p, opC_pL, opC_uL, opC_vL,
-                false, Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, BC_pL,
+                AϕL, Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, BC_pL,
                 true
             )
         end
@@ -485,7 +507,7 @@ function run_forward(
                 geoS = [LS[iLS].geoS for iLS in 1:_nLS]
                 geo_uS = [grid_u.LS[iLS].geoS for iLS in 1:_nLS]
                 geo_vS = [grid_v.LS[iLS].geoS for iLS in 1:_nLS]
-                AϕS, Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, AuS, BuS, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, AvS, BvS, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,Mm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = pressure_projection!(
+                Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,Mm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = pressure_projection!(
                     time_scheme, BC_int,
                     num, grid, geoS, grid_u, geo_uS, grid_v, geo_vS, phS,
                     BC_uS, BC_vS, BC_pS,
@@ -500,7 +522,7 @@ function run_forward(
                 geoL = [LS[iLS].geoL for iLS in 1:_nLS]
                 geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:_nLS]
                 geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:_nLS]
-                AϕL, Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, AuL, BvL, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, AvL, BvL, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = pressure_projection!(
+                Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = pressure_projection!(
                     time_scheme, BC_int,
                     num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
                     BC_uL, BC_vL, BC_pL,

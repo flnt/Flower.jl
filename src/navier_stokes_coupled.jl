@@ -572,7 +572,6 @@ function CN_set_momentum(
 
     ni = grid.nx * grid.ny
     nb = 2 * grid.nx + 2 * grid.ny
-    nt = (num.nLS + 1) * ni + nb
 
     rhs = fnzeros(grid, num)
 
@@ -586,7 +585,6 @@ function CN_set_momentum(
     b_b = Diagonal(vec(_b_b))
 
     if ls_advection
-        A = spzeros(nt, nt)
         # Implicit part of viscous term
         A[1:ni,1:ni] = pad_crank_nicolson(M .- τ2 .* L, grid, τ)
         # Contribution to implicit part of viscous term from outer boundaries
@@ -595,7 +593,6 @@ function CN_set_momentum(
         A[end-nb+1:end,1:ni] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
         A[end-nb+1:end,end-nb+1:end] = pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b)
 
-        B = spzeros(nt, nt)
         # Explicit part of viscous term
         B[1:ni,1:ni] = Mm1 .+ τ2 .* Lm1
         # Contribution to implicit part of viscous term from outer boundaries
@@ -654,7 +651,7 @@ function CN_set_momentum(
 
     vecb(rhs,grid) .= χ_b * vec(a0_b)
 
-    return A, B, rhs
+    return rhs
 end
 
 function FE_set_momentum(
@@ -668,7 +665,6 @@ function FE_set_momentum(
 
     ni = grid.nx * grid.ny
     nb = 2 * grid.nx + 2 * grid.ny
-    nt = (num.nLS + 1) * ni + nb
 
     rhs = fnzeros(grid, num)
 
@@ -682,7 +678,6 @@ function FE_set_momentum(
     b_b = Diagonal(vec(_b_b))
 
     if ls_advection
-        A = spzeros(nt, nt)
         # Implicit part of viscous term
         A[1:ni,1:ni] = pad_crank_nicolson(M .- τ .* L, grid, τ)
         # Contribution to implicit part of viscous term from outer boundaries
@@ -691,7 +686,6 @@ function FE_set_momentum(
         A[end-nb+1:end,1:ni] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
         A[end-nb+1:end,end-nb+1:end] = pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b)
 
-        B = spzeros(nt, nt)
         B[1:ni,1:ni] = Mm1
     end
 
@@ -745,7 +739,7 @@ function FE_set_momentum(
 
     vecb(rhs,grid) .= χ_b * vec(a0_b)
     
-    return A, B, rhs
+    return rhs
 end
 
 function set_poisson(
@@ -756,7 +750,6 @@ function set_poisson(
 
     ni = grid.nx * grid.ny
     nb = 2 * grid.nx + 2 * grid.ny
-    nt = (num.nLS + 1) * ni + nb
 
     rhs = fnzeros(grid, num)
 
@@ -770,7 +763,6 @@ function set_poisson(
     b_b = Diagonal(vec(_b_b))
 
     if ls_advection
-        A = spzeros(nt, nt)
         # Poisson equation
         A[1:ni,1:ni] = pad(L, -4.0)
         A[1:ni,end-nb+1:end] = bc_L_b
@@ -841,7 +833,7 @@ function set_poisson(
 
     vecb(rhs,grid) .= -χ_b * vec(a0_b)
     
-    return A, rhs
+    return rhs
 end
 
 function set_CN!(
@@ -870,14 +862,14 @@ function set_CN!(
     end
     Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = laps
 
-    Au, Bu, rhs_u = CN_set_momentum(
+    rhs_u = CN_set_momentum(
         bc_int, num, grid_u, opC_u,
         Au, Bu,
         iRe.*Lu, iRe.*bc_Lu, iRe.*bc_Lu_b,
         iRe.*Lum1, iRe.*bc_Lum1, iRe.*bc_Lum1_b, Mum1, BC_u,
         ls_advection
     )
-    Av, Bv, rhs_v = CN_set_momentum(
+    rhs_v = CN_set_momentum(
         bc_int, num, grid_v, opC_v,
         Av, Bv,
         iRe.*Lv, iRe.*bc_Lv, iRe.*bc_Lv_b,
@@ -888,13 +880,13 @@ function set_CN!(
     for i in 1:num.nLS
         push!(a0_p, zeros(grid))
     end
-    Aϕ, rhs_ϕ = set_poisson(
+    rhs_ϕ = set_poisson(
         bc_int, num, grid, a0_p, opC_p, opC_u, opC_v,
         Aϕ, Lp, bc_Lp, bc_Lp_b, BC_p,
         ls_advection
     )
 
-    return Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b
+    return rhs_u, rhs_v, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b
 end
 
 function set_FE!(
@@ -923,13 +915,13 @@ function set_FE!(
     end
     Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = laps
 
-    Au, Bu, rhs_u = FE_set_momentum(
+    rhs_u = FE_set_momentum(
         bc_int, num, grid_u, opC_u,
         Au, Bu,
         iRe.*Lu, iRe.*bc_Lu, iRe.*bc_Lu_b, Mum1, BC_u,
         ls_advection
     )
-    Av, Bv, rhs_v = FE_set_momentum(
+    rhs_v = FE_set_momentum(
         bc_int, num, grid_v, opC_v,
         Av, Bv,
         iRe.*Lv, iRe.*bc_Lv, iRe.*bc_Lv_b, Mvm1, BC_v,
@@ -939,13 +931,13 @@ function set_FE!(
     for i in 1:num.nLS
         push!(a0_p, zeros(grid))
     end
-    Aϕ, rhs_ϕ = set_poisson(
+    rhs_ϕ = set_poisson(
         bc_int, num, grid, a0_p, opC_p, opC_u, opC_v,
         Aϕ, Lp, bc_Lp, bc_Lp_b, BC_p,
         ls_advection
     )
 
-    return Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b
+    return rhs_u, rhs_v, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b
 end
 
 function pressure_projection!(
@@ -966,7 +958,7 @@ function pressure_projection!(
     iτ = 1.0 / τ
 
     if is_FE(time_scheme)
-        Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_FE!(
+        rhs_u, rhs_v, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_FE!(
             bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
             opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
             Au, Bu, Av, Bv, Aϕ,
@@ -975,7 +967,7 @@ function pressure_projection!(
             periodic_x, periodic_y, advection, ls_advection
         )
     elseif is_CN(time_scheme)
-        Au, Bu, rhs_u, Av, Bv, rhs_v, Aϕ, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_CN!(
+        rhs_u, rhs_v, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_CN!(
             bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
             opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
             Au, Bu, Av, Bv, Aϕ,
@@ -1017,6 +1009,7 @@ function pressure_projection!(
     vec1(rhs_u,grid_u) .+= τ .* grav_x
     vec1(rhs_u,grid_u) .-= τ .* Convu
     vec1(rhs_u,grid_u) .+= τ .* ra_x
+    vec1(rhs_u,grid_u) .-= τ .* ph.Gxm1
     kill_dead_cells!(vec1(rhs_u,grid_u), grid_u, geo_u[end])
     for iLS in 1:nLS
         kill_dead_cells!(veci(rhs_u,grid_u,iLS+1), grid_u, geo_u[end])
@@ -1051,6 +1044,7 @@ function pressure_projection!(
     vec1(rhs_v,grid_v) .+= - τ .* grav_y
     vec1(rhs_v,grid_v) .-= τ .* Convv
     vec1(rhs_v,grid_v) .+= τ .* ra_y
+    vec1(rhs_v,grid_v) .-= τ .* ph.Gym1
     kill_dead_cells!(vec1(rhs_v,grid_v), grid_v, geo_v[end])
     for iLS in 1:nLS
         kill_dead_cells!(veci(rhs_v,grid_v,iLS+1), grid_v, geo_v[end])
@@ -1169,7 +1163,7 @@ function pressure_projection!(
         end
     end
 
-    return Aϕ, Lp, bc_Lp, bc_Lp_b, Au, Bu, Lu, bc_Lu, bc_Lu_b, Av, Bv, Lv, bc_Lv, bc_Lv_b, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
+    return Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
 end
 
 """
