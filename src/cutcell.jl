@@ -706,6 +706,39 @@ function crossing_2levelsets!(num, grid, LS1, LS2, BC_int)
                             By = ilp2cap(ly, poly)
                             grid.LS[end].geoL.cap[II,7] = By
                         end
+                    elseif (min_face[capn] == 0 && 
+                        (LS1.geoL.cap[II,capn]*LS2.geoL.cap[II,capn] + LS1.geoL.cap[II,Acap[capn]]*LS2.geoL.cap[II,Acap[capn]]) < 1e-12
+                        )
+                        if capn == 2 || capn == 4
+                            ly = readgeom(
+                                "LINESTRING(
+                                    $(p.x-2.0) $(p.y+0.5),
+                                    $(p.x+2.0) $(p.y+0.5)
+                                )"
+                            )
+                            By = ilp2cap(ly, poly)
+                            grid.LS[end].geoL.cap[II,7] = By
+                            if LS1.geoL.cap[II,capn] > 1e-12
+                                LS1.geoL.cap[II,capn] = By
+                                LS1.geoL.cap[II,Acap[capn]] = 0.0
+                                LS2.geoL.cap[II,Acap[capn]] = By
+                                LS2.geoL.cap[II,capn] = 0.0
+                            else
+                                LS1.geoL.cap[II,capn] = 0.0
+                                LS1.geoL.cap[II,Acap[capn]] = By
+                                LS2.geoL.cap[II,Acap[capn]] = 0.0
+                                LS2.geoL.cap[II,capn] = By
+                            end
+                        else
+                            lx = readgeom(
+                                "LINESTRING(
+                                    $(p.x+0.5) $(p.y-2.0),
+                                    $(p.x+0.5) $(p.y+2.0)
+                                )"
+                            )
+                            Bx = ilp2cap(lx, poly)
+                            grid.LS[end].geoL.cap[II,6] = Bx
+                        end
                     elseif min_face[capn] == 0
                         set_A_caps_full_empty!(capn, Acap[capn], LS1, LS2, II, poly1, p)
                         if capn == 2 || capn == 4
