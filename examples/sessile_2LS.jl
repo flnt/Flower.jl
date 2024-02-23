@@ -1,7 +1,7 @@
 using Revise
 using Flower
 
-prefix = "/Users/alex/Documents/PhD/Cutcell/New_ops/robin/contact_line/sessile_2LS_bumpy/"
+prefix = "/home/tf/Documents/Flower_figures/"
 # prefix = "/Users/alex/Documents/PhD/Cutcell/New_ops/robin/contact_line/sessile_2LS/"
 
 fontsize_theme = Theme(fonts=(;regular="CMU Serif"), fontsize = 50)

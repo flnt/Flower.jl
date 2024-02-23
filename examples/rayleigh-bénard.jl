@@ -145,8 +145,8 @@ resize_to_layout!(fv)
 fv = current_figure()
 
 
-prefix = "/Users/alex/codes/Flower.jl/figures/rayleigh/"
-suffix = "_Ra$(abs(Ra))_λ$(λ)_θ$(num.θd)"
+# prefix = "/Users/alex/codes/Flower.jl/figures/rayleigh/"
+# suffix = "_Ra$(abs(Ra))_λ$(λ)_θ$(num.θd)"
 
 # make_video(num, fwd, gu, "u"; title_prefix=prefix,
 #         title_suffix=suffix, framerate=500÷num.save_every, limitsx=(-lim,lim), limitsy=(-lim,lim))

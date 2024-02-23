@@ -4,10 +4,10 @@ using Flower
 fontsize_theme = Theme(fonts=(;regular="CMU Serif"), fontsize = 30)
 set_theme!(fontsize_theme)
 
-prefix = "/Users/alex/Documents/PhD/Cutcell/New_ops/robin/heat/"
+prefix = "/home/tf/Documents/Flower_figures/"
 
 L0 = 6.
-n = 64
+n = 128
 x = LinRange(-L0/2, L0/2, n+1)
 y = LinRange(-L0/2, L0/2, n+1)
 
@@ -17,7 +17,7 @@ num = Numerical(
     CFL = 0.5,
     x = x,
     y = y,
-    max_iterations = 60,
+    max_iterations = 240,
     u_inf = 1.0,
     R = 1.5,
     θd = 0.0,
