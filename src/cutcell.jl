@@ -738,6 +738,17 @@ function crossing_2levelsets!(num, grid, LS1, LS2, BC_int)
                             )
                             Bx = ilp2cap(lx, poly)
                             grid.LS[end].geoL.cap[II,6] = Bx
+                            if LS1.geoL.cap[II,capn] > 1e-12
+                                LS1.geoL.cap[II,capn] = Bx
+                                LS1.geoL.cap[II,Acap[capn]] = 0.0
+                                LS2.geoL.cap[II,Acap[capn]] = Bx
+                                LS2.geoL.cap[II,capn] = 0.0
+                            else
+                                LS1.geoL.cap[II,capn] = 0.0
+                                LS1.geoL.cap[II,Acap[capn]] = Bx
+                                LS2.geoL.cap[II,Acap[capn]] = 0.0
+                                LS2.geoL.cap[II,capn] = Bx
+                            end
                         end
                     elseif min_face[capn] == 0
                         set_A_caps_full_empty!(capn, Acap[capn], LS1, LS2, II, poly1, p)
