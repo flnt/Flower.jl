@@ -1451,14 +1451,20 @@ function rg(num, grid, u, periodic_x, periodic_y, BC_int)
     end
 
     if num.nLS == 1
-        return sum(abs.(tmp))
+        return sum(abs.(tmp)), tmp
     else
+        # Compute only in the vicinity of the mixed cells
+        idx = copy(grid.ind.inside)
+        base = get_NB_width_indices_base1(5)
         for iLS in 1:num.nLS
             if is_wall(BC_int[iLS])
-                idx = intersect(grid.LS[iLS].LIQUID, grid.ind.inside)
-                return sum(abs.(tmp[idx]))
+                idx = intersect(idx, grid.LS[iLS].LIQUID)
+            elseif is_stefan(BC_int[iLS]) || is_fs(BC_int[iLS])
+                idx_mixed = get_NB_width(grid, grid.LS[iLS].MIXED, base)
+                idx = intersect(idx, idx_mixed)
             end
         end
+        return sum(abs.(tmp[idx])), tmp
     end
 end
 

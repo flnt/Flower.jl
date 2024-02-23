@@ -314,7 +314,7 @@ function run_forward(
             if is_stefan(BC_int[iLS])
                 update_stefan_velocity(num, grid, iLS, LS[iLS].u, phS.T, phL.T, periodic_x, periodic_y, λ, Vmean)
             elseif is_fs(BC_int[iLS])
-                update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.ucorrD, phL.vcorrD, periodic_x, periodic_y)
+                update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y)
             end
         end
 
@@ -334,13 +334,11 @@ function run_forward(
                     # LS[iLS].B.nzval .= 0.0
                     # IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, θ_out, τ, periodic_x, periodic_y)
                     # BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
-                    # BC_LS_interior!(num, grid, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
                     # utmp .= reshape(gmres(LS[iLS].A, (LS[iLS].B * vec(LS[iLS].u))) .+ rhs_LS, grid)
 
                     # rhs_LS .= 0.0
                     # S2IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, utmp, LS[iLS].u, θ_out, τ, periodic_x, periodic_y)
                     # BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
-                    # BC_LS_interior!(num, grid, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
                     # LS[iLS].u .= reshape(gmres(LS[iLS].A, (LS[iLS].B * vec(LS[iLS].u))) .+ rhs_LS, grid)
 
                     # Project velocities to the normal and use advecion scheme for advection just
@@ -359,6 +357,13 @@ function run_forward(
 
                         tmpV = sqrt(tmpVx[II]^2 + tmpVy[II]^2)
                         β = atan(tmpVy[II], tmpVx[II])
+                        if grid.LS[iLS].α[II] > 0.0 && β < 0.0
+                            β += 2π
+                        end
+                        if grid.LS[iLS].α[II] < 0.0 && β > 0.0
+                            β -= 2π
+                        end
+
                         V[II] = tmpV * cos(β - grid.LS[iLS].α[II])
                     end
 
@@ -368,6 +373,17 @@ function run_forward(
                     rhs_LS .= 0.0
                     IIOE_normal!(grid, LS[iLS].A, LS[iLS].B, LS[iLS].u, V, CFL_sc, periodic_x, periodic_y)
                     BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
+                    LS[iLS].u .= reshape(gmres(LS[iLS].A, (LS[iLS].B * vec(LS[iLS].u))) .+ rhs_LS, grid)
+
+                    # Impose contact angle if a wall is present
+                    rhs_LS .= 0.0
+                    LS[iLS].A.nzval .= 0.0
+                    LS[iLS].B.nzval .= 0.0
+                    for II in grid.ind.all_indices
+                        pII = lexicographic(II, grid.ny)
+                        LS[iLS].A[pII,pII] = 1.0
+                        LS[iLS].B[pII,pII] = 1.0
+                    end
                     BC_LS_interior!(num, grid, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
                     LS[iLS].u .= reshape(gmres(LS[iLS].A, (LS[iLS].B * vec(LS[iLS].u))) .+ rhs_LS, grid)
                 end
@@ -378,18 +394,18 @@ function run_forward(
                 u[ind.b_left[1]] .= sqrt.(x[ind.b_left[1]] .^ 2 + y[ind.b_left[1]] .^ 2) .- (num.R + speed*current_i*τ);
                 u[ind.b_right[1]] .= sqrt.(x[ind.b_right[1]] .^ 2 + y[ind.b_right[1]] .^ 2) .- (num.R + speed*current_i*τ);
             elseif nb_reinit > 0
-                if auto_reinit && current_i%num.reinit_every == 0
+                if auto_reinit && (current_i-1)%num.reinit_every == 0
                     for iLS in 1:nLS
                         if !is_wall(BC_int[iLS])
-                            ls_rg = rg(num, grid, LS[iLS].u, periodic_x, periodic_y, BC_int)
+                            ls_rg = rg(num, grid, LS[iLS].u, periodic_x, periodic_y, BC_int)[1]
                             println(ls_rg)
-                            if ls_rg >= δreinit
+                            if ls_rg >= δreinit || current_i == 1
                                 println("yes")
                                 RK2_reinit!(ls_scheme, grid, ind, iLS, LS[iLS].u, nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
                             end
                         end
                     end
-                elseif current_i%num.reinit_every == 0
+                elseif (current_i-1)%num.reinit_every == 0
                     for iLS in 1:nLS
                         RK2_reinit!(ls_scheme, grid, ind, iLS, LS[iLS].u, nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
                     end

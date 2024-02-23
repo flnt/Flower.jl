@@ -138,22 +138,24 @@ end
     return cap
 end
 
-function clip_large_cell!(grid, LS, geo, II, ϵ)
+function clip_large_cell!(grid, LS, geo, II, ϵ, neighbours)
     @unpack nx, ny = grid
 
     if geo.cap[II,5] > (1.0-ϵ)
         geo.cap[II,:] .= vcat(ones(7), 0.5.*ones(4))
-        if II[2] > 1
-            geo.cap[δx⁻(II),3] = 1.0
-        end
-        if II[1] > 1
-            geo.cap[δy⁻(II),4] = 1.0
-        end
-        if II[2] < nx
-            geo.cap[δx⁺(II),1] = 1.0
-        end
-        if II[1] < ny
-            geo.cap[δy⁺(II),2] = 1.0
+        if neighbours
+            if II[2] > 1
+                geo.cap[δx⁻(II),3] = 1.0
+            end
+            if II[1] > 1
+                geo.cap[δy⁻(II),4] = 1.0
+            end
+            if II[2] < nx
+                geo.cap[δx⁺(II),1] = 1.0
+            end
+            if II[1] < ny
+                geo.cap[δy⁺(II),2] = 1.0
+            end
         end
         geo.centroid[II] = Point(0.0, 0.0)
         LS.mid_point[II] = Point(0.0, 0.0)
@@ -161,23 +163,25 @@ function clip_large_cell!(grid, LS, geo, II, ϵ)
     return nothing
 end
 
-function clip_small_cell!(grid, LS, geo, II, ϵ)
+function clip_small_cell!(grid, LS, geo, II, ϵ, neighbours)
     @unpack nx, ny = grid
 
     if geo.cap[II,5] < ϵ
         geo.cap[II,:] .= 0.
         geo.emptied[II] = true
-        if II[2] > 1
-            geo.cap[δx⁻(II),3] = 0.
-        end
-        if II[1] > 1
-            geo.cap[δy⁻(II),4] = 0.
-        end
-        if II[2] < nx
-            geo.cap[δx⁺(II),1] = 0.
-        end
-        if II[1] < ny
-            geo.cap[δy⁺(II),2] = 0.
+        if neighbours
+            if II[2] > 1
+                geo.cap[δx⁻(II),3] = 0.
+            end
+            if II[1] > 1
+                geo.cap[δy⁻(II),4] = 0.
+            end
+            if II[2] < nx
+                geo.cap[δx⁺(II),1] = 0.
+            end
+            if II[1] < ny
+                geo.cap[δy⁺(II),2] = 0.
+            end
         end
         geo.centroid[II] = Point(0.0, 0.0)
         LS.mid_point[II] = Point(0.0, 0.0)
@@ -209,34 +213,38 @@ function empty_cell!(grid, LS, geo, II, neighbours = true)
     LS.iso[II] = 15.0
 end
 
-function clip_cells!(grid, LS, ϵ, periodic_x, periodic_y)
+function clip_cells!(grid, LS, ϵ, neighbours)
     @unpack nx, ny, ind = grid
     @unpack geoS, geoL = LS
 
     @inbounds @threads for II in ind.inside
-        clip_large_cell!(grid, LS, geoS, II, ϵ)
-        clip_large_cell!(grid, LS, geoL, II, ϵ)
+        clip_large_cell!(grid, LS, geoS, II, ϵ, neighbours)
+        clip_large_cell!(grid, LS, geoL, II, ϵ, neighbours)
     end
     @inbounds @threads for II in ind.inside
-        clip_small_cell!(grid, LS, geoS, II, ϵ)
-        clip_small_cell!(grid, LS, geoL, II, ϵ)
+        clip_small_cell!(grid, LS, geoS, II, ϵ, neighbours)
+        clip_small_cell!(grid, LS, geoL, II, ϵ, neighbours)
     end
     @inbounds @threads for II in @view ind.b_left[1][2:end-1]
         if geoS.cap[II,5] > (1.0-ϵ)
             geoS.cap[II,1] = 1.0
             geoS.cap[II,2:11] .= vcat(ones(6), 0.5.*ones(4))
-            geoS.cap[δy⁻(II),4] = 1.0
-            geoS.cap[δx⁺(II),1] = 1.0
-            geoS.cap[δy⁺(II),2] = 1.0
+            if neighbours
+                geoS.cap[δy⁻(II),4] = 1.0
+                geoS.cap[δx⁺(II),1] = 1.0
+                geoS.cap[δy⁺(II),2] = 1.0
+            end
         end
     end
     @inbounds @threads for II in @view ind.b_left[1][2:end-1]
         if geoS.cap[II,5] < ϵ
             geoS.cap[II,:] .= 0.
             geoS.emptied[II] = true
-            geoS.cap[δy⁻(II),4] = 0.
-            geoS.cap[δx⁺(II),1] = 0.
-            geoS.cap[δy⁺(II),2] = 0.
+            if neighbours
+                geoS.cap[δy⁻(II),4] = 0.0
+                geoS.cap[δx⁺(II),1] = 0.0
+                geoS.cap[δy⁺(II),2] = 0.0
+            end
         end
     end
     @inbounds @threads for II in @view ind.b_bottom[1][2:end-1]
@@ -244,18 +252,22 @@ function clip_cells!(grid, LS, ϵ, periodic_x, periodic_y)
             geoS.cap[II,1] = 1.0
             geoS.cap[II,2] = 1.0
             geoS.cap[II,3:11] .= vcat(ones(5), 0.5.*ones(4))
-            geoS.cap[δx⁻(II),3] = 1.0
-            geoS.cap[δx⁺(II),1] = 1.0
-            geoS.cap[δy⁺(II),2] = 1.0
+            if neighbours
+                geoS.cap[δx⁻(II),3] = 1.0
+                geoS.cap[δx⁺(II),1] = 1.0
+                geoS.cap[δy⁺(II),2] = 1.0
+            end
         end
     end
     @inbounds @threads for II in @view ind.b_bottom[1][2:end-1]
         if geoS.cap[II,5] < ϵ
             geoS.cap[II,:] .= 0.
             geoS.emptied[II] = true
-            geoS.cap[δx⁻(II),3] = 0.
-            geoS.cap[δx⁺(II),1] = 0.
-            geoS.cap[δy⁺(II),2] = 0.
+            if neighbours
+                geoS.cap[δx⁻(II),3] = 0.0
+                geoS.cap[δx⁺(II),1] = 0.0
+                geoS.cap[δy⁺(II),2] = 0.0
+            end
         end
     end
     @inbounds @threads for II in @view ind.b_right[1][2:end-1]
@@ -263,18 +275,22 @@ function clip_cells!(grid, LS, ϵ, periodic_x, periodic_y)
             geoS.cap[II,1:2] .= ones(2)
             geoS.cap[II,3] = 1.0
             geoS.cap[II,4:11] .= vcat(ones(4), 0.5.*ones(4))
-            geoS.cap[δx⁻(II),3] = 1.0
-            geoS.cap[δy⁻(II),4] = 1.0
-            geoS.cap[δy⁺(II),2] = 1.0
+            if neighbours
+                geoS.cap[δx⁻(II),3] = 1.0
+                geoS.cap[δy⁻(II),4] = 1.0
+                geoS.cap[δy⁺(II),2] = 1.0
+            end
         end
     end
     @inbounds @threads for II in @view ind.b_right[1][2:end-1]
         if geoS.cap[II,5] < ϵ
             geoS.cap[II,:] .= 0.
             geoS.emptied[II] = true
-            geoS.cap[δx⁻(II),3] = 0.
-            geoS.cap[δy⁻(II),4] = 0.
-            geoS.cap[δy⁺(II),2] = 0.
+            if neighbours
+                geoS.cap[δx⁻(II),3] = 0.0
+                geoS.cap[δy⁻(II),4] = 0.0
+                geoS.cap[δy⁺(II),2] = 0.0
+            end
         end
     end
     @inbounds @threads for II in @view ind.b_top[1][2:end-1]
@@ -282,36 +298,44 @@ function clip_cells!(grid, LS, ϵ, periodic_x, periodic_y)
             geoS.cap[II,1:3] .= ones(3)
             geoS.cap[II,4] = 1.0
             geoS.cap[II,5:11] .= vcat(ones(3), 0.5.*ones(4))
-            geoS.cap[δx⁻(II),3] = 1.0
-            geoS.cap[δy⁻(II),4] = 1.0
-            geoS.cap[δx⁺(II),1] = 1.0
+            if neighbours
+                geoS.cap[δx⁻(II),3] = 1.0
+                geoS.cap[δy⁻(II),4] = 1.0
+                geoS.cap[δx⁺(II),1] = 1.0
+            end
         end
     end
     @inbounds @threads for II in @view ind.b_top[1][2:end-1]
         if geoS.cap[II,5] < ϵ
             geoS.cap[II,:] .= 0.
             geoS.emptied[II] = true
-            geoS.cap[δx⁻(II),3] = 0.
-            geoS.cap[δy⁻(II),4] = 0.
-            geoS.cap[δx⁺(II),1] = 0.
+            if neighbours
+                geoS.cap[δx⁻(II),3] = 0.0
+                geoS.cap[δy⁻(II),4] = 0.0
+                geoS.cap[δx⁺(II),1] = 0.0
+            end
         end
     end
     @inbounds @threads for II in @view ind.b_left[1][2:end-1]
         if geoL.cap[II,5] > (1.0-ϵ)
             geoL.cap[II,1] = 1.0
             geoL.cap[II,2:11] .= vcat(ones(6), 0.5.*ones(4))
-            geoL.cap[δy⁻(II),4] = 1.0
-            geoL.cap[δx⁺(II),1] = 1.0
-            geoL.cap[δy⁺(II),2] = 1.0
+            if neighbours
+                geoL.cap[δy⁻(II),4] = 1.0
+                geoL.cap[δx⁺(II),1] = 1.0
+                geoL.cap[δy⁺(II),2] = 1.0
+            end
         end
     end
     @inbounds @threads for II in @view ind.b_left[1][2:end-1]
         if geoL.cap[II,5] < ϵ
             geoL.cap[II,:] .= 0.
             geoL.emptied[II] = true
-            geoL.cap[δy⁻(II),4] = 0.
-            geoL.cap[δx⁺(II),1] = 0.
-            geoL.cap[δy⁺(II),2] = 0.
+            if neighbours
+                geoL.cap[δy⁻(II),4] = 0.0
+                geoL.cap[δx⁺(II),1] = 0.0
+                geoL.cap[δy⁺(II),2] = 0.0
+            end
         end
     end
     @inbounds @threads for II in @view ind.b_bottom[1][2:end-1]
@@ -319,18 +343,22 @@ function clip_cells!(grid, LS, ϵ, periodic_x, periodic_y)
             geoL.cap[II,1] = 1.0
             geoL.cap[II,2] = 1.0
             geoL.cap[II,3:11] .= vcat(ones(5), 0.5.*ones(4))
-            geoL.cap[δx⁻(II),3] = 1.0
-            geoL.cap[δx⁺(II),1] = 1.0
-            geoL.cap[δy⁺(II),2] = 1.0
+            if neighbours
+                geoL.cap[δx⁻(II),3] = 1.0
+                geoL.cap[δx⁺(II),1] = 1.0
+                geoL.cap[δy⁺(II),2] = 1.0
+            end
         end
     end
     @inbounds @threads for II in @view ind.b_bottom[1][2:end-1]
         if geoL.cap[II,5] < ϵ
             geoL.cap[II,:] .= 0.
             geoL.emptied[II] = true
-            geoL.cap[δx⁻(II),3] = 0.
-            geoL.cap[δx⁺(II),1] = 0.
-            geoL.cap[δy⁺(II),2] = 0.
+            if neighbours
+                geoL.cap[δx⁻(II),3] = 0.0
+                geoL.cap[δx⁺(II),1] = 0.0
+                geoL.cap[δy⁺(II),2] = 0.0
+            end
         end
     end
     @inbounds @threads for II in @view ind.b_right[1][2:end-1]
@@ -338,18 +366,22 @@ function clip_cells!(grid, LS, ϵ, periodic_x, periodic_y)
             geoL.cap[II,1:2] .= ones(2)
             geoL.cap[II,3] = 1.0
             geoL.cap[II,4:11] .= vcat(ones(4), 0.5.*ones(4))
-            geoL.cap[δx⁻(II),3] = 1.0
-            geoL.cap[δy⁻(II),4] = 1.0
-            geoL.cap[δy⁺(II),2] = 1.0
+            if neighbours
+                geoL.cap[δx⁻(II),3] = 1.0
+                geoL.cap[δy⁻(II),4] = 1.0
+                geoL.cap[δy⁺(II),2] = 1.0
+            end
         end
     end
     @inbounds @threads for II in @view ind.b_right[1][2:end-1]
         if geoL.cap[II,5] < ϵ
             geoL.cap[II,:] .= 0.
             geoL.emptied[II] = true
-            geoL.cap[δx⁻(II),3] = 0.
-            geoL.cap[δy⁻(II),4] = 0.
-            geoL.cap[δy⁺(II),2] = 0.
+            if neighbours
+                geoL.cap[δx⁻(II),3] = 0.0
+                geoL.cap[δy⁻(II),4] = 0.0
+                geoL.cap[δy⁺(II),2] = 0.0
+            end
         end
     end
     @inbounds @threads for II in @view ind.b_top[1][2:end-1]
@@ -357,37 +389,45 @@ function clip_cells!(grid, LS, ϵ, periodic_x, periodic_y)
             geoL.cap[II,1:3] .= ones(3)
             geoL.cap[II,4] = 1.0
             geoL.cap[II,5:11] .= vcat(ones(3), 0.5.*ones(4))
-            geoL.cap[δx⁻(II),3] = 1.0
-            geoL.cap[δy⁻(II),4] = 1.0
-            geoL.cap[δx⁺(II),1] = 1.0
+            if neighbours
+                geoL.cap[δx⁻(II),3] = 1.0
+                geoL.cap[δy⁻(II),4] = 1.0
+                geoL.cap[δx⁺(II),1] = 1.0
+            end
         end
     end
     @inbounds @threads for II in @view ind.b_top[1][2:end-1]
         if geoL.cap[II,5] < ϵ
             geoL.cap[II,:] .= 0.
             geoL.emptied[II] = true
-            geoL.cap[δx⁻(II),3] = 0.
-            geoL.cap[δy⁻(II),4] = 0.
-            geoL.cap[δx⁺(II),1] = 0.
+            if neighbours
+                geoL.cap[δx⁻(II),3] = 0.0
+                geoL.cap[δy⁻(II),4] = 0.0
+                geoL.cap[δx⁺(II),1] = 0.0
+            end
         end
     end
     return nothing
 end
 
-function clip_A_acc_to_V(grid, grid_u, grid_v, geo, geo_u, geo_v, ϵ)
+function clip_A_acc_to_V(grid, grid_u, grid_v, geo, geo_u, geo_v, ϵ, neighbours)
     @unpack ind = grid
     @inbounds @threads for II in ind.all_indices
         if geo.cap[II,5] < ϵ
-            geo_u.cap[II,3] = 0.
-            geo_u.cap[δx⁺(II),1] = 0.
-            geo_v.cap[II,4] = 0.
-            geo_v.cap[δy⁺(II),2] = 0.
+            geo_u.cap[II,3] = 0.0
+            geo_v.cap[II,4] = 0.0
+            if neighbours
+                geo_u.cap[δx⁺(II),1] = 0.0
+                geo_v.cap[δy⁺(II),2] = 0.0
+            end
         end
     end
     @inbounds @threads for II in grid_u.ind.all_indices
         if geo_u.cap[II,5] < ϵ
-            if II[2] > 1
-                geo.cap[δx⁻(II),3] = 0.
+            if neighbours
+                if II[2] > 1
+                    geo.cap[δx⁻(II),3] = 0.
+                end
             end
             if II[2] < grid_u.nx
                 geo.cap[II,1] = 0.
@@ -396,14 +436,43 @@ function clip_A_acc_to_V(grid, grid_u, grid_v, geo, geo_u, geo_v, ϵ)
     end
     @inbounds @threads for II in grid_v.ind.all_indices
         if geo_v.cap[II,5] < ϵ
-            if II[1] > 1
-                geo.cap[δy⁻(II),4] = 0.
+            if neighbours
+                if II[1] > 1
+                    geo.cap[δy⁻(II),4] = 0.
+                end
             end
             if II[1] < grid_v.ny
                 geo.cap[II,2] = 0.
             end
         end
     end
+    return nothing
+end
+
+"""
+    clip_middle_cells!(grid, LS)
+
+Clip the middle cells if the cells on top and bottom or
+at the left and right are empty simultaneously.
+"""
+function clip_middle_cells!(grid, LS)
+
+    @inbounds @threads for II in grid.ind.inside
+        if LS.geoL.emptied[δx⁻(II)] && LS.geoL.emptied[δx⁺(II)]
+            empty_cell!(grid, LS, LS.geoL, II)
+        end
+        if LS.geoL.emptied[δy⁻(II)] && LS.geoL.emptied[δy⁺(II)]
+            empty_cell!(grid, LS, LS.geoL, II)
+        end
+
+        if LS.geoS.emptied[δx⁻(II)] && LS.geoS.emptied[δx⁺(II)]
+            empty_cell!(grid, LS, LS.geoS, II)
+        end
+        if LS.geoS.emptied[δy⁻(II)] && LS.geoS.emptied[δy⁺(II)]
+            empty_cell!(grid, LS, LS.geoS, II)
+        end
+    end
+
     return nothing
 end
 
@@ -426,13 +495,17 @@ function dimensionalize!(grid, geo)
     return nothing
 end
 
-function postprocess_grids1!(grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, periodic_y, ϵ, empty)
-    clip_cells!(grid, LS, ϵ, periodic_x, periodic_y)
-    clip_cells!(grid_u, LS_u, ϵ, periodic_x, periodic_y)
-    clip_cells!(grid_v, LS_v, ϵ, periodic_x, periodic_y)
+function postprocess_grids1!(grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, periodic_y, ϵ, neighbours, empty)
+    clip_cells!(grid, LS, ϵ, neighbours)
+    clip_cells!(grid_u, LS_u, ϵ, neighbours)
+    clip_cells!(grid_v, LS_v, ϵ, neighbours)
 
-    clip_A_acc_to_V(grid, grid_u, grid_v, LS.geoS, LS_u.geoS, LS_v.geoS, ϵ)
-    clip_A_acc_to_V(grid, grid_u, grid_v, LS.geoL, LS_u.geoL, LS_v.geoL, ϵ)
+    clip_A_acc_to_V(grid, grid_u, grid_v, LS.geoS, LS_u.geoS, LS_v.geoS, ϵ, neighbours)
+    clip_A_acc_to_V(grid, grid_u, grid_v, LS.geoL, LS_u.geoL, LS_v.geoL, ϵ, neighbours)
+
+    clip_middle_cells!(grid, LS)
+    clip_middle_cells!(grid_u, LS_u)
+    clip_middle_cells!(grid_v, LS_v)
     
     set_cap_bcs!(grid, LS, periodic_x, periodic_y, empty)
     set_cap_bcs!(grid_u, LS_u, periodic_x, periodic_y, empty)
@@ -490,11 +563,35 @@ end
 
 Update geometric moments when two interfaces cross.
 """
-function crossing_2levelsets!(num, grid, LS1, LS2, periodic_x, periodic_y, BC_int)
+function crossing_2levelsets!(num, grid, LS1, LS2, BC_int)
     @unpack x, y, nx, ny, dx, dy, ind = grid
 
-    full_mixed = intersect(LS1.LIQUID, LS2.MIXED)
-    mixed_full = intersect(LS2.LIQUID, LS1.MIXED)
+    f_left = readgeom("LINESTRING(0.0 0.0, 0.0 1.0)")
+    f_bottom = readgeom("LINESTRING(0.0 0.0, 1.0 0.0)")
+    f_right = readgeom("LINESTRING(1.0 0.0, 1.0 1.0)")
+    f_top = readgeom("LINESTRING(0.0 1.0, 1.0 1.0)")
+    cell_faces = [f_left, f_bottom, f_right, f_top]
+
+    # Cells that have been clipped and became full should be removed from mixed cells
+    ls1_liquid = copy(LS1.LIQUID)
+    ls1_mixed = copy(LS1.MIXED)
+    idx_filled = findall(LS1.geoL.cap[LS1.MIXED,5] .> 1 .- num.ϵ)
+    append!(ls1_liquid, ls1_mixed[idx_filled])
+    deleteat!(ls1_mixed, idx_filled)
+    idx_emptied = findall(LS1.geoL.emptied[ls1_mixed])
+    deleteat!(ls1_mixed, idx_emptied)
+
+    ls2_liquid = copy(LS2.LIQUID)
+    ls2_mixed = copy(LS2.MIXED)
+    idx_filled = findall(LS2.geoL.cap[LS2.MIXED,5] .> 1 .- num.ϵ)
+    idx_emptied = findall(LS2.geoL.cap[LS2.MIXED,5] .> 1 .- num.ϵ)
+    append!(ls2_liquid, ls2_mixed[idx_filled])
+    deleteat!(ls2_mixed, idx_filled)
+    idx_emptied = findall(LS2.geoL.emptied[ls2_mixed])
+    deleteat!(ls2_mixed, idx_emptied)
+
+    full_mixed = intersect(ls1_liquid, ls2_mixed)
+    mixed_full = intersect(ls2_liquid, ls1_mixed)
     @inbounds @threads for II in full_mixed
         grid.LS[end].geoL.cap[II,:] .= LS2.geoL.cap[II,:]
         grid.LS[end].geoL.centroid[II] = LS2.geoL.centroid[II]
@@ -504,7 +601,7 @@ function crossing_2levelsets!(num, grid, LS1, LS2, periodic_x, periodic_y, BC_in
         grid.LS[end].geoL.centroid[II] = LS1.geoL.centroid[II]
     end
 
-    mixed_mixed = intersect(LS1.MIXED, LS2.MIXED)
+    mixed_mixed = intersect(ls1_mixed, ls2_mixed)
     Acap = [3,4,1,2]
     @inbounds for II in mixed_mixed
         if is_fs(BC_int[1])
@@ -529,7 +626,9 @@ function crossing_2levelsets!(num, grid, LS1, LS2, periodic_x, periodic_y, BC_in
         p = line_intersection(l1, l2)
 
         poly1 = points2polygon(LS1.geoL.vertices[II])
+        vol1 = LibGEOS.area(poly1)
         poly2 = points2polygon(LS2.geoL.vertices[II])
+        vol2 = LibGEOS.area(poly2)
         poly = LibGEOS.intersection(poly1, poly2)
         vol = LibGEOS.area(poly)
 
@@ -540,12 +639,16 @@ function crossing_2levelsets!(num, grid, LS1, LS2, periodic_x, periodic_y, BC_in
             cent = GeoInterface.convert(GeometryBasics, _cent)
 
             lx = readgeom(
-                "LINESTRING($(cent.data[1]) $(cent.data[2]-2.0),
-                $(cent.data[1]) $(cent.data[2]+2.0))"
+                "LINESTRING(
+                    $(cent.data[1]) $(cent.data[2]-2.0),
+                    $(cent.data[1]) $(cent.data[2]+2.0)
+                )"
             )
             ly = readgeom(
-                "LINESTRING($(cent.data[1]-2.0) $(cent.data[2]),
-                $(cent.data[1]+2.0) $(cent.data[2]))"
+                "LINESTRING(
+                    $(cent.data[1]-2.0) $(cent.data[2]),
+                    $(cent.data[1]+2.0) $(cent.data[2])
+                )"
             )
             Bx = ilp2cap(lx, poly)
             By = ilp2cap(ly, poly)
@@ -561,28 +664,102 @@ function crossing_2levelsets!(num, grid, LS1, LS2, periodic_x, periodic_y, BC_in
             grid.LS[end].geoL.centroid[II] = Point(cent.data[1], cent.data[2])
 
             if within_cell(p)
+                min_face = zeros(Int, 4) # Interface with minimum moment at each face
+                double_mixed = zeros(Bool, 4)
                 # The smallest keeps its value and the largest the intersection value
                 for capn in 1:4
-                    set_crossing_caps!(capn, LS1, LS2, II, poly1, poly2, p)
+                    # Check special case where both interfaces intersect the cell
+                    # but the moments don't overlap
+                    face1 = LibGEOS.intersection(poly1, cell_faces[capn])
+                    face2 = LibGEOS.intersection(poly2, cell_faces[capn])
+                    if ((LS1.geoL.cap[II,capn] > 1e-12) && (LS2.geoL.cap[II,capn] > 1e-12) && 
+                        (LS1.geoL.cap[II,capn] < (1.0 - 1e-12)) && (LS2.geoL.cap[II,capn] < (1.0 - 1e-12)) &&
+                        (!GeoInterface.contains(face1, face2) && !GeoInterface.contains(face2, face1)))
+                        double_mixed[capn] = true
+                    end
+
+                    set_A_caps!(capn, LS1, LS2, II, poly1, poly2, p, min_face)
                 end
     
-                st = static_stencil(LS1.u, II, nx, ny, periodic_x, periodic_y)
-                B, BT = B_BT(II, grid, periodic_x, periodic_y)
-                itp = B * st * BT
-                _verts = vertices_sign(itp, grid, II, II, dx[II], dy[II], dx[II], dy[II])
-                vertices1 = [[_verts[1], _verts[4]], [_verts[4], _verts[3]], [_verts[3], _verts[2]], [_verts[2], _verts[1]]]
-    
-                st = static_stencil(LS2.u, II, nx, ny, periodic_x, periodic_y)
-                B, BT = B_BT(II, grid, periodic_x, periodic_y)
-                itp = B * st * BT
-                _verts = vertices_sign(itp, grid, II, II, dx[II], dy[II], dx[II], dy[II])
-                vertices2 = [[_verts[1], _verts[4]], [_verts[4], _verts[3]], [_verts[3], _verts[2]], [_verts[2], _verts[1]]]
-    
-                # If both corners of both faces are full, both keep its value
+                # If the face is not intersected by any interface
                 for capn in 1:4
-                    if vertices1[capn][1] < 0.5 && vertices1[capn][2] < 0.5 && vertices2[capn][1] < 0.5 && vertices2[capn][2] < 0.5
-                        set_crossing_caps_full!(Acap[capn], LS1, LS2, II, poly1, poly2, p)
+                    if min_face[capn] == 0 && min_face[Acap[capn]] != 0 && !double_mixed[Acap[capn]]
+                        set_A_caps_full_mixed!(capn, LS1, LS2, II, poly1, poly2, p, min_face[Acap[capn]])
+                    elseif min_face[capn] == 0 && double_mixed[Acap[capn]]
+                        set_A_caps_double_mixed_full_empty!(capn, Acap[capn], LS1, LS2, II, poly1, p)
+                        if capn == 2 || capn == 4
+                            lx = readgeom(
+                                "LINESTRING(
+                                    $(p.x+0.5) $(p.y-2.0),
+                                    $(p.x+0.5) $(p.y+2.0)
+                                )"
+                            )
+                            Bx = ilp2cap(lx, poly)
+                            grid.LS[end].geoL.cap[II,6] = Bx
+                        else
+                            ly = readgeom(
+                                "LINESTRING(
+                                    $(p.x-2.0) $(p.y+0.5),
+                                    $(p.x+2.0) $(p.y+0.5)
+                                )"
+                            )
+                            By = ilp2cap(ly, poly)
+                            grid.LS[end].geoL.cap[II,7] = By
+                        end
+                    elseif min_face[capn] == 0
+                        set_A_caps_full_empty!(capn, Acap[capn], LS1, LS2, II, poly1, p)
+                        if capn == 2 || capn == 4
+                            lx = readgeom(
+                                "LINESTRING(
+                                    $(p.x+0.5) $(p.y-2.0),
+                                    $(p.x+0.5) $(p.y+2.0)
+                                )"
+                            )
+                            Bx = ilp2cap(lx, poly)
+                            grid.LS[end].geoL.cap[II,6] = Bx
+                        else
+                            ly = readgeom(
+                                "LINESTRING(
+                                    $(p.x-2.0) $(p.y+0.5),
+                                    $(p.x+2.0) $(p.y+0.5)
+                                )"
+                            )
+                            By = ilp2cap(ly, poly)
+                            grid.LS[end].geoL.cap[II,7] = By
+                        end
+                    elseif min_face[capn] != 0 && double_mixed[Acap[capn]]
+                        set_A_caps_double_mixed_mixed!(capn, Acap[capn], LS1, LS2, II, poly1, poly2, p, min_face[Acap[capn]])
+                        if capn == 2 || capn == 4
+                            lx = readgeom(
+                                "LINESTRING(
+                                    $(p.x+0.5) $(p.y-2.0),
+                                    $(p.x+0.5) $(p.y+2.0)
+                                )"
+                            )
+                            Bx = ilp2cap(lx, poly)
+                            grid.LS[end].geoL.cap[II,6] = Bx
+                        else
+                            ly = readgeom(
+                                "LINESTRING(
+                                    $(p.x-2.0) $(p.y+0.5),
+                                    $(p.x+2.0) $(p.y+0.5)
+                                )"
+                            )
+                            By = ilp2cap(ly, poly)
+                            grid.LS[end].geoL.cap[II,7] = By
+                        end
                     end
+                end
+
+                for (B, capn) in zip(6:7, [Bx, By])
+                    set_B_caps!(capn, LS1, LS2, II, B)
+                end
+            else
+                # The smallest keeps its value and the largest is set to 0
+                if vol1 > vol2
+                    LS1.geoL.cap[II,:] .= 0.0
+                else
+                    LS2.geoL.cap[II,:] .= 0.0
                 end
             end
         else
@@ -600,65 +777,179 @@ function crossing_2levelsets!(num, grid, LS1, LS2, periodic_x, periodic_y, BC_in
     empty_LS1 = findall(LS1.geoL.emptied)
     empty_LS2 = findall(LS2.geoL.emptied)
     @inbounds @threads for II in empty_LS1
+        empty_cell!(grid, LS2, LS2.geoL, II, false)
         empty_cell!(grid, grid.LS[end], grid.LS[end].geoL, II)
     end
     @inbounds @threads for II in empty_LS2
+        empty_cell!(grid, LS1, LS1.geoL, II, false)
         empty_cell!(grid, grid.LS[end], grid.LS[end].geoL, II)
     end
     
     return nothing
 end
 
-function set_crossing_caps!(capn, LS1, LS2, II, poly1, poly2, p)
-    iLS = findmin([LS1.geoL.cap[II,capn], LS2.geoL.cap[II,capn]])
+function set_A_caps!(capn, LS1, LS2, II, poly1, poly2, p, min_face)
+    if ((LS1.geoL.cap[II,capn] < (1.0 - 1e-12)) && (LS1.geoL.cap[II,capn] > 1e-12) ||
+        (LS2.geoL.cap[II,capn] < (1.0 - 1e-12)) && (LS2.geoL.cap[II,capn] > 1e-12))
+        iLS = findmin([LS1.geoL.cap[II,capn], LS2.geoL.cap[II,capn]])[2]
+        @inbounds min_face[capn] = iLS
 
+        if capn == 1 || capn == 3
+            l = readgeom(
+                "LINESTRING($(p.x+0.5) $(p.y-2.0),
+                $(p.x+0.5) $(p.y+2.0))"
+            )
+        else
+            l = readgeom(
+                "LINESTRING($(p.x-2.0) $(p.y+0.5),
+                $(p.x+2.0) $(p.y+0.5))"
+            )
+        end
+
+        if iLS == 1
+            cap = ilp2cap(l, poly2)
+            LS2.geoL.cap[II,capn] = cap
+        elseif iLS == 2
+            cap = ilp2cap(l, poly1)
+            LS1.geoL.cap[II,capn] = cap
+        end
+    end
+
+    return nothing
+end
+
+function set_A_caps_full_mixed!(capn, LS1, LS2, II, poly1, poly2, p, min_face)
     if capn == 1 || capn == 3
         l = readgeom(
             "LINESTRING($(p.x+0.5) $(p.y-2.0),
             $(p.x+0.5) $(p.y+2.0))"
         )
-        b = 6
     else
         l = readgeom(
             "LINESTRING($(p.x-2.0) $(p.y+0.5),
             $(p.x+2.0) $(p.y+0.5))"
         )
-        b = 7
     end
 
-    if iLS == 1
+    if min_face == 1
         cap = ilp2cap(l, poly2)
-        LS2.geoL.cap[II,capn] = cap
-        LS2.geoL.cap[II,b] = cap
-    elseif iLS == 2
-        cap = ilp2cap(l, poly1)
         LS1.geoL.cap[II,capn] = cap
-        LS1.geoL.cap[II,b] = cap
+    elseif min_face == 2
+        cap = ilp2cap(l, poly1)
+        LS2.geoL.cap[II,capn] = cap
     end
+
+    return nothing
 end
 
-function set_crossing_caps_full!(Acap, LS1, LS2, II, poly1, poly2, p)
-    if Acap == 1 || Acap == 3
+function set_A_caps_double_mixed_full_empty!(capn, capm, LS1, LS2, II, poly1, p)
+    if capn == 1 || capn == 3
         l = readgeom(
             "LINESTRING($(p.x+0.5) $(p.y-2.0),
             $(p.x+0.5) $(p.y+2.0))"
         )
-        b = 6
     else
         l = readgeom(
             "LINESTRING($(p.x-2.0) $(p.y+0.5),
             $(p.x+2.0) $(p.y+0.5))"
         )
-        b = 7
     end
 
-    cap1 = ilp2cap(l, poly1)
-    LS1.geoL.cap[II,Acap] = cap1
-    LS1.geoL.cap[II,b] = cap1
+    cap = ilp2cap(l, poly1)
+    if LS1.geoL.cap[II,capn] > 0.5
+        LS1.geoL.cap[II,capn] = 1.0
+        LS1.geoL.cap[II,capm] = cap
+        LS2.geoL.cap[II,capn] = cap
+        LS2.geoL.cap[II,capm] = 0.0
+    else
+        LS1.geoL.cap[II,capn] = cap
+        LS2.geoL.cap[II,capn] = 1.0 - cap
+    end
 
-    cap2 = 1.0 - cap1
-    LS2.geoL.cap[II,Acap] = cap2
-    LS2.geoL.cap[II,b] = cap2
+    return nothing
+end
+
+function set_A_caps_full_empty!(capn, capm, LS1, LS2, II, poly1, p)
+    if capn == 1 || capn == 3
+        l = readgeom(
+            "LINESTRING($(p.x+0.5) $(p.y-2.0),
+            $(p.x+0.5) $(p.y+2.0))"
+        )
+    else
+        l = readgeom(
+            "LINESTRING($(p.x-2.0) $(p.y+0.5),
+            $(p.x+2.0) $(p.y+0.5))"
+        )
+    end
+
+    cap = ilp2cap(l, poly1)
+    if LS1.geoL.cap[II,capn] > 0.5
+        LS1.geoL.cap[II,capn] = 1.0
+        LS1.geoL.cap[II,capm] = cap
+        LS2.geoL.cap[II,capn] = cap
+        LS2.geoL.cap[II,capm] = 0.0
+    else
+        LS1.geoL.cap[II,capm] = 1.0
+        LS1.geoL.cap[II,capn] = cap
+        LS2.geoL.cap[II,capm] = cap
+        LS2.geoL.cap[II,capn] = 0.0
+    end
+
+    return nothing
+end
+
+function set_A_caps_double_mixed_mixed!(capn, capm, LS1, LS2, II, poly1, poly2, p, min_face)
+    if capn == 1 || capn == 3
+        l = readgeom(
+            "LINESTRING($(p.x+0.5) $(p.y-2.0),
+            $(p.x+0.5) $(p.y+2.0))"
+        )
+    else
+        l = readgeom(
+            "LINESTRING($(p.x-2.0) $(p.y+0.5),
+            $(p.x+2.0) $(p.y+0.5))"
+        )
+    end
+
+    if min_face == 1
+        cap = ilp2cap(l, poly1)
+        LS1.geoL.cap[II,capm] = cap
+        LS2.geoL.cap[II,capm] = 0.0
+    elseif min_face == 2
+        cap = ilp2cap(l, poly2)
+        LS2.geoL.cap[II,capm] = cap
+        LS1.geoL.cap[II,capm] = 0.0
+    end
+
+    return nothing
+end
+
+function set_B_caps!(capn, LS1, LS2, II, B)
+    if capn == 6
+        if B > LS1.geoL.cap[II,1] && B > LS1.geoL.cap[II,3]
+            LS1.geoL.cap[II,capn] = maximum([LS1.geoL.cap[II,1], LS1.geoL.cap[II,3]])
+        else
+            LS1.geoL.cap[II,capn] = B
+        end
+        if B > LS2.geoL.cap[II,1] && B > LS2.geoL.cap[II,3]
+            LS2.geoL.cap[II,capn] = maximum([LS2.geoL.cap[II,1], LS2.geoL.cap[II,3]])
+        else
+            LS2.geoL.cap[II,capn] = B
+        end
+    elseif capn == 7
+        if B > LS1.geoL.cap[II,2] && B > LS1.geoL.cap[II,4]
+            LS1.geoL.cap[II,capn] = maximum([LS1.geoL.cap[II,2], LS1.geoL.cap[II,4]])
+        else
+            LS1.geoL.cap[II,capn] = B
+        end
+        if B > LS2.geoL.cap[II,2] && B > LS2.geoL.cap[II,4]
+            LS2.geoL.cap[II,capn] = maximum([LS2.geoL.cap[II,2], LS2.geoL.cap[II,4]])
+        else
+            LS2.geoL.cap[II,capn] = B
+        end
+    end
+
+    return nothing
 end
 
 function _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, near_interface)

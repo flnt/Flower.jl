@@ -134,10 +134,9 @@ function BC_LS_interior!(num, grid, iLS, A, B, rhs, BC_int, periodic_x, periodic
                 pks, _ = findminima(abs.(LS[iLS].u[idx]))
                 base = get_NB_width_indices_base1(2)
                 idx_ext = get_NB_width(grid, idx[pks], base)
-                min_idx = intersect(idx_ext, LS[iLS].cl)
 
-                pks1 = min_idx[1]
-                pkse = min_idx[end]
+                pks1 = idx_ext[findmin(grid.x[idx_ext])[2]]
+                pkse = idx_ext[findmax(grid.x[idx_ext])[2]]
 
                 βtmp = zeros(grid)
                 JJtmp = zeros(CartesianIndex{2}, ny, nx)
@@ -332,7 +331,8 @@ function BC_LS_interior!(num, grid, iLS, A, B, rhs, BC_int, periodic_x, periodic
                     end
 
                     β = newθ# + mult[idmin] * sign(LS[iLS].u[KK] - LS[iLS].u[II]) * (LS[i].α[II] - s[idmin])
-                    βtmp[II] = BC_int[i].θe#β
+                    # βtmp[II] = BC_int[i].θe
+                    βtmp[II] = β
 
                     # rhs[pLL] = d * cos(β)
 
@@ -357,12 +357,9 @@ function BC_LS_interior!(num, grid, iLS, A, B, rhs, BC_int, periodic_x, periodic
 
                 # Remove small clipped cells from mixed cells
                 # and add them to the solid phase
-                mixed_mixed = intersect(LS[iLS].MIXED, LS[i].MIXED)
-                mixed_emptied = intersect(mixed_mixed, findall(grid.LS[i].geoL.double_emptied))
-                idx_solid = Base.union(LS[i].SOLID, mixed_emptied)
-                idx_mixed = symdiff(idx, mixed_emptied)
+                idx_mixed = LS[i].MIXED
 
-                @inbounds for II in idx_solid
+                @inbounds for II in LS[i].SOLID
                     pII = lexicographic(II, ny)
                     pointII = Point(x[II], y[II])
 

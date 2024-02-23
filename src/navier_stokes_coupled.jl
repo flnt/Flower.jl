@@ -446,15 +446,13 @@ function set_matrices!(
     return Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b
 end
 
-function strain_rate(iLS, opC_u, opC_v)
-    GxT = opC_u.Gx[iLS]'
-    GyT = opC_v.Gy[iLS]'
-
+function strain_rate(iLS, opC_u, opC_v, opC_p)
     data = Matrix{SparseMatrixCSC{Float64, Int64}}(undef, 2, 2)
-    data[1,1] = 2 .* GxT * (opC_u.HxT[iLS] * opC_u.iMx * opC_u.Bx .+ opC_u.HyT[iLS] * opC_u.iMy * opC_u.By)
-    data[1,2] = 2 .* GxT * (opC_u.HxT[iLS] * opC_u.iMx * opC_u.Hx[iLS] .+ opC_u.HyT[iLS] * opC_u.iMy * opC_u.Hy[iLS])
-    data[2,1] = 2 .* GyT * (opC_v.HyT[iLS] * opC_v.iMy * opC_v.By .+ opC_v.HxT[iLS] * opC_v.iMx * opC_v.Bx)
-    data[2,2] = 2 .* GyT * (opC_v.HyT[iLS] * opC_v.iMy * opC_v.Hy[iLS] .+ opC_v.HxT[iLS] * opC_v.iMx * opC_v.Hx[iLS])
+
+    data[1,1] = opC_p.HxT[iLS] * (opC_u.HxT[iLS] * opC_u.iMx * opC_u.Bx .+ opC_u.HyT[iLS] * opC_u.iMy * opC_u.By)
+    data[1,2] = opC_p.HxT[iLS] * (opC_u.HxT[iLS] * opC_u.iMx * opC_u.Hx[iLS] .+ opC_u.HyT[iLS] * opC_u.iMy * opC_u.Hy[iLS])
+    data[2,1] = opC_p.HyT[iLS] * (opC_v.HyT[iLS] * opC_v.iMy * opC_v.By .+ opC_v.HxT[iLS] * opC_v.iMx * opC_v.Bx)
+    data[2,2] = opC_p.HyT[iLS] * (opC_v.HyT[iLS] * opC_v.iMy * opC_v.Hy[iLS] .+ opC_v.HxT[iLS] * opC_v.iMx * opC_v.Hx[iLS])
 
     return data
 end
@@ -803,10 +801,7 @@ function set_poisson(
             _b = ones(grid) .* __b
             b = Diagonal(vec(_b))
 
-            GxT = opC_u.Gx[iLS]'
-            GyT = opC_v.Gy[iLS]'
-
-            fs_mat = GxT * opC_u.Gx[iLS] .+ GyT * opC_v.Gy[iLS]
+            fs_mat = HxT[iLS] * Hx[iLS] .+ HyT[iLS] * Hy[iLS]
 
             sb = iLS*ni+1:(iLS+1)*ni
             
@@ -1077,16 +1072,12 @@ function pressure_projection!(
 
     for iLS in 1:nLS
         if is_fs(bc_int[iLS])
-            Smat = strain_rate(iLS, opC_u, opC_v)
+            Smat = strain_rate(iLS, opC_u, opC_v, opC_p)
             S = Smat[1,1] * vec1(ucorrD,grid_u) .+ Smat[1,2] * veci(ucorrD,grid_u,iLS+1) .+
                 Smat[2,1] * vec1(vcorrD,grid_v) .+ Smat[2,2] * veci(vcorrD,grid_v,iLS+1)
 
-            GxT = opC_u.Gx[iLS]'
-            GyT = opC_v.Gy[iLS]'
-            veci(rhs_ϕ,grid,iLS+1) .= -iRe .* S .+ σ .* (
-                GxT * opC_u.Gx[iLS] .+ 
-                GyT * opC_v.Gy[iLS]
-            ) * vec(grid.LS[iLS].κ)
+            fs_mat = opC_p.HxT[iLS] * opC_p.Hx[iLS] .+ opC_p.HyT[iLS] * opC_p.Hy[iLS]
+            veci(rhs_ϕ,grid,iLS+1) .= -2.0 .* iRe .* S .+ σ .* Diagonal(diag(fs_mat)) * vec(grid.LS[iLS].κ)
         end
     end
     # Remove nullspace by adding small quantity to main diagonal
@@ -1147,20 +1138,20 @@ function pressure_projection!(
     for iLS in 1:nLS
         veci(uD,grid_u,iLS+1) .= veci(ucorrD,grid_u,iLS+1)
         veci(vD,grid_v,iLS+1) .= veci(vcorrD,grid_v,iLS+1)
-        if is_fs(bc_int[iLS])
-            @inbounds for II in grid_u.ind.all_indices
-                pII = lexicographic(II, grid_u.ny)
-                if abs(veci(ucorrD,grid_u,iLS+1)[pII]) > 1e-12
-                    veci(ucorrD,grid_u,iLS+1)[pII] -= (τ .* iMu * ∇ϕ_x)[pII]
-                end
-            end
-            @inbounds for II in grid_v.ind.all_indices
-                pII = lexicographic(II, grid_v.ny)
-                if abs(veci(vcorrD,grid_v,iLS+1)[pII]) > 1e-12
-                    veci(vcorrD,grid_v,iLS+1)[pII] -= (τ .* iMv * ∇ϕ_y)[pII]
-                end
-            end
-        end
+        # if is_fs(bc_int[iLS])
+        #     @inbounds for II in grid_u.ind.all_indices
+        #         pII = lexicographic(II, grid_u.ny)
+        #         if abs(veci(ucorrD,grid_u,iLS+1)[pII]) > 1e-12
+        #             veci(ucorrD,grid_u,iLS+1)[pII] -= (τ .* iMu * ∇ϕ_x)[pII]
+        #         end
+        #     end
+        #     @inbounds for II in grid_v.ind.all_indices
+        #         pII = lexicographic(II, grid_v.ny)
+        #         if abs(veci(vcorrD,grid_v,iLS+1)[pII]) > 1e-12
+        #             veci(vcorrD,grid_v,iLS+1)[pII] -= (τ .* iMv * ∇ϕ_y)[pII]
+        #         end
+        #     end
+        # end
     end
 
     return Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi

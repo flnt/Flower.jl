@@ -32,13 +32,13 @@ end
 function update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, empty = true)
     if num.nLS > 1
         for iLS in 1:num.nLS
-            update_ls_data(num, grid, grid_u, grid_v, iLS, grid.LS[iLS].u, grid.LS[iLS].κ, BC_int, BC_int[iLS], periodic_x, periodic_y, empty)
+            update_ls_data(num, grid, grid_u, grid_v, iLS, grid.LS[iLS].u, grid.LS[iLS].κ, BC_int, BC_int[iLS], periodic_x, periodic_y, false, empty)
         end
         combine_levelsets!(num, grid)
-        NB_indices = update_ls_data(num, grid, grid_u, grid_v, num._nLS, grid.LS[end].u, grid.LS[end].κ, BC_int, DummyBC(), periodic_x, periodic_y, empty)
-        crossing_2levelsets!(num, grid, grid.LS[1], grid.LS[2], periodic_x, periodic_y, BC_int)
-        crossing_2levelsets!(num, grid_u, grid_u.LS[1], grid_u.LS[2], periodic_x, periodic_y, BC_int)
-        crossing_2levelsets!(num, grid_v, grid_v.LS[1], grid_v.LS[2], periodic_x, periodic_y, BC_int)
+        NB_indices = update_ls_data(num, grid, grid_u, grid_v, num._nLS, grid.LS[end].u, grid.LS[end].κ, BC_int, DummyBC(), periodic_x, periodic_y, true, empty)
+        crossing_2levelsets!(num, grid, grid.LS[1], grid.LS[2], BC_int)
+        crossing_2levelsets!(num, grid_u, grid_u.LS[1], grid_u.LS[2], BC_int)
+        crossing_2levelsets!(num, grid_v, grid_v.LS[1], grid_v.LS[2], BC_int)
         # for iLS in 1:num.nLS
         #     extend_contact_line!(grid, grid.LS[iLS])
         # end
@@ -55,20 +55,21 @@ function update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, perio
     return NB_indices
 end
 
-function update_ls_data(num, grid, grid_u, grid_v, iLS, u, κ, BC_int, bc_int, periodic_x, periodic_y, empty = true)
-    NB_indices = update_ls_data_grid(num, grid, grid.LS[iLS], u, κ, periodic_x, periodic_y, empty)
+function update_ls_data(num, grid, grid_u, grid_v, iLS, u, κ, BC_int, bc_int, periodic_x, periodic_y, neighbours, empty = true)
+    NB_indices = update_ls_data_grid(num, grid, grid.LS[iLS], u, κ, periodic_x, periodic_y)
 
     interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.LS[iLS].u, grid_v.LS[iLS].u)
 
-    _ = update_ls_data_grid(num, grid_u, grid_u.LS[iLS], grid_u.LS[iLS].u, grid_u.LS[iLS].κ, periodic_x, periodic_y, empty)
-    _ = update_ls_data_grid(num, grid_v, grid_v.LS[iLS], grid_v.LS[iLS].u, grid_v.LS[iLS].κ, periodic_x, periodic_y, empty)
+    _ = update_ls_data_grid(num, grid_u, grid_u.LS[iLS], grid_u.LS[iLS].u, grid_u.LS[iLS].κ, periodic_x, periodic_y)
+    _ = update_ls_data_grid(num, grid_v, grid_v.LS[iLS], grid_v.LS[iLS].u, grid_v.LS[iLS].κ, periodic_x, periodic_y)
 
-    postprocess_grids1!(grid, grid.LS[iLS], grid_u, grid_u.LS[iLS], grid_v, grid_v.LS[iLS], periodic_x, periodic_y, num.ϵ, empty)
+    postprocess_grids1!(grid, grid.LS[iLS], grid_u, grid_u.LS[iLS], grid_v, grid_v.LS[iLS], periodic_x, periodic_y, num.ϵ, neighbours, empty)
 
     for i in 1:num.nLS
         if is_wall(BC_int[i])
             idx_solid = Base.union(grid.LS[i].SOLID, findall(grid.LS[i].geoL.emptied))
-            @inbounds κ[idx_solid] .= 0.0
+            # @inbounds κ[idx_solid] .= 0.0
+            @inbounds κ[grid.LS[i].SOLID] .= 0.0
         end
     end
 
@@ -89,7 +90,7 @@ function update_ls_data(num, grid, grid_u, grid_v, iLS, u, κ, BC_int, bc_int, p
     return NB_indices
 end
 
-function update_ls_data_grid(num, grid, LS, u, κ, periodic_x, periodic_y, empty = true)
+function update_ls_data_grid(num, grid, LS, u, κ, periodic_x, periodic_y)
     LS.α .= NaN
     LS.faces .= 0.0
     LS.mid_point .= [Point(0.0, 0.0)]
@@ -127,14 +128,16 @@ function update_stefan_velocity(num, grid, iLS, u, TS, TL, periodic_x, periodic_
 end
 
 function update_free_surface_velocity(num, grid_u, grid_v, iLS, uD, vD, periodic_x, periodic_y)
-    grid_u.V .= reshape(veci(uD,grid_u,iLS+1), (grid_u.ny, grid_u.nx))
-    grid_v.V .= reshape(veci(vD,grid_v,iLS+1), (grid_v.ny, grid_v.nx))
+    # grid_u.V .= reshape(veci(uD,grid_u,iLS+1), grid_u)
+    # grid_v.V .= reshape(veci(vD,grid_v,iLS+1), grid_v)
+    grid_u.V .= reshape(vec1(uD,grid_u), grid_u)
+    grid_v.V .= reshape(vec1(vD,grid_v), grid_v)
 
-    i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext = indices_extension(grid_u, grid_u.LS[iLS], grid_u.ind.inside, periodic_x, periodic_y)
-    i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext = indices_extension(grid_v, grid_v.LS[iLS], grid_v.ind.inside, periodic_x, periodic_y)
+    # i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext = indices_extension(grid_u, grid_u.LS[iLS], grid_u.ind.inside, periodic_x, periodic_y)
+    # i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext = indices_extension(grid_v, grid_v.LS[iLS], grid_v.ind.inside, periodic_x, periodic_y)
 
-    field_extension!(grid_u, grid_u.LS[iLS].u, grid_u.V, i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext, num.NB, periodic_x, periodic_y)
-    field_extension!(grid_v, grid_v.LS[iLS].u, grid_v.V, i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext, num.NB, periodic_x, periodic_y)
+    # field_extension!(grid_u, grid_u.LS[iLS].u, grid_u.V, i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext, num.NB, periodic_x, periodic_y)
+    # field_extension!(grid_v, grid_v.LS[iLS].u, grid_v.V, i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext, num.NB, periodic_x, periodic_y)
 end
 
 function adjoint_projection_fs(num, grid, grid_u, grid_v,
