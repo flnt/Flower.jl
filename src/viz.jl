@@ -43,7 +43,8 @@ function plot_grid(
     limitsy = false,
     hide = false,
     skipx = 0,
-    skipy = 0
+    skipy = 0,
+    size = (1300, 1000)
     )
 
     x = grid.x_nodes
@@ -59,7 +60,7 @@ function plot_grid(
         ly = (min(y...), max(y...))
     end
 
-    fig = Figure(resolution = (1300, 1000))
+    fig = Figure(size = size)
     ax = Axis(fig[1,1], aspect = DataAspect(), xlabel = L"x", ylabel = L"y", xtickalign = 0, 
         ytickalign = 0)
     if hide
@@ -111,7 +112,8 @@ function plot_field(
     maxv = 0.0,
     limitsx = false,
     limitsy = false,
-    var = 1
+    var = 1,
+    size = (1600, 1000)
     )
 
     x = grid.x[1,:]
@@ -156,7 +158,7 @@ function plot_field(
         ly = (min(y...) - grid.dy[1,1] / 2, max(y...) + grid.dy[end,1] / 2)
     end
 
-    fig = Figure(resolution = (1600, 1000))
+    fig = Figure(size = size)
     ax  = Axis(fig[1,1], aspect = DataAspect(), xlabel = xlabel, ylabel = ylabel,
         xtickalign = 0,  ytickalign = 0)
     if plot_hmap
@@ -276,7 +278,8 @@ function make_video(
     framerate = 24,
     step = 1,
     step0 = 1,
-    stepf = size(field_u, 2)
+    stepf = size(field_u, 2),
+    plot_levelsets = false
     )
 
     x = grid.x[1,:]
@@ -335,7 +338,7 @@ function make_video(
             hmap = heatmap!(x, y, @lift(z[$obs,:,:]'), colormap = colormap)
         end
     end
-    if !plot_hmap
+    if plot_levelsets
         contour!(x, y, @lift(u[1,$obs,:,:]'), levels = -10:grid.dx[1,1]:10, linewidth = 2.0)
     end
     for iLS in 1:num.nLS

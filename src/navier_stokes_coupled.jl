@@ -614,6 +614,14 @@ function CN_set_momentum(
             vel = 0.0
             __a1 = 0.0
             __b = 1.0
+        elseif is_wall(bc_type[iLS])
+            vel = bc_type[iLS].val
+            __a1 = -1.0
+            __b = 0.0
+        elseif is_flapping(bc_type[iLS])
+            vel = copy(grid.V)
+            __a1 = -1.0
+            __b = 0.0
         else
             vel = bc_type[iLS].val
             __a1 = -1.0
@@ -704,6 +712,14 @@ function FE_set_momentum(
             vel = 0.0
             __a1 = 0.0
             __b = 1.0
+        elseif is_wall(bc_type[iLS])
+            vel = bc_type[iLS].val
+            __a1 = -1.0
+            __b = 0.0
+        elseif is_flapping(bc_type[iLS])
+            vel = copy(grid.V)
+            __a1 = -1.0
+            __b = 0.0
         else
             vel = bc_type[iLS].val
             __a1 = -1.0
@@ -788,6 +804,14 @@ function set_poisson(
                 __a1 = 0.0
                 __a2 = 1.0
                 __b = 0.0
+            elseif is_wall(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_flapping(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
             else
                 __a1 = 0.0
                 __a2 = 0.0
@@ -1109,6 +1133,8 @@ function pressure_projection!(
         ∇ϕ_x .+= opC_u.Gx[iLS] * veci(ϕD,grid,iLS+1)
         ∇ϕ_y .+= opC_v.Gy[iLS] * veci(ϕD,grid,iLS+1)
     end
+    # ph.Gxm1 .+= ∇ϕ_x
+    # ph.Gym1 .+= ∇ϕ_y
 
     iM = Diagonal(1. ./ (vec(geo[end].dcap[:,:,5]) .+ eps(0.01)))
     # if is_fs(bc_int)

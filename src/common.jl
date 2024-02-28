@@ -571,6 +571,9 @@ isFCy(::Mesh) = false
 @inline is_wall(::Wall) = true
 @inline is_wall(::BoundaryCondition) = false
 
+@inline is_flapping(::Flapping) = true
+@inline is_flapping(::BoundaryCondition) = false
+
 const neu = Neumann()
 const neu_cl = Neumann_cl()
 const neu_inh = Neumann_inh()

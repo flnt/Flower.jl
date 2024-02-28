@@ -49,17 +49,24 @@ function run_forward(
 
     free_surface = false
     stefan = false
+    flapping = false
     if any(is_fs, BC_int)
         free_surface = true
     end
     if any(is_stefan, BC_int)
         stefan = true
     end
+    if any(is_flapping, BC_int)
+        flapping = true
+        D = 0.0
+        xc = 0.0
+        yc = 0.0
+    end
 
-    if free_surface && stefan
+    if free_surface && stefan && flapping
         @error ("Cannot advect the levelset using both free-surface and stefan condition.")
         return nothing
-    elseif free_surface || stefan
+    elseif free_surface || stefan || flapping
         advection = true
     else
         advection = false
@@ -277,6 +284,19 @@ function run_forward(
     V0S = volume(LS[end].geoS)
     V0L = volume(LS[end].geoL)
 
+    # Force in x
+    if adaptative_t && flapping
+        for iLS in 1:nLS
+            if is_flapping(BC_int[iLS])
+                τ = min(CFL*Δ^2*Re, CFL*Δ/max(
+                    abs.(V)..., abs.(grid_u.V)..., abs.(grid_v.V)..., 
+                    abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)..., 
+                    BC_int[iLS].β * BC_int[iLS].KC)
+                )
+            end
+        end
+    end
+
     current_t = 0.
 
     while current_i < max_iterations + 1
@@ -315,6 +335,13 @@ function run_forward(
                 update_stefan_velocity(num, grid, iLS, LS[iLS].u, phS.T, phL.T, periodic_x, periodic_y, λ, Vmean)
             elseif is_fs(BC_int[iLS])
                 update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y)
+            elseif is_flapping(BC_int[iLS])
+                grid_u.V .+= τ .* D ./ (BC_int[iLS].ρs .* volume(LS[end].geoS))
+                grid_v.V .= BC_int[iLS].KC .* BC_int[iLS].β .* cos(2π .* BC_int[iLS].β .* current_t)
+                xc += τ * grid_u.V[1,1]
+                yc += τ * grid_v.V[1,1]
+                grid.LS[iLS].u .= sqrt.((grid.x .- xc) .^ 2 .+ ((grid.y .- yc) ./ num.A) .^ 2) .- num.R .* ones(grid);
+                println("xc = $(xc) | vx = $(grid_u.V[1,1])")
             end
         end
 
@@ -561,6 +588,8 @@ function run_forward(
             end
         end
 
+        cD, cL, D, L = force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, phL; step = current_i+1, saveCoeffs = false)
+
         current_t += τ
         if iszero(current_i%save_every) || current_i==max_iterations
             snap = current_i÷save_every+1
@@ -607,7 +636,8 @@ function run_forward(
                 @views fwdL.v[snap,:,:] .= phL.v
                 @views fwdL.ucorrD[snap,:,:] .= phL.ucorrD
                 @views fwdL.vcorrD[snap,:,:] .= phL.vcorrD
-                force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, phL; step=snap)
+                @views fwd.Cd[snap] = cD
+                @views fwd.Cl[snap] = cL
             end
             if advection
                 fwdS.Vratio[snap] = volume(LS[end].geoS) / V0S
@@ -625,7 +655,10 @@ function run_forward(
         current_i += 1
 
         if adaptative_t
-            τ = min(CFL*Δ^2*Re, CFL*Δ/max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...))
+            τ = min(CFL*Δ^2*Re, CFL*Δ/max(
+                abs.(V)..., abs.(grid_u.V)..., abs.(grid_v.V)..., 
+                abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)
+            )
         end
     end
 

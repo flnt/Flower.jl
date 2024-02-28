@@ -1033,7 +1033,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
             end
         end
     elseif num.case == "Ellipse"
-        LS[1].u .= sqrt.((x .+ shifted) .^ 2 + (2.0 .* y) .^ 2) - (R) * ones(ny, nx);
+        LS[1].u .= sqrt.((x .+ shifted) .^ 2 + (y ./ A) .^ 2) - (R) * ones(ny, nx);
     elseif num.case == "Mullins"
         LS[1].u .= y .+ shifted .+ A*sin.(N*pi*x) .+ L0/4;
         init_mullins!(grid, TL, T_inf, 0., A, N, L0/4)
