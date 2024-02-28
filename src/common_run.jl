@@ -48,7 +48,7 @@ function update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, perio
         end
         postprocess_grids2!(grid, grid.LS[end], grid_u, grid_u.LS[end], grid_v, grid_v.LS[end], periodic_x, periodic_y, true)
     else
-        NB_indices = update_ls_data(num, grid, grid_u, grid_v, 1, grid.LS[1].u, grid.LS[1].κ, BC_int, BC_int[1], periodic_x, periodic_y, empty)
+        NB_indices = update_ls_data(num, grid, grid_u, grid_v, 1, grid.LS[1].u, grid.LS[1].κ, BC_int, BC_int[1], periodic_x, periodic_y, true, empty)
         postprocess_grids2!(grid, grid.LS[end], grid_u, grid_u.LS[end], grid_v, grid_v.LS[end], periodic_x, periodic_y, true)
     end
 
