@@ -47,6 +47,7 @@ abstract type AbstractOptimizer end
     aniso::Bool = false # anisotropy for Stefan problem BCs
     nLS::D = 1 # number of levelsets
     _nLS::D = nLS == 1 ? 1 : nLS + 1
+    nNavier = 0 # number of Navier inner BCs
     subdomains::D = 2
     overlaps::D = 1
 end
@@ -204,10 +205,6 @@ struct Phase{T <: Real} <: MutatingFields
     v::Array{T,2}
     ucorr::Array{T,2}
     vcorr::Array{T,2}
-    DT::Array{T,2}
-    Dϕ::Array{T,2}
-    Du::Array{T,2}
-    Dv::Array{T,2}
     TD::Array{T,1}
     pD::Array{T,1}
     ϕD::Array{T,1}
@@ -215,6 +212,7 @@ struct Phase{T <: Real} <: MutatingFields
     vD::Array{T,1}
     ucorrD::Array{T,1}
     vcorrD::Array{T,1}
+    uT::Array{T,2}
 end
 
 struct Forward{T <: Real} <: MutatingFields

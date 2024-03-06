@@ -942,14 +942,6 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     ucorrL = zeros(grid_u)
     vcorrS = zeros(grid_v)
     vcorrL = zeros(grid_v)
-    DTS = zeros(grid)
-    DTL = zeros(grid)
-    DϕS = zeros(grid)
-    DϕL = zeros(grid)
-    DuS = zeros(grid_u)
-    DuL = zeros(grid_u)
-    DvS = zeros(grid_v)
-    DvL = zeros(grid_v)
     TDS = fnzeros(grid, num)
     TDL = fnzeros(grid, num)
     pDS = fnzeros(grid, num)
@@ -964,6 +956,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     ucorrDL = fnzeros(grid_u, num)
     vcorrDS = fnzeros(grid_v, num)
     vcorrDL = fnzeros(grid_v, num)
+    uTS = fzeros(num.nNavier, grid)
+    uTL = fzeros(num.nNavier, grid)
 
     n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
     
@@ -985,8 +979,10 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     κsave = zeros(_nLS, n_snaps, grid.ny, grid.nx)
     lengthsave = zeros(n_snaps)
     time = zeros(n_snaps)
-    Cd = zeros(n_snaps)
-    Cl = zeros(n_snaps)
+    # Cd = zeros(n_snaps)
+    # Cl = zeros(n_snaps)
+    Cd = zeros(max_iterations+1)
+    Cl = zeros(max_iterations+1)
     TDSsave = fnzeros(n_snaps, grid, num)
     TDLsave = fnzeros(n_snaps, grid, num)
     pDSsave = fnzeros(n_snaps, grid, num)
@@ -1110,8 +1106,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
             Operators(AxT_vS, AyT_vS, Bx_vS, By_vS, BxT_vS, ByT_vS, Hx_vS, Hy_vS, HxT_vS, HyT_vS, tmp_x_vS, tmp_y_vS, M_vS, iMx_vS, iMy_vS, χ_vS, Rx, Ry, Gx_S, Gy_S, Hx_b_vS, Hy_b_vS, HxT_b_vS, HyT_b_vS, iMx_b_vS, iMy_b_vS, iMx_bd_vS, iMy_bd_vS, Gx_b_vS, Gy_b_vS, χ_b_vS),
             Operators(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L, Hx_b_vL, Hy_b_vL, HxT_b_vL, HyT_b_vL, iMx_b_vL, iMy_b_vL, iMx_bd_vL, iMy_bd_vL, Gx_b_vL, Gy_b_vL, χ_b_vL)
         ),
-        Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DϕS, DuS, DvS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS),
-        Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DϕL, DuL, DvL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL),
+        Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS, uTS),
+        Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL, uTL),
         Forward(Tsave, usave, uxsave, uysave, Vsave, κsave, lengthsave, time, Cd, Cl),
         ForwardPhase(TSsave, pSsave, ϕSsave, uSsave, vSsave, TDSsave, pDSsave, ucorrDSsave, vcorrDSsave, VratioS),
         ForwardPhase(TLsave, pLsave, ϕLsave, uLsave, vLsave, TDLsave, pDLsave, ucorrDLsave, vcorrDLsave, VratioL)

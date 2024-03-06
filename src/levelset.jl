@@ -1690,3 +1690,19 @@ function combine_levelsets!(num, grid)
 
     return nothing
 end
+
+"""
+    combine_levelsets(grid, u1, u2)
+
+Combine two levelsets.
+"""
+function combine_levelsets(grid, u1, u2)
+    @unpack ind = grid
+    
+    u = zeros(grid)
+    @inbounds @threads for II in ind.all_indices
+        u[II] = minimum([u1[II], u2[II]])
+    end
+
+    return u
+end
