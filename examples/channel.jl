@@ -51,7 +51,7 @@ phL.v .= 0.0
     BC_pL = Boundaries(
         right = Dirichlet(),
     ),
-    BC_int = [Wall()],
+    BC_int = [WallNoSlip()],
     time_scheme = CN,
     navier_stokes = true,
     ns_advection = true,

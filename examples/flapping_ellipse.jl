@@ -13,9 +13,10 @@ n = 128
 x = LinRange(-L0/2, L0/2, n+1)
 y = LinRange(-L0/2, L0/2, n+1)
 
-KC = 1.0
+KC = 5.0
 # KC = 20.0
-β = 20.0
+β = 1.0
+free = false
 
 max_its = 500
 
@@ -26,12 +27,10 @@ num = Numerical{Float64, Int64}(case = "Ellipse",
     x = x,
     y = y,
     R = 0.5,
-    A = 0.2, # Aspect ratio
+    A = 0.5, # Aspect ratio
     save_every = max_its÷100,
     ϵ = 0.05,
     reinit_every = max_its+1,
-    nb_reinit = 0,
-    δreinit = 0.0,
 )
 
 gp, gu, gv = init_meshes(num);
@@ -40,14 +39,8 @@ op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv);
 phL.u .= 0.0
 phL.v .= 0.0
 
-@time run_forward(
+@time xc, yc = run_forward(
     num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
-    BC_u = Boundaries(
-        left = Neumann_inh(),
-        bottom = Neumann_inh(),
-        right = Neumann_inh(),
-        top = Neumann_inh(),
-    ),
     BC_uL = Boundaries(),
     BC_vL = Boundaries(),
     BC_pL = Boundaries(
@@ -56,15 +49,19 @@ phL.v .= 0.0
         right = Dirichlet(),
         top = Dirichlet(),
     ),
-    BC_int = [Flapping(KC = KC, β = β)],
+    BC_int = [Flapping(KC = KC, β = β, free = free)],
     time_scheme = FE,
     navier_stokes = true,
-    ns_advection = false,
+    ns_advection = true,
     ns_liquid_phase = true,
     verbose = true,
     show_every = 1,
     adaptative_t = true
 )
+
+case = "nits$(max_its)_KC$(KC)_β$(β)_AR$(num.A)_CFL$(num.CFL)_free$(free)"
+file = case * ".jld2"
+# save_field(prefix*file, num, gp, phL, fwdL, fwd)
 
 fu = Figure(size = (1000, 600))
 ax = Axis(fu[1,1], aspect = DataAspect(), xlabel = L"x", ylabel = L"y")
@@ -93,9 +90,9 @@ colsize!(fp.layout, 1, widths(ax.scene.viewport[])[1])
 rowsize!(fp.layout, 1, widths(ax.scene.viewport[])[2])
 resize_to_layout!(fp)
 
-make_video(num, gu, fwd.ux, fwdL.u; title_prefix=prefix*"u_field_nits$(max_its)_KC$(KC)_β$(β)_AR$(num.A)",
-    title_suffix="", framerate=30)
-make_video(num, gv, fwd.uy, fwdL.v; title_prefix=prefix*"v_field_nits$(max_its)_KC$(KC)_β$(β)_AR$(num.A)",
-    title_suffix="", framerate=30)
-make_video(num, gp, fwd.u, fwdL.p; title_prefix=prefix*"p_field_nits$(max_its)_KC$(KC)_β$(β)_AR$(num.A)",
-    title_suffix="", framerate=30)
+make_video(num, gu, fwd.ux, fwdL.u; title_prefix=prefix*"u_field_"*case,
+    title_suffix="", framerate=30, colormap = :RdBu)
+make_video(num, gv, fwd.uy, fwdL.v; title_prefix=prefix*"v_field_"*case,
+    title_suffix="", framerate=30, colormap = :RdBu)
+make_video(num, gp, fwd.u, fwdL.p; title_prefix=prefix*"p_field_"*case,
+    title_suffix="", framerate=30, colormap = :RdBu)
