@@ -112,8 +112,8 @@ end
     BC_LS_interior!(num, cl, grid, A, B, rhs, BC)
 
 Update levelset matrices to apply inhomogeneous Neumann boundary conditions in presence of
-contact lines at the intersection of the interfaces, one with a Wall() BC and the other one
-with a FreeSurface() BC. 
+contact lines at the intersection of the interfaces, one with a WallNoSLip() or Navier_cl() BC 
+and the other one with a FreeSurface() BC. 
 
 Outside, the contact angle asimptotically converges to an angle of 90°. Inside, the contact
 angle converges to an angle of 0° if the imposed contact angle at the contact line is

@@ -67,6 +67,10 @@ function run_forward(
         navier = true
     end
 
+    if nNavier > 1
+        @warn ("When using more than 1 Navier BC, the interfaces shouldn't cross")
+    end
+
     if free_surface && stefan && flapping
         @error ("Cannot advect the levelset using both free-surface and stefan condition.")
         return nothing
@@ -372,7 +376,9 @@ function run_forward(
             elseif is_fs(BC_int[iLS])
                 update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y)
             elseif is_flapping(BC_int[iLS])
-                grid_u.V .+= τ .* D ./ (BC_int[iLS].ρs .* volume(LS[end].geoS))
+                if BC_int[iLS].free
+                    grid_u.V .+= τ .* D ./ (BC_int[iLS].ρs .* volume(LS[end].geoS))
+                end
                 grid_v.V .= BC_int[iLS].KC .* BC_int[iLS].β .* cos(2π .* BC_int[iLS].β .* current_t)
                 xc[current_i+1] = xc[current_i] + τ * grid_u.V[1,1]
                 yc[current_i+1] = yc[current_i] + τ * grid_v.V[1,1]

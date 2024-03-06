@@ -568,7 +568,11 @@ isFCy(::Mesh) = false
 @inline is_fs(::FreeSurface) = true
 @inline is_fs(::BoundaryCondition) = false
 
-@inline is_wall(::Wall) = true
+@inline is_wall_no_slip(::WallNoSlip) = true
+@inline is_wall_no_slip(::BoundaryCondition) = false
+
+@inline is_wall(::WallNoSlip) = true
+@inline is_wall(::Navier_cl) = true
 @inline is_wall(::BoundaryCondition) = false
 
 @inline is_flapping(::Flapping) = true

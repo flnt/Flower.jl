@@ -712,7 +712,7 @@ function FE_set_momentum_coupled(
             a1v = Diagonal(vec(_a1v))
             _bv = ones(gv) .* __bv
             bv = Diagonal(vec(_bv))
-        elseif is_wall(bc_type[iLS])
+        elseif is_wall_no_slip(bc_type[iLS])
             velu = bc_type[iLS].val
             a0u = ones(gu) .* velu
             __a1u = -1.0
@@ -753,9 +753,8 @@ function FE_set_momentum_coupled(
             a0p = ones(gp) .* velp
 
             # Assumes FreeSurface() is the first interface!!! (LS[1])
-            ϵb = zeros(gp)
-            ϵb[gp.LS[iLS].cl] .= num.n_ext_cl .* sqrt(gp.dx[gp.LS[iLS].cl]^2.0 .+ gp.dy[gp.LS[iLS].cl]^2.0)
-            bp = Diagonal(vec(BC.left.λ * bell_function2.(gp.LS[1].u, ϵb)))
+            ϵb = num.n_ext_cl .* sqrt.(gp.dx.^2 .+ gp.dy.^2)
+            bp = Diagonal(vec(bc_type[iLS].λ * bell_function2.(gp.LS[1].u, ϵb)))
         elseif is_navier(bc_type[iLS])
             velp = bc_type[iLS].val
             a0p = ones(gp) .* velp
@@ -785,8 +784,6 @@ function FE_set_momentum_coupled(
         sbu = _iLS*niu+1:(_iLS+1)*niu
         sbv = ntu+_iLS*niv+1:ntu+(_iLS+1)*niv
 
-        nNav2 = 0
-
         if ls_advection
             if !is_navier_cl(bc_type[iLS]) && !is_navier(bc_type[iLS])
                 # Contribution to implicit part of viscous term from inner boundaries
@@ -796,6 +793,7 @@ function FE_set_momentum_coupled(
                 A[sbu,1:niu] = bu * (opu.HxT[iLS] * opu.iMx * opu.Bx .+ opu.HyT[iLS] * opu.iMy * opu.By)
                 A[sbv,ntu+1:ntu+niv] = bv * (opv.HxT[iLS] * opv.iMx * opv.Bx .+ opv.HyT[iLS] * opv.iMy * opv.By)
                 # Contribution to Neumann BC from other boundaries
+                nNav2 = 0
                 for i in 1:num.nLS
                     if i != iLS && (!is_navier_cl(bc_type[i]) && !is_navier(bc_type[i]))
                         A[sbu,i*niu+1:(i+1)*niu] = bu * (
@@ -806,10 +804,10 @@ function FE_set_momentum_coupled(
                             opv.HxT[iLS] * opv.iMx * opv.Hx[i] .+
                             opv.HyT[iLS] * opv.iMy * opv.Hy[i]
                         )
-                    else
-                        sinα = Diagonal(vec(sin.(gp.LS[i].α)))
+                    elseif i != iLS
+                        sinα = Diagonal(vec(sin.(gp.LS[i].αNavier)))
                         replace!(sinα, NaN=>0.0)
-                        cosα = Diagonal(vec(cos.(gp.LS[i].α)))
+                        cosα = Diagonal(vec(cos.(gp.LS[i].αNavier)))
                         replace!(cosα, NaN=>0.0)
 
                         avgx = copy(opp.Bx)
@@ -832,8 +830,8 @@ function FE_set_momentum_coupled(
                         @inbounds @threads for II in gv.ind.all_indices[2:end-1,:]
                             pII = lexicographic(II, gp.ny)
                             pJJ = lexicographic(II, gv.ny)
-                            avgy[pJJ,pII-1] = cap2[pJJ] / (cap2[pJJ] + cap4[pJJ] + eps(0.01))
-                            avgy[pJJ,pII] = cap4[pJJ] / (cap2[pJJ] + cap4[pJJ] + eps(0.01))
+                            avgy[pJJ,pII-1] = 0.5
+                            avgy[pJJ,pII] = 0.5
                         end
                         @inbounds @threads for II in gv.ind.all_indices[1,:]
                             pII = lexicographic(II, gp.ny)
@@ -865,10 +863,14 @@ function FE_set_momentum_coupled(
                     opv.HxT[iLS] * opv.iMx * opv.Hx[iLS] .+
                     opv.HyT[iLS] * opv.iMy * opv.Hy[iLS]
                 ) .- opv.χ[iLS] * a1v)
+
+                @inbounds rhs[sbu] .= opu.χ[iLS] * vec(a0u)
+                @inbounds rhs[sbv] .= opv.χ[iLS] * vec(a0v)
+                _iLS += 1
             else # Tangential component of velocity if Navier BC
-                sinα = Diagonal(vec(sin.(gp.LS[iLS].α)))
+                sinα = Diagonal(vec(sin.(gp.LS[iLS].αNavier)))
                 replace!(sinα, NaN=>0.0)
-                cosα = Diagonal(vec(cos.(gp.LS[iLS].α)))
+                cosα = Diagonal(vec(cos.(gp.LS[iLS].αNavier)))
                 replace!(cosα, NaN=>0.0)
 
                 # Contribution to implicit part of viscous term from inner boundaries
@@ -909,12 +911,6 @@ function FE_set_momentum_coupled(
                     opu.BxT * opu.iMx * opu.Hx[iLS] .+
                     opu.ByT * opu.iMy * opu.Hy[iLS]
                 ) * avgx * sinα
-
-                test = (
-                    opu.BxT * opu.iMx * opu.Hx[iLS] .+
-                    opu.ByT * opu.iMy * opu.Hy[iLS]
-                )
-
                 A[ntu+1:ntu+niv,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * τ .* (
                     opv.BxT * opv.iMx * opv.Hx[iLS] .+
                     opv.ByT * opv.iMy * opv.Hy[iLS]
@@ -930,11 +926,6 @@ function FE_set_momentum_coupled(
                     avgv[pII,pJJ] = 0.5
                     avgv[pII,pJJ+1] = 0.5
                 end
-
-                test = bp * (
-                    opp.HxT[iLS] * opp.iMx * opp.Bx .+
-                    opp.HyT[iLS] * opp.iMy * opp.By
-                )
 
                 A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,1:niu] = bp * (
                     opp.HxT[iLS] * opp.iMx * opp.Bx .+
@@ -971,18 +962,12 @@ function FE_set_momentum_coupled(
                     opp.HxT[iLS] * opp.iMx * opp.Hx[iLS] .+
                     opp.HyT[iLS] * opp.iMy * opp.Hy[iLS]
                 ) .+ opp.χ[iLS])
+                
+                @inbounds rhs[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] .= opp.χ[iLS] * vec(a0p)
+
+                nNav1 += 1
             end
         end
-
-        if !is_navier_cl(bc_type[iLS]) && !is_navier(bc_type[iLS])
-            @inbounds rhs[sbu] .= opu.χ[iLS] * vec(a0u)
-            @inbounds rhs[sbv] .= opv.χ[iLS] * vec(a0v)
-            _iLS += 1
-        else
-            @inbounds rhs[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] .= opp.χ[iLS] * vec(a0p)
-        end
-        
-        nNav1 += 1
     end
 
     @inbounds rhs[ntu-nbu+1:ntu] .= opu.χ_b * vec(a0_bu)
@@ -1060,7 +1045,7 @@ function CN_set_momentum(
             vel = 0.0
             __a1 = 0.0
             __b = 1.0
-        elseif is_wall(bc_type[iLS])
+        elseif is_wall_no_slip(bc_type[iLS])
             vel = bc_type[iLS].val
             __a1 = -1.0
             __b = 0.0
@@ -1168,7 +1153,7 @@ function FE_set_momentum(
             vel = 0.0
             __a1 = 0.0
             __b = 1.0
-        elseif is_wall(bc_type[iLS])
+        elseif is_wall_no_slip(bc_type[iLS])
             vel = bc_type[iLS].val
             __a1 = -1.0
             __b = 0.0
@@ -1260,7 +1245,7 @@ function set_poisson(
                 __a1 = 0.0
                 __a2 = 1.0
                 __b = 0.0
-            elseif is_wall(bc_type[iLS])
+            elseif is_wall_no_slip(bc_type[iLS])
                 __a1 = 0.0
                 __a2 = 0.0
                 __b = 1.0
@@ -1506,7 +1491,7 @@ function pressure_projection!(
 
     # u and v are coupled if a Navier slip BC is employed inside, otherwise they are uncoupled
     if !navier
-        # if is_wall(bc_int)
+        # if is_wall_no_slip(bc_int)
         #     vec1(uD,grid_u) .= vec(u)
         #     # update_dirichlet_field!(grid_u, uD, u, BC_u)
         #     vec1(rhs_u,grid_u) .+= -τ .* (opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid))
@@ -1541,7 +1526,7 @@ function pressure_projection!(
         # println(ch)
         ucorr .= reshape(vec1(ucorrD,grid_u), grid_u)
 
-        # if is_wall(bc_int)
+        # if is_wall_no_slip(bc_int)
         #     vec1(vD,grid_v) .= vec(v)
         #     # update_dirichlet_field!(grid_v, vD, v, BC_v)
         #     vec1(rhs_v,grid_v) .+= -τ .* (opC_v.AyT * opC_v.Ry * vec1(pD,grid) .+opC_v.Gy_b * vecb(pD,grid))

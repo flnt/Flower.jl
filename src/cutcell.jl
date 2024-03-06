@@ -508,15 +508,15 @@ function postprocess_grids1!(grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, p
     clip_middle_cells!(grid_v, LS_v)
 
     # Compute angles this way so that they exist next to clipped cells
-    LS.α .= atan.(
+    LS.αNavier .= atan.(
         LS.geoL.cap[:,:,4] .- LS.geoL.cap[:,:,2],
         LS.geoL.cap[:,:,3] .- LS.geoL.cap[:,:,1]
     )
-    LS_u.α .= atan.(
+    LS_u.αNavier .= atan.(
         LS_u.geoL.cap[:,:,4] .- LS_u.geoL.cap[:,:,2],
         LS_u.geoL.cap[:,:,3] .- LS_u.geoL.cap[:,:,1]
     )
-    LS_v.α .= atan.(
+    LS_v.αNavier .= atan.(
         LS_v.geoL.cap[:,:,4] .- LS_v.geoL.cap[:,:,2],
         LS_v.geoL.cap[:,:,3] .- LS_v.geoL.cap[:,:,1]
     )

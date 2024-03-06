@@ -104,6 +104,7 @@ mutable struct Levelset{T,N}
     mid_point::Matrix{Point{T}}
     cut_points::Matrix{Vector{Point{T}}}
     α::Matrix{T}
+    αNavier::Matrix{T}
     κ::Matrix{T}
     A::SparseMatrixCSC{T,N}
     B::SparseMatrixCSC{T,N}
@@ -336,6 +337,7 @@ applied. The boundary condition is given by:
 @with_kw mutable struct Navier_cl{T,N} <: BoundaryCondition
     val::N = 0.0
     λ::T = 0.0
+    θe::T = π / 2
 end
 
 """
@@ -376,7 +378,7 @@ end
     λ::T = 0.0
 end
 
-@with_kw mutable struct Wall{T,N} <: BoundaryCondition
+@with_kw mutable struct WallNoSlip{T,N} <: BoundaryCondition
     val::N = 0.0
     λ::T = 0.0
     θe::T = π / 2
@@ -396,4 +398,5 @@ Only works for elliptical solids.
     ρs::T = 10.0
     KC::T = 2π
     β::T = 1.0
+    free::Bool = false
 end
