@@ -271,49 +271,6 @@ mutable struct my_Adjoint{T <: Real} <: MutatingFields
     κ::Array{T, 2}
 end
 
-mutable struct adjoint_phase{T <: Real} <: MutatingFields
-    TD::Array{T,2}
-    ϕD::Array{T,2}
-    pD::Array{T,2}
-    uD::Array{T,2}
-    vD::Array{T,2}
-    ucorrD::Array{T,2}
-    vcorrD::Array{T,2}
-end
-
-mutable struct adjoint_fields{T <: Real} <: MutatingFields
-    u::Array{T,2}
-    phS::adjoint_phase{T}
-    phL::adjoint_phase{T}
-end
-
-mutable struct adjoint_derivatives{T <: Real, D <: Integer} <: MutatingFields
-    RheatS_ls::SparseMatrixCSC{T,D} # Derivative of solid phase heat eq. wrt. levelset
-    RheatL_ls::SparseMatrixCSC{T,D} # Derivative of liquid phase heat eq. wrt. levelset
-    RlsS_ls::SparseMatrixCSC{T,D} # Derivative of Stefan levelset advection eq. wrt. levelset
-    RlsS_TS::SparseMatrixCSC{T,D} # Derivative of Stefan levelset advection eq. wrt. solid temperature 
-    RlsS_TL::SparseMatrixCSC{T,D} # Derivative of Stefan levelset advection eq. wrt. liquid temperature
-    RucorrS_ls0::SparseMatrixCSC{T,D} # Derivative of solid phase prediction step in x wrt. levelset at prev. it.
-    RucorrS_ls1::SparseMatrixCSC{T,D} # Derivative of solid phase prediction step in x wrt. levelset
-    RucorrL_ls0::SparseMatrixCSC{T,D} # Derivative of liquid phase prediction step in x wrt. levelset at prev. it.
-    RucorrL_ls1::SparseMatrixCSC{T,D} # Derivative of liquid phase prediction step in x wrt. levelset
-    RvcorrS_ls0::SparseMatrixCSC{T,D} # Derivative of solid phase prediction step in y wrt. levelset at prev. it.
-    RvcorrS_ls1::SparseMatrixCSC{T,D} # Derivative of solid phase prediction step in y wrt. levelset
-    RvcorrL_ls0::SparseMatrixCSC{T,D} # Derivative of liquid phase prediction step in y wrt. levelset at prev. it.
-    RvcorrL_ls1::SparseMatrixCSC{T,D} # Derivative of liquid phase prediction step in y wrt. levelset
-    RpS_ls::SparseMatrixCSC{T,D} # Derivative of solid phase Poisson eq. wrt. levelset
-    RpL_ls::SparseMatrixCSC{T,D} # Derivative of liquid phase Poisson eq. wrt. levelset
-    RuS_ls::SparseMatrixCSC{T,D} # Derivative of solid phase projection step in x wrt. levelset
-    RuL_ls::SparseMatrixCSC{T,D} # Derivative of liquid phase projection step in x wrt. levelset
-    RvS_ls::SparseMatrixCSC{T,D} # Derivative of solid phase projection step in y wrt. levelset
-    RvL_ls::SparseMatrixCSC{T,D} # Derivative of liquid phase projection step in y wrt. levelset
-    RlsFS_ls::SparseMatrixCSC{T,D} # Derivative of Free Surface levelset advection eq. wrt. levelset
-    RlsFS_ucorrS::SparseMatrixCSC{T,D} # Derivative of Free Surface levelset advection eq. wrt. solid horizontal velocity 
-    RlsFS_ucorrL::SparseMatrixCSC{T,D} # Derivative of Free Surface levelset advection eq. wrt. liquid horizontal velocity 
-    RlsFS_vcorrS::SparseMatrixCSC{T,D} # Derivative of Free Surface levelset advection eq. wrt. solid vertical velocity
-    RlsFS_vcorrL::SparseMatrixCSC{T,D} # Derivative of Free Surface levelset advection eq. wrt. liquid vertical velocity
-end
-
 abstract type TemporalIntegration end
 struct ForwardEuler <: TemporalIntegration end
 struct CrankNicolson <: TemporalIntegration end
