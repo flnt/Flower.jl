@@ -60,6 +60,8 @@ include("contact_line.jl")
 include("optimize.jl")
 include("viz.jl")
 include("tools.jl")
+include("electrolysis.jl")
+
 
 export_all()
 #this is a second test

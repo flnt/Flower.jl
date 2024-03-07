@@ -11,6 +11,8 @@ function run_forward(
     BC_vS = Boundaries(),
     BC_vL = Boundaries(),
     BC_u = Boundaries(),
+    BC_trans_scal = Vector{Boundaries}(),
+    BC_phi_eleL = BoundariesInt(),
     BC_int = [Wall()],
     time_scheme = CN,
     ls_scheme = weno5,
@@ -36,9 +38,15 @@ function run_forward(
     breakup = false,
     Ra = 0.0,
     λ = 1,
+    electrolysis = false,
+    electrolysis_convection = false,  
+    electrolysis_liquid_phase = false,
+    electrolysis_phase_change = false,
     )
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations,
-            current_i, save_every, reinit_every, nb_reinit, δreinit, ϵ, m, θ₀, aniso, nLS, _nLS = num
+            current_i, save_every, reinit_every, nb_reinit, δreinit, ϵ, m, θ₀, aniso, nLS, _nLS,
+            concentration0, diffusion_coeff, nb_transported_scalars, temp0, i0, phi_ele1, alphac,
+            alphaa, Ru, Faraday = num
     @unpack opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL = op
     @unpack x, y, nx, ny, dx, dy, ind, LS, V = grid
 
@@ -115,6 +123,17 @@ function run_forward(
 
     kill_dead_cells!(phS.T, grid, LS[end].geoS)
     kill_dead_cells!(phL.T, grid, LS[end].geoL)
+
+    ####################################################################################################
+    #Electrolysis
+    ####################################################################################################
+    # TODO kill_dead_cells! for [:,:,iscal]
+    if electrolysis
+        for iscal=1:nb_transported_scalars
+            kill_dead_cells!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL)
+        end
+    end     
+    ####################################################################################################
     
     for iLS in 1:_nLS
         @views fwd.u[iLS,1,:,:] .= LS[iLS].u
@@ -131,6 +150,17 @@ function run_forward(
     @views fwdS.v[1,:,:] .= phS.v
     @views fwdL.u[1,:,:] .= phL.u
     @views fwdL.v[1,:,:] .= phL.v
+    ####################################################################################################
+    #Electrolysis
+    ####################################################################################################
+    if electrolysis
+        for iscal=1:nb_transported_scalars
+            @views fwd.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal]
+            @views fwdL.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal]
+        end
+        @views fwdL.phi_ele[1,:,:] .= phL.phi_ele
+    end     
+    ####################################################################################################
 
     vec1(phS.TD,grid) .= vec(phS.T)
     vec2(phS.TD,grid) .= θd
@@ -141,6 +171,23 @@ function run_forward(
     vec2(phL.TD,grid) .= θd
     init_borders!(phL.TD, grid, BC_TL, θd)
     @views fwdL.TD[1,:] .= phL.TD
+
+    ####################################################################################################
+    #Electrolysis
+    ####################################################################################################
+    if electrolysis
+        for iscal=1:nb_transported_scalars
+            vec1(phL.trans_scalD[:,iscal],grid) .= vec(phL.trans_scal[:,:,iscal])
+            vec2(phL.trans_scalD[:,iscal],grid) .= concentration0[iscal]
+            init_borders!(phL.trans_scalD[:,iscal], grid, BC_trans_scal[iscal], concentration0[iscal])
+            @views fwdL.trans_scalD[1,:,iscal] .= phL.trans_scalD[:,iscal]
+        end
+        vec1(phL.phi_eleD,grid) .= vec(phL.phi_ele)
+        vec2(phL.phi_eleD,grid) .= 0 #TODO
+        init_borders!(phL.phi_eleD, grid, BC_phi_eleL, θd)
+        @views fwdL.phi_eleD[1,:] .= phL.phi_eleD
+    end     
+    ####################################################################################################
 
     vec1(phS.uD,grid_u) .= vec(phS.u)
     vec2(phS.uD,grid_u) .= num.uD
@@ -178,7 +225,7 @@ function run_forward(
     if is_FE(time_scheme) || is_CN(time_scheme)
         NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
 
-        if navier_stokes || heat
+        if navier_stokes || heat || electrolysis
             geoS = [LS[iLS].geoS for iLS in 1:_nLS]
             geo_uS = [grid_u.LS[iLS].geoS for iLS in 1:_nLS]
             geo_vS = [grid_v.LS[iLS].geoS for iLS in 1:_nLS]
@@ -203,7 +250,7 @@ function run_forward(
         Mvm1_L = copy(opC_vL.M)
         Mvm1_S = copy(opC_vS.M)
 
-        if navier_stokes || heat
+        if navier_stokes || heat || electrolysis
             AuS, BuS, _ = FE_set_momentum(
                 BC_int, num, grid_u, opC_uS,
                 false, false,
@@ -288,12 +335,131 @@ function run_forward(
             end
         end
 
+        ####################################################################################################
+        #Electrolysis
+        ####################################################################################################  
+        if electrolysis
+            if electrolysis_liquid_phase
+
+                for iscal=1:nb_transported_scalars
+                    kill_dead_cells!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL)
+                    veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
+
+                    A_T, B, rhs = set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TL, LS[1].geoL, phL, θd, BC_trans_scal[iscal],
+                                                        LS[1].MIXED, LS[1].geoL.projection,
+                                                        opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
+                                                        periodic_x, periodic_y, electrolysis_convection, diffusion_coeff[iscal])
+                    mul!(rhs, B, phL.trans_scalD[:,iscal], 1.0, 1.0)
+
+                    phL.trans_scalD[:,iscal] .= A_T \ rhs
+                    phL.trans_scal[:,:,iscal] .= reshape(veci(phL.trans_scalD[:,iscal],grid,1), grid)
+                end
+
+
+                #TODO heat for electrolysis
+
+                #TODO Poisson
+                ####################################################################################################
+                #Electrolysis: Poisson
+                ####################################################################################################  
+
+                #electroneutrality assumption
+
+
+                a0_p = [] 
+                for i in 1:num.nLS
+                    push!(a0_p, zeros(grid))
+                end
+
+                # Constant electrical conductivity assumption
+                #TODO electrical conductivity depends on concentration
+                #iKOH index of KOH 
+                # kappa_ele=2*Faraday^2*concentration0[iKOH]*diffusion_coeff[iKOH]/(Ru*T)
+
+                #so after initialisation
+
+                # kappa_ele=2*Faraday^2*trans_scal[iKOH]*diffusion_coeff[iKOH]/(Ru*T)
+
+                #TODO Poisson with variable coefficients
+                #TODO need to iterate? since nonlinear
+
+                #TODO no concentration prefactor
+
+                #Update Butler-Volmer Boundary Condition with new potential 
+               
+                # eta = phi_ele1 .- phL.phi_ele[:,1]
+                # i_current = i0*(exp(alphaa*Faraday*eta/(Ru*temp0))-exp(-alphac*Faraday*eta/(Ru*temp0)))
+
+                BC_phi_eleL.left.val = butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temp0)
+
+
+                Aphi_eleL, rhs_phi_ele = set_poisson(
+                    [BC_phi_eleL.int], num, grid, a0_p, opC_pL, opC_uL, opC_vL,
+                    false, Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, BC_phi_eleL,
+                    true
+                )
+
+                # A, rhs = set_poisson(BC_int, num, grid, a0_p, op.opC_pL, op.opC_uL, op.opC_vL, 1, Lp, bc_Lp, bc_Lp_b, BC, true)
+                # AϕL, _ = set_poisson(
+                #     BC_int, num, grid, a0_p, opC_pL, opC_uL, opC_vL,
+                #     false, Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, BC_pL,
+                #     true
+                # )
+
+                # b = Δf.(
+                #     grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx,
+                #     grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
+                # )
+                # b_phi_ele = zeros(
+                #     grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx,
+                #     grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
+                # )
+
+                # b_phi_ele = zeros(
+                #     grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx,
+                #     grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
+                # )
+
+                b_phi_ele = zeros(grid)
+
+
+                veci(rhs_phi_ele,grid,1) .+= op.opC_pL.M * vec(b_phi_ele)
+            
+                res_phi_ele = zeros(size(rhs_phi_ele))
+            
+                @time @inbounds @threads for i in 1:Aphi_eleL.m
+                    @inbounds Aphi_eleL[i,i] += 1e-10
+                end
+                
+                # @time res_phi_ele .= Aphi_eleL \ rhs_phi_ele
+
+                phL.phi_eleD .= Aphi_eleL \ rhs_phi_ele
+                
+                phL.phi_ele .= reshape(veci(phL.phi_eleD,grid,1), grid)
+
+            
+                # phi_ele = reshape(vec1(res_phi_ele, grid), grid)
+                # phi_eleD = reshape(vec2(res_phi_ele, grid), grid)
+            
+                ####################################################################################################
+                
+
+            end
+        end
+        ####################################################################################################
+
         for iLS in 1:nLS
             if is_stefan(BC_int[iLS])
                 update_stefan_velocity(num, grid, iLS, LS[iLS].u, phS.T, phL.T, periodic_x, periodic_y, λ, Vmean)
             elseif is_fs(BC_int[iLS])
-                update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.ucorrD, phL.vcorrD, periodic_x, periodic_y)
+                if electrolysis_phase_change
+                    update_free_surface_velocity_electrolysis(num, grid_u, grid_v, iLS, phL.ucorrD, phL.vcorrD, periodic_x, periodic_y, phS.trans_scal[1], phL.trans_scal[1])
+                else
+                    update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.ucorrD, phL.vcorrD, periodic_x, periodic_y)
+                end
             end
+            #TODO molar flux of hydrogen with Fick's law
+            # $\frac{dm}{dt}=\int_S D \nabla c \cdot \mathbf{n} dS$
         end
 
         if verbose && adaptative_t
@@ -551,7 +717,18 @@ function run_forward(
                 @views fwdL.T[snap,:,:] .= phL.T
                 @views fwdL.TD[snap,:] .= phL.TD
             end
+            if electrolysis_liquid_phase #TODO
 
+                for iscal=1:nb_transported_scalars
+                    @views fwd.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal]
+                    @views fwdL.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal]
+                    # @views fwdL.trans_scalD[snap,:,iscal] .= phL.trans_scalD
+                end
+                @views fwdL.phi_ele[snap,:,:] .= phL.phi_ele
+
+                @views fwdL.phi_eleD[snap,:] .= phL.phi_eleD
+
+            end
             if ns_solid_phase
                 @views fwdS.p[snap,:,:] .= phS.p
                 @views fwdS.pD[snap,:] .= phS.pD
@@ -578,10 +755,21 @@ function run_forward(
         end
         # force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, phL; step=current_i+1)
 
-        if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || any(isnan, phS.uD) || any(isnan, phS.vD) || any(isnan, phS.TD) ||
-            norm(phL.u) > 1e8 || norm(phS.u) > 1e8 || norm(phL.T) > 1e8 || norm(phS.T) > 1e8)
-            println(@sprintf "\n CRASHED after %d iterations \n" current_i)
-            return nothing
+        if electrolysis
+        
+            if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || any(isnan, phS.uD) || any(isnan, phS.vD) || any(isnan, phS.TD) ||
+                any(isnan, phL.trans_scal) || any(isnan, phL.phi_ele) ||
+                norm(phL.u) > 1e8 || norm(phS.u) > 1e8 || norm(phL.T) > 1e8 || norm(phS.T) > 1e8 || norm(phL.trans_scal) > 1e8 || norm(phL.phi_ele) > 1e8)
+                println(@sprintf "\n CRASHED after %d iterations \n" current_i)
+                return nothing
+            end
+        else
+            if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || any(isnan, phS.uD) || any(isnan, phS.vD) || any(isnan, phS.TD) ||
+                norm(phL.u) > 1e8 || norm(phS.u) > 1e8 || norm(phL.T) > 1e8 || norm(phS.T) > 1e8)
+                println(@sprintf "\n CRASHED after %d iterations \n" current_i)
+                return nothing
+            end
+
         end
 
         current_i += 1

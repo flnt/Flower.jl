@@ -407,6 +407,11 @@ function clip_A_acc_to_V(grid, grid_u, grid_v, geo, geo_u, geo_v, ϵ)
     return nothing
 end
 
+"""
+    dimensionalize!()
+
+    dcap... = cap*dx...dx*dy...
+"""
 function dimensionalize!(grid, geo)
     @unpack dx, dy = grid
     @unpack cap, dcap = geo
@@ -426,6 +431,11 @@ function dimensionalize!(grid, geo)
     return nothing
 end
 
+"""
+    postprocess_grids1!()
+
+    clip_cells!, clip_A_acc_to_V, set_cap_bcs!
+"""
 function postprocess_grids1!(grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, periodic_y, ϵ, empty)
     clip_cells!(grid, LS, ϵ, periodic_x, periodic_y)
     clip_cells!(grid_u, LS_u, ϵ, periodic_x, periodic_y)
@@ -441,6 +451,11 @@ function postprocess_grids1!(grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, p
     return nothing
 end
 
+"""
+    postprocess_grids2!()
+
+    dimensionalize!, Wcapacities!, average_face_capacities!
+"""
 function postprocess_grids2!(grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, periodic_y, average)
     dimensionalize!(grid, LS.geoS)
     dimensionalize!(grid, LS.geoL)

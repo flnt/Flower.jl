@@ -10,47 +10,45 @@ set_theme!(fontsize_theme)
 prefix="/local/home/pr277828/flower/test/"
 
 
-
-
-#Khalighi 2023
+#Khalighi 2023: "Hydrogen bubble growth in alkaline water electrolysis: An immersed boundary simulation study"
 
 L0 = 1e-4 
 n = 64
-# x = LinRange(-L0/2, L0/2, n+1)
-# y = LinRange(-L0/2, L0/2, n+1)
 
 x = LinRange(0, L0, n+1)
 y = LinRange(0, L0, n+1)
 
-# xb=x
-# print("test",length(x))
-
-
-
 function f(x)
     v_inlet=6.7e-4
-    # vPoiseuille=8/3*v_inlet*gv.x[1,:]/L0*(1-gv.x[1,:]/L0)
     return 8/3*v_inlet*x/L0*(1-x/L0)
 end
 
+rho=1258
+mu=6.7e-7
+# i0=1
+# theta0=353
+# pres0=1e5
+# sigma=7.7e-2
+# KOHwtpercent=30
+# phi1=-0.6
+# alphac=0.5
+# alphaa=0.5
+# DH2=5.8e-9
+# DKOH=3.2e-9
+# DH2O=3.2e-9
+# C0H2=1.6e-1
+# C0KOH=6.7e3
+# C0H2O=4.9e4
+Re=rho*v_inlet*L0/mu
 
-# function dirichlet_bcs!(gp, D)
-#     @unpack x, nx, ind = gp
-#     # @inbounds @threads for II in ind.
-#     #     D[II] = f(x[II])
-#     # end
-#     for i = 1:nx
-#         D[i]=f(x[i])
-#     end
-# end
-
+print(@sprintf "Re = %.2e\n" Re)
 
 
 num = Numerical(
     case = "Nothing",
     x = x,
     y = y,
-    Re = 1.0,
+    Re = Re,
     CFL = 1.0,
     max_iterations = 500,
     save_every = 10,
@@ -60,33 +58,14 @@ num = Numerical(
 gp, gu, gv = init_meshes(num)
 op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
+#Initialization
+
 #Levelset 1 everywhere
 gp.LS[1].u .= 1.0 
 
-#init v=vPoiseuille
 vPoiseuille = zeros(gv)
-# dirichlet_bcs!(gv, vPoiseuille)
-
 @unpack x, nx, ny, ind = gv
-   
-# for i = 1:nx
-#     vPoiseuille[i]=f(x[i])
-# end
-
 vPoiseuille=f.(x)
-
-# print(vPoiseuille)
-
-# myprint(x) = print(round.(x; sigdigits=2))
-# myprint(vPoiseuille)
-# print(string.(round.(vPoiseuille; digits=2)))
-
-# print(Printf.format.(Ref(Printf.Format("%.2e")), vPoiseuille))
-# print(length(vPoiseuille),length(x))
-
-# for j = 1:ny
-#     phL.v[:,j]=vPoiseuille
-# end
 
 phL.v .=vPoiseuille
 phL.u .= 0.0
@@ -94,47 +73,9 @@ phL.p .= 0.0
 
 vPoiseuilleb=f.(gv.x[1,:])
 
-# print(vPoiseuilleb)
-# break 
-
-
 #Neumann by default?
 
-
-# λ = 1e-2
-# R = L0y / 2.0
-
-# uPoiseuille = R^2 .- gu.y[:,1].^2
-
-# phL.u .= 1.0
-# phL.v .= 0.0
-
-# @time run_forward(
-#     num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
-#     BC_uL = Boundaries(
-#         left = Dirichlet(val = copy(uPoiseuille)),
-#         bottom = Navier(λ = 5λ),
-#         top = Dirichlet(),
-#     ),
-#     BC_vL = Boundaries(
-#         left = Dirichlet(),
-#         bottom = Dirichlet(),
-#         top = Dirichlet(),
-#     ),
-#     BC_pL = Boundaries(
-#         right = Dirichlet(),
-#     ),
-#     BC_int = [Wall()],
-#     time_scheme = CN,
-#     navier_stokes = true,
-#     ns_advection = true,
-#     ns_liquid_phase = true,
-#     verbose = true,
-#     show_every = 1,
-# )
-
-
-
+#TODO pressure left and right BC not mentioned in the article Khalighi 2023
 
 @time run_forward(
     num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
@@ -149,15 +90,12 @@ vPoiseuilleb=f.(gv.x[1,:])
         left = Dirichlet(),
         right=Dirichlet(),
         bottom = Dirichlet(val = copy(vPoiseuilleb)),
-        #not the bottom?
-        # top = Dirichlet(val = copy(vPoiseuilleb)), 
         top=Neumann(val=0.0),
 
     ),
     BC_pL = Boundaries(
         left  = Neumann(val=0.0),
         right = Neumann(val=0.0),
-        #not the bottom?
         bottom=Neumann(val=0.0),
         top= Dirichlet(),
     ),

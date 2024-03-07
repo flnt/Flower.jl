@@ -412,6 +412,9 @@ function laplacian_bc(opC, nLS)
     return bc_L, bc_L_b
 end
 
+"""    
+set Laplacian and BC for p, u, v
+"""
 function set_matrices!(
     num, grid, geo, grid_u, geo_u, grid_v, geo_v,
     opC_p, opC_u, opC_v,
@@ -657,6 +660,20 @@ function CN_set_momentum(
     return A, B, rhs
 end
 
+"""
+Forward Euler
+# Arguments
+- bc_type: BC for interface, num, grid
+- opC
+- A: out
+- B: out
+- L: Laplacian
+- bc_L: Laplacian BC
+- bc_L_b: Laplacian BC?
+- Mm1: ?
+- BC: BC for wall
+- ls_advection
+"""
 function FE_set_momentum(
     bc_type, num, grid, opC,
     A, B,
@@ -748,6 +765,20 @@ function FE_set_momentum(
     return A, B, rhs
 end
 
+"""    
+# Arguments
+- bc_type: BC for interface, num, grid, 
+- a0, 
+- opC, 
+- opC_u, 
+- pC_v,
+- A, 
+- L, 
+- bc_L, 
+- bc_L_b, 
+- BC: BC for wall
+- ls_advection
+"""
 function set_poisson(
     bc_type, num, grid, a0, opC, opC_u, opC_v,
     A, L, bc_L, bc_L_b, BC,

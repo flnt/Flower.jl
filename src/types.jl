@@ -4,7 +4,7 @@ abstract type MutatingFields end
 
 abstract type AbstractOptimizer end
 
-@with_kw struct Numerical{T <: Real, D <: Integer} <: NumericalParameters
+@with_kw struct Numerical{T <: Real, D <: Integer, B<: Bool} <: NumericalParameters
     CFL::T = 0.5 # Courant number
     Re::T = 1.0 # Reynolds number
     TEND::T = 0.0 # Final time of the simulation
@@ -49,6 +49,18 @@ abstract type AbstractOptimizer end
     _nLS::D = nLS == 1 ? 1 : nLS + 1
     subdomains::D = 2
     overlaps::D = 1
+    nb_transported_scalars::D = 0
+    electrolysis::B = false
+    concentration0::Array{T} = [0.0]
+    diffusion_coeff::Array{T} = [0.0]
+    temp0::T = 0.0
+    i0::T = 0.0
+    phi_ele1::T = 0.0
+    alphac::T = 0.0
+    alphaa::T = 0.0
+    Ru::T = 0.0
+    Faraday::T = 0.0
+    MWH2::T = 0.0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -147,6 +159,12 @@ struct OperatorsConvection{T <: Real, D <: Integer} <: MutatingFields
     E22::SparseMatrixCSC{T,D}
 end
 
+"""
+# Items
+- M: face-centered mass matrices, diagonal with coefficients Vα (the volume of the staggered control volumes)
+- χ: 
+- Hx: ?
+"""
 struct Operators{T <: Real, D <: Integer} <: MutatingFields
     AxT::SparseMatrixCSC{T,D}
     AyT::SparseMatrixCSC{T,D}
@@ -194,6 +212,56 @@ struct DiscreteOperators{T <: Real, D <: Integer}
     opC_vL::Operators{T,D}
 end
 
+# struct Phase{T <: Real} <: MutatingFields
+#     T::Array{T,2}
+#     p::Array{T,2}
+#     ϕ::Array{T,2}
+#     Gxm1::Array{T,1}
+#     Gym1::Array{T,1}
+#     u::Array{T,2}
+#     v::Array{T,2}
+#     ucorr::Array{T,2}
+#     vcorr::Array{T,2}
+#     DT::Array{T,2}
+#     Dϕ::Array{T,2}
+#     Du::Array{T,2}
+#     Dv::Array{T,2}
+#     TD::Array{T,1}
+#     pD::Array{T,1}
+#     ϕD::Array{T,1}
+#     uD::Array{T,1}
+#     vD::Array{T,1}
+#     ucorrD::Array{T,1}
+#     vcorrD::Array{T,1}
+# end
+
+# struct Phase{T <: Real, D <: Integer} <: MutatingFields
+#     T::Array{T,2}
+#     p::Array{T,2}
+#     ϕ::Array{T,2}
+#     Gxm1::Array{T,1}
+#     Gym1::Array{T,1}
+#     u::Array{T,2}
+#     v::Array{T,2}
+#     ucorr::Array{T,2}
+#     vcorr::Array{T,2}
+#     DT::Array{T,2}
+#     Dϕ::Array{T,2}
+#     Du::Array{T,2}
+#     Dv::Array{T,2}
+#     TD::Array{T,1}
+#     pD::Array{T,1}
+#     ϕD::Array{T,1}
+#     uD::Array{T,1}
+#     vD::Array{T,1}
+#     ucorrD::Array{T,1}
+#     vcorrD::Array{T,1}
+#     trans_scal::Array{T,2,D}
+#     phi_ele::Array{T,2}
+#     trans_scalD::Array{T,1,D}
+#     phi_eleD::Array{T,1}
+# end
+
 struct Phase{T <: Real} <: MutatingFields
     T::Array{T,2}
     p::Array{T,2}
@@ -215,6 +283,10 @@ struct Phase{T <: Real} <: MutatingFields
     vD::Array{T,1}
     ucorrD::Array{T,1}
     vcorrD::Array{T,1}
+    trans_scal::Array{T,3}
+    phi_ele::Array{T,2}
+    trans_scalD::Array{T,2}
+    phi_eleD::Array{T,1}
 end
 
 struct Forward{T <: Real} <: MutatingFields
@@ -228,6 +300,8 @@ struct Forward{T <: Real} <: MutatingFields
     t::Array{T,1}
     Cd::Array{T,1}
     Cl::Array{T,1}
+    trans_scal::Array{T,4}
+    phi_ele::Array{T,3}
 end
 
 struct ForwardPhase{T <: Real} <: MutatingFields
@@ -241,6 +315,10 @@ struct ForwardPhase{T <: Real} <: MutatingFields
     ucorrD::Array{T,2}
     vcorrD::Array{T,2}
     Vratio::Vector{T}
+    trans_scal::Array{T,4}
+    phi_ele::Array{T,3}
+    trans_scalD::Array{T,3}
+    phi_eleD::Array{T,2}
 end
 
 mutable struct Desired{T <: Real} <: AbstractOptimizer
@@ -406,6 +484,17 @@ end
     bottom::BoundaryCondition = Neumann()
     top::BoundaryCondition = Neumann()
 end
+
+####################################################################################################
+#Electrolysis
+@with_kw mutable struct BoundariesInt <: NumericalParameters
+    left::BoundaryCondition = Neumann()
+    right::BoundaryCondition = Neumann()
+    bottom::BoundaryCondition = Neumann()
+    top::BoundaryCondition = Neumann()
+    int::BoundaryCondition = Neumann()
+end
+####################################################################################################
 
 @with_kw mutable struct DummyBC{T,N} <: BoundaryCondition
     val::N = 0.0

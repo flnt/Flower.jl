@@ -4,7 +4,7 @@
 Update levelset matrices to apply inhomogeneous Neumann boundary conditions in presence of
 contact lines. 
 
-Outside, the contact angle asimptotically converges to an angle of 90°. Inside, the contact
+Outside, the contact angle asymptotically converges to an angle of 90°. Inside, the contact
 angle converges to an angle of 0° if the imposed contact angle at the contact line is
 smaller than 90° and to an angle of 180° if the imposed contact angle is bigger than 90°.
 """
@@ -115,7 +115,7 @@ Update levelset matrices to apply inhomogeneous Neumann boundary conditions in p
 contact lines at the intersection of the interfaces, one with a Wall() BC and the other one
 with a FreeSurface() BC. 
 
-Outside, the contact angle asimptotically converges to an angle of 90°. Inside, the contact
+Outside, the contact angle asymptotically converges to an angle of 90°. Inside, the contact
 angle converges to an angle of 0° if the imposed contact angle at the contact line is
 smaller than 90° and to an angle of 180° if the imposed contact angle is bigger than 90°.
 """
