@@ -580,6 +580,7 @@ function FE_set_momentum_coupled(
     iRe = 1.0 / Re
 
     nip = gp.nx * gp.ny
+    nbp = 2 * gp.nx + 2 * gp.ny
 
     niu = gu.nx * gu.ny
     nbu = 2 * gu.nx + 2 * gu.ny
@@ -864,8 +865,20 @@ function FE_set_momentum_coupled(
                     opv.HyT[iLS] * opv.iMy * opv.Hy[iLS]
                 ) .- opv.χ[iLS] * a1v)
 
-                @inbounds rhs[sbu] .= opu.χ[iLS] * vec(a0u)
-                @inbounds rhs[sbv] .= opv.χ[iLS] * vec(a0v)
+                A[sbu,ntu-nbu+1:ntu] = bu * (
+                    opu.HxT[iLS] * opu.iMx_b * opu.Hx_b .+ opu.HyT[iLS] * opu.iMy_b * opu.Hy_b
+                )
+                A[sbv,ntu+ntv-nbv+1:ntu+ntv] = bv * (
+                    opv.HxT[iLS] * opv.iMx_b * opv.Hx_b .+ opv.HyT[iLS] * opv.iMy_b * opv.Hy_b
+                )
+                # Boundary conditions for outer boundaries
+                A[ntu-nbu+1:ntu,sbu] = b_bu * (
+                    opu.HxT_b * opu.iMx_b' * opu.Hx[iLS] .+ opu.HyT_b * opu.iMy_b' * opu.Hy[iLS]
+                )
+                A[ntu+ntv-nbv+1:ntu+ntv,sbv] = b_bv * (
+                    opv.HxT_b * opv.iMx_b' * opv.Hx[iLS] .+ opv.HyT_b * opv.iMy_b' * opv.Hy[iLS]
+                )
+
                 _iLS += 1
             else # Tangential component of velocity if Navier BC
                 sinα = Diagonal(vec(sin.(gp.LS[iLS].α)))
@@ -962,16 +975,97 @@ function FE_set_momentum_coupled(
                     opp.HxT[iLS] * opp.iMx * opp.Hx[iLS] .+
                     opp.HyT[iLS] * opp.iMy * opp.Hy[iLS]
                 ) .+ opp.χ[iLS])
-                
-                @inbounds rhs[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] .= opp.χ[iLS] * vec(a0p)
 
-                nNav1 += 1
+                sinα_b = Diagonal(zeros(nbp))
+                sinα_b.diag[1:gp.ny] .= sin.(gp.LS[iLS].α[:,1])
+                sinα_b.diag[gp.ny+1:gp.ny+gp.nx] .= sin.(gp.LS[iLS].α[1,:])
+                sinα_b.diag[gp.ny+gp.nx+1:2gp.ny+gp.nx] .= sin.(gp.LS[iLS].α[:,end])
+                sinα_b.diag[2gp.ny+gp.nx+1:end] .= sin.(gp.LS[iLS].α[end,:])
+                cosα_b = Diagonal(zeros(nbp))
+                cosα_b.diag[1:gp.ny] .= cos.(gp.LS[iLS].α[:,1])
+                cosα_b.diag[gp.ny+1:gp.ny+gp.nx] .= cos.(gp.LS[iLS].α[1,:])
+                cosα_b.diag[gp.ny+gp.nx+1:2gp.ny+gp.nx] .= cos.(gp.LS[iLS].α[:,end])
+                cosα_b.diag[2gp.ny+gp.nx+1:end] .= cos.(gp.LS[iLS].α[end,:])
+
+                avgu = spdiagm(nbp, nbu, 0 => zeros(nbp), 1 => zeros(nbp-1))
+                for ii in 1:gp.ny
+                    avgu[ii,ii] = 1.0
+                    avgu[gp.ny+gp.nx+ii,gu.ny+gu.nx+ii] = 1.0
+                end
+                for ii in 1:gp.nx
+                    avgu[ii+gp.ny,ii+gu.ny] = 0.5
+                    avgu[ii+gp.ny,ii+gu.ny+1] = 0.5
+                    avgu[ii+2gp.ny+gp.nx,ii+2gu.ny+gu.nx] = 0.5
+                    avgu[ii+2gp.ny+gp.nx,ii+2gu.ny+gu.nx+1] = 0.5
+                end
+                avgv = spdiagm(nbp, nbv, 0 => zeros(nbp), 1 => zeros(nbp-1))
+                for ii in 1:gp.ny
+                    avgv[ii,ii] = 0.5
+                    avgv[ii,ii+1] = 0.5
+                    avgv[gp.ny+gp.nx+ii,gv.ny+gv.nx+ii] = 0.5
+                    avgv[gp.ny+gp.nx+ii,gv.ny+gv.nx+ii+1] = 0.5
+                end
+                for ii in 1:gp.nx
+                    avgv[ii+gp.ny,ii+gv.ny] = 1.0
+                    avgv[ii+2gp.ny+gp.nx,ii+2gv.ny+gv.nx] = 1.0
+                end
+                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu-nbu+1:ntu] = bp * (
+                    opp.HxT[iLS] * opp.iMx_b * opp.Hx_b .+ 
+                    opp.HyT[iLS] * opp.iMy_b * opp.Hy_b
+                ) * sinα_b * avgu
+                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu+ntv-nbv+1:ntu+ntv] = bp * (
+                    opp.HxT[iLS] * opp.iMx_b * opp.Hx_b .+ 
+                    opp.HyT[iLS] * opp.iMy_b * opp.Hy_b
+                ) * (-cosα_b) * avgv
+                
+                # Boundary conditions for outer boundaries
+                avgu = spdiagm(nbu, nbp, 0 => zeros(nbp), 1 => zeros(nbp-1))
+                for ii in 1:gu.ny
+                    avgu[ii,ii] = 1.0
+                    avgu[gu.ny+gu.nx+ii,gp.ny+gp.nx+ii] = 1.0
+                end
+                avgu[gu.ny+1,gp.ny+1]  = 1.0
+                avgu[gu.ny+gu.nx,gp.ny+gp.nx]  = 1.0
+                avgu[2gu.ny+gu.nx+1,2gp.ny+gp.nx+1]  = 1.0
+                avgu[end,end]  = 1.0
+                for ii in 2:(gu.nx-1)
+                    avgu[ii+gu.ny,ii+gp.ny-1] = 0.5
+                    avgu[ii+gu.ny,ii+gp.ny] = 0.5
+                    avgu[ii+2gu.ny+gu.nx,ii+2gp.ny+gp.nx-1] = 0.5
+                    avgu[ii+2gu.ny+gu.nx,ii+2gp.ny+gp.nx] = 0.5
+                end
+                avgv = spdiagm(nbv, nbp, 0 => zeros(nbp), 1 => zeros(nbp-1))
+                avgv[1,1]  = 1.0
+                avgv[gv.ny,gp.ny]  = 1.0
+                avgv[gv.ny+gv.nx+1,gp.ny+gp.nx+1]  = 1.0
+                avgv[2gv.ny+gv.nx,2gp.ny+gp.nx]  = 1.0
+                for ii in 2:(gv.ny-1)
+                    avgv[ii,ii-1] = 0.5
+                    avgv[ii,ii] = 0.5
+                    avgv[gv.ny+gv.nx+ii,gp.ny+gp.nx+ii] = 0.5
+                    avgv[gv.ny+gv.nx+ii,gp.ny+gp.nx+ii] = 0.5
+                end
+                for ii in 1:gv.nx
+                    avgv[ii+gv.ny,ii+gp.ny] = 1.0
+                    avgv[ii+2gv.ny+gv.nx,ii+2gp.ny+gp.nx] = 1.0
+                end
+                A[ntu-nbu+1:ntu,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = b_bu * (
+                    opu.HxT_b * opu.iMx_b' * opu.Hx[iLS] .+ opu.HyT_b * opu.iMy_b' * opu.Hy[iLS]
+                ) * avgx * sinα
+                A[ntu+ntv-nbv+1:ntu+ntv,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = b_bv * (
+                    opv.HxT_b * opv.iMx_b' * opv.Hx[iLS] .+ opv.HyT_b * opv.iMy_b' * opv.Hy[iLS]
+                ) * avgy * (-cosα)
             end
         end
-    end
 
-    @inbounds rhs[ntu-nbu+1:ntu] .= opu.χ_b * vec(a0_bu)
-    @inbounds rhs[ntu+ntv-nbv+1:ntu+ntv] .= opv.χ_b * vec(a0_bv)
+        if !is_navier_cl(bc_type[iLS]) && !is_navier(bc_type[iLS])
+            @inbounds rhs[sbu] .= opu.χ[iLS] * vec(a0u)
+            @inbounds rhs[sbv] .= opv.χ[iLS] * vec(a0v)
+        else
+            @inbounds rhs[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] .= opp.χ[iLS] * vec(a0p)
+            nNav1 += 1
+        end
+    end
     
     return rhs
 end
@@ -1078,6 +1172,9 @@ function CN_set_momentum(
                 end
             end
             A[sb,sb] = pad(b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .- χ[iLS] * a1)
+            A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b * Hy_b)
+            # Boundary conditions for outer boundaries
+            A[end-nb+1:end,sb] = b_b * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
 
             # Contribution to implicit part of viscous term from inner boundaries
             B[1:ni,sb] = τ2 .* bc_Lm1[iLS]
@@ -1187,6 +1284,9 @@ function FE_set_momentum(
                 end
             end
             A[sb,sb] = pad(b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .- χ[iLS] * a1)
+            A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b * Hy_b)
+            # Boundary conditions for outer boundaries
+            A[end-nb+1:end,sb] = b_b * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
         end
 
         veci(rhs,grid,iLS+1) .= χ[iLS] * vec(a0)
@@ -1292,6 +1392,7 @@ function set_poisson(
                 b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .- χ[iLS] * a1 .+
                 a2 * Diagonal(diag(fs_mat)), 4.0
             )
+            A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b * Hy_b)
             # Boundary conditions for outer boundaries
             A[end-nb+1:end,sb] = -b_b * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
         end

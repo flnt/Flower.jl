@@ -323,7 +323,6 @@ function run_forward(
     V0L = volume(LS[end].geoL)
 
     # Force in x
-    βmult = 1000.0
     if adaptative_t && flapping
         for iLS in 1:nLS
             if is_flapping(BC_int[iLS])
@@ -331,7 +330,7 @@ function run_forward(
                     abs.(V)..., sqrt(max(abs.(grid_u.V)...)^2 + max(abs.(grid_v.V)...)^2),
                     abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)..., 
                     BC_int[iLS].β * BC_int[iLS].KC),
-                    1.0 / BC_int[iLS].β / βmult
+                    1.0 / BC_int[iLS].β / BC_int[iLS].βmult
                 )
             end
         end
@@ -379,7 +378,7 @@ function run_forward(
                 if BC_int[iLS].free
                     grid_u.V .+= τ .* D ./ (BC_int[iLS].ρs .* volume(LS[end].geoS))
                 end
-                grid_v.V .= BC_int[iLS].KC .* BC_int[iLS].β .* cos(2π .* BC_int[iLS].β .* current_t)
+                grid_v.V .= BC_int[iLS].KC .* BC_int[iLS].β .* sin(2π .* BC_int[iLS].β .* current_t)
                 xc[current_i+1] = xc[current_i] + τ * grid_u.V[1,1]
                 yc[current_i+1] = yc[current_i] + τ * grid_v.V[1,1]
                 grid.LS[iLS].u .= sqrt.((grid.x .- xc[current_i+1]) .^ 2 .+ ((grid.y .- yc[current_i+1]) ./ num.A) .^ 2) .- num.R .* ones(grid);
@@ -709,7 +708,7 @@ function run_forward(
                         abs.(V)..., sqrt(max(abs.(grid_u.V)...)^2 + max(abs.(grid_v.V)...)^2),
                         abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)..., 
                         BC_int[iLS].β * BC_int[iLS].KC),
-                        1.0 / BC_int[iLS].β / βmult
+                        1.0 / BC_int[iLS].β / BC_int[iLS].βmult
                     )
                 end
             end
