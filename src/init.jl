@@ -66,8 +66,6 @@ function Levelset(nx, ny)
 
     α = zeros(ny, nx)
     α .= NaN
-    αNavier = zeros(ny, nx)
-    αNavier .= NaN
     κ = zeros(ny, nx)
     
     ii = collect(i for i = 1:nx*ny)
@@ -109,7 +107,7 @@ function Levelset(nx, ny)
 
     return Levelset(
         u, iso, faces, geoS, geoL, mid_point, cut_points,
-        α, αNavier, κ, A, B, MIXED, LIQUID, SOLID, cl
+        α, κ, A, B, MIXED, LIQUID, SOLID, cl
     )
 end
 

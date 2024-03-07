@@ -572,6 +572,7 @@ isFCy(::Mesh) = false
 @inline is_wall_no_slip(::BoundaryCondition) = false
 
 @inline is_wall(::WallNoSlip) = true
+@inline is_wall(::Navier) = true
 @inline is_wall(::Navier_cl) = true
 @inline is_wall(::BoundaryCondition) = false
 

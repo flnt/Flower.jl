@@ -104,7 +104,6 @@ mutable struct Levelset{T,N}
     mid_point::Matrix{Point{T}}
     cut_points::Matrix{Vector{Point{T}}}
     α::Matrix{T}
-    αNavier::Matrix{T}
     κ::Matrix{T}
     A::SparseMatrixCSC{T,N}
     B::SparseMatrixCSC{T,N}
@@ -398,5 +397,6 @@ Only works for elliptical solids.
     ρs::T = 10.0
     KC::T = 2π
     β::T = 1.0
+    βmult::T = 1000.0
     free::Bool = false
 end

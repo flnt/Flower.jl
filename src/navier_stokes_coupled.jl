@@ -805,9 +805,9 @@ function FE_set_momentum_coupled(
                             opv.HyT[iLS] * opv.iMy * opv.Hy[i]
                         )
                     elseif i != iLS
-                        sinα = Diagonal(vec(sin.(gp.LS[i].αNavier)))
+                        sinα = Diagonal(vec(sin.(gp.LS[i].α)))
                         replace!(sinα, NaN=>0.0)
-                        cosα = Diagonal(vec(cos.(gp.LS[i].αNavier)))
+                        cosα = Diagonal(vec(cos.(gp.LS[i].α)))
                         replace!(cosα, NaN=>0.0)
 
                         avgx = copy(opp.Bx)
@@ -868,9 +868,9 @@ function FE_set_momentum_coupled(
                 @inbounds rhs[sbv] .= opv.χ[iLS] * vec(a0v)
                 _iLS += 1
             else # Tangential component of velocity if Navier BC
-                sinα = Diagonal(vec(sin.(gp.LS[iLS].αNavier)))
+                sinα = Diagonal(vec(sin.(gp.LS[iLS].α)))
                 replace!(sinα, NaN=>0.0)
-                cosα = Diagonal(vec(cos.(gp.LS[iLS].αNavier)))
+                cosα = Diagonal(vec(cos.(gp.LS[iLS].α)))
                 replace!(cosα, NaN=>0.0)
 
                 # Contribution to implicit part of viscous term from inner boundaries

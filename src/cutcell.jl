@@ -508,17 +508,20 @@ function postprocess_grids1!(grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, p
     clip_middle_cells!(grid_v, LS_v)
 
     # Compute angles this way so that they exist next to clipped cells
-    LS.αNavier .= atan.(
-        LS.geoL.cap[:,:,4] .- LS.geoL.cap[:,:,2],
-        LS.geoL.cap[:,:,3] .- LS.geoL.cap[:,:,1]
+    non_mixed = vcat(LS.LIQUID, LS.SOLID)
+    LS.α[non_mixed] .= atan.(
+        LS.geoL.cap[non_mixed,4] .- LS.geoL.cap[non_mixed,2],
+        LS.geoL.cap[non_mixed,3] .- LS.geoL.cap[non_mixed,1]
     )
-    LS_u.αNavier .= atan.(
-        LS_u.geoL.cap[:,:,4] .- LS_u.geoL.cap[:,:,2],
-        LS_u.geoL.cap[:,:,3] .- LS_u.geoL.cap[:,:,1]
+    non_mixed_u = vcat(LS_u.LIQUID, LS_u.SOLID)
+    LS_u.α[non_mixed_u] .= atan.(
+        LS_u.geoL.cap[non_mixed_u,4] .- LS_u.geoL.cap[non_mixed_u,2],
+        LS_u.geoL.cap[non_mixed_u,3] .- LS_u.geoL.cap[non_mixed_u,1]
     )
-    LS_v.αNavier .= atan.(
-        LS_v.geoL.cap[:,:,4] .- LS_v.geoL.cap[:,:,2],
-        LS_v.geoL.cap[:,:,3] .- LS_v.geoL.cap[:,:,1]
+    non_mixed_v = vcat(LS_v.LIQUID, LS_v.SOLID)
+    LS_v.α[non_mixed_v] .= atan.(
+        LS_v.geoL.cap[non_mixed_v,4] .- LS_v.geoL.cap[non_mixed_v,2],
+        LS_v.geoL.cap[non_mixed_v,3] .- LS_v.geoL.cap[non_mixed_v,1]
     )
 
     set_cap_bcs!(grid, LS, periodic_x, periodic_y, empty)
