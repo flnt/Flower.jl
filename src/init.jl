@@ -111,7 +111,7 @@ function Levelset(nx, ny)
     )
 end
 
-function Mesh(gridType, x_nodes, y_nodes, nLS, s, o)
+function Mesh(gridType, x_nodes, y_nodes, nLS)
     nx = length(x_nodes) - 1
     ny = length(y_nodes) - 1
 
@@ -133,25 +133,17 @@ function Mesh(gridType, x_nodes, y_nodes, nLS, s, o)
 
     V = zeros(ny, nx)
 
-    dom = domain((OneTo(ny), OneTo(nx), OneTo(2)))
-    subs = (s, s, 1)
-    over = (o, o, 0)
-    dec = DDM.decompose(dom, subs, over)
-
-    domdec = decomposition(dom, dec)
-    pou = uniform(domdec)
-
-    return Mesh{gridType,Float64,Int64}(x_nodes, y_nodes, x, y, nx, ny, dx, dy, LS, ind, V, domdec, pou)
+    return Mesh{gridType,Float64,Int64}(x_nodes, y_nodes, x, y, nx, ny, dx, dy, LS, ind, V)
 end
 
 function init_meshes(num::NumericalParameters)
-    mesh_cc = Mesh(GridCC, num.x, num.y, num._nLS, num.subdomains, num.overlaps)
+    mesh_cc = Mesh(GridCC, num.x, num.y, num._nLS)
 
     xx = vcat(num.x[1] - mesh_cc.dx[1,1]/2, num.x[1:end-1] .+ mesh_cc.dx[1,:]/2, num.x[end] + mesh_cc.dx[1,end]/2)
-    mesh_stx = Mesh(GridFCx, xx, num.y, num._nLS, num.subdomains, num.overlaps)
+    mesh_stx = Mesh(GridFCx, xx, num.y, num._nLS)
 
     yy = vcat(num.y[1] - mesh_cc.dy[1,1]/2, num.y[1:end-1] .+ mesh_cc.dy[:,1]/2, num.y[end] + mesh_cc.dy[end,1]/2)
-    mesh_sty = Mesh(GridFCy, num.x, yy, num._nLS, num.subdomains, num.overlaps)
+    mesh_sty = Mesh(GridFCy, num.x, yy, num._nLS)
 
     return (mesh_cc, mesh_stx, mesh_sty)
 end

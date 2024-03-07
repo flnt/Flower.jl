@@ -1609,8 +1609,6 @@ function pressure_projection!(
         for iLS in 1:nLS
             kill_dead_cells!(veci(rhs_u,grid_u,iLS+1), grid_u, geo_u[end])
         end
-        # blocks = DDM.decompose(Au, grid_u.domdec, grid_u.domdec)
-        # bicgstabl!(ucorrD, Au, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
         # @time bicgstabl!(ucorrD, Au, rhs_u, log=true)
         try
             # @time bicgstabl!(ucorrD, Au, rhs_u, Pl=Diagonal(Au), log=true)
@@ -1623,8 +1621,6 @@ function pressure_projection!(
         for iLS in 1:nLS
             kill_dead_cells!(veci(ucorrD,grid_u,iLS+1), grid_u, geo_u[end])
         end
-        # @mytime _, ch = bicgstabl!(ucorrD, Au, rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
-        # println(ch)
         ucorr .= reshape(vec1(ucorrD,grid_u), grid_u)
 
         # if is_wall_no_slip(bc_int)
@@ -1644,8 +1640,6 @@ function pressure_projection!(
         for iLS in 1:nLS
             kill_dead_cells!(veci(rhs_v,grid_v,iLS+1), grid_v, geo_v[end])
         end
-        # blocks = DDM.decompose(Av, grid_v.domdec, grid_v.domdec)
-        # bicgstabl!(vcorrD, Av, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
         # bicgstabl!(vcorrD, Av, rhs_v, log=true)
         try
             # @time bicgstabl!(vcorrD, Av, rhs_v, Pl=Diagonal(Av), log=true)
@@ -1658,8 +1652,6 @@ function pressure_projection!(
         for iLS in 1:nLS
             kill_dead_cells!(veci(vcorrD,grid_v,iLS+1), grid_v, geo_v[end])
         end
-        # @mytime _, ch = bicgstabl!(vcorrD, Av, rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
-        # println(ch)
         vcorr .= reshape(vec1(vcorrD,grid_v), grid_v)
     else
         uvm1 = zeros(ntu + ntv + nNavier * nip)
@@ -1764,16 +1756,12 @@ function pressure_projection!(
     for iLS in 1:nLS
         kill_dead_cells!(veci(rhs_ϕ,grid,iLS+1), grid, geo[end])
     end
-    # blocks = DDM.decompose(Aϕ, grid.domdec, grid.domdec)
-    # bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl = ras(blocks,grid.pou), log = true)
     # @time bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl = Diagonal(Aϕ), log = true)
     @time ϕD .= Aϕ \ rhs_ϕ
     kill_dead_cells!(vec1(ϕD,grid), grid, geo[end])
     for iLS in 1:nLS
         kill_dead_cells!(veci(ϕD,grid,iLS+1), grid, geo[end])
     end
-    # @mytime _, ch = bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl = ras(blocks,grid.pou), log = true)
-    # println(ch)
     ϕ .= reshape(vec1(ϕD,grid), grid)
 
     iMu = Diagonal(1 ./ (opC_u.M.diag .+ eps(0.01)))

@@ -48,8 +48,6 @@ abstract type AbstractOptimizer end
     nLS::D = 1 # number of levelsets
     _nLS::D = nLS == 1 ? 1 : nLS + 1
     nNavier = 0 # number of Navier inner BCs
-    subdomains::D = 2
-    overlaps::D = 1
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -131,8 +129,6 @@ struct Mesh{G,T,N} <: Grid where {G<:Grid}
     LS::Vector{Levelset}
     ind::Indices{N}
     V::Array{T,2}
-    domdec::DomainDecomposition{TS,3,D,A,O,W} where {TS,D,A,O,W}
-    pou::DomainDecomposedVector{T,3,DomainDecomposition{TS,3,D,A,O,W},A2} where {TS,D,A,O,W,A2}
 end
 
 struct OperatorsConvection{T <: Real, D <: Integer} <: MutatingFields

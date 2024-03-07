@@ -35,8 +35,6 @@ import Base.reshape
 @reexport using LsqFit
 @reexport using Polynomials
 @reexport using JLD
-@reexport using SuiteSparse
-@reexport using DDM
 @reexport using Peaks
 @reexport using GeometryBasics
 @reexport using GeoInterface
