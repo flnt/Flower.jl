@@ -11,7 +11,7 @@ function run_forward(
     BC_vS = Boundaries(),
     BC_vL = Boundaries(),
     BC_u = Boundaries(),
-    BC_int = [Wall()],
+    BC_int = [WallNoSlip()],
     time_scheme = CN,
     ls_scheme = weno5,
     auto_reinit = false,
