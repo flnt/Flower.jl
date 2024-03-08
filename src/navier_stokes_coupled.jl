@@ -1049,12 +1049,12 @@ function FE_set_momentum_coupled(
                     avgv[ii+gv.ny,ii+gp.ny] = 1.0
                     avgv[ii+2gv.ny+gv.nx,ii+2gp.ny+gp.nx] = 1.0
                 end
-                A[ntu-nbu+1:ntu,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = b_bu * (
-                    opu.HxT_b * opu.iMx_b' * opu.Hx[iLS] .+ opu.HyT_b * opu.iMy_b' * opu.Hy[iLS]
-                ) * avgx * sinα
-                A[ntu+ntv-nbv+1:ntu+ntv,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = b_bv * (
-                    opv.HxT_b * opv.iMx_b' * opv.Hx[iLS] .+ opv.HyT_b * opv.iMy_b' * opv.Hy[iLS]
-                ) * avgy * (-cosα)
+                # A[ntu-nbu+1:ntu,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = b_bu * (
+                #     opu.HxT_b * opu.iMx_b' * opu.Hx[iLS] .+ opu.HyT_b * opu.iMy_b' * opu.Hy[iLS]
+                # ) * avgx * sinα
+                # A[ntu+ntv-nbv+1:ntu+ntv,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = b_bv * (
+                #     opv.HxT_b * opv.iMx_b' * opv.Hx[iLS] .+ opv.HyT_b * opv.iMy_b' * opv.Hy[iLS]
+                # ) * avgy * (-cosα)
             end
         end
 
@@ -1066,6 +1066,9 @@ function FE_set_momentum_coupled(
             nNav1 += 1
         end
     end
+
+    @inbounds rhs[ntu-nbu+1:ntu] .= opu.χ_b * vec(a0_bu)
+    @inbounds rhs[ntu+ntv-nbv+1:ntu+ntv] .= opv.χ_b * vec(a0_bv)
     
     return rhs
 end
