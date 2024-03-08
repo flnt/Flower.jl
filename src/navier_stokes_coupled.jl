@@ -896,11 +896,11 @@ function FE_set_momentum_coupled(
                 end
                 @inbounds @threads for II in gu.ind.all_indices[:,1]
                     pII = lexicographic(II, gu.ny)
-                    avgx[pII,pII] = 1.0
+                    avgx[pII,pII] = 0.5
                 end
                 @inbounds @threads for II in gu.ind.all_indices[:,end]
                     pII = lexicographic(II, gu.ny)
-                    avgx[pII,pII-gu.ny] = 1.0
+                    avgx[pII,pII-gu.ny] = 0.5
                 end
                 avgy = copy(opp.By)
                 avgy.nzval .= 0.0
@@ -913,21 +913,21 @@ function FE_set_momentum_coupled(
                 @inbounds @threads for II in gv.ind.all_indices[1,:]
                     pII = lexicographic(II, gp.ny)
                     pJJ = lexicographic(II, gv.ny)
-                    avgy[pJJ,pII] = 1.0
+                    avgy[pJJ,pII] = 0.5
                 end
                 @inbounds @threads for II in gv.ind.all_indices[end,:]
                     pII = lexicographic(II, gp.ny)
                     pJJ = lexicographic(II, gv.ny)
-                    avgy[pJJ,pII-1] = 1.0
+                    avgy[pJJ,pII-1] = 0.5
                 end
-                A[1:niu,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * τ .* (
-                    opu.BxT * opu.iMx * opu.Hx[iLS] .+
-                    opu.ByT * opu.iMy * opu.Hy[iLS]
-                ) * avgx * sinα
-                A[ntu+1:ntu+niv,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * τ .* (
-                    opv.BxT * opv.iMx * opv.Hx[iLS] .+
-                    opv.ByT * opv.iMy * opv.Hy[iLS]
-                ) * avgy * (-cosα)
+                A[1:niu,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * τ .* avgx * sinα * (
+                    opp.BxT * opp.iMx * opp.Hx[iLS] .+
+                    opp.ByT * opp.iMy * opp.Hy[iLS]
+                )
+                A[ntu+1:ntu+niv,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * τ .* avgy * (-cosα) * (
+                    opp.BxT * opp.iMx * opp.Hx[iLS] .+
+                    opp.ByT * opp.iMy * opp.Hy[iLS]
+                )
 
                 # Boundary conditions for inner boundaries
                 avgu = spdiagm(nip, niu, 0 => 0.5 .* fones(gp), gu.ny => 0.5 .* fones(gp))
