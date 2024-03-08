@@ -811,39 +811,47 @@ function FE_set_momentum_coupled(
                         cosα = Diagonal(vec(cos.(gp.LS[i].α)))
                         replace!(cosα, NaN=>0.0)
 
+                        cap1 = gu.LS[i].geoL.cap[:,:,1]
+                        cap2 = gv.LS[i].geoL.cap[:,:,2]
+                        cap3 = gu.LS[i].geoL.cap[:,:,3]
+                        cap4 = gv.LS[i].geoL.cap[:,:,4]
+                        capx = cap1 + cap3
+                        capy = cap2 + cap4
+
                         avgx = copy(opp.Bx)
                         avgx.nzval .= 0.0
                         @inbounds @threads for II in gu.ind.all_indices[:,2:end-1]
                             pII = lexicographic(II, gu.ny)
-                            avgx[pII,pII-gu.ny] = 0.5
-                            avgx[pII,pII] = 0.5
+                            avgx[pII,pII-gu.ny] = cap1[II] / (capx[II] + eps(0.01))
+                            avgx[pII,pII] = cap3[II] / (capx[II] + eps(0.01))
                         end
                         @inbounds @threads for II in gu.ind.all_indices[:,1]
                             pII = lexicographic(II, gu.ny)
-                            avgx[pII,pII] = 1.0
+                            avgx[pII,pII] = 0.5
                         end
                         @inbounds @threads for II in gu.ind.all_indices[:,end]
                             pII = lexicographic(II, gu.ny)
-                            avgx[pII,pII-gu.ny] = 1.0
+                            avgx[pII,pII-gu.ny] = 0.5
                         end
                         avgy = copy(opp.By)
                         avgy.nzval .= 0.0
                         @inbounds @threads for II in gv.ind.all_indices[2:end-1,:]
                             pII = lexicographic(II, gp.ny)
                             pJJ = lexicographic(II, gv.ny)
-                            avgy[pJJ,pII-1] = 0.5
-                            avgy[pJJ,pII] = 0.5
+                            avgy[pJJ,pII-1] = cap2[II] / (capy[II] + eps(0.01))
+                            avgy[pJJ,pII] = cap4[II] / (capy[II] + eps(0.01))
                         end
                         @inbounds @threads for II in gv.ind.all_indices[1,:]
                             pII = lexicographic(II, gp.ny)
                             pJJ = lexicographic(II, gv.ny)
-                            avgy[pJJ,pII] = 1.0
+                            avgy[pJJ,pII] = 0.5
                         end
                         @inbounds @threads for II in gv.ind.all_indices[end,:]
                             pII = lexicographic(II, gp.ny)
                             pJJ = lexicographic(II, gv.ny)
-                            avgy[pJJ,pII-1] = 1.0
+                            avgy[pJJ,pII-1] = 0.5
                         end
+
                         A[sbu,ntu+ntv+1+nNav2*nip:ntu+ntv+(nNav2+1)*nip] = bu * (
                             opu.HxT[iLS] * opu.iMx * opu.Hx[i] .+
                             opu.HyT[iLS] * opu.iMy * opu.Hy[i]
@@ -887,12 +895,19 @@ function FE_set_momentum_coupled(
                 replace!(cosα, NaN=>0.0)
 
                 # Contribution to implicit part of viscous term from inner boundaries
+                cap1 = gu.LS[iLS].geoL.cap[:,:,1]
+                cap2 = gv.LS[iLS].geoL.cap[:,:,2]
+                cap3 = gu.LS[iLS].geoL.cap[:,:,3]
+                cap4 = gv.LS[iLS].geoL.cap[:,:,4]
+                capx = cap1 + cap3
+                capy = cap2 + cap4
+
                 avgx = copy(opp.Bx)
                 avgx.nzval .= 0.0
                 @inbounds @threads for II in gu.ind.all_indices[:,2:end-1]
                     pII = lexicographic(II, gu.ny)
-                    avgx[pII,pII-gu.ny] = 0.5
-                    avgx[pII,pII] = 0.5
+                    avgx[pII,pII-gu.ny] = cap1[II] / (capx[II] + eps(0.01))
+                    avgx[pII,pII] = cap3[II] / (capx[II] + eps(0.01))
                 end
                 @inbounds @threads for II in gu.ind.all_indices[:,1]
                     pII = lexicographic(II, gu.ny)
@@ -907,8 +922,8 @@ function FE_set_momentum_coupled(
                 @inbounds @threads for II in gv.ind.all_indices[2:end-1,:]
                     pII = lexicographic(II, gp.ny)
                     pJJ = lexicographic(II, gv.ny)
-                    avgy[pJJ,pII-1] = 0.5
-                    avgy[pJJ,pII] = 0.5
+                    avgy[pJJ,pII-1] = cap2[II] / (capy[II] + eps(0.01))
+                    avgy[pJJ,pII] = cap4[II] / (capy[II] + eps(0.01))
                 end
                 @inbounds @threads for II in gv.ind.all_indices[1,:]
                     pII = lexicographic(II, gp.ny)
@@ -930,14 +945,36 @@ function FE_set_momentum_coupled(
                 )
 
                 # Boundary conditions for inner boundaries
-                avgu = spdiagm(nip, niu, 0 => 0.5 .* fones(gp), gu.ny => 0.5 .* fones(gp))
+                cap1 = (1.0 .- gp.LS[iLS].geoL.cap[:,:,1])
+                cap2 = (1.0 .- gp.LS[iLS].geoL.cap[:,:,2])
+                cap3 = (1.0 .- gp.LS[iLS].geoL.cap[:,:,3])
+                cap4 = (1.0 .- gp.LS[iLS].geoL.cap[:,:,4])
+                capx = cap1 + cap3
+                capy = cap2 + cap4
+
+                avgu = copy(opp.BxT)
+                avgu.nzval .= 0.0
                 avgv = copy(opp.ByT)
                 avgv.nzval .= 0.0
                 @inbounds @threads for II in gp.ind.all_indices
                     pII = lexicographic(II, gp.ny)
                     pJJ = lexicographic(II, gv.ny)
-                    avgv[pII,pJJ] = 0.5
-                    avgv[pII,pJJ+1] = 0.5
+
+                    if capx[II] > 1e-8
+                        avgu[pII,pII] = cap1[II] / (capx[II] + eps(0.01))
+                        avgu[pII,pII+gu.ny] = cap3[II] / (capx[II] + eps(0.01))
+                    else
+                        avgu[pII,pII] = 0.5
+                        avgu[pII,pII+gu.ny] = 0.5
+                    end
+
+                    if capy[II] > 1e-8
+                        avgv[pII,pJJ] = cap2[II] / (capy[II] + eps(0.01))
+                        avgv[pII,pJJ+1] = cap4[II] / (capy[II] + eps(0.01))
+                    else
+                        avgv[pII,pJJ] = 0.5
+                        avgv[pII,pJJ+1] = 0.5
+                    end
                 end
 
                 A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,1:niu] = bp * (
@@ -952,14 +989,36 @@ function FE_set_momentum_coupled(
 
                 for i in 1:num.nLS
                     if i != iLS && (!is_navier_cl(bc_type[i]) && !is_navier(bc_type[i]))
-                        avgu = spdiagm(nip, niu, 0 => 0.5 .* fones(gp), gu.ny => 0.5 .* fones(gp))
+                        cap1 = (1.0 .- gp.LS[i].geoL.cap[:,:,1])
+                        cap2 = (1.0 .- gp.LS[i].geoL.cap[:,:,2])
+                        cap3 = (1.0 .- gp.LS[i].geoL.cap[:,:,3])
+                        cap4 = (1.0 .- gp.LS[i].geoL.cap[:,:,4])
+                        capx = cap1 + cap3
+                        capy = cap2 + cap4
+
+                        avgu = copy(opp.BxT)
+                        avgu.nzval .= 0.0
                         avgv = copy(opp.ByT)
                         avgv.nzval .= 0.0
                         @inbounds @threads for II in gp.ind.all_indices
                             pII = lexicographic(II, gp.ny)
                             pJJ = lexicographic(II, gv.ny)
-                            avgv[pII,pJJ] = 0.5
-                            avgv[pII,pJJ+1] = 0.5
+
+                            if capx[II] > 1e-8
+                                avgu[pII,pII] = cap1[II] / (capx[II] + eps(0.01))
+                                avgu[pII,pII+up.ny] = cap3[II] / (capx[II] + eps(0.01))
+                            else
+                                avgu[pII,pII] = 0.5
+                                avgu[pII,pII+up.ny] = 0.5
+                            end
+
+                            if capy[II] > 1e-8
+                                avgv[pII,pJJ] = cap2[II] / (capy[II] + eps(0.01))
+                                avgv[pII,pJJ+1] = cap4[II] / (capy[II] + eps(0.01))
+                            else 
+                                avgv[pII,pJJ] = 0.5
+                                avgv[pII,pJJ+1] = 0.5
+                            end
                         end
                         A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,i*niu+1:(i+1)*niu] = bp * (
                             opp.HxT[iLS] * opp.iMx * opp.Hx[i] .+
