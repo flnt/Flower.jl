@@ -935,14 +935,14 @@ function FE_set_momentum_coupled(
                     pJJ = lexicographic(II, gv.ny)
                     avgy[pJJ,pII-1] = 0.5
                 end
-                A[1:niu,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * τ .* avgx * sinα * (
-                    opp.BxT * opp.iMx * opp.Hx[iLS] .+
-                    opp.ByT * opp.iMy * opp.Hy[iLS]
-                )
-                A[ntu+1:ntu+niv,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * τ .* avgy * (-cosα) * (
-                    opp.BxT * opp.iMx * opp.Hx[iLS] .+
-                    opp.ByT * opp.iMy * opp.Hy[iLS]
-                )
+                A[1:niu,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * τ .* (
+                    opu.BxT * opu.iMx * opu.Hx[iLS] .+
+                    opu.ByT * opu.iMy * opu.Hy[iLS]
+                ) * avgx * sinα
+                A[ntu+1:ntu+niv,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * τ .* (
+                    opv.BxT * opv.iMx * opv.Hx[iLS] .+
+                    opv.ByT * opv.iMy * opv.Hy[iLS]
+                ) * avgy * (-cosα)
 
                 # Boundary conditions for inner boundaries
                 cap1 = (1.0 .- gp.LS[iLS].geoL.cap[:,:,1])
