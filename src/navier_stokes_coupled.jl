@@ -895,10 +895,26 @@ function FE_set_momentum_coupled(
                 replace!(cosα, NaN=>0.0)
 
                 # Contribution to implicit part of viscous term from inner boundaries
-                cap1 = gu.LS[iLS].geoL.cap[:,:,1]
-                cap2 = gv.LS[iLS].geoL.cap[:,:,2]
-                cap3 = gu.LS[iLS].geoL.cap[:,:,3]
-                cap4 = gv.LS[iLS].geoL.cap[:,:,4]
+                cap1 = hcat(
+                    zeros(gp.ny),
+                    gp.LS[iLS].geoL.cap[:,1:end-1,3] .- gp.LS[iLS].geoL.cap[:,1:end-1,1],
+                    zeros(gp.ny)
+                )
+                cap2 = vcat(
+                    zeros(1,gp.nx),
+                    gp.LS[iLS].geoL.cap[1:end-1,:,4] .- gp.LS[iLS].geoL.cap[1:end-1,:,2],
+                    zeros(1,gp.nx)
+                )
+                cap3 = hcat(
+                    zeros(gp.ny),
+                    gp.LS[iLS].geoL.cap[:,2:end,3] .- gp.LS[iLS].geoL.cap[:,2:end,1],
+                    zeros(gp.ny)
+                )
+                cap4 = vcat(
+                    zeros(1,gp.nx),
+                    gp.LS[iLS].geoL.cap[2:end,:,4] .- gp.LS[iLS].geoL.cap[2:end,:,2],
+                    zeros(1,gp.nx)
+                )
                 capx = cap1 + cap3
                 capy = cap2 + cap4
 
@@ -906,8 +922,13 @@ function FE_set_momentum_coupled(
                 avgx.nzval .= 0.0
                 @inbounds @threads for II in gu.ind.all_indices[:,2:end-1]
                     pII = lexicographic(II, gu.ny)
-                    avgx[pII,pII-gu.ny] = cap1[II] / (capx[II] + eps(0.01))
-                    avgx[pII,pII] = cap3[II] / (capx[II] + eps(0.01))
+                    if capx[II] > 1e-10
+                        avgx[pII,pII-gu.ny] = cap1[II] / (capx[II] + eps(0.01))
+                        avgx[pII,pII] = cap3[II] / (capx[II] + eps(0.01))
+                    else
+                        avgx[pII,pII-gu.ny] = 0.5
+                        avgx[pII,pII] = 0.5
+                    end
                 end
                 @inbounds @threads for II in gu.ind.all_indices[:,1]
                     pII = lexicographic(II, gu.ny)
@@ -922,8 +943,13 @@ function FE_set_momentum_coupled(
                 @inbounds @threads for II in gv.ind.all_indices[2:end-1,:]
                     pII = lexicographic(II, gp.ny)
                     pJJ = lexicographic(II, gv.ny)
-                    avgy[pJJ,pII-1] = cap2[II] / (capy[II] + eps(0.01))
-                    avgy[pJJ,pII] = cap4[II] / (capy[II] + eps(0.01))
+                    if capy[II] > 1e-10
+                        avgy[pJJ,pII-1] = cap2[II] / (capy[II] + eps(0.01))
+                        avgy[pJJ,pII] = cap4[II] / (capy[II] + eps(0.01))
+                    else
+                        avgy[pJJ,pII-1] = 0.5
+                        avgy[pJJ,pII] = 0.5
+                    end
                 end
                 @inbounds @threads for II in gv.ind.all_indices[1,:]
                     pII = lexicographic(II, gp.ny)
@@ -945,10 +971,10 @@ function FE_set_momentum_coupled(
                 ) * avgy * (-cosα)
 
                 # Boundary conditions for inner boundaries
-                cap1 = (1.0 .- gp.LS[iLS].geoL.cap[:,:,1])
-                cap2 = (1.0 .- gp.LS[iLS].geoL.cap[:,:,2])
-                cap3 = (1.0 .- gp.LS[iLS].geoL.cap[:,:,3])
-                cap4 = (1.0 .- gp.LS[iLS].geoL.cap[:,:,4])
+                cap1 = gu.LS[iLS].geoL.cap[:,1:end-1,5]
+                cap2 = gv.LS[iLS].geoL.cap[1:end-1,:,5]
+                cap3 = gu.LS[iLS].geoL.cap[:,2:end,5]
+                cap4 = gv.LS[iLS].geoL.cap[2:end,:,5]
                 capx = cap1 + cap3
                 capy = cap2 + cap4
 
@@ -960,39 +986,27 @@ function FE_set_momentum_coupled(
                     pII = lexicographic(II, gp.ny)
                     pJJ = lexicographic(II, gv.ny)
 
-                    if capx[II] > 1e-8
-                        avgu[pII,pII] = cap1[II] / (capx[II] + eps(0.01))
-                        avgu[pII,pII+gu.ny] = cap3[II] / (capx[II] + eps(0.01))
-                    else
-                        avgu[pII,pII] = 0.5
-                        avgu[pII,pII+gu.ny] = 0.5
-                    end
+                    avgu[pII,pII] = cap1[II] / (capx[II] + eps(0.01))
+                    avgu[pII,pII+gu.ny] = cap3[II] / (capx[II] + eps(0.01))
 
-                    if capy[II] > 1e-8
-                        avgv[pII,pJJ] = cap2[II] / (capy[II] + eps(0.01))
-                        avgv[pII,pJJ+1] = cap4[II] / (capy[II] + eps(0.01))
-                    else
-                        avgv[pII,pJJ] = 0.5
-                        avgv[pII,pJJ+1] = 0.5
-                    end
+                    avgv[pII,pJJ] = cap2[II] / (capy[II] + eps(0.01))
+                    avgv[pII,pJJ+1] = cap4[II] / (capy[II] + eps(0.01))
                 end
-
-                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,1:niu] = bp * (
+                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,1:niu] = bp * sinα * (
                     opp.HxT[iLS] * opp.iMx * opp.Bx .+
                     opp.HyT[iLS] * opp.iMy * opp.By
-                ) * sinα * avgu
-
-                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu+1:ntu+niv] = bp * (
+                ) * avgu
+                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu+1:ntu+niv] = bp * (-cosα) * (
                     opp.HxT[iLS] * opp.iMx * opp.Bx .+
                     opp.HyT[iLS] * opp.iMy * opp.By
-                ) * (-cosα) * avgv
+                ) * avgv
 
                 for i in 1:num.nLS
                     if i != iLS && (!is_navier_cl(bc_type[i]) && !is_navier(bc_type[i]))
-                        cap1 = (1.0 .- gp.LS[i].geoL.cap[:,:,1])
-                        cap2 = (1.0 .- gp.LS[i].geoL.cap[:,:,2])
-                        cap3 = (1.0 .- gp.LS[i].geoL.cap[:,:,3])
-                        cap4 = (1.0 .- gp.LS[i].geoL.cap[:,:,4])
+                        cap1 = gu.LS[i].geoL.cap[:,1:end-1,3] .- gu.LS[i].geoL.cap[:,1:end-1,1]
+                        cap2 = gv.LS[i].geoL.cap[1:end-1,:,4] .- gv.LS[i].geoL.cap[1:end-1,:,2]
+                        cap3 = gu.LS[i].geoL.cap[:,2:end,3] .- gu.LS[i].geoL.cap[:,2:end,1]
+                        cap4 = gv.LS[i].geoL.cap[2:end,:,4] .- gv.LS[i].geoL.cap[2:end,:,2]
                         capx = cap1 + cap3
                         capy = cap2 + cap4
 
@@ -1004,30 +1018,20 @@ function FE_set_momentum_coupled(
                             pII = lexicographic(II, gp.ny)
                             pJJ = lexicographic(II, gv.ny)
 
-                            if capx[II] > 1e-8
-                                avgu[pII,pII] = cap1[II] / (capx[II] + eps(0.01))
-                                avgu[pII,pII+up.ny] = cap3[II] / (capx[II] + eps(0.01))
-                            else
-                                avgu[pII,pII] = 0.5
-                                avgu[pII,pII+up.ny] = 0.5
-                            end
+                            avgu[pII,pII] = cap1[II] / (capx[II] + eps(0.01))
+                            avgu[pII,pII+up.ny] = cap3[II] / (capx[II] + eps(0.01))
 
-                            if capy[II] > 1e-8
-                                avgv[pII,pJJ] = cap2[II] / (capy[II] + eps(0.01))
-                                avgv[pII,pJJ+1] = cap4[II] / (capy[II] + eps(0.01))
-                            else 
-                                avgv[pII,pJJ] = 0.5
-                                avgv[pII,pJJ+1] = 0.5
-                            end
+                            avgv[pII,pJJ] = cap2[II] / (capy[II] + eps(0.01))
+                            avgv[pII,pJJ+1] = cap4[II] / (capy[II] + eps(0.01))
                         end
-                        A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,i*niu+1:(i+1)*niu] = bp * (
+                        A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,i*niu+1:(i+1)*niu] = bp * sinα * (
                             opp.HxT[iLS] * opp.iMx * opp.Hx[i] .+
                             opp.HyT[iLS] * opp.iMy * opp.Hy[i]
-                        ) * sinα * avgu
-                        A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu+i*niv+1:ntu+(i+1)*niv] = bp * (
+                        ) * avgu
+                        A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu+i*niv+1:ntu+(i+1)*niv] = bp * (-cosα) * (
                             opp.HxT[iLS] * opp.iMx * opp.Hx[i] .+
                             opp.HyT[iLS] * opp.iMy * opp.Hy[i]
-                        ) * (-cosα) * avgv
+                        ) * avgv
                     end
                 end
                 A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = pad(bp * (
