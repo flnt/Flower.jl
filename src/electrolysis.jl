@@ -322,20 +322,6 @@ end
 
 """
 From plot_grid
-    plot_grid(
-        grid;
-        linewidth = 0.5,
-        limitsx = false,
-        limitsy = false,
-        hide = false,
-        skipx = 0,
-        skipy = 0
-    )
-
-Generates a `Figure` displaying the `grid`.
-
-`skipx` and `skipy` set the number of gridlines to skip in order to improve the
-visualization.
 """
 function plot_grid_fig!(fig,ax,
     num, grid;
@@ -344,45 +330,21 @@ function plot_grid_fig!(fig,ax,
     limitsy = false,
     hide = false,
     skipx = 0,
-    skipy = 0
+    skipy = 0,
+    xscale =1.0,
+    yscale = 1.0,
     )
 
-    x = grid.x_nodes
-    y = grid.y_nodes
-    # if isa(limitsx, Tuple{Float64, Float64}) || isa(limitsx, Tuple{Int, Int})
-    #     lx = limitsx        
-    # else
-    #     lx = (min(x...), max(x...))
-    # end
-    # if isa(limitsy, Tuple{Float64, Float64}) || isa(limitsy, Tuple{Int, Int})
-    #     ly = limitsy
-    # else
-    #     ly = (min(y...), max(y...))
-    # end
-
-    # fig = Figure(resolution = (1300, 1000))
-    # ax = Axis(fig[1,1], aspect = DataAspect(), xlabel = L"x", ylabel = L"y", xtickalign = 0, 
-        # ytickalign = 0)
-    # if hide
-    #     hidedecorations!(ax, ticks = false, ticklabels = false)
-    # end
+    x = grid.x_nodes ./xscale
+    y = grid.y_nodes ./yscale
+  
     for i = 1:skipx+1:grid.nx+1
         lines!(ones(grid.ny+1) .* x[i], y, linewidth = linewidth, color = :black)
     end
     for i = 1:skipy+1:grid.ny+1
         lines!(x, ones(grid.nx+1) .* y[i], linewidth = linewidth, color = :black)
     end
-    # for iLS in 1:num.nLS
-    #     contour!(grid.x[1,:], grid.y[:,1], grid.LS[iLS].u', 
-    #         levels = [0.0], color = :red, linewidth = 3.0
-    #     )
-    # end
-    # limits!(ax, lx[1], lx[2], ly[1], ly[2])
-    # colsize!(fig.layout, 1, widths(ax.scene.viewport[])[1])
-    # rowsize!(fig.layout, 1, widths(ax.scene.viewport[])[2])
-    # resize_to_layout!(fig)
 
-    # return fig
 end
 
 

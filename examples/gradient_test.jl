@@ -27,47 +27,66 @@ function plot_grid_figtest!(fig,ax,
 
     x = grid.x_nodes ./xscale
     y = grid.y_nodes ./yscale
-    # if isa(limitsx, Tuple{Float64, Float64}) || isa(limitsx, Tuple{Int, Int})
-    #     lx = limitsx        
-    # else
-    #     lx = (min(x...), max(x...))
-    # end
-    # if isa(limitsy, Tuple{Float64, Float64}) || isa(limitsy, Tuple{Int, Int})
-    #     ly = limitsy
-    # else
-    #     ly = (min(y...), max(y...))
-    # end
-
-    # fig = Figure(resolution = (1300, 1000))
-    # ax = Axis(fig[1,1], aspect = DataAspect(), xlabel = L"x", ylabel = L"y", xtickalign = 0, 
-    #     ytickalign = 0)
-    # if hide
-    #     hidedecorations!(ax, ticks = false, ticklabels = false)
-    # end
+   
     for i = 1:skipx+1:grid.nx+1
         lines!(ones(grid.ny+1) .* x[i], y, linewidth = linewidth, color = :black)
     end
     for i = 1:skipy+1:grid.ny+1
         lines!(x, ones(grid.nx+1) .* y[i], linewidth = linewidth, color = :black)
     end
-    # for iLS in 1:num.nLS
-    #     contour!(grid.x[1,:], grid.y[:,1], grid.LS[iLS].u', 
-    #         levels = [0.0], color = :red, linewidth = 3.0
-    #     )
-    # end
-    # limits!(ax, lx[1], lx[2], ly[1], ly[2])
-    # colsize!(fig.layout, 1, widths(ax.scene.viewport[])[1])
-    # rowsize!(fig.layout, 1, widths(ax.scene.viewport[])[2])
-    # resize_to_layout!(fig)
-
-    # return fig
+  
 end
 
 
 """
 From kinetic_energy
 """
-function scal_magnitude(ph, gp, gu, gv)
+function scal_magnitude(phL, phS, gp, gu, gv)
+
+    LS_u =gu.LS[1]
+    LS_v = gv.LS[1]
+    # LS =gp.LS[1]
+
+    phL.p .= (
+        (phL.u[:,2:end].^2.0 .* LS_u.geoL.dcap[:,2:end,6] .+ 
+        phL.u[:,1:end-1].^2.0 .* LS_u.geoL.dcap[:,1:end-1,6]) ./ 
+        (LS_u.geoL.dcap[:,1:end-1,6] .+ LS_u.geoL.dcap[:,2:end,6] 
+        # .+ 1e-8
+        )
+    )
+    phL.p .+= (
+        (phL.v[2:end,:].^2.0 .* LS_v.geoL.dcap[2:end,:,7] .+ 
+        phL.v[1:end-1,:].^2.0 .* LS_v.geoL.dcap[1:end-1,:,7]) ./
+        (LS_v.geoL.dcap[1:end-1,:,7] .+ LS_v.geoL.dcap[2:end,:,7] 
+        # .+ 1e-8
+        )
+    )
+
+    phL.p .+= (
+        (phS.u[:,2:end].^2.0 .* LS_u.geoS.dcap[:,2:end,6] .+ 
+        phS.u[:,1:end-1].^2.0 .* LS_u.geoS.dcap[:,1:end-1,6]) ./ 
+        (LS_u.geoS.dcap[:,1:end-1,6] .+ LS_u.geoS.dcap[:,2:end,6] 
+        # .+ 1e-8
+        )
+    )
+    phL.p .+= (
+        (phS.v[2:end,:].^2.0 .* LS_v.geoS.dcap[2:end,:,7] .+ 
+        phS.v[1:end-1,:].^2.0 .* LS_v.geoS.dcap[1:end-1,:,7]) ./
+        (LS_v.geoS.dcap[1:end-1,:,7] .+ LS_v.geoS.dcap[2:end,:,7] 
+        # .+ 1e-8
+        )
+    )
+
+
+    phL.p .= sqrt.(phL.p)
+    # ph.p .= sqrt.(ph.p .* LS.geoL.dcap[:,:,5])
+
+end
+
+"""
+From kinetic_energy
+"""
+function scal_magnitude_L(ph, gp, gu, gv)
 
     LS_u =gu.LS[1]
     LS_v = gv.LS[1]
@@ -159,13 +178,24 @@ end
 
 L0 = 1e-4 
 n = 64
-max_iter=1
 
 x = LinRange(0, L0, n+1)
 y = LinRange(0, L0, n+1)
 
 
 ϵ = 0.001
+
+ϵ = 0.0
+
+# ϵ = 0.5
+
+radius=2.5e-5 
+
+xcoord = 5e-5
+ycoord=5e-5
+
+xcoord = -xcoord
+ycoord = -ycoord
 
 
 num = Numerical(
@@ -174,14 +204,16 @@ num = Numerical(
     y = y,
     CFL = 1.0,
     max_iterations = 0,
-    R = 1.0,
+    shifted = xcoord,
+    shifted_y = ycoord,
+    R = radius,
     ϵ = ϵ,
 )
 
 gp, gu, gv = init_meshes(num)
 op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
-gp.LS[1].u .= 1.0
+# gp.LS[1].u .= 1.0
 
 # run_forward(num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL)
 
@@ -210,6 +242,7 @@ gp.LS[1].u .= 1.0
     ),
     # BC_int = [FreeSurface()], #[Wall()],
     BC_int = [Wall()],
+    # BC_int = [FreeSurface()],
 
     BC_TL = Boundaries(
     left = Dirichlet(),
@@ -252,14 +285,10 @@ function ftest(x,y)
     return cos(4*π/L0*x)
 end
 
-phL.T .= ftest.(gp.x,gp.y)
 
-phS.T .= ftest.(gp.x,gp.y)
-
-
-# @views fwd.T[1,:,:] .= phL.T.*LS[end].geoL.cap[:,:,5] .+ phS.T[:,:].*LS[end].geoS.cap[:,:,5]
-
-
+##########################################################################################
+#Initialize liquid phase
+##########################################################################################
 
 x_centroid = gp.x .+ getproperty.(gp.LS[1].geoL.centroid, :x) .* gp.dx
 y_centroid = gp.y .+ getproperty.(gp.LS[1].geoL.centroid, :y) .* gp.dy
@@ -267,27 +296,21 @@ y_centroid = gp.y .+ getproperty.(gp.LS[1].geoL.centroid, :y) .* gp.dy
 x_bc = gp.x .+ getproperty.(gp.LS[1].mid_point, :x) .* gp.dx
 y_bc = gp.y .+ getproperty.(gp.LS[1].mid_point, :y) .* gp.dy
 
+#Initialize bulk value
 vec1(phL.TD,gp) .= vec(ftest.(x_centroid,y_centroid))
+#Initialize interfacial value
 vec2(phL.TD,gp) .= vec(ftest.(x_bc,y_bc))
 
 
 vecb_L(phL.TD, gp) .= ftest.(gp.x[:,1] .- gp.x[:,1] ./ 2.0, gp.y[:,1])
 vecb_B(phL.TD, gp) .= ftest.(gp.x[1,:], gp.y[1,:] .- gp.y[1,:] ./ 2.0)
-
 vecb_R(phL.TD, gp) .= ftest.(gp.x[:,end] .+ gp.x[:,1] ./ 2.0, gp.y[:,1])
 vecb_T(phL.TD, gp) .= ftest.(gp.x[1,:], gp.y[end,:] .+ gp.y[1,:] ./ 2.0)
 
-# vecb_L(a,g::G) where {G<:Grid} = @view vecb(a, g)[1:g.ny]
-# vecb_B(a,g::G) where {G<:Grid} = @view vecb(a, g)[g.ny+1:g.ny+g.nx]
-# vecb_R(a,g::G) where {G<:Grid} = @view vecb(a, g)[g.ny+g.nx+1:2*g.ny+g.nx]
-# vecb_T(a,g::G) where {G<:Grid} = @view vecb(a, g)[2*g.ny+g.nx+1:2*g.ny+2*g.nx]
 
-
-# veci(phL.TD,gp,1) .= vec(phL.T)
-
-# vec1(phL.TD,grid) .= vec(phL.T)
-# vec2(phL.TD,grid) .= θd
-
+##########################################################################################
+#Initialize solid phase
+##########################################################################################
 
 x_centroid = gp.x .+ getproperty.(gp.LS[1].geoS.centroid, :x) .* gp.dx
 y_centroid = gp.y .+ getproperty.(gp.LS[1].geoS.centroid, :y) .* gp.dy
@@ -299,8 +322,61 @@ vec1(phS.TD,gp) .= vec(ftest.(x_centroid,y_centroid))
 vec2(phS.TD,gp) .= vec(ftest.(x_bc,y_bc))
 
 
+vecb_L(phS.TD, gp) .= ftest.(gp.x[:,1] .- gp.x[:,1] ./ 2.0, gp.y[:,1])
+vecb_B(phS.TD, gp) .= ftest.(gp.x[1,:], gp.y[1,:] .- gp.y[1,:] ./ 2.0)
+vecb_R(phS.TD, gp) .= ftest.(gp.x[:,end] .+ gp.x[:,1] ./ 2.0, gp.y[:,1])
+vecb_T(phS.TD, gp) .= ftest.(gp.x[1,:], gp.y[end,:] .+ gp.y[1,:] ./ 2.0)
+
+
+
+
+
+##########################################################################################
+phL.T .= reshape(veci(phL.TD,gp,1), gp)
+phS.T .= reshape(veci(phS.TD,gp,1), gp)
+
+# phL.T .= ftest.(gp.x,gp.y)
+
+# phS.T .= ftest.(gp.x,gp.y)
+
+
+
+LS   = gp.LS
+LS_u = gu.LS
+LS_v = gv.LS
+
+
+@views fwd.T[1,:,:] .= phL.T.*LS[end].geoL.cap[:,:,5] .+ phS.T[:,:].*LS[end].geoS.cap[:,:,5]
+
+
+
 
 compute_grad_T_x!(num,gp, gu, phL, op.opC_pL)
+compute_grad_T_x!(num,gp, gu, phS, op.opC_pS)
+
+
+
+
+# @views fwd.u[1,:,:]    .= phL.u.*LS_u[end].geoL.cap[:,:,5] .+ phS.u[:,:].*LS_u[end].geoS.cap[:,:,5]
+# @views fwd.T[snap,:,:] .= phL.T.*LS[end].geoL.cap[:,:,5] .+ phS.T.*LS[end].geoS.cap[:,:,5]
+
+# @views fwd.u[1,:,:] .= phL.u
+
+# @views fwd.u[1,:,:] .= phL.u.*LS_u[end].geoL.cap[:,:,5] .+ phS.u[:,:].*LS_u[end].geoS.cap[:,:,5]
+@views fwdL.u[1,:,:] .= phL.u.*LS_u[end].geoL.cap[:,:,5] .+ phS.u[:,:].*LS_u[end].geoS.cap[:,:,5]
+
+
+bool = any(isnan, fwdL.u[1,:,:])
+print("Check NaN x ",bool)
+if bool
+    printstyled(color=:red, @sprintf "\n Check NaN %s \n" bool)
+else
+    printstyled(color=:green, @sprintf "\n Check NaN %s \n" bool)
+end
+
+# phL.u .= phL.u .+ phS.u
+# 
+# phL.u .= phL.u .+ phS.u
 
 
 Tscale = 4*π/L0
@@ -314,7 +390,9 @@ ax = Axis(T[1,1], aspect = DataAspect(),
 xticks = xticks, yticks = yticks,
 )
 
-co=contourf!(gu.x[1,:]./xscale, gu.y[:,1]./yscale, phL.u' ./Tscale, 
+# co=contourf!(gu.x[1,:]./xscale, gu.y[:,1]./yscale, fwd.u[1,:,:]' ./Tscale, 
+co=contourf!(gu.x[1,:]./xscale, gu.y[:,1]./yscale, fwdL.u[1,:,:]' ./Tscale, 
+# co=contourf!(gu.x[1,:]./xscale, gu.y[:,1]./yscale, phL.u' ./Tscale, 
 # colormap=:dense, 
 # colorrange=(0.2, 1.0),
 levels = curent_ticks,
@@ -332,10 +410,23 @@ plot_grid_figtest!(T,ax,num,gu,xscale=xscale,yscale=yscale)
  Makie.save(prefix*"T_grad_x.pdf", T)
 
 
-
 compute_grad_T_y!(num,gp, gv, phL, op.opC_pL)
+compute_grad_T_y!(num,gp, gv, phS, op.opC_pS)
 
-print("Check NaN y ",any(isnan, phL.v))
+# @views fwd.v[1,:,:] .= phL.v.*LS_v[end].geoL.cap[:,:,5] .+ phS.v[:,:].*LS_v[end].geoS.cap[:,:,5]
+@views fwdL.v[1,:,:] .= phL.v.*LS_v[end].geoL.cap[:,:,5] .+ phS.v[:,:].*LS_v[end].geoS.cap[:,:,5]
+
+# @views fwd.v[1,:,:] .= phL.v
+
+
+bool = any(isnan, fwdL.v[1,:,:])
+print("Check NaN y ",bool)
+if bool
+    printstyled(color=:red, @sprintf "\n Check NaN %s \n" bool)
+else
+    printstyled(color=:green, @sprintf "\n Check NaN %s \n" bool)
+end
+
 ##################################################################################
 
 Tscale = 4*π/L0
@@ -349,7 +440,9 @@ ax = Axis(T[1,1], aspect = DataAspect(),
 xticks = xticks, yticks = yticks,
 )
 
-co=contourf!(gv.x[1,:]./xscale, gv.y[:,1]./yscale, phL.v' ./Tscale, 
+# co=contourf!(gv.x[1,:]./xscale, gv.y[:,1]./yscale, fwd.v[1,:,:]' ./Tscale, 
+co=contourf!(gv.x[1,:]./xscale, gv.y[:,1]./yscale, fwdL.v[1,:,:]' ./Tscale, 
+# co=contourf!(gv.x[1,:]./xscale, gv.y[:,1]./yscale, phL.v' ./Tscale, 
 # colormap=:dense, 
 # colorrange=(0.2, 1.0),
 levels = curent_ticks,
@@ -379,7 +472,7 @@ curent_ticks = -1:0.25:1
 T = Figure(size = (1600, 1000))
 ax = Axis(T[1,1], aspect = DataAspect(), xticks = xticks, yticks = yticks)
 
-co=contourf!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, phL.T' ./Tscale, 
+co=contourf!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, fwd.T[1,:,:]' ./Tscale, 
 # colormap=:dense, 
 # colorrange=(0.2, 1.0),
 levels = curent_ticks,
@@ -405,11 +498,21 @@ curent_ticks = -1:0.25:1
 
 # print("T",phL.p ./Tscale)
 
-scal_magnitude(phL,gp,gu,gv)
+# scal_magnitude_L(phL,gp,gu,gv)
+# scal_magnitude_L(phS,gp,gu,gv)
+
+scal_magnitude(phL,phS,gp,gu,gv)
+
+
+
+# @views fwd.p[1,:,:] .= phL.p.*LS[end].geoL.cap[:,:,5] .+ phS.p[:,:].*LS[end].geoS.cap[:,:,5]
+# @views fwd.p[1,:,:] .= phL.p
+
 
 T = Figure(size = (1600, 1000))
 ax = Axis(T[1,1], aspect = DataAspect(), xticks = xticks, yticks = yticks)
 
+# co=contourf!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, fwd.p[1,:,:]' ./Tscale, 
 co=contourf!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, phL.p' ./Tscale, 
 # colormap=:dense, 
 # colorrange=(0.2, 1.0),
@@ -425,3 +528,53 @@ limits!(ax, 0.0, num.L0/xscale, 0.0, num.L0/yscale)
 plot_grid_figtest!(T,ax,num,gp,xscale=xscale,yscale=yscale)
 
  Makie.save(prefix*"T_grad_mag.pdf", T)
+
+
+
+ tcks = -num.L0:0.5:num.L0
+
+vlim=1.0
+
+ fa = Figure(figure_padding=(0, 50, 50, 50), size = (1600, 1000))
+ ax = Axis(fa[1,1], aspect = 1, xlabel=L"x", ylabel=L"y", xticks = tcks, yticks = tcks,
+     xgridvisible=false, ygridvisible=false)
+ hmap = heatmap!(gu.x[1,:], gu.y[:,1], fwdL.u[1,:,:]'./Tscale, colorrange=(-vlim, vlim))
+ cbar = fa[1,2] = Colorbar(fa, hmap, labelpadding=0)
+ colsize!(fa.layout, 1, widths(ax.scene.viewport[])[1])
+ rowsize!(fa.layout, 1, widths(ax.scene.viewport[])[2])
+ resize_to_layout!(fa) 
+
+
+Makie.save(prefix*"T_grad_x_heatmap.pdf", fa)
+
+
+tcks = -num.L0:0.5:num.L0
+
+vlim=1.0
+
+ fa = Figure(figure_padding=(0, 50, 50, 50), size = (1600, 1000))
+ ax = Axis(fa[1,1], aspect = 1, xlabel=L"x", ylabel=L"y", xticks = tcks, yticks = tcks,
+     xgridvisible=false, ygridvisible=false)
+ hmap = heatmap!(gv.x[1,:], gv.y[:,1], fwdL.v[1,:,:]'./Tscale, colorrange=(-vlim, vlim))
+ cbar = fa[1,2] = Colorbar(fa, hmap, labelpadding=0)
+ colsize!(fa.layout, 1, widths(ax.scene.viewport[])[1])
+ rowsize!(fa.layout, 1, widths(ax.scene.viewport[])[2])
+ resize_to_layout!(fa) 
+
+
+Makie.save(prefix*"T_grad_y_heatmap.pdf", fa)
+
+
+fa = Figure(figure_padding=(0, 50, 50, 50), size = (1600, 1000))
+ax = Axis(fa[1,1], aspect = 1, xlabel=L"x", ylabel=L"y", xticks = tcks, yticks = tcks,
+    xgridvisible=false, ygridvisible=false)
+hmap = heatmap!(gp.x[1,:], gp.y[:,1], phL.p'./Tscale, colorrange=(-vlim, vlim))
+cbar = fa[1,2] = Colorbar(fa, hmap, labelpadding=0)
+colsize!(fa.layout, 1, widths(ax.scene.viewport[])[1])
+rowsize!(fa.layout, 1, widths(ax.scene.viewport[])[2])
+resize_to_layout!(fa) 
+
+
+Makie.save(prefix*"T_grad_mag_heatmap.pdf", fa)
+
+#TODO TANA
