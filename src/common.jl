@@ -623,6 +623,18 @@ function kill_dead_cells!(S::SubArray{T,N,P,I,L}, grid, geo) where {T,N,P<:Vecto
     end
 end
 
+function kill_dead_cells!(S::SubArray{T,N,P,I,L}, grid, geo) where {T,N,P<:Array{T,3},I,L}
+    @unpack ind = grid
+    # print("kill dead cells mat")
+    @inbounds @threads for II in ind.all_indices
+        if geo.cap[II,5] < 1e-12
+            # print(II, S[II])
+            S[II] = 0.
+            # print("v2",S[II])
+        end
+    end
+end
+
 function init_borders!(T, grid, BC, val=0.0)
     if is_dirichlet(BC.left)
         vecb_L(T, grid) .= BC.left.val

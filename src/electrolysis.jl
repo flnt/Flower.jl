@@ -194,18 +194,18 @@ end
 Butler-Volmer model, relation between exchande current and potential at electrode, with effects of concentration
 c0_H2: reference concentration
 """
-function butler_volmer_concentration(alphaa,alphac,c_H2,c0_H2,c_H2O,c0_H2O,c_KOH,c0_KOH,Faraday,i0,phi_ele,phi_ele1,Ru,temp0)
+function butler_volmer_concentration(alphaa,alphac,c_H2,c0_H2,c_H2O,c0_H2O,c_KOH,c0_KOH,Faraday,i0,phi_ele,phi_ele1,Ru,temperature0)
     eta = phi_ele1 - phi_ele
-    i_current = i0*(sqrt(c_H2/c0_H2)*(c_KOH/c0_KOH)*exp(alphaa*Faraday*eta/(Ru*temp0))-(c_H2O/c0_H2O)*exp(-alphac*Faraday*eta/(Ru*temp0)))
+    i_current = i0*(sqrt(c_H2/c0_H2)*(c_KOH/c0_KOH)*exp(alphaa*Faraday*eta/(Ru*temperature0))-(c_H2O/c0_H2O)*exp(-alphac*Faraday*eta/(Ru*temperature0)))
     return i_current
 end
 
 """
 Butler-Volmer model, relation between exchande current and potential at electrode without concentration
 """
-function butler_volmer_no_concentration(alphaa,alphac,Faraday,i0,phi_ele,phi_ele1,Ru,temp0)
+function butler_volmer_no_concentration(alphaa,alphac,Faraday,i0,phi_ele,phi_ele1,Ru,temperature0)
     eta = phi_ele1 - phi_ele
-    i_current = i0*(exp(alphaa*Faraday*eta/(Ru*temp0))-exp(-alphac*Faraday*eta/(Ru*temp0)))
+    i_current = i0*(exp(alphaa*Faraday*eta/(Ru*temperature0))-exp(-alphac*Faraday*eta/(Ru*temperature0)))
     return i_current
 end
 
@@ -214,7 +214,7 @@ end
 """
 From Stefan_velocity!
 """
-function electrolysis_velocity!(num, grid, LS, V, TS, TL, MIXED, periodic_x, periodic_y)
+function electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodic_y, concentration_scal)
     # @unpack θd, ϵ_κ, ϵ_V, m, θ₀, aniso = num
     @unpack geoS, geoL, κ = LS
 
@@ -224,17 +224,17 @@ function electrolysis_velocity!(num, grid, LS, V, TS, TL, MIXED, periodic_x, per
         # ϵ_v = ifelse(aniso, anisotropy(ϵ_V, m, geoS.projection[II].angle, θ₀), ϵ_V)
         # θ_d = (θd - ϵ_c*κ[II] - ϵ_v*V[II])
 
-        θ_d = c0_H2O
+        θ_d = concentration_scal
 
-        dTS = 0.
+        # dTS = 0.
         dTL = 0.
-        if geoS.projection[II].flag
-            T_1, T_2 = interpolated_temperature(grid, geoS.projection[II].angle, geoS.projection[II].point1, geoS.projection[II].point2, TS, II, periodic_x, periodic_y)
-            dTS = normal_gradient(geoS.projection[II].d1, geoS.projection[II].d2, T_1, T_2, θ_d)
-        else
-            T_1 = interpolated_temperature(grid, geoS.projection[II].angle, geoS.projection[II].point1, TS, II, periodic_x, periodic_y)
-            dTS = normal_gradient(geoS.projection[II].d1, T_1, θ_d)
-        end
+        # if geoS.projection[II].flag
+        #     T_1, T_2 = interpolated_temperature(grid, geoS.projection[II].angle, geoS.projection[II].point1, geoS.projection[II].point2, TS, II, periodic_x, periodic_y)
+        #     dTS = normal_gradient(geoS.projection[II].d1, geoS.projection[II].d2, T_1, T_2, θ_d)
+        # else
+        #     T_1 = interpolated_temperature(grid, geoS.projection[II].angle, geoS.projection[II].point1, TS, II, periodic_x, periodic_y)
+        #     dTS = normal_gradient(geoS.projection[II].d1, T_1, θ_d)
+        # end
         if geoL.projection[II].flag
             T_1, T_2 = interpolated_temperature(grid, geoL.projection[II].angle, geoL.projection[II].point1, geoL.projection[II].point2, TL, II, periodic_x, periodic_y)
             dTL = normal_gradient(geoL.projection[II].d1, geoL.projection[II].d2, T_1, T_2, θ_d)
@@ -250,15 +250,17 @@ end
 """
 From update_free_surface_velocity and update_stefan_velocity
 """
-function update_free_surface_velocity_electrolysis(num, grid_u, grid_v, iLS, uD, vD, periodic_x, periodic_y,c_S,c_L)
-    diffusion_coeff_scal, MWH2,rho,rhoH2=num
+function update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, uD, vD, periodic_x, periodic_y, Vmean, c_L,diffusion_coeff_scal,concentration_scal,opC)
+    @unpack MWH2,rho1,rho2=num
+    @unpack χ,=opC
     #TODO check sign 
-    electrolysis_velocity!(num, grid, grid.LS[iLS], grid.V, c_S, c_L, grid.LS[iLS].MIXED, periodic_x, periodic_y)
+    electrolysis_velocity!(num, grid, grid.LS[iLS], grid.V, c_L, grid.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal)
     # grid.V[grid.LS[iLS].MIXED] .*= 1. ./ λ
 
-    grid.V[grid.LS[iLS].MIXED] .*=-(1/rho-1/rhoH2)*diffusion_coeff_scal[1]*MWH2 #H2
+    #H2
+    #TODO *surface: *χ or χ_b ?
 
-    
+    grid.V[grid.LS[iLS].MIXED] .*=-(1/rho1-1/rho2)*diffusion_coeff_scal[1]*MWH2*χ  
 
 
     if Vmean
@@ -295,6 +297,94 @@ function interpolate_regular_grid(grid,fwdL)
     
     return us,vs
 end
+
+# """
+# From kinetic_energy
+# """
+# function scal_magnitude(ph, gp, gu, gv)
+#     ph.p = zeros(gp)
+
+#     ph.p .= (
+#         (fwdL.u[i,:,2:end].^2.0 .* gu.geoL.dcap[:,2:end,6] .+ 
+#         fwdL.u[i,:,1:end-1].^2.0 .* gu.geoL.dcap[:,1:end-1,6]) ./ 
+#         (gu.geoL.dcap[:,1:end-1,6] .+ gu.geoL.dcap[:,2:end,6] .+ 1e-8)
+#     )
+#     ph.p .+= (
+#         (fwdL.v[i,2:end,:].^2.0 .* gv.geoL.dcap[2:end,:,7] .+ 
+#         fwdL.v[i,1:end-1,:].^2.0 .* gv.geoL.dcap[1:end-1,:,7]) ./
+#         (gv.geoL.dcap[1:end-1,:,7] .+ gv.geoL.dcap[2:end,:,7] .+ 1e-8)
+#     )
+#     ph.p .= sqrt.(ph.p .* gp.geoL.dcap[:,:,5])
+
+# end
+
+
+
+"""
+From plot_grid
+    plot_grid(
+        grid;
+        linewidth = 0.5,
+        limitsx = false,
+        limitsy = false,
+        hide = false,
+        skipx = 0,
+        skipy = 0
+    )
+
+Generates a `Figure` displaying the `grid`.
+
+`skipx` and `skipy` set the number of gridlines to skip in order to improve the
+visualization.
+"""
+function plot_grid_fig!(fig,ax,
+    num, grid;
+    linewidth = 0.5,
+    limitsx = false,
+    limitsy = false,
+    hide = false,
+    skipx = 0,
+    skipy = 0
+    )
+
+    x = grid.x_nodes
+    y = grid.y_nodes
+    # if isa(limitsx, Tuple{Float64, Float64}) || isa(limitsx, Tuple{Int, Int})
+    #     lx = limitsx        
+    # else
+    #     lx = (min(x...), max(x...))
+    # end
+    # if isa(limitsy, Tuple{Float64, Float64}) || isa(limitsy, Tuple{Int, Int})
+    #     ly = limitsy
+    # else
+    #     ly = (min(y...), max(y...))
+    # end
+
+    # fig = Figure(resolution = (1300, 1000))
+    # ax = Axis(fig[1,1], aspect = DataAspect(), xlabel = L"x", ylabel = L"y", xtickalign = 0, 
+        # ytickalign = 0)
+    # if hide
+    #     hidedecorations!(ax, ticks = false, ticklabels = false)
+    # end
+    for i = 1:skipx+1:grid.nx+1
+        lines!(ones(grid.ny+1) .* x[i], y, linewidth = linewidth, color = :black)
+    end
+    for i = 1:skipy+1:grid.ny+1
+        lines!(x, ones(grid.nx+1) .* y[i], linewidth = linewidth, color = :black)
+    end
+    # for iLS in 1:num.nLS
+    #     contour!(grid.x[1,:], grid.y[:,1], grid.LS[iLS].u', 
+    #         levels = [0.0], color = :red, linewidth = 3.0
+    #     )
+    # end
+    # limits!(ax, lx[1], lx[2], ly[1], ly[2])
+    # colsize!(fig.layout, 1, widths(ax.scene.viewport[])[1])
+    # rowsize!(fig.layout, 1, widths(ax.scene.viewport[])[2])
+    # resize_to_layout!(fig)
+
+    # return fig
+end
+
 
 """
     make_video(
@@ -391,8 +481,13 @@ function make_video_vec(
     obs = Observable{Int32}(1)
     iterator = range(0, size(u, 2) - 1, step=step)
 
-    fig = Figure(size = sz)
-    ax  = Axis(fig[1,1], aspect=DataAspect(), xlabel = xlabel, ylabel = ylabel,xticks=xticks, yticks=yticks,
+    # fig = Figure(size = sz)
+    fig = Figure()
+    ax  = Axis(fig[1,1], 
+    # aspect=DataAspect(), 
+    aspect=1,
+    xlabel = xlabel, ylabel = ylabel,
+    xticks=xticks, yticks=yticks,
         xtickalign = 0,  ytickalign = 0)
     if plot_hmap
         print("scalticks", scalticks, "xticks", xticks, "yticks", yticks,"\n")
@@ -443,12 +538,12 @@ function make_video_vec(
         Label(fig[1, 2, Top()], halign = :center, scalelabel)
     end
 
-    limits!(ax, lx[1], lx[2], ly[1], ly[2])
-    colgap!(fig.layout, 10)
-    rowgap!(fig.layout, 10)
-    colsize!(fig.layout, 1, widths(ax.scene.viewport[])[1])
-    rowsize!(fig.layout, 1, widths(ax.scene.viewport[])[2])
-    resize_to_layout!(fig)
+    # limits!(ax, lx[1], lx[2], ly[1], ly[2])
+    # colgap!(fig.layout, 10)
+    # rowgap!(fig.layout, 10)
+    # colsize!(fig.layout, 1, widths(ax.scene.viewport[])[1])
+    # rowsize!(fig.layout, 1, widths(ax.scene.viewport[])[2])
+    # resize_to_layout!(fig)
 
     vid = record(
             fig, title_prefix*title_suffix*".mp4", iterator;
@@ -458,5 +553,117 @@ function make_video_vec(
     end
 
     return vid
+end
+
+function print_electrolysis_statistics(phL)
+
+    # normscal1L = norm(phL.trans_scal[:,:,1])
+    # normscal2L = norm(phL.trans_scal[:,:,2])
+    # normscal3L = norm(phL.trans_scal[:,:,3])
+    # normphi_eleL = norm(phL.phi_ele)
+    # normTL = norm(phL.T)
+    # normiL=0.0 #TODO
+
+    minscal1L = minimum(phL.trans_scal[:,:,1])
+    minscal2L = minimum(phL.trans_scal[:,:,2])
+    minscal3L = minimum(phL.trans_scal[:,:,3])
+    minphi_eleL = minimum(phL.phi_ele)
+    minTL = minimum(phL.T)
+    miniL=minimum(phL.i_current_mag)
+
+    maxscal1L = maximum(phL.trans_scal[:,:,1])
+    maxscal2L = maximum(phL.trans_scal[:,:,2])
+    maxscal3L = maximum(phL.trans_scal[:,:,3])
+    maxphi_eleL = maximum(phL.phi_ele)
+    maxTL = maximum(phL.T)
+    maxiL=maximum(phL.i_current_mag)
+
+    moyscal1L = mean(phL.trans_scal[:,:,1])
+    moyscal2L = mean(phL.trans_scal[:,:,2])
+    moyscal3L = mean(phL.trans_scal[:,:,3])
+    moyphi_eleL = mean(phL.phi_ele)
+    moyTL = mean(phL.T)
+    moyiL=mean(phL.i_current_mag)
+
+    # print("$(@sprintf("norm(cH2) %.6e", normscal1L))\t$(@sprintf("norm(KOH) %.6e", normscal2L))\t$(@sprintf("norm(H2O) %.6e", normscal3L))\n")
+    # print("$(@sprintf("norm(phi_ele) %.6e", normphi_eleL))\t$(@sprintf("norm(T) %.6e", normTL))\t$(@sprintf("norm(i) %.6e", normiL))\n")
+
+    print("$(@sprintf("min(cH2) %.6e", minscal1L))\t$(@sprintf("min(KOH) %.6e", minscal2L))\t$(@sprintf("min(H2O) %.6e", minscal3L))\n")
+    print("$(@sprintf("max(cH2) %.6e", maxscal1L))\t$(@sprintf("max(KOH) %.6e", maxscal2L))\t$(@sprintf("max(H2O) %.6e", maxscal3L))\n")
+    print("$(@sprintf("moy(cH2) %.6e", moyscal1L))\t$(@sprintf("moy(KOH) %.6e", moyscal2L))\t$(@sprintf("moy(H2O) %.6e", moyscal3L))\n")
+
+    print("$(@sprintf("min(phi_ele) %.6e", minphi_eleL))\t$(@sprintf("min(T) %.6e", minTL))\t$(@sprintf("min(i) %.6e", miniL))\n")
+    print("$(@sprintf("max(phi_ele) %.6e", maxphi_eleL))\t$(@sprintf("max(T) %.6e", maxTL))\t$(@sprintf("max(i) %.6e", maxiL))\n")
+    print("$(@sprintf("moy(phi_ele) %.6e", moyphi_eleL))\t$(@sprintf("moy(T) %.6e", moyTL))\t$(@sprintf("moy(i) %.6e", moyiL))\n")
+
+end
+
+"""
+Compute average of values when geo.cap[II,5] > eps 
+"""
+function average!(T::Matrix, grid, geo,num)
+    @unpack ind = grid
+    @unpack eps, = num
+    average= 0.0
+    numcells=0
+    @inbounds @threads for II in ind.all_indices
+        if geo.cap[II,5] >= eps
+            average +=T[II]
+            numcells +=1 
+        end
+    end
+    return average/numcells
+end
+
+
+"""
+  Compute norm of gradient for exchange current
+"""
+# Gradient of pressure, eq. 17 in 
+#"A Conservative Cartesian Cut-Cell Method for Mixed Boundary Conditions and the Incompressible Navier-Stokes Equations on Staggered Meshes"
+#From navier_stokes_coupled.jl
+# ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec(phi_ele) .+ opC_u.Gx_b * vecb(phi_eleD,grid)
+# ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec(phi_ele) .+ opC_v.Gy_b * vecb(phi_eleD,grid)
+# for iLS in 1:nLS
+#     ∇ϕ_x .+= opC_u.Gx[iLS] * veci(phi_eleD,grid,iLS+1)
+#     ∇ϕ_y .+= opC_v.Gy[iLS] * veci(phi_eleD,grid,iLS+1)
+# end
+function compute_grad_phi_ele!(num,grid, grid_u, grid_v, ph, opC_p)
+    
+    @unpack nLS = num
+    @unpack phi_ele, phi_eleD = ph
+
+    ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(phi_eleD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(phi_eleD,grid)
+    ∇ϕ_y = opC_p.iMy * opC_p.By * vec1(phi_eleD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(phi_eleD,grid)
+
+    for iLS in 1:nLS
+        ∇ϕ_x .+= opC_p.iMx * opC_p.Hx[iLS] * veci(phi_eleD,grid,iLS+1)
+        ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(phi_eleD,grid,iLS+1)
+    end
+
+    grd_x .= reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    grd_y .= reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+    LS_u =gu.LS[1]
+    LS_v = gv.LS[1]
+    # LS =gp.LS[1]
+
+    ph.i_current_mag .= (
+        (grd_x[:,2:end].^2.0 .* LS_u.geoL.dcap[:,2:end,6] .+ 
+        grd_x[:,1:end-1].^2.0 .* LS_u.geoL.dcap[:,1:end-1,6]) ./ 
+        (LS_u.geoL.dcap[:,1:end-1,6] .+ LS_u.geoL.dcap[:,2:end,6] 
+        # .+ 1e-8
+        )
+    )
+    ph.i_current_mag .+= (
+        (grd_y[2:end,:].^2.0 .* LS_v.geoL.dcap[2:end,:,7] .+ 
+        ph.v[1:end-1,:].^2.0 .* LS_v.geoL.dcap[1:end-1,:,7]) ./
+        (LS_v.geoL.dcap[1:end-1,:,7] .+ LS_v.geoL.dcap[2:end,:,7] 
+        # .+ 1e-8
+        )
+    )
+    ph.i_current_mag .= sqrt.(ph.i_current_mag)
+
+
 end
 

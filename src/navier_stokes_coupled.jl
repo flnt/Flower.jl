@@ -1148,7 +1148,8 @@ function pressure_projection!(
 
     iMu = Diagonal(1 ./ (opC_u.M.diag .+ eps(0.01)))
     iMv = Diagonal(1 ./ (opC_v.M.diag .+ eps(0.01)))
-
+    # Gradient of pressure, eq. 17 in 
+    #"A Conservative Cartesian Cut-Cell Method for Mixed Boundary Conditions and the Incompressible Navier-Stokes Equations on Staggered Meshes"
     ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec(ϕ) .+ opC_u.Gx_b * vecb(ϕD,grid)
     ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec(ϕ) .+ opC_v.Gy_b * vecb(ϕD,grid)
     for iLS in 1:nLS

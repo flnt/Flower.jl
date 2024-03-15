@@ -42,10 +42,11 @@ function run_forward(
     electrolysis_convection = false,  
     electrolysis_liquid_phase = false,
     electrolysis_phase_change = false,
+    electrolysis_reaction = "nothing",
     )
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations,
             current_i, save_every, reinit_every, nb_reinit, δreinit, ϵ, m, θ₀, aniso, nLS, _nLS,
-            concentration0, diffusion_coeff, nb_transported_scalars, temp0, i0, phi_ele1, alphac,
+            concentration0, diffusion_coeff, nb_transported_scalars, temperature0, i0, phi_ele0, phi_ele1, alphac,
             alphaa, Ru, Faraday = num
     @unpack opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL = op
     @unpack x, y, nx, ny, dx, dy, ind, LS, V = grid
@@ -130,11 +131,18 @@ function run_forward(
     # TODO kill_dead_cells! for [:,:,iscal]
     if electrolysis
         for iscal=1:nb_transported_scalars
-            kill_dead_cells!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL)
+            # kill_dead_cells!(@view(phL.trans_scal[:,:,iscal]), grid, LS[end].geoL) #TODO  end or 1
+            @views kill_dead_cells!(phL.trans_scal[:,:,iscal], grid, LS[end].geoL) #TODO  end or 1
         end
     end     
     ####################################################################################################
-    
+
+    if nb_transported_scalars>0
+        printstyled(color=:green, @sprintf "\n after kill \n")
+        print_electrolysis_statistics(phL)
+        print("average", average!(phL.T, grid, LS[1].geoL, num))
+    end
+
     for iLS in 1:_nLS
         @views fwd.u[iLS,1,:,:] .= LS[iLS].u
         @views fwd.ux[iLS,1,:,:] .= grid_u.LS[iLS].u
@@ -159,6 +167,7 @@ function run_forward(
             @views fwdL.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal]
         end
         @views fwdL.phi_ele[1,:,:] .= phL.phi_ele
+        @views fwdL.i_current_mag[1,:,:] .= phL.i_current_mag
     end     
     ####################################################################################################
 
@@ -172,19 +181,28 @@ function run_forward(
     init_borders!(phL.TD, grid, BC_TL, θd)
     @views fwdL.TD[1,:] .= phL.TD
 
+    
+    if electrolysis
+        printstyled(color=:green, @sprintf "\n Check \n")
+        print_electrolysis_statistics(phL)
+    end
+
     ####################################################################################################
     #Electrolysis
     ####################################################################################################
     if electrolysis
+
+        printstyled(color=:green, @sprintf "\n Check %s %s %s %.2e %.2e\n" heat heat_convection electrolysis τ θd)
+
         for iscal=1:nb_transported_scalars
-            vec1(phL.trans_scalD[:,iscal],grid) .= vec(phL.trans_scal[:,:,iscal])
-            vec2(phL.trans_scalD[:,iscal],grid) .= concentration0[iscal]
-            init_borders!(phL.trans_scalD[:,iscal], grid, BC_trans_scal[iscal], concentration0[iscal])
+            @views vec1(phL.trans_scalD[:,iscal],grid) .= vec(phL.trans_scal[:,:,iscal])
+            @views vec2(phL.trans_scalD[:,iscal],grid) .= concentration0[iscal]
+            @views init_borders!(phL.trans_scalD[:,iscal], grid, BC_trans_scal[iscal], concentration0[iscal])
             @views fwdL.trans_scalD[1,:,iscal] .= phL.trans_scalD[:,iscal]
         end
         vec1(phL.phi_eleD,grid) .= vec(phL.phi_ele)
-        vec2(phL.phi_eleD,grid) .= 0 #TODO
-        init_borders!(phL.phi_eleD, grid, BC_phi_eleL, θd)
+        vec2(phL.phi_eleD,grid) .= phi_ele0 #TODO
+        init_borders!(phL.phi_eleD, grid, BC_phi_eleL, phi_ele0)
         @views fwdL.phi_eleD[1,:] .= phL.phi_eleD
     end     
     ####################################################################################################
@@ -342,8 +360,8 @@ function run_forward(
             if electrolysis_liquid_phase
 
                 for iscal=1:nb_transported_scalars
-                    kill_dead_cells!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL)
-                    veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
+                    @views kill_dead_cells!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL)
+                    @views veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
 
                     A_T, B, rhs = set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TL, LS[1].geoL, phL, θd, BC_trans_scal[iscal],
                                                         LS[1].MIXED, LS[1].geoL.projection,
@@ -351,8 +369,8 @@ function run_forward(
                                                         periodic_x, periodic_y, electrolysis_convection, diffusion_coeff[iscal])
                     mul!(rhs, B, phL.trans_scalD[:,iscal], 1.0, 1.0)
 
-                    phL.trans_scalD[:,iscal] .= A_T \ rhs
-                    phL.trans_scal[:,:,iscal] .= reshape(veci(phL.trans_scalD[:,iscal],grid,1), grid)
+                    @views phL.trans_scalD[:,iscal] .= A_T \ rhs
+                    @views phL.trans_scal[:,:,iscal] .= reshape(veci(phL.trans_scalD[:,iscal],grid,1), grid)
                 end
 
 
@@ -375,10 +393,15 @@ function run_forward(
                 #TODO electrical conductivity depends on concentration
                 #iKOH index of KOH 
                 # kappa_ele=2*Faraday^2*concentration0[iKOH]*diffusion_coeff[iKOH]/(Ru*T)
+                # elec_cond=2*Faraday^2*trans_scal[iKOH]*diffusion_coeff[iKOH]/(Ru*T)
 
                 #so after initialisation
 
-                # kappa_ele=2*Faraday^2*trans_scal[iKOH]*diffusion_coeff[iKOH]/(Ru*T)
+                if heat
+                    elec_cond = 2*Faraday^2 .*phL.trans_scal[:,:,2].*diffusion_coeff[2]./(Ru.*phL.T) #phL.T
+                else
+                    elec_cond = 2*Faraday^2 .*phL.trans_scal[:,:,2].*diffusion_coeff[2]./(Ru*temperature0) 
+                end
 
                 #TODO Poisson with variable coefficients
                 #TODO need to iterate? since nonlinear
@@ -388,9 +411,19 @@ function run_forward(
                 #Update Butler-Volmer Boundary Condition with new potential 
                
                 # eta = phi_ele1 .- phL.phi_ele[:,1]
-                # i_current = i0*(exp(alphaa*Faraday*eta/(Ru*temp0))-exp(-alphac*Faraday*eta/(Ru*temp0)))
+                # i_current = i0*(exp(alphaa*Faraday*eta/(Ru*temperature0))-exp(-alphac*Faraday*eta/(Ru*temperature0)))
 
-                BC_phi_eleL.left.val = butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temp0)
+                if electrolysis_reaction == "Butler_no_concentration"
+
+                    if heat
+                        BC_phi_eleL.left.val = -butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,phL.T)./elec_cond[:,1]
+                    else
+                        BC_phi_eleL.left.val = -butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./elec_cond[:,1]
+                    end    
+
+                elseif electrolysis_reaction == "Butler_no_concentration"
+                    # BC_phi_eleL.left.val = -butler_volmer_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./elec_cond
+                end
 
 
                 Aphi_eleL, rhs_phi_ele = set_poisson(
@@ -438,9 +471,28 @@ function run_forward(
                 phL.phi_ele .= reshape(veci(phL.phi_eleD,grid,1), grid)
 
             
-                # phi_ele = reshape(vec1(res_phi_ele, grid), grid)
-                # phi_eleD = reshape(vec2(res_phi_ele, grid), grid)
-            
+                # TODO compute magnitude of exchange current
+                # gradient!(::Neumann, Ox, Oy, Bx, By, HNx, HNy, Divx, Divy, dcap, n, BC, all_indices, b_left_u, b_bottom_v, b_right_u, b_top_v, b_left_p, b_bottom_p, b_right_p, b_top_p)
+                # TODO add post-treatment variables
+
+                #TODO update BC concentration
+
+                # compute_grad_phi_ele!(grid, phL, V, periodic_x, periodic_y) #TODO current
+                compute_grad_phi_ele!(num,grid, grid_u, grid_v, phL, opC_pL) #TODO current
+
+                
+
+                if heat
+                    elec_cond = 2*Faraday^2 .*phL.trans_scal[:,:,2].*diffusion_coeff[2]./(Ru.*phL.T) #phL.T
+                else
+                    elec_cond = 2*Faraday^2 .*phL.trans_scal[:,:,2].*diffusion_coeff[2]./(Ru*temperature0) 
+                end
+
+                phL.i_current_mag .*= elec_cond # i=-κ∇ϕ here magnitude
+
+                # IIOE_normal!(grid, LS[iLS].A, LS[iLS].B, LS[iLS].u, V, CFL_sc, periodic_x, periodic_y)
+
+
                 ####################################################################################################
                 
 
@@ -453,7 +505,7 @@ function run_forward(
                 update_stefan_velocity(num, grid, iLS, LS[iLS].u, phS.T, phL.T, periodic_x, periodic_y, λ, Vmean)
             elseif is_fs(BC_int[iLS])
                 if electrolysis_phase_change
-                    update_free_surface_velocity_electrolysis(num, grid_u, grid_v, iLS, phL.ucorrD, phL.vcorrD, periodic_x, periodic_y, phS.trans_scal[1], phL.trans_scal[1])
+                    update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, phL.ucorrD, phL.vcorrD, periodic_x, periodic_y, Vmean, phL.trans_scal[:,:,1],diffusion_coeff[1],concentration0[1],opC_pL)
                 else
                     update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.ucorrD, phL.vcorrD, periodic_x, periodic_y)
                 end
@@ -574,6 +626,9 @@ function run_forward(
                         normvL = norm(phL.v)
                         normpL = norm(phL.p.*τ)
                         print("$(@sprintf("norm(uL) %.6e", normuL))\t$(@sprintf("norm(vL) %.6e", normvL))\t$(@sprintf("norm(pL) %.6e", normpL))\n")
+                        if electrolysis
+                            print_electrolysis_statistics(phL)
+                        end 
                     end
                 end
             end
@@ -728,6 +783,9 @@ function run_forward(
 
                 @views fwdL.phi_eleD[snap,:] .= phL.phi_eleD
 
+                @views fwdL.i_current_mag[snap,:,:] .= phL.i_current_mag
+
+
             end
             if ns_solid_phase
                 @views fwdS.p[snap,:,:] .= phS.p
@@ -803,6 +861,9 @@ function run_forward(
                     normvL = norm(phL.v)
                     normpL = norm(phL.p.*τ)
                     print("$(@sprintf("norm(uL) %.6e", normuL))\t$(@sprintf("norm(vL) %.6e", normvL))\t$(@sprintf("norm(pL) %.6e", normpL))\n")
+                    if electrolysis
+                       print_electrolysis_statistics(phL)
+                    end 
                 end
             end
             print("\n\n")

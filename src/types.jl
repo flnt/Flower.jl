@@ -4,7 +4,7 @@ abstract type MutatingFields end
 
 abstract type AbstractOptimizer end
 
-@with_kw struct Numerical{T <: Real, D <: Integer, B<: Bool} <: NumericalParameters
+@with_kw mutable struct Numerical{T <: Real, D <: Integer, B<: Bool} <: NumericalParameters
     CFL::T = 0.5 # Courant number
     Re::T = 1.0 # Reynolds number
     TEND::T = 0.0 # Final time of the simulation
@@ -14,6 +14,7 @@ abstract type AbstractOptimizer end
     Δ::T = min(diff(x)..., diff(y)...)
     shift::T = 0.0
     shifted::T = shift*Δ
+    shifted_y::T = 0.0
     τ::T = min(CFL*Δ^2*Re, CFL*Δ) # timestep
     max_iterations::D = TEND÷τ # maximum number of iterations
     current_i::D = 1
@@ -53,14 +54,18 @@ abstract type AbstractOptimizer end
     electrolysis::B = false
     concentration0::Array{T} = [0.0]
     diffusion_coeff::Array{T} = [0.0]
-    temp0::T = 0.0
+    temperature0::T = 0.0
     i0::T = 0.0
+    phi_ele0::T = 0.0
     phi_ele1::T = 0.0
     alphac::T = 0.0
     alphaa::T = 0.0
     Ru::T = 0.0
     Faraday::T = 0.0
     MWH2::T = 0.0
+    rho1::T = 0.0
+    rho2::T = 0.0
+    eps::T = 1e-12
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -287,6 +292,7 @@ struct Phase{T <: Real} <: MutatingFields
     phi_ele::Array{T,2}
     trans_scalD::Array{T,2}
     phi_eleD::Array{T,1}
+    i_current_mag::Array{T,2}
 end
 
 struct Forward{T <: Real} <: MutatingFields
@@ -302,6 +308,7 @@ struct Forward{T <: Real} <: MutatingFields
     Cl::Array{T,1}
     trans_scal::Array{T,4}
     phi_ele::Array{T,3}
+    i_current_mag::Array{T,3}
 end
 
 struct ForwardPhase{T <: Real} <: MutatingFields
@@ -319,6 +326,7 @@ struct ForwardPhase{T <: Real} <: MutatingFields
     phi_ele::Array{T,3}
     trans_scalD::Array{T,3}
     phi_eleD::Array{T,2}
+    i_current_mag::Array{T,3}
 end
 
 mutable struct Desired{T <: Real} <: AbstractOptimizer
