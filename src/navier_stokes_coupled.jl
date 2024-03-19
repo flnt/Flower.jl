@@ -19,7 +19,7 @@ function set_borders!(grid, cl, u, a0, a1, b, BC, n_ext)
         @inbounds b[idx] .= BC.left.λ
     elseif is_navier_cl(BC.left)
         idx_cl = intersect(CartesianIndices((idx,1)), cl)
-        idx_no = symdiff(CartesianIndices((idx,1)), cl)
+        idx_no = setdiff(CartesianIndices((idx,1)), cl)
         ϵb = zeros(grid)
         ϵb[idx_cl] .= n_ext .* dx[idx_cl]
 
@@ -33,7 +33,7 @@ function set_borders!(grid, cl, u, a0, a1, b, BC, n_ext)
         end
     elseif is_gnbc(BC.left)
         # idx_cl = intersect(CartesianIndices((idx,1)), cl)
-        # idx_no = symdiff(CartesianIndices((idx,1)), cl)
+        # idx_no = setdiff(CartesianIndices((idx,1)), cl)
 
         # bell = bell_function(grid, BC.ϵ)
         # @inbounds a0[idx] .+= bell[idx] .* BC.σ ./ BC.μ .* (cos(θd) .- cos(BC.θe))
@@ -69,7 +69,7 @@ function set_borders!(grid, cl, u, a0, a1, b, BC, n_ext)
         @inbounds b[_idx] .= BC.bottom.λ
     elseif is_navier_cl(BC.bottom)
         idx_cl = intersect(CartesianIndices((1,idx)), cl)
-        idx_no = symdiff(CartesianIndices((1,idx)), cl)
+        idx_no = setdiff(CartesianIndices((1,idx)), cl)
         ϵb = zeros(grid)
         ϵb[idx_cl] .= n_ext .* dy[idx_cl]
 
@@ -84,9 +84,9 @@ function set_borders!(grid, cl, u, a0, a1, b, BC, n_ext)
     elseif is_gnbc(BC.bottom)
         # @inbounds a0[idx] .+= bell[idx] .* BC.σ ./ BC.μ .* (cos(θd) .- cos(BC.θe))
         # @inbounds a1[intersect(idx, cl)] .= -1.0
-        # @inbounds a1[symdiff(idx, cl)] .= -1.0
+        # @inbounds a1[setdiff(idx, cl)] .= -1.0
         # @inbounds b[intersect(idx, cl)] .= BC.bottom.λ
-        # @inbounds b[symdiff(idx, cl)] .= 0.0
+        # @inbounds b[setdiff(idx, cl)] .= 0.0
         nothing
     else
         @error ("Not implemented yet")
@@ -111,7 +111,7 @@ function set_borders!(grid, cl, u, a0, a1, b, BC, n_ext)
         @inbounds b[_idx] .= BC.right.λ
     elseif is_navier_cl(BC.right)
         idx_cl = intersect(CartesianIndices((idx,nx)), cl)
-        idx_no = symdiff(CartesianIndices((idx,nx)), cl)
+        idx_no = setdiff(CartesianIndices((idx,nx)), cl)
         ϵb = zeros(grid)
         ϵb[idx_cl] .= n_ext .* dx[idx_cl]
 
@@ -126,9 +126,9 @@ function set_borders!(grid, cl, u, a0, a1, b, BC, n_ext)
     elseif is_gnbc(BC.right)
         # @inbounds a0[idx] .+= bell[idx] .* BC.σ ./ BC.μ .* (cos(θd) .- cos(BC.θe))
         # @inbounds a1[intersect(idx, cl)] .= -1.0
-        # @inbounds a1[symdiff(idx, cl)] .= -1.0
+        # @inbounds a1[setdiff(idx, cl)] .= -1.0
         # @inbounds b[intersect(idx, cl)] .= BC.right.λ
-        # @inbounds b[symdiff(idx, cl)] .= 0.0
+        # @inbounds b[setdiff(idx, cl)] .= 0.0
         nothing
     else
         @error ("Not implemented yet")
@@ -153,7 +153,7 @@ function set_borders!(grid, cl, u, a0, a1, b, BC, n_ext)
         @inbounds b[_idx] .= BC.top.λ
     elseif is_navier_cl(BC.top)
         idx_cl = intersect(CartesianIndices((1,idx)), cl)
-        idx_no = symdiff(CartesianIndices((1,idx)), cl)
+        idx_no = setdiff(CartesianIndices((1,idx)), cl)
         ϵb = zeros(grid)
         ϵb[idx_cl] .= n_ext .* dy[idx_cl]
 
@@ -168,9 +168,9 @@ function set_borders!(grid, cl, u, a0, a1, b, BC, n_ext)
     elseif is_gnbc(BC.top)
         # @inbounds a0[idx] .+= bell[idx] .* BC.σ ./ BC.μ .* (cos(θd) .- cos(BC.θe))
         # @inbounds a1[intersect(idx, cl)] .= -1.0
-        # @inbounds a1[symdiff(idx, cl)] .= -1.0
+        # @inbounds a1[setdiff(idx, cl)] .= -1.0
         # @inbounds b[intersect(idx, cl)] .= BC.top.λ
-        # @inbounds b[symdiff(idx, cl)] .= 0.0
+        # @inbounds b[setdiff(idx, cl)] .= 0.0
         nothing
     else
         @error ("Not implemented yet")
@@ -807,14 +807,30 @@ function FE_set_momentum_coupled(
                         )
                     elseif i != iLS
                         sinα = Diagonal(vec(sin.(gp.LS[i].α)))
-                        replace!(sinα, NaN=>0.0)
+                        replace!(sinα.diag, NaN=>0.0)
                         cosα = Diagonal(vec(cos.(gp.LS[i].α)))
-                        replace!(cosα, NaN=>0.0)
+                        replace!(cosα.diag, NaN=>0.0)
 
-                        cap1 = gu.LS[i].geoL.cap[:,:,1]
-                        cap2 = gv.LS[i].geoL.cap[:,:,2]
-                        cap3 = gu.LS[i].geoL.cap[:,:,3]
-                        cap4 = gv.LS[i].geoL.cap[:,:,4]
+                        cap1 = hcat(
+                            zeros(gp.ny),
+                            gp.LS[i].geoL.cap[:,1:end-1,3] .- gp.LS[i].geoL.cap[:,1:end-1,1],
+                            zeros(gp.ny)
+                        )
+                        cap2 = vcat(
+                            zeros(1,gp.nx),
+                            gp.LS[i].geoL.cap[1:end-1,:,4] .- gp.LS[i].geoL.cap[1:end-1,:,2],
+                            zeros(1,gp.nx)
+                        )
+                        cap3 = hcat(
+                            zeros(gp.ny),
+                            gp.LS[i].geoL.cap[:,2:end,3] .- gp.LS[i].geoL.cap[:,2:end,1],
+                            zeros(gp.ny)
+                        )
+                        cap4 = vcat(
+                            zeros(1,gp.nx),
+                            gp.LS[i].geoL.cap[2:end,:,4] .- gp.LS[i].geoL.cap[2:end,:,2],
+                            zeros(1,gp.nx)
+                        )
                         capx = cap1 + cap3
                         capy = cap2 + cap4
 
@@ -822,8 +838,13 @@ function FE_set_momentum_coupled(
                         avgx.nzval .= 0.0
                         @inbounds @threads for II in gu.ind.all_indices[:,2:end-1]
                             pII = lexicographic(II, gu.ny)
-                            avgx[pII,pII-gu.ny] = cap1[II] / (capx[II] + eps(0.01))
-                            avgx[pII,pII] = cap3[II] / (capx[II] + eps(0.01))
+                            if capx[II] > 1e-10
+                                avgx[pII,pII-gu.ny] = cap1[II] / (capx[II] + eps(0.01))
+                                avgx[pII,pII] = cap3[II] / (capx[II] + eps(0.01))
+                            else
+                                avgx[pII,pII-gu.ny] = 0.5
+                                avgx[pII,pII] = 0.5
+                            end
                         end
                         @inbounds @threads for II in gu.ind.all_indices[:,1]
                             pII = lexicographic(II, gu.ny)
@@ -838,8 +859,13 @@ function FE_set_momentum_coupled(
                         @inbounds @threads for II in gv.ind.all_indices[2:end-1,:]
                             pII = lexicographic(II, gp.ny)
                             pJJ = lexicographic(II, gv.ny)
-                            avgy[pJJ,pII-1] = cap2[II] / (capy[II] + eps(0.01))
-                            avgy[pJJ,pII] = cap4[II] / (capy[II] + eps(0.01))
+                            if capy[II] > 1e-10
+                                avgy[pJJ,pII-1] = cap2[II] / (capy[II] + eps(0.01))
+                                avgy[pJJ,pII] = cap4[II] / (capy[II] + eps(0.01))
+                            else
+                                avgy[pJJ,pII-1] = 0.5
+                                avgy[pJJ,pII] = 0.5
+                            end
                         end
                         @inbounds @threads for II in gv.ind.all_indices[1,:]
                             pII = lexicographic(II, gp.ny)
@@ -851,7 +877,6 @@ function FE_set_momentum_coupled(
                             pJJ = lexicographic(II, gv.ny)
                             avgy[pJJ,pII-1] = 0.5
                         end
-
                         A[sbu,ntu+ntv+1+nNav2*nip:ntu+ntv+(nNav2+1)*nip] = bu * (
                             opu.HxT[iLS] * opu.iMx * opu.Hx[i] .+
                             opu.HyT[iLS] * opu.iMy * opu.Hy[i]
@@ -890,9 +915,9 @@ function FE_set_momentum_coupled(
                 _iLS += 1
             else # Tangential component of velocity if Navier BC
                 sinα = Diagonal(vec(sin.(gp.LS[iLS].α)))
-                replace!(sinα, NaN=>0.0)
+                replace!(sinα.diag, NaN=>0.0)
                 cosα = Diagonal(vec(cos.(gp.LS[iLS].α)))
-                replace!(cosα, NaN=>0.0)
+                replace!(cosα.diag, NaN=>0.0)
 
                 # Contribution to implicit part of viscous term from inner boundaries
                 cap1 = hcat(
@@ -1019,7 +1044,7 @@ function FE_set_momentum_coupled(
                             pJJ = lexicographic(II, gv.ny)
 
                             avgu[pII,pII] = cap1[II] / (capx[II] + eps(0.01))
-                            avgu[pII,pII+up.ny] = cap3[II] / (capx[II] + eps(0.01))
+                            avgu[pII,pII+gu.ny] = cap3[II] / (capx[II] + eps(0.01))
 
                             avgv[pII,pJJ] = cap2[II] / (capy[II] + eps(0.01))
                             avgv[pII,pJJ+1] = cap4[II] / (capy[II] + eps(0.01))
