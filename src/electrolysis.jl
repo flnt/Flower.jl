@@ -590,10 +590,20 @@ end
 #     ∇ϕ_x .+= opC_u.Gx[iLS] * veci(phi_eleD,grid,iLS+1)
 #     ∇ϕ_y .+= opC_v.Gy[iLS] * veci(phi_eleD,grid,iLS+1)
 # end
-function compute_grad_phi_ele!(num,grid, grid_u, grid_v, ph, opC_p)
+function compute_grad_phi_ele!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS)
     
     @unpack nLS = num
-    @unpack phi_ele, phi_eleD = ph
+
+    LS_u =grid_u.LS[1]
+    LS_v = grid_v.LS[1]
+    # LS =gp.LS[1]
+
+    eps_den = 1e-8
+    #TODO different way to do it?
+
+    #Liquid phase
+    @unpack phi_eleD = phL
+    opC_p = opC_pL
 
     ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(phi_eleD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(phi_eleD,grid)
     ∇ϕ_y = opC_p.iMy * opC_p.By * vec1(phi_eleD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(phi_eleD,grid)
@@ -603,29 +613,60 @@ function compute_grad_phi_ele!(num,grid, grid_u, grid_v, ph, opC_p)
         ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(phi_eleD,grid,iLS+1)
     end
 
-    grd_x .= reshape(veci(∇ϕ_x,grid_u,1), grid_u)
-    grd_y .= reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+    grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
 
-    LS_u =gu.LS[1]
-    LS_v = gv.LS[1]
-    # LS =gp.LS[1]
-
-    ph.i_current_mag .= (
+    phL.i_current_mag .= (
         (grd_x[:,2:end].^2.0 .* LS_u.geoL.dcap[:,2:end,6] .+ 
         grd_x[:,1:end-1].^2.0 .* LS_u.geoL.dcap[:,1:end-1,6]) ./ 
-        (LS_u.geoL.dcap[:,1:end-1,6] .+ LS_u.geoL.dcap[:,2:end,6] 
-        # .+ 1e-8
-        )
+        (LS_u.geoL.dcap[:,1:end-1,6] .+ LS_u.geoL.dcap[:,2:end,6] .+ eps_den )
     )
-    ph.i_current_mag .+= (
+    phL.i_current_mag .+= (
         (grd_y[2:end,:].^2.0 .* LS_v.geoL.dcap[2:end,:,7] .+ 
-        ph.v[1:end-1,:].^2.0 .* LS_v.geoL.dcap[1:end-1,:,7]) ./
-        (LS_v.geoL.dcap[1:end-1,:,7] .+ LS_v.geoL.dcap[2:end,:,7] 
-        # .+ 1e-8
-        )
+        grd_y[1:end-1,:].^2.0 .* LS_v.geoL.dcap[1:end-1,:,7]) ./
+        (LS_v.geoL.dcap[1:end-1,:,7] .+ LS_v.geoL.dcap[2:end,:,7] .+ eps_den )
     )
-    ph.i_current_mag .= sqrt.(ph.i_current_mag)
 
+    #Solid phase
+    @unpack phi_eleD = phS
+
+    opC_p = opC_pS
+
+    ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(phi_eleD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(phi_eleD,grid)
+    ∇ϕ_y = opC_p.iMy * opC_p.By * vec1(phi_eleD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(phi_eleD,grid)
+
+    for iLS in 1:nLS
+        ∇ϕ_x .+= opC_p.iMx * opC_p.Hx[iLS] * veci(phi_eleD,grid,iLS+1)
+        ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(phi_eleD,grid,iLS+1)
+    end
+
+    grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+    # phS.i_current_mag .= (
+    #     (grd_x[:,2:end].^2.0 .* LS_u.geoS.dcap[:,2:end,6] .+ 
+    #     grd_x[:,1:end-1].^2.0 .* LS_u.geoS.dcap[:,1:end-1,6]) ./ 
+    #     (LS_u.geoS.dcap[:,1:end-1,6] .+ LS_u.geoS.dcap[:,2:end,6] + eps_den )
+    # )
+    # phS.i_current_mag .+= (
+    #     (grd_y[2:end,:].^2.0 .* LS_v.geoS.dcap[2:end,:,7] .+ 
+    #     ph.v[1:end-1,:].^2.0 .* LS_v.geoS.dcap[1:end-1,:,7]) ./
+    #     (LS_v.geoS.dcap[1:end-1,:,7] .+ LS_v.geoS.dcap[2:end,:,7] + eps_den )
+    # )
+
+    phL.i_current_mag .+= (
+        (grd_x[:,2:end].^2.0 .* LS_u.geoS.dcap[:,2:end,6] .+ 
+        grd_x[:,1:end-1].^2.0 .* LS_u.geoS.dcap[:,1:end-1,6]) ./ 
+        (LS_u.geoS.dcap[:,1:end-1,6] .+ LS_u.geoS.dcap[:,2:end,6] .+ eps_den )
+    )
+    phL.i_current_mag .+= (
+        (grd_y[2:end,:].^2.0 .* LS_v.geoS.dcap[2:end,:,7] .+ 
+        grd_y[1:end-1,:].^2.0 .* LS_v.geoS.dcap[1:end-1,:,7]) ./
+        (LS_v.geoS.dcap[1:end-1,:,7] .+ LS_v.geoS.dcap[2:end,:,7] .+ eps_den )
+    )
+
+    phL.i_current_mag .= sqrt.(phL.i_current_mag)
+    # phS.i_current_mag .= sqrt.(phS.i_current_mag)
 
 end
 

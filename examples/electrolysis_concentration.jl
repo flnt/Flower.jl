@@ -21,7 +21,10 @@ L0 = 1e-4
 n = 64
 # max_iter=5
 # n = 10
-max_iter=1
+# max_iter=1
+
+max_iter=100
+
 
 
 h0 = 0.25*L0 #TODO h0
@@ -244,7 +247,10 @@ phS.T .= temperature0
 #Initialization
 
 #Levelset 1 everywhere
-gp.LS[1].u .= 1.0 
+figname0=""
+
+gp.LS[1].u .= 1.0
+figname0="no_intfc"
 
 # gp.LS[1].u .= 0.0 
 
@@ -644,178 +650,3 @@ limits!(ax, 0.0, num.L0/xscale, 0.0, num.L0/yscale)
 
 Makie.save(prefix*"fH2.pdf", fH2)
 
-
-
-# compute_grad_phi_ele!(num,gp, phL, op.opC_pL)
-
-# print("current",phL.i_current_mag)
-
-# currentscale= 1e4
-# curent_ticks = 0:0.25:2
-
-# current = Figure(size = (1600, 1000))
-# ax = Axis(current[1,1], aspect = DataAspect(), xticks = xticks, yticks = yticks)
-
-# co=contourf!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, phL.i_current_mag' ./currentscale, 
-# # colormap=:dense, 
-# # colorrange=(0.2, 1.0),
-# levels = curent_ticks,
-# )
-# Colorbar(current[1, 2], co, 
-# ticks = curent_ticks,
-# )
-# contour!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, gp.LS[1].u', levels = 0:0, color=:red, linewidth = 5);
-# contour!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 5, linestyle=:dot);
-# limits!(ax, 0.0, num.L0/xscale, 0.0, num.L0/yscale)
-#  Makie.save(prefix*"current.pdf", current)
-
-
-function ftest(x,y)
-    return cos(4*π/L0*x)
-end
-
-phL.phi_ele .= ftest.(gp.x,gp.y)
-
-
-x_centroid = gp.x .+ getproperty.(gp.LS[1].geoL.centroid, :x) .* gp.dx
-y_centroid = gp.y .+ getproperty.(gp.LS[1].geoL.centroid, :y) .* gp.dy
-
-x_bc = gp.x .+ getproperty.(gp.LS[1].mid_point, :x) .* gp.dx
-y_bc = gp.y .+ getproperty.(gp.LS[1].mid_point, :y) .* gp.dy
-
-vec1(phL.phi_eleD,gp) .= vec(ftest.(x_centroid,y_centroid))
-vec2(phL.phi_eleD,gp) .= vec(ftest.(x_bc,y_bc))
-
-# veci(phL.phi_eleD,gp,1) .= vec(phL.phi_ele)
-
-
-# vec1(phL.TD,grid) .= vec(phL.T)
-# vec2(phL.TD,grid) .= θd
-
-
-
-compute_grad_phi_ele!(num,gp, phL, op.opC_pL)
-
-
-currentscale = 1.0
-currentscale = 4*π/L0
-curent_ticks = -1:0.25:1
-
-print("current",phL.i_current_mag ./currentscale)
-
-
-current = Figure(size = (1600, 1000))
-ax = Axis(current[1,1], aspect = DataAspect(), xticks = xticks, yticks = yticks)
-
-co=contourf!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, phL.i_current_mag' ./currentscale, 
-# colormap=:dense, 
-# colorrange=(0.2, 1.0),
-levels = curent_ticks,
-)
-Colorbar(current[1, 2], co, 
-ticks = curent_ticks,
-)
-contour!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, gp.LS[1].u', levels = 0:0, color=:red, linewidth = 5);
-contour!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 5, linestyle=:dot);
-limits!(ax, 0.0, num.L0/xscale, 0.0, num.L0/yscale)
- Makie.save(prefix*"currenttest.pdf", current)
-
-
-currentscale= 1.0
-curent_ticks = -1:0.25:1
-
-current = Figure(size = (1600, 1000))
-ax = Axis(current[1,1], aspect = DataAspect(), xticks = xticks, yticks = yticks)
-
-co=contourf!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, phL.phi_ele' ./currentscale, 
-# colormap=:dense, 
-# colorrange=(0.2, 1.0),
-levels = curent_ticks,
-)
-Colorbar(current[1, 2], co, 
-ticks = curent_ticks,
-)
-contour!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, gp.LS[1].u', levels = 0:0, color=:red, linewidth = 5);
-contour!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 5, linestyle=:dot);
-limits!(ax, 0.0, num.L0/xscale, 0.0, num.L0/yscale)
-Makie.save(prefix*"phitest.pdf", current)
-
-
-
-compute_grad_phi_ele_x!(num,gp, phL, op.opC_pL)
-
-
-currentscale = 1.0
-currentscale = 4*π/L0
-curent_ticks = -1:0.25:1
-
-print("current x",phL.i_current_mag ./currentscale)
-
-
-current = Figure(size = (1600, 1000))
-ax = Axis(current[1,1], aspect = DataAspect(), xticks = xticks, yticks = yticks)
-
-co=contourf!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, phL.i_current_mag' ./currentscale, 
-# colormap=:dense, 
-# colorrange=(0.2, 1.0),
-levels = curent_ticks,
-)
-Colorbar(current[1, 2], co, 
-ticks = curent_ticks,
-)
-contour!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, gp.LS[1].u', levels = 0:0, color=:red, linewidth = 5);
-contour!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 5, linestyle=:dot);
-limits!(ax, 0.0, num.L0/xscale, 0.0, num.L0/yscale)
- Makie.save(prefix*"currenttest_x.pdf", current)
-
-
-
-compute_grad_phi_ele_y!(num,gp, phL, op.opC_pL)
-
-
-currentscale = 1.0
-currentscale = 4*π/L0
-curent_ticks = -1:0.25:1
-
-print("current y",phL.i_current_mag ./currentscale)
-
-
-current = Figure(size = (1600, 1000))
-ax = Axis(current[1,1], aspect = DataAspect(), xticks = xticks, yticks = yticks)
-
-co=contourf!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, phL.i_current_mag' ./currentscale, 
-# colormap=:dense, 
-# colorrange=(0.2, 1.0),
-levels = curent_ticks,
-)
-Colorbar(current[1, 2], co, 
-ticks = curent_ticks,
-)
-contour!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, gp.LS[1].u', levels = 0:0, color=:red, linewidth = 5);
-contour!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 5, linestyle=:dot);
-limits!(ax, 0.0, num.L0/xscale, 0.0, num.L0/yscale)
- Makie.save(prefix*"currenttest_y.pdf", current)
-
-
-# xs = LinRange(0, 20, 50)
-# ys = LinRange(0, 15, 50)
-# zs = [cos(x) * sin(y) for x in xs, y in ys]
-
-# fig = Figure()
-
-# ax, hm = heatmap(fig[1, 1][1, 1], xs, ys, zs)
-# Colorbar(fig[1, 1][1, 2], hm)
-
-# ax, hm = heatmap(fig[1, 2][1, 1], xs, ys, zs, colormap = :grays,
-#     colorrange = (-0.75, 0.75), highclip = :red, lowclip = :blue)
-# Colorbar(fig[1, 2][1, 2], hm)
-
-# ax, hm = contourf(fig[2, 1][1, 1], xs, ys, zs,
-#     levels = -1:0.25:1, colormap = :heat)
-# Colorbar(fig[2, 1][1, 2], hm, ticks = -1:0.25:1)
-
-# ax, hm = contourf(fig[2, 2][1, 1], xs, ys, zs,
-#     colormap = :Spectral, levels = [-1, -0.5, -0.25, 0, 0.25, 0.5, 1])
-# Colorbar(fig[2, 2][1, 2], hm, ticks = -1:0.25:1)
-
-# fig

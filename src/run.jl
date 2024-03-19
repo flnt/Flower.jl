@@ -478,9 +478,10 @@ function run_forward(
                 #TODO update BC concentration
 
                 # compute_grad_phi_ele!(grid, phL, V, periodic_x, periodic_y) #TODO current
-                compute_grad_phi_ele!(num,grid, grid_u, grid_v, phL, opC_pL) #TODO current
+                compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, opC_pL, opC_pS) #TODO current
 
-                
+                # scal_magnitude
+
 
                 if heat
                     elec_cond = 2*Faraday^2 .*phL.trans_scal[:,:,2].*diffusion_coeff[2]./(Ru.*phL.T) #phL.T

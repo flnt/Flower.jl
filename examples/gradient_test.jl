@@ -42,45 +42,53 @@ end
 From kinetic_energy
 """
 function scal_magnitude(phL, phS, gp, gu, gv)
-
+    #TODO eps, den eps
     LS_u =gu.LS[1]
     LS_v = gv.LS[1]
-    # LS =gp.LS[1]
-
     phL.p .= (
         (phL.u[:,2:end].^2.0 .* LS_u.geoL.dcap[:,2:end,6] .+ 
         phL.u[:,1:end-1].^2.0 .* LS_u.geoL.dcap[:,1:end-1,6]) ./ 
-        (LS_u.geoL.dcap[:,1:end-1,6] .+ LS_u.geoL.dcap[:,2:end,6] 
-        # .+ 1e-8
-        )
+        (LS_u.geoL.dcap[:,1:end-1,6] .+ LS_u.geoL.dcap[:,2:end,6] .+ 1e-8 )
     )
     phL.p .+= (
         (phL.v[2:end,:].^2.0 .* LS_v.geoL.dcap[2:end,:,7] .+ 
         phL.v[1:end-1,:].^2.0 .* LS_v.geoL.dcap[1:end-1,:,7]) ./
-        (LS_v.geoL.dcap[1:end-1,:,7] .+ LS_v.geoL.dcap[2:end,:,7] 
-        # .+ 1e-8
-        )
+        (LS_v.geoL.dcap[1:end-1,:,7] .+ LS_v.geoL.dcap[2:end,:,7] .+ 1e-8 )
     )
-
     phL.p .+= (
         (phS.u[:,2:end].^2.0 .* LS_u.geoS.dcap[:,2:end,6] .+ 
         phS.u[:,1:end-1].^2.0 .* LS_u.geoS.dcap[:,1:end-1,6]) ./ 
-        (LS_u.geoS.dcap[:,1:end-1,6] .+ LS_u.geoS.dcap[:,2:end,6] 
-        # .+ 1e-8
-        )
+        (LS_u.geoS.dcap[:,1:end-1,6] .+ LS_u.geoS.dcap[:,2:end,6] .+ 1e-8 )
     )
     phL.p .+= (
         (phS.v[2:end,:].^2.0 .* LS_v.geoS.dcap[2:end,:,7] .+ 
         phS.v[1:end-1,:].^2.0 .* LS_v.geoS.dcap[1:end-1,:,7]) ./
-        (LS_v.geoS.dcap[1:end-1,:,7] .+ LS_v.geoS.dcap[2:end,:,7] 
-        # .+ 1e-8
-        )
+        (LS_v.geoS.dcap[1:end-1,:,7] .+ LS_v.geoS.dcap[2:end,:,7] .+ 1e-8 )
     )
 
+    #####################################################################
+    # phL.p .= (
+    #     (phL.u[:,2:end].^2.0 .* LS_u.geoL.dcap[:,2:end,6] .+ 
+    #     phL.u[:,1:end-1].^2.0 .* LS_u.geoL.dcap[:,1:end-1,6]) ./ 
+    #     (LS_u.geoL.dcap[:,1:end-1,6] .+ LS_u.geoL.dcap[:,2:end,6] )
+    # )
+    # phL.p .+= (
+    #     (phL.v[2:end,:].^2.0 .* LS_v.geoL.dcap[2:end,:,7] .+ 
+    #     phL.v[1:end-1,:].^2.0 .* LS_v.geoL.dcap[1:end-1,:,7]) ./
+    #     (LS_v.geoL.dcap[1:end-1,:,7] .+ LS_v.geoL.dcap[2:end,:,7] )
+    # )
+    # phL.p .+= (
+    #     (phS.u[:,2:end].^2.0 .* LS_u.geoS.dcap[:,2:end,6] .+ 
+    #     phS.u[:,1:end-1].^2.0 .* LS_u.geoS.dcap[:,1:end-1,6]) ./ 
+    #     (LS_u.geoS.dcap[:,1:end-1,6] .+ LS_u.geoS.dcap[:,2:end,6] )
+    # )
+    # phL.p .+= (
+    #     (phS.v[2:end,:].^2.0 .* LS_v.geoS.dcap[2:end,:,7] .+ 
+    #     phS.v[1:end-1,:].^2.0 .* LS_v.geoS.dcap[1:end-1,:,7]) ./
+    #     (LS_v.geoS.dcap[1:end-1,:,7] .+ LS_v.geoS.dcap[2:end,:,7] )
+    # )
 
     phL.p .= sqrt.(phL.p)
-    # ph.p .= sqrt.(ph.p .* LS.geoL.dcap[:,:,5])
-
 end
 
 """
@@ -164,6 +172,8 @@ function compute_grad_T_y!(num,grid, grid_v, ph, opC_p)
     @unpack nLS = num
     @unpack T, TD = ph
 
+    ph.v .= 0.0
+
     ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(TD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(TD,grid)
     ∇ϕ_y = opC_p.iMy * opC_p.By * vec1(TD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(TD,grid)
 
@@ -185,9 +195,17 @@ y = LinRange(0, L0, n+1)
 
 ϵ = 0.001
 
-ϵ = 0.0
+# ϵ = 0.0
+
+# ϵ = 0.1
+
+# ϵ = 1.0
+
 
 # ϵ = 0.5
+
+# ϵ = 0.05
+epsilon=ϵ
 
 radius=2.5e-5 
 
@@ -213,7 +231,13 @@ num = Numerical(
 gp, gu, gv = init_meshes(num)
 op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
-# gp.LS[1].u .= 1.0
+
+figname0=""
+
+gp.LS[1].u .= 1.0
+figname0="no_intfc"
+
+
 
 # run_forward(num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL)
 
@@ -406,12 +430,17 @@ limits!(ax, 0.0, num.L0/xscale, 0.0, num.L0/yscale)
 
 plot_grid_figtest!(T,ax,num,gu,xscale=xscale,yscale=yscale)
 
-
- Makie.save(prefix*"T_grad_x.pdf", T)
+figname = prefix*figname0*"eps"*string(epsilon)*"T_grad_x"*".pdf"
+Makie.save(figname, T)
 
 
 compute_grad_T_y!(num,gp, gv, phL, op.opC_pL)
 compute_grad_T_y!(num,gp, gv, phS, op.opC_pS)
+
+
+printstyled(color=:red, @sprintf "\n grad y %f %f %f\n" norm(phL.v) minimum(phL.v) maximum(phL.v))
+printstyled(color=:red, @sprintf "\n grad y %f %f %f\n" norm(phS.v) minimum(phS.v) maximum(phS.v))
+
 
 # @views fwd.v[1,:,:] .= phL.v.*LS_v[end].geoL.cap[:,:,5] .+ phS.v[:,:].*LS_v[end].geoS.cap[:,:,5]
 @views fwdL.v[1,:,:] .= phL.v.*LS_v[end].geoL.cap[:,:,5] .+ phS.v[:,:].*LS_v[end].geoS.cap[:,:,5]
@@ -457,11 +486,15 @@ limits!(ax, 0.0, num.L0/xscale, 0.0, num.L0/yscale)
 plot_grid_figtest!(T,ax,num,gv,xscale=xscale,yscale=yscale)
 
 
- Makie.save(prefix*"T_grad_y.pdf", T)
+figname = prefix*figname0*"eps"*string(epsilon)*"T_grad_y"*".pdf"
+Makie.save(figname, T)
+
+
 
 
 
 fgrid = plot_grid(num,gp)
+
 Makie.save(prefix*"grid.pdf", fgrid)
 
 
@@ -486,8 +519,8 @@ limits!(ax, 0.0, num.L0/xscale, 0.0, num.L0/yscale)
 
 plot_grid_figtest!(T,ax,num,gp,xscale=xscale,yscale=yscale)
 
-
-Makie.save(prefix*"T.pdf", T)
+figname = prefix*figname0*"eps"*string(epsilon)*"T"*".pdf"
+Makie.save(figname, T)
   
 
 
@@ -527,11 +560,13 @@ limits!(ax, 0.0, num.L0/xscale, 0.0, num.L0/yscale)
 
 plot_grid_figtest!(T,ax,num,gp,xscale=xscale,yscale=yscale)
 
- Makie.save(prefix*"T_grad_mag.pdf", T)
+figname = prefix*figname0*"eps"*string(epsilon)*"T_grad_mag"*".pdf"
+Makie.save(figname, T)
 
 
 
- tcks = -num.L0:0.5:num.L0
+#  tcks = -num.L0:0.5:num.L0
+tcks=xticks
 
 vlim=1.0
 
@@ -545,10 +580,12 @@ vlim=1.0
  resize_to_layout!(fa) 
 
 
-Makie.save(prefix*"T_grad_x_heatmap.pdf", fa)
+figname = prefix*figname0*"eps"*string(epsilon)*"T_grad_x_heatmap"*".pdf"
+Makie.save(figname, T)
 
 
-tcks = -num.L0:0.5:num.L0
+
+# tcks = -num.L0:0.5:num.L0
 
 vlim=1.0
 
@@ -561,8 +598,8 @@ vlim=1.0
  rowsize!(fa.layout, 1, widths(ax.scene.viewport[])[2])
  resize_to_layout!(fa) 
 
-
-Makie.save(prefix*"T_grad_y_heatmap.pdf", fa)
+figname = prefix*figname0*"eps"*string(epsilon)*"T_grad_y_heatmap"*".pdf"
+Makie.save(figname, T)
 
 
 fa = Figure(figure_padding=(0, 50, 50, 50), size = (1600, 1000))
@@ -575,6 +612,9 @@ rowsize!(fa.layout, 1, widths(ax.scene.viewport[])[2])
 resize_to_layout!(fa) 
 
 
-Makie.save(prefix*"T_grad_mag_heatmap.pdf", fa)
+figname = prefix*figname0*"eps"*string(epsilon)*"T_grad_mag_heatmap"*".pdf"
+Makie.save(figname, fa)
 
-#TODO TANA
+
+#TODO TANA error gradient
+#TODO extend 
