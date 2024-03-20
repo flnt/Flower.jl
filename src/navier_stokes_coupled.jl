@@ -1754,7 +1754,7 @@ function pressure_projection!(
         for iLS in 1:num.nLS
             if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
                 uvm1[_iLS*niu+1:(_iLS+1)*niu] .= veci(uD,grid_u,iLS+1)
-                uvm1[ntu+_iLS*niu+1:ntu+(_iLS+1)*niu] .= veci(vD,grid_v,iLS+1)
+                uvm1[ntu+_iLS*niv+1:ntu+(_iLS+1)*niv] .= veci(vD,grid_v,iLS+1)
                 _iLS += 1
             end
         end
