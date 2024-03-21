@@ -65,7 +65,11 @@ abstract type AbstractOptimizer end
     MWH2::T = 0.0
     rho1::T = 0.0
     rho2::T = 0.0
+    mu1::T = 0.0
+    mu2::T = 0.0
     eps::T = 1e-12
+    grav_x::T = 0.0
+    grav_y::T = 0.0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -293,6 +297,8 @@ struct Phase{T <: Real} <: MutatingFields
     trans_scalD::Array{T,2}
     phi_eleD::Array{T,1}
     i_current_mag::Array{T,2}
+    Eu::Array{T,2}
+    Ev::Array{T,2}
 end
 
 struct Forward{T <: Real} <: MutatingFields
@@ -309,6 +315,8 @@ struct Forward{T <: Real} <: MutatingFields
     trans_scal::Array{T,4}
     phi_ele::Array{T,3}
     i_current_mag::Array{T,3}
+    Eu::Array{T,4}
+    Ev::Array{T,4}
 end
 
 struct ForwardPhase{T <: Real} <: MutatingFields
@@ -327,6 +335,8 @@ struct ForwardPhase{T <: Real} <: MutatingFields
     trans_scalD::Array{T,3}
     phi_eleD::Array{T,2}
     i_current_mag::Array{T,3}
+    Eu::Array{T,3}
+    Ev::Array{T,3}
 end
 
 mutable struct Desired{T <: Real} <: AbstractOptimizer

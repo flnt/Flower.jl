@@ -43,6 +43,7 @@ function run_forward(
     electrolysis_liquid_phase = false,
     electrolysis_phase_change = false,
     electrolysis_reaction = "nothing",
+    adapt_timestep_mode = 0,
     )
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations,
             current_i, save_every, reinit_every, nb_reinit, δreinit, ϵ, m, θ₀, aniso, nLS, _nLS,
@@ -74,8 +75,14 @@ function run_forward(
         advection = false
     end
 
+    printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL τ)
+    if adapt_timestep_mode == 1
+        adapt_timestep!(τ, num, phL, phS, grid_u, grid_v)
+    end
+
     iRe = 1.0 / Re
     CFL_sc = τ / Δ^2
+
 
     local NB_indices;
 
@@ -168,6 +175,10 @@ function run_forward(
         end
         @views fwdL.phi_ele[1,:,:] .= phL.phi_ele
         @views fwdL.i_current_mag[1,:,:] .= phL.i_current_mag
+        @views fwdS.Eu[1,:,:] .= phS.Eu
+        @views fwdS.Ev[1,:,:] .= phS.Ev
+        @views fwdL.Eu[1,:,:] .= phL.Eu
+        @views fwdL.Ev[1,:,:] .= phL.Ev
     end     
     ####################################################################################################
 
@@ -604,6 +615,8 @@ function run_forward(
         if verbose
             if (current_i-1)%show_every == 0
                 printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) \n" (current_i-1) 100*(current_i-1)/max_iterations)
+                printstyled(color=:green, @sprintf "\n CFL %.2e dt : %.2e \n" CFL τ)
+
                 if heat && length(LS[end].MIXED) != 0
                     print(@sprintf "V_mean = %.2e  V_max = %.2e  V_min = %.2e\n" mean(V[LS[1].MIXED]) findmax(V[LS[1].MIXED])[1] findmin(V[LS[1].MIXED])[1])
                     print(@sprintf "κ_mean = %.2e  κ_max = %.2e  κ_min = %.2e\n" mean(LS[1].κ[LS[1].MIXED]) findmax(LS[1].κ[LS[1].MIXED])[1] findmin(LS[1].κ[LS[1].MIXED])[1])
@@ -785,6 +798,10 @@ function run_forward(
                 @views fwdL.phi_eleD[snap,:] .= phL.phi_eleD
 
                 @views fwdL.i_current_mag[snap,:,:] .= phL.i_current_mag
+                @views fwdS.Eu[snap,:,:] .= phS.Eu
+                @views fwdS.Ev[snap,:,:] .= phS.Ev
+                @views fwdL.Eu[snap,:,:] .= phL.Eu
+                @views fwdL.Ev[snap,:,:] .= phL.Ev
 
 
             end
@@ -1041,6 +1058,8 @@ function run_backward(num, grid, opS, opL, fwd, adj;
             if current_i%show_every == 0
                 try
                     printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) \n" (current_i-1) 100*(current_i-1)/max_iterations)
+                    printstyled(color=:green, @sprintf "\n CFL %.2e dt : %.2e \n" CFL τ)
+
                     print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f\n" mean(V[MIXED]) findmax(V[MIXED])[1] findmin(V[MIXED])[1])
                     print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f\n" mean(κ[MIXED]) findmax(κ[MIXED])[1] findmin(κ[MIXED])[1])
                 catch

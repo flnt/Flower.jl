@@ -2,6 +2,8 @@ using Revise
 using Flower
 using Printf
 using PrettyTables
+using Interpolations
+
 
 #From channel.jl and heat_convection.jl
 #Khalighi 2023: "Hydrogen bubble growth in alkaline water electrolysis: An immersed boundary simulation study"
@@ -25,6 +27,7 @@ n = 64
 
 max_iter=100
 
+# max_iter=1
 
 
 h0 = 0.25*L0 #TODO h0
@@ -63,7 +66,6 @@ end
 
 ####################################################################################################
 
-
 rho=1258.0
 #TODO need for 80°C, check with other study
 rhoH2=0.069575 #"0.7016E-01" in \citet{cohnTABLETHERMODYNAMICPROPERTIES1963} 
@@ -72,24 +74,19 @@ rhoH2=0.069575 #"0.7016E-01" in \citet{cohnTABLETHERMODYNAMICPROPERTIES1963}
 # 7.02E-02	6.82E-02		-0.00194999999999999	A	-0.000194999999999999	0.069575	0.07016	0.06821
 
 
-
 radius=2.5e-5 
-
-# xcoord = radius + 1e-6
-# ycoord=5e-5
-
-xcoord = radius + 2e-6 #or 3e-6? not written in the article
-ycoord=5e-5
-
 # xcoord = 0.0
 # ycoord = 0.0
+# xcoord = radius + 1e-6
+# ycoord=5e-5
+xcoord = radius + 2e-6 #or 3e-6? not written in the article
+ycoord=5e-5
 
 xcoord = 5e-5
 ycoord=5e-5
 
 xcoord = -xcoord
 ycoord = -ycoord
-
 
 mu=6.7e-7
 i0=1.0
@@ -125,13 +122,9 @@ print(@sprintf "TODO elec cond and boundary conditions need to be updated for po
 v_inlet=6.7e-4
 Re=rho*v_inlet*L0/mu
 
+#Concentration
 diffusion_coeff=[DH2, DKOH, DH2O]
 concentration0=[0.16, 6700, 49000]
-
-# concentration0=(0.16, 6700, 49000)
-# diffusion_coeff=(DH2, DKOH, DH2O)
-
-
 nb_transported_scalars=3
 
 if length(concentration0)!=nb_transported_scalars
@@ -146,28 +139,18 @@ end
 
 print(@sprintf "Re = %.2e\n" Re)
 
-# print(@sprintf "Transported scalars : %2i\n" nb_transported_scalars)
 
 print(@sprintf "nb_transported_scalars = %5i\n" nb_transported_scalars)
 
 # pretty_table(concentration0'; header = ["cH2", "cKOH", "cH2O"])
-
 # pretty_table(diffusion_coeff'; header = ["DH2", "DKOH", "DH2O"])
-
 # pretty_table(vcat(hcat("D",diffusion_coeff'),hcat("c",concentration0')); header = ["","H2", "KOH", "H2O"])
-
 # hl = Highlighter((d,i,j)->d[i,j][1]*d[i,j][2] < 0, crayon"red")
 
 hl = Highlighter((d,i,j)->d[i,j] isa String, crayon"bold blue")
 
-
-pretty_table(vcat(hcat("Diffusion coef",diffusion_coeff'),hcat("Concentration",concentration0')); header = ["","H2", "KOH", "H2O"], highlighters=hl)
-
-
-
-
-
-
+pretty_table(vcat(hcat("Diffusion coef",diffusion_coeff'),hcat("Concentration",concentration0')); 
+header = ["","H2", "KOH", "H2O"], highlighters=hl)
 
 num = Numerical(
     case = "Cylinder", #"Sphere", #"Nothing",
@@ -198,6 +181,10 @@ num = Numerical(
     θd=temperature0,
     eps=1e-12,
     TEND=TEND,
+    mu1=mu,
+    mu2=mu,
+    rho1=rho,
+    rho2=rhoH2,
 
     ####################################
     # Sessile
@@ -213,13 +200,8 @@ num = Numerical(
     # n_ext_cl = n_ext,
     # NB = 24,
     ####################################
-
-    rho1=rho,
-    rho2=rhoH2,
-    
 )
 
-    # TEND=7.3,
     # T_inf=353,
     # case="Electrolysis_concentration"
 
@@ -246,14 +228,11 @@ phS.T .= temperature0
 
 #Initialization
 
-#Levelset 1 everywhere
 figname0=""
 
+#Levelset 1 everywhere
 gp.LS[1].u .= 1.0
 figname0="no_intfc"
-
-# gp.LS[1].u .= 0.0 
-
 
 vPoiseuille = zeros(gv)
 @unpack x, nx, ny, ind = gv
@@ -264,7 +243,6 @@ phL.u .= 0.0
 phL.p .= 0.0
 
 vPoiseuilleb=f.(gv.x[1,:],v_inlet)
-
 
 for iscal=1:nb_transported_scalars
     phL.trans_scal[:,:,iscal] .= concentration0[iscal]
@@ -282,14 +260,10 @@ printstyled(color=:green, @sprintf "\n TODO timestep CFL scal, and print \n")
 
 
 @unpack τ,CFL,Δ,Re,θd=num
-# print("timestep ",τ,min(CFL*Δ^2*Re, CFL*Δ),"\n")
-
 print(@sprintf "dt %.2e %.2e %.2e %.2e %.2e %.2e\n" τ CFL CFL*Δ CFL*Δ^2*Re Re θd)
-
-τ=CFL*Δ/v_inlet
-num.τ=τ
-
-print(@sprintf "dt %.2e \n" τ)
+# τ=CFL*Δ/v_inlet
+# num.τ=τ
+# print(@sprintf "dt %.2e \n" τ)
 
 
 #Neumann by default?
@@ -310,62 +284,62 @@ print(@sprintf "Butler-Volmer %.2e \n" i_current[1])
 @time run_forward(
     num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
     BC_uL = Boundaries(
-        left = Dirichlet(),
-        right = Dirichlet(),
+        left   = Dirichlet(),
+        right  = Dirichlet(),
         bottom = Dirichlet(),
-        top=Neumann(val=0.0),
+        top    = Neumann(val=0.0),
     ),
     BC_vL = Boundaries(
-        left = Dirichlet(),
-        right=Dirichlet(),
+        left   = Dirichlet(),
+        right  = Dirichlet(),
         bottom = Dirichlet(val = copy(vPoiseuilleb)),
-        top=Neumann(val=0.0),
+        top    = Neumann(val=0.0),
     ),
     BC_pL = Boundaries(
-        left  = Neumann(val=0.0),
-        right = Neumann(val=0.0),
-        bottom=Neumann(val=0.0),
-        top= Dirichlet(),
+        left   = Neumann(val=0.0),
+        right  = Neumann(val=0.0),
+        bottom = Neumann(val=0.0),
+        top    = Dirichlet(),
     ),
     # BC_int = [FreeSurface()], #[Wall()],
     BC_int = [Wall()],
 
-    BC_TL = Boundaries(
-    left = Dirichlet(val = temperature0),
-    right=Dirichlet(val = temperature0),
+    BC_TL  = Boundaries(
+    left   = Dirichlet(val = temperature0),
+    right  = Dirichlet(val = temperature0),
     bottom = Dirichlet(val = temperature0),
-    top = Dirichlet(val = temperature0),
+    top    = Dirichlet(val = temperature0),
     ),
 
     BC_trans_scal = (
         BoundariesInt(
         bottom = Dirichlet(val = concentration0[1]),
-        top = Neumann(),
-        left = Neumann(val=i_current/(2*Faraday*DH2)),
-        right = Dirichlet(val = concentration0[1]),
-        int=Neumann(val=0.0)), #H2
+        top    = Neumann(),
+        left   = Neumann(val=i_current/(2*Faraday*DH2)),
+        right  = Dirichlet(val = concentration0[1]),
+        int    = Neumann(val=0.0)), #H2
          
         BoundariesInt(
         bottom = Dirichlet(val = concentration0[2]),
-        top = Neumann(),
-        left = Neumann(val=i_current/(2*Faraday*DKOH)),
-        right = Neumann(),
-        int=Neumann(val=0.0)), #KOH
+        top    = Neumann(),
+        left   = Neumann(val=i_current/(2*Faraday*DKOH)),
+        right  = Neumann(),
+        int    = Neumann(val=0.0)), #KOH
          
         BoundariesInt(
         bottom = Dirichlet(val = concentration0[3]),
-        top = Neumann(),
-        left = Neumann(val=-i_current/(Faraday*DH2O)),
-        right = Neumann(),
-        int=Neumann(val=0.0)) #H2O
+        top    = Neumann(),
+        left   = Neumann(val=-i_current/(Faraday*DH2O)),
+        right  = Neumann(),
+        int    = Neumann(val=0.0)) #H2O
     ),
 
     BC_phi_eleL = BoundariesInt(
-        left = Neumann(val=-i_current/elec_cond),
-        right = Dirichlet(),
+        left   = Neumann(val=-i_current/elec_cond),
+        right  = Dirichlet(),
         bottom = Dirichlet(),
-        top=Neumann(val=0.0),
-        int=Neumann(val=0.0),
+        top    = Neumann(val=0.0),
+        int    = Neumann(val=0.0),
     ),
 
 
@@ -373,18 +347,18 @@ print(@sprintf "Butler-Volmer %.2e \n" i_current[1])
     electrolysis = true,
 
     navier_stokes = true,
-    # ns_advection = true,
+    ns_advection = true,
     ns_liquid_phase = true,
     verbose = true,
     show_every = 1,
     electrolysis_convection = true,  
     electrolysis_liquid_phase = true,
     electrolysis_phase_change = true,
-    # electrolysis_reaction = "Butler_no_concentration",
-    electrolysis_reaction = "nothing",
+    electrolysis_reaction = "Butler_no_concentration",
+    # electrolysis_reaction = "nothing",
+    adapt_timestep_mode = 1,
 
-
-    ns_advection = false,
+    # ns_advection = false,
 
     # auto_reinit = true,
     # # ns_advection = false, #?
@@ -650,3 +624,202 @@ limits!(ax, 0.0, num.L0/xscale, 0.0, num.L0/yscale)
 
 Makie.save(prefix*"fH2.pdf", fH2)
 
+
+
+
+# function splot(u, v)
+#     nx, ny = size(u)
+#     x, y = 1:nx, 1:ny
+#     intu, intv = linear_interpolation((x,y), u), linear_interpolation((x,y), v)
+#     f(x) = Point2f(intu(x...), intv(x...))
+#     return streamplot(f, x, y, colormap=:magma)
+# end
+
+function splot(u, v, gp)
+    nx, ny = size(u)
+    x, y = gp.x[1,:], gp.y[:,1]
+    intu, intv = linear_interpolation((x,y), u), linear_interpolation((x,y), v)
+    f(x) = Point2f(intu(x...), intv(x...))
+    return streamplot(f, x, y, colormap=:magma)
+end
+
+
+# # Streamplot example function
+# struct FitzhughNagumo{T}
+#     ϵ::T
+#     s::T
+#     γ::T
+#     β::T
+# end
+# P = FitzhughNagumo(0.1, 0.0, 1.5, 0.8)
+
+# x = -1.5:0.1:1.5
+# nx = length(x)
+# u, v = zeros(nx, nx), zeros(nx, nx)
+
+# for (j, xj) in enumerate(x)
+#     for (i, xi) in enumerate(x)
+#         u[i, j], v[i, j] = (xi-xj-xi^3+P.s)/P.ϵ, P.γ*xi-xj + P.β
+#     end
+# end
+
+# Eus, Evs = interpolate_regular_grid(gp,fwdL,phL.Eu, phL.Ev)
+Eus, Evs = interpolate_regular_grid(gp,fwdL,fwdL.Eu, fwdL.Ev)
+
+fig, ax, pl = splot(Eus[1,:,:], Evs[1,:,:], gp)
+plot_velocity_vector(1,us,vs)
+
+fig
+Makie.save(prefix*"field_lines.pdf",fig)
+
+function make_video_ele(
+    num, grid, field_u, field = nothing,
+     vecu = nothing, vecv=nothing;
+    title_prefix = "video",
+    title_suffix = "",
+    xlabel = L"x",
+    ylabel = L"y",
+    colormap = :viridis,
+    sz = (1600, 1000),
+    minv = 0.0,
+    maxv = 0.0,
+    limitsx = false,
+    limitsy = false,
+    var = 1,
+    framerate = 24,
+    step = 1,
+    step0 = 1,
+    stepf = size(field_u, 2),
+    xscale = 1, 
+    yscale = 1, 
+    xticks = nothing,
+    yticks = nothing,
+    scalscale = 1, 
+    scalelabel = nothing,
+    scalticks = nothing,
+    )
+
+    x = grid.x[1,:] ./xscale
+    y = grid.y[:,1] ./yscale
+
+    u = field_u[:,step0:stepf,:,:]
+    plot_hmap = true
+    if isnothing(field)
+        plot_hmap = false
+    else
+        if length(size(field)) == 2
+            if var == 1
+                z = reshape(
+                    field[step0:stepf, 1:grid.ny*grid.nx], 
+                    (stepf-step0+1, grid.ny,grid.nx)
+                )
+            else
+                z = reshape(
+                    field[step0:stepf, grid.ny*grid.nx+1:2*grid.ny*grid.nx],
+                    (stepf-step0+1, grid.ny,grid.nx)
+                )
+            end
+        else
+            z = field[step0:stepf,:,:]
+        end
+
+        z = z ./scalscale
+    end
+
+    if minv == maxv == 0.0
+        var_colorrange = true
+    else
+        var_colorrange = false
+    end
+
+    if isa(limitsx, Tuple{Float64, Float64}) || isa(limitsx, Tuple{Int, Int})
+        lx = limitsx
+    else
+        lx = (min(x...) - grid.dx[1,1] / 2, max(x...) + grid.dx[1,end] / 2)
+    end
+    if isa(limitsy, Tuple{Float64, Float64}) || isa(limitsy, Tuple{Int, Int})
+        ly = limitsy
+    else
+        ly = (min(y...) - grid.dy[1,1] / 2, max(y...) + grid.dy[end,1] / 2)
+    end
+
+    obs = Observable{Int32}(1)
+    iterator = range(0, size(u, 2) - 1, step=step)
+
+    # fig = Figure(size = sz)
+    fig = Figure()
+    ax  = Axis(fig[1,1], 
+    # aspect=DataAspect(), 
+    aspect=1,
+    xlabel = xlabel, ylabel = ylabel,
+    xticks=xticks, yticks=yticks,
+        xtickalign = 0,  ytickalign = 0)
+    if plot_hmap
+        print("scalticks", scalticks, "xticks", xticks, "yticks", yticks,"\n")
+
+        if !var_colorrange
+            hmap = heatmap!(ax, x, y, @lift(z[$obs,:,:]'), colormap = colormap, 
+                colorrange = (minv, maxv))
+        else
+            # if !isnothing(scalticks)
+            #     print("scalticks", scalticks)
+
+            #     hmap = heatmap!(x, y, @lift(z[$obs,:,:]'), colormap = colormap, ticks=scalticks)
+            # else
+            hmap = heatmap!(ax, x, y, @lift(z[$obs,:,:]'), colormap = colormap)
+            # end
+        end
+    end
+    if !plot_hmap
+        contour!(x, y, @lift(u[1,$obs,:,:]'), levels = -10:grid.dx[1,1]:10, linewidth = 2.0)
+    end
+    for iLS in 1:num.nLS
+        contour!(x, y, @lift(u[iLS,$obs,:,:]'), levels = [0.0], color = :red, linewidth = 3.0)
+    end
+
+    #TODO
+    if !isnothing(vecu)
+        arrows!(grid.x[1,:], grid.y[:,1], vecu[1,:,:], vecv[1,:,:], 
+        arrowsize = 10, 
+        lengthscale = 0.3,
+        # arrowcolor = strength, 
+        # linecolor = strength,
+        )
+    end
+
+    # contourf!(x, y, u[2,1,:,:]', levels = 0:0, color = :red, linewidth = 3, extendlow = :gray);
+    if plot_hmap
+        if !isnothing(scalticks)
+            print("scalticks", scalticks)
+            cbar = fig[1,2] = Colorbar(fig, hmap, labelpadding = 0, ticks=scalticks)
+        else
+            cbar = fig[1,2] = Colorbar(fig, hmap, labelpadding = 0)
+        end
+
+    end
+
+    if !isnothing(scalelabel)
+        # Label(fig[1, 1, Top()], halign = :right, scalelabel)
+        Label(fig[1, 2, Top()], halign = :center, scalelabel)
+    end
+
+    # limits!(ax, lx[1], lx[2], ly[1], ly[2])
+    # colgap!(fig.layout, 10)
+    # rowgap!(fig.layout, 10)
+    # colsize!(fig.layout, 1, widths(ax.scene.viewport[])[1])
+    # rowsize!(fig.layout, 1, widths(ax.scene.viewport[])[2])
+    # resize_to_layout!(fig)
+
+    vid = record(
+            fig, title_prefix*title_suffix*".mp4", iterator;
+            framerate = framerate
+        ) do it
+        obs[] = it+1
+    end
+
+    return vid
+end
+
+make_video_elec(num, gu, fwd; title_prefix=prefix*"elec",
+        title_suffix="", framerate=240, 
+        xlabel=xlabel, ylabel=ylabel, xscale=xscale, yscale=yscale, scalscale=velscale, scalelabel=L"\times 10^{-4}", xticks=xticks, yticks=yticks, scalticks=0:2:10)

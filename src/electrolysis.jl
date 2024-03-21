@@ -298,6 +298,25 @@ function interpolate_regular_grid(grid,fwdL)
     return us,vs
 end
 
+
+"""
+Interpolate velocity on scalar grid for regular grids for vizualisation
+"""
+function interpolate_regular_grid(grid,fwdL,u,v)
+    
+    us = fwdL.p .*0
+    vs = fwdL.p .*0
+
+    for j = 1:grid.ny
+    for i = 1:grid.nx
+        us[:,j,i]=(u[:,j,i]+u[:,j,i+1])/2
+        vs[:,j,i]=(v[:,j,i]+v[:,j+1,i])/2
+    end
+    end
+    
+    return us,vs
+end
+
 # """
 # From kinetic_energy
 # """
@@ -489,6 +508,15 @@ function make_video_vec(
         if !isnothing(scalticks)
             print("scalticks", scalticks)
             cbar = fig[1,2] = Colorbar(fig, hmap, labelpadding = 0, ticks=scalticks)
+            
+            # Colorbar(fig[1, 2], hmap, 
+            # label = "Reverse sequential colormap",
+            # ticks=scalticks)
+            # cbar.ticks = (scalticks)
+            #https://stackoverflow.com/questions/73555826/modifying-label-and-tick-on-color-bar-of-plots-jl-plot
+
+            Colorbar(fig[1, 2], hmap, ticks = -1:0.25:1)
+
         else
             cbar = fig[1,2] = Colorbar(fig, hmap, labelpadding = 0)
         end
@@ -627,6 +655,9 @@ function compute_grad_phi_ele!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_
         (LS_v.geoL.dcap[1:end-1,:,7] .+ LS_v.geoL.dcap[2:end,:,7] .+ eps_den )
     )
 
+    phL.Eu .= grd_x
+    phL.Ev .= grd_y
+
     #Solid phase
     @unpack phi_eleD = phS
 
@@ -667,6 +698,57 @@ function compute_grad_phi_ele!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_
 
     phL.i_current_mag .= sqrt.(phL.i_current_mag)
     # phS.i_current_mag .= sqrt.(phS.i_current_mag)
+
+    phL.Eu .= grd_x
+    phL.Ev .= grd_y
+
+
+end
+
+"""
+Adapt timestep based on velocity, viscosity, ...
+# [Kang 2000, “A Boundary Condition Capturing Method for Multiphase Incompressible Flow”](https://doi.org/10.1023/A:1011178417620) 
+"""
+function adapt_timestep!(τ, num, phL, phS, grid_u, grid_v)
+    @unpack rho1,rho2,mu1,mu2,grav_x,grav_y,CFL=num
+
+    #With grid_u
+    min_spacing_x = minimum(grid_u.dx)
+    min_spacing_y = minimum(grid_u.dy)
+
+    # min_spacing_xyz = min(min_spacing_x,min_spacing_y)
+
+    # τ = min(CFL*Δ^2*Re, CFL*Δ/max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...))
+
+    #TODO V ?
+    # vel = max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)
+
+    c_conv = max(abs.(phL.u)./grid_u.dx..., abs.(phL.v)./grid_v.dy..., abs.(phS.u)./grid_u.dx..., abs.(phS.v)./grid_v.dy...)
+
+    c_visc = max(mu1/rho1, mu2/rho2) * (2.0/min_spacing_x^2 + 2.0/min_spacing_y^2 ) 
+    
+    c_grav = sqrt(max(abs(grav_x)/min_spacing_x, abs(grav_y)/min_spacing_y))
+
+    #TODO capillary timestep
+    c_surf = 0.0
+
+    # c_surf = sigma*kappa / (min(rho1,rho2)*min_spacing_xyz^2)
+
+    c_tot = (c_conv+c_visc)+ sqrt((c_conv+c_visc)^2+4*c_grav^2+4*c_surf^2 )
+
+    τ = 2*CFL/c_tot
+
+    # printstyled(color=:green, @sprintf "\n rho1 %.2e rho2 %.2e mu1 %.2e mu2 %.2e\n" rho1 rho2 mu1 mu2) 
+    # printstyled(color=:green, @sprintf "\n dx %.2e dy %.2e \n" min_spacing_x min_spacing_x) 
+
+    
+    max(mu1/rho1, mu2/rho2) * (2.0/min_spacing_x^2 + 2.0/min_spacing_y^2 )
+
+    printstyled(color=:green, @sprintf "\n c_conv %.2e c_visc %.2e c_grad %.2e\n" c_conv c_visc c_grav)
+
+    printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL τ)
+
+
 
 end
 
