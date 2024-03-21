@@ -77,7 +77,10 @@ function run_forward(
 
     printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL τ)
     if adapt_timestep_mode == 1
-        adapt_timestep!(τ, num, phL, phS, grid_u, grid_v)
+        τ = adapt_timestep!(num, phL, phS, grid_u, grid_v)
+        num.τ = τ
+        print("after adapt_timestep!")
+        printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e num.τ : %.2e\n" CFL τ num.τ)
     end
 
     iRe = 1.0 / Re
@@ -615,7 +618,8 @@ function run_forward(
         if verbose
             if (current_i-1)%show_every == 0
                 printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) \n" (current_i-1) 100*(current_i-1)/max_iterations)
-                printstyled(color=:green, @sprintf "\n CFL %.2e dt : %.2e \n" CFL τ)
+                printstyled(color=:green, @sprintf "\n CFL : %.2e CFL : %.2e τ : %.2e\n" CFL max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)*τ/Δ τ)
+
 
                 if heat && length(LS[end].MIXED) != 0
                     print(@sprintf "V_mean = %.2e  V_max = %.2e  V_min = %.2e\n" mean(V[LS[1].MIXED]) findmax(V[LS[1].MIXED])[1] findmin(V[LS[1].MIXED])[1])
@@ -1058,7 +1062,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
             if current_i%show_every == 0
                 try
                     printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) \n" (current_i-1) 100*(current_i-1)/max_iterations)
-                    printstyled(color=:green, @sprintf "\n CFL %.2e dt : %.2e \n" CFL τ)
+                    printstyled(color=:green, @sprintf "\n CFL : %.2e CFL : %.2e τ : %.2e\n" CFL max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)*τ/Δ τ)
 
                     print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f\n" mean(V[MIXED]) findmax(V[MIXED])[1] findmin(V[MIXED])[1])
                     print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f\n" mean(κ[MIXED]) findmax(κ[MIXED])[1] findmin(κ[MIXED])[1])

@@ -709,7 +709,7 @@ end
 Adapt timestep based on velocity, viscosity, ...
 # [Kang 2000, “A Boundary Condition Capturing Method for Multiphase Incompressible Flow”](https://doi.org/10.1023/A:1011178417620) 
 """
-function adapt_timestep!(τ, num, phL, phS, grid_u, grid_v)
+function adapt_timestep!(num, phL, phS, grid_u, grid_v)
     @unpack rho1,rho2,mu1,mu2,grav_x,grav_y,CFL=num
 
     #With grid_u
@@ -736,7 +736,7 @@ function adapt_timestep!(τ, num, phL, phS, grid_u, grid_v)
 
     c_tot = (c_conv+c_visc)+ sqrt((c_conv+c_visc)^2+4*c_grav^2+4*c_surf^2 )
 
-    τ = 2*CFL/c_tot
+    return 2*CFL/c_tot
 
     # printstyled(color=:green, @sprintf "\n rho1 %.2e rho2 %.2e mu1 %.2e mu2 %.2e\n" rho1 rho2 mu1 mu2) 
     # printstyled(color=:green, @sprintf "\n dx %.2e dy %.2e \n" min_spacing_x min_spacing_x) 
@@ -745,10 +745,6 @@ function adapt_timestep!(τ, num, phL, phS, grid_u, grid_v)
     max(mu1/rho1, mu2/rho2) * (2.0/min_spacing_x^2 + 2.0/min_spacing_y^2 )
 
     printstyled(color=:green, @sprintf "\n c_conv %.2e c_visc %.2e c_grad %.2e\n" c_conv c_visc c_grav)
-
-    printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL τ)
-
-
-
+    printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL num.τ)
 end
 
