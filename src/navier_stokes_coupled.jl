@@ -914,10 +914,15 @@ function FE_set_momentum_coupled(
 
                 _iLS += 1
             else # Tangential component of velocity if Navier BC
-                sinα = Diagonal(vec(sin.(gp.LS[iLS].α)))
-                replace!(sinα.diag, NaN=>0.0)
-                cosα = Diagonal(vec(cos.(gp.LS[iLS].α)))
-                replace!(cosα.diag, NaN=>0.0)
+                sinα_p = Diagonal(vec(sin.(gp.LS[iLS].α)))
+                replace!(sinα_p.diag, NaN=>0.0)
+                cosα_p = Diagonal(vec(cos.(gp.LS[iLS].α)))
+                replace!(cosα_p.diag, NaN=>0.0)
+
+                sinα_u = Diagonal(vec(sin.(gu.LS[iLS].α)))
+                replace!(sinα_u.diag, NaN=>0.0)
+                cosα_v = Diagonal(vec(cos.(gv.LS[iLS].α)))
+                replace!(cosα_v.diag, NaN=>0.0)
 
                 # Contribution to implicit part of viscous term from inner boundaries
                 cap1 = hcat(
@@ -951,8 +956,20 @@ function FE_set_momentum_coupled(
                         avgx[pII,pII-gu.ny] = cap1[II] / (capx[II] + eps(0.01))
                         avgx[pII,pII] = cap3[II] / (capx[II] + eps(0.01))
                     else
-                        avgx[pII,pII-gu.ny] = 0.5
-                        avgx[pII,pII] = 0.5
+                        if gp.LS[iLS].geoL.cap[δx⁻(II),5] > 1e-10 && gp.LS[iLS].geoL.cap[II,5] > 1e-10
+                            if !(δx⁻(II) in gp.LS[1].MIXED)
+                                avgx[pII,pII] = 1.0
+                            elseif !(II in gp.LS[1].MIXED)
+                                avgx[pII,pII-gu.ny] = 1.0
+                            else
+                                avgx[pII,pII-gu.ny] = 0.5
+                                avgx[pII,pII] = 0.5
+                            end
+                        elseif gp.LS[iLS].geoL.cap[δx⁻(II),5] > 1e-10
+                            avgx[pII,pII-gu.ny] = 1.0
+                        else
+                            avgx[pII,pII] = 1.0
+                        end
                     end
                 end
                 @inbounds @threads for II in gu.ind.all_indices[:,1]
@@ -972,8 +989,22 @@ function FE_set_momentum_coupled(
                         avgy[pJJ,pII-1] = cap2[II] / (capy[II] + eps(0.01))
                         avgy[pJJ,pII] = cap4[II] / (capy[II] + eps(0.01))
                     else
-                        avgy[pJJ,pII-1] = 0.5
-                        avgy[pJJ,pII] = 0.5
+                        if gp.LS[iLS].geoL.cap[δy⁻(II),5] > 1e-10 && gp.LS[iLS].geoL.cap[II,5] > 1e-10
+                            avgy[pJJ,pII-1] = 0.5
+                            avgy[pJJ,pII] = 0.5
+                            if !(δy⁻(II) in gp.LS[1].MIXED)
+                                avgy[pJJ,pII] = 1.0
+                            elseif !(II in gp.LS[1].MIXED)
+                                avgy[pJJ,pII-1] = 1.0
+                            else
+                                avgy[pJJ,pII-1] = 0.5
+                                avgy[pJJ,pII] = 0.5
+                            end
+                        elseif gp.LS[iLS].geoL.cap[δy⁻(II),5] > 1e-10
+                            avgy[pJJ,pII-1] = 1.0
+                        else
+                            avgy[pJJ,pII] = 1.0
+                        end
                     end
                 end
                 @inbounds @threads for II in gv.ind.all_indices[1,:]
@@ -989,11 +1020,11 @@ function FE_set_momentum_coupled(
                 A[1:niu,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * τ .* (
                     opu.BxT * opu.iMx * opu.Hx[iLS] .+
                     opu.ByT * opu.iMy * opu.Hy[iLS]
-                ) * avgx * sinα
+                ) * sinα_u * avgx
                 A[ntu+1:ntu+niv,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * τ .* (
                     opv.BxT * opv.iMx * opv.Hx[iLS] .+
                     opv.ByT * opv.iMy * opv.Hy[iLS]
-                ) * avgy * (-cosα)
+                ) * (-cosα_v) * avgy
 
                 # Boundary conditions for inner boundaries
                 cap1 = gu.LS[iLS].geoL.cap[:,1:end-1,5]
@@ -1017,14 +1048,14 @@ function FE_set_momentum_coupled(
                     avgv[pII,pJJ] = cap2[II] / (capy[II] + eps(0.01))
                     avgv[pII,pJJ+1] = cap4[II] / (capy[II] + eps(0.01))
                 end
-                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,1:niu] = bp * sinα * (
+                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,1:niu] = bp * (
                     opp.HxT[iLS] * opp.iMx * opp.Bx .+
                     opp.HyT[iLS] * opp.iMy * opp.By
-                ) * avgu
-                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu+1:ntu+niv] = bp * (-cosα) * (
+                ) * sinα_p * avgu
+                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu+1:ntu+niv] = bp * (
                     opp.HxT[iLS] * opp.iMx * opp.Bx .+
                     opp.HyT[iLS] * opp.iMy * opp.By
-                ) * avgv
+                ) * (-cosα_p) * avgv
 
                 for i in 1:num.nLS
                     if i != iLS && (!is_navier_cl(bc_type[i]) && !is_navier(bc_type[i]))
@@ -1049,14 +1080,14 @@ function FE_set_momentum_coupled(
                             avgv[pII,pJJ] = cap2[II] / (capy[II] + eps(0.01))
                             avgv[pII,pJJ+1] = cap4[II] / (capy[II] + eps(0.01))
                         end
-                        A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,i*niu+1:(i+1)*niu] = bp * sinα * (
+                        A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,i*niu+1:(i+1)*niu] = bp * (
                             opp.HxT[iLS] * opp.iMx * opp.Hx[i] .+
                             opp.HyT[iLS] * opp.iMy * opp.Hy[i]
-                        ) * avgu
-                        A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu+i*niv+1:ntu+(i+1)*niv] = bp * (-cosα) * (
+                        ) * sinα_p * avgu
+                        A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu+i*niv+1:ntu+(i+1)*niv] = bp * (
                             opp.HxT[iLS] * opp.iMx * opp.Hx[i] .+
                             opp.HyT[iLS] * opp.iMy * opp.Hy[i]
-                        ) * avgv
+                        ) * (-cosα_p) * avgv
                     end
                 end
                 A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = pad(bp * (
@@ -1139,10 +1170,10 @@ function FE_set_momentum_coupled(
                 end
                 A[ntu-nbu+1:ntu,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = b_bu * (
                     opu.HxT_b * opu.iMx_b' * opu.Hx[iLS] .+ opu.HyT_b * opu.iMy_b' * opu.Hy[iLS]
-                ) * avgx * sinα
+                ) * avgx * sinα_p
                 A[ntu+ntv-nbv+1:ntu+ntv,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = b_bv * (
                     opv.HxT_b * opv.iMx_b' * opv.Hx[iLS] .+ opv.HyT_b * opv.iMy_b' * opv.Hy[iLS]
-                ) * avgy * (-cosα)
+                ) * avgy * (-cosα_p)
             end
         end
 
