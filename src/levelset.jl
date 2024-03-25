@@ -1352,7 +1352,7 @@ Reinitializes a levelset using a 2nd-order Runge-Kutta integration scheme.
 `nb_reinit` iterations are performed to reach the stationary state. The actual work is done
 in the `reinit_hartmann` function.
 """
-function RK2_reinit!(scheme, grid, ind, iLS, u, nb_reinit, periodic_x, periodic_y, BC, BC_int)
+function RK2_reinit!(scheme, grid, ind, iLS, u, nb_reinit, periodic_x, periodic_y, BC, BC_int, solid=false)
     @unpack nx, ny, dx, dy = grid
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
 
@@ -1368,11 +1368,17 @@ function RK2_reinit!(scheme, grid, ind, iLS, u, nb_reinit, periodic_x, periodic_
             !is_neumann_cl(BC.right) ? b_right[1][2:end-1] : [],
             !is_neumann_cl(BC.top) ? b_top[1] : []
         )
-    else
+    elseif !solid
         indices = collect(vec(all_indices))
         @inbounds for II in all_indices
             if II == CartesianIndex(1,1) || II == CartesianIndex(1,nx) || II == CartesianIndex(ny,1) || II == CartesianIndex(ny,nx)
                 deleteat!(indices, findfirst(x -> x == II, indices))
+            end
+        end
+    else
+        for i in eachindex(BC_int)
+            if is_wall(BC_int[i])
+                indices = findall(grid.LS[iLS].geoL.emptied)
             end
         end
     end
@@ -1451,14 +1457,20 @@ function rg(num, grid, u, periodic_x, periodic_y, BC_int)
     end
 
     if num.nLS == 1
-        return sum(abs.(tmp))
+        return sum(abs.(tmp)), tmp
     else
+        # Compute only in the vicinity of the mixed cells
+        idx = copy(grid.ind.inside)
+        base = get_NB_width_indices_base1(5)
         for iLS in 1:num.nLS
             if is_wall(BC_int[iLS])
-                idx = intersect(grid.LS[iLS].LIQUID, grid.ind.inside)
-                return sum(abs.(tmp[idx]))
+                idx = intersect(idx, grid.LS[iLS].LIQUID)
+            elseif is_stefan(BC_int[iLS]) || is_fs(BC_int[iLS])
+                idx_mixed = get_NB_width(grid, grid.LS[iLS].MIXED, base)
+                idx = intersect(idx, idx_mixed)
             end
         end
+        return sum(abs.(tmp[idx])), tmp
     end
 end
 
@@ -1683,4 +1695,20 @@ function combine_levelsets!(num, grid)
     end
 
     return nothing
+end
+
+"""
+    combine_levelsets(grid, u1, u2)
+
+Combine two levelsets.
+"""
+function combine_levelsets(grid, u1, u2)
+    @unpack ind = grid
+    
+    u = zeros(grid)
+    @inbounds @threads for II in ind.all_indices
+        u[II] = minimum([u1[II], u2[II]])
+    end
+
+    return u
 end

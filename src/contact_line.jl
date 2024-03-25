@@ -109,11 +109,11 @@ function BC_LS!(grid, u, A, B, rhs, BC)
 end
 
 """
-    BC_LS_interior!(num, cl, grid, A, B, rhs, BC)
+    BC_LS_interior!(num, grid, iLS, A, B, rhs, BC_int, periodic_x, periodic_y)
 
 Update levelset matrices to apply inhomogeneous Neumann boundary conditions in presence of
-contact lines at the intersection of the interfaces, one with a Wall() BC and the other one
-with a FreeSurface() BC. 
+contact lines at the intersection of the interfaces, one with a WallNoSLip() or Navier_cl() BC 
+and the other one with a FreeSurface() BC. 
 
 Outside, the contact angle asymptotically converges to an angle of 90°. Inside, the contact
 angle converges to an angle of 0° if the imposed contact angle at the contact line is
@@ -130,14 +130,19 @@ function BC_LS_interior!(num, grid, iLS, A, B, rhs, BC_int, periodic_x, periodic
             idx = LS[i].MIXED
             idx_mix_full = vcat(LS[i].LIQUID)
 
+            empty = Base.union(
+                findall(LS[i].geoL.cap0[:,:,5] .<= 1e-10), 
+                findall(LS[i].geoL.double_emptied)
+            )
+            idx_mixed = setdiff(LS[i].MIXED, empty)
+
             if !isempty(intersect(LS[iLS].MIXED, LS[i].MIXED))
                 pks, _ = findminima(abs.(LS[iLS].u[idx]))
                 base = get_NB_width_indices_base1(2)
                 idx_ext = get_NB_width(grid, idx[pks], base)
-                min_idx = intersect(idx_ext, LS[iLS].cl)
 
-                pks1 = min_idx[1]
-                pkse = min_idx[end]
+                pks1 = idx_ext[findmin(grid.x[idx_ext])[2]]
+                pkse = idx_ext[findmax(grid.x[idx_ext])[2]]
 
                 βtmp = zeros(grid)
                 JJtmp = zeros(CartesianIndex{2}, ny, nx)
@@ -311,15 +316,6 @@ function BC_LS_interior!(num, grid, iLS, A, B, rhs, BC_int, periodic_x, periodic
 
                     d = sqrt((x[II] - x[JJ])^2 + (y[II] - y[JJ])^2)
 
-                    # A[pII,:] .= 0.0
-                    # A[pII,pII] = 1.0
-                    # A[pII,pJJ] = -1.0
-                    # B[pII,:] .= 0.0
-                    # A[pLL,:] .= 0.0
-                    # A[pLL,pLL] = 1.0
-                    # A[pLL,pII] = -1.0
-                    # B[pLL,:] .= 0.0
-
                     KK = perp[idmin]
                     multtmp[II] = mult[idmin] * sign(LS[iLS].u[KK] - LS[iLS].u[II])
 
@@ -331,64 +327,269 @@ function BC_LS_interior!(num, grid, iLS, A, B, rhs, BC_int, periodic_x, periodic
                         newθ = π - atan(tan(π - BC_int[i].θe) * (1.0 - LS[iLS].u[II] / d2))
                     end
 
-                    β = newθ# + mult[idmin] * sign(LS[iLS].u[KK] - LS[iLS].u[II]) * (LS[i].α[II] - s[idmin])
-                    βtmp[II] = BC_int[i].θe#β
-
-                    # rhs[pLL] = d * cos(β)
-
-                    # A[pLL,:] .= 0.0
-                    # A[pLL,pLL] = 1.0
-                    # A[pLL,pJJ] = -1.0
-                    # B[pLL,:] .= 0.0
-
-                    # d3 = d2 - LS[iLS].u[II]
-                    # R = d3 / (sin(π - newθ))
-                    # h = R * cos(π - newθ)
-                    # center = Point(x[II] + d3, y[II] + h)
-                    # pointII = Point(x[II], y[II])
-                    # pointLL = Point(x[LL], y[LL])
-
-                    # b = distance(center, pointLL)
-                    # c = distance(pointII, pointLL)
-                    # β1 = acos((R^2 + b^2 - c^2) / (2 * R * b))
-
-                    # rhs[pLL] = 2d * cos(β + 5*β1)
+                    # βtmp[II] = newθ# + mult[idmin] * sign(LS[iLS].u[KK] - LS[iLS].u[II]) * (LS[i].α[II] - s[idmin])
+                    βtmp[II] = BC_int[i].θe
                 end
 
                 # Remove small clipped cells from mixed cells
                 # and add them to the solid phase
-                mixed_mixed = intersect(LS[iLS].MIXED, LS[i].MIXED)
-                mixed_emptied = intersect(mixed_mixed, findall(grid.LS[i].geoL.double_emptied))
-                idx_solid = Base.union(LS[i].SOLID, mixed_emptied)
-                idx_mixed = symdiff(idx, mixed_emptied)
+                empty = ind.all_indices[LS[i].geoL.cap0[:,:,5] .< 0.5]
+                idx_mixed = LS[i].MIXED
+                # idx_mixed = setdiff(LS[i].MIXED, empty)
 
-                @inbounds for II in idx_solid
-                    pII = lexicographic(II, ny)
-                    pointII = Point(x[II], y[II])
+                # @inbounds for II in empty
+                #     pII = lexicographic(II, ny)
+                #     pointII = Point(x[II], y[II])
 
-                    dist = zeros(size(idx_mixed))
-                    for (k, neigh) in enumerate(idx_mixed)
-                        pointk = Point(x[neigh], y[neigh])
-                        midpoint = LS[i].mid_point[neigh]
-                        dist[k] = distance(pointk, pointII) - LS[i].u[neigh]
+                    # if II in LS[i].MIXED
+                    for II in LS[i].MIXED
+                        pII = lexicographic(II, ny)
+                        pointII = Point(x[II], y[II])
+
+                        βv = Float64[]
+                        KKv = CartesianIndex{2}[]
+                        if II[2] < nx || periodic_x
+                            KK = δx⁺(II, nx, periodic_x)
+                            push!(KKv, KK)
+                            γ = atan(y[KK] - y[II], x[KK] - x[II])
+                            β = βtmp[II] + multtmp[II] * (LS[i].α[II] - γ) 
+                            push!(βv, β)
+                        end
+                        if II[1] < ny || periodic_y
+                            KK = δy⁺(II, ny, periodic_y)
+                            push!(KKv, KK)
+                            γ = atan(y[KK] - y[II], x[KK] - x[II])
+                            β = βtmp[II] + multtmp[II] * (LS[i].α[II] - γ)
+                            push!(βv, β)
+                        end
+                        if II[1] > 1 || periodic_y
+                            KK = δy⁻(II, ny, periodic_y)
+                            push!(KKv, KK)
+                            γ = atan(y[KK] - y[II], x[KK] - x[II])
+                            β = βtmp[II] + multtmp[II] * (LS[i].α[II] - γ)
+                            push!(βv, β)
+                        end
+                        if II[2] > 1 || periodic_x
+                            KK = δx⁻(II, nx, periodic_x)
+                            push!(KKv, KK)
+                            γ = atan(y[KK] - y[II], x[KK] - x[II])
+                            β = βtmp[II] + multtmp[II] * (LS[i].α[II] - γ)
+                            push!(βv, β)
+                        end
+
+                        # Ensure that all angles are positive
+                        for j in eachindex(βv)
+                            if βv[j] < 0.0
+                                βv[j] += 2π
+                            end
+                        end
+
+                        if LS[i].α[II] >= -π/4.0 && LS[i].α[II] < π/4.0
+                            KK = KKv[1]
+                            β = βv[1]
+                            rem_id = 1
+                        elseif LS[i].α[II] >= π/4.0 && LS[i].α[II] < 3π/4.0
+                            KK = KKv[2]
+                            β = βv[2]
+                            rem_id = 2
+                        elseif LS[i].α[II] >= -3π/4.0 && LS[i].α[II] < -π/4.0
+                            KK = KKv[3]
+                            β = βv[3]
+                            rem_id = 3
+                        else
+                            KK = KKv[4]
+                            β = βv[4]
+                            rem_id = 4
+                        end
+
+                        if β < 0.0 || β > π
+                            deleteat!(βv, rem_id)
+                            deleteat!(KKv, rem_id)
+                            idKK = findmin(abs.(βv .- π / 2.0))[2]
+                            KK = KKv[idKK]
+                            β = βv[idKK]
+                        end
+
+                        pKK = lexicographic(KK, ny)
+                        pointKK = Point(x[KK], y[KK])
+                        d = distance(pointII, pointKK)
+
+                        A[pII,:] .= 0.0
+                        A[pII,pII] = 1.0
+                        A[pII,pKK] = -1.0
+                        B[pII,:] .= 0.0
+
+                        rhs[pII] = d * cos(β)
                     end
+                    # else
+                    for II in LS[i].SOLID
+                        pII = lexicographic(II, ny)
+                        pointII = Point(x[II], y[II])
 
-                    KK = idx_mixed[findmin(dist)[2]]
-                    pKK = lexicographic(KK, ny)
-                    pointKK = Point(x[KK], y[KK])
+                        # Find closest interfacial cell
+                        dist_mixed = zeros(size(idx_mixed))
+                        for (k, mix) in enumerate(idx_mixed)
+                            pointk = Point(x[mix], y[mix])
+                            pointkd = Point(dx[mix], dy[mix])
+                            midpoint = pointk + pointkd * LS[i].mid_point0[mix]
+                            dist_mixed[k] = distance(midpoint, pointII)
+                        end
+                        idα = idx_mixed[findmin(dist_mixed)[2]]
 
-                    γ = atan(y[KK] - y[II], x[KK] - x[II])
-                    β = βtmp[KK] + multtmp[KK] * (LS[i].α[KK] - γ)
+                        xm = ind.all_indices[II[1],1:II[2]-1]
+                        ym = ind.all_indices[1:II[1]-1,II[2]]
+                        xp = ind.all_indices[II[1],II[2]+1:end]
+                        yp = ind.all_indices[II[1]+1:end,II[2]]
 
-                    d = distance(pointII, pointKK)
+                        mixed_xm = intersect(xm, LS[i].MIXED)
+                        mixed_ym = intersect(ym, LS[i].MIXED)
+                        mixed_xp = intersect(xp, LS[i].MIXED)
+                        mixed_yp = intersect(yp, LS[i].MIXED)
 
-                    A[pII,:] .= 0.0
-                    A[pII,pII] = 1.0
-                    A[pII,pKK] = -1.0
-                    B[pII,:] .= 0.0
+                        βv = Float64[]
+                        KKv = CartesianIndex{2}[]
+                        LLv = CartesianIndex{2}[]
+                        if !isempty(mixed_xm)
+                            dist_xm = [1e10]
+                            id_xm = [CartesianIndex(1,1)]
+                            for JJ in mixed_xm
+                                pointJJ = Point(x[JJ], y[JJ])
+                                pointJJd = Point(dx[JJ], dy[JJ])
+                                midpoint = pointJJ + pointJJd * LS[i].mid_point0[JJ]
+                                d = distance(midpoint, pointII)
+                                if d < dist_xm[1]
+                                    dist_xm[1] = d
+                                    id_xm[1] = JJ
+                                end
+                            end
+                            KK = id_xm[1]
+                            push!(KKv, KK)
+                            tmpLL1 = KK - II
+                            tmpLL2 = CartesianIndex(sign(tmpLL1[1]), sign(tmpLL1[2]))
+                            LL = II + tmpLL2
+                            push!(LLv, LL)
 
-                    rhs[pII] = d * cos(β)
-                end
+                            γ = atan(y[LL] - y[II], x[LL] - x[II])
+                            β = βtmp[KK] + multtmp[KK] * (LS[i].α[idα] - γ)
+                            push!(βv, β)
+                        else
+                            dist_xm = Float64[]
+                        end
+                        if !isempty(mixed_ym)
+                            dist_ym = [1e10]
+                            id_ym = [CartesianIndex(1,1)]
+                            for JJ in mixed_ym
+                                pointJJ = Point(x[JJ], y[JJ])
+                                pointJJd = Point(dx[JJ], dy[JJ])
+                                midpoint = pointJJ + pointJJd * LS[i].mid_point0[JJ]
+                                d = distance(midpoint, pointII)
+                                if d < dist_ym[1]
+                                    dist_ym[1] = d
+                                    id_ym[1] = JJ
+                                end
+                            end
+                            KK = id_ym[1]
+                            push!(KKv, KK)
+                            tmpLL1 = KK - II
+                            tmpLL2 = CartesianIndex(sign(tmpLL1[1]), sign(tmpLL1[2]))
+                            LL = II + tmpLL2
+                            push!(LLv, LL)
+
+                            γ = atan(y[LL] - y[II], x[LL] - x[II])
+                            β = βtmp[KK] + multtmp[KK] * (LS[i].α[idα] - γ)
+                            push!(βv, β)
+                        else
+                            dist_ym = Float64[]
+                        end
+                        if !isempty(mixed_xp)
+                            dist_xp = [1e10]
+                            id_xp = [CartesianIndex(1,1)]
+                            for JJ in mixed_xp
+                                pointJJ = Point(x[JJ], y[JJ])
+                                pointJJd = Point(dx[JJ], dy[JJ])
+                                midpoint = pointJJ + pointJJd * LS[i].mid_point0[JJ]
+                                d = distance(midpoint, pointII)
+                                if d < dist_xp[1]
+                                    dist_xp[1] = d
+                                    id_xp[1] = JJ
+                                end
+                            end
+                            KK = id_xp[1]
+                            push!(KKv, KK)
+                            tmpLL1 = KK - II
+                            tmpLL2 = CartesianIndex(sign(tmpLL1[1]), sign(tmpLL1[2]))
+                            LL = II + tmpLL2
+                            push!(LLv, LL)
+
+                            γ = atan(y[LL] - y[II], x[LL] - x[II])
+                            β = βtmp[KK] + multtmp[KK] * (LS[i].α[idα] - γ)
+                            push!(βv, β)
+                        else
+                            dist_xp = Float64[]
+                        end
+                        if !isempty(mixed_yp)
+                            dist_yp = [1e10]
+                            id_yp = [CartesianIndex(1,1)]
+                            for JJ in mixed_yp
+                                pointJJ = Point(x[JJ], y[JJ])
+                                pointJJd = Point(dx[JJ], dy[JJ])
+                                midpoint = pointJJ + pointJJd * LS[i].mid_point0[JJ]
+                                d = distance(midpoint, pointII)
+                                if d < dist_yp[1]
+                                    dist_yp[1] = d
+                                    id_yp[1] = JJ
+                                end
+                            end
+                            KK = id_yp[1]
+                            push!(KKv, KK)
+                            tmpLL1 = KK - II
+                            tmpLL2 = CartesianIndex(sign(tmpLL1[1]), sign(tmpLL1[2]))
+                            LL = II + tmpLL2
+                            push!(LLv, LL)
+
+                            γ = atan(y[LL] - y[II], x[LL] - x[II])
+                            β = βtmp[KK] + multtmp[KK] * (LS[i].α[idα] - γ)
+                            push!(βv, β)
+                        else
+                            dist_yp = Float64[]
+                        end
+
+                        dist = vcat(dist_xm, dist_ym, dist_xp, dist_yp)
+                        closest = findmin(dist)[2]
+
+                        # Ensure that all angles are positive
+                        for j in eachindex(βv)
+                            if βv[j] < 0.0
+                                βv[j] += 2π
+                            end
+                        end
+
+                        KK = KKv[closest]
+                        LL = LLv[closest]
+                        β = βv[closest]
+
+                        if β < 0.0 || β > π
+                            deleteat!(βv, closest)
+                            deleteat!(KKv, closest)
+                            deleteat!(LLv, closest)
+                            idKK = findmin(abs.(βv .- π / 2.0))[2]
+                            KK = KKv[idKK]
+                            LL = LLv[idKK]
+                            β = βv[idKK]
+                        end
+
+                        pLL = lexicographic(LL, ny)
+                        pointLL = Point(x[LL], y[LL])
+                        d = distance(pointII, pointLL)
+
+                        A[pII,:] .= 0.0
+                        A[pII,pII] = 1.0
+                        A[pII,pLL] = -1.0
+                        B[pII,:] .= 0.0
+
+                        rhs[pII] = d * cos(β)
+                    end
+                # end
             end
         end
     end

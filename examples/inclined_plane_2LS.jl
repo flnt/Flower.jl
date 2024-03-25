@@ -75,7 +75,7 @@ phL.v .= num.v_inf
         bottom = Neumann_cl(θe = π / 2.0),
         top = Neumann_inh(),
     ),
-    BC_int = [FreeSurface(), Wall()],
+    BC_int = [FreeSurface(), WallNoSlip()],
     time_scheme = FE,
     navier_stokes = true,
     ns_advection = false,

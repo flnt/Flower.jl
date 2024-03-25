@@ -42,7 +42,7 @@ op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
     BC_pL = Boundaries(
         right = Dirichlet(),
     ),
-    BC_int = [Wall()],
+    BC_int = [WallNoSlip()],
     time_scheme = CN,
     navier_stokes = true,
     ns_advection = false,
@@ -54,19 +54,21 @@ op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 tcks = -num.L0/2:2:num.L0
 lim = num.L0 / 2
 
-fu = Figure(size = (1600, 1000))
+fu = Figure(size = (1000, 800))
 ax = Axis(fu[1,1], aspect = 1, xticks = tcks, yticks = tcks)
-heatmap!(gu.x[1,:], gu.y[:,1], phL.u')
+hmap = heatmap!(gu.x[1,:], gu.y[:,1], phL.u', colorrange = (0.0, 1.4))
 contour!(gu.x[1,:], gu.y[:,1], gu.LS[1].u', levels = 0:0, color=:red, linewidth = 3);
+cbar = fu[1,2] = Colorbar(fu, hmap)
 # limits!(ax, -lim, lim, -lim, lim)
 colsize!(fu.layout, 1, widths(ax.scene.viewport[])[1])
 rowsize!(fu.layout, 1, widths(ax.scene.viewport[])[2])
 resize_to_layout!(fu)
 
-fv = Figure(size = (1600, 1000))
+fv = Figure(size = (1000, 800))
 ax = Axis(fv[1,1], aspect = 1, xticks = tcks, yticks = tcks)
-heatmap!(gv.x[1,:], gv.y[:,1], phL.v')
+hmap = heatmap!(gv.x[1,:], gv.y[:,1], phL.v')
 contour!(gv.x[1,:], gv.y[:,1], gv.LS[1].u', levels = 0:0, color=:red, linewidth = 3);
+cbar = fv[1,2] = Colorbar(fv, hmap)
 # limits!(ax, -lim, lim, -lim, lim)
 colsize!(fv.layout, 1, widths(ax.scene.viewport[])[1])
 rowsize!(fv.layout, 1, widths(ax.scene.viewport[])[2])

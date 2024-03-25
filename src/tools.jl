@@ -35,7 +35,7 @@ function stretching(n::Int, dn0::Float64, dn1::Float64, ds::Float64, ws=12, we=1
     return f
 end
 
-function force_coefficients!(num, grid, grid_u, grid_v, op, fwd, ph; A=1., p0=0., step=size(fwd.psave,1))
+function force_coefficients!(num, grid, grid_u, grid_v, op, fwd, ph; A=1., p0=0., step=size(fwd.psave,1), saveCoeffs = true)
     @unpack Re = num
     @unpack nx, ny, ind, LS = grid
     @unpack E11, E12_x, E12_y, E22 = op
@@ -75,10 +75,12 @@ function force_coefficients!(num, grid, grid_u, grid_v, op, fwd, ph; A=1., p0=0.
     D = D_p + D_ν
     L = L_p + L_ν
 
-    Cd[step] = 2D / A
-    Cl[step] = 2L / A
+    if saveCoeffs
+        Cd[step] = 2D / A
+        Cl[step] = 2L / A
+    end
 
-    return Cd[step], Cl[step]
+    return 2D / A, 2L / A, D, L
 end
 
 function vorticity(grid, ph)

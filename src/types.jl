@@ -23,6 +23,7 @@ abstract type AbstractOptimizer end
     nb_reinit::D = length(x)÷8 # number of reinitializations
     δreinit::T = 10.0 # delta for automatic reinitialization
     ϵ::T = 0.00 # cell-clipping threshold
+    ϵwall::T = ϵ # cell-clipping threshold at mixed cells in walls
     NB::D = nb_reinit÷2 # number of cells the velocity is extended
     T_inf::T = 0.0 # value of temperature at ∞
     u_inf::T = 1.0 # value of horizontal velocity at infinity
@@ -48,8 +49,6 @@ abstract type AbstractOptimizer end
     aniso::Bool = false # anisotropy for Stefan problem BCs
     nLS::D = 1 # number of levelsets
     _nLS::D = nLS == 1 ? 1 : nLS + 1
-    subdomains::D = 2
-    overlaps::D = 1
     nb_transported_scalars::D = 0
     electrolysis::B = false
     concentration0::Array{T} = [0.0]
@@ -70,6 +69,7 @@ abstract type AbstractOptimizer end
     eps::T = 1e-12
     grav_x::T = 0.0
     grav_y::T = 0.0
+    nNavier = 0 # number of Navier inner BCs
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -105,6 +105,7 @@ mutable struct Gradient{T <: Real}
 end
 
 struct GeometricInfo{T <: Real} <: MutatingFields
+    cap0::Array{T,3}
     cap::Array{T,3}
     dcap::Array{T,3}
     projection::Array{Gradient{T},2}
@@ -121,6 +122,7 @@ mutable struct Levelset{T,N}
     faces::Array{T,3}
     geoS::GeometricInfo{T}
     geoL::GeometricInfo{T}
+    mid_point0::Matrix{Point{T}}
     mid_point::Matrix{Point{T}}
     cut_points::Matrix{Vector{Point{T}}}
     α::Matrix{T}
@@ -151,8 +153,6 @@ struct Mesh{G,T,N} <: Grid where {G<:Grid}
     LS::Vector{Levelset}
     ind::Indices{N}
     V::Array{T,2}
-    domdec::DomainDecomposition{TS,3,D,A,O,W} where {TS,D,A,O,W}
-    pou::DomainDecomposedVector{T,3,DomainDecomposition{TS,3,D,A,O,W},A2} where {TS,D,A,O,W,A2}
 end
 
 struct OperatorsConvection{T <: Real, D <: Integer} <: MutatingFields
@@ -281,10 +281,6 @@ struct Phase{T <: Real} <: MutatingFields
     v::Array{T,2}
     ucorr::Array{T,2}
     vcorr::Array{T,2}
-    DT::Array{T,2}
-    Dϕ::Array{T,2}
-    Du::Array{T,2}
-    Dv::Array{T,2}
     TD::Array{T,1}
     pD::Array{T,1}
     ϕD::Array{T,1}
@@ -299,6 +295,7 @@ struct Phase{T <: Real} <: MutatingFields
     i_current_mag::Array{T,2}
     Eu::Array{T,2}
     Ev::Array{T,2}
+    uT::Array{T,2}
 end
 
 struct Forward{T <: Real} <: MutatingFields
@@ -369,49 +366,6 @@ mutable struct my_Adjoint{T <: Real} <: MutatingFields
     κ::Array{T, 2}
 end
 
-mutable struct adjoint_phase{T <: Real} <: MutatingFields
-    TD::Array{T,2}
-    ϕD::Array{T,2}
-    pD::Array{T,2}
-    uD::Array{T,2}
-    vD::Array{T,2}
-    ucorrD::Array{T,2}
-    vcorrD::Array{T,2}
-end
-
-mutable struct adjoint_fields{T <: Real} <: MutatingFields
-    u::Array{T,2}
-    phS::adjoint_phase{T}
-    phL::adjoint_phase{T}
-end
-
-mutable struct adjoint_derivatives{T <: Real, D <: Integer} <: MutatingFields
-    RheatS_ls::SparseMatrixCSC{T,D} # Derivative of solid phase heat eq. wrt. levelset
-    RheatL_ls::SparseMatrixCSC{T,D} # Derivative of liquid phase heat eq. wrt. levelset
-    RlsS_ls::SparseMatrixCSC{T,D} # Derivative of Stefan levelset advection eq. wrt. levelset
-    RlsS_TS::SparseMatrixCSC{T,D} # Derivative of Stefan levelset advection eq. wrt. solid temperature 
-    RlsS_TL::SparseMatrixCSC{T,D} # Derivative of Stefan levelset advection eq. wrt. liquid temperature
-    RucorrS_ls0::SparseMatrixCSC{T,D} # Derivative of solid phase prediction step in x wrt. levelset at prev. it.
-    RucorrS_ls1::SparseMatrixCSC{T,D} # Derivative of solid phase prediction step in x wrt. levelset
-    RucorrL_ls0::SparseMatrixCSC{T,D} # Derivative of liquid phase prediction step in x wrt. levelset at prev. it.
-    RucorrL_ls1::SparseMatrixCSC{T,D} # Derivative of liquid phase prediction step in x wrt. levelset
-    RvcorrS_ls0::SparseMatrixCSC{T,D} # Derivative of solid phase prediction step in y wrt. levelset at prev. it.
-    RvcorrS_ls1::SparseMatrixCSC{T,D} # Derivative of solid phase prediction step in y wrt. levelset
-    RvcorrL_ls0::SparseMatrixCSC{T,D} # Derivative of liquid phase prediction step in y wrt. levelset at prev. it.
-    RvcorrL_ls1::SparseMatrixCSC{T,D} # Derivative of liquid phase prediction step in y wrt. levelset
-    RpS_ls::SparseMatrixCSC{T,D} # Derivative of solid phase Poisson eq. wrt. levelset
-    RpL_ls::SparseMatrixCSC{T,D} # Derivative of liquid phase Poisson eq. wrt. levelset
-    RuS_ls::SparseMatrixCSC{T,D} # Derivative of solid phase projection step in x wrt. levelset
-    RuL_ls::SparseMatrixCSC{T,D} # Derivative of liquid phase projection step in x wrt. levelset
-    RvS_ls::SparseMatrixCSC{T,D} # Derivative of solid phase projection step in y wrt. levelset
-    RvL_ls::SparseMatrixCSC{T,D} # Derivative of liquid phase projection step in y wrt. levelset
-    RlsFS_ls::SparseMatrixCSC{T,D} # Derivative of Free Surface levelset advection eq. wrt. levelset
-    RlsFS_ucorrS::SparseMatrixCSC{T,D} # Derivative of Free Surface levelset advection eq. wrt. solid horizontal velocity 
-    RlsFS_ucorrL::SparseMatrixCSC{T,D} # Derivative of Free Surface levelset advection eq. wrt. liquid horizontal velocity 
-    RlsFS_vcorrS::SparseMatrixCSC{T,D} # Derivative of Free Surface levelset advection eq. wrt. solid vertical velocity
-    RlsFS_vcorrL::SparseMatrixCSC{T,D} # Derivative of Free Surface levelset advection eq. wrt. liquid vertical velocity
-end
-
 abstract type TemporalIntegration end
 struct ForwardEuler <: TemporalIntegration end
 struct CrankNicolson <: TemporalIntegration end
@@ -477,6 +431,7 @@ applied. The boundary condition is given by:
 @with_kw mutable struct Navier_cl{T,N} <: BoundaryCondition
     val::N = 0.0
     λ::T = 0.0
+    θe::T = π / 2
 end
 
 """
@@ -528,8 +483,26 @@ end
     λ::T = 0.0
 end
 
-@with_kw mutable struct Wall{T,N} <: BoundaryCondition
+@with_kw mutable struct WallNoSlip{T,N} <: BoundaryCondition
     val::N = 0.0
     λ::T = 0.0
     θe::T = π / 2
+end
+
+"""
+    Flapping{T,N} <: BoundaryCondition
+
+Boundary condition that moves the solid in the vertical direction following a sinusoidal 
+and in the horizontal direction according to the forces acting on the solid.
+
+Only works for elliptical solids.
+"""
+@with_kw mutable struct Flapping{T,N} <: BoundaryCondition
+    val::N = 0.0
+    λ::T = 0.0
+    ρs::T = 10.0
+    KC::T = 2π
+    β::T = 1.0
+    βmult::T = 1000.0
+    free::Bool = false
 end

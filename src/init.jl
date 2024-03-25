@@ -23,7 +23,9 @@ function Levelset(nx, ny)
     iso = zeros(ny, nx)
     faces = zeros(ny, nx, 4)
 
+    SOL0 = zeros(ny, nx, 11)
     SOL = zeros(ny, nx, 11)
+    LIQ0 = ones(ny, nx, 11)
     LIQ = ones(ny, nx, 11)
     LIQ[:,:,8:end] .*= 0.5
 
@@ -35,6 +37,7 @@ function Levelset(nx, ny)
 
     sol_centroid = Matrix{Point{Float64}}(undef, ny, nx)
     liq_centroid = Matrix{Point{Float64}}(undef, ny, nx)
+    mid_point0 = Matrix{Point{Float64}}(undef, ny, nx)
     mid_point = Matrix{Point{Float64}}(undef, ny, nx)
     cut_points = Matrix{Vector{Point{Float64}}}(undef, ny, nx)
     verticesS = Matrix{Vector{Point{Float64}}}(undef, ny, nx)
@@ -42,6 +45,7 @@ function Levelset(nx, ny)
     @inbounds @threads for II in eachindex(sol_centroid)
         sol_centroid[II] = Point(0.0, 0.0)
         liq_centroid[II] = Point(0.0, 0.0)
+        mid_point0[II] = Point(0.0, 0.0)
         mid_point[II] = Point(0.0, 0.0)
         cut_points[II] = [Point(0.0, 0.0), Point(0.0, 0.0)]
         verticesS[II] = Vector{Point{Float64}}()
@@ -58,10 +62,10 @@ function Levelset(nx, ny)
     freshL = zeros(Bool, ny, nx)
 
     geoS = GeometricInfo(
-        SOL, dSOL, sol_projection, sol_centroid,
+        SOL0, SOL, dSOL, sol_projection, sol_centroid,
         verticesS, emptiedS, double_emptiedS, freshS)
     geoL = GeometricInfo(
-        LIQ, dLIQ, liq_projection, liq_centroid,
+        LIQ0, LIQ, dLIQ, liq_projection, liq_centroid,
         verticesL, emptiedL, double_emptiedL, freshL)
 
     α = zeros(ny, nx)
@@ -106,12 +110,12 @@ function Levelset(nx, ny)
     cl = Vector{CartesianIndex{2}}()
 
     return Levelset(
-        u, iso, faces, geoS, geoL, mid_point, cut_points,
+        u, iso, faces, geoS, geoL, mid_point0, mid_point, cut_points,
         α, κ, A, B, MIXED, LIQUID, SOLID, cl
     )
 end
 
-function Mesh(gridType, x_nodes, y_nodes, nLS, s, o)
+function Mesh(gridType, x_nodes, y_nodes, nLS)
     nx = length(x_nodes) - 1
     ny = length(y_nodes) - 1
 
@@ -133,93 +137,19 @@ function Mesh(gridType, x_nodes, y_nodes, nLS, s, o)
 
     V = zeros(ny, nx)
 
-    dom = domain((OneTo(ny), OneTo(nx), OneTo(2)))
-    subs = (s, s, 1)
-    over = (o, o, 0)
-    dec = DDM.decompose(dom, subs, over)
-
-    domdec = decomposition(dom, dec)
-    pou = uniform(domdec)
-
-    return Mesh{gridType,Float64,Int64}(x_nodes, y_nodes, x, y, nx, ny, dx, dy, LS, ind, V, domdec, pou)
+    return Mesh{gridType,Float64,Int64}(x_nodes, y_nodes, x, y, nx, ny, dx, dy, LS, ind, V)
 end
 
 function init_meshes(num::NumericalParameters)
-    mesh_cc = Mesh(GridCC, num.x, num.y, num._nLS, num.subdomains, num.overlaps)
+    mesh_cc = Mesh(GridCC, num.x, num.y, num._nLS)
 
     xx = vcat(num.x[1] - mesh_cc.dx[1,1]/2, num.x[1:end-1] .+ mesh_cc.dx[1,:]/2, num.x[end] + mesh_cc.dx[1,end]/2)
-    mesh_stx = Mesh(GridFCx, xx, num.y, num._nLS, num.subdomains, num.overlaps)
+    mesh_stx = Mesh(GridFCx, xx, num.y, num._nLS)
 
     yy = vcat(num.y[1] - mesh_cc.dy[1,1]/2, num.y[1:end-1] .+ mesh_cc.dy[:,1]/2, num.y[end] + mesh_cc.dy[end,1]/2)
-    mesh_sty = Mesh(GridFCy, num.x, yy, num._nLS, num.subdomains, num.overlaps)
+    mesh_sty = Mesh(GridFCy, num.x, yy, num._nLS)
 
     return (mesh_cc, mesh_stx, mesh_sty)
-end
-
-function adjoint_fields(num, gp, gu, gv)
-    u = fzeros(num.max_iterations+1, gp)
-
-    TDS = f2zeros(num.max_iterations+1, gp)
-    TDL = f2zeros(num.max_iterations+1, gp)
-    ϕDS = f2zeros(num.max_iterations+1, gp)
-    ϕDL = f2zeros(num.max_iterations+1, gp)
-    pDS = f2zeros(num.max_iterations+1, gp)
-    pDL = f2zeros(num.max_iterations+1, gp)
-    uDS = f2zeros(num.max_iterations+1, gu)
-    uDL = f2zeros(num.max_iterations+1, gu)
-    vDS = f2zeros(num.max_iterations+1, gv)
-    vDL = f2zeros(num.max_iterations+1, gv)
-    ucorrDS = f2zeros(num.max_iterations+1, gu)
-    ucorrDL = f2zeros(num.max_iterations+1, gu)
-    vcorrDS = f2zeros(num.max_iterations+1, gv)
-    vcorrDL = f2zeros(num.max_iterations+1, gv)
-
-    phS = adjoint_phase(TDS, ϕDS, pDS, uDS, vDS, ucorrDS, vcorrDS)
-    phL = adjoint_phase(TDL, ϕDL, pDL, uDL, vDL, ucorrDL, vcorrDL)
-
-    return adjoint_fields(u, phS, phL)
-end
-
-function adjoint_derivatives(grid, grid_u, grid_v)
-    tmp = star3(grid)
-    RheatS_ls = [tmp; tmp]
-    RheatL_ls = [tmp; tmp]
-    RlsS_ls = copy(tmp)
-    RlsS_TS = [tmp tmp]
-    RlsS_TL = [tmp tmp]
-    RlsFS_ls = copy(tmp)
-    RpS_ls = [tmp; tmp]
-    RpL_ls = [tmp; tmp]
-
-    # tmp = star3(grid_u)
-    tmp = spdiagm(grid_u.ny*grid_u.nx, grid.ny*grid.nx, 0 => fzeros(grid))
-    tmpT = transpose(tmp)
-    RucorrS_ls0 = [tmp; tmp]
-    RucorrL_ls0 = [tmp; tmp]
-    RucorrS_ls1 = [tmp; tmp]
-    RucorrL_ls1 = [tmp; tmp]
-    RuS_ls = copy(tmp)
-    RuL_ls = copy(tmp)
-    RlsFS_uS = [tmpT tmpT]
-    RlsFS_uL = [tmpT tmpT]
-
-    # tmp = star3(grid_v)
-    tmp = spdiagm(grid_v.ny*grid_v.nx, grid.ny*grid.nx, 0 => fzeros(grid))
-    tmpT = transpose(tmp)
-    RvcorrS_ls0 = [tmp; tmp]
-    RvcorrL_ls0 = [tmp; tmp]
-    RvcorrS_ls1 = [tmp; tmp]
-    RvcorrL_ls1 = [tmp; tmp]
-    RvS_ls = copy(tmp)
-    RvL_ls = copy(tmp)
-    RlsFS_vS = [tmpT tmpT]
-    RlsFS_vL = [tmpT tmpT]
-
-    return adjoint_derivatives{Float64}(RheatS_ls, RheatL_ls, RlsS_ls, RlsS_TS, RlsS_TL,
-                                        RucorrS_ls0, RucorrS_ls1, RucorrL_ls0, RucorrL_ls1,
-                                        RvcorrS_ls0, RvcorrS_ls1, RvcorrL_ls0, RvcorrL_ls1,
-                                        RpS_ls, RpL_ls, RuS_ls, RuL_ls, RvS_ls, RvL_ls,
-                                        RlsFS_ls, RlsFS_uS, RlsFS_uL, RlsFS_vS, RlsFS_vL)
 end
 
 function init_sparse_Bx(grid)
@@ -951,14 +881,6 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     ucorrL = zeros(grid_u)
     vcorrS = zeros(grid_v)
     vcorrL = zeros(grid_v)
-    DTS = zeros(grid)
-    DTL = zeros(grid)
-    DϕS = zeros(grid)
-    DϕL = zeros(grid)
-    DuS = zeros(grid_u)
-    DuL = zeros(grid_u)
-    DvS = zeros(grid_v)
-    DvL = zeros(grid_v)
     TDS = fnzeros(grid, num)
     TDL = fnzeros(grid, num)
     pDS = fnzeros(grid, num)
@@ -973,6 +895,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     ucorrDL = fnzeros(grid_u, num)
     vcorrDS = fnzeros(grid_v, num)
     vcorrDL = fnzeros(grid_v, num)
+    uTS = fzeros(num.nNavier, grid)
+    uTL = fzeros(num.nNavier, grid)
 
     trans_scalL = zeros(grid, nb_transported_scalars)
     phi_eleL = zeros(grid)
@@ -1012,8 +936,10 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     κsave = zeros(_nLS, n_snaps, grid.ny, grid.nx)
     lengthsave = zeros(n_snaps)
     time = zeros(n_snaps)
-    Cd = zeros(n_snaps)
-    Cl = zeros(n_snaps)
+    # Cd = zeros(n_snaps)
+    # Cl = zeros(n_snaps)
+    Cd = zeros(max_iterations+1)
+    Cl = zeros(max_iterations+1)
     TDSsave = fnzeros(n_snaps, grid, num)
     TDLsave = fnzeros(n_snaps, grid, num)
     pDSsave = fnzeros(n_snaps, grid, num)
@@ -1090,7 +1016,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
             end
         end
     elseif num.case == "Ellipse"
-        LS[1].u .= sqrt.((x .+ shifted) .^ 2 + (2.0 .* y) .^ 2) - (R) * ones(ny, nx);
+        LS[1].u .= sqrt.((x .+ shifted) .^ 2 + (y ./ A) .^ 2) - (R) * ones(ny, nx);
     elseif num.case == "Mullins"
         LS[1].u .= y .+ shifted .+ A*sin.(N*pi*x) .+ L0/4;
         init_mullins!(grid, TL, T_inf, 0., A, N, L0/4)
@@ -1167,8 +1093,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
             Operators(AxT_vS, AyT_vS, Bx_vS, By_vS, BxT_vS, ByT_vS, Hx_vS, Hy_vS, HxT_vS, HyT_vS, tmp_x_vS, tmp_y_vS, M_vS, iMx_vS, iMy_vS, χ_vS, Rx, Ry, Gx_S, Gy_S, Hx_b_vS, Hy_b_vS, HxT_b_vS, HyT_b_vS, iMx_b_vS, iMy_b_vS, iMx_bd_vS, iMy_bd_vS, Gx_b_vS, Gy_b_vS, χ_b_vS),
             Operators(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L, Hx_b_vL, Hy_b_vL, HxT_b_vL, HyT_b_vL, iMx_b_vL, iMy_b_vL, iMx_bd_vL, iMy_bd_vL, Gx_b_vL, Gy_b_vL, χ_b_vL)
         ),
-        Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DϕS, DuS, DvS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS, trans_scalS, phi_eleS, trans_scalDS, phi_eleDS, i_current_magS, EuS, EvS),
-        Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DϕL, DuL, DvL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL, trans_scalL, phi_eleL, trans_scalDL, phi_eleDL, i_current_magL, EuL, EvL),
+        Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DϕS, DuS, DvS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS, uTS, trans_scalS, phi_eleS, trans_scalDS, phi_eleDS, i_current_magS, EuS, EvS),
+        Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DϕL, DuL, DvL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL, uTL, trans_scalL, phi_eleL, trans_scalDL, phi_eleDL, i_current_magL, EuL, EvL),
         Forward(Tsave, usave, uxsave, uysave, Vsave, κsave, lengthsave, time, Cd, Cl, trans_scal_save, phi_ele_save,i_current_mag_save, Euxsave, Euysave),
         ForwardPhase(TSsave, pSsave, ϕSsave, uSsave, vSsave, TDSsave, pDSsave, ucorrDSsave, vcorrDSsave, VratioS, trans_scalSsave, phi_eleSsave, trans_scalDSsave, phi_eleDSsave, i_current_magSsave, EuSsave, EvSsave),
         ForwardPhase(TLsave, pLsave, ϕLsave, uLsave, vLsave, TDLsave, pDLsave, ucorrDLsave, vcorrDLsave, VratioL, trans_scalLsave, phi_eleLsave, trans_scalDLsave, phi_eleDLsave, i_current_magLsave, EuLsave, EvLsave)

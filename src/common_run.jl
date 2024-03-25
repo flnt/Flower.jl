@@ -32,13 +32,17 @@ end
 function update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, empty = true)
     if num.nLS > 1
         for iLS in 1:num.nLS
-            update_ls_data(num, grid, grid_u, grid_v, iLS, grid.LS[iLS].u, grid.LS[iLS].κ, BC_int, BC_int[iLS], periodic_x, periodic_y, empty)
+            update_ls_data(num, grid, grid_u, grid_v, iLS, grid.LS[iLS].u, grid.LS[iLS].κ, BC_int, BC_int[iLS], periodic_x, periodic_y, false, empty)
+            grid.LS[iLS].geoL.cap0 .= grid.LS[iLS].geoL.cap
+            grid.LS[iLS].mid_point0 .= grid.LS[iLS].mid_point
         end
         combine_levelsets!(num, grid)
-        NB_indices = update_ls_data(num, grid, grid_u, grid_v, num._nLS, grid.LS[end].u, grid.LS[end].κ, BC_int, DummyBC(), periodic_x, periodic_y, empty)
-        crossing_2levelsets!(num, grid, grid.LS[1], grid.LS[2], periodic_x, periodic_y, BC_int)
-        crossing_2levelsets!(num, grid_u, grid_u.LS[1], grid_u.LS[2], periodic_x, periodic_y, BC_int)
-        crossing_2levelsets!(num, grid_v, grid_v.LS[1], grid_v.LS[2], periodic_x, periodic_y, BC_int)
+        NB_indices = update_ls_data(num, grid, grid_u, grid_v, num._nLS, grid.LS[end].u, grid.LS[end].κ, BC_int, DummyBC(), periodic_x, periodic_y, true, empty)
+        grid.LS[end].geoL.cap0 .= grid.LS[end].geoL.cap
+        grid.LS[end].mid_point0 .= grid.LS[end].mid_point
+        crossing_2levelsets!(num, grid, grid.LS[1], grid.LS[2], BC_int)
+        crossing_2levelsets!(num, grid_u, grid_u.LS[1], grid_u.LS[2], BC_int)
+        crossing_2levelsets!(num, grid_v, grid_v.LS[1], grid_v.LS[2], BC_int)
         # for iLS in 1:num.nLS
         #     extend_contact_line!(grid, grid.LS[iLS])
         # end
@@ -48,27 +52,30 @@ function update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, perio
         end
         postprocess_grids2!(grid, grid.LS[end], grid_u, grid_u.LS[end], grid_v, grid_v.LS[end], periodic_x, periodic_y, true)
     else
-        NB_indices = update_ls_data(num, grid, grid_u, grid_v, 1, grid.LS[1].u, grid.LS[1].κ, BC_int, BC_int[1], periodic_x, periodic_y, empty)
-        postprocess_grids2!(grid, grid.LS[end], grid_u, grid_u.LS[end], grid_v, grid_v.LS[end], periodic_x, periodic_y, true)
+        NB_indices = update_ls_data(num, grid, grid_u, grid_v, 1, grid.LS[1].u, grid.LS[1].κ, BC_int, BC_int[1], periodic_x, periodic_y, true, empty)
+        grid.LS[1].geoL.cap0 .= grid.LS[1].geoL.cap
+        grid.LS[1].mid_point0 .= grid.LS[1].mid_point
+        postprocess_grids2!(grid, grid.LS[1], grid_u, grid_u.LS[1], grid_v, grid_v.LS[1], periodic_x, periodic_y, true)
     end
 
     return NB_indices
 end
 
-function update_ls_data(num, grid, grid_u, grid_v, iLS, u, κ, BC_int, bc_int, periodic_x, periodic_y, empty = true)
-    NB_indices = update_ls_data_grid(num, grid, grid.LS[iLS], u, κ, periodic_x, periodic_y, empty)
+function update_ls_data(num, grid, grid_u, grid_v, iLS, u, κ, BC_int, bc_int, periodic_x, periodic_y, neighbours, empty = true)
+    NB_indices = update_ls_data_grid(num, grid, grid.LS[iLS], u, κ, periodic_x, periodic_y)
 
     interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.LS[iLS].u, grid_v.LS[iLS].u)
 
-    _ = update_ls_data_grid(num, grid_u, grid_u.LS[iLS], grid_u.LS[iLS].u, grid_u.LS[iLS].κ, periodic_x, periodic_y, empty)
-    _ = update_ls_data_grid(num, grid_v, grid_v.LS[iLS], grid_v.LS[iLS].u, grid_v.LS[iLS].κ, periodic_x, periodic_y, empty)
+    _ = update_ls_data_grid(num, grid_u, grid_u.LS[iLS], grid_u.LS[iLS].u, grid_u.LS[iLS].κ, periodic_x, periodic_y)
+    _ = update_ls_data_grid(num, grid_v, grid_v.LS[iLS], grid_v.LS[iLS].u, grid_v.LS[iLS].κ, periodic_x, periodic_y)
 
-    postprocess_grids1!(grid, grid.LS[iLS], grid_u, grid_u.LS[iLS], grid_v, grid_v.LS[iLS], periodic_x, periodic_y, num.ϵ, empty)
+    postprocess_grids1!(num, grid, grid.LS[iLS], grid_u, grid_u.LS[iLS], grid_v, grid_v.LS[iLS], periodic_x, periodic_y, neighbours, empty, BC_int)
 
     for i in 1:num.nLS
         if is_wall(BC_int[i])
             idx_solid = Base.union(grid.LS[i].SOLID, findall(grid.LS[i].geoL.emptied))
-            @inbounds κ[idx_solid] .= 0.0
+            # @inbounds κ[idx_solid] .= 0.0
+            @inbounds κ[grid.LS[i].SOLID] .= 0.0
         end
     end
 
@@ -89,7 +96,7 @@ function update_ls_data(num, grid, grid_u, grid_v, iLS, u, κ, BC_int, bc_int, p
     return NB_indices
 end
 
-function update_ls_data_grid(num, grid, LS, u, κ, periodic_x, periodic_y, empty = true)
+function update_ls_data_grid(num, grid, LS, u, κ, periodic_x, periodic_y)
     LS.α .= NaN
     LS.faces .= 0.0
     LS.mid_point .= [Point(0.0, 0.0)]
@@ -127,131 +134,14 @@ function update_stefan_velocity(num, grid, iLS, u, TS, TL, periodic_x, periodic_
 end
 
 function update_free_surface_velocity(num, grid_u, grid_v, iLS, uD, vD, periodic_x, periodic_y)
-    grid_u.V .= reshape(veci(uD,grid_u,iLS+1), (grid_u.ny, grid_u.nx))
-    grid_v.V .= reshape(veci(vD,grid_v,iLS+1), (grid_v.ny, grid_v.nx))
+    # grid_u.V .= reshape(veci(uD,grid_u,iLS+1), grid_u)
+    # grid_v.V .= reshape(veci(vD,grid_v,iLS+1), grid_v)
+    grid_u.V .= reshape(vec1(uD,grid_u), grid_u)
+    grid_v.V .= reshape(vec1(vD,grid_v), grid_v)
 
-    i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext = indices_extension(grid_u, grid_u.LS[iLS], grid_u.ind.inside, periodic_x, periodic_y)
-    i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext = indices_extension(grid_v, grid_v.LS[iLS], grid_v.ind.inside, periodic_x, periodic_y)
+    # i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext = indices_extension(grid_u, grid_u.LS[iLS], grid_u.ind.inside, periodic_x, periodic_y)
+    # i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext = indices_extension(grid_v, grid_v.LS[iLS], grid_v.ind.inside, periodic_x, periodic_y)
 
-    field_extension!(grid_u, grid_u.LS[iLS].u, grid_u.V, i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext, num.NB, periodic_x, periodic_y)
-    field_extension!(grid_v, grid_v.LS[iLS].u, grid_v.V, i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext, num.NB, periodic_x, periodic_y)
-end
-
-function adjoint_projection_fs(num, grid, grid_u, grid_v,
-    J_u, J_v, adj, adj_ph, ph,
-    RlsFS_ucorr, RlsFS_vcorr,
-    Au, Bu, Av, Bv, Aϕ,
-    opC_p, opC_u, opC_v, BC_p,
-    current_i, last_it, periodic_x, periodic_y,
-    ns_advection, free_surface)
-    @unpack Re, τ = num
-    @unpack nx, ny = grid
-
-    iRe = 1.0 / Re
-    iτ = 1.0 / τ
-
-    a0_p = zeros(grid)
-    _a1_p = zeros(grid)
-    _b0_p = ones(grid)
-    _b1_p = zeros(grid)
-    set_borders!(grid, a0_p, _a1_p, _b0_p, _b1_p, BC_p, periodic_x, periodic_y)
-    b0_p = Diagonal(vec(_b0_p))
-
-    # Adjoint projection step
-    @views adj_ph.uD[current_i,:] .= J_u(ph.u, current_i, grid_u)
-    @views adj_ph.vD[current_i,:] .= J_v(ph.v, current_i, grid_v)
-    if !last_it
-        adj_ph.uD[current_i,:] .+= transpose(Bu) * adj_ph.ucorrD[current_i+1,:]
-        adj_ph.vD[current_i,:] .+= transpose(Bv) * adj_ph.vcorrD[current_i+1,:]
-    end
-
-    # Adjoint pressure update step
-    if !free_surface && !last_it
-        GxT = τ .* transpose([opC_u.AxT * opC_u.Rx opC_u.Gx])
-        GyT = τ .* transpose([opC_v.AyT * opC_u.Ry opC_v.Gy])
-
-        @views adj_ph.pD[current_i,:] .+= adj_ph.pD[current_i+1,:]
-        adj_ph.pD[current_i,:] .-= GxT * veci(adj_ph.ucorrD[current_i+1,:],grid_u,1)
-        adj_ph.pD[current_i,:] .-= GyT * veci(adj_ph.vcorrD[current_i+1,:],grid_v,1)
-    end
-
-    # Adjoint Poisson equation
-    iMu = Diagonal(1 ./ (opC_u.M.diag .+ eps(0.01)))
-    iMv = Diagonal(1 ./ (opC_v.M.diag .+ eps(0.01)))
-    GxT = τ .* transpose([iMu * opC_u.AxT * opC_u.Rx iMu * opC_u.Gx])
-    GyT = τ .* transpose([iMv * opC_v.AyT * opC_u.Ry iMv * opC_v.Gy])
-
-    rhs_ϕ = f2zeros(grid)
-    @views rhs_ϕ .+= adj_ph.pD[current_i,:]
-    @views rhs_ϕ .-= GxT * veci(adj_ph.uD[current_i,:],grid_u,1) .+ GyT * veci(adj_ph.vD[current_i,:],grid_v,1)
-
-    blocks = DDM.decompose(transpose(Aϕ), grid.domdec, grid.domdec)
-    # @views @mytime _, ch = bicgstabl!(adj_ph.ϕD[current_i,:], transpose(Aϕ), rhs_ϕ, Pl=ras(blocks,grid.pou), log=true)
-    adj_ph.ϕD[current_i,:] .= transpose(Aϕ) \ rhs_ϕ
-    # println(ch)
-
-    # Adjoint prediction step
-    Du = iτ .* transpose([opC_p.AxT opC_p.Gx])
-    Dv = iτ .* transpose([opC_p.AyT opC_p.Gy])
-
-    # Du and Dv have to be modified updated into an equivalent
-    # matrix for the adjoint system when periodic BCs are imposed.
-    if periodic_x
-        for i = 1:grid_u.ny
-            II = CartesianIndex(i,1)
-            JJ = CartesianIndex(i,grid_u.nx)
-            pII_1 = lexicographic(II, grid.ny)
-            pII_2 = lexicographic(II, grid_u.ny)
-            pJJ = lexicographic(JJ, grid_u.ny)
-            Du[pJJ,pII_1] = Du[pII_2,pII_1]
-            Du[pII_2,pII_1] = 0.
-        end
-    end
-    if periodic_y
-        @inbounds @threads for i = 1:grid_v.nx
-            II = CartesianIndex(1,i)
-            JJ = CartesianIndex(grid_v.ny,i)
-            pII_1 = lexicographic(II, grid.ny)
-            pII_2 = lexicographic(II, grid_v.ny)
-            pJJ = lexicographic(JJ, grid_v.ny)
-            @inbounds Dv[pJJ,pII_1] = Dv[pII_2,pII_1]
-            @inbounds Dv[pII_2,pII_1] = 0.0
-        end
-    end
-
-    rhs_u = f2zeros(grid_u)
-    rhs_u .+= adj_ph.uD[current_i,:]
-    rhs_u .+= Du * veci(adj_ph.pD[current_i,:],grid,1)
-
-    rhs_v = f2zeros(grid_v)
-    rhs_v .+= adj_ph.vD[current_i,:]
-    rhs_v .+= Dv * veci(adj_ph.pD[current_i,:],grid,1)
-
-    if free_surface
-        Smat = strain_rate(opC_u, opC_v)
-        Su = transpose(iRe .* b0_p * [Smat[1,1] Smat[1,2]])
-        Sv = transpose(iRe .* b0_p * [Smat[2,1] Smat[2,2]])
-
-        rhs_u .+= Su * veci(adj_ph.pD[current_i,:],grid,2)
-        if !last_it
-            @views rhs_u .-= transpose(RlsFS_ucorr) * adj.u[current_i+1,:]
-        end
-        
-        rhs_v .+= Sv * veci(adj_ph.pD[current_i,:],grid,2)
-        if !last_it
-            @views rhs_v .-= transpose(RlsFS_vcorr) * adj.u[current_i+1,:]
-        end
-    end
-
-    blocks = DDM.decompose(transpose(Au), grid_u.domdec, grid_u.domdec)
-    # @views @mytime _, ch = bicgstabl!(adj_ph.ucorrD[current_i,:], transpose(Au), rhs_u, Pl=ras(blocks,grid_u.pou), log=true)
-    adj_ph.ucorrD[current_i,:] .= transpose(Au) \ rhs_u
-    # println(ch)
-
-    blocks = DDM.decompose(transpose(Av), grid_v.domdec, grid_v.domdec)
-    # @views @mytime _, ch = bicgstabl!(adj_ph.vcorrD[current_i,:], transpose(Av), rhs_v, Pl=ras(blocks,grid_v.pou), log=true)
-    adj_ph.vcorrD[current_i,:] .= transpose(Av) \ rhs_v
-    # println(ch)
-
-    return nothing
+    # field_extension!(grid_u, grid_u.LS[iLS].u, grid_u.V, i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext, num.NB, periodic_x, periodic_y)
+    # field_extension!(grid_v, grid_v.LS[iLS].u, grid_v.V, i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext, num.NB, periodic_x, periodic_y)
 end
