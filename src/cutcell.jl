@@ -213,7 +213,7 @@ function empty_cell!(grid, LS, geo, II, neighbours = true)
     LS.iso[II] = 15.0
 end
 
-function clip_cells!(grid, LS, ϵ, neighbours)
+function clip_cells!(grid, LS, ϵ, ϵwall, neighbours, BC_int)
     @unpack nx, ny, ind = grid
     @unpack geoS, geoL = LS
 
@@ -221,9 +221,25 @@ function clip_cells!(grid, LS, ϵ, neighbours)
         clip_large_cell!(grid, LS, geoS, II, ϵ, neighbours)
         clip_large_cell!(grid, LS, geoL, II, ϵ, neighbours)
     end
+    for iLS in eachindex(BC_int)
+        if is_wall(BC_int[iLS])
+            @inbounds @threads for II in vcat(grid.LS[iLS].MIXED, grid.LS[iLS].SOLID)
+                clip_large_cell!(grid, LS, geoS, II, ϵwall, neighbours)
+                clip_large_cell!(grid, LS, geoL, II, ϵwall, neighbours)
+            end
+        end
+    end
     @inbounds @threads for II in ind.inside
         clip_small_cell!(grid, LS, geoS, II, ϵ, neighbours)
         clip_small_cell!(grid, LS, geoL, II, ϵ, neighbours)
+    end
+    for iLS in eachindex(BC_int)
+        if is_wall(BC_int[iLS])
+            @inbounds @threads for II in vcat(grid.LS[iLS].MIXED, grid.LS[iLS].SOLID)
+                clip_small_cell!(grid, LS, geoS, II, ϵwall, neighbours)
+                clip_small_cell!(grid, LS, geoL, II, ϵwall, neighbours)
+            end
+        end
     end
     @inbounds @threads for II in @view ind.b_left[1][2:end-1]
         if geoS.cap[II,5] > (1.0-ϵ)
@@ -410,7 +426,7 @@ function clip_cells!(grid, LS, ϵ, neighbours)
     return nothing
 end
 
-function clip_A_acc_to_V(grid, grid_u, grid_v, geo, geo_u, geo_v, ϵ, neighbours)
+function clip_A_acc_to_V(grid, grid_u, grid_v, geo, geo_u, geo_v, ϵ, ϵwall, neighbours, BC_int)
     @unpack ind = grid
     @inbounds @threads for II in ind.all_indices
         if geo.cap[II,5] < ϵ
@@ -419,6 +435,20 @@ function clip_A_acc_to_V(grid, grid_u, grid_v, geo, geo_u, geo_v, ϵ, neighbours
             if neighbours
                 geo_u.cap[δx⁺(II),1] = 0.0
                 geo_v.cap[δy⁺(II),2] = 0.0
+            end
+        end
+    end
+    for iLS in eachindex(BC_int)
+        if is_wall(BC_int[iLS])
+            @inbounds @threads for II in vcat(grid.LS[iLS].MIXED, grid.LS[iLS].SOLID)
+                if geo.cap[II,5] < ϵwall
+                    geo_u.cap[II,3] = 0.0
+                    geo_v.cap[II,4] = 0.0
+                    if neighbours
+                        geo_u.cap[δx⁺(II),1] = 0.0
+                        geo_v.cap[δy⁺(II),2] = 0.0
+                    end
+                end
             end
         end
     end
@@ -434,6 +464,22 @@ function clip_A_acc_to_V(grid, grid_u, grid_v, geo, geo_u, geo_v, ϵ, neighbours
             end
         end
     end
+    for iLS in eachindex(BC_int)
+        if is_wall(BC_int[iLS])
+            @inbounds @threads for II in vcat(grid_u.LS[iLS].MIXED, grid_u.LS[iLS].SOLID)
+                if geo_u.cap[II,5] < ϵwall
+                    if neighbours
+                        if II[2] > 1
+                            geo.cap[δx⁻(II),3] = 0.
+                        end
+                    end
+                    if II[2] < grid_u.nx
+                        geo.cap[II,1] = 0.
+                    end
+                end
+            end
+        end
+    end
     @inbounds @threads for II in grid_v.ind.all_indices
         if geo_v.cap[II,5] < ϵ
             if neighbours
@@ -446,6 +492,23 @@ function clip_A_acc_to_V(grid, grid_u, grid_v, geo, geo_u, geo_v, ϵ, neighbours
             end
         end
     end
+    for iLS in eachindex(BC_int)
+        if is_wall(BC_int[iLS])
+            @inbounds @threads for II in vcat(grid_v.LS[iLS].MIXED, grid_v.LS[iLS].SOLID)
+                if geo_v.cap[II,5] < ϵwall
+                    if neighbours
+                        if II[1] > 1
+                            geo.cap[δy⁻(II),4] = 0.
+                        end
+                    end
+                    if II[1] < grid_v.ny
+                        geo.cap[II,2] = 0.
+                    end
+                end
+            end
+        end
+    end
+
     return nothing
 end
 
@@ -495,13 +558,13 @@ function dimensionalize!(grid, geo)
     return nothing
 end
 
-function postprocess_grids1!(grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, periodic_y, ϵ, neighbours, empty)
-    clip_cells!(grid, LS, ϵ, neighbours)
-    clip_cells!(grid_u, LS_u, ϵ, neighbours)
-    clip_cells!(grid_v, LS_v, ϵ, neighbours)
+function postprocess_grids1!(num, grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, periodic_y, neighbours, empty, BC_int)
+    clip_cells!(grid, LS, num.ϵ, num.ϵwall, neighbours, BC_int)
+    clip_cells!(grid_u, LS_u, num.ϵ, num.ϵwall, neighbours, BC_int)
+    clip_cells!(grid_v, LS_v, num.ϵ, num.ϵwall, neighbours, BC_int)
 
-    clip_A_acc_to_V(grid, grid_u, grid_v, LS.geoS, LS_u.geoS, LS_v.geoS, ϵ, neighbours)
-    clip_A_acc_to_V(grid, grid_u, grid_v, LS.geoL, LS_u.geoL, LS_v.geoL, ϵ, neighbours)
+    clip_A_acc_to_V(grid, grid_u, grid_v, LS.geoS, LS_u.geoS, LS_v.geoS, num.ϵ, num.ϵwall, neighbours, BC_int)
+    clip_A_acc_to_V(grid, grid_u, grid_v, LS.geoL, LS_u.geoL, LS_v.geoL, num.ϵ, num.ϵwall, neighbours, BC_int)
 
     clip_middle_cells!(grid, LS)
     clip_middle_cells!(grid_u, LS_u)
@@ -650,7 +713,7 @@ function crossing_2levelsets!(num, grid, LS1, LS2, BC_int)
         vol = LibGEOS.area(poly)
 
         # If the intersection is not empty
-        if vol > num.ϵ
+        if vol > num.ϵwall
             # Add point as contact line point
             _cent = LibGEOS.centroid(poly)
             cent = GeoInterface.convert(GeometryBasics, _cent)
@@ -711,7 +774,44 @@ function crossing_2levelsets!(num, grid, LS1, LS2, BC_int)
                                     $(p.x+0.5) $(p.y+2.0)
                                 )"
                             )
-                            Bx = ilp2cap(lx, poly)
+                            try                                
+                                Bx = ilp2cap(lx, poly)
+                            catch
+                                face_non_empty = Acap[capn]
+                                if face_non_empty == 2
+                                    id_cut1 = abs(LS1.cut_points[II][1].y + 0.5) < 1e-8 ? 1 : 2
+                                    id_cut2 = abs(LS2.cut_points[II][1].y + 0.5) < 1e-8 ? 1 : 2
+                                    if (p.x + 0.5) > LS1.cut_points[II][id_cut1].x
+                                        if LS1.cut_points[II][id_cut1].x > LS2.cut_points[II][id_cut2].x
+                                            Bx = ilp2cap(lx, poly2)
+                                        else
+                                            Bx = ilp2cap(lx, poly1)
+                                        end
+                                    else
+                                        if LS1.cut_points[II][id_cut1].x < LS2.cut_points[II][id_cut2].x
+                                            Bx = ilp2cap(lx, poly2)
+                                        else
+                                            Bx = ilp2cap(lx, poly1)
+                                        end
+                                    end
+                                else
+                                    id_cut1 = abs(LS1.cut_points[II][1].y - 0.5) < 1e-8 ? 1 : 2
+                                    id_cut2 = abs(LS2.cut_points[II][1].y - 0.5) < 1e-8 ? 1 : 2
+                                    if (p.x + 0.5) > LS1.cut_points[II][id_cut1].x
+                                        if LS1.cut_points[II][id_cut1].x > LS2.cut_points[II][id_cut2].x
+                                            Bx = ilp2cap(lx, poly2)
+                                        else
+                                            Bx = ilp2cap(lx, poly1)
+                                        end
+                                    else
+                                        if LS1.cut_points[II][id_cut1].x < LS2.cut_points[II][id_cut2].x
+                                            Bx = ilp2cap(lx, poly2)
+                                        else
+                                            Bx = ilp2cap(lx, poly1)
+                                        end
+                                    end
+                                end
+                            end
                             grid.LS[end].geoL.cap[II,6] = Bx
                         else
                             ly = readgeom(
@@ -720,7 +820,44 @@ function crossing_2levelsets!(num, grid, LS1, LS2, BC_int)
                                     $(p.x+2.0) $(p.y+0.5)
                                 )"
                             )
-                            By = ilp2cap(ly, poly)
+                            try
+                                By = ilp2cap(ly, poly)
+                            catch
+                                face_non_empty = Acap[capn]
+                                if face_non_empty == 1
+                                    id_cut1 = abs(LS1.cut_points[II][1].x + 0.5) < 1e-8 ? 1 : 2
+                                    id_cut2 = abs(LS2.cut_points[II][1].x + 0.5) < 1e-8 ? 1 : 2
+                                    if (p.y + 0.5) > LS1.cut_points[II][id_cut1].y
+                                        if LS1.cut_points[II][id_cut1].y > LS2.cut_points[II][id_cut2].y
+                                            By = ilp2cap(ly, poly2)
+                                        else
+                                            By = ilp2cap(ly, poly1)
+                                        end
+                                    else
+                                        if LS1.cut_points[II][id_cut1].y < LS2.cut_points[II][id_cut2].y
+                                            By = ilp2cap(ly, poly2)
+                                        else
+                                            By = ilp2cap(ly, poly1)
+                                        end
+                                    end
+                                else
+                                    id_cut1 = abs(LS1.cut_points[II][1].x - 0.5) < 1e-8 ? 1 : 2
+                                    id_cut2 = abs(LS2.cut_points[II][1].x - 0.5) < 1e-8 ? 1 : 2
+                                    if (p.y + 0.5) > LS1.cut_points[II][id_cut1].y
+                                        if LS1.cut_points[II][id_cut1].y > LS2.cut_points[II][id_cut2].y
+                                            By = ilp2cap(ly, poly2)
+                                        else
+                                            By = ilp2cap(ly, poly1)
+                                        end
+                                    else
+                                        if LS1.cut_points[II][id_cut1].y < LS2.cut_points[II][id_cut2].y
+                                            By = ilp2cap(ly, poly2)
+                                        else
+                                            By = ilp2cap(ly, poly1)
+                                        end
+                                    end
+                                end
+                            end
                             grid.LS[end].geoL.cap[II,7] = By
                         end
                     elseif (min_face[capn] == 0 && 
@@ -733,7 +870,44 @@ function crossing_2levelsets!(num, grid, LS1, LS2, BC_int)
                                     $(p.x+2.0) $(p.y+0.5)
                                 )"
                             )
-                            By = ilp2cap(ly, poly)
+                            try
+                                By = ilp2cap(ly, poly)
+                            catch
+                                face_non_empty = Acap[capn]
+                                if face_non_empty == 1
+                                    id_cut1 = abs(LS1.cut_points[II][1].x + 0.5) < 1e-8 ? 1 : 2
+                                    id_cut2 = abs(LS2.cut_points[II][1].x + 0.5) < 1e-8 ? 1 : 2
+                                    if (p.y + 0.5) > LS1.cut_points[II][id_cut1].y
+                                        if LS1.cut_points[II][id_cut1].y > LS2.cut_points[II][id_cut2].y
+                                            By = ilp2cap(ly, poly2)
+                                        else
+                                            By = ilp2cap(ly, poly1)
+                                        end
+                                    else
+                                        if LS1.cut_points[II][id_cut1].y < LS2.cut_points[II][id_cut2].y
+                                            By = ilp2cap(ly, poly2)
+                                        else
+                                            By = ilp2cap(ly, poly1)
+                                        end
+                                    end
+                                else
+                                    id_cut1 = abs(LS1.cut_points[II][1].x - 0.5) < 1e-8 ? 1 : 2
+                                    id_cut2 = abs(LS2.cut_points[II][1].x - 0.5) < 1e-8 ? 1 : 2
+                                    if (p.y + 0.5) > LS1.cut_points[II][id_cut1].y
+                                        if LS1.cut_points[II][id_cut1].y > LS2.cut_points[II][id_cut2].y
+                                            By = ilp2cap(ly, poly2)
+                                        else
+                                            By = ilp2cap(ly, poly1)
+                                        end
+                                    else
+                                        if LS1.cut_points[II][id_cut1].y < LS2.cut_points[II][id_cut2].y
+                                            By = ilp2cap(ly, poly2)
+                                        else
+                                            By = ilp2cap(ly, poly1)
+                                        end
+                                    end
+                                end
+                            end
                             grid.LS[end].geoL.cap[II,7] = By
                             if LS1.geoL.cap[II,capn] > 1e-12
                                 LS1.geoL.cap[II,capn] = By
@@ -753,7 +927,44 @@ function crossing_2levelsets!(num, grid, LS1, LS2, BC_int)
                                     $(p.x+0.5) $(p.y+2.0)
                                 )"
                             )
-                            Bx = ilp2cap(lx, poly)
+                            try                                
+                                Bx = ilp2cap(lx, poly)
+                            catch
+                                face_non_empty = Acap[capn]
+                                if face_non_empty == 2
+                                    id_cut1 = abs(LS1.cut_points[II][1].y + 0.5) < 1e-8 ? 1 : 2
+                                    id_cut2 = abs(LS2.cut_points[II][1].y + 0.5) < 1e-8 ? 1 : 2
+                                    if (p.x + 0.5) > LS1.cut_points[II][id_cut1].x
+                                        if LS1.cut_points[II][id_cut1].x > LS2.cut_points[II][id_cut2].x
+                                            Bx = ilp2cap(lx, poly2)
+                                        else
+                                            Bx = ilp2cap(lx, poly1)
+                                        end
+                                    else
+                                        if LS1.cut_points[II][id_cut1].x < LS2.cut_points[II][id_cut2].x
+                                            Bx = ilp2cap(lx, poly2)
+                                        else
+                                            Bx = ilp2cap(lx, poly1)
+                                        end
+                                    end
+                                else
+                                    id_cut1 = abs(LS1.cut_points[II][1].y - 0.5) < 1e-8 ? 1 : 2
+                                    id_cut2 = abs(LS2.cut_points[II][1].y - 0.5) < 1e-8 ? 1 : 2
+                                    if (p.x + 0.5) > LS1.cut_points[II][id_cut1].x
+                                        if LS1.cut_points[II][id_cut1].x > LS2.cut_points[II][id_cut2].x
+                                            Bx = ilp2cap(lx, poly2)
+                                        else
+                                            Bx = ilp2cap(lx, poly1)
+                                        end
+                                    else
+                                        if LS1.cut_points[II][id_cut1].x < LS2.cut_points[II][id_cut2].x
+                                            Bx = ilp2cap(lx, poly2)
+                                        else
+                                            Bx = ilp2cap(lx, poly1)
+                                        end
+                                    end
+                                end
+                            end
                             grid.LS[end].geoL.cap[II,6] = Bx
                             if LS1.geoL.cap[II,capn] > 1e-12
                                 LS1.geoL.cap[II,capn] = Bx
@@ -797,7 +1008,16 @@ function crossing_2levelsets!(num, grid, LS1, LS2, BC_int)
                                     $(p.x+0.5) $(p.y+2.0)
                                 )"
                             )
-                            Bx = ilp2cap(lx, poly)
+                            try
+                                Bx = ilp2cap(lx, poly)    
+                            catch
+                                if min_face[capn] == 1
+                                    Bx = ilp2cap(lx, poly2)
+                                else
+                                    Bx = ilp2cap(lx, poly1)
+                                end
+                            end
+                            
                             grid.LS[end].geoL.cap[II,6] = Bx
                         else
                             ly = readgeom(
@@ -806,7 +1026,15 @@ function crossing_2levelsets!(num, grid, LS1, LS2, BC_int)
                                     $(p.x+2.0) $(p.y+0.5)
                                 )"
                             )
-                            By = ilp2cap(ly, poly)
+                            try
+                                By = ilp2cap(ly, poly)
+                            catch
+                                if min_face[capn] == 1
+                                    By = ilp2cap(ly, poly2)
+                                else
+                                    By = ilp2cap(ly, poly1)
+                                end
+                            end
                             grid.LS[end].geoL.cap[II,7] = By
                         end
                     end
@@ -868,11 +1096,21 @@ function set_A_caps!(capn, LS1, LS2, II, poly1, poly2, p, min_face)
         end
 
         if iLS == 1
-            cap = ilp2cap(l, poly2)
-            LS2.geoL.cap[II,capn] = cap
+            try
+                cap = ilp2cap(l, poly2)
+                LS2.geoL.cap[II,capn] = cap
+            catch
+                cap = ilp2cap(l, poly1)
+                LS2.geoL.cap[II,capn] = cap
+            end
         elseif iLS == 2
-            cap = ilp2cap(l, poly1)
-            LS1.geoL.cap[II,capn] = cap
+            try                
+                cap = ilp2cap(l, poly1)
+                LS1.geoL.cap[II,capn] = cap
+            catch
+                cap = ilp2cap(l, poly2)
+                LS1.geoL.cap[II,capn] = cap
+            end
         end
     end
 
@@ -893,11 +1131,21 @@ function set_A_caps_full_mixed!(capn, LS1, LS2, II, poly1, poly2, p, min_face)
     end
 
     if min_face == 1
-        cap = ilp2cap(l, poly2)
-        LS1.geoL.cap[II,capn] = cap
+        try
+            cap = ilp2cap(l, poly2)
+            LS1.geoL.cap[II,capn] = cap    
+        catch
+            cap = ilp2cap(l, poly1)
+            LS1.geoL.cap[II,capn] = cap
+        end
     elseif min_face == 2
-        cap = ilp2cap(l, poly1)
-        LS2.geoL.cap[II,capn] = cap
+        try
+            cap = ilp2cap(l, poly1)
+            LS2.geoL.cap[II,capn] = cap 
+        catch
+            cap = ilp2cap(l, poly2)
+            LS2.geoL.cap[II,capn] = cap
+        end
     end
 
     return nothing

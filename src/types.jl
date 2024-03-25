@@ -22,6 +22,7 @@ abstract type AbstractOptimizer end
     nb_reinit::D = length(x)÷8 # number of reinitializations
     δreinit::T = 10.0 # delta for automatic reinitialization
     ϵ::T = 0.00 # cell-clipping threshold
+    ϵwall::T = ϵ # cell-clipping threshold at mixed cells in walls
     NB::D = nb_reinit÷2 # number of cells the velocity is extended
     T_inf::T = 0.0 # value of temperature at ∞
     u_inf::T = 1.0 # value of horizontal velocity at infinity
@@ -83,6 +84,7 @@ mutable struct Gradient{T <: Real}
 end
 
 struct GeometricInfo{T <: Real} <: MutatingFields
+    cap0::Array{T,3}
     cap::Array{T,3}
     dcap::Array{T,3}
     projection::Array{Gradient{T},2}
@@ -99,6 +101,7 @@ mutable struct Levelset{T,N}
     faces::Array{T,3}
     geoS::GeometricInfo{T}
     geoL::GeometricInfo{T}
+    mid_point0::Matrix{Point{T}}
     mid_point::Matrix{Point{T}}
     cut_points::Matrix{Vector{Point{T}}}
     α::Matrix{T}

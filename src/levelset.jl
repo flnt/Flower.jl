@@ -1352,7 +1352,7 @@ Reinitializes a levelset using a 2nd-order Runge-Kutta integration scheme.
 `nb_reinit` iterations are performed to reach the stationary state. The actual work is done
 in the `reinit_hartmann` function.
 """
-function RK2_reinit!(scheme, grid, ind, iLS, u, nb_reinit, periodic_x, periodic_y, BC, BC_int)
+function RK2_reinit!(scheme, grid, ind, iLS, u, nb_reinit, periodic_x, periodic_y, BC, BC_int, solid=false)
     @unpack nx, ny, dx, dy = grid
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
 
@@ -1368,11 +1368,17 @@ function RK2_reinit!(scheme, grid, ind, iLS, u, nb_reinit, periodic_x, periodic_
             !is_neumann_cl(BC.right) ? b_right[1][2:end-1] : [],
             !is_neumann_cl(BC.top) ? b_top[1] : []
         )
-    else
+    elseif !solid
         indices = collect(vec(all_indices))
         @inbounds for II in all_indices
             if II == CartesianIndex(1,1) || II == CartesianIndex(1,nx) || II == CartesianIndex(ny,1) || II == CartesianIndex(ny,nx)
                 deleteat!(indices, findfirst(x -> x == II, indices))
+            end
+        end
+    else
+        for i in eachindex(BC_int)
+            if is_wall(BC_int[i])
+                indices = findall(grid.LS[iLS].geoL.emptied)
             end
         end
     end

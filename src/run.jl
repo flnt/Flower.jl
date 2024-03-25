@@ -395,7 +395,7 @@ function run_forward(
             for (iLS, bc) in enumerate(BC_int)
                 if is_stefan(bc)
                     IIOE_normal!(grid, LS[iLS].A, LS[iLS].B, LS[iLS].u, V, CFL_sc, periodic_x, periodic_y)
-                    LS[iLS].u .= reshape(gmres(LS[iLS].A, (LS[iLS].B * vec(LS[iLS].u))), grid)
+                    LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u)), grid)
                     # u .= sqrt.((x .- current_i*Δ/1).^ 2 + y .^ 2) - (0.5) * ones(nx, ny);
                 elseif is_fs(bc)
                     # rhs_LS .= 0.0
@@ -403,12 +403,12 @@ function run_forward(
                     # LS[iLS].B.nzval .= 0.0
                     # IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, θ_out, τ, periodic_x, periodic_y)
                     # BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
-                    # utmp .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u)) .+ rhs_LS, grid)
+                    # utmp .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
 
                     # rhs_LS .= 0.0
                     # S2IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, utmp, LS[iLS].u, θ_out, τ, periodic_x, periodic_y)
                     # BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
-                    # LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u)) .+ rhs_LS, grid)
+                    # LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
 
                     # Project velocities to the normal and use advecion scheme for advection just
                     # in the normal direction
@@ -437,22 +437,11 @@ function run_forward(
                     end
 
                     i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, grid.LS[iLS], grid.ind.inside, periodic_x, periodic_y)
-                    field_extension!(grid, grid.LS[iLS].u, grid.V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
+                    field_extension!(grid, grid.LS[iLS].u, V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
 
                     rhs_LS .= 0.0
                     IIOE_normal!(grid, LS[iLS].A, LS[iLS].B, LS[iLS].u, V, CFL_sc, periodic_x, periodic_y)
                     BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
-                    LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
-
-                    # Impose contact angle if a wall is present
-                    rhs_LS .= 0.0
-                    LS[iLS].A.nzval .= 0.0
-                    LS[iLS].B.nzval .= 0.0
-                    for II in grid.ind.all_indices
-                        pII = lexicographic(II, grid.ny)
-                        LS[iLS].A[pII,pII] = 1.0
-                        LS[iLS].B[pII,pII] = 1.0
-                    end
                     BC_LS_interior!(num, grid, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
                     LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
                 end
@@ -476,7 +465,15 @@ function run_forward(
                     end
                 elseif (current_i-1)%num.reinit_every == 0
                     for iLS in 1:nLS
-                        RK2_reinit!(ls_scheme, grid, ind, iLS, LS[iLS].u, nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
+                        if !is_wall(BC_int[iLS])
+                            RK2_reinit!(ls_scheme, grid, ind, iLS, LS[iLS].u, nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
+                        end
+                    end
+                else
+                    for iLS in 1:nLS
+                        if !is_wall(BC_int[iLS])
+                            RK2_reinit!(ls_scheme, grid, ind, iLS, LS[iLS].u, nb_reinit, periodic_x, periodic_y, BC_u, BC_int, true)
+                        end
                     end
                 end
             end
