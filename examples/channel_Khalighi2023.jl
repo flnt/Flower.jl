@@ -17,9 +17,14 @@ n = 64
 x = LinRange(0, L0, n+1)
 y = LinRange(0, L0, n+1)
 
-function f(x,v_inlet)
-    return 8/3*v_inlet*x/L0*(1-x/L0)
+# function f(x,v_inlet,L0)
+#     return 8/3*v_inlet*x/L0*(1-x/L0)
+# end
+
+function f(x,v_inlet,L0)
+    return 6*v_inlet*x/L0*(1-x/L0)
 end
+
 
 v_inlet=6.7e-4
 
@@ -31,7 +36,10 @@ CFL=0.5
 Re=rho*v_inlet*L0/mu
 
 max_iterations=500
-# max_iterations=1
+max_iterations=1
+
+
+# v_inlet = 
 
 
 ########################################################################
@@ -54,6 +62,8 @@ num = Numerical(
 gp, gu, gv = init_meshes(num)
 op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
+
+
 gp.LS[1].u .= 1.0
 
 λ = 1e-2
@@ -67,13 +77,14 @@ R = L0y / 2.0
 
 vPoiseuille = zeros(gv)
 @unpack x, nx, ny, ind = gv
-vPoiseuille=f.(x,v_inlet)
+vPoiseuille=f.(x,v_inlet,L0)
 
 phL.v .=vPoiseuille
+# phL.v .=v_inlet
 phL.u .= 0.0
 phL.p .= 0.0
 
-vPoiseuilleb=f.(gv.x[1,:],v_inlet)
+vPoiseuilleb=f.(gv.x[1,:],v_inlet,L0)
 
 
 @unpack τ,CFL,Δ,Re,θd=num
@@ -140,3 +151,29 @@ make_video_vec(num, gv, fwd.uy, fwdL.v; title_prefix=prefix*"v",
         scalelabel=L"\times 10^{-4}", xticks=xticks, yticks=yticks, scalticks=0:2:10)
 
 
+# function kinetic_energy(fwdL, gp, gu, gv)
+#     its = size(fwdL.u)[1]
+#     energy = zeros(its)
+#     _energy = zeros(gp)
+
+#     for i in 1:its
+#         _energy .= (
+#             (fwdL.u[i,:,2:end].^2.0 .* gu.geoL.dcap[:,2:end,6] .+ 
+#             fwdL.u[i,:,1:end-1].^2.0 .* gu.geoL.dcap[:,1:end-1,6]) ./ 
+#             (gu.geoL.dcap[:,1:end-1,6] .+ gu.geoL.dcap[:,2:end,6] .+ 1e-8)
+#         )
+#         _energy .+= (
+#             (fwdL.v[i,2:end,:].^2.0 .* gv.geoL.dcap[2:end,:,7] .+ 
+#             fwdL.v[i,1:end-1,:].^2.0 .* gv.geoL.dcap[1:end-1,:,7]) ./
+#             (gv.geoL.dcap[1:end-1,:,7] .+ gv.geoL.dcap[2:end,:,7] .+ 1e-8)
+#         )
+#         energy[i] = sum(_energy .* gp.geoL.dcap[:,:,5])
+#     end
+
+#     return energy ./ energy[2]
+# end
+
+print(gp.LS[1].geoL.dcap[1,:,5])
+print(gp.LS[1].geoL.dcap[:,1,5])
+
+print("Delta",num.Δ, (num.Δ)^2)

@@ -1,8 +1,8 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.10.0"
+julia_version = "1.10.1"
 manifest_format = "2.0"
-project_hash = "e8cc45816bba8955752e432c7ce54b7a68f9f393"
+project_hash = "b92bfb2714f2ab80a3cafc295e8ec0079d832749"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -332,7 +332,7 @@ weakdeps = ["Dates", "LinearAlgebra"]
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
-version = "1.0.5+1"
+version = "1.1.0+0"
 
 [[deps.CompositionsBase]]
 git-tree-sha1 = "802bb88cd69dfd1509f6670416bd4434015693ad"
@@ -342,6 +342,12 @@ weakdeps = ["InverseFunctions"]
 
     [deps.CompositionsBase.extensions]
     CompositionsBaseInverseFunctionsExt = "InverseFunctions"
+
+[[deps.Conda]]
+deps = ["Downloads", "JSON", "VersionParsing"]
+git-tree-sha1 = "51cab8e982c5b598eea9c8ceaced4b58d9dd37c9"
+uuid = "8f4d0f93-b110-5947-807f-2305c1781a2d"
+version = "1.10.0"
 
 [[deps.ConstructionBase]]
 deps = ["LinearAlgebra"]
@@ -1335,7 +1341,7 @@ version = "1.3.5+1"
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
-version = "0.3.23+2"
+version = "0.3.23+4"
 
 [[deps.OpenEXR]]
 deps = ["Colors", "FileIO", "OpenEXR_jll"]
@@ -1562,6 +1568,18 @@ deps = ["Distributed", "Printf"]
 git-tree-sha1 = "00099623ffee15972c16111bcf84c58a0051257c"
 uuid = "92933f4c-e287-5a05-a399-4b506db050ca"
 version = "1.9.0"
+
+[[deps.PyCall]]
+deps = ["Conda", "Dates", "Libdl", "LinearAlgebra", "MacroTools", "Serialization", "VersionParsing"]
+git-tree-sha1 = "9816a3826b0ebf49ab4926e2b18842ad8b5c8f04"
+uuid = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
+version = "1.96.4"
+
+[[deps.PyPlot]]
+deps = ["Colors", "LaTeXStrings", "PyCall", "Sockets", "Test", "VersionParsing"]
+git-tree-sha1 = "9220a9dae0369f431168d60adab635f88aca7857"
+uuid = "d330b81b-6aea-500a-939a-2ce795aea3ee"
+version = "2.11.2"
 
 [[deps.QOI]]
 deps = ["ColorTypes", "FileIO", "FixedPointNumbers"]
@@ -2062,6 +2080,11 @@ weakdeps = ["ConstructionBase", "InverseFunctions"]
     [deps.Unitful.extensions]
     ConstructionBaseUnitfulExt = "ConstructionBase"
     InverseFunctionsUnitfulExt = "InverseFunctions"
+
+[[deps.VersionParsing]]
+git-tree-sha1 = "58d6e80b4ee071f5efd07fda82cb9fbe17200868"
+uuid = "81def892-9a0e-5fdd-b105-ffc91e053289"
+version = "1.3.0"
 
 [[deps.Vulkan_Loader_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Wayland_jll", "Xorg_libX11_jll", "Xorg_libXrandr_jll", "xkbcommon_jll"]

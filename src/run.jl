@@ -44,11 +44,12 @@ function run_forward(
     electrolysis_phase_change = false,
     electrolysis_reaction = "nothing",
     adapt_timestep_mode = 0,
+    non_dimensionalize=1,
     )
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations,
             current_i, save_every, reinit_every, nb_reinit, δreinit, ϵ, m, θ₀, aniso, nLS, _nLS,
             concentration0, diffusion_coeff, nb_transported_scalars, temperature0, i0, phi_ele0, phi_ele1, alphac,
-            alphaa, Ru, Faraday = num
+            alphaa, Ru, Faraday, mu1, rho1 = num
     @unpack opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL = op
     @unpack x, y, nx, ny, dx, dy, ind, LS, V = grid
 
@@ -85,6 +86,12 @@ function run_forward(
 
     iRe = 1.0 / Re
     CFL_sc = τ / Δ^2
+
+    if non_dimensionalize==0
+        iRe = mu1/rho1
+    end
+
+    printstyled(color=:green, @sprintf "\n Re : %.2e \n" Re)
 
 
     local NB_indices;
