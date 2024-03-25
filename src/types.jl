@@ -288,6 +288,7 @@ struct Phase{T <: Real} <: MutatingFields
     vD::Array{T,1}
     ucorrD::Array{T,1}
     vcorrD::Array{T,1}
+    uT::Array{T,2}
     trans_scal::Array{T,3}
     phi_ele::Array{T,2}
     trans_scalD::Array{T,2}
@@ -295,7 +296,6 @@ struct Phase{T <: Real} <: MutatingFields
     i_current_mag::Array{T,2}
     Eu::Array{T,2}
     Ev::Array{T,2}
-    uT::Array{T,2}
 end
 
 struct Forward{T <: Real} <: MutatingFields

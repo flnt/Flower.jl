@@ -1093,8 +1093,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
             Operators(AxT_vS, AyT_vS, Bx_vS, By_vS, BxT_vS, ByT_vS, Hx_vS, Hy_vS, HxT_vS, HyT_vS, tmp_x_vS, tmp_y_vS, M_vS, iMx_vS, iMy_vS, χ_vS, Rx, Ry, Gx_S, Gy_S, Hx_b_vS, Hy_b_vS, HxT_b_vS, HyT_b_vS, iMx_b_vS, iMy_b_vS, iMx_bd_vS, iMy_bd_vS, Gx_b_vS, Gy_b_vS, χ_b_vS),
             Operators(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L, Hx_b_vL, Hy_b_vL, HxT_b_vL, HyT_b_vL, iMx_b_vL, iMy_b_vL, iMx_bd_vL, iMy_bd_vL, Gx_b_vL, Gy_b_vL, χ_b_vL)
         ),
-        Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, DTS, DϕS, DuS, DvS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS, uTS, trans_scalS, phi_eleS, trans_scalDS, phi_eleDS, i_current_magS, EuS, EvS),
-        Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, DTL, DϕL, DuL, DvL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL, uTL, trans_scalL, phi_eleL, trans_scalDL, phi_eleDL, i_current_magL, EuL, EvL),
+        Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS, uTS, trans_scalS, phi_eleS, trans_scalDS, phi_eleDS, i_current_magS, EuS, EvS),
+        Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL, uTL, trans_scalL, phi_eleL, trans_scalDL, phi_eleDL, i_current_magL, EuL, EvL),
         Forward(Tsave, usave, uxsave, uysave, Vsave, κsave, lengthsave, time, Cd, Cl, trans_scal_save, phi_ele_save,i_current_mag_save, Euxsave, Euysave),
         ForwardPhase(TSsave, pSsave, ϕSsave, uSsave, vSsave, TDSsave, pDSsave, ucorrDSsave, vcorrDSsave, VratioS, trans_scalSsave, phi_eleSsave, trans_scalDSsave, phi_eleDSsave, i_current_magSsave, EuSsave, EvSsave),
         ForwardPhase(TLsave, pLsave, ϕLsave, uLsave, vLsave, TDLsave, pDLsave, ucorrDLsave, vcorrDLsave, VratioL, trans_scalLsave, phi_eleLsave, trans_scalDLsave, phi_eleDLsave, i_current_magLsave, EuLsave, EvLsave)
