@@ -127,6 +127,9 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
     elseif is_wall(bc_type)
         __a1 = -1.
         __b = 0.
+    else
+        __a1 = -1.
+        __b = 0.
     end
 
     # Flags with BCs
