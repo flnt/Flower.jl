@@ -11,7 +11,7 @@ function run_forward(
     BC_vS = Boundaries(),
     BC_vL = Boundaries(),
     BC_u = Boundaries(),
-    BC_trans_scal = Vector{Boundaries}(),
+    BC_trans_scal = Vector{BoundariesInt}(),
     BC_phi_eleL = BoundariesInt(),
     BC_int = [WallNoSlip()],
     time_scheme = CN,
@@ -41,6 +41,7 @@ function run_forward(
     electrolysis = false,
     electrolysis_convection = false,  
     electrolysis_liquid_phase = false,
+    electrolysis_solid_phase = false,
     electrolysis_phase_change = false,
     electrolysis_reaction = "nothing",
     adapt_timestep_mode = 0,
@@ -163,16 +164,16 @@ function run_forward(
     # TODO kill_dead_cells! for [:,:,iscal]
     if electrolysis
         for iscal=1:nb_transported_scalars
-            # kill_dead_cells!(@view(phL.trans_scal[:,:,iscal]), grid, LS[end].geoL) #TODO  end or 1
-            @views kill_dead_cells!(phL.trans_scal[:,:,iscal], grid, LS[end].geoL) #TODO  end or 1
+            @views kill_dead_cells!(phS.trans_scal[:,:,iscal], grid, LS[end].geoS) #TODO
+            @views kill_dead_cells!(phL.trans_scal[:,:,iscal], grid, LS[end].geoL) 
         end
     end     
     ####################################################################################################
 
     if nb_transported_scalars>0
         printstyled(color=:green, @sprintf "\n after kill \n")
-        print_electrolysis_statistics(phL)
-        print("average", average!(phL.T, grid, LS[1].geoL, num))
+        print_electrolysis_statistics(nb_transported_scalars,phL)
+        printstyled(color=:green, @sprintf "\n average T %s\n" average!(phL.T, grid, LS[1].geoL, num))
     end
 
     for iLS in 1:_nLS
@@ -195,7 +196,7 @@ function run_forward(
     ####################################################################################################
     if electrolysis
         for iscal=1:nb_transported_scalars
-            @views fwd.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal]
+            @views fwd.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal] #TODO need S?
             @views fwdL.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal]
         end
         @views fwdL.phi_ele[1,:,:] .= phL.phi_ele
@@ -220,7 +221,7 @@ function run_forward(
     
     if electrolysis
         printstyled(color=:green, @sprintf "\n Check \n")
-        print_electrolysis_statistics(phL)
+        print_electrolysis_statistics(nb_transported_scalars,phL)
     end
 
     ####################################################################################################
@@ -228,14 +229,28 @@ function run_forward(
     ####################################################################################################
     if electrolysis
 
-        printstyled(color=:green, @sprintf "\n Check %s %s %s %.2e %.2e\n" heat heat_convection electrolysis τ θd)
+        printstyled(color=:green, @sprintf "\n Check %s %s %s %.2e %.2e %2i\n" heat heat_convection electrolysis τ θd nb_transported_scalars)
+
+        print("\n before init",vecb_L(phL.trans_scalD[:,1], grid))
 
         for iscal=1:nb_transported_scalars
+
+            #Solid phase: necessary?
+
+            @views vec1(phS.trans_scalD[:,iscal],grid) .= vec(phS.trans_scal[:,:,iscal])
+            @views vec2(phS.trans_scalD[:,iscal],grid) .= concentration0[iscal]
+            @views init_borders!(phS.trans_scalD[:,iscal], grid, BC_trans_scal[iscal], concentration0[iscal])
+            @views fwdS.trans_scalD[1,:,iscal] .= phS.trans_scalD[:,iscal]
+
             @views vec1(phL.trans_scalD[:,iscal],grid) .= vec(phL.trans_scal[:,:,iscal])
             @views vec2(phL.trans_scalD[:,iscal],grid) .= concentration0[iscal]
             @views init_borders!(phL.trans_scalD[:,iscal], grid, BC_trans_scal[iscal], concentration0[iscal])
             @views fwdL.trans_scalD[1,:,iscal] .= phL.trans_scalD[:,iscal]
         end
+
+        print("\n after init",vecb_L(phL.trans_scalD[:,1], grid))
+
+
         vec1(phL.phi_eleD,grid) .= vec(phL.phi_ele)
         vec2(phL.phi_eleD,grid) .= phi_ele0 #TODO
         init_borders!(phL.phi_eleD, grid, BC_phi_eleL, phi_ele0)
@@ -310,6 +325,9 @@ function run_forward(
             nt = (num.nLS + 1) * ni + nb
             AϕS = spzeros(nt, nt)
             AϕL = spzeros(nt, nt)
+            if electrolysis 
+                Aphi_eleL = spzeros(nt, nt)
+            end
 
             ni = grid_u.nx * grid_u.ny
             nb = 2 * grid_u.nx + 2 * grid_u.ny
@@ -450,8 +468,31 @@ function run_forward(
                                         periodic_x, periodic_y, heat_convection)
                 mul!(rhs, B, phL.TD, 1.0, 1.0)
 
+                # phL.TD .= A_T \ rhs
+
+
+                print("\n test left before A/r", vecb_T(phL.TD, grid))
+                    
+
                 phL.TD .= A_T \ rhs
+
+                print("\n test left after A/r", vecb_T(phL.TD, grid))
+
+
                 phL.T .= reshape(veci(phL.TD,grid,1), grid)
+
+
+
+
+                # print("\n test", phL.T[:,1])
+                # print("\n test", phL.T[1,:])
+                # print("\n test left", vecb_L(phL.TD, grid))
+                # print("\n test right", vecb_R(phL.TD, grid))
+                print("\n test bottom", vecb_B(phL.TD, grid))
+                print("\n test top", vecb_T(phL.TD, grid))
+      
+    
+
             end
         end
 
@@ -459,21 +500,66 @@ function run_forward(
         #Electrolysis
         ####################################################################################################  
         if electrolysis
+            if electrolysis_solid_phase
+
+                for iscal=1:nb_transported_scalars
+                    @views kill_dead_cells!(phS.trans_scal[:,:,iscal], grid, LS[1].geoS)
+                    @views veci(phS.trans_scalD[:,iscal],grid,1) .= vec(phS.trans_scal[:,:,iscal])
+
+                    A_T, B, rhs = set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TS, LS[1].geoS, phS, concentration0[iscal], BC_trans_scal[iscal],
+                                                        LS[1].MIXED, LS[1].geoS.projection,
+                                                        opS, grid_u, grid_u.LS[1].geoS, grid_v, grid_v.LS[1].geoS,
+                                                        periodic_x, periodic_y, electrolysis_convection, diffusion_coeff[iscal])
+                    mul!(rhs, B, phS.trans_scalD[:,iscal], 1.0, 1.0)
+
+                    @views phS.trans_scalD[:,iscal] .= A_T \ rhs
+                    @views phS.trans_scal[:,:,iscal] .= reshape(veci(phS.trans_scalD[:,iscal],grid,1), grid)
+                end
+            end
+
             if electrolysis_liquid_phase
+
+                # print("\n before res",vecb_L(phL.trans_scalD[:,1], grid))
+
 
                 for iscal=1:nb_transported_scalars
                     @views kill_dead_cells!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL)
                     @views veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
 
-                    A_T, B, rhs = set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TL, LS[1].geoL, phL, θd, BC_trans_scal[iscal],
+                    print("\n after kill",vecb_L(phL.trans_scalD[:,iscal], grid))
+
+
+                    A_T, B, rhs = set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TL, LS[1].geoL, phL, concentration0[iscal], BC_trans_scal[iscal],
                                                         LS[1].MIXED, LS[1].geoL.projection,
                                                         opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
                                                         periodic_x, periodic_y, electrolysis_convection, diffusion_coeff[iscal])
                     mul!(rhs, B, phL.trans_scalD[:,iscal], 1.0, 1.0)
 
+                    print("\n test left before A/r L", vecb_L(phL.trans_scalD[:,iscal], grid))
+                    print("\n test left before A/r T", vecb_T(phL.trans_scalD[:,iscal], grid))
+
+
                     @views phL.trans_scalD[:,iscal] .= A_T \ rhs
+
+                    print("\n test left after A/r L", vecb_L(phL.trans_scalD[:,iscal], grid))
+                    print("\n test left after A/r T", vecb_T(phL.trans_scalD[:,iscal], grid))
+
+
+
                     @views phL.trans_scal[:,:,iscal] .= reshape(veci(phL.trans_scalD[:,iscal],grid,1), grid)
+
+                    # print("\n test", phL.trans_scal[:,1,iscal])
+                    # print("\n test", phL.trans_scal[1,:,iscal])
+
+                    # print("\n test left", vecb_L(phL.trans_scalD[:,iscal], grid))
+                    # print("\n test right", vecb_R(phL.trans_scalD[:,iscal], grid))
+                    # print("\n test bottom", vecb_B(phL.trans_scalD[:,iscal], grid))
+                    # print("\n test top", vecb_T(phL.trans_scalD[:,iscal], grid))
+
                 end
+
+                # print("\n after res",vecb_L(phL.trans_scalD[:,1], grid))
+
 
 
                 #TODO heat for electrolysis
@@ -499,11 +585,17 @@ function run_forward(
 
                 #so after initialisation
 
-                if heat
-                    elec_cond = 2*Faraday^2 .*phL.trans_scal[:,:,2].*diffusion_coeff[2]./(Ru.*phL.T) #phL.T
-                else
-                    elec_cond = 2*Faraday^2 .*phL.trans_scal[:,:,2].*diffusion_coeff[2]./(Ru*temperature0) 
-                end
+                if electrolysis && nb_transported_scalars>1
+                    if heat 
+                        elec_cond = 2*Faraday^2 .*phL.trans_scal[:,:,2].*diffusion_coeff[2]./(Ru.*phL.T) #phL.T
+                    else
+                        elec_cond = 2*Faraday^2 .*phL.trans_scal[:,:,2].*diffusion_coeff[2]./(Ru*temperature0) 
+                    end
+                else 
+                    elec_cond = ones(grid)
+                    # b_phi_ele = zeros(grid)
+
+                end 
 
                 #TODO Poisson with variable coefficients
                 #TODO need to iterate? since nonlinear
@@ -528,11 +620,13 @@ function run_forward(
                 end
 
 
-                Aphi_eleL, rhs_phi_ele = set_poisson(
+                rhs_phi_ele = set_poisson(
                     [BC_phi_eleL.int], num, grid, a0_p, opC_pL, opC_uL, opC_vL,
-                    false, Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, BC_phi_eleL,
+                    Aphi_eleL, Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, BC_phi_eleL,
                     true
                 )
+
+            
 
                 # A, rhs = set_poisson(BC_int, num, grid, a0_p, op.opC_pL, op.opC_uL, op.opC_vL, 1, Lp, bc_Lp, bc_Lp_b, BC, true)
                 # AϕL, _ = set_poisson(
@@ -584,12 +678,15 @@ function run_forward(
 
                 # scal_magnitude
 
-
-                if heat
-                    elec_cond = 2*Faraday^2 .*phL.trans_scal[:,:,2].*diffusion_coeff[2]./(Ru.*phL.T) #phL.T
-                else
-                    elec_cond = 2*Faraday^2 .*phL.trans_scal[:,:,2].*diffusion_coeff[2]./(Ru*temperature0) 
-                end
+                if electrolysis && nb_transported_scalars>1
+                    if heat 
+                        elec_cond = 2*Faraday^2 .*phL.trans_scal[:,:,2].*diffusion_coeff[2]./(Ru.*phL.T) #phL.T
+                    else
+                        elec_cond = 2*Faraday^2 .*phL.trans_scal[:,:,2].*diffusion_coeff[2]./(Ru*temperature0) 
+                    end
+                else 
+                    elec_cond = ones(grid)
+                end 
 
                 phL.i_current_mag .*= elec_cond # i=-κ∇ϕ here magnitude
 
@@ -755,7 +852,7 @@ function run_forward(
                         normpL = norm(phL.p.*τ)
                         print("$(@sprintf("norm(uL) %.6e", normuL))\t$(@sprintf("norm(vL) %.6e", normvL))\t$(@sprintf("norm(pL) %.6e", normpL))\n")
                         if electrolysis
-                            print_electrolysis_statistics(phL)
+                            print_electrolysis_statistics(nb_transported_scalars,phL)
                         end 
                     end
                 end
@@ -902,12 +999,22 @@ function run_forward(
                 @views fwdL.T[snap,:,:] .= phL.T
                 @views fwdL.TD[snap,:] .= phL.TD
             end
+
+            if electrolysis_solid_phase #TODO
+
+                for iscal=1:nb_transported_scalars
+                    @views fwd.trans_scal[snap,:,:,iscal] .= phS.trans_scal[:,:,iscal]
+                    @views fwdS.trans_scal[snap,:,:,iscal] .= phS.trans_scal[:,:,iscal]
+                    @views fwdS.trans_scalD[snap,:,iscal] .= phS.trans_scalD
+                end
+            end
+
             if electrolysis_liquid_phase #TODO
 
                 for iscal=1:nb_transported_scalars
                     @views fwd.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal]
                     @views fwdL.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal]
-                    # @views fwdL.trans_scalD[snap,:,iscal] .= phL.trans_scalD
+                    @views fwdL.trans_scalD[snap,:,iscal] .= phL.trans_scalD
                 end
                 @views fwdL.phi_ele[snap,:,:] .= phL.phi_ele
 
@@ -1016,7 +1123,7 @@ function run_forward(
                     normpL = norm(phL.p.*τ)
                     print("$(@sprintf("norm(uL) %.6e", normuL))\t$(@sprintf("norm(vL) %.6e", normvL))\t$(@sprintf("norm(pL) %.6e", normpL))\n")
                     if electrolysis
-                       print_electrolysis_statistics(phL)
+                       print_electrolysis_statistics(nb_transported_scalars,phL)
                     end 
                 end
             end

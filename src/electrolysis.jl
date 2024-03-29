@@ -146,20 +146,11 @@ function set_scalar_transport!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED
     LD = BxT * iMx * Hx[1] .+ ByT * iMy * Hy[1]
     LD_b = BxT * op.iMx_b * op.Hx_b .+ ByT * op.iMy_b * op.Hy_b
 
-    #TODO same as :
-    # LT = laplacian(op)
-    # LD, LD_b = laplacian_bc(op, num.nLS) # why LS
-
-    LT .*= diffusion_coeff_scal
-    LD .*= diffusion_coeff_scal
-    LD_b .*= diffusion_coeff_scal
-
-
     A = spzeros(nt, nt)
     # Implicit part of heat equation
-    A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* τ .* LT, grid, τ)
-    A[1:ni,ni+1:2*ni] = - 0.5 .* τ .* LD
-    A[1:ni,end-nb+1:end] = - 0.5 .* τ .* LD_b
+    A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* τ .* diffusion_coeff_scal .* LT, grid, τ)
+    A[1:ni,ni+1:2*ni] = - 0.5 .* τ .* diffusion_coeff_scal .* LD
+    A[1:ni,end-nb+1:end] = - 0.5 .* τ .* diffusion_coeff_scal .* LD_b
 
     # Interior BC
     A[ni+1:2*ni,1:ni] = b * (HxT[1] * iMx * Bx .+ HyT[1] * iMy * By)
@@ -172,12 +163,12 @@ function set_scalar_transport!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED
 
     # Explicit part of heat equation
     B = spzeros(nt, nt)
-    B[1:ni,1:ni] = M .+ 0.5 .* τ .* LT
+    B[1:ni,1:ni] = M .+ 0.5 .* τ .* diffusion_coeff_scal .* LT
     if convection
        B[1:ni,1:ni] .-= τ .* CT
     end
-    B[1:ni,ni+1:2*ni] = 0.5 .* τ .* LD
-    B[1:ni,end-nb+1:end] = 0.5 .* τ .* LD_b
+    B[1:ni,ni+1:2*ni] = 0.5 .* τ .* diffusion_coeff_scal .* LD
+    B[1:ni,end-nb+1:end] = 0.5 .* τ .* diffusion_coeff_scal .* LD_b
 
     rhs = fnzeros(grid, num)
     if convection
@@ -545,7 +536,7 @@ function make_video_vec(
     return vid
 end
 
-function print_electrolysis_statistics(phL)
+function print_electrolysis_statistics(nb_transported_scalars,phL)
 
     # normscal1L = norm(phL.trans_scal[:,:,1])
     # normscal2L = norm(phL.trans_scal[:,:,2])
@@ -554,25 +545,48 @@ function print_electrolysis_statistics(phL)
     # normTL = norm(phL.T)
     # normiL=0.0 #TODO
 
+    
+
+    minscal1L=minscal2L=minscal3L=minphi_eleL=minTL=miniL=0.0
+    maxscal1L=maxscal2L=maxscal3L=maxphi_eleL=maxTL=maxiL=0.0
+    moyscal1L=moyscal2L=moyscal3L=moyphi_eleL=moyTL=moyiL=0.0
+
+
+
     minscal1L = minimum(phL.trans_scal[:,:,1])
-    minscal2L = minimum(phL.trans_scal[:,:,2])
-    minscal3L = minimum(phL.trans_scal[:,:,3])
-    minphi_eleL = minimum(phL.phi_ele)
+    maxscal1L = maximum(phL.trans_scal[:,:,1])
+    moyscal1L = mean(phL.trans_scal[:,:,1])
+
+    if nb_transported_scalars>1
+        minscal2L = minimum(phL.trans_scal[:,:,2])
+        maxscal2L = maximum(phL.trans_scal[:,:,2])
+        moyscal2L = mean(phL.trans_scal[:,:,2])
+    
+        if nb_transported_scalars>2
+            minscal3L = minimum(phL.trans_scal[:,:,3])
+            maxscal3L = maximum(phL.trans_scal[:,:,3])
+            moyscal3L = mean(phL.trans_scal[:,:,3])
+        end
+
+    end
+
+    # if heat
+    #     minTL = minimum(phL.T)
+    #     maxTL = maximum(phL.T)
+    #     moyTL = mean(phL.T)
+    # end
+
     minTL = minimum(phL.T)
+    maxTL = maximum(phL.T)
+    moyTL = mean(phL.T)
+
+    minphi_eleL = minimum(phL.phi_ele)
     miniL=minimum(phL.i_current_mag)
 
-    maxscal1L = maximum(phL.trans_scal[:,:,1])
-    maxscal2L = maximum(phL.trans_scal[:,:,2])
-    maxscal3L = maximum(phL.trans_scal[:,:,3])
     maxphi_eleL = maximum(phL.phi_ele)
-    maxTL = maximum(phL.T)
     maxiL=maximum(phL.i_current_mag)
 
-    moyscal1L = mean(phL.trans_scal[:,:,1])
-    moyscal2L = mean(phL.trans_scal[:,:,2])
-    moyscal3L = mean(phL.trans_scal[:,:,3])
     moyphi_eleL = mean(phL.phi_ele)
-    moyTL = mean(phL.T)
     moyiL=mean(phL.i_current_mag)
 
     # print("$(@sprintf("norm(cH2) %.6e", normscal1L))\t$(@sprintf("norm(KOH) %.6e", normscal2L))\t$(@sprintf("norm(H2O) %.6e", normscal3L))\n")

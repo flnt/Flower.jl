@@ -165,8 +165,7 @@ num = Numerical(
     max_iterations = max_iter,
     save_every = 10,
     ϵ = 0.05,
-    nb_transported_scalars=3,
-    electrolysis = true,
+    nb_transported_scalars=nb_transported_scalars,
     concentration0=concentration0, 
     diffusion_coeff=diffusion_coeff,
     temperature0=temperature0,
@@ -253,7 +252,7 @@ phL.phi_ele .= phi_ele0
 
 printstyled(color=:green, @sprintf "\n Initialisation \n")
 
-print_electrolysis_statistics(phL)
+print_electrolysis_statistics(nb_transported_scalars,phL)
 
 
 printstyled(color=:green, @sprintf "\n TODO timestep CFL scal, and print \n")
