@@ -329,6 +329,11 @@ function run_forward(
                 Aphi_eleL = spzeros(nt, nt)
             end
 
+            ATS = spzeros(nt, nt)
+            ATL = spzeros(nt, nt)
+            BTS = spzeros(nt, nt)
+            BTL = spzeros(nt, nt)
+
             ni = grid_u.nx * grid_u.ny
             nb = 2 * grid_u.nx + 2 * grid_u.ny
             nt = (num.nLS + 1) * ni + nb
@@ -386,6 +391,28 @@ function run_forward(
                 true
             )
 
+            set_heat!(
+                BC_int[1], num, grid, opC_TS, LS[1].geoS, phS, θd, BC_TS, LS[1].MIXED, LS[1].geoS.projection,
+                ATS, BTS,
+                opS, grid_u, grid_u.LS[1].geoS, grid_v, grid_v.LS[1].geoS,
+                periodic_x, periodic_y, heat_convection, true, BC_int
+            )
+
+            # if electrolysis_solid_phase
+                # set_heat!(
+                #     BC_int[1], num, grid, opC_TS, LS[1].geoS, phS, θd, BC_TS, LS[1].MIXED, LS[1].geoS.projection,
+                #     ATS, BTS,
+                #     opS, grid_u, grid_u.LS[1].geoS, grid_v, grid_v.LS[1].geoS,
+                #     periodic_x, periodic_y, heat_convection, true, BC_int
+                # )    
+
+                # set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TS, LS[1].geoS, phS, concentration0[iscal], BC_trans_scal[iscal],
+                #                                             LS[1].MIXED, LS[1].geoS.projection,
+                #                                             ATL, BTL,
+                #                                             opS, grid_u, grid_u.LS[1].geoS, grid_v, grid_v.LS[1].geoS,
+                #                                             periodic_x, periodic_y, electrolysis_convection, true, diffusion_coeff[iscal])
+            # end 
+
             if !navier
                 _ = FE_set_momentum(
                     BC_int, num, grid_u, opC_uL,
@@ -418,9 +445,36 @@ function run_forward(
                 AϕL, Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, BC_pL,
                 true
             )
+
+            set_heat!(
+                BC_int[1], num, grid, opC_TL, LS[1].geoL, phL, θd, BC_TL, LS[1].MIXED, LS[1].geoL.projection,
+                ATL, BTL,
+                opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
+                periodic_x, periodic_y, heat_convection, true, BC_int
+            )
+            if electrolysis
+                # set_heat!(
+                #     BC_int[1], num, grid, opC_TL, LS[1].geoL, phL, θd, BC_TL, LS[1].MIXED, LS[1].geoL.projection,
+                #     ATL, BTL,
+                #     opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
+                #     periodic_x, periodic_y, heat_convection, true, BC_int
+                # )
+                for iscal=1:nb_transported_scalars
+
+                    set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TL, LS[1].geoL, phL, concentration0[iscal], BC_trans_scal[iscal],
+                                                            LS[1].MIXED, LS[1].geoL.projection,
+                                                            ATL,BTL,
+                                                            opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
+                                                            periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff[iscal])
+                end
+            end 
         end
     else
         error("Unknown time scheme. Available options are ForwardEuler and CrankNicolson")
+    end
+
+    if heat_convection || electrolysis_convection
+        NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
     end
 
     V0S = volume(LS[end].geoS)
@@ -452,29 +506,35 @@ function run_forward(
             if heat_solid_phase
                 kill_dead_cells!(phS.T, grid, LS[1].geoS)
                 veci(phS.TD,grid,1) .= vec(phS.T)
-                A_T, B, rhs = set_heat!(BC_int[1], num, grid, opC_TS, LS[1].geoS, phS, θd, BC_TS, LS[1].MIXED, LS[1].geoS.projection,
-                                        opS, grid_u, grid_u.LS[1].geoS, grid_v, grid_v.LS[1].geoS,
-                                        periodic_x, periodic_y, heat_convection)
-                mul!(rhs, B, phS.TD, 1.0, 1.0)
+                rhs = set_heat!(
+                    BC_int[1], num, grid, opC_TS, LS[1].geoS, phS, θd, BC_TS, LS[1].MIXED, LS[1].geoS.projection,
+                    ATS, BTS,
+                    opS, grid_u, grid_u.LS[1].geoS, grid_v, grid_v.LS[1].geoS,
+                    periodic_x, periodic_y, heat_convection, advection, BC_int
+                )
+                mul!(rhs, BTS, phS.TD, 1.0, 1.0)
 
-                phS.TD .= A_T \ rhs
+                phS.TD .= ATS \ rhs
                 phS.T .= reshape(veci(phS.TD,grid,1), grid)
             end
             if heat_liquid_phase
                 kill_dead_cells!(phL.T, grid, LS[1].geoL)
                 veci(phL.TD,grid,1) .= vec(phL.T)
-                A_T, B, rhs = set_heat!(BC_int[1], num, grid, opC_TL, LS[1].geoL, phL, θd, BC_TL, LS[1].MIXED, LS[1].geoL.projection,
-                                        opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
-                                        periodic_x, periodic_y, heat_convection)
-                mul!(rhs, B, phL.TD, 1.0, 1.0)
+                rhs = set_heat!(
+                    BC_int[1], num, grid, opC_TL, LS[1].geoL, phL, θd, BC_TL, LS[1].MIXED, LS[1].geoL.projection,
+                    ATL, BTL,
+                    opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
+                    periodic_x, periodic_y, heat_convection, advection, BC_int
+                )
+                mul!(rhs, BTL, phL.TD, 1.0, 1.0)
 
-                # phL.TD .= A_T \ rhs
+                # phL.TD .= ATL \ rhs
 
 
                 print("\n test left before A/r", vecb_T(phL.TD, grid))
                     
 
-                phL.TD .= A_T \ rhs
+                phL.TD .= ATL \ rhs
 
                 print("\n test left after A/r", vecb_T(phL.TD, grid))
 
@@ -500,22 +560,23 @@ function run_forward(
         #Electrolysis
         ####################################################################################################  
         if electrolysis
-            if electrolysis_solid_phase
+            # if electrolysis_solid_phase
 
-                for iscal=1:nb_transported_scalars
-                    @views kill_dead_cells!(phS.trans_scal[:,:,iscal], grid, LS[1].geoS)
-                    @views veci(phS.trans_scalD[:,iscal],grid,1) .= vec(phS.trans_scal[:,:,iscal])
+            #     for iscal=1:nb_transported_scalars
+            #         @views kill_dead_cells!(phS.trans_scal[:,:,iscal], grid, LS[1].geoS)
+            #         @views veci(phS.trans_scalD[:,iscal],grid,1) .= vec(phS.trans_scal[:,:,iscal])
 
-                    A_T, B, rhs = set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TS, LS[1].geoS, phS, concentration0[iscal], BC_trans_scal[iscal],
-                                                        LS[1].MIXED, LS[1].geoS.projection,
-                                                        opS, grid_u, grid_u.LS[1].geoS, grid_v, grid_v.LS[1].geoS,
-                                                        periodic_x, periodic_y, electrolysis_convection, diffusion_coeff[iscal])
-                    mul!(rhs, B, phS.trans_scalD[:,iscal], 1.0, 1.0)
+            #         rhs = set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TS, LS[1].geoS, phS, concentration0[iscal], BC_trans_scal[iscal],
+            #                                             LS[1].MIXED, LS[1].geoS.projection,
+            #                                             ATL, BTL,
+            #                                             opS, grid_u, grid_u.LS[1].geoS, grid_v, grid_v.LS[1].geoS,
+            #                                             periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff[iscal])
+            #         mul!(rhs, BTL, phS.trans_scalD[:,iscal], 1.0, 1.0)
 
-                    @views phS.trans_scalD[:,iscal] .= A_T \ rhs
-                    @views phS.trans_scal[:,:,iscal] .= reshape(veci(phS.trans_scalD[:,iscal],grid,1), grid)
-                end
-            end
+            #         @views phS.trans_scalD[:,iscal] .= ATL \ rhs
+            #         @views phS.trans_scal[:,:,iscal] .= reshape(veci(phS.trans_scalD[:,iscal],grid,1), grid)
+            #     end
+            # end
 
             if electrolysis_liquid_phase
 
@@ -529,17 +590,18 @@ function run_forward(
                     print("\n after kill",vecb_L(phL.trans_scalD[:,iscal], grid))
 
 
-                    A_T, B, rhs = set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TL, LS[1].geoL, phL, concentration0[iscal], BC_trans_scal[iscal],
+                    rhs = set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TL, LS[1].geoL, phL, concentration0[iscal], BC_trans_scal[iscal],
                                                         LS[1].MIXED, LS[1].geoL.projection,
+                                                        ATL,BTL,
                                                         opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
-                                                        periodic_x, periodic_y, electrolysis_convection, diffusion_coeff[iscal])
-                    mul!(rhs, B, phL.trans_scalD[:,iscal], 1.0, 1.0)
+                                                        periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff[iscal])
+                    mul!(rhs, BTL, phL.trans_scalD[:,iscal], 1.0, 1.0)
 
                     print("\n test left before A/r L", vecb_L(phL.trans_scalD[:,iscal], grid))
                     print("\n test left before A/r T", vecb_T(phL.trans_scalD[:,iscal], grid))
 
 
-                    @views phL.trans_scalD[:,iscal] .= A_T \ rhs
+                    @views phL.trans_scalD[:,iscal] .= ATL \ rhs
 
                     print("\n test left after A/r L", vecb_L(phL.trans_scalD[:,iscal], grid))
                     print("\n test left after A/r T", vecb_T(phL.trans_scalD[:,iscal], grid))
@@ -690,7 +752,6 @@ function run_forward(
 
                 phL.i_current_mag .*= elec_cond # i=-κ∇ϕ here magnitude
 
-                # IIOE_normal!(grid, LS[iLS].A, LS[iLS].B, LS[iLS].u, V, CFL_sc, periodic_x, periodic_y)
 
 
                 ####################################################################################################

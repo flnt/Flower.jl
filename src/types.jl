@@ -4,7 +4,7 @@ abstract type MutatingFields end
 
 abstract type AbstractOptimizer end
 
-@with_kw mutable struct Numerical{T <: Real, D <: Integer, B<: Bool} <: NumericalParameters
+@with_kw mutable struct Numerical{T <: Real, D <: Integer} <: NumericalParameters
     CFL::T = 0.5 # Courant number
     Re::T = 1.0 # Reynolds number
     TEND::T = 0.0 # Final time of the simulation
