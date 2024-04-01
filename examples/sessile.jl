@@ -46,7 +46,7 @@ function run_sessile(θe = 90)
         v_inf = 0.0,
         save_every = max_its÷100,
         # save_every = 1,
-        reinit_every = 3,
+        reinit_every = 10,
         nb_reinit = 2,
         δreinit = 10.0,
         σ = 1.0,
@@ -109,7 +109,7 @@ function run_sessile(θe = 90)
     println("RR0_sim = $(RR0_sim)")
     println("RR0_teo = $(RR0_teo)")
 
-    suffix = "$(θe)deg_$(n)_reinit$(num.reinit_every)_nb$(num.nb_reinit)_2"
+    suffix = "$(θe)deg_$(n)_reinit$(num.reinit_every)_nb$(num.nb_reinit)"
     # suffix = "$(θe)deg_$(num.max_iterations)_$(n)_reinit$(num.reinit_every)_nb$(num.nb_reinit)"
     file = suffix*".jld2"
     # save_field(prefix*file, num, gp, phL, fwdL, fwd)
@@ -204,4 +204,4 @@ end
 #     display(fLS)
 # end
 
-fLS, fu, fv, phL, gp, gu, gv, fk, fwdL = run_sessile(160);
+fLS, fu, fv, phL, gp, gu, gv, fk, fwdL = run_sessile(165);

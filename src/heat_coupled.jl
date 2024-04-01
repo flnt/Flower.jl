@@ -98,8 +98,9 @@ function set_heat_borders!(grid, a0, a1, b, BC_T, per_x, per_y)
 end
 
 function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection,
+    A, B,
     op_conv, grid_u, geo_u, grid_v, geo_v,
-    periodic_x, periodic_y, convection)
+    periodic_x, periodic_y, convection, ls_advection, BC_int)
     @unpack τ, aniso = num
     @unpack nx, ny, dx, dy, ind  = grid
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
@@ -121,6 +122,12 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
         __a1 = -1.
         __b = 1.
     elseif is_stefan(bc_type)
+        __a1 = -1.
+        __b = 0.
+    elseif is_wall(bc_type)
+        __a1 = -1.
+        __b = 0.
+    else
         __a1 = -1.
         __b = 0.
     end
@@ -189,59 +196,62 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
         )
     end
 
-    # Mass matrices
-    M.diag .= vec(geo.dcap[:,:,5])
-    Mx = zeros(ny,nx+1)
-    for II in ind.all_indices
-        Mx[II] = geo.dcap[II,8]
+    if ls_advection
+        update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
+
+        # Mass matrices
+        M.diag .= vec(geo.dcap[:,:,5])
+        Mx = zeros(ny,nx+1)
+        for II in ind.all_indices
+            Mx[II] = geo.dcap[II,8]
+        end
+        for II in ind.b_right[1]
+            Mx[δx⁺(II)] = geo.dcap[II,10]
+        end
+        My = zeros(ny+1,nx)
+        for II in ind.all_indices
+            My[II] = geo.dcap[II,9]
+        end
+        for II in ind.b_top[1]
+            My[δy⁺(II)] = geo.dcap[II,11]
+        end
+        iMx.diag .= 1. ./ (vec(Mx) .+ eps(0.01))
+        iMy.diag .= 1. ./ (vec(My) .+ eps(0.01))
+
+        # Discrete gradient and divergence operators
+        divergence_B!(BxT, ByT, geo.dcap, ny, ind.all_indices)
+        mat_assign!(Bx, sparse(-BxT'))
+        mat_assign!(By, sparse(-ByT'))
+
+        # Matrices for interior BCs
+        for iLS in 1:num.nLS
+            bc_matrix!(grid, Hx[iLS], Hy[iLS], geo.dcap, geo.dcap, ny, ind.all_indices)
+
+            mat_assign_T!(HxT[iLS], sparse(Hx[iLS]'))
+            mat_assign_T!(HyT[iLS], sparse(Hy[iLS]'))
+
+            periodic_bcs!(grid, Bx, By, Hx[iLS], Hy[iLS], periodic_x, periodic_y)
+
+            χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
+            χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
+            χ[iLS].diag .= sqrt.(vec(χx .+ χy))
+        end
+        mat_assign!(BxT, sparse(-Bx'))
+        mat_assign!(ByT, sparse(-By'))
+
+        # Matrices for borders BCs
+        set_boundary_indicator!(grid, geo, geo, op)
+        mass_matrix_borders!(ind, op.iMx_b, op.iMy_b, op.iMx_bd, op.iMy_bd, geo.dcap, ny)
+        bc_matrix_borders!(grid, ind, op.Hx_b, op.Hy_b, geo.dcap)
+        mat_assign_T!(op.HxT_b, sparse(op.Hx_b'))
+        mat_assign_T!(op.HyT_b, sparse(op.Hy_b'))
+        periodic_bcs_borders!(grid, op.Hx_b, op.Hy_b, periodic_x, periodic_y)
     end
-    for II in ind.b_right[1]
-        Mx[δx⁺(II)] = geo.dcap[II,10]
-    end
-    My = zeros(ny+1,nx)
-    for II in ind.all_indices
-        My[II] = geo.dcap[II,9]
-    end
-    for II in ind.b_top[1]
-        My[δy⁺(II)] = geo.dcap[II,11]
-    end
-    iMx.diag .= 1. ./ (vec(Mx) .+ eps(0.01))
-    iMy.diag .= 1. ./ (vec(My) .+ eps(0.01))
-
-    # Discrete gradient and divergence operators
-    divergence_B!(BxT, ByT, geo.dcap, ny, ind.all_indices)
-    mat_assign!(Bx, sparse(-BxT'))
-    mat_assign!(By, sparse(-ByT'))
-
-    # Matrices for interior BCs
-    for iLS in 1:num.nLS
-        bc_matrix!(grid, Hx[iLS], Hy[iLS], geo.dcap, geo.dcap, ny, ind.all_indices)
-
-        mat_assign_T!(HxT[iLS], sparse(Hx[iLS]'))
-        mat_assign_T!(HyT[iLS], sparse(Hy[iLS]'))
-
-        periodic_bcs!(grid, Bx, By, Hx[iLS], Hy[iLS], periodic_x, periodic_y)
-
-        χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
-        χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
-        χ[iLS].diag .= sqrt.(vec(χx .+ χy))
-    end
-    mat_assign!(BxT, sparse(-Bx'))
-    mat_assign!(ByT, sparse(-By'))
-
-    # Matrices for borders BCs
-    set_boundary_indicator!(grid, geo, geo, op)
-    mass_matrix_borders!(ind, op.iMx_b, op.iMy_b, op.iMx_bd, op.iMy_bd, geo.dcap, ny)
-    bc_matrix_borders!(grid, ind, op.Hx_b, op.Hy_b, geo.dcap)
-    mat_assign_T!(op.HxT_b, sparse(op.Hx_b'))
-    mat_assign_T!(op.HyT_b, sparse(op.Hy_b'))
-    periodic_bcs_borders!(grid, op.Hx_b, op.Hy_b, periodic_x, periodic_y)
 
     LT = BxT * iMx * Bx .+ ByT * iMy * By
     LD = BxT * iMx * Hx[1] .+ ByT * iMy * Hy[1]
     LD_b = BxT * op.iMx_b * op.Hx_b .+ ByT * op.iMy_b * op.Hy_b
 
-    A = spzeros(nt, nt)
     # Implicit part of heat equation
     A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* τ .* LT, grid, τ)
     A[1:ni,ni+1:2*ni] = - 0.5 .* τ .* LD
@@ -257,11 +267,7 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
     A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b, 4.0)
 
     # Explicit part of heat equation
-    B = spzeros(nt, nt)
-    B[1:ni,1:ni] = M .+ 0.5 .* τ .* LT
-    if convection
-       B[1:ni,1:ni] .-= τ .* CT
-    end
+    B[1:ni,1:ni] = M .+ 0.5 .* τ .* LT .- τ .* CT
     B[1:ni,ni+1:2*ni] = 0.5 .* τ .* LD
     B[1:ni,end-nb+1:end] = 0.5 .* τ .* LD_b
 
@@ -272,5 +278,5 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
     vec2(rhs,grid) .+= χ[1] * vec(a0)
     vecb(rhs,grid) .+= op.χ_b * vec(a0_b)
 
-    return A, B, rhs
+    return rhs
 end

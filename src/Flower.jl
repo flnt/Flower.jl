@@ -35,8 +35,6 @@ import Base.reshape
 @reexport using LsqFit
 @reexport using Polynomials
 @reexport using JLD
-@reexport using SuiteSparse
-@reexport using DDM
 @reexport using Peaks
 @reexport using GeometryBasics
 @reexport using GeoInterface
@@ -53,8 +51,6 @@ include("heat.jl")
 include("heat_coupled.jl")
 include("navier_stokes_coupled.jl")
 include("run.jl")
-include("discrete_adjoint.jl")
-include("run_discrete_adjoint.jl")
 include("common_run.jl")
 include("contact_line.jl")
 include("optimize.jl")

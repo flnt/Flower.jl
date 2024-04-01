@@ -140,11 +140,16 @@ n = 512
         robin_bcs!(gp, θd)
     end
 
+    ni = gp.nx * gp.ny
+    nb = 2 * gp.nx + 2 * gp.ny
+    nt = (num.nLS + 1) * ni + nb
+    A = spzeros(nt, nt)
+
     update_all_ls_data(num, gp, gu, gv, BC_int, true, true, false)
     laps = set_matrices!(num, gp, [gp.LS[1].geoL], gu, [gu.LS[1].geoL], gv, [gv.LS[1].geoL], op.opC_pL, op.opC_uL, op.opC_vL, true, true)
     Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = laps
     a0_p = [θd]
-    A, rhs = set_poisson(BC_int, num, gp, a0_p, op.opC_pL, op.opC_uL, op.opC_vL, 1, Lp, bc_Lp, bc_Lp_b, BC, true)
+    rhs = set_poisson(BC_int, num, gp, a0_p, op.opC_pL, op.opC_uL, op.opC_vL, A, Lp, bc_Lp, bc_Lp_b, BC, true)
 
     b = Δf.(
         gp.x .+ getproperty.(gp.LS[1].geoL.centroid, :x) .* gp.dx,

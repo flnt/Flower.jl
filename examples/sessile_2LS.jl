@@ -19,7 +19,7 @@ n = 96
 x = collect(LinRange(-L0x / 2, L0x / 2, n + 1))
 y = collect(LinRange(-L0y / 2, 0, n ÷ 3 + 1))
 
-θe = 45
+θe = 30
 # function run_sessile(θe = 90)
     # if θe < 40
     #     max_its = 35000
@@ -54,7 +54,7 @@ y = collect(LinRange(-L0y / 2, 0, n ÷ 3 + 1))
         v_inf = 0.0,
         save_every = save_every,
         reinit_every = 1,
-        nb_reinit = 10,
+        nb_reinit = 20,
         δreinit = 0.0,
         σ = 1.0,
         ϵ = 0.05,
@@ -92,7 +92,7 @@ y = collect(LinRange(-L0y / 2, 0, n ÷ 3 + 1))
             left = Neumann_inh(),
             right = Neumann_inh()
         ),
-        BC_int = [FreeSurface(), Wall(θe = θe * π / 180)],
+        BC_int = [FreeSurface(), WallNoSlip(θe = θe * π / 180)],
         time_scheme = FE,
         auto_reinit = true,
         navier_stokes = true,
@@ -116,7 +116,7 @@ y = collect(LinRange(-L0y / 2, 0, n ÷ 3 + 1))
     println("RR0_sim = $(RR0_sim)")
     println("RR0_teo = $(RR0_teo)")
 
-    suffix = "$(θe)deg_$(max_its)_$(n)_reinit$(num.reinit_every)_nb$(num.nb_reinit)_δ$(num.δreinit)"
+    suffix = "$(θe)deg_$(max_its)_$(n)_reinit$(num.reinit_every)_nb$(num.nb_reinit)_δ$(num.δreinit)_σ$(num.σ)"
     # suffix = "$(θe)deg_$(num.max_iterations)_$(n)_reinit$(num.reinit_every)_nb$(num.nb_reinit)"
     file = suffix*".jld2"
     # save_field(prefix*file, num, gp, phL, fwdL, fwd)
@@ -125,7 +125,7 @@ y = collect(LinRange(-L0y / 2, 0, n ÷ 3 + 1))
     lim = (num.L0 + num.Δ) / 2
     lim = 1.0
 
-    fu = Figure(size = (1600, 1000))
+    fu = Figure(figure_pading = (50, 50, 50, 50), size = (1600, 1000))
     ax = Axis(fu[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y",
         xtickalign=0,  ytickalign=0, yticks = tcks)
     hmap = heatmap!(gu.x[1,:], gu.y[:,1], reshape(vec1(phL.uD, gu), gu)')
@@ -177,6 +177,19 @@ y = collect(LinRange(-L0y / 2, 0, n ÷ 3 + 1))
     rowsize!(fk.layout, 1, widths(ax.scene.viewport[])[2])
     resize_to_layout!(fk)
 
+    fV = Figure(size = (1600, 1000))
+    ax = Axis(fV[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y",
+        xtickalign=0,  ytickalign=0, yticks = tcks)
+    hmap = heatmap!(gp.x[1,:], gp.y[:,1], gp.V')
+    contour!(gp.x[1,:], gp.y[:,1], gp.LS[1].u', levels = 0:0, color=:red, linewidth = 3);
+    for iLS in 1:num.nLS
+        contour!(gp.x[1,:], gp.y[:,1], gp.LS[iLS].u', levels = 0:0, color=:red, linewidth = 3);
+    end
+    limits!(ax, -1.0, 1.0, -1.0, 0.0)
+    colsize!(fV.layout, 1, widths(ax.scene.viewport[])[1])
+    rowsize!(fV.layout, 1, widths(ax.scene.viewport[])[2])
+    resize_to_layout!(fV)
+
     fLS = Figure(size = (1600, 1000))
     ax = Axis(fLS[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y",
         xtickalign=0,  ytickalign=0, yticks = tcks)
@@ -208,11 +221,11 @@ y = collect(LinRange(-L0y / 2, 0, n ÷ 3 + 1))
     make_video(num, gv, fwd.uy, fwdL.v; title_prefix=prefix*"v_field_",
             title_suffix=suffix, framerate=1000÷num.save_every, limitsx=(-limx,limx), limitsy=(limy0-num.Δ/2,limye+num.Δ/2))
     make_video(num, gp, fwd.u, fwdL.p; title_prefix=prefix*"p_field_",
-            title_suffix=suffix, framerate=1000÷num.save_every, limitsx=(-limx,limx), limitsy=(limy0,limye))
+            title_suffix=suffix, framerate=1000÷num.save_every, limitsx=(-limx,limx), limitsy=(limy0,limye), plot_levelsets=true)
     make_video(num, gp, fwd.u, fwd.κ[1,:,:,:]; title_prefix=prefix*"k_field_",
-            title_suffix=suffix, framerate=1000÷num.save_every, limitsx=(-limx,limx), limitsy=(limy0,limye))
+            title_suffix=suffix, framerate=1000÷num.save_every, limitsx=(-limx,limx), limitsy=(limy0,limye), plot_levelsets=true)
     make_video(num, gp, fwd.u; title_prefix=prefix*"none_",
-            title_suffix=suffix, framerate=1000÷num.save_every, limitsx=(-limx,limx), limitsy=(limy0,limye));
+            title_suffix=suffix, framerate=1000÷num.save_every, limitsx=(-limx,limx), limitsy=(limy0,limye), plot_levelsets=true);
 
     # return fLS, fu, fv, phL, gu, gp, fk, fwdL
 # end
