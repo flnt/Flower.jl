@@ -719,8 +719,8 @@ function compute_grad_phi_ele!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_
     phL.i_current_mag .= sqrt.(phL.i_current_mag)
     # phS.i_current_mag .= sqrt.(phS.i_current_mag)
 
-    phL.Eu .= grd_x
-    phL.Ev .= grd_y
+    phS.Eu .= grd_x
+    phS.Ev .= grd_y
 
 
 end

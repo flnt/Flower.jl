@@ -531,12 +531,12 @@ function run_forward(
                 # phL.TD .= ATL \ rhs
 
 
-                print("\n test left before A/r", vecb_T(phL.TD, grid))
+                # print("\n test left before A/r", vecb_T(phL.TD, grid))
                     
 
                 phL.TD .= ATL \ rhs
 
-                print("\n test left after A/r", vecb_T(phL.TD, grid))
+                # print("\n test left after A/r", vecb_T(phL.TD, grid))
 
 
                 phL.T .= reshape(veci(phL.TD,grid,1), grid)
@@ -548,8 +548,8 @@ function run_forward(
                 # print("\n test", phL.T[1,:])
                 # print("\n test left", vecb_L(phL.TD, grid))
                 # print("\n test right", vecb_R(phL.TD, grid))
-                print("\n test bottom", vecb_B(phL.TD, grid))
-                print("\n test top", vecb_T(phL.TD, grid))
+                # print("\n test bottom", vecb_B(phL.TD, grid))
+                # print("\n test top", vecb_T(phL.TD, grid))
       
     
 
@@ -582,12 +582,13 @@ function run_forward(
 
                 # print("\n before res",vecb_L(phL.trans_scalD[:,1], grid))
 
+                #TODO check BC not overwritten by different scalars
+                #TODO check ls advection true when n scalars
+
 
                 for iscal=1:nb_transported_scalars
                     @views kill_dead_cells!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL)
                     @views veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
-
-                    print("\n after kill",vecb_L(phL.trans_scalD[:,iscal], grid))
 
 
                     rhs = set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TL, LS[1].geoL, phL, concentration0[iscal], BC_trans_scal[iscal],
@@ -595,16 +596,18 @@ function run_forward(
                                                         ATL,BTL,
                                                         opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
                                                         periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff[iscal])
-                    mul!(rhs, BTL, phL.trans_scalD[:,iscal], 1.0, 1.0)
+                    @views mul!(rhs, BTL, phL.trans_scalD[:,iscal], 1.0, 1.0) #TODO @views not necessary ?
 
-                    print("\n test left before A/r L", vecb_L(phL.trans_scalD[:,iscal], grid))
-                    print("\n test left before A/r T", vecb_T(phL.trans_scalD[:,iscal], grid))
+                    # print("\n test left before A/r L", vecb_L(phL.trans_scalD[:,iscal], grid))
+                    # print("\n test left before A/r T", vecb_T(phL.trans_scalD[:,iscal], grid))
 
 
                     @views phL.trans_scalD[:,iscal] .= ATL \ rhs
 
                     print("\n test left after A/r L", vecb_L(phL.trans_scalD[:,iscal], grid))
                     print("\n test left after A/r T", vecb_T(phL.trans_scalD[:,iscal], grid))
+
+
 
 
 
@@ -677,8 +680,9 @@ function run_forward(
                         BC_phi_eleL.left.val = -butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./elec_cond[:,1]
                     end    
 
-                elseif electrolysis_reaction == "Butler_no_concentration"
-                    # BC_phi_eleL.left.val = -butler_volmer_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./elec_cond
+                # elseif electrolysis_reaction == ""
+                #     # BC_phi_eleL.left.val = -butler_volmer_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./elec_cond
+                
                 end
 
 
@@ -1066,7 +1070,7 @@ function run_forward(
                 for iscal=1:nb_transported_scalars
                     @views fwd.trans_scal[snap,:,:,iscal] .= phS.trans_scal[:,:,iscal]
                     @views fwdS.trans_scal[snap,:,:,iscal] .= phS.trans_scal[:,:,iscal]
-                    @views fwdS.trans_scalD[snap,:,iscal] .= phS.trans_scalD
+                    @views fwdS.trans_scalD[snap,:,iscal] .= phS.trans_scalD[:,iscal]
                 end
             end
 
@@ -1075,7 +1079,7 @@ function run_forward(
                 for iscal=1:nb_transported_scalars
                     @views fwd.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal]
                     @views fwdL.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal]
-                    @views fwdL.trans_scalD[snap,:,iscal] .= phL.trans_scalD
+                    @views fwdL.trans_scalD[snap,:,iscal] .= phL.trans_scalD[:,iscal]
                 end
                 @views fwdL.phi_ele[snap,:,:] .= phL.phi_ele
 
