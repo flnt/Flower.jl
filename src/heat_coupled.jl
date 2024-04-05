@@ -113,27 +113,33 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
     nt = 2 * ni + nb
 
     if is_dirichlet(bc_type)
-        __a1 = -1.
-        __b = 0.
+        __a0 = bc_type.val
+        __a1 = -1.0
+        __b = 0.0
     elseif is_neumann(bc_type)
-        __a1 = 0.
-        __b = 1.
+        __a0 = bc_type.val
+        __a1 = 0.0
+        __b = 1.0
     elseif is_robin(bc_type)
-        __a1 = -1.
-        __b = 1.
+        __a0 = bc_type.val
+        __a1 = -1.0
+        __b = 1.0
     elseif is_stefan(bc_type)
-        __a1 = -1.
-        __b = 0.
+        __a0 = θd
+        __a1 = -1.0
+        __b = 0.0
     elseif is_wall(bc_type)
-        __a1 = -1.
-        __b = 0.
+        __a0 = bc_type.val
+        __a1 = -1.0
+        __b = 0.0
     else
-        __a1 = -1.
-        __b = 0.
+        __a0 = bc_type.val
+        __a1 = -1.0
+        __b = 0.0
     end
 
     # Flags with BCs
-    a0 = ones(grid) .* θd
+    a0 = ones(grid) .* __a0
     if aniso
         apply_anisotropy(num, grid, grid.LS[1].κ, a0, MIXED, projection)
     else
