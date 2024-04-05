@@ -6,58 +6,81 @@ set_theme!(fontsize_theme)
 
 prefix = "/home/tf/Documents/Flower_figures/"
 
-L0 = 6.
+ratio = 8
+L0 = 1.
 n = 64
-x = LinRange(-L0/2, L0/2, n+1)
-y = LinRange(-L0/2, L0/2, n+1)
+nx = ratio * n
+ny = n
+
+x = LinRange(-ratio*L0/2, ratio*L0/2, nx+1)
+y = LinRange(-L0/2, L0/2, ny+1)
 
 num = Numerical(
-    case = "Cylinder",
-    Re = 10.0,    
+    case = "Planar",
+    Re = 1.0,    
     CFL = 0.5,
     x = x,
     y = y,
-    max_iterations = 10,
-    u_inf = 1.0,
-    R = 1.5,
+    max_iterations = 1000,
+    u_inf = 0.0,
     θd = 0.0,
     save_every = 1,
     ϵ = 0.05,
+    shift = 0.25,
 )
 
 gp, gu, gv = init_meshes(num)
 op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
-phL.T .= 0.
+# phL.T .= 1.
+# phS.T .= 0.3
+
+H0 = 0.05
+@. gp.LS[1].u = -gp.y - L0/2 + H0 + 0.0001
+St = 10
+
+LH = (1 - num.θd) / St
+
+print(LH)
 
 @time run_forward(
     num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
+    periodic_x = true,
     BC_TL = Boundaries(
         bottom = Dirichlet(val = 1.0),
-        top = Dirichlet(val = 1.0)
+        left = Periodic(),
+        right = Periodic(),
+    ),
+    BC_TS = Boundaries(
+        top = Dirichlet(val = 0.0),
+        left = Periodic(),
+        right = Periodic(),
     ),
     BC_uL = Boundaries(
-        left = Dirichlet(val = num.u_inf),
         bottom = Dirichlet(val = num.u_inf),
-        top = Dirichlet(val = num.u_inf)
+        top = Dirichlet(val = num.u_inf),
+        left = Periodic(),
+        right = Periodic(),
     ),
     BC_vL = Boundaries(
-        left = Dirichlet(val = num.v_inf),
         bottom = Dirichlet(val = num.v_inf),
-        top = Dirichlet(val = num.v_inf)
-    ),
-    BC_pL = Boundaries(
-        right = Dirichlet(),
+        top = Dirichlet(val = num.v_inf),
+        left = Periodic(),
+        right = Periodic(),
     ),
     BC_int = [Stefan()],
     time_scheme = FE,
+    adaptative_t = true,
     heat = true,
     heat_convection = true,
     heat_liquid_phase = true,
+    heat_solid_phase = true,
     navier_stokes = true,
     ns_advection = true,
     ns_liquid_phase = true,
     verbose = true,
-    show_every = 1
+    show_every = 1,
+    Ra = 1e5,
+    λ = LH
 )
 
 lim = num.L0 / 2
