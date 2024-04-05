@@ -35,7 +35,7 @@ function run_forward(
     adaptative_t = false,
     breakup = false,
     Ra = 0.0,
-    λ = 1,
+    St = 1,
     )
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations,
             current_i, save_every, reinit_every, nb_reinit, δreinit, ϵ, m, θ₀, aniso, nLS, _nLS, nNavier = num
@@ -400,7 +400,7 @@ function run_forward(
 
         for iLS in 1:nLS
             if is_stefan(BC_int[iLS])
-                update_stefan_velocity(num, grid, iLS, LS[iLS].u, phS.T, phL.T, periodic_x, periodic_y, λ, Vmean)
+                update_stefan_velocity(num, grid, iLS, LS[iLS].u, phS.T, phL.T, periodic_x, periodic_y, St, Vmean)
             elseif is_fs(BC_int[iLS])
                 update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y)
             elseif is_flapping(BC_int[iLS])

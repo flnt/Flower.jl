@@ -121,9 +121,9 @@ function update_ls_data_grid(num, grid, LS, u, κ, periodic_x, periodic_y)
     return NB_indices
 end
 
-function update_stefan_velocity(num, grid, iLS, u, TS, TL, periodic_x, periodic_y, λ, Vmean)
+function update_stefan_velocity(num, grid, iLS, u, TS, TL, periodic_x, periodic_y, St, Vmean)
     Stefan_velocity!(num, grid, grid.LS[iLS], grid.V, TS, TL, grid.LS[iLS].MIXED, periodic_x, periodic_y)
-    grid.V[grid.LS[iLS].MIXED] .*= 1. ./ λ
+    grid.V[grid.LS[iLS].MIXED] .*= St
     if Vmean
         a = mean(grid.V[grid.LS[iLS].MIXED])
         grid.V[grid.LS[iLS].MIXED] .= a

@@ -8,7 +8,7 @@ prefix = "/home/tf/Documents/Flower_figures/"
 
 ratio = 8
 L0 = 1.
-n = 64
+n = 32
 nx = ratio * n
 ny = n
 
@@ -21,7 +21,7 @@ num = Numerical(
     CFL = 0.5,
     x = x,
     y = y,
-    max_iterations = 1000,
+    max_iterations = 5000,
     u_inf = 0.0,
     θd = 0.0,
     save_every = 1,
@@ -36,11 +36,8 @@ op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
 H0 = 0.05
 @. gp.LS[1].u = -gp.y - L0/2 + H0 + 0.0001
-St = 10
+St = 0.1
 
-LH = (1 - num.θd) / St
-
-print(LH)
 
 @time run_forward(
     num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
@@ -73,14 +70,14 @@ print(LH)
     heat = true,
     heat_convection = true,
     heat_liquid_phase = true,
-    heat_solid_phase = true,
+    heat_solid_phase = false,
     navier_stokes = true,
     ns_advection = true,
     ns_liquid_phase = true,
     verbose = true,
     show_every = 1,
     Ra = 1e5,
-    λ = LH
+    St = St
 )
 
 lim = num.L0 / 2
