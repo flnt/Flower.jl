@@ -2,10 +2,11 @@ using Revise
 using Flower
 using JLD2
 
+# prefix = "/home/tf/Documents/Flower_figures/"
 
-for vRa = [1e3, 5e3, 1e4, 5e4, 1e5, 2e5, 4e5, 6e5, 8e5, 1e6]
+for vRa = [1e5, 1e6, 5e3, 1e4, 5e4, 1e3, 2e5, 4e5, 6e5, 8e5]
     Ra = vRa
-    St = 0.1
+    St = 0.5
     H0 = 0.05
 
     T1 = 1.0
@@ -17,10 +18,10 @@ for vRa = [1e3, 5e3, 1e4, 5e4, 1e5, 2e5, 4e5, 6e5, 8e5, 1e6]
 
     if vRa > 1e5
         n = 120
-        max_it = 6e4
+        max_it = 60000
     else
         n = 64
-        max_it = 3e4
+        max_it = 30000
     end
 
     nx = ratio * n
@@ -39,6 +40,8 @@ for vRa = [1e3, 5e3, 1e4, 5e4, 1e5, 2e5, 4e5, 6e5, 8e5, 1e6]
         u_inf = 0.0,
         θd = TM,
         save_every = 100,
+        NB = 2,
+        nb_reinit = ny ÷ 2,
         ϵ = 0.05,
         shift = 0.0,
     )
@@ -73,8 +76,17 @@ for vRa = [1e3, 5e3, 1e4, 5e4, 1e5, 2e5, 4e5, 6e5, 8e5, 1e6]
             left = Periodic(),
             right = Periodic(),
         ),
+        BC_u = Boundaries(
+            left = Periodic(),
+            right = Periodic(),
+        ),
+        BC_pL = Boundaries(
+            left = Periodic(),
+            right = Periodic(),
+        ),
         BC_int = [Stefan()],
-        time_scheme = FE,
+        time_scheme = CN,
+        ls_scheme = eno2,
         adaptative_t = true,
         heat = true,
         heat_convection = true,
@@ -88,6 +100,9 @@ for vRa = [1e3, 5e3, 1e4, 5e4, 1e5, 2e5, 4e5, 6e5, 8e5, 1e6]
         Ra = Ra,
         St = St
     )
+
+    # make_video(num, gp, fwd.u, fwdL.T; title_prefix=prefix*"T_field",
+    #     title_suffix="", framerate=240)
 
     JLD2.@save "./newops_nx_$(nx)_ny_$(ny)_ratio_$(ratio)_maxiter_$(@sprintf("%.1e", max_it))_TM_$(TM)_T1_$(T1)_T2_$(T2)_St_$(St)_Ra_$(@sprintf("%.1e", Ra)).jld2" num fwd Ra St
 end
