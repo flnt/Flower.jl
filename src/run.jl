@@ -159,31 +159,139 @@ function run_forward(
 
     vec1(phS.uD,grid_u) .= vec(phS.u)
     vec2(phS.uD,grid_u) .= num.uD
-    vecb(phS.uD,grid_u) .= num.u_inf
-    vec1(phL.uD,grid_u) .= vec(phL.u)
-    vec2(phL.uD,grid_u) .= num.uD
-    vecb(phL.uD,grid_u) .= num.u_inf
     vec1(phS.ucorrD,grid_u) .= vec(phS.u)
     vec2(phS.ucorrD,grid_u) .= num.uD
-    vecb(phS.ucorrD,grid_u) .= num.u_inf
+    if is_neumann(BC_uS.left)
+        vecb_L(phS.uD,grid_u) .= phS.u[:,1]
+        vecb_L(phS.ucorrD,grid_u) .= phS.u[:,1]
+    else
+        vecb_L(phS.uD,grid_u) .= BC_uS.left.val .* ones(grid_u.ny)
+        vecb_L(phS.ucorrD,grid_u) .= BC_uS.left.val .* ones(grid_u.ny)
+    end
+    if is_neumann(BC_uS.bottom)
+        vecb_B(phS.uD,grid_u) .= phS.u[1,:]
+        vecb_B(phS.ucorrD,grid_u) .= phS.u[1,:]
+    else
+        vecb_B(phS.uD,grid_u) .= BC_uS.bottom.val .* ones(grid_u.nx)
+        vecb_B(phS.ucorrD,grid_u) .= BC_uS.bottom.val .* ones(grid_u.nx)
+    end
+    if is_neumann(BC_uS.right)
+        vecb_R(phS.uD,grid_u) .= phS.u[:,end]
+        vecb_R(phS.ucorrD,grid_u) .= phS.u[:,end]
+    else
+        vecb_R(phS.uD,grid_u) .= BC_uS.right.val .* ones(grid_u.ny)
+        vecb_R(phS.ucorrD,grid_u) .= BC_uS.right.val .* ones(grid_u.ny)
+    end
+    if is_neumann(BC_uS.top)
+        vecb_T(phS.uD,grid_u) .= phS.u[end,:]
+        vecb_T(phS.ucorrD,grid_u) .= phS.u[end,:]
+    else
+        vecb_T(phS.uD,grid_u) .= BC_uS.top.val .* ones(grid_u.nx)
+        vecb_T(phS.ucorrD,grid_u) .= BC_uS.top.val .* ones(grid_u.nx)
+    end
+
+    vec1(phL.uD,grid_u) .= vec(phL.u)
+    vec2(phL.uD,grid_u) .= num.uD
     vec1(phL.ucorrD,grid_u) .= vec(phL.u)
     vec2(phL.ucorrD,grid_u) .= num.uD
-    vecb(phL.ucorrD,grid_u) .= num.u_inf
+    if is_neumann(BC_uL.left)
+        vecb_L(phL.uD,grid_u) .= phL.u[:,1]
+        vecb_L(phL.ucorrD,grid_u) .= phL.u[:,1]
+    else
+        vecb_L(phL.uD,grid_u) .= BC_uL.left.val .* ones(grid_u.ny)
+        vecb_L(phL.ucorrD,grid_u) .= BC_uL.left.val .* ones(grid_u.ny)
+    end
+    if is_neumann(BC_uL.bottom)
+        vecb_B(phL.uD,grid_u) .= phL.u[1,:]
+        vecb_B(phL.ucorrD,grid_u) .= phL.u[1,:]
+    else
+        vecb_B(phL.uD,grid_u) .= BC_uL.bottom.val .* ones(grid_u.nx)
+        vecb_B(phL.ucorrD,grid_u) .= BC_uL.bottom.val .* ones(grid_u.nx)
+    end
+    if is_neumann(BC_uL.right)
+        vecb_R(phL.uD,grid_u) .= phL.u[:,end]
+        vecb_R(phL.ucorrD,grid_u) .= phL.u[:,end]
+    else
+        vecb_R(phL.uD,grid_u) .= BC_uL.right.val .* ones(grid_u.ny)
+        vecb_R(phL.ucorrD,grid_u) .= BC_uL.right.val .* ones(grid_u.ny)
+    end
+    if is_neumann(BC_uL.top)
+        vecb_T(phL.uD,grid_u) .= phL.u[end,:]
+        vecb_T(phL.ucorrD,grid_u) .= phL.u[end,:]
+    else
+        vecb_T(phL.uD,grid_u) .= BC_uL.top.val .* ones(grid_u.nx)
+        vecb_T(phL.ucorrD,grid_u) .= BC_uL.top.val .* ones(grid_u.nx)
+    end
+
     @views fwdS.ucorrD[1,:,:] .= phS.ucorrD
     @views fwdL.ucorrD[1,:,:] .= phL.ucorrD
 
-    vec1(phS.vD,grid_v) .= vec(phS.v)
-    vec2(phS.vD,grid_v) .= num.vD
-    vecb(phS.vD,grid_v) .= num.v_inf
+    vec1(phS.uD,grid_u) .= vec(phS.u)
+    vec2(phS.uD,grid_u) .= num.uD
+    vec1(phS.ucorrD,grid_u) .= vec(phS.u)
+    vec2(phS.ucorrD,grid_u) .= num.uD
+    if is_neumann(BC_uS.left)
+        vecb_L(phS.uD,grid_u) .= phS.u[:,1]
+        vecb_L(phS.ucorrD,grid_u) .= phS.u[:,1]
+    else
+        vecb_L(phS.uD,grid_u) .= BC_uS.left.val .* ones(grid_u.ny)
+        vecb_L(phS.ucorrD,grid_u) .= BC_uS.left.val .* ones(grid_u.ny)
+    end
+    if is_neumann(BC_uS.bottom)
+        vecb_B(phS.uD,grid_u) .= phS.u[1,:]
+        vecb_B(phS.ucorrD,grid_u) .= phS.u[1,:]
+    else
+        vecb_B(phS.uD,grid_u) .= BC_uS.bottom.val .* ones(grid_u.nx)
+        vecb_B(phS.ucorrD,grid_u) .= BC_uS.bottom.val .* ones(grid_u.nx)
+    end
+    if is_neumann(BC_uS.right)
+        vecb_R(phS.uD,grid_u) .= phS.u[:,end]
+        vecb_R(phS.ucorrD,grid_u) .= phS.u[:,end]
+    else
+        vecb_R(phS.uD,grid_u) .= BC_uS.right.val .* ones(grid_u.ny)
+        vecb_R(phS.ucorrD,grid_u) .= BC_uS.right.val .* ones(grid_u.ny)
+    end
+    if is_neumann(BC_uS.top)
+        vecb_T(phS.uD,grid_u) .= phS.u[end,:]
+        vecb_T(phS.ucorrD,grid_u) .= phS.u[end,:]
+    else
+        vecb_T(phS.uD,grid_u) .= BC_uS.top.val .* ones(grid_u.nx)
+        vecb_T(phS.ucorrD,grid_u) .= BC_uS.top.val .* ones(grid_u.nx)
+    end
+
     vec1(phL.vD,grid_v) .= vec(phL.v)
     vec2(phL.vD,grid_v) .= num.vD
-    vecb(phL.vD,grid_v) .= num.v_inf
-    vec1(phS.vcorrD,grid_v) .= vec(phS.v)
-    vec2(phS.vcorrD,grid_v) .= num.vD
-    vecb(phS.vcorrD,grid_v) .= num.v_inf
     vec1(phL.vcorrD,grid_v) .= vec(phL.v)
     vec2(phL.vcorrD,grid_v) .= num.vD
-    vecb(phL.vcorrD,grid_v) .= num.v_inf
+    if is_neumann(BC_vL.left)
+        vecb_L(phL.vD,grid_v) .= phL.v[:,1]
+        vecb_L(phL.vcorrD,grid_v) .= phL.v[:,1]
+    else
+        vecb_L(phL.vD,grid_v) .= BC_vL.left.val .* ones(grid_v.ny)
+        vecb_L(phL.vcorrD,grid_v) .= BC_vL.left.val .* ones(grid_v.ny)
+    end
+    if is_neumann(BC_vL.bottom)
+        vecb_B(phL.vD,grid_v) .= phL.v[1,:]
+        vecb_B(phL.vcorrD,grid_v) .= phL.v[1,:]
+    else
+        vecb_B(phL.vD,grid_v) .= BC_vL.bottom.val .* ones(grid_v.nx)
+        vecb_B(phL.vcorrD,grid_v) .= BC_vL.bottom.val .* ones(grid_v.nx)
+    end
+    if is_neumann(BC_vL.right)
+        vecb_R(phL.vD,grid_v) .= phL.v[:,end]
+        vecb_R(phL.vcorrD,grid_v) .= phL.v[:,end]
+    else
+        vecb_R(phL.vD,grid_v) .= BC_vL.right.val .* ones(grid_v.ny)
+        vecb_R(phL.vcorrD,grid_v) .= BC_vL.right.val .* ones(grid_v.ny)
+    end
+    if is_neumann(BC_vL.top)
+        vecb_T(phL.vD,grid_v) .= phL.v[end,:]
+        vecb_T(phL.vcorrD,grid_v) .= phL.v[end,:]
+    else
+        vecb_T(phL.vD,grid_v) .= BC_vL.top.val .* ones(grid_v.nx)
+        vecb_T(phL.vcorrD,grid_v) .= BC_vL.top.val .* ones(grid_v.nx)
+    end
+
     @views fwdS.vcorrD[1,:,:] .= phS.vcorrD
     @views fwdL.vcorrD[1,:,:] .= phL.vcorrD
 
