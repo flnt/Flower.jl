@@ -93,21 +93,33 @@ function run_forward(
     end
 
     printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL τ)
-    if adapt_timestep_mode == 1
-        τ = adapt_timestep!(num, phL, phS, grid_u, grid_v)
+    if adapt_timestep_mode !=0
+        τ = adapt_timestep!(num, phL, phS, grid_u, grid_v,adapt_timestep_mode)
         num.τ = τ
-        print("after adapt_timestep!")
+        # print("after adapt_timestep!")
         printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e num.τ : %.2e\n" CFL τ num.τ)
     end
 
     iRe = 1.0 / Re
     CFL_sc = τ / Δ^2
 
+    irho = 1.0
+
     if non_dimensionalize==0
-        iRe = mu1/rho1
+        #force L=1 u=1
+        Re=rho1/mu1
+        iRe = 1.0/Re
+        irho=1.0/rho1
+        num.visc_coeff=iRe
+    else 
+        num.visc_coeff=iRe
     end
 
-    printstyled(color=:green, @sprintf "\n Re : %.2e \n" Re)
+    printstyled(color=:green, @sprintf "\n Re : %.2e %.2e\n" Re num.visc_coeff)
+
+    if u_inf !=0 || v_inf !=0
+        printstyled(color=:red, @sprintf "\n u_inf : %.2e %.2e\n" Re num.visc_coeff)
+
 
 
     local NB_indices;
@@ -231,7 +243,7 @@ function run_forward(
 
         printstyled(color=:green, @sprintf "\n Check %s %s %s %.2e %.2e %2i\n" heat heat_convection electrolysis τ θd nb_transported_scalars)
 
-        print("\n before init",vecb_L(phL.trans_scalD[:,1], grid))
+        # print("\n before init",vecb_L(phL.trans_scalD[:,1], grid))
 
         for iscal=1:nb_transported_scalars
 
@@ -248,7 +260,7 @@ function run_forward(
             @views fwdL.trans_scalD[1,:,iscal] .= phL.trans_scalD[:,iscal]
         end
 
-        print("\n after init",vecb_L(phL.trans_scalD[:,1], grid))
+        # print("\n after init",vecb_L(phL.trans_scalD[:,1], grid))
 
 
         vec1(phL.phi_eleD,grid) .= vec(phL.phi_ele)
@@ -604,8 +616,8 @@ function run_forward(
 
                     @views phL.trans_scalD[:,iscal] .= ATL \ rhs
 
-                    print("\n test left after A/r L", vecb_L(phL.trans_scalD[:,iscal], grid))
-                    print("\n test left after A/r T", vecb_T(phL.trans_scalD[:,iscal], grid))
+                    # print("\n test left after A/r L", vecb_L(phL.trans_scalD[:,iscal], grid))
+                    # print("\n test left after A/r T", vecb_T(phL.trans_scalD[:,iscal], grid))
 
 
 

@@ -61,10 +61,11 @@ abstract type AbstractOptimizer end
     Ru::T = 0.0
     Faraday::T = 0.0
     MWH2::T = 0.0
-    rho1::T = 0.0
-    rho2::T = 0.0
-    mu1::T = 0.0
-    mu2::T = 0.0
+    rho1::T = 1.0
+    rho2::T = 1.0
+    mu1::T = 1.0
+    mu2::T = 1.0
+    visc_coeff::T = 0.0
     eps::T = 1e-12
     grav_x::T = 0.0
     grav_y::T = 0.0

@@ -3,7 +3,9 @@ using Flower
 using Printf
 using PrettyTables
 using Interpolations
+using PyPlot
 
+pygui(false) #do not show figures
 
 #From channel.jl and heat_convection.jl
 #Khalighi 2023: "Hydrogen bubble growth in alkaline water electrolysis: An immersed boundary simulation study"
@@ -19,15 +21,29 @@ prefix *= "/"*folder*"/"
 
 isdir(prefix) || mkdir(prefix)
 
+
+
 L0 = 1e-4 
 n = 64
+max_iter=100
+
+max_iter=1
+
+n=64
+max_iter=1
+
+#n=128
+#max_iter=2
+
+
 # max_iter=5
 # n = 10
 # max_iter=1
 
-max_iter=100
 
-# max_iter=1
+
+
+adapt_timestep_mode=2
 
 
 h0 = 0.25*L0 #TODO h0
@@ -35,11 +51,13 @@ h0 = 0.25*L0 #TODO h0
 x = LinRange(0, L0, n+1)
 y = LinRange(0, L0, n+1)
 
-function f(x,v_inlet)
-    # v_inlet=6.7e-4
-    return 8/3*v_inlet*x/L0*(1-x/L0)
+function fmax(x,v_inlet_max,L0)
+    return 4*v_inlet_max*x/L0*(1-x/L0)
 end
 
+function favg(x,v_inlet_moy,L0)
+    return 6*v_inlet_moy*x/L0*(1-x/L0)
+end
 
 ####################################################################################################
 # Sessile from sessile.jl
@@ -66,9 +84,9 @@ end
 
 ####################################################################################################
 
-rho=1258.0
+rho1=1258.0 #liquid
 #TODO need for 80°C, check with other study
-rhoH2=0.069575 #"0.7016E-01" in \citet{cohnTABLETHERMODYNAMICPROPERTIES1963} 
+rho2=0.069575 #"0.7016E-01" in \citet{cohnTABLETHERMODYNAMICPROPERTIES1963} H2
 #Linear interpolation between 350 and 360
 # 350	360	353		B	0.13841	353	350	360
 # 7.02E-02	6.82E-02		-0.00194999999999999	A	-0.000194999999999999	0.069575	0.07016	0.06821
@@ -89,6 +107,8 @@ xcoord = -xcoord
 ycoord = -ycoord
 
 mu=6.7e-7
+mu1=mu
+mu2=mu #TODO
 i0=1.0
 temperature0=353.0
 pres0=1e5
@@ -107,7 +127,7 @@ Ru=8.314
 Faraday = 9.64853321233100184e4 #C⋅mol−1
 MWH2 = 2.01568e-3 #kg/mol
 phi_ele0=0.0
-CFL=0.5
+CFL= 0.01 #0.5
 Re=1.0
 TEND=7.3#s
 
@@ -120,7 +140,20 @@ print(@sprintf "TODO elec cond and boundary conditions need to be updated for po
 
 
 v_inlet=6.7e-4
-Re=rho*v_inlet*L0/mu
+Re=rho1*v_inlet*L0/mu
+
+printstyled(color=:green, @sprintf "\n Re : %.2e %.2e\n" Re rho1/mu1)
+
+
+# Re=1.0
+# rho1=1.0
+# rho2=1.0
+# mu1=1.0
+# mu2=1.0
+# mu=1.0
+
+Re=rho1/mu1
+
 
 #Concentration
 diffusion_coeff=[DH2, DKOH, DH2O]
@@ -137,7 +170,9 @@ if length(diffusion_coeff)!=nb_transported_scalars
     @error ("nb_transported_scalars")
 end
 
-print(@sprintf "Re = %.2e\n" Re)
+# print(@sprintf "Re = %.2e\n" Re)
+
+
 
 
 print(@sprintf "nb_transported_scalars = %5i\n" nb_transported_scalars)
@@ -153,17 +188,17 @@ pretty_table(vcat(hcat("Diffusion coef",diffusion_coeff'),hcat("Concentration",c
 header = ["","H2", "KOH", "H2O"], highlighters=hl)
 
 num = Numerical(
-    case = "Cylinder", #"Sphere", #"Nothing",
-    shifted = xcoord,
-    shifted_y = ycoord,
-    R = radius,
+    CFL = CFL,
+    Re = Re,
+    TEND=TEND,
     x = x,
     y = y,
-    Re = Re,
-    CFL = CFL,
-    # max_iterations = 500, #max_its
+    shifted = xcoord,
+    shifted_y = ycoord,
+    case = "Cylinder", #"Sphere", #"Nothing",
+    R = radius,
     max_iterations = max_iter,
-    save_every = 10,
+    save_every = max_iter,#10,
     ϵ = 0.05,
     nb_transported_scalars=nb_transported_scalars,
     concentration0=concentration0, 
@@ -179,12 +214,12 @@ num = Numerical(
     MWH2=MWH2,
     θd=temperature0,
     eps=1e-12,
-    TEND=TEND,
     mu1=mu,
     mu2=mu,
-    rho1=rho,
-    rho2=rhoH2,
-
+    rho1=rho1,
+    rho2=rho2,
+    u_inf = 0.0,
+    )
     ####################################
     # Sessile
     ####################################
@@ -199,7 +234,7 @@ num = Numerical(
     # n_ext_cl = n_ext,
     # NB = 24,
     ####################################
-)
+
 
     # T_inf=353,
     # case="Electrolysis_concentration"
@@ -235,13 +270,45 @@ figname0="no_intfc"
 
 vPoiseuille = zeros(gv)
 @unpack x, nx, ny, ind = gv
-vPoiseuille=f.(x,v_inlet)
+vPoiseuille=favg.(x,v_inlet,L0)
 
 phL.v .=vPoiseuille
 phL.u .= 0.0
 phL.p .= 0.0
 
-vPoiseuilleb=f.(gv.x[1,:],v_inlet)
+
+vecb_L(phL.uD, gu) .= 0.0
+vecb_B(phL.uD, gu) .= 0.0
+vecb_R(phL.uD, gu) .= 0.0
+vecb_T(phL.uD, gu) .= 0.0
+
+vecb_L(phL.uD, gu) .= 0.0
+vecb_B(phL.uD, gu) .= 0.0
+vecb_R(phL.uD, gu) .= 0.0
+vecb_T(phL.uD, gu) .= 0.0
+
+
+printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL CFL*L0/n/v_inlet)
+
+
+xscale = 1e-6
+yscale = xscale
+
+x_array=gp.x[1,:]/xscale
+y_array=gp.y[:,1]/yscale
+
+us,vs = interpolate_grid_liquid(gp,gu,gv,phL.u,phL.v)
+
+fig, ax = plt.subplots()
+q = ax.quiver(x_array,y_array,us,vs)
+# ax.quiverkey(q, X=0.3, Y=1.1, U=10,
+#              label='Quiver key, length = 10', labelpos='E')
+
+plt.show()
+
+plt.savefig(prefix*"vector0.pdf")
+
+vPoiseuilleb=favg.(gv.x[1,:],v_inlet,L0)
 
 for iscal=1:nb_transported_scalars
     phL.trans_scal[:,:,iscal] .= concentration0[iscal]
@@ -259,7 +326,7 @@ printstyled(color=:green, @sprintf "\n TODO timestep CFL scal, and print \n")
 
 
 @unpack τ,CFL,Δ,Re,θd=num
-print(@sprintf "dt %.2e %.2e %.2e %.2e %.2e %.2e\n" τ CFL CFL*Δ CFL*Δ^2*Re Re θd)
+# print(@sprintf "dt %.2e %.2e %.2e %.2e %.2e %.2e\n" τ CFL CFL*Δ CFL*Δ^2*Re Re θd)
 # τ=CFL*Δ/v_inlet
 # num.τ=τ
 # print(@sprintf "dt %.2e \n" τ)
@@ -300,8 +367,8 @@ print(@sprintf "Butler-Volmer %.2e \n" i_current[1])
         bottom = Neumann(val=0.0),
         top    = Dirichlet(),
     ),
-    # BC_int = [FreeSurface()], #[Wall()],
-    BC_int = [Wall()],
+    # BC_int = [FreeSurface()], #[WallNoSlip()],
+    BC_int = [WallNoSlip()],
 
     BC_TL  = Boundaries(
     left   = Dirichlet(val = temperature0),
@@ -336,17 +403,17 @@ print(@sprintf "Butler-Volmer %.2e \n" i_current[1])
     BC_phi_eleL = BoundariesInt(
         left   = Neumann(val=-i_current/elec_cond),
         right  = Dirichlet(),
-        bottom = Dirichlet(),
+        bottom = Neumann(val=0.0),
         top    = Neumann(val=0.0),
         int    = Neumann(val=0.0),
     ),
 
 
-    time_scheme = CN, #or FE?
+    time_scheme = FE,#CN, #or FE?
     electrolysis = true,
 
     navier_stokes = true,
-    ns_advection = true,
+    ns_advection=true, #false
     ns_liquid_phase = true,
     verbose = true,
     show_every = 1,
@@ -355,7 +422,8 @@ print(@sprintf "Butler-Volmer %.2e \n" i_current[1])
     electrolysis_phase_change = true,
     electrolysis_reaction = "Butler_no_concentration",
     # electrolysis_reaction = "nothing",
-    adapt_timestep_mode = 1,
+    adapt_timestep_mode = adapt_timestep_mode,#1,
+    non_dimensionalize=0,
 
     # ns_advection = false,
 
@@ -376,43 +444,8 @@ print(@sprintf "Butler-Volmer %.2e \n" i_current[1])
 # save_length = true,
 ####################################################
 
-
-# tcks = -0.5:0.1:0.5
-
-# fu = Figure(size = (1200, 1000))
-# ax = Axis(fu[1,1], aspect = DataAspect(), xlabel = L"x", ylabel = L"y")
-# hmap = heatmap!(gu.x[1,:], gu.y[:,1], phL.u')
-# cbar = fu[1,2] = Colorbar(fu, hmap, labelpadding = 0)
-# colsize!(fu.layout, 1, widths(ax.scene.viewport[])[1])
-# rowsize!(fu.layout, 1, widths(ax.scene.viewport[])[2])
-# resize_to_layout!(fu)
-
-# fv = Figure(size = (1200, 1000))
-# ax = Axis(fv[1,1], aspect = DataAspect(), xlabel = L"x", ylabel = L"y")
-# hmap = heatmap!(gv.x[1,:], gv.y[:,1], phL.v')
-# cbar = fv[1,2] = Colorbar(fv, hmap, labelpadding = 0)
-# colsize!(fv.layout, 1, widths(ax.scene.viewport[])[1])
-# rowsize!(fv.layout, 1, widths(ax.scene.viewport[])[2])
-# resize_to_layout!(fv)
-
-# fp = Figure(size = (1200, 1000))
-# ax = Axis(fp[1,1], aspect = DataAspect(), xlabel = L"x", ylabel = L"y")
-# hmap = heatmap!(gp.x[1,:], gp.y[:,1], phL.p')
-# cbar = fp[1,2] = Colorbar(fp, hmap, labelpadding = 0)
-# colsize!(fp.layout, 1, widths(ax.scene.viewport[])[1])
-# rowsize!(fp.layout, 1, widths(ax.scene.viewport[])[2])
-# resize_to_layout!(fp)
-
-# utop = vecb_T(phL.uD, gu)
-# ubottom = vecb_B(phL.uD, gu)
-
-# fpr = Figure(size = (1600, 1000))
-# colsize!(fpr.layout, 1, Aspect(1, 1.0))
-# ax  = Axis(fpr[1,1], aspect = DataAspect(), xlabel = L"U _ x", ylabel = L"y",
-#     xtickalign = 0,  ytickalign = 0, yticks = tcks)
-# lines!(vcat(ubottom[end-10], phL.u[:,end-10], utop[end-10]), vcat(-0.5, gu.y[:,1], 0.5), linewidth = 3)
-# limits!(ax, 0.0, 1.1 * maximum(phL.u[:,end-10]), -0.5, 0.5)
-# resize_to_layout!(fpr)
+printstyled(color=:green, @sprintf "\n max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(phL.u)) maximum(abs.(phL.v)))
+printstyled(color=:green, @sprintf "\n eps : %.2e \n" eps(0.01))
 
 xlabel = L"x \left(\mu m \right)"
 ylabel = L"y \left(\mu m \right)"
@@ -464,361 +497,99 @@ title_suffix="", framerate=240,
 xlabel=xlabel, ylabel=ylabel, xscale=xscale, yscale=yscale, scalscale=1, xticks=xticks, yticks=yticks)
 
 
-#  #Vector plot
+######################################################################################################
+# Matplotlib
+######################################################################################################
+last_it=10
 
-#  fvector = Figure(size = (800, 800))
-#  # Axis(f[1, 1], 
-#  # # backgroundcolor = "black"
-#  # )
+x_array=gp.x[1,:]/xscale
+y_array=gp.y[:,1]/yscale
 
+# phi_array=reshape(vec1(fwdL.phi_eleD[end,:], gp), gp)'
 
-#  ax = Axis(fvector[1,1], 
-#  # aspect = DataAspect(), 
-#  aspect=1,
-#  xlabel = L"x \left(\mu m \right)", ylabel = L"y \left(\mu m \right)",
-#  xticks = xticks, yticks = xticks)
+phi_array=phL.phi_ele #do not transpose since python row major
 
-#  # ax  = Axis(fpr[1,1], aspect = DataAspect(), xlabel = L"U _ x", ylabel = L"y",
-#  #     xtickalign = 0,  ytickalign = 0, yticks = tcks)
+# print("test",phL.phi_ele[1,:])
 
-#  us, vs = interpolate_regular_grid(gp,fwdL)
+# print("test",phL.phi_ele[:,1])
 
-#  # print(us)
+# Eus, Evs = interpolate_regular_grid(gp,fwdL,fwdL.Eu, fwdL.Ev)
+Eus,Evs = interpolate_grid_liquid(gp,gu,gv,phL.Eu, phL.Ev)
 
-#  # print(vs)
 
-#  arrowscale = 1.0 #0.3
-#  # arrowscale = 1e-4
-#  arrowscale = 1.0/v_inlet #1.e4
+#https://matplotlib.org/stable/gallery/images_contours_and_fields/contourf_demo.html
 
-#  strength = vec(sqrt.(us[1,:,:] .^ 2 .+ vs[1,:,:] .^ 2))
+fig1, ax2 = plt.subplots(layout="constrained")
+CS = ax2.contourf(x_array,y_array,phi_array, 10, cmap=plt.cm.bone)
 
-#  #https://docs.makie.org/stable/reference/plots/arrows/
-#  arrows!(gp.x[1,:] ./xscale, gp.y[:,1] ./yscale, us[1,:,:], vs[1,:,:], 
-#  arrowsize = 10, 
-#  lengthscale = arrowscale,
-#  # arrowcolor = strength, 
-#  # linecolor = strength,
-#  )
+# Note that in the following, we explicitly pass in a subset of the contour
+# levels used for the filled contours.  Alternatively, we could pass in
+# additional levels to provide extra resolution, or leave out the *levels*
+# keyword argument to use all of the original levels.
 
-#  fvector
+CS2 = ax2.contour(CS, 
+# levels=CS.levels[::2], 
+# levels=
+colors="r")
 
-#  Makie.save(prefix*"vector.pdf", fvector)
+# ax2.set_title("Title")
+ax2.set_xlabel(L"$x (\mu m)$")
+ax2.set_ylabel(L"$y (\mu m)$")
 
-us, vs = interpolate_regular_grid(gp,fwdL)
+# Make a colorbar for the ContourSet returned by the contourf call.
+cbar = fig1.colorbar(CS)
+cbar.ax.set_ylabel("Electrical potential")
+# Add the contour line levels to the colorbar
+cbar.add_lines(CS2)
 
+plt.streamplot(x_array,y_array, Eus,Evs)
+# Eus[last_it,:,:], Evs[last_it,:,:])#, color=(.75,.90,.93)) #do no transpose, python row major
 
-function plot_velocity_vector(iter,us,vs)
-    #Vector plot
+plt.savefig(prefix*"streamlines.pdf")
 
-    fvector = Figure(size = (800, 800))
-    # Axis(f[1, 1], 
-    # # backgroundcolor = "black"
-    # )
+######################################################################################################
 
+us,vs = interpolate_grid_liquid(gp,gu,gv,phL.u,phL.v)
 
-    ax = Axis(fvector[1,1], 
-    # aspect = DataAspect(), 
-    aspect=1,
-    xlabel = L"x \left(\mu m \right)", ylabel = L"y \left(\mu m \right)",
-    xticks = xticks, yticks = xticks)
+fig, ax = plt.subplots()
+q = ax.quiver(x_array,y_array,us,vs)
+# ax.quiverkey(q, X=0.3, Y=1.1, U=10,
+#              label='Quiver key, length = 10', labelpos='E')
 
-    # ax  = Axis(fpr[1,1], aspect = DataAspect(), xlabel = L"U _ x", ylabel = L"y",
-    #     xtickalign = 0,  ytickalign = 0, yticks = tcks)
+plt.show()
 
+plt.savefig(prefix*"vector.pdf")
 
-    # print(us)
+print("\n test u ", vecb_L(phL.uD, gu))
 
-    # print(vs)
+print("\n test u ", phL.u[1,:])
+print("\n test u ", phL.u[:,1])
 
-    arrowscale = 1.0 #0.3
-    # arrowscale = 1e-4
-    arrowscale = 1.0/v_inlet #1.e4
 
-    strength = vec(sqrt.(us[iter,:,:] .^ 2 .+ vs[iter,:,:] .^ 2))
 
-    #https://docs.makie.org/stable/reference/plots/arrows/
-    arrows!(gp.x[1,:] ./xscale, gp.y[:,1] ./yscale, us[iter,:,:], vs[iter,:,:], 
-    arrowsize = 10, 
-    lengthscale = arrowscale,
-    # arrowcolor = strength, 
-    # linecolor = strength,
-    )
+vecb_L(phL.uD, gu) .=0.0
+vecb_R(phL.uD, gu) .=0.0
+vecb_T(phL.uD, gu) .=0.0
+vecb_B(phL.uD, gu) .=0.0
 
-    fvector
+vec1(phL.uD, gu) .=0.0
 
-    Makie.save(prefix*"vector.pdf", fvector)
 
-end
+phL.u .= reshape(vec1(phL.uD,gu), gu)
+phL.v .= reshape(vec1(phL.vD,gv), gv)
 
-# plot_velocity_vector(1,us,vs)
-# plot_velocity_vector(max_iter,us,vs)
+us,vs = interpolate_grid_liquid(gp,gu,gv,phL.u,phL.v)
 
+fig, ax = plt.subplots()
+q = ax.quiver(x_array,y_array,us,vs)
+# ax.quiverkey(q, X=0.3, Y=1.1, U=10,
+#              label='Quiver key, length = 10', labelpos='E')
 
+plt.show()
 
+plt.savefig(prefix*"vector_test1.pdf")
 
+print("\n test u ", vecb_L(phL.uD, gu))
 
 
 
-# testfig = Figure(size = (800, 800))
-# Axis(testfig[1, 1], backgroundcolor = "black")
-
-# xs = LinRange(0, 2pi, 20)
-# ys = LinRange(0, 3pi, 20)
-# us = [sin(x) * cos(y) for x in xs, y in ys]
-# vs = [-cos(x) * sin(y) for x in xs, y in ys]
-# strength = vec(sqrt.(us .^ 2 .+ vs .^ 2))
-
-# arrows!(xs, ys, us, vs, arrowsize = 10, lengthscale = 0.3,
-#     arrowcolor = strength, linecolor = strength)
-
-# testfig
-
-# Makie.save(prefix*"testfig.pdf", testfig)
-
-
-# lim = num.L0 / 2
-# fH2 = Figure(size = (1600, 1000))
-# ax = Axis(fH2[1,1], aspect = DataAspect(), xticks = -4:1:4, yticks = -4:1:4)
-# contourf!(gp.x[1,:], gp.y[:,1], phL.T', colormap=:dense, colorrange=(0.2, 1.0))
-# contour!(gp.x[1,:], gp.y[:,1], gp.LS[1].u', levels = 0:0, color=:red, linewidth = 5);
-# contour!(gp.x[1,:], gp.y[:,1], fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 5, linestyle=:dot);
-# limits!(ax, -lim, lim, -lim, lim)
-# colsize!(fH2.layout, 1, widths(ax.scene.viewport[])[1])
-# rowsize!(fH2.layout, 1, widths(ax.scene.viewport[])[2])
-# resize_to_layout!(fH2)
-
-# ax, hm = contourf(fig[2, 2][1, 1], xs, ys, zs,
-#     colormap = :Spectral, levels = [-1, -0.5, -0.25, 0, 0.25, 0.5, 1])
-# Colorbar(fig[2, 2][1, 2], hm, ticks = -1:0.25:1)
-
-
-phL.trans_scal[:,:,1] .= (1500.0+1)*c0_H2
-
-# lim = num.L0 / 2
-fH2 = Figure(size = (1600, 1000))
-ax = Axis(fH2[1,1], aspect = DataAspect(), xticks = xticks, yticks = yticks)
-
-co=contourf!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, (phL.trans_scal[:,:,1]'.-c0_H2)./c0_H2, 
-# colormap=:dense, 
-# colorrange=(0.2, 1.0),
-levels = 0:500:3000,
-)
-
-# ax,co=contourf(gp.x[1,:]./xscale, gp.y[:,1]./yscale, (phL.trans_scal[:,:,1]'.-c0_H2)./c0_H2, 
-# # colormap=:dense, 
-# # colorrange=(0.2, 1.0),
-# # levels = 0:500:3000,
-# levels = [0,500,1000,1500,2000,2500,3000],
-# )
-
-Colorbar(fH2[1, 2], co, ticks = 0:500:3000)
-contour!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, gp.LS[1].u', levels = 0:0, color=:red, linewidth = 5);
-contour!(gp.x[1,:]./xscale, gp.y[:,1]./yscale, fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 5, linestyle=:dot);
-# limits!(ax, -lim, lim, -lim, lim)
-limits!(ax, 0.0, num.L0/xscale, 0.0, num.L0/yscale)
-# colsize!(fH2.layout, 1, widths(ax.scene.viewport[])[1])
-# rowsize!(fH2.layout, 1, widths(ax.scene.viewport[])[2])
-# resize_to_layout!(fH2)
-
-Makie.save(prefix*"fH2.pdf", fH2)
-
-
-
-
-# function splot(u, v)
-#     nx, ny = size(u)
-#     x, y = 1:nx, 1:ny
-#     intu, intv = linear_interpolation((x,y), u), linear_interpolation((x,y), v)
-#     f(x) = Point2f(intu(x...), intv(x...))
-#     return streamplot(f, x, y, colormap=:magma)
-# end
-
-function splot(u, v, gp)
-    nx, ny = size(u)
-    x, y = gp.x[1,:], gp.y[:,1]
-    intu, intv = linear_interpolation((x,y), u), linear_interpolation((x,y), v)
-    f(x) = Point2f(intu(x...), intv(x...))
-    return streamplot(f, x, y, colormap=:magma)
-end
-
-
-# # Streamplot example function
-# struct FitzhughNagumo{T}
-#     ϵ::T
-#     s::T
-#     γ::T
-#     β::T
-# end
-# P = FitzhughNagumo(0.1, 0.0, 1.5, 0.8)
-
-# x = -1.5:0.1:1.5
-# nx = length(x)
-# u, v = zeros(nx, nx), zeros(nx, nx)
-
-# for (j, xj) in enumerate(x)
-#     for (i, xi) in enumerate(x)
-#         u[i, j], v[i, j] = (xi-xj-xi^3+P.s)/P.ϵ, P.γ*xi-xj + P.β
-#     end
-# end
-
-# Eus, Evs = interpolate_regular_grid(gp,fwdL,phL.Eu, phL.Ev)
-Eus, Evs = interpolate_regular_grid(gp,fwdL,fwdL.Eu, fwdL.Ev)
-
-fig, ax, pl = splot(Eus[1,:,:], Evs[1,:,:], gp)
-plot_velocity_vector(1,us,vs)
-
-fig
-Makie.save(prefix*"field_lines.pdf",fig)
-
-function make_video_ele(
-    num, grid, field_u, field = nothing,
-     vecu = nothing, vecv=nothing;
-    title_prefix = "video",
-    title_suffix = "",
-    xlabel = L"x",
-    ylabel = L"y",
-    colormap = :viridis,
-    sz = (1600, 1000),
-    minv = 0.0,
-    maxv = 0.0,
-    limitsx = false,
-    limitsy = false,
-    var = 1,
-    framerate = 24,
-    step = 1,
-    step0 = 1,
-    stepf = size(field_u, 2),
-    xscale = 1, 
-    yscale = 1, 
-    xticks = nothing,
-    yticks = nothing,
-    scalscale = 1, 
-    scalelabel = nothing,
-    scalticks = nothing,
-    )
-
-    x = grid.x[1,:] ./xscale
-    y = grid.y[:,1] ./yscale
-
-    u = field_u[:,step0:stepf,:,:]
-    plot_hmap = true
-    if isnothing(field)
-        plot_hmap = false
-    else
-        if length(size(field)) == 2
-            if var == 1
-                z = reshape(
-                    field[step0:stepf, 1:grid.ny*grid.nx], 
-                    (stepf-step0+1, grid.ny,grid.nx)
-                )
-            else
-                z = reshape(
-                    field[step0:stepf, grid.ny*grid.nx+1:2*grid.ny*grid.nx],
-                    (stepf-step0+1, grid.ny,grid.nx)
-                )
-            end
-        else
-            z = field[step0:stepf,:,:]
-        end
-
-        z = z ./scalscale
-    end
-
-    if minv == maxv == 0.0
-        var_colorrange = true
-    else
-        var_colorrange = false
-    end
-
-    if isa(limitsx, Tuple{Float64, Float64}) || isa(limitsx, Tuple{Int, Int})
-        lx = limitsx
-    else
-        lx = (min(x...) - grid.dx[1,1] / 2, max(x...) + grid.dx[1,end] / 2)
-    end
-    if isa(limitsy, Tuple{Float64, Float64}) || isa(limitsy, Tuple{Int, Int})
-        ly = limitsy
-    else
-        ly = (min(y...) - grid.dy[1,1] / 2, max(y...) + grid.dy[end,1] / 2)
-    end
-
-    obs = Observable{Int32}(1)
-    iterator = range(0, size(u, 2) - 1, step=step)
-
-    # fig = Figure(size = sz)
-    fig = Figure()
-    ax  = Axis(fig[1,1], 
-    # aspect=DataAspect(), 
-    aspect=1,
-    xlabel = xlabel, ylabel = ylabel,
-    xticks=xticks, yticks=yticks,
-        xtickalign = 0,  ytickalign = 0)
-    if plot_hmap
-        print("scalticks", scalticks, "xticks", xticks, "yticks", yticks,"\n")
-
-        if !var_colorrange
-            hmap = heatmap!(ax, x, y, @lift(z[$obs,:,:]'), colormap = colormap, 
-                colorrange = (minv, maxv))
-        else
-            # if !isnothing(scalticks)
-            #     print("scalticks", scalticks)
-
-            #     hmap = heatmap!(x, y, @lift(z[$obs,:,:]'), colormap = colormap, ticks=scalticks)
-            # else
-            hmap = heatmap!(ax, x, y, @lift(z[$obs,:,:]'), colormap = colormap)
-            # end
-        end
-    end
-    if !plot_hmap
-        contour!(x, y, @lift(u[1,$obs,:,:]'), levels = -10:grid.dx[1,1]:10, linewidth = 2.0)
-    end
-    for iLS in 1:num.nLS
-        contour!(x, y, @lift(u[iLS,$obs,:,:]'), levels = [0.0], color = :red, linewidth = 3.0)
-    end
-
-    #TODO
-    if !isnothing(vecu)
-        arrows!(grid.x[1,:], grid.y[:,1], vecu[1,:,:], vecv[1,:,:], 
-        arrowsize = 10, 
-        lengthscale = 0.3,
-        # arrowcolor = strength, 
-        # linecolor = strength,
-        )
-    end
-
-    # contourf!(x, y, u[2,1,:,:]', levels = 0:0, color = :red, linewidth = 3, extendlow = :gray);
-    if plot_hmap
-        if !isnothing(scalticks)
-            print("scalticks", scalticks)
-            cbar = fig[1,2] = Colorbar(fig, hmap, labelpadding = 0, ticks=scalticks)
-        else
-            cbar = fig[1,2] = Colorbar(fig, hmap, labelpadding = 0)
-        end
-
-    end
-
-    if !isnothing(scalelabel)
-        # Label(fig[1, 1, Top()], halign = :right, scalelabel)
-        Label(fig[1, 2, Top()], halign = :center, scalelabel)
-    end
-
-    # limits!(ax, lx[1], lx[2], ly[1], ly[2])
-    # colgap!(fig.layout, 10)
-    # rowgap!(fig.layout, 10)
-    # colsize!(fig.layout, 1, widths(ax.scene.viewport[])[1])
-    # rowsize!(fig.layout, 1, widths(ax.scene.viewport[])[2])
-    # resize_to_layout!(fig)
-
-    vid = record(
-            fig, title_prefix*title_suffix*".mp4", iterator;
-            framerate = framerate
-        ) do it
-        obs[] = it+1
-    end
-
-    return vid
-end
-
-make_video_elec(num, gu, fwd; title_prefix=prefix*"elec",
-        title_suffix="", framerate=240, 
-        xlabel=xlabel, ylabel=ylabel, xscale=xscale, yscale=yscale, scalscale=velscale, scalelabel=L"\times 10^{-4}", xticks=xticks, yticks=yticks, scalticks=0:2:10)

@@ -578,9 +578,10 @@ function FE_set_momentum_coupled(
     Lv, bc_Lv, bc_Lv_b, Mvm1, BCv,
     ls_advection
     )
-    @unpack τ, Re, nLS, nNavier = num
+    @unpack τ, Re, nLS, nNavier, visc_coeff = num
 
-    iRe = 1.0 / Re
+    # iRe = 1.0 / Re
+    iRe = visc_coeff
 
     nip = gp.nx * gp.ny
     nbp = 2 * gp.nx + 2 * gp.ny
@@ -1565,6 +1566,9 @@ function set_CN!(
     periodic_x, periodic_y, advection, ls_advection
     )
 
+    # @unpack rho1=num
+    # irho1=1.0/rho1
+
     if advection
         set_convection!(num, grid, geo[end], grid_u, grid_u.LS, grid_v, grid_v.LS, ph.u, ph.v, op_conv, ph, BC_u, BC_v)
     end
@@ -1605,6 +1609,12 @@ function set_CN!(
         Aϕ, Lp, bc_Lp, bc_Lp_b, BC_p,
         ls_advection
     )
+
+    # rhs_ϕ = set_poisson(
+    #     bc_int, num, grid, a0_p, opC_p, opC_u, opC_v,
+    #     Aϕ, irho1.*Lp, irho1.*bc_Lp, irho1.*bc_Lp_b, BC_p,
+    #     ls_advection
+    # )
 
     return rhs_u, rhs_v, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b
 end
@@ -1687,9 +1697,16 @@ function pressure_projection!(
     @unpack Re, τ, σ, g, β, nLS, nNavier = num
     @unpack p, pD, ϕ, ϕD, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr, uT = ph
     @unpack Cu, Cv, CUTCu, CUTCv = op_conv
+    @unpack rho1,visc_coeff = num
 
-    iRe = 1.0 / Re
+
+    # iRe = 1.0 / Re
+    iRe = visc_coeff
     iτ = 1.0 / τ
+    irho1 = 1.0/rho1
+
+    printstyled(color=:green, @sprintf "\n rho1 : %.2e irho1 : %.2e iRe : %.2e\n" rho1 irho1 iRe)
+
 
     nip = grid.nx * grid.ny
 
@@ -1700,6 +1717,26 @@ function pressure_projection!(
     niv = grid_v.nx * grid_v.ny
     nbv = 2 * grid_v.nx + 2 * grid_v.ny
     ntv = (nLS - nNavier + 1) * niv + nbv
+
+    # if is_FE(time_scheme)
+    #     rhs_u, rhs_v, rhs_ϕ, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_FE!(
+    #         bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+    #         opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
+    #         Au, Bu, Av, Bv, Aϕ, Auv, Buv,
+    #         Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
+    #         Mum1, Mvm1, iRe, op_conv, ph,
+    #         periodic_x, periodic_y, advection, ls_advection, navier
+    #     )
+    # elseif is_CN(time_scheme)
+    #     rhs_u, rhs_v, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_CN!(
+    #         bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+    #         opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
+    #         Au, Bu, Av, Bv, Aϕ,
+    #         Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
+    #         Mum1, Mvm1, iRe, op_conv, ph,
+    #         periodic_x, periodic_y, advection, ls_advection
+    #     )
+    # end
 
     if is_FE(time_scheme)
         rhs_u, rhs_v, rhs_ϕ, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_FE!(
@@ -1741,6 +1778,8 @@ function pressure_projection!(
         end
     end
 
+    printstyled(color=:green, @sprintf "\n max abs(Cu) : %.2e u: %.2e CUTCu: %.2e \n" maximum(abs.(Cu)) maximum(abs.(u)) maximum(abs.(CUTCu)))
+
     # u and v are coupled if a Navier slip BC is employed inside, otherwise they are uncoupled
     if !navier
         # if is_wall_no_slip(bc_int)
@@ -1768,6 +1807,9 @@ function pressure_projection!(
             ucorrD .= Inf
             println(e)
         end
+
+        printstyled(color=:green, @sprintf "\n max abs(ucorrD) : %.2e uD: %.2e \n" maximum(abs.(ucorrD)) maximum(abs.(uD)))
+
         kill_dead_cells!(vec1(ucorrD,grid_u), grid_u, geo_u[end])
         for iLS in 1:nLS
             kill_dead_cells!(veci(ucorrD,grid_u,iLS+1), grid_u, geo_u[end])
@@ -1852,6 +1894,8 @@ function pressure_projection!(
             println(e)
         end
 
+
+
         vec1(ucorrD, grid_u) .= uvD[1:niu]
         vecb(ucorrD, grid_u) .= uvD[ntu-nbu+1:ntu]
         kill_dead_cells!(vec1(ucorrD,grid_u), grid_u, geo_u[end])
@@ -1879,6 +1923,9 @@ function pressure_projection!(
         end
     end
 
+    printstyled(color=:green, @sprintf "\n max abs(ucorrD) : %.2e vcorrD %.2e \n" maximum(abs.(ucorrD)) maximum(abs.(vcorrD)))
+
+
     Duv = opC_p.AxT * vec1(ucorrD,grid_u) .+ opC_p.Gx_b * vecb(ucorrD,grid_u) .+
           opC_p.AyT * vec1(vcorrD,grid_v) .+ opC_p.Gy_b * vecb(vcorrD,grid_v)
     for iLS in 1:nLS
@@ -1887,7 +1934,10 @@ function pressure_projection!(
                     opC_p.Gy[iLS] * veci(vcorrD,grid_v,iLS+1)
         end
     end
-    vec1(rhs_ϕ,grid) .= iτ .* Duv
+    # vec1(rhs_ϕ,grid) .= iτ .* Duv
+    vec1(rhs_ϕ,grid) .= rho1 .* iτ .* Duv
+    # veci(rhs_ϕ,grid) .*= rho1 #TODO
+
 
     for iLS in 1:nLS
         if is_fs(bc_int[iLS])
@@ -1908,6 +1958,15 @@ function pressure_projection!(
         kill_dead_cells!(veci(rhs_ϕ,grid,iLS+1), grid, geo[end])
     end
     # @time bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl = Diagonal(Aϕ), log = true)
+
+    # rhs_ϕ .*= rho1 #TODO #TODO not BC
+
+    # vec1(rhs_ϕ,grid) .*= rho1 
+
+    # Aϕ .*= irho1
+
+    # vecb(rhs_ϕ,grid) .*= irho1
+
     @time ϕD .= Aϕ \ rhs_ϕ
     kill_dead_cells!(vec1(ϕD,grid), grid, geo[end])
     for iLS in 1:nLS
@@ -1925,6 +1984,15 @@ function pressure_projection!(
         ∇ϕ_x .+= opC_u.Gx[iLS] * veci(ϕD,grid,iLS+1)
         ∇ϕ_y .+= opC_v.Gy[iLS] * veci(ϕD,grid,iLS+1)
     end
+
+    # ∇ϕ_x = irho1 .* opC_u.AxT * opC_u.Rx * vec(ϕ) .+ opC_u.Gx_b * vecb(ϕD,grid)
+    # ∇ϕ_y = irho1 .* opC_v.AyT * opC_v.Ry * vec(ϕ) .+ opC_v.Gy_b * vecb(ϕD,grid)
+    # for iLS in 1:nLS
+    #     ∇ϕ_x .+= irho1 .* opC_u.Gx[iLS] * veci(ϕD,grid,iLS+1)
+    #     ∇ϕ_y .+= irho1 .* opC_v.Gy[iLS] * veci(ϕD,grid,iLS+1)
+    # end
+
+
     # ph.Gxm1 .+= ∇ϕ_x
     # ph.Gym1 .+= ∇ϕ_y
 
@@ -1942,9 +2010,16 @@ function pressure_projection!(
     #     vecb(pD,grid) .+= vecb(ϕD,grid)
     #     p .= reshape(vec1(pD,grid), grid)
     # end
+
+    # vec1(∇ϕ_x,grid) .*= irho1 
+    # vec1(∇ϕ_y,grid) .*= irho1
+
     
-    u .= ucorr .- τ .* reshape(iMu * ∇ϕ_x, grid_u)
-    v .= vcorr .- τ .* reshape(iMv * ∇ϕ_y, grid_v)
+    # u .= ucorr .- τ .* reshape(iMu * ∇ϕ_x, grid_u)
+    # v .= vcorr .- τ .* reshape(iMv * ∇ϕ_y, grid_v)
+
+    u .= ucorr .- τ .* irho1 .* reshape(iMu * ∇ϕ_x, grid_u)
+    v .= vcorr .- τ .* irho1 .* reshape(iMv * ∇ϕ_y, grid_v)
 
     kill_dead_cells!(u, grid_u, geo_u[end])
     kill_dead_cells!(v, grid_v, geo_v[end])
@@ -1973,6 +2048,13 @@ function pressure_projection!(
         #     end
         # end
     end
+
+    print("\n test u ", vecb_L(uD, grid_u))
+    print("\n test u ", vecb_R(uD, grid_u))
+    print("\n test u ", vecb_B(uD, grid_u))
+    print("\n test u ", vecb_T(uD, grid_u))
+
+
 
     return Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
 end

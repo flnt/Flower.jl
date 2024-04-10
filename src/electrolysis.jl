@@ -18,27 +18,34 @@ function set_scalar_transport!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED
     nt = 2 * ni + nb
 
     if is_dirichlet(bc_type)
-        __a1 = -1.
-        __b = 0.
+        # printstyled(color=:green, @sprintf "\n Dirichlet : %.2e\n" bc_type.val )
+        __a0 = bc_type.val
+        __a1 = -1.0
+        __b = 0.0
     elseif is_neumann(bc_type)
-        __a1 = 0.
-        __b = 1.
+        __a0 = bc_type.val
+        __a1 = 0.0
+        __b = 1.0
     elseif is_robin(bc_type)
-        __a1 = -1.
-        __b = 1.
+        __a0 = bc_type.val
+        __a1 = -1.0
+        __b = 1.0
     elseif is_stefan(bc_type)
-        __a1 = -1.
-        __b = 0.
+        __a0 = θd
+        __a1 = -1.0
+        __b = 0.0
     elseif is_wall(bc_type)
-        __a1 = -1.
-        __b = 0.
+        __a0 = bc_type.val
+        __a1 = -1.0
+        __b = 0.0
     else
-        __a1 = -1.
-        __b = 0.
+        __a0 = bc_type.val
+        __a1 = -1.0
+        __b = 0.0
     end
 
     # Flags with BCs
-    a0 = ones(grid) .* θd
+    a0 = ones(grid) .* __a0
     # if aniso
     #     apply_anisotropy(num, grid, grid.LS[1].κ, a0, MIXED, projection)
     # else
@@ -275,6 +282,52 @@ function update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iL
     field_extension!(grid_v, grid_v.LS[iLS].u, grid_v.V, i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext, num.NB, periodic_x, periodic_y)
 end
 
+
+"""
+Interpolate velocity on scalar grid for regular grids for vizualisation
+"""
+function interpolate_grid_liquid(gp,gu,gv,u,v)
+    
+    # us = p .*0
+    # vs = p .*0
+
+    us=zeros(gp)
+    vs=zeros(gp)
+
+    LS_u =gu.LS[1]
+    LS_v = gv.LS[1]
+    us .= (
+        (u[:,2:end].^2.0 .* LS_u.geoL.dcap[:,2:end,6] .+ 
+        u[:,1:end-1].^2.0 .* LS_u.geoL.dcap[:,1:end-1,6]) ./ 
+        (LS_u.geoL.dcap[:,1:end-1,6] .+ LS_u.geoL.dcap[:,2:end,6] .+ 1e-8 )
+    )
+    vs .= (
+        (v[2:end,:].^2.0 .* LS_v.geoL.dcap[2:end,:,7] .+ 
+        v[1:end-1,:].^2.0 .* LS_v.geoL.dcap[1:end-1,:,7]) ./
+        (LS_v.geoL.dcap[1:end-1,:,7] .+ LS_v.geoL.dcap[2:end,:,7] .+ 1e-8 )
+    )
+
+    # phL.p .+= (
+    #     (phS.u[:,2:end].^2.0 .* LS_u.geoS.dcap[:,2:end,6] .+ 
+    #     phS.u[:,1:end-1].^2.0 .* LS_u.geoS.dcap[:,1:end-1,6]) ./ 
+    #     (LS_u.geoS.dcap[:,1:end-1,6] .+ LS_u.geoS.dcap[:,2:end,6] .+ 1e-8 )
+    # )
+    # phL.p .+= (
+    #     (phS.v[2:end,:].^2.0 .* LS_v.geoS.dcap[2:end,:,7] .+ 
+    #     phS.v[1:end-1,:].^2.0 .* LS_v.geoS.dcap[1:end-1,:,7]) ./
+    #     (LS_v.geoS.dcap[1:end-1,:,7] .+ LS_v.geoS.dcap[2:end,:,7] .+ 1e-8 )
+    # )
+
+
+    # for j = 1:gp.ny
+    # for i = 1:gp.nx
+    #     us[:,j,i]=(u[:,j,i]+u[:,j,i+1])/2
+    #     vs[:,j,i]=(v[:,j,i]+v[:,j+1,i])/2
+    # end
+    # end
+    
+    return us,vs
+end
 
 
 """
@@ -729,7 +782,7 @@ end
 Adapt timestep based on velocity, viscosity, ...
 # [Kang 2000, “A Boundary Condition Capturing Method for Multiphase Incompressible Flow”](https://doi.org/10.1023/A:1011178417620) 
 """
-function adapt_timestep!(num, phL, phS, grid_u, grid_v)
+function adapt_timestep!(num, phL, phS, grid_u, grid_v,adapt_timestep_mode)
     @unpack rho1,rho2,mu1,mu2,grav_x,grav_y,CFL=num
 
     #With grid_u
@@ -743,28 +796,34 @@ function adapt_timestep!(num, phL, phS, grid_u, grid_v)
     #TODO V ?
     # vel = max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)
 
-    c_conv = max(abs.(phL.u)./grid_u.dx..., abs.(phL.v)./grid_v.dy..., abs.(phS.u)./grid_u.dx..., abs.(phS.v)./grid_v.dy...)
+    if adapt_timestep_mode==1
+        c_conv = max(abs.(phL.u)./grid_u.dx..., abs.(phL.v)./grid_v.dy..., abs.(phS.u)./grid_u.dx..., abs.(phS.v)./grid_v.dy...)
 
-    c_visc = max(mu1/rho1, mu2/rho2) * (2.0/min_spacing_x^2 + 2.0/min_spacing_y^2 ) 
-    
-    c_grav = sqrt(max(abs(grav_x)/min_spacing_x, abs(grav_y)/min_spacing_y))
+        c_visc = max(mu1/rho1, mu2/rho2) * (2.0/min_spacing_x^2 + 2.0/min_spacing_y^2 ) 
+        
+        c_grav = sqrt(max(abs(grav_x)/min_spacing_x, abs(grav_y)/min_spacing_y))
 
-    #TODO capillary timestep
-    c_surf = 0.0
+        #TODO capillary timestep
+        c_surf = 0.0
 
-    # c_surf = sigma*kappa / (min(rho1,rho2)*min_spacing_xyz^2)
+        # c_surf = sigma*kappa / (min(rho1,rho2)*min_spacing_xyz^2)
 
-    c_tot = (c_conv+c_visc)+ sqrt((c_conv+c_visc)^2+4*c_grav^2+4*c_surf^2 )
+        c_tot = (c_conv+c_visc)+ sqrt((c_conv+c_visc)^2+4*c_grav^2+4*c_surf^2 )
 
-    return 2*CFL/c_tot
+        return 2*CFL/c_tot
+    elseif adapt_timestep_mode==2
+        c_conv = max(abs.(phL.u)./grid_u.dx..., abs.(phL.v)./grid_v.dy..., abs.(phS.u)./grid_u.dx..., abs.(phS.v)./grid_v.dy...)
+
+        return CFL/c_conv
+    end
 
     # printstyled(color=:green, @sprintf "\n rho1 %.2e rho2 %.2e mu1 %.2e mu2 %.2e\n" rho1 rho2 mu1 mu2) 
     # printstyled(color=:green, @sprintf "\n dx %.2e dy %.2e \n" min_spacing_x min_spacing_x) 
 
     
-    max(mu1/rho1, mu2/rho2) * (2.0/min_spacing_x^2 + 2.0/min_spacing_y^2 )
+    # max(mu1/rho1, mu2/rho2) * (2.0/min_spacing_x^2 + 2.0/min_spacing_y^2 )
 
-    printstyled(color=:green, @sprintf "\n c_conv %.2e c_visc %.2e c_grad %.2e\n" c_conv c_visc c_grav)
-    printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL num.τ)
+    #  printstyled(color=:green, @sprintf "\n c_conv %.2e c_visc %.2e c_grad %.2e\n" c_conv c_visc c_grav)
+    #  printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL num.τ)
 end
 
