@@ -37,7 +37,7 @@ function run_forward(
     Ra = 0.0,
     St = 1,
     )
-    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations,
+    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, L0, NB, Δ, CFL, Re, max_iterations,
             current_i, save_every, reinit_every, nb_reinit, δreinit, ϵ, m, θ₀, aniso, nLS, _nLS, nNavier = num
     @unpack opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL = op
     @unpack x, y, nx, ny, dx, dy, ind, LS, V = grid
@@ -81,7 +81,7 @@ function run_forward(
     end
 
     iRe = 1.0 / Re
-    CFL_sc = τ / Δ^2
+    CFL_sc = num.τ / Δ^2
 
     local NB_indices;
 
@@ -349,12 +349,13 @@ function run_forward(
     if adaptative_t && flapping
         for iLS in 1:nLS
             if is_flapping(BC_int[iLS])
-                τ = min(CFL*Δ^2*Re, CFL*Δ/max(
+                num.τ = min(CFL*Δ^2*Re, CFL*Δ/max(
                     abs.(V)..., sqrt(max(abs.(grid_u.V)...)^2 + max(abs.(grid_v.V)...)^2),
                     abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)..., 
                     BC_int[iLS].β * BC_int[iLS].KC),
                     1.0 / BC_int[iLS].β / BC_int[iLS].βmult
                 )
+                CFL_sc = num.τ / Δ^2
             end
         end
     end
@@ -405,11 +406,11 @@ function run_forward(
                 update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y)
             elseif is_flapping(BC_int[iLS])
                 if BC_int[iLS].free
-                    grid_u.V .+= τ .* D ./ (BC_int[iLS].ρs .* volume(LS[end].geoS))
+                    grid_u.V .+= num.τ .* D ./ (BC_int[iLS].ρs .* volume(LS[end].geoS))
                 end
                 grid_v.V .= BC_int[iLS].KC .* BC_int[iLS].β .* sin(2π .* BC_int[iLS].β .* current_t)
-                xc[current_i+1] = xc[current_i] + τ * grid_u.V[1,1]
-                yc[current_i+1] = yc[current_i] + τ * grid_v.V[1,1]
+                xc[current_i+1] = xc[current_i] + num.τ * grid_u.V[1,1]
+                yc[current_i+1] = yc[current_i] + num.τ * grid_v.V[1,1]
                 grid.LS[iLS].u .= sqrt.((grid.x .- xc[current_i+1]) .^ 2 .+ ((grid.y .- yc[current_i+1]) ./ num.A) .^ 2) .- num.R .* ones(grid);
                 println("xc = $(xc[current_i+1]) | vx = $(grid_u.V[1,1])")
                 println("yc = $(yc[current_i+1]) | vy = $(grid_v.V[1,1])")
@@ -417,7 +418,7 @@ function run_forward(
         end
 
         if verbose && adaptative_t
-            println("τ = $τ")
+            println("τ = $(num.τ)")
         end
 
         if advection
@@ -430,12 +431,12 @@ function run_forward(
                     # rhs_LS .= 0.0
                     # LS[iLS].A.nzval .= 0.0
                     # LS[iLS].B.nzval .= 0.0
-                    # IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, θ_out, τ, periodic_x, periodic_y)
+                    # IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, θ_out, num.τ, periodic_x, periodic_y)
                     # BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
                     # utmp .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
 
                     # rhs_LS .= 0.0
-                    # S2IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, utmp, LS[iLS].u, θ_out, τ, periodic_x, periodic_y)
+                    # S2IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, utmp, LS[iLS].u, θ_out, num.τ, periodic_x, periodic_y)
                     # BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
                     # LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
 
@@ -476,10 +477,10 @@ function run_forward(
                 end
             end
             if analytical
-                u[ind.b_top[1]] .= sqrt.(x[ind.b_top[1]] .^ 2 + y[ind.b_top[1]] .^ 2) .- (num.R + speed*current_i*τ);
-                u[ind.b_bottom[1]] .= sqrt.(x[ind.b_bottom[1]] .^ 2 + y[ind.b_bottom[1]] .^ 2) .- (num.R + speed*current_i*τ);
-                u[ind.b_left[1]] .= sqrt.(x[ind.b_left[1]] .^ 2 + y[ind.b_left[1]] .^ 2) .- (num.R + speed*current_i*τ);
-                u[ind.b_right[1]] .= sqrt.(x[ind.b_right[1]] .^ 2 + y[ind.b_right[1]] .^ 2) .- (num.R + speed*current_i*τ);
+                u[ind.b_top[1]] .= sqrt.(x[ind.b_top[1]] .^ 2 + y[ind.b_top[1]] .^ 2) .- (num.R + speed*current_i*num.τ);
+                u[ind.b_bottom[1]] .= sqrt.(x[ind.b_bottom[1]] .^ 2 + y[ind.b_bottom[1]] .^ 2) .- (num.R + speed*current_i*num.τ);
+                u[ind.b_left[1]] .= sqrt.(x[ind.b_left[1]] .^ 2 + y[ind.b_left[1]] .^ 2) .- (num.R + speed*current_i*num.τ);
+                u[ind.b_right[1]] .= sqrt.(x[ind.b_right[1]] .^ 2 + y[ind.b_right[1]] .^ 2) .- (num.R + speed*current_i*num.τ);
             elseif nb_reinit > 0
                 if auto_reinit && (current_i-1)%num.reinit_every == 0
                     for iLS in 1:nLS
@@ -533,13 +534,13 @@ function run_forward(
                     if ns_solid_phase
                         normuS = norm(phS.u)
                         normvS = norm(phS.v)
-                        normpS = norm(phS.p.*τ)
+                        normpS = norm(phS.p.*num.τ)
                         print("$(@sprintf("norm(uS) %.6e", normuS))\t$(@sprintf("norm(vS) %.6e", normvS))\t$(@sprintf("norm(pS) %.6e", normpS))\n")
                     end
                     if ns_liquid_phase
                         normuL = norm(phL.u)
                         normvL = norm(phL.v)
-                        normpL = norm(phL.p.*τ)
+                        normpL = norm(phL.p.*num.τ)
                         print("$(@sprintf("norm(uL) %.6e", normuL))\t$(@sprintf("norm(vL) %.6e", normvL))\t$(@sprintf("norm(pL) %.6e", normpL))\n")
                     end
                 end
@@ -610,7 +611,7 @@ function run_forward(
         if navier_stokes
             if !advection
                 no_slip_condition!(num, grid, grid_u, grid_u.LS[1], grid_v, grid_v.LS[1], periodic_x, periodic_y)
-                # grid_u.V .= Δ / (1 * τ)
+                # grid_u.V .= Δ / (1 * num.τ)
                 # grid_v.V .= 0.0
             end
 
@@ -658,7 +659,7 @@ function run_forward(
 
         cD, cL, D, L = force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, phL; step = current_i+1, saveCoeffs = false)
 
-        current_t += τ
+        current_t += num.τ
         if iszero(current_i%save_every) || current_i==max_iterations
             snap = current_i÷save_every+1
             if current_i==max_iterations
@@ -730,19 +731,21 @@ function run_forward(
         if adaptative_t && flapping
             for iLS in 1:nLS
                 if is_flapping(BC_int[iLS])
-                    τ = min(CFL*Δ^2*Re, CFL*Δ/max(
+                    num.τ = min(CFL*Δ^2*Re, CFL*Δ/max(
                         abs.(V)..., sqrt(max(abs.(grid_u.V)...)^2 + max(abs.(grid_v.V)...)^2),
                         abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)..., 
                         BC_int[iLS].β * BC_int[iLS].KC),
                         1.0 / BC_int[iLS].β / BC_int[iLS].βmult
                     )
+                    CFL_sc = num.τ / Δ^2
                 end
             end
         elseif adaptative_t
-            τ = min(CFL*Δ^2*Re, CFL*Δ/max(
+            num.τ = min(CFL*Δ^2*Re, CFL*Δ/max(
                 abs.(V)..., abs.(grid_u.V)..., abs.(grid_v.V)..., 
                 abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)
             )
+            CFL_sc = num.τ / Δ^2
         end
     end
 
@@ -762,13 +765,13 @@ function run_forward(
                 if ns_solid_phase
                     normuS = norm(phS.u)
                     normvS = norm(phS.v)
-                    normpS = norm(phS.p.*τ)
+                    normpS = norm(phS.p.*num.τ)
                     print("$(@sprintf("norm(uS) %.6e", normuS))\t$(@sprintf("norm(vS) %.6e", normvS))\t$(@sprintf("norm(pS) %.6e", normpS))\n")
                 end
                 if ns_liquid_phase
                     normuL = norm(phL.u)
                     normvL = norm(phL.v)
-                    normpL = norm(phL.p.*τ)
+                    normpL = norm(phL.p.*num.τ)
                     print("$(@sprintf("norm(uL) %.6e", normuL))\t$(@sprintf("norm(vL) %.6e", normvL))\t$(@sprintf("norm(pL) %.6e", normpL))\n")
                 end
             end
