@@ -678,12 +678,12 @@ function run_forward(
                 @views fwd.T[snap,:,:] .= phL.T.*LS[end].geoL.cap[:,:,5] .+ phS.T.*LS[end].geoS.cap[:,:,5]
             end
             if heat_solid_phase
-                @views fwd.T[snap,:,:] .= phS.T
+                @views fwd.T[snap,:,:] .= phL.T + phS.T
                 @views fwdS.T[snap,:,:] .= phS.T
                 @views fwdS.TD[snap,:] .= phS.TD
             end
             if heat_liquid_phase
-                @views fwd.T[snap,:,:] .= phL.T
+                @views fwd.T[snap,:,:] .= phL.T + phS.T
                 @views fwdL.T[snap,:,:] .= phL.T
                 @views fwdL.TD[snap,:] .= phL.TD
             end

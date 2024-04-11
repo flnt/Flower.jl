@@ -5,7 +5,7 @@ using JLD2
 prefix = "/home/tf/Documents/Flower_figures/"
 
 # for vRa = [1e5, 1e6, 5e3, 1e4, 5e4, 1e3, 2e5, 4e5, 6e5, 8e5]
-for vRa = [1e6]
+for vRa = [1e5, 2e5, 4e5, 6e5, 8e5, 1e6]
     Ra = vRa
     St = 10.
     H0 = 0.05
@@ -18,11 +18,13 @@ for vRa = [1e6]
     L0 = 1.
 
     if vRa > 1e5
-        n = 32
-        max_it = 500
+        n = 64
+        max_it = 10000
+        save_every = 100
     else
-        n = 32
-        max_it = 1000
+        n = 64
+        max_it = 10000
+        save_every = 100
     end
 
     nx = ratio * n
@@ -34,15 +36,15 @@ for vRa = [1e6]
     num = Numerical(
         case = "Planar",
         Re = 1.0,    
-        CFL = 0.025,
+        CFL = 0.25,
         x = x,
         y = y,
         max_iterations = max_it,
         u_inf = 0.0,
         θd = TM,
-        save_every = 1,
+        save_every = save_every,
         NB = 2,
-        nb_reinit = 10,
+        nb_reinit = ny ÷ 2,
         ϵ = 0.05,
         shift = 0.0,
     )
@@ -88,7 +90,7 @@ for vRa = [1e6]
         BC_int = [Stefan()],
         time_scheme = FE,
         ls_scheme = eno2,
-        adaptative_t = false,
+        adaptative_t = true,
         heat = true,
         heat_convection = true,
         heat_liquid_phase = true,
@@ -102,14 +104,14 @@ for vRa = [1e6]
         St = St
     )
 
-    make_video(num, gp, fwd.u, fwd.T; title_prefix=prefix*"T_field",
+    make_video(num, gp, fwd.u, fwd.T; title_prefix=prefix*"T_field_newops_nx_$(nx)_ny_$(ny)_ratio_$(ratio)_maxiter_$(@sprintf("%.1e", max_it))_TM_$(TM)_T1_$(T1)_T2_$(T2)_St_$(St)_Ra_$(@sprintf("%.1e", Ra))",
         title_suffix="", framerate=240)
-    make_video(num, gu, fwd.ux, fwdL.u; title_prefix=prefix*"u_field",
+    make_video(num, gu, fwd.ux, fwdL.u; title_prefix=prefix*"u_field_newops_nx_$(nx)_ny_$(ny)_ratio_$(ratio)_maxiter_$(@sprintf("%.1e", max_it))_TM_$(TM)_T1_$(T1)_T2_$(T2)_St_$(St)_Ra_$(@sprintf("%.1e", Ra))",
         title_suffix="", framerate=240)
-    make_video(num, gv, fwd.uy, fwdL.v; title_prefix=prefix*"v_field",
+    make_video(num, gv, fwd.uy, fwdL.v; title_prefix=prefix*"v_field_newops_nx_$(nx)_ny_$(ny)_ratio_$(ratio)_maxiter_$(@sprintf("%.1e", max_it))_TM_$(TM)_T1_$(T1)_T2_$(T2)_St_$(St)_Ra_$(@sprintf("%.1e", Ra))",
         title_suffix="", framerate=240)
 
-    JLD2.@save "./newops_nx_$(nx)_ny_$(ny)_ratio_$(ratio)_maxiter_$(@sprintf("%.1e", max_it))_TM_$(TM)_T1_$(T1)_T2_$(T2)_St_$(St)_Ra_$(@sprintf("%.1e", Ra)).jld2" num fwd Ra St
+    JLD2.@save "/home/tf/Documents/Flower_figures/newops_nx_$(nx)_ny_$(ny)_ratio_$(ratio)_maxiter_$(@sprintf("%.1e", max_it))_TM_$(TM)_T1_$(T1)_T2_$(T2)_St_$(St)_Ra_$(@sprintf("%.1e", Ra)).jld2" num gp gu gv fwd Ra St
 end
 
 
