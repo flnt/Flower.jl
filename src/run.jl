@@ -552,7 +552,7 @@ function run_forward(
             NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
 
             if heat && heat_convection && heat_liquid_phase && navier_stokes && ns_liquid_phase
-                fwd.RB[1,current_i] += num.τ
+                fwd.RB[1,current_i] = current_t
                 h = 0.
                 for jj in grid.LS[1].MIXED
                     h += grid.y[jj] + num.Δ * grid.LS[1].mid_point[jj].y + 0.5
