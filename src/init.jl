@@ -891,6 +891,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
 
     n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
     
+
     usave = zeros(_nLS, n_snaps, grid.ny, grid.nx)
     uxsave = zeros(_nLS, n_snaps, grid_u.ny, grid_u.nx)
     uysave = zeros(_nLS, n_snaps, grid_v.ny, grid_v.nx)
@@ -913,6 +914,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     # Cl = zeros(n_snaps)
     Cd = zeros(max_iterations+1)
     Cl = zeros(max_iterations+1)
+    RB = zeros(3, max_iterations+1)
     TDSsave = fnzeros(n_snaps, grid, num)
     TDLsave = fnzeros(n_snaps, grid, num)
     pDSsave = fnzeros(n_snaps, grid, num)
@@ -1038,7 +1040,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
         ),
         Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS, uTS),
         Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL, uTL),
-        Forward(Tsave, usave, uxsave, uysave, Vsave, κsave, lengthsave, time, Cd, Cl),
+        Forward(Tsave, usave, uxsave, uysave, Vsave, κsave, lengthsave, time, Cd, Cl, RB),
         ForwardPhase(TSsave, pSsave, ϕSsave, uSsave, vSsave, TDSsave, pDSsave, ucorrDSsave, vcorrDSsave, VratioS),
         ForwardPhase(TLsave, pLsave, ϕLsave, uLsave, vLsave, TDLsave, pDLsave, ucorrDLsave, vcorrDLsave, VratioL)
     )

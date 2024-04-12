@@ -551,6 +551,18 @@ function run_forward(
         if levelset && (advection || current_i<2)
             NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
 
+            if heat && heat_convection && heat_liquid_phase && navier_stokes && ns_liquid_phase
+                fwd.RB[1,current_i] += num.τ
+                h = 0.
+                for jj in grid.LS[1].MIXED
+                    h += grid.y[jj] + num.Δ * grid.LS[1].mid_point[jj].y + 0.5
+                end
+                tmp = h / length(grid.LS[1].MIXED) 
+                fwd.RB[2,current_i] = tmp
+                fwd.RB[3,current_i] = Ra * (1. - num.θd) * tmp^3      
+                print("$(@sprintf("height %g", fwd.RB[2,current_i]))\t$(@sprintf("Ra_eff %g", fwd.RB[3,current_i]))\n")
+            end
+
             LS[end].geoL.fresh .= false
             LS[end].geoS.fresh .= false
             grid_u.LS[end].geoL.fresh .= false

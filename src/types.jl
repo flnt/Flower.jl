@@ -225,6 +225,7 @@ struct Forward{T <: Real} <: MutatingFields
     t::Array{T,1}
     Cd::Array{T,1}
     Cl::Array{T,1}
+    RB::Array{T,2}
 end
 
 struct ForwardPhase{T <: Real} <: MutatingFields
