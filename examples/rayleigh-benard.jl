@@ -4,27 +4,27 @@ using JLD2
 
 prefix = "/home/tf/Documents/Flower_figures/"
 
-# for vRa = [1e5, 5e4, 2e4, 1e4, 5e3, 1e6]
-vRa = 1e5
+# for vRa = [1e5, 5e4, 2e4]
+vRa = 1e6
     Ra = vRa
-    St = 0.1    
+    St = 1.0   
     H0 = 0.05
 
     T1 = 1.0
     T2 = 0.0
     TM = 0.3
 
-    ratio = 8
+    ratio = 4
     L0 = 1.
 
     if vRa > 1e5
-        n = 64
-        max_it = 100000
-        save_every = 1000
+        n = 32
+        max_it = 4000
+        save_every = 40
     else
-        n = 64
-        max_it = 100000
-        save_every = 1000
+        n = 32
+        max_it = 4000
+        save_every = 40
     end
 
     nx = ratio * n
@@ -36,7 +36,7 @@ vRa = 1e5
     num = Numerical(
         case = "Planar",
         Re = 1.0,    
-        CFL = 0.3,
+        CFL = 0.1,
         x = x,
         y = y,
         max_iterations = max_it,
@@ -52,7 +52,7 @@ vRa = 1e5
     gp, gu, gv = init_meshes(num)
     op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
-    local_shift = 0.0001 # + num.Δ / 2
+    local_shift = 0.0001 + num.Δ / 2
     @. gp.LS[1].u = -gp.y - L0/2 + H0 + local_shift
 
     @. phL.T = T1 - (1. - num.θd)*(gp.y + L0/2) / (H0 + local_shift)

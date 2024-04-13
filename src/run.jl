@@ -553,14 +553,30 @@ function run_forward(
 
             if heat && heat_convection && heat_liquid_phase && navier_stokes && ns_liquid_phase
                 fwd.RB[1,current_i] = current_t
-                h = 0.
-                for jj in grid.LS[1].MIXED
-                    h += grid.y[jj] + num.Δ * grid.LS[1].mid_point[jj].y + 0.5
+                # h = 0.
+                # for jj in grid.LS[1].MIXED
+                #     h += grid.y[jj] + num.Δ * grid.LS[1].mid_point[jj].y + 0.5
+                # end
+                # tmp = h / length(grid.LS[1].MIXED) 
+                sum = 0
+                count = 0
+                for i in 1:grid.nx
+                    for j in 1:(grid.ny-1)
+                        diff = grid.LS[1].u[j,i]*grid.LS[1].u[j+1,i]
+                        if diff < 0
+                            pos = grid.y[j+1,1] + grid.LS[1].u[j+1,i]
+                            sum += pos 
+                            count += 1
+                        end
+                    end
                 end
-                tmp = h / length(grid.LS[1].MIXED) 
+                tmp = (sum / count + 0.5)
                 fwd.RB[2,current_i] = tmp
                 fwd.RB[3,current_i] = Ra * (1. - num.θd) * tmp^3      
                 print("$(@sprintf("height %g", fwd.RB[2,current_i]))\t$(@sprintf("Ra_eff %g", fwd.RB[3,current_i]))\n")
+                if tmp > 0.8
+                    return nothing
+                end
             end
 
             LS[end].geoL.fresh .= false
