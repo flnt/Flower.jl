@@ -106,7 +106,8 @@ vRa = 1e6
         verbose = true,
         show_every = 1,
         Ra = Ra,
-        St = St
+        St = St,
+        cutoff_length = 0.9
     )
 
     make_video(num, gp, fwd.u, fwd.T; title_prefix=prefix*"T_field_newops_nx_$(nx)_ny_$(ny)_ratio_$(ratio)_maxiter_$(@sprintf("%.1e", max_it))_TM_$(TM)_T1_$(T1)_T2_$(T2)_St_$(St)_Ra_$(@sprintf("%.1e", Ra))",

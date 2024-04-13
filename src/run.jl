@@ -36,6 +36,7 @@ function run_forward(
     breakup = false,
     Ra = 0.0,
     St = 1,
+    cutoff_length = 0.8
     )
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, L0, NB, Δ, CFL, Re, max_iterations,
             current_i, save_every, reinit_every, nb_reinit, δreinit, ϵ, m, θ₀, aniso, nLS, _nLS, nNavier = num
@@ -574,7 +575,7 @@ function run_forward(
                 fwd.RB[2,current_i] = tmp
                 fwd.RB[3,current_i] = Ra * (1. - num.θd) * tmp^3      
                 print("$(@sprintf("height %g", fwd.RB[2,current_i]))\t$(@sprintf("Ra_eff %g", fwd.RB[3,current_i]))\n")
-                if tmp > 0.8
+                if tmp > cutoff_length
                     return nothing
                 end
             end
