@@ -4,27 +4,27 @@ using JLD2
 
 prefix = "/home/tf/Documents/Flower_figures/"
 
-# for vRa = [1e5, 5e4, 2e4]
-vRa = 1e6
+for vRa = [1e6, 1e5, 5e4, 2e4, 1e4]
+# vRa = 1e6
     Ra = vRa
     St = 1.0   
     H0 = 0.05
 
-    T1 = 1.0
-    T2 = 0.0
-    TM = 0.3
+    T1 = 0.7
+    T2 = -0.3
+    TM = 0.0
 
     ratio = 4
     L0 = 1.
 
     if vRa > 1e5
         n = 32
-        max_it = 4000
-        save_every = 40
+        max_it = 10000
+        save_every = 100
     else
         n = 32
-        max_it = 4000
-        save_every = 40
+        max_it = 10000
+        save_every = 100
     end
 
     nx = ratio * n
@@ -107,7 +107,7 @@ vRa = 1e6
         show_every = 1,
         Ra = Ra,
         St = St,
-        cutoff_length = 0.9
+        cutoff_length = 0.8
     )
 
     make_video(num, gp, fwd.u, fwd.T; title_prefix=prefix*"T_field_newops_nx_$(nx)_ny_$(ny)_ratio_$(ratio)_maxiter_$(@sprintf("%.1e", max_it))_TM_$(TM)_T1_$(T1)_T2_$(T2)_St_$(St)_Ra_$(@sprintf("%.1e", Ra))",
@@ -118,6 +118,6 @@ vRa = 1e6
         title_suffix="", framerate=240)
 
     JLD2.@save "/home/tf/Documents/Flower_figures/newops_nx_$(nx)_ny_$(ny)_ratio_$(ratio)_maxiter_$(@sprintf("%.1e", max_it))_TM_$(TM)_T1_$(T1)_T2_$(T2)_St_$(St)_Ra_$(@sprintf("%.1e", Ra)).jld2" num gp gu gv fwd Ra St
-# end
+end
 
 
