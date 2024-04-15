@@ -215,52 +215,34 @@ function run_forward(
     end     
     
 
+    ####################################################################################################
     # Initialisation
-
-    @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
-    @unpack  mid_point = grid #nx, ny, ind, geoS, geoL,
-
-
-    bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
-    bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
-
-    Δu = [grid_u.dx[1,1], grid_u.dy[1,1], grid_u.dx[end,end], grid_u.dy[end,end]] .* 0.5
-    Δv = [grid_v.dx[1,1], grid_v.dy[1,1], grid_v.dx[end,end], grid_v.dy[end,end]] .* 0.5
-
-    Hu = zeros(grid_u)
-    for i in eachindex(bnds_u)
-        for II in bnds_u[i]
-            Hu[II] = Δu[i]
-        end
-    end
-
-    Hv = zeros(grid_v)
-    for i in eachindex(bnds_v)
-        for II in bnds_v[i]
-            Hv[II] = Δv[i]
-        end
-    end
-
-    HSu=Hu
-    HLu=Hu
-
-    HSv=Hv
-    HLv=Hv
+    ####################################################################################################
+    # Hu = zeros(grid_u)
+    # Hv = zeros(grid_v)
+    # HSu = zeros(grid_u)
+    # HLu = zeros(grid_u)
+    # HSv = zeros(grid_v)
+    # HLv = zeros(grid_v)
+    # Hu,Hv = get_uv_height(grid_u,grid_v)
+    # HSu = copy(Hu)
+    # HLu = copy(Hv)
+    # HSv = copy(Hu)
+    # HLv = copy(Hv)
 
 
-    HS = zeros(ny, nx)
-    for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
-        HS[II] = distance(mid_point[II], geoS.centroid[II], dx[II], dy[II])
-    end
-    
-    HL = zeros(ny, nx)
-    for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
-        HL[II] = distance(mid_point[II], geoL.centroid[II], dx[II], dy[II])
-    end
+    HSu = get_height(grid_u,ind,dx,dy,LS[end].geoS) #TODO which LS
+    HLu = get_height(grid_u,ind,dx,dy,LS[end].geoL)
 
+    HSv = get_height(grid_v,ind,dx,dy,LS[end].geoS) #TODO which LS
+    HLv = get_height(grid_v,ind,dx,dy,LS[end].geoL)
 
+    HS = get_height(grid,ind,dx,dy,LS[end].geoS) #TODO which LS
+    HL = get_height(grid,ind,dx,dy,LS[end].geoL)
 
     presintfc = 0.0
+
+    #TODO perio, intfc, ... check init_fields_2
 
     init_fields_2(phS.pD,phS.p,HS,BC_pS,grid,presintfc)
     init_fields_2(phL.pD,phS.p,HL,BC_pL,grid,presintfc)
@@ -273,14 +255,13 @@ function run_forward(
 
     init_fields_2(phL.ucorrD,phS.u,HLu,BC_uL,grid_u,num.uD)
 
-
     init_fields_2(phS.vD,phS.v,HSv,BC_vS,grid_v,num.vD)
 
     init_fields_2(phS.vcorrD,phS.v,HSv,BC_vS,grid_v,num.vD)
 
-    init_fields_2(phL.vD,phL.v,BC_vL,HLv,grid_v,num.vD)
+    init_fields_2(phL.vD,phL.v,HLv,BC_vL,grid_v,num.vD)
 
-    init_fields_2(phL.vcorrD,phS.v,HLv,BC_uL,grid_v,num.vD)
+    init_fields_2(phL.vcorrD,phS.v,HLv,BC_vL,grid_v,num.vD)
 
 
     ####################################################################################################
@@ -323,8 +304,8 @@ function run_forward(
             # @views init_borders!(phL.trans_scalD[:,iscal], grid, BC_trans_scal[iscal], concentration0[iscal])
 
 
-            @views init_fields_2(phS.trans_scalD[:,iscal],phS.trans_scal[:,iscal],HS,BC_trans_scal[iscal],grid,concentration0[iscal])
-            @views init_fields_2(phL.trans_scalD[:,iscal],phL.trans_scal[:,iscal],HL,BC_trans_scal[iscal],grid,concentration0[iscal])
+            @views init_fields_2(phS.trans_scalD[:,iscal],phS.trans_scal[:,:,iscal],HS,BC_trans_scal[iscal],grid,concentration0[iscal])
+            @views init_fields_2(phL.trans_scalD[:,iscal],phL.trans_scal[:,:,iscal],HL,BC_trans_scal[iscal],grid,concentration0[iscal])
             
             @views fwdS.trans_scalD[1,:,iscal] .= phS.trans_scalD[:,iscal]
             @views fwdL.trans_scalD[1,:,iscal] .= phL.trans_scalD[:,iscal]

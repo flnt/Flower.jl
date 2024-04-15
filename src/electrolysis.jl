@@ -848,9 +848,64 @@ function init_fields_2(TD,T,H,BC,grid,dir_val_intfc)
         vecb_R(TD,grid) .= BC.right.val .* ones(grid.ny)
     end
     if is_neumann(BC.top)
-        vecb_T(TD,grid) .= T[end,:] .+ Hu[end,:] .* BC.top.val
+        vecb_T(TD,grid) .= T[end,:] .+ H[end,:] .* BC.top.val
     else
         vecb_T(TD,grid) .= BC.top.val .* ones(grid.nx)
     end
     
+end
+
+# function get_S_height(grid,ind,dx,dy)
+
+#     H = zeros(grid)
+#     @inbounds @threads for II in vcat(ind.b_left[1], ind.b_bottom[1], ind.b_right[1], ind.b_top[1])
+#         H[II] = distance(grid.LS[1].mid_point[II], geoS.centroid[II], dx[II], dy[II])
+#     end   
+
+# end
+
+# function get_L_height(grid,ind,dx,dy)
+
+#     H = zeros(grid)
+#     @inbounds @threads for II in vcat(ind.b_left[1], ind.b_bottom[1], ind.b_right[1], ind.b_top[1])
+#         H[II] = distance(grid.LS[1].mid_point[II], geoL.centroid[II], dx[II], dy[II])
+#     end   
+
+# end
+
+function get_height(grid,ind,dx,dy,geo)
+
+    H = zeros(grid)
+    @inbounds @threads for II in vcat(ind.b_left[1], ind.b_bottom[1], ind.b_right[1], ind.b_top[1])
+        H[II] = distance(grid.LS[1].mid_point[II], geo.centroid[II], dx[II], dy[II])
+    end   
+
+    return H
+
+end
+
+function get_uv_height(grid_u,grid_v)
+
+    bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
+    bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
+
+    Δu = [grid_u.dx[1,1], grid_u.dy[1,1], grid_u.dx[end,end], grid_u.dy[end,end]] .* 0.5
+    Δv = [grid_v.dx[1,1], grid_v.dy[1,1], grid_v.dx[end,end], grid_v.dy[end,end]] .* 0.5
+
+    Hu = zeros(grid_u)
+    for i in eachindex(bnds_u)
+        for II in bnds_u[i]
+            Hu[II] = Δu[i]
+        end
+    end
+
+    Hv = zeros(grid_v)
+    for i in eachindex(bnds_v)
+        for II in bnds_v[i]
+            Hv[II] = Δv[i]
+        end
+    end
+
+    return Hu,Hv
+
 end
