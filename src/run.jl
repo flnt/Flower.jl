@@ -12,7 +12,7 @@ function run_forward(
     BC_vL = Boundaries(),
     BC_u = Boundaries(),
     BC_trans_scal = Vector{BoundariesInt}(),
-    BC_phi_eleL = BoundariesInt(),
+    BC_phi_ele = BoundariesInt(),
     BC_int = [WallNoSlip()],
     time_scheme = CN,
     ls_scheme = weno5,
@@ -92,16 +92,15 @@ function run_forward(
         advection = false
     end
 
-    printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL τ)
+    printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL num.τ)
     if adapt_timestep_mode !=0
-        τ = adapt_timestep!(num, phL, phS, grid_u, grid_v,adapt_timestep_mode)
-        num.τ = τ
+        num.τ = adapt_timestep!(num, phL, phS, grid_u, grid_v,adapt_timestep_mode)
         # print("after adapt_timestep!")
-        printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e num.τ : %.2e\n" CFL τ num.τ)
+        printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e num.τ : %.2e\n" CFL num.τ num.τ)
     end
 
     iRe = 1.0 / Re
-    CFL_sc = τ / Δ^2
+    CFL_sc = num.τ / Δ^2
 
     irho = 1.0
 
@@ -116,10 +115,6 @@ function run_forward(
     end
 
     printstyled(color=:green, @sprintf "\n Re : %.2e %.2e\n" Re num.visc_coeff)
-
-    if u_inf !=0 || v_inf !=0
-        printstyled(color=:red, @sprintf "\n u_inf : %.2e %.2e\n" Re num.visc_coeff)
-
 
 
     local NB_indices;
@@ -218,19 +213,89 @@ function run_forward(
         @views fwdL.Eu[1,:,:] .= phL.Eu
         @views fwdL.Ev[1,:,:] .= phL.Ev
     end     
+    
+
+    # Initialisation
+
+    @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
+    @unpack  mid_point = grid #nx, ny, ind, geoS, geoL,
+
+
+    bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
+    bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
+
+    Δu = [grid_u.dx[1,1], grid_u.dy[1,1], grid_u.dx[end,end], grid_u.dy[end,end]] .* 0.5
+    Δv = [grid_v.dx[1,1], grid_v.dy[1,1], grid_v.dx[end,end], grid_v.dy[end,end]] .* 0.5
+
+    Hu = zeros(grid_u)
+    for i in eachindex(bnds_u)
+        for II in bnds_u[i]
+            Hu[II] = Δu[i]
+        end
+    end
+
+    Hv = zeros(grid_v)
+    for i in eachindex(bnds_v)
+        for II in bnds_v[i]
+            Hv[II] = Δv[i]
+        end
+    end
+
+    HSu=Hu
+    HLu=Hu
+
+    HSv=Hv
+    HLv=Hv
+
+
+    HS = zeros(ny, nx)
+    for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
+        HS[II] = distance(mid_point[II], geoS.centroid[II], dx[II], dy[II])
+    end
+    
+    HL = zeros(ny, nx)
+    for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
+        HL[II] = distance(mid_point[II], geoL.centroid[II], dx[II], dy[II])
+    end
+
+
+
+    presintfc = 0.0
+
+    init_fields_2(phS.pD,phS.p,HS,BC_pS,grid,presintfc)
+    init_fields_2(phL.pD,phS.p,HL,BC_pL,grid,presintfc)
+
+    init_fields_2(phS.uD,phS.u,HSu,BC_uS,grid_u,num.uD)
+
+    init_fields_2(phS.ucorrD,phS.u,HSu,BC_uS,grid_u,num.uD)
+
+    init_fields_2(phL.uD,phL.u,HLu,BC_uL,grid_u,num.uD)
+
+    init_fields_2(phL.ucorrD,phS.u,HLu,BC_uL,grid_u,num.uD)
+
+
+    init_fields_2(phS.vD,phS.v,HSv,BC_vS,grid_v,num.vD)
+
+    init_fields_2(phS.vcorrD,phS.v,HSv,BC_vS,grid_v,num.vD)
+
+    init_fields_2(phL.vD,phL.v,BC_vL,HLv,grid_v,num.vD)
+
+    init_fields_2(phL.vcorrD,phS.v,HLv,BC_uL,grid_v,num.vD)
+
+
     ####################################################################################################
 
-    vec1(phS.TD,grid) .= vec(phS.T)
-    vec2(phS.TD,grid) .= θd
-    init_borders!(phS.TD, grid, BC_TS, θd)
-    @views fwdS.TD[1,:] .= phS.TD
+    # vec1(phS.TD,grid) .= vec(phS.T)
+    # vec2(phS.TD,grid) .= θd
+    # init_borders!(phS.TD, grid, BC_TS, θd)
 
-    vec1(phL.TD,grid) .= vec(phL.T)
-    vec2(phL.TD,grid) .= θd
-    init_borders!(phL.TD, grid, BC_TL, θd)
-    @views fwdL.TD[1,:] .= phL.TD
+    # vec1(phL.TD,grid) .= vec(phL.T)
+    # vec2(phL.TD,grid) .= θd
+    # init_borders!(phL.TD, grid, BC_TL, θd)
 
-    
+    init_fields_2(phS.TD,phS.T,HS,BC_TS,grid,θd)
+    init_fields_2(phL.TD,phL.T,HL,BC_TL,grid,θd)
+
     if electrolysis
         printstyled(color=:green, @sprintf "\n Check \n")
         print_electrolysis_statistics(nb_transported_scalars,phL)
@@ -241,7 +306,7 @@ function run_forward(
     ####################################################################################################
     if electrolysis
 
-        printstyled(color=:green, @sprintf "\n Check %s %s %s %.2e %.2e %2i\n" heat heat_convection electrolysis τ θd nb_transported_scalars)
+        printstyled(color=:green, @sprintf "\n Check %s %s %s %.2e %.2e %2i\n" heat heat_convection electrolysis num.τ θd nb_transported_scalars)
 
         # print("\n before init",vecb_L(phL.trans_scalD[:,1], grid))
 
@@ -249,59 +314,51 @@ function run_forward(
 
             #Solid phase: necessary?
 
-            @views vec1(phS.trans_scalD[:,iscal],grid) .= vec(phS.trans_scal[:,:,iscal])
-            @views vec2(phS.trans_scalD[:,iscal],grid) .= concentration0[iscal]
-            @views init_borders!(phS.trans_scalD[:,iscal], grid, BC_trans_scal[iscal], concentration0[iscal])
-            @views fwdS.trans_scalD[1,:,iscal] .= phS.trans_scalD[:,iscal]
+            # @views vec1(phS.trans_scalD[:,iscal],grid) .= vec(phS.trans_scal[:,:,iscal])
+            # @views vec2(phS.trans_scalD[:,iscal],grid) .= concentration0[iscal]
+            # @views init_borders!(phS.trans_scalD[:,iscal], grid, BC_trans_scal[iscal], concentration0[iscal])
 
-            @views vec1(phL.trans_scalD[:,iscal],grid) .= vec(phL.trans_scal[:,:,iscal])
-            @views vec2(phL.trans_scalD[:,iscal],grid) .= concentration0[iscal]
-            @views init_borders!(phL.trans_scalD[:,iscal], grid, BC_trans_scal[iscal], concentration0[iscal])
+            # @views vec1(phL.trans_scalD[:,iscal],grid) .= vec(phL.trans_scal[:,:,iscal])
+            # @views vec2(phL.trans_scalD[:,iscal],grid) .= concentration0[iscal]
+            # @views init_borders!(phL.trans_scalD[:,iscal], grid, BC_trans_scal[iscal], concentration0[iscal])
+
+
+            @views init_fields_2(phS.trans_scalD[:,iscal],phS.trans_scal[:,iscal],HS,BC_trans_scal[iscal],grid,concentration0[iscal])
+            @views init_fields_2(phL.trans_scalD[:,iscal],phL.trans_scal[:,iscal],HL,BC_trans_scal[iscal],grid,concentration0[iscal])
+            
+            @views fwdS.trans_scalD[1,:,iscal] .= phS.trans_scalD[:,iscal]
             @views fwdL.trans_scalD[1,:,iscal] .= phL.trans_scalD[:,iscal]
         end
 
         # print("\n after init",vecb_L(phL.trans_scalD[:,1], grid))
 
 
-        vec1(phL.phi_eleD,grid) .= vec(phL.phi_ele)
-        vec2(phL.phi_eleD,grid) .= phi_ele0 #TODO
-        init_borders!(phL.phi_eleD, grid, BC_phi_eleL, phi_ele0)
+        # vec1(phL.phi_eleD,grid) .= vec(phL.phi_ele)
+        # vec2(phL.phi_eleD,grid) .= phi_ele0 #TODO
+        # init_borders!(phL.phi_eleD, grid, BC_phi_ele, phi_ele0)
+
+        init_fields_2(phS.phi_eleD,phS.phi_ele,HS,BC_phi_ele,grid,phi_ele0) #
+        init_fields_2(phL.phi_eleD,phL.phi_ele,HL,BC_phi_ele,grid,phi_ele0)
+
+        @views fwdS.phi_eleD[1,:] .= phS.phi_eleD
         @views fwdL.phi_eleD[1,:] .= phL.phi_eleD
     end     
     ####################################################################################################
 
-    vec1(phS.uD,grid_u) .= vec(phS.u)
-    vec2(phS.uD,grid_u) .= num.uD
-    vecb(phS.uD,grid_u) .= num.u_inf
-    vec1(phL.uD,grid_u) .= vec(phL.u)
-    vec2(phL.uD,grid_u) .= num.uD
-    vecb(phL.uD,grid_u) .= num.u_inf
-    vec1(phS.ucorrD,grid_u) .= vec(phS.u)
-    vec2(phS.ucorrD,grid_u) .= num.uD
-    vecb(phS.ucorrD,grid_u) .= num.u_inf
-    vec1(phL.ucorrD,grid_u) .= vec(phL.u)
-    vec2(phL.ucorrD,grid_u) .= num.uD
-    vecb(phL.ucorrD,grid_u) .= num.u_inf
+   
     @views fwdS.ucorrD[1,:,:] .= phS.ucorrD
     @views fwdL.ucorrD[1,:,:] .= phL.ucorrD
 
-    vec1(phS.vD,grid_v) .= vec(phS.v)
-    vec2(phS.vD,grid_v) .= num.vD
-    vecb(phS.vD,grid_v) .= num.v_inf
-    vec1(phL.vD,grid_v) .= vec(phL.v)
-    vec2(phL.vD,grid_v) .= num.vD
-    vecb(phL.vD,grid_v) .= num.v_inf
-    vec1(phS.vcorrD,grid_v) .= vec(phS.v)
-    vec2(phS.vcorrD,grid_v) .= num.vD
-    vecb(phS.vcorrD,grid_v) .= num.v_inf
-    vec1(phL.vcorrD,grid_v) .= vec(phL.v)
-    vec2(phL.vcorrD,grid_v) .= num.vD
-    vecb(phL.vcorrD,grid_v) .= num.v_inf
     @views fwdS.vcorrD[1,:,:] .= phS.vcorrD
     @views fwdL.vcorrD[1,:,:] .= phL.vcorrD
 
     @views fwdL.pD[1,:] .= phL.pD
     @views fwdS.pD[1,:] .= phS.pD
+
+    @views fwdS.TD[1,:] .= phS.TD
+    @views fwdL.TD[1,:] .= phL.TD
+
+
 
     if is_FE(time_scheme) || is_CN(time_scheme)
         NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
@@ -496,7 +553,7 @@ function run_forward(
     if adaptative_t && flapping
         for iLS in 1:nLS
             if is_flapping(BC_int[iLS])
-                τ = min(CFL*Δ^2*Re, CFL*Δ/max(
+                num.τ = min(CFL*Δ^2*Re, CFL*Δ/max(
                     abs.(V)..., sqrt(max(abs.(grid_u.V)...)^2 + max(abs.(grid_v.V)...)^2),
                     abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)..., 
                     BC_int[iLS].β * BC_int[iLS].KC),
@@ -687,20 +744,20 @@ function run_forward(
                 if electrolysis_reaction == "Butler_no_concentration"
 
                     if heat
-                        BC_phi_eleL.left.val = -butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,phL.T)./elec_cond[:,1]
+                        BC_phi_ele.left.val = -butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,phL.T)./elec_cond[:,1]
                     else
-                        BC_phi_eleL.left.val = -butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./elec_cond[:,1]
+                        BC_phi_ele.left.val = -butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./elec_cond[:,1]
                     end    
 
                 # elseif electrolysis_reaction == ""
-                #     # BC_phi_eleL.left.val = -butler_volmer_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./elec_cond
+                #     # BC_phi_ele.left.val = -butler_volmer_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./elec_cond
                 
                 end
 
 
                 rhs_phi_ele = set_poisson(
-                    [BC_phi_eleL.int], num, grid, a0_p, opC_pL, opC_uL, opC_vL,
-                    Aphi_eleL, Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, BC_phi_eleL,
+                    [BC_phi_ele.int], num, grid, a0_p, opC_pL, opC_uL, opC_vL,
+                    Aphi_eleL, Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, BC_phi_ele,
                     true
                 )
 
@@ -789,11 +846,11 @@ function run_forward(
 
             elseif is_flapping(BC_int[iLS])
                 if BC_int[iLS].free
-                    grid_u.V .+= τ .* D ./ (BC_int[iLS].ρs .* volume(LS[end].geoS))
+                    grid_u.V .+= num.τ .* D ./ (BC_int[iLS].ρs .* volume(LS[end].geoS))
                 end
                 grid_v.V .= BC_int[iLS].KC .* BC_int[iLS].β .* sin(2π .* BC_int[iLS].β .* current_t)
-                xc[current_i+1] = xc[current_i] + τ * grid_u.V[1,1]
-                yc[current_i+1] = yc[current_i] + τ * grid_v.V[1,1]
+                xc[current_i+1] = xc[current_i] + num.τ * grid_u.V[1,1]
+                yc[current_i+1] = yc[current_i] + num.τ * grid_v.V[1,1]
                 grid.LS[iLS].u .= sqrt.((grid.x .- xc[current_i+1]) .^ 2 .+ ((grid.y .- yc[current_i+1]) ./ num.A) .^ 2) .- num.R .* ones(grid);
                 println("xc = $(xc[current_i+1]) | vx = $(grid_u.V[1,1])")
                 println("yc = $(yc[current_i+1]) | vy = $(grid_v.V[1,1])")
@@ -803,7 +860,7 @@ function run_forward(
         end
 
         if verbose && adaptative_t
-            println("τ = $τ")
+            println("num.τ = $num.τ")
         end
 
         if advection
@@ -816,12 +873,12 @@ function run_forward(
                     # rhs_LS .= 0.0
                     # LS[iLS].A.nzval .= 0.0
                     # LS[iLS].B.nzval .= 0.0
-                    # IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, θ_out, τ, periodic_x, periodic_y)
+                    # IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, θ_out, num.τ, periodic_x, periodic_y)
                     # BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
                     # utmp .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
 
                     # rhs_LS .= 0.0
-                    # S2IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, utmp, LS[iLS].u, θ_out, τ, periodic_x, periodic_y)
+                    # S2IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, utmp, LS[iLS].u, θ_out, num.τ, periodic_x, periodic_y)
                     # BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
                     # LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
 
@@ -862,10 +919,10 @@ function run_forward(
                 end
             end
             if analytical
-                u[ind.b_top[1]] .= sqrt.(x[ind.b_top[1]] .^ 2 + y[ind.b_top[1]] .^ 2) .- (num.R + speed*current_i*τ);
-                u[ind.b_bottom[1]] .= sqrt.(x[ind.b_bottom[1]] .^ 2 + y[ind.b_bottom[1]] .^ 2) .- (num.R + speed*current_i*τ);
-                u[ind.b_left[1]] .= sqrt.(x[ind.b_left[1]] .^ 2 + y[ind.b_left[1]] .^ 2) .- (num.R + speed*current_i*τ);
-                u[ind.b_right[1]] .= sqrt.(x[ind.b_right[1]] .^ 2 + y[ind.b_right[1]] .^ 2) .- (num.R + speed*current_i*τ);
+                u[ind.b_top[1]] .= sqrt.(x[ind.b_top[1]] .^ 2 + y[ind.b_top[1]] .^ 2) .- (num.R + speed*current_i*num.τ);
+                u[ind.b_bottom[1]] .= sqrt.(x[ind.b_bottom[1]] .^ 2 + y[ind.b_bottom[1]] .^ 2) .- (num.R + speed*current_i*num.τ);
+                u[ind.b_left[1]] .= sqrt.(x[ind.b_left[1]] .^ 2 + y[ind.b_left[1]] .^ 2) .- (num.R + speed*current_i*num.τ);
+                u[ind.b_right[1]] .= sqrt.(x[ind.b_right[1]] .^ 2 + y[ind.b_right[1]] .^ 2) .- (num.R + speed*current_i*num.τ);
             elseif nb_reinit > 0
                 if auto_reinit && (current_i-1)%num.reinit_every == 0
                     for iLS in 1:nLS
@@ -904,7 +961,7 @@ function run_forward(
         if verbose
             if (current_i-1)%show_every == 0
                 printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) | t = %.2e \n" (current_i-1) 100*(current_i-1)/max_iterations current_t)
-                printstyled(color=:green, @sprintf "\n CFL : %.2e CFL : %.2e τ : %.2e\n" CFL max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)*τ/Δ τ)
+                printstyled(color=:green, @sprintf "\n CFL : %.2e CFL : %.2e num.τ : %.2e\n" CFL max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)*num.τ/Δ num.τ)
                 if heat && length(LS[end].MIXED) != 0
                     print(@sprintf "V_mean = %.2e  V_max = %.2e  V_min = %.2e\n" mean(V[LS[1].MIXED]) findmax(V[LS[1].MIXED])[1] findmin(V[LS[1].MIXED])[1])
                     print(@sprintf "κ_mean = %.2e  κ_max = %.2e  κ_min = %.2e\n" mean(LS[1].κ[LS[1].MIXED]) findmax(LS[1].κ[LS[1].MIXED])[1] findmin(LS[1].κ[LS[1].MIXED])[1])
@@ -920,13 +977,13 @@ function run_forward(
                     if ns_solid_phase
                         normuS = norm(phS.u)
                         normvS = norm(phS.v)
-                        normpS = norm(phS.p.*τ)
+                        normpS = norm(phS.p.*num.τ)
                         print("$(@sprintf("norm(uS) %.6e", normuS))\t$(@sprintf("norm(vS) %.6e", normvS))\t$(@sprintf("norm(pS) %.6e", normpS))\n")
                     end
                     if ns_liquid_phase
                         normuL = norm(phL.u)
                         normvL = norm(phL.v)
-                        normpL = norm(phL.p.*τ)
+                        normpL = norm(phL.p.*num.τ)
                         print("$(@sprintf("norm(uL) %.6e", normuL))\t$(@sprintf("norm(vL) %.6e", normvL))\t$(@sprintf("norm(pL) %.6e", normpL))\n")
                         if electrolysis
                             print_electrolysis_statistics(nb_transported_scalars,phL)
@@ -1000,7 +1057,7 @@ function run_forward(
         if navier_stokes
             if !advection
                 no_slip_condition!(num, grid, grid_u, grid_u.LS[1], grid_v, grid_v.LS[1], periodic_x, periodic_y)
-                # grid_u.V .= Δ / (1 * τ)
+                # grid_u.V .= Δ / (1 * num.τ)
                 # grid_v.V .= 0.0
             end
 
@@ -1048,7 +1105,7 @@ function run_forward(
 
         cD, cL, D, L = force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, phL; step = current_i+1, saveCoeffs = false)
 
-        current_t += τ
+        current_t += num.τ
         if iszero(current_i%save_every) || current_i==max_iterations
             snap = current_i÷save_every+1
             if current_i==max_iterations
@@ -1159,7 +1216,7 @@ function run_forward(
         if adaptative_t && flapping
             for iLS in 1:nLS
                 if is_flapping(BC_int[iLS])
-                    τ = min(CFL*Δ^2*Re, CFL*Δ/max(
+                    num.τ = min(CFL*Δ^2*Re, CFL*Δ/max(
                         abs.(V)..., sqrt(max(abs.(grid_u.V)...)^2 + max(abs.(grid_v.V)...)^2),
                         abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)..., 
                         BC_int[iLS].β * BC_int[iLS].KC),
@@ -1168,7 +1225,7 @@ function run_forward(
                 end
             end
         elseif adaptative_t
-            τ = min(CFL*Δ^2*Re, CFL*Δ/max(
+            num.τ = min(CFL*Δ^2*Re, CFL*Δ/max(
                 abs.(V)..., abs.(grid_u.V)..., abs.(grid_v.V)..., 
                 abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)
             )
@@ -1191,13 +1248,13 @@ function run_forward(
                 if ns_solid_phase
                     normuS = norm(phS.u)
                     normvS = norm(phS.v)
-                    normpS = norm(phS.p.*τ)
+                    normpS = norm(phS.p.*num.τ)
                     print("$(@sprintf("norm(uS) %.6e", normuS))\t$(@sprintf("norm(vS) %.6e", normvS))\t$(@sprintf("norm(pS) %.6e", normpS))\n")
                 end
                 if ns_liquid_phase
                     normuL = norm(phL.u)
                     normvL = norm(phL.v)
-                    normpL = norm(phL.p.*τ)
+                    normpL = norm(phL.p.*num.τ)
                     print("$(@sprintf("norm(uL) %.6e", normuL))\t$(@sprintf("norm(vL) %.6e", normvL))\t$(@sprintf("norm(pL) %.6e", normpL))\n")
                     if electrolysis
                        print_electrolysis_statistics(nb_transported_scalars,phL)
@@ -1254,7 +1311,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
     save_radius = false
     )
 
-    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, τ, L0, NB, max_iterations, current_i, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
+    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, num.τ, L0, NB, max_iterations, current_i, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
     @unpack nx, ny, ind, faces, geoS, geoL, mid_point = grid
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
     @unpack usave, TSsave, TLsave, Tsave, Vsave, κsave = fwd
@@ -1350,7 +1407,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
                     laplacian!(dir, opS.LT, opS.CUTT, bcSx, bcSy, geoS.dcap, ny, BC_TS, inside, LIQUID,
                                 MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
                     crank_nicolson!(num, grid, geoS, opS)
-                    TS .= reshape(gmres(opS.A,(opS.B*vec(TS) + 2.0*τ*opS.CUTT)), (ny,nx))
+                    TS .= reshape(gmres(opS.A,(opS.B*vec(TS) + 2.0*num.τ*opS.CUTT)), (ny,nx))
                 end
                 if liquid_phase
                     HL .= 0.
@@ -1368,7 +1425,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
                     laplacian!(dir, opL.LT, opL.CUTT, bcLx, bcLy, geoL.dcap, ny, BC_TL, inside, SOLID,
                                 MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
                     crank_nicolson!(num, grid, geoL, opL)
-                    TL .= reshape(gmres(opL.A,(opL.B*vec(TL) + 2.0*τ*opL.CUTT)), (ny,nx))
+                    TL .= reshape(gmres(opL.A,(opL.B*vec(TL) + 2.0*num.τ*opL.CUTT)), (ny,nx))
                 end
             catch
                 @error ("Unphysical temperature field, iteration $current_i")
@@ -1380,7 +1437,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
             if current_i%show_every == 0
                 try
                     printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) \n" (current_i-1) 100*(current_i-1)/max_iterations)
-                    printstyled(color=:green, @sprintf "\n CFL : %.2e CFL : %.2e τ : %.2e\n" CFL max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)*τ/Δ τ)
+                    printstyled(color=:green, @sprintf "\n CFL : %.2e CFL : %.2e num.τ : %.2e\n" CFL max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)*num.τ/Δ num.τ)
 
                     print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f\n" mean(V[MIXED]) findmax(V[MIXED])[1] findmin(V[MIXED])[1])
                     print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f\n" mean(κ[MIXED]) findmax(κ[MIXED])[1] findmin(κ[MIXED])[1])

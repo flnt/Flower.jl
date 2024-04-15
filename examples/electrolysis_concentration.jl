@@ -400,7 +400,7 @@ print(@sprintf "Butler-Volmer %.2e \n" i_current[1])
         int    = Neumann(val=0.0)) #H2O
     ),
 
-    BC_phi_eleL = BoundariesInt(
+    BC_phi_ele = BoundariesInt(
         left   = Neumann(val=-i_current/elec_cond),
         right  = Dirichlet(),
         bottom = Neumann(val=0.0),

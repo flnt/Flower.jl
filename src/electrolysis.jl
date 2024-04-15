@@ -827,3 +827,30 @@ function adapt_timestep!(num, phL, phS, grid_u, grid_v,adapt_timestep_mode)
     #  printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL num.τ)
 end
 
+function init_fields_2(TD,T,H,BC,grid,dir_val_intfc)
+
+    vec1(TD,grid) .= vec(T)
+    vec2(TD,grid) .= dir_val_intfc
+
+    if is_neumann(BC.left)
+        vecb_L(TD,grid) .= T[:,1] .+ H[:,1] .* BC.left.val
+    else
+        vecb_L(TD,grid) .= BC.left.val #.* ones(grid.ny)
+    end
+    if is_neumann(BC.bottom)
+        vecb_B(TD,grid) .= T[1,:] .+ H[1,:] .* BC.bottom.val
+    else
+        vecb_B(TD,grid) .= BC.bottom.val .* ones(grid.nx)
+    end
+    if is_neumann(BC.right)
+        vecb_R(TD,grid) .= T[:,end] .+ H[:,end] .* BC.right.val 
+    else
+        vecb_R(TD,grid) .= BC.right.val .* ones(grid.ny)
+    end
+    if is_neumann(BC.top)
+        vecb_T(TD,grid) .= T[end,:] .+ Hu[end,:] .* BC.top.val
+    else
+        vecb_T(TD,grid) .= BC.top.val .* ones(grid.nx)
+    end
+    
+end

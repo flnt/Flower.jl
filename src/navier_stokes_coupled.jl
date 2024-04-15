@@ -496,14 +496,14 @@ function set_convection!(
         Du_x[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
         Du_y[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
     end
-    Du_x[:,1] .= vecb_L(uD,grid_u)
-    Du_x[:,2] .= u[:,2]
-    Du_y[1,:] .= vecb_B(uD,grid_u)
-    Du_y[2,:] .= u[2,:]
-    Du_x[:,end] .= vecb_R(uD,grid_u)
-    Du_x[:,end-1] .= u[:,end-1]
-    Du_y[end,:] .= vecb_T(uD,grid_u)
-    Du_y[end-1,:] .= u[end-1,:]
+    # Du_x[:,1] .= vecb_L(uD,grid_u)
+    # Du_x[:,2] .= u[:,2]
+    # Du_y[1,:] .= vecb_B(uD,grid_u)
+    # Du_y[2,:] .= u[2,:]
+    # Du_x[:,end] .= vecb_R(uD,grid_u)
+    # Du_x[:,end-1] .= u[:,end-1]
+    # Du_y[end,:] .= vecb_T(uD,grid_u)
+    # Du_y[end-1,:] .= u[end-1,:]
 
     Dv_x = zeros(grid_v)
     Dv_y = zeros(grid_v)
@@ -513,14 +513,14 @@ function set_convection!(
         Dv_x[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
         Dv_y[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
     end
-    Dv_x[:,1] .= vecb_L(vD,grid_v)
-    Dv_x[:,2] .= v[:,2]
-    Dv_y[1,:] .= vecb_B(vD,grid_v)
-    Dv_y[2,:] .= v[2,:]
-    Dv_x[:,end] .= vecb_R(vD,grid_v)
-    Dv_x[:,end-1] .= v[:,end-1]
-    Dv_y[end,:] .= vecb_T(vD,grid_v)
-    Dv_y[end-1,:] .= v[end-1,:]
+    # Dv_x[:,1] .= vecb_L(vD,grid_v)
+    # Dv_x[:,2] .= v[:,2]
+    # Dv_y[1,:] .= vecb_B(vD,grid_v)
+    # Dv_y[2,:] .= v[2,:]
+    # Dv_x[:,end] .= vecb_R(vD,grid_v)
+    # Dv_x[:,end-1] .= v[:,end-1]
+    # Dv_y[end,:] .= vecb_T(vD,grid_v)
+    # Dv_y[end-1,:] .= v[end-1,:]
 
     bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
     bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
@@ -1717,26 +1717,6 @@ function pressure_projection!(
     niv = grid_v.nx * grid_v.ny
     nbv = 2 * grid_v.nx + 2 * grid_v.ny
     ntv = (nLS - nNavier + 1) * niv + nbv
-
-    # if is_FE(time_scheme)
-    #     rhs_u, rhs_v, rhs_ϕ, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_FE!(
-    #         bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
-    #         opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
-    #         Au, Bu, Av, Bv, Aϕ, Auv, Buv,
-    #         Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
-    #         Mum1, Mvm1, iRe, op_conv, ph,
-    #         periodic_x, periodic_y, advection, ls_advection, navier
-    #     )
-    # elseif is_CN(time_scheme)
-    #     rhs_u, rhs_v, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_CN!(
-    #         bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
-    #         opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
-    #         Au, Bu, Av, Bv, Aϕ,
-    #         Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
-    #         Mum1, Mvm1, iRe, op_conv, ph,
-    #         periodic_x, periodic_y, advection, ls_advection
-    #     )
-    # end
 
     if is_FE(time_scheme)
         rhs_u, rhs_v, rhs_ϕ, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_FE!(
