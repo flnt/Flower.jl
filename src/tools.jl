@@ -41,6 +41,9 @@ function force_coefficients!(num, grid, grid_u, grid_v, op, fwd, ph; A=1., p0=0.
     @unpack E11, E12_x, E12_y, E22 = op
     @unpack Cd, Cl = fwd
 
+    ind1 = ind.inside
+    ind2 = ind.all_indices[1:end-1,2:end]
+
     D_p = 0.
     D_ν = 0.
     L_p = 0.
@@ -57,20 +60,27 @@ function force_coefficients!(num, grid, grid_u, grid_v, op, fwd, ph; A=1., p0=0.
     τ12 = reshape(2 ./ Re .* (E12_x * vec(u) .+ E12_y * vec(v)), (ny, nx))
     τ22 = reshape(2 ./ Re .* (E22 * vec(v)), (ny, nx))
 
-    @inbounds for II in ind.inside
-        # pressure forces
-        D_p += -(p[II] - p0) * (LS[1].geoL.dcap[II,3] - LS[1].geoL.dcap[II,1])
-        L_p += -(p[II] - p0) * (LS[1].geoL.dcap[II,4] - LS[1].geoL.dcap[II,2])
+    D_p_tmp = zeros(grid)
+    L_p_tmp = zeros(grid)
+    D_ν_tmp = zeros(grid)
+    L_ν_tmp = zeros(grid)
 
-        # friction forces (diagonal terms)
-        D_ν += τ11[II] * (grid_u.LS[1].geoL.dcap[δx⁺(II),6] - grid_u.LS[1].geoL.dcap[II,6])
-        L_ν += τ22[II] * (grid_v.LS[1].geoL.dcap[δy⁺(II),7] - grid_v.LS[1].geoL.dcap[II,7])
-    end
-    @inbounds for II in ind.all_indices[1:end-1,2:end]
-        # friction forces (off-diagonal terms)
-        D_ν += τ12[II] * (grid_u.LS[1].geoL.dcap[δy⁺(II),7] - grid_u.LS[1].geoL.dcap[II,7])
-        L_ν += τ12[II] * (grid_v.LS[1].geoL.dcap[δy⁺(II),6] - grid_v.LS[1].geoL.dcap[δx⁻(δy⁺(II)),6])
-    end
+    # pressure forces
+    D_p_tmp[ind1] .= .-(p[ind1] .- p0) .* (LS[1].geoL.dcap[ind1,3] .- LS[1].geoL.dcap[ind1,1])
+    L_p_tmp[ind1] .= .-(p[ind1] .- p0) .* (LS[1].geoL.dcap[ind1,4] .- LS[1].geoL.dcap[ind1,2])
+
+    # friction forces (diagonal terms)
+    D_ν_tmp[ind1] .= τ11[ind1] .* (grid_u.LS[1].geoL.dcap[δx⁺.(ind1),6] .- grid_u.LS[1].geoL.dcap[ind1,6])
+    L_ν_tmp[ind1] .= τ22[ind1] .* (grid_v.LS[1].geoL.dcap[δy⁺.(ind1),7] .- grid_v.LS[1].geoL.dcap[ind1,7])
+
+    # friction forces (off-diagonal terms)
+    D_ν_tmp[ind2] .= τ12[ind2] .* (grid_u.LS[1].geoL.dcap[δy⁺.(ind2),7] .- grid_u.LS[1].geoL.dcap[ind2,7])
+    L_ν_tmp[ind2] .= τ12[ind2] .* (grid_v.LS[1].geoL.dcap[δy⁺.(ind2),6] .- grid_v.LS[1].geoL.dcap[δx⁻.(δy⁺.(ind2)),6])        
+
+    D_p = sum(D_p_tmp)
+    L_p = sum(L_p_tmp)
+    D_ν = sum(D_ν_tmp)
+    L_ν = sum(L_ν_tmp)
 
     D = D_p + D_ν
     L = L_p + L_ν
