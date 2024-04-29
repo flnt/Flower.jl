@@ -1758,7 +1758,7 @@ function pressure_projection!(
         end
     end
 
-    printstyled(color=:green, @sprintf "\n max abs(Cu) : %.2e u: %.2e CUTCu: %.2e \n" maximum(abs.(Cu)) maximum(abs.(u)) maximum(abs.(CUTCu)))
+    # printstyled(color=:green, @sprintf "\n max abs(Cu) : %.2e u: %.2e CUTCu: %.2e \n" maximum(abs.(Cu)) maximum(abs.(u)) maximum(abs.(CUTCu)))
 
     # u and v are coupled if a Navier slip BC is employed inside, otherwise they are uncoupled
     if !navier
@@ -1788,7 +1788,7 @@ function pressure_projection!(
             println(e)
         end
 
-        printstyled(color=:green, @sprintf "\n max abs(ucorrD) : %.2e uD: %.2e \n" maximum(abs.(ucorrD)) maximum(abs.(uD)))
+        # printstyled(color=:green, @sprintf "\n max abs(ucorrD) : %.2e uD: %.2e \n" maximum(abs.(ucorrD)) maximum(abs.(uD)))
 
         kill_dead_cells!(vec1(ucorrD,grid_u), grid_u, geo_u[end])
         for iLS in 1:nLS
@@ -1903,7 +1903,7 @@ function pressure_projection!(
         end
     end
 
-    printstyled(color=:green, @sprintf "\n max abs(ucorrD) : %.2e vcorrD %.2e \n" maximum(abs.(ucorrD)) maximum(abs.(vcorrD)))
+    # printstyled(color=:green, @sprintf "\n max abs(ucorrD) : %.2e vcorrD %.2e \n" maximum(abs.(ucorrD)) maximum(abs.(vcorrD)))
 
 
     Duv = opC_p.AxT * vec1(ucorrD,grid_u) .+ opC_p.Gx_b * vecb(ucorrD,grid_u) .+
@@ -2029,10 +2029,10 @@ function pressure_projection!(
         # end
     end
 
-    print("\n test u ", vecb_L(uD, grid_u))
-    print("\n test u ", vecb_R(uD, grid_u))
-    print("\n test u ", vecb_B(uD, grid_u))
-    print("\n test u ", vecb_T(uD, grid_u))
+    # print("\n test u ", vecb_L(uD, grid_u))
+    # print("\n test u ", vecb_R(uD, grid_u))
+    # print("\n test u ", vecb_B(uD, grid_u))
+    # print("\n test u ", vecb_T(uD, grid_u))
 
 
 

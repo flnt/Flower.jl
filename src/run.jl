@@ -245,23 +245,161 @@ function run_forward(
     #TODO perio, intfc, ... check init_fields_2
 
     init_fields_2(phS.pD,phS.p,HS,BC_pS,grid,presintfc)
-    init_fields_2(phL.pD,phS.p,HL,BC_pL,grid,presintfc)
+    init_fields_2(phL.pD,phL.p,HL,BC_pL,grid,presintfc)
 
     init_fields_2(phS.uD,phS.u,HSu,BC_uS,grid_u,num.uD)
-
     init_fields_2(phS.ucorrD,phS.u,HSu,BC_uS,grid_u,num.uD)
 
     init_fields_2(phL.uD,phL.u,HLu,BC_uL,grid_u,num.uD)
-
-    init_fields_2(phL.ucorrD,phS.u,HLu,BC_uL,grid_u,num.uD)
+    init_fields_2(phL.ucorrD,phL.u,HLu,BC_uL,grid_u,num.uD)
 
     init_fields_2(phS.vD,phS.v,HSv,BC_vS,grid_v,num.vD)
-
     init_fields_2(phS.vcorrD,phS.v,HSv,BC_vS,grid_v,num.vD)
 
     init_fields_2(phL.vD,phL.v,HLv,BC_vL,grid_v,num.vD)
+    init_fields_2(phL.vcorrD,phL.v,HLv,BC_vL,grid_v,num.vD)
 
-    init_fields_2(phL.vcorrD,phS.v,HLv,BC_vL,grid_v,num.vD)
+
+    # ####################################################################################################
+
+    # printstyled(color=:green, @sprintf "\n TEST INIT \n")
+
+    # ####################################################################################################
+
+    # vec1(phS.uD,grid_u) .= vec(phS.u)
+    # vec2(phS.uD,grid_u) .= num.uD
+    # vec1(phS.ucorrD,grid_u) .= vec(phS.u)
+    # vec2(phS.ucorrD,grid_u) .= num.uD
+    # if is_neumann(BC_uS.left)
+    #     vecb_L(phS.uD,grid_u) .= phS.u[:,1]
+    #     vecb_L(phS.ucorrD,grid_u) .= phS.u[:,1]
+    # else
+    #     vecb_L(phS.uD,grid_u) .= BC_uS.left.val .* ones(grid_u.ny)
+    #     vecb_L(phS.ucorrD,grid_u) .= BC_uS.left.val .* ones(grid_u.ny)
+    # end
+    # if is_neumann(BC_uS.bottom)
+    #     vecb_B(phS.uD,grid_u) .= phS.u[1,:]
+    #     vecb_B(phS.ucorrD,grid_u) .= phS.u[1,:]
+    # else
+    #     vecb_B(phS.uD,grid_u) .= BC_uS.bottom.val .* ones(grid_u.nx)
+    #     vecb_B(phS.ucorrD,grid_u) .= BC_uS.bottom.val .* ones(grid_u.nx)
+    # end
+    # if is_neumann(BC_uS.right)
+    #     vecb_R(phS.uD,grid_u) .= phS.u[:,end]
+    #     vecb_R(phS.ucorrD,grid_u) .= phS.u[:,end]
+    # else
+    #     vecb_R(phS.uD,grid_u) .= BC_uS.right.val .* ones(grid_u.ny)
+    #     vecb_R(phS.ucorrD,grid_u) .= BC_uS.right.val .* ones(grid_u.ny)
+    # end
+    # if is_neumann(BC_uS.top)
+    #     vecb_T(phS.uD,grid_u) .= phS.u[end,:]
+    #     vecb_T(phS.ucorrD,grid_u) .= phS.u[end,:]
+    # else
+    #     vecb_T(phS.uD,grid_u) .= BC_uS.top.val .* ones(grid_u.nx)
+    #     vecb_T(phS.ucorrD,grid_u) .= BC_uS.top.val .* ones(grid_u.nx)
+    # end
+
+    # vec1(phL.uD,grid_u) .= vec(phL.u)
+    # vec2(phL.uD,grid_u) .= num.uD
+    # vec1(phL.ucorrD,grid_u) .= vec(phL.u)
+    # vec2(phL.ucorrD,grid_u) .= num.uD
+    # if is_neumann(BC_uL.left)
+    #     vecb_L(phL.uD,grid_u) .= phL.u[:,1]
+    #     vecb_L(phL.ucorrD,grid_u) .= phL.u[:,1]
+    # else
+    #     vecb_L(phL.uD,grid_u) .= BC_uL.left.val .* ones(grid_u.ny)
+    #     vecb_L(phL.ucorrD,grid_u) .= BC_uL.left.val .* ones(grid_u.ny)
+    # end
+    # if is_neumann(BC_uL.bottom)
+    #     vecb_B(phL.uD,grid_u) .= phL.u[1,:]
+    #     vecb_B(phL.ucorrD,grid_u) .= phL.u[1,:]
+    # else
+    #     vecb_B(phL.uD,grid_u) .= BC_uL.bottom.val .* ones(grid_u.nx)
+    #     vecb_B(phL.ucorrD,grid_u) .= BC_uL.bottom.val .* ones(grid_u.nx)
+    # end
+    # if is_neumann(BC_uL.right)
+    #     vecb_R(phL.uD,grid_u) .= phL.u[:,end]
+    #     vecb_R(phL.ucorrD,grid_u) .= phL.u[:,end]
+    # else
+    #     vecb_R(phL.uD,grid_u) .= BC_uL.right.val .* ones(grid_u.ny)
+    #     vecb_R(phL.ucorrD,grid_u) .= BC_uL.right.val .* ones(grid_u.ny)
+    # end
+    # if is_neumann(BC_uL.top)
+    #     vecb_T(phL.uD,grid_u) .= phL.u[end,:]
+    #     vecb_T(phL.ucorrD,grid_u) .= phL.u[end,:]
+    # else
+    #     vecb_T(phL.uD,grid_u) .= BC_uL.top.val .* ones(grid_u.nx)
+    #     vecb_T(phL.ucorrD,grid_u) .= BC_uL.top.val .* ones(grid_u.nx)
+    # end
+
+    # @views fwdS.ucorrD[1,:,:] .= phS.ucorrD
+    # @views fwdL.ucorrD[1,:,:] .= phL.ucorrD
+
+    # vec1(phS.uD,grid_u) .= vec(phS.u)
+    # vec2(phS.uD,grid_u) .= num.uD
+    # vec1(phS.ucorrD,grid_u) .= vec(phS.u)
+    # vec2(phS.ucorrD,grid_u) .= num.uD
+    # if is_neumann(BC_uS.left)
+    #     vecb_L(phS.uD,grid_u) .= phS.u[:,1]
+    #     vecb_L(phS.ucorrD,grid_u) .= phS.u[:,1]
+    # else
+    #     vecb_L(phS.uD,grid_u) .= BC_uS.left.val .* ones(grid_u.ny)
+    #     vecb_L(phS.ucorrD,grid_u) .= BC_uS.left.val .* ones(grid_u.ny)
+    # end
+    # if is_neumann(BC_uS.bottom)
+    #     vecb_B(phS.uD,grid_u) .= phS.u[1,:]
+    #     vecb_B(phS.ucorrD,grid_u) .= phS.u[1,:]
+    # else
+    #     vecb_B(phS.uD,grid_u) .= BC_uS.bottom.val .* ones(grid_u.nx)
+    #     vecb_B(phS.ucorrD,grid_u) .= BC_uS.bottom.val .* ones(grid_u.nx)
+    # end
+    # if is_neumann(BC_uS.right)
+    #     vecb_R(phS.uD,grid_u) .= phS.u[:,end]
+    #     vecb_R(phS.ucorrD,grid_u) .= phS.u[:,end]
+    # else
+    #     vecb_R(phS.uD,grid_u) .= BC_uS.right.val .* ones(grid_u.ny)
+    #     vecb_R(phS.ucorrD,grid_u) .= BC_uS.right.val .* ones(grid_u.ny)
+    # end
+    # if is_neumann(BC_uS.top)
+    #     vecb_T(phS.uD,grid_u) .= phS.u[end,:]
+    #     vecb_T(phS.ucorrD,grid_u) .= phS.u[end,:]
+    # else
+    #     vecb_T(phS.uD,grid_u) .= BC_uS.top.val .* ones(grid_u.nx)
+    #     vecb_T(phS.ucorrD,grid_u) .= BC_uS.top.val .* ones(grid_u.nx)
+    # end
+
+    # vec1(phL.vD,grid_v) .= vec(phL.v)
+    # vec2(phL.vD,grid_v) .= num.vD
+    # vec1(phL.vcorrD,grid_v) .= vec(phL.v)
+    # vec2(phL.vcorrD,grid_v) .= num.vD
+    # if is_neumann(BC_vL.left)
+    #     vecb_L(phL.vD,grid_v) .= phL.v[:,1]
+    #     vecb_L(phL.vcorrD,grid_v) .= phL.v[:,1]
+    # else
+    #     vecb_L(phL.vD,grid_v) .= BC_vL.left.val .* ones(grid_v.ny)
+    #     vecb_L(phL.vcorrD,grid_v) .= BC_vL.left.val .* ones(grid_v.ny)
+    # end
+    # if is_neumann(BC_vL.bottom)
+    #     vecb_B(phL.vD,grid_v) .= phL.v[1,:]
+    #     vecb_B(phL.vcorrD,grid_v) .= phL.v[1,:]
+    # else
+    #     vecb_B(phL.vD,grid_v) .= BC_vL.bottom.val .* ones(grid_v.nx)
+    #     vecb_B(phL.vcorrD,grid_v) .= BC_vL.bottom.val .* ones(grid_v.nx)
+    # end
+    # if is_neumann(BC_vL.right)
+    #     vecb_R(phL.vD,grid_v) .= phL.v[:,end]
+    #     vecb_R(phL.vcorrD,grid_v) .= phL.v[:,end]
+    # else
+    #     vecb_R(phL.vD,grid_v) .= BC_vL.right.val .* ones(grid_v.ny)
+    #     vecb_R(phL.vcorrD,grid_v) .= BC_vL.right.val .* ones(grid_v.ny)
+    # end
+    # if is_neumann(BC_vL.top)
+    #     vecb_T(phL.vD,grid_v) .= phL.v[end,:]
+    #     vecb_T(phL.vcorrD,grid_v) .= phL.v[end,:]
+    # else
+    #     vecb_T(phL.vD,grid_v) .= BC_vL.top.val .* ones(grid_v.nx)
+    #     vecb_T(phL.vcorrD,grid_v) .= BC_vL.top.val .* ones(grid_v.nx)
+    # end
 
 
     ####################################################################################################
@@ -702,9 +840,12 @@ function run_forward(
 
                 if electrolysis && nb_transported_scalars>1
                     if heat 
-                        elec_cond = 2*Faraday^2 .*phL.trans_scal[:,:,2].*diffusion_coeff[2]./(Ru.*phL.T) #phL.T
+                        elec_cond  = 2*Faraday^2 .*phL.trans_scal[:,:,2].*diffusion_coeff[2]./(Ru.*phL.T) 
+                        elec_condD = 2*Faraday^2 .*phL.trans_scalD[:,2].*diffusion_coeff[2]./(Ru.*phL.TD)
                     else
                         elec_cond = 2*Faraday^2 .*phL.trans_scal[:,:,2].*diffusion_coeff[2]./(Ru*temperature0) 
+                        elec_condD = 2*Faraday^2 .*phL.trans_scalD[:,2].*diffusion_coeff[2]./(Ru.*temperature0)
+
                     end
                 else 
                     elec_cond = ones(grid)
@@ -728,6 +869,13 @@ function run_forward(
                         BC_phi_ele.left.val = -butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,phL.T)./elec_cond[:,1]
                     else
                         BC_phi_ele.left.val = -butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./elec_cond[:,1]
+                        
+                        for iscal=1:nb_transported_scalars
+                            BC_trans_scal[iscal].left.val = butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./(2*Faraday*diffusion_coeff[iscal])
+                            if iscal==1 || iscal==2
+                                BC_trans_scal[iscal].left.val .*=-1 #H2O
+                            end
+                        end
                     end    
 
                 # elseif electrolysis_reaction == ""
@@ -735,22 +883,22 @@ function run_forward(
                 
                 end
 
+                            
+                   
 
-                rhs_phi_ele = set_poisson(
-                    [BC_phi_ele.int], num, grid, a0_p, opC_pL, opC_uL, opC_vL,
-                    Aphi_eleL, Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, BC_phi_ele,
-                    true
+              
+                #Poisson with variable coefficient
+                rhs_phi_ele = set_poisson_variable_coeff(
+                    [BC_phi_ele.int], num, grid, grid_u, grid_v, a0_p, opC_pL, opC_uL, opC_vL,
+                    Aphi_eleL, 
+                    # elec_Lpm1_L, elec_bc_Lpm1_L, elec_bc_Lpm1_b_L, 
+                    BC_phi_ele,
+                    true,elec_condD
                 )
 
             
 
-                # A, rhs = set_poisson(BC_int, num, grid, a0_p, op.opC_pL, op.opC_uL, op.opC_vL, 1, Lp, bc_Lp, bc_Lp_b, BC, true)
-                # AϕL, _ = set_poisson(
-                #     BC_int, num, grid, a0_p, opC_pL, opC_uL, opC_vL,
-                #     false, Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, BC_pL,
-                #     true
-                # )
-
+            
                 # b = Δf.(
                 #     grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx,
                 #     grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy

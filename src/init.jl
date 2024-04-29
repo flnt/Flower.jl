@@ -1015,6 +1015,22 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
                 uL[II] = tanh(bl*(su[II]-R1))
             end
         end
+    elseif num.case == "Cylinder2"
+        LS[1].u .= sqrt.((x .+ shifted).^ 2 + (y .+ shifted_y) .^ 2) - (R) * ones(ny, nx);
+        init_franck!(grid, TL, R, T_inf, 0)
+
+        su = sqrt.((grid_u.x .+ shifted).^2 .+ (grid_u.y .+ shifted_y).^2)
+        R1 = R + 3.0*Δ
+        uL .= u_inf
+        vL .= v_inf
+        bl = 4.0
+        for II in grid_u.ind.all_indices
+            if su[II] <= R1
+                uL[II] = 0.0
+            # elseif su[II] > R1
+            #     uL[II] = tanh(bl*(su[II]-R1))
+            end
+        end
     elseif num.case == "Ellipse"
         LS[1].u .= sqrt.((x .+ shifted) .^ 2 + (y ./ A) .^ 2) - (R) * ones(ny, nx);
     elseif num.case == "Mullins"

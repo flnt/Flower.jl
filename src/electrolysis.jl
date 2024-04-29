@@ -909,3 +909,282 @@ function get_uv_height(grid_u,grid_v)
     return Hu,Hv
 
 end
+
+"""    
+# Arguments
+- bc_type: BC for interface, num, grid, 
+- a0, 
+- opC, 
+- opC_u, 
+- pC_v,
+- A, 
+- L, 
+- bc_L, 
+- bc_L_b, 
+- BC: BC for wall
+- ls_advection
+"""
+function set_poisson_variable_coeff(
+    bc_type, num, grid, grid_u, grid_v, a0, opC, opC_u, opC_v,
+    A, 
+    # L, bc_L, bc_L_b, 
+    BC,
+    ls_advection,coeffD)
+    @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
+
+    ni = grid.nx * grid.ny
+    nb = 2 * grid.nx + 2 * grid.ny
+
+    rhs = fnzeros(grid, num)
+
+    a0_b = zeros(nb)
+    _a1_b = zeros(nb)
+    _b_b = zeros(nb)
+    for iLS in 1:num.nLS
+        set_borders!(grid, grid.LS[iLS].cl, grid.LS[iLS].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
+    end
+    a1_b = Diagonal(vec(_a1_b))
+    b_b = Diagonal(vec(_b_b))
+
+    # printstyled(color=:green, @sprintf "\n sizes \n")
+
+    # print(size(A[end-nb+1:end,1:ni]),"\n")
+    # print(size(b_b),"\n")
+    # print(size(HxT_b),"\n")
+    # print(size(iMx_b'),"\n")
+    # print(size(vec1(coeffD,grid)),"\n")
+    # print(size(Bx),"\n")
+    # print(size(HyT_b),"\n")
+    # print(size(iMy_b'),"\n")
+    # print(size(By),"\n")
+
+
+    # printstyled(color=:green, @sprintf "\n vecb \n")
+    # print(size(vecb(coeffD,grid)),"\n")
+    # nt = (num.nLS + 1) * ni + nb
+
+    # print(" ni ",ni," nb ",nb," nt ",nt)
+
+
+    coeffDu = zeros(grid_u)
+    coeffDv = zeros(grid_v)
+    coeffDx_interface = zeros(grid_u)
+    coeffDy_interface = zeros(grid_v)
+
+
+    coeffD_borders = vecb(coeffD,grid)
+    interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(coeffD,grid,1), grid), coeffDu, coeffDv)
+    interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(coeffD,grid,2), grid), coeffDx_interface, coeffDy_interface)
+    coeffDx_bulk = veci(coeffDu,grid_u)
+    coeffDy_bulk = veci(coeffDv,grid_v)
+
+    mat_coeffDx = Diagonal(vec(coeffDx_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
+    mat_coeffDy = Diagonal(vec(coeffDy_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
+    mat_coeffDx_i = Diagonal(vec(coeffDx_interface)) # coeffDx_interface is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Hx
+    mat_coeffDy_i = Diagonal(vec(coeffDy_interface)) # coeffDx_interface is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies Hy
+    mat_coeffDx_b = Diagonal(vec(coeffD_borders)) # coeffDx_interface is a 1d vector with shape (2grid.ny + 2grid.nx), multiplies Hx_b and Hy_b
+
+
+    # printstyled(color=:green, @sprintf "\n sizes \n")
+
+    # print(size(A[end-nb+1:end,1:ni]),"\n")
+    # print(size(b_b),"\n")
+    # print(size(HxT_b),"\n")
+    # print(size(iMx_b'),"\n")
+    # print(size(vec1(coeffD,grid)),"\n")
+    # print(size(Bx),"\n")
+    # print(size(HyT_b),"\n")
+    # print(size(iMy_b'),"\n")
+    # print(size(By),"\n")
+
+
+
+    # printstyled(color=:green, @sprintf "\n vecb \n")
+    # print(size(vecb(coeffD,grid)),"\n")
+    # nt = (num.nLS + 1) * ni + nb
+
+    # print(" ni ",ni," nb ",nb," nt ",nt)
+
+    # print(size(mat_coeffDx),"\n")
+    # print(size(mat_coeffDy),"\n")
+    # print(size(mat_coeffDx_i),"\n")
+    # print(size(mat_coeffDy_i),"\n")
+    # print(size(mat_coeffDx_b),"\n")
+
+    # A[sb,1:ni] = -b * (HxT[iLS] * iMx .* mat_coeffDx * Bx .+ HyT[iLS] * iMy * mat_coeffDy * By) #or vec1
+
+#   A  (1024, 65536)
+# b_b (1024, 1024)
+# HxT_b (1024, 1024)
+# iMx_b' (1024, 65792)
+# vec1(coeffD,grid) (65536,)
+# Bx (65792, 65536)
+# HyT_b (1024, 1024)
+# iMy_b' (1024, 65792)
+# By (65792, 65536)
+
+# mat_coeffDx (65792, 65792)
+
+
+    # elec_Lpm1_L, elec_bc_Lpm1_L, elec_bc_Lpm1_b_L, elec_Lum1_L, elec_bc_Lum1_L, elec_bc_Lum1_b_L, elec_Lvm1_L, elec_bc_Lvm1_L, elec_bc_Lvm1_b_L = set_matrices!(
+        #     num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL,
+        #     opC_pL, opC_uL, opC_vL, periodic_x, periodic_y
+        # )
+
+    # Update laplacian at each timestep
+    # elec_Lpm1_L = laplacian_variable_coeff(opC_pL,elec_condD)
+    # elec_bc_Lpm1_L, elec_bc_Lpm1_b_L = laplacian_bc_variable_coeff(opC_pL, num.nLS, elec_condD)
+
+    # L, bc_L, bc_L_b, 
+
+    # L = laplacian_variable_coeff(opC_pL,coeffD)
+    # bc_L, bc_L_b = laplacian_bc_variable_coeff(opC_pL, num.nLS, coeffD)
+
+    # mat_coeffDx = Diagonal(vec(coeffDx_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
+    # mat_coeffDy = Diagonal(vec(coeffDy_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
+
+
+
+    # @unpack Bx, By, BxT, ByT, iMx, iMy, tmp_x, tmp_y = opC
+    # @unpack BxT, ByT, Hx, Hy, iMx, iMy, Hx_b, Hy_b, iMx_b, iMy_b = opC
+
+    @unpack BxT, ByT,tmp_x, tmp_y = opC
+
+
+    #Laplacian
+    mul!(tmp_x, iMx, mat_coeffDx * Bx)
+    L = BxT * tmp_x
+    mul!(tmp_y, iMy, mat_coeffDy * By)
+    L = L .+ ByT * tmp_y
+
+    #Boundary for Laplacian
+    bc_L = []
+    for iLS in 1:num.nLS
+        push!(bc_L, BxT * iMx * mat_coeffDx_i *Hx[iLS] .+ ByT * iMy * mat_coeffDy_i *Hy[iLS])
+    end
+
+    bc_L_b = (BxT * iMx_b * mat_coeffDx_b *Hx_b .+ ByT * iMy_b * mat_coeffDx_b *Hy_b)
+
+      
+    if ls_advection
+        # Poisson equation
+        A[1:ni,1:ni] = pad(L, -4.0)
+        A[1:ni,end-nb+1:end] = bc_L_b
+
+        # Boundary conditions for outer boundaries
+        A[end-nb+1:end,1:ni] = -b_b * (HxT_b * iMx_b' * mat_coeffDx * Bx .+ HyT_b * iMy_b' * mat_coeffDy * By)
+        A[end-nb+1:end,end-nb+1:end] = -pad(b_b * (HxT_b * iMx_bd * mat_coeffDx_b * Hx_b .+ HyT_b * iMy_bd * mat_coeffDx_b * Hy_b) .- χ_b * a1_b, 4.0)
+    end
+
+    for iLS in 1:num.nLS
+        if ls_advection
+            if is_dirichlet(bc_type[iLS])
+                __a1 = -1.0
+                __a2 = 0.0
+                __b = 0.0
+            elseif is_neumann(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_robin(bc_type[iLS])
+                __a1 = -1.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_fs(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 1.0
+                __b = 0.0
+            elseif is_wall_no_slip(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_flapping(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_navier(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_navier_cl(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            else
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            end
+    
+            _a1 = ones(grid) .* __a1
+            a1 = Diagonal(vec(_a1))
+            _a2 = ones(grid) .* __a2
+            a2 = Diagonal(vec(_a2))
+            _b = ones(grid) .* __b
+            b = Diagonal(vec(_b))
+
+            fs_mat = HxT[iLS] * Hx[iLS] .+ HyT[iLS] * Hy[iLS]
+
+            sb = iLS*ni+1:(iLS+1)*ni
+            
+            # Poisson equation
+            A[1:ni,sb] = bc_L[iLS]
+            # Boundary conditions for inner boundaries
+            A[sb,1:ni] = -b * (HxT[iLS] * iMx * mat_coeffDx * Bx .+ HyT[iLS] * iMy * mat_coeffDy * By) #or vec1
+            # Contribution to Neumann BC from other boundaries
+            for i in 1:num.nLS
+                if i != iLS
+                    A[sb,i*ni+1:(i+1)*ni] = -b * (HxT[iLS] * iMx * mat_coeffDx_i * Hx[i] .+ HyT[iLS] * iMy * mat_coeffDy_i * Hy[i])
+                end
+            end
+            A[sb,sb] = -pad(
+                b * (HxT[iLS] * iMx * mat_coeffDx_i * Hx[iLS] .+ HyT[iLS] * iMy * mat_coeffDy_i * Hy[iLS]) .- χ[iLS] * a1 .+
+                a2 * Diagonal(diag(fs_mat)), 4.0
+            )
+            A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * mat_coeffDx_b * Hx_b .+ HyT[iLS] * iMy_b * mat_coeffDx_b * Hy_b)
+            # Boundary conditions for outer boundaries
+            A[end-nb+1:end,sb] = -b_b * (HxT_b * iMx_b' * mat_coeffDx_i * Hx[iLS] .+ HyT_b * iMy_b' * mat_coeffDy_i * Hy[iLS])
+        end
+
+        veci(rhs,grid,iLS+1) .= -χ[iLS] * vec(a0[iLS])
+    end
+
+    vecb(rhs,grid) .= -χ_b * vec(a0_b)
+    
+    return rhs
+end
+
+function laplacian_bc_variable_coeff(opC, nLS, grid, coeffD)
+    @unpack BxT, ByT, Hx, Hy, iMx, iMy, Hx_b, Hy_b, iMx_b, iMy_b = opC
+
+    coeffD_borders = vecb(coeffD,grid)
+
+    mat_coeffDx_i = Diagonal(vec(coeffDx_interface)) # coeffDx_interface is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Hx
+    mat_coeffDy_i = Diagonal(vec(coeffDy_interface)) # coeffDx_interface is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies Hy
+    mat_coeffDx_b = Diagonal(vec(coeffD_borders)) # coeffDx_interface is a 1d vector with shape (2grid.ny + 2grid.nx), multiplies Hx_b and Hy_b
+
+
+    bc_L = []
+    for iLS in 1:nLS
+        push!(bc_L, BxT * iMx * mat_coeffDx_i *Hx[iLS] .+ ByT * iMy * mat_coeffDy_i *Hy[iLS])
+    end
+
+    bc_L_b = (BxT * iMx_b * mat_coeffDx_b *Hx_b .+ ByT * iMy_b * mat_coeffDx_b *Hy_b)
+
+    return bc_L, bc_L_b
+end
+
+function laplacian_variable_coeff(opC,coeffD)
+    @unpack Bx, By, BxT, ByT, iMx, iMy, tmp_x, tmp_y = opC
+
+    mat_coeffDx = Diagonal(vec(coeffDx_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
+    mat_coeffDy = Diagonal(vec(coeffDy_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
+
+    mul!(tmp_x, iMx, mat_coeffDx, Bx)
+    L = BxT * tmp_x
+    mul!(tmp_y, iMy, mat_coeffDy, By)
+    L = L .+ ByT * tmp_y
+
+    return L
+end
+    
