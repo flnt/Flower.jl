@@ -66,16 +66,16 @@ function force_coefficients!(num, grid, grid_u, grid_v, op, fwd, ph; A=1., p0=0.
     L_ν_tmp = zeros(grid)
 
     # pressure forces
-    D_p_tmp[ind1] .= .-(p[ind1] .- p0) .* (LS[1].geoL.dcap[ind1,3] .- LS[1].geoL.dcap[ind1,1])
-    L_p_tmp[ind1] .= .-(p[ind1] .- p0) .* (LS[1].geoL.dcap[ind1,4] .- LS[1].geoL.dcap[ind1,2])
+    D_p_tmp[ind1] .+= .-(p[ind1] .- p0) .* (LS[1].geoL.dcap[ind1,3] .- LS[1].geoL.dcap[ind1,1])
+    L_p_tmp[ind1] .+= .-(p[ind1] .- p0) .* (LS[1].geoL.dcap[ind1,4] .- LS[1].geoL.dcap[ind1,2])
 
     # friction forces (diagonal terms)
-    D_ν_tmp[ind1] .= τ11[ind1] .* (grid_u.LS[1].geoL.dcap[δx⁺.(ind1),6] .- grid_u.LS[1].geoL.dcap[ind1,6])
-    L_ν_tmp[ind1] .= τ22[ind1] .* (grid_v.LS[1].geoL.dcap[δy⁺.(ind1),7] .- grid_v.LS[1].geoL.dcap[ind1,7])
+    D_ν_tmp[ind1] .+= τ11[ind1] .* (grid_u.LS[1].geoL.dcap[δx⁺.(ind1),6] .- grid_u.LS[1].geoL.dcap[ind1,6])
+    L_ν_tmp[ind1] .+= τ22[ind1] .* (grid_v.LS[1].geoL.dcap[δy⁺.(ind1),7] .- grid_v.LS[1].geoL.dcap[ind1,7])
 
     # friction forces (off-diagonal terms)
-    D_ν_tmp[ind2] .= τ12[ind2] .* (grid_u.LS[1].geoL.dcap[δy⁺.(ind2),7] .- grid_u.LS[1].geoL.dcap[ind2,7])
-    L_ν_tmp[ind2] .= τ12[ind2] .* (grid_v.LS[1].geoL.dcap[δy⁺.(ind2),6] .- grid_v.LS[1].geoL.dcap[δx⁻.(δy⁺.(ind2)),6])        
+    D_ν_tmp[ind2] .+= τ12[ind2] .* (grid_u.LS[1].geoL.dcap[δy⁺.(ind2),7] .- grid_u.LS[1].geoL.dcap[ind2,7])
+    L_ν_tmp[ind2] .+= τ12[ind2] .* (grid_v.LS[1].geoL.dcap[δy⁺.(ind2),6] .- grid_v.LS[1].geoL.dcap[δx⁻.(δy⁺.(ind2)),6])        
 
     D_p = sum(D_p_tmp)
     L_p = sum(L_p_tmp)
