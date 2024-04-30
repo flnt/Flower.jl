@@ -496,14 +496,14 @@ function set_convection!(
         Du_x[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
         Du_y[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
     end
-    # Du_x[:,1] .= vecb_L(uD,grid_u)
-    # Du_x[:,2] .= u[:,2]
-    # Du_y[1,:] .= vecb_B(uD,grid_u)
-    # Du_y[2,:] .= u[2,:]
-    # Du_x[:,end] .= vecb_R(uD,grid_u)
-    # Du_x[:,end-1] .= u[:,end-1]
-    # Du_y[end,:] .= vecb_T(uD,grid_u)
-    # Du_y[end-1,:] .= u[end-1,:]
+    Du_x[:,1] .= vecb_L(uD,grid_u)
+    Du_x[:,2] .= u[:,2]
+    Du_y[1,:] .= vecb_B(uD,grid_u)
+    Du_y[2,:] .= u[2,:]
+    Du_x[:,end] .= vecb_R(uD,grid_u)
+    Du_x[:,end-1] .= u[:,end-1]
+    Du_y[end,:] .= vecb_T(uD,grid_u)
+    Du_y[end-1,:] .= u[end-1,:]
 
     Dv_x = zeros(grid_v)
     Dv_y = zeros(grid_v)
@@ -513,14 +513,14 @@ function set_convection!(
         Dv_x[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
         Dv_y[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
     end
-    # Dv_x[:,1] .= vecb_L(vD,grid_v)
-    # Dv_x[:,2] .= v[:,2]
-    # Dv_y[1,:] .= vecb_B(vD,grid_v)
-    # Dv_y[2,:] .= v[2,:]
-    # Dv_x[:,end] .= vecb_R(vD,grid_v)
-    # Dv_x[:,end-1] .= v[:,end-1]
-    # Dv_y[end,:] .= vecb_T(vD,grid_v)
-    # Dv_y[end-1,:] .= v[end-1,:]
+    Dv_x[:,1] .= vecb_L(vD,grid_v)
+    Dv_x[:,2] .= v[:,2]
+    Dv_y[1,:] .= vecb_B(vD,grid_v)
+    Dv_y[2,:] .= v[2,:]
+    Dv_x[:,end] .= vecb_R(vD,grid_v)
+    Dv_x[:,end-1] .= v[:,end-1]
+    Dv_y[end,:] .= vecb_T(vD,grid_v)
+    Dv_y[end-1,:] .= v[end-1,:]
 
     bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
     bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
@@ -1914,8 +1914,10 @@ function pressure_projection!(
                     opC_p.Gy[iLS] * veci(vcorrD,grid_v,iLS+1)
         end
     end
+
+    #Poisson equation
     # vec1(rhs_ϕ,grid) .= iτ .* Duv
-    vec1(rhs_ϕ,grid) .= rho1 .* iτ .* Duv
+    vec1(rhs_ϕ,grid) .= rho1 .* iτ .* Duv #TODO
     # veci(rhs_ϕ,grid) .*= rho1 #TODO
 
 
