@@ -27,8 +27,8 @@ import Base.reshape
 @reexport using Roots
 @reexport using SpecialFunctions
 @reexport using Test
-# @reexport using Makie
-# @reexport using CairoMakie
+@reexport using Makie
+@reexport using CairoMakie
 @reexport using LaTeXStrings
 # @reexport using Gnuplot
 @reexport using IterativeSolvers
