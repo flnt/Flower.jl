@@ -219,26 +219,16 @@ end
 From Stefan_velocity!
 """
 function electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodic_y, concentration_scal)
-    # @unpack θd, ϵ_κ, ϵ_V, m, θ₀, aniso = num
     @unpack geoS, geoL, κ = LS
 
     V .= 0
-    @inbounds @threads for II in MIXED
-        # ϵ_c = ifelse(aniso, anisotropy(ϵ_κ, m, geoS.projection[II].angle, θ₀), ϵ_κ)
-        # ϵ_v = ifelse(aniso, anisotropy(ϵ_V, m, geoS.projection[II].angle, θ₀), ϵ_V)
-        # θ_d = (θd - ϵ_c*κ[II] - ϵ_v*V[II])
+    # @inbounds @threads for II in MIXED
+    @inbounds for II in MIXED
 
         θ_d = concentration_scal
 
         # dTS = 0.
         dTL = 0.
-        # if geoS.projection[II].flag
-        #     T_1, T_2 = interpolated_temperature(grid, geoS.projection[II].angle, geoS.projection[II].point1, geoS.projection[II].point2, TS, II, periodic_x, periodic_y)
-        #     dTS = normal_gradient(geoS.projection[II].d1, geoS.projection[II].d2, T_1, T_2, θ_d)
-        # else
-        #     T_1 = interpolated_temperature(grid, geoS.projection[II].angle, geoS.projection[II].point1, TS, II, periodic_x, periodic_y)
-        #     dTS = normal_gradient(geoS.projection[II].d1, T_1, θ_d)
-        # end
         if geoL.projection[II].flag
             T_1, T_2 = interpolated_temperature(grid, geoL.projection[II].angle, geoL.projection[II].point1, geoL.projection[II].point2, TL, II, periodic_x, periodic_y)
             dTL = normal_gradient(geoL.projection[II].d1, geoL.projection[II].d2, T_1, T_2, θ_d)
@@ -246,7 +236,7 @@ function electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodi
             T_1 = interpolated_temperature(grid, geoL.projection[II].angle, geoL.projection[II].point1, TL, II, periodic_x, periodic_y)
             dTL = normal_gradient(geoL.projection[II].d1, T_1, θ_d)
         end
-        V[II] = dTL + dTS
+        V[II] = dTL #+ dTS
     end
     return nothing
 end
@@ -263,10 +253,9 @@ function update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iL
 
     #H2
     #TODO *surface: *χ or χ_b ?
-
-    grid.V[grid.LS[iLS].MIXED] .*=-(1/rho1-1/rho2)*diffusion_coeff_scal[1]*MWH2*χ  
-
-
+    grid.V[grid.LS[iLS].MIXED] .*=-(1/rho1-1/rho2).*diffusion_coeff_scal[1].*MWH2 
+    grid.V[grid.LS[iLS].MIXED] *= χ[iLS]  
+   
     if Vmean
         a = mean(grid.V[grid.LS[iLS].MIXED])
         grid.V[grid.LS[iLS].MIXED] .= a

@@ -693,7 +693,7 @@ cbar.ax.set_ylabel("Electrical potential")
 # Add the contour line levels to the colorbar
 cbar.add_lines(CS2)
 
-plt.streamplot(x_array,y_array, -Eus,-Evs)
+plt.streamplot(x_array,y_array, -Eus,-Evs,color="w")
 # Eus[last_it,:,:], Evs[last_it,:,:])#, color=(.75,.90,.93)) #do no transpose, python row major
 plt.axis("equal")
 
