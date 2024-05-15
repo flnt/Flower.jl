@@ -940,6 +940,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     # Cl = zeros(n_snaps)
     Cd = zeros(max_iterations+1)
     Cl = zeros(max_iterations+1)
+    radius = zeros(max_iterations+1)
     TDSsave = fnzeros(n_snaps, grid, num)
     TDLsave = fnzeros(n_snaps, grid, num)
     pDSsave = fnzeros(n_snaps, grid, num)
@@ -1111,7 +1112,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
         ),
         Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS, uTS, trans_scalS, phi_eleS, trans_scalDS, phi_eleDS, i_current_magS, EuS, EvS),
         Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL, uTL, trans_scalL, phi_eleL, trans_scalDL, phi_eleDL, i_current_magL, EuL, EvL),
-        Forward(Tsave, usave, uxsave, uysave, Vsave, κsave, lengthsave, time, Cd, Cl, trans_scal_save, phi_ele_save,i_current_mag_save, Euxsave, Euysave),
+        Forward(Tsave, usave, uxsave, uysave, Vsave, κsave, lengthsave, time, Cd, Cl, trans_scal_save, phi_ele_save,i_current_mag_save, Euxsave, Euysave,radius),
         ForwardPhase(TSsave, pSsave, ϕSsave, uSsave, vSsave, TDSsave, pDSsave, ucorrDSsave, vcorrDSsave, VratioS, trans_scalSsave, phi_eleSsave, trans_scalDSsave, phi_eleDSsave, i_current_magSsave, EuSsave, EvSsave),
         ForwardPhase(TLsave, pLsave, ϕLsave, uLsave, vLsave, TDLsave, pDLsave, ucorrDLsave, vcorrDLsave, VratioL, trans_scalLsave, phi_eleLsave, trans_scalDLsave, phi_eleDLsave, i_current_magLsave, EuLsave, EvLsave)
     )

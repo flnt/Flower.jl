@@ -27,9 +27,9 @@ import Base.reshape
 @reexport using Roots
 @reexport using SpecialFunctions
 @reexport using Test
-@reexport using Makie
-@reexport using CairoMakie
-@reexport using LaTeXStrings
+# @reexport using Makie
+# @reexport using CairoMakie
+# @reexport using LaTeXStrings
 # @reexport using Gnuplot
 @reexport using IterativeSolvers
 @reexport using LsqFit
@@ -39,6 +39,7 @@ import Base.reshape
 @reexport using GeometryBasics
 @reexport using GeoInterface
 @reexport using LibGEOS
+@reexport using PackageCompiler
 
 include("types.jl")
 include("init.jl")
@@ -54,9 +55,10 @@ include("run.jl")
 include("common_run.jl")
 include("contact_line.jl")
 include("optimize.jl")
-include("viz.jl")
+# include("viz.jl")
 include("tools.jl")
 include("electrolysis.jl")
+# include("electrolysis_viz.jl")
 
 
 export_all()

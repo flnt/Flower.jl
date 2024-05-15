@@ -70,6 +70,8 @@ abstract type AbstractOptimizer end
     grav_x::T = 0.0
     grav_y::T = 0.0
     nNavier = 0 # number of Navier inner BCs
+    pres0::T=0.0
+    sigma::T=0.0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -314,6 +316,7 @@ struct Forward{T <: Real} <: MutatingFields
     i_current_mag::Array{T,3}
     Eu::Array{T,4}
     Ev::Array{T,4}
+    radius::Array{T,1}
 end
 
 struct ForwardPhase{T <: Real} <: MutatingFields

@@ -43,6 +43,7 @@ function run_forward(
     electrolysis_liquid_phase = false,
     electrolysis_solid_phase = false,
     electrolysis_phase_change = false,
+    electrolysis_phase_change_case = "Khalighi",
     electrolysis_reaction = "nothing",
     adapt_timestep_mode = 0,
     non_dimensionalize=1,
@@ -116,6 +117,17 @@ function run_forward(
 
     printstyled(color=:green, @sprintf "\n Re : %.2e %.2e\n" Re num.visc_coeff)
 
+
+    ####################################################################################################
+    #Electrolysis
+    ####################################################################################################
+    # TODO kill_dead_cells! for [:,:,iscal]
+    if electrolysis
+        current_radius = num.R
+        nH2 = 4.0/3.0 * pi * current_radius^3 * num.rho2 / num.MWH2
+        printstyled(color=:green, @sprintf "\n Mole: %.2e \n" nH2)
+    end     
+    ####################################################################################################
 
     local NB_indices;
 
@@ -202,8 +214,8 @@ function run_forward(
     #Electrolysis
     ####################################################################################################
     if electrolysis
-        for iscal=1:nb_transported_scalars
-            @views fwd.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal] #TODO need S?
+        for iscal=1:nb_transported_scalars #TODO updated later cf init_fields_2
+            @views fwd.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal].*LS[end].geoL.cap[:,:,5] .+ phS.trans_scal[:,:,iscal].*LS[end].geoS.cap[:,:,5]
             @views fwdL.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal]
         end
         @views fwdL.phi_ele[1,:,:] .= phL.phi_ele
@@ -288,6 +300,8 @@ function run_forward(
 
         for iscal=1:nb_transported_scalars
 
+            printstyled(color=:green, @sprintf "\n Init scal %.2e \n" concentration0[iscal])
+
             #Solid phase: necessary?
 
             # @views vec1(phS.trans_scalD[:,iscal],grid) .= vec(phS.trans_scal[:,:,iscal])
@@ -298,10 +312,13 @@ function run_forward(
             # @views vec2(phL.trans_scalD[:,iscal],grid) .= concentration0[iscal]
             # @views init_borders!(phL.trans_scalD[:,iscal], grid, BC_trans_scal[iscal], concentration0[iscal])
 
+            @views phS.trans_scal[:,:,iscal] .= concentration0[iscal]
+            @views phL.trans_scal[:,:,iscal] .= concentration0[iscal]
 
             @views init_fields_2(phS.trans_scalD[:,iscal],phS.trans_scal[:,:,iscal],HS,BC_trans_scal[iscal],grid,concentration0[iscal])
             @views init_fields_2(phL.trans_scalD[:,iscal],phL.trans_scal[:,:,iscal],HL,BC_trans_scal[iscal],grid,concentration0[iscal])
             
+            @views fwd.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal].*LS[end].geoL.cap[:,:,5] .+ phS.trans_scal[:,:,iscal].*LS[end].geoS.cap[:,:,5]
             @views fwdS.trans_scalD[1,:,iscal] .= phS.trans_scalD[:,iscal]
             @views fwdL.trans_scalD[1,:,iscal] .= phL.trans_scalD[:,iscal]
         end
@@ -333,6 +350,8 @@ function run_forward(
 
     @views fwdS.TD[1,:] .= phS.TD
     @views fwdL.TD[1,:] .= phL.TD
+
+    @views fwd.radius[1] = current_radius
 
 
 
@@ -835,7 +854,38 @@ function run_forward(
                 update_stefan_velocity(num, grid, iLS, LS[iLS].u, phS.T, phL.T, periodic_x, periodic_y, λ, Vmean)
             elseif is_fs(BC_int[iLS])
                 if electrolysis_phase_change
-                    update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y, Vmean, phL.trans_scal[:,:,1],diffusion_coeff[1],concentration0[1],opC_pL)
+                    # if electrolysis_phase_change_case == 0
+                    if electrolysis_phase_change_case == "Khalighi"
+                        # varnH2=0.0
+                        # printstyled(color=:green, @sprintf "\n varnH2: %.2e \n" varnH2)
+                        previous_radius = current_radius
+                        varnH2=compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff)
+                        # print(varnH2)
+                        # printstyled(color=:green, @sprintf "\n varnH2: %.2e \n" varnH2)
+
+                        #Pliquid is the average value of p over the bubble interface plus the ambient operating pressure (P).
+                        p_liq= num.pres0 + mean(veci(phL.pD,grid,2)) #TODO here one bubble
+                        p_g=p_liq + 2 * num.sigma / current_radius
+
+                        print("test p_liq")
+                        p_g=p_liq 
+
+
+                        nH2 += varnH2 * num.τ
+                        #TODO using temperature0
+                        current_radius = cbrt(3.0/(4.0* pi) * nH2 * num.Ru * temperature0/( 4 * pi * p_g) )
+
+                        printstyled(color=:green, @sprintf "\n n(H2): %.2e added %.2e old R %.2e new R %.2e \n" nH2 varnH2*num.τ previous_radius current_radius)
+                        printstyled(color=:green, @sprintf "\n p0: %.2e p_liq %.2e p_lapl %.2e \n" num.pres0 p_liq p_g)
+
+
+                        grid.LS[1].u .= sqrt.((grid.x .+ num.shifted).^ 2 + (grid.y .+ num.shifted_y) .^ 2) - (current_radius) * ones(ny, nx)
+                        # init_franck!(grid, TL, R, T_inf, 0)
+                        # u
+
+                    elseif electrolysis_phase_change_case == "levelset"
+                        update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y, Vmean, phL.trans_scal[:,:,1],diffusion_coeff[1],concentration0[1],opC_pL)
+                    end
                 else
                     update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y)
                 end
@@ -1130,6 +1180,11 @@ function run_forward(
                 @views fwdL.TD[snap,:] .= phL.TD
             end
 
+            #TODO
+            # if electrolysis_solid_phase && electrolysis_liquid_phase
+            #     @views fwd.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal].*LS[end].geoL.cap[:,:,5] .+ phS.trans_scal[:,:,iscal].*LS[end].geoS.cap[:,:,5]
+            # end
+
             if electrolysis_solid_phase #TODO
 
                 for iscal=1:nb_transported_scalars
@@ -1142,7 +1197,9 @@ function run_forward(
             if electrolysis_liquid_phase #TODO
 
                 for iscal=1:nb_transported_scalars
-                    @views fwd.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal]
+                    @views fwd.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal].*LS[end].geoL.cap[:,:,5] .+ phS.trans_scal[:,:,iscal].*LS[end].geoS.cap[:,:,5]
+
+                    # @views fwd.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal]
                     @views fwdL.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal]
                     @views fwdL.trans_scalD[snap,:,iscal] .= phL.trans_scalD[:,iscal]
                 end
@@ -1177,6 +1234,7 @@ function run_forward(
                 @views fwdL.vcorrD[snap,:,:] .= phL.vcorrD
                 # @views fwd.Cd[snap] = cD
                 # @views fwd.Cl[snap] = cL
+                # @views fwd.radius[snap] = current_radius
             end
             if advection
                 fwdS.Vratio[snap] = volume(LS[end].geoS) / V0S
@@ -1185,6 +1243,8 @@ function run_forward(
         end
         @views fwd.Cd[current_i+1] = cD
         @views fwd.Cl[current_i+1] = cL
+        @views fwd.radius[current_i+1] = current_radius
+
 
         if electrolysis
         
