@@ -47,7 +47,7 @@ max_iter=100
 
 # max_iter=1
 
-max_iter=1
+# max_iter=1
 
 
 # n=64
@@ -984,6 +984,15 @@ A = (fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2
 
 fig1, ax2 = plt.subplots(layout="constrained")
 
+CS = ax2.contourf(x_array,y_array,(fwd.trans_scal[1,:,:,1] .-c0_H2)./c0_H2, 
+# levels=10, 
+levels=range(0,1400,step=200),
+cmap=cmap)
+
+ # Make a colorbar for the ContourSet returned by the contourf call.
+ cbar = fig1.colorbar(CS)
+ cbar.ax.set_ylabel("concentration")
+
 function make_frame(i)
     # ax1.clear()
     ax2.clear()
@@ -1003,10 +1012,16 @@ function make_frame(i)
     ax2.set_xlabel(L"$x (\mu m)$")
     ax2.set_ylabel(L"$y (\mu m)$")
 
+     # Make a colorbar for the ContourSet returned by the contourf call.
+    #  cbar = fig1.colorbar(CS)
+    #  cbar.ax.set_ylabel("concentration")
+
+    #https://stackoverflow.com/questions/5180518/duplicated-colorbars-when-creating-an-animation
+
     if (i==0) #(i+1==1) python starts at 0
-        # Make a colorbar for the ContourSet returned by the contourf call.
-        cbar = fig1.colorbar(CS)
-        cbar.ax.set_ylabel("concentration")
+        # # Make a colorbar for the ContourSet returned by the contourf call.
+        # cbar = fig1.colorbar(CS)
+        # cbar.ax.set_ylabel("concentration")
         
         # Add the contour line levels to the colorbar
         if concentrationcontour
@@ -1032,6 +1047,8 @@ myanim = anim.FuncAnimation(fig1, make_frame, frames=size(A,1), interval=size(A,
 # myanim.save(prefix*"test.gif")
 myanim.save(prefix*"test.mp4")
 
+plt.close("all")
+
 ######################################################################################################
 
 ######################################################################################################
@@ -1039,6 +1056,16 @@ myanim.save(prefix*"test.mp4")
 A = fwd.trans_scal[:,:,:,1]
 
 fig1, ax2 = plt.subplots(layout="constrained")
+
+CS = ax2.contourf(x_array,y_array,fwd.trans_scal[1,:,:,1], 
+levels=10, 
+# levels=range(0,1400,step=200),
+cmap=cmap)
+
+
+ # Make a colorbar for the ContourSet returned by the contourf call.
+ cbar = fig1.colorbar(CS)
+ cbar.ax.set_ylabel("concentration")
 
 function make_frame_2(i)
     # ax1.clear()
@@ -1060,9 +1087,9 @@ function make_frame_2(i)
     ax2.set_ylabel(L"$y (\mu m)$")
 
     if (i==0) #(i+1==1) python starts at 0
-        # Make a colorbar for the ContourSet returned by the contourf call.
-        cbar = fig1.colorbar(CS)
-        cbar.ax.set_ylabel("concentration")
+        # # Make a colorbar for the ContourSet returned by the contourf call.
+        # cbar = fig1.colorbar(CS)
+        # cbar.ax.set_ylabel("concentration")
         
         # Add the contour line levels to the colorbar
         if concentrationcontour
@@ -1087,6 +1114,8 @@ myanim = anim.FuncAnimation(fig1, make_frame_2, frames=size(A,1), interval=size(
 
 # myanim.save(prefix*"test.gif")
 myanim.save(prefix*"H2.mp4")
+
+plt.close("all")
 
 ######################################################################################################
 

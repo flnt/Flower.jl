@@ -124,8 +124,18 @@ function run_forward(
     # TODO kill_dead_cells! for [:,:,iscal]
     if electrolysis
         current_radius = num.R
-        nH2 = 4.0/3.0 * pi * current_radius^3 * num.rho2 / num.MWH2
+
+        p_liq= num.pres0 + mean(veci(phL.pD,grid,2)) #TODO here one bubble
+        p_g=p_liq + 2 * num.sigma / current_radius
+
+        #TODO using temperature0
+        nH2 = p_g * 4.0 / 3.0 * pi * current_radius ^ 3 / (temperature0 * num.Ru) 
+
+        # nH2 = 4.0/3.0 * pi * current_radius^3 * num.rho2 / num.MWH2
+
         printstyled(color=:green, @sprintf "\n Mole: %.2e \n" nH2)
+
+
     end     
     ####################################################################################################
 
@@ -300,7 +310,7 @@ function run_forward(
 
         for iscal=1:nb_transported_scalars
 
-            printstyled(color=:green, @sprintf "\n Init scal %.2e \n" concentration0[iscal])
+            # printstyled(color=:green, @sprintf "\n Init scal %.2e \n" concentration0[iscal])
 
             #Solid phase: necessary?
 
@@ -867,13 +877,13 @@ function run_forward(
                         p_liq= num.pres0 + mean(veci(phL.pD,grid,2)) #TODO here one bubble
                         p_g=p_liq + 2 * num.sigma / current_radius
 
-                        print("test p_liq")
-                        p_g=p_liq 
+                        # print("test p_liq")
+                        # p_g=p_liq 
 
 
                         nH2 += varnH2 * num.τ
                         #TODO using temperature0
-                        current_radius = cbrt(3.0/(4.0* pi) * nH2 * num.Ru * temperature0/( 4 * pi * p_g) )
+                        current_radius = cbrt(3.0 * nH2 * num.Ru * temperature0/( 4.0 * pi * p_g) )
 
                         printstyled(color=:green, @sprintf "\n n(H2): %.2e added %.2e old R %.2e new R %.2e \n" nH2 varnH2*num.τ previous_radius current_radius)
                         printstyled(color=:green, @sprintf "\n p0: %.2e p_liq %.2e p_lapl %.2e \n" num.pres0 p_liq p_g)

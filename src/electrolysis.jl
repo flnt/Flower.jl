@@ -1010,30 +1010,29 @@ function compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,
     #########################################################################################################
     # printstyled(color=:green, @sprintf "\n mass_flux \n")
     # print(size(mass_flux),"\n")
-    printstyled(color=:green, @sprintf "\n HxT \n")
-    print(size(opC_p.HxT),"\n")
-    print(size(opC_p.HxT[1]),"\n")
-    print(size(opC_p.iMx),"\n")
-    print(size(opC_p.Hx[1]),"\n")
-    print(size(veci(scalD,grid,1+1)),"\n")
-    print(size(opC_p.HyT[1]),"\n")
-    print(size(opC_p.iMy),"\n")
-    print(size(opC_p.Hy[1]),"\n")
-    print(size(veci(scalD,grid,1+1)),"\n")
+    # printstyled(color=:green, @sprintf "\n HxT \n")
+    # print(size(opC_p.HxT),"\n")
+    # print(size(opC_p.HxT[1]),"\n")
+    # print(size(opC_p.iMx),"\n")
+    # print(size(opC_p.Hx[1]),"\n")
+    # print(size(veci(scalD,grid,1+1)),"\n")
+    # print(size(opC_p.HyT[1]),"\n")
+    # print(size(opC_p.iMy),"\n")
+    # print(size(opC_p.Hy[1]),"\n")
+    # print(size(veci(scalD,grid,1+1)),"\n")
 
 
-    print(size(opC_p.HxT_b),"\n")
-    print(size(opC_p.iMx_b),"\n")
-    print(size(opC_p.Hx_b),"\n")
-    print(size(vecb(scalD,grid)),"\n")
+    # print(size(opC_p.HxT_b),"\n")
+    # print(size(opC_p.iMx_b),"\n")
+    # print(size(opC_p.Hx_b),"\n")
+    # print(size(vecb(scalD,grid)),"\n")
 
-    print(size(veci(scalD,grid,1)),"\n")
-    print(size(veci(scalD,grid,2)),"\n")
-    print(size(vecb(scalD,grid)),"\n")
+    # print(size(veci(scalD,grid,1)),"\n")
+    # print(size(veci(scalD,grid,2)),"\n")
+    # print(size(vecb(scalD,grid)),"\n")
 
 
 
-    iLStmp=1
 
     # mass_flux .+= opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid)
     # mass_flux .+= opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
@@ -1046,22 +1045,47 @@ function compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,
     #     mass_flux .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
     # end
 
-    mass_flux = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid)
-    mass_flux .+= opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
-
     # mass_flux   .+= opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HxT_b * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid)
     # mass_flux .+= opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid) .+ opC_p.HyT_b * opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+
+    iLStmp=1
+
+    mass_flux   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid)
+    mass_flux .+= opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
 
     for iLS in 1:nLS
         mass_flux .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
         mass_flux .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
     end
 
+
+
+    # print(size(veci(scalD,grid,1)),"\n")
+    # print(size(veci(scalD,grid,2)),"\n")
+    # print(size(vecb(scalD,grid)),"\n")
+    # print(size(mass_flux),"\n")
+
+    # mass_flux = fnzeros(grid,num)
+
+    # iLStmp=1
+
+    # vec1(mass_flux,grid) .+= opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid) 
+    
+    # vecb(mass_flux,grid) .+= opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+
+    # for iLS in 1:nLS
+    #     veci(mass_flux,grid,iLS+1) .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1) .+ opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+    # end
+
+
     #########################################################################################################
 
     mass_flux_sum = sum(mass_flux) * diffusion_coeff[1] 
 
-    printstyled(color=:green, @sprintf "\n mass_flux : %.2e \n" max(abs.(mass_flux)...))
+
+    printstyled(color=:green, @sprintf "\n mass_flux : %.2e %.2e\n" max(abs.(mass_flux)...) mass_flux_sum)
+
+    # printstyled(color=:green, @sprintf "\n mass_flux : %.2e %.2e %.2e\n" max(abs.(mass_flux)...) mass_flux_sum sum(veci(mass_flux,grid,2))*diffusion_coeff[1])
 
     return mass_flux_sum
 end
