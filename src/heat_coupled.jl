@@ -129,7 +129,7 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
         __a1 = -1.0
         __b = 0.0
     elseif is_wall(bc_type)
-        __a0 = bc_type.val
+        __a0 = bc_type.Tval
         __a1 = -1.0
         __b = 0.0
     else
