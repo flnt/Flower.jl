@@ -50,6 +50,7 @@ abstract type AbstractOptimizer end
     nLS::D = 1 # number of levelsets
     _nLS::D = nLS == 1 ? 1 : nLS + 1
     nb_transported_scalars::D = 0
+    nb_saved_scalars::D = 0
     concentration0::Array{T} = [0.0]
     diffusion_coeff::Array{T} = [0.0]
     temperature0::T = 0.0
@@ -72,6 +73,7 @@ abstract type AbstractOptimizer end
     nNavier = 0 # number of Navier inner BCs
     pres0::T=0.0
     sigma::T=0.0
+    ref_thickness_2d::T=1.0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -298,6 +300,8 @@ struct Phase{T <: Real} <: MutatingFields
     i_current_mag::Array{T,2}
     Eu::Array{T,2}
     Ev::Array{T,2}
+    mass_flux::Array{T,2}
+    saved_scal::Array{T,3}
 end
 
 struct Forward{T <: Real} <: MutatingFields
@@ -317,6 +321,8 @@ struct Forward{T <: Real} <: MutatingFields
     Eu::Array{T,4}
     Ev::Array{T,4}
     radius::Array{T,1}
+    mass_flux::Array{T,3}
+    saved_scal::Array{T,4}
 end
 
 struct ForwardPhase{T <: Real} <: MutatingFields

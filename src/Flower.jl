@@ -41,6 +41,20 @@ import Base.reshape
 @reexport using LibGEOS
 @reexport using PackageCompiler
 
+
+@reexport using PyCall
+@reexport using LaTeXStrings
+@reexport using PyPlot
+
+const anim = PyNULL()
+# const plt = PyNULL()
+
+
+function __init__()
+    copy!(anim, pyimport_conda("matplotlib.animation", "matplotlib"))
+    # copy!(plt, pyimport_conda("matplotlib.pyplot", "matplotlib"))
+end
+
 include("types.jl")
 include("init.jl")
 include("common.jl")
@@ -58,6 +72,13 @@ include("optimize.jl")
 # include("viz.jl")
 include("tools.jl")
 include("electrolysis.jl")
+
+include("electrolysis_plot.jl")
+
+
+# include("Plotpython.jl")
+# using .Plotpython
+
 # include("electrolysis_viz.jl")
 
 

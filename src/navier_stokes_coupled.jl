@@ -1692,7 +1692,7 @@ function pressure_projection!(
     Au, Bu, Av, Bv, Aϕ, Auv, Buv,
     Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
     Cum1, Cvm1, Mum1, Mvm1,
-    periodic_x, periodic_y, advection, ls_advection, current_i, Ra, navier
+    periodic_x, periodic_y, advection, ls_advection, current_i, Ra, navier, pres_free_suface
     )
     @unpack Re, τ, σ, g, β, nLS, nNavier = num
     @unpack p, pD, ϕ, ϕD, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr, uT = ph
@@ -1920,6 +1920,7 @@ function pressure_projection!(
     vec1(rhs_ϕ,grid) .= rho1 .* iτ .* Duv #TODO
     # veci(rhs_ϕ,grid) .*= rho1 #TODO
 
+    # pres_free_suface = 0.0
 
     for iLS in 1:nLS
         if is_fs(bc_int[iLS])
@@ -1928,7 +1929,7 @@ function pressure_projection!(
                 Smat[2,1] * vec1(vcorrD,grid_v) .+ Smat[2,2] * veci(vcorrD,grid_v,iLS+1)
 
             fs_mat = opC_p.HxT[iLS] * opC_p.Hx[iLS] .+ opC_p.HyT[iLS] * opC_p.Hy[iLS]
-            veci(rhs_ϕ,grid,iLS+1) .= -2.0 .* iRe .* S .+ σ .* Diagonal(diag(fs_mat)) * vec(grid.LS[iLS].κ)
+            veci(rhs_ϕ,grid,iLS+1) .= -2.0 .* iRe .* S .+ σ .* Diagonal(diag(fs_mat)) * ( vec(grid.LS[iLS].κ) .+ pres_free_suface )
         end
     end
     # Remove nullspace by adding small quantity to main diagonal

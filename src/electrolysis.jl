@@ -378,7 +378,7 @@ end
 
 
 
-function print_electrolysis_statistics(nb_transported_scalars,phL)
+function print_electrolysis_statistics(nb_transported_scalars,grid,phL)
 
     # normscal1L = norm(phL.trans_scal[:,:,1])
     # normscal2L = norm(phL.trans_scal[:,:,2])
@@ -441,6 +441,15 @@ function print_electrolysis_statistics(nb_transported_scalars,phL)
     print("$(@sprintf("min(phi_ele) %.6e", minphi_eleL))\t$(@sprintf("min(T) %.6e", minTL))\t$(@sprintf("min(i) %.6e", miniL))\n")
     print("$(@sprintf("max(phi_ele) %.6e", maxphi_eleL))\t$(@sprintf("max(T) %.6e", maxTL))\t$(@sprintf("max(i) %.6e", maxiL))\n")
     print("$(@sprintf("moy(phi_ele) %.6e", moyphi_eleL))\t$(@sprintf("moy(T) %.6e", moyTL))\t$(@sprintf("moy(i) %.6e", moyiL))\n")
+    # print("mean cH2 interface",mean(veci(phL.trans_scalD[:,1],grid,2)))
+    # print("mean cH2 interface",average!(reshape(veci(phL.trans_scalD[:,iscal],grid,2), grid), grid, LS[1].geoL, num))
+
+    # printstyled(color=:green, @sprintf "\n average c %s\n" average!(reshape(veci(phL.trans_scalD[:,iscal],grid,2), grid), grid, LS[1].geoL, num))
+    nonzero = veci(phL.trans_scalD[:,1],grid,2)[abs.(veci(phL.trans_scalD[:,1],grid,2)) .> 0.0]
+    # print("nonzero\n")
+    # print(nonzero)
+    # print("\nmean c(H2) interface \n",mean(nonzero))
+    printstyled(color=:green, @sprintf "\n mean c(H2) interface : %.2e\n" mean(nonzero))
 
 end
 
@@ -978,137 +987,62 @@ end
 """
   Compute mass flux like in Khalighi 2023
 """
-function compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff)
+function compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,iscal)
     
     @unpack nLS = num
     #Liquid phase
     @unpack trans_scalD = phL
-    scalD= trans_scalD[:,:,1] #H2 species
+    scalD= trans_scalD[:,iscal] #H2 species
     opC_p = opC_pL
-
-    # mass_flux = fnzeros(grid,num)
-    #########################################################################################################"
-    # for iLS in 1:nLS
-    #     veci(mass_flux,grid,iLS+1) .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1) .+ opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
-    # end
-    #########################################################################################################"
-    # ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid)
-    # ∇ϕ_y = opC_p.iMy * opC_p.By * vec1(scalD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
-
-    # for iLS in 1:nLS
-    #     ∇ϕ_x .+= opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
-    #     ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
-    # end
-
-    # # for iLS in 1:nLS
-    # #     veci(mass_flux,grid,iLS+1) .+= opC_p.HxT[iLS] * ∇ϕ_x .+ opC_p.HyT[iLS] * ∇ϕ_y
-    # # end
-
-    # for iLS in 1:nLS
-    #     veci(mass_flux,grid,iLS+1) .+= opC_p.HxT[iLS] * veci(∇ϕ_x,grid,iLS+1) .+ opC_p.HyT[iLS] * veci(∇ϕ_y,grid,iLS+1)
-    # end
-    #########################################################################################################
-    # printstyled(color=:green, @sprintf "\n mass_flux \n")
-    # print(size(mass_flux),"\n")
-    # printstyled(color=:green, @sprintf "\n HxT \n")
-    # print(size(opC_p.HxT),"\n")
-    # print(size(opC_p.HxT[1]),"\n")
-    # print(size(opC_p.iMx),"\n")
-    # print(size(opC_p.Hx[1]),"\n")
-    # print(size(veci(scalD,grid,1+1)),"\n")
-    # print(size(opC_p.HyT[1]),"\n")
-    # print(size(opC_p.iMy),"\n")
-    # print(size(opC_p.Hy[1]),"\n")
-    # print(size(veci(scalD,grid,1+1)),"\n")
-
-
-    # print(size(opC_p.HxT_b),"\n")
-    # print(size(opC_p.iMx_b),"\n")
-    # print(size(opC_p.Hx_b),"\n")
-    # print(size(vecb(scalD,grid)),"\n")
-
-    # print(size(veci(scalD,grid,1)),"\n")
-    # print(size(veci(scalD,grid,2)),"\n")
-    # print(size(vecb(scalD,grid)),"\n")
-
-
-
-
-    # mass_flux .+= opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid)
-    # mass_flux .+= opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
-
-    # # mass_flux   .+= opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HxT_b * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid)
-    # # mass_flux .+= opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid) .+ opC_p.HyT_b * opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
-
-    # for iLS in 1:nLS
-    #     mass_flux .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
-    #     mass_flux .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
-    # end
-
-    # mass_flux   .+= opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HxT_b * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid)
-    # mass_flux .+= opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid) .+ opC_p.HyT_b * opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
 
     iLStmp=1
 
     mass_flux   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid)
     mass_flux .+= opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
 
+    printstyled(color=:green, @sprintf "\n mass_flux v1 : %.2e \n" sum(mass_flux))
+
+
     for iLS in 1:nLS
         mass_flux .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
         mass_flux .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+
+        printstyled(color=:green, @sprintf "\n mass_flux veci : %.2e %.2e\n" sum(opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)) sum(opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)))
     end
 
+    # mass_flux_sum = sum(mass_flux) * diffusion_coeff[1] 
+    mass_flux_sum = -sum(mass_flux) * diffusion_coeff[iscal] 
+    #TODO convention normal
 
 
-    # print(size(veci(scalD,grid,1)),"\n")
-    # print(size(veci(scalD,grid,2)),"\n")
-    # print(size(vecb(scalD,grid)),"\n")
-    # print(size(mass_flux),"\n")
+    #TODO 2D, here cylinder length 1m
 
-    # mass_flux = fnzeros(grid,num)
-
-    # iLStmp=1
-
-    # vec1(mass_flux,grid) .+= opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid) 
-    
-    # vecb(mass_flux,grid) .+= opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
-
-    # for iLS in 1:nLS
-    #     veci(mass_flux,grid,iLS+1) .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1) .+ opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
-    # end
-
-
-    #########################################################################################################
-
-    mass_flux_sum = sum(mass_flux) * diffusion_coeff[1] 
-
-
-    printstyled(color=:green, @sprintf "\n mass_flux : %.2e %.2e\n" max(abs.(mass_flux)...) mass_flux_sum)
+    # printstyled(color=:green, @sprintf "\n mass_flux : %.2e %.2e\n" max(abs.(mass_flux)...) mass_flux_sum)
 
     # printstyled(color=:green, @sprintf "\n mass_flux : %.2e %.2e %.2e\n" max(abs.(mass_flux)...) mass_flux_sum sum(veci(mass_flux,grid,2))*diffusion_coeff[1])
-
-    return mass_flux_sum
+    # return mass_flux_sum,mass_flux
+    return mass_flux
 end
 
 
-"""
-  Compute boundary mass flux like in Khalighi 2023
-"""
-function compute_b_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff)
+# """
+#   Compute boundary mass flux like in Khalighi 2023
+# """
+# function compute_b_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff)
     
-    @unpack nLS = num
-    #Liquid phase
-    @unpack trans_scalD = phL
-    scalD= trans_scalD[:,:,1] #H2 species
-    opC_p = opC_pL
+#     @unpack nLS = num
+#     #Liquid phase
+#     @unpack trans_scalD = phL
+#     scalD= trans_scalD[:,:,1] #H2 species
+#     opC_p = opC_pL
 
-    mass_flux = fnzeros(grid,num)
+#     mass_flux = fnzeros(grid,num)
 
-    vecb(mass_flux,grid) = ( opC_p.HxT_b * opC_p.iMx_b * opC_p.Hx_b + opC_p.HyT_b * opC_p.iMy_b * opC_p.Hy_b ) * vecb(scalD,grid) * diffusion_coeff[1] 
+#     vecb(mass_flux,grid) = ( opC_p.HxT_b * opC_p.iMx_b * opC_p.Hx_b + opC_p.HyT_b * opC_p.iMy_b * opC_p.Hy_b ) * vecb(scalD,grid) * diffusion_coeff[1] 
 
-    mass_flux_sum = sum(mass_flux) 
+#     mass_flux_sum = sum(mass_flux) 
 
-    # printstyled(color=:green, @sprintf "\n mass_flux : %.2e \n" max(abs.(mass_flux)...))
+#     # printstyled(color=:green, @sprintf "\n mass_flux : %.2e \n" max(abs.(mass_flux)...))
     
-    return mass_flux_sum
-end
+#     return mass_flux_sum
+# end

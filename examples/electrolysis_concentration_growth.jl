@@ -46,6 +46,12 @@ max_iter=100000
 max_iter=100
 
 # max_iter=1
+max_iter=2
+save_every=1
+
+# save_every=10
+
+# max_iter=1
 
 # max_iter=1
 
@@ -143,6 +149,11 @@ rho2=0.069575 #"0.7016E-01" in \citet{cohnTABLETHERMODYNAMICPROPERTIES1963} H2
 radius=3.0e-6 
 
 
+ref_thickness_2d = 4.0 / 3.0 *radius 
+
+mode_2d = 1 #use equivalent cylinder
+
+
 # xcoord = 0.0
 # ycoord = 0.0
 # xcoord = radius + 1e-6
@@ -195,6 +206,7 @@ print(@sprintf "TODO elec cond and boundary conditions need to be updated for po
 
 v_inlet=6.7e-4
 Re=rho1*v_inlet*L0/mu
+printstyled(color=:green, @sprintf "\n Re : %.2e %.2e %.2e %.2e\n" Re rho1/mu1 rho1 mu1)
 
 # save_every=max_iter
 # save_every=1
@@ -223,6 +235,9 @@ printstyled(color=:green, @sprintf "\n Re : %.2e %.2e %.2e %.2e\n" Re rho1/mu1 r
 diffusion_coeff=[DH2, DKOH, DH2O]
 concentration0=[0.16, 6700, 49000]
 nb_transported_scalars=3
+
+nb_saved_scalars=2
+
 
 if length(concentration0)!=nb_transported_scalars
     print(@sprintf "nb_transported_scalars = %5i\n" nb_transported_scalars)
@@ -262,9 +277,10 @@ num = Numerical(
     case = "Cylinder",#"Cylinder", #"Sphere", #"Nothing",
     R = radius,
     max_iterations = max_iter,
-    save_every = max_iter,#10,#save_every,#10,
-    ϵ = 0.05,
+    save_every = save_every,#10,#save_every,#10,
+    ϵ = 0.05, 
     nb_transported_scalars=nb_transported_scalars,
+    nb_saved_scalars=nb_saved_scalars,
     concentration0=concentration0, 
     diffusion_coeff=diffusion_coeff,
     temperature0=temperature0,
@@ -285,6 +301,7 @@ num = Numerical(
     u_inf = 0.0,
     pres0=pres0,
     sigma=sigma,
+    ref_thickness_2d = ref_thickness_2d,
     )
     ####################################
     # Sessile
@@ -505,7 +522,7 @@ phL.phi_ele .= phi_ele0
 
 printstyled(color=:green, @sprintf "\n Initialisation \n")
 
-print_electrolysis_statistics(nb_transported_scalars,phL)
+print_electrolysis_statistics(nb_transported_scalars,gp,phL)
 
 
 printstyled(color=:green, @sprintf "\n TODO timestep CFL scal, and print \n")
@@ -533,7 +550,7 @@ i_current=butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phi_ele,phi_e
 
 print(@sprintf "Butler-Volmer %.2e \n" i_current[1])
 
-@time run_forward(
+@time current_i=run_forward(
     num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
     BC_uL = Boundaries(
         left   = Dirichlet(),
@@ -554,7 +571,7 @@ print(@sprintf "Butler-Volmer %.2e \n" i_current[1])
         top    = Dirichlet(),
     ),
     # BC_int = [FreeSurface()], #[WallNoSlip()],
-    BC_int = [FreeSurface()],
+    BC_int = [WallNoSlip()],
 
     # BC_TL  = Boundaries(
     # left   = Dirichlet(val = temperature0),
@@ -568,8 +585,8 @@ print(@sprintf "Butler-Volmer %.2e \n" i_current[1])
         bottom = Dirichlet(val = concentration0[1]),
         top    = Neumann(),
         left   = Neumann(val=-i_current/(2*Faraday*DH2)),
-        right  = Dirichlet(val = concentration0[1]),
-        int    = Neumann(val=0.0)), #H2
+        right  = Neumann(),
+        int    = Dirichlet(val = concentration0[1])), #H2
          
         BoundariesInt(
         bottom = Dirichlet(val = concentration0[2]),
@@ -611,6 +628,7 @@ print(@sprintf "Butler-Volmer %.2e \n" i_current[1])
     # electrolysis_reaction = "nothing",
     adapt_timestep_mode = adapt_timestep_mode,#1,
     non_dimensionalize=0,
+    mode_2d = mode_2d,
 
     # ns_advection = false,
 
@@ -679,6 +697,16 @@ last_it=10
 
 x_array=gp.x[1,:]/xscale
 y_array=gp.y[:,1]/yscale
+
+size_frame=size(fwd.trans_scal[:,:,:,1],1)
+
+size_frame=current_i
+
+function strtitlefunc(isnap)
+    # strtitle = @sprintf "t %.2e radius %.2e" fwd.t[i+1] fwd.radius[i+1]
+    strtitle = @sprintf "t %.2e (ms) radius %.2e (mm)" fwd.t[isnap]*1e3 fwd.radius[isnap]*1e6
+    return strtitle
+end
 
 # phi_array=reshape(vec1(fwdL.phi_eleD[end,:], gp), gp)'
 
@@ -866,6 +894,7 @@ plt.close(fig1)
 ######################################################################################################
 
 fig1, ax2 = plt.subplots(layout="constrained")
+# CS = ax2.contourf(x_array,y_array,max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), 10, cmap=cmap)
 CS = ax2.contourf(x_array,y_array,(phL.trans_scal[:,:,1] .-c0_H2)./c0_H2, 10, cmap=cmap)
 
 # ax2.set_title("Title")
@@ -904,9 +933,172 @@ plt.axis("equal")
 plt.savefig(prefix*"H2.pdf")
 plt.close(fig1)
 
+#TODO python vs julia storage order
+#OK if table sent
+#if plot i j : careful
+
+for isnap in 1:size_frame
+
+    fig1, ax2 = plt.subplots(layout="constrained")
+    # CS = ax2.contourf(x_array,y_array,max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), 10, cmap=cmap)
+    # CS = ax2.contourf(x_array,y_array,(fwd.trans_scal[isnap,:,:,1] .-c0_H2)./c0_H2, 10, cmap=cmap)
+    CS = ax2.contourf(x_array,y_array, fwd.trans_scal[isnap,:,:,1], 
+    10, 
+    cmap=cmap)
+    # print("nx ny ", nx,ny)
+    nplot=5
+    nplotx=nx ÷ nplot 
+    nploty=ny ÷ nplot
+    fontsize=5
+    startmod=1
+    ms=2
+    mcolor="w"
+
+    # strtitle = @sprintf "t %.2e radius %.2e" fwd.t[isnap] fwd.radius[isnap]
+    # strtitle = @sprintf "t %.2e (ms) radius %.2e (mm)" fwd.t[isnap]*1e3 fwd.radius[isnap]*1e6
+    strtitle=strtitlefunc(isnap)
+
+    plt.title(strtitle)
+
+    for i in 1:gp.nx
+        for j in 1:gp.ny
+            if (i%nplotx==startmod) && (j%nploty==startmod)
+
+                # print("\nplot i ",i," j ",j)
+
+                str=@sprintf "%.2e" fwd.trans_scal[isnap,j,i,1]
+                # str=@sprintf "%.2e %.2e" x_array[i] y_array[j]
+                # str=@sprintf "%.2e" x_array[i]
+
+                # str=@sprintf "%.5i %.5i" i j 
+
+
+                ax2.annotate(str,(x_array[i],y_array[j]),fontsize=fontsize)
+                plt.scatter(x_array[i],y_array[j],s=ms,c=mcolor)
+
+            end
+        end
+    end
+    # ax2.set_title("Title")
+    ax2.set_xlabel(L"$x (\mu m)$")
+    ax2.set_ylabel(L"$y (\mu m)$")
+
+    # Make a colorbar for the ContourSet returned by the contourf call.
+    cbar = fig1.colorbar(CS)
+    cbar.ax.set_ylabel("concentration")
+    # Add the contour line levels to the colorbar
+    if concentrationcontour
+        CS2 = ax2.contour(CS, 
+        # levels=CS.levels[::2], 
+        # levels=
+        colors="r")
+        cbar.add_lines(CS2)
+    end
+    if plot_levelset
+        # CSlvl = ax2.contourf(x_array,y_array,(phL.trans_scal[:,:,1] .-c0_H2)./c0_H2, levels=0.0, cmap=cmap)
+        # CS2 = ax2.contour(CSlvl, 
+        # # levels=CS.levels[::2], 
+        # # levels=
+        # colors="r")
+        # cbar.add_lines(CS2)
+        CSlvl = ax2.contour(x_array,y_array, fwd.u[1,isnap,:,:], [0.0],colors="r")
+    end
+
+    # if plot_levelset
+    #     gp.LS[1].u .= sqrt.((gp.x .+ xcoord).^ 2 + (gp.y .+ ycoord) .^ 2) - (radius) * ones(gp);
+
+    #     CSlvl = ax2.contour(x_array,y_array, gp.LS[1].u, [0.0],colors="r")
+    # end
+
+    plt.axis("equal")
+
+    plt.savefig(prefix*"H2_"*string(isnap)*".pdf")
+    plt.close(fig1)
+end
+
+
+
+
+for isnap in 1:size_frame
+
+    fig1, ax2 = plt.subplots(layout="constrained")
+    # CS = ax2.contourf(x_array,y_array,max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), 10, cmap=cmap)
+    # CS = ax2.contourf(x_array,y_array,(fwd.trans_scal[isnap,:,:,1] .-c0_H2)./c0_H2, 10, cmap=cmap)
+    CS = ax2.contourf(x_array,y_array, fwd.mass_flux[isnap,:,:], 10, cmap=cmap)
+    # print("nx ny ", nx,ny)
+    nplot=5
+    nplotx=nx ÷ nplot 
+    nploty=ny ÷ nplot
+    fontsize=5
+    startmod=1
+    ms=2
+    mcolor="w"
+
+    # strtitle = @sprintf "t %.2e radius %.2e" fwd.t[isnap] fwd.radius[isnap]
+    # strtitle = @sprintf "t %.2e (ms) radius %.2e (mm)" fwd.t[isnap]*1e3 fwd.radius[isnap]*1e6
+
+    strtitle=strtitlefunc(isnap)
+
+    plt.title(strtitle)
+
+    for i in 1:gp.nx
+        for j in 1:gp.ny
+            if (i%nplotx==startmod) && (j%nploty==startmod)
+
+                # print("\nplot i ",i," j ",j)
+
+                str=@sprintf "%.2e" fwd.mass_flux[isnap,j,i]
+                # str=@sprintf "%.2e %.2e" x_array[i] y_array[j]
+                # str=@sprintf "%.2e" x_array[i]
+
+                # str=@sprintf "%.5i %.5i" i j 
+
+
+                ax2.annotate(str,(x_array[i],y_array[j]),fontsize=fontsize)
+                plt.scatter(x_array[i],y_array[j],s=ms,c=mcolor)
+
+            end
+        end
+    end
+    # ax2.set_title("Title")
+    ax2.set_xlabel(L"$x (\mu m)$")
+    ax2.set_ylabel(L"$y (\mu m)$")
+
+    # Make a colorbar for the ContourSet returned by the contourf call.
+    cbar = fig1.colorbar(CS)
+    cbar.ax.set_ylabel("flux")
+    # Add the contour line levels to the colorbar
+    if concentrationcontour
+        CS2 = ax2.contour(CS, 
+        # levels=CS.levels[::2], 
+        # levels=
+        colors="r")
+        cbar.add_lines(CS2)
+    end
+    # if plot_levelset
+    #     # CSlvl = ax2.contourf(x_array,y_array,(phL.trans_scal[:,:,1] .-c0_H2)./c0_H2, levels=0.0, cmap=cmap)
+    #     # CS2 = ax2.contour(CSlvl, 
+    #     # # levels=CS.levels[::2], 
+    #     # # levels=
+    #     # colors="r")
+    #     # cbar.add_lines(CS2)
+    #     CSlvl = ax2.contour(x_array,y_array, fwd.u[1,isnap,:,:], [0.0],colors="r")
+    # end
+
+    # if plot_levelset
+    #     gp.LS[1].u .= sqrt.((gp.x .+ xcoord).^ 2 + (gp.y .+ ycoord) .^ 2) - (radius) * ones(gp);
+
+    #     CSlvl = ax2.contour(x_array,y_array, gp.LS[1].u, [0.0],colors="r")
+    # end
+
+    plt.axis("equal")
+
+    plt.savefig(prefix*"H2flux_"*string(isnap)*".pdf")
+    plt.close(fig1)
+end
 ######################################################################################################
 fig1, ax2 = plt.subplots(layout="constrained")
-CS = ax2.contourf(x_array,y_array,(phL.trans_scal[:,:,2] .-c0_H2O)./c0_H2O, 10, cmap=cmap)
+CS = ax2.contourf(x_array,y_array,max.((phL.trans_scal[:,:,2] .-c0_H2O)./c0_H2O,0.0), 10, cmap=cmap)
 
 
 # ax2.set_title("Title")
@@ -934,7 +1126,7 @@ plt.close(fig1)
 ######################################################################################################
 
 fig1, ax2 = plt.subplots(layout="constrained")
-CS = ax2.contourf(x_array,y_array,(phL.trans_scal[:,:,2] .-c0_KOH)./c0_KOH, 10, cmap=cmap)
+CS = ax2.contourf(x_array,y_array,max.((phL.trans_scal[:,:,2] .-c0_KOH)./c0_KOH,0.0), 10, cmap=cmap)
 
 
 # ax2.set_title("Title")
@@ -964,7 +1156,13 @@ plt.close(fig1)
 
 fig1, ax2 = plt.subplots(layout="constrained")
 
-plt.plot(fwd.t,fwd.radius .*1.e6)
+# print("t",fwd.t)
+# print("radius",fwd.radius.*1.e6)
+# print("current_i", current_i)
+# print("radius ",fwd.radius[1:current_i+1])
+# print("\nradius ",fwd.radius)
+
+plt.plot(fwd.t[1:current_i],fwd.radius[1:current_i].*1.e6)
 # ax2.set_title("Title")
 ax2.set_xlabel(L"$t (s)$")
 # ax2.set_ylabel(L"$R (m)$")
@@ -978,13 +1176,281 @@ plt.axis("equal")
 plt.savefig(prefix*"R.pdf")
 plt.close(fig1)
 
-######################################################################################################
 
-A = (fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2
+#H2O
+isca=3
 
 fig1, ax2 = plt.subplots(layout="constrained")
 
-CS = ax2.contourf(x_array,y_array,(fwd.trans_scal[1,:,:,1] .-c0_H2)./c0_H2, 
+CS = ax2.contourf(x_array,y_array,fwd.trans_scal[1,:,:,isca], 
+levels=10, 
+# levels=range(0,1400,step=200),
+cmap=cmap)
+
+ # Make a colorbar for the ContourSet returned by the contourf call.
+ cbar = fig1.colorbar(CS)
+ cbar.ax.set_ylabel("concentration")
+
+ cbarax=cbar.ax
+
+function make_frame(i)
+    # ax1.clear()
+    ax2.clear()
+    # ax1.imshow(A[:,:,i+1, 1])
+
+    # CS = ax2.contourf(x_array,y_array,max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), 10, cmap=cmap)
+
+    CS = ax2.contourf(x_array,y_array,fwd.trans_scal[i+1,:,:,isca], 
+    levels=10, 
+    # levels=range(0,1400,step=200),
+    cmap=cmap)
+
+
+    strtitle=strtitlefunc(i+1)
+    plt.title(strtitle)
+
+    # CS = ax2.contourf(x_array,y_array,(fwd.trans_scal[i+1,:,:,1] .-c0_H2)./c0_H2, 
+    # # levels=10, 
+    # levels=range(0,1400,step=200),
+    # cmap=cmap)
+
+    plt.axis("equal")
+
+
+    # ax2.imshow(A[:,:,i+1])
+
+    # ax2.set_title("Title")
+    ax2.set_xlabel(L"$x (\mu m)$")
+    ax2.set_ylabel(L"$y (\mu m)$")
+
+    # Make a colorbar for the ContourSet returned by the contourf call.
+     cbar = fig1.colorbar(CS,cax=cbarax)
+    #  cbar.ax.set_ylabel("concentration")
+
+    #https://stackoverflow.com/questions/5180518/duplicated-colorbars-when-creating-an-animation
+
+    if (i==0) #(i+1==1) python starts at 0
+        # # Make a colorbar for the ContourSet returned by the contourf call.
+        # cbar = fig1.colorbar(CS)
+        # cbar.ax.set_ylabel("concentration")
+        
+        # Add the contour line levels to the colorbar
+        if concentrationcontour
+            CS2 = ax2.contour(CS, 
+            # levels=CS.levels[::2], 
+            # levels=
+            colors="r")
+            cbar.add_lines(CS2)
+        end
+    end
+ 
+    if plot_levelset
+        CSlvl = ax2.contour(x_array,y_array, fwd.u[1,i+1,:,:], [0.0],colors="r")
+    end
+
+
+    # plt.savefig(prefix*"H2.pdf")
+    # plt.close(fig1)
+end
+
+myanim = anim.FuncAnimation(fig1, make_frame, frames=size_frame, interval=size_frame, blit=false)
+
+# myanim.save(prefix*"test.gif")
+myanim.save(prefix*"H2O.mp4")
+
+plt.close("all")
+
+######################################################################################################
+# function pymovie(fwdL,iscal,name)
+    
+#     c0ref = concentration0[iscal]
+
+#     fig1, ax2 = plt.subplots(layout="constrained")
+
+#     lim2=200
+#     lim1=-lim2
+#     step1=10
+
+#     CS = ax2.contourf(x_array,y_array,max.((fwdL.trans_scal[1,:,:,isca].-c0ref)./c0ref,0.0), 
+#     #levels=10, 
+#     levels=range(lim1,lim2,step=step1),
+#     cmap=cmap)
+
+#     # Make a colorbar for the ContourSet returned by the contourf call.
+#     cbar = fig1.colorbar(CS)
+#     cbar.ax.set_ylabel("concentration")
+
+#     cbarax=cbar.ax
+
+#     function make_frame_movie(i)
+#         # ax1.clear()
+#         ax2.clear()
+#         # ax1.imshow(A[:,:,i+1, 1])
+
+#         # CS = ax2.contourf(x_array,y_array,max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), 10, cmap=cmap)
+
+#         CS = ax2.contourf(x_array,y_array,max.((fwdL.trans_scal[i+1,:,:,isca].-c0ref)./c0ref,0.0), 
+#         #levels=10, 
+#         levels=range(lim1,lim2,step=step1),
+#         cmap=cmap)
+
+
+#         strtitle=strtitlefunc(i+1)
+#         plt.title(strtitle)
+
+#         # CS = ax2.contourf(x_array,y_array,(fwd.trans_scal[i+1,:,:,1] .-c0_H2)./c0_H2, 
+#         # # levels=10, 
+#         # levels=range(0,1400,step=200),
+#         # cmap=cmap)
+
+#         plt.axis("equal")
+
+
+#         # ax2.imshow(A[:,:,i+1])
+
+#         # ax2.set_title("Title")
+#         ax2.set_xlabel(L"$x (\mu m)$")
+#         ax2.set_ylabel(L"$y (\mu m)$")
+
+#         # Make a colorbar for the ContourSet returned by the contourf call.
+#         cbar = fig1.colorbar(CS,cax=cbarax)
+#         #  cbar.ax.set_ylabel("concentration")
+
+#         #https://stackoverflow.com/questions/5180518/duplicated-colorbars-when-creating-an-animation
+
+#         if (i==0) #(i+1==1) python starts at 0
+#             # # Make a colorbar for the ContourSet returned by the contourf call.
+#             # cbar = fig1.colorbar(CS)
+#             # cbar.ax.set_ylabel("concentration")
+            
+#             # Add the contour line levels to the colorbar
+#             if concentrationcontour
+#                 CS2 = ax2.contour(CS, 
+#                 # levels=CS.levels[::2], 
+#                 # levels=
+#                 colors="r")
+#                 cbar.add_lines(CS2)
+#             end
+#         end
+    
+#         #if plot_levelset
+#         #   CSlvl = ax2.contour(x_array,y_array, fwd.u[1,i+1,:,:], [0.0],colors="r")
+#         # end
+
+
+#         # plt.savefig(prefix*"H2.pdf")
+#         # plt.close(fig1)
+#     end
+
+#     myanim = anim.FuncAnimation(fig1, make_frame_movie, frames=size_frame, interval=size_frame, blit=false)
+
+#     # myanim.save(prefix*"test.gif")
+#     myanim.save(prefix*name*".mp4")
+
+#     plt.close("all")
+
+
+# end
+# ######################################################################################################
+
+# pymovie(fwdL, iscal=2, name="KOH")
+
+######################################################################################################
+
+#H2O
+isca=3
+
+fig1, ax2 = plt.subplots(layout="constrained")
+
+lim2=1
+lim1=-lim2
+step1=10
+
+CS = ax2.contourf(x_array,y_array,max.((fwdL.trans_scal[1,:,:,isca].-c0_H2O)./c0_H2O,0.0), 
+#levels=10, 
+levels=range(lim1,lim2,step=step1),
+cmap=cmap)
+
+ # Make a colorbar for the ContourSet returned by the contourf call.
+ cbar = fig1.colorbar(CS)
+ cbar.ax.set_ylabel("concentration")
+
+ cbarax=cbar.ax
+
+function make_frame(i)
+    # ax1.clear()
+    ax2.clear()
+    # ax1.imshow(A[:,:,i+1, 1])
+
+    # CS = ax2.contourf(x_array,y_array,max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), 10, cmap=cmap)
+
+    CS = ax2.contourf(x_array,y_array,max.((fwdL.trans_scal[i+1,:,:,isca].-c0_H2O)./c0_H2O,0.0), 
+    #levels=10, 
+    levels=range(lim1,lim2,step=step1),
+    cmap=cmap)
+
+
+    strtitle=strtitlefunc(i+1)
+    plt.title(strtitle)
+
+    # CS = ax2.contourf(x_array,y_array,(fwd.trans_scal[i+1,:,:,1] .-c0_H2)./c0_H2, 
+    # # levels=10, 
+    # levels=range(0,1400,step=200),
+    # cmap=cmap)
+
+    plt.axis("equal")
+
+
+    # ax2.imshow(A[:,:,i+1])
+
+    # ax2.set_title("Title")
+    ax2.set_xlabel(L"$x (\mu m)$")
+    ax2.set_ylabel(L"$y (\mu m)$")
+
+    # Make a colorbar for the ContourSet returned by the contourf call.
+     cbar = fig1.colorbar(CS,cax=cbarax)
+    #  cbar.ax.set_ylabel("concentration")
+
+    #https://stackoverflow.com/questions/5180518/duplicated-colorbars-when-creating-an-animation
+
+    if (i==0) #(i+1==1) python starts at 0
+        # # Make a colorbar for the ContourSet returned by the contourf call.
+        # cbar = fig1.colorbar(CS)
+        # cbar.ax.set_ylabel("concentration")
+        
+        # Add the contour line levels to the colorbar
+        if concentrationcontour
+            CS2 = ax2.contour(CS, 
+            # levels=CS.levels[::2], 
+            # levels=
+            colors="r")
+            cbar.add_lines(CS2)
+        end
+    end
+ 
+    #if plot_levelset
+    #   CSlvl = ax2.contour(x_array,y_array, fwd.u[1,i+1,:,:], [0.0],colors="r")
+    # end
+
+
+    # plt.savefig(prefix*"H2.pdf")
+    # plt.close(fig1)
+end
+
+myanim = anim.FuncAnimation(fig1, make_frame, frames=size_frame, interval=size_frame, blit=false)
+
+# myanim.save(prefix*"test.gif")
+myanim.save(prefix*"H2O_liq_norm.mp4")
+
+plt.close("all")
+
+######################################################################################################
+
+# A = (fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2
+
+fig1, ax2 = plt.subplots(layout="constrained")
+
+CS = ax2.contourf(x_array,y_array,max.((fwd.trans_scal[1,:,:,1] .-c0_H2)./c0_H2,0.0), 
 # levels=10, 
 levels=range(0,1400,step=200),
 cmap=cmap)
@@ -998,10 +1464,21 @@ function make_frame(i)
     ax2.clear()
     # ax1.imshow(A[:,:,i+1, 1])
 
-    CS = ax2.contourf(x_array,y_array,(fwd.trans_scal[i+1,:,:,1] .-c0_H2)./c0_H2, 
+    # CS = ax2.contourf(x_array,y_array,max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), 10, cmap=cmap)
+
+    CS = ax2.contourf(x_array,y_array,max.((fwd.trans_scal[i+1,:,:,1] .-c0_H2)./c0_H2,0.0), 
     # levels=10, 
     levels=range(0,1400,step=200),
     cmap=cmap)
+
+
+    strtitle=strtitlefunc(i+1)
+    plt.title(strtitle)
+
+    # CS = ax2.contourf(x_array,y_array,(fwd.trans_scal[i+1,:,:,1] .-c0_H2)./c0_H2, 
+    # # levels=10, 
+    # levels=range(0,1400,step=200),
+    # cmap=cmap)
 
     plt.axis("equal")
 
@@ -1042,10 +1519,10 @@ function make_frame(i)
     # plt.close(fig1)
 end
 
-myanim = anim.FuncAnimation(fig1, make_frame, frames=size(A,1), interval=size(A,1), blit=false)
+myanim = anim.FuncAnimation(fig1, make_frame, frames=size_frame, interval=size_frame, blit=false)
 
 # myanim.save(prefix*"test.gif")
-myanim.save(prefix*"test.mp4")
+myanim.save(prefix*"H2_norm.mp4")
 
 plt.close("all")
 
@@ -1053,31 +1530,111 @@ plt.close("all")
 
 ######################################################################################################
 
-A = fwd.trans_scal[:,:,:,1]
+# size_frame=size(fwd.trans_scal[:,:,:,1],1)
+
+# fig1, ax2 = plt.subplots(layout="constrained")
+
+# CS = ax2.contourf(x_array,y_array,fwd.trans_scal[1,:,:,1], 
+# levels=10, 
+# # levels=range(0,1400,step=200),
+# cmap=cmap)
+
+
+#  # Make a colorbar for the ContourSet returned by the contourf call.
+#  cbar = fig1.colorbar(CS)
+#  cbar.ax.set_ylabel("concentration")
+
+# function make_frame_2(i)
+#     # ax1.clear()
+#     ax2.clear()
+#     # ax1.imshow(A[:,:,i+1, 1])
+
+#     CS = ax2.contourf(x_array,y_array,fwd.trans_scal[i+1,:,:,1], 
+#     levels=10, 
+#     # levels=range(0,1400,step=200),
+#     cmap=cmap)
+
+#     plt.axis("equal")
+
+
+#     # ax2.imshow(A[:,:,i+1])
+
+#     # ax2.set_title("Title")
+#     ax2.set_xlabel(L"$x (\mu m)$")
+#     ax2.set_ylabel(L"$y (\mu m)$")
+
+#     if (i==0) #(i+1==1) python starts at 0
+#         # # Make a colorbar for the ContourSet returned by the contourf call.
+#         # cbar = fig1.colorbar(CS)
+#         # cbar.ax.set_ylabel("concentration")
+        
+#         # Add the contour line levels to the colorbar
+#         if concentrationcontour
+#             CS2 = ax2.contour(CS, 
+#             # levels=CS.levels[::2], 
+#             # levels=
+#             colors="r")
+#             cbar.add_lines(CS2)
+#         end
+#     end
+ 
+#     if plot_levelset
+#         CSlvl = ax2.contour(x_array,y_array, fwd.u[1,i+1,:,:], [0.0],colors="r")
+#     end
+
+
+#     # plt.savefig(prefix*"H2.pdf")
+#     # plt.close(fig1)
+# end
+
+# myanim = anim.FuncAnimation(fig1, make_frame_2, frames=size_frame, interval=size_frame, blit=false)
+
+# # myanim.save(prefix*"test.gif")
+# myanim.save(prefix*"H2.mp4")
+
+# plt.close("all")
+
+######################################################################################################
+
+######################################################################################################
+
+var = fwd.mass_flux
+# size_frame=size(var,1)
 
 fig1, ax2 = plt.subplots(layout="constrained")
+lvl=1e-5 #0.1
+step = 2*lvl/10
+levels=range(-lvl,lvl,step=step)
 
-CS = ax2.contourf(x_array,y_array,fwd.trans_scal[1,:,:,1], 
-levels=10, 
-# levels=range(0,1400,step=200),
+levels=10
+
+CS = ax2.contourf(x_array,y_array,var[1,:,:], 
+# levels=10, 
+levels=levels,
 cmap=cmap)
 
 
  # Make a colorbar for the ContourSet returned by the contourf call.
  cbar = fig1.colorbar(CS)
- cbar.ax.set_ylabel("concentration")
+ cbar.ax.set_ylabel("mass_flux")
 
-function make_frame_2(i)
+function make_frame_3(i)
     # ax1.clear()
     ax2.clear()
     # ax1.imshow(A[:,:,i+1, 1])
 
-    CS = ax2.contourf(x_array,y_array,fwd.trans_scal[i+1,:,:,1], 
-    levels=10, 
-    # levels=range(0,1400,step=200),
+    CS = ax2.contourf(x_array,y_array,var[i+1,:,:], 
+    levels=levels, 
     cmap=cmap)
 
+    # cbar = fig1.colorbar(CS)
+    # cbar.ax.set_ylabel("concentration")
+
     plt.axis("equal")
+
+    # strtitle = @sprintf "t %.2e radius %.2e" fwd.t[i+1] fwd.radius[i+1]
+    strtitle=strtitlefunc(i+1)
+    plt.title(strtitle)
 
 
     # ax2.imshow(A[:,:,i+1])
@@ -1101,19 +1658,19 @@ function make_frame_2(i)
         end
     end
  
-    if plot_levelset
-        CSlvl = ax2.contour(x_array,y_array, fwd.u[1,i+1,:,:], [0.0],colors="r")
-    end
+    # if plot_levelset
+    #     CSlvl = ax2.contour(x_array,y_array, fwd.u[1,i+1,:,:], [0.0],colors="r")
+    # end
 
 
     # plt.savefig(prefix*"H2.pdf")
     # plt.close(fig1)
 end
 
-myanim = anim.FuncAnimation(fig1, make_frame_2, frames=size(A,1), interval=size(A,1), blit=false)
+myanim = anim.FuncAnimation(fig1, make_frame_3, frames=size_frame, interval=size_frame, blit=false)
 
 # myanim.save(prefix*"test.gif")
-myanim.save(prefix*"H2.mp4")
+myanim.save(prefix*"H2flux.mp4")
 
 plt.close("all")
 
@@ -1192,19 +1749,3 @@ plt.close("all")
 
 # myanim.save(prefix*"test.gif")
 # myanim.save(prefix*"test.mp4")
-
-# make_video_vec(num, gp, fwd.u, fwdL.trans_scal[:,:,:,1]; title_prefix=prefix*"concentration_H2",
-# title_suffix="", framerate=240, 
-# xlabel=xlabel, ylabel=ylabel, xscale=xscale, yscale=yscale, scalscale=c0_H2, xticks=xticks, yticks=yticks, scalticks=0:500:3000)
-
-# make_video_vec(num, gp, fwd.u, (fwdL.trans_scal[:,:,:,1] .-c0_H2)./c0_H2; title_prefix=prefix*"concentration_H2_normalized",
-# title_suffix="", framerate=240, 
-# xlabel=xlabel, ylabel=ylabel, xscale=xscale, yscale=yscale, scalscale=c0_H2, xticks=xticks, yticks=yticks, scalticks=0:500:3000)
-
-# make_video_vec(num, gp, fwd.u, fwdL.trans_scal[:,:,:,2]; title_prefix=prefix*"concentration_KOH",
-# title_suffix="", framerate=240, 
-# xlabel=xlabel, ylabel=ylabel, xscale=xscale, yscale=yscale, scalscale=c0_KOH, xticks=xticks, yticks=yticks)
-
-# make_video_vec(num, gp, fwd.u, fwdL.trans_scal[:,:,:,3]; title_prefix=prefix*"concentration_H2O",
-# title_suffix="", framerate=240, 
-# xlabel=xlabel, ylabel=ylabel, xscale=xscale, yscale=yscale, scalscale=c0_H2O, xticks=xticks, yticks=yticks)
