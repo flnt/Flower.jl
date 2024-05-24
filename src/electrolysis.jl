@@ -1,4 +1,13 @@
 #From set_heat in heat_coupled.jl, poisson.jl
+
+function Poiseuille_fmax(x,v_inlet_max,L0)
+    return 4*v_inlet_max*x/L0*(1-x/L0)
+end
+
+function Poiseuille_favg(x,v_inlet_moy,L0)
+    return 6*v_inlet_moy*x/L0*(1-x/L0)
+end
+
 """    
 set convection and diffusion for scalar
 """

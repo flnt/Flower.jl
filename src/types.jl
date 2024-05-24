@@ -72,7 +72,6 @@ abstract type AbstractOptimizer end
     grav_y::T = 0.0
     nNavier = 0 # number of Navier inner BCs
     pres0::T=0.0
-    sigma::T=0.0
     ref_thickness_2d::T=1.0
 end
 

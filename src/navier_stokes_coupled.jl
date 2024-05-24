@@ -1929,7 +1929,7 @@ function pressure_projection!(
                 Smat[2,1] * vec1(vcorrD,grid_v) .+ Smat[2,2] * veci(vcorrD,grid_v,iLS+1)
 
             fs_mat = opC_p.HxT[iLS] * opC_p.Hx[iLS] .+ opC_p.HyT[iLS] * opC_p.Hy[iLS]
-            veci(rhs_ϕ,grid,iLS+1) .= -2.0 .* iRe .* S .+ σ .* Diagonal(diag(fs_mat)) * ( vec(grid.LS[iLS].κ) .+ pres_free_suface )
+            veci(rhs_ϕ,grid,iLS+1) .= -2.0 .* iRe .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid.LS[iLS].κ) .- pres_free_suface )
         end
     end
     # Remove nullspace by adding small quantity to main diagonal

@@ -14,7 +14,9 @@ isdir(prefix) || mkdir(prefix)
 
 pygui(false) #do not show figures
 
-
+PyPlot.rc("text", usetex=true)
+rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
+rcParams["text.latex.preamble"] = raw"\usepackage{siunitx}"
 
 
 plot_Makie=false
@@ -59,6 +61,7 @@ max_its=10
 
 # save_every = max_its÷100
 save_every = 1
+pres0 = 1e5
 
 _θe = acos((0.5 * diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
 # _θe = acos((diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
@@ -81,7 +84,7 @@ num = Numerical(
     ϵ = 0.05,
     n_ext_cl = n_ext,
     NB = 24,
-    pres0=1e5
+    pres0=pres0,
 )
 
 gp, gu, gv = init_meshes(num)
@@ -94,6 +97,11 @@ gp.LS[1].u .= sqrt.(gp.x.^2 + (gp.y .+ L0y / 2).^2) - r * ones(gp)
 phL.u .= 0.0
 phL.v .= 0.0
 
+phL.p .= pres0
+
+# plot_python_pdf(phL.p, "p0",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure")
+
+
 @time run_forward(
     num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
     BC_uL = Boundaries(
@@ -105,8 +113,8 @@ phL.v .= 0.0
         top = Dirichlet(),
     ),
     BC_pL = Boundaries(
-        left = Dirichlet(),
-        right = Dirichlet(),
+        left = Dirichlet(val=pres0),
+        right = Dirichlet(val=pres0),
     ),
     BC_u = Boundaries(
         bottom = Neumann_cl(θe = _θe * π / 180),
@@ -151,14 +159,33 @@ x_array=gp.x[1,:]
 y_array=gp.y[:,1]
 
 plot_levelset=true
-concentrationcontour=false#true
+isocontour=false#true
 cmap = plt.cm.viridis
 
+# if isnothing(current_i)
+#     size_frame=size(fwdL.p,1)
+# else
+#     size_frame=current_i
+# end
+size_frame=size(fwdL.p,1)
 
-plot_python_pdf(phL.p, "p",prefix,plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure")
+
+# plot_python_pdf(phL.p, "p",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure")
+
+plot_python_pdf(phL.p, "p",prefix,plot_levelset,isocontour,0,range(pres0*0.9999,pres0*1.0001,length=10),cmap,x_array,y_array,gp,"pressure")
+
+plot_python_pdf((phL.p.-pres0)./pres0, "pnorm",prefix,plot_levelset,isocontour,0,range(-1e-4,1e-4,length=10),cmap,x_array,y_array,gp,"pressure")
+
+
+# python_movie_zoom(fwdL.p,"p",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",
+# size_frame,1,gp.nx,1,gp.ny,fwd)
+
+
+python_movie_zoom((fwdL.p.-pres0)./pres0,"pnorm",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",
+size_frame,1,gp.nx,1,gp.ny,fwd)
 
 # plot_python_pdf(max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), "H2test",prefix,
-# plot_levelset,concentrationcontour,0,range(0,1400,length=8),cmap,x_array,y_array,gp)
+# plot_levelset,isocontour,0,range(0,1400,length=8),cmap,x_array,y_array,gp)
 
 
 

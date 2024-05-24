@@ -141,7 +141,7 @@ function run_forward(
         current_radius = num.R
 
         p_liq= num.pres0 + mean(veci(phL.pD,grid,2)) #TODO here one bubble
-        p_g=p_liq + 2 * num.sigma / current_radius
+        p_g=p_liq + 2 * num.σ / current_radius
 
         #TODO using temperature0
         if mode_2d==0
@@ -920,7 +920,7 @@ function run_forward(
 
                 #Pliquid is the average value of p over the bubble interface plus the ambient operating pressure (P).
                 p_liq= num.pres0 + mean(veci(phL.pD,grid,2)) #TODO here one bubble
-                p_g=p_liq + 2 * num.sigma / current_radius
+                p_g=p_liq + 2 * num.σ / current_radius
 
                 # print("test p_liq")
                 # p_g=p_liq 

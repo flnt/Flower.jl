@@ -38,11 +38,19 @@
 # PyCall.PyDict(Pyplot."rcParams")["text.latex.preamble"] = [raw"\usepackage{siunitx}"]
 
 
+# function python
+
+function strtitlefunc(isnap,fwd)
+    # strtitle = @sprintf "t %.2e radius %.2e" fwd.t[i+1] fwd.radius[i+1]
+    strtitle = @sprintf "t %.2e (ms) radius %.2e (mm)" fwd.t[isnap]*1e3 fwd.radius[isnap]*1e6
+    return strtitle
+end
+
 function plot_python_pdf(field,figname,prefix,plot_levelset,isocontour,levels,range,cmap,x_array,y_array,gp,cbarlabel)
 
-    PyPlot.rc("text", usetex=true)
-    rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
-    rcParams["text.latex.preamble"] = raw"\usepackage{siunitx}"
+    # PyPlot.rc("text", usetex=true)
+    # rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
+    # rcParams["text.latex.preamble"] = raw"\usepackage{siunitx}"
 
     # print("range",range)
     fig1, ax2 = plt.subplots(layout="constrained")
@@ -56,7 +64,7 @@ function plot_python_pdf(field,figname,prefix,plot_levelset,isocontour,levels,ra
         CS = ax2.contourf(x_array,y_array,field, 
         levels=levels,
         cmap=cmap)
-        print("levels " ,levels)
+        # print("levels " ,levels)
     end
 
     # ax2.set_title("Title")
@@ -101,7 +109,9 @@ function plot_python_pdf(field,figname,prefix,plot_levelset,isocontour,levels,ra
 end
 
 
-function python_movie_zoom(field,name,plot_levelset,size_frame,i0,i1,j0,j1,levels,range,cmap)
+
+function python_movie_zoom(field,figname,prefix,plot_levelset,isocontour,levels,range,cmap,x_array,y_array,gp,cbarlabel,size_frame,i0,i1,j0,j1,fwd)
+
     # if step!=0
     #     levels=range(lmin,lmax,step)
     # else
@@ -130,7 +140,7 @@ function python_movie_zoom(field,name,plot_levelset,size_frame,i0,i1,j0,j1,level
 
     # Make a colorbar for the ContourSet returned by the contourf call.
     cbar = fig1.colorbar(CS)
-    cbar.ax.set_ylabel("concentration")
+    cbar.ax.set_ylabel(cbarlabel)
 
     function make_frame(i)
         # ax1.clear()
@@ -155,7 +165,7 @@ function python_movie_zoom(field,name,plot_levelset,size_frame,i0,i1,j0,j1,level
         # cmap=cmap)
 
 
-        strtitle=strtitlefunc(i+1)
+        strtitle=strtitlefunc(i+1,fwd)
         plt.title(strtitle)
 
         # CS = ax2.contourf(x_array,y_array,(fwd.trans_scal[i+1,:,:,1] .-c0_H2)./c0_H2, 
@@ -174,14 +184,14 @@ function python_movie_zoom(field,name,plot_levelset,size_frame,i0,i1,j0,j1,level
 
         # Make a colorbar for the ContourSet returned by the contourf call.
         #  cbar = fig1.colorbar(CS)
-        #  cbar.ax.set_ylabel("concentration")
+        #  cbar.ax.set_ylabel(cbarlabel)
 
         #https://stackoverflow.com/questions/5180518/duplicated-colorbars-when-creating-an-animation
 
         if (i==0) #(i+1==1) python starts at 0
             # # Make a colorbar for the ContourSet returned by the contourf call.
             # cbar = fig1.colorbar(CS)
-            # cbar.ax.set_ylabel("concentration")
+            # cbar.ax.set_ylabel(cbarlabel)
             
             # Add the contour line levels to the colorbar
             if isocontour
@@ -205,7 +215,7 @@ function python_movie_zoom(field,name,plot_levelset,size_frame,i0,i1,j0,j1,level
     myanim = anim.FuncAnimation(fig1, make_frame, frames=size_frame, interval=size_frame, blit=false)
 
     # myanim.save(prefix*"test.gif")
-    myanim.save(prefix*name*".mp4")
+    myanim.save(prefix*figname*".mp4")
 
     plt.close("all")
 
@@ -227,7 +237,7 @@ end
 
 #     # Make a colorbar for the ContourSet returned by the contourf call.
 #     cbar = fig1.colorbar(CS)
-#     cbar.ax.set_ylabel("concentration")
+#     cbar.ax.set_ylabel(cbarlabel)
 #     # Add the contour line levels to the colorbar
 #     if isocontour
 #         CS2 = ax2.contour(CS, 
@@ -312,7 +322,7 @@ end
 
 #         # Make a colorbar for the ContourSet returned by the contourf call.
 #         cbar = fig1.colorbar(CS)
-#         cbar.ax.set_ylabel("concentration")
+#         cbar.ax.set_ylabel(cbarlabel)
 #         # Add the contour line levels to the colorbar
 #         if isocontour
 #             CS2 = ax2.contour(CS, 
@@ -356,7 +366,7 @@ end
 
 #     # Make a colorbar for the ContourSet returned by the contourf call.
 #     cbar = fig1.colorbar(CS)
-#     cbar.ax.set_ylabel("concentration")
+#     cbar.ax.set_ylabel(cbarlabel)
 
 #     function make_frame(i)
 #         # ax1.clear()
@@ -390,14 +400,14 @@ end
 
 #         # Make a colorbar for the ContourSet returned by the contourf call.
 #         #  cbar = fig1.colorbar(CS)
-#         #  cbar.ax.set_ylabel("concentration")
+#         #  cbar.ax.set_ylabel(cbarlabel)
 
 #         #https://stackoverflow.com/questions/5180518/duplicated-colorbars-when-creating-an-animation
 
 #         if (i==0) #(i+1==1) python starts at 0
 #             # # Make a colorbar for the ContourSet returned by the contourf call.
 #             # cbar = fig1.colorbar(CS)
-#             # cbar.ax.set_ylabel("concentration")
+#             # cbar.ax.set_ylabel(cbarlabel)
             
 #             # Add the contour line levels to the colorbar
 #             if isocontour
@@ -456,7 +466,7 @@ end
 
 #     # Make a colorbar for the ContourSet returned by the contourf call.
 #     cbar = fig1.colorbar(CS)
-#     cbar.ax.set_ylabel("concentration")
+#     cbar.ax.set_ylabel(cbarlabel)
 
 #     function make_frame(i)
 #         # ax1.clear()
@@ -500,14 +510,14 @@ end
 
 #         # Make a colorbar for the ContourSet returned by the contourf call.
 #         #  cbar = fig1.colorbar(CS)
-#         #  cbar.ax.set_ylabel("concentration")
+#         #  cbar.ax.set_ylabel(cbarlabel)
 
 #         #https://stackoverflow.com/questions/5180518/duplicated-colorbars-when-creating-an-animation
 
 #         if (i==0) #(i+1==1) python starts at 0
 #             # # Make a colorbar for the ContourSet returned by the contourf call.
 #             # cbar = fig1.colorbar(CS)
-#             # cbar.ax.set_ylabel("concentration")
+#             # cbar.ax.set_ylabel(cbarlabel)
             
 #             # Add the contour line levels to the colorbar
 #             if isocontour
