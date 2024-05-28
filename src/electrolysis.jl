@@ -227,14 +227,14 @@ end
 """
 From Stefan_velocity!
 """
-function electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodic_y, concentration_scal)
+function electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodic_y, concentration_scal_intfc)
     @unpack geoS, geoL, κ = LS
 
     V .= 0
     # @inbounds @threads for II in MIXED
     @inbounds for II in MIXED
 
-        θ_d = concentration_scal
+        θ_d = concentration_scal_intfc
 
         # dTS = 0.
         dTL = 0.
@@ -253,25 +253,50 @@ end
 """
 From update_free_surface_velocity and update_stefan_velocity
 """
-function update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, uD, vD, periodic_x, periodic_y, Vmean, c_L,diffusion_coeff_scal,concentration_scal,opC)
+function update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, uD, vD, periodic_x, periodic_y, Vmean, concentration_scalD, diffusion_coeff_scal,concentration_scal_intfc)
     @unpack MWH2,rho1,rho2=num
-    @unpack χ,=opC
+    # @unpack χ,=opC
     #TODO check sign 
-    electrolysis_velocity!(num, grid, grid.LS[iLS], grid.V, c_L, grid.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal)
+    # electrolysis_velocity!(num, grid, grid.LS[iLS], grid.V, c_L, grid.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal)
+
+    concentration_scalu = zeros(grid_u)
+    concentration_scalv = zeros(grid_v)
+
+    #interpolate
+    interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(concentration_scalD,grid,1), grid), concentration_scalu, concentration_scalv)
+    # Or give scal directly instead of scalD 
+    # interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(concentration_scal,grid,1), grid), concentration_scalu, concentration_scalv)
+#
+    #TODO H: suppose val on interface for u and v same as for p 
+
+    electrolysis_velocity!(num, grid_u, grid_u.LS[iLS], grid_u.V, concentration_scalu, grid_u.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc)
+    electrolysis_velocity!(num, grid_v, grid_v.LS[iLS], grid_v.V, concentration_scalv, grid_v.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc)
+
     # grid.V[grid.LS[iLS].MIXED] .*= 1. ./ λ
 
     #H2
-    #TODO *surface: *χ or χ_b ?
-    grid.V[grid.LS[iLS].MIXED] .*=-(1/rho1-1/rho2).*diffusion_coeff_scal[1].*MWH2 
-    grid.V[grid.LS[iLS].MIXED] *= χ[iLS]  
-   
-    if Vmean
-        a = mean(grid.V[grid.LS[iLS].MIXED])
-        grid.V[grid.LS[iLS].MIXED] .= a
-    end
+    #TODO check order rho1 rho2
+    #no surface term
 
-    grid_u.V .= reshape(veci(uD,grid_u,iLS+1), (grid_u.ny, grid_u.nx))
-    grid_v.V .= reshape(veci(vD,grid_v,iLS+1), (grid_v.ny, grid_v.nx))
+    factor = -(1.0/rho1-1.0/rho2).*diffusion_coeff_scal[1].*MWH2
+    
+    grid_u.V[grid_u.LS[iLS].MIXED] .*= factor
+    grid_v.V[grid_v.LS[iLS].MIXED] .*= factor
+
+    # grid.V[grid.LS[iLS].MIXED] .*= factor
+
+   
+    # if Vmean
+    #     a = mean(grid.V[grid.LS[iLS].MIXED])
+    #     grid.V[grid.LS[iLS].MIXED] .= a
+    # end
+
+    printstyled(color=:green, @sprintf "\n u v max : %.2e %.2e\n" maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
+
+
+
+    grid_u.V .+= reshape(veci(uD,grid_u,iLS+1), (grid_u.ny, grid_u.nx))
+    grid_v.V .+= reshape(veci(vD,grid_v,iLS+1), (grid_v.ny, grid_v.nx))
 
     i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext = indices_extension(grid_u, grid_u.LS[iLS], grid_u.ind.inside, periodic_x, periodic_y)
     i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext = indices_extension(grid_v, grid_v.LS[iLS], grid_v.ind.inside, periodic_x, periodic_y)
@@ -1055,3 +1080,117 @@ end
     
 #     return mass_flux_sum
 # end
+
+"""
+    BC_LS_test!(num, cl, grid, A, B, rhs, BC)
+
+Prints the contact angle, from BC_LS!
+"""
+function BC_LS_test!(grid, u, A, B, rhs, BC)
+    @unpack x, y, nx, ny, dx, dy, ind = grid
+    @unpack all_indices, b_left, b_bottom, b_right, b_top = ind
+    @unpack left, bottom, right, top = BC
+
+    π2 = π / 2.0
+
+    boundaries_idx = [b_left[1], b_bottom[1], b_right[1], b_top[1]]
+
+    left2 = vcat(all_indices[2,2], all_indices[2:end-1,2], all_indices[end-1,2])
+    bottom2 = vcat(all_indices[2,2], all_indices[2,2:end-1], all_indices[2,end-1])
+    right2 = vcat(all_indices[2,end-1], all_indices[2:end-1,end-1], all_indices[end-1,end-1])
+    top2 = vcat(all_indices[end-1,2], all_indices[end-1,2:end-1], all_indices[end-1,end-1])
+    boundaries2 = [left2, bottom2, right2, top2]
+
+    left3 = vcat(all_indices[3,3], all_indices[2:end-1,3], all_indices[end-2,3])
+    bottom3 = vcat(all_indices[3,3], all_indices[3,2:end-1], all_indices[3,end-2])
+    right3 = vcat(all_indices[3,end-2], all_indices[2:end-1,end-2], all_indices[end-2,end-2])
+    top3 = vcat(all_indices[end-2,3], all_indices[end-2,2:end-1], all_indices[end-2,end-2])
+    boundaries3 = [left3, bottom3, right3, top3]
+
+    boundaries_t = [left, bottom, right, top]
+
+    direction = [y, x, y, x]
+
+    for (i, (idx, idx2, idx3, xy)) in enumerate(zip(boundaries_idx, boundaries2, boundaries3, direction))
+        pks, _ = findminima(abs.(u[idx]))
+        # if is_neumann(boundaries_t[i])
+
+        #     for (II, JJ) in zip(idx, idx2)
+        #         pII = lexicographic(II, grid.ny)
+        #         pJJ = lexicographic(JJ, grid.ny)
+
+        #         A[pII,:] .= 0.0
+        #         A[pII,pII] = 1.0
+        #         A[pII,pJJ] = -1.0
+        #         B[pII,:] .= 0.0
+        #     end
+        if is_neumann_cl(boundaries_t[i]) && maximum(u[idx]) > 0.0 && minimum(u[idx]) < 0.0 && length(pks) >= 2
+            pks1 = idx[pks[1]]
+            pkse = idx[pks[end]]
+
+            # Gradually update the contact angle
+            Δθe = 90.0 * π / 180
+
+        
+
+            # Find current contact angle
+            dist = sqrt((x[idx2[pks[1]]] - x[pks1])^2 + (y[idx2[pks[1]]] - y[pks1])^2)
+            old = u[pks1] - u[idx2[pks[1]]]
+            # Levelset difference between two consecutive points might be bigger
+            # than the distance between them if it's not reinitialized often enough
+            if abs(old) > dist
+                old = sign(old) * dist
+            end
+            θe_old = acos(old / dist)
+
+            # printstyled(color=:green, @sprintf "\n θe_old : %.2e \n" θe_old)
+            printstyled(color=:green, @sprintf "\n θe_old : %.2e °\n" θe_old*180.0/π)
+
+
+            return x[idx2[pks]],y[idx2[pks]],x[pks1],y[pks1]
+
+            # # Compute new contact angle
+            # if abs(boundaries_t[i].θe - θe_old) > Δθe
+            #     θe = θe_old + sign(boundaries_t[i].θe - θe_old) * Δθe
+            # else
+            #     θe = boundaries_t[i].θe
+            # end
+
+            # # distance between the center of the drop and the contact line
+            # d = abs(xy[pks1] + u[pks1] - (xy[pkse] + u[pkse])) / 2.0
+
+            # for (II, JJ) in zip(idx[2:end-1], idx2[2:end-1])
+            #     pII = lexicographic(II, grid.ny)
+            #     pJJ = lexicographic(JJ, grid.ny)
+
+            #     A[pII,:] .= 0.0
+            #     A[pII,pII] = 1.0
+            #     A[pII,pJJ] = -1.0
+            #     B[pII,:] .= 0.0
+
+            #     # Compute levelset angle at a distance u[II] from the contact line
+            #     if θe < π2
+            #         newθ = atan(tan(θe) * (1.0 - u[II] / d))
+            #     else
+            #         newθ = π - atan(tan(π - θe) * (1.0 - u[II] / d))
+            #     end
+
+            #     rhs[pII] = dist * cos(newθ)
+            # end
+        # elseif is_neumann_cl(boundaries_t[i]) || is_neumann_inh(boundaries_t[i])
+        #     for (II, JJ, KK) in zip(idx, idx2, idx3)
+        #         pII = lexicographic(II, grid.ny)
+        #         pJJ = lexicographic(JJ, grid.ny)
+
+        #         A[pII,:] .= 0.0
+        #         A[pII,pII] = 1.0
+        #         A[pII,pJJ] = -1.0
+        #         B[pII,:] .= 0.0
+
+        #         rhs[pII] = u[JJ] - u[KK]
+        #     end
+        end
+    end
+
+    return nothing
+end

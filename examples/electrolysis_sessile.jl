@@ -8,7 +8,7 @@ using PrettyTables
 
 prefix="/local/home/pr277828/flower/"
 
-folder="electrolysis_sessile_2"
+folder="electrolysis_sessile"
 
 prefix *= "/"*folder*"/"
 
@@ -82,7 +82,8 @@ rho2=0.069575 #"0.7016E-01" in \citet{cohnTABLETHERMODYNAMICPROPERTIES1963} H2
 
 # radius=2.5e-5 
 # radius=1.25e-5 
-radius=3.0e-6 
+radius = 3.0e-6 
+radius = 6.0e-6 
 
 h0 = radius
 
@@ -241,7 +242,13 @@ save_every = 1
 pres0 = 1e5
 
 ####################################################################################################
+# not imposing the angle exactly at the boundary but displaced a cell because ghost cells are not used. 
+# So the exact contact angle cannot be imposed
+# TODO should at some point modify the levelset so it works as the other fields that we have in the code, 
+# with the boundary values in addition to the bulk field. That way we could impose it exactly at the boundary
+# needs a lot of work, not priority
 _θe = acos((0.5 * diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
+thetaref = acos((0.5 * diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
 # _θe = acos((diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
 println("θe = $(_θe)")
 ####################################################################################################
@@ -475,7 +482,12 @@ print(@sprintf "Butler-Volmer %.2e \n" i_current[1])
 
 
 ######################################################################################################
-
+BC_u = Boundaries(
+    bottom = Neumann_inh(),
+    top = Neumann_inh(),
+    left = Neumann_cl(θe = _θe * π / 180),
+    right = Neumann_inh()
+)
 
 @time current_i=run_forward(
     num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
@@ -500,12 +512,7 @@ print(@sprintf "Butler-Volmer %.2e \n" i_current[1])
     # left = Dirichlet(val=pres0),
     # right = Dirichlet(val=pres0),
 
-    BC_u = Boundaries(
-        bottom = Neumann_inh(),
-        top = Neumann_inh(),
-        left = Neumann_cl(θe = _θe * π / 180),
-        right = Neumann_inh()
-    ),
+    BC_u = BC_u,
 
     BC_int = [FreeSurface()],
 
@@ -552,14 +559,15 @@ print(@sprintf "Butler-Volmer %.2e \n" i_current[1])
     time_scheme = FE,#CN, #or FE?
     electrolysis = true,
     navier_stokes = true,
-    ns_advection=true, #false
+    ns_advection=false,
     ns_liquid_phase = true,
     verbose = true,
     show_every = 1,
     electrolysis_convection = true,  
     electrolysis_liquid_phase = true,
     electrolysis_phase_change = true,
-    electrolysis_phase_change_case = "Khalighi",
+    electrolysis_phase_change_case = "levelset",
+    # electrolysis_phase_change_case = "Khalighi",
     electrolysis_reaction = "Butler_no_concentration",
     # electrolysis_reaction = "nothing",
     adapt_timestep_mode = adapt_timestep_mode,#1,
@@ -591,12 +599,12 @@ Vratio = Vf / V0
 
 mean_rad = 1 / abs(mean(gp.LS[1].κ[gp.LS[1].MIXED[5:end-5]]))
 RR0_sim = mean_rad / 0.5
-RR0_teo = RR0(θe * π / 180)
+RR0_theo = RR0(θe * π / 180)
 
 println("Vratio = $(Vratio)")
 println("mean rad = $(mean_rad)")
 println("RR0_sim = $(RR0_sim)")
-println("RR0_teo = $(RR0_teo)")
+println("RR0_theo = $(RR0_theo)")
 
 suffix = "$(θe)deg_$(n)_reinit$(num.reinit_every)_nb$(num.nb_reinit)"
 # suffix = "$(θe)deg_$(num.max_iterations)_$(n)_reinit$(num.reinit_every)_nb$(num.nb_reinit)"
@@ -780,6 +788,62 @@ plt.savefig(prefix*"v.pdf")
 plt.close(fig1)
 ######################################################################################################
 
+iLS=1
+rhs_LS = fzeros(gp)
+#test contact angle
+xp,yp,xp0,yp0=BC_LS_test!(gp, gp.LS[iLS].u, gp.LS[iLS].A, gp.LS[iLS].B, rhs_LS, BC_u)
+printstyled(color=:green, @sprintf "\n θe : %.2e °\n" _θe*180.0/π)
+printstyled(color=:green, @sprintf "\n θe : %.2e °\n" thetaref*180.0/π)
+
+######################################################################################################
+
+fig1, ax2 = plt.subplots(layout="constrained")
+CS = ax2.contourf(x_array,y_array,gp.LS[1].u ./xscale, 10, cmap=cmap)
+
+# print("\n xp",x_array)
+# print("\n yp",y_array)
+
+# print("\n xp",xp)
+# print("\n yp",yp)
+# print("\n xp0",xp0)
+# print("\n yp0",yp0)
+
+xp  = xp/xscale
+yp  = yp/xscale
+xp0 = xp0/xscale
+yp0 = yp0/xscale
+
+
+
+ms=2
+mcolor="w"
+
+plt.scatter(xp,yp,s=ms,c=mcolor)
+
+mcolor="black"
+
+plt.scatter(xp0,yp0,s=ms,c=mcolor)
+
+
+
+ax2.set_xlabel(L"$x (\mu m)$")
+ax2.set_ylabel(L"$y (\mu m)$")
+
+# Make a colorbar for the ContourSet returned by the contourf call.
+cbar = fig1.colorbar(CS)
+# cbar.ax.set_ylabel("v")
+
+cbar.ax.set_title(raw"$( \unit{\um})$")
+
+# cbar.ax.set_title(L"$10^{-6}$")
+
+plt.axis("equal")
+
+plt.savefig(prefix*"contact.pdf")
+
+plt.close(fig1)
+######################################################################################################
+
 # plot_python_pdf(phL.p, "p",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure")
 
 plot_python_pdf(phL.p, "p",prefix,plot_levelset,isocontour,0,range(pres0*0.9999,pres0*1.0001,length=10),cmap,x_array,y_array,gp,"pressure")
@@ -800,19 +864,19 @@ plot_levelset,concentrationcontour,0,range(0,1400,length=8),cmap,x_array,y_array
 plot_python_pdf(max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), "H2lvl",prefix,
 plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration")
 
-python_movie_zoom(max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0),"H2_norm",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
-size_frame,1,gp.nx,1,gp.ny,fwd)
+python_movie_zoom(max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0),"H2_norm",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),
+cmap,x_array,y_array,gp,"concentration",size_frame,1,gp.nx,1,gp.ny,fwd)
 
 ######################################################################################################
 #TODO bug when putting plotting instructions in function, range(start,end,step) no longer working as argument so give start,end,length instead
 
 
 
-plot_python_pdf(max.((phL.trans_scal[:,:,2] .-c0_KOH)./c0_KOH,0.0), "KOH",plot_levelset,10,range(0,1400,length=8),
-cmap,x_array,y_array,gp,"concentration")
+plot_python_pdf(max.((phL.trans_scal[:,:,2] .-c0_KOH)./c0_KOH,0.0), "KOH",prefix,
+plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration")
 
-plot_python_pdf(max.((phL.trans_scal[:,:,3] .-c0_H2O)./c0_H2O,0.0), "H2O",plot_levelset,10,range(0,1400,length=8),
-cmap,x_array,y_array,gp,"concentration")
+plot_python_pdf(max.((phL.trans_scal[:,:,3] .-c0_H2O)./c0_H2O,0.0), "H2O",prefix,
+plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration")
 
 # plot_python_several_pdf(fwd.trans_scal[:,:,:,1],"H2",true,size_frame)
 # plot_python_several_pdf(fwd.saved_scal[:,:,:,1],"H2massflux",true,size_frame)
@@ -836,6 +900,8 @@ python_movie_zoom(fwd.saved_scal[:,:,:,2],"flux2",false,size_frame,1,gp.nx,1,gp.
 size_frame,1,gp.nx,1,gp.ny,fwd)
 
 # python_movie_zoom(field,name,plot_levelset,size_frame,i0,i1,j0,j1,lmin,lmax,step)
+
+
 
 
 ######################################################################################################

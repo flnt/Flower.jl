@@ -684,7 +684,7 @@ bell_function2(u, ϵ) = ((1.0 + cos(π * u / ϵ)) / 2.0)^2
 """
     dynamic_contact_angle(grid)
 
-Compute dynamic contact angle to be applied when usung the generalized Navier BC.
+Compute dynamic contact angle to be applied when using the generalized Navier BC.
 """
 function dynamic_contact_angle(grid)
     @unpack ind, κ = grid

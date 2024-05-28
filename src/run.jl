@@ -109,9 +109,19 @@ function run_forward(
     end
 
     pres_free_surfaceS = 0.0
-    pres_free_surfaceL = 0.0
-
+    # pres_free_surfaceL = 0.0
     pres_free_surfaceL = num.pres0
+
+    if electrolysis_phase_change_case == "levelset"
+        jump_mass_fluxS = false 
+        jump_mass_fluxL = true
+    else
+        jump_mass_fluxS = false 
+        jump_mass_fluxL = false
+    end
+
+    mass_fluxS = 0.0
+    mass_fluxL = 0.0
     
 
     iRe = 1.0 / Re
@@ -210,6 +220,8 @@ function run_forward(
     kill_dead_cells!(phS.T, grid, LS[end].geoS)
     kill_dead_cells!(phL.T, grid, LS[end].geoL)
 
+
+    #TODO check timestep coefficients n-1 
     ####################################################################################################
     #Electrolysis
     ####################################################################################################
@@ -866,7 +878,8 @@ function run_forward(
             elseif is_fs(BC_int[iLS])
                 if electrolysis_phase_change                   
                     if electrolysis_phase_change_case == "levelset"
-                        update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y, Vmean, phL.trans_scal[:,:,1],diffusion_coeff[1],concentration0[1],opC_pL)
+                        update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],diffusion_coeff[1],concentration0[1])
+                        # ,opC_pL)
                     end
                 else
                     update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y)
@@ -1167,7 +1180,7 @@ function run_forward(
                     AuS, BuS, AvS, BvS, AϕS, AuvS, BuvS,
                     Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,
                     Cum1S, Cvm1S, Mum1_S, Mvm1_S,
-                    periodic_x, periodic_y, ns_advection, advection, current_i, Ra, navier,pres_free_surfaceS
+                    periodic_x, periodic_y, ns_advection, advection, current_i, Ra, navier,pres_free_surfaceS,jump_mass_fluxS,mass_fluxS
                 )
             end
             if ns_liquid_phase
@@ -1182,7 +1195,7 @@ function run_forward(
                     AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,
                     Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
                     Cum1L, Cvm1L, Mum1_L, Mvm1_L,
-                    periodic_x, periodic_y, ns_advection, advection, current_i, Ra, navier,pres_free_surfaceL
+                    periodic_x, periodic_y, ns_advection, advection, current_i, Ra, navier,pres_free_surfaceL,jump_mass_fluxL,mass_fluxL
                 )
                 # if current_i == 1
                 #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
