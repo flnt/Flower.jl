@@ -246,6 +246,8 @@ function electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodi
             dTL = normal_gradient(geoL.projection[II].d1, T_1, θ_d)
         end
         V[II] = dTL #+ dTS
+
+        print("\n grad",II,"val",dTL,"val",geoL.projection[II].flag,"val",geoL.projection[II].angle,"val", geoL.projection[II].point1,"val", geoL.projection[II].point2,"val", T_1,"val",T_2,"val",θ_d)
     end
     return nothing
 end
@@ -257,33 +259,34 @@ function update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iL
     @unpack MWH2,rho1,rho2=num
     # @unpack χ,=opC
     #TODO check sign 
-    # electrolysis_velocity!(num, grid, grid.LS[iLS], grid.V, c_L, grid.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal)
 
-    concentration_scalu = zeros(grid_u)
-    concentration_scalv = zeros(grid_v)
+    printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
 
-    #interpolate
-    interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(concentration_scalD,grid,1), grid), concentration_scalu, concentration_scalv)
-    # Or give scal directly instead of scalD 
-    # interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(concentration_scal,grid,1), grid), concentration_scalu, concentration_scalv)
-#
-    #TODO H: suppose val on interface for u and v same as for p 
+    plot_electrolysis_velocity!(num, grid, grid.LS[iLS], grid.V, concentration_scalD, grid.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc)
 
-    electrolysis_velocity!(num, grid_u, grid_u.LS[iLS], grid_u.V, concentration_scalu, grid_u.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc)
-    electrolysis_velocity!(num, grid_v, grid_v.LS[iLS], grid_v.V, concentration_scalv, grid_v.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc)
 
+    electrolysis_velocity!(num, grid, grid.LS[iLS], grid.V, concentration_scalD, grid.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc)
+
+    # concentration_scalu = zeros(grid_u)
+    # concentration_scalv = zeros(grid_v)
+    # #interpolate
+    # interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(concentration_scalD,grid,1), grid), concentration_scalu, concentration_scalv)
+    # # Or give scal directly instead of scalD 
+    # # interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(concentration_scal,grid,1), grid), concentration_scalu, concentration_scalv)
+    # #TODO H: suppose val on interface for u and v same as for p 
+    # electrolysis_velocity!(num, grid_u, grid_u.LS[iLS], grid_u.V, concentration_scalu, grid_u.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc)
+    # electrolysis_velocity!(num, grid_v, grid_v.LS[iLS], grid_v.V, concentration_scalv, grid_v.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc)
     # grid.V[grid.LS[iLS].MIXED] .*= 1. ./ λ
-
     #H2
     #TODO check order rho1 rho2
     #no surface term
 
-    factor = -(1.0/rho1-1.0/rho2).*diffusion_coeff_scal[1].*MWH2
+    factor = -(1.0/rho2-1.0/rho1).*diffusion_coeff_scal[1].*MWH2
     
-    grid_u.V[grid_u.LS[iLS].MIXED] .*= factor
-    grid_v.V[grid_v.LS[iLS].MIXED] .*= factor
+    # grid_u.V[grid_u.LS[iLS].MIXED] .*= factor
+    # grid_v.V[grid_v.LS[iLS].MIXED] .*= factor
 
-    # grid.V[grid.LS[iLS].MIXED] .*= factor
+    grid.V[grid.LS[iLS].MIXED] .*= factor
 
    
     # if Vmean
@@ -291,18 +294,24 @@ function update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iL
     #     grid.V[grid.LS[iLS].MIXED] .= a
     # end
 
-    printstyled(color=:green, @sprintf "\n u v max : %.2e %.2e\n" maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
+    grid_u.V .= reshape(vec1(uD,grid_u), grid_u)
+    grid_v.V .= reshape(vec1(vD,grid_v), grid_v)
+
+    print("factor",factor)
+
+    printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
+
+    #TODO extension
 
 
+#     grid_u.V .+= reshape(veci(uD,grid_u,iLS+1), (grid_u.ny, grid_u.nx))
+#     grid_v.V .+= reshape(veci(vD,grid_v,iLS+1), (grid_v.ny, grid_v.nx))
 
-    grid_u.V .+= reshape(veci(uD,grid_u,iLS+1), (grid_u.ny, grid_u.nx))
-    grid_v.V .+= reshape(veci(vD,grid_v,iLS+1), (grid_v.ny, grid_v.nx))
+#     i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext = indices_extension(grid_u, grid_u.LS[iLS], grid_u.ind.inside, periodic_x, periodic_y)
+#     i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext = indices_extension(grid_v, grid_v.LS[iLS], grid_v.ind.inside, periodic_x, periodic_y)
 
-    i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext = indices_extension(grid_u, grid_u.LS[iLS], grid_u.ind.inside, periodic_x, periodic_y)
-    i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext = indices_extension(grid_v, grid_v.LS[iLS], grid_v.ind.inside, periodic_x, periodic_y)
-
-    field_extension!(grid_u, grid_u.LS[iLS].u, grid_u.V, i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext, num.NB, periodic_x, periodic_y)
-    field_extension!(grid_v, grid_v.LS[iLS].u, grid_v.V, i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext, num.NB, periodic_x, periodic_y)
+#     field_extension!(grid_u, grid_u.LS[iLS].u, grid_u.V, i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext, num.NB, periodic_x, periodic_y)
+#     field_extension!(grid_v, grid_v.LS[iLS].u, grid_v.V, i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext, num.NB, periodic_x, periodic_y)
 end
 
 
@@ -1031,32 +1040,90 @@ function compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,
 
     iLStmp=1
 
-    mass_flux   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid)
-    mass_flux .+= opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+    # mass_flux_vec1 = fnzeros(grid,num)
+    # mass_flux_vecb = fnzeros(grid,num)
+    # mass_flux_veci = fnzeros(grid,num)
 
-    printstyled(color=:green, @sprintf "\n mass_flux v1 : %.2e \n" sum(mass_flux))
+    mass_flux_vec1 = fzeros(grid)
+    mass_flux_vecb = fzeros(grid)
+    mass_flux_veci = fzeros(grid)
+
+
+    # print(size(mass_flux_vec1),"\n")
+    # print(size(mass_flux_vecb),"\n")
+    # print(size(mass_flux_veci),"\n")
+
+    mass_flux_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
+    mass_flux_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+
+    printstyled(color=:red, @sprintf "\n add veci\n")
+
+    # print(size(mass_flux_vec1),"\n")
+    # print(size(mass_flux_vecb),"\n")
+    # print(size(mass_flux_veci),"\n")
+
+    print(size(opC_p.HxT[1] * opC_p.iMx * opC_p.Hx[1] * veci(scalD,grid,1+1)),"\n")
 
 
     for iLS in 1:nLS
-        mass_flux .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
-        mass_flux .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
-
-        printstyled(color=:green, @sprintf "\n mass_flux veci : %.2e %.2e\n" sum(opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)) sum(opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)))
+        mass_flux_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+        mass_flux_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
     end
 
-    # mass_flux_sum = sum(mass_flux) * diffusion_coeff[1] 
-    mass_flux_sum = -sum(mass_flux) * diffusion_coeff[iscal] 
-    #TODO convention normal
+    mass_flux = mass_flux_vec1 .+ mass_flux_vecb .+ mass_flux_veci
 
-
-    #TODO 2D, here cylinder length 1m
-
-    # printstyled(color=:green, @sprintf "\n mass_flux : %.2e %.2e\n" max(abs.(mass_flux)...) mass_flux_sum)
-
-    # printstyled(color=:green, @sprintf "\n mass_flux : %.2e %.2e %.2e\n" max(abs.(mass_flux)...) mass_flux_sum sum(veci(mass_flux,grid,2))*diffusion_coeff[1])
-    # return mass_flux_sum,mass_flux
-    return mass_flux
+    return mass_flux, mass_flux_vec1, mass_flux_vecb, mass_flux_veci
 end
+
+# function compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,iscal)
+    
+#     @unpack nLS = num
+#     #Liquid phase
+#     @unpack trans_scalD = phL
+#     scalD= trans_scalD[:,iscal] #H2 species
+#     opC_p = opC_pL
+
+#     iLStmp=1
+
+#     # mass_flux = fnzeros(grid,num)
+#     # mass_flux   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid)
+#     # mass_flux .+= opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+
+#     # printstyled(color=:green, @sprintf "\n mass_flux v1 : %.2e \n" sum(mass_flux))
+
+#     # for iLS in 1:nLS
+#     #     mass_flux .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+#     #     mass_flux .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+
+#     #     printstyled(color=:green, @sprintf "\n mass_flux veci : %.2e %.2e\n" sum(opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)) sum(opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)))
+#     # end
+
+#     mass_flux_vec1 = fnzeros(grid,num)
+#     mass_flux_vecb = fnzeros(grid,num)
+#     mass_flux_veci = fnzeros(grid,num)
+
+#     mass_flux_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
+#     mass_flux_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+
+#     # printstyled(color=:green, @sprintf "\n mass_flux v1 : %.2e \n" sum(mass_flux))
+    
+
+#     for iLS in 1:nLS
+#         mass_flux_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+#         mass_flux_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+
+#         # printstyled(color=:green, @sprintf "\n mass_flux veci : %.2e %.2e\n" sum(opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)) sum(opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)))
+#     end
+
+#     mass_flux = mass_flux_vec1 + mass_flux_vecb + mass_flux_veci
+
+#     # mass_flux_sum = sum(mass_flux) * diffusion_coeff[1] 
+#     # mass_flux_sum = -sum(mass_flux) * diffusion_coeff[iscal] 
+#     #TODO convention normal
+
+#     # printstyled(color=:green, @sprintf "\n mass_flux : %.2e %.2e %.2e\n" max(abs.(mass_flux)...) mass_flux_sum sum(veci(mass_flux,grid,2))*diffusion_coeff[1])
+#     return mass_flux, mass_flux_vec1, mass_flux_vecb, mass_flux_veci
+# end
 
 
 # """

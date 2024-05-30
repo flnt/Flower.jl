@@ -8,7 +8,7 @@ using PrettyTables
 
 prefix="/local/home/pr277828/flower/"
 
-folder="electrolysis_sessile_static"
+folder="electrolysis_circle_wall"
 
 prefix *= "/"*folder*"/"
 
@@ -35,10 +35,39 @@ RR0(θ) = sqrt(π / (2 * (θ - sin(θ) * cos(θ))))
 center(r, θ) = r * cos(π - θ)
 ####################################################################################################
 
+####################################################################################################
+θe= 90
+θe= 145
+
+if θe < 40
+    max_its = 35000
+    n_ext = 10
+    CFL = 0.5
+elseif θe < 100
+    max_its = 15000
+    n_ext = 10
+    CFL = 0.5
+else
+    max_its = 5000
+    n_ext = 10
+    CFL = 0.5
+end
+####################################################################################################
+
+# max_its=10
+
+# save_every = max_its÷100
+save_every = 1
+# pres0 = 1e5
+pres0 = 0.0
+
 L0 = 1e-4 
 n = 64 
-# n = 128
+n = 128
+
 max_iter=100
+max_iter = 2
+max_iter = 1
 save_every=1
 
 xlabel = L"x \left(\mu m \right)"
@@ -83,7 +112,7 @@ rho2=0.069575 #"0.7016E-01" in \citet{cohnTABLETHERMODYNAMICPROPERTIES1963} H2
 # radius=2.5e-5 
 # radius=1.25e-5 
 radius = 3.0e-6 
-radius = 6.0e-6 
+# radius = 6.0e-6 
 
 h0 = radius
 
@@ -91,18 +120,20 @@ h0 = radius
 ref_thickness_2d = 4.0 / 3.0 *radius 
 
 # mode_2d = 1 #use equivalent cylinder
-mode_2d = 2 #mol/meter
-
+# mode_2d = 2 #mol/meter
+mode_2d = 3
 
 xcoord = 0.0
 ycoord = L0/2.0
+xcoord = -xcoord
+ycoord = -ycoord
 
 mu=6.7e-7
 mu1=mu
 mu2=mu #TODO
 i0=1.0
 temperature0=353.0
-pres0=1e5
+pres0= 0.0 #1e5
 sigma=7.7e-2
 KOHwtpercent=30
 phi_ele1=-0.6
@@ -121,12 +152,11 @@ phi_ele0=0.0
 CFL= 0.5 #0.01 #0.5
 Re=1.0
 TEND=7.3#s
+plot_xscale = 1e-6
 
 # elec_cond=1 #TODO
 elec_cond=2*Faraday^2*c0_KOH*DKOH/(Ru*temperature0)
 
-
-#print(@sprintf "TODO elec cond and boundary conditions need to be updated for potential\n")
 
 v_inlet=6.7e-4
 Re=rho1*v_inlet*L0/mu
@@ -160,7 +190,7 @@ diffusion_coeff=[DH2, DKOH, DH2O]
 concentration0=[0.16, 6700, 49000]
 nb_transported_scalars=3
 
-nb_saved_scalars=2
+nb_saved_scalars=3 #2
 
 
 if length(concentration0)!=nb_transported_scalars
@@ -180,17 +210,31 @@ print(@sprintf "nb_transported_scalars = %5i\n" nb_transported_scalars)
 # pretty_table(vcat(hcat("D",diffusion_coeff'),hcat("c",concentration0')); header = ["","H2", "KOH", "H2O"])
 # hl = Highlighter((d,i,j)->d[i,j][1]*d[i,j][2] < 0, crayon"red")
 
-hl = Highlighter((d,i,j)->d[i,j] isa String, crayon"bold blue")
+hl = Highlighter((d,i,j)->d[i,j] isa String, crayon"bold cyan")
 
-pretty_table(vcat(hcat("Diffusion coef",diffusion_coeff'),hcat("Concentration",concentration0')); 
-header = ["","H2", "KOH", "H2O"], highlighters=hl)
+diffusion_t = (radius^2)./diffusion_coeff
+
+pretty_table(vcat(
+    hcat("Diffusion time",diffusion_t'),
+    hcat("Diffusion coef",diffusion_coeff'),
+    hcat("Concentration",concentration0')); 
+formatters    = ft_printf("%0.2e", 2:4), #not ecessary , 2:4
+header = ["","H2", "KOH", "H2O"], 
+highlighters=hl)
+
+
+
+# printstyled(color=:green, @sprintf "\n Species diffusion timescales: %.2e %.2e %.2e \n" (radius^2)/DH2 (radius^2)/DKOH (radius^2)/DH2O )
+
 
 # printstyled(color=:green, @sprintf "\n nmol : \n" concentration0[1]*4.0/3.0*pi*radius^3  )
 
 current_radius = radius
 
 p_liq= pres0 #+ mean(veci(phL.pD,grid,2)) #TODO here one bubble
-p_g=p_liq + 2 * sigma / current_radius
+# p_g=p_liq + 2 * sigma / current_radius
+p_g=p_liq + sigma / current_radius
+
 
 c0test = p_g / (temperature0 * Ru) 
 
@@ -199,7 +243,6 @@ printstyled(color=:green, @sprintf "\n c0test: %.2e \n" c0test)
 
 # printstyled(color=:green, @sprintf "\n Mole test: %.2e %.2e\n" concentration0[1]*4.0/3.0*pi*current_radius^3 p_g*4.0/3.0*pi*current_radius^3/(temperature0*num.Ru))
 
-printstyled(color=:green, @sprintf "\n Species diffusion timescales: %.2e %.2e %.2e \n" (radius^2)/DH2 (radius^2)/DKOH (radius^2)/DH2O )
 
 
 
@@ -216,30 +259,7 @@ printstyled(color=:green, @sprintf "\n Species diffusion timescales: %.2e %.2e %
 
 
 
-####################################################################################################
-θe= 90
-θe= 145
 
-if θe < 40
-    max_its = 35000
-    n_ext = 10
-    CFL = 0.5
-elseif θe < 100
-    max_its = 15000
-    n_ext = 10
-    CFL = 0.5
-else
-    max_its = 5000
-    n_ext = 10
-    CFL = 0.5
-end
-####################################################################################################
-
-max_its=10
-
-# save_every = max_its÷100
-save_every = 1
-pres0 = 1e5
 
 ####################################################################################################
 # not imposing the angle exactly at the boundary but displaced a cell because ghost cells are not used. 
@@ -248,9 +268,9 @@ pres0 = 1e5
 # with the boundary values in addition to the bulk field. That way we could impose it exactly at the boundary
 # needs a lot of work, not priority
 _θe = acos((0.5 * diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
-thetaref = acos((0.5 * diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
 # _θe = acos((diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
 println("θe = $(_θe)")
+
 ####################################################################################################
 
 
@@ -263,7 +283,7 @@ num = Numerical(
     y = y,
     shifted = xcoord,
     shifted_y = ycoord,
-    case = "Planar",
+    case = "Cylinder",#"Planar",
     R = radius,
     max_iterations = max_iter,
     save_every = save_every,#10,#save_every,#10,
@@ -290,16 +310,16 @@ num = Numerical(
     u_inf = 0.0,
     v_inf = 0.0,
     pres0=pres0,
-    σ=sigma,   
-    reinit_every = 10,
-    nb_reinit = 2,
-    δreinit = 10.0,
-    n_ext_cl = n_ext,
-    NB = 24,
+    # σ=sigma,   
+    # reinit_every = 10,
+    # nb_reinit = 2,
+    # δreinit = 10.0,
+    # n_ext_cl = n_ext,
+    # NB = 24,
+    plot_xscale = plot_xscale,
+    plot_prefix = prefix,
     )
     # ref_thickness_2d = ref_thickness_2d,
-
-
 
 #Initialization
 gp, gu, gv = init_meshes(num)
@@ -311,7 +331,7 @@ op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 # gp.LS[1].u .*= -1.0
 ####################################################################################################
 
-gp.LS[1].u .= sqrt.((gp.x .- xcoord).^2 + (gp.y .- ycoord).^2) - radius * ones(gp)
+# gp.LS[1].u .= sqrt.((gp.x .- xcoord).^2 + (gp.y .- ycoord).^2) - radius * ones(gp)
 
 
 
@@ -356,7 +376,7 @@ vecb_T(phL.uD, gu) .= 0.0
 printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL CFL*L0/n/v_inlet)
 
 
-xscale = 1e-6
+xscale = plot_xscale
 yscale = xscale
 
 x_array=gp.x[1,:]/xscale
@@ -492,7 +512,7 @@ BC_u = Boundaries(
 @time current_i=run_forward(
     num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
     BC_uL = Boundaries(
-        left   = Navier_cl(λ = 1e-2), #Dirichlet(),
+        left   = Dirichlet(),#Navier_cl(λ = 1e-2), #Dirichlet(),
         right  = Dirichlet(),
         bottom = Dirichlet(),
         top    = Neumann(val=0.0),
@@ -512,9 +532,10 @@ BC_u = Boundaries(
     # left = Dirichlet(val=pres0),
     # right = Dirichlet(val=pres0),
 
-    BC_u = BC_u,
+    # BC_u = BC_u,
+    # BC_int = [FreeSurface()],
+    BC_int = [WallNoSlip()],
 
-    BC_int = [FreeSurface()],
 
     # BC_TL  = Boundaries(
     # left   = Dirichlet(val = temperature0),
@@ -554,24 +575,26 @@ BC_u = Boundaries(
         int    = Neumann(val=0.0),
     ),
 
-    auto_reinit = true,
-    save_length = true,
+    # auto_reinit = true,
+    # save_length = true,
     time_scheme = FE,#CN, #or FE?
     electrolysis = true,
     navier_stokes = true,
-    ns_advection=false,
+    ns_advection=true,#false,
     ns_liquid_phase = true,
     verbose = true,
     show_every = 1,
     electrolysis_convection = true,  
     electrolysis_liquid_phase = true,
     electrolysis_phase_change = true,
+    # electrolysis_phase_change_case = "levelset",
     electrolysis_phase_change_case = "Khalighi",
     electrolysis_reaction = "Butler_no_concentration",
     # electrolysis_reaction = "nothing",
     adapt_timestep_mode = adapt_timestep_mode,#1,
     non_dimensionalize=0,
     mode_2d = mode_2d,
+    
 
     # ns_advection = false,
 
@@ -581,11 +604,6 @@ BC_u = Boundaries(
 )
 
 printstyled(color=:green, @sprintf "\n max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(phL.u)) maximum(abs.(phL.v)))
-
-
-   
-
-
 
 ######################################################################################################
 
@@ -600,6 +618,7 @@ mean_rad = 1 / abs(mean(gp.LS[1].κ[gp.LS[1].MIXED[5:end-5]]))
 RR0_sim = mean_rad / 0.5
 RR0_theo = RR0(θe * π / 180)
 
+
 println("Vratio = $(Vratio)")
 println("mean rad = $(mean_rad)")
 println("RR0_sim = $(RR0_sim)")
@@ -610,9 +629,9 @@ suffix = "$(θe)deg_$(n)_reinit$(num.reinit_every)_nb$(num.nb_reinit)"
 file = suffix*".jld2"
 # save_field(prefix*file, num, gp, phL, fwdL, fwd)
 
-tcks = -num.L0/2:0.5:num.L0
-lim = (num.L0 + num.Δ) / 2
-lim = 1.0
+# tcks = -num.L0/2:0.5:num.L0
+# lim = (num.L0 + num.Δ) / 2
+# lim = 1.0
 ######################################################################################################
 
 
@@ -787,75 +806,75 @@ plt.savefig(prefix*"v.pdf")
 plt.close(fig1)
 ######################################################################################################
 
-iLS=1
-rhs_LS = fzeros(gp)
-#test contact angle
-xp,yp,xp0,yp0=BC_LS_test!(gp, gp.LS[iLS].u, gp.LS[iLS].A, gp.LS[iLS].B, rhs_LS, BC_u)
-printstyled(color=:green, @sprintf "\n θe : %.2e °\n" _θe*180.0/π)
-printstyled(color=:green, @sprintf "\n θe : %.2e °\n" thetaref*180.0/π)
 
+
+# iLS=1
+# rhs_LS = fzeros(gp)
+# #test contact angle
+# xp,yp,xp0,yp0=BC_LS_test!(gp, gp.LS[iLS].u, gp.LS[iLS].A, gp.LS[iLS].B, rhs_LS, BC_u)
+
+# fig1, ax2 = plt.subplots(layout="constrained")
+# CS = ax2.contourf(x_array,y_array,gp.LS[1].u ./xscale, 10, cmap=cmap)
+
+# # print("\n xp",x_array)
+# # print("\n yp",y_array)
+
+# # print("\n xp",xp)
+# # print("\n yp",yp)
+# # print("\n xp0",xp0)
+# # print("\n yp0",yp0)
+
+# xp  = xp/xscale
+# yp  = yp/xscale
+# xp0 = xp0/xscale
+# yp0 = yp0/xscale
+
+# ms=2
+# mcolor="w"
+
+# plt.scatter(xp,yp,s=ms,c=mcolor)
+
+# mcolor="black"
+
+# plt.scatter(xp0,yp0,s=ms,c=mcolor)
+
+
+
+# ax2.set_xlabel(L"$x (\mu m)$")
+# ax2.set_ylabel(L"$y (\mu m)$")
+
+# # Make a colorbar for the ContourSet returned by the contourf call.
+# cbar = fig1.colorbar(CS)
+# # cbar.ax.set_ylabel("v")
+
+# cbar.ax.set_title(raw"$( \unit{\um})$")
+
+# # cbar.ax.set_title(L"$10^{-6}$")
+
+# plt.axis("equal")
+
+# plt.savefig(prefix*"contact.pdf")
+
+# plt.close(fig1)
 ######################################################################################################
 
-fig1, ax2 = plt.subplots(layout="constrained")
-CS = ax2.contourf(x_array,y_array,gp.LS[1].u ./xscale, 10, cmap=cmap)
-
-# print("\n xp",x_array)
-# print("\n yp",y_array)
-
-# print("\n xp",xp)
-# print("\n yp",yp)
-# print("\n xp0",xp0)
-# print("\n yp0",yp0)
-
-xp  = xp/xscale
-yp  = yp/xscale
-xp0 = xp0/xscale
-yp0 = yp0/xscale
+#TODO bug when putting plotting instructions in function, range(start,end,step) no longer working as argument so give start,end,length instead
 
 
-
-ms=2
-mcolor="w"
-
-plt.scatter(xp,yp,s=ms,c=mcolor)
-
-mcolor="black"
-
-plt.scatter(xp0,yp0,s=ms,c=mcolor)
+plot_python_pdf(phL.p, "p",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure")
 
 
+# plot_python_pdf(phL.p, "p",prefix,plot_levelset,isocontour,0,range(pres0*0.9999,pres0*1.0001,length=10),cmap,x_array,y_array,gp,"pressure")
 
-ax2.set_xlabel(L"$x (\mu m)$")
-ax2.set_ylabel(L"$y (\mu m)$")
-
-# Make a colorbar for the ContourSet returned by the contourf call.
-cbar = fig1.colorbar(CS)
-# cbar.ax.set_ylabel("v")
-
-cbar.ax.set_title(raw"$( \unit{\um})$")
-
-# cbar.ax.set_title(L"$10^{-6}$")
-
-plt.axis("equal")
-
-plt.savefig(prefix*"contact.pdf")
-
-plt.close(fig1)
-######################################################################################################
-
-# plot_python_pdf(phL.p, "p",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure")
-
-plot_python_pdf(phL.p, "p",prefix,plot_levelset,isocontour,0,range(pres0*0.9999,pres0*1.0001,length=10),cmap,x_array,y_array,gp,"pressure")
-
-plot_python_pdf((phL.p.-pres0)./pres0, "pnorm",prefix,plot_levelset,isocontour,0,range(-1e-4,1e-4,length=10),cmap,x_array,y_array,gp,"pressure")
+# plot_python_pdf((phL.p.-pres0)./pres0, "pnorm",prefix,plot_levelset,isocontour,0,range(-1e-4,1e-4,length=10),cmap,x_array,y_array,gp,"pressure")
 
 
-# python_movie_zoom(fwdL.p,"p",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",
-# size_frame,1,gp.nx,1,gp.ny,fwd)
-
-
-python_movie_zoom((fwdL.p.-pres0)./pres0,"pnorm",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",
+python_movie_zoom(fwdL.p,"p",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",
 size_frame,1,gp.nx,1,gp.ny,fwd)
+
+
+# python_movie_zoom((fwdL.p.-pres0)./pres0,"pnorm",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",
+# size_frame,1,gp.nx,1,gp.ny,fwd)
 
 plot_python_pdf(max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), "H2",prefix,
 plot_levelset,concentrationcontour,0,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration")
@@ -863,11 +882,13 @@ plot_levelset,concentrationcontour,0,range(0,1400,length=8),cmap,x_array,y_array
 plot_python_pdf(max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), "H2lvl",prefix,
 plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration")
 
-python_movie_zoom(max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0),"H2_norm",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),
-cmap,x_array,y_array,gp,"concentration",size_frame,1,gp.nx,1,gp.ny,fwd)
+python_movie_zoom(max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0),"H2_norm",prefix,
+plot_levelset,isocontour,0,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",size_frame,1,gp.nx,1,gp.ny,fwd)
+
+python_movie_zoom(max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0),"H2lvl",prefix,
+plot_levelset,isocontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",size_frame,1,gp.nx,1,gp.ny,fwd)
 
 ######################################################################################################
-#TODO bug when putting plotting instructions in function, range(start,end,step) no longer working as argument so give start,end,length instead
 
 
 
@@ -880,28 +901,62 @@ plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_arra
 # plot_python_several_pdf(fwd.trans_scal[:,:,:,1],"H2",true,size_frame)
 # plot_python_several_pdf(fwd.saved_scal[:,:,:,1],"H2massflux",true,size_frame)
 
-python_movie_zoom(max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0),"H2_norm",plot_levelset,size_frame,1,gp.nx,1,gp.ny,0,
-range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",
+
+python_movie_zoom(max.((fwd.trans_scal[:,:,:,2] .-c0_KOH)./c0_KOH,0.0),"KOH_norm",prefix,
+plot_levelset,false,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
 size_frame,1,gp.nx,1,gp.ny,fwd)
 
-python_movie_zoom(max.((fwd.trans_scal[:,:,:,2] .-c0_KOH)./c0_KOH,0.0),"KOH_norm",
-plot_levelset,size_frame,1,gp.nx,1,gp.ny,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",
+python_movie_zoom(max.((fwd.trans_scal[:,:,:,3] .-c0_H2O)./c0_H2O,0.0),"H2O_norm",prefix,
+plot_levelset,false,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
 size_frame,1,gp.nx,1,gp.ny,fwd)
 
-python_movie_zoom(max.((fwd.trans_scal[:,:,:,3] .-c0_H2O)./c0_H2O,0.0),"H2O_norm",
-plot_levelset,size_frame,1,gp.nx,1,gp.ny,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",
+python_movie_zoom(fwd.saved_scal[:,:,:,1],"flux1",prefix,
+plot_levelset,false,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",
 size_frame,1,gp.nx,1,gp.ny,fwd)
 
-python_movie_zoom(fwd.saved_scal[:,:,:,1],"flux1",false,size_frame,1,gp.nx,1,gp.ny,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",
+python_movie_zoom(fwd.saved_scal[:,:,:,2],"flux2",prefix,
+plot_levelset,false,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",
 size_frame,1,gp.nx,1,gp.ny,fwd)
 
-python_movie_zoom(fwd.saved_scal[:,:,:,2],"flux2",false,size_frame,1,gp.nx,1,gp.ny,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",
+python_movie_zoom(fwd.saved_scal[:,:,:,1],"flux1noLS",prefix,
+false,false,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",
 size_frame,1,gp.nx,1,gp.ny,fwd)
 
-# python_movie_zoom(field,name,plot_levelset,size_frame,i0,i1,j0,j1,lmin,lmax,step)
+
+i0 = 1
+i1 = 10
+j0 = gp.ny ÷ 2 +1
+j1 = gp.ny ÷ 2 + 10
+
+python_movie_zoom(fwd.saved_scal[:,:,:,1],"flux1zoom",prefix,
+plot_levelset,false,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",
+size_frame,i0,i1,j0,j1,fwd)
 
 
 
+
+plot_python_pdf(phL.saved_scal[:,:,1], "flux1phL",prefix,
+plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux")
+
+
+plot_python_pdf(fwd.saved_scal[1,:,:,1], "flux1",prefix,
+plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux")
+
+plot_python_pdf(fwd.saved_scal[1,:,:,2], "flux2",prefix,
+plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux")
+
+plot_python_pdf(fwd.saved_scal[1,:,:,3], "flux3",prefix,
+plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux")
+
+
+plot_python_pdf(fwd.saved_scal[1,:,:,1], "flux1noLS",prefix,
+false,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux")
+
+plot_python_pdf(fwd.saved_scal[1,:,:,2], "flux2noLS",prefix,
+false,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux")
+
+plot_python_pdf(fwd.saved_scal[1,:,:,3], "flux3noLS",prefix,
+false,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux")
 
 ######################################################################################################
 

@@ -42,7 +42,7 @@
 
 function strtitlefunc(isnap,fwd)
     # strtitle = @sprintf "t %.2e radius %.2e" fwd.t[i+1] fwd.radius[i+1]
-    strtitle = @sprintf "t %.2e (ms) radius %.2e (mm)" fwd.t[isnap]*1e3 fwd.radius[isnap]*1e6
+    strtitle = @sprintf "t %.2e (ms) radius %.2e (mu m)" fwd.t[isnap]*1e3 fwd.radius[isnap]*1e6
     return strtitle
 end
 
@@ -110,7 +110,7 @@ end
 
 
 
-function python_movie_zoom(field,figname,prefix,plot_levelset,isocontour,levels,range,cmap,x_array,y_array,gp,cbarlabel,size_frame,i0,i1,j0,j1,fwd)
+function python_movie_zoom(field0,figname,prefix,plot_levelset,isocontour,levels,range,cmap,x_array,y_array,gp,cbarlabel,size_frame,i0,i1,j0,j1,fwd)
 
     # if step!=0
     #     levels=range(lmin,lmax,step)
@@ -124,16 +124,18 @@ function python_movie_zoom(field,figname,prefix,plot_levelset,isocontour,levels,
     x_arr=x_array[i0:i1]
     y_arr=y_array[j0:j1]
 
+    field = field0[:,i0:i1,j0:j1]
+
     if levels==0
-        CS = ax2.contourf(x_array,y_array,field[1,:,:], 
+        CS = ax2.contourf(x_arr,y_arr,field[1,:,:], 
         levels=range,
         cmap=cmap)
     else
-        CS = ax2.contourf(x_array,y_array,field[1,:,:], 
+        CS = ax2.contourf(x_arr,y_arr,field[1,:,:], 
         levels=levels,
         cmap=cmap)
     end
-    # CS = ax2.contourf(x_array,y_array,field[1,:,:], 
+    # CS = ax2.contourf(x_arr,y_arr,field[1,:,:], 
     # # levels=10, 
     # levels=levels,
     # cmap=cmap)
@@ -147,19 +149,19 @@ function python_movie_zoom(field,figname,prefix,plot_levelset,isocontour,levels,
         ax2.clear()
         # ax1.imshow(A[:,:,i+1, 1])
 
-        # CS = ax2.contourf(x_array,y_array,max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), 10, cmap=cmap)
+        # CS = ax2.contourf(x_arr,y_arr,max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), 10, cmap=cmap)
 
-        if step!=0
-            CS = ax2.contourf(x_array,y_array,field[i+1,:,:], 
+        if levels==0
+            CS = ax2.contourf(x_arr,y_arr,field[i+1,:,:], 
             levels=range,
             cmap=cmap)
         else
-            CS = ax2.contourf(x_array,y_array,field[i+1,:,:], 
+            CS = ax2.contourf(x_arr,y_arr,field[i+1,:,:], 
             levels=levels,
             cmap=cmap)
         end
 
-        # CS = ax2.contourf(x_array,y_array,field[i+1,:,:], 
+        # CS = ax2.contourf(x_arr,y_arr,field[i+1,:,:], 
         # # levels=10, 
         # levels=levels,
         # cmap=cmap)
@@ -168,7 +170,7 @@ function python_movie_zoom(field,figname,prefix,plot_levelset,isocontour,levels,
         strtitle=strtitlefunc(i+1,fwd)
         plt.title(strtitle)
 
-        # CS = ax2.contourf(x_array,y_array,(fwd.trans_scal[i+1,:,:,1] .-c0_H2)./c0_H2, 
+        # CS = ax2.contourf(x_arr,y_arr,(fwd.trans_scal[i+1,:,:,1] .-c0_H2)./c0_H2, 
         # # levels=10, 
         # levels=range(0,1400,step=200),
         # cmap=cmap)
@@ -185,6 +187,10 @@ function python_movie_zoom(field,figname,prefix,plot_levelset,isocontour,levels,
         # Make a colorbar for the ContourSet returned by the contourf call.
         #  cbar = fig1.colorbar(CS)
         #  cbar.ax.set_ylabel(cbarlabel)
+
+        if step!=0
+            fig1.colorbar(CS,cax=cbar.ax)
+        end
 
         #https://stackoverflow.com/questions/5180518/duplicated-colorbars-when-creating-an-animation
 
@@ -204,7 +210,7 @@ function python_movie_zoom(field,figname,prefix,plot_levelset,isocontour,levels,
         end
     
         if plot_levelset
-            CSlvl = ax2.contour(x_array,y_array, fwd.u[1,i+1,:,:], [0.0],colors="r")
+            CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,i+1,i0:i1,j0:j1], [0.0],colors="r")
         end
 
 
@@ -221,6 +227,85 @@ function python_movie_zoom(field,figname,prefix,plot_levelset,isocontour,levels,
 
 end
 ###############################################################################################
+
+
+"""
+From Stefan_velocity!
+"""
+function plot_electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodic_y, concentration_scal_intfc)
+    @unpack geoS, geoL, κ = LS
+
+    # V .= 0
+    # @inbounds @threads for II in MIXED
+
+    
+    x_array=grid.x[1,:]/num.plot_xscale
+    y_array=grid.y[:,1]/num.plot_xscale
+
+
+    fig1, ax2 = plt.subplots(layout="constrained")
+    cmap = plt.cm.viridis
+
+    CS = ax2.contourf(x_array,y_array, reshape(veci(TL,grid,1), grid), 10, cmap=cmap)
+
+
+    # ax2.set_title("Title")
+    ax2.set_xlabel(L"$x (\mu m)$")
+    ax2.set_ylabel(L"$y (\mu m)$")
+
+    # Make a colorbar for the ContourSet returned by the contourf call.
+    cbar = fig1.colorbar(CS)
+    cbar.ax.set_ylabel("concentration")
+
+    # cbar.ax.set_title(L"$10^{-4}$")
+    plt.axis("equal")    
+
+    @inbounds for II in MIXED
+
+        θ_d = concentration_scal_intfc
+
+        # dTS = 0.
+        dTL = 0.
+        if geoL.projection[II].flag
+            T_1, T_2 = interpolated_temperature(grid, geoL.projection[II].angle, geoL.projection[II].point1, geoL.projection[II].point2, TL, II, periodic_x, periodic_y)
+            dTL = normal_gradient(geoL.projection[II].d1, geoL.projection[II].d2, T_1, T_2, θ_d)
+        else
+            T_1 = interpolated_temperature(grid, geoL.projection[II].angle, geoL.projection[II].point1, TL, II, periodic_x, periodic_y)
+            dTL = normal_gradient(geoL.projection[II].d1, T_1, θ_d)
+        end
+        # V[II] = dTL #+ dTS
+
+        print("\n grad",II,"val",dTL,"val",geoL.projection[II].flag,"val",geoL.projection[II].angle,"val", geoL.projection[II].point1,"val", geoL.projection[II].point2,"val", T_1,"val",T_2,"val",θ_d)
+        
+        xp1=geoL.projection[II].point1.x/num.plot_xscale
+        yp1=geoL.projection[II].point1.y/num.plot_xscale
+
+        xp2=geoL.projection[II].point2.x/num.plot_xscale
+        yp2=geoL.projection[II].point2.y/num.plot_xscale
+
+        print("\n test",xp1,geoL.projection[II].point1.x)
+
+
+        print("\n plotscale",num.plot_xscale)
+        # print("\n test",xp1)
+        # print("\n test",yp1)
+        # print("\n test",xp2)
+        # print("\n test",yp2)
+
+        #TODO cannot use ' but "
+
+        plt.scatter(xp1,yp1,c="b")
+        plt.scatter(xp2,yp2,c="r")
+   
+    end
+
+    plt.savefig(num.plot_prefix*"jump.pdf")
+    plt.close(fig1)
+
+
+    return nothing
+end
+
 
 
 # function plot_python_pdf(field,name,plot_levelset,range)

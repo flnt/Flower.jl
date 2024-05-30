@@ -125,7 +125,7 @@ TEND=7.3#s
 elec_cond=2*Faraday^2*c0_KOH*DKOH/(Ru*temperature0)
 
 
-print(@sprintf "TODO elec cond and boundary conditions need to be updated for potential\n")
+#print(@sprintf "TODO elec cond and boundary conditions need to be updated for potential\n")
 
 v_inlet=6.7e-4
 Re=rho1*v_inlet*L0/mu

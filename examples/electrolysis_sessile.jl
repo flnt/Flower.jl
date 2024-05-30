@@ -121,12 +121,13 @@ phi_ele0=0.0
 CFL= 0.5 #0.01 #0.5
 Re=1.0
 TEND=7.3#s
+plot_xscale = 1e-6
 
 # elec_cond=1 #TODO
 elec_cond=2*Faraday^2*c0_KOH*DKOH/(Ru*temperature0)
 
 
-print(@sprintf "TODO elec cond and boundary conditions need to be updated for potential\n")
+#print(@sprintf "TODO elec cond and boundary conditions need to be updated for potential\n")
 
 v_inlet=6.7e-4
 Re=rho1*v_inlet*L0/mu
@@ -190,7 +191,9 @@ header = ["","H2", "KOH", "H2O"], highlighters=hl)
 current_radius = radius
 
 p_liq= pres0 #+ mean(veci(phL.pD,grid,2)) #TODO here one bubble
-p_g=p_liq + 2 * sigma / current_radius
+# p_g=p_liq + 2 * sigma / current_radius
+p_g=p_liq + sigma / current_radius
+
 
 c0test = p_g / (temperature0 * Ru) 
 
@@ -296,6 +299,8 @@ num = Numerical(
     δreinit = 10.0,
     n_ext_cl = n_ext,
     NB = 24,
+    plot_xscale = plot_xscale,
+    plot_prefix = prefix,
     )
     # ref_thickness_2d = ref_thickness_2d,
 
@@ -356,7 +361,7 @@ vecb_T(phL.uD, gu) .= 0.0
 printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL CFL*L0/n/v_inlet)
 
 
-xscale = 1e-6
+xscale = plot_xscale
 yscale = xscale
 
 x_array=gp.x[1,:]/xscale
@@ -864,7 +869,7 @@ plot_levelset,concentrationcontour,0,range(0,1400,length=8),cmap,x_array,y_array
 plot_python_pdf(max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), "H2lvl",prefix,
 plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration")
 
-python_movie_zoom(max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0),"H2_norm",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),
+python_movie_zoom(max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0),"H2_norm",prefix,plot_levelset,isocontour,0,range(0,1400,length=8),
 cmap,x_array,y_array,gp,"concentration",size_frame,1,gp.nx,1,gp.ny,fwd)
 
 ######################################################################################################
@@ -881,22 +886,24 @@ plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_arra
 # plot_python_several_pdf(fwd.trans_scal[:,:,:,1],"H2",true,size_frame)
 # plot_python_several_pdf(fwd.saved_scal[:,:,:,1],"H2massflux",true,size_frame)
 
-python_movie_zoom(max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0),"H2_norm",plot_levelset,size_frame,1,gp.nx,1,gp.ny,0,
-range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",
+python_movie_zoom(max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0),"H2_norm",prefix,plot_levelset,false,size_frame,1,gp.nx,1,gp.ny,0,
+range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
 size_frame,1,gp.nx,1,gp.ny,fwd)
 
-python_movie_zoom(max.((fwd.trans_scal[:,:,:,2] .-c0_KOH)./c0_KOH,0.0),"KOH_norm",
-plot_levelset,size_frame,1,gp.nx,1,gp.ny,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",
+python_movie_zoom(max.((fwd.trans_scal[:,:,:,2] .-c0_KOH)./c0_KOH,0.0),"KOH_norm",prefix,
+plot_levelset,false,size_frame,1,gp.nx,1,gp.ny,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
 size_frame,1,gp.nx,1,gp.ny,fwd)
 
-python_movie_zoom(max.((fwd.trans_scal[:,:,:,3] .-c0_H2O)./c0_H2O,0.0),"H2O_norm",
-plot_levelset,size_frame,1,gp.nx,1,gp.ny,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",
+python_movie_zoom(max.((fwd.trans_scal[:,:,:,3] .-c0_H2O)./c0_H2O,0.0),"H2O_norm",prefix,
+plot_levelset,false,size_frame,1,gp.nx,1,gp.ny,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
 size_frame,1,gp.nx,1,gp.ny,fwd)
 
-python_movie_zoom(fwd.saved_scal[:,:,:,1],"flux1",false,size_frame,1,gp.nx,1,gp.ny,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",
+python_movie_zoom(fwd.saved_scal[:,:,:,1],"flux1",prefix,
+plot_levelset,false,size_frame,1,gp.nx,1,gp.ny,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",
 size_frame,1,gp.nx,1,gp.ny,fwd)
 
-python_movie_zoom(fwd.saved_scal[:,:,:,2],"flux2",false,size_frame,1,gp.nx,1,gp.ny,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",
+python_movie_zoom(fwd.saved_scal[:,:,:,2],"flux2",prefix,
+plot_levelset,false,size_frame,1,gp.nx,1,gp.ny,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",
 size_frame,1,gp.nx,1,gp.ny,fwd)
 
 # python_movie_zoom(field,name,plot_levelset,size_frame,i0,i1,j0,j1,lmin,lmax,step)

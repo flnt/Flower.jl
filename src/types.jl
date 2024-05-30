@@ -73,6 +73,8 @@ abstract type AbstractOptimizer end
     nNavier = 0 # number of Navier inner BCs
     pres0::T=0.0
     ref_thickness_2d::T=1.0
+    plot_xscale::T = 1.0
+    plot_prefix::String = "."
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
