@@ -61,7 +61,7 @@ function run_forward(
         return nothing
     end
     crashed=false
-    current_i=0
+    # current_i=0
     free_surface = false
     stefan = false
     flapping = false
@@ -372,6 +372,17 @@ function run_forward(
     if electrolysis
         printstyled(color=:green, @sprintf "\n Check init_fields_2\n")
         print_electrolysis_statistics(nb_transported_scalars,grid,phL)
+
+        # print("\n test left H2", vecb_L(phL.trans_scalD[:,1], grid))
+        # print("\n test left potential", vecb_L(phL.phi_eleD, grid))
+
+        # plot_python_bc(num,(grid.x[:,1] - 0.5 * grid.dx[:,1])/num.plot_xscale, grid.y[:,1]/num.plot_xscale,vecb_L(phL.trans_scalD[:,1], grid),"vecb_L_H2",num.plot_prefix,grid)
+        # plot_python_bc(num,(grid.x[:,1] - 0.5 * grid.dx[:,1])/num.plot_xscale, grid.y[:,1]/num.plot_xscale,vecb_L(phL.phi_eleD, grid),"vecb_L_phi",num.plot_prefix,grid)
+        
+        # print("\n phL.uD: ",any(isnan, phL.uD) , "\n phL.vD: ",any(isnan, phL.vD) , "\n phL.TD: ",any(isnan, phL.TD) , "\n phS.uD: ",any(isnan, phS.uD) , "\n phS.vD: ",any(isnan, phS.vD) , "\n phS.TD: ",any(isnan, phS.TD) ,
+        # "\n phL.trans_scalD: ",any(isnan, phL.trans_scalD) , "\n phL.phi_eleD: ",any(isnan, phL.phi_eleD) ,
+        # "\n phL.u: ",norm(phL.u) > 1e8 , "\n phS.u: ",norm(phS.u) > 1e8 , "\n phL.T: ",norm(phL.T) > 1e8 , "\n phS.T: ",norm(phS.T) > 1e8 , "\n phL.trans_scal: ",norm(phL.trans_scal) > 1e8 , "\n phL.phi_ele: ",norm(phL.phi_ele) > 1e8)
+
     end
     ####################################################################################################
 
@@ -668,10 +679,40 @@ function run_forward(
                 #TODO check BC not overwritten by different scalars
                 #TODO check ls advection true when n scalars
 
+                # print("\n vecb_L",vecb_L(phL.phi_eleD, grid))
+                # print("\n phL.phi_ele[:,1]",phL.phi_ele[:,1])
+
+                #TODO phL.phi_ele[:,1] or vecb_L(phL.phi_eleD, grid)
+                # we suppose phi(x=0)=... cf Khalighi
+                #but here BC
+
+                if heat
+                    i_butler = butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,vecb_L(phL.phi_eleD, grid),
+                    phi_ele1,Ru,phL.T)
+                else
+                    i_butler = butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,vecb_L(phL.phi_eleD, grid),
+                    phi_ele1,Ru,temperature0)
+                         
+                end   
 
                 for iscal=1:nb_transported_scalars
-                    
-                    BC_trans_scal[iscal].left.val = butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./(2*Faraday*diffusion_coeff[iscal])
+
+
+                    # print("before trans")
+
+                    # phL.saved_scal[:,:,1],phL.saved_scal[:,:,2],phL.saved_scal[:,:,3],phL.saved_scal[:,:,4]=compute_mass_flux!(num,grid, grid_u, 
+                    # grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,1)
+            
+                    # for iscal=1:nb_saved_scalars
+                    #     @views fwd.saved_scal[1,:,:,iscal] .= phL.saved_scal[:,:,iscal] #varflux[iscal] #reshape(varfluxH2, grid)
+                    # end
+
+                    # print("before trans")
+
+                    BC_trans_scal[iscal].left.val = i_butler./(2*Faraday*diffusion_coeff[iscal])
+                  
+                    # print("\n Butler",BC_trans_scal[iscal].left.val)
+
                     if iscal==1 || iscal==2
                         BC_trans_scal[iscal].left.val .*=-1 #H2O
                     end
@@ -768,6 +809,31 @@ function run_forward(
 
                 end 
 
+
+                # for iLS in 1:nLS
+                #     kill_dead_cells_val!(veci(elec_condD,grid,iLS+1), grid, LS[iLS].geoL,1.0)
+                # end
+
+                # [LS[iLS].geoS for iLS in 1:_nLS]
+
+                # for iLS in 1:nLS
+                #     kill_dead_cells_val!(veci(elec_condD,grid,iLS+1), grid, LS[1].geoL,1.0)
+                # end
+
+                # kill_dead_cells_val_wall!(vecb(elec_condD,grid), grid, LS[1].geoL,1.0)
+
+
+
+         
+                
+                # iLS=1
+                # kill_dead_cells_val!(veci(elec_condD,grid,iLS+1), grid, LS[1].geoL,1.0)
+
+                # kill_dead_cells_val!(elec_condD, grid, LS[1].geoL,1.0) #overwrite null conductivity in solid cells for BC 1/cond
+
+                # print("\n \n elec_condD",vecb_L(elec_condD, grid))
+
+
                 #TODO Poisson with variable coefficients
                 #TODO need to iterate? since nonlinear
 
@@ -780,23 +846,53 @@ function run_forward(
 
                 if electrolysis_reaction == "Butler_no_concentration"
 
-                    if heat
-                        BC_phi_ele.left.val = -butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,phL.T)./elec_cond[:,1]
-                    else
-                        BC_phi_ele.left.val = -butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./elec_cond[:,1]
+                    # BC_phi_ele.left.val .= -i_butler./elec_cond[:,1]
+                    BC_phi_ele.left.val .= -i_butler./vecb_L(elec_condD, grid)
+
+
+                    # if heat
+                    #     BC_phi_ele.left.val = -butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,phL.T)./elec_cond[:,1]
+                    # else
+                    #     BC_phi_ele.left.val = -butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./elec_cond[:,1]
                         
-                        # for iscal=1:nb_transported_scalars
-                        #     BC_trans_scal[iscal].left.val = butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./(2*Faraday*diffusion_coeff[iscal])
-                        #     if iscal==1 || iscal==2
-                        #         BC_trans_scal[iscal].left.val .*=-1 #H2O
-                        #     end
-                        # end
-                    end    
+                    #     # for iscal=1:nb_transported_scalars
+                    #     #     BC_trans_scal[iscal].left.val = butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./(2*Faraday*diffusion_coeff[iscal])
+                    #     #     if iscal==1 || iscal==2
+                    #     #         BC_trans_scal[iscal].left.val .*=-1 #H2O
+                    #     #     end
+                    #     # end
+                    # end    
 
                 # elseif electrolysis_reaction == ""
                 #     # BC_phi_ele.left.val = -butler_volmer_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./elec_cond
                 
                 end
+
+                for iLS in 1:nLS
+                    # kill_dead_bc_left_wall!(vecb(elec_condD,grid), grid, iLS,1.0)
+                    for i = 1:grid.ny
+                        II = CartesianIndex(i,1)
+                        if grid.LS[iLS].geoL.cap[II,5] < 1e-12
+                            BC_phi_ele.left.val[i] = 1.0
+                        end
+                    end
+                end
+
+                #debugphi
+
+                # print("\n phL.uD: ",any(isnan, phL.uD) , "\n phL.vD: ",any(isnan, phL.vD) , "\n phL.TD: ",any(isnan, phL.TD) , "\n phS.uD: ",any(isnan, phS.uD) , "\n phS.vD: ",any(isnan, phS.vD) , "\n phS.TD: ",any(isnan, phS.TD) ,
+                # "\n phL.trans_scalD: ",any(isnan, phL.trans_scalD) , "\n phL.phi_eleD: ",any(isnan, phL.phi_eleD) ,
+                # "\n phL.u: ",norm(phL.u) > 1e8 , "\n phS.u: ",norm(phS.u) > 1e8 , "\n phL.T: ",norm(phL.T) > 1e8 , "\n phS.T: ",norm(phS.T) > 1e8 , "\n phL.trans_scal: ",norm(phL.trans_scal) > 1e8 , "\n phL.phi_ele: ",norm(phL.phi_ele) > 1e8)
+    
+
+                #TODO kill_dead_cells! ?
+                kill_dead_cells!(phL.phi_ele, grid, LS[1].geoL)
+                veci(phL.phi_eleD,grid,1) .= vec(phL.phi_ele)
+                #################################################################"
+
+                # print("\n elec_condD: ",any(isnan, elec_condD),"\n BC_phi_ele.left.val: ",any(isnan, BC_phi_ele.left.val),"\n")
+
+                
 
                 #Poisson with variable coefficient
                 rhs_phi_ele = set_poisson_variable_coeff(
@@ -807,8 +903,24 @@ function run_forward(
                     true,elec_condD
                 )
 
-            
-            
+                # print("\n Aphi_eleL: ",any(isnan, Aphi_eleL),"\n rhs_phi_ele: ",any(isnan, rhs_phi_ele),"\n")
+
+                # print("\n veci rhs_phi_ele 2: ",any(isnan, veci(rhs_phi_ele,grid,1)),"\n veci rhs_phi_ele 1 : ",any(isnan, veci(rhs_phi_ele,grid,1)),"\n")
+        
+
+                # print("\n \n elec_condD",vecb_L(elec_condD, grid))
+                # print("\n \n BC_phi_ele.left.val",BC_phi_ele.left.val)
+
+                
+
+                # print("\n \n vecb_L",vecb_L(rhs_phi_ele, grid))
+
+                # print("\n \n vecb_R",vecb_R(rhs_phi_ele, grid))
+
+                # print("\n \n vecb_T",vecb_T(rhs_phi_ele, grid))
+
+                # print("\n \n vecb_B",vecb_B(rhs_phi_ele, grid))
+
                 # b = Δf.(
                 #     grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx,
                 #     grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
@@ -836,9 +948,87 @@ function run_forward(
                 
                 # @time res_phi_ele .= Aphi_eleL \ rhs_phi_ele
 
-                phL.phi_eleD .= Aphi_eleL \ rhs_phi_ele
-                
+                @time res_phi_ele .= Aphi_eleL \ rhs_phi_ele
+
+                #TODO or use mul!(rhs, BTL, phL.TD, 1.0, 1.0) like in :
+
+                # kill_dead_cells!(phL.T, grid, LS[1].geoL)
+                # veci(phL.TD,grid,1) .= vec(phL.T)
+                # rhs = set_heat!(
+                #     BC_int[1], num, grid, opC_TL, LS[1].geoL, phL, θd, BC_TL, LS[1].MIXED, LS[1].geoL.projection,
+                #     ATL, BTL,
+                #     opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
+                #     periodic_x, periodic_y, heat_convection, advection, BC_int
+                # )
+                # mul!(rhs, BTL, phL.TD, 1.0, 1.0)
+
+                # phL.TD .= ATL \ rhs
+                # phL.T .= reshape(veci(phL.TD,grid,1), grid)
+
+
+                # phL.phi_eleD .= Aphi_eleL \ rhs_phi_ele
+                phL.phi_eleD .= res_phi_ele
+
                 phL.phi_ele .= reshape(veci(phL.phi_eleD,grid,1), grid)
+
+                if any(isnan, phL.phi_eleD)
+                    print("\n phL.uD: ",any(isnan, phL.uD) , "\n phL.vD: ",any(isnan, phL.vD) , "\n phL.TD: ",any(isnan, phL.TD) , "\n phS.uD: ",any(isnan, phS.uD) , "\n phS.vD: ",any(isnan, phS.vD) , "\n phS.TD: ",any(isnan, phS.TD) ,
+                    "\n phL.trans_scalD: ",any(isnan, phL.trans_scalD) , "\n phL.phi_eleD: ",any(isnan, phL.phi_eleD) ,
+                    "\n phL.u: ",norm(phL.u) > 1e8 , "\n phS.u: ",norm(phS.u) > 1e8 , "\n phL.T: ",norm(phL.T) > 1e8 , "\n phS.T: ",norm(phS.T) > 1e8 , "\n phL.trans_scal: ",norm(phL.trans_scal) > 1e8 , "\n phL.phi_ele: ",norm(phL.phi_ele) > 1e8)
+        
+
+
+                    print("\n phL.phi_eleD: ",any(isnan, phL.phi_eleD),"\n phL.phi_ele: ",any(isnan, phL.phi_ele),"\n")
+
+                    print("\n Aphi_eleL: ",any(isnan, Aphi_eleL),"\n rhs_phi_ele: ",any(isnan, rhs_phi_ele),"\n")
+
+
+            
+                    
+                    print("\n \n vecb_L",vecb_L(phL.phi_eleD[:,1], grid))
+
+                    print("\n \n vecb_R",vecb_R(phL.phi_eleD[:,1], grid))
+
+                    print("\n \n vecb_T",vecb_T(phL.phi_eleD[:,1], grid))
+
+                    print("\n \n vecb_B",vecb_B(phL.phi_eleD[:,1], grid))
+
+                    plot_python_bc(num,(grid.x[:,1] - 0.5 * grid.dx[:,1])/num.plot_xscale, grid.y[:,1]/num.plot_xscale,vecb_L(phL.phi_eleD, grid),"vecb_L_phi_after_res",num.plot_prefix,grid)
+            
+
+
+                    # Print values on line
+                    # for iplot in 1:ny
+                    #     II = CartesianIndex(iplot, 1) #(id_y, id_x)
+                    #     pII = lexicographic(II, grid.ny)
+    
+                    #     # printstyled(color=:green, @sprintf "\n j: %5i %.2e %.2e %.2e %.2e \n" iplot grid.y[iplot]/num.plot_xscale mass_flux_vec1[pII] mass_flux_vecb[pII] mass_flux_veci[pII])
+                    #     printstyled(color=:green, @sprintf "\n j: %5i %.2e %.2e %.2e %.2e \n" iplot grid.y[iplot]/num.plot_xscale mass_flux_vec1[pII] mass_flux_vecb[pII] mass_flux_veci[pII])
+                    # end
+
+                    vecbphi = vecb_L(phL.phi_eleD[:,1], grid)
+                    # Print values on line
+                    id_x = 1
+
+                    for iplot in 1:ny
+                        # II = CartesianIndex(iplot, 1) #(id_y, id_x)
+                        # pII = lexicographic(II, grid.ny)
+    
+                        # printstyled(color=:green, @sprintf "\n j: %5i %.2e %.2e %.2e %.2e \n" iplot grid.y[iplot]/num.plot_xscale mass_flux_vec1[pII] mass_flux_vecb[pII] mass_flux_veci[pII])
+                        printstyled(color=:green, @sprintf "\n j: %5i %.2e %.2e %.2e\n" iplot grid.y[iplot]/num.plot_xscale vecbphi[iplot] grid.LS[1].u[iplot,id_x])
+                 
+                    end
+
+                    #############################################################################################################
+                    #Print values on line
+                    id_x = 1
+                    for iplot in 1:ny
+                        printstyled(color=:green, @sprintf "\n j: %5i %.2e %.2e %.2e %.2e %.2e %.2e %.2e\n" iplot grid.y[iplot]/num.plot_xscale phL.saved_scal[iplot,id_x,2] phL.saved_scal[iplot,id_x,3] phL.saved_scal[iplot,id_x,4] phL.trans_scal[iplot,id_x,1] grid.LS[1].u[iplot,id_x] phL.trans_scalD[iplot,id_x,1])
+                    end
+                    #############################################################################################################
+
+
+                end
 
             
                 # TODO compute magnitude of exchange current
@@ -909,76 +1099,72 @@ function run_forward(
                 println("yc = $(yc[current_i+1]) | vy = $(grid_v.V[1,1])")
 
             elseif (electrolysis && electrolysis_phase_change && occursin("Khalighi",electrolysis_phase_change_case))
-                # electrolysis_phase_change_case == "Khalighi"
-                # or
-                # electrolysis_phase_change_case == "Khalighi_wall"
 
                 print_electrolysis_statistics(nb_transported_scalars,grid,phL)
 
                 previous_radius = current_radius
 
-                varflux = fwd.saved_scal
 
-                # varnH2,varfluxH2=compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff)
+                # print("\n test left H2", vecb_L(phL.trans_scalD[:,1], grid))
+                # print("\n test left potential", vecb_L(phL.phi_eleD, grid))
+
+                # plot_python_bc(num,(grid.x[:,1] - 0.5 * grid.dx[:,1])/num.plot_xscale, grid.y[:,1]/num.plot_xscale,vecb_L(phL.trans_scalD[:,1], grid),"vecb_L_H2_2",num.plot_prefix,grid)
+                # plot_python_bc(num,(grid.x[:,1] - 0.5 * grid.dx[:,1])/num.plot_xscale, grid.y[:,1]/num.plot_xscale,vecb_L(phL.phi_eleD, grid),"vecb_L_phi_2",num.plot_prefix,grid)
+        
+
+
+                phL.saved_scal[:,:,1],phL.saved_scal[:,:,2],phL.saved_scal[:,:,3],phL.saved_scal[:,:,4]=compute_mass_flux!(num,grid, grid_u, 
+                grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,1)
+
                 
-                printstyled(color=:green, @sprintf "\n flux H2\n")
+                
 
-                varfluxH2,_,_,_=compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,1)
 
-                # printstyled(color=:green, @sprintf "\n flux H2O\n")
+                for iscal=1:nb_saved_scalars
+                    @views kill_dead_cells!(phL.saved_scal[:,:,iscal], grid, LS[1].geoL)
+                end
+
+
+
+
+                # printstyled(color=:cyan, @sprintf "\n div(0,grad): %.2e %.2e %.2e %.2e \n" sum(phL.saved_scal[:,:,1]) sum(phL.saved_scal[:,:,2]) sum(phL.saved_scal[:,:,3]) sum(phL.saved_scal[:,:,4]))
+
+                varfluxH2 = phL.saved_scal[:,:,1]
+                
+                # #############################################################################################################
+                # #Print values on line
+                # id_x = 1
+                # for iplot in 1:ny
+                #     printstyled(color=:green, @sprintf "\n j: %5i %.2e %.2e %.2e %.2e %.2e %.2e %.2e\n" iplot grid.y[iplot]/num.plot_xscale phL.saved_scal[iplot,id_x,2] phL.saved_scal[iplot,id_x,3] phL.saved_scal[iplot,id_x,4] phL.trans_scal[iplot,id_x,1] grid.LS[1].u[iplot,id_x] phL.trans_scalD[iplot,id_x,1])
+                # end
+                # #############################################################################################################
 
                 # varfluxH2O=compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,3)
 
-                _,phL.saved_scal[:,:,1], phL.saved_scal[:,:,2],phL.saved_scal[:,:,3] = compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,1)
-
-                mass_flux_vec1 = phL.saved_scal[:,:,1]
-                mass_flux_vecb = phL.saved_scal[:,:,2]
-                mass_flux_veci = phL.saved_scal[:,:,3]
-
-
+                # Print values on line
                 for iplot in 1:ny
-                    II = CartesianIndex(iplot, 1)
-                    # II = CartesianIndex(id_y, id_x)
+                    II = CartesianIndex(iplot, 1) #(id_y, id_x)
                     pII = lexicographic(II, grid.ny)
-                    # println(mass_flux_vec1[pII])
-                    # println(mass_flux_vecb[pII])
-                    # println(mass_flux_veci[pII])
+   
+                    # printstyled(color=:green, @sprintf "\n j: %5i %.2e %.2e %.2e %.2e \n" iplot grid.y[iplot]/num.plot_xscale mass_flux_vec1[pII] mass_flux_vecb[pII] mass_flux_veci[pII])
                     printstyled(color=:green, @sprintf "\n j: %5i %.2e %.2e %.2e %.2e \n" iplot grid.y[iplot]/num.plot_xscale mass_flux_vec1[pII] mass_flux_vecb[pII] mass_flux_veci[pII])
                 end
-                # @views phL.saved_scal[:,:,1] = compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,1)
-                # @views phL.saved_scal[:,:,2] = compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,3)
+       
+                #TODO mass_fluxL
+                # mass_fluxL=-... * diffusion_coeff[1] 
 
-                # @view varflux[1] .= varfluxH2
-                # @view varflux[2] .= varfluxH2O
-
-
-                phL.mass_flux .= reshape(varfluxH2,grid)
-                # phL.mass_flux .= reshape(varfluxH20,grid)
-
-            
+                varnH2 = -sum(varfluxH2) * diffusion_coeff[1] 
 
                 #TODO mode_2d==0 flux corresponds to cylinder of length 1
                 #2D cylinder reference length
                 if mode_2d == 1
-                    varfluxH2 .*= num.ref_thickness_2d
+                    varnH2 .*= num.ref_thickness_2d
                 end
-
-                varnH2 = -sum(varfluxH2) * diffusion_coeff[1] 
-
-                # print(varnH2)
-                # printstyled(color=:green, @sprintf "\n varnH2: %.2e \n" varnH2)
 
                 #Pliquid is the average value of p over the bubble interface plus the ambient operating pressure (P).
                 p_liq= num.pres0 + mean(veci(phL.pD,grid,2)) #TODO here one bubble
-               
                 # p_g=p_liq + 2 * num.σ / current_radius #3D
-
-                p_g=p_liq + num.σ / current_radius
-
-
-
-                # print("test p_liq")
-                # p_g=p_liq 
+                p_g=p_liq + num.σ / current_radius #2D
 
                 printstyled(color=:green, @sprintf "\n Mole: %.2e \n" nH2)
 
@@ -1003,6 +1189,9 @@ function run_forward(
                 elseif mode_2d == 3
                     current_radius = sqrt(2*nH2/(concentration0[1] * pi))
                 end
+
+                printstyled(color=:cyan, @sprintf "\n div(0,grad): %.5i %.2e %.2e %.2e %.2e %.2e %.2e %.2e\n" nx num.τ num.L0/nx (current_radius-previous_radius)/(num.L0/nx) sum(phL.saved_scal[:,:,1]) sum(phL.saved_scal[:,:,2]) sum(phL.saved_scal[:,:,3]) sum(phL.saved_scal[:,:,4]))
+
                 printstyled(color=:green, @sprintf "\n n(H2): %.2e added %.2e old R %.2e new R %.2e \n" nH2 varnH2*num.τ previous_radius current_radius)
                 printstyled(color=:green, @sprintf "\n p0: %.2e p_liq %.2e p_lapl %.2e \n" num.pres0 p_liq p_g)
 
@@ -1315,7 +1504,7 @@ function run_forward(
                     @views fwdL.trans_scalD[snap,:,iscal] .= phL.trans_scalD[:,iscal]
                 end
                 
-                @views fwd.mass_flux[snap,:,:] .= phL.mass_flux #reshape(varfluxH2, grid)
+                # @views fwd.mass_flux[snap,:,:] .= phL.mass_flux #reshape(varfluxH2, grid)
 
                 for iscal=1:nb_saved_scalars
                     @views fwd.saved_scal[snap,:,:,iscal] .= phL.saved_scal[:,:,iscal] #varflux[iscal] #reshape(varfluxH2, grid)
@@ -1367,13 +1556,14 @@ function run_forward(
         if electrolysis
         
             if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || any(isnan, phS.uD) || any(isnan, phS.vD) || any(isnan, phS.TD) ||
-                any(isnan, phL.trans_scal) || any(isnan, phL.phi_ele) ||
+                any(isnan, phL.trans_scalD) || any(isnan, phL.phi_eleD) ||
                 norm(phL.u) > 1e8 || norm(phS.u) > 1e8 || norm(phL.T) > 1e8 || norm(phS.T) > 1e8 || norm(phL.trans_scal) > 1e8 || norm(phL.phi_ele) > 1e8)
                 println(@sprintf "\n CRASHED after %d iterations \n" current_i)
                 
-                print(any(isnan, phL.uD) , any(isnan, phL.vD) , any(isnan, phL.TD) , any(isnan, phS.uD) , any(isnan, phS.vD) , any(isnan, phS.TD) ,
-                any(isnan, phL.trans_scal) , any(isnan, phL.phi_ele) ,
-                norm(phL.u) > 1e8 , norm(phS.u) > 1e8 , norm(phL.T) > 1e8 , norm(phS.T) > 1e8 , norm(phL.trans_scal) > 1e8 , norm(phL.phi_ele) > 1e8)
+                print("\n phL.uD: ",any(isnan, phL.uD) , "\n phL.vD: ",any(isnan, phL.vD) , "\n phL.TD: ",any(isnan, phL.TD) , "\n phS.uD: ",any(isnan, phS.uD) , "\n phS.vD: ",any(isnan, phS.vD) , "\n phS.TD: ",any(isnan, phS.TD) ,
+                "\n phL.trans_scalD: ",any(isnan, phL.trans_scalD) , "\n phL.phi_eleD: ",any(isnan, phL.phi_eleD) ,
+                "\n phL.u: ",norm(phL.u) > 1e8 , "\n phS.u: ",norm(phS.u) > 1e8 , "\n phL.T: ",norm(phL.T) > 1e8 , "\n phS.T: ",norm(phS.T) > 1e8 , "\n phL.trans_scal: ",norm(phL.trans_scal) > 1e8 , "\n phL.phi_ele: ",norm(phL.phi_ele) > 1e8)
+    
                 crashed=true
                 # return nothing
                 return current_i

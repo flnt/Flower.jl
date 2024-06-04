@@ -46,22 +46,29 @@ function strtitlefunc(isnap,fwd)
     return strtitle
 end
 
-function plot_python_pdf(field,figname,prefix,plot_levelset,isocontour,levels,range,cmap,x_array,y_array,gp,cbarlabel)
+function plot_python_pdf(i,field0,figname,prefix,plot_levelset,isocontour,levels,range,cmap,x_array,y_array,gp,cbarlabel,i0,i1,j0,j1,fwd)
 
     # PyPlot.rc("text", usetex=true)
     # rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
     # rcParams["text.latex.preamble"] = raw"\usepackage{siunitx}"
 
+    x_arr=x_array[i0:i1]
+    y_arr=y_array[j0:j1]
+
+    # field = field0[i,i0:i1,j0:j1]
+    field = field0[i,j0:j1,i0:i1]
+
+
     # print("range",range)
     fig1, ax2 = plt.subplots(layout="constrained")
-    # CS = ax2.contourf(x_array,y_array,max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), 10, cmap=cmap)
+    # CS = ax2.contourf(x_arr,y_arr,max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), 10, cmap=cmap)
     
     if levels==0
-        CS = ax2.contourf(x_array,y_array,field, 
+        CS = ax2.contourf(x_arr,y_arr,field, 
         levels=range, #10, 
         cmap=cmap)
     else
-        CS = ax2.contourf(x_array,y_array,field, 
+        CS = ax2.contourf(x_arr,y_arr,field, 
         levels=levels,
         cmap=cmap)
         # print("levels " ,levels)
@@ -86,19 +93,24 @@ function plot_python_pdf(field,figname,prefix,plot_levelset,isocontour,levels,ra
         cbar.add_lines(CS2)
     end
     if plot_levelset
-        # CSlvl = ax2.contourf(x_array,y_array,(phL.trans_scal[:,:,1] .-c0_H2)./c0_H2, levels=0.0, cmap=cmap)
+        # CSlvl = ax2.contourf(x_arr,y_arr,(phL.trans_scal[:,:,1] .-c0_H2)./c0_H2, levels=0.0, cmap=cmap)
         # CS2 = ax2.contour(CSlvl, 
         # # levels=CS.levels[::2], 
         # # levels=
         # colors="r")
         # cbar.add_lines(CS2)
-        CSlvl = ax2.contour(x_array,y_array, gp.LS[1].u, [0.0],colors="r")
+        # CSlvl = ax2.contour(x_arr,y_arr, gp.LS[1].u, [0.0],colors="r")
+        # CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,i,i0:i1,j0:j1], [0.0],colors="r")
+        indLS= max(i,1)
+
+        CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
+
     end
 
     # if plot_levelset
     #     gp.LS[1].u .= sqrt.((gp.x .+ xcoord).^ 2 + (gp.y .+ ycoord) .^ 2) - (radius) * ones(gp);
 
-    #     CSlvl = ax2.contour(x_array,y_array, gp.LS[1].u, [0.0],colors="r")
+    #     CSlvl = ax2.contour(x_arr,y_arr, gp.LS[1].u, [0.0],colors="r")
     # end
 
     plt.axis("equal")
@@ -124,7 +136,10 @@ function python_movie_zoom(field0,figname,prefix,plot_levelset,isocontour,levels
     x_arr=x_array[i0:i1]
     y_arr=y_array[j0:j1]
 
-    field = field0[:,i0:i1,j0:j1]
+    # field = field0[:,i0:i1,j0:j1]
+    field = field0[:,j0:j1,i0:i1]
+
+
 
     if levels==0
         CS = ax2.contourf(x_arr,y_arr,field[1,:,:], 
@@ -166,8 +181,10 @@ function python_movie_zoom(field0,figname,prefix,plot_levelset,isocontour,levels
         # levels=levels,
         # cmap=cmap)
 
+        indLS= max(i,1)
 
-        strtitle=strtitlefunc(i+1,fwd)
+
+        strtitle=strtitlefunc(indLS,fwd)
         plt.title(strtitle)
 
         # CS = ax2.contourf(x_arr,y_arr,(fwd.trans_scal[i+1,:,:,1] .-c0_H2)./c0_H2, 
@@ -210,7 +227,9 @@ function python_movie_zoom(field0,figname,prefix,plot_levelset,isocontour,levels
         end
     
         if plot_levelset
-            CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,i+1,i0:i1,j0:j1], [0.0],colors="r")
+            # CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,i+1,i0:i1,j0:j1], [0.0],colors="r")
+            CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
+            # print("check levelset")
         end
 
 
@@ -305,6 +324,151 @@ function plot_electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, pe
 
     return nothing
 end
+
+
+function plot_python_bc(num,x_array,y_array,field,figname,prefix,grid)
+    # plot_levelset,isocontour,levels,range,cmap,,gp,cbarlabel)
+
+    # PyPlot.rc("text", usetex=true)
+    # rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
+    # rcParams["text.latex.preamble"] = raw"\usepackage{siunitx}"
+
+    # print("range",range)
+    fig1, ax2 = plt.subplots(layout="constrained")
+    # CS = ax2.contourf(x_array,y_array,max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), 10, cmap=cmap)
+
+    ms=0.5
+    mcolor="r"
+
+    # plt.plot(y_array,field)
+    # plt.scatter(y_array,field,s=ms,c=mcolor)
+
+    lw=0.1
+    lcolor="k"
+
+    plt.axhline((-num.shifted_y+num.R)/num.plot_xscale,lw=lw,c=lcolor)
+
+    plt.axhline((-num.shifted_y-num.R)/num.plot_xscale,lw=lw,c=lcolor)
+
+    plt.plot(field,y_array,lw=lw,c=mcolor)
+    plt.scatter(field,y_array,s=ms,c=mcolor)
+
+
+
+
+    # plt.plot(y_array,grid.LS[1].u[:,1])
+
+
+    
+    # if levels==0
+    #     CS = ax2.contourf(x_array,y_array,field, 
+    #     levels=range, #10, 
+    #     cmap=cmap)
+    # else
+    #     CS = ax2.contourf(x_array,y_array,field, 
+    #     levels=levels,
+    #     cmap=cmap)
+    #     # print("levels " ,levels)
+    # end
+
+    # # ax2.set_title("Title")
+    # # ax2.set_xlabel(L"$x (\mu m)$")
+    # # ax2.set_ylabel(L"$y (\mu m)$")
+
+    # ax2.set_xlabel(raw"$x ( \unit{\um})$")
+    # ax2.set_ylabel(L"$y (\mu m)$")
+
+    # # Make a colorbar for the ContourSet returned by the contourf call.
+    # cbar = fig1.colorbar(CS)
+    # cbar.ax.set_ylabel(cbarlabel)
+    # # Add the contour line levels to the colorbar
+    # if isocontour
+    #     CS2 = ax2.contour(CS, 
+    #     # levels=CS.levels[::2], 
+    #     # levels=
+    #     colors="r")
+    #     cbar.add_lines(CS2)
+    # end
+    # if plot_levelset
+    #     # CSlvl = ax2.contourf(x_array,y_array,(phL.trans_scal[:,:,1] .-c0_H2)./c0_H2, levels=0.0, cmap=cmap)
+    #     # CS2 = ax2.contour(CSlvl, 
+    #     # # levels=CS.levels[::2], 
+    #     # # levels=
+    #     # colors="r")
+    #     # cbar.add_lines(CS2)
+    #     CSlvl = ax2.contour(x_array,y_array, gp.LS[1].u, [0.0],colors="r")
+    # end
+
+
+    # plt.axis("equal")
+
+    plt.savefig(prefix*figname*".pdf")
+    plt.close(fig1)
+
+end
+
+function plot_last_iter_python_pdf(field,figname,prefix,plot_levelset,isocontour,levels,range,cmap,x_array,y_array,gp,cbarlabel)
+
+    # PyPlot.rc("text", usetex=true)
+    # rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
+    # rcParams["text.latex.preamble"] = raw"\usepackage{siunitx}"
+
+    # print("range",range)
+    fig1, ax2 = plt.subplots(layout="constrained")
+    # CS = ax2.contourf(x_array,y_array,max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), 10, cmap=cmap)
+    
+    if levels==0
+        CS = ax2.contourf(x_array,y_array,field, 
+        levels=range, #10, 
+        cmap=cmap)
+    else
+        CS = ax2.contourf(x_array,y_array,field, 
+        levels=levels,
+        cmap=cmap)
+        # print("levels " ,levels)
+    end
+
+    # ax2.set_title("Title")
+    # ax2.set_xlabel(L"$x (\mu m)$")
+    # ax2.set_ylabel(L"$y (\mu m)$")
+
+    ax2.set_xlabel(raw"$x ( \unit{\um})$")
+    ax2.set_ylabel(L"$y (\mu m)$")
+
+    # Make a colorbar for the ContourSet returned by the contourf call.
+    cbar = fig1.colorbar(CS)
+    cbar.ax.set_ylabel(cbarlabel)
+    # Add the contour line levels to the colorbar
+    if isocontour
+        CS2 = ax2.contour(CS, 
+        # levels=CS.levels[::2], 
+        # levels=
+        colors="r")
+        cbar.add_lines(CS2)
+    end
+    if plot_levelset
+        # CSlvl = ax2.contourf(x_array,y_array,(phL.trans_scal[:,:,1] .-c0_H2)./c0_H2, levels=0.0, cmap=cmap)
+        # CS2 = ax2.contour(CSlvl, 
+        # # levels=CS.levels[::2], 
+        # # levels=
+        # colors="r")
+        # cbar.add_lines(CS2)
+        CSlvl = ax2.contour(x_array,y_array, gp.LS[1].u, [0.0],colors="r")
+    end
+
+    # if plot_levelset
+    #     gp.LS[1].u .= sqrt.((gp.x .+ xcoord).^ 2 + (gp.y .+ ycoord) .^ 2) - (radius) * ones(gp);
+
+    #     CSlvl = ax2.contour(x_array,y_array, gp.LS[1].u, [0.0],colors="r")
+    # end
+
+    plt.axis("equal")
+
+    plt.savefig(prefix*figname*".pdf")
+    plt.close(fig1)
+
+end
+
 
 
 

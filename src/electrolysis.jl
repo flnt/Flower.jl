@@ -652,6 +652,8 @@ function adapt_timestep!(num, phL, phS, grid_u, grid_v,adapt_timestep_mode)
         c_conv = max(abs.(phL.u)./grid_u.dx..., abs.(phL.v)./grid_v.dy..., abs.(phS.u)./grid_u.dx..., abs.(phS.v)./grid_v.dy...)
 
         return CFL/c_conv
+    elseif adapt_timestep_mode==3
+        return num.dt0
     end
 
     # printstyled(color=:green, @sprintf "\n rho1 %.2e rho2 %.2e mu1 %.2e mu2 %.2e\n" rho1 rho2 mu1 mu2) 
@@ -1056,13 +1058,13 @@ function compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,
     mass_flux_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
     mass_flux_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
 
-    printstyled(color=:red, @sprintf "\n add veci\n")
+    printstyled(color=:red, @sprintf "\n vec1 x y %.2e %.2e\n" sum(opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid)) sum(opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)))
 
     # print(size(mass_flux_vec1),"\n")
     # print(size(mass_flux_vecb),"\n")
     # print(size(mass_flux_veci),"\n")
 
-    print(size(opC_p.HxT[1] * opC_p.iMx * opC_p.Hx[1] * veci(scalD,grid,1+1)),"\n")
+    # print(size(opC_p.HxT[1] * opC_p.iMx * opC_p.Hx[1] * veci(scalD,grid,1+1)),"\n")
 
 
     for iLS in 1:nLS
@@ -1070,9 +1072,16 @@ function compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,
         mass_flux_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
     end
 
-    mass_flux = mass_flux_vec1 .+ mass_flux_vecb .+ mass_flux_veci
+    # mass_flux = mass_flux_vec1 .+ mass_flux_vecb .+ mass_flux_veci
 
-    return mass_flux, mass_flux_vec1, mass_flux_vecb, mass_flux_veci
+    # mass_flux_2 = reshape(mass_flux,grid)
+    mass_flux_vec1_2 = reshape(mass_flux_vec1,grid)
+    mass_flux_vecb_2 = reshape(mass_flux_vecb,grid)
+    mass_flux_veci_2 = reshape(mass_flux_veci,grid)
+
+    mass_flux_2 = mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
+
+    return mass_flux_2, mass_flux_vec1_2, mass_flux_vecb_2, mass_flux_veci_2
 end
 
 # function compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,iscal)
@@ -1261,3 +1270,77 @@ function BC_LS_test!(grid, u, A, B, rhs, BC)
 
     return nothing
 end
+
+function kill_dead_cells_val!(T::Vector, grid, geo,val)
+    @unpack ny, ind = grid
+
+    @inbounds @threads for II in ind.all_indices
+        pII = lexicographic(II, ny)
+     
+        if geo.cap[II,5] < 1e-12
+            print("\n replace ",pII," ", geo.cap[II,5], " ",T[pII], " ",val)
+            T[pII] = val
+        end
+    end
+end
+
+function kill_dead_cells_val!(S::SubArray{T,N,P,I,L}, grid, geo,val) where {T,N,P<:Vector{T},I,L}
+    @unpack ny, ind = grid
+
+    @inbounds @threads for II in ind.all_indices
+        pII = lexicographic(II, ny)
+        if geo.cap[II,5] < 1e-12
+            print("\n replace ",pII," ", geo.cap[II,5], " ",S[pII], " ",val)
+            S[pII] = val
+        end
+    end
+end
+
+
+
+function kill_dead_cells_val_wall!(S::SubArray{T,N,P,I,L}, grid, geo,val) where {T,N,P<:Vector{T},I,L}
+    @unpack ny, ind = grid
+    # In ind.b_right, the first vector is the boundary and the second one are the cells right next to them
+    @inbounds @threads for II in ind.b_left[1]
+        pII = lexicographic(II, ny)
+        if geo.cap[II,5] < 1e-12
+            print("\n replace ",pII," ", geo.cap[II,5], " ",S[pII], " ",val)
+            S[pII] = val
+        end
+    end
+
+    @inbounds @threads for II in ind.b_bottom[1]
+        pII = lexicographic(II, ny)
+        if geo.cap[II,5] < 1e-12
+            print("\n replace ",pII," ", geo.cap[II,5], " ",S[pII], " ",val)
+            S[pII] = val
+        end
+    end
+
+    @inbounds @threads for II in ind.b_right[1]
+        pII = lexicographic(II, ny)
+        if geo.cap[II,5] < 1e-12
+            print("\n replace ",pII," ", geo.cap[II,5], " ",S[pII], " ",val)
+            S[pII] = val
+        end
+    end
+
+    @inbounds @threads for II in ind.b_top[1]
+        pII = lexicographic(II, ny)
+        if geo.cap[II,5] < 1e-12
+            print("\n replace ",pII," ", geo.cap[II,5], " ",S[pII], " ",val)
+            S[pII] = val
+        end
+    end
+
+end
+
+# function kill_dead_bc_left_wall!(BC,grid,iLS,val)
+#     for i = 1:grid.ny
+#         II = CartesianIndex(i,1)
+#         if grid.LS[iLS].geoL.cap[II,5] < 1e-12
+#             BC.left.val[i] = val
+#         end
+#     end
+# end
+

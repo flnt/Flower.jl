@@ -55,7 +55,6 @@ end
 ####################################################################################################
 
 # max_its=10
-
 # save_every = max_its÷100
 save_every = 1
 # pres0 = 1e5
@@ -64,11 +63,14 @@ pres0 = 0.0
 L0 = 1e-4 
 n = 64 
 n = 128
+# n = 256
+# n = 512
 
 max_iter=100
 max_iter = 2
 max_iter = 1
-save_every=1
+
+max_iter=5
 
 xlabel = L"x \left(\mu m \right)"
 ylabel = L"y \left(\mu m \right)"
@@ -89,6 +91,11 @@ plot_levelset=true
 cmap = plt.cm.viridis
 
 adapt_timestep_mode=2
+adapt_timestep_mode=3
+
+dt0 = 5e-5
+dt0 = 2.5e-5
+
 
 ####################################################################################################
 
@@ -190,7 +197,7 @@ diffusion_coeff=[DH2, DKOH, DH2O]
 concentration0=[0.16, 6700, 49000]
 nb_transported_scalars=3
 
-nb_saved_scalars=3 #2
+nb_saved_scalars=4 
 
 
 if length(concentration0)!=nb_transported_scalars
@@ -318,6 +325,7 @@ num = Numerical(
     # NB = 24,
     plot_xscale = plot_xscale,
     plot_prefix = prefix,
+    dt0 = dt0,
     )
     # ref_thickness_2d = ref_thickness_2d,
 
@@ -350,6 +358,10 @@ phL.p .= pres0 #0.0
 phL.T .= temperature0
 phS.T .= temperature0
 
+#Initialize for CRASH detection (cf isnan...)
+phS.v .= 0.0
+phS.u .= 0.0
+
 su = sqrt.((gv.x .+ xcoord).^2 .+ (gv.y .+ ycoord).^2)
 R1 = radius + 3.0*num.Δ
 
@@ -367,10 +379,10 @@ vecb_B(phL.uD, gu) .= 0.0
 vecb_R(phL.uD, gu) .= 0.0
 vecb_T(phL.uD, gu) .= 0.0
 
-vecb_L(phL.uD, gu) .= 0.0 #TODO
-vecb_B(phL.uD, gu) .= 0.0
-vecb_R(phL.uD, gu) .= 0.0
-vecb_T(phL.uD, gu) .= 0.0
+# vecb_L(phL.uD, gu) .= 0.0 #TODO
+# vecb_B(phL.uD, gu) .= 0.0
+# vecb_R(phL.uD, gu) .= 0.0
+# vecb_T(phL.uD, gu) .= 0.0
 
 
 printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL CFL*L0/n/v_inlet)
@@ -497,7 +509,7 @@ phi_ele=gv.x[1,:] .*0.0
 # i_current=i0*(exp(alphaa*Faraday*eta/(Ru*temperature0))-exp(-alphac*Faraday*eta/(Ru*temperature0)))
 i_current=butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phi_ele,phi_ele1,Ru,temperature0)
 
-print(@sprintf "Butler-Volmer %.2e \n" i_current[1])
+print(@sprintf "Butler-Volmer %.2e %.2e %.2e %.2e\n" i_current[1] -i_current[1]/(2*Faraday*DH2) c0_H2-i_current[1]/(2*Faraday*DH2)*gp.dx[1,1] c0_H2+i_current[1]/(2*Faraday*DH2)*gp.dx[1,1])
 
 
 
@@ -861,7 +873,11 @@ plt.close(fig1)
 #TODO bug when putting plotting instructions in function, range(start,end,step) no longer working as argument so give start,end,length instead
 
 
-plot_python_pdf(phL.p, "p",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure")
+plt_it = 2
+
+# gen_name=nx
+
+plot_python_pdf(plt_it,fwdL.p, "p",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",1,gp.nx,1,gp.ny,fwd)
 
 
 # plot_python_pdf(phL.p, "p",prefix,plot_levelset,isocontour,0,range(pres0*0.9999,pres0*1.0001,length=10),cmap,x_array,y_array,gp,"pressure")
@@ -876,11 +892,11 @@ size_frame,1,gp.nx,1,gp.ny,fwd)
 # python_movie_zoom((fwdL.p.-pres0)./pres0,"pnorm",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",
 # size_frame,1,gp.nx,1,gp.ny,fwd)
 
-plot_python_pdf(max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), "H2",prefix,
-plot_levelset,concentrationcontour,0,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration")
+plot_python_pdf(plt_it,max.((fwdL.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0), "H2",prefix,
+plot_levelset,concentrationcontour,0,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
 
-plot_python_pdf(max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), "H2lvl",prefix,
-plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration")
+plot_python_pdf(plt_it,max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0), "H2lvl",prefix,
+plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
 
 python_movie_zoom(max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0),"H2_norm",prefix,
 plot_levelset,isocontour,0,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",size_frame,1,gp.nx,1,gp.ny,fwd)
@@ -892,11 +908,11 @@ plot_levelset,isocontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"conc
 
 
 
-plot_python_pdf(max.((phL.trans_scal[:,:,2] .-c0_KOH)./c0_KOH,0.0), "KOH",prefix,
-plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration")
+plot_python_pdf(plt_it,max.((fwd.trans_scal[:,:,:,2] .-c0_KOH)./c0_KOH,0.0), "KOH",prefix,
+plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
 
-plot_python_pdf(max.((phL.trans_scal[:,:,3] .-c0_H2O)./c0_H2O,0.0), "H2O",prefix,
-plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration")
+plot_python_pdf(plt_it,max.((fwd.trans_scal[:,:,:,3] .-c0_H2O)./c0_H2O,0.0), "H2O",prefix,
+plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
 
 # plot_python_several_pdf(fwd.trans_scal[:,:,:,1],"H2",true,size_frame)
 # plot_python_several_pdf(fwd.saved_scal[:,:,:,1],"H2massflux",true,size_frame)
@@ -925,6 +941,12 @@ size_frame,1,gp.nx,1,gp.ny,fwd)
 
 i0 = 1
 i1 = 10
+# j0 = gp.ny ÷ 2 +1
+# j1 = gp.ny ÷ 2 + 10
+
+# j0=67
+# j1=76
+
 j0 = gp.ny ÷ 2 +1
 j1 = gp.ny ÷ 2 + 10
 
@@ -935,28 +957,52 @@ size_frame,i0,i1,j0,j1,fwd)
 
 
 
-plot_python_pdf(phL.saved_scal[:,:,1], "flux1phL",prefix,
-plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux")
+# plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,1], "flux1phL",prefix,
+# plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",1,gp.nx,1,gp.ny,fwd)
 
 
-plot_python_pdf(fwd.saved_scal[1,:,:,1], "flux1",prefix,
-plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux")
+plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,1], "flux1",prefix,
+plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",1,gp.nx,1,gp.ny,fwd)
 
-plot_python_pdf(fwd.saved_scal[1,:,:,2], "flux2",prefix,
-plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux")
+plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,2], "flux2",prefix,
+plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",1,gp.nx,1,gp.ny,fwd)
 
-plot_python_pdf(fwd.saved_scal[1,:,:,3], "flux3",prefix,
-plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux")
+plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,3], "flux3",prefix,
+plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",1,gp.nx,1,gp.ny,fwd)
+
+plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,4], "flux4",prefix,
+plot_levelset,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",1,gp.nx,1,gp.ny,fwd)
 
 
-plot_python_pdf(fwd.saved_scal[1,:,:,1], "flux1noLS",prefix,
-false,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux")
+plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,1], "flux1noLS",prefix,
+false,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",1,gp.nx,1,gp.ny,fwd)
 
-plot_python_pdf(fwd.saved_scal[1,:,:,2], "flux2noLS",prefix,
-false,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux")
+plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,2], "flux2noLS",prefix,
+false,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",1,gp.nx,1,gp.ny,fwd)
 
-plot_python_pdf(fwd.saved_scal[1,:,:,3], "flux3noLS",prefix,
-false,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux")
+plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,3], "flux3noLS",prefix,
+false,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",1,gp.nx,1,gp.ny,fwd)
+
+plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,4], "flux4noLS",prefix,
+false,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",1,gp.nx,1,gp.ny,fwd)
+
+plot_python_pdf(plt_it,fwd.u[1,:,:,:]./xscale, "LS",prefix,
+true,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",1,gp.nx,1,gp.ny,fwd)
+
+# plt_it=1
+
+# plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,1], "flux1noLS_it1",prefix,
+# false,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",1,gp.nx,1,gp.ny,fwd)
+
+# plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,2], "flux2noLS_it1",prefix,
+# false,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",1,gp.nx,1,gp.ny,fwd)
+
+# plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,3], "flux3noLS_it1",prefix,
+# false,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",1,gp.nx,1,gp.ny,fwd)
+
+# plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,4], "flux4noLS_it1",prefix,
+# false,concentrationcontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",1,gp.nx,1,gp.ny,fwd)
+
 
 ######################################################################################################
 

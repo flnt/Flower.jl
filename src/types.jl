@@ -75,6 +75,7 @@ abstract type AbstractOptimizer end
     ref_thickness_2d::T=1.0
     plot_xscale::T = 1.0
     plot_prefix::String = "."
+    dt0::T = 1.0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -301,7 +302,7 @@ struct Phase{T <: Real} <: MutatingFields
     i_current_mag::Array{T,2}
     Eu::Array{T,2}
     Ev::Array{T,2}
-    mass_flux::Array{T,2}
+    # mass_flux::Array{T,2}
     saved_scal::Array{T,3}
 end
 
@@ -322,7 +323,7 @@ struct Forward{T <: Real} <: MutatingFields
     Eu::Array{T,4}
     Ev::Array{T,4}
     radius::Array{T,1}
-    mass_flux::Array{T,3}
+    # mass_flux::Array{T,3}
     saved_scal::Array{T,4}
 end
 
