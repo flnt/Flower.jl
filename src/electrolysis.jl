@@ -1058,7 +1058,7 @@ function compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,
     mass_flux_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
     mass_flux_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
 
-    printstyled(color=:red, @sprintf "\n vec1 x y %.2e %.2e\n" sum(opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid)) sum(opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)))
+    # printstyled(color=:red, @sprintf "\n vec1 x y %.2e %.2e\n" sum(opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid)) sum(opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)))
 
     # print(size(mass_flux_vec1),"\n")
     # print(size(mass_flux_vecb),"\n")
@@ -1278,7 +1278,7 @@ function kill_dead_cells_val!(T::Vector, grid, geo,val)
         pII = lexicographic(II, ny)
      
         if geo.cap[II,5] < 1e-12
-            print("\n replace ",pII," ", geo.cap[II,5], " ",T[pII], " ",val)
+            # print("\n replace ",pII," ", geo.cap[II,5], " ",T[pII], " ",val)
             T[pII] = val
         end
     end
@@ -1290,8 +1290,20 @@ function kill_dead_cells_val!(S::SubArray{T,N,P,I,L}, grid, geo,val) where {T,N,
     @inbounds @threads for II in ind.all_indices
         pII = lexicographic(II, ny)
         if geo.cap[II,5] < 1e-12
-            print("\n replace ",pII," ", geo.cap[II,5], " ",S[pII], " ",val)
+            # print("\n replace ",pII," ", geo.cap[II,5], " ",S[pII], " ",val)
             S[pII] = val
+        end
+    end
+end
+
+function kill_dead_cells_val!(S::SubArray{T,N,P,I,L}, grid, geo,val) where {T,N,P<:Array{T,3},I,L}
+    @unpack ind = grid
+    # print("kill dead cells mat")
+    @inbounds @threads for II in ind.all_indices
+        if geo.cap[II,5] < 1e-12
+            # print(II, S[II])
+            S[II] = val
+            # print("v2",S[II])
         end
     end
 end

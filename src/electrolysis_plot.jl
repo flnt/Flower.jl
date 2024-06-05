@@ -46,7 +46,7 @@ function strtitlefunc(isnap,fwd)
     return strtitle
 end
 
-function plot_python_pdf(i,field0,figname,prefix,plot_levelset,isocontour,levels,range,cmap,x_array,y_array,gp,cbarlabel,i0,i1,j0,j1,fwd)
+function plot_python_pdf(i,field0,figname,prefix,plot_levelset,isocontour,plot_grid,plot_mode,levels,range,cmap,x_array,y_array,gp,cbarlabel,i0,i1,j0,j1,fwd)
 
     # PyPlot.rc("text", usetex=true)
     # rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
@@ -62,17 +62,60 @@ function plot_python_pdf(i,field0,figname,prefix,plot_levelset,isocontour,levels
     # print("range",range)
     fig1, ax2 = plt.subplots(layout="constrained")
     # CS = ax2.contourf(x_arr,y_arr,max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), 10, cmap=cmap)
-    
-    if levels==0
-        CS = ax2.contourf(x_arr,y_arr,field, 
-        levels=range, #10, 
-        cmap=cmap)
-    else
-        CS = ax2.contourf(x_arr,y_arr,field, 
-        levels=levels,
-        cmap=cmap)
-        # print("levels " ,levels)
+
+   
+    if plot_mode == "contourf"
+        if levels==0
+            CS = ax2.contourf(x_arr,y_arr,field, 
+            levels=range, #10, 
+            cmap=cmap)
+        else
+            CS = ax2.contourf(x_arr,y_arr,field, 
+            levels=levels,
+            cmap=cmap)           
+        end
+    elseif plot_mode == "pcolormesh"
+        if levels==0            
+            norm = mpl_colors.BoundaryNorm(range, ncolors=cmap.N, clip=true)
+            CS = ax2.pcolormesh(x_arr,y_arr,field, cmap=cmap, norm=norm)
+        else          
+            levels = mpl_tickers.MaxNLocator(nbins=levels).tick_values(minimum(field), maximum(field))
+            norm = mpl_colors.BoundaryNorm(levels, ncolors=cmap.N, clip=true)
+            CS = ax2.pcolormesh(x_arr,y_arr,field, cmap=cmap, norm=norm)
+        end
     end
+
+    
+    lcolor= "w" #"k"
+    lw=0.5
+    ms=0.5
+    fontsize=5
+
+    if plot_grid
+        # for igrid in i0:i1
+        #     ax2.axvline(x_array[igrid],c=lcolor,lw=lw)
+        # end
+        # for igrid in j0:j1
+        #     ax2.axhline(y_array[igrid],c=lcolor,lw=lw)
+        # end
+        for igrid in i0:i1        
+            for jgrid in j0:j1
+                # print("\n",x_array[igrid],y_array[jgrid])
+                # ax2.scatter(x_array[igrid],y_array[jgrid],
+                # c=lcolor,
+                # s=ms,
+                # )
+
+                str=@sprintf "%.2e" field0[i,jgrid,igrid]
+                # str=@sprintf "%.5e" field0[i,jgrid,igrid]
+
+
+                ax2.annotate(str,(x_array[igrid],y_array[jgrid]),fontsize=fontsize,c=lcolor,ha="center")
+
+            end
+        end
+    end
+
 
     # ax2.set_title("Title")
     # ax2.set_xlabel(L"$x (\mu m)$")
@@ -92,6 +135,10 @@ function plot_python_pdf(i,field0,figname,prefix,plot_levelset,isocontour,levels
         colors="r")
         cbar.add_lines(CS2)
     end
+
+    indLS = max(i-1,1) 
+   
+
     if plot_levelset
         # CSlvl = ax2.contourf(x_arr,y_arr,(phL.trans_scal[:,:,1] .-c0_H2)./c0_H2, levels=0.0, cmap=cmap)
         # CS2 = ax2.contour(CSlvl, 
@@ -101,11 +148,145 @@ function plot_python_pdf(i,field0,figname,prefix,plot_levelset,isocontour,levels
         # cbar.add_lines(CS2)
         # CSlvl = ax2.contour(x_arr,y_arr, gp.LS[1].u, [0.0],colors="r")
         # CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,i,i0:i1,j0:j1], [0.0],colors="r")
-        indLS= max(i,1)
+     
 
         CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
 
     end
+
+    # strtitle=strtitlefunc(indLS,fwd)
+    isnap = indLS
+    strtime = @sprintf "%.2e" fwd.t[isnap]*1e3 
+    strrad = @sprintf "%.2e" fwd.radius[isnap]*1e6
+
+    plt.title("t "*strtime*raw"$( \unit{\ms})$"*"radius "*strrad*raw"$( \unit{\um})$")
+
+    # if plot_levelset
+    #     gp.LS[1].u .= sqrt.((gp.x .+ xcoord).^ 2 + (gp.y .+ ycoord) .^ 2) - (radius) * ones(gp);
+
+    #     CSlvl = ax2.contour(x_arr,y_arr, gp.LS[1].u, [0.0],colors="r")
+    # end
+
+    plt.axis("equal")
+
+    str_it = @sprintf "_%.5i" i
+    plt.savefig(prefix*figname*str_it*".pdf")
+    plt.close(fig1)
+
+end
+
+
+function plot_python_pdf_full(i,field0,figname,prefix,plot_levelset,isocontour,plot_grid,plot_mode,levels,range,cmap,x_array,y_array,gp,cbarlabel,i0,i1,j0,j1,fwd)
+
+    # PyPlot.rc("text", usetex=true)
+    # rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
+    # rcParams["text.latex.preamble"] = raw"\usepackage{siunitx}"
+
+    x_arr=x_array[i0:i1]
+    y_arr=y_array[j0:j1]
+
+    # field = field0[i,i0:i1,j0:j1]
+    field = field0[i,j0:j1,i0:i1]
+
+    if i0 == 1
+        pushfirst!(x_arr,x_array[i0]-0.5*gp.dx[1,1])
+        @views pushfirst!(field[j0:j1,:],vecb_L(fwd.trans_scalD[i,:,1],gp))
+    end
+
+
+    # print("range",range)
+    fig1, ax2 = plt.subplots(layout="constrained")
+    # CS = ax2.contourf(x_arr,y_arr,max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), 10, cmap=cmap)
+
+   
+    
+    if levels==0
+        CS = ax2.contourf(x_arr,y_arr,field, 
+        levels=range, #10, 
+        cmap=cmap)
+    else
+        # CS = ax2.contourf(x_arr,y_arr,field, 
+        # levels=levels,
+        # cmap=cmap)
+        # # print("levels " ,levels)
+        mpl_levels = mpl_tickers.MaxNLocator(nbins=levels).tick_values(minimum(field), maximum(field))
+        norm = mpl_colors.BoundaryNorm(mpl_levels, ncolors=cmap.N, clip=true)
+        CS = ax2.pcolormesh(x_arr,y_arr,field, cmap=cmap, norm=norm)
+        # fig.colorbar(im, ax=ax0)
+    end
+
+    
+    lcolor= "w" #"k"
+    lw=0.5
+    ms=0.5
+    fontsize=5
+
+    if plot_grid
+        # for igrid in i0:i1
+        #     ax2.axvline(x_array[igrid],c=lcolor,lw=lw)
+        # end
+        # for igrid in j0:j1
+        #     ax2.axhline(y_array[igrid],c=lcolor,lw=lw)
+        # end
+        for igrid in i0:i1        
+            for jgrid in j0:j1
+                # print("\n",x_array[igrid],y_array[jgrid])
+                # ax2.scatter(x_array[igrid],y_array[jgrid],
+                # c=lcolor,
+                # s=ms,
+                # )
+
+                str=@sprintf "%.2e" field0[i,jgrid,igrid]
+
+                ax2.annotate(str,(x_array[igrid],y_array[jgrid]),fontsize=fontsize,c=lcolor,ha="center")
+
+            end
+        end
+    end
+
+
+    # ax2.set_title("Title")
+    # ax2.set_xlabel(L"$x (\mu m)$")
+    # ax2.set_ylabel(L"$y (\mu m)$")
+
+    ax2.set_xlabel(raw"$x ( \unit{\um})$")
+    ax2.set_ylabel(L"$y (\mu m)$")
+
+    # Make a colorbar for the ContourSet returned by the contourf call.
+    cbar = fig1.colorbar(CS)
+    cbar.ax.set_ylabel(cbarlabel)
+    # Add the contour line levels to the colorbar
+    if isocontour
+        CS2 = ax2.contour(CS, 
+        # levels=CS.levels[::2], 
+        # levels=
+        colors="r")
+        cbar.add_lines(CS2)
+    end
+
+    indLS = max(i-1,1) 
+   
+    if plot_levelset
+        # CSlvl = ax2.contourf(x_arr,y_arr,(phL.trans_scal[:,:,1] .-c0_H2)./c0_H2, levels=0.0, cmap=cmap)
+        # CS2 = ax2.contour(CSlvl, 
+        # # levels=CS.levels[::2], 
+        # # levels=
+        # colors="r")
+        # cbar.add_lines(CS2)
+        # CSlvl = ax2.contour(x_arr,y_arr, gp.LS[1].u, [0.0],colors="r")
+        # CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,i,i0:i1,j0:j1], [0.0],colors="r")
+     
+
+        CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
+
+    end
+
+    # strtitle=strtitlefunc(indLS,fwd)
+    isnap = indLS
+    strtime = @sprintf "%.2e" fwd.t[isnap]*1e3 
+    strrad = @sprintf "%.2e" fwd.radius[isnap]*1e6
+
+    plt.title("t "*strtime*raw"$( \unit{\ms})$"*"radius "*strrad*raw"$( \unit{\um})$")
 
     # if plot_levelset
     #     gp.LS[1].u .= sqrt.((gp.x .+ xcoord).^ 2 + (gp.y .+ ycoord) .^ 2) - (radius) * ones(gp);
@@ -122,7 +303,7 @@ end
 
 
 
-function python_movie_zoom(field0,figname,prefix,plot_levelset,isocontour,levels,range,cmap,x_array,y_array,gp,cbarlabel,size_frame,i0,i1,j0,j1,fwd)
+function python_movie_zoom(field0,figname,prefix,plot_levelset,isocontour,plot_mode,levels,range,cmap,x_array,y_array,gp,cbarlabel,size_frame,i0,i1,j0,j1,fwd)
 
     # if step!=0
     #     levels=range(lmin,lmax,step)
@@ -141,19 +322,41 @@ function python_movie_zoom(field0,figname,prefix,plot_levelset,isocontour,levels
 
 
 
-    if levels==0
-        CS = ax2.contourf(x_arr,y_arr,field[1,:,:], 
-        levels=range,
-        cmap=cmap)
-    else
-        CS = ax2.contourf(x_arr,y_arr,field[1,:,:], 
-        levels=levels,
-        cmap=cmap)
+    # if levels==0
+    #     CS = ax2.contourf(x_arr,y_arr,field[1,:,:], 
+    #     levels=range,
+    #     cmap=cmap)
+    # else
+    #     CS = ax2.contourf(x_arr,y_arr,field[1,:,:], 
+    #     levels=levels,
+    #     cmap=cmap)
+    # end
+
+    if plot_mode == "contourf"
+        plot_mode_contourf = true
+        plot_mode_pcolormesh = false
+        if levels==0
+            CS = ax2.contourf(x_arr,y_arr,field[1,:,:], 
+            levels=range, #10, 
+            cmap=cmap)
+        else
+            CS = ax2.contourf(x_arr,y_arr,field[1,:,:], 
+            levels=levels,
+            cmap=cmap)           
+        end
+    elseif plot_mode == "pcolormesh"
+        plot_mode_contourf = false
+        plot_mode_pcolormesh = true
+        if levels==0            
+            norm = mpl_colors.BoundaryNorm(range, ncolors=cmap.N, clip=true)
+            CS = ax2.pcolormesh(x_arr,y_arr,field[1,:,:], cmap=cmap, norm=norm)
+        else          
+            mpl_levels = mpl_tickers.MaxNLocator(nbins=levels).tick_values(minimum(field[1,:,:]), maximum(field[1,:,:]))
+            norm = mpl_colors.BoundaryNorm(mpl_levels, ncolors=cmap.N, clip=true)
+            CS = ax2.pcolormesh(x_arr,y_arr,field[1,:,:], cmap=cmap, norm=norm)
+        end
     end
-    # CS = ax2.contourf(x_arr,y_arr,field[1,:,:], 
-    # # levels=10, 
-    # levels=levels,
-    # cmap=cmap)
+  
 
     # Make a colorbar for the ContourSet returned by the contourf call.
     cbar = fig1.colorbar(CS)
@@ -166,14 +369,35 @@ function python_movie_zoom(field0,figname,prefix,plot_levelset,isocontour,levels
 
         # CS = ax2.contourf(x_arr,y_arr,max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), 10, cmap=cmap)
 
-        if levels==0
-            CS = ax2.contourf(x_arr,y_arr,field[i+1,:,:], 
-            levels=range,
-            cmap=cmap)
-        else
-            CS = ax2.contourf(x_arr,y_arr,field[i+1,:,:], 
-            levels=levels,
-            cmap=cmap)
+        # if levels==0
+        #     CS = ax2.contourf(x_arr,y_arr,field[i+1,:,:], 
+        #     levels=range,
+        #     cmap=cmap)
+        # else
+        #     CS = ax2.contourf(x_arr,y_arr,field[i+1,:,:], 
+        #     levels=levels,
+        #     cmap=cmap)
+        # end
+
+        if plot_mode_contourf
+            if levels==0
+                CS = ax2.contourf(x_arr,y_arr,field[i+1,:,:], 
+                levels=range, #10, 
+                cmap=cmap)
+            else
+                CS = ax2.contourf(x_arr,y_arr,field[i+1,:,:], 
+                levels=levels,
+                cmap=cmap)           
+            end
+        elseif plot_mode_pcolormesh
+            if levels==0            
+                norm = mpl_colors.BoundaryNorm(range, ncolors=cmap.N, clip=true)
+                CS = ax2.pcolormesh(x_arr,y_arr,field[i+1,:,:], cmap=cmap, norm=norm)
+            else          
+                mpl_levels = mpl_tickers.MaxNLocator(nbins=levels).tick_values(minimum(field[i+1,:,:]), maximum(field[i+1,:,:]))
+                norm = mpl_colors.BoundaryNorm(mpl_levels, ncolors=cmap.N, clip=true)
+                CS = ax2.pcolormesh(x_arr,y_arr,field[i+1,:,:], cmap=cmap, norm=norm)
+            end
         end
 
         # CS = ax2.contourf(x_arr,y_arr,field[i+1,:,:], 
@@ -181,7 +405,10 @@ function python_movie_zoom(field0,figname,prefix,plot_levelset,isocontour,levels
         # levels=levels,
         # cmap=cmap)
 
-        indLS= max(i,1)
+        indLS= i 
+        if i ==0 
+            indLS = 1
+        end
 
 
         strtitle=strtitlefunc(indLS,fwd)

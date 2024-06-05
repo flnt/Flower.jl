@@ -48,11 +48,19 @@ import Base.reshape
 
 const anim = PyNULL()
 # const plt = PyNULL()
+const mpl_colors = PyNULL()
+const mpl_tickers = PyNULL()
 
+
+# from matplotlib.colors import BoundaryNorm
+# from matplotlib.ticker import MaxNLocator
 
 function __init__()
     copy!(anim, pyimport_conda("matplotlib.animation", "matplotlib"))
     # copy!(plt, pyimport_conda("matplotlib.pyplot", "matplotlib"))
+    copy!(mpl_colors, pyimport_conda("matplotlib.colors", "matplotlib"))
+    copy!(mpl_tickers, pyimport_conda("matplotlib.ticker", "matplotlib"))
+
 end
 
 include("types.jl")
