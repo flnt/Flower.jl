@@ -50,6 +50,7 @@ const anim = PyNULL()
 # const plt = PyNULL()
 const mpl_colors = PyNULL()
 const mpl_tickers = PyNULL()
+const pd = PyNULL()
 
 
 # from matplotlib.colors import BoundaryNorm
@@ -60,7 +61,7 @@ function __init__()
     # copy!(plt, pyimport_conda("matplotlib.pyplot", "matplotlib"))
     copy!(mpl_colors, pyimport_conda("matplotlib.colors", "matplotlib"))
     copy!(mpl_tickers, pyimport_conda("matplotlib.ticker", "matplotlib"))
-
+    copy!(pd, pyimport_conda("pandas", "pandas"))
 end
 
 include("types.jl")

@@ -270,7 +270,7 @@ function run_forward(
     ####################################################################################################
     if electrolysis
 
-        printstyled(color=:green, @sprintf "\n Check %s %s %s %.2e %.2e %2i\n" heat heat_convection electrolysis num.τ θd nb_transported_scalars)
+        printstyled(color=:green, @sprintf "\n Check %s %s %s %s %.2e %.2e %2i\n" heat heat_convection electrolysis electrolysis_convection num.τ θd nb_transported_scalars)
 
         # print("\n before init",vecb_L(phL.trans_scalD[:,1], grid))
 
@@ -329,6 +329,28 @@ function run_forward(
         # "\n phL.trans_scalD: ",any(isnan, phL.trans_scalD) , "\n phL.phi_eleD: ",any(isnan, phL.phi_eleD) ,
         # "\n phL.u: ",norm(phL.u) > 1e8 , "\n phS.u: ",norm(phS.u) > 1e8 , "\n phL.T: ",norm(phL.T) > 1e8 , "\n phS.T: ",norm(phS.T) > 1e8 , "\n phL.trans_scal: ",norm(phL.trans_scal) > 1e8 , "\n phL.phi_ele: ",norm(phL.phi_ele) > 1e8)
 
+
+    
+        
+        if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || any(isnan, phS.uD) || any(isnan, phS.vD) || any(isnan, phS.TD) ||
+            any(isnan, phL.trans_scalD) || any(isnan, phL.phi_eleD) ||
+            norm(phL.u) > 1e8 || norm(phS.u) > 1e8 || norm(phL.T) > 1e8 || norm(phS.T) > 1e8 || norm(phL.trans_scal) > 1e8 || norm(phL.phi_ele) > 1e8 ||
+            any(phL.trans_scal .<0))
+            println(@sprintf "\n CRASHED start \n")
+
+            # println(@sprintf "\n CRASHED after %d iterations \n" current_i)
+            
+            print("\n phL.uD: ",any(isnan, phL.uD) , "\n phL.vD: ",any(isnan, phL.vD) , "\n phL.TD: ",any(isnan, phL.TD) , "\n phS.uD: ",any(isnan, phS.uD) , "\n phS.vD: ",any(isnan, phS.vD) , "\n phS.TD: ",any(isnan, phS.TD) ,
+            "\n phL.trans_scalD: ",any(isnan, phL.trans_scalD) , "\n phL.phi_eleD: ",any(isnan, phL.phi_eleD) ,
+            "\n phL.u: ",norm(phL.u) > 1e8 , "\n phS.u: ",norm(phS.u) > 1e8 , "\n phL.T: ",norm(phL.T) > 1e8 , 
+            "\n phS.T: ",norm(phS.T) > 1e8 , "\n phL.trans_scal: ",norm(phL.trans_scal) > 1e8 ,
+             "\n phL.phi_ele: ",norm(phL.phi_ele) > 1e8,"\n any(phL.trans_scal .<0): ", any(phL.trans_scal .<0))
+
+            crashed=true
+            # return nothing
+            return current_i
+
+        end
     end
     ####################################################################################################
 
@@ -363,6 +385,8 @@ function run_forward(
             # @views kill_dead_cells!(phL.trans_scal[:,:,iscal], grid, LS[end].geoL) 
             # @views kill_dead_cells_val!(phS.trans_scal[:,:,iscal], grid, LS[end].geoS) #TODO
             @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, LS[end].geoL,concentration0[iscal]) 
+            @views veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
+
         end
     end     
     ####################################################################################################
@@ -747,13 +771,35 @@ function run_forward(
 
                     @views veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
 
+                    # print("\n",BC_trans_scal[iscal].int, " ",maximum(veci(phL.trans_scalD[:,iscal],grid,2)))
+                    # print("\n test chi",maximum(opC_TL.χ[1])," ",maximum(vec2(opC_TL.χ[1],grid)))
+
+                    # phL.saved_scal[:,:,5]=reshape(opC_TL.χ[1].diag,grid)
+
+
+
+
+                    diffusion_coeff_iscal = diffusion_coeff[iscal]
+
+                    diffusion_coeff_iscal = 0.0
+                    
+
+                    printstyled(color=:red, @sprintf "\n 0 diffusion \n")
+
+
 
                     rhs = set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TL, LS[1].geoL, phL, concentration0[iscal], BC_trans_scal[iscal],
                                                         LS[1].MIXED, LS[1].geoL.projection,
                                                         ATL,BTL,
                                                         opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
-                                                        periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff[iscal])
+                                                        periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff_iscal)
                     @views mul!(rhs, BTL, phL.trans_scalD[:,iscal], 1.0, 1.0) #TODO @views not necessary ?
+
+
+                    # phL.saved_scal[:,:,5]=reshape(opC_TL.χ[1].diag,grid)
+                    phL.saved_scal[:,:,5]=reshape(veci(rhs,grid,1), grid)
+
+                    phL.saved_scal[:,:,6]=reshape(opC_TL.χ[1].diag,grid)
 
                     # print("\n test left before A/r L", vecb_L(phL.trans_scalD[:,iscal], grid))
                     # print("\n test left before A/r T", vecb_T(phL.trans_scalD[:,iscal], grid))
@@ -787,6 +833,23 @@ function run_forward(
                     # print("\n test right", vecb_R(phL.trans_scalD[:,iscal], grid))
                     # print("\n test bottom", vecb_B(phL.trans_scalD[:,iscal], grid))
                     # print("\n test top", vecb_T(phL.trans_scalD[:,iscal], grid))
+
+
+
+                    for jplot in 1:ny
+                        for iplot in 1:nx
+
+                            II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+                            pII = lexicographic(II, grid.ny)
+
+                            if phL.trans_scalD[pII,iscal] < 0.0
+                            # if phL.trans_scalD[pII,iscal] < concentration0[iscal]
+
+                                printstyled(color=:green, @sprintf "\n j: %5i %5i %.2e %.2e %.2e %.2e \n" iplot jplot grid.x[iplot]/num.plot_xscale grid.y[jplot]/num.plot_xscale phL.trans_scalD[pII,iscal] rhs[pII])
+                        
+                            end
+                        end
+                    end
 
 
 
@@ -835,6 +898,8 @@ function run_forward(
                     end
                 else 
                     elec_cond = ones(grid)
+                    elec_condD = fnones(grid, num)
+                    printstyled(color=:green, @sprintf "\n conductivity one")
                     # b_phi_ele = zeros(grid)
 
                 end 
@@ -896,16 +961,18 @@ function run_forward(
                 # elseif electrolysis_reaction == ""
                 #     # BC_phi_ele.left.val = -butler_volmer_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./elec_cond
                 
-                end
+            
 
-                for iLS in 1:nLS
-                    # kill_dead_bc_left_wall!(vecb(elec_condD,grid), grid, iLS,1.0)
-                    for i = 1:grid.ny
-                        II = CartesianIndex(i,1)
-                        if grid.LS[iLS].geoL.cap[II,5] < 1e-12
-                            BC_phi_ele.left.val[i] = 1.0
+                    for iLS in 1:nLS
+                        # kill_dead_bc_left_wall!(vecb(elec_condD,grid), grid, iLS,1.0)
+                        for i = 1:grid.ny
+                            II = CartesianIndex(i,1)
+                            if grid.LS[iLS].geoL.cap[II,5] < 1e-12
+                                BC_phi_ele.left.val[i] = 1.0
+                            end
                         end
                     end
+
                 end
 
                 #debugphi
@@ -922,8 +989,9 @@ function run_forward(
 
                 # print("\n elec_condD: ",any(isnan, elec_condD),"\n BC_phi_ele.left.val: ",any(isnan, BC_phi_ele.left.val),"\n")
 
-                
+                printstyled(color=:green, @sprintf "\n BC phi : %.2e \n" BC_phi_ele.int.val)
 
+                #TODO BC several LS
                 #Poisson with variable coefficient
                 rhs_phi_ele = set_poisson_variable_coeff(
                     [BC_phi_ele.int], num, grid, grid_u, grid_v, a0_p, opC_pL, opC_uL, opC_vL,
@@ -1000,6 +1068,9 @@ function run_forward(
                 phL.phi_eleD .= res_phi_ele
 
                 phL.phi_ele .= reshape(veci(phL.phi_eleD,grid,1), grid)
+
+
+
 
                 if any(isnan, phL.phi_eleD)
                     print("\n phL.uD: ",any(isnan, phL.uD) , "\n phL.vD: ",any(isnan, phL.vD) , "\n phL.TD: ",any(isnan, phL.TD) , "\n phS.uD: ",any(isnan, phS.uD) , "\n phS.vD: ",any(isnan, phS.vD) , "\n phS.TD: ",any(isnan, phS.TD) ,
@@ -1080,6 +1151,8 @@ function run_forward(
                     end
                 else 
                     elec_cond = ones(grid)
+                    printstyled(color=:green, @sprintf "\n conductivity one")
+
                 end 
 
                 phL.i_current_mag .*= elec_cond # i=-κ∇ϕ here magnitude
@@ -1087,6 +1160,14 @@ function run_forward(
 
 
                 ####################################################################################################
+
+                if nb_transported_scalars == 0
+                    phL.saved_scal[:,:,1],phL.saved_scal[:,:,2],phL.saved_scal[:,:,3],phL.saved_scal[:,:,4]=compute_mass_flux!(num,grid, grid_u, 
+                    grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,0)
+                    print()
+                    printstyled(color=:green, @sprintf "\n Flux: %.2e \n" -diffusion_coeff[1] * sum(phL.saved_scal[:,:,1]))
+
+                end
                 
 
             end
@@ -1143,16 +1224,25 @@ function run_forward(
         
 
 
+                # print("\n test left H2", vecb_L(phL.trans_scalD[:,1], grid))
+
                 phL.saved_scal[:,:,1],phL.saved_scal[:,:,2],phL.saved_scal[:,:,3],phL.saved_scal[:,:,4]=compute_mass_flux!(num,grid, grid_u, 
                 grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,1)
 
-                
-                
-
-
-                for iscal=1:nb_saved_scalars
-                    @views kill_dead_cells!(phL.saved_scal[:,:,iscal], grid, LS[1].geoL)
+                print("\n testvalflux1")
+                for jplot in 1:ny
+                    for iplot in 1:nx
+                        if phL.saved_scal[jplot,iplot,1] !=0.0
+                            printstyled(color=:green, @sprintf "\n j: %5i %5i %.2e\n" iplot jplot phL.saved_scal[jplot,iplot,1])
+                        end
+                    end
                 end
+
+
+
+                # for iscal=1:nb_saved_scalars
+                #     @views kill_dead_cells!(phL.saved_scal[:,:,iscal], grid, LS[1].geoL)
+                # end
 
 
 
@@ -1168,6 +1258,7 @@ function run_forward(
                 #     printstyled(color=:green, @sprintf "\n j: %5i %.2e %.2e %.2e %.2e %.2e %.2e %.2e\n" iplot grid.y[iplot]/num.plot_xscale phL.saved_scal[iplot,id_x,2] phL.saved_scal[iplot,id_x,3] phL.saved_scal[iplot,id_x,4] phL.trans_scal[iplot,id_x,1] grid.LS[1].u[iplot,id_x] veci(phL.trans_scalD,grid,2)[iplot,id_x,1])
                 # end
                 # # #############################################################################################################
+                print("\n testvalflux2")
 
                 for jplot in 1:ny
                     for iplot in 1:nx
@@ -1239,7 +1330,7 @@ function run_forward(
                 printstyled(color=:green, @sprintf "\n p0: %.2e p_liq %.2e p_lapl %.2e \n" num.pres0 p_liq p_g)
 
                 if mode_2d == 3
-                    grid.LS[1].u .= sqrt.((grid.x).^ 2 + (grid.y .+ num.shifted_y) .^ 2) - (current_radius) * ones(ny, nx)
+                    grid.LS[1].u .= sqrt.((grid.x).^ 2 + (grid.y .+ num.shifted_y) .^ 2) - (current_radius) * ones(ny, nx)                  
                 else
                     grid.LS[1].u .= sqrt.((grid.x .+ num.shifted .- current_radius .+ num.R ).^ 2 + (grid.y .+ num.shifted_y) .^ 2) - (current_radius) * ones(ny, nx)
                 end

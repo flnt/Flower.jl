@@ -46,8 +46,26 @@ function strtitlefunc(isnap,fwd)
     return strtitle
 end
 
-function plot_python_pdf(i,field0,figname,prefix,plot_levelset,isocontour,plot_grid,plot_mode,levels,range,cmap,x_array,y_array,gp,cbarlabel,i0,i1,j0,j1,fwd)
+function plot_python_pdf(itmp,field0,figname,prefix,plot_levelset,isocontour,plot_grid,plot_mode,levels,range,cmap,x_array,y_array,gp,cbarlabel,i0,i1,j0,j1,fwd)
 
+    if itmp<0
+        # print("\n testi ", itmp)
+        i=-itmp
+        # field = field0[1:j1-j0+1,1:i1-i0+1]
+        field = field0[j0:j1,i0:i1]
+        # i0=1
+        # i1=ii1-ii0+1
+        # j0=1
+        # j1=
+
+    else
+        i=itmp
+        field = field0[i,j0:j1,i0:i1]
+        # i0=ii0
+        # i1=ii1
+        # j0=jj0
+        # j1=jj1
+    end
     # PyPlot.rc("text", usetex=true)
     # rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
     # rcParams["text.latex.preamble"] = raw"\usepackage{siunitx}"
@@ -56,7 +74,6 @@ function plot_python_pdf(i,field0,figname,prefix,plot_levelset,isocontour,plot_g
     y_arr=y_array[j0:j1]
 
     # field = field0[i,i0:i1,j0:j1]
-    field = field0[i,j0:j1,i0:i1]
 
 
     # print("range",range)
@@ -98,16 +115,20 @@ function plot_python_pdf(i,field0,figname,prefix,plot_levelset,isocontour,plot_g
         # for igrid in j0:j1
         #     ax2.axhline(y_array[igrid],c=lcolor,lw=lw)
         # end
-        for igrid in i0:i1        
-            for jgrid in j0:j1
+        for igrid0 in i0:i1        
+            for jgrid0 in j0:j1
+                jgrid=jgrid0-j0+1
+                igrid=igrid0-i0+1
+
                 # print("\n",x_array[igrid],y_array[jgrid])
                 # ax2.scatter(x_array[igrid],y_array[jgrid],
                 # c=lcolor,
                 # s=ms,
                 # )
 
-                str=@sprintf "%.2e" field0[i,jgrid,igrid]
+                # str=@sprintf "%.2e" field0[i,jgrid,igrid]
                 # str=@sprintf "%.5e" field0[i,jgrid,igrid]
+                str=@sprintf "%.2e" field[jgrid,igrid]
 
 
                 ax2.annotate(str,(x_array[igrid],y_array[jgrid]),fontsize=fontsize,c=lcolor,ha="center")
@@ -176,21 +197,58 @@ function plot_python_pdf(i,field0,figname,prefix,plot_levelset,isocontour,plot_g
 end
 
 
-function plot_python_pdf_full(i,field0,figname,prefix,plot_levelset,isocontour,plot_grid,plot_mode,levels,range,cmap,x_array,y_array,gp,cbarlabel,i0,i1,j0,j1,fwd)
+function plot_python_pdf_full(i,field0,figname,prefix,plot_levelset,isocontour,plot_grid,plot_mode,levels,range,cmap,x_array,y_array,gp,cbarlabel,ii0,ii1,jj0,jj1,fwd,fwdL,xscale)
 
     # PyPlot.rc("text", usetex=true)
     # rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
     # rcParams["text.latex.preamble"] = raw"\usepackage{siunitx}"
 
+    # if itmp<0
+    #     i=-itmp
+    #     field = field0[1:j1-j0+1,1:i1-i0+1]
+    # else
+    #     i=itmp
+    #     field = field0[i,j0:j1,i0:i1]
+    # end
+
+    # field = field0[i,i0:i1,j0:j1]
+
+    i0=ii0
+    i1=ii1
+    j0=jj0
+    j1=jj1
+
     x_arr=x_array[i0:i1]
     y_arr=y_array[j0:j1]
 
-    # field = field0[i,i0:i1,j0:j1]
-    field = field0[i,j0:j1,i0:i1]
+    vecb_l=false
 
-    if i0 == 1
-        pushfirst!(x_arr,x_array[i0]-0.5*gp.dx[1,1])
-        @views pushfirst!(field[j0:j1,:],vecb_L(fwd.trans_scalD[i,:,1],gp))
+
+    if ii0 == 1
+        vecb_l=true
+        i1+=1
+
+        # print("\n x_arr",x_arr)
+
+        pushfirst!(x_arr,x_array[i0]-0.5*gp.dx[1,1]/xscale)
+
+        # print("\n x_arr",x_arr)
+        
+        fieldtmp = zeros(gp.ny, gp.nx + 1)
+        # print(size(field))
+        # print(size(field0))
+        # printstyled(color=:green, @sprintf "\n j: %5i %5i %5i %5i\n" i0 i1 j0 j1)
+
+        @views fieldtmp[j0:j1,2:i1] = field0[i,jj0:jj1,ii0:ii1]
+        @views fieldtmp[:,1] = vecb_L(fwdL.trans_scalD[i,:,1],gp)
+
+
+        field = fieldtmp[j0:j1,i0:i1]
+
+        # @views pushfirst!(field[j0:j1,:],vecb_L(fwd.trans_scalD[i,:,1],gp))
+    else
+        field = field0[i,j0:j1,i0:i1]
+
     end
 
 
@@ -216,7 +274,7 @@ function plot_python_pdf_full(i,field0,figname,prefix,plot_levelset,isocontour,p
     end
 
     
-    lcolor= "w" #"k"
+    lcolor= "k" #"w" #"k"
     lw=0.5
     ms=0.5
     fontsize=5
@@ -228,17 +286,36 @@ function plot_python_pdf_full(i,field0,figname,prefix,plot_levelset,isocontour,p
         # for igrid in j0:j1
         #     ax2.axhline(y_array[igrid],c=lcolor,lw=lw)
         # end
-        for igrid in i0:i1        
-            for jgrid in j0:j1
+
+
+        for igrid0 in i0:i1        
+            for jgrid0 in j0:j1
                 # print("\n",x_array[igrid],y_array[jgrid])
-                # ax2.scatter(x_array[igrid],y_array[jgrid],
-                # c=lcolor,
-                # s=ms,
-                # )
+                # print("\n ",igrid," ",jgrid)
+                igrid=igrid0
+                jgrid = jgrid0-j0+1
 
-                str=@sprintf "%.2e" field0[i,jgrid,igrid]
+                if igrid==1
+                    lcolor= "k"
+                else
+                    lcolor= "w"
+                end
+                if igrid%2 == 0
+                    va="top"
+                else
+                    va="bottom"
+                end
+                ax2.scatter(x_arr[igrid],y_arr[jgrid],
+                c=lcolor,
+                s=ms,
+                )
 
-                ax2.annotate(str,(x_array[igrid],y_array[jgrid]),fontsize=fontsize,c=lcolor,ha="center")
+                
+                # str=@sprintf "%.2e" fieldtmp[jgrid0,igrid0]
+                str=@sprintf "%.2e %.3i %.3i" fieldtmp[jgrid0,igrid0] igrid0 jgrid0
+
+
+                ax2.annotate(str,(x_arr[igrid],y_arr[jgrid]),fontsize=fontsize,c=lcolor,ha="center",va=va)
 
             end
         end
@@ -296,7 +373,10 @@ function plot_python_pdf_full(i,field0,figname,prefix,plot_levelset,isocontour,p
 
     plt.axis("equal")
 
-    plt.savefig(prefix*figname*".pdf")
+
+
+    str_it = @sprintf "_%.5i" i
+    plt.savefig(prefix*figname*str_it*".pdf")
     plt.close(fig1)
 
 end

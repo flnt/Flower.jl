@@ -206,6 +206,8 @@ concentration0=[0.16, 6700, 49000]
 nb_transported_scalars=3
 
 nb_saved_scalars=4 
+nb_saved_scalars=5
+nb_saved_scalars=6
 
 
 if length(concentration0)!=nb_transported_scalars
@@ -357,10 +359,15 @@ op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
 @unpack x, nx, ny, ind = gv
 
-vPoiseuille = zeros(gv)
-vPoiseuille=Poiseuille_favg.(x,v_inlet,L0)
+velocity = 1.0
+# velocity = 0.0
 
-phL.v .=vPoiseuille
+vPoiseuille = zeros(gv)
+vPoiseuille=Poiseuille_favg.(x,v_inlet,L0) .* velocity
+
+
+
+phL.v .=vPoiseuille .* velocity
 phL.u .= 0.0
 phL.p .= pres0 #0.0
 phL.T .= temperature0
@@ -369,6 +376,8 @@ phS.T .= temperature0
 #Initialize for CRASH detection (cf isnan...)
 phS.v .= 0.0
 phS.u .= 0.0
+phS.vD .= 0.0
+phS.uD .= 0.0
 
 su = sqrt.((gv.x .+ xcoord).^2 .+ (gv.y .+ ycoord).^2)
 R1 = radius + 3.0*num.Δ
@@ -486,7 +495,7 @@ plt.close(fig1)
 ######################################################################################################
 
 
-vPoiseuilleb=Poiseuille_favg.(gv.x[1,:],v_inlet,L0)
+vPoiseuilleb=Poiseuille_favg.(gv.x[1,:],v_inlet,L0) .* velocity
 
 for iscal=1:nb_transported_scalars
     phL.trans_scal[:,:,iscal] .= concentration0[iscal]
@@ -569,22 +578,22 @@ BC_u = Boundaries(
         bottom = Dirichlet(val = concentration0[1]),
         top    = Neumann(),
         left   = Neumann(val=-i_current/(2*Faraday*DH2)),
-        right  = Neumann(),
+        right  = Dirichlet(val = concentration0[1]),
         int    = Dirichlet(val = concentration0[1])), #H2
          
         BoundariesInt(
         bottom = Dirichlet(val = concentration0[2]),
         top    = Neumann(),
         left   = Neumann(val=-i_current/(2*Faraday*DKOH)),
-        right  = Neumann(),
+        right  = Dirichlet(val = concentration0[2]),
         int    = Neumann(val=0.0)), #KOH
          
         BoundariesInt(
         bottom = Dirichlet(val = concentration0[3]),
         top    = Neumann(),
         left   = Neumann(val=i_current/(Faraday*DH2O)),
-        right  = Neumann(),
-        int    = Dirichlet(val = concentration0[3])) #H2O
+        right  = Dirichlet(val = concentration0[3]),
+        int    = Neumann(val=0.0)) #H2O #Dirichlet(val = concentration0[3])
     ),
 
     BC_phi_ele = BoundariesInt(
@@ -901,7 +910,11 @@ i1 = 10
 j0 = gp.ny ÷ 2 +1
 j1 = gp.ny ÷ 2 + 10
 
-for plt_it = 2:current_i
+
+
+# for plt_it = 2:current_i+1
+for plt_it = 2:size_frame+1
+
 
     # printstyled(color=:green, @sprintf "\n plt_it %.5i" plt_it)
 
@@ -942,17 +955,69 @@ for plt_it = 2:current_i
     plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,1], "flux1zoom",prefix,
     true,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",i0,i1,j0,j1,fwd)
 
-    # plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,2], "flux2zoom",prefix,
-    # true,concentrationcontour,true,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",i0,i1,j0,j1,fwd)
+    plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,2], "flux2zoom",prefix,
+    true,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",i0,i1,j0,j1,fwd)
 
-    # plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,3], "flux3zoom",prefix,
-    # true,concentrationcontour,true,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",i0,i1,j0,j1,fwd)
+    plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,3], "flux3zoom",prefix,
+    true,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",i0,i1,j0,j1,fwd)
 
-    # plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,4], "flux4zoom",prefix,
-    # true,concentrationcontour,true,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",i0,i1,j0,j1,fwd)
+    plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,4], "flux4zoom",prefix,
+    true,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",i0,i1,j0,j1,fwd)
+
+    plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,5], "flux5zoom",prefix,
+    true,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",i0,i1,j0,j1,fwd)
+
+    plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,6], "flux6zoom",prefix,
+    true,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",i0,i1,j0,j1,fwd)
 
 
+    # plot_python_pdf_full(plt_it,max.((fwdL.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0), "H2normliqlvlzoomfullfield",prefix,
+    # plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",i0,i1,j0,j1,fwd,fwdL,xscale)
 
+
+    plot_python_pdf_full(plt_it,fwdL.trans_scal[:,:,:,1], "H2liqlvlzoomfullfield",prefix,
+    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+    i0,i1,j0,j1,fwd,fwdL,xscale)
+
+
+    plot_python_pdf_full(plt_it,fwdL.trans_scal[:,:,:,3], "KOHliqlvlzoomfullfield",prefix,
+    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+    i0,i1,j0,j1,fwd,fwdL,xscale)
+
+
+    plot_python_pdf_full(plt_it,fwdL.trans_scal[:,:,:,3], "H2Oliqlvlzoomfullfield",prefix,
+    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+    i0,i1,j0,j1,fwd,fwdL,xscale)
+
+
+    plot_python_pdf_full(plt_it,fwdL.trans_scal[:,:,:,1], "H2liqlvlzoomfullfield2",prefix,
+    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+    i0,i1,1,10,fwd,fwdL,xscale)
+
+    plot_python_pdf_full(plt_it,fwdL.trans_scal[:,:,:,1], "H2liqlvlzoomfullfield3",prefix,
+    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+    i0,i1,10,20,fwd,fwdL,xscale)
+
+    plot_python_pdf_full(plt_it,fwdL.trans_scal[:,:,:,1], "H2liqlvlzoomfullfield4",prefix,
+    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+    i0,i1,20,30,fwd,fwdL,xscale)
+
+    plot_python_pdf_full(plt_it,fwdL.trans_scal[:,:,:,1], "H2liqlvlzoomfullfield5",prefix,
+    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+    i0,i1,30,40,fwd,fwdL,xscale)
+
+    plot_python_pdf_full(plt_it,fwdL.trans_scal[:,:,:,1], "H2liqlvlzoomfullfield6",prefix,
+    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+    i0,i1,40,50,fwd,fwdL,xscale)
+
+    plot_python_pdf_full(plt_it,fwdL.trans_scal[:,:,:,1], "H2liqlvlzoomfullfield7",prefix,
+    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+    i0,i1,50,60,fwd,fwdL,xscale)
+
+
+    plot_python_pdf_full(plt_it,fwdL.trans_scal[:,:,:,1], "H2liqlvlzoomfullfield8",prefix,
+    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+    i0,i1,60,70,fwd,fwdL,xscale)
 
     # plot_python_pdf(1,fwd.saved_scal[:,:,:,1], "flux1zoom1",prefix,
     # true,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",i0,i1,j0,j1,fwd)
@@ -977,6 +1042,27 @@ for plt_it = 2:current_i
 
     plot_python_pdf(plt_it,fwdL.trans_scal[:,:,:,1], "H2liqlvlzoom",prefix,
     plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",i0,i1,j0,j1,fwd)
+
+
+    # @views vec = reshape(veci(fwdL.trans_scalD[plt_it,:,1],gp,2),gp)
+
+    vec = zeros(gp)
+    # vec = reshape(veci(phL.trans_scalD[:,1],gp,2),gp)   
+    vec = reshape(veci(fwdL.trans_scalD[plt_it,:,1],gp,2),gp)
+
+
+    # print("\n testvec",maximum(vec),size(vec))
+
+    # vec = phL.trans_scal[:,:,1]
+    # veci(phL.trans_scalD[:,1],grid,2)
+    plot_python_pdf(-plt_it,vec, "H2_int_liqlvlzoom",prefix,
+    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",i0,i1,j0,j1,fwd)
+
+
+    # plot_python_pdf_full(-plt_it,vec, "H2_int_liqlvlzoomfullfield",prefix,
+    # plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+    # i0,i1,j0,j1,fwd,fwdL,xscale)
+
 
     # plot_python_pdf(1,fwdL.trans_scal[:,:,:,1], "H2liqlvlzoom1",prefix,
     # plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",i0,i1,j0,j1,fwd)

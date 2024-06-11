@@ -188,7 +188,7 @@ function set_scalar_transport!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED
     A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b, 4.0)
 
     # Explicit part of heat equation
-    B[1:ni,1:ni] = M .+ 0.5 .* τ .* diffusion_coeff_scal .* LT
+    B[1:ni,1:ni] = M .+ 0.5 .* τ .* diffusion_coeff_scal .* LT .- τ .* CT
     B[1:ni,ni+1:2*ni] = 0.5 .* τ .* diffusion_coeff_scal .* LD
     B[1:ni,end-nb+1:end] = 0.5 .* τ .* diffusion_coeff_scal .* LD_b
 
@@ -196,8 +196,16 @@ function set_scalar_transport!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED
     if convection
         vec1(rhs,grid) .-= τ .* CUTCT
     end
+
+    IItest = CartesianIndex(66, 4) #(id_y, id_x)
+    pIItest = lexicographic(IItest, grid.ny)
+    print("\n rhs",vec2(rhs,grid)[pIItest])
     vec2(rhs,grid) .+= χ[1] * vec(a0)
+    print("\n rhs",vec2(rhs,grid)[pIItest])
     vecb(rhs,grid) .+= op.χ_b * vec(a0_b)
+    print("\n rhs",vec2(rhs,grid)[pIItest])
+    print("\n rhs",bc_type.val*grid.dx[1,1])
+
 
     return rhs
 end
@@ -437,10 +445,11 @@ function print_electrolysis_statistics(nb_transported_scalars,grid,phL)
     moyscal1L=moyscal2L=moyscal3L=moyphi_eleL=moyTL=moyiL=0.0
 
 
-
-    minscal1L = minimum(phL.trans_scal[:,:,1])
-    maxscal1L = maximum(phL.trans_scal[:,:,1])
-    moyscal1L = mean(phL.trans_scal[:,:,1])
+    if nb_transported_scalars>0
+        minscal1L = minimum(phL.trans_scal[:,:,1])
+        maxscal1L = maximum(phL.trans_scal[:,:,1])
+        moyscal1L = mean(phL.trans_scal[:,:,1])
+    end
 
     if nb_transported_scalars>1
         minscal2L = minimum(phL.trans_scal[:,:,2])
@@ -488,11 +497,14 @@ function print_electrolysis_statistics(nb_transported_scalars,grid,phL)
     # print("mean cH2 interface",average!(reshape(veci(phL.trans_scalD[:,iscal],grid,2), grid), grid, LS[1].geoL, num))
 
     # printstyled(color=:green, @sprintf "\n average c %s\n" average!(reshape(veci(phL.trans_scalD[:,iscal],grid,2), grid), grid, LS[1].geoL, num))
-    nonzero = veci(phL.trans_scalD[:,1],grid,2)[abs.(veci(phL.trans_scalD[:,1],grid,2)) .> 0.0]
+    
     # print("nonzero\n")
     # print(nonzero)
     # print("\nmean c(H2) interface \n",mean(nonzero))
-    printstyled(color=:green, @sprintf "\n mean c(H2) interface : %.2e\n" mean(nonzero))
+    if nb_transported_scalars>0
+        nonzero = veci(phL.trans_scalD[:,1],grid,2)[abs.(veci(phL.trans_scalD[:,1],grid,2)) .> 0.0]
+        printstyled(color=:green, @sprintf "\n mean c(H2) interface : %.2e\n" mean(nonzero))
+    end
 
 end
 
@@ -918,34 +930,52 @@ function set_poisson_variable_coeff(
     for iLS in 1:num.nLS
         if ls_advection
             if is_dirichlet(bc_type[iLS])
+                __a0 = bc_type[iLS].val
                 __a1 = -1.0
                 __a2 = 0.0
                 __b = 0.0
             elseif is_neumann(bc_type[iLS])
+                __a0 = bc_type[iLS].val
                 __a1 = 0.0
                 __a2 = 0.0
                 __b = 1.0
             elseif is_robin(bc_type[iLS])
+                __a0 = bc_type[iLS].val
                 __a1 = -1.0
                 __a2 = 0.0
                 __b = 1.0
             elseif is_fs(bc_type[iLS])
+                print("error not implemented set_poisson_variable_coeff",bc_type[iLS])
+                @error ("error set_poisson_variable_coeff")
+
                 __a1 = 0.0
                 __a2 = 1.0
                 __b = 0.0
             elseif is_wall_no_slip(bc_type[iLS])
+                print("error not implemented set_poisson_variable_coeff",bc_type[iLS])
+                @error ("error set_poisson_variable_coeff")
+
                 __a1 = 0.0
                 __a2 = 0.0
                 __b = 1.0
             elseif is_flapping(bc_type[iLS])
+                print("error not implemented set_poisson_variable_coeff",bc_type[iLS])
+                @error ("error set_poisson_variable_coeff")
+
                 __a1 = 0.0
                 __a2 = 0.0
                 __b = 1.0
             elseif is_navier(bc_type[iLS])
+                print("error not implemented set_poisson_variable_coeff",bc_type[iLS])
+                @error ("error set_poisson_variable_coeff")
+
                 __a1 = 0.0
                 __a2 = 0.0
                 __b = 1.0
             elseif is_navier_cl(bc_type[iLS])
+                print("error not implemented set_poisson_variable_coeff",bc_type[iLS])
+                @error ("error set_poisson_variable_coeff")
+
                 __a1 = 0.0
                 __a2 = 0.0
                 __b = 1.0
@@ -955,13 +985,29 @@ function set_poisson_variable_coeff(
                 __b = 1.0
             end
     
+
+            # Flags with BCs
+            a0 = ones(grid) .* __a0
+
+
+          
+    
             _a1 = ones(grid) .* __a1
             a1 = Diagonal(vec(_a1))
-            _a2 = ones(grid) .* __a2
-            a2 = Diagonal(vec(_a2))
             _b = ones(grid) .* __b
             b = Diagonal(vec(_b))
 
+            a0_b = zeros(nb)
+            _a1_b = zeros(nb)
+            _b_b = zeros(nb)
+            set_borders!(grid, grid.LS[1].cl, grid.LS[1].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
+            a1_b = Diagonal(vec(_a1_b))
+            b_b = Diagonal(vec(_b_b))
+
+           
+            _a2 = ones(grid) .* __a2
+            a2 = Diagonal(vec(_a2))
+         
             fs_mat = HxT[iLS] * Hx[iLS] .+ HyT[iLS] * Hy[iLS]
 
             sb = iLS*ni+1:(iLS+1)*ni
@@ -985,7 +1031,12 @@ function set_poisson_variable_coeff(
             A[end-nb+1:end,sb] = -b_b * (HxT_b * iMx_b' * mat_coeffDx_i * Hx[iLS] .+ HyT_b * iMy_b' * mat_coeffDy_i * Hy[iLS])
         end
 
-        veci(rhs,grid,iLS+1) .= -χ[iLS] * vec(a0[iLS])
+        # a0_p = []
+        # for i in 1:num.nLS
+        #     push!(a0_p, zeros(grid))
+        # end
+
+        veci(rhs,grid,iLS+1) .= -χ[iLS] * vec(a0) #vec(a0[iLS])
     end
 
     vecb(rhs,grid) .= -χ_b * vec(a0_b)
@@ -1037,7 +1088,13 @@ function compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,
     @unpack nLS = num
     #Liquid phase
     @unpack trans_scalD = phL
-    scalD= trans_scalD[:,iscal] #H2 species
+    if iscal !=0
+        scalD= trans_scalD[:,iscal] #H2 species
+    else
+        @unpack phi_eleD = phL
+        scalD = phi_eleD
+    end
+
     opC_p = opC_pL
 
     iLStmp=1
