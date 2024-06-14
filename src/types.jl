@@ -76,6 +76,7 @@ abstract type AbstractOptimizer end
     plot_xscale::T = 1.0
     plot_prefix::String = "."
     dt0::T = 1.0
+    concentration_check_factor::T = 0.0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -498,6 +499,7 @@ end
     val::N = 0.0
     λ::T = 0.0
     θe::T = π / 2
+    Tval::N = 0.0
 end
 
 """

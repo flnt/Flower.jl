@@ -197,14 +197,20 @@ function set_scalar_transport!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED
         vec1(rhs,grid) .-= τ .* CUTCT
     end
 
-    IItest = CartesianIndex(66, 4) #(id_y, id_x)
-    pIItest = lexicographic(IItest, grid.ny)
-    print("\n rhs",vec2(rhs,grid)[pIItest])
+    #IItest = CartesianIndex(66, 4) #(id_y, id_x)
+    # IItest = CartesianIndex(69, 3) #(id_y, id_x)
+    # pIItest = lexicographic(IItest, grid.ny)
+
+    # print("\n rhs",vec2(rhs,grid)[pIItest])
+
     vec2(rhs,grid) .+= χ[1] * vec(a0)
-    print("\n rhs",vec2(rhs,grid)[pIItest])
+
+    # print("\n rhs",vec2(rhs,grid)[pIItest])
+
     vecb(rhs,grid) .+= op.χ_b * vec(a0_b)
-    print("\n rhs",vec2(rhs,grid)[pIItest])
-    print("\n rhs",bc_type.val*grid.dx[1,1])
+    
+    # print("\n rhs",vec2(rhs,grid)[pIItest])
+    # print("\n rhs",bc_type.val*grid.dx[1,1])
 
 
     return rhs

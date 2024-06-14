@@ -197,26 +197,28 @@ function plot_python_pdf(itmp,field0,figname,prefix,plot_levelset,isocontour,plo
 end
 
 
-function plot_python_pdf_full(i,field0,figname,prefix,plot_levelset,isocontour,plot_grid,plot_mode,levels,range,cmap,x_array,y_array,gp,cbarlabel,ii0,ii1,jj0,jj1,fwd,fwdL,xscale)
+function plot_python_pdf_full(itmp,field0,figname,prefix,plot_levelset,isocontour,plot_grid,plot_mode,levels,range,cmap,x_array,y_array,gp,cbarlabel,ii0,ii1,jj0,jj1,fwd,fwdL,xscale)
 
     # PyPlot.rc("text", usetex=true)
     # rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
     # rcParams["text.latex.preamble"] = raw"\usepackage{siunitx}"
 
-    # if itmp<0
-    #     i=-itmp
-    #     field = field0[1:j1-j0+1,1:i1-i0+1]
-    # else
-    #     i=itmp
-    #     field = field0[i,j0:j1,i0:i1]
-    # end
-
-    # field = field0[i,i0:i1,j0:j1]
-
     i0=ii0
     i1=ii1
     j0=jj0
     j1=jj1
+
+    if itmp<0
+        i=-itmp
+        field = field0
+        field1 = field0
+     else
+        i=itmp
+        field1 = field0[i,:,:]
+    end
+
+
+
 
     x_arr=x_array[i0:i1]
     y_arr=y_array[j0:j1]
@@ -239,15 +241,15 @@ function plot_python_pdf_full(i,field0,figname,prefix,plot_levelset,isocontour,p
         # print(size(field0))
         # printstyled(color=:green, @sprintf "\n j: %5i %5i %5i %5i\n" i0 i1 j0 j1)
 
-        @views fieldtmp[j0:j1,2:i1] = field0[i,jj0:jj1,ii0:ii1]
+        @views fieldtmp[j0:j1,2:i1] = field1[jj0:jj1,ii0:ii1]
         @views fieldtmp[:,1] = vecb_L(fwdL.trans_scalD[i,:,1],gp)
 
 
         field = fieldtmp[j0:j1,i0:i1]
 
         # @views pushfirst!(field[j0:j1,:],vecb_L(fwd.trans_scalD[i,:,1],gp))
-    else
-        field = field0[i,j0:j1,i0:i1]
+    #else
+       # field = field0[i,j0:j1,i0:i1]
 
     end
 
