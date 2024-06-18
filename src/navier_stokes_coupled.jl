@@ -487,37 +487,41 @@ function set_convection!(
 
     Du_x = zeros(grid_u)
     Du_y = zeros(grid_u)
-    Du_x .= reshape(vec1(uD,grid_u), grid_u)
-    Du_y .= reshape(vec1(uD,grid_u), grid_u)
+    # Du_x .= reshape(vec1(uD,grid_u), grid_u)
+    # Du_y .= reshape(vec1(uD,grid_u), grid_u)
     for iLS in 1:num.nLS
         Du_x[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
         Du_y[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
     end
+    # Du_x .= reshape(vec2(uD,grid_u), grid_u)
+    # Du_y .= reshape(vec2(uD,grid_u), grid_u)
     Du_x[:,1] .= vecb_L(uD,grid_u)
-    Du_x[:,2] .= u[:,2]
+    # Du_x[:,2] .= u[:,2]
     Du_y[1,:] .= vecb_B(uD,grid_u)
-    Du_y[2,:] .= u[2,:]
+    # Du_y[2,:] .= u[2,:]
     Du_x[:,end] .= vecb_R(uD,grid_u)
-    Du_x[:,end-1] .= u[:,end-1]
+    # Du_x[:,end-1] .= u[:,end-1]
     Du_y[end,:] .= vecb_T(uD,grid_u)
-    Du_y[end-1,:] .= u[end-1,:]
+    # Du_y[end-1,:] .= u[end-1,:]
 
     Dv_x = zeros(grid_v)
     Dv_y = zeros(grid_v)
-    Dv_x .= reshape(vec1(vD,grid_v), grid_v)
-    Dv_y .= reshape(vec1(vD,grid_v), grid_v)
+    # Dv_x .= reshape(vec1(vD,grid_v), grid_v)
+    # Dv_y .= reshape(vec1(vD,grid_v), grid_v)
     for iLS in 1:num.nLS
         Dv_x[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
         Dv_y[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
     end
+    # Dv_x .= reshape(vec2(vD,grid_v), grid_v)
+    # Dv_y .= reshape(vec2(vD,grid_v), grid_v)
     Dv_x[:,1] .= vecb_L(vD,grid_v)
-    Dv_x[:,2] .= v[:,2]
+    # Dv_x[:,2] .= v[:,2]
     Dv_y[1,:] .= vecb_B(vD,grid_v)
-    Dv_y[2,:] .= v[2,:]
+    # Dv_y[2,:] .= v[2,:]
     Dv_x[:,end] .= vecb_R(vD,grid_v)
-    Dv_x[:,end-1] .= v[:,end-1]
+    # Dv_x[:,end-1] .= v[:,end-1]
     Dv_y[end,:] .= vecb_T(vD,grid_v)
-    Dv_y[end-1,:] .= v[end-1,:]
+    # Dv_y[end-1,:] .= v[end-1,:]
 
     bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
     bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
@@ -538,8 +542,8 @@ function set_convection!(
         end
     end
 
-    set_bc_bnds(dir, GridFCx, Du_x, Du_y, Dv_x, Dv_y, Hu, Hv, u, v, BC_u, BC_v)
-    set_bc_bnds(dir, GridFCy, Dv_x, Dv_y, Du_x, Du_y, Hv, Hu, v, u, BC_v, BC_u)
+    # set_bc_bnds(dir, GridFCx, Du_x, Du_y, Dv_x, Dv_y, Hu, Hv, u, v, BC_u, BC_v)
+    # set_bc_bnds(dir, GridFCy, Dv_x, Dv_y, Du_x, Du_y, Hv, Hu, v, u, BC_v, BC_u)
 
     # Du_x .= 0.0
     # Du_y .= 0.0
@@ -1760,7 +1764,7 @@ function pressure_projection!(
         vec1(rhs_v,grid_v) .-= τ .* ph.Gym1
         if is_flapping(bc_int[1])
             acc_v = 2π * bc_int[1].β^2 * bc_int[1].KC * cos(2π * bc_int[1].β * t)
-            vec1(rhs_v,grid_v) .+= τ .* opC_v.M * (acc_v .* fones(grid_v))
+            vec1(rhs_v,grid_v) .-= τ .* opC_v.M * (acc_v .* fones(grid_v))
         end
         kill_dead_cells!(vec1(rhs_v,grid_v), grid_v, geo_v[end])
         for iLS in 1:nLS
@@ -2013,6 +2017,7 @@ function linear_advection!(
     set_convection!(num, grid, geo, grid_u, grid_u.LS, grid_v, grid_v.LS, u_midp, v_midp, op_conv, ph, BC_u, BC_v)
 
     Convu .= Cu * vec(u_midp) .+ CUTCu
+    println("conv = $(sum(abs.(Convu)))")
     vec1(rhs_u, grid_u) .-= τ .* Convu
     kill_dead_cells!(vec1(rhs_u, grid_u), grid_u, geo_u)
     kill_dead_cells!(vec2(rhs_u, grid_u), grid_u, geo_u)
