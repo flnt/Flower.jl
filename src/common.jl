@@ -636,20 +636,28 @@ function init_borders!(T, grid, BC, val=0.0)
         vecb_L(T, grid) .= BC.left.val
     elseif is_periodic(BC.left)
         vecb_L(T, grid) .= val
+    else
+        vecb_L(T, grid) .= val
     end
     if is_dirichlet(BC.bottom)
         vecb_B(T, grid) .= BC.bottom.val
     elseif is_periodic(BC.bottom)
+        vecb_B(T, grid) .= val
+    else
         vecb_B(T, grid) .= val
     end
     if is_dirichlet(BC.right)
         vecb_R(T, grid) .= BC.right.val
     elseif is_periodic(BC.right)
         vecb_R(T, grid) .= val
+    else
+        vecb_R(T, grid) .= val
     end
     if is_dirichlet(BC.top)
         vecb_T(T, grid) .= BC.top.val
     elseif is_periodic(BC.top)
+        vecb_T(T, grid) .= val
+    else
         vecb_T(T, grid) .= val
     end
 end
