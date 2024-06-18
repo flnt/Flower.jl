@@ -159,7 +159,8 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
 
     if convection
         HT = zeros(grid)
-        @inbounds @threads for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
+        # @inbounds @threads for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
+        @inbounds for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
             HT[II] = distance(grid.LS[1].mid_point[II], geo.centroid[II], dx[II], dy[II])
         end    
         bcTx, bcTy = set_bc_bnds(dir, a0, HT, BC_T)

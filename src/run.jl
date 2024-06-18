@@ -244,22 +244,22 @@ function run_forward(
     # presintfc = pres0 + p_lapl ? #TODO init pressure
 
 
-    #TODO perio, intfc, ... check init_fields_2
+    #TODO perio, intfc, ... check init_fields_2!
 
-    init_fields_2(phS.pD,phS.p,HS,BC_pS,grid,presintfc)
-    init_fields_2(phL.pD,phL.p,HL,BC_pL,grid,presintfc)
+    init_fields_2!(phS.pD,phS.p,HS,BC_pS,grid,presintfc)
+    init_fields_2!(phL.pD,phL.p,HL,BC_pL,grid,presintfc)
 
-    init_fields_2(phS.uD,phS.u,HSu,BC_uS,grid_u,num.uD)
-    init_fields_2(phS.ucorrD,phS.u,HSu,BC_uS,grid_u,num.uD)
+    init_fields_2!(phS.uD,phS.u,HSu,BC_uS,grid_u,num.uD)
+    # init_fields_2!(phS.ucorrD,phS.u,HSu,BC_uS,grid_u,num.uD)
 
-    init_fields_2(phL.uD,phL.u,HLu,BC_uL,grid_u,num.uD)
-    init_fields_2(phL.ucorrD,phL.u,HLu,BC_uL,grid_u,num.uD)
+    init_fields_2!(phL.uD,phL.u,HLu,BC_uL,grid_u,num.uD)
+    # init_fields_2!(phL.ucorrD,phL.u,HLu,BC_uL,grid_u,num.uD)
 
-    init_fields_2(phS.vD,phS.v,HSv,BC_vS,grid_v,num.vD)
-    init_fields_2(phS.vcorrD,phS.v,HSv,BC_vS,grid_v,num.vD)
+    init_fields_2!(phS.vD,phS.v,HSv,BC_vS,grid_v,num.vD)
+    # init_fields_2!(phS.vcorrD,phS.v,HSv,BC_vS,grid_v,num.vD)
 
-    init_fields_2(phL.vD,phL.v,HLv,BC_vL,grid_v,num.vD)
-    init_fields_2(phL.vcorrD,phL.v,HLv,BC_vL,grid_v,num.vD)
+    init_fields_2!(phL.vD,phL.v,HLv,BC_vL,grid_v,num.vD)
+    # init_fields_2!(phL.vcorrD,phL.v,HLv,BC_vL,grid_v,num.vD)
 
     ####################################################################################################
 
@@ -271,8 +271,8 @@ function run_forward(
     # vec2(phL.TD,grid) .= θd
     # init_borders!(phL.TD, grid, BC_TL, θd)
 
-    init_fields_2(phS.TD,phS.T,HS,BC_TS,grid,θd)
-    init_fields_2(phL.TD,phL.T,HL,BC_TL,grid,θd)
+    init_fields_2!(phS.TD,phS.T,HS,BC_TS,grid,θd)
+    init_fields_2!(phL.TD,phL.T,HL,BC_TL,grid,θd)
 
 
     ####################################################################################################
@@ -304,8 +304,8 @@ function run_forward(
             @views phS.trans_scal[:,:,iscal] .= concentration0[iscal]
             @views phL.trans_scal[:,:,iscal] .= concentration0[iscal]
 
-            @views init_fields_2(phS.trans_scalD[:,iscal],phS.trans_scal[:,:,iscal],HS,BC_trans_scal[iscal],grid,concentration0[iscal])
-            @views init_fields_2(phL.trans_scalD[:,iscal],phL.trans_scal[:,:,iscal],HL,BC_trans_scal[iscal],grid,concentration0[iscal])
+            @views init_fields_2!(phS.trans_scalD[:,iscal],phS.trans_scal[:,:,iscal],HS,BC_trans_scal[iscal],grid,concentration0[iscal])
+            @views init_fields_2!(phL.trans_scalD[:,iscal],phL.trans_scal[:,:,iscal],HL,BC_trans_scal[iscal],grid,concentration0[iscal])
             
             @views fwd.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal].*LS[end].geoL.cap[:,:,5] .+ phS.trans_scal[:,:,iscal].*LS[end].geoS.cap[:,:,5]
             @views fwdS.trans_scalD[1,:,iscal] .= phS.trans_scalD[:,iscal]
@@ -325,15 +325,15 @@ function run_forward(
         # vec2(phL.phi_eleD,grid) .= phi_ele0 #TODO
         # init_borders!(phL.phi_eleD, grid, BC_phi_ele, phi_ele0)
 
-        init_fields_2(phS.phi_eleD,phS.phi_ele,HS,BC_phi_ele,grid,phi_ele0) #
-        init_fields_2(phL.phi_eleD,phL.phi_ele,HL,BC_phi_ele,grid,phi_ele0)
+        init_fields_2!(phS.phi_eleD,phS.phi_ele,HS,BC_phi_ele,grid,phi_ele0) #
+        init_fields_2!(phL.phi_eleD,phL.phi_ele,HL,BC_phi_ele,grid,phi_ele0)
 
         @views fwdS.phi_eleD[1,:] .= phS.phi_eleD
         @views fwdL.phi_eleD[1,:] .= phL.phi_eleD
     end  
     
     if electrolysis
-        printstyled(color=:green, @sprintf "\n Check init_fields_2\n")
+        printstyled(color=:green, @sprintf "\n Check init_fields_2!\n")
         print_electrolysis_statistics(nb_transported_scalars,grid,phL)
 
         # print("\n test left H2", vecb_L(phL.trans_scalD[:,1], grid))
@@ -436,7 +436,7 @@ function run_forward(
     #Electrolysis
     ####################################################################################################
     if electrolysis
-        for iscal=1:nb_transported_scalars #TODO updated later cf init_fields_2
+        for iscal=1:nb_transported_scalars #TODO updated later cf init_fields_2!
             @views fwd.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal].*LS[end].geoL.cap[:,:,5] .+ phS.trans_scal[:,:,iscal].*LS[end].geoS.cap[:,:,5]
             @views fwdL.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal]
         end
@@ -816,13 +816,29 @@ function run_forward(
                     # diffusion_coeff_iscal = 0.0
                     # printstyled(color=:red, @sprintf "\n 0 diffusion \n")
 
-
+                    # print("BC top ",BC_trans_scal[iscal].top)
+                    # print("BC bottom ",BC_trans_scal[iscal].bottom)
 
                     rhs = set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TL, LS[1].geoL, phL, concentration0[iscal], BC_trans_scal[iscal],
                                                         LS[1].MIXED, LS[1].geoL.projection,
                                                         ATL,BTL,
                                                         opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
                                                         periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff_iscal)
+                    
+                    ##########################################################################################################"
+
+                    # Duv = opC_pL.AxT * vec1(phL.uD,grid_u) .+ opC_pL.Gx_b * vecb(phL.uD,grid_u) .+
+                    # opC_pL.AyT * vec1(phL.vD,grid_v) .+ opC_pL.Gy_b * vecb(phL.vD,grid_v)
+                    # for iLS in 1:nLS
+                    #     if !is_navier(BC_int[iLS]) && !is_navier_cl(BC_int[iLS])
+                    #         Duv .+= opC_pL.Gx[iLS] * veci(phL.uD,grid_u,iLS+1) .+ 
+                    #                 opC_pL.Gy[iLS] * veci(phL.vD,grid_v,iLS+1)
+                    #     end
+                    # end
+                
+                    # rhs .+= Duv .* phL.trans_scalD[:,iscal]
+                    ##########################################################################################################"
+                    
                     @views mul!(rhs, BTL, phL.trans_scalD[:,iscal], 1.0, 1.0) #TODO @views not necessary ?
 
 
@@ -868,7 +884,7 @@ function run_forward(
                         if any(phL.trans_scal[:,:,iscal].<concentration0[iscal]*(1-num.concentration_check_factor))
                             print("iscal ",iscal)
                             printstyled(color=:red, @sprintf "\n concentration: %.2e %.2e \n" minimum(phL.trans_scal[:,:,iscal]) concentration0[iscal]*(1-num.concentration_check_factor))
-                            printstyled(color=:red, @sprintf "\n concentration drop: %.2e%% \n" (minimum(phL.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal])
+                            printstyled(color=:red, @sprintf "\n concentration drop: %.2e%% \n" (minimum(phL.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal]*100)
                             @error("concentration too low")
                             return current_i
                         end
@@ -887,6 +903,12 @@ function run_forward(
                     # print("\n test right", vecb_R(phL.trans_scalD[:,iscal], grid))
                     # print("\n test bottom", vecb_B(phL.trans_scalD[:,iscal], grid))
                     # print("\n test top", vecb_T(phL.trans_scalD[:,iscal], grid))
+
+                    # print("\n test v bottom", vecb_B(phL.vD, grid))
+                    # print("\n test v top", vecb_T(phL.vD, grid))
+                    # print("\n test v 1", phL.v[1,:])
+
+                    # print("\n test diff", phL.v[1,:] .- vecb_T(phL.vD, grid))
 
 
 

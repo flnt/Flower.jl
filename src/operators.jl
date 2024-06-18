@@ -783,7 +783,7 @@ end
 
 function scalar_convection!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC, inside, b_left, b_bottom, b_right, b_top)
     B .= 0.0
-    @inbounds @threads for II in inside
+    @inbounds for II in inside
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
         u1, v2, u3, v4 = u[II], v[II], u[δx⁺(II)], v[δy⁺(II)]
@@ -801,7 +801,7 @@ function scalar_convection!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC,
         @inbounds B[pII] += -0.5 * Dy[II] * ((A4 - B2) * Dv[δy⁺(II)] + (B2 - A2) * Dv[II])
     end
 
-    @inbounds @threads for II in vcat(b_left, b_bottom[2:end-1], b_right, b_top[2:end-1])
+    @inbounds for II in vcat(b_left, b_bottom[2:end-1], b_right, b_top[2:end-1])
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
         u1, v2, u3, v4 = u[II], v[II], u[δx⁺(II)], v[δy⁺(II)]
@@ -814,25 +814,25 @@ function scalar_convection!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC,
         @inbounds B[pII] += -0.5 * Dx[II] * ((A3 - B1) * Du[δx⁺(II)] + (B1 - A1) * Du[II])
         @inbounds B[pII] += -0.5 * Dy[II] * ((A4 - B2) * Dv[δy⁺(II)] + (B2 - A2) * Dv[II])
     end
-    @inbounds @threads for II in vcat(b_left, b_bottom[2:end-1], b_top[2:end-1])
+    @inbounds for II in vcat(b_left, b_bottom[2:end-1], b_top[2:end-1])
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
 
         @inbounds O[pII,pII+n] = 0.5 * A3 * u[δx⁺(II)]
     end
-    @inbounds @threads for II in vcat(b_bottom[2:end-1], b_right, b_top[2:end-1])
+    @inbounds for II in vcat(b_bottom[2:end-1], b_right, b_top[2:end-1])
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
 
         @inbounds O[pII,pII-n] = -0.5 * A1 * u[II]
     end
-    @inbounds @threads for II in vcat(b_left[2:end-1], b_bottom, b_right[2:end-1])
+    @inbounds for II in vcat(b_left[2:end-1], b_bottom, b_right[2:end-1])
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
 
         @inbounds O[pII,pII+1] = 0.5 * A4 * v[δy⁺(II)]
     end
-    @inbounds @threads for II in vcat(b_left[2:end-1], b_right[2:end-1], b_top)
+    @inbounds for II in vcat(b_left[2:end-1], b_right[2:end-1], b_top)
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
 
