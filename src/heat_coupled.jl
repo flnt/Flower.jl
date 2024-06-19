@@ -159,8 +159,7 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
 
     if convection
         HT = zeros(grid)
-        # @inbounds @threads for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
-        @inbounds for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
+        @inbounds @threads for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
             HT[II] = distance(grid.LS[1].mid_point[II], geo.centroid[II], dx[II], dy[II])
         end    
         bcTx, bcTy = set_bc_bnds(dir, a0, HT, BC_T)
@@ -186,16 +185,16 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
     
         bcU = zeros(grid_u)
         bcU .= reshape(vec2(uD,grid_u), grid_u)
-        bcU[:,1] .= vecb_L(uD, grid_u)
         bcU[1,:] .= vecb_B(uD, grid_u)
-        bcU[:,end] .= vecb_R(uD, grid_u)
         bcU[end,:] .= vecb_T(uD, grid_u)
+        bcU[:,1] .= vecb_L(uD, grid_u)
+        bcU[:,end] .= vecb_R(uD, grid_u)
         
         bcV = zeros(grid_v)
         bcV .= reshape(vec2(vD,grid_v), grid_v)
         bcV[:,1] .= vecb_L(vD, grid_v)
-        bcV[1,:] .= vecb_B(vD, grid_v)
         bcV[:,end] .= vecb_R(vD, grid_v)
+        bcV[1,:] .= vecb_B(vD, grid_v)
         bcV[end,:] .= vecb_T(vD, grid_v)
 
         scalar_convection!(dir, CT, CUTCT, u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 

@@ -49,6 +49,7 @@ function run_forward(
     non_dimensionalize=1,
     mode_2d=0,
     conductivity_mode = 1,
+    convection_Cdivu = false,
     )
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations,
             current_i, save_every, reinit_every, nb_reinit, δreinit, ϵ, m, θ₀, aniso, nLS, _nLS, nNavier,
@@ -432,6 +433,8 @@ function run_forward(
     @views fwdS.v[1,:,:] .= phS.v
     @views fwdL.u[1,:,:] .= phL.u
     @views fwdL.v[1,:,:] .= phL.v
+    @views fwdL.vD[1,:] .= phL.vD
+
     ####################################################################################################
     #Electrolysis
     ####################################################################################################
@@ -819,6 +822,34 @@ function run_forward(
                     # print("BC top ",BC_trans_scal[iscal].top)
                     # print("BC bottom ",BC_trans_scal[iscal].bottom)
 
+                    printstyled(color=:red, @sprintf "\n test vel Poiseuille \n")
+                    print("current_i ", current_i)
+
+                    print("\n test v bottom", maximum(vecb_B(phL.vD, grid)))
+                    print("\n test v top", maximum(vecb_T(phL.vD, grid)))
+                    print("\n test v 1 ", maximum(phL.v[1,:]))
+                    print("\n test v 2 ", maximum(phL.v[1,:]))
+
+
+                
+                    v_inlet=6.7e-4
+                    L0 = 1e-4 
+
+                    vPoiseuille = zeros(grid_v)
+                    vPoiseuille = Poiseuille_favg.(grid_v.x,v_inlet,L0) #* velocity
+                    # vPoiseuilleb = Poiseuille_favg.(gv.x[1,:],v_inlet,L0) #* velocity
+
+
+
+                    phL.v .=vPoiseuille 
+                    phL.u .= 0 
+
+                    vec2(phL.vD,grid_v) .= vec(phL.v)
+                    vec2(phL.uD,grid_u) .= vec(phL.u)
+
+
+
+
                     rhs = set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TL, LS[1].geoL, phL, concentration0[iscal], BC_trans_scal[iscal],
                                                         LS[1].MIXED, LS[1].geoL.projection,
                                                         ATL,BTL,
@@ -827,16 +858,28 @@ function run_forward(
                     
                     ##########################################################################################################"
 
-                    # Duv = opC_pL.AxT * vec1(phL.uD,grid_u) .+ opC_pL.Gx_b * vecb(phL.uD,grid_u) .+
-                    # opC_pL.AyT * vec1(phL.vD,grid_v) .+ opC_pL.Gy_b * vecb(phL.vD,grid_v)
-                    # for iLS in 1:nLS
-                    #     if !is_navier(BC_int[iLS]) && !is_navier_cl(BC_int[iLS])
-                    #         Duv .+= opC_pL.Gx[iLS] * veci(phL.uD,grid_u,iLS+1) .+ 
-                    #                 opC_pL.Gy[iLS] * veci(phL.vD,grid_v,iLS+1)
-                    #     end
-                    # end
-                
-                    # rhs .+= Duv .* phL.trans_scalD[:,iscal]
+                    if convection_Cdivu
+                        # Duv = fzeros(grid)
+                        # Duv = fnzeros(grid,num)
+
+                        Duv = opC_pL.AxT * vec1(phL.uD,grid_u) .+ opC_pL.Gx_b * vecb(phL.uD,grid_u) .+
+                        opC_pL.AyT * vec1(phL.vD,grid_v) .+ opC_pL.Gy_b * vecb(phL.vD,grid_v)
+                        for iLS in 1:nLS
+                            if !is_navier(BC_int[iLS]) && !is_navier_cl(BC_int[iLS])
+                                Duv .+= opC_pL.Gx[iLS] * veci(phL.uD,grid_u,iLS+1) .+ 
+                                        opC_pL.Gy[iLS] * veci(phL.vD,grid_v,iLS+1)
+                            end
+                        end
+                    
+                        # rhs .+= Duv #.* phL.trans_scalD[:,iscal] multiplied just after
+
+                        # vec1(rhs_ϕ,grid) .= rho1 .* iτ .* Duv #TODO
+                        vec1(rhs,grid) .+= Duv 
+
+                        printstyled(color=:green, @sprintf "\n max Duv for C.div(u): %.2e\n" maximum(Duv))
+
+
+                    end
                     ##########################################################################################################"
                     
                     @views mul!(rhs, BTL, phL.trans_scalD[:,iscal], 1.0, 1.0) #TODO @views not necessary ?
@@ -904,9 +947,13 @@ function run_forward(
                     # print("\n test bottom", vecb_B(phL.trans_scalD[:,iscal], grid))
                     # print("\n test top", vecb_T(phL.trans_scalD[:,iscal], grid))
 
-                    # print("\n test v bottom", vecb_B(phL.vD, grid))
-                    # print("\n test v top", vecb_T(phL.vD, grid))
-                    # print("\n test v 1", phL.v[1,:])
+                    print("\n test v bottom", maximum(vecb_B(phL.vD, grid)))
+                    print("\n test v top", maximum(vecb_T(phL.vD, grid)))
+                    print("\n test v 1 ", maximum(phL.v[1,:]))
+                    print("\n test v 2 ", maximum(phL.v[1,:]))
+
+                    print("\n test concentration ", minimum(phL.trans_scal[:,:,iscal]), " ", maximum(phL.trans_scal[:,:,iscal]))
+
 
                     # print("\n test diff", phL.v[1,:] .- vecb_T(phL.vD, grid))
 
@@ -1787,10 +1834,12 @@ function run_forward(
             end
             if ns_liquid_phase
                 @views fwdL.p[snap,:,:] .= phL.p
-                @views fwdL.pD[snap,:] .= phL.pD
+                @views fwdL.pD[snap,:]  .= phL.pD
                 @views fwdL.ϕ[snap,:,:] .= phL.ϕ
                 @views fwdL.u[snap,:,:] .= phL.u
                 @views fwdL.v[snap,:,:] .= phL.v
+                @views fwdL.vD[snap,:]  .= phL.vD
+
                 @views fwdL.ucorrD[snap,:,:] .= phL.ucorrD
                 @views fwdL.vcorrD[snap,:,:] .= phL.vcorrD
                 # @views fwd.Cd[snap] = cD

@@ -334,6 +334,7 @@ struct ForwardPhase{T <: Real} <: MutatingFields
     ϕ::Array{T,3}
     u::Array{T,3}
     v::Array{T,3}
+    vD::Array{T,2}
     TD::Array{T,2}
     pD::Array{T,2}
     ucorrD::Array{T,2}
