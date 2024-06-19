@@ -1830,7 +1830,7 @@ end
 #     return nothing
 # end
 
-function fill_inside_conv!(::Type{GridFCx}, O, B, u, v, Du_x, Du_y, Dv_y, cap, ny, II)
+function fill_inside_conv!(::Type{GridFCx}, O, B, u, v, Du, Dv, cap, ny, II)
     pII = lexicographic(II, ny)
     A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δx⁻(II))
     A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
@@ -1850,23 +1850,23 @@ function fill_inside_conv!(::Type{GridFCx}, O, B, u, v, Du_x, Du_y, Dv_y, cap, n
     @inbounds O[pII,pII+1] = 0.5 * Au4
     @inbounds O[pII,pII-1] = -0.5 * Au2
 
-    @inbounds O[pII,pII] += -0.25 * (A3_2 - B1_2) * Du_x[δx⁺(II)]
-    @inbounds O[pII,pII] += -0.25 * (B1_2 - B1_1) * Du_x[II]
-    @inbounds O[pII,pII] += -0.25 * (B1_1 - A1_1) * Du_x[δx⁻(II)]
+    @inbounds O[pII,pII] += -0.25 * (A3_2 - B1_2) * Du[δx⁺(II)]
+    @inbounds O[pII,pII] += -0.25 * (B1_2 - B1_1) * Du[II]
+    @inbounds O[pII,pII] += -0.25 * (B1_1 - A1_1) * Du[δx⁻(II)]
 
-    @inbounds O[pII,pII] += -0.25 * (A4_1 - B2_1) * Dv_y[δx⁻(δy⁺(II))]
-    @inbounds O[pII,pII] += -0.25 * (B2_1 - A2_1) * Dv_y[δx⁻(II)]
-    @inbounds O[pII,pII] += -0.25 * (A4_2 - B2_2) * Dv_y[δy⁺(II)]
-    @inbounds O[pII,pII] += -0.25 * (B2_2 - A2_2) * Dv_y[II]
+    @inbounds O[pII,pII] += -0.25 * (A4_1 - B2_1) * Dv[δx⁻(δy⁺(II))]
+    @inbounds O[pII,pII] += -0.25 * (B2_1 - A2_1) * Dv[δx⁻(II)]
+    @inbounds O[pII,pII] += -0.25 * (A4_2 - B2_2) * Dv[δy⁺(II)]
+    @inbounds O[pII,pII] += -0.25 * (B2_2 - A2_2) * Dv[II]
 
-    @inbounds B[pII] += -0.25 * u[II] * (A3_2 - B1_2) * Du_x[δx⁺(II)]
-    @inbounds B[pII] += -0.25 * u[II] * (B1_2 - B1_1) * Du_x[II]
-    @inbounds B[pII] += -0.25 * u[II] * (B1_1 - A1_1) * Du_x[δx⁻(II)]
+    @inbounds B[pII] += -0.25 * u[II] * (A3_2 - B1_2) * Du[δx⁺(II)]
+    @inbounds B[pII] += -0.25 * u[II] * (B1_2 - B1_1) * Du[II]
+    @inbounds B[pII] += -0.25 * u[II] * (B1_1 - A1_1) * Du[δx⁻(II)]
 
-    @inbounds B[pII] += -0.25 * u[II] * (A4_1 - B2_1) * Dv_y[δx⁻(δy⁺(II))]
-    @inbounds B[pII] += -0.25 * u[II] * (B2_1 - A2_1) * Dv_y[δx⁻(II)]
-    @inbounds B[pII] += -0.25 * u[II] * (A4_2 - B2_2) * Dv_y[δy⁺(II)]
-    @inbounds B[pII] += -0.25 * u[II] * (B2_2 - A2_2) * Dv_y[II]
+    @inbounds B[pII] += -0.25 * u[II] * (A4_1 - B2_1) * Dv[δx⁻(δy⁺(II))]
+    @inbounds B[pII] += -0.25 * u[II] * (B2_1 - A2_1) * Dv[δx⁻(II)]
+    @inbounds B[pII] += -0.25 * u[II] * (A4_2 - B2_2) * Dv[δy⁺(II)]
+    @inbounds B[pII] += -0.25 * u[II] * (B2_2 - A2_2) * Dv[II]
 
     return nothing
 end
@@ -2042,7 +2042,7 @@ end
 function vector_convection!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, Du_x, Du_y, Dv_x, Dv_y, cap, n, ny, BC, inside, b_left, b_bottom, b_right, b_top)
     B .= 0.0
     @inbounds @threads for II in inside
-        fill_inside_conv!(GridFCx, O, B, u, v, Du_x, Du_y, Dv_y, cap, ny, II)
+        fill_inside_conv!(GridFCx, O, B, u, v, Du_x, Dv_y, cap, ny, II)
     end
 
     @inbounds @threads for II in vcat(b_left, b_bottom[2:end-1], b_right, b_top[2:end-1])
@@ -2050,14 +2050,14 @@ function vector_convection!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, Du_x, Du_y
         @inbounds O[pII,pII] = 0.0
     end
     bnds = (b_left, b_bottom[2:end-1], b_top[2:end-1])
-    bc = ((Du_x, Dv_x), (Du_y, Dv_y), (Du_y, Dv_y))
+    bc = ((Du_x, Dv_y), (Du_x, Dv_y), (Du_x, Dv_y))
     for (bnd, (Du, Dv)) in zip(bnds, bc)
         @inbounds @threads for II in bnd
             vec_convx_1!(II, O, B, u, Du, Dv, cap, ny)
         end
     end
     bnds = (b_bottom[2:end-1], b_right, b_top[2:end-1])
-    bc = ((Du_y, Dv_y), (Du_x, Dv_x), (Du_y, Dv_y))
+    bc = ((Du_x, Dv_y), (Du_x, Dv_y), (Du_x, Dv_y))
     for (bnd, (Du, Dv)) in zip(bnds, bc)
         @inbounds @threads for II in bnd
             vec_convx_2!(II, O, B, u, Du, Dv, cap, ny)
@@ -2098,14 +2098,14 @@ function vector_convection!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, Du_x, Du_y
             @inbounds O[pII,pII] += -0.25 * (A3_1 - B1_1) * Du_x[II]
             @inbounds O[pII,pII] += -0.25 * (B1_1 - A1_1) * Du_x[JJ]
 
-            @inbounds O[pII,pII] += -0.25 * (A4_1 - B2_1) * Dv_x[δy⁺(δx⁻(JJ))]
-            @inbounds O[pII,pII] += -0.25 * (B2_1 - A2_1) * Dv_x[δx⁻(JJ)]
+            @inbounds O[pII,pII] += -0.25 * (A4_1 - B2_1) * Dv_y[δy⁺(δx⁻(JJ))]
+            @inbounds O[pII,pII] += -0.25 * (B2_1 - A2_1) * Dv_y[δx⁻(JJ)]
 
             @inbounds B[pII] += -0.25 * u[II] * (A3_1 - B1_1) * Du_x[II]
             @inbounds B[pII] += -0.25 * u[II] * (B1_1 - A1_1) * Du_x[JJ]
 
-            @inbounds B[pII] += -0.25 * u[II] * (A4_1 - B2_1) * Dv_x[δy⁺(δx⁻(JJ))]
-            @inbounds B[pII] += -0.25 * u[II] * (B2_1 - A2_1) * Dv_x[δx⁻(JJ)]
+            @inbounds B[pII] += -0.25 * u[II] * (A4_1 - B2_1) * Dv_y[δy⁺(δx⁻(JJ))]
+            @inbounds B[pII] += -0.25 * u[II] * (B2_1 - A2_1) * Dv_y[δx⁻(JJ)]
         end
         @inbounds for (II, JJ) in zip(b_right, b_left)
             pII = lexicographic(II, ny)
@@ -2122,14 +2122,14 @@ function vector_convection!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, Du_x, Du_y
             @inbounds O[pII,pII] += -0.25 * (A3_2 - B1_2) * Du_x[JJ]
             @inbounds O[pII,pII] += -0.25 * (B1_2 - A1_2) * Du_x[II]
 
-            @inbounds O[pII,pII] += -0.25 * (A4_2 - B2_2) * Dv_x[δy⁺(δx⁻(II))]
-            @inbounds O[pII,pII] += -0.25 * (B2_2 - A2_2) * Dv_x[δx⁻(II)]
+            @inbounds O[pII,pII] += -0.25 * (A4_2 - B2_2) * Dv_y[δy⁺(δx⁻(II))]
+            @inbounds O[pII,pII] += -0.25 * (B2_2 - A2_2) * Dv_y[δx⁻(II)]
 
             @inbounds B[pII] += -0.25 * u[II] * (A3_2 - B1_2) * Du_x[JJ]
             @inbounds B[pII] += -0.25 * u[II] * (B1_2 - A1_2) * Du_x[II]
 
-            @inbounds B[pII] += -0.25 * u[II] * (A4_2 - B2_2) * Dv_x[δy⁺(δx⁻(II))]
-            @inbounds B[pII] += -0.25 * u[II] * (B2_2 - A2_2) * Dv_x[δx⁻(II)]
+            @inbounds B[pII] += -0.25 * u[II] * (A4_2 - B2_2) * Dv_y[δy⁺(δx⁻(II))]
+            @inbounds B[pII] += -0.25 * u[II] * (B2_2 - A2_2) * Dv_y[δx⁻(II)]
         end
     end
     if is_periodic(BC.bottom) && is_periodic(BC.top)
@@ -2246,7 +2246,7 @@ function vector_convection!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, Du_x, Du_y
     return nothing
 end
 
-function fill_inside_conv!(::Type{GridFCy}, O, B, u, v, Du, Dv_x, Dv_y, cap, ny, II)
+function fill_inside_conv!(::Type{GridFCy}, O, B, u, v, Du, Dv, cap, ny, II)
     pII = lexicographic(II, ny+1)
     A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δy⁻(II))
     A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
@@ -2266,18 +2266,18 @@ function fill_inside_conv!(::Type{GridFCy}, O, B, u, v, Du, Dv_x, Dv_y, cap, ny,
     @inbounds O[pII,pII+1] = 0.5 * Au4
     @inbounds O[pII,pII-1] = -0.5 * Au2
 
-    @inbounds O[pII,pII] += -0.25 * (A4_2 - B2_2) * Dv_y[δy⁺(II)]
-    @inbounds O[pII,pII] += -0.25 * (B2_2 - B2_1) * Dv_y[II]
-    @inbounds O[pII,pII] += -0.25 * (B2_1 - A2_1) * Dv_y[δy⁻(II)]
+    @inbounds O[pII,pII] += -0.25 * (A4_2 - B2_2) * Dv[δy⁺(II)]
+    @inbounds O[pII,pII] += -0.25 * (B2_2 - B2_1) * Dv[II]
+    @inbounds O[pII,pII] += -0.25 * (B2_1 - A2_1) * Dv[δy⁻(II)]
 
     @inbounds O[pII,pII] += -0.25 * (A3_1 - B1_1) * Du[δy⁻(δx⁺(II))]
     @inbounds O[pII,pII] += -0.25 * (B1_1 - A1_1) * Du[δy⁻(II)]
     @inbounds O[pII,pII] += -0.25 * (A3_2 - B1_2) * Du[δx⁺(II)]
     @inbounds O[pII,pII] += -0.25 * (B1_2 - A1_2) * Du[II]
 
-    @inbounds B[pII] += -0.25 * v[II] * (A4_2 - B2_2) * Dv_y[δy⁺(II)]
-    @inbounds B[pII] += -0.25 * v[II] * (B2_2 - B2_1) * Dv_y[II]
-    @inbounds B[pII] += -0.25 * v[II] * (B2_1 - A2_1) * Dv_y[δy⁻(II)]
+    @inbounds B[pII] += -0.25 * v[II] * (A4_2 - B2_2) * Dv[δy⁺(II)]
+    @inbounds B[pII] += -0.25 * v[II] * (B2_2 - B2_1) * Dv[II]
+    @inbounds B[pII] += -0.25 * v[II] * (B2_1 - A2_1) * Dv[δy⁻(II)]
 
     @inbounds B[pII] += -0.25 * v[II] * (A3_1 - B1_1) * Du[δy⁻(δx⁺(II))]
     @inbounds B[pII] += -0.25 * v[II] * (B1_1 - A1_1) * Du[δy⁻(II)]
@@ -2456,7 +2456,7 @@ end
 function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y, Dv_x, Dv_y, cap, n, ny, BC, inside, b_left, b_bottom, b_right, b_top)
     B .= 0.0
     @inbounds @threads for II in inside
-        fill_inside_conv!(GridFCy, O, B, u, v, Du_x, Dv_x, Dv_y, cap, ny, II)
+        fill_inside_conv!(GridFCy, O, B, u, v, Du_x, Dv_y, cap, ny, II)
     end
 
     @inbounds @threads for II in vcat(b_left, b_bottom[2:end-1], b_right, b_top[2:end-1])
@@ -2464,14 +2464,14 @@ function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y
         @inbounds O[pII,pII] = 0.0
     end
     bnds = (b_left[2:end-1], b_bottom, b_right[2:end-1])
-    bc = ((Du_x, Dv_x), (Du_y, Dv_y), (Du_x, Dv_x))
+    bc = ((Du_x, Dv_y), (Du_x, Dv_y), (Du_x, Dv_y))
     for (bnd, (Du, Dv)) in zip(bnds, bc)
         @inbounds @threads for II in bnd
             vec_convy_1!(II, O, B, v, Du, Dv, cap, ny)
         end
     end
     bnds = (b_left[2:end-1], b_right[2:end-1], b_top)
-    bc = ((Du_x, Dv_x), (Du_x, Dv_x), (Du_y, Dv_y))
+    bc = ((Du_x, Dv_y), (Du_x, Dv_y), (Du_x, Dv_y))
     for (bnd, (Du, Dv)) in zip(bnds, bc)
         @inbounds @threads for II in bnd
             vec_convy_2!(II, O, B, v, Du, Dv, cap, ny)
@@ -2512,14 +2512,14 @@ function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y
             @inbounds O[pII,pII] += -0.25 * (A4_1 - B2_1) * Dv_y[II]
             @inbounds O[pII,pII] += -0.25 * (B2_1 - A2_1) * Dv_y[JJ]
 
-            @inbounds O[pII,pII] += -0.25 * (A3_1 - B1_1) * Du_y[δx⁺(δy⁻(JJ))]
-            @inbounds O[pII,pII] += -0.25 * (B1_1 - A1_1) * Du_y[δy⁻(JJ)]
+            @inbounds O[pII,pII] += -0.25 * (A3_1 - B1_1) * Du_x[δx⁺(δy⁻(JJ))]
+            @inbounds O[pII,pII] += -0.25 * (B1_1 - A1_1) * Du_x[δy⁻(JJ)]
 
             @inbounds B[pII] += -0.25 * v[II] * (A4_1 - B2_1) * Dv_y[II]
             @inbounds B[pII] += -0.25 * v[II] * (B2_1 - A2_1) * Dv_y[JJ]
 
-            @inbounds B[pII] += -0.25 * v[II] * (A3_1 - B1_1) * Du_y[δx⁺(δy⁻(JJ))]
-            @inbounds B[pII] += -0.25 * v[II] * (B1_1 - A1_1) * Du_y[δy⁻(JJ)]
+            @inbounds B[pII] += -0.25 * v[II] * (A3_1 - B1_1) * Du_x[δx⁺(δy⁻(JJ))]
+            @inbounds B[pII] += -0.25 * v[II] * (B1_1 - A1_1) * Du_x[δy⁻(JJ)]
         end
         @inbounds for (II, JJ) in zip(b_top, b_bottom)
             pII = lexicographic(II, ny+1)
@@ -2536,14 +2536,14 @@ function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y
             @inbounds O[pII,pII] += -0.25 * (A4_2 - B2_2) * Dv_y[JJ]
             @inbounds O[pII,pII] += -0.25 * (B2_2 - A2_2) * Dv_y[II]
 
-            @inbounds O[pII,pII] += -0.25 * (A3_2 - B1_2) * Du_y[δx⁺(δy⁻(II))]
-            @inbounds O[pII,pII] += -0.25 * (B1_2 - A1_2) * Du_y[δy⁻(II)]
+            @inbounds O[pII,pII] += -0.25 * (A3_2 - B1_2) * Du_x[δx⁺(δy⁻(II))]
+            @inbounds O[pII,pII] += -0.25 * (B1_2 - A1_2) * Du_x[δy⁻(II)]
 
             @inbounds B[pII] += -0.25 * v[II] * (A4_2 - B2_2) * Dv_y[JJ]
             @inbounds B[pII] += -0.25 * v[II] * (B2_2 - A2_2) * Dv_y[II]
 
-            @inbounds B[pII] += -0.25 * v[II] * (A3_2 - B1_2) * Du_y[δx⁺(δy⁻(II))]
-            @inbounds B[pII] += -0.25 * v[II] * (B1_2 - A1_2) * Du_y[δy⁻(II)]
+            @inbounds B[pII] += -0.25 * v[II] * (A3_2 - B1_2) * Du_x[δx⁺(δy⁻(II))]
+            @inbounds B[pII] += -0.25 * v[II] * (B1_2 - A1_2) * Du_x[δy⁻(II)]
         end
     end
     if is_periodic(BC.left) && is_periodic(BC.right)

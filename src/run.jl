@@ -822,31 +822,27 @@ function run_forward(
                     # print("BC top ",BC_trans_scal[iscal].top)
                     # print("BC bottom ",BC_trans_scal[iscal].bottom)
 
-                    printstyled(color=:red, @sprintf "\n test vel Poiseuille \n")
-                    print("current_i ", current_i)
 
-                    print("\n test v bottom", maximum(vecb_B(phL.vD, grid)))
-                    print("\n test v top", maximum(vecb_T(phL.vD, grid)))
-                    print("\n test v 1 ", maximum(phL.v[1,:]))
-                    print("\n test v 2 ", maximum(phL.v[1,:]))
+                    # #########################################################################"
+                    # printstyled(color=:red, @sprintf "\n test vel Poiseuille \n")
+                    # print("current_i ", current_i)
 
+                    # print("\n test v bottom", maximum(vecb_B(phL.vD, grid)))
+                    # print("\n test v top", maximum(vecb_T(phL.vD, grid)))
+                    # print("\n test v 1 ", maximum(phL.v[1,:]))
+                    # print("\n test v 2 ", maximum(phL.v[1,:]))
+                    # v_inlet=6.7e-4
+                    # L0 = 1e-4 
 
-                
-                    v_inlet=6.7e-4
-                    L0 = 1e-4 
+                    # vPoiseuille = zeros(grid_v)
+                    # vPoiseuille = Poiseuille_favg.(grid_v.x,v_inlet,L0) #* velocity
+                    # # vPoiseuilleb = Poiseuille_favg.(gv.x[1,:],v_inlet,L0) #* velocity
+                    # phL.v .=vPoiseuille 
+                    # phL.u .= 0 
 
-                    vPoiseuille = zeros(grid_v)
-                    vPoiseuille = Poiseuille_favg.(grid_v.x,v_inlet,L0) #* velocity
-                    # vPoiseuilleb = Poiseuille_favg.(gv.x[1,:],v_inlet,L0) #* velocity
-
-
-
-                    phL.v .=vPoiseuille 
-                    phL.u .= 0 
-
-                    vec2(phL.vD,grid_v) .= vec(phL.v)
-                    vec2(phL.uD,grid_u) .= vec(phL.u)
-
+                    # vec2(phL.vD,grid_v) .= vec(phL.v)
+                    # vec2(phL.uD,grid_u) .= vec(phL.u)
+                    # #########################################################################"
 
 
 

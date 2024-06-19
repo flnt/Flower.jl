@@ -26,6 +26,9 @@ function set_scalar_transport!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED
     nb = 2 * nx + 2 * ny
     nt = 2 * ni + nb
 
+    ######################################################################################################
+    #Interface boundary condition
+    ######################################################################################################
     if is_dirichlet(bc_type)
         # printstyled(color=:green, @sprintf "\n Dirichlet : %.2e\n" bc_type.val )
         __a0 = bc_type.val
@@ -60,6 +63,10 @@ function set_scalar_transport!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED
     # else
     #     apply_curvature(num, grid, grid.LS[1].κ, a0, all_indices)
     # end
+
+    ######################################################################################################
+    #Wall BC
+    ######################################################################################################
     _a1 = ones(grid) .* __a1
     a1 = Diagonal(vec(_a1))
     _b = ones(grid) .* __b
