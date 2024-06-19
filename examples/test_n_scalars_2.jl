@@ -72,10 +72,10 @@ n = 32
 # n = 256
 # n = 512
 
-max_iter=100
+# max_iter=100
 # max_iter = 10 
 
-# max_iter = 2
+max_iter = 2
 
 # max_iter = 1
 
