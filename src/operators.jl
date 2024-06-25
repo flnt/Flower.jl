@@ -986,7 +986,7 @@ function scalar_convection!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC,
     @inbounds for II in b_bottom[2:end-1]
         pII = lexicographic(II, n)
         print(II)
-        printstyled(color=:cyan, @sprintf "\n O: %.2e x+ %.2e x- %.2e y+ %.2e y- %.2e B: %.2e\n" O[pII,pII] O[pII,pII+n] O[pII,pII-n] O[pII,pII+1] B[pII])
+        printstyled(color=:cyan, @sprintf "\n O: %.2e x+ %.2e x- %.2e y+ %.2e B: %.2e\n" O[pII,pII] O[pII,pII+n] O[pII,pII-n] O[pII,pII+1] B[pII])
 
         # printstyled(color=:cyan, @sprintf "\n O: %.2e x+ %.2e x- %.2e y+ %.2e y- %.2e B: %.2e\n" O[pII,pII] O[pII,pII+n] O[pII,pII-n] O[pII,pII+1] O[pII,pII-1] B[pII])
     end

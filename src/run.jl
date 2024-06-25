@@ -780,233 +780,246 @@ function run_forward(
 
                 # print("\n vecb_L(elec_condD, grid) before res \n ", vecb_L(phL.trans_scalD[:,2], grid) )
 
+                ####################################################################################################
+                # New start scalar loop
+                ####################################################################################################
+
                 for iscal=1:nb_transported_scalars
 
-
-                    # print("before trans")
-
-                    # phL.saved_scal[:,:,1],phL.saved_scal[:,:,2],phL.saved_scal[:,:,3],phL.saved_scal[:,:,4]=compute_mass_flux!(num,grid, grid_u, 
-                    # grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,1)
-            
-                    # for iscal=1:nb_saved_scalars
-                    #     @views fwd.saved_scal[1,:,:,iscal] .= phL.saved_scal[:,:,iscal] #varflux[iscal] #reshape(varfluxH2, grid)
-                    # end
-
-                    # print("\n vecb_L(elec_condD, grid) before BC \n ", vecb_L(phL.trans_scalD[:,2], grid) )
-
-                    # print("before trans")
                     if electrolysis_reaction == "Butler_no_concentration"
                         BC_trans_scal[iscal].left.val = i_butler./(2*Faraday*diffusion_coeff[iscal])
 
-                        # print("\n Butler",BC_trans_scal[iscal].left.val)
-
                         if iscal==1 || iscal==2
-                            BC_trans_scal[iscal].left.val .*=-1 #H2O
+                            BC_trans_scal[iscal].left.val .*=-1 #H2O consummed
                         end
                     end
+                end
+
+                scalar_transport!(BC_trans_scal, num, grid, opC_TL, LS[1].geoL, phL, concentration0,
+                LS[1].MIXED, LS[1].geoL.projection, opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
+                periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff,convection_Cdivu)
+
+                ####################################################################################################
+                # New start scalar loop
+                ####################################################################################################
+
+
+                # ####################################################################################################
+                # # Start scalar loop
+                # ####################################################################################################
+
+                # for iscal=1:nb_transported_scalars
+
+
+                #     # print("before trans")
+
+                #     # phL.saved_scal[:,:,1],phL.saved_scal[:,:,2],phL.saved_scal[:,:,3],phL.saved_scal[:,:,4]=compute_mass_flux!(num,grid, grid_u, 
+                #     # grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,1)
+            
+                #     # for iscal=1:nb_saved_scalars
+                #     #     @views fwd.saved_scal[1,:,:,iscal] .= phL.saved_scal[:,:,iscal] #varflux[iscal] #reshape(varfluxH2, grid)
+                #     # end
+
+                #     # print("\n vecb_L(elec_condD, grid) before BC \n ", vecb_L(phL.trans_scalD[:,2], grid) )
+
+                #     # print("before trans")
+                #     if electrolysis_reaction == "Butler_no_concentration"
+                #         BC_trans_scal[iscal].left.val = i_butler./(2*Faraday*diffusion_coeff[iscal])
+
+                #         # print("\n Butler",BC_trans_scal[iscal].left.val)
+
+                #         if iscal==1 || iscal==2
+                #             BC_trans_scal[iscal].left.val .*=-1 #H2O
+                #         end
+                #     end
                   
                  
-                    # print("\n vecb_L(elec_condD, grid) after BC \n ", vecb_L(phL.trans_scalD[:,2], grid) )
+                #     # print("\n vecb_L(elec_condD, grid) after BC \n ", vecb_L(phL.trans_scalD[:,2], grid) )
 
 
-                    # @views kill_dead_cells!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL)
-                    @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL,concentration0[iscal]) 
+                #     # @views kill_dead_cells!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL)
+                #     @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL,concentration0[iscal]) 
 
-                    @views veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
+                #     @views veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
 
-                    # print("\n",BC_trans_scal[iscal].int, " ",maximum(veci(phL.trans_scalD[:,iscal],grid,2)))
-                    # print("\n test chi",maximum(opC_TL.χ[1])," ",maximum(vec2(opC_TL.χ[1],grid)))
+                #     # print("\n",BC_trans_scal[iscal].int, " ",maximum(veci(phL.trans_scalD[:,iscal],grid,2)))
+                #     # print("\n test chi",maximum(opC_TL.χ[1])," ",maximum(vec2(opC_TL.χ[1],grid)))
 
-                    # phL.saved_scal[:,:,5]=reshape(opC_TL.χ[1].diag,grid)
-
-
+                #     # phL.saved_scal[:,:,5]=reshape(opC_TL.χ[1].diag,grid)
 
 
-                    diffusion_coeff_iscal = diffusion_coeff[iscal]
-
-                    # diffusion_coeff_iscal = 0.0
-                    # printstyled(color=:red, @sprintf "\n 0 diffusion \n")
-
-                    # print("BC top ",BC_trans_scal[iscal].top)
-                    # print("BC bottom ",BC_trans_scal[iscal].bottom)
 
 
-                    # #########################################################################"
-                    # printstyled(color=:red, @sprintf "\n test vel Poiseuille \n")
-                    # print("current_i ", current_i)
+                #     diffusion_coeff_iscal = diffusion_coeff[iscal]
 
-                    # print("\n test v bottom", maximum(vecb_B(phL.vD, grid)))
-                    # print("\n test v top", maximum(vecb_T(phL.vD, grid)))
-                    # print("\n test v 1 ", maximum(phL.v[1,:]))
-                    # print("\n test v 2 ", maximum(phL.v[1,:]))
-                    # v_inlet=6.7e-4
-                    # L0 = 1e-4 
+                #     # diffusion_coeff_iscal = 0.0
+                #     # printstyled(color=:red, @sprintf "\n 0 diffusion \n")
 
-                    # vPoiseuille = zeros(grid_v)
-                    # vPoiseuille = Poiseuille_favg.(grid_v.x,v_inlet,L0) #* velocity
-                    # # vPoiseuilleb = Poiseuille_favg.(gv.x[1,:],v_inlet,L0) #* velocity
-                    # phL.v .=vPoiseuille 
-                    # phL.u .= 0 
+                #     # print("BC top ",BC_trans_scal[iscal].top)
+                #     # print("BC bottom ",BC_trans_scal[iscal].bottom)
 
-                    # vec2(phL.vD,grid_v) .= vec(phL.v)
-                    # vec2(phL.uD,grid_u) .= vec(phL.u)
-                    # #########################################################################"
+                #     # #########################################################################"
 
-                    printstyled(color=:red, @sprintf "\n levelset: before set_scalar_transport!\n")
-                    println(grid.LS[1].geoL.dcap[1,1,:])
+                #     printstyled(color=:red, @sprintf "\n levelset: before set_scalar_transport!\n")
+                #     println(grid.LS[1].geoL.dcap[1,1,:])
 
-                    rhs = set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TL, LS[1].geoL, phL, concentration0[iscal], BC_trans_scal[iscal],
-                                                        LS[1].MIXED, LS[1].geoL.projection,
-                                                        ATL,BTL,
-                                                        opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
-                                                        periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff_iscal)
+                #     rhs = set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TL, LS[1].geoL, phL, concentration0[iscal], BC_trans_scal[iscal],
+                #                                         LS[1].MIXED, LS[1].geoL.projection,
+                #                                         ATL,BTL,
+                #                                         opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
+                #                                         periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff_iscal)
                     
-                    ##########################################################################################################"
+                #     ##########################################################################################################"
 
-                    printstyled(color=:red, @sprintf "\n levelset: after set_scalar_transport!\n")
-                    println(grid.LS[1].geoL.dcap[1,1,:])
+                #     printstyled(color=:red, @sprintf "\n levelset: after set_scalar_transport!\n")
+                #     println(grid.LS[1].geoL.dcap[1,1,:])
 
-                    if convection_Cdivu
-                        # Duv = fzeros(grid)
-                        # Duv = fnzeros(grid,num)
+                #     if convection_Cdivu
+                #         # Duv = fzeros(grid)
+                #         # Duv = fnzeros(grid,num)
 
-                        Duv = opC_pL.AxT * vec1(phL.uD,grid_u) .+ opC_pL.Gx_b * vecb(phL.uD,grid_u) .+
-                        opC_pL.AyT * vec1(phL.vD,grid_v) .+ opC_pL.Gy_b * vecb(phL.vD,grid_v)
-                        for iLS in 1:nLS
-                            if !is_navier(BC_int[iLS]) && !is_navier_cl(BC_int[iLS])
-                                Duv .+= opC_pL.Gx[iLS] * veci(phL.uD,grid_u,iLS+1) .+ 
-                                        opC_pL.Gy[iLS] * veci(phL.vD,grid_v,iLS+1)
-                            end
-                        end
+                #         Duv = opC_pL.AxT * vec1(phL.uD,grid_u) .+ opC_pL.Gx_b * vecb(phL.uD,grid_u) .+
+                #         opC_pL.AyT * vec1(phL.vD,grid_v) .+ opC_pL.Gy_b * vecb(phL.vD,grid_v)
+                #         for iLS in 1:nLS
+                #             if !is_navier(BC_int[iLS]) && !is_navier_cl(BC_int[iLS])
+                #                 Duv .+= opC_pL.Gx[iLS] * veci(phL.uD,grid_u,iLS+1) .+ 
+                #                         opC_pL.Gy[iLS] * veci(phL.vD,grid_v,iLS+1)
+                #             end
+                #         end
                     
-                        # rhs .+= Duv #.* phL.trans_scalD[:,iscal] multiplied just after
+                #         # rhs .+= Duv #.* phL.trans_scalD[:,iscal] multiplied just after
 
-                        # vec1(rhs_ϕ,grid) .= rho1 .* iτ .* Duv #TODO
-                        vec1(rhs,grid) .+= Duv 
+                #         # vec1(rhs_ϕ,grid) .= rho1 .* iτ .* Duv #TODO
+                #         vec1(rhs,grid) .+= Duv 
 
-                        printstyled(color=:green, @sprintf "\n max Duv for C.div(u): %.2e\n" maximum(Duv))
+                #         printstyled(color=:green, @sprintf "\n max Duv for C.div(u): %.2e\n" maximum(Duv))
 
 
-                    end
-                    ##########################################################################################################"
+                #     end
+                #     ##########################################################################################################"
                     
-                    @views mul!(rhs, BTL, phL.trans_scalD[:,iscal], 1.0, 1.0) #TODO @views not necessary ?
+                #     @views mul!(rhs, BTL, phL.trans_scalD[:,iscal], 1.0, 1.0) #TODO @views not necessary ?
 
 
-                    # if nb_saved_scalars>1
-                    #     # phL.saved_scal[:,:,5]=reshape(opC_TL.χ[1].diag,grid)
-                    #     phL.saved_scal[:,:,2]=reshape(veci(rhs,grid,1), grid)
-                    # end
+                #     # if nb_saved_scalars>1
+                #     #     # phL.saved_scal[:,:,5]=reshape(opC_TL.χ[1].diag,grid)
+                #     #     phL.saved_scal[:,:,2]=reshape(veci(rhs,grid,1), grid)
+                #     # end
 
-                    if nb_saved_scalars>4
-                        # phL.saved_scal[:,:,5]=reshape(opC_TL.χ[1].diag,grid)
-                        phL.saved_scal[:,:,5]=reshape(veci(rhs,grid,1), grid)
+                #     if nb_saved_scalars>4
+                #         # phL.saved_scal[:,:,5]=reshape(opC_TL.χ[1].diag,grid)
+                #         phL.saved_scal[:,:,5]=reshape(veci(rhs,grid,1), grid)
 
-                        if nb_saved_scalars>5
-                            phL.saved_scal[:,:,6]=reshape(opC_TL.χ[1].diag,grid)
-                        end
-                    end
-
-
-                    # print("\n test left before A/r L", vecb_L(phL.trans_scalD[:,iscal], grid))
-                    # print("\n test left before A/r T", vecb_T(phL.trans_scalD[:,iscal], grid))
+                #         if nb_saved_scalars>5
+                #             phL.saved_scal[:,:,6]=reshape(opC_TL.χ[1].diag,grid)
+                #         end
+                #     end
 
 
-                    @views phL.trans_scalD[:,iscal] .= ATL \ rhs
+                #     # print("\n test left before A/r L", vecb_L(phL.trans_scalD[:,iscal], grid))
+                #     # print("\n test left before A/r T", vecb_T(phL.trans_scalD[:,iscal], grid))
+
+
+                #     @views phL.trans_scalD[:,iscal] .= ATL \ rhs
 
 
 
-                    # print("\n test left after A/r L", vecb_L(phL.trans_scalD[:,iscal], grid))
-                    # print("\n test left after A/r T", vecb_T(phL.trans_scalD[:,iscal], grid))
+                #     # print("\n test left after A/r L", vecb_L(phL.trans_scalD[:,iscal], grid))
+                #     # print("\n test left after A/r T", vecb_T(phL.trans_scalD[:,iscal], grid))
 
-                    # @views phL.trans_scal[:,:,iscal] .= reshape(veci(phL.trans_scalD[:,iscal],grid,2), grid)
-
-
-                    # printstyled(color=:green, @sprintf "\n average c %s\n" average!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL, num))
+                #     # @views phL.trans_scal[:,:,iscal] .= reshape(veci(phL.trans_scalD[:,iscal],grid,2), grid)
 
 
-                    @views phL.trans_scal[:,:,iscal] .= reshape(veci(phL.trans_scalD[:,iscal],grid,1), grid)
+                #     # printstyled(color=:green, @sprintf "\n average c %s\n" average!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL, num))
 
-                    printstyled(color=:cyan, @sprintf "\n after resol\n")
-                    print("\n",phL.trans_scal[1,:,iscal])
-                    print("\n",reshape(veci(rhs,grid,1), grid)[1,:])
-                    print("\n",reshape(veci(rhs,grid,1), grid)[2,:])
-                    print("\n",reshape(veci(rhs,grid,1), grid)[3,:])
+
+                #     @views phL.trans_scal[:,:,iscal] .= reshape(veci(phL.trans_scalD[:,iscal],grid,1), grid)
+
+                #     printstyled(color=:cyan, @sprintf "\n after resol\n")
+                #     print("\n",phL.trans_scal[1,:,iscal])
+                #     print("\n",reshape(veci(rhs,grid,1), grid)[1,:])
+                #     print("\n",reshape(veci(rhs,grid,1), grid)[2,:])
+                #     print("\n",reshape(veci(rhs,grid,1), grid)[3,:])
 
 
                     
 
 
-                    nonzero = veci(phL.trans_scalD[:,iscal],grid,2)[abs.(veci(phL.trans_scalD[:,iscal],grid,2)) .> 0.0]
-                    # print("nonzero\n")
-                    # print(nonzero)
-                    print("\n mean ",mean(nonzero))
+                #     nonzero = veci(phL.trans_scalD[:,iscal],grid,2)[abs.(veci(phL.trans_scalD[:,iscal],grid,2)) .> 0.0]
+                #     # print("nonzero\n")
+                #     # print(nonzero)
+                #     print("\n mean ",mean(nonzero))
 
-                    if iscal!=2 #H2O consummed at the electrode, would need to make distinction to make sure the decrease in H2O is physical or not
+                #     if iscal!=2 #H2O consummed at the electrode, would need to make distinction to make sure the decrease in H2O is physical or not
                       
                       
-                        @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL,concentration0[iscal]) 
+                #         @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL,concentration0[iscal]) 
 
-                        # @views veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
+                #         # @views veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
 
-                        if any(phL.trans_scal[:,:,iscal].<concentration0[iscal]*(1-num.concentration_check_factor))
-                            print("iscal ",iscal)
-                            printstyled(color=:red, @sprintf "\n concentration: %.2e %.2e \n" minimum(phL.trans_scal[:,:,iscal]) concentration0[iscal]*(1-num.concentration_check_factor))
-                            printstyled(color=:red, @sprintf "\n concentration drop: %.2e%% \n" (minimum(phL.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal]*100)
-                            @error("concentration too low")
-                            return current_i
-                        end
-                    end
+                #         if any(phL.trans_scal[:,:,iscal].<concentration0[iscal]*(1-num.concentration_check_factor))
+                #             print("iscal ",iscal)
+                #             printstyled(color=:red, @sprintf "\n concentration: %.2e %.2e \n" minimum(phL.trans_scal[:,:,iscal]) concentration0[iscal]*(1-num.concentration_check_factor))
+                #             printstyled(color=:red, @sprintf "\n concentration drop: %.2e%% \n" (minimum(phL.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal]*100)
+                #             @error("concentration too low")
+                #             return current_i
+                #         end
+                #     end
 
-                    # print("\n vecb_L(elec_condD, grid) after res 0 \n ", vecb_L(phL.trans_scalD[:,2], grid) )
-
-
-                    # print("all\n")
-                    # print(phL.trans_scalD[:,iscal])
-
-                    # print("\n test", phL.trans_scal[:,1,iscal])
-                    # print("\n test", phL.trans_scal[1,:,iscal])
-
-                    # print("\n test left", vecb_L(phL.trans_scalD[:,iscal], grid))
-                    # print("\n test right", vecb_R(phL.trans_scalD[:,iscal], grid))
-                    print("\n test bottom", vecb_B(phL.trans_scalD[:,iscal], grid))
-                    # print("\n test top", vecb_T(phL.trans_scalD[:,iscal], grid))
-
-                    print("\n test v bottom", maximum(vecb_B(phL.vD, grid)))
-                    print("\n test v top", maximum(vecb_T(phL.vD, grid)))
-                    print("\n test v 1 ", maximum(phL.v[1,:]))
-                    print("\n test v 2 ", maximum(phL.v[1,:]))
-
-                    print("\n test concentration ", minimum(phL.trans_scal[:,:,iscal]), " ", maximum(phL.trans_scal[:,:,iscal]))
+                #     # print("\n vecb_L(elec_condD, grid) after res 0 \n ", vecb_L(phL.trans_scalD[:,2], grid) )
 
 
-                    # print("\n test diff", phL.v[1,:] .- vecb_T(phL.vD, grid))
+                #     # print("all\n")
+                #     # print(phL.trans_scalD[:,iscal])
+
+                #     # print("\n test", phL.trans_scal[:,1,iscal])
+                #     # print("\n test", phL.trans_scal[1,:,iscal])
+
+                #     # print("\n test left", vecb_L(phL.trans_scalD[:,iscal], grid))
+                #     # print("\n test right", vecb_R(phL.trans_scalD[:,iscal], grid))
+                #     print("\n test bottom", vecb_B(phL.trans_scalD[:,iscal], grid))
+                #     # print("\n test top", vecb_T(phL.trans_scalD[:,iscal], grid))
+
+                #     print("\n test v bottom", maximum(vecb_B(phL.vD, grid)))
+                #     print("\n test v top", maximum(vecb_T(phL.vD, grid)))
+                #     print("\n test v 1 ", maximum(phL.v[1,:]))
+                #     print("\n test v 2 ", maximum(phL.v[1,:]))
+
+                #     print("\n test concentration ", minimum(phL.trans_scal[:,:,iscal]), " ", maximum(phL.trans_scal[:,:,iscal]))
+
+
+                #     # print("\n test diff", phL.v[1,:] .- vecb_T(phL.vD, grid))
 
 
 
-                    # for jplot in 1:ny
-                    #     for iplot in 1:nx
+                #     # for jplot in 1:ny
+                #     #     for iplot in 1:nx
 
-                            # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-                    #         pII = lexicographic(II, grid.ny)
+                #             # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+                #     #         pII = lexicographic(II, grid.ny)
 
-                    #         if phL.trans_scalD[pII,iscal] < 0.0
-                    #         # if phL.trans_scalD[pII,iscal] < concentration0[iscal]
+                #     #         if phL.trans_scalD[pII,iscal] < 0.0
+                #     #         # if phL.trans_scalD[pII,iscal] < concentration0[iscal]
 
-                    #             printstyled(color=:green, @sprintf "\n j: %5i %5i %.2e %.2e %.2e %.2e \n" iplot jplot grid.x[iplot]/num.plot_xscale grid.y[jplot]/num.plot_xscale phL.trans_scalD[pII,iscal] rhs[pII])
+                #     #             printstyled(color=:green, @sprintf "\n j: %5i %5i %.2e %.2e %.2e %.2e \n" iplot jplot grid.x[iplot]/num.plot_xscale grid.y[jplot]/num.plot_xscale phL.trans_scalD[pII,iscal] rhs[pII])
                         
-                    #         end
-                    #     end
-                    # end
+                #     #         end
+                #     #     end
+                #     # end
 
 
-                    print("end scal",iscal)
+                #     print("end scal",iscal)
 
-                    printstyled(color=:red, @sprintf "\n levelset: and scal set_scalar_transport!\n")
-                    println(grid.LS[1].geoL.dcap[1,1,:])
+                #     printstyled(color=:red, @sprintf "\n levelset: and scal set_scalar_transport!\n")
+                #     println(grid.LS[1].geoL.dcap[1,1,:])
+
+                # end
+                # ####################################################################################################
+                # # End scalar loop
+                # ####################################################################################################
 
 
-                end
+
 
                 # print("\n vecb_L(elec_condD, grid) after res 1 \n ", vecb_L(phL.trans_scalD[:,2], grid) )
 
