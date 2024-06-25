@@ -164,24 +164,24 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
         end    
         bcTx, bcTy = set_bc_bnds(dir, a0, HT, BC_T)
     
-        bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
-        bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
-        Δu = [grid_u.dx[1,1], grid_u.dy[1,1], grid_u.dx[end,end], grid_u.dy[end,end]] .* 0.5
-        Δv = [grid_v.dx[1,1], grid_v.dy[1,1], grid_v.dx[end,end], grid_v.dy[end,end]] .* 0.5
+        # bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
+        # bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
+        # Δu = [grid_u.dx[1,1], grid_u.dy[1,1], grid_u.dx[end,end], grid_u.dy[end,end]] .* 0.5
+        # Δv = [grid_v.dx[1,1], grid_v.dy[1,1], grid_v.dx[end,end], grid_v.dy[end,end]] .* 0.5
         
-        Hu = zeros(grid_u)
-        for i in eachindex(bnds_u)
-            for II in bnds_u[i]
-                Hu[II] = Δu[i]
-            end
-        end
+        # Hu = zeros(grid_u)
+        # for i in eachindex(bnds_u)
+        #     for II in bnds_u[i]
+        #         Hu[II] = Δu[i]
+        #     end
+        # end
 
-        Hv = zeros(grid_v)
-        for i in eachindex(bnds_v)
-            for II in bnds_v[i]
-                Hv[II] = Δv[i]
-            end
-        end
+        # Hv = zeros(grid_v)
+        # for i in eachindex(bnds_v)
+        #     for II in bnds_v[i]
+        #         Hv[II] = Δv[i]
+        #     end
+        # end
     
         bcU = zeros(grid_u)
         bcU .= reshape(vec2(uD,grid_u), grid_u)

@@ -784,10 +784,45 @@ end
 function scalar_convection!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC, inside, b_left, b_bottom, b_right, b_top)
     B .= 0.0
     O .= 0.0
+
+    # printstyled(color=:cyan, @sprintf "\n test conv \n")
+    print("\n inside ",inside)
+    print("\n BC \n")
+
+
     @inbounds for II in inside
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
         u1, v2, u3, v4 = u[II], v[II], u[δx⁺(II)], v[δy⁺(II)]
+
+        # if II == CartesianIndex(2,18)
+        #     test = 0.5 * (A3 * u3 - A1 * u1 + A4 * v4 - A2 * v2)
+        #     printstyled(color=:cyan, @sprintf "\n conv: %.2e %.2e %.2e %.2e %.2e \n" test v2 v4 A2 A4)
+        # end
+
+        # if II == CartesianIndex(3,18)
+        #     test = 0.5 * (A3 * u3 - A1 * u1 + A4 * v4 - A2 * v2)
+        #     printstyled(color=:cyan, @sprintf "\n conv 3: %.2e %.2e %.2e %.2e %.2e \n" test v2 v4 A2 A4)
+        # end
+
+        # if II == CartesianIndex(4,18)
+        #     test = 0.5 * (A3 * u3 - A1 * u1 + A4 * v4 - A2 * v2)
+        #     printstyled(color=:cyan, @sprintf "\n conv 4: %.2e %.2e %.2e %.2e %.2e \n" test v2 v4 A2 A4)
+        # end
+
+        # for jplot in 1:ny
+            #     for iplot in 1:nx
+            #         II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+            #         pII = lexicographic(II, grid.ny)
+
+
+        # print(II)
+        # # printstyled(color=:cyan, @sprintf "\n conv: %.2e %.2e %.2e %.2e %.2e \n" Dv[II] v2 v4 A2 A4)
+
+        # printstyled(color=:cyan, @sprintf "\n c: %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e\n" u1 v2 u3 v4 Du[II] Dv[II] A1 A2 A3 A4 B1 B2)
+        
+        # # u1 v2 u3 v4 Du[II] Dv[II] A1 A2 A3 A4 B1 B2
+
 
         @inbounds O[pII,pII] = 0.5 * (A3 * u3 - A1 * u1 + A4 * v4 - A2 * v2)
         @inbounds O[pII,pII+n] = 0.5 * A3 * u3
@@ -802,6 +837,12 @@ function scalar_convection!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC,
         @inbounds B[pII] += -0.5 * Dy[II] * ((A4 - B2) * Dv[δy⁺(II)] + (B2 - A2) * Dv[II])
     end
 
+    print("\n max O",maximum(O), " B ",maximum(B))
+
+    # IItest = CartesianIndex(2,18)
+    # printstyled(color=:cyan, @sprintf "\n conv: %.2e %.2e %.2e %.2e %.2e \n" test v2 v4 A2 A4)
+
+
     @inbounds for II in vcat(b_left, b_bottom[2:end-1], b_right, b_top[2:end-1])
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
@@ -814,7 +855,63 @@ function scalar_convection!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC,
 
         @inbounds B[pII] += -0.5 * Dx[II] * ((A3 - B1) * Du[δx⁺(II)] + (B1 - A1) * Du[II])
         @inbounds B[pII] += -0.5 * Dy[II] * ((A4 - B2) * Dv[δy⁺(II)] + (B2 - A2) * Dv[II])
+
+        print(II)
+        printstyled(color=:cyan, @sprintf "\n c: %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e\n" u1 v2 u3 v4 Du[II] Dv[II] A1 A2 A3 A4 B1 B2 Dx[II] Dy[II])
+        
+        # u1 v2 u3 v4 Du[II] Dv[II] A1 A2 A3 A4 B1 B2
+
+
+        # printstyled(color=:cyan, @sprintf "\n conv: %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e \n" Dx[II] Dy[II] Du[II] Dv[II] (A3-B1) (B1-A1) (A4-B2) (B2-A2)) 
     end
+
+    # ###########################################################
+    # printstyled(color=:cyan, @sprintf "\n left \n") 
+
+    # @inbounds for II in b_left
+    #     pII = lexicographic(II, n)
+    #     A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
+    #     u1, v2, u3, v4 = u[II], v[II], u[δx⁺(II)], v[δy⁺(II)]
+    #     printstyled(color=:cyan, @sprintf "\n conv: %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e \n" Dx[II] Dy[II] Du[II] Dv[II] (A3-B1) (B1-A1) (A4-B2) (B2-A2)) 
+    # end
+
+    # printstyled(color=:cyan, @sprintf "\n bottom \n") 
+
+    # @inbounds for II in b_bottom #[2:end-1]
+    #     pII = lexicographic(II, n)
+    #     A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
+    #     u1, v2, u3, v4 = u[II], v[II], u[δx⁺(II)], v[δy⁺(II)]
+
+    #     printstyled(color=:cyan, @sprintf "\n conv: %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e \n" Dx[II] Dy[II] Du[II] Dv[II] (A3-B1) (B1-A1) (A4-B2) (B2-A2)) 
+    # end
+
+    # printstyled(color=:cyan, @sprintf "\n right \n") 
+
+    # @inbounds for II in b_right
+    #     pII = lexicographic(II, n)
+    #     A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
+    #     u1, v2, u3, v4 = u[II], v[II], u[δx⁺(II)], v[δy⁺(II)]
+    #     printstyled(color=:cyan, @sprintf "\n conv: %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e \n" Dx[II] Dy[II] Du[II] Dv[II] (A3-B1) (B1-A1) (A4-B2) (B2-A2)) 
+    # end
+
+    # printstyled(color=:cyan, @sprintf "\n top \n") 
+
+    # @inbounds for II in b_top #[2:end-1]
+    #     pII = lexicographic(II, n)
+    #     A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
+    #     u1, v2, u3, v4 = u[II], v[II], u[δx⁺(II)], v[δy⁺(II)]
+    #     printstyled(color=:cyan, @sprintf "\n conv: %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e \n" Dx[II] Dy[II] Du[II] Dv[II] (A3-B1) (B1-A1) (A4-B2) (B2-A2)) 
+    # end
+    # ###########################################################
+
+    @inbounds for II in b_bottom[2:end-1]
+        pII = lexicographic(II, n)
+        print(II)
+        # printstyled(color=:cyan, @sprintf "\n c: %.2e %.2e \n" O[pII,pII] B[pII])
+        printstyled(color=:cyan, @sprintf "\n O: %.2e x+ %.2e x- %.2e y+ %.2e y- %.2e B: %.2e\n" O[pII,pII] O[pII,pII+n] O[pII,pII-n] O[pII,pII+1] O[pII,pII-1] B[pII])
+
+    end
+
     @inbounds for II in vcat(b_left, b_bottom[2:end-1], b_top[2:end-1])
         pII = lexicographic(II, n)
         A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
@@ -884,6 +981,33 @@ function scalar_convection!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC,
     set_sca_conv_bnd!(dir, BC.bottom, O, δy⁺, _A2, _A4, _B2, Dv, n, b_bottom, b_top)
     set_sca_conv_bnd!(dir, BC.right, O, δx⁺, _A1, _A3, _B1, Du, n, b_right, b_left)
     set_sca_conv_bnd!(dir, BC.top, O, δy⁺, _A2, _A4, _B2, Dv, n, b_top, b_bottom)
+
+
+    @inbounds for II in b_bottom[2:end-1]
+        pII = lexicographic(II, n)
+        print(II)
+        printstyled(color=:cyan, @sprintf "\n O: %.2e x+ %.2e x- %.2e y+ %.2e y- %.2e B: %.2e\n" O[pII,pII] O[pII,pII+n] O[pII,pII-n] O[pII,pII+1] B[pII])
+
+        # printstyled(color=:cyan, @sprintf "\n O: %.2e x+ %.2e x- %.2e y+ %.2e y- %.2e B: %.2e\n" O[pII,pII] O[pII,pII+n] O[pII,pII-n] O[pII,pII+1] O[pII,pII-1] B[pII])
+    end
+
+
+    II = CartesianIndex(2,18)
+    pII = lexicographic(II, n)
+    print(II)
+    printstyled(color=:cyan, @sprintf "\n O: %.2e x+ %.2e x- %.2e y+ %.2e y- %.2e B: %.2e\n" O[pII,pII] O[pII,pII+n] O[pII,pII-n] O[pII,pII+1] O[pII,pII-1] B[pII])
+
+    II = CartesianIndex(3,18)
+    pII = lexicographic(II, n)
+    print(II)
+    printstyled(color=:cyan, @sprintf "\n O: %.2e x+ %.2e x- %.2e y+ %.2e y- %.2e B: %.2e\n" O[pII,pII] O[pII,pII+n] O[pII,pII-n] O[pII,pII+1] O[pII,pII-1] B[pII])
+
+
+    II = CartesianIndex(4,18)
+    pII = lexicographic(II, n)
+    print(II)
+    printstyled(color=:cyan, @sprintf "\n O: %.2e x+ %.2e x- %.2e y+ %.2e y- %.2e B: %.2e\n" O[pII,pII] O[pII,pII+n] O[pII,pII-n] O[pII,pII+1] O[pII,pII-1] B[pII])
+
 
     return nothing
 end

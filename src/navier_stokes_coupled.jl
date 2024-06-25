@@ -526,24 +526,24 @@ function set_convection!(
     Dv_y[end,:] .= vecb_T(vD,grid_v)
     # Dv_y[end-1,:] .= v[end-1,:]
 
-    bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
-    bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
-    Δu = [grid_u.dx[1,1] * 0.25, grid_u.dy[1,1] * 0.5, grid_u.dx[end,end] * 0.25, grid_u.dy[end,end] * 0.5]
-    Δv = [grid_v.dx[1,1] * 0.5, grid_v.dy[1,1] * 0.25, grid_v.dx[end,end] * 0.5, grid_v.dy[end,end] * 0.25]
+    # bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
+    # bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
+    # Δu = [grid_u.dx[1,1] * 0.25, grid_u.dy[1,1] * 0.5, grid_u.dx[end,end] * 0.25, grid_u.dy[end,end] * 0.5]
+    # Δv = [grid_v.dx[1,1] * 0.5, grid_v.dy[1,1] * 0.25, grid_v.dx[end,end] * 0.5, grid_v.dy[end,end] * 0.25]
 
-    Hu = zeros(grid_u)
-    for i in eachindex(bnds_u)
-        for II in bnds_u[i]
-            Hu[II] = Δu[i]
-        end
-    end
+    # Hu = zeros(grid_u)
+    # for i in eachindex(bnds_u)
+    #     for II in bnds_u[i]
+    #         Hu[II] = Δu[i]
+    #     end
+    # end
 
-    Hv = zeros(grid_v)
-    for i in eachindex(bnds_v)
-        for II in bnds_v[i]
-            Hv[II] = Δv[i]
-        end
-    end
+    # Hv = zeros(grid_v)
+    # for i in eachindex(bnds_v)
+    #     for II in bnds_v[i]
+    #         Hv[II] = Δv[i]
+    #     end
+    # end
 
     # set_bc_bnds(dir, GridFCx, Du_x, Du_y, Dv_x, Dv_y, Hu, Hv, u, v, BC_u, BC_v)
     # set_bc_bnds(dir, GridFCy, Dv_x, Dv_y, Du_x, Du_y, Hv, Hu, v, u, BC_v, BC_u)

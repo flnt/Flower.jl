@@ -77,6 +77,11 @@ n = 32
 
 max_iter = 2
 
+max_iter = 1
+
+# max_iter = 20
+
+
 # max_iter = 1
 
 # max_iter=5
@@ -231,7 +236,9 @@ nb_transported_scalars=3
 # nb_saved_scalars=5
 # nb_saved_scalars=6
 
-nb_saved_scalars=1
+nb_saved_scalars =1
+
+# nb_saved_scalars = 2
 
 
 if length(concentration0)!=nb_transported_scalars
@@ -324,7 +331,7 @@ num = Numerical(
     y = y,
     shifted = xcoord,
     shifted_y = ycoord,
-    case = "Cylinder",#"Planar",
+    case = "Nothing",#"Cylinder",#"Planar",
     R = radius,
     max_iterations = max_iter,
     save_every = save_every,#10,#save_every,#10,
@@ -368,6 +375,10 @@ num = Numerical(
 gp, gu, gv = init_meshes(num)
 op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
+# gp.LS[1].u .= 1.0
+
+gp.LS[1].u .= sqrt.(gp.x.^2 + gp.y.^2) .+ 1e-8
+
 ####################################################################################################
 # r = 0.5
 # gp.LS[1].u .= sqrt.(gp.x.^2 + (gp.y .+ L0y / 2).^2) - r * ones(gp)
@@ -377,7 +388,7 @@ op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 # gp.LS[1].u .= sqrt.((gp.x .- xcoord).^2 + (gp.y .- ycoord).^2) - radius * ones(gp)
 
 
-gp.LS[1].u .= 1.0
+
 # gp.LS[1].u .= sqrt.((gp.x .- xcoord).^2 + (gp.y .- ycoord).^2) - radius * ones(gp)
 
 
@@ -395,6 +406,10 @@ vPoiseuille = zeros(gv)
 vPoiseuille = Poiseuille_favg.(x,v_inlet,L0) #* velocity
 vPoiseuilleb = Poiseuille_favg.(gv.x[1,:],v_inlet,L0) #* velocity
 
+#offset 0.25*gu.dx[1,1]
+# L0_profile = L0 + 0.5*gu.dx[1,1] #2*0.25*gu.dx[1,1]
+# vPoiseuille = Poiseuille_favg.(x .+ 0.25*gu.dx[1,1],v_inlet,L0_profile) #* velocity
+# vPoiseuilleb = Poiseuille_favg.(gv.x[1,:] .+ 0.25*gu.dx[1,1],v_inlet,L0_profile) #* velocity
 
 
 phL.v .=vPoiseuille 
@@ -592,18 +607,23 @@ BC_pS = Boundaries(
     top    = Dirichlet(),
 )
 
+# u_bc = Poiseuille_favg(gu.x[1,1]- 0.25*gu.dx[1,1] + 0.25*gu.dx[1,1],v_inlet,L0_profile)
+# u_bc = Poiseuille_favg(gu.x[1,1],v_inlet,L0_profile) #offset 0.25*gu.dx[1,1]
+# v_bc = Poiseuille_favg(gv.x[1,1]- 0.5*gv.dx[1,1] + 0.25*gu.dx[1,1],v_inlet,L0_profile) #offset 0.25*gu.dx[1,1]
+# print("\n u_bc", u_bc, " v_bc", v_bc)
+
 @time current_i=run_forward(
     num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
     BC_uL = Boundaries(
-        left   = Dirichlet(),#Navier_cl(λ = 1e-2), #Dirichlet(),
-        right  = Dirichlet(),
+        left   = Dirichlet(),#val = u_bc),#Navier_cl(λ = 1e-2), #Dirichlet(),
+        right  = Dirichlet(),#val = u_bc),
         bottom = Dirichlet(),
         top    = Neumann(val=0.0),
     ),
     BC_uS=BC_uS,
     BC_vL = Boundaries(
-        left   = Dirichlet(),
-        right  = Dirichlet(),
+        left   = Dirichlet(),#val = v_bc),
+        right  = Dirichlet(),#val = v_bc),
         bottom = Dirichlet(val = copy(vPoiseuilleb)),
         top    = Neumann(val=0.0),
     ),
@@ -980,6 +1000,15 @@ printmode = "val"
 
 # end
 
+print("\n Poiseuille ", vPoiseuilleb)
+print("\n Poiseuille ", Poiseuille_favg.(gv.x[1,1],v_inlet,L0), " ",  Poiseuille_favg.(gu.x[1,1],v_inlet,L0))
+print("\n x ", gp.x[1,1]-0.5*gp.dx[1,1], " ux", gu.x[1,1]-0.25*gu.dx[1,1])
+print("\n x ", gp.x[1,end]+0.5*gp.dx[1,1], " ux", gu.x[1,end]+0.25*gu.dx[1,1])
+
+print("\n x ", gp.x[1,:])
+print("\n x ", gu.x[1,:])
+
+
 #############################################################################################################################################"
 
 plt_it = 1
@@ -1045,6 +1074,10 @@ for plt_it = 2:size_frame+1
     plot_python_pdf_full2(plt_it,fwdL.trans_scal[:,:,:,3],fwdL.trans_scalD[:,:,3], "H2Ofull",prefix,
     false,concentrationcontour,true,"pcolormesh",0,range(48950,49050,length=10),cmap,x_array,y_array,gp,"concentration",
     1,gp.nx,1,3,fwd,fwdL,xscale,fontsize,printmode)
+
+    plot_python_pdf_full2(plt_it,fwdL.trans_scal[:,:,:,3],fwdL.trans_scalD[:,:,3], "H2Ofullij",prefix,
+    false,concentrationcontour,true,"pcolormesh",0,range(48950,49050,length=10),cmap,x_array,y_array,gp,"concentration",
+    1,gp.nx,1,3,fwd,fwdL,xscale,fontsize,"ij")
 
     plot_python_pdf(plt_it,fwdL.p, "p",prefix,plot_levelset,isocontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",1,gp.nx,1,gp.ny,fwd)
 

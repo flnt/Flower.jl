@@ -531,6 +531,8 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
                 # str=@sprintf "%.2e" fieldtmp[jgrid0,igrid0]
                 if printmode == "val"
                     str=@sprintf "%.4e" fieldtmp[jgrid0,igrid0]
+                elseif printmode == "ij"
+                    str=@sprintf "%.3i %.3i" igrid0 jgrid0
                 else 
                     str=@sprintf "%.2e %.3i %.3i" fieldtmp[jgrid0,igrid0] igrid0 jgrid0
                 end

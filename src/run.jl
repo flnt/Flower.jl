@@ -203,6 +203,9 @@ function run_forward(
 
     if levelset
         NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
+       
+        printstyled(color=:red, @sprintf "\n levelset:\n")
+        println(grid.LS[1].geoL.dcap[1,1,:])
 
         if save_radius
             n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
@@ -461,6 +464,9 @@ function run_forward(
     if is_FE(time_scheme) || is_CN(time_scheme)
         NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
 
+        printstyled(color=:red, @sprintf "\n levelset:\n")
+        println(grid.LS[1].geoL.dcap[1,1,:])
+
         if navier_stokes || heat || electrolysis
             geoS = [LS[iLS].geoS for iLS in 1:_nLS]
             geo_uS = [grid_u.LS[iLS].geoS for iLS in 1:_nLS]
@@ -636,6 +642,8 @@ function run_forward(
 
     if heat_convection || electrolysis_convection
         NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
+        printstyled(color=:red, @sprintf "\n levelset:\n")
+        println(grid.LS[1].geoL.dcap[1,1,:])
     end
 
     V0S = volume(LS[end].geoS)
@@ -844,7 +852,8 @@ function run_forward(
                     # vec2(phL.uD,grid_u) .= vec(phL.u)
                     # #########################################################################"
 
-
+                    printstyled(color=:red, @sprintf "\n levelset: before set_scalar_transport!\n")
+                    println(grid.LS[1].geoL.dcap[1,1,:])
 
                     rhs = set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TL, LS[1].geoL, phL, concentration0[iscal], BC_trans_scal[iscal],
                                                         LS[1].MIXED, LS[1].geoL.projection,
@@ -853,6 +862,9 @@ function run_forward(
                                                         periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff_iscal)
                     
                     ##########################################################################################################"
+
+                    printstyled(color=:red, @sprintf "\n levelset: after set_scalar_transport!\n")
+                    println(grid.LS[1].geoL.dcap[1,1,:])
 
                     if convection_Cdivu
                         # Duv = fzeros(grid)
@@ -881,6 +893,11 @@ function run_forward(
                     @views mul!(rhs, BTL, phL.trans_scalD[:,iscal], 1.0, 1.0) #TODO @views not necessary ?
 
 
+                    # if nb_saved_scalars>1
+                    #     # phL.saved_scal[:,:,5]=reshape(opC_TL.χ[1].diag,grid)
+                    #     phL.saved_scal[:,:,2]=reshape(veci(rhs,grid,1), grid)
+                    # end
+
                     if nb_saved_scalars>4
                         # phL.saved_scal[:,:,5]=reshape(opC_TL.χ[1].diag,grid)
                         phL.saved_scal[:,:,5]=reshape(veci(rhs,grid,1), grid)
@@ -897,6 +914,8 @@ function run_forward(
 
                     @views phL.trans_scalD[:,iscal] .= ATL \ rhs
 
+
+
                     # print("\n test left after A/r L", vecb_L(phL.trans_scalD[:,iscal], grid))
                     # print("\n test left after A/r T", vecb_T(phL.trans_scalD[:,iscal], grid))
 
@@ -907,6 +926,16 @@ function run_forward(
 
 
                     @views phL.trans_scal[:,:,iscal] .= reshape(veci(phL.trans_scalD[:,iscal],grid,1), grid)
+
+                    printstyled(color=:cyan, @sprintf "\n after resol\n")
+                    print("\n",phL.trans_scal[1,:,iscal])
+                    print("\n",reshape(veci(rhs,grid,1), grid)[1,:])
+                    print("\n",reshape(veci(rhs,grid,1), grid)[2,:])
+                    print("\n",reshape(veci(rhs,grid,1), grid)[3,:])
+
+
+                    
+
 
                     nonzero = veci(phL.trans_scalD[:,iscal],grid,2)[abs.(veci(phL.trans_scalD[:,iscal],grid,2)) .> 0.0]
                     # print("nonzero\n")
@@ -940,7 +969,7 @@ function run_forward(
 
                     # print("\n test left", vecb_L(phL.trans_scalD[:,iscal], grid))
                     # print("\n test right", vecb_R(phL.trans_scalD[:,iscal], grid))
-                    # print("\n test bottom", vecb_B(phL.trans_scalD[:,iscal], grid))
+                    print("\n test bottom", vecb_B(phL.trans_scalD[:,iscal], grid))
                     # print("\n test top", vecb_T(phL.trans_scalD[:,iscal], grid))
 
                     print("\n test v bottom", maximum(vecb_B(phL.vD, grid)))
@@ -958,7 +987,7 @@ function run_forward(
                     # for jplot in 1:ny
                     #     for iplot in 1:nx
 
-                    #         II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+                            # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
                     #         pII = lexicographic(II, grid.ny)
 
                     #         if phL.trans_scalD[pII,iscal] < 0.0
@@ -971,7 +1000,10 @@ function run_forward(
                     # end
 
 
+                    print("end scal",iscal)
 
+                    printstyled(color=:red, @sprintf "\n levelset: and scal set_scalar_transport!\n")
+                    println(grid.LS[1].geoL.dcap[1,1,:])
 
 
                 end
@@ -1639,6 +1671,9 @@ function run_forward(
 
         if levelset && (advection || current_i<2)
             NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
+
+            printstyled(color=:red, @sprintf "\n levelset:\n")
+            println(grid.LS[1].geoL.dcap[1,1,:])
 
             LS[end].geoL.fresh .= false
             LS[end].geoS.fresh .= false

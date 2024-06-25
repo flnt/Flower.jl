@@ -19,43 +19,34 @@ function set_convection_2!(
 
     Du_x = zeros(grid_u)
     Du_y = zeros(grid_u)
-    Du_x .= reshape(vec1(uD,grid_u), grid_u)
-    Du_y .= reshape(vec1(uD,grid_u), grid_u)
     for iLS in 1:num.nLS
         Du_x[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
         Du_y[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
     end
     Du_x[:,1] .= vecb_L(uD,grid_u)
-    Du_x[:,2] .= u[:,2]
     Du_y[1,:] .= vecb_B(uD,grid_u)
-    Du_y[2,:] .= u[2,:]
     Du_x[:,end] .= vecb_R(uD,grid_u)
-    Du_x[:,end-1] .= u[:,end-1]
     Du_y[end,:] .= vecb_T(uD,grid_u)
-    Du_y[end-1,:] .= u[end-1,:]
 
+    # bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
+    # bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
+    # Δu = [grid_u.dx[1,1] * 0.25, grid_u.dy[1,1] * 0.5, grid_u.dx[end,end] * 0.25, grid_u.dy[end,end] * 0.5]
+    # Δv = [grid_v.dx[1,1] * 0.5, grid_v.dy[1,1] * 0.25, grid_v.dx[end,end] * 0.5, grid_v.dy[end,end] * 0.25]
 
+    # Hu = zeros(grid_u)
+    # for i in eachindex(bnds_u)
+    #     for II in bnds_u[i]
+    #         Hu[II] = Δu[i]
+    #     end
+    # end
 
-    bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
-    bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
-    Δu = [grid_u.dx[1,1] * 0.25, grid_u.dy[1,1] * 0.5, grid_u.dx[end,end] * 0.25, grid_u.dy[end,end] * 0.5]
-    Δv = [grid_v.dx[1,1] * 0.5, grid_v.dy[1,1] * 0.25, grid_v.dx[end,end] * 0.5, grid_v.dy[end,end] * 0.25]
+    # Hv = zeros(grid_v)
+    # for i in eachindex(bnds_v)
+    #     for II in bnds_v[i]
+    #         Hv[II] = Δv[i]
+    #     end
+    # end
 
-    Hu = zeros(grid_u)
-    for i in eachindex(bnds_u)
-        for II in bnds_u[i]
-            Hu[II] = Δu[i]
-        end
-    end
-
-    Hv = zeros(grid_v)
-    for i in eachindex(bnds_v)
-        for II in bnds_v[i]
-            Hv[II] = Δv[i]
-        end
-    end
-
-    set_bc_bnds(dir, GridFCx, Du_x, Du_y, Dv_x, Dv_y, Hu, Hv, u, v, BC_u, BC_v)
 
     vector_convection!(dir, GridFCx, Cu, CUTCu, u, v, Du_x, Du_y, Dv_x, Dv_y,
             geo.dcap, grid.nx, grid.ny, BC_u, grid_u.ind.inside,
@@ -137,7 +128,6 @@ function set_scalar_transport_2!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIX
 
     if convection
 
-        set_convection_2()
 
         HT = zeros(grid)
         # @inbounds @threads for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
@@ -147,27 +137,27 @@ function set_scalar_transport_2!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIX
         bcTx, bcTy = set_bc_bnds(dir, a0, HT, BC_T)
 
 
-        set_convection_2!(num, grid, geo[end], grid_u, grid_u.LS, grid_v, grid_v.LS, ph.u, ph.v, op_conv, ph, BC_u, BC_v)
+        # set_convection_2!(num, grid, geo[end], grid_u, grid_u.LS, grid_v, grid_v.LS, ph.u, ph.v, op_conv, ph, BC_u, BC_v)
 
     
-        bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
-        bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
-        Δu = [grid_u.dx[1,1], grid_u.dy[1,1], grid_u.dx[end,end], grid_u.dy[end,end]] .* 0.5
-        Δv = [grid_v.dx[1,1], grid_v.dy[1,1], grid_v.dx[end,end], grid_v.dy[end,end]] .* 0.5
+        # bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
+        # bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
+        # Δu = [grid_u.dx[1,1], grid_u.dy[1,1], grid_u.dx[end,end], grid_u.dy[end,end]] .* 0.5
+        # Δv = [grid_v.dx[1,1], grid_v.dy[1,1], grid_v.dx[end,end], grid_v.dy[end,end]] .* 0.5
         
-        Hu = zeros(grid_u)
-        for i in eachindex(bnds_u)
-            for II in bnds_u[i]
-                Hu[II] = Δu[i]
-            end
-        end
+        # Hu = zeros(grid_u)
+        # for i in eachindex(bnds_u)
+        #     for II in bnds_u[i]
+        #         Hu[II] = Δu[i]
+        #     end
+        # end
 
-        Hv = zeros(grid_v)
-        for i in eachindex(bnds_v)
-            for II in bnds_v[i]
-                Hv[II] = Δv[i]
-            end
-        end
+        # Hv = zeros(grid_v)
+        # for i in eachindex(bnds_v)
+        #     for II in bnds_v[i]
+        #         Hv[II] = Δv[i]
+        #     end
+        # end
     
         bcU = zeros(grid_u)
         bcU .= reshape(vec2(uD,grid_u), grid_u)
@@ -186,6 +176,18 @@ function set_scalar_transport_2!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIX
         scalar_convection!(dir, CT, CUTCT, u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 
             BC_T, inside, b_left[1], b_bottom[1], b_right[1], b_top[1]
         )
+
+ 
+        # vector_convection!(dir, GridFCx, Cu, CUTCu, u, v, Du_x, Du_y, Dv_x, Dv_y,
+        # geo.dcap, grid.nx, grid.ny, BC_u, grid_u.ind.inside,
+        # grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1])
+        
+        # vector_convection!(dir, GridFCy, Cv, CUTCv, u, v, Du_x, Du_y, Dv_x, Dv_y,
+        # geo.dcap, grid.nx, grid.ny, BC_v, grid_v.ind.inside,
+        # grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1])
+
+
+
     end
 
     if ls_advection
@@ -287,6 +289,43 @@ function set_scalar_transport_2!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIX
     return rhs
 end
 
+
+    function set_bc_bnds_total(::Dirichlet, D, H, BC)
+        Dx = copy(D)
+        Dy = copy(D)
+
+        if is_neumann(BC.left)
+            @inbounds Dx[:,1] .= H[:,1] .* BC.left.val
+        elseif is_dirichlet(BC.left)
+            @inbounds Dx[:,1] .= BC.left.val
+        end
+        @inbounds Dy[:,1] .= Dx[:,1]
+
+        if is_neumann(BC.bottom)
+            @inbounds Dy[1,:] .= H[1,:] .* BC.bottom.val 
+        elseif is_dirichlet(BC.bottom)
+            @inbounds Dy[1,:] .= BC.bottom.val
+        end
+        @inbounds Dx[1,:] .= Dy[1,:]
+
+        if is_neumann(BC.right)
+            @inbounds Dx[:,end] .= H[:,end] .* BC.right.val 
+        elseif is_dirichlet(BC.right)
+            @inbounds Dx[:,end] .= BC.right.val
+        end
+        @inbounds Dy[:,end] .= Dx[:,end]
+
+        if is_neumann(BC.top)
+            @inbounds Dy[end,:] .= H[end,:] .* BC.top.val 
+        elseif is_dirichlet(BC.top)
+            @inbounds Dy[end,:] .= BC.top.val
+        end
+        @inbounds Dx[end,:] .= Dy[end,:]
+
+
+        return Dx, Dy
+    end
+
 """    
 set convection and diffusion for scalar
 """
@@ -300,6 +339,11 @@ function set_scalar_transport!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED
     @unpack Bx, By, BxT, ByT, Hx, Hy, HxT, HyT, M, iMx, iMy, χ = op
     @unpack CT, CUTCT = op_conv
     @unpack u, v, uD, vD = ph
+
+
+
+    printstyled(color=:red, @sprintf "\n levelset: start set_scalar_transport!\n")
+    println(grid.LS[1].geoL.dcap[1,1,:])
 
     ni = nx * ny
     nb = 2 * nx + 2 * ny
@@ -366,24 +410,24 @@ function set_scalar_transport!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED
         end    
         bcTx, bcTy = set_bc_bnds(dir, a0, HT, BC_T)
     
-        bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
-        bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
-        Δu = [grid_u.dx[1,1], grid_u.dy[1,1], grid_u.dx[end,end], grid_u.dy[end,end]] .* 0.5
-        Δv = [grid_v.dx[1,1], grid_v.dy[1,1], grid_v.dx[end,end], grid_v.dy[end,end]] .* 0.5
+        # bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
+        # bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
+        # Δu = [grid_u.dx[1,1], grid_u.dy[1,1], grid_u.dx[end,end], grid_u.dy[end,end]] .* 0.5
+        # Δv = [grid_v.dx[1,1], grid_v.dy[1,1], grid_v.dx[end,end], grid_v.dy[end,end]] .* 0.5
         
-        Hu = zeros(grid_u)
-        for i in eachindex(bnds_u)
-            for II in bnds_u[i]
-                Hu[II] = Δu[i]
-            end
-        end
+        # Hu = zeros(grid_u)
+        # for i in eachindex(bnds_u)
+        #     for II in bnds_u[i]
+        #         Hu[II] = Δu[i]
+        #     end
+        # end
 
-        Hv = zeros(grid_v)
-        for i in eachindex(bnds_v)
-            for II in bnds_v[i]
-                Hv[II] = Δv[i]
-            end
-        end
+        # Hv = zeros(grid_v)
+        # for i in eachindex(bnds_v)
+        #     for II in bnds_v[i]
+        #         Hv[II] = Δv[i]
+        #     end
+        # end
     
         bcU = zeros(grid_u)
         bcU .= reshape(vec2(uD,grid_u), grid_u)
@@ -399,9 +443,50 @@ function set_scalar_transport!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED
         bcV[1,:] .= vecb_B(vD, grid_v)
         bcV[end,:] .= vecb_T(vD, grid_v)
 
+        print("\n vecb_L ", vecb_L(vD, grid_v))
+
+        print("\n vecb_B ", vecb_B(vD, grid_v))
+
+        #TODO
+        # print("\n test")
+        # bcTx, bcTy = set_bc_bnds_total(dir, a0, HT, BC_T)
+
+        printstyled(color=:red, @sprintf "\n levelset: before scalar_convection\n")
+        println(grid.LS[1].geoL.dcap[1,1,:])
+
         scalar_convection!(dir, CT, CUTCT, u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 
             BC_T, inside, b_left[1], b_bottom[1], b_right[1], b_top[1]
         )
+
+
+        # #####################################################################################################"
+        # Du_x = zeros(grid_u)
+        # # Du_y = zeros(grid_u)
+        # # bcU .= reshape(vec2(uD,grid_u), grid_u)
+        
+        # for iLS in 1:num.nLS
+        #     Du_x[grid_u.LS[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[grid_u.LS[iLS].MIXED]
+        #     # Du_y[grid_u.LS[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[grid_u.LS[iLS].MIXED]
+        # end
+        # Du_x[:,1] .= vecb_L(uD,grid_u)
+        # # Du_y[1,:] .= vecb_B(uD,grid_u)
+        # Du_x[:,end] .= vecb_R(uD,grid_u)
+        # # Du_y[end,:] .= vecb_T(uD,grid_u)
+        # # Dv_x = zeros(grid_v)
+        # Dv_y = zeros(grid_v)
+        # for iLS in 1:num.nLS
+        #     # Dv_x[grid_v.LS[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[grid_v.LS[iLS].MIXED]
+        #     Dv_y[grid_v.LS[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[grid_v.LS[iLS].MIXED]
+        # end
+        # # Dv_x[:,1] .= vecb_L(vD,grid_v)
+        # Dv_y[1,:] .= vecb_B(vD,grid_v)
+        # # Dv_x[:,end] .= vecb_R(vD,grid_v)
+        # Dv_y[end,:] .= vecb_T(vD,grid_v)
+        # scalar_convection!(dir, CT, CUTCT, u, v, bcTx, bcTy, Du_x, Dv_y, geo.dcap, ny, 
+        #     BC_T, inside, b_left[1], b_bottom[1], b_right[1], b_top[1]
+        # )
+        # #####################################################################################################"
+
     end
 
     if ls_advection
