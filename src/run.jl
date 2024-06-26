@@ -202,6 +202,14 @@ function run_forward(
     rhs_LS = fzeros(grid)
 
     if levelset
+
+        # At every iteration, update_all_ls_data is called twice, 
+        # once inside run.jl and another one (if there's advection of the levelset) inside set_heat!. 
+        # The difference between both is a flag as last argument, inside run.jl is 
+        # implicitly defined as true and inside set_heat is false. 
+        # If you're calling your version of set_heat several times, then you're calling the version with the flag set to false, but for the convective term it has to be set to true, so that's why
+        # The flag=true, the capacities are set for the convection, the flag=false they are set for the other operators
+
         NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
        
         printstyled(color=:red, @sprintf "\n levelset:\n")
@@ -786,6 +794,9 @@ function run_forward(
 
                 for iscal=1:nb_transported_scalars
 
+                    @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL,concentration0[iscal]) 
+                    @views veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
+
                     if electrolysis_reaction == "Butler_no_concentration"
                         BC_trans_scal[iscal].left.val = i_butler./(2*Faraday*diffusion_coeff[iscal])
 
@@ -795,6 +806,10 @@ function run_forward(
                     end
                 end
 
+                #TODO convection_Cdivu BC divergence
+                #TODO check nb_transported_scalars>1
+
+                #TODO @views needed ?
                 scalar_transport!(BC_trans_scal, num, grid, opC_TL, LS[1].geoL, phL, concentration0,
                 LS[1].MIXED, LS[1].geoL.projection, opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
                 periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff,convection_Cdivu)
@@ -1010,7 +1025,7 @@ function run_forward(
 
                 #     print("end scal",iscal)
 
-                #     printstyled(color=:red, @sprintf "\n levelset: and scal set_scalar_transport!\n")
+                #     printstyled(color=:red, @sprintf "\n levelset: end scal set_scalar_transport!\n")
                 #     println(grid.LS[1].geoL.dcap[1,1,:])
 
                 # end

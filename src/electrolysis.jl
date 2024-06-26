@@ -332,7 +332,7 @@ scalar transport (convection and diffusion)
 """
 function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, projection,
     op_conv, grid_u, geo_u, grid_v, geo_v,
-    periodic_x, periodic_y, convection, ls_advection, BC_int, diffusion_coeff,convection_Cdivu)
+    periodic_x, periodic_y, convection, ls_advection, BC_int, diffusion_coeff, convection_Cdivu)
     @unpack τ, aniso, nb_transported_scalars,nb_saved_scalars = num
     @unpack nx, ny, dx, dy, ind, LS  = grid
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
@@ -347,20 +347,115 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
     nb = 2 * nx + 2 * ny
     nt = 2 * ni + nb
 
-    A = spzeros(nt, nt)
-    B = spzeros(nt, nt)
+    # A = spzeros(nt, nt)
+    # B = spzeros(nt, nt)
+
+    all_CUTCT = zeros(grid.ny * grid.nx, nb_transported_scalars)
 
     ######################################################################################################
     # Operators
     ######################################################################################################
 
     if convection
+
+        bcU = zeros(grid_u)
+        bcU .= reshape(vec2(uD,grid_u), grid_u)
+        bcU[1,:] .= vecb_B(uD, grid_u)
+        bcU[end,:] .= vecb_T(uD, grid_u)
+        bcU[:,1] .= vecb_L(uD, grid_u)
+        bcU[:,end] .= vecb_R(uD, grid_u)
+        
+        bcV = zeros(grid_v)
+        bcV .= reshape(vec2(vD,grid_v), grid_v)
+        bcV[:,1] .= vecb_L(vD, grid_v)
+        bcV[:,end] .= vecb_R(vD, grid_v)
+        bcV[1,:] .= vecb_B(vD, grid_v)
+        bcV[end,:] .= vecb_T(vD, grid_v)
+
+        print("\n vecb_L ", vecb_L(vD, grid_v))
+
+        print("\n vecb_B ", vecb_B(vD, grid_v))
+
         HT = zeros(grid)
         # @inbounds @threads for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
         @inbounds for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
             HT[II] = distance(grid.LS[1].mid_point[II], geo.centroid[II], dx[II], dy[II])
         end  
-    end
+
+        iscal = 1
+
+        printstyled(color=:red, @sprintf "\n levelset: before scalar_convection\n")
+        println(grid.LS[1].geoL.dcap[1,1,:])
+
+        ######################################################################################################
+        #Interface boundary condition
+        ######################################################################################################
+        if is_dirichlet(bc[iscal].int)
+            __a0 = bc[iscal].int.val        
+        elseif is_neumann(bc[iscal].int)
+            __a0 = bc[iscal].int.val
+        elseif is_robin(bc[iscal].int)
+            __a0 = bc_type.val  
+        elseif is_stefan(bc[iscal].int)
+            __a0 = concentration0[iscal]       
+        elseif is_wall(bc[iscal].int)
+            __a0 = bc[iscal].int.val         
+        else
+            __a0 = bc[iscal].int.val
+        end
+
+        # Flags with BCs
+        a0 = ones(grid) .* __a0
+
+        # The idea there is to have at the corners the contributions from both borders. 
+        # bcTx is only used for derivatives in x and bcTy for derivatives in y, so it doesn't matter 
+        # that bcTx is not filled at the top and bottom and the same for bcTy
+        # Otherwise we would have to select one of the contributions
+        bcTx, bcTy = set_bc_bnds(dir, a0, HT, bc[iscal])
+
+        # @views necessary
+        @views scalar_convection!(dir, CT, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 
+        bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1]
+        )
+
+        if nb_transported_scalars>1
+            for iscal=2:nb_transported_scalars
+
+                printstyled(color=:red, @sprintf "\n levelset: before scalar_convection\n")
+                println(grid.LS[1].geoL.dcap[1,1,:])
+
+                ######################################################################################################
+                #Interface boundary condition
+                ######################################################################################################
+                if is_dirichlet(bc[iscal].int)
+                    __a0 = bc[iscal].int.val        
+                elseif is_neumann(bc[iscal].int)
+                    __a0 = bc[iscal].int.val
+                elseif is_robin(bc[iscal].int)
+                    __a0 = bc_type.val  
+                elseif is_stefan(bc[iscal].int)
+                    __a0 = concentration0[iscal]       
+                elseif is_wall(bc[iscal].int)
+                    __a0 = bc[iscal].int.val         
+                else
+                    __a0 = bc[iscal].int.val
+                end
+
+                # Flags with BCs
+                a0 = ones(grid) .* __a0
+
+                bcTx, bcTy = set_bc_bnds(dir, a0, HT, bc[iscal])
+                # @views necessary
+                @views scalar_convection_CUTCT!(dir, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 
+                bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1]
+                )
+            end
+        end       
+    end #convection
+
+    printstyled(color=:red, @sprintf "\n levelset: end scalar_convection\n")
+    println(grid.LS[1].geoL.dcap[1,1,:])
+
 
     if ls_advection
         update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
@@ -415,10 +510,12 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
     end
     ######################################################################################################
 
+    #either update here or compute 
+    # update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
+
     for iscal=1:nb_transported_scalars
 
-        @views kill_dead_cells_val!(ph.trans_scal[:,:,iscal], grid, LS[1].geoL,concentration0[iscal]) 
-        @views veci(ph.trans_scalD[:,iscal],grid,1) .= vec(ph.trans_scal[:,:,iscal])
+     
     
         printstyled(color=:red, @sprintf "\n levelset: start iscal!\n")
         println(grid.LS[1].geoL.dcap[1,1,:])
@@ -474,46 +571,55 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         a1_b = Diagonal(vec(_a1_b))
         b_b = Diagonal(vec(_b_b))
 
-        if convection
-            # HT = zeros(grid)
-            # # @inbounds @threads for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
-            # @inbounds for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
-            #     HT[II] = distance(grid.LS[1].mid_point[II], geo.centroid[II], dx[II], dy[II])
-            # end    
-            bcTx, bcTy = set_bc_bnds(dir, a0, HT, bc[iscal])
+        # if convection
+        #     # HT = zeros(grid)
+        #     # # @inbounds @threads for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
+        #     # @inbounds for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
+        #     #     HT[II] = distance(grid.LS[1].mid_point[II], geo.centroid[II], dx[II], dy[II])
+        #     # end    
+
+        #     # The idea there is to have at the corners the contributions from both borders. 
+        #     # bcTx is only used for derivatives in x and bcTy for derivatives in y, so it doesn't matter 
+        #     # that bcTx is not filled at the top and bottom and the same for bcTy
+        #     # Otherwise we would have to select one of the contributions
+
+        #     bcTx, bcTy = set_bc_bnds(dir, a0, HT, bc[iscal])
         
-            bcU = zeros(grid_u)
-            bcU .= reshape(vec2(uD,grid_u), grid_u)
-            bcU[1,:] .= vecb_B(uD, grid_u)
-            bcU[end,:] .= vecb_T(uD, grid_u)
-            bcU[:,1] .= vecb_L(uD, grid_u)
-            bcU[:,end] .= vecb_R(uD, grid_u)
+        #     bcU = zeros(grid_u)
+        #     bcU .= reshape(vec2(uD,grid_u), grid_u)
+        #     bcU[1,:] .= vecb_B(uD, grid_u)
+        #     bcU[end,:] .= vecb_T(uD, grid_u)
+        #     bcU[:,1] .= vecb_L(uD, grid_u)
+        #     bcU[:,end] .= vecb_R(uD, grid_u)
             
-            bcV = zeros(grid_v)
-            bcV .= reshape(vec2(vD,grid_v), grid_v)
-            bcV[:,1] .= vecb_L(vD, grid_v)
-            bcV[:,end] .= vecb_R(vD, grid_v)
-            bcV[1,:] .= vecb_B(vD, grid_v)
-            bcV[end,:] .= vecb_T(vD, grid_v)
+        #     bcV = zeros(grid_v)
+        #     bcV .= reshape(vec2(vD,grid_v), grid_v)
+        #     bcV[:,1] .= vecb_L(vD, grid_v)
+        #     bcV[:,end] .= vecb_R(vD, grid_v)
+        #     bcV[1,:] .= vecb_B(vD, grid_v)
+        #     bcV[end,:] .= vecb_T(vD, grid_v)
 
-            print("\n vecb_L ", vecb_L(vD, grid_v))
+        #     print("\n vecb_L ", vecb_L(vD, grid_v))
 
-            print("\n vecb_B ", vecb_B(vD, grid_v))
+        #     print("\n vecb_B ", vecb_B(vD, grid_v))
 
      
 
-            printstyled(color=:red, @sprintf "\n levelset: before scalar_convection\n")
-            println(grid.LS[1].geoL.dcap[1,1,:])
+        #     printstyled(color=:red, @sprintf "\n levelset: before scalar_convection\n")
+        #     println(grid.LS[1].geoL.dcap[1,1,:])
 
-            scalar_convection!(dir, CT, CUTCT, u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 
-            bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1]
-            )
+        #     scalar_convection!(dir, CT, CUTCT, u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 
+        #     bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1]
+        #     )
 
-        end
+        # end
 
         LT = BxT * iMx * Bx .+ ByT * iMy * By
         LD = BxT * iMx * Hx[1] .+ ByT * iMy * Hy[1]
         LD_b = BxT * op.iMx_b * op.Hx_b .+ ByT * op.iMy_b * op.Hy_b
+
+        A = spzeros(nt, nt)
+        B = spzeros(nt, nt)
 
         # Implicit part of heat equation
         A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* τ .* diffusion_coeff_scal .* LT, grid, τ)
@@ -536,7 +642,7 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
         rhs = fnzeros(grid, num)
         if convection
-            vec1(rhs,grid) .-= τ .* CUTCT
+            vec1(rhs,grid) .-= τ .* all_CUTCT[:,iscal]
         end
 
         # IItest = CartesianIndex(66, 4) #(id_y, id_x)
@@ -691,14 +797,14 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
         print("\n end scal",iscal)
 
-        printstyled(color=:red, @sprintf "\n levelset: and scal set_scalar_transport!\n")
+        printstyled(color=:red, @sprintf "\n levelset: end scal set_scalar_transport!\n")
         println(grid.LS[1].geoL.dcap[1,1,:])
 
     end #end loop iscal
 
     print("\n end loop scal \n")
 
-    printstyled(color=:red, @sprintf "\n levelset: and scal set_scalar_transport!\n")
+    printstyled(color=:red, @sprintf "\n levelset: end scal set_scalar_transport!\n")
     println(grid.LS[1].geoL.dcap[1,1,:])
 
     return nothing
