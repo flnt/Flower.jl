@@ -340,15 +340,15 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
     @unpack CT, CUTCT = op_conv
     @unpack u, v, uD, vD = ph
 
-    printstyled(color=:red, @sprintf "\n levelset: start scalar_transport!\n")
-    println(grid.LS[1].geoL.dcap[1,1,:])
+    # printstyled(color=:red, @sprintf "\n levelset: start scalar_transport!\n")
+    # println(grid.LS[1].geoL.dcap[1,1,:])
 
     ni = nx * ny
     nb = 2 * nx + 2 * ny
     nt = 2 * ni + nb
 
-    # A = spzeros(nt, nt)
-    # B = spzeros(nt, nt)
+    A = spzeros(nt, nt)
+    B = spzeros(nt, nt)
 
     all_CUTCT = zeros(grid.ny * grid.nx, nb_transported_scalars)
 
@@ -372,9 +372,8 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         bcV[1,:] .= vecb_B(vD, grid_v)
         bcV[end,:] .= vecb_T(vD, grid_v)
 
-        print("\n vecb_L ", vecb_L(vD, grid_v))
-
-        print("\n vecb_B ", vecb_B(vD, grid_v))
+        # print("\n vecb_L ", vecb_L(vD, grid_v))
+        # print("\n vecb_B ", vecb_B(vD, grid_v))
 
         HT = zeros(grid)
         # @inbounds @threads for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
@@ -384,8 +383,8 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
         iscal = 1
 
-        printstyled(color=:red, @sprintf "\n levelset: before scalar_convection\n")
-        println(grid.LS[1].geoL.dcap[1,1,:])
+        # printstyled(color=:red, @sprintf "\n levelset: before scalar_convection\n")
+        # println(grid.LS[1].geoL.dcap[1,1,:])
 
         ######################################################################################################
         #Interface boundary condition
@@ -421,8 +420,8 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         if nb_transported_scalars>1
             for iscal=2:nb_transported_scalars
 
-                printstyled(color=:red, @sprintf "\n levelset: before scalar_convection\n")
-                println(grid.LS[1].geoL.dcap[1,1,:])
+                # printstyled(color=:red, @sprintf "\n levelset: before scalar_convection\n")
+                # println(grid.LS[1].geoL.dcap[1,1,:])
 
                 ######################################################################################################
                 #Interface boundary condition
@@ -453,8 +452,8 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         end       
     end #convection
 
-    printstyled(color=:red, @sprintf "\n levelset: end scalar_convection\n")
-    println(grid.LS[1].geoL.dcap[1,1,:])
+    # printstyled(color=:red, @sprintf "\n levelset: end scalar_convection\n")
+    # println(grid.LS[1].geoL.dcap[1,1,:])
 
 
     if ls_advection
@@ -515,13 +514,15 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
     for iscal=1:nb_transported_scalars
 
-     
-    
-        printstyled(color=:red, @sprintf "\n levelset: start iscal!\n")
-        println(grid.LS[1].geoL.dcap[1,1,:])
-        
+        # printstyled(color=:red, @sprintf "\n levelset: start iscal!\n")
+        # println(grid.LS[1].geoL.dcap[1,1,:])
     
         diffusion_coeff_scal = diffusion_coeff[iscal]
+
+        # if iscal==3
+        #     printstyled(color=:red, @sprintf "\n levelset: forcing diff 0\n")
+        #     diffusion_coeff_scal = 0.0
+        # end
 
         ######################################################################################################
         #Interface boundary condition
@@ -618,8 +619,10 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         LD = BxT * iMx * Hx[1] .+ ByT * iMy * Hy[1]
         LD_b = BxT * op.iMx_b * op.Hx_b .+ ByT * op.iMy_b * op.Hy_b
 
-        A = spzeros(nt, nt)
-        B = spzeros(nt, nt)
+        # A = spzeros(nt, nt)
+        # B = spzeros(nt, nt)
+
+        #TODO check no need to reinitialize A and B
 
         # Implicit part of heat equation
         A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* τ .* diffusion_coeff_scal .* LT, grid, τ)
@@ -693,14 +696,14 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         #     ph.saved_scal[:,:,2]=reshape(veci(rhs,grid,1), grid)
         # end
 
-        if nb_saved_scalars>4
-            # ph.saved_scal[:,:,5]=reshape(opC_TL.χ[1].diag,grid)
-            ph.saved_scal[:,:,5]=reshape(veci(rhs,grid,1), grid)
+        # if nb_saved_scalars>4
+        #     # ph.saved_scal[:,:,5]=reshape(opC_TL.χ[1].diag,grid)
+        #     ph.saved_scal[:,:,5]=reshape(veci(rhs,grid,1), grid)
 
-            if nb_saved_scalars>5
-                ph.saved_scal[:,:,6]=reshape(opC_TL.χ[1].diag,grid)
-            end
-        end
+        #     if nb_saved_scalars>5
+        #         ph.saved_scal[:,:,6]=reshape(opC_TL.χ[1].diag,grid)
+        #     end
+        # end
 
 
         # print("\n test left before A/r L", vecb_L(ph.trans_scalD[:,iscal], grid))
@@ -722,22 +725,20 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
         @views ph.trans_scal[:,:,iscal] .= reshape(veci(ph.trans_scalD[:,iscal],grid,1), grid)
 
-        printstyled(color=:cyan, @sprintf "\n after resol\n")
-        print("\n",ph.trans_scal[1,:,iscal])
-        print("\n",reshape(veci(rhs,grid,1), grid)[1,:])
-        print("\n",reshape(veci(rhs,grid,1), grid)[2,:])
-        print("\n",reshape(veci(rhs,grid,1), grid)[3,:])
-
-
-        
-
+        # printstyled(color=:cyan, @sprintf "\n after resol\n")
+        # print("\n",ph.trans_scal[1,:,iscal])
+        # print("\n",reshape(veci(rhs,grid,1), grid)[1,:])
+        # print("\n",reshape(veci(rhs,grid,1), grid)[2,:])
+        # print("\n",reshape(veci(rhs,grid,1), grid)[3,:]) 
 
         nonzero = veci(ph.trans_scalD[:,iscal],grid,2)[abs.(veci(ph.trans_scalD[:,iscal],grid,2)) .> 0.0]
         # print("nonzero\n")
         # print(nonzero)
         print("\n mean ",mean(nonzero))
 
-        if iscal!=2 #H2O consummed at the electrode, would need to make distinction to make sure the decrease in H2O is physical or not
+
+
+        if iscal!=3 #H2O consummed at the electrode, would need to make distinction to make sure the decrease in H2O is physical or not
           
           
             @views kill_dead_cells_val!(ph.trans_scal[:,:,iscal], grid, LS[1].geoL,concentration0[iscal]) 
@@ -751,7 +752,25 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
                 @error("concentration too low")
                 return current_i
             end
+
+            printstyled(color=:red, @sprintf "\n concentration variation vs min: %.2e%% \n" (minimum(ph.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal]*100)
+
+        else 
+            @views kill_dead_cells_val!(ph.trans_scal[:,:,iscal], grid, LS[1].geoL,concentration0[iscal]) 
+
+            if any(ph.trans_scal[:,:,iscal].> concentration0[iscal]*(1+num.concentration_check_factor))
+                print("iscal ",iscal)
+                printstyled(color=:red, @sprintf "\n concentration: %.2e %.2e \n" minimum(ph.trans_scal[:,:,iscal]) concentration0[iscal]*(1-num.concentration_check_factor))
+                printstyled(color=:red, @sprintf "\n concentration increase: %.2e%% \n" (minimum(ph.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal]*100)
+                @error("concentration too high")
+                return current_i
+            end
+            printstyled(color=:red, @sprintf "\n concentration variation vs max: %.2e%% \n" (maximum(ph.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal]*100)
         end
+
+        @views kill_dead_cells_val!(ph.trans_scal[:,:,iscal], grid, LS[1].geoL,0.0)  #reset to zero (for plot)
+        #kill_dead_cells_val! can be used for display to avoid displaying a range from 0 to c0 in python
+
 
         # print("\n vecb_L(elec_condD, grid) after res 0 \n ", vecb_L(ph.trans_scalD[:,2], grid) )
 
@@ -764,13 +783,13 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
         # print("\n test left", vecb_L(ph.trans_scalD[:,iscal], grid))
         # print("\n test right", vecb_R(ph.trans_scalD[:,iscal], grid))
-        print("\n test bottom", vecb_B(ph.trans_scalD[:,iscal], grid))
+        # print("\n test bottom", vecb_B(ph.trans_scalD[:,iscal], grid))
         # print("\n test top", vecb_T(ph.trans_scalD[:,iscal], grid))
 
-        print("\n test v bottom", maximum(vecb_B(ph.vD, grid)))
-        print("\n test v top", maximum(vecb_T(ph.vD, grid)))
-        print("\n test v 1 ", maximum(ph.v[1,:]))
-        print("\n test v 2 ", maximum(ph.v[1,:]))
+        # print("\n test v bottom", maximum(vecb_B(ph.vD, grid)))
+        # print("\n test v top", maximum(vecb_T(ph.vD, grid)))
+        # print("\n test v 1 ", maximum(ph.v[1,:]))
+        # print("\n test v 2 ", maximum(ph.v[1,:]))
 
         print("\n test concentration ", minimum(ph.trans_scal[:,:,iscal]), " ", maximum(ph.trans_scal[:,:,iscal]))
 
@@ -794,18 +813,14 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         #     end
         # end
 
-
-        print("\n end scal",iscal)
-
-        printstyled(color=:red, @sprintf "\n levelset: end scal set_scalar_transport!\n")
-        println(grid.LS[1].geoL.dcap[1,1,:])
+        # printstyled(color=:red, @sprintf "\n levelset: end scal set_scalar_transport!\n")
+        # println(grid.LS[1].geoL.dcap[1,1,:])
 
     end #end loop iscal
 
-    print("\n end loop scal \n")
 
-    printstyled(color=:red, @sprintf "\n levelset: end scal set_scalar_transport!\n")
-    println(grid.LS[1].geoL.dcap[1,1,:])
+    # printstyled(color=:red, @sprintf "\n levelset: end scal set_scalar_transport!\n")
+    # println(grid.LS[1].geoL.dcap[1,1,:])
 
     return nothing
 end

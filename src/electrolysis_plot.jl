@@ -397,6 +397,10 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
     i1=ii1
     j0=jj0
     j1=jj1
+    i0tmp = i0
+    j0tmp = j0
+    i1tmp = i1 
+    j1tmp = j1
 
     if itmp<0
         i=-itmp
@@ -420,9 +424,14 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
 
     fieldtmp = zeros(gp.ny + 2, gp.nx + 2)
 
+    #TODO distinguish u, v, w grids
+
     if ii0 == 1
         vecb_l=true
         i1+=1
+        i0tmp+=1 
+        i1tmp+=1 
+
         pushfirst!(x_arr,x_array[i0]-0.5*gp.dx[1,1]/xscale)
     end
 
@@ -435,6 +444,8 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
     if jj0 == 1
         vecb_b=true
         j1+=1
+        j0tmp+=1
+        j1tmp+=1
         pushfirst!(y_arr,y_array[j0]-0.5*gp.dy[1,1]/xscale)
     end
 
@@ -462,9 +473,15 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
 
     if vecb_l || vecb_r || vecb_b || vecb_t
 
-        @views fieldtmp[2:jj1+1,2:ii1+1] = field1[jj0:jj1,ii0:ii1]
+        # printstyled(color=:green, @sprintf "\n indices : %.5i %.5i %.5i %.5i %.5i %.5i %.5i %.5i \n" ii0 ii1 jj0 jj1 i0 i1 j0 j1 )
 
+        # @views fieldtmp[2:jj1+1,2:ii1+1] = field1[jj0:jj1,ii0:ii1]
+        # field = fieldtmp[j0:j1,i0:i1]
+
+        @views fieldtmp[j0tmp:j1tmp,i0tmp:i1tmp] = field1[jj0:jj1,ii0:ii1]
         field = fieldtmp[j0:j1,i0:i1]
+
+
     end
 
 

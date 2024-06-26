@@ -212,8 +212,8 @@ function run_forward(
 
         NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
        
-        printstyled(color=:red, @sprintf "\n levelset:\n")
-        println(grid.LS[1].geoL.dcap[1,1,:])
+        # printstyled(color=:red, @sprintf "\n levelset:\n")
+        # println(grid.LS[1].geoL.dcap[1,1,:])
 
         if save_radius
             n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
@@ -413,7 +413,8 @@ function run_forward(
             # @views kill_dead_cells!(phS.trans_scal[:,:,iscal], grid, LS[end].geoS) #TODO
             # @views kill_dead_cells!(phL.trans_scal[:,:,iscal], grid, LS[end].geoL) 
             # @views kill_dead_cells_val!(phS.trans_scal[:,:,iscal], grid, LS[end].geoS) #TODO
-            @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, LS[end].geoL,concentration0[iscal]) 
+            # @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, LS[end].geoL,concentration0[iscal]) 
+            @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, LS[end].geoL,0.0) 
             @views veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
 
         end
@@ -472,8 +473,8 @@ function run_forward(
     if is_FE(time_scheme) || is_CN(time_scheme)
         NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
 
-        printstyled(color=:red, @sprintf "\n levelset:\n")
-        println(grid.LS[1].geoL.dcap[1,1,:])
+        # printstyled(color=:red, @sprintf "\n levelset:\n")
+        # println(grid.LS[1].geoL.dcap[1,1,:])
 
         if navier_stokes || heat || electrolysis
             geoS = [LS[iLS].geoS for iLS in 1:_nLS]
@@ -650,8 +651,8 @@ function run_forward(
 
     if heat_convection || electrolysis_convection
         NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
-        printstyled(color=:red, @sprintf "\n levelset:\n")
-        println(grid.LS[1].geoL.dcap[1,1,:])
+        # printstyled(color=:red, @sprintf "\n levelset:\n")
+        # println(grid.LS[1].geoL.dcap[1,1,:])
     end
 
     V0S = volume(LS[end].geoS)
@@ -793,8 +794,8 @@ function run_forward(
                 ####################################################################################################
 
                 for iscal=1:nb_transported_scalars
-
-                    @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL,concentration0[iscal]) 
+                    @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL,0.0) 
+                    # @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL,concentration0[iscal]) 
                     @views veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
 
                     if electrolysis_reaction == "Butler_no_concentration"
@@ -803,16 +804,26 @@ function run_forward(
                         if iscal==1 || iscal==2
                             BC_trans_scal[iscal].left.val .*=-1 #H2O consummed
                         end
+                        print("\n left", BC_trans_scal[iscal].left.val)
                     end
                 end
 
                 #TODO convection_Cdivu BC divergence
                 #TODO check nb_transported_scalars>1
 
-                #TODO @views needed ?
+                printstyled(color=:cyan, @sprintf "\n before scalar transport \n")
+
+                print_electrolysis_statistics(nb_transported_scalars,grid,phL)
+
                 scalar_transport!(BC_trans_scal, num, grid, opC_TL, LS[1].geoL, phL, concentration0,
                 LS[1].MIXED, LS[1].geoL.projection, opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
                 periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff,convection_Cdivu)
+
+                printstyled(color=:cyan, @sprintf "\n after scalar transport \n")
+
+                print_electrolysis_statistics(nb_transported_scalars,grid,phL)
+
+
 
                 ####################################################################################################
                 # New start scalar loop
@@ -1195,7 +1206,7 @@ function run_forward(
 
                     # print("\n elec_condD: ",any(isnan, elec_condD),"\n BC_phi_ele.left.val: ",any(isnan, BC_phi_ele.left.val),"\n")
 
-                    printstyled(color=:green, @sprintf "\n BC phi : %.2e \n" BC_phi_ele.int.val)
+                    # printstyled(color=:green, @sprintf "\n BC phi : %.2e \n" BC_phi_ele.int.val)
 
                     #TODO BC several LS
                     #Poisson with variable coefficient
@@ -1700,8 +1711,8 @@ function run_forward(
         if levelset && (advection || current_i<2)
             NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
 
-            printstyled(color=:red, @sprintf "\n levelset:\n")
-            println(grid.LS[1].geoL.dcap[1,1,:])
+            # printstyled(color=:red, @sprintf "\n levelset:\n")
+            # println(grid.LS[1].geoL.dcap[1,1,:])
 
             LS[end].geoL.fresh .= false
             LS[end].geoS.fresh .= false
@@ -1862,6 +1873,9 @@ function run_forward(
                     # @views fwd.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal]
                     @views fwdL.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal]
                     @views fwdL.trans_scalD[snap,:,iscal] .= phL.trans_scalD[:,iscal]
+                    
+                    # printstyled(color=:cyan, @sprintf "\n write scal \n")
+                    # print(minimum(fwdL.trans_scal[snap,:,:,iscal]), "phL ", minimum(phL.trans_scal[:,:,iscal]))
                 end
                 
                 # @views fwd.mass_flux[snap,:,:] .= phL.mass_flux #reshape(varfluxH2, grid)
