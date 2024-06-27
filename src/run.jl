@@ -90,6 +90,7 @@ function run_forward(
 
     if electrolysis
         electric_potential = true 
+        electrolysis_advection = true
         if nb_saved_scalars<1
             @error("number of saved scalars should be superior to one")
             return
@@ -799,7 +800,14 @@ function run_forward(
                     @views veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
 
                     if electrolysis_reaction == "Butler_no_concentration"
+
+
                         BC_trans_scal[iscal].left.val = i_butler./(2*Faraday*diffusion_coeff[iscal])
+
+                        # printstyled(color=:red, @sprintf "\n Butler deactivated \n")
+                        # if iscal==1 || iscal==2
+                        #     BC_trans_scal[iscal].left.val = i_butler./(2*Faraday*diffusion_coeff[iscal])
+                        # end
 
                         if iscal==1 || iscal==2
                             BC_trans_scal[iscal].left.val .*=-1 #H2O consummed
@@ -1708,7 +1716,7 @@ function run_forward(
         end
 
 
-        if levelset && (advection || current_i<2)
+        if levelset && (advection || current_i<2 || electrolysis_advection)
             NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
 
             # printstyled(color=:red, @sprintf "\n levelset:\n")

@@ -27,6 +27,23 @@ if plot_Makie
     set_theme!(fontsize_theme)
 end
 
+OkabeIto=["#E69F00", #0 orange clair 230, 159, 0
+"#56B4E9", #1 bleu clair 86, 180, 233
+"#009E73", #2 vert 0, 158, 115
+"#F0E442", #3 jaune 240, 228, 66
+"#0072B2", #4 bleu 0, 114, 178
+"#D55E00", #5 orange 213, 94, 0
+"#CC79A7", #6 rose 204, 121, 171
+"#000000"] #7 noir 0 0 0
+
+colors=OkabeIto
+
+colors=["#000000" for color in OkabeIto]
+
+colors[1]="#000000"
+colors[2]=OkabeIto[5] #bleu
+colors[3]=OkabeIto[6] #orange
+
 ####################################################################################################
 # Sessile from sessile.jl
 ####################################################################################################
@@ -63,8 +80,9 @@ pres0 = 0.0
 L0 = 1e-4 
 n = 64 
 n = 128
-n = 256
+# n = 256
 # n = 512
+# n=1024
 
 max_iter=100
 max_iter=10
@@ -105,7 +123,7 @@ dt0 = 2.5e-5 #CFL >1 for n = 128
 dt0 = 1.25e-5 #CFL >0.5 for n = 128
 dt0 = 6.25e-6 #CFL >0.5 for n = 128
 dt0 = 3.125e-6 #radius CFL: 3.54e-01 -7.17e+00% 
-# dt0 = 1e-6 error dnH2 -2.40e-15
+# dt0 = 1e-6 #error dnH2 -2.40e-15
 
 
 
@@ -982,6 +1000,79 @@ plot_python_pdf_full2(plt_it,fwdL.trans_scal[:,:,:,3],fwdL.trans_scalD[:,:,3], "
 plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
 i0,i1,j0,j1,fwd,fwdL,xscale,fontsize,printmode)
 
+fig1, ax2 = plt.subplots(layout="constrained")
+plt.plot(vecb_L(phL.trans_scalD[:,3], gp),gp.y/xscale)
+ax2.set_xlabel(L"$H2O$")
+ax2.set_ylabel(L"$y$")
+
+plt.savefig(prefix*"H2O_electrode.pdf")
+plt.close(fig1)
+
+
+fig, ax = plt.subplots()
+fig.subplots_adjust(right=0.75)
+
+# varx = [0, 1, 2]
+varx = gp.y/xscale
+# vecb_L(phL.trans_scalD[:,3], gp)
+label1 = "c(H2O)"
+label2 = "Overpotential: -eta"
+label3 = "Current"
+alpha = 0.5
+ls="-" #"--"
+
+# print("current", phL.i_current_mag[:,1])
+
+# print(colors)
+
+twin1 = ax.twinx()
+twin2 = ax.twinx()
+
+# Offset the right spine of twin2.  The ticks and label have already been
+# placed on the right by twinx above.
+twin2.spines.right.set_position(("axes", 1.2))
+#colors "C0", "C1", "C2"
+p1, = ax.plot(varx, phL.trans_scal[:,1,3],colors[1], label=label1,ls=ls,alpha=alpha)
+p2, = twin1.plot(varx, phi_ele0 .- phL.phi_ele[:,1], colors[2], label=label2,ls=ls,alpha=alpha)
+p3, = twin2.plot(varx, phL.i_current_mag[:,1], colors[3], label=label3,ls=ls,alpha=alpha)
+
+
+# for l in fig.gca().lines
+#     l.set_alpha(alpha)
+# end
+
+# p1.set_alpha(alpha)
+# p2.set_alpha(alpha)
+# p3.set_alpha(alpha)
+
+
+
+
+ax.set(
+    # xlim=(0, 2),
+    # ylim=(0, 2),
+    xlabel="y", ylabel=label1)
+twin1.set(
+    # ylim=(0, 4), 
+ylabel=label2)
+twin2.set(
+    # ylim=(1, 65), 
+ylabel=label3)
+
+ax.yaxis.label.set_color(p1.get_color())
+twin1.yaxis.label.set_color(p2.get_color())
+twin2.yaxis.label.set_color(p3.get_color())
+
+ax.tick_params(axis="y", colors=p1.get_color())
+twin1.tick_params(axis="y", colors=p2.get_color())
+twin2.tick_params(axis="y", colors=p3.get_color())
+
+ax.legend(handles=[p1, p2, p3])
+
+
+plt.savefig(prefix*"test.pdf")
+plt.close(fig1)
+
 
 #############################################################################################################################################"
 
@@ -1277,6 +1368,18 @@ plt.axis("equal")
 
 plt.savefig(prefix*"R.pdf")
 plt.close(fig1)
+
+
+fig1, ax2 = plt.subplots(layout="constrained")
+
+plt.plot(gp.y,vecb_L(phL.trans_scalD[:,3], gp))
+ax2.set_xlabel(L"$y$")
+ax2.set_ylabel(L"$H2O$")
+plt.axis("equal")
+
+plt.savefig(prefix*"H2O_electrode.pdf")
+plt.close(fig1)
+
 
 ######################################################################################################
 

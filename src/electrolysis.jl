@@ -340,8 +340,8 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
     @unpack CT, CUTCT = op_conv
     @unpack u, v, uD, vD = ph
 
-    # printstyled(color=:red, @sprintf "\n levelset: start scalar_transport!\n")
-    # println(grid.LS[1].geoL.dcap[1,1,:])
+    printstyled(color=:red, @sprintf "\n levelset: start scalar_transport!\n")
+    println(grid.LS[1].geoL.dcap[1,1,:])
 
     ni = nx * ny
     nb = 2 * nx + 2 * ny
