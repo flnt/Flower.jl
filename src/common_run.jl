@@ -1,30 +1,30 @@
 function indices_extension(grid, LS, inside_ext, periodic_x, periodic_y)
-    _MIXED_L = intersect(findall(LS.geoL.emptied), LS.MIXED)
-    _MIXED_S = intersect(findall(LS.geoS.emptied), LS.MIXED)
+    _MIXED_L = collect(intersect(Set(LS.MIXED), Set(findall(LS.geoL.emptied))))
+    _MIXED_S = collect(intersect(Set(LS.MIXED), Set(findall(LS.geoS.emptied))))
     _MIXED = vcat(_MIXED_L, _MIXED_S)
     indices_ext1 = vcat(LS.SOLID, _MIXED, LS.LIQUID)
 
     if periodic_x && periodic_y
-        indices_ext = intersect(indices_ext1, vcat(
+        indices_ext = collect(intersect(Set(indices_ext1), Set(vcat(
             vec(inside_ext), grid.ind.b_left[1][2:end-1], grid.ind.b_bottom[1][2:end-1],
             grid.ind.b_right[1][2:end-1], grid.ind.b_top[1][2:end-1]
-        ))
+        ))))
     elseif !periodic_x && periodic_y
-        indices_ext = intersect(indices_ext1, vcat(
+        indices_ext = collect(intersect(Set(indices_ext1), Set(vcat(
             vec(inside_ext), grid.ind.b_bottom[1][2:end-1], grid.ind.b_top[1][2:end-1]
-        ))
+        ))))
     elseif periodic_x && !periodic_y
-        indices_ext = intersect(indices_ext1, vcat(
+        indices_ext = collect(intersect(Set(indices_ext1), Set(vcat(
             vec(inside_ext), grid.ind.b_left[1][2:end-1], grid.ind.b_right[1][2:end-1]
-        ))
+        ))))
     else
-        indices_ext = intersect(indices_ext1, vec(inside_ext))
+        indices_ext = collect(intersect(Set(indices_ext1), Set(inside_ext)))
     end
 
-    left_ext = intersect(indices_ext1, grid.ind.b_left[1][2:end-1])
-    bottom_ext = intersect(indices_ext1, grid.ind.b_bottom[1][2:end-1])
-    right_ext = intersect(indices_ext1, grid.ind.b_right[1][2:end-1])
-    top_ext = intersect(indices_ext1, grid.ind.b_top[1][2:end-1])
+    left_ext = collect(intersect(Set(grid.ind.b_left[1][2:end-1]), Set(indices_ext1)))
+    bottom_ext = collect(intersect(Set(grid.ind.b_bottom[1][2:end-1]), Set(indices_ext1)))
+    right_ext = collect(intersect(Set(grid.ind.b_right[1][2:end-1]), Set(indices_ext1)))
+    top_ext = collect(intersect(Set(grid.ind.b_top[1][2:end-1]), Set(indices_ext1)))
 
     return indices_ext, left_ext, bottom_ext, right_ext, top_ext
 end
