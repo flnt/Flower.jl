@@ -213,8 +213,8 @@ function run_forward(
 
         NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
        
-        # printstyled(color=:red, @sprintf "\n levelset:\n")
-        # println(grid.LS[1].geoL.dcap[1,1,:])
+        printstyled(color=:red, @sprintf "\n levelset:\n")
+        println(grid.LS[1].geoL.dcap[1,1,:])
 
         if save_radius
             n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
@@ -474,8 +474,8 @@ function run_forward(
     if is_FE(time_scheme) || is_CN(time_scheme)
         NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
 
-        # printstyled(color=:red, @sprintf "\n levelset:\n")
-        # println(grid.LS[1].geoL.dcap[1,1,:])
+        printstyled(color=:red, @sprintf "\n levelset 2:\n")
+        println(grid.LS[1].geoL.dcap[1,1,:])
 
         if navier_stokes || heat || electrolysis
             geoS = [LS[iLS].geoS for iLS in 1:_nLS]
@@ -652,8 +652,8 @@ function run_forward(
 
     if heat_convection || electrolysis_convection
         NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
-        # printstyled(color=:red, @sprintf "\n levelset:\n")
-        # println(grid.LS[1].geoL.dcap[1,1,:])
+        printstyled(color=:red, @sprintf "\n levelset 3:\n")
+        println(grid.LS[1].geoL.dcap[1,1,:])
     end
 
     V0S = volume(LS[end].geoS)
@@ -686,6 +686,9 @@ function run_forward(
             printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e num.τ : %.2e\n" CFL num.τ num.τ)
         end
         ####################################################################################################
+
+        printstyled(color=:red, @sprintf "\n iter: %5i\n" current_i)
+        println(grid.LS[1].geoL.dcap[1,1,:])
 
         if !stefan
             V .= speed*ones(ny, nx)
@@ -823,9 +826,23 @@ function run_forward(
 
                 print_electrolysis_statistics(nb_transported_scalars,grid,phL)
 
+
+             
+                printstyled(color=:red, @sprintf "\n levelset: before scalar_transport\n")
+                println(grid.LS[1].geoL.dcap[1,1,:])
+
+                if electrolysis_advection
+                    update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
+                end
                 scalar_transport!(BC_trans_scal, num, grid, opC_TL, LS[1].geoL, phL, concentration0,
                 LS[1].MIXED, LS[1].geoL.projection, opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
                 periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff,convection_Cdivu)
+
+            
+
+                # scalar_transport_2!(BC_trans_scal, num, grid, opC_TL, LS[1].geoL, phL, concentration0,
+                # LS[1].MIXED, LS[1].geoL.projection, opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
+                # periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff,convection_Cdivu)
 
                 printstyled(color=:cyan, @sprintf "\n after scalar transport \n")
 
@@ -1388,7 +1405,7 @@ function run_forward(
 
                     if nb_transported_scalars == 0
                         phL.saved_scal[:,:,1],phL.saved_scal[:,:,2],phL.saved_scal[:,:,3],phL.saved_scal[:,:,4]=compute_mass_flux!(num,grid, grid_u, 
-                        grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,0)
+                        grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,0,LS[1].geoL)
                         print()
                         printstyled(color=:green, @sprintf "\n Flux: %.2e \n" -diffusion_coeff[1] * sum(phL.saved_scal[:,:,1]))
 
@@ -1454,10 +1471,10 @@ function run_forward(
 
                 if nb_saved_scalars==1
                     phL.saved_scal[:,:,1],_,_,_=compute_mass_flux!(num,grid, grid_u, 
-                    grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,1)
+                    grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,1,LS[1].geoL)
                 else
                     phL.saved_scal[:,:,1],phL.saved_scal[:,:,2],phL.saved_scal[:,:,3],phL.saved_scal[:,:,4]=compute_mass_flux!(num,grid, grid_u, 
-                grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,1)
+                grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,1,LS[1].geoL)
                 end
                 # print("\n testvalflux1")
                 # for jplot in 1:ny
@@ -1716,11 +1733,12 @@ function run_forward(
         end
 
 
-        if levelset && (advection || current_i<2 || electrolysis_advection)
+        # if levelset && (advection || current_i<2 || electrolysis_advection)
+        if levelset && (advection || current_i<2)
             NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
 
-            # printstyled(color=:red, @sprintf "\n levelset:\n")
-            # println(grid.LS[1].geoL.dcap[1,1,:])
+            printstyled(color=:red, @sprintf "\n levelset 4:\n")
+            println(grid.LS[1].geoL.dcap[1,1,:])
 
             LS[end].geoL.fresh .= false
             LS[end].geoS.fresh .= false

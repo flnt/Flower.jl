@@ -141,11 +141,14 @@ function plot_python_pdf(itmp,field0,figname,prefix,plot_levelset,isocontour,plo
 
 
     # ax2.set_title("Title")
-    # ax2.set_xlabel(L"$x (\mu m)$")
-    # ax2.set_ylabel(L"$y (\mu m)$")
+    # ax2.set_xlabel(raw"$x ( \unit{\um})$")
+
+    # ax2.set_ylabel(raw"$y ( \unit{\um})$")
+
 
     ax2.set_xlabel(raw"$x ( \unit{\um})$")
-    ax2.set_ylabel(L"$y (\mu m)$")
+    ax2.set_ylabel(raw"$y ( \unit{\um})$")
+
 
     # Make a colorbar for the ContourSet returned by the contourf call.
     cbar = fig1.colorbar(CS)
@@ -328,11 +331,15 @@ function plot_python_pdf_full(itmp,field0,figname,prefix,plot_levelset,isocontou
 
 
     # ax2.set_title("Title")
-    # ax2.set_xlabel(L"$x (\mu m)$")
-    # ax2.set_ylabel(L"$y (\mu m)$")
+    # ax2.set_xlabel(raw"$x ( \unit{\um})$")
+
+    # ax2.set_ylabel(raw"$y ( \unit{\um})$")
+
 
     ax2.set_xlabel(raw"$x ( \unit{\um})$")
-    ax2.set_ylabel(L"$y (\mu m)$")
+    ax2.set_ylabel(raw"$y ( \unit{\um})$")
+
+
 
     # Make a colorbar for the ContourSet returned by the contourf call.
     cbar = fig1.colorbar(CS)
@@ -387,7 +394,7 @@ function plot_python_pdf_full(itmp,field0,figname,prefix,plot_levelset,isocontou
 end
 
 
-function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,isocontour,plot_grid,plot_mode,levels,range,cmap,x_array,y_array,gp,cbarlabel,ii0,ii1,jj0,jj1,fwd,fwdL,xscale,fontsize,printmode)
+function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,isocontour,plot_grid,plot_mode,levels,range,cmap,x_array,y_array,gp,cbarlabel,ii0,ii1,jj0,jj1,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
 
     # PyPlot.rc("text", usetex=true)
     # rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
@@ -409,6 +416,7 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
      else
         i=itmp
         field1 = field0[i,:,:]
+        # print("\n i0 ",i0," i1 ",i1," j0 ",j0," j1 ",j1)
     end
 
 
@@ -426,49 +434,51 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
 
     #TODO distinguish u, v, w grids
 
-    if ii0 == 1
-        vecb_l=true
-        i1+=1
-        i0tmp+=1 
-        i1tmp+=1 
+    if plotbc
+        if ii0 == 1
+            vecb_l=true
+            i1+=1
+            i0tmp+=1 
+            i1tmp+=1 
 
-        pushfirst!(x_arr,x_array[i0]-0.5*gp.dx[1,1]/xscale)
-    end
+            pushfirst!(x_arr,x_array[i0]-0.5*gp.dx[1,1]/xscale)
+        end
 
-    if ii1 == gp.nx
-        i1+=1
-        vecb_r=true
-        push!(x_arr,x_array[end]+0.5*gp.dx[1,end]/xscale)
-    end
+        if ii1 == gp.nx
+            i1+=1
+            vecb_r=true
+            push!(x_arr,x_array[end]+0.5*gp.dx[1,end]/xscale)
+        end
 
-    if jj0 == 1
-        vecb_b=true
-        j1+=1
-        j0tmp+=1
-        j1tmp+=1
-        pushfirst!(y_arr,y_array[j0]-0.5*gp.dy[1,1]/xscale)
-    end
+        if jj0 == 1
+            vecb_b=true
+            j1+=1
+            j0tmp+=1
+            j1tmp+=1
+            pushfirst!(y_arr,y_array[j0]-0.5*gp.dy[1,1]/xscale)
+        end
 
-    if jj1 == gp.ny
-        vecb_t=true
-        j1+=1
-        push!(y_arr,y_array[end]+0.5*gp.dy[end,1]/xscale)
-    end
+        if jj1 == gp.ny
+            vecb_t=true
+            j1+=1
+            push!(y_arr,y_array[end]+0.5*gp.dy[end,1]/xscale)
+        end
 
-    if vecb_l 
-        @views fieldtmp[2:gp.ny+1,1] = vecb_L(field0D[i,:],gp)
-    end
+        if vecb_l 
+            @views fieldtmp[2:gp.ny+1,1] = vecb_L(field0D[i,:],gp)
+        end
 
-    if vecb_r
-        @views fieldtmp[2:gp.ny+1,end] = vecb_R(field0D[i,:],gp)
-    end
+        if vecb_r
+            @views fieldtmp[2:gp.ny+1,end] = vecb_R(field0D[i,:],gp)
+        end
 
-    if vecb_b
-        @views fieldtmp[1,2:gp.nx+1] = vecb_B(field0D[i,:],gp)
-    end
+        if vecb_b
+            @views fieldtmp[1,2:gp.nx+1] = vecb_B(field0D[i,:],gp)
+        end
 
-    if vecb_t
-        @views fieldtmp[end,2:gp.nx+1] = vecb_T(field0D[i,:],gp)
+        if vecb_t
+            @views fieldtmp[end,2:gp.nx+1] = vecb_T(field0D[i,:],gp)
+        end
     end
 
     if vecb_l || vecb_r || vecb_b || vecb_t
@@ -481,6 +491,16 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
         @views fieldtmp[j0tmp:j1tmp,i0tmp:i1tmp] = field1[jj0:jj1,ii0:ii1]
         field = fieldtmp[j0:j1,i0:i1]
 
+    else
+        # field = field1[j0:j1,i0:i1]
+        # field1 = field0
+        @views field = field0[i,j0:j1,i0:i1]
+
+        # fieldLS = fwd.u[1,indLS,j0:j1,i0:i1]
+        # i1=i1-i0+1
+        # i0=1
+        # j1=j1-j0+1
+        # j0=1
 
     end
 
@@ -492,7 +512,7 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
 
    
     
-    if levels==0
+    if levels==0 
         CS = ax2.contourf(x_arr,y_arr,field, 
         levels=range, #10, 
         cmap=cmap)
@@ -501,9 +521,16 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
         # levels=levels,
         # cmap=cmap)
         # # print("levels " ,levels)
-        mpl_levels = mpl_tickers.MaxNLocator(nbins=levels).tick_values(minimum(field), maximum(field))
-        norm = mpl_colors.BoundaryNorm(mpl_levels, ncolors=cmap.N, clip=true)
-        CS = ax2.pcolormesh(x_arr,y_arr,field, cmap=cmap, norm=norm)
+        if plot_mode == "contourf"
+            CS = ax2.contourf(x_arr,y_arr,field, 
+            levels=levels, #10, 
+            cmap=cmap)
+        else
+
+            mpl_levels = mpl_tickers.MaxNLocator(nbins=levels).tick_values(minimum(field), maximum(field))
+            norm = mpl_colors.BoundaryNorm(mpl_levels, ncolors=cmap.N, clip=true)
+            CS = ax2.pcolormesh(x_arr,y_arr,field, cmap=cmap, norm=norm)
+        end
         # fig.colorbar(im, ax=ax0)
     end
 
@@ -562,11 +589,14 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
 
 
     # ax2.set_title("Title")
-    # ax2.set_xlabel(L"$x (\mu m)$")
-    # ax2.set_ylabel(L"$y (\mu m)$")
+    # ax2.set_xlabel(raw"$x ( \unit{\um})$")
+
+    # ax2.set_ylabel(raw"$y ( \unit{\um})$")
+
 
     ax2.set_xlabel(raw"$x ( \unit{\um})$")
-    ax2.set_ylabel(L"$y (\mu m)$")
+    ax2.set_ylabel(raw"$y ( \unit{\um})$")
+
 
     # Make a colorbar for the ContourSet returned by the contourf call.
     cbar = fig1.colorbar(CS)
@@ -593,7 +623,24 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
         # CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,i,i0:i1,j0:j1], [0.0],colors="r")
      
 
-        CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
+
+        if plotcase=="circle"
+            # plt.plot( , colors="g")
+            theta1=0 #-90
+            theta2=90
+
+            radius = fwd.radius[i]/num.plot_xscale
+            arc = matplotlib.patches.Arc((num.shifted/num.plot_xscale, num.shifted_y/num.plot_xscale), radius*2, radius*2, color="g", theta1=theta1, theta2=theta2,ls="--")
+
+            ax2.add_patch(arc)
+
+        end
+
+        # printstyled(color=:green, @sprintf "\n j: %5i %5i %5i %5i\n" i0 i1 j0 j1)
+
+        # CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
+        CSlvl = ax2.contour(x_array[ii0:ii1],y_array[jj0:jj1], fwd.u[1,indLS,jj0:jj1,ii0:ii1], [0.0],colors="r")
+
 
     end
 
@@ -615,7 +662,7 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
 
     plt.axis("equal")
 
-
+    ax2.set_aspect("equal")
 
     str_it = @sprintf "_%.5i" i
     plt.savefig(prefix*figname*str_it*".pdf")
@@ -747,8 +794,10 @@ function python_movie_zoom(field0,figname,prefix,plot_levelset,isocontour,plot_m
         # ax2.imshow(A[:,:,i+1])
 
         # ax2.set_title("Title")
-        ax2.set_xlabel(L"$x (\mu m)$")
-        ax2.set_ylabel(L"$y (\mu m)$")
+        ax2.set_xlabel(raw"$x ( \unit{\um})$")
+
+        ax2.set_ylabel(raw"$y ( \unit{\um})$")
+
 
         # Make a colorbar for the ContourSet returned by the contourf call.
         #  cbar = fig1.colorbar(CS)
@@ -818,8 +867,10 @@ function plot_electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, pe
 
 
     # ax2.set_title("Title")
-    ax2.set_xlabel(L"$x (\mu m)$")
-    ax2.set_ylabel(L"$y (\mu m)$")
+    ax2.set_xlabel(raw"$x ( \unit{\um})$")
+
+    ax2.set_ylabel(raw"$y ( \unit{\um})$")
+
 
     # Make a colorbar for the ContourSet returned by the contourf call.
     cbar = fig1.colorbar(CS)
@@ -921,11 +972,14 @@ function plot_python_bc(num,x_array,y_array,field,figname,prefix,grid)
     # end
 
     # # ax2.set_title("Title")
-    # # ax2.set_xlabel(L"$x (\mu m)$")
-    # # ax2.set_ylabel(L"$y (\mu m)$")
+    # # ax2.set_xlabel(raw"$x ( \unit{\um})$")
+
+    # # ax2.set_ylabel(raw"$y ( \unit{\um})$")
+
 
     # ax2.set_xlabel(raw"$x ( \unit{\um})$")
-    # ax2.set_ylabel(L"$y (\mu m)$")
+    # ax2.set_ylabel(raw"$y ( \unit{\um})$")
+
 
     # # Make a colorbar for the ContourSet returned by the contourf call.
     # cbar = fig1.colorbar(CS)
@@ -978,11 +1032,14 @@ function plot_last_iter_python_pdf(field,figname,prefix,plot_levelset,isocontour
     end
 
     # ax2.set_title("Title")
-    # ax2.set_xlabel(L"$x (\mu m)$")
-    # ax2.set_ylabel(L"$y (\mu m)$")
+    # ax2.set_xlabel(raw"$x ( \unit{\um})$")
+
+    # ax2.set_ylabel(raw"$y ( \unit{\um})$")
+
 
     ax2.set_xlabel(raw"$x ( \unit{\um})$")
-    ax2.set_ylabel(L"$y (\mu m)$")
+    ax2.set_ylabel(raw"$y ( \unit{\um})$")
+
 
     # Make a colorbar for the ContourSet returned by the contourf call.
     cbar = fig1.colorbar(CS)
@@ -1019,6 +1076,233 @@ function plot_last_iter_python_pdf(field,figname,prefix,plot_levelset,isocontour
 end
 
 
+function scalar_debug!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC, inside, b_left, b_bottom, b_right, b_top,num,grid,iplot,jplot)
+
+    printstyled(color=:green, @sprintf "\n scalar debug \n")
+
+    II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+    pII = lexicographic(II, grid.ny)
+
+
+    prefix = num.plot_prefix
+    figname = "scalar_conv"
+    xscale = num.plot_xscale
+    alpha = 0.5
+    A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
+    u1, v2, u3, v4 = u[II], v[II], u[δx⁺(II)], v[δy⁺(II)]
+
+    printstyled(color=:cyan, @sprintf "\n c: %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e %.2e\n" u1 v2 u3 v4 Du[II] Dv[II] A1 A2 A3 A4 B1 B2 Dx[II] Dy[II])
+
+    printstyled(color=:cyan, @sprintf "\n c: %.2e %.2e %.2e %.2e %.2e %.2e \n" A1/xscale A2/xscale A3/xscale A4/xscale B1/xscale B2/xscale)
+
+
+
+    print("\n vol, ", cap[II,8:11],cap[II,8:11]./(xscale^2))
+
+    fig1, ax2 = plt.subplots(layout="constrained")
+
+
+    width = grid.dx[jplot,iplot] / xscale
+    height = grid.dy[jplot,iplot] / xscale
+    xc = grid.x[jplot,iplot]/xscale
+    yc = grid.y[jplot,iplot]/xscale
+    xy = (xc-width/2,yc-height/2)
+    square = matplotlib.patches.Rectangle(xy, width, height, color="k", ls="--",alpha=alpha)
+    ax2.add_patch(square)
+
+    x1 = xc - width/2 
+    x2 = xc + width/2 
+    y1 = yc + width/2 - A1 / xscale
+    y2 = yc + width/2 - A3 / xscale
+
+
+    # print("\n x1 ",x1)
+    # print("\n y1 ",y1)
+    # print("\n x2 ",x2)
+    # print("\n y2 ",y2)
+    print("\n point ",xc, " y " ,yc)
+
+    print("\n point ",xc - width/2 , " y " ,yc - width/2)
+
+
+    #interface segment
+    ax2.plot([x1, x2], [y1, y2], marker = "o",lw=1)
+
+    #x
+    x1 = xc - width/2 
+    x2 = x1 
+    y1 = yc + width/2 - A1 / xscale
+    y2 = yc + width/2 
+    ax2.plot([x1, x2], [y1, y2], marker = "o",lw=1)
+    #x
+    x1 = xc + width/2 
+    x2 = x1 
+    y1 = yc + width/2 - A3 / xscale
+    y2 = yc + width/2 
+    ax2.plot([x1, x2], [y1, y2], marker = "o",lw=1)
+
+    #y
+    x1 = xc - width/2 
+    x2 = xc - width/2 + A2 /xscale 
+    y1 = yc - width/2
+    y2 = y1
+    ax2.plot([x1, x2], [y1, y2], marker = "o",lw=1)
+    #y
+    x1 = xc - width/2 
+    x2 = xc - width/2 + A4 /xscale 
+    y1 = yc + width/2
+    y2 = y1
+    ax2.plot([x1, x2], [y1, y2], marker = "o",lw=1)
+
+    #B
+    x1 = xc 
+    x2 = x1 
+    y1 = yc + width/2 - B1 / xscale
+    y2 = yc + width/2 
+    ax2.plot([x1, x2], [y1, y2], marker = "o",lw=1)
+
+    #B
+    x1 = xc - width/2 
+    x2 = xc - width/2 + B2 /xscale 
+    y1 = yc 
+    y2 = y1
+    ax2.plot([x1, x2], [y1, y2], marker = "o",lw=1)
+
+
+    ax2.scatter(grid.x[jplot,iplot]/xscale,grid.y[jplot,iplot]/xscale)
+
+
+    #Square with same vol as cap 8
+    # widthvol = sqrt(cap[II,8]./(xscale^2))
+    # heightvol = widthvol
+    # xy=(xc-width/2-widthvol/2,yc)
+    # square = matplotlib.patches.Rectangle(xy, widthvol, heightvol, color="g", ls="--",alpha=alpha)
+    # ax2.add_patch(square)
+
+
+    theta1=75
+    theta2=90
+
+    radius = num.R/num.plot_xscale
+    arc = matplotlib.patches.Arc((num.shifted/num.plot_xscale, num.shifted_y/num.plot_xscale), radius*2, radius*2, color="g", theta1=theta1, theta2=theta2,ls="--")
+
+    ax2.add_patch(arc)
+
+
+    plt.axis("equal")
+
+    ax2.set_aspect("equal")
+
+    str_it = @sprintf "_%.5i" pII
+    plt.savefig(prefix*figname*str_it*".pdf")
+    plt.close(fig1)
+
+
+    # B .= 0.0
+    # O .= 0.0
+    # @inbounds for II in inside
+    #     pII = lexicographic(II, n)
+    #     A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
+    #     u1, v2, u3, v4 = u[II], v[II], u[δx⁺(II)], v[δy⁺(II)]
+
+    #     @inbounds O[pII,pII] = 0.5 * (A3 * u3 - A1 * u1 + A4 * v4 - A2 * v2)
+    #     @inbounds O[pII,pII+n] = 0.5 * A3 * u3
+    #     @inbounds O[pII,pII-n] = -0.5 * A1 * u1
+    #     @inbounds O[pII,pII+1] = 0.5 * A4 * v4
+    #     @inbounds O[pII,pII-1] = -0.5 * A2 * v2
+
+    #     @inbounds O[pII,pII] += -0.5 * ((A3 - B1) * Du[δx⁺(II)] + (B1 - A1) * Du[II])
+    #     @inbounds O[pII,pII] += -0.5 * ((A4 - B2) * Dv[δy⁺(II)] + (B2 - A2) * Dv[II])
+
+    #     @inbounds B[pII] += -0.5 * Dx[II] * ((A3 - B1) * Du[δx⁺(II)] + (B1 - A1) * Du[II])
+    #     @inbounds B[pII] += -0.5 * Dy[II] * ((A4 - B2) * Dv[δy⁺(II)] + (B2 - A2) * Dv[II])
+    # end
+
+    # @inbounds for II in vcat(b_left, b_bottom[2:end-1], b_right, b_top[2:end-1])
+    #     pII = lexicographic(II, n)
+    #     A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
+    #     u1, v2, u3, v4 = u[II], v[II], u[δx⁺(II)], v[δy⁺(II)]
+
+    #     @inbounds O[pII,pII] = 0.5 * (A3 * u3 - A1 * u1 + A4 * v4 - A2 * v2)
+
+    #     @inbounds O[pII,pII] += -0.5 * ((A3 - B1) * Du[δx⁺(II)] + (B1 - A1) * Du[II])
+    #     @inbounds O[pII,pII] += -0.5 * ((A4 - B2) * Dv[δy⁺(II)] + (B2 - A2) * Dv[II])
+
+    #     @inbounds B[pII] += -0.5 * Dx[II] * ((A3 - B1) * Du[δx⁺(II)] + (B1 - A1) * Du[II])
+    #     @inbounds B[pII] += -0.5 * Dy[II] * ((A4 - B2) * Dv[δy⁺(II)] + (B2 - A2) * Dv[II])
+    # end
+    # @inbounds for II in vcat(b_left, b_bottom[2:end-1], b_top[2:end-1])
+    #     pII = lexicographic(II, n)
+    #     A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
+
+    #     @inbounds O[pII,pII+n] = 0.5 * A3 * u[δx⁺(II)]
+    # end
+    # @inbounds for II in vcat(b_bottom[2:end-1], b_right, b_top[2:end-1])
+    #     pII = lexicographic(II, n)
+    #     A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
+
+    #     @inbounds O[pII,pII-n] = -0.5 * A1 * u[II]
+    # end
+    # @inbounds for II in vcat(b_left[2:end-1], b_bottom, b_right[2:end-1])
+    #     pII = lexicographic(II, n)
+    #     A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
+
+    #     @inbounds O[pII,pII+1] = 0.5 * A4 * v[δy⁺(II)]
+    # end
+    # @inbounds for II in vcat(b_left[2:end-1], b_right[2:end-1], b_top)
+    #     pII = lexicographic(II, n)
+    #     A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
+
+    #     @inbounds O[pII,pII-1] = -0.5 * A2 * v[II]
+    # end
+
+    # if is_periodic(BC.left) && is_periodic(BC.right)
+    #     @inbounds for (II,JJ) in zip(b_right, b_left)
+    #         pII = lexicographic(II, n)
+    #         pJJ = lexicographic(JJ, n)
+    #         A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
+    
+    #         @inbounds O[pII,pJJ] = 0.5 * A3 * u[δx⁺(II)]
+    #     end
+    #     @inbounds for (II,JJ) in zip(b_left, b_right)
+    #         pII = lexicographic(II, n)
+    #         pJJ = lexicographic(JJ, n)
+    #         A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
+    
+    #         @inbounds O[pII,pJJ] = -0.5 * A1 * u[II]
+    #     end
+    # end
+    # if is_periodic(BC.bottom) && is_periodic(BC.top)
+    #     @inbounds for (II,JJ) in zip(b_top, b_bottom)
+    #         pII = lexicographic(II, n)
+    #         pJJ = lexicographic(JJ, n)
+    #         A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
+    
+    #         @inbounds O[pII,pJJ] = 0.5 * A4 * v[δy⁺(II)]
+    #     end
+    #     @inbounds for (II,JJ) in zip(b_bottom, b_top)
+    #         pII = lexicographic(II, n)
+    #         pJJ = lexicographic(JJ, n)
+    #         A1, A2, A3, A4, B1, B2 = get_capacities_convection(cap, II)
+    
+    #         @inbounds O[pII,pJJ] = -0.5 * A2 * v[II]
+    #     end
+    # end
+
+    # @inbounds _A1 = @view cap[:,:,1]
+    # @inbounds _A2 = @view cap[:,:,2]
+    # @inbounds _A3 = @view cap[:,:,3]
+    # @inbounds _A4 = @view cap[:,:,4]
+    # @inbounds _B1 = @view cap[:,:,6]
+    # @inbounds _B2 = @view cap[:,:,7]
+
+    # set_sca_conv_bnd!(dir, BC.left, O, δx⁺, _A1, _A3, _B1, Du, n, b_left, b_right)
+    # set_sca_conv_bnd!(dir, BC.bottom, O, δy⁺, _A2, _A4, _B2, Dv, n, b_bottom, b_top)
+    # set_sca_conv_bnd!(dir, BC.right, O, δx⁺, _A1, _A3, _B1, Du, n, b_right, b_left)
+    # set_sca_conv_bnd!(dir, BC.top, O, δy⁺, _A2, _A4, _B2, Dv, n, b_top, b_bottom)
+
+    # return nothing
+end
 
 
 # function plot_python_pdf(field,name,plot_levelset,range)
@@ -1030,8 +1314,10 @@ end
 #     cmap=cmap)
 
 #     # ax2.set_title("Title")
-#     ax2.set_xlabel(L"$x (\mu m)$")
-#     ax2.set_ylabel(L"$y (\mu m)$")
+#     ax2.set_xlabel(raw"$x ( \unit{\um})$")
+
+#     ax2.set_ylabel(raw"$y ( \unit{\um})$")
+
 
 #     # Make a colorbar for the ContourSet returned by the contourf call.
 #     cbar = fig1.colorbar(CS)
@@ -1115,8 +1401,10 @@ end
 #             end
 #         end
 #         # ax2.set_title("Title")
-#         ax2.set_xlabel(L"$x (\mu m)$")
-#         ax2.set_ylabel(L"$y (\mu m)$")
+#         ax2.set_xlabel(raw"$x ( \unit{\um})$")
+
+#         ax2.set_ylabel(raw"$y ( \unit{\um})$")
+
 
 #         # Make a colorbar for the ContourSet returned by the contourf call.
 #         cbar = fig1.colorbar(CS)
@@ -1193,8 +1481,10 @@ end
 #         # ax2.imshow(A[:,:,i+1])
 
 #         # ax2.set_title("Title")
-#         ax2.set_xlabel(L"$x (\mu m)$")
-#         ax2.set_ylabel(L"$y (\mu m)$")
+#         ax2.set_xlabel(raw"$x ( \unit{\um})$")
+
+#         ax2.set_ylabel(raw"$y ( \unit{\um})$")
+
 
 #         # Make a colorbar for the ContourSet returned by the contourf call.
 #         #  cbar = fig1.colorbar(CS)
@@ -1303,8 +1593,10 @@ end
 #         # ax2.imshow(A[:,:,i+1])
 
 #         # ax2.set_title("Title")
-#         ax2.set_xlabel(L"$x (\mu m)$")
-#         ax2.set_ylabel(L"$y (\mu m)$")
+#         ax2.set_xlabel(raw"$x ( \unit{\um})$")
+
+#         ax2.set_ylabel(raw"$y ( \unit{\um})$")
+
 
 #         # Make a colorbar for the ContourSet returned by the contourf call.
 #         #  cbar = fig1.colorbar(CS)
