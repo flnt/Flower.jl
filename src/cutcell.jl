@@ -1051,6 +1051,13 @@ function crossing_2levelsets!(num, grid, LS1, LS2, BC_int)
                     LS2.geoL.cap[II,:] .= 0.0
                 end
             end
+
+            if grid.LS[end].geoL.cap[II,6] < 1e-8
+                grid.LS[end].geoL.cap[II,6] = 0.5 * (grid.LS[end].geoL.cap[II,1] + grid.LS[end].geoL.cap[II,3])
+            end
+            if grid.LS[end].geoL.cap[II,7] < 1e-8
+                grid.LS[end].geoL.cap[II,7] = 0.5 * (grid.LS[end].geoL.cap[II,2] + grid.LS[end].geoL.cap[II,4])
+            end
         else
             empty_cell!(grid, grid.LS[end], grid.LS[end].geoL, II)
             empty_cell!(grid, LS1, LS1.geoL, II, false)
