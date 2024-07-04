@@ -254,6 +254,8 @@ function set_scalar_transport_2!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIX
     # Interior BC
     A[ni+1:2*ni,1:ni] = b * (HxT[1] * iMx * Bx .+ HyT[1] * iMy * By)
     A[ni+1:2*ni,ni+1:2*ni] = pad(b * (HxT[1] * iMx * Hx[1] .+ HyT[1] * iMy * Hy[1]) .- χ[1] * a1)
+    A[ni+1:2*ni,end-nb+1:end] = b * (HxT[1] * op.iMx_b * op.Hx_b .+ HyT[1] * op.iMy_b * op.Hy_b)
+
 
     # Border BCs
     A[end-nb+1:end,1:ni] = b_b * (op.HxT_b * op.iMx_b' * Bx .+ op.HyT_b * op.iMy_b' * By)
@@ -639,6 +641,8 @@ function scalar_transport_2!(bc, num, grid, op, geo, ph, concentration0, MIXED, 
         # Interior BC
         A[ni+1:2*ni,1:ni] = b * (HxT[1] * iMx * Bx .+ HyT[1] * iMy * By)
         A[ni+1:2*ni,ni+1:2*ni] = pad(b * (HxT[1] * iMx * Hx[1] .+ HyT[1] * iMy * Hy[1]) .- χ[1] * a1)
+        A[ni+1:2*ni,end-nb+1:end] = b * (HxT[1] * op.iMx_b * op.Hx_b .+ HyT[1] * op.iMy_b * op.Hy_b)
+
 
         # Border BCs
         A[end-nb+1:end,1:ni] = b_b * (op.HxT_b * op.iMx_b' * Bx .+ op.HyT_b * op.iMy_b' * By)
@@ -1094,6 +1098,10 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         a1_b = Diagonal(vec(_a1_b))
         b_b = Diagonal(vec(_b_b))
 
+        print("\n BC ", bc[iscal].left.val)
+        print("\n ")
+        print("\n a0_b ", a0_b)
+
         # if convection
         #     # HT = zeros(grid)
         #     # # @inbounds @threads for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
@@ -1154,6 +1162,7 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         # Interior BC
         A[ni+1:2*ni,1:ni] = b * (HxT[1] * iMx * Bx .+ HyT[1] * iMy * By)
         A[ni+1:2*ni,ni+1:2*ni] = pad(b * (HxT[1] * iMx * Hx[1] .+ HyT[1] * iMy * Hy[1]) .- χ[1] * a1)
+        A[ni+1:2*ni,end-nb+1:end] = b * (HxT[1] * op.iMx_b * op.Hx_b .+ HyT[1] * op.iMy_b * op.Hy_b)
 
         # Border BCs
         A[end-nb+1:end,1:ni] = b_b * (op.HxT_b * op.iMx_b' * Bx .+ op.HyT_b * op.iMy_b' * By)
@@ -1164,6 +1173,38 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         B[1:ni,1:ni] = M .+ 0.5 .* τ .* diffusion_coeff_scal .* LT .- τ .* CT
         B[1:ni,ni+1:2*ni] = 0.5 .* τ .* diffusion_coeff_scal .* LD
         B[1:ni,end-nb+1:end] = 0.5 .* τ .* diffusion_coeff_scal .* LD_b
+
+        # for testn in 1:ny
+        #     print("\n jmp ", testn," j ",ny-testn+1," chi_b",op.χ_b[end-nb+testn,end-nb+testn])
+        # end
+        # ##################################################################################################
+
+        # #TODO test
+        # print("testBCwall")
+        # # Implicit part of heat equation
+        # A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* τ .* diffusion_coeff_scal .* LT, grid, τ)
+        # A[1:ni,ni+1:2*ni] = - 0.5 .* τ .* diffusion_coeff_scal .* LD
+        # A[1:ni,end-nb+1:end] = - 0.5 .* τ .* diffusion_coeff_scal .* LD_b
+
+        # # Interior BC
+        # A[ni+1:2*ni,1:ni] = b * (HxT[1] * iMx * Bx .+ HyT[1] * iMy * By)
+        # A[ni+1:2*ni,ni+1:2*ni] = pad((b * χ[1]+ b_b * op.χ_b)/( χ[1]+ op.χ_b)  * (HxT[1] * iMx * Hx[1] .+ HyT[1] * iMy * Hy[1]) .- χ[1] * a1 /( χ[1]+ op.χ_b) - op.χ_b * a1_b /( χ[1]+ op.χ_b))
+        # A[ni+1:2*ni,end-nb+1:end] = ((b * χ[1]+ b_b * op.χ_b)/( χ[1]+ op.χ_b))* (HxT[1] * op.iMx_b * op.Hx_b .+ HyT[1] * op.iMy_b * op.Hy_b)
+
+        # # Border BCs
+        # A[end-nb+1:end,1:ni] = b_b * (op.HxT_b * op.iMx_b' * Bx .+ op.HyT_b * op.iMy_b' * By)
+        # A[end-nb+1:end,ni+1:2*ni] = b_b * (op.HxT_b * op.iMx_b' * Hx[1] .+ op.HyT_b * op.iMy_b' * op.Hy[1])
+        # A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b, 4.0)
+
+        # # Explicit part of heat equation
+        # B[1:ni,1:ni] = M .+ 0.5 .* τ .* diffusion_coeff_scal .* LT .- τ .* CT
+        # B[1:ni,ni+1:2*ni] = 0.5 .* τ .* diffusion_coeff_scal .* LD
+        # B[1:ni,end-nb+1:end] = 0.5 .* τ .* diffusion_coeff_scal .* LD_b
+
+
+        # ##################################################################################################
+
+
 
         rhs = fnzeros(grid, num)
         if convection
@@ -1234,9 +1275,11 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
         @views ph.trans_scalD[:,iscal] .= A \ rhs
 
-
-
         # print("\n test left after A/r L", vecb_L(ph.trans_scalD[:,iscal], grid))
+        # for testn in 1:ny
+        #     printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i chi_b %.2e border %.5e\n" testn ny-testn+1 op.χ_b[end-nb+testn,end-nb+testn] vecb_L(ph.trans_scalD[:,iscal], grid)[testn])
+        # end
+
         # print("\n test left after A/r T", vecb_T(ph.trans_scalD[:,iscal], grid))
 
         # @views ph.trans_scal[:,:,iscal] .= reshape(veci(ph.trans_scalD[:,iscal],grid,2), grid)
@@ -1593,6 +1636,8 @@ function set_scalar_transport!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED
     # Interior BC
     A[ni+1:2*ni,1:ni] = b * (HxT[1] * iMx * Bx .+ HyT[1] * iMy * By)
     A[ni+1:2*ni,ni+1:2*ni] = pad(b * (HxT[1] * iMx * Hx[1] .+ HyT[1] * iMy * Hy[1]) .- χ[1] * a1)
+    A[ni+1:2*ni,end-nb+1:end] = b * (HxT[1] * op.iMx_b * op.Hx_b .+ HyT[1] * op.iMy_b * op.Hy_b)
+
 
     # Border BCs
     A[end-nb+1:end,1:ni] = b_b * (op.HxT_b * op.iMx_b' * Bx .+ op.HyT_b * op.iMy_b' * By)

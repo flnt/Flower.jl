@@ -247,8 +247,7 @@ function plot_python_pdf_full(itmp,field0,figname,prefix,plot_levelset,isocontou
         # printstyled(color=:green, @sprintf "\n j: %5i %5i %5i %5i\n" i0 i1 j0 j1)
 
         @views fieldtmp[j0:j1,2:i1] = field1[jj0:jj1,ii0:ii1]
-        @views fieldtmp[:,1] = vecb_L(fwdL.trans_scalD[i,:,1],gp)
-
+        @views fieldtmp[j0:j1,1] = reverse(vecb_L(fwdL.trans_scalD[i,:,1],gp))
 
         field = fieldtmp[j0:j1,i0:i1]
 
@@ -404,10 +403,15 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
     i1=ii1
     j0=jj0
     j1=jj1
-    i0tmp = i0
-    j0tmp = j0
-    i1tmp = i1 
-    j1tmp = j1
+    i0tmp = i0 + 1
+    j0tmp = j0 + 1
+    i1tmp = i1 + 1
+    j1tmp = j1 + 1
+
+    i0tmp2 = i0 + 1
+    j0tmp2 = j0 + 1
+    i1tmp2 = i1 + 1
+    j1tmp2 = j1 + 1
 
     if itmp<0
         i=-itmp
@@ -438,8 +442,7 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
         if ii0 == 1
             vecb_l=true
             i1+=1
-            i0tmp+=1 
-            i1tmp+=1 
+            i0tmp2-=1 
 
             pushfirst!(x_arr,x_array[i0]-0.5*gp.dx[1,1]/xscale)
         end
@@ -448,13 +451,14 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
             i1+=1
             vecb_r=true
             push!(x_arr,x_array[end]+0.5*gp.dx[1,end]/xscale)
+            i1tmp2+=1 
+
         end
 
         if jj0 == 1
             vecb_b=true
             j1+=1
-            j0tmp+=1
-            j1tmp+=1
+            j0tmp2-=1
             pushfirst!(y_arr,y_array[j0]-0.5*gp.dy[1,1]/xscale)
         end
 
@@ -462,34 +466,61 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
             vecb_t=true
             j1+=1
             push!(y_arr,y_array[end]+0.5*gp.dy[end,1]/xscale)
+            j1tmp2+=1
         end
 
         if vecb_l 
-            @views fieldtmp[2:gp.ny+1,1] = vecb_L(field0D[i,:],gp)
+            # @views fieldtmp[2:gp.ny+1,1] = vecb_L(field0D[i,:],gp)
+            # @views vecb_L(field0D[i,:],gp)[128-68+1]=68
+            # @views vecb_L(field0D[i,:],gp)[128-69+1]=69
+
+            fieldtmp[2:gp.ny+1,1] = reverse(vecb_L(field0D[i,:],gp),dims=1)#[1:gp.ny]
+            # @views fieldtmp[gp.ny+1,1]=1
+            # @views fieldtmp[gp.ny,1]=2
+            # # @views fieldtmp[68,1]=68
+            # print("\n vectest ", reverse(vecb_L(field0D[i,:],gp))[65:70])
+
+            # print("\n vectest 2 ", vecb_L(field0D[i,:],gp)[128-70+1:128-65+1])
+
+            # print("\n vectest 2 ", fieldtmp[68:69,1])
+            # vec = [1,2,3]
+            # print("\n vectest ", reverse(vec), "no rev ", vec)
+
+
+            # print("\n vecb", reverse(vecb_L(field0D[i,:],gp)))
         end
 
         if vecb_r
-            @views fieldtmp[2:gp.ny+1,end] = vecb_R(field0D[i,:],gp)
+            @views fieldtmp[2:gp.ny+1,end] = vecb_R(field0D[i,:],gp) #right direction
         end
 
         if vecb_b
-            @views fieldtmp[1,2:gp.nx+1] = vecb_B(field0D[i,:],gp)
+            @views fieldtmp[1,2:gp.nx+1] = vecb_B(field0D[i,:],gp)  #right direction
         end
 
         if vecb_t
-            @views fieldtmp[end,2:gp.nx+1] = vecb_T(field0D[i,:],gp)
+            @views fieldtmp[end,2:gp.nx+1] = reverse(vecb_T(field0D[i,:],gp),dims=1)#[1:gp.nx]
         end
     end
 
     if vecb_l || vecb_r || vecb_b || vecb_t
 
         # printstyled(color=:green, @sprintf "\n indices : %.5i %.5i %.5i %.5i %.5i %.5i %.5i %.5i \n" ii0 ii1 jj0 jj1 i0 i1 j0 j1 )
+        # printstyled(color=:green, @sprintf "\n indices 2: %.5i %.5i %.5i %.5i \n" i0tmp i1tmp j0tmp j1tmp )
 
         # @views fieldtmp[2:jj1+1,2:ii1+1] = field1[jj0:jj1,ii0:ii1]
         # field = fieldtmp[j0:j1,i0:i1]
 
-        @views fieldtmp[j0tmp:j1tmp,i0tmp:i1tmp] = field1[jj0:jj1,ii0:ii1]
-        field = fieldtmp[j0:j1,i0:i1]
+        fieldtmp[j0tmp:j1tmp,i0tmp:i1tmp] = field1[jj0:jj1,ii0:ii1]
+        # field = fieldtmp[j0:j1,i0:i1]
+        field = fieldtmp[j0tmp2:j1tmp2,i0tmp2:i1tmp2]
+
+
+        # print("\n test array ", fieldtmp[68,1], " ", fieldtmp[69,1],)
+        # print("\n test array ", field[:,1])
+        # print("\n test array ", fieldtmp[65:70,1])
+
+
 
     else
         # field = field1[j0:j1,i0:i1]
@@ -553,7 +584,7 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
             for jgrid0 in j0:j1
                 # print("\n",x_array[igrid],y_array[jgrid])
                 # print("\n ",igrid," ",jgrid)
-                igrid=igrid0
+                igrid=igrid0-i0+1 #TODO
                 jgrid = jgrid0-j0+1
 
                 if igrid==1
@@ -574,11 +605,13 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
                 
                 # str=@sprintf "%.2e" fieldtmp[jgrid0,igrid0]
                 if printmode == "val"
-                    str=@sprintf "%.4e" fieldtmp[jgrid0,igrid0]
+                    str=@sprintf "%.4e" field[jgrid,igrid]
+                    # str=@sprintf "%.4e %.3i %.3i %.3i" field[jgrid,igrid] igrid0 jgrid0 jgrid
+
                 elseif printmode == "ij"
                     str=@sprintf "%.3i %.3i" igrid0 jgrid0
                 else 
-                    str=@sprintf "%.2e %.3i %.3i" fieldtmp[jgrid0,igrid0] igrid0 jgrid0
+                    str=@sprintf "%.2e %.3i %.3i" field[jgrid,igrid] igrid0 jgrid0
                 end
 
                 ax2.annotate(str,(x_arr[igrid],y_arr[jgrid]),fontsize=fontsize,c=lcolor,ha="center",va=va)
@@ -1154,6 +1187,8 @@ function scalar_debug!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC, insi
     y2 = y1
     ax2.plot([x1, x2], [y1, y2], marker = "o",lw=1)
 
+
+    #TODO plot at centroid, not xy yc
     #B
     x1 = xc 
     x2 = x1 

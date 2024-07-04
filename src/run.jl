@@ -213,8 +213,8 @@ function run_forward(
 
         NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
        
-        printstyled(color=:red, @sprintf "\n levelset:\n")
-        println(grid.LS[1].geoL.dcap[1,1,:])
+        # printstyled(color=:red, @sprintf "\n levelset:\n")
+        # println(grid.LS[1].geoL.dcap[1,1,:])
 
         if save_radius
             n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
@@ -474,8 +474,8 @@ function run_forward(
     if is_FE(time_scheme) || is_CN(time_scheme)
         NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
 
-        printstyled(color=:red, @sprintf "\n levelset 2:\n")
-        println(grid.LS[1].geoL.dcap[1,1,:])
+        # printstyled(color=:red, @sprintf "\n levelset 2:\n")
+        # println(grid.LS[1].geoL.dcap[1,1,:])
 
         if navier_stokes || heat || electrolysis
             geoS = [LS[iLS].geoS for iLS in 1:_nLS]
@@ -652,8 +652,8 @@ function run_forward(
 
     if heat_convection || electrolysis_convection
         NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
-        printstyled(color=:red, @sprintf "\n levelset 3:\n")
-        println(grid.LS[1].geoL.dcap[1,1,:])
+        # printstyled(color=:red, @sprintf "\n levelset 3:\n")
+        # println(grid.LS[1].geoL.dcap[1,1,:])
     end
 
     V0S = volume(LS[end].geoS)
@@ -815,7 +815,8 @@ function run_forward(
                         if iscal==1 || iscal==2
                             BC_trans_scal[iscal].left.val .*=-1 #H2O consummed
                         end
-                        print("\n left", BC_trans_scal[iscal].left.val)
+                        # print("\n")
+                        print("\n left BC ", BC_trans_scal[iscal].left.val)
                     end
                 end
 
@@ -828,8 +829,8 @@ function run_forward(
 
 
              
-                printstyled(color=:red, @sprintf "\n levelset: before scalar_transport\n")
-                println(grid.LS[1].geoL.dcap[1,1,:])
+                # printstyled(color=:red, @sprintf "\n levelset: before scalar_transport\n")
+                # println(grid.LS[1].geoL.dcap[1,1,:])
 
                 if electrolysis_advection
                     update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
@@ -1737,8 +1738,8 @@ function run_forward(
         if levelset && (advection || current_i<2)
             NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
 
-            printstyled(color=:red, @sprintf "\n levelset 4:\n")
-            println(grid.LS[1].geoL.dcap[1,1,:])
+            # printstyled(color=:red, @sprintf "\n levelset 4:\n")
+            # println(grid.LS[1].geoL.dcap[1,1,:])
 
             LS[end].geoL.fresh .= false
             LS[end].geoS.fresh .= false

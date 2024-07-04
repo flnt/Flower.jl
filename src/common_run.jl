@@ -56,10 +56,12 @@ function update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, perio
         grid.LS[1].geoL.cap0 .= grid.LS[1].geoL.cap
         grid.LS[1].mid_point0 .= grid.LS[1].mid_point
 
-        printstyled(color=:red, @sprintf "\n volume:\n")
-        II = CartesianIndex(68, 1) #(id_y, id_x)
-        print(grid.LS[1].geoL.dcap[II,8:11])
-        print(grid.LS[1].geoL.cap[II,8:11])
+        # printstyled(color=:red, @sprintf "\n volume:\n")
+        # II = CartesianIndex(68, 1) #(id_y, id_x)
+        # print(grid.LS[1].geoL.dcap[II,8:11])
+        # print(grid.LS[1].geoL.cap[II,8:11])
+
+        
 
 
         postprocess_grids2!(grid, grid.LS[1], grid_u, grid_u.LS[1], grid_v, grid_v.LS[1], periodic_x, periodic_y, true)
