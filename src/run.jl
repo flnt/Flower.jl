@@ -649,6 +649,11 @@ function run_forward(
         if levelset && (advection || num.current_i<2)
             try
                 NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
+            catch e
+                println(CRASHED)
+                println(e)
+                return nothing
+            end
 
             LS[end].geoL.fresh .= false
             LS[end].geoS.fresh .= false
@@ -803,8 +808,6 @@ function run_forward(
                 @views fwdL.v[snap,:,:] .= phL.v
                 @views fwdL.ucorrD[snap,:,:] .= phL.ucorrD
                 @views fwdL.vcorrD[snap,:,:] .= phL.vcorrD
-                # @views fwd.Cd[snap] = cD
-                # @views fwd.Cl[snap] = cL
             end
             if advection
                 fwdS.Vratio[snap] = volume(LS[end].geoS) / V0S
