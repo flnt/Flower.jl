@@ -462,6 +462,7 @@ function mass_matrix_borders!(ind, iMx_b, iMy_b, iMx_bd, iMy_bd, dcap, n)
     idx = 1
     @inbounds for II in b_left[1]
         pII = lexicographic(II, n)
+        # printstyled(color=:red, @sprintf "\n mass: %.5i mass %.4e eps %.4e mass + eps %.4e inv %.4e inv(m+eps) %.4e\n" idx dcap[II,8] eps(0.01) dcap[II,8]+eps(0.01) 1/dcap[II,8] 1/(dcap[II,8]+eps(0.01)))
         @inbounds iMx_b[pII, idx] = 1 / (dcap[II,8]+eps(0.01))
         @inbounds iMx_bd[idx, idx] = 1 / (dcap[II,8]+eps(0.01))
         idx += 1
@@ -488,27 +489,30 @@ function mass_matrix_borders!(ind, iMx_b, iMy_b, iMx_bd, iMy_bd, dcap, n)
     return nothing
 end
 
+"""
+left: -A1 bottom: -A2 right: A3 top: A4
+"""
 function bc_matrix_borders!(grid::Mesh{GridCC,T,N}, ind, Hx, Hy, dcap) where {T,N}
     @unpack nx, ny = grid
     @unpack b_left, b_bottom, b_right, b_top = ind
 
     @inbounds @threads for idx in 1:ny
-        II = CartesianIndex(idx,1)
+        # II = CartesianIndex(idx,1)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, b_left[1][idx])
         @inbounds Hx[idx, idx] = -A1
     end
     @inbounds @threads for idx in 1:nx
-        II = CartesianIndex(1,idx)
+        # II = CartesianIndex(1,idx)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, b_bottom[1][idx])
         @inbounds Hy[idx+ny, idx+ny] = -A2
     end
     @inbounds @threads for idx in 1:ny
-        II = CartesianIndex(idx,nx)
+        # II = CartesianIndex(idx,nx)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, b_right[1][idx])
         @inbounds Hx[idx+ny+nx, idx+ny+nx] = A3
     end
     @inbounds @threads for idx in 1:nx
-        II = CartesianIndex(ny,idx)
+        # II = CartesianIndex(ny,idx)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, b_top[1][idx])
         @inbounds Hy[idx+2*ny+nx, idx+2*ny+nx] = A4
     end
@@ -522,22 +526,22 @@ function bc_matrix_borders!(grid::Mesh{GridFCx,T,N}, ind, ind_u, Hx, Hy, dcap, d
     @unpack b_bottom, b_top = ind_u
 
     @inbounds @threads for idx in 1:ny
-        II = CartesianIndex(idx,1)
+        # II = CartesianIndex(idx,1)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, b_left[1][idx])
         @inbounds Hx[idx, idx] = -A1
     end
     @inbounds @threads for idx in 1:nx
-        II = CartesianIndex(1,idx)
+        # II = CartesianIndex(1,idx)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap_u, b_bottom[1][idx])
         @inbounds Hy[idx+ny, idx+ny] = -A2
     end
     @inbounds @threads for idx in 1:ny
-        II = CartesianIndex(idx,nx)
+        # II = CartesianIndex(idx,nx)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, b_right[1][idx])
         @inbounds Hx[idx+ny+nx, idx+ny+nx] = A3
     end
     @inbounds @threads for idx in 1:nx
-        II = CartesianIndex(ny,idx)
+        # II = CartesianIndex(ny,idx)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap_u, b_top[1][idx])
         @inbounds Hy[idx+2*ny+nx, idx+2*ny+nx] = A4
     end
@@ -551,22 +555,22 @@ function bc_matrix_borders!(grid::Mesh{GridFCy,T,N}, ind, ind_v, Hx, Hy, dcap, d
     @unpack b_left, b_right = ind_v
 
     @inbounds @threads for idx in 1:ny
-        II = CartesianIndex(idx,1)
+        # II = CartesianIndex(idx,1)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap_v, b_left[1][idx])
         @inbounds Hx[idx, idx] = -A1
     end
     @inbounds @threads for idx in 1:nx
-        II = CartesianIndex(1,idx)
+        # II = CartesianIndex(1,idx)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, b_bottom[1][idx])
         @inbounds Hy[idx+ny, idx+ny] = -A2
     end
     @inbounds @threads for idx in 1:ny
-        II = CartesianIndex(idx,nx)
+        # II = CartesianIndex(idx,nx)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap_v, b_right[1][idx])
         @inbounds Hx[idx+ny+nx, idx+ny+nx] = A3
     end
     @inbounds @threads for idx in 1:nx
-        II = CartesianIndex(ny,idx)
+        # II = CartesianIndex(ny,idx)
         A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(dcap, b_top[1][idx])
         @inbounds Hy[idx+2*ny+nx, idx+2*ny+nx] = A4
     end

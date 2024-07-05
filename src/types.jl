@@ -15,6 +15,8 @@ abstract type AbstractOptimizer end
     shift::T = 0.0
     shifted::T = shift*Δ
     shifted_y::T = 0.0
+    xcoord::T = 0.0
+    ycoord::T = 0.0
     τ::T = min(CFL*Δ^2*Re, CFL*Δ) # timestep
     max_iterations::D = TEND÷τ # maximum number of iterations
     current_i::D = 1

@@ -663,7 +663,7 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
             theta2=90
 
             radius = fwd.radius[i]/num.plot_xscale
-            arc = matplotlib.patches.Arc((num.shifted/num.plot_xscale, num.shifted_y/num.plot_xscale), radius*2, radius*2, color="g", theta1=theta1, theta2=theta2,ls="--")
+            arc = matplotlib.patches.Arc((num.xcoord/num.plot_xscale, num.ycoord/num.plot_xscale), radius*2, radius*2, color="g", theta1=theta1, theta2=theta2,ls="--")
 
             ax2.add_patch(arc)
 
@@ -1109,6 +1109,182 @@ function plot_last_iter_python_pdf(field,figname,prefix,plot_levelset,isocontour
 end
 
 
+function debug_border(iplot,jplot,A,B)
+    @views scalar_debug_border(geo.dcap, ny,bc[iscal], inside, ind ,num,grid,iplot,jplot,op)
+
+    testb = jplot
+    testn = ny-testb+1
+    print("\n test",testn," testb ",testb)
+    printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i chi_b %.2e  chi_b adim %.2e border %.2e\n" testn testb op.χ_b[end-nb+testn,end-nb+testn] op.χ_b[end-nb+testn,end-nb+testn]/grid.dy[1,1] vecb_L(ph.trans_scalD[:,iscal], grid)[testn])
+    printstyled(color=:cyan, @sprintf "\n BC %.5e rhs %.5e rhs %.5e \n" bc[iscal].left.val[testn] bc[iscal].left.val[testn]*op.χ_b[end-nb+testn,end-nb+testn] vecb_L(rhs, grid)[testn])
+
+    print("\n B ", maximum(B[testb,:])," \n ")
+
+    print("\n A[end-nb+testn,1:ni]", A[end-nb+testn,1:ni], "\n")
+    print("\n A[end-nb+testn,ni+1:2*ni]", A[end-nb+testn,ni+1:2*ni], "\n")
+    print("\n A[end-nb+testn,end-nb+1:end]", A[end-nb+testn,end-nb+1:end], "\n")
+
+    print("\n A[jplot,1:ni]", A[jplot,1:ni], "\n")
+    print("\n A[jplot,ni+1:2*ni]", A[jplot,ni+1:2*ni], "\n")
+    print("\n A[jplot,end-nb+1:end]", A[jplot,end-nb+1:end], "\n")
+
+    print("\n A[ni+jplot,1:ni]", A[ni+jplot,1:ni], "\n")
+    print("\n A[ni+jplot,ni+1:2*ni]", A[ni+jplot,ni+1:2*ni], "\n")
+    print("\n A[ni+jplot,end-nb+1:end]", A[ni+jplot,end-nb+1:end], "\n")
+
+    # print("\n b_b ", b_b[testb,testb]) 1 
+    # print("\n a1_b ", a1_b[testb,testb]) 0
+
+    print("\n op.HxT_b", op.HxT_b[testb,:])
+    print("\n op.iMx_b'", op.iMx_b'[testb,:])
+    print("\n Bx", Bx[testb,:])
+
+    print("\n op.HyT_b", op.HxT_b[testb,:])
+    print("\n op.iMy_b'", op.iMx_b'[testb,:])
+    print("\n By", Bx[testb,:])
+
+
+    print("\n mult", op.HxT_b[testb,testb]*op.iMx_b'[testb,testb]*Bx[testb,testb])
+
+    print("\n mult", op.HxT_b[testb,testb]*op.iMx_b'[testb,testb]*Bx[testb,testb])
+
+
+    print("\n op.HyT_b", op.HxT_b[testb,:])
+    print("\n op.iMy_b'", op.iMx_b'[testb,:])
+    print("\n By", Bx[testb,:])
+
+end
+
+function scalar_debug_border(cap, n, BC, inside, ind,num,grid,iplot,jplot,op)
+
+    @unpack nx, ny = grid
+    @unpack b_left, b_bottom, b_right, b_top = ind
+
+    printstyled(color=:green, @sprintf "\n scalar debug \n")
+
+    II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+    pII = lexicographic(II, grid.ny)
+
+
+    prefix = num.plot_prefix
+    figname = "scalar_border"
+    xscale = num.plot_xscale
+    alpha = 0.5
+
+    idx = ny-jplot+1
+
+    A1, A2, A3, A4, B1, B2, W1, W2, W3, W4 = get_capacities(cap, b_left[1][idx])
+
+    printstyled(color=:cyan, @sprintf "\n c: %.2e %.2e %.2e %.2e %.2e %.2e \n" A1/xscale A2/xscale A3/xscale A4/xscale B1/xscale B2/xscale)
+
+    # print("\n vol, ", cap[II,8:11],cap[II,8:11]./(xscale^2))
+
+    fig1, ax2 = plt.subplots(layout="constrained")
+
+
+    width = grid.dx[jplot,iplot] / xscale
+    height = grid.dy[jplot,iplot] / xscale
+    xc = (grid.x[jplot,iplot] -0.5*grid.dx[1,1])/xscale
+    yc = grid.y[jplot,iplot]/xscale
+
+
+
+    xy = (xc-width/2,yc-height/2)
+    square = matplotlib.patches.Rectangle(xy, width, height, color="k", ls="--",alpha=alpha)
+    ax2.add_patch(square)
+
+    x1 = xc - width/2 
+    x2 = xc + width/2 
+    y1 = yc + width/2 - A1 / xscale
+    y2 = yc + width/2 - A3 / xscale
+
+
+    # print("\n x1 ",x1)
+    # print("\n y1 ",y1)
+    # print("\n x2 ",x2)
+    # print("\n y2 ",y2)
+    print("\n point ",xc, " y " ,yc)
+
+    print("\n point ",xc - width/2 , " y " ,yc - width/2)
+
+
+    #interface segment
+    ax2.plot([x1, x2], [y1, y2], marker = "o",lw=1)
+
+    #x
+    x1 = xc - width/2 
+    x2 = x1 
+    y1 = yc + width/2 - A1 / xscale
+    y2 = yc + width/2 
+    ax2.plot([x1, x2], [y1, y2], marker = "o",lw=1)
+    #x
+    x1 = xc + width/2 
+    x2 = x1 
+    y1 = yc + width/2 - A3 / xscale
+    y2 = yc + width/2 
+    ax2.plot([x1, x2], [y1, y2], marker = "o",lw=1)
+
+    #y
+    x1 = xc - width/2 
+    x2 = xc - width/2 + A2 /xscale 
+    y1 = yc - width/2
+    y2 = y1
+    ax2.plot([x1, x2], [y1, y2], marker = "o",lw=1)
+    #y
+    x1 = xc - width/2 
+    x2 = xc - width/2 + A4 /xscale 
+    y1 = yc + width/2
+    y2 = y1
+    ax2.plot([x1, x2], [y1, y2], marker = "o",lw=1)
+
+
+    #TODO plot at centroid, not xy yc
+    #B
+    x1 = xc 
+    x2 = x1 
+    y1 = yc + width/2 - B1 / xscale
+    y2 = yc + width/2 
+    ax2.plot([x1, x2], [y1, y2], marker = "o",lw=1)
+
+    #B
+    x1 = xc - width/2 
+    x2 = xc - width/2 + B2 /xscale 
+    y1 = yc 
+    y2 = y1
+    ax2.plot([x1, x2], [y1, y2], marker = "o",lw=1)
+
+
+    ax2.scatter(grid.x[jplot,iplot]/xscale,grid.y[jplot,iplot]/xscale)
+
+
+    widthvol = sqrt(cap[b_left[1][idx],8]./(xscale^2))
+    heightvol = widthvol
+    # xy=(xc-width/2-widthvol/2,yc)
+    xy=(xc-width/2,yc)
+    square = matplotlib.patches.Rectangle(xy, widthvol, heightvol, color="g", ls="--",alpha=alpha)
+    ax2.add_patch(square)
+
+
+    theta1=75
+    theta2=95
+
+    radius = num.R/num.plot_xscale
+    arc = matplotlib.patches.Arc((num.xcoord/num.plot_xscale, num.ycoord/num.plot_xscale), radius*2, radius*2, color="g", theta1=theta1, theta2=theta2,ls="--")
+
+    ax2.add_patch(arc)
+
+
+    plt.axis("equal")
+
+    ax2.set_aspect("equal")
+
+    str_it = @sprintf "_%.5i" pII
+    plt.savefig(prefix*figname*str_it*".pdf")
+    plt.close(fig1)
+
+
+end
+
 function scalar_debug!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC, inside, b_left, b_bottom, b_right, b_top,num,grid,iplot,jplot)
 
     printstyled(color=:green, @sprintf "\n scalar debug \n")
@@ -1219,7 +1395,7 @@ function scalar_debug!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC, insi
     theta2=90
 
     radius = num.R/num.plot_xscale
-    arc = matplotlib.patches.Arc((num.shifted/num.plot_xscale, num.shifted_y/num.plot_xscale), radius*2, radius*2, color="g", theta1=theta1, theta2=theta2,ls="--")
+    arc = matplotlib.patches.Arc((num.xcoord/num.plot_xscale, num.ycoord/num.plot_xscale), radius*2, radius*2, color="g", theta1=theta1, theta2=theta2,ls="--")
 
     ax2.add_patch(arc)
 

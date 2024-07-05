@@ -776,7 +776,7 @@ function run_forward(
                             
                     end   
                 end
-
+                # print("\n i_butler",i_butler)
 
                 #################################################
 
@@ -816,7 +816,12 @@ function run_forward(
                             BC_trans_scal[iscal].left.val .*=-1 #H2O consummed
                         end
                         # print("\n")
-                        print("\n left BC ", BC_trans_scal[iscal].left.val)
+                        # print("\n left BC ", BC_trans_scal[iscal].left.val)
+
+                        # for testn in 1:ny
+                        #     printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i border %.5e\n" testn ny-testn+1 vecb_L(phL.trans_scalD[:,iscal], grid)[testn])
+                        # end
+
                     end
                 end
 
@@ -1590,7 +1595,7 @@ function run_forward(
                 printstyled(color=:green, @sprintf "\n p0: %.2e p_liq %.2e p_lapl %.2e \n" num.pres0 p_liq p_g)
 
                 if mode_2d == 3
-                    grid.LS[1].u .= sqrt.((grid.x).^ 2 + (grid.y .+ num.shifted_y) .^ 2) - (current_radius) * ones(ny, nx)                  
+                    grid.LS[1].u .= sqrt.((grid.x.- num.xcoord).^ 2 + (grid.y .- num.ycoord) .^ 2) - (current_radius) * ones(ny, nx)                  
                 else
                     grid.LS[1].u .= sqrt.((grid.x .+ num.shifted .- current_radius .+ num.R ).^ 2 + (grid.y .+ num.shifted_y) .^ 2) - (current_radius) * ones(ny, nx)
                 end

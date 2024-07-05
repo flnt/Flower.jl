@@ -1098,9 +1098,9 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         a1_b = Diagonal(vec(_a1_b))
         b_b = Diagonal(vec(_b_b))
 
-        print("\n BC ", bc[iscal].left.val)
-        print("\n ")
-        print("\n a0_b ", a0_b)
+        # print("\n BC ", bc[iscal].left.val)
+        # print("\n ")
+        # print("\n a0_b ", a0_b)
 
         # if convection
         #     # HT = zeros(grid)
@@ -1134,8 +1134,6 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
         #     print("\n vecb_B ", vecb_B(vD, grid_v))
 
-     
-
         #     printstyled(color=:red, @sprintf "\n levelset: before scalar_convection\n")
         #     println(grid.LS[1].geoL.dcap[1,1,:])
 
@@ -1145,9 +1143,12 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
         # end
 
+
         LT = BxT * iMx * Bx .+ ByT * iMy * By
         LD = BxT * iMx * Hx[1] .+ ByT * iMy * Hy[1]
         LD_b = BxT * op.iMx_b * op.Hx_b .+ ByT * op.iMy_b * op.Hy_b
+
+
 
         # A = spzeros(nt, nt)
         # B = spzeros(nt, nt)
@@ -1166,8 +1167,17 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
         # Border BCs
         A[end-nb+1:end,1:ni] = b_b * (op.HxT_b * op.iMx_b' * Bx .+ op.HyT_b * op.iMy_b' * By)
-        A[end-nb+1:end,ni+1:2*ni] = b_b * (op.HxT_b * op.iMx_b' * Hx[1] .+ op.HyT_b * op.iMy_b' * op.Hy[1])
+        A[end-nb+1:end,ni+1:2*ni] = b_b * (op.HxT_b * op.iMx_b' * op.Hx[1] .+ op.HyT_b * op.iMy_b' * op.Hy[1])
         A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b, 4.0)
+        # A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b)
+
+
+        # printstyled(color=:red, @sprintf "\n test dummy \n")
+        # testb = 68
+        # testn = ny-testb+1
+        # A[end-nb+testn,testn] = -2
+        # A[end-nb+testn,ni+testn] = 0
+        # A[end-nb+testn,end-nb+testn] = 2
 
         # Explicit part of heat equation
         B[1:ni,1:ni] = M .+ 0.5 .* τ .* diffusion_coeff_scal .* LT .- τ .* CT
@@ -1275,10 +1285,129 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
         @views ph.trans_scalD[:,iscal] .= A \ rhs
 
-        # print("\n test left after A/r L", vecb_L(ph.trans_scalD[:,iscal], grid))
-        # for testn in 1:ny
-        #     printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i chi_b %.2e border %.5e\n" testn ny-testn+1 op.χ_b[end-nb+testn,end-nb+testn] vecb_L(ph.trans_scalD[:,iscal], grid)[testn])
-        # end
+        if iscal == 1 
+
+            # rhs2 = A * ph.trans_scalD[:,iscal] - rhs
+
+            
+            # print("\n test left after A/r L", vecb_L(ph.trans_scalD[:,iscal], grid))
+            # for testn in 1:ny
+            #     printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i chi_b %.2e border %.5e\n" testn ny-testn+1 op.χ_b[end-nb+testn,end-nb+testn] vecb_L(ph.trans_scalD[:,iscal], grid)[testn])
+            # end
+
+
+
+            iplot = 1
+            jplot = 68
+
+            debug_border(iplot,jplot,A,B)
+            @views scalar_debug_border(geo.dcap, ny,bc[iscal], inside, ind ,num,grid,iplot,jplot,op)
+
+            testb = 68
+            testn = ny-testb+1
+            print("\n test",testn," testb ",testb)
+            printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i chi_b %.2e  chi_b adim %.2e border %.2e\n" testn testb op.χ_b[end-nb+testn,end-nb+testn] op.χ_b[end-nb+testn,end-nb+testn]/grid.dy[1,1] vecb_L(ph.trans_scalD[:,iscal], grid)[testn])
+            printstyled(color=:cyan, @sprintf "\n BC %.5e rhs %.5e rhs %.5e \n" bc[iscal].left.val[testn] bc[iscal].left.val[testn]*op.χ_b[end-nb+testn,end-nb+testn] vecb_L(rhs, grid)[testn])
+        
+            print("\n B ", maximum(B[testb,:])," \n ")
+
+            print("\n A[end-nb+testn,1:ni]", A[end-nb+testn,1:ni], "\n")
+            print("\n A[end-nb+testn,ni+1:2*ni]", A[end-nb+testn,ni+1:2*ni], "\n")
+            print("\n A[end-nb+testn,end-nb+1:end]", A[end-nb+testn,end-nb+1:end], "\n")
+
+            print("\n A[jplot,1:ni]", A[jplot,1:ni], "\n")
+            print("\n A[jplot,ni+1:2*ni]", A[jplot,ni+1:2*ni], "\n")
+            print("\n A[jplot,end-nb+1:end]", A[jplot,end-nb+1:end], "\n")
+
+            print("\n A[ni+jplot,1:ni]", A[ni+jplot,1:ni], "\n")
+            print("\n A[ni+jplot,ni+1:2*ni]", A[ni+jplot,ni+1:2*ni], "\n")
+            print("\n A[ni+jplot,end-nb+1:end]", A[ni+jplot,end-nb+1:end], "\n")
+
+            # print("\n b_b ", b_b[testb,testb]) 1 
+            # print("\n a1_b ", a1_b[testb,testb]) 0
+
+            print("\n op.HxT_b", op.HxT_b[testb,:])
+            print("\n op.iMx_b'", op.iMx_b'[testb,:])
+            print("\n Bx", Bx[testb,:])
+
+            print("\n op.HyT_b", op.HxT_b[testb,:])
+            print("\n op.iMy_b'", op.iMx_b'[testb,:])
+            print("\n By", Bx[testb,:])
+
+
+            print("\n mult", op.HxT_b[testb,testb]*op.iMx_b'[testb,testb]*Bx[testb,testb])
+
+            print("\n mult", op.HxT_b[testb,testb]*op.iMx_b'[testb,testb]*Bx[testb,testb])
+
+
+            print("\n op.HyT_b", op.HxT_b[testb,:])
+            print("\n op.iMy_b'", op.iMx_b'[testb,:])
+            print("\n By", Bx[testb,:])
+
+
+             
+            testb = 69
+            testn = ny-testb+1
+
+            jplot =69 
+            @views scalar_debug_border(geo.dcap, ny,bc[iscal], inside, ind ,num,grid,iplot,jplot,op)
+
+            print("\n test",testn," testb ",testb) 
+            printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i chi_b %.2e  chi_b adim %.2e border %.2e\n" testn testb op.χ_b[end-nb+testn,end-nb+testn] op.χ_b[end-nb+testn,end-nb+testn]/grid.dy[1,1] vecb_L(ph.trans_scalD[:,iscal], grid)[testn])
+            printstyled(color=:cyan, @sprintf "\n BC %.5e rhs %.5e rhs %.5e \n" bc[iscal].left.val[testn] bc[iscal].left.val[testn]*op.χ_b[end-nb+testn,end-nb+testn] vecb_L(rhs, grid)[testn])
+        
+            print("\n B ", maximum(B[testb,:]),"\n ")
+
+            print("\n A[end-nb+testn,1:ni]", A[end-nb+testn,1:ni], "\n")
+            print("\n A[end-nb+testn,ni+1:2*ni]", A[end-nb+testn,ni+1:2*ni], "\n")
+            print("\n A[end-nb+testn,end-nb+1:end]", A[end-nb+testn,end-nb+1:end], "\n")
+
+            print("\n A[jplot,1:ni]", A[jplot,1:ni], "\n")
+            print("\n A[jplot,ni+1:2*ni]", A[jplot,ni+1:2*ni], "\n")
+            print("\n A[jplot,end-nb+1:end]", A[jplot,end-nb+1:end], "\n")
+
+            print("\n A[ni+jplot,1:ni]", A[ni+jplot,1:ni], "\n")
+            print("\n A[ni+jplot,ni+1:2*ni]", A[ni+jplot,ni+1:2*ni], "\n")
+            print("\n A[ni+jplot,end-nb+1:end]", A[ni+jplot,end-nb+1:end], "\n")
+
+            print("\n op.HxT_b", op.HxT_b[testb,:])
+            print("\n op.iMx_b'", op.iMx_b'[testb,:])
+            print("\n Bx", Bx[testb,:])
+
+            print("\n op.HyT_b", op.HxT_b[testb,:])
+            print("\n op.iMy_b'", op.iMx_b'[testb,:])
+            print("\n By", Bx[testb,:])
+
+            testb = 70
+            testn = ny-testb+1
+            jplot=70
+            print("\n test",testn," testb ",testb)
+            printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i chi_b %.2e  chi_b adim %.2e border %.2e\n" testn testb op.χ_b[end-nb+testn,end-nb+testn] op.χ_b[end-nb+testn,end-nb+testn]/grid.dy[1,1] vecb_L(ph.trans_scalD[:,iscal], grid)[testn])
+            printstyled(color=:cyan, @sprintf "\n BC %.5e rhs %.5e rhs %.5e \n" bc[iscal].left.val[testn] bc[iscal].left.val[testn]*op.χ_b[end-nb+testn,end-nb+testn] vecb_L(rhs, grid)[testn])
+        
+            print("\n B ", maximum(B[testb,:]),"\n ")
+
+            print("\n A[end-nb+testn,1:ni]", A[end-nb+testn,1:ni], "\n")
+            print("\n A[end-nb+testn,ni+1:2*ni]", A[end-nb+testn,ni+1:2*ni], "\n")
+            print("\n A[end-nb+testn,end-nb+1:end]", A[end-nb+testn,end-nb+1:end], "\n")
+
+            print("\n A[jplot,1:ni]", A[jplot,1:ni], "\n")
+            print("\n A[jplot,ni+1:2*ni]", A[jplot,ni+1:2*ni], "\n")
+            print("\n A[jplot,end-nb+1:end]", A[jplot,end-nb+1:end], "\n")
+
+            print("\n A[ni+jplot,1:ni]", A[ni+jplot,1:ni], "\n")
+            print("\n A[ni+jplot,ni+1:2*ni]", A[ni+jplot,ni+1:2*ni], "\n")
+            print("\n A[ni+jplot,end-nb+1:end]", A[ni+jplot,end-nb+1:end], "\n")
+
+            print("\n op.HxT_b", op.HxT_b[testb,:])
+            print("\n op.iMx_b'", op.iMx_b'[testb,:])
+            print("\n Bx", Bx[testb,:])
+
+            print("\n op.HyT_b", op.HxT_b[testb,:])
+            print("\n op.iMy_b'", op.iMx_b'[testb,:])
+            print("\n By", Bx[testb,:])
+
+        end
 
         # print("\n test left after A/r T", vecb_T(ph.trans_scalD[:,iscal], grid))
 
@@ -1316,7 +1445,27 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
                 # printstyled(color=:red, @sprintf "\n concentration drop: %.2e%% \n" (minimum(ph.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal]*100)
                 @error("concentration too low")
                 # return current_i
-            end
+
+                #############################################################################################################
+                for jplot in 1:grid.ny
+                    for iplot in 1:grid.nx
+                        II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+                        pII = lexicographic(II, grid.ny)
+
+                        if (ph.trans_scalD[pII,iscal] <concentration0[iscal]*(1-num.concentration_check_factor))
+
+                        # if (ph.trans_scalD[pII,iscal] >concentration0[iscal]) 
+                            
+                            # && (ph.trans_scalD[pII,iscal] == maximum(ph.trans_scalD[:,iscal]) )
+                            printstyled(color=:green, @sprintf "\n j: %5i %5i %.2e %.2e %.2e %.2e \n" iplot jplot grid.x[iplot]/num.plot_xscale grid.y[jplot]/num.plot_xscale ph.trans_scalD[pII,iscal] rhs[pII])
+                            
+                            @views scalar_debug!(dir, CT, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 
+                            bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1],num,grid,iplot,jplot)
+                        end
+                    end
+                end
+                #############################################################################################################
+            end #too low
 
             printstyled(color=:red, @sprintf "\n concentration variation vs min: %.2e%% \n" (minimum(ph.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal]*100)
 
@@ -1330,6 +1479,7 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
                 @error("concentration too high")
                 # return current_i
 
+                #############################################################################################################
                 for jplot in 1:grid.ny
                     for iplot in 1:grid.nx
                         II = CartesianIndex(jplot, iplot) #(id_y, id_x)
@@ -1347,8 +1497,9 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
                         end
                     end
                 end
+                #############################################################################################################
 
-            end
+            end #too high
             printstyled(color=:red, @sprintf "\n concentration variation vs max: %.2e%% \n" (maximum(ph.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal]*100)
         end
 

@@ -86,7 +86,9 @@ n = 128
 
 max_iter=100
 max_iter=10
-max_iter = 2
+max_iter=5
+# max_iter = 2
+# max_iter = 3
 
 # max_iter = 1
 
@@ -131,6 +133,13 @@ epsilon = 0.05
 # epsilon = 1e-2
 # epsilon = 1e-3
 # epsilon = 0.0
+
+
+electrolysis_phase_change = true
+
+#Test case 1 
+electrolysis_phase_change = false
+max_iter = 1
 
 
 
@@ -330,8 +339,8 @@ num = Numerical(
     TEND=TEND,
     x = x,
     y = y,
-    shifted = xcoord,
-    shifted_y = ycoord,
+    xcoord = xcoord,
+    ycoord = ycoord,
     case = "Cylinder",#"Planar",
     R = radius,
     max_iterations = max_iter,
@@ -680,7 +689,7 @@ BC_pS = Boundaries(
     show_every = 1,
     electrolysis_convection = true,  
     electrolysis_liquid_phase = true,
-    electrolysis_phase_change = true,
+    electrolysis_phase_change = electrolysis_phase_change,
     # electrolysis_phase_change_case = "levelset",
     electrolysis_phase_change_case = "Khalighi",
     electrolysis_reaction = "Butler_no_concentration", #"nothing", #
@@ -958,7 +967,8 @@ plt.close(fig1)
 plot_grid = false
 
 plot_movies = false
-# plot_movies = true
+plot_movies = true
+
 plot_R = plot_movies
 
 plotcase = "none"
@@ -1149,15 +1159,18 @@ for plt_it = 2:size_frame+1
     plot_python_pdf(plt_it,max.((fwdL.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0), "H2_norm",prefix,
     plot_levelset,concentrationcontour,plot_grid,"pcolormesh",0,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
 
-    plot_python_pdf(plt_it,max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0), "H2lvl",prefix,
+    plot_python_pdf(plt_it,max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0), "H2_normlvl",prefix,
     plot_levelset,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
 
     # python_movie_zoom(max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0),"H2_norm",prefix,
     # plot_levelset,isocontour,0,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",size_frame,1,gp.nx,1,gp.ny,fwd)
 
-    plot_python_pdf(plt_it,fwdL.trans_scal[:,:,:,1], "H2",prefix,
-    plot_levelset,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
+    # plot_python_pdf(plt_it,fwdL.trans_scal[:,:,:,1], "H2",prefix,
+    # plot_levelset,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
 
+
+    plot_python_pdf(plt_it,fwd.trans_scal[:,:,:,1], "H2_normlvlrange",prefix,
+    plot_levelset,concentrationcontour,plot_grid,"pcolormesh",0,range(0.155,0.165,length=10),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
 
     ######################################################################################################
 
@@ -1170,11 +1183,11 @@ for plt_it = 2:size_frame+1
     plot_levelset,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
 
 
-    plot_python_pdf(plt_it,fwdL.trans_scal[:,:,:,2] , "KOH",prefix,
-    plot_levelset,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
+    # plot_python_pdf(plt_it,fwdL.trans_scal[:,:,:,2] , "KOH",prefix,
+    # plot_levelset,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
 
-    plot_python_pdf(plt_it,fwdL.trans_scal[:,:,:,3], "H2O",prefix,
-    plot_levelset,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
+    # plot_python_pdf(plt_it,fwdL.trans_scal[:,:,:,3], "H2O",prefix,
+    # plot_levelset,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
 
 
    
@@ -1283,9 +1296,9 @@ for plt_it = 2:size_frame+1
 
     # @views vec = reshape(veci(fwdL.trans_scalD[plt_it,:,1],gp,2),gp)
 
-    vec = zeros(gp)
-    # vec = reshape(veci(phL.trans_scalD[:,1],gp,2),gp)   
-    vec = reshape(veci(fwdL.trans_scalD[plt_it,:,1],gp,2),gp)
+    # vec = zeros(gp)
+    # # vec = reshape(veci(phL.trans_scalD[:,1],gp,2),gp)   
+    # vec = reshape(veci(fwdL.trans_scalD[plt_it,:,1],gp,2),gp)
 
 
     # print("\n testvec",maximum(vec),size(vec))
@@ -1293,12 +1306,16 @@ for plt_it = 2:size_frame+1
     # vec = phL.trans_scal[:,:,1]
     # veci(phL.trans_scalD[:,1],grid,2)
 
-    plot_python_pdf_full2(-plt_it,vec,fwdL.trans_scalD[:,:,1], "H2_int_liqlvlzoomfullfield",prefix,
+    plot_python_pdf_full2(-plt_it,reshape(veci(fwdL.trans_scalD[plt_it,:,1],gp,2),gp),fwdL.trans_scalD[:,:,1], "H2_int_liqlvlzoomfullfield",prefix,
     plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
     i0,i1,j0,j1,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
 
-    plot_python_pdf(-plt_it,vec, "H2_int_liqlvlzoom",prefix,
-    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",i0,i1,j0,j1,fwd)
+    plot_python_pdf_full2(-plt_it,reshape(veci(fwdL.trans_scalD[plt_it,:,3],gp,2),gp),fwdL.trans_scalD[:,:,3], "H2O_int_liqlvlzoomfullfield",prefix,
+    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+    i0,i1,j0,j1,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
+
+    # plot_python_pdf(-plt_it,vec, "H2_int_liqlvlzoom",prefix,
+    # plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",i0,i1,j0,j1,fwd)
 
 
     # plot_python_pdf_full2(-plt_it,vec, "H2_int_liqlvlzoomfullfield",prefix,
