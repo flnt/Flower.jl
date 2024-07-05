@@ -38,7 +38,7 @@ function run_forward(
     λ = 1,
     )
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, L0, NB, Δ, CFL, Re, max_iterations,
-            current_i, save_every, reinit_every, nb_reinit, δreinit, ϵ, m, θ₀, aniso, nLS, _nLS, nNavier = num
+            save_every, reinit_every, nb_reinit, δreinit, ϵ, m, θ₀, aniso, nLS, _nLS, nNavier = num
     @unpack opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL = op
     @unpack x, y, nx, ny, dx, dy, ind, LS, V = grid
 
@@ -447,9 +447,7 @@ function run_forward(
     V0L = volume(LS[end].geoL)
 
     current_t = 0.0
-
-    while current_i < max_iterations + 1
-
+    while num.current_i < max_iterations + 1        
         if !stefan
             V .= speed*ones(ny, nx)
         end
@@ -502,7 +500,7 @@ function run_forward(
                 if is_stefan(bc)
                     IIOE_normal!(grid, LS[iLS].A, LS[iLS].B, LS[iLS].u, V, CFL_sc, periodic_x, periodic_y)
                     LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u)), grid)
-                    # u .= sqrt.((x .- current_i*Δ/1).^ 2 + y .^ 2) - (0.5) * ones(nx, ny);
+                    # u .= sqrt.((x .- num.current_i*Δ/1).^ 2 + y .^ 2) - (0.5) * ones(nx, ny);
                 elseif is_fs(bc)
                     rhs_LS .= 0.0
                     LS[iLS].A.nzval .= 0.0
@@ -565,19 +563,19 @@ function run_forward(
                 end
             end
             if analytical
-                u[ind.b_top[1]] .= sqrt.(x[ind.b_top[1]] .^ 2 + y[ind.b_top[1]] .^ 2) .- (num.R + speed*current_i*num.τ);
-                u[ind.b_bottom[1]] .= sqrt.(x[ind.b_bottom[1]] .^ 2 + y[ind.b_bottom[1]] .^ 2) .- (num.R + speed*current_i*num.τ);
-                u[ind.b_left[1]] .= sqrt.(x[ind.b_left[1]] .^ 2 + y[ind.b_left[1]] .^ 2) .- (num.R + speed*current_i*num.τ);
-                u[ind.b_right[1]] .= sqrt.(x[ind.b_right[1]] .^ 2 + y[ind.b_right[1]] .^ 2) .- (num.R + speed*current_i*num.τ);
+                u[ind.b_top[1]] .= sqrt.(x[ind.b_top[1]] .^ 2 + y[ind.b_top[1]] .^ 2) .- (num.R + speed*num.current_i*num.τ);
+                u[ind.b_bottom[1]] .= sqrt.(x[ind.b_bottom[1]] .^ 2 + y[ind.b_bottom[1]] .^ 2) .- (num.R + speed*num.current_i*num.τ);
+                u[ind.b_left[1]] .= sqrt.(x[ind.b_left[1]] .^ 2 + y[ind.b_left[1]] .^ 2) .- (num.R + speed*num.current_i*num.τ);
+                u[ind.b_right[1]] .= sqrt.(x[ind.b_right[1]] .^ 2 + y[ind.b_right[1]] .^ 2) .- (num.R + speed*num.current_i*num.τ);
             elseif nb_reinit > 0
-                if auto_reinit && (current_i-1)%num.reinit_every == 0
+                if auto_reinit && (num.current_i-1)%num.reinit_every == 0
                     for iLS in 1:nLS
                         if !is_wall(BC_int[iLS])
                             # ls_rg = rg(num, grid, LS[iLS].u, periodic_x, periodic_y, BC_int)[1]
                             # println(ls_rg)
                             ls_rg, rl_rg_v = rg(num, grid, LS[iLS].u, periodic_x, periodic_y, BC_int)
-                            println("$(ls_rg) ")
-                            if ls_rg >= δreinit || current_i == 1
+                            println("$(ls_rg)")
+                            if ls_rg >= δreinit || num.current_i == 1
                                 println("yes")
                                 RK2_reinit!(ls_scheme, grid, ind, iLS, LS[iLS].u, nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
                                 
@@ -586,7 +584,7 @@ function run_forward(
                             end
                         end
                     end
-                elseif (current_i-1)%num.reinit_every == 0
+                elseif (num.current_i-1)%num.reinit_every == 0
                     for iLS in 1:nLS
                         if !is_wall(BC_int[iLS])
                             RK2_reinit!(ls_scheme, grid, ind, iLS, LS[iLS].u, nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
@@ -611,8 +609,8 @@ function run_forward(
         end
 
         if verbose
-            if (current_i-1)%show_every == 0
-                printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) | t = %.2e \n" (current_i-1) 100*(current_i-1)/max_iterations current_t)
+            if (num.current_i-1)%show_every == 0
+                printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) | t = %.2e \n" (num.current_i-1) 100*(num.current_i-1)/max_iterations current_t)
                 if heat && length(LS[end].MIXED) != 0
                     print(@sprintf "V_mean = %.2e  V_max = %.2e  V_min = %.2e\n" mean(V[LS[1].MIXED]) findmax(V[LS[1].MIXED])[1] findmin(V[LS[1].MIXED])[1])
                     print(@sprintf "κ_mean = %.2e  κ_max = %.2e  κ_min = %.2e\n" mean(LS[1].κ[LS[1].MIXED]) findmax(LS[1].κ[LS[1].MIXED])[1] findmin(LS[1].κ[LS[1].MIXED])[1])
@@ -642,8 +640,9 @@ function run_forward(
         end
 
 
-        if levelset && (advection || current_i<2)
-            NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
+        if levelset && (advection || num.current_i<2)
+            try
+                NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
 
             LS[end].geoL.fresh .= false
             LS[end].geoS.fresh .= false
@@ -684,8 +683,8 @@ function run_forward(
                     grid_v.LS[end].geoL.projection, FRESH_L_v, periodic_x, periodic_y)
             end
 
-            if iszero(current_i%save_every) || current_i==max_iterations
-                snap = current_i÷save_every+1
+            if iszero(num.current_i%save_every) || num.current_i==max_iterations
+                snap = num.current_i÷save_every+1
                 if save_radius
                     radius[snap] = find_radius(grid, LS[1])
                 end
@@ -721,7 +720,7 @@ function run_forward(
                     AuS, BuS, AvS, BvS, AϕS, AuvS, BuvS,
                     Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,
                     Cum1S, Cvm1S, Mum1_S, Mvm1_S,
-                    periodic_x, periodic_y, ns_advection, advection, current_i, Ra, navier
+                    periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier
                 )
             end
             if ns_liquid_phase
@@ -736,9 +735,9 @@ function run_forward(
                     AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,
                     Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
                     Cum1L, Cvm1L, Mum1_L, Mvm1_L,
-                    periodic_x, periodic_y, ns_advection, advection, current_i, Ra, navier
+                    periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier
                 )
-                # if current_i == 1
+                # if num.current_i == 1
                 #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
                 #     phL.v .= 0.5 .* grid_v.x .+ getproperty.(grid_v.LS[1].geoL.centroid, :x) .* grid_v.dx
                 #     phL.u[grid_u.LS[1].SOLID] .= 0.0
@@ -749,13 +748,13 @@ function run_forward(
                 #     BC_uL, BC_vL, opL
                 # )
             end
-            cD, cL, D, L = force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, phL; step = current_i+1, saveCoeffs = false)
+            cD, cL, D, L = force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, phL; step = num.current_i+1, saveCoeffs = false)
         end
 
         current_t += num.τ
-        if iszero(current_i%save_every) || current_i==max_iterations
-            snap = current_i÷save_every+1
-            if current_i==max_iterations
+        if iszero(num.current_i%save_every) || num.current_i==max_iterations
+            snap = num.current_i÷save_every+1
+            if num.current_i==max_iterations
                 snap = size(fwd.T,1)
             end
             # fwd.t[snap] = current_t
@@ -807,21 +806,18 @@ function run_forward(
             end
         end
         if navier_stokes
-            fwd.t[current_i+1] = current_t
-            @views fwd.Cd[current_i+1] = cD
-            @views fwd.Cl[current_i+1] = cL
+            fwd.t[num.current_i+1] = current_t
+            @views fwd.Cd[num.current_i+1] = cD
+            @views fwd.Cl[num.current_i+1] = cL
         end
 
         if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || any(isnan, phS.uD) || any(isnan, phS.vD) || any(isnan, phS.TD) ||
             norm(phL.u) > 1e8 || norm(phS.u) > 1e8 || norm(phL.T) > 1e8 || norm(phS.T) > 1e8)
-            println(@sprintf "\n CRASHED after %d iterations \n" current_i)
-            # if flapping
-            #     return xc, yc
-            # else
+            println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
             return nothing
         end
 
-        current_i += 1
+        num.current_i += 1
 
         if adaptative_t
             num.τ = min(CFL*Δ^2*Re, CFL*Δ/max(
@@ -834,7 +830,7 @@ function run_forward(
 
     if verbose
         try
-            printstyled(color=:blue, @sprintf "\n Final iteration : %d (%d%%) | t = %.2e \n" (current_i-1) 100*(current_i-1)/max_iterations current_t)
+            printstyled(color=:blue, @sprintf "\n Final iteration : %d (%d%%) | t = %.2e \n" (num.current_i-1) 100*(num.current_i-1)/max_iterations current_t)
             if stefan && advection
                 print(@sprintf "V_mean = %.2e  V_max = %.2e  V_min = %.2e  V_stdev = %.5f\n" mean(V[LS[1].MIXED]) findmax(V[LS[1].MIXED])[1] findmin(V[LS[1].MIXED])[1] std(V[LS[1].MIXED]))
                 print(@sprintf "κ_mean = %.2e  κ_max = %.2e  κ_min = %.2e  κ_stdev = %.5f\n" mean(LS[1].κ[LS[1].MIXED]) findmax(LS[1].κ[LS[1].MIXED])[1] findmin(LS[1].κ[LS[1].MIXED])[1] std(LS[1].κ[LS[1].MIXED]))
