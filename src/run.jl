@@ -73,6 +73,9 @@ function run_forward(
         advection = false
     end
 
+    # The count threshold shouldn't be smaller than 2
+    count_limit_breakup = 6
+
     iRe = 1.0 / Re
     CFL_sc = num.τ / Δ^2
 
@@ -571,16 +574,14 @@ function run_forward(
                 if auto_reinit && (num.current_i-1)%num.reinit_every == 0
                     for iLS in 1:nLS
                         if !is_wall(BC_int[iLS])
-                            # ls_rg = rg(num, grid, LS[iLS].u, periodic_x, periodic_y, BC_int)[1]
-                            # println(ls_rg)
                             ls_rg, rl_rg_v = rg(num, grid, LS[iLS].u, periodic_x, periodic_y, BC_int)
                             println("$(ls_rg)")
                             if ls_rg >= δreinit || num.current_i == 1
                                 println("yes")
                                 RK2_reinit!(ls_scheme, grid, ind, iLS, LS[iLS].u, nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
                                 
-                                # ls_rg, rl_rg_v = rg(num, grid, LS[iLS].u, periodic_x, periodic_y, BC_int)
-                                # println("$(ls_rg) ")
+                                ls_rg, rl_rg_v = rg(num, grid, LS[iLS].u, periodic_x, periodic_y, BC_int)
+                                println("$(ls_rg) ")
                             end
                         end
                     end
@@ -588,7 +589,6 @@ function run_forward(
                     for iLS in 1:nLS
                         if !is_wall(BC_int[iLS])
                             RK2_reinit!(ls_scheme, grid, ind, iLS, LS[iLS].u, nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
-                            # FE_reinit!(ls_scheme, grid, ind, iLS, LS[iLS].u, nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
                         end
                     end
                 # elseif nLS > 1
@@ -599,10 +599,14 @@ function run_forward(
                 #     end
                 end
             end
-            # numerical breakup
+
+            # Numerical breakup
             if free_surface && breakup
-                count = breakup_f(LS[1].u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, 1e-5)
-                if count > 0
+                count, id_break = breakup_n(LS[1].u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, 5e-2)
+                println(count)
+                if count > count_limit_breakup
+                    println("BREAK UP!!") 
+                    breakup_f(grid, LS[1].u, id_break)
                     RK2_reinit!(ls_scheme, grid, ind, 1, LS[1].u, nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
                 end
             end

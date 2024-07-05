@@ -1641,44 +1641,86 @@ function interpolate_scalar!(grid, grid_u, grid_v, u, uu, uv)
     return nothing
 end
 
-function breakup_f(u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, ϵ_break)
+
+"""
+    breakup_n(u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, ϵ_break)
+
+Computes in how many cells the phase defined by `u` is of one cell width.
+"""
+function breakup_n(u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, ϵ_break)
     u_copy = copy(u)
+    idx = CartesianIndex{2}[]
     local count = 0
     for II in NB_indices
         if !((II[2] == 1 || II[2] == nx) && !periodic_x) && II[1] != 1 && II[1] != ny
             if (u_copy[II]*u_copy[δx⁺(II, nx, periodic_x)] < 0) && (u_copy[II]*u_copy[δx⁻(II, nx, periodic_x)] < 0)
-                if ((abs(u_copy[δx⁺(II, nx, periodic_x)]) < (dx[δx⁺(II, nx, periodic_x)]/2 - ϵ_break) &&
-                     abs(u_copy[δx⁻(II, nx, periodic_x)]) < (dx[δx⁻(II, nx, periodic_x)]/2 - ϵ_break) &&
-                     abs(u_copy[II]) > (dx[II]/2)) &&
-                    ((abs(u_copy[δx⁺(δy⁺(II), nx, periodic_x)]) < (dx[δx⁺(δy⁺(II), nx, periodic_x)]/2 - ϵ_break) &&
-                      abs(u_copy[δx⁻(δy⁺(II), nx, periodic_x)]) < (dx[δx⁻(δy⁺(II), nx, periodic_x)]/2 - ϵ_break) &&
-                      abs(u_copy[δy⁺(II)]) > (dx[δy⁺(II)]/2)) ||
-                     (abs(u_copy[δx⁺(δy⁻(II), nx, periodic_x)]) < (dx[δx⁺(δy⁻(II), nx, periodic_x)]/2 - ϵ_break) &&
-                      abs(u_copy[δx⁻(δy⁻(II), nx, periodic_x)]) < (dx[δx⁻(δy⁻(II), nx, periodic_x)]/2 - ϵ_break) &&
-                      abs(u_copy[δy⁻(II)]) > (dx[δy⁻(II)]/2))))
-                    u[II] *= -1
+                if abs(u_copy[II]) < (1.0 + ϵ_break) * dx[II] / 2.0
+                    push!(idx, II)
                     count += 1
                 end
             end
         end
         if !((II[1] == 1 || II[1] == ny) && !periodic_y) && II[2] != 1 && II[2] != nx
             if (u_copy[II]*u_copy[δy⁺(II, ny, periodic_y)] < 0) && (u_copy[II]*u_copy[δy⁻(II, ny, periodic_y)] < 0)
-                if ((abs(u_copy[δy⁺(II, ny, periodic_y)]) < (dy[δy⁺(II, ny, periodic_y)]/2 - ϵ_break) &&
-                     abs(u_copy[δy⁻(II, ny, periodic_y)]) < (dy[δy⁻(II, ny, periodic_y)]/2 - ϵ_break) &&
-                     abs(u_copy[II]) > (dy[II]/2)) &&
-                    ((abs(u_copy[δy⁺(δx⁺(II), ny, periodic_y)]) < (dy[δy⁺(δx⁺(II), ny, periodic_y)]/2 - ϵ_break) &&
-                      abs(u_copy[δy⁻(δx⁺(II), ny, periodic_y)]) < (dy[δy⁻(δx⁺(II), ny, periodic_y)]/2 - ϵ_break) &&
-                      abs(u_copy[δx⁺(II)]) > (dy[δx⁺(II)]/2)) ||
-                     (abs(u_copy[δy⁺(δx⁻(II), ny, periodic_y)]) < (dy[δy⁺(δx⁻(II), ny, periodic_y)]/2 - ϵ_break) &&
-                      abs(u_copy[δy⁻(δx⁻(II), ny, periodic_y)]) < (dy[δy⁻(δx⁻(II), ny, periodic_y)]/2 - ϵ_break) &&
-                      abs(u_copy[δx⁻(II)]) > (dy[δx⁻(II)]/2))))
-                    u[II] *= -1
+                if abs(u_copy[II]) < (1.0 + ϵ_break) * dy[II] / 2.0
+                    push!(idx, II)
                     count += 1
                 end
             end
         end
     end
-    return count
+    return count, idx
+end
+
+"""
+    breakup_f(idx)
+
+Break-up the phase defined by `u` at the points in `idx`.
+"""
+function breakup_f(grid, u, idx)
+    max_x = maximum(grid.x[idx])
+    min_x = minimum(grid.x[idx])
+    dx2 = 0.5 * (max_x - min_x)
+    mean_x = 0.5 * (max_x + min_x)
+
+    max_y = maximum(grid.y[idx])
+    min_y = minimum(grid.y[idx])
+    dy2 = 0.5 * (max_y - min_y)
+    mean_y = 0.5 * (max_y + min_y)
+
+    if 2dx2 > grid.dx[1,1]
+        @inbounds @threads for II in idx
+            x = grid.x[II]
+            dx = grid.dx[II]
+            if x < mean_x
+                u[II] = -x + mean_x - dx2 - 0.5 * dx
+                u[δx⁻(II)] = -x + mean_x - dx2 - 0.5 * dx
+                u[δx⁺(II)] = -x + mean_x - dx2 - 0.5 * dx
+            else
+                u[II] = x - mean_x - dx2 - 0.5 * dx
+                u[δx⁻(II)] = x - mean_x - dx2 - 0.5 * dx
+                u[δx⁺(II)] = x - mean_x - dx2 - 0.5 * dx
+            end
+        end
+    end
+
+    if 2dy2 > grid.dy[1,1]
+        @inbounds @threads for II in idx
+            y = grid.y[II]
+            dy = grid.dy[II]
+            if y < mean_y
+                u[II] = -y + mean_y - dy2 - 0.5 * dy
+                u[δx⁻(II)] = -y + mean_y - dy2 - 0.5 * dy
+                u[δx⁺(II)] = -y + mean_y - dy2 - 0.5 * dy
+            else
+                u[II] = y - mean_y - dy2 - 0.5 * dy
+                u[δx⁻(II)] = y - mean_y - dy2 - 0.5 * dy
+                u[δx⁺(II)] = y - mean_y - dy2 - 0.5 * dy
+            end
+        end
+    end
+
+    return nothing
 end
 
 
