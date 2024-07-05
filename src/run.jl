@@ -49,19 +49,12 @@ function run_forward(
 
     free_surface = false
     stefan = false
-    flapping = false
     navier = false
     if any(is_fs, BC_int)
         free_surface = true
     end
     if any(is_stefan, BC_int)
         stefan = true
-    end
-    if any(is_flapping, BC_int)
-        flapping = true
-        # D = 0.0
-        # xc = zeros(max_iterations+1)
-        # yc = zeros(max_iterations+1)
     end
     if any(is_navier_cl, BC_int) || any(is_navier, BC_int)
         navier = true
@@ -71,10 +64,10 @@ function run_forward(
         @warn ("When using more than 1 Navier BC, the interfaces shouldn't cross")
     end
 
-    if free_surface && stefan && flapping
+    if free_surface && stefan
         @error ("Cannot advect the levelset using both free-surface and stefan condition.")
         return nothing
-    elseif free_surface || stefan# || flapping
+    elseif free_surface || stefan
         advection = true
     else
         advection = false
@@ -453,21 +446,6 @@ function run_forward(
     V0S = volume(LS[end].geoS)
     V0L = volume(LS[end].geoL)
 
-    # Force in x
-    if flapping
-        for iLS in 1:nLS
-            if is_flapping(BC_int[iLS])
-                num.τ = min(CFL * Δ^2 * Re, 
-                    CFL * Δ / (BC_int[iLS].β * BC_int[iLS].KC),
-                    1.0 / (BC_int[iLS].β * BC_int[iLS].βmult)
-                )
-                CFL_sc = num.τ / Δ^2
-                println("nits = $(round(Int, 1 / BC_int[1].β / num.τ))")
-                println("nits = $(round(Int, 100 / BC_int[1].β / num.τ))")
-            end
-        end
-    end
-
     current_t = 0.0
 
     while current_i < max_iterations + 1
@@ -512,25 +490,12 @@ function run_forward(
                 update_stefan_velocity(num, grid, iLS, LS[iLS].u, phS.T, phL.T, periodic_x, periodic_y, λ, Vmean)
             elseif is_fs(BC_int[iLS])
                 update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y)
-            # elseif is_flapping(BC_int[iLS])
-            #     if BC_int[iLS].free
-            #         grid_u.V .+= num.τ .* D ./ (BC_int[iLS].ρs .* volume(LS[end].geoS))
-            #     end
-            #     grid_v.V .= BC_int[iLS].KC .* BC_int[iLS].β .* sin(2π .* BC_int[iLS].β .* current_t)
-            #     xc[current_i+1] = xc[current_i] + num.τ * grid_u.V[1,1]
-            #     yc[current_i+1] = yc[current_i] + num.τ * grid_v.V[1,1]
-            #     grid.LS[iLS].u .= sqrt.((grid.x .- xc[current_i+1]) .^ 2 .+ ((grid.y .- yc[current_i+1]) ./ num.A) .^ 2) .- num.R .* ones(grid);
-            #     println("xc = $(xc[current_i+1]) | vx = $(grid_u.V[1,1])")
-            #     println("yc = $(yc[current_i+1]) | vy = $(grid_v.V[1,1])")
             end
         end
 
         if verbose && adaptative_t
             println("τ = $(num.τ)")
         end
-
-        # grid_u.V .= 1.0
-        # grid_v.V .= 0.5
 
         if advection
             for (iLS, bc) in enumerate(BC_int)
@@ -854,7 +819,6 @@ function run_forward(
             #     return xc, yc
             # else
             return nothing
-            # end
         end
 
         current_i += 1
@@ -902,8 +866,6 @@ function run_forward(
 
     if levelset && (save_radius || hill)
         return radius
-    # elseif flapping
-    #     return xc, yc
     else
         return nothing
     end
