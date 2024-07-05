@@ -1648,21 +1648,20 @@ end
 Computes in how many cells the phase defined by `u` is of one cell width.
 """
 function breakup_n(u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, ϵ_break)
-    u_copy = copy(u)
     idx = CartesianIndex{2}[]
     local count = 0
     for II in NB_indices
         if !((II[2] == 1 || II[2] == nx) && !periodic_x) && II[1] != 1 && II[1] != ny
-            if (u_copy[II]*u_copy[δx⁺(II, nx, periodic_x)] < 0) && (u_copy[II]*u_copy[δx⁻(II, nx, periodic_x)] < 0)
-                if abs(u_copy[II]) < (1.0 + ϵ_break) * dx[II] / 2.0
+            if (u[II]*u[δx⁺(II, nx, periodic_x)] < 0) && (u[II]*u[δx⁻(II, nx, periodic_x)] < 0)
+                if u[II] < (1.0 + ϵ_break) * dx[II] / 2.0 && u[II] > 0.0
                     push!(idx, II)
                     count += 1
                 end
             end
         end
         if !((II[1] == 1 || II[1] == ny) && !periodic_y) && II[2] != 1 && II[2] != nx
-            if (u_copy[II]*u_copy[δy⁺(II, ny, periodic_y)] < 0) && (u_copy[II]*u_copy[δy⁻(II, ny, periodic_y)] < 0)
-                if abs(u_copy[II]) < (1.0 + ϵ_break) * dy[II] / 2.0
+            if (u[II]*u[δy⁺(II, ny, periodic_y)] < 0) && (u[II]*u[δy⁻(II, ny, periodic_y)] < 0)
+                if u[II] < (1.0 + ϵ_break) * dy[II] / 2.0 && u[II] > 0.0
                     push!(idx, II)
                     count += 1
                 end
