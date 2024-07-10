@@ -526,13 +526,20 @@ const eno2 = ENO2()
 const FE = ForwardEuler()
 const CN = CrankNicolson()
 
-isCC(::Mesh{GridCC,T,N}) where {T,N} = true
+isCC(::Mesh{GridCC ,T,N}) where {T,N} = true
+isCC(::Mesh{GridFCx,T,N}) where {T,N} = false
+isCC(::Mesh{GridFCy,T,N}) where {T,N} = false
+
 isCC(::Mesh) = false
 
 isFCx(::Mesh{GridFCx,T,N}) where {T,N} = true
+isFCx(::Mesh{GridCC ,T,N}) where {T,N} = false
+isFCx(::Mesh{GridFCy,T,N}) where {T,N} = false
 isFCx(::Mesh) = false
 
 isFCy(::Mesh{GridFCy,T,N}) where {T,N} = true
+isFCy(::Mesh{GridFCx,T,N}) where {T,N} = false
+isFCy(::Mesh{GridCC ,T,N}) where {T,N} = false
 isFCy(::Mesh) = false
 
 @inline is_dirichlet(::Dirichlet) = true

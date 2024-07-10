@@ -79,6 +79,7 @@ abstract type AbstractOptimizer end
     plot_prefix::String = "."
     dt0::T = 1.0
     concentration_check_factor::T = 0.0
+    radial_vel_factor::T = 0.0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

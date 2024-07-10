@@ -8,12 +8,6 @@ using PrettyTables
 
 prefix="/local/home/pr277828/flower/"
 
-folder="electrolysis_circle_wall_CFL"
-
-prefix *= "/"*folder*"/"
-
-isdir(prefix) || mkdir(prefix)
-
 pygui(false) #do not show figures
 
 PyPlot.rc("text", usetex=true)
@@ -85,8 +79,8 @@ n = 128
 # n=1024
 
 max_iter=100
-max_iter=10
-max_iter=5
+# max_iter=10
+# max_iter=5
 # max_iter = 2
 # max_iter = 3
 
@@ -126,23 +120,195 @@ dt0 = 1.25e-5 #CFL >0.5 for n = 128
 dt0 = 6.25e-6 #CFL >0.5 for n = 128
 dt0 = 3.125e-6 #radius CFL: 3.54e-01 -7.17e+00% 
 # dt0 = 1e-6 #error dnH2 -2.40e-15
+# dt0 = 1e-6 #dnH2 -2.40e-15
 
 
 
-epsilon = 0.05
-# epsilon = 1e-2
-# epsilon = 1e-3
-# epsilon = 0.0
 
 
-electrolysis_phase_change = true
-
-#Test case 1 
 electrolysis_phase_change = false
-max_iter = 1
+# electrolysis_phase_change = true
+
+save_u = false
+save_v = false
+save_p = false
+save_zoom = false
+save_big_picture = false 
+save_interface = false 
+
+
+plot_grid = false
+
+plot_movies = false
+plot_movies = true
+
+plot_R = plot_movies
+
+#debug Levelset
+plotcase = "none"
+#plotcase = "circle"
+
+plot_current_wall = false
+# plot_current_wall = true
+
+plot_interface = false
+# plot_interface = true 
+
+imposed_velocity = "none"
+
+
+test_case = "small_cell"
+test_case = "100it"
+test_case = "radial"
+test_case = "channel_no_bubble"
+# test_case = "channel"
+
+
+radial_vel_factor = 1e-7
+
+# velocity = 1.0
+velocity = 0.0
+
+activate_interface = false
+activate_interface = true
+
+save_KOH = true
+save_H2O = true
+
+
+fontsize = 2 #2
+printmode = "val"
+plotbc=true
 
 
 
+if test_case == "small_cell"
+    #Test case 1: small cells (high concentration at vecb_L)
+    electrolysis_phase_change = false
+    max_iter = 1
+    save_every = 1
+
+    folder="electrolysis_circle_wall_CFL_small_cell"
+
+elseif test_case == "100it"
+    #Test case 2: scalar without velocity
+    electrolysis_phase_change = false
+    max_iter = 100
+    save_every = 10
+    save_p = false
+
+    folder="electrolysis_circle_wall_CFL"*test_case
+
+elseif test_case == "radial"
+    electrolysis_phase_change = false
+    imposed_velocity = "radial"
+    max_iter = 1
+    save_every = 1
+    n = 64
+    radial_vel_factor = 1e-7
+    folder="electrolysis_circle_wall_CFL"*test_case
+
+elseif test_case == "channel_no_bubble"
+    activate_interface = false
+    electrolysis_phase_change = false
+    max_iter = 100
+    save_every = 25
+
+    max_iter = 1 #20
+    save_every = 1
+
+
+    velocity = 1.0
+    # save_v = true
+    save_KOH = false
+    save_H2O = false
+    save_zoom = true
+
+
+elseif test_case == "channel"
+    electrolysis_phase_change = false
+    max_iter = 100
+    save_every = 25
+    velocity = 1.0
+
+end
+
+folder="electrolysis_circle_wall_CFL"*"_"*test_case
+
+####################################################################################################
+# Save path
+####################################################################################################
+prefix *= "/"*folder*"/"
+isdir(prefix) || mkdir(prefix)
+####################################################################################################
+
+
+####################################################################################################
+#PDI attempt (IO)
+####################################################################################################
+
+##################################################
+# Check libraries 
+##################################################
+#Linux
+# nm -D /usr/lib/x86_64-linux-gnu/libpdi.so | grep "init"
+# nm -D /usr/lib/x86_64-linux-gnu/libparaconf.so | grep "parse"
+
+# export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/x86_64-linux-gnu/libpdi.so
+# export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/x86_64-linux-gnu
+
+#Julia console
+# Base.Libc.Libdl.find_library(["libpdi"])
+# should print: "libpdi"
+
+# julia> Base.Libc.Libdl.find_library(["libparaconf"])
+# should print: "libparaconf"
+##################################################
+
+
+
+
+
+# load the configuration tree
+# PC_tree_t conf = PC_parse_path("ex2.yml");
+# conf = @ccall "libparaconf".PC_parse_path("ex2.yml"::Cstring)::Cstring
+
+# conf = @ccall "libparaconf".PC_parse_path("hello_data.yml"::Cstring)::Cstring
+
+io_pdi = true
+io_pdi = false
+
+if io_pdi
+    printstyled(color=:red, @sprintf "\n PDI test \n" )
+
+    #TODO types ::Cstring need to recheck
+    # Ptr{UInt8}
+    # Ptr{Cdouble}
+    ##################################################
+    # To call c function in Julia language:
+    # @ccall library.function_name(argvalue1::argtype1, ...)::returntype
+    # https://docs.julialang.org/en/v1/manual/calling-c-and-fortran-code/
+    ##################################################
+
+    yml_file = prefix*"hello_data.yml"
+    # yml_file = "hello_data.yml"
+
+    #So, for paraconf and pdi it would look like this (the types may be incorrect)
+    # conf = @ccall "libparaconf".PC_parse_path("hello_data.yml"::Cstring)::Ptr{Cvoid}
+    conf = @ccall "libparaconf".PC_parse_path(yml_file::Ptr{UInt8})::Ptr{Cvoid}
+    # conf = @ccall "libparaconf".PC_parse_path("hello_data.yml"::Ptr{UInt8})::Ptr{Cvoid}
+
+
+    testpdi = @ccall "libpdi".PC_get(conf::Ptr{Cdouble}, ".pdi"::Cstring)::Cstring
+
+    @ccall "libpdi".PDI_init(testpdi::Cstring)::Cstring
+
+    @ccall "libpdi".PDI_event("Hello World Event"::Cstring)::Cstring
+
+    @ccall "libpdi".PDI_finalize()::Cstring
+
+    printstyled(color=:red, @sprintf "\n PDI test end\n" )
+end
 ####################################################################################################
 
 # h0=radius ?
@@ -165,6 +331,19 @@ rho2=0.069575 #"0.7016E-01" in \citet{cohnTABLETHERMODYNAMICPROPERTIES1963} H2
 # radius=2.5e-5 
 # radius=1.25e-5 
 radius = 3.0e-6 
+# radius = 2.95e-6 
+# radius = 3.075e-6 
+# radius = 3.1e-6 
+# radius = 3.105e-6 
+
+
+epsilon = 0.05
+# epsilon = 1e-2
+# epsilon = 1e-3
+# epsilon = 0.0
+
+
+
 # radius = 6.0e-6 
 
 h0 = radius
@@ -378,6 +557,7 @@ num = Numerical(
     plot_prefix = prefix,
     dt0 = dt0,
     concentration_check_factor = concentration_check_factor,
+    radial_vel_factor = radial_vel_factor
     )
     # ref_thickness_2d = ref_thickness_2d,
 
@@ -386,31 +566,92 @@ gp, gu, gv = init_meshes(num)
 op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
 
-
-
-
 @unpack x, nx, ny, ind = gv
 
-velocity = 1.0
-velocity = 0.0
 
-vPoiseuille = zeros(gv)
-vPoiseuille = Poiseuille_favg.(x,v_inlet,L0) .* velocity
-vPoiseuilleb = Poiseuille_favg.(gv.x[1,:],v_inlet,L0) .* velocity
+if imposed_velocity == "radial"
+    phL.v .= 0.0
+    phL.u .= 0.0
+    phS.v .= 0.0
+    phS.u .= 0.0
+
+    for ju in 1:gu.ny
+        for iu in 1:gu.nx
+            xcell = gu.x[ju,iu]
+            ycell = gu.y[ju,iu]
+
+            vec0 = [xcoord, ycoord]
+            vec1 = [xcell, ycell]
+
+            vecr = vec1-vec0
+            normr = norm(vecr)
+            if normr>radius
+                vecr .*= 1.0/normr
+                factor = 1.0/normr 
+                factor *= radial_vel_factor
+                phL.u[ju,iu] = factor * vecr[1]
+                phS.u[ju,iu] = factor * vecr[1]
+
+            end
+        end
+    end
+
+    for jv in 1:gv.ny
+        for iv in 1:gv.nx    
+            xcell = gv.x[jv,iv]
+            ycell = gv.y[jv,iv]
+
+            vec0 = [xcoord, ycoord]
+            vec1 = [xcell, ycell]
+
+            vecr = vec1-vec0
+            normr = norm(vecr)
+
+            if normr>radius
+
+                vecr .*= 1.0/normr
+                factor = 1.0/normr 
+                factor *= radial_vel_factor
+
+                phL.v[jv,iv] = factor * vecr[2]
+                phS.v[jv,iv] = factor * vecr[2]
+
+                #print("\n i ",iv," j ",jv," vec",vecr[2]," y ",ycell," ycoord ",ycoord," v ",phL.v[jv,iv])
+            end
+        end
+    end
+
+    printstyled(color=:red, @sprintf "\n radial vel: %.2e %.2e CFL %.2e dt0 %.2e dx %.2e \n" maximum(phL.u) maximum(phL.v) max(maximum(phL.u),maximum(phL.v))*dt0/gp.dx[1,1] dt0 gp.dx[1,1])
+
+            
+
+    vPoiseuilleb = 0.0
+
+
+else
+
+    vPoiseuille = zeros(gv)
+    vPoiseuille = Poiseuille_favg.(x,v_inlet,L0) .* velocity
+    vPoiseuilleb = Poiseuille_favg.(gv.x[1,:],v_inlet,L0) .* velocity
+
+    phL.v .=vPoiseuille .* velocity
+    phL.u .= 0.0
+    phL.p .= pres0 #0.0
+    phL.T .= temperature0
+    phS.T .= temperature0
+
+    #Initialize for CRASH detection (cf isnan...)
+    phS.v .= 0.0
+    phS.u .= 0.0
+    phS.vD .= 0.0
+    phS.uD .= 0.0
+
+    
+end
 
 
 
-phL.v .=vPoiseuille .* velocity
-phL.u .= 0.0
-phL.p .= pres0 #0.0
-phL.T .= temperature0
-phS.T .= temperature0
 
-#Initialize for CRASH detection (cf isnan...)
-phS.v .= 0.0
-phS.u .= 0.0
-phS.vD .= 0.0
-phS.uD .= 0.0
 
 
 ####################################################################################################
@@ -419,26 +660,34 @@ phS.uD .= 0.0
 # gp.LS[1].u .*= -1.0
 ####################################################################################################
 
-gp.LS[1].u .= sqrt.((gp.x .- xcoord).^2 + (gp.y .- ycoord).^2) - radius * ones(gp)
-# gp.LS[1].u .*= -1.0
+if activate_interface 
 
 
-# gp.LS[1].u .= 1.0
+    gp.LS[1].u .= sqrt.((gp.x .- xcoord).^2 + (gp.y .- ycoord).^2) - radius * ones(gp)
+    # gp.LS[1].u .*= -1.0
 
-# gp.LS[1].u .*= -1.0
+
+    # gp.LS[1].u .= 1.0
+
+    # gp.LS[1].u .*= -1.0
 
 
-su = sqrt.((gv.x .- xcoord).^2 .+ (gv.y .- ycoord).^2)
-R1 = radius + 3.0*num.Δ
+    su = sqrt.((gv.x .- xcoord).^2 .+ (gv.y .- ycoord).^2)
+    R1 = radius + 3.0*num.Δ
 
-bl = 4.0
-for II in gv.ind.all_indices
-    if su[II] <= R1
-        phL.v[II] = 0.0
-    # elseif su[II] > R1
-    #     uL[II] = tanh(bl*(su[II]-R1))
+    bl = 4.0
+    for II in gv.ind.all_indices
+        if su[II] <= R1
+            phL.v[II] = 0.0
+        # elseif su[II] > R1
+        #     uL[II] = tanh(bl*(su[II]-R1))
+        end
     end
+else
+    gp.LS[1].u .= 1.0
 end
+
+test_LS(gp)
 
 
 vecb_L(phL.uD, gu) .= 0.0
@@ -460,89 +709,27 @@ yscale = xscale
 
 x_array=gp.x[1,:]/xscale
 y_array=gp.y[:,1]/yscale
-
-us,vs = interpolate_grid_liquid(gp,gu,gv,phL.u,phL.v)
-
-# fig, ax = plt.subplots()
-# q = ax.quiver(x_array,y_array,us,vs)
-# # ax.quiverkey(q, X=0.3, Y=1.1, U=10,
-# #              label='Quiver key, length = 10', labelpos='E')
-
-# # plt.show()
-# plt.axis("equal")
-
-# plt.savefig(prefix*"vector0.pdf")
-
-
 xu=gu.x[1,:]/xscale
 yu=gu.y[:,1]/yscale
-
-# u_array = phL.u 
-u_array = phL.u ./velscale
-
-
-fig1, ax2 = plt.subplots(layout="constrained")
-CS = ax2.contourf(xu,yu,u_array, 10, cmap=cmap)
-
-# Note that in the following, we explicitly pass in a subset of the contour
-# levels used for the filled contours.  Alternatively, we could pass in
-# additional levels to provide extra resolution, or leave out the *levels*
-# keyword argument to use all of the original levels.
-
-# CS2 = ax2.contour(CS, 
-# # levels=CS.levels[::2], 
-# # levels=
-# colors="r")
-
-# ax2.set_title("Title")
-ax2.set_xlabel(L"$x (\mu m)$")
-ax2.set_ylabel(L"$y (\mu m)$")
-
-# Make a colorbar for the ContourSet returned by the contourf call.
-cbar = fig1.colorbar(CS)
-cbar.ax.set_ylabel("u")
-# Add the contour line levels to the colorbar
-# cbar.add_lines(CS2)
-
-# cbar.formatter.set_powerlimits((0, 0))
-# # to get 10^3 instead of 1e3
-# # cbar.formatter.set_useMathText(True)
-# cbar.formatter.set_useMathText(1)
-
-cbar.ax.set_title(L"$10^{-4}$")
-
-plt.axis("equal")
-
-
-plt.savefig(prefix*"u0.pdf")
-plt.close(fig1)
-
-######################################################################################################
-
 xv=gv.x[1,:]/xscale
 yv=gv.y[:,1]/yscale
+plt_it = 1
 
-v_array = phL.v ./velscale
+if imposed_velocity == "radial"
+    plot_radial_vel()
+end
 
-fig1, ax2 = plt.subplots(layout="constrained")
-CS = ax2.contourf(xv,yv,phL.v ./velscale, 10, cmap=cmap)
+if save_u
+    plot_python_pdf(plt_it,fwdL.u , "u",prefix,plot_levelset,isocontour,plot_grid,"pcolormesh",
+    10,range(0,1400,length=8),cmap,xu,yu,gu,"velocity",1,gu.nx,1,gu.ny,fwd)
+    # ./velscale
+end
 
-
-# ax2.set_title("Title")
-ax2.set_xlabel(L"$x (\mu m)$")
-ax2.set_ylabel(L"$y (\mu m)$")
-
-# Make a colorbar for the ContourSet returned by the contourf call.
-cbar = fig1.colorbar(CS)
-cbar.ax.set_ylabel("v")
-
-cbar.ax.set_title(L"$10^{-4}$")
-plt.axis("equal")
-
-plt.savefig(prefix*"v0.pdf")
-
-plt.close(fig1)
-######################################################################################################
+if save_v
+    plot_python_pdf(plt_it,fwdL.v , "v",prefix,plot_levelset,isocontour,plot_grid,"pcolormesh",
+    10,range(0,1400,length=8),cmap,xv,yv,gv,"velocity",1,gv.nx,1,gv.ny,fwd)
+    # ./velscale
+end
 
 
 
@@ -579,7 +766,7 @@ print(@sprintf "Butler-Volmer %.2e %.2e %.2e %.2e\n" i_current[1] -i_current[1]/
 
 
 
-######################################################################################################
+####################################################################################################
 BC_u = Boundaries(
     bottom = Neumann_inh(),
     top = Neumann_inh(),
@@ -694,6 +881,7 @@ BC_pS = Boundaries(
     electrolysis_phase_change_case = "Khalighi",
     electrolysis_reaction = "Butler_no_concentration", #"nothing", #
     # electrolysis_reaction = "nothing",
+    imposed_velocity = imposed_velocity,
     adapt_timestep_mode = adapt_timestep_mode,#1,
     non_dimensionalize=0,
     mode_2d = mode_2d,
@@ -708,9 +896,9 @@ BC_pS = Boundaries(
 
 printstyled(color=:green, @sprintf "\n max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(phL.u)) maximum(abs.(phL.v)))
 
-######################################################################################################
+####################################################################################################
 
-######################################################################################################
+####################################################################################################
 # V0 = 0.5 * π * 0.5^2
 V0 = 0.5 * π * radius^2
 
@@ -735,10 +923,10 @@ file = suffix*".jld2"
 # tcks = -num.L0/2:0.5:num.L0
 # lim = (num.L0 + num.Δ) / 2
 # lim = 1.0
-######################################################################################################
+####################################################################################################
 
 
-######################################################################################################
+####################################################################################################
 x_array=gp.x[1,:]/xscale
 y_array=gp.y[:,1]/yscale
 
@@ -752,9 +940,9 @@ else
     size_frame=current_i
 end
 
-######################################################################################################
+####################################################################################################
 # Streamlines
-######################################################################################################
+####################################################################################################
 phi_array=phL.phi_ele #do not transpose since python row major
 Eus,Evs = interpolate_grid_liquid(gp,gu,gv,phL.Eu, phL.Ev)
 
@@ -784,130 +972,8 @@ plt.axis("equal")
 
 plt.savefig(prefix*"streamlines.pdf")
 plt.close(fig1)
-
-######################################################################################################
-# us,vs = interpolate_grid_liquid(gp,gu,gv,phL.u,phL.v)
-
-# fig, ax = plt.subplots()
-# q = ax.quiver(x_array,y_array,us,vs)
-# # ax.quiverkey(q, X=0.3, Y=1.1, U=10,
-# #              label='Quiver key, length = 10', labelpos='E')
-# plt.axis("equal")
-
-# # plt.show()
-
-# plt.savefig(prefix*"vector.pdf")
-# plt.close(fig)
-
-
-# print("\n test u ", vecb_L(phL.uD, gu))
-# print("\n test u ", phL.u[1,:])
-# print("\n test u ", phL.u[:,1])
-
-# vecb_L(phL.uD, gu) .=0.0
-# vecb_R(phL.uD, gu) .=0.0
-# vecb_T(phL.uD, gu) .=0.0
-# vecb_B(phL.uD, gu) .=0.0
-# vec1(phL.uD, gu) .=0.0
-
-
-# phL.u .= reshape(vec1(phL.uD,gu), gu)
-# phL.v .= reshape(vec1(phL.vD,gv), gv)
-
-# us,vs = interpolate_grid_liquid(gp,gu,gv,phL.u,phL.v)
-
-# fig, ax = plt.subplots()
-# q = ax.quiver(x_array,y_array,us,vs)
-# # ax.quiverkey(q, X=0.3, Y=1.1, U=10,
-# #              label='Quiver key, length = 10', labelpos='E')
-
-# plt.axis("equal")
-
-# plt.show()
-
-# plt.savefig(prefix*"vector_test1.pdf")
-
-# # print("\n test u ", vecb_L(phL.uD, gu))
-
-######################################################################################################
-# u
-######################################################################################################
-xu=gu.x[1,:]/xscale
-yu=gu.y[:,1]/yscale
-
-# u_array = phL.u 
-u_array = phL.u ./velscale
-
-fig1, ax2 = plt.subplots(layout="constrained")
-CS = ax2.contourf(xu,yu,u_array, 10, cmap=cmap)
-
-# CS2 = ax2.contour(CS, 
-# # levels=CS.levels[::2], 
-# # levels=
-# colors="r")
-
-# ax2.set_title("Title")
-ax2.set_xlabel(L"$x (\mu m)$")
-ax2.set_ylabel(L"$y (\mu m)$")
-
-# Make a colorbar for the ContourSet returned by the contourf call.
-cbar = fig1.colorbar(CS)
-cbar.ax.set_ylabel("u")
-# Add the contour line levels to the colorbar
-# cbar.add_lines(CS2)
-
-# cbar.formatter.set_powerlimits((0, 0))
-# # to get 10^3 instead of 1e3
-# # cbar.formatter.set_useMathText(True)
-# cbar.formatter.set_useMathText(1)
-
-cbar.ax.set_title(L"$10^{-4}$")
-
-plt.axis("equal")
-
-plt.savefig(prefix*"u.pdf")
-plt.close(fig1)
-######################################################################################################
-
-######################################################################################################
-# v
-######################################################################################################
-xv=gv.x[1,:]/xscale
-yv=gv.y[:,1]/yscale
-
-# v_array = phL.v 
-v_array = phL.v ./velscale
-
-fig1, ax2 = plt.subplots(layout="constrained")
-CS = ax2.contourf(xv,yv,phL.v ./velscale, 10, cmap=cmap)
-
-# CS2 = ax2.contour(CS, 
-# # levels=CS.levels[::2], 
-# # levels=
-# colors="r")
-
-# ax2.set_title("Title")
-ax2.set_xlabel(L"$x (\mu m)$")
-ax2.set_ylabel(L"$y (\mu m)$")
-
-# Make a colorbar for the ContourSet returned by the contourf call.
-cbar = fig1.colorbar(CS)
-cbar.ax.set_ylabel("v")
-# Add the contour line levels to the colorbar
-# cbar.add_lines(CS2)
-
-# cbar.formatter.set_powerlimits((0, 0))
-# # to get 10^3 instead of 1e3
-# # cbar.formatter.set_useMathText(True)
-# cbar.formatter.set_useMathText(1)
-
-cbar.ax.set_title(L"$10^{-4}$")
-plt.axis("equal")
-
-plt.savefig(prefix*"v.pdf")
-
-plt.close(fig1)
-######################################################################################################
+####################################################################################################
+#plot_vector()
 
 
 
@@ -959,65 +1025,57 @@ plt.close(fig1)
 # plt.savefig(prefix*"contact.pdf")
 
 # plt.close(fig1)
-######################################################################################################
+####################################################################################################
 
-#TODO bug when putting plotting instructions in function, range(start,end,step) no longer working as argument so give start,end,length instead
+#TODO bug when putting plotting instructions in function, range(start,end,step) 
+# no longer working as argument so give start,end,length instead
 
 # gen_name=nx
-plot_grid = false
-
-plot_movies = false
-plot_movies = true
-
-plot_R = plot_movies
-
-plotcase = "none"
-plotcase = "circle"
 
 
-# plt_it = [2]
-
-# plt_list =  range(2,current_i,1)
-
-# plt_list = 2:current_i:1
-# print(plt_list)
-
+####################################################################################################
+# zoom indices
+####################################################################################################
 i0 = 1
 i1 = 10
 # j0 = gp.ny ÷ 2 +1
 # j1 = gp.ny ÷ 2 + 10
-
 # j0=67
 # j1=76
-
 j0 = gp.ny ÷ 2 +1
 j1 = gp.ny ÷ 2 + 10
-
-fontsize = 2 #2
-printmode = "val"
-plotbc=true
+####################################################################################################
 
 
-# for plt_it = 2:size_frame+1
 
+
+
+if save_big_picture  
+    plt_it = 1
+    plot_python_pdf(plt_it,fwd.u[1,:,:,:]./xscale, "LS",prefix,
+    plot_levelset,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"LS",1,gp.nx,1,gp.ny,fwd)
+end 
+
+# if save_p 
+#     plot_python_pdf(plt_it,fwdL.p, "p",prefix,
+#     true,isocontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",1,gp.nx,1,gp.ny,fwd)
 # end
 
-plt_it = 1
-plot_python_pdf(plt_it,fwd.u[1,:,:,:]./xscale, "LS",prefix,
-plot_levelset,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"LS",1,gp.nx,1,gp.ny,fwd)
+if save_zoom
+    plot_python_pdf_full2(plt_it,fwdL.trans_scal[:,:,:,1],fwdL.trans_scalD[:,:,1], "H2liqlvlzoomfullfield",prefix,
+    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+    i0,i1,j0,j1,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
 
-# plot_python_pdf(plt_it,fwdL.p, "p",prefix,
-# true,isocontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",1,gp.nx,1,gp.ny,fwd)
+    plot_python_pdf_full2(plt_it,fwdL.trans_scal[:,:,:,2],fwdL.trans_scalD[:,:,2], "KOHliqlvlzoomfullfield",prefix,
+    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+    i0,i1,j0,j1,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
+
+    plot_python_pdf_full2(plt_it,fwdL.trans_scal[:,:,:,1],fwdL.trans_scalD[:,:,1], "H2liqlvlzoomtopright",prefix,
+    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+    gp.nx-10,gp.nx,gp.ny-10,gp.ny,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
 
 
-plot_python_pdf_full2(plt_it,fwdL.trans_scal[:,:,:,1],fwdL.trans_scalD[:,:,1], "H2liqlvlzoomfullfield",prefix,
-plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
-i0,i1,j0,j1,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
-
-plot_python_pdf_full2(plt_it,fwdL.trans_scal[:,:,:,2],fwdL.trans_scalD[:,:,2], "KOHliqlvlzoomfullfield",prefix,
-plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
-i0,i1,j0,j1,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
-
+end
 
 # plot_python_pdf_full2(plt_it,fwdL.trans_scal[:,:,:,2],fwdL.trans_scalD[:,:,2], "KOHliqlvlzoomfullfieldrange",prefix,
 # plot_levelset,concentrationcontour,true,"pcolormesh",0,range(48800,49200,length=10),cmap,x_array,y_array,gp,"concentration",
@@ -1055,92 +1113,16 @@ i0,i1,j0,j1,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,false)
 # plt.savefig(prefix*"H2O_electrode.pdf")
 # plt.close(fig1)
 
+if plot_current_wall
+    plot_current_wall()
+end
 
-# fig, ax = plt.subplots()
-fig, ax = plt.subplots(layout="constrained")
+###########################################################################################################################################"
 
-# fig.subplots_adjust(right=0.75)
-
-# varx = [0, 1, 2]
-varx = gp.y/xscale
-# vecb_L(phL.trans_scalD[:,3], gp)
-label1 = raw"$c\left(H_2O\right)$"
-label2 = raw"$-\eta ~\text{(-overpotential)}$ "
-label3 = "Current"
-alpha = 0.5
-# ls= (0, (5, 10)) #":" #"--" #"--"
-# # ls2="loosely dashed" #"--"
-# # ls2 = [0, [5, 10]]
-# ls2 = (5, (10, 3)) #"dashdot"
-# ls3 = (5, (10, 3)) #"dotted"
-
-# ls  = (0, (5, 10)) 
-# ls2 = (5, (5, 10)) #"dashdot"
-# ls3 = (10, (5, 10)) #"dotted"
-
-# ls  = (0, (5, 10)) 
-# ls2 = (10, (5, 10)) #"dashdot"
-# ls3 = (10, (5, 10)) #"dotted"
-
-ls  = (0, (3, 6)) 
-ls2 = (3, (3, 6)) #"dashdot"
-ls3 = (6, (3, 6)) #"dotted"
-
-# print("current", phL.i_current_mag[:,1])
-
-# print(colors)
-
-twin1 = ax.twinx()
-twin2 = ax.twinx()
-
-# Offset the right spine of twin2.  The ticks and label have already been
-# placed on the right by twinx above.
-twin2.spines.right.set_position(("axes", 1.2))
-#colors "C0", "C1", "C2"
-p1, = ax.plot(varx, phL.trans_scal[:,1,3],colors[1], label=label1,ls=ls)
-p2, = twin1.plot(varx, phL.phi_ele[:,1] .- phi_ele1, colors[2], label=label2,ls=ls2)
-p3, = twin2.plot(varx, phL.i_current_mag[:,1], colors[3], label=label3,ls=ls3)
-
-# p1, = ax.plot(varx, ones(gp.ny),colors[1], label=label1,ls=ls)
-# p2, = twin1.plot(varx, ones(gp.ny), colors[2], label=label2,ls=ls2)
-# p3, = twin2.plot(varx, ones(gp.ny), colors[3], label=label3,ls=ls3)
-
-ax.set(
-    # xlim=(0, 2),
-    # ylim=(0, 2),
-    xlabel=raw"$y ( \unit{\um})$",
-     ylabel=label1)
-twin1.set(
-    # ylim=(0, 4), 
-ylabel=label2)
-twin2.set(
-    # ylim=(1, 65), 
-ylabel=label3)
-
-ax.yaxis.label.set_color(p1.get_color())
-twin1.yaxis.label.set_color(p2.get_color())
-twin2.yaxis.label.set_color(p3.get_color())
-
-ax.tick_params(axis="y", colors=p1.get_color())
-twin1.tick_params(axis="y", colors=p2.get_color())
-twin2.tick_params(axis="y", colors=p3.get_color())
-
-# ax.legend(handles=[p1, p2, p3],
-# # loc = "center left",
-# loc = "outside upper left",
-# )
-
-fig.legend(handles=[p1, p2, p3],
-# loc = "center left",
-loc = "outside upper left",
-)
-
-plt.savefig(prefix*"electrode_c_eta_i.pdf")
-plt.close(fig1)
-
-
-#############################################################################################################################################"
-
+# plt_it = [2]
+# plt_list =  range(2,current_i,1)
+# plt_list = 2:current_i:1
+# print(plt_list)
 # for plt_it = 2:current_i+1
 for plt_it = 2:size_frame+1
 
@@ -1148,40 +1130,68 @@ for plt_it = 2:size_frame+1
     # printstyled(color=:green, @sprintf "\n plt_it %.5i" plt_it)
 
 
-    plot_python_pdf(plt_it,fwdL.p, "p",prefix,plot_levelset,isocontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",1,gp.nx,1,gp.ny,fwd)
+    if save_p 
+        plot_python_pdf(plt_it,fwdL.p, "p",prefix,plot_levelset,isocontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",1,gp.nx,1,gp.ny,fwd)
+        # plot_python_pdf(phL.p, "p",prefix,plot_levelset,isocontour,0,range(pres0*0.9999,pres0*1.0001,length=10),cmap,x_array,y_array,gp,"pressure")
+        # plot_python_pdf((phL.p.-pres0)./pres0, "pnorm",prefix,plot_levelset,isocontour,0,range(-1e-4,1e-4,length=10),cmap,x_array,y_array,gp,"pressure")    
+    end
 
-  
-    # plot_python_pdf(phL.p, "p",prefix,plot_levelset,isocontour,0,range(pres0*0.9999,pres0*1.0001,length=10),cmap,x_array,y_array,gp,"pressure")
+    if save_u
+        plot_python_pdf(plt_it,fwdL.u , "u",prefix,plot_levelset,isocontour,plot_grid,"pcolormesh",
+        10,range(0,1400,length=8),cmap,xu,yu,gu,"velocity",1,gu.nx,1,gu.ny,fwd)
+        # ./velscale
+    end
 
-    # plot_python_pdf((phL.p.-pres0)./pres0, "pnorm",prefix,plot_levelset,isocontour,0,range(-1e-4,1e-4,length=10),cmap,x_array,y_array,gp,"pressure")
+    if save_v
+        plot_python_pdf(plt_it,fwdL.v , "v",prefix,plot_levelset,isocontour,plot_grid,"pcolormesh",
+        10,range(0,1400,length=8),cmap,xv,yv,gv,"velocity",1,gv.nx,1,gv.ny,fwd)
+        # ./velscale
+    end
 
 
-    plot_python_pdf(plt_it,max.((fwdL.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0), "H2_norm",prefix,
-    plot_levelset,concentrationcontour,plot_grid,"pcolormesh",0,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
+    plot_python_pdf(plt_it,(fwdL.trans_scal[:,:,:,1] .-c0_H2)./c0_H2, "H2_normlvl",prefix,
+    plot_levelset,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+    1,gp.nx,1,gp.ny,fwd)
 
-    plot_python_pdf(plt_it,max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0), "H2_normlvl",prefix,
+    plot_python_pdf_full2(plt_it,fwdL.trans_scal[:,:,:,1],fwdL.trans_scalD[:,:,1], "H2liqlvlzoomtop",prefix,
+    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+    i0,i1,gp.ny-10,gp.ny,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
+
+    plot_python_pdf_full2(plt_it,fwdL.trans_scal[:,:,:,1],fwdL.trans_scalD[:,:,1], "H2liqlvlzoomtopright",prefix,
+    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+    gp.nx-10,gp.nx,gp.ny-10,gp.ny,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
+
+
+
+    plot_python_pdf(plt_it,max.((fwdL.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0), "H2_norm_max0",prefix,
+    plot_levelset,concentrationcontour,plot_grid,"pcolormesh",0,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+    1,gp.nx,1,gp.ny,fwd)
+
+
+    plot_python_pdf(plt_it,max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0), "H2_norm_max0lvl",prefix,
     plot_levelset,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
 
-    # python_movie_zoom(max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0),"H2_norm",prefix,
+    # python_movie_zoom(max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0),"H2_norm_max0",prefix,
     # plot_levelset,isocontour,0,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",size_frame,1,gp.nx,1,gp.ny,fwd)
 
     # plot_python_pdf(plt_it,fwdL.trans_scal[:,:,:,1], "H2",prefix,
     # plot_levelset,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
 
 
-    plot_python_pdf(plt_it,fwd.trans_scal[:,:,:,1], "H2_normlvlrange",prefix,
+    plot_python_pdf(plt_it,fwd.trans_scal[:,:,:,1], "H2_norm_max0lvlrange",prefix,
     plot_levelset,concentrationcontour,plot_grid,"pcolormesh",0,range(0.155,0.165,length=10),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
 
-    ######################################################################################################
+    ####################################################################################################
 
 
-
-    plot_python_pdf(plt_it,max.((fwdL.trans_scal[:,:,:,2] .-c0_KOH)./c0_KOH,0.0), "KOH_norm",prefix,
-    plot_levelset,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
-
-    plot_python_pdf(plt_it,max.((fwdL.trans_scal[:,:,:,3] .-c0_H2O)./c0_H2O,0.0), "H2O_norm",prefix,
-    plot_levelset,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
-
+    if save_KOH
+        plot_python_pdf(plt_it,max.((fwdL.trans_scal[:,:,:,2] .-c0_KOH)./c0_KOH,0.0), "KOH_norm_max0",prefix,
+        plot_levelset,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
+    end
+    if save_H2O
+        plot_python_pdf(plt_it,max.((fwdL.trans_scal[:,:,:,3] .-c0_H2O)./c0_H2O,0.0), "H2O_norm_max0",prefix,
+        plot_levelset,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
+    end
 
     # plot_python_pdf(plt_it,fwdL.trans_scal[:,:,:,2] , "KOH",prefix,
     # plot_levelset,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",1,gp.nx,1,gp.ny,fwd)
@@ -1195,10 +1205,10 @@ for plt_it = 2:size_frame+1
     # plot_python_several_pdf(fwd.trans_scal[:,:,:,1],"H2",true,size_frame)
     # plot_python_several_pdf(fwd.saved_scal[:,:,:,1],"H2massflux",true,size_frame)
 
-
-    plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,1], "flux1zoom",prefix,
-    true,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",i0,i1,j0,j1,fwd)
-
+    if electrolysis_phase_change
+        plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,1], "flux1zoom",prefix,
+        true,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",i0,i1,j0,j1,fwd)
+    end
     # plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,2], "flux2zoom",prefix,
     # true,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",i0,i1,j0,j1,fwd)
 
@@ -1227,19 +1237,23 @@ for plt_it = 2:size_frame+1
     # false,concentrationcontour,true,"pcolormesh",0,range(48950,49050,length=10),cmap,x_array,y_array,gp,"concentration",
     # 1,gp.nx,1,3,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
 
-    plot_python_pdf_full2(plt_it,fwdL.trans_scal[:,:,:,2],fwdL.trans_scalD[:,:,2], "KOHliqlvlzoomfullfield",prefix,
-    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
-    i0,i1,j0,j1,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
+    if save_KOH
+        plot_python_pdf_full2(plt_it,fwdL.trans_scal[:,:,:,2],fwdL.trans_scalD[:,:,2], "KOHliqlvlzoomfullfield",prefix,
+        plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+        i0,i1,j0,j1,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
+    end
 
-
-    plot_python_pdf_full2(plt_it,fwdL.trans_scal[:,:,:,3],fwdL.trans_scalD[:,:,3], "H2Oliqlvlzoomfullfield",prefix,
-    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
-    i0,i1,j0,j1,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
-
-    plot_python_pdf_full2(plt_it,fwd.u[1,:,:,:],fwdL.trans_scalD[:,:,3], "LSzoomfullfieldcontourf",prefix,
-    plot_levelset,concentrationcontour,true,"contourf",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"LS",
-    i0,i1,j0,j1,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,false)
-
+    if save_H2O
+        plot_python_pdf_full2(plt_it,fwdL.trans_scal[:,:,:,3],fwdL.trans_scalD[:,:,3], "H2Oliqlvlzoomfullfield",prefix,
+        plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+        i0,i1,j0,j1,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
+    end
+    
+    if plot_interface
+        plot_python_pdf_full2(plt_it,fwd.u[1,:,:,:],fwdL.trans_scalD[:,:,3], "LSzoomfullfieldcontourf",prefix,
+        plot_levelset,concentrationcontour,true,"contourf",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"LS",
+        i0,i1,j0,j1,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,false)
+    end
 
     # plot_python_pdf_full2(plt_it,fwdL.trans_scal[:,:,:,1], "H2liqlvlzoomfullfield2",prefix,
     # plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
@@ -1306,13 +1320,15 @@ for plt_it = 2:size_frame+1
     # vec = phL.trans_scal[:,:,1]
     # veci(phL.trans_scalD[:,1],grid,2)
 
-    plot_python_pdf_full2(-plt_it,reshape(veci(fwdL.trans_scalD[plt_it,:,1],gp,2),gp),fwdL.trans_scalD[:,:,1], "H2_int_liqlvlzoomfullfield",prefix,
-    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
-    i0,i1,j0,j1,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
+    if plot_interface
+        plot_python_pdf_full2(-plt_it,reshape(veci(fwdL.trans_scalD[plt_it,:,1],gp,2),gp),fwdL.trans_scalD[:,:,1], "H2_int_liqlvlzoomfullfield",prefix,
+        plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+        i0,i1,j0,j1,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
 
-    plot_python_pdf_full2(-plt_it,reshape(veci(fwdL.trans_scalD[plt_it,:,3],gp,2),gp),fwdL.trans_scalD[:,:,3], "H2O_int_liqlvlzoomfullfield",prefix,
-    plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
-    i0,i1,j0,j1,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
+        plot_python_pdf_full2(-plt_it,reshape(veci(fwdL.trans_scalD[plt_it,:,3],gp,2),gp),fwdL.trans_scalD[:,:,3], "H2O_int_liqlvlzoomfullfield",prefix,
+        plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
+        i0,i1,j0,j1,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
+    end
 
     # plot_python_pdf(-plt_it,vec, "H2_int_liqlvlzoom",prefix,
     # plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",i0,i1,j0,j1,fwd)
@@ -1350,10 +1366,10 @@ for plt_it = 2:size_frame+1
     # plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,4], "flux4",prefix,
     # plot_levelset,concentrationcontour,plot_grid,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",1,gp.nx,1,gp.ny,fwd)
 
-
-    plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,1], "flux1noLS",prefix,
-    false,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",1,gp.nx,1,gp.ny,fwd)
-
+    if electrolysis_phase_change
+        plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,1], "flux1noLS",prefix,
+        false,concentrationcontour,plot_grid,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",1,gp.nx,1,gp.ny,fwd)
+    end
     # plot_python_pdf(plt_it,fwd.saved_scal[:,:,:,2], "flux2noLS",prefix,
     # false,concentrationcontour,plot_grid,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",1,gp.nx,1,gp.ny,fwd)
 
@@ -1366,17 +1382,19 @@ for plt_it = 2:size_frame+1
     
 end
 
-#############################################################################################################################################"
+###########################################################################################################################################"
 
 if plot_movies
 
     python_movie_zoom(fwdL.v,"v",prefix,false,isocontour,"pcolormesh",10,range(0,1400,length=8),cmap,xv,yv,gv,"v",
     size_frame,1,gv.nx,1,gv.ny,fwd)
 
-    python_movie_zoom(fwdL.p,"p",prefix,plot_levelset,isocontour,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",
-    size_frame,1,gp.nx,1,gp.ny,fwd)
-    # python_movie_zoom((fwdL.p.-pres0)./pres0,"pnorm",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",
-    # size_frame,1,gp.nx,1,gp.ny,fwd)
+    if save_p 
+        python_movie_zoom(fwdL.p,"p",prefix,plot_levelset,isocontour,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",
+        size_frame,1,gp.nx,1,gp.ny,fwd)
+        # python_movie_zoom((fwdL.p.-pres0)./pres0,"pnorm",prefix,plot_levelset,isocontour,10,range(0,1400,length=8),cmap,x_array,y_array,gp,"pressure",
+        # size_frame,1,gp.nx,1,gp.ny,fwd)
+    end
 
     python_movie_zoom(max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0),"H2lvl",prefix,
     plot_levelset,isocontour,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",size_frame,1,gp.nx,1,gp.ny,fwd)
@@ -1386,11 +1404,11 @@ if plot_movies
 
 
 
-    python_movie_zoom(max.((fwd.trans_scal[:,:,:,2] .-c0_KOH)./c0_KOH,0.0),"KOH_norm",prefix,
+    python_movie_zoom(max.((fwd.trans_scal[:,:,:,2] .-c0_KOH)./c0_KOH,0.0),"KOH_norm_max0",prefix,
     plot_levelset,false,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
     size_frame,1,gp.nx,1,gp.ny,fwd)
 
-    python_movie_zoom(max.((fwd.trans_scal[:,:,:,3] .-c0_H2O)./c0_H2O,0.0),"H2O_norm",prefix,
+    python_movie_zoom(max.((fwd.trans_scal[:,:,:,3] .-c0_H2O)./c0_H2O,0.0),"H2O_norm_max0",prefix,
     plot_levelset,false,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
     size_frame,1,gp.nx,1,gp.ny,fwd)
 
@@ -1407,10 +1425,11 @@ if plot_movies
     # size_frame,1,gp.nx,1,gp.ny,fwd)
 
 
-
-    python_movie_zoom(fwd.saved_scal[:,:,:,1],"flux1zoom",prefix,
-    plot_levelset,false,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",
-    size_frame,i0,i1,j0,j1,fwd)
+    if electrolysis_phase_change
+        python_movie_zoom(fwd.saved_scal[:,:,:,1],"flux1zoom",prefix,
+        plot_levelset,false,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"flux",
+        size_frame,i0,i1,j0,j1,fwd)
+    end
 
     python_movie_zoom(max.((fwd.trans_scal[:,:,:,1] .-c0_H2)./c0_H2,0.0),"H2lvlzoom",prefix,
     plot_levelset,false,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gp,"concentration",
@@ -1420,10 +1439,10 @@ if plot_movies
 end # plot_movies
 
 
-######################################################################################################
+####################################################################################################
 
 
-######################################################################################################
+####################################################################################################
 if plot_R
     df = pd.DataFrame([fwd.t[1:size_frame] fwd.radius[1:size_frame].*1.e6],columns=["t","r"])
 
@@ -1462,16 +1481,16 @@ if plot_R
     plt.close(fig1)
 end # plot_R
 
-######################################################################################################
+####################################################################################################
 
 
-######################################################################################################
+####################################################################################################
 
 
 
 
 
-######################################################################################################
+####################################################################################################
 #TODO
 # u,v,p,kappa
 
@@ -1499,5 +1518,5 @@ end # plot_R
 # colsize!(fLS0.layout, 1, widths(ax.scene.viewport[])[1])
 # rowsize!(fLS0.layout, 1, widths(ax.scene.viewport[])[2])
 # resize_to_layout!(fLS0)
-######################################################################################################
+####################################################################################################
 

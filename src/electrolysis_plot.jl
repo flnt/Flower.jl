@@ -46,6 +46,92 @@ function strtitlefunc(isnap,fwd)
     return strtitle
 end
 
+
+function plot_current_wall()
+
+    fig, ax = plt.subplots(layout="constrained")
+
+    # fig.subplots_adjust(right=0.75)
+
+    # varx = [0, 1, 2]
+    varx = gp.y/xscale
+    # vecb_L(phL.trans_scalD[:,3], gp)
+    label1 = raw"$c\left(H_2O\right)$"
+    label2 = raw"$-\eta ~\text{(-overpotential)}$ "
+    label3 = "Current"
+    alpha = 0.5
+    # ls= (0, (5, 10)) #":" #"--" #"--"
+    # # ls2="loosely dashed" #"--"
+    # # ls2 = [0, [5, 10]]
+    # ls2 = (5, (10, 3)) #"dashdot"
+    # ls3 = (5, (10, 3)) #"dotted"
+
+    # ls  = (0, (5, 10)) 
+    # ls2 = (5, (5, 10)) #"dashdot"
+    # ls3 = (10, (5, 10)) #"dotted"
+
+    # ls  = (0, (5, 10)) 
+    # ls2 = (10, (5, 10)) #"dashdot"
+    # ls3 = (10, (5, 10)) #"dotted"
+
+    ls  = (0, (3, 6)) 
+    ls2 = (3, (3, 6)) #"dashdot"
+    ls3 = (6, (3, 6)) #"dotted"
+
+    # print("current", phL.i_current_mag[:,1])
+
+    # print(colors)
+
+    twin1 = ax.twinx()
+    twin2 = ax.twinx()
+
+    # Offset the right spine of twin2.  The ticks and label have already been
+    # placed on the right by twinx above.
+    twin2.spines.right.set_position(("axes", 1.2))
+    #colors "C0", "C1", "C2"
+    p1, = ax.plot(varx, phL.trans_scal[:,1,3],colors[1], label=label1,ls=ls)
+    p2, = twin1.plot(varx, phL.phi_ele[:,1] .- phi_ele1, colors[2], label=label2,ls=ls2)
+    p3, = twin2.plot(varx, phL.i_current_mag[:,1], colors[3], label=label3,ls=ls3)
+
+    # p1, = ax.plot(varx, ones(gp.ny),colors[1], label=label1,ls=ls)
+    # p2, = twin1.plot(varx, ones(gp.ny), colors[2], label=label2,ls=ls2)
+    # p3, = twin2.plot(varx, ones(gp.ny), colors[3], label=label3,ls=ls3)
+
+    ax.set(
+        # xlim=(0, 2),
+        # ylim=(0, 2),
+        xlabel=raw"$y ( \unit{\um})$",
+        ylabel=label1)
+    twin1.set(
+        # ylim=(0, 4), 
+    ylabel=label2)
+    twin2.set(
+        # ylim=(1, 65), 
+    ylabel=label3)
+
+    ax.yaxis.label.set_color(p1.get_color())
+    twin1.yaxis.label.set_color(p2.get_color())
+    twin2.yaxis.label.set_color(p3.get_color())
+
+    ax.tick_params(axis="y", colors=p1.get_color())
+    twin1.tick_params(axis="y", colors=p2.get_color())
+    twin2.tick_params(axis="y", colors=p3.get_color())
+
+    # ax.legend(handles=[p1, p2, p3],
+    # # loc = "center left",
+    # loc = "outside upper left",
+    # )
+
+    fig.legend(handles=[p1, p2, p3],
+    # loc = "center left",
+    loc = "outside upper left",
+    )
+
+    plt.savefig(prefix*"electrode_c_eta_i.pdf")
+    plt.close(fig1)
+
+end
+
 function plot_python_pdf(itmp,field0,figname,prefix,plot_levelset,isocontour,plot_grid,plot_mode,levels,range,cmap,x_array,y_array,gp,cbarlabel,i0,i1,j0,j1,fwd)
 
     if itmp<0
@@ -175,8 +261,13 @@ function plot_python_pdf(itmp,field0,figname,prefix,plot_levelset,isocontour,plo
         # CSlvl = ax2.contour(x_arr,y_arr, gp.LS[1].u, [0.0],colors="r")
         # CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,i,i0:i1,j0:j1], [0.0],colors="r")
      
-
-        CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
+        if typeof(grid) == GridCC #isCC(grid)
+            CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
+        elseif typeof(grid) == GridFCx #isFCx(grid)
+            CSlvl = ax2.contour(x_arr,y_arr, fwd.ux[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
+        elseif typeof(grid) == GridFCy #isFCy(grid)
+            CSlvl = ax2.contour(x_arr,y_arr, fwd.uy[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
+        end
 
     end
 
@@ -1109,7 +1200,11 @@ function plot_last_iter_python_pdf(field,figname,prefix,plot_levelset,isocontour
 end
 
 
-function debug_border(iplot,jplot,A,B)
+function debug_border_x(iplot,jplot,A,B,rhs,geo,inside,ind,grid,bc,iscal,num,op,ni,nb,ph,Bx,By)
+
+    printstyled(color=:magenta, @sprintf "\n debug border \n")
+
+    ny = grid.ny
     @views scalar_debug_border(geo.dcap, ny,bc[iscal], inside, ind ,num,grid,iplot,jplot,op)
 
     testb = jplot
@@ -1135,23 +1230,63 @@ function debug_border(iplot,jplot,A,B)
     # print("\n b_b ", b_b[testb,testb]) 1 
     # print("\n a1_b ", a1_b[testb,testb]) 0
 
-    print("\n op.HxT_b", op.HxT_b[testb,:])
-    print("\n op.iMx_b'", op.iMx_b'[testb,:])
-    print("\n Bx", Bx[testb,:])
+    print("\n HxT_b", op.HxT_b[testb,:])
+    print("\n iMx_b'", op.iMx_b'[testb,:])
+    print("\n Hx_b", op.Hx_b[testb,:])
 
-    print("\n op.HyT_b", op.HxT_b[testb,:])
-    print("\n op.iMy_b'", op.iMx_b'[testb,:])
-    print("\n By", Bx[testb,:])
-
-
-    print("\n mult", op.HxT_b[testb,testb]*op.iMx_b'[testb,testb]*Bx[testb,testb])
-
-    print("\n mult", op.HxT_b[testb,testb]*op.iMx_b'[testb,testb]*Bx[testb,testb])
+    print("\n HyT_b", op.HyT_b[testb,:])
+    print("\n iMy_b'", op.iMy_b'[testb,:])
+    print("\n Hy_b", op.Hy_b[testb,:])
 
 
-    print("\n op.HyT_b", op.HxT_b[testb,:])
-    print("\n op.iMy_b'", op.iMx_b'[testb,:])
-    print("\n By", Bx[testb,:])
+    print("\n mult", op.HxT_b[testb,testb]*op.iMx_b'[testb,testb]*op.Hx_b[testb,testb])
+
+    print("\n mult", op.HyT_b[testb,testb]*op.iMy_b'[testb,testb]*op.Hy_b[testb,testb])
+
+end
+
+function debug_border_y(iplot,jplot,A,B,rhs,geo,inside,ind,grid,bc,iscal,num,op,ni,nb,ph,Bx,By)
+
+    printstyled(color=:magenta, @sprintf "\n debug border \n")
+
+    ny = grid.ny
+    @views scalar_debug_border(geo.dcap, ny,bc[iscal], inside, ind ,num,grid,iplot,jplot,op)
+
+    testb = jplot
+    testn = ny-testb+1
+    print("\n test",testn," testb ",testb)
+    printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i chi_b %.2e  chi_b adim %.2e border %.2e\n" testn testb op.χ_b[end-nb+testn,end-nb+testn] op.χ_b[end-nb+testn,end-nb+testn]/grid.dy[1,1] vecb_L(ph.trans_scalD[:,iscal], grid)[testn])
+    printstyled(color=:cyan, @sprintf "\n BC %.5e rhs %.5e rhs %.5e \n" bc[iscal].left.val[testn] bc[iscal].left.val[testn]*op.χ_b[end-nb+testn,end-nb+testn] vecb_L(rhs, grid)[testn])
+
+    print("\n B ", maximum(B[testb,:])," \n ")
+
+    print("\n A[end-nb+testn,1:ni]", A[end-nb+testn,1:ni], "\n")
+    print("\n A[end-nb+testn,ni+1:2*ni]", A[end-nb+testn,ni+1:2*ni], "\n")
+    print("\n A[end-nb+testn,end-nb+1:end]", A[end-nb+testn,end-nb+1:end], "\n")
+
+    print("\n A[jplot,1:ni]", A[jplot,1:ni], "\n")
+    print("\n A[jplot,ni+1:2*ni]", A[jplot,ni+1:2*ni], "\n")
+    print("\n A[jplot,end-nb+1:end]", A[jplot,end-nb+1:end], "\n")
+
+    print("\n A[ni+jplot,1:ni]", A[ni+jplot,1:ni], "\n")
+    print("\n A[ni+jplot,ni+1:2*ni]", A[ni+jplot,ni+1:2*ni], "\n")
+    print("\n A[ni+jplot,end-nb+1:end]", A[ni+jplot,end-nb+1:end], "\n")
+
+    # print("\n b_b ", b_b[testb,testb]) 1 
+    # print("\n a1_b ", a1_b[testb,testb]) 0
+
+    print("\n HxT_b", op.HxT_b[testb,:])
+    print("\n iMx_b'", op.iMx_b'[testb,:])
+    print("\n Hx_b", op.Hx_b[testb,:])
+
+    print("\n HyT_b", op.HyT_b[testb,:])
+    print("\n iMy_b'", op.iMy_b'[testb,:])
+    print("\n Hy_b", op.Hy_b[testb,:])
+
+
+    print("\n mult", op.HxT_b[testb,testb]*op.iMx_b'[testb,testb]*op.Hx_b[testb,testb])
+
+    print("\n mult", op.HyT_b[testb,testb]*op.iMy_b'[testb,testb]*op.Hy_b[testb,testb])
 
 end
 
@@ -1390,14 +1525,12 @@ function scalar_debug!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC, insi
     # square = matplotlib.patches.Rectangle(xy, widthvol, heightvol, color="g", ls="--",alpha=alpha)
     # ax2.add_patch(square)
 
-
-    theta1=75
-    theta2=90
-
-    radius = num.R/num.plot_xscale
-    arc = matplotlib.patches.Arc((num.xcoord/num.plot_xscale, num.ycoord/num.plot_xscale), radius*2, radius*2, color="g", theta1=theta1, theta2=theta2,ls="--")
-
-    ax2.add_patch(arc)
+    #plot arc
+    # theta1=75
+    # theta2=90
+    # radius = num.R/num.plot_xscale
+    # arc = matplotlib.patches.Arc((num.xcoord/num.plot_xscale, num.ycoord/num.plot_xscale), radius*2, radius*2, color="g", theta1=theta1, theta2=theta2,ls="--")
+    # ax2.add_patch(arc)
 
 
     plt.axis("equal")
@@ -1514,6 +1647,180 @@ function scalar_debug!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC, insi
 
     # return nothing
 end
+
+
+function plot_radial_vel()
+
+    us,vs = interpolate_grid_liquid(gp,gu,gv,phL.u,phL.v)
+   
+    # us .= 0.0
+    # vs .= 0.0
+    # for ju in 1:gp.ny
+    #     for iu in 1:gp.nx
+    #         xcell = gp.x[ju,iu]
+    #         ycell = gp.y[ju,iu]
+
+    #         vec0 = [xcoord, ycoord]
+    #         vec1 = [xcell, ycell]
+
+    #         vecr = vec1-vec0
+    #         normr = norm(vecr)
+    #         if normr>radius
+    #             vecr .*= 1.0/normr
+    #             factor = 1.0/normr
+    #             #factor = 1.0 
+    #             us[ju,iu] = factor * vecr[1]
+    #             vs[ju,iu] = factor * vecr[2]
+
+    #             print("\n vecr",vecr," vec0 ", vec0, " vec1 ", vec1)
+    #             #print("\n i ",iu," j ",ju," vec",vecr," y ",ycell," ycoord ",ycoord," v ",vs)
+
+    #         end
+    #     end
+    # end
+
+    fig, ax = plt.subplots()
+    q = ax.quiver(x_array,y_array,us,vs,
+    #color = "red",
+    )
+    # # ax.quiverkey(q, X=0.3, Y=1.1, U=10,
+    # #              label='Quiver key, length = 10', labelpos='E')
+
+    # # plt.show()
+    plt.axis("equal")
+
+    plt.savefig(prefix*"vector0.pdf")
+
+end
+
+function plot_vector()
+
+    us,vs = interpolate_grid_liquid(gp,gu,gv,phL.u,phL.v)
+   
+    fig, ax = plt.subplots()
+    q = ax.quiver(x_array,y_array,us,vs,
+    #color = "red",
+    )
+    # # ax.quiverkey(q, X=0.3, Y=1.1, U=10,
+    # #              label='Quiver key, length = 10', labelpos='E')
+
+    # # plt.show()
+    plt.axis("equal")
+
+    plt.savefig(prefix*"vector0.pdf")
+
+    # us,vs = interpolate_grid_liquid(gp,gu,gv,phL.u,phL.v)
+
+    # fig, ax = plt.subplots()
+    # q = ax.quiver(x_array,y_array,us,vs)
+    # # ax.quiverkey(q, X=0.3, Y=1.1, U=10,
+    # #              label='Quiver key, length = 10', labelpos='E')
+    # plt.axis("equal")
+
+    # # plt.show()
+
+    # plt.savefig(prefix*"vector.pdf")
+    # plt.close(fig)
+
+
+    # print("\n test u ", vecb_L(phL.uD, gu))
+    # print("\n test u ", phL.u[1,:])
+    # print("\n test u ", phL.u[:,1])
+
+    # vecb_L(phL.uD, gu) .=0.0
+    # vecb_R(phL.uD, gu) .=0.0
+    # vecb_T(phL.uD, gu) .=0.0
+    # vecb_B(phL.uD, gu) .=0.0
+    # vec1(phL.uD, gu) .=0.0
+
+
+    # phL.u .= reshape(vec1(phL.uD,gu), gu)
+    # phL.v .= reshape(vec1(phL.vD,gv), gv)
+
+    # us,vs = interpolate_grid_liquid(gp,gu,gv,phL.u,phL.v)
+
+    # fig, ax = plt.subplots()
+    # q = ax.quiver(x_array,y_array,us,vs)
+    # # ax.quiverkey(q, X=0.3, Y=1.1, U=10,
+    # #              label='Quiver key, length = 10', labelpos='E')
+
+    # plt.axis("equal")
+
+    # plt.show()
+
+    # plt.savefig(prefix*"vector_test1.pdf")
+
+    # # print("\n test u ", vecb_L(phL.uD, gu))
+end
+
+
+#u0
+# ####################################################################################################
+# # u_array = phL.u 
+# u_array = phL.u ./velscale
+
+# fig1, ax2 = plt.subplots(layout="constrained")
+# CS = ax2.contourf(xu,yu,u_array, 10, cmap=cmap)
+
+# # Note that in the following, we explicitly pass in a subset of the contour
+# # levels used for the filled contours.  Alternatively, we could pass in
+# # additional levels to provide extra resolution, or leave out the *levels*
+# # keyword argument to use all of the original levels.
+
+# # CS2 = ax2.contour(CS, 
+# # # levels=CS.levels[::2], 
+# # # levels=
+# # colors="r")
+
+# # ax2.set_title("Title")
+# ax2.set_xlabel(L"$x (\mu m)$")
+# ax2.set_ylabel(L"$y (\mu m)$")
+
+# # Make a colorbar for the ContourSet returned by the contourf call.
+# cbar = fig1.colorbar(CS)
+# cbar.ax.set_ylabel("u")
+# # Add the contour line levels to the colorbar
+# # cbar.add_lines(CS2)
+
+# # cbar.formatter.set_powerlimits((0, 0))
+# # # to get 10^3 instead of 1e3
+# # # cbar.formatter.set_useMathText(True)
+# # cbar.formatter.set_useMathText(1)
+
+# cbar.ax.set_title(L"$10^{-4}$")
+
+# plt.axis("equal")
+
+
+# plt.savefig(prefix*"u0.pdf")
+# plt.close(fig1)
+
+# ####################################################################################################
+
+# v_array = phL.v ./velscale
+
+# fig1, ax2 = plt.subplots(layout="constrained")
+# CS = ax2.contourf(xv,yv,phL.v ./velscale, 10, cmap=cmap)
+
+
+# # ax2.set_title("Title")
+# ax2.set_xlabel(L"$x (\mu m)$")
+# ax2.set_ylabel(L"$y (\mu m)$")
+
+# # Make a colorbar for the ContourSet returned by the contourf call.
+# cbar = fig1.colorbar(CS)
+# cbar.ax.set_ylabel("v")
+
+# cbar.ax.set_title(L"$10^{-4}$")
+# plt.axis("equal")
+
+# plt.savefig(prefix*"v0.pdf")
+
+# plt.close(fig1)
+# ####################################################################################################
+
+
+
 
 
 # function plot_python_pdf(field,name,plot_levelset,range)

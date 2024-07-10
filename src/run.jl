@@ -45,6 +45,8 @@ function run_forward(
     electrolysis_phase_change = false,
     electrolysis_phase_change_case = "Khalighi",
     electrolysis_reaction = "nothing",
+    bulk_conductivity = true,
+    imposed_velocity = "none",
     adapt_timestep_mode = 0,
     non_dimensionalize=1,
     mode_2d=0,
@@ -797,6 +799,70 @@ function run_forward(
                 # New start scalar loop
                 ####################################################################################################
 
+                if imposed_velocity == "zero"
+                    phL.u .= 0.0
+                    phL.v .= 0.0
+                elseif imposed_velocity == "radial"
+                    
+                    phL.v .= 0.0
+                    phL.u .= 0.0
+                    phS.v .= 0.0
+                    phS.u .= 0.0
+                
+                    for ju in 1:grid_u.ny
+                        for iu in 1:grid_u.nx
+                            xcell = grid_u.x[ju,iu]
+                            ycell = grid_u.y[ju,iu]
+                
+                            vec0 = [num.xcoord, num.ycoord]
+                            vec1 = [xcell, ycell]
+                
+                            vecr = vec1-vec0
+                            normr = norm(vecr)
+                            vecr .*= 1.0/normr
+                            factor = 1.0/normr 
+                            factor *= num.radial_vel_factor
+                            # if normr>radius                              
+                            #     phL.u[ju,iu] = factor * vecr[1]
+                            #     phS.u[ju,iu] = factor * vecr[1]                
+                            # end
+                            phL.u[ju,iu] = factor * vecr[1]
+                            phS.u[ju,iu] = factor * vecr[1]   
+                        end
+                    end
+                
+                    for jv in 1:grid_v.ny
+                        for iv in 1:grid_v.nx    
+                            xcell = grid_v.x[jv,iv]
+                            ycell = grid_v.y[jv,iv]
+                
+                            vec0 = [num.xcoord, num.ycoord]
+                            vec1 = [xcell, ycell]
+                
+                            vecr = vec1-vec0
+                            normr = norm(vecr)
+                            vecr .*= 1.0/normr
+                            factor = 1.0/normr 
+                            factor *= num.radial_vel_factor
+
+                            # if normr>radius           
+                            #     phL.v[jv,iv] = factor * vecr[2]
+                            #     phS.v[jv,iv] = factor * vecr[2]                
+                            # end
+                            #print("\n i ",iv," j ",jv," vec",vecr[2]," y ",ycell," ycoord ",ycoord," v ",phL.v[jv,iv])
+                            phL.v[jv,iv] = factor * vecr[2]
+                            phS.v[jv,iv] = factor * vecr[2]   
+
+                        end
+                    end
+
+                    # grid.LS[1].u .= sqrt.((grid.x.- num.xcoord).^ 2 + (grid.y .- num.ycoord) .^ 2) - (current_radius) * ones(ny, nx)                  
+
+
+
+                end
+
+
                 for iscal=1:nb_transported_scalars
                     @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL,0.0) 
                     # @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL,concentration0[iscal]) 
@@ -1163,11 +1229,17 @@ function run_forward(
                     # eta = phi_ele1 .- phL.phi_ele[:,1]
                     # i_current = i0*(exp(alphaa*Faraday*eta/(Ru*temperature0))-exp(-alphac*Faraday*eta/(Ru*temperature0)))
 
-                    if electrolysis_reaction == "Butler_no_concentration"
+                    if occursin("Butler",electrolysis_reaction)
 
                         # BC_phi_ele.left.val .= -i_butler./elec_cond[:,1]
-                        BC_phi_ele.left.val .= -i_butler./vecb_L(elec_condD, grid)
-
+                        if bulk_conductivity
+                            # Recommended as long as cell merging not implemented:
+                            # Due to small cells, we may have slivers/small cells at the left wall, then the divergence term is small,
+                            # which produces higher concentration in front of the contact line
+                            BC_phi_ele.left.val .= -i_butler./elec_cond[:,1]
+                        else
+                            BC_phi_ele.left.val .= -i_butler./vecb_L(elec_condD, grid)
+                        end
 
                         # if heat
                         #     BC_phi_ele.left.val = -butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,phL.T)./elec_cond[:,1]
