@@ -93,6 +93,7 @@ end
 Compute the volume of a phase.
 """
 @inline volume(geo::GeometricInfo) = sum(geo.dcap[:,:,5])
+@inline volume(geo::GeometricInfo, id::AbstractMatrix) = sum(geo.dcap[id,5])
 
 @inline opposite(α) = ifelse(α >= 0. ,α - π, α + π)
 
