@@ -650,7 +650,7 @@ function run_forward(
             try
                 NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
             catch e
-                println(CRASHED)
+                println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
                 println(e)
                 return nothing
             end
