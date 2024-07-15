@@ -54,7 +54,7 @@ function plot_current_wall()
     # fig.subplots_adjust(right=0.75)
 
     # varx = [0, 1, 2]
-    varx = gp.y/xscale
+    varx = gp.y[:,1]/xscale
     # vecb_L(phL.trans_scalD[:,3], gp)
     label1 = raw"$c\left(H_2O\right)$"
     label2 = raw"$-\eta ~\text{(-overpotential)}$ "
@@ -128,7 +128,61 @@ function plot_current_wall()
     )
 
     plt.savefig(prefix*"electrode_c_eta_i.pdf")
-    plt.close(fig1)
+    plt.close(fig)
+
+end
+
+function plot_bc(iter_list,vec,grid,xscale,figname,prefix,fwd)
+
+    fig, ax = plt.subplots(layout="constrained")
+
+    varx = grid.x[1,:]/xscale
+    # print("\n varx ",varx)
+
+    print(iter_list)
+    for isnap in iter_list
+        strtime = @sprintf "%.2e" fwd.t[isnap]*1e3 
+        str = "t "*strtime*raw"$( \unit{\ms})$"
+        # str=@sprintf "%.5i" i
+        # print("\n vec ",vecb_T(vec[i,:],grid))
+        plt.plot(varx,vecb_T(vec[isnap,:],grid),label = str)
+    end
+    eps=1e-4
+    ylim0=0.16-eps
+    ylim1=0.16+eps
+
+    ax.set_ylim(ylim0,ylim1)
+    plt.legend()
+    plt.savefig(prefix*figname*".pdf")
+
+    plt.close(fig)
+
+end
+
+function plot_bc2(iter_list,vec,grid,xscale,figname,prefix,fwd)
+
+    fig, ax = plt.subplots(layout="constrained")
+
+    varx = grid.x[1,:]/xscale
+    # print("\n varx ",varx)
+
+    print(iter_list)
+    for isnap in iter_list
+        strtime = @sprintf "%.2e" fwd.t[isnap]*1e3 
+        str = "t "*strtime*raw"$( \unit{\ms})$"
+        # str=@sprintf "%.5i" i
+        # print("\n vec ",vecb_T(vec[i,:],grid))
+        plt.plot(varx,vecb_B(vec[isnap,:],grid),label = str)
+    end
+    eps=1e-4
+    ylim0=0.16-eps
+    ylim1=0.16+eps
+
+    ax.set_ylim(ylim0,ylim1)
+    plt.legend()
+    plt.savefig(prefix*figname*".pdf")
+
+    plt.close(fig)
 
 end
 
@@ -292,198 +346,6 @@ function plot_python_pdf(itmp,field0,figname,prefix,plot_levelset,isocontour,plo
 
 end
 
-
-function plot_python_pdf_full(itmp,field0,figname,prefix,plot_levelset,isocontour,plot_grid,plot_mode,levels,range,cmap,x_array,y_array,gp,cbarlabel,ii0,ii1,jj0,jj1,fwd,fwdL,xscale)
-
-    # PyPlot.rc("text", usetex=true)
-    # rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
-    # rcParams["text.latex.preamble"] = raw"\usepackage{siunitx}"
-
-    i0=ii0
-    i1=ii1
-    j0=jj0
-    j1=jj1
-
-    if itmp<0
-        i=-itmp
-        field = field0
-        field1 = field0
-     else
-        i=itmp
-        field1 = field0[i,:,:]
-    end
-
-
-
-
-    x_arr=x_array[i0:i1]
-    y_arr=y_array[j0:j1]
-
-    vecb_l=false
-
-
-    if ii0 == 1
-        vecb_l=true
-        i1+=1
-
-        # print("\n x_arr",x_arr)
-
-        pushfirst!(x_arr,x_array[i0]-0.5*gp.dx[1,1]/xscale)
-
-        # print("\n x_arr",x_arr)
-        
-        fieldtmp = zeros(gp.ny, gp.nx + 1)
-        # print(size(field))
-        # print(size(field0))
-        # printstyled(color=:green, @sprintf "\n j: %5i %5i %5i %5i\n" i0 i1 j0 j1)
-
-        @views fieldtmp[j0:j1,2:i1] = field1[jj0:jj1,ii0:ii1]
-        @views fieldtmp[j0:j1,1] = reverse(vecb_L(fwdL.trans_scalD[i,:,1],gp))
-
-        field = fieldtmp[j0:j1,i0:i1]
-
-        # @views pushfirst!(field[j0:j1,:],vecb_L(fwd.trans_scalD[i,:,1],gp))
-    #else
-       # field = field0[i,j0:j1,i0:i1]
-
-    end
-
-
-    # print("range",range)
-    fig1, ax2 = plt.subplots(layout="constrained")
-    # CS = ax2.contourf(x_arr,y_arr,max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), 10, cmap=cmap)
-
-    ax2.spines["right"].set_visible(false)
-    ax2.spines["top"].set_visible(false)
-    
-    if levels==0
-        CS = ax2.contourf(x_arr,y_arr,field, 
-        levels=range, #10, 
-        cmap=cmap)
-    else
-        # CS = ax2.contourf(x_arr,y_arr,field, 
-        # levels=levels,
-        # cmap=cmap)
-        # # print("levels " ,levels)
-        mpl_levels = mpl_tickers.MaxNLocator(nbins=levels).tick_values(minimum(field), maximum(field))
-        norm = mpl_colors.BoundaryNorm(mpl_levels, ncolors=cmap.N, clip=true)
-        CS = ax2.pcolormesh(x_arr,y_arr,field, cmap=cmap, norm=norm)
-        # fig.colorbar(im, ax=ax0)
-    end
-
-    
-    lcolor= "k" #"w" #"k"
-    lw=0.5
-    ms=0.5
-    fontsize=5
-
-    if plot_grid
-        # for igrid in i0:i1
-        #     ax2.axvline(x_array[igrid],c=lcolor,lw=lw)
-        # end
-        # for igrid in j0:j1
-        #     ax2.axhline(y_array[igrid],c=lcolor,lw=lw)
-        # end
-
-
-        for igrid0 in i0:i1        
-            for jgrid0 in j0:j1
-                # print("\n",x_array[igrid],y_array[jgrid])
-                # print("\n ",igrid," ",jgrid)
-                igrid=igrid0
-                jgrid = jgrid0-j0+1
-
-                if igrid==1
-                    lcolor= "k"
-                else
-                    lcolor= "w"
-                end
-                if igrid%2 == 0
-                    va="top"
-                else
-                    va="bottom"
-                end
-                ax2.scatter(x_arr[igrid],y_arr[jgrid],
-                c=lcolor,
-                s=ms,
-                )
-
-                
-                # str=@sprintf "%.2e" fieldtmp[jgrid0,igrid0]
-                str=@sprintf "%.2e %.3i %.3i" fieldtmp[jgrid0,igrid0] igrid0 jgrid0
-
-
-                ax2.annotate(str,(x_arr[igrid],y_arr[jgrid]),fontsize=fontsize,c=lcolor,ha="center",va=va)
-
-            end
-        end
-    end
-
-
-    # ax2.set_title("Title")
-    # ax2.set_xlabel(raw"$x ( \unit{\um})$")
-
-    # ax2.set_ylabel(raw"$y ( \unit{\um})$")
-
-
-    ax2.set_xlabel(raw"$x ( \unit{\um})$")
-    ax2.set_ylabel(raw"$y ( \unit{\um})$")
-
-
-
-    # Make a colorbar for the ContourSet returned by the contourf call.
-    cbar = fig1.colorbar(CS)
-    cbar.ax.set_ylabel(cbarlabel)
-    # Add the contour line levels to the colorbar
-    if isocontour
-        CS2 = ax2.contour(CS, 
-        # levels=CS.levels[::2], 
-        # levels=
-        colors="r")
-        cbar.add_lines(CS2)
-    end
-
-    indLS = max(i-1,1) 
-   
-    if plot_levelset
-        # CSlvl = ax2.contourf(x_arr,y_arr,(phL.trans_scal[:,:,1] .-c0_H2)./c0_H2, levels=0.0, cmap=cmap)
-        # CS2 = ax2.contour(CSlvl, 
-        # # levels=CS.levels[::2], 
-        # # levels=
-        # colors="r")
-        # cbar.add_lines(CS2)
-        # CSlvl = ax2.contour(x_arr,y_arr, gp.LS[1].u, [0.0],colors="r")
-        # CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,i,i0:i1,j0:j1], [0.0],colors="r")
-     
-
-        CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
-
-    end
-
-    # strtitle=strtitlefunc(indLS,fwd)
-    isnap = indLS
-    strtime = @sprintf "%.2e" fwd.t[isnap]*1e3 
-    strrad = @sprintf "%.2e" fwd.radius[isnap]*1e6
-
-    plt.title("t "*strtime*raw"$( \unit{\ms})$"*"radius "*strrad*raw"$( \unit{\um})$")
-
-    # if plot_levelset
-    #     gp.LS[1].u .= sqrt.((gp.x .+ xcoord).^ 2 + (gp.y .+ ycoord) .^ 2) - (radius) * ones(gp);
-
-    #     CSlvl = ax2.contour(x_arr,y_arr, gp.LS[1].u, [0.0],colors="r")
-    # end
-
-    plt.axis("equal")
-
-
-
-    str_it = @sprintf "_%.5i" i
-    plt.savefig(prefix*figname*str_it*".pdf")
-    plt.close(fig1)
-
-end
-
-
 function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,isocontour,plot_grid,plot_mode,levels,range,cmap,x_array,y_array,gp,cbarlabel,ii0,ii1,jj0,jj1,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
 
     # PyPlot.rc("text", usetex=true)
@@ -565,7 +427,7 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
             # @views vecb_L(field0D[i,:],gp)[128-68+1]=68
             # @views vecb_L(field0D[i,:],gp)[128-69+1]=69
 
-            fieldtmp[2:gp.ny+1,1] = reverse(vecb_L(field0D[i,:],gp),dims=1)#[1:gp.ny]
+            fieldtmp[2:gp.ny+1,1] = vecb_L(field0D[i,:],gp) #reverse(vecb_L(field0D[i,:],gp),dims=1)#[1:gp.ny]
             # @views fieldtmp[gp.ny+1,1]=1
             # @views fieldtmp[gp.ny,1]=2
             # # @views fieldtmp[68,1]=68
@@ -590,7 +452,7 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
         end
 
         if vecb_t
-            @views fieldtmp[end,2:gp.nx+1] = reverse(vecb_T(field0D[i,:],gp),dims=1)#[1:gp.nx]
+            @views fieldtmp[end,2:gp.nx+1] = vecb_T(field0D[i,:],gp) #reverse(vecb_T(field0D[i,:],gp),dims=1)#[1:gp.nx]
         end
     end
 
@@ -678,7 +540,7 @@ function plot_python_pdf_full2(itmp,field0,field0D,figname,prefix,plot_levelset,
                 igrid=igrid0-i0+1 #TODO
                 jgrid = jgrid0-j0+1
 
-                if igrid==1
+                if ((igrid0 == i0 && vecb_l) || (igrid0 == i1 && vecb_r) || (jgrid0 == j0 && vecb_b) || (jgrid0 == j1 && vecb_t) )
                     lcolor= "k"
                 else
                     lcolor= "w"
@@ -1200,52 +1062,65 @@ function plot_last_iter_python_pdf(field,figname,prefix,plot_levelset,isocontour
 end
 
 
-function debug_border_x(iplot,jplot,A,B,rhs,geo,inside,ind,grid,bc,iscal,num,op,ni,nb,ph,Bx,By)
+function debug_border_top(iplot,jplot,A,B,rhs,geo,inside,ind,grid,bc,iscal,num,op,ni,nb,ph,Bx,By)
 
     printstyled(color=:magenta, @sprintf "\n debug border \n")
 
     ny = grid.ny
     @views scalar_debug_border(geo.dcap, ny,bc[iscal], inside, ind ,num,grid,iplot,jplot,op)
 
-    testb = jplot
-    testn = ny-testb+1
+    testb = iplot
+    testn = 2*grid.ny+ 2* grid.nx - testb + 1
+
+    tmp = grid.nx - testb + 1
+
     print("\n test",testn," testb ",testb)
-    printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i chi_b %.2e  chi_b adim %.2e border %.2e\n" testn testb op.χ_b[end-nb+testn,end-nb+testn] op.χ_b[end-nb+testn,end-nb+testn]/grid.dy[1,1] vecb_L(ph.trans_scalD[:,iscal], grid)[testn])
-    printstyled(color=:cyan, @sprintf "\n BC %.5e rhs %.5e rhs %.5e \n" bc[iscal].left.val[testn] bc[iscal].left.val[testn]*op.χ_b[end-nb+testn,end-nb+testn] vecb_L(rhs, grid)[testn])
+    # print("\n test -1 ",ph.trans_scalD[end-nb+testn-1,iscal])
+    printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i chi_b %.2e  chi_b adim %.2e border %.2e\n" testn testb op.χ_b[end-nb+testn,end-nb+testn] op.χ_b[end-nb+testn,end-nb+testn]/grid.dy[1,1] ph.trans_scalD[end-nb+testn,iscal])
+    printstyled(color=:cyan, @sprintf "\n BC %.5e rhs %.5e rhs %.5e \n" bc[iscal].top.val bc[iscal].top.val*op.χ_b[end-nb+testn,end-nb+testn] rhs[end-nb+testn])
 
-    print("\n B ", maximum(B[testb,:])," \n ")
+    # print("\n rhs ", rhs, "\n")
+    # print("\n B ", maximum(B[testb,:])," \n ")
 
+    # Border BCs
     print("\n A[end-nb+testn,1:ni]", A[end-nb+testn,1:ni], "\n")
     print("\n A[end-nb+testn,ni+1:2*ni]", A[end-nb+testn,ni+1:2*ni], "\n")
     print("\n A[end-nb+testn,end-nb+1:end]", A[end-nb+testn,end-nb+1:end], "\n")
 
-    print("\n A[jplot,1:ni]", A[jplot,1:ni], "\n")
-    print("\n A[jplot,ni+1:2*ni]", A[jplot,ni+1:2*ni], "\n")
-    print("\n A[jplot,end-nb+1:end]", A[jplot,end-nb+1:end], "\n")
+    # pII = lexicographic(II, grid.ny)
 
-    print("\n A[ni+jplot,1:ni]", A[ni+jplot,1:ni], "\n")
-    print("\n A[ni+jplot,ni+1:2*ni]", A[ni+jplot,ni+1:2*ni], "\n")
-    print("\n A[ni+jplot,end-nb+1:end]", A[ni+jplot,end-nb+1:end], "\n")
+    II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+    pII = lexicographic(II, grid.ny)
+
+    print("\n pII ", pII)
+
+    print("\n A[pII,1:ni]", A[pII,1:ni], "\n")
+    print("\n A[pII,ni+1:2*ni]", A[pII,ni+1:2*ni], "\n")
+    print("\n A[pII,end-nb+1:end]", A[pII,end-nb+1:end], "\n")
+
+    print("\n A[ni+pII,1:ni]", A[ni+pII,1:ni], "\n")
+    print("\n A[ni+pII,ni+1:2*ni]", A[ni+pII,ni+1:2*ni], "\n")
+    print("\n A[ni+pII,end-nb+1:end]", A[ni+pII,end-nb+1:end], "\n")
 
     # print("\n b_b ", b_b[testb,testb]) 1 
     # print("\n a1_b ", a1_b[testb,testb]) 0
 
-    print("\n HxT_b", op.HxT_b[testb,:])
-    print("\n iMx_b'", op.iMx_b'[testb,:])
-    print("\n Hx_b", op.Hx_b[testb,:])
+    # print("\n HxT_b", op.HxT_b[testb,:])
+    # print("\n iMx_b'", op.iMx_b'[testb,:])
+    # print("\n Hx_b", op.Hx_b[testb,:])
 
-    print("\n HyT_b", op.HyT_b[testb,:])
-    print("\n iMy_b'", op.iMy_b'[testb,:])
-    print("\n Hy_b", op.Hy_b[testb,:])
+    # print("\n HyT_b", op.HyT_b[testb,:])
+    # print("\n iMy_b'", op.iMy_b'[testb,:])
+    # print("\n Hy_b", op.Hy_b[testb,:])
 
 
-    print("\n mult", op.HxT_b[testb,testb]*op.iMx_b'[testb,testb]*op.Hx_b[testb,testb])
+    # print("\n mult", op.HxT_b[testb,testb]*op.iMx_b'[testb,testb]*op.Hx_b[testb,testb])
 
-    print("\n mult", op.HyT_b[testb,testb]*op.iMy_b'[testb,testb]*op.Hy_b[testb,testb])
+    # print("\n mult", op.HyT_b[testb,testb]*op.iMy_b'[testb,testb]*op.Hy_b[testb,testb])
 
 end
 
-function debug_border_y(iplot,jplot,A,B,rhs,geo,inside,ind,grid,bc,iscal,num,op,ni,nb,ph,Bx,By)
+function debug_border_left(iplot,jplot,A,B,rhs,geo,inside,ind,grid,bc,iscal,num,op,ni,nb,ph,Bx,By)
 
     printstyled(color=:magenta, @sprintf "\n debug border \n")
 
@@ -1338,9 +1213,8 @@ function scalar_debug_border(cap, n, BC, inside, ind,num,grid,iplot,jplot,op)
     # print("\n y1 ",y1)
     # print("\n x2 ",x2)
     # print("\n y2 ",y2)
-    print("\n point ",xc, " y " ,yc)
-
-    print("\n point ",xc - width/2 , " y " ,yc - width/2)
+    # print("\n point ",xc, " y " ,yc)
+    # print("\n point ",xc - width/2 , " y " ,yc - width/2)
 
 
     #interface segment
@@ -1464,9 +1338,8 @@ function scalar_debug!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC, insi
     # print("\n y1 ",y1)
     # print("\n x2 ",x2)
     # print("\n y2 ",y2)
-    print("\n point ",xc, " y " ,yc)
-
-    print("\n point ",xc - width/2 , " y " ,yc - width/2)
+    # print("\n point ",xc, " y " ,yc)
+    # print("\n point ",xc - width/2 , " y " ,yc - width/2)
 
 
     #interface segment

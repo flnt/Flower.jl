@@ -27,7 +27,6 @@ import Base.reshape
 @reexport using Roots
 @reexport using SpecialFunctions
 @reexport using Test
-# @reexport using Makie
 # @reexport using CairoMakie
 # @reexport using LaTeXStrings
 # @reexport using Gnuplot
@@ -65,6 +64,7 @@ function __init__()
 end
 
 include("types.jl")
+include("types_PDI.jl")
 include("init.jl")
 include("common.jl")
 include("levelset.jl")

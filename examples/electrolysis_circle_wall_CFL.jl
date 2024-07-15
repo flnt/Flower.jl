@@ -8,6 +8,8 @@ using PrettyTables
 
 prefix="/local/home/pr277828/flower/"
 
+prefixyaml=prefix
+
 pygui(false) #do not show figures
 
 PyPlot.rc("text", usetex=true)
@@ -123,124 +125,9 @@ dt0 = 3.125e-6 #radius CFL: 3.54e-01 -7.17e+00%
 # dt0 = 1e-6 #dnH2 -2.40e-15
 
 
-
-
-
-electrolysis_phase_change = false
-# electrolysis_phase_change = true
-
-save_u = false
-save_v = false
-save_p = false
-save_zoom = false
-save_big_picture = false 
-save_interface = false 
-
-
-plot_grid = false
-
-plot_movies = false
-plot_movies = true
-
-plot_R = plot_movies
-
-#debug Levelset
-plotcase = "none"
-#plotcase = "circle"
-
-plot_current_wall = false
-# plot_current_wall = true
-
-plot_interface = false
-# plot_interface = true 
-
-imposed_velocity = "none"
-
-
-test_case = "small_cell"
-test_case = "100it"
-test_case = "radial"
-test_case = "channel_no_bubble"
-# test_case = "channel"
-
-
-radial_vel_factor = 1e-7
-
-# velocity = 1.0
-velocity = 0.0
-
-activate_interface = false
-activate_interface = true
-
-save_KOH = true
-save_H2O = true
-
-
-fontsize = 2 #2
-printmode = "val"
-plotbc=true
-
-
-
-if test_case == "small_cell"
-    #Test case 1: small cells (high concentration at vecb_L)
-    electrolysis_phase_change = false
-    max_iter = 1
-    save_every = 1
-
-    folder="electrolysis_circle_wall_CFL_small_cell"
-
-elseif test_case == "100it"
-    #Test case 2: scalar without velocity
-    electrolysis_phase_change = false
-    max_iter = 100
-    save_every = 10
-    save_p = false
-
-    folder="electrolysis_circle_wall_CFL"*test_case
-
-elseif test_case == "radial"
-    electrolysis_phase_change = false
-    imposed_velocity = "radial"
-    max_iter = 1
-    save_every = 1
-    n = 64
-    radial_vel_factor = 1e-7
-    folder="electrolysis_circle_wall_CFL"*test_case
-
-elseif test_case == "channel_no_bubble"
-    activate_interface = false
-    electrolysis_phase_change = false
-    max_iter = 100
-    save_every = 25
-
-    max_iter = 1 #20
-    save_every = 1
-
-
-    velocity = 1.0
-    # save_v = true
-    save_KOH = false
-    save_H2O = false
-    save_zoom = true
-
-
-elseif test_case == "channel"
-    electrolysis_phase_change = false
-    max_iter = 100
-    save_every = 25
-    velocity = 1.0
-
-end
-
-folder="electrolysis_circle_wall_CFL"*"_"*test_case
-
-####################################################################################################
-# Save path
-####################################################################################################
-prefix *= "/"*folder*"/"
-isdir(prefix) || mkdir(prefix)
-####################################################################################################
+###################################################################################################
+# Physical parameters 
+###################################################################################################
 
 
 ####################################################################################################
@@ -279,35 +166,124 @@ io_pdi = true
 io_pdi = false
 
 if io_pdi
-    printstyled(color=:red, @sprintf "\n PDI test \n" )
+    try
+        printstyled(color=:red, @sprintf "\n PDI test \n" )
 
-    #TODO types ::Cstring need to recheck
-    # Ptr{UInt8}
-    # Ptr{Cdouble}
-    ##################################################
-    # To call c function in Julia language:
-    # @ccall library.function_name(argvalue1::argtype1, ...)::returntype
-    # https://docs.julialang.org/en/v1/manual/calling-c-and-fortran-code/
-    ##################################################
+        #TODO types ::Cstring need to recheck
+        # Ptr{UInt8}
+        # Ptr{Cdouble}
+        ##################################################
+        # To call c function in Julia language:
+        # @ccall library.function_name(argvalue1::argtype1, ...)::returntype
+        # https://docs.julialang.org/en/v1/manual/calling-c-and-fortran-code/
+        ##################################################
 
-    yml_file = prefix*"hello_data.yml"
-    # yml_file = "hello_data.yml"
+        # https://gitlab.maisondelasimulation.fr/pdidev/pdi/-/blob/master/pdi/include/pdi.h
 
-    #So, for paraconf and pdi it would look like this (the types may be incorrect)
-    # conf = @ccall "libparaconf".PC_parse_path("hello_data.yml"::Cstring)::Ptr{Cvoid}
-    conf = @ccall "libparaconf".PC_parse_path(yml_file::Ptr{UInt8})::Ptr{Cvoid}
-    # conf = @ccall "libparaconf".PC_parse_path("hello_data.yml"::Ptr{UInt8})::Ptr{Cvoid}
+        #https://gitlab.maisondelasimulation.fr/jbigot/libparaconf/-/blob/v0.2/include/paraconf.h
+
+        # https://github.com/pdidev/paraconf
 
 
-    testpdi = @ccall "libpdi".PC_get(conf::Ptr{Cdouble}, ".pdi"::Cstring)::Cstring
+        # https://github.com/pdidev/paraconf/blob/master/paraconf/include/paraconf_f90_types.h
 
-    @ccall "libpdi".PDI_init(testpdi::Cstring)::Cstring
 
-    @ccall "libpdi".PDI_event("Hello World Event"::Cstring)::Cstring
+        # https://gitlab.maisondelasimulation.fr/pdidev/pdi/-/blob/master/pdi/src/fortran/pdif.h.zpp
+    
 
-    @ccall "libpdi".PDI_finalize()::Cstring
+        # typedef struct PC_tree_s
+        #     {
+        #         /// The tree status
+        #         PC_status_t status;
+                
+        #         /// The document containing the tree
+        #         yaml_document_t* document;
+                
+        #         /// the node inside the tree
+        #         yaml_node_t* node;
+            
+        #     } PC_tree_t;
 
-    printstyled(color=:red, @sprintf "\n PDI test end\n" )
+
+
+        yml_file = prefixyaml*"hello_data.yml"
+        # yml_file = "hello_data.yml"
+
+        #So, for paraconf and pdi it would look like this (the types may be incorrect)
+        # conf = @ccall "libparaconf".PC_parse_path("hello_data.yml"::Cstring)::Ptr{Cvoid}
+        # conf = @ccall "libparaconf".PC_parse_path(yml_file::Ptr{UInt8})::PC_tree_t
+        # conf = @ccall "libparaconf".PC_parse_path("hello_data.yml"::Ptr{UInt8})::Ptr{Cvoid}
+        # conf = @ccall "libparaconf".PC_parse_path(yml_file::Ptr{UInt8})::Ptr{PC_tree_t}
+
+        # conf = @ccall "libparaconf".PC_parse_path(yml_file::Cstring)::PC_tree_t
+
+        # conf = @ccall "libparaconf".PC_parse_path(yml_file::Cstring)::Ref{PC_tree_t}
+
+
+        # conf = @ccall "libparaconf".PC_parse_path(yml_file::Cstring)::PC_tree_t
+
+
+        # https://pdi.dev/master/First_steps.html#fs_hello_event
+
+        #example hello_data
+        yml_file = prefixyaml*"hello_data.yml"
+
+        conf = @ccall "libparaconf".PC_parse_path(yml_file::Cstring)::PC_tree_t
+
+        @ccall "libpdi".PDI_init(conf::PC_tree_t)::Cstring
+     
+        @ccall "libpdi".PDI_event("Hello World Event"::Cstring)::Cstring
+     
+        @ccall "libpdi".PDI_finalize()::Cstring
+
+        printstyled(color=:red, @sprintf "\n PDI test end\n" )
+
+    
+
+        # print(conf)
+
+        #no init message
+        # https://gitlab.maisondelasimulation.fr/pdidev/pdi/-/blob/master/pdi/src/pdi.cxx
+
+        # @ccall "libpdi".PDI_init(@ccall "libpdi".PC_get(conf::PC_tree_t, ".pdi"::Cstring)::Cstring)::Cstring
+
+        # testpdi = @ccall "libpdi".PC_get(conf::PC_tree_t, ".pdi"::Cstring)::PC_tree_t
+
+        # print(testpdi)
+
+        # @ccall "libpdi".PDI_init(testpdi::Cstring)::Cstring
+
+        # @ccall "libpdi".PDI_event("Hello World Event"::Cstring)::Cstring
+
+        # @ccall "libpdi".PDI_finalize()::Cstring
+
+        # printstyled(color=:red, @sprintf "\n PDI test end\n" )
+
+
+
+        # Send meta-data to PDI
+        # PDI_multi_expose("init_PDI", 
+        #                 "mpi_coords_x", &mpi_decomposition.coords.x, PDI_OUT,
+        #                 "mpi_coords_y", &mpi_decomposition.coords.y, PDI_OUT,
+        #                 "mpi_max_coords_x", &mpi_decomposition.max_coords.x, PDI_OUT,
+        #                 "mpi_max_coords_y", &mpi_decomposition.max_coords.y, PDI_OUT,
+        #                 "nx", &nx, PDI_OUT,
+        #                 "ny", &ny, PDI_OUT,
+        #                 NULL);
+
+        # # Expose the solution
+        # PDI_multi_expose("write_data",
+        #             "nwrite", &nwrite, PDI_OUT,
+        #             "time", &time, PDI_OUT,
+        #             "main_field", U_IO.data(), PDI_OUT,
+        #             NULL)
+
+        # # Increment writing counter
+        # nwrite=nwrite+1
+
+    catch error
+        printstyled(color=:red, @sprintf "\n PDI error \n")
+    end
 end
 ####################################################################################################
 
@@ -360,7 +336,8 @@ ycoord = L0/2.0
 # xcoord = -xcoord
 # ycoord = -ycoord
 
-mu=6.7e-7
+mu_cin=6.7e-7 #m^2/s
+mu = mu_cin *rho1 #in Pa s = M L^{-1} T^{-1}}
 mu1=mu
 mu2=mu #TODO
 i0=1.0
@@ -512,6 +489,398 @@ println("θe = $(_θe)")
 
 
 
+
+
+
+###################################################################################################
+
+
+
+
+electrolysis_phase_change = false
+# electrolysis_phase_change = true
+
+save_u = false
+save_v = false
+save_p = false
+save_zoom = false
+save_big_picture = false 
+save_interface = false 
+
+
+plot_grid = false
+
+plot_movies = false
+plot_movies = true
+
+plot_R = plot_movies
+
+#debug Levelset
+plotcase = "none"
+#plotcase = "circle"
+
+plot_current_wall = false
+# plot_current_wall = true
+
+plot_interface = false
+# plot_interface = true 
+
+imposed_velocity = "none"
+
+electrolysis_phase_change_case = "Khalighi"
+
+
+test_case = "small_cell"
+test_case = "100it"
+test_case = "radial"
+test_case = "channel_no_bubble"
+# test_case = "channel_no_bubble_no_vel"
+test_case = "channel_no_bubble_Cdivu"
+
+test_case = "channel_Dirichlet"
+
+test_case = "channel_Dirichlet_constant_vel"
+
+test_case = "channel_Dirichlet_constant_vel"
+
+test_case = "channel_Dirichlet_pressure"
+
+
+
+# test_case = "channel"
+# test_case = "imposed_radius"
+
+# localARGS = isdefined(:newARGS) ? newARGS : ARGS
+# @show localARGS
+
+# print("\n Arguments ", localARGS)
+
+# if length(localARGS)>1
+#    test_case = localARGS[1]
+#    printstyled(color=:magenta, @sprintf "\n Test case ")
+#    print(test_case)
+#    print("\n")
+
+# end
+
+radial_vel_factor = 1e-7
+
+# velocity = 1.0
+velocity = 0.0
+
+activate_interface = false
+activate_interface = true
+
+save_KOH = true
+save_H2O = true
+
+
+fontsize = 2 #2
+printmode = "val"
+plotbc=true
+
+
+scalar_debug = false
+# scalar_debug = true
+
+convection_Cdivu = false
+
+
+i_current = x[1,:] .*0.0
+
+
+# H2 boundary condition
+BC_trans_scal_H2 = BoundariesInt(
+bottom = Dirichlet(val = concentration0[1]),
+top    = Neumann(),
+left   = Neumann(val=-i_current/(2*Faraday*DH2)), #Dirichlet(val = concentration0[1]), #
+right  = Dirichlet(val = concentration0[1]),
+int    = Dirichlet(val = concentration0[1]))
+
+BC_pL = Boundaries(
+        left   = Neumann(val=0.0),
+        right  = Neumann(val=0.0),
+        bottom = Neumann(val=0.0),
+        top    = Dirichlet(),
+    )
+
+
+
+electrolysis_reaction = "Butler_no_concentration"
+
+pressure_channel = false
+
+
+if test_case == "small_cell"
+    #Test case 1: small cells (high concentration at vecb_L)
+    electrolysis_phase_change = false
+    max_iter = 1
+    save_every = 1
+
+    folder="electrolysis_circle_wall_CFL_small_cell"
+
+elseif test_case == "100it"
+    #Test case 2: scalar without velocity
+    electrolysis_phase_change = false
+    max_iter = 100
+    save_every = 10
+    save_p = false
+
+    folder="electrolysis_circle_wall_CFL"*test_case
+
+elseif test_case == "radial"
+    electrolysis_phase_change = false
+    imposed_velocity = "radial"
+    max_iter = 1
+    save_every = 1
+    n = 64
+    radial_vel_factor = 1e-7
+    folder="electrolysis_circle_wall_CFL"*test_case
+
+elseif test_case == "channel_no_bubble"
+    activate_interface = false
+    electrolysis_phase_change = false
+    max_iter = 100
+    save_every = 25
+
+    # max_iter = 2
+    # save_every = 1
+
+
+    velocity = 1.0
+    # save_v = true
+    save_KOH = false
+    save_H2O = false
+    save_zoom = true
+
+    concentration_check_factor = 1e-4 #1e-3
+
+
+elseif test_case == "channel_Dirichlet"
+    activate_interface = false
+    electrolysis_phase_change = false
+    max_iter = 100
+    save_every = 25
+
+    # max_iter = 2
+    # save_every = 1
+
+
+    velocity = 1.0
+    # save_v = true
+    save_KOH = false
+    save_H2O = false
+    save_zoom = true
+
+    concentration_check_factor = 1e-4 #1e-3
+    
+    BC_trans_scal_H2 = BoundariesInt(
+    bottom = Dirichlet(val = concentration0[1]),
+    top    = Neumann(),
+    left   = Dirichlet(val = concentration0[1]),
+    right  = Dirichlet(val = concentration0[1]),
+    int    = Dirichlet(val = concentration0[1])) #H2
+
+    electrolysis_reaction = "none"
+
+elseif test_case == "channel_Dirichlet_pressure"
+    activate_interface = false
+    electrolysis_phase_change = false
+    max_iter = 100
+    save_every = 25
+
+    max_iter = 2
+    save_every = 1
+
+
+    velocity = 1.0
+    save_v = true
+    save_KOH = false
+    save_H2O = false
+    save_zoom = false
+
+    concentration_check_factor = 1e-4 #1e-3
+    
+    BC_trans_scal_H2 = BoundariesInt(
+    bottom = Dirichlet(val = concentration0[1]),
+    top    = Neumann(),
+    left   = Dirichlet(val = concentration0[1]),
+    right  = Dirichlet(val = concentration0[1]),
+    int    = Dirichlet(val = concentration0[1])) #H2
+
+
+    electrolysis_reaction = "none"
+    # imposed_velocity = "constant"
+
+    p_top = 0
+    # v_inlet: avg
+    # p_bottom = p_top - 8*mu1/L0*v_inlet
+    # p_bottom = p_top + 8*mu1/L0*v_inlet*3/2
+    p_bottom = p_top + 12*mu1/L0*v_inlet
+
+    test_v=-(p_top - p_bottom)/L0 * (L0^2)/4/2/mu
+
+    # print("\n pbottom ", p_bottom, v_inlet*12*mu1/L0 )
+    
+    
+    printstyled(color=:green, @sprintf "\n mu1 : %.2e v %.2e vmax %.2e vtest %.2e\n" mu1 v_inlet v_inlet*3/2 test_v)
+
+
+    print("\n mu1 ",mu1,"L0 ", L0)
+
+    pressure_channel = true
+
+    BC_vL= Boundaries(
+        left   = Dirichlet(),
+        right  = Dirichlet(),
+        bottom = Neumann(),
+        top    = Neumann(),
+    )
+
+    BC_pL = Boundaries(
+        left   = Neumann(),
+        right  = Neumann(),
+        bottom = Dirichlet(val = p_bottom),
+        top    = Dirichlet(val = p_top),
+    )
+
+elseif test_case == "channel_Dirichlet_constant_vel"
+    activate_interface = false
+    electrolysis_phase_change = false
+    max_iter = 100
+    save_every = 25
+
+    # max_iter = 2
+    # save_every = 1
+
+
+    velocity = 1.0
+    save_v = true
+    save_KOH = false
+    save_H2O = false
+    save_zoom = false
+
+    concentration_check_factor = 1e-4 #1e-3
+    
+    BC_trans_scal_H2 = BoundariesInt(
+    bottom = Dirichlet(val = concentration0[1]),
+    top    = Neumann(),
+    left   = Dirichlet(val = concentration0[1]),
+    right  = Dirichlet(val = concentration0[1]),
+    int    = Dirichlet(val = concentration0[1])) #H2
+
+
+    electrolysis_reaction = "none"
+    imposed_velocity = "constant"
+
+    BC_vL= Boundaries(
+        left   = Dirichlet(val = v_inlet),
+        right  = Dirichlet(val = v_inlet),
+        bottom = Dirichlet(val = v_inlet),
+        top    = Neumann(val=0.0),
+    )
+
+    BC_pL = Boundaries(
+        left   = Neumann(),
+        right  = Neumann(),
+        bottom = Neumann(),
+        top    = Neumann(),
+    )
+
+
+elseif test_case == "channel_no_bubble_Cdivu"
+    activate_interface = false
+    electrolysis_phase_change = false
+    max_iter = 100
+    save_every = 25
+
+    # max_iter = 2
+    # save_every = 1
+
+
+    velocity = 1.0
+    # save_v = true
+    save_KOH = false
+    save_H2O = false
+    save_zoom = true
+
+    concentration_check_factor = 1e-4 #1e-3
+
+    convection_Cdivu = true
+
+elseif test_case == "channel_no_bubble_no_vel"
+    activate_interface = false
+    electrolysis_phase_change = false
+    max_iter = 100
+    save_every = 25
+
+    # max_iter = 2
+    # save_every = 1
+
+    # velocity = 1.0
+    # save_v = true
+    save_KOH = false
+    save_H2O = false
+    save_zoom = true
+
+    concentration_check_factor = 1e-4 #1e-3
+
+elseif test_case == "channel"
+    electrolysis_phase_change = false
+    max_iter = 100
+    save_every = 25
+    velocity = 1.0
+
+    save_KOH = false
+    save_H2O = false
+    save_zoom = true
+
+    concentration_check_factor = 1e-4
+
+elseif test_case == "imposed_radius"
+    electrolysis_phase_change = true
+    max_iter = 100
+    save_every = 25
+    velocity = 0.0
+
+    save_KOH = false
+    save_H2O = false
+    save_zoom = true
+
+    concentration_check_factor = 1e-4
+
+    electrolysis_phase_change_case = "imposed_radius"
+
+end
+
+folder="electrolysis_circle_wall_CFL"*"_"*test_case
+
+vPoiseuille = zeros(n +1, n) #zeros(gv)
+
+if imposed_velocity != "constant" 
+
+    vPoiseuille = Poiseuille_favg.(x,v_inlet,L0) .* velocity
+    vPoiseuilleb = Poiseuille_favg.(x[1,:],v_inlet,L0) .* velocity
+
+    if (!pressure_channel)
+        BC_vL= Boundaries(
+            left   = Dirichlet(),
+            right  = Dirichlet(),
+            bottom = Dirichlet(val = copy(vPoiseuilleb)),
+            top    = Neumann(val=0.0),
+        )
+    end
+end
+
+
+####################################################################################################
+# Save path
+####################################################################################################
+prefix *= "/"*folder*"/"
+isdir(prefix) || mkdir(prefix)
+####################################################################################################
+
+
 num = Numerical(
     CFL = CFL,
     Re = Re,
@@ -557,7 +926,8 @@ num = Numerical(
     plot_prefix = prefix,
     dt0 = dt0,
     concentration_check_factor = concentration_check_factor,
-    radial_vel_factor = radial_vel_factor
+    radial_vel_factor = radial_vel_factor,
+    scalar_debug =scalar_debug,
     )
     # ref_thickness_2d = ref_thickness_2d,
 
@@ -567,6 +937,7 @@ op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
 
 @unpack x, nx, ny, ind = gv
+
 
 
 if imposed_velocity == "radial"
@@ -627,29 +998,38 @@ if imposed_velocity == "radial"
 
     vPoiseuilleb = 0.0
 
+elseif imposed_velocity == "constant"
+    
+    phL.v .= v_inlet
+    phL.u .= 0.0
 
 else
 
-    vPoiseuille = zeros(gv)
-    vPoiseuille = Poiseuille_favg.(x,v_inlet,L0) .* velocity
-    vPoiseuilleb = Poiseuille_favg.(gv.x[1,:],v_inlet,L0) .* velocity
-
     phL.v .=vPoiseuille .* velocity
     phL.u .= 0.0
-    phL.p .= pres0 #0.0
-    phL.T .= temperature0
-    phS.T .= temperature0
-
-    #Initialize for CRASH detection (cf isnan...)
-    phS.v .= 0.0
-    phS.u .= 0.0
-    phS.vD .= 0.0
-    phS.uD .= 0.0
 
     
+    printstyled(color=:red, @sprintf "\n initialized bulk velocity field %.2e %.2e \n" maximum(phL.v) velocity)
 end
 
+if pressure_channel
+    
+    phL.p .= gp.x * (p_top - p_bottom)/L0 .+ p_bottom
+    # p_bottom .+ (p_top .- p_bottom)./L0.*x
 
+else
+    phL.p .= pres0 #0.0
+
+end
+
+phL.T .= temperature0
+phS.T .= temperature0
+
+#Initialize for CRASH detection (cf isnan...)
+phS.v .= 0.0
+phS.u .= 0.0
+phS.vD .= 0.0
+phS.uD .= 0.0
 
 
 
@@ -709,6 +1089,11 @@ yscale = xscale
 
 x_array=gp.x[1,:]/xscale
 y_array=gp.y[:,1]/yscale
+
+plot_levelset=true
+isocontour=false#true
+cmap = plt.cm.viridis
+
 xu=gu.x[1,:]/xscale
 yu=gu.y[:,1]/yscale
 xv=gv.x[1,:]/xscale
@@ -757,6 +1142,12 @@ printstyled(color=:green, @sprintf "\n TODO timestep CFL scal, and print \n")
 #TODO need to iterate more for potential since phiele=0 initially?
 
 phi_ele=gv.x[1,:] .*0.0
+
+# print("\n linrange ", x[1,:] .*0.0)
+
+# print("\n phi_ele ", phi_ele)
+
+
 # eta = phi_ele1 .-phi_ele
 #TODO precision: number of digits
 # i_current=i0*(exp(alphaa*Faraday*eta/(Ru*temperature0))-exp(-alphac*Faraday*eta/(Ru*temperature0)))
@@ -804,19 +1195,9 @@ BC_pS = Boundaries(
         top    = Neumann(val=0.0),
     ),
     BC_uS=BC_uS,
-    BC_vL = Boundaries(
-        left   = Dirichlet(),
-        right  = Dirichlet(),
-        bottom = Dirichlet(val = copy(vPoiseuilleb)),
-        top    = Neumann(val=0.0),
-    ),
+    BC_vL = BC_vL,
     BC_vS=BC_vS,
-    BC_pL = Boundaries(
-        left   = Neumann(val=0.0),
-        right  = Neumann(val=0.0),
-        bottom = Neumann(val=0.0),
-        top    = Dirichlet(),
-    ),
+    BC_pL = BC_pL,
     BC_pS=BC_pS,
     # left = Dirichlet(val=pres0),
     # right = Dirichlet(val=pres0),
@@ -834,13 +1215,7 @@ BC_pS = Boundaries(
     # ),
 
     BC_trans_scal = (
-        BoundariesInt(
-        bottom = Dirichlet(val = concentration0[1]),
-        top    = Neumann(),
-        left   = Neumann(val=-i_current/(2*Faraday*DH2)), #Dirichlet(val = concentration0[1]), #
-        right  = Dirichlet(val = concentration0[1]),
-        int    = Dirichlet(val = concentration0[1])), #H2
-         
+        BC_trans_scal_H2, #H2
         BoundariesInt(
         bottom = Dirichlet(val = concentration0[2]),
         top    = Neumann(),
@@ -878,15 +1253,14 @@ BC_pS = Boundaries(
     electrolysis_liquid_phase = true,
     electrolysis_phase_change = electrolysis_phase_change,
     # electrolysis_phase_change_case = "levelset",
-    electrolysis_phase_change_case = "Khalighi",
-    electrolysis_reaction = "Butler_no_concentration", #"nothing", #
-    # electrolysis_reaction = "nothing",
+    electrolysis_phase_change_case = electrolysis_phase_change_case,
+    electrolysis_reaction = electrolysis_reaction, 
     imposed_velocity = imposed_velocity,
     adapt_timestep_mode = adapt_timestep_mode,#1,
     non_dimensionalize=0,
     mode_2d = mode_2d,
+    convection_Cdivu = convection_Cdivu,
     
-
     # ns_advection = false,
 
     # auto_reinit = true,
@@ -927,12 +1301,7 @@ file = suffix*".jld2"
 
 
 ####################################################################################################
-x_array=gp.x[1,:]/xscale
-y_array=gp.y[:,1]/yscale
 
-plot_levelset=true
-isocontour=false#true
-cmap = plt.cm.viridis
 
 if isnothing(current_i)
     size_frame=size(fwdL.p,1)
@@ -1117,6 +1486,17 @@ if plot_current_wall
     plot_current_wall()
 end
 
+# print("\n plot bc ", size_frame," \n")
+# plot_bc(1:2,fwdL.trans_scalD[:,:,1],gp,xscale,"top_bc",prefix)
+plot_bc(1:size_frame,fwdL.trans_scalD[:,:,1],gp,xscale,"top_bc",prefix,fwd)
+
+plot_bc2(1:size_frame,fwdL.trans_scalD[:,:,1],gp,xscale,"bottom_bc",prefix,fwd)
+
+
+# plot_bc2(1:size_frame, vecb_B_fwd(fwdL.trans_scalD[:,:,1],gp),gp,xscale,"bottom_bc",prefix,fwd)
+# vecb_B_fwd(a,g::G) where {G<:Grid} = @view vecb(a, g)[:,g.ny+1:g.ny+g.nx]
+# vecb_fwd(a, g::G) where {G<:Grid} = @view a[:,end-2*g.ny-2*g.nx+1:end]
+
 ###########################################################################################################################################"
 
 # plt_it = [2]
@@ -1146,6 +1526,11 @@ for plt_it = 2:size_frame+1
         plot_python_pdf(plt_it,fwdL.v , "v",prefix,plot_levelset,isocontour,plot_grid,"pcolormesh",
         10,range(0,1400,length=8),cmap,xv,yv,gv,"velocity",1,gv.nx,1,gv.ny,fwd)
         # ./velscale
+
+        plot_python_pdf_full2(plt_it,fwdL.v,fwdL.vD, "bottom_v",prefix,
+        plot_levelset,concentrationcontour,true,"pcolormesh",10,range(0,1400,length=8),cmap,x_array,y_array,gv,"concentration",
+        1,10,1,10,fwd,fwdL,xscale,fontsize,printmode,plotcase,num,plotbc)
+
     end
 
 

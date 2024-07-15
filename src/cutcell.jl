@@ -595,10 +595,15 @@ function postprocess_grids1!(num, grid, LS, grid_u, LS_u, grid_v, LS_v, periodic
         LS_v.geoL.cap[non_mixed_v,4] .- LS_v.geoL.cap[non_mixed_v,2],
         LS_v.geoL.cap[non_mixed_v,3] .- LS_v.geoL.cap[non_mixed_v,1]
     )
+    try
+        set_cap_bcs!(grid, LS, periodic_x, periodic_y, empty)
+        set_cap_bcs!(grid_u, LS_u, periodic_x, periodic_y, empty)
+        set_cap_bcs!(grid_v, LS_v, periodic_x, periodic_y, empty)
 
-    set_cap_bcs!(grid, LS, periodic_x, periodic_y, empty)
-    set_cap_bcs!(grid_u, LS_u, periodic_x, periodic_y, empty)
-    set_cap_bcs!(grid_v, LS_v, periodic_x, periodic_y, empty)
+    catch errorLS
+        printstyled(color=:red, @sprintf "\n LS not updated: set_cap_bcs! p u v \n")
+        print(errorLS)
+    end
 
     return nothing
 end

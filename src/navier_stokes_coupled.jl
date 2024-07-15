@@ -739,25 +739,7 @@ function FE_set_momentum_coupled(
             a1v = Diagonal(vec(_a1v))
             _bv = ones(gv) .* __bv
             bv = Diagonal(vec(_bv))
-        elseif is_flapping(bc_type[iLS])
-            velu = copy(gu.V)
-            a0u = ones(gu) .* velu
-            __a1u = -1.0
-            __bu = 0.0
-            _a1u = ones(gu) .* __a1u
-            a1u = Diagonal(vec(_a1u))
-            _bu = ones(gu) .* __bu
-            bu = Diagonal(vec(_bu))
-
-            velv = copy(gv.V)
-            a0v = ones(gv) .* velv
-            __a1v = -1.0
-            __bv = 0.0
-            _a1v = ones(gv) .* __a1v
-            a1v = Diagonal(vec(_a1v))
-            _bv = ones(gv) .* __bv
-            bv = Diagonal(vec(_bv))
-        elseif is_navier_cl(bc_type[iLS])
+                elseif is_navier_cl(bc_type[iLS])
             velp = bc_type[iLS].val
             a0p = ones(gp) .* velp
 
@@ -1273,11 +1255,7 @@ function CN_set_momentum(
             vel = bc_type[iLS].val
             __a1 = -1.0
             __b = 0.0
-        elseif is_flapping(bc_type[iLS])
-            vel = copy(grid.V)
-            __a1 = -1.0
-            __b = 0.0
-        else
+                else
             vel = bc_type[iLS].val
             __a1 = -1.0
             __b = 0.0
@@ -1396,11 +1374,7 @@ function FE_set_momentum(
             vel = bc_type[iLS].val
             __a1 = -1.0
             __b = 0.0
-        elseif is_flapping(bc_type[iLS])
-            vel = copy(grid.V)
-            __a1 = -1.0
-            __b = 0.0
-        else
+                else
             vel = bc_type[iLS].val
             __a1 = -1.0
             __b = 0.0
@@ -1502,10 +1476,6 @@ function set_poisson(
                 __a2 = 1.0
                 __b = 0.0
             elseif is_wall_no_slip(bc_type[iLS])
-                __a1 = 0.0
-                __a2 = 0.0
-                __b = 1.0
-            elseif is_flapping(bc_type[iLS])
                 __a1 = 0.0
                 __a2 = 0.0
                 __b = 1.0
@@ -1813,10 +1783,6 @@ function pressure_projection!(
         vec1(rhs_v,grid_v) .-= τ .* Convv
         vec1(rhs_v,grid_v) .+= τ .* ra_y
         vec1(rhs_v,grid_v) .-= τ .* ph.Gym1
-        if is_flapping(bc_int[1])
-            acc_v = 2π * bc_int[1].β^2 * bc_int[1].KC * cos(2π * bc_int[1].β * t)
-            vec1(rhs_v,grid_v) .-= τ .* opC_v.M * (acc_v .* fones(grid_v))
-        end
         kill_dead_cells!(vec1(rhs_v,grid_v), grid_v, geo_v[end])
         for iLS in 1:nLS
             kill_dead_cells!(veci(rhs_v,grid_v,iLS+1), grid_v, geo_v[end])

@@ -679,12 +679,12 @@ function scalar_transport_2!(bc, num, grid, op, geo, ph, concentration0, MIXED, 
 
             #TODO BC missing
 
-            Duv = opC_pL.AxT * vec1(ph.uD,grid_u) .+ opC_pL.Gx_b * vecb(ph.uD,grid_u) .+
-            opC_pL.AyT * vec1(ph.vD,grid_v) .+ opC_pL.Gy_b * vecb(ph.vD,grid_v)
-            for iLS in 1:nLS
+            Duv = op.AxT * vec1(ph.uD,grid_u) .+ op.Gx_b * vecb(ph.uD,grid_u) .+
+            op.AyT * vec1(ph.vD,grid_v) .+ op.Gy_b * vecb(ph.vD,grid_v)
+            for iLS in 1:num.nLS
                 if !is_navier(BC_int[iLS]) && !is_navier_cl(BC_int[iLS])
-                    Duv .+= opC_pL.Gx[iLS] * veci(ph.uD,grid_u,iLS+1) .+ 
-                            opC_pL.Gy[iLS] * veci(ph.vD,grid_v,iLS+1)
+                    Duv .+= op.Gx[iLS] * veci(ph.uD,grid_u,iLS+1) .+ 
+                            op.Gy[iLS] * veci(ph.vD,grid_v,iLS+1)
                 end
             end
         
@@ -758,7 +758,7 @@ function scalar_transport_2!(bc, num, grid, op, geo, ph, concentration0, MIXED, 
 
             if any(ph.trans_scal[:,:,iscal].<concentration0[iscal]*(1-num.concentration_check_factor))
                 print("iscal ",iscal)
-                printstyled(color=:red, @sprintf "\n concentration: %.2e %.2e \n" minimum(ph.trans_scal[:,:,iscal]) concentration0[iscal]*(1-num.concentration_check_factor))
+                printstyled(color=:red, @sprintf "\n concentration: %.10e %.10e \n" minimum(ph.trans_scal[:,:,iscal]) concentration0[iscal]*(1-num.concentration_check_factor))
                 # printstyled(color=:red, @sprintf "\n concentration drop: %.2e%% \n" (minimum(ph.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal]*100)
                 @error("concentration too low")
                 # return current_i
@@ -771,7 +771,7 @@ function scalar_transport_2!(bc, num, grid, op, geo, ph, concentration0, MIXED, 
 
             if any(ph.trans_scal[:,:,iscal].> concentration0[iscal]*(1+num.concentration_check_factor))
                 print("iscal ",iscal)
-                printstyled(color=:red, @sprintf "\n concentration: %.2e %.2e \n" maximum(ph.trans_scal[:,:,iscal]) concentration0[iscal]*(1-num.concentration_check_factor))
+                printstyled(color=:red, @sprintf "\n concentration: %.10e %.10e \n" maximum(ph.trans_scal[:,:,iscal]) concentration0[iscal]*(1-num.concentration_check_factor))
                 # printstyled(color=:red, @sprintf "\n concentration increase: %.2e%% \n" (maximum(ph.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal]*100)
                 @error("concentration too high")
                 # return current_i
@@ -1241,12 +1241,12 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
             #TODO BC missing
 
-            Duv = opC_pL.AxT * vec1(ph.uD,grid_u) .+ opC_pL.Gx_b * vecb(ph.uD,grid_u) .+
-            opC_pL.AyT * vec1(ph.vD,grid_v) .+ opC_pL.Gy_b * vecb(ph.vD,grid_v)
-            for iLS in 1:nLS
+            Duv = op.AxT * vec1(ph.uD,grid_u) .+ op.Gx_b * vecb(ph.uD,grid_u) .+
+            op.AyT * vec1(ph.vD,grid_v) .+ op.Gy_b * vecb(ph.vD,grid_v)
+            for iLS in 1:num.nLS
                 if !is_navier(BC_int[iLS]) && !is_navier_cl(BC_int[iLS])
-                    Duv .+= opC_pL.Gx[iLS] * veci(ph.uD,grid_u,iLS+1) .+ 
-                            opC_pL.Gy[iLS] * veci(ph.vD,grid_v,iLS+1)
+                    Duv .+= op.Gx[iLS] * veci(ph.uD,grid_u,iLS+1) .+ 
+                            op.Gy[iLS] * veci(ph.vD,grid_v,iLS+1)
                 end
             end
         
@@ -1288,7 +1288,19 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         ####################################################################################################
 
         if iscal == 1
-            debug_border_x(grid.ny,grid.nx,A,B,rhs,geo,inside,ind,grid,bc,iscal,num,op,ni,nb,ph,Bx,By)
+
+            # print("\n test left after A/r L", vecb_T(ph.trans_scalD[:,iscal], grid))
+            # print("\n end ", ph.trans_scal[end,:,iscal])
+
+        #     debug_border_top(grid.nx,grid.ny,A,B,rhs,geo,inside,ind,grid,bc,iscal,num,op,ni,nb,ph,Bx,By)
+        #     debug_border_top(grid.nx-1,grid.ny,A,B,rhs,geo,inside,ind,grid,bc,iscal,num,op,ni,nb,ph,Bx,By)
+        #     debug_border_top(grid.nx-2,grid.ny,A,B,rhs,geo,inside,ind,grid,bc,iscal,num,op,ni,nb,ph,Bx,By)
+        
+        #     rhs2 = A * ph.trans_scalD[:,iscal] - rhs
+
+        #     # print("\n test left after A/r L", vecb_T(ph.trans_scalD[:,iscal], grid))
+        #     # print("\n rhs2 ", maximum(rhs2))
+
 
         end
 
@@ -1303,9 +1315,9 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         #     #     printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i chi_b %.2e border %.5e\n" testn ny-testn+1 op.χ_b[end-nb+testn,end-nb+testn] vecb_L(ph.trans_scalD[:,iscal], grid)[testn])
         #     # end
 
-        #     debug_border_y(1,68,A,B,rhs,geo,inside,ind,grid,bc,iscal,num,op,ni,nb,ph,Bx,By)
-        #     debug_border_y(1,69,A,B,rhs,geo,inside,ind,grid,bc,iscal,num,op,ni,nb,ph,Bx,By)
-        #     debug_border_y(1,70,A,B,rhs,geo,inside,ind,grid,bc,iscal,num,op,ni,nb,ph,Bx,By)
+        #     debug_border_left(1,68,A,B,rhs,geo,inside,ind,grid,bc,iscal,num,op,ni,nb,ph,Bx,By)
+        #     debug_border_left(1,69,A,B,rhs,geo,inside,ind,grid,bc,iscal,num,op,ni,nb,ph,Bx,By)
+        #     debug_border_left(1,70,A,B,rhs,geo,inside,ind,grid,bc,iscal,num,op,ni,nb,ph,Bx,By)
 
 
         # end
@@ -1342,38 +1354,43 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
             # @views veci(ph.trans_scalD[:,iscal],grid,1) .= vec(ph.trans_scal[:,:,iscal])
 
 
-            ####################################################################################################
-            #check top 
-            ####################################################################################################
-            jplot = grid.ny
-            for iplot in 1:grid.nx
-                II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-                pII = lexicographic(II, grid.ny)
+            # ####################################################################################################
+            # #check top 
+            # ####################################################################################################
 
-                # printstyled(color=:green, @sprintf "\n i: %5i %.2e %.2e \n" iplot abs(reverse(vecb_T(ph.trans_scalD[:,iscal],grid))[iplot]-concentration0[iscal])/concentration0[iscal] reverse(vecb_T(ph.trans_scalD[:,iscal],grid))[iplot])
+            # not needed, with Neumann 0 at top and non null at left it cannot stay equal to 0.16 the ref value
+
+            # jplot = grid.ny
+            # for iplot in 1:grid.nx
+            #     II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+            #     pII = lexicographic(II, grid.ny)
+
+            #     # printstyled(color=:green, @sprintf "\n i: %5i %.2e %.2e \n" iplot abs(reverse(vecb_T(ph.trans_scalD[:,iscal],grid))[iplot]-concentration0[iscal])/concentration0[iscal] reverse(vecb_T(ph.trans_scalD[:,iscal],grid))[iplot])
 
 
-                if (abs(reverse(vecb_T(ph.trans_scalD[:,iscal],grid))[iplot]-concentration0[iscal])/concentration0[iscal]>num.concentration_check_factor)
+            #     if (abs(vecb_T(ph.trans_scalD[:,iscal],grid)[iplot]-concentration0[iscal])/concentration0[iscal]>num.concentration_check_factor)
 
-                # if (ph.trans_scalD[pII,iscal] >concentration0[iscal]) 
+            #     # if (ph.trans_scalD[pII,iscal] >concentration0[iscal]) 
                     
-                    # && (ph.trans_scalD[pII,iscal] == maximum(ph.trans_scalD[:,iscal]) )
-                    printstyled(color=:green, @sprintf "\n i: %5i j: %5i %.2e %.2e %.2e %.2e \n" iplot jplot grid.x[iplot]/num.plot_xscale grid.y[jplot]/num.plot_xscale ph.trans_scalD[pII,iscal] rhs[pII])
+            #         # && (ph.trans_scalD[pII,iscal] == maximum(ph.trans_scalD[:,iscal]) )
+            #         printstyled(color=:green, @sprintf "\n i: %5i j: %5i %.2e %.2e %.2e %.2e \n" iplot jplot grid.x[iplot]/num.plot_xscale grid.y[jplot]/num.plot_xscale ph.trans_scalD[pII,iscal] rhs[pII])
                     
-                    @views scalar_debug!(dir, CT, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 
-                    bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1],num,grid,iplot,jplot)
+            #         @views scalar_debug!(dir, CT, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 
+            #         bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1],num,grid,iplot,jplot)
 
-                    printstyled(color=:red, @sprintf "\n exit 1 error \n" )
-                    @error("exit error")
+            #         printstyled(color=:red, @sprintf "\n exit 1 error \n" )
+            #         @error("exit error")
 
-                    return
+            #         return
 
-                end
-            end
+            #     end
+            # end
 
-            if any(ph.trans_scal[:,:,iscal].<concentration0[iscal]*(1-num.concentration_check_factor))
+            min_border_bulk = min(minimum(ph.trans_scal[:,:,iscal]),minimum(vecb(ph.trans_scal[:,:,iscal],grid)))
+
+            if min_border_bulk.<concentration0[iscal]*(1-num.concentration_check_factor)
                 print("iscal ",iscal)
-                printstyled(color=:red, @sprintf "\n concentration: %.2e %.2e \n" minimum(ph.trans_scal[:,:,iscal]) concentration0[iscal]*(1-num.concentration_check_factor))
+                printstyled(color=:red, @sprintf "\n concentration: %.10e %.10e \n" min_border_bulk concentration0[iscal]*(1-num.concentration_check_factor))
                 # printstyled(color=:red, @sprintf "\n concentration drop: %.2e%% \n" (minimum(ph.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal]*100)
                 @error("concentration too low")
                 # return current_i
@@ -1394,9 +1411,10 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
                             # && (ph.trans_scalD[pII,iscal] == maximum(ph.trans_scalD[:,iscal]) )
                             printstyled(color=:green, @sprintf "\n i: %5i j: %5i %.2e %.2e %.2e %.2e \n" iplot jplot grid.x[iplot]/num.plot_xscale grid.y[jplot]/num.plot_xscale ph.trans_scalD[pII,iscal] rhs[pII])
                             
-                            @views scalar_debug!(dir, CT, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 
-                            bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1],num,grid,iplot,jplot)
-
+                            if num.scalar_debug
+                                @views scalar_debug!(dir, CT, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 
+                                bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1],num,grid,iplot,jplot)
+                            end
                             printstyled(color=:red, @sprintf "\n exit 1 error \n" )
                             @error("exit error")
 
@@ -1413,9 +1431,10 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         else 
             @views kill_dead_cells_val!(ph.trans_scal[:,:,iscal], grid, LS[1].geoL,concentration0[iscal]) 
 
-            if any(ph.trans_scal[:,:,iscal].> concentration0[iscal]*(1+num.concentration_check_factor))
+            max_border_bulk = max(maximum(ph.trans_scal[:,:,iscal]),maximum(vecb(ph.trans_scal[:,:,iscal],grid)))
+            if max_border_bulk.> concentration0[iscal]*(1+num.concentration_check_factor)
                 print("iscal ",iscal)
-                printstyled(color=:red, @sprintf "\n concentration: %.2e %.2e \n" maximum(ph.trans_scal[:,:,iscal]) concentration0[iscal]*(1-num.concentration_check_factor))
+                printstyled(color=:red, @sprintf "\n concentration: %.10e %.10e \n" max_border_bulk concentration0[iscal]*(1-num.concentration_check_factor))
                 # printstyled(color=:red, @sprintf "\n concentration increase: %.2e%% \n" (maximum(ph.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal]*100)
                 @error("concentration too high")
                 # return current_i
@@ -1432,9 +1451,10 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
                             
                             # && (ph.trans_scalD[pII,iscal] == maximum(ph.trans_scalD[:,iscal]) )
                             printstyled(color=:green, @sprintf "\n i: %5i j: %5i %.2e %.2e %.2e %.2e \n" iplot jplot grid.x[iplot]/num.plot_xscale grid.y[jplot]/num.plot_xscale ph.trans_scalD[pII,iscal] rhs[pII])
-                            
-                            @views scalar_debug!(dir, CT, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 
-                            bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1],num,grid,iplot,jplot)
+                            if num.scalar_debug
+                                @views scalar_debug!(dir, CT, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 
+                                bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1],num,grid,iplot,jplot)
+                            end
                         end
                     end
                 end
@@ -2025,6 +2045,18 @@ function print_electrolysis_statistics(nb_transported_scalars,grid,phL)
     #     moyTL = mean(phL.T)
     # end
 
+    minuL = minimum(phL.u)
+    maxuL = maximum(phL.u)
+    moyuL = mean(phL.u)
+
+    minvL = minimum(phL.v)
+    maxvL = maximum(phL.v)
+    moyvL = mean(phL.v)
+
+    minpL = minimum(phL.p)
+    maxpL = maximum(phL.p)
+    moypL = mean(phL.p)
+
     minTL = minimum(phL.T)
     maxTL = maximum(phL.T)
     moyTL = mean(phL.T)
@@ -2040,6 +2072,10 @@ function print_electrolysis_statistics(nb_transported_scalars,grid,phL)
 
     # print("$(@sprintf("norm(cH2) %.6e", normscal1L))\t$(@sprintf("norm(KOH) %.6e", normscal2L))\t$(@sprintf("norm(H2O) %.6e", normscal3L))\n")
     # print("$(@sprintf("norm(phi_ele) %.6e", normphi_eleL))\t$(@sprintf("norm(T) %.6e", normTL))\t$(@sprintf("norm(i) %.6e", normiL))\n")
+
+    print("$(@sprintf("min(u) %.6e", minuL))\t$(@sprintf("min(v) %.6e", minvL))\t$(@sprintf("min(p) %.6e", minpL))\n")
+    print("$(@sprintf("max(u) %.6e", maxuL))\t$(@sprintf("max(v) %.6e", maxvL))\t$(@sprintf("max(p) %.6e", maxpL))\n")
+    print("$(@sprintf("moy(u) %.6e", moyuL))\t$(@sprintf("moy(v) %.6e", moyvL))\t$(@sprintf("moy(p) %.6e", moypL))\n")
 
     print("$(@sprintf("min(cH2) %.6e", minscal1L))\t$(@sprintf("min(KOH) %.6e", minscal2L))\t$(@sprintf("min(H2O) %.6e", minscal3L))\n")
     print("$(@sprintf("max(cH2) %.6e", maxscal1L))\t$(@sprintf("max(KOH) %.6e", maxscal2L))\t$(@sprintf("max(H2O) %.6e", maxscal3L))\n")
@@ -2507,13 +2543,6 @@ function set_poisson_variable_coeff(
                 __a2 = 1.0
                 __b = 0.0
             elseif is_wall_no_slip(bc_type[iLS])
-                print("error not implemented set_poisson_variable_coeff",bc_type[iLS])
-                @error ("error set_poisson_variable_coeff")
-
-                __a1 = 0.0
-                __a2 = 0.0
-                __b = 1.0
-            elseif is_flapping(bc_type[iLS])
                 print("error not implemented set_poisson_variable_coeff",bc_type[iLS])
                 @error ("error set_poisson_variable_coeff")
 

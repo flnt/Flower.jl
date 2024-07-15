@@ -80,6 +80,7 @@ abstract type AbstractOptimizer end
     dt0::T = 1.0
     concentration_check_factor::T = 0.0
     radial_vel_factor::T = 0.0
+    scalar_debug::Bool = false
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -504,22 +505,4 @@ end
     λ::T = 0.0
     θe::T = π / 2
     Tval::N = 0.0
-end
-
-"""
-    Flapping{T,N} <: BoundaryCondition
-
-Boundary condition that moves the solid in the vertical direction following a sinusoidal 
-and in the horizontal direction according to the forces acting on the solid.
-
-Only works for elliptical solids.
-"""
-@with_kw mutable struct Flapping{T,N} <: BoundaryCondition
-    val::N = 0.0
-    λ::T = 0.0
-    ρs::T = 10.0
-    KC::T = 2π
-    β::T = 1.0
-    βmult::T = 1000.0
-    free::Bool = false
 end
