@@ -9,6 +9,17 @@ function Poiseuille_favg(x,v_inlet_moy,L0)
 end
 
 
+function test_Poiseuille(num,ph,gv)
+    #error = 0.0
+    error = ph.v .- Poiseuille_favg.(gv.x,num.v_inlet,num.L0)
+    error_rel = maximum(error)/(num.v_inlet*3/2)
+    # for j in 1:gv.ny
+    #     error += ph.v[j,:] .- Poiseuille_favg(gv.x,num.v_inlet,num.L0)
+    # end
+    printstyled(color=:red, @sprintf "\n Velocity error : %.2e\n" error_rel )
+
+end
+
 
 function set_convection_2!(
     num, grid, geo, grid_u, LS_u, grid_v, LS_v,

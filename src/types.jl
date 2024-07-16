@@ -81,6 +81,7 @@ abstract type AbstractOptimizer end
     concentration_check_factor::T = 0.0
     radial_vel_factor::T = 0.0
     scalar_debug::Bool = false
+    v_inlet::T=0.0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

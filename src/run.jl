@@ -786,10 +786,18 @@ function run_forward(
                     phL.u .= 0.0
                     phL.v .= 0.0
                 elseif imposed_velocity == "constant"
+                        
+
+                        #Required to modify whole uD vD
                         phL.u .= 0.0
                         phL.v .= BC_vL.bottom.val    
+                        phL.uD .= 0.0
+                        phL.vD .= BC_vL.bottom.val    
 
-                        printstyled(color=:red, @sprintf "\n Imposed velocity %.2e\n" minimum(phL.v))
+
+                        printstyled(color=:red, @sprintf "\n Imposed velocity v min %.2e max %.2e\n" minimum(phL.vD) maximum(phL.vD))
+                        printstyled(color=:red, @sprintf "\n Imposed velocity u min %.2e max %.2e\n" minimum(phL.uD) maximum(phL.uD))
+
 
                 elseif imposed_velocity == "radial"
                     
@@ -849,7 +857,10 @@ function run_forward(
 
 
 
-                end
+                end #imposed_velocity
+
+                # Check the velocity field before the scalar transport
+                # test_Poiseuille(num,phL,grid_v)
 
 
                 for iscal=1:nb_transported_scalars
@@ -909,8 +920,18 @@ function run_forward(
 
                 print_electrolysis_statistics(nb_transported_scalars,grid,phL)
 
+                if imposed_velocity == "constant"
+                    scal_error=0.0
+                    for iscal in 1:nb_transported_scalars
+                        print("\n maximum ",maximum(phL.trans_scalD[:,iscal]), )
+                        printstyled(color=:cyan, @sprintf "\n error after scalar transport max %.2e min %.2e\n" maximum(phL.trans_scalD[:,iscal]) minimum(phL.trans_scalD[:,iscal]))
 
+                        scal_error = max(maximum(abs.(phL.trans_scalD[:,iscal].-concentration0[iscal])./concentration0[iscal]),scal_error)
+                    end
 
+                    printstyled(color=:cyan, @sprintf "\n error after scalar transport %.2e\n" scal_error)
+
+                end
                 ####################################################################################################
                 # New start scalar loop
                 ####################################################################################################

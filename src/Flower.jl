@@ -38,8 +38,8 @@ import Base.reshape
 @reexport using GeometryBasics
 @reexport using GeoInterface
 @reexport using LibGEOS
-@reexport using PackageCompiler
 
+# @reexport using PackageCompiler
 
 @reexport using PyCall
 @reexport using LaTeXStrings
