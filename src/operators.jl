@@ -60,15 +60,15 @@ end
     return nothing
 end
 
-@inline function set_lapl_bnd!(::Dirichlet, ::Neumann, L, B1, W, B2, n, b_indices, b_periodic)
+@inline function set_lapl_bnd!(::Dirichlet, ::Neumann, num, L, B1, W, B2, n, b_indices, b_periodic)
     @inbounds @threads for II in b_indices
         pII = lexicographic(II, n)
-        @inbounds L[pII,pII] += B1[II] * (B1[II] - B2[II]) / (W[II]+eps(0.01))
+        @inbounds L[pII,pII] += B1[II] * (B1[II] - B2[II]) * inv_weight_eps(num,W[II])
     end
     return nothing
 end
 
-@inline function set_lapl_bnd!(::Dirichlet, ::Periodic, L, B1, W, B2, n, b_indices, b_periodic)
+@inline function set_lapl_bnd!(::Dirichlet, ::Periodic, num, L, B1, W, B2, n, b_indices, b_periodic)
     @inbounds for (II, JJ) in zip(b_indices, b_periodic)
         pII = lexicographic(II, n)
         pJJ = lexicographic(JJ, n)
@@ -80,7 +80,7 @@ end
     return nothing
 end
 
-function laplacian!(::Dirichlet, L, B, Dx, Dy, cap, n, BC, inside, empty, MIXED, b_left, b_bottom, b_right, b_top)
+function laplacian!(::Dirichlet, num, L, B, Dx, Dy, cap, n, BC, inside, empty, MIXED, b_left, b_bottom, b_right, b_top)
     B .= 0.0
     @inbounds @threads for II in inside
         pII = lexicographic(II, n)
@@ -170,10 +170,10 @@ function laplacian!(::Dirichlet, L, B, Dx, Dy, cap, n, BC, inside, empty, MIXED,
     @inbounds _W3 = @view cap[:,:,10]
     @inbounds _W4 = @view cap[:,:,11]
 
-    set_lapl_bnd!(dir, BC.left, L, _B1, _W1, _A1, n, b_left, b_right)
-    set_lapl_bnd!(dir, BC.bottom, L, _B2, _W2, _A2, n, b_bottom, b_top)
-    set_lapl_bnd!(dir, BC.right, L, _B1, _W3, _A3, n, b_right, b_left)
-    set_lapl_bnd!(dir, BC.top, L, _B2, _W4, _A4, n, b_top, b_bottom)
+    set_lapl_bnd!(dir, BC.left, num, L, _B1, _W1, _A1, n, b_left, b_right)
+    set_lapl_bnd!(dir, BC.bottom,num, L, _B2, _W2, _A2, n, b_bottom, b_top)
+    set_lapl_bnd!(dir, BC.right, num, L, _B1, _W3, _A3, n, b_right, b_left)
+    set_lapl_bnd!(dir, BC.top, num, L, _B2, _W4, _A4, n, b_top, b_bottom)
     
     return nothing
 end
@@ -215,11 +215,23 @@ end
     return nothing
 end
 
+function inv_weight_eps(num,W)
+
+    if num.epsilon_mode == 0
+        return 1 / (W[II]+eps(0.01))
+    elseif num.epsilon_mode == 1
+        return 1 / max(W[II], num.epsilon_vol)
+    elseif num.epsilon_mode == 2
+        return inv_weight(num,W[II])   
+    end
+
+end
+
 @inline function set_lapl_bnd!(::Neumann, ::Periodic, L, A, A1, A3, B1, dx, W, n, b_indices, b_periodic)
     @inbounds for (II, JJ) in zip(b_indices, b_periodic)
         pII = lexicographic(II, n)
         pJJ = lexicographic(JJ, n)
-        @inbounds L[pII,pJJ] = A[II]^2 / (W[II]+eps(0.01))
+        @inbounds L[pII,pJJ] = A[II]^2 * inv_weight_eps(num,W[II])
         # if abs(L[pII,pJJ]) < 1e-8
         if sum(abs.(L[pII,:])) <= 1e-10
             L[pII,pII] = -4.0
@@ -228,7 +240,7 @@ end
     return nothing
 end
 
-function laplacian!(::Neumann, L, B, Nx, Ny, HNx, HNy, cap, dx, dy, n, BC, inside, empty, MIXED, ns_vec, b_left, b_bottom, b_right, b_top)
+function laplacian!(::Neumann, num, L, B, Nx, Ny, HNx, HNy, cap, dx, dy, n, BC, inside, empty, MIXED, ns_vec, b_left, b_bottom, b_right, b_top)
     B .= 0.0
     @inbounds @threads for II in inside
         pII = lexicographic(II, n)
@@ -325,10 +337,10 @@ function laplacian!(::Neumann, L, B, Nx, Ny, HNx, HNy, cap, dx, dy, n, BC, insid
     @inbounds _W3 = @view cap[:,:,10]
     @inbounds _W4 = @view cap[:,:,11]
 
-    set_lapl_bnd!(neu, BC.left, L, _A1, _A3, _A1, _B1, dx, _W1, n, b_left, b_right)
-    set_lapl_bnd!(neu, BC.bottom, L, _A2, _A4, _A2, _B2, dy, _W2, n, b_bottom, b_top)
-    set_lapl_bnd!(neu, BC.right, L, _A3, _A1, _A3, _B1, dx, _W3, n, b_right, b_left)
-    set_lapl_bnd!(neu, BC.top, L, _A4, _A2, _A4, _B2, dy, _W4, n, b_top, b_bottom)
+    set_lapl_bnd!(neu, BC.left, num, L, _A1, _A3, _A1, _B1, dx, _W1, n, b_left, b_right)
+    set_lapl_bnd!(neu, BC.bottom, num, L, _A2, _A4, _A2, _B2, dy, _W2, n, b_bottom, b_top)
+    set_lapl_bnd!(neu, BC.right, num, L, _A3, _A1, _A3, _B1, dx, _W3, n, b_right, b_left)
+    set_lapl_bnd!(neu, BC.top, num, L, _A4, _A2, _A4, _B2, dy, _W4, n, b_top, b_bottom)
 
     return nothing
 end

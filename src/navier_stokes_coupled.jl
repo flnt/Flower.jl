@@ -216,6 +216,15 @@ function update_dirichlet_field!(grid, bv, v, BC)
     return nothing
 end
 
+function inv_weight(num,M)
+    if M<num.epsilon_vol
+        iM = 0.0
+    else
+        iM = 1. / M
+    end
+    return iM
+end
+
 function set_cutcell_matrices!(num, grid, geo, geo_p, opC, periodic_x, periodic_y)
     @unpack nx, ny, ind = grid
     @unpack AxT, AyT, Bx, By, BxT, ByT, Hx, Hy, HxT, HyT, M, iMx, iMy, χ = opC
@@ -224,20 +233,61 @@ function set_cutcell_matrices!(num, grid, geo, geo_p, opC, periodic_x, periodic_
     Mx = zeros(ny,nx+1)
     for II in ind.all_indices
         Mx[II] = geo[end].dcap[II,8]
+
+        pII = lexicographic(II, grid.ny)
+
+        if num.epsilon_mode == 0
+            iMx.diag[pII] = 1. / (Mx[II] + eps(0.01))
+        elseif num.epsilon_mode == 1
+            iMx.diag[pII] = 1. / max(Mx[II], num.epsilon_vol)
+        elseif num.epsilon_mode == 2
+            iMx.diag[pII] = inv_weight(num,Mx[II])   
+        end
+
     end
     for II in ind.b_right[1]
         Mx[δx⁺(II)] = geo[end].dcap[II,10]
+
+        pII = lexicographic(δx⁺(II), grid.ny)
+
+        if num.epsilon_mode == 0
+            iMx.diag[pII] = 1. / (Mx[δx⁺(II)]) + eps(0.01)
+        elseif num.epsilon_mode == 1
+            iMx.diag[pII] = 1. / max.(Mx[δx⁺(II)], num.epsilon_vol)
+        elseif num.epsilon_mode == 2
+            iMx.diag[pII] = inv_weight(num,Mx[δx⁺(II)])   
+        end
     end
-    iMx.diag .= 1. ./ (vec(Mx) .+ eps(0.01))
+
 
     My = zeros(ny+1,nx)
     for II in ind.all_indices
         My[II] = geo[end].dcap[II,9]
+
+        pII = lexicographic(II, grid.ny + 1)
+
+        if num.epsilon_mode == 0
+            iMy.diag[pII] = 1. / (My[II]) + eps(0.01)
+        elseif num.epsilon_mode == 1
+            iMy.diag[pII] = 1. / max.(My[II], num.epsilon_vol)
+        elseif num.epsilon_mode == 2
+            iMy.diag[pII] = inv_weight(num,My[II])   
+        end
+
     end
     for II in ind.b_top[1]
         My[δy⁺(II)] = geo[end].dcap[II,11]
-    end
-    iMy.diag .= 1. ./ (vec(My) .+ eps(0.01))
+
+        pII = lexicographic(δy⁺(II), grid.ny + 1)
+
+        if num.epsilon_mode == 0
+            iMy.diag[pII] = 1. / (My[δy⁺(II)]) + eps(0.01)
+        elseif num.epsilon_mode == 1
+            iMy.diag[pII] = 1. / max.(My[δy⁺(II)], num.epsilon_vol)
+        elseif num.epsilon_mode == 2
+            iMy.diag[pII] = inv_weight(num,My[δy⁺(II)])   
+        end
+    end   
 
     # Discrete gradient and divergence operators
     divergence_A!(grid, AxT, AyT, geo[end].dcap, ny, ind.all_indices, periodic_x, periodic_y)
@@ -483,48 +533,256 @@ end
 
 function set_convection!(
     num, grid, geo, grid_u, LS_u, grid_v, LS_v,
-    u, v, op, ph, BC_u, BC_v
+    u, v, op, ph, BC_u, BC_v,opC_p, opC_u, opC_v
     )
     @unpack Cu, CUTCu, Cv, CUTCv = op
     @unpack uD, vD = ph
 
-    Du_x = zeros(grid_u)
-    Du_y = zeros(grid_u)
-    # Du_x .= reshape(vec1(uD,grid_u), grid_u)
-    # Du_y .= reshape(vec1(uD,grid_u), grid_u)
-    for iLS in 1:num.nLS
-        Du_x[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
-        Du_y[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
-    end
-    # Du_x .= reshape(vec2(uD,grid_u), grid_u)
-    # Du_y .= reshape(vec2(uD,grid_u), grid_u)
-    Du_x[:,1] .= vecb_L(uD,grid_u)
-    # Du_x[:,2] .= u[:,2]
-    Du_y[1,:] .= vecb_B(uD,grid_u)
-    # Du_y[2,:] .= u[2,:]
-    Du_x[:,end] .= vecb_R(uD,grid_u)
-    # Du_x[:,end-1] .= u[:,end-1]
-    Du_y[end,:] .= vecb_T(uD,grid_u)
-    # Du_y[end-1,:] .= u[end-1,:]
+    if num.prediction == 3
+        @unpack pD = ph
 
-    Dv_x = zeros(grid_v)
-    Dv_y = zeros(grid_v)
-    # Dv_x .= reshape(vec1(vD,grid_v), grid_v)
-    # Dv_y .= reshape(vec1(vD,grid_v), grid_v)
-    for iLS in 1:num.nLS
-        Dv_x[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
-        Dv_y[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
+        printstyled(color=:red, @sprintf "\n test proj \n")
+
+
+        # opC_p = op.opC_p
+
+        # ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(pD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(pD,grid)
+        # ∇ϕ_y = opC_p.iMy * opC_p.By * vec1(pD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(pD,grid)
+
+        # for iLS in 1:num.nLS
+        #     ∇ϕ_x .+= opC_p.iMx * opC_p.Hx[iLS] * veci(pD,grid,iLS+1)
+        #     ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(pD,grid,iLS+1)
+        # end
+
+        ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid)
+        ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(pD,grid) .+ opC_v.Gy_b * vecb(pD,grid)
+        for iLS in 1:num.nLS
+            ∇ϕ_x .+= opC_u.Gx[iLS] * veci(pD,grid,iLS+1)
+            ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid,iLS+1)
+        end
+
+        iMu = Diagonal(1 ./ (opC_u.M.diag .+ eps(0.01)))
+        iMv = Diagonal(1 ./ (opC_v.M.diag .+ eps(0.01)))
+        ∇ϕ_x = iMu * ∇ϕ_x
+        ∇ϕ_y = iMv * ∇ϕ_y
+
+
+        grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+        grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+        printstyled(color=:red, @sprintf "\n set_convection grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_x) maximum(grd_x) minimum(grd_y) maximum(grd_y))
+       
+        printstyled(color=:red, @sprintf "\n set_convection B %.2e T %.2e L %.2e R %.2e\n" maximum(abs.(vecb_B(∇ϕ_x,grid_u))) maximum(abs.(vecb_T(∇ϕ_x,grid_u))) maximum(abs.(vecb_L(∇ϕ_y,grid_v))) maximum(abs.(vecb_R(∇ϕ_y,grid_v))))
+
+
+        print("\n dt ", num.τ)
+        dt = num.τ
+
+        Du_x = zeros(grid_u)
+        Du_y = zeros(grid_u)
+        # Du_x .= reshape(vec1(uD,grid_u), grid_u)
+        # Du_y .= reshape(vec1(uD,grid_u), grid_u)
+        for iLS in 1:num.nLS
+            Du_x[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
+            Du_y[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
+        end
+        # Du_x .= reshape(vec2(uD,grid_u), grid_u)
+        # Du_y .= reshape(vec2(uD,grid_u), grid_u)
+        Du_x[:,1] .= vecb_L(uD,grid_u) #+ vecb_L(∇ϕ_x,grid_u)*dt
+        # Du_x[:,2] .= u[:,2]
+        Du_y[1,:] .= vecb_B(uD,grid_u) + vecb_B(∇ϕ_x,grid_u)*dt
+        # Du_y[2,:] .= u[2,:]
+        Du_x[:,end] .= vecb_R(uD,grid_u) #+ vecb_R(∇ϕ_x,grid_u)*dt
+        # Du_x[:,end-1] .= u[:,end-1]
+        Du_y[end,:] .= vecb_T(uD,grid_u) + vecb_T(∇ϕ_x,grid_u)*dt
+        # Du_y[end-1,:] .= u[end-1,:]
+    
+        Dv_x = zeros(grid_v)
+        Dv_y = zeros(grid_v)
+        # Dv_x .= reshape(vec1(vD,grid_v), grid_v)
+        # Dv_y .= reshape(vec1(vD,grid_v), grid_v)
+        for iLS in 1:num.nLS
+            Dv_x[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
+            Dv_y[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
+        end
+        # Dv_x .= reshape(vec2(vD,grid_v), grid_v)
+        # Dv_y .= reshape(vec2(vD,grid_v), grid_v)
+        Dv_x[:,1] .= vecb_L(vD,grid_v) + vecb_L(∇ϕ_y,grid_v) * dt
+        # Dv_x[:,2] .= v[:,2]
+        Dv_y[1,:] .= vecb_B(vD,grid_v) #+ vecb_B(∇ϕ_y,grid_v) * dt
+        # Dv_y[2,:] .= v[2,:]
+        Dv_x[:,end] .= vecb_R(vD,grid_v) + vecb_R(∇ϕ_y,grid_v) * dt
+        # Dv_x[:,end-1] .= v[:,end-1]
+        Dv_y[end,:] .= vecb_T(vD,grid_v) #+ vecb_T(∇ϕ_y,grid_v) * dt
+        # Dv_y[end-1,:] .= v[end-1,:]
+
+        ∇ϕ_x .= 0.0
+
+        ∇ϕ_x .= 0.0
+
+    elseif num.prediction == 4
+        @unpack pD = ph
+
+        printstyled(color=:red, @sprintf "\n test proj \n")
+
+
+        # opC_p = op.opC_p
+
+        # ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(pD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(pD,grid)
+        # ∇ϕ_y = opC_p.iMy * opC_p.By * vec1(pD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(pD,grid)
+
+        # for iLS in 1:num.nLS
+        #     ∇ϕ_x .+= opC_p.iMx * opC_p.Hx[iLS] * veci(pD,grid,iLS+1)
+        #     ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(pD,grid,iLS+1)
+        # end
+
+        ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid)
+        ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(pD,grid) .+ opC_v.Gy_b * vecb(pD,grid)
+        for iLS in 1:num.nLS
+            ∇ϕ_x .+= opC_u.Gx[iLS] * veci(pD,grid,iLS+1)
+            ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid,iLS+1)
+        end
+
+        iMu = Diagonal(1 ./ (opC_u.M.diag .+ eps(0.01)))
+        iMv = Diagonal(1 ./ (opC_v.M.diag .+ eps(0.01)))
+        ∇ϕ_x = iMu * ∇ϕ_x
+        ∇ϕ_y = iMv * ∇ϕ_y
+
+        grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+        grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+        printstyled(color=:red, @sprintf "\n grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_x) maximum(grd_x) minimum(grd_y) maximum(grd_y))
+    
+        printstyled(color=:red, @sprintf "\n set_convection B %.2e T %.2e L %.2e R %.2e\n" maximum(abs.(vecb_B(∇ϕ_x,grid_u))) maximum(abs.(vecb_T(∇ϕ_x,grid_u))) maximum(abs.(vecb_L(∇ϕ_y,grid_v))) maximum(abs.(vecb_R(∇ϕ_y,grid_v))))
+        printstyled(color=:red, @sprintf "\n set_convection B %.2e T %.2e L %.2e R %.2e\n" maximum(grd_x[end,:]) maximum(grd_x[1,:]) maximum(grd_y[:,1]) maximum(grd_y[:,end]))
+
+
+        print("\n dt ", num.τ)
+        dt = num.τ
+
+        Du_x = zeros(grid_u)
+        Du_y = zeros(grid_u)
+        # Du_x .= reshape(vec1(uD,grid_u), grid_u)
+        # Du_y .= reshape(vec1(uD,grid_u), grid_u)
+        for iLS in 1:num.nLS
+            Du_x[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
+            Du_y[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
+        end
+        # Du_x .= reshape(vec2(uD,grid_u), grid_u)
+        # Du_y .= reshape(vec2(uD,grid_u), grid_u)
+        Du_x[:,1] .= vecb_L(uD,grid_u) #+ vecb_L(∇ϕ_x,grid_u)*dt
+        # Du_x[:,2] .= u[:,2]
+        Du_y[1,:] .= vecb_B(uD,grid_u) + dt* grd_x[1,:]
+        # Du_y[2,:] .= u[2,:]
+        Du_x[:,end] .= vecb_R(uD,grid_u) #+ vecb_R(∇ϕ_x,grid_u)*dt
+        # Du_x[:,end-1] .= u[:,end-1]
+        Du_y[end,:] .= vecb_T(uD,grid_u) + dt* grd_x[end,:]
+        # Du_y[end-1,:] .= u[end-1,:]
+    
+        Dv_x = zeros(grid_v)
+        Dv_y = zeros(grid_v)
+        # Dv_x .= reshape(vec1(vD,grid_v), grid_v)
+        # Dv_y .= reshape(vec1(vD,grid_v), grid_v)
+        for iLS in 1:num.nLS
+            Dv_x[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
+            Dv_y[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
+        end
+        # Dv_x .= reshape(vec2(vD,grid_v), grid_v)
+        # Dv_y .= reshape(vec2(vD,grid_v), grid_v)
+        Dv_x[:,1] .= vecb_L(vD,grid_v) + dt* grd_y[:,1]
+        # Dv_x[:,2] .= v[:,2]
+        Dv_y[1,:] .= vecb_B(vD,grid_v) #+ vecb_B(∇ϕ_y,grid_v) * dt
+        # Dv_y[2,:] .= v[2,:]
+        Dv_x[:,end] .= vecb_R(vD,grid_v) + dt* grd_y[:,end]
+        # Dv_x[:,end-1] .= v[:,end-1]
+        Dv_y[end,:] .= vecb_T(vD,grid_v) #+ vecb_T(∇ϕ_y,grid_v) * dt
+        # Dv_y[end-1,:] .= v[end-1,:]
+
+        ∇ϕ_x .= 0.0
+
+        ∇ϕ_x .= 0.0
+    
+        
+    else
+        Du_x = zeros(grid_u)
+        Du_y = zeros(grid_u)
+        # Du_x .= reshape(vec1(uD,grid_u), grid_u)
+        # Du_y .= reshape(vec1(uD,grid_u), grid_u)
+        for iLS in 1:num.nLS
+            Du_x[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
+            Du_y[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
+        end
+        # Du_x .= reshape(vec2(uD,grid_u), grid_u)
+        # Du_y .= reshape(vec2(uD,grid_u), grid_u)
+        Du_x[:,1] .= vecb_L(uD,grid_u) 
+        # Du_x[:,2] .= u[:,2]
+        Du_y[1,:] .= vecb_B(uD,grid_u)
+        # Du_y[2,:] .= u[2,:]
+        Du_x[:,end] .= vecb_R(uD,grid_u)
+        # Du_x[:,end-1] .= u[:,end-1]
+        Du_y[end,:] .= vecb_T(uD,grid_u)
+        # Du_y[end-1,:] .= u[end-1,:]
+    
+        Dv_x = zeros(grid_v)
+        Dv_y = zeros(grid_v)
+        # Dv_x .= reshape(vec1(vD,grid_v), grid_v)
+        # Dv_y .= reshape(vec1(vD,grid_v), grid_v)
+        for iLS in 1:num.nLS
+            Dv_x[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
+            Dv_y[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
+        end
+        # Dv_x .= reshape(vec2(vD,grid_v), grid_v)
+        # Dv_y .= reshape(vec2(vD,grid_v), grid_v)
+        Dv_x[:,1] .= vecb_L(vD,grid_v)
+        # Dv_x[:,2] .= v[:,2]
+        Dv_y[1,:] .= vecb_B(vD,grid_v)
+        # Dv_y[2,:] .= v[2,:]
+        Dv_x[:,end] .= vecb_R(vD,grid_v)
+        # Dv_x[:,end-1] .= v[:,end-1]
+        Dv_y[end,:] .= vecb_T(vD,grid_v)
+        # Dv_y[end-1,:] .= v[end-1,:]
     end
-    # Dv_x .= reshape(vec2(vD,grid_v), grid_v)
-    # Dv_y .= reshape(vec2(vD,grid_v), grid_v)
-    Dv_x[:,1] .= vecb_L(vD,grid_v)
-    # Dv_x[:,2] .= v[:,2]
-    Dv_y[1,:] .= vecb_B(vD,grid_v)
-    # Dv_y[2,:] .= v[2,:]
-    Dv_x[:,end] .= vecb_R(vD,grid_v)
-    # Dv_x[:,end-1] .= v[:,end-1]
-    Dv_y[end,:] .= vecb_T(vD,grid_v)
-    # Dv_y[end-1,:] .= v[end-1,:]
+
+    #######################################################################
+    # Du_x = zeros(grid_u)
+    # Du_y = zeros(grid_u)
+    # # Du_x .= reshape(vec1(uD,grid_u), grid_u)
+    # # Du_y .= reshape(vec1(uD,grid_u), grid_u)
+    # for iLS in 1:num.nLS
+    #     Du_x[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
+    #     Du_y[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
+    # end
+    # # Du_x .= reshape(vec2(uD,grid_u), grid_u)
+    # # Du_y .= reshape(vec2(uD,grid_u), grid_u)
+    # Du_x[:,1] .= vecb_L(uD,grid_u) 
+    # # Du_x[:,2] .= u[:,2]
+    # Du_y[1,:] .= vecb_B(uD,grid_u)
+    # # Du_y[2,:] .= u[2,:]
+    # Du_x[:,end] .= vecb_R(uD,grid_u)
+    # # Du_x[:,end-1] .= u[:,end-1]
+    # Du_y[end,:] .= vecb_T(uD,grid_u)
+    # # Du_y[end-1,:] .= u[end-1,:]
+
+    # Dv_x = zeros(grid_v)
+    # Dv_y = zeros(grid_v)
+    # # Dv_x .= reshape(vec1(vD,grid_v), grid_v)
+    # # Dv_y .= reshape(vec1(vD,grid_v), grid_v)
+    # for iLS in 1:num.nLS
+    #     Dv_x[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
+    #     Dv_y[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
+    # end
+    # # Dv_x .= reshape(vec2(vD,grid_v), grid_v)
+    # # Dv_y .= reshape(vec2(vD,grid_v), grid_v)
+    # Dv_x[:,1] .= vecb_L(vD,grid_v)
+    # # Dv_x[:,2] .= v[:,2]
+    # Dv_y[1,:] .= vecb_B(vD,grid_v)
+    # # Dv_y[2,:] .= v[2,:]
+    # Dv_x[:,end] .= vecb_R(vD,grid_v)
+    # # Dv_x[:,end-1] .= v[:,end-1]
+    # Dv_y[end,:] .= vecb_T(vD,grid_v)
+    # # Dv_y[end-1,:] .= v[end-1,:]
+
+    #######################################################################
 
     # bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
     # bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
@@ -1544,7 +1802,7 @@ function set_CN!(
     # irho1=1.0/rho1
 
     if advection
-        set_convection!(num, grid, geo[end], grid_u, grid_u.LS, grid_v, grid_v.LS, ph.u, ph.v, op_conv, ph, BC_u, BC_v)
+        set_convection!(num, grid, geo[end], grid_u, grid_u.LS, grid_v, grid_v.LS, ph.u, ph.v, op_conv, ph, BC_u, BC_v, opC_p, opC_u, opC_v)
     end
 
     if ls_advection
@@ -1603,7 +1861,7 @@ function set_FE!(
     )
 
     if advection
-        set_convection!(num, grid, geo[end], grid_u, grid_u.LS, grid_v, grid_v.LS, ph.u, ph.v, op_conv, ph, BC_u, BC_v)
+        set_convection!(num, grid, geo[end], grid_u, grid_u.LS, grid_v, grid_v.LS, ph.u, ph.v, op_conv, ph, BC_u, BC_v,opC_p, opC_u, opC_v)
     end
 
     if ls_advection
@@ -1681,6 +1939,94 @@ function pressure_projection!(
 
     printstyled(color=:green, @sprintf "\n rho1 : %.2e irho1 : %.2e iRe : %.2e\n" rho1 irho1 iRe)
 
+    ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid)
+    ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(pD,grid) .+ opC_v.Gy_b * vecb(pD,grid)
+    for iLS in 1:nLS
+        ∇ϕ_x .+= opC_u.Gx[iLS] * veci(pD,grid,iLS+1)
+        ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid,iLS+1)
+    end
+
+    grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+    printstyled(color=:cyan, @sprintf "\n B %.2e T %.2e L %.2e R %.2e\n" maximum(abs.(vecb_B(∇ϕ_x,grid_u))) maximum(abs.(vecb_T(∇ϕ_x,grid_u))) maximum(abs.(vecb_L(∇ϕ_y,grid_v))) maximum(abs.(vecb_R(∇ϕ_y,grid_v))))
+    printstyled(color=:red, @sprintf "\n B %.2e T %.2e L %.2e R %.2e\n" maximum(abs.(grd_x[end,:])) maximum(abs.(grd_x[1,:])) maximum(abs.(grd_y[:,1])) maximum(abs.(grd_y[:,end])))
+
+    printstyled(color=:red, @sprintf "\n p %.2e p %.2e p %.2e p %.2e \n" maximum(abs.(p[end,:])) maximum(abs.(p[1,:])) maximum(abs.(p[:,end])) maximum(abs.(p[:,1])))
+
+    ptest = reshape(veci(pD,grid,1), grid)
+    printstyled(color=:magenta, @sprintf "\n ptest %.2e p %.2e p %.2e p %.2e \n" maximum(abs.(ptest[end,:])) maximum(abs.(ptest[1,:])) maximum(abs.(ptest[:,end])) maximum(abs.(ptest[:,1])))
+
+
+
+    ∇ϕ_x .= 0.0
+    ∇ϕ_y .= 0.0
+
+    compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
+
+
+    if num.prediction == 1 || num.prediction == 2
+        printstyled(color=:red, @sprintf "\n pressure_in_prediction \n")
+
+        #TODO
+        compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
+
+
+        ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid)
+        ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(pD,grid) .+ opC_v.Gy_b * vecb(pD,grid)
+        for iLS in 1:nLS
+            ∇ϕ_x .+= opC_u.Gx[iLS] * veci(pD,grid,iLS+1)
+            ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid,iLS+1)
+        end
+
+        grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+        grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+        printstyled(color=:cyan, @sprintf "\n B %.2e T %.2e L %.2e R %.2e\n" maximum(abs.(vecb_B(∇ϕ_x,grid_u))) maximum(abs.(vecb_T(∇ϕ_x,grid_u))) maximum(abs.(vecb_L(∇ϕ_y,grid_v))) maximum(abs.(vecb_R(∇ϕ_y,grid_v))))
+
+
+        grd_xfull = opC_p.iMx * opC_p.Bx * vec1(pD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(pD,grid)
+        grd_yfull = opC_p.iMy * opC_p.By * vec1(pD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(pD,grid)
+
+        for iLS in 1:num.nLS
+            grd_xfull .+= opC_p.iMx * opC_p.Hx[iLS] * veci(pD,grid,iLS+1)
+            grd_yfull .+= opC_p.iMy * opC_p.Hy[iLS] * veci(pD,grid,iLS+1)
+        end
+
+        grd_x = reshape(veci(grd_xfull,grid_u,1), grid_u)
+        grd_y = reshape(veci(grd_yfull,grid_v,1), grid_v)
+
+        # printstyled(color=:red, @sprintf "\n grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_x) maximum(grd_x) minimum(grd_y) maximum(grd_y))
+
+        print("\n dt ", num.τ)
+
+        # ph.Gxm1 .+= ∇ϕ_x
+        # ph.Gym1 .+= ∇ϕ_y
+
+        ph.Gxm1 .= 0.0
+        ph.Gym1 .= 0.0
+
+        # ph.Gxm1 .= grd_xfull
+        # ph.Gym1 .= grd_yfull
+
+        ph.Gxm1 .= ∇ϕ_x
+        ph.Gym1 .= ∇ϕ_y
+
+        # printstyled(color=:red, @sprintf "\n grad max x %.2e y %.2e %.2e\n" maximum(grd_xfull) maximum(grd_yfull) maximum(ph.Gym1)*irho1)
+        printstyled(color=:red, @sprintf "\n full grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_xfull) maximum(grd_xfull) minimum(grd_yfull) maximum(grd_yfull))
+
+        printstyled(color=:red, @sprintf "\n full grad min max x %.2e %.2e y %.2e %.2e\n" minimum(ph.Gxm1) maximum(ph.Gxm1) minimum(ph.Gym1) maximum(ph.Gym1))
+
+        printstyled(color=:red, @sprintf "\n full grad min max x %.2e %.2e y %.2e %.2e\n" minimum(τ.*irho1.*ph.Gxm1) maximum(τ.*irho1.*ph.Gxm1) minimum(τ.*irho1.*ph.Gym1) maximum(τ.*irho1.*ph.Gym1))
+
+        printstyled(color=:red, @sprintf "\n full grad min max x %.2e %.2e y %.2e %.2e\n" minimum(∇ϕ_x) maximum(∇ϕ_x) minimum(∇ϕ_y) maximum(∇ϕ_x))
+
+
+        ∇ϕ_x .= 0.0
+        ∇ϕ_y .= 0.0
+        
+
+    end
 
     nip = grid.nx * grid.ny
 
@@ -1727,10 +2073,12 @@ function pressure_projection!(
             Convu .+= Cui
             Convv .+= Cvi
         else
-            Convu .+= 1.5 .* Cui .- 0.5 .* Cum1
+            Convu .+= 1.5 .* Cui .- 0.5 .* Cum1 #Cui returned at the end of function to Cum1
             Convv .+= 1.5 .* Cvi .- 0.5 .* Cvm1
         end
     end
+
+    
 
     # printstyled(color=:green, @sprintf "\n max abs(Cu) : %.2e u: %.2e CUTCu: %.2e \n" maximum(abs.(Cu)) maximum(abs.(u)) maximum(abs.(CUTCu)))
 
@@ -1748,7 +2096,12 @@ function pressure_projection!(
         vec1(rhs_u,grid_u) .+= τ .* grav_x
         vec1(rhs_u,grid_u) .-= τ .* Convu
         vec1(rhs_u,grid_u) .+= τ .* ra_x
-        vec1(rhs_u,grid_u) .-= τ .* ph.Gxm1
+        printstyled(color=:green, @sprintf "\n rhs u : %.2e uD %.2e Bu %.2e M %.2e \n" maximum(abs.(rhs_u)) maximum(abs.(uD)) maximum(abs.(Bu)) maximum(abs.(Mum1)))
+
+        vec1(rhs_u,grid_u) .-= τ .* irho1 .* ph.Gxm1 
+        
+        printstyled(color=:green, @sprintf "\n rhs u : %.2e \n" maximum(abs.(rhs_u)))
+
         kill_dead_cells!(vec1(rhs_u,grid_u), grid_u, geo_u[end])
         for iLS in 1:nLS
             kill_dead_cells!(veci(rhs_u,grid_u,iLS+1), grid_u, geo_u[end])
@@ -1782,7 +2135,13 @@ function pressure_projection!(
         vec1(rhs_v,grid_v) .+= - τ .* grav_y
         vec1(rhs_v,grid_v) .-= τ .* Convv
         vec1(rhs_v,grid_v) .+= τ .* ra_y
-        vec1(rhs_v,grid_v) .-= τ .* ph.Gym1
+        # printstyled(color=:green, @sprintf "\n rhs: %.2e vD %.2e \n" maximum(abs.(rhs_v)) maximum(abs.(vD)))
+        printstyled(color=:green, @sprintf "\n rhs v : %.2e vD %.2e Bv %.2e M %.2e \n" maximum(abs.(rhs_v)) maximum(abs.(vD)) maximum(abs.(Bv)) maximum(abs.(Mvm1)))
+
+
+        vec1(rhs_v,grid_v) .-= τ .* irho1 .* ph.Gym1
+        printstyled(color=:green, @sprintf "\n rhs: %.2e \n" maximum(abs.(rhs_v)))
+
         kill_dead_cells!(vec1(rhs_v,grid_v), grid_v, geo_v[end])
         for iLS in 1:nLS
             kill_dead_cells!(veci(rhs_v,grid_v,iLS+1), grid_v, geo_v[end])
@@ -1795,6 +2154,102 @@ function pressure_projection!(
             vcorrD .= Inf
             println(e)
         end
+
+        printstyled(color=:yellow, @sprintf "\n vcorrD \n")
+
+        iplot = 64
+        jplot = 64
+        II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        pII = lexicographic(II, grid.ny)
+        
+        # test = τ .* iRe.*Lv *vcorrD
+        # test =
+        # bc_Lv, bc_Lv_b
+        # print("\n testvisc ",Lv)
+        print("\n ")
+        # print("\n testvisc ",Lv[jplot,iplot])
+        print("\n testvisc ", pII," ",Lv[pII,:])
+        printstyled(color=:green, @sprintf "\n Bx: %.10e \n" opC_v.Bx[pII,pII])
+        printstyled(color=:green, @sprintf "\n BxT: %.10e \n" opC_v.BxT[pII,pII])
+        printstyled(color=:green, @sprintf "\n iMx: %.10e \n" opC_v.iMx[pII,pII])
+        printstyled(color=:green, @sprintf "\n Mx: %.10e iMx: %.10e iMx: %.10e\n" geo_v[end].dcap[II,8] 1/geo_v[end].dcap[II,8] 1/(geo_v[end].dcap[II,8]+eps(0.01)))
+
+
+        iplot = 1
+        jplot = 64
+        II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        pII = lexicographic(II, grid.ny)
+        print("\n ")
+        print("\n testvisc ", pII," ",Lv[pII,:])
+        printstyled(color=:green, @sprintf "\n Lv: %.10e \n" Lv[pII,pII])
+        printstyled(color=:green, @sprintf "\n Bx: %.10e \n" opC_v.Bx[pII,pII])
+        printstyled(color=:green, @sprintf "\n BxT: %.10e \n" opC_v.BxT[pII,pII])
+        printstyled(color=:green, @sprintf "\n iMx: %.10e \n" opC_v.iMx[pII,pII])
+        printstyled(color=:green, @sprintf "\n Mx: %.10e iMx: %.10e iMx: %.10e\n" geo_v[end].dcap[II,8] 1/geo_v[end].dcap[II,8] 1/(geo_v[end].dcap[II,8]+eps(0.01)))
+
+        
+
+
+        iplot = 2
+        jplot = 64
+        II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        pII = lexicographic(II, grid.ny)
+        print("\n ")
+        print("\n testvisc ", pII," ",Lv[pII,:])
+        printstyled(color=:green, @sprintf "\n Lv: %.10e \n" Lv[pII,pII])
+        printstyled(color=:green, @sprintf "\n Bx: %.10e \n" opC_v.Bx[pII,pII])
+        printstyled(color=:green, @sprintf "\n BxT: %.10e \n" opC_v.BxT[pII,pII])
+        printstyled(color=:green, @sprintf "\n iMx: %.10e \n" opC_v.iMx[pII,pII])
+        printstyled(color=:green, @sprintf "\n Mx: %.10e iMx: %.10e iMx: %.10e\n" geo_v[end].dcap[II,8] 1/geo_v[end].dcap[II,8] 1/(geo_v[end].dcap[II,8]+eps(0.01)))
+
+        iplot = 3
+        jplot = 64
+        II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        pII = lexicographic(II, grid.ny)
+        print("\n ")
+        print("\n testvisc ", pII," ",Lv[pII,:])
+        printstyled(color=:green, @sprintf "\n Lv: %.10e \n" Lv[pII,pII])
+        printstyled(color=:green, @sprintf "\n Bx: %.10e \n" opC_v.Bx[pII,pII])
+        printstyled(color=:green, @sprintf "\n BxT: %.10e \n" opC_v.BxT[pII,pII])
+        printstyled(color=:green, @sprintf "\n iMx: %.10e \n" opC_v.iMx[pII,pII])
+        printstyled(color=:green, @sprintf "\n Mx: %.10e iMx: %.10e iMx: %.10e\n" geo_v[end].dcap[II,8] 1/geo_v[end].dcap[II,8] 1/(geo_v[end].dcap[II,8]+eps(0.01)))
+
+        iplot = 4
+        jplot = 64
+        II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        pII = lexicographic(II, grid.ny)
+        print("\n ")
+        print("\n testvisc ", pII," ",Lv[pII,:])
+        printstyled(color=:green, @sprintf "\n Lv: %.10e \n" Lv[pII,pII])
+        printstyled(color=:green, @sprintf "\n Bx: %.10e \n" opC_v.Bx[pII,pII])
+        printstyled(color=:green, @sprintf "\n BxT: %.10e \n" opC_v.BxT[pII,pII])
+        printstyled(color=:green, @sprintf "\n iMx: %.10e \n" opC_v.iMx[pII,pII])
+        printstyled(color=:green, @sprintf "\n Mx: %.10e iMx: %.10e iMx: %.10e\n" geo_v[end].dcap[II,8] 1/geo_v[end].dcap[II,8] 1/(geo_v[end].dcap[II,8]+eps(0.01)))
+
+
+        # ny = grid.ny
+    
+        # testb = jplot
+        # testn = ny-testb+1
+        # print("\n test",testn," testb ",testb)
+        # # printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i chi_b %.2e  chi_b adim %.2e border %.2e\n" testn testb op.χ_b[end-nb+testn,end-nb+testn] op.χ_b[end-nb+testn,end-nb+testn]/grid.dy[1,1] vecb_L(ph.trans_scalD[:,iscal], grid)[testn])
+        # # printstyled(color=:cyan, @sprintf "\n BC %.5e rhs %.5e rhs %.5e \n" bc[iscal].left.val[testn] bc[iscal].left.val[testn]*op.χ_b[end-nb+testn,end-nb+testn] vecb_L(rhs, grid)[testn])
+        # # print("\n B ", maximum(B[testb,:])," \n ")
+    
+        # print("\n A[end-nb+testn,1:ni]", Av[end-nb+testn,1:ni], "\n")
+        # print("\n A[end-nb+testn,ni+1:2*ni]", Av[end-nb+testn,ni+1:2*ni], "\n")
+        # print("\n A[end-nb+testn,end-nb+1:end]", Av[end-nb+testn,end-nb+1:end], "\n")
+
+
+
+
+        #TODO Poiseuille
+        test_Poiseuille(num,vcorrD,grid_v)
+
+        printstyled(color=:red, @sprintf "\n vcorrD %.2e %.2e\n" minimum(vcorrD) maximum(vcorrD))
+
+
+
         kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])
         for iLS in 1:nLS
             kill_dead_cells!(veci(vcorrD,grid_v,iLS+1), grid_v, geo_v[end])
@@ -1820,12 +2275,12 @@ function pressure_projection!(
         rhs_uv[1:niu] .+= τ .* grav_x
         rhs_uv[1:niu] .-= τ .* Convu
         rhs_uv[1:niu] .+= τ .* ra_x
-        rhs_uv[1:niu] .-= τ .* ph.Gxm1
+        rhs_uv[1:niu] .-= τ .* irho1 .* ph.Gxm1 
 
         rhs_uv[ntu+1:ntu+niv] .+= τ .* grav_y
         rhs_uv[ntu+1:ntu+niv] .-= τ .* Convv
         rhs_uv[ntu+1:ntu+niv] .+= τ .* ra_y
-        rhs_uv[ntu+1:ntu+niv] .-= τ .* ph.Gym1
+        rhs_uv[ntu+1:ntu+niv] .-= τ .* irho1 .* ph.Gym1 
 
         @views kill_dead_cells!(rhs_uv[1:niu], grid_u, geo_u[end])
         @views kill_dead_cells!(rhs_uv[ntu+1:ntu+niv], grid_v, geo_v[end])
@@ -1922,8 +2377,10 @@ function pressure_projection!(
         end
     end
     # Remove nullspace by adding small quantity to main diagonal
-    @inbounds @threads for i in 1:Aϕ.m
-        @inbounds Aϕ[i,i] += 1e-10
+    if num.null_space == 0
+        @inbounds @threads for i in 1:Aϕ.m
+            @inbounds Aϕ[i,i] += 1e-10
+        end
     end
     kill_dead_cells!(vec1(rhs_ϕ,grid), grid, geo[end])
     for iLS in 1:nLS
@@ -1964,18 +2421,33 @@ function pressure_projection!(
     #     ∇ϕ_y .+= irho1 .* opC_v.Gy[iLS] * veci(ϕD,grid,iLS+1)
     # end
 
+    # if num.prediction == 1 already done
+    #     ph.Gxm1 .+= ∇ϕ_x
+    #     ph.Gym1 .+= ∇ϕ_y
+    # end
 
-    # ph.Gxm1 .+= ∇ϕ_x
-    # ph.Gym1 .+= ∇ϕ_y
+    printstyled(color=:magenta, @sprintf "\n full grad min max x %.2e %.2e y %.2e %.2e\n" minimum(∇ϕ_x) maximum(∇ϕ_x) minimum(∇ϕ_y) maximum(∇ϕ_x))
+
 
     iM = Diagonal(1. ./ (vec(geo[end].dcap[:,:,5]) .+ eps(0.01)))
     # if is_fs(bc_int)
-    vec1(pD,grid) .= vec(ϕ) #.- iRe .* reshape(iM * Duv, grid))
+    if num.prediction == 1
+        vec1(pD,grid) .= vec(ϕ .- iRe .* rho1 .* reshape(iM * Duv,grid)) #no τ  since div u not rho1
+    elseif num.prediction == 2
+        vec1(pD,grid) .+= vec(ϕ .- iRe./2 .* rho1 .* reshape(iM * Duv,grid)) #no τ  since div u not rho1
+    else
+        vec1(pD,grid) .= vec(ϕ) #.- iRe .* reshape(iM * Duv, grid))
+    end
     for iLS in 1:nLS
         veci(pD,grid,iLS+1) .= veci(ϕD,grid,iLS+1)
     end
     vecb(pD,grid) .= vecb(ϕD,grid)
     p .= reshape(vec1(pD,grid), grid)
+
+    #TODO
+    compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
+
+
     # else
     #     vec1(pD,grid) .= vec(p) .+ vec(ϕ) #.- iRe .* iM * Duv
     #     vec2(pD,grid) .+= vec2(ϕD,grid)
@@ -2026,7 +2498,15 @@ function pressure_projection!(
     # print("\n test u ", vecb_B(uD, grid_u))
     # print("\n test u ", vecb_T(uD, grid_u))
 
+    #TODO Poiseuille
+    printstyled(color=:yellow, @sprintf "\n before end pressure projection \n")
 
+    test_Poiseuille(num,vD,grid_v)
+    #TODO
+    compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
+
+
+    printstyled(color=:magenta, @sprintf "\n end pressure projection \n")
 
     return Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
 end
@@ -2090,7 +2570,7 @@ function linear_advection!(
     # v_midp = 0.5 .* (v .+ v_guess)
     u_midp = copy(u)
     v_midp = copy(v)
-    set_convection!(num, grid, geo, grid_u, grid_u.LS, grid_v, grid_v.LS, u_midp, v_midp, op_conv, ph, BC_u, BC_v)
+    set_convection!(num, grid, geo, grid_u, grid_u.LS, grid_v, grid_v.LS, u_midp, v_midp, op_conv, ph, BC_u, BC_v,opC_p, opC_u, opC_v)
 
     Convu .= Cu * vec(u_midp) .+ CUTCu
     vec1(rhs_u, grid_u) .-= τ .* Convu
@@ -2130,7 +2610,7 @@ function residual(u_guess, v_guess, num, grid, geo, grid_u, geo_u, grid_v, geo_v
     u_midp = 0.5 .* (u .+ u_guess)
     v_midp = 0.5 .* (v .+ v_guess)
 
-    set_convection!(num, grid, geo, grid_u, grid_u.LS, grid_v, grid_v.LS, u_midp, v_midp, op_conv, ph, BC_u, BC_v)
+    set_convection!(num, grid, geo, grid_u, grid_u.LS, grid_v, grid_v.LS, u_midp, v_midp, op_conv, ph, BC_u, BC_v,opC_p, opC_u, opC_v)
     Convu .= Cu * vec(u_midp) .+ CUTCu
     Convv .= Cv * vec(v_midp) .+ CUTCv
     vec1(rhs_u, grid_u) .-= τ .* Convu

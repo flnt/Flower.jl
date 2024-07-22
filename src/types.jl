@@ -25,6 +25,8 @@ abstract type AbstractOptimizer end
     nb_reinit::D = length(x)÷8 # number of reinitializations
     δreinit::T = 10.0 # delta for automatic reinitialization
     ϵ::T = 0.00 # cell-clipping threshold
+    epsilon_mode::D = 0
+    epsilon_vol::T = eps(0.01)*Δ^2
     ϵwall::T = ϵ # cell-clipping threshold at mixed cells in walls
     NB::D = nb_reinit÷2 # number of cells the velocity is extended
     T_inf::T = 0.0 # value of temperature at ∞
@@ -82,6 +84,8 @@ abstract type AbstractOptimizer end
     radial_vel_factor::T = 0.0
     scalar_debug::Bool = false
     v_inlet::T=0.0
+    prediction::D=0
+    null_space::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

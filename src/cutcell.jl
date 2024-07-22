@@ -597,8 +597,8 @@ function postprocess_grids1!(num, grid, LS, grid_u, LS_u, grid_v, LS_v, periodic
     )
     try
         set_cap_bcs!(grid, LS, periodic_x, periodic_y, empty)
-        set_cap_bcs!(grid_u, LS_u, periodic_x, periodic_y, empty)
-        set_cap_bcs!(grid_v, LS_v, periodic_x, periodic_y, empty)
+        set_cap_bcs!(num,grid_u, LS_u, periodic_x, periodic_y, empty)
+        set_cap_bcs!(num,grid_v, LS_v, periodic_x, periodic_y, empty)
 
     catch errorLS
         printstyled(color=:red, @sprintf "\n LS not updated: set_cap_bcs! p u v \n")
@@ -2033,7 +2033,46 @@ function set_cap_bcs!(grid::Mesh{GridCC,T,N}, LS, periodic_x, periodic_y, empty 
     return nothing
 end
 
-function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, LS, periodic_x, periodic_y, empty = true) where {T,N}
+function set_cap_diff_S_L(num,geoS,geoL,cap_id,II)
+
+    diffS = geoS.cap[II,cap_id] - tmpS
+    if diffS > 0.0
+
+        if num.epsilon_mode == 0
+            @inbounds geoS.cap[II,5] = geoS.cap[II,5] * diffS / (geoS.cap[II,cap_id]+eps(0.01))
+        elseif num.epsilon_mode == 1
+            @inbounds geoS.cap[II,5] = geoS.cap[II,5] * diffS / max(geoS.cap[II,cap_id],num.epsilon_vol)
+        elseif num.epsilon_mode == 2
+            if geoS.cap[II,cap_id] > num.epsilon_vol
+                @inbounds geoS.cap[II,5] = geoS.cap[II,5] * diffS / geoS.cap[II,cap_id]
+            else
+                @inbounds geoS.cap[II,5] = 0.0 #TODO
+            end 
+        end
+
+    else
+        @inbounds geoS.cap[II,5] = geoS.cap[II,5] * 0.5
+    end
+    diffL = geoL.cap[II,cap_id] - tmpL
+    if diffL > 0.0
+
+        if num.epsilon_mode == 0
+            @inbounds geoL.cap[II,5] = geoL.cap[II,5] * diffL / (geoL.cap[II,cap_id]+eps(0.01))
+        elseif num.epsilon_mode == 1
+            @inbounds geoL.cap[II,5] = geoL.cap[II,5] * diffL / max(geoL.cap[II,cap_id],num.epsilon_vol)
+        elseif num.epsilon_mode == 2
+            if geoL.cap[II,cap_id] > num.epsilon_vol
+                @inbounds geoL.cap[II,5] = geoL.cap[II,5] * diffL / geoL.cap[II,cap_id]
+            else
+                @inbounds geoL.cap[II,5] = 0.0 #TODO
+            end 
+        end
+    else
+        @inbounds geoL.cap[II,5] = geoL.cap[II,5] * 0.5
+    end
+end
+
+function set_cap_bcs!(num,grid::Mesh{GridFCx,T,N}, LS, periodic_x, periodic_y, empty = true) where {T,N}
     @unpack nx, ny, ind = grid
     @unpack b_left, b_bottom, b_right, b_top = ind
     @unpack geoS, geoL, mid_point, cut_points, iso = LS
@@ -2114,18 +2153,7 @@ function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, LS, periodic_x, periodic_y, empty
                 tmpL = min(geoL.cap[II,7], 0.5)
             end
 
-            diffS = geoS.cap[II,7] - tmpS
-            if diffS > 0.0
-                @inbounds geoS.cap[II,5] = geoS.cap[II,5] * diffS / (geoS.cap[II,7]+eps(0.01))
-            else
-                @inbounds geoS.cap[II,5] = geoS.cap[II,5] * 0.5
-            end
-            diffL = geoL.cap[II,7] - tmpL
-            if diffL > 0.0
-                @inbounds geoL.cap[II,5] = geoL.cap[II,5] * diffL / (geoL.cap[II,7]+eps(0.01))
-            else
-                @inbounds geoL.cap[II,5] = geoL.cap[II,5] * 0.5
-            end
+            set_cap_diff_S_L(num,geoS,geoL,7,II)
 
             @inbounds geoS.cap[II,7] = tmpS
             @inbounds geoL.cap[II,7] = tmpL
@@ -2186,18 +2214,7 @@ function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, LS, periodic_x, periodic_y, empty
                 tmpL = max(geoL.cap[II,7] - 0.5, 0.0)
             end
 
-            diffS = geoS.cap[II,7] - tmpS
-            if diffS > 0.0
-                @inbounds geoS.cap[II,5] = geoS.cap[II,5] * diffS / (geoS.cap[II,7]+eps(0.01))
-            else
-                @inbounds geoS.cap[II,5] = geoS.cap[II,5] * 0.5
-            end
-            diffL = geoL.cap[II,7] - tmpL
-            if diffL > 0.0
-                @inbounds geoL.cap[II,5] = geoL.cap[II,5] * diffL / (geoL.cap[II,7]+eps(0.01))
-            else
-                @inbounds geoL.cap[II,5] = geoL.cap[II,5] * 0.5
-            end
+            set_cap_diff_S_L(num,geoS,geoL,7,II)
 
             @inbounds geoS.cap[II,7] = tmpS
             @inbounds geoL.cap[II,7] = tmpL
@@ -2211,7 +2228,7 @@ function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, LS, periodic_x, periodic_y, empty
     return nothing
 end
 
-function set_cap_bcs!(grid::Mesh{GridFCy,T,N}, LS, periodic_x, periodic_y, empty = true) where {T,N}
+function set_cap_bcs!(num,grid::Mesh{GridFCy,T,N}, LS, periodic_x, periodic_y, empty = true) where {T,N}
     @unpack nx, ny, ind = grid
     @unpack b_left, b_bottom, b_right, b_top = ind
     @unpack geoS, geoL, mid_point, cut_points, iso = LS
@@ -2293,18 +2310,7 @@ function set_cap_bcs!(grid::Mesh{GridFCy,T,N}, LS, periodic_x, periodic_y, empty
                 tmpL = min(geoL.cap[II,6], 0.5)
             end
 
-            diffS = geoS.cap[II,6] - tmpS
-            if diffS > 0.0
-                @inbounds geoS.cap[II,5] = geoS.cap[II,5] * diffS / (geoS.cap[II,6]+eps(0.01))
-            else
-                @inbounds geoS.cap[II,5] = geoS.cap[II,5] * 0.5
-            end
-            diffL = geoL.cap[II,6] - tmpL
-            if diffL > 0.0
-                @inbounds geoL.cap[II,5] = geoL.cap[II,5] * diffL / (geoL.cap[II,6]+eps(0.01))
-            else
-                @inbounds geoL.cap[II,5] = geoL.cap[II,5] * 0.5
-            end
+            set_cap_diff_S_L(num,geoS,geoL,6,II)
 
             @inbounds geoS.cap[II,6] = tmpS
             @inbounds geoL.cap[II,6] = tmpL
@@ -2365,18 +2371,7 @@ function set_cap_bcs!(grid::Mesh{GridFCy,T,N}, LS, periodic_x, periodic_y, empty
                 tmpL = max(geoL.cap[II,6] - 0.5, 0.0)
             end
 
-            diffS = geoS.cap[II,6] - tmpS
-            if diffS > 0.0
-                @inbounds geoS.cap[II,5] = geoS.cap[II,5] * diffS / (geoS.cap[II,6]+eps(0.01))
-            else
-                @inbounds geoS.cap[II,5] = geoS.cap[II,5] * 0.5
-            end
-            diffL = geoL.cap[II,6] - tmpL
-            if diffL > 0.0
-                @inbounds geoL.cap[II,5] = geoL.cap[II,5] * diffL / (geoL.cap[II,6]+eps(0.01))
-            else
-                @inbounds geoL.cap[II,5] = geoL.cap[II,5] * 0.5
-            end
+            set_cap_diff_S_L(num,geoS,geoL,6,II)
 
             @inbounds geoS.cap[II,6] = tmpS
             @inbounds geoL.cap[II,6] = tmpL

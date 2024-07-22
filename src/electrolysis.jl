@@ -9,14 +9,27 @@ function Poiseuille_favg(x,v_inlet_moy,L0)
 end
 
 
-function test_Poiseuille(num,ph,gv)
+function test_Poiseuille(num,velD,grid_v)
+
+    vel = reshape(vec1(velD,grid_v), grid_v)
+
     #error = 0.0
-    error = ph.v .- Poiseuille_favg.(gv.x,num.v_inlet,num.L0)
-    error_rel = maximum(error)/(num.v_inlet*3/2)
-    # for j in 1:gv.ny
-    #     error += ph.v[j,:] .- Poiseuille_favg(gv.x,num.v_inlet,num.L0)
-    # end
-    printstyled(color=:red, @sprintf "\n Velocity error : %.2e\n" error_rel )
+    error = vel .- Poiseuille_fmax.(grid_v.x,num.v_inlet,num.L0)
+    error_rel = maximum(abs.(error))/num.v_inlet
+    error_rel_min = minimum(abs.(error))/num.v_inlet
+
+
+    scal_error_border = maximum(abs.(vecb_B(velD,grid_v) .- Poiseuille_fmax.(grid_v.x[1,:],num.v_inlet,num.L0)))
+    scal_error_border = scal_error_border/num.v_inlet
+
+    printstyled(color=:red, @sprintf "\n Velocity error bottom: %.2e\n" scal_error_border )
+
+    scal_error_border = maximum(abs.(vecb_T(velD,grid_v) .- Poiseuille_fmax.(grid_v.x[1,:],num.v_inlet,num.L0)))
+    scal_error_border = scal_error_border/num.v_inlet
+
+    printstyled(color=:red, @sprintf "\n Velocity error top: %.2e\n" scal_error_border )
+
+    printstyled(color=:red, @sprintf "\n Velocity error bulk: %.2e %.2e %.2e\n" error_rel error_rel_min vel[1,1])
 
 end
 
@@ -756,7 +769,7 @@ function scalar_transport_2!(bc, num, grid, op, geo, ph, concentration0, MIXED, 
         nonzero = veci(ph.trans_scalD[:,iscal],grid,2)[abs.(veci(ph.trans_scalD[:,iscal],grid,2)) .> 0.0]
         # print("nonzero\n")
         # print(nonzero)
-        print("\n mean ",mean(nonzero))
+        printstyled(color=:green, @sprintf "\n mean  interface : %.2e\n" mean(nonzero))
 
 
 
@@ -863,6 +876,19 @@ function scalar_transport_2!(bc, num, grid, op, geo, ph, concentration0, MIXED, 
     return nothing
 end
 
+
+function invert_weight(num,II,IIbis,n,iMx,Mx)
+
+    pII = lexicographic(IIbis, n)
+
+    if num.epsilon_mode == 0
+        iMx.diag[pII] = 1. / (Mx[II] + eps(0.01))
+    elseif num.epsilon_mode == 1
+        iMx.diag[pII] = 1. / max(Mx[II], num.epsilon_vol)
+    elseif num.epsilon_mode == 2
+        iMx.diag[pII] = inv_weight(num,Mx[II])   
+    end
+end
 
 """    
 scalar transport (convection and diffusion)
@@ -1001,19 +1027,31 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         Mx = zeros(ny,nx+1)
         for II in ind.all_indices
             Mx[II] = geo.dcap[II,8]
+
+            invert_weight(num,II,II,ny,iMx,Mx)
+
         end
         for II in ind.b_right[1]
             Mx[δx⁺(II)] = geo.dcap[II,10]
+
+            invert_weight(num,II,δx⁺(II),ny,iMx,Mx)
+
         end
         My = zeros(ny+1,nx)
         for II in ind.all_indices
             My[II] = geo.dcap[II,9]
+
+            invert_weight(num,II,II,ny+1,iMy,My)
+
         end
         for II in ind.b_top[1]
             My[δy⁺(II)] = geo.dcap[II,11]
+
+            invert_weight(num,II,δy⁺(II),ny+1,iMy,My)
+
         end
-        iMx.diag .= 1. ./ (vec(Mx) .+ eps(0.01))
-        iMy.diag .= 1. ./ (vec(My) .+ eps(0.01))
+        # iMx.diag .= 1. ./ (vec(Mx) .+ eps(0.01))
+        # iMy.diag .= 1. ./ (vec(My) .+ eps(0.01))
 
         # Discrete gradient and divergence operators
         divergence_B!(BxT, ByT, geo.dcap, ny, ind.all_indices)
@@ -1353,7 +1391,7 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         nonzero = veci(ph.trans_scalD[:,iscal],grid,2)[abs.(veci(ph.trans_scalD[:,iscal],grid,2)) .> 0.0]
         # print("nonzero\n")
         # print(nonzero)
-        print("\n mean ",mean(nonzero))
+        printstyled(color=:green, @sprintf "\n mean  interface : %.2e\n" mean(nonzero))
 
 
 
@@ -2228,6 +2266,63 @@ function compute_grad_phi_ele!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_
 
 
 end
+
+
+
+
+"""
+  Compute norm of gradient for exchange current
+"""
+# Gradient of pressure, eq. 17 in 
+#"A Conservative Cartesian Cut-Cell Method for Mixed Boundary Conditions and the Incompressible Navier-Stokes Equations on Staggered Meshes"
+#From navier_stokes_coupled.jl
+# ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec(phi_ele) .+ opC_u.Gx_b * vecb(phi_eleD,grid)
+# ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec(phi_ele) .+ opC_v.Gy_b * vecb(phi_eleD,grid)
+# for iLS in 1:nLS
+#     ∇ϕ_x .+= opC_u.Gx[iLS] * veci(phi_eleD,grid,iLS+1)
+#     ∇ϕ_y .+= opC_v.Gy[iLS] * veci(phi_eleD,grid,iLS+1)
+# end
+function compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p,opC_u,opC_v)
+    
+    @unpack nLS = num
+
+    #Liquid phase
+    # @unpack pD = phL
+
+    ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(pD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(pD,grid)
+    ∇ϕ_y = opC_p.iMy * opC_p.By * vec1(pD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(pD,grid)
+
+    for iLS in 1:nLS
+        ∇ϕ_x .+= opC_p.iMx * opC_p.Hx[iLS] * veci(pD,grid,iLS+1)
+        ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(pD,grid,iLS+1)
+    end
+
+    grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+    printstyled(color=:red, @sprintf "\n grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_x) maximum(grd_x) minimum(grd_y) maximum(grd_y))
+
+
+    ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid)
+    ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(pD,grid) .+ opC_v.Gy_b * vecb(pD,grid)
+    for iLS in 1:nLS
+        ∇ϕ_x .+= opC_u.Gx[iLS] * veci(pD,grid,iLS+1)
+        ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid,iLS+1)
+    end
+
+    iMu = Diagonal(1 ./ (opC_u.M.diag .+ eps(0.01)))
+    iMv = Diagonal(1 ./ (opC_v.M.diag .+ eps(0.01)))
+    ∇ϕ_x = iMu * ∇ϕ_x
+    ∇ϕ_y = iMv * ∇ϕ_y
+    
+    grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+    printstyled(color=:magenta, @sprintf "\n grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_x) maximum(grd_x) minimum(grd_y) maximum(grd_y))
+
+
+end
+
 
 """
 Adapt timestep based on velocity, viscosity, ...

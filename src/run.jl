@@ -1,5 +1,5 @@
 function run_forward(
-    num, grid, grid_u, grid_v, op, phS, phL, fwd, fwdS, fwdL;
+    num, grid, grid_u, grid_v, op, phS, phL;
     periodic_x = false,
     periodic_y = false,
     BC_TS = Boundaries(),
@@ -47,17 +47,24 @@ function run_forward(
     electrolysis_reaction = "nothing",
     bulk_conductivity = true,
     imposed_velocity = "none",
+    testing = "none",
     adapt_timestep_mode = 0,
     non_dimensionalize=1,
     mode_2d=0,
     conductivity_mode = 1,
     convection_Cdivu = false,
     )
+
+    print("\n before unpack \n")
+
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, save_every, reinit_every, nb_reinit, δreinit, ϵ, m, θ₀, aniso, nLS, _nLS, nNavier,
             concentration0, diffusion_coeff, nb_transported_scalars, nb_saved_scalars, temperature0, i0, phi_ele0, phi_ele1, alphac,
             alphaa, Ru, Faraday, mu1, rho1 = num
     @unpack opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL = op
     @unpack x, y, nx, ny, dx, dy, ind, LS, V = grid
+
+    print("\n after unpack \n")
+
 
     if length(BC_int) != nLS
         @error ("You have to specify $(nLS) boundary conditions.")
@@ -232,9 +239,9 @@ function run_forward(
         grid_v.LS[1].MIXED = [CartesianIndex(-1,-1)]
     end
 
-    if save_length
-        fwd.length[1] = arc_length2(LS[1].geoS.projection, LS[1].MIXED)
-    end
+    # if save_length
+    #     fwd.length[1] = arc_length2(LS[1].geoS.projection, LS[1].MIXED)
+    # end
 
 
     ####################################################################################################
@@ -317,10 +324,10 @@ function run_forward(
             @views init_fields_2!(phS.trans_scalD[:,iscal],phS.trans_scal[:,:,iscal],HS,BC_trans_scal[iscal],grid,concentration0[iscal])
             @views init_fields_2!(phL.trans_scalD[:,iscal],phL.trans_scal[:,:,iscal],HL,BC_trans_scal[iscal],grid,concentration0[iscal])
             
-            @views fwd.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal].*LS[end].geoL.cap[:,:,5] .+ phS.trans_scal[:,:,iscal].*LS[end].geoS.cap[:,:,5]
-            @views fwdS.trans_scalD[1,:,iscal] .= phS.trans_scalD[:,iscal]
-            @views fwdL.trans_scalD[1,:,iscal] .= phL.trans_scalD[:,iscal]
-            @views fwdL.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal]
+            # @views fwd.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal].*LS[end].geoL.cap[:,:,5] .+ phS.trans_scal[:,:,iscal].*LS[end].geoS.cap[:,:,5]
+            # @views fwdS.trans_scalD[1,:,iscal] .= phS.trans_scalD[:,iscal]
+            # @views fwdL.trans_scalD[1,:,iscal] .= phL.trans_scalD[:,iscal]
+            # @views fwdL.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal]
 
         end
 
@@ -338,8 +345,8 @@ function run_forward(
         init_fields_2!(phS.phi_eleD,phS.phi_ele,HS,BC_phi_ele,grid,phi_ele0) #
         init_fields_2!(phL.phi_eleD,phL.phi_ele,HL,BC_phi_ele,grid,phi_ele0)
 
-        @views fwdS.phi_eleD[1,:] .= phS.phi_eleD
-        @views fwdL.phi_eleD[1,:] .= phL.phi_eleD
+        # @views fwdS.phi_eleD[1,:] .= phS.phi_eleD
+        # @views fwdL.phi_eleD[1,:] .= phL.phi_eleD
     end  
     
     if electrolysis
@@ -382,19 +389,19 @@ function run_forward(
     ####################################################################################################
 
    
-    @views fwdS.ucorrD[1,:,:] .= phS.ucorrD
-    @views fwdL.ucorrD[1,:,:] .= phL.ucorrD
+    # @views fwdS.ucorrD[1,:,:] .= phS.ucorrD
+    # @views fwdL.ucorrD[1,:,:] .= phL.ucorrD
 
-    @views fwdS.vcorrD[1,:,:] .= phS.vcorrD
-    @views fwdL.vcorrD[1,:,:] .= phL.vcorrD
+    # @views fwdS.vcorrD[1,:,:] .= phS.vcorrD
+    # @views fwdL.vcorrD[1,:,:] .= phL.vcorrD
 
-    @views fwdL.pD[1,:] .= phL.pD
-    @views fwdS.pD[1,:] .= phS.pD
+    # @views fwdL.pD[1,:] .= phL.pD
+    # @views fwdS.pD[1,:] .= phS.pD
 
-    @views fwdS.TD[1,:] .= phS.TD
-    @views fwdL.TD[1,:] .= phL.TD
+    # @views fwdS.TD[1,:] .= phS.TD
+    # @views fwdL.TD[1,:] .= phL.TD
 
-    @views fwd.radius[1] = current_radius
+    # @views fwd.radius[1] = current_radius
 
 
     kill_dead_cells!(phS.T, grid, LS[end].geoS)
@@ -428,40 +435,40 @@ function run_forward(
     #     printstyled(color=:green, @sprintf "\n average T %s\n" average!(phL.T, grid, LS[1].geoL, num))
     # end
 
-    for iLS in 1:_nLS
-        @views fwd.u[iLS,1,:,:] .= LS[iLS].u
-        @views fwd.ux[iLS,1,:,:] .= grid_u.LS[iLS].u
-        @views fwd.uy[iLS,1,:,:] .= grid_v.LS[iLS].u
-        @views fwd.κ[iLS,1,:,:] .= LS[iLS].κ
-    end
-    @views fwd.T[1,:,:] .= phL.T.*LS[end].geoL.cap[:,:,5] .+ phS.T[:,:].*LS[end].geoS.cap[:,:,5]
-    @views fwdL.T[1,:,:] .= phL.T
-    @views fwdS.T[1,:,:] .= phS.T
-    @views fwdS.p[1,:,:] .= phS.p
-    @views fwdL.p[1,:,:] .= phL.p
-    @views fwdS.u[1,:,:] .= phS.u
-    @views fwdS.v[1,:,:] .= phS.v
-    @views fwdL.u[1,:,:] .= phL.u
-    @views fwdL.v[1,:,:] .= phL.v
-    @views fwdL.vD[1,:] .= phL.vD
+    # for iLS in 1:_nLS
+        # @views fwd.u[iLS,1,:,:] .= LS[iLS].u
+        # @views fwd.ux[iLS,1,:,:] .= grid_u.LS[iLS].u
+        # @views fwd.uy[iLS,1,:,:] .= grid_v.LS[iLS].u
+        # @views fwd.κ[iLS,1,:,:] .= LS[iLS].κ
+    # end
+    # @views fwd.T[1,:,:] .= phL.T.*LS[end].geoL.cap[:,:,5] .+ phS.T[:,:].*LS[end].geoS.cap[:,:,5]
+    # @views fwdL.T[1,:,:] .= phL.T
+    # @views fwdS.T[1,:,:] .= phS.T
+    # @views fwdS.p[1,:,:] .= phS.p
+    # @views fwdL.p[1,:,:] .= phL.p
+    # @views fwdS.u[1,:,:] .= phS.u
+    # @views fwdS.v[1,:,:] .= phS.v
+    # @views fwdL.u[1,:,:] .= phL.u
+    # @views fwdL.v[1,:,:] .= phL.v
+    # @views fwdL.vD[1,:] .= phL.vD
 
     ####################################################################################################
     #Electrolysis
     ####################################################################################################
-    if electrolysis
-        for iscal=1:nb_transported_scalars #TODO updated later cf init_fields_2!
-            @views fwd.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal].*LS[end].geoL.cap[:,:,5] .+ phS.trans_scal[:,:,iscal].*LS[end].geoS.cap[:,:,5]
-            @views fwdL.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal]
-        end
+    # if electrolysis
+    #     for iscal=1:nb_transported_scalars #TODO updated later cf init_fields_2!
+    #         @views fwd.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal].*LS[end].geoL.cap[:,:,5] .+ phS.trans_scal[:,:,iscal].*LS[end].geoS.cap[:,:,5]
+    #         @views fwdL.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal]
+    #     end
         
-        # @views fwd.mass_flux[1,:,:] .= 0.0
-        @views fwdL.phi_ele[1,:,:] .= phL.phi_ele
-        @views fwdL.i_current_mag[1,:,:] .= phL.i_current_mag
-        @views fwdS.Eu[1,:,:] .= phS.Eu
-        @views fwdS.Ev[1,:,:] .= phS.Ev
-        @views fwdL.Eu[1,:,:] .= phL.Eu
-        @views fwdL.Ev[1,:,:] .= phL.Ev
-    end     
+    #     # @views fwd.mass_flux[1,:,:] .= 0.0
+    #     @views fwdL.phi_ele[1,:,:] .= phL.phi_ele
+    #     @views fwdL.i_current_mag[1,:,:] .= phL.i_current_mag
+    #     @views fwdS.Eu[1,:,:] .= phS.Eu
+    #     @views fwdS.Ev[1,:,:] .= phS.Ev
+    #     @views fwdL.Eu[1,:,:] .= phL.Eu
+    #     @views fwdL.Ev[1,:,:] .= phL.Ev
+    # end     
     
 
     
@@ -787,18 +794,36 @@ function run_forward(
                     phL.v .= 0.0
                 elseif imposed_velocity == "constant"
                         
-
                         #Required to modify whole uD vD
                         phL.u .= 0.0
                         phL.v .= BC_vL.bottom.val    
                         phL.uD .= 0.0
                         phL.vD .= BC_vL.bottom.val    
 
-
                         printstyled(color=:red, @sprintf "\n Imposed velocity v min %.2e max %.2e\n" minimum(phL.vD) maximum(phL.vD))
                         printstyled(color=:red, @sprintf "\n Imposed velocity u min %.2e max %.2e\n" minimum(phL.uD) maximum(phL.uD))
 
+                elseif imposed_velocity == "Poiseuille"
 
+                    vPoiseuille = Poiseuille_fmax.(grid_v.x,num.v_inlet,num.L0)
+
+                    
+                    #Required to modify whole uD vD
+                    phL.u .= 0.0
+                    phL.v .= vPoiseuille 
+ 
+                    phL.uD .= 0.0 #Dirichlet and Neumann
+                    # phL.vD .= BC_vL.bottom.val    
+                    # vecb...
+                    # ....
+    
+                    printstyled(color=:red, @sprintf "\n Imposed velocity v min %.2e max %.2e\n" minimum(phL.vD) maximum(phL.vD))
+                    printstyled(color=:red, @sprintf "\n Imposed velocity u min %.2e max %.2e\n" minimum(phL.uD) maximum(phL.uD))       
+                    
+                    printstyled(color=:cyan, @sprintf "\n before scalar transport 0\n")
+
+                    print_electrolysis_statistics(nb_transported_scalars,grid,phL)
+                    
                 elseif imposed_velocity == "radial"
                     
                     phL.v .= 0.0
@@ -859,8 +884,7 @@ function run_forward(
 
                 end #imposed_velocity
 
-                # Check the velocity field before the scalar transport
-                # test_Poiseuille(num,phL,grid_v)
+                
 
 
                 for iscal=1:nb_transported_scalars
@@ -920,18 +944,43 @@ function run_forward(
 
                 print_electrolysis_statistics(nb_transported_scalars,grid,phL)
 
-                if imposed_velocity == "constant"
+                if imposed_velocity != "none" || testing == "scalar"
                     scal_error=0.0
                     for iscal in 1:nb_transported_scalars
-                        print("\n maximum ",maximum(phL.trans_scalD[:,iscal]), )
-                        printstyled(color=:cyan, @sprintf "\n error after scalar transport max %.2e min %.2e\n" maximum(phL.trans_scalD[:,iscal]) minimum(phL.trans_scalD[:,iscal]))
 
-                        scal_error = max(maximum(abs.(phL.trans_scalD[:,iscal].-concentration0[iscal])./concentration0[iscal]),scal_error)
+                        print("\n maximum ",maximum(phL.trans_scalD[:,iscal]), )
+                        # printstyled(color=:cyan, @sprintf "\n error after scalar transport max %.2e min %.2e\n" maximum(phL.trans_scalD[:,iscal]) minimum(phL.trans_scalD[:,iscal]))
+
+                        scal_error_bulk = maximum(abs.(phL.trans_scal[:,:,iscal].-concentration0[iscal])./concentration0[iscal])
+                        scal_error_border = maximum(abs.(vecb(phL.trans_scalD[:,iscal],grid).-concentration0[iscal])./concentration0[iscal])
+                        scal_error = max(scal_error_bulk,scal_error_border,scal_error)
+
                     end
 
-                    printstyled(color=:cyan, @sprintf "\n error after scalar transport %.2e\n" scal_error)
+                    printstyled(color=:cyan, @sprintf "\n error after scalar transport %.2e CFL %.2e\n" scal_error num.v_inlet*num.dt0/grid.dx[1,1])
+
+                    printstyled(color=:red, @sprintf "\n Poiseuille \n")
+
+                    # Check the velocity field before the scalar transport
+                    test_Poiseuille(num,phL.vD,grid_v)
+
+                    printstyled(color=:cyan, @sprintf "\n pressure min %.2e max %.2e\n" minimum(phL.p[1,:]) maximum(phL.p[1,:]))
+
+                    printstyled(color=:cyan, @sprintf "\n pressure min %.2e max %.2e\n" minimum(phL.p[end,:]) maximum(phL.p[end,:]))
+
+                    printstyled(color=:cyan, @sprintf "\n pressure min %.2e max %.2e\n" BC_pL.bottom.val BC_pL.top.val )
+
+                    compute_grad_p!(num,grid, grid_u, grid_v, phL.pD, opC_pL, opC_uL, opC_vL)
 
                 end
+
+                # if imposed_velocity =="none"
+                #     printstyled(color=:red, @sprintf "\n after scalar transport \n")
+
+                #     # Check the velocity field before the scalar transport
+                #     test_Poiseuille(num,phL,grid_v)
+                    
+                # end
                 ####################################################################################################
                 # New start scalar loop
                 ####################################################################################################
@@ -1903,9 +1952,9 @@ function run_forward(
                     end
                     radius[snap] = mean(a)
                 end
-                if save_length
-                    fwd.length[snap] = arc_length2(LS[1].geoS.projection, LS[1].MIXED)
-                end
+                # if save_length
+                #     fwd.length[snap] = arc_length2(LS[1].geoS.projection, LS[1].MIXED)
+                # end
             end
         end
 
@@ -1958,113 +2007,113 @@ function run_forward(
             end
         end
 
-        cD, cL, D, L = force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, phL; step = num.current_i+1, saveCoeffs = false)
+        # cD, cL, D, L = force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, phL; step = num.current_i+1, saveCoeffs = false)
 
-        current_t += num.τ
-        if iszero(num.current_i%save_every) || num.current_i==max_iterations
-            snap = num.current_i÷save_every+1
-            if num.current_i==max_iterations
-                snap = size(fwd.T,1)
-            end
-            fwd.t[snap] = current_t
-            @views fwd.V[snap,:,:] .= V
-            for iLS in 1:_nLS
-                @views fwd.u[iLS,snap,:,:] .= LS[iLS].u
-                @views fwd.ux[iLS,snap,:,:] .= grid_u.LS[iLS].u
-                @views fwd.uy[iLS,snap,:,:] .= grid_v.LS[iLS].u
-                @views fwd.κ[iLS,snap,:,:] .= LS[iLS].κ
-            end
+        # current_t += num.τ
+        # if iszero(num.current_i%save_every) || num.current_i==max_iterations
+        #     snap = num.current_i÷save_every+1
+        #     if num.current_i==max_iterations
+        #         snap = size(fwd.T,1)
+        #     end
+        #     fwd.t[snap] = current_t
+        #     @views fwd.V[snap,:,:] .= V
+        #     for iLS in 1:_nLS
+        #         @views fwd.u[iLS,snap,:,:] .= LS[iLS].u
+        #         @views fwd.ux[iLS,snap,:,:] .= grid_u.LS[iLS].u
+        #         @views fwd.uy[iLS,snap,:,:] .= grid_v.LS[iLS].u
+        #         @views fwd.κ[iLS,snap,:,:] .= LS[iLS].κ
+        #     end
 
-            if heat_solid_phase && heat_liquid_phase
-                @views fwd.T[snap,:,:] .= phL.T.*LS[end].geoL.cap[:,:,5] .+ phS.T.*LS[end].geoS.cap[:,:,5]
-            end
-            if heat_solid_phase
-                @views fwd.T[snap,:,:] .= phS.T
-                @views fwdS.T[snap,:,:] .= phS.T
-                @views fwdS.TD[snap,:] .= phS.TD
-            end
-            if heat_liquid_phase
-                @views fwd.T[snap,:,:] .= phL.T
-                @views fwdL.T[snap,:,:] .= phL.T
-                @views fwdL.TD[snap,:] .= phL.TD
-            end
+        #     if heat_solid_phase && heat_liquid_phase
+        #         @views fwd.T[snap,:,:] .= phL.T.*LS[end].geoL.cap[:,:,5] .+ phS.T.*LS[end].geoS.cap[:,:,5]
+        #     end
+        #     if heat_solid_phase
+        #         @views fwd.T[snap,:,:] .= phS.T
+        #         @views fwdS.T[snap,:,:] .= phS.T
+        #         @views fwdS.TD[snap,:] .= phS.TD
+        #     end
+        #     if heat_liquid_phase
+        #         @views fwd.T[snap,:,:] .= phL.T
+        #         @views fwdL.T[snap,:,:] .= phL.T
+        #         @views fwdL.TD[snap,:] .= phL.TD
+        #     end
 
-            #TODO
-            # if electrolysis_solid_phase && electrolysis_liquid_phase
-            #     @views fwd.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal].*LS[end].geoL.cap[:,:,5] .+ phS.trans_scal[:,:,iscal].*LS[end].geoS.cap[:,:,5]
-            # end
+        #     #TODO
+        #     # if electrolysis_solid_phase && electrolysis_liquid_phase
+        #     #     @views fwd.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal].*LS[end].geoL.cap[:,:,5] .+ phS.trans_scal[:,:,iscal].*LS[end].geoS.cap[:,:,5]
+        #     # end
 
-            if electrolysis_solid_phase #TODO
+        #     if electrolysis_solid_phase #TODO
 
-                for iscal=1:nb_transported_scalars
-                    @views fwd.trans_scal[snap,:,:,iscal] .= phS.trans_scal[:,:,iscal]
-                    @views fwdS.trans_scal[snap,:,:,iscal] .= phS.trans_scal[:,:,iscal]
-                    @views fwdS.trans_scalD[snap,:,iscal] .= phS.trans_scalD[:,iscal]
-                end
-            end
+        #         for iscal=1:nb_transported_scalars
+        #             @views fwd.trans_scal[snap,:,:,iscal] .= phS.trans_scal[:,:,iscal]
+        #             @views fwdS.trans_scal[snap,:,:,iscal] .= phS.trans_scal[:,:,iscal]
+        #             @views fwdS.trans_scalD[snap,:,iscal] .= phS.trans_scalD[:,iscal]
+        #         end
+        #     end
 
-            if electrolysis_liquid_phase #TODO
+        #     if electrolysis_liquid_phase #TODO
 
-                for iscal=1:nb_transported_scalars
-                    @views fwd.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal].*LS[end].geoL.cap[:,:,5] .+ phS.trans_scal[:,:,iscal].*LS[end].geoS.cap[:,:,5]
+        #         for iscal=1:nb_transported_scalars
+        #             @views fwd.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal].*LS[end].geoL.cap[:,:,5] .+ phS.trans_scal[:,:,iscal].*LS[end].geoS.cap[:,:,5]
 
-                    # @views fwd.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal]
-                    @views fwdL.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal]
-                    @views fwdL.trans_scalD[snap,:,iscal] .= phL.trans_scalD[:,iscal]
+        #             # @views fwd.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal]
+        #             @views fwdL.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal]
+        #             @views fwdL.trans_scalD[snap,:,iscal] .= phL.trans_scalD[:,iscal]
                     
-                    # printstyled(color=:cyan, @sprintf "\n write scal \n")
-                    # print(minimum(fwdL.trans_scal[snap,:,:,iscal]), "phL ", minimum(phL.trans_scal[:,:,iscal]))
-                end
+        #             # printstyled(color=:cyan, @sprintf "\n write scal \n")
+        #             # print(minimum(fwdL.trans_scal[snap,:,:,iscal]), "phL ", minimum(phL.trans_scal[:,:,iscal]))
+        #         end
                 
-                # @views fwd.mass_flux[snap,:,:] .= phL.mass_flux #reshape(varfluxH2, grid)
+        #         # @views fwd.mass_flux[snap,:,:] .= phL.mass_flux #reshape(varfluxH2, grid)
 
-                for iscal=1:nb_saved_scalars
-                    @views fwd.saved_scal[snap,:,:,iscal] .= phL.saved_scal[:,:,iscal] #varflux[iscal] #reshape(varfluxH2, grid)
-                end
+        #         for iscal=1:nb_saved_scalars
+        #             @views fwd.saved_scal[snap,:,:,iscal] .= phL.saved_scal[:,:,iscal] #varflux[iscal] #reshape(varfluxH2, grid)
+        #         end
 
-                @views fwdL.phi_ele[snap,:,:] .= phL.phi_ele
+        #         @views fwdL.phi_ele[snap,:,:] .= phL.phi_ele
 
-                @views fwdL.phi_eleD[snap,:] .= phL.phi_eleD
+        #         @views fwdL.phi_eleD[snap,:] .= phL.phi_eleD
 
-                @views fwdL.i_current_mag[snap,:,:] .= phL.i_current_mag
-                @views fwdS.Eu[snap,:,:] .= phS.Eu
-                @views fwdS.Ev[snap,:,:] .= phS.Ev
-                @views fwdL.Eu[snap,:,:] .= phL.Eu
-                @views fwdL.Ev[snap,:,:] .= phL.Ev
+        #         @views fwdL.i_current_mag[snap,:,:] .= phL.i_current_mag
+        #         @views fwdS.Eu[snap,:,:] .= phS.Eu
+        #         @views fwdS.Ev[snap,:,:] .= phS.Ev
+        #         @views fwdL.Eu[snap,:,:] .= phL.Eu
+        #         @views fwdL.Ev[snap,:,:] .= phL.Ev
 
 
-            end
-            if ns_solid_phase
-                @views fwdS.p[snap,:,:] .= phS.p
-                @views fwdS.pD[snap,:] .= phS.pD
-                @views fwdS.ϕ[snap,:,:] .= phS.ϕ
-                @views fwdS.u[snap,:,:] .= phS.u
-                @views fwdS.v[snap,:,:] .= phS.v
-                @views fwdS.ucorrD[snap,:,:] .= phS.ucorrD
-                @views fwdS.vcorrD[snap,:,:] .= phS.vcorrD
-            end
-            if ns_liquid_phase
-                @views fwdL.p[snap,:,:] .= phL.p
-                @views fwdL.pD[snap,:]  .= phL.pD
-                @views fwdL.ϕ[snap,:,:] .= phL.ϕ
-                @views fwdL.u[snap,:,:] .= phL.u
-                @views fwdL.v[snap,:,:] .= phL.v
-                @views fwdL.vD[snap,:]  .= phL.vD
+        #     end
+        #     if ns_solid_phase
+        #         @views fwdS.p[snap,:,:] .= phS.p
+        #         @views fwdS.pD[snap,:] .= phS.pD
+        #         @views fwdS.ϕ[snap,:,:] .= phS.ϕ
+        #         @views fwdS.u[snap,:,:] .= phS.u
+        #         @views fwdS.v[snap,:,:] .= phS.v
+        #         @views fwdS.ucorrD[snap,:,:] .= phS.ucorrD
+        #         @views fwdS.vcorrD[snap,:,:] .= phS.vcorrD
+        #     end
+        #     if ns_liquid_phase
+        #         @views fwdL.p[snap,:,:] .= phL.p
+        #         @views fwdL.pD[snap,:]  .= phL.pD
+        #         @views fwdL.ϕ[snap,:,:] .= phL.ϕ
+        #         @views fwdL.u[snap,:,:] .= phL.u
+        #         @views fwdL.v[snap,:,:] .= phL.v
+        #         @views fwdL.vD[snap,:]  .= phL.vD
 
-                @views fwdL.ucorrD[snap,:,:] .= phL.ucorrD
-                @views fwdL.vcorrD[snap,:,:] .= phL.vcorrD
-                # @views fwd.Cd[snap] = cD
-                # @views fwd.Cl[snap] = cL
-                @views fwd.radius[snap] = current_radius
-            end
-            if advection
-                fwdS.Vratio[snap] = volume(LS[end].geoS) / V0S
-                fwdL.Vratio[snap] = volume(LS[end].geoL) / V0L
-            end
-        end
-        @views fwd.Cd[num.current_i+1] = cD
-        @views fwd.Cl[num.current_i+1] = cL
-        # @views fwd.radius[num.current_i+1] = current_radius
+        #         @views fwdL.ucorrD[snap,:,:] .= phL.ucorrD
+        #         @views fwdL.vcorrD[snap,:,:] .= phL.vcorrD
+        #         # @views fwd.Cd[snap] = cD
+        #         # @views fwd.Cl[snap] = cL
+        #         @views fwd.radius[snap] = current_radius
+        #     end
+        #     if advection
+        #         fwdS.Vratio[snap] = volume(LS[end].geoS) / V0S
+        #         fwdL.Vratio[snap] = volume(LS[end].geoL) / V0L
+        #     end
+        # end
+        # @views fwd.Cd[num.current_i+1] = cD
+        # @views fwd.Cl[num.current_i+1] = cL
+        # # @views fwd.radius[num.current_i+1] = current_radius
 
 
         if electrolysis
@@ -2259,9 +2308,9 @@ function run_backward(num, grid, opS, opL, fwd, adj;
     bcSx, bcSy = set_bc_bnds(dir, bcS, HS, BC_TS)
     bcLx, bcLy = set_bc_bnds(dir, bcL, HL, BC_TL)
 
-    laplacian!(dir, opS.LT, opS.CUTT, bcSx, bcSy, geoS.dcap, ny, BC_TS, inside, LIQUID,
+    laplacian!(dir, num, opS.LT, opS.CUTT, bcSx, bcSy, geoS.dcap, ny, BC_TS, inside, LIQUID,
                 MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
-    laplacian!(dir, opL.LT, opL.CUTT, bcLx, bcLy, geoL.dcap, ny, BC_TL, inside, SOLID,
+    laplacian!(dir, num, opL.LT, opL.CUTT, bcLx, bcLy, geoL.dcap, ny, BC_TL, inside, SOLID,
                 MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
 
     while num.current_i > 1
@@ -2284,7 +2333,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
                     end
                     bcSx, bcSy = set_bc_bnds(dir, bcS, HS, BC_TS)
 
-                    laplacian!(dir, opS.LT, opS.CUTT, bcSx, bcSy, geoS.dcap, ny, BC_TS, inside, LIQUID,
+                    laplacian!(dir, num, opS.LT, opS.CUTT, bcSx, bcSy, geoS.dcap, ny, BC_TS, inside, LIQUID,
                                 MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
                     crank_nicolson!(num, grid, geoS, opS)
                     TS .= reshape(gmres(opS.A,(opS.B*vec(TS) + 2.0*num.τ*opS.CUTT)), (ny,nx))
@@ -2302,7 +2351,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
                     end
                     bcLx, bcLy = set_bc_bnds(dir, bcL, HL, BC_TL)
 
-                    laplacian!(dir, opL.LT, opL.CUTT, bcLx, bcLy, geoL.dcap, ny, BC_TL, inside, SOLID,
+                    laplacian!(dir, num, opL.LT, opL.CUTT, bcLx, bcLy, geoL.dcap, ny, BC_TL, inside, SOLID,
                                 MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
                     crank_nicolson!(num, grid, geoL, opL)
                     TL .= reshape(gmres(opL.A,(opL.B*vec(TL) + 2.0*num.τ*opL.CUTT)), (ny,nx))

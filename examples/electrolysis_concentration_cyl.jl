@@ -608,7 +608,6 @@ print(@sprintf "Butler-Volmer %.2e \n" i_current[1])
 ####################################################
 
 printstyled(color=:green, @sprintf "\n max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(phL.u)) maximum(abs.(phL.v)))
-# printstyled(color=:green, @sprintf "\n eps : %.2e \n" eps(0.01))
 
 
 
