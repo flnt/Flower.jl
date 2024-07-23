@@ -7,9 +7,21 @@ function empty_laplacian(grid, O, empty, MIXED)
     end
 end
 
+# @inline function get_capacities(cap, II)
+#     @inbounds ret = (cap[II,1], cap[II,2], cap[II,3], cap[II,4], cap[II,6], cap[II,7],
+#            cap[II,8] + eps(0.01), cap[II,9] + eps(0.01), cap[II,10] + eps(0.01), cap[II,11] + eps(0.01))
+#     return ret
+# end
+
+# @inline function get_capacities(cap, II)
+#     @inbounds ret = (cap[II,1], cap[II,2], cap[II,3], cap[II,4], cap[II,6], cap[II,7],
+#            cap[II,8] + num.epsilon_vol, cap[II,9] + num.epsilon_vol, cap[II,10] + num.epsilon_vol, cap[II,11] + num.epsilon_vol)
+#     return ret
+# end
+#TODO
 @inline function get_capacities(cap, II)
     @inbounds ret = (cap[II,1], cap[II,2], cap[II,3], cap[II,4], cap[II,6], cap[II,7],
-           cap[II,8] + eps(0.01), cap[II,9] + eps(0.01), cap[II,10] + eps(0.01), cap[II,11] + eps(0.01))
+           cap[II,8] , cap[II,9] , cap[II,10] , cap[II,11] )
     return ret
 end
 
@@ -72,7 +84,7 @@ end
     @inbounds for (II, JJ) in zip(b_indices, b_periodic)
         pII = lexicographic(II, n)
         pJJ = lexicographic(JJ, n)
-        @inbounds L[pII,pJJ] = B1[II] / (W[II]+eps(0.01)) * B1[JJ]
+        @inbounds L[pII,pJJ] = B1[II] * inv_weight_eps(num,W[II]) * B1[JJ]
         if abs(L[pII,pJJ]) < 1e-8
             L[pII,pII] = -4.0
         end
@@ -215,16 +227,55 @@ end
     return nothing
 end
 
+function inv_weight_clip(num,M)
+    if M<num.epsilon_vol
+        iM = 0.0
+    else
+        iM = 1. / M
+    end
+    return iM
+end
+
+function inv_weight_clip2(epsilon_vol,M)
+    if M<epsilon_vol
+        iM = 0.0
+    else
+        iM = 1. / M
+    end
+    return iM
+end
+
 function inv_weight_eps(num,W)
+    if num.epsilon_mode == 0
+        return 1 / (W+eps(0.01))
+    elseif num.epsilon_mode == 1
+        return 1 / max(W, num.epsilon_vol)
+    elseif num.epsilon_mode == 2
+        return inv_weight_clip(num,W)   
+    end
+end
+
+function inv_weight_eps2(epsilon_mode,epsilon_vol,W)
+    if epsilon_mode == 0
+        return 1 / (W+eps(0.01))
+    elseif epsilon_mode == 1
+        return 1 / max(W, epsilon_vol)
+    elseif epsilon_mode == 2
+        return inv_weight_clip2(epsilon_vol,W)   
+    end
+end
+
+function inv_weight_diag(num,II,IIbis,n,iMx,Mx)
+
+    pII = lexicographic(IIbis, n)
 
     if num.epsilon_mode == 0
-        return 1 / (W[II]+eps(0.01))
+        iMx.diag[pII] = 1. / (Mx[II] + eps(0.01))
     elseif num.epsilon_mode == 1
-        return 1 / max(W[II], num.epsilon_vol)
+        iMx.diag[pII] = 1. / max(Mx[II], num.epsilon_vol)
     elseif num.epsilon_mode == 2
-        return inv_weight(num,W[II])   
+        iMx.diag[pII] = inv_weight_clip(num,Mx[II])   
     end
-
 end
 
 @inline function set_lapl_bnd!(::Neumann, ::Periodic, L, A, A1, A3, B1, dx, W, n, b_indices, b_periodic)

@@ -247,7 +247,7 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
 
         # Matrices for borders BCs
         set_boundary_indicator!(grid, geo, geo, op)
-        mass_matrix_borders!(ind, op.iMx_b, op.iMy_b, op.iMx_bd, op.iMy_bd, geo.dcap, ny)
+        mass_matrix_borders!(num,ind, op.iMx_b, op.iMy_b, op.iMx_bd, op.iMy_bd, geo.dcap, ny)
         bc_matrix_borders!(grid, ind, op.Hx_b, op.Hy_b, geo.dcap)
         mat_assign_T!(op.HxT_b, sparse(op.Hx_b'))
         mat_assign_T!(op.HyT_b, sparse(op.Hy_b'))

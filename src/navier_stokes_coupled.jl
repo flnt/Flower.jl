@@ -216,14 +216,6 @@ function update_dirichlet_field!(grid, bv, v, BC)
     return nothing
 end
 
-function inv_weight(num,M)
-    if M<num.epsilon_vol
-        iM = 0.0
-    else
-        iM = 1. / M
-    end
-    return iM
-end
 
 function set_cutcell_matrices!(num, grid, geo, geo_p, opC, periodic_x, periodic_y)
     @unpack nx, ny, ind = grid
@@ -233,60 +225,26 @@ function set_cutcell_matrices!(num, grid, geo, geo_p, opC, periodic_x, periodic_
     Mx = zeros(ny,nx+1)
     for II in ind.all_indices
         Mx[II] = geo[end].dcap[II,8]
-
         pII = lexicographic(II, grid.ny)
-
-        if num.epsilon_mode == 0
-            iMx.diag[pII] = 1. / (Mx[II] + eps(0.01))
-        elseif num.epsilon_mode == 1
-            iMx.diag[pII] = 1. / max(Mx[II], num.epsilon_vol)
-        elseif num.epsilon_mode == 2
-            iMx.diag[pII] = inv_weight(num,Mx[II])   
-        end
-
+        iMx.diag[pII] = inv_weight_eps(num,Mx[II])
     end
     for II in ind.b_right[1]
         Mx[δx⁺(II)] = geo[end].dcap[II,10]
-
         pII = lexicographic(δx⁺(II), grid.ny)
-
-        if num.epsilon_mode == 0
-            iMx.diag[pII] = 1. / (Mx[δx⁺(II)]) + eps(0.01)
-        elseif num.epsilon_mode == 1
-            iMx.diag[pII] = 1. / max.(Mx[δx⁺(II)], num.epsilon_vol)
-        elseif num.epsilon_mode == 2
-            iMx.diag[pII] = inv_weight(num,Mx[δx⁺(II)])   
-        end
+        iMx.diag[pII] = inv_weight_eps(num,Mx[δx⁺(II)])
     end
 
 
     My = zeros(ny+1,nx)
     for II in ind.all_indices
         My[II] = geo[end].dcap[II,9]
-
         pII = lexicographic(II, grid.ny + 1)
-
-        if num.epsilon_mode == 0
-            iMy.diag[pII] = 1. / (My[II]) + eps(0.01)
-        elseif num.epsilon_mode == 1
-            iMy.diag[pII] = 1. / max.(My[II], num.epsilon_vol)
-        elseif num.epsilon_mode == 2
-            iMy.diag[pII] = inv_weight(num,My[II])   
-        end
-
+        iMy.diag[pII] = inv_weight_eps(num,My[II])
     end
     for II in ind.b_top[1]
         My[δy⁺(II)] = geo[end].dcap[II,11]
-
         pII = lexicographic(δy⁺(II), grid.ny + 1)
-
-        if num.epsilon_mode == 0
-            iMy.diag[pII] = 1. / (My[δy⁺(II)]) + eps(0.01)
-        elseif num.epsilon_mode == 1
-            iMy.diag[pII] = 1. / max.(My[δy⁺(II)], num.epsilon_vol)
-        elseif num.epsilon_mode == 2
-            iMy.diag[pII] = inv_weight(num,My[δy⁺(II)])   
-        end
+        iMy.diag[pII] = inv_weight_eps(num,My[δy⁺(II)])
     end   
 
     # Discrete gradient and divergence operators
@@ -403,7 +361,7 @@ function set_boundary_indicator!(grid::Mesh{GridFCy,T,N}, geo, geo_p, opC) where
     return nothing
 end
 
-function set_border_matrices!(
+function set_border_matrices!(num,
     grid, geo, grid_u, geo_u, grid_v, geo_v,
     opC_p, opC_u, opC_v,
     periodic_x, periodic_y
@@ -413,9 +371,9 @@ function set_border_matrices!(
     set_boundary_indicator!(grid_u, geo_u, geo, opC_u)
     set_boundary_indicator!(grid_v, geo_v, geo, opC_v)
 
-    mass_matrix_borders!(grid.ind, opC_p.iMx_b, opC_p.iMy_b, opC_p.iMx_bd, opC_p.iMy_bd, geo.dcap, grid.ny)
-    mass_matrix_borders!(grid_u.ind, opC_u.iMx_b, opC_u.iMy_b, opC_u.iMx_bd, opC_u.iMy_bd, geo_u.dcap, grid_u.ny)
-    mass_matrix_borders!(grid_v.ind, opC_v.iMx_b, opC_v.iMy_b, opC_v.iMx_bd, opC_v.iMy_bd, geo_v.dcap, grid_v.ny)
+    mass_matrix_borders!(num,grid.ind, opC_p.iMx_b, opC_p.iMy_b, opC_p.iMx_bd, opC_p.iMy_bd, geo.dcap, grid.ny)
+    mass_matrix_borders!(num,grid_u.ind, opC_u.iMx_b, opC_u.iMy_b, opC_u.iMx_bd, opC_u.iMy_bd, geo_u.dcap, grid_u.ny)
+    mass_matrix_borders!(num,grid_v.ind, opC_v.iMx_b, opC_v.iMy_b, opC_v.iMx_bd, opC_v.iMy_bd, geo_v.dcap, grid_v.ny)
 
     bc_matrix_borders!(grid, grid.ind, opC_p.Hx_b, opC_p.Hy_b, geo.dcap)
     mat_assign_T!(opC_p.HxT_b, sparse(opC_p.Hx_b'))
@@ -487,7 +445,7 @@ function set_matrices!(
     Lv = laplacian(opC_v)
 
     set_border_matrices!(
-        grid, geo[end], grid_u, geo_u[end], grid_v, geo_v[end],
+        num,grid, geo[end], grid_u, geo_u[end], grid_v, geo_v[end],
         opC_p, opC_u, opC_v,
         periodic_x, periodic_y
     )
@@ -561,8 +519,8 @@ function set_convection!(
             ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid,iLS+1)
         end
 
-        iMu = Diagonal(1 ./ (opC_u.M.diag .+ eps(0.01)))
-        iMv = Diagonal(1 ./ (opC_v.M.diag .+ eps(0.01)))
+        iMu = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_u.M.diag))
+        iMv = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_v.M.diag))
         ∇ϕ_x = iMu * ∇ϕ_x
         ∇ϕ_y = iMv * ∇ϕ_y
 
@@ -643,8 +601,8 @@ function set_convection!(
             ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid,iLS+1)
         end
 
-        iMu = Diagonal(1 ./ (opC_u.M.diag .+ eps(0.01)))
-        iMv = Diagonal(1 ./ (opC_v.M.diag .+ eps(0.01)))
+        iMu = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_u.M.diag))
+        iMv = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_v.M.diag)) 
         ∇ϕ_x = iMu * ∇ϕ_x
         ∇ϕ_y = iMv * ∇ϕ_y
 
@@ -1087,8 +1045,8 @@ function FE_set_momentum_coupled(
                         @inbounds @threads for II in gu.ind.all_indices[:,2:end-1]
                             pII = lexicographic(II, gu.ny)
                             if capx[II] > 1e-10
-                                avgx[pII,pII-gu.ny] = cap1[II] / (capx[II] + eps(0.01))
-                                avgx[pII,pII] = cap3[II] / (capx[II] + eps(0.01))
+                                avgx[pII,pII-gu.ny] = cap1[II] * inv_weight_eps(num,capx[II])
+                                avgx[pII,pII] = cap3[II] * inv_weight_eps(num,capx[II])
                             else
                                 avgx[pII,pII-gu.ny] = 0.5
                                 avgx[pII,pII] = 0.5
@@ -1108,8 +1066,8 @@ function FE_set_momentum_coupled(
                             pII = lexicographic(II, gp.ny)
                             pJJ = lexicographic(II, gv.ny)
                             if capy[II] > 1e-10
-                                avgy[pJJ,pII-1] = cap2[II] / (capy[II] + eps(0.01))
-                                avgy[pJJ,pII] = cap4[II] / (capy[II] + eps(0.01))
+                                avgy[pJJ,pII-1] = cap2[II] * inv_weight_eps(num,capy[II])
+                                avgy[pJJ,pII] = cap4[II] * inv_weight_eps(num,capy[II])
                             else
                                 avgy[pJJ,pII-1] = 0.5
                                 avgy[pJJ,pII] = 0.5
@@ -1201,8 +1159,8 @@ function FE_set_momentum_coupled(
                 @inbounds @threads for II in gu.ind.all_indices[:,2:end-1]
                     pII = lexicographic(II, gu.ny)
                     if capx[II] > 1e-10
-                        avgx[pII,pII-gu.ny] = cap1[II] / (capx[II] + eps(0.01))
-                        avgx[pII,pII] = cap3[II] / (capx[II] + eps(0.01))
+                        avgx[pII,pII-gu.ny] = cap1[II] * inv_weight_eps(num,capx[II])
+                        avgx[pII,pII] = cap3[II] * inv_weight_eps(num,capx[II])
                     else
                         if gp.LS[iLS].geoL.cap[δx⁻(II),5] > 1e-10 && gp.LS[iLS].geoL.cap[II,5] > 1e-10
                             if !(δx⁻(II) in gp.LS[1].MIXED)
@@ -1234,8 +1192,8 @@ function FE_set_momentum_coupled(
                     pII = lexicographic(II, gp.ny)
                     pJJ = lexicographic(II, gv.ny)
                     if capy[II] > 1e-10
-                        avgy[pJJ,pII-1] = cap2[II] / (capy[II] + eps(0.01))
-                        avgy[pJJ,pII] = cap4[II] / (capy[II] + eps(0.01))
+                        avgy[pJJ,pII-1] = cap2[II] * inv_weight_eps(num,capy[II])
+                        avgy[pJJ,pII] = cap4[II] * inv_weight_eps(num,capy[II])
                     else
                         if gp.LS[iLS].geoL.cap[δy⁻(II),5] > 1e-10 && gp.LS[iLS].geoL.cap[II,5] > 1e-10
                             avgy[pJJ,pII-1] = 0.5
@@ -1290,11 +1248,11 @@ function FE_set_momentum_coupled(
                     pII = lexicographic(II, gp.ny)
                     pJJ = lexicographic(II, gv.ny)
 
-                    avgu[pII,pII] = cap1[II] / (capx[II] + eps(0.01))
-                    avgu[pII,pII+gu.ny] = cap3[II] / (capx[II] + eps(0.01))
+                    avgu[pII,pII] = cap1[II] * inv_weight_eps(num,capx[II])
+                    avgu[pII,pII+gu.ny] = cap3[II] * inv_weight_eps(num,capx[II])
 
-                    avgv[pII,pJJ] = cap2[II] / (capy[II] + eps(0.01))
-                    avgv[pII,pJJ+1] = cap4[II] / (capy[II] + eps(0.01))
+                    avgv[pII,pJJ] = cap2[II] * inv_weight_eps(num,capy[II])
+                    avgv[pII,pJJ+1] = cap4[II] * inv_weight_eps(num,capy[II])
                 end
                 A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,1:niu] = bp * (
                     opp.HxT[iLS] * opp.iMx * opp.Bx .+
@@ -1322,11 +1280,11 @@ function FE_set_momentum_coupled(
                             pII = lexicographic(II, gp.ny)
                             pJJ = lexicographic(II, gv.ny)
 
-                            avgu[pII,pII] = cap1[II] / (capx[II] + eps(0.01))
-                            avgu[pII,pII+gu.ny] = cap3[II] / (capx[II] + eps(0.01))
+                            avgu[pII,pII] = cap1[II] * inv_weight_eps(num,capx[II])
+                            avgu[pII,pII+gu.ny] = cap3[II] * inv_weight_eps(num,capx[II])
 
-                            avgv[pII,pJJ] = cap2[II] / (capy[II] + eps(0.01))
-                            avgv[pII,pJJ+1] = cap4[II] / (capy[II] + eps(0.01))
+                            avgv[pII,pJJ] = cap2[II] * inv_weight_eps(num,capy[II])
+                            avgv[pII,pJJ+1] = cap4[II] * inv_weight_eps(num,capy[II])
                         end
                         A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,i*niu+1:(i+1)*niu] = bp * (
                             opp.HxT[iLS] * opp.iMx * opp.Hx[i] .+
@@ -2403,8 +2361,8 @@ function pressure_projection!(
     end
     ϕ .= reshape(vec1(ϕD,grid), grid)
 
-    iMu = Diagonal(1 ./ (opC_u.M.diag .+ eps(0.01)))
-    iMv = Diagonal(1 ./ (opC_v.M.diag .+ eps(0.01)))
+    iMu = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_u.M.diag))
+    iMv = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_v.M.diag))
     # Gradient of pressure, eq. 17 in 
     #"A Conservative Cartesian Cut-Cell Method for Mixed Boundary Conditions and the Incompressible Navier-Stokes Equations on Staggered Meshes"
     ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec(ϕ) .+ opC_u.Gx_b * vecb(ϕD,grid)
@@ -2429,7 +2387,13 @@ function pressure_projection!(
     printstyled(color=:magenta, @sprintf "\n full grad min max x %.2e %.2e y %.2e %.2e\n" minimum(∇ϕ_x) maximum(∇ϕ_x) minimum(∇ϕ_y) maximum(∇ϕ_x))
 
 
-    iM = Diagonal(1. ./ (vec(geo[end].dcap[:,:,5]) .+ eps(0.01)))
+    # iM = Diagonal(1. ./ (vec(geo[end].dcap[:,:,5]) .+ eps(0.01)))
+
+    # iM = Diagonal(inv_weight_eps.(num,geo[end].dcap[:,:,5]))
+
+    iM = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,geo[end].dcap[:,:,5]))
+
+
     # if is_fs(bc_int)
     if num.prediction == 1
         vec1(pD,grid) .= vec(ϕ .- iRe .* rho1 .* reshape(iM * Duv,grid)) #no τ  since div u not rho1

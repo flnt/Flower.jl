@@ -456,33 +456,33 @@ function periodic_bcs_R!(grid, Rx, Ry, periodic_x, periodic_y)
     return nothing
 end
 
-function mass_matrix_borders!(ind, iMx_b, iMy_b, iMx_bd, iMy_bd, dcap, n)
+function mass_matrix_borders!(num,ind, iMx_b, iMy_b, iMx_bd, iMy_bd, dcap, n)
     @unpack b_left, b_bottom, b_right, b_top = ind
 
     idx = 1
     @inbounds for II in b_left[1]
         pII = lexicographic(II, n)
         # printstyled(color=:red, @sprintf "\n mass: %.5i mass %.4e eps %.4e mass + eps %.4e inv %.4e inv(m+eps) %.4e\n" idx dcap[II,8] eps(0.01) dcap[II,8]+eps(0.01) 1/dcap[II,8] 1/(dcap[II,8]+eps(0.01)))
-        @inbounds iMx_b[pII, idx] = 1 / (dcap[II,8]+eps(0.01))
-        @inbounds iMx_bd[idx, idx] = 1 / (dcap[II,8]+eps(0.01))
+        @inbounds iMx_b[pII, idx] = inv_weight_eps(num,dcap[II,8]) 
+        @inbounds iMx_bd[idx, idx] = inv_weight_eps(num,dcap[II,8])
         idx += 1
     end
     @inbounds for II in b_bottom[1]
         pII = lexicographic(II, n+1)
-        @inbounds iMy_b[pII, idx] = 1 / (dcap[II,9]+eps(0.01))
-        @inbounds iMy_bd[idx, idx] = 1 / (dcap[II,9]+eps(0.01))
+        @inbounds iMy_b[pII, idx] = inv_weight_eps(num,dcap[II,9])
+        @inbounds iMy_bd[idx, idx] = inv_weight_eps(num,dcap[II,9])
         idx += 1
     end
     @inbounds for II in b_right[1]
         pII = lexicographic(δx⁺(II), n)
-        @inbounds iMx_b[pII, idx] = 1 / (dcap[II,10]+eps(0.01))
-        @inbounds iMx_bd[idx, idx] = 1 / (dcap[II,10]+eps(0.01))
+        @inbounds iMx_b[pII, idx] = inv_weight_eps(num,dcap[II,10])
+        @inbounds iMx_bd[idx, idx] = inv_weight_eps(num,dcap[II,10])
         idx += 1
     end
     @inbounds for II in b_top[1]
         pII = lexicographic(δy⁺(II), n+1)
-        @inbounds iMy_b[pII, idx] = 1 / (dcap[II,11]+eps(0.01))
-        @inbounds iMy_bd[idx, idx] = 1 / (dcap[II,11]+eps(0.01))
+        @inbounds iMy_b[pII, idx] = inv_weight_eps(num,dcap[II,11])
+        @inbounds iMy_bd[idx, idx] = inv_weight_eps(num,dcap[II,11])
         idx += 1
     end
 
