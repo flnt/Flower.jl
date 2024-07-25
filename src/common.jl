@@ -602,7 +602,7 @@ function get_fresh_cells!(grid, geo, Mm1, indices)
     end
     return nothing
 end
-
+#TODO distinguish between border and bulk cells
 function kill_dead_cells!(T::Matrix, grid, geo)
     @unpack ind = grid
 

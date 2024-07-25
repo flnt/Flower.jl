@@ -29,7 +29,7 @@ function test_Poiseuille(num,velD,grid_v)
 
     printstyled(color=:red, @sprintf "\n Velocity error top: %.2e\n" scal_error_border )
 
-    printstyled(color=:red, @sprintf "\n Velocity error bulk: %.2e %.2e %.2e\n" error_rel error_rel_min vel[1,1])
+    printstyled(color=:red, @sprintf "\n Velocity error bulk: %.2e %.2e %.10e\n" error_rel error_rel_min vel[1,1])
 
 end
 
@@ -251,27 +251,52 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
     if ls_advection
         update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
 
+        # # Mass matrices
+        # M.diag .= vec(geo.dcap[:,:,5])
+        # Mx = zeros(ny,nx+1)
+        # for II in ind.all_indices
+        #     Mx[II] = geo.dcap[II,8]
+        #     inv_weight_diag(num,II,II,ny,iMx,Mx)
+        # end
+        # for II in ind.b_right[1]
+        #     Mx[δx⁺(II)] = geo.dcap[II,10]
+        #     inv_weight_diag(num,II,δx⁺(II),ny,iMx,Mx)
+        # end
+        # My = zeros(ny+1,nx)
+        # for II in ind.all_indices
+        #     My[II] = geo.dcap[II,9]
+        #     inv_weight_diag(num,II,II,ny+1,iMy,My)
+        # end
+        # for II in ind.b_top[1]
+        #     My[δy⁺(II)] = geo.dcap[II,11]
+        #     inv_weight_diag(num,II,δy⁺(II),ny+1,iMy,My)
+        # end
+
         # Mass matrices
         M.diag .= vec(geo.dcap[:,:,5])
         Mx = zeros(ny,nx+1)
         for II in ind.all_indices
             Mx[II] = geo.dcap[II,8]
-            inv_weight_diag(num,II,II,ny,iMx,Mx)
+            # inv_weight_diag(num,II,II,ny,iMx,Mx)
         end
         for II in ind.b_right[1]
             Mx[δx⁺(II)] = geo.dcap[II,10]
-            inv_weight_diag(num,II,δx⁺(II),ny,iMx,Mx)
+            # inv_weight_diag(num,II,δx⁺(II),ny,iMx,Mx)
         end
         My = zeros(ny+1,nx)
         for II in ind.all_indices
             My[II] = geo.dcap[II,9]
-            inv_weight_diag(num,II,II,ny+1,iMy,My)
+            # inv_weight_diag(num,II,II,ny+1,iMy,My)
         end
         for II in ind.b_top[1]
             My[δy⁺(II)] = geo.dcap[II,11]
-            inv_weight_diag(num,II,δy⁺(II),ny+1,iMy,My)
+            # inv_weight_diag(num,II,δy⁺(II),ny+1,iMy,My)
         end
      
+        # iMx.diag .= 1. ./ (vec(Mx) .+ eps(0.01))
+        # iMy.diag .= 1. ./ (vec(My) .+ eps(0.01))
+        iMx = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(Mx)))
+        iMy = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(My)))
 
 
 
@@ -2101,4 +2126,100 @@ function test_LS(grid)
     if maximum(grid.LS[iLS].u) <1.0
         @error("LS initialization")
     end
+end
+
+
+function FE_set_momentum_debug(
+    bc_type, num, grid, opC,
+    A, B,
+    L, bc_L, bc_L_b, Mm1, BC,
+    ls_advection
+    )
+    @unpack τ = num
+    @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
+
+    ni = grid.nx * grid.ny
+    nb = 2 * grid.nx + 2 * grid.ny
+
+    rhs = fnzeros(grid, num)
+
+    a0_b = zeros(nb)
+    _a1_b = zeros(nb)
+    _b_b = zeros(nb)
+    for iLS in 1:num.nLS
+        set_borders!(grid, grid.LS[iLS].cl, grid.LS[iLS].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
+    end
+    a1_b = Diagonal(vec(_a1_b))
+    b_b = Diagonal(vec(_b_b))
+
+    if ls_advection
+        # Implicit part of viscous term
+        A[1:ni,1:ni] = pad_crank_nicolson(M .- τ .* L, grid, τ)
+        # Contribution to implicit part of viscous term from outer boundaries
+        A[1:ni,end-nb+1:end] = - τ .* bc_L_b
+        # Boundary conditions for outer boundaries
+        A[end-nb+1:end,1:ni] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
+        A[end-nb+1:end,end-nb+1:end] = pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b)
+
+        B[1:ni,1:ni] = Mm1
+    end
+
+    for iLS in 1:num.nLS
+        if is_dirichlet(bc_type[iLS])
+            vel = copy(grid.V)
+            __a1 = -1.0
+            __b = 0.0
+        elseif is_neumann(bc_type[iLS])
+            vel = 0.0
+            __a1 = 0.0
+            __b = 1.0
+        elseif is_robin(bc_type[iLS])
+            vel = 0.0
+            __a1 = -1.0
+            __b = 1.0
+        elseif is_fs(bc_type[iLS])
+            vel = 0.0
+            __a1 = 0.0
+            __b = 1.0
+        elseif is_wall_no_slip(bc_type[iLS])
+            vel = bc_type[iLS].val
+            __a1 = -1.0
+            __b = 0.0
+                else
+            vel = bc_type[iLS].val
+            __a1 = -1.0
+            __b = 0.0
+        end
+
+        a0 = ones(grid) .* vel
+        _a1 = ones(grid) .* __a1
+        a1 = Diagonal(vec(_a1))
+        _b = ones(grid) .* __b
+        b = Diagonal(vec(_b))
+
+        sb = iLS*ni+1:(iLS+1)*ni
+
+        if ls_advection
+            # Contribution to implicit part of viscous term from inner boundaries
+            A[1:ni,sb] = - τ .* bc_L[iLS]
+            # Boundary conditions for inner boundaries
+            A[sb,1:ni] = b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
+            # Contribution to Neumann BC from other boundaries
+            for i in 1:num.nLS
+                if i != iLS
+                    A[sb,i*ni+1:(i+1)*ni] = b * (HxT[iLS] * iMx * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
+                end
+            end
+            A[sb,sb] = pad(b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .- χ[iLS] * a1)
+            A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b * Hy_b)
+            # Boundary conditions for outer boundaries
+            A[end-nb+1:end,sb] = b_b * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
+        end
+
+        veci(rhs,grid,iLS+1) .= χ[iLS] * vec(a0)
+    end
+
+    vecb(rhs,grid) .= χ_b * vec(a0_b)
+    
+    return rhs
 end

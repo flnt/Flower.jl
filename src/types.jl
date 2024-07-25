@@ -26,7 +26,8 @@ abstract type AbstractOptimizer end
     δreinit::T = 10.0 # delta for automatic reinitialization
     ϵ::T = 0.00 # cell-clipping threshold
     epsilon_mode::D = 0
-    epsilon_vol::T = eps(0.01)*Δ^2
+    epsilon_vol::T = 1e-10
+    epsilon_dist::T = 1e-10 #redefined afterwards in run.jl
     ϵwall::T = ϵ # cell-clipping threshold at mixed cells in walls
     NB::D = nb_reinit÷2 # number of cells the velocity is extended
     T_inf::T = 0.0 # value of temperature at ∞

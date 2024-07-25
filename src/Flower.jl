@@ -33,7 +33,7 @@ import Base.reshape
 @reexport using HDF5
 
 @reexport import YAML
-
+@reexport using Test
 
 # #Long version
 # @reexport using Printf

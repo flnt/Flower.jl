@@ -65,6 +65,13 @@ function run_forward(
 
     print("\n after unpack \n")
 
+    if num.epsilon_mode == 1 || num.epsilon_mode ==2
+        num.epsilon_dist = eps(0.01) * num.Δ
+        num.epsilon_vol = (eps(0.01)*num.Δ)^2
+        #TODO kill dead cells
+        #TODO 1e-...
+    end
+
 
     if length(BC_int) != nLS
         @error ("You have to specify $(nLS) boundary conditions.")
