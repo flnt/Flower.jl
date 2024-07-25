@@ -2223,3 +2223,12 @@ function FE_set_momentum_debug(
     
     return rhs
 end
+
+function h5write2(filename, name::AbstractString, data,status; pv...)
+    file = h5open(filename, status; pv...)
+    try
+        write(file, name, data)
+    finally
+        close(file)
+    end
+end
