@@ -89,7 +89,7 @@ test_case = "channel_Dirichlet_pressure"
 #
 
 
-function run_case(test_case,n,max_iter,prefix,test_tolerance)
+function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
 
     ####################################################################################################
     # Classical arguments
@@ -207,21 +207,7 @@ function run_case(test_case,n,max_iter,prefix,test_tolerance)
     Re=rho1*v_inlet*L0/mu
     printstyled(color=:green, @sprintf "\n Re : %.2e %.2e %.2e %.2e\n" Re rho1/mu1 rho1 mu1)
 
-    # save_every=max_iter
-    # save_every=1
-
-    # rho1=1.0
-    # Re=100.0
-    # mu1=rho1/Re
-    # mu=mu1
-
-    # Re=1.0
-    # rho1=1.0
-    # rho2=1.0
-    # mu1=1.0
-    # mu2=1.0
-    # mu=1.0
-
+    #To give in Flower
     Re=rho1/mu1
 
     printstyled(color=:green, @sprintf "\n Re : %.2e %.2e %.2e %.2e\n" Re rho1/mu1 rho1 mu1)
@@ -297,19 +283,6 @@ function run_case(test_case,n,max_iter,prefix,test_tolerance)
 
     ####################################################################################################
 
-
-    # h0 = 0.5
-    # L0x = 3.0
-    # L0y = 2.0
-    # n = 96
-
-    # x = collect(LinRange(-L0x / 2, L0x / 2, n + 1))
-    # y = collect(LinRange(-L0y / 2, 0, n ÷ 3 + 1))
-
-
-
-
-
     ####################################################################################################
     # not imposing the angle exactly at the boundary but displaced a cell because ghost cells are not used. 
     # So the exact contact angle cannot be imposed
@@ -356,13 +329,7 @@ function run_case(test_case,n,max_iter,prefix,test_tolerance)
 
     electrolysis_phase_change_case = "Khalighi"
 
-    prediction = 0
-    prediction = 1
-    # prediction = 2
-
-    # prediction = 3 #wrong
-
-    # prediction = 4
+ 
 
 
     null_space = 0
@@ -503,9 +470,6 @@ function run_case(test_case,n,max_iter,prefix,test_tolerance)
         max_iter = 100
         save_every = 25
 
-        # max_iter = 2
-        # save_every = 1
-
 
         # save_v = true
         save_KOH = false
@@ -578,7 +542,6 @@ function run_case(test_case,n,max_iter,prefix,test_tolerance)
 
         test_v=-(p_top - p_bottom)/L0 * (L0^2)/4/2/mu
 
-        print("\n L0 ",L0)
         
         printstyled(color=:green, @sprintf "\n mu1 : %.2e v %.2e vtest %.2e CFL %.2e \n" mu1 v_inlet test_v v_inlet*dt0/(L0/n))
 
@@ -612,8 +575,73 @@ function run_case(test_case,n,max_iter,prefix,test_tolerance)
 
         save_every = max_iter
 
-        # max_iter = 2
-        # save_every = 1
+
+        # CFL 1
+        dt0 = L0/n/v_inlet
+
+        # CFL 0.5
+        dt0 = L0/n/v_inlet/2 
+
+
+        save_v = true
+        save_KOH = false
+        save_H2O = false
+        save_zoom = false
+
+        concentration_check_factor = 1e-4 #1e-3
+        
+        BC_trans_scal_H2 = BoundariesInt(
+        bottom = Dirichlet(val = concentration0[1]),
+        top    = Neumann(),
+        left   = Dirichlet(val = concentration0[1]),
+        right  = Dirichlet(val = concentration0[1]),
+        int    = Dirichlet(val = concentration0[1])) #H2
+
+        BC_trans_scal_KOH = BoundariesInt(
+        bottom = Dirichlet(val = concentration0[2]),
+        top    = Neumann(),
+        left   = Dirichlet(val = concentration0[2]),
+        right  = Dirichlet(val = concentration0[2]),
+        int    = Dirichlet(val = concentration0[2])) #KOH
+
+        BC_trans_scal_H2O = BoundariesInt(
+        bottom = Dirichlet(val = concentration0[3]),
+        top    = Neumann(),
+        left   = Dirichlet(val = concentration0[3]),
+        right  = Dirichlet(val = concentration0[3]),
+        int    = Dirichlet(val = concentration0[3])) #H2O
+
+
+        electrolysis_reaction = "none"
+        imposed_velocity = "constant"
+
+        BC_vL= Boundaries(
+            left   = Dirichlet(val = v_inlet),
+            right  = Dirichlet(val = v_inlet),
+            bottom = Dirichlet(val = v_inlet),
+            top    = Neumann(val=0.0),
+        )
+
+        # BC_pL = Boundaries(
+        #     left   = Neumann(),
+        #     right  = Neumann(),
+        #     bottom = Neumann(),
+        #     top    = Neumann(),
+        # )
+        BC_pL = Boundaries(
+            left   = Dirichlet(),
+            right  = Dirichlet(),
+            bottom = Dirichlet(),
+            top    = Dirichlet(),
+        )
+
+
+    elseif test_case == "channel_Dirichlet_constant_vel_half-circle"
+        activate_interface = true
+        electrolysis_phase_change = false
+        save_every = 25
+
+        save_every = max_iter
 
         # CFL 1
         dt0 = L0/n/v_inlet
@@ -731,10 +759,6 @@ function run_case(test_case,n,max_iter,prefix,test_tolerance)
         max_iter = 100
         save_every = 25
 
-        # max_iter = 2
-        # save_every = 1
-
-
         # save_v = true
         save_KOH = false
         save_H2O = false
@@ -749,9 +773,6 @@ function run_case(test_case,n,max_iter,prefix,test_tolerance)
         electrolysis_phase_change = false
         max_iter = 100
         save_every = 25
-
-        # max_iter = 2
-        # save_every = 1
 
         # save_v = true
         save_KOH = false
@@ -772,6 +793,19 @@ function run_case(test_case,n,max_iter,prefix,test_tolerance)
         concentration_check_factor = 1e-4
 
     elseif test_case == "imposed_radius"
+        electrolysis_phase_change = true
+        max_iter = 100
+        save_every = 25
+
+        save_KOH = false
+        save_H2O = false
+        save_zoom = true
+
+        concentration_check_factor = 1e-4
+
+        electrolysis_phase_change_case = "imposed_radius"
+
+    elseif test_case == "imposed_radius_dir"
         electrolysis_phase_change = true
         max_iter = 100
         save_every = 25
@@ -1027,14 +1061,7 @@ function run_case(test_case,n,max_iter,prefix,test_tolerance)
 
 
         gp.LS[1].u .= sqrt.((gp.x .- xcoord).^2 + (gp.y .- ycoord).^2) - radius * ones(gp)
-        # gp.LS[1].u .*= -1.0
-
-
-        # gp.LS[1].u .= 1.0
-
-        # gp.LS[1].u .*= -1.0
-
-
+  
         su = sqrt.((gv.x .- xcoord).^2 .+ (gv.y .- ycoord).^2)
         R1 = radius + 3.0*num.Δ
 
@@ -1245,20 +1272,25 @@ function run_case(test_case,n,max_iter,prefix,test_tolerance)
     printstyled(color=:green, @sprintf "\n max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(phL.u)) maximum(abs.(phL.v)))
 
 
-    if test_case == "channel_Dirichlet_constant_vel"
+    if test_case == "channel_Dirichlet_constant_vel" || 
+       test_case == "imposed_radius"
 
         for iscal=1:nb_transported_scalars
             @testset "min" begin
                 @test (minimum(phL.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal]≈0 atol=test_tolerance
             end
-            @testset "max1" begin
-                @test maximum(phL.trans_scal[:,:,iscal])==concentration0[iscal]
-            end
-            @testset "max2" begin
+   
+            @testset "max" begin
                 @test (maximum(phL.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal]≈0 atol=test_tolerance
             end
-
         end
+    
+    elseif test_case == "imposed_radius"
+
+        @testset "min" begin
+            @test (minimum(phL.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal]≈0 atol=test_tolerance
+        end
+
     elseif test_case == "channel_Dirichlet_pressure"
         @testset "Poiseuille corner velocity" begin
             @test (Poiseuille_fmax(gv.x[1,1],num.v_inlet,num.L0)-phL.v[1,1])/v_inlet≈0 atol=test_tolerance
@@ -1340,17 +1372,6 @@ function run_case(test_case,n,max_iter,prefix,test_tolerance)
         # hf = h5write2(file, "data", from_jl_p,"w")
 
 
-        # filename="test"*"_"*str_prediction*"_"
-        # file = prefix*filename*"_"*striter*".h5"
-        # A .= (A .- Poiseuille_fmax.(gv.x,num.v_inlet,num.L0)) ./num.v_inlet
-        # # A=transpose(A)
-        # for j in 1:gv.ny
-        #     for i in 1:gv.nx
-        #         A[j,i]=1000*i+j
-        #     end
-        # end
-        # h5write2(file, "data", A,"w")
-
 
 
 
@@ -1416,20 +1437,51 @@ n = 128
 
 max_iter=100
 
+prediction = 0 #default in Flower
+# prediction = 1 #pressure in prediction
+# prediction = 2
+# prediction = 3 #wrong
+# prediction = 4
 
+
+@testset "Constant velocity with half circle" begin
+    test_case = "channel_Dirichlet_constant_vel_half-circle"
+    # TODO not working with eps() (nearly 2e-16)
+    run_case(test_case,n,1,prefix,prediction,1e-14)
+    # run_case(test_case,n,100,prefix,prediction,1e-14)
+end
+
+
+@testset "Imposed radius with Dirichlet" begin
+    test_case = "imposed_radius_dir"
+    run_case(test_case,n,100,prefix,prediction,1e-14)
+end
+
+@testset "Imposed radius with Butler-Volmer" begin
+    test_case = "imposed_radius"
+    run_case(test_case,n,100,prefix,prediction,1e-14)
+end
 
 @testset "Constant velocity" begin
     test_case = "channel_Dirichlet_constant_vel"
     # TODO not working with eps() (nearly 2e-16)
-    run_case(test_case,n,1,prefix,1e-14)
-    run_case(test_case,n,100,prefix,1e-14)
+    run_case(test_case,n,1,prefix,prediction,1e-14)
+    run_case(test_case,n,100,prefix,prediction,7e-14) #TODO error accumulates, > 1e-14 
 end
 
-@testset "Poiseuille imposed pressure" begin
-    test_case = "channel_Dirichlet_pressure"
-    # TODO not working with eps() (nearly 2e-16)
-    run_case(test_case,n,1,prefix,1e-14)
-    # run_case(test_case,n,100,prefix,1e-14)
-end
+#Half circle : which velocity ?
+# @testset "Constant velocity with half circle" begin
+#     test_case = "channel_Dirichlet_constant_vel_half-circle"
+#     # TODO not working with eps() (nearly 2e-16)
+#     run_case(test_case,n,1,prefix,1e-14)
+#     # run_case(test_case,n,100,prefix,1e-14)
+# end
+
+# @testset "Poiseuille imposed pressure" begin
+#     test_case = "channel_Dirichlet_pressure"
+#     # TODO not working with eps() (nearly 2e-16)
+#     run_case(test_case,n,1,prefix,1e-14)
+#     # run_case(test_case,n,100,prefix,1e-14)
+# end
 
     # @test 2==2

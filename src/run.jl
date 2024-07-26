@@ -807,6 +807,9 @@ function run_forward(
                         phL.uD .= 0.0
                         phL.vD .= BC_vL.bottom.val    
 
+                        phL.pD .= 0.0
+
+
                         printstyled(color=:red, @sprintf "\n Imposed velocity v min %.2e max %.2e\n" minimum(phL.vD) maximum(phL.vD))
                         printstyled(color=:red, @sprintf "\n Imposed velocity u min %.2e max %.2e\n" minimum(phL.uD) maximum(phL.uD))
 
@@ -955,7 +958,7 @@ function run_forward(
                     scal_error=0.0
                     for iscal in 1:nb_transported_scalars
 
-                        print("\n maximum ",maximum(phL.trans_scalD[:,iscal]), )
+                        # print("\n maximum ",maximum(phL.trans_scalD[:,iscal]), )
                         # printstyled(color=:cyan, @sprintf "\n error after scalar transport max %.2e min %.2e\n" maximum(phL.trans_scalD[:,iscal]) minimum(phL.trans_scalD[:,iscal]))
 
                         scal_error_bulk = maximum(abs.(phL.trans_scal[:,:,iscal].-concentration0[iscal])./concentration0[iscal])
@@ -1297,14 +1300,24 @@ function run_forward(
 
                     if occursin("Butler",electrolysis_reaction)
 
-                        # BC_phi_ele.left.val .= -i_butler./elec_cond[:,1]
-                        if bulk_conductivity
+                        # For small cells
+                        if bulk_conductivity == 0
+                            BC_phi_ele.left.val .= -i_butler./vecb_L(elec_condD, grid)
+                        elseif bulk_conductivity == 1
                             # Recommended as long as cell merging not implemented:
                             # Due to small cells, we may have slivers/small cells at the left wall, then the divergence term is small,
                             # which produces higher concentration in front of the contact line
                             BC_phi_ele.left.val .= -i_butler./elec_cond[:,1]
-                        else
+                        elseif bulk_conductivity == 2
                             BC_phi_ele.left.val .= -i_butler./vecb_L(elec_condD, grid)
+
+                            iLS = 1 #TODO end ? if several LS ?
+                            for j in 1:grid.ny
+                                if vecb_L(grid.LS[iLS].geoL.cap[:,5],grid)[j] < ϵ
+                                    BC_phi_ele.left.val[j] = -i_butler[j]/elec_cond[j,1] 
+                                end
+                            end
+
                         end
 
                         # if heat
@@ -2139,6 +2152,9 @@ function run_forward(
                 "\n phL.trans_scalD: ",any(isnan, phL.trans_scalD) , "\n phL.phi_eleD: ",any(isnan, phL.phi_eleD) ,
                 "\n phL.u: ",norm(phL.u) > 1e8 , "\n phS.u: ",norm(phS.u) > 1e8 , "\n phL.T: ",norm(phL.T) > 1e8 , "\n phS.T: ",norm(phS.T) > 1e8 , "\n phL.trans_scal: ",norm(phL.trans_scal) > 1e8 , "\n phL.phi_ele: ",norm(phL.phi_ele) > 1e8)
     
+
+                print_electrolysis_statistics(nb_transported_scalars,grid,phL)
+
                 crashed=true
                 # return nothing
                 return num.current_i
