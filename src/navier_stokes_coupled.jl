@@ -496,89 +496,7 @@ function set_convection!(
     @unpack Cu, CUTCu, Cv, CUTCv = op
     @unpack uD, vD = ph
 
-    if num.prediction == 3
-        @unpack pD = ph
-
-        printstyled(color=:red, @sprintf "\n test proj \n")
-
-
-        # opC_p = op.opC_p
-
-        # ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(pD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(pD,grid)
-        # ∇ϕ_y = opC_p.iMy * opC_p.By * vec1(pD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(pD,grid)
-
-        # for iLS in 1:num.nLS
-        #     ∇ϕ_x .+= opC_p.iMx * opC_p.Hx[iLS] * veci(pD,grid,iLS+1)
-        #     ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(pD,grid,iLS+1)
-        # end
-
-        ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid)
-        ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(pD,grid) .+ opC_v.Gy_b * vecb(pD,grid)
-        for iLS in 1:num.nLS
-            ∇ϕ_x .+= opC_u.Gx[iLS] * veci(pD,grid,iLS+1)
-            ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid,iLS+1)
-        end
-
-        iMu = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_u.M.diag))
-        iMv = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_v.M.diag))
-        ∇ϕ_x = iMu * ∇ϕ_x
-        ∇ϕ_y = iMv * ∇ϕ_y
-
-
-        grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
-        grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
-
-        printstyled(color=:red, @sprintf "\n set_convection grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_x) maximum(grd_x) minimum(grd_y) maximum(grd_y))
-       
-        printstyled(color=:red, @sprintf "\n set_convection B %.2e T %.2e L %.2e R %.2e\n" maximum(abs.(vecb_B(∇ϕ_x,grid_u))) maximum(abs.(vecb_T(∇ϕ_x,grid_u))) maximum(abs.(vecb_L(∇ϕ_y,grid_v))) maximum(abs.(vecb_R(∇ϕ_y,grid_v))))
-
-
-        print("\n dt ", num.τ)
-        dt = num.τ
-
-        Du_x = zeros(grid_u)
-        Du_y = zeros(grid_u)
-        # Du_x .= reshape(vec1(uD,grid_u), grid_u)
-        # Du_y .= reshape(vec1(uD,grid_u), grid_u)
-        for iLS in 1:num.nLS
-            Du_x[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
-            Du_y[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
-        end
-        # Du_x .= reshape(vec2(uD,grid_u), grid_u)
-        # Du_y .= reshape(vec2(uD,grid_u), grid_u)
-        Du_x[:,1] .= vecb_L(uD,grid_u) #+ vecb_L(∇ϕ_x,grid_u)*dt
-        # Du_x[:,2] .= u[:,2]
-        Du_y[1,:] .= vecb_B(uD,grid_u) + vecb_B(∇ϕ_x,grid_u)*dt
-        # Du_y[2,:] .= u[2,:]
-        Du_x[:,end] .= vecb_R(uD,grid_u) #+ vecb_R(∇ϕ_x,grid_u)*dt
-        # Du_x[:,end-1] .= u[:,end-1]
-        Du_y[end,:] .= vecb_T(uD,grid_u) + vecb_T(∇ϕ_x,grid_u)*dt
-        # Du_y[end-1,:] .= u[end-1,:]
-    
-        Dv_x = zeros(grid_v)
-        Dv_y = zeros(grid_v)
-        # Dv_x .= reshape(vec1(vD,grid_v), grid_v)
-        # Dv_y .= reshape(vec1(vD,grid_v), grid_v)
-        for iLS in 1:num.nLS
-            Dv_x[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
-            Dv_y[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
-        end
-        # Dv_x .= reshape(vec2(vD,grid_v), grid_v)
-        # Dv_y .= reshape(vec2(vD,grid_v), grid_v)
-        Dv_x[:,1] .= vecb_L(vD,grid_v) + vecb_L(∇ϕ_y,grid_v) * dt
-        # Dv_x[:,2] .= v[:,2]
-        Dv_y[1,:] .= vecb_B(vD,grid_v) #+ vecb_B(∇ϕ_y,grid_v) * dt
-        # Dv_y[2,:] .= v[2,:]
-        Dv_x[:,end] .= vecb_R(vD,grid_v) + vecb_R(∇ϕ_y,grid_v) * dt
-        # Dv_x[:,end-1] .= v[:,end-1]
-        Dv_y[end,:] .= vecb_T(vD,grid_v) #+ vecb_T(∇ϕ_y,grid_v) * dt
-        # Dv_y[end-1,:] .= v[end-1,:]
-
-        ∇ϕ_x .= 0.0
-
-        ∇ϕ_x .= 0.0
-
-    elseif num.prediction == 4
+   if num.prediction == 4
         @unpack pD = ph
 
         printstyled(color=:red, @sprintf "\n test proj \n")
@@ -1889,45 +1807,15 @@ function pressure_projection!(
     @unpack Cu, Cv, CUTCu, CUTCv = op_conv
     @unpack rho1,rho2,visc_coeff = num
 
-
-    # iRe = 1.0 / Re
     iRe = visc_coeff
     iτ = 1.0 / τ
     irho1 = 1.0/rho1
 
-    printstyled(color=:green, @sprintf "\n rho1 : %.2e irho1 : %.2e iRe : %.2e\n" rho1 irho1 iRe)
-
-    ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid)
-    ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(pD,grid) .+ opC_v.Gy_b * vecb(pD,grid)
-    for iLS in 1:nLS
-        ∇ϕ_x .+= opC_u.Gx[iLS] * veci(pD,grid,iLS+1)
-        ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid,iLS+1)
-    end
-
-    grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
-    grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
-
-    printstyled(color=:cyan, @sprintf "\n B %.2e T %.2e L %.2e R %.2e\n" maximum(abs.(vecb_B(∇ϕ_x,grid_u))) maximum(abs.(vecb_T(∇ϕ_x,grid_u))) maximum(abs.(vecb_L(∇ϕ_y,grid_v))) maximum(abs.(vecb_R(∇ϕ_y,grid_v))))
-    printstyled(color=:red, @sprintf "\n B %.2e T %.2e L %.2e R %.2e\n" maximum(abs.(grd_x[end,:])) maximum(abs.(grd_x[1,:])) maximum(abs.(grd_y[:,1])) maximum(abs.(grd_y[:,end])))
-
-    printstyled(color=:red, @sprintf "\n p %.2e p %.2e p %.2e p %.2e \n" maximum(abs.(p[end,:])) maximum(abs.(p[1,:])) maximum(abs.(p[:,end])) maximum(abs.(p[:,1])))
-
-    ptest = reshape(veci(pD,grid,1), grid)
-    printstyled(color=:magenta, @sprintf "\n ptest %.2e p %.2e p %.2e p %.2e \n" maximum(abs.(ptest[end,:])) maximum(abs.(ptest[1,:])) maximum(abs.(ptest[:,end])) maximum(abs.(ptest[:,1])))
-
-
-
-    ∇ϕ_x .= 0.0
-    ∇ϕ_y .= 0.0
-
-    compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
-
 
     if num.prediction == 1 || num.prediction == 2
-        printstyled(color=:red, @sprintf "\n pressure_in_prediction \n")
 
         #TODO
-        compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
+        # compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
 
 
         ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid)
@@ -1937,26 +1825,21 @@ function pressure_projection!(
             ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid,iLS+1)
         end
 
-        grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
-        grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+        # grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+        # grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
 
-        printstyled(color=:cyan, @sprintf "\n B %.2e T %.2e L %.2e R %.2e\n" maximum(abs.(vecb_B(∇ϕ_x,grid_u))) maximum(abs.(vecb_T(∇ϕ_x,grid_u))) maximum(abs.(vecb_L(∇ϕ_y,grid_v))) maximum(abs.(vecb_R(∇ϕ_y,grid_v))))
+        # grd_xfull = opC_p.iMx * opC_p.Bx * vec1(pD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(pD,grid)
+        # grd_yfull = opC_p.iMy * opC_p.By * vec1(pD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(pD,grid)
 
+        # for iLS in 1:num.nLS
+        #     grd_xfull .+= opC_p.iMx * opC_p.Hx[iLS] * veci(pD,grid,iLS+1)
+        #     grd_yfull .+= opC_p.iMy * opC_p.Hy[iLS] * veci(pD,grid,iLS+1)
+        # end
 
-        grd_xfull = opC_p.iMx * opC_p.Bx * vec1(pD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(pD,grid)
-        grd_yfull = opC_p.iMy * opC_p.By * vec1(pD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(pD,grid)
-
-        for iLS in 1:num.nLS
-            grd_xfull .+= opC_p.iMx * opC_p.Hx[iLS] * veci(pD,grid,iLS+1)
-            grd_yfull .+= opC_p.iMy * opC_p.Hy[iLS] * veci(pD,grid,iLS+1)
-        end
-
-        grd_x = reshape(veci(grd_xfull,grid_u,1), grid_u)
-        grd_y = reshape(veci(grd_yfull,grid_v,1), grid_v)
+        # grd_x = reshape(veci(grd_xfull,grid_u,1), grid_u)
+        # grd_y = reshape(veci(grd_yfull,grid_v,1), grid_v)
 
         # printstyled(color=:red, @sprintf "\n grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_x) maximum(grd_x) minimum(grd_y) maximum(grd_y))
-
-        print("\n dt ", num.τ)
 
         # ph.Gxm1 .+= ∇ϕ_x
         # ph.Gym1 .+= ∇ϕ_y
@@ -1969,16 +1852,6 @@ function pressure_projection!(
 
         ph.Gxm1 .= ∇ϕ_x
         ph.Gym1 .= ∇ϕ_y
-
-        # printstyled(color=:red, @sprintf "\n grad max x %.2e y %.2e %.2e\n" maximum(grd_xfull) maximum(grd_yfull) maximum(ph.Gym1)*irho1)
-        printstyled(color=:red, @sprintf "\n full grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_xfull) maximum(grd_xfull) minimum(grd_yfull) maximum(grd_yfull))
-
-        printstyled(color=:red, @sprintf "\n full grad min max x %.2e %.2e y %.2e %.2e\n" minimum(ph.Gxm1) maximum(ph.Gxm1) minimum(ph.Gym1) maximum(ph.Gym1))
-
-        printstyled(color=:red, @sprintf "\n full grad min max x %.2e %.2e y %.2e %.2e\n" minimum(τ.*irho1.*ph.Gxm1) maximum(τ.*irho1.*ph.Gxm1) minimum(τ.*irho1.*ph.Gym1) maximum(τ.*irho1.*ph.Gym1))
-
-        printstyled(color=:red, @sprintf "\n full grad min max x %.2e %.2e y %.2e %.2e\n" minimum(∇ϕ_x) maximum(∇ϕ_x) minimum(∇ϕ_y) maximum(∇ϕ_x))
-
 
         ∇ϕ_x .= 0.0
         ∇ϕ_y .= 0.0
@@ -2054,11 +1927,11 @@ function pressure_projection!(
         vec1(rhs_u,grid_u) .+= τ .* grav_x
         vec1(rhs_u,grid_u) .-= τ .* Convu
         vec1(rhs_u,grid_u) .+= τ .* ra_x
-        printstyled(color=:green, @sprintf "\n rhs u : %.2e uD %.2e Bu %.2e M %.2e \n" maximum(abs.(rhs_u)) maximum(abs.(uD)) maximum(abs.(Bu)) maximum(abs.(Mum1)))
+        # printstyled(color=:green, @sprintf "\n rhs u : %.2e uD %.2e Bu %.2e M %.2e \n" maximum(abs.(rhs_u)) maximum(abs.(uD)) maximum(abs.(Bu)) maximum(abs.(Mum1)))
 
         vec1(rhs_u,grid_u) .-= τ .* irho1 .* ph.Gxm1 
         
-        printstyled(color=:green, @sprintf "\n rhs u : %.2e \n" maximum(abs.(rhs_u)))
+        # printstyled(color=:green, @sprintf "\n rhs u : %.2e \n" maximum(abs.(rhs_u)))
 
         kill_dead_cells!(vec1(rhs_u,grid_u), grid_u, geo_u[end])
         for iLS in 1:nLS
@@ -2091,32 +1964,33 @@ function pressure_projection!(
         # end
         mul!(rhs_v, Bv, vD, 1.0, 1.0)
 
-        test1 = vec1(rhs_v,grid_v)[1,1]/Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)
-        test2 = test1 / (grid_v.dx[1,1]^2/2)
-        printstyled(color=:red, @sprintf "\n rhs_v vec1 %.10e /pois %.10e /pois %.10e\n" vec1(rhs_v,grid_v)[1,1] test1 test2)
+        # test1 = vec1(rhs_v,grid_v)[1,1]/Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)
+        # test2 = test1 / (grid_v.dx[1,1]^2/2)
+        # printstyled(color=:red, @sprintf "\n rhs_v vec1 %.10e /pois %.10e /pois %.10e\n" vec1(rhs_v,grid_v)[1,1] test1 test2)
 
         vec1(rhs_v,grid_v) .+= - τ .* grav_y
         vec1(rhs_v,grid_v) .-= τ .* Convv
         vec1(rhs_v,grid_v) .+= τ .* ra_y
 
-        test1 = vec1(rhs_v,grid_v)[1,1]/Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)
-        test2 = test1 / (grid_v.dx[1,1]^2/2)
-        test3 = vec1(rhs_v,grid_v)[1,1]-Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)*(grid_v.dx[1,1]^2/2)
-        printstyled(color=:red, @sprintf "\n rhs_v vec1 %.10e /pois %.10e /pois %.10e diff %.10e\n" vec1(rhs_v,grid_v)[1,1] test1 test2 test3)
+        # test1 = vec1(rhs_v,grid_v)[1,1]/Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)
+        # test2 = test1 / (grid_v.dx[1,1]^2/2)
+        # test3 = vec1(rhs_v,grid_v)[1,1]-Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)*(grid_v.dx[1,1]^2/2)
+        # printstyled(color=:red, @sprintf "\n rhs_v vec1 %.10e /pois %.10e /pois %.10e diff %.10e\n" vec1(rhs_v,grid_v)[1,1] test1 test2 test3)
 
-        # printstyled(color=:green, @sprintf "\n rhs: %.2e vD %.2e \n" maximum(abs.(rhs_v)) maximum(abs.(vD)))
-        printstyled(color=:green, @sprintf "\n rhs v : %.2e vD %.2e Bv %.2e M %.2e \n" maximum(abs.(rhs_v)) maximum(abs.(vD)) maximum(abs.(Bv)) maximum(abs.(Mvm1)))
+        # # printstyled(color=:green, @sprintf "\n rhs: %.2e vD %.2e \n" maximum(abs.(rhs_v)) maximum(abs.(vD)))
+        # printstyled(color=:green, @sprintf "\n rhs v : %.2e vD %.2e Bv %.2e M %.2e \n" maximum(abs.(rhs_v)) maximum(abs.(vD)) maximum(abs.(Bv)) maximum(abs.(Mvm1)))
 
 
         vec1(rhs_v,grid_v) .-= τ .* irho1 .* ph.Gym1
-        printstyled(color=:green, @sprintf "\n rhs: %.2e \n" maximum(abs.(rhs_v)))
+
+        # printstyled(color=:green, @sprintf "\n rhs: %.2e \n" maximum(abs.(rhs_v)))
 
 
-        test1 = vec1(rhs_v,grid_v)[1,1]/Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)
-        test2 = test1 / (grid_v.dx[1,1]^2/2)
-        test3 = vec1(rhs_v,grid_v)[1,1]-Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)*(grid_v.dx[1,1]^2/2)
-        test4 = test3/(τ .* irho1)/ (grid_v.dx[1,1]^2/2)
-        printstyled(color=:red, @sprintf "\n rhs_v vec1 %.10e /pois %.10e /pois %.10e diff %.10e diff %.10e\n" vec1(rhs_v,grid_v)[1,1] test1 test2 test3 test4)
+        # test1 = vec1(rhs_v,grid_v)[1,1]/Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)
+        # test2 = test1 / (grid_v.dx[1,1]^2/2)
+        # test3 = vec1(rhs_v,grid_v)[1,1]-Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)*(grid_v.dx[1,1]^2/2)
+        # test4 = test3/(τ .* irho1)/ (grid_v.dx[1,1]^2/2)
+        # printstyled(color=:red, @sprintf "\n rhs_v vec1 %.10e /pois %.10e /pois %.10e diff %.10e diff %.10e\n" vec1(rhs_v,grid_v)[1,1] test1 test2 test3 test4)
 
 
 
@@ -2127,17 +2001,17 @@ function pressure_projection!(
         # bicgstabl!(vcorrD, Av, rhs_v, log=true)
         
         
-        iplot = 1
-        jplot = 1
-        II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-        # pII = lexicographic(II, grid.ny +1)
+        # iplot = 1
+        # jplot = 1
+        # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # # pII = lexicographic(II, grid.ny +1)
 
-        print("\n after kill dead cells ", (grid_v.dx[1,1]^2/2)," full " ,(grid_v.dx[1,1]^2)," test ",geo_v[end].cap[II,5])
-        test1 = vec1(rhs_v,grid_v)[1,1]/Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)
-        test2 = test1 / (grid_v.dx[1,1]^2/2)
-        test3 = vec1(rhs_v,grid_v)[1,1]-Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)*(grid_v.dx[1,1]^2/2)
-        test4 = test3/(τ .* irho1)/ (grid_v.dx[1,1]^2/2)
-        printstyled(color=:red, @sprintf "\n rhs_v vec1 %.10e /pois %.10e /pois %.10e diff %.10e diff %.10e\n" vec1(rhs_v,grid_v)[1,1] test1 test2 test3 test4)
+        # print("\n after kill dead cells ", (grid_v.dx[1,1]^2/2)," full " ,(grid_v.dx[1,1]^2)," test ",geo_v[end].cap[II,5])
+        # test1 = vec1(rhs_v,grid_v)[1,1]/Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)
+        # test2 = test1 / (grid_v.dx[1,1]^2/2)
+        # test3 = vec1(rhs_v,grid_v)[1,1]-Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)*(grid_v.dx[1,1]^2/2)
+        # test4 = test3/(τ .* irho1)/ (grid_v.dx[1,1]^2/2)
+        # printstyled(color=:red, @sprintf "\n rhs_v vec1 %.10e /pois %.10e /pois %.10e diff %.10e diff %.10e\n" vec1(rhs_v,grid_v)[1,1] test1 test2 test3 test4)
 
 
         try
@@ -2148,7 +2022,7 @@ function pressure_projection!(
             println(e)
         end
 
-        printstyled(color=:yellow, @sprintf "\n vcorrD \n")
+        # printstyled(color=:yellow, @sprintf "\n vcorrD \n")
 
         # iplot = 64
         # jplot = 64
@@ -2170,79 +2044,54 @@ function pressure_projection!(
         
 
         # @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
-        @unpack  M = opC_v
-        print("\n M min ",minimum(M), " max ", maximum(M))
+        # @unpack  M = opC_v
+        # print("\n M min ",minimum(M), " max ", maximum(M))
 
 
-        ni = grid_v.nx * grid_v.ny
-        nb = 2 * grid_v.nx + 2 * grid_v.ny
-        nt = (num.nLS + 1) * ni + nb
+        # ni = grid_v.nx * grid_v.ny
+        # nb = 2 * grid_v.nx + 2 * grid_v.ny
+        # nt = (num.nLS + 1) * ni + nb
 
-        Avtest = spzeros(nt, nt)
+        # Avtest = spzeros(nt, nt)
        
-        # Implicit part of viscous term
-        Avtest[1:ni,1:ni] = iRe .*Lv #pad_crank_nicolson(Lv, grid, τ)
-        # Contribution to implicit part of viscous term from outer boundaries
-        Avtest[1:ni,end-nb+1:end] = iRe .* bc_Lv_b
+        # # Implicit part of viscous term
+        # Avtest[1:ni,1:ni] = iRe .*Lv #pad_crank_nicolson(Lv, grid, τ)
+        # # Contribution to implicit part of viscous term from outer boundaries
+        # Avtest[1:ni,end-nb+1:end] = iRe .* bc_Lv_b
 
-        vecv = reshape(vec1(vD,grid_v),grid_v)
-
-
-        iplot = 1
-        jplot = 64
-        II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-        pII = lexicographic(II, grid.ny +1)
-        print("\n ")
-        print("\n testvisc ", II," ",Lv[pII,:])
-        print("\n testvisc ", II," ",Avtest[pII,:])
-
-        print("\n testvisc ", II," ",bc_Lv_b[pII,:])
+        # vecv = reshape(vec1(vD,grid_v),grid_v)
 
 
-        testAv = Avtest * vcorrD .*rho1 
-        testAv2 = Avtest * vD .*rho1 
+        # iplot = 1
+        # jplot = 64
+        # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # pII = lexicographic(II, grid.ny +1)
+        # print("\n ")
+        # print("\n testvisc ", II," ",Lv[pII,:])
+        # print("\n testvisc ", II," ",Avtest[pII,:])
 
-        printstyled(color=:green, @sprintf "\n Avtest * vcorrD/My : %.10e exact %.10e 4/3exact %.10e\n" testAv[pII]*opC_p.iMy.diag[pII] testAv2[pII]*opC_p.iMy.diag[pII] testAv2[pII]*opC_p.iMy.diag[pII]*4/3)
-
-        print("\n op ", rho1*opC_p.iMy.diag[pII]*iRe*(-5*vecv[64,1] +1*vecv[64,2]))
-        print("\n op ",vecv[64,1]," op ",vecv[64,2])
-        print("\n op ",opC_p.iMy.diag[pII])
-        print("\n iRe ", iRe)
-
-        print("\n op ", rho1*iRe)
-
-        print("\n op ", rho1*iRe*(-5*vecv[64,1] +1*vecv[64,2]))
-
-        print("\n testvisc ", II," ",Avtest[pII,pII]," ",Avtest[pII,pII]*opC_p.iMy.diag[pII]," ",Avtest[pII,pII]*opC_p.iMy.diag[pII]*rho1, " ",Avtest[pII,pII]*opC_p.iMy.diag[pII]*rho1*vecv[64,1])
+        # print("\n testvisc ", II," ",bc_Lv_b[pII,:])
 
 
+        # testAv = Avtest * vcorrD .*rho1 
+        # testAv2 = Avtest * vD .*rho1 
+
+        # printstyled(color=:green, @sprintf "\n Avtest * vcorrD/My : %.10e exact %.10e 4/3exact %.10e\n" testAv[pII]*opC_p.iMy.diag[pII] testAv2[pII]*opC_p.iMy.diag[pII] testAv2[pII]*opC_p.iMy.diag[pII]*4/3)
+
+        # print("\n op ", rho1*opC_p.iMy.diag[pII]*iRe*(-5*vecv[64,1] +1*vecv[64,2]))
+        # print("\n op ",vecv[64,1]," op ",vecv[64,2])
+        # print("\n op ",opC_p.iMy.diag[pII])
+        # print("\n iRe ", iRe)
+
+        # print("\n op ", rho1*iRe)
+
+        # print("\n op ", rho1*iRe*(-5*vecv[64,1] +1*vecv[64,2]))
+
+        # print("\n testvisc ", II," ",Avtest[pII,pII]," ",Avtest[pII,pII]*opC_p.iMy.diag[pII]," ",Avtest[pII,pII]*opC_p.iMy.diag[pII]*rho1, " ",Avtest[pII,pII]*opC_p.iMy.diag[pII]*rho1*vecv[64,1])
 
 
-        ####################################################################################################        
-        iplot = 2
-        jplot = 64
-        II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-        pII = lexicographic(II, grid.ny +1)
-        print("\n ")
-        print("\n testvisc ", II," ",Lv[pII,:])
 
-        printstyled(color=:green, @sprintf "\n Avtest * vcorrD/My : %.10e exact %.10e\n" testAv[pII]*opC_p.iMy.diag[pII] testAv2[pII]*opC_p.iMy.diag[pII])
-        ####################################################################################################
 
-        ####################################################################################################        
-        iplot = 1
-        jplot = 1
-        II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-        pII = lexicographic(II, grid.ny +1)
-        print("\n ")
-        print("\n testvisc ", II," ",Lv[pII,:])
-        print("\n testvisc ", II," ",Avtest[pII,:])
-
-        printstyled(color=:green, @sprintf "\n Avtest * vcorrD/My : %.10e exact %.10e 4/3exact %.10e\n" testAv[pII]*opC_p.iMy.diag[pII] testAv2[pII]*opC_p.iMy.diag[pII] testAv2[pII]*opC_p.iMy.diag[pII]*4/3)
-        ####################################################################################################
-
-        #not 
-        # printstyled(color=:green, @sprintf "\n Avtest * vcorrD : %.10e Avtest * vcorrD/M : %.10e Avtest * vcorrD/My : %.10e\n" testAv[pII] testAv[pII]*opC_v.iMx_bd[pII,pII] testAv[pII]*opC_v.iMy[pII,pII])
         # ####################################################################################################        
         # iplot = 2
         # jplot = 64
@@ -2250,167 +2099,188 @@ function pressure_projection!(
         # pII = lexicographic(II, grid.ny +1)
         # print("\n ")
         # print("\n testvisc ", II," ",Lv[pII,:])
-        # printstyled(color=:green, @sprintf "\n Avtest * vcorrD : %.10e Avtest * vcorrD/M : %.10e Avtest * vcorrD/My : %.10e \n" testAv[pII] testAv[pII]*opC_v.iMx[pII,pII] testAv[pII]*opC_v.iMy[pII,pII])
+
+        # printstyled(color=:green, @sprintf "\n Avtest * vcorrD/My : %.10e exact %.10e\n" testAv[pII]*opC_p.iMy.diag[pII] testAv2[pII]*opC_p.iMy.diag[pII])
         # ####################################################################################################
 
+        # ####################################################################################################        
+        # iplot = 1
+        # jplot = 1
+        # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # pII = lexicographic(II, grid.ny +1)
+        # print("\n ")
+        # print("\n testvisc ", II," ",Lv[pII,:])
+        # print("\n testvisc ", II," ",Avtest[pII,:])
 
-        # 6.103515625000243e-13
+        # printstyled(color=:green, @sprintf "\n Avtest * vcorrD/My : %.10e exact %.10e 4/3exact %.10e\n" testAv[pII]*opC_p.iMy.diag[pII] testAv2[pII]*opC_p.iMy.diag[pII] testAv2[pII]*opC_p.iMy.diag[pII]*4/3)
+        # ####################################################################################################
 
-        # testAv = Av * vcorrD - 
-
-
-        # testLv = fnzeros(grid, num)
-        # testLv = fnzeros(grid, num)
-        # mul!(testLv, Lv, vcorrD, 1.0, 1.0)
-        # print("\n testvisc ", II," ",testLv[pII,:])
-
-        # mul!(rhs_v, Bv, vD, 1.0, 1.0)
-
-
-        # printstyled(color=:green, @sprintf "\n Lv: %.10e \n" Lv[pII,pII])
-        # printstyled(color=:green, @sprintf "\n Bx: %.10e \n" opC_v.Bx[pII,pII])
-        # printstyled(color=:green, @sprintf "\n BxT: %.10e \n" opC_v.BxT[pII,pII])
-        # printstyled(color=:green, @sprintf "\n iMx: %.10e \n" opC_v.iMx[pII,pII])
-        # printstyled(color=:green, @sprintf "\n Mx: %.10e iMx: %.10e iMx: %.10e\n" geo_v[end].dcap[II,8] 1/geo_v[end].dcap[II,8] 1/(geo_v[end].dcap[II,8]+eps(0.01)))
+        # #not 
+        # # printstyled(color=:green, @sprintf "\n Avtest * vcorrD : %.10e Avtest * vcorrD/M : %.10e Avtest * vcorrD/My : %.10e\n" testAv[pII] testAv[pII]*opC_v.iMx_bd[pII,pII] testAv[pII]*opC_v.iMy[pII,pII])
+        # # ####################################################################################################        
+        # # iplot = 2
+        # # jplot = 64
+        # # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # # pII = lexicographic(II, grid.ny +1)
+        # # print("\n ")
+        # # print("\n testvisc ", II," ",Lv[pII,:])
+        # # printstyled(color=:green, @sprintf "\n Avtest * vcorrD : %.10e Avtest * vcorrD/M : %.10e Avtest * vcorrD/My : %.10e \n" testAv[pII] testAv[pII]*opC_v.iMx[pII,pII] testAv[pII]*opC_v.iMy[pII,pII])
+        # # ####################################################################################################
 
 
+        # # 6.103515625000243e-13
+
+        # # testAv = Av * vcorrD - 
 
 
-        iplot = 2
-        jplot = 64
-        II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-        pII = lexicographic(II, grid.ny +1)
-        print("\n ")
-        print("\n testvisc ", II," ",Lv[pII,:])
+        # # testLv = fnzeros(grid, num)
+        # # testLv = fnzeros(grid, num)
+        # # mul!(testLv, Lv, vcorrD, 1.0, 1.0)
+        # # print("\n testvisc ", II," ",testLv[pII,:])
+
+        # # mul!(rhs_v, Bv, vD, 1.0, 1.0)
+
+
+        # # printstyled(color=:green, @sprintf "\n Lv: %.10e \n" Lv[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n Bx: %.10e \n" opC_v.Bx[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n BxT: %.10e \n" opC_v.BxT[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n iMx: %.10e \n" opC_v.iMx[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n Mx: %.10e iMx: %.10e iMx: %.10e\n" geo_v[end].dcap[II,8] 1/geo_v[end].dcap[II,8] 1/(geo_v[end].dcap[II,8]+eps(0.01)))
+
+
+
+
+        # iplot = 2
+        # jplot = 64
+        # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # pII = lexicographic(II, grid.ny +1)
+        # print("\n ")
+        # print("\n testvisc ", II," ",Lv[pII,:])
         
-        printstyled(color=:green, @sprintf "\n Avtest * vcorrD/My : %.10e exact %.10e\n" testAv[pII]*opC_v.iMy[pII,pII] testAv2[pII]*opC_v.iMy[pII,pII])
+        # printstyled(color=:green, @sprintf "\n Avtest * vcorrD/My : %.10e exact %.10e\n" testAv[pII]*opC_v.iMy[pII,pII] testAv2[pII]*opC_v.iMy[pII,pII])
 
-        # print("\n testvisc ", II," ",testLv[pII,:])
-        # printstyled(color=:green, @sprintf "\n Lv: %.10e \n" Lv[pII,pII])
-        # printstyled(color=:green, @sprintf "\n Bx: %.10e \n" opC_v.Bx[pII,pII])
-        # printstyled(color=:green, @sprintf "\n BxT: %.10e \n" opC_v.BxT[pII,pII])
-        # printstyled(color=:green, @sprintf "\n iMx: %.10e \n" opC_v.iMx[pII,pII])
-        # printstyled(color=:green, @sprintf "\n Mx: %.10e iMx: %.10e iMx: %.10e\n" geo_v[end].dcap[II,8] 1/geo_v[end].dcap[II,8] 1/(geo_v[end].dcap[II,8]+eps(0.01)))
+        # # print("\n testvisc ", II," ",testLv[pII,:])
+        # # printstyled(color=:green, @sprintf "\n Lv: %.10e \n" Lv[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n Bx: %.10e \n" opC_v.Bx[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n BxT: %.10e \n" opC_v.BxT[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n iMx: %.10e \n" opC_v.iMx[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n Mx: %.10e iMx: %.10e iMx: %.10e\n" geo_v[end].dcap[II,8] 1/geo_v[end].dcap[II,8] 1/(geo_v[end].dcap[II,8]+eps(0.01)))
 
-        # iplot = 3
-        # jplot = 64
-        # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-        # pII = lexicographic(II, grid.ny +1)
-        # print("\n ")
-        # print("\n testvisc ", II," ",Lv[pII,:])
-        # printstyled(color=:green, @sprintf "\n Lv: %.10e \n" Lv[pII,pII])
-        # printstyled(color=:green, @sprintf "\n Bx: %.10e \n" opC_v.Bx[pII,pII])
-        # printstyled(color=:green, @sprintf "\n BxT: %.10e \n" opC_v.BxT[pII,pII])
-        # printstyled(color=:green, @sprintf "\n iMx: %.10e \n" opC_v.iMx[pII,pII])
-        # printstyled(color=:green, @sprintf "\n Mx: %.10e iMx: %.10e iMx: %.10e\n" geo_v[end].dcap[II,8] 1/geo_v[end].dcap[II,8] 1/(geo_v[end].dcap[II,8]+eps(0.01)))
+        # # iplot = 3
+        # # jplot = 64
+        # # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # # pII = lexicographic(II, grid.ny +1)
+        # # print("\n ")
+        # # print("\n testvisc ", II," ",Lv[pII,:])
+        # # printstyled(color=:green, @sprintf "\n Lv: %.10e \n" Lv[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n Bx: %.10e \n" opC_v.Bx[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n BxT: %.10e \n" opC_v.BxT[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n iMx: %.10e \n" opC_v.iMx[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n Mx: %.10e iMx: %.10e iMx: %.10e\n" geo_v[end].dcap[II,8] 1/geo_v[end].dcap[II,8] 1/(geo_v[end].dcap[II,8]+eps(0.01)))
 
-        # iplot = 4
-        # jplot = 64
-        # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-        # pII = lexicographic(II, grid.ny +1)
-        # print("\n ")
-        # print("\n testvisc ", II," ",Lv[pII,:])
-        # printstyled(color=:green, @sprintf "\n Lv: %.10e \n" Lv[pII,pII])
-        # printstyled(color=:green, @sprintf "\n Bx: %.10e \n" opC_v.Bx[pII,pII])
-        # printstyled(color=:green, @sprintf "\n BxT: %.10e \n" opC_v.BxT[pII,pII])
-        # printstyled(color=:green, @sprintf "\n iMx: %.10e \n" opC_v.iMx[pII,pII])
-        # printstyled(color=:green, @sprintf "\n Mx: %.10e iMx: %.10e iMx: %.10e\n" geo_v[end].dcap[II,8] 1/geo_v[end].dcap[II,8] 1/(geo_v[end].dcap[II,8]+eps(0.01)))
+        # # iplot = 4
+        # # jplot = 64
+        # # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # # pII = lexicographic(II, grid.ny +1)
+        # # print("\n ")
+        # # print("\n testvisc ", II," ",Lv[pII,:])
+        # # printstyled(color=:green, @sprintf "\n Lv: %.10e \n" Lv[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n Bx: %.10e \n" opC_v.Bx[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n BxT: %.10e \n" opC_v.BxT[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n iMx: %.10e \n" opC_v.iMx[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n Mx: %.10e iMx: %.10e iMx: %.10e\n" geo_v[end].dcap[II,8] 1/geo_v[end].dcap[II,8] 1/(geo_v[end].dcap[II,8]+eps(0.01)))
 
 
-        # ny = grid.ny
+        # # ny = grid.ny
     
-        # testb = jplot
-        # testn = ny-testb+1
-        # print("\n test",testn," testb ",testb)
-        # # printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i chi_b %.2e  chi_b adim %.2e border %.2e\n" testn testb op.χ_b[end-nb+testn,end-nb+testn] op.χ_b[end-nb+testn,end-nb+testn]/grid.dy[1,1] vecb_L(ph.trans_scalD[:,iscal], grid)[testn])
-        # # printstyled(color=:cyan, @sprintf "\n BC %.5e rhs %.5e rhs %.5e \n" bc[iscal].left.val[testn] bc[iscal].left.val[testn]*op.χ_b[end-nb+testn,end-nb+testn] vecb_L(rhs, grid)[testn])
-        # # print("\n B ", maximum(B[testb,:])," \n ")
+        # # testb = jplot
+        # # testn = ny-testb+1
+        # # print("\n test",testn," testb ",testb)
+        # # # printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i chi_b %.2e  chi_b adim %.2e border %.2e\n" testn testb op.χ_b[end-nb+testn,end-nb+testn] op.χ_b[end-nb+testn,end-nb+testn]/grid.dy[1,1] vecb_L(ph.trans_scalD[:,iscal], grid)[testn])
+        # # # printstyled(color=:cyan, @sprintf "\n BC %.5e rhs %.5e rhs %.5e \n" bc[iscal].left.val[testn] bc[iscal].left.val[testn]*op.χ_b[end-nb+testn,end-nb+testn] vecb_L(rhs, grid)[testn])
+        # # # print("\n B ", maximum(B[testb,:])," \n ")
     
-        # print("\n A[end-nb+testn,1:ni]", Av[end-nb+testn,1:ni], "\n")
-        # print("\n A[end-nb+testn,ni+1:2*ni]", Av[end-nb+testn,ni+1:2*ni], "\n")
-        # print("\n A[end-nb+testn,end-nb+1:end]", Av[end-nb+testn,end-nb+1:end], "\n")
-
-
-        iplot = 1
-        jplot = 1
-        II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-        pII = lexicographic(II, grid.ny +1)
-        print("\n ")
-        print("\n testvisc ", II," ",Lv[pII,:])
-        printstyled(color=:red, @sprintf "\n iMy %.10e %.10e %.10e\n" opC_p.iMy.diag[pII] 1/grid_v.dx[1,1]^2 grid_v.dx[1,1]^2)
-        print("\n B ", II," ",opC_p.Bx[pII,pII]," ",opC_p.BxT[pII,pII])
-
-        iplot = 1
-        jplot = 64
-        II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-        pII = lexicographic(II, grid.ny +1)
-        print("\n ")
-        print("\n testvisc ", II," ",Lv[pII,:])
-        printstyled(color=:red, @sprintf "\n iMy %.10e %.10e %.10e\n" opC_p.iMy.diag[pII] 1/grid_v.dx[1,1]^2 grid_v.dx[1,1]^2)
-        print("\n B ", II," ",opC_p.Bx[pII,pII]," ",opC_p.BxT[pII,pII])
-
-
-
-        iplot = 2
-        jplot = 64
-        II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-        pII = lexicographic(II, grid.ny +1)
-        print("\n ")
-        print("\n B ", II," ",opC_p.Bx[pII,pII]," ",opC_p.BxT[pII,pII])
-       
-        # mul!(tmp_x, iMx, Bx)
-        # L = BxT * tmp_x
-        # mul!(tmp_y, iMy, By)
-        # L = L .+ ByT * tmp_y
+        # # print("\n A[end-nb+testn,1:ni]", Av[end-nb+testn,1:ni], "\n")
+        # # print("\n A[end-nb+testn,ni+1:2*ni]", Av[end-nb+testn,ni+1:2*ni], "\n")
+        # # print("\n A[end-nb+testn,end-nb+1:end]", Av[end-nb+testn,end-nb+1:end], "\n")
 
 
         # iplot = 1
         # jplot = 1
         # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-        # pII = lexicographic(II, grid_v.ny +1)
+        # pII = lexicographic(II, grid.ny +1)
         # print("\n ")
         # print("\n testvisc ", II," ",Lv[pII,:])
         # printstyled(color=:red, @sprintf "\n iMy %.10e %.10e %.10e\n" opC_p.iMy.diag[pII] 1/grid_v.dx[1,1]^2 grid_v.dx[1,1]^2)
+        # print("\n B ", II," ",opC_p.Bx[pII,pII]," ",opC_p.BxT[pII,pII])
 
         # iplot = 1
         # jplot = 64
         # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-        # pII = lexicographic(II, grid_v.ny +1)
+        # pII = lexicographic(II, grid.ny +1)
         # print("\n ")
         # print("\n testvisc ", II," ",Lv[pII,:])
         # printstyled(color=:red, @sprintf "\n iMy %.10e %.10e %.10e\n" opC_p.iMy.diag[pII] 1/grid_v.dx[1,1]^2 grid_v.dx[1,1]^2)
+        # print("\n B ", II," ",opC_p.Bx[pII,pII]," ",opC_p.BxT[pII,pII])
+
+
+
+        # iplot = 2
+        # jplot = 64
+        # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # pII = lexicographic(II, grid.ny +1)
+        # print("\n ")
+        # print("\n B ", II," ",opC_p.Bx[pII,pII]," ",opC_p.BxT[pII,pII])
+       
+        # # mul!(tmp_x, iMx, Bx)
+        # # L = BxT * tmp_x
+        # # mul!(tmp_y, iMy, By)
+        # # L = L .+ ByT * tmp_y
+
+
+        # # iplot = 1
+        # # jplot = 1
+        # # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # # pII = lexicographic(II, grid_v.ny +1)
+        # # print("\n ")
+        # # print("\n testvisc ", II," ",Lv[pII,:])
+        # # printstyled(color=:red, @sprintf "\n iMy %.10e %.10e %.10e\n" opC_p.iMy.diag[pII] 1/grid_v.dx[1,1]^2 grid_v.dx[1,1]^2)
+
+        # # iplot = 1
+        # # jplot = 64
+        # # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # # pII = lexicographic(II, grid_v.ny +1)
+        # # print("\n ")
+        # # print("\n testvisc ", II," ",Lv[pII,:])
+        # # printstyled(color=:red, @sprintf "\n iMy %.10e %.10e %.10e\n" opC_p.iMy.diag[pII] 1/grid_v.dx[1,1]^2 grid_v.dx[1,1]^2)
 
         
 
         
         
 
-        #TODO Poiseuille
-        test_Poiseuille(num,vcorrD,grid_v)
+        # #TODO Poiseuille
+        # test_Poiseuille(num,vcorrD,grid_v)
 
-        printstyled(color=:red, @sprintf "\n vcorrD %.2e %.2e\n" minimum(vcorrD) maximum(vcorrD))
+        # printstyled(color=:red, @sprintf "\n vcorrD %.2e %.2e\n" minimum(vcorrD) maximum(vcorrD))
 
-        test_Poiseuille(num,vD,grid_v)
+        # test_Poiseuille(num,vD,grid_v)
 
+        # printstyled(color=:red, @sprintf "\n vec1 1\n")
+        # print(vecv[1,:])
 
-   
+        # printstyled(color=:red, @sprintf "\n vecb_B \n" )
+        # print(vecb_B(vD,grid_v))
 
+        # printstyled(color=:red, @sprintf "\n vecb_L vD\n")
+        # print(vecb_L(vD,grid_v))
 
-        printstyled(color=:red, @sprintf "\n vec1 1\n")
-        print(vecv[1,:])
-
-        printstyled(color=:red, @sprintf "\n vecb_B \n" )
-        print(vecb_B(vD,grid_v))
-
-        printstyled(color=:red, @sprintf "\n vecb_L vD\n")
-        print(vecb_L(vD,grid_v))
-
-        printstyled(color=:red, @sprintf "\n vecb_L vcorrD\n" )
-        print(vecb_L(vcorrD,grid_v))
+        # printstyled(color=:red, @sprintf "\n vecb_L vcorrD\n" )
+        # print(vecb_L(vcorrD,grid_v))
 
 
-        printstyled(color=:red, @sprintf "\n rhs_v vecb_L \n" )
-        print(vecb_L(rhs_v,grid_v))
+        # printstyled(color=:red, @sprintf "\n rhs_v vecb_L \n" )
+        # print(vecb_L(rhs_v,grid_v))
 
         kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])
         for iLS in 1:nLS
@@ -2588,8 +2458,6 @@ function pressure_projection!(
     #     ph.Gym1 .+= ∇ϕ_y
     # end
 
-    printstyled(color=:magenta, @sprintf "\n full grad min max x %.2e %.2e y %.2e %.2e\n" minimum(∇ϕ_x) maximum(∇ϕ_x) minimum(∇ϕ_y) maximum(∇ϕ_x))
-
 
     # iM = Diagonal(1. ./ (vec(geo[end].dcap[:,:,5]) .+ eps(0.01)))
 
@@ -2661,21 +2529,6 @@ function pressure_projection!(
         #     end
         # end
     end
-
-    # print("\n test u ", vecb_L(uD, grid_u))
-    # print("\n test u ", vecb_R(uD, grid_u))
-    # print("\n test u ", vecb_B(uD, grid_u))
-    # print("\n test u ", vecb_T(uD, grid_u))
-
-    #TODO Poiseuille
-    printstyled(color=:yellow, @sprintf "\n before end pressure projection \n")
-
-    test_Poiseuille(num,vD,grid_v)
-    #TODO
-    compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
-
-
-    printstyled(color=:magenta, @sprintf "\n end pressure projection \n")
 
     return Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
 end

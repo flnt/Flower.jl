@@ -1321,11 +1321,11 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
     #Attention = vs copy
 
  
-    test_h5 = false
-    # test_h5 = true
+    write_h5 = false
+    # write_h5 = true
 
 
-    if test_h5
+    if write_h5
 
     #test HDF5
         print("\n current_i ", current_i)
@@ -1387,13 +1387,13 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
 
         # h5write(file, "data", intfcval)
 
-    end # test_h5
+    end # write_h5
 
 
 
     if test_case == "channel_Dirichlet_pressure"
         
-        if test_h5
+        if write_h5
 
             if prediction == 0
                 str_prediction = "prediction_Flower"
@@ -1409,7 +1409,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
             # A=transpose(A)
             h5write2(file, "data", A,"w")
         
-        end # test_h5
+        end # write_h5
 
         printstyled(color=:red, @sprintf "\n iMx %.10e Mx %.10e eps %.10e \n" 1/(1e-4/128)^2 (1e-4/128)^2 eps(0.01))
 
@@ -1440,8 +1440,7 @@ max_iter=100
 prediction = 0 #default in Flower
 # prediction = 1 #pressure in prediction
 # prediction = 2
-# prediction = 3 #wrong
-# prediction = 4
+# prediction = 3 #PIII
 
 
 @testset "Constant velocity with half circle" begin
@@ -1484,4 +1483,7 @@ end
 #     # run_case(test_case,n,100,prefix,1e-14)
 # end
 
-    # @test 2==2
+
+# test_Poiseuille(num,vD,grid_v)
+# #TODO
+# compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
