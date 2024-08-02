@@ -83,10 +83,11 @@ abstract type AbstractOptimizer end
     dt0::T = 1.0
     concentration_check_factor::T = 0.0
     radial_vel_factor::T = 0.0
-    scalar_debug::Bool = false
+    debug::String = "none"
     v_inlet::T=0.0
     prediction::D=0
     null_space::D=0
+    io_pdi::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

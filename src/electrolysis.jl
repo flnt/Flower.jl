@@ -1,39 +1,5 @@
 #From set_heat in heat_coupled.jl, poisson.jl
 
-function Poiseuille_fmax(x,v_inlet_max,L0)
-    return 4*v_inlet_max*x/L0*(1-x/L0)
-end
-
-function Poiseuille_favg(x,v_inlet_moy,L0)
-    return 6*v_inlet_moy*x/L0*(1-x/L0)
-end
-
-
-function test_Poiseuille(num,velD,grid_v)
-
-    vel = reshape(vec1(velD,grid_v), grid_v)
-
-    #error = 0.0
-    error = vel .- Poiseuille_fmax.(grid_v.x,num.v_inlet,num.L0)
-    error_rel = maximum(abs.(error))/num.v_inlet
-    error_rel_min = minimum(abs.(error))/num.v_inlet
-
-
-    scal_error_border = maximum(abs.(vecb_B(velD,grid_v) .- Poiseuille_fmax.(grid_v.x[1,:],num.v_inlet,num.L0)))
-    scal_error_border = scal_error_border/num.v_inlet
-
-    printstyled(color=:red, @sprintf "\n Velocity error bottom: %.2e\n" scal_error_border )
-
-    scal_error_border = maximum(abs.(vecb_T(velD,grid_v) .- Poiseuille_fmax.(grid_v.x[1,:],num.v_inlet,num.L0)))
-    scal_error_border = scal_error_border/num.v_inlet
-
-    printstyled(color=:red, @sprintf "\n Velocity error top: %.2e\n" scal_error_border )
-
-    printstyled(color=:red, @sprintf "\n Velocity error bulk: %.2e %.2e %.10e\n" error_rel error_rel_min vel[1,1])
-
-end
-
-
 function set_convection_2!(
     num, grid, geo, grid_u, LS_u, grid_v, LS_v,
     u, v, op, ph, BC_u, BC_v
@@ -531,7 +497,7 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         # print("\n rhs",bc_type.val*grid.dx[1,1])
 
 
-        if convection_Cdivu
+        if convection_Cdivu>0
             # Duv = fzeros(grid)
             # Duv = fnzeros(grid,num)
 
@@ -1038,7 +1004,6 @@ end
 
 
 function print_electrolysis_statistics(nb_transported_scalars,grid,phL)
-
     # normscal1L = norm(phL.trans_scal[:,:,1])
     # normscal2L = norm(phL.trans_scal[:,:,2])
     # normscal3L = norm(phL.trans_scal[:,:,3])
@@ -3038,4 +3003,44 @@ function pressure_projection_debug!(
     printstyled(color=:magenta, @sprintf "\n end pressure projection \n")
 
     return Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
+end
+
+
+function test_laplacian_pressure(num,grid_v,ph, opC_p, Lv, bc_Lv, bc_Lv_b)
+
+    @unpack rho1,rho2,visc_coeff = num
+    @unpack vD = ph
+
+    iRe = visc_coeff
+
+    ni = grid_v.nx * grid_v.ny
+    nb = 2 * grid_v.nx + 2 * grid_v.ny
+    nt = (num.nLS + 1) * ni + nb
+
+    Avtest = spzeros(nt, nt)
+   
+    # Implicit part of viscous term
+    Avtest[1:ni,1:ni] = iRe .*Lv #pad_crank_nicolson(Lv, grid, τ)
+    # Contribution to implicit part of viscous term from outer boundaries
+    Avtest[1:ni,end-nb+1:end] = iRe .* bc_Lv_b
+
+    # vecv = reshape(vec1(vD,grid_v),grid_v)
+
+    iplot = 1
+    jplot = 64
+    II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+    pII = lexicographic(II, grid_v.ny)
+    print("\n ")
+    print("\n Laplacian coefficients ", II," ",Lv[pII,:]," ",bc_Lv_b[pII,:])
+
+    # print("\n Laplacian coefficients ", II," ",Lv[pII,:])
+    # print("\n testvisc ", II," ",bc_Lv_b[pII,:])
+    # print("\n testvisc ", II," ",Avtest[pII,:])
+
+    testAv2 = Avtest * vD .*rho1 
+    
+    printstyled(color=:green, @sprintf "\n exact %.10e 4/3exact %.10e\n" testAv2[pII]*opC_p.iMy.diag[pII] testAv2[pII]*opC_p.iMy.diag[pII]*4/3)
+
+    return testAv2[pII]*opC_p.iMy.diag[pII]
+
 end

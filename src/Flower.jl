@@ -34,6 +34,9 @@ import Base.reshape
 
 @reexport import YAML
 @reexport using Test
+@reexport using MPI
+@reexport using PropertyDicts
+
 
 # #Long version
 # @reexport using Printf
@@ -106,6 +109,7 @@ include("contact_line.jl")
 include("optimize.jl")
 # include("viz.jl")
 include("tools.jl")
+include("electrolysis_init.jl")
 include("electrolysis.jl")
 
 ###################################################################################################

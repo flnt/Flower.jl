@@ -42,17 +42,16 @@ function run_forward(
     electrolysis_convection = false,  
     electrolysis_liquid_phase = false,
     electrolysis_solid_phase = false,
-    electrolysis_phase_change = false,
     electrolysis_phase_change_case = "Khalighi",
     electrolysis_reaction = "nothing",
     bulk_conductivity = true,
     imposed_velocity = "none",
-    testing = "none",
     adapt_timestep_mode = 0,
     non_dimensionalize=1,
     mode_2d=0,
     conductivity_mode = 1,
-    convection_Cdivu = false,
+    convection_Cdivu = 0,
+    test_laplacian = false,
     )
 
     print("\n before unpack \n")
@@ -109,7 +108,7 @@ function run_forward(
     if free_surface && stefan
         @error ("Cannot advect the levelset using both free-surface and stefan condition.")
         return nothing
-    elseif free_surface || stefan || electrolysis_phase_change
+    elseif free_surface || stefan || electrolysis_phase_change_case !="none"
         advection = true
     else
         advection = false
@@ -286,14 +285,6 @@ function run_forward(
     # init_fields_2!(phL.vcorrD,phL.v,HLv,BC_vL,grid_v,num.vD)
 
     ####################################################################################################
-
-    # vec1(phS.TD,grid) .= vec(phS.T)
-    # vec2(phS.TD,grid) .= θd
-    # init_borders!(phS.TD, grid, BC_TS, θd)
-
-    # vec1(phL.TD,grid) .= vec(phL.T)
-    # vec2(phL.TD,grid) .= θd
-    # init_borders!(phL.TD, grid, BC_TL, θd)
 
     init_fields_2!(phS.TD,phS.T,HS,BC_TS,grid,θd)
     init_fields_2!(phL.TD,phL.T,HL,BC_TL,grid,θd)
@@ -607,6 +598,11 @@ function run_forward(
                 #                                             periodic_x, periodic_y, electrolysis_convection, true, diffusion_coeff[iscal])
             # end 
 
+            if test_laplacian
+                exact_laplacian = test_laplacian_pressure(num,grid_v,phL,opC_pL, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L)
+                return exact_laplacian
+            end
+
             if !navier
                 _ = FE_set_momentum(
                     BC_int, num, grid_u, opC_uL,
@@ -809,9 +805,10 @@ function run_forward(
 
                         phL.pD .= 0.0
 
-
-                        printstyled(color=:red, @sprintf "\n Imposed velocity v min %.2e max %.2e\n" minimum(phL.vD) maximum(phL.vD))
-                        printstyled(color=:red, @sprintf "\n Imposed velocity u min %.2e max %.2e\n" minimum(phL.uD) maximum(phL.uD))
+                        if ((num.current_i-1)%show_every == 0) 
+                            printstyled(color=:red, @sprintf "\n Imposed velocity v min %.2e max %.2e\n" minimum(phL.vD) maximum(phL.vD))
+                            printstyled(color=:red, @sprintf "\n Imposed velocity u min %.2e max %.2e\n" minimum(phL.uD) maximum(phL.uD))
+                        end
 
                 elseif imposed_velocity == "Poiseuille"
 
@@ -826,13 +823,15 @@ function run_forward(
                     # phL.vD .= BC_vL.bottom.val    
                     # vecb...
                     # ....
-    
-                    printstyled(color=:red, @sprintf "\n Imposed velocity v min %.2e max %.2e\n" minimum(phL.vD) maximum(phL.vD))
-                    printstyled(color=:red, @sprintf "\n Imposed velocity u min %.2e max %.2e\n" minimum(phL.uD) maximum(phL.uD))       
                     
-                    printstyled(color=:cyan, @sprintf "\n before scalar transport 0\n")
+                    if ((num.current_i-1)%show_every == 0) 
+                        printstyled(color=:red, @sprintf "\n Imposed velocity v min %.2e max %.2e\n" minimum(phL.vD) maximum(phL.vD))
+                        printstyled(color=:red, @sprintf "\n Imposed velocity u min %.2e max %.2e\n" minimum(phL.uD) maximum(phL.uD))       
+                        
+                        printstyled(color=:cyan, @sprintf "\n before scalar transport 0\n")
 
-                    print_electrolysis_statistics(nb_transported_scalars,grid,phL)
+                        print_electrolysis_statistics(nb_transported_scalars,grid,phL)
+                    end 
                     
                 elseif imposed_velocity == "radial"
                     
@@ -928,11 +927,10 @@ function run_forward(
                 #TODO convection_Cdivu BC divergence
                 #TODO check nb_transported_scalars>1
 
-                printstyled(color=:cyan, @sprintf "\n before scalar transport \n")
-
-                print_electrolysis_statistics(nb_transported_scalars,grid,phL)
-
-
+                if ((num.current_i-1)%show_every == 0) 
+                    printstyled(color=:cyan, @sprintf "\n before scalar transport \n")
+                    print_electrolysis_statistics(nb_transported_scalars,grid,phL)
+                end
              
                 # printstyled(color=:red, @sprintf "\n levelset: before scalar_transport\n")
                 # println(grid.LS[1].geoL.dcap[1,1,:])
@@ -950,11 +948,12 @@ function run_forward(
                 # LS[1].MIXED, LS[1].geoL.projection, opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
                 # periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff,convection_Cdivu)
 
-                printstyled(color=:cyan, @sprintf "\n after scalar transport \n")
+                if ((num.current_i-1)%show_every == 0) 
+                    printstyled(color=:cyan, @sprintf "\n after scalar transport \n")
+                    print_electrolysis_statistics(nb_transported_scalars,grid,phL)
+                end
 
-                print_electrolysis_statistics(nb_transported_scalars,grid,phL)
-
-                if imposed_velocity != "none" || testing == "scalar"
+                if imposed_velocity != "none" || num.debug== "scalar_testing"
                     scal_error=0.0
                     for iscal in 1:nb_transported_scalars
 
@@ -1583,7 +1582,7 @@ function run_forward(
                 V .= 0.0
                 printstyled(color=:green, @sprintf "\n V %.2e max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(V)) maximum(abs.(phL.u)) maximum(abs.(phL.v)))
 
-                if electrolysis_phase_change                   
+                if electrolysis_phase_change_case!="none"                   
                     if electrolysis_phase_change_case == "levelset"
 
                         # plot_electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodic_y, concentration_scal_intfc)
@@ -1599,9 +1598,11 @@ function run_forward(
                 end
 
             
-            elseif (electrolysis && electrolysis_phase_change && occursin("Khalighi",electrolysis_phase_change_case))
+            elseif (electrolysis && occursin("Khalighi",electrolysis_phase_change_case))
 
-                print_electrolysis_statistics(nb_transported_scalars,grid,phL)
+                if ((num.current_i-1)%show_every == 0) 
+                    print_electrolysis_statistics(nb_transported_scalars,grid,phL)
+                end
 
                 previous_radius = current_radius
 
@@ -1743,7 +1744,7 @@ function run_forward(
                 # init_franck!(grid, TL, R, T_inf, 0)
                 # u
 
-            elseif (electrolysis && electrolysis_phase_change && electrolysis_phase_change_case == "imposed_radius")
+            elseif (electrolysis && electrolysis_phase_change_case == "imposed_radius")
 
                 #CFL 0.5
                 current_radius = current_radius + grid.dx[1,1]/2
@@ -1901,7 +1902,7 @@ function run_forward(
                         # normpL = norm(phL.p.*num.τ)
                         # print("$(@sprintf("norm(uL) %.6e", normuL))\t$(@sprintf("norm(vL) %.6e", normvL))\t$(@sprintf("norm(pL) %.6e", normpL))\n")
                         if electrolysis
-                            print_electrolysis_statistics(nb_transported_scalars,grid,phL)
+                            print_electrolysis_statistics(nb_transported_scalars,grid,phL) 
                         end 
                     end
                 end
@@ -1914,6 +1915,7 @@ function run_forward(
             try
                 NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y) 
             catch errorLS
+                println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
                 printstyled(color=:red, @sprintf "\n LS not updated \n")
                 print(errorLS)
                 return current_i
@@ -2136,7 +2138,63 @@ function run_forward(
         # # @views fwd.radius[num.current_i+1] = current_radius
 
 
+
+
         if electrolysis
+
+            ####################################################################################################
+            #PDI (IO)
+            ####################################################################################################
+
+            if num.io_pdi>0
+                try
+                    printstyled(color=:red, @sprintf "\n PDI test \n" )
+            
+                    time = current_t #Cdouble
+                    nstep = num.current_i
+                    print("\n nstep ",typeof(nstep))
+                    # pdi_array =zeros(nx,ny)
+            
+                    # for j in 1:gp.ny
+                    #     for i in 1:gp.nx
+                    #         pdi_array[j,i]=1000*i+j
+                    #     end
+                    # end
+            
+                    print("\n before write \n ")
+            
+                    # @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
+                    #             "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Clonglong,
+                    #             "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Clonglong,
+                    #             "main_field"::Cstring, pdi_array::Ptr{Cdouble}, 
+                    #             PDI_OUT::Clonglong,
+                    #             C_NULL::Ptr{Cvoid})::Cvoid
+
+                    @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
+                    "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Clonglong,
+                    "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Clonglong,
+                    "u"::Cstring, phL.u::Ptr{Cdouble}, 
+                    "v"::Cstring, phL.v::Ptr{Cdouble}, 
+                    "trans_scal"::Cstring, phL.trans_scal::Ptr{Cdouble}, 
+                    "phi_ele"::Cstring, phL.v::Ptr{Cdouble}, 
+                    PDI_OUT::Clonglong,
+                    C_NULL::Ptr{Cvoid})::Cvoid
+            
+                    print("\n after write \n ")
+            
+                    @ccall "libpdi".PDI_finalize()::Cvoid
+            
+                    printstyled(color=:red, @sprintf "\n PDI test end\n" )
+            
+                catch error
+                    printstyled(color=:red, @sprintf "\n PDI error \n")
+                    print(error)
+                    printstyled(color=:red, @sprintf "\n PDI error \n")
+                end
+            end #if io_pdi
+
+            ####################################################################################################
+
 
             if crashed #due to nH2<0...
                 return num.current_i
