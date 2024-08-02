@@ -1,0 +1,234 @@
+flower:
+  physics:
+    #Coefficients for Butler-volmer
+    alpha_a: 0.5
+    alpha_c: 0.5
+    CFL:  0.5
+    # Species        H2      KOH    H2O
+    concentration0: [1.6e-1, 6.7e3, 4.9e4]
+    electrolysis_reaction: "Butler_no_concentration"
+    # Species         H2      KOH     H2O
+    diffusion_coeff: [5.8e-9, 3.2e-9, 3.2e-9]
+    end_time: 7.3 #s
+    Faraday: 9.64853321233100184e4 #C⋅mol−1
+    i0: 1.0
+    intfc_x: 0.0 # x coordinate of bubble center
+    intfc_y: 5.0e-5 # y coordinate of bubble center
+    # KOHwtpercent: 30
+    mu_cin1: 6.7e-7
+    mu_cin2: 6.7e-7 #m^2/s
+    MWH2: 2.01568e-3 #kg/mol
+    nb_levelsets: 1
+    nb_transported_scalars: 3
+    #Electric potential
+    phi_ele0: 0.0
+    phi_ele1: -0.6
+    pres0:  0.0 #1e5
+    radius: 3.0e-6 #initial radius
+    ref_length: 1e-4
+    rho1: 1258.0 #liquid
+    rho2: 0.069575 #gaz
+    #TODO need for 80°C, check with other study
+    #"0.7016E-01" in \citet{cohnTABLETHERMODYNAMICPROPERTIES1963} H2
+    # Linear interpolation between 350 and 360
+    # 350 360 353 B 0.13841 353 350 360
+    # 7.02E-02 6.82E-02 -0.00194999999999999 A -0.000194999999999999 0.069575 0.07016 0.06821
+    Ru: 8.314
+    sigma: 7.7e-2
+    temperature0: 353.0
+    v_inlet: 6.7e-4
+
+  mesh:
+    nx: 128
+    ny: 128
+    xmin: 0
+    xmax: 1e-4
+    ymin: 0 
+    ymax: 1e-4
+  simulation:
+    # activate_interface: false
+    activate_interface: 1
+    adapt_timestep_mode: 3 #fixed timestep
+    concentration_check_factor: 1e-4
+    convection_Cdivu: 0
+    electrolysis_phase_change_case: "none" #no phase change
+    # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
+    # electrolysis_phase_change_case: "levelset" # local
+    eps: 1e-12 #eps for small numbers
+    epsilon: 0.05 #cut small cells
+    epsilon_mode: 2 #way to handle epsilon
+    imposed_velocity: "none"
+    dt0: 3.125e-6 #first timestep
+    max_iter: 100 #maximum number of iterations
+    mode_2d: 3
+    # mode_2d = 1 #use equivalent cylinder
+    # mode_2d = 2 #mol/meter 
+    # mode_2d = 3 #mol/meter with xcoord and ycoord parameters for LS definition
+    name: "channel_Dirichlet_zero_vel"
+    non_dimensionalize: 0 # 0: NS equations as is (without non_dimensionalization)
+    null_space: 0 #method for null space, matrix diagonal
+    prediction: 0 #pressure-velocity coupling
+    # prediction = 0
+    # prediction = 1
+    # prediction = 2
+    # prediction = 3 # PIII in Brown's article
+
+    show_every: 1
+    debug: "scalar_testing" #"scalar_debug" 
+    time_scheme: FE #Forward Euler
+    # time_scheme: CN
+
+plot:
+  beamer_frame_height: 228.4378 #pt
+  beamer_frame_width: 398.3386
+  cbarlabel: "" #["u","v"]
+  cmap: "viridis"
+  img_format: "pdf"
+  isocontour: false
+  #do not plot 2D figure, used in special plots (velocity vectors and current lines):
+  no_2D_plot: ["velocity_x","velocity_y","i_current_x","i_current_y"] 
+  pdi: 1 #1: pdi activated
+  quiver_scale: 1e-4
+  quiver_scale_unit: xy #None
+  scale_time: 1e-3
+  scale_vel: 1e-4 
+  scale_x: 1e-6
+  scale_y: 1e-6
+  ticks_x: 0:20:100
+  ticks_y: 0:20:100
+  write_h5: 0
+  figures:
+    - var: velocity_x
+      file: velocity_vectors
+      skip_every: 12
+      xlim: [0,100]
+      ylim: [0,100]
+    - var: i_current_x
+      file: line_currents
+      xlim: [0,100]
+      ylim: [0,100]
+
+  plot_grid: false
+  plot_levelset: true
+  plot_movies : false
+  plot_R : false
+  #debug Levelset
+  plotcase : "none"
+  #plotcase : "circle"
+  plot_current_wall : false
+  # plot_current_wall : true
+  plot_interface : false
+  # plot_interface : true 
+  plot_mode: "pcolormesh"
+  fontsize: 2
+  printmode: "val"
+  plotbc: true
+  prefix: "./"
+
+
+#TODO call compute_grad_phi_ele! only when needed
+#TODO call us, vs interpolation only when needed
+#TODO sparse data (H5 fill value or chunked ?)
+#TODO fig size
+   
+pdi:
+  metadata: # type of small values for which PDI keeps a copy
+    nx: int #Domain size per proc
+    ny: int #Domain size per proc
+    mpi_max_coords_x: int #MPI decomposition
+    mpi_max_coords_y: int #MPI decomposition
+    mpi_coords_x: int #MPI coordinate of the current process 
+    mpi_coords_y: int #MPI coordinate of the current process 
+    time: double #Time
+    nstep: int #Index for naming files
+    nb_transported_scalars: int 
+    nb_levelsets: int 
+  data: # values for which PDI does not keep a copy
+    #in Flower: zeros((n.nLS + 1) * g.ny * g.nx + 2 * g.nx + 2 * g.ny)
+    #Field of the current subdmain
+    #Bulk, interface and border u velocity, ...
+    # u grid nx+1, ny
+    # v grid nx, ny
+    # p grid (scalar): nx, ny
+    # In Flower : vec "1D" bulk: 1:nx*ny, ith levelset: ...i*ny*nx 
+
+    # stored in 1D
+    u_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx+1) + 2 * ($nx+1) + 2 * $ny', type: array, subtype: double } 
+    v_1D: { size: '($nb_levelsets + 1) * ($ny+1) * ($nx) + 2 * ($nx) + 2 * ($ny+1)', type: array, subtype: double } 
+    trans_scal_1D: { size: ['($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny','$nb_transported_scalars'], type: array, subtype: double } 
+    phi_ele_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
+   
+    # stored in 2D
+    velocity_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    velocity_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    i_current_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    i_current_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+   
+   # To save only bulk field, with u given in Flower
+    # u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    # v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdmain
+    # trans_scal: { size: [ '$nx', '$ny','$nb_transported_scalars' ], type: array, subtype: double } #Field of the current subdmain
+    # phi_ele: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    # iu: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    # iv: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+
+  plugins:
+    trace: ~
+    pycall:
+      on_event:
+        testing: #python event to plot with matplotlib
+          exec: from plot_pdi import plot_bc2; plot_bc2()
+        # write_data:
+        #   with: { iter_id: $nstep, source_field: $main_field }
+        #     exec: |
+        #       import numpy as np
+        #       if 0 < iter_id < 4:
+        #           transformed_field = np.sqrt(source_field[1:-1,1:-1])
+        #           pdi.expose('transformed_field', transformed_field, pdi.OUT)  
+    # mpi:
+    decl_hdf5: #Writing in hdf5
+      # - file: results/data_${nstep:08}_${mpi_coords_x:02}_${mpi_coords_y:02}.h5 #Name of the file test.h5
+      - file: flower_${nstep:08}.h5 #Name of the file test.h5
+        collision_policy: replace
+        on_event: write_data
+        datasets: #Dataset we are writing in: the whole solution
+          data:
+            type: array
+            subtype: double
+            size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
+        # when: #"$nstep%50 = 0"
+        write: [u_1D,v_1D,time,phi_ele_1D,velocity_x,velocity_y,i_current_x,i_current_y]
+
+
+ 
+
+# Useful links:
+#https://github.com/pdidev/tutorial
+
+
+# write:
+#   main_field: # the name of the data to write
+#     dataset: data
+#     memory_selection:  #exclude ghosts from the data in memory
+#       size:  ['$nx', '$ny']
+#       start: [1, 1]
+
+
+# write: [u,v] #,time]
+  # u:
+  #   dataset: data
+  # v:
+  #   dataset: data
+  # trans_scal:
+  #   dataset: data
+  # phi_ele:
+  #   dataset: data
+  # main_field: # the name of the data to write
+  #   dataset: data
+  # time:
+    # memory_selection:  #exclude ghosts from the data in memory
+    #   size:  ['$nx', '$ny']
+    #   start: [1, 1]
+    # dataset_selection: #Write in the file at the current MPI process's coordinates
+    #   size:  ['$nx', '$ny']
+    #   start: ['$nx*$mpi_coords_x', '$ny*$mpi_coords_y']

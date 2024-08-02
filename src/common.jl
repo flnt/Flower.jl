@@ -93,6 +93,7 @@ end
 Compute the volume of a phase.
 """
 @inline volume(geo::GeometricInfo) = sum(geo.dcap[:,:,5])
+@inline volume(geo::GeometricInfo, id::AbstractMatrix) = sum(geo.dcap[id,5])
 
 @inline opposite(α) = ifelse(α >= 0. ,α - π, α + π)
 
@@ -526,13 +527,20 @@ const eno2 = ENO2()
 const FE = ForwardEuler()
 const CN = CrankNicolson()
 
-isCC(::Mesh{GridCC,T,N}) where {T,N} = true
+isCC(::Mesh{GridCC ,T,N}) where {T,N} = true
+isCC(::Mesh{GridFCx,T,N}) where {T,N} = false
+isCC(::Mesh{GridFCy,T,N}) where {T,N} = false
+
 isCC(::Mesh) = false
 
 isFCx(::Mesh{GridFCx,T,N}) where {T,N} = true
+isFCx(::Mesh{GridCC ,T,N}) where {T,N} = false
+isFCx(::Mesh{GridFCy,T,N}) where {T,N} = false
 isFCx(::Mesh) = false
 
 isFCy(::Mesh{GridFCy,T,N}) where {T,N} = true
+isFCy(::Mesh{GridFCx,T,N}) where {T,N} = false
+isFCy(::Mesh{GridCC ,T,N}) where {T,N} = false
 isFCy(::Mesh) = false
 
 @inline is_dirichlet(::Dirichlet) = true
@@ -576,9 +584,6 @@ isFCy(::Mesh) = false
 @inline is_wall(::Navier_cl) = true
 @inline is_wall(::BoundaryCondition) = false
 
-@inline is_flapping(::Flapping) = true
-@inline is_flapping(::BoundaryCondition) = false
-
 const neu = Neumann()
 const neu_cl = Neumann_cl()
 const neu_inh = Neumann_inh()
@@ -598,7 +603,7 @@ function get_fresh_cells!(grid, geo, Mm1, indices)
     end
     return nothing
 end
-
+#TODO distinguish between border and bulk cells
 function kill_dead_cells!(T::Matrix, grid, geo)
     @unpack ind = grid
 
@@ -648,20 +653,28 @@ function init_borders!(T, grid, BC, val=0.0)
         vecb_L(T, grid) .= BC.left.val
     elseif is_periodic(BC.left)
         vecb_L(T, grid) .= val
+    else
+        vecb_L(T, grid) .= val
     end
     if is_dirichlet(BC.bottom)
         vecb_B(T, grid) .= BC.bottom.val
     elseif is_periodic(BC.bottom)
+        vecb_B(T, grid) .= val
+    else
         vecb_B(T, grid) .= val
     end
     if is_dirichlet(BC.right)
         vecb_R(T, grid) .= BC.right.val
     elseif is_periodic(BC.right)
         vecb_R(T, grid) .= val
+    else
+        vecb_R(T, grid) .= val
     end
     if is_dirichlet(BC.top)
         vecb_T(T, grid) .= BC.top.val
     elseif is_periodic(BC.top)
+        vecb_T(T, grid) .= val
+    else
         vecb_T(T, grid) .= val
     end
 end

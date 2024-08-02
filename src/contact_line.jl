@@ -131,7 +131,7 @@ function BC_LS_interior!(num, grid, iLS, A, B, rhs, BC_int, periodic_x, periodic
             idx_mix_full = vcat(LS[i].LIQUID)
 
             empty = Base.union(
-                findall(LS[i].geoL.cap0[:,:,5] .<= 1e-10), 
+                findall(LS[i].geoL.cap0[:,:,5] .<= num.epsilon_vol), 
                 findall(LS[i].geoL.double_emptied)
             )
             idx_mixed = setdiff(LS[i].MIXED, empty)
@@ -684,7 +684,7 @@ bell_function2(u, ϵ) = ((1.0 + cos(π * u / ϵ)) / 2.0)^2
 """
     dynamic_contact_angle(grid)
 
-Compute dynamic contact angle to be applied when usung the generalized Navier BC.
+Compute dynamic contact angle to be applied when using the generalized Navier BC.
 """
 function dynamic_contact_angle(grid)
     @unpack ind, κ = grid

@@ -129,7 +129,7 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
         __a1 = -1.0
         __b = 0.0
     elseif is_wall(bc_type)
-        __a0 = bc_type.val
+        __a0 = bc_type.Tval
         __a1 = -1.0
         __b = 0.0
     else
@@ -164,37 +164,37 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
         end    
         bcTx, bcTy = set_bc_bnds(dir, a0, HT, BC_T)
     
-        bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
-        bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
-        Δu = [grid_u.dx[1,1], grid_u.dy[1,1], grid_u.dx[end,end], grid_u.dy[end,end]] .* 0.5
-        Δv = [grid_v.dx[1,1], grid_v.dy[1,1], grid_v.dx[end,end], grid_v.dy[end,end]] .* 0.5
+        # bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
+        # bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
+        # Δu = [grid_u.dx[1,1], grid_u.dy[1,1], grid_u.dx[end,end], grid_u.dy[end,end]] .* 0.5
+        # Δv = [grid_v.dx[1,1], grid_v.dy[1,1], grid_v.dx[end,end], grid_v.dy[end,end]] .* 0.5
         
-        Hu = zeros(grid_u)
-        for i in eachindex(bnds_u)
-            for II in bnds_u[i]
-                Hu[II] = Δu[i]
-            end
-        end
+        # Hu = zeros(grid_u)
+        # for i in eachindex(bnds_u)
+        #     for II in bnds_u[i]
+        #         Hu[II] = Δu[i]
+        #     end
+        # end
 
-        Hv = zeros(grid_v)
-        for i in eachindex(bnds_v)
-            for II in bnds_v[i]
-                Hv[II] = Δv[i]
-            end
-        end
+        # Hv = zeros(grid_v)
+        # for i in eachindex(bnds_v)
+        #     for II in bnds_v[i]
+        #         Hv[II] = Δv[i]
+        #     end
+        # end
     
         bcU = zeros(grid_u)
         bcU .= reshape(vec2(uD,grid_u), grid_u)
-        bcU[:,1] .= vecb_L(uD, grid_u)
         bcU[1,:] .= vecb_B(uD, grid_u)
-        bcU[:,end] .= vecb_R(uD, grid_u)
         bcU[end,:] .= vecb_T(uD, grid_u)
+        bcU[:,1] .= vecb_L(uD, grid_u)
+        bcU[:,end] .= vecb_R(uD, grid_u)
         
         bcV = zeros(grid_v)
         bcV .= reshape(vec2(vD,grid_v), grid_v)
         bcV[:,1] .= vecb_L(vD, grid_v)
-        bcV[1,:] .= vecb_B(vD, grid_v)
         bcV[:,end] .= vecb_R(vD, grid_v)
+        bcV[1,:] .= vecb_B(vD, grid_v)
         bcV[end,:] .= vecb_T(vD, grid_v)
 
         scalar_convection!(dir, CT, CUTCT, u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 
@@ -247,7 +247,7 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
 
         # Matrices for borders BCs
         set_boundary_indicator!(grid, geo, geo, op)
-        mass_matrix_borders!(ind, op.iMx_b, op.iMy_b, op.iMx_bd, op.iMy_bd, geo.dcap, ny)
+        mass_matrix_borders!(num,ind, op.iMx_b, op.iMy_b, op.iMx_bd, op.iMy_bd, geo.dcap, ny)
         bc_matrix_borders!(grid, ind, op.Hx_b, op.Hy_b, geo.dcap)
         mat_assign_T!(op.HxT_b, sparse(op.Hx_b'))
         mat_assign_T!(op.HyT_b, sparse(op.Hy_b'))
@@ -266,6 +266,7 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
     # Interior BC
     A[ni+1:2*ni,1:ni] = b * (HxT[1] * iMx * Bx .+ HyT[1] * iMy * By)
     A[ni+1:2*ni,ni+1:2*ni] = pad(b * (HxT[1] * iMx * Hx[1] .+ HyT[1] * iMy * Hy[1]) .- χ[1] * a1)
+    A[ni+1:2*ni,end-nb+1:end] = b * (HxT[1] * op.iMx_b * op.Hx_b .+ HyT[1] * op.iMy_b * op.Hy_b)
 
     # Border BCs
     A[end-nb+1:end,1:ni] = b_b * (op.HxT_b * op.iMx_b' * Bx .+ op.HyT_b * op.iMy_b' * By)

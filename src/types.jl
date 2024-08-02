@@ -15,6 +15,8 @@ abstract type AbstractOptimizer end
     shift::T = 0.0
     shifted::T = shift*Δ
     shifted_y::T = 0.0
+    xcoord::T = 0.0
+    ycoord::T = 0.0
     τ::T = min(CFL*Δ^2*Re, CFL*Δ) # timestep
     max_iterations::D = TEND÷τ # maximum number of iterations
     current_i::D = 1
@@ -23,6 +25,9 @@ abstract type AbstractOptimizer end
     nb_reinit::D = length(x)÷8 # number of reinitializations
     δreinit::T = 10.0 # delta for automatic reinitialization
     ϵ::T = 0.00 # cell-clipping threshold
+    epsilon_mode::D = 0
+    epsilon_vol::T = 1e-10
+    epsilon_dist::T = 1e-10 #redefined afterwards in run.jl
     ϵwall::T = ϵ # cell-clipping threshold at mixed cells in walls
     NB::D = nb_reinit÷2 # number of cells the velocity is extended
     T_inf::T = 0.0 # value of temperature at ∞
@@ -50,6 +55,7 @@ abstract type AbstractOptimizer end
     nLS::D = 1 # number of levelsets
     _nLS::D = nLS == 1 ? 1 : nLS + 1
     nb_transported_scalars::D = 0
+    nb_saved_scalars::D = 0
     concentration0::Array{T} = [0.0]
     diffusion_coeff::Array{T} = [0.0]
     temperature0::T = 0.0
@@ -70,6 +76,18 @@ abstract type AbstractOptimizer end
     grav_x::T = 0.0
     grav_y::T = 0.0
     nNavier = 0 # number of Navier inner BCs
+    pres0::T=0.0
+    ref_thickness_2d::T=1.0
+    plot_xscale::T = 1.0
+    plot_prefix::String = "."
+    dt0::T = 1.0
+    concentration_check_factor::T = 0.0
+    radial_vel_factor::T = 0.0
+    debug::String = "none"
+    v_inlet::T=0.0
+    prediction::D=0
+    null_space::D=0
+    io_pdi::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -296,6 +314,8 @@ struct Phase{T <: Real} <: MutatingFields
     i_current_mag::Array{T,2}
     Eu::Array{T,2}
     Ev::Array{T,2}
+    # mass_flux::Array{T,2}
+    saved_scal::Array{T,3}
 end
 
 struct Forward{T <: Real} <: MutatingFields
@@ -314,6 +334,9 @@ struct Forward{T <: Real} <: MutatingFields
     i_current_mag::Array{T,3}
     Eu::Array{T,4}
     Ev::Array{T,4}
+    radius::Array{T,1}
+    # mass_flux::Array{T,3}
+    saved_scal::Array{T,4}
 end
 
 struct ForwardPhase{T <: Real} <: MutatingFields
@@ -322,6 +345,7 @@ struct ForwardPhase{T <: Real} <: MutatingFields
     ϕ::Array{T,3}
     u::Array{T,3}
     v::Array{T,3}
+    vD::Array{T,2}
     TD::Array{T,2}
     pD::Array{T,2}
     ucorrD::Array{T,2}
@@ -487,22 +511,5 @@ end
     val::N = 0.0
     λ::T = 0.0
     θe::T = π / 2
-end
-
-"""
-    Flapping{T,N} <: BoundaryCondition
-
-Boundary condition that moves the solid in the vertical direction following a sinusoidal 
-and in the horizontal direction according to the forces acting on the solid.
-
-Only works for elliptical solids.
-"""
-@with_kw mutable struct Flapping{T,N} <: BoundaryCondition
-    val::N = 0.0
-    λ::T = 0.0
-    ρs::T = 10.0
-    KC::T = 2π
-    β::T = 1.0
-    βmult::T = 1000.0
-    free::Bool = false
+    Tval::N = 0.0
 end

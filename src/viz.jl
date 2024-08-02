@@ -279,7 +279,14 @@ function make_video(
     step = 1,
     step0 = 1,
     stepf = size(field_u, 2),
-    plot_levelsets = false
+    plot_levelsets = false,
+    liquid = nothing,
+    solid = nothing,
+    hide_decors = false,
+    plot_left = false,
+    plot_bottom = false,
+    plot_right = false,
+    plot_top = false,
     )
 
     x = grid.x[1,:]
@@ -305,6 +312,20 @@ function make_video(
         else
             z = field[step0:stepf,:,:]
         end
+    end
+
+    plot_interface = true
+    if !isnothing(liquid) && !isa(liquid, AbstractArray)
+        liquid = [liquid]
+        plot_interface = false
+    elseif !isnothing(liquid)
+        plot_interface = false
+    end
+    if !isnothing(solid) && !isa(solid, AbstractArray)
+        solid = [solid]
+        plot_interface = false
+    elseif !isnothing(solid)
+        plot_interface = false
     end
 
     if minv == maxv == 0.0
@@ -341,18 +362,45 @@ function make_video(
     if plot_levelsets
         contour!(x, y, @lift(u[1,$obs,:,:]'), levels = -10:grid.dx[1,1]:10, linewidth = 2.0)
     end
+    if plot_interface
     for iLS in 1:num.nLS
         contour!(x, y, @lift(u[iLS,$obs,:,:]'), levels = [0.0], color = :red, linewidth = 3.0)
     end
-    # contourf!(x, y, u[2,1,:,:]', levels = 0:0, color = :red, linewidth = 3, extendlow = :gray);
+    end
+    if isa(liquid, AbstractArray)
+        for iLS in liquid
+            contourf!(x, y, @lift(u[iLS,$obs,:,:]'), levels = 0:0, color = :blue, linewidth = 3, extendhigh = :blue);
+        end
+    end
+    if isa(solid, AbstractArray)
+        for iLS in solid
+            contourf!(x, y, @lift(u[iLS,$obs,:,:]'), levels = 0:0, color = :gray, linewidth = 3, extendlow = :gray);
+        end
+    end
     if plot_hmap
         cbar = fig[1,2] = Colorbar(fig, hmap, labelpadding = 0)
+    end
+    if plot_left
+        lines!([lx[1], lx[1]], [ly[1], ly[2]], linewidth = 5, color = :black)
+    end
+    if plot_bottom
+        lines!([lx[1], lx[2]], [ly[1], ly[1]], linewidth = 5, color = :black)    
+    end
+    if plot_right
+        lines!([lx[2], lx[2]], [ly[1], ly[2]], linewidth = 5, color = :black)
+    end
+    if plot_top
+        lines!([lx[1], lx[2]], [ly[2], ly[2]], linewidth = 5, color = :black)    
     end
     limits!(ax, lx[1], lx[2], ly[1], ly[2])
     colgap!(fig.layout, 10)
     rowgap!(fig.layout, 10)
     colsize!(fig.layout, 1, widths(ax.scene.viewport[])[1])
     rowsize!(fig.layout, 1, widths(ax.scene.viewport[])[2])
+    if hide_decors
+        hidespines!(ax)
+        hidedecorations!(ax)
+    end
     resize_to_layout!(fig)
 
     vid = record(

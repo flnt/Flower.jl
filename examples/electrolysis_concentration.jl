@@ -136,7 +136,7 @@ TEND=7.3#s
 elec_cond=2*Faraday^2*c0_KOH*DKOH/(Ru*temperature0)
 
 
-print(@sprintf "TODO elec cond and boundary conditions need to be updated for potential\n")
+#print(@sprintf "TODO elec cond and boundary conditions need to be updated for potential\n")
 
 
 v_inlet=6.7e-4
@@ -445,7 +445,6 @@ print(@sprintf "Butler-Volmer %.2e \n" i_current[1])
 ####################################################
 
 printstyled(color=:green, @sprintf "\n max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(phL.u)) maximum(abs.(phL.v)))
-printstyled(color=:green, @sprintf "\n eps : %.2e \n" eps(0.01))
 
 xlabel = L"x \left(\mu m \right)"
 ylabel = L"y \left(\mu m \right)"

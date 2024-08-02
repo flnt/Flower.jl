@@ -109,18 +109,3 @@ function cost_functional(fwd, des, opt, idx, num, MIXED)
 end
 
 @. gradient(field, opt, x) = -(opt.γ[3]*x + field[opt.bc_indices])
-
-function init_adjoint_levelset(u, κ, γ, MIXED, h)
-    ψ = similar(u)
-    ψ .= 0
-    u2 = u.^2
-    for II in MIXED
-        nx = mysign(c∇x(u2, II), c∇y(u2, II))
-        ny = mysign(c∇y(u2, II), c∇x(u2, II))
-        @show (nx^2 + ny^2)
-        #ψ[II] = -γ/2 * (dot([∇x⁺(u2, II)/h, ∇x⁺(u2, II)/h], [nx, ny]) + κ[II]*u2[II])
-        ψ[II] = -γ/2 * (dot([∇x⁺(u2, II)/h, ∇x⁺(u2, II)/h], [nx, ny])) #-γ/2 * κ[II]*u2[II]
-        @show (ψ[II])
-    end
-    return ψ
-end
