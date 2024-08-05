@@ -425,7 +425,7 @@ def plot_current_lines(phi_array,Eus,Evs,file_name,xp,yp,plotpar):
     #https://matplotlib.org/stable/gallery/images_contours_and_fields/contourf_demo.html
 
     fig1, ax2 = plt.subplots(layout="constrained")
-    CS = ax2.contourf(x_array,y_array,phi_array, 10, cmap=cmap)
+    CS = ax2.contourf(xp,yp,phi_array, 10, cmap=cmap)
 
     CS2 = ax2.contour(CS, 
     # levels=CS.levels[::2], 
@@ -433,8 +433,8 @@ def plot_current_lines(phi_array,Eus,Evs,file_name,xp,yp,plotpar):
     colors="r")
 
     # ax2.set_title("Title")
-    ax2.set_xlabel(r"$x (\mu m)$")
-    ax2.set_ylabel(r"$y (\mu m)$")
+    ax2.set_xlabel(r"$x ( \unit{\um})$")
+    ax2.set_ylabel(r"$y ( \unit{\um})$")
 
     # Make a colorbar for the ContourSet returned by the contourf call.
     cbar = fig1.colorbar(CS)
@@ -442,9 +442,46 @@ def plot_current_lines(phi_array,Eus,Evs,file_name,xp,yp,plotpar):
     # Add the contour line levels to the colorbar
     cbar.add_lines(CS2)
 
-    plt.streamplot(x_array,y_array, -Eus,-Evs,color="w")
+    plt.streamplot(xp,yp, -Eus,-Evs,color="w")
     # Eus[last_it,:,:], Evs[last_it,:,:])#, color=(.75,.90,.93)) #do no transpose, python row major
     plt.axis("equal")
 
     plt.savefig(file_name+ "." + plotpar["img_format"])
     plt.close(fig1)
+
+# def plot_radius()
+#     df = pd.DataFrame([fwd.t[1:size_frame] fwd.radius[1:size_frame].*1.e6],columns=["t","r"])
+
+#     print(df)
+
+#     df.to_pickle(prefix*"/radius.pkl")
+
+#     fig1, ax2 = plt.subplots(layout="constrained")
+
+#     # print("t",fwd.t)
+#     # print("radius",fwd.radius.*1.e6)
+#     # print("current_i", current_i)
+#     # print("radius ",fwd.radius[1:current_i+1])
+#     # print("\nradius ",fwd.radius)
+
+#     plt.plot(fwd.t[1:size_frame],fwd.radius[1:size_frame].*1.e6)
+
+#     print()
+
+#     ilog0 = size_frame ÷ 2 
+#     ilog1 = 
+#     xlog = 
+#     print("\n")
+
+#     # ax2.set_title("Title")
+#     ax2.set_xlabel(L"$t (s)$")
+#     # ax2.set_ylabel(L"$R (m)$")
+#     ax2.set_ylabel(L"$R (\mu m)$")
+
+#     ax2.set_xscale("log")
+#     ax2.set_yscale("log")
+
+#     plt.axis("equal")
+
+#     plt.savefig(prefix*"R.pdf")
+#     plt.close(fig1)

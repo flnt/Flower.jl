@@ -23,4 +23,9 @@ julia +1.10.0 --project=../Flower.jl --threads=1 ../Flower.jl/examples/main_curr
 
 
 # srun --nodes=1 --time=00:30:00 -p cpu_short --pty /bin/bash
+# source /gpfs/workdir/shared/pdi-deisa/pdi_tuto_env
+# module load pdiplugin-pycall/1.6.0/gcc-11.2.0
 # julia +1.10.4 --project=$HOME/flower/Flower.jl --threads=1 $HOME/flower/Flower.jl/examples/main_current_folder.jl $HOME/flower/Flower.jl/examples/validation.yml
+
+
+
