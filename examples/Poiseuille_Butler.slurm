@@ -20,3 +20,7 @@ julia +1.10.0 --project=../Flower.jl --threads=1 ../Flower.jl/examples/main_curr
 
 # Post-processing
 # python3 -c "import plot_flower; plot_flower.plot_all_h5()" yaml_file_name
+
+
+# srun --nodes=1 --time=00:30:00 -p cpu_short --pty /bin/bash
+# julia +1.10.4 --project=$HOME/flower/Flower.jl --threads=1 $HOME/flower/Flower.jl/examples/main_current_folder.jl $HOME/flower/Flower.jl/examples/validation.yml
