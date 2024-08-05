@@ -30,12 +30,14 @@ import Base.reshape
 @reexport using GeoInterface
 @reexport using LibGEOS
 
-@reexport using HDF5
+# @reexport using HDF5
 
 @reexport import YAML
 @reexport using Test
 @reexport using MPI
 @reexport using PropertyDicts
+@reexport using PrettyTables
+
 
 
 # #Long version

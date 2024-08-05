@@ -2190,12 +2190,23 @@ function FE_set_momentum_debug(
 end
 
 function h5write2(filename, name::AbstractString, data,status; pv...)
-    file = h5open(filename, status; pv...)
-    try
-        write(file, name, data)
-    finally
-        close(file)
+    
+    @static if @isdefined(HDF5,h5open)
+
+        file = h5open(filename, status; pv...)
+        try
+            write(file, name, data)
+        finally
+            close(file)
+        end
+
+    else
+        
+        printstyled(color=:red, @sprintf "\n HDF5 not loaded, not writing with h5write2:\n")
+
+
     end
+
 end
 
 

@@ -1119,7 +1119,7 @@ print("\n P ",Poiseuille_fmax(gv.x[1,1],num.phys.v_inlet,num.phys.ref_length)," 
 
 
 
-if io.write_h5>0
+if io.write_h5>0 && @isdefined(HDF5,h5open)
     #test HDF5
     print("\n current_i ", current_i)
     current_i = 2

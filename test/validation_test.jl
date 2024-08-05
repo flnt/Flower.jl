@@ -1336,7 +1336,8 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
     # write_h5 = true
 
 
-    if write_h5
+    if write_h5 && @isdefined(HDF5,h5open)
+
 
     #test HDF5
         print("\n current_i ", current_i)
