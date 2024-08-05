@@ -1336,70 +1336,70 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
     # write_h5 = true
 
 
-    if write_h5 && @isdefined(HDF5,h5open)
+    # if write_h5 && @isdefined(:HDF5)
 
 
-    #test HDF5
-        print("\n current_i ", current_i)
-        current_i = 2
-        striter = @sprintf "%.5i" current_i
+    # #test HDF5
+    #     print("\n current_i ", current_i)
+    #     current_i = 2
+    #     striter = @sprintf "%.5i" current_i
 
 
-        filename="Mx"
-        file = prefix*filename*"_"*striter*".h5"
-        A = zeros(gv.ny, gv.nx+1)
-        for jplot in 1:gv.ny
-            for iplot in 1:gv.nx+1
-            II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-            pII = lexicographic(II, gp.ny + 1)
-            A[jplot,iplot] =  1 ./ op.opC_vL.iMx.diag[pII]
-            end
-        end
+    #     filename="Mx"
+    #     file = prefix*filename*"_"*striter*".h5"
+    #     A = zeros(gv.ny, gv.nx+1)
+    #     for jplot in 1:gv.ny
+    #         for iplot in 1:gv.nx+1
+    #         II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+    #         pII = lexicographic(II, gp.ny + 1)
+    #         A[jplot,iplot] =  1 ./ op.opC_vL.iMx.diag[pII]
+    #         end
+    #     end
 
 
-        print("\n size A ",size(A))
-        # from_jl_p =  PermutedDimsArray(A, (2,1))
-        # print("\n A ", A )
-        # hf = h5write(file, "data", A)
-        # A=transpose(A)
-        hf = h5write2(file, "data", A,"w")
+    #     print("\n size A ",size(A))
+    #     # from_jl_p =  PermutedDimsArray(A, (2,1))
+    #     # print("\n A ", A )
+    #     # hf = h5write(file, "data", A)
+    #     # A=transpose(A)
+    #     hf = h5write2(file, "data", A,"w")
 
 
-        filename="p"
-        file = prefix*filename*"_"*striter*".h5"
+    #     filename="p"
+    #     file = prefix*filename*"_"*striter*".h5"
 
-        # A = phL.p
-        # # A=transpose(A)
-        # hf = h5write2(file, "data", A,"w")
+    #     # A = phL.p
+    #     # # A=transpose(A)
+    #     # hf = h5write2(file, "data", A,"w")
 
-        filename="v"
-        file = prefix*filename*"_"*striter*".h5"
-        A = phL.v
-        # from_jl_p =  PermutedDimsArray(A, (2,1))
-        # print("\n A ", A )
-        # hf = h5write(file, "data", A)
-        # A=transpose(A)
-        hf = h5write2(file, "data", A,"w")
+    #     filename="v"
+    #     file = prefix*filename*"_"*striter*".h5"
+    #     A = phL.v
+    #     # from_jl_p =  PermutedDimsArray(A, (2,1))
+    #     # print("\n A ", A )
+    #     # hf = h5write(file, "data", A)
+    #     # A=transpose(A)
+    #     hf = h5write2(file, "data", A,"w")
 
-        # hf = h5write2(file, "data", from_jl_p,"w")
-
-
-
-
-
-        # intfcval = reshape(veci(phL.vD,gv,2), gv)
-        # filename="v_int"
-        # file = prefix*filename*"_"*striter*".h5"
+    #     # hf = h5write2(file, "data", from_jl_p,"w")
 
 
 
-        # h5write(file, "data", intfcval)
-        # filename="v_int_compr"
-        # file = prefix*filename*"_"*striter*".h5"
 
-        # h5write(file, "data", intfcval)
 
-    end # write_h5
+    #     # intfcval = reshape(veci(phL.vD,gv,2), gv)
+    #     # filename="v_int"
+    #     # file = prefix*filename*"_"*striter*".h5"
+
+
+
+    #     # h5write(file, "data", intfcval)
+    #     # filename="v_int_compr"
+    #     # file = prefix*filename*"_"*striter*".h5"
+
+    #     # h5write(file, "data", intfcval)
+
+    # end # write_h5
 
 
 

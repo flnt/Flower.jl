@@ -1,4 +1,4 @@
-using Revise
+# using Revise
 using Flower
 using PrettyTables
 
@@ -1119,67 +1119,67 @@ print("\n P ",Poiseuille_fmax(gv.x[1,1],num.phys.v_inlet,num.phys.ref_length)," 
 
 
 
-if io.write_h5>0 && @isdefined(HDF5,h5open)
-    #test HDF5
-    print("\n current_i ", current_i)
-    current_i = 2
-    striter = @sprintf "%.5i" current_i
+# if io.write_h5>0 #&& @isdefined(:HDF5)
+#     #test HDF5
+#     print("\n current_i ", current_i)
+#     current_i = 2
+#     striter = @sprintf "%.5i" current_i
 
 
-    filename="Mx"
-    file = prefix*filename*"_"*striter*".h5"
-    A = zeros(gv.ny, gv.nx+1)
-    for jplot in 1:gv.ny
-        for iplot in 1:gv.nx+1
-        II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-        pII = lexicographic(II, gp.ny + 1)
-        A[jplot,iplot] =  1 ./ op.opC_vL.iMx.diag[pII]
-        end
-    end
+#     filename="Mx"
+#     file = prefix*filename*"_"*striter*".h5"
+#     A = zeros(gv.ny, gv.nx+1)
+#     for jplot in 1:gv.ny
+#         for iplot in 1:gv.nx+1
+#         II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+#         pII = lexicographic(II, gp.ny + 1)
+#         A[jplot,iplot] =  1 ./ op.opC_vL.iMx.diag[pII]
+#         end
+#     end
 
 
-    print("\n size A ",size(A))
-    # from_jl_p =  PermutedDimsArray(A, (2,1))
-    # print("\n A ", A )
-    # hf = h5write(file, "data", A)
-    # A=transpose(A)
-    hf = h5write2(file, "data", A,"w")
+#     print("\n size A ",size(A))
+#     # from_jl_p =  PermutedDimsArray(A, (2,1))
+#     # print("\n A ", A )
+#     # hf = h5write(file, "data", A)
+#     # A=transpose(A)
+#     hf = h5write2(file, "data", A,"w")
 
 
-    filename="p"
-    file = prefix*filename*"_"*striter*".h5"
+#     filename="p"
+#     file = prefix*filename*"_"*striter*".h5"
 
-    # A = phL.p
-    # # A=transpose(A)
-    # hf = h5write2(file, "data", A,"w")
+#     # A = phL.p
+#     # # A=transpose(A)
+#     # hf = h5write2(file, "data", A,"w")
 
-    filename="v"
-    file = prefix*filename*"_"*striter*".h5"
-    A = phL.v
-    # from_jl_p =  PermutedDimsArray(A, (2,1))
-    # print("\n A ", A )
-    # hf = h5write(file, "data", A)
-    # A=transpose(A)
-    hf = h5write2(file, "data", A,"w")
+#     filename="v"
+#     file = prefix*filename*"_"*striter*".h5"
+#     A = phL.v
+#     # from_jl_p =  PermutedDimsArray(A, (2,1))
+#     # print("\n A ", A )
+#     # hf = h5write(file, "data", A)
+#     # A=transpose(A)
+#     hf = h5write2(file, "data", A,"w")
 
-    # hf = h5write2(file, "data", from_jl_p,"w")
+#     # hf = h5write2(file, "data", from_jl_p,"w")
 
 
-    if prediction == 0
-        str_prediction = "prediction_Flower"
-    elseif prediction == 3
-        str_prediction = "prediction_PIII"
-    else 
-        str_prediction = @sprintf "_%.1i" prediction
-    end
+#     if prediction == 0
+#         str_prediction = "prediction_Flower"
+#     elseif prediction == 3
+#         str_prediction = "prediction_PIII"
+#     else 
+#         str_prediction = @sprintf "_%.1i" prediction
+#     end
 
-    filename="v_err"*"_"*str_prediction*"_"
-    file = prefix*filename*"_"*striter*".h5"
-    A .= (A .- Poiseuille_fmax.(gv.x,num.phys.v_inlet,num.phys.ref_length)) ./num.phys.v_inlet
-    # A=transpose(A)
-    h5write2(file, "data", A,"w")
+#     filename="v_err"*"_"*str_prediction*"_"
+#     file = prefix*filename*"_"*striter*".h5"
+#     A .= (A .- Poiseuille_fmax.(gv.x,num.phys.v_inlet,num.phys.ref_length)) ./num.phys.v_inlet
+#     # A=transpose(A)
+#     h5write2(file, "data", A,"w")
 
-end #io.write_h5>0
+# end #io.write_h5>0
 
 
 printstyled(color=:red, @sprintf "\n iMx %.10e Mx %.10e eps %.10e \n" 1/(1e-4/128)^2 (1e-4/128)^2 eps(0.01))

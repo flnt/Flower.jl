@@ -2189,25 +2189,25 @@ function FE_set_momentum_debug(
     return rhs
 end
 
-function h5write2(filename, name::AbstractString, data,status; pv...)
+# function h5write2(filename, name::AbstractString, data,status; pv...)
     
-    @static if @isdefined(HDF5,h5open)
+    # @static if @isdefined(:HDF5)
 
-        file = h5open(filename, status; pv...)
-        try
-            write(file, name, data)
-        finally
-            close(file)
-        end
+#         file = h5open(filename, status; pv...)
+#         try
+#             write(file, name, data)
+#         finally
+#             close(file)
+#         end
 
-    else
+#     else
         
-        printstyled(color=:red, @sprintf "\n HDF5 not loaded, not writing with h5write2:\n")
+#         printstyled(color=:red, @sprintf "\n HDF5 not loaded, not writing with h5write2:\n")
 
 
-    end
+#     end
 
-end
+# end
 
 
 function pressure_projection_debug!(
