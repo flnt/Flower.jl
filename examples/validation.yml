@@ -79,12 +79,32 @@ flower:
     # time_scheme: CN
 
 plot:
-  beamer_frame_height: 228.4378 #pt
-  beamer_frame_width: 398.3386
   cbarlabel: "" #["u","v"]
   cmap: "viridis"
+  color_line: "k" #"w" #"k"
+  fig_fraction: 0.5
+  figures:
+      - var: velocity_x
+        file: velocity_vectors
+        skip_every: 12
+        xlim: [0,100]
+        ylim: [0,100]
+
+      - var: i_current_x
+        file: line_currents
+        xlim: [0,100]
+        ylim: [0,100]
+
+      - var: v_1D
+        file: v_zoom
+        xlim: [0,100]
+        ylim: [0,100]
+        zoom: [[0,5],[0,5]]
+
   img_format: "pdf"
   isocontour: false
+  latex_frame_height: 228.4378 #pt #beamer
+  latex_frame_width: 398.3386
   #do not plot 2D figure, used in special plots (velocity vectors and current lines):
   no_2D_plot: ["velocity_x","velocity_y","i_current_x","i_current_y"] 
   pdi: 1 #1: pdi activated
@@ -94,20 +114,12 @@ plot:
   scale_vel: 1e-4 
   scale_x: 1e-6
   scale_y: 1e-6
+  theta1: 0
+  theta2: 90
   ticks_x: 0:20:100
   ticks_y: 0:20:100
   write_h5: 0
-  figures:
-    - var: velocity_x
-      file: velocity_vectors
-      skip_every: 12
-      xlim: [0,100]
-      ylim: [0,100]
-    - var: i_current_x
-      file: line_currents
-      xlim: [0,100]
-      ylim: [0,100]
-
+  
   plot_grid: false
   plot_levelset: true
   plot_movies : false
@@ -203,7 +215,7 @@ pdi:
  
 
 # Useful links:
-#https://github.com/pdidev/tutorial
+# https://github.com/pdidev/tutorial
 
 
 # write:

@@ -789,18 +789,18 @@ end
 Butler-Volmer model, relation between exchande current and potential at electrode, with effects of concentration
 c0_H2: reference concentration
 """
-function butler_volmer_concentration(alphaa,alphac,c_H2,c0_H2,c_H2O,c0_H2O,c_KOH,c0_KOH,Faraday,i0,phi_ele,phi_ele1,Ru,temperature0)
+function butler_volmer_concentration(alpha_a,alpha_c,c_H2,c0_H2,c_H2O,c0_H2O,c_KOH,c0_KOH,Faraday,i0,phi_ele,phi_ele1,Ru,temperature0)
     eta = phi_ele1 - phi_ele
-    i_current = i0*(sqrt(c_H2/c0_H2)*(c_KOH/c0_KOH)*exp(alphaa*Faraday*eta/(Ru*temperature0))-(c_H2O/c0_H2O)*exp(-alphac*Faraday*eta/(Ru*temperature0)))
+    i_current = i0*(sqrt(c_H2/c0_H2)*(c_KOH/c0_KOH)*exp(alpha_a*Faraday*eta/(Ru*temperature0))-(c_H2O/c0_H2O)*exp(-alpha_c*Faraday*eta/(Ru*temperature0)))
     return i_current
 end
 
 """
 Butler-Volmer model, relation between exchande current and potential at electrode without concentration
 """
-function butler_volmer_no_concentration(alphaa,alphac,Faraday,i0,phi_ele,phi_ele1,Ru,temperature0)
+function butler_volmer_no_concentration(alpha_a,alpha_c,Faraday,i0,phi_ele,phi_ele1,Ru,temperature0)
     eta = phi_ele1 - phi_ele
-    i_current = i0*(exp(alphaa*Faraday*eta/(Ru*temperature0))-exp(-alphac*Faraday*eta/(Ru*temperature0)))
+    i_current = i0*(exp(alpha_a*Faraday*eta/(Ru*temperature0))-exp(-alpha_c*Faraday*eta/(Ru*temperature0)))
     return i_current
 end
 

@@ -62,8 +62,8 @@ abstract type AbstractOptimizer end
     i0::T = 0.0
     phi_ele0::T = 0.0
     phi_ele1::T = 0.0
-    alphac::T = 0.0
-    alphaa::T = 0.0
+    alpha_c::T = 0.0
+    alpha_a::T = 0.0
     Ru::T = 0.0
     Faraday::T = 0.0
     MWH2::T = 0.0

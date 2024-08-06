@@ -105,8 +105,8 @@ pres0=1e5
 sigma=7.7e-2
 KOHwtpercent=30
 phi_ele1=-0.6
-alphac=0.5
-alphaa=0.5
+alpha_c=0.5
+alpha_a=0.5
 DH2=5.8e-9
 DKOH=3.2e-9
 DH2O=3.2e-9
@@ -269,8 +269,8 @@ num = Numerical(
     i0=i0,
     phi_ele0=phi_ele0,
     phi_ele1=phi_ele1,
-    alphac=alphac,
-    alphaa=alphaa,
+    alpha_c=alpha_c,
+    alpha_a=alpha_a,
     Ru=Ru,
     Faraday=Faraday,
     MWH2=MWH2,
@@ -467,8 +467,8 @@ printstyled(color=:green, @sprintf "\n TODO timestep CFL scal, and print \n")
 phi_ele=gv.x[1,:] .*0.0
 # eta = phi_ele1 .-phi_ele
 #TODO precision: number of digits
-# i_current=i0*(exp(alphaa*Faraday*eta/(Ru*temperature0))-exp(-alphac*Faraday*eta/(Ru*temperature0)))
-i_current=butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phi_ele,phi_ele1,Ru,temperature0)
+# i_current=i0*(exp(alpha_a*Faraday*eta/(Ru*temperature0))-exp(-alpha_c*Faraday*eta/(Ru*temperature0)))
+i_current=butler_volmer_no_concentration.(alpha_a,alpha_c,Faraday,i0,phi_ele,phi_ele1,Ru,temperature0)
 
 print(@sprintf "Butler-Volmer %.2e \n" i_current[1])
 

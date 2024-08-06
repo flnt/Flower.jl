@@ -57,8 +57,8 @@ function run_forward(
     print("\n before unpack \n")
 
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, save_every, reinit_every, nb_reinit, δreinit, ϵ, m, θ₀, aniso, nLS, _nLS, nNavier,
-            concentration0, diffusion_coeff, nb_transported_scalars, nb_saved_scalars, temperature0, i0, phi_ele0, phi_ele1, alphac,
-            alphaa, Ru, Faraday, mu1, rho1 = num
+            concentration0, diffusion_coeff, nb_transported_scalars, nb_saved_scalars, temperature0, i0, phi_ele0, phi_ele1, alpha_c,
+            alpha_a, Ru, Faraday, mu1, rho1 = num
     @unpack opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL = op
     @unpack x, y, nx, ny, dx, dy, ind, LS, V = grid
 
@@ -763,10 +763,10 @@ function run_forward(
                 if electrolysis_reaction == "Butler_no_concentration"
 
                     if heat
-                        i_butler = butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,vecb_L(phL.phi_eleD, grid),
+                        i_butler = butler_volmer_no_concentration.(alpha_a,alpha_c,Faraday,i0,vecb_L(phL.phi_eleD, grid),
                         phi_ele1,Ru,phL.T)
                     else
-                        i_butler = butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,vecb_L(phL.phi_eleD, grid),
+                        i_butler = butler_volmer_no_concentration.(alpha_a,alpha_c,Faraday,i0,vecb_L(phL.phi_eleD, grid),
                         phi_ele1,Ru,temperature0)
                             
                     end   
@@ -1295,7 +1295,7 @@ function run_forward(
                     #Update Butler-Volmer Boundary Condition with new potential 
                 
                     # eta = phi_ele1 .- phL.phi_ele[:,1]
-                    # i_current = i0*(exp(alphaa*Faraday*eta/(Ru*temperature0))-exp(-alphac*Faraday*eta/(Ru*temperature0)))
+                    # i_current = i0*(exp(alpha_a*Faraday*eta/(Ru*temperature0))-exp(-alpha_c*Faraday*eta/(Ru*temperature0)))
 
                     if occursin("Butler",electrolysis_reaction)
 
@@ -1320,12 +1320,12 @@ function run_forward(
                         end
 
                         # if heat
-                        #     BC_phi_ele.left.val = -butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,phL.T)./elec_cond[:,1]
+                        #     BC_phi_ele.left.val = -butler_volmer_no_concentration.(alpha_a,alpha_c,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,phL.T)./elec_cond[:,1]
                         # else
-                        #     BC_phi_ele.left.val = -butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./elec_cond[:,1]
+                        #     BC_phi_ele.left.val = -butler_volmer_no_concentration.(alpha_a,alpha_c,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./elec_cond[:,1]
                             
                         #     # for iscal=1:nb_transported_scalars
-                        #     #     BC_trans_scal[iscal].left.val = butler_volmer_no_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./(2*Faraday*diffusion_coeff[iscal])
+                        #     #     BC_trans_scal[iscal].left.val = butler_volmer_no_concentration.(alpha_a,alpha_c,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./(2*Faraday*diffusion_coeff[iscal])
                         #     #     if iscal==1 || iscal==2
                         #     #         BC_trans_scal[iscal].left.val .*=-1 #H2O
                         #     #     end
@@ -1333,7 +1333,7 @@ function run_forward(
                         # end    
 
                     # elseif electrolysis_reaction == ""
-                    #     # BC_phi_ele.left.val = -butler_volmer_concentration.(alphaa,alphac,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./elec_cond
+                    #     # BC_phi_ele.left.val = -butler_volmer_concentration.(alpha_a,alpha_c,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,temperature0)./elec_cond
                     
                         
                         # print("\n before ",BC_phi_ele.left.val)
@@ -2147,37 +2147,35 @@ function run_forward(
             ####################################################################################################
 
             if num.io_pdi>0
+
                 try
                     printstyled(color=:red, @sprintf "\n PDI test \n" )
             
                     time = current_t #Cdouble
                     nstep = num.current_i
-                    print("\n nstep ",typeof(nstep))
-                    # pdi_array =zeros(nx,ny)
+               
+                    # phi_array=phL.phi_ele #do not transpose since python row major
+                    
+                    compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
             
-                    # for j in 1:gp.ny
-                    #     for i in 1:gp.nx
-                    #         pdi_array[j,i]=1000*i+j
-                    #     end
-                    # end
+                    Eus,Evs = interpolate_grid_liquid(grid,grid_u,grid_v,phL.Eu, phL.Ev)
+            
+                    us,vs = interpolate_grid_liquid(grid,grid_u,grid_v,phL.u,phL.v)
             
                     print("\n before write \n ")
-            
-                    # @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
-                    #             "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Clonglong,
-                    #             "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Clonglong,
-                    #             "main_field"::Cstring, pdi_array::Ptr{Cdouble}, 
-                    #             PDI_OUT::Clonglong,
-                    #             C_NULL::Ptr{Cvoid})::Cvoid
-
+                    #if writing "D" array (bulk, interface, border), add "_1D" to the name
                     @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
-                    "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Clonglong,
-                    "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Clonglong,
-                    "u"::Cstring, phL.u::Ptr{Cdouble}, 
-                    "v"::Cstring, phL.v::Ptr{Cdouble}, 
-                    "trans_scal"::Cstring, phL.trans_scal::Ptr{Cdouble}, 
-                    "phi_ele"::Cstring, phL.v::Ptr{Cdouble}, 
-                    PDI_OUT::Clonglong,
+                    "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+                    "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+                    "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "trans_scal_1D"::Cstring, phL.trans_scalD::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,   
+            
                     C_NULL::Ptr{Cvoid})::Cvoid
             
                     print("\n after write \n ")
@@ -2191,6 +2189,52 @@ function run_forward(
                     print(error)
                     printstyled(color=:red, @sprintf "\n PDI error \n")
                 end
+
+                # try
+                #     printstyled(color=:red, @sprintf "\n PDI test \n" )
+            
+                #     time = current_t #Cdouble
+                #     nstep = num.current_i
+                #     print("\n nstep ",typeof(nstep))
+                #     # pdi_array =zeros(nx,ny)
+            
+                #     # for j in 1:grid.ny
+                #     #     for i in 1:grid.nx
+                #     #         pdi_array[j,i]=1000*i+j
+                #     #     end
+                #     # end
+            
+                #     print("\n before write \n ")
+            
+                #     # @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
+                #     #             "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Clonglong,
+                #     #             "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Clonglong,
+                #     #             "main_field"::Cstring, pdi_array::Ptr{Cdouble}, 
+                #     #             PDI_OUT::Clonglong,
+                #     #             C_NULL::Ptr{Cvoid})::Cvoid
+
+                #     @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
+                #     "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Clonglong,
+                #     "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Clonglong,
+                #     "u"::Cstring, phL.u::Ptr{Cdouble}, 
+                #     "v"::Cstring, phL.v::Ptr{Cdouble}, 
+                #     "trans_scal"::Cstring, phL.trans_scal::Ptr{Cdouble}, 
+                #     "phi_ele"::Cstring, phL.v::Ptr{Cdouble}, 
+                #     PDI_OUT::Clonglong,
+                #     C_NULL::Ptr{Cvoid})::Cvoid
+            
+                #     print("\n after write \n ")
+            
+                #     @ccall "libpdi".PDI_finalize()::Cvoid
+            
+                #     printstyled(color=:red, @sprintf "\n PDI test end\n" )
+            
+                # catch error
+                #     printstyled(color=:red, @sprintf "\n PDI error \n")
+                #     print(error)
+                #     printstyled(color=:red, @sprintf "\n PDI error \n")
+                # end
+
             end #if io_pdi
 
             ####################################################################################################

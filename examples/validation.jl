@@ -136,7 +136,7 @@ c0test = p_g / (phys.temperature0 * phys.Ru)
 
 printstyled(color=:green, @sprintf "\n c0test: %.2e \n" c0test)
 
-# printstyled(color=:green, @sprintf "\n Mole test: %.2e %.2e\n" phys.concentration0[1]*4.0/3.0*pi*current_radius^3 p_g*4.0/3.0*pi*current_radius^3/(phys.temperature0*num.phys.Ru))
+# printstyled(color=:green, @sprintf "\n Mole test: %.2e %.2e\n" phys.concentration0[1]*4.0/3.0*pi*current_radius^3 p_g*4.0/3.0*pi*current_radius^3/(phys.temperature0*phys.Ru))
 
 
 
@@ -624,8 +624,8 @@ num = Numerical(
     i0=phys.i0,
     phi_ele0=phys.phi_ele0,
     phi_ele1=phys.phi_ele1,
-    alphac=phys.alpha_c,
-    alphaa=phys.alpha_a,
+    alpha_c=phys.alpha_c,
+    alpha_a=phys.alpha_a,
     Ru=phys.Ru,
     Faraday=phys.Faraday,
     MWH2=phys.MWH2,
@@ -991,8 +991,8 @@ phi_ele=gv.x[1,:] .*0.0
 
 # eta = phys.phi_ele1 .-phi_ele
 #TODO precision: number of digits
-# i_current=phys.i0*(exp(phys.alphaa*phys.Faraday*eta/(phys.Ru*phys.temperature0))-exp(-phys.alphac*phys.Faraday*eta/(phys.Ru*phys.temperature0)))
-i_current=butler_volmer_no_concentration.(phys.alphaa,phys.alphac,phys.Faraday,phys.i0,phi_ele,phys.phi_ele1,phys.Ru,phys.temperature0)
+# i_current=phys.i0*(exp(phys.alpha_a*phys.Faraday*eta/(phys.Ru*phys.temperature0))-exp(-phys.alpha_c*phys.Faraday*eta/(phys.Ru*phys.temperature0)))
+i_current=butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_ele,phys.phi_ele1,phys.Ru,phys.temperature0)
 
 print(@sprintf "Butler-Volmer %.2e %.2e %.2e %.2e\n" i_current[1] -i_current[1]/(2*phys.Faraday*DH2) c0_H2-i_current[1]/(2*phys.Faraday*DH2)*gp.dx[1,1] c0_H2+i_current[1]/(2*phys.Faraday*DH2)*gp.dx[1,1])
 
@@ -1027,9 +1027,9 @@ BC_pS = Boundaries(
     top    = Dirichlet(),
 )
 
-print("\n before phys.Run_forward \n")
+print("\n before run_forward \n")
 
-@time current_i=phys.Run_forward(
+@time current_i=run_forward(
     num, gp, gu, gv, op, phS, phL;
     BC_uL = Boundaries(
         left   = Dirichlet(),#Navier_cl(λ = 1e-2), #Dirichlet(),
@@ -1099,20 +1099,20 @@ print("\n before phys.Run_forward \n")
 printstyled(color=:green, @sprintf "\n max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(phL.u)) maximum(abs.(phL.v)))
 
 
-# vec = Poiseuille_fmax.(gv.x,num.phys.v_inlet,num.phys.ref_length)
+# vec = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length)
 # print("\n Poiseuille_fmax ",vec[1,:])
 # print("\n ")
 # print("\n phL.v ",phL.v[1,:])
 # print("\n ")
 
 
-# print("\n rel err",abs.(phL.v[1,:].-vec[1,:])./num.phys.v_inlet)
+# print("\n rel err",abs.(phL.v[1,:].-vec[1,:])./phys.v_inlet)
 
 
 # print("\n ", gv.x[1,:])
 # print("\n ", gv.x[1,1])
 
-print("\n P ",Poiseuille_fmax(gv.x[1,1],num.phys.v_inlet,num.phys.ref_length)," v ",phL.v[1,1]," test ",Poiseuille_fmax(0.0,num.phys.v_inlet,num.phys.ref_length))
+print("\n P ",Poiseuille_fmax(gv.x[1,1],phys.v_inlet,phys.ref_length)," v ",phL.v[1,1]," test ",Poiseuille_fmax(0.0,phys.v_inlet,phys.ref_length))
 
 
 #Attention = vs copy
@@ -1175,7 +1175,7 @@ print("\n P ",Poiseuille_fmax(gv.x[1,1],num.phys.v_inlet,num.phys.ref_length)," 
 
 #     filename="v_err"*"_"*str_prediction*"_"
 #     file = prefix*filename*"_"*striter*".h5"
-#     A .= (A .- Poiseuille_fmax.(gv.x,num.phys.v_inlet,num.phys.ref_length)) ./num.phys.v_inlet
+#     A .= (A .- Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length)) ./phys.v_inlet
 #     # A=transpose(A)
 #     h5write2(file, "data", A,"w")
 

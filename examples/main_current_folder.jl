@@ -124,20 +124,20 @@ printstyled(color=:green, @sprintf "\n Re : %.2e %.2e %.2e %.2e\n" Re phys.rho1/
 
 Re=phys.rho1/mu1 #not Reynolds number, but rho1/mu1
 
-printstyled(color=:green, @sprintf "\n Re : %.2e %.2e %.2e %.2e\n" Re phys.rho1/mu1 phys.rho1 mu1)
+printstyled(color=:green, @sprintf "\n 'Re' i.e. rho/mu : %.2e %.2e %.2e %.2e\n" Re phys.rho1/mu1 phys.rho1 mu1)
 
 
 if length(phys.concentration0)!=phys.nb_transported_scalars
-    print(@sprintf "nb_transported_scalars = %5i\n" phys.nb_transported_scalars)
+    print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
     @error ("nb_transported_scalars")
 end
 
 if length(phys.diffusion_coeff)!=phys.nb_transported_scalars
-    print(@sprintf "nb_transported_scalars = %5i\n" phys.nb_transported_scalars)
+    print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
     @error ("nb_transported_scalars")
 end
 
-print(@sprintf "nb_transported_scalars = %5i\n" phys.nb_transported_scalars)
+print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
 
 # pretty_table(phys.concentration0'; header = ["cH2", "cKOH", "cH2O"])
 # pretty_table(phys.diffusion_coeff'; header = ["DH2", "DKOH", "DH2O"])
@@ -169,13 +169,11 @@ p_liq= phys.pres0 #+ mean(veci(phL.pD,grid,2)) #TODO here one bubble
 # p_g=p_liq + 2 * phys.sigma / current_radius
 p_g=p_liq + phys.sigma / current_radius
 
-
 c0test = p_g / (phys.temperature0 * phys.Ru) 
 
+# printstyled(color=:green, @sprintf "\n c0test: %.2e \n" c0test)
 
-printstyled(color=:green, @sprintf "\n c0test: %.2e \n" c0test)
-
-# printstyled(color=:green, @sprintf "\n Mole test: %.2e %.2e\n" phys.concentration0[1]*4.0/3.0*pi*current_radius^3 p_g*4.0/3.0*pi*current_radius^3/(phys.temperature0*num.phys.Ru))
+# printstyled(color=:green, @sprintf "\n Mole test: %.2e %.2e\n" phys.concentration0[1]*4.0/3.0*pi*current_radius^3 p_g*4.0/3.0*pi*current_radius^3/(phys.temperature0*phys.Ru))
 
 
 
@@ -199,7 +197,7 @@ printstyled(color=:green, @sprintf "\n c0test: %.2e \n" c0test)
 # needs a lot of work, not priority
 _θe = acos((0.5 * diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
 # _θe = acos((diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
-println("θe = $(_θe)")
+# println("θe = $(_θe)")
 
 ####################################################################################################
 
@@ -654,8 +652,8 @@ num = Numerical(
     i0=phys.i0,
     phi_ele0=phys.phi_ele0,
     phi_ele1=phys.phi_ele1,
-    alphac=phys.alpha_c,
-    alphaa=phys.alpha_a,
+    alpha_c=phys.alpha_c,
+    alpha_a=phys.alpha_a,
     Ru=phys.Ru,
     Faraday=phys.Faraday,
     MWH2=phys.MWH2,
@@ -815,22 +813,23 @@ if io.pdi>0
 
         comm = MPI.COMM_WORLD
 
-        print("\n after comm ")
+        # print("\n after comm ")
 
-        print("\n comm ",comm)
+        # print("\n comm ",comm)
 
         # Version: julia +1.10.4
 
         conf = @ccall "libparaconf".PC_parse_path(yml_file::Cstring)::PC_tree_t
-        print("\n conf ")
+        # print("\n conf ")
 
         getsubyml = @ccall "libparaconf".PC_get(conf::PC_tree_t,".pdi"::Cstring)::PC_tree_t  
-        print("\n getsubyml ")
+
+        # print("\n getsubyml ")
 
         # print(getsubyml)
         @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cvoid
 
-        print("\n PDI_init ")
+        # print("\n PDI_init ")
 
         # @ccall "libpdi".PDI_init(conf::PC_tree_t)::Cvoid
 
@@ -860,7 +859,7 @@ if io.pdi>0
                 C_NULL::Ptr{Cvoid})::Cvoid
 
         
-        print("\n PDI_multi_expose ")
+        # print("\n PDI_multi_expose ")
 
 
         # time = 0.0
@@ -896,74 +895,70 @@ end #if io_pdi
 
 
 
-current_t = 0
-num.current_i = 0
-####################################################################################################
-#PDI (IO)
-####################################################################################################
+# current_t = 0
+# num.current_i = 0
+# ####################################################################################################
+# #PDI (IO)
+# ####################################################################################################
 
-if num.io_pdi>0
-    try
-        printstyled(color=:red, @sprintf "\n PDI test \n" )
+# if num.io_pdi>0
+#     try
+#         printstyled(color=:red, @sprintf "\n PDI test \n" )
 
-        time = current_t #Cdouble
-        nstep = num.current_i
-        # print("\n nstep ",typeof(nstep))
-        # pdi_array =zeros(nx,ny)
+#         time = current_t #Cdouble
+#         nstep = num.current_i
+#         # print("\n nstep ",typeof(nstep))
+#         # pdi_array =zeros(nx,ny)
 
-        # for j in 1:gp.ny
-        #     for i in 1:gp.nx
-        #         pdi_array[j,i]=1000*i+j
-        #     end
-        # end
+#         # for j in 1:gp.ny
+#         #     for i in 1:gp.nx
+#         #         pdi_array[j,i]=1000*i+j
+#         #     end
+#         # end
 
-        vec1(phL.vD,gv) .= vec(phL.v)
-        # vec2(phL.vD,gv) .= 333 #test
+#         vec1(phL.vD,gv) .= vec(phL.v)
+#         # vec2(phL.vD,gv) .= 333 #test
 
-        # phi_array=phL.phi_ele #do not transpose since python row major
+#         # phi_array=phL.phi_ele #do not transpose since python row major
         
-        compute_grad_phi_ele!(num, gp, gu, gv, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+#         compute_grad_phi_ele!(num, gp, gu, gv, phL, phS, op.opC_pL, op.opC_pS) #TODO current
 
-        Eus,Evs = interpolate_grid_liquid(gp,gu,gv,phL.Eu, phL.Ev)
+#         Eus,Evs = interpolate_grid_liquid(gp,gu,gv,phL.Eu, phL.Ev)
 
-        us,vs = interpolate_grid_liquid(gp,gu,gv,phL.u,phL.v)
-
-
-        print("\n before write \n ")
-        #if writing "D" array (bulk, interface, border), add "_1D" to the name
-        @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
-        "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
-        "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
-        "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
-        "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
-        "trans_scal_1D"::Cstring, phL.trans_scalD::Ptr{Cdouble}, PDI_OUT::Cint,
-        "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-        "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
-        "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
-        "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-        "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,   
-
-        C_NULL::Ptr{Cvoid})::Cvoid
-
-        print("\n after write \n ")
-
-        @ccall "libpdi".PDI_finalize()::Cvoid
-
-        printstyled(color=:red, @sprintf "\n PDI test end\n" )
-
-    catch error
-        printstyled(color=:red, @sprintf "\n PDI error \n")
-        print(error)
-        printstyled(color=:red, @sprintf "\n PDI error \n")
-    end
-end #if io.pdi>0
-
-####################################################################################################
+#         us,vs = interpolate_grid_liquid(gp,gu,gv,phL.u,phL.v)
 
 
-if crashed #due to nH2<0...
-    return num.current_i
-end
+#         print("\n before write \n ")
+#         #if writing "D" array (bulk, interface, border), add "_1D" to the name
+#         @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
+#         "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+#         "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+#         "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+#         "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+#         "trans_scal_1D"::Cstring, phL.trans_scalD::Ptr{Cdouble}, PDI_OUT::Cint,
+#         "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+#         "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+#         "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+#         "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+#         "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,   
+
+#         C_NULL::Ptr{Cvoid})::Cvoid
+
+#         print("\n after write \n ")
+
+#         @ccall "libpdi".PDI_finalize()::Cvoid
+
+#         printstyled(color=:red, @sprintf "\n PDI test end\n" )
+
+#     catch error
+#         printstyled(color=:red, @sprintf "\n PDI error \n")
+#         print(error)
+#         printstyled(color=:red, @sprintf "\n PDI error \n")
+#     end
+# end #if io.pdi>0
+
+# ####################################################################################################
+
 
 
 ####################################################################################################
@@ -1016,7 +1011,7 @@ print_electrolysis_statistics(phys.nb_transported_scalars,gp,phL)
 printstyled(color=:green, @sprintf "\n TODO timestep sim.CFL scal, and print \n")
 
 
-@unpack τ,sim.CFL,Δ,Re,θd=num
+@unpack τ,CFL,Δ,Re,θd=num
 # print(@sprintf "dt %.2e %.2e %.2e %.2e %.2e %.2e\n" τ sim.CFL sim.CFL*Δ sim.CFL*Δ^2*Re Re θd)
 # τ=sim.CFL*Δ/phys.v_inlet
 # num.τ=τ
@@ -1035,8 +1030,8 @@ phi_ele=gv.x[1,:] .*0.0
 
 # eta = phys.phi_ele1 .-phi_ele
 #TODO precision: number of digits
-# i_current=phys.i0*(exp(phys.alphaa*phys.Faraday*eta/(phys.Ru*phys.temperature0))-exp(-phys.alphac*phys.Faraday*eta/(phys.Ru*phys.temperature0)))
-i_current=butler_volmer_no_concentration.(phys.alphaa,phys.alphac,phys.Faraday,phys.i0,phi_ele,phys.phi_ele1,phys.Ru,phys.temperature0)
+# i_current=phys.i0*(exp(phys.alpha_a*phys.Faraday*eta/(phys.Ru*phys.temperature0))-exp(-phys.alpha_c*phys.Faraday*eta/(phys.Ru*phys.temperature0)))
+i_current=butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_ele,phys.phi_ele1,phys.Ru,phys.temperature0)
 
 print(@sprintf "Butler-Volmer %.2e %.2e %.2e %.2e\n" i_current[1] -i_current[1]/(2*phys.Faraday*DH2) c0_H2-i_current[1]/(2*phys.Faraday*DH2)*gp.dx[1,1] c0_H2+i_current[1]/(2*phys.Faraday*DH2)*gp.dx[1,1])
 
@@ -1071,9 +1066,16 @@ BC_pS = Boundaries(
     top    = Dirichlet(),
 )
 
-print("\n before phys.Run_forward \n")
+if sim.time_scheme == "FE"
+    time_scheme = FE
+else
+    time_scheme = CN
+end
 
-@time current_i=phys.Run_forward(
+
+print("\n before run_forward \n")
+
+@time current_i=run_forward(
     num, gp, gu, gv, op, phS, phL;
     BC_uL = Boundaries(
         left   = Dirichlet(),#Navier_cl(λ = 1e-2), #Dirichlet(),
@@ -1114,10 +1116,9 @@ print("\n before phys.Run_forward \n")
         top    = Neumann(val=0.0),
         int    = Neumann(val=0.0),
     ),
-
-    # auto_reinit = true,
+     # auto_reinit = true,
     # save_length = true,
-    time_scheme = sim.time_scheme,
+    time_scheme = time_scheme,
     electrolysis = true,
     navier_stokes = true,
     ns_advection=true,#false,
@@ -1129,7 +1130,7 @@ print("\n before phys.Run_forward \n")
     electrolysis_phase_change_case = sim.electrolysis_phase_change_case,
     electrolysis_reaction = phys.electrolysis_reaction, 
     imposed_velocity = sim.imposed_velocity,
-    sim.adapt_timestep_mode = sim.adapt_timestep_mode,#1,
+    adapt_timestep_mode = sim.adapt_timestep_mode,#1,
     non_dimensionalize=sim.non_dimensionalize,
     mode_2d = sim.mode_2d,
     convection_Cdivu = sim.convection_Cdivu,
@@ -1143,20 +1144,20 @@ print("\n before phys.Run_forward \n")
 printstyled(color=:green, @sprintf "\n max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(phL.u)) maximum(abs.(phL.v)))
 
 
-# vec = Poiseuille_fmax.(gv.x,num.phys.v_inlet,num.phys.ref_length)
+# vec = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length)
 # print("\n Poiseuille_fmax ",vec[1,:])
 # print("\n ")
 # print("\n phL.v ",phL.v[1,:])
 # print("\n ")
 
 
-# print("\n rel err",abs.(phL.v[1,:].-vec[1,:])./num.phys.v_inlet)
+# print("\n rel err",abs.(phL.v[1,:].-vec[1,:])./phys.v_inlet)
 
 
 # print("\n ", gv.x[1,:])
 # print("\n ", gv.x[1,1])
 
-print("\n P ",Poiseuille_fmax(gv.x[1,1],num.phys.v_inlet,num.phys.ref_length)," v ",phL.v[1,1]," test ",Poiseuille_fmax(0.0,num.phys.v_inlet,num.phys.ref_length))
+print("\n P ",Poiseuille_fmax(gv.x[1,1],phys.v_inlet,phys.ref_length)," v ",phL.v[1,1]," test ",Poiseuille_fmax(0.0,phys.v_inlet,phys.ref_length))
 
 
 #Attention = vs copy
@@ -1219,7 +1220,7 @@ if io.write_h5>0
 
     filename="v_err"*"_"*str_prediction*"_"
     file = prefix*filename*"_"*striter*".h5"
-    A .= (A .- Poiseuille_fmax.(gv.x,num.phys.v_inlet,num.phys.ref_length)) ./num.phys.v_inlet
+    A .= (A .- Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length)) ./phys.v_inlet
     # A=transpose(A)
     h5write2(file, "data", A,"w")
 
