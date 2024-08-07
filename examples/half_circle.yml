@@ -122,7 +122,6 @@ plot:
         range: [0,1e-4]
         xlim: [0,100]
         ylim: [0,100]
-        zoom: [[0,5],[0,5]]
 
   img_format: "pdf"
   isocontour: false
@@ -231,7 +230,7 @@ pdi:
     decl_hdf5: #Writing in hdf5
       # - file: results/data_${nstep:08}_${mpi_coords_x:02}_${mpi_coords_y:02}.h5 #Name of the file test.h5
       - file: flower_${nstep:08}.h5 #Name of the file test.h5
-        collision_policy: replace
+        collision_policy: write_into
         on_event: write_data
         # datasets: #Dataset we are writing in: the whole solution
         #   data:
@@ -242,7 +241,7 @@ pdi:
         write: [u_1D,v_1D,time,nstep,phi_ele_1D,velocity_x,velocity_y,i_current_x,i_current_y] #,levelset_p,levelset_u,levelset_v]
 
       - file: flower_${nstep:08}.h5 #Name of the file test.h5
-        collision_policy: replace
+        collision_policy: write_into
         on_event: write_data_start_loop
         # datasets: #Dataset we are writing in: the whole solution
         #   data:

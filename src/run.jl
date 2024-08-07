@@ -2099,7 +2099,9 @@ function run_forward(
 
         # cD, cL, D, L = force_coefficients!(num, grid, grid_u, grid_v, opL, fwd, phL; step = num.current_i+1, saveCoeffs = false)
 
-        # current_t += num.τ
+        #update time
+        current_t += num.τ
+
         # if iszero(num.current_i%save_every) || num.current_i==max_iterations
         #     snap = num.current_i÷save_every+1
         #     if num.current_i==max_iterations
