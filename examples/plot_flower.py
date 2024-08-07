@@ -107,7 +107,7 @@ def set_size(width,fraction=1,ratio=1,nvary=1,ratio2=4.8/6.4,height=None):
 
         fig_width_in = fig_height_in / golden_ratio
 
-        fig_dim = (fig_width_in, fig_width_in*ratio2/ratio*nvary)
+        fig_dim = (fig_width_in, fig_height_in*ratio2/ratio*nvary)
 
     return fig_dim
 
@@ -299,13 +299,19 @@ def plot_file(
         nx=nx+1
         x_1D = xu 
         y_1D = yp
+        key_LS = "levelset_u"
+
     elif key=="v_1D":
         ny=ny+1
         x_1D = xp
         y_1D = yv 
+        key_LS = "levelset_v"
+
     else:
         x_1D = xp
         y_1D = yp
+        key_LS = "levelset_p"
+
 
     # if field.shape[0] == mesh["ny"]+1:
     #     print("v mesh")
@@ -324,13 +330,18 @@ def plot_file(
     ifield = 1 # bulk value
     if data.ndim ==1:
         data = veci(data,nx,ny,ifield)
+        field=data
+    else:
+        field = data.transpose()
+
 
     # file_name_1 = key
     file_name = figpar['file']
 
     print(key,"max ",np.max(data))
 
-    field = data.transpose()
+    # print(field.shape,nx,ny,len(x_1D),len(y_1D))
+
 
     # print(field.shape[0])
     # print(field.shape[1])
@@ -343,6 +354,9 @@ def plot_file(
     fig1, ax2 = plt.subplots(figsize=set_size(plotpar["latex_frame_width"], fraction=plotpar["fig_fraction"],
                                               ratio=1,nvary=1,ratio2=1,height=plotpar["latex_frame_height"]),
                                               layout="constrained")
+    ax2.spines["right"].set_visible(False)
+    ax2.spines["top"].set_visible(False)
+
     if 'plot_mode' not in figpar.keys():
         figpar['plot_mode'] = plotpar['plot_mode']
 
@@ -359,6 +373,9 @@ def plot_file(
     # radius /= scale_x
 
     shading="nearest"
+
+    print(field.shape,nx,ny,len(x_1D),len(y_1D))
+
 
     if figpar['plot_mode'] == "contourf":
         if figpar['levels']==0:
@@ -410,12 +427,9 @@ def plot_file(
         # CSlvl = ax2.contour(xp,yp, gp.LS[1].u, [0.0],colors="r")
         # CSlvl = ax2.contour(xp,yp, fwd.u[1,i,i0:i1,j0:j1], [0.0],colors="r")
 
-        if typeof(grid) == GridCC: #isCC(grid)
-            CSlvl = ax2.contour(xp,yp, fwd.u[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
-        elif typeof(grid) == GridFCx: #isFCx(grid)
-            CSlvl = ax2.contour(xp,yp, fwd.ux[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
-        elif typeof(grid) == GridFCy: #isFCy(grid)
-            CSlvl = ax2.contour(xp,yp, fwd.uy[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
+        LSdat = file[key_LS][:]
+        LSdat = LSdat.transpose()
+        CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r")
 
     str_time = '{:.2e}'.format(time*plotpar['scale_time'])
     # strrad = '{:.2e}'.format(radius)
@@ -439,8 +453,8 @@ def plot_file(
     plt.axis("equal")
     # print("saving ", file_name)
     # plt.show()
-    plt.savefig(file_name+ "." + plotpar["img_format"])
-
+    str_nstep = str(nstep)
+    plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"])
     # Close the plot to avoid overlapping issues
     # plt.close()
     plt.close(fig1)
@@ -458,6 +472,9 @@ def plot_vector(file,xp,yp,time,nstep,plotpar,figpar):
 
 
     fig1, ax2 = plt.subplots(layout="constrained")
+    ax2.spines["right"].set_visible(False)
+    ax2.spines["top"].set_visible(False)
+
     scale_units=plotpar["quiver_scale_unit"]
     scale_units = None if scale_units == 'None' else scale_units
 
@@ -494,11 +511,15 @@ def plot_vector(file,xp,yp,time,nstep,plotpar,figpar):
 
     # ax2.axis('square')
 
+    ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
+    ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
     ax2.set_aspect('equal', 'box')
 
-    # # plt.show()
     # str_nstep = str1="{:05}".format(nstep)
     str_nstep = str(nstep)
+    str_time = '{:.2e}'.format(time*plotpar['scale_time'])
+    plt.title("t "+str_time +r"$(\unit{s})$")
+
     plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"])
     plt.close(fig1)
 
@@ -535,6 +556,9 @@ def plot_current_lines(file,
     # https://matplotlib.org/stable/gallery/images_contours_and_fields/contourf_demo.html
 
     fig1, ax2 = plt.subplots(layout="constrained")
+    ax2.spines["right"].set_visible(False)
+    ax2.spines["top"].set_visible(False)
+
     CS = ax2.contourf(xp, yp, phi_array, 10, cmap=plotpar["cmap"])
 
     CS2 = ax2.contour(
@@ -556,7 +580,10 @@ def plot_current_lines(file,
 
     plt.streamplot(xp, yp, -Eus, -Evs, color="w")
     # Eus[last_it,:,:], Evs[last_it,:,:])#, color=(.75,.90,.93)) #do no transpose, python row major
-    plt.axis("equal")
+    
+    ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
+    ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
+    ax2.set_aspect('equal', 'box')
 
     str_nstep = str(nstep)
     plt.savefig(file_name + "_" + str_nstep + "." + plotpar["img_format"])
@@ -625,11 +652,36 @@ def plot_python_pdf_full2(
     if key == "u_1D":
         nx = nx + 1
         key_LS = "levelset_u"
+        x_1D = xu
+        y_1D = yp
     elif key == "v_1D":
         ny = ny + 1
-        key_LS = "levelset_u"
+        key_LS = "levelset_v"
+        x_1D = xp
+        y_1D = yv
     else:
         key_LS = "levelset_p"
+        x_1D = xp
+        y_1D = yp
+
+
+    # nx = mesh["nx"]
+    # ny = mesh["ny"]
+
+    # if figpar["var"] == "u_1D":
+    #     print("u mesh")
+    #     nx = nx + 1
+    #     x_1D = xu
+    #     y_1D = yp
+    # elif figpar["var"] == "v_1D":
+    #     print("v mesh")
+    #     ny = ny + 1
+    #     x_1D = xp
+    #     y_1D = yv
+    # else:
+    #     print("p mesh")
+    #     x_1D = xp
+    #     y_1D = yp
 
     data_1D = file[key][:]
     # file_name_1 = key
@@ -658,23 +710,7 @@ def plot_python_pdf_full2(
     i1tmp2 = i1 + 1
     j1tmp2 = j1 + 1
 
-    nx = mesh["nx"]
-    ny = mesh["ny"]
 
-    if figpar["var"] == "u_1D":
-        print("u mesh")
-        nx = nx + 1
-        x_1D = xu
-        y_1D = yp
-    elif figpar["var"] == "v_1D":
-        print("v mesh")
-        ny = ny + 1
-        x_1D = xp
-        y_1D = yv
-    else:
-        print("p mesh")
-        x_1D = xp
-        y_1D = yp
 
     ifield = 1 # bulk value
     field0 = veci(data_1D,nx,ny,ifield)
@@ -736,6 +772,11 @@ def plot_python_pdf_full2(
         field = field0[j0:j1,i0:i1]
 
     fig1, ax2 = plt.subplots(layout="constrained")
+    ax2.spines["right"].set_visible(False)
+    ax2.spines["top"].set_visible(False)
+
+    # print(field.shape,nx,ny,len(x_1D),len(y_1D))
+
 
     if figpar['levels']==0: 
         CS = ax2.contourf(x_arr,y_arr,field, 
@@ -803,6 +844,10 @@ def plot_python_pdf_full2(
 
     # ax2.set_title("Title")
 
+    str_time = '{:.2e}'.format(time*plotpar['scale_time'])
+    plt.title("t "+str_time +r"$(\unit{s})$")
+
+
     ax2.set_xlabel(r"$x ( \unit{\um})$")
     ax2.set_ylabel(r"$y ( \unit{\um})$")
 
@@ -848,8 +893,9 @@ def plot_python_pdf_full2(
 
                 ax2.add_patch(arc)
 
-        CSlvl = ax2.contour(x_1D[ii0:ii1],y_1D[jj0:jj1], file[key_LS][:][jj0:jj1,ii0:ii1], [0.0],colors="r")
-        # CSlvl = ax2.contour(x_1D[ii0:ii1],y_1D[jj0:jj1], fwd.u[1,indLS,jj0:jj1,ii0:ii1], [0.0],colors="r")
+        LSdat = file[key_LS][:]
+        LSdat = LSdat.transpose()
+        CSlvl = ax2.contour(x_1D[ii0:ii1],y_1D[jj0:jj1], LSdat[jj0:jj1,ii0:ii1], [0.0],colors="r")
 
     ax2.spines["right"].set_visible(False)
     ax2.spines["top"].set_visible(False)
@@ -865,18 +911,9 @@ def plot_python_pdf_full2(
 
     # plt.title("t "*strtime*r"$( \unit{\ms})$"*"radius "*strrad*r"$( \unit{\um})$")
 
-    # if plot_levelset
-    #     gp.LS[1].u .= sqrt.((gp.x .+ xcoord).^ 2 + (gp.y .+ ycoord) .^ 2) - (radius) * ones(gp);
-
-    #     CSlvl = ax2.contour(x_arr,y_arr, gp.LS[1].u, [0.0],colors="r")
-    # end
-
-    plt.axis("equal")
-
-    ax2.set_aspect("equal")
-
-    # plt.savefig(figname + str_iter + ".pdf")
-
+    ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
+    ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
+    ax2.set_aspect('equal', 'box')
     str_nstep = str(nstep)
     plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"])
 

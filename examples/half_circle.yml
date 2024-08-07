@@ -118,7 +118,7 @@ plot:
         plot_bc: True
         plot_grid: True
         plot_levelset: True
-        plot_mode: pcolormesh #contourf
+        plot_mode: contourf
         range: [0,1e-4]
         xlim: [0,100]
         ylim: [0,100]
