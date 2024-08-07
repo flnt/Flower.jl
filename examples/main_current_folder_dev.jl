@@ -5,6 +5,11 @@ using PrettyTables
 
 makedir = false 
 
+# julia +1.10.0 --project=../Flower.jl --threads=1 ../Flower.jl/examples/main_current_folder.jl ../Flower.jl/examples/validation.yml
+
+# python3 -c "import plot_flower; plot_flower.plot_all_h5()" validation
+# python3 -c "import plot_flower; plot_flower.plot_all_h5()" yamlfile
+
 # localARGS = isdefined(:newARGS) ? newARGS : ARGS 
 localARGS = ARGS
 @show localARGS
@@ -30,6 +35,20 @@ if length(localARGS)>0
 
 end
 
+# yamlfile = prefixyaml*"validation.yml"
+
+# prefix="/local/home/pr277828/flower/"
+
+# prefixyaml=prefix*"/Flower.jl/examples/"
+
+
+
+
+# yamlfile ="validation.yml"
+# yamlpath= prefixyaml*yamlfile
+
+# data = YAML.load_file(prefixyaml*"flower.yml")
+# println(data)
 data = YAML.load_file(yamlpath)
 
 # Dictionaries 
@@ -42,12 +61,15 @@ phys = PropertyDict(flower.physics)
 
 # Simulation parameters
 save_every = sim.max_iter
+####################################################################################################
 
-
+####################################################################################################
 # Sessile from sessile.jl
+####################################################################################################
 Rf(θ, V) = sqrt(V / (θ - sin(θ) * cos(θ)))
 RR0(θ) = sqrt(π / (2 * (θ - sin(θ) * cos(θ))))
 center(r, θ) = r * cos(π - θ)
+####################################################################################################
 
 θe= 90
 θe= 145
@@ -65,13 +87,19 @@ else
     n_ext = 10
     sim.CFL = 0.5
 end
+####################################################################################################
 
-
+###################################################################################################
 # Physical parameters 
+###################################################################################################
+
+# x = LinRange(0, phys.ref_length, mesh.nx+1)
+# y = LinRange(0, phys.ref_length, mesh.nx+1)
+
 x = LinRange(mesh.xmin, mesh.xmax, mesh.nx+1)
 y = LinRange(mesh.ymin, mesh.ymax, mesh.ny+1)
 
-
+####################################################################################################
 
 # Physics
 mu = phys.mu_cin1 *phys.rho1 #in Pa s = M L^{-1} T^{-1}}
@@ -88,6 +116,7 @@ DH2,DKOH,DH2O= phys.diffusion_coeff
 
 nb_saved_scalars=1
 
+
 elec_cond=2*phys.Faraday^2*c0_KOH*DKOH/(phys.Ru*phys.temperature0)
 
 Re=phys.rho1*phys.v_inlet*phys.ref_length/mu #Reynolds number
@@ -96,6 +125,7 @@ printstyled(color=:green, @sprintf "\n Re : %.2e %.2e %.2e %.2e\n" Re phys.rho1/
 Re=phys.rho1/mu1 #not Reynolds number, but rho1/mu1
 
 printstyled(color=:green, @sprintf "\n 'Re' i.e. rho/mu : %.2e %.2e %.2e %.2e\n" Re phys.rho1/mu1 phys.rho1 mu1)
+
 
 if length(phys.concentration0)!=phys.nb_transported_scalars
     print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
@@ -109,6 +139,11 @@ end
 
 print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
 
+# pretty_table(phys.concentration0'; header = ["cH2", "cKOH", "cH2O"])
+# pretty_table(phys.diffusion_coeff'; header = ["DH2", "DKOH", "DH2O"])
+# pretty_table(vcat(hcat("D",phys.diffusion_coeff'),hcat("c",phys.concentration0')); header = ["","H2", "KOH", "H2O"])
+# hl = Highlighter((d,i,j)->d[i,j][1]*d[i,j][2] < 0, crayon"red")
+
 hl = Highlighter((d,i,j)->d[i,j] isa String, crayon"bold cyan")
 
 diffusion_t = (phys.radius^2)./phys.diffusion_coeff
@@ -121,7 +156,10 @@ formatters    = ft_printf("%0.2e", 2:4), #not ecessary , 2:4
 header = ["","H2", "KOH", "H2O"], 
 highlighters=hl)
 
+
+
 # printstyled(color=:green, @sprintf "\n Species diffusion timescales: %.2e %.2e %.2e \n" (phys.radius^2)/DH2 (phys.radius^2)/DKOH (phys.radius^2)/DH2O )
+
 
 # printstyled(color=:green, @sprintf "\n nmol : \n" phys.concentration0[1]*4.0/3.0*pi*phys.radius^3  )
 
@@ -138,6 +176,10 @@ c0test = p_g / (phys.temperature0 * phys.Ru)
 # printstyled(color=:green, @sprintf "\n Mole test: %.2e %.2e\n" phys.concentration0[1]*4.0/3.0*pi*current_radius^3 p_g*4.0/3.0*pi*current_radius^3/(phys.temperature0*phys.Ru))
 
 
+
+
+####################################################################################################
+
 # Sessile
 # h0 = 0.5
 # phys.ref_lengthx = 3.0
@@ -147,6 +189,7 @@ c0test = p_g / (phys.temperature0 * phys.Ru)
 # x = collect(LinRange(-phys.ref_lengthx / 2, phys.ref_lengthx / 2, mesh.nx + 1))
 # y = collect(LinRange(-phys.ref_lengthy / 2, 0, mesh.nx ÷ 3 + 1))
 
+####################################################################################################
 # not imposing the angle exactly at the boundary but displaced a cell because ghost cells are not used. 
 # So the exact contact angle cannot be imposed
 # TODO should at some point modify the levelset so it works as the other fields that we have in the code, 
@@ -156,10 +199,70 @@ _θe = acos((0.5 * diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
 # _θe = acos((diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
 # println("θe = $(_θe)")
 
+####################################################################################################
+
+###################################################################################################
+
+
+sim.name = "small_cell"
+sim.name = "100it"
+sim.name = "radial"
+sim.name = "channel_no_bubble"
+# sim.name = "channel_no_bubble_no_vel"
+sim.name = "channel_no_bubble_Cdivu"
+
+sim.name = "channel_Dirichlet"
+
+sim.name = "channel_Dirichlet_constant_vel"
+
+
+
+
+#################################################
+#Validation
+#################################################
+
+# 1 
+sim.name = "channel_Dirichlet_constant_vel"
+
+# 2 
+sim.name = "channel_Dirichlet_imposed_Poiseuille"
+
+# 3
+sim.name = "channel_Dirichlet_pressure"
+#
+
+sim.name = "channel_Dirichlet_zero_vel"
+
+
+# phys.Run_case(sim.name)
+
+
+
+
+
+
+
+
+# sim.name = "channel"
+# sim.name = "imposed_radius"
+
+
+
 radial_vel_factor = 1e-7
 
-# BC 
+
+
+
+
+
+#################################################
+
+
+
+
 i_current = x[1,:] .*0.0
+
 
 # H2 boundary condition
 BC_trans_scal_H2 = BoundariesInt(
@@ -191,7 +294,11 @@ BC_pL = Boundaries(
         top    = Dirichlet(),
     )
 
+
+
+
 pressure_channel = false
+
 
 if sim.name == "small_cell"
     #Test case 1: small cells (high concentration at vecb_L)
@@ -224,6 +331,11 @@ elseif sim.name == "channel_no_bubble"
     # sim.max_iter = 2
     # save_every = 1
 
+
+
+    sim.concentration_check_factor = 1e-4 #1e-3
+
+
 elseif sim.name == "channel_Dirichlet"
     sim.activate_interface = 0
     sim.max_iter = 100
@@ -231,6 +343,10 @@ elseif sim.name == "channel_Dirichlet"
 
     # sim.max_iter = 2
     # save_every = 1
+
+
+
+    sim.concentration_check_factor = 1e-4 #1e-3
     
     BC_trans_scal_H2 = BoundariesInt(
     bottom = Dirichlet(val = phys.concentration0[1]),
@@ -459,6 +575,9 @@ elseif sim.name == "channel_no_bubble_Cdivu"
 
     # sim.max_iter = 2
     # save_every = 1
+
+
+
     sim.convection_Cdivu = true
 
 elseif sim.name == "channel_no_bubble_no_vel"
@@ -493,8 +612,9 @@ end
 folder = sim.name
 
 
-
+####################################################################################################
 # Save path
+####################################################################################################
 if makedir
     prefix *= "/"*folder*"/"
     isdir(prefix) || mkdir(prefix)
@@ -502,7 +622,7 @@ if makedir
     yamlfile2="flower.yml"
     cp(yamlpath,prefix*yamlfile2,force=true) #copy yaml file to simulation directory
 end
-
+####################################################################################################
 
 
 
@@ -674,9 +794,9 @@ phS.vD .= 0.0
 phS.uD .= 0.0
 
 
-
+####################################################################################################
 #PDI attempt (IO)
-
+####################################################################################################
 
 if io.pdi>0
     try
@@ -777,9 +897,9 @@ end #if io_pdi
 
 # current_t = 0
 # num.current_i = 0
-# 
+# ####################################################################################################
 # #PDI (IO)
-# 
+# ####################################################################################################
 
 # if num.io_pdi>0
 #     try
@@ -837,15 +957,15 @@ end #if io_pdi
 #     end
 # end #if io.pdi>0
 
-# 
+# ####################################################################################################
 
 
 
-
+####################################################################################################
 # r = 0.5
 # gp.LS[1].u .= sqrt.(gp.x.^2 + (gp.y .+ phys.ref_lengthy / 2).^2) - r * ones(gp)
 # gp.LS[1].u .*= -1.0
-
+####################################################################################################
 
 if sim.activate_interface == 1
 
@@ -917,7 +1037,7 @@ print(@sprintf "Butler-Volmer %.2e %.2e %.2e %.2e\n" i_current[1] -i_current[1]/
 
 
 
-
+####################################################################################################
 BC_u = Boundaries(
     bottom = Neumann_inh(),
     top = Neumann_inh(),

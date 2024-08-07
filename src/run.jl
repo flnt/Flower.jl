@@ -685,10 +685,78 @@ function run_forward(
         printstyled(color=:red, @sprintf "\n iter: %5i\n" num.current_i)
         println(grid.LS[1].geoL.dcap[1,1,:])
 
+        if electrolysis
+
+            ####################################################################################################
+            #PDI (IO)
+            ####################################################################################################
+
+            if num.io_pdi>0
+
+                try
+                    printstyled(color=:red, @sprintf "\n PDI test \n" )
+            
+                    time = current_t #Cdouble
+                    nstep = num.current_i
+               
+                    # phi_array=phL.phi_ele #do not transpose since python row major
+                    
+                    compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+            
+                    Eus,Evs = interpolate_grid_liquid(grid,grid_u,grid_v,phL.Eu, phL.Ev)
+            
+                    us,vs = interpolate_grid_liquid(grid,grid_u,grid_v,phL.u,phL.v)
+            
+                    # print("\n before write \n ")
+            
+                    iLSpdi = 1 # all LS iLS = 1 # or all LS ?
+
+
+                    # Exposing data to PDI for IO    
+                    # if writing "D" array (bulk, interface, border), add "_1D" to the name
+
+                    @ccall "libpdi".PDI_multi_expose("write_data_start_loop"::Cstring,
+                    "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+                    "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+                    "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "levelset_p"::Cstring, LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "trans_scal_1D"::Cstring, phL.trans_scalD::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,               
+                    C_NULL::Ptr{Cvoid})::Cvoid
+            
+                    # print("\n after write \n ")
+            
+                    # @ccall "libpdi".PDI_finalize()::Cvoid
+            
+                    # printstyled(color=:red, @sprintf "\n PDI test end\n" )
+            
+                catch error
+                    printstyled(color=:red, @sprintf "\n PDI error \n")
+                    print(error)
+                    printstyled(color=:red, @sprintf "\n PDI error \n")
+                end
+
+               
+
+            end #if io_pdi
+
+            ####################################################################################################
+
+        end
+
+
         if !stefan
             V .= speed*ones(ny, nx)
         end
 
+        # Solve heat equation
         if heat
             if heat_solid_phase
                 kill_dead_cells!(phS.T, grid, LS[1].geoS)
@@ -2162,27 +2230,35 @@ function run_forward(
             
                     us,vs = interpolate_grid_liquid(grid,grid_u,grid_v,phL.u,phL.v)
             
-                    print("\n before write \n ")
-                    #if writing "D" array (bulk, interface, border), add "_1D" to the name
+                    # print("\n before write \n ")
+            
+                    iLSpdi = 1 # all LS iLS = 1 # or all LS ?
+
+
+                    # Exposing data to PDI for IO    
+                    # if writing "D" array (bulk, interface, border), add "_1D" to the name
+
                     @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
                     "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
                     "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
                     "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
                     "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "levelset_p"::Cstring, LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
                     "trans_scal_1D"::Cstring, phL.trans_scalD::Ptr{Cdouble}, PDI_OUT::Cint,
                     "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,   
-            
+                    "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,               
                     C_NULL::Ptr{Cvoid})::Cvoid
             
-                    print("\n after write \n ")
+                    # print("\n after write \n ")
             
-                    @ccall "libpdi".PDI_finalize()::Cvoid
+                    # @ccall "libpdi".PDI_finalize()::Cvoid
             
-                    printstyled(color=:red, @sprintf "\n PDI test end\n" )
+                    # printstyled(color=:red, @sprintf "\n PDI test end\n" )
             
                 catch error
                     printstyled(color=:red, @sprintf "\n PDI error \n")

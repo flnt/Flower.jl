@@ -59,31 +59,13 @@ flower:
     epsilon_mode: 2 #way to handle epsilon
     imposed_velocity: "none"
     dt0: 3.125e-6 #first timestep
-    max_iter: 100 #maximum number of iterations
+    max_iter: 10 #maximum number of iterations
     mode_2d: 3
     # mode_2d = 1 #use equivalent cylinder
     # mode_2d = 2 #mol/meter 
     # mode_2d = 3 #mol/meter with xcoord and ycoord parameters for LS definition
 
-
-    # name: "small_cell"
-    # name: "100it"
-    # name: "radial"
-    # name: "channel_no_bubble"
-    # # name: "channel_no_bubble_no_vel"
-    # name: "channel_no_bubble_Cdivu"
-    # name: "channel_Dirichlet"
-    # name: "channel_Dirichlet_constant_vel"
-
-    # # Validation
-    # name: "channel_Dirichlet_constant_vel"
-    # name: "channel_Dirichlet_imposed_Poiseuille"
-    # name: "channel_Dirichlet_pressure"
-    # name: "channel_Dirichlet_zero_vel"
-    # # name: "channel"
-    # # name: "imposed_radius"
-
-    name: "channel_Dirichlet_zero_vel"
+    name: "half_circle"
     non_dimensionalize: 0 # 0: NS equations as is (without non_dimensionalization)
     null_space: 0 #method for null space, matrix diagonal
     prediction: 0 #pressure-velocity coupling
@@ -122,6 +104,20 @@ plot:
         plot_bc: True
         plot_grid: True
         plot_levelset: False
+        plot_mode: pcolormesh #contourf
+        range: [0,1e-4]
+        xlim: [0,100]
+        ylim: [0,100]
+        zoom: [[0,5],[0,5]]
+
+      - var: v_1D
+        file: v_LS
+        cbarlabel: v
+        isocontour: False
+        levels: 10
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: True
         plot_mode: pcolormesh #contourf
         range: [0,1e-4]
         xlim: [0,100]
@@ -237,15 +233,24 @@ pdi:
       - file: flower_${nstep:08}.h5 #Name of the file test.h5
         collision_policy: replace
         on_event: write_data
-        datasets: #Dataset we are writing in: the whole solution
-          data:
-            type: array
-            subtype: double
-            size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
+        # datasets: #Dataset we are writing in: the whole solution
+        #   data:
+        #     type: array
+        #     subtype: double
+        #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
         # when: #"$nstep%50 = 0"
-        write: [u_1D,v_1D,time,phi_ele_1D,velocity_x,velocity_y,i_current_x,i_current_y]
+        write: [u_1D,v_1D,time,nstep,phi_ele_1D,velocity_x,velocity_y,i_current_x,i_current_y] #,levelset_p,levelset_u,levelset_v]
 
-
+      - file: flower_${nstep:08}.h5 #Name of the file test.h5
+        collision_policy: replace
+        on_event: write_data_start_loop
+        # datasets: #Dataset we are writing in: the whole solution
+        #   data:
+        #     type: array
+        #     subtype: double
+        #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
+        # when: #"$nstep%50 = 0"
+        write: [levelset_p,levelset_u,levelset_v]
  
 
 # Useful links:

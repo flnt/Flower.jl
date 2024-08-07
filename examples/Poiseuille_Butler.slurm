@@ -30,6 +30,7 @@ julia +1.10.0 --project=../Flower.jl --threads=1 ../Flower.jl/examples/main_curr
 # julia --project -e 'using Pkg; Pkg.add("MPIPreferences")'
 # julia --project -e 'using MPIPreferences; MPIPreferences.use_system_binary()'
 
+
 # julia +1.10.4 --project=$HOME/flower/Flower.jl --threads=1 $HOME/flower/Flower.jl/examples/main_current_folder.jl $HOME/flower/Flower.jl/examples/validation.yml
 
 

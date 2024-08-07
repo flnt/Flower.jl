@@ -138,11 +138,22 @@ def plot_all_fig():
 
     # print(yml)
 
-    mesh    = yml["flower"]["mesh"]
+    mesh = yml["flower"]["mesh"]
     plotpar = yml["plot"]
+
+    plotpar['scale_time'] = float(plotpar['scale_time'])
 
     mesh["nx"] = int(mesh["nx"])
     mesh["ny"] = int(mesh["ny"])
+
+    mesh["xmax"] = float(mesh["xmax"])
+    mesh["xmin"] = float(mesh["xmin"])
+
+    mesh["ymax"] = float(mesh["ymax"])
+    mesh["ymin"] = float(mesh["ymin"])
+
+    mesh["dx"] = (mesh["xmax"] - mesh["xmin"]) / mesh["nx"]
+    mesh["dy"] = (mesh["ymax"] - mesh["ymin"]) / mesh["ny"]
 
     xp =np.linspace(float(mesh["xmin"]),float(mesh["xmax"]),int(mesh["nx"]))
     yp =np.linspace(float(mesh["ymin"]),float(mesh["ymax"]),int(mesh["ny"]))
@@ -174,14 +185,14 @@ def plot_all_fig():
             # data = file['data'][:]
 
             time = file['time'][()]
-            print("time",time)           
+            nstep = file['nstep'][()]
+
+            print("time",time,"nstep",nstep)           
 
             # Figures defined in YAML file
             for figpar in plotpar["figures"]:
 
                 print(colored(figpar['var']+' '+figpar['file'], "cyan"))
- 
-
 
                 if figpar['var'] == "velocity_x": #plot vector with velocity interpolated on scalar grid
 
@@ -192,7 +203,7 @@ def plot_all_fig():
                     #  print(plotpar["figures"])
                     for figpar in plotpar["figures"]:
                         if figpar['file'] == 'velocity_vectors':
-                            plot_vector(us,vs,file_name,xp,yp,time,plotpar,figpar)
+                            plot_vector(us,vs,file_name,xp,yp,time,nstep,plotpar,figpar)
 
                     # plot_vector(us,vs,file_name,xp,yp,plotpar)
 
@@ -210,11 +221,21 @@ def plot_all_fig():
 
                     file_name = "current_lines"
 
-                    plot_current_lines(field,Eus,Evs,file_name,xp,yp,plotpar,figpar)
+                    plot_current_lines(
+                        field,
+                        Eus,
+                        Evs,
+                        file_name,
+                        xp,
+                        yp,
+                        time,
+                        nstep,
+                        plotpar,
+                        figpar,
+                    )
 
                 elif figpar['var'] in file.keys():
                     key = figpar['var']
-
 
                     data = file[key][:]
                     file_name_1 = key
@@ -226,37 +247,37 @@ def plot_all_fig():
                         if key=="u_1D":nx=nx+1
                         if key=="v_1D":ny=ny+1
 
-                        len_data = len(data)
-                        len_border = 2*nx + 2*ny
-                        # TODO use yaml data selection
-                        n_saved_bulk_and_interfaces = (len_data-len_border)//(nx*ny) 
-                        print(len_data,len_data-len_border,n_saved_bulk_and_interfaces)
+                        # len_data = len(data)
+                        # len_border = 2*nx + 2*ny
+                        # # TODO use yaml data selection
+                        # n_saved_bulk_and_interfaces = (len_data-len_border)//(nx*ny)
+                        # print(len_data,len_data-len_border,n_saved_bulk_and_interfaces)
 
-                        for ifield in range(n_saved_bulk_and_interfaces):                    
+                        # for ifield in range(n_saved_bulk_and_interfaces):
 
-                            # Bulk value: ifield =1
-                            field=veci(data,nx,ny,ifield)
+                        #     # Bulk value: ifield =1
+                        #     field=veci(data,nx,ny,ifield)
 
-                            file_name=file_name_1 + "_" + str(ifield) #"_bulk"
-                            
-                            if 'zoom' in figpar.key():
-                                # plot_python_pdf_full2()
-                                plot_python_pdf_full2(
-                                field0D,
-                                file_name,
-                                xp,
-                                yp,
-                                xu,
-                                yv,
-                                yml,
-                                mesh,
-                                time,
-                                plotpar,
-                                figpar,
-                                )
+                        #     file_name=file_name_1 + "_" + str(ifield) #"_bulk"
+                        file_name = file_name_1
+                        if 'zoom' in figpar.keys():
+                            plot_python_pdf_full2(
+                            data,
+                            file_name,
+                            xp,
+                            yp,
+                            xu,
+                            yv,
+                            yml,
+                            mesh,
+                            time,
+                            nstep,
+                            plotpar,
+                            figpar,
+                            )
 
-                            else:
-                                plot_file(field,file_name,xp,yp,xu,yv,yml,mesh,time,plotpar,figpar) 
+                        else:
+                            plot_file(field,file_name,xp,yp,xu,yv,yml,mesh,time,nstep,plotpar,figpar) 
 
                     else:
                         if key in plotpar['no_2D_plot']:continue #no plot
@@ -265,148 +286,19 @@ def plot_all_fig():
                         plot_file(field,file_name_1,xp,yp,xu,yv,yml,mesh,time,plotpar,figpar) 
 
 
-def plot_all_h5():
-    """
-    Plot all h5 in folder
-    """
-    # List all files in the current directory
-    all_files = os.listdir('.')
-
-    # Filter for .h5 files
-    h5_files = [file for file in all_files if file.endswith('.h5')]
-
-    # print(sys.argv)
-
-    try:
-        yamlfile = sys.argv[1]
-        if '.yml' not in yamlfile:
-            yamlfile+='.yml'    
-    except Exception as error:
-        print(error)   
-        print(colored("error", "red"))
-
-    # with open('flower.yml', 'r') as file:
-    with open(yamlfile, 'r') as file:
-        yml = yaml.safe_load(file)
-
-
-    # print(yml)
-
-    mesh    = yml["flower"]["mesh"]
-    plotpar = yml["plot"]
-
-    mesh["nx"] = int(mesh["nx"])
-    mesh["ny"] = int(mesh["ny"])
-
-    xp =np.linspace(float(mesh["xmin"]),float(mesh["xmax"]),int(mesh["nx"]))
-    yp =np.linspace(float(mesh["ymin"]),float(mesh["ymax"]),int(mesh["ny"]))
-
-    dx = (float(mesh["xmax"])- float(mesh["xmin"]))/int(mesh["nx"])
-    dy = (float(mesh["ymax"])- float(mesh["ymin"]))/int(mesh["ny"])
-
-    xu = xp + dx/2
-    xu = np.insert(xu,0,xp[0] - dx/2)
-    # yu = yp # xv = xp 
-    yv = yp + dy/2
-    yv = np.insert(yv,0,yp[0] - dy/2)
-
-    scale_x = float(plotpar["scale_x"])
-    scale_y = float(plotpar["scale_y"])
-
-    xp /= scale_x
-    yp /= scale_y
-    xu /= scale_x
-    yv /= scale_y
-
-
-    
-
-    for file_name in h5_files:
-
-        print(file_name)
-        # Load the HDF5 file
-        with h5py.File(file_name, 'r') as file:            
-            print(file.keys())
-
-            # data = file['data'][:]
-
-            time = file['time'][()]
-            print("time",time)            
-
-            for key in file.keys():
-                print(key)
-                if key =="time":continue #no plot
-
-                data = file[key][:]
-                file_name_1 = key
-                print("max ",np.max(data))
-
-                if "_1D" in key:
-                    nx = mesh["nx"]
-                    ny = mesh["ny"]
-                    if key=="u_1D":nx=nx+1
-                    if key=="v_1D":ny=ny+1
-
-                    len_data = len(data)
-                    len_border = 2*nx + 2*ny
-                    #TODO use yaml data selection
-                    n_saved_bulk_and_interfaces = (len_data-len_border)//(nx*ny) 
-                    print(len_data,len_data-len_border,n_saved_bulk_and_interfaces)
-
-                    for ifield in range(n_saved_bulk_and_interfaces):                    
-
-                        #Bulk value: ifield =1
-                        field=veci(data,nx,ny,ifield)
-
-                        file_name=file_name_1 + "_" + str(ifield) #"_bulk"
-                        plot_file(field,file_name,xp,yp,xu,yv,yml,mesh,time,plotpar,figpar) 
-                    
-                elif key == "velocity_x": #plot vector with velocity interpolated on scalar grid
-                   
-                    us = file["velocity_x"][:].transpose()
-                    vs = file["velocity_y"][:].transpose()
-                    file_name = "vectors"
-
-                    #  print(plotpar["figures"])
-                    for figpar in plotpar["figures"]:
-                        if figpar['file'] == 'velocity_vectors':
-                            plot_vector(us,vs,file_name,xp,yp,time,plotpar,figpar)
-
-                    
-                    # plot_vector(us,vs,file_name,xp,yp,plotpar)
-                   
-
-                elif key == "i_current_x": #plot vector with velocity interpolated on scalar grid
-
-                    Eus = file["i_current_x"][:].transpose()
-                    Evs = file["i_current_y"][:].transpose()
-
-                    nx = mesh["nx"]
-                    ny = mesh["ny"]
-                    ifield = 1 #bulk
-                    data = file["phi_ele_1D"][:]
-                    
-                    field=veci(data,nx,ny,ifield)
-
-                    file_name = "current_lines"
-
-                    # plot_vector(Eus,Evs,file_name,xp,yp,plotpar)   
-
-                else:
-                    if key in plotpar['no_2D_plot']:continue #no plot
-                    field = data.transpose()
-                   
-                    plot_file(field,file_name_1,xp,yp,xu,yv,yml,mesh,time,plotpar,figpar) 
-                # try:
-                #     data = file[key][:]
-                #     file_name = key
-                #     plot_file(data,file_name,xp,yp,xu,yv,yml,mesh)     
-                # except Exception as error:
-                #     print(error)   
-                #     print(colored("error", "red"))
-
-
-def plot_file(field,file_name,xp,yp,xu,yv,yml,mesh,time,plotpar,figpar=None):
+def plot_file(
+    field,
+    file_name,
+    xp,
+    yp,
+    xu,
+    yv,
+    yml,
+    mesh,
+    time,
+    plotpar,
+    figpar=None,
+):
     """Plot one figure for field"""
 
     # print(field.shape[0])
@@ -433,7 +325,7 @@ def plot_file(field,file_name,xp,yp,xu,yv,yml,mesh,time,plotpar,figpar=None):
     fig1, ax2 = plt.subplots(figsize=set_size(plotpar["latex_frame_width"], fraction=plotpar["fig_fraction"],
                                               ratio=1,nvary=1,ratio2=1,height=plotpar["latex_frame_height"]),
                                               layout="constrained")
-    plot_mode = plotpar["plot_mode"]
+    figpar['plot_mode'] = plotpar["figpar['plot_mode']"]
     levels = 10  
     # levels = 0
     # range = np.linspace(0,1e-4,10)
@@ -453,22 +345,22 @@ def plot_file(field,file_name,xp,yp,xu,yv,yml,mesh,time,plotpar,figpar=None):
 
     shading="nearest"
 
-    if plot_mode == "contourf":
+    if figpar['plot_mode'] == "contourf":
         if levels==0:
             CS = ax2.contourf(x_1D,y_1D,field, 
             levels=figpar['range'], #10, 
             cmap=plotpar['cmap'],)
         else:
             CS = ax2.contourf(x_1D,y_1D,field, 
-            levels=levels,
+            levels=figpar['levels'],
             cmap=plotpar['cmap'])           
 
-    elif plot_mode == "pcolormesh":
+    elif figpar['plot_mode'] == "pcolormesh":
         if levels==0:            
             norm = mpl_colors.BoundaryNorm(range, ncolors=cmap.N, clip=True)
             CS = ax2.pcolormesh(x_1D,y_1D,field, cmap=plotpar['cmap'], norm=norm,shading=shading)
         else:          
-            levels = mpl_tickers.MaxNLocator(nbins=levels).tick_values(np.min(field), np.max(field))
+            levels = mpl_tickers.MaxNLocator(nbins=figpar['levels']).tick_values(np.min(field), np.max(field))
             norm = mpl_colors.BoundaryNorm(levels, ncolors=cmap.N, clip=True)
             CS = ax2.pcolormesh(x_1D,y_1D,field, cmap=plotpar['cmap'], norm=norm,shading=shading)
 
@@ -487,22 +379,22 @@ def plot_file(field,file_name,xp,yp,xu,yv,yml,mesh,time,plotpar,figpar=None):
 
     # indLS = max(i-1,1)
 
-    # if plot_levelset:
-    #     # CSlvl = ax2.contourf(xp,yp,(phL.trans_scal[:,:,1] -c0_H2)./c0_H2, levels=0.0, cmap=plotpar['cmap'])
-    #     # CS2 = ax2.contour(CSlvl,
-    #     # # levels=CS.levels[::2],
-    #     # # levels=
-    #     # colors="r")
-    #     # cbar.add_lines(CS2)
-    #     # CSlvl = ax2.contour(xp,yp, gp.LS[1].u, [0.0],colors="r")
-    #     # CSlvl = ax2.contour(xp,yp, fwd.u[1,i,i0:i1,j0:j1], [0.0],colors="r")
+    if plot_levelset:
+        # CSlvl = ax2.contourf(xp,yp,(phL.trans_scal[:,:,1] -c0_H2)./c0_H2, levels=0.0, cmap=plotpar['cmap'])
+        # CS2 = ax2.contour(CSlvl,
+        # # levels=CS.levels[::2],
+        # # levels=
+        # colors="r")
+        # cbar.add_lines(CS2)
+        # CSlvl = ax2.contour(xp,yp, gp.LS[1].u, [0.0],colors="r")
+        # CSlvl = ax2.contour(xp,yp, fwd.u[1,i,i0:i1,j0:j1], [0.0],colors="r")
 
-    #     if typeof(grid) == GridCC: #isCC(grid)
-    #         CSlvl = ax2.contour(xp,yp, fwd.u[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
-    #     elif typeof(grid) == GridFCx: #isFCx(grid)
-    #         CSlvl = ax2.contour(xp,yp, fwd.ux[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
-    #     elif typeof(grid) == GridFCy: #isFCy(grid)
-    #         CSlvl = ax2.contour(xp,yp, fwd.uy[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
+        if typeof(grid) == GridCC: #isCC(grid)
+            CSlvl = ax2.contour(xp,yp, fwd.u[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
+        elif typeof(grid) == GridFCx: #isFCx(grid)
+            CSlvl = ax2.contour(xp,yp, fwd.ux[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
+        elif typeof(grid) == GridFCy: #isFCy(grid)
+            CSlvl = ax2.contour(xp,yp, fwd.uy[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
 
     str_time = '{:.2e}'.format(time*plotpar['scale_time'])
     # strrad = '{:.2e}'.format(radius)
@@ -534,7 +426,7 @@ def plot_file(field,file_name,xp,yp,xu,yv,yml,mesh,time,plotpar,figpar=None):
 
 
 # TODO ticks
-def plot_vector(us,vs,file_name,xp,yp,time,plotpar,figpar):
+def plot_vector(us,vs,file_name,xp,yp,time,nstep,plotpar,figpar):
     fig1, ax2 = plt.subplots(layout="constrained")
     scale_units=plotpar["quiver_scale_unit"]
     scale_units = None if scale_units == 'None' else scale_units
@@ -554,9 +446,8 @@ def plot_vector(us,vs,file_name,xp,yp,time,plotpar,figpar):
     # scale_units=scale_units,
     # #color = "red",
     # )
-    # # ax.quiverkey(q, X=0.3, Y=1.1, U=10,
+    # # ax.quiverkeys(q, X=0.3, Y=1.1, U=10,
     # #              label='Quiver key, length = 10', labelpos='E')
-
 
     ax2.set_xlabel(r"$x ( \unit{\um})$")
     ax2.set_ylabel(r"$y ( \unit{\um})$")
@@ -576,55 +467,34 @@ def plot_vector(us,vs,file_name,xp,yp,time,plotpar,figpar):
     ax2.set_aspect('equal', 'box')
 
     # # plt.show()
-
-    plt.savefig(file_name+ "." + plotpar["img_format"])
-    plt.close(fig1)
-
-def plot_vector1(us,vs,file_name,xp,yp,plotpar):
-    fig1, ax2 = plt.subplots(layout="constrained")
-    scale_units=plotpar["quiver_scale_unit"]
-    scale_units = None if scale_units == 'None' else scale_units
-
-    skip_every = 4
-    skip = (slice(None, None, skip_every), slice(None, None, skip_every))
-    skip1D = slice(None, None, skip_every)
-
-    q = ax2.quiver(xp[skip1D],yp[skip1D],us[skip],vs[skip],
-    scale=float(plotpar["quiver_scale"]),
-    scale_units=scale_units,
-    #color = "red",
-    )
-
-    # q = ax2.quiver(xp,yp,us,vs,
-    # scale=float(plotpar["quiver_scale"]),
-    # scale_units=scale_units,
-    # #color = "red",
-    # )
-    # # ax.quiverkey(q, X=0.3, Y=1.1, U=10,
-    # #              label='Quiver key, length = 10', labelpos='E')
-
-    ax2.set_xlabel(r"$x ( \unit{\um})$")
-    ax2.set_ylabel(r"$y ( \unit{\um})$")
-
-    ax2.set_xlim(xp[0],xp[-1])
-    ax2.set_ylim(yp[0],yp[-1])
-    print(xp[0],xp[-1],yp[0],yp[-1])
-
-    # # plt.show()
-    plt.axis("equal")
-
-    plt.savefig(file_name+ "." + plotpar["img_format"])
+    # str_nstep = str1="{:05}".format(nstep)
+    str_nstep = str(nstep)
+    plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"])
     plt.close(fig1)
 
 
-def plot_current_lines(phi_array, Eus, Evs, file_name, xp, yp, plotpar,figpar):
-    """
-    plot current lines
+def plot_current_lines(
+    phi_array,
+    Eus,
+    Evs,
+    file_name,
+    xp,
+    yp,
+    time,
+    nstep,
+    plotpar,
+    figpar,
+):
+    """plot current lines
+    args:
+        phi_array (float): electrical potential
+        Eus (float): electrical current, x component
+        Evs (float): electrical current, y component
     """
     # https://matplotlib.org/stable/gallery/images_contours_and_fields/contourf_demo.html
 
     fig1, ax2 = plt.subplots(layout="constrained")
-    CS = ax2.contourf(xp, yp, phi_array, 10, cmap=plotpar['cmap'])
+    CS = ax2.contourf(xp, yp, phi_array, 10, cmap=plotpar["cmap"])
 
     CS2 = ax2.contour(
         CS,
@@ -647,7 +517,8 @@ def plot_current_lines(phi_array, Eus, Evs, file_name, xp, yp, plotpar,figpar):
     # Eus[last_it,:,:], Evs[last_it,:,:])#, color=(.75,.90,.93)) #do no transpose, python row major
     plt.axis("equal")
 
-    plt.savefig(file_name + "." + plotpar["img_format"])
+    str_nstep = str(nstep)
+    plt.savefig(file_name + "_" + str_nstep + "." + plotpar["img_format"])
     plt.close(fig1)
 
 
@@ -690,26 +561,51 @@ def plot_radius(time_list,radius_list):
     plt.close(fig1)
 
 
+def example_docstring_function(a: str, b:bool, c:int):
+    ''' the function doc string. 
+    Here is a bit more.
+    
+    args:
+        a (str): a random string goes here
+        b (bool): lets describe something binary
+        c (int): we have a whole number
+
+    return:
+        gives something back
+
+
+    '''
+    
+    a = a + ' world'
+    b = 5 * b
+    c = 10 + c
+
+
+    return c
+
+
 def plot_python_pdf_full2(
-    field0D,
+    field0D, #field0D (float): The first number.
     file_name,
     xp,
     yp,
     xu,
     yv,
-    ii0,
-    ii1,
-    jj0,
-    jj1,
     yml,
     mesh,
     time,
+    nstep,
     plotpar,
     figpar,
 ):
-    """# Plot one figure for field, with BC"""
-
+    """Plot one figure for field, with BC
+    args:
+        field0D (float): 1D vector containing bulk, interface and border values
+    """
+    
     print("plotting ", file_name)
+
+    cmap = plt.get_cmap(plotpar["cmap"])
 
     ii0, ii1 = figpar["zoom"][0]
     jj0, jj1 = figpar["zoom"][1]
@@ -728,6 +624,7 @@ def plot_python_pdf_full2(
 
     nx = mesh["nx"]
     ny = mesh["ny"]
+
     if figpar["var"] == "u_1D":
         print("u mesh")
         nx = nx + 1
@@ -757,68 +654,66 @@ def plot_python_pdf_full2(
     vecb_b = False
     vecb_t = False
 
-    fieldtmp = np.zeros(ny + 2, nx + 2)
+    fieldtmp = np.zeros((ny + 2, nx + 2))
 
     # TODO distinguish u, v, w grids even though it is a dummy position to plot BC
 
-    if figpar['plot_bc']:
+    if figpar['plot_bc'] == 'True':
         if ii0 == 1:
             vecb_l=True
             i1+=1
             i0tmp2-=1 
 
-            x_arr.insert(0,x_1D[i0]-0.5*gp.dx[1,1]/plotpar['scale_x'])
+            x_arr.insert(0,x_1D[i0]-0.5*mesh['dx']/plotpar['scale_x'])
 
         if ii1 == gp.nx:
             i1+=1
             vecb_r=True
-            x_arr.append(x_1D[end]+0.5*gp.dx[1,end]/plotpar['scale_x'])
+            x_arr.append(x_1D[end]+0.5*mesh['dx']/plotpar['scale_x'])
             i1tmp2+=1 
 
         if jj0 == 1:
             vecb_b=True
             j1+=1
             j0tmp2-=1
-            y_arr.insert(0,y_1D[j0]-0.5*gp.dy[1,1]/plotpar['scale_x'])
+            y_arr.insert(0,y_1D[j0]-0.5*mesh['dy']/plotpar['scale_x'])
 
         if jj1 == gp.ny:
             vecb_t=True
             j1+=1
-            y_arr.append(y_1D[end]+0.5*gp.dy[end,1]/plotpar['scale_x'])
+            y_arr.append(y_1D[end]+0.5*mesh['dy']/plotpar['scale_x'])
             j1tmp2+=1
 
         if vecb_l: 
-            fieldtmp[2:gp.ny+1,1] = vecb_L(field0D[i,:],nx,ny) #reverse(vecb_L(field0D[i,:],nx,ny),dims=1)#[1:gp.ny]
+            fieldtmp[2:gp.ny+1,1] = vecb_L(field0D,nx,ny) 
         if vecb_r:
-            fieldtmp[2:gp.ny+1,end] = vecb_R(field0D[i,:],nx,ny) #right direction
-
+            fieldtmp[2:gp.ny+1,end] = vecb_R(field0D,nx,ny) 
         if vecb_b:
-            fieldtmp[1,2:gp.nx+1] = vecb_B(field0D[i,:],nx,ny)  #right direction
-
+            fieldtmp[1,2:gp.nx+1] = vecb_B(field0D,nx,ny)
         if vecb_t:
-            fieldtmp[end,2:gp.nx+1] = vecb_T(field0D[i,:],nx,ny) #reverse(vecb_T(field0D[i,:],nx,ny),dims=1)#[1:gp.nx]
+            fieldtmp[end,2:gp.nx+1] = vecb_T(field0D,nx,ny)
 
     if vecb_l or vecb_r or vecb_b or vecb_t:
         fieldtmp[j0tmp:j1tmp,i0tmp:i1tmp] = field1[jj0:jj1,ii0:ii1]
         field = fieldtmp[j0tmp2:j1tmp2,i0tmp2:i1tmp2]
     else:
-        field = field0[i,j0:j1,i0:i1]
+        field = field0[j0:j1,i0:i1]
 
     fig1, ax2 = plt.subplots(layout="constrained")
 
-    if levels==0: 
+    if figpar['levels']==0: 
         CS = ax2.contourf(x_arr,y_arr,field, 
         levels=figpar['range'], 
         cmap=plotpar['cmap'])
     else:
 
-        if plot_mode == "contourf":
+        if figpar['plot_mode'] == "contourf":
             CS = ax2.contourf(x_arr,y_arr,field, 
-            levels=levels, #10, 
+            levels=figpar['levels'], #10, 
             cmap=plotpar['cmap'])
         else:
 
-            mpl_levels = mpl_tickers.MaxNLocator(nbins=levels).tick_values(np.min(field), np.max(field))
+            mpl_levels = mpl_tickers.MaxNLocator(nbins=figpar['levels']).tick_values(np.min(field), np.max(field))
             norm = mpl_colors.BoundaryNorm(mpl_levels, ncolors=cmap.N, clip=True)
             CS = ax2.pcolormesh(x_arr,y_arr,field, cmap=plotpar['cmap'], norm=norm)
 
@@ -828,7 +723,7 @@ def plot_python_pdf_full2(
     lw=0.5
     ms=0.5
 
-    if plot_grid:
+    if figpar['plot_grid']=='True':
         # for igrid in i0:i1
         #     ax2.axvline(x_1D[igrid],c=lcolor,lw=lw)
         # end
@@ -858,17 +753,17 @@ def plot_python_pdf_full2(
                 s=ms,
                 )
 
-                # str=@sprintf "%.2e" fieldtmp[jgrid0,igrid0]
+                # str1=@sprintf "%.2e" fieldtmp[jgrid0,igrid0]
                 if figpar['printmode'] == "val":
-                    str='{:.2e}'.format(field[jgrid,igrid])
-                    # str=@sprintf "%.4e %.3i %.3i %.3i" field[jgrid,igrid] igrid0 jgrid0 jgrid
+                    str1='{:.2e}'.format(field[jgrid,igrid])
+                    # str1=@sprintf "%.4e %.3i %.3i %.3i" field[jgrid,igrid] igrid0 jgrid0 jgrid
 
                 elif figpar['printmode'] == "ij":
-                    str="{:03} {:03}".format(igrid0,jgrid0)
+                    str1="{:03} {:03}".format(igrid0,jgrid0)
                 else: 
-                    str="{:.2e} {:03} {:03}".format(field[jgrid,igrid],igrid0,jgrid0)                         
+                    str1="{:.2e} {:03} {:03}".format(field[jgrid,igrid],igrid0,jgrid0)                         
 
-                ax2.annotate(str,(x_arr[igrid],y_arr[jgrid]),fontsize=plotpar['fontsize'],c=lcolor,ha="center",va=va)
+                ax2.annotate(str1,(x_arr[igrid],y_arr[jgrid]),fontsize=plotpar['fontsize'],c=lcolor,ha="center",va=va)
 
     # ax2.set_title("Title")
 
@@ -879,14 +774,13 @@ def plot_python_pdf_full2(
     cbar = fig1.colorbar(CS)
     cbar.ax.set_ylabel(figpar['cbarlabel'])
     # Add the contour line levels to the colorbar
-    if figpar['isocontour']:
+    if figpar['isocontour'] == 'True':
         CS2 = ax2.contour(CS, 
         # levels=CS.levels[::2], 
         # levels=
         colors="r")
         cbar.add_lines(CS2)
 
-    indLS = max(i-1,1) 
 
     if figpar['plot_levelset']:
         # CSlvl = ax2.contourf(x_arr,y_arr,(phL.trans_scal[:,:,1] -c0_H2)./c0_H2, levels=0.0, cmap=plotpar['cmap'])
@@ -930,7 +824,7 @@ def plot_python_pdf_full2(
 
     str_time = '{:.2e}'.format(time*plotpar['scale_time'])
     # strrad = '{:.2e}'.format(radius)
-    str_iter = "{:05}".format(i)
+    # str_iter = "{:05}".format(i)
 
     # plt.title("t "*strtime*r"$( \unit{\ms})$"*"radius "*strrad*r"$( \unit{\um})$")
 
@@ -944,7 +838,11 @@ def plot_python_pdf_full2(
 
     ax2.set_aspect("equal")
 
-    plt.savefig(figname + str_iter + ".pdf")
+    # plt.savefig(figname + str_iter + ".pdf")
+
+    str_nstep = str(nstep)
+    plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"])
+
     plt.close(fig1)
 
 
@@ -954,7 +852,6 @@ def python_movie_zoom(
     prefix,
     plot_levelset,
     isocontour,
-    plot_mode,
     levels,
     range,
     cmap,
@@ -978,26 +875,26 @@ def python_movie_zoom(
 
     field = field0[:, j0:j1, i0:i1]
 
-    if plot_mode == "contourf":
-        plot_mode_contourf = True
-        plot_mode_pcolormesh = False
+    if figpar['plot_mode'] == "contourf":
+        contourf = True
+        pcolormesh = False
         if levels==0:
             CS = ax2.contourf(x_arr,y_arr,field[1,:,:], 
             levels=figpar['range'], #10, 
             cmap=plotpar['cmap'])
         else:
             CS = ax2.contourf(x_arr,y_arr,field[1,:,:], 
-            levels=levels,
+            levels=figpar['levels'],
             cmap=plotpar['cmap'])           
 
-    elif plot_mode == "pcolormesh":
-        plot_mode_contourf = False
-        plot_mode_pcolormesh = True
+    elif figpar['plot_mode'] == "pcolormesh":
+        contourf = False
+        pcolormesh = True
         if levels==0:         
             norm = mpl_colors.BoundaryNorm(range, ncolors=cmap.N, clip=True)
             CS = ax2.pcolormesh(x_arr,y_arr,field[1,:,:], cmap=plotpar['cmap'], norm=norm)
         else:          
-            mpl_levels = mpl_tickers.MaxNLocator(nbins=levels).tick_values(np.min(field[1,:,:]), np.max(field[1,:,:]))
+            mpl_levels = mpl_tickers.MaxNLocator(nbins=figpar['levels']).tick_values(np.min(field[1,:,:]), np.max(field[1,:,:]))
             norm = mpl_colors.BoundaryNorm(mpl_levels, ncolors=cmap.N, clip=True)
             CS = ax2.pcolormesh(x_arr,y_arr,field[1,:,:], cmap=plotpar['cmap'], norm=norm)
 
@@ -1008,22 +905,22 @@ def python_movie_zoom(
     def make_frame(i):
         ax2.clear()
 
-        if plot_mode_contourf:
+        if figpar['plot_mode'] == "contourf":
             if levels==0:
                 CS = ax2.contourf(x_arr,y_arr,field[i+1,:,:], 
                 levels=figpar['range'], #10, 
                 cmap=plotpar['cmap'])
             else:
                 CS = ax2.contourf(x_arr,y_arr,field[i+1,:,:], 
-                levels=levels,
+                levels=figpar['levels'],
                 cmap=plotpar['cmap'])           
 
-        elif plot_mode_pcolormesh:
+        elif figpar['plot_mode'] == "pcolormesh":
             if levels==0:           
                 norm = mpl_colors.BoundaryNorm(range, ncolors=cmap.N, clip=True)
                 CS = ax2.pcolormesh(x_arr,y_arr,field[i+1,:,:], cmap=plotpar['cmap'], norm=norm)
             else:         
-                mpl_levels = mpl_tickers.MaxNLocator(nbins=levels).tick_values(np.min(field[i+1,:,:]), np.max(field[i+1,:,:]))
+                mpl_levels = mpl_tickers.MaxNLocator(nbins=figpar['levels']).tick_values(np.min(field[i+1,:,:]), np.max(field[i+1,:,:]))
                 norm = mpl_colors.BoundaryNorm(mpl_levels, ncolors=cmap.N, clip=True)
                 CS = ax2.pcolormesh(x_arr,y_arr,field[i+1,:,:], cmap=plotpar['cmap'], norm=norm)
 
@@ -1172,9 +1069,9 @@ def plot_bc(iter_list,vec,grid,plotpar,figname,prefix,time):
     for isnap in iter_list:
 
         str_time = '{:.2e}'.format(time*plotpar['scale_time'])  #TODO scale time
-        str = "t "+str_time+r"$( \unit{\ms})$"
+        str1 = "t "+str_time+r"$( \unit{\ms})$"
         # print("\n vec ",vecb_T(vec[i,:],nx,ny))
-        plt.plot(varx,vecb_T(vec[isnap,:],nx,ny),label = str)
+        plt.plot(varx,vecb_T(vec[isnap,:],nx,ny),label = str1)
     
     eps=1e-4
     ylim0=0.16-eps
@@ -1197,8 +1094,8 @@ def plot_bc2(iter_list,vec,grid,plotpar,figname,prefix,time):
     print(iter_list)
     for isnap in iter_list:
         str_time = '{:.2e}'.format(time*plotpar['scale_time'])  #TODO scale time
-        str = "t "+str_time+r"$( \unit{\ms})$"
-        plt.plot(varx,vecb_B(vec[isnap,:],nx,ny),label = str)
+        str1 = "t "+str_time+r"$( \unit{\ms})$"
+        plt.plot(varx,vecb_B(vec[isnap,:],nx,ny),label = str1)
     
     eps=1e-4
     ylim0=0.16-eps

@@ -673,7 +673,7 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
                             # && (ph.trans_scalD[pII,iscal] == maximum(ph.trans_scalD[:,iscal]) )
                             printstyled(color=:green, @sprintf "\n i: %5i j: %5i %.2e %.2e %.2e %.2e \n" iplot jplot grid.x[iplot]/num.plot_xscale grid.y[jplot]/num.plot_xscale ph.trans_scalD[pII,iscal] rhs[pII])
                             
-                            if num.scalar_debug
+                            if num.debug== "scalar_debug"
                                 @views scalar_debug!(dir, CT, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 
                                 bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1],num,grid,iplot,jplot)
                             end
@@ -713,7 +713,7 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
                             
                             # && (ph.trans_scalD[pII,iscal] == maximum(ph.trans_scalD[:,iscal]) )
                             printstyled(color=:green, @sprintf "\n i: %5i j: %5i %.2e %.2e %.2e %.2e \n" iplot jplot grid.x[iplot]/num.plot_xscale grid.y[jplot]/num.plot_xscale ph.trans_scalD[pII,iscal] rhs[pII])
-                            if num.scalar_debug
+                            if num.debug== "scalar_debug"
                                 @views scalar_debug!(dir, CT, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 
                                 bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1],num,grid,iplot,jplot)
                             end
@@ -897,10 +897,13 @@ function update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iL
 end
 
 
-"""
-Interpolate velocity on scalar grid for regular grids for vizualisation
+"""Interpolate velocity on scalar grid for regular grids for vizualisation
+
+# Arguments
+- `gp::Mesh`: scalar grid
 """
 function interpolate_grid_liquid(gp,gu,gv,u,v)
+    
     
     # us = p .*0
     # vs = p .*0
