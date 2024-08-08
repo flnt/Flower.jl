@@ -3,19 +3,21 @@
 
 
 
-## On HPC
+## On HPC center
 
-## Installation
+### Installation
 ```bash
 curl -fsSL https://install.julialang.org | sh
 ```
 For example, in $HOME/flower
-Clone Flower.jl
-Clone DDM.jl
+* Clone Flower.jl
+*  Clone DDM.jl
 
 what is added in project in $HOME is not used in $WORKDIR, so in $WORKDIR do:
+```bash
 julia +1.10.4 –project=$HOME/flower/Flower.jl 
 import Pkg ; Pkg.add(package)
+```
 
 ### Run
 In interactive session:
@@ -28,7 +30,7 @@ The YAML file contains the main parameters for the simulation, IO and post-proce
 ## Post-processing 
 In the folder where the results are stored:
 ```bash
-python3 -c "import plot_flower; plot_flower.plot_all_fig()" half_circle.yml
+python3 -c "import plot_flower; plot_flower.plot_all_fig()" yaml_file
 ```
 
 

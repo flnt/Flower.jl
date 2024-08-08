@@ -690,6 +690,8 @@ function run_forward(
             ####################################################################################################
             #PDI (IO)
             ####################################################################################################
+            
+            #TODO not necessary to expose everything now for ex only LS ? and the rest later
 
             if num.io_pdi>0
 
@@ -728,7 +730,8 @@ function run_forward(
                     "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,               
+                    "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+                    "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,          
                     C_NULL::Ptr{Cvoid})::Cvoid
             
                     # print("\n after write \n ")
@@ -2253,7 +2256,8 @@ function run_forward(
                     "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,               
+                    "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+                    "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
                     C_NULL::Ptr{Cvoid})::Cvoid
             
                     # print("\n after write \n ")
