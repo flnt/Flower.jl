@@ -29,9 +29,19 @@ The YAML file contains the main parameters for the simulation, IO and post-proce
 
 ## Post-processing 
 In the folder where the results are stored:
+To plot all figures specified in the yaml file:
 ```bash
 python3 -c "import plot_flower; plot_flower.plot_all_fig()" yaml_file
 ```
+To produce all films:
+```bash
+python3 -c "import plot_flower; plot_flower.plot_all_films()" yaml_file
+```
+To plot the radius of the interface
+```bash
+python3 -c "import plot_flower; plot_flower.plot_radius_from_h5()" yaml_file
+```
+
 
 
 <!-- # Testing -->

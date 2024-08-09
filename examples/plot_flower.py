@@ -369,7 +369,7 @@ def set_size(width,fraction=1,ratio=1,nvary=1,ratio2=4.8/6.4,height=None):
 
         fig_dim = (fig_width_in, fig_height_in*ratio2/ratio*nvary)
 
-        print('height mode',fig_dim,ratio,ratio2,nvary,width,height,fig_height_in/inches_per_pt,fraction)
+        # print('height mode',fig_dim,ratio,ratio2,nvary,width,height,fig_height_in/inches_per_pt,fraction)
 
     return fig_dim
 
@@ -435,6 +435,9 @@ def plot_all_fig():
     scale_x = float(plotpar["scale_x"])
     scale_y = float(plotpar["scale_y"])
 
+    plotpar["scale_x"] = float(plotpar["scale_x"])
+    plotpar["scale_y"] = float(plotpar["scale_y"])
+
     xp /= scale_x
     yp /= scale_y
     xu /= scale_x
@@ -446,12 +449,12 @@ def plot_all_fig():
     # n_saved_bulk_and_interfaces = (len_data-len_border)//(nx*ny)
     # print(len_data,len_data-len_border,n_saved_bulk_and_interfaces)
 
-    # for ifield in range(n_saved_bulk_and_interfaces):
+    # for field_index in range(n_saved_bulk_and_interfaces):
 
-    #     # Bulk value: ifield =1
-    #     field=veci(data,nx,ny,ifield)
+    #     # Bulk value: field_index =1
+    #     field=veci(data,nx,ny,field_index)
 
-    #     file_name=file_name_1 + "_" + str(ifield) #"_bulk"
+    #     file_name=file_name_1 + "_" + str(field_index) #"_bulk"
 
     for file_name in h5_files:
 
@@ -611,7 +614,7 @@ def plot_all_films():
 
     for figpar in plotpar["films"]:
 
-        key = 'v_1D'
+        key = figpar['var']
         python_movie_zoom(
         h5_files,
         key,
@@ -665,27 +668,33 @@ def plot_file(
         key_LS = "levelset_p"
 
     data = file[key][:]
-    ifield = 1 # bulk value
+    
+    if 'field_index' in figpar.keys():
+        field_index = figpar['field_index']
+    else:
+        field_index = 1 # bulk value
+
+    print(key,"max ",np.max(data),'min',np.min(data))
 
     print(data.shape)
 
     if data.ndim ==1:
-        data = veci(data,nx,ny,ifield)
+        data = veci(data,nx,ny,field_index)
         field=data
     elif data.shape[1] == 1:
-
-        print(key,"max ",np.max(data))
-
-        data = veci(data[:,0],nx,ny,ifield)
+        data = veci(data[:,0],nx,ny,field_index)
         field=data
-        np.set_printoptions(threshold=sys.maxsize)
-        print(data)
-
     elif data.shape[0] == 1:
 
-        print(key,"max ",np.max(data))
+        print(key,"max ",np.max(data),'min',np.min(data))
 
-        data = veci(data[0,:],nx,ny,ifield)
+        # field_index = 2
+        # np.set_printoptions(threshold=sys.maxsize)
+        # # print(data)
+        # print(data[0,:])
+
+        data = veci(data[0,:],nx,ny,field_index)
+
         field=data
         # np.set_printoptions(threshold=sys.maxsize)
         # print(data)
@@ -696,7 +705,7 @@ def plot_file(
     # file_name_1 = key
     file_name = figpar['file']
 
-    print(key,"max ",np.max(data))
+    print(key,"max ",np.max(data),'min',np.min(data))
 
     if figpar == None:
         figpar = plotpar
@@ -754,7 +763,7 @@ def plot_file(
     # Make a colorbar for the ContourSet returned by the contourf call.
     if mode !='film':
         cbar = fig1.colorbar(CS)
-        cbar.ax.set_ylabel(cbarlabel)
+        cbar.ax.set_ylabel(r""+cbarlabel)
     # Add the contour line levels to the colorbar
     if isocontour:
         CS2 = ax2.contour(CS, 
@@ -786,7 +795,7 @@ def plot_file(
 
     if mode == 'close':
         str_nstep = str(nstep)
-        plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"])
+        plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'])
         plt.close(fig1)
         return
 
@@ -868,7 +877,7 @@ def plot_vector(file,x_1D,y_1D,time,nstep,yml,plotpar,figpar):
     str_time = '{:.2e}'.format(time*plotpar['scale_time'])
     plt.title("t "+str_time +r"$(\unit{s})$")
 
-    plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"])
+    plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'])
     plt.close(fig1)
 
 
@@ -891,10 +900,10 @@ def plot_current_lines(file,
 
     nx = mesh["nx"]
     ny = mesh["ny"]
-    ifield = 1 #bulk
+    field_index = 1 #bulk
     data = file["phi_ele_1D"][:]
 
-    field=veci(data,nx,ny,ifield)
+    field=veci(data,nx,ny,field_index)
 
     # file_name = "current_lines"
     file_name = figpar['file']
@@ -934,7 +943,7 @@ def plot_current_lines(file,
     ax2.set_aspect('equal', 'box')
 
     str_nstep = str(nstep)
-    plt.savefig(file_name + "_" + str_nstep + "." + plotpar["img_format"])
+    plt.savefig(file_name + "_" + str_nstep + "." + plotpar["img_format"],dpi=plotpar['dpi'])
     plt.close(fig1)
 
 
@@ -1057,8 +1066,8 @@ def plot_python_pdf_full2(
     i1tmp2 = i1 + 1
     j1tmp2 = j1 + 1
 
-    ifield = 1 # bulk value
-    field0 = veci(data_1D,nx,ny,ifield)
+    field_index = 1 # bulk value
+    field0 = veci(data_1D,nx,ny,field_index)
 
     field = field0
     field1 = field0
@@ -1076,39 +1085,41 @@ def plot_python_pdf_full2(
     # TODO distinguish u, v, w grids even though it is a dummy position to plot BC
 
     if parse_is_true(figpar['plot_bc']):
-        if ii0 == 1:
+        if ii0 == 0:
             vecb_l=True
             i1+=1
             i0tmp2-=1 
 
-            x_arr.insert(0,x_1D[i0]-0.5*mesh['dx']/plotpar['scale_x'])
+            x_arr = np.insert(x_arr,0,x_1D[i0]-0.5*mesh['dx']/plotpar['scale_x'])
 
-        if ii1 == nx:
+        if ii1 == nx-1:
             i1+=1
             vecb_r=True
-            x_arr.append(x_1D[end]+0.5*mesh['dx']/plotpar['scale_x'])
+            # x_arr.append(x_1D[end]+0.5*mesh['dx']/plotpar['scale_x'])
+            np.append(x_arr,x_1D[-1]+0.5*mesh['dx']/plotpar['scale_x'])
             i1tmp2+=1 
 
-        if jj0 == 1:
+        if jj0 == 0:
             vecb_b=True
             j1+=1
             j0tmp2-=1
-            y_arr.insert(0,y_1D[j0]-0.5*mesh['dy']/plotpar['scale_x'])
+            y_arr= np.insert(y_arr,0,y_1D[j0]-0.5*mesh['dy']/plotpar['scale_x'])
 
-        if jj1 == ny:
+        if jj1 == ny-1:
             vecb_t=True
             j1+=1
-            y_arr.append(y_1D[end]+0.5*mesh['dy']/plotpar['scale_x'])
+            # y_arr.append(y_1D[end]+0.5*mesh['dy']/plotpar['scale_x'])
+            np.append(y_arr, y_1D[-1]+0.5*mesh['dy']/plotpar['scale_x'])
             j1tmp2+=1
 
         if vecb_l: 
-            fieldtmp[2:ny+1,1] = vecb_L(data_1D,nx,ny) 
+            fieldtmp[2:ny+1,0] = vecb_L(data_1D,nx,ny) 
         if vecb_r:
-            fieldtmp[2:ny+1,end] = vecb_R(data_1D,nx,ny) 
+            fieldtmp[2:ny+1,-1] = vecb_R(data_1D,nx,ny) 
         if vecb_b:
-            fieldtmp[1,2:nx+1] = vecb_B(data_1D,nx,ny)
+            fieldtmp[0,2:nx+1] = vecb_B(data_1D,nx,ny)
         if vecb_t:
-            fieldtmp[end,2:nx+1] = vecb_T(data_1D,nx,ny)
+            fieldtmp[-1,2:nx+1] = vecb_T(data_1D,nx,ny)
 
     if vecb_l or vecb_r or vecb_b or vecb_t:
         fieldtmp[j0tmp:j1tmp,i0tmp:i1tmp] = field1[jj0:jj1,ii0:ii1]
@@ -1305,7 +1316,7 @@ def python_movie_zoom(
 
         # Make a colorbar for the ContourSet returned by the contourf call.
         # cbar = fig1.colorbar(CS)
-        # cbar.ax.set_ylabel(cbarlabel)
+        # cbar.ax.set_ylabel(r""+cbarlabel)
 
     def animate(i,fig1,ax2):
         # ax2.clear()
@@ -1343,7 +1354,7 @@ def python_movie_zoom(
             # if (i==0): 
             #     # # Make a colorbar for the ContourSet returned by the contourf call.
             #     # cbar = fig1.colorbar(CS)
-            #     # cbar.ax.set_ylabel(cbarlabel)
+            #     # cbar.ax.set_ylabel(r""+cbarlabel)
 
             #     # Add the contour line levels to the colorbar
             #     if isocontour:
@@ -1360,7 +1371,7 @@ def python_movie_zoom(
     anim = functools.partial(animate,fig1=fig1,ax2=ax2)
     ani = animation.FuncAnimation(fig1, anim, frames=size_frame, interval=size_frame, blit=False)
 
-    ani.save(key + "." + figpar["img_format"])  # mp4, gif
+    ani.save(key + "." + figpar["img_format"],dpi=plotpar['dpi'])  # mp4, gif
 
     # with open(key+'_jshtml'+'.html', "w") as f:
     #     print(ani.to_jshtml(), file=f)
@@ -1529,15 +1540,15 @@ def plot_bc2(iter_list,vec,grid,plotpar,figname,prefix,time):
 #     return c
 
 
-def veci(data,nx,ny,ifield):
+def veci(data,nx,ny,field_index):
     """Returns ith field stored in the 1D vector like in Flower.jl code
     
     args:
-        ifield (int): index of bulk or interface data
+        field_index (int): index of bulk or interface data
     return: 
         bulk (i=1) or i-th interface field
     """
-    field = data[ifield*ny*nx:(ifield+1)*ny*nx] 
+    field = data[(field_index-1)*ny*nx:field_index*ny*nx] 
     field = np.reshape(field, (nx, ny))            
     field = field.transpose()
     return field
