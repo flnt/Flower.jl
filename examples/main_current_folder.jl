@@ -25,8 +25,8 @@ if length(localARGS)>0
     yamlnamelist = split(yamlfile, "/")
 
     yamlname = yamlnamelist[end]
-
-    cp(yamlpath,"./"*yamlname,force=true) #copy yaml file to simulation directory
+    
+    # cp(yamlpath,"./"*yamlname,force=true)
 
 end
 
@@ -39,6 +39,7 @@ flower = PropertyDict(prop_dict.flower)
 mesh = PropertyDict(flower.mesh)
 sim = PropertyDict(flower.simulation)
 phys = PropertyDict(flower.physics)
+
 
 # Simulation parameters
 save_every = sim.max_iter

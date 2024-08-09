@@ -54,7 +54,7 @@ function run_forward(
     test_laplacian = false,
     )
 
-    print("\n before unpack \n")
+    # print("\n before unpack \n")
 
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, save_every, reinit_every, nb_reinit, δreinit, ϵ, m, θ₀, aniso, nLS, _nLS, nNavier,
             concentration0, diffusion_coeff, nb_transported_scalars, nb_saved_scalars, temperature0, i0, phi_ele0, phi_ele1, alpha_c,
@@ -62,7 +62,7 @@ function run_forward(
     @unpack opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL = op
     @unpack x, y, nx, ny, dx, dy, ind, LS, V = grid
 
-    print("\n after unpack \n")
+    # print("\n after unpack \n")
 
     if num.epsilon_mode == 1 || num.epsilon_mode ==2
         num.epsilon_dist = eps(0.01) * num.Δ
@@ -1810,7 +1810,7 @@ function run_forward(
                 if mode_2d == 3
                     grid.LS[1].u .= sqrt.((grid.x.- num.xcoord).^ 2 + (grid.y .- num.ycoord) .^ 2) - (current_radius) * ones(ny, nx)                  
                 else
-                    grid.LS[1].u .= sqrt.((grid.x .+ num.shifted .- current_radius .+ num.R ).^ 2 + (grid.y .+ num.shifted_y) .^ 2) - (current_radius) * ones(ny, nx)
+                    grid.LS[1].u .= sqrt.((grid.x .- num.xcoord .- current_radius .+ num.R ).^ 2 + (grid.y .- num.ycoord) .^ 2) - (current_radius) * ones(ny, nx)
                 end
                 # init_franck!(grid, TL, R, T_inf, 0)
                 # u
@@ -2252,6 +2252,7 @@ function run_forward(
                     "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
                     "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
                     "trans_scal_1D"::Cstring, phL.trans_scalD::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
                     "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   

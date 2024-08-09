@@ -1806,8 +1806,32 @@ function compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,
 
 
     ######################################################################################
+    #TODO careful : nstep needs to be updated beforehand
+    @ccall "libpdi".PDI_multi_expose("write_mass_flux"::Cstring,
+    # "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+    # "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+    "mass_flux"::Cstring, mass_flux_vec1_2::Ptr{Cdouble}, PDI_OUT::Cint,
+    "mass_flux_bulk"::Cstring, mass_flux_vec1_2::Ptr{Cdouble}, PDI_OUT::Cint,
+    "mass_flux_border"::Cstring, mass_flux_vecb_2::Ptr{Cdouble}, PDI_OUT::Cint,
+    "mass_flux_intfc"::Cstring, mass_flux_veci_2::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cvoid
 
-
+    # @ccall "libpdi".PDI_multi_expose("write_mass_flux"::Cstring,
+    # "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+    # "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+    # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "levelset_p"::Cstring, LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "trans_scal_1D"::Cstring, phL.trans_scalD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+    # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
+    # C_NULL::Ptr{Cvoid})::Cvoid
 
     return mass_flux_2, mass_flux_vec1_2, mass_flux_vecb_2, mass_flux_veci_2
 end
@@ -2091,7 +2115,7 @@ function test_LS(grid)
     maxLS = maximum(grid.LS[iLS].u)
 
     printstyled(color=:red, @sprintf "\n levelset: min %.2e max %.2e\n" minLS maxLS)
-    if maximum(grid.LS[iLS].u) <1.0
+    if maximum(grid.LS[iLS].u) < 0.0
         @error("LS initialization")
     end
 end

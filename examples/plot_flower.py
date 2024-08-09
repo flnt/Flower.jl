@@ -666,9 +666,30 @@ def plot_file(
 
     data = file[key][:]
     ifield = 1 # bulk value
+
+    print(data.shape)
+
     if data.ndim ==1:
         data = veci(data,nx,ny,ifield)
         field=data
+    elif data.shape[1] == 1:
+
+        print(key,"max ",np.max(data))
+
+        data = veci(data[:,0],nx,ny,ifield)
+        field=data
+        np.set_printoptions(threshold=sys.maxsize)
+        print(data)
+
+    elif data.shape[0] == 1:
+
+        print(key,"max ",np.max(data))
+
+        data = veci(data[0,:],nx,ny,ifield)
+        field=data
+        # np.set_printoptions(threshold=sys.maxsize)
+        # print(data)
+        
     else:
         field = data.transpose()
 
@@ -745,7 +766,7 @@ def plot_file(
     if figpar['plot_levelset']:
         LSdat = file[key_LS][:]
         LSdat = LSdat.transpose()
-        CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r")
+        CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'])
 
     str_time = '{:.2e}'.format(time/plotpar['scale_time'])
     # strrad = '{:.2e}'.format(radius)
@@ -773,7 +794,7 @@ def plot_file(
 
 
 # TODO ticks
-def plot_vector(file,xp,yp,time,nstep,yml,plotpar,figpar):
+def plot_vector(file,x_1D,y_1D,time,nstep,yml,plotpar,figpar):
     """plot vectors on scalar grid
     """
 
@@ -793,7 +814,7 @@ def plot_vector(file,xp,yp,time,nstep,yml,plotpar,figpar):
     skip = (slice(None, None, skip_every), slice(None, None, skip_every))
     skip1D = slice(None, None, skip_every)
 
-    q = ax2.quiver(xp[skip1D],yp[skip1D],us[skip],vs[skip],
+    q = ax2.quiver(x_1D[skip1D],y_1D[skip1D],us[skip],vs[skip],
     scale=float(plotpar["quiver_scale"]),
     scale_units=scale_units,
     angles=scale_units,
@@ -833,8 +854,7 @@ def plot_vector(file,xp,yp,time,nstep,yml,plotpar,figpar):
         key_LS = 'levelset_p'
         LSdat = file[key_LS][:]
         LSdat = LSdat.transpose()
-        CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors="r")
-
+        CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'])
 
     ax2.set_xlabel(r"$x ( \unit{\um})$")
     ax2.set_ylabel(r"$y ( \unit{\um})$")
@@ -1209,7 +1229,7 @@ def plot_python_pdf_full2(
         LSdat = file[key_LS][:]
         LSdat = LSdat.transpose()
         CSlvl = ax2.contour(
-            x_1D[ii0:ii1], y_1D[jj0:jj1], LSdat[jj0:jj1, ii0:ii1], [0.0], colors="r"
+            x_1D[ii0:ii1], y_1D[jj0:jj1], LSdat[jj0:jj1, ii0:ii1], [0.0], colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle']
         )
 
     ax2.spines["right"].set_visible(False)
