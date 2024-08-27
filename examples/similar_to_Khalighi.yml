@@ -133,89 +133,25 @@ plot:
         linewidth: 1
         linestyle: None
 
-      # - var: concentration_H2_1D
-      #   file: concentration_H2
-      #   cbarlabel: r'Concentration H_2'
-      #   isocontour: False
-      #   levels: 10
-      #   plot_bc: True
-      #   plot_grid: True
-      #   plot_levelset: True
-      #   plot_mode: contourf
-      #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
-      #   linewidth: 1
-      #   linestyle: None
-
-      # - var: concentration_KOH_1D
-      #   file: concentration_KOH
-      #   cbarlabel: r'Concentration KOH'
-      #   isocontour: False
-      #   levels: 10
-      #   plot_bc: True
-      #   plot_grid: True
-      #   plot_levelset: True
-      #   plot_mode: contourf
-      #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
-      #   linewidth: 1
-      #   linestyle: None
-
-      # - var: concentration_H2O_1D
-      #   file: concentration_H2O
-      #   cbarlabel: r'Concentration H_2O'
-      #   isocontour: False
-      #   levels: 10
-      #   plot_bc: True
-      #   plot_grid: True
-      #   plot_levelset: True
-      #   plot_mode: contourf
-      #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
-      #   linewidth: 1
-      #   linestyle: None
-
-      - var: trans_scal_1D_H2
-        file: trans_scal_1D_H2
-        cbarlabel: r'Concentration H_2'
-        isocontour: False
-        levels: 10
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: False
-        plot_mode: contourf
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        linewidth: 1
-        linestyle: None
-      
-      - var: trans_scal_1D_H2
-        file: trans_scal_1D_H2_zoom
-        field_index: 1 # 1 for bulk, 2 for 1st interface
-        cbarlabel: '$Concentration H_2$'
-        fontsize: 4
-        isocontour: False
-        levels: 10
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: False
-        plot_mode: colormesh
-        print_mode: "val"
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        linewidth: 1
-        linestyle: None
-        zoom: [[0,5],[0,5]]
-
-
       # - var: trans_scal_1D_H2
-      #   file: trans_scal_1D_H2_full
-      #   cbarlabel: r'Concentration H_2'
+      #   file: trans_scal_1D_H2
+      #   cbarlabel: '$\text{Concentration} H_2$'
+      #   isocontour: False
+      #   levels: 10
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: False
+      #   plot_mode: contourf
+      #   range: [0,1e-4]
+      #   xlim: [0,100]
+      #   ylim: [0,100]
+      #   linewidth: 1
+      #   linestyle: None
+      
+      # - var: trans_scal_1D_H2_1DT
+      #   file: trans_scal_1D_H2_zoom
+      #   field_index: 1 # 1 for bulk, 2 for 1st interface
+      #   cbarlabel: '$\text{Concentration} H_2$'
       #   fontsize: 4
       #   isocontour: False
       #   levels: 10
@@ -229,42 +165,12 @@ plot:
       #   ylim: [0,100]
       #   linewidth: 1
       #   linestyle: None
-      #   zoom: [[0,127],[0,127]]
+      #   zoom: [[0,5],[0,5]]
 
-
-      - var: trans_scal_1D_KOH
-        file: trans_scal_1D_KOH
-        cbarlabel: 'Concentration KOH'
-        isocontour: False
-        levels: 10
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: False
-        plot_mode: contourf
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        linewidth: 1
-        linestyle: None
-
-      - var: trans_scal_1D_H2O
-        file: trans_scal_1D_H2O
-        cbarlabel: r'$Concentration H_2O$'
-        isocontour: False
-        levels: 10
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: False
-        plot_mode: contourf
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        linewidth: 1
-        linestyle: None
 
       - var: concentration_H2_1DT
-        file: concentration_H2T
-        cbarlabel: r'Concentration H_2'
+        file: concentration_H2
+        cbarlabel: '$\text{Concentration} H_2 \ce{H2}$'
         isocontour: False
         levels: 10
         plot_bc: True
@@ -278,8 +184,8 @@ plot:
         linestyle: None
 
       - var: concentration_KOH_1DT
-        file: concentration_KOHT
-        cbarlabel: r'Concentration KOH'
+        file: concentration_KOH
+        cbarlabel: '$\text{Concentration} KOH$'
         isocontour: False
         levels: 10
         plot_bc: True
@@ -293,8 +199,8 @@ plot:
         linestyle: None
 
       - var: concentration_H2O_1DT
-        file: concentration_H2OT
-        cbarlabel: r'Concentration H_2O'
+        file: concentration_H2O
+        cbarlabel: '$\text{Concentration} H_2O$'
         isocontour: False
         levels: 10
         plot_bc: True
@@ -324,10 +230,13 @@ plot:
         xlim: [0,100]
         ylim: [0,100]
         zoom: [[0,5],[0,5]]
+        color_annot_bc: w
+        color_annot_bulk: w
 
       - var: concentration_H2_1DT
         file: concentration_H2_zoom
-        cbarlabel: r'Concentration H_2'
+        field_index: 1
+        cbarlabel: '$\text{Concentration} H_2$'
         fontsize: 4
         isocontour: False
         levels: 10
@@ -340,6 +249,8 @@ plot:
         xlim: [0,100]
         ylim: [0,100]
         zoom: [[0,5],[0,5]]
+        color_annot_bc: w
+        color_annot_bulk: w
 
 
 
@@ -360,9 +271,9 @@ plot:
         linewidth: 1
         linestyle: None
 
-      - var: concentration_H2_1D
+      - var: concentration_H2_1DT 
         file: concentration_H2
-        cbarlabel: '$Concentration H_2$'
+        cbarlabel: H2 #'$Concentration H_2$'
         img_format: mp4
         isocontour: False
         levels: 10
@@ -396,6 +307,7 @@ plot:
   theta2: 90
   ticks_x: 0:20:100
   ticks_y: 0:20:100
+  unit_time: ms
   write_h5: 0
   
   plot_grid: false
@@ -533,49 +445,6 @@ pdi:
 
         
       #write cconcentration for H2 only : data selection 
-      # [:,0] H2
-      # - file: flower_${nstep:08}.h5 #Name of the file test.h5
-      #   collision_policy: write_into
-      #   on_event: write_data
-      #   datasets: # a list of datasets inside the file created on first access
-      #     #*** define the datasets for main_field
-      #     concentration_H2_1D: { type: array, subtype: double, size:  ['($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny',1] }
-      #   write: 
-      #     trans_scal_1D: # the name of the data to write
-      #       dataset: concentration_H2_1D
-      #       memory_selection: #only H2
-      #         size:  ['($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny',1]
-      #         start: [0,0]
-        
-      # #write cconcentration for KOH only : data selection 
-      # - file: flower_${nstep:08}.h5 #Name of the file test.h5
-      #   collision_policy: write_into
-      #   on_event: write_data
-      #   datasets: # a list of datasets inside the file created on first access
-      #     #*** define the datasets for main_field
-      #     concentration_KOH_1D: { type: array, subtype: double, size:  ['($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny',1] }
-      #   write: 
-      #     trans_scal_1D: # the name of the data to write
-      #       dataset: concentration_KOH_1D
-      #       memory_selection: #only H2
-      #         size:  ['($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny',1]
-      #         start: [0,1]
-
-      # #write cconcentration for H2O only : data selection 
-      # # [:,0] H2
-      # - file: flower_${nstep:08}.h5 #Name of the file test.h5
-      #   collision_policy: write_into
-      #   on_event: write_data
-      #   datasets: # a list of datasets inside the file created on first access
-      #     #*** define the datasets for main_field
-      #     concentration_H2O_1D: { type: array, subtype: double, size:  ['($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny',1] }
-      #   write: 
-      #     trans_scal_1D: # the name of the data to write
-      #       dataset: concentration_H2O_1D
-      #       memory_selection: #only H2O
-      #         size:  ['($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny',1]
-      #         start: [0,2]
-
       - file: flower_${nstep:08}.h5 #Name of the file test.h5
         collision_policy: write_into
         on_event: write_data
