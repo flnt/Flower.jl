@@ -1337,7 +1337,7 @@ def plot_python_pdf_full2(
 
 
         if vecb_l: 
-            print('len',len(fieldtmp[1:ny+1,0]), len(vecb_L(data_1D,nx,ny)),ny)
+            # print('len',len(fieldtmp[1:ny+1,0]), len(vecb_L(data_1D,nx,ny)),ny)
             # test = np.array(range(0,ny+2))
             # print(test)
             # print(test[1:ny])
