@@ -1480,111 +1480,41 @@ def plot_python_pdf_full2(
 
     if vecb_l:
         x = x_arr[i0]
-        # plt.draw() # this is required, or the ticklabels may not exist (yet) at the next step
-        # labels = [w.get_text() for w in ax2.get_xticklabels()]
-        # locs=list(ax2.get_xticks())
-        # labels+=[r'$BC$']
-        # locs+=[x]
-        # ax2.set_xticks(locs)
-        # ax2.set_xticklabels(labels)
-        # plt.draw()
-
-        ticks_loc = ax2.get_xticks().tolist()
-
-        # ticks_loc=list(ax2.get_xticks())
-        
+        ticks_loc = ax2.get_xticks().tolist()        
         labels = [w.get_text() for w in ax2.get_xticklabels()]
-
         labels+=[r'$BC$']
         ticks_loc+=[x]
-
         ax2.xaxis.set_major_locator(mticker.FixedLocator(ticks_loc))
-        # ax3.set_yticklabels([label_format.format(x) for x in ticks_loc])
         ax2.set_xticklabels(labels)
 
+    if vecb_r:
+        x = x_arr[i1]
+        ticks_loc = ax2.get_xticks().tolist()        
+        labels = [w.get_text() for w in ax2.get_xticklabels()]
+        labels+=[r'$BC$']
+        ticks_loc+=[x]
+        ax2.xaxis.set_major_locator(mticker.FixedLocator(ticks_loc))
+        ax2.set_xticklabels(labels)
+    if vecb_b:
 
-        # plt.xticks(list(plt.xticks()[0]) + [x_arr[i0]], labels=list(plt.xticks()[1]) + ['BC'])
+        x = y_arr[j0]
 
-        # plt.xticks([x_arr[i0]] + list(plt.xticks()[0]), labels= ['BC'] + list(plt.xticks()[1]))
+        ticks_loc = ax2.get_yticks().tolist()        
+        labels = [w.get_text() for w in ax2.get_yticklabels()]
+        labels+=[r'$BC$']
+        ticks_loc+=[x]
+        ax2.yaxis.set_major_locator(mticker.FixedLocator(ticks_loc))
+        ax2.set_yticklabels(labels)
 
-        # plt.xticks(list(plt.xticks()[0]) + [x_arr[i0]], labels=list(plt.xticks()[1]) + ['BC'])
-        
-        
+    if vecb_t:
+        x = y_arr[j1]
 
-        # plt.annotate(r'$BC$',\
-        #      xy = (x,0.2),
-        #      xytext = (x,-0.75))          
-
-        # ax2.axvline(x=x, ymin=-0.02, ymax=0.02, clip_on=False)
-
-        # trans = ax2.get_xaxis_transform()
-        # # ax2.axvline(x)
-        # plt.text(x, -0.1, 'BC', transform=trans)
-
-        # ticks = ax2.xaxis.get_majorticklocs()
-
-        # ticks = ax2.get_xticks()
-        # labels = ax2.get_xticklabels()
-        # print('ticks',ticks,ticks[1:],labels,labels[1:])
-
-        # if ticks[0] < x:
-        #     newticks = [x] + ticks[1:]
-        #     # ax2.set_xticks(newticks)
-        #     # ax2.set_xticklabels(['BC'] + labels[1:])
-        #     newlabels = ['BC'] + labels[1:]
-        #     print(newticks)
-        #     print(newlabels)
-        #     plt.xticks(ticks = newticks, labels= newlabels )
-            
-        #     print('ticks',ticks,list(plt.xticks()[1])[1:])
-
-
-        # ticks = ax2.get_xticks()
-        # print('ticks',ticks,list(plt.xticks()[1])[1:])
-
-        # print('ticks')
-        
-        # print(ticks)
-
-        # print(plt.xticks()[0])
-
-
-       
-     
-        # plt.xticks(list(plt.xticks()[0]) + [x_arr[i0]], labels=list(plt.xticks()[1]) + ['BC'])
-
-        # ticks = ax2.xaxis.get_majorticklocs()
-        # print(ticks)
-
-        # axis.xaxis.set_ticks(<your updated array>).
-
-    # if vecb_r:
-    #     plt.xticks(list(plt.xticks()[0]) + [x_arr[i1]], labels=list(plt.xticks()[1]) + ['BC'])
-    # if vecb_b:
-        # plt.yticks(list(plt.yticks()[0]) + [y_arr[j0]], labels=list(plt.yticks()[1]) + ['BC'])
-
-        # x = y_arr[j0]
-
-        # plt.annotate(r'$BC$',\
-        #      xy = (0.2,x),
-        #      xytext = (-0.75,x))          
-
-        # ax2.axhline(y=x, xmin=-0.02, xmax=0.02, clip_on=False)
-
-        # ticks = ax2.get_yticks()
-        # print('ticks',ticks)
-
-        # if ticks[0] < x:
-        #     newticks = [x] + ticks[1:]
-        #     ax2.set_yticks(newticks)
-        #     ax2.set_yticklabels(['BC'] + list(plt.yticks()[1])[1:])
-        # ticks = ax2.get_yticks()
-        # print('ticks',ticks)
-
-    # if vecb_t:
-    #     plt.yticks(list(plt.yticks()[0]) + [y_arr[j1]], labels=list(plt.yticks()[1]) + ['BC'])
-
-        # plt.xticks(list(plt.xticks()[0]) + [2.5, 6.5], labels=list(plt.xticks()[1]) + ['2.5', '6.5'])
+        ticks_loc = ax2.get_yticks().tolist()        
+        labels = [w.get_text() for w in ax2.get_yticklabels()]
+        labels+=[r'$BC$']
+        ticks_loc+=[x]
+        ax2.yaxis.set_major_locator(mticker.FixedLocator(ticks_loc))
+        ax2.set_yticklabels(labels)
 
     # isnap = indLS
     # strtime = @sprintf "%.2e" fwd.t[isnap]*1e3
