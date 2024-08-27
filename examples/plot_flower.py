@@ -11,6 +11,80 @@ from termcolor import colored
 import matplotlib.animation as animation
 import functools
 
+import matplotlib.font_manager as fm
+
+import matplotlib.ticker as mticker
+
+
+#Find font path
+
+# #!/usr/bin/env python3
+
+# import matplotlib.font_manager
+# from PIL import ImageFont
+
+# # Iterate over all font files known to matplotlib
+# for filename in matplotlib.font_manager.findSystemFonts(): 
+#     # Avoid these two trouble makers - don't know why they are problematic
+#     if "Emoji" not in filename and "18030" not in filename:
+#         # Look up what PIL knows about the font
+#         font = ImageFont.FreeTypeFont(filename)
+#         name, weight = font.getname()
+#         print(f'File: {filename}, fontname: {name}, weight: {weight}')
+
+##########################################################################
+plt.rcParams['text.usetex'] = True
+plt.rcParams["font.size"] = "11"
+
+plt.rc('text.latex', preamble="\n".join([ # plots will use this preamble
+        r'\usepackage{amsmath}',
+        r'\usepackage{booktabs}',
+        r"\usepackage{siunitx}",
+        r"\setlength{\abovedisplayskip}{0pt}",
+        r" \setlength{\belowdisplayskip}{0pt}",
+        r"\setlength{\belowdisplayshortskip}{0pt}",
+        r"\setlength{\abovedisplayshortskip}{0pt}",
+        r"\addtolength{\jot}{-4pt}",
+        r"\usepackage{mhchem}",
+       ])
+)
+
+ #   r"\listfiles"
+      #   r"\sisetup{"
+      #   r"table-alignment-mode = format,"
+      #   r"table-number-alignment = center,"
+      #   r"table-auto-round"
+      #   r"}"
+
+
+# "pgf.preamble": "\n".join([ # plots will use this preamble
+#         r"\usepackage[utf8]{inputenc}",
+#         r"\usepackage[T1]{fontenc}",
+#         r"\usepackage[detect-all,locale=DE]{siunitx}"
+
+
+# import os
+# print(os.environ['PATH'])
+
+fontpath1='/usr/share/fonts/opentype/'
+fontpath2 = 'public/tex-gyre/texgyrepagella-regular.otf'
+fontpath = fontpath1 + fontpath2
+# fontpath='/mnt/c/Program Files/MiKTeX/fonts/opentype/public/tex-gyre/texgyrepagella-regular.otf'
+
+fe = fm.FontEntry( 
+fname=fontpath,
+name='TeX Gyre Pagella Math'
+)
+fm.fontManager.ttflist.insert(0, fe) # or append is fine
+plt.rcParams['font.family'] = fe.name # = 'your custom ttf font name'
+
+prop = fm.FontProperties(fname=fontpath)
+
+
+
+
+
+##########################################################################
 
 # from termcolor import colored
 
@@ -559,6 +633,10 @@ def plot_all_films():
     else:
         h5_files = sys.argv[2::]
           
+    
+    # print(h5_files)
+    h5_files = sorted(h5_files)
+    print(h5_files)
 
     # print(sys.argv)
 
@@ -629,6 +707,99 @@ def plot_all_films():
         )
 
 
+
+def plot_all_films_func():
+    """
+    Plot all films in YAML file
+    """
+
+    # print('arg', len(sys.argv),sys.argv)
+    if len(sys.argv) == 2:
+        # List all files in the current directory
+        all_files = os.listdir(".")
+        h5_files = [file for file in all_files if file.endswith(".h5")]
+    else:
+        h5_files = sys.argv[2::]
+          
+    
+    # print(h5_files)
+    h5_files = sorted(h5_files)
+    print(h5_files)
+
+    # print(sys.argv)
+
+    try:
+        yamlfile = sys.argv[1]
+        if ".yml" not in yamlfile:
+            yamlfile += ".yml"
+    except Exception as error:
+        print(error)
+        print(colored("error", "red"))
+
+    with open(yamlfile, "r") as file:
+        yml = yaml.safe_load(file)
+
+    # print(yml)
+
+    mesh = yml["flower"]["mesh"]
+    plotpar = yml["plot"]
+
+    plotpar["scale_time"] = float(plotpar["scale_time"])
+
+    mesh["nx"] = int(mesh["nx"])
+    mesh["ny"] = int(mesh["ny"])
+
+    mesh["xmax"] = float(mesh["xmax"])
+    mesh["xmin"] = float(mesh["xmin"])
+
+    mesh["ymax"] = float(mesh["ymax"])
+    mesh["ymin"] = float(mesh["ymin"])
+
+    mesh["dx"] = (mesh["xmax"] - mesh["xmin"]) / mesh["nx"]
+    mesh["dy"] = (mesh["ymax"] - mesh["ymin"]) / mesh["ny"]
+
+    xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+    yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+
+    dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
+    dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
+
+    xu = xp + dx / 2
+    xu = np.insert(xu, 0, xp[0] - dx / 2)
+    # yu = yp # xv = xp
+    yv = yp + dy / 2
+    yv = np.insert(yv, 0, yp[0] - dy / 2)
+
+    scale_x = float(plotpar["scale_x"])
+    scale_y = float(plotpar["scale_y"])
+
+    xp /= scale_x
+    yp /= scale_y
+    xu /= scale_x
+    yv /= scale_y
+
+    # func = getattr('plot_file')
+
+    func = globals()['plot_file']
+
+    for figpar in plotpar["films"]:
+
+        key = figpar['var']
+        python_movie_zoom_func(
+        h5_files,
+        key,
+        xp,
+        yp,
+        xu,
+        yv,
+        yml,
+        mesh,
+        func,
+        plotpar,
+        figpar,
+        )
+
+
 def plot_file(
     file,
     key,
@@ -674,9 +845,9 @@ def plot_file(
     else:
         field_index = 1 # bulk value
 
-    print(key,"max ",np.max(data),'min',np.min(data))
+    print(key,nstep,time,"max ",np.max(data),'min',np.min(data))
 
-    print(data.shape)
+    # print(data.shape)
 
     if data.ndim ==1:
         data = veci(data,nx,ny,field_index)
@@ -686,7 +857,7 @@ def plot_file(
         field=data
     elif data.shape[0] == 1:
 
-        print(key,"max ",np.max(data),'min',np.min(data))
+        # print(key,"max ",np.max(data),'min',np.min(data))
 
         # field_index = 2
         # np.set_printoptions(threshold=sys.maxsize)
@@ -705,7 +876,7 @@ def plot_file(
     # file_name_1 = key
     file_name = figpar['file']
 
-    print(key,"max ",np.max(data),'min',np.min(data))
+    # print(key,"max ",np.max(data),'min',np.min(data))
 
     if figpar == None:
         figpar = plotpar
@@ -717,8 +888,7 @@ def plot_file(
         fig1, ax2 = plt.subplots(figsize=set_size(plotpar["latex_frame_width"], fraction=float(plotpar["fig_fraction"]),
                                                 ratio=1,nvary=1,ratio2=1,height=float(plotpar["latex_frame_height"])),
                                                 layout="constrained")
-    ax2.spines["right"].set_visible(False)
-    ax2.spines["top"].set_visible(False)
+
 
     if 'plot_mode' not in figpar.keys():
         figpar['plot_mode'] = plotpar['plot_mode']
@@ -781,17 +951,20 @@ def plot_file(
     # strrad = '{:.2e}'.format(radius)
     # str_iter = "{:05}".format(i)
 
-    plt.title("t "+str_time +r"$(\unit{s})$")
+    # plt.title("t "+str_time +r"$(\unit{s})$")
 
-    ax2.spines["right"].set_visible(False)
-    ax2.spines["top"].set_visible(False)
+    plt.title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
 
-    ax2.set_xlabel(r"$x ( \unit{\um})$")
-    ax2.set_ylabel(r"$y ( \unit{\um})$")
+    if mode =='first' or mode =='close':
+        ax2.spines["right"].set_visible(False)
+        ax2.spines["top"].set_visible(False)
 
-    ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
-    ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
-    ax2.set_aspect('equal', 'box')
+        ax2.set_xlabel(r"$x ( \unit{\um})$")
+        ax2.set_ylabel(r"$y ( \unit{\um})$")
+
+        ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
+        ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
+        ax2.set_aspect('equal', 'box')
 
     if mode == 'close':
         str_nstep = str(nstep)
@@ -874,8 +1047,11 @@ def plot_vector(file,x_1D,y_1D,time,nstep,yml,plotpar,figpar):
 
     # str_nstep = str1="{:05}".format(nstep)
     str_nstep = str(nstep)
-    str_time = '{:.2e}'.format(time*plotpar['scale_time'])
-    plt.title("t "+str_time +r"$(\unit{s})$")
+    # str_time = '{:.2e}'.format(time/plotpar['scale_time'])
+    # plt.title("t "+str_time +r"$(\unit{s})$")
+
+    plt.title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+
 
     plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'])
     plt.close(fig1)
@@ -889,6 +1065,9 @@ def plot_current_lines(file,
     nstep,
     plotpar,
     figpar,
+    mode='close',
+    fig1=None,
+    ax2=None,
 ):
     """plot current lines
     args:
@@ -1066,14 +1245,30 @@ def plot_python_pdf_full2(
     i1tmp2 = i1 + 1
     j1tmp2 = j1 + 1
 
-    field_index = 1 # bulk value
-    field0 = veci(data_1D,nx,ny,field_index)
+    if 'field_index' in figpar.keys():
+        field_index = figpar['field_index']
+    else:
+        field_index = 1 # bulk value
+
+
+    if data_1D.ndim ==1:
+        field0 = veci(data_1D,nx,ny,field_index)
+
+    elif data_1D.shape[1] == 1:
+        data_1D = veci(data_1D[:,0],nx,ny,field_index)
+        field = data_1D
+    elif data_1D.shape[0] == 1:
+        field0 = veci(data_1D[0,:],nx,ny,field_index)
+
+    #TODO slice vector trans_scal
+
+    # field0 = veci(data_1D,nx,ny,field_index)
 
     field = field0
     field1 = field0
 
-    x_arr=x_1D[i0:i1]
-    y_arr=y_1D[j0:j1]
+    x_arr=x_1D[i0:i1+1]
+    y_arr=y_1D[j0:j1+1]
 
     vecb_l = False
     vecb_r = False
@@ -1112,20 +1307,51 @@ def plot_python_pdf_full2(
             np.append(y_arr, y_1D[-1]+0.5*mesh['dy']/plotpar['scale_x'])
             j1tmp2+=1
 
+        print(np.size(data_1D),nx,ny,vecb_l,vecb_r,vecb_b,vecb_t)
+        # if vecb_l: 
+        #     # print('len',len(fieldtmp[2:ny+1,0]), len(vecb_L(data_1D,nx,ny)))
+        #     fieldtmp[2:ny+1,0] = vecb_L(data_1D,nx,ny) 
+        # if vecb_r:
+        #     fieldtmp[2:ny+1,-1] = vecb_R(data_1D,nx,ny) 
+        # if vecb_b:
+        #     fieldtmp[0,2:nx+1] = vecb_B(data_1D,nx,ny)
+        # if vecb_t:
+        #     fieldtmp[-1,2:nx+1] = vecb_T(data_1D,nx,ny)
+
+        # print(vecbprint(data_1D, nx, ny))
+        # testprint = vecbprint(data_1D, nx, ny)
+        # print(len(testprint),2*nx+2*ny)
+        # for jtest,valtest in enumerate(testprint):
+        #     print(jtest,valtest)
+        # print('test',ny,testprint[0],testprint[ny-1],testprint[ny],testprint[ny+1],testprint[ny+2])
+
+        print(vecb_L(data_1D,nx,ny))
+        print(vecb_R(data_1D,nx,ny))
+        print(vecb_B(data_1D,nx,ny))
+        print(vecb_T(data_1D,nx,ny))
+
+
         if vecb_l: 
-            fieldtmp[2:ny+1,0] = vecb_L(data_1D,nx,ny) 
+            print('len',len(fieldtmp[1:ny+1,0]), len(vecb_L(data_1D,nx,ny)),ny)
+            # test = np.array(range(0,ny+2))
+            # print(test)
+            # print(test[1:ny])
+            fieldtmp[1:ny+1,0] = vecb_L(data_1D,nx,ny) 
         if vecb_r:
-            fieldtmp[2:ny+1,-1] = vecb_R(data_1D,nx,ny) 
+            fieldtmp[1:ny+1,-1] = vecb_R(data_1D,nx,ny) 
         if vecb_b:
-            fieldtmp[0,2:nx+1] = vecb_B(data_1D,nx,ny)
+            fieldtmp[0,1:nx+1] = vecb_B(data_1D,nx,ny)
         if vecb_t:
-            fieldtmp[-1,2:nx+1] = vecb_T(data_1D,nx,ny)
+            fieldtmp[-1,1:nx+1] = vecb_T(data_1D,nx,ny)
+
+        #TODO end excluded recheck
+
 
     if vecb_l or vecb_r or vecb_b or vecb_t:
-        fieldtmp[j0tmp:j1tmp,i0tmp:i1tmp] = field1[jj0:jj1,ii0:ii1]
-        field = fieldtmp[j0tmp2:j1tmp2,i0tmp2:i1tmp2]
+        fieldtmp[j0tmp:j1tmp+1,i0tmp:i1tmp+1] = field1[jj0:jj1+1,ii0:ii1+1]
+        field = fieldtmp[j0tmp2:j1tmp2+1,i0tmp2:i1tmp2+1]
     else:
-        field = field0[j0:j1,i0:i1]
+        field = field0[j0:j1+1,i0:i1+1]
 
     fig1, ax2 = plt.subplots(layout="constrained")
     ax2.spines["right"].set_visible(False)
@@ -1163,8 +1389,8 @@ def plot_python_pdf_full2(
         #     ax2.axhline(y_1D[igrid],c=lcolor,lw=lw)
         # end
 
-        for igrid0 in range(i0,i1):        
-            for jgrid0 in range(j0,j1): 
+        for igrid0 in range(i0,i1+1):        
+            for jgrid0 in range(j0,j1+1): 
                 # print("\n",x_1D[igrid],y_1D[jgrid])
                 # print("\n ",igrid," ",jgrid)
                 igrid=igrid0-i0 #TODO
@@ -1199,8 +1425,12 @@ def plot_python_pdf_full2(
 
     # ax2.set_title("Title")
 
-    str_time = '{:.2e}'.format(time*plotpar['scale_time'])
-    plt.title("t "+str_time +r"$(\unit{s})$")
+    # str_time = '{:.2e}'.format(time/plotpar['scale_time'])
+    # plt.title("t "+str_time +r"$(\unit{s})$")
+    # str_time = '{:.2e}'.format(time/plotpar['scale_time'])
+
+    plt.title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+
 
     ax2.set_xlabel(r"$x ( \unit{\um})$")
     ax2.set_ylabel(r"$y ( \unit{\um})$")
@@ -1240,15 +1470,122 @@ def plot_python_pdf_full2(
         LSdat = file[key_LS][:]
         LSdat = LSdat.transpose()
         CSlvl = ax2.contour(
-            x_1D[ii0:ii1], y_1D[jj0:jj1], LSdat[jj0:jj1, ii0:ii1], [0.0], colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle']
+            x_1D[ii0:ii1+1], y_1D[jj0:jj1+1], LSdat[jj0:jj1+1, ii0:ii1+1], [0.0], colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle']
         )
 
-    ax2.spines["right"].set_visible(False)
-    ax2.spines["top"].set_visible(False)
 
 
-    str_time = '{:.2e}'.format(time*plotpar['scale_time'])
-    
+    # ax2.set_aspect('equal', 'box')
+
+
+    if vecb_l:
+        x = x_arr[i0]
+        # plt.draw() # this is required, or the ticklabels may not exist (yet) at the next step
+        # labels = [w.get_text() for w in ax2.get_xticklabels()]
+        # locs=list(ax2.get_xticks())
+        # labels+=[r'$BC$']
+        # locs+=[x]
+        # ax2.set_xticks(locs)
+        # ax2.set_xticklabels(labels)
+        # plt.draw()
+
+        ticks_loc = ax2.get_xticks().tolist()
+
+        # ticks_loc=list(ax2.get_xticks())
+        
+        labels = [w.get_text() for w in ax2.get_xticklabels()]
+
+        labels+=[r'$BC$']
+        ticks_loc+=[x]
+
+        ax2.xaxis.set_major_locator(mticker.FixedLocator(ticks_loc))
+        # ax3.set_yticklabels([label_format.format(x) for x in ticks_loc])
+        ax2.set_xticklabels(labels)
+
+
+        # plt.xticks(list(plt.xticks()[0]) + [x_arr[i0]], labels=list(plt.xticks()[1]) + ['BC'])
+
+        # plt.xticks([x_arr[i0]] + list(plt.xticks()[0]), labels= ['BC'] + list(plt.xticks()[1]))
+
+        # plt.xticks(list(plt.xticks()[0]) + [x_arr[i0]], labels=list(plt.xticks()[1]) + ['BC'])
+        
+        
+
+        # plt.annotate(r'$BC$',\
+        #      xy = (x,0.2),
+        #      xytext = (x,-0.75))          
+
+        # ax2.axvline(x=x, ymin=-0.02, ymax=0.02, clip_on=False)
+
+        # trans = ax2.get_xaxis_transform()
+        # # ax2.axvline(x)
+        # plt.text(x, -0.1, 'BC', transform=trans)
+
+        # ticks = ax2.xaxis.get_majorticklocs()
+
+        # ticks = ax2.get_xticks()
+        # labels = ax2.get_xticklabels()
+        # print('ticks',ticks,ticks[1:],labels,labels[1:])
+
+        # if ticks[0] < x:
+        #     newticks = [x] + ticks[1:]
+        #     # ax2.set_xticks(newticks)
+        #     # ax2.set_xticklabels(['BC'] + labels[1:])
+        #     newlabels = ['BC'] + labels[1:]
+        #     print(newticks)
+        #     print(newlabels)
+        #     plt.xticks(ticks = newticks, labels= newlabels )
+            
+        #     print('ticks',ticks,list(plt.xticks()[1])[1:])
+
+
+        # ticks = ax2.get_xticks()
+        # print('ticks',ticks,list(plt.xticks()[1])[1:])
+
+        # print('ticks')
+        
+        # print(ticks)
+
+        # print(plt.xticks()[0])
+
+
+       
+     
+        # plt.xticks(list(plt.xticks()[0]) + [x_arr[i0]], labels=list(plt.xticks()[1]) + ['BC'])
+
+        # ticks = ax2.xaxis.get_majorticklocs()
+        # print(ticks)
+
+        # axis.xaxis.set_ticks(<your updated array>).
+
+    # if vecb_r:
+    #     plt.xticks(list(plt.xticks()[0]) + [x_arr[i1]], labels=list(plt.xticks()[1]) + ['BC'])
+    # if vecb_b:
+        # plt.yticks(list(plt.yticks()[0]) + [y_arr[j0]], labels=list(plt.yticks()[1]) + ['BC'])
+
+        # x = y_arr[j0]
+
+        # plt.annotate(r'$BC$',\
+        #      xy = (0.2,x),
+        #      xytext = (-0.75,x))          
+
+        # ax2.axhline(y=x, xmin=-0.02, xmax=0.02, clip_on=False)
+
+        # ticks = ax2.get_yticks()
+        # print('ticks',ticks)
+
+        # if ticks[0] < x:
+        #     newticks = [x] + ticks[1:]
+        #     ax2.set_yticks(newticks)
+        #     ax2.set_yticklabels(['BC'] + list(plt.yticks()[1])[1:])
+        # ticks = ax2.get_yticks()
+        # print('ticks',ticks)
+
+    # if vecb_t:
+    #     plt.yticks(list(plt.yticks()[0]) + [y_arr[j1]], labels=list(plt.yticks()[1]) + ['BC'])
+
+        # plt.xticks(list(plt.xticks()[0]) + [2.5, 6.5], labels=list(plt.xticks()[1]) + ['2.5', '6.5'])
+
     # isnap = indLS
     # strtime = @sprintf "%.2e" fwd.t[isnap]*1e3
     # strrad = @sprintf "%.2e" fwd.radius[isnap]*1e6
@@ -1260,7 +1597,6 @@ def plot_python_pdf_full2(
 
     # ax2.set_xlim([float(x0) for x0 in figpar['xlim']]) #zoom
     # ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
-    ax2.set_aspect('equal', 'box')
     str_nstep = str(nstep)
     plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"])
 
@@ -1278,11 +1614,13 @@ def python_movie_zoom(
     plotpar,
     figpar,
 ):
-    print(h5_files)
-    h5_files = sorted(h5_files)
-    print(h5_files)
+    # # print(h5_files)
+    # h5_files = sorted(h5_files)
+    # print(h5_files)
 
     size_frame = len(h5_files)
+
+    print('size_frame',size_frame)
     
     file_name = h5_files[0]
 
@@ -1323,7 +1661,13 @@ def python_movie_zoom(
 
         file_name = h5_files[i]
 
+        print(file_name)
+
+
+
         with h5py.File(file_name, "r") as file:
+
+            # print(file.keys())
 
             time = file["time"][()]
             nstep = file["nstep"][()]           
@@ -1382,6 +1726,131 @@ def python_movie_zoom(
 
     plt.close("all")
 
+
+def python_movie_zoom_func(
+    h5_files,
+    key,
+    xp,
+    yp,
+    xu,
+    yv,
+    yml,
+    mesh,
+    func,
+    plotpar,
+    figpar,
+):
+    # # print(h5_files)
+    # h5_files = sorted(h5_files)
+    # print(h5_files)
+
+    size_frame = len(h5_files)
+
+    print('size_frame',size_frame)
+    
+    file_name = h5_files[0]
+
+    fig1, ax2 = plt.subplots(figsize=set_size(plotpar["latex_frame_width"], fraction=float(plotpar["fig_fraction"]),
+                                                ratio=1,nvary=1,ratio2=1,height=float(plotpar["latex_frame_height"])),
+                                                layout="constrained")
+
+    with h5py.File(file_name, "r") as file:
+
+        time = file["time"][()]
+        nstep = file["nstep"][()]
+
+        fig1,ax2,CS = func(
+        file,
+        key,
+        xp,
+        yp,
+        xu,
+        yv,
+        yml,
+        mesh,
+        time,
+        nstep,
+        plotpar,
+        figpar=figpar,
+        mode='first',
+        fig1=fig1,
+        ax2=ax2,
+        )
+
+
+        # Make a colorbar for the ContourSet returned by the contourf call.
+        # cbar = fig1.colorbar(CS)
+        # cbar.ax.set_ylabel(r""+cbarlabel)
+
+    def animate(i,fig1,ax2):
+        # ax2.clear()
+
+        file_name = h5_files[i]
+
+        print(file_name)
+
+
+
+        with h5py.File(file_name, "r") as file:
+
+            # print(file.keys())
+
+            time = file["time"][()]
+            nstep = file["nstep"][()]           
+
+            fig1,ax2,CS = func(
+            file,
+            key,
+            xp,
+            yp,
+            xu,
+            yv,
+            yml,
+            mesh,
+            time,
+            nstep,
+            plotpar,
+            figpar=figpar,
+            mode='film',
+            fig1=fig1,
+            ax2=ax2,
+            )
+
+            # if step!=0:
+            #     fig1.colorbar(CS,cax=cbar.ax)
+
+            # https://stackoverflow.com/questions/5180518/duplicated-colorbars-when-creating-an-animation
+
+            # if (i==0): 
+            #     # # Make a colorbar for the ContourSet returned by the contourf call.
+            #     # cbar = fig1.colorbar(CS)
+            #     # cbar.ax.set_ylabel(r""+cbarlabel)
+
+            #     # Add the contour line levels to the colorbar
+            #     if isocontour:
+            #         CS2 = ax2.contour(CS, 
+            #         # levels=CS.levels[::2], 
+            #         # levels=
+            #         colors="r")
+            #         cbar.add_lines(CS2)
+
+            # if plot_levelset:
+            #     # CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,i+1,i0:i1,j0:j1], [0.0],colors="r")
+            #     CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
+            #     # print("check levelset")
+    anim = functools.partial(animate,fig1=fig1,ax2=ax2)
+    ani = animation.FuncAnimation(fig1, anim, frames=size_frame, interval=size_frame, blit=False)
+
+    ani.save(key + "." + figpar["img_format"],dpi=plotpar['dpi'])  # mp4, gif
+
+    # with open(key+'_jshtml'+'.html', "w") as f:
+    #     print(ani.to_jshtml(), file=f)
+
+    # with open(key+'_html5'+'.html', "w") as f:
+    #     print(ani.to_html5_video(), file=f)
+
+
+    plt.close("all")
 
 def plot_current_wall():
 
@@ -1477,7 +1946,7 @@ def plot_bc(iter_list,vec,grid,plotpar,figname,prefix,time):
     print(iter_list)
     for isnap in iter_list:
 
-        str_time = '{:.2e}'.format(time*plotpar['scale_time'])  #TODO scale time
+        str_time = '{:.2e}'.format(time/plotpar['scale_time'])  #TODO scale time
         str1 = "t "+str_time+r"$( \unit{\ms})$"
         # print("\n vec ",vecb_T(vec[i,:],nx,ny))
         plt.plot(varx,vecb_T(vec[isnap,:],nx,ny),label = str1)
@@ -1502,7 +1971,7 @@ def plot_bc2(iter_list,vec,grid,plotpar,figname,prefix,time):
 
     print(iter_list)
     for isnap in iter_list:
-        str_time = '{:.2e}'.format(time*plotpar['scale_time'])  #TODO scale time
+        str_time = '{:.2e}'.format(time/plotpar['scale_time'])  #TODO scale time
         str1 = "t "+str_time+r"$( \unit{\ms})$"
         plt.plot(varx,vecb_B(vec[isnap,:],nx,ny),label = str1)
     
@@ -1548,7 +2017,10 @@ def veci(data,nx,ny,field_index):
     return: 
         bulk (i=1) or i-th interface field
     """
+    # print(data.shape)
     field = data[(field_index-1)*ny*nx:field_index*ny*nx] 
+    # print(field.shape)
+
     field = np.reshape(field, (nx, ny))            
     field = field.transpose()
     return field
@@ -1558,31 +2030,70 @@ def vecb(data, nx, ny):
     """BC at border"""
     # where {G<:Grid} = @view a[end-2*g.ny-2*g.nx+1:end]
     # return data[-1-2*ny-2*nx+1:-1]
-    return data[-2 * ny - 2 * nx : -1]
+    # print('vecb ',len(data[-2 * ny - 2 * nx : -1]),2*nx+2*ny)
+    # print('vecb ',len(data[-2 * ny - 2 * nx -1 : -1]),2*nx+2*ny)
 
+    # return data[-2 * ny - 2 * nx : -1]
+    extract = data[-2 * ny - 2 * nx:]
+    # print('vecb',extract,'len',len(extract))
+    return extract
+
+def vecbprint(data, nx, ny):
+    """BC at border"""
+    # where {G<:Grid} = @view a[end-2*g.ny-2*g.nx+1:end]
+    # return data[-1-2*ny-2*nx+1:-1]
+    # print('vecb ',len(data[-2 * ny - 2 * nx : -1]),2*nx+2*ny)
+    # print('vecb ',len(data[-2 * ny - 2 * nx -1 : -1]),2*nx+2*ny)
+
+    # return data[-2 * ny - 2 * nx : -1]
+    extract = data[-2 * ny - 2 * nx:]
+    print('vecb',extract,'len',len(extract))
+    return extract
 
 def vecb_L(data, nx, ny):
     """BC at left border"""
     data = vecb(data, nx, ny)
-    return data[0 : ny - 1]
+    extract = data[0 : ny]
+    # return data[0 : ny - 1]
+    print('vecb_L',extract,'len',len(extract))
+    return extract
 
 
 def vecb_B(data, nx, ny):
     """BC at bottom border"""
     data = vecb(data, nx, ny)
-    return data[ny : nx + ny - 1]
+    extract = data[ny : nx + ny]
+    print('vecb_B',extract,'len',len(extract))
+
+    # return data[ny : nx + ny - 1]
+    
+    # print(data[ny : nx + ny])
+
+    return extract
 
 
 def vecb_R(data, nx, ny):
     """BC at right border"""
     data = vecb(data, nx, ny)
-    return data[nx + ny : 2 * ny + nx - 1]
+    extract = data[nx + ny : 2 * ny + nx]
+    print('vecb_R',extract,'len',len(extract))
+
+    # return data[nx + ny : 2 * ny + nx - 1]
+    # print(data[nx + ny : 2 * ny + nx])
+    return extract
+
 
 
 def vecb_T(data, nx, ny):
     """# BC at top border"""
     data = vecb(data, nx, ny)
-    return data[2 * ny + nx : 2 * nx + 2 * ny - 1]
+    extract = data[2 * ny + nx : 2 * nx + 2 * ny]
+    print('vecb_T',extract,'len',len(extract))
+
+    # return data[2 * ny + nx : 2 * nx + 2 * ny - 1]
+    # print(data[2 * ny + nx : 2 * nx + 2 * ny])
+    return extract
+
 
 
 # vecb_L(a,g::G) where {G<:Grid} = @view vecb(a, g)[1:g.ny]

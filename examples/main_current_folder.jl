@@ -580,6 +580,8 @@ vPoiseuille = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length)
 vPoiseuilleb = Poiseuille_fmax.(gv.x[1,:],phys.v_inlet,phys.ref_length) 
 
 
+# print("\n x", gv.x[1,:])
+# print("\n v", vPoiseuilleb)
 
 
 if sim.imposed_velocity == "radial"
@@ -952,9 +954,6 @@ if sim.time_scheme == "FE"
 else
     time_scheme = CN
 end
-
-
-print("\n before run_forward \n")
 
 @time current_i=run_forward(
     num, gp, gu, gv, op, phS, phL;
