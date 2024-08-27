@@ -284,11 +284,11 @@ function run_forward(
     init_fields_2!(phL.vD,phL.v,HLv,BC_vL,grid_v,num.vD)
     # init_fields_2!(phL.vcorrD,phL.v,HLv,BC_vL,grid_v,num.vD)
 
-    print("\n ","check borders",vecb(phL.vD,grid_v)[ny-1],vecb(phL.vD,grid_v)[ny],vecb(phL.vD,grid_v)[ny+1],vecb(phL.vD,grid_v)[ny+2])
-    print("\n ",vecb_L(phL.vD,grid_v))
-    print("\n ",vecb_B(phL.vD,grid_v))
-    print("\n ",vecb_R(phL.vD,grid_v))
-    print("\n ",vecb_T(phL.vD,grid_v))
+    # print("\n ","check borders",vecb(phL.vD,grid_v)[ny-1],vecb(phL.vD,grid_v)[ny],vecb(phL.vD,grid_v)[ny+1],vecb(phL.vD,grid_v)[ny+2])
+    # print("\n ",vecb_L(phL.vD,grid_v))
+    # print("\n ",vecb_B(phL.vD,grid_v))
+    # print("\n ",vecb_R(phL.vD,grid_v))
+    # print("\n ",vecb_T(phL.vD,grid_v))
 
     ####################################################################################################
 
