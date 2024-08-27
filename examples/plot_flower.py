@@ -1252,13 +1252,19 @@ def plot_python_pdf_full2(
 
 
     if data_1D.ndim ==1:
+        print('ndim==1')
         field0 = veci(data_1D,nx,ny,field_index)
-
     elif data_1D.shape[1] == 1:
+        print('data_1D.shape[1] == 1')
         data_1D = veci(data_1D[:,0],nx,ny,field_index)
         field = data_1D
     elif data_1D.shape[0] == 1:
-        field0 = veci(data_1D[0,:],nx,ny,field_index)
+        print('data_1D.shape[0] == 1')
+        print(data_1D)
+        print(data_1D[0]) 
+        #[0,:]
+        data_1D = data_1D[0]
+        field0 = veci(data_1D,nx,ny,field_index)
 
     #TODO slice vector trans_scal
 
@@ -1325,10 +1331,10 @@ def plot_python_pdf_full2(
         #     print(jtest,valtest)
         # print('test',ny,testprint[0],testprint[ny-1],testprint[ny],testprint[ny+1],testprint[ny+2])
 
-        print(vecb_L(data_1D,nx,ny))
-        print(vecb_R(data_1D,nx,ny))
-        print(vecb_B(data_1D,nx,ny))
-        print(vecb_T(data_1D,nx,ny))
+        # print(vecb_L(data_1D,nx,ny))
+        # print(vecb_R(data_1D,nx,ny))
+        # print(vecb_B(data_1D,nx,ny))
+        # print(vecb_T(data_1D,nx,ny))
 
 
         if vecb_l: 
@@ -1389,6 +1395,19 @@ def plot_python_pdf_full2(
         #     ax2.axhline(y_1D[igrid],c=lcolor,lw=lw)
         # end
 
+
+        if 'color_annot_bc' in figpar.keys():
+            color_annot_bc = figpar['color_annot_bc']
+        else:
+            color_annot_bc = 'k'
+
+        if 'color_annot_bulk' in figpar.keys():
+            color_annot_bulk = figpar['color_annot_bulk']
+        else:
+            color_annot_bulk = 'w'
+
+
+
         for igrid0 in range(i0,i1+1):        
             for jgrid0 in range(j0,j1+1): 
                 # print("\n",x_1D[igrid],y_1D[jgrid])
@@ -1397,9 +1416,9 @@ def plot_python_pdf_full2(
                 jgrid = jgrid0-j0
 
                 if ((igrid0 == i0 and vecb_l) or (igrid0 == i1 and vecb_r) or (jgrid0 == j0 and vecb_b) or (jgrid0 == j1 and vecb_t) ):
-                    lcolor= "k"
+                    lcolor= color_annot_bc
                 else:
-                    lcolor= "w"
+                    lcolor= color_annot_bulk
 
                 if igrid%2 == 0:
                     va="top"
@@ -1958,34 +1977,21 @@ def veci(data,nx,ny,field_index):
 
 def vecb(data, nx, ny):
     """BC at border"""
-    # where {G<:Grid} = @view a[end-2*g.ny-2*g.nx+1:end]
-    # return data[-1-2*ny-2*nx+1:-1]
-    # print('vecb ',len(data[-2 * ny - 2 * nx : -1]),2*nx+2*ny)
-    # print('vecb ',len(data[-2 * ny - 2 * nx -1 : -1]),2*nx+2*ny)
-
-    # return data[-2 * ny - 2 * nx : -1]
     extract = data[-2 * ny - 2 * nx:]
     # print('vecb',extract,'len',len(extract))
     return extract
 
 def vecbprint(data, nx, ny):
     """BC at border"""
-    # where {G<:Grid} = @view a[end-2*g.ny-2*g.nx+1:end]
-    # return data[-1-2*ny-2*nx+1:-1]
-    # print('vecb ',len(data[-2 * ny - 2 * nx : -1]),2*nx+2*ny)
-    # print('vecb ',len(data[-2 * ny - 2 * nx -1 : -1]),2*nx+2*ny)
-
-    # return data[-2 * ny - 2 * nx : -1]
     extract = data[-2 * ny - 2 * nx:]
-    print('vecb',extract,'len',len(extract))
+    # print('vecb',extract,'len',len(extract))
     return extract
 
 def vecb_L(data, nx, ny):
     """BC at left border"""
     data = vecb(data, nx, ny)
     extract = data[0 : ny]
-    # return data[0 : ny - 1]
-    print('vecb_L',extract,'len',len(extract))
+    # print('vecb_L',extract,'len',len(extract))
     return extract
 
 
@@ -1993,12 +1999,7 @@ def vecb_B(data, nx, ny):
     """BC at bottom border"""
     data = vecb(data, nx, ny)
     extract = data[ny : nx + ny]
-    print('vecb_B',extract,'len',len(extract))
-
-    # return data[ny : nx + ny - 1]
-    
-    # print(data[ny : nx + ny])
-
+    # print('vecb_B',extract,'len',len(extract))
     return extract
 
 
@@ -2006,10 +2007,7 @@ def vecb_R(data, nx, ny):
     """BC at right border"""
     data = vecb(data, nx, ny)
     extract = data[nx + ny : 2 * ny + nx]
-    print('vecb_R',extract,'len',len(extract))
-
-    # return data[nx + ny : 2 * ny + nx - 1]
-    # print(data[nx + ny : 2 * ny + nx])
+    # print('vecb_R',extract,'len',len(extract))
     return extract
 
 
@@ -2018,10 +2016,7 @@ def vecb_T(data, nx, ny):
     """# BC at top border"""
     data = vecb(data, nx, ny)
     extract = data[2 * ny + nx : 2 * nx + 2 * ny]
-    print('vecb_T',extract,'len',len(extract))
-
-    # return data[2 * ny + nx : 2 * nx + 2 * ny - 1]
-    # print(data[2 * ny + nx : 2 * nx + 2 * ny])
+    # print('vecb_T',extract,'len',len(extract))
     return extract
 
 
