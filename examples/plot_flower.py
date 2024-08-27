@@ -1252,16 +1252,15 @@ def plot_python_pdf_full2(
 
 
     if data_1D.ndim ==1:
-        print('ndim==1')
         field0 = veci(data_1D,nx,ny,field_index)
     elif data_1D.shape[1] == 1:
         print('data_1D.shape[1] == 1')
         data_1D = veci(data_1D[:,0],nx,ny,field_index)
         field = data_1D
     elif data_1D.shape[0] == 1:
-        print('data_1D.shape[0] == 1')
-        print(data_1D)
-        print(data_1D[0]) 
+        # print('data_1D.shape[0] == 1')
+        # print(data_1D)
+        # print(data_1D[0]) 
         #[0,:]
         data_1D = data_1D[0]
         field0 = veci(data_1D,nx,ny,field_index)
@@ -1313,7 +1312,7 @@ def plot_python_pdf_full2(
             np.append(y_arr, y_1D[-1]+0.5*mesh['dy']/plotpar['scale_x'])
             j1tmp2+=1
 
-        print(np.size(data_1D),nx,ny,vecb_l,vecb_r,vecb_b,vecb_t)
+        # print(np.size(data_1D),nx,ny,vecb_l,vecb_r,vecb_b,vecb_t)
         # if vecb_l: 
         #     # print('len',len(fieldtmp[2:ny+1,0]), len(vecb_L(data_1D,nx,ny)))
         #     fieldtmp[2:ny+1,0] = vecb_L(data_1D,nx,ny) 
