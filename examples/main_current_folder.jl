@@ -1,5 +1,11 @@
 # using Revise
+
+
+# using PrecompileTools_startup
+
 using Flower
+
+
 using PrettyTables
 
 
@@ -870,6 +876,16 @@ else
 end
 
 test_LS(gp)
+
+
+
+x,y,field,connectivities,num_vtx = convert_interfacial_D_to_segments(num,gp,phL.T,1)
+print("\n number of interface points ", num_vtx)
+# print("\n x",x)
+# print("\n x",y)
+# print("\n x",field)
+print("\n x",connectivities)
+print("\n x",num_vtx)
 
 
 vecb_L(phL.uD, gu) .= 0.0

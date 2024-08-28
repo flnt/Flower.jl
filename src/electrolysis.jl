@@ -3082,3 +3082,83 @@ function test_laplacian_pressure(num,grid_v,ph, opC_p, Lv, bc_Lv, bc_Lv_b)
     return testAv2[pII]*opC_p.iMy.diag[pII]
 
 end
+
+
+function convert_interfacial_D_to_segments(num,gp,field,iLS)
+
+    #Interfacial coordinates
+
+    x_bc = gp.x .+ getproperty.(gp.LS[iLS].mid_point, :x) .* gp.dx
+    y_bc = gp.y .+ getproperty.(gp.LS[iLS].mid_point, :y) .* gp.dy
+
+    print(x_bc)
+
+    x = zeros(0)
+    y = zeros(0)
+    f = zeros(0)
+
+    # connectivities=zeros(Int64,0)
+    connectivities=Int64[]
+
+    # ij_index=zeros(T=Integer,gp.)
+    # ij_index=zeros(gp)
+
+    ij_index=-ones(Int64,(gp.ny, gp.nx))
+
+
+    vtx_index = Integer(0) #for python C
+    # start at 1 to distinguish between empty cells or fill -1
+
+    for j in 1:gp.ny
+        for i in 1:gp.nx
+            II = CartesianIndex(i,j)
+            if gp.LS[iLS].geoL.cap[II,5] > num.eps
+
+                xcell = gp.x[j,i]
+                ycell = gp.y[j,i]
+
+                # x_bc = xcell + getproperty.(gp.LS[1].mid_point, :x) .* gp.dx
+
+                append!( x, x_bc[j,i] )
+                append!( y, y_bc[j,i] )
+
+                append!( f, field[j,i] )
+
+                ij_index[j,i] = vtx_index
+
+                #TODO store connvectivities or similar so that after: only need to filter and store non-null values ? 
+                #no need to do the work n times for each scalar
+
+                # phL.u[ju,iu] = factor * vecr[1]
+                # phS.u[ju,iu] = factor * vecr[1]   
+                vtx_index +=1
+            end
+
+        end
+    end
+
+    for j in 1:gp.ny-1
+        for i in 1:gp.nx-1
+            # II = CartesianIndex(i,j)
+            if ij_index[j,i] >=0
+
+                if ij_index[j+1,i]>=0  
+                    push!(connectivities, ij_index[j,i])
+                    push!(connectivities,ij_index[j+1,i])
+                end
+
+                if ij_index[j,i+1]>=0  
+                    push!(connectivities, ij_index[j,i])
+                    push!(connectivities,ij_index[j,i+1])
+                end
+
+            end
+
+        end
+    end
+
+    num_vtx = vtx_index+1
+    
+    return x,y,f,connectivities,num_vtx
+
+end
