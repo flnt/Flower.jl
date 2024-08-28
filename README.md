@@ -3,9 +3,21 @@
 ## Precompiling Flower
 cf https://vsert.com/posts/precompile/
 Use runtests_precomp.jl instead of runtests.jl otherwise the precompilation is much longer
+```bash
 julia +1.10.4 --project=../Flower.jl --threads=1 --trace-compile=dc_precompile.jl ../Flower.jl/test/runtests_precomp.jl
-julia --project=. --trace-compile=dc_precompile.jl src/precompile.jl
-time julia --project=../Flower.jl --sysimage=sys_img.so -e 'using MyPackage; dostuff()'
+julia --project=../Flower.jl --trace-compile=dc_precompile.jl ../Flower.jl/src/PackageCompiler_setup_image.jl
+
+time julia --project=../Flower.jl --sysimage=sys_img.so -e 'using Flower; dostuff()'
+
+time julia +1.10.4 --project=../Flower.jl --threads=1 --sysimage=sys_img.so ../Flower.jl/examples/main_current_folder.jl similar_to_Khalighi.yml
+```
+Example:
+```bash
+julia --project=../Flower.jl --trace-compile=dc_precompile.jl ../Flower.jl/src/PackageCompiler_setup_image.jl
+✔ [02m:08s] PackageCompiler: compiling incremental system image
+
+time julia +1.10.4 --project=../Flower.jl --threads=1 --sysimage=sys_img.so ../Flower.jl/examples/main_current_folder.jl similar_to_Khalighi.yml
+```
 
 ## On HPC center
 

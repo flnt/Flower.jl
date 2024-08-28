@@ -3086,6 +3086,12 @@ end
 
 function convert_interfacial_D_to_segments(num,gp,field,iLS)
 
+
+    # LS[i].MIXED
+    # @inbounds @threads for II in ind.inside
+    #     x_bc = LS[1].mid_point[II].x * dx[II] + x[II]
+
+
     #Interfacial coordinates
 
     x_bc = gp.x .+ getproperty.(gp.LS[iLS].mid_point, :x) .* gp.dx
