@@ -71,14 +71,35 @@ fontpath2 = 'public/tex-gyre/texgyrepagella-regular.otf'
 fontpath = fontpath1 + fontpath2
 # fontpath='/mnt/c/Program Files/MiKTeX/fonts/opentype/public/tex-gyre/texgyrepagella-regular.otf'
 
-fe = fm.FontEntry( 
-fname=fontpath,
-name='TeX Gyre Pagella Math'
-)
-fm.fontManager.ttflist.insert(0, fe) # or append is fine
-plt.rcParams['font.family'] = fe.name # = 'your custom ttf font name'
 
-prop = fm.FontProperties(fname=fontpath)
+try:
+    fe = fm.FontEntry( 
+    fname=fontpath,
+    name='TeX Gyre Pagella Math'
+    )
+    fm.fontManager.ttflist.insert(0, fe) # or append is fine
+    plt.rcParams['font.family'] = fe.name # = 'your custom ttf font name'
+
+    prop = fm.FontProperties(fname=fontpath)
+
+except:
+    # fe = fm.FontEntry( 
+    # # fname=fontpath,
+    # name='TeX Gyre Pagella Math'
+    # )
+    # fm.fontManager.ttflist.insert(0, fe) # or append is fine
+    plt.rcParams['font.family'] = 'TeX Gyre Pagella Math'
+
+    # prop = fm.FontProperties(fname=fontpath)
+
+# fe = fm.FontEntry( 
+# fname=fontpath,
+# name='TeX Gyre Pagella Math'
+# )
+# fm.fontManager.ttflist.insert(0, fe) # or append is fine
+# plt.rcParams['font.family'] = fe.name # = 'your custom ttf font name'
+
+# prop = fm.FontProperties(fname=fontpath)
 
 
 

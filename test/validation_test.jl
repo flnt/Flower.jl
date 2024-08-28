@@ -295,8 +295,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
 
 
 
-    electrolysis_phase_change = false
-    # electrolysis_phase_change = true
+    electrolysis_phase_change_case = "None"
 
     save_u = false
     save_v = false
@@ -423,7 +422,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
 
     if test_case == "small_cell"
         #Test case 1: small cells (high concentration at vecb_L)
-        electrolysis_phase_change = false
+        electrolysis_phase_change_case = "None"
         max_iter = 1
         save_every = 1
 
@@ -431,7 +430,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
 
     elseif test_case == "100it"
         #Test case 2: scalar without velocity
-        electrolysis_phase_change = false
+        electrolysis_phase_change_case = "None"
         max_iter = 100
         save_every = 10
         save_p = false
@@ -439,7 +438,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
         folder="electrolysis_circle_wall_CFL"*test_case
 
     elseif test_case == "radial"
-        electrolysis_phase_change = false
+        electrolysis_phase_change_case = "None"
         imposed_velocity = "radial"
         max_iter = 1
         save_every = 1
@@ -449,7 +448,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
 
     elseif test_case == "channel_no_bubble"
         activate_interface = false
-        electrolysis_phase_change = false
+        electrolysis_phase_change_case = "None"
         max_iter = 100
         save_every = 25
 
@@ -464,7 +463,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
 
     elseif test_case == "channel_Dirichlet"
         activate_interface = false
-        electrolysis_phase_change = false
+        electrolysis_phase_change_case = "None"
         max_iter = 100
         save_every = 25
 
@@ -490,7 +489,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
 
     elseif test_case == "channel_Dirichlet_pressure"
         activate_interface = false
-        electrolysis_phase_change = false
+        electrolysis_phase_change_case = "None"
         max_iter = 100
         save_every = 25
 
@@ -554,7 +553,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
         
     elseif test_case == "channel_Dirichlet_constant_vel"
         activate_interface = false
-        electrolysis_phase_change = false
+        electrolysis_phase_change_case = "None"
         # max_iter = 100
         save_every = 25
 
@@ -623,7 +622,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
 
     elseif test_case == "channel_Dirichlet_constant_vel_half-circle"
         activate_interface = true
-        electrolysis_phase_change = false
+        electrolysis_phase_change_case = "None"
         save_every = 25
 
         save_every = max_iter
@@ -684,7 +683,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
 
     elseif test_case == "channel_Dirichlet_imposed_Poiseuille"
         activate_interface = false
-        electrolysis_phase_change = false
+        electrolysis_phase_change_case = "None"
         max_iter = 100
         save_every = 25
 
@@ -740,7 +739,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
 
     elseif test_case == "channel_no_bubble_Cdivu"
         activate_interface = false
-        electrolysis_phase_change = false
+        electrolysis_phase_change_case = "None"
         max_iter = 100
         save_every = 25
 
@@ -755,7 +754,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
 
     elseif test_case == "channel_no_bubble_no_vel"
         activate_interface = false
-        electrolysis_phase_change = false
+        electrolysis_phase_change_case = "None"
         max_iter = 100
         save_every = 25
 
@@ -767,7 +766,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
         concentration_check_factor = 1e-4 #1e-3
 
     elseif test_case == "channel"
-        electrolysis_phase_change = false
+        electrolysis_phase_change_case = "None"
         max_iter = 100
         save_every = 25
 
@@ -778,7 +777,6 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
         concentration_check_factor = 1e-4
 
     elseif test_case == "imposed_radius"
-        electrolysis_phase_change = true
         max_iter = 100
         save_every = 25
 
@@ -791,7 +789,6 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
         electrolysis_phase_change_case = "imposed_radius"
 
     elseif test_case == "imposed_radius_dir"
-        electrolysis_phase_change = true
         max_iter = 100
         save_every = 25
 
@@ -869,7 +866,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
         dt0 = dt0,
         concentration_check_factor = concentration_check_factor,
         radial_vel_factor = radial_vel_factor,
-        scalar_debug =scalar_debug,
+        # scalar_debug =scalar_debug,
         v_inlet = v_inlet,
         prediction = prediction,
         null_space = null_space,
@@ -1234,12 +1231,12 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
         show_every = show_every,
         electrolysis_convection = true,  
         electrolysis_liquid_phase = true,
-        electrolysis_phase_change = electrolysis_phase_change,
+        # electrolysis_phase_change = electrolysis_phase_change,
         # electrolysis_phase_change_case = "levelset",
         electrolysis_phase_change_case = electrolysis_phase_change_case,
         electrolysis_reaction = electrolysis_reaction, 
         imposed_velocity = imposed_velocity,
-        testing = testing,
+        # testing = testing,
         adapt_timestep_mode = adapt_timestep_mode,#1,
         non_dimensionalize=0,
         mode_2d = mode_2d,
