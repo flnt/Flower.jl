@@ -56,7 +56,14 @@ flower:
     # electrolysis_phase_change_case: "levelset" # local
     eps: 1e-12 #eps for small numbers
     epsilon: 0.05 #cut small cells
-    epsilon_mode: 2 #way to handle epsilon
+    epsilon_mode: 2 #way to handle epsilon:
+    # if num.epsilon_mode == 0
+    #     return 1 / (W+eps(0.01))
+    # elseif num.epsilon_mode == 1
+    #     return 1 / max(W, num.epsilon_vol)
+    # elseif num.epsilon_mode == 2
+    #     return inv_weight_clip(num,W)   
+    # end
     imposed_velocity: "none"
     dt0: 3.125e-6 #first timestep
     max_iter: 10 #maximum number of iterations

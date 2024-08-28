@@ -7,7 +7,11 @@
 using Flower
 using Pkg
 using PackageCompiler
-Pkg.activate(".")
+# Pkg.activate(".") #TODO OK to comment this ? 
+# otherwise :
+# Activating new project at `~/flower/result_similar_to_Khalighi`
+# ERROR: LoadError: could not find project at "/local/home/pr277828/flower/result_similar_to_Khalighi"
+# )
 create_sysimage(sysimage_path="sys_img.so", include_transitive_dependencies=false, cpu_target="generic", precompile_statements_file="dc_precompile.jl")
 
 # and execute
@@ -21,3 +25,6 @@ create_sysimage(sysimage_path="sys_img.so", include_transitive_dependencies=fals
 # Now we can use this to speedup execution
 
 # time julia --project=. --sysimage=sys_img.so -e 'using MyPackage; dostuff()'
+
+#equivalent ?
+# time julia --project=../Flower.jl --sysimage=sys_img.so -e 'using MyPackage; dostuff()'

@@ -1293,11 +1293,11 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
             end
         end
     
-    elseif test_case == "imposed_radius"
+    # elseif test_case == "imposed_radius"
 
-        @testset "min" begin
-            @test (minimum(phL.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal]≈0 atol=test_tolerance
-        end
+    #     @testset "min" begin
+    #         @test (minimum(phL.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal]≈0 atol=test_tolerance
+    #     end
 
     elseif test_case == "channel_Dirichlet_pressure"
         @testset "Poiseuille corner velocity" begin

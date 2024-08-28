@@ -1,7 +1,11 @@
 # Flower
 
-
-
+## Precompiling Flower
+cf https://vsert.com/posts/precompile/
+Use runtests_precomp.jl instead of runtests.jl otherwise the precompilation is much longer
+julia +1.10.4 --project=../Flower.jl --threads=1 --trace-compile=dc_precompile.jl ../Flower.jl/test/runtests_precomp.jl
+julia --project=. --trace-compile=dc_precompile.jl src/precompile.jl
+time julia --project=../Flower.jl --sysimage=sys_img.so -e 'using MyPackage; dostuff()'
 
 ## On HPC center
 
@@ -44,5 +48,5 @@ python3 -c "import plot_flower; plot_flower.plot_radius_from_h5()" yaml_file
 
 
 
-<!-- # Testing -->
-
+# Testing
+In test : runtests.jl
