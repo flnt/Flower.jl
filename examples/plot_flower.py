@@ -66,31 +66,29 @@ plt.rc('text.latex', preamble="\n".join([ # plots will use this preamble
 # import os
 # print(os.environ['PATH'])
 
-fontpath1='/usr/share/fonts/opentype/'
-fontpath2 = 'public/tex-gyre/texgyrepagella-regular.otf'
-fontpath = fontpath1 + fontpath2
+
 # fontpath='/mnt/c/Program Files/MiKTeX/fonts/opentype/public/tex-gyre/texgyrepagella-regular.otf'
 
 
+# /gpfs/workdir/regnaultp/latex/texmf-dist/fonts/opentype/public/tex-gyre-math
+
 try:
-    fe = fm.FontEntry( 
-    fname=fontpath,
-    name='TeX Gyre Pagella Math'
-    )
-    fm.fontManager.ttflist.insert(0, fe) # or append is fine
-    plt.rcParams['font.family'] = fe.name # = 'your custom ttf font name'
-
-    prop = fm.FontProperties(fname=fontpath)
-
+    fontpath1='/usr/share/fonts/opentype/'
 except:
-    # fe = fm.FontEntry( 
-    # # fname=fontpath,
-    # name='TeX Gyre Pagella Math'
-    # )
-    # fm.fontManager.ttflist.insert(0, fe) # or append is fine
-    plt.rcParams['font.family'] = 'TeX Gyre Pagella Math'
+    fontpath1='/gpfs/workdir/regnaultp/latex/texmf-dist/fonts/opentype/'
+    
+fontpath2 = 'public/tex-gyre/texgyrepagella-regular.otf'
+fontpath = fontpath1 + fontpath2
 
-    # prop = fm.FontProperties(fname=fontpath)
+fe = fm.FontEntry( 
+fname=fontpath,
+name='TeX Gyre Pagella Math'
+)
+fm.fontManager.ttflist.insert(0, fe) # or append is fine
+plt.rcParams['font.family'] = fe.name # = 'your custom ttf font name'
+
+prop = fm.FontProperties(fname=fontpath)
+
 
 # fe = fm.FontEntry( 
 # fname=fontpath,
