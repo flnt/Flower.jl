@@ -703,9 +703,14 @@ function run_forward(
             printstyled(color=:red, @sprintf "\n test segments\n" )
 
 
-            intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num = convert_interfacial_D_to_segments(num,grid,phL.T,1)
+            intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num, intfc_seg_num = convert_interfacial_D_to_segments(num,grid,phL.T,1)
             print("\n number of interface points intfc_vtx_num ", intfc_vtx_num)
             print("\n intfc_vtx_connectivities ",intfc_vtx_connectivities)
+            print("\n len ", size(intfc_vtx_connectivities),intfc_seg_num)
+
+            print("\n intfc_vtx_x ",intfc_vtx_x)
+            print("\n intfc_vtx_x ",intfc_vtx_y)
+
 
             if num.io_pdi>0
 
@@ -747,6 +752,7 @@ function run_forward(
                     "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
                     "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
                     "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                    "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
                     "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
                     "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
                     "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,

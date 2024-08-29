@@ -3086,61 +3086,31 @@ end
 
 function convert_interfacial_D_to_segments(num,gp,field,iLS)
 
+    # x = zeros(0)
+    # y = zeros(0)
+    # f = zeros(0)
+    x = Float64[]
+    y = Float64[]
+    f = Float64[]
 
-    # LS[i].MIXED
-    # @inbounds @threads for II in ind.inside
-    #     x_bc = LS[1].mid_point[II].x * dx[II] + x[II]
-
-
-    #Interfacial coordinates
-
-    # x_bc = gp.x .+ getproperty.(gp.LS[iLS].mid_point, :x) .* gp.dx
-    # y_bc = gp.y .+ getproperty.(gp.LS[iLS].mid_point, :y) .* gp.dy
-
-    # print(x_bc)
-
-    x = zeros(0)
-    y = zeros(0)
-    f = zeros(0)
-
-    # connectivities=zeros(Int64,0)
     connectivities=Int64[]
-
-    # ij_index=zeros(T=Integer,gp.)
-    # ij_index=zeros(gp)
-
     ij_index=-ones(Int64,(gp.ny, gp.nx))
-
-
-    vtx_index = Integer(0) #for python C
-    # start at 1 to distinguish between empty cells or fill -1
+    vtx_index = 0 #Integer(0) 
 
     for II in gp.LS[iLS].MIXED
-        # if gp.LS[iLS].geoL.cap[II,5] > num.eps
-        xcell = gp.x[II]
-        ycell = gp.y[II]
-
-        # x_bc = xcell + getproperty.(gp.LS[1].mid_point, :x) .* gp.dx
-
-        # append!( x, x_bc[II] )
-        # append!( y, y_bc[II] )
-
-        append!( x, gp.LS[1].mid_point[II].x * dx[II] + x[II] )
-        append!( y, gp.LS[1].mid_point[II].y * dx[II] + y[II] )
-
-        append!( f, field[II] )
+        push!( x, gp.LS[1].mid_point[II].x * gp.dx[II] + gp.x[II] )
+        push!( y, gp.LS[1].mid_point[II].y * gp.dy[II] + gp.y[II] )
+        push!( f, field[II] )
 
         ij_index[II] = vtx_index
 
         #TODO store connvectivities or similar so that after: only need to filter and store non-null values ? 
         #no need to do the work n times for each scalar
 
-        # phL.u[ju,iu] = factor * vecr[1]
-        # phS.u[ju,iu] = factor * vecr[1]   
         vtx_index +=1
-        # end #if
     end
 
+    num_seg = 0
     for j in 1:gp.ny-1
         for i in 1:gp.nx-1
             # II = CartesianIndex(i,j)
@@ -3149,11 +3119,13 @@ function convert_interfacial_D_to_segments(num,gp,field,iLS)
                 if ij_index[j+1,i]>=0  
                     push!(connectivities, ij_index[j,i])
                     push!(connectivities,ij_index[j+1,i])
+                    num_seg+=1
                 end
 
                 if ij_index[j,i+1]>=0  
                     push!(connectivities, ij_index[j,i])
                     push!(connectivities,ij_index[j,i+1])
+                    num_seg+=1
                 end
 
             end
@@ -3161,8 +3133,8 @@ function convert_interfacial_D_to_segments(num,gp,field,iLS)
         end
     end
 
-    num_vtx = vtx_index+1
+    # num_vtx = vtx_index already incremented vtx_index +=1
     
-    return x,y,f,connectivities,num_vtx
+    return x,y,f,connectivities,vtx_index,num_seg
 
 end

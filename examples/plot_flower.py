@@ -835,14 +835,64 @@ def plot_all_films_func():
         )
 
 
-# def plot_segments(intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num):
+def plot_segments(file,plotpar,ax2):
 
-#     #plot scatter
+    intfc_vtx_num = file["intfc_vtx_num"][()]
+    print("intfc_vtx_num ",intfc_vtx_num)
 
-#     ax2.scatter(x=intfc_vtx_x,y=intfc_vtx_y,c=intfc_vtx_field)
+    intfc_seg_num = file["intfc_seg_num"][()]
+    print("intfc_seg_num ",intfc_seg_num)
 
-#     # order segments
+    intfc_vtx_x = file["intfc_vtx_x"][:]
+    intfc_vtx_y = file["intfc_vtx_y"][:]
+    intfc_vtx_field = file["intfc_vtx_field"][:]
+    intfc_vtx_connectivities = file["intfc_vtx_connectivities"][:]
 
+    # print(intfc_vtx_x)
+    # print(intfc_vtx_y)
+
+    intfc_vtx_x /= plotpar['scale_x']
+    intfc_vtx_y /= plotpar['scale_y']
+    print(len(intfc_vtx_x),len(file["intfc_vtx_x"][:]))
+    print(intfc_vtx_x)
+    print(intfc_vtx_y)
+    print(intfc_vtx_field)
+    print(intfc_vtx_connectivities)
+
+    ms = 0.2 #0.5
+
+    ax2.scatter(x=intfc_vtx_x,y=intfc_vtx_y,
+                # c=intfc_vtx_field,
+                s=ms,
+                )
+    
+    for i in range(intfc_seg_num):
+        connect = intfc_vtx_connectivities[2*i:2*i+2] #+1 python
+        print(range(2*i,2*i+2) ,connect)
+        plt .plot(intfc_vtx_x[connect],intfc_vtx_y[connect],lw=0.1)
+
+
+    # # order segments
+    # sorted_indices = []
+
+    # i = 0
+    # # vtx_first = intfc_vtx_connectivities[i]
+    # vtx_next = intfc_vtx_connectivities[i+1]
+
+    # sorted_indices.append(i)
+    # sorted_indices.append(i+1)
+
+    # intfc_vtx_connectivities[i] = 0
+    # intfc_vtx_connectivities[i+1] = 0
+
+    # for i in range(2,intfc_seg_num):
+    #     for j in range(1,intfc_seg_num):
+    #         if intfc_vtx_connectivities[j] == vtx_next:
+    #             sorted_indices.append(j)
+    #             intfc_vtx_connectivities[j] = 0
+    #             vtx_next = intfc_vtx_connectivities[j+1]
+
+    return ax2
 
 
 
@@ -995,36 +1045,8 @@ def plot_file(
         CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'])
 
     if figpar['plot_levelset_segments']:
-        intfc_vtx_num = file["intfc_vtx_num"][()]
-        print("intfc_vtx_num ",intfc_vtx_num)
-
-        intfc_vtx_x = file["intfc_vtx_x"][:]
-        intfc_vtx_y = file["intfc_vtx_y"][:]
-        intfc_vtx_field = file["intfc_vtx_field"][:]
-        intfc_vtx_connectivities = file["intfc_vtx_connectivities"][:]
-
-        intfc_vtx_x /= plotpar['scale_x']
-        intfc_vtx_y /= plotpar['scale_y']
-
-        print(intfc_vtx_x)
-        print(intfc_vtx_y)
-        print(intfc_vtx_field)
-
-        ms = 0.2 #0.5
-
-        ax2.scatter(x=intfc_vtx_x,y=intfc_vtx_y,
-                    # c=intfc_vtx_field,
-                    s=ms,
-                    )
-
-        # plot_segments(intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num):
-
-#     #plot scatter
-
-#     ax2.scatter(x=intfc_vtx_x,y=intfc_vtx_y,c=intfc_vtx_field)
-
-#     # order segments
-
+        ax2 = plot_segments(file,plotpar,ax2)
+    
 
 
 
@@ -1312,8 +1334,47 @@ def plot_python_pdf_full2(
 
     cmap = plt.get_cmap(plotpar["cmap"])
 
-    ii0, ii1 = figpar["zoom"][0]
-    jj0, jj1 = figpar["zoom"][1]
+    if figpar['zoom_mode'] == 'coord':
+
+        i0=0
+        i1=0
+        j0=0
+        j1=0
+
+        if figpar["zoom"][0]>figpar["zoom"][1]:
+            print('error zoom')
+
+        for i,x in enumerate(x_1D):
+            if figpar["zoom"][0][0]<x:
+                i0=i
+                break
+        for i,x in enumerate(x_1D):
+            if figpar["zoom"][0][1]<x:
+                i1=i
+                break
+
+        for j,y in enumerate(y_1D):
+            if figpar["zoom"][1][0]<y:
+                j0=j
+                break
+        for j,y in enumerate(y_1D):
+            if figpar["zoom"][1][1]<y:
+                j1=j
+                break
+
+        print(figpar["zoom"])
+        print(i0,i1,j0,j1)
+        # x_arr=x_1D[i0:i1+1]
+        # y_arr=y_1D[j0:j1+1]
+
+        ii0, ii1 = i0,i1
+        jj0, jj1 = j0,j1
+
+    else:
+        ii0, ii1 = figpar["zoom"][0]
+        jj0, jj1 = figpar["zoom"][1]
+
+
     i0 = ii0
     i1 = ii1
     j0 = jj0
@@ -1572,6 +1633,10 @@ def plot_python_pdf_full2(
         CSlvl = ax2.contour(
             x_1D[ii0:ii1+1], y_1D[jj0:jj1+1], LSdat[jj0:jj1+1, ii0:ii1+1], [0.0], colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle']
         )
+
+    if figpar['plot_levelset_segments']:
+        ax2 = plot_segments(file,plotpar,ax2)
+
 
 
 
