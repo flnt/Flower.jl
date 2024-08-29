@@ -689,7 +689,7 @@ phS.uD .= 0.0
 
 if io.pdi>0
     try
-        printstyled(color=:red, @sprintf "\n PDI test \n" )
+        # printstyled(color=:red, @sprintf "\n PDI test \n" )
 
         # using MPI
         MPI.Init()
@@ -879,13 +879,13 @@ test_LS(gp)
 
 
 
-x,y,field,connectivities,num_vtx = convert_interfacial_D_to_segments(num,gp,phL.T,1)
-print("\n number of interface points ", num_vtx)
-# print("\n x",x)
-# print("\n x",y)
-# print("\n x",field)
-print("\n x",connectivities)
-print("\n x",num_vtx)
+# x,y,field,connectivities,num_vtx = convert_interfacial_D_to_segments(num,gp,phL.T,1)
+# print("\n number of interface points ", num_vtx)
+# # print("\n x",x)
+# # print("\n x",y)
+# # print("\n x",field)
+# print("\n x",connectivities)
+# print("\n x",num_vtx)
 
 
 vecb_L(phL.uD, gu) .= 0.0
@@ -1137,7 +1137,7 @@ end
 if num.io_pdi>0
     try
         @ccall "libpdi".PDI_finalize()::Cvoid
-        printstyled(color=:red, @sprintf "\n PDI test end\n" )
+        # printstyled(color=:red, @sprintf "\n PDI end\n" )
 
     catch error
         printstyled(color=:red, @sprintf "\n PDI error \n")

@@ -3094,8 +3094,8 @@ function convert_interfacial_D_to_segments(num,gp,field,iLS)
 
     #Interfacial coordinates
 
-    x_bc = gp.x .+ getproperty.(gp.LS[iLS].mid_point, :x) .* gp.dx
-    y_bc = gp.y .+ getproperty.(gp.LS[iLS].mid_point, :y) .* gp.dy
+    # x_bc = gp.x .+ getproperty.(gp.LS[iLS].mid_point, :x) .* gp.dx
+    # y_bc = gp.y .+ getproperty.(gp.LS[iLS].mid_point, :y) .* gp.dy
 
     # print(x_bc)
 
@@ -3122,8 +3122,11 @@ function convert_interfacial_D_to_segments(num,gp,field,iLS)
 
         # x_bc = xcell + getproperty.(gp.LS[1].mid_point, :x) .* gp.dx
 
-        append!( x, x_bc[II] )
-        append!( y, y_bc[II] )
+        # append!( x, x_bc[II] )
+        # append!( y, y_bc[II] )
+
+        append!( x, gp.LS[1].mid_point[II].x * dx[II] + x[II] )
+        append!( y, gp.LS[1].mid_point[II].y * dx[II] + y[II] )
 
         append!( f, field[II] )
 

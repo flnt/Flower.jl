@@ -18,7 +18,17 @@ julia --project=../Flower.jl --trace-compile=dc_precompile.jl ../Flower.jl/src/P
 
 time julia +1.10.4 --project=../Flower.jl --threads=1 --sysimage=sys_img.so ../Flower.jl/examples/main_current_folder.jl similar_to_Khalighi.yml
 ```
+General example
 
+```bash
+time julia --project=../Flower.jl --threads=1 --trace-compile=dc_precompile.jl ../Flower.jl/examples/example.jl
+
+cd ../Flower.jl
+
+julia +1.10.4 --project=. src/PackageCompiler_setup_image.jl
+
+time julia +1.10.4 --project=../Flower.jl --threads=1 --sysimage=../Flower.jl/sys_img.so --trace-compile=stderr ../Flower.jl/examples/example.jl
+```
 
 Example
 ```bash

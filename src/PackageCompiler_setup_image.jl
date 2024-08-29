@@ -27,6 +27,3 @@ cpu_target="generic", precompile_statements_file="dc_precompile.jl")
 # Now we can use this to speedup execution
 
 # time julia --project=. --sysimage=sys_img.so -e 'using MyPackage; dostuff()'
-
-#equivalent ?
-# time julia --project=../Flower.jl --sysimage=sys_img.so -e 'using MyPackage; dostuff()'

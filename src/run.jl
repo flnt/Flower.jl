@@ -703,18 +703,14 @@ function run_forward(
             printstyled(color=:red, @sprintf "\n test segments\n" )
 
 
-            vtx_x,vtx_y,vtx_field,vtx_connectivities,num_vtx = convert_interfacial_D_to_segments(num,grid,phL.T,1)
-            print("\n number of interface points ", num_vtx)
-            # print("\n x",vtx_x)
-            # print("\n x",vtx_y)
-            # print("\n x",vtx_field)
-            print("\n x",vtx_connectivities)
-            print("\n x",num_vtx)
+            intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num = convert_interfacial_D_to_segments(num,grid,phL.T,1)
+            print("\n number of interface points intfc_vtx_num ", intfc_vtx_num)
+            print("\n intfc_vtx_connectivities ",intfc_vtx_connectivities)
 
             if num.io_pdi>0
 
                 try
-                    printstyled(color=:red, @sprintf "\n PDI test \n" )
+                    # printstyled(color=:red, @sprintf "\n PDI test \n" )
             
                     time = current_t #Cdouble
                     nstep = num.current_i
@@ -749,7 +745,12 @@ function run_forward(
                     "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
-                    "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,          
+                    "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+                    "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                    "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
                     C_NULL::Ptr{Cvoid})::Cvoid
             
                     # print("\n after write \n ")
@@ -2240,23 +2241,21 @@ function run_forward(
             if num.io_pdi>0
 
                 try
-                    printstyled(color=:red, @sprintf "\n PDI test \n" )
+                    # printstyled(color=:red, @sprintf "\n PDI test \n" )
             
                     time = current_t #Cdouble
                     nstep = num.current_i
                
                     # phi_array=phL.phi_ele #do not transpose since python row major
                     
+                    # Compute electrical current, interpolate velocity on scalar grid
                     compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
             
                     Eus,Evs = interpolate_grid_liquid(grid,grid_u,grid_v,phL.Eu, phL.Ev)
             
                     us,vs = interpolate_grid_liquid(grid,grid_u,grid_v,phL.u,phL.v)
-            
-                    # print("\n before write \n ")
-            
-                    iLSpdi = 1 # all LS iLS = 1 # or all LS ?
-
+                        
+                    iLSpdi = 1 # TODO all LS
 
                     # Exposing data to PDI for IO    
                     # if writing "D" array (bulk, interface, border), add "_1D" to the name

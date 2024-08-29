@@ -835,6 +835,18 @@ def plot_all_films_func():
         )
 
 
+# def plot_segments(intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num):
+
+#     #plot scatter
+
+#     ax2.scatter(x=intfc_vtx_x,y=intfc_vtx_y,c=intfc_vtx_field)
+
+#     # order segments
+
+
+
+
+
 def plot_file(
     file,
     key,
@@ -981,6 +993,41 @@ def plot_file(
         LSdat = file[key_LS][:]
         LSdat = LSdat.transpose()
         CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'])
+
+    if figpar['plot_levelset_segments']:
+        intfc_vtx_num = file["intfc_vtx_num"][()]
+        print("intfc_vtx_num ",intfc_vtx_num)
+
+        intfc_vtx_x = file["intfc_vtx_x"][:]
+        intfc_vtx_y = file["intfc_vtx_y"][:]
+        intfc_vtx_field = file["intfc_vtx_field"][:]
+        intfc_vtx_connectivities = file["intfc_vtx_connectivities"][:]
+
+        intfc_vtx_x /= plotpar['scale_x']
+        intfc_vtx_y /= plotpar['scale_y']
+
+        print(intfc_vtx_x)
+        print(intfc_vtx_y)
+        print(intfc_vtx_field)
+
+        ms = 0.2 #0.5
+
+        ax2.scatter(x=intfc_vtx_x,y=intfc_vtx_y,
+                    # c=intfc_vtx_field,
+                    s=ms,
+                    )
+
+        # plot_segments(intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num):
+
+#     #plot scatter
+
+#     ax2.scatter(x=intfc_vtx_x,y=intfc_vtx_y,c=intfc_vtx_field)
+
+#     # order segments
+
+
+
+
 
     str_time = '{:.2e}'.format(time/plotpar['scale_time'])
     # strrad = '{:.2e}'.format(radius)
