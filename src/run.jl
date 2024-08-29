@@ -699,6 +699,18 @@ function run_forward(
             
             #TODO not necessary to expose everything now for ex only LS ? and the rest later
 
+
+            printstyled(color=:red, @sprintf "\n test segments\n" )
+
+
+            vtx_x,vtx_y,vtx_field,vtx_connectivities,num_vtx = convert_interfacial_D_to_segments(num,grid,phL.T,1)
+            print("\n number of interface points ", num_vtx)
+            # print("\n x",vtx_x)
+            # print("\n x",vtx_y)
+            # print("\n x",vtx_field)
+            print("\n x",vtx_connectivities)
+            print("\n x",num_vtx)
+
             if num.io_pdi>0
 
                 try

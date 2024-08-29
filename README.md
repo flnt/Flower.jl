@@ -19,6 +19,36 @@ julia --project=../Flower.jl --trace-compile=dc_precompile.jl ../Flower.jl/src/P
 time julia +1.10.4 --project=../Flower.jl --threads=1 --sysimage=sys_img.so ../Flower.jl/examples/main_current_folder.jl similar_to_Khalighi.yml
 ```
 
+
+Example
+```bash
+time julia +1.10.4 --project=../Flower.jl --threads=1 --trace-compile=dc_precompile.jl ../Flower.jl/examples/main_current_folder.jl similar_to_Khalighi.yml
+
+cd ../Flower.jl
+
+julia +1.10.4 --project=. src/PackageCompiler_setup_image.jl
+
+time julia +1.10.4 --project=../Flower.jl --threads=1 --sysimage=../Flower.jl/sys_img.so --trace-compile=stderr ../Flower.jl/examples/main_current_folder.jl similar_to_Khalighi.yml
+```
+With --sysimage (typical execution times on a laptop): 
+```bash
+real	0m21,392s
+user	0m25,334s
+sys	0m18,700s
+```
+
+<!-- real	0m14,879s
+user	0m19,732s
+sys	0m16,808s -->
+
+Without
+```bash
+real	3m18,956s
+user	3m22,081s
+sys	0m17,694s
+```
+
+
 ## On HPC center
 
 ### Installation

@@ -1,9 +1,15 @@
-using Flower
-using Test
 
-@testset "Simple tests" begin
-    include("validation_test_precomp.jl")
-end
+import Flower
+include(joinpath(pkgdir(Flower), "test", "validation_test_precomp.jl"))
+
+# # using Flower
+# import Flower
+# # using Test
+# include("validation_test_precomp.jl")
+
+# @testset "Simple tests" begin
+#     include("validation_test_precomp.jl")
+# end
 
 # @testset "Example tests" begin
 

@@ -3097,7 +3097,7 @@ function convert_interfacial_D_to_segments(num,gp,field,iLS)
     x_bc = gp.x .+ getproperty.(gp.LS[iLS].mid_point, :x) .* gp.dx
     y_bc = gp.y .+ getproperty.(gp.LS[iLS].mid_point, :y) .* gp.dy
 
-    print(x_bc)
+    # print(x_bc)
 
     x = zeros(0)
     y = zeros(0)
@@ -3115,32 +3115,27 @@ function convert_interfacial_D_to_segments(num,gp,field,iLS)
     vtx_index = Integer(0) #for python C
     # start at 1 to distinguish between empty cells or fill -1
 
-    for j in 1:gp.ny
-        for i in 1:gp.nx
-            II = CartesianIndex(i,j)
-            if gp.LS[iLS].geoL.cap[II,5] > num.eps
+    for II in gp.LS[iLS].MIXED
+        # if gp.LS[iLS].geoL.cap[II,5] > num.eps
+        xcell = gp.x[II]
+        ycell = gp.y[II]
 
-                xcell = gp.x[j,i]
-                ycell = gp.y[j,i]
+        # x_bc = xcell + getproperty.(gp.LS[1].mid_point, :x) .* gp.dx
 
-                # x_bc = xcell + getproperty.(gp.LS[1].mid_point, :x) .* gp.dx
+        append!( x, x_bc[II] )
+        append!( y, y_bc[II] )
 
-                append!( x, x_bc[j,i] )
-                append!( y, y_bc[j,i] )
+        append!( f, field[II] )
 
-                append!( f, field[j,i] )
+        ij_index[II] = vtx_index
 
-                ij_index[j,i] = vtx_index
+        #TODO store connvectivities or similar so that after: only need to filter and store non-null values ? 
+        #no need to do the work n times for each scalar
 
-                #TODO store connvectivities or similar so that after: only need to filter and store non-null values ? 
-                #no need to do the work n times for each scalar
-
-                # phL.u[ju,iu] = factor * vecr[1]
-                # phS.u[ju,iu] = factor * vecr[1]   
-                vtx_index +=1
-            end
-
-        end
+        # phL.u[ju,iu] = factor * vecr[1]
+        # phS.u[ju,iu] = factor * vecr[1]   
+        vtx_index +=1
+        # end #if
     end
 
     for j in 1:gp.ny-1
