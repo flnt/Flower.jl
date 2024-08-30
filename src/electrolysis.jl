@@ -3104,6 +3104,10 @@ function convert_interfacial_D_to_segments(num,gp,field,iLS)
 
         ij_index[II] = vtx_index
 
+        print("\n vtx ", vtx_index," ", II, " ",gp.x[II]-gp.dx[II]/2," ",gp.x[II]+gp.dx[II]/2," ",x," ",gp.y[II]-gp.dy[II]/2,
+        " ",gp.y[II]+gp.dy[II]/2,y," ",gp.x[II]," ",gp.y[II])
+
+
         #TODO store connvectivities or similar so that after: only need to filter and store non-null values ? 
         #no need to do the work n times for each scalar
 
@@ -3120,12 +3124,14 @@ function convert_interfacial_D_to_segments(num,gp,field,iLS)
                     push!(connectivities, ij_index[j,i])
                     push!(connectivities,ij_index[j+1,i])
                     num_seg+=1
+                    print("\n seg ", i," ",j," ",ij_index[j,i], " ", ij_index[j+1,i])
                 end
 
                 if ij_index[j,i+1]>=0  
                     push!(connectivities, ij_index[j,i])
                     push!(connectivities,ij_index[j,i+1])
                     num_seg+=1
+                    print("\n seg ", i," ",j," ",ij_index[j,i], " ", ij_index[j,i+1])
                 end
 
             end

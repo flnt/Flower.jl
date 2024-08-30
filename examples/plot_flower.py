@@ -835,13 +835,13 @@ def plot_all_films_func():
         )
 
 
-def plot_segments(file,plotpar,ax2):
+def plot_segments(file,plotpar,figpar,ax2):
 
     intfc_vtx_num = file["intfc_vtx_num"][()]
-    print("intfc_vtx_num ",intfc_vtx_num)
+    # print("intfc_vtx_num ",intfc_vtx_num)
 
     intfc_seg_num = file["intfc_seg_num"][()]
-    print("intfc_seg_num ",intfc_seg_num)
+    # print("intfc_seg_num ",intfc_seg_num)
 
     intfc_vtx_x = file["intfc_vtx_x"][:]
     intfc_vtx_y = file["intfc_vtx_y"][:]
@@ -853,23 +853,46 @@ def plot_segments(file,plotpar,ax2):
 
     intfc_vtx_x /= plotpar['scale_x']
     intfc_vtx_y /= plotpar['scale_y']
-    print(len(intfc_vtx_x),len(file["intfc_vtx_x"][:]))
-    print(intfc_vtx_x)
-    print(intfc_vtx_y)
-    print(intfc_vtx_field)
-    print(intfc_vtx_connectivities)
+    # print(len(intfc_vtx_x),len(file["intfc_vtx_x"][:]))
+    # print(intfc_vtx_x)
+    # print(intfc_vtx_y)
+    # print(intfc_vtx_field)
+    # print(intfc_vtx_connectivities)
 
+    lcolor= "k" #"w" #"k"
+    lw=0.5
+    ms=0.5
     ms = 0.2 #0.5
+    va='center'
 
     ax2.scatter(x=intfc_vtx_x,y=intfc_vtx_y,
                 # c=intfc_vtx_field,
                 s=ms,
                 )
     
+    if figpar['plot_levelset_segments_print'] != None:
+        for i in range(intfc_vtx_num):
+
+            if figpar['plot_levelset_segments_print'] == "val":
+                str1='{:.2e}'.format(intfc_vtx_field[i])
+            elif figpar['plot_levelset_segments_print'] == "ij":
+                str1="{:03}".format(i)
+            elif figpar['plot_levelset_segments_print'] == "ijval": 
+                str1="{:.2e} {:03}".format(intfc_vtx_field[i],i)  
+            elif figpar['plot_levelset_segments_print'] == "ijcoord": 
+                str1="{:.2e} {:.2e} {:03}".format(intfc_vtx_x[i],intfc_vtx_y[i],i)       
+            elif figpar['plot_levelset_segments_print'] == "ijx": 
+                str1="{:.2e} {:03}".format(intfc_vtx_x[i],i)                        
+            elif figpar['plot_levelset_segments_print'] == "ijy": 
+                str1="{:.2e} {:03}".format(intfc_vtx_y[i],i)    
+
+            ax2.annotate(str1,(intfc_vtx_x[i],intfc_vtx_y[i]),fontsize=figpar['fontsize'],c=lcolor,ha="center",va=va)
+
+    
     for i in range(intfc_seg_num):
         connect = intfc_vtx_connectivities[2*i:2*i+2] #+1 python
         print(range(2*i,2*i+2) ,connect)
-        plt .plot(intfc_vtx_x[connect],intfc_vtx_y[connect],lw=0.1)
+        plt .plot(intfc_vtx_x[connect],intfc_vtx_y[connect],lw=0.1,color='k')
 
 
     # # order segments
@@ -1045,7 +1068,7 @@ def plot_file(
         CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'])
 
     if figpar['plot_levelset_segments']:
-        ax2 = plot_segments(file,plotpar,ax2)
+        ax2 = plot_segments(file,plotpar,figpar,ax2)
     
 
 
@@ -1177,7 +1200,7 @@ def plot_current_lines(file,
     args:
 
     """
-    phi_array = file["i_current_x"][:].transpose()
+    # phi_array = file["i_current_x"][:].transpose()
     Eus = file["i_current_x"][:].transpose()
     Evs = file["i_current_y"][:].transpose()
 
@@ -1191,7 +1214,7 @@ def plot_current_lines(file,
     # file_name = "current_lines"
     file_name = figpar['file']
 
-
+    phi_array = field
 
     # https://matplotlib.org/stable/gallery/images_contours_and_fields/contourf_demo.html
 
@@ -1219,7 +1242,7 @@ def plot_current_lines(file,
     cbar.add_lines(CS2)
 
     plt.streamplot(xp, yp, -Eus, -Evs, color="w")
-    # Eus[last_it,:,:], Evs[last_it,:,:])#, color=(.75,.90,.93)) #do no transpose, python row major
+    #do no transpose, python row major
     
     ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
     ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
@@ -1572,15 +1595,18 @@ def plot_python_pdf_full2(
                 s=ms,
                 )
 
-                # str1=@sprintf "%.2e" fieldtmp[jgrid0,igrid0]
                 if figpar['print_mode'] == "val":
                     str1='{:.2e}'.format(field[jgrid,igrid])
-                    # str1=@sprintf "%.4e %.3i %.3i %.3i" field[jgrid,igrid] igrid0 jgrid0 jgrid
-
                 elif figpar['print_mode'] == "ij":
                     str1="{:03} {:03}".format(igrid0,jgrid0)
-                else: 
-                    str1="{:.2e} {:03} {:03}".format(field[jgrid,igrid],igrid0,jgrid0)                         
+                elif figpar['print_mode'] == "ijval": 
+                    str1="{:.2e} {:03} {:03}".format(field[jgrid,igrid],igrid0,jgrid0)      
+                elif figpar['print_mode'] == "ijcoord": 
+                    str1="{:.2e} {:.2e} {:03} {:03}".format(x_arr[igrid],y_arr[jgrid],igrid0,jgrid0)        
+                elif figpar['print_mode'] == "ijx": 
+                    str1="{:.2e} {:03} {:03}".format(x_arr[igrid],igrid0,jgrid0)         
+                elif figpar['print_mode'] == "ijy": 
+                    str1="{:.2e} {:03} {:03}".format(y_arr[jgrid],igrid0,jgrid0)  
 
                 ax2.annotate(str1,(x_arr[igrid],y_arr[jgrid]),fontsize=figpar['fontsize'],c=lcolor,ha="center",va=va)
 
@@ -1635,7 +1661,7 @@ def plot_python_pdf_full2(
         )
 
     if figpar['plot_levelset_segments']:
-        ax2 = plot_segments(file,plotpar,ax2)
+        ax2 = plot_segments(file,plotpar,figpar,ax2)
 
 
 
@@ -1689,6 +1715,10 @@ def plot_python_pdf_full2(
     # str_iter = "{:05}".format(i)
 
     # plt.title("t "*strtime*r"$( \unit{\ms})$"*"radius "*strrad*r"$( \unit{\um})$")
+
+    # if figpar['zoom_mode'] == 'coord':
+    #     ax2.set_xlim([float(x0) for x0 in figpar['zoom'][0]]) #zoom
+    #     ax2.set_ylim([float(x0) for x0 in  figpar['zoom'][1]])
 
     # ax2.set_xlim([float(x0) for x0 in figpar['xlim']]) #zoom
     # ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
