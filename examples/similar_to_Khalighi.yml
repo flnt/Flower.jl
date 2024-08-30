@@ -174,13 +174,17 @@ plot:
       - var: concentration_H2_1DT
         file: concentration_H2
         cbarlabel: '$\text{Concentration} H_2 \ce{H2}$'
+        fontsize: 4
         isocontour: False
         levels: 10
+        # lcolor: 
         plot_bc: True
         plot_grid: True
         plot_levelset: False #True
         plot_levelset_segments: True
+        plot_levelset_segments_print: 
         plot_mode: contourf
+        print_mode: 
         range: [0,1e-4]
         xlim: [0,100]
         ylim: [0,100]
@@ -273,8 +277,9 @@ plot:
         plot_grid: True
         plot_levelset: False
         plot_levelset_segments: True
+        plot_levelset_segments_print: ijy #ijx
         plot_mode: pcolormesh #contourf
-        print_mode: ij #"val"
+        print_mode: ijy #ijx #ijcoord #ijval #ij #"val"
         range: [0,1e-4]
         xlim: [0,100]
         ylim: [0,100]
@@ -282,6 +287,27 @@ plot:
         zoom_mode: coord
         color_annot_bc: w
         color_annot_bulk: w
+
+      # - var: concentration_H2_1DT
+      #   file: concentration_H2_zoom_segments
+      #   field_index: 1
+      #   cbarlabel: '$\text{Concentration} H_2$'
+      #   fontsize: 4
+      #   isocontour: False
+      #   levels: 10
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: False
+      #   plot_levelset_segments: True
+      #   plot_mode: pcolormesh #contourf
+      #   print_mode: ijval #ij #"val"
+      #   range: [0,1e-4]
+      #   xlim: [0,100]
+      #   ylim: [0,100]
+      #   zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   zoom_mode: coord
+      #   color_annot_bc: w
+      #   color_annot_bulk: w
 
 
 
@@ -470,11 +496,11 @@ pdi:
         # when: #"$nstep%50 = 0"
         write: [levelset_p,levelset_u,levelset_v,radius]
 
-      #write segments of interface
-      - file: flower_${nstep:08}.h5 #Name of the file test.h5
-        collision_policy: write_into
-        on_event: write_data_start_loop
-        write: [intfc_vtx_num,intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_seg_num,intfc_vtx_connectivities]
+      # #write segments of interface
+      # - file: flower_${nstep:08}.h5 #Name of the file test.h5
+      #   collision_policy: write_into
+      #   on_event: write_data_start_loop
+      #   write: [intfc_vtx_num,intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_seg_num,intfc_vtx_connectivities]
 
       #write mass flux used in phase change
       - file: flower_${nstep:08}.h5 #Name of the file test.h5
