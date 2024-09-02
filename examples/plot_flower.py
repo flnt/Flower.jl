@@ -594,7 +594,7 @@ def plot_all_fig():
                     figpar["var"] == "i_current_x"
                 ):  # plot vector with velocity interpolated on scalar grid
 
-                    plot_current_lines(file, xp, yp, mesh, time, nstep, plotpar, figpar)
+                    plot_current_lines(file, key, xp, yp, xu, yv, yml, mesh, time, nstep, plotpar, figpar)
 
                 elif figpar["var"] in file.keys():
                     key = figpar["var"]
@@ -813,11 +813,17 @@ def plot_all_films_func():
     xu /= scale_x
     yv /= scale_y
 
-    # func = getattr('plot_file')
 
-    func = globals()['plot_file']
+    
+
 
     for figpar in plotpar["films"]:
+
+        if 'func' in figpar.keys():
+            func = globals()[figpar['func']] #'plot_current_lines'
+        else:
+            func = globals()['plot_file']
+
 
         key = figpar['var']
         python_movie_zoom_func(
@@ -1093,9 +1099,12 @@ def plot_file(
         ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
         ax2.set_aspect('equal', 'box')
 
-    if mode == 'close':
         str_nstep = str(nstep)
-        plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'])
+        plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+
+    if mode == 'close':
+        # str_nstep = str(nstep)
+        # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'])
         plt.close(fig1)
         return
 
@@ -1185,8 +1194,12 @@ def plot_vector(file,x_1D,y_1D,time,nstep,yml,plotpar,figpar):
 
 
 def plot_current_lines(file,
+    key,
     xp,
     yp,
+    xu,
+    yv,
+    yml,
     mesh,
     time,
     nstep,
@@ -1218,39 +1231,76 @@ def plot_current_lines(file,
 
     # https://matplotlib.org/stable/gallery/images_contours_and_fields/contourf_demo.html
 
-    fig1, ax2 = plt.subplots(layout="constrained")
-    ax2.spines["right"].set_visible(False)
-    ax2.spines["top"].set_visible(False)
+    if mode == 'film' or mode == 'first':
+        ax2.clear()
+    else:
+        # fig1, ax2 = plt.subplots(layout="constrained")
+        fig1, ax2 = plt.subplots(figsize=set_size(plotpar["latex_frame_width"], fraction=float(plotpar["fig_fraction"]),
+                                                ratio=1,nvary=1,ratio2=1,height=float(plotpar["latex_frame_height"])),
+                                                layout="constrained")
+        
+    if figpar['levels']==0:
+        # CS = ax2.contourf(x_1D,y_1D,field, 
+        # levels=figpar['range'], #10, 
+        # cmap=plotpar['cmap'],)
+        CS = ax2.contourf(xp, yp, phi_array, levels=figpar['range'], cmap=plotpar["cmap"])
 
-    CS = ax2.contourf(xp, yp, phi_array, 10, cmap=plotpar["cmap"])
+    else:
+        CS = ax2.contourf(xp, yp, phi_array, levels=figpar['levels'], cmap=plotpar["cmap"])
+        
 
-    CS2 = ax2.contour(
-        CS,
-        # levels=CS.levels[::2],
-        # levels=
-        colors="r",
-    )
+    # CS = ax2.contourf(xp, yp, phi_array, 10, cmap=plotpar["cmap"])
+
+    # CS2 = ax2.contour(
+    #     CS,
+    #     # levels=CS.levels[::2],
+    #     # levels=
+    #     colors="r",
+    # )
 
     # ax2.set_title("Title")
-    ax2.set_xlabel(r"$x ( \unit{\um})$")
-    ax2.set_ylabel(r"$y ( \unit{\um})$")
 
     # Make a colorbar for the ContourSet returned by the contourf call.
-    cbar = fig1.colorbar(CS)
-    cbar.ax.set_ylabel("Electrical potential")
-    # Add the contour line levels to the colorbar
-    cbar.add_lines(CS2)
+    if mode !='film':
+        cbar = fig1.colorbar(CS)
+        cbar.ax.set_ylabel(r""+figpar["cbarlabel"])
+
+        if figpar['ticks_format']!=None:
+            cbar.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
+    
+        # Add the contour line levels to the colorbar
+        if str(figpar['isocontour']) == 'True':
+            CS2 = ax2.contour(CS, 
+            # levels=CS.levels[::2], 
+            # levels=
+            colors="r")
+            cbar.add_lines(CS2)
 
     plt.streamplot(xp, yp, -Eus, -Evs, color="w")
     #do no transpose, python row major
     
-    ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
-    ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
-    ax2.set_aspect('equal', 'box')
 
-    str_nstep = str(nstep)
-    plt.savefig(file_name + "_" + str_nstep + "." + plotpar["img_format"],dpi=plotpar['dpi'])
-    plt.close(fig1)
+    if mode =='first' or mode =='close':
+        ax2.spines["right"].set_visible(False)
+        ax2.spines["top"].set_visible(False)
+
+        ax2.set_xlabel(r"$x ( \unit{\um})$")
+        ax2.set_ylabel(r"$y ( \unit{\um})$")
+
+        ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
+        ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
+        ax2.set_aspect('equal', 'box')
+        
+        str_nstep = str(nstep)
+        plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also save fig for latex  display
+
+    if mode == 'close':
+        # str_nstep = str(nstep)
+        # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'])
+        plt.close(fig1)
+        return
+
+    return(fig1,ax2,CS)
 
 
 def plot_radius(time_list,radius_list):

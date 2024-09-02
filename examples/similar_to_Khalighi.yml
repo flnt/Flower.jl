@@ -49,17 +49,36 @@ flower:
     # activate_interface: false
     activate_interface: 1
     adapt_timestep_mode: 3 #fixed timestep
+    bulk_conductivity: 2
+    # For small cells
+    # if num.bulk_conductivity == 0
+    #     BC_phi_ele.left.val .= -i_butler./vecb_L(elec_condD, grid)
+    # elseif num.bulk_conductivity == 1
+    #     # Recommended as long as cell merging not implemented:
+    #     # Due to small cells, we may have slivers/small cells at the left wall, then the divergence term is small,
+    #     # which produces higher concentration in front of the contact line
+    #     BC_phi_ele.left.val .= -i_butler./elec_cond[:,1]
+    # elseif num.bulk_conductivity == 2
+    #     BC_phi_ele.left.val .= -i_butler./vecb_L(elec_condD, grid)
+
+    #     iLS = 1 #TODO end ? if several LS ?
+    #     for j in 1:grid.ny
+    #         if vecb_L(grid.LS[iLS].geoL.cap[:,5],grid)[j] < ϵ
+    #             BC_phi_ele.left.val[j] = -i_butler[j]/elec_cond[j,1] 
+    #         end
+    #     end
+    # end
     concentration_check_factor: 1e-4
     convection_Cdivu: 0
     electrolysis_phase_change_case: "Khalighi" #no phase change
     # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
     # electrolysis_phase_change_case: "levelset" # local
     eps: 1e-12 #eps for small numbers
-    epsilon: 0.0 #0.05 #cut small cells
+    epsilon: 0.05 #0.0 #0.05 #cut small cells
     epsilon_mode: 2 #way to handle epsilon
     imposed_velocity: "none"
-    dt0: 1.25e-5 #2.5e-5 #3.125e-6 #first timestep 1.0e-5 # 
-    max_iter: 1 #40 #maximum number of iterations
+    dt0: 3.125e-6 #1.25e-5 #2.5e-5 #3.125e-6 #first timestep 1.0e-5 # 
+    max_iter: 60 #40 #1 #40 #maximum number of iterations
     mode_2d: 2 #3
     # mode_2d = 1 #use equivalent cylinder
     # mode_2d = 2 #mol/meter, fixed distance to the wall 
@@ -181,7 +200,7 @@ plot:
         plot_bc: True
         plot_grid: True
         plot_levelset: False #True
-        plot_levelset_segments: True
+        plot_levelset_segments: #True
         plot_levelset_segments_print: 
         plot_mode: contourf
         print_mode: 
@@ -276,7 +295,7 @@ plot:
         plot_bc: True
         plot_grid: True
         plot_levelset: False
-        plot_levelset_segments: True
+        plot_levelset_segments: #True
         plot_levelset_segments_print: ijy #ijx
         plot_mode: pcolormesh #contourf
         print_mode: ijy #ijx #ijcoord #ijval #ij #"val"
@@ -312,6 +331,27 @@ plot:
 
 
   films:
+      - var: i_current_x
+        file: current_lines
+        func: plot_current_lines
+        cbarlabel: Electrical potential
+        img_format: mp4
+        isocontour: True
+        levels: 10
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: True
+        plot_levelset_segments: False
+        plot_mode: contourf
+        range: [0,1e-4]
+        ticks_format: '%.2e'
+        xlim: [0,100]
+        ylim: [0,100]
+        linewidth: 1
+        linestyle: None
+        zoom_mode: None
+
+
       - var: v_1D
         file: v_LS
         cbarlabel: v
