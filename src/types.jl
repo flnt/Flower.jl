@@ -88,6 +88,7 @@ abstract type AbstractOptimizer end
     prediction::D=0
     null_space::D=0
     io_pdi::D=0
+    bulk_conductivity::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

@@ -44,7 +44,6 @@ function run_forward(
     electrolysis_solid_phase = false,
     electrolysis_phase_change_case = "Khalighi",
     electrolysis_reaction = "nothing",
-    bulk_conductivity = true,
     imposed_velocity = "none",
     adapt_timestep_mode = 0,
     non_dimensionalize=1,
@@ -704,12 +703,12 @@ function run_forward(
 
 
             intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num, intfc_seg_num = convert_interfacial_D_to_segments(num,grid,phL.T,1)
-            print("\n number of interface points intfc_vtx_num ", intfc_vtx_num)
-            print("\n intfc_vtx_connectivities ",intfc_vtx_connectivities)
-            print("\n len ", size(intfc_vtx_connectivities),intfc_seg_num)
+            # print("\n number of interface points intfc_vtx_num ", intfc_vtx_num)
+            # print("\n intfc_vtx_connectivities ",intfc_vtx_connectivities)
+            # print("\n len ", size(intfc_vtx_connectivities),intfc_seg_num)
 
-            print("\n intfc_vtx_x ",intfc_vtx_x)
-            print("\n intfc_vtx_x ",intfc_vtx_y)
+            # print("\n intfc_vtx_x ",intfc_vtx_x)
+            # print("\n intfc_vtx_x ",intfc_vtx_y)
 
 
             if num.io_pdi>0
@@ -1394,26 +1393,28 @@ function run_forward(
                     # i_current = i0*(exp(alpha_a*Faraday*eta/(Ru*temperature0))-exp(-alpha_c*Faraday*eta/(Ru*temperature0)))
 
                     if occursin("Butler",electrolysis_reaction)
-
+                        # TODO -(-i/kappa) in Flower ? so i_butler not -i_butler
                         # For small cells
-                        if bulk_conductivity == 0
-                            BC_phi_ele.left.val .= -i_butler./vecb_L(elec_condD, grid)
-                        elseif bulk_conductivity == 1
+                        if num.bulk_conductivity == 0
+                            BC_phi_ele.left.val .= i_butler./vecb_L(elec_condD, grid)
+                        elseif num.bulk_conductivity == 1
                             # Recommended as long as cell merging not implemented:
                             # Due to small cells, we may have slivers/small cells at the left wall, then the divergence term is small,
                             # which produces higher concentration in front of the contact line
-                            BC_phi_ele.left.val .= -i_butler./elec_cond[:,1]
-                        elseif bulk_conductivity == 2
-                            BC_phi_ele.left.val .= -i_butler./vecb_L(elec_condD, grid)
+                            BC_phi_ele.left.val .= i_butler./elec_cond[:,1]
+                        elseif num.bulk_conductivity == 2
+                            BC_phi_ele.left.val .= i_butler./vecb_L(elec_condD, grid)
 
                             iLS = 1 #TODO end ? if several LS ?
                             for j in 1:grid.ny
-                                if vecb_L(grid.LS[iLS].geoL.cap[:,5],grid)[j] < ϵ
-                                    BC_phi_ele.left.val[j] = -i_butler[j]/elec_cond[j,1] 
+                                II = CartesianIndex(j,1)
+                                if grid.LS[iLS].geoL.cap[II,5] < ϵ
+                                    BC_phi_ele.left.val[j] = i_butler[j]/elec_cond[j,1] 
                                 end
                             end
-
                         end
+
+                        # print("\n before ",BC_phi_ele.left.val) 
 
                         # if heat
                         #     BC_phi_ele.left.val = -butler_volmer_no_concentration.(alpha_a,alpha_c,Faraday,i0,phL.phi_ele[:,1],phi_ele1,Ru,phL.T)./elec_cond[:,1]
@@ -1453,6 +1454,8 @@ function run_forward(
 
                         # grid.LS[iLS].geoL.cap[II,1:4]
 
+                        # TODO
+                        #Remove Nan when dividing by conductivity which may be null
                         for iLS in 1:nLS
                             # kill_dead_bc_left_wall!(vecb(elec_condD,grid), grid, iLS,1.0)
                             for i = 1:grid.ny
@@ -1463,6 +1466,8 @@ function run_forward(
                                 end
                             end
                         end
+
+                    #    print(BC_phi_ele.left.val) 
 
                         # print("\n after ",BC_phi_ele.left.val)
 

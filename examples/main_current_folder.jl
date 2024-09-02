@@ -95,6 +95,7 @@ DH2,DKOH,DH2O= phys.diffusion_coeff
 
 nb_saved_scalars=1
 
+#not using num.bulk_conductivity like in run.jl as long as the initial concentration is independent from small cell isues
 elec_cond=2*phys.Faraday^2*c0_KOH*DKOH/(phys.Ru*phys.temperature0)
 
 Re=phys.rho1*phys.v_inlet*phys.ref_length/mu #Reynolds number
@@ -166,27 +167,27 @@ _θe = acos((0.5 * diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
 radial_vel_factor = 1e-7
 
 # BC 
-i_current = x[1,:] .*0.0
+i_butler = x[1,:] .*0.0
 
 # H2 boundary condition
 BC_trans_scal_H2 = BoundariesInt(
 bottom = Dirichlet(val = phys.concentration0[1]),
 top    = Neumann(),
-left   = Neumann(val=-i_current/(2*phys.Faraday*DH2)), #Dirichlet(val = phys.concentration0[1]), #
+left   = Neumann(val=-i_butler/(2*phys.Faraday*DH2)), #Dirichlet(val = phys.concentration0[1]), #
 right  = Dirichlet(val = phys.concentration0[1]),
 int    = Dirichlet(val = phys.concentration0[1]))
 
 BC_trans_scal_KOH = BoundariesInt(
     bottom = Dirichlet(val = phys.concentration0[2]),
     top    = Neumann(),
-    left   = Neumann(val=-i_current/(2*phys.Faraday*DKOH)),
+    left   = Neumann(val=-i_butler/(2*phys.Faraday*DKOH)),
     right  = Dirichlet(val = phys.concentration0[2]),
     int    = Neumann(val=0.0)) #KOH
      
 BC_trans_scal_H2O = BoundariesInt(
     bottom = Dirichlet(val = phys.concentration0[3]),
     top    = Neumann(),
-    left   = Neumann(val=i_current/(phys.Faraday*DH2O)),
+    left   = Neumann(val=i_butler/(phys.Faraday*DH2O)),
     right  = Dirichlet(val = phys.concentration0[3]),
     int    = Neumann(val=0.0)) #Dirichlet(val = phys.concentration0[3])),#Neumann(val=0.0)) 
     #H2O #Dirichlet(val = phys.concentration0[3])
@@ -569,6 +570,7 @@ num = Numerical(
     prediction = sim.prediction,
     null_space = sim.null_space,
     io_pdi = io.pdi,
+    bulk_conductivity = sim.bulk_conductivity
     )
 
 #Initialization
@@ -929,10 +931,10 @@ phi_ele=gv.x[1,:] .*0.0
 
 # eta = phys.phi_ele1 .-phi_ele
 #TODO precision: number of digits
-# i_current=phys.i0*(exp(phys.alpha_a*phys.Faraday*eta/(phys.Ru*phys.temperature0))-exp(-phys.alpha_c*phys.Faraday*eta/(phys.Ru*phys.temperature0)))
-i_current=butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_ele,phys.phi_ele1,phys.Ru,phys.temperature0)
+# i_butler=phys.i0*(exp(phys.alpha_a*phys.Faraday*eta/(phys.Ru*phys.temperature0))-exp(-phys.alpha_c*phys.Faraday*eta/(phys.Ru*phys.temperature0)))
+i_butler=butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_ele,phys.phi_ele1,phys.Ru,phys.temperature0)
 
-print(@sprintf "Butler-Volmer %.2e %.2e %.2e %.2e\n" i_current[1] -i_current[1]/(2*phys.Faraday*DH2) c0_H2-i_current[1]/(2*phys.Faraday*DH2)*gp.dx[1,1] c0_H2+i_current[1]/(2*phys.Faraday*DH2)*gp.dx[1,1])
+print(@sprintf "Butler-Volmer %.2e %.2e %.2e %.2e\n" i_butler[1] -i_butler[1]/(2*phys.Faraday*DH2) c0_H2-i_butler[1]/(2*phys.Faraday*DH2)*gp.dx[1,1] c0_H2+i_butler[1]/(2*phys.Faraday*DH2)*gp.dx[1,1])
 
 
 
@@ -1006,7 +1008,7 @@ end
     ),
 
     BC_phi_ele = BoundariesInt(
-        left   = Neumann(val=-i_current/elec_cond),
+        left   = Neumann(val=i_butler/elec_cond), #TODO -BC in Flower ? so i_butler not -i_butler
         right  = Dirichlet(),
         bottom = Neumann(val=0.0),
         top    = Neumann(val=0.0),

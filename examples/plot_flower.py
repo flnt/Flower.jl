@@ -582,7 +582,7 @@ def plot_all_fig():
             # Figures defined in YAML file
             for figpar in plotpar["figures"]:
 
-                print(colored(figpar["var"] + " " + figpar["file"], "cyan"))
+                # print(colored(figpar["var"] + " " + figpar["file"], "cyan"))
 
                 if (
                     figpar["var"] == "velocity_x"
@@ -599,7 +599,7 @@ def plot_all_fig():
                 elif figpar["var"] in file.keys():
                     key = figpar["var"]
 
-                    print(key)
+                    # print(key)
 
                     if "_1D" in key:
 
@@ -965,7 +965,7 @@ def plot_file(
     else:
         field_index = 1 # bulk value
 
-    print(key,nstep,time,"max ",np.max(data),'min',np.min(data))
+    # print(key,nstep,time,"max ",np.max(data),'min',np.min(data))
 
     # print(data.shape)
 
@@ -1351,9 +1351,9 @@ def plot_python_pdf_full2(
     # file_name = key
     file_name = figpar['file']
 
-    print(key,"max ",np.max(data_1D))
+    # print(key,"max ",np.max(data_1D))
 
-    print("plotting ", file_name)
+    # print("plotting ", file_name)
 
     cmap = plt.get_cmap(plotpar["cmap"])
 
