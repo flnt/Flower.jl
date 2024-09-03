@@ -365,7 +365,7 @@ plot:
         xlim: [0,100]
         ylim: [0,100]
         linewidth: 1
-        linestyle: None
+        linestyle: 'dotted'
         zoom_mode: None
 
 
@@ -406,7 +406,27 @@ plot:
         linestyle: None
         zoom_mode: None
 
-        
+  curves:
+      - var: radius 
+        file: radius
+        slope_start: 1.2e-4 #2e-4
+        slope_stop: 1e-3
+        # cbarlabel: H2 #'$Concentration H_2$'
+        # img_format: mp4
+        # isocontour: False
+        # levels: 10
+        # plot_bc: True
+        # plot_grid: True
+        # plot_levelset: True
+        # plot_levelset_segments: False
+        # plot_mode: contourf
+        # range: [0,1e-4]
+        # xlim: [0,100]
+        # ylim: [0,100]
+        # linewidth: 1
+        # linestyle: None
+        # zoom_mode: None
+    
 
         
   dpi: 300

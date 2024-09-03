@@ -91,7 +91,7 @@ python3 -c "import plot_flower; plot_flower.plot_all_fig()" yaml_file
 ```
 To produce all films:
 ```bash
-python3 -c "import plot_flower; plot_flower.plot_all_films()" yaml_file
+python3 -c "import plot_flower; plot_flower.plot_all_films_func()" yaml_file
 ```
 To plot the radius of the interface
 ```bash

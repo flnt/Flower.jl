@@ -177,103 +177,104 @@ def compute_slope(ax,xls,yls,x,y,slopes,R2,param_line,colors,alpha):
    #https://towardsdatascience.com/linear-regression-using-least-squares-a4c3456e8570
    # print('least-squares',len(xls),len(yls))
 
-   # print(xls)
-   # print(yls)
-   logslope=True
-   if logslope:
-      X_mean1 = np.mean(xls)
-      Y_mean1 = np.mean(yls)
-      xls=np.log10(xls)
-      yls=np.log10(yls)
+    print('compute_slope')
+    print(xls)
+    print(yls)
+    logslope=True
+    if logslope:
+        X_mean1 = np.mean(xls)
+        Y_mean1 = np.mean(yls)
+        xls=np.log10(xls)
+        yls=np.log10(yls)
 
-   X_mean = np.mean(xls)
-   Y_mean = np.mean(yls)
-   X_min = np.min(xls)
-   Y_min = np.min(yls)
-   X_max = np.max(xls)
-   Y_max = np.max(yls)
+    X_mean = np.mean(xls)
+    Y_mean = np.mean(yls)
+    X_min = np.min(xls)
+    Y_min = np.min(yls)
+    X_max = np.max(xls)
+    Y_max = np.max(yls)
 
-   num = 0
-   den = 0
-   for i in range(len(xls)):
-      num += (xls[i] - X_mean)*(yls[i] - Y_mean)
-      den += (xls[i] - X_mean)**2
-   m = num / den
-   c = Y_mean - m*X_mean
+    num = 0
+    den = 0
+    for i in range(len(xls)):
+        num += (xls[i] - X_mean)*(yls[i] - Y_mean)
+        den += (xls[i] - X_mean)**2
+    m = num / den
+    c = Y_mean - m*X_mean
 
-   Y_pred = m*xls + c
+    Y_pred = m*xls + c
 
-   rms=np.linalg.norm(yls-Y_pred, ord=2)
+    rms=np.linalg.norm(yls-Y_pred, ord=2)
 
-   rmsx=np.linalg.norm(xls-X_mean, ord=2)
-   rmsy=np.linalg.norm(yls-Y_mean, ord=2)
+    rmsx=np.linalg.norm(xls-X_mean, ord=2)
+    rmsy=np.linalg.norm(yls-Y_mean, ord=2)
 
-   corr=num/(rmsx*rmsy)
-   # print('corr',corr)
+    corr=num/(rmsx*rmsy)
+    # print('corr',corr)
 
-   if logslope:
-      # ax.plot([10**(X_mean), 10**(max(xls))], [10**(X_mean*m+c), 10**(max(Y_pred))], color='black',alpha=0.5)
-      line1,=ax.plot([10**(min(xls)), 10**(max(xls))], [10**(min(Y_pred)), 10**(max(Y_pred))],
-                                 # color='black',
-                                 color=colors,
-                                 alpha=alpha,
-                                 # label=str(m)
-                                 )
-      xy=(X_mean1,Y_mean1)
-      text='Slope={:.2g}\nR²={:.2g}'.format(float(m),float(rms))
-      ax.annotate(text=text,xy=xy,ha='left',va='top')
+    if logslope:
+        # ax.plot([10**(X_mean), 10**(max(xls))], [10**(X_mean*m+c), 10**(max(Y_pred))], color='black',alpha=0.5)
+        line1,=ax.plot([10**(min(xls)), 10**(max(xls))], [10**(min(Y_pred)), 10**(max(Y_pred))],
+                                    # color='black',
+                                    color=colors,
+                                    alpha=alpha,
+                                    # label=str(m)
+                                    )
+        xy=(X_mean1,Y_mean1)
+        text='Slope={:.2g}\nR²={:.2g}'.format(float(m),float(corr))
+        ax.annotate(text=text,xy=xy,ha='left',va='top')
 
-      
-      # param_line.append(line1)
+        
+        # param_line.append(line1)
     #   ax.annotate('Slope '+"{:.1f}".format(m),xy=(X_mean1,Y_mean1))
 
-    
-
-      # print ('least-squares',x,y,m,c,10**(X_mean),10**(Y_mean))
-
-      # ax.scatter(x=10**(X_mean),y=10**(Y_mean))
-      # ax.scatter(x=10**(X_min),y=10**(Y_min))
-      # ax.scatter(x=10**(X_max),y=10**(Y_max))
-
-      # print(xls)
-      # print(yls)
 
 
-      # plt.text(0.8,0.9,
-      # 'Slope={:.2g}\nR²{:.2g}'.format(float(m),float(rms)),
-      # transform =ax.transAxes,fontsize=16,ha='center')
-      slopes=m
-      R2=corr#rms
+        # print ('least-squares',x,y,m,c,10**(X_mean),10**(Y_mean))
 
-      # ax.annotate('Slope={:.2g}\nR²={:.2g}'.format(float(m),float(rms)),
-      # xy=(0.8,0.1),xycoords='axes fraction',ha='center')
+        # ax.scatter(x=10**(X_mean),y=10**(Y_mean))
+        # ax.scatter(x=10**(X_min),y=10**(Y_min))
+        # ax.scatter(x=10**(X_max),y=10**(Y_max))
+
+        # print(xls)
+        # print(yls)
 
 
-      # plt.legend(('data', 'line-regression r={}'.format(r_value)), 'best')
-      # legendslope=plt.legend(handles=[],labels=('Slope={:.2g}\nR²{:.2g}'.format(float(m),float(rms))), loc='best')
-      # ax.add_artist(legendslope)
+        # plt.text(0.8,0.9,
+        # 'Slope={:.2g}\nR²{:.2g}'.format(float(m),float(rms)),
+        # transform =ax.transAxes,fontsize=16,ha='center')
+        slopes=m
+        R2=corr#rms
 
-   else:   
-      if (min(Y_pred)<0):
-         ax.plot([X_mean, max(xls)], [X_mean*m+c, max(Y_pred)], color='black',
-               #   alpha=0.5,
-                  lw=lw) # predicted
-      else:
-         ax.plot([min(xls), max(xls)], [min(Y_pred), max(Y_pred)], color='black',
-               #   alpha=0.5,
-                  lw=lw) # predicted
-   
-      # ax.annotate("{:.1f}".format(m)+'*x'+"{:.3f}".format(c),xy=(X_mean,Y_mean))
-      ax.annotate('Slope '+"{:.1f}".format(m),xy=(X_mean,Y_mean))
+        # ax.annotate('Slope={:.2g}\nR²={:.2g}'.format(float(m),float(rms)),
+        # xy=(0.8,0.1),xycoords='axes fraction',ha='center')
 
-   print ('least-squares',x,y,m,c,corr)#,10**(X_mean),10**(Y_mean))
-   
-   # print(X_mean,Y_mean,
-   #       # len(xls),len(yls)
-   #       ,min(xls),max(xls),min(Y_pred),max(Y_pred))
 
-   print(min(Y_pred),max(Y_pred),Y_min,Y_max,10**(min(xls)),10**(max(xls)))   
-   return(ax)
+        # plt.legend(('data', 'line-regression r={}'.format(r_value)), 'best')
+        # legendslope=plt.legend(handles=[],labels=('Slope={:.2g}\nR²{:.2g}'.format(float(m),float(rms))), loc='best')
+        # ax.add_artist(legendslope)
+
+    else:   
+        if (min(Y_pred)<0):
+            ax.plot([X_mean, max(xls)], [X_mean*m+c, max(Y_pred)], color='black',
+                #   alpha=0.5,
+                    lw=lw) # predicted
+        else:
+            ax.plot([min(xls), max(xls)], [min(Y_pred), max(Y_pred)], color='black',
+                #   alpha=0.5,
+                    lw=lw) # predicted
+
+        # ax.annotate("{:.1f}".format(m)+'*x'+"{:.3f}".format(c),xy=(X_mean,Y_mean))
+        ax.annotate('Slope '+"{:.1f}".format(m),xy=(X_mean,Y_mean))
+
+    print ('least-squares',x,y,m,c,corr)#,10**(X_mean),10**(Y_mean))
+
+    # print(X_mean,Y_mean,
+    #       # len(xls),len(yls)
+    #       ,min(xls),max(xls),min(Y_pred),max(Y_pred))
+
+    print(min(Y_pred),max(Y_pred),Y_min,Y_max,10**(min(xls)),10**(max(xls)))   
+    return(ax)
 
 
 def plot_radius_from_h5():
@@ -289,33 +290,50 @@ def plot_radius_from_h5():
     else:
         h5_files = sys.argv[2::]
 
-    print(h5_files)
-    h5_files = sorted(h5_files)
-    print('\n sorted \n')
-    print(h5_files)
+    try:
+        yamlfile = sys.argv[1]
+        if ".yml" not in yamlfile:
+            yamlfile += ".yml"
+    except Exception as error:
+        print(error)
+        print(colored("error", "red"))
 
-    nsteps = len(h5_files)
-    time_list =[]
-    radius_list=[]
-    for file_name in h5_files:
-        with h5py.File(file_name, "r") as file:
-            print(file.keys())
-            time = file["time"][()]
-            radius = file["radius"][()]
-            print(time,radius)
-            time_list.append(time)
-            radius_list.append(radius)
+    with open(yamlfile, "r") as file:
+        yml = yaml.safe_load(file)
 
-    df = pd.DataFrame({'t': time_list, 'r': radius_list})
+        plotpar = yml["plot"]
 
-    # new_row = {'t': time_list, 'r': radius_list}
-    # df._append(new_row,ignore_index=True)
+        print(h5_files)
+        h5_files = sorted(h5_files)
+        print('\n sorted \n')
+        print(h5_files)
+        
+        nsteps = len(h5_files)
 
-    # df = pd.DataFrame(columns=['t','r'])
+        for figpar in plotpar['curves']:
+            print(figpar['file'])
+            print(figpar)
+            time_list =[]
+            radius_list=[]
+            for file_name in h5_files:
+                with h5py.File(file_name, "r") as file:
+                    print(file.keys())
+                    time = file["time"][()]
+                    radius = file["radius"][()]
+                    print(time,radius)
+                    time_list.append(time)
+                    radius_list.append(radius)
 
-    print(df)
+            df = pd.DataFrame({'t': time_list, 'r': radius_list})
 
-    plot_radius_from_pandas(df)
+            # new_row = {'t': time_list, 'r': radius_list}
+            # df._append(new_row,ignore_index=True)
+
+            # df = pd.DataFrame(columns=['t','r'])
+
+            print(df)
+
+            plot_radius_from_pandas(df,figpar)
 
         
 def plot_radius_from_pkl():
@@ -330,7 +348,7 @@ def plot_radius_from_pkl():
     plot_radius_from_pandas(df)
 
 
-def plot_radius_from_pandas(df):
+def plot_radius_from_pandas(df,figpar):
     """
     Plot radius pandas DF, with slope
     """
@@ -354,8 +372,9 @@ def plot_radius_from_pandas(df):
     # xls=xls[1:]
     # yls=yls[1:]
 
-    tstart=2e-4
-    tstop=1e-3
+    tstart=float(figpar['slope_start'])
+    tstop=float(figpar['slope_stop'])
+    print('tstart',tstart,tstop)
     istart = 0
     istop = 0
 
@@ -374,7 +393,7 @@ def plot_radius_from_pandas(df):
             istop=i
             break
         istop=i
-    print(istart,istop)
+    print('istart',istart,istop)
 
     print(xls)
 
@@ -393,9 +412,12 @@ def plot_radius_from_pandas(df):
     # \definecolor{mdlsgray}{HTML}{4d5156}
 
 
-
+    print('xls',xls)
     xls=xls[istart:istop]
     yls=yls[istart:istop]
+
+    print('xls',xls)
+
 
     compute_slope(ax2,xls,yls,x,y,slopes,R2,param_line,colors,alpha)
 
