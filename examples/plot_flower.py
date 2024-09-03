@@ -826,6 +826,7 @@ def plot_all_films_func():
 
 
         key = figpar['var']
+        
         python_movie_zoom_func(
         h5_files,
         key,
@@ -942,6 +943,7 @@ def plot_file(
     mode='close',
     fig1=None,
     ax2=None,
+    cbar=None,
 ):
     """Plot one figure for field"""
 
@@ -1061,6 +1063,15 @@ def plot_file(
         cbar = fig1.colorbar(CS)
         cbar.ax.set_ylabel(r""+cbarlabel)
     # Add the contour line levels to the colorbar
+
+    else:
+        cbar = plt.colorbar(CS,cax=cbar.ax)
+        cbar.ax.set_ylabel(r""+figpar["cbarlabel"])
+        if 'ticks_format' in figpar:
+            if figpar['ticks_format']!=None:
+                cbar.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
+
+
     if isocontour:
         CS2 = ax2.contour(CS, 
         # levels=CS.levels[::2], 
@@ -1108,22 +1119,47 @@ def plot_file(
         plt.close(fig1)
         return
 
-    return(fig1,ax2,CS)
+    return(fig1,ax2,cbar)
 
 
 # TODO ticks
-def plot_vector(file,x_1D,y_1D,time,nstep,yml,plotpar,figpar):
+def plot_vector(file,
+    key,
+    xp,
+    yp,
+    xu,
+    yv,
+    yml,
+    mesh,
+    time,
+    nstep,
+    plotpar,
+    figpar,
+    mode='close',
+    fig1=None,
+    ax2=None,
+    cbar=None,):
+        # file,x_1D,y_1D,time,nstep,yml,plotpar,figpar):
     """plot vectors on scalar grid
     """
+
+    CS = 0
 
     us = file["velocity_x"][:].transpose()
     vs = file["velocity_y"][:].transpose()
     # file_name = "vectors"
     file_name = figpar['file']
 
-    fig1, ax2 = plt.subplots(layout="constrained")
-    ax2.spines["right"].set_visible(False)
-    ax2.spines["top"].set_visible(False)
+    if mode == 'film' or mode == 'first':
+        ax2.clear()
+    else:
+        # fig1, ax2 = plt.subplots(layout="constrained")
+        fig1, ax2 = plt.subplots(figsize=set_size(plotpar["latex_frame_width"], fraction=float(plotpar["fig_fraction"]),
+                                                ratio=1,nvary=1,ratio2=1,height=float(plotpar["latex_frame_height"])),
+                                                layout="constrained")
+
+        # fig1, ax2 = plt.subplots(layout="constrained")
+
 
     scale_units=plotpar["quiver_scale_unit"]
     scale_units = None if scale_units == 'None' else scale_units
@@ -1132,7 +1168,7 @@ def plot_vector(file,x_1D,y_1D,time,nstep,yml,plotpar,figpar):
     skip = (slice(None, None, skip_every), slice(None, None, skip_every))
     skip1D = slice(None, None, skip_every)
 
-    q = ax2.quiver(x_1D[skip1D],y_1D[skip1D],us[skip],vs[skip],
+    q = ax2.quiver(xp[skip1D],yp[skip1D],us[skip],vs[skip],
     scale=float(plotpar["quiver_scale"]),
     scale_units=scale_units,
     angles=scale_units,
@@ -1172,15 +1208,9 @@ def plot_vector(file,x_1D,y_1D,time,nstep,yml,plotpar,figpar):
         key_LS = 'levelset_p'
         LSdat = file[key_LS][:]
         LSdat = LSdat.transpose()
-        CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'])
+        CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'])
 
-    ax2.set_xlabel(r"$x ( \unit{\um})$")
-    ax2.set_ylabel(r"$y ( \unit{\um})$")
-
-    ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
-    ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
-    ax2.set_aspect('equal', 'box')
-
+  
     # str_nstep = str1="{:05}".format(nstep)
     str_nstep = str(nstep)
     # str_time = '{:.2e}'.format(time/plotpar['scale_time'])
@@ -1188,9 +1218,27 @@ def plot_vector(file,x_1D,y_1D,time,nstep,yml,plotpar,figpar):
 
     plt.title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
 
+    if mode =='first' or mode =='close':
+        ax2.spines["right"].set_visible(False)
+        ax2.spines["top"].set_visible(False)
 
-    plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'])
-    plt.close(fig1)
+        ax2.set_xlabel(r"$x ( \unit{\um})$")
+        ax2.set_ylabel(r"$y ( \unit{\um})$")
+
+        ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
+        ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
+        ax2.set_aspect('equal', 'box')
+        
+        str_nstep = str(nstep)
+        plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also save fig for latex  display
+
+    if mode == 'close':
+        # str_nstep = str(nstep)
+        # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'])
+        plt.close(fig1)
+        return
+
+    return(fig1,ax2,cbar)
 
 
 def plot_current_lines(file,
@@ -1208,6 +1256,7 @@ def plot_current_lines(file,
     mode='close',
     fig1=None,
     ax2=None,
+    cbar=None,
 ):
     """plot current lines
     args:
@@ -1243,7 +1292,8 @@ def plot_current_lines(file,
         # CS = ax2.contourf(x_1D,y_1D,field, 
         # levels=figpar['range'], #10, 
         # cmap=plotpar['cmap'],)
-        CS = ax2.contourf(xp, yp, phi_array, levels=figpar['range'], cmap=plotpar["cmap"])
+        CS = ax2.contourf(xp, yp, phi_array, levels=eval(figpar['range']), cmap=plotpar["cmap"])
+        # print(eval(figpar['range']))
 
     else:
         CS = ax2.contourf(xp, yp, phi_array, levels=figpar['levels'], cmap=plotpar["cmap"])
@@ -1264,20 +1314,36 @@ def plot_current_lines(file,
     if mode !='film':
         cbar = fig1.colorbar(CS)
         cbar.ax.set_ylabel(r""+figpar["cbarlabel"])
+        if 'ticks_format' in figpar:
+            if figpar['ticks_format']!=None:
+                cbar.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
+    else:
+        cbar = plt.colorbar(CS,cax=cbar.ax)
+        # cbar.ax.set_ylabel(r""+figpar["cbarlabel"])
+        if 'ticks_format' in figpar:
+            if figpar['ticks_format']!=None:
+                cbar.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
 
-        if figpar['ticks_format']!=None:
-            cbar.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
+
     
+    if str(figpar['isocontour']) == 'True':
+        CS2 = ax2.contour(CS, 
+        # levels=CS.levels[::2], 
+        # levels=
+        colors="r")
         # Add the contour line levels to the colorbar
-        if str(figpar['isocontour']) == 'True':
-            CS2 = ax2.contour(CS, 
-            # levels=CS.levels[::2], 
-            # levels=
-            colors="r")
+        if mode !='film':
             cbar.add_lines(CS2)
 
     plt.streamplot(xp, yp, -Eus, -Evs, color="w")
     #do no transpose, python row major
+
+    if figpar['plot_levelset']:
+        key_LS = 'levelset_p'
+        LSdat = file[key_LS][:]
+        LSdat = LSdat.transpose()
+        CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'])
+
     
 
     if mode =='first' or mode =='close':
@@ -1300,7 +1366,7 @@ def plot_current_lines(file,
         plt.close(fig1)
         return
 
-    return(fig1,ax2,CS)
+    return(fig1,ax2,cbar)
 
 
 def plot_radius(time_list,radius_list):
@@ -1795,7 +1861,7 @@ def python_movie_zoom(
 
     size_frame = len(h5_files)
 
-    print('size_frame',size_frame)
+    # print('size_frame',size_frame)
     
     file_name = h5_files[0]
 
@@ -1866,7 +1932,7 @@ def python_movie_zoom(
             )
 
             # if step!=0:
-            #     fig1.colorbar(CS,cax=cbar.ax)
+            #     fig1.colorbar(CS,ccax=cbar.ax.ax)
 
             # https://stackoverflow.com/questions/5180518/duplicated-colorbars-when-creating-an-animation
 
@@ -1890,7 +1956,7 @@ def python_movie_zoom(
     anim = functools.partial(animate,fig1=fig1,ax2=ax2)
     ani = animation.FuncAnimation(fig1, anim, frames=size_frame, interval=size_frame, blit=False)
 
-    ani.save(key + "." + figpar["img_format"],dpi=plotpar['dpi'])  # mp4, gif
+    ani.save(figpar['file'] + "." + figpar["img_format"],dpi=plotpar['dpi'])  # mp4, gif
 
     # with open(key+'_jshtml'+'.html', "w") as f:
     #     print(ani.to_jshtml(), file=f)
@@ -1928,13 +1994,14 @@ def python_movie_zoom_func(
     fig1, ax2 = plt.subplots(figsize=set_size(plotpar["latex_frame_width"], fraction=float(plotpar["fig_fraction"]),
                                                 ratio=1,nvary=1,ratio2=1,height=float(plotpar["latex_frame_height"])),
                                                 layout="constrained")
+    cbar=None
 
     with h5py.File(file_name, "r") as file:
 
         time = file["time"][()]
         nstep = file["nstep"][()]
 
-        fig1,ax2,CS = func(
+        fig1,ax2,cbar = func(
         file,
         key,
         xp,
@@ -1950,6 +2017,7 @@ def python_movie_zoom_func(
         mode='first',
         fig1=fig1,
         ax2=ax2,
+        cbar=cbar,
         )
 
 
@@ -1957,12 +2025,12 @@ def python_movie_zoom_func(
         # cbar = fig1.colorbar(CS)
         # cbar.ax.set_ylabel(r""+cbarlabel)
 
-    def animate(i,fig1,ax2):
+    def animate(i,fig1,ax2,cbar):
         # ax2.clear()
 
         file_name = h5_files[i]
 
-        print(file_name)
+        print('animate',file_name,i)
 
 
 
@@ -1973,7 +2041,7 @@ def python_movie_zoom_func(
             time = file["time"][()]
             nstep = file["nstep"][()]           
 
-            fig1,ax2,CS = func(
+            fig1,ax2,cbar = func(
             file,
             key,
             xp,
@@ -1989,10 +2057,11 @@ def python_movie_zoom_func(
             mode='film',
             fig1=fig1,
             ax2=ax2,
+            cbar=cbar,
             )
 
             # if step!=0:
-            #     fig1.colorbar(CS,cax=cbar.ax)
+            #     fig1.colorbar(CS,ccax=cbar.ax.ax)
 
             # https://stackoverflow.com/questions/5180518/duplicated-colorbars-when-creating-an-animation
 
@@ -2013,10 +2082,10 @@ def python_movie_zoom_func(
             #     # CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,i+1,i0:i1,j0:j1], [0.0],colors="r")
             #     CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
             #     # print("check levelset")
-    anim = functools.partial(animate,fig1=fig1,ax2=ax2)
+    anim = functools.partial(animate,fig1=fig1,ax2=ax2,cbar=cbar)
     ani = animation.FuncAnimation(fig1, anim, frames=size_frame, interval=size_frame, blit=False)
 
-    ani.save(key + "." + figpar["img_format"],dpi=plotpar['dpi'])  # mp4, gif
+    ani.save(figpar['file'] + "." + figpar["img_format"],dpi=plotpar['dpi'])  # mp4, gif
 
     # with open(key+'_jshtml'+'.html', "w") as f:
     #     print(ani.to_jshtml(), file=f)

@@ -331,19 +331,36 @@ plot:
 
 
   films:
+      - var: velocity_x
+        file: velocity_vectors
+        func: plot_vector
+        img_format: mp4
+        plot_levelset: True
+        plot_levelset_segments: False
+        skip_every: 12
+        xlim: [0,100]
+        ylim: [0,100]
+        quiverkey: True 
+        quiver_unit: m/s #given value v_inlet
+        quiver_x: 0.7
+        quiver_y: 0.97
+        linewidth: 1
+        linestyle: 'dotted'
+
       - var: i_current_x
         file: current_lines
         func: plot_current_lines
         cbarlabel: Electrical potential
         img_format: mp4
-        isocontour: True
-        levels: 10
+        isocontour: #True
+        levels: 0 #10
+        range: np.linspace(-1.5e-4,0,11)
         plot_bc: True
         plot_grid: True
         plot_levelset: True
         plot_levelset_segments: False
         plot_mode: contourf
-        range: [0,1e-4]
+        # range: [0,1e-4]
         ticks_format: '%.2e'
         xlim: [0,100]
         ylim: [0,100]
