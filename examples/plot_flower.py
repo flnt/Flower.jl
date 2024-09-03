@@ -45,7 +45,9 @@ plt.rc('text.latex', preamble="\n".join([ # plots will use this preamble
         r"\setlength{\belowdisplayshortskip}{0pt}",
         r"\setlength{\abovedisplayshortskip}{0pt}",
         r"\addtolength{\jot}{-4pt}",
-        r"\usepackage{mhchem}",
+        # r"\usepackage{mhchem}",
+        r"\usepackage[version=]{mhchem}",
+        # r"\usepackage[version=4,arrows=pgf-filled,textfontname=sffamily,mathfontname=mathsf]{mhchem}",
        ])
 )
 
@@ -303,7 +305,7 @@ def plot_radius_from_h5():
 
         plotpar = yml["plot"]
 
-        print(h5_files)
+        # print(h5_files)
         h5_files = sorted(h5_files)
         print('\n sorted \n')
         print(h5_files)
@@ -1047,7 +1049,7 @@ def plot_file(
     scale_x = float(plotpar["scale_x"])
     cmap = plt.get_cmap(plotpar["cmap"])
 
-    cbarlabel = plotpar["cbarlabel"]
+    # cbarlabel = plotpar["cbarlabel"]
     isocontour = plotpar["isocontour"]
 
     time /= scale_time 
@@ -1058,12 +1060,15 @@ def plot_file(
     if figpar['plot_mode'] == "contourf":
         if figpar['levels']==0:
             CS = ax2.contourf(x_1D,y_1D,field, 
-            levels=figpar['range'], #10, 
-            cmap=plotpar['cmap'],)
+            # levels=figpar['range'], #10, 
+            levels=eval(figpar['range']),
+            cmap=plotpar['cmap'],
+            extend=plotpar['extend'],)
         else:
             CS = ax2.contourf(x_1D,y_1D,field, 
             levels=figpar['levels'],
-            cmap=plotpar['cmap'])           
+            cmap=plotpar['cmap'],
+            extend=plotpar['extend'],)
 
     elif figpar["plot_mode"] == "pcolormesh":
         if figpar["levels"] == 0:
@@ -1083,12 +1088,12 @@ def plot_file(
     # Make a colorbar for the ContourSet returned by the contourf call.
     if mode !='film':
         cbar = fig1.colorbar(CS)
-        cbar.ax.set_ylabel(r""+cbarlabel)
+        cbar.ax.set_ylabel(r""+figpar['cbarlabel'])
     # Add the contour line levels to the colorbar
 
     else:
         cbar = plt.colorbar(CS,cax=cbar.ax)
-        cbar.ax.set_ylabel(r""+figpar["cbarlabel"])
+        cbar.ax.set_ylabel(r""+figpar['cbarlabel'])
         if 'ticks_format' in figpar:
             if figpar['ticks_format']!=None:
                 cbar.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
@@ -1300,6 +1305,8 @@ def plot_current_lines(file,
 
     phi_array = field
 
+    # print('phi_array',np.min(phi_array),np.max(phi_array))
+
     # https://matplotlib.org/stable/gallery/images_contours_and_fields/contourf_demo.html
 
     if mode == 'film' or mode == 'first':
@@ -1314,11 +1321,11 @@ def plot_current_lines(file,
         # CS = ax2.contourf(x_1D,y_1D,field, 
         # levels=figpar['range'], #10, 
         # cmap=plotpar['cmap'],)
-        CS = ax2.contourf(xp, yp, phi_array, levels=eval(figpar['range']), cmap=plotpar["cmap"])
+        CS = ax2.contourf(xp, yp, phi_array, levels=eval(figpar['range']), cmap=plotpar['cmap'],extend=plotpar['extend'],)
         # print(eval(figpar['range']))
 
     else:
-        CS = ax2.contourf(xp, yp, phi_array, levels=figpar['levels'], cmap=plotpar["cmap"])
+        CS = ax2.contourf(xp, yp, phi_array, levels=figpar['levels'], cmap=plotpar["cmap"],extend=plotpar['extend'],)
         
 
     # CS = ax2.contourf(xp, yp, phi_array, 10, cmap=plotpar["cmap"])
@@ -1335,13 +1342,12 @@ def plot_current_lines(file,
     # Make a colorbar for the ContourSet returned by the contourf call.
     if mode !='film':
         cbar = fig1.colorbar(CS)
-        cbar.ax.set_ylabel(r""+figpar["cbarlabel"])
+        cbar.ax.set_ylabel(r""+figpar['cbarlabel'])
         if 'ticks_format' in figpar:
             if figpar['ticks_format']!=None:
                 cbar.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
     else:
         cbar = plt.colorbar(CS,cax=cbar.ax)
-        # cbar.ax.set_ylabel(r""+figpar["cbarlabel"])
         if 'ticks_format' in figpar:
             if figpar['ticks_format']!=None:
                 cbar.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
@@ -1670,19 +1676,20 @@ def plot_python_pdf_full2(
 
     if figpar['levels']==0: 
         CS = ax2.contourf(x_arr,y_arr,field, 
-        levels=figpar['range'], 
-        cmap=plotpar['cmap'])
+        # levels=figpar['range'], 
+        levels=eval(figpar['range']),
+        cmap=plotpar['cmap'],extend=plotpar['extend'],)
     else:
 
         if figpar['plot_mode'] == "contourf":
             CS = ax2.contourf(x_arr,y_arr,field, 
             levels=figpar['levels'], #10, 
-            cmap=plotpar['cmap'])
+            cmap=plotpar['cmap'],extend=plotpar['extend'],)
         else:
 
             mpl_levels = mpl_tickers.MaxNLocator(nbins=figpar['levels']).tick_values(np.min(field), np.max(field))
             norm = mpl_colors.BoundaryNorm(mpl_levels, ncolors=cmap.N, clip=True)
-            CS = ax2.pcolormesh(x_arr,y_arr,field, cmap=plotpar['cmap'], norm=norm)
+            CS = ax2.pcolormesh(x_arr,y_arr,field, cmap=plotpar['cmap'],extend=plotpar['extend'], norm=norm)
 
         # fig.colorbar(im, ax=ax0)
 
@@ -1762,7 +1769,7 @@ def plot_python_pdf_full2(
 
     # Make a colorbar for the ContourSet returned by the contourf call.
     cbar = fig1.colorbar(CS)
-    cbar.ax.set_ylabel(figpar['cbarlabel'])
+    cbar.ax.set_ylabel(r""+figpar['cbarlabel'])
     # Add the contour line levels to the colorbar
     if str(figpar['isocontour']) == 'True':
         CS2 = ax2.contour(CS, 
@@ -1919,6 +1926,10 @@ def python_movie_zoom(
         # cbar = fig1.colorbar(CS)
         # cbar.ax.set_ylabel(r""+cbarlabel)
 
+    def init():
+        #do nothing
+        pass
+
     def animate(i,fig1,ax2):
         # ax2.clear()
 
@@ -1976,7 +1987,7 @@ def python_movie_zoom(
             #     CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
             #     # print("check levelset")
     anim = functools.partial(animate,fig1=fig1,ax2=ax2)
-    ani = animation.FuncAnimation(fig1, anim, frames=size_frame, interval=size_frame, blit=False)
+    ani = animation.FuncAnimation(fig1, anim, frames=size_frame,init_func=init, interval=size_frame, blit=False)
 
     ani.save(figpar['file'] + "." + figpar["img_format"],dpi=plotpar['dpi'])  # mp4, gif
 
@@ -2009,7 +2020,7 @@ def python_movie_zoom_func(
 
     size_frame = len(h5_files)
 
-    print('size_frame',size_frame)
+    print('size_frame',size_frame,key)
     
     file_name = h5_files[0]
 
@@ -2047,12 +2058,16 @@ def python_movie_zoom_func(
         # cbar = fig1.colorbar(CS)
         # cbar.ax.set_ylabel(r""+cbarlabel)
 
+    def init():
+        #do nothing
+        pass
+
     def animate(i,fig1,ax2,cbar):
         # ax2.clear()
 
         file_name = h5_files[i]
 
-        print('animate',file_name,i)
+        # print('animate',file_name,i)
 
 
 
@@ -2105,7 +2120,7 @@ def python_movie_zoom_func(
             #     CSlvl = ax2.contour(x_arr,y_arr, fwd.u[1,indLS,j0:j1,i0:i1], [0.0],colors="r")
             #     # print("check levelset")
     anim = functools.partial(animate,fig1=fig1,ax2=ax2,cbar=cbar)
-    ani = animation.FuncAnimation(fig1, anim, frames=size_frame, interval=size_frame, blit=False)
+    ani = animation.FuncAnimation(fig1, anim, frames=size_frame, init_func = init, interval=size_frame, blit=False)
 
     ani.save(figpar['file'] + "." + figpar["img_format"],dpi=plotpar['dpi'])  # mp4, gif
 
