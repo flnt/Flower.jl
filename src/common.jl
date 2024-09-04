@@ -210,21 +210,42 @@ end
                 a[δx⁻(δy⁺(II, ny, per_y), nx, per_x)] a[δy⁺(II, ny, per_y)] a[δx⁺(δy⁺(II, ny, per_y), nx, per_x)]]
  end
 
+function debug_val(test)
+    print("\n test ",string(test)," ",typeof(test)," ",test)
+end
+
  @inline function static_stencil_debug(a, II::CartesianIndex, nx, ny, per_x, per_y)
+
     print("\n a ",typeof(a))
-    print("\n II ",typeof(II))
-    print("\n nx ",typeof(nx))
-    print("\n ny ",typeof(ny))
-    print("\n per_x ",typeof(per_x))
-    print("\n per_y ",typeof(per_y))
-    print("\n dy- ",typeof(δy⁻(II, ny, per_y)))
-    print("\n d ",typeof(δx⁻(δy⁻(II, ny, per_y), nx, per_x)))
-    print("\n d ",typeof(δx⁺(δy⁻(II, ny, per_y), nx, per_x)))
-    print("\n d ",typeof(δx⁻(II, nx, per_x)))
-    print("\n d ",typeof(δx⁺(II, nx, per_x)))
-    print("\n d ",typeof(δy⁺(II, ny, per_y)))
-    print("\n d ",typeof(δx⁻(δy⁺(II, ny, per_y), nx, per_x)))
-    print("\n d ",typeof(δx⁺(δy⁺(II, ny, per_y), nx, per_x)))
+    test = II 
+    print("\n II ",test," ",typeof(test))
+    test = nx 
+    print("\n test ",test," ",typeof(test))
+    test = ny
+    print("\n test ",test," ",typeof(test))
+
+    debug_val(per_x)
+    debug_val(per_y)
+    debug_val(δy⁻(II, ny, per_y))
+    debug_val(δx⁻(δy⁻(II, ny, per_y), nx, per_x))
+    debug_val(δx⁺(δy⁻(II, ny, per_y), nx, per_x))
+    debug_val(δx⁻(II, nx, per_x))
+    debug_val(δx⁺(II, nx, per_x))
+    debug_val(δy⁺(II, ny, per_y))
+    debug_val(δx⁻(δy⁺(II, ny, per_y), nx, per_x))
+    debug_val(δx⁺(δy⁺(II, ny, per_y), nx, per_x))
+
+
+    # print("\n per_x ",typeof(per_x))
+    # print("\n per_y ",typeof(per_y))
+    # print("\n dy- ",typeof(δy⁻(II, ny, per_y)))
+    # print("\n d ",typeof(δx⁻(δy⁻(II, ny, per_y), nx, per_x)))
+    # print("\n d ",typeof(δx⁺(δy⁻(II, ny, per_y), nx, per_x)))
+    # print("\n d ",typeof(δx⁻(II, nx, per_x)))
+    # print("\n d ",typeof(δx⁺(II, nx, per_x)))
+    # print("\n d ",typeof(δy⁺(II, ny, per_y)))
+    # print("\n d ",typeof(δx⁻(δy⁺(II, ny, per_y), nx, per_x)))
+    # print("\n d ",typeof(δx⁺(δy⁺(II, ny, per_y), nx, per_x)))
 
 
     return @inbounds SA_F64[a[δx⁻(δy⁻(II, ny, per_y), nx, per_x)] a[δy⁻(II, ny, per_y)] a[δx⁺(δy⁻(II, ny, per_y), nx, per_x)];
