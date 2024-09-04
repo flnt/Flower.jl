@@ -6,9 +6,11 @@ using PrettyTables
 # using PyCall
 # using PyPlot
 
-prefix="/local/home/pr277828/flower/"
+# prefix="/local/home/pr277828/flower/"
+# prefixyaml=prefix*"/Flower.jl/examples/"
 
-prefixyaml=prefix*"/Flower.jl/examples/"
+prefix = "."
+prefixyaml = prefix
 
 ####################################################################################################
 # Sessile from sessile.jl
@@ -811,7 +813,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
     # Save path
     ####################################################################################################
     prefix *= "/"*folder*"/"
-    isdir(prefix) || mkdir(prefix)
+    # isdir(prefix) || mkdir(prefix)
     ####################################################################################################
 
 

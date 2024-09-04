@@ -199,6 +199,13 @@ BC_pL = Boundaries(
         top    = Dirichlet(),
     )
 
+BC_vL= Boundaries(
+    left   = Dirichlet(),
+    right  = Dirichlet(),
+    bottom = Neumann(),
+    top    = Neumann(),
+)
+
 pressure_channel = false
 
 if sim.name == "small_cell"
@@ -578,18 +585,9 @@ gp, gu, gv = init_meshes(num)
 op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
 
-
-# vPoiseuille = Poiseuille_favg.(x,phys.v_inlet,phys.ref_length) 
-# vPoiseuilleb = Poiseuille_favg.(x[1,:],phys.v_inlet,phys.ref_length) 
-
 #Easier for sim.CFL: one velocity, and not phys.v_inlet, 3phys.v_inlet/2
-# vPoiseuille = zeros(mesh.nx +1, mesh.nx) #zeros(gv)
 vPoiseuille = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length) 
 vPoiseuilleb = Poiseuille_fmax.(gv.x[1,:],phys.v_inlet,phys.ref_length) 
-
-
-# print("\n x", gv.x[1,:])
-# print("\n v", vPoiseuilleb)
 
 
 if sim.imposed_velocity == "radial"
@@ -621,24 +619,25 @@ elseif sim.imposed_velocity == "Poiseuille"
     phL.u .= 0.0
     printstyled(color=:red, @sprintf "\n initialized bulk velocity field %.2e \n" maximum(phL.v))
 
-else
+    
+# else
 
-    phL.v .=vPoiseuille 
-    phL.u .= 0.0
+#     phL.v .=vPoiseuille 
+#     phL.u .= 0.0
 
     
-    printstyled(color=:red, @sprintf "\n Poiseuille BC Dir + Neu \n")
+#     printstyled(color=:red, @sprintf "\n Poiseuille BC Dir + Neu \n")
         
-    if sim.name != "channel_Dirichlet_pressure"
-        BC_vL= Boundaries(
-        left   = Dirichlet(),
-        right  = Dirichlet(),
-        bottom = Dirichlet(val = copy(vPoiseuilleb)),
-        top    = Neumann(val=0.0),
-        )
-    end
+#     if sim.name != "channel_Dirichlet_pressure"
+#         BC_vL= Boundaries(
+#         left   = Dirichlet(),
+#         right  = Dirichlet(),
+#         bottom = Dirichlet(val = copy(vPoiseuilleb)),
+#         top    = Neumann(val=0.0),
+#         )
+#     end
     
-    printstyled(color=:red, @sprintf "\n initialized bulk velocity field %.2e \n" maximum(phL.v))
+#     printstyled(color=:red, @sprintf "\n initialized bulk velocity field %.2e \n" maximum(phL.v))
 end
 
 
@@ -1055,7 +1054,7 @@ printstyled(color=:green, @sprintf "\n max abs(u) : %.2e max abs(v)%.2e\n" maxim
 # print("\n ", gv.x[1,:])
 # print("\n ", gv.x[1,1])
 
-print("\n P ",Poiseuille_fmax(gv.x[1,1],phys.v_inlet,phys.ref_length)," v ",phL.v[1,1]," test ",Poiseuille_fmax(0.0,phys.v_inlet,phys.ref_length))
+# print("\n P ",Poiseuille_fmax(gv.x[1,1],phys.v_inlet,phys.ref_length)," v ",phL.v[1,1]," test ",Poiseuille_fmax(0.0,phys.v_inlet,phys.ref_length))
 
 
 #Attention = vs copy

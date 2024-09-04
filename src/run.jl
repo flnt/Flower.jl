@@ -1048,7 +1048,7 @@ function run_forward(
                     print_electrolysis_statistics(nb_transported_scalars,grid,phL)
                 end
 
-                if imposed_velocity != "none" || num.debug== "scalar_testing"
+                if imposed_velocity != "none" && num.debug== "scalar_testing"
                     scal_error=0.0
                     for iscal in 1:nb_transported_scalars
 

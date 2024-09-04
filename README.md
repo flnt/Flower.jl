@@ -101,4 +101,8 @@ python3 -c "import plot_flower; plot_flower.plot_radius_from_h5()" yaml_file
 
 
 # Testing
-In test : runtests.jl
+In test : runtests.jl is used when doing:
+```bash
+]
+test
+```
