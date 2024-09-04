@@ -836,14 +836,17 @@ if io.pdi>0
     # @debug "after printing  getsubyml"
 
 
-    # @debug "test dummy"
+    @debug "test dummy"
 
     # @ccall "libpdidummy".PDI_init(getsubyml::PC_tree_t)::Cvoid
+    pdi_status = @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cint
 
-    # @debug "test dummy"
+    print("\n pdi_status ",pdi_status)
+
+    @debug "test dummy"
 
     # print(getsubyml)
-    @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cvoid
+    # @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cvoid
 
     @debug "after PDI_init"
 
