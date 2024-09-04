@@ -706,11 +706,10 @@ if io.pdi>0
 
         comm = MPI.COMM_WORLD
 
+        @debug "after MPI.Init"
+
+
         yml_file = yamlfile
-
-        MPI.Init()
-
-        comm = MPI.COMM_WORLD
 
         # print("\n after comm ")
 
@@ -727,6 +726,9 @@ if io.pdi>0
 
         # print(getsubyml)
         @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cvoid
+
+        @debug "after PDI_init"
+
 
         # print("\n PDI_init ")
 
@@ -757,7 +759,8 @@ if io.pdi>0
                 "nb_levelsets"::Cstring, phys.nb_levelsets::Ref{Clonglong}, PDI_OUT::Cint,
                 C_NULL::Ptr{Cvoid})::Cvoid
 
-        
+        @debug "after PDI_multi_expose"
+
         # print("\n PDI_multi_expose ")
 
 
@@ -1139,7 +1142,7 @@ if io.write_h5>0
 end #io.write_h5>0
 
 
-printstyled(color=:red, @sprintf "\n iMx %.10e Mx %.10e eps %.10e \n" 1/(1e-4/128)^2 (1e-4/128)^2 eps(0.01))
+# printstyled(color=:red, @sprintf "\n iMx %.10e Mx %.10e eps %.10e \n" 1/(1e-4/128)^2 (1e-4/128)^2 eps(0.01))
 
 print("\n mesh.nx ",mesh.nx," nx ",gp.nx," ny ",gp.ny)
 
