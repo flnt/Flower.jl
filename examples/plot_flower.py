@@ -1692,7 +1692,7 @@ def plot_python_pdf_full2(
 
             mpl_levels = mpl_tickers.MaxNLocator(nbins=figpar['levels']).tick_values(np.min(field), np.max(field))
             norm = mpl_colors.BoundaryNorm(mpl_levels, ncolors=cmap.N, clip=True)
-            CS = ax2.pcolormesh(x_arr,y_arr,field, cmap=plotpar['cmap'],extend=plotpar['extend'], norm=norm)
+            CS = ax2.pcolormesh(x_arr,y_arr,field, cmap=plotpar['cmap'], norm=norm)
 
         # fig.colorbar(im, ax=ax0)
 
