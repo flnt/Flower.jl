@@ -120,27 +120,16 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
     # 7.02E-02	6.82E-02		-0.00194999999999999	A	-0.000194999999999999	0.069575	0.07016	0.06821
 
 
-    # radius=2.5e-5 
-    # radius=1.25e-5 
+
     radius = 3.0e-6 
-    # radius = 2.95e-6 
-    # radius = 3.075e-6 
-    # radius = 3.1e-6 
-    # radius = 3.105e-6 
+  
 
 
     epsilon = 0.05
-    # epsilon = 1e-2
-    # epsilon = 1e-3
-    # epsilon = 0.0
 
-    epsilon_mode = 0
-    # epsilon_mode = 1
     epsilon_mode = 2
 
 
-
-    # radius = 6.0e-6 
 
     h0 = radius
 
@@ -277,25 +266,6 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
     _θe = acos((0.5 * diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
     # _θe = acos((diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
     println("θe = $(_θe)")
-
-    ####################################################################################################
-
-
-    # #test HDF5
-
-    # A = collect(reshape(1:120, 15, 8))
-    # print("\n A ", A )
-    # h5write("test2.h5", "mygroup2/A", A)
-    # data = h5read("test2.h5", "mygroup2/A", (2:3:15, 3:5))
-
-
-
-
-
-    ###################################################################################################
-
-
-
 
     electrolysis_phase_change_case = "None"
 
@@ -789,6 +759,18 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
         concentration_check_factor = 1e-4
 
         electrolysis_phase_change_case = "imposed_radius"
+    
+    elseif test_case == "imposed_radius4"
+        max_iter = 100
+        save_every = 25
+
+        save_KOH = false
+        save_H2O = false
+        save_zoom = true
+
+        concentration_check_factor = 1e-4
+
+        electrolysis_phase_change_case = "imposed_radius4"
 
     elseif test_case == "imposed_radius_dir"
         max_iter = 100
@@ -1067,46 +1049,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
     vecb_R(phL.uD, gu) .= 0.0
     vecb_T(phL.uD, gu) .= 0.0
 
-    # vecb_L(phL.uD, gu) .= 0.0 #TODO
-    # vecb_B(phL.uD, gu) .= 0.0
-    # vecb_R(phL.uD, gu) .= 0.0
-    # vecb_T(phL.uD, gu) .= 0.0
-
-
     printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL CFL*L0/n/v_inlet)
-
-
-    xscale = plot_xscale
-    yscale = xscale
-
-    x_array=gp.x[1,:]/xscale
-    y_array=gp.y[:,1]/yscale
-
-    plot_levelset=true
-    isocontour=false#true
-    # cmap = plt.cm.viridis
-
-    xu=gu.x[1,:]/xscale
-    yu=gu.y[:,1]/yscale
-    xv=gv.x[1,:]/xscale
-    yv=gv.y[:,1]/yscale
-    plt_it = 1
-
-    if imposed_velocity == "radial"
-        plot_radial_vel()
-    end
-
-    # if save_u
-    #     plot_python_pdf(plt_it,fwdL.u , "u",prefix,plot_levelset,isocontour,plot_grid,"pcolormesh",
-    #     10,range(0,1400,length=8),cmap,xu,yu,gu,"velocity",1,gu.nx,1,gu.ny,fwd)
-    #     # ./velscale
-    # end
-
-    # if save_v
-    #     plot_python_pdf(plt_it,fwdL.v , "v",prefix,plot_levelset,isocontour,plot_grid,"pcolormesh",
-    #     10,range(0,1400,length=8),cmap,xv,yv,gv,"velocity",1,gv.nx,1,gv.ny,fwd)
-    #     # ./velscale
-    # end
 
 
 
@@ -1330,75 +1273,6 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
 
     #Attention = vs copy
 
- 
-    write_h5 = false
-    # write_h5 = true
-
-
-    # if write_h5 && @isdefined(:HDF5)
-
-
-    # #test HDF5
-    #     print("\n current_i ", current_i)
-    #     current_i = 2
-    #     striter = @sprintf "%.5i" current_i
-
-
-    #     filename="Mx"
-    #     file = prefix*filename*"_"*striter*".h5"
-    #     A = zeros(gv.ny, gv.nx+1)
-    #     for jplot in 1:gv.ny
-    #         for iplot in 1:gv.nx+1
-    #         II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-    #         pII = lexicographic(II, gp.ny + 1)
-    #         A[jplot,iplot] =  1 ./ op.opC_vL.iMx.diag[pII]
-    #         end
-    #     end
-
-
-    #     print("\n size A ",size(A))
-    #     # from_jl_p =  PermutedDimsArray(A, (2,1))
-    #     # print("\n A ", A )
-    #     # hf = h5write(file, "data", A)
-    #     # A=transpose(A)
-    #     hf = h5write2(file, "data", A,"w")
-
-
-    #     filename="p"
-    #     file = prefix*filename*"_"*striter*".h5"
-
-    #     # A = phL.p
-    #     # # A=transpose(A)
-    #     # hf = h5write2(file, "data", A,"w")
-
-    #     filename="v"
-    #     file = prefix*filename*"_"*striter*".h5"
-    #     A = phL.v
-    #     # from_jl_p =  PermutedDimsArray(A, (2,1))
-    #     # print("\n A ", A )
-    #     # hf = h5write(file, "data", A)
-    #     # A=transpose(A)
-    #     hf = h5write2(file, "data", A,"w")
-
-    #     # hf = h5write2(file, "data", from_jl_p,"w")
-
-
-
-
-
-    #     # intfcval = reshape(veci(phL.vD,gv,2), gv)
-    #     # filename="v_int"
-    #     # file = prefix*filename*"_"*striter*".h5"
-
-
-
-    #     # h5write(file, "data", intfcval)
-    #     # filename="v_int_compr"
-    #     # file = prefix*filename*"_"*striter*".h5"
-
-    #     # h5write(file, "data", intfcval)
-
-    # end # write_h5
 
 
 
@@ -1478,6 +1352,11 @@ end
 
 @testset "Imposed radius with Butler-Volmer" begin
     test_case = "imposed_radius"
+    run_case(test_case,n,100,prefix,prediction,1e-14)
+end
+
+@testset "Imposed radius with Butler-Volmer4" begin
+    test_case = "imposed_radius4"
     run_case(test_case,n,100,prefix,prediction,1e-14)
 end
 

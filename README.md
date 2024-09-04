@@ -98,6 +98,15 @@ To plot the radius of the interface
 python3 -c "import plot_flower; plot_flower.plot_radius_from_h5()" yaml_file
 ```
 
+# Passing file in REPL mode
+
+```bash
+julia> module test
+       ARGS = String["half_circle_imposed_radius.yml"]
+       include("../Flower.jl/examples/main_current_folder.jl")
+       end
+```
+
 
 
 # Testing

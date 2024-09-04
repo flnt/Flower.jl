@@ -1852,6 +1852,13 @@ function run_forward(
 
                 grid.LS[1].u .= sqrt.((grid.x.- num.xcoord).^ 2 + (grid.y .- num.ycoord) .^ 2) - (current_radius) * ones(ny, nx)                  
 
+            elseif (electrolysis && electrolysis_phase_change_case == "imposed_radius4")
+
+                #CFL 0.5
+                current_radius = current_radius + grid.dx[1,1]/4
+
+                grid.LS[1].u .= sqrt.((grid.x.- num.xcoord).^ 2 + (grid.y .- num.ycoord) .^ 2) - (current_radius) * ones(ny, nx)                  
+
 
             end #phase change
 
