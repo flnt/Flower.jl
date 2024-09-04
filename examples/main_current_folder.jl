@@ -725,7 +725,7 @@ if io.pdi>0
         @debug "after getsubyml"
 
 
-        # print("\n getsubyml ")
+        print("\n getsubyml ",getsubyml)
 
         # print(getsubyml)
         @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cvoid
