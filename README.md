@@ -101,7 +101,7 @@ python3 -c "import plot_flower; plot_flower.plot_radius_from_h5()" yaml_file
 # Passing file in REPL mode
 
 ```bash
-julia> module test
+julia> module testyaml
        ARGS = String["half_circle_imposed_radius.yml"]
        include("../Flower.jl/examples/main_current_folder.jl")
        end
@@ -115,3 +115,4 @@ In test : runtests.jl is used when doing:
 ]
 test
 ```
+Currently, the test half_circle_imposed_radius.yml has an error when launched with test mode instead of the classic command. 

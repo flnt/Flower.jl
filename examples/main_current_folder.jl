@@ -129,6 +129,9 @@ formatters    = ft_printf("%0.2e", 2:4), #not ecessary , 2:4
 header = ["","H2", "KOH", "H2O"], 
 highlighters=hl)
 
+@debug "After Table"
+
+
 # printstyled(color=:green, @sprintf "\n Species diffusion timescales: %.2e %.2e %.2e \n" (phys.radius^2)/DH2 (phys.radius^2)/DKOH (phys.radius^2)/DH2O )
 
 # printstyled(color=:green, @sprintf "\n nmol : \n" phys.concentration0[1]*4.0/3.0*pi*phys.radius^3  )
@@ -521,6 +524,7 @@ end
 
 
 
+@debug "Before Numerical"
 
 
 
@@ -579,6 +583,9 @@ num = Numerical(
     io_pdi = io.pdi,
     bulk_conductivity = sim.bulk_conductivity
     )
+
+@debug "After Numerical"
+
 
 #Initialization
 gp, gu, gv = init_meshes(num)
@@ -690,6 +697,8 @@ phS.uD .= 0.0
 
 if io.pdi>0
     try
+        @debug "Before PDI init"
+
         # printstyled(color=:red, @sprintf "\n PDI test \n" )
 
         # using MPI
@@ -783,6 +792,7 @@ if io.pdi>0
     end
 end #if io_pdi
 
+@debug "After PDI init"
 
 
 # current_t = 0
@@ -972,6 +982,8 @@ else
     time_scheme = CN
 end
 
+@debug "Before run"
+
 @time current_i=run_forward(
     num, gp, gu, gv, op, phS, phL;
     BC_uL = Boundaries(
@@ -1037,6 +1049,9 @@ end
     # # ns_advection = false, #?
     # save_length = true,
 )
+
+@debug "After run"
+
 
 printstyled(color=:green, @sprintf "\n max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(phL.u)) maximum(abs.(phL.v)))
 

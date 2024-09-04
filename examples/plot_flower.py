@@ -605,6 +605,9 @@ def plot_all_fig():
 
             # Figures defined in YAML file
             for figpar in plotpar["figures"]:
+                
+                key = figpar["var"]
+
 
                 # print(colored(figpar["var"] + " " + figpar["file"], "cyan"))
 
@@ -612,7 +615,7 @@ def plot_all_fig():
                     figpar["var"] == "velocity_x"
                 ):  # plot vector with velocity interpolated on scalar grid
 
-                    plot_vector(file, xp, yp, time, nstep, yml, plotpar, figpar)
+                    plot_vector(file, key, xp, yp, xu, yv, yml, mesh, time, nstep, plotpar, figpar)
 
                 elif (
                     figpar["var"] == "i_current_x"
