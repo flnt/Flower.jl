@@ -790,7 +790,7 @@ if io.pdi>0
         conf = @ccall "libparaconf".PC_parse_path(yml_file::Cstring)::PC_tree_t
         getsubyml = @ccall "libparaconf".PC_get(conf::PC_tree_t,".pdi"::Cstring)::PC_tree_t  
         # print(getsubyml)
-        @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cvoid
+        pdi_status = @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cint
         # @ccall "libpdi".PDI_init(conf::PC_tree_t)::Cvoid
 
         # #python event to plot

@@ -827,7 +827,7 @@ if io.pdi>0
         # print("\n getsubyml ")
 
         # print(getsubyml)
-        @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cvoid
+        pdi_status = @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cint
 
         # print("\n PDI_init ")
 
