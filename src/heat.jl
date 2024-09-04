@@ -115,7 +115,13 @@ end
         T_1, T_2 = quadratic_interp(Ac, a, b, P1.y/(2*dy[II]), P2.y/(2*dy[II]))
     elseif 3π/8 <= α <= 5π/8
         II_0 = δy⁺(II)
-        st = static_stencil(temp, II_0, nx, ny, periodic_x, periodic_y)
+        try
+            st = static_stencil(temp, II_0, nx, ny, periodic_x, periodic_y)
+        catch error
+            print(error)
+            st = static_stencil_debug(temp, II_0, nx, ny, periodic_x, periodic_y)
+        end
+
         Ac, Ap, Am = Acpm(grid, II_0, II)
         a = @view st[2,1:3]
         b = @view st[3,1:3]

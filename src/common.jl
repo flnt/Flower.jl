@@ -210,6 +210,28 @@ end
                 a[δx⁻(δy⁺(II, ny, per_y), nx, per_x)] a[δy⁺(II, ny, per_y)] a[δx⁺(δy⁺(II, ny, per_y), nx, per_x)]]
  end
 
+ @inline function static_stencil_debug(a, II::CartesianIndex, nx, ny, per_x, per_y)
+    print("\n a ",typeof(a))
+    print("\n II ",typeof(II))
+    print("\n nx ",typeof(nx))
+    print("\n ny ",typeof(ny))
+    print("\n per_x ",typeof(per_x))
+    print("\n per_y ",typeof(per_y))
+    print("\n dy- ",typeof(δy⁻(II, ny, per_y)))
+    print("\n d ",typeof(δx⁻(δy⁻(II, ny, per_y), nx, per_x)))
+    print("\n d ",typeof(δx⁺(δy⁻(II, ny, per_y), nx, per_x)))
+    print("\n d ",typeof(δx⁻(II, nx, per_x)))
+    print("\n d ",typeof(δx⁺(II, nx, per_x)))
+    print("\n d ",typeof(δy⁺(II, ny, per_y)))
+    print("\n d ",typeof(δx⁻(δy⁺(II, ny, per_y), nx, per_x)))
+    print("\n d ",typeof(δx⁺(δy⁺(II, ny, per_y), nx, per_x)))
+
+
+    return @inbounds SA_F64[a[δx⁻(δy⁻(II, ny, per_y), nx, per_x)] a[δy⁻(II, ny, per_y)] a[δx⁺(δy⁻(II, ny, per_y), nx, per_x)];
+                a[δx⁻(II, nx, per_x)] a[II] a[δx⁺(II, nx, per_x)];
+                a[δx⁻(δy⁺(II, ny, per_y), nx, per_x)] a[δy⁺(II, ny, per_y)] a[δx⁺(δy⁺(II, ny, per_y), nx, per_x)]]
+ end
+
 @inline function B_BT(II, x, y, f=x->x)
     B = inv((@SMatrix [((x[f(δx⁻(II))]-x[II])/(x[f(δx⁺(II))] - x[f(δx⁻(II))]))^2 (x[f(δx⁻(II))]-x[II])/(x[f(δx⁺(II))] - x[f(δx⁻(II))]) 1.0;
                       ((x[f(II)]-x[II])/(x[f(δx⁺(II))] - x[f(δx⁻(II))]))^2 (x[f(II)]-x[II])/(x[f(δx⁺(II))] - x[f(δx⁻(II))]) 1.0;
