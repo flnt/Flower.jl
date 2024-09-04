@@ -711,16 +711,19 @@ if io.pdi>0
 
         yml_file = yamlfile
 
-        # print("\n after comm ")
-
-        # print("\n comm ",comm)
+        print("\n yml_file ",yml_file)
 
         # Version: julia +1.10.4
 
         conf = @ccall "libparaconf".PC_parse_path(yml_file::Cstring)::PC_tree_t
-        # print("\n conf ")
+
+        @debug "after conf"
+
 
         getsubyml = @ccall "libparaconf".PC_get(conf::PC_tree_t,".pdi"::Cstring)::PC_tree_t  
+
+        @debug "after getsubyml"
+
 
         # print("\n getsubyml ")
 
