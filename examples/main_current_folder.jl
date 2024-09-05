@@ -1158,7 +1158,7 @@ end
 
 if num.io_pdi>0
     try
-        @ccall "libpdi".PDI_finalize()::Cvoid
+        PDI_status = @ccall "libpdi".PDI_finalize()::Cint
         # printstyled(color=:red, @sprintf "\n PDI end\n" )
 
     catch error

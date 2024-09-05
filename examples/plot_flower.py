@@ -135,22 +135,22 @@ except:
 
 # Colors
 
-# OkabeIto=["#E69F00", #0 orange clair 230, 159, 0
-# "#56B4E9", #1 bleu clair 86, 180, 233
-# "#009E73", #2 vert 0, 158, 115
-# "#F0E442", #3 jaune 240, 228, 66
-# "#0072B2", #4 bleu 0, 114, 178
-# "#D55E00", #5 orange 213, 94, 0
-# "#CC79A7", #6 rose 204, 121, 171
-# "#000000"] #7 noir 0 0 0
+OkabeIto=["#E69F00", #0 orange clair 230, 159, 0
+"#56B4E9", #1 bleu clair 86, 180, 233
+"#009E73", #2 vert 0, 158, 115
+"#F0E442", #3 jaune 240, 228, 66
+"#0072B2", #4 bleu 0, 114, 178
+"#D55E00", #5 orange 213, 94, 0
+"#CC79A7", #6 rose 204, 121, 171
+"#000000"] #7 noir 0 0 0
 
-# colors=OkabeIto
+colors=OkabeIto
 
-# colors=["#000000" for color in OkabeIto]
+colors=["#000000" for color in OkabeIto]
 
-# colors[1]="#000000"
-# colors[2]=OkabeIto[5] #bleu
-# colors[3]=OkabeIto[6] #orange
+colors[1]="#000000"
+colors[2]=OkabeIto[5] #bleu
+colors[3]=OkabeIto[6] #orange
 
 
 # Latex
@@ -450,6 +450,36 @@ def plot_radius_from_pandas(df,figpar):
 
 def parse_is_true(val):
     return bool(val)
+
+def reshape_data(data,nx,ny,field_index):
+    
+    # print(data.shape)
+
+    if data.ndim ==1:
+        data = veci(data,nx,ny,field_index)
+        # field=data
+    elif data.shape[1] == 1:
+        data = veci(data[:,0],nx,ny,field_index)
+        # field=data
+    elif data.shape[0] == 1:
+
+        # print(key,"max ",np.max(data),'min',np.min(data))
+
+        # field_index = 2
+        # np.set_printoptions(threshold=sys.maxsize)
+        # # print(data)
+        # print(data[0,:])
+
+        data = veci(data[0,:],nx,ny,field_index)
+
+        # field=data
+        # np.set_printoptions(threshold=sys.maxsize)
+        # print(data)
+        
+    # else:
+    #     field = data.transpose()
+
+    return data
 
 def set_size(width,fraction=1,ratio=1,nvary=1,ratio2=4.8/6.4,height=None):
     """Set figure dimensions to avoid scaling in LaTeX.
@@ -2136,14 +2166,124 @@ def python_movie_zoom_func(
 
     plt.close("all")
 
-def plot_current_wall():
 
-    fig, ax = plt.subplots(layout="constrained")
+
+def plot_current_wall(
+    file,
+    key,
+    xp,
+    yp,
+    xu,
+    yv,
+    yml,
+    mesh,
+    time,
+    nstep,
+    plotpar,
+    figpar=None,
+    mode='close',
+    fig1=None,
+    ax2=None,
+    cbar=None,
+):
+    """Plot one figure for field"""
+
+    nx = mesh["nx"]
+    ny = mesh["ny"]
+    if key=="u_1D":
+        nx=nx+1
+        x_1D = xu 
+        y_1D = yp
+        key_LS = "levelset_u"
+
+    elif key=="v_1D":
+        ny=ny+1
+        x_1D = xp
+        y_1D = yv 
+        key_LS = "levelset_v"
+
+    else:
+        x_1D = xp
+        y_1D = yp
+        key_LS = "levelset_p"
+
+    data = file[key][:]
+    
+    if 'field_index' in figpar.keys():
+        field_index = figpar['field_index']
+    else:
+        field_index = 1 # bulk value
+
+    # print(key,nstep,time,"max ",np.max(data),'min',np.min(data))
+
+
+    data= reshape_data(data,nx,ny,field_index)
+
+    # phi_array = file["i_current_x"][:].transpose()
+    # Eus = file["i_current_x"][:].transpose()
+    # Evs = file["i_current_y"][:].transpose()
+
+    # phL.trans_scal[:,1,3]
+    concentration = data[1,:]
+    
+
+    # phL.i_current_mag[:,1]
+    i_current_mag = file["i_current_mag"][:].transpose()[1,:]
+
+
+    nx = mesh["nx"]
+    ny = mesh["ny"]
+    field_index = 1 #bulk
+    data = file["phi_ele_1D"][:]
+
+    field=veci(data,nx,ny,field_index)
+
+    # file_name = "current_lines"
+    file_name = figpar['file']
+
+    phi_array = field
+
+    # phL.phi_ele[:,1] - phi_ele1
+    overpotential = phi_array[1,:] - yml['flower']['physics']['phi_ele1']
+
+    
+    # file_name_1 = key
+    file_name = figpar['file']
+
+    # print(key,"max ",np.max(data),'min',np.min(data))
+
+    if figpar == None:
+        figpar = plotpar
+
+    if mode == 'film' or mode == 'first':
+        ax2.clear()
+    else:
+        # fig1, ax2 = plt.subplots(layout="constrained")
+        fig1, ax2 = plt.subplots(figsize=set_size(plotpar["latex_frame_width"], fraction=float(plotpar["fig_fraction"]),
+                                                ratio=1,nvary=1,ratio2=1,height=float(plotpar["latex_frame_height"])),
+                                                layout="constrained")
+
+
+    if 'plot_mode' not in figpar.keys():
+        figpar['plot_mode'] = plotpar['plot_mode']
+
+    scale_time = float(plotpar["scale_time"])
+    scale_x = float(plotpar["scale_x"])
+    cmap = plt.get_cmap(plotpar["cmap"])
+
+    # cbarlabel = plotpar["cbarlabel"]
+    isocontour = plotpar["isocontour"]
+
+    time /= scale_time 
+    # radius /= scale_x
+
+   
 
     # fig.subplots_adjust(right=0.75)
+    varx = y_1D
 
-    # varx = [0, 1, 2]
-    varx = gp.y[:,1]/plotpar['scale_x']
+    
+
     # vecb_L(phL.trans_scalD[:,3], gp)
     label1 = r"$c\left(H_2O\right)$"
     label2 = r"$-\eta ~\text{(-overpotential)}$ "
@@ -2167,57 +2307,73 @@ def plot_current_wall():
     ls2 = (3, (3, 6)) #"dashdot"
     ls3 = (6, (3, 6)) #"dotted"
 
-    # print("current", phL.i_current_mag[:,1])
-
-    # print(colors)
-
-    twin1 = ax.twinx()
-    twin2 = ax.twinx()
+    twin1 = ax2.twinx()
+    twin2 = ax2.twinx()
 
     # Offset the right spine of twin2.  The ticks and label have already been
     # placed on the right by twinx above.
     twin2.spines.right.set_position(("axes", 1.2))
     #colors "C0", "C1", "C2"
-    p1, = ax.plot(varx, phL.trans_scal[:,1,3],colors[1], label=label1,ls=ls)
-    p2, = twin1.plot(varx, phL.phi_ele[:,1] - phi_ele1, colors[2], label=label2,ls=ls2)
-    p3, = twin2.plot(varx, phL.i_current_mag[:,1], colors[3], label=label3,ls=ls3)
+    p1, = ax2.plot(varx, concentration, colors[1], label=label1,ls=ls)
+    p2, = twin1.plot(varx, overpotential, colors[2], label=label2,ls=ls2)
+    p3, = twin2.plot(varx, i_current_mag, colors[3], label=label3,ls=ls3)
 
-    # p1, = ax.plot(varx, ones(ny),colors[1], label=label1,ls=ls)
-    # p2, = twin1.plot(varx, ones(ny), colors[2], label=label2,ls=ls2)
-    # p3, = twin2.plot(varx, ones(ny), colors[3], label=label3,ls=ls3)
+    str_time = '{:.2e}'.format(time/plotpar['scale_time'])
+    # strrad = '{:.2e}'.format(radius)
+    # str_iter = "{:05}".format(i)
 
-    ax.set(
+    # plt.title("t "+str_time +r"$(\unit{s})$")
+
+    plt.title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+
+    if mode =='first' or mode =='close':
+
+        ax2.set(
         # xlim=(0, 2),
         # ylim=(0, 2),
         xlabel=r"$y ( \unit{\um})$",
         ylabel=label1)
-    twin1.set(
-        # ylim=(0, 4), 
-    ylabel=label2)
-    twin2.set(
-        # ylim=(1, 65), 
-    ylabel=label3)
+        twin1.set(
+            # ylim=(0, 4), 
+        ylabel=label2)
+        twin2.set(
+            # ylim=(1, 65), 
+        ylabel=label3)
 
-    ax.yaxis.label.set_color(p1.get_color())
-    twin1.yaxis.label.set_color(p2.get_color())
-    twin2.yaxis.label.set_color(p3.get_color())
+        ax2.yaxis.label.set_color(p1.get_color())
+        twin1.yaxis.label.set_color(p2.get_color())
+        twin2.yaxis.label.set_color(p3.get_color())
 
-    ax.tick_params(axis="y", colors=p1.get_color())
-    twin1.tick_params(axis="y", colors=p2.get_color())
-    twin2.tick_params(axis="y", colors=p3.get_color())
+        ax2.tick_params(axis="y", colors=p1.get_color())
+        twin1.tick_params(axis="y", colors=p2.get_color())
+        twin2.tick_params(axis="y", colors=p3.get_color())
 
-    # ax.legend(handles=[p1, p2, p3],
-    # # loc = "center left",
-    # loc = "outside upper left",
-    # )
+        fig1.legend(handles=[p1, p2, p3],
+        # loc = "center left",
+        loc = "outside upper left",
+        )
+        
+        # ax2.spines["right"].set_visible(False)
+        # ax2.spines["top"].set_visible(False)
 
-    fig.legend(handles=[p1, p2, p3],
-    # loc = "center left",
-    loc = "outside upper left",
-    )
+        # ax2.set_xlabel(r"$x ( \unit{\um})$")
+        # ax2.set_ylabel(r"$y ( \unit{\um})$")
 
-    plt.savefig(prefix*"electrode_c_eta_i.pdf")
-    plt.close(fig)
+        # ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
+        # ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
+        # ax2.set_aspect('equal', 'box')
+
+        str_nstep = str(nstep)
+        plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+
+    if mode == 'close':
+        # str_nstep = str(nstep)
+        # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'])
+        plt.close(fig1)
+        return
+
+    return(fig1,ax2,cbar)    
+
 
 
 def plot_bc(iter_list,vec,grid,plotpar,figname,prefix,time):

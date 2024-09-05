@@ -438,46 +438,7 @@ function run_forward(
     #     printstyled(color=:green, @sprintf "\n average T %s\n" average!(phL.T, grid, LS[1].geoL, num))
     # end
 
-    # for iLS in 1:_nLS
-        # @views fwd.u[iLS,1,:,:] .= LS[iLS].u
-        # @views fwd.ux[iLS,1,:,:] .= grid_u.LS[iLS].u
-        # @views fwd.uy[iLS,1,:,:] .= grid_v.LS[iLS].u
-        # @views fwd.κ[iLS,1,:,:] .= LS[iLS].κ
-    # end
-    # @views fwd.T[1,:,:] .= phL.T.*LS[end].geoL.cap[:,:,5] .+ phS.T[:,:].*LS[end].geoS.cap[:,:,5]
-    # @views fwdL.T[1,:,:] .= phL.T
-    # @views fwdS.T[1,:,:] .= phS.T
-    # @views fwdS.p[1,:,:] .= phS.p
-    # @views fwdL.p[1,:,:] .= phL.p
-    # @views fwdS.u[1,:,:] .= phS.u
-    # @views fwdS.v[1,:,:] .= phS.v
-    # @views fwdL.u[1,:,:] .= phL.u
-    # @views fwdL.v[1,:,:] .= phL.v
-    # @views fwdL.vD[1,:] .= phL.vD
-
-    ####################################################################################################
-    #Electrolysis
-    ####################################################################################################
-    # if electrolysis
-    #     for iscal=1:nb_transported_scalars #TODO updated later cf init_fields_2!
-    #         @views fwd.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal].*LS[end].geoL.cap[:,:,5] .+ phS.trans_scal[:,:,iscal].*LS[end].geoS.cap[:,:,5]
-    #         @views fwdL.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal]
-    #     end
-        
-    #     # @views fwd.mass_flux[1,:,:] .= 0.0
-    #     @views fwdL.phi_ele[1,:,:] .= phL.phi_ele
-    #     @views fwdL.i_current_mag[1,:,:] .= phL.i_current_mag
-    #     @views fwdS.Eu[1,:,:] .= phS.Eu
-    #     @views fwdS.Ev[1,:,:] .= phS.Ev
-    #     @views fwdL.Eu[1,:,:] .= phL.Eu
-    #     @views fwdL.Ev[1,:,:] .= phL.Ev
-    # end     
-    
-
-    
-
-
-
+   
     if is_FE(time_scheme) || is_CN(time_scheme)
         NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
 
@@ -735,7 +696,7 @@ function run_forward(
                     # Exposing data to PDI for IO    
                     # if writing "D" array (bulk, interface, border), add "_1D" to the name
 
-                    @ccall "libpdi".PDI_multi_expose("write_data_start_loop"::Cstring,
+                    PDI_status = @ccall "libpdi".PDI_multi_expose("write_data_start_loop"::Cstring,
                     "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
                     "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
                     "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -756,12 +717,44 @@ function run_forward(
                     "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
                     "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
                     "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
-                    C_NULL::Ptr{Cvoid})::Cvoid
+                    C_NULL::Ptr{Cvoid})::Cint
+
+                    #TODO PDI_status note meanings
+                    # PDI_OK 	
+
+                    # everything went well
+                    # PDI_UNAVAILABLE 	
+
+                    # on an input call, no such data is available
+                    # PDI_ERR_CONFIG 	
+
+                    # The configuration file is invalid.
+                    # PDI_ERR_VALUE 	
+
+                    # A value expression is invalid.
+                    # PDI_ERR_PLUGIN 	
+
+                    # Tried to load a non-existing plugin.
+                    # PDI_ERR_IMPL 	
+
+                    # Implementation limitation (typically an unimplemented feature)
+                    # PDI_ERR_SYSTEM 	
+
+                    # A system error occured (OS, etc.)
+                    # PDI_ERR_STATE 	
+
+                    # A call to a function has been made at a wrong time (e.g.
+
+                    # closing an unopened transaction)
+                    # PDI_ERR_RIGHT 	
+
+                    # A conflict of onwership over a content has been raised.
+                    # PDI_ERR_TYPE 	
+
+                    # Invalid type error. 
             
                     # print("\n after write \n ")
-            
-                    # @ccall "libpdi".PDI_finalize()::Cvoid
-            
+                        
                     # printstyled(color=:red, @sprintf "\n PDI test end\n" )
             
                 catch error
@@ -2278,7 +2271,7 @@ function run_forward(
                     # Exposing data to PDI for IO    
                     # if writing "D" array (bulk, interface, border), add "_1D" to the name
 
-                    @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
+                    PDI_status = @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
                     "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
                     "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
                     "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -2294,15 +2287,14 @@ function run_forward(
                     "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
                     "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
                     "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
-                    C_NULL::Ptr{Cvoid})::Cvoid
+                    C_NULL::Ptr{Cvoid})::Cint
             
                     # print("\n after write \n ")
-            
-                    # @ccall "libpdi".PDI_finalize()::Cvoid
-            
+                        
                     # printstyled(color=:red, @sprintf "\n PDI test end\n" )
             
                 catch error

@@ -65,15 +65,15 @@ sys	0m17,694s
 ```bash
 curl -fsSL https://install.julialang.org | sh
 ```
-For example, in $HOME/flower
+For example, in in $WORKDIR/flower (or $HOME/flower if not possible but slower)
 * Clone Flower.jl
 *  Clone DDM.jl
 
-what is added in project in $HOME is not used in $WORKDIR, so in $WORKDIR do:
+<!-- what is added in project in $HOME is not used in $WORKDIR, so in $WORKDIR do:
 ```bash
 julia +1.10.4 –project=$HOME/flower/Flower.jl 
 import Pkg ; Pkg.add(package)
-```
+``` -->
 
 ### Run
 In interactive session:
@@ -115,4 +115,8 @@ In test : runtests.jl is used when doing:
 ]
 test
 ```
-Currently, the test half_circle_imposed_radius.yml has an error when launched with test mode instead of the classic command. 
+Currently, the test half_circle_imposed_radius.yml has an error when launched with test mode instead of the classic command.
+
+# Debugging/logging
+
+JULIA_DEBUG="all" julia... to display @debug prints
