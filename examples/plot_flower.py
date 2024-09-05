@@ -267,14 +267,16 @@ def compute_slope(ax,xls,yls,x,y,slopes,R2,param_line,colors,alpha):
 
 
 def init_fig(plotpar,figpar):
+    # layout='constrained'
+    layout='compressed'
     if (figpar is None) and (plotpar is None):
         print('constrained only')
-        fig1, ax2 = plt.subplots(layout="constrained")
+        fig1, ax2 = plt.subplots(layout=layout)
     else:
         if 'figsize' in figpar.keys():
             if figpar['figsize'] == 'None':
                 print('constrained only')
-                fig1, ax2 = plt.subplots(layout="constrained")
+                fig1, ax2 = plt.subplots(layout=layout)
             else:
                 fig1, ax2 = plt.subplots(
                     figsize=set_size(
@@ -285,7 +287,7 @@ def init_fig(plotpar,figpar):
                         ratio2=1,
                         height=float(plotpar["latex_frame_height"]),
                     ),
-                    layout="constrained",
+                    layout=layout,
                 )
         else:
             fig1, ax2 = plt.subplots(
@@ -297,7 +299,7 @@ def init_fig(plotpar,figpar):
                     ratio2=1,
                     height=float(plotpar["latex_frame_height"]),
                 ),
-                layout="constrained",
+                layout=layout,
             )
 
     return fig1,ax2

@@ -695,108 +695,181 @@ phS.uD .= 0.0
 #PDI attempt (IO)
 
 
-if io.pdi>0
-    try
-        @debug "Before PDI init"
+# if io.pdi>0
+#     try
+#         @debug "Before PDI init"
     
-        # using MPI
-        MPI.Init()
+#         # using MPI
+#         MPI.Init()
     
-        comm = MPI.COMM_WORLD
-    
-        @debug "after MPI.Init"
-    
-        yml_file = yamlfile
-    
-        # print("\n yml_file ",yml_file)
-    
-        # Version: julia +1.10.4
-    
-        conf = @ccall "libparaconf".PC_parse_path(yml_file::Cstring)::PC_tree_t
-    
-        @debug "after conf"
-    
-        getsubyml = @ccall "libparaconf".PC_get(conf::PC_tree_t,".pdi"::Cstring)::PC_tree_t  
-    
-        @debug "after getsubyml"
-    
-    
-        # print("\n getsubyml ",getsubyml)
-    
-        # @ccall "libpdidummy".PDI_init(getsubyml::PC_tree_t)::Cvoid
-        pdi_status = @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cint
-    
-        print("\n pdi_status ",pdi_status)
-    
-    
-        # print(getsubyml)
-        # pdi_status = @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cint
-    
-        @debug "after PDI_init"
-    
-    
-        # print("\n PDI_init ")
-    
-        # @ccall "libpdi".PDI_init(conf::PC_tree_t)::Cvoid
-    
-        # #python event to plot
-        # @ccall "libpdi".PDI_event("testing"::Cstring)::Cvoid
-    
-        # Send meta-data to PDI
-        mpi_coords_x = 1
-        mpi_coords_y = 1
-        mpi_max_coords_x = 1
-        mpi_max_coords_y = 1
-    
-        nx=gp.nx
-        ny=gp.ny
-    
-        #TODO check Clonglong ...
-    
-        PDI_status = @ccall "libpdi".PDI_multi_expose("init_PDI"::Cstring, 
-                "mpi_coords_x"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
-                "mpi_coords_y"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
-                "mpi_max_coords_x"::Cstring, mpi_max_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
-                "mpi_max_coords_y"::Cstring, mpi_max_coords_y::Ref{Clonglong}, PDI_OUT::Cint,
-                "nx"::Cstring, nx::Ref{Clonglong}, PDI_OUT::Cint,
-                "ny"::Cstring, ny::Ref{Clonglong}, PDI_OUT::Cint,
-                "nb_transported_scalars"::Cstring, phys.nb_transported_scalars::Ref{Clonglong}, PDI_OUT::Cint,
-                "nb_levelsets"::Cstring, phys.nb_levelsets::Ref{Clonglong}, PDI_OUT::Cint,
-                C_NULL::Ptr{Cvoid})::Cint
-    
-        @debug "after PDI_multi_expose"
-    
-        # time = 0.0
-        # nstep = 0
-        # pdi_array =zeros(nx,ny)
-    
-        # for j in 1:gp.ny
-        #     for i in 1:gp.nx
-        #         pdi_array[j,i]=1000*i+j
-        #     end
-        # end
-    
-        # print("\n before write \n ")
-    
-        # @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
-        #             "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
-        #             "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
-        #             "main_field"::Cstring, pdi_array::Ptr{Cdouble}, 
-        #             PDI_OUT::Cint,
-        #             C_NULL::Ptr{Cvoid})::Cvoid
-    
-        # print("\n after write \n ")
-    
-        # @ccall "libpdi".PDI_finalize()::Cvoid
-    
-        # printstyled(color=:red, @sprintf "\n PDI test end\n" )
+#         comm = MPI.COMM_WORLD
 
-    catch error
-        printstyled(color=:red, @sprintf "\n PDI error \n")
-        print(error)
-    end
+#         print(comm)
+    
+#         @debug "after MPI.Init"
+    
+#         yml_file = yamlfile
+    
+#         # print("\n yml_file ",yml_file)
+    
+#         # Version: julia +1.10.4
+    
+#         conf = @ccall "libparaconf".PC_parse_path(yml_file::Cstring)::PC_tree_t
+    
+#         @debug "after conf"
+    
+#         getsubyml = @ccall "libparaconf".PC_get(conf::PC_tree_t,".pdi"::Cstring)::PC_tree_t  
+    
+#         @debug "after getsubyml"
+    
+    
+#         # print("\n getsubyml ",getsubyml)
+    
+#         # @ccall "libpdidummy".PDI_init(getsubyml::PC_tree_t)::Cvoid
+#         pdi_status = @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cint
+    
+#         print("\n pdi_status ",pdi_status)
+    
+    
+#         # print(getsubyml)
+#         # pdi_status = @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cint
+    
+#         @debug "after PDI_init"
+    
+    
+#         # print("\n PDI_init ")
+    
+#         # @ccall "libpdi".PDI_init(conf::PC_tree_t)::Cvoid
+    
+#         # #python event to plot
+#         # @ccall "libpdi".PDI_event("testing"::Cstring)::Cvoid
+    
+#         # Send meta-data to PDI
+#         mpi_coords_x = 1
+#         mpi_coords_y = 1
+#         mpi_max_coords_x = 1
+#         mpi_max_coords_y = 1
+    
+#         nx=gp.nx
+#         ny=gp.ny
+    
+#         #TODO check Clonglong ...
+    
+#         PDI_status = @ccall "libpdi".PDI_multi_expose("init_PDI"::Cstring, 
+#                 "mpi_coords_x"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
+#                 "mpi_coords_y"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
+#                 "mpi_max_coords_x"::Cstring, mpi_max_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
+#                 "mpi_max_coords_y"::Cstring, mpi_max_coords_y::Ref{Clonglong}, PDI_OUT::Cint,
+#                 "nx"::Cstring, nx::Ref{Clonglong}, PDI_OUT::Cint,
+#                 "ny"::Cstring, ny::Ref{Clonglong}, PDI_OUT::Cint,
+#                 "nb_transported_scalars"::Cstring, phys.nb_transported_scalars::Ref{Clonglong}, PDI_OUT::Cint,
+#                 "nb_levelsets"::Cstring, phys.nb_levelsets::Ref{Clonglong}, PDI_OUT::Cint,
+#                 C_NULL::Ptr{Cvoid})::Cint
+    
+#         @debug "after PDI_multi_expose"
+    
+#         # time = 0.0
+#         # nstep = 0
+#         # pdi_array =zeros(nx,ny)
+    
+#         # for j in 1:gp.ny
+#         #     for i in 1:gp.nx
+#         #         pdi_array[j,i]=1000*i+j
+#         #     end
+#         # end
+    
+#         # print("\n before write \n ")
+    
+#         # @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
+#         #             "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+#         #             "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+#         #             "main_field"::Cstring, pdi_array::Ptr{Cdouble}, 
+#         #             PDI_OUT::Cint,
+#         #             C_NULL::Ptr{Cvoid})::Cvoid
+    
+#         # print("\n after write \n ")
+    
+#         # @ccall "libpdi".PDI_finalize()::Cvoid
+    
+#         # printstyled(color=:red, @sprintf "\n PDI test end\n" )
+
+#     catch error
+#         printstyled(color=:red, @sprintf "\n PDI error \n")
+#         print(error)
+#     end
    
-end #if io_pdi
+# end #if io_pdi
+
+@debug "Before PDI init"
+    
+# using MPI
+MPI.Init()
+
+comm = MPI.COMM_WORLD
+
+print(comm)
+
+@debug "after MPI.Init"
+
+yml_file = yamlfile
+
+# print("\n yml_file ",yml_file)
+
+# Version: julia +1.10.4
+
+conf = @ccall "libparaconf".PC_parse_path(yml_file::Cstring)::PC_tree_t
+
+@debug "after conf"
+
+getsubyml = @ccall "libparaconf".PC_get(conf::PC_tree_t,".pdi"::Cstring)::PC_tree_t  
+
+@debug "after getsubyml"
+
+
+# print("\n getsubyml ",getsubyml)
+
+# @ccall "libpdidummy".PDI_init(getsubyml::PC_tree_t)::Cvoid
+pdi_status = @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cint
+
+print("\n pdi_status ",pdi_status)
+
+
+# print(getsubyml)
+# pdi_status = @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cint
+
+@debug "after PDI_init"
+
+
+# print("\n PDI_init ")
+
+# @ccall "libpdi".PDI_init(conf::PC_tree_t)::Cvoid
+
+# #python event to plot
+# @ccall "libpdi".PDI_event("testing"::Cstring)::Cvoid
+
+# Send meta-data to PDI
+mpi_coords_x = 1
+mpi_coords_y = 1
+mpi_max_coords_x = 1
+mpi_max_coords_y = 1
+
+nx=gp.nx
+ny=gp.ny
+
+#TODO check Clonglong ...
+
+PDI_status = @ccall "libpdi".PDI_multi_expose("init_PDI"::Cstring, 
+        "mpi_coords_x"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
+        "mpi_coords_y"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
+        "mpi_max_coords_x"::Cstring, mpi_max_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
+        "mpi_max_coords_y"::Cstring, mpi_max_coords_y::Ref{Clonglong}, PDI_OUT::Cint,
+        "nx"::Cstring, nx::Ref{Clonglong}, PDI_OUT::Cint,
+        "ny"::Cstring, ny::Ref{Clonglong}, PDI_OUT::Cint,
+        "nb_transported_scalars"::Cstring, phys.nb_transported_scalars::Ref{Clonglong}, PDI_OUT::Cint,
+        "nb_levelsets"::Cstring, phys.nb_levelsets::Ref{Clonglong}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
+
+@debug "after PDI_multi_expose"
 
 @debug "After full PDI init"
 
