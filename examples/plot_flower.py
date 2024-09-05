@@ -16,7 +16,7 @@ import matplotlib.font_manager as fm
 import matplotlib.ticker as mticker
 
 
-#Find font path
+# Find font path
 
 # #!/usr/bin/env python3
 
@@ -24,7 +24,7 @@ import matplotlib.ticker as mticker
 # from PIL import ImageFont
 
 # # Iterate over all font files known to matplotlib
-# for filename in matplotlib.font_manager.findSystemFonts(): 
+# for filename in matplotlib.font_manager.findSystemFonts():
 #     # Avoid these two trouble makers - don't know why they are problematic
 #     if "Emoji" not in filename and "18030" not in filename:
 #         # Look up what PIL knows about the font
@@ -51,12 +51,12 @@ plt.rc('text.latex', preamble="\n".join([ # plots will use this preamble
        ])
 )
 
- #   r"\listfiles"
-      #   r"\sisetup{"
-      #   r"table-alignment-mode = format,"
-      #   r"table-number-alignment = center,"
-      #   r"table-auto-round"
-      #   r"}"
+#   r"\listfiles"
+#   r"\sisetup{"
+#   r"table-alignment-mode = format,"
+#   r"table-number-alignment = center,"
+#   r"table-auto-round"
+#   r"}"
 
 
 # "pgf.preamble": "\n".join([ # plots will use this preamble
@@ -94,11 +94,10 @@ except:
     apply_font('/gpfs/workdir/regnaultp/latex/texmf-dist/fonts/opentype/')
 
 
-
 # fontpath2 = 'public/tex-gyre/texgyrepagella-regular.otf'
 # fontpath = fontpath1 + fontpath2
 
-# fe = fm.FontEntry( 
+# fe = fm.FontEntry(
 # fname=fontpath,
 # name='TeX Gyre Pagella Math'
 # )
@@ -108,7 +107,7 @@ except:
 # prop = fm.FontProperties(fname=fontpath)
 
 
-# fe = fm.FontEntry( 
+# fe = fm.FontEntry(
 # fname=fontpath,
 # name='TeX Gyre Pagella Math'
 # )
@@ -116,9 +115,6 @@ except:
 # plt.rcParams['font.family'] = fe.name # = 'your custom ttf font name'
 
 # prop = fm.FontProperties(fname=fontpath)
-
-
-
 
 
 ##########################################################################
@@ -161,17 +157,6 @@ plt.rc("text", usetex=True)
 
 plt.rc('text.latex', preamble=r"\usepackage{siunitx}")
 #  matplotlib.verbose.level = 'debug-annoying'
-
-
-#  fig, axs = plt.subplots(nvary, 2,
-#                               # sharey=True,
-#                               # sharex=True,
-#                               sharey=sharey,
-#                               sharex='col',
-#          figsize=set_size(latexlinewidth, fraction=figfraction,ratio=2,nvary=nvary,ratio2=ratio2),
-#          layout="constrained",
-#          squeeze=False,
-#          )
 
 
 def compute_slope(ax,xls,yls,x,y,slopes,R2,param_line,colors,alpha):
@@ -279,6 +264,41 @@ def compute_slope(ax,xls,yls,x,y,slopes,R2,param_line,colors,alpha):
     return(ax)
 
 
+def init_fig(plotpar,figpar):
+    if (figpar is None) and (plotpar is None):
+        fig1, ax2 = plt.subplots(layout="constrained")
+    else:
+        if 'figsize' in figpar.keys():
+            if figpar['figsize'] == 'None':
+                fig1, ax2 = plt.subplots(layout="constrained")
+            else:
+                fig1, ax2 = plt.subplots(
+                    figsize=set_size(
+                        plotpar["latex_frame_width"],
+                        fraction=float(plotpar["fig_fraction"]),
+                        ratio=1,
+                        nvary=1,
+                        ratio2=1,
+                        height=float(plotpar["latex_frame_height"]),
+                    ),
+                    layout="constrained",
+                )
+        else:
+            fig1, ax2 = plt.subplots(
+                figsize=set_size(
+                    plotpar["latex_frame_width"],
+                    fraction=float(plotpar["fig_fraction"]),
+                    ratio=1,
+                    nvary=1,
+                    ratio2=1,
+                    height=float(plotpar["latex_frame_height"]),
+                ),
+                layout="constrained",
+            )
+
+    return fig1,ax2
+    
+
 def plot_radius_from_h5():
     """
     Plot radius from h5 files, with slope
@@ -337,7 +357,7 @@ def plot_radius_from_h5():
 
             plot_radius_from_pandas(df,figpar)
 
-        
+
 def plot_radius_from_pkl():
     """
     Plot radius from pkl file, with slope
@@ -355,7 +375,7 @@ def plot_radius_from_pandas(df,figpar):
     Plot radius pandas DF, with slope
     """
 
-    fig1, ax2 = plt.subplots(layout="constrained")
+    fig1,ax2 = init_fig(plotpar,figpar)
 
     # print("t",fwd.t)
     # print("radius",fwd.radius.*1.e6)
@@ -447,7 +467,6 @@ def plot_radius_from_pandas(df,figpar):
     plt.close(fig1)
 
 
-
 def parse_is_true(val):
     return bool(val)
 
@@ -535,6 +554,113 @@ def set_size(width,fraction=1,ratio=1,nvary=1,ratio2=4.8/6.4,height=None):
         # print('height mode',fig_dim,ratio,ratio2,nvary,width,height,fig_height_in/inches_per_pt,fraction)
 
     return fig_dim
+
+
+def plot_all_fig_func():
+    """
+    Plot all films in YAML file
+    """
+
+    # print('arg', len(sys.argv),sys.argv)
+    if len(sys.argv) == 2:
+        # List all files in the current directory
+        all_files = os.listdir(".")
+        h5_files = [file for file in all_files if file.endswith(".h5")]
+    else:
+        h5_files = sys.argv[2::]
+          
+    
+    # print(h5_files)
+    h5_files = sorted(h5_files)
+    print(h5_files)
+
+    # print(sys.argv)
+
+    try:
+        yamlfile = sys.argv[1]
+        if ".yml" not in yamlfile:
+            yamlfile += ".yml"
+    except Exception as error:
+        print(error)
+        print(colored("error", "red"))
+
+    with open(yamlfile, "r") as file:
+        yml = yaml.safe_load(file)
+
+    # print(yml)
+
+    mesh = yml["flower"]["mesh"]
+    plotpar = yml["plot"]
+
+    plotpar["scale_time"] = float(plotpar["scale_time"])
+
+    mesh["nx"] = int(mesh["nx"])
+    mesh["ny"] = int(mesh["ny"])
+
+    mesh["xmax"] = float(mesh["xmax"])
+    mesh["xmin"] = float(mesh["xmin"])
+
+    mesh["ymax"] = float(mesh["ymax"])
+    mesh["ymin"] = float(mesh["ymin"])
+
+    mesh["dx"] = (mesh["xmax"] - mesh["xmin"]) / mesh["nx"]
+    mesh["dy"] = (mesh["ymax"] - mesh["ymin"]) / mesh["ny"]
+
+    xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+    yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+
+    dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
+    dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
+
+    xu = xp + dx / 2
+    xu = np.insert(xu, 0, xp[0] - dx / 2)
+    # yu = yp # xv = xp
+    yv = yp + dy / 2
+    yv = np.insert(yv, 0, yp[0] - dy / 2)
+
+    scale_x = float(plotpar["scale_x"])
+    scale_y = float(plotpar["scale_y"])
+
+    xp /= scale_x
+    yp /= scale_y
+    xu /= scale_x
+    yv /= scale_y
+
+
+    
+
+
+    for figpar in plotpar["figures"]:
+
+        if 'func' in figpar.keys():
+            func = globals()[figpar['func']] #'plot_current_lines'
+        else:
+            func = globals()['plot_file']
+
+
+        key = figpar['var']
+
+        time = 0
+        nstep =0
+        
+        func(
+        file,
+        key,
+        xp,
+        yp,
+        xu,
+        yv,
+        yml,
+        mesh,
+        time,
+        nstep,
+        plotpar,
+        figpar=None,
+        mode='close',
+        fig1=None,
+        ax2=None,
+        cbar=None,
+        )
 
 
 def plot_all_fig():
@@ -656,7 +782,7 @@ def plot_all_fig():
                 elif figpar["var"] in file.keys():
                     key = figpar["var"]
 
-                    # print(key)
+                    print(key)
 
                     if "_1D" in key:
 
@@ -676,7 +802,7 @@ def plot_all_fig():
                                 figpar,
                             )
 
-                        else:
+                        else:            
                             plot_file(
                                 file,
                                 key,
@@ -696,20 +822,40 @@ def plot_all_fig():
                         if key in plotpar["no_2D_plot"]:
                             continue  # no plot
 
-                        plot_file(
-                            file,
-                            key,
-                            xp,
-                            yp,
-                            xu,
-                            yv,
-                            yml,
-                            mesh,
-                            time,
-                            nstep,
-                            plotpar,
-                            figpar,
-                        )
+                        if "zoom" in figpar.keys():
+                                
+                            print('plot_python_pdf_full2 ',key)
+
+                            plot_python_pdf_full2(
+                                file,
+                                key,
+                                xp,
+                                yp,
+                                xu,
+                                yv,
+                                yml,
+                                mesh,
+                                time,
+                                nstep,
+                                plotpar,
+                                figpar,
+                            )
+                        else:
+                            print('plot_file ',key)
+                            plot_file(
+                                file,
+                                key,
+                                xp,
+                                yp,
+                                xu,
+                                yv,
+                                yml,
+                                mesh,
+                                time,
+                                nstep,
+                                plotpar,
+                                figpar,
+                            )
 
 
 def plot_all_films():
@@ -797,7 +943,6 @@ def plot_all_films():
         plotpar,
         figpar,
         )
-
 
 
 def plot_all_films_func():
@@ -982,8 +1127,6 @@ def plot_segments(file,plotpar,figpar,ax2):
     return ax2
 
 
-
-
 def plot_file(
     file,
     key,
@@ -1069,10 +1212,7 @@ def plot_file(
     if mode == 'film' or mode == 'first':
         ax2.clear()
     else:
-        # fig1, ax2 = plt.subplots(layout="constrained")
-        fig1, ax2 = plt.subplots(figsize=set_size(plotpar["latex_frame_width"], fraction=float(plotpar["fig_fraction"]),
-                                                ratio=1,nvary=1,ratio2=1,height=float(plotpar["latex_frame_height"])),
-                                                layout="constrained")
+        fig1,ax2 = init_fig(plotpar,figpar)
 
 
     if 'plot_mode' not in figpar.keys():
@@ -1213,13 +1353,7 @@ def plot_vector(file,
     if mode == 'film' or mode == 'first':
         ax2.clear()
     else:
-        # fig1, ax2 = plt.subplots(layout="constrained")
-        fig1, ax2 = plt.subplots(figsize=set_size(plotpar["latex_frame_width"], fraction=float(plotpar["fig_fraction"]),
-                                                ratio=1,nvary=1,ratio2=1,height=float(plotpar["latex_frame_height"])),
-                                                layout="constrained")
-
-        # fig1, ax2 = plt.subplots(layout="constrained")
-
+        fig1,ax2 = init_fig(plotpar,figpar)
 
     scale_units=plotpar["quiver_scale_unit"]
     scale_units = None if scale_units == 'None' else scale_units
@@ -1345,10 +1479,8 @@ def plot_current_lines(file,
     if mode == 'film' or mode == 'first':
         ax2.clear()
     else:
-        # fig1, ax2 = plt.subplots(layout="constrained")
-        fig1, ax2 = plt.subplots(figsize=set_size(plotpar["latex_frame_width"], fraction=float(plotpar["fig_fraction"]),
-                                                ratio=1,nvary=1,ratio2=1,height=float(plotpar["latex_frame_height"])),
-                                                layout="constrained")
+        fig1,ax2 = init_fig(plotpar,figpar)
+       
         
     if figpar['levels']==0:
         # CS = ax2.contourf(x_1D,y_1D,field, 
@@ -1439,7 +1571,7 @@ def plot_radius(time_list,radius_list):
 
     df.to_pickle("/radius.pkl")
 
-    fig1, ax2 = plt.subplots(layout="constrained")
+    fig1,ax2 = init_fig(plotpar,figpar)
 
     # print("t",fwd.t)
     # print("radius",fwd.radius.*1.e6)
@@ -1544,10 +1676,12 @@ def plot_python_pdf_full2(
         if figpar["zoom"][0]>figpar["zoom"][1]:
             print('error zoom')
 
+
         for i,x in enumerate(x_1D):
             if figpar["zoom"][0][0]<x:
-                i0=i
                 break
+            i0=i
+
         for i,x in enumerate(x_1D):
             if figpar["zoom"][0][1]<x:
                 i1=i
@@ -1555,15 +1689,15 @@ def plot_python_pdf_full2(
 
         for j,y in enumerate(y_1D):
             if figpar["zoom"][1][0]<y:
-                j0=j
                 break
+            j0=j
+
         for j,y in enumerate(y_1D):
             if figpar["zoom"][1][1]<y:
                 j1=j
                 break
 
-        print(figpar["zoom"])
-        print(i0,i1,j0,j1)
+        # print(figpar["zoom"],i0,i1,j0,j1,x_1D[i0],x_1D[i1],y_1D[j0],y_1D[j1])
         # x_arr=x_1D[i0:i1+1]
         # y_arr=y_1D[j0:j1+1]
 
@@ -1593,6 +1727,8 @@ def plot_python_pdf_full2(
     else:
         field_index = 1 # bulk value
 
+    # reshape_data()
+    plot_bc_possible_based_on_dim = True
 
     if data_1D.ndim ==1:
         field0 = veci(data_1D,nx,ny,field_index)
@@ -1607,6 +1743,9 @@ def plot_python_pdf_full2(
         #[0,:]
         data_1D = data_1D[0]
         field0 = veci(data_1D,nx,ny,field_index)
+    elif data_1D.ndim ==2:
+        field0 = data_1D.transpose()
+        plot_bc_possible_based_on_dim = False
 
     #TODO slice vector trans_scal
 
@@ -1627,7 +1766,7 @@ def plot_python_pdf_full2(
 
     # TODO distinguish u, v, w grids even though it is a dummy position to plot BC
 
-    if parse_is_true(figpar['plot_bc']):
+    if parse_is_true(figpar['plot_bc']) and plot_bc_possible_based_on_dim:
         if ii0 == 0:
             vecb_l=True
             i1+=1
@@ -1701,7 +1840,8 @@ def plot_python_pdf_full2(
     else:
         field = field0[j0:j1+1,i0:i1+1]
 
-    fig1, ax2 = plt.subplots(layout="constrained")
+    fig1,ax2 = init_fig(plotpar,figpar)
+   
     ax2.spines["right"].set_visible(False)
     ax2.spines["top"].set_visible(False)
 
@@ -1788,11 +1928,7 @@ def plot_python_pdf_full2(
 
                 ax2.annotate(str1,(x_arr[igrid],y_arr[jgrid]),fontsize=figpar['fontsize'],c=lcolor,ha="center",va=va)
 
-    # ax2.set_title("Title")
-
-    # str_time = '{:.2e}'.format(time/plotpar['scale_time'])
-    # plt.title("t "+str_time +r"$(\unit{s})$")
-    # str_time = '{:.2e}'.format(time/plotpar['scale_time'])
+   
 
     plt.title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
 
@@ -1842,11 +1978,6 @@ def plot_python_pdf_full2(
         ax2 = plot_segments(file,plotpar,figpar,ax2)
 
 
-
-
-    # ax2.set_aspect('equal', 'box')
-
-
     if vecb_l:
         x = x_arr[i0]
         ticks_loc = ax2.get_xticks().tolist()        
@@ -1885,14 +2016,6 @@ def plot_python_pdf_full2(
         ax2.yaxis.set_major_locator(mticker.FixedLocator(ticks_loc))
         ax2.set_yticklabels(labels)
 
-    # isnap = indLS
-    # strtime = @sprintf "%.2e" fwd.t[isnap]*1e3
-    # strrad = @sprintf "%.2e" fwd.radius[isnap]*1e6
-
-    # strrad = '{:.2e}'.format(radius)
-    # str_iter = "{:05}".format(i)
-
-    # plt.title("t "*strtime*r"$( \unit{\ms})$"*"radius "*strrad*r"$( \unit{\um})$")
 
     # if figpar['zoom_mode'] == 'coord':
     #     ax2.set_xlim([float(x0) for x0 in figpar['zoom'][0]]) #zoom
@@ -1900,6 +2023,13 @@ def plot_python_pdf_full2(
 
     # ax2.set_xlim([float(x0) for x0 in figpar['xlim']]) #zoom
     # ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
+
+    # ax2.set_aspect('equal', 'box')
+    # ax2.set_aspect('equal')
+    if 'aspect_ratio' in figpar.keys():
+        ax2.set_aspect(aspect=figpar['aspect_ratio'],adjustable=figpar['aspect_box'])
+
+
     str_nstep = str(nstep)
     plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"])
 
@@ -1924,12 +2054,11 @@ def python_movie_zoom(
     size_frame = len(h5_files)
 
     # print('size_frame',size_frame)
-    
+
     file_name = h5_files[0]
 
-    fig1, ax2 = plt.subplots(figsize=set_size(plotpar["latex_frame_width"], fraction=float(plotpar["fig_fraction"]),
-                                                ratio=1,nvary=1,ratio2=1,height=float(plotpar["latex_frame_height"])),
-                                                layout="constrained")
+    fig1,ax2 = init_fig(plotpar,figpar)
+
 
     with h5py.File(file_name, "r") as file:
 
@@ -1954,13 +2083,12 @@ def python_movie_zoom(
         ax2=ax2,
         )
 
-
         # Make a colorbar for the ContourSet returned by the contourf call.
         # cbar = fig1.colorbar(CS)
         # cbar.ax.set_ylabel(r""+cbarlabel)
 
     def init():
-        #do nothing
+        # do nothing
         pass
 
     def animate(i,fig1,ax2):
@@ -1969,8 +2097,6 @@ def python_movie_zoom(
         file_name = h5_files[i]
 
         print(file_name)
-
-
 
         with h5py.File(file_name, "r") as file:
 
@@ -2002,15 +2128,15 @@ def python_movie_zoom(
 
             # https://stackoverflow.com/questions/5180518/duplicated-colorbars-when-creating-an-animation
 
-            # if (i==0): 
+            # if (i==0):
             #     # # Make a colorbar for the ContourSet returned by the contourf call.
             #     # cbar = fig1.colorbar(CS)
             #     # cbar.ax.set_ylabel(r""+cbarlabel)
 
             #     # Add the contour line levels to the colorbar
             #     if isocontour:
-            #         CS2 = ax2.contour(CS, 
-            #         # levels=CS.levels[::2], 
+            #         CS2 = ax2.contour(CS,
+            #         # levels=CS.levels[::2],
             #         # levels=
             #         colors="r")
             #         cbar.add_lines(CS2)
@@ -2029,7 +2155,6 @@ def python_movie_zoom(
 
     # with open(key+'_html5'+'.html', "w") as f:
     #     print(ani.to_html5_video(), file=f)
-
 
     plt.close("all")
 
@@ -2057,9 +2182,8 @@ def python_movie_zoom_func(
     
     file_name = h5_files[0]
 
-    fig1, ax2 = plt.subplots(figsize=set_size(plotpar["latex_frame_width"], fraction=float(plotpar["fig_fraction"]),
-                                                ratio=1,nvary=1,ratio2=1,height=float(plotpar["latex_frame_height"])),
-                                                layout="constrained")
+    fig1,ax2 = init_fig(plotpar,figpar)
+
     cbar=None
 
     with h5py.File(file_name, "r") as file:
@@ -2167,7 +2291,6 @@ def python_movie_zoom_func(
     plt.close("all")
 
 
-
 def plot_current_wall(
     file,
     key,
@@ -2207,7 +2330,13 @@ def plot_current_wall(
         y_1D = yp
         key_LS = "levelset_p"
 
-    data = file[key][:]
+    
+    nx = mesh["nx"]
+    ny = mesh["ny"]
+    field_index = 1 #bulk
+    file_name = figpar['file']
+
+   
     
     if 'field_index' in figpar.keys():
         field_index = figpar['field_index']
@@ -2217,29 +2346,22 @@ def plot_current_wall(
     # print(key,nstep,time,"max ",np.max(data),'min',np.min(data))
 
 
+    data = file[key][:]
+    # field=veci(data,nx,ny,field_index)
+
     data= reshape_data(data,nx,ny,field_index)
 
-    # phi_array = file["i_current_x"][:].transpose()
     # Eus = file["i_current_x"][:].transpose()
     # Evs = file["i_current_y"][:].transpose()
 
-    # phL.trans_scal[:,1,3]
     concentration = data[1,:]
     
-
     # phL.i_current_mag[:,1]
     i_current_mag = file["i_current_mag"][:].transpose()[1,:]
 
-
-    nx = mesh["nx"]
-    ny = mesh["ny"]
-    field_index = 1 #bulk
     data = file["phi_ele_1D"][:]
-
     field=veci(data,nx,ny,field_index)
 
-    # file_name = "current_lines"
-    file_name = figpar['file']
 
     phi_array = field
 
@@ -2258,10 +2380,8 @@ def plot_current_wall(
     if mode == 'film' or mode == 'first':
         ax2.clear()
     else:
-        # fig1, ax2 = plt.subplots(layout="constrained")
-        fig1, ax2 = plt.subplots(figsize=set_size(plotpar["latex_frame_width"], fraction=float(plotpar["fig_fraction"]),
-                                                ratio=1,nvary=1,ratio2=1,height=float(plotpar["latex_frame_height"])),
-                                                layout="constrained")
+        fig1,ax2 = init_fig(plotpar,figpar)
+
 
 
     if 'plot_mode' not in figpar.keys():
@@ -2277,35 +2397,17 @@ def plot_current_wall(
     time /= scale_time 
     # radius /= scale_x
 
-   
-
     # fig.subplots_adjust(right=0.75)
+
     varx = y_1D
 
-    
+    label1 = r""+figpar['labels'][0]
+    label2 = r""+figpar['labels'][1]
+    label3 = r""+figpar['labels'][2]
 
-    # vecb_L(phL.trans_scalD[:,3], gp)
-    label1 = r"$c\left(H_2O\right)$"
-    label2 = r"$-\eta ~\text{(-overpotential)}$ "
-    label3 = "Current"
-    alpha = 0.5
-    # ls= (0, (5, 10)) #":" #"--" #"--"
-    # # ls2="loosely dashed" #"--"
-    # # ls2 = [0, [5, 10]]
-    # ls2 = (5, (10, 3)) #"dashdot"
-    # ls3 = (5, (10, 3)) #"dotted"
-
-    # ls  = (0, (5, 10)) 
-    # ls2 = (5, (5, 10)) #"dashdot"
-    # ls3 = (10, (5, 10)) #"dotted"
-
-    # ls  = (0, (5, 10)) 
-    # ls2 = (10, (5, 10)) #"dashdot"
-    # ls3 = (10, (5, 10)) #"dotted"
-
-    ls  = (0, (3, 6)) 
-    ls2 = (3, (3, 6)) #"dashdot"
-    ls3 = (6, (3, 6)) #"dotted"
+    ls  = eval(figpar['linestyles'][0])
+    ls2 = eval(figpar['linestyles'][1])
+    ls3 = eval(figpar['linestyles'][2])
 
     twin1 = ax2.twinx()
     twin2 = ax2.twinx()
@@ -2314,17 +2416,57 @@ def plot_current_wall(
     # placed on the right by twinx above.
     twin2.spines.right.set_position(("axes", 1.2))
     #colors "C0", "C1", "C2"
+
+    # ax2.yaxis.set_major_locator(mticker.FixedLocator(eval(figpar['ticks'][0])))
+    # twin1.yaxis.set_major_locator(mticker.FixedLocator(eval(figpar['ticks'][1])))
+    # twin2.yaxis.set_major_locator(mticker.FixedLocator(eval(figpar['ticks'][2])))
+
     p1, = ax2.plot(varx, concentration, colors[1], label=label1,ls=ls)
     p2, = twin1.plot(varx, overpotential, colors[2], label=label2,ls=ls2)
     p3, = twin2.plot(varx, i_current_mag, colors[3], label=label3,ls=ls3)
 
-    str_time = '{:.2e}'.format(time/plotpar['scale_time'])
-    # strrad = '{:.2e}'.format(radius)
-    # str_iter = "{:05}".format(i)
+    tick0 = list(eval(figpar['ticks'][0]))
+    ax2.yaxis.set_major_locator(mticker.FixedLocator(tick0))
+    # ax2.yaxis.set_minor_locator(mticker.FixedLocator(tick0))
+    ax2.yaxis.set_ticks(tick0)
 
-    # plt.title("t "+str_time +r"$(\unit{s})$")
+
+    twin1.yaxis.set_major_locator(mticker.FixedLocator(eval(figpar['ticks'][1])))
+    twin1.yaxis.set_ticks(eval(figpar['ticks'][1]))
+
+    twin2.yaxis.set_major_locator(mticker.FixedLocator(eval(figpar['ticks'][2])))
+
+    twin2.yaxis.set_ticks(eval(figpar['ticks'][2]))
+
+    # ax2.yaxis.set_ticks(mticker.FixedLocator(eval(figpar['ticks'][0])))
+    # twin1.yaxis.set_ticks(mticker.FixedLocator(eval(figpar['ticks'][1])))
+    # twin2.yaxis.set_ticks(mticker.FixedLocator(eval(figpar['ticks'][2])))
+
+    # print(eval(figpar['ticks'][0]))
+    # print(eval(figpar['ticks'][1]))
+    # print(eval(figpar['ticks'][2]))
+
+    # print(varx)
+    # print(concentration)
+    # print(overpotential)
+    # print(i_current_mag)
+
+
+    # ax.xaxis.set_major_formatter(ticker.FixedFormatter(labels))
+    
 
     plt.title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+
+    ax2.yaxis.label.set_color(p1.get_color())
+    twin1.yaxis.label.set_color(p2.get_color())
+    twin2.yaxis.label.set_color(p3.get_color())
+
+    ax2.tick_params(axis="y", colors=p1.get_color())
+    twin1.tick_params(axis="y", colors=p2.get_color())
+    twin2.tick_params(axis="y", colors=p3.get_color())
+
+    twin1.spines["right"].set_color(p2.get_color())
+    twin2.spines["right"].set_color(p3.get_color())
 
     if mode =='first' or mode =='close':
 
@@ -2340,13 +2482,16 @@ def plot_current_wall(
             # ylim=(1, 65), 
         ylabel=label3)
 
-        ax2.yaxis.label.set_color(p1.get_color())
-        twin1.yaxis.label.set_color(p2.get_color())
-        twin2.yaxis.label.set_color(p3.get_color())
+        # ax2.yaxis.label.set_color(p1.get_color())
+        # twin1.yaxis.label.set_color(p2.get_color())
+        # twin2.yaxis.label.set_color(p3.get_color())
 
-        ax2.tick_params(axis="y", colors=p1.get_color())
-        twin1.tick_params(axis="y", colors=p2.get_color())
-        twin2.tick_params(axis="y", colors=p3.get_color())
+        # ax2.tick_params(axis="y", colors=p1.get_color())
+        # twin1.tick_params(axis="y", colors=p2.get_color())
+        # twin2.tick_params(axis="y", colors=p3.get_color())
+
+        # twin1.spines["right"].set_color(p2.get_color())
+        # twin2.spines["right"].set_color(p3.get_color())
 
         fig1.legend(handles=[p1, p2, p3],
         # loc = "center left",
@@ -2375,10 +2520,9 @@ def plot_current_wall(
     return(fig1,ax2,cbar)    
 
 
-
 def plot_bc(iter_list,vec,grid,plotpar,figname,prefix,time):
 
-    fig, ax = plt.subplots(layout="constrained")
+    fig1,ax2 = init_fig(plotpar,figpar)
 
     varx = grid.x[1,:]/plotpar['scale_x']
     # print("\n varx ",varx)
@@ -2395,16 +2539,16 @@ def plot_bc(iter_list,vec,grid,plotpar,figname,prefix,time):
     ylim0=0.16-eps
     ylim1=0.16+eps
 
-    ax.set_ylim(ylim0,ylim1)
+    ax2.set_ylim(ylim0,ylim1)
     plt.legend()
     plt.savefig(prefix*figname*".pdf")
 
-    plt.close(fig)
+    plt.close(fig1)
 
 
 def plot_bc2(iter_list,vec,grid,plotpar,figname,prefix,time):
 
-    fig, ax = plt.subplots(layout="constrained")
+    fig1,ax2 = init_fig(plotpar,figpar)
 
     varx = grid.x[1,:]/plotpar['scale_x']
     # print("\n varx ",varx)
@@ -2419,11 +2563,11 @@ def plot_bc2(iter_list,vec,grid,plotpar,figname,prefix,time):
     ylim0=0.16-eps
     ylim1=0.16+eps
 
-    ax.set_ylim(ylim0,ylim1)
+    ax2.set_ylim(ylim0,ylim1)
     plt.legend()
     plt.savefig(prefix*figname*".pdf")
 
-    plt.close(fig)
+    plt.close(fig1)
 
 
 # def example_docstring_function(a: str, b:bool, c:int):
@@ -2502,14 +2646,12 @@ def vecb_R(data, nx, ny):
     return extract
 
 
-
 def vecb_T(data, nx, ny):
     """# BC at top border"""
     data = vecb(data, nx, ny)
     extract = data[2 * ny + nx : 2 * nx + 2 * ny]
     # print('vecb_T',extract,'len',len(extract))
     return extract
-
 
 
 # vecb_L(a,g::G) where {G<:Grid} = @view vecb(a, g)[1:g.ny]
