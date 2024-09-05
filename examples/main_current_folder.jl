@@ -753,7 +753,7 @@ if io.pdi>0
     
         #TODO check Clonglong ...
     
-        @ccall "libpdi".PDI_multi_expose("init_PDI"::Cstring, 
+        PDI_status = @ccall "libpdi".PDI_multi_expose("init_PDI"::Cstring, 
                 "mpi_coords_x"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
                 "mpi_coords_y"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
                 "mpi_max_coords_x"::Cstring, mpi_max_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
@@ -762,7 +762,7 @@ if io.pdi>0
                 "ny"::Cstring, ny::Ref{Clonglong}, PDI_OUT::Cint,
                 "nb_transported_scalars"::Cstring, phys.nb_transported_scalars::Ref{Clonglong}, PDI_OUT::Cint,
                 "nb_levelsets"::Cstring, phys.nb_levelsets::Ref{Clonglong}, PDI_OUT::Cint,
-                C_NULL::Ptr{Cvoid})::Cvoid
+                C_NULL::Ptr{Cvoid})::Cint
     
         @debug "after PDI_multi_expose"
     
