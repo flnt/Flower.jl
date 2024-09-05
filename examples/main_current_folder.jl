@@ -802,13 +802,13 @@ phS.uD .= 0.0
 
 @debug "Before PDI init"
     
-# using MPI
-MPI.Init()
+# # using MPI
+# MPI.Init()
 
-@debug "after MPI.Init"
+# @debug "after MPI.Init"
 
-comm = MPI.COMM_WORLD
-@debug "MPI.COMM_WORLD"
+# comm = MPI.COMM_WORLD
+# @debug "MPI.COMM_WORLD"
 
 # print(comm)
 
