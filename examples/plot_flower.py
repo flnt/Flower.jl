@@ -91,7 +91,6 @@ def apply_font(fontpath1):
 
 try:
     apply_font('/usr/share/fonts/opentype/')
-    
 except:
     apply_font('/gpfs/workdir/regnaultp/latex/texmf-dist/fonts/opentype/')
 
@@ -270,12 +269,12 @@ def init_fig(plotpar,figpar):
     # layout='constrained'
     layout='compressed'
     if (figpar is None) and (plotpar is None):
-        print('constrained only')
+        # print('constrained only')
         fig1, ax2 = plt.subplots(layout=layout)
     else:
         if 'figsize' in figpar.keys():
             if figpar['figsize'] == 'None':
-                print('constrained only')
+                # print('constrained only')
                 fig1, ax2 = plt.subplots(layout=layout)
             else:
                 fig1, ax2 = plt.subplots(
