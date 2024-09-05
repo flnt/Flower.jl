@@ -84,7 +84,7 @@ flower:
     # elseif num.epsilon_mode == 2
     #     return inv_weight_clip(num,W)   
     # end
-    imposed_velocity: "none"
+    imposed_velocity: "Poiseuille"
     dt0: 3.125e-6 #first timestep
     max_iter: 60 #maximum number of iterations
     mode_2d: 3
@@ -129,8 +129,24 @@ plot:
 
       - var: i_current_x
         file: current_lines
+        func: plot_current_lines
+        cbarlabel: Electrical potential
+        # img_format: mp4
+        isocontour: #True
+        levels: 0 #10
+        range: np.linspace(-1.5e-4,0,11)
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: True
+        plot_levelset_segments: False
+        plot_mode: contourf
+        # range: [0,1e-4]
+        ticks_format: '%.2e'
         xlim: [0,100]
         ylim: [0,100]
+        linewidth: 1
+        linestyle: 'dotted'
+        zoom_mode: None
 
       - var: v_1D
         file: v_LS
@@ -253,25 +269,63 @@ plot:
 
         #Zoom
 
+      - var: mass_flux
+        file: mass_flux_zoom
+        figsize: None
+        aspect_box: 'box'
+        aspect_ratio: 'equal'
+        cbarlabel: Mass flux
+        fontsize: 4
+        isocontour: False
+        levels: 10
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: True #False
+        plot_levelset_segments: #True 
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        range: [0,1e-4]
+        xlim: [0,100]
+        ylim: [0,100]
+        # zoom: [[0,5],[0,5]]
+        # zoom_mode: index
+        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        zoom_mode: coord
+        color_annot_bc: w
+        color_annot_bulk: w
+        linewidth: 1
+        linestyle: None
+
       - var: v_1D
         file: v_zoom
+        figsize: None
+        aspect_box: 'box'
+        aspect_ratio: 'equal'
         cbarlabel: v
         fontsize: 4
         isocontour: False
         levels: 10
         plot_bc: True
         plot_grid: True
-        plot_levelset: False
-        plot_levelset_segments: False
+        plot_levelset: True #False
+        plot_levelset_segments: #True 
         plot_mode: pcolormesh #contourf
         print_mode: "val"
         range: [0,1e-4]
         xlim: [0,100]
         ylim: [0,100]
-        zoom: [[0,5],[0,5]]
-        zoom_mode: index
+        # zoom: [[0,5],[0,5]]
+        # zoom_mode: index
+        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        zoom_mode: coord
         color_annot_bc: w
         color_annot_bulk: w
+        linewidth: 1
+        linestyle: None
 
       - var: concentration_H2_1DT
         file: concentration_H2_zoom
@@ -340,6 +394,28 @@ plot:
 
 
   films:
+      - var: concentration_H2O_1DT
+        file: current_wall
+        func: plot_current_wall
+        img_format: mp4
+        levels: 10
+        labels: ['$c\left(H_2O\right)$', '$-\eta ~\text{(-overpotential)}$','Current']
+        linestyles: ['(0, (3, 6))',
+                     '(3, (3, 6))', #"dashdot"
+                     '(6, (3, 6))'] #"dotted"
+        ticks: ['np.linspace(40000,49000,10)','np.linspace(0.5,0.7,11)','np.linspace(0,1,11)']
+        # range: np.linspace(-0,15,11)
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: True
+        plot_levelset_segments: False
+        plot_mode: contourf
+        xlim: [0,100]
+        ylim: [0,100]
+        linewidth: 1
+        linestyle: None
+        zoom_mode: None
+
       - var: concentration_H2_1DT 
         file: concentration_H2
         cbarlabel: "$ \\text{Concentration} ~ H_2$"
@@ -456,12 +532,16 @@ plot:
         # linestyle: None
         # zoom_mode: None
     
+      - var: i_current_x
+        file: current_wall
+        func: plot_current_wall
+    
 
         
   dpi: 300
   img_format: "pdf"
   isocontour: false
-  latex_frame_height: 220 # 261.20912 #228.4378 #pt #beamer
+  latex_frame_height: 180 #220 #180 #200 #220 # 261.20912 #228.4378 #pt #beamer
   latex_frame_width: 398.3386
   #do not plot 2D figure, used in special plots (velocity vectors and current lines):
   no_2D_plot: ["velocity_x","velocity_y","i_current_x","i_current_y"] 
@@ -498,12 +578,12 @@ plot:
   prefix: "./"
 
 
-#TODO call compute_grad_phi_ele! only when needed
-#TODO call us, vs interpolation only when needed
-#TODO sparse data (H5 fill value or chunked ?)
-#TODO LS could be sparse too
-#TODO struct grid_u.LS[iLS].u[:,:] more difficult than [:,:,:]
-#TODO fig size
+  #TODO call compute_grad_phi_ele! only when needed
+  #TODO call us, vs interpolation only when needed
+  #TODO sparse data (H5 fill value or chunked ?)
+  #TODO LS could be sparse too
+  #TODO struct grid_u.LS[iLS].u[:,:] more difficult than [:,:,:]
+  #TODO fig size
 
    
 pdi:
@@ -550,6 +630,7 @@ pdi:
     # stored in 2D
     i_current_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
     i_current_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    i_current_mag: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
     levelset_p: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
     levelset_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdmain
     levelset_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdmain
@@ -571,7 +652,7 @@ pdi:
     # iv: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
 
   plugins:
-    # trace: ~
+    trace: ~
     pycall:
       on_event:
         testing: #python event to plot with matplotlib
@@ -629,7 +710,7 @@ pdi:
         #     subtype: double
         #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
         # when: #"$nstep%50 = 0"
-        write: [u_1D,v_1D,time,nstep,phi_ele_1D,velocity_x,velocity_y,i_current_x,i_current_y]
+        write: [u_1D,v_1D,time,nstep,phi_ele_1D,velocity_x,velocity_y,i_current_x,i_current_y,i_current_mag]
         #,trans_scal_1D_H2,trans_scal_1D_KOH,trans_scal_1D_H2O] #,levelset_p,levelset_u,levelset_v]
 
 

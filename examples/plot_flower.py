@@ -15,6 +15,8 @@ import matplotlib.font_manager as fm
 
 import matplotlib.ticker as mticker
 
+# from matplotlib._layoutgrid import plot_children
+
 
 # Find font path
 
@@ -266,10 +268,12 @@ def compute_slope(ax,xls,yls,x,y,slopes,R2,param_line,colors,alpha):
 
 def init_fig(plotpar,figpar):
     if (figpar is None) and (plotpar is None):
+        print('constrained only')
         fig1, ax2 = plt.subplots(layout="constrained")
     else:
         if 'figsize' in figpar.keys():
             if figpar['figsize'] == 'None':
+                print('constrained only')
                 fig1, ax2 = plt.subplots(layout="constrained")
             else:
                 fig1, ax2 = plt.subplots(
@@ -2029,6 +2033,7 @@ def plot_python_pdf_full2(
     if 'aspect_ratio' in figpar.keys():
         ax2.set_aspect(aspect=figpar['aspect_ratio'],adjustable=figpar['aspect_box'])
 
+    # plot_children(fig1)
 
     str_nstep = str(nstep)
     plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"])

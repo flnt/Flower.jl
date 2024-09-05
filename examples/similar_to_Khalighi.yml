@@ -74,10 +74,18 @@ flower:
     # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
     # electrolysis_phase_change_case: "levelset" # local
     eps: 1e-12 #eps for small numbers
-    epsilon: 0.05 #0.0 #0.05 #cut small cells
-    epsilon_mode: 2 #way to handle epsilon
-    imposed_velocity: "none"
-    dt0: 3.125e-6 #1.25e-5 #2.5e-5 #3.125e-6 #first timestep 1.0e-5 # 
+    epsilon: 0.05 #cut small cells
+    #if epsilon=0 centroids will be on the interface
+    epsilon_mode: 2 #way to handle epsilon:
+    # if num.epsilon_mode == 0
+    #     return 1 / (W+eps(0.01))
+    # elseif num.epsilon_mode == 1
+    #     return 1 / max(W, num.epsilon_vol)
+    # elseif num.epsilon_mode == 2
+    #     return inv_weight_clip(num,W)   
+    # end
+    imposed_velocity: "Poiseuille"
+    dt0: 3.125e-6 #first timestep
     max_iter: 60 #40 #1 #40 #maximum number of iterations
     mode_2d: 2 #3
     # mode_2d = 1 #use equivalent cylinder
@@ -192,7 +200,7 @@ plot:
 
       - var: concentration_H2_1DT
         file: concentration_H2
-        cbarlabel: '$\text{Concentration} H_2 \ce{H2}$'
+        cbarlabel: '$\text{Concentration} H_2$'
         fontsize: 4
         isocontour: False
         levels: 10
@@ -267,7 +275,7 @@ plot:
       - var: concentration_H2_1DT
         file: concentration_H2_zoom
         field_index: 1
-        cbarlabel: '$\text{Concentration} H_2$'
+        cbarlabel: '$\text{Concentration}~H_2$'
         fontsize: 4
         isocontour: False
         levels: 10
@@ -390,10 +398,10 @@ plot:
 
       - var: concentration_H2_1DT 
         file: concentration_H2
-        cbarlabel: H2 #'$Concentration H_2$'
+        cbarlabel: '$\text{Concentration}~H_2$'
         img_format: mp4
         isocontour: False
-        levels: 10
+        levels: 0 #10
         plot_bc: True
         plot_grid: True
         plot_levelset: True
@@ -521,6 +529,7 @@ pdi:
     # stored in 2D
     i_current_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
     i_current_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    i_current_mag: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
     levelset_p: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
     levelset_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdmain
     levelset_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdmain
@@ -600,7 +609,7 @@ pdi:
         #     subtype: double
         #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
         # when: #"$nstep%50 = 0"
-        write: [u_1D,v_1D,time,nstep,phi_ele_1D,velocity_x,velocity_y,i_current_x,i_current_y]
+        write: [u_1D,v_1D,time,nstep,phi_ele_1D,velocity_x,velocity_y,i_current_x,i_current_y,i_current_mag]
         #,trans_scal_1D_H2,trans_scal_1D_KOH,trans_scal_1D_H2O] #,levelset_p,levelset_u,levelset_v]
 
 
