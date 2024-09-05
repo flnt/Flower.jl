@@ -805,11 +805,12 @@ phS.uD .= 0.0
 # using MPI
 MPI.Init()
 
-comm = MPI.COMM_WORLD
-
-print(comm)
-
 @debug "after MPI.Init"
+
+comm = MPI.COMM_WORLD
+@debug "MPI.COMM_WORLD"
+
+# print(comm)
 
 yml_file = yamlfile
 
