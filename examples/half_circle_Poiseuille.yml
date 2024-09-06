@@ -408,6 +408,7 @@ plot:
         plot_levelset_segments: False
         plot_mode: contourf
         range: [0,1e-4]
+        ticks_format: '%.2e'
         xlim: [0,100]
         ylim: [0,100]
         linewidth: 1
@@ -504,6 +505,7 @@ plot:
         plot_levelset_segments: False
         plot_mode: contourf
         range: [0,1e-4]
+        ticks_format: '%.2e'
         xlim: [0,100]
         ylim: [0,100]
         linewidth: 1
@@ -522,6 +524,7 @@ plot:
         plot_levelset_segments: False
         plot_mode: contourf
         range: [0,1e-4]
+        ticks_format: '%.2e'
         xlim: [0,100]
         ylim: [0,100]
         linewidth: 1
