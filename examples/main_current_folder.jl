@@ -684,6 +684,35 @@ elseif sim.imposed_velocity == "Poiseuille_pressure_only"
     printstyled(color=:red, @sprintf "\n max u %.2e v %.2e p %.2e \n" maximum(phL.u) maximum(phL.v) maximum(phL.p) )
     print("p_bottom ", p_bottom)
     print(BC_pL)
+
+elseif sim.imposed_velocity == "zero"
+
+    BC_vL= Boundaries(
+        left   = Dirichlet(),
+        right  = Dirichlet(),
+        bottom = Dirichlet(),
+        top    = Dirichlet(),
+    )
+
+    BC_uL= Boundaries(
+        left   = Dirichlet(),
+        right  = Dirichlet(),
+        bottom = Dirichlet(),
+        top    = Dirichlet(),
+    )
+
+    BC_pL= Boundaries(
+        left   = Dirichlet(),
+        right  = Dirichlet(),
+        bottom = Dirichlet(),
+        top    = Dirichlet(),
+    )
+
+    phL.v .= 0.0
+    phL.u .= 0.0
+    printstyled(color=:red, @sprintf "\n max u %.2e v %.2e p %.2e \n" maximum(phL.u) maximum(phL.v) maximum(phL.p) )
+    print("p_bottom ", p_bottom)
+    print(BC_pL)
 # else
 
 #     phL.v .=vPoiseuille 
