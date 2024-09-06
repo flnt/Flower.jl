@@ -461,7 +461,7 @@ elseif sim.name == "channel_Dirichlet_imposed_Poiseuille"
 
 
     phys.electrolysis_reaction = "none"
-    sim.imposed_velocity = "Poiseuille"
+    sim.imposed_velocity = "Poiseuille_bottom_top"
 
     BC_pL = Boundaries(
         left   = Neumann(),
@@ -614,7 +614,7 @@ elseif sim.imposed_velocity == "constant"
     phL.v .= phys.v_inlet
     phL.u .= 0.0
 
-elseif sim.imposed_velocity == "Poiseuille"
+elseif sim.imposed_velocity == "Poiseuille_bottom_top"
 
     BC_vL= Boundaries(
         left   = Dirichlet(),
@@ -622,6 +622,34 @@ elseif sim.imposed_velocity == "Poiseuille"
         bottom = Dirichlet(val = vPoiseuilleb),
         top    = Dirichlet(val = vPoiseuilleb),
     )
+    phL.v .=vPoiseuille 
+    phL.u .= 0.0
+    printstyled(color=:red, @sprintf "\n initialized bulk velocity field %.2e \n" maximum(phL.v))
+
+elseif sim.imposed_velocity == "Poiseuille_bottom"
+
+    BC_vL= Boundaries(
+        left   = Dirichlet(),
+        right  = Dirichlet(),
+        bottom = Dirichlet(val = vPoiseuilleb),
+        top    = Neumann(),
+    )
+
+
+    # BC_pL= Boundaries(
+    #     left   = Dirichlet(),
+    #     right  = Dirichlet(),
+    #     bottom = Neumann(),
+    #     top    = Dirichlet(),
+    # )
+
+    BC_pL= Boundaries(
+        left   = Neumann(),
+        right  = Neumann(),
+        bottom = Neumann(),
+        top    = Dirichlet(),
+    )
+
     phL.v .=vPoiseuille 
     phL.u .= 0.0
     printstyled(color=:red, @sprintf "\n initialized bulk velocity field %.2e \n" maximum(phL.v))
@@ -830,9 +858,9 @@ getsubyml = @ccall "libparaconf".PC_get(conf::PC_tree_t,".pdi"::Cstring)::PC_tre
 # print("\n getsubyml ",getsubyml)
 
 # @ccall "libpdidummy".PDI_init(getsubyml::PC_tree_t)::Cvoid
-pdi_status = @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cint
+local pdi_status = @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cint
 
-print("\n pdi_status ",pdi_status)
+# print("\n pdi_status ",pdi_status)
 
 
 # print(getsubyml)
@@ -859,7 +887,7 @@ ny=gp.ny
 
 #TODO check Clonglong ...
 
-PDI_status = @ccall "libpdi".PDI_multi_expose("init_PDI"::Cstring, 
+local PDI_status = @ccall "libpdi".PDI_multi_expose("init_PDI"::Cstring, 
         "mpi_coords_x"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
         "mpi_coords_y"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
         "mpi_max_coords_x"::Cstring, mpi_max_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
@@ -1232,7 +1260,7 @@ end
 
 if num.io_pdi>0
     try
-        PDI_status = @ccall "libpdi".PDI_finalize()::Cint
+        local PDI_status = @ccall "libpdi".PDI_finalize()::Cint
         # printstyled(color=:red, @sprintf "\n PDI end\n" )
 
     catch error

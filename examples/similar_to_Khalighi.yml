@@ -84,7 +84,7 @@ flower:
     # elseif num.epsilon_mode == 2
     #     return inv_weight_clip(num,W)   
     # end
-    imposed_velocity: "Poiseuille"
+    imposed_velocity : "Poiseuille_bottom_top"
     dt0: 3.125e-6 #first timestep
     max_iter: 60 #40 #1 #40 #maximum number of iterations
     mode_2d: 2 #3

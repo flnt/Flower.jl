@@ -695,12 +695,15 @@ function run_forward(
 
                     # Exposing data to PDI for IO    
                     # if writing "D" array (bulk, interface, border), add "_1D" to the name
+                    
+                    printstyled(color=:magenta, @sprintf "\n PDI write_data_start_loop %.5i \n" num.current_i)
 
                     PDI_status = @ccall "libpdi".PDI_multi_expose("write_data_start_loop"::Cstring,
                     "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
                     "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
                     "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
                     "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
                     "levelset_p"::Cstring, LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
                     "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
                     "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -898,7 +901,7 @@ function run_forward(
                             printstyled(color=:red, @sprintf "\n Imposed velocity u min %.2e max %.2e\n" minimum(phL.uD) maximum(phL.uD))
                         end
 
-                elseif imposed_velocity == "Poiseuille"
+                elseif imposed_velocity == "Poiseuille_bottom_top"
 
                     vPoiseuille = Poiseuille_fmax.(grid_v.x,num.v_inlet,num.L0)
 
@@ -1056,18 +1059,18 @@ function run_forward(
 
                     printstyled(color=:cyan, @sprintf "\n error after scalar transport %.2e CFL %.2e\n" scal_error num.v_inlet*num.dt0/grid.dx[1,1])
 
-                    printstyled(color=:red, @sprintf "\n Poiseuille \n")
+                    # printstyled(color=:red, @sprintf "\n Poiseuille \n")
 
-                    # Check the velocity field before the scalar transport
-                    test_Poiseuille(num,phL.vD,grid_v)
+                    # # Check the velocity field before the scalar transport
+                    # test_Poiseuille(num,phL.vD,grid_v)
 
-                    printstyled(color=:cyan, @sprintf "\n pressure min %.2e max %.2e\n" minimum(phL.p[1,:]) maximum(phL.p[1,:]))
+                    # printstyled(color=:cyan, @sprintf "\n pressure min %.2e max %.2e\n" minimum(phL.p[1,:]) maximum(phL.p[1,:]))
 
-                    printstyled(color=:cyan, @sprintf "\n pressure min %.2e max %.2e\n" minimum(phL.p[end,:]) maximum(phL.p[end,:]))
+                    # printstyled(color=:cyan, @sprintf "\n pressure min %.2e max %.2e\n" minimum(phL.p[end,:]) maximum(phL.p[end,:]))
 
-                    printstyled(color=:cyan, @sprintf "\n pressure min %.2e max %.2e\n" BC_pL.bottom.val BC_pL.top.val )
+                    # printstyled(color=:cyan, @sprintf "\n pressure min %.2e max %.2e\n" BC_pL.bottom.val BC_pL.top.val )
 
-                    compute_grad_p!(num,grid, grid_u, grid_v, phL.pD, opC_pL, opC_uL, opC_vL)
+                    # compute_grad_p!(num,grid, grid_u, grid_v, phL.pD, opC_pL, opC_uL, opC_vL)
 
                 end
 
@@ -1786,14 +1789,14 @@ function run_forward(
                 # p_g=p_liq + 2 * num.σ / current_radius #3D
                 p_g=p_liq + num.σ / current_radius #2D
 
-                printstyled(color=:green, @sprintf "\n Mole: %.2e \n" nH2)
+                new_nH2 = nH2 + varnH2 * num.τ
 
-                nH2 += varnH2 * num.τ
-
-                printstyled(color=:green, @sprintf "\n Mole: %.2e \n" nH2)
+                nH2 = new_nH2
+                
+                printstyled(color=:green, @sprintf "\n it %.5i Mole: %.2e dn %.2e new nH2 %.2e \n" num.current_i nH2 varnH2*num.τ new_nH2)
 
                 if varnH2 < 0.0 
-                    print(@sprintf "error nH2 %.2e dnH2 %.2e new nH2 %.2e\n" nH2-varnH2*num.τ varnH2*num.τ nH2 )
+                    # print(@sprintf "error nH2 %.2e dnH2 %.2e new nH2 %.2e\n" nH2-varnH2*num.τ varnH2*num.τ nH2 )
                     @error ("error nH2")
                     crashed = true
                     nH2 -= varnH2 * num.τ
@@ -2276,6 +2279,7 @@ function run_forward(
                     "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
                     "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
                     "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "p_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
                     "levelset_p"::Cstring, LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
                     "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
                     "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,

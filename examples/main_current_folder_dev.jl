@@ -559,7 +559,7 @@ elseif sim.name == "channel_Dirichlet_imposed_Poiseuille"
 
 
     phys.electrolysis_reaction = "none"
-    sim.imposed_velocity = "Poiseuille"
+    sim.imposed_velocity = "Poiseuille_bottom_top"
 
     BC_pL = Boundaries(
         left   = Neumann(),
@@ -718,7 +718,7 @@ elseif sim.imposed_velocity == "constant"
     phL.v .= phys.v_inlet
     phL.u .= 0.0
 
-elseif sim.imposed_velocity == "Poiseuille"
+elseif sim.imposed_velocity == "Poiseuille_bottom_top"
 
     BC_vL= Boundaries(
         left   = Dirichlet(),

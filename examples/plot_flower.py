@@ -77,8 +77,11 @@ plt.rc('text.latex', preamble="\n".join([ # plots will use this preamble
 # /gpfs/workdir/regnaultp/latex/texmf-dist/fonts/opentype/public/tex-gyre-math
 
 def apply_font(fontpath1):
+
     fontpath2 = 'public/tex-gyre/texgyrepagella-regular.otf'
     fontpath = fontpath1 + fontpath2
+
+    print('looking for font at',fontpath)
 
     fe = fm.FontEntry( 
     fname=fontpath,
@@ -1302,7 +1305,7 @@ def plot_file(
 
     # plt.title("t "+str_time +r"$(\unit{s})$")
 
-    plt.title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+    ax2.set_title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
 
     if mode =='first' or mode =='close':
         ax2.spines["right"].set_visible(False)
@@ -1415,7 +1418,7 @@ def plot_vector(file,
     # str_time = '{:.2e}'.format(time/plotpar['scale_time'])
     # plt.title("t "+str_time +r"$(\unit{s})$")
 
-    plt.title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+    ax2.set_title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
 
     if mode =='first' or mode =='close':
         ax2.spines["right"].set_visible(False)
@@ -1935,7 +1938,7 @@ def plot_python_pdf_full2(
 
    
 
-    plt.title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+    ax2.set_title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
 
 
     ax2.set_xlabel(r"$x ( \unit{\um})$")
@@ -2461,7 +2464,9 @@ def plot_current_wall(
     # ax.xaxis.set_major_formatter(ticker.FixedFormatter(labels))
     
 
-    plt.title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+    # plt.title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+
+    ax2.set_title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
 
     ax2.yaxis.label.set_color(p1.get_color())
     twin1.yaxis.label.set_color(p2.get_color())

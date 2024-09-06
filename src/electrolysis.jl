@@ -1803,7 +1803,7 @@ function compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,
 
     # printstyled(color=:green, @sprintf "\n Radial flux: %.2e \n" radial_flux_surf)
 
-
+    printstyled(color=:magenta, @sprintf "\n PDI write_mass_flux %.5i \n" num.current_i)
 
     ######################################################################################
     #TODO careful : nstep needs to be updated beforehand

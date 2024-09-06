@@ -700,7 +700,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
 
 
         electrolysis_reaction = "none"
-        imposed_velocity = "Poiseuille"
+        imposed_velocity = "Poiseuille_bottom_top"
 
         BC_pL = Boundaries(
             left   = Neumann(),
@@ -939,7 +939,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
         phL.v .= v_inlet
         phL.u .= 0.0
 
-    elseif imposed_velocity == "Poiseuille"
+    elseif imposed_velocity == "Poiseuille_bottom_top"
 
         BC_vL= Boundaries(
             left   = Dirichlet(),

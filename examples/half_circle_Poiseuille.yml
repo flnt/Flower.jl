@@ -70,7 +70,7 @@ flower:
     # end
     concentration_check_factor: 1e-4
     convection_Cdivu: 0
-    electrolysis_phase_change_case: "Khalighi" #no phase change
+    electrolysis_phase_change_case: "none" #"Khalighi" #no phase change
     # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
     # electrolysis_phase_change_case: "levelset" # local
     eps: 1e-12 #eps for small numbers
@@ -84,7 +84,7 @@ flower:
     # elseif num.epsilon_mode == 2
     #     return inv_weight_clip(num,W)   
     # end
-    imposed_velocity : "Poiseuille_bottom_top"
+    imposed_velocity : "Poiseuille_bottom"
     dt0: 3.125e-6 #first timestep
     max_iter: 60 #maximum number of iterations
     mode_2d: 3
@@ -95,11 +95,12 @@ flower:
     name: "half_circle"
     non_dimensionalize: 0 # 0: NS equations as is (without non_dimensionalization)
     null_space: 0 #method for null space, matrix diagonal
-    prediction: 0 #pressure-velocity coupling
+    prediction: 0 #4 #0 #pressure-velocity coupling
     # prediction = 0
     # prediction = 1
     # prediction = 2
     # prediction = 3 # PIII in Brown's article
+    # prediction = 4
 
     show_every: 1
     debug: "scalar_testing" #"scalar_debug" 
@@ -394,6 +395,25 @@ plot:
 
 
   films:
+
+      - var: p_1D
+        file: pressure
+        cbarlabel: p
+        img_format: mp4
+        isocontour: False
+        levels: 10
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: True
+        plot_levelset_segments: False
+        plot_mode: contourf
+        range: [0,1e-4]
+        xlim: [0,100]
+        ylim: [0,100]
+        linewidth: 1
+        linestyle: None
+        zoom_mode: None
+
       - var: concentration_H2O_1DT
         file: current_wall
         func: plot_current_wall
@@ -613,6 +633,7 @@ pdi:
     # stored in 1D
     u_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx+1) + 2 * ($nx+1) + 2 * $ny', type: array, subtype: double } 
     v_1D: { size: '($nb_levelsets + 1) * ($ny+1) * ($nx) + 2 * ($nx) + 2 * ($ny+1)', type: array, subtype: double } 
+    p_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * ($ny)', type: array, subtype: double } 
     # trans_scal_1D: { size: ['($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny','$nb_transported_scalars'], type: array, subtype: double } 
     trans_scal_1DT: { size: ['$nb_transported_scalars','($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny'], type: array, subtype: double } 
     phi_ele_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
@@ -652,7 +673,7 @@ pdi:
     # iv: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
 
   plugins:
-    trace: ~
+    # trace: ~
     pycall:
       on_event:
         testing: #python event to plot with matplotlib
@@ -710,7 +731,7 @@ pdi:
         #     subtype: double
         #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
         # when: #"$nstep%50 = 0"
-        write: [u_1D,v_1D,time,nstep,phi_ele_1D,velocity_x,velocity_y,i_current_x,i_current_y,i_current_mag]
+        write: [u_1D,v_1D,p_1D,time,nstep,phi_ele_1D,velocity_x,velocity_y,i_current_x,i_current_y,i_current_mag]
         #,trans_scal_1D_H2,trans_scal_1D_KOH,trans_scal_1D_H2O] #,levelset_p,levelset_u,levelset_v]
 
 
