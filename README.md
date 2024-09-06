@@ -119,12 +119,13 @@ Currently, the test half_circle_imposed_radius.yml has an error when launched wi
 
 # Debugging/logging
 
-JULIA_DEBUG="all" julia... to display @debug prints
-
-# Things to check when the code gets stuck:
+## Things to check when the code gets stuck:
 
 JULIA_DEBUG="all" julia... to display @debug prints
 
 if stuck between Debug: After Numerical and after PDI init:
 
 Check that the variables declared in PDI in the YAML are the same in Flower.
+
+## Quick debugging with PDI
+use PYCALL to do quick tests (print for example) on variables that are shared in PDI without modifying and recompiling the code

@@ -692,7 +692,6 @@ function run_forward(
             
                     iLSpdi = 1 # all LS iLS = 1 # or all LS ?
 
-
                     # Exposing data to PDI for IO    
                     # if writing "D" array (bulk, interface, border), add "_1D" to the name
                     
@@ -2279,7 +2278,7 @@ function run_forward(
                     "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
                     "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
                     "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
-                    "p_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
                     "levelset_p"::Cstring, LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
                     "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
                     "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,

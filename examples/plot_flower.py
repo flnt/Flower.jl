@@ -626,6 +626,9 @@ def plot_all_fig_func():
     yv = yp + dy / 2
     yv = np.insert(yv, 0, yp[0] - dy / 2)
 
+    plotpar["scale_x"] = float(plotpar["scale_x"])
+    plotpar["scale_y"] = float(plotpar["scale_y"])
+
     scale_x = float(plotpar["scale_x"])
     scale_y = float(plotpar["scale_y"])
 
@@ -1014,6 +1017,9 @@ def plot_all_films_func():
     # yu = yp # xv = xp
     yv = yp + dy / 2
     yv = np.insert(yv, 0, yp[0] - dy / 2)
+
+    plotpar["scale_x"] = float(plotpar["scale_x"])
+    plotpar["scale_y"] = float(plotpar["scale_y"])
 
     scale_x = float(plotpar["scale_x"])
     scale_y = float(plotpar["scale_y"])
@@ -1622,6 +1628,10 @@ def plot_python_pdf_full2(
     nstep,
     plotpar,
     figpar,
+    mode='close',
+    fig1=None,
+    ax2=None,
+    cbar=None,
 ):
     """Plot one figure for field, with BC
     args:
@@ -1644,28 +1654,8 @@ def plot_python_pdf_full2(
         x_1D = xp
         y_1D = yp
 
-    # nx = mesh["nx"]
-    # ny = mesh["ny"]
-
-    # if figpar["var"] == "u_1D":
-    #     print("u mesh")
-    #     nx = nx + 1
-    #     x_1D = xu
-    #     y_1D = yp
-    # elif figpar["var"] == "v_1D":
-    #     print("v mesh")
-    #     ny = ny + 1
-    #     x_1D = xp
-    #     y_1D = yv
-    # else:
-    #     print("p mesh")
-    #     x_1D = xp
-    #     y_1D = yp
-
     data_1D = file[key][:]
-    # file_name_1 = key
-    # file_name = file_name_1
-    # file_name = key
+
     file_name = figpar['file']
 
     # print(key,"max ",np.max(data_1D))
@@ -1848,11 +1838,11 @@ def plot_python_pdf_full2(
     else:
         field = field0[j0:j1+1,i0:i1+1]
 
-    fig1,ax2 = init_fig(plotpar,figpar)
+    if mode == 'film' or mode == 'first':
+        ax2.clear()
+    else:
+        fig1,ax2 = init_fig(plotpar,figpar)
    
-    ax2.spines["right"].set_visible(False)
-    ax2.spines["top"].set_visible(False)
-
     # print(field.shape,nx,ny,len(x_1D),len(y_1D))
 
     if figpar['levels']==0: 
@@ -1921,32 +1911,51 @@ def plot_python_pdf_full2(
                 s=ms,
                 )
 
-                if figpar['print_mode'] == "val":
+                if 'print_mode' in figpar.keys():
+                    if figpar['print_mode'] == "val":
+                        str1='{:.2e}'.format(field[jgrid,igrid])
+                    elif figpar['print_mode'] == "ij":
+                        str1="{:03} {:03}".format(igrid0,jgrid0)
+                    elif figpar['print_mode'] == "ijval": 
+                        str1="{:.2e} {:03} {:03}".format(field[jgrid,igrid],igrid0,jgrid0)      
+                    elif figpar['print_mode'] == "ijcoord": 
+                        str1="{:.2e} {:.2e} {:03} {:03}".format(x_arr[igrid],y_arr[jgrid],igrid0,jgrid0)        
+                    elif figpar['print_mode'] == "ijx": 
+                        str1="{:.2e} {:03} {:03}".format(x_arr[igrid],igrid0,jgrid0)         
+                    elif figpar['print_mode'] == "ijy": 
+                        str1="{:.2e} {:03} {:03}".format(y_arr[jgrid],igrid0,jgrid0)  
+                else:
                     str1='{:.2e}'.format(field[jgrid,igrid])
-                elif figpar['print_mode'] == "ij":
-                    str1="{:03} {:03}".format(igrid0,jgrid0)
-                elif figpar['print_mode'] == "ijval": 
-                    str1="{:.2e} {:03} {:03}".format(field[jgrid,igrid],igrid0,jgrid0)      
-                elif figpar['print_mode'] == "ijcoord": 
-                    str1="{:.2e} {:.2e} {:03} {:03}".format(x_arr[igrid],y_arr[jgrid],igrid0,jgrid0)        
-                elif figpar['print_mode'] == "ijx": 
-                    str1="{:.2e} {:03} {:03}".format(x_arr[igrid],igrid0,jgrid0)         
-                elif figpar['print_mode'] == "ijy": 
-                    str1="{:.2e} {:03} {:03}".format(y_arr[jgrid],igrid0,jgrid0)  
 
-                ax2.annotate(str1,(x_arr[igrid],y_arr[jgrid]),fontsize=figpar['fontsize'],c=lcolor,ha="center",va=va)
+                if 'fontsize' in figpar.keys():
+                    fontsize = figpar['fontsize']
+                else:
+                    fontsize = plotpar['fontsize']
+
+                ax2.annotate(str1,(x_arr[igrid],y_arr[jgrid]),fontsize=fontsize,c=lcolor,ha="center",va=va)
 
    
 
     ax2.set_title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
 
 
-    ax2.set_xlabel(r"$x ( \unit{\um})$")
-    ax2.set_ylabel(r"$y ( \unit{\um})$")
+   
+    # # Make a colorbar for the ContourSet returned by the contourf call.
+    # cbar = fig1.colorbar(CS)
+    # cbar.ax.set_ylabel(r""+figpar['cbarlabel'])
 
-    # Make a colorbar for the ContourSet returned by the contourf call.
-    cbar = fig1.colorbar(CS)
-    cbar.ax.set_ylabel(r""+figpar['cbarlabel'])
+    if mode !='film':
+        cbar = fig1.colorbar(CS)
+        cbar.ax.set_ylabel(r""+figpar['cbarlabel'])
+    # Add the contour line levels to the colorbar
+
+    else:
+        cbar = plt.colorbar(CS,cax=cbar.ax)
+        cbar.ax.set_ylabel(r""+figpar['cbarlabel'])
+        if 'ticks_format' in figpar:
+            if figpar['ticks_format']!=None:
+                cbar.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
+
     # Add the contour line levels to the colorbar
     if str(figpar['isocontour']) == 'True':
         CS2 = ax2.contour(CS, 
@@ -2037,12 +2046,31 @@ def plot_python_pdf_full2(
     if 'aspect_ratio' in figpar.keys():
         ax2.set_aspect(aspect=figpar['aspect_ratio'],adjustable=figpar['aspect_box'])
 
-    # plot_children(fig1)
+    #debug subplots with  plot_children(fig1)
 
-    str_nstep = str(nstep)
-    plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"])
+    if mode =='first' or mode =='close':
+        ax2.spines["right"].set_visible(False)
+        ax2.spines["top"].set_visible(False)
 
-    plt.close(fig1)
+        ax2.set_xlabel(r"$x ( \unit{\um})$")
+        ax2.set_ylabel(r"$y ( \unit{\um})$")
+
+        # ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
+        # ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
+        # ax2.set_aspect('equal', 'box')
+
+        str_nstep = str(nstep)
+        plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+
+    if mode == 'close':
+        # str_nstep = str(nstep)
+        # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'])
+        plt.close(fig1)
+        return
+    
+    return(fig1,ax2,cbar)
+
+    
 
 def python_movie_zoom(
     h5_files,
@@ -2504,10 +2532,12 @@ def plot_current_wall(
         # twin1.spines["right"].set_color(p2.get_color())
         # twin2.spines["right"].set_color(p3.get_color())
 
-        fig1.legend(handles=[p1, p2, p3],
-        # loc = "center left",
-        loc = "outside upper left",
-        )
+        if 'plot_legend' in figpar.keys():
+            if parse_is_true(figpar['plot_legend']):
+                fig1.legend(handles=[p1, p2, p3],
+                # loc = "center left",
+                loc = "outside upper left",
+                )
         
         # ax2.spines["right"].set_visible(False)
         # ax2.spines["top"].set_visible(False)

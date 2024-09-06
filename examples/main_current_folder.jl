@@ -172,6 +172,10 @@ radial_vel_factor = 1e-7
 # BC 
 i_butler = x[1,:] .*0.0
 
+# Pressure
+p_top = 0
+p_bottom = p_top + 8*mu1/phys.ref_length*phys.v_inlet
+
 # H2 boundary condition
 BC_trans_scal_H2 = BoundariesInt(
 bottom = Dirichlet(val = phys.concentration0[1]),
@@ -279,11 +283,7 @@ elseif sim.name == "channel_Dirichlet_pressure"
     phys.electrolysis_reaction = "none"
     # sim.imposed_velocity = "constant"
 
-    p_top = 0
-    # phys.v_inlet: avg
-    # p_bottom = p_top - 8*mu1/phys.ref_length*phys.v_inlet
-    # p_bottom = p_top + 8*mu1/phys.ref_length*phys.v_inlet*3/2 #vmoy
-    p_bottom = p_top + 8*mu1/phys.ref_length*phys.v_inlet
+    
 
     test_v=-(p_top - p_bottom)/phys.ref_length * (phys.ref_length^2)/4/2/mu
 
@@ -655,6 +655,35 @@ elseif sim.imposed_velocity == "Poiseuille_bottom"
     printstyled(color=:red, @sprintf "\n initialized bulk velocity field %.2e \n" maximum(phL.v))
 
     
+elseif sim.imposed_velocity == "Poiseuille_pressure_only"
+
+    BC_vL= Boundaries(
+        left   = Dirichlet(),
+        right  = Dirichlet(),
+        bottom = Neumann(),
+        top    = Neumann(),
+    )
+
+
+    # BC_pL= Boundaries(
+    #     left   = Dirichlet(),
+    #     right  = Dirichlet(),
+    #     bottom = Neumann(),
+    #     top    = Dirichlet(),
+    # )
+
+    BC_pL= Boundaries(
+        left   = Neumann(),
+        right  = Neumann(),
+        bottom = Dirichlet(val = p_bottom),
+        top    = Dirichlet(),
+    )
+
+    phL.v .= 0.0
+    phL.u .= 0.0
+    printstyled(color=:red, @sprintf "\n max u %.2e v %.2e p %.2e \n" maximum(phL.u) maximum(phL.v) maximum(phL.p) )
+    print("p_bottom ", p_bottom)
+    print(BC_pL)
 # else
 
 #     phL.v .=vPoiseuille 
