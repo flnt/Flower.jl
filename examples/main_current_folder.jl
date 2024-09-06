@@ -676,6 +676,12 @@ elseif sim.imposed_velocity == "Poiseuille_bottom"
 end
 
 
+printstyled(color=:green, @sprintf "\n Initialisation0 \n")
+
+print_electrolysis_statistics(phys.nb_transported_scalars,gp,phL)
+
+
+
 if pressure_channel
 
     # test_Poiseuille(num,phL,gv)
