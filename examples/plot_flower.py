@@ -92,10 +92,23 @@ def apply_font(fontpath1):
 
     prop = fm.FontProperties(fname=fontpath)
 
-try:
-    apply_font('/usr/share/fonts/opentype/')
+# try:
+#     apply_font('/usr/share/fonts/opentype/')
+# except:
+#     apply_font('/gpfs/workdir/regnaultp/latex/texmf-dist/fonts/opentype/')
+
+fontpath2 = 'public/tex-gyre/texgyrepagella-regular.otf'
+
+try :
+    fontpath1 = '/usr/share/fonts/opentype/'
+    fontpath = fontpath1 + fontpath2
+    os.path.isfile(fontpath)
 except:
-    apply_font('/gpfs/workdir/regnaultp/latex/texmf-dist/fonts/opentype/')
+    fontpath1 = '/gpfs/workdir/regnaultp/latex/texmf-dist/fonts/opentype/'
+    fontpath = fontpath1 + fontpath2
+    os.path.isfile(fontpath)
+
+apply_font(fontpath)
 
 
 # fontpath2 = 'public/tex-gyre/texgyrepagella-regular.otf'

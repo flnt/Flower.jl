@@ -34,7 +34,7 @@ import Base.reshape
 
 @reexport import YAML
 @reexport using Test
-@reexport using MPI
+# @reexport using MPI
 @reexport using PropertyDicts
 @reexport using PrettyTables
 

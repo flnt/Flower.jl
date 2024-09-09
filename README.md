@@ -98,6 +98,13 @@ To plot the radius of the interface
 python3 -c "import plot_flower; plot_flower.plot_radius_from_h5()" yaml_file
 ```
 
+Install python modules with conda
+```bash
+source activate myenv
+conda install -c conda-forge ffmpeg
+```
+
+
 # Passing file in REPL mode
 
 ```bash
@@ -129,3 +136,4 @@ Check that the variables declared in PDI in the YAML are the same in Flower.
 
 ## Quick debugging with PDI
 use PYCALL to do quick tests (print for example) on variables that are shared in PDI without modifying and recompiling the code
+
