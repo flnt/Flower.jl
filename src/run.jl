@@ -1026,6 +1026,14 @@ function run_forward(
                 # println(grid.LS[1].geoL.dcap[1,1,:])
 
                 if electrolysis_advection
+
+                   # if imposed_velocity == "zero" && num.current_i ==16
+                    #    num.ϵwall = 0.0
+                     #   print("\n changed eps wall")
+                   # end
+                    #printstyled(color=:cyan, @sprintf "\n epsilon %.2e %.2e \n" num.ϵ num.ϵwall )
+
+
                     update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
                 end
                 scalar_transport!(BC_trans_scal, num, grid, opC_TL, LS[1].geoL, phL, concentration0,
@@ -1668,6 +1676,71 @@ function run_forward(
             end
         end
         ####################################################################################################
+
+
+
+        ####################################################################################################
+        #PDI (IO)
+        ####################################################################################################
+
+        if num.io_pdi>0
+
+            try
+                # printstyled(color=:red, @sprintf "\n PDI test \n" )
+        
+                time = current_t #Cdouble
+                nstep = num.current_i
+            
+                # phi_array=phL.phi_ele #do not transpose since python row major
+                
+                # Compute electrical current, interpolate velocity on scalar grid
+                compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+        
+                Eus,Evs = interpolate_grid_liquid(grid,grid_u,grid_v,phL.Eu, phL.Ev)
+        
+                us,vs = interpolate_grid_liquid(grid,grid_u,grid_v,phL.u,phL.v)
+                    
+                iLSpdi = 1 # TODO all LS
+
+                # Exposing data to PDI for IO    
+                # if writing "D" array (bulk, interface, border), add "_1D" to the name
+
+                PDI_status = @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
+                "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+                "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+                "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                "levelset_p"::Cstring, LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "trans_scal_1D"::Cstring, phL.trans_scalD::Ptr{Cdouble}, PDI_OUT::Cint,
+                "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "trans_scal_1D_H2"::Cstring, phL.trans_scalD[:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "trans_scal_1D_KOH"::Cstring, phL.trans_scalD[:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "trans_scal_1D_H2O"::Cstring, phL.trans_scalD[:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
+                "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+                "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+                "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+                "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
+                C_NULL::Ptr{Cvoid})::Cint
+        
+                # print("\n after write \n ")
+                    
+                # printstyled(color=:red, @sprintf "\n PDI test end\n" )
+        
+            catch error
+                printstyled(color=:red, @sprintf "\n PDI error \n")
+                print(error)
+                printstyled(color=:red, @sprintf "\n PDI error \n")
+            end
+        end #if io_pdi
+
+        ####################################################################################################
+
         
         #    grid.LS[i].α  which is the angle of the outward point normal with respect to the horizontal axis
 
@@ -1790,18 +1863,23 @@ function run_forward(
 
                 new_nH2 = nH2 + varnH2 * num.τ
 
-                nH2 = new_nH2
-                
+               
                 printstyled(color=:green, @sprintf "\n it %.5i Mole: %.2e dn %.2e new nH2 %.2e \n" num.current_i nH2 varnH2*num.τ new_nH2)
 
                 if varnH2 < 0.0 
                     # print(@sprintf "error nH2 %.2e dnH2 %.2e new nH2 %.2e\n" nH2-varnH2*num.τ varnH2*num.τ nH2 )
                     @error ("error nH2")
                     crashed = true
-                    nH2 -= varnH2 * num.τ
+                    new_nH2 = nH2
                     print("wrong nH2 ")
                     # println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
                     return nothing
+                end
+
+                if occursin("Khalighi_no_update",electrolysis_phase_change_case)
+
+                else
+                    nH2 = new_nH2
                 end
                 
                 #TODO using temperature0

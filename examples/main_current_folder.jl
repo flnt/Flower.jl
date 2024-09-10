@@ -541,6 +541,7 @@ num = Numerical(
     max_iterations = sim.max_iter,
     save_every = save_every,
     ϵ = sim.epsilon, 
+    ϵwall = sim.epsilon_wall,
     epsilon_mode = sim.epsilon_mode,
     nLS = phys.nb_levelsets,
     nb_transported_scalars=phys.nb_transported_scalars,

@@ -777,9 +777,13 @@ def plot_all_fig():
             print(file.keys())
 
             # data = file['data'][:]
-
-            time = file["time"][()]
-            nstep = file["nstep"][()]
+            try:
+                time = file["time"][()]
+                nstep = file["nstep"][()]
+            except:
+                time = 0
+                nstep = 0 
+                print("time not available")
 
             print("time", time, "nstep", nstep)
 
@@ -1193,6 +1197,7 @@ def plot_file(
         y_1D = yp
         key_LS = "levelset_p"
 
+    print(key)
     data = file[key][:]
     
     if 'field_index' in figpar.keys():
