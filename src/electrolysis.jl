@@ -1725,7 +1725,7 @@ end
 """
   Compute mass flux like in Khalighi 2023
 """
-function compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,iscal,geo)
+function compute_mass_flux!(num, grid, grid_u, grid_v, phL, phS, opC_pL, opC_pS, diffusion_coeff, iscal, geo)
     @unpack  χ = opC_pL
     @unpack nLS = num
     #Liquid phase
@@ -1784,6 +1784,26 @@ function compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,
     mass_flux_2 = mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
 
 
+    # iplot = 1
+    # for jplot in 1:grid.ny
+    #     #for iplot in 1:grid.nx
+    #     II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+    #     pII = lexicographic(II, grid.ny)
+
+    #     if mass_flux_vec1_2[II]>0
+    #         printstyled(color=:green, @sprintf "\n j %.5i m %.2e HxT %.2e\n" jplot mass_flux_vec1_2[II] opC_p.HxT[iLStmp][II])
+    #         printstyled(color=:red, @sprintf "\n iMx %.10e iMy %.10e \n" opC_p.iMy.diag[pII] opC_p.iMy.diag[pII] )
+    #         print("\n B ", II," ",opC_p.Bx[pII,pII]," ",opC_p.BxT[pII,pII])
+    #     end
+
+    # end
+
+
+    # iplot=1
+    # jplot = 59
+    # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+    # pII = lexicographic(II, grid.ny)
+    # printstyled(color=:magenta, @sprintf "\n j %.5i m %.2e HxT %.2e HyT %.2e Bx %.2e By %.2e iMx %.10e iMy %.10e\n" jplot mass_flux_vec1_2[II] opC_p.HxT[iLStmp][II] opC_p.HyT[iLStmp][II] opC_p.Bx[pII,pII] opC_p.By[pII,pII] opC_p.iMy.diag[pII] opC_p.iMy.diag[pII])
 
     ######################################################################################
 
@@ -1814,6 +1834,10 @@ function compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,
     "mass_flux_bulk"::Cstring, mass_flux_vec1_2::Ptr{Cdouble}, PDI_OUT::Cint,
     "mass_flux_border"::Cstring, mass_flux_vecb_2::Ptr{Cdouble}, PDI_OUT::Cint,
     "mass_flux_intfc"::Cstring, mass_flux_veci_2::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "Bx"::Cstring, opC_p.Bx::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "By"::Cstring, opC_p.By::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "HxT"::Cstring, opC_p.HxT::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "HyT"::Cstring, opC_p.HyT::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cvoid
 
     # @ccall "libpdi".PDI_multi_expose("write_mass_flux"::Cstring,

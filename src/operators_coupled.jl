@@ -490,7 +490,7 @@ function mass_matrix_borders!(num,ind, iMx_b, iMy_b, iMx_bd, iMy_bd, dcap, n)
 end
 
 """
-left: -A1 bottom: -A2 right: A3 top: A4
+Compute Hx and Hy, left: -A1 bottom: -A2 right: A3 top: A4
 """
 function bc_matrix_borders!(grid::Mesh{GridCC,T,N}, ind, Hx, Hy, dcap) where {T,N}
     @unpack nx, ny = grid

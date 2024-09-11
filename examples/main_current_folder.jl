@@ -171,6 +171,13 @@ radial_vel_factor = 1e-7
 
 # BC 
 i_butler = x[1,:] .*0.0
+phi_ele =  x[1,:] .*0.0
+
+
+i_butler=butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_ele,phys.phi_ele1,phys.Ru,phys.temperature0)
+
+# print(@sprintf "Butler-Volmer %.2e %.2e %.2e %.2e\n" i_butler[1] -i_butler[1]/(2*phys.Faraday*DH2) c0_H2-i_butler[1]/(2*phys.Faraday*DH2)*gp.dx[1,1] c0_H2+i_butler[1]/(2*phys.Faraday*DH2)*gp.dx[1,1])
+
 
 # Pressure
 p_top = 0
@@ -526,6 +533,7 @@ end
 
 @debug "Before Numerical"
 
+#ϵwall = sim.epsilon_wall,
 
 
 num = Numerical(
@@ -541,7 +549,6 @@ num = Numerical(
     max_iterations = sim.max_iter,
     save_every = save_every,
     ϵ = sim.epsilon, 
-    ϵwall = sim.epsilon_wall,
     epsilon_mode = sim.epsilon_mode,
     nLS = phys.nb_levelsets,
     nb_transported_scalars=phys.nb_transported_scalars,
@@ -1104,8 +1111,6 @@ printstyled(color=:green, @sprintf "\n TODO timestep sim.CFL scal, and print \n"
 
 #TODO need to iterate more for potential since phiele=0 initially?
 
-phi_ele=gv.x[1,:] .*0.0
-
 # print("\n linrange ", x[1,:] .*0.0)
 
 # print("\n phi_ele ", phi_ele)
@@ -1114,7 +1119,7 @@ phi_ele=gv.x[1,:] .*0.0
 # eta = phys.phi_ele1 .-phi_ele
 #TODO precision: number of digits
 # i_butler=phys.i0*(exp(phys.alpha_a*phys.Faraday*eta/(phys.Ru*phys.temperature0))-exp(-phys.alpha_c*phys.Faraday*eta/(phys.Ru*phys.temperature0)))
-i_butler=butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_ele,phys.phi_ele1,phys.Ru,phys.temperature0)
+# i_butler=butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_ele,phys.phi_ele1,phys.Ru,phys.temperature0)
 
 print(@sprintf "Butler-Volmer %.2e %.2e %.2e %.2e\n" i_butler[1] -i_butler[1]/(2*phys.Faraday*DH2) c0_H2-i_butler[1]/(2*phys.Faraday*DH2)*gp.dx[1,1] c0_H2+i_butler[1]/(2*phys.Faraday*DH2)*gp.dx[1,1])
 

@@ -652,39 +652,60 @@ def plot_all_fig_func():
 
 
     
+    for file_name in h5_files:
+
+        print(file_name)
+        # Load the HDF5 file
+        with h5py.File(file_name, "r") as file:
+            print(file.keys())
+
+            # data = file['data'][:]
+            try:
+                time = file["time"][()]
+                nstep = file["nstep"][()]
+            except:
+                time = 0
+                nstep = 0 
+                print("time not available")
+
+            print("time", time, "nstep", nstep)
+
+            for figpar in plotpar["figures"]:
+
+                if 'func' in figpar.keys():
+                    func = globals()[figpar['func']] #'plot_current_lines'
+
+                    print(colored(figpar['func'], "cyan"))
+                    
+                else:
+                    func = globals()['plot_file']
 
 
-    for figpar in plotpar["figures"]:
+                key = figpar['var']
 
-        if 'func' in figpar.keys():
-            func = globals()[figpar['func']] #'plot_current_lines'
-        else:
-            func = globals()['plot_file']
+                # print(key)
 
-
-        key = figpar['var']
-
-        time = 0
-        nstep =0
-        
-        func(
-        file,
-        key,
-        xp,
-        yp,
-        xu,
-        yv,
-        yml,
-        mesh,
-        time,
-        nstep,
-        plotpar,
-        figpar=None,
-        mode='close',
-        fig1=None,
-        ax2=None,
-        cbar=None,
-        )
+                time = 0
+                nstep =0
+                
+                func(
+                file,
+                key,
+                xp,
+                yp,
+                xu,
+                yv,
+                yml,
+                mesh,
+                time,
+                nstep,
+                plotpar,
+                figpar=figpar,
+                mode='close',
+                fig1=None,
+                ax2=None,
+                cbar=None,
+                )
 
 
 def plot_all_fig():
@@ -810,7 +831,7 @@ def plot_all_fig():
                 elif figpar["var"] in file.keys():
                     key = figpar["var"]
 
-                    print(key)
+                    # print(key)
 
                     if "_1D" in key:
 
@@ -1197,7 +1218,7 @@ def plot_file(
         y_1D = yp
         key_LS = "levelset_p"
 
-    print(key)
+    # print(key)
     data = file[key][:]
     
     if 'field_index' in figpar.keys():
@@ -2264,6 +2285,7 @@ def python_movie_zoom_func(
         ax2=ax2,
         cbar=cbar,
         )
+        # print('after first',ax2)
 
 
         # Make a colorbar for the ContourSet returned by the contourf call.
@@ -2289,7 +2311,7 @@ def python_movie_zoom_func(
 
             time = file["time"][()]
             nstep = file["nstep"][()]           
-
+            # print('before',ax2)
             fig1,ax2,cbar = func(
             file,
             key,
@@ -2308,6 +2330,9 @@ def python_movie_zoom_func(
             ax2=ax2,
             cbar=cbar,
             )
+            
+            # print('after film',ax2)
+
 
             # if step!=0:
             #     fig1.colorbar(CS,ccax=cbar.ax.ax)
@@ -2410,9 +2435,13 @@ def plot_current_wall(
     # Evs = file["i_current_y"][:].transpose()
 
     concentration = data[1,:]
+    concentration = data[:,1]
+
     
     # phL.i_current_mag[:,1]
-    i_current_mag = file["i_current_mag"][:].transpose()[1,:]
+    # i_current_mag = file["i_current_mag"][:].transpose()[1,:]
+    i_current_mag = file["i_current_mag"][:].transpose()[:,1]
+
 
     data = file["phi_ele_1D"][:]
     field=veci(data,nx,ny,field_index)
@@ -2432,10 +2461,24 @@ def plot_current_wall(
     if figpar == None:
         figpar = plotpar
 
-    if mode == 'film' or mode == 'first':
-        ax2.clear()
+    if mode == 'first':
+        ax20 = ax2
+        ax20.cla()
+        twin1 = ax20.twinx()
+        twin2 = ax20.twinx()
+    elif mode == 'film':
+        # print(ax2)
+        ax20,twin1,twin2 = ax2
+        ax20.cla()        
+        twin1.cla()
+        twin2.cla()
+        # twin1 = ax20.twinx()
+        # twin2 = ax20.twinx()
+
     else:
-        fig1,ax2 = init_fig(plotpar,figpar)
+        fig1,ax20 = init_fig(plotpar,figpar)
+        twin1 = ax20.twinx()
+        twin2 = ax20.twinx()
 
 
 
@@ -2464,26 +2507,25 @@ def plot_current_wall(
     ls2 = eval(figpar['linestyles'][1])
     ls3 = eval(figpar['linestyles'][2])
 
-    twin1 = ax2.twinx()
-    twin2 = ax2.twinx()
+    
 
     # Offset the right spine of twin2.  The ticks and label have already been
     # placed on the right by twinx above.
-    twin2.spines.right.set_position(("axes", 1.2))
+    twin2.spines.right.set_position(("axes", figpar['axis_offset']))
     #colors "C0", "C1", "C2"
 
     # ax2.yaxis.set_major_locator(mticker.FixedLocator(eval(figpar['ticks'][0])))
     # twin1.yaxis.set_major_locator(mticker.FixedLocator(eval(figpar['ticks'][1])))
     # twin2.yaxis.set_major_locator(mticker.FixedLocator(eval(figpar['ticks'][2])))
 
-    p1, = ax2.plot(varx, concentration, colors[1], label=label1,ls=ls)
+    p1, = ax20.plot(varx, concentration, colors[1], label=label1,ls=ls)
     p2, = twin1.plot(varx, overpotential, colors[2], label=label2,ls=ls2)
     p3, = twin2.plot(varx, i_current_mag, colors[3], label=label3,ls=ls3)
 
     tick0 = list(eval(figpar['ticks'][0]))
-    ax2.yaxis.set_major_locator(mticker.FixedLocator(tick0))
+    ax20.yaxis.set_major_locator(mticker.FixedLocator(tick0))
     # ax2.yaxis.set_minor_locator(mticker.FixedLocator(tick0))
-    ax2.yaxis.set_ticks(tick0)
+    ax20.yaxis.set_ticks(tick0)
 
 
     twin1.yaxis.set_major_locator(mticker.FixedLocator(eval(figpar['ticks'][1])))
@@ -2512,50 +2554,91 @@ def plot_current_wall(
 
     # plt.title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
 
-    ax2.set_title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+    ax20.set_title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
 
-    ax2.yaxis.label.set_color(p1.get_color())
+    ax20.yaxis.label.set_color(p1.get_color())
     twin1.yaxis.label.set_color(p2.get_color())
     twin2.yaxis.label.set_color(p3.get_color())
 
-    ax2.tick_params(axis="y", colors=p1.get_color())
-    twin1.tick_params(axis="y", colors=p2.get_color())
-    twin2.tick_params(axis="y", colors=p3.get_color())
+    # ax20.tick_params(axis="y", right = False, colors=p1.get_color())
+    # twin1.tick_params(axis="y", right = True, labelright = True, left = False, labelleft = False, colors=p2.get_color())
+    # twin2.tick_params(axis="y", right = True, labelright = True, left = False, labelleft = False, colors=p3.get_color())
 
     twin1.spines["right"].set_color(p2.get_color())
     twin2.spines["right"].set_color(p3.get_color())
 
+    ax20.set(
+    # xlim=(0, 2),
+    # ylim=(0, 2),
+    xlabel=r"$y ( \unit{\um})$",
+    ylabel=label1)
+    twin1.set(
+        # ylim=(0, 4), 
+    ylabel=label2)
+    twin2.set(
+        # ylim=(1, 65), 
+    ylabel=label3)
+
+    ax20.tick_params(axis="y", right = False, colors=p1.get_color())
+    twin1.tick_params(axis="y", right = True, labelright = True, left = False, labelleft = False, colors=p2.get_color())
+    twin2.tick_params(axis="y", right = True, labelright = True, left = False, labelleft = False, colors=p3.get_color())
+
+    twin1.yaxis.set_label_position("right")
+    twin2.yaxis.set_label_position("right")
+
+    # ax20.set_ylabel(r"$y ( \unit{\um})$")
+    # twin1.set_ylabel(label2,loc='top')
+    # twin2.set_ylabel(label3,loc='top')
+
+    # ax2.yaxis.label.set_color(p1.get_color())
+    # twin1.yaxis.label.set_color(p2.get_color())
+    # twin2.yaxis.label.set_color(p3.get_color())
+
+    # ax2.tick_params(axis="y", colors=p1.get_color())
+    # twin1.tick_params(axis="y", colors=p2.get_color())
+    # twin2.tick_params(axis="y", colors=p3.get_color())
+
+    # twin1.spines["right"].set_color(p2.get_color())
+    # twin2.spines["right"].set_color(p3.get_color())
+
+    if 'plot_legend' in figpar.keys():
+        if parse_is_true(figpar['plot_legend']):
+            fig1.legend(handles=[p1, p2, p3],
+            # loc = "center left",
+            loc = "outside upper left",
+            )
+
     if mode =='first' or mode =='close':
 
-        ax2.set(
-        # xlim=(0, 2),
-        # ylim=(0, 2),
-        xlabel=r"$y ( \unit{\um})$",
-        ylabel=label1)
-        twin1.set(
-            # ylim=(0, 4), 
-        ylabel=label2)
-        twin2.set(
-            # ylim=(1, 65), 
-        ylabel=label3)
+        # ax2.set(
+        # # xlim=(0, 2),
+        # # ylim=(0, 2),
+        # xlabel=r"$y ( \unit{\um})$",
+        # ylabel=label1)
+        # twin1.set(
+        #     # ylim=(0, 4), 
+        # ylabel=label2)
+        # twin2.set(
+        #     # ylim=(1, 65), 
+        # ylabel=label3)
 
-        # ax2.yaxis.label.set_color(p1.get_color())
-        # twin1.yaxis.label.set_color(p2.get_color())
-        # twin2.yaxis.label.set_color(p3.get_color())
+        # # ax2.yaxis.label.set_color(p1.get_color())
+        # # twin1.yaxis.label.set_color(p2.get_color())
+        # # twin2.yaxis.label.set_color(p3.get_color())
 
-        # ax2.tick_params(axis="y", colors=p1.get_color())
-        # twin1.tick_params(axis="y", colors=p2.get_color())
-        # twin2.tick_params(axis="y", colors=p3.get_color())
+        # # ax2.tick_params(axis="y", colors=p1.get_color())
+        # # twin1.tick_params(axis="y", colors=p2.get_color())
+        # # twin2.tick_params(axis="y", colors=p3.get_color())
 
-        # twin1.spines["right"].set_color(p2.get_color())
-        # twin2.spines["right"].set_color(p3.get_color())
+        # # twin1.spines["right"].set_color(p2.get_color())
+        # # twin2.spines["right"].set_color(p3.get_color())
 
-        if 'plot_legend' in figpar.keys():
-            if parse_is_true(figpar['plot_legend']):
-                fig1.legend(handles=[p1, p2, p3],
-                # loc = "center left",
-                loc = "outside upper left",
-                )
+        # if 'plot_legend' in figpar.keys():
+        #     if parse_is_true(figpar['plot_legend']):
+        #         fig1.legend(handles=[p1, p2, p3],
+        #         # loc = "center left",
+        #         loc = "outside upper left",
+        #         )
         
         # ax2.spines["right"].set_visible(False)
         # ax2.spines["top"].set_visible(False)
@@ -2575,8 +2658,16 @@ def plot_current_wall(
         # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'])
         plt.close(fig1)
         return
-
-    return(fig1,ax2,cbar)    
+    
+    if mode == 'first': 
+        ax2list = [ax2,twin1,twin2]
+        # print(mode)
+        # print(ax2list)
+        return(fig1,ax2list,cbar)    
+    else:
+        # print(ax2)
+        # print([ax20,twin1,twin2])
+        return(fig1,ax2,cbar)
 
 
 def plot_bc(iter_list,vec,grid,plotpar,figname,prefix,time):
