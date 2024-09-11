@@ -170,8 +170,11 @@ _θe = acos((0.5 * diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
 radial_vel_factor = 1e-7
 
 # BC 
-i_butler = x[1,:] .*0.0
-phi_ele =  x[1,:] .*0.0
+i_butler = x .*0.0
+phi_ele =  x .*0.0
+
+# print("\n i_butler ", i_butler)
+# print("\n phi_ele ", phi_ele)
 
 
 i_butler=butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_ele,phys.phi_ele1,phys.Ru,phys.temperature0)
@@ -1160,7 +1163,9 @@ else
     time_scheme = CN
 end
 
-@debug "Before run"
+# @debug "Before run"
+# print("\n Before run")
+# print(i_butler./elec_cond," ",size(i_butler./elec_cond),"\n ")
 
 @time current_i=run_forward(
     num, gp, gu, gv, op, phS, phL;
@@ -1197,7 +1202,7 @@ end
     ),
 
     BC_phi_ele = BoundariesInt(
-        left   = Neumann(val=i_butler/elec_cond), #TODO -BC in Flower ? so i_butler not -i_butler
+        left   = Neumann(val=i_butler./elec_cond), #TODO -BC in Flower ? so i_butler not -i_butler
         right  = Dirichlet(),
         bottom = Neumann(val=0.0),
         top    = Neumann(val=0.0),
