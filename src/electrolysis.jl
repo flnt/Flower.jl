@@ -99,6 +99,7 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
     @unpack u, v, uD, vD = ph
 
     printstyled(color=:red, @sprintf "\n levelset: start scalar_transport!\n")
+    print("\n nb_transported_scalars ",nb_transported_scalars)
     println(grid.LS[1].geoL.dcap[1,1,:])
 
     ni = nx * ny
@@ -549,7 +550,7 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
         ####################################################################################################
 
-        if iscal == 1
+        #if iscal == 1
 
             # print("\n test left after A/r L", vecb_T(ph.trans_scalD[:,iscal], grid))
             # print("\n end ", ph.trans_scal[end,:,iscal])
@@ -564,7 +565,7 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         #     # print("\n rhs2 ", maximum(rhs2))
 
 
-        end
+        #end
 
         ####################################################################################################
         # if iscal == 1 
@@ -595,6 +596,7 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
         @views ph.trans_scal[:,:,iscal] .= reshape(veci(ph.trans_scalD[:,iscal],grid,1), grid)
 
+
         # printstyled(color=:cyan, @sprintf "\n after resol\n")
         # print("\n",ph.trans_scal[1,:,iscal])
         # print("\n",reshape(veci(rhs,grid,1), grid)[1,:])
@@ -606,6 +608,11 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         # print(nonzero)
         printstyled(color=:green, @sprintf "\n mean  interface : %.2e\n" mean(nonzero))
 
+        print("\n iscal",iscal," BC ",bc[iscal].left.val)
+
+        print("\n test left", vecb_L(ph.trans_scalD[:,iscal], grid))
+
+        print("\n iscal", iscal, "\n ")
 
 
         if iscal!=3 #H2O consummed at the electrode, would need to make distinction to make sure the decrease in H2O is physical or not
@@ -678,9 +685,9 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
                                 bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1],num,grid,iplot,jplot)
                             end
                             printstyled(color=:red, @sprintf "\n exit 1 error \n" )
-                            @error("exit error")
-
-                            return
+                            @error("TODO exit error")
+                            #return 
+                            #TODO return and redo iteration,
 
                         end
                     end
@@ -1333,6 +1340,8 @@ function init_fields_2!(TD,T,H,BC,grid,dir_val_intfc)
     vec2(TD,grid) .= dir_val_intfc
 
     if is_neumann(BC.left)
+        # printstyled(color=:green, @sprintf "\n init_fields_2! sizes : %.5i : %.5i : %.5i: %.5i \n" size(vecb_L(TD,grid)) size(T[:,1]) size(H[:,1]) size(BC.left.val))
+        
         vecb_L(TD,grid) .= T[:,1] .+ H[:,1] .* BC.left.val
     else
         vecb_L(TD,grid) .= BC.left.val #.* ones(grid.ny)

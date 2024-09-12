@@ -169,9 +169,15 @@ _θe = acos((0.5 * diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
 
 radial_vel_factor = 1e-7
 
+#dummy gp
+gp = Mesh(GridCC, x, y, 1)
+
+
 # BC 
-i_butler = x .*0.0
-phi_ele =  x .*0.0
+i_butler = gp.x[:,1] .*0.0
+phi_ele =  gp.x[:,1] .*0.0
+
+
 
 # print("\n i_butler ", i_butler)
 # print("\n phi_ele ", phi_ele)
@@ -693,7 +699,7 @@ elseif sim.imposed_velocity == "Poiseuille_pressure_only"
     phL.v .= 0.0
     phL.u .= 0.0
     printstyled(color=:red, @sprintf "\n max u %.2e v %.2e p %.2e \n" maximum(phL.u) maximum(phL.v) maximum(phL.p) )
-    print("p_bottom ", p_bottom)
+    print("p_bottom ", p_bottom, "\n")
     print(BC_pL)
 
 elseif sim.imposed_velocity == "zero"
@@ -743,6 +749,28 @@ elseif sim.imposed_velocity == "zero"
     
 #     printstyled(color=:red, @sprintf "\n initialized bulk velocity field %.2e \n" maximum(phL.v))
 end
+
+try
+    if phys.boundary_conditions == "dir"
+        global BC_trans_scal_H2O = BoundariesInt(
+            bottom = Dirichlet(val = phys.concentration0[3]),
+            top    = Neumann(),
+            left   = Neumann(val=i_butler/(phys.Faraday*DH2O)),
+            right  = Dirichlet(val = phys.concentration0[3]),
+            int    = Dirichlet(val = phys.concentration0[3]))
+            print(BC_trans_scal_H2O)
+    end
+catch error
+    printstyled(color=:red, @sprintf "\n not modifying BC \n")
+    # print(error)
+    print(BC_trans_scal_H2O)
+end
+printstyled(color=:red, @sprintf "\n BC H2O\n")
+
+print(BC_trans_scal_H2O)
+print("\n BC ", phys.boundary_conditions,phys.boundary_conditions == "dir")
+
+
 
 
 printstyled(color=:green, @sprintf "\n Initialisation0 \n")

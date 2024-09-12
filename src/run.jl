@@ -290,10 +290,10 @@ function run_forward(
     # print("\n ",vecb_T(phL.vD,grid_v))
 
     ####################################################################################################
-
-    init_fields_2!(phS.TD,phS.T,HS,BC_TS,grid,θd)
-    init_fields_2!(phL.TD,phL.T,HL,BC_TL,grid,θd)
-
+    if heat
+        init_fields_2!(phS.TD,phS.T,HS,BC_TS,grid,θd)
+        init_fields_2!(phL.TD,phL.T,HL,BC_TL,grid,θd)
+    end
 
     ####################################################################################################
     #Electrolysis

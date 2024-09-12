@@ -1350,7 +1350,7 @@ def plot_file(
 
     # plt.title("t "+str_time +r"$(\unit{s})$")
 
-    ax2.set_title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+    ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
 
     if mode =='first' or mode =='close':
         ax2.spines["right"].set_visible(False)
@@ -1433,7 +1433,7 @@ def plot_vector(file,
     if parse_is_true(figpar['quiverkey']):
         v_inlet = float(yml['flower']['physics']['v_inlet'])
 
-        # textquiver = "$\SI{{{0:.2e}}}".format(v_inlet)
+        # textquiver = "$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(v_inlet)
         # textquiver += '{m/s}'
         # textquiver += '$'
         # textquiver = r''+textquiver
@@ -1444,9 +1444,9 @@ def plot_vector(file,
             figpar['quiver_x'],
             figpar['quiver_y'],
             v_inlet,
-            # r"$\SI{{{0:.2e}}}{{}}$".format(v_inlet,'m/s'),
+            # r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}{{}}$".format(v_inlet,'m/s'),
             # textquiver,
-            r"$\SI{{{0:.2e}}}".format(v_inlet)+'{'+figpar['quiver_unit']+'}$',
+            r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(v_inlet)+'{'+figpar['quiver_unit']+'}$',
             labelpos="E",
             coordinates="figure",
         )
@@ -1463,7 +1463,7 @@ def plot_vector(file,
     # str_time = '{:.2e}'.format(time/plotpar['scale_time'])
     # plt.title("t "+str_time +r"$(\unit{s})$")
 
-    ax2.set_title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+    ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
 
     if mode =='first' or mode =='close':
         ax2.spines["right"].set_visible(False)
@@ -1975,7 +1975,7 @@ def plot_python_pdf_full2(
 
    
 
-    ax2.set_title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+    ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
 
 
    
@@ -2434,10 +2434,16 @@ def plot_current_wall(
     # Eus = file["i_current_x"][:].transpose()
     # Evs = file["i_current_y"][:].transpose()
 
-    concentration = data[1,:]
-    concentration = data[:,1]
+    #concentration = data[1,:]
+    concentration0 = data[:,1]
 
-    
+    tick0 = list(eval(figpar['ticks'][0]))
+    cutoff = 0
+    cutoff = tick0[0]
+    concentration = np.ma.masked_where(concentration0 <=cutoff, concentration0)
+
+    print("min",min(concentration),min(concentration0))
+
     # phL.i_current_mag[:,1]
     # i_current_mag = file["i_current_mag"][:].transpose()[1,:]
     i_current_mag = file["i_current_mag"][:].transpose()[:,1]
@@ -2522,6 +2528,8 @@ def plot_current_wall(
     p2, = twin1.plot(varx, overpotential, colors[2], label=label2,ls=ls2)
     p3, = twin2.plot(varx, i_current_mag, colors[3], label=label3,ls=ls3)
 
+    #ax20.set_yscale("symlog")
+
     tick0 = list(eval(figpar['ticks'][0]))
     ax20.yaxis.set_major_locator(mticker.FixedLocator(tick0))
     # ax2.yaxis.set_minor_locator(mticker.FixedLocator(tick0))
@@ -2534,6 +2542,8 @@ def plot_current_wall(
     twin2.yaxis.set_major_locator(mticker.FixedLocator(eval(figpar['ticks'][2])))
 
     twin2.yaxis.set_ticks(eval(figpar['ticks'][2]))
+
+    #print('ticks', figpar['ticks'][0])
 
     # ax2.yaxis.set_ticks(mticker.FixedLocator(eval(figpar['ticks'][0])))
     # twin1.yaxis.set_ticks(mticker.FixedLocator(eval(figpar['ticks'][1])))
@@ -2552,9 +2562,9 @@ def plot_current_wall(
     # ax.xaxis.set_major_formatter(ticker.FixedFormatter(labels))
     
 
-    # plt.title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+    # plt.title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
 
-    ax20.set_title('Time '+r"$\SI{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+    ax20.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
 
     ax20.yaxis.label.set_color(p1.get_color())
     twin1.yaxis.label.set_color(p2.get_color())
