@@ -124,7 +124,7 @@ plot:
         quiverkey: True 
         quiver_unit: m/s #given value v_inlet
         quiver_x: 0.7
-        quiver_y: 0.97
+        quiver_y: 0.05
         linewidth: 1
         linestyle: 'dotted'
 
@@ -491,7 +491,7 @@ plot:
         quiverkey: True 
         quiver_unit: m/s #given value v_inlet
         quiver_x: 0.7
-        quiver_y: 0.97
+        quiver_y: 0.05
         linewidth: 1
         linestyle: 'dotted'
 

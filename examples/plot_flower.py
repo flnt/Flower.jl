@@ -376,7 +376,7 @@ def plot_radius_from_h5():
 
             print(df)
 
-            plot_radius_from_pandas(df,figpar)
+            plot_radius_from_pandas(df,figpar,plotpar)
 
 
 def plot_radius_from_pkl():
@@ -391,7 +391,7 @@ def plot_radius_from_pkl():
     plot_radius_from_pandas(df)
 
 
-def plot_radius_from_pandas(df,figpar):
+def plot_radius_from_pandas(df,figpar,plotpar):
     """
     Plot radius pandas DF, with slope
     """
@@ -1465,12 +1465,15 @@ def plot_vector(file,
 
     ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
 
+    ax2.set_xlabel(r"$x ( \unit{\um})$")
+    ax2.set_ylabel(r"$y ( \unit{\um})$")
+
     if mode =='first' or mode =='close':
         ax2.spines["right"].set_visible(False)
         ax2.spines["top"].set_visible(False)
 
-        ax2.set_xlabel(r"$x ( \unit{\um})$")
-        ax2.set_ylabel(r"$y ( \unit{\um})$")
+        # ax2.set_xlabel(r"$x ( \unit{\um})$")
+        # ax2.set_ylabel(r"$y ( \unit{\um})$")
 
         ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
         ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
