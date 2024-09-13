@@ -54,16 +54,21 @@ radial_vel_factor = 1e-7
 
 pressure_channel = false
 
+ns_advection=(sim.ns_advection ==1)
 
+print("\n ns_advection ",ns_advection," ",sim.ns_advection)
+
+#TODO restart with PDI
 
 if sim.name == "falling_drop"
     L0x = 4.0
     L0y = 6.0
-    n = 96+1
     
+    n=-1000
+
     y0 = 2.25
     
-    x = collect(LinRange(-L0x / 2, L0x / 2, n + 1))
+    x = collect(LinRange(-L0x / 2, L0x / 2, mesh.nx+1))
     dx = diff(x)[1]
     y = collect(-L0y/2:dx:L0y/2+dx)
 
@@ -592,7 +597,7 @@ num = Numerical(
     pres0=phys.pres0,
     g = phys.g,
     β = phys.beta,
-    σ=phys.sigma,   
+    σ = phys.sigma,   
     reinit_every = sim.reinit_every,
     nb_reinit = sim.nb_reinit,
     δreinit = sim.delta_reinit,
@@ -608,7 +613,8 @@ num = Numerical(
     prediction = sim.prediction,
     null_space = sim.null_space,
     io_pdi = io.pdi,
-    bulk_conductivity = sim.bulk_conductivity
+    bulk_conductivity = sim.bulk_conductivity,
+    electric_potential = sim.electric_potential,
     )
 
 @debug "After Numerical"
@@ -813,7 +819,6 @@ catch error
     # print(error)
     print(BC_trans_scal_H2O)
 end
-printstyled(color=:red, @sprintf "\n BC H2O\n")
 
 printstyled(color=:green, @sprintf "\n Initialisation0 \n")
 
@@ -864,114 +869,13 @@ phS.vD .= 0.0
 phS.uD .= 0.0
 
 
-
-#PDI attempt (IO)
-
-
-# if io.pdi>0
-#     try
-#         @debug "Before PDI init"
-    
-#         # using MPI
-#         MPI.Init()
-    
-#         comm = MPI.COMM_WORLD
-
-#         print(comm)
-    
-#         @debug "after MPI.Init"
-    
-#         yml_file = yamlfile
-    
-#         # print("\n yml_file ",yml_file)
-    
-#         # Version: julia +1.10.4
-    
-#         conf = @ccall "libparaconf".PC_parse_path(yml_file::Cstring)::PC_tree_t
-    
-#         @debug "after conf"
-    
-#         getsubyml = @ccall "libparaconf".PC_get(conf::PC_tree_t,".pdi"::Cstring)::PC_tree_t  
-    
-#         @debug "after getsubyml"
-    
-    
-#         # print("\n getsubyml ",getsubyml)
-    
-#         # @ccall "libpdidummy".PDI_init(getsubyml::PC_tree_t)::Cvoid
-#         pdi_status = @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cint
-    
-#         print("\n pdi_status ",pdi_status)
-    
-    
-#         # print(getsubyml)
-#         # pdi_status = @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cint
-    
-#         @debug "after PDI_init"
-    
-    
-#         # print("\n PDI_init ")
-    
-#         # @ccall "libpdi".PDI_init(conf::PC_tree_t)::Cvoid
-    
-#         # #python event to plot
-#         # @ccall "libpdi".PDI_event("testing"::Cstring)::Cvoid
-    
-#         # Send meta-data to PDI
-#         mpi_coords_x = 1
-#         mpi_coords_y = 1
-#         mpi_max_coords_x = 1
-#         mpi_max_coords_y = 1
-    
-#         nx=gp.nx
-#         ny=gp.ny
-    
-#         #TODO check Clonglong ...
-    
-#         PDI_status = @ccall "libpdi".PDI_multi_expose("init_PDI"::Cstring, 
-#                 "mpi_coords_x"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
-#                 "mpi_coords_y"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
-#                 "mpi_max_coords_x"::Cstring, mpi_max_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
-#                 "mpi_max_coords_y"::Cstring, mpi_max_coords_y::Ref{Clonglong}, PDI_OUT::Cint,
-#                 "nx"::Cstring, nx::Ref{Clonglong}, PDI_OUT::Cint,
-#                 "ny"::Cstring, ny::Ref{Clonglong}, PDI_OUT::Cint,
-#                 "nb_transported_scalars"::Cstring, phys.nb_transported_scalars::Ref{Clonglong}, PDI_OUT::Cint,
-#                 "nb_levelsets"::Cstring, phys.nb_levelsets::Ref{Clonglong}, PDI_OUT::Cint,
-#                 C_NULL::Ptr{Cvoid})::Cint
-    
-#         @debug "after PDI_multi_expose"
-    
-#         # time = 0.0
-#         # nstep = 0
-#         # pdi_array =zeros(nx,ny)
-    
-#         # for j in 1:gp.ny
-#         #     for i in 1:gp.nx
-#         #         pdi_array[j,i]=1000*i+j
-#         #     end
-#         # end
-    
-#         # print("\n before write \n ")
-    
-#         # @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
-#         #             "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
-#         #             "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
-#         #             "main_field"::Cstring, pdi_array::Ptr{Cdouble}, 
-#         #             PDI_OUT::Cint,
-#         #             C_NULL::Ptr{Cvoid})::Cvoid
-    
-#         # print("\n after write \n ")
-    
-#         # @ccall "libpdi".PDI_finalize()::Cvoid
-    
-#         # printstyled(color=:red, @sprintf "\n PDI test end\n" )
-
-#     catch error
-#         printstyled(color=:red, @sprintf "\n PDI error \n")
-#         print(error)
+#Test array order Julia ->PDI
+# for j in 1:gp.ny
+#     for i in 1:gp.nx
+#         pdi_array[j,i]=1000*i+j
 #     end
-   
-# end #if io_pdi
+# end
+    
 
 @debug "Before PDI init"
     
@@ -1194,17 +1098,8 @@ printstyled(color=:green, @sprintf "\n TODO timestep sim.CFL scal, and print \n"
 # i_butler=phys.i0*(exp(phys.alpha_a*phys.Faraday*eta/(phys.Ru*phys.temperature0))-exp(-phys.alpha_c*phys.Faraday*eta/(phys.Ru*phys.temperature0)))
 # i_butler=butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_ele,phys.phi_ele1,phys.Ru,phys.temperature0)
 
-print(@sprintf "Butler-Volmer %.2e %.2e %.2e %.2e\n" i_butler[1] -i_butler[1]/(2*phys.Faraday*DH2) c0_H2-i_butler[1]/(2*phys.Faraday*DH2)*gp.dx[1,1] c0_H2+i_butler[1]/(2*phys.Faraday*DH2)*gp.dx[1,1])
 
 
-
-
-BC_u = Boundaries(
-    bottom = Neumann_inh(),
-    top = Neumann_inh(),
-    left = Neumann_cl(θe = _θe * π / 180),
-    right = Neumann_inh()
-)
 
 BC_uS = Boundaries(
     left   = Dirichlet(),
@@ -1238,12 +1133,35 @@ end
 # print(i_butler./elec_cond," ",size(i_butler./elec_cond),"\n ")
 if sim.name == "falling_drop"
     BC_trans_scal = ()
+    BC_phi_ele = ()
 else
     BC_trans_scal = (
-            BC_trans_scal_H2, #H2
-            BC_trans_scal_KOH, #KOH
-            BC_trans_scal_H2O, #H2O       
-        )
+        BC_trans_scal_H2, #H2
+        BC_trans_scal_KOH, #KOH
+        BC_trans_scal_H2O, #H2O       
+    )
+
+    BC_phi_ele = BoundariesInt(
+        left   = Neumann(val=i_butler./elec_cond), #TODO -BC in Flower ? so i_butler not -i_butler
+        right  = Dirichlet(),
+        bottom = Neumann(val=0.0),
+        top    = Neumann(val=0.0),
+        int    = Neumann(val=0.0),
+    )
+    
+    BC_int = [WallNoSlip()] #[FreeSurface()]
+
+
+      # left = Dirichlet(val=phys.pres0),
+    # right = Dirichlet(val=phys.pres0),
+
+    # BC_u = Boundaries(
+    #     bottom = Neumann_inh(),
+    #     top = Neumann_inh(),
+    #     left = Neumann_cl(θe = _θe * π / 180),
+    #     right = Neumann_inh()
+    # )
+    BC_u=()
 end
 
 @time current_i=run_forward(
@@ -1259,12 +1177,11 @@ end
     BC_vS=BC_vS,
     BC_pL = BC_pL,
     BC_pS=BC_pS,
-    # left = Dirichlet(val=phys.pres0),
-    # right = Dirichlet(val=phys.pres0),
+  
 
-    # BC_u = BC_u,
-    # BC_int = [FreeSurface()],
-    BC_int = [WallNoSlip()],
+    BC_u = BC_u,
+
+    BC_int = BC_int,
 
 
     # BC_TL  = Boundaries(
@@ -1279,20 +1196,13 @@ end
     #     BC_trans_scal_KOH, #KOH
     #     BC_trans_scal_H2O, #H2O       
     # ),
-
-    BC_phi_ele = BoundariesInt(
-        left   = Neumann(val=i_butler./elec_cond), #TODO -BC in Flower ? so i_butler not -i_butler
-        right  = Dirichlet(),
-        bottom = Neumann(val=0.0),
-        top    = Neumann(val=0.0),
-        int    = Neumann(val=0.0),
-    ),
+    BC_phi_ele = BC_phi_ele,
     auto_reinit = sim.auto_reinit,
     # save_length = true,
     time_scheme = time_scheme,
     electrolysis = true,
     navier_stokes = true,
-    ns_advection=true,#false,
+    ns_advection = ns_advection,
     ns_liquid_phase = true,
     verbose = true,
     show_every = sim.show_every,

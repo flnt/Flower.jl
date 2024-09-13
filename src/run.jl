@@ -94,7 +94,6 @@ function run_forward(
     end
 
     if electrolysis
-        electric_potential = true 
         electrolysis_advection = true
    
     end
@@ -158,31 +157,32 @@ function run_forward(
     current_radius = 0.0
     # TODO kill_dead_cells! for [:,:,iscal]
     if electrolysis
-        current_radius = num.R
+        
+        if electrolysis_phase_change_case != "none"
+            current_radius = num.R
 
-        printstyled(color=:green, @sprintf "\n radius: %.2e \n" current_radius)
+            printstyled(color=:green, @sprintf "\n radius: %.2e \n" current_radius)
 
+            p_liq= num.pres0 + mean(veci(phL.pD,grid,2)) #TODO here one bubble
+            p_g=p_liq + 2 * num.σ / current_radius
 
-        p_liq= num.pres0 + mean(veci(phL.pD,grid,2)) #TODO here one bubble
-        p_g=p_liq + 2 * num.σ / current_radius
+            #TODO using temperature0
+            if mode_2d==0
+                nH2 = p_g * 4.0 / 3.0 * pi * current_radius ^ 3 / (temperature0 * num.Ru) 
+            elseif mode_2d == 1 #reference thickness for a cylinder
+                nH2 = p_g * pi * current_radius ^ 2 * num.ref_thickness_2d / (temperature0 * num.Ru) 
+            elseif mode_2d==2 #mol/meter
+                nH2=concentration0[1]* pi * current_radius ^ 2
+            elseif mode_2d==3 #mol/meter half circle
+                nH2=1.0/2.0*concentration0[1]* pi * current_radius ^ 2
+            end
+            # nH2 = 4.0/3.0 * pi * current_radius^3 * num.rho2 / num.MWH2
 
-        #TODO using temperature0
-        if mode_2d==0
-            nH2 = p_g * 4.0 / 3.0 * pi * current_radius ^ 3 / (temperature0 * num.Ru) 
-        elseif mode_2d == 1 #reference thickness for a cylinder
-            nH2 = p_g * pi * current_radius ^ 2 * num.ref_thickness_2d / (temperature0 * num.Ru) 
-        elseif mode_2d==2 #mol/meter
-            nH2=concentration0[1]* pi * current_radius ^ 2
-        elseif mode_2d==3 #mol/meter half circle
-            nH2=1.0/2.0*concentration0[1]* pi * current_radius ^ 2
+            printstyled(color=:green, @sprintf "\n Mole: %.2e \n" nH2)
+
+            printstyled(color=:green, @sprintf "\n Mole test: %.2e %.2e\n" concentration0[1]*4.0/3.0*pi*current_radius^3 p_g*4.0/3.0*pi*current_radius^3/(temperature0*num.Ru))
+
         end
-        # nH2 = 4.0/3.0 * pi * current_radius^3 * num.rho2 / num.MWH2
-
-        printstyled(color=:green, @sprintf "\n Mole: %.2e \n" nH2)
-
-        printstyled(color=:green, @sprintf "\n Mole test: %.2e %.2e\n" concentration0[1]*4.0/3.0*pi*current_radius^3 p_g*4.0/3.0*pi*current_radius^3/(temperature0*num.Ru))
-
-
 
     end     
     ####################################################################################################
@@ -340,9 +340,10 @@ function run_forward(
         # vec2(phL.phi_eleD,grid) .= phi_ele0 #TODO
         # init_borders!(phL.phi_eleD, grid, BC_phi_ele, phi_ele0)
 
-        init_fields_2!(phS.phi_eleD,phS.phi_ele,HS,BC_phi_ele,grid,phi_ele0) #
-        init_fields_2!(phL.phi_eleD,phL.phi_ele,HL,BC_phi_ele,grid,phi_ele0)
-
+        if num.electric_potential == 1
+            init_fields_2!(phS.phi_eleD,phS.phi_ele,HS,BC_phi_ele,grid,phi_ele0) #
+            init_fields_2!(phL.phi_eleD,phL.phi_ele,HL,BC_phi_ele,grid,phi_ele0)
+        end
         # @views fwdS.phi_eleD[1,:] .= phS.phi_eleD
         # @views fwdL.phi_eleD[1,:] .= phL.phi_eleD
     end  
@@ -977,102 +978,107 @@ function run_forward(
                 end #imposed_velocity
 
                 
+                if nb_transported_scalars>0
+
+                    printstyled(color=:magenta, @sprintf "\n nb_transported_scalars %.5i " nb_transported_scalars)
 
 
-                for iscal=1:nb_transported_scalars
-                    @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL,0.0) 
-                    # @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL,concentration0[iscal]) 
-                    @views veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
+                    for iscal=1:nb_transported_scalars
+                        @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL,0.0) 
+                        # @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, LS[1].geoL,concentration0[iscal]) 
+                        @views veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
 
-                    if electrolysis_reaction == "Butler_no_concentration"
+                        if electrolysis_reaction == "Butler_no_concentration"
 
 
-                        BC_trans_scal[iscal].left.val = i_butler./(2*Faraday*diffusion_coeff[iscal])
+                            BC_trans_scal[iscal].left.val = i_butler./(2*Faraday*diffusion_coeff[iscal])
 
-                        # printstyled(color=:red, @sprintf "\n Butler deactivated \n")
-                        # if iscal==1 || iscal==2
-                        #     BC_trans_scal[iscal].left.val = i_butler./(2*Faraday*diffusion_coeff[iscal])
-                        # end
+                            # printstyled(color=:red, @sprintf "\n Butler deactivated \n")
+                            # if iscal==1 || iscal==2
+                            #     BC_trans_scal[iscal].left.val = i_butler./(2*Faraday*diffusion_coeff[iscal])
+                            # end
 
-                        if iscal==1 || iscal==2
-                            BC_trans_scal[iscal].left.val .*=-1 #H2O consummed
+                            if iscal==1 || iscal==2
+                                BC_trans_scal[iscal].left.val .*=-1 #H2O consummed
+                            end
+                            # print("\n")
+                            # print("\n left BC ", BC_trans_scal[iscal].left.val)
+
+                            # for testn in 1:ny
+                            #     printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i border %.5e\n" testn ny-testn+1 vecb_L(phL.trans_scalD[:,iscal], grid)[testn])
+                            # end
+
                         end
-                        # print("\n")
-                        # print("\n left BC ", BC_trans_scal[iscal].left.val)
-
-                        # for testn in 1:ny
-                        #     printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i border %.5e\n" testn ny-testn+1 vecb_L(phL.trans_scalD[:,iscal], grid)[testn])
-                        # end
-
-                    end
-                end
-
-                #TODO convection_Cdivu BC divergence
-                #TODO check nb_transported_scalars>1
-
-                if ((num.current_i-1)%show_every == 0) 
-                    printstyled(color=:cyan, @sprintf "\n before scalar transport \n")
-                    print_electrolysis_statistics(nb_transported_scalars,grid,phL)
-                end
-             
-                # printstyled(color=:red, @sprintf "\n levelset: before scalar_transport\n")
-                # println(grid.LS[1].geoL.dcap[1,1,:])
-
-                if electrolysis_advection
-
-                   # if imposed_velocity == "zero" && num.current_i ==16
-                    #    num.ϵwall = 0.0
-                     #   print("\n changed eps wall")
-                   # end
-                    #printstyled(color=:cyan, @sprintf "\n epsilon %.2e %.2e \n" num.ϵ num.ϵwall )
-
-
-                    update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
-                end
-                scalar_transport!(BC_trans_scal, num, grid, opC_TL, LS[1].geoL, phL, concentration0,
-                LS[1].MIXED, LS[1].geoL.projection, opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
-                periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff,convection_Cdivu)
-
-            
-
-                # scalar_transport_2!(BC_trans_scal, num, grid, opC_TL, LS[1].geoL, phL, concentration0,
-                # LS[1].MIXED, LS[1].geoL.projection, opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
-                # periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff,convection_Cdivu)
-
-                if ((num.current_i-1)%show_every == 0) 
-                    printstyled(color=:cyan, @sprintf "\n after scalar transport \n")
-                    print_electrolysis_statistics(nb_transported_scalars,grid,phL)
-                end
-
-                if imposed_velocity != "none" && num.debug== "scalar_testing"
-                    scal_error=0.0
-                    for iscal in 1:nb_transported_scalars
-
-                        # print("\n maximum ",maximum(phL.trans_scalD[:,iscal]), )
-                        # printstyled(color=:cyan, @sprintf "\n error after scalar transport max %.2e min %.2e\n" maximum(phL.trans_scalD[:,iscal]) minimum(phL.trans_scalD[:,iscal]))
-
-                        scal_error_bulk = maximum(abs.(phL.trans_scal[:,:,iscal].-concentration0[iscal])./concentration0[iscal])
-                        scal_error_border = maximum(abs.(vecb(phL.trans_scalD[:,iscal],grid).-concentration0[iscal])./concentration0[iscal])
-                        scal_error = max(scal_error_bulk,scal_error_border,scal_error)
-
                     end
 
-                    printstyled(color=:cyan, @sprintf "\n error after scalar transport %.2e CFL %.2e\n" scal_error num.v_inlet*num.dt0/grid.dx[1,1])
+                    #TODO convection_Cdivu BC divergence
+                    #TODO check nb_transported_scalars>1
 
-                    # printstyled(color=:red, @sprintf "\n Poiseuille \n")
+                    if ((num.current_i-1)%show_every == 0) 
+                        printstyled(color=:cyan, @sprintf "\n before scalar transport \n")
+                        print_electrolysis_statistics(nb_transported_scalars,grid,phL)
+                    end
+                
+                    # printstyled(color=:red, @sprintf "\n levelset: before scalar_transport\n")
+                    # println(grid.LS[1].geoL.dcap[1,1,:])
 
-                    # # Check the velocity field before the scalar transport
-                    # test_Poiseuille(num,phL.vD,grid_v)
+                    if electrolysis_advection
 
-                    # printstyled(color=:cyan, @sprintf "\n pressure min %.2e max %.2e\n" minimum(phL.p[1,:]) maximum(phL.p[1,:]))
+                    # if imposed_velocity == "zero" && num.current_i ==16
+                        #    num.ϵwall = 0.0
+                        #   print("\n changed eps wall")
+                    # end
+                        #printstyled(color=:cyan, @sprintf "\n epsilon %.2e %.2e \n" num.ϵ num.ϵwall )
 
-                    # printstyled(color=:cyan, @sprintf "\n pressure min %.2e max %.2e\n" minimum(phL.p[end,:]) maximum(phL.p[end,:]))
+                        update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
+                    end
 
-                    # printstyled(color=:cyan, @sprintf "\n pressure min %.2e max %.2e\n" BC_pL.bottom.val BC_pL.top.val )
+                    scalar_transport!(BC_trans_scal, num, grid, opC_TL, LS[1].geoL, phL, concentration0,
+                    LS[1].MIXED, LS[1].geoL.projection, opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
+                    periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff,convection_Cdivu)
 
-                    # compute_grad_p!(num,grid, grid_u, grid_v, phL.pD, opC_pL, opC_uL, opC_vL)
+                
 
-                end
+                    # scalar_transport_2!(BC_trans_scal, num, grid, opC_TL, LS[1].geoL, phL, concentration0,
+                    # LS[1].MIXED, LS[1].geoL.projection, opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
+                    # periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff,convection_Cdivu)
+
+                    if ((num.current_i-1)%show_every == 0) 
+                        printstyled(color=:cyan, @sprintf "\n after scalar transport \n")
+                        print_electrolysis_statistics(nb_transported_scalars,grid,phL)
+                    end
+
+                    if imposed_velocity != "none" && num.debug== "scalar_testing"
+                        scal_error=0.0
+                        for iscal in 1:nb_transported_scalars
+
+                            # print("\n maximum ",maximum(phL.trans_scalD[:,iscal]), )
+                            # printstyled(color=:cyan, @sprintf "\n error after scalar transport max %.2e min %.2e\n" maximum(phL.trans_scalD[:,iscal]) minimum(phL.trans_scalD[:,iscal]))
+
+                            scal_error_bulk = maximum(abs.(phL.trans_scal[:,:,iscal].-concentration0[iscal])./concentration0[iscal])
+                            scal_error_border = maximum(abs.(vecb(phL.trans_scalD[:,iscal],grid).-concentration0[iscal])./concentration0[iscal])
+                            scal_error = max(scal_error_bulk,scal_error_border,scal_error)
+
+                        end
+
+                        printstyled(color=:cyan, @sprintf "\n error after scalar transport %.2e CFL %.2e\n" scal_error num.v_inlet*num.dt0/grid.dx[1,1])
+
+                        # printstyled(color=:red, @sprintf "\n Poiseuille \n")
+
+                        # # Check the velocity field before the scalar transport
+                        # test_Poiseuille(num,phL.vD,grid_v)
+
+                        # printstyled(color=:cyan, @sprintf "\n pressure min %.2e max %.2e\n" minimum(phL.p[1,:]) maximum(phL.p[1,:]))
+
+                        # printstyled(color=:cyan, @sprintf "\n pressure min %.2e max %.2e\n" minimum(phL.p[end,:]) maximum(phL.p[end,:]))
+
+                        # printstyled(color=:cyan, @sprintf "\n pressure min %.2e max %.2e\n" BC_pL.bottom.val BC_pL.top.val )
+
+                        # compute_grad_p!(num,grid, grid_u, grid_v, phL.pD, opC_pL, opC_uL, opC_vL)
+
+                    end
+
+                end #nb_transported_scalars>0
 
                 # if imposed_velocity =="none"
                 #     printstyled(color=:red, @sprintf "\n after scalar transport \n")
@@ -1304,7 +1310,7 @@ function run_forward(
                 ####################################################################################################
                 #Electrolysis: Poisson
                 ####################################################################################################  
-                if electric_potential
+                if num.electric_potential == 1
                     #electroneutrality assumption
 
                     a0_p = [] 

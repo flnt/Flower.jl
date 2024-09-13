@@ -37,7 +37,8 @@ import Base.reshape
 # @reexport using MPI
 @reexport using PropertyDicts
 @reexport using PrettyTables
-
+# @reexport using Polynomials
+@reexport using Peaks
 
 
 # #Long version

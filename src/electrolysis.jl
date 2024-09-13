@@ -91,7 +91,7 @@ scalar transport (convection and diffusion)
 function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, projection,
     op_conv, grid_u, geo_u, grid_v, geo_v,
     periodic_x, periodic_y, convection, ls_advection, BC_int, diffusion_coeff, convection_Cdivu)
-    @unpack τ, aniso, nb_transported_scalars,nb_saved_scalars = num
+    @unpack τ, aniso, nb_transported_scalars = num
     @unpack nx, ny, dx, dy, ind, LS  = grid
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
     @unpack Bx, By, BxT, ByT, Hx, Hy, HxT, HyT, M, iMx, iMy, χ = op
@@ -2153,6 +2153,11 @@ function test_LS(grid)
     if maximum(grid.LS[iLS].u) < 0.0
         @error("LS initialization")
     end
+
+    if minLS*maxLS < 0.0
+        @error("No interface")
+    end
+    
 end
 
 

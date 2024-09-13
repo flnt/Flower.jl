@@ -88,6 +88,7 @@ abstract type AbstractOptimizer end
     null_space::D=0
     io_pdi::D=0
     bulk_conductivity::D=0
+    electric_potential::D = 0 #solve electric potential
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
