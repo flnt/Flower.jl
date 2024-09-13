@@ -56,7 +56,7 @@ pressure_channel = false
 
 ns_advection=(sim.ns_advection ==1)
 
-print("\n ns_advection ",ns_advection," ",sim.ns_advection)
+# print("\n ns_advection ",ns_advection," ",sim.ns_advection)
 
 #TODO restart with PDI
 
@@ -65,15 +65,18 @@ if sim.name == "falling_drop"
     L0y = 6.0
     
     n=-1000
-
-    y0 = 2.25
     
-    x = collect(LinRange(-L0x / 2, L0x / 2, mesh.nx+1))
+    # x = collect(LinRange(-L0x / 2, L0x / 2, mesh.nx+1))
+    x = LinRange(mesh.xmin, mesh.xmax, mesh.nx+1)
+
     dx = diff(x)[1]
     y = collect(-L0y/2:dx:L0y/2+dx)
 
     # print("\n x", x)
     # print("\n y", y)
+
+    # print("\n size x", size(x))
+    # print("\n size y", size(y))
 
     θe = 90
     θe2 = 135
@@ -627,9 +630,9 @@ op, phS, phL = init_fields(num, gp, gu, gv)
 
 if sim.name == "falling_drop"
 
-    r = 0.5
-    gp.LS[1].u .= sqrt.(gp.x.^2 + (gp.y .- y0).^2) - r * ones(gp)
-    gp.LS[1].u .*= -1.0
+    # r = 0.5
+    # gp.LS[1].u .= sqrt.(gp.x.^2 + (gp.y .- y0).^2) - r * ones(gp)
+    # gp.LS[1].u .*= -1.0
 
     wall_shape = (
         A[1] .* cos.(2π .* gp.x) .+ A[2] .* sin.(2π .* gp.x) .+
@@ -1028,6 +1031,7 @@ if sim.activate_interface == 1
 
     gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
   
+    #modify velocity field near interface
     su = sqrt.((gv.x .- phys.intfc_x).^2 .+ (gv.y .- phys.intfc_y).^2)
     R1 = phys.radius + 3.0*num.Δ
 
@@ -1039,6 +1043,7 @@ if sim.activate_interface == 1
         #     uL[II] = tanh(bl*(su[II]-R1))
         end
     end
+
 else
     gp.LS[1].u .= 1.0
 end
@@ -1164,6 +1169,69 @@ else
     BC_u=()
 end
 
+
+if num.io_pdi>0
+
+    try
+        # printstyled(color=:red, @sprintf "\n PDI test \n" )
+
+        time = 0.0 #Cdouble
+        nstep = num.current_i
+   
+        # phi_array=phL.phi_ele #do not transpose since python row major
+        
+        # compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+
+        # Eus,Evs = interpolate_grid_liquid(grid,grid_u,grid_v,phL.Eu, phL.Ev)
+
+        # us,vs = interpolate_grid_liquid(grid,grid_u,grid_v,phL.u,phL.v)
+
+        # print("\n before write \n ")
+
+
+        #TODO "levelset_p_tot"::Cstring, gp.LS[2].u::Ptr{Cdouble}, PDI_OUT::Cint,
+
+
+        iLSpdi = 1 # all LS iLS = 1 # or all LS ?
+
+        # Exposing data to PDI for IO    
+        # if writing "D" array (bulk, interface, border), add "_1D" to the name
+        
+        printstyled(color=:magenta, @sprintf "\n PDI write_data_start_loop %.5i \n" num.current_i)
+
+        PDI_status = @ccall "libpdi".PDI_multi_expose("write_initialization"::Cstring,
+        "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+        "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+        "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "levelset_p"::Cstring, gp.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        "levelset_u"::Cstring, gu.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        "levelset_v"::Cstring, gv.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        "levelset_p_wall"::Cstring, gp.LS[2].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+        # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+        # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+        # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+        # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+        # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+        # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+        # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
+        # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
+
+    catch error
+        printstyled(color=:red, @sprintf "\n PDI error \n")
+        print(error)
+        printstyled(color=:red, @sprintf "\n PDI error \n")
+    end
+
+end #if io_pdi
+
 @time current_i=run_forward(
     num, gp, gu, gv, op, phS, phL;
     BC_uL = Boundaries(
@@ -1241,71 +1309,6 @@ printstyled(color=:green, @sprintf "\n max abs(u) : %.2e max abs(v)%.2e\n" maxim
 
 
 #Attention = vs copy
-
-
-
-if io.write_h5>0
-    #test HDF5
-    print("\n current_i ", current_i)
-    current_i = 2
-    striter = @sprintf "%.5i" current_i
-
-
-    filename="Mx"
-    file = prefix*filename*"_"*striter*".h5"
-    A = zeros(gv.ny, gv.nx+1)
-    for jplot in 1:gv.ny
-        for iplot in 1:gv.nx+1
-        II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-        pII = lexicographic(II, gp.ny + 1)
-        A[jplot,iplot] =  1 ./ op.opC_vL.iMx.diag[pII]
-        end
-    end
-
-
-    print("\n size A ",size(A))
-    # from_jl_p =  PermutedDimsArray(A, (2,1))
-    # print("\n A ", A )
-    # hf = h5write(file, "data", A)
-    # A=transpose(A)
-    hf = h5write2(file, "data", A,"w")
-
-
-    filename="p"
-    file = prefix*filename*"_"*striter*".h5"
-
-    # A = phL.p
-    # # A=transpose(A)
-    # hf = h5write2(file, "data", A,"w")
-
-    filename="v"
-    file = prefix*filename*"_"*striter*".h5"
-    A = phL.v
-    # from_jl_p =  PermutedDimsArray(A, (2,1))
-    # print("\n A ", A )
-    # hf = h5write(file, "data", A)
-    # A=transpose(A)
-    hf = h5write2(file, "data", A,"w")
-
-    # hf = h5write2(file, "data", from_jl_p,"w")
-
-
-    if prediction == 0
-        str_prediction = "prediction_Flower"
-    elseif prediction == 3
-        str_prediction = "prediction_PIII"
-    else 
-        str_prediction = @sprintf "_%.1i" prediction
-    end
-
-    filename="v_err"*"_"*str_prediction*"_"
-    file = prefix*filename*"_"*striter*".h5"
-    A .= (A .- Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length)) ./phys.v_inlet
-    # A=transpose(A)
-    h5write2(file, "data", A,"w")
-
-end #io.write_h5>0
-
 
 # printstyled(color=:red, @sprintf "\n iMx %.10e Mx %.10e eps %.10e \n" 1/(1e-4/128)^2 (1e-4/128)^2 eps(0.01))
 

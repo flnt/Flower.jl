@@ -75,7 +75,7 @@ function run_forward(
         return nothing
     end
     crashed=false
-    # num.current_i=0
+    num.current_i=1
     free_surface = false
     stefan = false
         navier = false
@@ -631,6 +631,7 @@ function run_forward(
 
 
     current_t = 0.
+    num.current_i =1
 
     while num.current_i < max_iterations + 1
 
@@ -1713,6 +1714,19 @@ function run_forward(
                 "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
                 C_NULL::Ptr{Cvoid})::Cint
         
+                
+                #TODO debug with volume fraction
+
+                # A = zeros(gv.ny, gv.nx+1)
+                # for jplot in 1:gv.ny
+                #     for iplot in 1:gv.nx+1
+                #     II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+                #     pII = lexicographic(II, gp.ny + 1)
+                #     A[jplot,iplot] =  1 ./ op.opC_vL.iMx.diag[pII]
+                #     end
+                # end
+            
+
                 # print("\n after write \n ")
                     
                 # printstyled(color=:red, @sprintf "\n PDI test end\n" )

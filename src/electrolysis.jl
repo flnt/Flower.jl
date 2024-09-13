@@ -2154,10 +2154,10 @@ function test_LS(grid)
         @error("LS initialization")
     end
 
-    if minLS*maxLS < 0.0
+    if minLS*maxLS > 0.0
         @error("No interface")
     end
-    
+
 end
 
 

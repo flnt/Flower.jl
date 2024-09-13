@@ -19,7 +19,7 @@ abstract type AbstractOptimizer end
     ycoord::T = 0.0
     τ::T = min(CFL*Δ^2*Re, CFL*Δ) # timestep
     max_iterations::D = TEND÷τ # maximum number of iterations
-    current_i::D = 1
+    current_i::D = 0
     save_every::D = 1
     reinit_every::D = 1 # period of levelset reinialization
     nb_reinit::D = length(x)÷8 # number of reinitializations

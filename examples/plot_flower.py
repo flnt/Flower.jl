@@ -1217,6 +1217,8 @@ def plot_file(
         x_1D = xp
         y_1D = yp
         key_LS = "levelset_p"
+        key_LS_wall = "levelset_p_wall"
+
 
     # print(key)
     data = file[key][:]
@@ -1337,6 +1339,24 @@ def plot_file(
         LSdat = LSdat.transpose()
         CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'])
 
+    if figpar['plot_wall']:
+        LSdat = file[key_LS_wall][:]
+        LSdat = LSdat.transpose()
+        CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'])
+
+        # cutoff = -0
+        # cutoff = -0.05
+        cutoff = 0.0
+        LSdat = np.ma.masked_where(LSdat >=cutoff, LSdat)
+
+        CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=0,colors='gray')
+        # CS = ax2.contourf(x_1D,y_1D,field, 
+        #             # levels=figpar['range'], #10, 
+        #             levels=eval(figpar['range']),
+        #             cmap=plotpar['cmap'],
+        #             extend=plotpar['extend'],)
+
+
     if figpar['plot_levelset_segments']:
         ax2 = plot_segments(file,plotpar,figpar,ax2)
     
@@ -1356,8 +1376,10 @@ def plot_file(
         ax2.spines["right"].set_visible(False)
         ax2.spines["top"].set_visible(False)
 
-        ax2.set_xlabel(r"$x ( \unit{\um})$")
-        ax2.set_ylabel(r"$y ( \unit{\um})$")
+        # ax2.set_xlabel(r"$x ( \unit{\um})$")
+        # ax2.set_ylabel(r"$y ( \unit{\um})$")
+        ax2.set_xlabel(r""+plotpar['xlabel'])
+        ax2.set_ylabel(r""+plotpar['ylabel'])
 
         ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
         ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
@@ -1465,8 +1487,8 @@ def plot_vector(file,
 
     ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
 
-    ax2.set_xlabel(r"$x ( \unit{\um})$")
-    ax2.set_ylabel(r"$y ( \unit{\um})$")
+    ax2.set_xlabel(r""+plotpar['xlabel'])
+    ax2.set_ylabel(r""+plotpar['ylabel'])
 
     if mode =='first' or mode =='close':
         ax2.spines["right"].set_visible(False)
@@ -1599,8 +1621,8 @@ def plot_current_lines(file,
         ax2.spines["right"].set_visible(False)
         ax2.spines["top"].set_visible(False)
 
-        ax2.set_xlabel(r"$x ( \unit{\um})$")
-        ax2.set_ylabel(r"$y ( \unit{\um})$")
+        ax2.set_xlabel(r""+plotpar['xlabel'])
+        ax2.set_ylabel(r""+plotpar['ylabel'])
 
         ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
         ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
@@ -2094,8 +2116,8 @@ def plot_python_pdf_full2(
         ax2.spines["right"].set_visible(False)
         ax2.spines["top"].set_visible(False)
 
-        ax2.set_xlabel(r"$x ( \unit{\um})$")
-        ax2.set_ylabel(r"$y ( \unit{\um})$")
+        ax2.set_xlabel(r""+plotpar['xlabel'])
+        ax2.set_ylabel(r""+plotpar['ylabel'])
 
         # ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
         # ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
@@ -2583,7 +2605,7 @@ def plot_current_wall(
     ax20.set(
     # xlim=(0, 2),
     # ylim=(0, 2),
-    xlabel=r"$y ( \unit{\um})$",
+    xlabel=r""+plotpar['ylabel'],
     ylabel=label1)
     twin1.set(
         # ylim=(0, 4), 
