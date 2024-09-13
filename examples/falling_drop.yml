@@ -6,14 +6,14 @@ flower:
     # Species        H2      KOH    H2O
     concentration0: [1.6e-1, 6.7e3, 4.9e4]
     boundary_conditions: "Neumann"
-    electrolysis_reaction: "Butler_no_concentration"
+    electrolysis_reaction: "none"
     # Species         H2      KOH     H2O
     diffusion_coeff: [5.8e-9, 3.2e-9, 3.2e-9]
     end_time: 7.3 #s
     Faraday: 9.64853321233100184e4 #C⋅mol−1
     i0: 1.0
     intfc_x: 0.0 # x coordinate of bubble center
-    intfc_y: 5.0e-5 # y coordinate of bubble center
+    intfc_y: 2.25 # y coordinate of bubble center
     # KOHwtpercent: 30
     mu1: 1.0 #6.7e-7*1258.0
     mu2: 1.0
@@ -21,12 +21,13 @@ flower:
     mu_cin2: 6.7e-7 #m^2/s
     MWH2: 2.01568e-3 #kg/mol
     nb_levelsets: 2
-    nb_transported_scalars: 3
+    nb_transported_scalars: 0 #3 #if 0 check that pdi declarations below do not include the scalars
+    #otherwise: [PDI] *** error: Error while triggering event `write_data': System_error:  HDF5 error
     #Electric potential
     phi_ele0: 0.0
     phi_ele1: -0.6
     pres0:  0.0 #1e5
-    radius: 3.0e-6 #initial radius
+    radius: 0.5 #initial radius
     ref_length: 1e-4
     rho1: 1258.0 #liquid
     rho2: 0.069575 #gaz
@@ -39,14 +40,13 @@ flower:
     sigma: 1.3 #7.7e-2
     temperature0: 353.0
     v_inlet: 6.7e-4
-
     g: 20.0
     beta: 0.0
     
 
   mesh:
     nx: 97
-    ny: 97
+    ny: 146
     xmin: -2.0
     xmax: 2.0
     ymin: -3.0
@@ -55,6 +55,7 @@ flower:
     # activate_interface: false
     activate_interface: 1
     adapt_timestep_mode: 3 #fixed timestep
+    ns_advection: 0 #0 no advection
     auto_reinit: 1 #activated: 1
     breakup: 1
     bulk_conductivity: 2
@@ -80,7 +81,8 @@ flower:
     CFL: 0.5
     concentration_check_factor: 1e-4
     convection_Cdivu: 0
-    electrolysis_phase_change_case: "Khalighi" #"Khalighi" #no phase change
+    electric_potential: 0
+    electrolysis_phase_change_case: "none" #"Khalighi" #no phase change
     # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
     # electrolysis_phase_change_case: "levelset" # local
     eps: 1e-12 #eps for small numbers
@@ -95,7 +97,7 @@ flower:
     # elseif num.epsilon_mode == 2
     #     return inv_weight_clip(num,W)   
     # end
-    imposed_velocity : "Poiseuille_bottom"
+    imposed_velocity : "none"
     dt0: 3.125e-6 #first timestep
     max_iter: 2500 #maximum number of iterations
     mode_2d: 3
@@ -114,6 +116,7 @@ flower:
     # prediction = 3 # PIII in Brown's article
     # prediction = 4
     reinit_every: 1 # period of levelset reinialization
+    restart: 0 #TODO restart with PDI
     show_every: 1
     debug: "scalar_testing" #"scalar_debug" 
     time_scheme: FE #Forward Euler
@@ -131,7 +134,70 @@ plot:
   color_line: "k" #"w" #"k"
   fig_fraction: 1.0 #0.5
   extend: neither #max
+  xlabel: $x ( \unit{\m})$
+  ylabel: $y ( \unit{\m})$
+  # xlabel: "$x ( \unit{\um})$"
+  # ylabel: "$y ( \unit{\um})$"
   figures:
+
+      - var: levelset_p
+        file: levelset_p
+        figsize: None
+        aspect_box: 'box'
+        aspect_ratio: 'equal'
+        cbarlabel: Levelset p
+        fontsize: 4
+        isocontour: False
+        levels: 10
+        plot_bc: True
+        plot_wall: True
+        plot_grid: True
+        plot_levelset: True #False
+        plot_levelset_segments: #True 
+        plot_mode: contourf #pcolormesh #contourf
+        print_mode: "val"
+        range: [0,1e-4]
+        xlim: [-2,2]
+        ylim: [-3,3]
+        # zoom: [[0,5],[0,5]]
+        # zoom_mode: index
+        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom_mode: coord
+        color_annot_bc: w
+        color_annot_bulk: w
+        linewidth: 1
+        linestyle: None
+
+      # - var: levelset_p_wall
+      #   file: levelset_p_wall
+      #   figsize: None
+      #   aspect_box: 'box'
+      #   aspect_ratio: 'equal'
+      #   cbarlabel: Levelset p
+      #   fontsize: 4
+      #   isocontour: False
+      #   levels: 10
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: True #False
+      #   plot_levelset_segments: #True 
+      #   plot_mode: contourf #pcolormesh #contourf
+      #   print_mode: "val"
+      #   range: [0,1e-4]
+      #   xlim: [-2,2]
+      #   ylim: [-3,3]
+      #   # zoom: [[0,5],[0,5]]
+      #   # zoom_mode: index
+      #   # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   # zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   # zoom_mode: coord
+      #   color_annot_bc: w
+      #   color_annot_bulk: w
+      #   linewidth: 1
+      #   linestyle: None
 
       - var: mass_flux_border
         file: mass_flux_zoom_border
@@ -833,15 +899,15 @@ plot:
   pdi: 1 #1: pdi activated
   quiver_scale: 1e-4
   quiver_scale_unit: xy #None
-  scale_time: 1e-3
-  scale_vel: 1e-4 
-  scale_x: 1e-6
-  scale_y: 1e-6
+  scale_time: 1 #1e-3
+  scale_vel: 1 #1e-4 
+  scale_x: 1.0 #1e-6 #not 1 or interpreted as integer
+  scale_y: 1.0 #1e-6
   theta1: 0
   theta2: 90
   ticks_x: 0:20:100
   ticks_y: 0:20:100
-  unit_time: ms
+  unit_time: s #ms
   write_h5: 0
   
   plot_grid: false
@@ -920,6 +986,7 @@ pdi:
     levelset_p: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
     levelset_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdmain
     levelset_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdmain
+    levelset_p_wall: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
     velocity_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
     velocity_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
     mass_flux: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
@@ -969,13 +1036,24 @@ pdi:
     
       - file: flower_${nstep:08}.h5 #Name of the file test.h5
         collision_policy: replace #write_into overwrite old file #TODO
+        on_event: write_initialization
+        # datasets: #Dataset we are writing in: the whole solution
+        #   data:
+        #     type: array
+        #     subtype: double
+        #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
+        when: "$nstep = 0"
+        write: [levelset_p,levelset_u,levelset_v,levelset_p_wall,radius]
+
+      - file: flower_${nstep:08}.h5 #Name of the file test.h5
+        collision_policy: replace #write_into overwrite old file #TODO
         on_event: write_data_start_loop
         # datasets: #Dataset we are writing in: the whole solution
         #   data:
         #     type: array
         #     subtype: double
         #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
-        # when: #"$nstep%50 = 0"
+        when: "$nstep%50 = 0"
         write: [levelset_p,levelset_u,levelset_v,radius]
 
       # #write segments of interface
@@ -984,17 +1062,17 @@ pdi:
       #   on_event: write_data_start_loop
       #   write: [intfc_vtx_num,intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_seg_num,intfc_vtx_connectivities]
 
-      #write mass flux used in phase change
-      - file: flower_${nstep:08}.h5 #Name of the file test.h5
-        collision_policy: write_into
-        on_event: write_mass_flux
-        # datasets: #Dataset we are writing in: the whole solution
-        #   data:
-        #     type: array
-        #     subtype: double
-        #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
-        # when: #"$nstep%50 = 0"
-        write: [mass_flux,mass_flux_bulk,mass_flux_border,mass_flux_intfc]
+      # #write mass flux used in phase change
+      # - file: flower_${nstep:08}.h5 #Name of the file test.h5
+      #   collision_policy: write_into
+      #   on_event: write_mass_flux
+      #   # datasets: #Dataset we are writing in: the whole solution
+      #   #   data:
+      #   #     type: array
+      #   #     subtype: double
+      #   #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
+      #   # when: #"$nstep%50 = 0"
+      #   write: [mass_flux,mass_flux_bulk,mass_flux_border,mass_flux_intfc]
 
       - file: flower_${nstep:08}.h5 #Name of the file test.h5
         collision_policy: write_into
@@ -1004,50 +1082,50 @@ pdi:
         #     type: array
         #     subtype: double
         #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
-        # when: #"$nstep%50 = 0"
-        write: [u_1D,v_1D,p_1D,time,nstep,phi_ele_1D,velocity_x,velocity_y,i_current_x,i_current_y,i_current_mag]
+        when: "$nstep%50 = 0"
+        write: [u_1D,v_1D,p_1D,time,nstep,velocity_x,velocity_y] #,phi_ele_1D,i_current_x,i_current_y,i_current_mag]
         #,trans_scal_1D_H2,trans_scal_1D_KOH,trans_scal_1D_H2O] #,levelset_p,levelset_u,levelset_v]
 
 
-      #write cconcentration for H2 only : data selection 
-      - file: flower_${nstep:08}.h5 #Name of the file test.h5
-        collision_policy: write_into
-        on_event: write_data
-        datasets: # a list of datasets inside the file created on first access
-          #*** define the datasets for main_field
-          concentration_H2_1DT: { type: array, subtype: double, size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny'] }
-        write: 
-          trans_scal_1DT: # the name of the data to write
-            dataset: concentration_H2_1DT
-            memory_selection: #only H2O
-              size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny']
-              start: [0,0]
+      # #write cconcentration for H2 only : data selection 
+      # - file: flower_${nstep:08}.h5 #Name of the file test.h5
+      #   collision_policy: write_into
+      #   on_event: write_data
+      #   datasets: # a list of datasets inside the file created on first access
+      #     #*** define the datasets for main_field
+      #     concentration_H2_1DT: { type: array, subtype: double, size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny'] }
+      #   write: 
+      #     trans_scal_1DT: # the name of the data to write
+      #       dataset: concentration_H2_1DT
+      #       memory_selection: #only H2O
+      #         size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny']
+      #         start: [0,0]
 
-      - file: flower_${nstep:08}.h5 #Name of the file test.h5
-        collision_policy: write_into
-        on_event: write_data
-        datasets: # a list of datasets inside the file created on first access
-          #*** define the datasets for main_field
-          concentration_KOH_1DT: { type: array, subtype: double, size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny'] }
-        write: 
-          trans_scal_1DT: # the name of the data to write
-            dataset: concentration_KOH_1DT
-            memory_selection: #only H2O
-              size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny']
-              start: [1,0]
+      # - file: flower_${nstep:08}.h5 #Name of the file test.h5
+      #   collision_policy: write_into
+      #   on_event: write_data
+      #   datasets: # a list of datasets inside the file created on first access
+      #     #*** define the datasets for main_field
+      #     concentration_KOH_1DT: { type: array, subtype: double, size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny'] }
+      #   write: 
+      #     trans_scal_1DT: # the name of the data to write
+      #       dataset: concentration_KOH_1DT
+      #       memory_selection: #only H2O
+      #         size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny']
+      #         start: [1,0]
 
-      - file: flower_${nstep:08}.h5 #Name of the file test.h5
-        collision_policy: write_into
-        on_event: write_data
-        datasets: # a list of datasets inside the file created on first access
-          #*** define the datasets for main_field
-          concentration_H2O_1DT: { type: array, subtype: double, size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny'] }
-        write: 
-          trans_scal_1DT: # the name of the data to write
-            dataset: concentration_H2O_1DT
-            memory_selection: #only H2O
-              size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny']
-              start: [2,0]
+      # - file: flower_${nstep:08}.h5 #Name of the file test.h5
+      #   collision_policy: write_into
+      #   on_event: write_data
+      #   datasets: # a list of datasets inside the file created on first access
+      #     #*** define the datasets for main_field
+      #     concentration_H2O_1DT: { type: array, subtype: double, size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny'] }
+      #   write: 
+      #     trans_scal_1DT: # the name of the data to write
+      #       dataset: concentration_H2O_1DT
+      #       memory_selection: #only H2O
+      #         size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny']
+      #         start: [2,0]
 
   
 
