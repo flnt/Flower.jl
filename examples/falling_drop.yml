@@ -132,6 +132,7 @@ plot:
   cbarlabel: "" #["u","v"]
   cmap: "viridis"
   color_line: "k" #"w" #"k"
+  color_wall: 'k'
   fig_fraction: 1.0 #0.5
   extend: neither #max
   xlabel: $x ( \unit{\m})$

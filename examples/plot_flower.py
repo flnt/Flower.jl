@@ -1337,24 +1337,21 @@ def plot_file(
     if figpar['plot_levelset']:
         LSdat = file[key_LS][:]
         LSdat = LSdat.transpose()
-        CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'])
+        CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
 
     if figpar['plot_wall']:
         LSdat = file[key_LS_wall][:]
         LSdat = LSdat.transpose()
-        CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'])
+        CSlvl2 = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=10)
 
-        # cutoff = -0
-        # cutoff = -0.05
-        cutoff = 0.0
-        LSdat = np.ma.masked_where(LSdat >=cutoff, LSdat)
+        # cutoff = 0
+        # LSdat = np.ma.masked_where(LSdat >=cutoff, LSdat)
 
-        CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=0,colors='gray')
-        # CS = ax2.contourf(x_1D,y_1D,field, 
-        #             # levels=figpar['range'], #10, 
-        #             levels=eval(figpar['range']),
-        #             cmap=plotpar['cmap'],
-        #             extend=plotpar['extend'],)
+        # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
+ 
+        contour = CSlvl2.allsegs[0][0]
+        ax2.fill_between(contour[:,0], contour[:,1],y_1D[-1],color=plotpar['color_wall'])
+
 
 
     if figpar['plot_levelset_segments']:
