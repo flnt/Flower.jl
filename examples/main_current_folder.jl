@@ -50,269 +50,219 @@ phys = PropertyDict(flower.physics)
 # Simulation parameters
 save_every = sim.max_iter
 
-
-# Sessile from sessile.jl
-Rf(θ, V) = sqrt(V / (θ - sin(θ) * cos(θ)))
-RR0(θ) = sqrt(π / (2 * (θ - sin(θ) * cos(θ))))
-center(r, θ) = r * cos(π - θ)
-
-θe= 90
-θe= 145
-
-if θe < 40
-    max_its = 35000
-    n_ext = 10
-    sim.CFL = 0.5
-elseif θe < 100
-    max_its = 15000
-    n_ext = 10
-    sim.CFL = 0.5
-else
-    max_its = 5000
-    n_ext = 10
-    sim.CFL = 0.5
-end
-
-
-# Physical parameters 
-x = LinRange(mesh.xmin, mesh.xmax, mesh.nx+1)
-y = LinRange(mesh.ymin, mesh.ymax, mesh.ny+1)
-
-
-
-# Physics
-mu = phys.mu_cin1 *phys.rho1 #in Pa s = M L^{-1} T^{-1}}
-
-mu1=mu
-mu2=mu 
-
-h0 = phys.radius
-ref_thickness_2d = 4.0 / 3.0 *phys.radius 
-
-c0_H2,c0_KOH,c0_H2O = phys.concentration0
-
-DH2,DKOH,DH2O= phys.diffusion_coeff
-
-nb_saved_scalars=1
-
-#not using num.bulk_conductivity like in run.jl as long as the initial concentration is independent from small cell isues
-elec_cond=2*phys.Faraday^2*c0_KOH*DKOH/(phys.Ru*phys.temperature0)
-
-Re=phys.rho1*phys.v_inlet*phys.ref_length/mu #Reynolds number
-printstyled(color=:green, @sprintf "\n Re : %.2e %.2e %.2e %.2e\n" Re phys.rho1/mu1 phys.rho1 mu1)
-
-Re=phys.rho1/mu1 #not Reynolds number, but rho1/mu1
-
-printstyled(color=:green, @sprintf "\n 'Re' i.e. rho/mu : %.2e %.2e %.2e %.2e\n" Re phys.rho1/mu1 phys.rho1 mu1)
-
-if length(phys.concentration0)!=phys.nb_transported_scalars
-    print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
-    @error ("nb_transported_scalars")
-end
-
-if length(phys.diffusion_coeff)!=phys.nb_transported_scalars
-    print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
-    @error ("nb_transported_scalars")
-end
-
-print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
-
-hl = Highlighter((d,i,j)->d[i,j] isa String, crayon"bold cyan")
-
-diffusion_t = (phys.radius^2)./phys.diffusion_coeff
-
-pretty_table(vcat(
-    hcat("Diffusion time",diffusion_t'),
-    hcat("Diffusion coef",phys.diffusion_coeff'),
-    hcat("Concentration",phys.concentration0')); 
-formatters    = ft_printf("%0.2e", 2:4), #not ecessary , 2:4
-header = ["","H2", "KOH", "H2O"], 
-highlighters=hl)
-
-@debug "After Table"
-
-
-# printstyled(color=:green, @sprintf "\n Species diffusion timescales: %.2e %.2e %.2e \n" (phys.radius^2)/DH2 (phys.radius^2)/DKOH (phys.radius^2)/DH2O )
-
-# printstyled(color=:green, @sprintf "\n nmol : \n" phys.concentration0[1]*4.0/3.0*pi*phys.radius^3  )
-
-current_radius = phys.radius
-
-p_liq= phys.pres0 #+ mean(veci(phL.pD,grid,2)) #TODO here one bubble
-# p_g=p_liq + 2 * phys.sigma / current_radius
-p_g=p_liq + phys.sigma / current_radius
-
-c0test = p_g / (phys.temperature0 * phys.Ru) 
-
-# printstyled(color=:green, @sprintf "\n c0test: %.2e \n" c0test)
-
-# printstyled(color=:green, @sprintf "\n Mole test: %.2e %.2e\n" phys.concentration0[1]*4.0/3.0*pi*current_radius^3 p_g*4.0/3.0*pi*current_radius^3/(phys.temperature0*phys.Ru))
-
-
-# Sessile
-# h0 = 0.5
-# phys.ref_lengthx = 3.0
-# phys.ref_lengthy = 2.0
-# mesh.nx = 96
-
-# x = collect(LinRange(-phys.ref_lengthx / 2, phys.ref_lengthx / 2, mesh.nx + 1))
-# y = collect(LinRange(-phys.ref_lengthy / 2, 0, mesh.nx ÷ 3 + 1))
-
-# not imposing the angle exactly at the boundary but displaced a cell because ghost cells are not used. 
-# So the exact contact angle cannot be imposed
-# TODO should at some point modify the levelset so it works as the other fields that we have in the code, 
-# with the boundary values in addition to the bulk field. That way we could impose it exactly at the boundary
-# needs a lot of work, not priority
-_θe = acos((0.5 * diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
-# _θe = acos((diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
-# println("θe = $(_θe)")
-
 radial_vel_factor = 1e-7
-
-#dummy gp
-gp = Mesh(GridCC, x, y, 1)
-
-
-# BC 
-i_butler = gp.x[:,1] .*0.0
-phi_ele =  gp.x[:,1] .*0.0
-
-
-
-# print("\n i_butler ", i_butler)
-# print("\n phi_ele ", phi_ele)
-
-
-i_butler=butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_ele,phys.phi_ele1,phys.Ru,phys.temperature0)
-
-# print(@sprintf "Butler-Volmer %.2e %.2e %.2e %.2e\n" i_butler[1] -i_butler[1]/(2*phys.Faraday*DH2) c0_H2-i_butler[1]/(2*phys.Faraday*DH2)*gp.dx[1,1] c0_H2+i_butler[1]/(2*phys.Faraday*DH2)*gp.dx[1,1])
-
-
-# Pressure
-p_top = 0
-p_bottom = p_top + 8*mu1/phys.ref_length*phys.v_inlet
-
-# H2 boundary condition
-BC_trans_scal_H2 = BoundariesInt(
-bottom = Dirichlet(val = phys.concentration0[1]),
-top    = Neumann(),
-left   = Neumann(val=-i_butler/(2*phys.Faraday*DH2)), #Dirichlet(val = phys.concentration0[1]), #
-right  = Dirichlet(val = phys.concentration0[1]),
-int    = Dirichlet(val = phys.concentration0[1]))
-
-BC_trans_scal_KOH = BoundariesInt(
-    bottom = Dirichlet(val = phys.concentration0[2]),
-    top    = Neumann(),
-    left   = Neumann(val=-i_butler/(2*phys.Faraday*DKOH)),
-    right  = Dirichlet(val = phys.concentration0[2]),
-    int    = Neumann(val=0.0)) #KOH
-     
-BC_trans_scal_H2O = BoundariesInt(
-    bottom = Dirichlet(val = phys.concentration0[3]),
-    top    = Neumann(),
-    left   = Neumann(val=i_butler/(phys.Faraday*DH2O)),
-    right  = Dirichlet(val = phys.concentration0[3]),
-    int    = Neumann(val=0.0)) #Dirichlet(val = phys.concentration0[3])),#Neumann(val=0.0)) 
-    #H2O #Dirichlet(val = phys.concentration0[3])
-
-BC_pL = Boundaries(
-        left   = Neumann(val=0.0),
-        right  = Neumann(val=0.0),
-        bottom = Neumann(val=0.0),
-        top    = Dirichlet(),
-    )
-
-BC_vL= Boundaries(
-    left   = Dirichlet(),
-    right  = Dirichlet(),
-    bottom = Neumann(),
-    top    = Neumann(),
-)
 
 pressure_channel = false
 
-if sim.name == "small_cell"
-    #Test case 1: small cells (high concentration at vecb_L)
-    sim.max_iter = 1
-    save_every = 1
 
-    folder="electrolysis_circle_wall_CFL_small_cell"
 
-elseif sim.name == "100it"
-    #Test case 2: scalar without velocity
-    sim.max_iter = 100
-    save_every = 10
-    save_p = false
+if sim.name == "falling_drop"
+    L0x = 4.0
+    L0y = 6.0
+    n = 96+1
+    
+    y0 = 2.25
+    
+    x = collect(LinRange(-L0x / 2, L0x / 2, n + 1))
+    dx = diff(x)[1]
+    y = collect(-L0y/2:dx:L0y/2+dx)
 
-    folder="electrolysis_circle_wall_CFL"*sim.name
+    # print("\n x", x)
+    # print("\n y", y)
 
-elseif sim.name == "radial"
-    sim.imposed_velocity = "radial"
-    sim.max_iter = 1
-    save_every = 1
-    mesh.nx = 64
+    θe = 90
+    θe2 = 135
+    A = zeros(8)
+    A[1] = 0.1
+      
+    CFL = 0.5
+
+    Re = 1.0
+    # dt in branch free-surface 
+    deltax = min(diff(x)..., diff(y)...)
+    sim.dt0 = min(CFL*deltax^2*Re, CFL*deltax)
+
+    # advection deactivated
+
+else
+    
+
+
+
+    if sim.name == "sessile"
+        # Sessile from sessile.jl
+        Rf(θ, V) = sqrt(V / (θ - sin(θ) * cos(θ)))
+        RR0(θ) = sqrt(π / (2 * (θ - sin(θ) * cos(θ))))
+        center(r, θ) = r * cos(π - θ)
+
+        θe= 90
+        θe= 145
+
+        if θe < 40
+            max_its = 35000
+            n_ext = 10
+            sim.CFL = 0.5
+        elseif θe < 100
+            max_its = 15000
+            n_ext = 10
+            sim.CFL = 0.5
+        else
+            max_its = 5000
+            n_ext = 10
+            sim.CFL = 0.5
+        end
+    end
+
+
+    # Physical parameters 
+    x = LinRange(mesh.xmin, mesh.xmax, mesh.nx+1)
+    y = LinRange(mesh.ymin, mesh.ymax, mesh.ny+1)
+
+
+    # Physics
+    mu = phys.mu_cin1 *phys.rho1 #in Pa s = M L^{-1} T^{-1}}
+
+    phys.mu1 = mu
+    phys.mu2 = mu
+
+    mu1=mu
+    mu2=mu 
+
+    h0 = phys.radius
+    ref_thickness_2d = 4.0 / 3.0 *phys.radius 
+
+    c0_H2,c0_KOH,c0_H2O = phys.concentration0
+
+    DH2,DKOH,DH2O= phys.diffusion_coeff
+
+    #not using num.bulk_conductivity like in run.jl as long as the initial concentration is independent from small cell isues
+    elec_cond=2*phys.Faraday^2*c0_KOH*DKOH/(phys.Ru*phys.temperature0)
+
+    Re=phys.rho1*phys.v_inlet*phys.ref_length/mu #Reynolds number
+    printstyled(color=:green, @sprintf "\n Re : %.2e %.2e %.2e %.2e\n" Re phys.rho1/mu1 phys.rho1 mu1)
+
+    Re=phys.rho1/mu1 #not Reynolds number, but rho1/mu1
+
+    printstyled(color=:green, @sprintf "\n 'Re' i.e. rho/mu : %.2e %.2e %.2e %.2e\n" Re phys.rho1/mu1 phys.rho1 mu1)
+
+    if length(phys.concentration0)!=phys.nb_transported_scalars
+        print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
+        @error ("nb_transported_scalars")
+    end
+
+    if length(phys.diffusion_coeff)!=phys.nb_transported_scalars
+        print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
+        @error ("nb_transported_scalars")
+    end
+
+    print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
+
+    hl = Highlighter((d,i,j)->d[i,j] isa String, crayon"bold cyan")
+
+    diffusion_t = (phys.radius^2)./phys.diffusion_coeff
+
+    pretty_table(vcat(
+        hcat("Diffusion time",diffusion_t'),
+        hcat("Diffusion coef",phys.diffusion_coeff'),
+        hcat("Concentration",phys.concentration0')); 
+    formatters    = ft_printf("%0.2e", 2:4), #not ecessary , 2:4
+    header = ["","H2", "KOH", "H2O"], 
+    highlighters=hl)
+
+    @debug "After Table"
+
+
+    # printstyled(color=:green, @sprintf "\n Species diffusion timescales: %.2e %.2e %.2e \n" (phys.radius^2)/DH2 (phys.radius^2)/DKOH (phys.radius^2)/DH2O )
+
+    # printstyled(color=:green, @sprintf "\n nmol : \n" phys.concentration0[1]*4.0/3.0*pi*phys.radius^3  )
+
+    current_radius = phys.radius
+
+    p_liq= phys.pres0 #+ mean(veci(phL.pD,grid,2)) #TODO here one bubble
+    # p_g=p_liq + 2 * phys.sigma / current_radius
+    p_g=p_liq + phys.sigma / current_radius
+
+    c0test = p_g / (phys.temperature0 * phys.Ru) 
+
+    # printstyled(color=:green, @sprintf "\n c0test: %.2e \n" c0test)
+
+    # printstyled(color=:green, @sprintf "\n Mole test: %.2e %.2e\n" phys.concentration0[1]*4.0/3.0*pi*current_radius^3 p_g*4.0/3.0*pi*current_radius^3/(phys.temperature0*phys.Ru))
+
+    if sim.name == "sessile"
+
+        # Sessile
+        # h0 = 0.5
+        # phys.ref_lengthx = 3.0
+        # phys.ref_lengthy = 2.0
+        # mesh.nx = 96
+
+        # x = collect(LinRange(-phys.ref_lengthx / 2, phys.ref_lengthx / 2, mesh.nx + 1))
+        # y = collect(LinRange(-phys.ref_lengthy / 2, 0, mesh.nx ÷ 3 + 1))
+
+        # not imposing the angle exactly at the boundary but displaced a cell because ghost cells are not used. 
+        # So the exact contact angle cannot be imposed
+        # TODO should at some point modify the levelset so it works as the other fields that we have in the code, 
+        # with the boundary values in addition to the bulk field. That way we could impose it exactly at the boundary
+        # needs a lot of work, not priority
+        _θe = acos((0.5 * diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
+        # _θe = acos((diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
+        # println("θe = $(_θe)")
+    end
+
     radial_vel_factor = 1e-7
-    folder="electrolysis_circle_wall_CFL"*sim.name
 
-elseif sim.name == "channel_no_bubble"
-    sim.activate_interface = 0
-    sim.max_iter = 100
-    save_every = 25
+    #dummy gp
+    gp = Mesh(GridCC, x, y, 1)
 
-    # sim.max_iter = 2
-    # save_every = 1
 
-elseif sim.name == "channel_Dirichlet"
-    sim.activate_interface = 0
-    sim.max_iter = 100
-    save_every = 25
+    # BC 
+    i_butler = gp.x[:,1] .*0.0
+    phi_ele =  gp.x[:,1] .*0.0
 
-    # sim.max_iter = 2
-    # save_every = 1
-    
+
+
+    # print("\n i_butler ", i_butler)
+    # print("\n phi_ele ", phi_ele)
+
+
+    i_butler=butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_ele,phys.phi_ele1,phys.Ru,phys.temperature0)
+
+    # print(@sprintf "Butler-Volmer %.2e %.2e %.2e %.2e\n" i_butler[1] -i_butler[1]/(2*phys.Faraday*DH2) c0_H2-i_butler[1]/(2*phys.Faraday*DH2)*gp.dx[1,1] c0_H2+i_butler[1]/(2*phys.Faraday*DH2)*gp.dx[1,1])
+
+
+    # Pressure
+    p_top = 0
+    p_bottom = p_top + 8*mu1/phys.ref_length*phys.v_inlet
+
+    # H2 boundary condition
     BC_trans_scal_H2 = BoundariesInt(
     bottom = Dirichlet(val = phys.concentration0[1]),
     top    = Neumann(),
-    left   = Dirichlet(val = phys.concentration0[1]),
+    left   = Neumann(val=-i_butler/(2*phys.Faraday*DH2)), #Dirichlet(val = phys.concentration0[1]), #
     right  = Dirichlet(val = phys.concentration0[1]),
-    int    = Dirichlet(val = phys.concentration0[1])) #H2
+    int    = Dirichlet(val = phys.concentration0[1]))
 
-    phys.electrolysis_reaction = "none"
+    BC_trans_scal_KOH = BoundariesInt(
+        bottom = Dirichlet(val = phys.concentration0[2]),
+        top    = Neumann(),
+        left   = Neumann(val=-i_butler/(2*phys.Faraday*DKOH)),
+        right  = Dirichlet(val = phys.concentration0[2]),
+        int    = Neumann(val=0.0)) #KOH
+        
+    BC_trans_scal_H2O = BoundariesInt(
+        bottom = Dirichlet(val = phys.concentration0[3]),
+        top    = Neumann(),
+        left   = Neumann(val=i_butler/(phys.Faraday*DH2O)),
+        right  = Dirichlet(val = phys.concentration0[3]),
+        int    = Neumann(val=0.0)) #Dirichlet(val = phys.concentration0[3])),#Neumann(val=0.0)) 
+        #H2O #Dirichlet(val = phys.concentration0[3])
 
-elseif sim.name == "channel_Dirichlet_pressure"
-    sim.activate_interface = 0
-    sim.max_iter = 100
-    save_every = 25
-
-    sim.max_iter = 2
-    save_every = 1
-    sim.max_iter = 1
-
-    BC_trans_scal_H2 = BoundariesInt(
-    bottom = Dirichlet(val = phys.concentration0[1]),
-    top    = Neumann(),
-    left   = Dirichlet(val = phys.concentration0[1]),
-    right  = Dirichlet(val = phys.concentration0[1]),
-    int    = Dirichlet(val = phys.concentration0[1])) #H2
-
-
-    phys.electrolysis_reaction = "none"
-    # sim.imposed_velocity = "constant"
-
-    
-
-    test_v=-(p_top - p_bottom)/phys.ref_length * (phys.ref_length^2)/4/2/mu
-
-    print("\n phys.ref_length ",phys.ref_length)
-    
-    printstyled(color=:green, @sprintf "\n mu1 : %.2e v %.2e vtest %.2e sim.CFL %.2e \n" mu1 phys.v_inlet test_v phys.v_inlet*sim.dt0/(phys.ref_length/mesh.nx))
-
-    printstyled(color=:green, @sprintf "\n p_bottom : %.2e p_top %.2e grad %.2e grad %.2e \n" p_bottom p_top -(p_top-p_bottom)/phys.ref_length 8*mu1/phys.ref_length^2*phys.v_inlet)
-
-
-    # print("\n mu1 ",mu1," phys.ref_length ", phys.ref_length)
-
-    pressure_channel = true
+    BC_pL = Boundaries(
+            left   = Neumann(val=0.0),
+            right  = Neumann(val=0.0),
+            bottom = Neumann(val=0.0),
+            top    = Dirichlet(),
+        )
 
     BC_vL= Boundaries(
         left   = Dirichlet(),
@@ -321,228 +271,286 @@ elseif sim.name == "channel_Dirichlet_pressure"
         top    = Neumann(),
     )
 
-    BC_pL = Boundaries(
-        left   = Neumann(),
-        right  = Neumann(),
-        bottom = Dirichlet(val = p_bottom),
-        top    = Dirichlet(val = p_top),
-    )
 
-elseif sim.name == "channel_Dirichlet_constant_vel"
-    sim.activate_interface = 0
-    sim.max_iter = 100
-    save_every = 25
+    if sim.name == "small_cell"
+        #Test case 1: small cells (high concentration at vecb_L)
+        sim.max_iter = 1
+        save_every = 1
 
-    save_every = sim.max_iter
+        folder="electrolysis_circle_wall_CFL_small_cell"
 
-    # sim.max_iter = 2
-    # save_every = 1
+    elseif sim.name == "100it"
+        #Test case 2: scalar without velocity
+        sim.max_iter = 100
+        save_every = 10
+        save_p = false
 
-    # sim.CFL 1
-    sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet
+        folder="electrolysis_circle_wall_CFL"*sim.name
 
-    # sim.CFL 0.5
-    sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet/2 
-    
-    BC_trans_scal_H2 = BoundariesInt(
-    bottom = Dirichlet(val = phys.concentration0[1]),
-    top    = Neumann(),
-    left   = Dirichlet(val = phys.concentration0[1]),
-    right  = Dirichlet(val = phys.concentration0[1]),
-    int    = Dirichlet(val = phys.concentration0[1])) #H2
+    elseif sim.name == "radial"
+        sim.imposed_velocity = "radial"
+        sim.max_iter = 1
+        save_every = 1
+        mesh.nx = 64
+        radial_vel_factor = 1e-7
+        folder="electrolysis_circle_wall_CFL"*sim.name
 
-    BC_trans_scal_KOH = BoundariesInt(
-    bottom = Dirichlet(val = phys.concentration0[2]),
-    top    = Neumann(),
-    left   = Dirichlet(val = phys.concentration0[2]),
-    right  = Dirichlet(val = phys.concentration0[2]),
-    int    = Dirichlet(val = phys.concentration0[2])) #KOH
+    elseif sim.name == "channel_no_bubble"
+        sim.activate_interface = 0
+        sim.max_iter = 100
+        save_every = 25
 
-    BC_trans_scal_H2O = BoundariesInt(
-    bottom = Dirichlet(val = phys.concentration0[3]),
-    top    = Neumann(),
-    left   = Dirichlet(val = phys.concentration0[3]),
-    right  = Dirichlet(val = phys.concentration0[3]),
-    int    = Dirichlet(val = phys.concentration0[3])) #H2O
+        # sim.max_iter = 2
+        # save_every = 1
 
+    elseif sim.name == "channel_Dirichlet"
+        sim.activate_interface = 0
+        sim.max_iter = 100
+        save_every = 25
 
-    phys.electrolysis_reaction = "none"
-    sim.imposed_velocity = "constant"
-
-    BC_vL= Boundaries(
-        left   = Dirichlet(val = phys.v_inlet),
-        right  = Dirichlet(val = phys.v_inlet),
-        bottom = Dirichlet(val = phys.v_inlet),
-        top    = Neumann(val=0.0),
-    )
-
-    BC_pL = Boundaries(
-        left   = Neumann(),
-        right  = Neumann(),
-        bottom = Neumann(),
+        # sim.max_iter = 2
+        # save_every = 1
+        
+        BC_trans_scal_H2 = BoundariesInt(
+        bottom = Dirichlet(val = phys.concentration0[1]),
         top    = Neumann(),
-    )
+        left   = Dirichlet(val = phys.concentration0[1]),
+        right  = Dirichlet(val = phys.concentration0[1]),
+        int    = Dirichlet(val = phys.concentration0[1])) #H2
 
-elseif sim.name == "channel_Dirichlet_zero_vel"
-    sim.activate_interface = 0
-   
-    sim.max_iter = 1
-    # save_every = 25
+        phys.electrolysis_reaction = "none"
 
-    save_every = sim.max_iter
+    elseif sim.name == "channel_Dirichlet_pressure"
+        sim.activate_interface = 0
+        sim.max_iter = 100
+        save_every = 25
 
+        sim.max_iter = 2
+        save_every = 1
+        sim.max_iter = 1
 
-    # sim.CFL 1
-    sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet
-
-    # sim.CFL 0.5
-    sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet/2 
-    
-    BC_trans_scal_H2 = BoundariesInt(
-    bottom = Dirichlet(val = phys.concentration0[1]),
-    top    = Neumann(),
-    left   = Dirichlet(val = phys.concentration0[1]),
-    right  = Dirichlet(val = phys.concentration0[1]),
-    int    = Dirichlet(val = phys.concentration0[1])) #H2
-
-    BC_trans_scal_KOH = BoundariesInt(
-    bottom = Dirichlet(val = phys.concentration0[2]),
-    top    = Neumann(),
-    left   = Dirichlet(val = phys.concentration0[2]),
-    right  = Dirichlet(val = phys.concentration0[2]),
-    int    = Dirichlet(val = phys.concentration0[2])) #KOH
-
-    BC_trans_scal_H2O = BoundariesInt(
-    bottom = Dirichlet(val = phys.concentration0[3]),
-    top    = Neumann(),
-    left   = Dirichlet(val = phys.concentration0[3]),
-    right  = Dirichlet(val = phys.concentration0[3]),
-    int    = Dirichlet(val = phys.concentration0[3])) #H2O
-
-
-    phys.electrolysis_reaction = "none"
-    sim.imposed_velocity = "none"
-
-    BC_vL= Boundaries(
-        left   = Dirichlet(val = phys.v_inlet),
-        right  = Dirichlet(val = phys.v_inlet),
-        bottom = Dirichlet(val = phys.v_inlet),
-        top    = Neumann(val=0.0),
-    )
-
-    BC_pL = Boundaries(
-        left   = Neumann(),
-        right  = Neumann(),
-        bottom = Neumann(),
+        BC_trans_scal_H2 = BoundariesInt(
+        bottom = Dirichlet(val = phys.concentration0[1]),
         top    = Neumann(),
-    )
-
-elseif sim.name == "channel_Dirichlet_imposed_Poiseuille"
-    sim.activate_interface = 0
-    sim.max_iter = 100
-    save_every = 25
-
-    save_every = sim.max_iter
-
-    # sim.max_iter = 1
-    # save_every = 1
-
-    # # sim.CFL 1
-    # sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet 
-
-    # sim.CFL 0.5
-    sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet/2 
-
-    
-    BC_trans_scal_H2 = BoundariesInt(
-    bottom = Dirichlet(val = phys.concentration0[1]),
-    top    = Neumann(),
-    left   = Dirichlet(val = phys.concentration0[1]),
-    right  = Dirichlet(val = phys.concentration0[1]),
-    int    = Dirichlet(val = phys.concentration0[1])) #H2
-
-    BC_trans_scal_KOH = BoundariesInt(
-    bottom = Dirichlet(val = phys.concentration0[2]),
-    top    = Neumann(),
-    left   = Dirichlet(val = phys.concentration0[2]),
-    right  = Dirichlet(val = phys.concentration0[2]),
-    int    = Dirichlet(val = phys.concentration0[2])) #KOH
-
-    BC_trans_scal_H2O = BoundariesInt(
-    bottom = Dirichlet(val = phys.concentration0[3]),
-    top    = Neumann(),
-    left   = Dirichlet(val = phys.concentration0[3]),
-    right  = Dirichlet(val = phys.concentration0[3]),
-    int    = Dirichlet(val = phys.concentration0[3])) #H2O
+        left   = Dirichlet(val = phys.concentration0[1]),
+        right  = Dirichlet(val = phys.concentration0[1]),
+        int    = Dirichlet(val = phys.concentration0[1])) #H2
 
 
-    phys.electrolysis_reaction = "none"
-    sim.imposed_velocity = "Poiseuille_bottom_top"
+        phys.electrolysis_reaction = "none"
+        # sim.imposed_velocity = "constant"
 
-    BC_pL = Boundaries(
-        left   = Neumann(),
-        right  = Neumann(),
-        bottom = Neumann(),
+        
+
+        test_v=-(p_top - p_bottom)/phys.ref_length * (phys.ref_length^2)/4/2/mu
+
+        print("\n phys.ref_length ",phys.ref_length)
+        
+        printstyled(color=:green, @sprintf "\n mu1 : %.2e v %.2e vtest %.2e sim.CFL %.2e \n" mu1 phys.v_inlet test_v phys.v_inlet*sim.dt0/(phys.ref_length/mesh.nx))
+
+        printstyled(color=:green, @sprintf "\n p_bottom : %.2e p_top %.2e grad %.2e grad %.2e \n" p_bottom p_top -(p_top-p_bottom)/phys.ref_length 8*mu1/phys.ref_length^2*phys.v_inlet)
+
+
+        # print("\n mu1 ",mu1," phys.ref_length ", phys.ref_length)
+
+        pressure_channel = true
+
+        BC_vL= Boundaries(
+            left   = Dirichlet(),
+            right  = Dirichlet(),
+            bottom = Neumann(),
+            top    = Neumann(),
+        )
+
+        BC_pL = Boundaries(
+            left   = Neumann(),
+            right  = Neumann(),
+            bottom = Dirichlet(val = p_bottom),
+            top    = Dirichlet(val = p_top),
+        )
+
+    elseif sim.name == "channel_Dirichlet_constant_vel"
+        sim.activate_interface = 0
+        sim.max_iter = 100
+        save_every = 25
+
+        save_every = sim.max_iter
+
+        sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet/2 
+        
+        BC_trans_scal_H2 = BoundariesInt(
+        bottom = Dirichlet(val = phys.concentration0[1]),
         top    = Neumann(),
-    )
+        left   = Dirichlet(val = phys.concentration0[1]),
+        right  = Dirichlet(val = phys.concentration0[1]),
+        int    = Dirichlet(val = phys.concentration0[1])) #H2
 
-elseif sim.name == "channel_no_bubble_Cdivu"
-    sim.activate_interface = 0
-    sim.max_iter = 100
-    save_every = 25
+        BC_trans_scal_KOH = BoundariesInt(
+        bottom = Dirichlet(val = phys.concentration0[2]),
+        top    = Neumann(),
+        left   = Dirichlet(val = phys.concentration0[2]),
+        right  = Dirichlet(val = phys.concentration0[2]),
+        int    = Dirichlet(val = phys.concentration0[2])) #KOH
 
-    # sim.max_iter = 2
-    # save_every = 1
-    sim.convection_Cdivu = true
-
-elseif sim.name == "channel_no_bubble_no_vel"
-    sim.activate_interface = 0
-    sim.max_iter = 100
-    save_every = 25
-
-    # sim.max_iter = 2
-    # save_every = 1
-
-
-elseif sim.name == "channel"
-    sim.max_iter = 100
-    save_every = 25
+        BC_trans_scal_H2O = BoundariesInt(
+        bottom = Dirichlet(val = phys.concentration0[3]),
+        top    = Neumann(),
+        left   = Dirichlet(val = phys.concentration0[3]),
+        right  = Dirichlet(val = phys.concentration0[3]),
+        int    = Dirichlet(val = phys.concentration0[3])) #H2O
 
 
+        phys.electrolysis_reaction = "none"
+        sim.imposed_velocity = "constant"
+
+        BC_vL= Boundaries(
+            left   = Dirichlet(val = phys.v_inlet),
+            right  = Dirichlet(val = phys.v_inlet),
+            bottom = Dirichlet(val = phys.v_inlet),
+            top    = Neumann(val=0.0),
+        )
+
+        BC_pL = Boundaries(
+            left   = Neumann(),
+            right  = Neumann(),
+            bottom = Neumann(),
+            top    = Neumann(),
+        )
+
+    elseif sim.name == "channel_Dirichlet_zero_vel"
+        sim.activate_interface = 0
+    
+        sim.max_iter = 1
+
+        save_every = sim.max_iter
+
+        sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet/2 
+        
+        BC_trans_scal_H2 = BoundariesInt(
+        bottom = Dirichlet(val = phys.concentration0[1]),
+        top    = Neumann(),
+        left   = Dirichlet(val = phys.concentration0[1]),
+        right  = Dirichlet(val = phys.concentration0[1]),
+        int    = Dirichlet(val = phys.concentration0[1])) #H2
+
+        BC_trans_scal_KOH = BoundariesInt(
+        bottom = Dirichlet(val = phys.concentration0[2]),
+        top    = Neumann(),
+        left   = Dirichlet(val = phys.concentration0[2]),
+        right  = Dirichlet(val = phys.concentration0[2]),
+        int    = Dirichlet(val = phys.concentration0[2])) #KOH
+
+        BC_trans_scal_H2O = BoundariesInt(
+        bottom = Dirichlet(val = phys.concentration0[3]),
+        top    = Neumann(),
+        left   = Dirichlet(val = phys.concentration0[3]),
+        right  = Dirichlet(val = phys.concentration0[3]),
+        int    = Dirichlet(val = phys.concentration0[3])) #H2O
 
 
-elseif sim.name == "imposed_radius"
-    electrolysis_phase_change = true
-    sim.max_iter = 100
-    save_every = 25
+        phys.electrolysis_reaction = "none"
+        sim.imposed_velocity = "none"
+
+        BC_vL= Boundaries(
+            left   = Dirichlet(val = phys.v_inlet),
+            right  = Dirichlet(val = phys.v_inlet),
+            bottom = Dirichlet(val = phys.v_inlet),
+            top    = Neumann(val=0.0),
+        )
+
+        BC_pL = Boundaries(
+            left   = Neumann(),
+            right  = Neumann(),
+            bottom = Neumann(),
+            top    = Neumann(),
+        )
+
+    elseif sim.name == "channel_Dirichlet_imposed_Poiseuille"
+        sim.activate_interface = 0
+        sim.max_iter = 100
+        save_every = 25
+
+        save_every = sim.max_iter
+
+        # sim.max_iter = 1
+        # save_every = 1
+        # # sim.CFL 1
+        # sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet 
+        # sim.CFL 0.5
+        sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet/2 
+
+        
+        BC_trans_scal_H2 = BoundariesInt(
+        bottom = Dirichlet(val = phys.concentration0[1]),
+        top    = Neumann(),
+        left   = Dirichlet(val = phys.concentration0[1]),
+        right  = Dirichlet(val = phys.concentration0[1]),
+        int    = Dirichlet(val = phys.concentration0[1])) #H2
+
+        BC_trans_scal_KOH = BoundariesInt(
+        bottom = Dirichlet(val = phys.concentration0[2]),
+        top    = Neumann(),
+        left   = Dirichlet(val = phys.concentration0[2]),
+        right  = Dirichlet(val = phys.concentration0[2]),
+        int    = Dirichlet(val = phys.concentration0[2])) #KOH
+
+        BC_trans_scal_H2O = BoundariesInt(
+        bottom = Dirichlet(val = phys.concentration0[3]),
+        top    = Neumann(),
+        left   = Dirichlet(val = phys.concentration0[3]),
+        right  = Dirichlet(val = phys.concentration0[3]),
+        int    = Dirichlet(val = phys.concentration0[3])) #H2O
 
 
+        phys.electrolysis_reaction = "none"
+        sim.imposed_velocity = "Poiseuille_bottom_top"
 
-    sim.electrolysis_phase_change_case = "imposed_radius"
+        BC_pL = Boundaries(
+            left   = Neumann(),
+            right  = Neumann(),
+            bottom = Neumann(),
+            top    = Neumann(),
+        )
 
-end
+    elseif sim.name == "channel_no_bubble_Cdivu"
+        sim.activate_interface = 0
+        sim.max_iter = 100
+        save_every = 25
+        sim.convection_Cdivu = true
 
-# folder="electrolysis_circle_wall_CFL"*"_"*sim.name
+    elseif sim.name == "channel_no_bubble_no_vel"
+        sim.activate_interface = 0
+        sim.max_iter = 100
+        save_every = 25
+    elseif sim.name == "channel"
+        sim.max_iter = 100
+        save_every = 25
+    elseif sim.name == "imposed_radius"
+        electrolysis_phase_change = true
+        sim.max_iter = 100
+        save_every = 25
+        sim.electrolysis_phase_change_case = "imposed_radius"
+    end
 
-folder = sim.name
 
+    folder = sim.name
 
+    # Save path
+    if makedir
+        prefix *= "/"*folder*"/"
+        isdir(prefix) || mkdir(prefix)
+        # yamlfile
+        yamlfile2="flower.yml"
+        cp(yamlpath,prefix*yamlfile2,force=true) #copy yaml file to simulation directory
+    end
 
-# Save path
-if makedir
-    prefix *= "/"*folder*"/"
-    isdir(prefix) || mkdir(prefix)
-    # yamlfile
-    yamlfile2="flower.yml"
-    cp(yamlpath,prefix*yamlfile2,force=true) #copy yaml file to simulation directory
-end
-
-
+end #if sim.name ==
 
 
 @debug "Before Numerical"
 
-#ϵwall = sim.epsilon_wall,
+
+
 
 
 num = Numerical(
@@ -553,15 +561,15 @@ num = Numerical(
     y = y,
     xcoord = phys.intfc_x,
     ycoord = phys.intfc_y,
-    case = "Cylinder",#"Planar",
+    case = sim.case,
     R = phys.radius,
     max_iterations = sim.max_iter,
     save_every = save_every,
     ϵ = sim.epsilon, 
+    ϵwall = sim.epsilon_wall,
     epsilon_mode = sim.epsilon_mode,
     nLS = phys.nb_levelsets,
     nb_transported_scalars=phys.nb_transported_scalars,
-    nb_saved_scalars=nb_saved_scalars,
     concentration0=phys.concentration0, 
     diffusion_coeff=phys.diffusion_coeff,
     temperature0=phys.temperature0,
@@ -575,19 +583,21 @@ num = Numerical(
     MWH2=phys.MWH2,
     θd=phys.temperature0,
     eps=sim.eps,
-    mu1=mu,
-    mu2=mu,
+    mu1=phys.mu1,
+    mu2=phys.mu2,
     rho1=phys.rho1,
     rho2=phys.rho2,
     u_inf = 0.0,
     v_inf = 0.0,
     pres0=phys.pres0,
-    # σ=phys.sigma,   
-    # reinit_every = 10,
-    # nb_reinit = 2,
-    # δreinit = 10.0,
-    # n_ext_cl = n_ext,
-    # NB = 24,
+    g = phys.g,
+    β = phys.beta,
+    σ=phys.sigma,   
+    reinit_every = sim.reinit_every,
+    nb_reinit = sim.nb_reinit,
+    δreinit = sim.delta_reinit,
+    n_ext_cl = sim.n_ext,
+    NB = sim.NB,
     plot_xscale = io.scale_x,
     plot_prefix = prefix,
     dt0 = sim.dt0,
@@ -606,8 +616,46 @@ num = Numerical(
 
 #Initialization
 gp, gu, gv = init_meshes(num)
-op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
+op, phS, phL = init_fields(num, gp, gu, gv)
 
+
+if sim.name == "falling_drop"
+
+    r = 0.5
+    gp.LS[1].u .= sqrt.(gp.x.^2 + (gp.y .- y0).^2) - r * ones(gp)
+    gp.LS[1].u .*= -1.0
+
+    wall_shape = (
+        A[1] .* cos.(2π .* gp.x) .+ A[2] .* sin.(2π .* gp.x) .+
+        A[3] .* cos.(2π .* gp.x) .^ 2 .+ A[4] .* sin.(2π .* gp.x) .^ 2 .+
+        A[5] .* cos.(2π .* gp.x) .^ 3 .+ A[6] .* sin.(2π .* gp.x) .^ 3 .+
+        A[7] .* cos.(2π .* gp.x) .^ 4 .+ A[8] .* sin.(2π .* gp.x) .^ 4
+    )
+
+    # u1 = sqrt.((gp.x .+ 0.49).^2 + (gp.y .+ 0.2).^2) - r * ones(gp)
+    # u2 = sqrt.((gp.x .- 0.49).^2 + (gp.y .+ 0.2).^2) - r * ones(gp)
+    # gp.LS[2].u .= combine_levelsets(gp, u1, u2)
+
+    gp.LS[2].u .= gp.y .- (L0y/2 .- 0.75) .+ wall_shape
+    gp.LS[2].u .*= -1.0
+
+    phL.u .= 0.0
+    phL.v .= 0.0
+
+    # @time vol_drop,V0L = run_forward(
+      
+    BC_uL = Boundaries(bottom = Navier_cl(λ = 1e-2),)
+    BC_vL = Boundaries(bottom = Dirichlet(),)
+    BC_pL = Boundaries()
+    BC_u = Boundaries(
+        bottom = Neumann_cl(θe = θe2 * π / 180),
+        top = Neumann(),
+        left = Neumann_inh(),
+        right = Neumann_inh()
+    )
+    BC_int = [FreeSurface(), WallNoSlip(θe = θe * π / 180)]
+
+end
 
 #Easier for sim.CFL: one velocity, and not phys.v_inlet, 3phys.v_inlet/2
 vPoiseuille = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length) 
@@ -766,12 +814,6 @@ catch error
     print(BC_trans_scal_H2O)
 end
 printstyled(color=:red, @sprintf "\n BC H2O\n")
-
-print(BC_trans_scal_H2O)
-print("\n BC ", phys.boundary_conditions,phys.boundary_conditions == "dir")
-
-
-
 
 printstyled(color=:green, @sprintf "\n Initialisation0 \n")
 
@@ -1194,6 +1236,15 @@ end
 # @debug "Before run"
 # print("\n Before run")
 # print(i_butler./elec_cond," ",size(i_butler./elec_cond),"\n ")
+if sim.name == "falling_drop"
+    BC_trans_scal = ()
+else
+    BC_trans_scal = (
+            BC_trans_scal_H2, #H2
+            BC_trans_scal_KOH, #KOH
+            BC_trans_scal_H2O, #H2O       
+        )
+end
 
 @time current_i=run_forward(
     num, gp, gu, gv, op, phS, phL;
@@ -1222,12 +1273,12 @@ end
     # bottom = Dirichlet(val = phys.temperature0),
     # top    = Dirichlet(val = phys.temperature0),
     # ),
-
-    BC_trans_scal = (
-        BC_trans_scal_H2, #H2
-        BC_trans_scal_KOH, #KOH
-        BC_trans_scal_H2O, #H2O       
-    ),
+    BC_trans_scal=BC_trans_scal,
+    # BC_trans_scal = (
+    #     BC_trans_scal_H2, #H2
+    #     BC_trans_scal_KOH, #KOH
+    #     BC_trans_scal_H2O, #H2O       
+    # ),
 
     BC_phi_ele = BoundariesInt(
         left   = Neumann(val=i_butler./elec_cond), #TODO -BC in Flower ? so i_butler not -i_butler
@@ -1236,7 +1287,7 @@ end
         top    = Neumann(val=0.0),
         int    = Neumann(val=0.0),
     ),
-     # auto_reinit = true,
+    auto_reinit = sim.auto_reinit,
     # save_length = true,
     time_scheme = time_scheme,
     electrolysis = true,
@@ -1254,11 +1305,7 @@ end
     non_dimensionalize=sim.non_dimensionalize,
     mode_2d = sim.mode_2d,
     convection_Cdivu = sim.convection_Cdivu,
-    
-    # ns_advection = false,
-    # auto_reinit = true,
-    # # ns_advection = false, #?
-    # save_length = true,
+    breakup = sim.breakup,    
 )
 
 @debug "After run"

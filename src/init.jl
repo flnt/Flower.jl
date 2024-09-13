@@ -255,12 +255,9 @@ end
 - op
 - phS
 - phL
-- fwd
-- fwdS
-- fwdL
 """
 function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
-    @unpack τ, N, T_inf, u_inf, v_inf, A, R, L0, Δ, shifted, shifted_y, max_iterations, save_every, CFL, x_airfoil, y_airfoil, nLS, _nLS, nb_transported_scalars,nb_saved_scalars = num
+    @unpack τ, N, T_inf, u_inf, v_inf, A, R, L0, Δ, shifted, shifted_y, max_iterations, save_every, CFL, x_airfoil, y_airfoil, nLS, _nLS, nb_transported_scalars = num
     @unpack x, y, nx, ny, LS, ind = grid
 
     SCUTCT = fzeros(grid)
@@ -908,12 +905,6 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     trans_scalDS = zeros( (num.nLS + 1) * grid.ny * grid.nx + 2 * grid.nx + 2 * grid.ny, nb_transported_scalars)
     phi_eleDS = fnzeros(grid, num)
 
-    saved_scalL = zeros(grid, nb_saved_scalars)
-    saved_scalDL = zeros( (num.nLS + 1) * grid.ny * grid.nx + 2 * grid.nx + 2 * grid.ny, nb_saved_scalars)
-    saved_scalS = zeros(grid, nb_saved_scalars)
-    saved_scalDS = zeros( (num.nLS + 1) * grid.ny * grid.nx + 2 * grid.nx + 2 * grid.ny, nb_saved_scalars)
-
-
     i_current_magL = zeros(grid)
     i_current_magS = zeros(grid)
 
@@ -921,92 +912,6 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
     EuL = zeros(grid_u)
     EvS = zeros(grid_v)
     EvL = zeros(grid_v)
-
-    # mass_fluxS = zeros(grid)
-    # mass_fluxL = zeros(grid)
-
-    n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
-    
-    usave = zeros(_nLS, n_snaps, grid.ny, grid.nx)
-    uxsave = zeros(_nLS, n_snaps, grid_u.ny, grid_u.nx)
-    uysave = zeros(_nLS, n_snaps, grid_v.ny, grid_v.nx)
-    TSsave = zeros(n_snaps, grid)
-    TLsave = zeros(n_snaps, grid)
-    Tsave = zeros(n_snaps, grid)
-    pSsave = zeros(n_snaps, grid)
-    pLsave = zeros(n_snaps, grid)
-    ϕSsave = zeros(n_snaps, grid)
-    ϕLsave = zeros(n_snaps, grid)
-    uSsave = zeros(n_snaps, grid_u)
-    uLsave = zeros(n_snaps, grid_u)
-    vSsave = zeros(n_snaps, grid_v)
-    vLsave = zeros(n_snaps, grid_v)
-    Vsave = zeros(n_snaps, grid)
-    κsave = zeros(_nLS, n_snaps, grid.ny, grid.nx)
-    lengthsave = zeros(n_snaps)
-    time = zeros(max_iterations+1)
-    radius = zeros(max_iterations+1)
-    # time = zeros(n_snaps)
-    # radius = zeros(n_snaps)
-    # mass_flux = zeros(n_snaps, grid)
-
-    # Cd = zeros(n_snaps)
-    # Cl = zeros(n_snaps)
-    Cd = zeros(max_iterations+1)
-    Cl = zeros(max_iterations+1)
-    # radius = zeros(max_iterations+1)
-
-    vDSsave = fnzeros(n_snaps, grid_v, num)
-    vDLsave = fnzeros(n_snaps, grid_v, num)
-    TDSsave = fnzeros(n_snaps, grid, num)
-    TDLsave = fnzeros(n_snaps, grid, num)
-    pDSsave = fnzeros(n_snaps, grid, num)
-    pDLsave = fnzeros(n_snaps, grid, num)
-    ucorrDSsave = fnzeros(n_snaps, grid_u, num)
-    ucorrDLsave = fnzeros(n_snaps, grid_u, num)
-    vcorrDSsave = fnzeros(n_snaps, grid_v, num)
-    vcorrDLsave = fnzeros(n_snaps, grid_v, num)
-    VratioS = ones(n_snaps)
-    VratioL = ones(n_snaps)
-
-
-    #TODO check
-
-    saved_scal_save = zeros(n_snaps, grid.ny, grid.nx , nb_saved_scalars)
-
-
-    trans_scal_save = zeros(n_snaps, grid.ny, grid.nx , nb_transported_scalars)
-    phi_ele_save = zeros(n_snaps, grid)
-    i_current_mag_save = zeros(n_snaps, grid)
-    Euxsave = zeros(_nLS, n_snaps, grid_u.ny, grid_u.nx)
-    Euysave = zeros(_nLS, n_snaps, grid_v.ny, grid_v.nx)
-
-    trans_scalLsave = zeros(n_snaps, grid.ny, grid.nx , nb_transported_scalars)
-    trans_scalSsave = zeros(n_snaps, grid.ny, grid.nx , nb_transported_scalars)
-
-    saved_scalLsave = zeros(n_snaps, grid.ny, grid.nx , nb_saved_scalars)
-    saved_scalSsave = zeros(n_snaps, grid.ny, grid.nx , nb_saved_scalars)
-
-    phi_eleLsave = zeros(n_snaps, grid)
-    phi_eleSsave = zeros(n_snaps, grid)
-
-    i_current_magSsave = zeros(n_snaps, grid)
-    i_current_magLsave = zeros(n_snaps, grid)
-
-    EuSsave = zeros(n_snaps, grid_u)
-    EuLsave = zeros(n_snaps, grid_u)
-    EvSsave = zeros(n_snaps, grid_v)
-    EvLsave = zeros(n_snaps, grid_v)
-
-    trans_scalDLsave = zeros(n_snaps, (num.nLS + 1) * grid.ny * grid.nx + 2 * grid.nx + 2 * grid.ny, nb_transported_scalars)
-    trans_scalDSsave = zeros(n_snaps, (num.nLS + 1) * grid.ny * grid.nx + 2 * grid.nx + 2 * grid.ny, nb_transported_scalars)
-
-    saved_scalDLsave = zeros(n_snaps, (num.nLS + 1) * grid.ny * grid.nx + 2 * grid.nx + 2 * grid.ny, nb_saved_scalars)
-    saved_scalDSsave = zeros(n_snaps, (num.nLS + 1) * grid.ny * grid.nx + 2 * grid.nx + 2 * grid.ny, nb_saved_scalars)
-
-    phi_eleDLsave = fnzeros(n_snaps, grid, num)
-    phi_eleDSsave = fnzeros(n_snaps, grid, num)
-
 
     if num.case == "Planar"
         LS[1].u .= y .+ shifted
@@ -1136,11 +1041,8 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
             Operators(AxT_vS, AyT_vS, Bx_vS, By_vS, BxT_vS, ByT_vS, Hx_vS, Hy_vS, HxT_vS, HyT_vS, tmp_x_vS, tmp_y_vS, M_vS, iMx_vS, iMy_vS, χ_vS, Rx, Ry, Gx_S, Gy_S, Hx_b_vS, Hy_b_vS, HxT_b_vS, HyT_b_vS, iMx_b_vS, iMy_b_vS, iMx_bd_vS, iMy_bd_vS, Gx_b_vS, Gy_b_vS, χ_b_vS),
             Operators(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L, Hx_b_vL, Hy_b_vL, HxT_b_vL, HyT_b_vL, iMx_b_vL, iMy_b_vL, iMx_bd_vL, iMy_bd_vL, Gx_b_vL, Gy_b_vL, χ_b_vL)
         ),
-        Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS, uTS, trans_scalS, phi_eleS, trans_scalDS, phi_eleDS, i_current_magS, EuS, EvS,saved_scalS),
-        Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL, uTL, trans_scalL, phi_eleL, trans_scalDL, phi_eleDL, i_current_magL, EuL, EvL,saved_scalL),
-        Forward(Tsave, usave, uxsave, uysave, Vsave, κsave, lengthsave, time, Cd, Cl, trans_scal_save, phi_ele_save,i_current_mag_save, Euxsave, Euysave,radius, saved_scal_save),
-        ForwardPhase(TSsave, pSsave, ϕSsave, uSsave, vSsave, vDSsave, TDSsave, pDSsave, ucorrDSsave, vcorrDSsave, VratioS, trans_scalSsave, phi_eleSsave, trans_scalDSsave, phi_eleDSsave, i_current_magSsave, EuSsave, EvSsave),
-        ForwardPhase(TLsave, pLsave, ϕLsave, uLsave, vLsave, vDLsave, TDLsave, pDLsave, ucorrDLsave, vcorrDLsave, VratioL, trans_scalLsave, phi_eleLsave, trans_scalDLsave, phi_eleDLsave, i_current_magLsave, EuLsave, EvLsave)
+        Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS, uTS, trans_scalS, phi_eleS, trans_scalDS, phi_eleDS, i_current_magS, EuS, EvS),
+        Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL, uTL, trans_scalL, phi_eleL, trans_scalDL, phi_eleDL, i_current_magL, EuL, EvL),
     )
 end
 

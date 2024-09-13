@@ -55,7 +55,6 @@ abstract type AbstractOptimizer end
     nLS::D = 1 # number of levelsets
     _nLS::D = nLS == 1 ? 1 : nLS + 1
     nb_transported_scalars::D = 0
-    nb_saved_scalars::D = 0
     concentration0::Array{T} = [0.0]
     diffusion_coeff::Array{T} = [0.0]
     temperature0::T = 0.0
@@ -315,8 +314,6 @@ struct Phase{T <: Real} <: MutatingFields
     i_current_mag::Array{T,2}
     Eu::Array{T,2}
     Ev::Array{T,2}
-    # mass_flux::Array{T,2}
-    saved_scal::Array{T,3}
 end
 
 struct Forward{T <: Real} <: MutatingFields

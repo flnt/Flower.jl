@@ -16,7 +16,7 @@ function run_forward(
     BC_int = [WallNoSlip()],
     time_scheme = CN,
     ls_scheme = weno5,
-    auto_reinit = false,
+    auto_reinit = 0,
     heat = false,
     heat_convection = false,
     heat_liquid_phase = false,
@@ -32,10 +32,9 @@ function run_forward(
     analytical = false,
     verbose = false,
     show_every = 100,
-    save_length = false,
     save_radius = false,
     adaptative_t = false,
-    breakup = false,
+    breakup = 0,
     Ra = 0.0,
     λ = 1,
     electrolysis = false,
@@ -56,7 +55,7 @@ function run_forward(
     # print("\n before unpack \n")
 
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, τ, L0, NB, Δ, CFL, Re, max_iterations, save_every, reinit_every, nb_reinit, δreinit, ϵ, m, θ₀, aniso, nLS, _nLS, nNavier,
-            concentration0, diffusion_coeff, nb_transported_scalars, nb_saved_scalars, temperature0, i0, phi_ele0, phi_ele1, alpha_c,
+            concentration0, diffusion_coeff, nb_transported_scalars, temperature0, i0, phi_ele0, phi_ele1, alpha_c,
             alpha_a, Ru, Faraday, mu1, rho1 = num
     @unpack opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL = op
     @unpack x, y, nx, ny, dx, dy, ind, LS, V = grid
@@ -97,11 +96,7 @@ function run_forward(
     if electrolysis
         electric_potential = true 
         electrolysis_advection = true
-        if nb_saved_scalars<1
-            @error("number of saved scalars should be superior to one")
-            return
-        end
-
+   
     end
 
     if free_surface && stefan
@@ -869,9 +864,7 @@ function run_forward(
                 # phL.saved_scal[:,:,1],phL.saved_scal[:,:,2],phL.saved_scal[:,:,3],phL.saved_scal[:,:,4]=compute_mass_flux!(num,grid, grid_u, 
                 # grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,1)
 
-                # for iscal=1:nb_saved_scalars
-                #     @views fwd.saved_scal[1,:,:,iscal] .= phL.saved_scal[:,:,iscal] #varflux[iscal] #reshape(varfluxH2, grid)
-                # end
+        
 
                 #################################################
 
@@ -1105,9 +1098,7 @@ function run_forward(
                 #     # phL.saved_scal[:,:,1],phL.saved_scal[:,:,2],phL.saved_scal[:,:,3],phL.saved_scal[:,:,4]=compute_mass_flux!(num,grid, grid_u, 
                 #     # grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,1)
             
-                #     # for iscal=1:nb_saved_scalars
-                #     #     @views fwd.saved_scal[1,:,:,iscal] .= phL.saved_scal[:,:,iscal] #varflux[iscal] #reshape(varfluxH2, grid)
-                #     # end
+          
 
                 #     # print("\n vecb_L(elec_condD, grid) before BC \n ", vecb_L(phL.trans_scalD[:,2], grid) )
 
@@ -1190,19 +1181,7 @@ function run_forward(
                 #     @views mul!(rhs, BTL, phL.trans_scalD[:,iscal], 1.0, 1.0) #TODO @views not necessary ?
 
 
-                #     # if nb_saved_scalars>1
-                #     #     # phL.saved_scal[:,:,5]=reshape(opC_TL.χ[1].diag,grid)
-                #     #     phL.saved_scal[:,:,2]=reshape(veci(rhs,grid,1), grid)
-                #     # end
-
-                #     if nb_saved_scalars>4
-                #         # phL.saved_scal[:,:,5]=reshape(opC_TL.χ[1].diag,grid)
-                #         phL.saved_scal[:,:,5]=reshape(veci(rhs,grid,1), grid)
-
-                #         if nb_saved_scalars>5
-                #             phL.saved_scal[:,:,6]=reshape(opC_TL.χ[1].diag,grid)
-                #         end
-                #     end
+       
 
 
                 #     # print("\n test left before A/r L", vecb_L(phL.trans_scalD[:,iscal], grid))
@@ -1786,13 +1765,9 @@ function run_forward(
 
                 # print("\n test left H2", vecb_L(phL.trans_scalD[:,1], grid))
 
-                if nb_saved_scalars==1
-                    phL.saved_scal[:,:,1],_,_,_=compute_mass_flux!(num,grid, grid_u, 
+                phL.saved_scal[:,:,1],_,_,_=compute_mass_flux!(num,grid, grid_u, 
                     grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,1,LS[1].geoL)
-                else
-                    phL.saved_scal[:,:,1],phL.saved_scal[:,:,2],phL.saved_scal[:,:,3],phL.saved_scal[:,:,4]=compute_mass_flux!(num,grid, grid_u, 
-                grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,1,LS[1].geoL)
-                end
+               
                 # print("\n testvalflux1")
                 # for jplot in 1:ny
                 #     for iplot in 1:nx
@@ -1802,11 +1777,6 @@ function run_forward(
                 #     end
                 # end
 
-
-
-                # for iscal=1:nb_saved_scalars
-                #     @views kill_dead_cells!(phL.saved_scal[:,:,iscal], grid, LS[1].geoL)
-                # end
 
 
 
@@ -1902,11 +1872,9 @@ function run_forward(
                     return num.current_i
                 end
 
-                if nb_saved_scalars>3
-                    printstyled(color=:cyan, @sprintf "\n div(0,grad): %.5i %.2e %.2e %.2e %.2e %.2e %.2e %.2e\n" nx num.τ num.L0/nx (current_radius-previous_radius)/(num.L0/nx) sum(phL.saved_scal[:,:,1]) sum(phL.saved_scal[:,:,2]) sum(phL.saved_scal[:,:,3]) sum(phL.saved_scal[:,:,4]))
-                else
-                    printstyled(color=:cyan, @sprintf "\n div(0,grad): %.5i %.2e %.2e %.2e %.2e\n" nx num.τ num.L0/nx (current_radius-previous_radius)/(num.L0/nx) sum(phL.saved_scal[:,:,1]))
-                end
+               
+                printstyled(color=:cyan, @sprintf "\n div(0,grad): %.5i %.2e %.2e %.2e %.2e\n" nx num.τ num.L0/nx (current_radius-previous_radius)/(num.L0/nx) sum(phL.saved_scal[:,:,1]))
+                
                 printstyled(color=:green, @sprintf "\n n(H2): %.2e added %.2e old R %.2e new R %.2e \n" nH2 varnH2*num.τ previous_radius current_radius)
                 printstyled(color=:green, @sprintf "\n p0: %.2e p_liq %.2e p_lapl %.2e \n" num.pres0 p_liq p_g)
 
@@ -2014,7 +1982,7 @@ function run_forward(
                 u[ind.b_left[1]] .= sqrt.(x[ind.b_left[1]] .^ 2 + y[ind.b_left[1]] .^ 2) .- (num.R + speed*num.current_i*num.τ);
                 u[ind.b_right[1]] .= sqrt.(x[ind.b_right[1]] .^ 2 + y[ind.b_right[1]] .^ 2) .- (num.R + speed*num.current_i*num.τ);
             elseif nb_reinit > 0
-                if auto_reinit && (num.current_i-1)%num.reinit_every == 0
+                if auto_reinit == 1 && (num.current_i-1)%num.reinit_every == 0
                     for iLS in 1:nLS
                         if !is_wall(BC_int[iLS])
                             ls_rg, rl_rg_v = rg(num, grid, LS[iLS].u, periodic_x, periodic_y, BC_int)
@@ -2044,7 +2012,7 @@ function run_forward(
                     end
 
             # Numerical breakup
-            if free_surface && breakup
+            if free_surface && breakup ==1
                 count, id_break = breakup_n(LS[1].u, nx, ny, dx, dy, periodic_x, periodic_y, NB_indices, 5e-2)
                 println(count)
                 if count > count_limit_breakup
@@ -2272,9 +2240,7 @@ function run_forward(
                 
         #         # @views fwd.mass_flux[snap,:,:] .= phL.mass_flux #reshape(varfluxH2, grid)
 
-        #         for iscal=1:nb_saved_scalars
-        #             @views fwd.saved_scal[snap,:,:,iscal] .= phL.saved_scal[:,:,iscal] #varflux[iscal] #reshape(varfluxH2, grid)
-        #         end
+     
 
         #         @views fwdL.phi_ele[snap,:,:] .= phL.phi_ele
 
@@ -2555,8 +2521,6 @@ function run_backward(num, grid, opS, opL, fwd, adj;
     analytical = false,
     verbose = false,
     show_every = 100,
-    save_length = false,
-    save_radius = false
     )
 
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, num.τ, L0, NB, max_iterations, num.current_i, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
