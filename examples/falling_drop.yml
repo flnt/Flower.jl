@@ -53,7 +53,10 @@ flower:
     ymax: 3.0
   simulation:
     # activate_interface: false
-    activate_interface: 1
+    activate_interface: -1 
+    #activate_interface: -1: solve inside: drop
+    #activate_interface: +1: solve outside: bubble
+
     adapt_timestep_mode: 3 #fixed timestep
     ns_advection: 0 #0 no advection
     auto_reinit: 1 #activated: 1
@@ -121,9 +124,7 @@ flower:
     debug: "scalar_testing" #"scalar_debug" 
     time_scheme: FE #Forward Euler
     # time_scheme: CN
-
-    n_ext: 10
-
+    n_ext: 10 
     delta_reinit: 0.65 # delta for automatic reinitialization
     NB: 24 # number of cells the velocity is extended
     

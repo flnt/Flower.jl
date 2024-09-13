@@ -63,20 +63,12 @@ ns_advection=(sim.ns_advection ==1)
 if sim.name == "falling_drop"
     L0x = 4.0
     L0y = 6.0
-    
-    n=-1000
-    
+        
     # x = collect(LinRange(-L0x / 2, L0x / 2, mesh.nx+1))
     x = LinRange(mesh.xmin, mesh.xmax, mesh.nx+1)
 
     dx = diff(x)[1]
     y = collect(-L0y/2:dx:L0y/2+dx)
-
-    # print("\n x", x)
-    # print("\n y", y)
-
-    # print("\n size x", size(x))
-    # print("\n size y", size(y))
 
     θe = 90
     θe2 = 135
@@ -1043,6 +1035,10 @@ if sim.activate_interface == 1
         #     uL[II] = tanh(bl*(su[II]-R1))
         end
     end
+
+elseif sim.activate_interface == -1
+    gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
+    gp.LS[1].u .*= -1.0
 
 else
     gp.LS[1].u .= 1.0
