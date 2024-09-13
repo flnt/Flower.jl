@@ -2160,8 +2160,13 @@ def python_movie_zoom(
 
     with h5py.File(file_name, "r") as file:
 
-        time = file["time"][()]
-        nstep = file["nstep"][()]
+        try:
+            time = file["time"][()]
+            nstep = file["nstep"][()]
+        except:
+            time = 0
+            nstep = 0 
+            print("time not available")
 
         fig1,ax2,CS = plot_file(
         file,
@@ -2200,8 +2205,13 @@ def python_movie_zoom(
 
             # print(file.keys())
 
-            time = file["time"][()]
-            nstep = file["nstep"][()]           
+            try:
+                time = file["time"][()]
+                nstep = file["nstep"][()]
+            except:
+                time = 0
+                nstep = 0 
+                print("time not available")     
 
             fig1,ax2,CS = plot_file(
             file,
@@ -2286,8 +2296,13 @@ def python_movie_zoom_func(
 
     with h5py.File(file_name, "r") as file:
 
-        time = file["time"][()]
-        nstep = file["nstep"][()]
+        try:
+            time = file["time"][()]
+            nstep = file["nstep"][()]
+        except:
+            time = 0
+            nstep = 0 
+            print("time not available")
 
         fig1,ax2,cbar = func(
         file,
@@ -2331,8 +2346,14 @@ def python_movie_zoom_func(
 
             # print(file.keys())
 
-            time = file["time"][()]
-            nstep = file["nstep"][()]           
+            try:
+                time = file["time"][()]
+                nstep = file["nstep"][()]
+            except:
+                time = 0
+                nstep = 0 
+                print("time not available")
+
             # print('before',ax2)
             fig1,ax2,cbar = func(
             file,

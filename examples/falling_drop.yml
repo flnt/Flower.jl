@@ -29,8 +29,8 @@ flower:
     pres0:  0.0 #1e5
     radius: 0.5 #initial radius
     ref_length: 1e-4
-    rho1: 1258.0 #liquid
-    rho2: 0.069575 #gaz
+    rho1: 1.0 #1258.0 #liquid
+    rho2: 1.0 #0.069575 #gaz
     #TODO need for 80°C, check with other study
     #"0.7016E-01" in \citet{cohnTABLETHERMODYNAMICPROPERTIES1963} H2
     # Linear interpolation between 350 and 360
@@ -89,7 +89,7 @@ flower:
     epsilon: 0.01 #cut small cells
     epsilon_wall: 0.05
     #if epsilon=0 centroids will be on the interface
-    epsilon_mode: 2 #way to handle epsilon:
+    epsilon_mode: 0 #way to handle epsilon: #diff free_surface
     # if num.epsilon_mode == 0
     #     return 1 / (W+eps(0.01))
     # elseif num.epsilon_mode == 1
@@ -151,7 +151,7 @@ plot:
         isocontour: False
         levels: 10
         plot_bc: True
-        plot_wall: True
+        plot_wall: #True
         plot_grid: True
         plot_levelset: True #False
         plot_levelset_segments: #True 
@@ -200,235 +200,235 @@ plot:
       #   linewidth: 1
       #   linestyle: None
 
-      - var: mass_flux_border
-        file: mass_flux_zoom_border
-        figsize: None
-        aspect_box: 'box'
-        aspect_ratio: 'equal'
-        cbarlabel: Mass flux
-        fontsize: 4
-        isocontour: False
-        levels: 10
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: True #False
-        plot_levelset_segments: #True 
-        plot_mode: pcolormesh #contourf
-        print_mode: "val"
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        # zoom: [[0,5],[0,5]]
-        # zoom_mode: index
-        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        zoom_mode: coord
-        color_annot_bc: w
-        color_annot_bulk: w
-        linewidth: 1
-        linestyle: None
+      # - var: mass_flux_border
+      #   file: mass_flux_zoom_border
+      #   figsize: None
+      #   aspect_box: 'box'
+      #   aspect_ratio: 'equal'
+      #   cbarlabel: Mass flux
+      #   fontsize: 4
+      #   isocontour: False
+      #   levels: 10
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: True #False
+      #   plot_levelset_segments: #True 
+      #   plot_mode: pcolormesh #contourf
+      #   print_mode: "val"
+      #   range: [0,1e-4]
+      #   xlim: [0,100]
+      #   ylim: [0,100]
+      #   # zoom: [[0,5],[0,5]]
+      #   # zoom_mode: index
+      #   # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   zoom_mode: coord
+      #   color_annot_bc: w
+      #   color_annot_bulk: w
+      #   linewidth: 1
+      #   linestyle: None
 
-      - var: mass_flux_intfc
-        file: mass_flux_zoom_intfc
-        figsize: None
-        aspect_box: 'box'
-        aspect_ratio: 'equal'
-        cbarlabel: Mass flux
-        fontsize: 4
-        isocontour: False
-        levels: 10
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: True #False
-        plot_levelset_segments: #True 
-        plot_mode: pcolormesh #contourf
-        print_mode: "val"
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        # zoom: [[0,5],[0,5]]
-        # zoom_mode: index
-        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        zoom_mode: coord
-        color_annot_bc: w
-        color_annot_bulk: w
-        linewidth: 1
-        linestyle: None
+      # - var: mass_flux_intfc
+      #   file: mass_flux_zoom_intfc
+      #   figsize: None
+      #   aspect_box: 'box'
+      #   aspect_ratio: 'equal'
+      #   cbarlabel: Mass flux
+      #   fontsize: 4
+      #   isocontour: False
+      #   levels: 10
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: True #False
+      #   plot_levelset_segments: #True 
+      #   plot_mode: pcolormesh #contourf
+      #   print_mode: "val"
+      #   range: [0,1e-4]
+      #   xlim: [0,100]
+      #   ylim: [0,100]
+      #   # zoom: [[0,5],[0,5]]
+      #   # zoom_mode: index
+      #   # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   zoom_mode: coord
+      #   color_annot_bc: w
+      #   color_annot_bulk: w
+      #   linewidth: 1
+      #   linestyle: None
 
-      - var: mass_flux_bulk
-        file: mass_flux_zoom_bulk
-        figsize: None
-        aspect_box: 'box'
-        aspect_ratio: 'equal'
-        cbarlabel: Mass flux
-        fontsize: 4
-        isocontour: False
-        levels: 10
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: True #False
-        plot_levelset_segments: #True 
-        plot_mode: pcolormesh #contourf
-        print_mode: "val"
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        # zoom: [[0,5],[0,5]]
-        # zoom_mode: index
-        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        zoom_mode: coord
-        color_annot_bc: w
-        color_annot_bulk: w
-        linewidth: 1
-        linestyle: None
+      # - var: mass_flux_bulk
+      #   file: mass_flux_zoom_bulk
+      #   figsize: None
+      #   aspect_box: 'box'
+      #   aspect_ratio: 'equal'
+      #   cbarlabel: Mass flux
+      #   fontsize: 4
+      #   isocontour: False
+      #   levels: 10
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: True #False
+      #   plot_levelset_segments: #True 
+      #   plot_mode: pcolormesh #contourf
+      #   print_mode: "val"
+      #   range: [0,1e-4]
+      #   xlim: [0,100]
+      #   ylim: [0,100]
+      #   # zoom: [[0,5],[0,5]]
+      #   # zoom_mode: index
+      #   # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   zoom_mode: coord
+      #   color_annot_bc: w
+      #   color_annot_bulk: w
+      #   linewidth: 1
+      #   linestyle: None
 
-      - var: mass_flux
-        file: mass_flux_zoom
-        figsize: None
-        aspect_box: 'box'
-        aspect_ratio: 'equal'
-        cbarlabel: Mass flux
-        fontsize: 4
-        isocontour: False
-        levels: 10
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: True #False
-        plot_levelset_segments: #True 
-        plot_mode: pcolormesh #contourf
-        print_mode: "val"
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        # zoom: [[0,5],[0,5]]
-        # zoom_mode: index
-        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        zoom_mode: coord
-        color_annot_bc: w
-        color_annot_bulk: w
-        linewidth: 1
-        linestyle: None
+      # - var: mass_flux
+      #   file: mass_flux_zoom
+      #   figsize: None
+      #   aspect_box: 'box'
+      #   aspect_ratio: 'equal'
+      #   cbarlabel: Mass flux
+      #   fontsize: 4
+      #   isocontour: False
+      #   levels: 10
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: True #False
+      #   plot_levelset_segments: #True 
+      #   plot_mode: pcolormesh #contourf
+      #   print_mode: "val"
+      #   range: [0,1e-4]
+      #   xlim: [0,100]
+      #   ylim: [0,100]
+      #   # zoom: [[0,5],[0,5]]
+      #   # zoom_mode: index
+      #   # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   zoom_mode: coord
+      #   color_annot_bc: w
+      #   color_annot_bulk: w
+      #   linewidth: 1
+      #   linestyle: None
 
-      - var: concentration_H2_1DT
-        file: concentration_H2_zoom
-        field_index: 1
-        cbarlabel: "$\text{Concentration}~H_2$"
-        fontsize: 4
-        isocontour: False
-        levels: 10
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: False
-        plot_levelset_segments: False
-        plot_mode: pcolormesh #contourf
-        print_mode: "val"
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        #zoom: [[0,5],[0,5]]
-        #zoom_mode: index
-        zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        zoom_mode: coord
-        color_annot_bc: k #w
-        color_annot_bulk: w
+      # - var: concentration_H2_1DT
+      #   file: concentration_H2_zoom
+      #   field_index: 1
+      #   cbarlabel: "$\text{Concentration}~H_2$"
+      #   fontsize: 4
+      #   isocontour: False
+      #   levels: 10
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: False
+      #   plot_levelset_segments: False
+      #   plot_mode: pcolormesh #contourf
+      #   print_mode: "val"
+      #   range: [0,1e-4]
+      #   xlim: [0,100]
+      #   ylim: [0,100]
+      #   #zoom: [[0,5],[0,5]]
+      #   #zoom_mode: index
+      #   zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   zoom_mode: coord
+      #   color_annot_bc: k #w
+      #   color_annot_bulk: w
 
-      - var: concentration_H2_1DT
-        file: concentration_H2_zoom_int
-        field_index: 2
-        cbarlabel: "$\text{Concentration}~H_2$"
-        fontsize: 4
-        isocontour: False
-        levels: 10
-        plot_bc: #True
-        plot_grid: True
-        plot_levelset: False
-        plot_levelset_segments: False
-        plot_mode: pcolormesh #contourf
-        print_mode: "val"
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        #zoom: [[0,5],[0,5]]
-        #zoom_mode: index
-        zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        zoom_mode: coord
-        color_annot_bc: k #w
-        color_annot_bulk: w
+      # - var: concentration_H2_1DT
+      #   file: concentration_H2_zoom_int
+      #   field_index: 2
+      #   cbarlabel: "$\text{Concentration}~H_2$"
+      #   fontsize: 4
+      #   isocontour: False
+      #   levels: 10
+      #   plot_bc: #True
+      #   plot_grid: True
+      #   plot_levelset: False
+      #   plot_levelset_segments: False
+      #   plot_mode: pcolormesh #contourf
+      #   print_mode: "val"
+      #   range: [0,1e-4]
+      #   xlim: [0,100]
+      #   ylim: [0,100]
+      #   #zoom: [[0,5],[0,5]]
+      #   #zoom_mode: index
+      #   zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   zoom_mode: coord
+      #   color_annot_bc: k #w
+      #   color_annot_bulk: w
 
 
-      - var: velocity_x
-        file: velocity_vectors
-        plot_levelset: True
-        plot_levelset_segments: False
-        skip_every: 12
-        xlim: [0,100]
-        ylim: [0,100]
-        quiverkey: True 
-        quiver_unit: m/s #given value v_inlet
-        quiver_x: 0.7
-        quiver_y: 0.05
-        linewidth: 1
-        linestyle: 'dotted'
+      # - var: velocity_x
+      #   file: velocity_vectors
+      #   plot_levelset: True
+      #   plot_levelset_segments: False
+      #   skip_every: 12
+      #   xlim: [0,100]
+      #   ylim: [0,100]
+      #   quiverkey: True 
+      #   quiver_unit: m/s #given value v_inlet
+      #   quiver_x: 0.7
+      #   quiver_y: 0.05
+      #   linewidth: 1
+      #   linestyle: 'dotted'
 
-      - var: i_current_x
-        file: current_lines
-        func: plot_current_lines
-        cbarlabel: Electrical potential
-        # img_format: mp4
-        isocontour: #True
-        levels: 0 #10
-        range: np.linspace(-1.5e-4,0.0000001,11) #np.linspace(-1.5e-4,0,11)
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: True
-        plot_levelset_segments: False
-        plot_mode: contourf
-        # range: [0,1e-4]
-        ticks_format: '%.2e'
-        xlim: [0,100]
-        ylim: [0,100]
-        linewidth: 1
-        linestyle: 'dotted'
-        zoom_mode: None
+      # # - var: i_current_x
+      # #   file: current_lines
+      # #   func: plot_current_lines
+      # #   cbarlabel: Electrical potential
+      # #   # img_format: mp4
+      # #   isocontour: #True
+      # #   levels: 0 #10
+      # #   range: np.linspace(-1.5e-4,0.0000001,11) #np.linspace(-1.5e-4,0,11)
+      # #   plot_bc: True
+      # #   plot_grid: True
+      # #   plot_levelset: True
+      # #   plot_levelset_segments: False
+      # #   plot_mode: contourf
+      # #   # range: [0,1e-4]
+      # #   ticks_format: '%.2e'
+      # #   xlim: [0,100]
+      # #   ylim: [0,100]
+      # #   linewidth: 1
+      # #   linestyle: 'dotted'
+      # #   zoom_mode: None
 
-      - var: v_1D
-        file: v_LS
-        cbarlabel: v
-        isocontour: False
-        levels: 10
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: True
-        plot_levelset_segments: False
-        plot_mode: contourf
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        linewidth: 0.5
-        linestyle: 'dotted'
+      # - var: v_1D
+      #   file: v_LS
+      #   cbarlabel: v
+      #   isocontour: False
+      #   levels: 10
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: True
+      #   plot_levelset_segments: False
+      #   plot_mode: contourf
+      #   range: [0,1e-4]
+      #   xlim: [0,100]
+      #   ylim: [0,100]
+      #   linewidth: 0.5
+      #   linestyle: 'dotted'
 
-      - var: mass_flux
-        file: mass_flux
-        cbarlabel: mass_flux
-        isocontour: False
-        levels: 10
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: True
-        plot_levelset_segments: False
-        plot_mode: contourf
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        linewidth: 1
-        linestyle: None
+      # - var: mass_flux
+      #   file: mass_flux
+      #   cbarlabel: mass_flux
+      #   isocontour: False
+      #   levels: 10
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: True
+      #   plot_levelset_segments: False
+      #   plot_mode: contourf
+      #   range: [0,1e-4]
+      #   xlim: [0,100]
+      #   ylim: [0,100]
+      #   linewidth: 1
+      #   linestyle: None
 
       # - var: trans_scal_1D_H2
       #   file: trans_scal_1D_H2
@@ -465,120 +465,143 @@ plot:
       #   zoom: [[0,5],[0,5]]
 
 
-      - var: concentration_H2_1DT
-        file: concentration_H2
-        cbarlabel: "$\\text{Concentration}~H_2$"
-        fontsize: 4
-        isocontour: False
-        levels: 10
-        # lcolor: 
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: False #True
-        plot_levelset_segments: #True
-        plot_levelset_segments_print: 
-        plot_mode: contourf
-        print_mode: 
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        linewidth: 1
-        linestyle: None
+      # - var: concentration_H2_1DT
+      #   file: concentration_H2
+      #   cbarlabel: "$\\text{Concentration}~H_2$"
+      #   fontsize: 4
+      #   isocontour: False
+      #   levels: 10
+      #   # lcolor: 
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: False #True
+      #   plot_levelset_segments: #True
+      #   plot_levelset_segments_print: 
+      #   plot_mode: contourf
+      #   print_mode: 
+      #   range: [0,1e-4]
+      #   xlim: [0,100]
+      #   ylim: [0,100]
+      #   linewidth: 1
+      #   linestyle: None
 
-      - var: concentration_KOH_1DT
-        file: concentration_KOH
-        cbarlabel: '$\text{Concentration} KOH$'
-        isocontour: False
-        levels: 10
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: True
-        plot_levelset_segments: False
-        plot_mode: contourf
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        linewidth: 1
-        linestyle: None
+      # - var: concentration_KOH_1DT
+      #   file: concentration_KOH
+      #   cbarlabel: '$\text{Concentration} KOH$'
+      #   isocontour: False
+      #   levels: 10
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: True
+      #   plot_levelset_segments: False
+      #   plot_mode: contourf
+      #   range: [0,1e-4]
+      #   xlim: [0,100]
+      #   ylim: [0,100]
+      #   linewidth: 1
+      #   linestyle: None
 
-      - var: concentration_H2O_1DT
-        file: concentration_H2O
-        cbarlabel: '$\text{Concentration} H_2O$'
-        isocontour: False
-        levels: 10
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: True
-        plot_levelset_segments: False
-        plot_mode: contourf
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        linewidth: 1
-        linestyle: None
+      # - var: concentration_H2O_1DT
+      #   file: concentration_H2O
+      #   cbarlabel: '$\text{Concentration} H_2O$'
+      #   isocontour: False
+      #   levels: 10
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: True
+      #   plot_levelset_segments: False
+      #   plot_mode: contourf
+      #   range: [0,1e-4]
+      #   xlim: [0,100]
+      #   ylim: [0,100]
+      #   linewidth: 1
+      #   linestyle: None
 
-        #Zoom
+      #   #Zoom
 
-      - var: mass_flux
-        file: mass_flux_zoom
-        figsize: None
-        aspect_box: 'box'
-        aspect_ratio: 'equal'
-        cbarlabel: Mass flux
-        fontsize: 4
-        isocontour: False
-        levels: 10
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: True #False
-        plot_levelset_segments: #True 
-        plot_mode: pcolormesh #contourf
-        print_mode: "val"
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        # zoom: [[0,5],[0,5]]
-        # zoom_mode: index
-        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        zoom_mode: coord
-        color_annot_bc: w
-        color_annot_bulk: w
-        linewidth: 1
-        linestyle: None
+      # - var: mass_flux
+      #   file: mass_flux_zoom
+      #   figsize: None
+      #   aspect_box: 'box'
+      #   aspect_ratio: 'equal'
+      #   cbarlabel: Mass flux
+      #   fontsize: 4
+      #   isocontour: False
+      #   levels: 10
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: True #False
+      #   plot_levelset_segments: #True 
+      #   plot_mode: pcolormesh #contourf
+      #   print_mode: "val"
+      #   range: [0,1e-4]
+      #   xlim: [0,100]
+      #   ylim: [0,100]
+      #   # zoom: [[0,5],[0,5]]
+      #   # zoom_mode: index
+      #   # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   zoom_mode: coord
+      #   color_annot_bc: w
+      #   color_annot_bulk: w
+      #   linewidth: 1
+      #   linestyle: None
 
-      - var: v_1D
-        file: v_zoom
-        figsize: None
-        aspect_box: 'box'
-        aspect_ratio: 'equal'
-        cbarlabel: v
-        fontsize: 4
-        isocontour: False
-        levels: 10
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: True #False
-        plot_levelset_segments: #True 
-        plot_mode: pcolormesh #contourf
-        print_mode: "val"
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        # zoom: [[0,5],[0,5]]
-        # zoom_mode: index
-        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        zoom_mode: coord
-        color_annot_bc: w
-        color_annot_bulk: w
-        linewidth: 1
-        linestyle: None
+      # - var: v_1D
+      #   file: v_zoom
+      #   figsize: None
+      #   aspect_box: 'box'
+      #   aspect_ratio: 'equal'
+      #   cbarlabel: v
+      #   fontsize: 4
+      #   isocontour: False
+      #   levels: 10
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: True #False
+      #   plot_levelset_segments: #True 
+      #   plot_mode: pcolormesh #contourf
+      #   print_mode: "val"
+      #   range: [0,1e-4]
+      #   xlim: [0,100]
+      #   ylim: [0,100]
+      #   # zoom: [[0,5],[0,5]]
+      #   # zoom_mode: index
+      #   # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   zoom_mode: coord
+      #   color_annot_bc: w
+      #   color_annot_bulk: w
+      #   linewidth: 1
+      #   linestyle: None
+
+      # # - var: concentration_H2_1DT
+      # #   file: concentration_H2_zoom
+      # #   field_index: 1
+      # #   cbarlabel: "$\text{Concentration}~H_2$"
+      # #   fontsize: 4
+      # #   isocontour: False
+      # #   levels: 10
+      # #   plot_bc: True
+      # #   plot_grid: True
+      # #   plot_levelset: False
+      # #   plot_levelset_segments: False
+      # #   plot_mode: pcolormesh #contourf
+      # #   print_mode: "val"
+      # #   range: [0,1e-4]
+      # #   xlim: [0,100]
+      # #   ylim: [0,100]
+      # #   #zoom: [[0,5],[0,5]]
+      # #   #zoom_mode: index
+      # #   zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      # #   zoom_mode: coord
+      # #   color_annot_bc: w
+      # #   color_annot_bulk: w
 
       # - var: concentration_H2_1DT
-      #   file: concentration_H2_zoom
+      #   file: concentration_H2_zoom_segments
       #   field_index: 1
       #   cbarlabel: "$\text{Concentration}~H_2$"
       #   fontsize: 4
@@ -587,54 +610,10 @@ plot:
       #   plot_bc: True
       #   plot_grid: True
       #   plot_levelset: False
-      #   plot_levelset_segments: False
+      #   plot_levelset_segments: #True
+      #   plot_levelset_segments_print: ijy #ijx
       #   plot_mode: pcolormesh #contourf
-      #   print_mode: "val"
-      #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
-      #   #zoom: [[0,5],[0,5]]
-      #   #zoom_mode: index
-      #   zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-      #   zoom_mode: coord
-      #   color_annot_bc: w
-      #   color_annot_bulk: w
-
-      - var: concentration_H2_1DT
-        file: concentration_H2_zoom_segments
-        field_index: 1
-        cbarlabel: "$\text{Concentration}~H_2$"
-        fontsize: 4
-        isocontour: False
-        levels: 10
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: False
-        plot_levelset_segments: #True
-        plot_levelset_segments_print: ijy #ijx
-        plot_mode: pcolormesh #contourf
-        print_mode: ijy #ijx #ijcoord #ijval #ij #"val"
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        zoom_mode: coord
-        color_annot_bc: w
-        color_annot_bulk: w
-
-      # - var: concentration_H2_1DT
-      #   file: concentration_H2_zoom_segments
-      #   field_index: 1
-      #   cbarlabel: '$\text{Concentration} H_2$'
-      #   fontsize: 4
-      #   isocontour: False
-      #   levels: 10
-      #   plot_bc: True
-      #   plot_grid: True
-      #   plot_levelset: False
-      #   plot_levelset_segments: True
-      #   plot_mode: pcolormesh #contourf
-      #   print_mode: ijval #ij #"val"
+      #   print_mode: ijy #ijx #ijcoord #ijval #ij #"val"
       #   range: [0,1e-4]
       #   xlim: [0,100]
       #   ylim: [0,100]
@@ -643,9 +622,61 @@ plot:
       #   color_annot_bc: w
       #   color_annot_bulk: w
 
+      # # - var: concentration_H2_1DT
+      # #   file: concentration_H2_zoom_segments
+      # #   field_index: 1
+      # #   cbarlabel: '$\text{Concentration} H_2$'
+      # #   fontsize: 4
+      # #   isocontour: False
+      # #   levels: 10
+      # #   plot_bc: True
+      # #   plot_grid: True
+      # #   plot_levelset: False
+      # #   plot_levelset_segments: True
+      # #   plot_mode: pcolormesh #contourf
+      # #   print_mode: ijval #ij #"val"
+      # #   range: [0,1e-4]
+      # #   xlim: [0,100]
+      # #   ylim: [0,100]
+      # #   zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      # #   zoom_mode: coord
+      # #   color_annot_bc: w
+      # #   color_annot_bulk: w
+
 
 
   films:
+
+      - var: levelset_p
+        file: levelset_p
+        figsize: None
+        aspect_box: 'box'
+        aspect_ratio: 'equal'
+        cbarlabel: Levelset p
+        img_format: mp4
+        fontsize: 4
+        isocontour: False
+        levels: 10
+        plot_bc: True
+        plot_wall: #True
+        plot_grid: True
+        plot_levelset: True #False
+        plot_levelset_segments: #True 
+        plot_mode: contourf #pcolormesh #contourf
+        print_mode: "val"
+        range: [0,1e-4]
+        xlim: [-2,2]
+        ylim: [-3,3]
+        # zoom: [[0,5],[0,5]]
+        # zoom_mode: index
+        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom_mode: coord
+        color_annot_bc: w
+        color_annot_bulk: w
+        linewidth: 1
+        linestyle: None
 
       # - var: p_1D
       #   file: pressure
