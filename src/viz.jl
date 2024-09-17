@@ -363,9 +363,9 @@ function make_video(
         contour!(x, y, @lift(u[1,$obs,:,:]'), levels = -10:grid.dx[1,1]:10, linewidth = 2.0)
     end
     if plot_interface
-    for iLS in 1:num.nLS
-        contour!(x, y, @lift(u[iLS,$obs,:,:]'), levels = [0.0], color = :red, linewidth = 3.0)
-    end
+        for iLS in 1:num.nLS
+            contour!(x, y, @lift(u[iLS,$obs,:,:]'), levels = [0.0], color = :red, linewidth = 3.0)
+        end
     end
     if isa(liquid, AbstractArray)
         for iLS in liquid
