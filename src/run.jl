@@ -2007,12 +2007,15 @@ function run_forward(
                         if !is_wall(BC_int[iLS])
                             ls_rg, rl_rg_v = rg(num, grid, LS[iLS].u, periodic_x, periodic_y, BC_int)
                             println("$(ls_rg)")
+                            printstyled(color=:green, @sprintf "\n ls_rg : %.2e \n" ls_rg)
                             if ls_rg >= δreinit || num.current_i == 1
-                                println("yes")
+                                print("(ls_rg >= δreinit || num.current_i == 1): yes")
+                                # println("yes")
                                 RK2_reinit!(ls_scheme, grid, ind, iLS, LS[iLS].u, nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
                                 
                                 ls_rg, rl_rg_v = rg(num, grid, LS[iLS].u, periodic_x, periodic_y, BC_int)
                                 println("$(ls_rg) ")
+                                printstyled(color=:green, @sprintf "\n ls_rg : %.2e \n" ls_rg)
                             end
                         end
                     end

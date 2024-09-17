@@ -33,7 +33,6 @@ if length(localARGS)>0
     yamlname = yamlnamelist[end]
     
     # cp(yamlpath,"./"*yamlname,force=true)
-
 end
 
 data = YAML.load_file(yamlpath)
@@ -70,49 +69,39 @@ if sim.name == "falling_drop"
     dx = diff(x)[1]
     y = collect(-L0y/2:dx:L0y/2+dx)
 
-    θe = 90
-    θe2 = 135
     A = zeros(8)
     A[1] = 0.1
       
-    CFL = 0.5
-
     Re = 1.0
     # dt in branch free-surface 
     deltax = min(diff(x)..., diff(y)...)
-    sim.dt0 = min(CFL*deltax^2*Re, CFL*deltax)
+    sim.dt0 = min(sim.CFL*deltax^2*Re, sim.CFL*deltax)
+
+    print("\n dt0 ", sim.dt0)
 
     # advection deactivated
 
+elseif occursin("sessile",sim.name) #sim.name == "sessile_2LS"
+ 
+    # Physical parameters 
+    x = LinRange(mesh.xmin, mesh.xmax, mesh.nx+1)    
+    y = collect(LinRange(mesh.ymin, mesh.ymax, mesh.ny + 1))
+
+    h0 = 0.5
+    Re = 1.0
+ 
+    # not imposing the angle exactly at the boundary but displaced a cell because ghost cells are not used. 
+    # So the exact contact angle cannot be imposed
+    # TODO should at some point modify the levelset so it works as the other fields that we have in the code, 
+    # with the boundary values in addition to the bulk field. That way we could impose it exactly at the boundary
+    # needs a lot of work, not priority
+    _θe = acos((0.5 * diff(y)[1] + cos(phys.theta_e * π / 180) * h0) / h0) * 180 / π
+    
+    # _θe = acos((diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
+    # println("θe = $(_θe)")
+
 else
     
-
-
-
-    if sim.name == "sessile"
-        # Sessile from sessile.jl
-        Rf(θ, V) = sqrt(V / (θ - sin(θ) * cos(θ)))
-        RR0(θ) = sqrt(π / (2 * (θ - sin(θ) * cos(θ))))
-        center(r, θ) = r * cos(π - θ)
-
-        θe= 90
-        θe= 145
-
-        if θe < 40
-            max_its = 35000
-            n_ext = 10
-            sim.CFL = 0.5
-        elseif θe < 100
-            max_its = 15000
-            n_ext = 10
-            sim.CFL = 0.5
-        else
-            max_its = 5000
-            n_ext = 10
-            sim.CFL = 0.5
-        end
-    end
-
 
     # Physical parameters 
     x = LinRange(mesh.xmin, mesh.xmax, mesh.nx+1)
@@ -188,38 +177,12 @@ else
 
     # printstyled(color=:green, @sprintf "\n Mole test: %.2e %.2e\n" phys.concentration0[1]*4.0/3.0*pi*current_radius^3 p_g*4.0/3.0*pi*current_radius^3/(phys.temperature0*phys.Ru))
 
-    if sim.name == "sessile"
-
-        # Sessile
-        # h0 = 0.5
-        # phys.ref_lengthx = 3.0
-        # phys.ref_lengthy = 2.0
-        # mesh.nx = 96
-
-        # x = collect(LinRange(-phys.ref_lengthx / 2, phys.ref_lengthx / 2, mesh.nx + 1))
-        # y = collect(LinRange(-phys.ref_lengthy / 2, 0, mesh.nx ÷ 3 + 1))
-
-        # not imposing the angle exactly at the boundary but displaced a cell because ghost cells are not used. 
-        # So the exact contact angle cannot be imposed
-        # TODO should at some point modify the levelset so it works as the other fields that we have in the code, 
-        # with the boundary values in addition to the bulk field. That way we could impose it exactly at the boundary
-        # needs a lot of work, not priority
-        _θe = acos((0.5 * diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
-        # _θe = acos((diff(y)[1] + cos(θe * π / 180) * h0) / h0) * 180 / π
-        # println("θe = $(_θe)")
-    end
-
-    radial_vel_factor = 1e-7
-
     #dummy gp
     gp = Mesh(GridCC, x, y, 1)
-
 
     # BC 
     i_butler = gp.x[:,1] .*0.0
     phi_ele =  gp.x[:,1] .*0.0
-
-
 
     # print("\n i_butler ", i_butler)
     # print("\n phi_ele ", phi_ele)
@@ -619,6 +582,13 @@ num = Numerical(
 gp, gu, gv = init_meshes(num)
 op, phS, phL = init_fields(num, gp, gu, gv)
 
+print("\n TODO BC_uL")
+BC_uL = Boundaries(
+        left   = Dirichlet(),#Navier_cl(λ = 1e-2), #Dirichlet(),
+        right  = Dirichlet(),
+        bottom = Dirichlet(),
+        top    = Neumann(val=0.0),
+    )
 
 if sim.name == "falling_drop"
 
@@ -649,12 +619,66 @@ if sim.name == "falling_drop"
     BC_vL = Boundaries(bottom = Dirichlet(),)
     BC_pL = Boundaries()
     BC_u = Boundaries(
-        bottom = Neumann_cl(θe = θe2 * π / 180),
+        bottom = Neumann_cl(θe = phys.theta_e * π / 180),
         top = Neumann(),
         left = Neumann_inh(),
         right = Neumann_inh()
     )
-    BC_int = [FreeSurface(), WallNoSlip(θe = θe * π / 180)]
+    BC_int = [FreeSurface(), WallNoSlip(θe = phys.theta_e * π / 180)]
+
+elseif sim.name == "sessile"
+
+    BC_uL = Boundaries(
+        bottom = Navier_cl(λ = 1e-2),
+        top = Dirichlet(),
+    )
+
+    BC_vL = Boundaries(
+        bottom = Dirichlet(),
+        top = Dirichlet(),
+    )
+
+    BC_pL = Boundaries(
+        left = Dirichlet(),
+        right = Dirichlet(),
+    )
+
+    BC_u = Boundaries(
+        bottom = Neumann_cl(θe = _θe * π / 180),
+        top = Neumann_inh(),
+        left = Neumann_inh(),
+        right = Neumann_inh()
+    )
+
+    BC_int = [FreeSurface()]
+
+elseif sim.name == "sessile_2LS"
+
+    gp.LS[2].u .= gp.y .+ 0.85  .+ 0.1 .* cos.(2.0 .*π .* gp.x)
+
+    phL.u .= 0.0
+    phL.v .= 0.0
+
+    BC_uL = Boundaries(
+    bottom = Dirichlet(),
+    top = Dirichlet(),
+    )
+
+    BC_vL = Boundaries(
+    bottom = Dirichlet(),
+    top = Dirichlet(),
+    )
+
+    BC_pL = Boundaries()
+
+    BC_u = Boundaries(
+    bottom = Neumann_inh(),
+    top = Neumann_inh(),
+    left = Neumann_inh(),
+    right = Neumann_inh()
+    )
+
+    BC_int = [FreeSurface(), WallNoSlip(θe = phys.theta_e * π / 180)]
 
 end
 
@@ -1132,7 +1156,7 @@ end
 # @debug "Before run"
 # print("\n Before run")
 # print(i_butler./elec_cond," ",size(i_butler./elec_cond),"\n ")
-if sim.name == "falling_drop"
+if sim.name == "falling_drop" || occursin("sessile",sim.name)
     BC_trans_scal = ()
     BC_phi_ele = ()
 else
@@ -1228,26 +1252,22 @@ if num.io_pdi>0
 
 end #if io_pdi
 
+
+print("\n BC_u ",BC_u)
+print("\n BC_int ",BC_int)
+print("\n BC_uL ",BC_uL)
+
+
 @time current_i=run_forward(
     num, gp, gu, gv, op, phS, phL;
-    BC_uL = Boundaries(
-        left   = Dirichlet(),#Navier_cl(λ = 1e-2), #Dirichlet(),
-        right  = Dirichlet(),
-        bottom = Dirichlet(),
-        top    = Neumann(val=0.0),
-    ),
+    BC_uL = BC_uL,
     BC_uS=BC_uS,
     BC_vL = BC_vL,
     BC_vS=BC_vS,
     BC_pL = BC_pL,
     BC_pS=BC_pS,
-  
-
     BC_u = BC_u,
-
     BC_int = BC_int,
-
-
     # BC_TL  = Boundaries(
     # left   = Dirichlet(val = phys.temperature0),
     # right  = Dirichlet(val = phys.temperature0),
@@ -1284,9 +1304,25 @@ end #if io_pdi
 
 @debug "After run"
 
-
 printstyled(color=:green, @sprintf "\n max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(phL.u)) maximum(abs.(phL.v)))
 
+
+if occursin("sessile",sim.name)
+
+    V0 = 0.5 * π * 0.5^2
+    Vf = volume(gp.LS[1].geoL)
+    Vratio = Vf / V0
+
+    mean_rad = 1 / abs(mean(gp.LS[1].κ[gp.LS[1].MIXED[5:end-5]]))
+    RR0_sim = mean_rad / 0.5
+    RR0_teo = RR0(phys.theta_e * π / 180)
+
+    println("Vratio = $(Vratio)")
+    println("mean rad = $(mean_rad)")
+    println("RR0_sim = $(RR0_sim)")
+    println("RR0_teo = $(RR0_teo)")
+
+end
 
 # vec = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length)
 # print("\n Poiseuille_fmax ",vec[1,:])

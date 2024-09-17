@@ -3184,3 +3184,21 @@ function convert_interfacial_D_to_segments(num,gp,field,iLS)
     return x,y,f,connectivities,vtx_index,num_seg
 
 end
+
+
+"""
+Rf(θ, V)
+Returns the 
+"""
+@inline Rf(θ, V) = sqrt(V / (θ - sin(θ) * cos(θ)))
+"""
+RR0(θ)
+Returns the 
+"""
+@inline RR0(θ) = sqrt(π / (2 * (θ - sin(θ) * cos(θ))))
+"""
+center(r, θ)
+
+Returns the 
+"""
+@inline center(r, θ) = r * cos(π - θ)

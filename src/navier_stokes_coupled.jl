@@ -2482,7 +2482,7 @@ function pressure_projection!(
     p .= reshape(vec1(pD,grid), grid)
 
     #TODO
-    compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
+    # compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
 
 
     # else
