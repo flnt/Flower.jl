@@ -1312,19 +1312,39 @@ def plot_file(
             CS = ax2.pcolormesh(
                 x_1D, y_1D, field, cmap=plotpar["cmap"], norm=norm, shading=shading
             )
+    elif figpar['plot_mode'] == "contourf_LS":
+        if figpar['levels']==0:
+            CS = ax2.contourf(x_1D,y_1D,field, 
+            # levels=figpar['range'], #10, 
+            levels=eval(figpar['range']),
+            cmap=plotpar['cmap'],
+            extend=plotpar['extend'],)
+        else:
+            CS = ax2.contourf(x_1D,y_1D,field, 
+            levels=figpar['levels'],
+            cmap=plotpar['cmap'],
+            extend=plotpar['extend'],)
 
-    # Make a colorbar for the ContourSet returned by the contourf call.
-    if mode !='film':
-        cbar = fig1.colorbar(CS)
-        cbar.ax.set_ylabel(r""+figpar['cbarlabel'])
-    # Add the contour line levels to the colorbar
+        for level, collection in zip(CS.levels[1:], CS.collections):
+            print(f"Levelset contours",level)
+            if level<=0:
+                collection.remove()
+            else:
+                collection.set_facecolor(figpar['color_LS'])  
 
-    else:
-        cbar = plt.colorbar(CS,cax=cbar.ax)
-        cbar.ax.set_ylabel(r""+figpar['cbarlabel'])
-        if 'ticks_format' in figpar:
-            if figpar['ticks_format']!=None:
-                cbar.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
+    if figpar['plot_mode'] != "contourf_LS":
+        # Make a colorbar for the ContourSet returned by the contourf call.
+        if mode !='film':
+            cbar = fig1.colorbar(CS)
+            cbar.ax.set_ylabel(r""+figpar['cbarlabel'])
+        # Add the contour line levels to the colorbar
+
+        else:
+            cbar = plt.colorbar(CS,cax=cbar.ax)
+            cbar.ax.set_ylabel(r""+figpar['cbarlabel'])
+            if 'ticks_format' in figpar:
+                if figpar['ticks_format']!=None:
+                    cbar.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
 
 
     if isocontour:
@@ -1338,6 +1358,8 @@ def plot_file(
         LSdat = file[key_LS][:]
         LSdat = LSdat.transpose()
         CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
+        
+       
 
     if figpar['plot_wall']:
         print('plot wall')
@@ -1346,16 +1368,14 @@ def plot_file(
         # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
         CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=0) #not very precise
 
-        print(CSlvlwall.levels)
-
-        # for coll in CSlvlwall.collections:
-        #         if coll.level>0:
-        #             coll.remove()
+        # print(CSlvlwall.levels)
 
         for level, collection in zip(CSlvlwall.levels[1:], CSlvlwall.collections):
-            print(f"%% Level {level} %%")
+            print(f"Levelset contours",level)
             if level>0:
                 collection.remove()
+            else:
+                collection.set_facecolor(plotpar['color_wall'])  
 
         #with version below need to take care if bottom,top... fillbetween y=ymin and intfc or y=ymax ...
         # try:

@@ -57,7 +57,10 @@ ns_advection=(sim.ns_advection ==1)
 
 # print("\n ns_advection ",ns_advection," ",sim.ns_advection)
 
-#TODO restart with PDI
+# #TODO restart with PDI
+# if sim.restart == 1:
+#     cf hello_access.jl
+# end
 
 if sim.name == "falling_drop"
     L0x = 4.0
