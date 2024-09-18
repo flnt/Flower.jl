@@ -818,45 +818,76 @@ end
 """
 From Stefan_velocity!
 """
-function electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodic_y, concentration_scal_intfc)
+function electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodic_y, concentration_scal_intfc,electrolysis_phase_change_case, varflux)
     @unpack geoS, geoL, κ = LS
 
     V .= 0
-    # @inbounds @threads for II in MIXED
-    @inbounds for II in MIXED
 
-        θ_d = concentration_scal_intfc
+    if electrolysis_phase_change_case == "levelset"
 
-        # dTS = 0.
-        dTL = 0.
-        if geoL.projection[II].flag
-            T_1, T_2 = interpolated_temperature(grid, geoL.projection[II].angle, geoL.projection[II].point1, geoL.projection[II].point2, TL, II, periodic_x, periodic_y)
-            dTL = normal_gradient(geoL.projection[II].d1, geoL.projection[II].d2, T_1, T_2, θ_d)
-        else
-            T_1 = interpolated_temperature(grid, geoL.projection[II].angle, geoL.projection[II].point1, TL, II, periodic_x, periodic_y)
-            dTL = normal_gradient(geoL.projection[II].d1, T_1, θ_d)
+        # @inbounds @threads for II in MIXED
+        @inbounds for II in MIXED
+
+            θ_d = concentration_scal_intfc
+
+            # dTS = 0.
+            dTL = 0.
+            if geoL.projection[II].flag
+                T_1, T_2 = interpolated_temperature(grid, geoL.projection[II].angle, geoL.projection[II].point1, geoL.projection[II].point2, TL, II, periodic_x, periodic_y)
+                dTL = normal_gradient(geoL.projection[II].d1, geoL.projection[II].d2, T_1, T_2, θ_d)
+            else
+                T_1 = interpolated_temperature(grid, geoL.projection[II].angle, geoL.projection[II].point1, TL, II, periodic_x, periodic_y)
+                dTL = normal_gradient(geoL.projection[II].d1, T_1, θ_d)
+            end
+            V[II] = dTL #+ dTS
+
+            print("\n grad",II,"val",dTL,"val",geoL.projection[II].flag,"val",geoL.projection[II].angle,"val", geoL.projection[II].point1,"val", geoL.projection[II].point2,"val", T_1,"val",T_2,"val",θ_d)
         end
-        V[II] = dTL #+ dTS
 
-        print("\n grad",II,"val",dTL,"val",geoL.projection[II].flag,"val",geoL.projection[II].angle,"val", geoL.projection[II].point1,"val", geoL.projection[II].point2,"val", T_1,"val",T_2,"val",θ_d)
+    else
+
+        interfacial_area = 0.0
+        @inbounds for II in MIXED
+            V[II] = sum(varflux)
+
+            #χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
+            #χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
+            #χ[iLS].diag .= sqrt.(vec(χx .+ χy))
+
+            χx = (geo.dcap[II,3] .- geo.dcap[II,1]) .^ 2
+            χy = (geo.dcap[II,4] .- geo.dcap[II,2]) .^ 2
+
+            interfacial_area += sqrt.(vec(χx .+ χy))
+        end 
+
+        V./= interfacial_area
+
+        print("\n phase-change velocity ", sum(varflux)/interfacial_area)
+
+        printstyled(color=:magenta, @sprintf "\n phase-change velocity %.2e area %.2e πR %.2e\n" sum(varflux)/interfacial_area interfacial_area π*num.radius)
+
+
+        magenta
+
     end
+
     return nothing
 end
 
 """
 From update_free_surface_velocity and update_stefan_velocity
 """
-function update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, uD, vD, periodic_x, periodic_y, Vmean, concentration_scalD, diffusion_coeff_scal,concentration_scal_intfc)
+function update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, uD, vD, periodic_x, periodic_y, Vmean, concentration_scalD, diffusion_coeff_scal,concentration_scal_intfc, electrolysis_phase_change_case)
     @unpack MWH2,rho1,rho2=num
     # @unpack χ,=opC
     #TODO check sign 
 
     printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
 
-    plot_electrolysis_velocity!(num, grid, grid.LS[iLS], grid.V, concentration_scalD, grid.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc)
+    #plot_electrolysis_velocity!(num, grid, grid.LS[iLS], grid.V, concentration_scalD, grid.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc)
 
-
-    electrolysis_velocity!(num, grid, grid.LS[iLS], grid.V, concentration_scalD, grid.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc)
+    electrolysis_velocity!(num, grid, grid.LS[iLS], grid.V, concentration_scalD, grid.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc,electrolysis_phase_change_case, varflux)
+    
 
     # concentration_scalu = zeros(grid_u)
     # concentration_scalv = zeros(grid_v)
@@ -3202,3 +3233,100 @@ center(r, θ)
 Returns the 
 """
 @inline center(r, θ) = r * cos(π - θ)
+
+
+function contact_angle_advancing_receding(grid_u, grid_v, iLS, II)
+
+    # From code in run.jl
+
+
+    normalx = cos.(grid_u.LS[iLS].α)
+    normaly = sin.(grid_v.LS[iLS].α)
+
+    # grid_u.V .*= normalx
+    # grid_v.V .*= normaly
+
+    advancing_receding = normalx[II] * grid_u.V[II] + normaly[II] * grid_v.V[II] #TODO check dim , bounds
+
+    return advancing_receding
+
+
+
+    # V .= 0.0
+    # cap1 = grid_u.LS[iLS].geoL.cap[II,5]
+    # cap3 = grid_u.LS[iLS].geoL.cap[δx⁺(II),5]
+    # tmpVx = (grid_u.V[II] * cap1 + grid_u.V[δx⁺(II)] * cap3) * inv_weight_eps(num,cap1 + cap3)
+    
+    # cap2 = grid_v.LS[iLS].geoL.cap[II,5]
+    # cap4 = grid_v.LS[iLS].geoL.cap[δy⁺(II),5]
+    # tmpVy = (grid_v.V[II] * cap2 + grid_v.V[δy⁺(II)] * cap4) * inv_weight_eps(num,cap2 + cap4)
+    
+    # tmpV = sqrt(tmpVx^2 + tmpVy^2)
+    # β = atan(tmpVy, tmpVx)
+
+    # printstyled(color=:magenta, @sprintf "\n beta β: %.2e : %.2e : %.2e" β grid.LS[iLS].α[II] )
+
+    # if grid.LS[iLS].α[II] > 0.0 && β < 0.0
+    #     β += 2π
+    # end
+    # if grid.LS[iLS].α[II] < 0.0 && β > 0.0
+    #     β -= 2π
+    # end
+
+    # V[II] = tmpV * cos(β - grid.LS[iLS].α[II])
+
+    
+    
+    
+    # Project velocities to the normal and use advecion scheme for advection just
+    # in the normal direction
+    # tmpVx = zeros(grid)
+    # tmpVy = zeros(grid)
+    # V .= 0.0
+    # @inbounds @threads for II in grid.LS[iLS].MIXED
+    #     cap1 = grid_u.LS[iLS].geoL.cap[II,5]
+    #     cap3 = grid_u.LS[iLS].geoL.cap[δx⁺(II),5]
+    #     # tmpVx[II] = (grid_u.V[II] * cap1 + grid_u.V[δx⁺(II)] * cap3) / (cap1 + cap3 + eps(0.01))
+    #     tmpVx[II] = (grid_u.V[II] * cap1 + grid_u.V[δx⁺(II)] * cap3) * inv_weight_eps(num,cap1 + cap3)
+        
+
+    #     cap2 = grid_v.LS[iLS].geoL.cap[II,5]
+    #     cap4 = grid_v.LS[iLS].geoL.cap[δy⁺(II),5]
+    #     # tmpVy[II] = (grid_v.V[II] * cap2 + grid_v.V[δy⁺(II)] * cap4) / (cap2 + cap4 + eps(0.01))
+    #     tmpVy[II] = (grid_v.V[II] * cap2 + grid_v.V[δy⁺(II)] * cap4) * inv_weight_eps(num,cap2 + cap4)
+        
+
+    #     tmpV = sqrt(tmpVx[II]^2 + tmpVy[II]^2)
+    #     β = atan(tmpVy[II], tmpVx[II])
+    #     if grid.LS[iLS].α[II] > 0.0 && β < 0.0
+    #         β += 2π
+    #     end
+    #     if grid.LS[iLS].α[II] < 0.0 && β > 0.0
+    #         β -= 2π
+    #     end
+
+    #     V[II] = tmpV * cos(β - grid.LS[iLS].α[II])
+    # end
+
+    # i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, grid.LS[iLS], grid.ind.inside, periodic_x, periodic_y)
+    # field_extension!(grid, grid.LS[iLS].u, V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
+
+    # rhs_LS .= 0.0
+    # IIOE_normal!(grid, LS[iLS].A, LS[iLS].B, LS[iLS].u, V, CFL_sc, periodic_x, periodic_y)
+    # BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
+    # BC_LS_interior!(num, grid, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
+    # LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
+
+    # Impose contact angle if a wall is present
+    # rhs_LS .= 0.0
+    # LS[iLS].A.nzval .= 0.0
+    # LS[iLS].B.nzval .= 0.0
+    # for II in grid.ind.all_indices
+    #     pII = lexicographic(II, grid.ny)
+    #     LS[iLS].A[pII,pII] = 1.0
+    #     LS[iLS].B[pII,pII] = 1.0
+    # end
+    # BC_LS_interior!(num, grid, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
+    # LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
+
+end

@@ -576,6 +576,7 @@ num = Numerical(
     io_pdi = io.pdi,
     bulk_conductivity = sim.bulk_conductivity,
     electric_potential = sim.electric_potential,
+    contact_angle = sim.contact_angle,
     )
 
 @debug "After Numerical"
@@ -622,7 +623,7 @@ if sim.name == "falling_drop"
     BC_vL = Boundaries(bottom = Dirichlet(),)
     BC_pL = Boundaries()
     BC_u = Boundaries(
-        bottom = Neumann_cl(θe = phys.theta_e * π / 180),
+        bottom = Neumann_cl(θe = phys.theta_e2 * π / 180),
         top = Neumann(),
         left = Neumann_inh(),
         right = Neumann_inh()
@@ -681,8 +682,116 @@ elseif sim.name == "sessile_2LS"
     right = Neumann_inh()
     )
 
-    BC_int = [FreeSurface(), WallNoSlip(θe = phys.theta_e * π / 180)]
+    BC_int = [FreeSurface(), WallNoSlip(θe = phys.theta_e * π / 180, θadv = phys.theta_adv * π / 180, θrec = phys.theta_rec * π / 180)]
 
+elseif sim.name == "sessile_2LS_adv"
+
+    gp.LS[2].u .= gp.y .+ 0.85  #.+ 0.1 .* cos.(2.0 .*π .* gp.x)
+
+    dx = diff(x)[1]
+
+    v_adv = dx/sim.dt0*0.5
+
+    phL.u .= v_adv
+    phL.v .= 0.0
+
+    BC_uL = Boundaries(
+    bottom = Dirichlet(val=v_adv),
+    top = Dirichlet(val=v_adv),
+    left= Dirichlet(val=v_adv),
+    right = Dirichlet(val=v_adv),
+    )
+
+    BC_vL = Boundaries(
+    bottom = Dirichlet(),
+    top = Dirichlet(),
+    )
+
+    BC_pL = Boundaries()
+
+    BC_u = Boundaries(
+    bottom = Neumann_inh(),
+    top = Neumann_inh(),
+    left = Neumann_inh(),
+    right = Neumann_inh()
+    )
+
+    BC_int = [FreeSurface(), WallNoSlip(θe = phys.theta_e * π / 180, θadv = phys.theta_adv * π / 180, θrec = phys.theta_rec * π / 180)]
+
+elseif sim.name == "sessile_2LS_inclined"
+
+    gp.LS[2].u .= gp.y .+ 0.85  - 0.1 * gp.x  #.+ 0.1 .* cos.(2.0 .*π .* gp.x)
+
+
+
+    dx = diff(x)[1]
+
+
+    phL.u .= 0.0
+    phL.v .= 0.0
+
+    BC_uL = Boundaries(
+    bottom = Dirichlet(),
+    top = Dirichlet(),
+    )
+
+    BC_vL = Boundaries(
+    bottom = Dirichlet(),
+    top = Dirichlet(),
+    )
+
+    BC_pL = Boundaries()
+
+    BC_u = Boundaries(
+    bottom = Neumann_inh(),
+    top = Neumann_inh(),
+    left = Neumann_inh(),
+    right = Neumann_inh()
+    )
+
+    BC_int = [FreeSurface(), WallNoSlip(θe = phys.theta_e * π / 180, θadv = phys.theta_adv * π / 180, θrec = phys.theta_rec * π / 180)]
+
+elseif sim.name == "sessile_2LS_inclined"
+
+    gp.LS[2].u .= 3.7 .- gp.y
+
+    phL.u .= 0.0
+    phL.v .= 0.0
+
+  
+    BC_uL = Boundaries(
+        left = Periodic(),
+        right = Periodic(),
+        bottom = Navier_cl(λ = 1e-2),
+        top = Dirichlet(),
+    )
+
+    BC_vL = Boundaries(
+        left = Periodic(),
+        right = Periodic(),
+        bottom = Dirichlet(),
+        top = Dirichlet()
+    )
+
+    BC_pL = Boundaries(
+        left = Periodic(),
+        right = Periodic(),
+    )
+
+    BC_u = Boundaries(
+        left = Periodic(),
+        right = Periodic(),
+        bottom = Neumann_cl(θe = π / 2.0),
+        top = Neumann_inh(),
+    )
+
+    BC_int = [FreeSurface(), WallNoSlip()]
+  
+
+#elseif sim.name == "levelset_Butler"
+#gp.LS[2].u .= gp.x
+
+   
 end
 
 #Easier for sim.CFL: one velocity, and not phys.v_inlet, 3phys.v_inlet/2
@@ -1263,6 +1372,8 @@ print("\n BC_uL ",BC_uL)
 
 @time current_i=run_forward(
     num, gp, gu, gv, op, phS, phL;
+    periodic_x = (sim.periodic_x == 1),
+    periodic_y = (sim.periodic_y == 1),
     BC_uL = BC_uL,
     BC_uS=BC_uS,
     BC_vL = BC_vL,

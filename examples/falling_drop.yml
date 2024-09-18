@@ -39,6 +39,8 @@ flower:
     Ru: 8.314
     sigma: 1.3 #7.7e-2
     temperature0: 353.0
+    theta_e: 90
+    theta_e2: 135
     v_inlet: 6.7e-4
     g: 20.0
     beta: 0.0
@@ -110,7 +112,7 @@ flower:
 
     name: "falling_drop"
     nb_reinit: 10
-    non_dimensionalize: 0 # 0: NS equations as is (without non_dimensionalization)
+    non_dimensionalize: 1 # 0: NS equations as is (without non_dimensionalization)
     null_space: 0 #method for null space, matrix diagonal
     prediction: 0 #4 #0 #pressure-velocity coupling
     # prediction = 0
@@ -152,7 +154,7 @@ plot:
         isocontour: False
         levels: 10
         plot_bc: True
-        plot_wall: #True
+        plot_wall: True
         plot_grid: True
         plot_levelset: True #False
         plot_levelset_segments: #True 
@@ -654,18 +656,20 @@ plot:
         aspect_box: 'box'
         aspect_ratio: 'equal'
         cbarlabel: Levelset p
+        color_LS: 'cyan'
         img_format: mp4
         fontsize: 4
         isocontour: False
-        levels: 10
+        levels: 0 #10
+        range: 'np.linspace(0,4,5)'
         plot_bc: True
-        plot_wall: #True
+        plot_wall: True
         plot_grid: True
         plot_levelset: True #False
         plot_levelset_segments: #True 
-        plot_mode: contourf #pcolormesh #contourf
+        plot_mode: contourf_LS #pcolormesh #contourf
         print_mode: "val"
-        range: [0,1e-4]
+        # range: [0,1e-4]
         xlim: [-2,2]
         ylim: [-3,3]
         # zoom: [[0,5],[0,5]]

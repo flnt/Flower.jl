@@ -119,7 +119,7 @@ Outside, the contact angle asymptotically converges to an angle of 90°. Inside,
 angle converges to an angle of 0° if the imposed contact angle at the contact line is
 smaller than 90° and to an angle of 180° if the imposed contact angle is bigger than 90°.
 """
-function BC_LS_interior!(num, grid, iLS, A, B, rhs, BC_int, periodic_x, periodic_y)
+function BC_LS_interior!(num, grid, grid_u, grid_v, iLS, A, B, rhs, BC_int, periodic_x, periodic_y)
     @unpack x, y, nx, ny, dx, dy, ind, LS = grid
 
     π2 = π / 2.0
@@ -309,14 +309,37 @@ function BC_LS_interior!(num, grid, iLS, A, B, rhs, BC_int, periodic_x, periodic
                     multtmp[II] = mult[idmin] * sign(LS[iLS].u[KK] - LS[iLS].u[II])
 
                     d2 = sqrt((x[pks1] - x[pkse])^2.0 + (y[pks1] - y[pkse])^2.0) / 2.0
+                    
+                    #Imposing contact angle for wall BC
+                    printstyled(color=:magenta, @sprintf "\n Imposing contact angle: %.2e" BC_int[i].θe)
+                    
+                    if num.contact_angle == 1
+                        advancing_receding = contact_angle_advancing_receding(grid_u, grid_v, i, II)
+                        print("\n advancing/receding II ",II, " ",advancing_receding)
+                        if advancing_receding>0
+                            theta_adv_reced = BC_int[i].θadv
+                        else
+                            theta_adv_reced = BC_int[i].θrec
+                        end
 
-                    if BC_int[i].θe < π2
-                        newθ = atan(tan(BC_int[i].θe) * (1.0 - LS[iLS].u[II] / d2))
+                        if theta_adv_reced < π2 
+                            newθ = atan(tan(theta_adv_reced) * (1.0 - LS[iLS].u[II] / d2))
+                        else
+                            newθ = π - atan(tan(π - theta_adv_reced) * (1.0 - LS[iLS].u[II] / d2))
+                        end
+    
+                        θtmp[II] = theta_adv_reced
                     else
-                        newθ = π - atan(tan(π - BC_int[i].θe) * (1.0 - LS[iLS].u[II] / d2))
+                        if BC_int[i].θe < π2 
+                            newθ = atan(tan(BC_int[i].θe) * (1.0 - LS[iLS].u[II] / d2))
+                        else
+                            newθ = π - atan(tan(π - BC_int[i].θe) * (1.0 - LS[iLS].u[II] / d2))
+                        end
+    
+                        θtmp[II] = BC_int[i].θe
                     end
 
-                    θtmp[II] = BC_int[i].θe
+
                 end
 
                 βtmp = zeros(grid)

@@ -121,7 +121,7 @@ function run_forward(
     # pres_free_surfaceL = 0.0
     pres_free_surfaceL = num.pres0
 
-    if electrolysis_phase_change_case == "levelset"
+    if occursin("levelset",electrolysis_phase_change_case)
         jump_mass_fluxS = false 
         jump_mass_fluxL = true
     else
@@ -1750,13 +1750,44 @@ function run_forward(
                 V .= 0.0
                 printstyled(color=:green, @sprintf "\n V %.2e max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(V)) maximum(abs.(phL.u)) maximum(abs.(phL.v)))
 
-                if electrolysis_phase_change_case!="none"                   
-                    if electrolysis_phase_change_case == "levelset"
+                if electrolysis_phase_change_case!="none"    
+                    if occursin("levelset",electrolysis_phase_change_case)
+               
+                        if electrolysis_phase_change_case == "levelset"
 
-                        # plot_electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodic_y, concentration_scal_intfc)
+                            printstyled(color=:magenta, @sprintf "\n phase-change velocity")
 
-                        update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],diffusion_coeff[1],concentration0[1])
-                        # ,opC_pL)
+                            return
+
+
+                            # plot_electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodic_y, concentration_scal_intfc)
+
+                            # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
+
+                            varnH2 = -sum(varfluxH2) * diffusion_coeff[1] 
+
+                            new_nH2 = nH2 + varnH2 * num.τ
+
+                        
+                            printstyled(color=:green, @sprintf "\n it %.5i Mole: %.2e dn %.2e new nH2 %.2e \n" num.current_i nH2 varnH2*num.τ new_nH2)
+
+                            if varnH2 < 0.0 
+                                # print(@sprintf "error nH2 %.2e dnH2 %.2e new nH2 %.2e\n" nH2-varnH2*num.τ varnH2*num.τ nH2 )
+                                @error ("error nH2")
+                                crashed = true
+                                new_nH2 = nH2
+                                print("wrong nH2 ")
+                                # println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
+                                return nothing
+                            end
+
+                            nH2 = new_nH2
+
+                            update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],diffusion_coeff[1],concentration0[1],electrolysis_phase_change_case,varfluxH2)
+
+                
+                        end
+
                     end
                     # update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y)
                     printstyled(color=:green, @sprintf "\n V %.2e max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(V)) maximum(abs.(phL.u)) maximum(abs.(phL.v)))
@@ -1940,13 +1971,13 @@ function run_forward(
                     LS[iLS].A.nzval .= 0.0
                     LS[iLS].B.nzval .= 0.0
                     IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, θ_out, num.τ, periodic_x, periodic_y)
-                    BC_LS_interior!(num, grid, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
+                    BC_LS_interior!(num, grid, grid_u, grid_v, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
                     BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
                     utmp .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
 
                     rhs_LS .= 0.0
                     S2IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, utmp, LS[iLS].u, θ_out, num.τ, periodic_x, periodic_y)
-                    BC_LS_interior!(num, grid, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
+                    BC_LS_interior!(num, grid, grid_u, grid_v, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
                     BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
                     LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
 

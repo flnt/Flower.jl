@@ -1326,7 +1326,7 @@ def plot_file(
             extend=plotpar['extend'],)
 
         for level, collection in zip(CS.levels[1:], CS.collections):
-            print(f"Levelset contours",level)
+            # print(f"Levelset contours",level)
             if level<=0:
                 collection.remove()
             else:
@@ -1362,20 +1362,43 @@ def plot_file(
        
 
     if figpar['plot_wall']:
-        print('plot wall')
-        LSdat = file[key_LS_wall][:]
-        LSdat = LSdat.transpose()
-        # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
-        CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=0) #not very precise
+        # print('plot wall')
 
-        # print(CSlvlwall.levels)
+        try:
+            LSdat = file[key_LS_wall][:]
+            plot_LS(LSdat)
 
-        for level, collection in zip(CSlvlwall.levels[1:], CSlvlwall.collections):
-            print(f"Levelset contours",level)
-            if level>0:
-                collection.remove()
-            else:
-                collection.set_facecolor(plotpar['color_wall'])  
+            LSdat = LSdat.transpose()
+            # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
+            CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=0) #not very precise
+
+            # print(CSlvlwall.levels)
+
+            for level, collection in zip(CSlvlwall.levels[1:], CSlvlwall.collections):
+                # print(f"Levelset contours",level)
+                if level>0:
+                    collection.remove()
+                else:
+                    collection.set_facecolor(plotpar['color_wall'])  
+        
+        except:
+            file_wall_name = "flower_00000000.h5"
+            # print('loading file to plot wall: ',file_wall_name)
+            with h5py.File(file_wall_name, "r") as file_wall:
+                LSdat = file_wall[key_LS_wall][:]
+
+                LSdat = LSdat.transpose()
+                # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
+                CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=0) #not very precise
+
+                # print(CSlvlwall.levels)
+
+                for level, collection in zip(CSlvlwall.levels[1:], CSlvlwall.collections):
+                    # print(f"Levelset contours",level)
+                    if level>0:
+                        collection.remove()
+                    else:
+                        collection.set_facecolor(plotpar['color_wall'])  
 
         #with version below need to take care if bottom,top... fillbetween y=ymin and intfc or y=ymax ...
         # try:

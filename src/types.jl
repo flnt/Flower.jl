@@ -89,6 +89,7 @@ abstract type AbstractOptimizer end
     io_pdi::D=0
     bulk_conductivity::D=0
     electric_potential::D = 0 #solve electric potential
+    contact_angle::D = 0 #contact angle: advancing, receding
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -509,6 +510,8 @@ end
 @with_kw mutable struct WallNoSlip{T,N} <: BoundaryCondition
     val::N = 0.0
     λ::T = 0.0
-    θe::T = π / 2
+    θe::T = π / 2    
+    θadv::T = π / 2
+    θrec::T = π / 2
     Tval::N = 0.0
 end
