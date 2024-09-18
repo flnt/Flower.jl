@@ -53,7 +53,11 @@ radial_vel_factor = 1e-7
 
 pressure_channel = false
 
+current_radius = 0.0
+
 ns_advection=(sim.ns_advection ==1)
+
+
 
 # print("\n ns_advection ",ns_advection," ",sim.ns_advection)
 
@@ -786,8 +790,45 @@ elseif sim.name == "sessile_2LS_inclined"
     BC_int = [FreeSurface(), WallNoSlip()]
   
 
-#elseif sim.name == "levelset_Butler"
-#gp.LS[2].u .= gp.x
+    elseif sim.name == "levelset_Butler"
+
+        # BC_u = Boundaries(
+        # bottom = Neumann_cl(θe = _θe * π / 180),
+        # top = Neumann_inh(),
+        # left = Neumann_inh(),
+        # right = Neumann_inh())
+
+
+        BC_u = Boundaries(
+        bottom = Neumann_inh(),
+        top = Neumann_inh(),
+        left = Neumann_inh(),
+        right = Neumann_inh())
+
+        #gp.LS[2].u .= gp.x
+
+
+        # BC_uL = Boundaries(
+        #     bottom = Navier_cl(λ = 1e-2),
+        #     top = Dirichlet(),
+        # ),
+        # BC_vL = Boundaries(
+        #     bottom = Dirichlet(),
+        #     top = Dirichlet(),
+        # ),
+        # BC_pL = Boundaries(
+        #     left = Dirichlet(),
+        #     right = Dirichlet(),
+        # ),
+        # BC_u = Boundaries(
+        #     bottom = Neumann_cl(θe = _θe * π / 180),
+        #     top = Neumann_inh(),
+        #     left = Neumann_inh(),
+        #     right = Neumann_inh()
+        #),
+        #BC_int = [FreeSurface()], keep wall with u=0 and Neumann pressure
+
+
 
    
 end
@@ -1354,7 +1395,7 @@ if num.io_pdi>0
         # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
         # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
         # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
-        # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+        "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
         # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
         # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
         # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,

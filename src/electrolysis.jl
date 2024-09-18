@@ -3237,18 +3237,34 @@ Returns the
 @inline center(r, θ) = r * cos(π - θ)
 
 
-function contact_angle_advancing_receding(grid_u, grid_v, iLS, II)
+function contact_angle_advancing_receding(grid,grid_u, grid_v, iLS, II)
 
     # From code in run.jl
 
+    # # TODO can be done witu u and v component ?
+    # normalx = cos.(grid_u.LS[iLS].α)
+    # normaly = sin.(grid_v.LS[iLS].α)
 
-    normalx = cos.(grid_u.LS[iLS].α)
-    normaly = sin.(grid_v.LS[iLS].α)
+    # # grid_u.V .*= normalx
+    # # grid_v.V .*= normaly
 
-    # grid_u.V .*= normalx
-    # grid_v.V .*= normaly
+    # advancing_receding = normalx[II] * grid_u.V[II] + normaly[II] * grid_v.V[II] #TODO check dim , bounds
 
-    advancing_receding = normalx[II] * grid_u.V[II] + normaly[II] * grid_v.V[II] #TODO check dim , bounds
+
+    #With interpolation
+
+    normalx = cos.(grid.LS[iLS].α)
+    normaly = sin.(grid.LS[iLS].α)
+
+    cap1 = grid_u.LS[iLS].geoL.cap[II,5]
+    cap3 = grid_u.LS[iLS].geoL.cap[δx⁺(II),5]
+    tmpVx = (grid_u.V[II] * cap1 + grid_u.V[δx⁺(II)] * cap3) * inv_weight_eps(num,cap1 + cap3)
+    
+    cap2 = grid_v.LS[iLS].geoL.cap[II,5]
+    cap4 = grid_v.LS[iLS].geoL.cap[δy⁺(II),5]
+    tmpVy = (grid_v.V[II] * cap2 + grid_v.V[δy⁺(II)] * cap4) * inv_weight_eps(num,cap2 + cap4)
+
+    advancing_receding = normalx[II] * tmpVx + normaly[II] * tmpVy
 
     return advancing_receding
 
