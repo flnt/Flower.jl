@@ -548,7 +548,9 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
         @views ph.trans_scalD[:,iscal] .= A \ rhs
         
-        printstyled(color=:magenta, @sprintf "\n Condition number " cond(A,2))
+        #printstyled(color=:magenta, @sprintf "\n Condition number " cond(A,2))
+        printstyled(color=:magenta, @sprintf "\n Condition number " cond(Array(A), 2))
+        
 
         ####################################################################################################
 

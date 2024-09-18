@@ -616,8 +616,6 @@ if sim.name == "falling_drop"
 
     phL.u .= 0.0
     phL.v .= 0.0
-
-    # @time vol_drop,V0L = run_forward(
       
     BC_uL = Boundaries(bottom = Navier_cl(λ = 1e-2),)
     BC_vL = Boundaries(bottom = Dirichlet(),)
@@ -1301,6 +1299,9 @@ else
     BC_u=()
 end
 
+printstyled(color=:red, @sprintf "\n before pdi \n")
+
+
 
 if num.io_pdi>0
 
@@ -1331,6 +1332,12 @@ if num.io_pdi>0
         
         printstyled(color=:magenta, @sprintf "\n PDI write_data_start_loop %.5i \n" num.current_i)
 
+        #print("\n size LS wall ", size( gp.LS[2].u))
+        LStable = zeros(gp)
+        if phys.nb_levelsets>1
+            LStable = gp.LS[2].u
+        end
+
         PDI_status = @ccall "libpdi".PDI_multi_expose("write_initialization"::Cstring,
         "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
         "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
@@ -1340,7 +1347,7 @@ if num.io_pdi>0
         "levelset_p"::Cstring, gp.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
         "levelset_u"::Cstring, gu.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
         "levelset_v"::Cstring, gv.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-        "levelset_p_wall"::Cstring, gp.LS[2].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        "levelset_p_wall"::Cstring, LStable::Ptr{Cdouble}, PDI_OUT::Cint,
         # "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
         # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
         # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
@@ -1369,6 +1376,7 @@ print("\n BC_u ",BC_u)
 print("\n BC_int ",BC_int)
 print("\n BC_uL ",BC_uL)
 
+printstyled(color=:red, @sprintf "\n before run_forward \n")
 
 @time current_i=run_forward(
     num, gp, gu, gv, op, phS, phL;
