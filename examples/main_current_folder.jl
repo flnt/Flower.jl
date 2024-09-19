@@ -1047,86 +1047,90 @@ phS.uD .= 0.0
 # end
     
 
-@debug "Before PDI init"
-    
-# # using MPI
-# MPI.Init()
 
-# @debug "after MPI.Init"
+if num.io_pdi>0
 
-# comm = MPI.COMM_WORLD
-# @debug "MPI.COMM_WORLD"
+    @debug "Before PDI init"
+        
+    # # using MPI
+    # MPI.Init()
 
-# print(comm)
+    # @debug "after MPI.Init"
 
-yml_file = yamlfile
+    # comm = MPI.COMM_WORLD
+    # @debug "MPI.COMM_WORLD"
 
-# print("\n yml_file ",yml_file)
+    # print(comm)
 
-# Version: julia +1.10.4
+    yml_file = yamlfile
 
-conf = @ccall "libparaconf".PC_parse_path(yml_file::Cstring)::PC_tree_t
+    # print("\n yml_file ",yml_file)
 
-@debug "after conf"
+    # Version: julia +1.10.4
 
-getsubyml = @ccall "libparaconf".PC_get(conf::PC_tree_t,".pdi"::Cstring)::PC_tree_t  
+    conf = @ccall "libparaconf".PC_parse_path(yml_file::Cstring)::PC_tree_t
 
-@debug "after getsubyml"
+    @debug "after conf"
 
+    getsubyml = @ccall "libparaconf".PC_get(conf::PC_tree_t,".pdi"::Cstring)::PC_tree_t  
 
-# print("\n getsubyml ",getsubyml)
-
-# @ccall "libpdidummy".PDI_init(getsubyml::PC_tree_t)::Cvoid
-local pdi_status = @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cint
-
-# print("\n pdi_status ",pdi_status)
+    @debug "after getsubyml"
 
 
-# print(getsubyml)
-# pdi_status = @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cint
+    # print("\n getsubyml ",getsubyml)
 
-@debug "after PDI_init"
+    # @ccall "libpdidummy".PDI_init(getsubyml::PC_tree_t)::Cvoid
+    local pdi_status = @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cint
+
+    # print("\n pdi_status ",pdi_status)
 
 
-# print("\n PDI_init ")
+    # print(getsubyml)
+    # pdi_status = @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cint
 
-# @ccall "libpdi".PDI_init(conf::PC_tree_t)::Cvoid
+    @debug "after PDI_init"
 
-# #python event to plot
-# @ccall "libpdi".PDI_event("testing"::Cstring)::Cvoid
 
-# Send meta-data to PDI
-mpi_coords_x = 1
-mpi_coords_y = 1
-mpi_max_coords_x = 1
-mpi_max_coords_y = 1
+    # print("\n PDI_init ")
 
-nx=gp.nx
-ny=gp.ny
+    # @ccall "libpdi".PDI_init(conf::PC_tree_t)::Cvoid
 
-#TODO check Clonglong ...
+    # #python event to plot
+    # @ccall "libpdi".PDI_event("testing"::Cstring)::Cvoid
 
-local PDI_status = @ccall "libpdi".PDI_multi_expose("init_PDI"::Cstring, 
-        "mpi_coords_x"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
-        "mpi_coords_y"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
-        "mpi_max_coords_x"::Cstring, mpi_max_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
-        "mpi_max_coords_y"::Cstring, mpi_max_coords_y::Ref{Clonglong}, PDI_OUT::Cint,
-        "nx"::Cstring, nx::Ref{Clonglong}, PDI_OUT::Cint,
-        "ny"::Cstring, ny::Ref{Clonglong}, PDI_OUT::Cint,
-        "nb_transported_scalars"::Cstring, phys.nb_transported_scalars::Ref{Clonglong}, PDI_OUT::Cint,
-        "nb_levelsets"::Cstring, phys.nb_levelsets::Ref{Clonglong}, PDI_OUT::Cint,
-        C_NULL::Ptr{Cvoid})::Cint
+    # Send meta-data to PDI
+    mpi_coords_x = 1
+    mpi_coords_y = 1
+    mpi_max_coords_x = 1
+    mpi_max_coords_y = 1
 
-@debug "after PDI_multi_expose"
+    nx=gp.nx
+    ny=gp.ny
 
-@debug "After full PDI init"
+    #TODO check Clonglong ...
 
+    local PDI_status = @ccall "libpdi".PDI_multi_expose("init_PDI"::Cstring, 
+            "mpi_coords_x"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
+            "mpi_coords_y"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
+            "mpi_max_coords_x"::Cstring, mpi_max_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
+            "mpi_max_coords_y"::Cstring, mpi_max_coords_y::Ref{Clonglong}, PDI_OUT::Cint,
+            "nx"::Cstring, nx::Ref{Clonglong}, PDI_OUT::Cint,
+            "ny"::Cstring, ny::Ref{Clonglong}, PDI_OUT::Cint,
+            "nb_transported_scalars"::Cstring, phys.nb_transported_scalars::Ref{Clonglong}, PDI_OUT::Cint,
+            "nb_levelsets"::Cstring, phys.nb_levelsets::Ref{Clonglong}, PDI_OUT::Cint,
+            C_NULL::Ptr{Cvoid})::Cint
+
+    @debug "after PDI_multi_expose"
+
+    @debug "After full PDI init"
+
+end #if num.io_pdi>0
 
 # current_t = 0
 # num.current_i = 0
-# 
+
 # #PDI (IO)
-# 
+
 
 # if num.io_pdi>0
 #     try
