@@ -902,7 +902,7 @@ function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
 
     trans_scalS = zeros(grid, nb_transported_scalars)
     phi_eleS = zeros(grid)
-    trans_scalDS = zeros( (num.nLS + 1) * grid.ny * grid.nx + 2 * grid.nx + 2 * grid.ny, nb_transported_scalars)
+    trans_scalDS = Float64[] #zeros( (num.nLS + 1) * grid.ny * grid.nx + 2 * grid.nx + 2 * grid.ny, nb_transported_scalars)
     phi_eleDS = fnzeros(grid, num)
 
     i_current_magL = zeros(grid)

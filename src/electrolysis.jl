@@ -1430,6 +1430,14 @@ function get_height(grid,ind,dx,dy,geo)
 
 end
 
+function get_height!(grid,ind,dx,dy,geo,H)
+
+    @inbounds @threads for II in vcat(ind.b_left[1], ind.b_bottom[1], ind.b_right[1], ind.b_top[1])
+        H[II] = distance(grid.LS[1].mid_point[II], geo.centroid[II], dx[II], dy[II])
+    end   
+
+end
+
 function get_uv_height(grid_u,grid_v)
 
     bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]

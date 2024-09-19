@@ -1312,8 +1312,8 @@ end
 # print("\n Before run")
 # print(i_butler./elec_cond," ",size(i_butler./elec_cond),"\n ")
 if sim.name == "falling_drop" || occursin("sessile",sim.name)
-    BC_trans_scal = ()
-    BC_phi_ele = ()
+    BC_trans_scal = Vector{BoundariesInt}() #[Boundaries()]
+    BC_phi_ele = Boundaries()
 else
     BC_trans_scal = (
         BC_trans_scal_H2, #H2
@@ -1383,6 +1383,8 @@ if num.io_pdi>0
         if phys.nb_levelsets>1
             LStable = gp.LS[2].u
         end
+
+
 
         PDI_status = @ccall "libpdi".PDI_multi_expose("write_initialization"::Cstring,
         "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,

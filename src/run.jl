@@ -61,25 +61,6 @@ function run_forward(
     @unpack x, y, nx, ny, dx, dy, ind, LS, V = grid
 
 
-    #TODO pre-allocate at start to save up allocations
-
-    ni = nx * ny
-    nb = 2 * nx + 2 * ny
-    nt = 2 * ni + nb
-
-    Ascal = spzeros(nt, nt)
-    Bscal = spzeros(nt, nt)
-
-    all_CUTCT = zeros(grid.ny * grid.nx, nb_transported_scalars)
-
-    us=zeros(gp)
-    vs=zeros(gp)
-
-    Eus=zeros(gp)
-    Evs=zeros(gp)
-
-
-
     # print("\n after unpack \n")
 
     if num.epsilon_mode == 1 || num.epsilon_mode ==2
@@ -264,127 +245,87 @@ function run_forward(
     # end
 
 
-    ####################################################################################################
+    
     # Initialisation
-    ####################################################################################################
-
-    HSu = get_height(grid_u,ind,dx,dy,LS[end].geoS) #TODO which LS
-    HLu = get_height(grid_u,ind,dx,dy,LS[end].geoL)
-
-    HSv = get_height(grid_v,ind,dx,dy,LS[end].geoS) #TODO which LS
-    HLv = get_height(grid_v,ind,dx,dy,LS[end].geoL)
-
-    HS = get_height(grid,ind,dx,dy,LS[end].geoS) #TODO which LS
-    HL = get_height(grid,ind,dx,dy,LS[end].geoL)
-
+    
+    #TODO which LS
     presintfc = 0.0
     # presintfc = pres0 + p_lapl ? #TODO init pressure
-
-
     #TODO perio, intfc, ... check init_fields_2!
 
-    init_fields_2!(phS.pD,phS.p,HS,BC_pS,grid,presintfc)
-    init_fields_2!(phL.pD,phL.p,HL,BC_pL,grid,presintfc)
+    #No scalar in "solid" phase
+    # @views init_fields_2!(phS.trans_scalD[:,iscal],phS.trans_scal[:,:,iscal],HS,BC_trans_scal[iscal],grid,concentration0[iscal])
+    # @views phS.trans_scal[:,:,iscal] .= concentration0[iscal]
 
-    init_fields_2!(phS.uD,phS.u,HSu,BC_uS,grid_u,num.uD)
+    Hu = zeros(grid_u) 
+    get_height!(grid_u,ind,dx,dy,LS[end].geoS,Hu) #here Hu solid
+
+    init_fields_2!(phS.uD,phS.u,Hu,BC_uS,grid_u,num.uD)
     # init_fields_2!(phS.ucorrD,phS.u,HSu,BC_uS,grid_u,num.uD)
 
-    init_fields_2!(phL.uD,phL.u,HLu,BC_uL,grid_u,num.uD)
+    get_height!(grid_u,ind,dx,dy,LS[end].geoL,Hu)  #here Hu liquid
+
+    init_fields_2!(phL.uD,phL.u,Hu,BC_uL,grid_u,num.uD)
     # init_fields_2!(phL.ucorrD,phL.u,HLu,BC_uL,grid_u,num.uD)
 
-    init_fields_2!(phS.vD,phS.v,HSv,BC_vS,grid_v,num.vD)
+
+    Hv = zeros(grid_v) 
+
+    get_height!(grid_v,ind,dx,dy,LS[end].geoS,Hv) 
+
+    init_fields_2!(phS.vD,phS.v,Hv,BC_vS,grid_v,num.vD)
     # init_fields_2!(phS.vcorrD,phS.v,HSv,BC_vS,grid_v,num.vD)
 
-    init_fields_2!(phL.vD,phL.v,HLv,BC_vL,grid_v,num.vD)
+    get_height!(grid_v,ind,dx,dy,LS[end].geoL,Hv)
+
+    init_fields_2!(phL.vD,phL.v,Hv,BC_vL,grid_v,num.vD)
     # init_fields_2!(phL.vcorrD,phL.v,HLv,BC_vL,grid_v,num.vD)
 
-    # print("\n ","check borders",vecb(phL.vD,grid_v)[ny-1],vecb(phL.vD,grid_v)[ny],vecb(phL.vD,grid_v)[ny+1],vecb(phL.vD,grid_v)[ny+2])
-    # print("\n ",vecb_L(phL.vD,grid_v))
-    # print("\n ",vecb_B(phL.vD,grid_v))
-    # print("\n ",vecb_R(phL.vD,grid_v))
-    # print("\n ",vecb_T(phL.vD,grid_v))
 
-    ####################################################################################################
+    Hsc = zeros(grid) 
+
+    get_height!(grid,ind,dx,dy,LS[end].geoS,Hsc) #here Hsc solid
+
+    init_fields_2!(phS.pD,phS.p,Hsc,BC_pS,grid,presintfc)
+
     if heat
-        init_fields_2!(phS.TD,phS.T,HS,BC_TS,grid,θd)
-        init_fields_2!(phL.TD,phL.T,HL,BC_TL,grid,θd)
+        init_fields_2!(phS.TD,phS.T,Hsc,BC_TS,grid,θd)
     end
 
-    ####################################################################################################
     #Electrolysis
-    ####################################################################################################
+    if electrolysis && num.electric_potential == 1
+        init_fields_2!(phS.phi_eleD,phS.phi_ele,Hsc,BC_phi_ele,grid,phi_ele0) 
+    end
+
+    get_height!(grid,ind,dx,dy,LS[end].geoL,Hsc) #here Hsc liquid
+
+    init_fields_2!(phL.pD,phL.p,Hsc,BC_pL,grid,presintfc)
+
+    if heat
+        init_fields_2!(phL.TD,phL.T,Hsc,BC_TL,grid,θd)
+    end
+
+
+    #Electrolysis
+    
     if electrolysis
 
         printstyled(color=:green, @sprintf "\n Check %s %s %s %s %.2e %.2e %2i\n" heat heat_convection electrolysis electrolysis_convection num.τ θd nb_transported_scalars)
 
-        # print("\n before init",vecb_L(phL.trans_scalD[:,1], grid))
-
-        # print("\n vecb_L(elec_condD, grid) \n ",vecb_L(phL.trans_scalD[:,2], grid) )
-
-
         for iscal=1:nb_transported_scalars
-
-            # printstyled(color=:green, @sprintf "\n Init scal %.2e \n" concentration0[iscal])
-
-            #Solid phase: necessary?
-
-            # @views vec1(phS.trans_scalD[:,iscal],grid) .= vec(phS.trans_scal[:,:,iscal])
-            # @views vec2(phS.trans_scalD[:,iscal],grid) .= concentration0[iscal]
-            # @views init_borders!(phS.trans_scalD[:,iscal], grid, BC_trans_scal[iscal], concentration0[iscal])
-
-            # @views vec1(phL.trans_scalD[:,iscal],grid) .= vec(phL.trans_scal[:,:,iscal])
-            # @views vec2(phL.trans_scalD[:,iscal],grid) .= concentration0[iscal]
-            # @views init_borders!(phL.trans_scalD[:,iscal], grid, BC_trans_scal[iscal], concentration0[iscal])
-
-            @views phS.trans_scal[:,:,iscal] .= concentration0[iscal]
             @views phL.trans_scal[:,:,iscal] .= concentration0[iscal]
-
-            @views init_fields_2!(phS.trans_scalD[:,iscal],phS.trans_scal[:,:,iscal],HS,BC_trans_scal[iscal],grid,concentration0[iscal])
-            @views init_fields_2!(phL.trans_scalD[:,iscal],phL.trans_scal[:,:,iscal],HL,BC_trans_scal[iscal],grid,concentration0[iscal])
-            
-            # @views fwd.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal].*LS[end].geoL.cap[:,:,5] .+ phS.trans_scal[:,:,iscal].*LS[end].geoS.cap[:,:,5]
-            # @views fwdS.trans_scalD[1,:,iscal] .= phS.trans_scalD[:,iscal]
-            # @views fwdL.trans_scalD[1,:,iscal] .= phL.trans_scalD[:,iscal]
-            # @views fwdL.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal]
-
+            @views init_fields_2!(phL.trans_scalD[:,iscal],phL.trans_scal[:,:,iscal],Hsc,BC_trans_scal[iscal],grid,concentration0[iscal])
         end
-
-
-        # print("\n vecb_L(elec_condD, grid) \n ", vecb_L(phL.trans_scalD[:,2], grid) )
-
-
-        # print("\n after init",vecb_L(phL.trans_scalD[:,1], grid))
-
-
-        # vec1(phL.phi_eleD,grid) .= vec(phL.phi_ele)
-        # vec2(phL.phi_eleD,grid) .= phi_ele0 #TODO
-        # init_borders!(phL.phi_eleD, grid, BC_phi_ele, phi_ele0)
 
         if num.electric_potential == 1
-            init_fields_2!(phS.phi_eleD,phS.phi_ele,HS,BC_phi_ele,grid,phi_ele0) #
-            init_fields_2!(phL.phi_eleD,phL.phi_ele,HL,BC_phi_ele,grid,phi_ele0)
+            init_fields_2!(phL.phi_eleD,phL.phi_ele,Hsc,BC_phi_ele,grid,phi_ele0)
         end
-        # @views fwdS.phi_eleD[1,:] .= phS.phi_eleD
-        # @views fwdL.phi_eleD[1,:] .= phL.phi_eleD
     end  
     
     if electrolysis
         printstyled(color=:green, @sprintf "\n Check init_fields_2!\n")
         print_electrolysis_statistics(nb_transported_scalars,grid,phL)
 
-        # print("\n test left H2", vecb_L(phL.trans_scalD[:,1], grid))
-        # print("\n test left potential", vecb_L(phL.phi_eleD, grid))
-
-        # plot_python_bc(num,(grid.x[:,1] - 0.5 * grid.dx[:,1])/num.plot_xscale, grid.y[:,1]/num.plot_xscale,vecb_L(phL.trans_scalD[:,1], grid),"vecb_L_H2",num.plot_prefix,grid)
-        # plot_python_bc(num,(grid.x[:,1] - 0.5 * grid.dx[:,1])/num.plot_xscale, grid.y[:,1]/num.plot_xscale,vecb_L(phL.phi_eleD, grid),"vecb_L_phi",num.plot_prefix,grid)
-        
-        # print("\n phL.uD: ",any(isnan, phL.uD) , "\n phL.vD: ",any(isnan, phL.vD) , "\n phL.TD: ",any(isnan, phL.TD) , "\n phS.uD: ",any(isnan, phS.uD) , "\n phS.vD: ",any(isnan, phS.vD) , "\n phS.TD: ",any(isnan, phS.TD) ,
-        # "\n phL.trans_scalD: ",any(isnan, phL.trans_scalD) , "\n phL.phi_eleD: ",any(isnan, phL.phi_eleD) ,
-        # "\n phL.u: ",norm(phL.u) > 1e8 , "\n phS.u: ",norm(phS.u) > 1e8 , "\n phL.T: ",norm(phL.T) > 1e8 , "\n phS.T: ",norm(phS.T) > 1e8 , "\n phL.trans_scal: ",norm(phL.trans_scal) > 1e8 , "\n phL.phi_ele: ",norm(phL.phi_ele) > 1e8)
-
-
-    
-        
         if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || any(isnan, phS.uD) || any(isnan, phS.vD) || any(isnan, phS.TD) ||
             any(isnan, phL.trans_scalD) || any(isnan, phL.phi_eleD) ||
             norm(phL.u) > 1e8 || norm(phS.u) > 1e8 || norm(phL.T) > 1e8 || norm(phS.T) > 1e8 || norm(phL.trans_scal) > 1e8 || norm(phL.phi_ele) > 1e8 ||
@@ -405,24 +346,8 @@ function run_forward(
 
         end
     end
-    ####################################################################################################
-
-   
-    # @views fwdS.ucorrD[1,:,:] .= phS.ucorrD
-    # @views fwdL.ucorrD[1,:,:] .= phL.ucorrD
-
-    # @views fwdS.vcorrD[1,:,:] .= phS.vcorrD
-    # @views fwdL.vcorrD[1,:,:] .= phL.vcorrD
-
-    # @views fwdL.pD[1,:] .= phL.pD
-    # @views fwdS.pD[1,:] .= phS.pD
-
-    # @views fwdS.TD[1,:] .= phS.TD
-    # @views fwdL.TD[1,:] .= phL.TD
-
-    # @views fwd.radius[1] = current_radius
-
-
+    
+    
     kill_dead_cells!(phS.T, grid, LS[end].geoS)
     kill_dead_cells!(phL.T, grid, LS[end].geoL)
 
@@ -487,9 +412,30 @@ function run_forward(
         Mvm1_S = copy(opC_vS.M)
 
         if navier_stokes || heat || electrolysis
+
+
+            #TODO pre-allocate at start to save up allocations
+
+           
+            if advection
+
+            #Allocations for scalar grid
             ni = grid.nx * grid.ny
             nb = 2 * grid.nx + 2 * grid.ny
             nt = (num.nLS + 1) * ni + nb
+
+            Ascal = spzeros(nt, nt)
+            Bscal = spzeros(nt, nt)
+
+            all_CUTCT = zeros(grid.ny * grid.nx, nb_transported_scalars)
+
+            us=zeros(grid)
+            vs=zeros(grid)
+
+            #save up memory: do not allocate Eus
+            # Eus=zeros(grid) 
+            # Evs=zeros(grid)
+
             AϕS = spzeros(nt, nt)
             AϕL = spzeros(nt, nt)
             if electrolysis 
@@ -525,6 +471,60 @@ function run_forward(
             BuvS = spzeros(nt, nt)
             BuvL = spzeros(nt, nt)
 
+
+            else
+
+            #Allocations for scalar grid
+            ni = grid.nx * grid.ny
+            nb = 2 * grid.nx + 2 * grid.ny
+            nt = (num.nLS + 1) * ni + nb
+
+            Ascal = spzeros(nt, nt)
+            Bscal = spzeros(nt, nt)
+
+            all_CUTCT = zeros(grid.ny * grid.nx, nb_transported_scalars)
+
+            us=zeros(grid)
+            vs=zeros(grid)
+
+
+            AϕS = spzeros(nt, nt)
+            AϕL = spzeros(nt, nt)
+            if electrolysis 
+                Aphi_eleL = spzeros(nt, nt)
+            end
+
+            ATS = spzeros(nt, nt)
+            ATL = spzeros(nt, nt)
+            BTS = spzeros(nt, nt)
+            BTL = spzeros(nt, nt)
+
+            ni = grid_u.nx * grid_u.ny
+            nb = 2 * grid_u.nx + 2 * grid_u.ny
+            nt = (num.nLS + 1) * ni + nb
+            AuS = spzeros(nt, nt)
+            AuL = spzeros(nt, nt)
+            BuS = spzeros(nt, nt)
+            BuL = spzeros(nt, nt)
+
+            ni = grid_v.nx * grid_v.ny
+            nb = 2 * grid_v.nx + 2 * grid_v.ny
+            nt = (num.nLS + 1) * ni + nb
+            AvS = spzeros(nt, nt)
+            AvL = spzeros(nt, nt)
+            BvS = spzeros(nt, nt)
+            BvL = spzeros(nt, nt)
+
+            ni = grid_u.nx * grid_u.ny + grid_v.nx * grid_v.ny
+            nb = 2 * grid_u.nx + 2 * grid_u.ny + 2 * grid_v.nx + 2 * grid_v.ny
+            nt = (nLS - nNavier + 1) * ni + nNavier * grid.nx * grid.ny + nb
+            AuvS = spzeros(nt, nt)
+            AuvL = spzeros(nt, nt)
+            BuvS = spzeros(nt, nt)
+            BuvL = spzeros(nt, nt)
+
+            end
+
             if !navier
                 _ = FE_set_momentum(
                     BC_int, num, grid_u, opC_uS,
@@ -552,33 +552,25 @@ function run_forward(
             for i in 1:num.nLS
                 push!(a0_p, zeros(grid))
             end
-            _ = set_poisson(
-                BC_int, num, grid, a0_p, opC_pS, opC_uS, opC_vS,
-                AϕS, Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, BC_pS,
-                true
-            )
+            
+            
+            if !advection
+            #call to set_heat! is there to set up the matrices for the heat equation. 
+            #If the level-set is not advected, then after this call there is no need to update these matrices anymore
 
-            set_heat!(
-                BC_int[1], num, grid, opC_TS, LS[1].geoS, phS, θd, BC_TS, LS[1].MIXED, LS[1].geoS.projection,
-                ATS, BTS,
-                opS, grid_u, grid_u.LS[1].geoS, grid_v, grid_v.LS[1].geoS,
-                periodic_x, periodic_y, heat_convection, true, BC_int
-            )
+                _ = set_poisson(
+                    BC_int, num, grid, a0_p, opC_pS, opC_uS, opC_vS,
+                    AϕS, Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, BC_pS,
+                    true
+                )
 
-            # if electrolysis_solid_phase
-                # set_heat!(
-                #     BC_int[1], num, grid, opC_TS, LS[1].geoS, phS, θd, BC_TS, LS[1].MIXED, LS[1].geoS.projection,
-                #     ATS, BTS,
-                #     opS, grid_u, grid_u.LS[1].geoS, grid_v, grid_v.LS[1].geoS,
-                #     periodic_x, periodic_y, heat_convection, true, BC_int
-                # )    
-
-                # set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TS, LS[1].geoS, phS, concentration0[iscal], BC_trans_scal[iscal],
-                #                                             LS[1].MIXED, LS[1].geoS.projection,
-                #                                             ATL, BTL,
-                #                                             opS, grid_u, grid_u.LS[1].geoS, grid_v, grid_v.LS[1].geoS,
-                #                                             periodic_x, periodic_y, electrolysis_convection, true, diffusion_coeff[iscal])
-            # end 
+                set_heat!(
+                    BC_int[1], num, grid, opC_TS, LS[1].geoS, phS, θd, BC_TS, LS[1].MIXED, LS[1].geoS.projection,
+                    ATS, BTS,
+                    opS, grid_u, grid_u.LS[1].geoS, grid_v, grid_v.LS[1].geoS,
+                    periodic_x, periodic_y, heat_convection, true, BC_int
+                )
+            end
 
             if test_laplacian
                 exact_laplacian = test_laplacian_pressure(num,grid_v,phL,opC_pL, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L)
@@ -618,22 +610,15 @@ function run_forward(
                 true
             )
 
+            #call to set_heat! is there to set up the matrices for the heat equation. 
+            #If the level-set is not advected, then after this call there is no need to update these matrices anymore
             set_heat!(
                 BC_int[1], num, grid, opC_TL, LS[1].geoL, phL, θd, BC_TL, LS[1].MIXED, LS[1].geoL.projection,
                 ATL, BTL,
                 opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
                 periodic_x, periodic_y, heat_convection, true, BC_int
             )
-            # if electrolysis
-            #     for iscal=1:nb_transported_scalars
-
-            #         set_scalar_transport!(BC_trans_scal[iscal].int, num, grid, opC_TL, LS[1].geoL, phL, concentration0[iscal], BC_trans_scal[iscal],
-            #                                                 LS[1].MIXED, LS[1].geoL.projection,
-            #                                                 ATL,BTL,
-            #                                                 opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
-            #                                                 periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff[iscal])
-            #     end
-            # end 
+         
         end
     else
         error("Unknown time scheme. Available options are ForwardEuler and CrankNicolson")
@@ -641,7 +626,6 @@ function run_forward(
 
     if heat_convection || electrolysis_convection
         NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
-        # printstyled(color=:red, @sprintf "\n levelset 3:\n")
         # println(grid.LS[1].geoL.dcap[1,1,:])
     end
 
@@ -701,8 +685,14 @@ function run_forward(
                     
                     compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
             
-                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,Eus,Evs)
-            
+                    #store in us, vs instead of Eus, Evs
+                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,us,vs)
+
+                    @ccall "libpdi".PDI_multi_expose("write_data_start_loop_elec"::Cstring,
+                    "i_current_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    "i_current_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,  
+                    C_NULL::Ptr{Cvoid})::Cint
+
                     interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,us,vs)
             
                     # print("\n before write \n ")
@@ -725,8 +715,8 @@ function run_forward(
                     "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
                     "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
                     "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
                     "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
@@ -1707,7 +1697,13 @@ function run_forward(
                 # Compute electrical current, interpolate velocity on scalar grid
                 compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
         
-                interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,Eus,Evs)
+                #store in us, vs instead of Eus, Evs
+                interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,us,vs)
+
+                @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
+                "i_current_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                "i_current_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,  
+                C_NULL::Ptr{Cvoid})::Cint
             
                 interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,us,vs)
                     
@@ -1731,8 +1727,8 @@ function run_forward(
                 # "trans_scal_1D_KOH"::Cstring, phL.trans_scalD[:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
                 # "trans_scal_1D_H2O"::Cstring, phL.trans_scalD[:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
                 "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
-                "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
                 "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
                 "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
                 "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
@@ -2431,51 +2427,7 @@ function run_forward(
                     printstyled(color=:red, @sprintf "\n PDI error \n")
                 end
 
-                # try
-                #     printstyled(color=:red, @sprintf "\n PDI test \n" )
-            
-                #     time = current_t #Cdouble
-                #     nstep = num.current_i
-                #     print("\n nstep ",typeof(nstep))
-                #     # pdi_array =zeros(nx,ny)
-            
-                #     # for j in 1:grid.ny
-                #     #     for i in 1:grid.nx
-                #     #         pdi_array[j,i]=1000*i+j
-                #     #     end
-                #     # end
-            
-                #     print("\n before write \n ")
-            
-                #     # @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
-                #     #             "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Clonglong,
-                #     #             "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Clonglong,
-                #     #             "main_field"::Cstring, pdi_array::Ptr{Cdouble}, 
-                #     #             PDI_OUT::Clonglong,
-                #     #             C_NULL::Ptr{Cvoid})::Cvoid
-
-                #     @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
-                #     "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Clonglong,
-                #     "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Clonglong,
-                #     "u"::Cstring, phL.u::Ptr{Cdouble}, 
-                #     "v"::Cstring, phL.v::Ptr{Cdouble}, 
-                #     "trans_scal"::Cstring, phL.trans_scal::Ptr{Cdouble}, 
-                #     "phi_ele"::Cstring, phL.v::Ptr{Cdouble}, 
-                #     PDI_OUT::Clonglong,
-                #     C_NULL::Ptr{Cvoid})::Cvoid
-            
-                #     print("\n after write \n ")
-            
-                #     @ccall "libpdi".PDI_finalize()::Cvoid
-            
-                #     printstyled(color=:red, @sprintf "\n PDI test end\n" )
-            
-                # catch error
-                #     printstyled(color=:red, @sprintf "\n PDI error \n")
-                #     print(error)
-                #     printstyled(color=:red, @sprintf "\n PDI error \n")
-                # end
-
+               
             end #if io_pdi
 
             ####################################################################################################
@@ -2571,208 +2523,3 @@ function run_forward(
     end
 end
 
-function run_backward(num, grid, opS, opL, fwd, adj;
-    periodic_x = false,
-    periodic_y = false,
-    BC_TS = Boundaries(
-        left = Boundary(),
-        right = Boundary(),
-        bottom = Boundary(),
-        top = Boundary()),
-    BC_TL = Boundaries(
-        left = Boundary(),
-        right = Boundary(),
-        bottom = Boundary(),
-        top = Boundary()),
-    BC_u = Boundaries(
-        left = Boundary(),
-        right = Boundary(),
-        bottom = Boundary(),
-        top = Boundary()),
-    stefan = false,
-    advection = false,
-    heat = false,
-    heat_convection = false,
-    liquid_phase = false,
-    solid_phase = false,
-    hill = false,
-    Vmean = false,
-    levelset = true,
-    speed = 0,
-    analytical = false,
-    verbose = false,
-    show_every = 100,
-    )
-
-    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, num.τ, L0, NB, max_iterations, num.current_i, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
-    @unpack nx, ny, ind, faces, geoS, geoL, mid_point = grid
-    @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
-    @unpack usave, TSsave, TLsave, Tsave, Vsave, κsave = fwd
-    @unpack iso, u, TS, TL, DTS, DTL, κ, V = adj
-
-    local MIXED; local SOLID; local LIQUID;
-    local WAS_SOLID; local WAS_LIQUID;
-    local NB_indices_base; local NB_indices;
-    local FRESH_L; local FRESH_S;
-
-    if periodic_x
-        BC_u.left.ind = idx.periodicL;
-        BC_u.right.ind = idx.periodicR;
-        BC_u.left.f = BC_u.right.f = periodic
-    else
-        BC_u.left.ind = b_left;
-        BC_u.right.ind = b_right;
-    end
-
-    if periodic_y
-        BC_u.bottom.ind = idx.periodicB;
-        BC_u.top.ind = idx.periodicT;
-        BC_u.bottom.f = BC_u.top.f = periodic
-    else
-        BC_u.bottom.ind = b_bottom;
-        BC_u.top.ind = b_top;
-    end
-
-    num.current_i = max_iterations + 1
-
-    if levelset
-        marching_squares!(num, grid, u, periodic_x, periodic_y)
-
-        NB_indices_base = get_NB_width_indices_base(NB)
-
-        MIXED, SOLID, LIQUID = get_cells_indices(iso, inside)
-        NB_indices = get_NB_width(MIXED, NB_indices_base)
-
-        get_iterface_location!(grid, MIXED)
-        get_curvature(num, grid, u, MIXED, periodic_x, periodic_y)
-    elseif !levelset
-        MIXED = [CartesianIndex(-1,-1)]
-    end
-
-    HS = zeros(ny, nx)
-    for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
-        HS[II] = distance(mid_point[II], geoS.centroid[II], dx[II], dy[II])
-    end
-    
-    HL = zeros(ny, nx)
-    for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
-        HL[II] = distance(mid_point[II], geoL.centroid[II], dx[II], dy[II])
-    end
-
-    DTS .= θd
-    DTL .= θd
-    bcS = similar(DTS)
-    bcL = similar(DTL)
-    apply_curvature(bcT, DTS, num, grid, all_indices)
-    apply_curvature(bcT, DTL, num, grid, all_indices)
-    if aniso
-        apply_anisotropy(bcS, DTS, MIXED, num, grid, geoS.projection)
-        apply_anisotropy(bcL, DTL, MIXED, num, grid, geoS.projection)
-    end
-    bcSx, bcSy = set_bc_bnds(dir, bcS, HS, BC_TS)
-    bcLx, bcLy = set_bc_bnds(dir, bcL, HL, BC_TL)
-
-    laplacian!(dir, num, opS.LT, opS.CUTT, bcSx, bcSy, geoS.dcap, ny, BC_TS, inside, LIQUID,
-                MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
-    laplacian!(dir, num, opL.LT, opL.CUTT, bcLx, bcLy, geoL.dcap, ny, BC_TL, inside, SOLID,
-                MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
-
-    while num.current_i > 1
-
-        if heat
-            opL.CUTT .= zeros(nx*ny)
-            opS.CUTT .= zeros(nx*ny)
-
-            try
-                if solid_phase
-                    HS .= 0.
-                    for II in vcat(ind.b_left[1], ind.b_bottom[1], ind.b_right[1], ind.b_top[1])
-                        HS[II] = distance(mid_point[II], geoS.centroid[II], dx[II], dy[II])
-                    end
-
-                    DTS .= θd
-                    apply_curvature(bcT, DTS, num, grid, all_indices)
-                    if aniso
-                        apply_anisotropy(bcS, DTS, MIXED, num, grid, geoS.projection)
-                    end
-                    bcSx, bcSy = set_bc_bnds(dir, bcS, HS, BC_TS)
-
-                    laplacian!(dir, num, opS.LT, opS.CUTT, bcSx, bcSy, geoS.dcap, ny, BC_TS, inside, LIQUID,
-                                MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
-                    crank_nicolson!(num, grid, geoS, opS)
-                    TS .= reshape(gmres(opS.A,(opS.B*vec(TS) + 2.0*num.τ*opS.CUTT)), (ny,nx))
-                end
-                if liquid_phase
-                    HL .= 0.
-                    for II in vcat(b_left[1], b_bottom[1], b_right[1], b_top[1])
-                        HL[II] = distance(mid_point[II], geoL.centroid[II], dx[II], dy[II])
-                    end
-
-                    DTL .= θd
-                    apply_curvature(bcT, DTL, num, grid, all_indices)
-                    if aniso
-                        apply_anisotropy(bcL, DTL, MIXED, num, grid, geoS.projection)
-                    end
-                    bcLx, bcLy = set_bc_bnds(dir, bcL, HL, BC_TL)
-
-                    laplacian!(dir, num, opL.LT, opL.CUTT, bcLx, bcLy, geoL.dcap, ny, BC_TL, inside, SOLID,
-                                MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
-                    crank_nicolson!(num, grid, geoL, opL)
-                    TL .= reshape(gmres(opL.A,(opL.B*vec(TL) + 2.0*num.τ*opL.CUTT)), (ny,nx))
-                end
-            catch
-                @error ("Unphysical temperature field, iteration $num.current_i")
-                break
-            end
-        end
-
-        if verbose
-            if num.current_i%show_every == 0
-                try
-                    printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) \n" (num.current_i-1) 100*(num.current_i-1)/max_iterations)
-                    printstyled(color=:green, @sprintf "\n CFL : %.2e CFL : %.2e num.τ : %.2e\n" CFL max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)*num.τ/Δ num.τ)
-
-                    print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f\n" mean(V[MIXED]) findmax(V[MIXED])[1] findmin(V[MIXED])[1])
-                    print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f\n" mean(κ[MIXED]) findmax(κ[MIXED])[1] findmin(κ[MIXED])[1])
-                catch
-                    @show (MIXED)
-                end
-            end
-        end
-
-        if levelset
-            marching_squares!(num, grid, u, periodic_x, periodic_y)
-
-            WAS_LIQUID = copy(LIQUID)
-            WAS_SOLID = copy(SOLID)
-
-            MIXED, SOLID, LIQUID = get_cells_indices(iso, inside)
-            NB_indices = Flower.get_NB_width(MIXED, NB_indices_base)
-
-            get_iterface_location!(grid, MIXED)
-
-            FRESH_L = intersect(MIXED, WAS_SOLID)
-            FRESH_S = intersect(MIXED, WAS_LIQUID)
-
-            init_fresh_cells!(grid, TS, geoS.projection, FRESH_S, periodic_x, periodic_y)
-            init_fresh_cells!(grid, TL, geoL.projection, FRESH_L, periodic_x, periodic_y)
-
-            get_curvature(num, grid, u, MIXED, periodic_x, periodic_y)
-        end
-
-        num.current_i -= 1
-        κ .= κsave[num.current_i,:,:]
-        u .= usave[num.current_i,:,:]
-    end
-
-    if verbose
-        try
-            printstyled(color=:blue, @sprintf "\n Final iteration : %d (%d%%) \n" (num.current_i-1) 100*(num.current_i-1)/max_iterations)
-            print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f  V_stdev = %.5f\n" mean(V[MIXED]) findmax(V[MIXED])[1] findmin(V[MIXED])[1] std(V[MIXED]))
-            print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f  κ_stdev = %.5f\n" mean(κ[MIXED]) findmax(κ[MIXED])[1] findmin(κ[MIXED])[1] std(κ[MIXED]))
-            print("\n \n")
-        catch
-            @show (length(MIXED))
-        end
-    end
-end
