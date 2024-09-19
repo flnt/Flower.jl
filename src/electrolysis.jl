@@ -90,7 +90,7 @@ scalar transport (convection and diffusion)
 """
 function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, projection,
     op_conv, grid_u, geo_u, grid_v, geo_v,
-    periodic_x, periodic_y, convection, ls_advection, BC_int, diffusion_coeff, convection_Cdivu)
+    periodic_x, periodic_y, convection, ls_advection, BC_int, diffusion_coeff, convection_Cdivu,A,B,all_CUTCT)
     @unpack τ, aniso, nb_transported_scalars = num
     @unpack nx, ny, dx, dy, ind, LS  = grid
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
@@ -100,16 +100,24 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
     printstyled(color=:red, @sprintf "\n levelset: start scalar_transport!\n")
     print("\n nb_transported_scalars ",nb_transported_scalars)
-    println(grid.LS[1].geoL.dcap[1,1,:])
+    println("\n grid.LS[1].geoL.dcap[1,1,:]",grid.LS[1].geoL.dcap[1,1,:])
+
+  
+
+
 
     ni = nx * ny
     nb = 2 * nx + 2 * ny
     nt = 2 * ni + nb
 
-    A = spzeros(nt, nt)
-    B = spzeros(nt, nt)
+    # A = spzeros(nt, nt)
+    # B = spzeros(nt, nt)
 
-    all_CUTCT = zeros(grid.ny * grid.nx, nb_transported_scalars)
+    # all_CUTCT = zeros(grid.ny * grid.nx, nb_transported_scalars)
+
+    A .= 0.0
+    B .= 0.0
+    all_CUTCT .=0.0
 
     ######################################################################################################
     # Operators
@@ -944,15 +952,11 @@ end
 # Arguments
 - `gp::Mesh`: scalar grid
 """
-function interpolate_grid_liquid(gp,gu,gv,u,v)
+function interpolate_grid_liquid!(gp,gu,gv,u,v,us,vs)
     
     
     # us = p .*0
     # vs = p .*0
-
-    us=zeros(gp)
-    vs=zeros(gp)
-
     LS_u =gu.LS[1]
     LS_v = gv.LS[1]
     us .= (
@@ -984,8 +988,6 @@ function interpolate_grid_liquid(gp,gu,gv,u,v)
     #     vs[:,j,i]=(v[:,j,i]+v[:,j+1,i])/2
     # end
     # end
-    
-    return us,vs
 end
 
 

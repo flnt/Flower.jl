@@ -1344,13 +1344,14 @@ else
     BC_u=()
 end
 
-printstyled(color=:red, @sprintf "\n before pdi \n")
 
 
 
 if num.io_pdi>0
 
     try
+        printstyled(color=:red, @sprintf "\n before pdi \n")
+
         # printstyled(color=:red, @sprintf "\n PDI test \n" )
 
         time = 0.0 #Cdouble
@@ -1423,7 +1424,7 @@ print("\n BC_uL ",BC_uL)
 
 printstyled(color=:red, @sprintf "\n before run_forward \n")
 
-@time current_i=run_forward(
+@profile @time current_i=run_forward(
     num, gp, gu, gv, op, phS, phL;
     periodic_x = (sim.periodic_x == 1),
     periodic_y = (sim.periodic_y == 1),

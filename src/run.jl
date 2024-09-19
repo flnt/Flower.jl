@@ -60,6 +60,26 @@ function run_forward(
     @unpack opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL = op
     @unpack x, y, nx, ny, dx, dy, ind, LS, V = grid
 
+
+    #TODO pre-allocate at start to save up allocations
+
+    ni = nx * ny
+    nb = 2 * nx + 2 * ny
+    nt = 2 * ni + nb
+
+    Ascal = spzeros(nt, nt)
+    Bscal = spzeros(nt, nt)
+
+    all_CUTCT = zeros(grid.ny * grid.nx, nb_transported_scalars)
+
+    us=zeros(gp)
+    vs=zeros(gp)
+
+    Eus=zeros(gp)
+    Evs=zeros(gp)
+
+
+
     # print("\n after unpack \n")
 
     if num.epsilon_mode == 1 || num.epsilon_mode ==2
@@ -646,7 +666,7 @@ function run_forward(
         ####################################################################################################
 
         printstyled(color=:red, @sprintf "\n iter: %5i\n" num.current_i)
-        println(grid.LS[1].geoL.dcap[1,1,:])
+        println("\n grid.LS[1].geoL.dcap[1,1,:]",grid.LS[1].geoL.dcap[1,1,:])
 
         if electrolysis
 
@@ -681,9 +701,9 @@ function run_forward(
                     
                     compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
             
-                    Eus,Evs = interpolate_grid_liquid(grid,grid_u,grid_v,phL.Eu, phL.Ev)
+                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,Eus,Evs)
             
-                    us,vs = interpolate_grid_liquid(grid,grid_u,grid_v,phL.u,phL.v)
+                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,us,vs)
             
                     # print("\n before write \n ")
             
@@ -1034,9 +1054,14 @@ function run_forward(
                         update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
                     end
 
+
+                    printstyled(color=:red, @sprintf "\n return before debug mem\n")
+
+                    return
+
                     scalar_transport!(BC_trans_scal, num, grid, opC_TL, LS[1].geoL, phL, concentration0,
                     LS[1].MIXED, LS[1].geoL.projection, opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
-                    periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff,convection_Cdivu)
+                    periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff,convection_Cdivu,Ascal,Bscal,all_CUTCT)
 
                 
 
@@ -1682,9 +1707,9 @@ function run_forward(
                 # Compute electrical current, interpolate velocity on scalar grid
                 compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
         
-                Eus,Evs = interpolate_grid_liquid(grid,grid_u,grid_v,phL.Eu, phL.Ev)
-        
-                us,vs = interpolate_grid_liquid(grid,grid_u,grid_v,phL.u,phL.v)
+                interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,Eus,Evs)
+            
+                interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,us,vs)
                     
                 iLSpdi = 1 # TODO all LS
 
@@ -2364,9 +2389,9 @@ function run_forward(
                     # Compute electrical current, interpolate velocity on scalar grid
                     compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
             
-                    Eus,Evs = interpolate_grid_liquid(grid,grid_u,grid_v,phL.Eu, phL.Ev)
+                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,Eus,Evs)
             
-                    us,vs = interpolate_grid_liquid(grid,grid_u,grid_v,phL.u,phL.v)
+                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,us,vs)
                         
                     iLSpdi = 1 # TODO all LS
 
