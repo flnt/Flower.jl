@@ -90,7 +90,7 @@ scalar transport (convection and diffusion)
 """
 function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, projection,
     op_conv, grid_u, geo_u, grid_v, geo_v,
-    periodic_x, periodic_y, convection, ls_advection, BC_int, diffusion_coeff, convection_Cdivu,A,B,all_CUTCT)
+    periodic_x, periodic_y, convection, ls_advection, BC_int, diffusion_coeff, convection_Cdivu,A,B,all_CUTCT,rhs)
     @unpack τ, aniso, nb_transported_scalars = num
     @unpack nx, ny, dx, dy, ind, LS  = grid
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
@@ -420,9 +420,8 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         LD_b = BxT * op.iMx_b * op.Hx_b .+ ByT * op.iMy_b * op.Hy_b
 
 
-
-        # A = spzeros(nt, nt)
-        # B = spzeros(nt, nt)
+        #TODO A =0 ? B=0 ?
+     
 
         #TODO check no need to reinitialize A and B
 
@@ -485,9 +484,8 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
         # ##################################################################################################
 
+        rhs .= 0.0
 
-
-        rhs = fnzeros(grid, num)
         if convection
             vec1(rhs,grid) .-= τ .* all_CUTCT[:,iscal]
         end
@@ -1478,18 +1476,18 @@ end
 - BC: BC for wall
 - ls_advection
 """
-function set_poisson_variable_coeff(
+function set_poisson_variable_coeff!(
     bc_type, num, grid, grid_u, grid_v, a0, opC, opC_u, opC_v,
     A, 
     # L, bc_L, bc_L_b, 
-    BC,
+    BC,rhs,
     ls_advection,coeffD)
     @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
 
     ni = grid.nx * grid.ny
     nb = 2 * grid.nx + 2 * grid.ny
 
-    rhs = fnzeros(grid, num)
+    rhs .= 0.0
 
     a0_b = zeros(nb)
     _a1_b = zeros(nb)
@@ -1737,7 +1735,7 @@ function set_poisson_variable_coeff(
 
     vecb(rhs,grid) .= -χ_b * vec(a0_b)
     
-    return rhs
+    # return rhs
 end
 
 function laplacian_bc_variable_coeff(opC, nLS, grid, coeffD)
@@ -2218,7 +2216,7 @@ function FE_set_momentum_debug(
     ni = grid.nx * grid.ny
     nb = 2 * grid.nx + 2 * grid.ny
 
-    rhs = fnzeros(grid, num)
+    rhs = fnzeros(grid, num) #TODO remove alloc
 
     a0_b = zeros(nb)
     _a1_b = zeros(nb)

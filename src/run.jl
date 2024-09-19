@@ -347,7 +347,7 @@ function run_forward(
         end
     end
     
-    
+
     kill_dead_cells!(phS.T, grid, LS[end].geoS)
     kill_dead_cells!(phL.T, grid, LS[end].geoL)
 
@@ -426,6 +426,8 @@ function run_forward(
 
             Ascal = spzeros(nt, nt)
             Bscal = spzeros(nt, nt)
+            rhs_scal = fnzeros(grid, num)
+
 
             all_CUTCT = zeros(grid.ny * grid.nx, nb_transported_scalars)
 
@@ -481,6 +483,7 @@ function run_forward(
 
             Ascal = spzeros(nt, nt)
             Bscal = spzeros(nt, nt)
+            rhs_scal = fnzeros(grid, num)
 
             all_CUTCT = zeros(grid.ny * grid.nx, nb_transported_scalars)
 
@@ -566,7 +569,7 @@ function run_forward(
 
                 set_heat!(
                     BC_int[1], num, grid, opC_TS, LS[1].geoS, phS, θd, BC_TS, LS[1].MIXED, LS[1].geoS.projection,
-                    ATS, BTS,
+                    ATS, BTS,rhs_scal,
                     opS, grid_u, grid_u.LS[1].geoS, grid_v, grid_v.LS[1].geoS,
                     periodic_x, periodic_y, heat_convection, true, BC_int
                 )
@@ -614,7 +617,7 @@ function run_forward(
             #If the level-set is not advected, then after this call there is no need to update these matrices anymore
             set_heat!(
                 BC_int[1], num, grid, opC_TL, LS[1].geoL, phL, θd, BC_TL, LS[1].MIXED, LS[1].geoL.projection,
-                ATL, BTL,
+                ATL, BTL,rhs_scal,
                 opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
                 periodic_x, periodic_y, heat_convection, true, BC_int
             )
@@ -790,9 +793,9 @@ function run_forward(
             if heat_solid_phase
                 kill_dead_cells!(phS.T, grid, LS[1].geoS)
                 veci(phS.TD,grid,1) .= vec(phS.T)
-                rhs = set_heat!(
+                set_heat!(
                     BC_int[1], num, grid, opC_TS, LS[1].geoS, phS, θd, BC_TS, LS[1].MIXED, LS[1].geoS.projection,
-                    ATS, BTS,
+                    ATS, BTS,rhs_scal,
                     opS, grid_u, grid_u.LS[1].geoS, grid_v, grid_v.LS[1].geoS,
                     periodic_x, periodic_y, heat_convection, advection, BC_int
                 )
@@ -804,9 +807,9 @@ function run_forward(
             if heat_liquid_phase
                 kill_dead_cells!(phL.T, grid, LS[1].geoL)
                 veci(phL.TD,grid,1) .= vec(phL.T)
-                rhs = set_heat!(
+                set_heat!(
                     BC_int[1], num, grid, opC_TL, LS[1].geoL, phL, θd, BC_TL, LS[1].MIXED, LS[1].geoL.projection,
-                    ATL, BTL,
+                    ATL, BTL,rhs_scal,
                     opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
                     periodic_x, periodic_y, heat_convection, advection, BC_int
                 )
@@ -1051,7 +1054,7 @@ function run_forward(
 
                     scalar_transport!(BC_trans_scal, num, grid, opC_TL, LS[1].geoL, phL, concentration0,
                     LS[1].MIXED, LS[1].geoL.projection, opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
-                    periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff,convection_Cdivu,Ascal,Bscal,all_CUTCT)
+                    periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff,convection_Cdivu,Ascal,Bscal,all_CUTCT,rhs_scal)
 
                 
 
@@ -1496,17 +1499,17 @@ function run_forward(
 
                     #TODO BC several LS
                     #Poisson with variable coefficient
-                    rhs_phi_ele = set_poisson_variable_coeff(
+                     set_poisson_variable_coeff!(
                         [BC_phi_ele.int], num, grid, grid_u, grid_v, a0_p, opC_pL, opC_uL, opC_vL,
                         Aphi_eleL, 
                         # elec_Lpm1_L, elec_bc_Lpm1_L, elec_bc_Lpm1_b_L, 
-                        BC_phi_ele,
+                        BC_phi_ele,rhs_scal,
                         true,elec_condD
                     )
 
-                    # print("\n Aphi_eleL: ",any(isnan, Aphi_eleL),"\n rhs_phi_ele: ",any(isnan, rhs_phi_ele),"\n")
+                    # print("\n Aphi_eleL: ",any(isnan, Aphi_eleL),"\n rhs_scal: ",any(isnan, rhs_scal),"\n")
 
-                    # print("\n veci rhs_phi_ele 2: ",any(isnan, veci(rhs_phi_ele,grid,1)),"\n veci rhs_phi_ele 1 : ",any(isnan, veci(rhs_phi_ele,grid,1)),"\n")
+                    # print("\n veci rhs_scal 2: ",any(isnan, veci(rhs_scal,grid,1)),"\n veci rhs_scal 1 : ",any(isnan, veci(rhs_scal,grid,1)),"\n")
             
 
                     # print("\n \n elec_condD",vecb_L(elec_condD, grid))
@@ -1514,13 +1517,13 @@ function run_forward(
 
                     
 
-                    # print("\n \n vecb_L",vecb_L(rhs_phi_ele, grid))
+                    # print("\n \n vecb_L",vecb_L(rhs_scal, grid))
 
-                    # print("\n \n vecb_R",vecb_R(rhs_phi_ele, grid))
+                    # print("\n \n vecb_R",vecb_R(rhs_scal, grid))
 
-                    # print("\n \n vecb_T",vecb_T(rhs_phi_ele, grid))
+                    # print("\n \n vecb_T",vecb_T(rhs_scal, grid))
 
-                    # print("\n \n vecb_B",vecb_B(rhs_phi_ele, grid))
+                    # print("\n \n vecb_B",vecb_B(rhs_scal, grid))
 
                     # b = Δf.(
                     #     grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx,
@@ -1539,17 +1542,17 @@ function run_forward(
                     b_phi_ele = zeros(grid)
 
 
-                    veci(rhs_phi_ele,grid,1) .+= op.opC_pL.M * vec(b_phi_ele)
+                    veci(rhs_scal,grid,1) .+= op.opC_pL.M * vec(b_phi_ele)
                 
-                    res_phi_ele = zeros(size(rhs_phi_ele))
+                    res_phi_ele = zeros(size(rhs_scal))
                 
                     @time @inbounds @threads for i in 1:Aphi_eleL.m
                         @inbounds Aphi_eleL[i,i] += 1e-10
                     end
                     
-                    # @time res_phi_ele .= Aphi_eleL \ rhs_phi_ele
+                    # @time res_phi_ele .= Aphi_eleL \ rhs_scal
 
-                    @time res_phi_ele .= Aphi_eleL \ rhs_phi_ele
+                    @time res_phi_ele .= Aphi_eleL \ rhs_scal
 
                     #TODO or use mul!(rhs, BTL, phL.TD, 1.0, 1.0) like in :
 
@@ -1567,7 +1570,7 @@ function run_forward(
                     # phL.T .= reshape(veci(phL.TD,grid,1), grid)
 
 
-                    # phL.phi_eleD .= Aphi_eleL \ rhs_phi_ele
+                    # phL.phi_eleD .= Aphi_eleL \ rhs_scal
                     phL.phi_eleD .= res_phi_ele
 
                     phL.phi_ele .= reshape(veci(phL.phi_eleD,grid,1), grid)
@@ -1584,7 +1587,7 @@ function run_forward(
 
                         print("\n phL.phi_eleD: ",any(isnan, phL.phi_eleD),"\n phL.phi_ele: ",any(isnan, phL.phi_ele),"\n")
 
-                        print("\n Aphi_eleL: ",any(isnan, Aphi_eleL),"\n rhs_phi_ele: ",any(isnan, rhs_phi_ele),"\n")
+                        print("\n Aphi_eleL: ",any(isnan, Aphi_eleL),"\n rhs_scal: ",any(isnan, rhs_scal),"\n")
 
 
                 

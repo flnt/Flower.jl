@@ -98,7 +98,7 @@ function set_heat_borders!(grid, a0, a1, b, BC_T, per_x, per_y)
 end
 
 function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection,
-    A, B,
+    A, B,rhs,
     op_conv, grid_u, geo_u, grid_v, geo_v,
     periodic_x, periodic_y, convection, ls_advection, BC_int)
     @unpack τ, aniso = num
@@ -278,12 +278,12 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
     B[1:ni,ni+1:2*ni] = 0.5 .* τ .* LD
     B[1:ni,end-nb+1:end] = 0.5 .* τ .* LD_b
 
-    rhs = fnzeros(grid, num)
+    rhs .= 0.0 #fnzeros(grid, num)
     if convection
         vec1(rhs,grid) .-= τ .* CUTCT
     end
     vec2(rhs,grid) .+= χ[1] * vec(a0)
     vecb(rhs,grid) .+= op.χ_b * vec(a0_b)
 
-    return rhs
+    # return rhs
 end
