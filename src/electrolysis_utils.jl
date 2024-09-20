@@ -6,9 +6,6 @@ function mean_intfc_non_null(scalD,iscal,grid,iLS)
     index = iLS+1
     num=0
     nonzero = 0.0
-    ni = grid.nx * grid.ny
-    nb = 2 * grid.nx + 2 * grid.ny
-    nt = (num.nLS + 1) * ni + nb
 
     # cf veci @view a[g.ny*g.nx*(p-1)+1:g.ny*g.nx*p]
 
