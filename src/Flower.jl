@@ -39,9 +39,9 @@ import Base.reshape
 @reexport using PrettyTables
 # @reexport using Polynomials
 @reexport using Peaks
-# @reexport using ProfileCanvas
 @reexport using Profile
 
+# @reexport using ProfileCanvas
 
 # #Long version
 # @reexport using Printf
@@ -115,6 +115,7 @@ include("optimize.jl")
 # include("viz.jl")
 include("tools.jl")
 include("electrolysis_init.jl")
+include("electrolysis_utils.jl")
 include("electrolysis.jl")
 
 ###################################################################################################

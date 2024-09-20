@@ -1,5 +1,17 @@
 # Flower
 
+## Precompiling issues
+If fails to install a library like Cairo_jll 
+
+Failed to precompile [...]
+ERROR: LoadError: InitError: could not load library [...]lib/libgobject-2.0.so"
+[...]/lib/libgobject-2.0.so: undefined symbol: g_dir_unref
+
+
+do
+```bash
+LD_LIBRARY_PATH="" julia
+```
 ## Precompiling Flower
 cf https://vsert.com/posts/precompile/
 Use runtests_precomp.jl instead of runtests.jl otherwise the precompilation is much longer

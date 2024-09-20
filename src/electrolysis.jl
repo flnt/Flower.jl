@@ -613,10 +613,13 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         # print("\n",reshape(veci(rhs,grid,1), grid)[2,:])
         # print("\n",reshape(veci(rhs,grid,1), grid)[3,:]) 
 
-        nonzero = veci(ph.trans_scalD[:,iscal],grid,2)[abs.(veci(ph.trans_scalD[:,iscal],grid,2)) .> 0.0]
-        # print("nonzero\n")
-        # print(nonzero)
-        printstyled(color=:green, @sprintf "\n mean  interface : %.2e\n" mean(nonzero))
+        # nonzero = veci(ph.trans_scalD[:,iscal],grid,2)[abs.(veci(ph.trans_scalD[:,iscal],grid,2)) .> 0.0]
+        # printstyled(color=:green, @sprintf "\n mean  interface : %.2e\n" mean(nonzero))
+        
+        iLS = 1
+        nonzero = mean_intfc_non_null(ph.trans_scalD,iscal,grid,iLS)
+        printstyled(color=:green, @sprintf "\n mean  interface : %.2e\n" nonzero)
+
 
         print("\n iscal",iscal," BC ",bc[iscal].left.val)
 
@@ -1136,8 +1139,12 @@ function print_electrolysis_statistics(nb_transported_scalars,grid,phL)
     # print(nonzero)
     # print("\nmean c(H2) interface \n",mean(nonzero))
     if nb_transported_scalars>0
-        nonzero = veci(phL.trans_scalD[:,1],grid,2)[abs.(veci(phL.trans_scalD[:,1],grid,2)) .> 0.0]
-        printstyled(color=:green, @sprintf "\n mean c(H2) interface : %.2e\n" mean(nonzero))
+        # nonzero = veci(phL.trans_scalD[:,1],grid,2)[abs.(veci(phL.trans_scalD[:,1],grid,2)) .> 0.0]
+        # printstyled(color=:green, @sprintf "\n mean c(H2) interface : %.2e\n" mean(nonzero))
+
+        iLS = 1
+        nonzero = mean_intfc_non_null(phL.trans_scalD,1,grid,iLS)
+        printstyled(color=:green, @sprintf "\n mean  c(H2) interface : %.2e\n" nonzero)
     end
 
 end

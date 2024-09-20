@@ -2392,21 +2392,41 @@ function Bcapacities(cut_points, sol_centroid, liq_centroid)
     return sol, liq, s_ipx, s_ipy, l_ipx, l_ipy
 end
 
-function Wcapacities!(cap, periodic_x, periodic_y)
-    tmp = copy(cap)
+# function Wcapacities!(cap, periodic_x, periodic_y)
+#     tmp = copy(cap) #TODO large allocation
 
-    @inbounds cap[:,2:end,8] .= @views tmp[:,2:end,8] .+ tmp[:,1:end-1,10]
-    @inbounds cap[:,1:end-1,10] .= @views tmp[:,1:end-1,10] .+ tmp[:,2:end,8]
-    @inbounds cap[2:end,:,9] .= @views tmp[2:end,:,9] .+ tmp[1:end-1,:,11]
-    @inbounds cap[1:end-1,:,11] .= @views tmp[1:end-1,:,11] .+ tmp[2:end,:,9]
+#     @inbounds cap[:,2:end,8] .= @views tmp[:,2:end,8] .+ tmp[:,1:end-1,10]
+#     @inbounds cap[:,1:end-1,10] .= @views tmp[:,1:end-1,10] .+ tmp[:,2:end,8]
+#     @inbounds cap[2:end,:,9] .= @views tmp[2:end,:,9] .+ tmp[1:end-1,:,11]
+#     @inbounds cap[1:end-1,:,11] .= @views tmp[1:end-1,:,11] .+ tmp[2:end,:,9]
+
+#     if periodic_x
+#         @inbounds cap[:,1,8] .= @views tmp[:,1,8] .+ tmp[:,end,10]
+#         @inbounds cap[:,end,10] .= @views tmp[:,end,10] .+ tmp[:,1,8]
+#     end
+#     if periodic_y
+#         @inbounds cap[1,:,9] .= @views tmp[1,:,9] .+ tmp[end,:,11]
+#         @inbounds cap[end,:,11] .= @views tmp[end,:,11] .+ tmp[1,:,9]
+#     end
+
+#     return nothing
+# end
+
+function Wcapacities!(cap, periodic_x, periodic_y)
+    #avoid tmp = copy(cap) #TODO large allocation
+    #indices do not overlap
+    @views @inbounds cap[:,2:end,8] .+= cap[:,1:end-1,10]
+    @views @inbounds cap[:,1:end-1,10] .= cap[:,2:end,8]
+    @views @inbounds cap[2:end,:,9] .+= cap[1:end-1,:,11]
+    @views @inbounds cap[1:end-1,:,11] .=  cap[2:end,:,9]
 
     if periodic_x
-        @inbounds cap[:,1,8] .= @views tmp[:,1,8] .+ tmp[:,end,10]
-        @inbounds cap[:,end,10] .= @views tmp[:,end,10] .+ tmp[:,1,8]
+        @views @inbounds cap[:,1,8] .+= cap[:,end,10]
+        @views @inbounds cap[:,end,10] .= cap[:,1,8]
     end
     if periodic_y
-        @inbounds cap[1,:,9] .= @views tmp[1,:,9] .+ tmp[end,:,11]
-        @inbounds cap[end,:,11] .= @views tmp[end,:,11] .+ tmp[1,:,9]
+        @views @inbounds cap[1,:,9] .+= cap[end,:,11]
+        @views @inbounds cap[end,:,11] .= cap[1,:,9]
     end
 
     return nothing
