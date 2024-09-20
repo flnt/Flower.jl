@@ -624,11 +624,11 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         printstyled(color=:green, @sprintf "\n mean  interface : %.2e\n" nonzero)
 
 
-        print("\n iscal",iscal," BC ",bc[iscal].left.val)
+        # print("\n iscal ",iscal," BC ",bc[iscal].left.val)
 
-        print("\n test left", vecb_L(ph.trans_scalD[:,iscal], grid))
+        # print("\n test left", vecb_L(ph.trans_scalD[:,iscal], grid))
 
-        print("\n iscal", iscal, "\n ")
+        # print("\n iscal", iscal, "\n ")
 
 
         if iscal!=3 #H2O consummed at the electrode, would need to make distinction to make sure the decrease in H2O is physical or not
@@ -1152,23 +1152,6 @@ function print_electrolysis_statistics(nb_transported_scalars,grid,phL)
 
 end
 
-"""
-Compute average of values when geo.cap[II,5] > eps 
-"""
-function average!(T::Matrix, grid, geo,num)
-    @unpack ind = grid
-    @unpack eps, = num
-    average= 0.0
-    numcells=0
-    @inbounds @threads for II in ind.all_indices
-        if geo.cap[II,5] >= eps
-            average +=T[II]
-            numcells +=1 
-        end
-    end
-    return average/numcells
-end
-
 
 """
   Compute norm of gradient for exchange current
@@ -1379,98 +1362,6 @@ function adapt_timestep!(num, phL, phS, grid_u, grid_v,adapt_timestep_mode)
     #  printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL num.τ)
 end
 
-function init_fields_2!(TD,T,H,BC,grid,dir_val_intfc)
-
-    vec1(TD,grid) .= vec(T)
-    vec2(TD,grid) .= dir_val_intfc
-
-    if is_neumann(BC.left)
-        # printstyled(color=:green, @sprintf "\n init_fields_2! sizes : %.5i : %.5i : %.5i: %.5i \n" size(vecb_L(TD,grid)) size(T[:,1]) size(H[:,1]) size(BC.left.val))
-        
-        vecb_L(TD,grid) .= T[:,1] .+ H[:,1] .* BC.left.val
-    else
-        vecb_L(TD,grid) .= BC.left.val #.* ones(grid.ny)
-    end
-    if is_neumann(BC.bottom)
-        vecb_B(TD,grid) .= T[1,:] .+ H[1,:] .* BC.bottom.val
-    else
-        vecb_B(TD,grid) .= BC.bottom.val #.* ones(grid.nx)
-    end
-    if is_neumann(BC.right)
-        vecb_R(TD,grid) .= T[:,end] .+ H[:,end] .* BC.right.val 
-    else
-        vecb_R(TD,grid) .= BC.right.val #.* ones(grid.ny)
-    end
-    if is_neumann(BC.top)
-        vecb_T(TD,grid) .= T[end,:] .+ H[end,:] .* BC.top.val
-    else
-        vecb_T(TD,grid) .= BC.top.val #.* ones(grid.nx)
-    end
-    
-end
-
-# function get_S_height(grid,ind,dx,dy)
-
-#     H = zeros(grid)
-#     @inbounds @threads for II in vcat(ind.b_left[1], ind.b_bottom[1], ind.b_right[1], ind.b_top[1])
-#         H[II] = distance(grid.LS[1].mid_point[II], geoS.centroid[II], dx[II], dy[II])
-#     end   
-
-# end
-
-# function get_L_height(grid,ind,dx,dy)
-
-#     H = zeros(grid)
-#     @inbounds @threads for II in vcat(ind.b_left[1], ind.b_bottom[1], ind.b_right[1], ind.b_top[1])
-#         H[II] = distance(grid.LS[1].mid_point[II], geoL.centroid[II], dx[II], dy[II])
-#     end   
-
-# end
-
-function get_height(grid,ind,dx,dy,geo)
-
-    H = zeros(grid)
-    @inbounds @threads for II in vcat(ind.b_left[1], ind.b_bottom[1], ind.b_right[1], ind.b_top[1])
-        H[II] = distance(grid.LS[1].mid_point[II], geo.centroid[II], dx[II], dy[II])
-    end   
-
-    return H
-
-end
-
-function get_height!(grid,ind,dx,dy,geo,H)
-
-    @inbounds @threads for II in vcat(ind.b_left[1], ind.b_bottom[1], ind.b_right[1], ind.b_top[1])
-        H[II] = distance(grid.LS[1].mid_point[II], geo.centroid[II], dx[II], dy[II])
-    end   
-
-end
-
-function get_uv_height(grid_u,grid_v)
-
-    bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
-    bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
-
-    Δu = [grid_u.dx[1,1], grid_u.dy[1,1], grid_u.dx[end,end], grid_u.dy[end,end]] .* 0.5
-    Δv = [grid_v.dx[1,1], grid_v.dy[1,1], grid_v.dx[end,end], grid_v.dy[end,end]] .* 0.5
-
-    Hu = zeros(grid_u)
-    for i in eachindex(bnds_u)
-        for II in bnds_u[i]
-            Hu[II] = Δu[i]
-        end
-    end
-
-    Hv = zeros(grid_v)
-    for i in eachindex(bnds_v)
-        for II in bnds_v[i]
-            Hv[II] = Δv[i]
-        end
-    end
-
-    return Hu,Hv
-
-end
 
 """    
 # Arguments
@@ -3239,22 +3130,7 @@ function convert_interfacial_D_to_segments(num,gp,field,iLS)
 end
 
 
-"""
-Rf(θ, V)
-Returns the 
-"""
-@inline Rf(θ, V) = sqrt(V / (θ - sin(θ) * cos(θ)))
-"""
-RR0(θ)
-Returns the 
-"""
-@inline RR0(θ) = sqrt(π / (2 * (θ - sin(θ) * cos(θ))))
-"""
-center(r, θ)
 
-Returns the 
-"""
-@inline center(r, θ) = r * cos(π - θ)
 
 
 function contact_angle_advancing_receding(grid,grid_u, grid_v, iLS, II)
