@@ -1028,10 +1028,9 @@ function run_forward(
                         update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
                     end
 
-
-                    printstyled(color=:red, @sprintf "\n return before debug mem\n")
-
-                    return
+                    
+                    # printstyled(color=:red, @sprintf "\n return before debug mem\n")
+                    # return
 
                     scalar_transport!(BC_trans_scal, num, grid, opC_TL, LS[1].geoL, phL, concentration0,
                     LS[1].MIXED, LS[1].geoL.projection, opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,

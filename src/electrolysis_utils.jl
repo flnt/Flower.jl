@@ -10,9 +10,11 @@ function mean_intfc_non_null(scalD,iscal,grid,iLS)
     nb = 2 * grid.nx + 2 * grid.ny
     nt = (num.nLS + 1) * ni + nb
 
-    for i in 1:nt
-        if abs(veci(scalD[i,iscal],grid,index)) .> 0.0
-            nonzero += veci(scalD[i,iscal],grid,index)
+    # cf veci @view a[g.ny*g.nx*(p-1)+1:g.ny*g.nx*p]
+
+    for i in grid.ny*grid.nx*(index-1)+1:grid.ny*grid.nx*index
+        if abs(scalD[i,iscal]) .> 0.0
+            nonzero += scalD[i,iscal]
             num += 1
         end
     end
