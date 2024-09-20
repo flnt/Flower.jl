@@ -20,7 +20,7 @@ function mean_intfc_non_null(scalD,iscal,grid,iLS)
         print("\n no intfc in mean_intfc_non_null")
         return 0
     else
-        nonzero ./= num
+        nonzero /= num
         return nonzero
     end
     
