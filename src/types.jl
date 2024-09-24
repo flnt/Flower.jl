@@ -90,6 +90,8 @@ abstract type AbstractOptimizer end
     bulk_conductivity::D=0
     electric_potential::D = 0 #solve electric potential
     contact_angle::D = 0 #contact angle: advancing, receding
+    convection_Cdivu::D = 0
+    mode_2d::D = 0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -336,7 +338,7 @@ struct Forward{T <: Real} <: MutatingFields
     Ev::Array{T,4}
     radius::Array{T,1}
     # mass_flux::Array{T,3}
-    saved_scal::Array{T,4}
+    # saved_scal::Array{T,4}
 end
 
 struct ForwardPhase{T <: Real} <: MutatingFields

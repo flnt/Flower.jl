@@ -90,7 +90,7 @@ scalar transport (convection and diffusion)
 """
 function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, projection,
     op_conv, grid_u, geo_u, grid_v, geo_v,
-    periodic_x, periodic_y, convection, ls_advection, BC_int, diffusion_coeff, convection_Cdivu,A,B,all_CUTCT,rhs)
+    periodic_x, periodic_y, convection, ls_advection, BC_int, diffusion_coeff,A,B,all_CUTCT,rhs)
     @unpack τ, aniso, nb_transported_scalars = num
     @unpack nx, ny, dx, dy, ind, LS  = grid
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
@@ -504,7 +504,7 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         # print("\n rhs",bc_type.val*grid.dx[1,1])
 
 
-        if convection_Cdivu>0
+        if num.convection_Cdivu>0
             # Duv = fzeros(grid)
             # Duv = fnzeros(grid,num)
 
@@ -1676,9 +1676,19 @@ end
 
 
 """
-  Compute mass flux like in Khalighi 2023
+  Compute mass flux
 """
-function compute_mass_flux!(num, grid, grid_u, grid_v, phL, phS, opC_pL, opC_pS, diffusion_coeff, iscal, geo)
+function compute_mass_flux!(num::Numerical{Float64, Int64},
+    grid::Mesh{Flower.GridCC, Float64, Int64},
+    phL::Phase{Float64},
+    opC_pL, 
+    iscal::Int64,
+    mass_flux_vec1::Array{Float64, 1},
+    mass_flux_vecb::Array{Float64, 1}, 
+    mass_flux_veci::Array{Float64, 1},
+    mass_flux::Array{Float64, 2}
+    )
+
     @unpack  χ = opC_pL
     @unpack nLS = num
     #Liquid phase
@@ -1700,10 +1710,15 @@ function compute_mass_flux!(num, grid, grid_u, grid_v, phL, phS, opC_pL, opC_pS,
     # mass_flux_vecb = fnzeros(grid,num)
     # mass_flux_veci = fnzeros(grid,num)
 
-    mass_flux_vec1 = fzeros(grid)
-    mass_flux_vecb = fzeros(grid)
-    mass_flux_veci = fzeros(grid)
+    # mass_flux_vec1 = fzeros(grid)
+    # mass_flux_vecb = fzeros(grid)
+    # mass_flux_veci = fzeros(grid)
 
+
+    mass_flux_vec1 .= 0.0
+    mass_flux_vecb .= 0.0
+    mass_flux_veci .= 0.0
+    mass_flux .= 0.0
 
 
     # print(size(mass_flux_vec1),"\n")
@@ -1734,7 +1749,7 @@ function compute_mass_flux!(num, grid, grid_u, grid_v, phL, phS, opC_pL, opC_pS,
     mass_flux_vecb_2 = reshape(mass_flux_vecb,grid)
     mass_flux_veci_2 = reshape(mass_flux_veci,grid)
 
-    mass_flux_2 = mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
+    mass_flux = mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
 
 
     # iplot = 1
@@ -1784,7 +1799,7 @@ function compute_mass_flux!(num, grid, grid_u, grid_v, phL, phS, opC_pL, opC_pS,
         @ccall "libpdi".PDI_multi_expose("write_mass_flux"::Cstring,
         # "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
         # "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
-        "mass_flux"::Cstring, mass_flux_vec1_2::Ptr{Cdouble}, PDI_OUT::Cint,
+        "mass_flux"::Cstring, mass_flux::Ptr{Cdouble}, PDI_OUT::Cint,
         "mass_flux_bulk"::Cstring, mass_flux_vec1_2::Ptr{Cdouble}, PDI_OUT::Cint,
         "mass_flux_border"::Cstring, mass_flux_vecb_2::Ptr{Cdouble}, PDI_OUT::Cint,
         "mass_flux_intfc"::Cstring, mass_flux_veci_2::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -1812,7 +1827,8 @@ function compute_mass_flux!(num, grid, grid_u, grid_v, phL, phS, opC_pL, opC_pS,
         # C_NULL::Ptr{Cvoid})::Cvoid
     end #if num.io_pdi>0
 
-    return mass_flux_2, mass_flux_vec1_2, mass_flux_vecb_2, mass_flux_veci_2
+    # return mass_flux_2, mass_flux_vec1_2, mass_flux_vecb_2, mass_flux_veci_2
+    # return 
 end
 
 # function compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,iscal)
@@ -3133,7 +3149,7 @@ end
 
 
 
-function contact_angle_advancing_receding(grid,grid_u, grid_v, iLS, II)
+function contact_angle_advancing_receding(num,grid,grid_u, grid_v, iLS, II)
 
     # From code in run.jl
 

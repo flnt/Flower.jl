@@ -1,5 +1,43 @@
-function run_forward(
-    num, grid, grid_u, grid_v, op, phS, phL;
+
+#TODO test with run_forward! or alloc grid inside or ; or no unpack
+
+
+#precompile(Tuple{typeof(Core.kwcall), 
+#NamedTuple{(:periodic_x, :periodic_y, :BC_uL, :BC_uS, :BC_vL, :BC_vS, :BC_pL, :BC_pS, :BC_u, :BC_int, 
+# :BC_trans_scal, :BC_phi_ele, :auto_reinit, :time_scheme, :electrolysis,
+# :navier_stokes, :ns_advection, :ns_liquid_phase, :verbose, :show_every,
+# :electrolysis_convection, :electrolysis_liquid_phase, :electrolysis_phase_change_case, 
+# :electrolysis_reaction, :imposed_velocity, :adapt_timestep_mode, :non_dimensionalize, :mode_2d, :breakup), 
+# Tuple{Bool, Bool, Flower.Boundaries, Flower.Boundaries, Flower.Boundaries, Flower.Boundaries, Flower.Boundaries,
+# Flower.Boundaries, Tuple{}, Array{Flower.WallNoSlip{Float64, Float64}, 1}, Tuple{Flower.BoundariesInt, Flower.BoundariesInt, 
+# Flower.BoundariesInt}, Flower.BoundariesInt, Int64, Flower.ForwardEuler, 
+# Bool, Bool, Bool, Bool, Bool, Int64, Bool, Bool, String, String, String, Vararg{Int64, 4}}}, 
+# typeof(Flower.run_forward), Flower.Numerical{Float64, Int64}, Flower.Mesh{Flower.GridCC, Float64, Int64}, 
+# Flower.Mesh{Flower.GridFCx, Float64, Int64}, Flower.Mesh{Flower.GridFCy, Float64, Int64}, 
+# Flower.DiscreteOperators{Float64, Int64}, Flower.Phase{Float64}, Flower.Phase{Float64}})
+
+#precompile(Tuple{typeof(Core.kwcall), 
+#NamedTuple{(:periodic_x, :periodic_y, :BC_uL, :BC_uS, :BC_vL, :BC_vS, :BC_pL, :BC_pS, :BC_u, :BC_int, 
+# :BC_trans_scal, :BC_phi_ele, :auto_reinit, :time_scheme, :electrolysis,
+# :navier_stokes, :ns_advection, :ns_liquid_phase, :verbose, :show_every,
+# :electrolysis_convection, :electrolysis_liquid_phase, :electrolysis_phase_change_case, 
+# :electrolysis_reaction, :imposed_velocity, :adapt_timestep_mode, :non_dimensionalize, :mode_2d, :breakup), 
+# Tuple{Bool, Bool, Flower.Boundaries, Flower.Boundaries, Flower.Boundaries, Flower.Boundaries, Flower.Boundaries,
+# Flower.Boundaries, Tuple{}, Array{Flower.WallNoSlip{Float64, Float64}, 1}, Tuple{Flower.BoundariesInt, Flower.BoundariesInt, 
+# Flower.BoundariesInt}, Flower.BoundariesInt, Int64, Flower.ForwardEuler, 
+# Bool, Bool, Bool, Bool, Bool, Int64, Bool, Bool, String, String, String, Vararg{Int64, 4}}}, 
+# typeof(Flower.run_forward), ,  
+# , , 
+# , 
+
+function run_forward!(
+    num::Numerical{Float64, Int64},
+    grid::Mesh{Flower.GridCC, Float64, Int64},
+    grid_u::Mesh{Flower.GridFCx, Float64, Int64},
+    grid_v::Mesh{Flower.GridFCy, Float64, Int64},
+    op::DiscreteOperators{Float64, Int64}, 
+    phS::Phase{Float64}, 
+    phL::Phase{Float64};
     periodic_x = false,
     periodic_y = false,
     BC_TS = Boundaries(),
@@ -47,10 +85,60 @@ function run_forward(
     adapt_timestep_mode = 0,
     non_dimensionalize=1,
     mode_2d=0,
-    conductivity_mode = 1,
-    convection_Cdivu = 0,
     test_laplacian = false,
     )
+
+# function run_forward(
+#     num, grid, grid_u, grid_v, op, phS, phL;
+#     periodic_x = false,
+#     periodic_y = false,
+#     BC_TS = Boundaries(),
+#     BC_TL = Boundaries(),
+#     BC_pS = Boundaries(),
+#     BC_pL = Boundaries(),
+#     BC_uS = Boundaries(),
+#     BC_uL = Boundaries(),
+#     BC_vS = Boundaries(),
+#     BC_vL = Boundaries(),
+#     BC_u = Boundaries(),
+#     BC_trans_scal = Vector{BoundariesInt}(),
+#     BC_phi_ele = BoundariesInt(),
+#     BC_int = [WallNoSlip()],
+#     time_scheme = CN,
+#     ls_scheme = weno5,
+#     auto_reinit = 0,
+#     heat = false,
+#     heat_convection = false,
+#     heat_liquid_phase = false,
+#     heat_solid_phase = false,
+#     navier_stokes = false,
+#     ns_advection = false,
+#     ns_liquid_phase = false,
+#     ns_solid_phase = false,
+#     hill = false,
+#     Vmean = false,
+#     levelset = true,
+#     speed = 0,
+#     analytical = false,
+#     verbose = false,
+#     show_every = 100,
+#     save_radius = false,
+#     adaptative_t = false,
+#     breakup = 0,
+#     Ra = 0.0,
+#     λ = 1,
+#     electrolysis = false,
+#     electrolysis_convection = false,  
+#     electrolysis_liquid_phase = false,
+#     electrolysis_solid_phase = false,
+#     electrolysis_phase_change_case = "Khalighi",
+#     electrolysis_reaction = "nothing",
+#     imposed_velocity = "none",
+#     adapt_timestep_mode = 0,
+#     non_dimensionalize=1,
+#     mode_2d=0,
+#     test_laplacian = false,
+#     )
 
     # print("\n before unpack \n")
 
@@ -416,6 +504,12 @@ function run_forward(
 
             #TODO pre-allocate at start to save up allocations
 
+            #Preallocate for mass flux computations
+            mass_flux_vec1 = fzeros(grid)
+            mass_flux_vecb = fzeros(grid)
+            mass_flux_veci = fzeros(grid)
+            mass_flux = zeros(grid)
+
            
             if advection
 
@@ -576,8 +670,8 @@ function run_forward(
             end
 
             if test_laplacian
-                exact_laplacian = test_laplacian_pressure(num,grid_v,phL,opC_pL, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L)
-                return exact_laplacian
+                num.exact_laplacian = test_laplacian_pressure(num,grid_v,phL,opC_pL, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L)
+                return
             end
 
             if !navier
@@ -636,6 +730,111 @@ function run_forward(
     V0L = volume(LS[end].geoL)
 
 
+    if electrolysis
+
+        ####################################################################################################
+        #PDI (IO)
+        ####################################################################################################
+        
+        #TODO not necessary to expose everything now for ex only LS ? and the rest later
+
+
+        printstyled(color=:red, @sprintf "\n test segments\n" )
+
+
+        intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num, intfc_seg_num = convert_interfacial_D_to_segments(num,grid,phL.T,1)
+        # print("\n number of interface points intfc_vtx_num ", intfc_vtx_num)
+        # print("\n intfc_vtx_connectivities ",intfc_vtx_connectivities)
+        # print("\n len ", size(intfc_vtx_connectivities),intfc_seg_num)
+
+        # print("\n intfc_vtx_x ",intfc_vtx_x)
+        # print("\n intfc_vtx_x ",intfc_vtx_y)
+
+
+        current_t = 0.
+
+        if num.io_pdi>0
+
+            try
+                # printstyled(color=:red, @sprintf "\n PDI test \n" )
+        
+                time = current_t #Cdouble
+                nstep = num.current_i
+           
+                # phi_array=phL.phi_ele #do not transpose since python row major
+                
+                compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+        
+                #store in us, vs instead of Eus, Evs
+                interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,us,vs)
+
+                @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
+                "i_current_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                "i_current_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,  
+                "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+                "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                C_NULL::Ptr{Cvoid})::Cint
+
+                interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,us,vs)
+        
+                # print("\n before write \n ")
+        
+                iLSpdi = 1 # all LS iLS = 1 # or all LS ?
+
+                # Exposing data to PDI for IO    
+                # if writing "D" array (bulk, interface, border), add "_1D" to the name
+                
+                printstyled(color=:magenta, @sprintf "\n PDI write_data_start_loop %.5i \n" num.current_i)
+
+                PDI_status = @ccall "libpdi".PDI_multi_expose("write_data_start_loop"::Cstring,
+                "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+                "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+                "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                "levelset_p"::Cstring, LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+                "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+                "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+                "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+                "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+                C_NULL::Ptr{Cvoid})::Cint
+        
+            catch error
+                printstyled(color=:red, @sprintf "\n PDI error \n")
+                print(error)
+                printstyled(color=:red, @sprintf "\n PDI error \n")
+            end
+
+           
+
+        end #if io_pdi
+
+        ####################################################################################################
+
+    end #if electrolysis
+
+    if num.debug =="allocations_start"
+        print("\n STOP allocations")
+        return
+    end
+
+
+    
+
+
+    
+
 
     current_t = 0.
     num.current_i =1
@@ -655,133 +854,7 @@ function run_forward(
         printstyled(color=:red, @sprintf "\n iter: %5i\n" num.current_i)
         println("\n grid.LS[1].geoL.dcap[1,1,:]",grid.LS[1].geoL.dcap[1,1,:])
 
-        if electrolysis
-
-            ####################################################################################################
-            #PDI (IO)
-            ####################################################################################################
-            
-            #TODO not necessary to expose everything now for ex only LS ? and the rest later
-
-
-            printstyled(color=:red, @sprintf "\n test segments\n" )
-
-
-            intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num, intfc_seg_num = convert_interfacial_D_to_segments(num,grid,phL.T,1)
-            # print("\n number of interface points intfc_vtx_num ", intfc_vtx_num)
-            # print("\n intfc_vtx_connectivities ",intfc_vtx_connectivities)
-            # print("\n len ", size(intfc_vtx_connectivities),intfc_seg_num)
-
-            # print("\n intfc_vtx_x ",intfc_vtx_x)
-            # print("\n intfc_vtx_x ",intfc_vtx_y)
-
-
-            if num.io_pdi>0
-
-                try
-                    # printstyled(color=:red, @sprintf "\n PDI test \n" )
-            
-                    time = current_t #Cdouble
-                    nstep = num.current_i
-               
-                    # phi_array=phL.phi_ele #do not transpose since python row major
-                    
-                    compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
-            
-                    #store in us, vs instead of Eus, Evs
-                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,us,vs)
-
-                    @ccall "libpdi".PDI_multi_expose("write_data_start_loop_elec"::Cstring,
-                    "i_current_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    "i_current_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,  
-                    C_NULL::Ptr{Cvoid})::Cint
-
-                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,us,vs)
-            
-                    # print("\n before write \n ")
-            
-                    iLSpdi = 1 # all LS iLS = 1 # or all LS ?
-
-                    # Exposing data to PDI for IO    
-                    # if writing "D" array (bulk, interface, border), add "_1D" to the name
-                    
-                    printstyled(color=:magenta, @sprintf "\n PDI write_data_start_loop %.5i \n" num.current_i)
-
-                    PDI_status = @ccall "libpdi".PDI_multi_expose("write_data_start_loop"::Cstring,
-                    "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
-                    "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
-                    "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
-                    "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
-                    "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-                    "levelset_p"::Cstring, LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-                    "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-                    "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-                    "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
-                    "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
-                    "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
-                    "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
-                    "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
-                    "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
-                    "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
-                    "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
-                    "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
-                    C_NULL::Ptr{Cvoid})::Cint
-
-                    #TODO PDI_status note meanings
-                    # PDI_OK 	
-
-                    # everything went well
-                    # PDI_UNAVAILABLE 	
-
-                    # on an input call, no such data is available
-                    # PDI_ERR_CONFIG 	
-
-                    # The configuration file is invalid.
-                    # PDI_ERR_VALUE 	
-
-                    # A value expression is invalid.
-                    # PDI_ERR_PLUGIN 	
-
-                    # Tried to load a non-existing plugin.
-                    # PDI_ERR_IMPL 	
-
-                    # Implementation limitation (typically an unimplemented feature)
-                    # PDI_ERR_SYSTEM 	
-
-                    # A system error occured (OS, etc.)
-                    # PDI_ERR_STATE 	
-
-                    # A call to a function has been made at a wrong time (e.g.
-
-                    # closing an unopened transaction)
-                    # PDI_ERR_RIGHT 	
-
-                    # A conflict of onwership over a content has been raised.
-                    # PDI_ERR_TYPE 	
-
-                    # Invalid type error. 
-            
-                    # print("\n after write \n ")
-                        
-                    # printstyled(color=:red, @sprintf "\n PDI test end\n" )
-            
-                catch error
-                    printstyled(color=:red, @sprintf "\n PDI error \n")
-                    print(error)
-                    printstyled(color=:red, @sprintf "\n PDI error \n")
-                end
-
-               
-
-            end #if io_pdi
-
-            ####################################################################################################
-
-        end
+        
 
 
         if !stefan
@@ -852,20 +925,6 @@ function run_forward(
                             
                     end   
                 end
-                # print("\n i_butler",i_butler)
-
-                #################################################
-
-                
-                # phL.saved_scal[:,:,1],phL.saved_scal[:,:,2],phL.saved_scal[:,:,3],phL.saved_scal[:,:,4]=compute_mass_flux!(num,grid, grid_u, 
-                # grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,1)
-
-        
-
-                #################################################
-
-
-                # print("\n vecb_L(elec_condD, grid) before res \n ", vecb_L(phL.trans_scalD[:,2], grid) )
 
                 ####################################################################################################
                 # New start scalar loop
@@ -1034,13 +1093,13 @@ function run_forward(
 
                     scalar_transport!(BC_trans_scal, num, grid, opC_TL, LS[1].geoL, phL, concentration0,
                     LS[1].MIXED, LS[1].geoL.projection, opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
-                    periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff,convection_Cdivu,Ascal,Bscal,all_CUTCT,rhs_scal)
+                    periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff,Ascal,Bscal,all_CUTCT,rhs_scal)
 
                 
 
                     # scalar_transport_2!(BC_trans_scal, num, grid, opC_TL, LS[1].geoL, phL, concentration0,
                     # LS[1].MIXED, LS[1].geoL.projection, opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
-                    # periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff,convection_Cdivu)
+                    # periodic_x, periodic_y, electrolysis_convection, true, BC_int, diffusion_coeff)
 
                     if ((num.current_i-1)%show_every == 0) 
                         printstyled(color=:cyan, @sprintf "\n after scalar transport \n")
@@ -1107,7 +1166,7 @@ function run_forward(
 
                     # #print(@sprintf "TODO elec cond and boundary conditions need to be updated for potential\n")
 
-                    if electrolysis && nb_transported_scalars>1 && conductivity_mode != 0
+                    if electrolysis && nb_transported_scalars>1 && num.bulk_conductivity != 0
                         if heat 
                             elec_cond  = 2*Faraday^2 .*phL.trans_scal[:,:,2].*diffusion_coeff[2]./(Ru.*phL.T) 
                             elec_condD = 2*Faraday^2 .*phL.trans_scalD[:,2].*diffusion_coeff[2]./(Ru.*phL.TD)
@@ -1375,13 +1434,13 @@ function run_forward(
                     
                         end
 
-                        #############################################################################################################
-                        #Print values on line
-                        id_x = 1
-                        for iplot in 1:ny
-                            printstyled(color=:green, @sprintf "\n j: %5i %.2e %.2e %.2e %.2e %.2e %.2e %.2e\n" iplot grid.y[iplot]/num.plot_xscale phL.saved_scal[iplot,id_x,2] phL.saved_scal[iplot,id_x,3] phL.saved_scal[iplot,id_x,4] phL.trans_scal[iplot,id_x,1] grid.LS[1].u[iplot,id_x] phL.trans_scalD[iplot,id_x,1])
-                        end
-                        #############################################################################################################
+                        # #############################################################################################################
+                        # #Print values on line
+                        # id_x = 1
+                        # for iplot in 1:ny
+                        #     printstyled(color=:green, @sprintf "\n j: %5i %.2e %.2e %.2e %.2e %.2e %.2e %.2e\n" iplot grid.y[iplot]/num.plot_xscale phL.saved_scal[iplot,id_x,2] phL.saved_scal[iplot,id_x,3] phL.saved_scal[iplot,id_x,4] phL.trans_scal[iplot,id_x,1] grid.LS[1].u[iplot,id_x] phL.trans_scalD[iplot,id_x,1])
+                        # end
+                        # #############################################################################################################
 
 
                     end
@@ -1412,17 +1471,6 @@ function run_forward(
 
                     phL.i_current_mag .*= elec_cond # i=-κ∇ϕ here magnitude
 
-
-                    
-
-                    if nb_transported_scalars == 0
-                        phL.saved_scal[:,:,1],phL.saved_scal[:,:,2],phL.saved_scal[:,:,3],phL.saved_scal[:,:,4]=compute_mass_flux!(num,grid, grid_u, 
-                        grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,0,LS[1].geoL)
-                        print()
-                        printstyled(color=:green, @sprintf "\n Flux: %.2e \n" -diffusion_coeff[1] * sum(phL.saved_scal[:,:,1]))
-
-                    end
-
                 end #electric_potential
 
             end
@@ -1452,6 +1500,8 @@ function run_forward(
                 @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
                 "i_current_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
                 "i_current_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,  
+                "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+                "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
                 C_NULL::Ptr{Cvoid})::Cint
             
                 interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,us,vs)
@@ -1475,10 +1525,10 @@ function run_forward(
                 # "trans_scal_1D_H2"::Cstring, phL.trans_scalD[:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
                 # "trans_scal_1D_KOH"::Cstring, phL.trans_scalD[:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
                 # "trans_scal_1D_H2O"::Cstring, phL.trans_scalD[:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
-                "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
                 # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
                 # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
-                "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
                 "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
                 "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
                 "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
@@ -1510,31 +1560,39 @@ function run_forward(
 
         ####################################################################################################
 
+        print("\n test",electrolysis_phase_change_case, occursin("levelset",electrolysis_phase_change_case))
+
+        if electrolysis && electrolysis_phase_change_case != "None"
+            printstyled(color=:magenta, @sprintf "\n compute_mass_flux!\n")
+
+            compute_mass_flux!(num,grid,phL,opC_pL,1,mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
+
+        end
         
         #    grid.LS[i].α  which is the angle of the outward point normal with respect to the horizontal axis
 
         for iLS in 1:nLS
             if is_stefan(BC_int[iLS])
                 update_stefan_velocity(num, grid, iLS, LS[iLS].u, phS.T, phL.T, periodic_x, periodic_y, λ, Vmean)
-            elseif is_fs(BC_int[iLS])
-                V .= 0.0
+            elseif is_fs(BC_int[iLS]) || occursin("levelset",electrolysis_phase_change_case)
+                grid.V .= 0.0
                 printstyled(color=:green, @sprintf "\n V %.2e max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(V)) maximum(abs.(phL.u)) maximum(abs.(phL.v)))
 
                 if electrolysis_phase_change_case!="none"    
                     if occursin("levelset",electrolysis_phase_change_case)
-               
+
                         if electrolysis_phase_change_case == "levelset"
 
                             printstyled(color=:magenta, @sprintf "\n phase-change velocity")
 
-                            return
+                            #return
 
 
                             # plot_electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodic_y, concentration_scal_intfc)
 
                             # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
 
-                            varnH2 = -sum(varfluxH2) * diffusion_coeff[1] 
+                            varnH2 = -sum(mass_flux) * diffusion_coeff[1] 
 
                             new_nH2 = nH2 + varnH2 * num.τ
 
@@ -1548,14 +1606,49 @@ function run_forward(
                                 new_nH2 = nH2
                                 print("wrong nH2 ")
                                 # println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
-                                return nothing
+                                return
                             end
 
                             nH2 = new_nH2
 
-                            update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],diffusion_coeff[1],concentration0[1],electrolysis_phase_change_case,varfluxH2)
+                            update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],diffusion_coeff[1],concentration0[1],electrolysis_phase_change_case,mass_flux)
 
-                
+                        elseif electrolysis_phase_change_case == "levelset_averaged"
+
+                            printstyled(color=:magenta, @sprintf "\n phase-change velocity")
+
+                            #return
+
+
+                            # plot_electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodic_y, concentration_scal_intfc)
+
+                            # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
+
+                            varnH2 = -sum(mass_flux) * diffusion_coeff[1] 
+
+                            new_nH2 = nH2 + varnH2 * num.τ
+
+                        
+                            printstyled(color=:green, @sprintf "\n it %.5i Mole: %.2e dn %.2e new nH2 %.2e \n" num.current_i nH2 varnH2*num.τ new_nH2)
+
+                            if varnH2 < 0.0 
+                                # print(@sprintf "error nH2 %.2e dnH2 %.2e new nH2 %.2e\n" nH2-varnH2*num.τ varnH2*num.τ nH2 )
+                                @error ("error nH2")
+                                crashed = true
+                                new_nH2 = nH2
+                                print("wrong nH2 ")
+                                # println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
+                                return
+                            end
+
+                            nH2 = new_nH2
+
+                            iLS = 1
+                            #TODO check velocity
+                            @inbounds @threads for II in grid.LS[iLS].MIXED
+                                grid.V[II] = -sum(mass_flux) * diffusion_coeff[1] *(1.0/num.rho2-1.0/num.rho1).*diffusion_coeff[1].*num.MWH2
+                            end
+
                         end
 
                     end
@@ -1581,8 +1674,6 @@ function run_forward(
 
                 # print("\n test left H2", vecb_L(phL.trans_scalD[:,1], grid))
 
-                phL.saved_scal[:,:,1],_,_,_=compute_mass_flux!(num,grid, grid_u, 
-                    grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,1,LS[1].geoL)
                
                 # print("\n testvalflux1")
                 # for jplot in 1:ny
@@ -1599,7 +1690,6 @@ function run_forward(
 
                 # printstyled(color=:cyan, @sprintf "\n div(0,grad): %.2e %.2e %.2e %.2e \n" sum(phL.saved_scal[:,:,1]) sum(phL.saved_scal[:,:,2]) sum(phL.saved_scal[:,:,3]) sum(phL.saved_scal[:,:,4]))
 
-                varfluxH2 = phL.saved_scal[:,:,1]
                 
                 # # #############################################################################################################
                 # # #Print values on line
@@ -1619,7 +1709,7 @@ function run_forward(
                 # end
 
 
-                # varfluxH2O=compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,3)
+                # mass_fluxO=compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,3)
 
                 # Print values on line
                 # for iplot in 1:ny
@@ -1634,7 +1724,7 @@ function run_forward(
 
 
                 # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
-                varnH2 = -sum(varfluxH2) * diffusion_coeff[1] 
+                varnH2 = -sum(mass_flux) * diffusion_coeff[1] 
 
                 #TODO mode_2d==0 flux corresponds to cylinder of length 1
                 #2D cylinder reference length
@@ -1659,7 +1749,7 @@ function run_forward(
                     new_nH2 = nH2
                     print("wrong nH2 ")
                     # println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
-                    return nothing
+                    return
                 end
 
                 if occursin("Khalighi_no_update",electrolysis_phase_change_case)
@@ -1685,7 +1775,7 @@ function run_forward(
                     printstyled(color=:red, @sprintf "\n radius CFL: %.2e \n" (current_radius-previous_radius)/(num.L0/nx))
                     @error ("CFL radius")
                     crashed = true
-                    return num.current_i
+                    return
                 end
 
                
@@ -1731,7 +1821,7 @@ function run_forward(
                     IIOE_normal!(grid, LS[iLS].A, LS[iLS].B, LS[iLS].u, V, CFL_sc, periodic_x, periodic_y)
                     LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u)), grid)
                     # u .= sqrt.((x .- num.current_i*Δ/1).^ 2 + y .^ 2) - (0.5) * ones(nx, ny);
-                elseif is_fs(bc)
+                elseif is_fs(bc) || occursin("levelset",electrolysis_phase_change_case)
                     rhs_LS .= 0.0
                     LS[iLS].A.nzval .= 0.0
                     LS[iLS].B.nzval .= 0.0
@@ -1888,7 +1978,7 @@ function run_forward(
                 println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
                 printstyled(color=:red, @sprintf "\n LS not updated \n")
                 print(errorLS)
-                return current_i
+                return
             end
             # printstyled(color=:red, @sprintf "\n levelset 4:\n")
             # println(grid.LS[1].geoL.dcap[1,1,:])
@@ -2011,93 +2101,6 @@ function run_forward(
         #     end
         #     fwd.t[snap] = current_t
         #     @views fwd.V[snap,:,:] .= V
-        #     for iLS in 1:_nLS
-        #         @views fwd.u[iLS,snap,:,:] .= LS[iLS].u
-        #         @views fwd.ux[iLS,snap,:,:] .= grid_u.LS[iLS].u
-        #         @views fwd.uy[iLS,snap,:,:] .= grid_v.LS[iLS].u
-        #         @views fwd.κ[iLS,snap,:,:] .= LS[iLS].κ
-        #     end
-
-        #     if heat_solid_phase && heat_liquid_phase
-        #         @views fwd.T[snap,:,:] .= phL.T.*LS[end].geoL.cap[:,:,5] .+ phS.T.*LS[end].geoS.cap[:,:,5]
-        #     end
-        #     if heat_solid_phase
-        #         @views fwd.T[snap,:,:] .= phS.T
-        #         @views fwdS.T[snap,:,:] .= phS.T
-        #         @views fwdS.TD[snap,:] .= phS.TD
-        #     end
-        #     if heat_liquid_phase
-        #         @views fwd.T[snap,:,:] .= phL.T
-        #         @views fwdL.T[snap,:,:] .= phL.T
-        #         @views fwdL.TD[snap,:] .= phL.TD
-        #     end
-
-        #     #TODO
-        #     # if electrolysis_solid_phase && electrolysis_liquid_phase
-        #     #     @views fwd.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal].*LS[end].geoL.cap[:,:,5] .+ phS.trans_scal[:,:,iscal].*LS[end].geoS.cap[:,:,5]
-        #     # end
-
-        #     if electrolysis_solid_phase #TODO
-
-        #         for iscal=1:nb_transported_scalars
-        #             @views fwd.trans_scal[snap,:,:,iscal] .= phS.trans_scal[:,:,iscal]
-        #             @views fwdS.trans_scal[snap,:,:,iscal] .= phS.trans_scal[:,:,iscal]
-        #             @views fwdS.trans_scalD[snap,:,iscal] .= phS.trans_scalD[:,iscal]
-        #         end
-        #     end
-
-        #     if electrolysis_liquid_phase #TODO
-
-        #         for iscal=1:nb_transported_scalars
-        #             @views fwd.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal].*LS[end].geoL.cap[:,:,5] .+ phS.trans_scal[:,:,iscal].*LS[end].geoS.cap[:,:,5]
-
-        #             # @views fwd.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal]
-        #             @views fwdL.trans_scal[snap,:,:,iscal] .= phL.trans_scal[:,:,iscal]
-        #             @views fwdL.trans_scalD[snap,:,iscal] .= phL.trans_scalD[:,iscal]
-                    
-        #             # printstyled(color=:cyan, @sprintf "\n write scal \n")
-        #             # print(minimum(fwdL.trans_scal[snap,:,:,iscal]), "phL ", minimum(phL.trans_scal[:,:,iscal]))
-        #         end
-                
-        #         # @views fwd.mass_flux[snap,:,:] .= phL.mass_flux #reshape(varfluxH2, grid)
-
-     
-
-        #         @views fwdL.phi_ele[snap,:,:] .= phL.phi_ele
-
-        #         @views fwdL.phi_eleD[snap,:] .= phL.phi_eleD
-
-        #         @views fwdL.i_current_mag[snap,:,:] .= phL.i_current_mag
-        #         @views fwdS.Eu[snap,:,:] .= phS.Eu
-        #         @views fwdS.Ev[snap,:,:] .= phS.Ev
-        #         @views fwdL.Eu[snap,:,:] .= phL.Eu
-        #         @views fwdL.Ev[snap,:,:] .= phL.Ev
-
-
-        #     end
-        #     if ns_solid_phase
-        #         @views fwdS.p[snap,:,:] .= phS.p
-        #         @views fwdS.pD[snap,:] .= phS.pD
-        #         @views fwdS.ϕ[snap,:,:] .= phS.ϕ
-        #         @views fwdS.u[snap,:,:] .= phS.u
-        #         @views fwdS.v[snap,:,:] .= phS.v
-        #         @views fwdS.ucorrD[snap,:,:] .= phS.ucorrD
-        #         @views fwdS.vcorrD[snap,:,:] .= phS.vcorrD
-        #     end
-        #     if ns_liquid_phase
-        #         @views fwdL.p[snap,:,:] .= phL.p
-        #         @views fwdL.pD[snap,:]  .= phL.pD
-        #         @views fwdL.ϕ[snap,:,:] .= phL.ϕ
-        #         @views fwdL.u[snap,:,:] .= phL.u
-        #         @views fwdL.v[snap,:,:] .= phL.v
-        #         @views fwdL.vD[snap,:]  .= phL.vD
-
-        #         @views fwdL.ucorrD[snap,:,:] .= phL.ucorrD
-        #         @views fwdL.vcorrD[snap,:,:] .= phL.vcorrD
-        #         # @views fwd.Cd[snap] = cD
-        #         # @views fwd.Cl[snap] = cL
-        #         @views fwd.radius[snap] = current_radius
-        #     end
         #     if advection
         #         fwdS.Vratio[snap] = volume(LS[end].geoS) / V0S
         #         fwdL.Vratio[snap] = volume(LS[end].geoL) / V0L
@@ -2129,7 +2132,20 @@ function run_forward(
                     # Compute electrical current, interpolate velocity on scalar grid
                     compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
             
-                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,Eus,Evs)
+
+                    #store in us, vs instead of Eus, Evs
+                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,us,vs)
+
+                    #TODO i_current_mag need cond
+
+                    @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
+                    "i_current_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    "i_current_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,  
+                    "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    C_NULL::Ptr{Cvoid})::Cint
+
+                    # interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,Eus,Evs)
             
                     interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,us,vs)
                         
@@ -2152,10 +2168,10 @@ function run_forward(
                     # "trans_scal_1D_H2"::Cstring, phL.trans_scalD[:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
                     # "trans_scal_1D_KOH"::Cstring, phL.trans_scalD[:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
                     # "trans_scal_1D_H2O"::Cstring, phL.trans_scalD[:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
-                    "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+                    # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
                     "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
                     "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
@@ -2178,7 +2194,7 @@ function run_forward(
 
 
             if crashed #due to nH2<0...
-                return num.current_i
+                return
             end
 
         
@@ -2195,8 +2211,7 @@ function run_forward(
                 print_electrolysis_statistics(nb_transported_scalars,grid,phL)
 
                 crashed=true
-                # return nothing
-                return num.current_i
+                return
 
             end
         else
@@ -2205,7 +2220,7 @@ function run_forward(
                 println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
                
                 crashed=true
-                return nothing
+                return
                 
             end
 
@@ -2259,11 +2274,12 @@ function run_forward(
     end
 
     if levelset && (save_radius || hill)
-        return radius
+        #TODO save radius
+        return # radius
     # elseif flapping
     #     return xc, yc
     else
-        return nothing
+        return
     end
 end
 

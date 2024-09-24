@@ -8,6 +8,8 @@ using Flower
 
 using PrettyTables
 
+# using SnoopCompileCore
+
 
 makedir = false 
 
@@ -581,7 +583,10 @@ num = Numerical(
     bulk_conductivity = sim.bulk_conductivity,
     electric_potential = sim.electric_potential,
     contact_angle = sim.contact_angle,
+    convection_Cdivu = sim.convection_Cdivu,
     )
+
+
 
 @debug "After Numerical"
 
@@ -1341,7 +1346,11 @@ else
     #     left = Neumann_cl(θe = _θe * π / 180),
     #     right = Neumann_inh()
     # )
-    BC_u=()
+    BC_u = Boundaries(
+    bottom = Neumann_inh(),
+    top = Neumann_inh(),
+    left = Neumann_inh(),
+    right = Neumann_inh())
 end
 
 
@@ -1426,7 +1435,10 @@ print("\n BC_uL ",BC_uL)
 
 printstyled(color=:red, @sprintf "\n before run_forward \n")
 
-@profile @time current_i=run_forward(
+run_forward!(
+# tinf = @snoop_inference run_forward!(
+# tinf = @snoopi_deep run_forward!(
+# @profile @time current_i=run_forward(
     num, gp, gu, gv, op, phS, phL;
     periodic_x = (sim.periodic_x == 1),
     periodic_y = (sim.periodic_y == 1),
@@ -1468,9 +1480,13 @@ printstyled(color=:red, @sprintf "\n before run_forward \n")
     adapt_timestep_mode = sim.adapt_timestep_mode,#1,
     non_dimensionalize=sim.non_dimensionalize,
     mode_2d = sim.mode_2d,
-    convection_Cdivu = sim.convection_Cdivu,
     breakup = sim.breakup,    
 )
+
+# @show tinf
+
+current_i = num.current_i
+
 
 @debug "After run"
 
