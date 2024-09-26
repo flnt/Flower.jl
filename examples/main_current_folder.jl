@@ -1115,6 +1115,9 @@ if num.io_pdi>0
 
     #TODO check Clonglong ...
 
+    phys_time = 0.0 #Cdouble
+    nstep = num.current_i
+
     local PDI_status = @ccall "libpdi".PDI_multi_expose("init_PDI"::Cstring, 
             "mpi_coords_x"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
             "mpi_coords_y"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
@@ -1124,6 +1127,7 @@ if num.io_pdi>0
             "ny"::Cstring, ny::Ref{Clonglong}, PDI_OUT::Cint,
             "nb_transported_scalars"::Cstring, phys.nb_transported_scalars::Ref{Clonglong}, PDI_OUT::Cint,
             "nb_levelsets"::Cstring, phys.nb_levelsets::Ref{Clonglong}, PDI_OUT::Cint,
+            "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
             C_NULL::Ptr{Cvoid})::Cint
 
     @debug "after PDI_multi_expose"
@@ -1142,7 +1146,7 @@ end #if num.io_pdi>0
 #     try
 #         printstyled(color=:red, @sprintf "\n PDI test \n" )
 
-#         time = current_t #Cdouble
+#         phys_time = current_t #Cdouble
 #         nstep = num.current_i
 #         # print("\n nstep ",typeof(nstep))
 #         # pdi_array =zeros(nx,ny)
@@ -1169,7 +1173,7 @@ end #if num.io_pdi>0
 #         #if writing "D" array (bulk, interface, border), add "_1D" to the name
 #         @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
 #         "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
-#         "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+#         "time"::Cstring, phys_time::Ref{Cdouble}, PDI_OUT::Cint,
 #         "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
 #         "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
 #         "trans_scal_1D"::Cstring, phL.trans_scalD::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -1364,8 +1368,7 @@ if num.io_pdi>0
 
         # printstyled(color=:red, @sprintf "\n PDI test \n" )
 
-        time = 0.0 #Cdouble
-        nstep = num.current_i
+
    
         # phi_array=phL.phi_ele #do not transpose since python row major
         
@@ -1395,10 +1398,31 @@ if num.io_pdi>0
         end
 
 
+        # Compute electrical current, interpolate velocity on scalar grid
+        compute_grad_phi_ele!(num, gp, gu, gv, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+        
+        us=zeros(gp) #TODO allocate only once
+        vs=zeros(gp)
+
+        #store in us, vs instead of Eus, Evs
+        interpolate_grid_liquid!(gp,gu,gv,phL.Eu, phL.Ev,us,vs)
+
+        #TODO i_current_mag need cond
+
+        @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
+        "i_current_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+        "i_current_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,  
+        "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+        "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+        C_NULL::Ptr{Cvoid})::Cint
+
+
+        interpolate_grid_liquid!(gp,gu,gv,phL.u,phL.v,us,vs)
+
 
         PDI_status = @ccall "libpdi".PDI_multi_expose("write_initialization"::Cstring,
         "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
-        "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+        "time"::Cstring, phys_time::Ref{Cdouble}, PDI_OUT::Cint,
         "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
         "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
         "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -1410,8 +1434,8 @@ if num.io_pdi>0
         # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
         # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
         # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
-        # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-        # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+        "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+        "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
         "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
         # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
         # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
@@ -1485,8 +1509,6 @@ run_forward!(
 )
 
 # @show tinf
-
-current_i = num.current_i
 
 
 @debug "After run"

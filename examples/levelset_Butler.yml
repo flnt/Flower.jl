@@ -65,6 +65,7 @@ flower:
   simulation:
     # activate_interface: false
     activate_interface: 1
+    advection_LS_mode: 2
     adapt_timestep_mode: 3 #fixed timestep
     ns_advection: 1 #0 no advection
     auto_reinit: 1 #activated: 1
@@ -110,8 +111,8 @@ flower:
     #     return inv_weight_clip(num,W)   
     # end
     imposed_velocity : "none"
-    dt0: 3.125e-6 #first timestep
-    max_iter: 60 #maximum number of iterations
+    dt0: 1e-4 #3.125e-6 #first timestep
+    max_iter: 60 #1 #60 #maximum number of iterations
     mode_2d: 3
     # mode_2d = 1 #use equivalent cylinder
     # mode_2d = 2 #mol/meter 
@@ -132,7 +133,7 @@ flower:
     reinit_every: 3 # period of levelset reinialization
     restart: 0 #TODO restart with PDI
     show_every: 1
-    debug: "scalar_testing" #"scalar_debug" 
+    debug: "None" #"allocations_start" #"scalar_testing" #"scalar_debug" 
     time_scheme: FE #Forward Euler
     # time_scheme: CN
     n_ext: 10 
@@ -163,7 +164,7 @@ plot:
         isocontour: False
         levels: 10
         plot_bc: True
-        plot_wall: True
+        plot_wall: #True
         plot_grid: True
         plot_levelset: True #False
         plot_levelset_segments: #True 
@@ -183,7 +184,106 @@ plot:
         linewidth: 1
         linestyle: None
 
+      - var: normal_velocity_intfc
+        func: plot_file
+        file: normal_velocity_intfc
+        field_index: 1
+        cbarlabel: normal_velocity_intfc
+        fontsize: 4
+        isocontour: False
+        levels: 10
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: True
+        plot_levelset_segments: False
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        range: [0,1e-4]
+        xlim: [0,100]
+        ylim: [0,100]
+        #zoom: [[0,5],[0,5]]
+        #zoom_mode: index
+        zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        zoom_mode: None #coord
+        color_annot_bc: k #w
+        color_annot_bulk: w
+        linewidth: 1
+        linestyle: None
+
+      - var: normal_velocity_intfc
+        func: plot_python_pdf_full2
+        file: normal_velocity_intfc_zoom
+        field_index: 1
+        cbarlabel: normal_velocity_intfc
+        fontsize: 4
+        isocontour: False
+        levels: 10
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: False
+        plot_levelset_segments: False
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        range: [0,1e-4]
+        xlim: [0,100]
+        ylim: [0,100]
+        #zoom: [[0,5],[0,5]]
+        #zoom_mode: index
+        zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        zoom_mode: coord
+        color_annot_bc: k #w
+        color_annot_bulk: w
+
+      - var: concentration_H2_1DT
+        func: plot_python_pdf_full2
+        file: concentration_H2_zoom
+        field_index: 1
+        cbarlabel: "$\\text{Concentration}~H_2$"
+        fontsize: 4
+        isocontour: False
+        levels: 10
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: False
+        plot_levelset_segments: False
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        range: [0,1e-4]
+        xlim: [0,100]
+        ylim: [0,100]
+        #zoom: [[0,5],[0,5]]
+        #zoom_mode: index
+        zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        zoom_mode: coord
+        color_annot_bc: k #w
+        color_annot_bulk: w
+
+      - var: concentration_H2_1DT
+        func: plot_python_pdf_full2
+        file: concentration_H2_zoom_int
+        field_index: 2
+        cbarlabel: "$\\text{Concentration}~H_2$"
+        fontsize: 4
+        isocontour: False
+        levels: 10
+        plot_bc: #True
+        plot_grid: True
+        plot_levelset: False
+        plot_levelset_segments: False
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        range: [0,1e-4]
+        xlim: [0,100]
+        ylim: [0,100]
+        #zoom: [[0,5],[0,5]]
+        #zoom_mode: index
+        zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        zoom_mode: coord
+        color_annot_bc: k #w
+        color_annot_bulk: w
+
       - var: mass_flux_border
+        func: plot_python_pdf_full2
         file: mass_flux_zoom_border
         figsize: None
         aspect_box: 'box'
@@ -213,6 +313,7 @@ plot:
         linestyle: None
 
       - var: mass_flux_intfc
+        func: plot_python_pdf_full2
         file: mass_flux_zoom_intfc
         figsize: None
         aspect_box: 'box'
@@ -242,6 +343,7 @@ plot:
         linestyle: None
 
       - var: mass_flux_bulk
+        func: plot_python_pdf_full2
         file: mass_flux_zoom_bulk
         figsize: None
         aspect_box: 'box'
@@ -271,6 +373,7 @@ plot:
         linestyle: None
 
       - var: mass_flux
+        func: plot_python_pdf_full2
         file: mass_flux_zoom
         figsize: None
         aspect_box: 'box'
@@ -299,54 +402,11 @@ plot:
         linewidth: 1
         linestyle: None
 
-      - var: concentration_H2_1DT
-        file: concentration_H2_zoom
-        field_index: 1
-        cbarlabel: "$\text{Concentration}~H_2$"
-        fontsize: 4
-        isocontour: False
-        levels: 10
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: False
-        plot_levelset_segments: False
-        plot_mode: pcolormesh #contourf
-        print_mode: "val"
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        #zoom: [[0,5],[0,5]]
-        #zoom_mode: index
-        zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        zoom_mode: coord
-        color_annot_bc: k #w
-        color_annot_bulk: w
-
-      - var: concentration_H2_1DT
-        file: concentration_H2_zoom_int
-        field_index: 2
-        cbarlabel: "$\text{Concentration}~H_2$"
-        fontsize: 4
-        isocontour: False
-        levels: 10
-        plot_bc: #True
-        plot_grid: True
-        plot_levelset: False
-        plot_levelset_segments: False
-        plot_mode: pcolormesh #contourf
-        print_mode: "val"
-        range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
-        #zoom: [[0,5],[0,5]]
-        #zoom_mode: index
-        zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        zoom_mode: coord
-        color_annot_bc: k #w
-        color_annot_bulk: w
+     
 
 
       - var: velocity_x
+        func: plot_vector
         file: velocity_vectors
         plot_levelset: True
         plot_levelset_segments: False
@@ -415,7 +475,7 @@ plot:
 
       # - var: trans_scal_1D_H2
       #   file: trans_scal_1D_H2
-      #   cbarlabel: '$\text{Concentration} H_2$'
+      #   cbarlabel: '$\\text{Concentration} H_2$'
       #   isocontour: False
       #   levels: 10
       #   plot_bc: True
@@ -431,7 +491,7 @@ plot:
       # - var: trans_scal_1D_H2_1DT
       #   file: trans_scal_1D_H2_zoom
       #   field_index: 1 # 1 for bulk, 2 for 1st interface
-      #   cbarlabel: '$\text{Concentration} H_2$'
+      #   cbarlabel: '$\\text{Concentration} H_2$'
       #   fontsize: 4
       #   isocontour: False
       #   levels: 10
@@ -470,7 +530,7 @@ plot:
 
       - var: concentration_KOH_1DT
         file: concentration_KOH
-        cbarlabel: '$\text{Concentration} KOH$'
+        cbarlabel: '$\\text{Concentration} KOH$'
         isocontour: False
         levels: 10
         plot_bc: True
@@ -486,7 +546,7 @@ plot:
 
       - var: concentration_H2O_1DT
         file: concentration_H2O
-        cbarlabel: '$\text{Concentration} H_2O$'
+        cbarlabel: '$\\text{Concentration} H_2O$'
         isocontour: False
         levels: 10
         plot_bc: True
@@ -503,6 +563,7 @@ plot:
         #Zoom
 
       - var: mass_flux
+        func: plot_python_pdf_full2
         file: mass_flux_zoom
         figsize: None
         aspect_box: 'box'
@@ -563,7 +624,7 @@ plot:
       # - var: concentration_H2_1DT
       #   file: concentration_H2_zoom
       #   field_index: 1
-      #   cbarlabel: "$\text{Concentration}~H_2$"
+      #   cbarlabel: "$\\text{Concentration}~H_2$"
       #   fontsize: 4
       #   isocontour: False
       #   levels: 10
@@ -586,7 +647,7 @@ plot:
       - var: concentration_H2_1DT
         file: concentration_H2_zoom_segments
         field_index: 1
-        cbarlabel: "$\text{Concentration}~H_2$"
+        cbarlabel: "$\\text{Concentration}~H_2$"
         fontsize: 4
         isocontour: False
         levels: 10
@@ -608,7 +669,7 @@ plot:
       # - var: concentration_H2_1DT
       #   file: concentration_H2_zoom_segments
       #   field_index: 1
-      #   cbarlabel: '$\text{Concentration} H_2$'
+      #   cbarlabel: '$\\text{Concentration} H_2$'
       #   fontsize: 4
       #   isocontour: False
       #   levels: 10
@@ -629,6 +690,27 @@ plot:
 
 
   films:
+
+      # - var: normal_velocity_intfc
+      #   file: normal_velocity_intfc_zoom
+      #   func: plot_python_pdf_full2
+      #   cbarlabel: normal_velocity_intfc
+      #   img_format: mp4
+      #   isocontour: False
+      #   levels: 10
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: True
+      #   plot_levelset_segments: False
+      #   plot_mode: contourf
+      #   range: [0,1e-4]
+      #   ticks_format: '%.2e'
+      #   xlim: [0,100]
+      #   ylim: [0,100]
+      #   linewidth: 1
+      #   linestyle: None
+      #   zoom: [[0,5],[0,5]]
+      #   zoom_mode: index
 
       - var: levelset_p
         file: levelset_p
@@ -1010,7 +1092,7 @@ pdi:
     mass_flux_bulk: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
     mass_flux_border: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
     mass_flux_intfc: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    
+    normal_velocity_intfc: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
    
    
    # To save only bulk field, with u given in Flower
@@ -1059,8 +1141,8 @@ pdi:
         #     type: array
         #     subtype: double
         #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
-        when: "$nstep = 0"
-        write: [levelset_p,levelset_u,levelset_v,radius]
+        # when: "$nstep = 0"
+        write: [levelset_p,levelset_u,levelset_v,radius,nstep,time,velocity_x,velocity_y]
         #write: [levelset_p,levelset_u,levelset_v,levelset_p_wall,radius]
 
       - file: flower_${nstep:08}.h5 #Name of the file test.h5
@@ -1080,17 +1162,29 @@ pdi:
       #   on_event: write_data_start_loop
       #   write: [intfc_vtx_num,intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_seg_num,intfc_vtx_connectivities]
 
-      # #write mass flux used in phase change
-      # - file: flower_${nstep:08}.h5 #Name of the file test.h5
-      #   collision_policy: write_into
-      #   on_event: write_mass_flux
-      #   # datasets: #Dataset we are writing in: the whole solution
-      #   #   data:
-      #   #     type: array
-      #   #     subtype: double
-      #   #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
-      #   # when: #"$nstep%50 = 0"
-      #   write: [mass_flux,mass_flux_bulk,mass_flux_border,mass_flux_intfc]
+      #write mass flux used in phase change
+      - file: flower_${nstep:08}.h5 #Name of the file test.h5
+        collision_policy: write_into
+        on_event: write_mass_flux
+        # datasets: #Dataset we are writing in: the whole solution
+        #   data:
+        #     type: array
+        #     subtype: double
+        #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
+        # when: #"$nstep%50 = 0"
+        write: [mass_flux,mass_flux_bulk,mass_flux_border,mass_flux_intfc]
+
+      #write velocity for LS advection
+      - file: flower_${nstep:08}.h5 #Name of the file test.h5
+        collision_policy: write_into
+        on_event: write_before_LS_adv
+        # datasets: #Dataset we are writing in: the whole solution
+        #   data:
+        #     type: array
+        #     subtype: double
+        #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
+        # when: #"$nstep%50 = 0"
+        write: [normal_velocity_intfc]
 
       - file: flower_${nstep:08}.h5 #Name of the file test.h5
         collision_policy: write_into
@@ -1102,6 +1196,19 @@ pdi:
         #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
         # when: "$nstep%50 = 0"
         write: [u_1D,v_1D,p_1D,time,nstep,velocity_x,velocity_y] #,phi_ele_1D,i_current_x,i_current_y,i_current_mag]
+        #,trans_scal_1D_H2,trans_scal_1D_KOH,trans_scal_1D_H2O] #,levelset_p,levelset_u,levelset_v]
+
+      
+      - file: flower_${nstep:08}.h5 #Name of the file test.h5
+        collision_policy: write_into
+        on_event: write_data_elec
+        # datasets: #Dataset we are writing in: the whole solution
+        #   data:
+        #     type: array
+        #     subtype: double
+        #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
+        # when: "$nstep%50 = 0"
+        write: [i_current_x,i_current_y,i_current_mag,phi_ele_1D]
         #,trans_scal_1D_H2,trans_scal_1D_KOH,trans_scal_1D_H2O] #,levelset_p,levelset_u,levelset_v]
 
 

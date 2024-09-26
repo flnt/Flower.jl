@@ -1,3 +1,7 @@
+"""
+diamond(a, p, n)
+for diamond-cell covolume cf mikulaNewLevelSet2010
+"""
 function diamond(a, p, n)
     U = @SVector[0.25(a[p]+a[p-n]+a[p-n-1]+a[p-1]),
     0.25(a[p]+a[p-1]+a[p+n-1]+a[p+n]),
@@ -6,6 +10,11 @@ function diamond(a, p, n)
     return U
 end
 
+
+"""
+diamond(a, II, nx, ny, per_x, per_y)
+for diamond-cell covolume cf mikulaNewLevelSet2010
+"""
 function diamond(a, II, nx, ny, per_x, per_y)
     U = @SVector[0.25(a[II]+a[δx⁻(II, nx, per_x)]+a[δx⁻(δy⁻(II, ny, per_y), nx, per_x)]+a[δy⁻(II, ny, per_y)]),
                 0.25(a[II]+a[δy⁻(II, ny, per_y)]+a[δy⁻(δx⁺(II, nx, per_x), ny, per_y)]+a[δx⁺(II, nx, per_x)]),
@@ -230,6 +239,12 @@ function IIOE_normal!(grid, A, B, u, V, CFL, periodic_x, periodic_y)
         F = grad(u, V, U, II, nx, ny, periodic_x, periodic_y)
         a_in, a_ou = inflow_outflow(F)
         S = sumloc(a_in, a_ou)
+        
+        # cf fullanaSimulationOptimizationComplex2022
+        #If the forward dffusion is dominant (ie. Spf > 9Spb) then no further steps are needed
+        #as the discretization will lean towards the implicit part. 
+        #4. On the other hand, if the backward dffusion is dominant (ie. Spf < 9Spb), 
+        #we need to smooth the reconstructed solution for stability, using the following formula
         if S[1] < -S[2]
             D = quadratic_recons(u, U, II, nx, ny, periodic_x, periodic_y)
             D_ = quadratic_recons(D)
@@ -1588,6 +1603,12 @@ function aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
     return nothing
 end
 
+
+"""
+interpolate_scalar!(grid, grid_u, grid_v, u, uu, uv)
+
+Interpolates a scalar: from scalar grid to u and v grids
+"""
 function interpolate_scalar!(grid, grid_u, grid_v, u, uu, uv)
     @unpack x, y, nx, ny, dx, dy, ind = grid
     @unpack inside, b_left, b_bottom, b_right, b_top = ind

@@ -179,6 +179,8 @@ function run_forward!(
 
     printstyled(color=:green, @sprintf "\n Re : %.2e %.2e\n" Re num.visc_coeff)
 
+    printstyled(color=:magenta, @sprintf "\n CFL_sc : %.2e\n" CFL_sc)
+
 
     ####################################################################################################
     #Electrolysis
@@ -1746,6 +1748,38 @@ function run_forward!(
         end
 
         if advection
+
+            if num.io_pdi>0
+
+                
+
+                PDI_status = @ccall "libpdi".PDI_multi_expose("write_before_LS_adv"::Cstring,
+                # "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+                # "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+                # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "trans_scal_1D"::Cstring, phL.trans_scalD::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "trans_scal_1D_H2"::Cstring, phL.trans_scalD[:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "trans_scal_1D_KOH"::Cstring, phL.trans_scalD[:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "trans_scal_1D_H2O"::Cstring, phL.trans_scalD[:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+                "normal_velocity_intfc"::Cstring, grid.V::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "velocity_x_intfc"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "velocity_y_intfc"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+                # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
+                C_NULL::Ptr{Cvoid})::Cint
+
+            end # if num.io_pdi>0
+
+
             for (iLS, bc) in enumerate(BC_int)
                 if is_stefan(bc)
                     IIOE_normal!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y)
@@ -1770,7 +1804,7 @@ function run_forward!(
 
                     elseif num.advection_LS_mode == 1
 
-                        # Project velocities to the normal and use advecion scheme for advection just
+                        # Project velocities to the normal and use advection scheme for advection just
                         # in the normal direction
                         tmpVx = zeros(grid)
                         tmpVy = zeros(grid)
@@ -1818,11 +1852,68 @@ function run_forward!(
                         grid.LS[iLS].u .= reshape(gmres(grid.LS[iLS].A, grid.LS[iLS].B * vec(grid.LS[iLS].u) .+ rhs_LS), grid)
 
                     elseif num.advection_LS_mode == 2
-                        print("\n num.advection_LS_mode == 2")
+                        print("\n num.advection_LS_mode == 2 iLS", iLS)
+
+                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
+
+                        BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+
+
                         printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
 
                         IIOE_normal!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y)
                         grid.LS[iLS].u .= reshape(gmres(grid.LS[iLS].A, grid.LS[iLS].B * vec(grid.LS[iLS].u)), grid)
+
+
+                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
+
+                        BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+
+
+                    elseif num.advection_LS_mode == 3
+
+                        # from scalar grid, normal to u and v
+                        #TODO 
+                        print("\n setting 0 u and v velocities \n")
+                        grid_u.V .= 0
+                        grid_v.V .= 0
+
+                        interpolate_scalar!(grid, grid_u, grid_v, grid.V, grid_u.V, grid_v.V)
+
+                        normalx = cos.(grid_u.LS[iLS].α)
+                        normaly = sin.(grid_v.LS[iLS].α)
+                    
+                        grid_u.V .*= normalx
+                        grid_v.V .*= normaly
+
+                        print("\n num.advection_LS_mode == 3 iLS", iLS)
+
+                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
+
+                        BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+
+
+                        printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
+
+
+                        rhs_LS .= 0.0
+                        grid.LS[iLS].A.nzval .= 0.0
+                        grid.LS[iLS].B.nzval .= 0.0
+                        IIOE!(grid, grid_u, grid_v, grid.LS[iLS].A, grid.LS[iLS].B, θ_out, num.τ, periodic_x, periodic_y)
+                        BC_LS_interior!(num, grid, grid_u, grid_v, iLS, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
+                        BC_LS!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+                        utmp .= reshape(gmres(grid.LS[iLS].A, grid.LS[iLS].B * vec(grid.LS[iLS].u) .+ rhs_LS), grid)
+
+                        rhs_LS .= 0.0
+                        S2IIOE!(grid, grid_u, grid_v, grid.LS[iLS].A, grid.LS[iLS].B, utmp, grid.LS[iLS].u, θ_out, num.τ, periodic_x, periodic_y)
+                        BC_LS_interior!(num, grid, grid_u, grid_v, iLS, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
+                        BC_LS!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+                        grid.LS[iLS].u .= reshape(gmres(grid.LS[iLS].A, grid.LS[iLS].B * vec(grid.LS[iLS].u) .+ rhs_LS), grid)
+
+
+                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
+
+                        BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
 
                     end #num.advection_LS_mode == 
                 end
