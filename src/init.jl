@@ -256,7 +256,11 @@ end
 - phS
 - phL
 """
-function init_fields(num::NumericalParameters, grid, grid_u, grid_v)
+function init_fields(num::NumericalParameters,
+    grid::Mesh{Flower.GridCC, Float64, Int64},
+    grid_u::Mesh{Flower.GridFCx, Float64, Int64},
+    grid_v::Mesh{Flower.GridFCy, Float64, Int64},
+    )
     @unpack τ, N, T_inf, u_inf, v_inf, A, R, L0, Δ, shifted, shifted_y, max_iterations, save_every, CFL, x_airfoil, y_airfoil, nLS, _nLS, nb_transported_scalars = num
     @unpack x, y, nx, ny, LS, ind = grid
 

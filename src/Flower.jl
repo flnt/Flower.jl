@@ -39,7 +39,7 @@ import Base.reshape
 @reexport using PrettyTables
 # @reexport using Polynomials
 @reexport using Peaks
-@reexport using Profile
+# @reexport using Profile
 
 # @reexport using ProfileCanvas
 

@@ -683,10 +683,9 @@ def plot_all_fig_func():
 
                 key = figpar['var']
 
-                # print(key)
+                print(key,func)
 
-                time = 0
-                nstep =0
+            
                 
                 func(
                 file,
@@ -2381,6 +2380,8 @@ def python_movie_zoom_func(
             time = 0
             nstep = 0 
             print("time not available")
+
+        print(key,file_name)
 
         fig1,ax2,cbar = func(
         file,

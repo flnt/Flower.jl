@@ -1567,6 +1567,7 @@ function run_forward!(
 
             compute_mass_flux!(num,grid,phL,opC_pL,1,mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
 
+            print("\n sum mass flux ", sum(mass_flux),"\n ")
         end
         
         #    grid.LS[i].α  which is the angle of the outward point normal with respect to the horizontal axis
@@ -1575,81 +1576,70 @@ function run_forward!(
             if is_stefan(BC_int[iLS])
                 update_stefan_velocity(num, grid, iLS, LS[iLS].u, phS.T, phL.T, periodic_x, periodic_y, λ, Vmean)
             elseif is_fs(BC_int[iLS]) || occursin("levelset",electrolysis_phase_change_case)
-                grid.V .= 0.0
                 printstyled(color=:green, @sprintf "\n V %.2e max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(V)) maximum(abs.(phL.u)) maximum(abs.(phL.v)))
 
                 if electrolysis_phase_change_case!="none"    
                     if occursin("levelset",electrolysis_phase_change_case)
 
+                        printstyled(color=:magenta, @sprintf "\n phase-change velocity")
+
+                        # plot_electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodic_y, concentration_scal_intfc)
+
+                        # TODO send to PDI points and velocity for phase change like in plot_electrolysis_velocity!
+                        
+                        # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
+
+                        varnH2 = -sum(mass_flux) * diffusion_coeff[1] 
+
+                        new_nH2 = nH2 + varnH2 * num.τ
+
+                    
+                        printstyled(color=:green, @sprintf "\n it %.5i Mole: %.2e dn %.2e new nH2 %.2e \n" num.current_i nH2 varnH2*num.τ new_nH2)
+
+                        if varnH2 < 0.0 
+                            # print(@sprintf "error nH2 %.2e dnH2 %.2e new nH2 %.2e\n" nH2-varnH2*num.τ varnH2*num.τ nH2 )
+                            @error ("error nH2")
+                            crashed = true
+                            new_nH2 = nH2
+                            print("wrong nH2 ")
+                            # println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
+                            return
+                        else
+                            nH2 = new_nH2
+                        end
+
+
+
                         if electrolysis_phase_change_case == "levelset"
 
-                            printstyled(color=:magenta, @sprintf "\n phase-change velocity")
-
-                            #return
-
-
-                            # plot_electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodic_y, concentration_scal_intfc)
-
-                            # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
-
-                            varnH2 = -sum(mass_flux) * diffusion_coeff[1] 
-
-                            new_nH2 = nH2 + varnH2 * num.τ
-
-                        
-                            printstyled(color=:green, @sprintf "\n it %.5i Mole: %.2e dn %.2e new nH2 %.2e \n" num.current_i nH2 varnH2*num.τ new_nH2)
-
-                            if varnH2 < 0.0 
-                                # print(@sprintf "error nH2 %.2e dnH2 %.2e new nH2 %.2e\n" nH2-varnH2*num.τ varnH2*num.τ nH2 )
-                                @error ("error nH2")
-                                crashed = true
-                                new_nH2 = nH2
-                                print("wrong nH2 ")
-                                # println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
-                                return
-                            end
-
-                            nH2 = new_nH2
-
-                            update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],diffusion_coeff[1],concentration0[1],electrolysis_phase_change_case,mass_flux)
+                            update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, 
+                            periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],
+                            diffusion_coeff[1],concentration0[1],electrolysis_phase_change_case,mass_flux)
 
                         elseif electrolysis_phase_change_case == "levelset_averaged"
+                            
+                            update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, 
+                            periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],
+                            diffusion_coeff[1],concentration0[1],electrolysis_phase_change_case,mass_flux)
 
-                            printstyled(color=:magenta, @sprintf "\n phase-change velocity")
+                            
+                            # # iLS = 1
+                            # # intfc_length = 0.0
+                            # # @inbounds @threads for II in grid.LS[iLS].MIXED
+                            # #     intfc_length += 
+                            # # end
 
-                            #return
 
+                            # printstyled(color=:green, @sprintf "\n pi*R %.2e len : %.2e \n" π*num.R intfc_length)
 
-                            # plot_electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodic_y, concentration_scal_intfc)
+                            # #TODO u-vphase change
 
-                            # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
+                            # #TODO check velocity
+                            # @inbounds @threads for II in grid.LS[iLS].MIXED
+                            #     grid.V[II] = -sum(mass_flux) * diffusion_coeff[1] *(1.0/num.rho2-1.0/num.rho1).*diffusion_coeff[1].*num.MWH2
+                            # end
 
-                            varnH2 = -sum(mass_flux) * diffusion_coeff[1] 
-
-                            new_nH2 = nH2 + varnH2 * num.τ
-
-                        
-                            printstyled(color=:green, @sprintf "\n it %.5i Mole: %.2e dn %.2e new nH2 %.2e \n" num.current_i nH2 varnH2*num.τ new_nH2)
-
-                            if varnH2 < 0.0 
-                                # print(@sprintf "error nH2 %.2e dnH2 %.2e new nH2 %.2e\n" nH2-varnH2*num.τ varnH2*num.τ nH2 )
-                                @error ("error nH2")
-                                crashed = true
-                                new_nH2 = nH2
-                                print("wrong nH2 ")
-                                # println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
-                                return
-                            end
-
-                            nH2 = new_nH2
-
-                            iLS = 1
-                            #TODO check velocity
-                            @inbounds @threads for II in grid.LS[iLS].MIXED
-                                grid.V[II] = -sum(mass_flux) * diffusion_coeff[1] *(1.0/num.rho2-1.0/num.rho1).*diffusion_coeff[1].*num.MWH2
-                            end
-
-                        end
+                        end #electrolysis_phase_change_case == "levelset"
 
                     end
                     # update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y)
@@ -1822,66 +1812,79 @@ function run_forward!(
                     LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u)), grid)
                     # u .= sqrt.((x .- num.current_i*Δ/1).^ 2 + y .^ 2) - (0.5) * ones(nx, ny);
                 elseif is_fs(bc) || occursin("levelset",electrolysis_phase_change_case)
-                    rhs_LS .= 0.0
-                    LS[iLS].A.nzval .= 0.0
-                    LS[iLS].B.nzval .= 0.0
-                    IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, θ_out, num.τ, periodic_x, periodic_y)
-                    BC_LS_interior!(num, grid, grid_u, grid_v, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
-                    BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
-                    utmp .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
 
-                    rhs_LS .= 0.0
-                    S2IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, utmp, LS[iLS].u, θ_out, num.τ, periodic_x, periodic_y)
-                    BC_LS_interior!(num, grid, grid_u, grid_v, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
-                    BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
-                    LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
+                    if num.advection_LS_mode == 0
+                        rhs_LS .= 0.0
+                        LS[iLS].A.nzval .= 0.0
+                        LS[iLS].B.nzval .= 0.0
+                        IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, θ_out, num.τ, periodic_x, periodic_y)
+                        BC_LS_interior!(num, grid, grid_u, grid_v, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
+                        BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
+                        utmp .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
 
-                    # Project velocities to the normal and use advecion scheme for advection just
-                    # in the normal direction
-                    # tmpVx = zeros(grid)
-                    # tmpVy = zeros(grid)
-                    # V .= 0.0
-                    # @inbounds @threads for II in grid.LS[iLS].MIXED
-                    #     cap1 = grid_u.LS[iLS].geoL.cap[II,5]
-                    #     cap3 = grid_u.LS[iLS].geoL.cap[δx⁺(II),5]
-                    #     tmpVx[II] = (grid_u.V[II] * cap1 + grid_u.V[δx⁺(II)] * cap3) / (cap1 + cap3 + eps(0.01))
+                        rhs_LS .= 0.0
+                        S2IIOE!(grid, grid_u, grid_v, LS[iLS].A, LS[iLS].B, utmp, LS[iLS].u, θ_out, num.τ, periodic_x, periodic_y)
+                        BC_LS_interior!(num, grid, grid_u, grid_v, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
+                        BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
+                        LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
 
-                    #     cap2 = grid_v.LS[iLS].geoL.cap[II,5]
-                    #     cap4 = grid_v.LS[iLS].geoL.cap[δy⁺(II),5]
-                    #     tmpVy[II] = (grid_v.V[II] * cap2 + grid_v.V[δy⁺(II)] * cap4) / (cap2 + cap4 + eps(0.01))
+                    elseif num.advection_LS_mode == 1
 
-                    #     tmpV = sqrt(tmpVx[II]^2 + tmpVy[II]^2)
-                    #     β = atan(tmpVy[II], tmpVx[II])
-                    #     if grid.LS[iLS].α[II] > 0.0 && β < 0.0
-                    #         β += 2π
-                    #     end
-                    #     if grid.LS[iLS].α[II] < 0.0 && β > 0.0
-                    #         β -= 2π
-                    #     end
+                        # Project velocities to the normal and use advecion scheme for advection just
+                        # in the normal direction
+                        tmpVx = zeros(grid)
+                        tmpVy = zeros(grid)
+                        V .= 0.0
+                        @inbounds @threads for II in grid.LS[iLS].MIXED
+                            cap1 = grid_u.LS[iLS].geoL.cap[II,5]
+                            cap3 = grid_u.LS[iLS].geoL.cap[δx⁺(II),5]
+                            tmpVx[II] = (grid_u.V[II] * cap1 + grid_u.V[δx⁺(II)] * cap3) / (cap1 + cap3 + eps(0.01))
 
-                    #     V[II] = tmpV * cos(β - grid.LS[iLS].α[II])
-                    # end
+                            cap2 = grid_v.LS[iLS].geoL.cap[II,5]
+                            cap4 = grid_v.LS[iLS].geoL.cap[δy⁺(II),5]
+                            tmpVy[II] = (grid_v.V[II] * cap2 + grid_v.V[δy⁺(II)] * cap4) / (cap2 + cap4 + eps(0.01))
 
-                    # i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, grid.LS[iLS], grid.ind.inside, periodic_x, periodic_y)
-                    # field_extension!(grid, grid.LS[iLS].u, V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
+                            tmpV = sqrt(tmpVx[II]^2 + tmpVy[II]^2)
+                            β = atan(tmpVy[II], tmpVx[II])
+                            if grid.LS[iLS].α[II] > 0.0 && β < 0.0
+                                β += 2π
+                            end
+                            if grid.LS[iLS].α[II] < 0.0 && β > 0.0
+                                β -= 2π
+                            end
 
-                    # rhs_LS .= 0.0
-                    # IIOE_normal!(grid, LS[iLS].A, LS[iLS].B, LS[iLS].u, V, CFL_sc, periodic_x, periodic_y)
-                    # BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
-                    # BC_LS_interior!(num, grid, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
-                    # LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
+                            V[II] = tmpV * cos(β - grid.LS[iLS].α[II])
+                        end
 
-                    # Impose contact angle if a wall is present
-                    # rhs_LS .= 0.0
-                    # LS[iLS].A.nzval .= 0.0
-                    # LS[iLS].B.nzval .= 0.0
-                    # for II in grid.ind.all_indices
-                    #     pII = lexicographic(II, grid.ny)
-                    #     LS[iLS].A[pII,pII] = 1.0
-                    #     LS[iLS].B[pII,pII] = 1.0
-                    # end
-                    # BC_LS_interior!(num, grid, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
-                    # LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
+                        i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, grid.LS[iLS], grid.ind.inside, periodic_x, periodic_y)
+                        field_extension!(grid, grid.LS[iLS].u, V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
+
+                        rhs_LS .= 0.0
+                        IIOE_normal!(grid, LS[iLS].A, LS[iLS].B, LS[iLS].u, V, CFL_sc, periodic_x, periodic_y)
+                        BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, rhs_LS, BC_u)
+                        BC_LS_interior!(num, grid, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
+                        LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
+
+                        # Impose contact angle if a wall is present
+                        rhs_LS .= 0.0
+                        LS[iLS].A.nzval .= 0.0
+                        LS[iLS].B.nzval .= 0.0
+                        for II in grid.ind.all_indices
+                            pII = lexicographic(II, grid.ny)
+                            LS[iLS].A[pII,pII] = 1.0
+                            LS[iLS].B[pII,pII] = 1.0
+                        end
+                        BC_LS_interior!(num, grid, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
+                        LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
+
+                    elseif num.advection_LS_mode == 2
+                        print("\n num.advection_LS_mode == 2")
+                        printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
+
+                        IIOE_normal!(grid, LS[iLS].A, LS[iLS].B, LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y)
+                        LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u)), grid)
+
+                    end #num.advection_LS_mode == 
                 end
             end
             if analytical

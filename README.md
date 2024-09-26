@@ -1,5 +1,23 @@
 # Flower
 
+## Improving type declarations
+
+```bash
+module testprofile
+ARGS = String["levelset_Butler.yml"]
+include("../Flower.jl/examples/profile.jl")
+end
+```
+
+```bash
+using ProfileView
+using Cthulhu
+include("file.jl")
+```
+Then click on flamegraph, descend_clicked() and look for non-defined types
+cf https://www.youtube.com/watch?v=pvduxLowpPY&t=1s
+and https://github.com/timholy/ProfileView.jl
+
 ## Precompiling issues
 If fails to install a library like Cairo_jll 
 
@@ -12,6 +30,15 @@ do
 ```bash
 LD_LIBRARY_PATH="" julia
 ```
+
+If you want to load external libraries and julia throws an error when LD_LIBRARY_PATH is set (not to ""):
+
+do
+```bash
+LD_LIBRARY_PATH="$HOME/.julia/artifacts/20c009b8faa6b86ae9ecc8002f2772cd4724774d/lib/:/usr/lib/x86_64-linux-gnu" julia +1.10.5 --project=../Flower.jl --threads=1 --sysimage=../Flower.jl/sys_img.so ../Flower.jl/examples/main_current_folder.jl levelset_Butler.yml
+```
+with :/usr/lib/x86_64-linux-gnu the place where the external libraries are stored
+
 ## Precompiling Flower
 cf https://vsert.com/posts/precompile/
 Use runtests_precomp.jl instead of runtests.jl otherwise the precompilation is much longer

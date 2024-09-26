@@ -41,7 +41,7 @@ abstract type AbstractOptimizer end
     σ::T = 0.0 # surface tension coefficient
     case::String = "notmycase"
     cases::String = "Planar, Sphere, Cylinder, Ellipse, Crystal, Mullins, Nothing, Airfoil, Jet, Drop"
-    A::T = 0.05
+    A::T = 0.05 #geometric parameter
     N::D = 2
     R::T = 0.5
     m::D = 4
@@ -74,7 +74,7 @@ abstract type AbstractOptimizer end
     eps::T = 1e-12
     grav_x::T = 0.0
     grav_y::T = 0.0
-    nNavier = 0 # number of Navier inner BCs
+    nNavier::D =0 # number of Navier inner BCs
     pres0::T=0.0
     ref_thickness_2d::T=1.0
     plot_xscale::T = 1.0
@@ -92,6 +92,7 @@ abstract type AbstractOptimizer end
     contact_angle::D = 0 #contact angle: advancing, receding
     convection_Cdivu::D = 0
     mode_2d::D = 0
+    advection_LS_mode::D = 0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

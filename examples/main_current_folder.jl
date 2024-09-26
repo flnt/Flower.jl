@@ -584,6 +584,7 @@ num = Numerical(
     electric_potential = sim.electric_potential,
     contact_angle = sim.contact_angle,
     convection_Cdivu = sim.convection_Cdivu,
+    advection_LS_mode = sim.advection_LS_mode,
     )
 
 

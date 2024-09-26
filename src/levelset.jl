@@ -1474,11 +1474,16 @@ function rg(num, grid, u, periodic_x, periodic_y, BC_int)
     end
 end
 
+"""
+field_extension!
+
+cf 4.2.2 Normal extension of the velocity field in fullanaSimulationOptimizationComplex2022 ?
+"""
 function field_extension!(grid, u, f, indices_ext, left_ext, bottom_ext, right_ext, top_ext, NB, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy, ind = grid
 
-    local cfl = 0.45
-    local ft = similar(f)
+    local cfl = 0.45 #for a "pseudo-time"
+    local ft = similar(f) #TODO allocation
 
     τ = cfl * max(dx..., dy...)
 

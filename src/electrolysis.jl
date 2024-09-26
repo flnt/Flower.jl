@@ -829,18 +829,84 @@ end
 
 
 
-"""
-From Stefan_velocity!
-"""
-function electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodic_y, concentration_scal_intfc,electrolysis_phase_change_case, varflux)
-    @unpack geoS, geoL, κ = LS
+# """
+# From Stefan_velocity!
+# """
+# function electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodic_y, concentration_scal_intfc,electrolysis_phase_change_case, mass_flux)
+#     @unpack geoS, geoL, κ = LS
 
-    V .= 0
+#     V .= 0
+
+#     if electrolysis_phase_change_case == "levelset"
+
+#         # @inbounds @threads for II in MIXED
+#         @inbounds for II in MIXED
+
+#             θ_d = concentration_scal_intfc
+
+#             # dTS = 0.
+#             dTL = 0.
+#             if geoL.projection[II].flag
+#                 T_1, T_2 = interpolated_temperature(grid, geoL.projection[II].angle, geoL.projection[II].point1, geoL.projection[II].point2, TL, II, periodic_x, periodic_y)
+#                 dTL = normal_gradient(geoL.projection[II].d1, geoL.projection[II].d2, T_1, T_2, θ_d)
+#             else
+#                 T_1 = interpolated_temperature(grid, geoL.projection[II].angle, geoL.projection[II].point1, TL, II, periodic_x, periodic_y)
+#                 dTL = normal_gradient(geoL.projection[II].d1, T_1, θ_d)
+#             end
+#             V[II] = dTL #+ dTS
+
+#             print("\n grad",II,"val",dTL,"val",geoL.projection[II].flag,"val",geoL.projection[II].angle,"val", geoL.projection[II].point1,"val", geoL.projection[II].point2,"val", T_1,"val",T_2,"val",θ_d)
+#         end
+
+#     else
+
+#         intfc_length = 0.0
+#         @inbounds for II in MIXED
+#             V[II] = sum(mass_flux)
+
+#             #χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
+#             #χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
+#             #χ[iLS].diag .= sqrt.(vec(χx .+ χy))
+
+#             χx = (geo.dcap[II,3] .- geo.dcap[II,1]) .^ 2
+#             χy = (geo.dcap[II,4] .- geo.dcap[II,2]) .^ 2
+
+#             intfc_length += sqrt.(vec(χx .+ χy))
+#         end 
+
+#         V./= intfc_length
+
+#         print("\n phase-change velocity ", sum(mass_flux)/intfc_length)
+
+#         printstyled(color=:magenta, @sprintf "\n phase-change velocity %.2e intfc_length %.2e πR %.2e\n" sum(mass_flux)/intfc_length intfc_length π*num.R)
+
+#         i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, grid.LS[iLS], grid.ind.inside, periodic_x, periodic_y)
+#         field_extension!(grid, u, grid.V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
+        
+
+#     end
+
+#     return nothing
+# end
+
+"""
+From update_free_surface_velocity and update_stefan_velocity
+"""
+function update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, uD, vD, 
+    periodic_x, periodic_y, Vmean, concentration_scalD, diffusion_coeff_scal,concentration_scal_intfc, electrolysis_phase_change_case,mass_flux)
+    @unpack MWH2,rho1,rho2=num
+    # @unpack χ,=opC
+    #TODO check sign 
+
+
+    grid.V .= 0
+    factor = -(1.0/rho2-1.0/rho1).*diffusion_coeff_scal[1].*MWH2
+
 
     if electrolysis_phase_change_case == "levelset"
 
         # @inbounds @threads for II in MIXED
-        @inbounds for II in MIXED
+        @inbounds for II in grid.LS[iLS].MIXED
 
             θ_d = concentration_scal_intfc
 
@@ -853,54 +919,44 @@ function electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodi
                 T_1 = interpolated_temperature(grid, geoL.projection[II].angle, geoL.projection[II].point1, TL, II, periodic_x, periodic_y)
                 dTL = normal_gradient(geoL.projection[II].d1, T_1, θ_d)
             end
-            V[II] = dTL #+ dTS
+            grid.V[II] = dTL #+ dTS
 
             print("\n grad",II,"val",dTL,"val",geoL.projection[II].flag,"val",geoL.projection[II].angle,"val", geoL.projection[II].point1,"val", geoL.projection[II].point2,"val", T_1,"val",T_2,"val",θ_d)
         end
 
     else
 
-        interfacial_area = 0.0
-        @inbounds for II in MIXED
-            V[II] = sum(varflux)
+        intfc_length = 0.0
+        @inbounds for II in grid.LS[iLS].MIXED
+
+            grid.V[II] = sum(mass_flux) * factor
 
             #χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
             #χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
             #χ[iLS].diag .= sqrt.(vec(χx .+ χy))
 
-            χx = (geo.dcap[II,3] .- geo.dcap[II,1]) .^ 2
-            χy = (geo.dcap[II,4] .- geo.dcap[II,2]) .^ 2
+            χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
+            χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
 
-            interfacial_area += sqrt.(vec(χx .+ χy))
+            intfc_length += sqrt(χx + χy)
         end 
 
-        V./= interfacial_area
+        grid.V./= intfc_length
 
-        print("\n phase-change velocity ", sum(varflux)/interfacial_area)
+        print("\n phase-change velocity ", sum(mass_flux)/intfc_length)
 
-        printstyled(color=:magenta, @sprintf "\n phase-change velocity %.2e area %.2e πR %.2e\n" sum(varflux)/interfacial_area interfacial_area π*num.radius)
+        printstyled(color=:magenta, @sprintf "\n phase-change velocity %.2e intfc_length %.2e πR %.2e\n" sum(mass_flux)*factor/intfc_length intfc_length π*num.R)
 
-
-        magenta
-
+        i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, grid.LS[iLS], grid.ind.inside, periodic_x, periodic_y)
+        field_extension!(grid, grid.LS[iLS].u, grid.V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
+        
     end
-
-    return nothing
-end
-
-"""
-From update_free_surface_velocity and update_stefan_velocity
-"""
-function update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, uD, vD, periodic_x, periodic_y, Vmean, concentration_scalD, diffusion_coeff_scal,concentration_scal_intfc, electrolysis_phase_change_case)
-    @unpack MWH2,rho1,rho2=num
-    # @unpack χ,=opC
-    #TODO check sign 
 
     printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
 
     #plot_electrolysis_velocity!(num, grid, grid.LS[iLS], grid.V, concentration_scalD, grid.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc)
 
-    electrolysis_velocity!(num, grid, grid.LS[iLS], grid.V, concentration_scalD, grid.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc,electrolysis_phase_change_case, varflux)
+    # electrolysis_velocity!(num, grid, grid.LS[iLS], grid.V, concentration_scalD, grid.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc,electrolysis_phase_change_case, mass_flux)
     
 
     # concentration_scalu = zeros(grid_u)
@@ -917,12 +973,11 @@ function update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iL
     #TODO check order rho1 rho2
     #no surface term
 
-    factor = -(1.0/rho2-1.0/rho1).*diffusion_coeff_scal[1].*MWH2
     
     # grid_u.V[grid_u.LS[iLS].MIXED] .*= factor
     # grid_v.V[grid_v.LS[iLS].MIXED] .*= factor
 
-    grid.V[grid.LS[iLS].MIXED] .*= factor
+    # grid.V[grid.LS[iLS].MIXED] .*= factor
 
    
     # if Vmean
@@ -930,12 +985,11 @@ function update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iL
     #     grid.V[grid.LS[iLS].MIXED] .= a
     # end
 
-    grid_u.V .= reshape(vec1(uD,grid_u), grid_u)
-    grid_v.V .= reshape(vec1(vD,grid_v), grid_v)
+    # grid_u.V .= reshape(vec1(uD,grid_u), grid_u)
+    # grid_v.V .= reshape(vec1(vD,grid_v), grid_v)
 
-    print("factor",factor)
 
-    printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
+    # printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
 
     #TODO extension
 
@@ -1749,8 +1803,9 @@ function compute_mass_flux!(num::Numerical{Float64, Int64},
     mass_flux_vecb_2 = reshape(mass_flux_vecb,grid)
     mass_flux_veci_2 = reshape(mass_flux_veci,grid)
 
-    mass_flux = mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
+    mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
 
+    print("\n sum mass flux ", sum(mass_flux),"\n ")
 
     # iplot = 1
     # for jplot in 1:grid.ny
@@ -1790,6 +1845,7 @@ function compute_mass_flux!(num::Numerical{Float64, Int64},
     # # radial_flux_surf = mass_flux_2 ./ χ[1]
 
     # printstyled(color=:green, @sprintf "\n Radial flux: %.2e \n" radial_flux_surf)
+     
 
     if num.io_pdi>0
         printstyled(color=:magenta, @sprintf "\n PDI write_mass_flux %.5i \n" num.current_i)
@@ -1829,6 +1885,9 @@ function compute_mass_flux!(num::Numerical{Float64, Int64},
 
     # return mass_flux_2, mass_flux_vec1_2, mass_flux_vecb_2, mass_flux_veci_2
     # return 
+
+    print("\n sum mass flux ", sum(mass_flux),"\n ")
+
 end
 
 # function compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,iscal)
