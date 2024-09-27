@@ -724,26 +724,27 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
                 @error("concentration too high")
                 # return current_i
 
-                #############################################################################################################
-                for jplot in 1:grid.ny
-                    for iplot in 1:grid.nx
-                        II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-                        pII = lexicographic(II, grid.ny)
+                #TODO debug with PDI
+                # #############################################################################################################
+                # for jplot in 1:grid.ny
+                #     for iplot in 1:grid.nx
+                #         II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+                #         pII = lexicographic(II, grid.ny)
 
-                        if (ph.trans_scalD[pII,iscal] >concentration0[iscal]*(1+num.concentration_check_factor))
+                #         if (ph.trans_scalD[pII,iscal] >concentration0[iscal]*(1+num.concentration_check_factor))
 
-                        # if (ph.trans_scalD[pII,iscal] >concentration0[iscal]) 
+                #         # if (ph.trans_scalD[pII,iscal] >concentration0[iscal]) 
                             
-                            # && (ph.trans_scalD[pII,iscal] == maximum(ph.trans_scalD[:,iscal]) )
-                            printstyled(color=:green, @sprintf "\n i: %5i j: %5i %.2e %.2e %.2e %.2e \n" iplot jplot grid.x[iplot]/num.plot_xscale grid.y[jplot]/num.plot_xscale ph.trans_scalD[pII,iscal] rhs[pII])
-                            if num.debug== "scalar_debug"
-                                @views scalar_debug!(dir, CT, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 
-                                bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1],num,grid,iplot,jplot)
-                            end
-                        end
-                    end
-                end
-                #############################################################################################################
+                #             # && (ph.trans_scalD[pII,iscal] == maximum(ph.trans_scalD[:,iscal]) )
+                #             printstyled(color=:green, @sprintf "\n i: %5i j: %5i %.2e %.2e %.2e %.2e \n" iplot jplot grid.x[iplot]/num.plot_xscale grid.y[jplot]/num.plot_xscale ph.trans_scalD[pII,iscal] rhs[pII])
+                #             if num.debug== "scalar_debug"
+                #                 @views scalar_debug!(dir, CT, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, geo.dcap, ny, 
+                #                 bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1],num,grid,iplot,jplot)
+                #             end
+                #         end
+                #     end
+                # end
+                # #############################################################################################################
 
             end #too high
             printstyled(color=:red, @sprintf "\n concentration variation vs max: %.2e%% \n" (maximum(ph.trans_scal[:,:,iscal])-concentration0[iscal])/concentration0[iscal]*100)
@@ -943,9 +944,8 @@ function update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iL
 
         grid.V./= intfc_length
 
-        printstyled(color=:magenta, @sprintf "\n test sign velocity\n" )
-
-        grid.V.*=-1.0
+        # printstyled(color=:magenta, @sprintf "\n test sign velocity\n" )
+        # grid.V.*=-1.0
 
         print("\n phase-change velocity ", sum(mass_flux)/intfc_length)
 

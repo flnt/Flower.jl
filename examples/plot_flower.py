@@ -2433,6 +2433,9 @@ def python_movie_zoom_func(
                 nstep = 0 
                 print("time not available")
 
+            print(key,file_name,nstep,time)
+
+
             # print('before',ax2)
             fig1,ax2,cbar = func(
             file,

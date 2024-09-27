@@ -1359,7 +1359,9 @@ else
 end
 
 
-
+if sim.bc_int == "FreeSurface"
+    BC_int = [FreeSurface()]
+end
 
 if num.io_pdi>0
 

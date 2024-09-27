@@ -672,99 +672,99 @@ function run_forward!(
     V0L = volume(grid.LS[end].geoL)
 
 
-    if electrolysis
+    # if electrolysis
 
-        ####################################################################################################
-        #PDI (IO)
-        ####################################################################################################
+    #     ####################################################################################################
+    #     #PDI (IO)
+    #     ####################################################################################################
         
-        #TODO not necessary to expose everything now for ex only grid.LS ? and the rest later
+    #     #TODO not necessary to expose everything now for ex only grid.LS ? and the rest later
 
 
-        printstyled(color=:red, @sprintf "\n test segments\n" )
+    #     printstyled(color=:red, @sprintf "\n test segments\n" )
 
 
-        intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num, intfc_seg_num = convert_interfacial_D_to_segments(num,grid,phL.T,1)
-        # print("\n number of interface points intfc_vtx_num ", intfc_vtx_num)
-        # print("\n intfc_vtx_connectivities ",intfc_vtx_connectivities)
-        # print("\n len ", size(intfc_vtx_connectivities),intfc_seg_num)
+    #     intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num, intfc_seg_num = convert_interfacial_D_to_segments(num,grid,phL.T,1)
+    #     # print("\n number of interface points intfc_vtx_num ", intfc_vtx_num)
+    #     # print("\n intfc_vtx_connectivities ",intfc_vtx_connectivities)
+    #     # print("\n len ", size(intfc_vtx_connectivities),intfc_seg_num)
 
-        # print("\n intfc_vtx_x ",intfc_vtx_x)
-        # print("\n intfc_vtx_x ",intfc_vtx_y)
+    #     # print("\n intfc_vtx_x ",intfc_vtx_x)
+    #     # print("\n intfc_vtx_x ",intfc_vtx_y)
 
 
-        current_t = 0.
+    #     current_t = 0.
 
-        if num.io_pdi>0
+    #     if num.io_pdi>0
 
-            try
-                # printstyled(color=:red, @sprintf "\n PDI test \n" )
+    #         try
+    #             # printstyled(color=:red, @sprintf "\n PDI test \n" )
         
-                time = current_t #Cdouble
-                nstep = num.current_i
+    #             time = current_t #Cdouble
+    #             nstep = num.current_i
            
-                # phi_array=phL.phi_ele #do not transpose since python row major
+    #             # phi_array=phL.phi_ele #do not transpose since python row major
                 
-                compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+    #             compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
         
-                #store in us, vs instead of Eus, Evs
-                interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,us,vs)
+    #             #store in us, vs instead of Eus, Evs
+    #             interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,us,vs)
 
-                @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
-                "i_current_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-                "i_current_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,  
-                "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
-                "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                C_NULL::Ptr{Cvoid})::Cint
+    #             @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
+    #             "i_current_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+    #             "i_current_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,  
+    #             "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+    #             "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+    #             C_NULL::Ptr{Cvoid})::Cint
 
-                interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,us,vs)
+    #             interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,us,vs)
         
-                # print("\n before write \n ")
+    #             # print("\n before write \n ")
         
-                iLSpdi = 1 # all grid.LS iLS = 1 # or all grid.LS ?
+    #             iLSpdi = 1 # all grid.LS iLS = 1 # or all grid.LS ?
 
-                # Exposing data to PDI for IO    
-                # if writing "D" array (bulk, interface, border), add "_1D" to the name
+    #             # Exposing data to PDI for IO    
+    #             # if writing "D" array (bulk, interface, border), add "_1D" to the name
                 
-                printstyled(color=:magenta, @sprintf "\n PDI write_data_start_loop %.5i \n" num.current_i)
+    #             printstyled(color=:magenta, @sprintf "\n PDI write_data_start_loop %.5i \n" num.current_i)
 
-                PDI_status = @ccall "libpdi".PDI_multi_expose("write_data_start_loop"::Cstring,
-                "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
-                "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
-                "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
-                "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
-                "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-                "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-                "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-                "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-                "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
-                # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
-                "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-                "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
-                "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
-                "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
-                "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
-                "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
-                "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
-                "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
-                "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
-                C_NULL::Ptr{Cvoid})::Cint
+    #             PDI_status = @ccall "libpdi".PDI_multi_expose("write_data_start_loop"::Cstring,
+    #             "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+    #             "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+    #             "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+    #             "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+    #             "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    #             "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+    #             "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+    #             "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+    #             "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+    #             # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+    #             # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+    #             # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+    #             "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+    #             "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+    #             "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+    #             "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+    #             "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
+    #             "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    #             "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    #             "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+    #             "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+    #             C_NULL::Ptr{Cvoid})::Cint
         
-            catch error
-                printstyled(color=:red, @sprintf "\n PDI error \n")
-                print(error)
-                printstyled(color=:red, @sprintf "\n PDI error \n")
-            end
+    #         catch error
+    #             printstyled(color=:red, @sprintf "\n PDI error \n")
+    #             print(error)
+    #             printstyled(color=:red, @sprintf "\n PDI error \n")
+    #         end
 
            
 
-        end #if io_pdi
+    #     end #if io_pdi
 
-        ####################################################################################################
+    #     ####################################################################################################
 
-    end #if electrolysis
+    # end #if electrolysis
 
     if num.debug =="allocations_start"
         print("\n STOP allocations")
@@ -796,6 +796,102 @@ function run_forward!(
         printstyled(color=:red, @sprintf "\n iter: %5i\n" num.current_i)
         println("\n grid.LS[1].geoL.dcap[1,1,:]",grid.LS[1].geoL.dcap[1,1,:])
 
+
+
+        if electrolysis
+
+            ####################################################################################################
+            #PDI (IO)
+            ####################################################################################################
+            
+            #TODO not necessary to expose everything now for ex only grid.LS ? and the rest later
+    
+    
+            printstyled(color=:red, @sprintf "\n test segments\n" )
+    
+    
+            intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num, intfc_seg_num = convert_interfacial_D_to_segments(num,grid,phL.T,1)
+            # print("\n number of interface points intfc_vtx_num ", intfc_vtx_num)
+            # print("\n intfc_vtx_connectivities ",intfc_vtx_connectivities)
+            # print("\n len ", size(intfc_vtx_connectivities),intfc_seg_num)
+    
+            # print("\n intfc_vtx_x ",intfc_vtx_x)
+            # print("\n intfc_vtx_x ",intfc_vtx_y)
+    
+
+            #TODO when to write elec dat, ...
+    
+    
+            if num.io_pdi>0
+    
+                try
+                    # printstyled(color=:red, @sprintf "\n PDI test \n" )
+            
+                    time = current_t #Cdouble
+                    nstep = num.current_i
+               
+                    # phi_array=phL.phi_ele #do not transpose since python row major
+                    
+                    compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+            
+                    #store in us, vs instead of Eus, Evs
+                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,us,vs)
+    
+                    @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
+                    "i_current_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    "i_current_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,  
+                    "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    C_NULL::Ptr{Cvoid})::Cint
+    
+                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,us,vs)
+            
+                    # print("\n before write \n ")
+            
+                    iLSpdi = 1 # all grid.LS iLS = 1 # or all grid.LS ?
+    
+                    # Exposing data to PDI for IO    
+                    # if writing "D" array (bulk, interface, border), add "_1D" to the name
+                    
+                    printstyled(color=:magenta, @sprintf "\n PDI write_data_start_loop %.5i \n" num.current_i)
+    
+                    PDI_status = @ccall "libpdi".PDI_multi_expose("write_data_start_loop"::Cstring,
+                    "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+                    "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+                    "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+                    # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+                    "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+                    "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                    "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                    "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+                    C_NULL::Ptr{Cvoid})::Cint
+            
+                catch error
+                    printstyled(color=:red, @sprintf "\n PDI error \n")
+                    print(error)
+                    printstyled(color=:red, @sprintf "\n PDI error \n")
+                end
+    
+               
+    
+            end #if io_pdi
+    
+            ####################################################################################################
+    
+        end #if electrolysis
         
 
 
@@ -1586,6 +1682,9 @@ function run_forward!(
                     end
                     # update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y)
                     printstyled(color=:green, @sprintf "\n grid.V %.2e max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(grid.V)) maximum(abs.(phL.u)) maximum(abs.(phL.v)))
+                    
+                    printstyled(color=:green, @sprintf "\n grid.V %.2e dx : %.2e CFL %.2e\n" maximum(abs.(grid.V)) grid.dx[1,1] maximum(abs.(grid.V))*num.τ/grid.dx[1,1])
+
 
                 else
                     update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y)
@@ -1620,7 +1719,7 @@ function run_forward!(
 
 
 
-                # printstyled(color=:cyan, @sprintf "\n div(0,grad): %.2e %.2e %.2e %.2e \n" sum(phL.saved_scal[:,:,1]) sum(phL.saved_scal[:,:,2]) sum(phL.saved_scal[:,:,3]) sum(phL.saved_scal[:,:,4]))
+                # printstyled(color=:cyan, @sprintf "\n div(0,grad): %.2e %.2e %.2e %.2e \n" sum(mass_flux) sum(phL.saved_scal[:,:,2]) sum(phL.saved_scal[:,:,3]) sum(phL.saved_scal[:,:,4]))
 
                 
                 # # #############################################################################################################
@@ -1711,7 +1810,7 @@ function run_forward!(
                 end
 
                
-                printstyled(color=:cyan, @sprintf "\n div(0,grad): %.5i %.2e %.2e %.2e %.2e\n" grid.nx num.τ num.L0/grid.nx (current_radius-previous_radius)/(num.L0/grid.nx) sum(phL.saved_scal[:,:,1]))
+                printstyled(color=:cyan, @sprintf "\n div(0,grad): %.5i %.2e %.2e %.2e %.2e\n" grid.nx num.τ num.L0/grid.nx (current_radius-previous_radius)/(num.L0/grid.nx) sum(mass_flux))
                 
                 printstyled(color=:green, @sprintf "\n num.n(H2): %.2e added %.2e old R %.2e new R %.2e \n" nH2 varnH2*num.τ previous_radius current_radius)
                 printstyled(color=:green, @sprintf "\n p0: %.2e p_liq %.2e p_lapl %.2e \n" num.pres0 p_liq p_g)
@@ -1914,6 +2013,95 @@ function run_forward!(
                         printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
 
                         BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+
+                    elseif num.advection_LS_mode == 4
+
+                        previous_radius = current_radius
+
+                        # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
+                        varnH2 = -sum(mass_flux) * num.diffusion_coeff[1] 
+
+                        #TODO mode_2d==0 flux corresponds to cylinder of length 1
+                        #2D cylinder reference length
+                        if mode_2d == 1
+                            varnH2 .*= num.ref_thickness_2d
+                        end
+
+                      
+                        nH2 = nH2 + varnH2 * num.τ
+
+                        # printstyled(color=:green, @sprintf "\n it %.5i Mole: %.2e dn %.2e new nH2 %.2e \n" num.current_i nH2 varnH2*num.τ new_nH2)
+
+                        # if varnH2 < 0.0 
+                        #     # print(@sprintf "error nH2 %.2e dnH2 %.2e new nH2 %.2e\n" nH2-varnH2*num.τ varnH2*num.τ nH2 )
+                        #     @error ("error nH2")
+                        #     crashed = true
+                        #     new_nH2 = nH2
+                        #     print("wrong nH2 ")
+                        #     # println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
+                        #     return
+                        # end
+        
+                        # if occursin("Khalighi_no_update",electrolysis_phase_change_case)
+        
+                        # else
+                        #     nH2 = new_nH2
+                        # end
+                        
+                        #TODO using num.temperature0
+                        if mode_2d == 0
+                            current_radius = cbrt(3.0 * nH2 * num.Ru * num.temperature0/( 4.0 * pi * p_g) )
+                        elseif mode_2d == 1
+                            current_radius = sqrt(nH2 * num.Ru * num.temperature0/( pi * p_g * num.ref_thickness_2d) )
+                        elseif mode_2d == 2
+                            current_radius = sqrt(nH2/(num.concentration0[1] * pi))
+                        elseif mode_2d == 3
+                            current_radius = sqrt(2*nH2/(num.concentration0[1] * pi))
+                        end
+        
+                        printstyled(color=:green, @sprintf "\n radius num.CFL: %.2e \n" (current_radius-previous_radius)/(num.L0/grid.nx))
+        
+                        if (current_radius-previous_radius)/(num.L0/grid.nx) > 0.5
+                            printstyled(color=:red, @sprintf "\n radius num.CFL: %.2e \n" (current_radius-previous_radius)/(num.L0/grid.nx))
+                            @error ("num.CFL radius")
+                            crashed = true
+                            return
+                        end
+        
+                       
+                        printstyled(color=:cyan, @sprintf "\n div(0,grad): %.5i %.2e %.2e %.2e \n" grid.nx num.τ num.L0/grid.nx (current_radius-previous_radius)/(num.L0/grid.nx)) 
+                        # sum(mass_flux))
+                        
+                        printstyled(color=:green, @sprintf "\n num.n(H2): %.2e added %.2e old R %.2e new R %.2e \n" nH2 varnH2*num.τ previous_radius current_radius)
+                        printstyled(color=:green, @sprintf "\n p0: %.2e p_liq %.2e p_lapl %.2e \n" num.pres0 p_liq p_g)
+        
+                        if mode_2d == 3
+                            grid.LS[1].u .= sqrt.((grid.x.- num.xcoord).^ 2 + (grid.y .- num.ycoord) .^ 2) - (current_radius) * ones(grid.ny, grid.nx)                  
+                        else
+                            grid.LS[1].u .= sqrt.((grid.x .- num.xcoord .- current_radius .+ num.R ).^ 2 + (grid.y .- num.ycoord) .^ 2) - (current_radius) * ones(grid.ny, grid.nx)
+                        end
+
+
+                    elseif num.advection_LS_mode == 5
+                        print("\n num.advection_LS_mode == 5 iLS", iLS)
+
+                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
+
+                        BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+
+                        grid.V .=0.5*grid.dx[1,1]/num.τ  
+
+                        printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
+
+                        IIOE_normal!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y)
+                        grid.LS[iLS].u .= reshape(gmres(grid.LS[iLS].A, grid.LS[iLS].B * vec(grid.LS[iLS].u)), grid)
+
+
+                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
+
+                        BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+
+
 
                     end #num.advection_LS_mode == 
                 end
@@ -2125,8 +2313,7 @@ function run_forward!(
 
         # cD, cL, D, L = force_coefficients!(num, grid, grid_u, grid_v, op.opL, fwd, phL; step = num.current_i+1, saveCoeffs = false)
 
-        #update time
-        current_t += num.τ
+     
 
         # if iszero(num.current_i%num.save_every) || num.current_i==num.max_iterations
         #     snap = num.current_i÷num.save_every+1
@@ -2260,7 +2447,11 @@ function run_forward!(
 
         end
 
+        #update iter number and time
+
         num.current_i += 1
+        #update time
+        current_t += num.τ
 
         # if adaptative_t
            
