@@ -834,7 +834,18 @@ elseif sim.name == "sessile_2LS_inclined"
         #),
         #BC_int = [FreeSurface()], keep wall with u=0 and Neumann pressure
 
+        BC_pL = Boundaries()
 
+        # BC_uL = Boundaries(bottom = Navier_cl(λ = 1e-2),),
+        # BC_vL = Boundaries(bottom = Dirichlet(),),
+        # BC_pL = Boundaries(),
+        # BC_u = Boundaries(
+        #     bottom = Neumann_cl(θe = θe2 * π / 180),
+        #     top = Neumann(),
+        #     left = Neumann_inh(),
+        #     right = Neumann_inh()
+        # ),
+        # BC_int = [FreeSurface(), WallNoSlip(θe = θe * π / 180)],
 
    
 end
