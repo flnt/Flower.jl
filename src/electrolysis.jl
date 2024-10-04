@@ -102,13 +102,9 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
     print("\n nb_transported_scalars ",nb_transported_scalars)
     println("\n grid.LS[1].geoL.dcap[1,1,:]",grid.LS[1].geoL.dcap[1,1,:])
 
-  
-
-
-
     ni = nx * ny
     nb = 2 * nx + 2 * ny
-    nt = 2 * ni + nb
+    # nt = 2 * ni + nb
 
     # A = spzeros(nt, nt)
     # B = spzeros(nt, nt)
@@ -152,6 +148,11 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
         # printstyled(color=:red, @sprintf "\n levelset: before scalar_convection\n")
         # println(grid.LS[1].geoL.dcap[1,1,:])
+
+        #TODO dev multiple levelsets
+        # if num.iLS ==1
+
+        # end
 
         ######################################################################################################
         #Interface boundary condition
@@ -316,56 +317,107 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
     
         diffusion_coeff_scal = diffusion_coeff[iscal]
 
-        # if iscal==3
-        #     printstyled(color=:red, @sprintf "\n levelset: forcing diff 0\n")
-        #     diffusion_coeff_scal = 0.0
-        # end
 
-        ######################################################################################################
+
+
         #Interface boundary condition
-        ######################################################################################################
-        if is_dirichlet(bc[iscal].int)
-            # printstyled(color=:green, @sprintf "\n Dirichlet : %.2e\n" bc[iscal].int.val )
-            __a0 = bc[iscal].int.val
-            __a1 = -1.0
-            __b = 0.0
-        elseif is_neumann(bc[iscal].int)
-            __a0 = bc[iscal].int.val
-            __a1 = 0.0
-            __b = 1.0
-        elseif is_robin(bc[iscal].int)
-            __a0 = bc_type.val
-            __a1 = -1.0
-            __b = 1.0
-        elseif is_stefan(bc[iscal].int)
-            __a0 = concentration0[iscal]
-            __a1 = -1.0
-            __b = 0.0
-        elseif is_wall(bc[iscal].int)
-            __a0 = bc[iscal].int.val
-            __a1 = -1.0
-            __b = 0.0
-        else
-            __a0 = bc[iscal].int.val
-            __a1 = -1.0
-            __b = 0.0
-        end
 
-        # Flags with BCs
-        a0 = ones(grid) .* __a0
+        if num.nLS ==1
 
-        ######################################################################################################
+            if is_dirichlet(bc[iscal].int)
+                # printstyled(color=:green, @sprintf "\n Dirichlet : %.2e\n" bc[iscal].int.val )
+                __a0 = bc[iscal].int.val
+                __a1 = -1.0
+                __b = 0.0
+            elseif is_neumann(bc[iscal].int)
+                __a0 = bc[iscal].int.val
+                __a1 = 0.0
+                __b = 1.0
+            elseif is_robin(bc[iscal].int)
+                __a0 = bc_type.val
+                __a1 = -1.0
+                __b = 1.0
+            elseif is_stefan(bc[iscal].int)
+                __a0 = concentration0[iscal]
+                __a1 = -1.0
+                __b = 0.0
+            elseif is_wall(bc[iscal].int)
+                __a0 = bc[iscal].int.val
+                __a1 = -1.0
+                __b = 0.0
+            else
+                __a0 = bc[iscal].int.val
+                __a1 = -1.0
+                __b = 0.0
+            end
+
+            # Flags with BCs
+            a0 = ones(grid) .* __a0
+
+            
+            _a1 = ones(grid) .* __a1
+            a1 = Diagonal(vec(_a1))
+            _b = ones(grid) .* __b
+            b = Diagonal(vec(_b))
+
+        # else
+            # if is_dirichlet(bc[iscal].int)
+            #     # printstyled(color=:green, @sprintf "\n Dirichlet : %.2e\n" bc[iscal].int.val )
+            #     __a0 = bc[iscal].int.val
+            #     __a1 = -1.0
+            #     __b = 0.0
+            # elseif is_neumann(bc[iscal].int)
+            #     __a0 = bc[iscal].int.val
+            #     __a1 = 0.0
+            #     __b = 1.0
+            # elseif is_robin(bc[iscal].int)
+            #     __a0 = bc_type.val
+            #     __a1 = -1.0
+            #     __b = 1.0
+            # elseif is_stefan(bc[iscal].int)
+            #     __a0 = concentration0[iscal]
+            #     __a1 = -1.0
+            #     __b = 0.0
+            # elseif is_wall(bc[iscal].int)
+            #     __a0 = bc[iscal].int.val
+            #     __a1 = -1.0
+            #     __b = 0.0
+            # else
+            #     __a0 = bc[iscal].int.val
+            #     __a1 = -1.0
+            #     __b = 0.0
+            # end
+
+            # # Flags with BCs
+            # a0 = ones(grid) .* __a0
+
+            
+            # _a1 = ones(grid) .* __a1
+            # a1 = Diagonal(vec(_a1))
+            # _b = ones(grid) .* __b
+            # b = Diagonal(vec(_b))
+
+
+        end #if num.nLS ==1
+
+
         #Wall BC
-        ######################################################################################################
-        _a1 = ones(grid) .* __a1
-        a1 = Diagonal(vec(_a1))
-        _b = ones(grid) .* __b
-        b = Diagonal(vec(_b))
 
         a0_b = zeros(nb)
         _a1_b = zeros(nb)
         _b_b = zeros(nb)
-        set_borders!(grid, grid.LS[1].cl, grid.LS[1].u, a0_b, _a1_b, _b_b, bc[iscal], num.n_ext_cl)
+
+        #TODO dev multiple levelsets
+
+        # set_borders!(grid, grid.LS[1].cl, grid.LS[1].u, a0_b, _a1_b, _b_b, bc[iscal], num.n_ext_cl)
+
+        for iLS in 1:num.nLS
+            set_borders!(grid, grid.LS[iLS].cl, grid.LS[iLS].u, a0_b, _a1_b, _b_b, bc[iscal], num.n_ext_cl)
+
+            # set_borders!(gu, gu.LS[iLS].cl, gu.LS[iLS].u, a0_bu, _a1_bu, _b_bu, BCu, num.n_ext_cl)
+        end
+
+
         a1_b = Diagonal(vec(_a1_b))
         b_b = Diagonal(vec(_b_b))
 
@@ -414,32 +466,124 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
         # end
 
+        
+        #TODO dev multiple levelsets
 
         LT = BxT * iMx * Bx .+ ByT * iMy * By
         LD = BxT * iMx * Hx[1] .+ ByT * iMy * Hy[1]
         LD_b = BxT * op.iMx_b * op.Hx_b .+ ByT * op.iMy_b * op.Hy_b
 
+        rhs .= 0.0
 
         #TODO A =0 ? B=0 ?
      
 
         #TODO check no need to reinitialize A and B
 
-        # Implicit part of heat equation
-        A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* τ .* diffusion_coeff_scal .* LT, grid, τ)
-        A[1:ni,ni+1:2*ni] = - 0.5 .* τ .* diffusion_coeff_scal .* LD
-        A[1:ni,end-nb+1:end] = - 0.5 .* τ .* diffusion_coeff_scal .* LD_b
+        #TODO dev multiple levelsets
 
-        # Interior BC
-        A[ni+1:2*ni,1:ni] = b * (HxT[1] * iMx * Bx .+ HyT[1] * iMy * By)
-        A[ni+1:2*ni,ni+1:2*ni] = pad(b * (HxT[1] * iMx * Hx[1] .+ HyT[1] * iMy * Hy[1]) .- χ[1] * a1)
-        A[ni+1:2*ni,end-nb+1:end] = b * (HxT[1] * op.iMx_b * op.Hx_b .+ HyT[1] * op.iMy_b * op.Hy_b)
+        if num.nLS ==1
 
-        # Border BCs
-        A[end-nb+1:end,1:ni] = b_b * (op.HxT_b * op.iMx_b' * Bx .+ op.HyT_b * op.iMy_b' * By)
-        A[end-nb+1:end,ni+1:2*ni] = b_b * (op.HxT_b * op.iMx_b' * op.Hx[1] .+ op.HyT_b * op.iMy_b' * op.Hy[1])
-        A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b, 4.0)
-        # A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b)
+            # Implicit part of heat equation
+            A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* τ .* diffusion_coeff_scal .* LT, grid, τ)
+            A[1:ni,ni+1:2*ni] = - 0.5 .* τ .* diffusion_coeff_scal .* LD
+            A[1:ni,end-nb+1:end] = - 0.5 .* τ .* diffusion_coeff_scal .* LD_b
+
+            # Interior BC
+            A[ni+1:2*ni,1:ni] = b * (HxT[1] * iMx * Bx .+ HyT[1] * iMy * By)
+            A[ni+1:2*ni,ni+1:2*ni] = pad(b * (HxT[1] * iMx * Hx[1] .+ HyT[1] * iMy * Hy[1]) .- χ[1] * a1)
+            A[ni+1:2*ni,end-nb+1:end] = b * (HxT[1] * op.iMx_b * op.Hx_b .+ HyT[1] * op.iMy_b * op.Hy_b)
+
+            # Border BCs
+            A[end-nb+1:end,1:ni] = b_b * (op.HxT_b * op.iMx_b' * Bx .+ op.HyT_b * op.iMy_b' * By)
+            A[end-nb+1:end,ni+1:2*ni] = b_b * (op.HxT_b * op.iMx_b' * op.Hx[1] .+ op.HyT_b * op.iMy_b' * op.Hy[1])
+            A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b, 4.0)
+            # A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b)
+
+            # Explicit part of heat equation
+            B[1:ni,1:ni] = M .+ 0.5 .* τ .* diffusion_coeff_scal .* LT .- τ .* CT
+            B[1:ni,ni+1:2*ni] = 0.5 .* τ .* diffusion_coeff_scal .* LD
+            B[1:ni,end-nb+1:end] = 0.5 .* τ .* diffusion_coeff_scal .* LD_b
+
+        else
+
+            # Implicit part of heat equation
+            A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* τ .* diffusion_coeff_scal .* LT, grid, τ)
+            # A[1:ni,ni+1:2*ni] = - 0.5 .* τ .* diffusion_coeff_scal .* LD
+            A[1:ni,end-nb+1:end] = - 0.5 .* τ .* diffusion_coeff_scal .* LD_b
+
+           
+
+            # Border BCs
+            A[end-nb+1:end,1:ni] = b_b * (op.HxT_b * op.iMx_b' * Bx .+ op.HyT_b * op.iMy_b' * By)
+            # A[end-nb+1:end,ni+1:2*ni] = b_b * (op.HxT_b * op.iMx_b' * op.Hx[1] .+ op.HyT_b * op.iMy_b' * op.Hy[1])
+            A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b, 4.0)
+            # A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b)
+
+            # Explicit part of heat equation
+            B[1:ni,1:ni] = M .+ 0.5 .* τ .* diffusion_coeff_scal .* LT .- τ .* CT
+            # B[1:ni,ni+1:2*ni] = 0.5 .* τ .* diffusion_coeff_scal .* LD
+            B[1:ni,end-nb+1:end] = 0.5 .* τ .* diffusion_coeff_scal .* LD_b
+
+            for iLS in 1:num.nLS
+
+                if is_dirichlet(bc[iscal].LS[iLS])
+                    # printstyled(color=:green, @sprintf "\n Dirichlet : %.2e\n" bc[iscal].int.val )
+                    __a0 = bc[iscal].LS[iLS].val
+                    __a1 = -1.0
+                    __b = 0.0
+                elseif is_neumann(bc[iscal].LS[iLS])
+                    __a0 = bc[iscal].LS[iLS].val
+                    __a1 = 0.0
+                    __b = 1.0
+                elseif is_robin(bc[iscal].LS[iLS])
+                    __a0 = bc_type.val
+                    __a1 = -1.0
+                    __b = 1.0
+                elseif is_stefan(bc[iscal].LS[iLS])
+                    __a0 = concentration0[iscal]
+                    __a1 = -1.0
+                    __b = 0.0
+                elseif is_wall(bc[iscal].LS[iLS])
+                    __a0 = bc[iscal].LS[iLS].val
+                    __a1 = -1.0
+                    __b = 0.0
+                else
+                    __a0 = bc[iscal].LS[iLS].val
+                    __a1 = -1.0
+                    __b = 0.0
+                end
+    
+                # Flags with BCs
+                a0 = ones(grid) .* __a0
+    
+                _a1 = ones(grid) .* __a1
+                a1 = Diagonal(vec(_a1))
+                _b = ones(grid) .* __b
+                b = Diagonal(vec(_b))
+
+                LD_i = BxT * iMx * Hx[iLS] .+ ByT * iMy * Hy[iLS]
+
+
+                # Implicit part of heat equation
+                A[1:ni,iLS*ni+1:(iLS+1)*ni] = - 0.5 .* τ .* diffusion_coeff_scal .* LD_i
+
+                # Interior BC
+                A[iLS*ni+1:(iLS+1)*ni,1:ni] = b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
+                A[iLS*ni+1:(iLS+1)*ni,iLS*ni+1:(iLS+1)*ni] = pad(b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .- χ[iLS] * a1)
+                A[iLS*ni+1:(iLS+1)*ni,end-nb+1:end] = b * (HxT[iLS] * op.iMx_b * op.Hx_b .+ HyT[iLS] * op.iMy_b * op.Hy_b)
+
+                #Border BCs
+                A[end-nb+1:end,iLS*ni+1:(iLS+1)*ni] = b_b * (op.HxT_b * op.iMx_b' * op.Hx[iLS] .+ op.HyT_b * op.iMy_b' * op.Hy[iLS])
+
+                # Explicit part of heat equation
+                B[1:ni,iLS*ni+1:(iLS+1)*ni] = 0.5 .* τ .* diffusion_coeff_scal .* LD_i
+
+                veci(rhs,grid,iLS+1) .+= χ[iLS] * vec(a0)
+                
+            end
+
+        end
 
 
         # printstyled(color=:red, @sprintf "\n test dummy \n")
@@ -449,10 +593,9 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         # A[end-nb+testn,ni+testn] = 0
         # A[end-nb+testn,end-nb+testn] = 2
 
-        # Explicit part of heat equation
-        B[1:ni,1:ni] = M .+ 0.5 .* τ .* diffusion_coeff_scal .* LT .- τ .* CT
-        B[1:ni,ni+1:2*ni] = 0.5 .* τ .* diffusion_coeff_scal .* LD
-        B[1:ni,end-nb+1:end] = 0.5 .* τ .* diffusion_coeff_scal .* LD_b
+        #TODO dev multiple levelsets
+
+       
 
         # for testn in 1:ny
         #     print("\n jmp ", testn," j ",ny-testn+1," chi_b",op.χ_b[end-nb+testn,end-nb+testn])
@@ -484,7 +627,6 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
         # ##################################################################################################
 
-        rhs .= 0.0
 
         if convection
             vec1(rhs,grid) .-= τ .* all_CUTCT[:,iscal]
@@ -494,7 +636,12 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
         # pIItest = lexicographic(IItest, grid.ny)
         # print("\n rhs",vec2(rhs,grid)[pIItest])
 
-        vec2(rhs,grid) .+= χ[1] * vec(a0)
+        #TODO dev multiple levelsets
+
+        # for iLS in 1:num.nLS
+        #     veci(rhs,grid,iLS+1) .+= χ[iLS] * vec(a0)
+        # end
+        # vec2(rhs,grid) .+= χ[1] * vec(a0)
 
         # print("\n rhs",vec2(rhs,grid)[pIItest])
 

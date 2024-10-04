@@ -150,8 +150,8 @@ plot:
   color_wall: 'k'
   fig_fraction: 1.0 #0.5
   extend: neither #max
-  xlabel: $x ( \unit{\m})$
-  ylabel: $y ( \unit{\m})$
+  xlabel: $x ( \unit{\um})$
+  ylabel: $y ( \unit{\um})$
   
   figures:
 

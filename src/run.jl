@@ -954,6 +954,7 @@ function run_forward!(
                 
                 if electrolysis_reaction == "Butler_no_concentration"
 
+                    #TODO dev multiple levelsets
                     if heat
                         i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phL.phi_eleD, grid),
                         num.phi_ele1,num.Ru,phL.T)
@@ -1129,11 +1130,16 @@ function run_forward!(
                     # printstyled(color=:red, @sprintf "\n return before debug mem\n")
                     # return
 
+                    # if num.nLS ==1 #TODO dev multiple levelsets
+
                     scalar_transport!(BC_trans_scal, num, grid, op.opC_TL, grid.LS[1].geoL, phL, num.concentration0,
                     grid.LS[1].MIXED, grid.LS[1].geoL.projection, op.opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
                     periodic_x, periodic_y, electrolysis_convection, true, BC_int, num.diffusion_coeff,Ascal,Bscal,all_CUTCT,rhs_scal)
 
-                
+                    # else
+                    #     printstyled(color=:red, @sprintf "\n TODO multiple LS \n" )
+
+                    # end
 
                     # scalar_transport_2!(BC_trans_scal, num, grid, op.opC_TL, grid.LS[1].geoL, phL, num.concentration0,
                     # grid.LS[1].MIXED, grid.LS[1].geoL.projection, op.opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
@@ -1354,83 +1360,92 @@ function run_forward!(
 
                     # printstyled(color=:green, @sprintf "\n BC phi : %.2e \n" BC_phi_ele.int.val)
 
-                    #TODO BC several grid.LS
-                    #Poisson with variable coefficient
-                     set_poisson_variable_coeff!(
-                        [BC_phi_ele.int], num, grid, grid_u, grid_v, a0_p, op.opC_pL, op.opC_uL, op.opC_vL,
-                        Aphi_eleL, 
-                        # elec_Lpm1_L, elec_bc_Lpm1_L, elec_bc_Lpm1_b_L, 
-                        BC_phi_ele,rhs_scal,
-                        true,elec_condD
-                    )
-
-                    # print("\n Aphi_eleL: ",any(isnan, Aphi_eleL),"\n rhs_scal: ",any(isnan, rhs_scal),"\n")
-
-                    # print("\n veci rhs_scal 2: ",any(isnan, veci(rhs_scal,grid,1)),"\n veci rhs_scal 1 : ",any(isnan, veci(rhs_scal,grid,1)),"\n")
-            
-
-                    # print("\n \n elec_condD",vecb_L(elec_condD, grid))
-                    # print("\n \n BC_phi_ele.left.val",BC_phi_ele.left.val)
-
-                    
-
-                    # print("\n \n vecb_L",vecb_L(rhs_scal, grid))
-
-                    # print("\n \n vecb_R",vecb_R(rhs_scal, grid))
-
-                    # print("\n \n vecb_T",vecb_T(rhs_scal, grid))
-
-                    # print("\n \n vecb_B",vecb_B(rhs_scal, grid))
-
-                    # b = Δf.(
-                    #     grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx,
-                    #     grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
-                    # )
-                    # b_phi_ele = zeros(
-                    #     grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx,
-                    #     grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
-                    # )
-
-                    # b_phi_ele = zeros(
-                    #     grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx,
-                    #     grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
-                    # )
-
-                    b_phi_ele = zeros(grid)
+                    if num.nLS ==1 #TODO dev multiple levelsets
 
 
-                    veci(rhs_scal,grid,1) .+= op.opC_pL.M * vec(b_phi_ele)
+                        #TODO BC several grid.LS
+                        #Poisson with variable coefficient
+                        set_poisson_variable_coeff!(
+                            [BC_phi_ele.int], num, grid, grid_u, grid_v, a0_p, op.opC_pL, op.opC_uL, op.opC_vL,
+                            Aphi_eleL, 
+                            # elec_Lpm1_L, elec_bc_Lpm1_L, elec_bc_Lpm1_b_L, 
+                            BC_phi_ele,rhs_scal,
+                            true,elec_condD
+                        )
+
+                        # print("\n Aphi_eleL: ",any(isnan, Aphi_eleL),"\n rhs_scal: ",any(isnan, rhs_scal),"\n")
+
+                        # print("\n veci rhs_scal 2: ",any(isnan, veci(rhs_scal,grid,1)),"\n veci rhs_scal 1 : ",any(isnan, veci(rhs_scal,grid,1)),"\n")
                 
-                    res_phi_ele = zeros(size(rhs_scal))
-                
-                    @time @inbounds @threads for i in 1:Aphi_eleL.m
-                        @inbounds Aphi_eleL[i,i] += 1e-10
-                    end
+
+                        # print("\n \n elec_condD",vecb_L(elec_condD, grid))
+                        # print("\n \n BC_phi_ele.left.val",BC_phi_ele.left.val)
+
+                        
+
+                        # print("\n \n vecb_L",vecb_L(rhs_scal, grid))
+
+                        # print("\n \n vecb_R",vecb_R(rhs_scal, grid))
+
+                        # print("\n \n vecb_T",vecb_T(rhs_scal, grid))
+
+                        # print("\n \n vecb_B",vecb_B(rhs_scal, grid))
+
+                        # b = Δf.(
+                        #     grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx,
+                        #     grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
+                        # )
+                        # b_phi_ele = zeros(
+                        #     grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx,
+                        #     grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
+                        # )
+
+                        # b_phi_ele = zeros(
+                        #     grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx,
+                        #     grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
+                        # )
+
+                        b_phi_ele = zeros(grid)
+
+
+                        veci(rhs_scal,grid,1) .+= op.opC_pL.M * vec(b_phi_ele)
                     
-                    # @time res_phi_ele .= Aphi_eleL \ rhs_scal
+                        res_phi_ele = zeros(size(rhs_scal))
+                    
+                        @time @inbounds @threads for i in 1:Aphi_eleL.m
+                            @inbounds Aphi_eleL[i,i] += 1e-10
+                        end
+                        
+                        # @time res_phi_ele .= Aphi_eleL \ rhs_scal
 
-                    @time res_phi_ele .= Aphi_eleL \ rhs_scal
+                        @time res_phi_ele .= Aphi_eleL \ rhs_scal
 
-                    #TODO or use mul!(rhs_scal, BTL, phL.TD, 1.0, 1.0) like in :
+                        #TODO or use mul!(rhs_scal, BTL, phL.TD, 1.0, 1.0) like in :
 
-                    # kill_dead_cells!(phL.T, grid, grid.LS[1].geoL)
-                    # veci(phL.TD,grid,1) .= vec(phL.T)
-                    # rhs = set_heat!(
-                    #     BC_int[1], num, grid, op.opC_TL, grid.LS[1].geoL, phL, num.θd, BC_TL, grid.LS[1].MIXED, grid.LS[1].geoL.projection,
-                    #     ATL, BTL,
-                    #     op.opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
-                    #     periodic_x, periodic_y, heat_convection, advection, BC_int
-                    # )
-                    # mul!(rhs, BTL, phL.TD, 1.0, 1.0)
+                        # kill_dead_cells!(phL.T, grid, grid.LS[1].geoL)
+                        # veci(phL.TD,grid,1) .= vec(phL.T)
+                        # rhs = set_heat!(
+                        #     BC_int[1], num, grid, op.opC_TL, grid.LS[1].geoL, phL, num.θd, BC_TL, grid.LS[1].MIXED, grid.LS[1].geoL.projection,
+                        #     ATL, BTL,
+                        #     op.opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
+                        #     periodic_x, periodic_y, heat_convection, advection, BC_int
+                        # )
+                        # mul!(rhs, BTL, phL.TD, 1.0, 1.0)
 
-                    # phL.TD .= ATL \ rhs
-                    # phL.T .= reshape(veci(phL.TD,grid,1), grid)
+                        # phL.TD .= ATL \ rhs
+                        # phL.T .= reshape(veci(phL.TD,grid,1), grid)
 
 
-                    # phL.phi_eleD .= Aphi_eleL \ rhs_scal
-                    phL.phi_eleD .= res_phi_ele
+                        # phL.phi_eleD .= Aphi_eleL \ rhs_scal
+                        phL.phi_eleD .= res_phi_ele
 
-                    phL.phi_ele .= reshape(veci(phL.phi_eleD,grid,1), grid)
+                        phL.phi_ele .= reshape(veci(phL.phi_eleD,grid,1), grid)
+                    else
+                        
+                        printstyled(color=:red, @sprintf "\n TODO multiple LS \n" )
+
+
+                    end # if num.nLS ==1 #TODO dev multiple levelsets
 
 
                     if any(isnan, phL.phi_eleD)
@@ -1961,6 +1976,10 @@ function run_forward!(
                         printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
 
                         IIOE_normal!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y)
+
+                        # IIOE_normal_indices!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
+
+
                         grid.LS[iLS].u .= reshape(gmres(grid.LS[iLS].A, grid.LS[iLS].B * vec(grid.LS[iLS].u)), grid)
 
 
@@ -2089,7 +2108,7 @@ function run_forward!(
 
                         BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
 
-                        grid.V .=0.5*grid.dx[1,1]/num.τ  
+                        grid.V .=0.25*grid.dx[1,1]/num.τ  
 
                         printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
 
@@ -2100,6 +2119,73 @@ function run_forward!(
                         printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
 
                         BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+
+                    elseif (num.advection_LS_mode == 6) || (num.advection_LS_mode == 7)
+
+                        rhs_LS .= 0.0
+                        # grid.LS[iLS].A.nzval .= 0.0
+                        # grid.LS[iLS].B.nzval .= 0.0
+
+                        print("\n num.advection_LS_mode == 2 iLS", iLS)
+
+                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
+
+                        BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+
+
+                        printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
+
+                        IIOE_normal!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y)
+
+                        # IIOE_normal_indices!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
+                        # grid.LS[iLS].u .= reshape(gmres(grid.LS[iLS].A, grid.LS[iLS].B * vec(grid.LS[iLS].u)), grid)
+
+
+                        # rhs_LS .= 0.0
+                        # grid.LS[iLS].A.nzval .= 0.0
+                        # grid.LS[iLS].B.nzval .= 0.0
+                        # IIOE!(grid, grid_u, grid_v, grid.LS[iLS].A, grid.LS[iLS].B, θ_out, num.τ, periodic_x, periodic_y)
+                        # BC_LS_interior!(num, grid, grid_u, grid_v, iLS, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
+                        # BC_LS!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+                        # utmp .= reshape(gmres(grid.LS[iLS].A, grid.LS[iLS].B * vec(grid.LS[iLS].u) .+ rhs_LS), grid)
+
+                        # rhs_LS .= 0.0
+                        # S2IIOE!(grid, grid_u, grid_v, grid.LS[iLS].A, grid.LS[iLS].B, utmp, grid.LS[iLS].u, θ_out, num.τ, periodic_x, periodic_y)
+                        # BC_LS_interior!(num, grid, grid_u, grid_v, iLS, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
+                        # BC_LS!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+                        # grid.LS[iLS].u .= reshape(gmres(grid.LS[iLS].A, grid.LS[iLS].B * vec(grid.LS[iLS].u) .+ rhs_LS), grid)
+
+                       
+
+                        if num.advection_LS_mode == 6
+
+                            # IIOE_normal!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y)
+                            BC_LS!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+                            BC_LS_interior!(num, grid, grid_u, grid_v, iLS, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
+                        
+                        end
+                        
+                        grid.LS[iLS].u .= reshape(gmres(grid.LS[iLS].A, grid.LS[iLS].B * vec(grid.LS[iLS].u) .+ rhs_LS), grid)
+
+                        # # Impose contact angle if a wall is present
+                        # rhs_LS .= 0.0
+                        # grid.LS[iLS].A.nzval .= 0.0
+                        # grid.LS[iLS].B.nzval .= 0.0
+                        # for II in grid.ind.all_indices
+                        #     pII = lexicographic(II, grid.ny)
+                        #     grid.LS[iLS].A[pII,pII] = 1.0
+                        #     grid.LS[iLS].B[pII,pII] = 1.0
+                        # end
+                        # BC_LS_interior!(num, grid, iLS, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
+                        # grid.LS[iLS].u .= reshape(gmres(grid.LS[iLS].A, grid.LS[iLS].B * vec(grid.LS[iLS].u) .+ rhs_LS), grid)
+
+
+
+
+                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
+
+                        BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+
 
 
 

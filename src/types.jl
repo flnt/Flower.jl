@@ -487,12 +487,19 @@ end
 
 ####################################################################################################
 #Electrolysis
+
+# Numerical{T <: Real, D <: Integer} <: NumericalParameters
+   
+#     x::Union{Vector{T},LinRange{T,D}} = [-0.5 - 1/127 / 2 + i * 1/127 for i = 0:128] # Vector of cells positions in x
+#     y::Union{Vector{T},LinRange{T,D}} =
+
 @with_kw mutable struct BoundariesInt <: NumericalParameters
     left::BoundaryCondition = Neumann()
     right::BoundaryCondition = Neumann()
     bottom::BoundaryCondition = Neumann()
     top::BoundaryCondition = Neumann()
     int::BoundaryCondition = Neumann()
+    LS::Vector{BoundaryCondition} = [Neumann(),Neumann()]
 end
 ####################################################################################################
 

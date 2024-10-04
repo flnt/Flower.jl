@@ -234,6 +234,11 @@ function IIOE_normal!(grid, A, B, u, V, CFL, periodic_x, periodic_y)
     end
 
     @inbounds @threads for II in indices
+        
+        # if V[II]!=0
+        #     print("\n IIOE_normal ", II,V[II])
+        # end
+
         p = lexicographic(II, ny)
         U = diamond(u, II, nx, ny, periodic_x, periodic_y)
         F = grad(u, V, U, II, nx, ny, periodic_x, periodic_y)
@@ -256,7 +261,37 @@ function IIOE_normal!(grid, A, B, u, V, CFL, periodic_x, periodic_y)
     end
 end
 
+"""
+    IIOE_normal!(grid, A, B, u, V, CFL, periodic_x, periodic_y)
 
+Advection of the levelset in the normal direction  (Mikula et al. 2014).
+"""
+function IIOE_normal_indices!(grid, A, B, u, V, CFL, periodic_x, periodic_y,indices)
+    @unpack nx, ny, ind = grid
+    @unpack inside, all_indices = ind
+
+    @inbounds @threads for II in indices
+        p = lexicographic(II, ny)
+        U = diamond(u, II, nx, ny, periodic_x, periodic_y)
+        F = grad(u, V, U, II, nx, ny, periodic_x, periodic_y)
+        a_in, a_ou = inflow_outflow(F)
+        S = sumloc(a_in, a_ou)
+        
+        # cf fullanaSimulationOptimizationComplex2022
+        #If the forward dffusion is dominant (ie. Spf > 9Spb) then no further steps are needed
+        #as the discretization will lean towards the implicit part. 
+        #4. On the other hand, if the backward dffusion is dominant (ie. Spf < 9Spb), 
+        #we need to smooth the reconstructed solution for stability, using the following formula
+        if S[1] < -S[2]
+            D = quadratic_recons(u, U, II, nx, ny, periodic_x, periodic_y)
+            D_ = quadratic_recons(D)
+            F = 2*grad(u, V, U, D, D_[1], p, ny)
+            a_in, a_ou = inflow_outflow(F)
+            S = sumloc(a_in, a_ou)
+        end
+        A[p,p], B[p,p] = fill_matrices2!(a_in, a_ou, S, A, B, II, nx, ny, CFL, periodic_x, periodic_y)
+    end
+end
 """
     IIOE!(grid, grid_u, grid_v, A, B, θ_out, τ, periodic_x, periodic_y)
 

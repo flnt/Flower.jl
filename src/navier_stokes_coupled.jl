@@ -873,7 +873,7 @@ function FE_set_momentum_coupled(
             a1v = Diagonal(vec(_a1v))
             _bv = ones(gv) .* __bv
             bv = Diagonal(vec(_bv))
-                elseif is_navier_cl(bc_type[iLS])
+        elseif is_navier_cl(bc_type[iLS])
             velp = bc_type[iLS].val
             a0p = ones(gp) .* velp
 
