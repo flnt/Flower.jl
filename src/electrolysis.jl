@@ -527,6 +527,9 @@ function scalar_transport!(bc, num, grid, op, geo, ph, concentration0, MIXED, pr
 
             for iLS in 1:num.nLS
 
+                print("\n BC iLS",iLS," ",bc[iscal].LS[iLS])
+                print("\n BC iLS val ",bc[iscal].LS[iLS].val)
+
                 if is_dirichlet(bc[iscal].LS[iLS])
                     # printstyled(color=:green, @sprintf "\n Dirichlet : %.2e\n" bc[iscal].int.val )
                     __a0 = bc[iscal].LS[iLS].val
@@ -1582,18 +1585,31 @@ end
 - BC: BC for wall
 - ls_advection
 """
-function set_poisson_variable_coeff!(
-    bc_type, num, grid, grid_u, grid_v, a0, opC, opC_u, opC_v,
+function set_poisson_variable_coeff!(num::Numerical{Float64, Int64},
+    grid::Mesh{Flower.GridCC, Float64, Int64},
+    grid_u::Mesh{Flower.GridFCx, Float64, Int64},
+    grid_v::Mesh{Flower.GridFCy, Float64, Int64},
+    a0, opC,
     A, 
     # L, bc_L, bc_L_b, 
     BC,rhs,
-    ls_advection,coeffD)
+    ls_advection,coeffD,coeffDu,
+    coeffDv,
+    coeffDx_interface,
+    coeffDy_interface)
     @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
 
     ni = grid.nx * grid.ny
     nb = 2 * grid.nx + 2 * grid.ny
 
+    #TODO reset zero
     rhs .= 0.0
+
+    coeffDu .= 0.0
+    coeffDv .= 0.0
+    coeffDx_interface .= 0.0
+    coeffDy_interface .= 0.0
+    A .= 0.0
 
     a0_b = zeros(nb)
     _a1_b = zeros(nb)
@@ -1603,32 +1619,6 @@ function set_poisson_variable_coeff!(
     end
     a1_b = Diagonal(vec(_a1_b))
     b_b = Diagonal(vec(_b_b))
-
-    # printstyled(color=:green, @sprintf "\n sizes \n")
-
-    # print(size(A[end-nb+1:end,1:ni]),"\n")
-    # print(size(b_b),"\n")
-    # print(size(HxT_b),"\n")
-    # print(size(iMx_b'),"\n")
-    # print(size(vec1(coeffD,grid)),"\n")
-    # print(size(Bx),"\n")
-    # print(size(HyT_b),"\n")
-    # print(size(iMy_b'),"\n")
-    # print(size(By),"\n")
-
-
-    # printstyled(color=:green, @sprintf "\n vecb \n")
-    # print(size(vecb(coeffD,grid)),"\n")
-    # nt = (num.nLS + 1) * ni + nb
-
-    # print(" ni ",ni," nb ",nb," nt ",nt)
-
-
-    coeffDu = zeros(grid_u)
-    coeffDv = zeros(grid_v)
-    coeffDx_interface = zeros(grid_u)
-    coeffDy_interface = zeros(grid_v)
-
 
     coeffD_borders = vecb(coeffD,grid)
     interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(coeffD,grid,1), grid), coeffDu, coeffDv)
@@ -1642,69 +1632,6 @@ function set_poisson_variable_coeff!(
     mat_coeffDy_i = Diagonal(vec(coeffDy_interface)) # coeffDx_interface is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies Hy
     mat_coeffDx_b = Diagonal(vec(coeffD_borders)) # coeffDx_interface is a 1d vector with shape (2grid.ny + 2grid.nx), multiplies Hx_b and Hy_b
 
-
-    # printstyled(color=:green, @sprintf "\n sizes \n")
-
-    # print(size(A[end-nb+1:end,1:ni]),"\n")
-    # print(size(b_b),"\n")
-    # print(size(HxT_b),"\n")
-    # print(size(iMx_b'),"\n")
-    # print(size(vec1(coeffD,grid)),"\n")
-    # print(size(Bx),"\n")
-    # print(size(HyT_b),"\n")
-    # print(size(iMy_b'),"\n")
-    # print(size(By),"\n")
-
-
-
-    # printstyled(color=:green, @sprintf "\n vecb \n")
-    # print(size(vecb(coeffD,grid)),"\n")
-    # nt = (num.nLS + 1) * ni + nb
-
-    # print(" ni ",ni," nb ",nb," nt ",nt)
-
-    # print(size(mat_coeffDx),"\n")
-    # print(size(mat_coeffDy),"\n")
-    # print(size(mat_coeffDx_i),"\n")
-    # print(size(mat_coeffDy_i),"\n")
-    # print(size(mat_coeffDx_b),"\n")
-
-    # A[sb,1:ni] = -b * (HxT[iLS] * iMx .* mat_coeffDx * Bx .+ HyT[iLS] * iMy * mat_coeffDy * By) #or vec1
-
-#   A  (1024, 65536)
-# b_b (1024, 1024)
-# HxT_b (1024, 1024)
-# iMx_b' (1024, 65792)
-# vec1(coeffD,grid) (65536,)
-# Bx (65792, 65536)
-# HyT_b (1024, 1024)
-# iMy_b' (1024, 65792)
-# By (65792, 65536)
-
-# mat_coeffDx (65792, 65792)
-
-
-    # elec_Lpm1_L, elec_bc_Lpm1_L, elec_bc_Lpm1_b_L, elec_Lum1_L, elec_bc_Lum1_L, elec_bc_Lum1_b_L, elec_Lvm1_L, elec_bc_Lvm1_L, elec_bc_Lvm1_b_L = set_matrices!(
-        #     num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL,
-        #     opC_pL, opC_uL, opC_vL, periodic_x, periodic_y
-        # )
-
-    # Update laplacian at each timestep
-    # elec_Lpm1_L = laplacian_variable_coeff(opC_pL,elec_condD)
-    # elec_bc_Lpm1_L, elec_bc_Lpm1_b_L = laplacian_bc_variable_coeff(opC_pL, num.nLS, elec_condD)
-
-    # L, bc_L, bc_L_b, 
-
-    # L = laplacian_variable_coeff(opC_pL,coeffD)
-    # bc_L, bc_L_b = laplacian_bc_variable_coeff(opC_pL, num.nLS, coeffD)
-
-    # mat_coeffDx = Diagonal(vec(coeffDx_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
-    # mat_coeffDy = Diagonal(vec(coeffDy_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
-
-
-
-    # @unpack Bx, By, BxT, ByT, iMx, iMy, tmp_x, tmp_y = opC
-    # @unpack BxT, ByT, Hx, Hy, iMx, iMy, Hx_b, Hy_b, iMx_b, iMy_b = opC
 
     @unpack BxT, ByT,tmp_x, tmp_y = opC
 
@@ -1736,44 +1663,44 @@ function set_poisson_variable_coeff!(
 
     for iLS in 1:num.nLS
         if ls_advection
-            if is_dirichlet(bc_type[iLS])
+            if is_dirichlet(BC.LS[iLS])
                 __a0 = bc_type[iLS].val
                 __a1 = -1.0
                 __a2 = 0.0
                 __b = 0.0
-            elseif is_neumann(bc_type[iLS])
-                __a0 = bc_type[iLS].val
+            elseif is_neumann(BC.LS[iLS])
+                __a0 = BC.LS[iLS].val
                 __a1 = 0.0
                 __a2 = 0.0
                 __b = 1.0
-            elseif is_robin(bc_type[iLS])
-                __a0 = bc_type[iLS].val
+            elseif is_robin(BC.LS[iLS])
+                __a0 = BC.LS[iLS].val
                 __a1 = -1.0
                 __a2 = 0.0
                 __b = 1.0
-            elseif is_fs(bc_type[iLS])
-                print("error not implemented set_poisson_variable_coeff",bc_type[iLS])
+            elseif is_fs(BC.LS[iLS])
+                print("error not implemented set_poisson_variable_coeff",BC.LS[iLS])
                 @error ("error set_poisson_variable_coeff")
 
                 __a1 = 0.0
                 __a2 = 1.0
                 __b = 0.0
-            elseif is_wall_no_slip(bc_type[iLS])
-                print("error not implemented set_poisson_variable_coeff",bc_type[iLS])
+            elseif is_wall_no_slip(BC.LS[iLS])
+                print("error not implemented set_poisson_variable_coeff",BC.LS[iLS])
                 @error ("error set_poisson_variable_coeff")
 
                 __a1 = 0.0
                 __a2 = 0.0
                 __b = 1.0
-            elseif is_navier(bc_type[iLS])
-                print("error not implemented set_poisson_variable_coeff",bc_type[iLS])
+            elseif is_navier(BC.LS[iLS])
+                print("error not implemented set_poisson_variable_coeff",BC.LS[iLS])
                 @error ("error set_poisson_variable_coeff")
 
                 __a1 = 0.0
                 __a2 = 0.0
                 __b = 1.0
-            elseif is_navier_cl(bc_type[iLS])
-                print("error not implemented set_poisson_variable_coeff",bc_type[iLS])
+            elseif is_navier_cl(BC.LS[iLS])
+                print("error not implemented set_poisson_variable_coeff",BC.LS[iLS])
                 @error ("error set_poisson_variable_coeff")
 
                 __a1 = 0.0
@@ -1789,9 +1716,6 @@ function set_poisson_variable_coeff!(
             # Flags with BCs
             a0 = ones(grid) .* __a0
 
-
-          
-    
             _a1 = ones(grid) .* __a1
             a1 = Diagonal(vec(_a1))
             _b = ones(grid) .* __b
@@ -1843,6 +1767,8 @@ function set_poisson_variable_coeff!(
     
     # return rhs
 end
+
+
 
 function laplacian_bc_variable_coeff(opC, nLS, grid, coeffD)
     @unpack BxT, ByT, Hx, Hy, iMx, iMy, Hx_b, Hy_b, iMx_b, iMy_b = opC

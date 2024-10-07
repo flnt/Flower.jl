@@ -6,7 +6,7 @@
 using Flower
 
 
-using PrettyTables
+# using PrettyTables
 
 # using SnoopCompileCore
 
@@ -155,19 +155,25 @@ else
 
     print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
 
-    hl = Highlighter((d,i,j)->d[i,j] isa String, crayon"bold cyan")
 
-    diffusion_t = (phys.radius^2)./phys.diffusion_coeff
+    print_table = false
+    # print_table = true
 
-    pretty_table(vcat(
-        hcat("Diffusion time",diffusion_t'),
-        hcat("Diffusion coef",phys.diffusion_coeff'),
-        hcat("Concentration",phys.concentration0')); 
-    formatters    = ft_printf("%0.2e", 2:4), #not ecessary , 2:4
-    header = ["","H2", "KOH", "H2O"], 
-    highlighters=hl)
+    if print_table
+        hl = Highlighter((d,i,j)->d[i,j] isa String, crayon"bold cyan")
 
-    @debug "After Table"
+        diffusion_t = (phys.radius^2)./phys.diffusion_coeff
+
+        pretty_table(vcat(
+            hcat("Diffusion time",diffusion_t'),
+            hcat("Diffusion coef",phys.diffusion_coeff'),
+            hcat("Concentration",phys.concentration0')); 
+        formatters    = ft_printf("%0.2e", 2:4), #not ecessary , 2:4
+        header = ["","H2", "KOH", "H2O"], 
+        highlighters=hl)
+
+        @debug "After Table"
+    end
 
 
     # printstyled(color=:green, @sprintf "\n Species diffusion timescales: %.2e %.2e %.2e \n" (phys.radius^2)/DH2 (phys.radius^2)/DKOH (phys.radius^2)/DH2O )
@@ -604,6 +610,15 @@ BC_uL = Boundaries(
         top    = Neumann(val=0.0),
     )
 
+BC_phi_ele = BoundariesInt(
+    left   = Neumann(val=i_butler./elec_cond), #TODO -BC in Flower ? so i_butler not -i_butler
+    right  = Dirichlet(),
+    bottom = Neumann(val=0.0),
+    top    = Neumann(val=0.0),
+    int    = Neumann(val=0.0),
+    LS = [Neumann(val=i_butler./elec_cond)]
+)
+
 if sim.name == "falling_drop"
 
     # r = 0.5
@@ -663,7 +678,7 @@ elseif sim.name == "levelset_Butler_two_LS"
     left   = Neumann(val=-i_butler/(2*phys.Faraday*DH2)), #Dirichlet(val = phys.concentration0[1]), #
     right  = Dirichlet(val = phys.concentration0[1]),
     int    = Dirichlet(val = phys.concentration0[1]),
-    LS     = [Dirichlet(val = phys.concentration0[1]),Neumann(val=-i_butler/(2*phys.Faraday*DH2))]
+    LS     = [Dirichlet(val = phys.concentration0[1]),Neumann(val=-i_butler_scal/(2*phys.Faraday*DH2))]
     ) #H2
 
     BC_trans_scal_KOH = BoundariesInt(
@@ -672,7 +687,7 @@ elseif sim.name == "levelset_Butler_two_LS"
     left   = Neumann(val=-i_butler/(2*phys.Faraday*DKOH)),
     right  = Dirichlet(val = phys.concentration0[2]),
     int    = Neumann(val=0.0),
-    LS     = [Dirichlet(val = phys.concentration0[2]),Neumann(val=-i_butler/(2*phys.Faraday*DKOH))]
+    LS     = [Dirichlet(val = phys.concentration0[2]),Neumann(val=-i_butler_scal/(2*phys.Faraday*DKOH))]
     ) #KOH
 
     BC_trans_scal_H2O = BoundariesInt(
@@ -681,8 +696,17 @@ elseif sim.name == "levelset_Butler_two_LS"
     left   = Neumann(val=i_butler/(phys.Faraday*DH2O)),
     right  = Dirichlet(val = phys.concentration0[3]),
     int    = Neumann(val=0.0),
-    LS     = [Dirichlet(val = phys.concentration0[3]),Neumann(val=i_butler/(phys.Faraday*DH2O))]
+    LS     = [Dirichlet(val = phys.concentration0[3]),Neumann(val=i_butler_scal/(phys.Faraday*DH2O))]
     ) #H2O
+
+
+    BC_phi_ele = BoundariesInt(
+        left   = Neumann(val=i_butler./elec_cond), #TODO -BC in Flower ? so i_butler not -i_butler
+        right  = Dirichlet(),
+        bottom = Neumann(val=0.0),
+        top    = Neumann(val=0.0),
+        int    = Neumann(val=0.0),
+        LS = [Neumann(val=0.0),Neumann(val=i_butler./elec_cond)]) #first is interface
 
 
 elseif sim.name == "sessile"
@@ -1420,17 +1444,8 @@ else
         BC_trans_scal_H2O, #H2O       
     )
 
-    BC_phi_ele = BoundariesInt(
-        left   = Neumann(val=i_butler./elec_cond), #TODO -BC in Flower ? so i_butler not -i_butler
-        right  = Dirichlet(),
-        bottom = Neumann(val=0.0),
-        top    = Neumann(val=0.0),
-        int    = Neumann(val=0.0),
-    )
-    
-
-
-      # left = Dirichlet(val=phys.pres0),
+   
+    # left = Dirichlet(val=phys.pres0),
     # right = Dirichlet(val=phys.pres0),
 
     # BC_u = Boundaries(

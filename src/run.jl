@@ -220,6 +220,8 @@ function run_forward!(
 
     local NB_indices;
 
+    #Allocations
+
     local Cum1S = fzeros(grid_u)
     local Cum1L = fzeros(grid_u)
     local Cvm1S = fzeros(grid_v)
@@ -236,6 +238,11 @@ function run_forward!(
     θ_out = zeros(grid, 4)
     utmp = copy(grid.LS[1].u)
     rhs_LS = fzeros(grid)
+
+    tmp_vec_u = zeros(grid_u) 
+    tmp_vec_v = zeros(grid_v) 
+    tmp_vec_p = zeros(grid) 
+
 
     if levelset
 
@@ -287,52 +294,65 @@ function run_forward!(
     # @views init_fields_2!(phS.trans_scalD[:,iscal],phS.trans_scal[:,:,iscal],HS,BC_trans_scal[iscal],grid,num.concentration0[iscal])
     # @views phS.trans_scal[:,:,iscal] .= num.concentration0[iscal]
 
-    Hu = zeros(grid_u) 
-    get_height!(grid_u,grid.ind,grid.dx,grid.dy,grid.LS[end].geoS,Hu) #here Hu solid
+    # TODO reset zero
+    tmp_vec_u .= 0.0
 
-    init_fields_2!(phS.uD,phS.u,Hu,BC_uS,grid_u,num.uD)
+
+
+    #tmp_vec_u
+
+    get_height!(grid_u,grid.ind,grid.dx,grid.dy,grid.LS[end].geoS,tmp_vec_u) #here tmp_vec_u solid
+
+    init_fields_2!(phS.uD,phS.u,tmp_vec_u,BC_uS,grid_u,num.uD)
     # init_fields_2!(phS.ucorrD,phS.u,HSu,BC_uS,grid_u,num.uD)
 
-    get_height!(grid_u,grid.ind,grid.dx,grid.dy,grid.LS[end].geoL,Hu)  #here Hu liquid
+    get_height!(grid_u,grid.ind,grid.dx,grid.dy,grid.LS[end].geoL,tmp_vec_u)  #here tmp_vec_u liquid
 
-    init_fields_2!(phL.uD,phL.u,Hu,BC_uL,grid_u,num.uD)
+    init_fields_2!(phL.uD,phL.u,tmp_vec_u,BC_uL,grid_u,num.uD)
     # init_fields_2!(phL.ucorrD,phL.u,HLu,BC_uL,grid_u,num.uD)
 
 
-    Hv = zeros(grid_v) 
 
-    get_height!(grid_v,grid.ind,grid.dx,grid.dy,grid.LS[end].geoS,Hv) 
+    # TODO reset zero
+    tmp_vec_v .= 0.0
 
-    init_fields_2!(phS.vD,phS.v,Hv,BC_vS,grid_v,num.vD)
+
+    get_height!(grid_v,grid.ind,grid.dx,grid.dy,grid.LS[end].geoS,tmp_vec_v) 
+
+    init_fields_2!(phS.vD,phS.v,tmp_vec_v,BC_vS,grid_v,num.vD)
     # init_fields_2!(phS.vcorrD,phS.v,HSv,BC_vS,grid_v,num.vD)
 
-    get_height!(grid_v,grid.ind,grid.dx,grid.dy,grid.LS[end].geoL,Hv)
+    get_height!(grid_v,grid.ind,grid.dx,grid.dy,grid.LS[end].geoL,tmp_vec_v)
 
-    init_fields_2!(phL.vD,phL.v,Hv,BC_vL,grid_v,num.vD)
+    init_fields_2!(phL.vD,phL.v,tmp_vec_v,BC_vL,grid_v,num.vD)
     # init_fields_2!(phL.vcorrD,phL.v,HLv,BC_vL,grid_v,num.vD)
 
 
-    Hsc = zeros(grid) 
+ 
 
-    get_height!(grid,grid.ind,grid.dx,grid.dy,grid.LS[end].geoS,Hsc) #here Hsc solid
+    # TODO reset zero
+    tmp_vec_p .= 0.0
 
-    init_fields_2!(phS.pD,phS.p,Hsc,BC_pS,grid,presintfc)
+
+    get_height!(grid,grid.ind,grid.dx,grid.dy,grid.LS[end].geoS,tmp_vec_p) #here tmp_vec_p solid
+
+    init_fields_2!(phS.pD,phS.p,tmp_vec_p,BC_pS,grid,presintfc)
 
     if heat
-        init_fields_2!(phS.TD,phS.T,Hsc,BC_TS,grid,num.θd)
+        init_fields_2!(phS.TD,phS.T,tmp_vec_p,BC_TS,grid,num.θd)
     end
 
     #Electrolysis
     if electrolysis && num.electric_potential == 1
-        init_fields_2!(phS.phi_eleD,phS.phi_ele,Hsc,BC_phi_ele,grid,num.phi_ele0) 
+        init_fields_2!(phS.phi_eleD,phS.phi_ele,tmp_vec_p,BC_phi_ele,grid,num.phi_ele0) 
     end
 
-    get_height!(grid,grid.ind,grid.dx,grid.dy,grid.LS[end].geoL,Hsc) #here Hsc liquid
+    get_height!(grid,grid.ind,grid.dx,grid.dy,grid.LS[end].geoL,tmp_vec_p) #here tmp_vec_p liquid
 
-    init_fields_2!(phL.pD,phL.p,Hsc,BC_pL,grid,presintfc)
+    init_fields_2!(phL.pD,phL.p,tmp_vec_p,BC_pL,grid,presintfc)
 
     if heat
-        init_fields_2!(phL.TD,phL.T,Hsc,BC_TL,grid,num.θd)
+        init_fields_2!(phL.TD,phL.T,tmp_vec_p,BC_TL,grid,num.θd)
     end
 
 
@@ -344,11 +364,11 @@ function run_forward!(
 
         for iscal=1:num.nb_transported_scalars
             @views phL.trans_scal[:,:,iscal] .= num.concentration0[iscal]
-            @views init_fields_2!(phL.trans_scalD[:,iscal],phL.trans_scal[:,:,iscal],Hsc,BC_trans_scal[iscal],grid,num.concentration0[iscal])
+            @views init_fields_2!(phL.trans_scalD[:,iscal],phL.trans_scal[:,:,iscal],tmp_vec_p,BC_trans_scal[iscal],grid,num.concentration0[iscal])
         end
 
         if num.electric_potential == 1
-            init_fields_2!(phL.phi_eleD,phL.phi_ele,Hsc,BC_phi_ele,grid,num.phi_ele0)
+            init_fields_2!(phL.phi_eleD,phL.phi_ele,tmp_vec_p,BC_phi_ele,grid,num.phi_ele0)
         end
     end  
     
@@ -443,8 +463,9 @@ function run_forward!(
 
         if navier_stokes || heat || electrolysis
 
-
+            #Allocations
             #TODO pre-allocate at start to save up allocations
+            #TODO optimize allocations
 
             #Preallocate for mass flux computations
             mass_flux_vec1 = fzeros(grid)
@@ -452,115 +473,125 @@ function run_forward!(
             mass_flux_veci = fzeros(grid)
             mass_flux = zeros(grid)
 
+
            
             if advection
 
-            #Allocations for scalar grid
-            ni = grid.nx * grid.ny
-            nb = 2 * grid.nx + 2 * grid.ny
-            nt = (num.nLS + 1) * ni + nb
+                #Allocations for scalar grid
+                ni = grid.nx * grid.ny
+                nb = 2 * grid.nx + 2 * grid.ny
+                nt = (num.nLS + 1) * ni + nb
 
-            Ascal = spzeros(nt, nt)
-            Bscal = spzeros(nt, nt)
-            rhs_scal = fnzeros(grid, num)
+                Ascal = spzeros(nt, nt)
+                Bscal = spzeros(nt, nt)
+                rhs_scal = fnzeros(grid, num)
 
 
-            all_CUTCT = zeros(grid.ny * grid.nx, num.nb_transported_scalars)
+                all_CUTCT = zeros(grid.ny * grid.nx, num.nb_transported_scalars)
 
-            us=zeros(grid)
-            vs=zeros(grid)
+                us=zeros(grid)
+                vs=zeros(grid)
 
-            #save up memory: do not allocate Eus
-            # Eus=zeros(grid) 
-            # Evs=zeros(grid)
+                #save up memory: do not allocate Eus
+                # Eus=zeros(grid) 
+                # Evs=zeros(grid)
 
-            AϕS = spzeros(nt, nt)
-            AϕL = spzeros(nt, nt)
-            if electrolysis 
-                Aphi_eleL = spzeros(nt, nt)
-            end
+                AϕS = spzeros(nt, nt)
+                AϕL = spzeros(nt, nt)
+                if electrolysis 
+                    # Aphi_eleL = spzeros(nt, nt)
 
-            ATS = spzeros(nt, nt)
-            ATL = spzeros(nt, nt)
-            BTS = spzeros(nt, nt)
-            BTL = spzeros(nt, nt)
+                    coeffDu = zeros(grid_u)
+                    coeffDv = zeros(grid_v)
+                    coeffDx_interface = zeros(grid_u)
+                    coeffDy_interface = zeros(grid_v)
+                end
 
-            ni = grid_u.nx * grid_u.ny
-            nb = 2 * grid_u.nx + 2 * grid_u.ny
-            nt = (num.nLS + 1) * ni + nb
-            AuS = spzeros(nt, nt)
-            AuL = spzeros(nt, nt)
-            BuS = spzeros(nt, nt)
-            BuL = spzeros(nt, nt)
+                ATS = spzeros(nt, nt)
+                ATL = spzeros(nt, nt)
+                BTS = spzeros(nt, nt)
+                BTL = spzeros(nt, nt)
 
-            ni = grid_v.nx * grid_v.ny
-            nb = 2 * grid_v.nx + 2 * grid_v.ny
-            nt = (num.nLS + 1) * ni + nb
-            AvS = spzeros(nt, nt)
-            AvL = spzeros(nt, nt)
-            BvS = spzeros(nt, nt)
-            BvL = spzeros(nt, nt)
+                ni = grid_u.nx * grid_u.ny
+                nb = 2 * grid_u.nx + 2 * grid_u.ny
+                nt = (num.nLS + 1) * ni + nb
+                AuS = spzeros(nt, nt)
+                AuL = spzeros(nt, nt)
+                BuS = spzeros(nt, nt)
+                BuL = spzeros(nt, nt)
 
-            ni = grid_u.nx * grid_u.ny + grid_v.nx * grid_v.ny
-            nb = 2 * grid_u.nx + 2 * grid_u.ny + 2 * grid_v.nx + 2 * grid_v.ny
-            nt = (num.nLS - num.nNavier + 1) * ni + num.nNavier * grid.nx * grid.ny + nb
-            AuvS = spzeros(nt, nt)
-            AuvL = spzeros(nt, nt)
-            BuvS = spzeros(nt, nt)
-            BuvL = spzeros(nt, nt)
+                ni = grid_v.nx * grid_v.ny
+                nb = 2 * grid_v.nx + 2 * grid_v.ny
+                nt = (num.nLS + 1) * ni + nb
+                AvS = spzeros(nt, nt)
+                AvL = spzeros(nt, nt)
+                BvS = spzeros(nt, nt)
+                BvL = spzeros(nt, nt)
+
+                ni = grid_u.nx * grid_u.ny + grid_v.nx * grid_v.ny
+                nb = 2 * grid_u.nx + 2 * grid_u.ny + 2 * grid_v.nx + 2 * grid_v.ny
+                nt = (num.nLS - num.nNavier + 1) * ni + num.nNavier * grid.nx * grid.ny + nb
+                AuvS = spzeros(nt, nt)
+                AuvL = spzeros(nt, nt)
+                BuvS = spzeros(nt, nt)
+                BuvL = spzeros(nt, nt)
 
 
             else
 
-            #Allocations for scalar grid
-            ni = grid.nx * grid.ny
-            nb = 2 * grid.nx + 2 * grid.ny
-            nt = (num.nLS + 1) * ni + nb
+                #Allocations for scalar grid
+                ni = grid.nx * grid.ny
+                nb = 2 * grid.nx + 2 * grid.ny
+                nt = (num.nLS + 1) * ni + nb
 
-            Ascal = spzeros(nt, nt)
-            Bscal = spzeros(nt, nt)
-            rhs_scal = fnzeros(grid, num)
+                Ascal = spzeros(nt, nt)
+                Bscal = spzeros(nt, nt)
+                rhs_scal = fnzeros(grid, num)
 
-            all_CUTCT = zeros(grid.ny * grid.nx, num.nb_transported_scalars)
+                all_CUTCT = zeros(grid.ny * grid.nx, num.nb_transported_scalars)
 
-            us=zeros(grid)
-            vs=zeros(grid)
+                us=zeros(grid)
+                vs=zeros(grid)
 
 
-            AϕS = spzeros(nt, nt)
-            AϕL = spzeros(nt, nt)
-            if electrolysis 
-                Aphi_eleL = spzeros(nt, nt)
-            end
+                AϕS = spzeros(nt, nt)
+                AϕL = spzeros(nt, nt)
+                if electrolysis 
+                    # Aphi_eleL = spzeros(nt, nt)
+                    coeffDu = zeros(grid_u)
+                    coeffDv = zeros(grid_v)
+                    coeffDx_interface = zeros(grid_u)
+                    coeffDy_interface = zeros(grid_v)
+                end
 
-            ATS = spzeros(nt, nt)
-            ATL = spzeros(nt, nt)
-            BTS = spzeros(nt, nt)
-            BTL = spzeros(nt, nt)
+                ATS = spzeros(nt, nt)
+                ATL = spzeros(nt, nt)
+                BTS = spzeros(nt, nt)
+                BTL = spzeros(nt, nt)
 
-            ni = grid_u.nx * grid_u.ny
-            nb = 2 * grid_u.nx + 2 * grid_u.ny
-            nt = (num.nLS + 1) * ni + nb
-            AuS = spzeros(nt, nt)
-            AuL = spzeros(nt, nt)
-            BuS = spzeros(nt, nt)
-            BuL = spzeros(nt, nt)
+                ni = grid_u.nx * grid_u.ny
+                nb = 2 * grid_u.nx + 2 * grid_u.ny
+                nt = (num.nLS + 1) * ni + nb
+                AuS = spzeros(nt, nt)
+                AuL = spzeros(nt, nt)
+                BuS = spzeros(nt, nt)
+                BuL = spzeros(nt, nt)
 
-            ni = grid_v.nx * grid_v.ny
-            nb = 2 * grid_v.nx + 2 * grid_v.ny
-            nt = (num.nLS + 1) * ni + nb
-            AvS = spzeros(nt, nt)
-            AvL = spzeros(nt, nt)
-            BvS = spzeros(nt, nt)
-            BvL = spzeros(nt, nt)
+                ni = grid_v.nx * grid_v.ny
+                nb = 2 * grid_v.nx + 2 * grid_v.ny
+                nt = (num.nLS + 1) * ni + nb
+                AvS = spzeros(nt, nt)
+                AvL = spzeros(nt, nt)
+                BvS = spzeros(nt, nt)
+                BvL = spzeros(nt, nt)
 
-            ni = grid_u.nx * grid_u.ny + grid_v.nx * grid_v.ny
-            nb = 2 * grid_u.nx + 2 * grid_u.ny + 2 * grid_v.nx + 2 * grid_v.ny
-            nt = (num.nLS - num.nNavier + 1) * ni + num.nNavier * grid.nx * grid.ny + nb
-            AuvS = spzeros(nt, nt)
-            AuvL = spzeros(nt, nt)
-            BuvS = spzeros(nt, nt)
-            BuvL = spzeros(nt, nt)
+                ni = grid_u.nx * grid_u.ny + grid_v.nx * grid_v.ny
+                nb = 2 * grid_u.nx + 2 * grid_u.ny + 2 * grid_v.nx + 2 * grid_v.ny
+                nt = (num.nLS - num.nNavier + 1) * ni + num.nNavier * grid.nx * grid.ny + nb
+                AuvS = spzeros(nt, nt)
+                AuvL = spzeros(nt, nt)
+                BuvS = spzeros(nt, nt)
+                BuvL = spzeros(nt, nt)
 
             end
 
@@ -1360,92 +1391,63 @@ function run_forward!(
 
                     # printstyled(color=:green, @sprintf "\n BC phi : %.2e \n" BC_phi_ele.int.val)
 
-                    if num.nLS ==1 #TODO dev multiple levelsets
 
 
-                        #TODO BC several grid.LS
-                        #Poisson with variable coefficient
-                        set_poisson_variable_coeff!(
-                            [BC_phi_ele.int], num, grid, grid_u, grid_v, a0_p, op.opC_pL, op.opC_uL, op.opC_vL,
-                            Aphi_eleL, 
-                            # elec_Lpm1_L, elec_bc_Lpm1_L, elec_bc_Lpm1_b_L, 
-                            BC_phi_ele,rhs_scal,
-                            true,elec_condD
-                        )
+                    #TODO BC several grid.LS
+                    #Poisson with variable coefficient
+                    set_poisson_variable_coeff!(num, grid, grid_u, grid_v, a0_p, op.opC_pL, op.opC_uL, op.opC_vL,
+                        Ascal, 
+                        # elec_Lpm1_L, elec_bc_Lpm1_L, elec_bc_Lpm1_b_L, 
+                        BC_phi_ele,rhs_scal,
+                        true,elec_condD,
+                        coeffDu,
+                        coeffDv,
+                        coeffDx_interface,
+                        coeffDy_interface)
 
-                        # print("\n Aphi_eleL: ",any(isnan, Aphi_eleL),"\n rhs_scal: ",any(isnan, rhs_scal),"\n")
+                    
 
-                        # print("\n veci rhs_scal 2: ",any(isnan, veci(rhs_scal,grid,1)),"\n veci rhs_scal 1 : ",any(isnan, veci(rhs_scal,grid,1)),"\n")
+                    b_phi_ele = zeros(grid)
+
+
+                    veci(rhs_scal,grid,1) .+= op.opC_pL.M * vec(b_phi_ele)
                 
-
-                        # print("\n \n elec_condD",vecb_L(elec_condD, grid))
-                        # print("\n \n BC_phi_ele.left.val",BC_phi_ele.left.val)
-
-                        
-
-                        # print("\n \n vecb_L",vecb_L(rhs_scal, grid))
-
-                        # print("\n \n vecb_R",vecb_R(rhs_scal, grid))
-
-                        # print("\n \n vecb_T",vecb_T(rhs_scal, grid))
-
-                        # print("\n \n vecb_B",vecb_B(rhs_scal, grid))
-
-                        # b = Δf.(
-                        #     grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx,
-                        #     grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
-                        # )
-                        # b_phi_ele = zeros(
-                        #     grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx,
-                        #     grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
-                        # )
-
-                        # b_phi_ele = zeros(
-                        #     grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx,
-                        #     grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
-                        # )
-
-                        b_phi_ele = zeros(grid)
-
-
-                        veci(rhs_scal,grid,1) .+= op.opC_pL.M * vec(b_phi_ele)
+                    res_phi_ele = zeros(size(rhs_scal))
+                
+                    @time @inbounds @threads for i in 1:Ascal.m
+                        @inbounds Ascal[i,i] += 1e-10
+                    end
                     
-                        res_phi_ele = zeros(size(rhs_scal))
+                    # @time res_phi_ele .= Ascal \ rhs_scal
+
+                    @time res_phi_ele .= Ascal \ rhs_scal
+
+                    #TODO or use mul!(rhs_scal, BTL, phL.TD, 1.0, 1.0) like in :
+
+                    # kill_dead_cells!(phL.T, grid, grid.LS[1].geoL)
+                    # veci(phL.TD,grid,1) .= vec(phL.T)
+                    # rhs = set_heat!(
+                    #     BC_int[1], num, grid, op.opC_TL, grid.LS[1].geoL, phL, num.θd, BC_TL, grid.LS[1].MIXED, grid.LS[1].geoL.projection,
+                    #     ATL, BTL,
+                    #     op.opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
+                    #     periodic_x, periodic_y, heat_convection, advection, BC_int
+                    # )
+                    # mul!(rhs, BTL, phL.TD, 1.0, 1.0)
+
+                    # phL.TD .= ATL \ rhs
+                    # phL.T .= reshape(veci(phL.TD,grid,1), grid)
+
+
+                    # phL.phi_eleD .= Ascal \ rhs_scal
+                    phL.phi_eleD .= res_phi_ele
+
+                    phL.phi_ele .= reshape(veci(phL.phi_eleD,grid,1), grid)
                     
-                        @time @inbounds @threads for i in 1:Aphi_eleL.m
-                            @inbounds Aphi_eleL[i,i] += 1e-10
-                        end
-                        
-                        # @time res_phi_ele .= Aphi_eleL \ rhs_scal
-
-                        @time res_phi_ele .= Aphi_eleL \ rhs_scal
-
-                        #TODO or use mul!(rhs_scal, BTL, phL.TD, 1.0, 1.0) like in :
-
-                        # kill_dead_cells!(phL.T, grid, grid.LS[1].geoL)
-                        # veci(phL.TD,grid,1) .= vec(phL.T)
-                        # rhs = set_heat!(
-                        #     BC_int[1], num, grid, op.opC_TL, grid.LS[1].geoL, phL, num.θd, BC_TL, grid.LS[1].MIXED, grid.LS[1].geoL.projection,
-                        #     ATL, BTL,
-                        #     op.opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
-                        #     periodic_x, periodic_y, heat_convection, advection, BC_int
-                        # )
-                        # mul!(rhs, BTL, phL.TD, 1.0, 1.0)
-
-                        # phL.TD .= ATL \ rhs
-                        # phL.T .= reshape(veci(phL.TD,grid,1), grid)
+                    printstyled(color=:red, @sprintf "\n TODO multiple LS \n" )
 
 
-                        # phL.phi_eleD .= Aphi_eleL \ rhs_scal
-                        phL.phi_eleD .= res_phi_ele
-
-                        phL.phi_ele .= reshape(veci(phL.phi_eleD,grid,1), grid)
-                    else
-                        
-                        printstyled(color=:red, @sprintf "\n TODO multiple LS \n" )
 
 
-                    end # if num.nLS ==1 #TODO dev multiple levelsets
 
 
                     if any(isnan, phL.phi_eleD)
@@ -1455,7 +1457,7 @@ function run_forward!(
             
                         print("\n phL.phi_eleD: ",any(isnan, phL.phi_eleD),"\n phL.phi_ele: ",any(isnan, phL.phi_ele),"\n")
 
-                        print("\n Aphi_eleL: ",any(isnan, Aphi_eleL),"\n rhs_scal: ",any(isnan, rhs_scal),"\n")
+                        print("\n Ascal: ",any(isnan, Ascal),"\n rhs_scal: ",any(isnan, rhs_scal),"\n")
 
                         print("\n \n vecb_L",vecb_L(phL.phi_eleD[:,1], grid))
 
