@@ -1438,11 +1438,11 @@ if sim.name == "falling_drop" || occursin("sessile",sim.name)
     BC_trans_scal = Vector{BoundariesInt}() #[Boundaries()]
     BC_phi_ele = Boundaries()
 else
-    BC_trans_scal = (
+    BC_trans_scal = [
         BC_trans_scal_H2, #H2
         BC_trans_scal_KOH, #KOH
         BC_trans_scal_H2O, #H2O       
-    )
+    ] #)
 
    
     # left = Dirichlet(val=phys.pres0),

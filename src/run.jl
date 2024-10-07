@@ -38,8 +38,8 @@ function run_forward!(
     op::DiscreteOperators{Float64, Int64}, 
     phS::Phase{Float64}, 
     phL::Phase{Float64};
-    periodic_x = false,
-    periodic_y = false,
+    periodic_x::Bool = false,
+    periodic_y::Bool = false,
     BC_TS = Boundaries(),
     BC_TL = Boundaries(),
     BC_pS = Boundaries(),
@@ -51,42 +51,46 @@ function run_forward!(
     BC_u = Boundaries(),
     BC_trans_scal = Vector{BoundariesInt}(),
     BC_phi_ele = BoundariesInt(),
-    BC_int = [WallNoSlip()],
-    time_scheme = CN,
-    ls_scheme = weno5,
-    auto_reinit = 0,
-    heat = false,
-    heat_convection = false,
-    heat_liquid_phase = false,
-    heat_solid_phase = false,
-    navier_stokes = false,
-    ns_advection = false,
-    ns_liquid_phase = false,
-    ns_solid_phase = false,
-    hill = false,
-    Vmean = false,
-    levelset = true,
-    speed = 0,
-    analytical = false,
-    verbose = false,
-    show_every = 100,
-    save_radius = false,
-    adaptative_t = false,
-    breakup = 0,
-    Ra = 0.0,
-    λ = 1,
-    electrolysis = false,
-    electrolysis_convection = false,  
-    electrolysis_liquid_phase = false,
-    electrolysis_solid_phase = false,
+    BC_int::Vector{<:BoundaryCondition} = [WallNoSlip()],
+    time_scheme::TemporalIntegration = CN,
+    ls_scheme::LevelsetDiscretization = weno5,
+    auto_reinit::Int64 = 0,
+    heat::Bool = false,
+    heat_convection::Bool = false,
+    heat_liquid_phase::Bool = false,
+    heat_solid_phase::Bool = false,
+    navier_stokes ::Bool= false,
+    ns_advection::Bool = false,
+    ns_liquid_phase::Bool = false,
+    ns_solid_phase::Bool = false,
+    hill::Bool = false,
+    Vmean::Bool = false,
+    levelset::Bool = true,
+    analytical::Bool = false,
+    verbose::Bool = false,
+    show_every::Int64 = 100,
+    save_radius::Bool = false,
+    adaptative_t::Bool = false,
+    breakup::Int64 = 0,
+    Ra::Float64 = 0.0,
+    electrolysis::Bool = false,
+    electrolysis_convection::Bool = false,  
+    electrolysis_liquid_phase::Bool = false,
+    electrolysis_solid_phase::Bool = false,
     electrolysis_phase_change_case = "Khalighi",
     electrolysis_reaction = "nothing",
     imposed_velocity = "none",
-    adapt_timestep_mode = 0,
-    non_dimensionalize=1,
-    mode_2d=0,
-    test_laplacian = false::Bool,
+    adapt_timestep_mode::Int64 = 0,
+    non_dimensionalize::Int64=1,
+    mode_2d::Int64=0,
+    test_laplacian::Bool = false,
     )
+
+    # λ::Float64 = 1,
+    λ = 1 #for Stefan velocity
+    # speed::Float64 = 0.0,
+    speed = 0.0
+
 
     #TODO Re
 
@@ -757,6 +761,7 @@ function run_forward!(
     current_t = 0.
     num.current_i =1
 
+    #Time loop
     while num.current_i < num.max_iterations + 1
 
         ####################################################################################################
@@ -986,64 +991,7 @@ function run_forward!(
                         print_electrolysis_statistics(num.nb_transported_scalars,grid,phL)
                     end 
                     
-                elseif imposed_velocity == "radial"
-                    
-                    phL.v .= 0.0
-                    phL.u .= 0.0
-                    phS.v .= 0.0
-                    phS.u .= 0.0
                 
-                    for ju in 1:grid_u.ny
-                        for iu in 1:grid_u.nx
-                            xcell = grid_u.x[ju,iu]
-                            ycell = grid_u.y[ju,iu]
-                
-                            vec0 = [num.xcoord, num.ycoord]
-                            vec1 = [xcell, ycell]
-                
-                            vecr = vec1-vec0
-                            normr = norm(vecr)
-                            vecr .*= 1.0/normr
-                            factor = 1.0/normr 
-                            factor *= num.radial_vel_factor
-                            # if normr>radius                              
-                            #     phL.u[ju,iu] = factor * vecr[1]
-                            #     phS.u[ju,iu] = factor * vecr[1]                
-                            # end
-                            phL.u[ju,iu] = factor * vecr[1]
-                            phS.u[ju,iu] = factor * vecr[1]   
-                        end
-                    end
-                
-                    for jv in 1:grid_v.ny
-                        for iv in 1:grid_v.nx    
-                            xcell = grid_v.x[jv,iv]
-                            ycell = grid_v.y[jv,iv]
-                
-                            vec0 = [num.xcoord, num.ycoord]
-                            vec1 = [xcell, ycell]
-                
-                            vecr = vec1-vec0
-                            normr = norm(vecr)
-                            vecr .*= 1.0/normr
-                            factor = 1.0/normr 
-                            factor *= num.radial_vel_factor
-
-                            # if normr>radius           
-                            #     phL.v[jv,iv] = factor * vecr[2]
-                            #     phS.v[jv,iv] = factor * vecr[2]                
-                            # end
-                            #print("\n i ",iv," j ",jv," vec",vecr[2]," y ",ycell," ycoord ",ycoord," v ",phL.v[jv,iv])
-                            phL.v[jv,iv] = factor * vecr[2]
-                            phS.v[jv,iv] = factor * vecr[2]   
-
-                        end
-                    end
-
-                    # grid.LS[1].u .= sqrt.((grid.x.- num.xcoord).^ 2 + (grid.y .- num.ycoord) .^ 2) - (current_radius) * ones(grid.ny, grid.nx)                  
-
-
-
                 end #imposed_velocity
 
                 
@@ -1357,7 +1305,12 @@ function run_forward!(
 
                     #TODO BC several grid.LS
                     #Poisson with variable coefficient
-                    set_poisson_variable_coeff!(num, grid, grid_u, grid_v, op.opC_pL,
+                    set_poisson_variable_coeff!(num, 
+                        grid, 
+                        grid_u, 
+                        grid_v, 
+                        op.opC_TL,
+                        op.opC_pL,
                         Ascal, 
                         rhs_scal,
                         a1_p,

@@ -231,6 +231,19 @@ struct Operators{T <: Real, D <: Integer} <: MutatingFields
     χ_b::Diagonal{T,Vector{T}}
 end
 
+"""
+DiscreteOperators
+opS::
+opL::OperatorsConvection{T,D}
+opC_TS::Operators{T,D}
+opC_TL::Operators{T,D}
+opC_pS::Operators{T,D}
+opC_pL::Operators{T,D}
+opC_uS::Operators{T,D}
+opC_uL::Operators{T,D}
+opC_vS::Operators{T,D}
+opC_vL::Operators{T,D}
+"""
 struct DiscreteOperators{T <: Real, D <: Integer}
     opS::OperatorsConvection{T,D}
     opL::OperatorsConvection{T,D}

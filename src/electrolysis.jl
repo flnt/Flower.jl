@@ -93,10 +93,10 @@ function scalar_transport!(num::Numerical{Float64, Int64},
     grid_u::Mesh{Flower.GridFCx, Float64, Int64},
     grid_v::Mesh{Flower.GridFCy, Float64, Int64},
     op::Operators{Float64, Int64},
-    op_conv::Operators{Float64, Int64},
+    op_conv::OperatorsConvection{Float64, Int64},
     ph::Phase{Float64}, 
     bc::Vector{BoundariesInt},
-    BC_int::Boundaries, 
+    BC_int::Vector{<:BoundaryCondition}, 
     A::SparseMatrixCSC{Float64, Int64},
     B::SparseArrays.SparseMatrixCSC{Float64, Int64},
     all_CUTCT::Array{Float64, 2},
@@ -106,20 +106,13 @@ function scalar_transport!(num::Numerical{Float64, Int64},
     convection::Bool, 
     ls_advection::Bool)
 
-    # geo, 
-    # grid.LS[1].geoL,
-    # grid.LS[1].MIXED, 
-    # grid.LS[1].geoL.projection,
-
-    @unpack τ, aniso, nb_transported_scalars = num
     @unpack nx, ny, dx, dy, ind, LS  = grid
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
     @unpack Bx, By, BxT, ByT, Hx, Hy, HxT, HyT, M, iMx, iMy, χ = op
-    @unpack CT, CUTCT = op_conv
     @unpack u, v, uD, vD = ph
 
     printstyled(color=:red, @sprintf "\n levelset: start scalar_transport!\n")
-    print("\n nb_transported_scalars ",nb_transported_scalars)
+    print("\n nb_transported_scalars ",num.nb_transported_scalars)
     println("\n grid.LS[1].geoL.dcap[1,1,:]",grid.LS[1].geoL.dcap[1,1,:])
 
     ni = nx * ny
@@ -193,12 +186,12 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         bcTx, bcTy = set_bc_bnds(dir, a0, HT, bc[iscal])
 
         # @views necessary
-        @views scalar_convection!(dir, CT, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, grid.LS[1].geoL.dcap, ny, 
+        @views scalar_convection!(dir, op_conv.CT, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, grid.LS[1].geoL.dcap, ny, 
         bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1]
         )
 
-        if nb_transported_scalars>1
-            for iscal=2:nb_transported_scalars
+        if num.nb_transported_scalars>1
+            for iscal=2:num.nb_transported_scalars
 
                 # printstyled(color=:red, @sprintf "\n levelset: before scalar_convection\n")
                 # println(grid.LS[1].geoL.dcap[1,1,:])
@@ -299,7 +292,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
     #either update here or compute 
     # update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
 
-    for iscal=1:nb_transported_scalars
+    for iscal=1:num.nb_transported_scalars
 
         # printstyled(color=:red, @sprintf "\n levelset: start iscal!\n")
         # println(grid.LS[1].geoL.dcap[1,1,:])
@@ -371,9 +364,9 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         if num.nLS ==1
 
             # Implicit part of heat equation
-            A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* τ .* diffusion_coeff_scal .* LT, grid, τ)
-            A[1:ni,ni+1:2*ni] = - 0.5 .* τ .* diffusion_coeff_scal .* LD
-            A[1:ni,end-nb+1:end] = - 0.5 .* τ .* diffusion_coeff_scal .* LD_b
+            A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* num.τ .* diffusion_coeff_scal .* LT, grid, num.τ)
+            A[1:ni,ni+1:2*ni] = - 0.5 .* num.τ .* diffusion_coeff_scal .* LD
+            A[1:ni,end-nb+1:end] = - 0.5 .* num.τ .* diffusion_coeff_scal .* LD_b
 
             # Interior BC
             A[ni+1:2*ni,1:ni] = b * (HxT[1] * iMx * Bx .+ HyT[1] * iMy * By)
@@ -387,9 +380,9 @@ function scalar_transport!(num::Numerical{Float64, Int64},
             # A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b)
 
             # Explicit part of heat equation
-            B[1:ni,1:ni] = M .+ 0.5 .* τ .* diffusion_coeff_scal .* LT .- τ .* CT
-            B[1:ni,ni+1:2*ni] = 0.5 .* τ .* diffusion_coeff_scal .* LD
-            B[1:ni,end-nb+1:end] = 0.5 .* τ .* diffusion_coeff_scal .* LD_b
+            B[1:ni,1:ni] = M .+ 0.5 .* num.τ .* diffusion_coeff_scal .* LT .- num.τ .* op_conv.CT
+            B[1:ni,ni+1:2*ni] = 0.5 .* num.τ .* diffusion_coeff_scal .* LD
+            B[1:ni,end-nb+1:end] = 0.5 .* num.τ .* diffusion_coeff_scal .* LD_b
 
             vec2(rhs,grid) .+= op.χ[1] * vec(a0)
 
@@ -397,9 +390,9 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         else
 
             # Implicit part of heat equation
-            A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* τ .* diffusion_coeff_scal .* LT, grid, τ)
-            # A[1:ni,ni+1:2*ni] = - 0.5 .* τ .* diffusion_coeff_scal .* LD
-            A[1:ni,end-nb+1:end] = - 0.5 .* τ .* diffusion_coeff_scal .* LD_b
+            A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* num.τ .* diffusion_coeff_scal .* LT, grid, num.τ)
+            # A[1:ni,ni+1:2*ni] = - 0.5 .* num.τ .* diffusion_coeff_scal .* LD
+            A[1:ni,end-nb+1:end] = - 0.5 .* num.τ .* diffusion_coeff_scal .* LD_b
 
             # Border BCs
             A[end-nb+1:end,1:ni] = b_b * (op.HxT_b * op.iMx_b' * Bx .+ op.HyT_b * op.iMy_b' * By)
@@ -408,9 +401,9 @@ function scalar_transport!(num::Numerical{Float64, Int64},
             # A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b)
 
             # Explicit part of heat equation
-            B[1:ni,1:ni] = M .+ 0.5 .* τ .* diffusion_coeff_scal .* LT .- τ .* CT
-            # B[1:ni,ni+1:2*ni] = 0.5 .* τ .* diffusion_coeff_scal .* LD
-            B[1:ni,end-nb+1:end] = 0.5 .* τ .* diffusion_coeff_scal .* LD_b
+            B[1:ni,1:ni] = M .+ 0.5 .* num.τ .* diffusion_coeff_scal .* LT .- num.τ .* op_conv.CT
+            # B[1:ni,ni+1:2*ni] = 0.5 .* num.τ .* diffusion_coeff_scal .* LD
+            B[1:ni,end-nb+1:end] = 0.5 .* num.τ .* diffusion_coeff_scal .* LD_b
 
             for iLS in 1:num.nLS
 
@@ -457,7 +450,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
 
 
                 # Implicit part of heat equation
-                A[1:ni,iLS*ni+1:(iLS+1)*ni] = - 0.5 .* τ .* diffusion_coeff_scal .* LD_i
+                A[1:ni,iLS*ni+1:(iLS+1)*ni] = - 0.5 .* num.τ .* diffusion_coeff_scal .* LD_i
 
                 # Interior BC
                 A[iLS*ni+1:(iLS+1)*ni,1:ni] = b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
@@ -471,7 +464,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                 A[end-nb+1:end,iLS*ni+1:(iLS+1)*ni] = b_b * (op.HxT_b * op.iMx_b' * op.Hx[iLS] .+ op.HyT_b * op.iMy_b' * op.Hy[iLS])
 
                 # Explicit part of heat equation
-                B[1:ni,iLS*ni+1:(iLS+1)*ni] = 0.5 .* τ .* diffusion_coeff_scal .* LD_i
+                B[1:ni,iLS*ni+1:(iLS+1)*ni] = 0.5 .* num.τ .* diffusion_coeff_scal .* LD_i
 
                 veci(rhs,grid,iLS+1) .+= op.χ[iLS] * vec(a0)
                 
@@ -480,7 +473,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         end #if num.nLS ==1
 
         if convection
-            vec1(rhs,grid) .-= τ .* all_CUTCT[:,iscal]
+            vec1(rhs,grid) .-= num.τ .* all_CUTCT[:,iscal]
         end
 
         vecb(rhs,grid) .+= op.χ_b * vec(a0_b)
@@ -869,7 +862,8 @@ end
 
 
 
-function print_electrolysis_statistics(nb_transported_scalars,grid,phL)
+function print_electrolysis_statistics(nb_transported_scalars::Int64,
+    grid::Mesh{Flower.GridCC, Float64, Int64}, phL::Phase{Float64})
     # normscal1L = norm(phL.trans_scal[:,:,1])
     # normscal2L = norm(phL.trans_scal[:,:,2])
     # normscal3L = norm(phL.trans_scal[:,:,3])
@@ -1215,10 +1209,11 @@ function set_poisson_variable_coeff!(num::Numerical{Float64, Int64},
     grid::Mesh{Flower.GridCC, Float64, Int64},
     grid_u::Mesh{Flower.GridFCx, Float64, Int64},
     grid_v::Mesh{Flower.GridFCy, Float64, Int64},
+    op::Operators{Float64, Int64},
     opC::Operators{Float64, Int64},
     A::SparseMatrixCSC{Float64, Int64},
     rhs::Array{Float64, 1},
-    a1,
+    a1::SparseMatrixCSC{Float64, Int64},
     BC::BoundariesInt,
     ph::Phase{Float64},
     coeffD,
@@ -1226,8 +1221,11 @@ function set_poisson_variable_coeff!(num::Numerical{Float64, Int64},
     coeffDv,
     coeffDx_interface,
     coeffDy_interface,
-    ls_advection)
+    ls_advection::Bool)
     @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
+
+    @unpack BxT, ByT,tmp_x, tmp_y = opC
+
 
     ni = grid.nx * grid.ny
     nb = 2 * grid.nx + 2 * grid.ny
@@ -1242,66 +1240,66 @@ function set_poisson_variable_coeff!(num::Numerical{Float64, Int64},
 
 
 
-    if ls_advection
-        printstyled(color=:red, @sprintf "\n update operators set_poisson_variable_coeff!\n")
+    # if ls_advection
+    #     printstyled(color=:red, @sprintf "\n update operators set_poisson_variable_coeff!\n")
         
-        # update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
+    #     # update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
 
-        # Mass matrices
-        M.diag .= vec(geo.dcap[:,:,5])
-        Mx = zeros(ny,nx+1)
-        for II in ind.all_indices
-            Mx[II] = geo.dcap[II,8]
-        end
-        for II in ind.b_right[1]
-            Mx[δx⁺(II)] = geo.dcap[II,10]
-        end
-        My = zeros(ny+1,nx)
-        for II in ind.all_indices
-            My[II] = geo.dcap[II,9]
-        end
-        for II in ind.b_top[1]
-            My[δy⁺(II)] = geo.dcap[II,11]
-        end
+    #     # Mass matrices
+    #     M.diag .= vec(grid.LS[1].geoL.dcap[:,:,5])
+    #     Mx = zeros(grid.ny,grid.nx+1)
+    #     for II in grid.ind.all_indices
+    #         Mx[II] = grid.LS[1].geoL.dcap[II,8]
+    #     end
+    #     for II in grid.ind.b_right[1]
+    #         Mx[δx⁺(II)] = grid.LS[1].geoL.dcap[II,10]
+    #     end
+    #     My = zeros(grid.ny+1,grid.nx)
+    #     for II in grid.ind.all_indices
+    #         My[II] = grid.LS[1].geoL.dcap[II,9]
+    #     end
+    #     for II in grid.ind.b_top[1]
+    #         My[δy⁺(II)] = grid.LS[1].geoL.dcap[II,11]
+    #     end
      
-        # iMx.diag .= 1. ./ (vec(Mx) .+ eps(0.01))
-        # iMy.diag .= 1. ./ (vec(My) .+ eps(0.01))
-        # iMx = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(Mx)))
-        # iMy = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(My)))
+    #     # iMx.diag .= 1. ./ (vec(Mx) .+ eps(0.01))
+    #     # iMy.diag .= 1. ./ (vec(My) .+ eps(0.01))
+    #     # iMx = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(Mx)))
+    #     # iMy = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(My)))
        
-        iMx.diag .= inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(Mx))
-        iMy.diag .= inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(My))
+    #     iMx.diag .= inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(Mx))
+    #     iMy.diag .= inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(My))
 
 
-        # Discrete gradient and divergence operators
-        divergence_B!(BxT, ByT, geo.dcap, ny, ind.all_indices)
-        mat_assign!(Bx, sparse(-BxT'))
-        mat_assign!(By, sparse(-ByT'))
+    #     # Discrete gradient and divergence operators
+    #     divergence_B!(BxT, ByT, grid.LS[1].geoL.dcap, ny, grid.ind.all_indices)
+    #     mat_assign!(Bx, sparse(-BxT'))
+    #     mat_assign!(By, sparse(-ByT'))
 
-        # Matrices for interior BCs
-        for iLS in 1:num.nLS
-            bc_matrix!(grid, Hx[iLS], Hy[iLS], geo.dcap, geo.dcap, ny, ind.all_indices)
+    #     # Matrices for interior BCs
+    #     for iLS in 1:num.nLS
+    #         bc_matrix!(grid, Hx[iLS], Hy[iLS], grid.LS[1].geoL.dcap, grid.LS[1].geoL.dcap, ny, grid.ind.all_indices)
 
-            mat_assign_T!(HxT[iLS], sparse(Hx[iLS]'))
-            mat_assign_T!(HyT[iLS], sparse(Hy[iLS]'))
+    #         mat_assign_T!(HxT[iLS], sparse(Hx[iLS]'))
+    #         mat_assign_T!(HyT[iLS], sparse(Hy[iLS]'))
 
-            periodic_bcs!(grid, Bx, By, Hx[iLS], Hy[iLS], periodic_x, periodic_y)
+    #         periodic_bcs!(grid, Bx, By, Hx[iLS], Hy[iLS], periodic_x, periodic_y)
 
-            χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
-            χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
-            χ[iLS].diag .= sqrt.(vec(χx .+ χy))
-        end
-        mat_assign!(BxT, sparse(-Bx'))
-        mat_assign!(ByT, sparse(-By'))
+    #         χx = (grid.LS[1].geoL.dcap[:,:,3] .- grid.LS[1].geoL.dcap[:,:,1]) .^ 2
+    #         χy = (grid.LS[1].geoL.dcap[:,:,4] .- grid.LS[1].geoL.dcap[:,:,2]) .^ 2
+    #         χ[iLS].diag .= sqrt.(vec(χx .+ χy))
+    #     end
+    #     mat_assign!(BxT, sparse(-Bx'))
+    #     mat_assign!(ByT, sparse(-By'))
 
-        # Matrices for borders BCs
-        set_boundary_indicator!(grid, geo, geo, op)
-        mass_matrix_borders!(num,ind, op.iMx_b, op.iMy_b, op.iMx_bd, op.iMy_bd, geo.dcap, ny)
-        bc_matrix_borders!(grid, ind, op.Hx_b, op.Hy_b, geo.dcap)
-        mat_assign_T!(op.HxT_b, sparse(op.Hx_b'))
-        mat_assign_T!(op.HyT_b, sparse(op.Hy_b'))
-        periodic_bcs_borders!(grid, op.Hx_b, op.Hy_b, periodic_x, periodic_y)
-    end
+    #     # Matrices for borders BCs
+    #     set_boundary_indicator!(grid, grid.LS[1].geoL, grid.LS[1].geoL, op)
+    #     mass_matrix_borders!(num, grid.ind, op.iMx_b, op.iMy_b, op.iMx_bd, op.iMy_bd, grid.LS[1].geoL.dcap, ny)
+    #     bc_matrix_borders!(grid, grid.ind, op.Hx_b, op.Hy_b, grid.LS[1].geoL.dcap)
+    #     mat_assign_T!(op.HxT_b, sparse(op.Hx_b'))
+    #     mat_assign_T!(op.HyT_b, sparse(op.Hy_b'))
+    #     periodic_bcs_borders!(grid, op.Hx_b, op.Hy_b, periodic_x, periodic_y)
+    # end
 
 
 
@@ -1328,7 +1326,6 @@ function set_poisson_variable_coeff!(num::Numerical{Float64, Int64},
     mat_coeffDx_b = Diagonal(vec(coeffD_borders)) # coeffDx_interface is a 1d vector with shape (2grid.ny + 2grid.nx), multiplies Hx_b and Hy_b
 
 
-    @unpack BxT, ByT,tmp_x, tmp_y = opC
 
 
     #Laplacian

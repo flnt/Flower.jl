@@ -396,7 +396,7 @@ function set_border_matrices!(num,
     return nothing
 end
 
-function laplacian(opC)
+function laplacian(opC::Operators{Float64, Int64})
     @unpack Bx, By, BxT, ByT, iMx, iMy, tmp_x, tmp_y = opC
 
     mul!(tmp_x, iMx, Bx)
@@ -407,7 +407,7 @@ function laplacian(opC)
     return L
 end
 
-function laplacian_bc(opC, nLS)
+function laplacian_bc(opC::Operators{Float64, Int64}, nLS::Int64)
     @unpack BxT, ByT, Hx, Hy, iMx, iMy, Hx_b, Hy_b, iMx_b, iMy_b = opC
 
     bc_L = []
@@ -424,9 +424,18 @@ end
 set Laplacian and BC for p, u, v
 """
 function set_matrices!(
-    num, grid, geo, grid_u, geo_u, grid_v, geo_v,
-    opC_p, opC_u, opC_v,
-    periodic_x, periodic_y
+    num::Numerical{Float64, Int64},
+    grid::Mesh{Flower.GridCC, Float64, Int64},
+    geo::Array{Flower.GeometricInfo{Float64}, 1}, 
+    grid_u::Mesh{Flower.GridFCx, Float64, Int64}, 
+    geo_u::Array{Flower.GeometricInfo{Float64}, 1}, 
+    grid_v::Mesh{Flower.GridFCy, Float64, Int64}, 
+    geo_v::Array{Flower.GeometricInfo{Float64}, 1},
+    opC_p::Operators{Float64, Int64}, 
+    opC_u::Operators{Float64, Int64}, 
+    opC_v::Operators{Float64, Int64},
+    periodic_x::Bool, 
+    periodic_y::Bool
     )
     @unpack ny, ind = grid
 
