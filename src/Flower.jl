@@ -1,4 +1,4 @@
-__precompile__()
+# __precompile__()
 
 module Flower
 
@@ -19,13 +19,12 @@ import Base.reshape
 @reexport using Base.Threads
 @reexport using LinearAlgebra
 @reexport using SparseArrays
-@reexport using BenchmarkTools
+
 @reexport using Parameters
 @reexport using StaticArrays
 @reexport using OffsetArrays
 @reexport using Roots
 @reexport using SpecialFunctions
-@reexport using IterativeSolvers
 @reexport using GeometryBasics
 @reexport using GeoInterface
 @reexport using LibGEOS
@@ -42,6 +41,13 @@ import Base.reshape
 # @reexport using Profile
 
 # @reexport using ProfileCanvas
+
+# @reexport using BenchmarkTools
+
+@reexport using IterativeSolvers #for gmres
+
+@reexport using Statistics #for mean
+
 
 # #Long version
 # @reexport using Printf

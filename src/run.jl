@@ -85,7 +85,7 @@ function run_forward!(
     adapt_timestep_mode = 0,
     non_dimensionalize=1,
     mode_2d=0,
-    test_laplacian = false,
+    test_laplacian = false::Bool,
     )
 
     #TODO Re
@@ -107,7 +107,8 @@ function run_forward!(
     num.current_i=1
     free_surface = false
     stefan = false
-        navier = false
+    navier = false
+    ls_advection = true
     if any(is_fs, BC_int)
         free_surface = true
     end
@@ -1107,9 +1108,26 @@ function run_forward!(
 
                     # if num.nLS ==1 #TODO dev multiple levelsets
 
-                    scalar_transport!(BC_trans_scal, num, grid, op.opC_TL, grid.LS[1].geoL, phL, num.concentration0,
-                    grid.LS[1].MIXED, grid.LS[1].geoL.projection, op.opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
-                    periodic_x, periodic_y, electrolysis_convection, true, BC_int, num.diffusion_coeff,Ascal,Bscal,all_CUTCT,rhs_scal)
+                   
+
+                    scalar_transport!(num, grid, grid_u, grid_v,
+                    op.opC_TL,
+                    op.opL,
+                    phL, 
+                    BC_trans_scal,
+                    BC_int,                     
+                    Ascal,
+                    Bscal,
+                    all_CUTCT,
+                    rhs_scal,
+                    periodic_x, 
+                    periodic_y, 
+                    electrolysis_convection, 
+                    ls_advection)
+
+                    # scalar_transport!(BC_trans_scal, num, grid, , grid.LS[1].geoL, phL, num.concentration0,
+                    # grid.LS[1].MIXED, grid.LS[1].geoL.projection, op.opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
+                    # periodic_x, periodic_y, electrolysis_convection, ls_advection, BC_int, num.diffusion_coeff,Ascal,Bscal,all_CUTCT,rhs_scal)
 
                     # else
                     #     printstyled(color=:red, @sprintf "\n TODO multiple LS \n" )
@@ -1344,11 +1362,13 @@ function run_forward!(
                         rhs_scal,
                         a1_p,
                         BC_phi_ele,
-                        true,elec_condD,
+                        phL,                        
+                        elec_condD,
                         coeffDu,
                         coeffDv,
                         coeffDx_interface,
-                        coeffDy_interface)
+                        coeffDy_interface,
+                        ls_advection)
 
 
                     if any(isnan, phL.phi_eleD)
