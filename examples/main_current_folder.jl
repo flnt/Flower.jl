@@ -156,24 +156,24 @@ else
     print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
 
 
-    print_table = false
-    # print_table = true
+    # print_table = false
+    ## print_table = true
 
-    if print_table
-        hl = Highlighter((d,i,j)->d[i,j] isa String, crayon"bold cyan")
+    # if print_table
+    #     hl = Highlighter((d,i,j)->d[i,j] isa String, crayon"bold cyan")
 
-        diffusion_t = (phys.radius^2)./phys.diffusion_coeff
+    #     diffusion_t = (phys.radius^2)./phys.diffusion_coeff
 
-        pretty_table(vcat(
-            hcat("Diffusion time",diffusion_t'),
-            hcat("Diffusion coef",phys.diffusion_coeff'),
-            hcat("Concentration",phys.concentration0')); 
-        formatters    = ft_printf("%0.2e", 2:4), #not ecessary , 2:4
-        header = ["","H2", "KOH", "H2O"], 
-        highlighters=hl)
+    #     pretty_table(vcat(
+    #         hcat("Diffusion time",diffusion_t'),
+    #         hcat("Diffusion coef",phys.diffusion_coeff'),
+    #         hcat("Concentration",phys.concentration0')); 
+    #     formatters    = ft_printf("%0.2e", 2:4), #not ecessary , 2:4
+    #     header = ["","H2", "KOH", "H2O"], 
+    #     highlighters=hl)
 
-        @debug "After Table"
-    end
+    #     @debug "After Table"
+    # end
 
 
     # printstyled(color=:green, @sprintf "\n Species diffusion timescales: %.2e %.2e %.2e \n" (phys.radius^2)/DH2 (phys.radius^2)/DKOH (phys.radius^2)/DH2O )

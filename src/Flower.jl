@@ -36,7 +36,7 @@ import Base.reshape
 @reexport using Test
 # @reexport using MPI
 @reexport using PropertyDicts
-@reexport using PrettyTables
+# @reexport using PrettyTables
 # @reexport using Polynomials
 @reexport using Peaks
 # @reexport using Profile
