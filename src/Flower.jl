@@ -124,6 +124,9 @@ include("electrolysis_init.jl")
 include("electrolysis_utils.jl")
 include("electrolysis.jl")
 
+include("run_profile.jl") #for profiling
+
+
 ###################################################################################################
 # For plotting with python
 ###################################################################################################

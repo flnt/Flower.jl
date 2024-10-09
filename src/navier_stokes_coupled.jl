@@ -792,6 +792,13 @@ function FE_set_momentum_coupled(
     nNav1 = 0
     _iLS = 1
     for iLS in 1:num.nLS
+        #TODO can be improved for readability / compilation:
+        # "_a1u = ones(gu) .* __a1u
+        # a1u = Diagonal(vec(_a1u))
+        # _bu = ones(gu) .* __bu
+        # bu = Diagonal(vec(_bu)) " is the same
+
+
         if is_dirichlet(bc_type[iLS])
             velu = copy(gu.V)
             a0u = ones(gu) .* velu
@@ -1324,6 +1331,644 @@ function FE_set_momentum_coupled(
     
     return rhs
 end
+
+"""
+    FE_set_momentum_coupled(
+    bc_type, num, grid, opC,
+    A, B,
+    L, bc_L, bc_L_b, Mm1, BC,
+    ls_advection
+    )
+
+Set `u` and `v` system matrices for Forward-Euler scheme in the diffusive term in 
+presence of a Navier slip BC.
+"""
+#    rhs = zeros(ntu + ntv + nNavier * nip)
+
+function FE_set_momentum_coupled2(
+    bc_type, num, gp, gu, gv,
+    opp, opu, opv,
+    A, B,
+    rhs,
+    Lu, bc_Lu, bc_Lu_b, Mum1, BCu,
+    Lv, bc_Lv, bc_Lv_b, Mvm1, BCv,
+    ls_advection
+    )
+    @unpack τ, Re, nLS, nNavier, visc_coeff = num
+
+    # iRe = 1.0 / Re
+    iRe = visc_coeff
+
+    nip = gp.nx * gp.ny
+    nbp = 2 * gp.nx + 2 * gp.ny
+
+    niu = gu.nx * gu.ny
+    nbu = 2 * gu.nx + 2 * gu.ny
+    ntu = (nLS - nNavier + 1) * niu + nbu
+
+    niv = gv.nx * gv.ny
+    nbv = 2 * gv.nx + 2 * gv.ny
+    ntv = (nLS - nNavier + 1) * niv + nbv
+
+    #Reset to zero
+    rhs = 0.0
+
+    a0_bu = zeros(nbu)
+    _a1_bu = zeros(nbu)
+    _b_bu = zeros(nbu)
+    for iLS in 1:num.nLS
+        set_borders!(gu, gu.LS[iLS].cl, gu.LS[iLS].u, a0_bu, _a1_bu, _b_bu, BCu, num.n_ext_cl)
+    end
+    a1_bu = Diagonal(vec(_a1_bu))
+    b_bu = Diagonal(vec(_b_bu))
+
+    a0_bv = zeros(nbv)
+    _a1_bv = zeros(nbv)
+    _b_bv = zeros(nbv)
+    for iLS in 1:num.nLS
+        set_borders!(gv, gv.LS[iLS].cl, gv.LS[iLS].u, a0_bv, _a1_bv, _b_bv, BCv, num.n_ext_cl)
+    end
+    a1_bv = Diagonal(vec(_a1_bv))
+    b_bv = Diagonal(vec(_b_bv))
+
+    if ls_advection
+        A.nzval .= 0.0
+        # Implicit part of viscous term
+        A[1:niu,1:niu] = pad_crank_nicolson(opu.M .- τ .* Lu, gu, τ)
+        # Contribution to implicit part of viscous term from outer boundaries
+        A[1:niu,ntu-nbu+1:ntu] = - τ .* bc_Lu_b
+        # Boundary conditions for outer boundaries
+        A[ntu-nbu+1:ntu,1:niu] = b_bu * (opu.HxT_b * opu.iMx_b' * opu.Bx .+ opu.HyT_b * opu.iMy_b' * opu.By)
+        A[ntu-nbu+1:ntu,ntu-nbu+1:ntu] = pad(b_bu * (
+            opu.HxT_b * opu.iMx_bd * opu.Hx_b .+ 
+            opu.HyT_b * opu.iMy_bd * opu.Hy_b
+        ) .- opu.χ_b * a1_bu)
+
+        # Implicit part of viscous term
+        A[ntu+1:ntu+niv,ntu+1:ntu+niv] = pad_crank_nicolson(opv.M .- τ .* Lv, gv, τ)
+        # Contribution to implicit part of viscous term from outer boundaries
+        A[ntu+1:ntu+niv,ntu+ntv-nbv+1:ntu+ntv] = - τ .* bc_Lv_b
+        # Boundary conditions for outer boundaries
+        A[ntu+ntv-nbv+1:ntu+ntv,ntu+1:ntu+niv] = b_bv * (opv.HxT_b * opv.iMx_b' * opv.Bx .+ opv.HyT_b * opv.iMy_b' * opv.By)
+        A[ntu+ntv-nbv+1:ntu+ntv,ntu+ntv-nbv+1:ntu+ntv] = pad(b_bv * (
+            opv.HxT_b * opv.iMx_bd * opv.Hx_b .+ 
+            opv.HyT_b * opv.iMy_bd * opv.Hy_b
+        ) .- opv.χ_b * a1_bv)
+
+        B[1:niu,1:niu] = Mum1
+        B[ntu+1:ntu+niv,ntu+1:ntu+niv] = Mvm1
+    end
+
+    nNav1 = 0
+    _iLS = 1
+    for iLS in 1:num.nLS
+        #TODO can be improved for readability / compilation:
+        # "_a1u = ones(gu) .* __a1u
+        # a1u = Diagonal(vec(_a1u))
+        # _bu = ones(gu) .* __bu
+        # bu = Diagonal(vec(_bu)) " is the same
+
+
+        _a1u = ones(gu) .* __a1u
+        a1u = Diagonal(vec(_a1u))
+        _bu = ones(gu) .* __bu
+        bu = Diagonal(vec(_bu))
+
+        # allocates ones...
+        # better tot do mapping function if cte... else if matrix ...
+
+
+        if is_dirichlet(bc_type[iLS])
+            velu = copy(gu.V) #TODO really reed to copy ? allocates a whole new 
+            a0u = ones(gu) .* velu
+            __a1u = -1.0
+            __bu = 0.0
+            
+
+            velv = copy(gv.V)
+            a0v = ones(gv) .* velv
+            __a1v = -1.0
+            __bv = 0.0
+            _a1v = ones(gv) .* __a1v
+            a1v = Diagonal(vec(_a1v))
+            _bv = ones(gv) .* __bv
+            bv = Diagonal(vec(_bv))
+        elseif is_neumann(bc_type[iLS])
+            velu = 0.0
+            a0u = ones(gu) .* velu
+            __a1u = 0.0
+            __bu = 1.0
+            _a1u = ones(gu) .* __a1u
+            a1u = Diagonal(vec(_a1u))
+            _bu = ones(gu) .* __bu
+            bu = Diagonal(vec(_bu))
+
+            velv = 0.0
+            a0v = ones(gv) .* velv
+            __a1v = 0.0
+            __bv = 1.0
+            _a1v = ones(gv) .* __a1v
+            a1v = Diagonal(vec(_a1v))
+            _bv = ones(gv) .* __bv
+            bv = Diagonal(vec(_bv))
+        elseif is_robin(bc_type[iLS])
+            velu = 0.0
+            a0u = ones(gu) .* velu
+            __a1u = -1.0
+            __bu = 1.0
+            _a1u = ones(gu) .* __a1u
+            a1u = Diagonal(vec(_a1u))
+            _bu = ones(gu) .* __bu
+            bu = Diagonal(vec(_bu))
+
+            velv = 0.0
+            a0v = ones(gv) .* velv
+            __a1v = -1.0
+            __bv = 1.0
+            _a1v = ones(gv) .* __a1v
+            a1v = Diagonal(vec(_a1v))
+            _bv = ones(gv) .* __bv
+            bv = Diagonal(vec(_bv))
+        elseif is_fs(bc_type[iLS])
+            velu = 0.0
+            a0u = ones(gu) .* velu
+            __a1u = 0.0
+            __bu = 1.0
+            _a1u = ones(gu) .* __a1u
+            a1u = Diagonal(vec(_a1u))
+            _bu = ones(gu) .* __bu
+            bu = Diagonal(vec(_bu))
+
+            velv = 0.0
+            a0v = ones(gv) .* velv
+            __a1v = 0.0
+            __bv = 1.0
+            _a1v = ones(gv) .* __a1v
+            a1v = Diagonal(vec(_a1v))
+            _bv = ones(gv) .* __bv
+            bv = Diagonal(vec(_bv))
+        elseif is_wall_no_slip(bc_type[iLS])
+            velu = bc_type[iLS].val
+            a0u = ones(gu) .* velu
+            __a1u = -1.0
+            __bu = 0.0
+            _a1u = ones(gu) .* __a1u
+            a1u = Diagonal(vec(_a1u))
+            _bu = ones(gu) .* __bu
+            bu = Diagonal(vec(_bu))
+
+            velv = bc_type[iLS].val
+            a0v = ones(gv) .* velv
+            __a1v = -1.0
+            __bv = 0.0
+            _a1v = ones(gv) .* __a1v
+            a1v = Diagonal(vec(_a1v))
+            _bv = ones(gv) .* __bv
+            bv = Diagonal(vec(_bv))
+        elseif is_navier_cl(bc_type[iLS])
+            velp = bc_type[iLS].val
+            a0p = ones(gp) .* velp
+
+            # Assumes FreeSurface() is the first interface!!! (LS[1])
+            ϵb = num.n_ext_cl .* sqrt.(gp.dx.^2 .+ gp.dy.^2)
+            bp = Diagonal(vec(bc_type[iLS].λ * bell_function2.(gp.LS[1].u, ϵb)))
+        elseif is_navier(bc_type[iLS])
+            velp = bc_type[iLS].val
+            a0p = ones(gp) .* velp
+
+            λ = bc_type[iLS].λ .* ones(gp)
+            bp = Diagonal(vec(λ))
+        else
+            velu = bc_type[iLS].val
+            a0u = ones(gu) .* velu
+            __a1u = -1.0
+            __bu = 0.0
+            _a1u = ones(gu) .* __a1u
+            a1u = Diagonal(vec(_a1u))
+            _bu = ones(gu) .* __bu
+            bu = Diagonal(vec(_bu))
+
+            velv = bc_type[iLS].val
+            a0v = ones(gv) .* velv
+            __a1v = -1.0
+            __bv = 0.0
+            _a1v = ones(gv) .* __a1v
+            a1v = Diagonal(vec(_a1v))
+            _bv = ones(gv) .* __bv
+            bv = Diagonal(vec(_bv))
+        end
+
+        sbu = _iLS*niu+1:(_iLS+1)*niu
+        sbv = ntu+_iLS*niv+1:ntu+(_iLS+1)*niv
+
+        if ls_advection
+            if !is_navier_cl(bc_type[iLS]) && !is_navier(bc_type[iLS])
+                # Contribution to implicit part of viscous term from inner boundaries
+                A[1:niu,sbu] = - τ .* bc_Lu[iLS]
+                A[ntu+1:ntu+niv,sbv] = - τ .* bc_Lv[iLS]
+                # Boundary conditions for inner boundaries
+                A[sbu,1:niu] = bu * (opu.HxT[iLS] * opu.iMx * opu.Bx .+ opu.HyT[iLS] * opu.iMy * opu.By)
+                A[sbv,ntu+1:ntu+niv] = bv * (opv.HxT[iLS] * opv.iMx * opv.Bx .+ opv.HyT[iLS] * opv.iMy * opv.By)
+                # Contribution to Neumann BC from other boundaries
+                nNav2 = 0
+                for i in 1:num.nLS
+                    if i != iLS && (!is_navier_cl(bc_type[i]) && !is_navier(bc_type[i]))
+                        A[sbu,i*niu+1:(i+1)*niu] = bu * (
+                            opu.HxT[iLS] * opu.iMx * opu.Hx[i] .+
+                            opu.HyT[iLS] * opu.iMy * opu.Hy[i]
+                        )
+                        A[sbv,ntu+i*niv+1:ntu+(i+1)*niv] = bv * (
+                            opv.HxT[iLS] * opv.iMx * opv.Hx[i] .+
+                            opv.HyT[iLS] * opv.iMy * opv.Hy[i]
+                        )
+                    elseif i != iLS
+                        sinα = Diagonal(vec(sin.(gp.LS[i].α)))
+                        replace!(sinα.diag, NaN=>0.0)
+                        cosα = Diagonal(vec(cos.(gp.LS[i].α)))
+                        replace!(cosα.diag, NaN=>0.0)
+
+                        #TODO hcat can be improved by new 
+                        cap1 = hcat(
+                            zeros(gp.ny),
+                            gp.LS[i].geoL.cap[:,1:end-1,3] .- gp.LS[i].geoL.cap[:,1:end-1,1],
+                            zeros(gp.ny)
+                        )
+                        cap2 = vcat(
+                            zeros(1,gp.nx),
+                            gp.LS[i].geoL.cap[1:end-1,:,4] .- gp.LS[i].geoL.cap[1:end-1,:,2],
+                            zeros(1,gp.nx)
+                        )
+                        cap3 = hcat(
+                            zeros(gp.ny),
+                            gp.LS[i].geoL.cap[:,2:end,3] .- gp.LS[i].geoL.cap[:,2:end,1],
+                            zeros(gp.ny)
+                        )
+                        cap4 = vcat(
+                            zeros(1,gp.nx),
+                            gp.LS[i].geoL.cap[2:end,:,4] .- gp.LS[i].geoL.cap[2:end,:,2],
+                            zeros(1,gp.nx)
+                        )
+                        capx = cap1 + cap3
+                        capy = cap2 + cap4
+
+                        avgx = copy(opp.Bx)
+                        avgx.nzval .= 0.0
+                        @inbounds @threads for II in gu.ind.all_indices[:,2:end-1]
+                            pII = lexicographic(II, gu.ny)
+                            if capx[II] > num.epsilon_dist
+                                avgx[pII,pII-gu.ny] = cap1[II] * inv_weight_eps(num,capx[II])
+                                avgx[pII,pII] = cap3[II] * inv_weight_eps(num,capx[II])
+                            else
+                                avgx[pII,pII-gu.ny] = 0.5
+                                avgx[pII,pII] = 0.5
+                            end
+                        end
+                        @inbounds @threads for II in gu.ind.all_indices[:,1]
+                            pII = lexicographic(II, gu.ny)
+                            avgx[pII,pII] = 0.5
+                        end
+                        @inbounds @threads for II in gu.ind.all_indices[:,end]
+                            pII = lexicographic(II, gu.ny)
+                            avgx[pII,pII-gu.ny] = 0.5
+                        end
+                        avgy = copy(opp.By)
+                        avgy.nzval .= 0.0
+                        @inbounds @threads for II in gv.ind.all_indices[2:end-1,:]
+                            pII = lexicographic(II, gp.ny)
+                            pJJ = lexicographic(II, gv.ny)
+                            if capy[II] > num.epsilon_dist
+                                avgy[pJJ,pII-1] = cap2[II] * inv_weight_eps(num,capy[II])
+                                avgy[pJJ,pII] = cap4[II] * inv_weight_eps(num,capy[II])
+                            else
+                                avgy[pJJ,pII-1] = 0.5
+                                avgy[pJJ,pII] = 0.5
+                            end
+                        end
+                        @inbounds @threads for II in gv.ind.all_indices[1,:]
+                            pII = lexicographic(II, gp.ny)
+                            pJJ = lexicographic(II, gv.ny)
+                            avgy[pJJ,pII] = 0.5
+                        end
+                        @inbounds @threads for II in gv.ind.all_indices[end,:]
+                            pII = lexicographic(II, gp.ny)
+                            pJJ = lexicographic(II, gv.ny)
+                            avgy[pJJ,pII-1] = 0.5
+                        end
+                        A[sbu,ntu+ntv+1+nNav2*nip:ntu+ntv+(nNav2+1)*nip] = bu * (
+                            opu.HxT[iLS] * opu.iMx * opu.Hx[i] .+
+                            opu.HyT[iLS] * opu.iMy * opu.Hy[i]
+                        ) * avgx * sinα
+                        A[sbv,ntu+ntv+1+nNav2*nip:ntu+ntv+(nNav2+1)*nip] = bv * (
+                            opv.HxT[iLS] * opv.iMx * opv.Hx[i] .+
+                            opv.HyT[iLS] * opv.iMy * opv.Hy[i]
+                        ) * avgy * (-cosα)
+
+                        nNav2 += 1
+                    end
+                end
+                A[sbu,sbu] = pad(bu * (
+                    opu.HxT[iLS] * opu.iMx * opu.Hx[iLS] .+
+                    opu.HyT[iLS] * opu.iMy * opu.Hy[iLS]
+                ) .- opu.χ[iLS] * a1u)
+                A[sbv,sbv] = pad(bv * (
+                    opv.HxT[iLS] * opv.iMx * opv.Hx[iLS] .+
+                    opv.HyT[iLS] * opv.iMy * opv.Hy[iLS]
+                ) .- opv.χ[iLS] * a1v)
+
+                A[sbu,ntu-nbu+1:ntu] = bu * (
+                    opu.HxT[iLS] * opu.iMx_b * opu.Hx_b .+ opu.HyT[iLS] * opu.iMy_b * opu.Hy_b
+                )
+                A[sbv,ntu+ntv-nbv+1:ntu+ntv] = bv * (
+                    opv.HxT[iLS] * opv.iMx_b * opv.Hx_b .+ opv.HyT[iLS] * opv.iMy_b * opv.Hy_b
+                )
+                # Boundary conditions for outer boundaries
+                A[ntu-nbu+1:ntu,sbu] = b_bu * (
+                    opu.HxT_b * opu.iMx_b' * opu.Hx[iLS] .+ opu.HyT_b * opu.iMy_b' * opu.Hy[iLS]
+                )
+                A[ntu+ntv-nbv+1:ntu+ntv,sbv] = b_bv * (
+                    opv.HxT_b * opv.iMx_b' * opv.Hx[iLS] .+ opv.HyT_b * opv.iMy_b' * opv.Hy[iLS]
+                )
+
+                _iLS += 1
+            else # Tangential component of velocity if Navier BC
+                sinα_p = Diagonal(vec(sin.(gp.LS[iLS].α)))
+                replace!(sinα_p.diag, NaN=>0.0)
+                cosα_p = Diagonal(vec(cos.(gp.LS[iLS].α)))
+                replace!(cosα_p.diag, NaN=>0.0)
+
+                sinα_u = Diagonal(vec(sin.(gu.LS[iLS].α)))
+                replace!(sinα_u.diag, NaN=>0.0)
+                cosα_v = Diagonal(vec(cos.(gv.LS[iLS].α)))
+                replace!(cosα_v.diag, NaN=>0.0)
+
+                # Contribution to implicit part of viscous term from inner boundaries
+                cap1 = hcat(
+                    zeros(gp.ny),
+                    gp.LS[iLS].geoL.cap[:,1:end-1,3] .- gp.LS[iLS].geoL.cap[:,1:end-1,1],
+                    zeros(gp.ny)
+                )
+                cap2 = vcat(
+                    zeros(1,gp.nx),
+                    gp.LS[iLS].geoL.cap[1:end-1,:,4] .- gp.LS[iLS].geoL.cap[1:end-1,:,2],
+                    zeros(1,gp.nx)
+                )
+                cap3 = hcat(
+                    zeros(gp.ny),
+                    gp.LS[iLS].geoL.cap[:,2:end,3] .- gp.LS[iLS].geoL.cap[:,2:end,1],
+                    zeros(gp.ny)
+                )
+                cap4 = vcat(
+                    zeros(1,gp.nx),
+                    gp.LS[iLS].geoL.cap[2:end,:,4] .- gp.LS[iLS].geoL.cap[2:end,:,2],
+                    zeros(1,gp.nx)
+                )
+                capx = cap1 + cap3
+                capy = cap2 + cap4
+
+                avgx = copy(opp.Bx)
+                avgx.nzval .= 0.0
+                @inbounds @threads for II in gu.ind.all_indices[:,2:end-1]
+                    pII = lexicographic(II, gu.ny)
+                    if capx[II] > num.epsilon_dist
+                        avgx[pII,pII-gu.ny] = cap1[II] * inv_weight_eps(num,capx[II])
+                        avgx[pII,pII] = cap3[II] * inv_weight_eps(num,capx[II])
+                    else
+                        if gp.LS[iLS].geoL.cap[δx⁻(II),5] > num.epsilon_vol && gp.LS[iLS].geoL.cap[II,5] > num.epsilon_vol
+                            if !(δx⁻(II) in gp.LS[1].MIXED)
+                                avgx[pII,pII] = 1.0
+                            elseif !(II in gp.LS[1].MIXED)
+                                avgx[pII,pII-gu.ny] = 1.0
+                            else
+                                avgx[pII,pII-gu.ny] = 0.5
+                                avgx[pII,pII] = 0.5
+                            end
+                        elseif gp.LS[iLS].geoL.cap[δx⁻(II),5] > num.epsilon_vol
+                            avgx[pII,pII-gu.ny] = 1.0
+                        else
+                            avgx[pII,pII] = 1.0
+                        end
+                    end
+                end
+                @inbounds @threads for II in gu.ind.all_indices[:,1]
+                    pII = lexicographic(II, gu.ny)
+                    avgx[pII,pII] = 0.5
+                end
+                @inbounds @threads for II in gu.ind.all_indices[:,end]
+                    pII = lexicographic(II, gu.ny)
+                    avgx[pII,pII-gu.ny] = 0.5
+                end
+                avgy = copy(opp.By)
+                avgy.nzval .= 0.0
+                @inbounds @threads for II in gv.ind.all_indices[2:end-1,:]
+                    pII = lexicographic(II, gp.ny)
+                    pJJ = lexicographic(II, gv.ny)
+                    if capy[II] > num.epsilon_dist
+                        avgy[pJJ,pII-1] = cap2[II] * inv_weight_eps(num,capy[II])
+                        avgy[pJJ,pII] = cap4[II] * inv_weight_eps(num,capy[II])
+                    else
+                        if gp.LS[iLS].geoL.cap[δy⁻(II),5] > num.epsilon_vol && gp.LS[iLS].geoL.cap[II,5] > num.epsilon_vol
+                            avgy[pJJ,pII-1] = 0.5
+                            avgy[pJJ,pII] = 0.5
+                            if !(δy⁻(II) in gp.LS[1].MIXED)
+                                avgy[pJJ,pII] = 1.0
+                            elseif !(II in gp.LS[1].MIXED)
+                                avgy[pJJ,pII-1] = 1.0
+                            else
+                                avgy[pJJ,pII-1] = 0.5
+                                avgy[pJJ,pII] = 0.5
+                            end
+                        elseif gp.LS[iLS].geoL.cap[δy⁻(II),5] > num.epsilon_vol
+                            avgy[pJJ,pII-1] = 1.0
+                        else
+                            avgy[pJJ,pII] = 1.0
+                        end
+                    end
+                end
+                @inbounds @threads for II in gv.ind.all_indices[1,:]
+                    pII = lexicographic(II, gp.ny)
+                    pJJ = lexicographic(II, gv.ny)
+                    avgy[pJJ,pII] = 0.5
+                end
+                @inbounds @threads for II in gv.ind.all_indices[end,:]
+                    pII = lexicographic(II, gp.ny)
+                    pJJ = lexicographic(II, gv.ny)
+                    avgy[pJJ,pII-1] = 0.5
+                end
+                A[1:niu,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * τ .* (
+                    opu.BxT * opu.iMx * opu.Hx[iLS] .+
+                    opu.ByT * opu.iMy * opu.Hy[iLS]
+                ) * sinα_u * avgx
+                A[ntu+1:ntu+niv,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * τ .* (
+                    opv.BxT * opv.iMx * opv.Hx[iLS] .+
+                    opv.ByT * opv.iMy * opv.Hy[iLS]
+                ) * (-cosα_v) * avgy
+
+                # Boundary conditions for inner boundaries
+                cap1 = gu.LS[iLS].geoL.cap[:,1:end-1,5]
+                cap2 = gv.LS[iLS].geoL.cap[1:end-1,:,5]
+                cap3 = gu.LS[iLS].geoL.cap[:,2:end,5]
+                cap4 = gv.LS[iLS].geoL.cap[2:end,:,5]
+                capx = cap1 + cap3
+                capy = cap2 + cap4
+
+                avgu = copy(opp.BxT)
+                avgu.nzval .= 0.0
+                avgv = copy(opp.ByT)
+                avgv.nzval .= 0.0
+                @inbounds @threads for II in gp.ind.all_indices
+                    pII = lexicographic(II, gp.ny)
+                    pJJ = lexicographic(II, gv.ny)
+
+                    avgu[pII,pII] = cap1[II] * inv_weight_eps(num,capx[II])
+                    avgu[pII,pII+gu.ny] = cap3[II] * inv_weight_eps(num,capx[II])
+
+                    avgv[pII,pJJ] = cap2[II] * inv_weight_eps(num,capy[II])
+                    avgv[pII,pJJ+1] = cap4[II] * inv_weight_eps(num,capy[II])
+                end
+                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,1:niu] = bp * (
+                    opp.HxT[iLS] * opp.iMx * opp.Bx .+
+                    opp.HyT[iLS] * opp.iMy * opp.By
+                ) * sinα_p * avgu
+                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu+1:ntu+niv] = bp * (
+                    opp.HxT[iLS] * opp.iMx * opp.Bx .+
+                    opp.HyT[iLS] * opp.iMy * opp.By
+                ) * (-cosα_p) * avgv
+
+                for i in 1:num.nLS
+                    if i != iLS && (!is_navier_cl(bc_type[i]) && !is_navier(bc_type[i]))
+                        cap1 = gu.LS[i].geoL.cap[:,1:end-1,3] .- gu.LS[i].geoL.cap[:,1:end-1,1]
+                        cap2 = gv.LS[i].geoL.cap[1:end-1,:,4] .- gv.LS[i].geoL.cap[1:end-1,:,2]
+                        cap3 = gu.LS[i].geoL.cap[:,2:end,3] .- gu.LS[i].geoL.cap[:,2:end,1]
+                        cap4 = gv.LS[i].geoL.cap[2:end,:,4] .- gv.LS[i].geoL.cap[2:end,:,2]
+                        capx = cap1 + cap3
+                        capy = cap2 + cap4
+
+                        avgu = copy(opp.BxT)
+                        avgu.nzval .= 0.0
+                        avgv = copy(opp.ByT)
+                        avgv.nzval .= 0.0
+                        @inbounds @threads for II in gp.ind.all_indices
+                            pII = lexicographic(II, gp.ny)
+                            pJJ = lexicographic(II, gv.ny)
+
+                            avgu[pII,pII] = cap1[II] * inv_weight_eps(num,capx[II])
+                            avgu[pII,pII+gu.ny] = cap3[II] * inv_weight_eps(num,capx[II])
+
+                            avgv[pII,pJJ] = cap2[II] * inv_weight_eps(num,capy[II])
+                            avgv[pII,pJJ+1] = cap4[II] * inv_weight_eps(num,capy[II])
+                        end
+                        A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,i*niu+1:(i+1)*niu] = bp * (
+                            opp.HxT[iLS] * opp.iMx * opp.Hx[i] .+
+                            opp.HyT[iLS] * opp.iMy * opp.Hy[i]
+                        ) * sinα_p * avgu
+                        A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu+i*niv+1:ntu+(i+1)*niv] = bp * (
+                            opp.HxT[iLS] * opp.iMx * opp.Hx[i] .+
+                            opp.HyT[iLS] * opp.iMy * opp.Hy[i]
+                        ) * (-cosα_p) * avgv
+                    end
+                end
+                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = pad(bp * (
+                    opp.HxT[iLS] * opp.iMx * opp.Hx[iLS] .+
+                    opp.HyT[iLS] * opp.iMy * opp.Hy[iLS]
+                ) .+ opp.χ[iLS])
+
+                sinα_b = Diagonal(zeros(nbp))
+                sinα_b.diag[1:gp.ny] .= sin.(gp.LS[iLS].α[:,1])
+                sinα_b.diag[gp.ny+1:gp.ny+gp.nx] .= sin.(gp.LS[iLS].α[1,:])
+                sinα_b.diag[gp.ny+gp.nx+1:2gp.ny+gp.nx] .= sin.(gp.LS[iLS].α[:,end])
+                sinα_b.diag[2gp.ny+gp.nx+1:end] .= sin.(gp.LS[iLS].α[end,:])
+                cosα_b = Diagonal(zeros(nbp))
+                cosα_b.diag[1:gp.ny] .= cos.(gp.LS[iLS].α[:,1])
+                cosα_b.diag[gp.ny+1:gp.ny+gp.nx] .= cos.(gp.LS[iLS].α[1,:])
+                cosα_b.diag[gp.ny+gp.nx+1:2gp.ny+gp.nx] .= cos.(gp.LS[iLS].α[:,end])
+                cosα_b.diag[2gp.ny+gp.nx+1:end] .= cos.(gp.LS[iLS].α[end,:])
+
+                avgu = spdiagm(nbp, nbu, 0 => zeros(nbp), 1 => zeros(nbp-1))
+                for ii in 1:gp.ny
+                    avgu[ii,ii] = 1.0
+                    avgu[gp.ny+gp.nx+ii,gu.ny+gu.nx+ii] = 1.0
+                end
+                for ii in 1:gp.nx
+                    avgu[ii+gp.ny,ii+gu.ny] = 0.5
+                    avgu[ii+gp.ny,ii+gu.ny+1] = 0.5
+                    avgu[ii+2gp.ny+gp.nx,ii+2gu.ny+gu.nx] = 0.5
+                    avgu[ii+2gp.ny+gp.nx,ii+2gu.ny+gu.nx+1] = 0.5
+                end
+                avgv = spdiagm(nbp, nbv, 0 => zeros(nbp), 1 => zeros(nbp-1))
+                for ii in 1:gp.ny
+                    avgv[ii,ii] = 0.5
+                    avgv[ii,ii+1] = 0.5
+                    avgv[gp.ny+gp.nx+ii,gv.ny+gv.nx+ii] = 0.5
+                    avgv[gp.ny+gp.nx+ii,gv.ny+gv.nx+ii+1] = 0.5
+                end
+                for ii in 1:gp.nx
+                    avgv[ii+gp.ny,ii+gv.ny] = 1.0
+                    avgv[ii+2gp.ny+gp.nx,ii+2gv.ny+gv.nx] = 1.0
+                end
+                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu-nbu+1:ntu] = bp * (
+                    opp.HxT[iLS] * opp.iMx_b * opp.Hx_b .+ 
+                    opp.HyT[iLS] * opp.iMy_b * opp.Hy_b
+                ) * sinα_b * avgu
+                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu+ntv-nbv+1:ntu+ntv] = bp * (
+                    opp.HxT[iLS] * opp.iMx_b * opp.Hx_b .+ 
+                    opp.HyT[iLS] * opp.iMy_b * opp.Hy_b
+                ) * (-cosα_b) * avgv
+                
+                # Boundary conditions for outer boundaries
+                avgu = spdiagm(nbu, nbp, 0 => zeros(nbp), 1 => zeros(nbp-1))
+                for ii in 1:gu.ny
+                    avgu[ii,ii] = 1.0
+                    avgu[gu.ny+gu.nx+ii,gp.ny+gp.nx+ii] = 1.0
+                end
+                avgu[gu.ny+1,gp.ny+1]  = 1.0
+                avgu[gu.ny+gu.nx,gp.ny+gp.nx]  = 1.0
+                avgu[2gu.ny+gu.nx+1,2gp.ny+gp.nx+1]  = 1.0
+                avgu[end,end]  = 1.0
+                for ii in 2:(gu.nx-1)
+                    avgu[ii+gu.ny,ii+gp.ny-1] = 0.5
+                    avgu[ii+gu.ny,ii+gp.ny] = 0.5
+                    avgu[ii+2gu.ny+gu.nx,ii+2gp.ny+gp.nx-1] = 0.5
+                    avgu[ii+2gu.ny+gu.nx,ii+2gp.ny+gp.nx] = 0.5
+                end
+                avgv = spdiagm(nbv, nbp, 0 => zeros(nbp), 1 => zeros(nbp-1))
+                avgv[1,1]  = 1.0
+                avgv[gv.ny,gp.ny]  = 1.0
+                avgv[gv.ny+gv.nx+1,gp.ny+gp.nx+1]  = 1.0
+                avgv[2gv.ny+gv.nx,2gp.ny+gp.nx]  = 1.0
+                for ii in 2:(gv.ny-1)
+                    avgv[ii,ii-1] = 0.5
+                    avgv[ii,ii] = 0.5
+                    avgv[gv.ny+gv.nx+ii,gp.ny+gp.nx+ii] = 0.5
+                    avgv[gv.ny+gv.nx+ii,gp.ny+gp.nx+ii] = 0.5
+                end
+                for ii in 1:gv.nx
+                    avgv[ii+gv.ny,ii+gp.ny] = 1.0
+                    avgv[ii+2gv.ny+gv.nx,ii+2gp.ny+gp.nx] = 1.0
+                end
+                A[ntu-nbu+1:ntu,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = b_bu * (
+                    opu.HxT_b * opu.iMx_b' * opu.Hx[iLS] .+ opu.HyT_b * opu.iMy_b' * opu.Hy[iLS]
+                ) * avgx * sinα_p
+                A[ntu+ntv-nbv+1:ntu+ntv,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = b_bv * (
+                    opv.HxT_b * opv.iMx_b' * opv.Hx[iLS] .+ opv.HyT_b * opv.iMy_b' * opv.Hy[iLS]
+                ) * avgy * (-cosα_p)
+            end
+        end
+
+        if !is_navier_cl(bc_type[iLS]) && !is_navier(bc_type[iLS])
+            @inbounds rhs[sbu] .= opu.χ[iLS] * vec(a0u)
+            @inbounds rhs[sbv] .= opv.χ[iLS] * vec(a0v)
+        else
+            @inbounds rhs[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] .= opp.χ[iLS] * vec(a0p)
+            nNav1 += 1
+        end
+    end
+
+    @inbounds rhs[ntu-nbu+1:ntu] .= opu.χ_b * vec(a0_bu)
+    @inbounds rhs[ntu+ntv-nbv+1:ntu+ntv] .= opv.χ_b * vec(a0_bv)
+    
+    return rhs
+end
+
 
 """
     CN_set_momentum(

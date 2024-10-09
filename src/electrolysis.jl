@@ -229,65 +229,79 @@ function scalar_transport!(num::Numerical{Float64, Int64},
     # println(grid.LS[1].geoL.dcap[1,1,:])
 
 
-    if ls_advection
-        update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
+    if num.nLS ==1
+        #error iLS 1 
+        if ls_advection
+            update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
 
-        # Mass matrices
-        M.diag .= vec(grid.LS[1].geoL.dcap[:,:,5])
-        Mx = zeros(ny,nx+1)
-        for II in ind.all_indices
-            Mx[II] = grid.LS[1].geoL.dcap[II,8]
+            # Mass matrices
+            M.diag .= vec(grid.LS[1].geoL.dcap[:,:,5])
+            Mx = zeros(ny,nx+1)
+            for II in ind.all_indices
+                Mx[II] = grid.LS[1].geoL.dcap[II,8]
+            end
+            for II in ind.b_right[1]
+                Mx[δx⁺(II)] = grid.LS[1].geoL.dcap[II,10]
+            end
+            My = zeros(ny+1,nx)
+            for II in ind.all_indices
+                My[II] = grid.LS[1].geoL.dcap[II,9]
+            end
+            for II in ind.b_top[1]
+                My[δy⁺(II)] = grid.LS[1].geoL.dcap[II,11]
+            end
+        
+            # iMx.diag .= 1. ./ (vec(Mx) .+ eps(0.01))
+            # iMy.diag .= 1. ./ (vec(My) .+ eps(0.01))
+            # iMx = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(Mx)))
+            # iMy = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(My)))
+        
+            iMx.diag .= inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(Mx))
+            iMy.diag .= inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(My))
+
+
+            # Discrete gradient and divergence operators
+            divergence_B!(BxT, ByT, grid.LS[1].geoL.dcap, ny, ind.all_indices)
+            mat_assign!(Bx, sparse(-BxT'))
+            mat_assign!(By, sparse(-ByT'))
+
+            # Matrices for interior BCs
+            for iLS in 1:num.nLS
+                bc_matrix!(grid, Hx[iLS], Hy[iLS], grid.LS[1].geoL.dcap, grid.LS[1].geoL.dcap, ny, ind.all_indices)
+
+                mat_assign_T!(HxT[iLS], sparse(Hx[iLS]'))
+                mat_assign_T!(HyT[iLS], sparse(Hy[iLS]'))
+
+                periodic_bcs!(grid, Bx, By, Hx[iLS], Hy[iLS], periodic_x, periodic_y)
+
+                χx = (grid.LS[1].geoL.dcap[:,:,3] .- grid.LS[1].geoL.dcap[:,:,1]) .^ 2
+                χy = (grid.LS[1].geoL.dcap[:,:,4] .- grid.LS[1].geoL.dcap[:,:,2]) .^ 2
+                op.χ[iLS].diag .= sqrt.(vec(χx .+ χy))
+            end
+            mat_assign!(BxT, sparse(-Bx'))
+            mat_assign!(ByT, sparse(-By'))
+
+            # Matrices for borders BCs
+            set_boundary_indicator!(grid, grid.LS[1].geoL, grid.LS[1].geoL, op)
+            mass_matrix_borders!(num,ind, op.iMx_b, op.iMy_b, op.iMx_bd, op.iMy_bd, grid.LS[1].geoL.dcap, ny)
+            bc_matrix_borders!(grid, ind, op.Hx_b, op.Hy_b, grid.LS[1].geoL.dcap)
+            mat_assign_T!(op.HxT_b, sparse(op.Hx_b'))
+            mat_assign_T!(op.HyT_b, sparse(op.Hy_b'))
+            periodic_bcs_borders!(grid, op.Hx_b, op.Hy_b, periodic_x, periodic_y)
         end
-        for II in ind.b_right[1]
-            Mx[δx⁺(II)] = grid.LS[1].geoL.dcap[II,10]
-        end
-        My = zeros(ny+1,nx)
-        for II in ind.all_indices
-            My[II] = grid.LS[1].geoL.dcap[II,9]
-        end
-        for II in ind.b_top[1]
-            My[δy⁺(II)] = grid.LS[1].geoL.dcap[II,11]
-        end
-     
-        # iMx.diag .= 1. ./ (vec(Mx) .+ eps(0.01))
-        # iMy.diag .= 1. ./ (vec(My) .+ eps(0.01))
-        # iMx = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(Mx)))
-        # iMy = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(My)))
-       
-        iMx.diag .= inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(Mx))
-        iMy.diag .= inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(My))
 
+    else
+        # #TODO better alloc
+        # geo = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
+        # geo_u = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
+        # geo_v = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
 
-        # Discrete gradient and divergence operators
-        divergence_B!(BxT, ByT, grid.LS[1].geoL.dcap, ny, ind.all_indices)
-        mat_assign!(Bx, sparse(-BxT'))
-        mat_assign!(By, sparse(-ByT'))
+        # laps = set_matrices!(
+        #     num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+        #     opC_p, opC_u, opC_v,
+        #     periodic_x, periodic_y)
 
-        # Matrices for interior BCs
-        for iLS in 1:num.nLS
-            bc_matrix!(grid, Hx[iLS], Hy[iLS], grid.LS[1].geoL.dcap, grid.LS[1].geoL.dcap, ny, ind.all_indices)
-
-            mat_assign_T!(HxT[iLS], sparse(Hx[iLS]'))
-            mat_assign_T!(HyT[iLS], sparse(Hy[iLS]'))
-
-            periodic_bcs!(grid, Bx, By, Hx[iLS], Hy[iLS], periodic_x, periodic_y)
-
-            χx = (grid.LS[1].geoL.dcap[:,:,3] .- grid.LS[1].geoL.dcap[:,:,1]) .^ 2
-            χy = (grid.LS[1].geoL.dcap[:,:,4] .- grid.LS[1].geoL.dcap[:,:,2]) .^ 2
-            op.χ[iLS].diag .= sqrt.(vec(χx .+ χy))
-        end
-        mat_assign!(BxT, sparse(-Bx'))
-        mat_assign!(ByT, sparse(-By'))
-
-        # Matrices for borders BCs
-        set_boundary_indicator!(grid, grid.LS[1].geoL, grid.LS[1].geoL, op)
-        mass_matrix_borders!(num,ind, op.iMx_b, op.iMy_b, op.iMx_bd, op.iMy_bd, grid.LS[1].geoL.dcap, ny)
-        bc_matrix_borders!(grid, ind, op.Hx_b, op.Hy_b, grid.LS[1].geoL.dcap)
-        mat_assign_T!(op.HxT_b, sparse(op.Hx_b'))
-        mat_assign_T!(op.HyT_b, sparse(op.Hy_b'))
-        periodic_bcs_borders!(grid, op.Hx_b, op.Hy_b, periodic_x, periodic_y)
-    end
-    
+    end #nLS ==1
 
     #either update here or compute 
     # update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
@@ -445,26 +459,37 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                 _b = ones(grid) .* __b
                 b = Diagonal(vec(_b))
 
+
+                sb = iLS*ni+1:(iLS+1)*ni
+            
                 #Here allocate better or replace LD_i
                 LD_i = BxT * iMx * Hx[iLS] .+ ByT * iMy * Hy[iLS] 
 
 
                 # Implicit part of heat equation
-                A[1:ni,iLS*ni+1:(iLS+1)*ni] = - 0.5 .* num.τ .* diffusion_coeff_scal .* LD_i
+                A[1:ni,sb] = - 0.5 .* num.τ .* diffusion_coeff_scal .* LD_i
 
                 # Interior BC
-                A[iLS*ni+1:(iLS+1)*ni,1:ni] = b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
-                A[iLS*ni+1:(iLS+1)*ni,iLS*ni+1:(iLS+1)*ni] = pad(b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .- op.χ[iLS] * a1)
+                A[sb,1:ni] = b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
+
+
+                 for i in 1:num.nLS
+                    if i != iLS
+                        A[sb,i*ni+1:(i+1)*ni] = -b * (HxT[iLS] * iMx * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
+                    end
+                end
+
+                A[sb,sb] = pad(b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .- op.χ[iLS] * a1)
 
                 #TODO no need for fs_mat
 
-                A[iLS*ni+1:(iLS+1)*ni,end-nb+1:end] = b * (HxT[iLS] * op.iMx_b * op.Hx_b .+ HyT[iLS] * op.iMy_b * op.Hy_b)
+                A[sb,end-nb+1:end] = b * (HxT[iLS] * op.iMx_b * op.Hx_b .+ HyT[iLS] * op.iMy_b * op.Hy_b)
 
                 #Border BCs
-                A[end-nb+1:end,iLS*ni+1:(iLS+1)*ni] = b_b * (op.HxT_b * op.iMx_b' * op.Hx[iLS] .+ op.HyT_b * op.iMy_b' * op.Hy[iLS])
+                A[end-nb+1:end,sb] = b_b * (op.HxT_b * op.iMx_b' * op.Hx[iLS] .+ op.HyT_b * op.iMy_b' * op.Hy[iLS])
 
                 # Explicit part of heat equation
-                B[1:ni,iLS*ni+1:(iLS+1)*ni] = 0.5 .* num.τ .* diffusion_coeff_scal .* LD_i
+                B[1:ni,sb] = 0.5 .* num.τ .* diffusion_coeff_scal .* LD_i
 
                 veci(rhs,grid,iLS+1) .+= op.χ[iLS] * vec(a0)
                 
@@ -961,10 +986,6 @@ function print_electrolysis_statistics(nb_transported_scalars::Int64,
 
 end
 
-
-"""
-  Compute norm of gradient for exchange current
-"""
 # Gradient of pressure, eq. 17 in 
 #"A Conservative Cartesian Cut-Cell Method for Mixed Boundary Conditions and the Incompressible Navier-Stokes Equations on Staggered Meshes"
 #From navier_stokes_coupled.jl
@@ -974,7 +995,17 @@ end
 #     ∇ϕ_x .+= opC_u.Gx[iLS] * veci(phi_eleD,grid,iLS+1)
 #     ∇ϕ_y .+= opC_v.Gy[iLS] * veci(phi_eleD,grid,iLS+1)
 # end
-function compute_grad_phi_ele!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS)
+"""
+  Compute norm of gradient for exchange current
+"""
+function compute_grad_phi_ele!(num::Numerical{Float64, Int64},
+    grid::Mesh{Flower.GridCC, Float64, Int64},
+    grid_u::Mesh{Flower.GridFCx, Float64, Int64},
+    grid_v::Mesh{Flower.GridFCy, Float64, Int64},
+    phL::Phase{Float64},
+    phS::Phase{Float64}, 
+    opC_pL::Operators{Float64, Int64}, 
+    opC_pS::Operators{Float64, Int64})
     
     @unpack nLS = num
 
@@ -1209,7 +1240,7 @@ function set_poisson_variable_coeff!(num::Numerical{Float64, Int64},
     grid::Mesh{Flower.GridCC, Float64, Int64},
     grid_u::Mesh{Flower.GridFCx, Float64, Int64},
     grid_v::Mesh{Flower.GridFCy, Float64, Int64},
-    op::Operators{Float64, Int64},
+    # op::Operators{Float64, Int64},
     opC::Operators{Float64, Int64},
     A::SparseMatrixCSC{Float64, Int64},
     rhs::Array{Float64, 1},

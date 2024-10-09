@@ -2,6 +2,15 @@
 
 ## Improving type declarations
 
+Profiling with BenchmarkTools:ctrl shif p in VScode, @bprofile and using ProfileSVG
+
+```bash
+module testprofile
+ARGS = String["levelset_Butler_two_LS.yml"]
+include("../Flower.jl/examples/profile_compile.jl")
+end
+```
+
 Profile Flower.jl with /examples/profile.jl: run the function "run_forward!" once to precompile so that it does not appear in flamegraph and then rerun with @profview
 TODO: get more details on the time "run_forward!" takes to compile 
 

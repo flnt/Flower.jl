@@ -616,7 +616,15 @@ end
 
     dimensionalize!, Wcapacities!, average_face_capacities!
 """
-function postprocess_grids2!(grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, periodic_y, average)
+function postprocess_grids2!(grid::Mesh{Flower.GridCC,Float64,Int64},
+    LS::Levelset{Float64, Int64},
+    grid_u::Mesh{Flower.GridFCx, Float64, Int64},
+    LS_u::Levelset{Float64, Int64},
+    grid_v::Mesh{Flower.GridFCy, Float64, Int64},
+    LS_v::Levelset{Float64, Int64}, 
+    periodic_x::Bool, 
+    periodic_y::Bool, 
+    average::Bool)
     dimensionalize!(grid, LS.geoS)
     dimensionalize!(grid, LS.geoL)
     dimensionalize!(grid_u, LS_u.geoS)

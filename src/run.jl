@@ -77,9 +77,9 @@ function run_forward!(
     electrolysis_convection::Bool = false,  
     electrolysis_liquid_phase::Bool = false,
     electrolysis_solid_phase::Bool = false,
-    electrolysis_phase_change_case = "Khalighi",
-    electrolysis_reaction = "nothing",
-    imposed_velocity = "none",
+    electrolysis_phase_change_case::String = "Khalighi",
+    electrolysis_reaction::String = "nothing",
+    imposed_velocity::String = "none",
     adapt_timestep_mode::Int64 = 0,
     non_dimensionalize::Int64=1,
     mode_2d::Int64=0,
@@ -567,6 +567,7 @@ function run_forward!(
                     true
                 )
             end
+            #TODO remove alloc a0_p
             a0_p = []
             for i in 1:num.nLS
                 push!(a0_p, zeros(grid))
@@ -1057,6 +1058,15 @@ function run_forward!(
                     # if num.nLS ==1 #TODO dev multiple levelsets
 
                    
+                    #TODO better alloc
+                    geo = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
+                    geo_u = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
+                    geo_v = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+
+                    laps = set_matrices!(
+                        num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+                        op.opC_pL, op.opC_uL, op.opC_vL,
+                        periodic_x, periodic_y)
 
                     scalar_transport!(num, grid, grid_u, grid_v,
                     op.opC_TL,
@@ -1301,6 +1311,17 @@ function run_forward!(
 
                     # printstyled(color=:green, @sprintf "\n BC phi : %.2e \n" BC_phi_ele.int.val)
 
+                    printstyled(color=:magenta, @sprintf "\n test LS update for set_poisson_variable_coeff!  \n")
+
+                    update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
+                    
+                    laps = set_matrices!(
+                        num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL,
+                        op.opC_pL, op.opC_uL, op.opC_vL,
+                        periodic_x, periodic_y
+                    )
+                    # Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = laps
+                    printstyled(color=:magenta, @sprintf "\n test LS update for set_poisson_variable_coeff!  \n")
 
 
                     #TODO BC several grid.LS
@@ -1309,7 +1330,7 @@ function run_forward!(
                         grid, 
                         grid_u, 
                         grid_v, 
-                        op.opC_TL,
+                        # op.opC_TL,
                         op.opC_pL,
                         Ascal, 
                         rhs_scal,
