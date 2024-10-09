@@ -678,8 +678,8 @@ elseif sim.name == "levelset_Butler_two_LS"
     left   = Neumann(val=-i_butler/(2*phys.Faraday*DH2)), #Dirichlet(val = phys.concentration0[1]), #
     right  = Dirichlet(val = phys.concentration0[1]),
     int    = Dirichlet(val = phys.concentration0[1]),
-    LS     = [Dirichlet(val = 10),Dirichlet(val = -10)]
-    # LS     = [Dirichlet(val = phys.concentration0[1]),Neumann(val=-i_butler_scal/(2*phys.Faraday*DH2))]
+    # LS     = [Dirichlet(val = 10),Dirichlet(val = -10)]
+    LS     = [Dirichlet(val = phys.concentration0[1]),Neumann(val=-i_butler_scal/(2*phys.Faraday*DH2))]
     ) #H2
 
     BC_trans_scal_KOH = BoundariesInt(
