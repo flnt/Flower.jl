@@ -1040,6 +1040,17 @@ function run_forward!(
                     # printstyled(color=:red, @sprintf "\n levelset: before scalar_transport\n")
                     # println(grid.LS[1].geoL.dcap[1,1,:])
 
+                            
+                    #TODO better alloc
+                    # geo = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
+                    # geo_u = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
+                    # geo_v = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+
+                    # laps = set_matrices!(
+                    #     num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+                    #     op.opC_pL, op.opC_uL, op.opC_vL,
+                    #     periodic_x, periodic_y)
+
                     if electrolysis_advection
 
                     # if imposed_velocity == "zero" && num.current_i ==16
@@ -1057,8 +1068,32 @@ function run_forward!(
 
                     # if num.nLS ==1 #TODO dev multiple levelsets
 
+
+                      #PDI (IO)      
+        
+                    if num.io_pdi>0
+
+                        #or permutedims(gp.LS[iLSpdi].geoL.dcap, (3, 2, 1)) (3, 1, 2)
+                        try                            
+                            iLSpdi = 1 # TODO all grid.LS                
+                            PDI_status = @ccall "libpdi".PDI_multi_expose("write_capacities"::Cstring,                    
+                            # "dcap"::Cstring, permutedims(grid.LS[iLSpdi].geoL.dcap, (3, 2, 1))::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "dcap_1"::Cstring, grid.LS[iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "dcap_2"::Cstring, grid.LS[iLSpdi].geoL.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "dcap_3"::Cstring, grid.LS[iLSpdi].geoL.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "dcap_4"::Cstring, grid.LS[iLSpdi].geoL.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint,
+
+                            C_NULL::Ptr{Cvoid})::Cint                           
+                        catch error
+                            printstyled(color=:red, @sprintf "\n PDI error \n")
+                            print(error)
+                            printstyled(color=:red, @sprintf "\n PDI error \n")
+                        end
+                    end #if io_pdi
+
+
                    
-                    #TODO better alloc
+                    # #TODO better alloc
                     geo = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
                     geo_u = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
                     geo_v = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]

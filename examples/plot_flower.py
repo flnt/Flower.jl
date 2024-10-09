@@ -2892,8 +2892,8 @@ def veci(data,nx,ny,field_index):
         bulk (i=1) or i-th interface field
     """
     # print(data.shape)
-    np.set_printoptions(threshold=sys.maxsize)
-    print(data)
+    # np.set_printoptions(threshold=sys.maxsize)
+    # print(data)
 
     field = data[(field_index-1)*ny*nx:field_index*ny*nx] 
     # print(field.shape)

@@ -308,6 +308,66 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         #     opC_p, opC_u, opC_v,
         #     periodic_x, periodic_y)
 
+         #error iLS 1 
+         if ls_advection
+            update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
+
+            # Mass matrices
+            M.diag .= vec(grid.LS[end].geoL.dcap[:,:,5])
+            Mx = zeros(ny,nx+1)
+            for II in ind.all_indices
+                Mx[II] = grid.LS[end].geoL.dcap[II,8]
+            end
+            for II in ind.b_right[1]
+                Mx[δx⁺(II)] = grid.LS[end].geoL.dcap[II,10]
+            end
+            My = zeros(ny+1,nx)
+            for II in ind.all_indices
+                My[II] = grid.LS[end].geoL.dcap[II,9]
+            end
+            for II in ind.b_top[1]
+                My[δy⁺(II)] = grid.LS[end].geoL.dcap[II,11]
+            end
+        
+            # iMx.diag .= 1. ./ (vec(Mx) .+ eps(0.01))
+            # iMy.diag .= 1. ./ (vec(My) .+ eps(0.01))
+            # iMx = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(Mx)))
+            # iMy = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(My)))
+        
+            iMx.diag .= inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(Mx))
+            iMy.diag .= inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(My))
+
+
+            # Discrete gradient and divergence operators
+            divergence_B!(BxT, ByT, grid.LS[end].geoL.dcap, ny, ind.all_indices)
+            mat_assign!(Bx, sparse(-BxT'))
+            mat_assign!(By, sparse(-ByT'))
+
+            # Matrices for interior BCs
+            for iLS in 1:num.nLS
+                bc_matrix!(grid, Hx[iLS], Hy[iLS], grid.LS[iLS].geoL.dcap, grid.LS[iLS].geoL.dcap, ny, ind.all_indices)
+
+                mat_assign_T!(HxT[iLS], sparse(Hx[iLS]'))
+                mat_assign_T!(HyT[iLS], sparse(Hy[iLS]'))
+
+                periodic_bcs!(grid, Bx, By, Hx[iLS], Hy[iLS], periodic_x, periodic_y)
+
+                χx = (grid.LS[iLS].geoL.dcap[:,:,3] .- grid.LS[iLS].geoL.dcap[:,:,1]) .^ 2
+                χy = (grid.LS[iLS].geoL.dcap[:,:,4] .- grid.LS[iLS].geoL.dcap[:,:,2]) .^ 2
+                op.χ[iLS].diag .= sqrt.(vec(χx .+ χy))
+            end
+            mat_assign!(BxT, sparse(-Bx'))
+            mat_assign!(ByT, sparse(-By'))
+
+            # Matrices for borders BCs
+            set_boundary_indicator!(grid, grid.LS[end].geoL, grid.LS[end].geoL, op)
+            mass_matrix_borders!(num,ind, op.iMx_b, op.iMy_b, op.iMx_bd, op.iMy_bd, grid.LS[end].geoL.dcap, ny)
+            bc_matrix_borders!(grid, ind, op.Hx_b, op.Hy_b, grid.LS[1].geoL.dcap)
+            mat_assign_T!(op.HxT_b, sparse(op.Hx_b'))
+            mat_assign_T!(op.HyT_b, sparse(op.Hy_b'))
+            periodic_bcs_borders!(grid, op.Hx_b, op.Hy_b, periodic_x, periodic_y)
+        end
+
     end #nLS ==1
 
     #either update here or compute 
@@ -576,9 +636,10 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                 printstyled(color=:magenta, @sprintf "\n PDI write_scalar_transport %.5i \n" num.current_i)
 
                 PDI_status = @ccall "libpdi".PDI_multi_expose("write_scalar_transport"::Cstring,
-                "chi_1"::Cstring, op.χ[1]::Ptr{Cdouble}, PDI_OUT::Cint,
-                "chi_2"::Cstring, op.χ[2]::Ptr{Cdouble}, PDI_OUT::Cint,
-                "chi_3"::Cstring, op.χ[3]::Ptr{Cdouble}, PDI_OUT::Cint,
+                "rhs_1D"::Cstring, rhs::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "chi_1"::Cstring, op.χ[1]::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "chi_2"::Cstring, op.χ[2]::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "chi_3"::Cstring, op.χ[3]::Ptr{Cdouble}, PDI_OUT::Cint,
                 # "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
                 # "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
                 # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,

@@ -709,6 +709,8 @@ elseif sim.name == "levelset_Butler_two_LS"
         int    = Neumann(val=0.0),
         LS = [Neumann(val=0.0),Neumann(val=i_butler_scal./elec_cond)]) #first is interface
 
+  
+
 
 elseif sim.name == "sessile"
 
@@ -1245,6 +1247,8 @@ if num.io_pdi>0
 
 end #if num.io_pdi>0
 
+
+
 # current_t = 0
 # num.current_i = 0
 
@@ -1560,6 +1564,24 @@ if num.io_pdi>0
     end
 
 end #if io_pdi
+
+# if num.io_pdi>0
+#     iLSpdi = 1 # TODO all grid.LS                
+#     PDI_status = @ccall "libpdi".PDI_multi_expose("write_capacities"::Cstring,                    
+#     "dcap"::Cstring, permutedims(gp.LS[iLSpdi].geoL.dcap, (3, 1, 2))::Ptr{Cdouble}, PDI_OUT::Cint,                            
+#     C_NULL::Ptr{Cvoid})::Cint 
+#     # try                            
+#     #     iLSpdi = 1 # TODO all grid.LS                
+#     #     PDI_status = @ccall "libpdi".PDI_multi_expose("write_capacities"::Cstring,                    
+#     #     "dcap"::Cstring, gp.LS[iLSpdi].geoL.dcap'::Ptr{Cdouble}, PDI_OUT::Cint,                            
+#     #     C_NULL::Ptr{Cvoid})::Cint                           
+#     # catch error
+#     #     printstyled(color=:red, @sprintf "\n PDI error \n")
+#     #     print(error)
+#     #     printstyled(color=:red, @sprintf "\n PDI error \n")
+#     # end
+# end #if io_pdi
+printstyled(color=:red, @sprintf "\n after pdi \n")
 
 
 print("\n BC_u ",BC_u)

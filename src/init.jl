@@ -29,7 +29,7 @@ function Levelset(nx, ny)
     LIQ = ones(ny, nx, 11)
     LIQ[:,:,8:end] .*= 0.5
 
-    dSOL = zeros(ny, nx, 11)
+    dSOL = zeros(ny, nx, 11) #TODO define as float from the start
     dLIQ = ones(ny, nx, 11)
 
     liq_projection = Matrix{Gradient{Float64}}(undef, ny, nx)
