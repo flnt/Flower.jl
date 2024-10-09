@@ -151,6 +151,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
 
         iscal = 1
 
+
         # printstyled(color=:red, @sprintf "\n levelset: before scalar_convection\n")
         # println(grid.LS[1].geoL.dcap[1,1,:])
 
@@ -186,9 +187,12 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         bcTx, bcTy = set_bc_bnds(dir, a0, HT, bc[iscal])
 
         # @views necessary
-        @views scalar_convection!(dir, op_conv.CT, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, grid.LS[1].geoL.dcap, ny, 
+        @views scalar_convection!(dir, op_conv.CT, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, grid.LS[end].geoL.dcap, ny, 
         bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1]
         )
+        # @views scalar_convection!(dir, op_conv.CT, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, grid.LS[1].geoL.dcap, ny, 
+        # bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1]
+        # )
 
         if num.nb_transported_scalars>1
             for iscal=2:num.nb_transported_scalars
@@ -218,9 +222,12 @@ function scalar_transport!(num::Numerical{Float64, Int64},
 
                 bcTx, bcTy = set_bc_bnds(dir, a0, HT, bc[iscal])
                 # @views necessary
-                @views scalar_convection_CUTCT!(dir, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, grid.LS[1].geoL.dcap, ny, 
+                @views scalar_convection_CUTCT!(dir, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, grid.LS[end].geoL.dcap, ny, 
                 bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1]
                 )
+                # @views scalar_convection_CUTCT!(dir, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, grid.LS[1].geoL.dcap, ny, 
+                # bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1]
+                # )
             end
         end       
     end #convection
@@ -421,7 +428,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
 
             for iLS in 1:num.nLS
 
-                print("\n BC iLS",iLS," ",bc[iscal].LS[iLS])
+                print("\n BC iLS ",iLS," ",bc[iscal].LS[iLS])
                 print("\n BC iLS val ",bc[iscal].LS[iLS].val)
 
                 if is_dirichlet(bc[iscal].LS[iLS])
@@ -533,6 +540,78 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         @views ph.trans_scalD[:,iscal] .= A \ rhs
         
         @views ph.trans_scal[:,:,iscal] .= reshape(veci(ph.trans_scalD[:,iscal],grid,1), grid)
+
+
+        if num.io_pdi>0
+    
+            try
+                # # printstyled(color=:red, @sprintf "\n PDI test \n" )
+        
+                # time = current_t #Cdouble
+                # nstep = num.current_i
+           
+                # # phi_array=phL.phi_ele #do not transpose since python row major
+                
+                # compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+        
+                # #store in us, vs instead of Eus, Evs
+                # interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,us,vs)
+
+                # @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
+                # "i_current_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "i_current_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,  
+                # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # C_NULL::Ptr{Cvoid})::Cint
+
+                # interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,us,vs)
+        
+                # # print("\n before write \n ")
+        
+                # iLSpdi = 1 # all grid.LS iLS = 1 # or all grid.LS ?
+
+                # # Exposing data to PDI for IO    
+                # # if writing "D" array (bulk, interface, border), add "_1D" to the name
+                
+                printstyled(color=:magenta, @sprintf "\n PDI write_scalar_transport %.5i \n" num.current_i)
+
+                PDI_status = @ccall "libpdi".PDI_multi_expose("write_scalar_transport"::Cstring,
+                "chi_1"::Cstring, op.χ[1]::Ptr{Cdouble}, PDI_OUT::Cint,
+                "chi_2"::Cstring, op.χ[2]::Ptr{Cdouble}, PDI_OUT::Cint,
+                "chi_3"::Cstring, op.χ[3]::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+                # "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+                # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+                # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+                # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+                C_NULL::Ptr{Cvoid})::Cint
+        
+            catch error
+                printstyled(color=:red, @sprintf "\n PDI error \n")
+                print(error)
+                printstyled(color=:red, @sprintf "\n PDI error \n")
+            end
+
+           
+
+        end #if io_pdi
+
 
 
         #Checks after resolutions: is the value physical?

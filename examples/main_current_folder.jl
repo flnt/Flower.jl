@@ -678,7 +678,8 @@ elseif sim.name == "levelset_Butler_two_LS"
     left   = Neumann(val=-i_butler/(2*phys.Faraday*DH2)), #Dirichlet(val = phys.concentration0[1]), #
     right  = Dirichlet(val = phys.concentration0[1]),
     int    = Dirichlet(val = phys.concentration0[1]),
-    LS     = [Dirichlet(val = phys.concentration0[1]),Neumann(val=-i_butler_scal/(2*phys.Faraday*DH2))]
+    LS     = [Dirichlet(val = 10),Dirichlet(val = -10)]
+    # LS     = [Dirichlet(val = phys.concentration0[1]),Neumann(val=-i_butler_scal/(2*phys.Faraday*DH2))]
     ) #H2
 
     BC_trans_scal_KOH = BoundariesInt(
@@ -687,7 +688,7 @@ elseif sim.name == "levelset_Butler_two_LS"
     left   = Neumann(val=-i_butler/(2*phys.Faraday*DKOH)),
     right  = Dirichlet(val = phys.concentration0[2]),
     int    = Neumann(val=0.0),
-    LS     = [Dirichlet(val = phys.concentration0[2]),Neumann(val=-i_butler_scal/(2*phys.Faraday*DKOH))]
+    LS     = [Neumann(val=0.0),Neumann(val=-i_butler_scal/(2*phys.Faraday*DKOH))]
     ) #KOH
 
     BC_trans_scal_H2O = BoundariesInt(
@@ -696,7 +697,7 @@ elseif sim.name == "levelset_Butler_two_LS"
     left   = Neumann(val=i_butler/(phys.Faraday*DH2O)),
     right  = Dirichlet(val = phys.concentration0[3]),
     int    = Neumann(val=0.0),
-    LS     = [Dirichlet(val = phys.concentration0[3]),Neumann(val=i_butler_scal/(phys.Faraday*DH2O))]
+    LS     = [Neumann(val=0.0),Neumann(val=i_butler_scal/(phys.Faraday*DH2O))]
     ) #H2O
 
 
@@ -706,7 +707,7 @@ elseif sim.name == "levelset_Butler_two_LS"
         bottom = Neumann(val=0.0),
         top    = Neumann(val=0.0),
         int    = Neumann(val=0.0),
-        LS = [Neumann(val=0.0),Neumann(val=i_butler./elec_cond)]) #first is interface
+        LS = [Neumann(val=0.0),Neumann(val=i_butler_scal./elec_cond)]) #first is interface
 
 
 elseif sim.name == "sessile"

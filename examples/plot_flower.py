@@ -1365,7 +1365,7 @@ def plot_file(
 
             try:
                 LSdat = file[key_LS_wall][:]
-                plot_LS(LSdat)
+                # plot_LS(LSdat)
 
                 LSdat = LSdat.transpose()
                 # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
@@ -1796,7 +1796,7 @@ def plot_python_pdf_full2(
 
     file_name = figpar['file']
 
-    # print(key,"max ",np.max(data_1D))
+    print(key,"max ",np.max(data_1D))
 
     # print("plotting ", file_name)
 
@@ -1866,7 +1866,10 @@ def plot_python_pdf_full2(
     # reshape_data()
     plot_bc_possible_based_on_dim = True
 
+    print("dim",data_1D.ndim)
+
     if data_1D.ndim ==1:
+        print('data_1D.ndim == 1')
         field0 = veci(data_1D,nx,ny,field_index)
     elif data_1D.shape[1] == 1:
         print('data_1D.shape[1] == 1')
@@ -1877,9 +1880,11 @@ def plot_python_pdf_full2(
         # print(data_1D)
         # print(data_1D[0]) 
         #[0,:]
+        print("data_1D.shape[0] == 1")
         data_1D = data_1D[0]
         field0 = veci(data_1D,nx,ny,field_index)
     elif data_1D.ndim ==2:
+        print("data_1D.ndim ==2")
         field0 = data_1D.transpose()
         plot_bc_possible_based_on_dim = False
 
@@ -2887,6 +2892,9 @@ def veci(data,nx,ny,field_index):
         bulk (i=1) or i-th interface field
     """
     # print(data.shape)
+    np.set_printoptions(threshold=sys.maxsize)
+    print(data)
+
     field = data[(field_index-1)*ny*nx:field_index*ny*nx] 
     # print(field.shape)
 
