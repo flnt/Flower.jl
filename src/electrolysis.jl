@@ -87,6 +87,8 @@ end
 
 """    
 scalar transport (convection and diffusion)
+
+interface term in rhs comes from op.opC_TL
 """ 
 function scalar_transport!(num::Numerical{Float64, Int64},
     grid::Mesh{Flower.GridCC, Float64, Int64}, 
@@ -101,6 +103,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
     B::SparseArrays.SparseMatrixCSC{Float64, Int64},
     all_CUTCT::Array{Float64, 2},
     rhs::Array{Float64, 1},
+    a0::Array{Float64, 2},
     periodic_x::Bool, 
     periodic_y::Bool, 
     convection::Bool, 
@@ -118,9 +121,12 @@ function scalar_transport!(num::Numerical{Float64, Int64},
     ni = nx * ny
     nb = 2 * nx + 2 * ny
 
+    #reset to zero
+    #TODO use fill or nzval ? check correct
     A .= 0.0
     B .= 0.0
     all_CUTCT .=0.0
+    a0 .= 0.0
 
     
     # Operators
@@ -178,12 +184,25 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         end
 
         # Flags with BCs
-        a0 = ones(grid) .* __a0
+        a0 .= __a0
+        # a0 = ones(grid) .* __a0
 
         # The idea there is to have at the corners the contributions from both borders. 
         # bcTx is only used for derivatives in x and bcTy for derivatives in y, so it doesn't matter 
         # that bcTx is not filled at the top and bottom and the same for bcTy
         # Otherwise we would have to select one of the contributions
+
+        #TODO WARNING: only first interfacial value is filled
+
+
+        # for iLS in 1:num.nLS
+           
+        #     χx = (grid.LS[iLS].geoL.dcap[:,:,3] .- grid.LS[iLS].geoL.dcap[:,:,1]) .^ 2
+        #     χy = (grid.LS[iLS].geoL.dcap[:,:,4] .- grid.LS[iLS].geoL.dcap[:,:,2]) .^ 2
+        #     op.χ[iLS].diag .= sqrt.(vec(χx .+ χy))
+        #     a0 .+= __a0[iscal] * op.χ[iLS] 
+        # end
+
         bcTx, bcTy = set_bc_bnds(dir, a0, HT, bc[iscal])
 
         # @views necessary
@@ -218,7 +237,9 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                 end
 
                 # Flags with BCs
-                a0 = ones(grid) .* __a0
+                a0 .= __a0
+
+                # a0 = ones(grid) .* __a0
 
                 bcTx, bcTy = set_bc_bnds(dir, a0, HT, bc[iscal])
                 # @views necessary
@@ -411,7 +432,8 @@ function scalar_transport!(num::Numerical{Float64, Int64},
             end
 
             # Flags with BCs
-            a0 = ones(grid) .* __a0
+            a0 .= __a0
+            # a0 = ones(grid) .* __a0
 
             _a1 = ones(grid) .* __a1
             a1 = Diagonal(vec(_a1))
@@ -517,9 +539,32 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                     __a1 = -1.0
                     __b = 0.0
                 end
-    
-                # Flags with BCs
-                a0 = ones(grid) .* __a0
+                
+                #BC for LS describing the wall for electrolysis
+                #Supposing phi = num.phi_ele1 in wall
+                if num.scalar_bc == 1
+                    iLS_elec = 2
+                    # a0 = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(ph.phi_eleD, grid,iLS_elec+1),
+                    # num.phi_ele1,num.Ru,num.temperature0)./(2*num.Faraday*num.diffusion_coeff[iscal])
+
+                    if iscal==1 || iscal==2 #produced: *- (i negative)
+                        a0 = -butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(ph.phi_eleD, grid,iLS_elec+1),
+                        num.phi_ele1,num.Ru,num.temperature0)./(2*num.Faraday*num.diffusion_coeff[iscal])
+                    else #H2O consummed: *+
+                        a0 = +butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(ph.phi_eleD, grid,iLS_elec+1),
+                        num.phi_ele1,num.Ru,num.temperature0)./(2*num.Faraday*num.diffusion_coeff[iscal])
+                    end
+                    
+                    # if iscal==1 || iscal==2 #H2O consummed
+                    #     BC_trans_scal[iscal].left.val .*=-1 #H2O consummed
+                    # end
+
+                else
+                    # Flags with BCs
+                    a0 .= __a0
+                    # a0 = ones(grid) .* __a0
+
+                end
     
                 _a1 = ones(grid) .* __a1
                 a1 = Diagonal(vec(_a1))
@@ -724,24 +769,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
 end
 
 
-"""
-Butler-Volmer model, relation between exchande current and potential at electrode, with effects of concentration
-c0_H2: reference concentration
-"""
-function butler_volmer_concentration(alpha_a,alpha_c,c_H2,c0_H2,c_H2O,c0_H2O,c_KOH,c0_KOH,Faraday,i0,phi_ele,phi_ele1,Ru,temperature0)
-    eta = phi_ele1 - phi_ele
-    i_current = i0*(sqrt(c_H2/c0_H2)*(c_KOH/c0_KOH)*exp(alpha_a*Faraday*eta/(Ru*temperature0))-(c_H2O/c0_H2O)*exp(-alpha_c*Faraday*eta/(Ru*temperature0)))
-    return i_current
-end
 
-"""
-Butler-Volmer model, relation between exchande current and potential at electrode without concentration
-"""
-function butler_volmer_no_concentration(alpha_a,alpha_c,Faraday,i0,phi_ele,phi_ele1,Ru,temperature0)
-    eta = phi_ele1 - phi_ele
-    i_current = i0*(exp(alpha_a*Faraday*eta/(Ru*temperature0))-exp(-alpha_c*Faraday*eta/(Ru*temperature0)))
-    return i_current
-end
 
 
 
@@ -1384,6 +1412,7 @@ function set_poisson_variable_coeff!(num::Numerical{Float64, Int64},
     opC::Operators{Float64, Int64},
     A::SparseMatrixCSC{Float64, Int64},
     rhs::Array{Float64, 1},
+    a0::Array{Float64, 2},
     a1::SparseMatrixCSC{Float64, Int64},
     BC::BoundariesInt,
     ph::Phase{Float64},
@@ -1408,7 +1437,6 @@ function set_poisson_variable_coeff!(num::Numerical{Float64, Int64},
     coeffDx_interface .= 0.0
     coeffDy_interface .= 0.0
     A .= 0.0
-
 
 
     # if ls_advection
@@ -1571,8 +1599,94 @@ function set_poisson_variable_coeff!(num::Numerical{Float64, Int64},
             end
     
 
-            # Flags with BCs
-            a0 = ones(grid) .* __a0
+
+
+            if num.nLS == 1
+
+                # Flags with BCs
+                a0 .= __a0
+                # a0 = ones(grid) .* __a0
+            
+            else 
+
+                #TODO BC LS 2 in set_poisson directly
+                #  BC_phi_ele.LS[2].val .= i_butler./vecb_L(elec_condD, grid)
+
+                # #TODO BC LS 2
+                # BC_phi_ele.LS[2].val .= i_butler./elec_cond[:,1]
+
+                #use Butler-Volmer, supposing the interfacial potential is acceptable and phi = phi_ele1 in metal 
+                # for conductivity, use interfacial value or bulk in corresponding cell
+
+                # TODO -(-i/kappa) in Flower ? so i_butler not -i_butler
+                # For small cells
+
+                
+                # iLS_elec = 2
+                # or use iLS and...
+                # if 0 Neumann do not need complicated
+                #how to write efficiently BC
+
+               
+
+
+                if num.bulk_conductivity == 0
+                    
+                    # for II in grid.LS[iLS].MIXED
+
+                        butler_volmer_no_concentration_potential_Neumann!.(num,
+                        reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
+                        reshape(veci(ph.trans_scalD[:,2],grid,iLS+1),grid),
+                        num.temperature0,
+                        a0[II])
+                    # end
+
+                elseif num.bulk_conductivity == 1
+                    # # Recommended as long as cell merging not implemented:
+                    # # Due to small cells, we may have slivers/small cells at the left wall, then the divergence term is small,
+                    # # which produces higher concentration in front of the contact line
+                    # a0 .= i_butler./elec_cond[:,1]
+                    @error ("error elseif num.bulk_conductivity == 1")
+
+                elseif num.bulk_conductivity == 2
+                    #TODO remove reshape and use a mapping 
+                    butler_volmer_no_concentration_potential_Neumann!.(num,
+                    reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
+                    reshape(veci(ph.trans_scalD[:,2],grid,iLS+1),grid),
+                    num.temperature0,
+                    a0)
+
+                    for II in grid.LS[iLS].MIXED
+                        if grid.LS[iLS].geoL.cap[II,5] < num.ϵ #volume
+                            #use bulk conductivity of mixed cell
+                            butler_volmer_no_concentration_potential_Neumann!.(num,
+                            reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
+                            ph.trans_scal[II,2],
+                            num.temperature0,
+                            a0[II]) #TODO if temperature solved temperature[II]
+
+                            # a0[II]  = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(ph.phi_eleD, grid,iLS+1),
+                            # num.phi_ele1,num.Ru,num.temperature0)./ph.elec_cond[II]
+                        end
+
+                        if grid.LS[iLS].geoL.cap[II,1] < num.ϵ #here length so volume approx num.ϵ^2
+                            a0[II] = 1.0
+                        end
+
+                        # TODO
+                        #Remove Nan when dividing by conductivity which may be null
+                        # kill_dead_bc_left_wall!(vecb(elec_condD,grid), grid, iLS,1.0)
+
+                    end
+
+     
+
+                end #bulk_conductivity
+
+           end #num.nLS == 1
+
+
+     
 
             # _a1 = ones(grid) .* __a1
             # a1 = Diagonal(vec(_a1))

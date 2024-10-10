@@ -591,9 +591,10 @@ num = Numerical(
     contact_angle = sim.contact_angle,
     convection_Cdivu = sim.convection_Cdivu,
     advection_LS_mode = sim.advection_LS_mode,
+    scalar_bc = sim.scalar_bc,
     )
 
-
+Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
 
 @debug "After Numerical"
 
@@ -675,7 +676,7 @@ elseif sim.name == "levelset_Butler_two_LS"
     BC_trans_scal_H2 = BoundariesInt(
     bottom = Dirichlet(val = phys.concentration0[1]),
     top    = Neumann(),
-    left   = Neumann(val=-i_butler/(2*phys.Faraday*DH2)), #Dirichlet(val = phys.concentration0[1]), #
+    left   = Neumann(val=-i_butler_scal/(2*phys.Faraday*DH2)), #Dirichlet(val = phys.concentration0[1]), #
     right  = Dirichlet(val = phys.concentration0[1]),
     int    = Dirichlet(val = phys.concentration0[1]),
     # LS     = [Dirichlet(val = 10),Dirichlet(val = -10)]
@@ -685,7 +686,7 @@ elseif sim.name == "levelset_Butler_two_LS"
     BC_trans_scal_KOH = BoundariesInt(
     bottom = Dirichlet(val = phys.concentration0[2]),
     top    = Neumann(),
-    left   = Neumann(val=-i_butler/(2*phys.Faraday*DKOH)),
+    left   = Neumann(val=-i_butler_scal/(2*phys.Faraday*DKOH)),
     right  = Dirichlet(val = phys.concentration0[2]),
     int    = Neumann(val=0.0),
     LS     = [Neumann(val=0.0),Neumann(val=-i_butler_scal/(2*phys.Faraday*DKOH))]
@@ -694,7 +695,7 @@ elseif sim.name == "levelset_Butler_two_LS"
     BC_trans_scal_H2O = BoundariesInt(
     bottom = Dirichlet(val = phys.concentration0[3]),
     top    = Neumann(),
-    left   = Neumann(val=i_butler/(phys.Faraday*DH2O)),
+    left   = Neumann(val=i_butler_scal/(phys.Faraday*DH2O)),
     right  = Dirichlet(val = phys.concentration0[3]),
     int    = Neumann(val=0.0),
     LS     = [Neumann(val=0.0),Neumann(val=i_butler_scal/(phys.Faraday*DH2O))]
@@ -702,7 +703,7 @@ elseif sim.name == "levelset_Butler_two_LS"
 
 
     BC_phi_ele = BoundariesInt(
-        left   = Neumann(val=i_butler./elec_cond), #TODO -BC in Flower ? so i_butler not -i_butler
+        left   = Neumann(val=i_butler_scal./elec_cond), #TODO -BC in Flower ? so i_butler not -i_butler
         right  = Dirichlet(),
         bottom = Neumann(val=0.0),
         top    = Neumann(val=0.0),

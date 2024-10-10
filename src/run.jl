@@ -934,19 +934,6 @@ function run_forward!(
                 # we suppose phi(x=0)=... cf Khalighi
                 #but here BC
                 
-                if electrolysis_reaction == "Butler_no_concentration"
-
-                    #TODO dev multiple levelsets
-                    if heat
-                        i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phL.phi_eleD, grid),
-                        num.phi_ele1,num.Ru,phL.T)
-                    else
-                        i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phL.phi_eleD, grid),
-                        num.phi_ele1,num.Ru,num.temperature0)
-                            
-                    end   
-                end
-
                 ####################################################################################################
                 # New start scalar loop
                 ####################################################################################################
@@ -996,6 +983,26 @@ function run_forward!(
                 end #imposed_velocity
 
                 
+                if electrolysis_reaction == "Butler_no_concentration"
+
+                    #TODO dev multiple levelsets
+                    if heat
+                        i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phL.phi_eleD, grid),
+                        num.phi_ele1,num.Ru,phL.T)
+                    else
+                        if num.nLS == 1
+                            i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phL.phi_eleD, grid),
+                            num.phi_ele1,num.Ru,num.temperature0)
+                        # else
+                            #imposed by LS 2
+                            # iLS_elec = 2
+                            # i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(phL.phi_eleD, grid,iLS_elec+1),
+                            # num.phi_ele1,num.Ru,num.temperature0)
+                        end
+                            
+                    end   
+                end
+
                 if num.nb_transported_scalars>0
 
                     printstyled(color=:magenta, @sprintf "\n num.nb_transported_scalars %.5i " num.nb_transported_scalars)
@@ -1006,16 +1013,14 @@ function run_forward!(
                         # @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, grid.LS[1].geoL,num.concentration0[iscal]) 
                         @views veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
 
-                        if electrolysis_reaction == "Butler_no_concentration"
+                        if electrolysis_reaction == "Butler_no_concentration" && num.nLS == 1
 
+                            #BC for LS 2 in scalar transport : done in scalar loop
 
+                            #BC at left wall
                             BC_trans_scal[iscal].left.val = i_butler./(2*num.Faraday*num.diffusion_coeff[iscal])
 
-                            # printstyled(color=:red, @sprintf "\n Butler deactivated \n")
-                            # if iscal==1 || iscal==2
-                            #     BC_trans_scal[iscal].left.val = i_butler./(2*num.Faraday*num.diffusion_coeff[iscal])
-                            # end
-
+                        
                             if iscal==1 || iscal==2
                                 BC_trans_scal[iscal].left.val .*=-1 #H2O consummed
                             end
@@ -1093,15 +1098,18 @@ function run_forward!(
 
 
                    
-                    # #TODO better alloc
-                    geo = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
-                    geo_u = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
-                    geo_v = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+                    # # #TODO better alloc
+                    # geo = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
+                    # geo_u = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
+                    # geo_v = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
 
-                    laps = set_matrices!(
-                        num, grid, geo, grid_u, geo_u, grid_v, geo_v,
-                        op.opC_pL, op.opC_uL, op.opC_vL,
-                        periodic_x, periodic_y)
+                    # laps = set_matrices!(
+                    #     num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+                    #     op.opC_pL, op.opC_uL, op.opC_vL,
+                    #     periodic_x, periodic_y)
+
+                    #interface term in rhs comes from op.opC_TL
+                    #TODO variable CL
 
                     scalar_transport!(num, grid, grid_u, grid_v,
                     op.opC_TL,
@@ -1113,6 +1121,7 @@ function run_forward!(
                     Bscal,
                     all_CUTCT,
                     rhs_scal,
+                    tmp_vec_p, #used to store a0 for rhs of interfacial value
                     periodic_x, 
                     periodic_y, 
                     electrolysis_convection, 
@@ -1214,28 +1223,7 @@ function run_forward!(
                     end 
 
 
-                    # for iLS in 1:num.nLS
-                    #     kill_dead_cells_val!(veci(elec_condD,grid,iLS+1), grid, grid.LS[iLS].geoL,1.0)
-                    # end
-
-                    # [grid.LS[iLS].geoS for iLS in 1:num._nLS]
-
-                    # for iLS in 1:num.nLS
-                    #     kill_dead_cells_val!(veci(elec_condD,grid,iLS+1), grid, grid.LS[1].geoL,1.0)
-                    # end
-
-                    # kill_dead_cells_val_wall!(vecb(elec_condD,grid), grid, grid.LS[1].geoL,1.0)
-
-
-
-            
-                    
-                    # iLS=1
-                    # kill_dead_cells_val!(veci(elec_condD,grid,iLS+1), grid, grid.LS[1].geoL,1.0)
-
-                    # kill_dead_cells_val!(elec_condD, grid, grid.LS[1].geoL,1.0) #overwrite null conductivity in solid cells for BC 1/cond
-
-                    # print("\n \n elec_condD",vecb_L(elec_condD, grid))
+                 
 
 
                     #TODO Poisson with variable coefficients
@@ -1248,16 +1236,26 @@ function run_forward!(
                     # eta = num.phi_ele1 .- phL.phi_ele[:,1]
                     # i_current = num.i0*(exp(num.alpha_a*num.Faraday*eta/(num.Ru*num.temperature0))-exp(-num.alpha_c*num.Faraday*eta/(num.Ru*num.temperature0)))
 
-                    if occursin("Butler",electrolysis_reaction)
+                    if occursin("Butler",electrolysis_reaction) && num.nLS == 1
+
+                         # BC LS 2 in set_poisson directly
+                      
+
+                        #use Butler-Volmer, supposing the interfacial potential is acceptable and phi = phi_ele1 in metal 
+                        # for conductivity, use interfacial value or bulk in corresponding cell
+
                         # TODO -(-i/kappa) in Flower ? so i_butler not -i_butler
                         # For small cells
                         if num.bulk_conductivity == 0
                             BC_phi_ele.left.val .= i_butler./vecb_L(elec_condD, grid)
+
                         elseif num.bulk_conductivity == 1
                             # Recommended as long as cell merging not implemented:
                             # Due to small cells, we may have slivers/small cells at the left wall, then the divergence term is small,
                             # which produces higher concentration in front of the contact line
                             BC_phi_ele.left.val .= i_butler./elec_cond[:,1]
+
+
                         elseif num.bulk_conductivity == 2
                             BC_phi_ele.left.val .= i_butler./vecb_L(elec_condD, grid)
 
@@ -1289,27 +1287,7 @@ function run_forward!(
                     #     # BC_phi_ele.left.val = -butler_volmer_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,phL.phi_ele[:,1],num.phi_ele1,num.Ru,num.temperature0)./elec_cond
                     
                         
-                        # print("\n before ",BC_phi_ele.left.val)
-
-                        # print("\n vecb_L(elec_condD, grid)",vecb_L(elec_condD, grid) )
-
-                        # print("\n vecb_L(elec_condD, grid) after res \n ", vecb_L(phL.trans_scalD[:,2], grid) )
-
-
-                        # for iLS in 1:num.nLS
-                        #     # kill_dead_bc_left_wall!(vecb(elec_condD,grid), grid, iLS,1.0)
-                        #     for i = 1:grid.ny
-                        #         # print("vecb cap",vecb_L(grid.LS[iLS].geoL.cap[:,5],grid))
-                        #         II = CartesianIndex(i,1)
-                        #         if grid.LS[iLS].geoL.cap[II,5] < 1e-12
-                        #             BC_phi_ele.left.val[i] = 1.0
-                        #         end
-                        #     end
-                        # end
-
-
-                        # grid.LS[iLS].geoL.cap[II,1:4]
-
+                
                         # TODO
                         #Remove Nan when dividing by conductivity which may be null
                         for iLS in 1:num.nLS
@@ -1328,7 +1306,7 @@ function run_forward!(
                         # print("\n after ",BC_phi_ele.left.val)
 
 
-                    end
+                    end #if occursin("Butler",electrolysis_reaction)
 
                     #debugphi
 
@@ -1348,13 +1326,13 @@ function run_forward!(
 
                     printstyled(color=:magenta, @sprintf "\n test LS update for set_poisson_variable_coeff!  \n")
 
-                    update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
+                    # update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
                     
-                    laps = set_matrices!(
-                        num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL,
-                        op.opC_pL, op.opC_uL, op.opC_vL,
-                        periodic_x, periodic_y
-                    )
+                    # laps = set_matrices!(
+                    #     num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL,
+                    #     op.opC_pL, op.opC_uL, op.opC_vL,
+                    #     periodic_x, periodic_y
+                    # )
                     # Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = laps
                     printstyled(color=:magenta, @sprintf "\n test LS update for set_poisson_variable_coeff!  \n")
 
@@ -1369,6 +1347,7 @@ function run_forward!(
                         op.opC_pL,
                         Ascal, 
                         rhs_scal,
+                        tmp_vec_p, #a0
                         a1_p,
                         BC_phi_ele,
                         phL,                        
@@ -1441,6 +1420,8 @@ function run_forward!(
                     compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
 
                     # scal_magnitude
+
+
 
                     if electrolysis && num.nb_transported_scalars>1
                         if heat 

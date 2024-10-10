@@ -93,6 +93,7 @@ abstract type AbstractOptimizer end
     convection_Cdivu::D = 0
     mode_2d::D = 0
     advection_LS_mode::D = 0
+    scalar_bc::D = 0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
