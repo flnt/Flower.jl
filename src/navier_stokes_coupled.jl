@@ -1053,7 +1053,7 @@ function FE_set_momentum_coupled(
                 )
 
                 _iLS += 1
-            else # Tangential component of velocity if Navier BC
+            else # Tangential component of velocity if Navier BC #if !is_navier_cl(bc_type[iLS]) && !is_navier(bc_type[iLS])
                 sinα_p = Diagonal(vec(sin.(gp.LS[iLS].α)))
                 replace!(sinα_p.diag, NaN=>0.0)
                 cosα_p = Diagonal(vec(cos.(gp.LS[iLS].α)))
@@ -1314,7 +1314,7 @@ function FE_set_momentum_coupled(
                 A[ntu+ntv-nbv+1:ntu+ntv,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = b_bv * (
                     opv.HxT_b * opv.iMx_b' * opv.Hx[iLS] .+ opv.HyT_b * opv.iMy_b' * opv.Hy[iLS]
                 ) * avgy * (-cosα_p)
-            end
+            end # if !is_navier_cl(bc_type[iLS]) && !is_navier(bc_type[iLS])
         end
 
         if !is_navier_cl(bc_type[iLS]) && !is_navier(bc_type[iLS])

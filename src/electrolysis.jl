@@ -125,8 +125,14 @@ function scalar_transport!(num::Numerical{Float64, Int64},
     #TODO use fill or nzval ? check correct
     A .= 0.0
     B .= 0.0
+    # A.nzval .= 0.0
+    # B.nzval .= 0.0
+
+
     all_CUTCT .=0.0
     a0 .= 0.0
+
+    rhs_test = fnzeros(grid, num)
 
     
     # Operators
@@ -202,6 +208,46 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         #     op.χ[iLS].diag .= sqrt.(vec(χx .+ χy))
         #     a0 .+= __a0[iscal] * op.χ[iLS] 
         # end
+
+        #
+        # Du_x = zeros(grid_u)
+        # Du_y = zeros(grid_u)
+        # # Du_x .= reshape(vec1(uD,grid_u), grid_u)
+        # # Du_y .= reshape(vec1(uD,grid_u), grid_u)
+        # for iLS in 1:num.nLS
+        #     Du_x[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
+        #     Du_y[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
+        # end
+        # # Du_x .= reshape(vec2(uD,grid_u), grid_u)
+        # # Du_y .= reshape(vec2(uD,grid_u), grid_u)
+        # Du_x[:,1] .= vecb_L(uD,grid_u) 
+        # # Du_x[:,2] .= u[:,2]
+        # Du_y[1,:] .= vecb_B(uD,grid_u)
+        # # Du_y[2,:] .= u[2,:]
+        # Du_x[:,end] .= vecb_R(uD,grid_u)
+        # # Du_x[:,end-1] .= u[:,end-1]
+        # Du_y[end,:] .= vecb_T(uD,grid_u)
+        # # Du_y[end-1,:] .= u[end-1,:]
+    
+        # Dv_x = zeros(grid_v)
+        # Dv_y = zeros(grid_v)
+        # # Dv_x .= reshape(vec1(vD,grid_v), grid_v)
+        # # Dv_y .= reshape(vec1(vD,grid_v), grid_v)
+        # for iLS in 1:num.nLS
+        #     Dv_x[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
+        #     Dv_y[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
+        # end
+        # # Dv_x .= reshape(vec2(vD,grid_v), grid_v)
+        # # Dv_y .= reshape(vec2(vD,grid_v), grid_v)
+        # Dv_x[:,1] .= vecb_L(vD,grid_v)
+        # # Dv_x[:,2] .= v[:,2]
+        # Dv_y[1,:] .= vecb_B(vD,grid_v)
+        # # Dv_y[2,:] .= v[2,:]
+        # Dv_x[:,end] .= vecb_R(vD,grid_v)
+        # # Dv_x[:,end-1] .= v[:,end-1]
+        # Dv_y[end,:] .= vecb_T(vD,grid_v)
+        # # Dv_y[end-1,:] .= v[end-1,:]
+
 
         bcTx, bcTy = set_bc_bnds(dir, a0, HT, bc[iscal])
 
@@ -383,10 +429,29 @@ function scalar_transport!(num::Numerical{Float64, Int64},
             # Matrices for borders BCs
             set_boundary_indicator!(grid, grid.LS[end].geoL, grid.LS[end].geoL, op)
             mass_matrix_borders!(num,ind, op.iMx_b, op.iMy_b, op.iMx_bd, op.iMy_bd, grid.LS[end].geoL.dcap, ny)
-            bc_matrix_borders!(grid, ind, op.Hx_b, op.Hy_b, grid.LS[1].geoL.dcap)
+            bc_matrix_borders!(grid, ind, op.Hx_b, op.Hy_b, grid.LS[end].geoL.dcap)
             mat_assign_T!(op.HxT_b, sparse(op.Hx_b'))
             mat_assign_T!(op.HyT_b, sparse(op.Hy_b'))
             periodic_bcs_borders!(grid, op.Hx_b, op.Hy_b, periodic_x, periodic_y)
+
+            #test χ
+            veci(rhs_test,grid,iLS+1) .+= op.χ[iLS] 
+            itest=-1
+            if num.io_pdi>0
+                try
+                    printstyled(color=:magenta, @sprintf "\n PDI write_scalar_transport %.5i \n" num.current_i)
+                    #in YAML file: save only if iscal ==1 for example
+                    PDI_status = @ccall "libpdi".PDI_multi_expose("write_scalar_transport"::Cstring,
+                    "iscal"::Cstring, itest::Ref{Clonglong}, PDI_OUT::Cint,
+                    "rhs_1D"::Cstring, rhs_test::Ptr{Cdouble}, PDI_OUT::Cint,
+                    C_NULL::Ptr{Cvoid})::Cint
+                catch error
+                    printstyled(color=:red, @sprintf "\n PDI error \n")
+                    print(error)
+                    printstyled(color=:red, @sprintf "\n PDI error \n")
+                end
+            end #if io_pdi
+            
         end
 
     end #nLS ==1
@@ -510,8 +575,8 @@ function scalar_transport!(num::Numerical{Float64, Int64},
 
             for iLS in 1:num.nLS
 
-                print("\n BC iLS ",iLS," ",bc[iscal].LS[iLS])
-                print("\n BC iLS val ",bc[iscal].LS[iLS].val)
+                # print("\n BC iLS ",iLS," ",bc[iscal].LS[iLS])
+                # print("\n BC iLS val ",bc[iscal].LS[iLS].val)
 
                 if is_dirichlet(bc[iscal].LS[iLS])
                     # printstyled(color=:green, @sprintf "\n Dirichlet : %.2e\n" bc[iscal].int.val )
@@ -544,20 +609,38 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                 #Supposing phi = num.phi_ele1 in wall
                 if num.scalar_bc == 1
                     iLS_elec = 2
-                    # a0 = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(ph.phi_eleD, grid,iLS_elec+1),
-                    # num.phi_ele1,num.Ru,num.temperature0)./(2*num.Faraday*num.diffusion_coeff[iscal])
+                    if iLS == iLS_elec #only for second LS
+                        # a0 = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(ph.phi_eleD, grid,iLS_elec+1),
+                        # num.phi_ele1,num.Ru,num.temperature0)./(2*num.Faraday*num.diffusion_coeff[iscal])
 
-                    if iscal==1 || iscal==2 #produced: *- (i negative)
-                        a0 = -butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(ph.phi_eleD, grid,iLS_elec+1),
-                        num.phi_ele1,num.Ru,num.temperature0)./(2*num.Faraday*num.diffusion_coeff[iscal])
-                    else #H2O consummed: *+
-                        a0 = +butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(ph.phi_eleD, grid,iLS_elec+1),
-                        num.phi_ele1,num.Ru,num.temperature0)./(2*num.Faraday*num.diffusion_coeff[iscal])
+                        if iscal==1 || iscal==2 #produced: *- (i negative)
+                            # a0 = -butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,reshape(veci(ph.phi_eleD, grid,iLS_elec+1),grid),
+                            # num.phi_ele1,num.Ru,num.temperature0)./(2*num.Faraday*num.diffusion_coeff[iscal])
+                            inv_stoechiometric_coeff = -1.0/2.0 #H2 and KOH
+                        
+                        elseif iscal == 3
+                            #H2O consummed: *+
+                            # a0 = +butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,reshape(veci(ph.phi_eleD, grid,iLS_elec+1),grid),
+                            # num.phi_ele1,num.Ru,num.temperature0)./(2*num.Faraday*num.diffusion_coeff[iscal])
+                            inv_stoechiometric_coeff = 1
+                        end
+
+
+                        # butler_volmer_no_concentration_concentration_Neumann!.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,reshape(veci(ph.phi_eleD, grid,iLS_elec+1),grid),
+                        # num.phi_ele1,num.Ru,num.temperature0,num.diffusion_coeff[iscal],inv_stoechiometric_coeff,a0)
+
+                        a0 .= butler_volmer_no_concentration_concentration_Neumann.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,reshape(veci(ph.phi_eleD, grid,iLS_elec+1),grid),
+                        num.phi_ele1,num.Ru,num.temperature0,num.diffusion_coeff[iscal],inv_stoechiometric_coeff)
+                        
+                       
+                    else #usual boundary
+                        a0 .= __a0
+
                     end
-                    
-                    # if iscal==1 || iscal==2 #H2O consummed
-                    #     BC_trans_scal[iscal].left.val .*=-1 #H2O consummed
-                    # end
+
+                    printstyled(color=:red, @sprintf "\n BC scalar_transport %.5i %.2e %.2e %.2e \n" iscal maximum(a0) minimum(a0) bc[iscal].LS[iLS].val)
+
+
 
                 else
                     # Flags with BCs
@@ -577,6 +660,16 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                 #Here allocate better or replace LD_i
                 LD_i = BxT * iMx * Hx[iLS] .+ ByT * iMy * Hy[iLS] 
 
+                # bc_L = []
+                # for iLS in 1:nLS
+                #     push!(bc_L, BxT * iMx * Hx[iLS] .+ ByT * iMy * Hy[iLS])
+                # end
+
+                # A.nzval .= 0.0
+                # B.nzval .= 0.0
+                A .= 0.0
+                B .= 0.0
+        
 
                 # Implicit part of heat equation
                 A[1:ni,sb] = - 0.5 .* num.τ .* diffusion_coeff_scal .* LD_i
@@ -604,6 +697,9 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                 B[1:ni,sb] = 0.5 .* num.τ .* diffusion_coeff_scal .* LD_i
 
                 veci(rhs,grid,iLS+1) .+= op.χ[iLS] * vec(a0)
+
+                printstyled(color=:red, @sprintf "\n rhs scalar_transport %.5i %.2e %.2e %.2e \n" iscal maximum(veci(rhs,grid,iLS+1)) minimum(veci(rhs,grid,iLS+1)) bc[iscal].LS[iLS].val)
+
                 
             end #for iLS in 1:num.nLS
 
@@ -646,76 +742,19 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         
         @views ph.trans_scal[:,:,iscal] .= reshape(veci(ph.trans_scalD[:,iscal],grid,1), grid)
 
-
         if num.io_pdi>0
-    
             try
-                # # printstyled(color=:red, @sprintf "\n PDI test \n" )
-        
-                # time = current_t #Cdouble
-                # nstep = num.current_i
-           
-                # # phi_array=phL.phi_ele #do not transpose since python row major
-                
-                # compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
-        
-                # #store in us, vs instead of Eus, Evs
-                # interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,us,vs)
-
-                # @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
-                # "i_current_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-                # "i_current_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,  
-                # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                # C_NULL::Ptr{Cvoid})::Cint
-
-                # interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,us,vs)
-        
-                # # print("\n before write \n ")
-        
-                # iLSpdi = 1 # all grid.LS iLS = 1 # or all grid.LS ?
-
-                # # Exposing data to PDI for IO    
-                # # if writing "D" array (bulk, interface, border), add "_1D" to the name
-                
                 printstyled(color=:magenta, @sprintf "\n PDI write_scalar_transport %.5i \n" num.current_i)
-
+                #in YAML file: save only if iscal ==1 for example
                 PDI_status = @ccall "libpdi".PDI_multi_expose("write_scalar_transport"::Cstring,
+                "iscal"::Cstring, iscal::Ref{Clonglong}, PDI_OUT::Cint,
                 "rhs_1D"::Cstring, rhs::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "chi_1"::Cstring, op.χ[1]::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "chi_2"::Cstring, op.χ[2]::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "chi_3"::Cstring, op.χ[3]::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
-                # "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
-                # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
-                # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
-                # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-                # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
-                # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
-                # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
-                # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
-                # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
                 C_NULL::Ptr{Cvoid})::Cint
-        
             catch error
                 printstyled(color=:red, @sprintf "\n PDI error \n")
                 print(error)
                 printstyled(color=:red, @sprintf "\n PDI error \n")
             end
-
-           
-
         end #if io_pdi
 
 
@@ -955,15 +994,21 @@ end
 """Interpolate velocity on scalar grid for regular grids for vizualisation
 
 # Arguments
-- `gp::Mesh`: scalar grid
+- `grid`: scalar grid
 """
-function interpolate_grid_liquid!(gp,gu,gv,u,v,us,vs)
+function interpolate_grid_liquid!( grid::Mesh{Flower.GridCC, Float64, Int64},
+    grid_u::Mesh{Flower.GridFCx, Float64, Int64},
+    grid_v::Mesh{Flower.GridFCy, Float64, Int64},
+    u::Array{Float64, 2},
+    v::Array{Float64, 2},
+    us::Array{Float64, 2},
+    vs::Array{Float64, 2})
     
     
     # us = p .*0
     # vs = p .*0
-    LS_u =gu.LS[1]
-    LS_v = gv.LS[1]
+    LS_u =grid_u.LS[1]
+    LS_v = grid_v.LS[1]
     us .= (
         (u[:,2:end] .* LS_u.geoL.dcap[:,2:end,6] .+ 
         u[:,1:end-1] .* LS_u.geoL.dcap[:,1:end-1,6]) ./ 

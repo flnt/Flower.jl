@@ -803,7 +803,6 @@ function run_forward!(
 
             #TODO when to write elec dat, ...
     
-    
             if num.io_pdi>0
     
                 try
@@ -1017,13 +1016,15 @@ function run_forward!(
 
                             #BC for LS 2 in scalar transport : done in scalar loop
 
-                            #BC at left wall
-                            BC_trans_scal[iscal].left.val = i_butler./(2*num.Faraday*num.diffusion_coeff[iscal])
-
-                        
                             if iscal==1 || iscal==2
-                                BC_trans_scal[iscal].left.val .*=-1 #H2O consummed
+                                inv_stoechiometric_coeff = -1.0/2.0 #H2 and KOH
+                            elseif iscal == 3
+                                inv_stoechiometric_coeff = 1.0 #H2O consummed
                             end
+
+                            #BC at left wall
+                            BC_trans_scal[iscal].left.val = i_butler./(num.Faraday*num.diffusion_coeff[iscal])*inv_stoechiometric_coeff
+
                             # print("\n")
                             # print("\n left BC ", BC_trans_scal[iscal].left.val)
 

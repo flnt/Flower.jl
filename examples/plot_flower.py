@@ -15,6 +15,9 @@ import matplotlib.font_manager as fm
 
 import matplotlib.ticker as mticker
 
+from matplotlib.path import Path
+from matplotlib.patches import PathPatch
+
 # from matplotlib._layoutgrid import plot_children
 
 
@@ -1221,6 +1224,9 @@ def plot_file(
 
     # print(key)
     data = file[key][:]
+
+    print(key,"max ",np.max(data))
+
     
     if 'field_index' in figpar.keys():
         field_index = figpar['field_index']
@@ -1232,13 +1238,15 @@ def plot_file(
     # print(data.shape)
 
     if data.ndim ==1:
+        # print('data_1D.ndim == 1')
         data = veci(data,nx,ny,field_index)
         field=data
     elif data.shape[1] == 1:
+        # print('data.shape[1] == 1')
         data = veci(data[:,0],nx,ny,field_index)
         field=data
     elif data.shape[0] == 1:
-
+        # print('data.shape[0] == 1')
         # print(key,"max ",np.max(data),'min',np.min(data))
 
         # field_index = 2
@@ -1253,7 +1261,9 @@ def plot_file(
         # print(data)
         
     else:
+        print('plot_file else')
         field = data.transpose()
+
 
     # file_name_1 = key
     file_name = figpar['file']
@@ -1789,6 +1799,7 @@ def plot_python_pdf_full2(
         y_1D = yv
     else:
         key_LS = "levelset_p"
+        key_LS_wall = "levelset_p_wall"
         x_1D = xp
         y_1D = yp
 
@@ -1866,13 +1877,13 @@ def plot_python_pdf_full2(
     # reshape_data()
     plot_bc_possible_based_on_dim = True
 
-    print("dim",data_1D.ndim)
+    # print("dim",data_1D.ndim)
 
     if data_1D.ndim ==1:
-        print('data_1D.ndim == 1')
+        # print('data_1D.ndim == 1')
         field0 = veci(data_1D,nx,ny,field_index)
     elif data_1D.shape[1] == 1:
-        print('data_1D.shape[1] == 1')
+        # print('data_1D.shape[1] == 1')
         data_1D = veci(data_1D[:,0],nx,ny,field_index)
         field = data_1D
     elif data_1D.shape[0] == 1:
@@ -1880,11 +1891,11 @@ def plot_python_pdf_full2(
         # print(data_1D)
         # print(data_1D[0]) 
         #[0,:]
-        print("data_1D.shape[0] == 1")
+        # print("data_1D.shape[0] == 1")
         data_1D = data_1D[0]
         field0 = veci(data_1D,nx,ny,field_index)
     elif data_1D.ndim ==2:
-        print("data_1D.ndim ==2")
+        # print("data_1D.ndim ==2")
         field0 = data_1D.transpose()
         plot_bc_possible_based_on_dim = False
 
@@ -2130,9 +2141,133 @@ def plot_python_pdf_full2(
 
         LSdat = file[key_LS][:]
         LSdat = LSdat.transpose()
+
+        # print("test ii0 ",ii0,ii1+1,jj0,jj1+1)
         CSlvl = ax2.contour(
             x_1D[ii0:ii1+1], y_1D[jj0:jj1+1], LSdat[jj0:jj1+1, ii0:ii1+1], [0.0], colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle']
         )
+
+
+    if 'plot_wall' in figpar.keys():
+        if figpar['plot_wall']:
+
+            # wallii0 = ii0 - 1
+            # wallii1 = ii1 + 1
+            # walljj0 = jj0 - 1
+            # walljj1 = jj1 + 1
+
+            wallii0 = ii0
+            wallii1 = ii1
+            walljj0 = jj0
+            walljj1 = jj1
+
+
+            try:
+                LSdat = file[key_LS_wall][:]
+                # plot_LS(LSdat)
+
+                LSdat = LSdat.transpose()
+
+
+                CSlvl = ax2.contour(
+                x_1D[wallii0:wallii1+1], y_1D[walljj0:walljj1+1], LSdat[walljj0:walljj1+1, wallii0:wallii1+1], [0.0], 
+                colors="orange",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],
+                clip_on=True,
+                )
+
+                # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
+                CSlvlwall = ax2.contourf(x_1D[wallii0:wallii1+1], y_1D[walljj0:walljj1+1], LSdat[walljj0:walljj1+1, wallii0:wallii1+1], 
+                            levels=0,
+                            # clip_on=True,
+                            ) #not very precise
+
+                # # print(CSlvlwall.levels)
+
+                # # A = plt.Polygon(np.array([(0, 0), (50, 100), (100, 0)]), color='w', ec='k')
+                # # B = plt.Polygon(np.array([(120, 0), (170, 100), (220, 0)]), color='w', ec='k')
+                # # C = plt.Polygon(np.array([(240, 0), (290, 100), (340, 0)]), color='w', ec='k')
+            
+                # A = plt.Polygon(np.array([(figpar["zoom"][0][0], figpar["zoom"][1][0]), 
+                #                           (figpar["zoom"][0][1], figpar["zoom"][1][0]),
+                #                           (figpar["zoom"][0][1], figpar["zoom"][1][1]), 
+                #                           (figpar["zoom"][0][0], figpar["zoom"][1][1])
+                #                         ]), color='w', ec='k')
+
+
+                # # fig, ax = plt.subplots()
+                # # all_polys = [A, B, C]
+                # all_polys= [A]
+                # [ax2.add_patch(i) for i in all_polys]
+                # vertices = np.concatenate([i.get_path().vertices for i in all_polys])
+                # codes = np.concatenate([i.get_path().codes for i in all_polys])
+
+                # # dots = ax2.scatter(points[:, 0], points[:, 1], zorder=3)
+                # # CSlvlwall.set_clip_path(PathPatch(Path(vertices, codes), transform=ax2.transData))
+                # # plt.show()
+
+
+                for level, collection in zip(CSlvlwall.levels[1:], CSlvlwall.collections):
+                    # print(f"Levelset contours",level)
+                    if level>0:
+                        collection.remove()
+                    else:
+                        collection.set_facecolor(plotpar['color_wall'])  
+
+                    # collection.set_clip_path(clip) 
+            
+            except:
+                file_wall_name = "flower_00000000.h5"
+                # print('loading file to plot wall: ',file_wall_name)
+                with h5py.File(file_wall_name, "r") as file_wall:
+                    LSdat = file_wall[key_LS_wall][:]
+
+                    LSdat = LSdat.transpose()
+
+                    CSlvl = ax2.contour(
+                    x_1D[wallii0:wallii1+1], y_1D[walljj0:walljj1+1], LSdat[walljj0:walljj1+1, wallii0:wallii1+1], [0.0], colors="orange",linewidths=figpar['linewidth'],linestyles=figpar['linestyle']
+                    )
+                    
+                    # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
+                    CSlvlwall = ax2.contourf(x_1D[wallii0:wallii1+1], y_1D[walljj0:walljj1+1], LSdat[walljj0:walljj1+1, wallii0:wallii1+1], levels=0,
+                                            #  zorder=3,
+                                             ) #not very precise
+
+                    # print(CSlvlwall.levels)
+
+                    if "clip" in figpar.keys():
+                        dxpatch = mesh["dx"]/2/float(plotpar["scale_x"])
+                        dypatch = mesh["dy"]/2/float(plotpar["scale_x"])
+
+                        print("patch ", dxpatch,dypatch)
+
+
+                        A = plt.Polygon(np.array([(figpar["zoom"][0][0]-dxpatch, figpar["zoom"][1][0]-dypatch), 
+                                                    (figpar["zoom"][0][1]+dxpatch, figpar["zoom"][1][0]-dypatch),
+                                                    (figpar["zoom"][0][1]+dxpatch, figpar["zoom"][1][1]+dypatch), 
+                                                    (figpar["zoom"][0][0]-dxpatch, figpar["zoom"][1][1]+dypatch)
+                                                ]), color='w', ec='k',alpha=0)
+
+
+                        # fig, ax = plt.subplots()
+                        # all_polys = [A, B, C]
+                        all_polys= [A]
+                        [ax2.add_patch(i) for i in all_polys]
+                        vertices = np.concatenate([i.get_path().vertices for i in all_polys])
+                        codes = np.concatenate([i.get_path().codes for i in all_polys])
+
+                    # dots = ax2.scatter(points[:, 0], points[:, 1], zorder=3)
+                    # CSlvlwall.set_clip_path(PathPatch(Path(vertices, codes), transform=ax2.transData))
+                    # plt.show()
+
+                    for level, collection in zip(CSlvlwall.levels[1:], CSlvlwall.collections):
+                        # print(f"Levelset contours",level)
+                        if level>0:
+                            collection.remove()
+                        else:
+                            collection.set_facecolor(plotpar['color_wall'])  
+                        
+                        if "clip" in figpar.keys():
+                            collection.set_clip_path(PathPatch(Path(vertices, codes), transform=ax2.transData))
 
     if figpar['plot_levelset_segments']:
         ax2 = plot_segments(file,plotpar,figpar,ax2)
