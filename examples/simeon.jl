@@ -7,9 +7,9 @@ set_theme!(fontsize_theme)
 L0x = 2.0
 L0y = 2.0
 
-n = 64 + 1
+n = 129
 CFL = 0.5
-max_it = 200
+max_it = 400
 A = 0.5
 N = 0.5
 
@@ -32,7 +32,8 @@ gp, gu, gv = init_meshes(num)
 op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
 # @. gp.LS[1].u = gp.y + A*sin(N*2*pi*gp.x);
-@. gp.LS[1].u = sqrt(gp.x^2 + gp.y^2) - A
+@. gp.LS[1].u = gp.y^2+gp.x^2-A^2*(gp.y>=0);
+# @. gp.LS[1].u = gp.y*(gp.x^2<A^2)*(gp.y-sqrt(3)*(gp.x+A))*(gp.y+sqrt(3)*(gp.x-A))*(gp.y<sqrt(3)*A);
 
 f1 = Figure(size = (1600, 1000))
 ax = Axis(f1[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y", xtickalign=0,  ytickalign=0)
@@ -41,11 +42,11 @@ f1
 
 @time run_forward(
     num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
-    time_scheme = FE,
+    time_scheme = CN,
     auto_reinit = true,
     verbose = true,
     show_every = 1,
-    speed = 1
+    speed = -1
 )
 
 f1 = Figure(size = (1600, 1000))
