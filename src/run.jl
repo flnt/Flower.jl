@@ -70,7 +70,7 @@ function run_forward(
     elseif free_surface || stefan
         advection = true
     else
-        advection = false
+        advection = true
     end
 
     # The count threshold shouldn't be smaller than 2
@@ -565,6 +565,9 @@ function run_forward(
                     # end
                     # BC_LS_interior!(num, grid, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
                     # LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
+                else
+                    IIOE_normal!(grid, LS[iLS].A, LS[iLS].B, LS[iLS].u, V, CFL_sc, periodic_x, periodic_y)
+                    LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u)), grid)
                 end
             end
             if analytical
