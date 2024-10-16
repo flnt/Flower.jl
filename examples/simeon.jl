@@ -9,10 +9,10 @@ L0y = 4.0
 
 n = 65
 CFL = 0.5
-max_it = 115
+max_it = 200
 A = 1
 N = 1
-alpha = pi/6
+alpha = pi/9
 
 x = collect(LinRange(-L0x / 2, L0x / 2, n + 1))
 dx = diff(x)[1]
@@ -32,12 +32,12 @@ num = Numerical(
 gp, gu, gv = init_meshes(num)
 op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
-# @. gp.LS[1].u = gp.y;
-# @. gp.LS[1].u = gp.y + A*sin(N*2*pi*gp.x);
-# @. gp.LS[1].u = gp.y^2/2 + gp.x^2 - A^2*(gp.y>=-dx);
-# @. gp.LS[1].u = gp.y*(gp.x^2<A^2)*(gp.y-sqrt(3)*(gp.x+A))*(gp.y+sqrt(3)*(gp.x-A))*(gp.y<=sqrt(3)*A);
-# @. gp.LS[1].u = gp.y + abs(gp.x);
-@. gp.LS[1].u = -(abs(gp.x)<=A/2)*(gp.y<=tan(alpha/2-pi/4)*(abs(gp.x)-A/2))*gp.y + (gp.y>tan(alpha/2-pi/4)*(abs(gp.x)-A/2))*(gp.y<=tan(alpha)*abs(gp.x)+A/(2*tan(alpha)))*(gp.y>=tan(alpha)*(abs(gp.x)-A/2))*(cos(alpha)*abs(gp.x)+sin(alpha)*gp.y-cos(alpha)*A/2) + (abs(gp.x)>A/2)*(gp.y<tan(alpha)*(abs(gp.x)-A/2))*sqrt((abs(gp.x)-A/2)^2+gp.y^2) + (gp.y>tan(alpha)*abs(gp.x)+A/(2*tan(alpha)))*sqrt(gp.x^2+(gp.y-A/(2*tan(alpha)))^2)
+# @. gp.LS[1].u = -gp.y;
+# @. gp.LS[1].u = -(gp.y + A*sin(N*2*pi*gp.x));
+# @. gp.LS[1].u = -(gp.y^2/2 + gp.x^2 - A^2*(gp.y>=-dx));
+# @. gp.LS[1].u = -(gp.y*(gp.x^2<A^2)*(gp.y-sqrt(3)*(gp.x+A))*(gp.y+sqrt(3)*(gp.x-A))*(gp.y<=sqrt(3)*A));
+# @. gp.LS[1].u = -(gp.y + abs(gp.x));
+@. gp.LS[1].u = -(-(abs(gp.x)<=A/2)*(gp.y<=tan(alpha/2-pi/4)*(abs(gp.x)-A/2))*gp.y + (gp.y>tan(alpha/2-pi/4)*(abs(gp.x)-A/2))*(gp.y<=tan(alpha)*abs(gp.x)+A/(2*tan(alpha)))*(gp.y>=tan(alpha)*(abs(gp.x)-A/2))*(cos(alpha)*abs(gp.x)+sin(alpha)*gp.y-cos(alpha)*A/2) + (abs(gp.x)>A/2)*(gp.y<tan(alpha)*(abs(gp.x)-A/2))*sqrt((abs(gp.x)-A/2)^2+gp.y^2) + (gp.y>tan(alpha)*abs(gp.x)+A/(2*tan(alpha)))*sqrt(gp.x^2+(gp.y-A/(2*tan(alpha)))^2));
 
 f1 = Figure(size = (1600, 1000))
 ax = Axis(f1[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y", xtickalign=0,  ytickalign=0)
@@ -50,7 +50,7 @@ f1
     auto_reinit = true,
     verbose = true,
     show_every = 1,
-    speed = -5
+    speed = 5
 )
 
 f1 = Figure(size = (1600, 1000))
