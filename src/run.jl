@@ -34,6 +34,8 @@ function run_forward(
     save_radius = false,
     adaptative_t = false,
     breakup = false,
+    toy_model = false,
+    f_interface::Function,
     Ra = 0.0,
     λ = 1,
     )
@@ -70,7 +72,7 @@ function run_forward(
     elseif free_surface || stefan
         advection = true
     else
-        advection = true
+        advection = false
     end
 
     # The count threshold shouldn't be smaller than 2
@@ -451,11 +453,23 @@ function run_forward(
 
     current_t = 0.0
     while num.current_i < max_iterations + 1        
-        if !stefan
-            # V .= speed*ones(ny, nx) # uniform normal velocity
+        if toy_model
+            # @. V[LS[1].MIXED] .= speed*cos(LS[1].α[LS[1].MIXED]) #speed*ones(ny, nx) # uniform normal velocity
             # V .= speed*(x.^2+y.^2) # non-uniform normal velocity (function of absolute space)
             # V .= speed*exp.(-10*(y-0.5*ones(ny,nx)).^2) # non-uniform normal velocity (function of absolute space) -- pinching
-            V .= speed*(grid.LS[1].α.<zeros(ny,nx)).*cos.(grid.LS[1].α.+pi*ones(ny,nx)/2)./(ones(ny,nx) .- cos.(grid.LS[1].α.+pi*ones(ny,nx)/2).*cbrt.(x)./(cbrt.(sin.(grid.LS[1].α.+pi*ones(ny,nx)/2)))) # simple dissolution model normal velocity
+            # V .= speed*(grid.LS[1].α.<zeros(ny,nx)).*cos.(grid.LS[1].α.+pi*ones(ny,nx)/2)./(ones(ny,nx) .- cos.(grid.LS[1].α.+pi*ones(ny,nx)/2).*cbrt.(x)./(cbrt.(sin.(grid.LS[1].α.+pi*ones(ny,nx)/2)))) # simple dissolution model normal velocity
+            xy_cells = hcat(grid.x[LS[1].MIXED], grid.y[LS[1].MIXED])'
+            xy_mid_point = hcat([p.x for p in LS[1].mid_point[LS[1].MIXED]], [p.y for p in LS[1].mid_point[LS[1].MIXED]])'
+            xy = xy_cells + num.Δ*xy_mid_point
+            @. V[LS[1].MIXED] = speed*f_interface(LS[1].α[LS[1].MIXED], xy[1,:], xy[2,:])
+            i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, LS[1], grid.ind.inside, periodic_x, periodic_y)
+            field_extension!(grid, LS[1].u, grid.V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
+            BC_LS!(grid, LS[1].u, LS[1].A, LS[1].B, 0., BC_u)
+            IIOE_normal!(grid, LS[1].A, LS[1].B, LS[1].u, V, CFL, periodic_x, periodic_y)
+            LS[1].u .= reshape(gmres(LS[1].A, LS[1].B * vec(LS[1].u)), grid)
+            if (num.current_i-1)%num.reinit_every == 0
+                RK2_reinit!(ls_scheme, grid, ind, 1, LS[1].u, nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
+            end
         end
 
         if heat
@@ -568,14 +582,6 @@ function run_forward(
                     # end
                     # BC_LS_interior!(num, grid, iLS, LS[iLS].A, LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
                     # LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
-                else
-                    BC_LS!(grid, LS[iLS].u, LS[iLS].A, LS[iLS].B, 0., BC_u)
-                    IIOE_normal!(grid, LS[iLS].A, LS[iLS].B, LS[iLS].u, V, CFL, periodic_x, periodic_y)
-                    LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u)), grid)
-                    if (num.current_i-1)%num.reinit_every == 0
-                        print("here")
-                        RK2_reinit!(ls_scheme, grid, ind, iLS, LS[iLS].u, nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
-                    end
                 end
             end
             if analytical
@@ -638,6 +644,9 @@ function run_forward(
                     print(@sprintf "Vol_ratio = %.3f%%\n" (volume(LS[end].geoL) / V0L * 100))
                     print(@sprintf "V_mean = %.2e  V_max = %.2e  V_min = %.2e\n" V_mean V_max V_min)
                     print(@sprintf "κ_mean = %.2e  κ_max = %.2e  κ_min = %.2e\n" mean(LS[1].κ[LS[1].MIXED]) findmax(LS[1].κ[LS[1].MIXED])[1] findmin(LS[1].κ[LS[1].MIXED])[1])
+                elseif toy_model
+                    print(@sprintf "V_mean = %.2e  V_max = %.2e  V_min = %.2e\n" mean(V[LS[1].MIXED]) findmax(V[LS[1].MIXED])[1] findmin(V[LS[1].MIXED])[1])
+                    print(@sprintf "κ_mean = %.2e  κ_max = %.2e  κ_min = %.2e\n" mean(LS[1].κ[LS[1].MIXED]) findmax(LS[1].κ[LS[1].MIXED])[1] findmin(LS[1].κ[LS[1].MIXED])[1])
                 end
                 if navier_stokes
                     if ns_solid_phase
@@ -657,7 +666,7 @@ function run_forward(
         end
 
 
-        if levelset && (advection || num.current_i<2)
+        if levelset && (advection || toy_model || num.current_i<2)
             try
                 NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
             catch e
