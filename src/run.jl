@@ -452,9 +452,10 @@ function run_forward(
     current_t = 0.0
     while num.current_i < max_iterations + 1        
         if !stefan
-            #V .= speed*ones(ny, nx)
-            #V .= speed*(x.^2+y.^2)
-            V .= speed*exp.(-10*(y-0.5*ones(ny,nx)).^2)
+            # V .= speed*ones(ny, nx) # uniform normal velocity
+            # V .= speed*(x.^2+y.^2) # non-uniform normal velocity (function of absolute space)
+            # V .= speed*exp.(-10*(y-0.5*ones(ny,nx)).^2) # non-uniform normal velocity (function of absolute space) -- pinching
+            V .= speed*(grid.LS[1].α.<zeros(ny,nx)).*cos.(grid.LS[1].α.+pi*ones(ny,nx)/2)./(ones(ny,nx) .- cos.(grid.LS[1].α.+pi*ones(ny,nx)/2).*cbrt.(x)./(cbrt.(sin.(grid.LS[1].α.+pi*ones(ny,nx)/2)))) # simple dissolution model normal velocity
         end
 
         if heat
