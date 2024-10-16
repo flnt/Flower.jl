@@ -9,7 +9,7 @@ L0y = 4.0
 
 n = 65
 CFL = 0.5
-max_it = 200
+max_it = 400
 A = 1
 N = 1
 alpha = pi/9
@@ -55,7 +55,7 @@ f1
 
 f1 = Figure(size = (1600, 1000))
 ax = Axis(f1[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y", xtickalign=0,  ytickalign=0)
-for i = 1:20:max_it
+for i = 1:40:max_it
     contour!(gp.x[1,:], gp.y[:,1], fwd.u[1,i,:,:]', levels = 0:0, color=:red, linewidth = 3);
 end
 f1

@@ -453,7 +453,8 @@ function run_forward(
     while num.current_i < max_iterations + 1        
         if !stefan
             #V .= speed*ones(ny, nx)
-            V .= speed*(x.^2+y.^2)
+            #V .= speed*(x.^2+y.^2)
+            V .= speed*exp.(-10*(y-0.5*ones(ny,nx)).^2)
         end
 
         if heat
