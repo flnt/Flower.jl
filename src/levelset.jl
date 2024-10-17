@@ -1628,6 +1628,10 @@ end
     biquadratic(itp, (x[II] - x[II_0])/(x[δx⁺(II_0)] - x[δx⁻(II_0)]),
         (y[II] - y[II_0] + dy/2)/(y[δy⁺(II_0)] - y[δy⁻(II_0)]))]
 
+
+"""
+
+"""
 function aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
     st = static_stencil(u, II_0)
     B, BT = B_BT(II_0, x, y)

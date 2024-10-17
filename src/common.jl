@@ -198,6 +198,16 @@ end
 @inline in_bounds(a, n) = ifelse(a > 2 && a < n-1, true, false)
 @inline in_bounds(a, n, per) = per ? ifelse(a > 1 && a < n, true, false) : in_bounds(a, n)
 
+
+"""
+static_stencil
+
+a[j-1,i-1] a[j-1,i] a[j-1,i+1];
+
+a[j, i-1 ] a[j  ,i] a[j, i+1];
+
+a[j+1,i-1] a[j+1,i] a[j+1,i+1]
+"""
 @inline function static_stencil(a, II::CartesianIndex)
    return @inbounds SA_F64[a[II.I[1]-1, II.I[2]-1] a[II.I[1]-1, II.I[2]] a[II.I[1]-1, II.I[2]+1];
                a[II.I[1], II.I[2]-1] a[II.I[1], II.I[2]] a[II.I[1], II.I[2]+1];
@@ -253,6 +263,10 @@ end
                 a[δx⁻(δy⁺(II, ny, per_y), nx, per_x)] a[δy⁺(II, ny, per_y)] a[δx⁺(δy⁺(II, ny, per_y), nx, per_x)]]
  end
 
+
+"""
+2.3.2.2 Biquadratic interpolation of the level-set ? or here f function
+"""
 @inline function B_BT(II, x, y, f=x->x)
     B = inv((@SMatrix [((x[f(δx⁻(II))]-x[II])/(x[f(δx⁺(II))] - x[f(δx⁻(II))]))^2 (x[f(δx⁻(II))]-x[II])/(x[f(δx⁺(II))] - x[f(δx⁻(II))]) 1.0;
                       ((x[f(II)]-x[II])/(x[f(δx⁺(II))] - x[f(δx⁻(II))]))^2 (x[f(II)]-x[II])/(x[f(δx⁺(II))] - x[f(δx⁻(II))]) 1.0;
@@ -265,6 +279,10 @@ end
     return B, BT
 end
 
+
+"""
+2.3.2.2 Biquadratic interpolation of the level-set ?
+"""
 @inline function B_BT(II::CartesianIndex, grid::G, per_x, per_y) where {G<:Grid}
     @unpack x, y, nx, ny, dx, dy = grid
 
@@ -288,6 +306,9 @@ end
     return B, BT
 end
 
+"""
+2.3.2.2 Biquadratic interpolation of the level-set ?
+"""
 @inline function B_BT(II::CartesianIndex, grid::G) where {G<:Grid}
     B = inv(@SMatrix [0.25 -0.5 1.0;
                       0.0 0.0 1.0;

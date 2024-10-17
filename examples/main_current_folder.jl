@@ -590,8 +590,10 @@ num = Numerical(
     electric_potential = sim.electric_potential,
     contact_angle = sim.contact_angle,
     convection_Cdivu = sim.convection_Cdivu,
+    convection_mode = sim.convection_mode,
     advection_LS_mode = sim.advection_LS_mode,
     scalar_bc = sim.scalar_bc,
+    solver = sim.solver,
     )
 
 Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
@@ -1626,6 +1628,7 @@ run_forward!(
     navier_stokes = true,
     ns_advection = ns_advection,
     ns_liquid_phase = true,
+    Vmean = (sim.mean_velocity == 1),
     verbose = true,
     show_every = sim.show_every,
     electrolysis_convection = true,  

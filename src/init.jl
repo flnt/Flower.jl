@@ -1,3 +1,6 @@
+"""
+Returns Cartesian indices, with subsets for borders
+"""
 function Indices(nx, ny)
     T = zeros(ny, nx)
 
@@ -18,6 +21,11 @@ function Indices(nx, ny)
         (BOTTOM, BOTTOM2), (RIGHT, RIGHT2), (TOP, TOP2)
     )
 end
+
+
+"""
+Initialises Levelset
+"""
 function Levelset(nx, ny)
     u = zeros(ny, nx)
     iso = zeros(ny, nx)
@@ -115,6 +123,12 @@ function Levelset(nx, ny)
     )
 end
 
+
+"""
+Mesh
+
+Initialises mesh
+"""
 function Mesh(gridType, x_nodes, y_nodes, nLS)
     nx = length(x_nodes) - 1
     ny = length(y_nodes) - 1
@@ -140,6 +154,10 @@ function Mesh(gridType, x_nodes, y_nodes, nLS)
     return Mesh{gridType,Float64,Int64}(x_nodes, y_nodes, x, y, nx, ny, dx, dy, LS, ind, V)
 end
 
+
+"""
+Initialises staggered grids p, u, v
+"""
 function init_meshes(num::NumericalParameters)
     mesh_cc = Mesh(GridCC, num.x, num.y, num._nLS)
 

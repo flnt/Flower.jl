@@ -15,6 +15,12 @@ function fill_empty_rows!(num, grid, geo, O)
     return nothing
 end
 
+
+"""
+pad
+
+adds a to the diagonal where it is null
+"""
 function pad(A, a=1.0)
     d = collect(diag(A))
     for i in eachindex(d)

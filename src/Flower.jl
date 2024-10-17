@@ -47,7 +47,8 @@ import Base.reshape
 @reexport using IterativeSolvers #for gmres
 
 @reexport using Statistics #for mean
-
+@reexport using MPI
+@reexport using MUMPS
 
 # #Long version
 # @reexport using Printf

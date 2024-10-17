@@ -1,3 +1,7 @@
+"""
+indices_extension
+
+"""
 function indices_extension(grid, LS, inside_ext, periodic_x, periodic_y)
     _MIXED_L = collect(intersect(Set(LS.MIXED), Set(findall(LS.geoL.emptied))))
     _MIXED_S = collect(intersect(Set(LS.MIXED), Set(findall(LS.geoS.emptied))))
@@ -29,6 +33,13 @@ function indices_extension(grid, LS, inside_ext, periodic_x, periodic_y)
     return indices_ext, left_ext, bottom_ext, right_ext, top_ext
 end
 
+
+"""
+update_all_ls_data
+
+handles 2 crossing levelsets, levelsets are combined at grid.LS[end]
+8:11 volume
+"""
 function update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, empty = true)
     if num.nLS > 1
         for iLS in 1:num.nLS
@@ -55,24 +66,21 @@ function update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, perio
         NB_indices = update_ls_data(num, grid, grid_u, grid_v, 1, grid.LS[1].u, grid.LS[1].κ, BC_int, BC_int[1], periodic_x, periodic_y, true, empty)
         grid.LS[1].geoL.cap0 .= grid.LS[1].geoL.cap
         grid.LS[1].mid_point0 .= grid.LS[1].mid_point
-
-        # printstyled(color=:red, @sprintf "\n volume:\n")
-        # II = CartesianIndex(68, 1) #(id_y, id_x)
-        # print(grid.LS[1].geoL.dcap[II,8:11])
-        # print(grid.LS[1].geoL.cap[II,8:11])
-
-        
-
-
         postprocess_grids2!(grid, grid.LS[1], grid_u, grid_u.LS[1], grid_v, grid_v.LS[1], periodic_x, periodic_y, true)
     end
 
     return NB_indices
 end
 
+
+
+"""
+update_ls_data
+"""
 function update_ls_data(num, grid, grid_u, grid_v, iLS, u, κ, BC_int, bc_int, periodic_x, periodic_y, neighbours, empty = true)
     NB_indices = update_ls_data_grid(num, grid, grid.LS[iLS], u, κ, periodic_x, periodic_y)
-
+    
+    #interpolate from scalar grid (p) to u and v grids 
     interpolate_scalar!(grid, grid_u, grid_v, u, grid_u.LS[iLS].u, grid_v.LS[iLS].u)
 
     _ = update_ls_data_grid(num, grid_u, grid_u.LS[iLS], grid_u.LS[iLS].u, grid_u.LS[iLS].κ, periodic_x, periodic_y)
@@ -105,6 +113,10 @@ function update_ls_data(num, grid, grid_u, grid_v, iLS, u, κ, BC_int, bc_int, p
     return NB_indices
 end
 
+
+"""
+
+"""
 function update_ls_data_grid(num, grid, LS, u, κ, periodic_x, periodic_y)
     LS.α .= NaN
     LS.faces .= 0.0
@@ -130,6 +142,7 @@ function update_ls_data_grid(num, grid, LS, u, κ, periodic_x, periodic_y)
     return NB_indices
 end
 
+
 function update_stefan_velocity(num, grid, iLS, u, TS, TL, periodic_x, periodic_y, λ, Vmean)
     Stefan_velocity!(num, grid, grid.LS[iLS], grid.V, TS, TL, grid.LS[iLS].MIXED, periodic_x, periodic_y)
     grid.V[grid.LS[iLS].MIXED] .*= 1. ./ λ
@@ -141,6 +154,7 @@ function update_stefan_velocity(num, grid, iLS, u, TS, TL, periodic_x, periodic_
     i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, grid.LS[iLS], grid.ind.inside, periodic_x, periodic_y)
     field_extension!(grid, u, grid.V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
 end
+
 
 function update_free_surface_velocity(num, grid_u, grid_v, iLS, uD, vD, periodic_x, periodic_y)
     # grid_u.V .= reshape(veci(uD,grid_u,iLS+1), grid_u)

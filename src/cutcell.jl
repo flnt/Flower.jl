@@ -1298,6 +1298,12 @@ function set_B_caps!(capn, LS1, LS2, II, B)
     return nothing
 end
 
+
+"""
+marching marching_squares
+
+2.3.2.4 Marching squares algorithm in rodriguezNumericalMethodsModeling2024
+"""
 function _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, near_interface)
     @unpack x, y, nx, ny, dx, dy, ind = grid
     @unpack iso, faces, geoS, geoL, mid_point, α = LS
@@ -1352,6 +1358,12 @@ function _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, near_
     iso[II] = ISO
 end
 
+
+"""
+marching_squares!
+
+for 
+"""
 function marching_squares!(grid, LS, u, periodic_x, periodic_y)
     @unpack x, y, nx, ny, dx, dy, ind = grid
 
@@ -1414,6 +1426,12 @@ function marching_squares!(grid, LS, u, periodic_x, periodic_y)
     return nothing
 end
 
+
+"""
+get_interface_location!
+
+updates capacities and projections?
+"""
 function get_interface_location!(grid, LS, periodic_x, periodic_y)
     @unpack x, y = grid
     @unpack iso, geoS, geoL, mid_point, cut_points, α, MIXED = LS
@@ -1425,6 +1443,8 @@ function get_interface_location!(grid, LS, periodic_x, periodic_y)
     end
     return nothing
 end
+
+
 
 function get_interface_location_borders!(grid::Mesh{GridFCx,T,N}, u, periodic_x) where {T,N}
     @unpack nx, ny, ind, geoS, geoL, mid_point, cut_points = grid

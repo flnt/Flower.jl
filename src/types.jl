@@ -91,9 +91,11 @@ abstract type AbstractOptimizer end
     electric_potential::D = 0 #solve electric potential
     contact_angle::D = 0 #contact angle: advancing, receding
     convection_Cdivu::D = 0
+    convection_mode::D = 0
     mode_2d::D = 0
     advection_LS_mode::D = 0
     scalar_bc::D = 0
+    solver::D = 0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

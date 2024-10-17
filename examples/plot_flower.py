@@ -1368,76 +1368,78 @@ def plot_file(
         LSdat = LSdat.transpose()
         CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
         
-       
+    
 
     if 'plot_wall' in figpar.keys():
         if figpar['plot_wall']:
-
-            try:
-                LSdat = file[key_LS_wall][:]
-                # plot_LS(LSdat)
-
-                LSdat = LSdat.transpose()
-                # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
-                CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=0) #not very precise
-
-                # print(CSlvlwall.levels)
-
-                for level, collection in zip(CSlvlwall.levels[1:], CSlvlwall.collections):
-                    # print(f"Levelset contours",level)
-                    if level>0:
-                        collection.remove()
-                    else:
-                        collection.set_facecolor(plotpar['color_wall'])  
             
-            except:
-                file_wall_name = "flower_00000000.h5"
-                # print('loading file to plot wall: ',file_wall_name)
-                with h5py.File(file_wall_name, "r") as file_wall:
-                    LSdat = file_wall[key_LS_wall][:]
+            plot_wall(ax2, x_1D, y_1D, LSdat, file, key_LS_wall,figpar,plotpar)
 
-                    LSdat = LSdat.transpose()
-                    # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
-                    CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=0) #not very precise
+        #     try:
+        #         LSdat = file[key_LS_wall][:]
+        #         # plot_LS(LSdat)
 
-                    # print(CSlvlwall.levels)
-
-                    for level, collection in zip(CSlvlwall.levels[1:], CSlvlwall.collections):
-                        # print(f"Levelset contours",level)
-                        if level>0:
-                            collection.remove()
-                        else:
-                            collection.set_facecolor(plotpar['color_wall'])  
-
-        #with version below need to take care if bottom,top... fillbetween y=ymin and intfc or y=ymax ...
-        # try:
-        #     print('plot wall')
-        #     LSdat = file[key_LS_wall][:]
-        #     LSdat = LSdat.transpose()
-        #     CSlvl2 = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=10)
-
-        #     # cutoff = 0
-        #     # LSdat = np.ma.masked_where(LSdat >=cutoff, LSdat)
-
-        #     # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
-    
-        #     contour = CSlvl2.allsegs[0][0]
-        #     ax2.fill_between(contour[:,0], contour[:,1],y_1D[-1],color=plotpar['color_wall'])
-        # except:
-        #     file_wall_name = "flower_00000000.h5"
-        #     print('loading file to plot wall: ',file_wall_name)
-        #     with h5py.File(file_wall_name, "r") as file_wall:
-        #         LSdat = file_wall[key_LS_wall][:]
         #         LSdat = LSdat.transpose()
-        #         CSlvl2 = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=10)
-
-        #         # cutoff = 0
-        #         # LSdat = np.ma.masked_where(LSdat >=cutoff, LSdat)
-
         #         # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
+        #         CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=0) #not very precise
+
+        #         # print(CSlvlwall.levels)
+
+        #         for level, collection in zip(CSlvlwall.levels[1:], CSlvlwall.collections):
+        #             # print(f"Levelset contours",level)
+        #             if level>0:
+        #                 collection.remove()
+        #             else:
+        #                 collection.set_facecolor(plotpar['color_wall'])  
+            
+        #     except:
+        #         file_wall_name = "flower_00000000.h5"
+        #         # print('loading file to plot wall: ',file_wall_name)
+        #         with h5py.File(file_wall_name, "r") as file_wall:
+        #             LSdat = file_wall[key_LS_wall][:]
+
+        #             LSdat = LSdat.transpose()
+        #             # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
+        #             CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=0) #not very precise
+
+        #             # print(CSlvlwall.levels)
+
+        #             for level, collection in zip(CSlvlwall.levels[1:], CSlvlwall.collections):
+        #                 # print(f"Levelset contours",level)
+        #                 if level>0:
+        #                     collection.remove()
+        #                 else:
+        #                     collection.set_facecolor(plotpar['color_wall'])  
+
+        # #with version below need to take care if bottom,top... fillbetween y=ymin and intfc or y=ymax ...
+        # # try:
+        # #     print('plot wall')
+        # #     LSdat = file[key_LS_wall][:]
+        # #     LSdat = LSdat.transpose()
+        # #     CSlvl2 = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=10)
+
+        # #     # cutoff = 0
+        # #     # LSdat = np.ma.masked_where(LSdat >=cutoff, LSdat)
+
+        # #     # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
+    
+        # #     contour = CSlvl2.allsegs[0][0]
+        # #     ax2.fill_between(contour[:,0], contour[:,1],y_1D[-1],color=plotpar['color_wall'])
+        # # except:
+        # #     file_wall_name = "flower_00000000.h5"
+        # #     print('loading file to plot wall: ',file_wall_name)
+        # #     with h5py.File(file_wall_name, "r") as file_wall:
+        # #         LSdat = file_wall[key_LS_wall][:]
+        # #         LSdat = LSdat.transpose()
+        # #         CSlvl2 = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=10)
+
+        # #         # cutoff = 0
+        # #         # LSdat = np.ma.masked_where(LSdat >=cutoff, LSdat)
+
+        # #         # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
         
-        #         contour = CSlvl2.allsegs[0][0]
-        #         ax2.fill_between(contour[:,0], contour[:,1],y_1D[-1],color=plotpar['color_wall'])
+        # #         contour = CSlvl2.allsegs[0][0]
+        # #         ax2.fill_between(contour[:,0], contour[:,1],y_1D[-1],color=plotpar['color_wall'])
 
 
 
@@ -1699,7 +1701,10 @@ def plot_current_lines(file,
         LSdat = LSdat.transpose()
         CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'])
 
-    
+    if 'plot_wall' in figpar.keys():
+        if figpar['plot_wall']:
+            key_LS_wall = "levelset_p_wall"
+            plot_wall(ax2,xp, yp, LSdat, file, key_LS_wall,figpar,plotpar)
 
     if mode =='first' or mode =='close':
         ax2.spines["right"].set_visible(False)
@@ -1722,6 +1727,76 @@ def plot_current_lines(file,
         return
 
     return(fig1,ax2,cbar)
+
+
+def  plot_wall(ax2, x_1D, y_1D, LSdat, file, key_LS_wall,figpar,plotpar):
+
+    try:
+        LSdat = file[key_LS_wall][:]
+        # plot_LS(LSdat)
+
+        LSdat = LSdat.transpose()
+        # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
+        CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=0) #not very precise
+
+        # print(CSlvlwall.levels)
+
+        for level, collection in zip(CSlvlwall.levels[1:], CSlvlwall.collections):
+            # print(f"Levelset contours",level)
+            if level>0:
+                collection.remove()
+            else:
+                collection.set_facecolor(plotpar['color_wall'])  
+    
+    except:
+        file_wall_name = "flower_00000000.h5"
+        # print('loading file to plot wall: ',file_wall_name)
+        with h5py.File(file_wall_name, "r") as file_wall:
+            LSdat = file_wall[key_LS_wall][:]
+
+            LSdat = LSdat.transpose()
+            # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
+            CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=0) #not very precise
+
+            # print(CSlvlwall.levels)
+
+            for level, collection in zip(CSlvlwall.levels[1:], CSlvlwall.collections):
+                # print(f"Levelset contours",level)
+                if level>0:
+                    collection.remove()
+                else:
+                    collection.set_facecolor(plotpar['color_wall'])  
+
+        #with version below need to take care if bottom,top... fillbetween y=ymin and intfc or y=ymax ...
+        # try:
+        #     print('plot wall')
+        #     LSdat = file[key_LS_wall][:]
+        #     LSdat = LSdat.transpose()
+        #     CSlvl2 = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=10)
+
+        #     # cutoff = 0
+        #     # LSdat = np.ma.masked_where(LSdat >=cutoff, LSdat)
+
+        #     # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
+    
+        #     contour = CSlvl2.allsegs[0][0]
+        #     ax2.fill_between(contour[:,0], contour[:,1],y_1D[-1],color=plotpar['color_wall'])
+        # except:
+        #     file_wall_name = "flower_00000000.h5"
+        #     print('loading file to plot wall: ',file_wall_name)
+        #     with h5py.File(file_wall_name, "r") as file_wall:
+        #         LSdat = file_wall[key_LS_wall][:]
+        #         LSdat = LSdat.transpose()
+        #         CSlvl2 = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=10)
+
+        #         # cutoff = 0
+        #         # LSdat = np.ma.masked_where(LSdat >=cutoff, LSdat)
+
+        #         # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
+        
+        #         contour = CSlvl2.allsegs[0][0]
+        #         ax2.fill_between(contour[:,0], contour[:,1],y_1D[-1],color=plotpar['color_wall'])
+
 
 
 def plot_radius(time_list,radius_list):
@@ -2068,6 +2143,10 @@ def plot_python_pdf_full2(
                 if 'print_mode' in figpar.keys():
                     if figpar['print_mode'] == "val":
                         str1='{:.2e}'.format(field[jgrid,igrid])
+                    elif figpar['print_mode'] == "valres":
+                        str1=figpar['print_res'].format(field[jgrid,igrid])
+                    elif figpar['print_mode'] == "val10":
+                        str1='{:.10e}'.format(field[jgrid,igrid])
                     elif figpar['print_mode'] == "ij":
                         str1="{:03} {:03}".format(igrid0,jgrid0)
                     elif figpar['print_mode'] == "ijval": 

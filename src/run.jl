@@ -91,6 +91,13 @@ function run_forward!(
     # speed::Float64 = 0.0,
     speed = 0.0
 
+    #index of bubble interface
+    iLSbubble = 1
+
+    sum_mass_flux = 0.0
+    
+    sign_mass_flux = 1
+
 
     #TODO Re
 
@@ -244,8 +251,11 @@ function run_forward!(
     utmp = copy(grid.LS[1].u)
     rhs_LS = fzeros(grid)
 
+    #vectors used reset at start of functions to limit allocations
     tmp_vec_u = zeros(grid_u) 
     tmp_vec_v = zeros(grid_v) 
+    tmp_vec_u0 = zeros(grid_u) 
+    tmp_vec_v0 = zeros(grid_v)
     tmp_vec_p = zeros(grid) 
 
 
@@ -505,8 +515,8 @@ function run_forward!(
             if electrolysis 
                 # Aphi_eleL = spzeros(nt, nt)
 
-                coeffDu = zeros(grid_u)
-                coeffDv = zeros(grid_v)
+                # coeffDu = zeros(grid_u)
+                # coeffDv = zeros(grid_v)
                 coeffDx_interface = zeros(grid_u)
                 coeffDy_interface = zeros(grid_v)
             end
@@ -1123,6 +1133,8 @@ function run_forward!(
                     all_CUTCT,
                     rhs_scal,
                     tmp_vec_p, #used to store a0 for rhs of interfacial value
+                    tmp_vec_u,
+                    tmp_vec_v,
                     periodic_x, 
                     periodic_y, 
                     electrolysis_convection, 
@@ -1325,7 +1337,7 @@ function run_forward!(
 
                     # printstyled(color=:green, @sprintf "\n BC phi : %.2e \n" BC_phi_ele.int.val)
 
-                    printstyled(color=:magenta, @sprintf "\n test LS update for set_poisson_variable_coeff!  \n")
+                    # printstyled(color=:magenta, @sprintf "\n test LS update for set_poisson_variable_coeff!  \n")
 
                     # update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
                     
@@ -1335,7 +1347,7 @@ function run_forward!(
                     #     periodic_x, periodic_y
                     # )
                     # Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = laps
-                    printstyled(color=:magenta, @sprintf "\n test LS update for set_poisson_variable_coeff!  \n")
+                    # printstyled(color=:magenta, @sprintf "\n test LS update for set_poisson_variable_coeff!  \n")
 
 
                     #TODO BC several grid.LS
@@ -1353,11 +1365,31 @@ function run_forward!(
                         BC_phi_ele,
                         phL,                        
                         elec_condD,
-                        coeffDu,
-                        coeffDv,
-                        coeffDx_interface,
-                        coeffDy_interface,
+                        tmp_vec_u,
+                        tmp_vec_v,
+                        tmp_vec_u0,
+                        tmp_vec_v0,
                         ls_advection)
+
+
+                    printstyled(color=:cyan, @sprintf "\n after set_poisson_variable_coeff! \n")
+                    print_electrolysis_statistics(num.nb_transported_scalars,grid,phL)
+
+                    #TODO still in dev
+                    # set_poisson_variable_coeff_no_interpolation!(num, 
+                    #     grid, 
+                    #     grid_u, 
+                    #     grid_v, 
+                    #     # op.opC_TL,
+                    #     op.opC_pL,
+                    #     Ascal, 
+                    #     rhs_scal,
+                    #     tmp_vec_p, #a0
+                    #     a1_p,
+                    #     BC_phi_ele,
+                    #     phL,                        
+                    #     elec_condD,
+                    #     ls_advection)
 
 
                     if any(isnan, phL.phi_eleD)
@@ -1534,7 +1566,7 @@ function run_forward!(
 
             compute_mass_flux!(num,grid,phL,op.opC_pL,1,mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
 
-            print("\n sum mass flux ", sum(mass_flux),"\n ")
+            print("\n sum mass flux all levelsets (walls and interfaces alike)", sum(mass_flux),"\n ")
         end
         
         #    grid.LS[i].α  which is the angle of the outward point normal with respect to the horizontal axis
@@ -1542,7 +1574,7 @@ function run_forward!(
         for iLS in 1:num.nLS
             if is_stefan(BC_int[iLS])
                 update_stefan_velocity(num, grid, iLS, grid.LS[iLS].u, phS.T, phL.T, periodic_x, periodic_y, λ, Vmean)
-            elseif is_fs(BC_int[iLS]) || occursin("levelset",electrolysis_phase_change_case)
+            elseif is_fs(BC_int[iLS]) || (occursin("levelset",electrolysis_phase_change_case) && iLS == iLSbubble)
                 printstyled(color=:green, @sprintf "\n grid.V %.2e max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(grid.V)) maximum(abs.(phL.u)) maximum(abs.(phL.v)))
 
                 if electrolysis_phase_change_case!="none"    
@@ -1556,7 +1588,41 @@ function run_forward!(
                         
                         # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
 
-                        varnH2 = -sum(mass_flux) * num.diffusion_coeff[1] 
+                       
+
+
+                        if electrolysis_phase_change_case == "levelset"
+
+                            update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, 
+                            periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],
+                            num.diffusion_coeff[1],num.concentration0[1],electrolysis_phase_change_case,mass_flux,sum_mass_flux)
+
+                        elseif electrolysis_phase_change_case == "levelset_averaged"
+                            
+                            update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, 
+                            periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],
+                            num.diffusion_coeff[1],num.concentration0[1],electrolysis_phase_change_case,mass_flux,sum_mass_flux)
+
+                            
+                            # # iLS = 1
+                            # # intfc_length = 0.0
+                            # # @inbounds @threads for II in grid.LS[iLS].MIXED
+                            # #     intfc_length += 
+                            # # end
+
+
+                            # printstyled(color=:green, @sprintf "\n pi*R %.2e len : %.2e \n" π*num.R intfc_length)
+
+                            # #TODO u-vphase change
+
+                            # #TODO check velocity
+                            # @inbounds @threads for II in grid.LS[iLS].MIXED
+                            #     grid.V[II] = sign_mass_flux * sum(mass_flux) * num.diffusion_coeff[1] *(1.0/num.rho2-1.0/num.rho1).*num.diffusion_coeff[1].*num.MWH2
+                            # end
+
+                        end #electrolysis_phase_change_case == "levelset"
+
+                        varnH2 = sign_mass_flux * sum_mass_flux * num.diffusion_coeff[1] 
 
                         new_nH2 = nH2 + varnH2 * num.τ
 
@@ -1575,38 +1641,6 @@ function run_forward!(
                             nH2 = new_nH2
                         end
 
-
-
-                        if electrolysis_phase_change_case == "levelset"
-
-                            update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, 
-                            periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],
-                            num.diffusion_coeff[1],num.concentration0[1],electrolysis_phase_change_case,mass_flux)
-
-                        elseif electrolysis_phase_change_case == "levelset_averaged"
-                            
-                            update_free_surface_velocity_electrolysis(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, 
-                            periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],
-                            num.diffusion_coeff[1],num.concentration0[1],electrolysis_phase_change_case,mass_flux)
-
-                            
-                            # # iLS = 1
-                            # # intfc_length = 0.0
-                            # # @inbounds @threads for II in grid.LS[iLS].MIXED
-                            # #     intfc_length += 
-                            # # end
-
-
-                            # printstyled(color=:green, @sprintf "\n pi*R %.2e len : %.2e \n" π*num.R intfc_length)
-
-                            # #TODO u-vphase change
-
-                            # #TODO check velocity
-                            # @inbounds @threads for II in grid.LS[iLS].MIXED
-                            #     grid.V[II] = -sum(mass_flux) * num.diffusion_coeff[1] *(1.0/num.rho2-1.0/num.rho1).*num.diffusion_coeff[1].*num.MWH2
-                            # end
-
-                        end #electrolysis_phase_change_case == "levelset"
 
                     end
                     # update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y)
@@ -1628,63 +1662,8 @@ function run_forward!(
 
                 previous_radius = current_radius
 
-
-                # print("\n test left H2", vecb_L(phL.trans_scalD[:,1], grid))
-                # print("\n test left potential", vecb_L(phL.phi_eleD, grid))
-
-                # print("\n test left H2", vecb_L(phL.trans_scalD[:,1], grid))
-
-               
-                # print("\n testvalflux1")
-                # for jplot in 1:grid.ny
-                #     for iplot in 1:grid.nx
-                #         if phL.saved_scal[jplot,iplot,1] !=0.0
-                #             printstyled(color=:green, @sprintf "\n j: %5i %5i %.2e\n" iplot jplot phL.saved_scal[jplot,iplot,1])
-                #         end
-                #     end
-                # end
-
-
-
-
-
-                # printstyled(color=:cyan, @sprintf "\n div(0,grad): %.2e %.2e %.2e %.2e \n" sum(mass_flux) sum(phL.saved_scal[:,:,2]) sum(phL.saved_scal[:,:,3]) sum(phL.saved_scal[:,:,4]))
-
-                
-                # # #############################################################################################################
-                # # #Print values on line
-                # id_x = 1
-                # for iplot in 1:grid.ny
-                #     printstyled(color=:green, @sprintf "\n j: %5i %.2e %.2e %.2e %.2e %.2e %.2e %.2e\n" iplot grid.y[iplot]/num.plot_xscale phL.saved_scal[iplot,id_x,2] phL.saved_scal[iplot,id_x,3] phL.saved_scal[iplot,id_x,4] phL.trans_scal[iplot,id_x,1] grid.LS[1].u[iplot,id_x] veci(phL.trans_scalD,grid,2)[iplot,id_x,1])
-                # end
-                # # #############################################################################################################
-                # print("\n testvalflux2")
-
-                # for jplot in 1:grid.ny
-                #     for iplot in 1:grid.nx
-                #         if phL.saved_scal[jplot,iplot,1] !=0.0
-                #             printstyled(color=:green, @sprintf "\n j: %5i %5i %.2e\n" iplot jplot phL.saved_scal[jplot,iplot,1])
-                #         end
-                #     end
-                # end
-
-
-                # mass_fluxO=compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  op.opC_pL, op.opC_pS,num.diffusion_coeff,3)
-
-                # Print values on line
-                # for iplot in 1:grid.ny
-                #     II = CartesianIndex(iplot, 1) #(id_y, id_x)
-                #     pII = lexicographic(II, grid.ny)
-                #     printstyled(color=:green, @sprintf "\n j: %5i %.2e %.2e %.2e %.2e \n" iplot grid.y[iplot]/num.plot_xscale mass_flux_vec1[pII] mass_flux_vecb[pII] mass_flux_veci[pII])
-                # end
-       
-                #TODO mass_fluxL
-                # mass_fluxL=-... * num.diffusion_coeff[1] 
-
-
-
                 # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
-                varnH2 = -sum(mass_flux) * num.diffusion_coeff[1] 
+                varnH2 = sign_mass_flux * sum(mass_flux) * num.diffusion_coeff[1] 
 
                 #TODO mode_2d==0 flux corresponds to cylinder of length 1
                 #2D cylinder reference length
@@ -1813,7 +1792,7 @@ function run_forward!(
                     IIOE_normal!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y)
                     grid.LS[iLS].u .= reshape(gmres(grid.LS[iLS].A, grid.LS[iLS].B * vec(grid.LS[iLS].u)), grid)
                     # u .= sqrt.((grid.x .- num.current_i*num.Δ/1).^ 2 + grid.y .^ 2) - (0.5) * ones(grid.nx, grid.ny);
-                elseif is_fs(bc) || occursin("levelset",electrolysis_phase_change_case)
+                elseif is_fs(bc) || (occursin("levelset",electrolysis_phase_change_case) && iLS == iLSbubble)
 
                     if num.advection_LS_mode == 0
                         rhs_LS .= 0.0
@@ -1952,7 +1931,7 @@ function run_forward!(
                         previous_radius = current_radius
 
                         # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
-                        varnH2 = -sum(mass_flux) * num.diffusion_coeff[1] 
+                        varnH2 = sign_mass_flux * sum(mass_flux) * num.diffusion_coeff[1] 
 
                         #TODO mode_2d==0 flux corresponds to cylinder of length 1
                         #2D cylinder reference length
