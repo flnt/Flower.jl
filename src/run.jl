@@ -29,7 +29,12 @@
 # typeof(Flower.run_forward), ,  
 # , , 
 # , 
+"""
+    run_forward!
 
+    Main function of Flower
+
+"""
 function run_forward!(
     num::Numerical{Float64, Int64},
     grid::Mesh{Flower.GridCC, Float64, Int64},
@@ -1218,7 +1223,14 @@ function run_forward!(
 
                     # #print(@sprintf "TODO elec cond and boundary conditions need to be updated for potential\n")
 
-                    if electrolysis && num.nb_transported_scalars>1 && num.bulk_conductivity != 0
+
+                    # printstyled(color=:magenta, @sprintf "\n conductivity test")
+                    # phL.trans_scal[:,:,2] .= num.concentration0[2]
+                    # phL.trans_scalD[:,2] .= num.concentration0[2]
+                    # printstyled(color=:magenta, @sprintf "\n conductivity test")
+
+
+                    if electrolysis && num.nb_transported_scalars>1 #&& num.bulk_conductivity != 0
                         if heat 
                             elec_cond  = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru.*phL.T) 
                             elec_condD = 2*num.Faraday^2 .*phL.trans_scalD[:,2].*num.diffusion_coeff[2]./(num.Ru.*phL.TD)
@@ -1236,24 +1248,17 @@ function run_forward!(
                     end 
 
 
-                 
 
-
-                    #TODO Poisson with variable coefficients
                     #TODO need to iterate? since nonlinear
 
                     #TODO no concentration prefactor
 
                     #Update Butler-Volmer Boundary Condition with new potential 
-                
-                    # eta = num.phi_ele1 .- phL.phi_ele[:,1]
-                    # i_current = num.i0*(exp(num.alpha_a*num.Faraday*eta/(num.Ru*num.temperature0))-exp(-num.alpha_c*num.Faraday*eta/(num.Ru*num.temperature0)))
 
                     if occursin("Butler",electrolysis_reaction) && num.nLS == 1
 
-                         # BC LS 2 in set_poisson directly
+                        # BC LS 2 in set_poisson directly
                       
-
                         #use Butler-Volmer, supposing the interfacial potential is acceptable and phi = phi_ele1 in metal 
                         # for conductivity, use interfacial value or bulk in corresponding cell
 
@@ -1328,6 +1333,7 @@ function run_forward!(
                     # "\n phL.u: ",norm(phL.u) > 1e8 , "\n phS.u: ",norm(phS.u) > 1e8 , "\n phL.T: ",norm(phL.T) > 1e8 , "\n phS.T: ",norm(phS.T) > 1e8 , "\n phL.trans_scal: ",norm(phL.trans_scal) > 1e8 , "\n phL.phi_ele: ",norm(phL.phi_ele) > 1e8)
         
 
+                    #TODO nLS
                     #TODO kill_dead_cells! ?
                     kill_dead_cells!(phL.phi_ele, grid, grid.LS[1].geoL)
                     veci(phL.phi_eleD,grid,1) .= vec(phL.phi_ele)
@@ -1356,7 +1362,6 @@ function run_forward!(
                         grid, 
                         grid_u, 
                         grid_v, 
-                        # op.opC_TL,
                         op.opC_pL,
                         Ascal, 
                         rhs_scal,
@@ -1367,9 +1372,30 @@ function run_forward!(
                         elec_condD,
                         tmp_vec_u,
                         tmp_vec_v,
-                        tmp_vec_u0,
-                        tmp_vec_v0,
+                        # tmp_vec_u0,
+                        # tmp_vec_v0,
                         ls_advection)
+                        
+                        # op.opC_TL,
+
+
+                        # set_poisson_variable_coeff_old!(num, 
+                        # grid, 
+                        # grid_u, 
+                        # grid_v, 
+                        # op.opC_pL,
+                        # Ascal, 
+                        # rhs_scal,
+                        # tmp_vec_p, #a0
+                        # a1_p,
+                        # BC_phi_ele,
+                        # phL,                        
+                        # elec_condD,
+                        # tmp_vec_u,
+                        # tmp_vec_v,
+                        # tmp_vec_u0,
+                        # tmp_vec_v0,
+                        # ls_advection)
 
 
                     printstyled(color=:cyan, @sprintf "\n after set_poisson_variable_coeff! \n")

@@ -1,3 +1,6 @@
+"""
+Prepare Boundary conditions
+"""
 function set_borders!(grid, cl, u, a0, a1, b, BC, n_ext)
     @unpack nx, ny, x, y, dx, dy, ind = grid
 
@@ -179,6 +182,7 @@ function set_borders!(grid, cl, u, a0, a1, b, BC, n_ext)
     return nothing
 end
 
+
 function update_dirichlet_field!(grid, bv, v, BC)
     @unpack nx, ny = grid
     tmp = zeros(size(v))
@@ -217,6 +221,11 @@ function update_dirichlet_field!(grid, bv, v, BC)
 end
 
 
+"""
+set_cutcell_matrices!
+
+set iMx, Ax, Ay,... indicator χ...
+"""
 function set_cutcell_matrices!(num, grid, geo, geo_p, opC, periodic_x, periodic_y)
     @unpack nx, ny, ind = grid
     @unpack AxT, AyT, Bx, By, BxT, ByT, Hx, Hy, HxT, HyT, M, iMx, iMy, χ = opC

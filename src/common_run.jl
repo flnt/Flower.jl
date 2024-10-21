@@ -115,7 +115,7 @@ end
 
 
 """
-
+call marching_squares!, get_interface_location!, get_curvature
 """
 function update_ls_data_grid(num, grid, LS, u, κ, periodic_x, periodic_y)
     LS.α .= NaN

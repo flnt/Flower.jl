@@ -97,6 +97,10 @@ function set_heat_borders!(grid, a0, a1, b, BC_T, per_x, per_y)
     return nothing
 end
 
+
+"""
+set matrices for heat equation
+"""
 function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection,
     A, B,rhs,
     op_conv, grid_u, geo_u, grid_v, geo_v,

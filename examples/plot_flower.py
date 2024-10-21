@@ -17,6 +17,7 @@ import matplotlib.ticker as mticker
 
 from matplotlib.path import Path
 from matplotlib.patches import PathPatch
+from matplotlib.patches import FancyArrowPatch
 
 # from matplotlib._layoutgrid import plot_children
 
@@ -321,7 +322,7 @@ def init_fig(plotpar,figpar):
             )
 
     return fig1,ax2
-    
+
 
 def plot_radius_from_h5():
     """
@@ -676,9 +677,14 @@ def plot_all_fig_func():
             for figpar in plotpar["figures"]:
 
                 if 'func' in figpar.keys():
-                    func = globals()[figpar['func']] #'plot_current_lines'
+                    try:
+                        func = globals()[figpar['func']] #'plot_current_lines'
 
-                    print(colored(figpar['func'], "cyan"))
+                        print(colored(figpar['func'], "cyan"))
+                    except:
+                        func = globals()['plot_file']
+                        print(colored("Defaulting to plot_file" , "cyan"))
+
                     
                 else:
                     func = globals()['plot_file']
@@ -1624,6 +1630,9 @@ def plot_current_lines(file,
     Eus = file["i_current_x"][:].transpose()
     Evs = file["i_current_y"][:].transpose()
 
+    i_current_mag = file["i_current_mag"][:].transpose()
+
+
     nx = mesh["nx"]
     ny = mesh["ny"]
     field_index = 1 #bulk
@@ -1644,18 +1653,16 @@ def plot_current_lines(file,
         ax2.clear()
     else:
         fig1,ax2 = init_fig(plotpar,figpar)
-       
-        
+
     if figpar['levels']==0:
-        # CS = ax2.contourf(x_1D,y_1D,field, 
-        # levels=figpar['range'], #10, 
+        # CS = ax2.contourf(x_1D,y_1D,field,
+        # levels=figpar['range'], #10,
         # cmap=plotpar['cmap'],)
         CS = ax2.contourf(xp, yp, phi_array, levels=eval(figpar['range']), cmap=plotpar['cmap'],extend=plotpar['extend'],)
         # print(eval(figpar['range']))
 
     else:
         CS = ax2.contourf(xp, yp, phi_array, levels=figpar['levels'], cmap=plotpar["cmap"],extend=plotpar['extend'],)
-        
 
     # CS = ax2.contourf(xp, yp, phi_array, 10, cmap=plotpar["cmap"])
 
@@ -1681,8 +1688,6 @@ def plot_current_lines(file,
             if figpar['ticks_format']!=None:
                 cbar.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
 
-
-    
     if str(figpar['isocontour']) == 'True':
         CS2 = ax2.contour(CS, 
         # levels=CS.levels[::2], 
@@ -1692,14 +1697,73 @@ def plot_current_lines(file,
         if mode !='film':
             cbar.add_lines(CS2)
 
-    plt.streamplot(xp, yp, -Eus, -Evs, color="w")
-    #do no transpose, python row major
+    #cf Matplotlib doc
+    # https://matplotlib.org/stable/gallery/images_contours_and_fields/plot_streamplot.html#sphx-glr-gallery-images-contours-and-fields-plot-streamplot-py
+
+
+    # do no transpose, python row major
 
     if figpar['plot_levelset']:
         key_LS = 'levelset_p'
         LSdat = file[key_LS][:]
         LSdat = LSdat.transpose()
         CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'])
+
+        # Create a mask based on levelset
+        # mask = np.zeros(Eus.shape, dtype=bool)
+        # mask[40:60, 40:60] = True
+        # U[:20, :20] = np.nan
+        # Eus = np.nan 
+        # Eus = Eus[y <= 0.7]
+        Eus = np.ma.masked_where(LSdat < 0.0, Eus)
+        # Eus = np.ma.array(Eus, mask=mask)
+
+    if 'density' in figpar.keys():
+            if 'streamplot_color' in figpar.keys():
+
+                # # Controlling the starting points of the streamlines
+                # seed_points = np.array([[-2, -1, 0, 1, 2, -1], [-2, -1,  0, 1, 2, 2]])
+
+                # strm = axs[3].streamplot(X, Y, U, V, color=U, linewidth=2,
+                # cmap='autumn', start_points=seed_points.T)
+
+                current_lines = plt.streamplot(xp, yp, -Eus, -Evs, color=i_current_mag, density=eval(figpar['density']),linewidth=figpar['streamplot_lw'])
+                # print(current_lines)
+                # print(current_lines.arrows)
+
+                #About mutation scale
+                #https://stackoverflow.com/questions/47383130/proper-mutational-scale-value-in-matplotlib
+
+                for art in ax2.get_children():
+                    # we are only interested in FancyArrowPatches
+                    if not isinstance(art, FancyArrowPatch):
+                        continue
+                    # # remove the edge, fill with black
+                    # art.set_edgecolor([0, 0, 0, 0])
+                    # art.set_facecolor([0, 0, 0, 1])
+                    # # make it bigger
+                    art.set_mutation_scale(figpar['streamplot_mutation_scale'])
+                    # art.set_mutation_scale(0.5)
+
+                    # # move the arrow head to the front
+                    # art.set_zorder(10)
+
+                # for art in current_lines.arrows:
+                #     # we are only interested in FancyArrowPatches
+                #     if not isinstance(art, FancyArrowPatch):
+                #         continue
+                #     # remove the edge, fill with black
+                #     # art.set_edgecolor([0, 0, 0, 0])
+                #     # art.set_facecolor([0, 0, 0, 1])
+                #     # make it bigger
+                #     art.set_mutation_scale(30)
+                #     # move the arrow head to the front
+                #     # art.set_zorder(10)
+
+            else:
+                plt.streamplot(xp, yp, -Eus, -Evs, color="w", density=eval(figpar['density']),linewidth=figpar['streamplot_lw'])
+    else:
+        plt.streamplot(xp, yp, -Eus, -Evs, color="w", density=[0.5, 1])
 
     if 'plot_wall' in figpar.keys():
         if figpar['plot_wall']:
@@ -1716,7 +1780,7 @@ def plot_current_lines(file,
         ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
         ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
         ax2.set_aspect('equal', 'box')
-        
+
         str_nstep = str(nstep)
         plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also save fig for latex  display
 
@@ -1796,7 +1860,6 @@ def  plot_wall(ax2, x_1D, y_1D, LSdat, file, key_LS_wall,figpar,plotpar):
         
         #         contour = CSlvl2.allsegs[0][0]
         #         ax2.fill_between(contour[:,0], contour[:,1],y_1D[-1],color=plotpar['color_wall'])
-
 
 
 def plot_radius(time_list,radius_list):
@@ -2427,7 +2490,6 @@ def plot_python_pdf_full2(
     
     return(fig1,ax2,cbar)
 
-    
 
 def python_movie_zoom(
     h5_files,

@@ -1,5 +1,11 @@
 # Flower
 
+## Documentation
+
+```bash
+julia +1.10.5 --project=../Flower.jl docs/make.jl
+```
+
 ## Improving type declarations
 
 Profiling with BenchmarkTools:ctrl shif p in VScode, @bprofile and using ProfileSVG
