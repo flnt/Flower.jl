@@ -256,6 +256,13 @@ function scalar_transport!(num::Numerical{Float64, Int64},
     print("\n nb_transported_scalars ",num.nb_transported_scalars)
     println("\n grid.LS[1].geoL.dcap[1,1,:]",grid.LS[1].geoL.dcap[1,1,:])
 
+    if convection
+
+    else
+        printstyled(color=:red, @sprintf "\n no convection\n")
+
+    end
+
     ni = nx * ny #Size in the bulk 
     nb = 2 * nx + 2 * ny #for cells in the borders of the domain
 
@@ -566,7 +573,17 @@ function scalar_transport!(num::Numerical{Float64, Int64},
     
         diffusion_coeff_scal = num.diffusion_coeff[iscal]
 
-        # printstyled(color=:red, @sprintf "\n diffusion_coeff_scal %.2e \n" diffusion_coeff_scal )
+
+
+
+        printstyled(color=:red, @sprintf "\n test diffusion_coeff_scal ")
+        # diffusion_coeff_scal = 0.0
+        # if iscal == 2
+        #     # diffusion_coeff_scal = 0.0
+        #     # diffusion_coeff_scal *= 2.0
+        #     diffusion_coeff_scal *= 0.5
+        # end
+        # printstyled(color=:red, @sprintf "\n test diffusion_coeff_scal %.2e \n" diffusion_coeff_scal )
 
 
         #Interface boundary condition
@@ -681,11 +698,12 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                 # print("\n BC iLS val ",bc[iscal].LS[iLS].val)
 
                 if is_dirichlet(bc[iscal].LS[iLS])
-                    # printstyled(color=:green, @sprintf "\n Dirichlet : %.2e\n" bc[iscal].int.val )
+                    printstyled(color=:green, @sprintf "\n Dirichlet : %.2e\n" bc[iscal].LS[iLS].val )
                     __a0 = bc[iscal].LS[iLS].val
                     __a1 = -1.0
                     __b = 0.0
                 elseif is_neumann(bc[iscal].LS[iLS])
+                    printstyled(color=:green, @sprintf "\n Neumann : %.2e\n" bc[iscal].LS[iLS].val )
                     __a0 = bc[iscal].LS[iLS].val
                     __a1 = 0.0
                     __b = 1.0
@@ -702,6 +720,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                     __a1 = -1.0
                     __b = 0.0
                 else
+                    printstyled(color=:green, @sprintf "\n other bc : %.2e\n" bc[iscal].LS[iLS].val )
                     __a0 = bc[iscal].LS[iLS].val
                     __a1 = -1.0
                     __b = 0.0
@@ -729,7 +748,23 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                             @error("inv_stoechiometric_coeff")
                         end
 
-                  
+                        # if iscal ==2
+                        #     @error("test inv_stoechiometric_coeff")
+
+                        #     inv_stoechiometric_coeff *= -1
+                        # end
+
+                        # if iscal ==2
+                        #     @error("test inv_stoechiometric_coeff")
+
+                        #     inv_stoechiometric_coeff *= -1
+                        # end
+                        # printstyled(color=:red, @sprintf "\n test BC chem \n")
+
+                        # inv_stoechiometric_coeff = 0
+
+                        # printstyled(color=:red, @sprintf "\n test BC chem \n")
+
 
                         # butler_volmer_no_concentration_concentration_Neumann!.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,reshape(veci(ph.phi_eleD, grid,iLS_elec+1),grid),
                         # num.phi_ele1,num.Ru,num.temperature0,num.diffusion_coeff[iscal],inv_stoechiometric_coeff,a0)
@@ -785,7 +820,8 @@ function scalar_transport!(num::Numerical{Float64, Int64},
 
                 # Interior BC
                 A[sb,1:ni] = b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
-
+                
+                # Contribution to Neumann BC from other boundaries
                 for i in 1:num.nLS
                     if i != iLS
                         A[sb,i*ni+1:(i+1)*ni] = b * (HxT[iLS] * iMx * Hx[i] .+ HyT[iLS] * iMy * Hy[i]) #-b in Poisson
@@ -874,6 +910,13 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         iLS = 1
         nonzero = mean_intfc_non_null(ph.trans_scalD,iscal,grid,iLS) #Value at interface
         printstyled(color=:green, @sprintf "\n mean  interface : %.2e\n" nonzero)
+
+        if num.nLS>1
+            iLS = 2
+            nonzero = mean_intfc_non_null(ph.trans_scalD,iscal,grid,iLS) #Value at interface
+            printstyled(color=:green, @sprintf "\n mean  wall LS : %.2e\n" nonzero)
+
+        end
 
         if iscal!=3 #H2O consummed at the electrode, would need to make distinction to make sure the decrease in H2O is physical or not
           

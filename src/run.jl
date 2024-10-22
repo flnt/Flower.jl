@@ -311,7 +311,7 @@ function run_forward!(
     #TODO perio, intfc, ... check init_fields_2!
 
     #No scalar in "solid" phase
-    # @views init_fields_2!(phS.trans_scalD[:,iscal],phS.trans_scal[:,:,iscal],HS,BC_trans_scal[iscal],grid,num.concentration0[iscal])
+    # @views init_fields_multiple_levelsets!(num,phS.trans_scalD[:,iscal],phS.trans_scal[:,:,iscal],HS,BC_trans_scal[iscal],grid,num.concentration0[iscal])
     # @views phS.trans_scal[:,:,iscal] .= num.concentration0[iscal]
 
     # TODO reset zero
@@ -323,13 +323,13 @@ function run_forward!(
 
     get_height!(grid_u,grid.ind,grid.dx,grid.dy,grid.LS[end].geoS,tmp_vec_u) #here tmp_vec_u solid
 
-    init_fields_2!(phS.uD,phS.u,tmp_vec_u,BC_uS,grid_u,num.uD)
-    # init_fields_2!(phS.ucorrD,phS.u,HSu,BC_uS,grid_u,num.uD)
+    init_fields_multiple_levelsets!(num,phS.uD,phS.u,tmp_vec_u,BC_uS,grid_u,num.uD,"uS")
+    # init_fields_multiple_levelsets!(num,phS.ucorrD,phS.u,HSu,BC_uS,grid_u,num.uD)
 
     get_height!(grid_u,grid.ind,grid.dx,grid.dy,grid.LS[end].geoL,tmp_vec_u)  #here tmp_vec_u liquid
 
-    init_fields_2!(phL.uD,phL.u,tmp_vec_u,BC_uL,grid_u,num.uD)
-    # init_fields_2!(phL.ucorrD,phL.u,HLu,BC_uL,grid_u,num.uD)
+    init_fields_multiple_levelsets!(num,phL.uD,phL.u,tmp_vec_u,BC_uL,grid_u,num.uD,"uL")
+    # init_fields_multiple_levelsets!(num,phL.ucorrD,phL.u,HLu,BC_uL,grid_u,num.uD)
 
 
 
@@ -339,13 +339,13 @@ function run_forward!(
 
     get_height!(grid_v,grid.ind,grid.dx,grid.dy,grid.LS[end].geoS,tmp_vec_v) 
 
-    init_fields_2!(phS.vD,phS.v,tmp_vec_v,BC_vS,grid_v,num.vD)
-    # init_fields_2!(phS.vcorrD,phS.v,HSv,BC_vS,grid_v,num.vD)
+    init_fields_multiple_levelsets!(num,phS.vD,phS.v,tmp_vec_v,BC_vS,grid_v,num.vD,"vS")
+    # init_fields_multiple_levelsets!(num,phS.vcorrD,phS.v,HSv,BC_vS,grid_v,num.vD)
 
     get_height!(grid_v,grid.ind,grid.dx,grid.dy,grid.LS[end].geoL,tmp_vec_v)
 
-    init_fields_2!(phL.vD,phL.v,tmp_vec_v,BC_vL,grid_v,num.vD)
-    # init_fields_2!(phL.vcorrD,phL.v,HLv,BC_vL,grid_v,num.vD)
+    init_fields_multiple_levelsets!(num,phL.vD,phL.v,tmp_vec_v,BC_vL,grid_v,num.vD,"vL")
+    # init_fields_multiple_levelsets!(num,phL.vcorrD,phL.v,HLv,BC_vL,grid_v,num.vD)
 
 
  
@@ -356,23 +356,23 @@ function run_forward!(
 
     get_height!(grid,grid.ind,grid.dx,grid.dy,grid.LS[end].geoS,tmp_vec_p) #here tmp_vec_p solid
 
-    init_fields_2!(phS.pD,phS.p,tmp_vec_p,BC_pS,grid,presintfc)
+    init_fields_multiple_levelsets!(num,phS.pD,phS.p,tmp_vec_p,BC_pS,grid,presintfc,"pS")
 
     if heat
-        init_fields_2!(phS.TD,phS.T,tmp_vec_p,BC_TS,grid,num.θd)
+        init_fields_multiple_levelsets!(num,phS.TD,phS.T,tmp_vec_p,BC_TS,grid,num.θd,"TS")
     end
 
     #Electrolysis
     if electrolysis && num.electric_potential == 1
-        init_fields_2!(phS.phi_eleD,phS.phi_ele,tmp_vec_p,BC_phi_ele,grid,num.phi_ele0) 
+        init_fields_multiple_levelsets!(num,phS.phi_eleD,phS.phi_ele,tmp_vec_p,BC_phi_ele,grid,num.phi_ele0,"phiS")
     end
 
     get_height!(grid,grid.ind,grid.dx,grid.dy,grid.LS[end].geoL,tmp_vec_p) #here tmp_vec_p liquid
 
-    init_fields_2!(phL.pD,phL.p,tmp_vec_p,BC_pL,grid,presintfc)
+    init_fields_multiple_levelsets!(num,phL.pD,phL.p,tmp_vec_p,BC_pL,grid,presintfc,"pL")
 
     if heat
-        init_fields_2!(phL.TD,phL.T,tmp_vec_p,BC_TL,grid,num.θd)
+        init_fields_multiple_levelsets!(num,phL.TD,phL.T,tmp_vec_p,BC_TL,grid,num.θd,"TL")
     end
 
 
@@ -384,11 +384,11 @@ function run_forward!(
 
         for iscal=1:num.nb_transported_scalars
             @views phL.trans_scal[:,:,iscal] .= num.concentration0[iscal]
-            @views init_fields_2!(phL.trans_scalD[:,iscal],phL.trans_scal[:,:,iscal],tmp_vec_p,BC_trans_scal[iscal],grid,num.concentration0[iscal])
+            @views init_fields_multiple_levelsets!(num,phL.trans_scalD[:,iscal],phL.trans_scal[:,:,iscal],tmp_vec_p,BC_trans_scal[iscal],grid,num.concentration0[iscal],"scalL")
         end
 
         if num.electric_potential == 1
-            init_fields_2!(phL.phi_eleD,phL.phi_ele,tmp_vec_p,BC_phi_ele,grid,num.phi_ele0)
+            init_fields_multiple_levelsets!(num,phL.phi_eleD,phL.phi_ele,tmp_vec_p,BC_phi_ele,grid,num.phi_ele0,"phiL")
         end
     end  
     
@@ -1025,6 +1025,7 @@ function run_forward!(
                     for iscal=1:num.nb_transported_scalars
                         @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, grid.LS[1].geoL,0.0) 
                         # @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid, grid.LS[1].geoL,num.concentration0[iscal]) 
+
                         @views veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
 
                         if electrolysis_reaction == "Butler_no_concentration" && num.nLS == 1

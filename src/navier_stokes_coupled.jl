@@ -1,5 +1,5 @@
 """
-Prepare Boundary conditions
+Prepare boundary conditions
 """
 function set_borders!(grid, cl, u, a0, a1, b, BC, n_ext)
     @unpack nx, ny, x, y, dx, dy, ind = grid
@@ -224,7 +224,7 @@ end
 """
 set_cutcell_matrices!
 
-set iMx, Ax, Ay,... indicator χ...
+set iMx, Ax, Ay,... indicator χ..., Bx, By...
 """
 function set_cutcell_matrices!(num, grid, geo, geo_p, opC, periodic_x, periodic_y)
     @unpack nx, ny, ind = grid
@@ -283,6 +283,12 @@ function set_cutcell_matrices!(num, grid, geo, geo_p, opC, periodic_x, periodic_
     return nothing
 end
 
+
+"""
+set_other_cutcell_matrices!
+
+set Bx, By, Gx, Gy, Rx, Ry...
+"""
 function set_other_cutcell_matrices!(
     num, grid, geo, geo_u, geo_v,
     opC_p, opC_u, opC_v,
@@ -304,6 +310,11 @@ function set_other_cutcell_matrices!(
     return nothing
 end
 
+"""
+set_boundary_indicator!(grid::Mesh{GridCC,T,N}, geo, geo_p, opC) where {T,N}
+
+set indicator*length for Robin BC for scalar grid (p grid)
+"""
 function set_boundary_indicator!(grid::Mesh{GridCC,T,N}, geo, geo_p, opC) where {T,N}
     @unpack nx, ny, ind = grid
     @inbounds @threads for i in 1:ny
@@ -326,6 +337,12 @@ function set_boundary_indicator!(grid::Mesh{GridCC,T,N}, geo, geo_p, opC) where 
     return nothing
 end
 
+
+"""
+set_boundary_indicator!(grid::Mesh{GridFCx,T,N}, geo, geo_p, opC) where {T,N}
+
+set indicator*length for Robin BC for u grid
+"""
 function set_boundary_indicator!(grid::Mesh{GridFCx,T,N}, geo, geo_p, opC) where {T,N}
     @unpack nx, ny, ind = grid
     @inbounds @threads for i in 1:ny
@@ -348,6 +365,12 @@ function set_boundary_indicator!(grid::Mesh{GridFCx,T,N}, geo, geo_p, opC) where
     return nothing
 end
 
+
+"""
+set_boundary_indicator!(grid::Mesh{GridFCy,T,N}, geo, geo_p, opC) where {T,N}
+
+set indicator*length for Robin BC for v grid
+"""
 function set_boundary_indicator!(grid::Mesh{GridFCy,T,N}, geo, geo_p, opC) where {T,N}
     @unpack nx, ny, ind = grid
     @inbounds @threads for i in 1:ny
@@ -370,6 +393,12 @@ function set_boundary_indicator!(grid::Mesh{GridFCy,T,N}, geo, geo_p, opC) where
     return nothing
 end
 
+
+"""
+function set_border_matrices!
+
+set boundary indicators, heights...
+"""
 function set_border_matrices!(num,
     grid, geo, grid_u, geo_u, grid_v, geo_v,
     opC_p, opC_u, opC_v,
@@ -405,6 +434,13 @@ function set_border_matrices!(num,
     return nothing
 end
 
+
+"""
+laplacian!
+
+    L = BxT * iMx * Bx .+ ByT * iMy * By
+    
+"""
 function laplacian(opC::Operators{Float64, Int64})
     @unpack Bx, By, BxT, ByT, iMx, iMy, tmp_x, tmp_y = opC
 
@@ -416,6 +452,10 @@ function laplacian(opC::Operators{Float64, Int64})
     return L
 end
 
+
+"""
+laplacian_bc
+"""
 function laplacian_bc(opC::Operators{Float64, Int64}, nLS::Int64)
     @unpack BxT, ByT, Hx, Hy, iMx, iMy, Hx_b, Hy_b, iMx_b, iMy_b = opC
 
@@ -428,6 +468,7 @@ function laplacian_bc(opC::Operators{Float64, Int64}, nLS::Int64)
 
     return bc_L, bc_L_b
 end
+
 
 """    
 set Laplacian and BC for p, u, v
@@ -486,7 +527,12 @@ function strain_rate(iLS, opC_u, opC_v, opC_p)
     return data
 end
 
+"""
+no_slip_condition!
+    
+"""
 function no_slip_condition!(num, grid, grid_u, LS_u, grid_v, LS_v, periodic_x, periodic_y)
+    #interpolate velocity from scalar grid to u and v grids
     interpolate_scalar!(grid, grid_u, grid_v, grid.V, grid_u.V, grid_v.V)
 
     normalx = cos.(LS_u.α)

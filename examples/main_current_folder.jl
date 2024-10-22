@@ -155,7 +155,9 @@ else
 
     print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
 
-
+    diffusion_t = (phys.radius^2)./phys.diffusion_coeff
+    print("\n diffusion time ", diffusion_t,"\n")
+    
     # print_table = false
     ## print_table = true
 
@@ -691,7 +693,11 @@ elseif sim.name == "levelset_Butler_two_LS"
     left   = Neumann(val=-i_butler_scal/(2*phys.Faraday*DKOH)),
     right  = Dirichlet(val = phys.concentration0[2]),
     int    = Neumann(val=0.0),
-    LS     = [Neumann(val=0.0),Neumann(val=-i_butler_scal/(2*phys.Faraday*DKOH))]
+    LS     = [Neumann(val=0.0),Neumann(val=-i_butler_scal/(2*phys.Faraday*DKOH))],
+    # int    = Dirichlet(val = phys.concentration0[2]),
+    # LS     = [Dirichlet(val = phys.concentration0[2]),Neumann(val=-i_butler_scal/(2*phys.Faraday*DKOH))],
+    # LS     = [Neumann(val=0.0),Dirichlet(val = phys.concentration0[2])]
+    # LS     = [Dirichlet(val=phys.concentration0[2]),Dirichlet(val = phys.concentration0[2])]
     ) #KOH
 
     # BC_trans_scal_KOH = BoundariesInt(
