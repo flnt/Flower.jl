@@ -95,6 +95,7 @@ abstract type AbstractOptimizer end
     mode_2d::D = 0
     advection_LS_mode::D = 0
     scalar_bc::D = 0
+    scalar_scheme::D = 0
     solver::D = 0
 end
 

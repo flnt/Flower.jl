@@ -3,6 +3,11 @@
 
 # using PrecompileTools_startup
 
+# module testyamlfile3 #enables to perform a test with ARGS to give an input file
+# ARGS = String["../examples/levelset_Butler.yml"]
+# include("../examples/main_current_folder.jl")
+# end
+
 using Flower
 
 
@@ -595,6 +600,7 @@ num = Numerical(
     convection_mode = sim.convection_mode,
     advection_LS_mode = sim.advection_LS_mode,
     scalar_bc = sim.scalar_bc,
+    scalar_scheme = sim.scalar_scheme,
     solver = sim.solver,
     )
 
@@ -1195,7 +1201,7 @@ end
 
 printstyled(color=:green, @sprintf "\n Initialisation0 \n")
 
-print_electrolysis_statistics(phys.nb_transported_scalars,gp,phL)
+print_electrolysis_statistics(num,gp,phL)
 
 
 
@@ -1462,7 +1468,8 @@ phL.phi_ele .= phys.phi_ele0
 
 printstyled(color=:green, @sprintf "\n Initialisation \n")
 
-print_electrolysis_statistics(phys.nb_transported_scalars,gp,phL)
+# print_electrolysis_statistics(phys.nb_transported_scalars,gp,phL)
+print_electrolysis_statistics(num,gp,phL)
 
 printstyled(color=:green, @sprintf "\n TODO timestep sim.CFL scal, and print \n")
 

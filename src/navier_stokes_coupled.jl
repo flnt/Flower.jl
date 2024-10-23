@@ -1143,6 +1143,8 @@ function FE_set_momentum_coupled(
                 capx = cap1 + cap3
                 capy = cap2 + cap4
 
+                #Compute the averaging coefficients for 
+                #if empty: 0.5 otherwise infty
                 avgx = copy(opp.Bx)
                 avgx.nzval .= 0.0
                 @inbounds @threads for II in gu.ind.all_indices[:,2:end-1]
@@ -1155,7 +1157,7 @@ function FE_set_momentum_coupled(
                             if !(δx⁻(II) in gp.LS[1].MIXED)
                                 avgx[pII,pII] = 1.0
                             elseif !(II in gp.LS[1].MIXED)
-                                avgx[pII,pII-gu.ny] = 1.0
+                                avgx[pII,pII-gu.ny] = 1.0 #averaging coefficients
                             else
                                 avgx[pII,pII-gu.ny] = 0.5
                                 avgx[pII,pII] = 0.5
@@ -2996,7 +2998,7 @@ function pressure_projection!(
             kill_dead_cells!(veci(vcorrD,grid_v,iLS+1), grid_v, geo_v[end])
         end
         vcorr .= reshape(vec1(vcorrD,grid_v), grid_v)
-    else
+    else #navier
         uvm1 = zeros(ntu + ntv + nNavier * nip)
         uvm1[1:niu] .= vec1(uD,grid_u)
         uvm1[ntu+1:ntu+niv] .= vec1(vD,grid_v)

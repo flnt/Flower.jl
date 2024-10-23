@@ -576,14 +576,14 @@ function scalar_transport!(num::Numerical{Float64, Int64},
 
 
 
-        printstyled(color=:red, @sprintf "\n test diffusion_coeff_scal ")
+        # printstyled(color=:red, @sprintf "\n test diffusion_coeff_scal ")
         # diffusion_coeff_scal = 0.0
         # if iscal == 2
         #     # diffusion_coeff_scal = 0.0
         #     # diffusion_coeff_scal *= 2.0
         #     diffusion_coeff_scal *= 0.5
         # end
-        # printstyled(color=:red, @sprintf "\n test diffusion_coeff_scal %.2e \n" diffusion_coeff_scal )
+        printstyled(color=:red, @sprintf "\n test diffusion_coeff_scal %.2e \n" diffusion_coeff_scal )
 
 
         #Interface boundary condition
@@ -675,7 +675,11 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         else #num.nLS != 1
 
             # Implicit part of heat equation
-            A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* num.τ .* diffusion_coeff_scal .* LT, grid, num.τ)
+            if num.scalar_scheme == 0
+                A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* num.τ .* diffusion_coeff_scal .* LT, grid, num.τ)
+            elseif num.scalar_scheme == 1
+                A[1:ni,1:ni] = pad_crank_nicolson(M .- num.τ .* diffusion_coeff_scal .* LT, grid, 2*num.τ)
+            end
             # A[1:ni,ni+1:2*ni] = - 0.5 .* num.τ .* diffusion_coeff_scal .* LD
             A[1:ni,end-nb+1:end] = - 0.5 .* num.τ .* diffusion_coeff_scal .* LD_b
 
@@ -881,8 +885,9 @@ function scalar_transport!(num::Numerical{Float64, Int64},
 
         end #num.convection_Cdivu>0
         
-
+        if num.scalar_scheme == 0
         @views mul!(rhs, B, ph.trans_scalD[:,iscal], 1.0, 1.0) #TODO @views not necessary ?
+        end
 
         #System resolution
         @views ph.trans_scalD[:,iscal] .= A \ rhs
@@ -1068,7 +1073,9 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
         intfc_length = 0.0
         sum_mass_flux = 0.0
         @inbounds for II in grid.LS[iLS].MIXED
-            if grid.LS[2].u[II]>0.0 #second wall
+            
+            if grid.LS[end].u[II]>0.0 # check if inside domain defined by other LS 
+            # if grid.LS[2].u[II]>0.0 #second wall
                 # print("\n cells for free surface", II," x ",grid.x[II]," LS[iLS] ",grid.LS[iLS].u[II]," LS[end] ",grid.LS[end].u[II]," LS[2] ",grid.LS[2].u[II])
                 grid.V[II] = mass_flux[II] * factor
                 sum_mass_flux += mass_flux[II]
@@ -1263,8 +1270,8 @@ end
 # end
 
 
-
-function print_electrolysis_statistics(nb_transported_scalars::Int64,
+# nb_transported_scalars::Int64,
+function print_electrolysis_statistics(num::Numerical{Float64, Int64},
     grid::Mesh{Flower.GridCC, Float64, Int64}, phL::Phase{Float64})
     # normscal1L = norm(phL.trans_scal[:,:,1])
     # normscal2L = norm(phL.trans_scal[:,:,2])
@@ -1280,18 +1287,18 @@ function print_electrolysis_statistics(nb_transported_scalars::Int64,
     moyscal1L=moyscal2L=moyscal3L=moyphi_eleL=moyTL=moyiL=0.0
 
 
-    if nb_transported_scalars>0
+    if num.nb_transported_scalars>0
         minscal1L = minimum(phL.trans_scalD[:,1])
         maxscal1L = maximum(phL.trans_scalD[:,1])
         moyscal1L = mean(phL.trans_scalD[:,1])
     end
 
-    if nb_transported_scalars>1
+    if num.nb_transported_scalars>1
         minscal2L = minimum(phL.trans_scalD[:,2])
         maxscal2L = maximum(phL.trans_scalD[:,2])
         moyscal2L = mean(phL.trans_scalD[:,2])
     
-        if nb_transported_scalars>2
+        if num.nb_transported_scalars>2
             minscal3L = minimum(phL.trans_scalD[:,3])
             maxscal3L = maximum(phL.trans_scalD[:,3])
             moyscal3L = mean(phL.trans_scalD[:,3])
@@ -1352,29 +1359,61 @@ function print_electrolysis_statistics(nb_transported_scalars::Int64,
     # print("nonzero\n")
     # print(nonzero)
     # print("\nmean c(H2) interface \n",mean(nonzero))
-    if nb_transported_scalars>0
+    if num.nb_transported_scalars>0
         # nonzero = veci(phL.trans_scalD[:,1],grid,2)[abs.(veci(phL.trans_scalD[:,1],grid,2)) .> 0.0]
         # printstyled(color=:green, @sprintf "\n mean c(H2) interface : %.2e\n" mean(nonzero))
 
-        iLS = 1
-        nonzero = mean_intfc_non_null(phL.trans_scalD,1,grid,iLS)
-        printstyled(color=:green, @sprintf "\n mean  c(H2) interface : %.2e\n" nonzero)
+        # iLS = 1
+        # nonzero = mean_intfc_non_null(phL.trans_scalD,1,grid,iLS)
+        # printstyled(color=:green, @sprintf "\n mean  c(H2) interface : %.2e\n" nonzero)
 
-        iLS = 1
-        @views nonzero = mean_intfc_non_null_v2( phL.trans_scalD[:,1],grid,iLS)
-        printstyled(color=:green, @sprintf "\n mean  c(H2) interface : %.2e\n" nonzero)
+        for iscal = 1:num.nb_transported_scalars
 
-        iLS = 2
-        @views nonzero = mean_intfc_non_null_v2( phL.trans_scalD[:,1], grid,iLS)
-        printstyled(color=:green, @sprintf "\n mean  c(H2) interface : %.2e\n" nonzero)
+        printstyled(color=:green, @sprintf "\n iscal  %.2i\n" iscal)
 
-        iLS = 1
-        nonzero = mean_intfc_non_null_v2(phL.phi_eleD,grid,iLS)
-        printstyled(color=:green, @sprintf "\n mean  phi interface : %.2e\n" nonzero)
+        for iLS in 1:num.nLS+1
+            @views nonzero = mean_intfc_non_null_v3( phL.trans_scalD[:,iscal],grid,iLS)
+            printstyled(color=:green, @sprintf "\n mean iLS %.2i : %.2e %.2e\n" iLS nonzero maximum(veci(phL.trans_scalD[:,iscal],grid,iLS+1)))
+        end
+        # printstyled(color=:green, @sprintf "\n mean  c bulk : %.2e %.2e\n" nonzero maximum(veci(phL.trans_scalD[:,iscal],grid,iLS+1)))
 
-        iLS = 2
-        nonzero = mean_intfc_non_null_v2(phL.phi_eleD,grid,iLS)
-        printstyled(color=:green, @sprintf "\n mean  phi interface : %.2e\n" nonzero)
+        # iLS = 1
+        # @views nonzero = mean_intfc_non_null_v2( phL.trans_scalD[:,iscal],grid,iLS)
+        # # printstyled(color=:green, @sprintf "\n mean  c interface : %.2e\n" nonzero)
+        # printstyled(color=:green, @sprintf "\n mean  c interface : %.2e %.2e\n" nonzero maximum(veci(phL.trans_scalD[:,iscal],grid,iLS+1)))
+
+
+        # iLS = 2
+        # @views nonzero = mean_intfc_non_null_v2( phL.trans_scalD[:,iscal], grid,iLS)
+        # # printstyled(color=:green, @sprintf "\n mean  c interface : %.2e\n" nonzero)
+        # printstyled(color=:green, @sprintf "\n mean  c interface : %.2e %.2e\n" nonzero maximum(veci(phL.trans_scalD[:,iscal],grid,iLS+1)))
+
+        printstyled(color=:green, @sprintf "\n max c borders : %.2e\n" maximum(vecb(phL.trans_scalD[:,iscal],grid)))
+
+
+
+        end
+
+        for iLS in 1:num.nLS
+            nonzero = mean_intfc_non_null_v3(phL.phi_eleD,grid,iLS)
+            printstyled(color=:green, @sprintf "\n mean  c iLS %.2i  : %.2e %.2e\n" iLS nonzero maximum(veci(phL.phi_eleD,grid,iLS+1)))
+        end
+
+        # iLS = 0
+        # nonzero = mean_intfc_non_null_v2(phL.phi_eleD,grid,iLS)
+        # printstyled(color=:green, @sprintf "\n mean  phi bulk : %.2e\n" nonzero)
+
+        # iLS = 1
+        # nonzero = mean_intfc_non_null_v2(phL.phi_eleD,grid,iLS)
+        # # printstyled(color=:green, @sprintf "\n mean  phi interface : %.2e\n" nonzero)
+        # printstyled(color=:green, @sprintf "\n mean  c interface : %.2e %.2e\n" nonzero maximum(veci(phL.phi_eleD,grid,iLS+1)))
+
+        # iLS = 2
+        # nonzero = mean_intfc_non_null_v2(phL.phi_eleD,grid,iLS)
+        # # printstyled(color=:green, @sprintf "\n mean  phi interface : %.2e\n" nonzero)
+        # printstyled(color=:green, @sprintf "\n mean  c interface : %.2e %.2e\n" nonzero maximum(veci(phL.phi_eleD,grid,iLS+1)))
+        
+        printstyled(color=:green, @sprintf "\n max c borders : %.2e\n" maximum(vecb(phL.phi_eleD,grid)))
 
     end
 
@@ -2351,7 +2390,7 @@ function compute_mass_flux!(num::Numerical{Float64, Int64},
 
     mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
 
-    print("\n sum mass flux all levelsets (walls and interfaces alike)", sum(mass_flux),"\n ")
+    print("\n sum mass flux all levelsets (walls and interfaces alike) ", sum(mass_flux),"\n ")
 
     # iplot = 1
     # for jplot in 1:grid.ny

@@ -482,7 +482,7 @@ phL.phi_ele .= phi_ele0
 
 printstyled(color=:green, @sprintf "\n Initialisation \n")
 
-print_electrolysis_statistics(nb_transported_scalars,phL)
+print_electrolysis_statistics(num,phL)
 
 
 printstyled(color=:green, @sprintf "\n TODO timestep CFL scal, and print \n")

@@ -24,10 +24,14 @@ Returns the
 @inline center(r, θ) = r * cos(π - θ)
 
 
-""""height for intialisation"""
-function get_height!(grid,ind,dx,dy,geo,H)
+"""
+    get_height!
+get distance between one LS and centroid of cell (defined by all LS) for intialisation
+    
+"""
+function get_height!(LS,ind,dx,dy,geo,H)
     @inbounds @threads for II in vcat(ind.b_left[1], ind.b_bottom[1], ind.b_right[1], ind.b_top[1])
-        H[II] = distance(grid.LS[1].mid_point[II], geo.centroid[II], dx[II], dy[II])
+        H[II] = distance(LS.mid_point[II], geo.centroid[II], dx[II], dy[II])
     end   
 end
 
@@ -104,12 +108,16 @@ function init_Neumann_iLS(num,TD,BC,grid,dir_val_intfc,iLS)
         pII = lexicographic(II, grid.ny)
 
         # H[II] = distance(grid.LS[1].mid_point[II], geo.centroid[II], dx[II], dy[II])
-        dist = distance(grid.LS[iLS].mid_point[II], grid.LS[iLS].geoL.centroid[II], grid.dx[II], grid.dy[II]) #grid.LS[iLS].geoL.centroid ? or end?
+        #end for centroid
+        dist = distance(grid.LS[iLS].mid_point[II], grid.LS[end].geoL.centroid[II], grid.dx[II], grid.dy[II]) #grid.LS[iLS].geoL.centroid ? or end?
 
         veci(TD,grid,iLS+1)[pII] = dir_val_intfc + dist * BC.LS[iLS].val
 
-        printstyled(color=:green, @sprintf "\n Neumann %.2e %.2e %.2e %.2e" dir_val_intfc dist BC.LS[iLS].val veci(TD,grid,iLS+1)[pII])
-
+        if dist == 0
+            printstyled(color=:red, @sprintf "\n Neumann %.2e %.2e %.2e %.2e" dir_val_intfc dist BC.LS[iLS].val veci(TD,grid,iLS+1)[pII])
+        else
+            printstyled(color=:green, @sprintf "\n Neumann %.2e %.2e %.2e %.2e" dir_val_intfc dist BC.LS[iLS].val veci(TD,grid,iLS+1)[pII])
+        end
         # # if grid.LS[iLS].geoL.cap[II,5] < num.ϵ
     
         # if grid.LS[end].geoL.cap[II,5] > num.ϵ #TODO clearer eps
@@ -281,6 +289,33 @@ function mean_intfc_non_null_v2(scalD,grid,iLS)
     # cf veci @view a[g.ny*g.nx*(p-1)+1:g.ny*g.nx*p]
 
     for i in grid.ny*grid.nx*(index-1)+1:grid.ny*grid.nx*index
+        if abs(scalD[i]) .> 0.0
+            nonzero += scalD[i]
+            num += 1
+        end
+    end
+
+    if num == 0
+        print("\n no intfc in mean_intfc_non_null")
+        return 0
+    else
+        nonzero /= num
+        return nonzero
+    end
+    
+end
+
+"""
+Computes average value at interface for scalar
+"""
+function mean_intfc_non_null_v3(scalD,grid,iLS)
+
+    num=0
+    nonzero = 0.0
+
+    # cf veci @view a[g.ny*g.nx*(p-1)+1:g.ny*g.nx*p]
+
+    for i in grid.ny*grid.nx*(iLS)+1:grid.ny*grid.nx*(iLS+1)
         if abs(scalD[i]) .> 0.0
             nonzero += scalD[i]
             num += 1

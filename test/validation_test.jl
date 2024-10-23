@@ -1061,7 +1061,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
 
     printstyled(color=:green, @sprintf "\n Initialisation \n")
 
-    print_electrolysis_statistics(nb_transported_scalars,gp,phL)
+    print_electrolysis_statistics(num,gp,phL)
 
     printstyled(color=:green, @sprintf "\n TODO timestep CFL scal, and print \n")
 

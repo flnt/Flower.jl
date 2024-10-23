@@ -105,6 +105,7 @@ function run_forward!(
 
 
     #TODO Re
+    #TODO homogenize set_poisson... functions which use -b - in the original implementation and not +b + for the Robin BC
 
 
     if num.epsilon_mode == 1 || num.epsilon_mode ==2
@@ -320,13 +321,13 @@ function run_forward!(
 
 
     #tmp_vec_u
-
-    get_height!(grid_u,grid.ind,grid.dx,grid.dy,grid.LS[end].geoS,tmp_vec_u) #here tmp_vec_u solid
+    #from LS 1 to centroid grid_u.LS[end].geoS
+    get_height!(grid_u.LS[1],grid_u.ind,grid_u.dx,grid_u.dy,grid_u.LS[end].geoS,tmp_vec_u) #here tmp_vec_u solid
 
     init_fields_multiple_levelsets!(num,phS.uD,phS.u,tmp_vec_u,BC_uS,grid_u,num.uD,"uS")
     # init_fields_multiple_levelsets!(num,phS.ucorrD,phS.u,HSu,BC_uS,grid_u,num.uD)
 
-    get_height!(grid_u,grid.ind,grid.dx,grid.dy,grid.LS[end].geoL,tmp_vec_u)  #here tmp_vec_u liquid
+    get_height!(grid_u.LS[1],grid_u.ind,grid_u.dx,grid_u.dy,grid_u.LS[end].geoL,tmp_vec_u)  #here tmp_vec_u liquid
 
     init_fields_multiple_levelsets!(num,phL.uD,phL.u,tmp_vec_u,BC_uL,grid_u,num.uD,"uL")
     # init_fields_multiple_levelsets!(num,phL.ucorrD,phL.u,HLu,BC_uL,grid_u,num.uD)
@@ -337,12 +338,12 @@ function run_forward!(
     tmp_vec_v .= 0.0
 
 
-    get_height!(grid_v,grid.ind,grid.dx,grid.dy,grid.LS[end].geoS,tmp_vec_v) 
+    get_height!(grid_v.LS[1],grid_v.ind,grid_v.dx,grid_v.dy,grid_v.LS[end].geoS,tmp_vec_v) 
 
     init_fields_multiple_levelsets!(num,phS.vD,phS.v,tmp_vec_v,BC_vS,grid_v,num.vD,"vS")
     # init_fields_multiple_levelsets!(num,phS.vcorrD,phS.v,HSv,BC_vS,grid_v,num.vD)
 
-    get_height!(grid_v,grid.ind,grid.dx,grid.dy,grid.LS[end].geoL,tmp_vec_v)
+    get_height!(grid_v.LS[1],grid_v.ind,grid_v.dx,grid_v.dy,grid_v.LS[end].geoL,tmp_vec_v)
 
     init_fields_multiple_levelsets!(num,phL.vD,phL.v,tmp_vec_v,BC_vL,grid_v,num.vD,"vL")
     # init_fields_multiple_levelsets!(num,phL.vcorrD,phL.v,HLv,BC_vL,grid_v,num.vD)
@@ -354,7 +355,7 @@ function run_forward!(
     tmp_vec_p .= 0.0
 
 
-    get_height!(grid,grid.ind,grid.dx,grid.dy,grid.LS[end].geoS,tmp_vec_p) #here tmp_vec_p solid
+    get_height!(grid.LS[1],grid.ind,grid.dx,grid.dy,grid.LS[end].geoS,tmp_vec_p) #here tmp_vec_p solid
 
     init_fields_multiple_levelsets!(num,phS.pD,phS.p,tmp_vec_p,BC_pS,grid,presintfc,"pS")
 
@@ -367,7 +368,7 @@ function run_forward!(
         init_fields_multiple_levelsets!(num,phS.phi_eleD,phS.phi_ele,tmp_vec_p,BC_phi_ele,grid,num.phi_ele0,"phiS")
     end
 
-    get_height!(grid,grid.ind,grid.dx,grid.dy,grid.LS[end].geoL,tmp_vec_p) #here tmp_vec_p liquid
+    get_height!(grid.LS[1],grid.ind,grid.dx,grid.dy,grid.LS[end].geoL,tmp_vec_p) #here tmp_vec_p liquid
 
     init_fields_multiple_levelsets!(num,phL.pD,phL.p,tmp_vec_p,BC_pL,grid,presintfc,"pL")
 
@@ -384,7 +385,10 @@ function run_forward!(
 
         for iscal=1:num.nb_transported_scalars
             @views phL.trans_scal[:,:,iscal] .= num.concentration0[iscal]
-            @views init_fields_multiple_levelsets!(num,phL.trans_scalD[:,iscal],phL.trans_scal[:,:,iscal],tmp_vec_p,BC_trans_scal[iscal],grid,num.concentration0[iscal],"scalL")
+            @views init_fields_multiple_levelsets!(num,phL.trans_scalD[:,iscal],phL.trans_scal[:,:,iscal],
+            tmp_vec_p,BC_trans_scal[iscal],grid,num.concentration0[iscal],"scalL")
+            # tmp_vec_p,BC_trans_scal[iscal],grid,num.concentration0[iscal],"testscalL")
+
         end
 
         if num.electric_potential == 1
@@ -394,7 +398,7 @@ function run_forward!(
     
     if electrolysis
         printstyled(color=:green, @sprintf "\n Check init_fields_2!\n")
-        print_electrolysis_statistics(num.nb_transported_scalars,grid,phL)
+        print_electrolysis_statistics(num,grid,phL)
 
         if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || any(isnan, phS.uD) || any(isnan, phS.vD) || any(isnan, phS.TD) ||
             any(isnan, phL.trans_scalD) || any(isnan, phL.phi_eleD) ||
@@ -445,7 +449,7 @@ function run_forward!(
 
     # if num.nb_transported_scalars>0
     #     printstyled(color=:green, @sprintf "\n after kill \n")
-    #     print_electrolysis_statistics(num.nb_transported_scalars,phL)
+    #     print_electrolysis_statistics(num,phL)
     #     printstyled(color=:green, @sprintf "\n average T %s\n" average!(phL.T, grid, grid.LS[1].geoL, num))
     # end
 
@@ -936,7 +940,7 @@ function run_forward!(
             if electrolysis_liquid_phase
 
                 # printstyled(color=:green, @sprintf "\n Before transport\n")
-                # print_electrolysis_statistics(num.nb_transported_scalars,grid,phL)
+                # print_electrolysis_statistics(num,grid,phL)
 
                 #TODO check BC not overwritten by different scalars
                 #TODO check ls advection true when num.n scalars
@@ -990,7 +994,7 @@ function run_forward!(
                         
                         printstyled(color=:cyan, @sprintf "\n before scalar transport 0\n")
 
-                        print_electrolysis_statistics(num.nb_transported_scalars,grid,phL)
+                        print_electrolysis_statistics(num,grid,phL)
                     end 
                     
                 
@@ -1056,7 +1060,7 @@ function run_forward!(
 
                     if ((num.current_i-1)%show_every == 0) 
                         printstyled(color=:cyan, @sprintf "\n before scalar transport \n")
-                        print_electrolysis_statistics(num.nb_transported_scalars,grid,phL)
+                        print_electrolysis_statistics(num,grid,phL)
                     end
                 
                     # printstyled(color=:red, @sprintf "\n levelset: before scalar_transport\n")
@@ -1146,6 +1150,12 @@ function run_forward!(
                     electrolysis_convection, 
                     ls_advection)
 
+                    # PDI_status = @ccall "libpdi".PDI_multi_expose("check_concentrations"::Cstring,
+                    # "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+                    # "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+                    # "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+                    # C_NULL::Ptr{Cvoid})::Cint
+
                     # scalar_transport!(BC_trans_scal, num, grid, , grid.LS[1].geoL, phL, num.concentration0,
                     # grid.LS[1].MIXED, grid.LS[1].geoL.projection, op.opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
                     # periodic_x, periodic_y, electrolysis_convection, ls_advection, BC_int, num.diffusion_coeff,Ascal,Bscal,all_CUTCT,rhs_scal)
@@ -1161,7 +1171,21 @@ function run_forward!(
 
                     if ((num.current_i-1)%show_every == 0) 
                         printstyled(color=:cyan, @sprintf "\n after scalar transport \n")
-                        print_electrolysis_statistics(num.nb_transported_scalars,grid,phL)
+                        print_electrolysis_statistics(num,grid,phL)
+
+
+                        # scal_error=0.0
+                        # for iscal in 1:num.nb_transported_scalars
+                        #     # printstyled(color=:cyan, @sprintf "\n after scalar transport %.2i %.2e \n" iscal maximum(abs.(phL.trans_scal[:,:,iscal])))
+                        #     # printstyled(color=:cyan, @sprintf "\n after scalar transport %.2i %.2e \n" iscal maximum(abs.(phL.trans_scalD[:,iscal])))
+                        #     # scal_error_bulk = maximum(abs.(phL.trans_scal[:,:,iscal].-num.concentration0[iscal])./num.concentration0[iscal])
+                        #     # scal_error_border = maximum(abs.(vecb(phL.trans_scalD[:,iscal],grid).-num.concentration0[iscal])./num.concentration0[iscal])
+                        #     # scal_error = max(scal_error_bulk,scal_error_border,scal_error)
+                        # end
+
+                        # printstyled(color=:cyan, @sprintf "\n error after scalar transport %.2e num.CFL %.2e\n" scal_error num.v_inlet*num.dt0/grid.dx[1,1])
+
+
                     end
 
                     if imposed_velocity != "none" && num.debug== "scalar_testing"
@@ -1400,7 +1424,7 @@ function run_forward!(
 
 
                     printstyled(color=:cyan, @sprintf "\n after set_poisson_variable_coeff! \n")
-                    print_electrolysis_statistics(num.nb_transported_scalars,grid,phL)
+                    print_electrolysis_statistics(num,grid,phL)
 
                     #TODO still in dev
                     # set_poisson_variable_coeff_no_interpolation!(num, 
@@ -1593,7 +1617,7 @@ function run_forward!(
 
             compute_mass_flux!(num,grid,phL,op.opC_pL,1,mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
 
-            print("\n sum mass flux all levelsets (walls and interfaces alike)", sum(mass_flux),"\n ")
+            print("\n sum mass flux all levelsets (walls and interfaces alike) ", sum(mass_flux),"\n ")
         end
         
         #    grid.LS[i].α  which is the angle of the outward point normal with respect to the horizontal axis
@@ -1684,7 +1708,7 @@ function run_forward!(
             elseif (electrolysis && occursin("Khalighi",electrolysis_phase_change_case))
 
                 if ((num.current_i-1)%show_every == 0) 
-                    print_electrolysis_statistics(num.nb_transported_scalars,grid,phL)
+                    print_electrolysis_statistics(num,grid,phL)
                 end
 
                 previous_radius = current_radius
@@ -1814,6 +1838,7 @@ function run_forward!(
             end # if num.io_pdi>0
 
 
+            #In the current implementations, the first cell is not solved: levelset not advected
             for (iLS, bc) in enumerate(BC_int)
                 if is_stefan(bc)
                     IIOE_normal!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y)
@@ -2190,7 +2215,7 @@ function run_forward!(
                         # normpL = norm(phL.p.*num.τ)
                         # print("$(@sprintf("norm(uL) %.6e", normuL))\t$(@sprintf("norm(vL) %.6e", normvL))\t$(@sprintf("norm(pL) %.6e", normpL))\n")
                         if electrolysis
-                            print_electrolysis_statistics(num.nb_transported_scalars,grid,phL) 
+                            print_electrolysis_statistics(num,grid,phL) 
                         end 
                     end
                 end
@@ -2435,7 +2460,7 @@ function run_forward!(
                 "\n phL.u: ",norm(phL.u) > 1e8 , "\n phS.u: ",norm(phS.u) > 1e8 , "\n phL.T: ",norm(phL.T) > 1e8 , "\n phS.T: ",norm(phS.T) > 1e8 , "\n phL.trans_scal: ",norm(phL.trans_scal) > 1e8 , "\n phL.phi_ele: ",norm(phL.phi_ele) > 1e8)
     
 
-                print_electrolysis_statistics(num.nb_transported_scalars,grid,phL)
+                print_electrolysis_statistics(num,grid,phL)
 
                 crashed=true
                 return
@@ -2494,7 +2519,7 @@ function run_forward!(
                     normpL = norm(phL.p.*num.τ)
                     print("$(@sprintf("norm(uL) %.6e", normuL))\t$(@sprintf("norm(vL) %.6e", normvL))\t$(@sprintf("norm(pL) %.6e", normpL))\n")
                     if electrolysis
-                       print_electrolysis_statistics(num.nb_transported_scalars,grid,phL)
+                       print_electrolysis_statistics(num,grid,phL)
                     end 
                 end
             end
