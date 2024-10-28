@@ -30,6 +30,15 @@ get distance between one LS and centroid of cell (defined by all LS) for intiali
     
 """
 function get_height!(LS,ind,dx,dy,geo,H)
+
+    printstyled(color=:green, @sprintf "\n get height \n")
+    # print("\n ind left",ind.b_left[1], " bottom "  ,ind.b_bottom[1]," right ", ind.b_right[1]," top ", ind.b_top[1] )
+    print("\n H ",size(H)," \n")
+    print("\n LS.mid_point ",size(LS.mid_point)," \n")
+    print("\n dx ",size(dx)," \n")
+    print("\n dy ",size(dy)," \n")
+    print("\n geo.centroid ",size(geo.centroid)," \n")
+
     @inbounds @threads for II in vcat(ind.b_left[1], ind.b_bottom[1], ind.b_right[1], ind.b_top[1])
         H[II] = distance(LS.mid_point[II], geo.centroid[II], dx[II], dy[II])
     end   
@@ -186,7 +195,7 @@ function init_fields_multiple_levelsets!(num,TD,T,H,BC,grid,dir_val_intfc,str)
 
     vec1(TD,grid) .= vec(T)
 
-    if str =="scalL"
+    if str =="scalL" && num.nLS>1
         for iLS in 1:num.nLS
             try
                 print(BC.LS[iLS])
@@ -307,15 +316,17 @@ end
 
 """
 Computes average value at interface for scalar
+    index: 1 gives bulk
+    2 gives 1st interface
 """
-function mean_intfc_non_null_v3(scalD,grid,iLS)
+function mean_intfc_non_null_v3(scalD,grid,index)
 
     num=0
     nonzero = 0.0
 
     # cf veci @view a[g.ny*g.nx*(p-1)+1:g.ny*g.nx*p]
 
-    for i in grid.ny*grid.nx*(iLS)+1:grid.ny*grid.nx*(iLS+1)
+    for i in grid.ny*grid.nx*(index-1)+1:grid.ny*grid.nx*(index)
         if abs(scalD[i]) .> 0.0
             nonzero += scalD[i]
             num += 1

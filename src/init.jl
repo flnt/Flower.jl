@@ -80,10 +80,10 @@ function Levelset(nx, ny)
     α .= NaN
     κ = zeros(ny, nx)
     
-    ii = collect(i for i = 1:nx*ny)
-    iw = collect(i for i = ny+1:nx*ny)
-    is = collect(i for i = 2:nx*ny)
-    iN = collect(i for i = 1:nx*ny-1)
+    ii = collect(i for i = 1:nx*ny)             # nx*ny
+    iw = collect(i for i = ny+1:nx*ny)          # (nx-1)*ny
+    is = collect(i for i = 2:nx*ny)             # nx*ny-1
+    iN = collect(i for i = 1:nx*ny-1)           # nx*ny-1
     ie = collect(i for i = 1:nx*ny-ny)
     iwp = collect(i for i = 1:ny)
     isp = collect(i for i = 1:ny:nx*ny)
@@ -111,6 +111,23 @@ function Levelset(nx, ny)
     A = sparse(II,JJ,vcat(a,b,c))
     B = sparse(II,JJ,vcat(a,b,c))
 
+
+    # print("\n ii",ii,size(ii))
+    # print("\n ii",size(ii))
+    # print("\n iw",size(iw))
+    # print("\n is",is,size(is))
+    # print("\n iN",iN,size(iN))
+    # print("\n ie",ie,size(ie))
+    # print("\n iwp",iwp,size(iwp))
+    # print("\n isp",isp,size(isp))
+    # print("\n inp",inp,size(inp))
+    # print("\n iep",iep,size(iep))
+    # print("\n II",II,size(II))
+    # print("\n ii",ii,size(ii))
+    # print("\n ii",ii,size(ii))
+    # print("\n ii",ii,size(ii))
+    # print("\n ii",ii,size(ii))
+
     MIXED = Vector{CartesianIndex{2}}()
     LIQUID = Vector{CartesianIndex{2}}()
     SOLID = Vector{CartesianIndex{2}}()
@@ -123,6 +140,49 @@ function Levelset(nx, ny)
     )
 end
 
+
+function allocate_ghost_matrices(nx0,ny0,nghost)
+
+    nx=nx0+2*nghost
+    ny=ny0+2*nghost
+
+    ii = collect(i for i = 1:nx*ny)             # nx*ny
+    iw = collect(i for i = ny+1:nx*ny)          # (nx-1)*ny
+    is = collect(i for i = 2:nx*ny)             # nx*ny-1
+    iN = collect(i for i = 1:nx*ny-1)           # nx*ny-1
+    ie = collect(i for i = 1:nx*ny-ny)
+    iwp = collect(i for i = 1:ny)
+    isp = collect(i for i = 1:ny:nx*ny)
+    inp = collect(i for i = ny:ny:nx*ny)
+    iep = collect(i for i = nx*ny-ny+1:nx*ny)
+
+    II = vcat(ii,iw,is,iN,ie,iwp,isp,inp,iep)
+
+    jj = collect(i for i = 1:nx*ny)
+    jw = collect(i for i = 1:nx*ny-ny)
+    js = collect(i for i = 1:nx*ny-1)
+    jn = collect(i for i = 2:nx*ny)
+    je = collect(i for i = ny+1:nx*ny)
+    jwp = collect(i for i = nx*ny-ny+1:nx*ny)
+    jsp = collect(i for i = ny:ny:nx*ny)
+    jnp = collect(i for i = 1:ny:nx*ny)
+    jep = collect(i for i = 1:ny)
+
+    JJ = vcat(jj,jw,js,jn,je,jwp,jsp,jnp,jep)
+
+    a = ones(length(jj))
+    b = zeros(length(jw)+length(js)+length(jn)+length(je))
+    c = zeros(length(jwp)+length(jsp)+length(jnp)+length(jep))
+
+    A0 = sparse(II,JJ,vcat(a,b,c))
+    B0 = sparse(II,JJ,vcat(a,b,c))
+
+
+    A = OffsetArray(A0, (-nx0,-nx0))
+    B = OffsetArray(B0, (-nx0,-nx0))
+
+    return A,B
+end
 
 """
 Mesh
@@ -267,6 +327,55 @@ function init_sparse_ByT(grid)
 
     ByT = sparse(JJ,II,a)
 end
+
+
+
+
+#  @unpack N, T_inf, A, R, n, L0, Δ, shifted, X, Y, H, max_iterations, CFL = num
+
+#     SCUT = zeros(n^2)
+#     LCUT = zeros(n^2)
+
+#     SOL = zeros(n,n,5)
+#     LIQ = zeros(n,n,5)
+
+#     sol_projection = Array{Gradient{Float64}, 2}(undef, n, n)
+#     liq_projection = Array{Gradient{Float64}, 2}(undef, n, n)
+
+#     ii = collect(i for i = 1:n^2)
+#     iw = collect(i for i = n+1:n^2)
+#     is = collect(i for i = 2:n^2)
+#     iN = collect(i for i = 1:n^2-1)
+#     ie = collect(i for i = 1:n^2-n)
+
+#     II = vcat(ii,iw,is,iN,ie)
+
+#     jj = collect(i for i = 1:n^2)
+#     jw = collect(i for i = 1:n^2-n)
+#     js = collect(i for i = 1:n^2-1)
+#     jn = collect(i for i = 2:n^2)
+#     je = collect(i for i = n+1:n^2)
+
+#     JJ = vcat(jj,jw,js,jn,je)
+
+#     a = ones(length(jj))
+#     b = zeros(length(jw)+length(js)+length(jn)+length(je))
+
+#     AS = sparse(II,JJ,vcat(a,b))
+#     AL = sparse(II,JJ,vcat(a,b))
+#     BS = sparse(II,JJ,vcat(a,b))
+#     BL = sparse(II,JJ,vcat(a,b))
+
+#     LSA = sparse(II,JJ,vcat(a,b))
+#     LSB = sparse(II,JJ,vcat(a,b))
+
+#     iso = zeros(n, n)
+#     u = zeros(n, n)
+#     TS = zeros(n, n)
+#     TL = zeros(n, n)
+#     Tall = zeros(n, n)
+#     V = zeros(n, n)
+#     κ = zeros(n, n)
 
 """
 # Return

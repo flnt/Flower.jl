@@ -214,6 +214,43 @@ function sumloc(a_in::SizedVector{4,Float64,Vector{Float64}},
     return S
 end
 
+
+# function IIOE(A, B, u, V, inside, CFL, h, n)
+#     @inbounds @threads for II in inside
+#         p = lexicographic(II, n)
+#         U = diamond(u, p, n)
+#         F = grad(u, V, U, h, p, n)
+#         a_in, a_ou = inflow_outflow(F)
+#         S = sumloc(a_in, a_ou)
+#         if S[1] < -S[2]
+#             D = quadratic_recons(u, U, p, n)
+#             D_ = quadratic_recons(D)
+#             F = 2*grad(u, V, U, D, D_[1], h, p, n)
+#             a_in, a_ou = inflow_outflow(F)
+#             S = sumloc(a_in, a_ou)
+#         end
+#         A[p,p], B[p,p] = fill_matrices2!(a_in, a_ou, S, A, B, p, n, CFL)
+#     end
+# end
+
+
+function init_ghost_neumann(u,nx,ny,nghost)
+    LSghost = zeros(ny + 2*nghost, nx + 2*nghost)
+
+    LSghost = OffsetArrays.Origin(0, 0)(LSghost)
+
+    @views LSghost[1:ny,1:nx] = u
+
+    #init ghost with Neumann BC
+
+    LSghost[0,:] = LSghost[1,:] #bottom
+    LSghost[ny+1,:] = LSghost[ny,:] #top
+
+    LSghost[:,0] = LSghost[:,1] #left
+    LSghost[:,nx+1] = LSghost[:,nx] #right
+    return LSghost
+end
+
 """
     IIOE_normal!(grid, A, B, u, V, CFL, periodic_x, periodic_y)
 
@@ -266,14 +303,15 @@ end
 
 Advection of the levelset in the normal direction  (Mikula et al. 2014).
 """
-function IIOE_normal_indices!(grid, A, B, u, V, CFL, periodic_x, periodic_y,indices)
+function IIOE_normal_indices!(grid, A, B, u,ughost, V, CFL, periodic_x, periodic_y,indices)
     @unpack nx, ny, ind = grid
     @unpack inside, all_indices = ind
 
     @inbounds @threads for II in indices
         p = lexicographic(II, ny)
-        U = diamond(u, II, nx, ny, periodic_x, periodic_y)
-        F = grad(u, V, U, II, nx, ny, periodic_x, periodic_y)
+        # U = diamond(u, II, nx, ny, periodic_x, periodic_y)
+        U = diamond(ughost, II, nx, ny, periodic_x, periodic_y)
+        F = grad(ughost, V, U, II, nx, ny, periodic_x, periodic_y)
         a_in, a_ou = inflow_outflow(F)
         S = sumloc(a_in, a_ou)
         
@@ -283,13 +321,16 @@ function IIOE_normal_indices!(grid, A, B, u, V, CFL, periodic_x, periodic_y,indi
         #4. On the other hand, if the backward dffusion is dominant (ie. Spf < 9Spb), 
         #we need to smooth the reconstructed solution for stability, using the following formula
         if S[1] < -S[2]
-            D = quadratic_recons(u, U, II, nx, ny, periodic_x, periodic_y)
+            D = quadratic_recons(ughost, U, II, nx, ny, periodic_x, periodic_y)
             D_ = quadratic_recons(D)
-            F = 2*grad(u, V, U, D, D_[1], p, ny)
+            F = 2*grad(ughost, V, U, D, D_[1], p, ny)
             a_in, a_ou = inflow_outflow(F)
             S = sumloc(a_in, a_ou)
         end
-        A[p,p], B[p,p] = fill_matrices2!(a_in, a_ou, S, A, B, II, nx, ny, CFL, periodic_x, periodic_y)
+        # print("\n II ",II)
+        # A[p,p], B[p,p] = fill_matrices2!(a_in, a_ou, S, A, B, II, nx, ny, CFL, periodic_x, periodic_y)
+        A[p,p], B[p,p] = fill_matrices3!(a_in, a_ou, S, A, B, II, nx, ny, CFL, periodic_x, periodic_y)
+
     end
 end
 """
@@ -370,6 +411,37 @@ function S2IIOE!(grid, grid_u, grid_v, A, B, utmp, u, θ_out, τ, periodic_x, pe
     end
 end
 
+@inline function fill_matrices3!(a_in::SArray{Tuple{4},Float64,1,4}, a_ou::SArray{Tuple{4},Float64,1,4},
+    S, A, B, II, nx, ny, CFL, per_x, per_y)
+    p = lexicographic(II, ny)
+    # a = (-n, -1, n, 1)
+    a = (-nx, -1, nx, 1)
+
+    # a = (lexicographic(δx⁻(II, nx, per_x), ny),
+    #      lexicographic(δy⁻(II, ny, per_y), ny), 
+    #      lexicographic(δx⁺(II, nx, per_x), ny),
+    #      lexicographic(δy⁺(II, ny, per_y), ny))
+    @inbounds for (i,j) in zip(1:4,a)
+        # print("\n fill_matrices2! ij ",i," j ",j)
+        @inbounds A[p, p + j] = -CFL*a_in[i]
+        @inbounds B[p, p + j] = CFL*a_ou[i]
+    end
+    return 2 + CFL*S[1], 2 - CFL*S[2]
+end
+
+"""
+master version
+"""
+@inline function fill_matrices2old!(a_in::SArray{Tuple{4},Float64,1,4}, a_ou::SArray{Tuple{4},Float64,1,4},
+    S, A, B, p, n, CFL)
+    a = (-n, -1, n, 1)
+    @inbounds for (i,j) in zip(1:4,a)
+        @inbounds A[p, p + j] = -CFL*a_in[i]
+        @inbounds B[p, p + j] = CFL*a_ou[i]
+    end
+    return 2 + CFL*S[1], 2 - CFL*S[2]
+end
+
 @inline function fill_matrices2!(a_in::SArray{Tuple{4},Float64,1,4}, a_ou::SArray{Tuple{4},Float64,1,4},
     S, A, B, II, nx, ny, CFL, per_x, per_y)
     p = lexicographic(II, ny)
@@ -378,6 +450,7 @@ end
          lexicographic(δx⁺(II, nx, per_x), ny),
          lexicographic(δy⁺(II, ny, per_y), ny))
     @inbounds for (i,j) in zip(1:4,a)
+        # print("\n fill_matrices2! ij ",i," j ",j)
         @inbounds A[p, j] = -CFL*a_in[i]
         @inbounds B[p, j] = CFL*a_ou[i]
     end

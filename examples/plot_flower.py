@@ -1226,6 +1226,7 @@ def plot_file(
         y_1D = yp
         key_LS = "levelset_p"
         key_LS_wall = "levelset_p_wall"
+        key_normal = 'normal_angle'
 
 
     # print(key)
@@ -1373,6 +1374,30 @@ def plot_file(
         LSdat = file[key_LS][:]
         LSdat = LSdat.transpose()
         CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
+
+    if 'plot_normal' in figpar.keys():
+        if figpar['plot_normal']:
+            normal_angle = file[key_normal][:]
+            normal_angle = normal_angle.transpose()
+
+            us = np.cos(normal_angle)
+            vs = np.sin(normal_angle)
+            
+            scale_units=plotpar["quiver_scale_unit"]
+            scale_units = None if scale_units == 'None' else scale_units
+
+            skip_every = int(figpar['skip_every'])
+            skip = (slice(None, None, skip_every), slice(None, None, skip_every))
+            skip1D = slice(None, None, skip_every)
+
+            q = ax2.quiver(xp[skip1D],yp[skip1D],us[skip],vs[skip],
+            scale=float(figpar["quiver_scale"]),
+            scale_units=scale_units,
+            angles=scale_units,
+            #color = "red",
+            )
+
+        # CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
         
     
 
@@ -2285,8 +2310,16 @@ def plot_python_pdf_full2(
         LSdat = LSdat.transpose()
 
         # print("test ii0 ",ii0,ii1+1,jj0,jj1+1)
+        try:
+            linewidths = figpar['linewidth']
+            linestyles=figpar['linestyle']
+        except:
+            linewidths = plotpar['linewidth']
+            linestyles=plotpar['linestyle']
+
         CSlvl = ax2.contour(
-            x_1D[ii0:ii1+1], y_1D[jj0:jj1+1], LSdat[jj0:jj1+1, ii0:ii1+1], [0.0], colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle']
+            x_1D[ii0:ii1+1], y_1D[jj0:jj1+1], LSdat[jj0:jj1+1, ii0:ii1+1], [0.0], colors="r",
+            linewidths=linewidths,linestyles=linestyles,
         )
 
 

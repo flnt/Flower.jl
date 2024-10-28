@@ -1796,3 +1796,42 @@ if num.io_pdi>0
         print(error)
     end
 end #if num.io_pdi>0
+
+#Tests 
+
+
+bubble_volume_0 = 0.5 * π * phys.radius^2
+
+bubble_volume = volume(gp.LS[1].geoS)
+equivalent_radius = sqrt(bubble_volume*2/π)
+
+force_buoyancy = - phys.g * (phys.rho1- phys.rho2) * bubble_volume
+
+force_buoyancy_0 = - phys.g * (phys.rho1- phys.rho2) * bubble_volume_0
+
+
+adim_nb_Bond_final = num.current_radius * phys.g * abs(phys.rho1-phys.rho2)/phys.sigma
+adim_nb_Bond_initial = phys.radius * phys.g * abs(phys.rho1-phys.rho2)/phys.sigma
+
+
+printstyled(color=:cyan, @sprintf "\n Bond number: initial %.2e final %.2e \n" adim_nb_Bond_initial adim_nb_Bond_final)
+
+printstyled(color=:cyan, @sprintf "\n volume: initial %.2e final %.2e R %.2e \n" bubble_volume_0 bubble_volume equivalent_radius)
+
+printstyled(color=:red, @sprintf "\n Test radius R0 %.2e R %.2e \n" phys.radius num.current_radius)
+
+printstyled(color=:cyan, @sprintf "\n Bond number: initial %.2e final %.2e \n" adim_nb_Bond_initial adim_nb_Bond_final)
+
+printstyled(color=:cyan, @sprintf "\n Buoyancy force: initial %.2e final %.2e \n" force_buoyancy_0 force_buoyancy)
+
+
+
+
+
+# if sim.name == "levelset_Butler_two_LS"
+# end
+@testset "Phase change: radius" begin
+    @test num.current_radius > phys.radius
+end #@testset "laplacian"
+
+# @test (visc_term - (p_top-p_bottom)/L0)/((p_top-p_bottom)/L0) ≈0 atol=test_tolerance skip=true  

@@ -63,6 +63,11 @@
 @inline is_liquid(a) = a == 0.0
 @inline is_solid(a) = a == 15.0
 
+"""
+    biquadratic
+    cf http://basilisk.fr/sandbox/ghigo/src/myembed.h#lifting-the-small-cell-cfl-restriction
+    cf http://basilisk.fr/sandbox/alimare/alex_functions.h#bilinear-with-quadratic-correction
+"""
 @inline biquadratic(m, x, y) = @inbounds m[1,1]*(y^2)*(x^2) + m[1,2]*(y^2)*x + m[2,1]*y*x^2 + m[1,3]*y^2 + m[3,1]*x^2 + m[2,2]*y*x + m[2,3]*y + m[3,2]*x + m[3,3]
 
 @inline check_grid_alignement(u, II, κ, ϵ) = @SVector [abs(u[II] + u[δx⁺(II)]) <= ϵ && sign(u[δy⁺(II)]) == sign(u[δy⁻(II)]) && abs(κ) < ϵ,
@@ -1362,7 +1367,7 @@ end
 """
 marching_squares!
 
-for 
+cf mapleGeometricDesignSpace2003 
 """
 function marching_squares!(grid, LS, u, periodic_x, periodic_y)
     @unpack x, y, nx, ny, dx, dy, ind = grid
@@ -1573,6 +1578,10 @@ function get_curvature(num, grid, geoL, u, κ, inside, per_x, per_y)
     end
 end
 
+"""
+    capacities
+    Compute capacities depending on isovalue (marching squares)
+"""
 function capacities(F_prev, case)
     # add some little volume so that weird cases don't appear
     F = [F_prev[1], F_prev[2]]
@@ -2596,6 +2605,13 @@ function get_cells_indices(iso, all)
     return MIXED, SOLID, LIQUID
 end
 
+
+"""
+    get_cells_indices
+
+returns MIXED, SOLID, LIQUID cell indices
+if iso ==0, if iso ==15
+"""
 function get_cells_indices(iso, all, nx, ny, periodic_x, periodic_y)
     local M = 1
     local S = 1

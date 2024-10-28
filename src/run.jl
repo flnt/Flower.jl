@@ -1,6 +1,7 @@
 
 #TODO test with run_forward! or alloc grid inside or ; or no unpack
-
+#TODO remove duplicate variables: cap (already dcap), emptied (already iso),...
+#TODO floating-point comparison
 
 #precompile(Tuple{typeof(Core.kwcall), 
 #NamedTuple{(:periodic_x, :periodic_y, :BC_uL, :BC_uS, :BC_vL, :BC_vS, :BC_pL, :BC_pS, :BC_u, :BC_int, 
@@ -98,10 +99,8 @@ function run_forward!(
 
     #index of bubble interface
     iLSbubble = 1
-
-    sum_mass_flux = 0.0
     
-    sign_mass_flux = 1
+    sign_mass_flux = -1.0
 
 
     #TODO Re
@@ -203,33 +202,33 @@ function run_forward!(
     ####################################################################################################
     #Electrolysis
     ####################################################################################################
-    current_radius = 0.0
+    num.current_radius = 0.0
     # TODO kill_dead_cells! for [:,:,iscal]
     if electrolysis
         
         if electrolysis_phase_change_case != "none"
-            current_radius = num.R
+            num.current_radius = num.R
 
-            printstyled(color=:green, @sprintf "\n radius: %.2e \n" current_radius)
+            printstyled(color=:green, @sprintf "\n radius: %.2e \n" num.current_radius)
 
             p_liq= num.pres0 + mean(veci(phL.pD,grid,2)) #TODO here one bubble
-            p_g=p_liq + 2 * num.σ / current_radius
+            p_g=p_liq + 2 * num.σ / num.current_radius
 
             #TODO using num.temperature0
             if mode_2d==0
-                nH2 = p_g * 4.0 / 3.0 * pi * current_radius ^ 3 / (num.temperature0 * num.Ru) 
+                nH2 = p_g * 4.0 / 3.0 * pi * num.current_radius ^ 3 / (num.temperature0 * num.Ru) 
             elseif mode_2d == 1 #reference thickness for a cylinder
-                nH2 = p_g * pi * current_radius ^ 2 * num.ref_thickness_2d / (num.temperature0 * num.Ru) 
+                nH2 = p_g * pi * num.current_radius ^ 2 * num.ref_thickness_2d / (num.temperature0 * num.Ru) 
             elseif mode_2d==2 #mol/meter
-                nH2=num.concentration0[1]* pi * current_radius ^ 2
+                nH2=num.concentration0[1]* pi * num.current_radius ^ 2
             elseif mode_2d==3 #mol/meter half circle
-                nH2=1.0/2.0*num.concentration0[1]* pi * current_radius ^ 2
+                nH2=1.0/2.0*num.concentration0[1]* pi * num.current_radius ^ 2
             end
-            # nH2 = 4.0/3.0 * pi * current_radius^3 * num.rho2 / num.MWH2
+            # nH2 = 4.0/3.0 * pi * num.current_radius^3 * num.rho2 / num.MWH2
 
             printstyled(color=:green, @sprintf "\n Mole: %.2e \n" nH2)
 
-            printstyled(color=:green, @sprintf "\n Mole test: %.2e %.2e\n" num.concentration0[1]*4.0/3.0*pi*current_radius^3 p_g*4.0/3.0*pi*current_radius^3/(num.temperature0*num.Ru))
+            printstyled(color=:green, @sprintf "\n Mole test: %.2e %.2e\n" num.concentration0[1]*4.0/3.0*pi*num.current_radius^3 p_g*4.0/3.0*pi*num.current_radius^3/(num.temperature0*num.Ru))
 
         end
 
@@ -743,7 +742,7 @@ function run_forward!(
     #             # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
     #             "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
     #             "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
-    #             "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+    #             "radius"::Cstring, num.current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
     #             "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
     #             "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
     #             "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -867,10 +866,14 @@ function run_forward!(
                     "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
                     # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
                     # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,  
+                    # "normal_x"::Cstring, normal_x::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # "normal_y"::Cstring, normal_y::Ptr{Cdouble}, PDI_OUT::Cint,  
+                    # grid_u.LS[iLS].α
+                    "normal_angle"::Cstring, grid.LS[iLSpdi].α::Ptr{Cdouble}, PDI_OUT::Cint,
                     "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
-                    "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+                    "radius"::Cstring, num.current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
                     "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
                     "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
                     "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -1581,7 +1584,7 @@ function run_forward!(
                 # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
                 "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
                 "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
-                "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
+                "radius"::Cstring, num.current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
                 C_NULL::Ptr{Cvoid})::Cint
         
                 
@@ -1646,13 +1649,13 @@ function run_forward!(
 
                             update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, 
                             periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],
-                            num.diffusion_coeff[1],num.concentration0[1],electrolysis_phase_change_case,mass_flux,sum_mass_flux)
+                            num.diffusion_coeff[1],num.concentration0[1],electrolysis_phase_change_case,mass_flux)
 
                         elseif electrolysis_phase_change_case == "levelset_averaged"
                             
                             update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, 
                             periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],
-                            num.diffusion_coeff[1],num.concentration0[1],electrolysis_phase_change_case,mass_flux,sum_mass_flux)
+                            num.diffusion_coeff[1],num.concentration0[1],electrolysis_phase_change_case,mass_flux)
 
                             
                             # # iLS = 1
@@ -1673,11 +1676,11 @@ function run_forward!(
 
                         end #electrolysis_phase_change_case == "levelset"
 
-                        varnH2 = sign_mass_flux * sum_mass_flux * num.diffusion_coeff[1] 
+                        varnH2 = sign_mass_flux * num.sum_mass_flux * num.diffusion_coeff[1] 
 
                         new_nH2 = nH2 + varnH2 * num.τ
 
-                    
+                        print("\n varn ",varnH2 ," dt ", num.τ," dn ",varnH2 * num.τ, " sum ", num.sum_mass_flux)
                         printstyled(color=:green, @sprintf "\n it %.5i Mole: %.2e dn %.2e new nH2 %.2e \n" num.current_i nH2 varnH2*num.τ new_nH2)
 
                         if varnH2 < 0.0 
@@ -1711,7 +1714,7 @@ function run_forward!(
                     print_electrolysis_statistics(num,grid,phL)
                 end
 
-                previous_radius = current_radius
+                previous_radius = num.current_radius
 
                 # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
                 varnH2 = sign_mass_flux * sum(mass_flux) * num.diffusion_coeff[1] 
@@ -1724,8 +1727,8 @@ function run_forward!(
 
                 #Pliquid is the average value of p over the bubble interface plus the ambient operating pressure (P).
                 p_liq= num.pres0 + mean(veci(phL.pD,grid,2)) #TODO here one bubble
-                # p_g=p_liq + 2 * num.σ / current_radius #3D
-                p_g=p_liq + num.σ / current_radius #2D
+                # p_g=p_liq + 2 * num.σ / num.current_radius #3D
+                p_g=p_liq + num.σ / num.current_radius #2D
 
                 new_nH2 = nH2 + varnH2 * num.τ
 
@@ -1750,34 +1753,34 @@ function run_forward!(
                 
                 #TODO using num.temperature0
                 if mode_2d == 0
-                    current_radius = cbrt(3.0 * nH2 * num.Ru * num.temperature0/( 4.0 * pi * p_g) )
+                    num.current_radius = cbrt(3.0 * nH2 * num.Ru * num.temperature0/( 4.0 * pi * p_g) )
                 elseif mode_2d == 1
-                    current_radius = sqrt(nH2 * num.Ru * num.temperature0/( pi * p_g * num.ref_thickness_2d) )
+                    num.current_radius = sqrt(nH2 * num.Ru * num.temperature0/( pi * p_g * num.ref_thickness_2d) )
                 elseif mode_2d == 2
-                    current_radius = sqrt(nH2/(num.concentration0[1] * pi))
+                    num.current_radius = sqrt(nH2/(num.concentration0[1] * pi))
                 elseif mode_2d == 3
-                    current_radius = sqrt(2*nH2/(num.concentration0[1] * pi))
+                    num.current_radius = sqrt(2*nH2/(num.concentration0[1] * pi))
                 end
 
-                printstyled(color=:green, @sprintf "\n radius num.CFL: %.2e \n" (current_radius-previous_radius)/(num.L0/grid.nx))
+                printstyled(color=:green, @sprintf "\n radius num.CFL: %.2e \n" (num.current_radius-previous_radius)/(num.L0/grid.nx))
 
-                if (current_radius-previous_radius)/(num.L0/grid.nx) > 0.5
-                    printstyled(color=:red, @sprintf "\n radius num.CFL: %.2e \n" (current_radius-previous_radius)/(num.L0/grid.nx))
+                if (num.current_radius-previous_radius)/(num.L0/grid.nx) > 0.5
+                    printstyled(color=:red, @sprintf "\n radius num.CFL: %.2e \n" (num.current_radius-previous_radius)/(num.L0/grid.nx))
                     @error ("num.CFL radius")
                     crashed = true
                     return
                 end
 
                
-                printstyled(color=:cyan, @sprintf "\n div(0,grad): %.5i %.2e %.2e %.2e %.2e\n" grid.nx num.τ num.L0/grid.nx (current_radius-previous_radius)/(num.L0/grid.nx) sum(mass_flux))
+                printstyled(color=:cyan, @sprintf "\n div(0,grad): %.5i %.2e %.2e %.2e %.2e\n" grid.nx num.τ num.L0/grid.nx (num.current_radius-previous_radius)/(num.L0/grid.nx) sum(mass_flux))
                 
-                printstyled(color=:green, @sprintf "\n num.n(H2): %.2e added %.2e old R %.2e new R %.2e \n" nH2 varnH2*num.τ previous_radius current_radius)
+                printstyled(color=:green, @sprintf "\n num.n(H2): %.2e added %.2e old R %.2e new R %.2e \n" nH2 varnH2*num.τ previous_radius num.current_radius)
                 printstyled(color=:green, @sprintf "\n p0: %.2e p_liq %.2e p_lapl %.2e \n" num.pres0 p_liq p_g)
 
                 if mode_2d == 3
-                    grid.LS[1].u .= sqrt.((grid.x.- num.xcoord).^ 2 + (grid.y .- num.ycoord) .^ 2) - (current_radius) * ones(grid.ny, grid.nx)                  
+                    grid.LS[1].u .= sqrt.((grid.x.- num.xcoord).^ 2 + (grid.y .- num.ycoord) .^ 2) - (num.current_radius) * ones(grid.ny, grid.nx)                  
                 else
-                    grid.LS[1].u .= sqrt.((grid.x .- num.xcoord .- current_radius .+ num.R ).^ 2 + (grid.y .- num.ycoord) .^ 2) - (current_radius) * ones(grid.ny, grid.nx)
+                    grid.LS[1].u .= sqrt.((grid.x .- num.xcoord .- num.current_radius .+ num.R ).^ 2 + (grid.y .- num.ycoord) .^ 2) - (num.current_radius) * ones(grid.ny, grid.nx)
                 end
                 # init_franck!(grid, TL, R, num.T_inf, 0)
                 # u
@@ -1785,16 +1788,16 @@ function run_forward!(
             elseif (electrolysis && electrolysis_phase_change_case == "imposed_radius")
 
                 #num.CFL 0.5
-                current_radius = current_radius + grid.dx[1,1]/2
+                num.current_radius = num.current_radius + grid.dx[1,1]/2
 
-                grid.LS[1].u .= sqrt.((grid.x.- num.xcoord).^ 2 + (grid.y .- num.ycoord) .^ 2) - (current_radius) * ones(grid.ny, grid.nx)                  
+                grid.LS[1].u .= sqrt.((grid.x.- num.xcoord).^ 2 + (grid.y .- num.ycoord) .^ 2) - (num.current_radius) * ones(grid.ny, grid.nx)                  
 
             elseif (electrolysis && electrolysis_phase_change_case == "imposed_radius4")
 
                 #num.CFL 0.5
-                current_radius = current_radius + grid.dx[1,1]/4
+                num.current_radius = num.current_radius + grid.dx[1,1]/4
 
-                grid.LS[1].u .= sqrt.((grid.x.- num.xcoord).^ 2 + (grid.y .- num.ycoord) .^ 2) - (current_radius) * ones(grid.ny, grid.nx)                  
+                grid.LS[1].u .= sqrt.((grid.x.- num.xcoord).^ 2 + (grid.y .- num.ycoord) .^ 2) - (num.current_radius) * ones(grid.ny, grid.nx)                  
 
 
             end #phase change
@@ -1832,7 +1835,7 @@ function run_forward!(
                 "normal_velocity_intfc"::Cstring, grid.V::Ptr{Cdouble}, PDI_OUT::Cint,   
                 # "velocity_x_intfc"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
                 # "velocity_y_intfc"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
-                # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
+                # "radius"::Cstring, num.current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
                 C_NULL::Ptr{Cvoid})::Cint
 
             end # if num.io_pdi>0
@@ -1921,10 +1924,7 @@ function run_forward!(
                         printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
 
                         IIOE_normal!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y)
-
-                        # IIOE_normal_indices!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
-
-
+                      
                         grid.LS[iLS].u .= reshape(gmres(grid.LS[iLS].A, grid.LS[iLS].B * vec(grid.LS[iLS].u)), grid)
 
 
@@ -1980,7 +1980,7 @@ function run_forward!(
 
                     elseif num.advection_LS_mode == 4
 
-                        previous_radius = current_radius
+                        previous_radius = num.current_radius
 
                         # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
                         varnH2 = sign_mass_flux * sum(mass_flux) * num.diffusion_coeff[1] 
@@ -2014,35 +2014,35 @@ function run_forward!(
                         
                         #TODO using num.temperature0
                         if mode_2d == 0
-                            current_radius = cbrt(3.0 * nH2 * num.Ru * num.temperature0/( 4.0 * pi * p_g) )
+                            num.current_radius = cbrt(3.0 * nH2 * num.Ru * num.temperature0/( 4.0 * pi * p_g) )
                         elseif mode_2d == 1
-                            current_radius = sqrt(nH2 * num.Ru * num.temperature0/( pi * p_g * num.ref_thickness_2d) )
+                            num.current_radius = sqrt(nH2 * num.Ru * num.temperature0/( pi * p_g * num.ref_thickness_2d) )
                         elseif mode_2d == 2
-                            current_radius = sqrt(nH2/(num.concentration0[1] * pi))
+                            num.current_radius = sqrt(nH2/(num.concentration0[1] * pi))
                         elseif mode_2d == 3
-                            current_radius = sqrt(2*nH2/(num.concentration0[1] * pi))
+                            num.current_radius = sqrt(2*nH2/(num.concentration0[1] * pi))
                         end
         
-                        printstyled(color=:green, @sprintf "\n radius num.CFL: %.2e \n" (current_radius-previous_radius)/(num.L0/grid.nx))
+                        printstyled(color=:green, @sprintf "\n radius num.CFL: %.2e \n" (num.current_radius-previous_radius)/(num.L0/grid.nx))
         
-                        if (current_radius-previous_radius)/(num.L0/grid.nx) > 0.5
-                            printstyled(color=:red, @sprintf "\n radius num.CFL: %.2e \n" (current_radius-previous_radius)/(num.L0/grid.nx))
+                        if (num.current_radius-previous_radius)/(num.L0/grid.nx) > 0.5
+                            printstyled(color=:red, @sprintf "\n radius num.CFL: %.2e \n" (num.current_radius-previous_radius)/(num.L0/grid.nx))
                             @error ("num.CFL radius")
                             crashed = true
                             return
                         end
         
                        
-                        printstyled(color=:cyan, @sprintf "\n div(0,grad): %.5i %.2e %.2e %.2e \n" grid.nx num.τ num.L0/grid.nx (current_radius-previous_radius)/(num.L0/grid.nx)) 
+                        printstyled(color=:cyan, @sprintf "\n div(0,grad): %.5i %.2e %.2e %.2e \n" grid.nx num.τ num.L0/grid.nx (num.current_radius-previous_radius)/(num.L0/grid.nx)) 
                         # sum(mass_flux))
                         
-                        printstyled(color=:green, @sprintf "\n num.n(H2): %.2e added %.2e old R %.2e new R %.2e \n" nH2 varnH2*num.τ previous_radius current_radius)
+                        printstyled(color=:green, @sprintf "\n num.n(H2): %.2e added %.2e old R %.2e new R %.2e \n" nH2 varnH2*num.τ previous_radius num.current_radius)
                         printstyled(color=:green, @sprintf "\n p0: %.2e p_liq %.2e p_lapl %.2e \n" num.pres0 p_liq p_g)
         
                         if mode_2d == 3
-                            grid.LS[1].u .= sqrt.((grid.x.- num.xcoord).^ 2 + (grid.y .- num.ycoord) .^ 2) - (current_radius) * ones(grid.ny, grid.nx)                  
+                            grid.LS[1].u .= sqrt.((grid.x.- num.xcoord).^ 2 + (grid.y .- num.ycoord) .^ 2) - (num.current_radius) * ones(grid.ny, grid.nx)                  
                         else
-                            grid.LS[1].u .= sqrt.((grid.x .- num.xcoord .- current_radius .+ num.R ).^ 2 + (grid.y .- num.ycoord) .^ 2) - (current_radius) * ones(grid.ny, grid.nx)
+                            grid.LS[1].u .= sqrt.((grid.x .- num.xcoord .- num.current_radius .+ num.R ).^ 2 + (grid.y .- num.ycoord) .^ 2) - (num.current_radius) * ones(grid.ny, grid.nx)
                         end
 
 
@@ -2131,6 +2131,54 @@ function run_forward!(
 
                         BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
 
+
+                    elseif num.advection_LS_mode == 8
+                        print("\n num.advection_LS_mode == 8 iLS", iLS)
+
+                        nghost = 1
+
+                        Aghost, Bghost = allocate_ghost_matrices(grid.nx,grid.ny,nghost)
+
+                        print("\n periodic ",periodic_x," y ",periodic_y)
+
+                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
+
+                        BC_LS_new!(grid, grid.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+
+
+                        printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
+
+                        # IIOE_normal!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y)
+                        # IIOE_normal_indices!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
+
+                        # print("\n sizes LS A ",size(grid.LS[iLS].A), " B ", size(grid.LS[iLS].B)," LS ",size(grid.LS[iLS].u)," V ",size(grid.V),"\n")
+
+
+                        LSghost = init_ghost_neumann(grid.LS[iLS].u,grid.nx,grid.ny,nghost)
+                       
+                        Vghost = init_ghost_neumann(grid.V,grid.nx,grid.ny,nghost)
+
+                        IIOE_normal_indices!(grid, Aghost, Bghost, grid.LS[iLS].u, LSghost, 
+                        grid.V, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
+
+                        # IIOE_normal_indices!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, LSghost, 
+                        # grid.V, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
+
+                        # IIOE_normal_indices!(grid, Aghost, Bghost, LSghost, Vghost, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
+
+                        print("\n sizes LS A ",size(grid.LS[iLS].A), " B ", size(grid.LS[iLS].B)," LS ",size(grid.LS[iLS].u)," V ",size(grid.V),"\n")
+                        print("\n sizes LS A ",size(OffsetArrays.no_offset_view(Aghost)), " B ", size(OffsetArrays.no_offset_view(Bghost))," LS ",size(LSghost)," V ",size(grid.V),"\n")
+
+                        OffsetArrays.no_offset_view(LSghost) .= reshape(gmres(OffsetArrays.no_offset_view(Aghost), OffsetArrays.no_offset_view(Bghost) * vec(OffsetArrays.no_offset_view(LSghost))), (grid.ny+2,grid.nx+2))
+
+                        grid.LS[iLS].u .= LSghost[1:grid.ny,1:grid.nx]
+
+                        # grid.LS[iLS].u .= reshape(gmres(OffsetArrays.no_offset_view(Aghost), OffsetArrays.no_offset_view(Bghost) * vec(grid.LS[iLS].u)), grid)
+
+
+                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
+
+                        BC_LS_new!(grid, grid.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
 
 
 
@@ -2360,7 +2408,7 @@ function run_forward!(
         # end
         # @views fwd.Cd[num.current_i+1] = cD
         # @views fwd.Cl[num.current_i+1] = cL
-        # # @views fwd.radius[num.current_i+1] = current_radius
+        # # @views fwd.radius[num.current_i+1] = num.current_radius
 
 
 
@@ -2426,7 +2474,7 @@ function run_forward!(
                     # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
                     "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
-                    "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
+                    "radius"::Cstring, num.current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
                     C_NULL::Ptr{Cvoid})::Cint
             
                     # print("\n after write \n ")

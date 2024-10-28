@@ -194,3 +194,21 @@ Check that the variables declared in PDI in the YAML are the same in Flower.
 ## Quick debugging with PDI
 use PYCALL to do quick tests (print for example) on variables that are shared in PDI without modifying and recompiling the code
 
+<!-- % \section{Installing Julia (attempt)}
+% \url{https://github.com/JuliaLang/juliaup}
+% juliaup add 1.9
+% version 1.9
+% in the same folder: git clone Flower and git clone DDM
+% julia +1.9 --project=Flower.jl
+% ] add DDM.jl
+%
+%
+% 1.9.0
+% using Flower
+% instantiate
+% resolve
+% ctrl d
+% julia +1.9.0 --project=Flower.jl
+% using Flower
+% update
+% add StatsFuns@0.9.3 -->

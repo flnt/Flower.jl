@@ -97,6 +97,8 @@ abstract type AbstractOptimizer end
     scalar_bc::D = 0
     scalar_scheme::D = 0
     solver::D = 0
+    current_radius::T=0.0
+    sum_mass_flux::T=0.0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

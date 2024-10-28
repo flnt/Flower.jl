@@ -643,15 +643,20 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         # LD = BxT * iMx * Hx[1] .+ ByT * iMy * Hy[1]
         LD_b = BxT * op.iMx_b * op.Hx_b .+ ByT * op.iMy_b * op.Hy_b
 
+        if num.scalar_scheme == 0
+            time_factor = 0.5 .* num.τ
+        elseif num.scalar_scheme == 1
+            time_factor = num.τ
+        end
       
 
         if num.nLS ==1
             LD = BxT * iMx * Hx[1] .+ ByT * iMy * Hy[1]
 
             # Implicit part of heat equation
-            A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* num.τ .* diffusion_coeff_scal .* LT, grid, num.τ)
-            A[1:ni,ni+1:2*ni] = - 0.5 .* num.τ .* diffusion_coeff_scal .* LD
-            A[1:ni,end-nb+1:end] = - 0.5 .* num.τ .* diffusion_coeff_scal .* LD_b
+            A[1:ni,1:ni] = pad_crank_nicolson(M .- time_factor .* diffusion_coeff_scal .* LT, grid, 4 * time_factor)
+            A[1:ni,ni+1:2*ni] = - time_factor .* diffusion_coeff_scal .* LD
+            A[1:ni,end-nb+1:end] = - time_factor .* diffusion_coeff_scal .* LD_b
 
             # Interior BC
             A[ni+1:2*ni,1:ni] = b * (HxT[1] * iMx * Bx .+ HyT[1] * iMy * By)
@@ -665,9 +670,9 @@ function scalar_transport!(num::Numerical{Float64, Int64},
             # A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b)
 
             # Explicit part of heat equation
-            B[1:ni,1:ni] = M .+ 0.5 .* num.τ .* diffusion_coeff_scal .* LT .- num.τ .* op_conv.CT
-            B[1:ni,ni+1:2*ni] = 0.5 .* num.τ .* diffusion_coeff_scal .* LD
-            B[1:ni,end-nb+1:end] = 0.5 .* num.τ .* diffusion_coeff_scal .* LD_b
+            B[1:ni,1:ni] = M .+ time_factor .* diffusion_coeff_scal .* LT .- num.τ .* op_conv.CT
+            B[1:ni,ni+1:2*ni] = time_factor .* diffusion_coeff_scal .* LD
+            B[1:ni,end-nb+1:end] = time_factor .* diffusion_coeff_scal .* LD_b
 
             vec2(rhs,grid) .+= op.χ[1] * vec(a0)
 
@@ -675,13 +680,10 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         else #num.nLS != 1
 
             # Implicit part of heat equation
-            if num.scalar_scheme == 0
-                A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* num.τ .* diffusion_coeff_scal .* LT, grid, num.τ)
-            elseif num.scalar_scheme == 1
-                A[1:ni,1:ni] = pad_crank_nicolson(M .- num.τ .* diffusion_coeff_scal .* LT, grid, 2*num.τ)
-            end
-            # A[1:ni,ni+1:2*ni] = - 0.5 .* num.τ .* diffusion_coeff_scal .* LD
-            A[1:ni,end-nb+1:end] = - 0.5 .* num.τ .* diffusion_coeff_scal .* LD_b
+            A[1:ni,1:ni] = pad_crank_nicolson(M .- time_factor .* diffusion_coeff_scal .* LT, grid, 4 * time_factor)
+
+            # A[1:ni,ni+1:2*ni] = - time_factor .* diffusion_coeff_scal .* LD
+            A[1:ni,end-nb+1:end] = - time_factor .* diffusion_coeff_scal .* LD_b
 
             # Border BCs
             A[end-nb+1:end,1:ni] = b_b * (op.HxT_b * op.iMx_b' * Bx .+ op.HyT_b * op.iMy_b' * By)
@@ -690,9 +692,9 @@ function scalar_transport!(num::Numerical{Float64, Int64},
             # A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b)
 
             # Explicit part of heat equation
-            B[1:ni,1:ni] = M .+ 0.5 .* num.τ .* diffusion_coeff_scal .* LT .- num.τ .* op_conv.CT
-            # B[1:ni,ni+1:2*ni] = 0.5 .* num.τ .* diffusion_coeff_scal .* LD
-            B[1:ni,end-nb+1:end] = 0.5 .* num.τ .* diffusion_coeff_scal .* LD_b
+            B[1:ni,1:ni] = M .+ time_factor .* diffusion_coeff_scal .* LT .- num.τ .* op_conv.CT
+            # B[1:ni,ni+1:2*ni] = time_factor .* diffusion_coeff_scal .* LD
+            B[1:ni,end-nb+1:end] = time_factor .* diffusion_coeff_scal .* LD_b
 
             for iLS in 1:num.nLS
 
@@ -820,7 +822,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                 LD_i = BxT * iMx * Hx[iLS] .+ ByT * iMy * Hy[iLS] 
 
                 # Implicit part of heat equation
-                A[1:ni,sb] = - 0.5 .* num.τ .* diffusion_coeff_scal .* LD_i
+                A[1:ni,sb] = - time_factor .* diffusion_coeff_scal .* LD_i
 
                 # Interior BC
                 A[sb,1:ni] = b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
@@ -842,7 +844,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                 A[end-nb+1:end,sb] = b_b * (op.HxT_b * op.iMx_b' * op.Hx[iLS] .+ op.HyT_b * op.iMy_b' * op.Hy[iLS])
 
                 # Explicit part of scalar equation
-                B[1:ni,sb] = 0.5 .* num.τ .* diffusion_coeff_scal .* LD_i
+                B[1:ni,sb] = time_factor .* diffusion_coeff_scal .* LD_i
 
                 veci(rhs,grid,iLS+1) .+= op.χ[iLS] * vec(a0)
 
@@ -1035,7 +1037,8 @@ end
 From update_free_surface_velocity and update_stefan_velocity
 """
 function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, iLS, uD, vD, 
-    periodic_x, periodic_y, Vmean, concentration_scalD, diffusion_coeff_scal,concentration_scal_intfc, electrolysis_phase_change_case,mass_flux,sum_mass_flux)
+    periodic_x, periodic_y, Vmean, concentration_scalD, diffusion_coeff_scal,concentration_scal_intfc, 
+    electrolysis_phase_change_case,mass_flux)
     @unpack MWH2,rho1,rho2=num
     # @unpack χ,=opC
     #TODO check sign 
@@ -1044,7 +1047,7 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
     grid.V .= 0
     factor = -(1.0/rho2-1.0/rho1).*diffusion_coeff_scal[1].*MWH2
 
-    sum_mass_flux = 0.0
+    num.sum_mass_flux = 0.0
 
 
     if electrolysis_phase_change_case == "levelset"
@@ -1071,14 +1074,15 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
     else
 
         intfc_length = 0.0
-        sum_mass_flux = 0.0
+        num.sum_mass_flux = 0.0
         @inbounds for II in grid.LS[iLS].MIXED
-            
-            if grid.LS[end].u[II]>0.0 # check if inside domain defined by other LS 
+            print("\n II update ",II, grid.LS[end].u[II], " iso end ",grid.LS[end].iso[II]," iso 1 ",grid.LS[1].iso[II])
+            if grid.LS[end].iso[II] != 15.0 # check if inside domain defined by other LS 
+            # if grid.LS[end].u[II]>0.0 # check if inside domain defined by other LS 
             # if grid.LS[2].u[II]>0.0 #second wall
                 # print("\n cells for free surface", II," x ",grid.x[II]," LS[iLS] ",grid.LS[iLS].u[II]," LS[end] ",grid.LS[end].u[II]," LS[2] ",grid.LS[2].u[II])
                 grid.V[II] = mass_flux[II] * factor
-                sum_mass_flux += mass_flux[II]
+                num.sum_mass_flux += mass_flux[II]
                 #χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
                 #χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
                 #χ[iLS].diag .= sqrt.(vec(χx .+ χy))
@@ -1090,19 +1094,26 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
             end
         end 
         if Vmean
-            v_mean = factor * sum_mass_flux /intfc_length
+            v_mean = factor * num.sum_mass_flux /intfc_length
             @inbounds for II in grid.LS[iLS].MIXED
                 grid.V[II] = v_mean
             end 
+            printstyled(color=:cyan, @sprintf "\n v_mean %.2e \n" v_mean)
+
         end
+
+        grid.V ./= intfc_length
 
         # printstyled(color=:magenta, @sprintf "\n test sign velocity\n" )
         # grid.V.*=-1.0
 
-        printstyled(color=:magenta, @sprintf "\n sum_intfc %.2e sum_intfc/intfc_length %.2e\n" sum_mass_flux sum_mass_flux/intfc_length)
+        printstyled(color=:cyan, @sprintf "\n flux %.2e factor %.2e intfc_length %.2e\n" num.sum_mass_flux factor intfc_length)
 
 
-        printstyled(color=:magenta, @sprintf "\n phase-change velocity %.2e intfc_length %.2e πR %.2e\n" sum(mass_flux)*factor/intfc_length intfc_length π*num.R)
+        printstyled(color=:magenta, @sprintf "\n sum_intfc %.2e sum_intfc/intfc_length %.2e sum all cells %.2e \n" num.sum_mass_flux num.sum_mass_flux/intfc_length sum(mass_flux))
+
+        printstyled(color=:red, @sprintf "\n test phase-change velocity %.2e intfc_length %.2e πR %.2e\n" sum(mass_flux)*factor/intfc_length intfc_length π*num.R)
+        printstyled(color=:magenta, @sprintf "\n phase-change velocity %.2e intfc_length %.2e πR %.2e\n" num.sum_mass_flux*factor/intfc_length intfc_length π*num.R)
 
         i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, grid.LS[iLS], grid.ind.inside, periodic_x, periodic_y)
         field_extension!(grid, grid.LS[iLS].u, grid.V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
@@ -1159,6 +1170,26 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
 
 #     field_extension!(grid_u, grid_u.LS[iLS].u, grid_u.V, i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext, num.NB, periodic_x, periodic_y)
 #     field_extension!(grid_v, grid_v.LS[iLS].u, grid_v.V, i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext, num.NB, periodic_x, periodic_y)
+
+    # if num.io_pdi>0
+        
+    #     try
+    #         nstep = num.current_i
+    #         printstyled(color=:magenta, @sprintf "\n PDI write_iso %.5i \n" num.current_i)
+
+    #         PDI_status = @ccall "libpdi".PDI_multi_expose("write_iso"::Cstring,
+    #         "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+    #         "levelset_iso_end"::Cstring, grid.LS[iLSpdi].iso::Ptr{Cdouble}, PDI_OUT::Cint,
+    #         C_NULL::Ptr{Cvoid})::Cint
+
+    #     catch error
+    #         printstyled(color=:red, @sprintf "\n PDI error \n")
+    #         print(error)
+    #     end 
+    # end #if num.io_pdi>0
+
+    # print("\n sum_mass_flux ",sum_mass_flux)
+
 end
 
 
@@ -1373,7 +1404,7 @@ function print_electrolysis_statistics(num::Numerical{Float64, Int64},
 
         for iLS in 1:num.nLS+1
             @views nonzero = mean_intfc_non_null_v3( phL.trans_scalD[:,iscal],grid,iLS)
-            printstyled(color=:green, @sprintf "\n mean iLS %.2i : %.2e %.2e\n" iLS nonzero maximum(veci(phL.trans_scalD[:,iscal],grid,iLS+1)))
+            printstyled(color=:green, @sprintf "\n index %.2i : mean %.2e max %.2e\n" iLS nonzero maximum(veci(phL.trans_scalD[:,iscal],grid,iLS)))
         end
         # printstyled(color=:green, @sprintf "\n mean  c bulk : %.2e %.2e\n" nonzero maximum(veci(phL.trans_scalD[:,iscal],grid,iLS+1)))
 
