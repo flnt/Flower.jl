@@ -233,7 +233,9 @@ end
 #     end
 # end
 
-
+"""
+init BC for levelset
+"""
 function init_ghost_neumann(u,nx,ny,nghost)
     LSghost = zeros(ny + 2*nghost, nx + 2*nghost)
 

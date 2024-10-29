@@ -2133,7 +2133,7 @@ function CN_set_momentum(
             B[1:ni,sb] = τ2 .* bc_Lm1[iLS]
         end
 
-        vec2(rhs,grid) .= χ[iLS] * vec(a0)
+        veci(rhs,grid,iLS+1) .= χ[iLS] * vec(a0)
     end
 
     vecb(rhs,grid) .= χ_b * vec(a0_b)

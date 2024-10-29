@@ -1404,7 +1404,7 @@ def plot_file(
     if 'plot_wall' in figpar.keys():
         if figpar['plot_wall']:
             
-            plot_wall(ax2, x_1D, y_1D, LSdat, file, key_LS_wall,figpar,plotpar)
+            plot_wall(ax2, x_1D, y_1D, file, key_LS_wall,figpar,plotpar)
 
         #     try:
         #         LSdat = file[key_LS_wall][:]
@@ -1793,7 +1793,7 @@ def plot_current_lines(file,
     if 'plot_wall' in figpar.keys():
         if figpar['plot_wall']:
             key_LS_wall = "levelset_p_wall"
-            plot_wall(ax2,xp, yp, LSdat, file, key_LS_wall,figpar,plotpar)
+            plot_wall(ax2,xp, yp, file, key_LS_wall,figpar,plotpar)
 
     if mode =='first' or mode =='close':
         ax2.spines["right"].set_visible(False)
@@ -1818,7 +1818,7 @@ def plot_current_lines(file,
     return(fig1,ax2,cbar)
 
 
-def  plot_wall(ax2, x_1D, y_1D, LSdat, file, key_LS_wall,figpar,plotpar):
+def  plot_wall(ax2, x_1D, y_1D, file, key_LS_wall,figpar,plotpar):
 
     try:
         LSdat = file[key_LS_wall][:]

@@ -145,13 +145,13 @@ function allocate_ghost_matrices(nx0,ny0,nghost)
 
     nx=nx0+2*nghost
     ny=ny0+2*nghost
-
+                                                # Sizes
     ii = collect(i for i = 1:nx*ny)             # nx*ny
     iw = collect(i for i = ny+1:nx*ny)          # (nx-1)*ny
     is = collect(i for i = 2:nx*ny)             # nx*ny-1
     iN = collect(i for i = 1:nx*ny-1)           # nx*ny-1
-    ie = collect(i for i = 1:nx*ny-ny)
-    iwp = collect(i for i = 1:ny)
+    ie = collect(i for i = 1:nx*ny-ny)          # (nx-1)*ny
+    iwp = collect(i for i = 1:ny)               # ny
     isp = collect(i for i = 1:ny:nx*ny)
     inp = collect(i for i = ny:ny:nx*ny)
     iep = collect(i for i = nx*ny-ny+1:nx*ny)
@@ -166,13 +166,26 @@ function allocate_ghost_matrices(nx0,ny0,nghost)
     jwp = collect(i for i = nx*ny-ny+1:nx*ny)
     jsp = collect(i for i = ny:ny:nx*ny)
     jnp = collect(i for i = 1:ny:nx*ny)
-    jep = collect(i for i = 1:ny)
+    jep = collect(i for i = 1:ny)               # ny
 
     JJ = vcat(jj,jw,js,jn,je,jwp,jsp,jnp,jep)
 
     a = ones(length(jj))
     b = zeros(length(jw)+length(js)+length(jn)+length(je))
     c = zeros(length(jwp)+length(jsp)+length(jnp)+length(jep))
+
+    #Example
+    # julia> Is = [1; 2; 3];
+
+    # julia> Js = [1; 2; 3];
+
+    # julia> Vs = [1; 2; 3];
+
+    # julia> sparse(Is, Js, Vs)
+    # 3×3 SparseMatrixCSC{Int64, Int64} with 3 stored entries:
+    # 1  ⋅  ⋅
+    # ⋅  2  ⋅
+    # ⋅  ⋅  3
 
     A0 = sparse(II,JJ,vcat(a,b,c))
     B0 = sparse(II,JJ,vcat(a,b,c))

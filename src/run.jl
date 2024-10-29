@@ -262,6 +262,7 @@ function run_forward!(
     tmp_vec_u0 = zeros(grid_u) 
     tmp_vec_v0 = zeros(grid_v)
     tmp_vec_p = zeros(grid) 
+    tmp_vec_p0 = zeros(grid) 
 
 
     if levelset
@@ -418,6 +419,43 @@ function run_forward!(
             return num.current_i
 
         end
+
+
+        interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
+
+        # current_t = 0.
+        # num.current_i =0
+        nstep = 0
+        time = 0.
+
+        iLSpdi = 1
+        PDI_status = @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
+            "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+            "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+            "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+            "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+            "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+            "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+            "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+            "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+            "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+            # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+            # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+            # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+            # "normal_x"::Cstring, normal_x::Ptr{Cdouble}, PDI_OUT::Cint,   
+            # "normal_y"::Cstring, normal_y::Ptr{Cdouble}, PDI_OUT::Cint,  
+            # grid_u.LS[iLS].α
+            # "normal_angle"::Cstring, grid.LS[iLSpdi].α::Ptr{Cdouble}, PDI_OUT::Cint,
+            "velocity_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+            "velocity_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,      
+            "radius"::Cstring, num.current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+            # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+            # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
+            # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+            # "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+            # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+            # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+            C_NULL::Ptr{Cvoid})::Cint
     end
     
 
@@ -510,8 +548,8 @@ function run_forward!(
 
             all_CUTCT = zeros(grid.ny * grid.nx, num.nb_transported_scalars)
 
-            us=zeros(grid)
-            vs=zeros(grid)
+            # us=zeros(grid)
+            # vs=zeros(grid)
 
             #save up memory: do not allocate Eus
             # Eus=zeros(grid) 
@@ -707,16 +745,16 @@ function run_forward!(
     #             compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
         
     #             #store in us, vs instead of Eus, Evs
-    #             interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,us,vs)
+    #             interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,tmp_vec_p,tmp_vec_p0)
 
     #             @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
-    #             "i_current_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-    #             "i_current_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,  
+    #             "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+    #             "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
     #             "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
     #             "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
     #             C_NULL::Ptr{Cvoid})::Cint
 
-    #             interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,us,vs)
+    #             interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
         
     #             # print("\n before write \n ")
         
@@ -738,10 +776,10 @@ function run_forward!(
     #             "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
     #             "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
     #             # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-    #             # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
-    #             # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
-    #             "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-    #             "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+    #             # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+    #             # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,   
+    #             "velocity_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+    #             "velocity_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,      
     #             "radius"::Cstring, num.current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
     #             "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
     #             "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
@@ -834,16 +872,16 @@ function run_forward!(
                     compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
             
                     #store in us, vs instead of Eus, Evs
-                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,us,vs)
+                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,tmp_vec_p,tmp_vec_p0)
     
                     @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
-                    "i_current_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    "i_current_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,  
+                    "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
                     "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
                     "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
                     C_NULL::Ptr{Cvoid})::Cint
     
-                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,us,vs)
+                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
             
                     # print("\n before write \n ")
             
@@ -865,14 +903,14 @@ function run_forward!(
                     "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
                     "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
                     # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,  
+                    # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
                     # "normal_x"::Cstring, normal_x::Ptr{Cdouble}, PDI_OUT::Cint,   
                     # "normal_y"::Cstring, normal_y::Ptr{Cdouble}, PDI_OUT::Cint,  
                     # grid_u.LS[iLS].α
-                    "normal_angle"::Cstring, grid.LS[iLSpdi].α::Ptr{Cdouble}, PDI_OUT::Cint,
-                    "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+                    # "normal_angle"::Cstring, grid.LS[iLSpdi].α::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "velocity_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    "velocity_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,      
                     "radius"::Cstring, num.current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
                     "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
                     "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
@@ -1275,6 +1313,12 @@ function run_forward!(
 
                     end 
 
+                    printstyled(color=:red, @sprintf "\n test conductivity")
+
+                    elec_condD .= 2*num.Faraday^2 .*num.concentration0[2].*num.diffusion_coeff[2]./(num.Ru.*num.temperature0)
+                    
+                    printstyled(color=:red, @sprintf "\n test conductivity")
+
 
 
                     #TODO need to iterate? since nonlinear
@@ -1382,6 +1426,9 @@ function run_forward!(
                     # )
                     # Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = laps
                     # printstyled(color=:magenta, @sprintf "\n test LS update for set_poisson_variable_coeff!  \n")
+
+
+                    printstyled(color=:red, @sprintf "\n DEBUG -b ")
 
 
                     #TODO BC several grid.LS
@@ -1548,16 +1595,16 @@ function run_forward!(
                 compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
         
                 #store in us, vs instead of Eus, Evs
-                interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,us,vs)
+                interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,tmp_vec_p,tmp_vec_p0)
 
                 @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
-                "i_current_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-                "i_current_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,  
+                "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+                "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
                 "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
                 "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
                 C_NULL::Ptr{Cvoid})::Cint
             
-                interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,us,vs)
+                interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
                     
                 iLSpdi = 1 # TODO all grid.LS
 
@@ -1579,11 +1626,11 @@ function run_forward!(
                 # "trans_scal_1D_KOH"::Cstring, phL.trans_scalD[:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
                 # "trans_scal_1D_H2O"::Cstring, phL.trans_scalD[:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
                 # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
-                # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,   
                 # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
-                "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-                "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+                "velocity_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+                "velocity_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,      
                 "radius"::Cstring, num.current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
                 C_NULL::Ptr{Cvoid})::Cint
         
@@ -1829,12 +1876,12 @@ function run_forward!(
                 # "trans_scal_1D_KOH"::Cstring, phL.trans_scalD[:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
                 # "trans_scal_1D_H2O"::Cstring, phL.trans_scalD[:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
                 # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
-                # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,   
                 # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
                 "normal_velocity_intfc"::Cstring, grid.V::Ptr{Cdouble}, PDI_OUT::Cint,   
-                # "velocity_x_intfc"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-                # "velocity_y_intfc"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+                # "velocity_x_intfc"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "velocity_y_intfc"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,      
                 # "radius"::Cstring, num.current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
                 C_NULL::Ptr{Cvoid})::Cint
 
@@ -2434,20 +2481,20 @@ function run_forward!(
             
 
                     #store in us, vs instead of Eus, Evs
-                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,us,vs)
+                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,tmp_vec_p,tmp_vec_p0)
 
                     #TODO i_current_mag need cond
 
                     @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
-                    "i_current_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    "i_current_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,  
+                    "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
                     "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
                     "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
                     C_NULL::Ptr{Cvoid})::Cint
 
                     # interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,Eus,Evs)
             
-                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,us,vs)
+                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
                         
                     iLSpdi = 1 # TODO all grid.LS
 
@@ -2469,11 +2516,11 @@ function run_forward!(
                     # "trans_scal_1D_KOH"::Cstring, phL.trans_scalD[:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
                     # "trans_scal_1D_H2O"::Cstring, phL.trans_scalD[:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
                     # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,   
                     # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
-                    "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+                    "velocity_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    "velocity_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,      
                     "radius"::Cstring, num.current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
                     C_NULL::Ptr{Cvoid})::Cint
             

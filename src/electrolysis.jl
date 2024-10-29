@@ -1076,7 +1076,7 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
         intfc_length = 0.0
         num.sum_mass_flux = 0.0
         @inbounds for II in grid.LS[iLS].MIXED
-            print("\n II update ",II, grid.LS[end].u[II], " iso end ",grid.LS[end].iso[II]," iso 1 ",grid.LS[1].iso[II])
+            # print("\n II update ",II, grid.LS[end].u[II], " iso end ",grid.LS[end].iso[II]," iso 1 ",grid.LS[1].iso[II])
             if grid.LS[end].iso[II] != 15.0 # check if inside domain defined by other LS 
             # if grid.LS[end].u[II]>0.0 # check if inside domain defined by other LS 
             # if grid.LS[2].u[II]>0.0 #second wall
@@ -1206,7 +1206,7 @@ function interpolate_grid_liquid!( grid::Mesh{Flower.GridCC, Float64, Int64},
     us::Array{Float64, 2},
     vs::Array{Float64, 2})
     
-    
+    #TODO no need to reset?
     # us = p .*0
     # vs = p .*0
     LS_u =grid_u.LS[1]
@@ -2130,6 +2130,12 @@ function set_poisson_variable_coeff!(num::Numerical{Float64, Int64},
             _b = ones(grid) .* __b
             b = Diagonal(vec(_b))
 
+            sign =-1.0
+            sign = 1.0
+
+            sign2 = -1.0
+            sign2 = 1.0
+
             # a0_b = zeros(nb)
             # _a1_b = zeros(nb)
             # _b_b = zeros(nb)
@@ -2167,24 +2173,25 @@ function set_poisson_variable_coeff!(num::Numerical{Float64, Int64},
             A[1:ni,sb] = BxT * iMx * mat_coeffDx_i *Hx[iLS] .+ ByT * iMy * mat_coeffDy_i *Hy[iLS]
 
             # Boundary conditions for inner boundaries
-            A[sb,1:ni] = -b * (HxT[iLS] * iMx * mat_coeffDx * Bx .+ HyT[iLS] * iMy * mat_coeffDy * By) #or vec1
+            A[sb,1:ni] = sign2*b * (HxT[iLS] * iMx * mat_coeffDx * Bx .+ HyT[iLS] * iMy * mat_coeffDy * By) #or vec1
             # Contribution to Neumann BC from other boundaries
             for i in 1:num.nLS
                 if i != iLS
-                    A[sb,i*ni+1:(i+1)*ni] = -b * (HxT[iLS] * iMx * mat_coeffDx_i * Hx[i] .+ HyT[iLS] * iMy * mat_coeffDy_i * Hy[i])
+                    A[sb,i*ni+1:(i+1)*ni] = sign2*b * (HxT[iLS] * iMx * mat_coeffDx_i * Hx[i] .+ HyT[iLS] * iMy * mat_coeffDy_i * Hy[i])
                 end
             end
-            A[sb,sb] = -pad(
+            A[sb,sb] = sign2*pad(
                 b * (HxT[iLS] * iMx * mat_coeffDx_i * Hx[iLS] .+ HyT[iLS] * iMy * mat_coeffDy_i * Hy[iLS]) .- χ[iLS] * a1 .+
                 a2 * Diagonal(diag(fs_mat)), 4.0
             )
-            A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * mat_coeffDx_b * Hx_b .+ HyT[iLS] * iMy_b * mat_coeffDx_b * Hy_b)
+            A[sb,end-nb+1:end] = sign*b * (HxT[iLS] * iMx_b * mat_coeffDx_b * Hx_b .+ HyT[iLS] * iMy_b * mat_coeffDx_b * Hy_b)
             # Boundary conditions for outer boundaries
             A[end-nb+1:end,sb] = -b_b * (HxT_b * iMx_b' * mat_coeffDx_i * Hx[iLS] .+ HyT_b * iMy_b' * mat_coeffDy_i * Hy[iLS])
         end #ls_advection
 
         veci(rhs,grid,iLS+1) .= -χ[iLS] * vec(a0) #vec(a0[iLS])
 
+        
 
         printstyled(color=:red, @sprintf "\n veci(rhs,grid,iLS+1) %.2i %.2e %.2e \n" iLS maximum(abs.(veci(rhs,grid,iLS+1))) maximum(abs.(BC.LS[iLS].val)))
         print("\n a0 max  ", maximum(a0)," min",minimum(a0))
