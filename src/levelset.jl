@@ -23,6 +23,18 @@ function diamond(a, II, nx, ny, per_x, per_y)
     return U
 end
 
+"""
+diamond_not_periodic(a, II)
+for diamond-cell covolume cf mikulaNewLevelSet2010
+"""
+function diamond_not_periodic(a, II)
+    U = @SVector[0.25(a[II]+a[δx⁻(II)]+a[δx⁻(δy⁻(II))]+a[δy⁻(II)]),
+                0.25(a[II]+a[δy⁻(II)]+a[δy⁻(δx⁺(II))]+a[δx⁺(II)]),
+                0.25(a[II]+a[δx⁺(II)]+a[δx⁺(δy⁺(II))]+a[δy⁺(II)]),
+                0.25(a[II]+a[δy⁺(II)]+a[δy⁺(δx⁻(II))]+a[δx⁻(II)])]
+    return U
+end
+
 function quadratic_recons(a, U::SArray{Tuple{4},Float64,1,4},
     p::Int64, n::Int64)
     D = @SVector [0.25*(a[p]+a[p-n]+U[1]+U[4]),
@@ -38,6 +50,18 @@ function quadratic_recons(a, U::SArray{Tuple{4},Float64,1,4},
                 0.25*(a[II]+a[δy⁻(II, ny, per_y)]+U[1]+U[2]),
                 0.25*(a[II]+a[δx⁺(II, nx, per_x)]+U[2]+U[3]),
                 0.25*(a[II]+a[δy⁺(II, ny, per_y)]+U[3]+U[4])]
+    return D
+end
+
+"""
+    quadratic_recons_not_periodic for ghost cell
+"""
+function quadratic_recons_not_periodic(a, U::SArray{Tuple{4},Float64,1,4},
+    II::CartesianIndex{2})
+    D = @SVector [0.25*(a[II]+a[δx⁻(II)]+U[1]+U[4]),
+                  0.25*(a[II]+a[δy⁻(II)]+U[1]+U[2]),
+                  0.25*(a[II]+a[δx⁺(II)]+U[2]+U[3]),
+                  0.25*(a[II]+a[δy⁺(II)]+U[3]+U[4])]
     return D
 end
 
@@ -80,7 +104,7 @@ end
 function grad(a, g,
     U::SArray{Tuple{4},Float64,1,4},
     D::SArray{Tuple{4},Float64,1,4}, D_::Float64,
-    p::Int64, n::Int64)
+    p::Int64)
     F = SA_F64[g[p]*(D_-D[1]),
     g[p]*(D_-D[2]),
     g[p]*(D_-D[3]),
@@ -105,6 +129,17 @@ function grad(a, g,
             g[II]*(a[II]-a[δy⁻(II, ny, per_y)]),
             g[II]*(a[II]-a[δx⁺(II, nx, per_x)]),
             g[II]*(a[II]-a[δy⁺(II, ny, per_y)])]
+    return F
+end
+
+
+function grad_not_periodic(a, g,
+    U::SArray{Tuple{4},Float64,1,4},
+    II::CartesianIndex{2})
+    F = SA_F64[g[II]*(a[II]-a[δx⁻(II)]),
+            g[II]*(a[II]-a[δy⁻(II)]),
+            g[II]*(a[II]-a[δx⁺(II)]),
+            g[II]*(a[II]-a[δy⁺(II)])]
     return F
 end
 
@@ -234,22 +269,45 @@ end
 # end
 
 """
-init BC for levelset
+init BC for levelset with homogeneous Neumann
 """
 function init_ghost_neumann(u,nx,ny,nghost)
     LSghost = zeros(ny + 2*nghost, nx + 2*nghost)
 
     LSghost = OffsetArrays.Origin(0, 0)(LSghost)
 
-    @views LSghost[1:ny,1:nx] = u
+    @views LSghost[1:ny,1:nx] .= u
 
     #init ghost with Neumann BC
-
+    #corners overwritten by last 
     LSghost[0,:] = LSghost[1,:] #bottom
     LSghost[ny+1,:] = LSghost[ny,:] #top
 
     LSghost[:,0] = LSghost[:,1] #left
     LSghost[:,nx+1] = LSghost[:,nx] #right
+    return LSghost
+end
+
+
+"""
+init BC for levelset with homogeneous Neumann
+"""
+function init_ghost_neumann_2(u,nx,ny,nghost)
+    LSghost = zeros(ny + 2*nghost, nx + 2*nghost)
+
+    for j=1:ny
+        for i=1:nx
+            LSghost[j+1,i+1] = u[j,i]
+        end
+    end
+
+    #init ghost with Neumann BC
+    #corners overwritten by last 
+    LSghost[1,:] = LSghost[2,:] #bottom
+    LSghost[ny+2,:] = LSghost[ny+1,:] #top
+
+    LSghost[:,1] = LSghost[:,2] #left
+    LSghost[:,nx+2] = LSghost[:,nx+1] #right
     return LSghost
 end
 
@@ -292,7 +350,7 @@ function IIOE_normal!(grid, A, B, u, V, CFL, periodic_x, periodic_y)
         if S[1] < -S[2]
             D = quadratic_recons(u, U, II, nx, ny, periodic_x, periodic_y)
             D_ = quadratic_recons(D)
-            F = 2*grad(u, V, U, D, D_[1], p, ny)
+            F = 2*grad(u, V, U, D, D_[1], p)
             a_in, a_ou = inflow_outflow(F)
             S = sumloc(a_in, a_ou)
         end
@@ -325,7 +383,7 @@ function IIOE_normal_indices!(grid, A, B, u,ughost, V, CFL, periodic_x, periodic
         if S[1] < -S[2]
             D = quadratic_recons(ughost, U, II, nx, ny, periodic_x, periodic_y)
             D_ = quadratic_recons(D)
-            F = 2*grad(ughost, V, U, D, D_[1], p, ny)
+            F = 2*grad(ughost, V, U, D, D_[1], p)
             a_in, a_ou = inflow_outflow(F)
             S = sumloc(a_in, a_ou)
         end
@@ -335,6 +393,60 @@ function IIOE_normal_indices!(grid, A, B, u,ughost, V, CFL, periodic_x, periodic
 
     end
 end
+
+
+"""
+    IIOE_normal!(grid, A, B, u, V, CFL, periodic_x, periodic_y)
+
+Advection of the levelset in the normal direction  (Mikula et al. 2014).
+Uses nyghost = ny + 2*nghost for lexicographic
+"""
+function IIOE_normal_indices_2!(grid, A, B, u,ughost, V, CFL, periodic_x, periodic_y,nghost)
+    @unpack nx, ny, ind = grid
+
+    nxghost = nx + 2*nghost
+    nyghost = ny + 2*nghost
+
+    for j=2:grid.ny+1
+        for i=2:grid.nx+1
+
+            II = CartesianIndex(j,i)
+
+            # @inbounds @threads for II in indices
+            # p = lexicographic(II, ny)
+            p = lexicographic(II, nyghost) #with ghost, call lexicographic with n+2*nghost
+
+            # U = diamond(u, II, nx, ny, periodic_x, periodic_y)
+            U = diamond_not_periodic(ughost, II)
+            # , ny, periodic_x, periodic_y)
+            F = grad_not_periodic(ughost, V, U, II)
+            # , ny, periodic_x, periodic_y)
+            a_in, a_ou = inflow_outflow(F)
+            S = sumloc(a_in, a_ou)
+            
+            # cf fullanaSimulationOptimizationComplex2022
+            #If the forward dffusion is dominant (ie. Spf > 9Spb) then no further steps are needed
+            #as the discretization will lean towards the implicit part. 
+            #4. On the other hand, if the backward dffusion is dominant (ie. Spf < 9Spb), 
+            #we need to smooth the reconstructed solution for stability, using the following formula
+            if S[1] < -S[2]
+                D = quadratic_recons_not_periodic(ughost, U, II)
+                # , ny, periodic_x, periodic_y)
+                D_ = quadratic_recons(D)
+                F = 2*grad(ughost, V, U, D, D_[1], p)
+                a_in, a_ou = inflow_outflow(F)
+                S = sumloc(a_in, a_ou)
+            end
+            # print("\n II ",II)
+            # A[p,p], B[p,p] = fill_matrices2!(a_in, a_ou, S, A, B, II, nx, ny, CFL, periodic_x, periodic_y)
+            A[p,p], B[p,p] = fill_matrices4!(a_in, a_ou, S, A, B, II, nx, ny, nxghost, nyghost, CFL, periodic_x, periodic_y)
+
+        end
+    end
+
+end
+
+
 """
     IIOE!(grid, grid_u, grid_v, A, B, θ_out, τ, periodic_x, periodic_y)
 
@@ -430,6 +542,27 @@ end
     end
     return 2 + CFL*S[1], 2 - CFL*S[2]
 end
+
+
+@inline function fill_matrices4!(a_in::SArray{Tuple{4},Float64,1,4}, a_ou::SArray{Tuple{4},Float64,1,4},
+    S, A, B, II, nx, ny, nxghost,nyghost, CFL, per_x, per_y)
+    p = lexicographic(II, nyghost)
+    # a = (-n, -1, n, 1)
+    # a = (-nx, -1, nx, 1)
+    a = (-nxghost, -1, nxghost, 1)
+
+    # a = (lexicographic(δx⁻(II, nx, per_x), ny),
+    #      lexicographic(δy⁻(II, ny, per_y), ny), 
+    #      lexicographic(δx⁺(II, nx, per_x), ny),
+    #      lexicographic(δy⁺(II, ny, per_y), ny))
+    @inbounds for (i,j) in zip(1:4,a)
+        # print("\n fill_matrices2! ij ",i," j ",j)
+        @inbounds A[p, p + j] = -CFL*a_in[i]
+        @inbounds B[p, p + j] = CFL*a_ou[i]
+    end
+    return 2 + CFL*S[1], 2 - CFL*S[2]
+end
+
 
 """
 master version

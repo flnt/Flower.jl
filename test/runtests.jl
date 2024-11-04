@@ -1,6 +1,15 @@
 using Flower
 using Test
 
+module testyamlfile6 #enables to perform a test with ARGS to give an input file
+ARGS = String["../examples/test_levelset_Butler_two_LS_2.yml"]
+include("../examples/main_current_folder.jl")
+end
+
+module testyamlfile5 #enables to perform a test with ARGS to give an input file
+ARGS = String["../examples/test_levelset_Butler_two_LS.yml"]
+include("../examples/main_current_folder.jl")
+end
 
 module testyamlfile4 #enables to perform a test with ARGS to give an input file
 ARGS = String["../examples/levelset_Butler_two_LS.yml"]
@@ -15,6 +24,14 @@ end
 module testyamlfile2 #enables to perform a test with ARGS to give an input file
 ARGS = String["../examples/half_circle_Poiseuille.yml"]
 include("../examples/main_current_folder.jl")
+end
+
+@testset "Test Poisson with 2 LS, bubble (here circle with Butler-Volmer BC) at wall" begin
+    using testyamlfile6
+end
+
+@testset "Test Poisson with 2 LS, bubble (here circle with Butler-Volmer BC) away from wall" begin
+    using testyamlfile5
 end
 
 @testset "Case like Khalighi, bubble at the wall, two levelsets" begin

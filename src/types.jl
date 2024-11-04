@@ -56,6 +56,7 @@ abstract type AbstractOptimizer end
     _nLS::D = nLS == 1 ? 1 : nLS + 1
     nb_transported_scalars::D = 0
     concentration0::Array{T} = [0.0]
+    epsilon_concentration::Array{T} = [0.0]
     diffusion_coeff::Array{T} = [0.0]
     temperature0::T = 0.0
     i0::T = 0.0

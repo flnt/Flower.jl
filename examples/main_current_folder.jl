@@ -556,6 +556,7 @@ num = Numerical(
     nLS = phys.nb_levelsets,
     nb_transported_scalars=phys.nb_transported_scalars,
     concentration0=phys.concentration0, 
+    epsilon_concentration=phys.epsilon_concentration,
     diffusion_coeff=phys.diffusion_coeff,
     temperature0=phys.temperature0,
     i0=phys.i0,
@@ -735,7 +736,151 @@ elseif sim.name == "levelset_Butler_two_LS"
         int    = Neumann(val=0.0),
         LS = [Neumann(val=0.0),Neumann(val=i_butler_scal./elec_cond)]) #first is interface
 
+
+    elseif sim.name == "test_levelset_Butler_two_LS"
+
+        gp.LS[2].u .= gp.x .- phys.ls_wall_xmin
+        # gp.LS[2].u .*= -1.0
+    
+        # BC_vL = Boundaries(left=Dirichlet(val=gv.y[:,1]))
+    
+        BC_vL = Boundaries()
+    
+        BC_pL = Boundaries()
+    
+        BC_int = [WallNoSlip(),WallNoSlip()]
+    
+        phi_ele_scal = 0.0 # gp.x[:,1] .*0.0
+    
+    
+        i_butler_scal=butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_ele_scal,phys.phi_ele1,phys.Ru,phys.temperature0)
+    
+    
+        BC_trans_scal_H2 = BoundariesInt(
+        bottom = Dirichlet(val = phys.concentration0[1]),
+        top    = Neumann(),
+        left   = Neumann(val=-i_butler_scal/(2*phys.Faraday*DH2)), #Dirichlet(val = phys.concentration0[1]), #
+        right  = Dirichlet(val = phys.concentration0[1]),
+        int    = Dirichlet(val = phys.concentration0[1]),
+        # LS     = [Dirichlet(val = 10),Dirichlet(val = -10)]
+        LS     = [Dirichlet(val = phys.concentration0[1]),Neumann(val=-i_butler_scal/(2*phys.Faraday*DH2))]
+        ) #H2
+    
+        BC_trans_scal_KOH = BoundariesInt(
+        bottom = Dirichlet(val = phys.concentration0[2]),
+        top    = Neumann(),
+        left   = Neumann(val=-i_butler_scal/(2*phys.Faraday*DKOH)),
+        right  = Dirichlet(val = phys.concentration0[2]),
+        int    = Neumann(val=0.0),
+        LS     = [Neumann(val=0.0),Neumann(val=-i_butler_scal/(2*phys.Faraday*DKOH))],
+        # int    = Dirichlet(val = phys.concentration0[2]),
+        # LS     = [Dirichlet(val = phys.concentration0[2]),Neumann(val=-i_butler_scal/(2*phys.Faraday*DKOH))],
+        # LS     = [Neumann(val=0.0),Dirichlet(val = phys.concentration0[2])]
+        # LS     = [Dirichlet(val=phys.concentration0[2]),Dirichlet(val = phys.concentration0[2])]
+        ) #KOH
+    
+        # BC_trans_scal_KOH = BoundariesInt(
+        #     bottom = Dirichlet(val = phys.concentration0[2]),
+        #     top    = Neumann(),
+        #     left   = Neumann(val=-i_butler_scal/(2*phys.Faraday*DKOH)),
+        #     right  = Dirichlet(val = phys.concentration0[2]),
+        #     int    = Dirichlet(val = phys.concentration0[2]),
+        #     LS     = [Dirichlet(val = phys.concentration0[2]),Neumann(val=-i_butler_scal/(2*phys.Faraday*DKOH))]
+        #     ) #KOH
+        
+    
+    
+        BC_trans_scal_H2O = BoundariesInt(
+        bottom = Dirichlet(val = phys.concentration0[3]),
+        top    = Neumann(),
+        left   = Neumann(val=i_butler_scal/(phys.Faraday*DH2O)),
+        right  = Dirichlet(val = phys.concentration0[3]),
+        int    = Neumann(val=0.0),
+        LS     = [Neumann(val=0.0),Neumann(val=i_butler_scal/(phys.Faraday*DH2O))]
+        ) #H2O
+    
+    
+        BC_phi_ele = BoundariesInt(
+            left   = Neumann(val=i_butler_scal./elec_cond), #TODO -BC in Flower ? so i_butler not -i_butler
+            right  = Neumann(val=i_butler_scal./elec_cond),
+            bottom = Neumann(val=i_butler_scal./elec_cond),
+            top    = Neumann(val=i_butler_scal./elec_cond),
+            int    = Neumann(val=i_butler_scal./elec_cond),
+            LS = [Neumann(val=i_butler_scal./elec_cond),Neumann(val=i_butler_scal./elec_cond)]) #first is interface
+
   
+    elseif sim.name == "test_levelset_Butler_two_LS_3"
+
+            gp.LS[2].u .= gp.x .- phys.ls_wall_xmin
+            # gp.LS[2].u .*= -1.0
+        
+            # BC_vL = Boundaries(left=Dirichlet(val=gv.y[:,1]))
+        
+            BC_vL = Boundaries()
+        
+            BC_pL = Boundaries()
+        
+            BC_int = [WallNoSlip(),WallNoSlip()]
+        
+            phi_ele_scal = 0.0 # gp.x[:,1] .*0.0
+        
+        
+            i_butler_scal=butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_ele_scal,phys.phi_ele1,phys.Ru,phys.temperature0)
+        
+        
+            BC_trans_scal_H2 = BoundariesInt(
+            bottom = Dirichlet(val = phys.concentration0[1]),
+            top    = Neumann(),
+            left   = Neumann(val=-i_butler_scal/(2*phys.Faraday*DH2)), #Dirichlet(val = phys.concentration0[1]), #
+            right  = Dirichlet(val = phys.concentration0[1]),
+            int    = Dirichlet(val = phys.concentration0[1]),
+            # LS     = [Dirichlet(val = 10),Dirichlet(val = -10)]
+            LS     = [Dirichlet(val = phys.concentration0[1]),Neumann(val=-i_butler_scal/(2*phys.Faraday*DH2))]
+            ) #H2
+        
+            BC_trans_scal_KOH = BoundariesInt(
+            bottom = Dirichlet(val = phys.concentration0[2]),
+            top    = Neumann(),
+            left   = Neumann(val=-i_butler_scal/(2*phys.Faraday*DKOH)),
+            right  = Dirichlet(val = phys.concentration0[2]),
+            int    = Neumann(val=0.0),
+            LS     = [Neumann(val=0.0),Neumann(val=-i_butler_scal/(2*phys.Faraday*DKOH))],
+            # int    = Dirichlet(val = phys.concentration0[2]),
+            # LS     = [Dirichlet(val = phys.concentration0[2]),Neumann(val=-i_butler_scal/(2*phys.Faraday*DKOH))],
+            # LS     = [Neumann(val=0.0),Dirichlet(val = phys.concentration0[2])]
+            # LS     = [Dirichlet(val=phys.concentration0[2]),Dirichlet(val = phys.concentration0[2])]
+            ) #KOH
+        
+            # BC_trans_scal_KOH = BoundariesInt(
+            #     bottom = Dirichlet(val = phys.concentration0[2]),
+            #     top    = Neumann(),
+            #     left   = Neumann(val=-i_butler_scal/(2*phys.Faraday*DKOH)),
+            #     right  = Dirichlet(val = phys.concentration0[2]),
+            #     int    = Dirichlet(val = phys.concentration0[2]),
+            #     LS     = [Dirichlet(val = phys.concentration0[2]),Neumann(val=-i_butler_scal/(2*phys.Faraday*DKOH))]
+            #     ) #KOH
+            
+        
+        
+            BC_trans_scal_H2O = BoundariesInt(
+            bottom = Dirichlet(val = phys.concentration0[3]),
+            top    = Neumann(),
+            left   = Neumann(val=i_butler_scal/(phys.Faraday*DH2O)),
+            right  = Dirichlet(val = phys.concentration0[3]),
+            int    = Neumann(val=0.0),
+            LS     = [Neumann(val=0.0),Neumann(val=i_butler_scal/(phys.Faraday*DH2O))]
+            ) #H2O
+        
+        
+            BC_phi_ele = BoundariesInt(
+                left   = Neumann(val=i_butler_scal./elec_cond), #TODO -BC in Flower ? so i_butler not -i_butler
+                right  = Dirichlet(),
+                bottom = Neumann(val=0.0),
+                top    = Neumann(val=0.0),
+                int    = Neumann(val=0.0),
+                LS = [Neumann(val=i_butler_scal./elec_cond),Neumann(val=i_butler_scal./elec_cond)]) #first is interface
+        
+
 elseif sim.name == "levelset_Butler_two_LS_test_isca1_1_2"
 
     gp.LS[2].u .= gp.x .- phys.ls_wall_xmin
@@ -1826,12 +1971,21 @@ printstyled(color=:cyan, @sprintf "\n Buoyancy force: initial %.2e final %.2e \n
 
 
 
+# Expression: minimum(phL.phi_eleD) < -1.2e9
+# Evaluated: -0.004326033691589959 < -1.2e9
 
 
-# if sim.name == "levelset_Butler_two_LS"
-# end
-@testset "Phase change: radius" begin
-    @test num.current_radius > phys.radius
-end #@testset "laplacian"
+
+if sim.name == "test_levelset_Butler_two_LS"
+    print("\n phi ", minimum(phL.phi_eleD) ," ref ", -1.2e9)
+    @testset "Poisson equation with multiple LS" begin
+        @test minimum(phL.phi_eleD) < -1.2e9
+    end 
+else
+    @testset "Phase change: radius" begin
+        @test num.current_radius > phys.radius
+    end #@testset "laplacian"
+end
+
 
 # @test (visc_term - (p_top-p_bottom)/L0)/((p_top-p_bottom)/L0) ≈0 atol=test_tolerance skip=true  

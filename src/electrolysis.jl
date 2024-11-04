@@ -1037,7 +1037,7 @@ end
 From update_free_surface_velocity and update_stefan_velocity
 """
 function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, iLS, uD, vD, 
-    periodic_x, periodic_y, Vmean, concentration_scalD, diffusion_coeff_scal,concentration_scal_intfc, 
+    periodic_x, periodic_y, Vmean, concentration_scalD, concentration_scal, diffusion_coeff_scal,concentration_scal_intfc, 
     electrolysis_phase_change_case,mass_flux)
     @unpack MWH2,rho1,rho2=num
     # @unpack χ,=opC
@@ -1048,6 +1048,8 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
     factor = -(1.0/rho2-1.0/rho1).*diffusion_coeff_scal[1].*MWH2
 
     num.sum_mass_flux = 0.0
+
+    check_with_interpolation = true 
 
 
     if electrolysis_phase_change_case == "levelset"
@@ -1081,7 +1083,7 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
             # if grid.LS[end].u[II]>0.0 # check if inside domain defined by other LS 
             # if grid.LS[2].u[II]>0.0 #second wall
                 # print("\n cells for free surface", II," x ",grid.x[II]," LS[iLS] ",grid.LS[iLS].u[II]," LS[end] ",grid.LS[end].u[II]," LS[2] ",grid.LS[2].u[II])
-                grid.V[II] = mass_flux[II] * factor
+                # grid.V[II] = mass_flux[II] * factor
                 num.sum_mass_flux += mass_flux[II]
                 #χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
                 #χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
@@ -1090,7 +1092,33 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
                 χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
                 χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
 
-                intfc_length += sqrt(χx + χy)
+                intfc_length_cell = sqrt(χx + χy)
+                intfc_length += intfc_length_cell
+
+                # intfc_length_cell !=0 since mixed cell
+
+                print("\n intfc_length_cell ", intfc_length_cell)
+
+                grid.V[II] = mass_flux[II] * factor / intfc_length_cell
+
+                if check_with_interpolation
+                    
+                    #TODO iLS or end grid.LS[iLS].geoL
+
+                    dTL = 0.
+                    print("\n II ",II," flag ",grid.LS[iLS].geoL.projection[II].flag)
+                    if grid.LS[iLS].geoL.projection[II].flag
+                        T_1, T_2 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, grid.LS[iLS].geoL.projection[II].point2, concentration_scal, II, periodic_x, periodic_y)
+                        dTL = normal_gradient(grid.LS[iLS].geoL.projection[II].d1, grid.LS[iLS].geoL.projection[II].d2, T_1, T_2, concentration_scal_intfc)
+                        printstyled(color=:cyan, @sprintf "\n T1 %.2e T2 %.2e \n" T_1 T_2 )
+                    else
+                        T_1 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
+                        dTL = normal_gradient(grid.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
+                    end
+                    # grid.V[II] = dTL #+ dTS
+                    printstyled(color=:cyan, @sprintf "\n v %.2e v from int %.2e %.2e %.2e\n" grid.V[II] dTL*factor T_1 concentration_scal_intfc)
+                end
+
             end
         end 
         if Vmean
@@ -1098,11 +1126,12 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
             @inbounds for II in grid.LS[iLS].MIXED
                 grid.V[II] = v_mean
             end 
-            printstyled(color=:cyan, @sprintf "\n v_mean %.2e \n" v_mean)
+            printstyled(color=:cyan, @sprintf "\n v_mean %.2e CFL %.2e dt %.2e dx %.2e\n" v_mean v_mean*num.dt0/grid.dx[1,1] num.dt0 grid.dx[1,1])
+            # else
+        #     grid.V ./= intfc_length
 
         end
 
-        grid.V ./= intfc_length
 
         # printstyled(color=:magenta, @sprintf "\n test sign velocity\n" )
         # grid.V.*=-1.0
@@ -1559,6 +1588,176 @@ end
 #     ∇ϕ_x .+= opC_u.Gx[iLS] * veci(phi_eleD,grid,iLS+1)
 #     ∇ϕ_y .+= opC_v.Gy[iLS] * veci(phi_eleD,grid,iLS+1)
 # end
+
+
+
+
+# """
+#   Compute mass flux
+
+#   Mass flux error: need to pay attention to sign of levelsets describing walls (do not compute mass flux at interface outside domain)
+# """
+# function integrate_mass_flux_over_interface(num::Numerical{Float64, Int64},
+#     grid::Mesh{Flower.GridCC, Float64, Int64},
+#     phL::Phase{Float64},
+#     opC_pL::Operators{Float64, Int64}, 
+#     iscal::Int64,
+#     mass_flux_vec1::Array{Float64, 1},
+#     mass_flux_vecb::Array{Float64, 1}, 
+#     mass_flux_veci::Array{Float64, 1},
+#     mass_flux::Array{Float64, 2}
+#     )
+
+#     @unpack  χ = opC_pL
+#     @unpack nLS = num
+#     #Liquid phase
+#     @unpack trans_scalD = phL
+#     if iscal !=0
+#         scalD= trans_scalD[:,iscal] #H2 species
+#     else
+#         @unpack phi_eleD = phL
+#         scalD = phi_eleD
+#     end
+
+#     #TODO overwriting chi
+
+#     opC_p = opC_pL
+
+#     iLStmp=1
+
+#     #TODO computes also in wall described  by LS
+
+#     # mass_flux_vec1 = fnzeros(grid,num)
+#     # mass_flux_vecb = fnzeros(grid,num)
+#     # mass_flux_veci = fnzeros(grid,num)
+
+#     # mass_flux_vec1 = fzeros(grid)
+#     # mass_flux_vecb = fzeros(grid)
+#     # mass_flux_veci = fzeros(grid)
+
+
+#     mass_flux_vec1 .= 0.0
+#     mass_flux_vecb .= 0.0
+#     mass_flux_veci .= 0.0
+#     mass_flux .= 0.0
+
+
+#     # print(size(mass_flux_vec1),"\n")
+#     # print(size(mass_flux_vecb),"\n")
+#     # print(size(mass_flux_veci),"\n")
+
+#     mass_flux_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
+#     mass_flux_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+
+#     # printstyled(color=:red, @sprintf "\n vec1 x y %.2e %.2e\n" sum(opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid)) sum(opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)))
+
+#     # print(size(mass_flux_vec1),"\n")
+#     # print(size(mass_flux_vecb),"\n")
+#     # print(size(mass_flux_veci),"\n")
+
+#     # print(size(opC_p.HxT[1] * opC_p.iMx * opC_p.Hx[1] * veci(scalD,grid,1+1)),"\n")
+
+
+#     for iLS in 1:nLS
+#         mass_flux_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+#         mass_flux_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+#     end
+
+#     # mass_flux = mass_flux_vec1 .+ mass_flux_vecb .+ mass_flux_veci
+
+#     # mass_flux_2 = reshape(mass_flux,grid)
+#     mass_flux_vec1_2 = reshape(mass_flux_vec1,grid)
+#     mass_flux_vecb_2 = reshape(mass_flux_vecb,grid)
+#     mass_flux_veci_2 = reshape(mass_flux_veci,grid)
+
+#     mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
+
+#     print("\n sum mass flux all levelsets (walls and interfaces alike) ", sum(mass_flux),"\n ")
+
+#     # iplot = 1
+#     # for jplot in 1:grid.ny
+#     #     #for iplot in 1:grid.nx
+#     #     II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+#     #     pII = lexicographic(II, grid.ny)
+
+#     #     if mass_flux_vec1_2[II]>0
+#     #         printstyled(color=:green, @sprintf "\n j %.5i m %.2e HxT %.2e\n" jplot mass_flux_vec1_2[II] opC_p.HxT[iLStmp][II])
+#     #         printstyled(color=:red, @sprintf "\n iMx %.10e iMy %.10e \n" opC_p.iMy.diag[pII] opC_p.iMy.diag[pII] )
+#     #         print("\n B ", II," ",opC_p.Bx[pII,pII]," ",opC_p.BxT[pII,pII])
+#     #     end
+
+#     # end
+
+
+#     # iplot=1
+#     # jplot = 59
+#     # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+#     # pII = lexicographic(II, grid.ny)
+#     # printstyled(color=:magenta, @sprintf "\n j %.5i m %.2e HxT %.2e HyT %.2e Bx %.2e By %.2e iMx %.10e iMy %.10e\n" jplot mass_flux_vec1_2[II] opC_p.HxT[iLStmp][II] opC_p.HyT[iLStmp][II] opC_p.Bx[pII,pII] opC_p.By[pII,pII] opC_p.iMy.diag[pII] opC_p.iMy.diag[pII])
+
+#     ######################################################################################
+
+
+#     # Matrices for interior BCs
+#     # for iLS in 1:num.nLS
+#     #     χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
+#     #     χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
+#     #     χ[iLS].diag .= sqrt.(vec(χx .+ χy))
+#     # end
+
+#     # χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
+#     # χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
+#     # #     χ[iLS].diag .= sqrt.(vec(χx .+ χy))
+#     # radial_flux_surf = mass_flux_2 ./ sqrt.(vec(χx .+ χy))
+#     # # radial_flux_surf = mass_flux_2 ./ χ[1]
+
+#     # printstyled(color=:green, @sprintf "\n Radial flux: %.2e \n" radial_flux_surf)
+     
+
+#     if num.io_pdi>0
+#         printstyled(color=:magenta, @sprintf "\n PDI write_mass_flux %.5i \n" num.current_i)
+
+#         ######################################################################################
+#         #TODO careful : nstep needs to be updated beforehand
+#         @ccall "libpdi".PDI_multi_expose("write_mass_flux"::Cstring,
+#         # "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+#         # "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+#         "mass_flux"::Cstring, mass_flux::Ptr{Cdouble}, PDI_OUT::Cint,
+#         "mass_flux_bulk"::Cstring, mass_flux_vec1_2::Ptr{Cdouble}, PDI_OUT::Cint,
+#         "mass_flux_border"::Cstring, mass_flux_vecb_2::Ptr{Cdouble}, PDI_OUT::Cint,
+#         "mass_flux_intfc"::Cstring, mass_flux_veci_2::Ptr{Cdouble}, PDI_OUT::Cint,
+#         # "Bx"::Cstring, opC_p.Bx::Ptr{Cdouble}, PDI_OUT::Cint,
+#         # "By"::Cstring, opC_p.By::Ptr{Cdouble}, PDI_OUT::Cint,
+#         # "HxT"::Cstring, opC_p.HxT::Ptr{Cdouble}, PDI_OUT::Cint,
+#         # "HyT"::Cstring, opC_p.HyT::Ptr{Cdouble}, PDI_OUT::Cint,
+#         C_NULL::Ptr{Cvoid})::Cvoid
+
+#         # @ccall "libpdi".PDI_multi_expose("write_mass_flux"::Cstring,
+#         # "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+#         # "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+#         # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+#         # "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+#         # "levelset_p"::Cstring, LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+#         # "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+#         # "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+#         # "trans_scal_1D"::Cstring, phL.trans_scalD::Ptr{Cdouble}, PDI_OUT::Cint,
+#         # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+#         # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+#         # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+#         # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+#         # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+#         # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
+#         # C_NULL::Ptr{Cvoid})::Cvoid
+#     end #if num.io_pdi>0
+
+#     # return mass_flux_2, mass_flux_vec1_2, mass_flux_vecb_2, mass_flux_veci_2
+#     # return 
+
+#     print("\n sum mass flux ", sum(mass_flux),"\n ")
+
+# end
+
+
 """
   Compute norm of gradient for exchange current
 """
@@ -1583,6 +1782,23 @@ function compute_grad_phi_ele!(num::Numerical{Float64, Int64},
     #Liquid phase
     @unpack phi_eleD = phL
     opC_p = opC_pL
+
+
+    # mass_flux_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
+    # mass_flux_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+
+    # for iLS in 1:nLS
+    #     mass_flux_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+    #     mass_flux_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+    # end
+
+ 
+    # mass_flux_vec1_2 = reshape(mass_flux_vec1,grid)
+    # mass_flux_vecb_2 = reshape(mass_flux_vecb,grid)
+    # mass_flux_veci_2 = reshape(mass_flux_veci,grid)
+
+    # mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
+
 
     ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(phi_eleD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(phi_eleD,grid)
     ∇ϕ_y = opC_p.iMy * opC_p.By * vec1(phi_eleD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(phi_eleD,grid)
@@ -1643,11 +1859,12 @@ function compute_grad_phi_ele!(num::Numerical{Float64, Int64},
         grd_x[:,1:end-1].^2.0 .* LS_u.geoS.dcap[:,1:end-1,6]) ./ 
         (LS_u.geoS.dcap[:,1:end-1,6] .+ LS_u.geoS.dcap[:,2:end,6] .+ eps_den )
     )
-    phL.i_current_mag .+= (
-        (grd_y[2:end,:].^2.0 .* LS_v.geoS.dcap[2:end,:,7] .+ 
-        grd_y[1:end-1,:].^2.0 .* LS_v.geoS.dcap[1:end-1,:,7]) ./
-        (LS_v.geoS.dcap[1:end-1,:,7] .+ LS_v.geoS.dcap[2:end,:,7] .+ eps_den )
-    )
+    # #Store also S value or reset 0
+    # phL.i_current_mag .+= (
+    #     (grd_y[2:end,:].^2.0 .* LS_v.geoS.dcap[2:end,:,7] .+ 
+    #     grd_y[1:end-1,:].^2.0 .* LS_v.geoS.dcap[1:end-1,:,7]) ./
+    #     (LS_v.geoS.dcap[1:end-1,:,7] .+ LS_v.geoS.dcap[2:end,:,7] .+ eps_den )
+    # )
 
     phL.i_current_mag .= sqrt.(phL.i_current_mag)
     # phS.i_current_mag .= sqrt.(phS.i_current_mag)
@@ -1661,9 +1878,7 @@ end
 
 
 
-"""
-  Compute norm of gradient for exchange current
-"""
+
 # Gradient of pressure, eq. 17 in 
 #"A Conservative Cartesian Cut-Cell Method for Mixed Boundary Conditions and the Incompressible Navier-Stokes Equations on Staggered Meshes"
 #From navier_stokes_coupled.jl
@@ -1673,9 +1888,11 @@ end
 #     ∇ϕ_x .+= opC_u.Gx[iLS] * veci(phi_eleD,grid,iLS+1)
 #     ∇ϕ_y .+= opC_v.Gy[iLS] * veci(phi_eleD,grid,iLS+1)
 # end
+"""
+  Compute norm of gradient of variable pD (located on p-grid)
+"""
 function compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p,opC_u,opC_v)
     
-    @unpack nLS = num
 
     #Liquid phase
     # @unpack pD = phL
@@ -1683,7 +1900,7 @@ function compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p,opC_u,opC_v)
     ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(pD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(pD,grid)
     ∇ϕ_y = opC_p.iMy * opC_p.By * vec1(pD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(pD,grid)
 
-    for iLS in 1:nLS
+    for iLS in 1:num.nLS
         ∇ϕ_x .+= opC_p.iMx * opC_p.Hx[iLS] * veci(pD,grid,iLS+1)
         ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(pD,grid,iLS+1)
     end
@@ -1696,7 +1913,7 @@ function compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p,opC_u,opC_v)
 
     ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid)
     ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(pD,grid) .+ opC_v.Gy_b * vecb(pD,grid)
-    for iLS in 1:nLS
+    for iLS in 1:num.nLS
         ∇ϕ_x .+= opC_u.Gx[iLS] * veci(pD,grid,iLS+1)
         ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid,iLS+1)
     end
@@ -1830,6 +2047,125 @@ end
 #     periodic_bcs_borders!(grid, op.Hx_b, op.Hy_b, periodic_x, periodic_y)
 # end
 
+"""
+    test_filer_concentration!
+    filter concentration to see to what extent abnormal electrolyte concentration (due to small cells) is responsible for abnormal potential
+
+"""
+function test_filter_concentration!(num,grid,scalD,scal0)
+
+    for i in 1:num._nLS
+        print("\n iLS ",i)
+
+        for II in grid.ind.all_indices
+                          
+            pII = lexicographic(II, grid.ny)
+
+            scal = veci(scalD, grid,i)[pII]
+
+            if (abs(scal-scal0)/scal0 >1e-2) && (grid.LS[end].geoL.cap[II,5] > num.ϵ) && (scal >0.0) 
+
+                # if i ==1 || (grid.LS[i-1].geoL.cap[II,5] > num.ϵ) #TODO intfc value detect non null
+
+                print("\n II ",II," s ",scal," s0 ",scal0," ratio ", abs(scal-scal0)/scal0)
+                print("\n replace scal by scal0 (test)")
+                scal = scal0
+            end
+
+        end
+    end
+
+    #TODO vecb
+
+    # boundaries_idx = [grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1], grid.ind.b_top[1]]
+
+
+
+    # left2 = vcat(grid.ind.all_indices[2,2], grid.ind.all_indices[2:end-1,2], grid.ind.all_indices[end-1,2])
+    # bottom2 = vcat(grid.ind.all_indices[2,2], grid.ind.all_indices[2,2:end-1], grid.ind.all_indices[2,end-1])
+    # right2 = vcat(grid.ind.all_indices[2,end-1], grid.ind.all_indices[2:end-1,end-1], grid.ind.all_indices[end-1,end-1])
+    # top2 = vcat(grid.ind.all_indices[end-1,2], grid.ind.all_indices[end-1,2:end-1], grid.ind.all_indices[end-1,end-1])
+    # boundaries2 = [left2, bottom2, right2, top2]
+
+    # left3 = vcat(grid.ind.all_indices[3,3], grid.ind.all_indices[2:end-1,3], grid.ind.all_indices[end-2,3])
+    # bottom3 = vcat(grid.ind.all_indices[3,3], grid.ind.all_indices[3,2:end-1], grid.ind.all_indices[3,end-2])
+    # right3 = vcat(grid.ind.all_indices[3,end-2], grid.ind.all_indices[2:end-1,end-2], grid.ind.all_indices[end-2,end-2])
+    # top3 = vcat(grid.ind.all_indices[end-2,3], grid.ind.all_indices[end-2,2:end-1], grid.ind.all_indices[end-2,end-2])
+    # boundaries3 = [left3, bottom3, right3, top3]
+
+    # boundaries_t = [grid.ind.left, grid.ind.bottom, grid.ind.right, grid.ind.top]
+
+
+    # for (i, (idx, idx2, idx3, xy)) in enumerate(zip(boundaries_idx, boundaries2, boundaries3, direction))
+    #     pks, _ = findminima(abs.(u[idx]))
+    #     # if is_neumann(boundaries_t[i])
+
+    #     #     for (II, JJ) in zip(idx, idx2)
+    #     #         pII = lexicographic(II, grid.ny)
+    #     #         pJJ = lexicographic(JJ, grid.ny)
+
+    #     #         A[pII,:] .= 0.0
+    #     #         A[pII,pII] = 1.0
+    #     #         A[pII,pJJ] = -1.0
+    #     #         B[pII,:] .= 0.0
+    #     #     end
+
+
+    # print("left ",grid.ind.b_left)
+    #TODO borders
+
+# vecb_L(a,g::G) where {G<:Grid} = @view vecb(a, g)[1:g.ny]
+# vecb_B(a,g::G) where {G<:Grid} = @view vecb(a, g)[g.ny+1:g.ny+g.nx]
+# vecb_R(a,g::G) where {G<:Grid} = @view vecb(a, g)[g.ny+g.nx+1:2*g.ny+g.nx]
+# vecb_T(a,g::G) where {G<:Grid} = @view vecb(a, g)[2*g.ny+g.nx+1:2*g.ny+2*g.nx]
+
+    # left
+    for j in 1:grid.ny
+        II = CartesianIndex(j,1)
+        scal = vecb_L(scalD, grid)[j]
+        if abs(scal-scal0)/scal0 >1e-2
+            print("\n II ",II," s ",scal," s0 ",scal0," ratio ", abs(scal-scal0)/scal0)
+            print("\n replace scal by scal0 (test)")
+            scal = scal0
+        end
+    end
+
+    # bottom
+    for i in 1:grid.nx
+        II = CartesianIndex(1,i)
+        scal = vecb_B(scalD, grid)[i]
+        if abs(scal-scal0)/scal0 >1e-2
+            print("\n II ",II," s ",scal," s0 ",scal0," ratio ", abs(scal-scal0)/scal0)
+            print("\n replace scal by scal0 (test)")
+            scal = scal0
+        end
+    end
+
+    # right
+    for j in 1:grid.ny
+        II = CartesianIndex(j,grid.nx)
+        scal = vecb_R(scalD, grid)[j]
+        if abs(scal-scal0)/scal0 >1e-2
+            print("\n II ",II," s ",scal," s0 ",scal0," ratio ", abs(scal-scal0)/scal0)
+            print("\n replace scal by scal0 (test)")
+            scal = scal0
+        end
+    end
+
+    # top
+    for i in 1:grid.nx
+        II = CartesianIndex(grid.ny,i)
+        scal = vecb_T(scalD, grid)[i]
+        if abs(scal-scal0)/scal0 >1e-2
+            print("\n II ",II," s ",scal," s0 ",scal0," ratio ", abs(scal-scal0)/scal0)
+            print("\n replace scal by scal0 (test)")
+            scal = scal0
+        end
+    end
+
+
+end
+
 """    
     set_poisson_variable_coeff!
 
@@ -1919,15 +2255,53 @@ function set_poisson_variable_coeff!(num::Numerical{Float64, Int64},
     #Boundary for Laplacian
     bc_L_b = (BxT * iMx_b * mat_coeffDx_b *Hx_b .+ ByT * iMy_b * mat_coeffDx_b *Hy_b)
 
+    #new
+    sign =-1.0
+    sign = 1.0
+
+    sign2 = -1.0
+    sign2 = 1.0
+
+    signb = -1.0
+    signb = 1.0
+
+    signchi = -1.0
+    signchi = 1.0
+
+    signL = -1.0
+    signL = 1.0
+
+    #old
+    sign = 1.0
+
+    sign2 = -1.0
+
+    signb = -1.0
+
+    signchi = -1.0
+
+    signL = -1.0
+
+    # #new
+    # sign = 1.0
+
+    # sign2 = 1.0
+
+    # signb = 1.0
+
+    # signchi = 1.0
+
+    # signL = 1.0
+
       
     if ls_advection
         # Poisson equation
-        A[1:ni,1:ni] = pad(L, -4.0)
+        A[1:ni,1:ni] = pad(L, signL*4.0)
         A[1:ni,end-nb+1:end] = bc_L_b
 
         # Boundary conditions for outer boundaries
-        A[end-nb+1:end,1:ni] = -b_b * (HxT_b * iMx_b' * mat_coeffDx * Bx .+ HyT_b * iMy_b' * mat_coeffDy * By)
-        A[end-nb+1:end,end-nb+1:end] = -pad(b_b * (HxT_b * iMx_bd * mat_coeffDx_b * Hx_b .+ HyT_b * iMy_bd * mat_coeffDx_b * Hy_b) .- χ_b * a1_b, 4.0)
+        A[end-nb+1:end,1:ni] = signb*b_b * (HxT_b * iMx_b' * mat_coeffDx * Bx .+ HyT_b * iMy_b' * mat_coeffDy * By)
+        A[end-nb+1:end,end-nb+1:end] = signb*pad(b_b * (HxT_b * iMx_bd * mat_coeffDx_b * Hx_b .+ HyT_b * iMy_bd * mat_coeffDx_b * Hy_b) .+signchi* χ_b * a1_b, 4.0)
     end
 
     for iLS in 1:num.nLS
@@ -1994,47 +2368,19 @@ function set_poisson_variable_coeff!(num::Numerical{Float64, Int64},
                 
                 if iLS == iLS_elec 
 
-                    #TODO BC LS 2 in set_poisson directly
-                    #  BC_phi_ele.LS[2].val .= i_butler./vecb_L(elec_condD, grid)
-
-                    # #TODO BC LS 2
-                    # BC_phi_ele.LS[2].val .= i_butler./elec_cond[:,1]
-
                     #use Butler-Volmer, supposing the interfacial potential is acceptable and phi = phi_ele1 in metal 
                     # for conductivity, use interfacial value or bulk in corresponding cell
 
                     # TODO -(-i/kappa) in Flower ? so i_butler not -i_butler
-                    # For small cells
 
-                    
-                    # iLS_elec = 2
-                    # or use iLS and...
-                    # if 0 Neumann do not need complicated
-                    #how to write efficiently BC
-
-                    if num.bulk_conductivity == 0
+                    # if num.bulk_conductivity == 0
                         
-                        # for II in grid.LS[iLS].MIXED
-                            # butler_volmer_no_concentration_potential_Neumann!.(num,
-                            # reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
-                            # reshape(veci(ph.trans_scalD[:,2],grid,iLS+1),grid),
-                            # num.temperature0,
-                            # a0[II])
-                        # end
-                        butler_volmer_no_concentration_potential_Neumann!.(num,
-                        reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
-                        reshape(veci(ph.trans_scalD[:,2],grid,iLS+1),grid),
-                        num.temperature0,
-                        a0)
+                    # elseif num.bulk_conductivity == 1
+                    #     @error ("error elseif num.bulk_conductivity == 1")
 
-                    elseif num.bulk_conductivity == 1
-                        # # Recommended as long as cell merging not implemented:
-                        # # Due to small cells, we may have slivers/small cells at the left wall, then the divergence term is small,
-                        # # which produces higher concentration in front of the contact line
-                        # a0 .= i_butler./elec_cond[:,1]
-                        @error ("error elseif num.bulk_conductivity == 1")
+                    if num.bulk_conductivity == 2
+                        # Recommended as long as cell merging not implemented:
 
-                    elseif num.bulk_conductivity == 2
                         #TODO remove reshape and use a mapping 
                         # butler_volmer_no_concentration_potential_Neumann!.(num,
                         # reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
@@ -2057,7 +2403,7 @@ function set_poisson_variable_coeff!(num::Numerical{Float64, Int64},
                             pII = lexicographic(II, grid.ny)
 
                             # if grid.LS[iLS].geoL.cap[II,5] < num.ϵ
-                           
+                       
                             if grid.LS[end].geoL.cap[II,5] > num.ϵ #TODO clearer eps
 
                                 a0[II] = butler_volmer_no_concentration_potential_Neumann.(num,
@@ -2065,9 +2411,10 @@ function set_poisson_variable_coeff!(num::Numerical{Float64, Int64},
                                 veci(ph.trans_scalD[:,2],grid,iLS+1)[pII],
                                 num.temperature0)
 
-                                if veci(ph.trans_scalD[:,2],grid,iLS+1)[pII] < num.ϵ
+                                if veci(ph.trans_scalD[:,2],grid,iLS+1)[pII] < num.epsilon_concentration[2]
                                     a0[II] = butler_volmer_no_concentration_potential_Neumann.(num,
-                                    reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
+                                    # reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
+                                    veci(ph.phi_eleD, grid,iLS+1)[pII],
                                     ph.trans_scal[II,2],
                                     num.temperature0)
                                 end
@@ -2081,39 +2428,42 @@ function set_poisson_variable_coeff!(num::Numerical{Float64, Int64},
                                 # reshape(veci(ph.trans_scalD[:,2],grid,iLS+1),grid)[II],
                                 # num.temperature0)
 
+                            else
+                                print("\n grid.LS[end].geoL.cap[II,5] > num.ϵ ", (grid.LS[end].geoL.cap[II,5] > num.ϵ),(ph.trans_scal[II,2]<num.ϵ), " ",ph.trans_scal[II,2], " ",num.ϵ)
+                                #use bulk conductivity of mixed cell
+                                # butler_volmer_no_concentration_potential_Neumann!.(num,
+                                # reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
+                                # ph.trans_scal[II,2],
+                                # num.temperature0,
+                                # a0[II]) #TODO if temperature solved temperature[II]
 
-                                if grid.LS[iLS].geoL.cap[II,5] < num.ϵ #volume
-                                    #use bulk conductivity of mixed cell
-                                    # butler_volmer_no_concentration_potential_Neumann!.(num,
-                                    # reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
-                                    # ph.trans_scal[II,2],
-                                    # num.temperature0,
-                                    # a0[II]) #TODO if temperature solved temperature[II]
-
+                                if ph.trans_scal[II,2]<num.epsilon_concentration[2] #inside bubble, do not solve, fill with 1 since concentration=0
+                                    a0[II] = 1.0 
+                                    print("\n zero scal II")
+                                else
                                     a0[II] = butler_volmer_no_concentration_potential_Neumann.(num,
-                                    reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
+                                    veci(ph.phi_eleD, grid,iLS+1)[pII],
                                     ph.trans_scal[II,2],
                                     num.temperature0) #TODO if temperature solved temperature[II]
+                                end #ph.trans_scal[II,2]<num.ϵ
 
-                                    # a0[II]  = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(ph.phi_eleD, grid,iLS+1),
-                                    # num.phi_ele1,num.Ru,num.temperature0)./ph.elec_cond[II]
-                                end
-
-                                if grid.LS[iLS].geoL.cap[II,1] < num.ϵ #here length so volume approx num.ϵ^2
-                                    a0[II] = 1.0
-                                end
 
                             end #grid.LS[end].geoL.cap[II,5] > num.ϵ: liquid cell
+
+                            print("\n II ",II)
+                            # printstyled(color=:red, @sprintf "\n grid.LS[end].geoL.cap[II,5] %.2e grid.LS[iLS].geoL.cap[II,1] %.2e grid.LS[iLS].geoL.cap[II,5] %.2e scal %.2e\n" grid.LS[end].geoL.cap[II,5] grid.LS[iLS].geoL.cap[II,1] grid.LS[iLS].geoL.cap[II,5] ph.trans_scal[II,2] a0[II])
+                            printstyled(color=:red, @sprintf "\n grid.LS[end].geoL.cap[II,5] %.2e scaD %.2e scal %.2e phiD %.2e phi %.2e a0 %.2e \n" grid.LS[end].geoL.cap[II,5] veci(ph.trans_scalD[:,2],grid,iLS+1)[pII] ph.trans_scal[II,2] veci(ph.phi_eleD, grid,iLS+1)[pII] ph.phi_ele[II] a0[II])
+
+
                             # TODO
                             #Remove Nan when dividing by conductivity which may be null
                             # kill_dead_bc_left_wall!(vecb(elec_condD,grid), grid, iLS,1.0)
                                 #Remove Nan when dividing by conductivity which may be null
+                        end   #for
+                    
+                    else #bulk_conductivity!=2
+                        a0 .= __a0
 
-
-                              
-
-
-                        end   
                     end #bulk_conductivity
 
                 else #ilS==iLS_elec
@@ -2129,12 +2479,6 @@ function set_poisson_variable_coeff!(num::Numerical{Float64, Int64},
 
             _b = ones(grid) .* __b
             b = Diagonal(vec(_b))
-
-            sign =-1.0
-            sign = 1.0
-
-            sign2 = -1.0
-            sign2 = 1.0
 
             # a0_b = zeros(nb)
             # _a1_b = zeros(nb)
@@ -2181,24 +2525,24 @@ function set_poisson_variable_coeff!(num::Numerical{Float64, Int64},
                 end
             end
             A[sb,sb] = sign2*pad(
-                b * (HxT[iLS] * iMx * mat_coeffDx_i * Hx[iLS] .+ HyT[iLS] * iMy * mat_coeffDy_i * Hy[iLS]) .- χ[iLS] * a1 .+
+                b * (HxT[iLS] * iMx * mat_coeffDx_i * Hx[iLS] .+ HyT[iLS] * iMy * mat_coeffDy_i * Hy[iLS]) .+ signchi*χ[iLS] * a1 .+
                 a2 * Diagonal(diag(fs_mat)), 4.0
             )
             A[sb,end-nb+1:end] = sign*b * (HxT[iLS] * iMx_b * mat_coeffDx_b * Hx_b .+ HyT[iLS] * iMy_b * mat_coeffDx_b * Hy_b)
             # Boundary conditions for outer boundaries
-            A[end-nb+1:end,sb] = -b_b * (HxT_b * iMx_b' * mat_coeffDx_i * Hx[iLS] .+ HyT_b * iMy_b' * mat_coeffDy_i * Hy[iLS])
+            A[end-nb+1:end,sb] = signb*b_b * (HxT_b * iMx_b' * mat_coeffDx_i * Hx[iLS] .+ HyT_b * iMy_b' * mat_coeffDy_i * Hy[iLS])
         end #ls_advection
 
-        veci(rhs,grid,iLS+1) .= -χ[iLS] * vec(a0) #vec(a0[iLS])
+        veci(rhs,grid,iLS+1) .= signchi*χ[iLS] * vec(a0) #vec(a0[iLS])
 
         
 
         printstyled(color=:red, @sprintf "\n veci(rhs,grid,iLS+1) %.2i %.2e %.2e \n" iLS maximum(abs.(veci(rhs,grid,iLS+1))) maximum(abs.(BC.LS[iLS].val)))
-        print("\n a0 max  ", maximum(a0)," min",minimum(a0))
+        print("\n a0 max  ", maximum(a0)," min ",minimum(a0))
 
     end #for iLS in 1:num.nLS
 
-    vecb(rhs,grid) .= -χ_b * vec(a0_b)
+    vecb(rhs,grid) .= signchi*χ_b * vec(a0_b)
 
     printstyled(color=:red, @sprintf "\n vecb(rhs,grid) %.2e %.2e \n" maximum(abs.(vecb(rhs,grid))) maximum(abs.(BC.left.val)))
 
@@ -2351,9 +2695,24 @@ end #set_poisson_variable_coeff
 
 
 """
-  Compute mass flux
+    Integrate mass transfer rate along a line (the interface in 2D), in  in mol/m/s
+
+    to increment mol/m in 2D : use dn=result*dt
+    to advect: need to go back to surface mass flux so divide by interface length : mol/m^2/s
+    then velocity m/s is obtained  (*M (kg/mol) and * combination of 1/rho_i ))
+
+    need to pay attention to operators of levelsets describing walls (do not compute mass flux at interface outside domain)
+
+    with iLS=1 for example for first levelset
+
+    # Interface
+    opC_p.HxT[iLS] (nx*ny, (nx+1)*ny) TODO (nx+1)*ny or nx*(ny+1)
+    # Wall
+    opC_p.iMx_b ((nx+1)*ny, 2*nx+2*ny)
+    opC_p.Hx_b (2*nx+2*ny, 2*nx+2*ny)(nx*ny,)
+
 """
-function compute_mass_flux!(num::Numerical{Float64, Int64},
+function integrate_mass_flux_over_interface(num::Numerical{Float64, Int64},
     grid::Mesh{Flower.GridCC, Float64, Int64},
     phL::Phase{Float64},
     opC_pL::Operators{Float64, Int64}, 
@@ -2398,26 +2757,37 @@ function compute_mass_flux!(num::Numerical{Float64, Int64},
     mass_flux .= 0.0
 
 
-    # print(size(mass_flux_vec1),"\n")
-    # print(size(mass_flux_vecb),"\n")
-    # print(size(mass_flux_veci),"\n")
+    print(size(mass_flux_vec1),"\n")
+    print(size(mass_flux_vecb),"\n")
+    print(size(mass_flux_veci),"\n")
 
     mass_flux_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
     mass_flux_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
 
-    # printstyled(color=:red, @sprintf "\n vec1 x y %.2e %.2e\n" sum(opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid)) sum(opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)))
-
-    # print(size(mass_flux_vec1),"\n")
-    # print(size(mass_flux_vecb),"\n")
-    # print(size(mass_flux_veci),"\n")
-
-    # print(size(opC_p.HxT[1] * opC_p.iMx * opC_p.Hx[1] * veci(scalD,grid,1+1)),"\n")
-
+  
 
     for iLS in 1:nLS
         mass_flux_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
         mass_flux_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
     end
+
+
+  printstyled(color=:red, @sprintf "\n vec1 x y %.2e %.2e\n" sum(opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid)) sum(opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)))
+  printstyled(color=:red, @sprintf "\n vecb x y %.2e %.2e\n" sum(opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid)) sum(opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)))
+
+  print("\n vecb(scalD,grid)", vecb(scalD,grid) ) 
+
+  print(size(mass_flux_vec1),"\n")
+  print(size(mass_flux_vecb),"\n")
+  print(size(mass_flux_veci),"\n")
+
+  print("\n opC_p.HxT[iLStmp] ",size(opC_p.HxT[iLStmp]))
+  print("\n opC_p.iMx_b ",size(opC_p.iMx_b))
+  print("\n opC_p.Hx_b ",size(opC_p.Hx_b))
+
+
+  print(size(opC_p.HxT[1] * opC_p.iMx * opC_p.Hx[1] * veci(scalD,grid,1+1)),"\n")
+
 
     # mass_flux = mass_flux_vec1 .+ mass_flux_vecb .+ mass_flux_veci
 
@@ -2429,6 +2799,15 @@ function compute_mass_flux!(num::Numerical{Float64, Int64},
     mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
 
     print("\n sum mass flux all levelsets (walls and interfaces alike) ", sum(mass_flux),"\n ")
+    
+    print("\n mass_flux ", sum(mass_flux),"\n ")
+    print("\n mass_flux_vec1_2 ", sum(mass_flux_vec1_2),"\n ")
+    print("\n mass_flux_vecb_2 ", sum(mass_flux_vecb_2),"\n ")
+    print("\n mass_flux_veci_2 ", sum(mass_flux_veci_2),"\n ")
+
+    print("\n mass_flux_vec1 ", sum(mass_flux_vec1),"\n ")
+    print("\n mass_flux_vecb ", sum(mass_flux_vecb),"\n ")
+    print("\n mass_flux_veci ", sum(mass_flux_veci),"\n ")
 
     # iplot = 1
     # for jplot in 1:grid.ny
@@ -2513,7 +2892,7 @@ function compute_mass_flux!(num::Numerical{Float64, Int64},
 
 end
 
-# function compute_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,iscal)
+# function integrate_mass_flux_over_interface(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,iscal)
     
 #     @unpack nLS = num
 #     #Liquid phase

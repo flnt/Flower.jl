@@ -694,6 +694,22 @@ def plot_all_fig_func():
 
                 # print(key,func)
 
+                if key == 'rhs_1D':
+                    data = file[key][:]
+                    # print("vecb ",vecb(data,mesh["nx"],mesh["ny"]))
+
+                    print(colored('vecb_B'+str(min(vecb_B(data,mesh["nx"],mesh["ny"]))), "cyan"))
+                    print(colored('vecb_T'+str(min(vecb_T(data,mesh["nx"],mesh["ny"]))), "cyan"))
+                    print(colored('vecb_L'+str(min(vecb_L(data,mesh["nx"],mesh["ny"]))), "cyan"))
+                    print(colored('vecb_R'+str(min(vecb_R(data,mesh["nx"],mesh["ny"]))), "cyan"))
+                    
+                    # print("vecb_B ",vecb_B(data,mesh["nx"],mesh["ny"]))
+                    # print("vecb_T ",vecb_T(data,mesh["nx"],mesh["ny"]))
+                    # print("vecb_L ",vecb_L(data,mesh["nx"],mesh["ny"]))
+                    # print("vecb_R ",vecb_R(data,mesh["nx"],mesh["ny"]))
+
+
+
             
                 
                 func(
@@ -1657,6 +1673,7 @@ def plot_current_lines(file,
 
     i_current_mag = file["i_current_mag"][:].transpose()
 
+    print('imag ',np.min(i_current_mag),np.max(i_current_mag))
 
     nx = mesh["nx"]
     ny = mesh["ny"]
@@ -1728,11 +1745,30 @@ def plot_current_lines(file,
 
     # do no transpose, python row major
 
+    if 'broken_streamlines' in figpar.keys():
+        broken_streamlines = parse_is_true(figpar['broken_streamlines'])
+    elif 'broken_streamlines' in plotpar.keys():
+        broken_streamlines = parse_is_true(plotpar['broken_streamlines'])
+    else:
+        broken_streamlines = True
+
+    if 'start_points' in figpar.keys():
+        seed_points = eval(figpar['start_points'])
+        start_points=seed_points.T
+    else:
+        start_points=None
+
+    # integration_direction = 'backward'
+    # integration_direction = 'forward'
+    integration_direction = 'both'
+
+
     if figpar['plot_levelset']:
         key_LS = 'levelset_p'
         LSdat = file[key_LS][:]
         LSdat = LSdat.transpose()
-        CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'])
+        CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
+
 
         # Create a mask based on levelset
         # mask = np.zeros(Eus.shape, dtype=bool)
@@ -1752,7 +1788,21 @@ def plot_current_lines(file,
                 # strm = axs[3].streamplot(X, Y, U, V, color=U, linewidth=2,
                 # cmap='autumn', start_points=seed_points.T)
 
-                current_lines = plt.streamplot(xp, yp, -Eus, -Evs, color=i_current_mag, density=eval(figpar['density']),linewidth=figpar['streamplot_lw'])
+                if figpar['streamplot_color'] == 'mag':
+                    current_lines = plt.streamplot(xp, yp, -Eus, -Evs, color=i_current_mag, density=eval(figpar['density']),
+                                                linewidth=figpar['streamplot_lw'], 
+                                                    broken_streamlines=broken_streamlines,
+                                                    start_points=start_points,
+                                                    integration_direction=integration_direction,
+                                                    )
+                    fig1.colorbar(current_lines.lines)
+                else:
+                    current_lines = plt.streamplot(xp, yp, -Eus, -Evs, color=figpar['streamplot_color'], density=eval(figpar['density']),
+                                                linewidth=figpar['streamplot_lw'], 
+                                                    broken_streamlines=broken_streamlines,
+                                                    start_points=start_points,
+                                                    integration_direction=integration_direction,
+                                                    )
                 # print(current_lines)
                 # print(current_lines.arrows)
 
@@ -1786,9 +1836,23 @@ def plot_current_lines(file,
                 #     # art.set_zorder(10)
 
             else:
-                plt.streamplot(xp, yp, -Eus, -Evs, color="w", density=eval(figpar['density']),linewidth=figpar['streamplot_lw'])
+                plt.streamplot(xp, yp, -Eus, -Evs, color="w", density=eval(figpar['density']),linewidth=figpar['streamplot_lw'], 
+                       broken_streamlines=broken_streamlines,
+                       start_points=start_points,
+                        integration_direction=integration_direction,
+                       )
     else:
-        plt.streamplot(xp, yp, -Eus, -Evs, color="w", density=[0.5, 1])
+        plt.streamplot(xp, yp, -Eus, -Evs, color="w", density=[0.5, 1], 
+                       broken_streamlines=broken_streamlines,
+                       start_points=start_points,
+                       integration_direction=integration_direction,
+                       )
+        
+    # if 'start_points' in figpar.keys():
+    #     # Displaying the starting points with blue symbols.
+    #     ax2.plot(seed_points[0], seed_points[1], 'bo')
+    #     # ax2.set(xlim=(-w, w), ylim=(-w, w))
+
 
     if 'plot_wall' in figpar.keys():
         if figpar['plot_wall']:

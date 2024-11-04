@@ -50,6 +50,11 @@ end
     return Ac, Ap, Am
 end
 
+"""
+    interpolate at two points to compute the normal gradient 
+    [`Fullana (2017)`](https://theses.hal.science/tel-04053531/) 
+    uses Johansen-Colella method ['Johansen & Colella (1998)'](https://www.sciencedirect.com/science/article/pii/S0021999198959654)
+"""
 @inline function interpolated_temperature(grid, α, P1, P2, temp, II, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy = grid
     T_1 = 0.

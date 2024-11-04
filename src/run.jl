@@ -2,6 +2,7 @@
 #TODO test with run_forward! or alloc grid inside or ; or no unpack
 #TODO remove duplicate variables: cap (already dcap), emptied (already iso),...
 #TODO floating-point comparison
+#TODO Crank-Nicolson with moving interfaces: simulations explode
 
 #precompile(Tuple{typeof(Core.kwcall), 
 #NamedTuple{(:periodic_x, :periodic_y, :BC_uL, :BC_uS, :BC_vL, :BC_vS, :BC_pL, :BC_pS, :BC_u, :BC_int, 
@@ -100,7 +101,6 @@ function run_forward!(
     #index of bubble interface
     iLSbubble = 1
     
-    sign_mass_flux = -1.0
 
 
     #TODO Re
@@ -391,7 +391,7 @@ function run_forward!(
 
         end
 
-        if num.electric_potential == 1
+        if num.electric_potential == 1 #TODO init phi =0 or with Neumann for BC of concentration? for now not done since "phiL" given in arg
             init_fields_multiple_levelsets!(num,phL.phi_eleD,phL.phi_ele,tmp_vec_p,BC_phi_ele,grid,num.phi_ele0,"phiL")
         end
     end  
@@ -1313,11 +1313,19 @@ function run_forward!(
 
                     end 
 
-                    printstyled(color=:red, @sprintf "\n test conductivity")
+                    # printstyled(color=:red, @sprintf "\n test conductivity")
 
-                    elec_condD .= 2*num.Faraday^2 .*num.concentration0[2].*num.diffusion_coeff[2]./(num.Ru.*num.temperature0)
+                    # # elec_condD .= 2*num.Faraday^2 .*num.concentration0[2].*num.diffusion_coeff[2]./(num.Ru.*num.temperature0)
+                    # test_filter_concentration!(num,grid,phL.trans_scalD[:,2],num.concentration0[2])
+
+                    # elec_condD = 2*num.Faraday^2 .*phL.trans_scalD[:,2].*num.diffusion_coeff[2]./(num.Ru.*num.temperature0)
+ 
+                    # # TODO icurrent mag and replace huge val scal
                     
-                    printstyled(color=:red, @sprintf "\n test conductivity")
+                    # print("\n test i ",-2*num.Faraday^2*num.concentration0[2]*num.diffusion_coeff[2]./(num.Ru.*num.temperature0))*(num.phi0-num.phi1)/(1e-4)
+                    # print("\n test i ",-2*(num.Faraday^2)*num.concentration0[2]*num.diffusion_coeff[2]./(num.Ru.*num.temperature0))*(num.phi0-num.phi1)/(1e-4)
+
+                    # printstyled(color=:red, @sprintf "\n test conductivity")
 
 
 
@@ -1428,7 +1436,7 @@ function run_forward!(
                     # printstyled(color=:magenta, @sprintf "\n test LS update for set_poisson_variable_coeff!  \n")
 
 
-                    printstyled(color=:red, @sprintf "\n DEBUG -b ")
+                    # printstyled(color=:red, @sprintf "\n DEBUG -b ")
 
 
                     #TODO BC several grid.LS
@@ -1571,6 +1579,11 @@ function run_forward!(
 
                     phL.i_current_mag .*= elec_cond # i=-κ∇ϕ here magnitude
 
+                    compute_grad_p!(num,grid, grid_u, grid_v, phL.phi_eleD, op.opC_pL, op.opC_uL, op.opC_vL)
+
+
+            
+
                 end #electric_potential
 
             end
@@ -1592,10 +1605,29 @@ function run_forward!(
                 # phi_array=phL.phi_ele #do not transpose since python row major
                 
                 # Compute electrical current, interpolate velocity on scalar grid
-                compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+                # compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
         
+                # if electrolysis && num.nb_transported_scalars>1
+                #     if heat 
+                #         elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru.*phL.T) #phL.T
+                #     else
+                #         elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru*num.temperature0) 
+                #     end
+                # else 
+                #     elec_cond = ones(grid)
+                #     printstyled(color=:green, @sprintf "\n conductivity one")
+
+                # end 
+
+                # phL.i_current_mag .*= elec_cond # i=-κ∇ϕ here magnitude
+
+
                 #store in us, vs instead of Eus, Evs
                 interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,tmp_vec_p,tmp_vec_p0)
+
+                tmp_vec_p .*= elec_cond
+                tmp_vec_p0 .*= elec_cond
+
 
                 @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
                 "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
@@ -1663,9 +1695,9 @@ function run_forward!(
         print("\n test",electrolysis_phase_change_case, occursin("levelset",electrolysis_phase_change_case))
 
         if electrolysis && electrolysis_phase_change_case != "None"
-            printstyled(color=:magenta, @sprintf "\n compute_mass_flux!\n")
+            printstyled(color=:magenta, @sprintf "\n integrate_mass_flux_over_interface\n")
 
-            compute_mass_flux!(num,grid,phL,op.opC_pL,1,mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
+            integrate_mass_flux_over_interface(num,grid,phL,op.opC_pL,1,mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
 
             print("\n sum mass flux all levelsets (walls and interfaces alike) ", sum(mass_flux),"\n ")
         end
@@ -1695,13 +1727,13 @@ function run_forward!(
                         if electrolysis_phase_change_case == "levelset"
 
                             update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, 
-                            periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],
+                            periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],phL.trans_scal[:,:,1],
                             num.diffusion_coeff[1],num.concentration0[1],electrolysis_phase_change_case,mass_flux)
 
                         elseif electrolysis_phase_change_case == "levelset_averaged"
                             
                             update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, 
-                            periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],
+                            periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],phL.trans_scal[:,:,1],
                             num.diffusion_coeff[1],num.concentration0[1],electrolysis_phase_change_case,mass_flux)
 
                             
@@ -1718,12 +1750,12 @@ function run_forward!(
 
                             # #TODO check velocity
                             # @inbounds @threads for II in grid.LS[iLS].MIXED
-                            #     grid.V[II] = sign_mass_flux * sum(mass_flux) * num.diffusion_coeff[1] *(1.0/num.rho2-1.0/num.rho1).*num.diffusion_coeff[1].*num.MWH2
+                            #     grid.V[II] = sum(mass_flux) * num.diffusion_coeff[1] *(1.0/num.rho2-1.0/num.rho1).*num.diffusion_coeff[1].*num.MWH2
                             # end
 
                         end #electrolysis_phase_change_case == "levelset"
 
-                        varnH2 = sign_mass_flux * num.sum_mass_flux * num.diffusion_coeff[1] 
+                        varnH2 = num.sum_mass_flux * num.diffusion_coeff[1] 
 
                         new_nH2 = nH2 + varnH2 * num.τ
 
@@ -1764,7 +1796,7 @@ function run_forward!(
                 previous_radius = num.current_radius
 
                 # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
-                varnH2 = sign_mass_flux * sum(mass_flux) * num.diffusion_coeff[1] 
+                varnH2 =  sum(mass_flux) * num.diffusion_coeff[1] 
 
                 #TODO mode_2d==0 flux corresponds to cylinder of length 1
                 #2D cylinder reference length
@@ -2200,10 +2232,16 @@ function run_forward!(
 
                         # print("\n sizes LS A ",size(grid.LS[iLS].A), " B ", size(grid.LS[iLS].B)," LS ",size(grid.LS[iLS].u)," V ",size(grid.V),"\n")
 
-
+                        #recopy value in ghost cell
                         LSghost = init_ghost_neumann(grid.LS[iLS].u,grid.nx,grid.ny,nghost)
-                       
+                        
                         Vghost = init_ghost_neumann(grid.V,grid.nx,grid.ny,nghost)
+
+                        # print("\n LSghost \n")
+                        # print("\n ",LSghost[0,:])
+                        # print("\n ",LSghost[1,:])
+                        # print("\n ",LSghost[:,0])
+                        # print("\n ",LSghost[:,1])
 
                         IIOE_normal_indices!(grid, Aghost, Bghost, grid.LS[iLS].u, LSghost, 
                         grid.V, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
@@ -2219,6 +2257,66 @@ function run_forward!(
                         OffsetArrays.no_offset_view(LSghost) .= reshape(gmres(OffsetArrays.no_offset_view(Aghost), OffsetArrays.no_offset_view(Bghost) * vec(OffsetArrays.no_offset_view(LSghost))), (grid.ny+2,grid.nx+2))
 
                         grid.LS[iLS].u .= LSghost[1:grid.ny,1:grid.nx]
+
+                        # grid.LS[iLS].u .= reshape(gmres(OffsetArrays.no_offset_view(Aghost), OffsetArrays.no_offset_view(Bghost) * vec(grid.LS[iLS].u)), grid)
+
+
+                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
+
+                        BC_LS_new!(grid, grid.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+
+                    elseif num.advection_LS_mode == 9
+                        print("\n num.advection_LS_mode == 8 iLS", iLS)
+
+                        nghost = 1
+
+                        Aghost, Bghost = allocate_ghost_matrices_2(grid.nx,grid.ny,nghost)
+
+                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
+
+                        BC_LS_new!(grid, grid.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+
+
+                        printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
+
+                        # IIOE_normal!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y)
+                        # IIOE_normal_indices!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
+
+                        # print("\n sizes LS A ",size(grid.LS[iLS].A), " B ", size(grid.LS[iLS].B)," LS ",size(grid.LS[iLS].u)," V ",size(grid.V),"\n")
+
+
+                        LSghost = init_ghost_neumann_2(grid.LS[iLS].u,grid.nx,grid.ny,nghost)
+
+                        # print("\n LSghost \n")
+                        # print("\n ",LSghost[0,:])
+                        # print("\n ",LSghost[1,:])
+                        # print("\n ",LSghost[:,0])
+                        # print("\n ",LSghost[:,1])
+                                               
+                        Vghost = init_ghost_neumann_2(grid.V,grid.nx,grid.ny,nghost)
+
+                        IIOE_normal_indices_2!(grid, Aghost, Bghost, grid.LS[iLS].u, LSghost, 
+                        Vghost, CFL_sc, periodic_x, periodic_y,nghost)
+
+                        # IIOE_normal_indices!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, LSghost, 
+                        # grid.V, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
+
+                        # IIOE_normal_indices!(grid, Aghost, Bghost, LSghost, Vghost, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
+
+                        print("\n sizes LS A ",size(grid.LS[iLS].A), " B ", size(grid.LS[iLS].B)," LS ",size(grid.LS[iLS].u)," V ",size(grid.V),"\n")
+                        # print("\n sizes LS A ",size(OffsetArrays.no_offset_view(Aghost)), " B ", size(OffsetArrays.no_offset_view(Bghost))," LS ",size(LSghost)," V ",size(grid.V),"\n")
+
+                        LSghost .= reshape(gmres(Aghost, Bghost * vec(LSghost)), (grid.ny+2*nghost,grid.nx+2*nghost))
+
+
+                        # grid.LS[iLS].u .= LSghost[1:grid.ny,1:grid.nx]
+
+                        #Store result of LS advection without ghost cells
+                        for j=1:grid.ny
+                            for i=1:grid.nx
+                                grid.LS[iLS].u[j,i] = LSghost[j+1,i+1]
+                            end
+                        end
 
                         # grid.LS[iLS].u .= reshape(gmres(OffsetArrays.no_offset_view(Aghost), OffsetArrays.no_offset_view(Bghost) * vec(grid.LS[iLS].u)), grid)
 

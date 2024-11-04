@@ -140,7 +140,10 @@ function Levelset(nx, ny)
     )
 end
 
-
+"""
+    allocate_ghost_matrices
+    allocates and sets the sparsity pattern of the sparse matrix for the advection
+"""
 function allocate_ghost_matrices(nx0,ny0,nghost)
 
     nx=nx0+2*nghost
@@ -196,6 +199,68 @@ function allocate_ghost_matrices(nx0,ny0,nghost)
 
     return A,B
 end
+
+"""
+    allocate_ghost_matrices
+    allocates and sets the sparsity pattern of the sparse matrix for the advection
+    without using Offset Arrays
+"""
+function allocate_ghost_matrices_2(nx0,ny0,nghost)
+
+    nx=nx0+2*nghost
+    ny=ny0+2*nghost
+                                                # Sizes
+    ii = collect(i for i = 1:nx*ny)             # nx*ny
+    iw = collect(i for i = ny+1:nx*ny)          # (nx-1)*ny
+    is = collect(i for i = 2:nx*ny)             # nx*ny-1
+    iN = collect(i for i = 1:nx*ny-1)           # nx*ny-1
+    ie = collect(i for i = 1:nx*ny-ny)          # (nx-1)*ny
+    iwp = collect(i for i = 1:ny)               # ny
+    isp = collect(i for i = 1:ny:nx*ny)
+    inp = collect(i for i = ny:ny:nx*ny)
+    iep = collect(i for i = nx*ny-ny+1:nx*ny)
+
+    II = vcat(ii,iw,is,iN,ie,iwp,isp,inp,iep)
+
+    jj = collect(i for i = 1:nx*ny)
+    jw = collect(i for i = 1:nx*ny-ny)
+    js = collect(i for i = 1:nx*ny-1)
+    jn = collect(i for i = 2:nx*ny)
+    je = collect(i for i = ny+1:nx*ny)
+    jwp = collect(i for i = nx*ny-ny+1:nx*ny)
+    jsp = collect(i for i = ny:ny:nx*ny)
+    jnp = collect(i for i = 1:ny:nx*ny)
+    jep = collect(i for i = 1:ny)               # ny
+
+    JJ = vcat(jj,jw,js,jn,je,jwp,jsp,jnp,jep)
+
+    a = ones(length(jj))
+    b = zeros(length(jw)+length(js)+length(jn)+length(je))
+    c = zeros(length(jwp)+length(jsp)+length(jnp)+length(jep))
+
+    #Example
+    # julia> Is = [1; 2; 3];
+
+    # julia> Js = [1; 2; 3];
+
+    # julia> Vs = [1; 2; 3];
+
+    # julia> sparse(Is, Js, Vs)
+    # 3×3 SparseMatrixCSC{Int64, Int64} with 3 stored entries:
+    # 1  ⋅  ⋅
+    # ⋅  2  ⋅
+    # ⋅  ⋅  3
+
+    A0 = sparse(II,JJ,vcat(a,b,c))
+    B0 = sparse(II,JJ,vcat(a,b,c))
+
+
+    # A = OffsetArray(A0, (-nx0,-nx0))
+    # B = OffsetArray(B0, (-nx0,-nx0))
+
+    return A0,B0
+end
+
 
 """
 Mesh

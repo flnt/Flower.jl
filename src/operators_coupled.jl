@@ -29,6 +29,12 @@ function pad(A, a=1.0)
     A + Diagonal(d)
 end
 
+
+"""
+pad_crank_nicolson
+
+adds dx[II] * dy[II] + 0.5 * τ * 4.0 to the diagonal where it is null, for ind.all_indices
+"""
 function pad_crank_nicolson(A, grid, τ)
     @unpack ny, dx, dy, ind = grid
 
@@ -584,6 +590,11 @@ function bc_matrix_borders!(grid::Mesh{GridFCy,T,N}, ind, ind_v, Hx, Hy, dcap, d
     return nothing
 end
 
+
+"""
+    bc_matrix_borders!(grid, Hx_u, Hy_v, Hx_p, Hy_p, dcap)
+    
+"""
 function bc_matrix_borders!(grid, Hx_u, Hy_v, Hx_p, Hy_p, dcap)
     @unpack nx, ny, ind = grid
     @unpack b_left, b_bottom, b_right, b_top = ind
