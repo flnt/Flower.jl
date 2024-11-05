@@ -4,19 +4,19 @@ using Flower
 fontsize_theme = Theme(fonts=(;regular="CMU Serif"), fontsize = 50)
 set_theme!(fontsize_theme)
 
-L0x = 2.
-L0y = 2.
+L0x = 13
+L0y = 13
 
-n = 129
+n = 64
 CFL = 0.5
-max_it = 100
-A = 0.5
+max_it = 2000
+A = 6
 N = 1
-alpha = pi/9
+alpha = pi/4
 
 x = collect(LinRange(-L0x / 2, L0x / 2, n + 1))
 dx = diff(x)[1]
-y = collect(-L0y/2:dx:L0y/2+dx)
+y = collect(-1*L0y/2:dx:1*L0y/2+dx)
 
 num = Numerical(
     case = "Planar",
@@ -47,10 +47,19 @@ ax = Axis(f1[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y", xtickalign=0, 
 contour!(gp.x[1,:], gp.y[:,1], gp.LS[1].u', levels = 0:0, color=:red, linewidth = 3);
 f1
 
-function f_interface(α, x, y)
+function f_interface(α, κ, x, y)
     β = α + pi/2
-    r = 0*sqrt(x^2 + y^2)
-    V = cos(β)/(1. - cos.(β)*cbrt(r)/(cbrt(sin(β)) + 1e-12)) # simple dissolution model normal velocity
+    # r = 0*sqrt(x^2 + y^2)
+    # V = (α<-pi/6)*y
+    if abs(x)>0.01
+        V = (α<0)*cos(β)/(1-cos(β)*cbrt(x)/(cbrt(sin(β)))) # simple dissolution model normal velocity
+    else
+        if isnan(κ)
+            V = (α<0) # simple dissolution model normal velocity at an apex
+        else
+            V = (α<0)/(1+1/cbrt(κ)) # simple dissolution model normal velocity at a pole
+        end
+    end
     return V
 end
 
@@ -61,13 +70,15 @@ end
     verbose = true,
     f_interface = f_interface,
     show_every = 1,
-    speed = 10
+    speed = 0.1
 )
 
 f1 = Figure(size = (1600, 1000))
 ax = Axis(f1[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y", xtickalign=0,  ytickalign=0)
 contour!(gp.x[1,:], gp.y[:,1], fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 3);
-for i = 10:10:max_it
-    contour!(gp.x[1,:], gp.y[:,1], fwd.u[1,i,:,:]', levels = 0:0, color=:red, linewidth = 3);
+for i = 20:20:max_it
+    contour!(gp.x[1,:], gp.y[:,1]#.+i*0.00479.*ones(length(y)-1)
+    , fwd.u[1,i,:,:]', levels = 0:0, color=:red, linewidth = 3);
 end
+contour!(gp.x[1,:], gp.y[:,1], fwd.u[1,end,:,:]', levels = 0:0, color=:black, linewidth = 3);
 f1
