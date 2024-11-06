@@ -9,7 +9,7 @@ L0y = 13
 
 n = 64
 CFL = 0.5
-max_it = 2000
+max_it = 200
 A = 6
 N = 1
 alpha = pi/4
@@ -27,8 +27,8 @@ num = Numerical(
     save_every = 1,
     reinit_every = 1,
     nLS = 1,
-    NB = 2,
-    nb_reinit = 2
+    NB = 4,
+    nb_reinit = 20
 )
 
 gp, gu, gv = init_meshes(num)
@@ -52,15 +52,21 @@ function f_interface(α, κ, x, y)
     # r = 0*sqrt(x^2 + y^2)
     # V = (α<-pi/6)*y
     # if abs(x)>0.01
-    #     V = (α<0)*cos(β)/(1-cos(β)*cbrt(x)/(cbrt(sin(β)))) # simple dissolution model normal velocity
-    # else
-    #     if isnan(κ)
-    #         V = (α<0) # simple dissolution model normal velocity at an apex
-    #     else
-    #         V = (α<0)/(1-1/cbrt(κ)) # simple dissolution model normal velocity at a pole
-    #     end
-    # end
-    V = -κ
+    # V = (α<0)*min(cos(β)/(1-cos(β)*cbrt(x/sin(β))),1.) # simple dissolution model normal velocity
+    V = 0
+    if x*β < 0
+        V = (α<0)*min(cos(β)/(1-cos(β)*cbrt(x/sin(β))),1.)
+    else
+        V = (α<0)/(1-1/cbrt(κ)) # simple dissolution model normal velocity at a pole
+    end
+    #else
+    #    if isnan(κ)
+     #       V = (α<0) # simple dissolution model normal velocity at an apex
+      #  else
+       #     V = (α<0)/(1-1/cbrt(κ)) # simple dissolution model normal velocity at a pole
+       # end
+    #end
+    # V = -κ
     return V
 end
 
