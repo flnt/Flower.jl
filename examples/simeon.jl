@@ -57,10 +57,10 @@ function f_interface(α, κ, x, y)
     #     if isnan(κ)
     #         V = (α<0) # simple dissolution model normal velocity at an apex
     #     else
-    #         V = (α<0)/(1+1/cbrt(κ)) # simple dissolution model normal velocity at a pole
+    #         V = (α<0)/(1-1/cbrt(κ)) # simple dissolution model normal velocity at a pole
     #     end
     # end
-    V = 1/κ
+    V = -κ
     return V
 end
 
@@ -71,7 +71,7 @@ end
     verbose = true,
     f_interface = f_interface,
     show_every = 1,
-    speed = 0.1
+    speed = 1
 )
 
 f1 = Figure(size = (1600, 1000))
