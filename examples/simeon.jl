@@ -51,15 +51,16 @@ function f_interface(α, κ, x, y)
     β = α + pi/2
     # r = 0*sqrt(x^2 + y^2)
     # V = (α<-pi/6)*y
-    if abs(x)>0.01
-        V = (α<0)*cos(β)/(1-cos(β)*cbrt(x)/(cbrt(sin(β)))) # simple dissolution model normal velocity
-    else
-        if isnan(κ)
-            V = (α<0) # simple dissolution model normal velocity at an apex
-        else
-            V = (α<0)/(1+1/cbrt(κ)) # simple dissolution model normal velocity at a pole
-        end
-    end
+    # if abs(x)>0.01
+    #     V = (α<0)*cos(β)/(1-cos(β)*cbrt(x)/(cbrt(sin(β)))) # simple dissolution model normal velocity
+    # else
+    #     if isnan(κ)
+    #         V = (α<0) # simple dissolution model normal velocity at an apex
+    #     else
+    #         V = (α<0)/(1+1/cbrt(κ)) # simple dissolution model normal velocity at a pole
+    #     end
+    # end
+    V = 1/κ
     return V
 end
 
