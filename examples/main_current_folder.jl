@@ -603,6 +603,7 @@ num = Numerical(
     scalar_bc = sim.scalar_bc,
     scalar_scheme = sim.scalar_scheme,
     solver = sim.solver,
+    mass_flux = sim.mass_flux,
     )
 
 Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
@@ -628,7 +629,7 @@ BC_phi_ele = BoundariesInt(
     bottom = Neumann(val=0.0),
     top    = Neumann(val=0.0),
     int    = Neumann(val=0.0),
-    LS = [Neumann(val=i_butler./elec_cond)]
+    LS = [Neumann(val=0.0)]
 )
 
 if sim.name == "falling_drop"
@@ -1749,22 +1750,25 @@ if num.io_pdi>0
 
 
         # Compute electrical current, interpolate velocity on scalar grid
-        compute_grad_phi_ele!(num, gp, gu, gv, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+        # compute_grad_phi_ele!(num, gp, gu, gv, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+
+        # compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS, elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p1,tmp_vec_p1) #TODO current
+
         
         us=zeros(gp) #TODO allocate only once
         vs=zeros(gp)
 
-        #store in us, vs instead of Eus, Evs
-        interpolate_grid_liquid!(gp,gu,gv,phL.Eu, phL.Ev,us,vs)
+        # #store in us, vs instead of Eus, Evs
+        # interpolate_grid_liquid!(gp,gu,gv,phL.Eu, phL.Ev,us,vs)
 
-        #TODO i_current_mag need cond
+        # #TODO i_current_mag need cond
 
-        @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
-        "i_current_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-        "i_current_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,  
-        "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
-        "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-        C_NULL::Ptr{Cvoid})::Cint
+        # @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
+        # "i_current_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+        # "i_current_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,  
+        # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+        # C_NULL::Ptr{Cvoid})::Cint
 
 
         interpolate_grid_liquid!(gp,gu,gv,phL.u,phL.v,us,vs)
@@ -1825,6 +1829,20 @@ printstyled(color=:red, @sprintf "\n after pdi \n")
 print("\n BC_u ",BC_u)
 print("\n BC_int ",BC_int)
 print("\n BC_uL ",BC_uL)
+print("\n BC_phi_ele ",BC_phi_ele)
+print("\n BC_phi_ele ",BC_phi_ele.LS[1])
+print("\n BC_phi_ele ",BC_phi_ele.LS[1].val)
+
+print("\n BC_vL ",BC_vL)
+
+print("\n BC_vL ",BC_vL.bottom.val)
+
+BC_vL
+
+
+print("\n BC_trans_scal ",BC_trans_scal)
+
+
 
 printstyled(color=:red, @sprintf "\n before run_forward \n")
 
@@ -1975,6 +1993,115 @@ printstyled(color=:cyan, @sprintf "\n Buoyancy force: initial %.2e final %.2e \n
 # Evaluated: -0.004326033691589959 < -1.2e9
 
 
+test_tolerance = 1e-14
+
+@testset "Phase change: mass flux" begin
+
+@testset "Phase change: mass flux" begin
+    phL.trans_scalD[:,1] .= 1.0 
+    mass_flux_vec1 = fzeros(gp)
+    mass_flux_vecb = fzeros(gp)
+    mass_flux_veci = fzeros(gp)
+    mass_flux = zeros(gp)
+integrate_mass_flux_over_interface_2_no_writing(num,gp,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
+# @test sum(mass_flux) == 0 
+@test sum(mass_flux) ≈ 0 atol=test_tolerance
+end #"Phase change: mass flux" begin
+
+@testset "Phase change: mass flux old" begin
+    phL.trans_scalD[:,1] .= 1.0 
+    mass_flux_vec1 = fzeros(gp)
+    mass_flux_vecb = fzeros(gp)
+    mass_flux_veci = fzeros(gp)
+    mass_flux = zeros(gp)
+integrate_mass_flux_over_interface_no_writing(num,gp,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
+# @test sum(mass_flux) == 0 
+@test sum(mass_flux) ≈ 0 atol=test_tolerance
+end #"Phase change: mass flux" begin
+
+end #phase change
+
+@testset "Interpolation" begin
+gp.V .= 1.0
+interpolate_scalar!(gp, gu, gv, gp.V, gu.V, gv.V)
+
+@test minimum(gu.V) ≈ 1.0 atol=test_tolerance
+@test maximum(gu.V) ≈ 1.0 atol=test_tolerance
+@test minimum(gv.V) ≈ 1.0 atol=test_tolerance
+@test maximum(gv.V) ≈ 1.0 atol=test_tolerance
+
+tmp_vec_p = zeros(gp) 
+tmp_vec_p0 = zeros(gp) 
+
+tmp_vec_u = zeros(gu) 
+tmp_vec_v = zeros(gv) 
+
+tmp_vec_u .= 1.0 
+tmp_vec_v .= 1.0
+interpolate_grid_liquid!(gp,gu,gv,tmp_vec_u, tmp_vec_v,tmp_vec_p,tmp_vec_p0)
+interpolate_grid_solid!(gp,gu,gv,tmp_vec_u, tmp_vec_v,tmp_vec_p,tmp_vec_p0)
+
+@test minimum(tmp_vec_p) ≈ 1.0 atol=test_tolerance
+@test maximum(tmp_vec_p) ≈ 1.0 atol=test_tolerance
+@test minimum(tmp_vec_p0) ≈ 1.0 atol=test_tolerance
+@test maximum(tmp_vec_p0) ≈ 1.0 atol=test_tolerance
+
+tmp_vec_u .= 1.0 
+tmp_vec_v .= 1.0
+interpolate_grid_liquid_2!(num,gp,gu.LS[end],gv.LS[end],tmp_vec_u, tmp_vec_v,tmp_vec_p,tmp_vec_p0)
+
+interpolate_grid_solid_2!(num,gp,gu.LS[end],gv.LS[end],tmp_vec_u, tmp_vec_v,tmp_vec_p,tmp_vec_p0)
+
+@test minimum(tmp_vec_p) ≈ 1.0 atol=test_tolerance
+@test maximum(tmp_vec_p) ≈ 1.0 atol=test_tolerance
+@test minimum(tmp_vec_p0) ≈ 1.0 atol=test_tolerance
+@test maximum(tmp_vec_p0) ≈ 1.0 atol=test_tolerance
+
+tmp_vec_u .= 1.0 
+tmp_vec_v .= 1.0
+interpolate_grid_liquid_solid!(num,gp,gu.LS[end],gv.LS[end],tmp_vec_u, tmp_vec_v,tmp_vec_p,tmp_vec_p0)
+
+@test minimum(tmp_vec_p) ≈ 1.0 atol=test_tolerance
+@test maximum(tmp_vec_p) ≈ 1.0 atol=test_tolerance
+@test minimum(tmp_vec_p0) ≈ 1.0 atol=test_tolerance
+@test maximum(tmp_vec_p0) ≈ 1.0 atol=test_tolerance
+
+# LS_u =grid_u.LS[1]
+# LS_v = grid_v.LS[1]
+# us .= (
+#     (u[:,2:end] .* LS_u.geoL.dcap[:,2:end,6] .+ 
+#     u[:,1:end-1] .* LS_u.geoL.dcap[:,1:end-1,6]) ./ 
+#     (LS_u.geoL.dcap[:,1:end-1,6] .+ LS_u.geoL.dcap[:,2:end,6])
+# )
+# vs .= (
+#     (v[2:end,:] .* LS_v.geoL.dcap[2:end,:,7] .+ 
+#     v[1:end-1,:] .* LS_v.geoL.dcap[1:end-1,:,7]) ./
+#     (LS_v.geoL.dcap[1:end-1,:,7] .+ LS_v.geoL.dcap[2:end,:,7])
+# )
+
+# u = phL.Eu
+# v = phL.Ev
+
+
+for j in 1:gp.ny
+    for i in 1:gp.nx
+        if (tmp_vec_p[j,i] != 1.0) 
+            print("\n j",j," i ",i, " tmp_vec_p ",tmp_vec_p[j,i]," tmp_vec_p0 ",tmp_vec_p0[j,i])
+            print("\n LS_u.geoL.dcap[:,2:end,6] ",gu.LS[1].geoL.dcap[j,i,6]," ",gu.LS[1].geoL.dcap[j,i+1,6])
+        end
+    end
+end
+
+for j in 1:gp.ny
+    for i in 1:gp.nx
+        if (tmp_vec_p0[j,i] != 1.0) 
+            print("\n j",j," i ",i, " tmp_vec_p ",tmp_vec_p[j,i]," tmp_vec_p0 ",tmp_vec_p0[j,i])
+            print("\n LS_u.geoL.dcap[:,2:end,6] ",gu.LS[1].geoL.dcap[j,i,6]," ",gu.LS[1].geoL.dcap[j,i+1,6])
+        end
+    end
+end
+
+end
 
 if sim.name == "test_levelset_Butler_two_LS"
     print("\n phi ", minimum(phL.phi_eleD) ," ref ", -1.2e9)

@@ -28,9 +28,26 @@ function Stefan_velocity!(num, grid, LS, V, TS, TL, MIXED, periodic_x, periodic_
     return nothing
 end
 
+"""
+Two-point gradient
+```math
+(1/(d2 - d1)) * ((d2/d1) * (θd - T_1) - (d1/d2) * (θd - T_2))
+```
+"""
 @inline normal_gradient(d1, d2, T_1, T_2, θd) = (1/(d2 - d1)) * ((d2/d1) * (θd - T_1) - (d1/d2) * (θd - T_2))
+
+"""
+One-point gradient
+```math
+(θd - T_1)/d1
+```
+"""
 @inline normal_gradient(d1, T_1, θd) = (θd - T_1)/d1
 
+
+"""
+Uses B_BT 
+"""
 @inline function Acpm(grid, II_0, II)
     @unpack x, y, nx, ny = grid
     if II_0[1] < 3 || II_0[2] < 3
@@ -149,6 +166,10 @@ end
     return T_1, T_2
 end
 
+
+"""
+One-point interpolation
+"""
 @inline function interpolated_temperature(grid, α, P1, temp, II, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy = grid
 

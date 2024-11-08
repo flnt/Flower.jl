@@ -1114,13 +1114,7 @@ function init_fields(num::NumericalParameters,
     trans_scalDS = zeros(1,1) #[;;] #Float64[] #zeros( (num.nLS + 1) * grid.ny * grid.nx + 2 * grid.nx + 2 * grid.ny, nb_transported_scalars)
     phi_eleDS = fnzeros(grid, num)
 
-    i_current_magL = zeros(grid)
-    i_current_magS = zeros(grid)
 
-    EuS = zeros(grid_u)
-    EuL = zeros(grid_u)
-    EvS = zeros(grid_v)
-    EvL = zeros(grid_v)
 
     if num.case == "Planar"
         LS[1].u .= y .+ shifted
@@ -1250,8 +1244,8 @@ function init_fields(num::NumericalParameters,
             Operators(AxT_vS, AyT_vS, Bx_vS, By_vS, BxT_vS, ByT_vS, Hx_vS, Hy_vS, HxT_vS, HyT_vS, tmp_x_vS, tmp_y_vS, M_vS, iMx_vS, iMy_vS, χ_vS, Rx, Ry, Gx_S, Gy_S, Hx_b_vS, Hy_b_vS, HxT_b_vS, HyT_b_vS, iMx_b_vS, iMy_b_vS, iMx_bd_vS, iMy_bd_vS, Gx_b_vS, Gy_b_vS, χ_b_vS),
             Operators(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L, Hx_b_vL, Hy_b_vL, HxT_b_vL, HyT_b_vL, iMx_b_vL, iMy_b_vL, iMx_bd_vL, iMy_bd_vL, Gx_b_vL, Gy_b_vL, χ_b_vL)
         ),
-        Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS, uTS, trans_scalS, phi_eleS, trans_scalDS, phi_eleDS, i_current_magS, EuS, EvS),
-        Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL, uTL, trans_scalL, phi_eleL, trans_scalDL, phi_eleDL, i_current_magL, EuL, EvL),
+        Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS, uTS, trans_scalS, phi_eleS, trans_scalDS, phi_eleDS),
+        Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL, uTL, trans_scalL, phi_eleL, trans_scalDL, phi_eleDL),
     )
 end
 

@@ -100,6 +100,7 @@ abstract type AbstractOptimizer end
     solver::D = 0
     current_radius::T=0.0
     sum_mass_flux::T=0.0
+    mass_flux::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -336,9 +337,9 @@ struct Phase{T <: Real} <: MutatingFields
     phi_ele::Array{T,2}
     trans_scalD::Array{T,2}
     phi_eleD::Array{T,1}
-    i_current_mag::Array{T,2}
-    Eu::Array{T,2}
-    Ev::Array{T,2}
+    # i_current_mag::Array{T,2}
+    # Eu::Array{T,2}
+    # Ev::Array{T,2}
 end
 
 struct Forward{T <: Real} <: MutatingFields

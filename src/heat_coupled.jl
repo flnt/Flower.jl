@@ -100,6 +100,12 @@ end
 
 """
 set matrices for heat equation
+
+```julia
+    LT = BxT * iMx * Bx .+ ByT * iMy * By
+    LD = BxT * iMx * Hx[1] .+ ByT * iMy * Hy[1]
+    LD_b = BxT * op.iMx_b * op.Hx_b .+ ByT * op.iMy_b * op.Hy_b
+```
 """
 function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection,
     A, B,rhs,

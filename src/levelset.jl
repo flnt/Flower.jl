@@ -1,6 +1,6 @@
 """
 diamond(a, p, n)
-for diamond-cell covolume cf mikulaNewLevelSet2010
+for diamond-cell covolume cf [`Mikula et al. (2014)`](https://www.sciencedirect.com/science/article/pii/S0168927414001032)
 """
 function diamond(a, p, n)
     U = @SVector[0.25(a[p]+a[p-n]+a[p-n-1]+a[p-1]),
@@ -13,7 +13,7 @@ end
 
 """
 diamond(a, II, nx, ny, per_x, per_y)
-for diamond-cell covolume cf mikulaNewLevelSet2010
+for diamond-cell covolume cf [`Mikula et al. (2014)`](https://www.sciencedirect.com/science/article/pii/S0168927414001032)
 """
 function diamond(a, II, nx, ny, per_x, per_y)
     U = @SVector[0.25(a[II]+a[δx⁻(II, nx, per_x)]+a[δx⁻(δy⁻(II, ny, per_y), nx, per_x)]+a[δy⁻(II, ny, per_y)]),
@@ -25,7 +25,7 @@ end
 
 """
 diamond_not_periodic(a, II)
-for diamond-cell covolume cf mikulaNewLevelSet2010
+for diamond-cell covolume cf [`Mikula et al. (2014)`](https://www.sciencedirect.com/science/article/pii/S0168927414001032)
 """
 function diamond_not_periodic(a, II)
     U = @SVector[0.25(a[II]+a[δx⁻(II)]+a[δx⁻(δy⁻(II))]+a[δy⁻(II)]),
@@ -132,7 +132,9 @@ function grad(a, g,
     return F
 end
 
+"""
 
+"""
 function grad_not_periodic(a, g,
     U::SArray{Tuple{4},Float64,1,4},
     II::CartesianIndex{2})
@@ -223,6 +225,10 @@ function θin(θ_out, nx, ny, per_x, per_y, II)
     return θ_in
 end
 
+"""
+```a_in``` max(0,F) ```a_out``` min(0,F)
+(4.13) in [`Mikula et al. (2014)`](https://www.sciencedirect.com/science/article/pii/S0168927414001032)
+"""
 function inflow_outflow(F::SArray{Tuple{4},Float64,1,4})
     a_in = @SVector[max(0,F[1]),
     max(0,F[2]),
@@ -314,7 +320,8 @@ end
 """
     IIOE_normal!(grid, A, B, u, V, CFL, periodic_x, periodic_y)
 
-Advection of the levelset in the normal direction  (Mikula et al. 2014).
+Advection of the levelset in the normal direction [`Mikula et al. (2014)`](https://www.sciencedirect.com/science/article/pii/S0168927414001032).
+Handles periodic BC
 """
 function IIOE_normal!(grid, A, B, u, V, CFL, periodic_x, periodic_y)
     @unpack nx, ny, ind = grid
@@ -361,7 +368,7 @@ end
 """
     IIOE_normal!(grid, A, B, u, V, CFL, periodic_x, periodic_y)
 
-Advection of the levelset in the normal direction  (Mikula et al. 2014).
+Advection of the levelset in the normal direction [`Mikula et al. (2014)`](https://www.sciencedirect.com/science/article/pii/S0168927414001032).
 """
 function IIOE_normal_indices!(grid, A, B, u,ughost, V, CFL, periodic_x, periodic_y,indices)
     @unpack nx, ny, ind = grid
@@ -398,7 +405,8 @@ end
 """
     IIOE_normal!(grid, A, B, u, V, CFL, periodic_x, periodic_y)
 
-Advection of the levelset in the normal direction  (Mikula et al. 2014).
+Advection of the levelset in the normal direction [`Mikula et al. (2014)`](https://www.sciencedirect.com/science/article/pii/S0168927414001032).
+For 1 layer of ghost cells (advects the first layer in the domain too, based on Neumann BC for levelset)
 Uses nyghost = ny + 2*nghost for lexicographic
 """
 function IIOE_normal_indices_2!(grid, A, B, u,ughost, V, CFL, periodic_x, periodic_y,nghost)
@@ -425,7 +433,7 @@ function IIOE_normal_indices_2!(grid, A, B, u,ughost, V, CFL, periodic_x, period
             S = sumloc(a_in, a_ou)
             
             # cf fullanaSimulationOptimizationComplex2022
-            #If the forward dffusion is dominant (ie. Spf > 9Spb) then no further steps are needed
+            #If the forward diffusion is dominant (ie. Spf > 9Spb) then no further steps are needed
             #as the discretization will lean towards the implicit part. 
             #4. On the other hand, if the backward dffusion is dominant (ie. Spf < 9Spb), 
             #we need to smooth the reconstructed solution for stability, using the following formula
@@ -450,7 +458,7 @@ end
 """
     IIOE!(grid, grid_u, grid_v, A, B, θ_out, τ, periodic_x, periodic_y)
 
-Advection of the levelset using the basic IIOE scheme (Mikula et al. 2014).
+Advection of the levelset using the basic IIOE scheme [`Mikula et al. (2014)`](https://www.sciencedirect.com/science/article/pii/S0168927414001032).
 """
 function IIOE!(grid, grid_u, grid_v, A, B, θ_out, τ, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy, ind = grid
@@ -480,9 +488,9 @@ function IIOE!(grid, grid_u, grid_v, A, B, θ_out, τ, periodic_x, periodic_y)
 end
 
 """
-    S2IIOE!(grid, grid_u, grid_v, A, B, utmp, u, θ_out, τ, periodic_x, periodic_y)
+    S2IIOE!(grid, grid_u, grid_v, A, B, utmp, u, θ_out, τ, periodic_x, periodic_y) 
 
-Advection of the levelset using the S2IIOE scheme (Mikula et al. 2014).
+Advection of the levelset using the S2IIOE scheme [`Mikula et al. (2014)`](https://www.sciencedirect.com/science/article/pii/S0168927414001032)
 """
 function S2IIOE!(grid, grid_u, grid_v, A, B, utmp, u, θ_out, τ, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy, ind = grid
@@ -1826,6 +1834,10 @@ function field_extension!(grid, u, f, indices_ext, left_ext, bottom_ext, right_e
     end
 end
 
+
+"""
+uses biquadratic
+"""
 @inline faces_scalar(itp, II_0, II, x, y, dx, dy) = 
     [biquadratic(itp, (x[II] - x[II_0] - dx/2)/(x[δx⁺(II_0)] - x[δx⁻(II_0)]),
         (y[II] - y[II_0])/(y[δy⁺(II_0)] - y[δy⁻(II_0)]))
@@ -1838,7 +1850,7 @@ end
 
 
 """
-
+static_stencil, B_BT, faces_scalar
 """
 function aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
     st = static_stencil(u, II_0)

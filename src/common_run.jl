@@ -35,8 +35,6 @@ end
 
 
 """
-update_all_ls_data
-
 handles 2 crossing levelsets, levelsets are combined at grid.LS[end]
 8:11 volume
 """
@@ -75,7 +73,8 @@ end
 
 
 """
-update_ls_data
+updates LS on p-grid, interpolates LS from scalar grid (p) to u and v grids 
+
 """
 function update_ls_data(num, grid, grid_u, grid_v, iLS, u, κ, BC_int, bc_int, periodic_x, periodic_y, neighbours, empty = true)
     NB_indices = update_ls_data_grid(num, grid, grid.LS[iLS], u, κ, periodic_x, periodic_y)

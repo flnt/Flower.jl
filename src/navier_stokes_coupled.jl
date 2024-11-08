@@ -222,9 +222,12 @@ end
 
 
 """
-set_cutcell_matrices!
-
 set iMx, Ax, Ay,... indicator χ..., Bx, By...
+
+```julia
+    M.diag .= vec(geo[end].dcap[:,:,5])
+```
+
 """
 function set_cutcell_matrices!(num, grid, geo, geo_p, opC, periodic_x, periodic_y)
     @unpack nx, ny, ind = grid
@@ -436,10 +439,9 @@ end
 
 
 """
-laplacian!
-
-    L = BxT * iMx * Bx .+ ByT * iMy * By
-    
+```julia
+L = BxT * iMx * Bx .+ ByT * iMy * By
+```
 """
 function laplacian(opC::Operators{Float64, Int64})
     @unpack Bx, By, BxT, ByT, iMx, iMy, tmp_x, tmp_y = opC
@@ -454,7 +456,10 @@ end
 
 
 """
-laplacian_bc
+```julia
+    bc_L[iLS]= BxT * iMx * Hx[iLS] .+ ByT * iMy * Hy[iLS]
+    bc_L_b = (BxT * iMx_b * Hx_b .+ ByT * iMy_b * Hy_b)
+```
 """
 function laplacian_bc(opC::Operators{Float64, Int64}, nLS::Int64)
     @unpack BxT, ByT, Hx, Hy, iMx, iMy, Hx_b, Hy_b, iMx_b, iMy_b = opC
@@ -771,6 +776,11 @@ end
 
 Set `u` and `v` system matrices for Forward-Euler scheme in the diffusive term in 
 presence of a Navier slip BC.
+
+```julia
+    opu.HxT[iLS] * opu.iMx_b * opu.Hx_b
+```
+
 """
 function FE_set_momentum_coupled(
     bc_type, num, gp, gu, gv,

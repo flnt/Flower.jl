@@ -545,9 +545,9 @@ function clip_middle_cells!(grid, LS)
 end
 
 """
-    dimensionalize!()
-
+```julia
     dcap... = cap*dx...dx*dy...
+```
 """
 function dimensionalize!(grid, geo)
     @unpack dx, dy = grid
@@ -1367,7 +1367,7 @@ end
 """
 marching_squares!
 
-cf mapleGeometricDesignSpace2003 
+cf [`Maple (2003)`](https://ieeexplore.ieee.org/document/1219671)   
 """
 function marching_squares!(grid, LS, u, periodic_x, periodic_y)
     @unpack x, y, nx, ny, dx, dy, ind = grid

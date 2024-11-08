@@ -1170,6 +1170,8 @@ def plot_segments(file,plotpar,figpar,ax2):
                 str1="{:.2e} {:03}".format(intfc_vtx_x[i],i)                        
             elif figpar['plot_levelset_segments_print'] == "ijy": 
                 str1="{:.2e} {:03}".format(intfc_vtx_y[i],i)    
+            else:
+                str1='{:.2e}'.format(intfc_vtx_field[i])
 
             ax2.annotate(str1,(intfc_vtx_x[i],intfc_vtx_y[i]),fontsize=figpar['fontsize'],c=lcolor,ha="center",va=va)
 
@@ -1716,19 +1718,25 @@ def plot_current_lines(file,
     # )
 
     # ax2.set_title("Title")
+    try:
+        cbar0 = cbar[0] 
+    except:
+        cbar0 = None
 
+    print(cbar0)
+    print('cbar',cbar)
     # Make a colorbar for the ContourSet returned by the contourf call.
     if mode !='film':
-        cbar = fig1.colorbar(CS)
-        cbar.ax.set_ylabel(r""+figpar['cbarlabel'])
+        cbar0 = fig1.colorbar(CS)
+        cbar0.ax.set_ylabel(r""+figpar['cbarlabel'])
         if 'ticks_format' in figpar:
             if figpar['ticks_format']!=None:
-                cbar.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
+                cbar0.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
     else:
-        cbar = plt.colorbar(CS,cax=cbar.ax)
+        cbar0 = plt.colorbar(CS,cax=cbar0.ax)
         if 'ticks_format' in figpar:
             if figpar['ticks_format']!=None:
-                cbar.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
+                cbar0.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
 
     if str(figpar['isocontour']) == 'True':
         CS2 = ax2.contour(CS, 
@@ -1737,7 +1745,7 @@ def plot_current_lines(file,
         colors="r")
         # Add the contour line levels to the colorbar
         if mode !='film':
-            cbar.add_lines(CS2)
+            cbar0.add_lines(CS2)
 
     #cf Matplotlib doc
     # https://matplotlib.org/stable/gallery/images_contours_and_fields/plot_streamplot.html#sphx-glr-gallery-images-contours-and-fields-plot-streamplot-py
@@ -1795,7 +1803,25 @@ def plot_current_lines(file,
                                                     start_points=start_points,
                                                     integration_direction=integration_direction,
                                                     )
-                    fig1.colorbar(current_lines.lines)
+                    
+                    # fig1.colorbar(current_lines.lines)
+                    try:
+                        cbarimag=cbar[1]
+                    except:
+                        cbarimag = None
+                    if mode !='film':
+                        cbarimag = fig1.colorbar(current_lines.lines)
+                        cbarimag.ax.set_ylabel(r""+figpar['streamplot_color'])
+                        if 'ticks_format' in figpar:
+                            if figpar['ticks_format']!=None:
+                                cbarimag.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
+                    else:
+                        cbarimag = plt.colorbar(current_lines.lines,cax=cbarimag.ax)
+                        if 'ticks_format' in figpar:
+                            if figpar['ticks_format']!=None:
+                                cbarimag.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
+
+
                 else:
                     current_lines = plt.streamplot(xp, yp, -Eus, -Evs, color=figpar['streamplot_color'], density=eval(figpar['density']),
                                                 linewidth=figpar['streamplot_lw'], 
@@ -1879,7 +1905,8 @@ def plot_current_lines(file,
         plt.close(fig1)
         return
 
-    return(fig1,ax2,cbar)
+    # return(fig1,ax2,cbar)
+    return(fig1,ax2,[cbar0,cbarimag])
 
 
 def  plot_wall(ax2, x_1D, y_1D, file, key_LS_wall,figpar,plotpar):
@@ -2747,7 +2774,12 @@ def python_movie_zoom_func(
 
     fig1,ax2 = init_fig(plotpar,figpar)
 
-    cbar=None
+    if 'streamplot_color' in figpar.keys():
+        # cbar=[None,None]
+        cbar=[]
+
+    else:
+        cbar=None
 
     with h5py.File(file_name, "r") as file:
 

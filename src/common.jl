@@ -824,6 +824,10 @@ function export_all()
     end
 end
 
+
+"""
+Here rows = rowvals(mat2)
+"""
 function mat_assign!(mat1, mat2)
     mat1.nzval .= 0.
     rows = rowvals(mat2)
@@ -838,6 +842,10 @@ function mat_assign!(mat1, mat2)
     return nothing
 end
 
+
+"""
+Here rows = rowvals(mat1)
+"""
 function mat_assign_T!(mat1, mat2)
     mat1.nzval .= 0.
     rows = rowvals(mat1)

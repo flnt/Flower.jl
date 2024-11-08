@@ -180,6 +180,8 @@ function run_forward!(
     
 
     iRe = 1.0 / num.Re
+
+    # CFL_sc is not a CFL, it is supposed to be the timestep divided by the cell volume
     CFL_sc = num.τ / num.Δ^2
 
     irho = 1.0
@@ -263,6 +265,7 @@ function run_forward!(
     tmp_vec_v0 = zeros(grid_v)
     tmp_vec_p = zeros(grid) 
     tmp_vec_p0 = zeros(grid) 
+    tmp_vec_p1 = zeros(grid) 
 
 
     if levelset
@@ -869,17 +872,19 @@ function run_forward!(
                
                     # phi_array=phL.phi_ele #do not transpose since python row major
                     
-                    compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
-            
-                    #store in us, vs instead of Eus, Evs
-                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,tmp_vec_p,tmp_vec_p0)
+                   
+                    # compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+                    compute_grad_phi_ele!(num, grid, grid_u, grid_v,grid_u.LS[end], grid_v.LS[end], phL, phS, op.opC_pL, op.opC_pS, elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p1,tmp_vec_p1) #TODO current
+
+                    # #store in us, vs instead of Eus, Evs
+                    # interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,tmp_vec_p,tmp_vec_p0)
     
-                    @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
-                    "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
-                    "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
-                    "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    C_NULL::Ptr{Cvoid})::Cint
+                    # @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
+                    # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+                    # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+                    # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # C_NULL::Ptr{Cvoid})::Cint
     
                     interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
             
@@ -1558,10 +1563,7 @@ function run_forward!(
 
                     #TODO update BC concentration
 
-                    # compute_grad_phi_ele!(grid, phL, grid.V, periodic_x, periodic_y) #TODO current
-                    compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
-
-                    # scal_magnitude
+                   
 
 
 
@@ -1577,12 +1579,28 @@ function run_forward!(
 
                     end 
 
-                    phL.i_current_mag .*= elec_cond # i=-κ∇ϕ here magnitude
+                    # compute_grad_phi_ele!(grid, phL, grid.V, periodic_x, periodic_y) #TODO current
+                    compute_grad_phi_ele!(num, grid, grid_u, grid_v, grid_u.LS[end], grid_v.LS[end], phL, phS, op.opC_pL, op.opC_pS, 
+                    elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p1,tmp_vec_p1) #TODO current
+
+                    # scal_magnitude
+
+                    # phL.i_current_mag .*= elec_cond # i=-κ∇ϕ here magnitude
+
+                    printstyled(color=:green, @sprintf "\n test grad")
 
                     compute_grad_p!(num,grid, grid_u, grid_v, phL.phi_eleD, op.opC_pL, op.opC_uL, op.opC_vL)
 
 
-            
+                    # #store in us, vs instead of Eus, Evs
+                    # interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,tmp_vec_p,tmp_vec_p0)
+
+                    # @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
+                    # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+                    # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+                    # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # C_NULL::Ptr{Cvoid})::Cint
 
                 end #electric_potential
 
@@ -1623,18 +1641,22 @@ function run_forward!(
 
 
                 #store in us, vs instead of Eus, Evs
-                interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,tmp_vec_p,tmp_vec_p0)
+                # interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,tmp_vec_p,tmp_vec_p0)
 
-                tmp_vec_p .*= elec_cond
-                tmp_vec_p0 .*= elec_cond
+                # printstyled(color=:red, @sprintf "\n test i current\n" )
+                # print("\n phi ",phL.phi_ele[64,127]," ",phL.phi_ele[64,128]," ",(phL.phi_ele[64,128]-phL.phi_ele[64,127])/grid.dx[64,128]," ",(phL.phi_ele[64,128]-phL.phi_ele[64,127])/grid.dx[64,127]*elec_cond[64,127], " cond ", elec_cond[64,127]," \n")
 
 
-                @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
-                "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
-                "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
-                "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
-                "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                C_NULL::Ptr{Cvoid})::Cint
+                # tmp_vec_p .*= elec_cond
+                # tmp_vec_p0 .*= elec_cond
+
+
+                # @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
+                # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+                # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # C_NULL::Ptr{Cvoid})::Cint
             
                 interpolate_grid_liquid!(grid,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
                     
@@ -1692,12 +1714,14 @@ function run_forward!(
 
         ####################################################################################################
 
-        print("\n test",electrolysis_phase_change_case, occursin("levelset",electrolysis_phase_change_case))
+        print("\n electrolysis_phase_change_case ",electrolysis_phase_change_case)
 
         if electrolysis && electrolysis_phase_change_case != "None"
             printstyled(color=:magenta, @sprintf "\n integrate_mass_flux_over_interface\n")
 
-            integrate_mass_flux_over_interface(num,grid,phL,op.opC_pL,1,mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
+            # @views integrate_mass_flux_over_interface(num,grid,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
+
+            @views integrate_mass_flux_over_interface_2(num,grid,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
 
             print("\n sum mass flux all levelsets (walls and interfaces alike) ", sum(mass_flux),"\n ")
         end
@@ -1755,24 +1779,27 @@ function run_forward!(
 
                         end #electrolysis_phase_change_case == "levelset"
 
-                        varnH2 = num.sum_mass_flux * num.diffusion_coeff[1] 
+                        if num.mass_flux == 0
+                            varnH2 = num.sum_mass_flux * num.diffusion_coeff[1] 
 
-                        new_nH2 = nH2 + varnH2 * num.τ
+                            new_nH2 = nH2 + varnH2 * num.τ
 
-                        print("\n varn ",varnH2 ," dt ", num.τ," dn ",varnH2 * num.τ, " sum ", num.sum_mass_flux)
-                        printstyled(color=:green, @sprintf "\n it %.5i Mole: %.2e dn %.2e new nH2 %.2e \n" num.current_i nH2 varnH2*num.τ new_nH2)
+                            print("\n varn ",varnH2 ," dt ", num.τ," dn ",varnH2 * num.τ, " sum ", num.sum_mass_flux)
+                            printstyled(color=:green, @sprintf "\n it %.5i Mole: %.2e dn %.2e new nH2 %.2e \n" num.current_i nH2 varnH2*num.τ new_nH2)
 
-                        if varnH2 < 0.0 
-                            # print(@sprintf "error nH2 %.2e dnH2 %.2e new nH2 %.2e\n" nH2-varnH2*num.τ varnH2*num.τ nH2 )
-                            @error ("error nH2")
-                            crashed = true
-                            new_nH2 = nH2
-                            print("wrong nH2 ")
-                            # println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
-                            return
-                        else
-                            nH2 = new_nH2
-                        end
+                            if varnH2 < 0.0 
+                                # print(@sprintf "error nH2 %.2e dnH2 %.2e new nH2 %.2e\n" nH2-varnH2*num.τ varnH2*num.τ nH2 )
+                                @error ("error nH2")
+                                crashed = true
+                                new_nH2 = nH2
+                                print("wrong nH2 ")
+                                # println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
+                                return
+                            else
+                                nH2 = new_nH2
+                            end
+
+                         end #num.mass_flux == 0
 
 
                     end
@@ -2575,20 +2602,23 @@ function run_forward!(
                     # phi_array=phL.phi_ele #do not transpose since python row major
                     
                     # Compute electrical current, interpolate velocity on scalar grid
-                    compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
-            
+                    # compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
 
-                    #store in us, vs instead of Eus, Evs
-                    interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,tmp_vec_p,tmp_vec_p0)
+                    #TODO compute_grad_phi_ele! iter 0
 
-                    #TODO i_current_mag need cond
+                    compute_grad_phi_ele!(num, grid, grid_u, grid_v, grid_u.LS[end], grid_v.LS[end], phL, phS, op.opC_pL, op.opC_pS, elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p1,tmp_vec_p1) #TODO current
 
-                    @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
-                    "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
-                    "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
-                    "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    C_NULL::Ptr{Cvoid})::Cint
+                    # #store in us, vs instead of Eus, Evs
+                    # interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,tmp_vec_p,tmp_vec_p0)
+
+                    # #TODO i_current_mag need cond
+
+                    # @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
+                    # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+                    # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+                    # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # C_NULL::Ptr{Cvoid})::Cint
 
                     # interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,Eus,Evs)
             

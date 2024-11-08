@@ -223,8 +223,10 @@ Example
 \\frac{\\partial c_{H_2}}{\\partial t} +  \\nabla \\cdot \\left(c_{H_2}\\mathbf{u}\\right)=D_{H_2} \\nabla^2 c_{H_2}
 ```
 
-Divergence: BxT * iMx * Hx[iLS] .+ ByT * iMy * Hy[iLS]
-
+Divergence
+```julia
+    BxT * iMx * Hx[iLS] .+ ByT * iMy * Hy[iLS]
+```
 """ 
 function scalar_transport!(num::Numerical{Float64, Int64},
     grid::Mesh{Flower.GridCC, Float64, Int64}, 
@@ -1039,17 +1041,12 @@ From update_free_surface_velocity and update_stefan_velocity
 function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, iLS, uD, vD, 
     periodic_x, periodic_y, Vmean, concentration_scalD, concentration_scal, diffusion_coeff_scal,concentration_scal_intfc, 
     electrolysis_phase_change_case,mass_flux)
-    @unpack MWH2,rho1,rho2=num
-    # @unpack χ,=opC
-    #TODO check sign 
-
 
     grid.V .= 0
-    factor = -(1.0/rho2-1.0/rho1).*diffusion_coeff_scal[1].*MWH2
-
     num.sum_mass_flux = 0.0
+    v_mean = 0.0
 
-    check_with_interpolation = true 
+    factor = -(1.0/num.rho2-1.0/num.rho1).*diffusion_coeff_scal[1].*num.MWH2
 
 
     if electrolysis_phase_change_case == "levelset"
@@ -1084,25 +1081,22 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
             # if grid.LS[2].u[II]>0.0 #second wall
                 # print("\n cells for free surface", II," x ",grid.x[II]," LS[iLS] ",grid.LS[iLS].u[II]," LS[end] ",grid.LS[end].u[II]," LS[2] ",grid.LS[2].u[II])
                 # grid.V[II] = mass_flux[II] * factor
-                num.sum_mass_flux += mass_flux[II]
-                #χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
-                #χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
-                #χ[iLS].diag .= sqrt.(vec(χx .+ χy))
 
-                χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
-                χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
+                if num.mass_flux == 0
+                    num.sum_mass_flux += mass_flux[II]
+                    #compute interface length
+                    χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
+                    χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
+                    intfc_length_cell = sqrt(χx + χy)
+                    intfc_length += intfc_length_cell
+    
+                    # intfc_length_cell !=0 since mixed cell
+    
+                    print("\n intfc_length_cell ", intfc_length_cell)
+    
+                    grid.V[II] = mass_flux[II] * factor / intfc_length_cell
+                elseif num.mass_flux == 1
 
-                intfc_length_cell = sqrt(χx + χy)
-                intfc_length += intfc_length_cell
-
-                # intfc_length_cell !=0 since mixed cell
-
-                print("\n intfc_length_cell ", intfc_length_cell)
-
-                grid.V[II] = mass_flux[II] * factor / intfc_length_cell
-
-                if check_with_interpolation
-                    
                     #TODO iLS or end grid.LS[iLS].geoL
 
                     dTL = 0.
@@ -1111,21 +1105,47 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
                         T_1, T_2 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, grid.LS[iLS].geoL.projection[II].point2, concentration_scal, II, periodic_x, periodic_y)
                         dTL = normal_gradient(grid.LS[iLS].geoL.projection[II].d1, grid.LS[iLS].geoL.projection[II].d2, T_1, T_2, concentration_scal_intfc)
                         printstyled(color=:cyan, @sprintf "\n T1 %.2e T2 %.2e \n" T_1 T_2 )
+                        if isnan(T_2)
+                            printstyled(color=:red, @sprintf "\n T2 NaN, resorting to other method \n")
+                            print("\n P2 ",grid.LS[iLS].geoL.projection[II].point2)
+
+
+                            T_1 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
+                            dTL = normal_gradient(grid.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
+                        end
                     else
                         T_1 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
                         dTL = normal_gradient(grid.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
                     end
                     # grid.V[II] = dTL #+ dTS
                     printstyled(color=:cyan, @sprintf "\n v %.2e v from int %.2e %.2e %.2e\n" grid.V[II] dTL*factor T_1 concentration_scal_intfc)
-                end
-
-            end
+                    
+                    grid.V[II] = dTL*factor 
+                    v_mean += grid.V[II] #TODO unit use same
+                    # printstyled(color=:red, @sprintf "\n TODO unit use same \n" )
+                
+                # elseif num.mass_flux == 2
+                    # χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
+                    # χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
+                    # intfc_length_cell = sqrt(χx + χy)
+                    # intfc_length += intfc_length_cell
+                
+                end #num.mass_flux
+            
+            end #grid.LS[end].iso[II] != 15.0
         end 
         if Vmean
-            v_mean = factor * num.sum_mass_flux /intfc_length
+            if num.mass_flux == 0
+                v_mean = factor * num.sum_mass_flux /intfc_length
+
+            # elseif num.mass_flux == 1
+            #     v_mean = factor * num.sum_mass_flux /intfc_length
+            end 
+
             @inbounds for II in grid.LS[iLS].MIXED
                 grid.V[II] = v_mean
             end 
+
             printstyled(color=:cyan, @sprintf "\n v_mean %.2e CFL %.2e dt %.2e dx %.2e\n" v_mean v_mean*num.dt0/grid.dx[1,1] num.dt0 grid.dx[1,1])
             # else
         #     grid.V ./= intfc_length
@@ -1136,13 +1156,15 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
         # printstyled(color=:magenta, @sprintf "\n test sign velocity\n" )
         # grid.V.*=-1.0
 
-        printstyled(color=:cyan, @sprintf "\n flux %.2e factor %.2e intfc_length %.2e\n" num.sum_mass_flux factor intfc_length)
+        # printstyled(color=:cyan, @sprintf "\n flux %.2e factor %.2e intfc_length %.2e\n" num.sum_mass_flux factor intfc_length)
 
+        # printstyled(color=:magenta, @sprintf "\n sum_intfc %.2e sum_intfc/intfc_length %.2e sum all cells %.2e \n" num.sum_mass_flux num.sum_mass_flux/intfc_length sum(mass_flux))
 
-        printstyled(color=:magenta, @sprintf "\n sum_intfc %.2e sum_intfc/intfc_length %.2e sum all cells %.2e \n" num.sum_mass_flux num.sum_mass_flux/intfc_length sum(mass_flux))
+        # printstyled(color=:red, @sprintf "\n test phase-change velocity %.2e intfc_length %.2e πR %.2e\n" sum(mass_flux)*factor/intfc_length intfc_length π*num.R)
+        # printstyled(color=:magenta, @sprintf "\n phase-change velocity %.2e intfc_length %.2e πR %.2e\n" num.sum_mass_flux*factor/intfc_length intfc_length π*num.R)
 
-        printstyled(color=:red, @sprintf "\n test phase-change velocity %.2e intfc_length %.2e πR %.2e\n" sum(mass_flux)*factor/intfc_length intfc_length π*num.R)
-        printstyled(color=:magenta, @sprintf "\n phase-change velocity %.2e intfc_length %.2e πR %.2e\n" num.sum_mass_flux*factor/intfc_length intfc_length π*num.R)
+        # printstyled(color=:magenta, @sprintf "\n intfc_length %.2e πR %.2e\n" intfc_length π*num.R)
+
 
         i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, grid.LS[iLS], grid.ind.inside, periodic_x, periodic_y)
         field_extension!(grid, grid.LS[iLS].u, grid.V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
@@ -1226,6 +1248,7 @@ end
 
 # Arguments
 - `grid`: scalar grid
+eps parameter TODO 
 """
 function interpolate_grid_liquid!( grid::Mesh{Flower.GridCC, Float64, Int64},
     grid_u::Mesh{Flower.GridFCx, Float64, Int64},
@@ -1269,6 +1292,219 @@ function interpolate_grid_liquid!( grid::Mesh{Flower.GridCC, Float64, Int64},
     #     vs[:,j,i]=(v[:,j,i]+v[:,j+1,i])/2
     # end
     # end
+end
+
+
+"""Interpolate velocity on scalar grid for regular grids for vizualisation
+
+# Arguments
+- `grid`: scalar grid
+eps parameter TODO 
+"""
+function interpolate_grid_solid!( grid::Mesh{Flower.GridCC, Float64, Int64},
+    grid_u::Mesh{Flower.GridFCx, Float64, Int64},
+    grid_v::Mesh{Flower.GridFCy, Float64, Int64},
+    u::Array{Float64, 2},
+    v::Array{Float64, 2},
+    us::Array{Float64, 2},
+    vs::Array{Float64, 2})
+    
+    #TODO no need to reset?
+    # us = p .*0
+    # vs = p .*0
+    LS_u =grid_u.LS[1]
+    LS_v = grid_v.LS[1]
+    us .= (
+        (u[:,2:end] .* LS_u.geoS.dcap[:,2:end,6] .+ 
+        u[:,1:end-1] .* LS_u.geoS.dcap[:,1:end-1,6]) ./ 
+        (LS_u.geoS.dcap[:,1:end-1,6] .+ LS_u.geoS.dcap[:,2:end,6] .+ 1e-8 )
+    )
+    vs .= (
+        (v[2:end,:] .* LS_v.geoS.dcap[2:end,:,7] .+ 
+        v[1:end-1,:] .* LS_v.geoS.dcap[1:end-1,:,7]) ./
+        (LS_v.geoS.dcap[1:end-1,:,7] .+ LS_v.geoS.dcap[2:end,:,7] .+ 1e-8 )
+    )
+
+    # phL.p .+= (
+    #     (phS.u[:,2:end].^2.0 .* LS_u.geoS.dcap[:,2:end,6] .+ 
+    #     phS.u[:,1:end-1].^2.0 .* LS_u.geoS.dcap[:,1:end-1,6]) ./ 
+    #     (LS_u.geoS.dcap[:,1:end-1,6] .+ LS_u.geoS.dcap[:,2:end,6] .+ 1e-8 )
+    # )
+    # phL.p .+= (
+    #     (phS.v[2:end,:].^2.0 .* LS_v.geoS.dcap[2:end,:,7] .+ 
+    #     phS.v[1:end-1,:].^2.0 .* LS_v.geoS.dcap[1:end-1,:,7]) ./
+    #     (LS_v.geoS.dcap[1:end-1,:,7] .+ LS_v.geoS.dcap[2:end,:,7] .+ 1e-8 )
+    # )
+
+
+    # for j = 1:gp.ny
+    # for i = 1:gp.nx
+    #     us[:,j,i]=(u[:,j,i]+u[:,j,i+1])/2
+    #     vs[:,j,i]=(v[:,j,i]+v[:,j+1,i])/2
+    # end
+    # end
+end
+
+
+
+"""Interpolate velocity on scalar grid for regular grids for vizualisation
+
+# Arguments
+- `grid`: scalar grid
+eps parameter TODO 
+"""
+function interpolate_grid_liquid_solid!(num::Numerical{Float64, Int64}, grid::Mesh{Flower.GridCC, Float64, Int64},
+    LS_u::Levelset{Float64, Int64},
+    LS_v::Levelset{Float64, Int64},
+    u::AbstractArray{Float64, 2},
+    v::AbstractArray{Float64, 2},
+    us::Array{Float64, 2},
+    vs::Array{Float64, 2})
+    
+    #TODO no need to reset?
+    us .= 0.0
+    vs .= 0.0
+
+    for j in 1:grid.ny
+        for i in 1:grid.nx
+
+            us[j,i] = (u[j,i+1] * LS_u.geoL.dcap[j,i+1,6] + u[j,i] * LS_u.geoL.dcap[j,i,6] + u[j,i+1] * LS_u.geoS.dcap[j,i+1,6] + u[j,i] * LS_u.geoS.dcap[j,i,6] ) / (LS_u.geoL.dcap[j,i+1,6] + LS_u.geoL.dcap[j,i,6] + LS_u.geoS.dcap[j,i+1,6] + LS_u.geoS.dcap[j,i,6])
+
+            if us[j,i] !==1.0
+                print("\n j",j," i ",i, " us[j,i] ",us[j,i])
+            end
+
+
+            vs[j,i] = (v[j+1,i] * LS_v.geoL.dcap[j+1,i,7] + v[j,i] * LS_v.geoL.dcap[j,i,7] + v[j+1,i] * LS_v.geoS.dcap[j+1,i,7] + v[j,i] * LS_v.geoS.dcap[j,i,7] ) / (LS_v.geoL.dcap[j+1,i,7] + LS_v.geoL.dcap[j,i,7] + LS_v.geoS.dcap[j+1,i,7] + LS_v.geoS.dcap[j,i,7])
+
+            if vs[j,i] !==1.0
+                print("\n j",j," i ",i, " us[j,i] ",vs[j,i])
+            end
+
+        end
+    end 
+
+   
+end
+
+
+"""Interpolate velocity on scalar grid for regular grids for vizualisation
+
+# Arguments
+- `grid`: scalar grid
+eps parameter TODO 
+"""
+function interpolate_grid_liquid_2!(num::Numerical{Float64, Int64}, grid::Mesh{Flower.GridCC, Float64, Int64},
+    LS_u::Levelset{Float64, Int64},
+    LS_v::Levelset{Float64, Int64},
+    u::AbstractArray{Float64, 2},
+    v::AbstractArray{Float64, 2},
+    us::Array{Float64, 2},
+    vs::Array{Float64, 2})
+    
+    #TODO no need to reset?
+    us .= 0.0
+    vs .= 0.0
+
+    for j in 1:grid.ny
+        for i in 1:grid.nx
+
+            if LS_u.geoL.dcap[j,i,5] >num.epsilon_vol
+                us[j,i] = (u[j,i+1] * LS_u.geoL.dcap[j,i+1,6] + u[j,i] * LS_u.geoL.dcap[j,i,6]) / (LS_u.geoL.dcap[j,i+1,6] + LS_u.geoL.dcap[j,i,6])
+
+                # vs[j,i] = (v[j+1,i] * LS_v.geoL.dcap[j+1,i,7] + v[j,i] * LS_v.geoL.dcap[j,i,7]) / (LS_v.geoL.dcap[j+1,i,7] + LS_v.geoL.dcap[j,i,7])
+
+            end
+
+            if LS_v.geoL.dcap[j,i,5] >num.epsilon_vol
+                # us[j,i] = (u[j,i+1] * LS_u.geoL.dcap[j,i+1,6] + u[j,i] * LS_u.geoL.dcap[j,i,6]) / (LS_u.geoL.dcap[j,i+1,6] + LS_u.geoL.dcap[j,i,6])
+
+                vs[j,i] = (v[j+1,i] * LS_v.geoL.dcap[j+1,i,7] + v[j,i] * LS_v.geoL.dcap[j,i,7]) / (LS_v.geoL.dcap[j+1,i,7] + LS_v.geoL.dcap[j,i,7])
+
+            end
+
+            # if i==64
+            #     print("\n j ",j," i ",i, " LS_u.geoL.dcap[j,i,5] ",LS_u.geoL.dcap[j,i,5]," LS_u.geoL.dcap[j,i+1,6] ",LS_u.geoL.dcap[j,i+1,6], " us ",us[j,i]," u ",u[j,i]," u ",u[j,i+1]    )
+            # end
+
+            # if (tmp_vec_p[j,i] != 1.0) 
+            #     print("\n j",j," i ",i, " tmp_vec_p ",tmp_vec_p[j,i]," tmp_vec_p0 ",tmp_vec_p0[j,i])
+            #     print("\n LS_u.geoL.dcap[:,2:end,6] ",gu.LS[1].geoL.dcap[j,i,6]," ",gu.LS[1].geoL.dcap[j,i+1,6])
+            # end
+
+        end
+    end 
+
+    # us .= (
+    #     (u[:,2:end] .* LS_u.geoL.dcap[:,2:end,6] .+ 
+    #     u[:,1:end-1] .* LS_u.geoL.dcap[:,1:end-1,6]) ./ 
+    #     (LS_u.geoL.dcap[:,1:end-1,6] .+ LS_u.geoL.dcap[:,2:end,6])
+    # )
+    # vs .= (
+    #     (v[2:end,:] .* LS_v.geoL.dcap[2:end,:,7] .+ 
+    #     v[1:end-1,:] .* LS_v.geoL.dcap[1:end-1,:,7]) ./
+    #     (LS_v.geoL.dcap[1:end-1,:,7] .+ LS_v.geoL.dcap[2:end,:,7])
+    # )
+
+    # phL.p .+= (
+    #     (phS.u[:,2:end].^2.0 .* LS_u.geoS.dcap[:,2:end,6] .+ 
+    #     phS.u[:,1:end-1].^2.0 .* LS_u.geoS.dcap[:,1:end-1,6]) ./ 
+    #     (LS_u.geoS.dcap[:,1:end-1,6] .+ LS_u.geoS.dcap[:,2:end,6] .+ 1e-8 )
+    # )
+    # phL.p .+= (
+    #     (phS.v[2:end,:].^2.0 .* LS_v.geoS.dcap[2:end,:,7] .+ 
+    #     phS.v[1:end-1,:].^2.0 .* LS_v.geoS.dcap[1:end-1,:,7]) ./
+    #     (LS_v.geoS.dcap[1:end-1,:,7] .+ LS_v.geoS.dcap[2:end,:,7] .+ 1e-8 )
+    # )
+
+
+    # for j = 1:gp.ny
+    # for i = 1:gp.nx
+    #     us[:,j,i]=(u[:,j,i]+u[:,j,i+1])/2
+    #     vs[:,j,i]=(v[:,j,i]+v[:,j+1,i])/2
+    # end
+    # end
+end
+
+"""Interpolate velocity on scalar grid for regular grids for vizualisation
+
+# Arguments
+- `grid`: scalar grid
+eps parameter TODO 
+"""
+function interpolate_grid_solid_2!(num::Numerical{Float64, Int64}, grid::Mesh{Flower.GridCC, Float64, Int64},
+    LS_u::Levelset{Float64, Int64},
+    LS_v::Levelset{Float64, Int64},
+    u::AbstractArray{Float64, 2},
+    v::AbstractArray{Float64, 2},
+    us::Array{Float64, 2},
+    vs::Array{Float64, 2})
+    
+    #TODO no need to reset?
+    # us .= 0.0
+    # vs .= 0.0
+
+    for j in 1:grid.ny
+        for i in 1:grid.nx
+
+            if LS_u.geoS.dcap[j,i,5] >num.epsilon_vol
+                us[j,i] = (u[j,i+1] * LS_u.geoS.dcap[j,i+1,6] + u[j,i] * LS_u.geoS.dcap[j,i,6]) / (LS_u.geoS.dcap[j,i+1,6] + LS_u.geoS.dcap[j,i,6])
+
+                # vs[j,i] = (v[j+1,i] * LS_v.geoS.dcap[j+1,i,7] + v[j,i] * LS_v.geoS.dcap[j,i,7]) / (LS_v.geoS.dcap[j+1,i,7] + LS_v.geoS.dcap[j,i,7])
+
+            end
+
+            if LS_v.geoS.dcap[j,i,5] >num.epsilon_vol
+                # us[j,i] = (u[j,i+1] * LS_u.geoS.dcap[j,i+1,6] + u[j,i] * LS_u.geoS.dcap[j,i,6]) / (LS_u.geoS.dcap[j,i+1,6] + LS_u.geoS.dcap[j,i,6])
+
+                vs[j,i] = (v[j+1,i] * LS_v.geoS.dcap[j+1,i,7] + v[j,i] * LS_v.geoS.dcap[j,i,7]) / (LS_v.geoS.dcap[j+1,i,7] + LS_v.geoS.dcap[j,i,7])
+
+            end
+
+        end
+    end 
+
+    
 end
 
 
@@ -1388,14 +1624,14 @@ function print_electrolysis_statistics(num::Numerical{Float64, Int64},
     maxTL = maximum(phL.TD)
     moyTL = mean(phL.TD)
 
-    minphi_eleL = minimum(phL.phi_eleD)
-    miniL=minimum(phL.i_current_mag)
+    # minphi_eleL = minimum(phL.phi_eleD)
+    # miniL=minimum(phL.i_current_mag)
 
-    maxphi_eleL = maximum(phL.phi_eleD)
-    maxiL=maximum(phL.i_current_mag)
+    # maxphi_eleL = maximum(phL.phi_eleD)
+    # maxiL=maximum(phL.i_current_mag)
 
-    moyphi_eleL = mean(phL.phi_eleD)
-    moyiL=mean(phL.i_current_mag)
+    # moyphi_eleL = mean(phL.phi_eleD)
+    # moyiL=mean(phL.i_current_mag)
 
     # print("$(@sprintf("norm(cH2) %.6e", normscal1L))\t$(@sprintf("norm(KOH) %.6e", normscal2L))\t$(@sprintf("norm(H2O) %.6e", normscal3L))\n")
     # print("$(@sprintf("norm(phi_ele) %.6e", normphi_eleL))\t$(@sprintf("norm(T) %.6e", normTL))\t$(@sprintf("norm(i) %.6e", normiL))\n")
@@ -1408,9 +1644,10 @@ function print_electrolysis_statistics(num::Numerical{Float64, Int64},
     print("$(@sprintf("max(cH2) %.6e", maxscal1L))\t$(@sprintf("max(KOH) %.6e", maxscal2L))\t$(@sprintf("max(H2O) %.6e", maxscal3L))\n")
     print("$(@sprintf("moy(cH2) %.6e", moyscal1L))\t$(@sprintf("moy(KOH) %.6e", moyscal2L))\t$(@sprintf("moy(H2O) %.6e", moyscal3L))\n")
 
-    print("$(@sprintf("min(phi_ele) %.6e", minphi_eleL))\t$(@sprintf("min(T) %.6e", minTL))\t$(@sprintf("min(i) %.6e", miniL))\n")
-    print("$(@sprintf("max(phi_ele) %.6e", maxphi_eleL))\t$(@sprintf("max(T) %.6e", maxTL))\t$(@sprintf("max(i) %.6e", maxiL))\n")
-    print("$(@sprintf("moy(phi_ele) %.6e", moyphi_eleL))\t$(@sprintf("moy(T) %.6e", moyTL))\t$(@sprintf("moy(i) %.6e", moyiL))\n")
+    # print("$(@sprintf("min(phi_ele) %.6e", minphi_eleL))\t$(@sprintf("min(T) %.6e", minTL))\t$(@sprintf("min(i) %.6e", miniL))\n")
+    # print("$(@sprintf("max(phi_ele) %.6e", maxphi_eleL))\t$(@sprintf("max(T) %.6e", maxTL))\t$(@sprintf("max(i) %.6e", maxiL))\n")
+    # print("$(@sprintf("moy(phi_ele) %.6e", moyphi_eleL))\t$(@sprintf("moy(T) %.6e", moyTL))\t$(@sprintf("moy(i) %.6e", moyiL))\n")
+
     # print("mean cH2 interface",mean(veci(phL.trans_scalD[:,1],grid,2)))
     # print("mean cH2 interface",average!(reshape(veci(phL.trans_scalD[:,iscal],grid,2), grid), grid, LS[1].geoL, num))
 
@@ -1589,179 +1826,276 @@ end
 #     ∇ϕ_y .+= opC_v.Gy[iLS] * veci(phi_eleD,grid,iLS+1)
 # end
 
+# function fill_reshape(a,b)
 
-
-
-# """
-#   Compute mass flux
-
-#   Mass flux error: need to pay attention to sign of levelsets describing walls (do not compute mass flux at interface outside domain)
-# """
-# function integrate_mass_flux_over_interface(num::Numerical{Float64, Int64},
-#     grid::Mesh{Flower.GridCC, Float64, Int64},
-#     phL::Phase{Float64},
-#     opC_pL::Operators{Float64, Int64}, 
-#     iscal::Int64,
-#     mass_flux_vec1::Array{Float64, 1},
-#     mass_flux_vecb::Array{Float64, 1}, 
-#     mass_flux_veci::Array{Float64, 1},
-#     mass_flux::Array{Float64, 2}
-#     )
-
-#     @unpack  χ = opC_pL
-#     @unpack nLS = num
-#     #Liquid phase
-#     @unpack trans_scalD = phL
-#     if iscal !=0
-#         scalD= trans_scalD[:,iscal] #H2 species
-#     else
-#         @unpack phi_eleD = phL
-#         scalD = phi_eleD
+#     # print("\n size ",size(a)," ",size(a,1)," ",size(a)[1])
+#     for j in 1:size(a,1)
+#         for i in 1:size(a,2)
+#             a[j,i] = b[(j-1)*size(a,1)+i]
+#         end
 #     end
+# end
 
-#     #TODO overwriting chi
-
-#     opC_p = opC_pL
-
-#     iLStmp=1
-
-#     #TODO computes also in wall described  by LS
-
-#     # mass_flux_vec1 = fnzeros(grid,num)
-#     # mass_flux_vecb = fnzeros(grid,num)
-#     # mass_flux_veci = fnzeros(grid,num)
-
-#     # mass_flux_vec1 = fzeros(grid)
-#     # mass_flux_vecb = fzeros(grid)
-#     # mass_flux_veci = fzeros(grid)
-
-
-#     mass_flux_vec1 .= 0.0
-#     mass_flux_vecb .= 0.0
-#     mass_flux_veci .= 0.0
-#     mass_flux .= 0.0
-
-
-#     # print(size(mass_flux_vec1),"\n")
-#     # print(size(mass_flux_vecb),"\n")
-#     # print(size(mass_flux_veci),"\n")
-
-#     mass_flux_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
-#     mass_flux_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
-
-#     # printstyled(color=:red, @sprintf "\n vec1 x y %.2e %.2e\n" sum(opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid)) sum(opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)))
-
-#     # print(size(mass_flux_vec1),"\n")
-#     # print(size(mass_flux_vecb),"\n")
-#     # print(size(mass_flux_veci),"\n")
-
-#     # print(size(opC_p.HxT[1] * opC_p.iMx * opC_p.Hx[1] * veci(scalD,grid,1+1)),"\n")
-
-
-#     for iLS in 1:nLS
-#         mass_flux_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
-#         mass_flux_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+# function fill_reshapenew(a,b,nx,ny)
+#     for j in 1:ny
+#         for i in 1:nx
+#             a[j,i] = b[(j-1)*ny+i]
+#         end
 #     end
-
-#     # mass_flux = mass_flux_vec1 .+ mass_flux_vecb .+ mass_flux_veci
-
-#     # mass_flux_2 = reshape(mass_flux,grid)
-#     mass_flux_vec1_2 = reshape(mass_flux_vec1,grid)
-#     mass_flux_vecb_2 = reshape(mass_flux_vecb,grid)
-#     mass_flux_veci_2 = reshape(mass_flux_veci,grid)
-
-#     mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
-
-#     print("\n sum mass flux all levelsets (walls and interfaces alike) ", sum(mass_flux),"\n ")
-
-#     # iplot = 1
-#     # for jplot in 1:grid.ny
-#     #     #for iplot in 1:grid.nx
-#     #     II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-#     #     pII = lexicographic(II, grid.ny)
-
-#     #     if mass_flux_vec1_2[II]>0
-#     #         printstyled(color=:green, @sprintf "\n j %.5i m %.2e HxT %.2e\n" jplot mass_flux_vec1_2[II] opC_p.HxT[iLStmp][II])
-#     #         printstyled(color=:red, @sprintf "\n iMx %.10e iMy %.10e \n" opC_p.iMy.diag[pII] opC_p.iMy.diag[pII] )
-#     #         print("\n B ", II," ",opC_p.Bx[pII,pII]," ",opC_p.BxT[pII,pII])
-#     #     end
-
-#     # end
-
-
-#     # iplot=1
-#     # jplot = 59
-#     # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-#     # pII = lexicographic(II, grid.ny)
-#     # printstyled(color=:magenta, @sprintf "\n j %.5i m %.2e HxT %.2e HyT %.2e Bx %.2e By %.2e iMx %.10e iMy %.10e\n" jplot mass_flux_vec1_2[II] opC_p.HxT[iLStmp][II] opC_p.HyT[iLStmp][II] opC_p.Bx[pII,pII] opC_p.By[pII,pII] opC_p.iMy.diag[pII] opC_p.iMy.diag[pII])
-
-#     ######################################################################################
-
-
-#     # Matrices for interior BCs
-#     # for iLS in 1:num.nLS
-#     #     χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
-#     #     χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
-#     #     χ[iLS].diag .= sqrt.(vec(χx .+ χy))
-#     # end
-
-#     # χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
-#     # χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
-#     # #     χ[iLS].diag .= sqrt.(vec(χx .+ χy))
-#     # radial_flux_surf = mass_flux_2 ./ sqrt.(vec(χx .+ χy))
-#     # # radial_flux_surf = mass_flux_2 ./ χ[1]
-
-#     # printstyled(color=:green, @sprintf "\n Radial flux: %.2e \n" radial_flux_surf)
-     
-
-#     if num.io_pdi>0
-#         printstyled(color=:magenta, @sprintf "\n PDI write_mass_flux %.5i \n" num.current_i)
-
-#         ######################################################################################
-#         #TODO careful : nstep needs to be updated beforehand
-#         @ccall "libpdi".PDI_multi_expose("write_mass_flux"::Cstring,
-#         # "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
-#         # "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
-#         "mass_flux"::Cstring, mass_flux::Ptr{Cdouble}, PDI_OUT::Cint,
-#         "mass_flux_bulk"::Cstring, mass_flux_vec1_2::Ptr{Cdouble}, PDI_OUT::Cint,
-#         "mass_flux_border"::Cstring, mass_flux_vecb_2::Ptr{Cdouble}, PDI_OUT::Cint,
-#         "mass_flux_intfc"::Cstring, mass_flux_veci_2::Ptr{Cdouble}, PDI_OUT::Cint,
-#         # "Bx"::Cstring, opC_p.Bx::Ptr{Cdouble}, PDI_OUT::Cint,
-#         # "By"::Cstring, opC_p.By::Ptr{Cdouble}, PDI_OUT::Cint,
-#         # "HxT"::Cstring, opC_p.HxT::Ptr{Cdouble}, PDI_OUT::Cint,
-#         # "HyT"::Cstring, opC_p.HyT::Ptr{Cdouble}, PDI_OUT::Cint,
-#         C_NULL::Ptr{Cvoid})::Cvoid
-
-#         # @ccall "libpdi".PDI_multi_expose("write_mass_flux"::Cstring,
-#         # "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
-#         # "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
-#         # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
-#         # "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
-#         # "levelset_p"::Cstring, LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-#         # "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-#         # "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-#         # "trans_scal_1D"::Cstring, phL.trans_scalD::Ptr{Cdouble}, PDI_OUT::Cint,
-#         # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-#         # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
-#         # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
-#         # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-#         # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
-#         # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
-#         # C_NULL::Ptr{Cvoid})::Cvoid
-#     end #if num.io_pdi>0
-
-#     # return mass_flux_2, mass_flux_vec1_2, mass_flux_vecb_2, mass_flux_veci_2
-#     # return 
-
-#     print("\n sum mass flux ", sum(mass_flux),"\n ")
-
 # end
 
 
+# function fill_reshape2(a,b)
+
+#     # print("\n size ",size(a)," ",size(a,1)," ",size(a)[1])
+#     size1,size2 = size(a)
+#     # size2 = size(a,2)
+#     for j in 1:size1
+#         for i in 1:size2
+#             a[j,i] = b[(j-1)*size1+i]
+#         end
+#     end
+# end
+
+# function fill_reshape2(a,b)
+
+#     # print("\n size ",size(a)," ",size(a,1)," ",size(a)[1])
+#     size1,size2 = size(a)
+#     # size2 = size(a,2)
+#     for j in 1:size1 #with threads
+#         @views a[j,:] = b[(j-1)*size1+1:j*size1]
+#         # for i in 1:size2
+#         #     a[j,i] = b[(j-1)*size1+i]
+#         # end
+#     end
+# end
+
 """
-  Compute norm of gradient for exchange current
+  Compute norm of gradient for exchange current 
+    phL.i_current_mag is interpolated
+    gradient is cell-averaged
 """
 function compute_grad_phi_ele!(num::Numerical{Float64, Int64},
+    grid::Mesh{Flower.GridCC, Float64, Int64},
+    grid_u::Mesh{Flower.GridFCx, Float64, Int64},
+    grid_v::Mesh{Flower.GridFCy, Float64, Int64},
+    LS_u::Levelset{Float64, Int64},
+    LS_v::Levelset{Float64, Int64},
+    phL::Phase{Float64},
+    phS::Phase{Float64}, 
+    opC_pL::Operators{Float64, Int64}, 
+    opC_pS::Operators{Float64, Int64},
+    elec_cond::Array{Float64, 2},
+    tmp_vec_u::Array{Float64, 2},
+    tmp_vec_v::Array{Float64, 2},
+    tmp_vec_p::Array{Float64, 2},
+    tmp_vec_p0::Array{Float64, 2},
+    tmp_vec_p1::Array{Float64, 2},
+    )
+    
+    @unpack nLS = num
+
+    # LS =gp.LS[1]
+
+    #TODO different way to do it?
+
+    #Liquid phase
+    @unpack phi_eleD = phL
+    opC_p = opC_pL
+
+
+    tmp_vec_p1 .= 0.0
+
+
+    # mass_flux_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
+    # mass_flux_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+
+    # for iLS in 1:nLS
+    #     mass_flux_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+    #     mass_flux_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+    # end
+
+ 
+    # mass_flux_vec1_2 = reshape(mass_flux_vec1,grid)
+    # mass_flux_vecb_2 = reshape(mass_flux_vecb,grid)
+    # mass_flux_veci_2 = reshape(mass_flux_veci,grid)
+
+    # mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
+
+
+    ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(phi_eleD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(phi_eleD,grid)
+    ∇ϕ_y = opC_p.iMy * opC_p.By * vec1(phi_eleD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(phi_eleD,grid)
+
+    for iLS in 1:nLS
+        ∇ϕ_x .+= opC_p.iMx * opC_p.Hx[iLS] * veci(phi_eleD,grid,iLS+1)
+        ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(phi_eleD,grid,iLS+1)
+    end
+
+    tmp_vec_u = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    tmp_vec_v = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+   
+
+    # tmp_vec_u .= grd_x
+    # tmp_vec_v .= grd_y
+
+    #store in us, vs instead of Eus, Evs
+    # interpolate_grid_liquid!(grid,grid_u,grid_v,tmp_vec_u, tmp_vec_v ,tmp_vec_p,tmp_vec_p0)
+
+    interpolate_grid_liquid_2!(num, grid, LS_u, LS_v, tmp_vec_u, tmp_vec_v, tmp_vec_p, tmp_vec_p0)
+
+    
+    @ccall "libpdi".PDI_multi_expose("write_data_elec_ix_iy"::Cstring,
+    "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+    "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+    # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+    "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+    C_NULL::Ptr{Cvoid})::Cint
+
+    # tmp_vec_p1 .= (
+    #     (tmp_vec_u[:,2:end].^2.0 .* LS_u.geoL.dcap[:,2:end,6] .+ 
+    #     tmp_vec_u[:,1:end-1].^2.0 .* LS_u.geoL.dcap[:,1:end-1,6]) ./ 
+    #     (LS_u.geoL.dcap[:,1:end-1,6] .+ LS_u.geoL.dcap[:,2:end,6])
+    # )
+    # tmp_vec_p1 .+= (
+    #     (tmp_vec_v[2:end,:].^2.0 .* LS_v.geoL.dcap[2:end,:,7] .+ 
+    #     tmp_vec_v[1:end-1,:].^2.0 .* LS_v.geoL.dcap[1:end-1,:,7]) ./
+    #     (LS_v.geoL.dcap[1:end-1,:,7] .+ LS_v.geoL.dcap[2:end,:,7])
+    # )
+
+    for j in 1:grid.ny
+        for i in 1:grid.nx
+
+            if LS_u.geoL.dcap[j,i,5] >num.epsilon_vol
+                tmp_vec_p1[j,i] += (tmp_vec_u[j,i+1]^2.0 * LS_u.geoL.dcap[j,i+1,6] + tmp_vec_u[j,i]^2.0 * LS_u.geoL.dcap[j,i,6]) / (LS_u.geoL.dcap[j,i+1,6] + LS_u.geoL.dcap[j,i,6])
+
+                tmp_vec_p1[j,i] += (tmp_vec_v[j+1,i]^2.0 * LS_v.geoL.dcap[j+1,i,7] + tmp_vec_v[j,i]^2.0 * LS_v.geoL.dcap[j,i,7]) / (LS_v.geoL.dcap[j+1,i,7] + LS_v.geoL.dcap[j,i,7])
+
+                try
+                    tmp_vec_p1[j,i] = sqrt(tmp_vec_p1[j,i])
+                catch e
+                    print("\n i j liq ",i," ",j," ", tmp_vec_p1[j,i])
+                    print(e)
+                end
+
+            end
+
+        end
+    end 
+
+
+    #Solid phase
+    @unpack phi_eleD = phS
+
+    opC_p = opC_pS
+
+    ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(phi_eleD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(phi_eleD,grid)
+    ∇ϕ_y = opC_p.iMy * opC_p.By * vec1(phi_eleD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(phi_eleD,grid)
+
+    for iLS in 1:nLS
+        ∇ϕ_x .+= opC_p.iMx * opC_p.Hx[iLS] * veci(phi_eleD,grid,iLS+1)
+        ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(phi_eleD,grid,iLS+1)
+    end
+
+    # grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    # grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+    tmp_vec_u = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    tmp_vec_v = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+    #Output everything to phL
+
+    # phS.i_current_mag .= (
+    #     (grd_x[:,2:end].^2.0 .* LS_u.geoS.dcap[:,2:end,6] .+ 
+    #     grd_x[:,1:end-1].^2.0 .* LS_u.geoS.dcap[:,1:end-1,6]) ./ 
+    #     (LS_u.geoS.dcap[:,1:end-1,6] .+ LS_u.geoS.dcap[:,2:end,6] + eps_den )
+    # )
+    # phS.i_current_mag .+= (
+    #     (grd_y[2:end,:].^2.0 .* LS_v.geoS.dcap[2:end,:,7] .+ 
+    #     ph.v[1:end-1,:].^2.0 .* LS_v.geoS.dcap[1:end-1,:,7]) ./
+    #     (LS_v.geoS.dcap[1:end-1,:,7] .+ LS_v.geoS.dcap[2:end,:,7] + eps_den )
+    # )
+
+    # tmp_vec_p1 .+= (
+    #     (tmp_vec_u[:,2:end].^2.0 .* LS_u.geoS.dcap[:,2:end,6] .+ 
+    #     tmp_vec_u[:,1:end-1].^2.0 .* LS_u.geoS.dcap[:,1:end-1,6]) ./ 
+    #     (LS_u.geoS.dcap[:,1:end-1,6] .+ LS_u.geoS.dcap[:,2:end,6])
+    # )
+    # # #Store also S value or reset 0
+    # tmp_vec_p1 .+= (
+    #     (tmp_vec_v[2:end,:].^2.0 .* LS_v.geoS.dcap[2:end,:,7] .+ 
+    #     tmp_vec_v[1:end-1,:].^2.0 .* LS_v.geoS.dcap[1:end-1,:,7]) ./
+    #     (LS_v.geoS.dcap[1:end-1,:,7] .+ LS_v.geoS.dcap[2:end,:,7] )
+    # )
+    
+    # for j in 1:grid.ny
+    #     for i in 1:grid.nx
+
+    #         if LS_u.geoS.dcap[j,i,5] >num.epsilon_vol
+    #             print("\n test solid ",tmp_vec_p1[j,i]," ", (tmp_vec_u[j,i+1]^2.0 * LS_u.geoS.dcap[j,i+1,6] + tmp_vec_u[j,i]^2.0 * LS_u.geoS.dcap[j,i,6]) / (LS_u.geoS.dcap[j,i+1,6] + LS_u.geoS.dcap[j,i,6])," ", (tmp_vec_v[j+1,i]^2.0 * LS_v.geoS.dcap[j+1,i,7] + tmp_vec_v[j,i]^2.0 * LS_v.geoS.dcap[j,i,7]) / (LS_v.geoS.dcap[j+1,i,7] + LS_v.geoS.dcap[j,i,7]))
+    #             tmp_vec_p1[j,i] += (tmp_vec_u[j,i+1]^2.0 * LS_u.geoS.dcap[j,i+1,6] + tmp_vec_u[j,i]^2.0 * LS_u.geoS.dcap[j,i,6]) / (LS_u.geoS.dcap[j,i+1,6] + LS_u.geoS.dcap[j,i,6])
+
+    #             tmp_vec_p1[j,i] += (tmp_vec_v[j+1,i]^2.0 * LS_v.geoS.dcap[j+1,i,7] + tmp_vec_v[j,i]^2.0 * LS_v.geoS.dcap[j,i,7]) / (LS_v.geoS.dcap[j+1,i,7] + LS_v.geoS.dcap[j,i,7])
+                
+    #             try
+    #                 tmp_vec_p1[j,i] = sqrt(tmp_vec_p1[j,i])
+    #             catch e
+    #                 print("\n i j sol ",i," ",j," ", tmp_vec_p1[j,i])
+    #                 print(e)
+    #             end
+
+    #         end
+
+    #     end
+    # end 
+
+    # tmp_vec_p1 .= sqrt.(tmp_vec_p1)
+    # phS.i_current_mag .= sqrt.(phS.i_current_mag)
+
+    tmp_vec_p1 .*= elec_cond # i=-κ∇ϕ here magnitude
+
+
+    #TODO Eu Ev S
+    # phS.Eu .= grd_x
+    # phS.Ev .= grd_y
+
+
+
+
+
+    @ccall "libpdi".PDI_multi_expose("write_data_elec_imag"::Cstring,
+    # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+    "i_current_mag"::Cstring, tmp_vec_p1::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+    C_NULL::Ptr{Cvoid})::Cint
+
+
+    # minphi_eleL = minimum(phL.phi_eleD)
+    # miniL=minimum(phL.i_current_mag)
+
+    # maxphi_eleL = maximum(phL.phi_eleD)
+    # maxiL=maximum(phL.i_current_mag)
+
+    # moyphi_eleL = mean(phL.phi_eleD)
+    # moyiL=mean(phL.i_current_mag)
+
+    # print("$(@sprintf("norm(cH2) %.6e", normscal1L))\t$(@sprintf("norm(KOH) %.6e", normscal2L))\t$(@sprintf("norm(H2O) %.6e", normscal3L))\n")
+    # print("$(@sprintf("norm(phi_ele) %.6e", normphi_eleL))\t$(@sprintf("norm(T) %.6e", normTL))\t$(@sprintf("norm(i) %.6e", normiL))\n")
+
+    # print("$(@sprintf("min(phi_ele) %.6e", minphi_eleL))\t$(@sprintf("min(T) %.6e", minTL))\t$(@sprintf("min(i) %.6e", miniL))\n")
+    # print("$(@sprintf("max(phi_ele) %.6e", maxphi_eleL))\t$(@sprintf("max(T) %.6e", maxTL))\t$(@sprintf("max(i) %.6e", maxiL))\n")
+    # print("$(@sprintf("moy(phi_ele) %.6e", moyphi_eleL))\t$(@sprintf("moy(T) %.6e", moyTL))\t$(@sprintf("moy(i) %.6e", moyiL))\n")
+
+
+end
+
+
+
+"""
+  Compute norm of gradient for exchange current 
+"""
+function compute_grad_phi_ele_liquid_solid!(num::Numerical{Float64, Int64},
     grid::Mesh{Flower.GridCC, Float64, Int64},
     grid_u::Mesh{Flower.GridFCx, Float64, Int64},
     grid_v::Mesh{Flower.GridFCy, Float64, Int64},
@@ -1877,19 +2211,20 @@ end
 
 
 
-
+"""
+  Compute norm of gradient of variable pD (located on p-grid)
 
 # Gradient of pressure, eq. 17 in 
 #"A Conservative Cartesian Cut-Cell Method for Mixed Boundary Conditions and the Incompressible Navier-Stokes Equations on Staggered Meshes"
 #From navier_stokes_coupled.jl
-# ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec(phi_ele) .+ opC_u.Gx_b * vecb(phi_eleD,grid)
-# ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec(phi_ele) .+ opC_v.Gy_b * vecb(phi_eleD,grid)
-# for iLS in 1:nLS
-#     ∇ϕ_x .+= opC_u.Gx[iLS] * veci(phi_eleD,grid,iLS+1)
-#     ∇ϕ_y .+= opC_v.Gy[iLS] * veci(phi_eleD,grid,iLS+1)
-# end
-"""
-  Compute norm of gradient of variable pD (located on p-grid)
+```julia
+∇ϕ_x = opC_u.AxT * opC_u.Rx * vec(phi_ele) .+ opC_u.Gx_b * vecb(phi_eleD,grid)
+∇ϕ_y = opC_v.AyT * opC_v.Ry * vec(phi_ele) .+ opC_v.Gy_b * vecb(phi_eleD,grid)
+for iLS in 1:nLS
+    ∇ϕ_x .+= opC_u.Gx[iLS] * veci(phi_eleD,grid,iLS+1)
+    ∇ϕ_y .+= opC_v.Gy[iLS] * veci(phi_eleD,grid,iLS+1)
+end
+```
 """
 function compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p,opC_u,opC_v)
     
@@ -1927,8 +2262,6 @@ function compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p,opC_u,opC_v)
     grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
 
     printstyled(color=:magenta, @sprintf "\n grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_x) maximum(grd_x) minimum(grd_y) maximum(grd_y))
-
-
 end
 
 
@@ -2709,87 +3042,87 @@ end #set_poisson_variable_coeff
     opC_p.HxT[iLS] (nx*ny, (nx+1)*ny) TODO (nx+1)*ny or nx*(ny+1)
     # Wall
     opC_p.iMx_b ((nx+1)*ny, 2*nx+2*ny)
-    opC_p.Hx_b (2*nx+2*ny, 2*nx+2*ny)(nx*ny,)
+    opC_p.Hx_b (2*nx+2*ny, 2*nx+2*ny)
+
+    
+    computes also in wall described  by LS: you need to select the contribution based on the levelset afterwards
+    Interface described by LS number one
+
+    opC_p.Hx_b: left: -dy (cell height along y), bottom: 0, right: +dy, top: 0
+    opC_p.Hy_b: left: 0 , bottom: -dx, right: 0, top: +dx
+
 
 """
 function integrate_mass_flux_over_interface(num::Numerical{Float64, Int64},
     grid::Mesh{Flower.GridCC, Float64, Int64},
-    phL::Phase{Float64},
     opC_pL::Operators{Float64, Int64}, 
-    iscal::Int64,
+    scalD::AbstractArray{Float64, 1},
     mass_flux_vec1::Array{Float64, 1},
     mass_flux_vecb::Array{Float64, 1}, 
     mass_flux_veci::Array{Float64, 1},
     mass_flux::Array{Float64, 2}
     )
 
-    @unpack  χ = opC_pL
-    @unpack nLS = num
-    #Liquid phase
-    @unpack trans_scalD = phL
-    if iscal !=0
-        scalD= trans_scalD[:,iscal] #H2 species
-    else
-        @unpack phi_eleD = phL
-        scalD = phi_eleD
-    end
-
-    #TODO overwriting chi
-
     opC_p = opC_pL
 
+    # Interface described by LS number one
     iLStmp=1
 
-    #TODO computes also in wall described  by LS
-
-    # mass_flux_vec1 = fnzeros(grid,num)
-    # mass_flux_vecb = fnzeros(grid,num)
-    # mass_flux_veci = fnzeros(grid,num)
-
-    # mass_flux_vec1 = fzeros(grid)
-    # mass_flux_vecb = fzeros(grid)
-    # mass_flux_veci = fzeros(grid)
-
-
-    mass_flux_vec1 .= 0.0
+    #size (nx*ny)
+    mass_flux_vec1 .= 0.0 
     mass_flux_vecb .= 0.0
     mass_flux_veci .= 0.0
+    
+    #size (ny,nx)
     mass_flux .= 0.0
-
-
-    print(size(mass_flux_vec1),"\n")
-    print(size(mass_flux_vecb),"\n")
-    print(size(mass_flux_veci),"\n")
 
     mass_flux_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
     mass_flux_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
 
-  
-
-    for iLS in 1:nLS
+    for iLS in 1:num.nLS
         mass_flux_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
         mass_flux_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
     end
 
+    # printstyled(color=:red, @sprintf "\n vec1 x y %.2e %.2e \n" sum(opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid)) sum(opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)))
+    # printstyled(color=:red, @sprintf "\n vecb x y %.2e %.2e\n" sum(opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid)) sum(opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)))
 
-  printstyled(color=:red, @sprintf "\n vec1 x y %.2e %.2e\n" sum(opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid)) sum(opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)))
-  printstyled(color=:red, @sprintf "\n vecb x y %.2e %.2e\n" sum(opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid)) sum(opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)))
+    # print("\n vecb(scalD,grid)", vecb(scalD,grid) ) 
 
-  print("\n vecb(scalD,grid)", vecb(scalD,grid) ) 
-
-  print(size(mass_flux_vec1),"\n")
-  print(size(mass_flux_vecb),"\n")
-  print(size(mass_flux_veci),"\n")
-
-  print("\n opC_p.HxT[iLStmp] ",size(opC_p.HxT[iLStmp]))
-  print("\n opC_p.iMx_b ",size(opC_p.iMx_b))
-  print("\n opC_p.Hx_b ",size(opC_p.Hx_b))
+    # print("\n opC_p.iMx_b ", opC_p.iMx_b,"\n" ) 
+    # print("\n opC_p.Hx_b ", opC_p.Hx_b ,"\n" ) 
 
 
-  print(size(opC_p.HxT[1] * opC_p.iMx * opC_p.Hx[1] * veci(scalD,grid,1+1)),"\n")
+    # print("\n x \n")
+
+    # print("\n test ",opC_p.Hx_b * vecb(scalD,grid))
+
+    # print("\n test ",opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid))
+
+    # print("\n y \n")
+
+    # print("\n test ",opC_p.Hy_b * vecb(scalD,grid))
+
+    # print("\n test ", opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid) )
 
 
-    # mass_flux = mass_flux_vec1 .+ mass_flux_vecb .+ mass_flux_veci
+    # testvec = ones(2*grid.nx+2*grid.ny)
+    # print("\n opC_p.Hx_b * testvec ",opC_p.Hx_b * testvec)
+    # #   print("\n test ",opC_p.iMx_b * opC_p.Hx_b * testvec)
+    # print("\n test ", opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * testvec)
+
+    # print("\n new test ", opC_p.BxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * testvec)
+
+
+    # testvec = ones(2*grid.nx+2*grid.ny)
+    # print("\n opC_p.Hy_b * testvec ",opC_p.Hy_b * testvec)
+    # #   print("\n test ",opC_p.iMy_b * opC_p.Hy_b * testvec)
+    # print("\n test ", opC_p.HyT[iLStmp] * opC_p.iMy_b * opC_p.Hy_b * testvec)
+
+    # print("\n new test ", opC_p.ByT[iLStmp] * opC_p.iMy_b * opC_p.Hy_b * testvec)
+
+
+  # mass_flux = mass_flux_vec1 .+ mass_flux_vecb .+ mass_flux_veci
 
     # mass_flux_2 = reshape(mass_flux,grid)
     mass_flux_vec1_2 = reshape(mass_flux_vec1,grid)
@@ -2805,9 +3138,175 @@ function integrate_mass_flux_over_interface(num::Numerical{Float64, Int64},
     print("\n mass_flux_vecb_2 ", sum(mass_flux_vecb_2),"\n ")
     print("\n mass_flux_veci_2 ", sum(mass_flux_veci_2),"\n ")
 
-    print("\n mass_flux_vec1 ", sum(mass_flux_vec1),"\n ")
-    print("\n mass_flux_vecb ", sum(mass_flux_vecb),"\n ")
-    print("\n mass_flux_veci ", sum(mass_flux_veci),"\n ")
+
+
+    # iplot = 1
+    # for jplot in 1:grid.ny
+    #     #for iplot in 1:grid.nx
+    #     II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+    #     pII = lexicographic(II, grid.ny)
+
+    #     if mass_flux_vec1_2[II]>0
+    #         printstyled(color=:green, @sprintf "\n j %.5i m %.2e HxT %.2e\n" jplot mass_flux_vec1_2[II] opC_p.HxT[iLStmp][II])
+    #         printstyled(color=:red, @sprintf "\n iMx %.10e iMy %.10e \n" opC_p.iMy.diag[pII] opC_p.iMy.diag[pII] )
+    #         print("\n B ", II," ",opC_p.Bx[pII,pII]," ",opC_p.BxT[pII,pII])
+    #     end
+
+    # end
+
+
+    # iplot=1
+    # jplot = 59
+    # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+    # pII = lexicographic(II, grid.ny)
+    # printstyled(color=:magenta, @sprintf "\n j %.5i m %.2e HxT %.2e HyT %.2e Bx %.2e By %.2e iMx %.10e iMy %.10e\n" jplot mass_flux_vec1_2[II] opC_p.HxT[iLStmp][II] opC_p.HyT[iLStmp][II] opC_p.Bx[pII,pII] opC_p.By[pII,pII] opC_p.iMy.diag[pII] opC_p.iMy.diag[pII])
+
+    ######################################################################################
+
+
+    # Matrices for interior BCs
+    # for iLS in 1:num.nLS
+    #     χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
+    #     χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
+    #     χ[iLS].diag .= sqrt.(vec(χx .+ χy))
+    # end
+
+    # χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
+    # χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
+    # #     χ[iLS].diag .= sqrt.(vec(χx .+ χy))
+    # radial_flux_surf = mass_flux_2 ./ sqrt.(vec(χx .+ χy))
+    # # radial_flux_surf = mass_flux_2 ./ χ[1]
+
+    # printstyled(color=:green, @sprintf "\n Radial flux: %.2e \n" radial_flux_surf)
+
+    if num.io_pdi>0
+        printstyled(color=:magenta, @sprintf "\n PDI write_mass_flux %.5i \n" num.current_i)
+        #nstep needs to be updated beforehand
+        @ccall "libpdi".PDI_multi_expose("write_mass_flux"::Cstring,
+        "mass_flux"::Cstring, mass_flux::Ptr{Cdouble}, PDI_OUT::Cint,
+        "mass_flux_bulk"::Cstring, mass_flux_vec1_2::Ptr{Cdouble}, PDI_OUT::Cint,
+        "mass_flux_border"::Cstring, mass_flux_vecb_2::Ptr{Cdouble}, PDI_OUT::Cint,
+        "mass_flux_intfc"::Cstring, mass_flux_veci_2::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cvoid
+    end #if num.io_pdi>0
+     
+    print("\n sum mass flux ", sum(mass_flux),"\n ")
+end
+
+
+
+"""
+    Integrate mass transfer rate along a line (the interface in 2D), in  in mol/m/s
+
+    to increment mol/m in 2D : use dn=result*dt
+    to advect: need to go back to surface mass flux so divide by interface length : mol/m^2/s
+    then velocity m/s is obtained  (*M (kg/mol) and * combination of 1/rho_i ))
+
+    need to pay attention to operators of levelsets describing walls (do not compute mass flux at interface outside domain)
+
+    with iLS=1 for example for first levelset
+
+    # Interface
+    opC_p.HxT[iLS] (nx*ny, (nx+1)*ny) TODO (nx+1)*ny or nx*(ny+1)
+    # Wall
+    opC_p.iMx_b ((nx+1)*ny, 2*nx+2*ny)
+    opC_p.Hx_b (2*nx+2*ny, 2*nx+2*ny)
+
+    
+    computes also in wall described  by LS: you need to select the contribution based on the levelset afterwards
+    Interface described by LS number one
+
+    opC_p.Hx_b: left: -dy (cell height along y), bottom: 0, right: +dy, top: 0
+    opC_p.Hy_b: left: 0 , bottom: -dx, right: 0, top: +dx
+
+
+"""
+function integrate_mass_flux_over_interface_no_writing(num::Numerical{Float64, Int64},
+    grid::Mesh{Flower.GridCC, Float64, Int64},
+    opC_pL::Operators{Float64, Int64}, 
+    scalD::AbstractArray{Float64, 1},
+    mass_flux_vec1::Array{Float64, 1},
+    mass_flux_vecb::Array{Float64, 1}, 
+    mass_flux_veci::Array{Float64, 1},
+    mass_flux::Array{Float64, 2}
+    )
+
+    opC_p = opC_pL
+
+    # Interface described by LS number one
+    iLStmp=1
+
+    #size (nx*ny)
+    mass_flux_vec1 .= 0.0 
+    mass_flux_vecb .= 0.0
+    mass_flux_veci .= 0.0
+    
+    #size (ny,nx)
+    mass_flux .= 0.0
+
+    mass_flux_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
+    mass_flux_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+
+    for iLS in 1:num.nLS
+        mass_flux_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+        mass_flux_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+    end
+
+    # printstyled(color=:red, @sprintf "\n vec1 x y %.2e %.2e \n" sum(opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid)) sum(opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)))
+    # printstyled(color=:red, @sprintf "\n vecb x y %.2e %.2e\n" sum(opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid)) sum(opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)))
+
+    # print("\n vecb(scalD,grid)", vecb(scalD,grid) ) 
+
+    # print("\n opC_p.iMx_b ", opC_p.iMx_b,"\n" ) 
+    # print("\n opC_p.Hx_b ", opC_p.Hx_b ,"\n" ) 
+
+
+    # print("\n x \n")
+
+    # print("\n test ",opC_p.Hx_b * vecb(scalD,grid))
+
+    # print("\n test ",opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid))
+
+    # print("\n y \n")
+
+    # print("\n test ",opC_p.Hy_b * vecb(scalD,grid))
+
+    # print("\n test ", opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid) )
+
+
+    # testvec = ones(2*grid.nx+2*grid.ny)
+    # print("\n opC_p.Hx_b * testvec ",opC_p.Hx_b * testvec)
+    # #   print("\n test ",opC_p.iMx_b * opC_p.Hx_b * testvec)
+    # print("\n test ", opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * testvec)
+
+    # print("\n new test ", opC_p.BxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * testvec)
+
+
+    # testvec = ones(2*grid.nx+2*grid.ny)
+    # print("\n opC_p.Hy_b * testvec ",opC_p.Hy_b * testvec)
+    # #   print("\n test ",opC_p.iMy_b * opC_p.Hy_b * testvec)
+    # print("\n test ", opC_p.HyT[iLStmp] * opC_p.iMy_b * opC_p.Hy_b * testvec)
+
+    # print("\n new test ", opC_p.ByT[iLStmp] * opC_p.iMy_b * opC_p.Hy_b * testvec)
+
+
+  # mass_flux = mass_flux_vec1 .+ mass_flux_vecb .+ mass_flux_veci
+
+    # mass_flux_2 = reshape(mass_flux,grid)
+    mass_flux_vec1_2 = reshape(mass_flux_vec1,grid)
+    mass_flux_vecb_2 = reshape(mass_flux_vecb,grid)
+    mass_flux_veci_2 = reshape(mass_flux_veci,grid)
+
+    mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
+
+    print("\n sum mass flux all levelsets (walls and interfaces alike) ", sum(mass_flux),"\n ")
+    
+    print("\n mass_flux ", sum(mass_flux),"\n ")
+    print("\n mass_flux_vec1_2 ", sum(mass_flux_vec1_2),"\n ")
+    print("\n mass_flux_vecb_2 ", sum(mass_flux_vecb_2),"\n ")
+    print("\n mass_flux_veci_2 ", sum(mass_flux_veci_2),"\n ")
+
+
 
     # iplot = 1
     # for jplot in 1:grid.ny
@@ -2848,122 +3347,325 @@ function integrate_mass_flux_over_interface(num::Numerical{Float64, Int64},
 
     # printstyled(color=:green, @sprintf "\n Radial flux: %.2e \n" radial_flux_surf)
      
+    print("\n sum mass flux ", sum(mass_flux),"\n ")
+end
 
+
+"""
+    Integrate mass transfer rate along a line (the interface in 2D), in  in mol/m/s
+
+    to increment mol/m in 2D : use dn=result*dt
+    to advect: need to go back to surface mass flux so divide by interface length : mol/m^2/s
+    then velocity m/s is obtained  (*M (kg/mol) and * combination of 1/rho_i ))
+
+    need to pay attention to operators of levelsets describing walls (do not compute mass flux at interface outside domain)
+
+    with iLS=1 for example for first levelset
+
+    # Interface
+    opC_p.HxT[iLS] (nx*ny, (nx+1)*ny) TODO (nx+1)*ny or nx*(ny+1)
+
+    # Wall
+    opC_p.iMx_b ((nx+1)*ny, 2*nx+2*ny)
+    opC_p.Hx_b (2*nx+2*ny, 2*nx+2*ny)
+
+    computes also in wall described  by LS: you need to select the contribution based on the levelset afterwards
+    Interface described by LS number one
+
+    opC_p.Hx_b: left: -dy (cell height along y), bottom: 0, right: +dy, top: 0
+    opC_p.Hy_b: left: 0 , bottom: -dx, right: 0, top: +dx
+"""
+function integrate_mass_flux_over_interface_2(num::Numerical{Float64, Int64},
+    grid::Mesh{Flower.GridCC, Float64, Int64},
+    opC_pL::Operators{Float64, Int64}, 
+    scalD::AbstractArray{Float64, 1},
+    mass_flux_vec1::Array{Float64, 1},
+    mass_flux_vecb::Array{Float64, 1}, 
+    mass_flux_veci::Array{Float64, 1},
+    mass_flux::Array{Float64, 2}
+    )
+
+    opC_p = opC_pL
+
+
+    #size (nx*ny)
+    mass_flux_vec1 .= 0.0 
+    mass_flux_vecb .= 0.0
+    mass_flux_veci .= 0.0
+    
+    #size (ny,nx)
+    mass_flux .= 0.0
+
+    mass_flux_vec1   = opC_p.BxT * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.ByT * opC_p.iMy * opC_p.By * vec1(scalD,grid)
+    mass_flux_vecb   = opC_p.BxT * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.ByT *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+
+    for iLS in 1:num.nLS
+        #TODO
+        # mass_flux_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+        # mass_flux_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+        mass_flux_veci .+= opC_p.BxT * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+        mass_flux_veci .+= opC_p.ByT * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+    end
+
+    # printstyled(color=:red, @sprintf "\n vec1 x y %.2e %.2e \n" sum(opC_p.BxT * opC_p.iMx * opC_p.Bx * vec1(scalD,grid)) sum(opC_p.ByT * opC_p.iMy * opC_p.By * vec1(scalD,grid)))
+    # printstyled(color=:red, @sprintf "\n vecb x y %.2e %.2e\n" sum(opC_p.BxT * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid)) sum(opC_p.ByT *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)))
+
+    # print("\n vecb(scalD,grid)", vecb(scalD,grid) ) 
+
+    # print("\n opC_p.iMx_b ", opC_p.iMx_b,"\n" ) 
+    # print("\n opC_p.Hx_b ", opC_p.Hx_b ,"\n" ) 
+
+    # print("\n x \n")
+
+    # print("\n test ",opC_p.Hx_b * vecb(scalD,grid))
+
+    # print("\n test ",opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid))
+
+    # print("\n y \n")
+
+    # print("\n test ",opC_p.Hy_b * vecb(scalD,grid))
+
+    # print("\n test ", opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid) )
+
+
+    # testvec = ones(2*grid.nx+2*grid.ny)
+    # print("\n opC_p.Hx_b * testvec ",opC_p.Hx_b * testvec)
+    # #   print("\n test ",opC_p.iMx_b * opC_p.Hx_b * testvec)
+
+    # # print("\n new test ", opC_p.BxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * testvec)
+    # print("\n new test ", opC_p.BxT * opC_p.iMx_b * opC_p.Hx_b * testvec)
+
+
+    # testvec = ones(2*grid.nx+2*grid.ny)
+    # print("\n opC_p.Hy_b * testvec ",opC_p.Hy_b * testvec)
+    #   print("\n test ",opC_p.iMy_b * opC_p.Hy_b * testvec)
+    # print("\n test ", opC_p.HyT[iLStmp] * opC_p.iMy_b * opC_p.Hy_b * testvec)
+
+    # print("\n new test ", opC_p.ByT * opC_p.iMy_b * opC_p.Hy_b * testvec)
+
+
+  # mass_flux = mass_flux_vec1 .+ mass_flux_vecb .+ mass_flux_veci
+
+    # mass_flux_2 = reshape(mass_flux,grid)
+    mass_flux_vec1_2 = reshape(mass_flux_vec1,grid)
+    mass_flux_vecb_2 = reshape(mass_flux_vecb,grid)
+    mass_flux_veci_2 = reshape(mass_flux_veci,grid)
+
+    mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
+
+    print("\n sum mass flux all levelsets (walls and interfaces alike) ", sum(mass_flux),"\n ")
+    
+    print("\n mass_flux ", sum(mass_flux),"\n ")
+    print("\n mass_flux_vec1_2 ", sum(mass_flux_vec1_2),"\n ")
+    print("\n mass_flux_vecb_2 ", sum(mass_flux_vecb_2),"\n ")
+    print("\n mass_flux_veci_2 ", sum(mass_flux_veci_2),"\n ")
+
+
+
+    # iplot = 1
+    # for jplot in 1:grid.ny
+    #     #for iplot in 1:grid.nx
+    #     II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+    #     pII = lexicographic(II, grid.ny)
+
+    #     if mass_flux_vec1_2[II]>0
+    #         printstyled(color=:green, @sprintf "\n j %.5i m %.2e HxT %.2e\n" jplot mass_flux_vec1_2[II] opC_p.HxT[iLStmp][II])
+    #         printstyled(color=:red, @sprintf "\n iMx %.10e iMy %.10e \n" opC_p.iMy.diag[pII] opC_p.iMy.diag[pII] )
+    #         print("\n B ", II," ",opC_p.Bx[pII,pII]," ",opC_p.BxT[pII,pII])
+    #     end
+
+    # end
+
+
+    # iplot=1
+    # jplot = 59
+    # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+    # pII = lexicographic(II, grid.ny)
+    # printstyled(color=:magenta, @sprintf "\n j %.5i m %.2e HxT %.2e HyT %.2e Bx %.2e By %.2e iMx %.10e iMy %.10e\n" jplot mass_flux_vec1_2[II] opC_p.HxT[iLStmp][II] opC_p.HyT[iLStmp][II] opC_p.Bx[pII,pII] opC_p.By[pII,pII] opC_p.iMy.diag[pII] opC_p.iMy.diag[pII])
+
+    ######################################################################################
+
+
+    # Matrices for interior BCs
+    # for iLS in 1:num.nLS
+    #     χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
+    #     χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
+    #     χ[iLS].diag .= sqrt.(vec(χx .+ χy))
+    # end
+
+    # χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
+    # χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
+    # #     χ[iLS].diag .= sqrt.(vec(χx .+ χy))
+    # radial_flux_surf = mass_flux_2 ./ sqrt.(vec(χx .+ χy))
+    # # radial_flux_surf = mass_flux_2 ./ χ[1]
+
+    # printstyled(color=:green, @sprintf "\n Radial flux: %.2e \n" radial_flux_surf)
+    
     if num.io_pdi>0
         printstyled(color=:magenta, @sprintf "\n PDI write_mass_flux %.5i \n" num.current_i)
-
-        ######################################################################################
-        #TODO careful : nstep needs to be updated beforehand
+        #nstep needs to be updated beforehand
         @ccall "libpdi".PDI_multi_expose("write_mass_flux"::Cstring,
-        # "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
-        # "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
         "mass_flux"::Cstring, mass_flux::Ptr{Cdouble}, PDI_OUT::Cint,
         "mass_flux_bulk"::Cstring, mass_flux_vec1_2::Ptr{Cdouble}, PDI_OUT::Cint,
         "mass_flux_border"::Cstring, mass_flux_vecb_2::Ptr{Cdouble}, PDI_OUT::Cint,
         "mass_flux_intfc"::Cstring, mass_flux_veci_2::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "Bx"::Cstring, opC_p.Bx::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "By"::Cstring, opC_p.By::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "HxT"::Cstring, opC_p.HxT::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "HyT"::Cstring, opC_p.HyT::Ptr{Cdouble}, PDI_OUT::Cint,
         C_NULL::Ptr{Cvoid})::Cvoid
-
-        # @ccall "libpdi".PDI_multi_expose("write_mass_flux"::Cstring,
-        # "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
-        # "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
-        # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "levelset_p"::Cstring, LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "trans_scal_1D"::Cstring, phL.trans_scalD::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-        # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
-        # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
-        # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-        # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
-        # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
-        # C_NULL::Ptr{Cvoid})::Cvoid
     end #if num.io_pdi>0
 
-    # return mass_flux_2, mass_flux_vec1_2, mass_flux_vecb_2, mass_flux_veci_2
-    # return 
-
     print("\n sum mass flux ", sum(mass_flux),"\n ")
-
 end
 
-# function integrate_mass_flux_over_interface(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff,iscal)
+
+"""
+    Integrate mass transfer rate along a line (the interface in 2D), in  in mol/m/s
+
+    to increment mol/m in 2D : use dn=result*dt
+    to advect: need to go back to surface mass flux so divide by interface length : mol/m^2/s
+    then velocity m/s is obtained  (*M (kg/mol) and * combination of 1/rho_i ))
+
+    need to pay attention to operators of levelsets describing walls (do not compute mass flux at interface outside domain)
+
+    with iLS=1 for example for first levelset
+
+    # Interface
+    opC_p.HxT[iLS] (nx*ny, (nx+1)*ny) TODO (nx+1)*ny or nx*(ny+1)
+
+    # Wall
+    opC_p.iMx_b ((nx+1)*ny, 2*nx+2*ny)
+    opC_p.Hx_b (2*nx+2*ny, 2*nx+2*ny)
+
+    computes also in wall described  by LS: you need to select the contribution based on the levelset afterwards
+    Interface described by LS number one
+
+    opC_p.Hx_b: left: -dy (cell height along y), bottom: 0, right: +dy, top: 0
+    opC_p.Hy_b: left: 0 , bottom: -dx, right: 0, top: +dx
+"""
+function integrate_mass_flux_over_interface_2_no_writing(num::Numerical{Float64, Int64},
+    grid::Mesh{Flower.GridCC, Float64, Int64},
+    opC_pL::Operators{Float64, Int64}, 
+    scalD::AbstractArray{Float64, 1},
+    mass_flux_vec1::Array{Float64, 1},
+    mass_flux_vecb::Array{Float64, 1}, 
+    mass_flux_veci::Array{Float64, 1},
+    mass_flux::Array{Float64, 2}
+    )
+
+    opC_p = opC_pL
+
+
+    #size (nx*ny)
+    mass_flux_vec1 .= 0.0 
+    mass_flux_vecb .= 0.0
+    mass_flux_veci .= 0.0
     
-#     @unpack nLS = num
-#     #Liquid phase
-#     @unpack trans_scalD = phL
-#     scalD= trans_scalD[:,iscal] #H2 species
-#     opC_p = opC_pL
+    #size (ny,nx)
+    mass_flux .= 0.0
 
-#     iLStmp=1
+    mass_flux_vec1   = opC_p.BxT * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.ByT * opC_p.iMy * opC_p.By * vec1(scalD,grid)
+    mass_flux_vecb   = opC_p.BxT * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.ByT *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
 
-#     # mass_flux = fnzeros(grid,num)
-#     # mass_flux   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid)
-#     # mass_flux .+= opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+    for iLS in 1:num.nLS
+        mass_flux_veci .+= opC_p.BxT * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+        mass_flux_veci .+= opC_p.ByT * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+    end
 
-#     # printstyled(color=:green, @sprintf "\n mass_flux v1 : %.2e \n" sum(mass_flux))
+    # printstyled(color=:red, @sprintf "\n vec1 x y %.2e %.2e \n" sum(opC_p.BxT * opC_p.iMx * opC_p.Bx * vec1(scalD,grid)) sum(opC_p.ByT * opC_p.iMy * opC_p.By * vec1(scalD,grid)))
+    # printstyled(color=:red, @sprintf "\n vecb x y %.2e %.2e\n" sum(opC_p.BxT * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid)) sum(opC_p.ByT *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)))
 
-#     # for iLS in 1:nLS
-#     #     mass_flux .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
-#     #     mass_flux .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+    # print("\n vecb(scalD,grid)", vecb(scalD,grid) ) 
 
-#     #     printstyled(color=:green, @sprintf "\n mass_flux veci : %.2e %.2e\n" sum(opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)) sum(opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)))
-#     # end
+    # print("\n opC_p.iMx_b ", opC_p.iMx_b,"\n" ) 
+    # print("\n opC_p.Hx_b ", opC_p.Hx_b ,"\n" ) 
 
-#     mass_flux_vec1 = fnzeros(grid,num)
-#     mass_flux_vecb = fnzeros(grid,num)
-#     mass_flux_veci = fnzeros(grid,num)
 
-#     mass_flux_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
-#     mass_flux_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+    # print("\n x \n")
 
-#     # printstyled(color=:green, @sprintf "\n mass_flux v1 : %.2e \n" sum(mass_flux))
+    # print("\n test ",opC_p.Hx_b * vecb(scalD,grid))
+
+    # print("\n test ",opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid))
+
+    # print("\n y \n")
+
+    # print("\n test ",opC_p.Hy_b * vecb(scalD,grid))
+
+    # print("\n test ", opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid) )
+
+
+    # testvec = ones(2*grid.nx+2*grid.ny)
+    # print("\n opC_p.Hx_b * testvec ",opC_p.Hx_b * testvec)
+    # #   print("\n test ",opC_p.iMx_b * opC_p.Hx_b * testvec)
+
+    # # print("\n new test ", opC_p.BxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * testvec)
+    # print("\n new test ", opC_p.BxT * opC_p.iMx_b * opC_p.Hx_b * testvec)
+
+
+    # testvec = ones(2*grid.nx+2*grid.ny)
+    # print("\n opC_p.Hy_b * testvec ",opC_p.Hy_b * testvec)
+    #   print("\n test ",opC_p.iMy_b * opC_p.Hy_b * testvec)
+    # print("\n test ", opC_p.HyT[iLStmp] * opC_p.iMy_b * opC_p.Hy_b * testvec)
+
+    # print("\n new test ", opC_p.ByT * opC_p.iMy_b * opC_p.Hy_b * testvec)
+
+
+  # mass_flux = mass_flux_vec1 .+ mass_flux_vecb .+ mass_flux_veci
+
+    # mass_flux_2 = reshape(mass_flux,grid)
+    mass_flux_vec1_2 = reshape(mass_flux_vec1,grid)
+    mass_flux_vecb_2 = reshape(mass_flux_vecb,grid)
+    mass_flux_veci_2 = reshape(mass_flux_veci,grid)
+
+    mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
+
+    print("\n sum mass flux all levelsets (walls and interfaces alike) ", sum(mass_flux),"\n ")
     
-
-#     for iLS in 1:nLS
-#         mass_flux_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
-#         mass_flux_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
-
-#         # printstyled(color=:green, @sprintf "\n mass_flux veci : %.2e %.2e\n" sum(opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)) sum(opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)))
-#     end
-
-#     mass_flux = mass_flux_vec1 + mass_flux_vecb + mass_flux_veci
-
-#     # mass_flux_sum = sum(mass_flux) * diffusion_coeff[1] 
-#     # mass_flux_sum = -sum(mass_flux) * diffusion_coeff[iscal] 
-#     #TODO convention normal
-
-#     # printstyled(color=:green, @sprintf "\n mass_flux : %.2e %.2e %.2e\n" max(abs.(mass_flux)...) mass_flux_sum sum(veci(mass_flux,grid,2))*diffusion_coeff[1])
-#     return mass_flux, mass_flux_vec1, mass_flux_vecb, mass_flux_veci
-# end
+    print("\n mass_flux ", sum(mass_flux),"\n ")
+    print("\n mass_flux_vec1_2 ", sum(mass_flux_vec1_2),"\n ")
+    print("\n mass_flux_vecb_2 ", sum(mass_flux_vecb_2),"\n ")
+    print("\n mass_flux_veci_2 ", sum(mass_flux_veci_2),"\n ")
 
 
-# """
-#   Compute boundary mass flux like in Khalighi 2023
-# """
-# function compute_b_mass_flux!(num,grid, grid_u, grid_v, phL, phS,  opC_pL, opC_pS,diffusion_coeff)
-    
-#     @unpack nLS = num
-#     #Liquid phase
-#     @unpack trans_scalD = phL
-#     scalD= trans_scalD[:,:,1] #H2 species
-#     opC_p = opC_pL
 
-#     mass_flux = fnzeros(grid,num)
+    # iplot = 1
+    # for jplot in 1:grid.ny
+    #     #for iplot in 1:grid.nx
+    #     II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+    #     pII = lexicographic(II, grid.ny)
 
-#     vecb(mass_flux,grid) = ( opC_p.HxT_b * opC_p.iMx_b * opC_p.Hx_b + opC_p.HyT_b * opC_p.iMy_b * opC_p.Hy_b ) * vecb(scalD,grid) * diffusion_coeff[1] 
+    #     if mass_flux_vec1_2[II]>0
+    #         printstyled(color=:green, @sprintf "\n j %.5i m %.2e HxT %.2e\n" jplot mass_flux_vec1_2[II] opC_p.HxT[iLStmp][II])
+    #         printstyled(color=:red, @sprintf "\n iMx %.10e iMy %.10e \n" opC_p.iMy.diag[pII] opC_p.iMy.diag[pII] )
+    #         print("\n B ", II," ",opC_p.Bx[pII,pII]," ",opC_p.BxT[pII,pII])
+    #     end
 
-#     mass_flux_sum = sum(mass_flux) 
+    # end
 
-#     # printstyled(color=:green, @sprintf "\n mass_flux : %.2e \n" max(abs.(mass_flux)...))
-    
-#     return mass_flux_sum
-# end
+
+    # iplot=1
+    # jplot = 59
+    # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+    # pII = lexicographic(II, grid.ny)
+    # printstyled(color=:magenta, @sprintf "\n j %.5i m %.2e HxT %.2e HyT %.2e Bx %.2e By %.2e iMx %.10e iMy %.10e\n" jplot mass_flux_vec1_2[II] opC_p.HxT[iLStmp][II] opC_p.HyT[iLStmp][II] opC_p.Bx[pII,pII] opC_p.By[pII,pII] opC_p.iMy.diag[pII] opC_p.iMy.diag[pII])
+
+    ######################################################################################
+
+
+    # Matrices for interior BCs
+    # for iLS in 1:num.nLS
+    #     χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
+    #     χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
+    #     χ[iLS].diag .= sqrt.(vec(χx .+ χy))
+    # end
+
+    # χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
+    # χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
+    # #     χ[iLS].diag .= sqrt.(vec(χx .+ χy))
+    # radial_flux_surf = mass_flux_2 ./ sqrt.(vec(χx .+ χy))
+    # # radial_flux_surf = mass_flux_2 ./ χ[1]
+
+    # printstyled(color=:green, @sprintf "\n Radial flux: %.2e \n" radial_flux_surf)
+   
+    print("\n sum mass flux ", sum(mass_flux),"\n ")
+end
 
 """
     BC_LS_test!(num, cl, grid, A, B, rhs, BC)

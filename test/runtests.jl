@@ -26,6 +26,11 @@ ARGS = String["../examples/half_circle_Poiseuille.yml"]
 include("../examples/main_current_folder.jl")
 end
 
+# @testset "Interpolation tests" begin
+#     include("validation_test.jl")
+# end
+
+
 @testset "Test Poisson with 2 LS, bubble (here circle with Butler-Volmer BC) at wall" begin
     using testyamlfile6
 end

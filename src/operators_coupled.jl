@@ -63,10 +63,19 @@ end
 #     return ret
 # end
 
+"""
+```julia
+    return cap[II,1], cap[II,2], cap[II,3], cap[II,4], cap[II,6], cap[II,7]
+```
+"""
 @inline function surface_capacities(cap, II)
     @inbounds return cap[II,1], cap[II,2], cap[II,3], cap[II,4], cap[II,6], cap[II,7]
 end
 
+
+"""
+fills along x -dcap[II,6] +dcap[II,6] , along y -dcap[II,7] +dcap[II,7]
+"""
 function divergence_B!(Ox, Oy, dcap, n, all_indices)
     @inbounds @threads for II in all_indices
         pII_1 = lexicographic(II, n)
@@ -88,6 +97,10 @@ function divergence_B!(Ox, Oy, dcap, n, all_indices)
     return nothing
 end
 
+
+"""
+fills with  dcap 1, 2, 3, 4 i.e. A1 = dcap[II,1]
+"""
 function divergence_A!(grid, Ox, Oy, dcap, n, all_indices, per_x, per_y)
     @inbounds @threads for II in all_indices
         pII_1 = lexicographic(II, n)
@@ -468,6 +481,10 @@ function periodic_bcs_R!(grid, Rx, Ry, periodic_x, periodic_y)
     return nothing
 end
 
+
+"""
+Sets ```iMx_b, iMx_bd, iMy_b, iMy_bd``` with an epsilon parameter and capacities 8, 9, 10, 11 at cell II i.e. dcap[II,8]
+"""
 function mass_matrix_borders!(num,ind, iMx_b, iMy_b, iMx_bd, iMy_bd, dcap, n)
     @unpack b_left, b_bottom, b_right, b_top = ind
 
@@ -638,6 +655,10 @@ function bc_matrix_borders!(grid, Hx_u, Hy_v, Hx_p, Hy_p, dcap)
     return nothing
 end
 
+
+"""
+Modifies Hx and Hy
+"""
 function periodic_bcs_borders!(grid, Hx, Hy, periodic_x, periodic_y)
     @unpack nx, ny = grid
 
