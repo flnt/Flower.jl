@@ -110,6 +110,7 @@ Stores parameters for the simulation
     sum_mass_flux::T=0.0
     mass_flux::D=0
     average_liquid_solid::D=0
+    index_phase_change::D=1
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

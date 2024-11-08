@@ -1721,9 +1721,10 @@ function run_forward!(
 
             # @views integrate_mass_flux_over_interface(num,grid,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
 
-            @views integrate_mass_flux_over_interface_2(num,grid,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
+            # @views integrate_mass_flux_over_interface_2(num,grid,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
 
-            integrate_mass_flux_over_interface()
+            @views integrate_mass_flux_over_interface_2(num,grid,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,
+            mass_flux_vecb,mass_flux_veci,mass_flux,num.index_phase_change) #1
 
             print("\n sum mass flux all levelsets (walls and interfaces alike) ", sum(mass_flux),"\n ")
         end

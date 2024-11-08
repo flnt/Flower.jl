@@ -605,6 +605,7 @@ num = Numerical(
     solver = sim.solver,
     mass_flux = sim.mass_flux,
     average_liquid_solid = sim.average_liquid_solid,
+    index_phase_change = sim.index_phase_change,
     )
 
 Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 

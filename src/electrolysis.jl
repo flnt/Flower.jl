@@ -3121,13 +3121,19 @@ function integrate_mass_flux_over_interface(num::Numerical{Float64, Int64},
     mass_flux_vecb::Array{Float64, 1}, 
     mass_flux_veci::Array{Float64, 1},
     mass_flux::Array{Float64, 2},
-    interface_id
+    interface_id,
     )
 
     opC_p = opC_pL
 
     # Interface described by LS number one
-    iLStmp=interface_id
+
+    #TODO opC_p.HxT[iLStmp] everywhere
+
+    # for iLS in 1:num.nLS
+    #     mass_flux_veci .+= opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+    #     mass_flux_veci .+= opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+    # end
 
     #size (nx*ny)
     mass_flux_vec1 .= 0.0 
@@ -3137,12 +3143,12 @@ function integrate_mass_flux_over_interface(num::Numerical{Float64, Int64},
     #size (ny,nx)
     mass_flux .= 0.0
 
-    mass_flux_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
-    mass_flux_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+    mass_flux_vec1   = opC_p.HxT[interface_id] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[interface_id] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
+    mass_flux_vecb   = opC_p.HxT[interface_id] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[interface_id] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
 
     for iLS in 1:num.nLS
-        mass_flux_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
-        mass_flux_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+        mass_flux_veci .+= opC_p.HxT[interface_id] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+        mass_flux_veci .+= opC_p.HyT[interface_id] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
     end
 
     # printstyled(color=:red, @sprintf "\n vec1 x y %.2e %.2e \n" sum(opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid)) sum(opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)))
