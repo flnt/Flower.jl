@@ -3064,6 +3064,8 @@ end #set_poisson_variable_coeff
 
 """
     Integrate mass transfer rate along a line (the interface in 2D), in  in mol/m/s:
+
+    interface_id: id of bubble interface we want to integrate
     
 In Flower, it seems we can identify a contribution of the divergence coming from the bubble (all terms beginning with:
 
