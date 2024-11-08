@@ -4,6 +4,14 @@ abstract type MutatingFields end
 
 abstract type AbstractOptimizer end
 
+"""
+Stores parameters for the simulation
+
+# Fields
+- ϵ: Parameter to cut small cells
+- ϵwall: Parameter to cut small cells at wall
+...
+"""
 @with_kw mutable struct Numerical{T <: Real, D <: Integer} <: NumericalParameters
     CFL::T = 0.5 # Courant number
     Re::T = 1.0 # Reynolds number
@@ -101,6 +109,7 @@ abstract type AbstractOptimizer end
     current_radius::T=0.0
     sum_mass_flux::T=0.0
     mass_flux::D=0
+    average_liquid_solid::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

@@ -2346,6 +2346,60 @@ def plot_python_pdf_full2(
 
                 ax2.annotate(str1,(x_arr[igrid],y_arr[jgrid]),fontsize=fontsize,c=lcolor,ha="center",va=va)
 
+        if 'plot_capacities' in figpar.keys():
+            for igrid0 in range(i0,i1+1):        
+                for jgrid0 in range(j0,j1+1): 
+                    # print("\n",x_1D[igrid],y_1D[jgrid])
+                    # print("\n ",igrid," ",jgrid)
+                    igrid =igrid0-i0 #TODO
+                    jgrid = jgrid0-j0
+
+                    try:
+                        xc = (x_arr[igrid]+x_arr[igrid-1])/2
+                        yc = (y_arr[jgrid]+y_arr[jgrid-1])/2
+
+                        xc2 = (x_arr[igrid]+x_arr[igrid+1])/2
+                        yc2 = (y_arr[jgrid]+y_arr[jgrid+1])/2
+
+
+                        # ax2.scatter(xc,y_arr[jgrid])
+
+                            
+                        # ax2.axvline(x=xc, ymin=y_arr[jgrid], ymax=y_arr[jgrid]+field[jgrid,igrid]/plotpar["scale_y"]
+                        #             # ,zorder=10
+                        #             )
+                        # ax2.axhline(y=yc, xmin=x_arr[igrid], xmax=x_arr[igrid]+field[jgrid,igrid]/plotpar["scale_x"]
+                        #             # ,zorder=10
+                        #             )
+
+
+
+                        # ax2.plot([xc,xc],[x_arr[igrid],x_arr[igrid]+field[jgrid,igrid]/plotpar["scale_x"]])
+                        
+                        # ax2.plot([xc,xc],[y_arr[jgrid],y_arr[jgrid]+field[jgrid,igrid]/plotpar["scale_y"]])
+
+
+                        dcap_1 = file['dcap_1'][:].transpose()
+                        dcap_2 = file['dcap_2'][:].transpose()
+                        dcap_3 = file['dcap_3'][:].transpose()
+                        dcap_4 = file['dcap_4'][:].transpose()
+
+                        if [igrid,jgrid] in figpar['plot_capacities_ijlist']:
+                            print(igrid,jgrid,field[jgrid,igrid]/plotpar["scale_y"],dcap_1[jgrid,igrid]/plotpar["scale_y"],x_arr[igrid],y_arr[jgrid])
+
+
+                            # ax2.plot([xc,xc],[yc,yc+field[jgrid,igrid]/plotpar["scale_y"]])
+                            
+                            ax2.plot([xc,xc],[yc,yc+dcap_1[jgrid,igrid]/plotpar["scale_y"]],color="pink",lw=lw)
+
+                            ax2.plot([xc2,xc2],[yc,yc+dcap_3[jgrid,igrid]/plotpar["scale_y"]],color="green",lw=lw)
+
+                            ax2.plot([xc,xc+dcap_2[jgrid,igrid]/plotpar["scale_x"]],[yc,yc],color='black',lw=lw)
+
+                            ax2.plot([xc,xc+dcap_4[jgrid,igrid]/plotpar["scale_x"]],[yc2,yc2],color='blue',lw=lw)
+
+                    except:
+                        print('not plotted')
    
 
     ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
