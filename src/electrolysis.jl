@@ -1219,8 +1219,8 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
     #TODO extension
 
 
-#     grid_u.V .+= reshape(veci(uD,grid_u,iLS+1), (grid_u.ny, grid_u.nx))
-#     grid_v.V .+= reshape(veci(vD,grid_v,iLS+1), (grid_v.ny, grid_v.nx))
+#     grid_u.V .+.= reshape(veci(uD,grid_u,iLS+1), (grid_u.ny, grid_u.nx))
+#     grid_v.V .+.= reshape(veci(vD,grid_v,iLS+1), (grid_v.ny, grid_v.nx))
 
 #     i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext = indices_extension(grid_u, grid_u.LS[iLS], grid_u.ind.inside, periodic_x, periodic_y)
 #     i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext = indices_extension(grid_v, grid_v.LS[iLS], grid_v.ind.inside, periodic_x, periodic_y)
@@ -1931,9 +1931,9 @@ function compute_grad_phi_ele!(num::Numerical{Float64, Int64},
     # end
 
  
-    # mass_flux_vec1_2 = reshape(mass_flux_vec1,grid)
-    # mass_flux_vecb_2 = reshape(mass_flux_vecb,grid)
-    # mass_flux_veci_2 = reshape(mass_flux_veci,grid)
+    # mass_flux_vec1_2 .= reshape(mass_flux_vec1,grid)
+    # mass_flux_vecb_2 .= reshape(mass_flux_vecb,grid)
+    # mass_flux_veci_2 .= reshape(mass_flux_veci,grid)
 
     # mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
 
@@ -1946,8 +1946,8 @@ function compute_grad_phi_ele!(num::Numerical{Float64, Int64},
         ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(phi_eleD,grid,iLS+1)
     end
 
-    tmp_vec_u = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
-    tmp_vec_v = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+    tmp_vec_u .= reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    tmp_vec_v .= reshape(veci(∇ϕ_y,grid_v,1), grid_v)
 
    
 
@@ -2038,11 +2038,11 @@ function compute_grad_phi_ele!(num::Numerical{Float64, Int64},
     #         ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(phi_eleD,grid,iLS+1)
     #     end
 
-    #     # grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
-    #     # grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+    #     # grd_x .= reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    #     # grd_y .= reshape(veci(∇ϕ_y,grid_v,1), grid_v)
 
-    #     tmp_vec_u = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
-    #     tmp_vec_v = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+    #     tmp_vec_u .= reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    #     tmp_vec_v .= reshape(veci(∇ϕ_y,grid_v,1), grid_v)
 
     #     #Output everything to phL
 
@@ -2171,9 +2171,9 @@ function compute_grad_phi_ele_liquid_solid!(num::Numerical{Float64, Int64},
     # end
 
  
-    # mass_flux_vec1_2 = reshape(mass_flux_vec1,grid)
-    # mass_flux_vecb_2 = reshape(mass_flux_vecb,grid)
-    # mass_flux_veci_2 = reshape(mass_flux_veci,grid)
+    # mass_flux_vec1_2 .= reshape(mass_flux_vec1,grid)
+    # mass_flux_vecb_2 .= reshape(mass_flux_vecb,grid)
+    # mass_flux_veci_2 .= reshape(mass_flux_veci,grid)
 
     # mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
 
@@ -2186,8 +2186,8 @@ function compute_grad_phi_ele_liquid_solid!(num::Numerical{Float64, Int64},
         ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(phi_eleD,grid,iLS+1)
     end
 
-    grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
-    grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+    grd_x .= reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    grd_y .= reshape(veci(∇ϕ_y,grid_v,1), grid_v)
 
     phL.i_current_mag .= (
         (grd_x[:,2:end].^2.0 .* LS_u.geoL.dcap[:,2:end,6] .+ 
@@ -2216,8 +2216,8 @@ function compute_grad_phi_ele_liquid_solid!(num::Numerical{Float64, Int64},
         ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(phi_eleD,grid,iLS+1)
     end
 
-    grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
-    grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+    grd_x .= reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    grd_y .= reshape(veci(∇ϕ_y,grid_v,1), grid_v)
 
     #Output everything to phL
 
@@ -2253,7 +2253,69 @@ function compute_grad_phi_ele_liquid_solid!(num::Numerical{Float64, Int64},
 
 end
 
+"""
+  Compute norm of gradient of variable pD (located on p-grid)
 
+# Gradient of pressure, eq. 17 in 
+#"A Conservative Cartesian Cut-Cell Method for Mixed Boundary Conditions and the Incompressible Navier-Stokes Equations on Staggered Meshes"
+#From navier_stokes_coupled.jl
+```julia
+∇ϕ_x = opC_u.AxT * opC_u.Rx * vec(phi_ele) .+ opC_u.Gx_b * vecb(phi_eleD,grid)
+∇ϕ_y = opC_v.AyT * opC_v.Ry * vec(phi_ele) .+ opC_v.Gy_b * vecb(phi_eleD,grid)
+for iLS in 1:nLS
+    ∇ϕ_x .+= opC_u.Gx[iLS] * veci(phi_eleD,grid,iLS+1)
+    ∇ϕ_y .+= opC_v.Gy[iLS] * veci(phi_eleD,grid,iLS+1)
+end
+```
+"""
+function compute_grad_p_2!(num,grid, grid_u, grid_v, pD, opC_p,opC_u,opC_v,
+    # grd_x,grd_y,
+    )
+    
+    grd_x = zeros(grid)
+    grd_y = zeros(grid)
+    ∇ϕ_x = fnzeros(grid,num)
+    ∇ϕ_y = fnzeros(grid,num)
+
+
+    #Liquid phase
+    # @unpack pD = phL
+
+    ∇ϕ_x .= opC_p.iMx * opC_p.Bx * vec1(pD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(pD,grid)
+    ∇ϕ_y .= opC_p.iMy * opC_p.By * vec1(pD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(pD,grid)
+
+    for iLS in 1:num.nLS
+        ∇ϕ_x .+= opC_p.iMx * opC_p.Hx[iLS] * veci(pD,grid,iLS+1)
+        ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(pD,grid,iLS+1)
+    end
+
+    grd_x .= reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    grd_y .= reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+    printstyled(color=:red, @sprintf "\n grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_x) maximum(grd_x) minimum(grd_y) maximum(grd_y))
+
+    grd_x .= 0.0
+    grd_y .= 0.0
+    ∇ϕ_x .= 0.0
+    ∇ϕ_y .= 0.0
+
+    ∇ϕ_x .= opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid)
+    ∇ϕ_y .= opC_v.AyT * opC_v.Ry * vec1(pD,grid) .+ opC_v.Gy_b * vecb(pD,grid)
+    for iLS in 1:num.nLS
+        ∇ϕ_x .+= opC_u.Gx[iLS] * veci(pD,grid,iLS+1)
+        ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid,iLS+1)
+    end
+
+    iMu = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_u.M.diag))
+    iMv = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_v.M.diag))
+    ∇ϕ_x .= iMu * ∇ϕ_x
+    ∇ϕ_y .= iMv * ∇ϕ_y
+    
+    grd_x .= reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    grd_y .= reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+    printstyled(color=:magenta, @sprintf "\n grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_x) maximum(grd_x) minimum(grd_y) maximum(grd_y))
+end
 
 """
   Compute norm of gradient of variable pD (located on p-grid)
@@ -2284,8 +2346,8 @@ function compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p,opC_u,opC_v)
         ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(pD,grid,iLS+1)
     end
 
-    grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
-    grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+    grd_x .= reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    grd_y .= reshape(veci(∇ϕ_y,grid_v,1), grid_v)
 
     printstyled(color=:red, @sprintf "\n grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_x) maximum(grd_x) minimum(grd_y) maximum(grd_y))
 
@@ -2302,8 +2364,8 @@ function compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p,opC_u,opC_v)
     ∇ϕ_x = iMu * ∇ϕ_x
     ∇ϕ_y = iMv * ∇ϕ_y
     
-    grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
-    grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+    grd_x .= reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    grd_y .= reshape(veci(∇ϕ_y,grid_v,1), grid_v)
 
     printstyled(color=:magenta, @sprintf "\n grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_x) maximum(grd_x) minimum(grd_y) maximum(grd_y))
 end
@@ -3131,6 +3193,9 @@ function integrate_mass_flux_over_interface(num::Numerical{Float64, Int64},
     mass_flux_vec1::Array{Float64, 1},
     mass_flux_vecb::Array{Float64, 1}, 
     mass_flux_veci::Array{Float64, 1},
+    mass_flux_vec1_2::Array{Float64, 2},
+    mass_flux_vecb_2::Array{Float64, 2},
+    mass_flux_veci_2::Array{Float64, 2},
     mass_flux::Array{Float64, 2},
     interface_id::Int64,
     )
@@ -3153,9 +3218,13 @@ function integrate_mass_flux_over_interface(num::Numerical{Float64, Int64},
     
     #size (ny,nx)
     mass_flux .= 0.0
+    mass_flux_vec1_2 .= 0.0
+    mass_flux_vecb_2 .= 0.0
+    mass_flux_veci_2 .= 0.0
 
-    mass_flux_vec1   = opC_p.HxT[interface_id] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[interface_id] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
-    mass_flux_vecb   = opC_p.HxT[interface_id] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[interface_id] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+
+    mass_flux_vec1   .= opC_p.HxT[interface_id] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[interface_id] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
+    mass_flux_vecb   .= opC_p.HxT[interface_id] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[interface_id] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
 
     for iLS in 1:num.nLS
         mass_flux_veci .+= opC_p.HxT[interface_id] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
@@ -3202,10 +3271,10 @@ function integrate_mass_flux_over_interface(num::Numerical{Float64, Int64},
 
   # mass_flux = mass_flux_vec1 .+ mass_flux_vecb .+ mass_flux_veci
 
-    # mass_flux_2 = reshape(mass_flux,grid)
-    mass_flux_vec1_2 = reshape(mass_flux_vec1,grid)
-    mass_flux_vecb_2 = reshape(mass_flux_vecb,grid)
-    mass_flux_veci_2 = reshape(mass_flux_veci,grid)
+    # mass_flux_2 .= reshape(mass_flux,grid)
+    mass_flux_vec1_2 .= reshape(mass_flux_vec1,grid)
+    mass_flux_vecb_2 .= reshape(mass_flux_vecb,grid)
+    mass_flux_veci_2 .= reshape(mass_flux_veci,grid)
 
     mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
 
@@ -3369,10 +3438,10 @@ function integrate_mass_flux_over_interface_old(num::Numerical{Float64, Int64},
 
   # mass_flux = mass_flux_vec1 .+ mass_flux_vecb .+ mass_flux_veci
 
-    # mass_flux_2 = reshape(mass_flux,grid)
-    mass_flux_vec1_2 = reshape(mass_flux_vec1,grid)
-    mass_flux_vecb_2 = reshape(mass_flux_vecb,grid)
-    mass_flux_veci_2 = reshape(mass_flux_veci,grid)
+    # mass_flux_2 .= reshape(mass_flux,grid)
+    mass_flux_vec1_2 .= reshape(mass_flux_vec1,grid)
+    mass_flux_vecb_2 .= reshape(mass_flux_vecb,grid)
+    mass_flux_veci_2 .= reshape(mass_flux_veci,grid)
 
     mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
 
@@ -3536,10 +3605,10 @@ function integrate_mass_flux_over_interface_no_writing(num::Numerical{Float64, I
 
   # mass_flux = mass_flux_vec1 .+ mass_flux_vecb .+ mass_flux_veci
 
-    # mass_flux_2 = reshape(mass_flux,grid)
-    mass_flux_vec1_2 = reshape(mass_flux_vec1,grid)
-    mass_flux_vecb_2 = reshape(mass_flux_vecb,grid)
-    mass_flux_veci_2 = reshape(mass_flux_veci,grid)
+    # mass_flux_2 .= reshape(mass_flux,grid)
+    mass_flux_vec1_2 .= reshape(mass_flux_vec1,grid)
+    mass_flux_vecb_2 .= reshape(mass_flux_vecb,grid)
+    mass_flux_veci_2 .= reshape(mass_flux_veci,grid)
 
     mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
 
@@ -3690,10 +3759,10 @@ function integrate_mass_flux_over_interface_2(num::Numerical{Float64, Int64},
 
   # mass_flux = mass_flux_vec1 .+ mass_flux_vecb .+ mass_flux_veci
 
-    # mass_flux_2 = reshape(mass_flux,grid)
-    mass_flux_vec1_2 = reshape(mass_flux_vec1,grid)
-    mass_flux_vecb_2 = reshape(mass_flux_vecb,grid)
-    mass_flux_veci_2 = reshape(mass_flux_veci,grid)
+    # mass_flux_2 .= reshape(mass_flux,grid)
+    mass_flux_vec1_2 .= reshape(mass_flux_vec1,grid)
+    mass_flux_vecb_2 .= reshape(mass_flux_vecb,grid)
+    mass_flux_veci_2 .= reshape(mass_flux_veci,grid)
 
     mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
 
@@ -3853,10 +3922,10 @@ function integrate_mass_flux_over_interface_2_no_writing(num::Numerical{Float64,
 
   # mass_flux = mass_flux_vec1 .+ mass_flux_vecb .+ mass_flux_veci
 
-    # mass_flux_2 = reshape(mass_flux,grid)
-    mass_flux_vec1_2 = reshape(mass_flux_vec1,grid)
-    mass_flux_vecb_2 = reshape(mass_flux_vecb,grid)
-    mass_flux_veci_2 = reshape(mass_flux_veci,grid)
+    # mass_flux_2 .= reshape(mass_flux,grid)
+    mass_flux_vec1_2 .= reshape(mass_flux_vec1,grid)
+    mass_flux_vecb_2 .= reshape(mass_flux_vecb,grid)
+    mass_flux_veci_2 .= reshape(mass_flux_veci,grid)
 
     mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
 
@@ -4274,15 +4343,15 @@ function pressure_projection_debug!(
         ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid,iLS+1)
     end
 
-    grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
-    grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+    grd_x .= reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    grd_y .= reshape(veci(∇ϕ_y,grid_v,1), grid_v)
 
     printstyled(color=:cyan, @sprintf "\n B %.2e T %.2e L %.2e R %.2e\n" maximum(abs.(vecb_B(∇ϕ_x,grid_u))) maximum(abs.(vecb_T(∇ϕ_x,grid_u))) maximum(abs.(vecb_L(∇ϕ_y,grid_v))) maximum(abs.(vecb_R(∇ϕ_y,grid_v))))
     printstyled(color=:red, @sprintf "\n B %.2e T %.2e L %.2e R %.2e\n" maximum(abs.(grd_x[end,:])) maximum(abs.(grd_x[1,:])) maximum(abs.(grd_y[:,1])) maximum(abs.(grd_y[:,end])))
 
     printstyled(color=:red, @sprintf "\n p %.2e p %.2e p %.2e p %.2e \n" maximum(abs.(p[end,:])) maximum(abs.(p[1,:])) maximum(abs.(p[:,end])) maximum(abs.(p[:,1])))
 
-    ptest = reshape(veci(pD,grid,1), grid)
+    ptest .= reshape(veci(pD,grid,1), grid)
     printstyled(color=:magenta, @sprintf "\n ptest %.2e p %.2e p %.2e p %.2e \n" maximum(abs.(ptest[end,:])) maximum(abs.(ptest[1,:])) maximum(abs.(ptest[:,end])) maximum(abs.(ptest[:,1])))
 
 
@@ -4290,14 +4359,14 @@ function pressure_projection_debug!(
     ∇ϕ_x .= 0.0
     ∇ϕ_y .= 0.0
 
-    compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
+    compute_grad_p_2!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
 
 
     if num.prediction == 1 || num.prediction == 2
         printstyled(color=:red, @sprintf "\n pressure_in_prediction \n")
 
         #TODO
-        compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
+        compute_grad_p_2!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
 
 
         ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid)
@@ -4307,8 +4376,8 @@ function pressure_projection_debug!(
             ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid,iLS+1)
         end
 
-        grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
-        grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+        grd_x .= reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+        grd_y .= reshape(veci(∇ϕ_y,grid_v,1), grid_v)
 
         printstyled(color=:cyan, @sprintf "\n B %.2e T %.2e L %.2e R %.2e\n" maximum(abs.(vecb_B(∇ϕ_x,grid_u))) maximum(abs.(vecb_T(∇ϕ_x,grid_u))) maximum(abs.(vecb_L(∇ϕ_y,grid_v))) maximum(abs.(vecb_R(∇ϕ_y,grid_v))))
 
@@ -4321,8 +4390,8 @@ function pressure_projection_debug!(
             grd_yfull .+= opC_p.iMy * opC_p.Hy[iLS] * veci(pD,grid,iLS+1)
         end
 
-        grd_x = reshape(veci(grd_xfull,grid_u,1), grid_u)
-        grd_y = reshape(veci(grd_yfull,grid_v,1), grid_v)
+        grd_x .= reshape(veci(grd_xfull,grid_u,1), grid_u)
+        grd_y .= reshape(veci(grd_yfull,grid_v,1), grid_v)
 
         # printstyled(color=:red, @sprintf "\n grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_x) maximum(grd_x) minimum(grd_y) maximum(grd_y))
 
@@ -4555,7 +4624,7 @@ function pressure_projection_debug!(
         # Contribution to implicit part of viscous term from outer boundaries
         Avtest[1:ni,end-nb+1:end] = iRe .* bc_Lv_b
 
-        vecv = reshape(vec1(vD,grid_v),grid_v)
+        vecv .= reshape(vec1(vD,grid_v),grid_v)
 
 
         iplot = 1
@@ -4984,7 +5053,7 @@ function pressure_projection_debug!(
     p .= reshape(vec1(pD,grid), grid)
 
     #TODO
-    compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
+    compute_grad_p_2!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
 
 
     # else
@@ -5042,7 +5111,7 @@ function pressure_projection_debug!(
 
     test_Poiseuille(num,vD,grid_v)
     #TODO
-    compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
+    compute_grad_p_2!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
 
 
     printstyled(color=:magenta, @sprintf "\n end pressure projection \n")
@@ -5069,7 +5138,7 @@ function test_laplacian_pressure(num,grid_v,ph, opC_p, Lv, bc_Lv, bc_Lv_b)
     # Contribution to implicit part of viscous term from outer boundaries
     Avtest[1:ni,end-nb+1:end] = iRe .* bc_Lv_b
 
-    # vecv = reshape(vec1(vD,grid_v),grid_v)
+    # vecv .= reshape(vec1(vD,grid_v),grid_v)
 
     iplot = 1
     jplot = 64
