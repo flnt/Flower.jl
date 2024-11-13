@@ -110,16 +110,9 @@ end
 
 
 """
-    BC_LS_new!(num, cl, grid, A, B, rhs, BC)
-
-Update levelset matrices to apply inhomogeneous Neumann boundary conditions in presence of
-contact lines. 
-
-Outside, the contact angle asymptotically converges to an angle of 90°. Inside, the contact
-angle converges to an angle of 0° if the imposed contact angle at the contact line is
-smaller than 90° and to an angle of 180° if the imposed contact angle is bigger than 90°.
+  from BC_LS
 """
-function BC_LS_new!(grid, u, A, B, rhs, BC)
+function print_CL_length(num,grid, u, A, B, rhs, BC)
     @unpack x, y, nx, ny, dx, dy, ind = grid
     @unpack all_indices, b_left, b_bottom, b_right, b_top = ind
     @unpack left, bottom, right, top = BC
@@ -175,10 +168,12 @@ function BC_LS_new!(grid, u, A, B, rhs, BC)
             # distance between the center of the drop and the contact line
             d = abs(xy[pks1] + u[pks1] - (xy[pkse] + u[pkse])) / 2.0
 
-            printstyled(color=:magenta, @sprintf "\n distance between the center of the drop and the contact line %.2e \n" d)
-
-        catch
-            print("\n no contact line found\n ")
+            if d > 0.0 
+                printstyled(color=:magenta, @sprintf "\n distance between the center of the drop and the contact line %.2e R from volume LS end %.2e \n" d sqrt(2*volume(grid.LS[end].geoL)/π))
+                num.current_radius  = d
+            end 
+        catch e 
+            # print("\n no contact line found\n ")
         end
 
         # if is_neumann(boundaries_t[i])

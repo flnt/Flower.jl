@@ -3,7 +3,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import yaml
-import matplotlib.ticker as mpl_tickers
+# import matplotlib.ticker as mticker
+import matplotlib.ticker as mticker
+
 import matplotlib.colors as mpl_colors
 import pandas as pd
 import sys
@@ -13,7 +15,6 @@ import functools
 
 import matplotlib.font_manager as fm
 
-import matplotlib.ticker as mticker
 
 from matplotlib.path import Path
 from matplotlib.patches import PathPatch
@@ -1339,7 +1340,7 @@ def plot_file(
                 x_1D, y_1D, field, cmap=plotpar["cmap"], norm=norm, shading=shading
             )
         else:
-            levels = mpl_tickers.MaxNLocator(nbins=figpar["levels"]).tick_values(
+            levels = mticker.MaxNLocator(nbins=figpar["levels"]).tick_values(
                 np.min(field), np.max(field)
             )
             norm = mpl_colors.BoundaryNorm(levels, ncolors=cmap.N, clip=True)
@@ -1378,7 +1379,7 @@ def plot_file(
             cbar.ax.set_ylabel(r""+figpar['cbarlabel'])
             if 'ticks_format' in figpar:
                 if figpar['ticks_format']!=None:
-                    cbar.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
+                    cbar.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
 
 
     if isocontour:
@@ -1506,6 +1507,13 @@ def plot_file(
     # plt.title("t "+str_time +r"$(\unit{s})$")
 
     ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+
+    if 'ax_locator_x' in figpar.keys():                                     
+        ax2.xaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_x']))
+        ax2.yaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_y']))
+    else:
+        ax2.xaxis.set_major_locator(mticker.FixedLocator(plotpar['ax_locator_x']))
+        ax2.yaxis.set_major_locator(mticker.FixedLocator(plotpar['ax_locator_y']))
 
     if mode =='first' or mode =='close':
         ax2.spines["right"].set_visible(False)
@@ -1723,20 +1731,20 @@ def plot_current_lines(file,
     except:
         cbar0 = None
 
-    print(cbar0)
-    print('cbar',cbar)
+    # print(cbar0)
+    # print('cbar',cbar)
     # Make a colorbar for the ContourSet returned by the contourf call.
     if mode !='film':
         cbar0 = fig1.colorbar(CS)
         cbar0.ax.set_ylabel(r""+figpar['cbarlabel'])
         if 'ticks_format' in figpar:
             if figpar['ticks_format']!=None:
-                cbar0.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
+                cbar0.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
     else:
         cbar0 = plt.colorbar(CS,cax=cbar0.ax)
         if 'ticks_format' in figpar:
             if figpar['ticks_format']!=None:
-                cbar0.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
+                cbar0.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
 
     if str(figpar['isocontour']) == 'True':
         CS2 = ax2.contour(CS, 
@@ -1811,15 +1819,17 @@ def plot_current_lines(file,
                         cbarimag = None
                     if mode !='film':
                         cbarimag = fig1.colorbar(current_lines.lines)
-                        cbarimag.ax.set_ylabel(r""+figpar['streamplot_color'])
+                        cbarimag.ax.set_ylabel(r""+figpar['streamplot_cbarlabel'])
                         if 'ticks_format' in figpar:
                             if figpar['ticks_format']!=None:
-                                cbarimag.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
+                                cbarimag.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
                     else:
                         cbarimag = plt.colorbar(current_lines.lines,cax=cbarimag.ax)
                         if 'ticks_format' in figpar:
                             if figpar['ticks_format']!=None:
-                                cbarimag.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
+                                cbarimag.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
+                    
+                    cbarimag.ax.set_ylabel(r""+figpar['streamplot_cbarlabel'])
 
 
                 else:
@@ -1885,6 +1895,15 @@ def plot_current_lines(file,
             key_LS_wall = "levelset_p_wall"
             plot_wall(ax2,xp, yp, file, key_LS_wall,figpar,plotpar)
 
+    ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+      
+    if 'ax_locator_x' in figpar.keys():                                     
+        ax2.xaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_x']))
+        ax2.yaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_y']))
+    else:
+        ax2.xaxis.set_major_locator(mticker.FixedLocator(plotpar['ax_locator_x']))
+        ax2.yaxis.set_major_locator(mticker.FixedLocator(plotpar['ax_locator_y']))
+
     if mode =='first' or mode =='close':
         ax2.spines["right"].set_visible(False)
         ax2.spines["top"].set_visible(False)
@@ -1895,6 +1914,13 @@ def plot_current_lines(file,
         ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
         ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
         ax2.set_aspect('equal', 'box')
+
+        try:
+            ax2.xaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_x']))
+            ax2.yaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_y']))
+
+        except:
+            print('no locator')
 
         str_nstep = str(nstep)
         plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also save fig for latex  display
@@ -2266,7 +2292,7 @@ def plot_python_pdf_full2(
             cmap=plotpar['cmap'],extend=plotpar['extend'],)
         else:
 
-            mpl_levels = mpl_tickers.MaxNLocator(nbins=figpar['levels']).tick_values(np.min(field), np.max(field))
+            mpl_levels = mticker.MaxNLocator(nbins=figpar['levels']).tick_values(np.min(field), np.max(field))
             norm = mpl_colors.BoundaryNorm(mpl_levels, ncolors=cmap.N, clip=True)
             CS = ax2.pcolormesh(x_arr,y_arr,field, cmap=plotpar['cmap'], norm=norm)
 
@@ -2420,7 +2446,7 @@ def plot_python_pdf_full2(
         cbar.ax.set_ylabel(r""+figpar['cbarlabel'])
         if 'ticks_format' in figpar:
             if figpar['ticks_format']!=None:
-                cbar.ax.yaxis.set_major_formatter(mpl_tickers.FormatStrFormatter(figpar['ticks_format']))
+                cbar.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
 
     # Add the contour line levels to the colorbar
     if str(figpar['isocontour']) == 'True':

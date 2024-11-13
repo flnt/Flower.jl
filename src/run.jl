@@ -222,15 +222,15 @@ function run_forward!(
             elseif mode_2d == 1 #reference thickness for a cylinder
                 nH2 = p_g * pi * num.current_radius ^ 2 * num.ref_thickness_2d / (num.temperature0 * num.Ru) 
             elseif mode_2d==2 #mol/meter
-                nH2=num.concentration0[1]* pi * num.current_radius ^ 2
+                nH2=num.concentration0[num.index_phase_change]* pi * num.current_radius ^ 2
             elseif mode_2d==3 #mol/meter half circle
-                nH2=1.0/2.0*num.concentration0[1]* pi * num.current_radius ^ 2
+                nH2=1.0/2.0*num.concentration0[num.index_phase_change]* pi * num.current_radius ^ 2
             end
             # nH2 = 4.0/3.0 * pi * num.current_radius^3 * num.rho2 / num.MWH2
 
             printstyled(color=:green, @sprintf "\n Mole: %.2e \n" nH2)
 
-            printstyled(color=:green, @sprintf "\n Mole test: %.2e %.2e\n" num.concentration0[1]*4.0/3.0*pi*num.current_radius^3 p_g*4.0/3.0*pi*num.current_radius^3/(num.temperature0*num.Ru))
+            printstyled(color=:green, @sprintf "\n Mole test: %.2e %.2e\n" num.concentration0[num.index_phase_change]*4.0/3.0*pi*num.current_radius^3 p_g*4.0/3.0*pi*num.current_radius^3/(num.temperature0*num.Ru))
 
         end
 
@@ -267,6 +267,28 @@ function run_forward!(
     tmp_vec_p0 = zeros(grid) 
     tmp_vec_p1 = zeros(grid) 
 
+    if electrolysis
+        if num.nb_transported_scalars>1
+            elec_cond = zeros(grid)
+            elec_condD = fnzeros(grid,num)
+
+            if heat 
+                elec_condD .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, phL.TD, phL.trans_scalD[:,num.index_electrolyte])
+                elec_cond .= reshape(vec1(elec_condD,grid),grid)
+                # elec_cond .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, phL.T, phL.trans_scal)
+                # elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru.*phL.T) #phL.T
+            else
+                elec_condD .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, phL.trans_scalD[:,num.index_electrolyte])
+                elec_cond .= reshape(vec1(elec_condD,grid),grid)
+                # elec_cond .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, phL.trans_scal)
+                # elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru*num.temperature0) 
+            end
+        else 
+            elec_cond = ones(grid)
+            elec_cond = fnones(grid,num)
+            printstyled(color=:green, @sprintf "\n conductivity one")
+        end 
+    end
 
     if levelset
 
@@ -708,8 +730,8 @@ function run_forward!(
         # println(grid.LS[1].geoL.dcap[1,1,:])
     end
 
-    V0S = volume(grid.LS[end].geoS)
-    V0L = volume(grid.LS[end].geoL)
+    # V0S = volume(grid.LS[end].geoS)
+    # V0L = volume(grid.LS[end].geoL)
 
 
     # if electrolysis
@@ -1069,7 +1091,7 @@ function run_forward!(
 
                 if num.nb_transported_scalars>0
 
-                    printstyled(color=:magenta, @sprintf "\n num.nb_transported_scalars %.5i " num.nb_transported_scalars)
+                    # printstyled(color=:magenta, @sprintf "\n num.nb_transported_scalars %.5i " num.nb_transported_scalars)
 
 
                     for iscal=1:num.nb_transported_scalars
@@ -1301,22 +1323,21 @@ function run_forward!(
                     # printstyled(color=:magenta, @sprintf "\n conductivity test")
 
 
-                    if electrolysis && num.nb_transported_scalars>1 #&& num.bulk_conductivity != 0
+                    if electrolysis && num.nb_transported_scalars>1
                         if heat 
-                            elec_cond  = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru.*phL.T) 
-                            elec_condD = 2*num.Faraday^2 .*phL.trans_scalD[:,2].*num.diffusion_coeff[2]./(num.Ru.*phL.TD)
+                            elec_condD .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, phL.TD, phL.trans_scalD[:,num.index_electrolyte])
+                            elec_cond .= reshape(vec1(elec_condD,grid),grid)
+                            # elec_cond .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, phL.T, phL.trans_scal)
+                            # elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru.*phL.T) #phL.T
                         else
-                            elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru*num.temperature0) 
-                            elec_condD = 2*num.Faraday^2 .*phL.trans_scalD[:,2].*num.diffusion_coeff[2]./(num.Ru.*num.temperature0)
-
+                            elec_condD .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, phL.trans_scalD[:,num.index_electrolyte])
+                            elec_cond .= reshape(vec1(elec_condD,grid),grid)
+                            # elec_cond .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, phL.trans_scal)
+                            # elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru*num.temperature0) 
                         end
-                    else 
-                        elec_cond = ones(grid)
-                        elec_condD = fnones(grid, num)
-                        printstyled(color=:green, @sprintf "\n conductivity one")
-                        # b_phi_ele = zeros(grid)
+                    end
 
-                    end 
+         
 
                     # printstyled(color=:red, @sprintf "\n test conductivity")
 
@@ -1565,19 +1586,31 @@ function run_forward!(
 
                    
 
-
-
                     if electrolysis && num.nb_transported_scalars>1
                         if heat 
-                            elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru.*phL.T) #phL.T
+                            elec_condD .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, phL.TD, phL.trans_scalD[:,num.index_electrolyte])
+                            elec_cond .= reshape(vec1(elec_condD,grid),grid)
+                            # elec_cond .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, phL.T, phL.trans_scal)
+                            # elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru.*phL.T) #phL.T
                         else
-                            elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru*num.temperature0) 
+                            elec_condD .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, phL.trans_scalD[:,num.index_electrolyte])
+                            elec_cond .= reshape(vec1(elec_condD,grid),grid)
+                            # elec_cond .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, phL.trans_scal)
+                            # elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru*num.temperature0) 
                         end
-                    else 
-                        elec_cond = ones(grid)
-                        printstyled(color=:green, @sprintf "\n conductivity one")
+                    end
 
-                    end 
+                    # if electrolysis && num.nb_transported_scalars>1
+                    #     if heat 
+                    #         elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru.*phL.T) #phL.T
+                    #     else
+                    #         elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru*num.temperature0) 
+                    #     end
+                    # else 
+                    #     elec_cond = ones(grid)
+                    #     printstyled(color=:green, @sprintf "\n conductivity one")
+
+                    # end 
 
                     # compute_grad_phi_ele!(grid, phL, grid.V, periodic_x, periodic_y) #TODO current
                     compute_grad_phi_ele!(num, grid, grid_u, grid_v, grid_u.LS[end], grid_v.LS[end], phL, phS, op.opC_pL, op.opC_pS, 
@@ -1723,7 +1756,7 @@ function run_forward!(
 
             # @views integrate_mass_flux_over_interface_2(num,grid,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
 
-            @views integrate_mass_flux_over_interface_2(num,grid,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,
+            @views integrate_mass_flux_over_interface(num,grid,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,
             mass_flux_vecb,mass_flux_veci,mass_flux,num.index_phase_change) #1
 
             print("\n sum mass flux all levelsets (walls and interfaces alike) ", sum(mass_flux),"\n ")
@@ -1740,7 +1773,7 @@ function run_forward!(
                 if electrolysis_phase_change_case!="none"    
                     if occursin("levelset",electrolysis_phase_change_case)
 
-                        printstyled(color=:magenta, @sprintf "\n phase-change velocity")
+                        printstyled(color=:magenta, @sprintf "\n phase-change for LS %.2i " iLS)
 
                         # plot_electrolysis_velocity!(num, grid, grid.LS, grid.V, TL, MIXED, periodic_x, periodic_y, concentration_scal_intfc)
 
@@ -1752,16 +1785,16 @@ function run_forward!(
 
 
                         if electrolysis_phase_change_case == "levelset"
-
+                            #num.index_phase_change: index of species concerned by phase-change 
                             update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, 
-                            periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],phL.trans_scal[:,:,1],
-                            num.diffusion_coeff[1],num.concentration0[1],electrolysis_phase_change_case,mass_flux)
+                            periodic_x, periodic_y, num.average_velocity, phL.trans_scalD[:,num.index_phase_change],phL.trans_scal[:,:,num.index_phase_change],
+                            num.diffusion_coeff[num.index_phase_change],num.concentration0[num.index_phase_change],electrolysis_phase_change_case,mass_flux)
 
                         elseif electrolysis_phase_change_case == "levelset_averaged"
                             
                             update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, 
-                            periodic_x, periodic_y, Vmean, phL.trans_scalD[:,1],phL.trans_scal[:,:,1],
-                            num.diffusion_coeff[1],num.concentration0[1],electrolysis_phase_change_case,mass_flux)
+                            periodic_x, periodic_y, num.average_velocity, phL.trans_scalD[:,num.index_phase_change],phL.trans_scal[:,:,num.index_phase_change],
+                            num.diffusion_coeff[num.index_phase_change],num.concentration0[num.index_phase_change],electrolysis_phase_change_case,mass_flux)
 
                             
                             # # iLS = 1
@@ -1777,13 +1810,13 @@ function run_forward!(
 
                             # #TODO check velocity
                             # @inbounds @threads for II in grid.LS[iLS].MIXED
-                            #     grid.V[II] = sum(mass_flux) * num.diffusion_coeff[1] *(1.0/num.rho2-1.0/num.rho1).*num.diffusion_coeff[1].*num.MWH2
+                            #     grid.V[II] = sum(mass_flux) * num.diffusion_coeff[num.index_phase_change] *(1.0/num.rho2-1.0/num.rho1).*num.diffusion_coeff[num.index_phase_change].*num.MWH2
                             # end
 
                         end #electrolysis_phase_change_case == "levelset"
 
                         if num.mass_flux == 0
-                            varnH2 = num.sum_mass_flux * num.diffusion_coeff[1] 
+                            varnH2 = num.sum_mass_flux * num.diffusion_coeff[num.index_phase_change] 
 
                             new_nH2 = nH2 + varnH2 * num.τ
 
@@ -1826,7 +1859,7 @@ function run_forward!(
                 previous_radius = num.current_radius
 
                 # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
-                varnH2 =  sum(mass_flux) * num.diffusion_coeff[1] 
+                varnH2 =  sum(mass_flux) * num.diffusion_coeff[num.index_phase_change] 
 
                 #TODO mode_2d==0 flux corresponds to cylinder of length 1
                 #2D cylinder reference length
@@ -1866,9 +1899,11 @@ function run_forward!(
                 elseif mode_2d == 1
                     num.current_radius = sqrt(nH2 * num.Ru * num.temperature0/( pi * p_g * num.ref_thickness_2d) )
                 elseif mode_2d == 2
-                    num.current_radius = sqrt(nH2/(num.concentration0[1] * pi))
+                    num.current_radius = sqrt(nH2/(num.concentration0[num.index_phase_change] * pi))
                 elseif mode_2d == 3
-                    num.current_radius = sqrt(2*nH2/(num.concentration0[1] * pi))
+                    num.current_radius = sqrt(2*nH2/(num.concentration0[num.index_phase_change] * pi))
+                elseif mode_2d == 4 #TODO
+                    num.current_radius = sqrt(nH2 * num.Ru * num.temperature0/( pi * p_g) )
                 end
 
                 printstyled(color=:green, @sprintf "\n radius num.CFL: %.2e \n" (num.current_radius-previous_radius)/(num.L0/grid.nx))
@@ -2025,9 +2060,8 @@ function run_forward!(
                     elseif num.advection_LS_mode == 2
                         print("\n num.advection_LS_mode == 2 iLS", iLS)
 
-                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
 
-                        BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+                        print_CL_length(num,grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
 
 
                         printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
@@ -2037,9 +2071,8 @@ function run_forward!(
                         grid.LS[iLS].u .= reshape(gmres(grid.LS[iLS].A, grid.LS[iLS].B * vec(grid.LS[iLS].u)), grid)
 
 
-                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
 
-                        BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+                        print_CL_length(num,grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
 
 
                     elseif num.advection_LS_mode == 3
@@ -2060,9 +2093,8 @@ function run_forward!(
 
                         print("\n num.advection_LS_mode == 3 iLS", iLS)
 
-                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
 
-                        BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+                        print_CL_length(num,grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
 
 
                         printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
@@ -2083,16 +2115,14 @@ function run_forward!(
                         grid.LS[iLS].u .= reshape(gmres(grid.LS[iLS].A, grid.LS[iLS].B * vec(grid.LS[iLS].u) .+ rhs_LS), grid)
 
 
-                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
-
-                        BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+                        print_CL_length(num,grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
 
                     elseif num.advection_LS_mode == 4
 
                         previous_radius = num.current_radius
 
                         # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
-                        varnH2 = sign_mass_flux * sum(mass_flux) * num.diffusion_coeff[1] 
+                        varnH2 = sign_mass_flux * sum(mass_flux) * num.diffusion_coeff[num.index_phase_change] 
 
                         #TODO mode_2d==0 flux corresponds to cylinder of length 1
                         #2D cylinder reference length
@@ -2127,9 +2157,9 @@ function run_forward!(
                         elseif mode_2d == 1
                             num.current_radius = sqrt(nH2 * num.Ru * num.temperature0/( pi * p_g * num.ref_thickness_2d) )
                         elseif mode_2d == 2
-                            num.current_radius = sqrt(nH2/(num.concentration0[1] * pi))
+                            num.current_radius = sqrt(nH2/(num.concentration0[num.index_phase_change] * pi))
                         elseif mode_2d == 3
-                            num.current_radius = sqrt(2*nH2/(num.concentration0[1] * pi))
+                            num.current_radius = sqrt(2*nH2/(num.concentration0[num.index_phase_change] * pi))
                         end
         
                         printstyled(color=:green, @sprintf "\n radius num.CFL: %.2e \n" (num.current_radius-previous_radius)/(num.L0/grid.nx))
@@ -2158,9 +2188,8 @@ function run_forward!(
                     elseif num.advection_LS_mode == 5
                         print("\n num.advection_LS_mode == 5 iLS", iLS)
 
-                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
 
-                        BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+                        print_CL_length(num,grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
 
                         grid.V .=0.25*grid.dx[1,1]/num.τ  
 
@@ -2170,9 +2199,8 @@ function run_forward!(
                         grid.LS[iLS].u .= reshape(gmres(grid.LS[iLS].A, grid.LS[iLS].B * vec(grid.LS[iLS].u)), grid)
 
 
-                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
 
-                        BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+                        print_CL_length(num,grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
 
                     elseif (num.advection_LS_mode == 6) || (num.advection_LS_mode == 7)
 
@@ -2182,9 +2210,8 @@ function run_forward!(
 
                         print("\n num.advection_LS_mode == 2 iLS", iLS)
 
-                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
 
-                        BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+                        print_CL_length(num,grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
 
 
                         printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
@@ -2236,9 +2263,8 @@ function run_forward!(
 
 
 
-                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
 
-                        BC_LS_new!(grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
+                        print_CL_length(num,grid, grid.LS[iLS].u, grid.LS[iLS].A, grid.LS[iLS].B, rhs_LS, BC_u)
 
 
                     elseif num.advection_LS_mode == 8
@@ -2250,9 +2276,8 @@ function run_forward!(
 
                         print("\n periodic ",periodic_x," y ",periodic_y)
 
-                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
 
-                        BC_LS_new!(grid, grid.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+                        print_CL_length(num,grid, grid.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
 
 
                         printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
@@ -2281,8 +2306,8 @@ function run_forward!(
 
                         # IIOE_normal_indices!(grid, Aghost, Bghost, LSghost, Vghost, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
 
-                        print("\n sizes LS A ",size(grid.LS[iLS].A), " B ", size(grid.LS[iLS].B)," LS ",size(grid.LS[iLS].u)," V ",size(grid.V),"\n")
-                        print("\n sizes LS A ",size(OffsetArrays.no_offset_view(Aghost)), " B ", size(OffsetArrays.no_offset_view(Bghost))," LS ",size(LSghost)," V ",size(grid.V),"\n")
+                        # print("\n sizes LS A ",size(grid.LS[iLS].A), " B ", size(grid.LS[iLS].B)," LS ",size(grid.LS[iLS].u)," V ",size(grid.V),"\n")
+                        # print("\n sizes LS A ",size(OffsetArrays.no_offset_view(Aghost)), " B ", size(OffsetArrays.no_offset_view(Bghost))," LS ",size(LSghost)," V ",size(grid.V),"\n")
 
                         OffsetArrays.no_offset_view(LSghost) .= reshape(gmres(OffsetArrays.no_offset_view(Aghost), OffsetArrays.no_offset_view(Bghost) * vec(OffsetArrays.no_offset_view(LSghost))), (grid.ny+2,grid.nx+2))
 
@@ -2291,9 +2316,8 @@ function run_forward!(
                         # grid.LS[iLS].u .= reshape(gmres(OffsetArrays.no_offset_view(Aghost), OffsetArrays.no_offset_view(Bghost) * vec(grid.LS[iLS].u)), grid)
 
 
-                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
 
-                        BC_LS_new!(grid, grid.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+                        print_CL_length(num,grid, grid.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
 
                     elseif num.advection_LS_mode == 9
                         print("\n num.advection_LS_mode == 8 iLS", iLS)
@@ -2302,9 +2326,8 @@ function run_forward!(
 
                         Aghost, Bghost = allocate_ghost_matrices_2(grid.nx,grid.ny,nghost)
 
-                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
 
-                        BC_LS_new!(grid, grid.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+                        print_CL_length(num,grid, grid.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
 
 
                         printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
@@ -2333,7 +2356,7 @@ function run_forward!(
 
                         # IIOE_normal_indices!(grid, Aghost, Bghost, LSghost, Vghost, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
 
-                        print("\n sizes LS A ",size(grid.LS[iLS].A), " B ", size(grid.LS[iLS].B)," LS ",size(grid.LS[iLS].u)," V ",size(grid.V),"\n")
+                        # print("\n sizes LS A ",size(grid.LS[iLS].A), " B ", size(grid.LS[iLS].B)," LS ",size(grid.LS[iLS].u)," V ",size(grid.V),"\n")
                         # print("\n sizes LS A ",size(OffsetArrays.no_offset_view(Aghost)), " B ", size(OffsetArrays.no_offset_view(Bghost))," LS ",size(LSghost)," V ",size(grid.V),"\n")
 
                         LSghost .= reshape(gmres(Aghost, Bghost * vec(LSghost)), (grid.ny+2*nghost,grid.nx+2*nghost))
@@ -2351,9 +2374,8 @@ function run_forward!(
                         # grid.LS[iLS].u .= reshape(gmres(OffsetArrays.no_offset_view(Aghost), OffsetArrays.no_offset_view(Bghost) * vec(grid.LS[iLS].u)), grid)
 
 
-                        printstyled(color=:red, @sprintf "\n dummy call to BC_LS! \n")
 
-                        BC_LS_new!(grid, grid.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+                        print_CL_length(num,grid, grid.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
 
 
 
@@ -2421,7 +2443,7 @@ function run_forward!(
                     V_mean = mean([mean(grid_u.V[grid.LS[1].MIXED]), mean(grid_v.V[grid.LS[1].MIXED])])
                     V_max = max(findmax(grid_u.V[grid.LS[1].MIXED])[1], findmax(grid_v.V[grid.LS[1].MIXED])[1])
                     V_min = min(findmin(grid_u.V[grid.LS[1].MIXED])[1], findmin(grid_v.V[grid.LS[1].MIXED])[1])
-                    print(@sprintf "Vol_ratio = %.3f%%\n" (volume(grid.LS[end].geoL) / V0L * 100))
+                    # print(@sprintf "Vol_ratio = %.3f%%\n" (volume(grid.LS[end].geoL) / V0L * 100))
                     print(@sprintf "V_mean = %.2e  V_max = %.2e  V_min = %.2e\n" V_mean V_max V_min)
                     print(@sprintf "κ_mean = %.2e  κ_max = %.2e  κ_min = %.2e\n" mean(grid.LS[1].κ[grid.LS[1].MIXED]) findmax(grid.LS[1].κ[grid.LS[1].MIXED])[1] findmin(grid.LS[1].κ[grid.LS[1].MIXED])[1])
                 end
@@ -2728,7 +2750,7 @@ function run_forward!(
                 print(@sprintf "κ_mean = %.2e  κ_max = %.2e  κ_min = %.2e  κ_stdev = %.5f\n" mean(grid.LS[1].κ[grid.LS[1].MIXED]) findmax(grid.LS[1].κ[grid.LS[1].MIXED])[1] findmin(grid.LS[1].κ[grid.LS[1].MIXED])[1] std(grid.LS[1].κ[grid.LS[1].MIXED]))
             end
             if free_surface && advection
-                print(@sprintf "Vol_ratio = %.3f%%\n" (volume(grid.LS[end].geoL) / V0L * 100))
+                # print(@sprintf "Vol_ratio = %.3f%%\n" (volume(grid.LS[end].geoL) / V0L * 100))
                 print(@sprintf "V_mean = %.2e  V_max = %.2e  V_min = %.2e  V_stdev = %.5f\n" mean(grid.V[grid.LS[1].MIXED]) findmax(grid.V[grid.LS[1].MIXED])[1] findmin(grid.V[grid.LS[1].MIXED])[1] std(grid.V[grid.LS[1].MIXED]))
                 print(@sprintf "κ_mean = %.2e  κ_max = %.2e  κ_min = %.2e  κ_stdev = %.5f\n" mean(grid.LS[1].κ[grid.LS[1].MIXED]) findmax(grid.LS[1].κ[grid.LS[1].MIXED])[1] findmin(grid.LS[1].κ[grid.LS[1].MIXED])[1] std(grid.LS[1].κ[grid.LS[1].MIXED]))
             end

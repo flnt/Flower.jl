@@ -254,9 +254,9 @@ function scalar_transport!(num::Numerical{Float64, Int64},
     @unpack Bx, By, BxT, ByT, Hx, Hy, HxT, HyT, M, iMx, iMy, χ = op
     @unpack u, v, uD, vD = ph
 
-    printstyled(color=:red, @sprintf "\n levelset: start scalar_transport!\n")
-    print("\n nb_transported_scalars ",num.nb_transported_scalars)
-    println("\n grid.LS[1].geoL.dcap[1,1,:]",grid.LS[1].geoL.dcap[1,1,:])
+    # printstyled(color=:red, @sprintf "\n levelset: start scalar_transport!\n")
+    # print("\n nb_transported_scalars ",num.nb_transported_scalars)
+    # println("\n grid.LS[1].geoL.dcap[1,1,:]",grid.LS[1].geoL.dcap[1,1,:])
 
     if convection
 
@@ -1039,7 +1039,7 @@ end
 From update_free_surface_velocity and update_stefan_velocity
 """
 function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, iLS, uD, vD, 
-    periodic_x, periodic_y, Vmean, concentration_scalD, concentration_scal, diffusion_coeff_scal,concentration_scal_intfc, 
+    periodic_x, periodic_y, average_velocity, concentration_scalD, concentration_scal, diffusion_coeff_scal,concentration_scal_intfc, 
     electrolysis_phase_change_case,mass_flux)
 
     grid.V .= 0
@@ -1048,128 +1048,134 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
 
     factor = -(1.0/num.rho2-1.0/num.rho1).*diffusion_coeff_scal[1].*num.MWH2
 
-
-    if electrolysis_phase_change_case == "levelset"
-
-        # @inbounds @threads for II in MIXED
-        @inbounds for II in grid.LS[iLS].MIXED
-
-            θ_d = concentration_scal_intfc
-
-            # dTS = 0.
-            dTL = 0.
-            if geoL.projection[II].flag
-                T_1, T_2 = interpolated_temperature(grid, geoL.projection[II].angle, geoL.projection[II].point1, geoL.projection[II].point2, TL, II, periodic_x, periodic_y)
-                dTL = normal_gradient(geoL.projection[II].d1, geoL.projection[II].d2, T_1, T_2, θ_d)
-            else
-                T_1 = interpolated_temperature(grid, geoL.projection[II].angle, geoL.projection[II].point1, TL, II, periodic_x, periodic_y)
-                dTL = normal_gradient(geoL.projection[II].d1, T_1, θ_d)
-            end
-            grid.V[II] = dTL #+ dTS
-
-            print("\n grad",II,"val",dTL,"val",geoL.projection[II].flag,"val",geoL.projection[II].angle,"val", geoL.projection[II].point1,"val", geoL.projection[II].point2,"val", T_1,"val",T_2,"val",θ_d)
-        end
-
-    else
-
-        intfc_length = 0.0
-        num.sum_mass_flux = 0.0
-        @inbounds for II in grid.LS[iLS].MIXED
-            # print("\n II update ",II, grid.LS[end].u[II], " iso end ",grid.LS[end].iso[II]," iso 1 ",grid.LS[1].iso[II])
-            if grid.LS[end].iso[II] != 15.0 # check if inside domain defined by other LS 
-            # if grid.LS[end].u[II]>0.0 # check if inside domain defined by other LS 
-            # if grid.LS[2].u[II]>0.0 #second wall
-                # print("\n cells for free surface", II," x ",grid.x[II]," LS[iLS] ",grid.LS[iLS].u[II]," LS[end] ",grid.LS[end].u[II]," LS[2] ",grid.LS[2].u[II])
-                # grid.V[II] = mass_flux[II] * factor
-
-                if num.mass_flux == 0
-                    num.sum_mass_flux += mass_flux[II]
-                    #compute interface length
-                    χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
-                    χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
-                    intfc_length_cell = sqrt(χx + χy)
-                    intfc_length += intfc_length_cell
-    
-                    # intfc_length_cell !=0 since mixed cell
-    
-                    print("\n intfc_length_cell ", intfc_length_cell)
-    
-                    grid.V[II] = mass_flux[II] * factor / intfc_length_cell
-                elseif num.mass_flux == 1
-
-                    #TODO iLS or end grid.LS[iLS].geoL
-
-                    dTL = 0.
-                    print("\n II ",II," flag ",grid.LS[iLS].geoL.projection[II].flag)
-                    if grid.LS[iLS].geoL.projection[II].flag
-                        T_1, T_2 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, grid.LS[iLS].geoL.projection[II].point2, concentration_scal, II, periodic_x, periodic_y)
-                        dTL = normal_gradient(grid.LS[iLS].geoL.projection[II].d1, grid.LS[iLS].geoL.projection[II].d2, T_1, T_2, concentration_scal_intfc)
-                        printstyled(color=:cyan, @sprintf "\n T1 %.2e T2 %.2e \n" T_1 T_2 )
-                        if isnan(T_2)
-                            printstyled(color=:red, @sprintf "\n T2 NaN, resorting to other method \n")
-                            print("\n P2 ",grid.LS[iLS].geoL.projection[II].point2)
+    intfc_length = 0.0
+    num.sum_mass_flux = 0.0
+    @inbounds for II in grid.LS[iLS].MIXED
+        # print("\n II update ",II, grid.LS[end].u[II], " iso end ",grid.LS[end].iso[II]," iso 1 ",grid.LS[1].iso[II])
+        if grid.LS[end].iso[II] != 15.0 # check if inside domain defined by other LS 
+        # if grid.LS[end].u[II]>0.0 # check if inside domain defined by other LS 
+        # if grid.LS[2].u[II]>0.0 #second wall
+            # print("\n cells for free surface", II," x ",grid.x[II]," LS[iLS] ",grid.LS[iLS].u[II]," LS[end] ",grid.LS[end].u[II]," LS[2] ",grid.LS[2].u[II])
+            # grid.V[II] = mass_flux[II] * factor
 
 
-                            T_1 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
-                            dTL = normal_gradient(grid.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
-                        end
-                    else
+
+            if num.mass_flux == 0
+                num.sum_mass_flux += mass_flux[II]
+                #compute interface length
+                χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
+                χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
+                intfc_length_cell = sqrt(χx + χy)
+                intfc_length += intfc_length_cell
+
+                # intfc_length_cell !=0 since mixed cell
+
+                print("\n intfc_length_cell ", intfc_length_cell)
+
+                grid.V[II] = mass_flux[II] * factor / intfc_length_cell
+            elseif num.mass_flux == 1
+
+                #TODO iLS or end grid.LS[iLS].geoL
+
+                dTL = 0.
+                # print("\n II ",II," flag ",grid.LS[iLS].geoL.projection[II].flag)
+                if grid.LS[iLS].geoL.projection[II].flag
+                    T_1, T_2 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, grid.LS[iLS].geoL.projection[II].point2, concentration_scal, II, periodic_x, periodic_y)
+                    dTL = normal_gradient(grid.LS[iLS].geoL.projection[II].d1, grid.LS[iLS].geoL.projection[II].d2, T_1, T_2, concentration_scal_intfc)
+                    printstyled(color=:cyan, @sprintf "\n T1 %.2e T2 %.2e \n" T_1 T_2 )
+                    if isnan(T_2)
+                        printstyled(color=:red, @sprintf "\n T2 NaN, resorting to other method \n")
+                        print("\n P2 ",grid.LS[iLS].geoL.projection[II].point2)
+
+
                         T_1 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
                         dTL = normal_gradient(grid.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
                     end
-                    # grid.V[II] = dTL #+ dTS
-                    printstyled(color=:cyan, @sprintf "\n v %.2e v from int %.2e %.2e %.2e\n" grid.V[II] dTL*factor T_1 concentration_scal_intfc)
-                    
-                    grid.V[II] = dTL*factor 
-                    v_mean += grid.V[II] #TODO unit use same
-                    # printstyled(color=:red, @sprintf "\n TODO unit use same \n" )
+
+                    if isnan(T_1) || isnan(T_2) #debug
+                        printstyled(color=:red, @sprintf "\n T1 or T2 NaN, debug \n")
+
+                        print("\n II ",II," flag ",grid.LS[iLS].geoL.projection[II].flag)
+
+                        vtx_num = 2                
+                        vtx_x = [grid.LS[iLS].geoL.projection[II].point1.x,grid.LS[iLS].geoL.projection[II].point2.x]
+                        vtx_y = [grid.LS[iLS].geoL.projection[II].point1.y,grid.LS[iLS].geoL.projection[II].point2.y]
+
+                        PDI_status = @ccall "libpdi".PDI_multi_expose("debug_phase_change"::Cstring,
+                        "vtx_num"::Cstring, vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                        "vtx_x"::Cstring, vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "vtx_y"::Cstring, vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+                        C_NULL::Ptr{Cvoid})::Cint
+                        
+                    end
+
+                else
+                    T_1 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
+                    dTL = normal_gradient(grid.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
+                end
+                # grid.V[II] = dTL #+ dTS
+                printstyled(color=:cyan, @sprintf "\n v %.2e v from int %.2e %.2e %.2e\n" grid.V[II] dTL*factor T_1 concentration_scal_intfc)
                 
-                # elseif num.mass_flux == 2
-                    # χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
-                    # χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
-                    # intfc_length_cell = sqrt(χx + χy)
-                    # intfc_length += intfc_length_cell
-                
-                end #num.mass_flux
+                grid.V[II] = dTL*factor 
+                v_mean += grid.V[II] #TODO unit use same
+                # printstyled(color=:red, @sprintf "\n TODO unit use same \n" )
             
-            end #grid.LS[end].iso[II] != 15.0
+            # elseif num.mass_flux == 2
+                # χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
+                # χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
+                # intfc_length_cell = sqrt(χx + χy)
+                # intfc_length += intfc_length_cell
+
+            end #num.mass_flux
+        
+        end #grid.LS[end].iso[II] != 15.0
+    end 
+    if average_velocity == 1
+        if num.mass_flux == 0
+            v_mean = factor * num.sum_mass_flux /intfc_length
+
+            if v_mean < 0.0
+                @error("error phase-change velocity")
+                printstyled(color=:red, @sprintf "\n error velocity\n")
+
+            end
+        # elseif num.mass_flux == 1
+        #     v_mean = factor * num.sum_mass_flux /intfc_length
         end 
-        if Vmean
-            if num.mass_flux == 0
-                v_mean = factor * num.sum_mass_flux /intfc_length
 
-            # elseif num.mass_flux == 1
-            #     v_mean = factor * num.sum_mass_flux /intfc_length
-            end 
+        @inbounds for II in grid.LS[iLS].MIXED
+            grid.V[II] = v_mean
+        end 
 
-            @inbounds for II in grid.LS[iLS].MIXED
-                grid.V[II] = v_mean
-            end 
+        printstyled(color=:cyan, @sprintf "\n v_mean %.2e CFL %.2e dt %.2e dx %.2e\n" v_mean v_mean*num.dt0/grid.dx[1,1] num.dt0 grid.dx[1,1])
+        # else
+    #     grid.V ./= intfc_length
 
-            printstyled(color=:cyan, @sprintf "\n v_mean %.2e CFL %.2e dt %.2e dx %.2e\n" v_mean v_mean*num.dt0/grid.dx[1,1] num.dt0 grid.dx[1,1])
-            # else
-        #     grid.V ./= intfc_length
-
-        end
+    end
 
 
-        # printstyled(color=:magenta, @sprintf "\n test sign velocity\n" )
-        # grid.V.*=-1.0
+    # printstyled(color=:magenta, @sprintf "\n test sign velocity\n" )
+    # grid.V.*=-1.0
 
-        # printstyled(color=:cyan, @sprintf "\n flux %.2e factor %.2e intfc_length %.2e\n" num.sum_mass_flux factor intfc_length)
+    # printstyled(color=:cyan, @sprintf "\n flux %.2e factor %.2e intfc_length %.2e\n" num.sum_mass_flux factor intfc_length)
 
-        # printstyled(color=:magenta, @sprintf "\n sum_intfc %.2e sum_intfc/intfc_length %.2e sum all cells %.2e \n" num.sum_mass_flux num.sum_mass_flux/intfc_length sum(mass_flux))
+    # printstyled(color=:magenta, @sprintf "\n sum_intfc %.2e sum_intfc/intfc_length %.2e sum all cells %.2e \n" num.sum_mass_flux num.sum_mass_flux/intfc_length sum(mass_flux))
 
-        # printstyled(color=:red, @sprintf "\n test phase-change velocity %.2e intfc_length %.2e πR %.2e\n" sum(mass_flux)*factor/intfc_length intfc_length π*num.R)
-        # printstyled(color=:magenta, @sprintf "\n phase-change velocity %.2e intfc_length %.2e πR %.2e\n" num.sum_mass_flux*factor/intfc_length intfc_length π*num.R)
+    # printstyled(color=:red, @sprintf "\n test phase-change velocity %.2e intfc_length %.2e πR %.2e\n" sum(mass_flux)*factor/intfc_length intfc_length π*num.R)
+    # printstyled(color=:magenta, @sprintf "\n phase-change velocity %.2e intfc_length %.2e πR %.2e\n" num.sum_mass_flux*factor/intfc_length intfc_length π*num.R)
 
-        # printstyled(color=:magenta, @sprintf "\n intfc_length %.2e πR %.2e\n" intfc_length π*num.R)
+    # printstyled(color=:magenta, @sprintf "\n intfc_length %.2e πR %.2e\n" intfc_length π*num.R)
 
-
+    if num.extend_field == 0
         i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, grid.LS[iLS], grid.ind.inside, periodic_x, periodic_y)
         field_extension!(grid, grid.LS[iLS].u, grid.V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
-        
+    
+    elseif num.extend_field == 1 #constant velocity everywhere
+        grid.V .= v_mean
+
+
     end
+
 
     printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
 
@@ -1199,7 +1205,7 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
     # grid.V[grid.LS[iLS].MIXED] .*= factor
 
    
-    # if Vmean
+    # if average_velocity
     #     a = mean(grid.V[grid.LS[iLS].MIXED])
     #     grid.V[grid.LS[iLS].MIXED] .= a
     # end
@@ -1953,7 +1959,10 @@ function compute_grad_phi_ele!(num::Numerical{Float64, Int64},
 
     interpolate_grid_liquid_2!(num, grid, LS_u, LS_v, tmp_vec_u, tmp_vec_v, tmp_vec_p, tmp_vec_p0)
 
-    
+    # tmp_vec_p .*= -elec_cond # i=-κ∇ϕ here magnitude
+    # tmp_vec_p0 .*= -elec_cond # i=-κ∇ϕ here magnitude
+
+
     @ccall "libpdi".PDI_multi_expose("write_data_elec_ix_iy"::Cstring,
     "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
     "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
@@ -3123,7 +3132,7 @@ function integrate_mass_flux_over_interface(num::Numerical{Float64, Int64},
     mass_flux_vecb::Array{Float64, 1}, 
     mass_flux_veci::Array{Float64, 1},
     mass_flux::Array{Float64, 2},
-    interface_id,
+    interface_id::Int64,
     )
 
     opC_p = opC_pL

@@ -111,6 +111,9 @@ Stores parameters for the simulation
     mass_flux::D=0
     average_liquid_solid::D=0
     index_phase_change::D=1
+    index_electrolyte::D=2
+    average_velocity::D=0
+    extend_field::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

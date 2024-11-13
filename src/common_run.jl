@@ -1,5 +1,5 @@
 """
-indices_extension
+cf. 3.3.1 Interface velocity extension [`Rodriguez 2024`](https://theses.fr/s384455)
 
 """
 function indices_extension(grid, LS, inside_ext, periodic_x, periodic_y)

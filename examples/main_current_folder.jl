@@ -606,6 +606,9 @@ num = Numerical(
     mass_flux = sim.mass_flux,
     average_liquid_solid = sim.average_liquid_solid,
     index_phase_change = sim.index_phase_change,
+    index_electrolyte = sim.index_electrolyte,
+    extend_field = sim.extend_field,
+    average_velocity = sim.average_velocity,
     )
 
 Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
@@ -1883,7 +1886,6 @@ run_forward!(
     navier_stokes = true,
     ns_advection = ns_advection,
     ns_liquid_phase = true,
-    Vmean = (sim.mean_velocity == 1),
     verbose = true,
     show_every = sim.show_every,
     electrolysis_convection = true,  

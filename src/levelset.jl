@@ -1743,7 +1743,27 @@ end
 """
 field_extension!
 
-cf 4.2.2 Normal extension of the velocity field in fullanaSimulationOptimizationComplex2022 ?
+cf. 4.2.2 Normal extension of the velocity field in [`Fullana (2017)`](https://theses.hal.science/tel-04053531/)
+
+"
+4.2.2 Normal extension of the velocity field  
+As highlighted in Section 1.2, the front velocity needs to be extended away from the interface. The most natural algorithm is to let vS be a constant along the lines normal to Γ. To achieve this, the method described in [Peng et al. 1999] is adopted here. 
+Using this approach, the velocity is extended in the normal direction by solving the following hyperbolic partial differential equation
+"
+
+cf. 3.3.1 Interface velocity extension [`Rodriguez 2024`](https://theses.fr/s384455)
+
+"
+3.3.1 Interface velocity extension  
+The velocity at the interface needs to be extended 
+to its vicinity in order to accurately solve the level-set equation. 
+The extended velocity is kept constant along the lines normal to the Γ interface, 
+as suggested by [Peng et al. 1999]. 
+To achieve this, the following hyperbolic partial differential equation is solved in pseudo-time for each component of the interface velocity
+"
+
+
+
 """
 function field_extension!(grid, u, f, indices_ext, left_ext, bottom_ext, right_ext, top_ext, NB, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy, ind = grid
