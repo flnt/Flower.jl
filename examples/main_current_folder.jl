@@ -1999,6 +1999,10 @@ printstyled(color=:cyan, @sprintf "\n Buoyancy force: initial %.2e final %.2e \n
 
 test_tolerance = 1e-14
 
+
+tmp_vec_p = zeros(gp)
+tmp_vec_p0 = zeros(gp)
+tmp_vec_p1 = zeros(gp)
 @testset "Phase change: mass flux" begin
 
 @testset "Phase change: mass flux" begin
@@ -2007,7 +2011,12 @@ test_tolerance = 1e-14
     mass_flux_vecb = fzeros(gp)
     mass_flux_veci = fzeros(gp)
     mass_flux = zeros(gp)
-integrate_mass_flux_over_interface_2_no_writing(num,gp,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
+    # tmp_vec_p = zeros(gp)
+    # tmp_vec_p0 = zeros(gp)
+    # tmp_vec_p1 = zeros(gp)
+
+  
+integrate_mass_flux_over_interface_2_no_writing(num,gp,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,tmp_vec_p,tmp_vec_p0,tmp_vec_p1,mass_flux)
 # @test sum(mass_flux) == 0 
 @test sum(mass_flux) ≈ 0 atol=test_tolerance
 end #"Phase change: mass flux" begin
@@ -2018,7 +2027,11 @@ end #"Phase change: mass flux" begin
     mass_flux_vecb = fzeros(gp)
     mass_flux_veci = fzeros(gp)
     mass_flux = zeros(gp)
-integrate_mass_flux_over_interface_no_writing(num,gp,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
+    # tmp_vec_p = zeros(gp)
+    # tmp_vec_p0 = zeros(gp)
+    # tmp_vec_p1 = zeros(gp)
+
+integrate_mass_flux_over_interface_no_writing(num,gp,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,tmp_vec_p,tmp_vec_p0,tmp_vec_p1,mass_flux)
 # @test sum(mass_flux) == 0 
 @test sum(mass_flux) ≈ 0 atol=test_tolerance
 end #"Phase change: mass flux" begin
@@ -2034,8 +2047,8 @@ interpolate_scalar!(gp, gu, gv, gp.V, gu.V, gv.V)
 @test minimum(gv.V) ≈ 1.0 atol=test_tolerance
 @test maximum(gv.V) ≈ 1.0 atol=test_tolerance
 
-tmp_vec_p = zeros(gp) 
-tmp_vec_p0 = zeros(gp) 
+# tmp_vec_p = zeros(gp) 
+# tmp_vec_p0 = zeros(gp) 
 
 tmp_vec_u = zeros(gu) 
 tmp_vec_v = zeros(gv) 

@@ -1027,6 +1027,12 @@ function run_forward!(
                 if imposed_velocity == "zero"
                     phL.u .= 0.0
                     phL.v .= 0.0
+                    phL.uD .= 0.0
+                    phL.vD .= 0.0
+                    phL.p .= 0.0
+                    phL.pD .= 0.0
+
+
                 elseif imposed_velocity == "constant"
                         
                         #Required to modify whole uD vD
@@ -1782,20 +1788,15 @@ function run_forward!(
                         # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
 
                        
-
-
-                        if electrolysis_phase_change_case == "levelset"
-                            #num.index_phase_change: index of species concerned by phase-change 
-                            update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, 
-                            periodic_x, periodic_y, num.average_velocity, phL.trans_scalD[:,num.index_phase_change],phL.trans_scal[:,:,num.index_phase_change],
-                            num.diffusion_coeff[num.index_phase_change],num.concentration0[num.index_phase_change],electrolysis_phase_change_case,mass_flux)
-
-                        elseif electrolysis_phase_change_case == "levelset_averaged"
                             
-                            update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, 
-                            periodic_x, periodic_y, num.average_velocity, phL.trans_scalD[:,num.index_phase_change],phL.trans_scal[:,:,num.index_phase_change],
-                            num.diffusion_coeff[num.index_phase_change],num.concentration0[num.index_phase_change],electrolysis_phase_change_case,mass_flux)
+                        flower_status = update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, 
+                        periodic_x, periodic_y, num.average_velocity, phL.trans_scalD[:,num.index_phase_change],phL.trans_scal[:,:,num.index_phase_change],
+                        num.diffusion_coeff[num.index_phase_change],num.concentration0[num.index_phase_change],electrolysis_phase_change_case,mass_flux)
 
+                        if flower_status !=0
+                            printstyled(color=:red, @sprintf "\n Stopping simulation %.3i " flower_status)
+                            return
+                        end
                             
                             # # iLS = 1
                             # # intfc_length = 0.0
@@ -1813,7 +1814,6 @@ function run_forward!(
                             #     grid.V[II] = sum(mass_flux) * num.diffusion_coeff[num.index_phase_change] *(1.0/num.rho2-1.0/num.rho1).*num.diffusion_coeff[num.index_phase_change].*num.MWH2
                             # end
 
-                        end #electrolysis_phase_change_case == "levelset"
 
                         if num.mass_flux == 0
                             varnH2 = num.sum_mass_flux * num.diffusion_coeff[num.index_phase_change] 
@@ -2319,8 +2319,12 @@ function run_forward!(
 
                         print_CL_length(num,grid, grid.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
 
-                    elseif num.advection_LS_mode == 9
+                    elseif ((num.advection_LS_mode == 9) || (num.advection_LS_mode == 10))
                         print("\n num.advection_LS_mode == 8 iLS", iLS)
+
+                        if num.advection_LS_mode == 10
+                            grid.V .=0.25*grid.dx[1,1]/num.τ  
+                        end
 
                         nghost = 1
 

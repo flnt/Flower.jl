@@ -1049,16 +1049,18 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
     factor = -(1.0/num.rho2-1.0/num.rho1).*diffusion_coeff_scal[1].*num.MWH2
 
     intfc_length = 0.0
-    num.sum_mass_flux = 0.0
+
+    num_mixed_cells = 0
+
     @inbounds for II in grid.LS[iLS].MIXED
         # print("\n II update ",II, grid.LS[end].u[II], " iso end ",grid.LS[end].iso[II]," iso 1 ",grid.LS[1].iso[II])
-        if grid.LS[end].iso[II] != 15.0 # check if inside domain defined by other LS 
+        if grid.LS[end].iso[II] < 14.5 #15.0 -0.5 # check if inside domain defined by other LS 
         # if grid.LS[end].u[II]>0.0 # check if inside domain defined by other LS 
         # if grid.LS[2].u[II]>0.0 #second wall
             # print("\n cells for free surface", II," x ",grid.x[II]," LS[iLS] ",grid.LS[iLS].u[II]," LS[end] ",grid.LS[end].u[II]," LS[2] ",grid.LS[2].u[II])
             # grid.V[II] = mass_flux[II] * factor
 
-
+            num_mixed_cells += 1
 
             if num.mass_flux == 0
                 num.sum_mass_flux += mass_flux[II]
@@ -1077,7 +1079,7 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
 
                 #TODO iLS or end grid.LS[iLS].geoL
 
-                dTL = 0.
+                dTL = 0.0
                 # print("\n II ",II," flag ",grid.LS[iLS].geoL.projection[II].flag)
                 if grid.LS[iLS].geoL.projection[II].flag
                     T_1, T_2 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, grid.LS[iLS].geoL.projection[II].point2, concentration_scal, II, periodic_x, periodic_y)
@@ -1106,6 +1108,8 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
                         "vtx_x"::Cstring, vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
                         "vtx_y"::Cstring, vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
                         C_NULL::Ptr{Cvoid})::Cint
+
+                        return 1
                         
                     end
 
@@ -1133,21 +1137,38 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
     if average_velocity == 1
         if num.mass_flux == 0
             v_mean = factor * num.sum_mass_flux /intfc_length
+        elseif num.mass_flux == 1 
+            v_mean = v_mean / num_mixed_cells
+            
+            if num.current_i == 1 && num.advection_LS_mode == 9
+                @test v_mean ≈ 6.889685460499036e-5 atol=1e-12 #6.89e-05
 
-            if v_mean < 0.0
+                if abs(v_mean-6.889685460499036e-5) < 1e-12
                 @error("error phase-change velocity")
                 printstyled(color=:red, @sprintf "\n error velocity\n")
-
+                return 1
+                end
             end
-        # elseif num.mass_flux == 1
-        #     v_mean = factor * num.sum_mass_flux /intfc_length
+
         end 
+
+        if v_mean < 0.0
+            @error("error phase-change velocity")
+            printstyled(color=:red, @sprintf "\n error velocity\n")
+            return 1
+        end
 
         @inbounds for II in grid.LS[iLS].MIXED
             grid.V[II] = v_mean
         end 
+        
+        cfl_tmp = v_mean*num.dt0/grid.dx[1,1]
+        printstyled(color=:cyan, @sprintf "\n v_mean %.2e CFL %.2e dt %.2e dx %.2e\n" v_mean cfl_tmp num.dt0 grid.dx[1,1])
 
-        printstyled(color=:cyan, @sprintf "\n v_mean %.2e CFL %.2e dt %.2e dx %.2e\n" v_mean v_mean*num.dt0/grid.dx[1,1] num.dt0 grid.dx[1,1])
+        if cfl_tmp > num.CFL
+            @error("Error phase-change CFL ")
+            return 1
+        end
         # else
     #     grid.V ./= intfc_length
 
@@ -1172,8 +1193,6 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
     
     elseif num.extend_field == 1 #constant velocity everywhere
         grid.V .= v_mean
-
-
     end
 
 
@@ -1247,6 +1266,7 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
 
     # print("\n sum_mass_flux ",sum_mass_flux)
 
+    return 0
 end
 
 
@@ -3541,6 +3561,9 @@ function integrate_mass_flux_over_interface_no_writing(num::Numerical{Float64, I
     mass_flux_vec1::Array{Float64, 1},
     mass_flux_vecb::Array{Float64, 1}, 
     mass_flux_veci::Array{Float64, 1},
+    mass_flux_vec1_2::Array{Float64, 2},
+    mass_flux_vecb_2::Array{Float64, 2},
+    mass_flux_veci_2::Array{Float64, 2},
     mass_flux::Array{Float64, 2}
     )
 
@@ -3556,9 +3579,12 @@ function integrate_mass_flux_over_interface_no_writing(num::Numerical{Float64, I
     
     #size (ny,nx)
     mass_flux .= 0.0
+    mass_flux_vec1_2 .= 0.0
+    mass_flux_vecb_2 .= 0.0
+    mass_flux_veci_2 .= 0.0
 
-    mass_flux_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
-    mass_flux_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+    mass_flux_vec1   .= opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
+    mass_flux_vecb   .= opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
 
     for iLS in 1:num.nLS
         mass_flux_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
@@ -3860,6 +3886,9 @@ function integrate_mass_flux_over_interface_2_no_writing(num::Numerical{Float64,
     mass_flux_vec1::Array{Float64, 1},
     mass_flux_vecb::Array{Float64, 1}, 
     mass_flux_veci::Array{Float64, 1},
+    mass_flux_vec1_2::Array{Float64, 2},
+    mass_flux_vecb_2::Array{Float64, 2},
+    mass_flux_veci_2::Array{Float64, 2},
     mass_flux::Array{Float64, 2}
     )
 
@@ -3873,9 +3902,12 @@ function integrate_mass_flux_over_interface_2_no_writing(num::Numerical{Float64,
     
     #size (ny,nx)
     mass_flux .= 0.0
+    mass_flux_vec1_2 .= 0.0
+    mass_flux_vecb_2 .= 0.0
+    mass_flux_veci_2 .= 0.0
 
-    mass_flux_vec1   = opC_p.BxT * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.ByT * opC_p.iMy * opC_p.By * vec1(scalD,grid)
-    mass_flux_vecb   = opC_p.BxT * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.ByT *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+    mass_flux_vec1   .= opC_p.BxT * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.ByT * opC_p.iMy * opC_p.By * vec1(scalD,grid)
+    mass_flux_vecb   .= opC_p.BxT * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.ByT *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
 
     for iLS in 1:num.nLS
         mass_flux_veci .+= opC_p.BxT * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
