@@ -7,7 +7,7 @@ abstract type AbstractOptimizer end
 @with_kw mutable struct Numerical{T <: Real, D <: Integer} <: NumericalParameters
     CFL::T = 0.5 # Courant number
     Re::T = 1.0 # Reynolds number
-    TEND::T = 0.0 # Final time of the simulation
+    TEND::T = 1.0 # Final time of the simulation
     x::Union{Vector{T},LinRange{T,D}} = [-0.5 - 1/127 / 2 + i * 1/127 for i = 0:128] # Vector of cells positions in x
     y::Union{Vector{T},LinRange{T,D}} = [-0.5 - 1/127 / 2 + i * 1/127 for i = 0:128] # Vector of cells positions in y
     L0::T = max(x[end]-x[1], y[end]-y[1])
@@ -15,7 +15,7 @@ abstract type AbstractOptimizer end
     shift::T = 0.0
     shifted::T = shift*Δ
     τ::T = min(CFL*Δ^2*Re, CFL*Δ) # timestep
-    max_iterations::D = TEND÷τ # maximum number of iterations
+    max_iterations::D = Int(TEND÷τ) # maximum number of iterations
     current_i::D = 1
     save_every::D = 1
     reinit_every::D = 1 # period of levelset reinialization
