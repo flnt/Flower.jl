@@ -65,7 +65,7 @@ function f_interface(α, κ, x, y)
     return V
 end
 
-@time run_forward(
+@time all_MIXED = run_forward(
     num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
     time_scheme = CN,
     toy_model = true,
@@ -77,10 +77,10 @@ end
 
 f1 = Figure(size = (1600, 1000))
 ax = Axis(f1[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y", xtickalign=0,  ytickalign=0)
-contour!(gp.x[1,:], gp.y[:,1], fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 3);
-for i = 20:20:max_it
-    contour!(gp.x[1,:], gp.y[:,1].+maximum(gp.y[gp.LS[1].MIXED]).*ones(length(y)-1)
+contour!(gp.x[1,:], gp.y[:,1] .-maximum(gp.y[all_MIXED[1]]).*ones(length(y)-1), fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 3);
+for i = 20:200:max_it
+    contour!(gp.x[1,:], gp.y[:,1].-maximum(gp.y[all_MIXED[i]]).*ones(length(y)-1)
     , fwd.u[1,i,:,:]', levels = 0:0, color=:red, linewidth = 3);
 end
-contour!(gp.x[1,:], gp.y[:,1], fwd.u[1,end,:,:]', levels = 0:0, color=:black, linewidth = 3);
+contour!(gp.x[1,:], gp.y[:,1] .-maximum(gp.y[all_MIXED[end]]).*ones(length(y)-1), fwd.u[1,end,:,:]', levels = 0:0, color=:black, linewidth = 3);
 f1

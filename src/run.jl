@@ -44,6 +44,10 @@ function run_forward(
     @unpack opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL = op
     @unpack x, y, nx, ny, dx, dy, ind, LS, V = grid
 
+    if toy_model
+        all_MIXED = []
+    end
+
     if length(BC_int) != nLS
         @error ("You have to specify $(nLS) boundary conditions.")
         return nothing
@@ -796,7 +800,9 @@ function run_forward(
                 @views fwd.uy[iLS,snap,:,:] .= grid_v.LS[iLS].u
                 @views fwd.κ[iLS,snap,:,:] .= LS[iLS].κ
             end
-
+            if toy_model
+                push!(all_MIXED, LS[1].MIXED)
+            end
             if heat_solid_phase && heat_liquid_phase
                 @views fwd.T[snap,:,:] .= phL.T.*LS[end].geoL.cap[:,:,5] .+ phS.T.*LS[end].geoS.cap[:,:,5]
             end
@@ -891,6 +897,8 @@ function run_forward(
 
     if levelset && (save_radius || hill)
         return radius
+    elseif toy_model
+        return all_MIXED
     else
         return nothing
     end
