@@ -791,7 +791,7 @@ function run_forward(
             # fwd.t[snap] = current_t
             @views fwd.V[snap,:,:] .= V
             for iLS in 1:_nLS
-                @views fwd.u[iLS,snap,:,:] .= LS[iLS].u
+                @views fwd.u[iLS,snap,:,:] .= LS[iLS].u 
                 @views fwd.ux[iLS,snap,:,:] .= grid_u.LS[iLS].u
                 @views fwd.uy[iLS,snap,:,:] .= grid_v.LS[iLS].u
                 @views fwd.κ[iLS,snap,:,:] .= LS[iLS].κ
