@@ -4,23 +4,25 @@ using Flower
 fontsize_theme = Theme(fontsize = 30)
 set_theme!(fontsize_theme)
 
-ratio = 4
+ratio = 8
 L0 = 1.
-nx = 64
-ny = ratio * 64
+n = 64
+nx = ratio * n
+ny = n
 
-x = collect(LinRange(-L0 / 2., L0 / 2., nx + 1))
-y = collect(LinRange(-ratio*L0 / 2., ratio*L0 / 2., ny + 1))
+x = collect(LinRange(-ratio*L0 / 2., ratio*L0 / 2., nx + 1))
+y = collect(LinRange(-L0 / 2., L0 / 2., ny + 1))
 
 num = Numerical(
     x = x,
     y = y,
     Re = 1.0,
     CFL = 0.5,
-    TEND = 1.0,
+    # TEND = 1.0,
+    max_iterations = 1000,
     u_inf = 0.0,
     v_inf = 0.0,
-    save_every = 1,
+    save_every = 10,
     reinit_every = 1,
     nb_reinit = 10,
     δreinit = 0.65,
@@ -41,88 +43,64 @@ T2 = 0.0
 gp, gu, gv = init_meshes(num)
 op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
-@. gp.LS[1].u = -gp.x - L0/2 + H0 + 0.0001
-
-# # for II in CartesianIndices(gp.x)
-# #     y = gp.x[II] + L0/2
-# #     if (y <= H0)
-# #         phL.T[II] = 1 +(num.θd-1)*y/H0;
-# #     elseif (y > H0)
-# #         phS.T[II] = num.θd*(y-1)/(H0-1)
-# #     end
-# # end
+@. gp.LS[1].u = -gp.y - L0/2 + H0 + 0.0001
 
 
-# @time MIXED, SOLID, LIQUID = run_forward(
-#     num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
-#     periodic_y = true,
-#     BC_TL = Boundaries(
-#         left = Dirichlet(val = T1),
-#         top = Periodic(),
-#         bottom = Periodic(),
-#     ),
-#     BC_TS = Boundaries(
-#         right = Dirichlet(val = T2),
-#         top = Periodic(),
-#         bottom = Periodic(),
-#     ),
-#     BC_u = Boundaries(
-#         top = Periodic(),
-#         bottom = Periodic(),
-#     ),
-#     BC_uL = Boundaries(
-#         top = Periodic(),
-#         bottom = Periodic(),
-#         left = Dirichlet(),
-#         right = Dirichlet(),
-#     ),
-#     BC_vL = Boundaries(
-#         top = Periodic(),
-#         bottom = Periodic(),
-#         left = Dirichlet(),
-#         right = Dirichlet(),
-#     ),
-#     BC_pL = Boundaries(
-#         top = Periodic(),
-#         bottom = Periodic(),
-#     ),
-#     time_scheme = FE,
-    
-#     stefan = true,
-#     advection = true,
+# for II in CartesianIndices(gp.x)
+#     ystar = gp.y[II] + L0/2
+#     if (ystar <= H0)
+#         phL.T[II] = 1 +(num.θd-1)*ystar/H0;
+#     elseif (ystar > H0)
+#         phS.T[II] = num.θd*(ystar-1)/(H0-1)
+#     end
+# end
 
-#     heat = true,
-#     heat_liquid_phase = true,
-#     heat_solid_phase = true,
-    
-#     heat_convection = true,
+@time run_forward(
+    num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
+    periodic_x = true,
+    BC_TS = Boundaries(left = Periodic(),
+                        right = Periodic(),
+                        top = Dirichlet(val = T2)),
+    BC_TL = Boundaries(left = Periodic(),
+                        right = Periodic(),
+                        bottom = Dirichlet(val = T1)),
+    BC_uL = Boundaries(left = Periodic(),
+                        right = Periodic()),
+    BC_vL = Boundaries(left = Periodic(),
+                        right = Periodic()),
+    BC_pL = Boundaries(left = Periodic(),
+                        right = Periodic()),
+    BC_u = Boundaries(left = Periodic(),
+                        right = Periodic()),
+    BC_int = [Stefan()],
+    time_scheme = FE,
+    auto_reinit = true,
+    heat = true,
+    heat_convection = true,
+    heat_liquid_phase = true,
+    heat_solid_phase = true,
+    navier_stokes = true,
+    ns_advection = true,
+    ns_liquid_phase = true,
+    verbose = true,
+    show_every = 1,
+    Ra = Ra,
+    λ = λ
+)
 
-#     navier_stokes = true,
-#     ns_advection = false,
-#     ns_liquid_phase = true,
-#     ns_solid_phase = false,
+xtcks = -ratio*L0/2:0.5:ratio*L0/2
+ytcks = -L0/2:0.5:L0/2
+lim = L0 / 2
 
-#     verbose = true,
-#     show_every = 1,
+fp = Figure(resolution = (1600, 1000))
+colsize!(fp.layout, 1, Aspect(1, 1.0))
+ax = Axis(fp[1,1], aspect = ratio, xticks = xtcks)  # customized as you see fit
+heatmap!(gp.x[1,:], gp.y[:,1], phL.T', colorrange=(num.θd, T1), colormap=Reverse(:ice))
+contour!(gp.x[1,:], gp.y[:,1], gp.LS[1].u', levels = 0:0, color=:red, linewidth = 3);
+limits!(ax, x[1], x[end], y[1], y[end])
+resize_to_layout!(fp)
 
-#     adaptative_t = true,
-
-#     Ra = Ra,
-#     λ = λ,
-# )
-
-# tcks = -ratio*L0/2:2:ratio*L0/2
-# lim = L0 / 2
-
-# fp = Figure(resolution = (1600, 1000))
-# colsize!(fp.layout, 1, Aspect(1, 1.0))
-# ax = Axis(fp[1,1], aspect = 1/ratio, xticks = tcks, yticks = tcks)  # customized as you see fit
-# heatmap!(gp.x[1,:], gp.y[:,1], phL.T', colorrange=(num.θd, T1), colormap=Reverse(:ice))
-# contour!(gp.x[1,:], gp.y[:,1], gp.u', levels = 0:0, color=:red, linewidrth = 3);
-# # limits!(ax, -lim, lim, -lim, lim)
-# resize_to_layout!(fp)
-
-# fp = current_figure()
+fp = current_figure()
 
 # fu = Figure(resolution = (1600, 1000))
 # colsize!(fu.layout, 1, Aspect(1, 1.0))
