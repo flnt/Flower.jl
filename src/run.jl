@@ -45,7 +45,7 @@ function run_forward(
     @unpack x, y, nx, ny, dx, dy, ind, LS, V = grid
 
     if toy_model
-        all_MIXED = []
+        peaky = []
     end
 
     if length(BC_int) != nLS
@@ -801,7 +801,7 @@ function run_forward(
                 @views fwd.κ[iLS,snap,:,:] .= LS[iLS].κ
             end
             if toy_model
-                push!(all_MIXED, LS[1].MIXED)
+                push!(peaky, maximum(xy[2,:]))
             end
             if heat_solid_phase && heat_liquid_phase
                 @views fwd.T[snap,:,:] .= phL.T.*LS[end].geoL.cap[:,:,5] .+ phS.T.*LS[end].geoS.cap[:,:,5]
@@ -898,7 +898,7 @@ function run_forward(
     if levelset && (save_radius || hill)
         return radius
     elseif toy_model
-        return all_MIXED
+        return peaky
     else
         return nothing
     end

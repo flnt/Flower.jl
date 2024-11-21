@@ -7,9 +7,9 @@ set_theme!(fontsize_theme)
 L0x = 13
 L0y = 21
 
-n = 128
+n = 256
 CFL = 0.5
-max_it = 1500
+max_it = 650
 A = 6
 N = 1
 alpha = pi/6
@@ -40,10 +40,10 @@ op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 # @. gp.LS[1].u = -(gp.y*(gp.x^2<A^2)*(gp.y-sqrt(3)*(gp.x+A))*(gp.y+sqrt(3)*(gp.x-A))*(gp.y<=sqrt(3)*A)); # ??
 # @. gp.LS[1].u = -(gp.y + abs(gp.x)); # ??
 
-@. gp.LS[1].u = -(sqrt(gp.y^2 + gp.x^2) - A); # circle of radius A
+# @. gp.LS[1].u = -(sqrt(gp.y^2 + gp.x^2) - A); # circle of radius A
 # @. gp.LS[1].u = -((gp.y>0)*(sqrt(gp.y^2 + gp.x^2) - A)+(gp.y<=0)*(abs(gp.x)-A)); # infinite capped rod of radius A
 # @. gp.LS[1].u = -((gp.y>0)*(sqrt(gp.y^2 + gp.x^2) - A)+(gp.y<=0)*(abs(gp.x)-A)); # finite capped rod of radius A
-# @. gp.LS[1].u = -(-(abs(gp.x)<=A/2)*(gp.y<=tan(alpha/2-pi/4)*(abs(gp.x)-A/2))*gp.y + (gp.y>tan(alpha/2-pi/4)*(abs(gp.x)-A/2))*(gp.y<=tan(alpha)*abs(gp.x)+A/(2*tan(alpha)))*(gp.y>=tan(alpha)*(abs(gp.x)-A/2))*(cos(alpha)*abs(gp.x)+sin(alpha)*gp.y-cos(alpha)*A/2) + (abs(gp.x)>A/2)*(gp.y<tan(alpha)*(abs(gp.x)-A/2))*sqrt((abs(gp.x)-A/2)^2+gp.y^2) + (gp.y>tan(alpha)*abs(gp.x)+A/(2*tan(alpha)))*sqrt(gp.x^2+(gp.y-A/(2*tan(alpha)))^2)); # isosceles triangle of base A and opposite angle 2*alpha
+@. gp.LS[1].u = -(-(abs(gp.x)<=A/2)*(gp.y<=tan(alpha/2-pi/4)*(abs(gp.x)-A/2))*gp.y + (gp.y>tan(alpha/2-pi/4)*(abs(gp.x)-A/2))*(gp.y<=tan(alpha)*abs(gp.x)+A/(2*tan(alpha)))*(gp.y>=tan(alpha)*(abs(gp.x)-A/2))*(cos(alpha)*abs(gp.x)+sin(alpha)*gp.y-cos(alpha)*A/2) + (abs(gp.x)>A/2)*(gp.y<tan(alpha)*(abs(gp.x)-A/2))*sqrt((abs(gp.x)-A/2)^2+gp.y^2) + (gp.y>tan(alpha)*abs(gp.x)+A/(2*tan(alpha)))*sqrt(gp.x^2+(gp.y-A/(2*tan(alpha)))^2)); # isosceles triangle of base A and opposite angle 2*alpha
 
 f1 = Figure(size = (1600, 1000))
 ax = Axis(f1[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y", xtickalign=0,  ytickalign=0)
@@ -65,7 +65,7 @@ function f_interface(α, κ, x, y)
     return V
 end
 
-@time all_MIXED = run_forward(
+@time peaky = run_forward(
     num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
     time_scheme = CN,
     toy_model = true,
@@ -77,10 +77,10 @@ end
 
 f1 = Figure(size = (1600, 1000))
 ax = Axis(f1[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y", xtickalign=0,  ytickalign=0)
-contour!(gp.x[1,:], gp.y[:,1] .-maximum(gp.y[all_MIXED[1]]).*ones(length(y)-1), fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 3);
+contour!(gp.x[1,:], gp.y[:,1] .-peaky[1].*ones(length(y)-1), fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 3);
 for i = 20:200:max_it
-    contour!(gp.x[1,:], gp.y[:,1].-maximum(gp.y[all_MIXED[i]]).*ones(length(y)-1)
+    contour!(gp.x[1,:], gp.y[:,1].-peaky[i].*ones(length(y)-1)
     , fwd.u[1,i,:,:]', levels = 0:0, color=:red, linewidth = 3);
 end
-contour!(gp.x[1,:], gp.y[:,1] .-maximum(gp.y[all_MIXED[end]]).*ones(length(y)-1), fwd.u[1,end,:,:]', levels = 0:0, color=:black, linewidth = 3);
+contour!(gp.x[1,:], gp.y[:,1] .-peaky[end].*ones(length(y)-1), fwd.u[1,end,:,:]', levels = 0:0, color=:black, linewidth = 3);
 f1
