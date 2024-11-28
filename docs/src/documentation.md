@@ -18,7 +18,7 @@
 * p-grid: scalar grid, see [staggered grid](https://www.cfd-online.com/Wiki/Staggered_grid)
 * u-grid: staggered grid (with regard to p-grid, in x-axis), used to discretize the x-component of the velocity 
 * v-grid: staggered grid (with regard to p-grid, in y-axis), used to discretize the y-component of the velocity 
-* ghost cells: cells defined outside of the computational domain so that the same stencils may be used near the wall (see [`allocate_ghost_matrices_2`](@ref), [`init_ghost_neumann_2`](@ref), [`IIOE_normal_indices_2!`](@ref)); for MPI parallelization, ghost cells may also refer to cells outside the computational domain of the current processor, not implemented here
+* ghost cells: cells defined outside of the computational domain so that the same stencils may be used near the wall (see [`allocate_ghost_matrices_2`](@ref), [`init_ghost_neumann_2`](@ref), [`IIOE_normal_indices_2!`](@ref); for MPI parallelization, ghost cells may also refer to cells outside the computational domain of the current processor, not implemented here)
 
 ## Definitions
 
@@ -98,10 +98,11 @@ grid.LS[iLS].geoL.cap[II,3] # right, also known as A3 in the code
 grid.LS[iLS].geoL.cap[II,4] # top, also known as A4 in the code
 ```
 
-The volumes are:
+The cell-centered volume is:
 ```julia 
 grid.LS[iLS].geoL.cap[II,5] # cell-centered volume
 ``` 
+The cell-centered heights are:
 
 ```julia 
 grid.LS[iLS].geoL.cap[II,6] # cell-centered, also known as B1
@@ -110,7 +111,7 @@ grid.LS[iLS].geoL.cap[II,6] # cell-centered, also known as B1
 ```julia 
 grid.LS[iLS].geoL.cap[II,7] # B2
 ``` 
-
+Others:
 ```julia 
 grid.LS[iLS].geoL.cap[II,8] # W1
 ``` 

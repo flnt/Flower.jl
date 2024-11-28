@@ -6,3 +6,7 @@
 *.ps
 *.gz
 Flower.jl.code-workspace
+*.jpg
+*.jpeg
+*.png
+*.gif
