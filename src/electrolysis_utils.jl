@@ -25,19 +25,18 @@ Returns the
 
 
 """
-    get_height!
 get distance between one LS and centroid of cell (defined by all LS) for intialisation
     
 """
 function get_height!(LS,ind,dx,dy,geo,H)
 
-    printstyled(color=:green, @sprintf "\n get height \n")
+    # printstyled(color=:green, @sprintf "\n get height \n")
     # print("\n ind left",ind.b_left[1], " bottom "  ,ind.b_bottom[1]," right ", ind.b_right[1]," top ", ind.b_top[1] )
-    print("\n H ",size(H)," \n")
-    print("\n LS.mid_point ",size(LS.mid_point)," \n")
-    print("\n dx ",size(dx)," \n")
-    print("\n dy ",size(dy)," \n")
-    print("\n geo.centroid ",size(geo.centroid)," \n")
+    # print("\n H ",size(H)," \n")
+    # print("\n LS.mid_point ",size(LS.mid_point)," \n")
+    # print("\n dx ",size(dx)," \n")
+    # print("\n dy ",size(dy)," \n")
+    # print("\n geo.centroid ",size(geo.centroid)," \n")
 
     @inbounds @threads for II in vcat(ind.b_left[1], ind.b_bottom[1], ind.b_right[1], ind.b_top[1])
         H[II] = distance(LS.mid_point[II], geo.centroid[II], dx[II], dy[II])
@@ -357,3 +356,89 @@ Returns the
 """
 @inline RR0(θ) = sqrt(π / (2 * (θ - sin(θ) * cos(θ))))
 
+
+"""
+From kinetic_energy
+
+!!! TODO
+
+"""
+function scal_magnitude(phL, phS, gp, gu, gv)
+    #TODO eps, den eps
+    LS_u =gu.LS[1]
+    LS_v = gv.LS[1]
+    phL.p .= (
+        (phL.u[:,2:end].^2.0 .* LS_u.geoL.dcap[:,2:end,6] .+ 
+        phL.u[:,1:end-1].^2.0 .* LS_u.geoL.dcap[:,1:end-1,6]) ./ 
+        (LS_u.geoL.dcap[:,1:end-1,6] .+ LS_u.geoL.dcap[:,2:end,6] .+ 1e-8 )
+    )
+    phL.p .+= (
+        (phL.v[2:end,:].^2.0 .* LS_v.geoL.dcap[2:end,:,7] .+ 
+        phL.v[1:end-1,:].^2.0 .* LS_v.geoL.dcap[1:end-1,:,7]) ./
+        (LS_v.geoL.dcap[1:end-1,:,7] .+ LS_v.geoL.dcap[2:end,:,7] .+ 1e-8 )
+    )
+    phL.p .+= (
+        (phS.u[:,2:end].^2.0 .* LS_u.geoS.dcap[:,2:end,6] .+ 
+        phS.u[:,1:end-1].^2.0 .* LS_u.geoS.dcap[:,1:end-1,6]) ./ 
+        (LS_u.geoS.dcap[:,1:end-1,6] .+ LS_u.geoS.dcap[:,2:end,6] .+ 1e-8 )
+    )
+    phL.p .+= (
+        (phS.v[2:end,:].^2.0 .* LS_v.geoS.dcap[2:end,:,7] .+ 
+        phS.v[1:end-1,:].^2.0 .* LS_v.geoS.dcap[1:end-1,:,7]) ./
+        (LS_v.geoS.dcap[1:end-1,:,7] .+ LS_v.geoS.dcap[2:end,:,7] .+ 1e-8 )
+    )
+
+    #####################################################################
+    # phL.p .= (
+    #     (phL.u[:,2:end].^2.0 .* LS_u.geoL.dcap[:,2:end,6] .+ 
+    #     phL.u[:,1:end-1].^2.0 .* LS_u.geoL.dcap[:,1:end-1,6]) ./ 
+    #     (LS_u.geoL.dcap[:,1:end-1,6] .+ LS_u.geoL.dcap[:,2:end,6] )
+    # )
+    # phL.p .+= (
+    #     (phL.v[2:end,:].^2.0 .* LS_v.geoL.dcap[2:end,:,7] .+ 
+    #     phL.v[1:end-1,:].^2.0 .* LS_v.geoL.dcap[1:end-1,:,7]) ./
+    #     (LS_v.geoL.dcap[1:end-1,:,7] .+ LS_v.geoL.dcap[2:end,:,7] )
+    # )
+    # phL.p .+= (
+    #     (phS.u[:,2:end].^2.0 .* LS_u.geoS.dcap[:,2:end,6] .+ 
+    #     phS.u[:,1:end-1].^2.0 .* LS_u.geoS.dcap[:,1:end-1,6]) ./ 
+    #     (LS_u.geoS.dcap[:,1:end-1,6] .+ LS_u.geoS.dcap[:,2:end,6] )
+    # )
+    # phL.p .+= (
+    #     (phS.v[2:end,:].^2.0 .* LS_v.geoS.dcap[2:end,:,7] .+ 
+    #     phS.v[1:end-1,:].^2.0 .* LS_v.geoS.dcap[1:end-1,:,7]) ./
+    #     (LS_v.geoS.dcap[1:end-1,:,7] .+ LS_v.geoS.dcap[2:end,:,7] )
+    # )
+
+    phL.p .= sqrt.(phL.p)
+end
+
+"""
+From kinetic_energy
+!!! TODO
+
+"""
+function scal_magnitude_L(ph, gp, gu, gv)
+
+    LS_u =gu.LS[1]
+    LS_v = gv.LS[1]
+    # LS =gp.LS[1]
+
+    ph.p .= (
+        (ph.u[:,2:end].^2.0 .* LS_u.geoL.dcap[:,2:end,6] .+ 
+        ph.u[:,1:end-1].^2.0 .* LS_u.geoL.dcap[:,1:end-1,6]) ./ 
+        (LS_u.geoL.dcap[:,1:end-1,6] .+ LS_u.geoL.dcap[:,2:end,6] 
+        # .+ 1e-8
+        )
+    )
+    ph.p .+= (
+        (ph.v[2:end,:].^2.0 .* LS_v.geoL.dcap[2:end,:,7] .+ 
+        ph.v[1:end-1,:].^2.0 .* LS_v.geoL.dcap[1:end-1,:,7]) ./
+        (LS_v.geoL.dcap[1:end-1,:,7] .+ LS_v.geoL.dcap[2:end,:,7] 
+        # .+ 1e-8
+        )
+    )
+    ph.p .= sqrt.(ph.p)
+    # ph.p .= sqrt.(ph.p .* LS.geoL.dcap[:,:,5])
+
+end

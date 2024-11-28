@@ -156,7 +156,10 @@ function run_forward!(
     # The count threshold shouldn't be smaller than 2
     count_limit_breakup = 6
     
-    printstyled(color=:green, @sprintf "\n num.CFL : %.2e dt : %.2e\n" num.CFL num.τ)
+    if num.verbosity > 0
+        printstyled(color=:green, @sprintf "\n num.CFL : %.2e dt : %.2e\n" num.CFL num.τ)
+    end
+
     if adapt_timestep_mode !=0
         num.τ = adapt_timestep!(num, phL, phS, grid_u, grid_v,adapt_timestep_mode)
         # print("after adapt_timestep!")
@@ -194,12 +197,13 @@ function run_forward!(
         num.visc_coeff=iRe
     else 
         num.visc_coeff=iRe
+        Re = num.Re
     end
 
-    printstyled(color=:green, @sprintf "\n Re : %.2e %.2e\n" Re num.visc_coeff)
-
-    printstyled(color=:magenta, @sprintf "\n CFL_sc : %.2e\n" CFL_sc)
-
+    if num.verbosity > 0
+        printstyled(color=:green, @sprintf "\n Re : %.2e %.2e\n" Re num.visc_coeff)
+        printstyled(color=:magenta, @sprintf "\n CFL_sc : %.2e\n" CFL_sc)
+    end
 
     ####################################################################################################
     #Electrolysis

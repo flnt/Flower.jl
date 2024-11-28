@@ -657,7 +657,6 @@ function postprocess_grids2!(grid::Mesh{Flower.GridCC,Float64,Int64},
 end
 
 """
-    ilp2cap()
 
 Compute the length of a line intersecting a polygon.
 """
@@ -674,8 +673,6 @@ function ilp2cap(l, p)
 end
 
 """
-    crossing_2levelsets(grid, LS1, LS2)
-
 Update geometric moments when two interfaces cross.
 """
 function crossing_2levelsets!(num, grid, LS1, LS2, BC_int)

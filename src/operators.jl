@@ -227,6 +227,10 @@ end
     return nothing
 end
 
+
+"""
+inverts weight or clips it if it is smaller than num.epsilon_vol
+"""
 function inv_weight_clip(num,M)
     if M<num.epsilon_vol
         iM = 0.0
@@ -245,6 +249,9 @@ function inv_weight_clip2(epsilon_vol,M)
     return iM
 end
 
+"""
+inverts weight 
+"""
 function inv_weight_eps(num,W)
     if num.epsilon_mode == 0
         return 1 / (W+eps(0.01))

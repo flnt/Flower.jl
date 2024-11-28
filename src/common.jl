@@ -65,14 +65,40 @@ const newaxis = [CartesianIndex()]
 # Temporary function to get a certain field from a vector with 
 # multiple fields. To be removed when working with decomposed 
 # vectors directly
+"""
+"""
 veci(a, g::G, p::Integer = 1) where {G<:Grid} = @view a[g.ny*g.nx*(p-1)+1:g.ny*g.nx*p]
+
+"""
+"""
 vec1(a, g::G) where {G<:Grid} = @view a[1:g.ny*g.nx]
+
+"""
+"""
 vec2(a, g::G) where {G<:Grid} = @view a[g.ny*g.nx+1:g.ny*g.nx*2]
+
+"""
+"""
 vec3(a, g::G) where {G<:Grid} = @view a[g.ny*g.nx*2+1:g.ny*g.nx*3]
+
+"""
+"""
 vecb(a, g::G) where {G<:Grid} = @view a[end-2*g.ny-2*g.nx+1:end]
+
+"""
+"""
 vecb_L(a,g::G) where {G<:Grid} = @view vecb(a, g)[1:g.ny]
+
+"""
+"""
 vecb_B(a,g::G) where {G<:Grid} = @view vecb(a, g)[g.ny+1:g.ny+g.nx]
+
+"""
+"""
 vecb_R(a,g::G) where {G<:Grid} = @view vecb(a, g)[g.ny+g.nx+1:2*g.ny+g.nx]
+
+"""
+"""
 vecb_T(a,g::G) where {G<:Grid} = @view vecb(a, g)[2*g.ny+g.nx+1:2*g.ny+2*g.nx]
 
 function veci(a, g::Vector{G}, p::Integer) where {G<:Grid}

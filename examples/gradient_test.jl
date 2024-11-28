@@ -1,6 +1,10 @@
 using Revise
 using Flower
 
+#deprecated
+#see gradient in /test
+
+
 #From poisson.jl
 
 fontsize_theme = Theme(fonts=(;regular="CMU Serif"), fontsize = 60)

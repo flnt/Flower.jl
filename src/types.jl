@@ -114,6 +114,7 @@ Stores parameters for the simulation
     index_electrolyte::D=2
     average_velocity::D=0
     extend_field::D=0
+    verbosity::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -185,6 +186,9 @@ struct GridCC <: Grid end
 struct GridFCx <: Grid end
 struct GridFCy <: Grid end
 
+"""
+Mesh structure
+"""
 struct Mesh{G,T,N} <: Grid where {G<:Grid}
     x_nodes::Vector{T}
     y_nodes::Vector{T}

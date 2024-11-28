@@ -58,6 +58,17 @@ plt.rc('text.latex', preamble="\n".join([ # plots will use this preamble
        ])
 )
 
+
+# Latex
+
+plt.rc("text", usetex=True)
+# rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
+# rc_params["text.latex.preamble"] = [r"\usepackage{siunitx}"]
+
+plt.rc('text.latex', preamble=r"\usepackage{siunitx}")
+#  matplotlib.verbose.level = 'debug-annoying'
+
+
 #   r"\listfiles"
 #   r"\sisetup{"
 #   r"table-alignment-mode = format,"
@@ -171,14 +182,6 @@ colors[2]=OkabeIto[5] #bleu
 colors[3]=OkabeIto[6] #orange
 
 
-# Latex
-
-plt.rc("text", usetex=True)
-# rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
-# rc_params["text.latex.preamble"] = [r"\usepackage{siunitx}"]
-
-plt.rc('text.latex', preamble=r"\usepackage{siunitx}")
-#  matplotlib.verbose.level = 'debug-annoying'
 
 
 def compute_slope(ax,xls,yls,x,y,slopes,R2,param_line,colors,alpha):

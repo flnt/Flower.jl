@@ -1,5 +1,12 @@
 """
 Prepare boundary conditions
+
+!!! danger "Sign of BC"
+    * BC.left.val .* ones(ny)
+    * BC.bottom.val .* ones(nx)
+    * BC.right.val .* ones(ny)
+    * BC.bottom.val .* ones(nx)
+    In the current implementation, the sign needs to be changed for the left and bottom BC.
 """
 function set_borders!(grid, cl, u, a0, a1, b, BC, n_ext)
     @unpack nx, ny, x, y, dx, dy, ind = grid
@@ -477,6 +484,8 @@ end
 
 """    
 set Laplacian and BC for p, u, v
+* periodic_x
+* periodic_y
 """
 function set_matrices!(
     num::Numerical{Float64, Int64},
@@ -2268,19 +2277,35 @@ function FE_set_momentum(
     return rhs
 end
 
-"""    
+ 
+@doc raw"""
 # Arguments
 - bc_type: BC for interface, num, grid, 
 - a0, 
 - opC, 
 - opC_u, 
 - pC_v,
-- A, 
+- A, system matrix
 - L, 
 - bc_L, 
 - bc_L_b, 
-- BC: BC for wall
+- BC: BC for wall (aka border)
 - ls_advection
+
+
+
+cf. [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707-024-04133-4) for a 1D expression in the i-th cell, x component 
+
+
+```math
+\begin{aligned}
+-\mathcal{B}_{x,i} [&\mathcal{W}_{x,i+1} (\mathcal{B}_{x,i+1} p^\omega_{i+1} - \mathcal{B}_{x,i} p^\omega _i ) - \mathcal{W}_{x,i} (\mathcal{B}_{x,i} p^\omega_i - \mathcal{B}_{x,i-1} p^\omega_{i-1} )] \\
+-\mathcal{B}_{x,i} \{&\mathcal{W}_{x,i+1} [(\mathcal{B}_{x,i+1}  - \mathcal{A}_{x,i+1} )p^\gamma_{i+1} - (\mathcal{A}_{x,i+1} - \mathcal{B}_{x,i} ) p^\gamma_i ] \\
+&-\mathcal{W}_{x,i} [(\mathcal{B}_{x,i} - A_{x,i} ) p^\gamma_i + (A_{x,i} - \mathcal{B}_{x,i-1}) p^\gamma_{i-1} ] \} \\
+= V_i f^\omega_i&
+\end{aligned}
+```
+
 """
 function set_poisson(
     bc_type, num, grid, a0, opC, opC_u, opC_v,

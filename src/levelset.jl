@@ -297,6 +297,7 @@ end
 
 """
 init BC for levelset with homogeneous Neumann
+    
 """
 function init_ghost_neumann_2(u,nx,ny,nghost)
     LSghost = zeros(ny + 2*nghost, nx + 2*nghost)

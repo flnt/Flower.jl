@@ -141,7 +141,6 @@ function Levelset(nx, ny)
 end
 
 """
-    allocate_ghost_matrices
     allocates and sets the sparsity pattern of the sparse matrix for the advection
 """
 function allocate_ghost_matrices(nx0,ny0,nghost)
@@ -177,19 +176,6 @@ function allocate_ghost_matrices(nx0,ny0,nghost)
     b = zeros(length(jw)+length(js)+length(jn)+length(je))
     c = zeros(length(jwp)+length(jsp)+length(jnp)+length(jep))
 
-    #Example
-    # julia> Is = [1; 2; 3];
-
-    # julia> Js = [1; 2; 3];
-
-    # julia> Vs = [1; 2; 3];
-
-    # julia> sparse(Is, Js, Vs)
-    # 3×3 SparseMatrixCSC{Int64, Int64} with 3 stored entries:
-    # 1  ⋅  ⋅
-    # ⋅  2  ⋅
-    # ⋅  ⋅  3
-
     A0 = sparse(II,JJ,vcat(a,b,c))
     B0 = sparse(II,JJ,vcat(a,b,c))
 
@@ -201,7 +187,6 @@ function allocate_ghost_matrices(nx0,ny0,nghost)
 end
 
 """
-    allocate_ghost_matrices
     allocates and sets the sparsity pattern of the sparse matrix for the advection
     without using Offset Arrays
 """
@@ -263,9 +248,9 @@ end
 
 
 """
-Mesh
+Initialises mesh, Levelset
+x_nodes and y_nodes are the x and y 1D arrays defining a regular scalar grid
 
-Initialises mesh
 """
 function Mesh(gridType, x_nodes, y_nodes, nLS)
     nx = length(x_nodes) - 1
@@ -294,7 +279,7 @@ end
 
 
 """
-Initialises staggered grids p, u, v
+    Initialises staggered grids p, u, v
 """
 function init_meshes(num::NumericalParameters)
     mesh_cc = Mesh(GridCC, num.x, num.y, num._nLS)
@@ -456,10 +441,7 @@ end
 #     κ = zeros(n, n)
 
 """
-# Return
-- op
-- phS
-- phL
+    allocates and sets the sparsity pattern of the sparse matrix for the advection
 """
 function init_fields(num::NumericalParameters,
     grid::Mesh{Flower.GridCC, Float64, Int64},
