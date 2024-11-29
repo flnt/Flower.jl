@@ -4,22 +4,21 @@ using Flower
 fontsize_theme = Theme(fonts=(;regular="CMU Serif"), fontsize = 50)
 set_theme!(fontsize_theme)
 
-n = 256
+L0x = 13
+L0y = 27
+
+n = 128
 CFL = 0.5
-max_it = 3000
-K = 1
+max_it = 1200
 A = 12
 N = 1
-alpha = atan(24*(K*A/2)/(4+(27*(K*A/2)-sqrt(81*(K*A/2)^2+12))*cbrt(sqrt((K*A/2)^2/4+1/27)+(K*A/2)/2)-(27*(K*A/2)+sqrt(81*(K*A/2)^2+12))*cbrt(sqrt((K*A/2)^2/4+1/27)-(K*A/2)/2)))
-
-L0x = 13
-L0y = ceil(A/2/tan(alpha))+0.1
+alpha = pi/9
 
 peaky0 = A/2/tan(alpha)
 
 x = collect(LinRange(-L0x / 2, L0x / 2, n + 1))
 dx = diff(x)[1]
-y = collect(-0.1:dx:L0y-0.1+dx)
+y = collect(-1*L0y/5:dx:4*L0y/5+dx)
 
 num = Numerical(
     case = "Planar",
@@ -51,8 +50,7 @@ op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
 f1 = Figure(size = (1600, 1000))
 ax = Axis(f1[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y", xtickalign=0,  ytickalign=0)
-contour!(gp.x[1,:], gp.y[:,1].-peaky0.*ones(length(y)-1), gp.LS[1].u', levels = 0:0, color=:red, linewidth = 3);
-lines!(ax, x, eta_f(x,K), color=:green, linestyle=:dash, linewidth = 3)
+contour!(gp.x[1,:], gp.y[:,1], gp.LS[1].u', levels = 0:0, color=:red, linewidth = 3);
 f1
 
 function f_interface(α, κ, x, y)
@@ -81,7 +79,7 @@ end
     verbose = true,
     f_interface = f_interface,
     show_every = 1,
-    speed = 1
+    speed = 2
 )
 
 kk=maximum(abs.(gp.LS[1].κ[gp.LS[1].MIXED[findall(x->abs(x)==minimum(abs.(gp.x[gp.LS[1].MIXED])),gp.x[gp.LS[1].MIXED])]]))
@@ -94,5 +92,5 @@ for i = 200:200:max_it
     , fwd.u[1,i,:,:]', levels = 0:0, color=:red, linewidth = 3);
 end
 contour!(gp.x[1,:], gp.y[:,1] .-peaky[end].*ones(length(y)-1), fwd.u[1,end,:,:]', levels = 0:0, color=:black, linewidth = 3);
-lines!(ax, x, eta_f(x,K), color=:green, linestyle=:dash, linewidth = 3)
+lines!(ax, x, eta_f(x,kk), color=:green, linestyle=:dash, linewidth = 3)
 f1

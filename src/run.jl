@@ -45,7 +45,8 @@ function run_forward(
     @unpack x, y, nx, ny, dx, dy, ind, LS, V = grid
 
     if toy_model
-        peaky = []
+        n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
+        local peaky = zeros(n_snaps)
     end
 
     if length(BC_int) != nLS
@@ -801,7 +802,7 @@ function run_forward(
                 @views fwd.κ[iLS,snap,:,:] .= LS[iLS].κ
             end
             if toy_model
-                push!(peaky, maximum(xy[2,:]))
+                peaky[snap] = maximum(xy[2,:]) # push!(peaky, maximum(xy[2,:]))
             end
             if heat_solid_phase && heat_liquid_phase
                 @views fwd.T[snap,:,:] .= phL.T.*LS[end].geoL.cap[:,:,5] .+ phS.T.*LS[end].geoS.cap[:,:,5]
