@@ -84,8 +84,6 @@ end
     speed = 1
 )
 
-kk=maximum(abs.(gp.LS[1].κ[gp.LS[1].MIXED[findall(x->abs(x)==minimum(abs.(gp.x[gp.LS[1].MIXED])),gp.x[gp.LS[1].MIXED])]]))
-
 f1 = Figure(size = (1600, 1000))
 ax = Axis(f1[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y", xtickalign=0,  ytickalign=0)
 contour!(gp.x[1,:], gp.y[:,1] .-peaky0.*ones(length(y)-1), fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 3);
