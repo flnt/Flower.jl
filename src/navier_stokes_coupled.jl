@@ -6,7 +6,11 @@ Prepare boundary conditions
     * BC.bottom.val .* ones(nx)
     * BC.right.val .* ones(ny)
     * BC.bottom.val .* ones(nx)
-    In the current implementation, the sign needs to be changed for the left and bottom BC.
+    In the current implementation, the sign needs to be checked.
+    Dirichlet: a1 = -1
+    Neumann: b =1
+    Robin: a1 = -1 b = 1
+    a0 : BC value 
 """
 function set_borders!(grid, cl, u, a0, a1, b, BC, n_ext)
     @unpack nx, ny, x, y, dx, dy, ind = grid

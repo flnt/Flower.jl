@@ -83,6 +83,8 @@ lightblue = "#56B4E9"
 blue = "#0072B2"
 orange = '#D55E00'
 
+bubblecolor = "#009E73" 
+
 def demo_con_style(ax, connectionstyle,points,color='k',mutation_scale=5):
 
     # x1, y1 = 0.3, 0.2
@@ -598,11 +600,11 @@ def plot_fig(Vmode,Wx,plot_wall_annotation=False):
                 va='top')
     
     
-    plt.plot([0,0.5], [3,3], '-g', lw=4,
+    plt.plot([0,0.5], [3,3], '-', color = bubblecolor, lw=4,
             #  zorder = 2,
              )
 
-    plt.plot([0.5,1], [3,3], '-g', lw=4,
+    plt.plot([0.5,1], [3,3],  '-', color = bubblecolor, lw=4,
                         #   zorder = 2,
                 )
 

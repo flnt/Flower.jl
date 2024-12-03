@@ -12,6 +12,8 @@
 
 # Documentation
 
+This document contains extracts from the [References](@ref).
+
 ## Abbreviations
 * BC: boundary conditions
 * LS: levelset (distance to a fluid-fluid interface or fluid-solid interface i.e. a wall)
@@ -29,6 +31,65 @@ The signed distance is positive in the liquid and negative in the bubble. The no
 
 !!! todo "TODO"
     Logic center refers to indices in the matrices.
+
+
+"
+
+In this work, a levelset function $\phi$ \cite{Sethian1999} is defined on the computational domain ``\Omega`` to map the locus of one of its iso-levels (``\left \{ \left . x \in \Omega \right | \phi \left ( x, t \right ) = \phi _ 0 \right \}``) to an interface ``\Gamma \left ( t \right )`` that separates two non-overlapping domains, ``\Omega _ 1 \left ( t \right )`` and ``\Omega _ 2 \left ( t \right )``, each occupied by a different phase. The value ``\phi`` is defined as the signed distance to the interface,
+```math
+\begin{equation}
+	\phi \left ( x, t \right ) = \left \{ \begin{aligned}
+		-d \left ( x, \Gamma \left ( t \right ) \right ),& \ x \in \Omega _ 1 \left ( t \right ) \\
+		0,& \ x \in \Gamma \left ( t \right ) \\
+		d \left ( x, \Gamma \left ( t \right ) \right ),& \ x \in \Omega _ 2  \left ( t \right )
+	\end{aligned} \right .,
+\end{equation}
+```
+where ``d \left ( x, \Gamma \left ( t \right ) \right )`` denotes the minimal distance between the point ``x`` and the interface ``\Gamma \left ( t \right )``,
+
+"
+
+```@raw html
+<figure>
+    <a name="levelset_doc"></a> 
+    <img src="./assets/levelset_doc.svg" alt="Levelset" title="Levelset defining an interface $\Gamma$ separating two phases $\Omega _ 1$ and $\Omega _ 2$">
+    <figcaption>Levelset defining an interface $\Gamma$ separating two phases $\Omega _ 1$ and $\Omega _ 2$ </figcaption>
+</figure>
+```
+
+### Geometric moments
+
+The mesh is assumed to be rectilinear with ``n _ x`` points along ``x`` and ``n _ y`` along ``y``. For wet and partially wet cells numbered ``i`` along ``x`` and ``j`` along ``y``, the coordinates of the fluid center of mass are denoted ``x ^ \omega _ {i, j} \quad \mathrm{and} \quad y ^ \omega _ {i, j}`` and represent the components of two vectors of size ``n _ x n _ y`` (denoted ``x ^ \omega`` and ``y ^ \omega``). Likewise, the vectors ``x ^ \gamma`` and ``y ^ \gamma``, of size ``n _ x n _ y``, store the coordinates of the center of mass of the boundary of partially wet cells (referred to as boundary cells).
+
+In the following, discrete values can be cell-, face- or node-centered, therefore a numbering convention must be adopted for the indices ``\left ( i, j \right )``. Fig.~\ref{fig:numbering} showcases the convention used in this work for both cell and face-centered quantities (the ``\left ( i, j \right )`` node-centered quantities is located at the bottom-left of the cell).
+
+```@raw html
+<figure>
+    <a name="numbering_doc"></a> 
+    <img src="./assets/numbering_doc.svg" alt="Numbering convention" title="Numbering convention">
+    <figcaption> Numbering convention </figcaption>
+</figure>
+```
+
+"
+Cut-cell methods are firmly grounded in the Finite Volume Method, which defines the primary discrete variables as cell-wise averages over mesh elements. The design of the Finite Volume operators is then based on the application of the Divergence theorem. For example, given a scalar field $p$,  this theorem states that in a Cartesian coordinate system, the $x$ component of the gradient $\bs{q} \equiv \nabla p$ averaged over a cell $\Omega$ may be computed as
+\begin{equation}
+\Omega q _ x = \int _ \Omega \frac{\partial p}{\partial x} \rmd V = \oint _ {\partial \Omega} p \bs{e} _ x \cdot \rmd \bs{S}
+\label{eq:Stokes}
+\end{equation}
+where $\rmd \bs{S}$ denotes the outward-pointing surface element and $\bs{e} _ x$ the unit vector along the $x$ direction.
+
+For the sake of presentation, the case displayed in Fig.~\ref{fig:moments} is considered where $\Omega \equiv \mathcal{V} _ {i,j}$ consists of the intersection of a phase domain and a computational cell (a right hexahedron). The contour $\partial \Omega$ then consists of the union of the four planar faces $\mathcal{A} _ {x, i, j}$, $\mathcal{A} _ {x, i+1, j}$, $\mathcal{A} _ {y, i, j}$ and $\mathcal{A} _ {y, i, j+1}$ as well as the boundary surface $\Gamma _ {i, j}$. A piece-wise linear approximation of $\Gamma _ {i, j}$, denoted $\widetilde{\Gamma} _ {i, j}$ and of unit normal $\left ( n _ {x, i, j}, n _ {y, i, j} \right )$, can be defined by applying Eq.~\eqref{eq:Stokes} to $\mathcal{V} _ {i, j}$ with $p = 1$, yielding
+$$
+\int _ {\widetilde{\Omega}} \frac{\partial 1}{\partial x} \mathrm{d} V = \mathcal{A} _ {x, i+1, j} - \mathcal{A} _ {x, i, j} + n _ {x, i, j} \widetilde{\Gamma} _ {i, j} = 0
+$$
+which highlights the existence of a fundamental relation
+\begin{equation}
+    \mathcal{A} _ {x, i+1, j}  - \mathcal{A} _ {x, i, j}  = -n _ {x, i, j} \widetilde{\Gamma} _ {i, j}
+    \label{eq:approximate}
+\end{equation}
+sometimes referred to as a Geometric Surface Conservation Law. The same can be done in the $y$-direction in order to obtain a relation between $\mathcal{A} _ {y, i, j+1}, \mathcal{A} _ {y, i, j}, n _ {y, i, j}$ and $\widetilde{\Gamma} _ {i, j}$. Note that to simplify the exposition, the notations ($\mathcal{A} _ {x, i, j}$, $\mathcal{V} _ {i, j}$...) are used to denote both a region in space and its measure (length or area, in 2D).
+"
 
 
 ### Domains
@@ -412,7 +473,7 @@ The following hypothesis is made, ``q^\omega=q^\gamma=q``, which means that the 
 
 From [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707-024-04133-4)
 
-We consider the the Robin boundary condition ``\frac{\partial p}{\partial n} = q = g``  where a and b are two scalar coefficients
+We consider the Poisson equation ``-\nabla \cdot \nabla p = f~\text{in}~\Omega`` and the Robin boundary condition ``\frac{\partial p}{\partial n} = q = g``  where a and b are two scalar coefficients
 
 
 is written:
@@ -456,8 +517,6 @@ See this equation for the
 ```
 , the term with the derivative in the normal direction ``(\partial_n p)`` is set as the boundary contribution to the divergence. The resulting system is given by:
 
-!!! todo "TODO"
-    order vecb
 
 ```math
 \begin{cases}
@@ -471,6 +530,31 @@ q^\gamma &= q^\omega
 where ``I`` measures the boundary within a given cell.
 "
 
+"
+The intermediate variables $q^\omega$ and $q^\gamma$ can be eliminated from the above linear system, which can then be expressed in terms of the previously defined matrices as
+```math
+\begin{equation}
+    \left [ \begin{array}{>{\centering\arraybackslash$} p{2.0cm} <{$} >{\centering\arraybackslash$} p{3.2cm} <{$}}
+    G ^ \top W ^ \dagger G & G ^ \top W ^ \dagger H \\
+    I _ b H ^ \top W ^ \dagger G & I _ b H ^ \top W ^ \dagger H + I _ a I _ \Gamma
+    \end{array} \right ] \left [ \begin{array}{c}
+    p ^ \omega \\
+    p ^ \gamma
+    \end{array} \right ] \simeq \left [ \begin{array}{c}
+    V f ^ \omega \\
+     I _ \Gamma g ^ \gamma
+    \end{array} \right ],
+\label{eq:roblapmat}
+\end{equation}
+```
+"
+
+
+```@raw html
+by eliminating all intermediate variables and using Eqs.
+<a href="documentation.html#grad_concise">(gradient)</a> and <a href="documentation.html#div_concise">(divergence)</a>.
+```
+"The matrix on the left-hand side is symmetric if the coefficients b are equal to one and it is straightforward to obtain a symmetric matrix if they are not. Appendix C presents the resulting expression for a given cell of the one-dimensional Poisson's equation, for the sake of clarity."
 
 ##### Interface length
 
@@ -552,6 +636,14 @@ The hypothesis ``q^\omega=q^\gamma=q`` can be made for system resolution, which 
 
 The aforementioned operators may be rewritten in a more concise form.
 
+```@raw html
+<a name="grad_concise"></a> 
+```
+```math
+\mathrm{grad}(q^ω, q^{γ}  ) = W ^ \dagger \left ( G p ^ \omega + H p ^ \gamma \right )
+```
+
+
 ```math
 \mathrm{div}(q^ω, q^{γ}  ) = − G^⊤ + H^{Γ1,⊤} + H^{Γ2,⊤} q^ω + H^{Γ1,⊤}q^{γ1} + H^{Γ2,⊤}q^{γ2}
 ```
@@ -564,12 +656,28 @@ and
 H^{Γi,⊤} = B_x^{Γi} D_x+ − D_x+A_x^{Γi} B_y^{Γi} D_y+ − D_y+A_y^{Γi}
 ```
 
+"
+It should be noted that if the vector field represents a gradient, which is a higher order quantity, no distinction is made between its values in the fluid and at the boundary, i.e. $q^\gamma$ is simply set to $q^ \omega$, simplifying the divergence operator to
+
+```@raw html
+<a name="div_concise"></a> 
+```
+```math
+\mathrm{div}(q^ω, q^{γ}  ) = -G ^T q^ \omega
+```
+" [`Rodriguez et al. 2024`](https://link.springer.com/article/10.1007/s00707-024-04133-4)
+
 cf fig 2.3 in [`Rodriguez 2024`](https://theses.fr/s384455)
 
 Divergence of a face-centered vector field
 
-![img](./assets/geometric_moments.png)
-
+```@raw html
+<figure>
+    <a name="geometric_moments"></a> 
+    <img src="./assets/moments_doc.svg" alt="Geometric moments" title="Geometric moments">
+    <figcaption>"Geometric moments. $\mathcal{A} _ x$ in red dashed lines, $\mathcal{A} _ y$ in blue dashed lines, $\mathcal{B} _ x$ in green dashed lines. $\mathcal{B} _ y$ are not shown."</figcaption>
+</figure>
+```
 
 cf *A levelset based cut-cell method for two-phase flows. Part 2: Free-surface flows and dynamic contact angle treatment*:
 
@@ -795,7 +903,14 @@ cf. [Poisson equation](@ref)
 Variable coefficients are interpolated. The Laplacian matrices `L, bc_L_b and bc_L` are defined in the functions [`laplacian`](@ref) and [`laplacian_bc`](@ref). ``coeffD`` is a coefficient involving the electrical conductivity. Then, you have to put the coefficient ``coeffD`` before the matrices ``Bx, By, Hx, Hy, Hx_b`` and ``Hy_b``. The thing is that the gradient is not collocated with the scalar, so they don't have the same shapes for each direction. Five diagonal matrices with coeffD inside are required.
 
 
+In [`set_borders!`](@ref), we have:
+* Dirichlet: a1 = -1
+* Neumann: b =1
+* Robin: a1 = -1 b = 1
+* a0 : BC value 
+
 ```@docs
+set_poisson_variable_coeff_SPD!
 set_poisson_variable_coeff!
 ```
 ### Electrical current
@@ -1053,7 +1168,12 @@ init_ghost_neumann_2
 * small cells: linear algebra, time step ...
 * Epsilon to prevent NaN, with eps : coefficients not exact 
 
+## IO/post-processing
+
+The output files are generated with [`PDI`](https://github.com/pdidev). The on-line PDI documentation is available at [`PDI documentation`](https://pdi.dev). 
+
 ## References
 
 * [`Fullana (2017)`](https://theses.hal.science/tel-04053531/)
 * [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707-024-04133-4)
+* [`Rodriguez (2024)`](https://theses.fr/s384455)

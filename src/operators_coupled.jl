@@ -17,9 +17,7 @@ end
 
 
 """
-pad
-
-adds a to the diagonal where it is null
+pad(A, a=1.0) adds a to the diagonal of A where it is null
 """
 function pad(A, a=1.0)
     d = collect(diag(A))

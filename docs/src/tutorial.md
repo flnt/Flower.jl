@@ -155,12 +155,6 @@ To plot the radius of the interface
 python3 -c "import plot_flower; plot_flower.plot_radius_from_h5()" yaml_file
 ```
 
-Install python modules with conda
-```bash
-source activate myenv
-conda install -c conda-forge ffmpeg
-```
-
 
 # Passing file in REPL mode
 

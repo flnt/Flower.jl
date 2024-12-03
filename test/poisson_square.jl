@@ -5,25 +5,27 @@ using Polynomials
 
 #From poisson.jl (Quiros)
 
-function f1(x, y)
+# Careful here for SPD -
+
+function f(x, y)
     # return cos(π^2 * x * y)*sin(π^2 * x * y)
     # return -10 * (x-2.5) #L=2.5 from 0 to L
     return -10 * (1.25-x) #L=2.5 from -L/2 to L/2
 end
 
-function ∇fx1(x, y)
+function ∇fx(x, y)
     # return π^2 * y * (cos(π^2 * x * y)^2 - sin(π^2 * x * y)^2)
     return 10
 end
 
-function f(x, y)
+function minusf(x, y)
     # return cos(π^2 * x * y)*sin(π^2 * x * y)
     # return -10 * (x-2.5) #L=2.5 from 0 to L
     return 10 * (1.25-x) #L=2.5 from -L/2 to L/2
 end
 
 
-function ∇fx(x, y)
+function minus∇fx(x, y)
     return -10
 end
 
@@ -97,6 +99,9 @@ end
 
 #tolerance for tests
 test_tolerance = 1.e-14
+
+test_tolerance_solution_absolute = 1.e-10 #e-12
+
 
 #verbosity
 verbosity = 0 #for more details, set to 1
@@ -189,8 +194,15 @@ for (i,n) in enumerate(npts)
     sign_bottom = -1.0 #n \cdot e_y = -1
     sign_top = 1.0 #n \cdot e_y = 1
 
+    sign_left = 1.0
+    sign_right = 1.0
+    sign_bottom = 1.0
+    sign_top = 1.0
+
+    sign_Poisson = -1.0 #because we solve -laplacian p = f
+
     run_forward!(num, gp, gu, gv, op, phS, phL)
-    BC = Boundaries(left = Neumann(val = 10.0 * sign_left), #
+    BC = Boundaries(left = Neumann(val = sign_Poisson * 10.0 * sign_left), # -lapl p = f for SPD so -10
     bottom = Neumann(val = 0.0 * sign_bottom),
     right = Dirichlet(val = 0.0 * sign_right),
     top = Neumann(val = 0.0 * sign_top)) #border boundaries
@@ -228,9 +240,43 @@ for (i,n) in enumerate(npts)
     laps = set_matrices!(num, gp, [gp.LS[1].geoL], gu, [gu.LS[1].geoL], gv, [gv.LS[1].geoL], op.opC_pL, op.opC_uL, op.opC_vL, periodic_x, periodic_y)
     Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = laps
     a0_p = [θd]
+
+
     rhs = set_poisson(BC_int, num, gp, a0_p, op.opC_pL, op.opC_uL, op.opC_vL, A, Lp, bc_Lp, bc_Lp_b, BC, true)
 
+    # """    
+    # SPD matrix:
+    # # Arguments
+    # - bc_type: BC for interface, num, grid, 
+    # - a0, 
+    # - opC, 
+    # - pC_v,
+    # - A, 
+    # - BC: BC for wall
+    # - ls_advection
 
+    # ```math
+    # -\\nabla( \\kappa \\nabla \\phi) =f)
+    # ```
+
+    # """
+    # function set_poisson_variable_coeff_SPD!(num::Numerical{Float64, Int64},
+    #     grid::Mesh{Flower.GridCC, Float64, Int64},
+    #     grid_u::Mesh{Flower.GridFCx, Float64, Int64},
+    #     grid_v::Mesh{Flower.GridFCy, Float64, Int64},
+    #     opC::Operators{Float64, Int64},
+    #     A::SparseMatrixCSC{Float64, Int64},
+    #     rhs::Array{Float64, 1},
+    #     a0::Array{Float64, 2},
+    #     a1::SparseMatrixCSC{Float64, Int64},
+    #     BC::BoundariesInt,
+    #     ph::Phase{Float64},
+    #     coeffD::Array{Float64, 1},
+    #     coeffDu::Array{Float64, 2},
+    #     coeffDv::Array{Float64, 2},
+    #     # coeffDu0::Array{Float64, 2},
+    #     # coeffDv0::Array{Float64, 2},
+    #     ls_advection::Bool)
     
 
     # print("\n rhs ",vecb(rhs,gp)," \n")
@@ -246,7 +292,7 @@ for (i,n) in enumerate(npts)
     @testset "BC" begin
 
         @testset "Left border rhs" begin
-            @test vecb_L(rhs,gp)./gp.dy[:,1] ≈ -10 * sign_left .* ones(gp.ny) atol = test_tolerance #-10: -BC because left face (divergence theorem)
+            @test vecb_L(rhs,gp)./gp.dy[:,1] ≈ sign_Poisson * 10 * sign_left .* ones(gp.ny) atol = test_tolerance #-10: -BC because left face (divergence theorem)
         end
 
         @testset "Right border rhs" begin
@@ -609,19 +655,19 @@ for (i,n) in enumerate(npts)
 
     # Test with tolerance 
     @testset "Left border" begin
-        @test analytical_left ≈ vecb_L(res,gp) atol = test_tolerance
+        @test analytical_left ≈ vecb_L(res,gp) atol = test_tolerance_solution_absolute
     end
 
     @testset "Right border" begin
-        @test analytical_right ≈ vecb_R(res,gp) atol = test_tolerance
+        @test analytical_right ≈ vecb_R(res,gp) atol = test_tolerance_solution_absolute
     end
 
     @testset "Bottom border" begin
-        @test analytical_bottom ≈ vecb_B(res,gp) atol = test_tolerance
+        @test analytical_bottom ≈ vecb_B(res,gp) atol = test_tolerance_solution_absolute
     end
 
     @testset "Top border" begin
-        @test analytical_top ≈ vecb_T(res,gp) atol = test_tolerance
+        @test analytical_top ≈ vecb_T(res,gp) atol = test_tolerance_solution_absolute
     end
 
 

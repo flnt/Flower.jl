@@ -77,6 +77,11 @@ lightblue = "#56B4E9"
 blue = "#0072B2"
 orange = '#D55E00'
 
+bubblecolor = "#009E73" 
+
+wallcolor = "#CC79A7" #pink
+wallcolor = orange 
+
 
 fig, ax = plt.subplots(layout='constrained')
 
@@ -124,11 +129,11 @@ ly1    = 3
 
 ly0 = 1
 
-# plt.plot([0.,lx], [0.,0.], '-g', lw=4)
-# plt.plot([0.,0.], [ly0,ly], '-g', lw=4)
-plt.plot([0.,lx1], [ly0-eps,ly0-eps], '-g', lw=4)
-plt.plot([0.,lx1], [ly1+eps,ly1+eps], '-g', lw=4)
-plt.plot([lx1+eps,lx1+eps], [ly0,ly1], '-g', lw=4)
+# plt.plot([0.,lx], [0.,0.], '-',  color = bubblecolor , lw=4)
+# plt.plot([0.,0.], [ly0,ly], '-',  color = bubblecolor , lw=4)
+plt.plot([0.,lx1], [ly0-eps,ly0-eps], '-',  color = bubblecolor , lw=4)
+plt.plot([0.,lx1], [ly1+eps,ly1+eps], '-',  color = bubblecolor , lw=4)
+plt.plot([lx1+eps,lx1+eps], [ly0,ly1], '-',  color = bubblecolor , lw=4)
 
 plt.tick_params(
 axis='x',          # changes apply to the x-axis
@@ -149,18 +154,18 @@ ax.annotate('Bubble',
             # (1,2),
             (1,2),
             fontsize=font_size,
-            c='g',
+            c=bubblecolor ,
             ha="left",
             va='bottom')
 
 #wall
-plt.plot([0.-eps,0.-eps], [0,ly], '-r', lw=4)
+plt.plot([0.-eps,0.-eps], [0,ly], '-', color = wallcolor, lw=4)
 
 ax.annotate('Interface shifted',
             # (1,2),
             (1,3+eps),
             fontsize=font_size,
-            c='g',
+            c=bubblecolor ,
             ha="left",
             va='bottom')
 
@@ -168,7 +173,7 @@ ax.annotate(r"$c_1^\gamma$",
             # (1,2),
             (0.5,3+eps),
             fontsize=font_size,
-            c='g',
+            c=bubblecolor ,
             ha="left",
             va='bottom')
 
@@ -188,14 +193,14 @@ ax.annotate(
     text,
     (x2,ly2),
     fontsize=font_size,
-    c='r',
+    c=wallcolor,
     ha="right",
     va='center')
 
 # ax.annotate(r'Wall at $0^-$',
 #             (x2,ly2),
 #             fontsize=font_size,
-#             c='r',
+#             c=wallcolor,
 #             ha="right",
 #             va='bottom')
 
@@ -203,7 +208,7 @@ ax.annotate(
 #             # (1,2),
 #             (0-eps,0),
 #             fontsize=font_size,
-#             c='r',
+#             c=wallcolor,
 #             ha="center",
 #             va='top')
 
@@ -211,14 +216,14 @@ ax.annotate(
 #             # (1,2),
 #             (0-eps,3.5),
 #             fontsize=font_size,
-#             c='r',
+#             c=wallcolor,
 #             ha="right",
 #             va='bottom')
 
 # ax.annotate(r'Wall at $0^- \\ c_0^\gamma$',
 #             (x2,ly2),
 #             fontsize=font_size,
-#             c='r',
+#             c=wallcolor,
 #             ha="right",
 #             va='bottom')
 
@@ -238,14 +243,14 @@ plt.savefig('mesh_square_bubble.svg')
 
 ax.add_patch(Rectangle((-1, 3), 1-eps, 1, fill=False, 
                     #    hatch=h,
-                    color='r',
+                    color=wallcolor,
                     lw=4,
                     zorder=10,
                        ))
 
 ax.add_patch(Rectangle((0, 3+eps), 1, 1-eps, fill=False, 
                     #    hatch=h,
-                    color='g',
+                    color=bubblecolor ,
                     lw=4,
                     zorder=10,
                        ))

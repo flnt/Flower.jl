@@ -13,16 +13,88 @@
 
 # Tests cases
 
-## About testing
-cf. [this tutorial](https://erikexplores.substack.com/p/julia-testing-best-pratice)  
-cf. [this tutorial](https://erikexplores.substack.com/p/julia-testing-best-pratice)  
+
+
+The following test cases are planned:
+```@raw html
+<div w3-include-html="./assets/test_table.html"></div> 
+```
+
+
+```@raw html
+<table class="styled-table">
+
+    <!-- <tr>
+    
+    <td> </td>
+    <td> Steady </td>
+    <td> Steady </td>
+    <td> Steady </td>
+    <td> Unsteady</td>
+    <td> Unsteady</td>
+
+    </tr> -->
+
+    <thead>
+        <tr>
+            <th> Name </th>
+            <!-- <td>Poisson_square</td> --> 
+            <!-- or use td if you do not want bold -->
+            <th>Poisson_square (steady) </th>
+            <th>Poisson_square_circle (steady) </th>
+            <th>Poisson_square_circle_arc (steady)</th>
+            <th>Poisson_square_circle_arrow (unsteady)</th>
+            <th>Poisson_square_circle_arc_arrow (unsteady)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <th> </th>
+            <td> <div> <img class="mid" src="./assets/Poisson_square.svg" width="75vh" > </div></td>
+            <td><img src="./assets/Poisson_square_circle.svg" width="75vh" ></td>
+            <td><img src="./assets/Poisson_square_circle_arc.svg" width="75vh" ></td>
+            <td><img src="./assets/Poisson_square_circle_arrow.svg" width="75vh" ></td>
+            <td><img src="./assets/Poisson_square_circle_arc_arrow.svg" width="75vh" ></td>
+        </tr>
+ 
+        <th>Poisson: $ \nabla \cdot (\kappa \nabla \phi)=0$ </th>
+        <td>• • •</td>
+        <td>  </td>
+        <td> </td>
+        <td> </td>
+        <td> </td>
+        </tr>
+
+        <th>Diffusion</th>
+        <td> </td>
+        <td> </td>
+        <td> </td>
+        <td> </td>
+        <td> </td>
+        </tr>
+
+        <th>Convection</th>
+        <td> </td>
+        <td> </td>
+        <td> </td>
+        <td> </td>
+        <td> </td>
+        </tr>
+
+        <!-- and so on... ✔️ ❌ • • •-->
+    </tbody>
+</table>
+```
+
+!!! info "About testing in Julia"
+    cf. [this tutorial](https://erikexplores.substack.com/p/julia-testing-best-pratice)  
 
 ## Manufactured solutions
 
 
 See [`set_poisson`](@ref)
 
-### Poisson equation inside a circle
+## Poisson equation inside a circle
 
 See 2.4.4 in [`Rodriguez 2024`](https://theses.fr/s384455)
 
@@ -34,9 +106,35 @@ See [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707
 ```@raw html
 <a name="tagPoisson"></a> 
 ```
-The Poisson equation is solved inside a square domain: ``\nabla \cdot \nabla p = f~\text{in}~\Omega``
+The Poisson equation is solved inside a square domain: ``-\nabla \cdot \nabla p = f~\text{in}~\Omega``.
+
+With:
+```
+function f(x, y)
+    return -10 * (1.25-x) #L=2.5 from -L/2 to L/2
+end
+```
+
+The analytical function is: ``g = -f``.
 
 
+
+See [`set_poisson_variable_coeff_SPD!`](@ref) in [Electrical potential](@ref) and [Poisson equation](@ref).
+
+The boundary conditions are:
+* left: Neumann: +10
+* right: p = 0
+* top and bottom: homogeneous Neumann
+
+```@raw html
+<figure>
+    <a name="Poisson_square"></a> 
+    <img src="./assets/test_case.svg" alt="Poisson" title="Poisson">
+    <figcaption>"Poisson in a square domain"</figcaption>
+</figure>
+```
+
+The function is ``p(x,y) = -10(\frac{L}{2}-x)`` with ``L = 2.5`` the domain length.
 
 In this test case, we impose:
 * A non-homogeneous Neumann boundary condition on the left wall
@@ -105,17 +203,313 @@ We study the relative errors in the discrete ``l_2`` and ``l_\infty`` norms in 2
 
 ```math
 \begin{aligned}
-   l_\infty&=\frac{\max\lvert p_i- p_{i}^e\rvert}{\lvert\max( p_{i}^e)\rvert}
+   l_\infty&=\frac{\max\lvert p_i- p_{i}^e\rvert}{\max( \lvert p_{i}^e \rvert )}
 \end{aligned}
 ```
 
-THe boundary conditions are:
-* left: Neumann: +10
-* right: p = 0
-* top and bottom: homogeneous Neumann
+
+Recalling [Poisson equation](@ref)
+
+```math
+\begin{equation}
+    \left [ \begin{array}{>{\centering\arraybackslash$} p{2.0cm} <{$} >{\centering\arraybackslash$} p{3.2cm} <{$}}
+    G ^ \top W ^ \dagger G & G ^ \top W ^ \dagger H \\
+    I _ b H ^ \top W ^ \dagger G & I _ b H ^ \top W ^ \dagger H + I _ a I _ \Gamma
+    \end{array} \right ] \left [ \begin{array}{c}
+    p ^ \omega \\
+    p ^ \gamma
+    \end{array} \right ] \simeq \left [ \begin{array}{c}
+    V f ^ \omega \\
+     I _ \Gamma g ^ \gamma
+    \end{array} \right ],
+\label{eq:roblapmat}
+\end{equation}
+```
+
+"
+Appendix One-dimensional Poisson's equation from [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707-024-04133-4)
+
+ 
+
+```@raw html
+The discretized  <a href="documentation.html#tagPoisson"> Poisson's equation </a> in terms of the cut-cell operators reads:
+```
+
+ 
+```math
+\begin{equation}
+    G ^ \top W ^ \dagger G p ^ \omega + G ^ \top W ^ \dagger H p ^ \gamma = V f ^ \omega,
+\end{equation}
+```
+with the one-dimensional version expanding to 
+```math
+\begin{equation}
+    - \left [ B _ x D _ x ^ + W _ x ^ \dagger D _ x ^ - B _ x p ^ \omega + B _ x D _ x ^ + W _ x ^ \dagger \left ( A _ x D _ x ^ - - D _ x ^ - B _ x \right ) p ^ \gamma \right ] = V f ^ \omega
+\end{equation}
+```
+in terms of the elementary discrete operators, if the $x$-direction is considered. We can now further expand this expression for a given cell $i$, which yields the following expression
+```math
+\begin{multline}
+    - \mathcal{B} _ {x, i} \left [ \mathcal{W} _ {x, i + 1} \left ( \mathcal{B} _ {x, i + 1} p _ {i + 1} ^ \omega - \mathcal{B} _ {x, i} p _ {i} ^ \omega \right ) - \mathcal{W} _ {x, i}  \left ( \mathcal{B} _ {x, i} p _ {i} ^ \omega - \mathcal{B} _ {x, i - 1} p _ {i - 1} ^ \omega \right ) \right ] - \\
+    \mathcal{B} _ {x, i} \left \{ \mathcal{W} _ {x, i + 1} \left [ \left ( \mathcal{B} _ {x, i + 1} - \mathcal{A} _ {x, i + 1} \right )  p _ {i + 1} ^ \gamma + \left ( \mathcal{A} _ {x, i + 1} - \mathcal{B} _ {x, i} \right ) p _ {i} ^ \gamma \right ] - \right . \\
+    \left . \mathcal{W} _ {x, i} \left [ \left ( \mathcal{B} _ {x, i} - \mathcal{A} _ {x, i} \right ) p _ {i} ^ \gamma + \left ( \mathcal{A} _ {x, i} - \mathcal{B} _ {x, i - 1} \right ) p _ {i - 1} ^ \gamma \right ] \right \} = \mathcal{V} _ i f _ i ^ \omega.
+\end{multline}
+```
+As seen in the latter equation, the discrete Laplacian yields a 3-point stencil in both $p ^ \omega$ and $p ^ \gamma$.
+"
+
+#### Equations
 
 
-The function is ``p(x,y) = -10(\frac{L}{2}-x)`` with ``L = 2.5`` the domain length.
+By printing the coefficients we see we have -4 when there is no interface. What is discretized is ``\nabla \cdot \nabla p = f``.
+
+!!! todo "TODO"
+    ```julia
+    A[1:ni,end-nb+1:end] = bc_L_b
+    ```
+!!! todo "TODO"
+    Hx Hb...
+
+
+In [`set_poisson`](@ref) system for `` + \nabla \cdot \nabla p = f`` is:
+
+```math
+\begin{cases}
++ \mathrm{div} (q^\omega, q^\gamma ) &= V f^\omega\\
+I_a I p^\gamma + I_b \mathrm{div} (0, q^\omega) &= I g^\omega\\
+q^\omega &= \mathrm{grad} ( p^\omega, p^\gamma ) \\
+q^\gamma &= q^\omega
+\end{cases}
+```
+
+```math
+\begin{equation}
+    \left [ \begin{array}{>{\centering\arraybackslash$} p{2.0cm} <{$} >{\centering\arraybackslash$} p{3.2cm} <{$}}
+    -G ^ \top W ^ \dagger G & -G ^ \top W ^ \dagger H \\
+    I _ b (-H ^ \top W ^ \dagger G) & I _ b (-H ^ \top W ^ \dagger H) + I _ a I _ \Gamma
+    \end{array} \right ] \left [ \begin{array}{c}
+    p ^ \omega \\
+    p ^ \gamma
+    \end{array} \right ] \simeq \left [ \begin{array}{c}
+    V f ^ \omega \\
+     I _ \Gamma g ^ \gamma
+    \end{array} \right ],
+\end{equation}
+```
+
+cf. :
+```julia
+A[end-nb+1:end,1:ni] = -b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
+```
+
+```julia
+A[end-nb+1:end,1:ni] = b_b * (-1) * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
+```
+This corresponds to ``I _ b (-H ^ \top W ^ \dagger G)``
+
+
+cf. :
+```julia
+A[end-nb+1:end,end-nb+1:end] = -pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b, 4.0)
+```
+
+```julia
+A[end-nb+1:end,end-nb+1:end] = pad(b_b *(-1) * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .+ χ_b * a1_b, -4.0)
+```
+This corresponds to ``I _ b (-H ^ \top W ^ \dagger H) + I _ a I _ \Gamma``
+
+```@docs
+pad
+```
+
+```julia
+A[sb,i*ni+1:(i+1)*ni] = -b * (HxT[iLS] * iMx * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
+```
+
+##### At the interface
+* Dirichlet __a1 = -1.0
+               
+* Neumann  __b = 1.0
+* Robin __a1 = -1.0
+        __a2 = 0.0
+        __b = 1.0
+
+In we have
+
+In [`set_borders!`](@ref), we have:
+
+Dirichlet: a1 = -1
+Neumann: b =1
+Robin: a1 = -1 b = 1
+a0 : BC value 
+
+!!! todo "Signs"
+    * why a1 = -1
+    * why -a0 
+
+
+```julia
+A[sb,sb] = -pad(
+b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .- χ[iLS] * a1 .+
+a2 * Diagonal(diag(fs_mat)), 4.0
+)
+```
+
+```julia
+A[sb,sb] = pad(
+b * (-1) * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .+ χ[iLS] * a1 .-
+a2 * Diagonal(diag(fs_mat)), -4.0
+)
+```
+
+
+!!! todo
+    ``a1 = -1``  
+
+```julia
+A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b * Hy_b)
+```
+
+Why ``+b``? and everywhere else ``-b`` ?
+
+
+
+```julia
+A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b * Hy_b)
+# Boundary conditions for outer boundaries
+A[end-nb+1:end,sb] = -b_b * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
+end
+
+veci(rhs,grid,iLS+1) .= -χ[iLS] * vec(a0[iLS])
+end
+
+vecb(rhs,grid) .= -χ_b * vec(a0_b)
+```
+
+
+```julia
+function set_poisson(
+    bc_type, num, grid, a0, opC, opC_u, opC_v,
+    A, L, bc_L, bc_L_b, BC,
+    ls_advection)
+    @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
+
+    ni = grid.nx * grid.ny
+    nb = 2 * grid.nx + 2 * grid.ny
+
+    rhs = fnzeros(grid, num)
+
+    a0_b = zeros(nb)
+    _a1_b = zeros(nb)
+    _b_b = zeros(nb)
+    # Dirichlet: a1 = -1
+    # Neumann: b =1
+    # Robin: a1 = -1 b = 1
+    # a0 : BC value 
+    for iLS in 1:num.nLS
+        set_borders!(grid, grid.LS[iLS].cl, grid.LS[iLS].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
+    end
+    a1_b = Diagonal(vec(_a1_b))
+    b_b = Diagonal(vec(_b_b))
+
+    if ls_advection
+        # Poisson equation
+        A[1:ni,1:ni] = pad(L, -4.0)
+        A[1:ni,end-nb+1:end] = bc_L_b
+
+        # Boundary conditions for outer boundaries
+        A[end-nb+1:end,1:ni] = -b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
+        A[end-nb+1:end,end-nb+1:end] = -pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b, 4.0)
+    end
+
+    for iLS in 1:num.nLS
+        if ls_advection
+            if is_dirichlet(bc_type[iLS])
+                __a1 = -1.0
+                __a2 = 0.0
+                __b = 0.0
+            elseif is_neumann(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_robin(bc_type[iLS])
+                __a1 = -1.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_fs(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 1.0
+                __b = 0.0
+            elseif is_wall_no_slip(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_navier(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_navier_cl(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            else
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            end
+    
+            _a1 = ones(grid) .* __a1
+            a1 = Diagonal(vec(_a1))
+            _a2 = ones(grid) .* __a2
+            a2 = Diagonal(vec(_a2))
+            _b = ones(grid) .* __b
+            b = Diagonal(vec(_b))
+
+            fs_mat = HxT[iLS] * Hx[iLS] .+ HyT[iLS] * Hy[iLS]
+
+            sb = iLS*ni+1:(iLS+1)*ni
+            
+            # Poisson equation
+            A[1:ni,sb] = bc_L[iLS]
+            # Boundary conditions for inner boundaries
+            A[sb,1:ni] = -b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
+            # Contribution to Neumann BC from other boundaries
+            for i in 1:num.nLS
+                if i != iLS
+                    A[sb,i*ni+1:(i+1)*ni] = -b * (HxT[iLS] * iMx * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
+                end
+            end
+            A[sb,sb] = -pad(
+                b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .- χ[iLS] * a1 .+
+                a2 * Diagonal(diag(fs_mat)), 4.0
+            )
+            A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b * Hy_b)
+            # Boundary conditions for outer boundaries
+            A[end-nb+1:end,sb] = -b_b * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
+        end
+
+        veci(rhs,grid,iLS+1) .= -χ[iLS] * vec(a0[iLS])
+    end
+
+    vecb(rhs,grid) .= -χ_b * vec(a0_b)
+    
+    return rhs
+end
+
+```
+
+
+### Implementation
+
+!!! info "Changes"
+    * Replaced a1=-1 (i.e. a in Robin BC) by a1=1
+    * Replaced -chi * a by +chi * a
+    
+```@docs
+set_borders_poisson!
+solve_poisson
+```
+
 
 !!! todo "TODO"
     As you can see in [`set_borders!`](@ref), in the current implementation needs to set the value of the boundary condition times the scalar product ``n \cdot e_x`` for the left and right faces and ``n \cdot e_y`` for the bottom and top faces.
@@ -157,13 +551,23 @@ The function is ``p(x,y) = -10(\frac{L}{2}-x)`` with ``L = 2.5`` the domain leng
     end
 ```
 
+### Convergence study
 
-### Poisson equation inside a square with circular interface
 
 
-### Poisson equation inside a square with circular interface at wall
+## Poisson equation inside a square with circular interface
 
-### Gradient
+```@raw html
+<figure>
+    <a name="Poisson_square"></a> 
+    <img src="./assets/test_case_circle.svg" alt="Poisson" title="Poisson">
+    <figcaption>"Poisson in a square domain"</figcaption>
+</figure>
+```
+
+## Poisson equation inside a square with circular interface at wall
+
+## Gradient
 
 
 
