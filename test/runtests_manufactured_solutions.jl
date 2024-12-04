@@ -11,9 +11,19 @@ using LsqFit
 # atol =1e-13 in most places
 
 
+module testyamlfile2 #enables to perform a test with ARGS to give an input file
+ARGS = String["../Flower.jl/test/poisson_square_solve_poisson.yml"]
+include("poisson_square_solve_poisson_cos_cos.jl")
+end
+
+
 module testyamlfile #enables to perform a test with ARGS to give an input file
-ARGS = String["poisson_square_solve_poisson.yml"]
+ARGS = String["../Flower.jl/test/poisson_square_solve_poisson.yml"]
 include("poisson_square_solve_poisson.jl")
+end
+
+@testset "Poisson equation inside square: solve_poisson coscos" begin
+    using testyamlfile2
 end
 
 @testset "Poisson equation inside square: solve_poisson" begin

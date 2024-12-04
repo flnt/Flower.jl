@@ -116,7 +116,11 @@ ly0 = 1
 
 def plot_figure(plot_interface,plot_wall,case):
 
-    fig, ax = plt.subplots(layout='constrained')
+    if 'BC' in case:
+        fig, ax = plt.subplots(layout='constrained')
+    else:
+        fig, ax = plt.subplots(layout='constrained',figsize=(4,4))
+
 
 
     plt.plot([0.,lx], [0.,0.], '-k', lw=lw,zorder=zorder)
@@ -360,7 +364,8 @@ def plot_figure(plot_interface,plot_wall,case):
     ax.spines['bottom'].set_visible(False)
     ax.spines['left'].set_visible(False)
 
-    ax.set_xlim([-1.5,4])
+    if 'BC' in case:
+        ax.set_xlim([-1.5,4])
 
 
     # plt.show()
@@ -384,7 +389,8 @@ def plot_figure(plot_interface,plot_wall,case):
                             zorder=10,
                             ))
 
-    ax.set_xlim([-1.5,4])
+    if 'BC' in case:
+        ax.set_xlim([-1.5,4])
 
 
     if '_BC' in case:
