@@ -3,23 +3,40 @@ using Test
 
 using LsqFit
 
+
+
+
 # Manufactured solutions
 
 # atol =1e-13 in most places
+
+
+module testyamlfile #enables to perform a test with ARGS to give an input file
+ARGS = String["poisson_square_solve_poisson.yml"]
+include("poisson_square_solve_poisson.jl")
+end
+
+@testset "Poisson equation inside square: solve_poisson" begin
+    using testyamlfile
+end
+
+#Convergence study
+@testset "Poisson equation inside square: solve_poisson" begin
+    include("poisson_square_solve_poisson.jl")
+end
+
 #Constant Dirichlet everywhere
 @testset "Poisson equation inside square constant Dirichlet: solve_poisson" begin
     include("poisson_square_constant_solve_poisson.jl")
 end
 
-@testset "Poisson equation inside square linear: solve_poisson" begin
-    include("poisson_square_constant_solve_poisson_lin.jl")
-end
-
-
 #Linear function
-@testset "Poisson equation inside square: solve_poisson" begin
-    include("poisson_square_solve_poisson.jl")
+@testset "Poisson equation inside square linear: solve_poisson" begin
+    include("poisson_square_solve_poisson_lin.jl")
 end
+
+
+
 
 
 

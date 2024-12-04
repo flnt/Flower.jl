@@ -243,7 +243,7 @@ def plot_figure(plot_interface,plot_wall,case):
 
         text = r"\begin{tabular}{c}" + \
                 r" Neumann \\"+ \
-                r" $\frac{\partial C}{\partial n}$ \\"+ \
+                r" $\frac{\partial c}{\partial n}$ \\"+ \
                 r"\end{tabular}"
         ax.annotate(
             text,
@@ -264,7 +264,7 @@ def plot_figure(plot_interface,plot_wall,case):
 
         text = r"\begin{tabular}{c}" + \
                 r" Neumann \\"+ \
-                r" $\frac{\partial C}{\partial n} = 0$ \\"+ \
+                r" $\frac{\partial c}{\partial n} = 0$ \\"+ \
                 r"\end{tabular}"
         ax.annotate(
             text,
@@ -286,7 +286,7 @@ def plot_figure(plot_interface,plot_wall,case):
 
         text = r"\begin{tabular}{c}" + \
                 r" Neumann \\"+ \
-                r" $\frac{\partial C}{\partial n} = 0$ \\"+ \
+                r" $\frac{\partial c}{\partial n} = 0$ \\"+ \
                 r"\end{tabular}"
         ax.annotate(
             text,
@@ -442,6 +442,8 @@ def plot_figure(plot_interface,plot_wall,case):
 
 
     plt.savefig(case+'.svg', transparent=True)
+    plt.savefig(case+'.pdf', transparent=True)
+
     plt.close('all')
 
 

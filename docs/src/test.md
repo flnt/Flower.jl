@@ -552,7 +552,67 @@ solve_poisson
 ```
 
 ### Convergence study
+L = 2.5
+```math
+p_e(x,y) = cos((1.25+x)*(π /5.0))
+```
 
+
+#### n = 16
+number_small_cells_for_error 000 
+0.0% of mixed cells
+ALL: (0.0008035776793641828, 6.457370867720527e-7, 0.0008035776793634693)
+MIXED: (NaN, NaN, NaN)
+FULL: (0.0008035776793641828, 6.457370867720527e-7, 0.0008035776793634693)
+
+#### n =32
+number_small_cells_for_error 000 
+0.0% of mixed cells
+ALL: (0.00020082180972763426, 4.0329399262224025e-8, 0.0002008218097276315)
+MIXED: (NaN, NaN, NaN)
+FULL: (0.00020082180972763426, 4.0329399262224025e-8, 0.0002008218097276315)
+
+#### n = 64
+
+number_small_cells_for_error 000 
+0.0% of mixed cells
+ALL: (5.0200915977696063e-5, 2.520131964877533e-9, 5.0200915972993364e-5)
+MIXED: (NaN, NaN, NaN)
+FULL: (5.0200915977696063e-5, 2.520131964877533e-9, 5.0200915972993364e-5)
+
+Order 2 for a cos, but careful with the function, Taylor development : ``1 - x^2 +\mathcal{O}(h^4)`` near zero   
+
+
+
+## With a simple boundary condition similar to Butler-Volmer
+We use a similar approach as in [`example for sinh`](https://math.stackexchange.com/questions/3472880/solving-sinh-x-kx). We assume a constant conductivity ``\sigma = 1`` and a simplified Butler-Volmer equation.
+The boundary conditions are:
+* left: simplified Butler-Volmer 
+
+```math
+2i_0 \mathrm{sinh}\left( \right)
+```
+
+```math
+i=i_0\left[\exp{\left(\frac{\alpha_aF\eta}{R_\mu T}\right)}
+-\exp{\left(\frac{\alpha_c F\eta}{R_\mu T}\right)}\right]
+```
+
+* right: ``\Phi = 0``
+* bottom and top ``\frac{\partial \Phi}{\partial n} = 0``
+
+[`example for sinh`](https://math.stackexchange.com/questions/3472880/solving-sinh-x-kx)
+
+!!! todo "Needs to be checked" 
+    Poisson with constant conductivity, electroneutrality: ``\Delta \Phi = 0`` so ``\Phi(x) = ax+b``.
+    At ``x = L``, ``\Phi = 0`` so we have ``\Phi(x) = a(\frac{x}{L}-1)`` 
+    
+!!! todo ""
+    with ``a>0`` because 
+
+!!! todo
+    At ``0^+``: ``\Phi(0^+) = -a`` and ``\frac{\partial\Phi}{\partial x }(0^+) = \frac{a}{L}``
+    ``\frac{a}{L} = 2 i_0 \mathrm{sinh}(\frac{\alpha F}{RT}(-0.6-(-a)) )``
 
 
 ## Poisson equation inside a square with circular interface
@@ -568,6 +628,9 @@ solve_poisson
 ## Poisson equation inside a square with circular interface at wall
 
 ## Gradient
+
+
+
 
 
 
