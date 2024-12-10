@@ -182,9 +182,117 @@ colors[2]=OkabeIto[5] #bleu
 colors[3]=OkabeIto[6] #orange
 
 
+# Polynomial Regression
+# https://stackoverflow.com/questions/893657/how-do-i-calculate-r-squared-using-python-and-numpy
+def polyfit(x, y, degree):
+    results = {}
+
+    coeffs = np.polyfit(x, y, degree)
+
+    # Polynomial Coefficients
+    results['polynomial'] = coeffs.tolist()
+
+    # r-squared
+    p = np.poly1d(coeffs)
+    # fit values, and mean
+    yhat = p(x)                         # or [p(z) for z in x]
+    ybar = np.sum(y)/len(y)          # or sum(y)/len(y)
+    ssreg = np.sum((yhat-ybar)**2)   # or sum([ (yihat - ybar)**2 for yihat in yhat])
+    sstot = np.sum((y - ybar)**2)    # or sum([ (yi - ybar)**2 for yi in y])
+    results['determination'] = ssreg / sstot
+
+    print('polyfit ',results)
 
 
-def compute_slope(ax,xls,yls,x,y,slopes,R2,param_line,colors,alpha):
+def logticks(xlim):
+   
+   logxlim=np.log10(xlim)
+   
+   pow=np.floor(logxlim)
+   roundpow=np.round(pow)
+   # print(roundpow)
+   div=np.float_power(10,roundpow)
+
+   if np.size(xlim)==1:
+      quotient=xlim/div
+   else:
+      quotient=[xlim[i]/div[i] for i,z in enumerate(xlim)]
+
+   quotient=np.array(quotient)
+   new=quotient.astype(int)
+
+   # xlim[0]=min(xlim[0],new[0]*div[0])
+   # xlim[1]=max(xlim[1],(new[1]+1)*div[1])
+
+   bounds=[]
+   ticks=[]
+   labels=[]
+   minorlabels=[]
+   start=new[0]
+   end=10
+   # print('roundpow',roundpow)
+   for i in range(int(roundpow[0]),int(roundpow[1])+1):
+      if i==int(roundpow[1]):
+         end=new[1]+1
+      ticks.append(np.float_power(10,i))
+      labels.append('$\\mathdefault{{10^{{{power}}}$'.format(power=i))
+
+      # print('power',i,roundpow[1],int(roundpow[1])+1)
+      for j in range(start,end):
+         bounds.append(j*np.float_power(10,i))
+         minorlabels.append('')
+         # print ('ij',i,j,j*np.float_power(10,i))
+      start=1   
+   # print(xlim)   
+   # print(bounds)
+   # minorlabels=['']*len(bounds)
+   minorlabels[0]='$\\mathdefault{{{mult}{{\cdot}} 10^{{{power}}}}}$'.format(mult=new[0], power=int(roundpow[0]))
+   minorlabels[-1]='$\\mathdefault{{{mult}{{\cdot}} 10^{{{power}}}}}$'.format(mult=new[1], power=int(roundpow[1]))
+
+   # print('ticks',xlim,ticks,bounds,minorlabels)
+
+   return ticks,labels,bounds,minorlabels
+
+
+def roundlog(xlim):
+
+   logxlim=np.log10(xlim)
+   
+   # print('round',xlim)
+
+   # print('log',logxlim)
+
+   # pow=logxlim.astype(int)
+   pow=np.floor(logxlim)
+   roundpow=np.round(pow)
+   # print('roundpow',roundpow)
+   
+   # div=10**roundpow
+   div=np.float_power(10,roundpow)
+
+   if np.size(xlim)==1:
+      quotient=xlim/div
+   else:
+      quotient=[xlim[i]/div[i] for i,z in enumerate(xlim)]
+   
+   # print('quotient',quotient)
+   quotient=np.array(quotient)
+   new=quotient.astype(int)
+
+   # xlim=new*div
+   xlim[0]=min(xlim[0],new[0]*div[0])
+   xlim[1]=max(xlim[1],(new[1]+1)*div[1])
+
+
+   # print('pow',pow)
+   # print('div',div)
+   # print('xlim',xlim)
+   # print('new',new)
+
+
+   return xlim
+
+def compute_slope(ax,xls,yls,x,y,slopes,R2,param_line,colors,alpha,plot_text=True):
    #https://math.stackexchange.com/questions/3500898/understanding-the-least-squares-regression-formula
    #https://towardsdatascience.com/linear-regression-using-least-squares-a4c3456e8570
    # print('least-squares',len(xls),len(yls))
@@ -198,6 +306,8 @@ def compute_slope(ax,xls,yls,x,y,slopes,R2,param_line,colors,alpha):
         Y_mean1 = np.mean(yls)
         xls=np.log10(xls)
         yls=np.log10(yls)
+
+        # print(xls,yls)
 
     X_mean = np.mean(xls)
     Y_mean = np.mean(yls)
@@ -222,7 +332,13 @@ def compute_slope(ax,xls,yls,x,y,slopes,R2,param_line,colors,alpha):
     rmsy=np.linalg.norm(yls-Y_mean, ord=2)
 
     corr=num/(rmsx*rmsy)
-    # print('corr',corr)
+
+
+    test_polyfit = True
+    test_polyfit = False
+    if test_polyfit:
+        polyfit(xls,yls,1)
+
 
     if logslope:
         # ax.plot([10**(X_mean), 10**(max(xls))], [10**(X_mean*m+c), 10**(max(Y_pred))], color='black',alpha=0.5)
@@ -234,7 +350,9 @@ def compute_slope(ax,xls,yls,x,y,slopes,R2,param_line,colors,alpha):
                                     )
         xy=(X_mean1,Y_mean1)
         text='Slope={:.2g}\nR²={:.2g}'.format(float(m),float(corr))
-        ax.annotate(text=text,xy=xy,ha='left',va='top')
+        
+        if plot_text:
+            ax.annotate(text=text,xy=xy,ha='left',va='top')
 
         
         # param_line.append(line1)
@@ -255,7 +373,7 @@ def compute_slope(ax,xls,yls,x,y,slopes,R2,param_line,colors,alpha):
         # plt.text(0.8,0.9,
         # 'Slope={:.2g}\nR²{:.2g}'.format(float(m),float(rms)),
         # transform =ax.transAxes,fontsize=16,ha='center')
-        slopes=m
+        # slopes=m
         R2=corr#rms
 
         # ax.annotate('Slope={:.2g}\nR²={:.2g}'.format(float(m),float(rms)),
@@ -285,7 +403,11 @@ def compute_slope(ax,xls,yls,x,y,slopes,R2,param_line,colors,alpha):
     #       # len(xls),len(yls)
     #       ,min(xls),max(xls),min(Y_pred),max(Y_pred))
 
-    print(min(Y_pred),max(Y_pred),Y_min,Y_max,10**(min(xls)),10**(max(xls)))   
+    print(min(Y_pred),max(Y_pred),Y_min,Y_max,10**(min(xls)),10**(max(xls)))  
+    slopes[0:1]=[m,R2]
+
+    print('return test',slopes)
+ 
     return(ax)
 
 

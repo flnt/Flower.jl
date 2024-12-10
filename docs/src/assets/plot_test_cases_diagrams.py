@@ -121,6 +121,12 @@ def plot_figure(plot_interface,plot_wall,case):
     else:
         fig, ax = plt.subplots(layout='constrained',figsize=(4,4))
 
+    if '_BC' in case:
+        radius = 0.5
+    else:
+        radius = 1
+
+
 
 
     plt.plot([0.,lx], [0.,0.], '-k', lw=lw,zorder=zorder)
@@ -247,7 +253,7 @@ def plot_figure(plot_interface,plot_wall,case):
 
         text = r"\begin{tabular}{c}" + \
                 r" Neumann \\"+ \
-                r" $\frac{\partial c}{\partial n}$ \\"+ \
+                r" $\frac{\partial c}{\partial n}\neq 0$ \\"+ \
                 r"\end{tabular}"
         ax.annotate(
             text,
@@ -324,6 +330,55 @@ def plot_figure(plot_interface,plot_wall,case):
             ha="left",
             va='center')    
         
+        if '_BC_dir' in case:
+            
+            xtmp = lx/2
+            ytmp = ly/2-radius
+
+            # dx = 0
+            # dy = shift/72.
+            # offset = transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
+            # shadow_transform = ax.transData + offset
+
+            text = r"\begin{tabular}{c}" + \
+                    r" Dirichlet \\"+ \
+                    r" $c\neq 0$ \\"+ \
+                    r"\end{tabular}"
+            ax.annotate(
+                text,
+                (xtmp,ytmp),
+                xytext=(+offset,0), textcoords='offset points',
+                # transform=shadow_transform,
+                fontsize=font_size,
+                c='k',
+                ha="center",
+                va='top')    
+
+        if '_BC_neu' in case:
+            
+            xtmp = lx/2
+            ytmp = ly/2-radius
+
+            # dx = 0
+            # dy = shift/72.
+            # offset = transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
+            # shadow_transform = ax.transData + offset
+
+            text = r"\begin{tabular}{c}" + \
+                    r" Neumann \\"+ \
+                    r" $\frac{\partial c}{\partial n}\neq 0$ \\"+ \
+                    r"\end{tabular}"
+            ax.annotate(
+                text,
+                (xtmp,ytmp),
+                xytext=(+offset,0), textcoords='offset points',
+                # transform=shadow_transform,
+                fontsize=font_size,
+                c='k',
+                ha="center",
+                va='top')    
+
+
         
 
 
@@ -393,11 +448,7 @@ def plot_figure(plot_interface,plot_wall,case):
         ax.set_xlim([-1.5,4])
 
 
-    if '_BC' in case:
-        radius = 0.5
-    else:
-        radius = 1
-
+ 
     if '_circle' in case and ( not ('arc' in case)):
 
         xc = 2
@@ -456,6 +507,11 @@ def plot_figure(plot_interface,plot_wall,case):
 plot_figure(plot_interface,plot_wall,'Poisson_square_BC')
 
 plot_figure(plot_interface,plot_wall,'Poisson_square_circle_BC')
+
+plot_figure(plot_interface,plot_wall,'Poisson_square_circle_BC_dir')
+
+plot_figure(plot_interface,plot_wall,'Poisson_square_circle_BC_neu')
+
 
 plot_figure(plot_interface,plot_wall,'Poisson_square')
 

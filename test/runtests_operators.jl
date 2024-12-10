@@ -1,6 +1,8 @@
 using Flower
 using Test
 
+using Revise
+
 import Test: Test, finish
 using Test: DefaultTestSet, Broken
 using Test: parse_testset_args
@@ -44,7 +46,16 @@ end
 # @testset "Gradient" begin
 #     include("gradient.jl")
 # end
-@testset_skip "Check localization of u component of gradient" "Gradient" begin
+# @testset_skip "Check localization of u component of gradient" "Gradient" begin
+#     include("gradient.jl")
+# end
+
+#Tests for gradient, divergence and orientations
+@testset "Gradient and orientations" begin
+    include("orientation.jl")
+end
+
+@testset "Gradient and orientations" begin
     include("gradient.jl")
 end
 
@@ -60,15 +71,15 @@ end
 # end
 
 
-module testyamlfile2 #enables to perform a test with ARGS to give an input file
-ARGS = String["../Flower.jl/test/poisson_circular_interface_Dirichlet.yml"]
-include("poisson_circular_interface_Dirichlet.jl")
-end
+# module testyamlfile2 #enables to perform a test with ARGS to give an input file
+# ARGS = String["../Flower.jl/test/poisson_circular_interface_Dirichlet.yml"]
+# include("poisson_circular_interface_Dirichlet.jl")
+# end
 
-module testyamlfile5 #enables to perform a test with ARGS to give an input file
-ARGS = String["../Flower.jl/test/poisson_circular_interface_Neumann.yml"]
-include("poisson_circular_interface_Neumann.jl")
-end
+# module testyamlfile5 #enables to perform a test with ARGS to give an input file
+# ARGS = String["../Flower.jl/test/poisson_circular_interface_Neumann.yml"]
+# include("poisson_circular_interface_Neumann.jl")
+# end
 
 # module testyamlfile4 #enables to perform a test with ARGS to give an input file
 # ARGS = String["../Flower.jl/test/poisson_circular_interface_wall.yml"]

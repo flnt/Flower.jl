@@ -12,7 +12,7 @@
 
 # Documentation
 
-This document contains extracts from the [References](@ref).
+This document contains extracts from the theses and articles listed in [References](@ref).
 
 ## Abbreviations
 * BC: boundary conditions
@@ -27,7 +27,11 @@ This document contains extracts from the [References](@ref).
 
 
 ### Convention and orientation of the bubble interface
-The signed distance is positive in the liquid and negative in the bubble. The normal is oriented towards the liquid.
+The signed distance is positive in the liquid and negative in the bubble. 
+
+The normal defined by ``LS.\alpha`` is oriented towards the liquid, so we have to take the opposite to define the outward normal for manufactured solutions for example (so that it points towards the interior of the bubble when solving in the liquid). 
+
+
 
 !!! todo "TODO"
     Logic center refers to indices in the matrices.
@@ -72,12 +76,12 @@ In the following, discrete values can be cell-, face- or node-centered, therefor
 ```
 
 "
-Cut-cell methods are firmly grounded in the Finite Volume Method, which defines the primary discrete variables as cell-wise averages over mesh elements. The design of the Finite Volume operators is then based on the application of the Divergence theorem. For example, given a scalar field $p$,  this theorem states that in a Cartesian coordinate system, the $x$ component of the gradient $\bs{q} \equiv \nabla p$ averaged over a cell $\Omega$ may be computed as
+Cut-cell methods are firmly grounded in the Finite Volume Method, which defines the primary discrete variables as cell-wise averages over mesh elements. The design of the Finite Volume operators is then based on the application of the Divergence theorem. For example, given a scalar field ``p``,  this theorem states that in a Cartesian coordinate system, the ``x`` component of the gradient ``q \equiv \nabla p`` averaged over a cell ``\Omega`` may be computed as
 \begin{equation}
-\Omega q _ x = \int _ \Omega \frac{\partial p}{\partial x} \rmd V = \oint _ {\partial \Omega} p \bs{e} _ x \cdot \rmd \bs{S}
+\Omega q _ x = \int _ \Omega \frac{\partial p}{\partial x} V = \oint _ {\partial \Omega} p e _ x \cdot  S
 \label{eq:Stokes}
 \end{equation}
-where $\rmd \bs{S}$ denotes the outward-pointing surface element and $\bs{e} _ x$ the unit vector along the $x$ direction.
+where ``S`` denotes the outward-pointing surface element and ``e_x`` the unit vector along the ``x`` direction.
 
 For the sake of presentation, the case displayed in Fig.~\ref{fig:moments} is considered where $\Omega \equiv \mathcal{V} _ {i,j}$ consists of the intersection of a phase domain and a computational cell (a right hexahedron). The contour $\partial \Omega$ then consists of the union of the four planar faces $\mathcal{A} _ {x, i, j}$, $\mathcal{A} _ {x, i+1, j}$, $\mathcal{A} _ {y, i, j}$ and $\mathcal{A} _ {y, i, j+1}$ as well as the boundary surface $\Gamma _ {i, j}$. A piece-wise linear approximation of $\Gamma _ {i, j}$, denoted $\widetilde{\Gamma} _ {i, j}$ and of unit normal $\left ( n _ {x, i, j}, n _ {y, i, j} \right )$, can be defined by applying Eq.~\eqref{eq:Stokes} to $\mathcal{V} _ {i, j}$ with $p = 1$, yielding
 $$
@@ -1161,8 +1165,23 @@ allocate_ghost_matrices_2
 init_ghost_neumann_2
 ```
 
+## Temporal scheme
+
+### CN
+
+### FE
+
+### Initialization
+
+
+
+## Convection
+
+!!! todo "Advection equation of a vector-valued field  2.5.1 Discrete operators for staggered quantities" [`Rodriguez (2024)`](https://theses.fr/s384455)
+
 
 ## Possible improvements 
+* Remove ``replace!(N, NaN=>0.0)``
 * imposed constant velocity field : after 100 it : error after scalar transport 3.88e-14
 * pressure BC during prediction 
 * small cells: linear algebra, time step ...
@@ -1175,5 +1194,5 @@ The output files are generated with [`PDI`](https://github.com/pdidev). The on-l
 ## References
 
 * [`Fullana (2017)`](https://theses.hal.science/tel-04053531/)
-* [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707-024-04133-4)
+* [`Rodriguez et al. 2024`](https://link.springer.com/article/10.1007/s00707-024-04133-4)
 * [`Rodriguez (2024)`](https://theses.fr/s384455)

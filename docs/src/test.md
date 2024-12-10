@@ -52,7 +52,8 @@ The following test cases are planned:
             <th> </th>
             <td> <div> <img class="mid" src="./assets/Poisson_square.svg" width="75vh" > </div></td>
             <td><img src="./assets/Poisson_square_circle.svg" width="75vh" ></td>
-            <td><img src="./assets/Poisson_square_circle_arc.svg" width="75vh" ></td>
+            <!-- <td><img src="./assets/Poisson_square_circle_arc.svg" width="75vh" ></td> -->
+            <td><a href="test.html#Poisson-equation-inside-a-square-with-circular-interface-at-wall"><img src="./assets/Poisson_square_circle_arc.svg" width="75vh" ></a></td>
             <td><img src="./assets/Poisson_square_circle_arrow.svg" width="75vh" ></td>
             <td><img src="./assets/Poisson_square_circle_arc_arrow.svg" width="75vh" ></td>
         </tr>
@@ -101,6 +102,10 @@ See 2.4.4 in [`Rodriguez 2024`](https://theses.fr/s384455)
 See [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707-024-04133-4)
 
 ``p (x, y) = cos (π^2 x y) sin (π^2 x y)``
+
+### Axisymmetric case
+
+``p(x, y) = x^2 + y^2``
 
 ### Poisson equation inside a square
 ```@raw html
@@ -226,6 +231,7 @@ Recalling [Poisson equation](@ref)
 \end{equation}
 ```
 
+
 "
 Appendix One-dimensional Poisson's equation from [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707-024-04133-4)
 
@@ -247,7 +253,7 @@ with the one-dimensional version expanding to
     - \left [ B _ x D _ x ^ + W _ x ^ \dagger D _ x ^ - B _ x p ^ \omega + B _ x D _ x ^ + W _ x ^ \dagger \left ( A _ x D _ x ^ - - D _ x ^ - B _ x \right ) p ^ \gamma \right ] = V f ^ \omega
 \end{equation}
 ```
-in terms of the elementary discrete operators, if the $x$-direction is considered. We can now further expand this expression for a given cell $i$, which yields the following expression
+in terms of the elementary discrete operators, if the x-direction is considered. We can now further expand this expression for a given cell i, which yields the following expression
 ```math
 \begin{multline}
     - \mathcal{B} _ {x, i} \left [ \mathcal{W} _ {x, i + 1} \left ( \mathcal{B} _ {x, i + 1} p _ {i + 1} ^ \omega - \mathcal{B} _ {x, i} p _ {i} ^ \omega \right ) - \mathcal{W} _ {x, i}  \left ( \mathcal{B} _ {x, i} p _ {i} ^ \omega - \mathcal{B} _ {x, i - 1} p _ {i - 1} ^ \omega \right ) \right ] - \\
@@ -255,7 +261,7 @@ in terms of the elementary discrete operators, if the $x$-direction is considere
     \left . \mathcal{W} _ {x, i} \left [ \left ( \mathcal{B} _ {x, i} - \mathcal{A} _ {x, i} \right ) p _ {i} ^ \gamma + \left ( \mathcal{A} _ {x, i} - \mathcal{B} _ {x, i - 1} \right ) p _ {i - 1} ^ \gamma \right ] \right \} = \mathcal{V} _ i f _ i ^ \omega.
 \end{multline}
 ```
-As seen in the latter equation, the discrete Laplacian yields a 3-point stencil in both $p ^ \omega$ and $p ^ \gamma$.
+As seen in the latter equation, the discrete Laplacian yields a 3-point stencil in both ``p ^ \omega`` and ``p ^ \gamma``.
 "
 
 #### Equations
@@ -584,38 +590,81 @@ Order 2 for a cos, but careful with the function, Taylor development : ``1 - x^2
 
 
 
-## With a simple boundary condition similar to Butler-Volmer
-We use a similar approach as in [`example for sinh`](https://math.stackexchange.com/questions/3472880/solving-sinh-x-kx). We assume a constant conductivity ``\sigma = 1`` and a simplified Butler-Volmer equation.
-The boundary conditions are:
-* left: simplified Butler-Volmer 
 
-```math
-2i_0 \mathrm{sinh}\left( \right)
+```bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/test/runtests_manufactured_solutions.jl
+
+python3 -c "import convergence_study; convergence_study.plot_errors_from_h5()" ../Flower.jl/test/poisson_square_solve_poisson.yml convergence_study.h5
 ```
 
-```math
-i=i_0\left[\exp{\left(\frac{\alpha_aF\eta}{R_\mu T}\right)}
--\exp{\left(\frac{\alpha_c F\eta}{R_\mu T}\right)}\right]
+!!! todo "RECHECK values"
+
+
+```@raw html
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>nx_list</th>
+      <th>l1_rel_error</th>
+      <th>l2_rel_error</th>
+      <th>linfty_rel_error</th>
+      <th>1/n</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>16</td>
+      <td>1.44e-02</td>
+      <td>1.42e-02</td>
+      <td>1.47e-02</td>
+      <td>6.25e-02</td>
+    </tr>
+    <tr>
+      <td>32</td>
+      <td>3.59e-03</td>
+      <td>3.53e-03</td>
+      <td>3.59e-03</td>
+      <td>3.12e-02</td>
+    </tr>
+    <tr>
+      <td>64</td>
+      <td>8.96e-04</td>
+      <td>8.80e-04</td>
+      <td>8.93e-04</td>
+      <td>1.56e-02</td>
+    </tr>
+    <tr>
+      <td>128</td>
+      <td>2.24e-04</td>
+      <td>2.20e-04</td>
+      <td>2.23e-04</td>
+      <td>7.81e-03</td>
+    </tr>
+    <tr>
+      <td>256</td>
+      <td>5.60e-05</td>
+      <td>5.50e-05</td>
+      <td>5.57e-05</td>
+      <td>3.91e-03</td>
+    </tr>
+  </tbody>
+</table>
 ```
 
-* right: ``\Phi = 0``
-* bottom and top ``\frac{\partial \Phi}{\partial n} = 0``
-
-[`example for sinh`](https://math.stackexchange.com/questions/3472880/solving-sinh-x-kx)
-
-!!! todo "Needs to be checked" 
-    Poisson with constant conductivity, electroneutrality: ``\Delta \Phi = 0`` so ``\Phi(x) = ax+b``.
-    At ``x = L``, ``\Phi = 0`` so we have ``\Phi(x) = a(\frac{x}{L}-1)`` 
-    
-!!! todo ""
-    with ``a>0`` because 
-
-!!! todo
-    At ``0^+``: ``\Phi(0^+) = -a`` and ``\frac{\partial\Phi}{\partial x }(0^+) = \frac{a}{L}``
-    ``\frac{a}{L} = 2 i_0 \mathrm{sinh}(\frac{\alpha F}{RT}(-0.6-(-a)) )``
+```@raw html
+<figure>
+    <a name="Poisson_square_results"></a> 
+    <img src="./assets/Poisson_square_errors.svg" alt="Poisson" title="Poisson">
+    <figcaption>"Poisson in a square domain"</figcaption>
+</figure>
+```
 
 
 ## Poisson equation inside a square with circular interface
+
+In the current implementation of the test, we did not add the tests for matrix coefficients, they are tested in the case without interface. With an interface, depending on the posittion of the interface and the resolution, the coefficients may no longer be the same as in classical finite differences (-4,1,1,1,1), ...
+
+Like in [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707-024-04133-4), the analytical solution is imposed at the centroids of the interface.
 
 ```@raw html
 <figure>
@@ -625,14 +674,107 @@ i=i_0\left[\exp{\left(\frac{\alpha_aF\eta}{R_\mu T}\right)}
 </figure>
 ```
 
+
+### Dirichlet boundary condition on interface
+
+
+
+### Neumann BC
+
+
+!!! todo "Not symmetrical"
+    check why not symmetrical
+    check sign BC interface
+
+Relative error in ``l_\infty`` norm on interface: ``\approx \mathcal{O}(10^{?})``
+
+
+A unit test should be added to check the signs: 
+
+[Robin boundary conditions](https://en.wikipedia.org/wiki/Robin_boundary_condition)
+
+
 ## Poisson equation inside a square with circular interface at wall
 
 ## Gradient
 
+!!! todo "TODO"
+    Test gradient, need to recheck localization/ error levels 
 
 
 
 
+```@raw html
+<figure>
+    <a name="Poisson_square_wall"></a> 
+    <img src="./assets/Poisson_square_circle_arc.svg" alt="Poisson" title="Poisson">
+    <figcaption>"Poisson in a square domain"</figcaption>
+</figure>
+```
+
+### Dirichlet on interface and wall
+
+### Neumann on interface and wall
+
+### Dirichlet on interface and  Neumann at wall
+
+### Neumann on interface and Dirichlet at wall
+
+
+## Diffusion
+
+"
+
+With the discrete Laplacian operators (one for each phase) now constructed, we can solve the heat equations on both domains  
+
+```math
+\frac{\partial T}{\partial t} = LT
+```
+
+on both domains. Here, ``L`` is the discrete linear operator. We couple the Cut Cell space discretization with a Crank-Nicolson time discretization, where ``τ`` is the time step, ``∆`` the uniform grid spacing and ``n`` the current iteration, resulting in the following discrete system  
+
+```math
+\frac{T^n-T^{n-1}}{\tau} = \frac{1}{2} \left[  LT^{n-1} +  LT^{n} \right]
+```
+
+!!! todo "Crank-Nicolson"
+    why is there ``\frac{1}{\Delta ^2}`` in CN equation in Tomas's thesis?
+
+which requires the solution of a linear system forming a pentadiagonal matrix. We validate the method in different stationary setups. 
+
+!!!  todo "Not analytical reference?"
+    A convergence study is carried out for these cases, where the reference solution is taken as the simulation with the highest number of points per dimension. 
+
+In each case, the initial temperature field is set to zero and we impose a Dirichlet boundary condition at the interface. The ratio τ /∆2 = 0.5 is kept constant as we increase the number of points. 
+
+Convergence study of the Cut Cell method coupled with a Crank-Nicolson scheme when solving the heat equation inside a stationary circle with a Dirichlet boundary condition TD = 1 imposed at the interface. The top gures show the position of the interface in red and the temperature eld at nal time tf = 0.03125 for N = 16, 32, 64, 128. The middle gure show the normalized error in temperature eld with respect to the reference solution taken for N = 256. The bottom gure shows the convergence rate of the method in mixed cells, full cells and in all cells.
+
+### Inside circle (TODO)
+1. A solid circle of radius ``R = 0.85``, initialized in a ``2 \times 2`` domain. The level set function is defined as  ``φ(x, y) = px2 + y2 − R``.  The Dirichlet TD = 1 boundary condition is imposed at the interface. We solve only for the phase inside of the circle until a nal time tf = 0.03125. The simulation is carried out for di erent resolutions N = 16, 32, 64, 128 corresponding to 4, 16, 64, 256 iterations, respectively. 
+
+!!! todo "No analytical solution /Richardson extrapolation?"
+    The reference solution is taken for N = 256.
+
+
+ The results are summarized in Figure 3.8. As expected, the order of convergence of the error in full cells is close to 2 while the order of convergence in mixed cells is slightly less than 2. This drop in order in mixed cells is due to the assumption of a piece-wise linear interface approximation as well as the accumulation of errors of the bi-quadratic interpolation. The maximal errors are localized in cells where the wetted area is small (typically smaller than 5% of ∆2). Nevertheless, the global order of convergence in all cells is exactly 2.  
+
+### Outside circle (TODO)
+We initialize a solid circle of radius R = 0.75. The domain size are the same as well as the considered grid resolutions than in the previous. This time, we solve outside of the circle with a Dirichlet boundary condition TD = 1 at the interface and insulated boundary conditions at the domain boundary. The results, presented in Figure 3.9 are similar to case 1 with a slight drop in absolute error. This is due to the fact that there are less points per diameter than previously. This case validates the implementation of the Neumann boundary condition imposed at the domain boundaries.  
+
+### Square (TODO)
+3. In this third case, we initialize a square of area 1.6 × 1.6 in a 2 × 2 domain. The level set function is de ned as  ``φ(x, y) = max((x − 0.8), 9(x + 0.8), (y − 0.8), 9(y + 0.8)``.  We impose a Dirichlet boundary condition TD = 1 and solve inside of the square until the same nal time tf = 0.03125 with the same resolutions considered previously. In Figure 3.10, we can see that the maximal errors are located at the corners. The order of convergence for full cells is similar to the circle cases as well as for all cells. This case exhibits the robustness of the method when dealing with mesh aligned geometries as explained in Section 3.2.  
+
+### Crystal (TODO)
+4. Finally, in the last case, we consider a crystal in a 2 × 2 domain where the level set function is de ned as  φ(x, y) = px2 + y2 − R − 0.2 cos (6α) ,  where α is the angle of the interface with respect to the x axis and R = 0.7. 3.4. Validation on stationary geometries 45  At the interface, we impose the Gibbs-Thomson relation  TD = εκκ,  with κ the curvature and εκ = 0.01. The resulting temperature eld will now depend on the sign and amplitude of κ. We solve only for the phase inside of the circle until a nal time tf = 0.0078125. The simulation is performed for di erent resolutions N = 32, 64, 128, 256 corresponding to 4, 16, 64, 256 iterations respectively. The reference solution is taken for N = 512. In Figure 3.11, we can observe a drop in order of convergence for full cells with respect to the cases where TD was constant. This is explained by the accuracy of the curvature computation (Equation 1.8). The error is maximal in regions where the radius of curvature is large, where the interface is quasi aligned with the grid.  With these validation cases, we close the chapter on the Cut Cell method for di usive transport. In the next chapter, we describe the rest of the numerical steps of the two-phase Stefan problem.
+
+" [`Fullana (2017)`](https://theses.hal.science/tel-04053531/)
+
+
+
+## Advection
+
+"The advection equation  ∂u  ∂t + (u · ∇) u = 0, (2.68)  is solved inside a cylinder of non-dimensionalized radius 0.5. The vector field u is initialized with an angular velocity ω0 = 1, representing the rotation of a rigid body, and slip boundary conditions at the wall, resulting in velocity components expressed as
+" [`Rodriguez (2024)`](https://theses.fr/s384455)
 
 ## Poiseuille (TODO)
 
@@ -685,3 +827,34 @@ Normally, we have a b c coefficients such that ``a*h1 -c*h2 = 0`` in ``a*v_{i+1}
 At the moment, we get ``3/4*L +\mathcal{O}(h)``  at the corners and ``L + \mathcal{O}(h^2)`` in the bulk when there is no interface
 
 
+
+## Suggestion: with a simple boundary condition similar to Butler-Volmer
+We use a similar approach as in [`example for sinh`](https://math.stackexchange.com/questions/3472880/solving-sinh-x-kx). We assume a constant conductivity ``\sigma = 1`` and a simplified Butler-Volmer equation.
+The boundary conditions are:
+* left: simplified Butler-Volmer 
+
+```math
+2i_0 \mathrm{sinh}\left( \right)
+```
+
+```math
+i=i_0\left[\exp{\left(\frac{\alpha_aF\eta}{R_\mu T}\right)}
+-\exp{\left(\frac{\alpha_c F\eta}{R_\mu T}\right)}\right]
+```
+
+* right: ``\Phi = 0``
+* bottom and top ``\frac{\partial \Phi}{\partial n} = 0``
+
+[`example for sinh`](https://math.stackexchange.com/questions/3472880/solving-sinh-x-kx)
+
+!!! todo "Needs to be checked" 
+    Poisson with constant conductivity, electroneutrality: ``\Delta \Phi = 0`` so ``\Phi(x) = ax+b``.
+    At ``x = L``, ``\Phi = 0`` so we have ``\Phi(x) = a(\frac{x}{L}-1)`` 
+    
+!!! todo ""
+    with ``a>0`` because 
+
+!!! todo
+    At ``0^+``: ``\Phi(0^+) = -a`` and ``\frac{\partial\Phi}{\partial x }(0^+) = \frac{a}{L}``
+    ``\frac{a}{L} = 2 i_0 \mathrm{sinh}(\frac{\alpha F}{RT}(-0.6-(-a)) )``
+## Suggestion: use test case from electrostatics from Griffiths
