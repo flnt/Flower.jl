@@ -11,9 +11,14 @@
 ```
 
 
+
+
+
+
 # Tests cases
 
 
+## Summary
 
 The following test cases are planned:
 ```@raw html
@@ -50,10 +55,9 @@ The following test cases are planned:
     <tbody>
         <tr>
             <th> </th>
-            <td> <div> <img class="mid" src="./assets/Poisson_square.svg" width="75vh" > </div></td>
-            <td><img src="./assets/Poisson_square_circle.svg" width="75vh" ></td>
-            <!-- <td><img src="./assets/Poisson_square_circle_arc.svg" width="75vh" ></td> -->
-            <td><a href="test.html#Poisson-equation-inside-a-square-with-circular-interface-at-wall"><img src="./assets/Poisson_square_circle_arc.svg" width="75vh" ></a></td>
+            <td> <a href="test.html#Poisson-equation-inside-a-square"><img class="mid" src="./assets/Poisson_square.svg" width="75vh"> </a> </td>
+            <td><a href="test.html#Poisson-equation-inside-a-square-with-circular-interface"><img src="./assets/Poisson_square_circle.svg" width="75vh"></a></td>
+            <td><a href="test.html#Poisson-equation-inside-a-square-with-circular-interface-at-wall"><img src="./assets/Poisson_square_circle_arc.svg" width="75vh"></a></td>
             <td><img src="./assets/Poisson_square_circle_arrow.svg" width="75vh" ></td>
             <td><img src="./assets/Poisson_square_circle_arc_arrow.svg" width="75vh" ></td>
         </tr>
@@ -87,8 +91,48 @@ The following test cases are planned:
 </table>
 ```
 
+
 !!! info "About testing in Julia"
     cf. [this tutorial](https://erikexplores.substack.com/p/julia-testing-best-pratice)  
+
+## Unit tests Orientation, operators
+
+* normal defined by ``\alpha``: pointing towards domain 
+
+* See test/orientation.jl
+
+* See test/gradient.jl
+
+
+## Definition of errors
+
+We study the relative errors in the discrete $l_1$, $l_2$ and $l_\infty$ norms in 2D, with $S_i$ the surface of the cell and $p_i^e$ the analytical solution:
+
+```math
+\begin{equation}
+\begin{aligned}
+l_1&=\frac{\sum{S_i \lvert p_i- p_{i}^e \rvert } }{\sum{S_i\lvert p_{i}^e \rvert}}
+\end{aligned}
+\end{equation}
+```
+
+```math
+\begin{equation}
+\begin{aligned}
+l_2&=\sqrt{\frac{\sum{S_i\left( p_i- p_{i}^e\right)}^2}{\sum{S_i\left( p_{i}^e\right)}^2}}
+\end{aligned}
+\end{equation}
+```
+
+```math
+\begin{equation}
+\begin{aligned}
+l_\infty&=\frac{\max\lvert p_i- p_{i}^e\rvert}{\max( \lvert p_{i}^e \rvert )}
+\end{aligned}
+\end{equation}
+```
+
+
 
 ## Manufactured solutions
 
@@ -107,7 +151,7 @@ See [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707
 
 ``p(x, y) = x^2 + y^2``
 
-### Poisson equation inside a square
+## Poisson equation inside a square
 ```@raw html
 <a name="tagPoisson"></a> 
 ```
@@ -198,19 +242,7 @@ end
 ```
 the coefficients are no longer exact.
 
-We study the relative errors in the discrete ``l_2`` and ``l_\infty`` norms in 2D:
 
-```math
-\begin{aligned}
-   l_2&=\sqrt{\frac{\sum{S_i\left( p_i- p_{i}^e\right)}^2}{\sum{S_i\left( p_{i}^e\right)}^2}}
-\end{aligned}
-```
-
-```math
-\begin{aligned}
-   l_\infty&=\frac{\max\lvert p_i- p_{i}^e\rvert}{\max( \lvert p_{i}^e \rvert )}
-\end{aligned}
-```
 
 
 Recalling [Poisson equation](@ref)
@@ -737,8 +769,7 @@ on both domains. Here, ``L`` is the discrete linear operator. We couple the Cut 
 \frac{T^n-T^{n-1}}{\tau} = \frac{1}{2} \left[  LT^{n-1} +  LT^{n} \right]
 ```
 
-!!! todo "Crank-Nicolson"
-    why is there ``\frac{1}{\Delta ^2}`` in CN equation in Tomas's thesis?
+
 
 which requires the solution of a linear system forming a pentadiagonal matrix. We validate the method in different stationary setups. 
 

@@ -3,8 +3,53 @@ using Flower
 
 #From poisson.jl
 
-function compute_grad_T_x_T_y_array!(num_LS, grid, grid_u, grid_v, opC_p, grad_x, grad_y, TD)
-    
+function compute_grad_T_x_T_y_array_test!(num_LS, grid, grid_u, grid_v, opC_p, grad_x, grad_y, TD)
+
+    test_tolerance = 1e-14
+
+    verbosity = 0
+    # verbosity = 3
+
+    j = div(grid.ny,2)
+    i = div(grid.nx,2)
+
+    @testset " capacities bulk" begin
+        if verbosity > 2 
+            printstyled(color=:green, @sprintf "\n i: %.3i j: %.3i\n" i j) 
+        end
+
+        II = CartesianIndex(j,i)
+        pII = lexicographic(II,grid.ny)
+
+
+        if verbosity > 2 
+            print("\n iMx ", opC_p.iMx[pII,pII], "\n")
+            print("\n iMx ", opC_p.iMx.diag[pII], "\n")
+        end
+
+        @test opC_p.iMx[pII,pII] ≈ 1.0/100.0 atol=test_tolerance #volume h_x*h_y = 10*10
+
+
+        @test opC_p.Bx[pII,pII] ≈ 10.0 atol=test_tolerance #h_y = 10
+
+        if verbosity > 2 
+            print("\n Bx ", opC_p.Bx[pII,pII], "\n")
+            print("\n BxT ", opC_p.BxT[pII,pII], "\n")
+
+            # print("\n capacities ", grid.LS[1].geoL.cap[II,:], "\n")
+
+            print("\n capacities ", grid.LS[1].geoL.dcap[II,:], "\n")
+
+
+            # geo_v[end].dcap[II,8]
+
+            # tmp = lexicographic(II,gp.ny)
+            # II is a two-dimensional index, and in 1D index is required. 
+            # It is recommended to use , it's faster than accessing .
+        end
+
+    end
+
     ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(TD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(TD,grid)
     ∇ϕ_y = opC_p.iMy * opC_p.By * vec1(TD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(TD,grid)
 
@@ -15,6 +60,69 @@ function compute_grad_T_x_T_y_array!(num_LS, grid, grid_u, grid_v, opC_p, grad_x
 
     grad_x .= reshape(veci(∇ϕ_x,grid_u,1), grid_u)
     grad_y .= reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+    if verbosity > 2 
+        printstyled(color=:green, @sprintf "\n grad \n")
+
+        printstyled(color=:green, @sprintf "\n i: %.3i j: %.3i\n" i j)
+
+
+        print("\n grad_x ", grad_x[j,i], "\n")
+        print("\n grad_y ", grad_y[j,i], "\n")
+
+
+        j = div(grid.ny,2)
+        i = 1
+
+        printstyled(color=:green, @sprintf "\n i: %.3i j: %.3i\n" i j)
+
+
+
+        print("\n grad_x line", grad_x[j,:], "\n")
+
+        print("\n length grad_x line ", length(grad_x[j,:]), "\n")
+
+        print("\n gp.x line", grid.x[j,:], "\n")
+        print("\n gp.dx line", grid.dx[j,:], "\n")
+        
+        print("\n length gp.x line", length(grid.x[j,:]), "\n")
+        print("\n length gp.dx line", length(grid.dx[j,:]), "\n")
+
+        print("\n gu.x line", grid_u.x[j,:], "\n")
+        print("\n gu.dx line", grid_u.dx[j,:], "\n")
+        
+        print("\n length gu.x line", length(grid_u.x[j,:]), "\n")
+        print("\n length gu.dx line", length(grid_u.dx[j,:]), "\n")
+
+
+        print("\n grad_x ", grad_x[j,i], "\n")
+        print("\n grad_y ", grad_y[j,i], "\n")
+
+        II = CartesianIndex(j,i)
+        pII = lexicographic(II,grid.ny)
+
+
+        @test opC_p.iMx[pII,pII] ≈ 2.0/100.0 atol=test_tolerance #volume h_x*h_y/2 = 10*10/2
+        print("\n iMx ", opC_p.iMx[pII,pII], "\n")
+        print("\n iMx ", opC_p.iMx.diag[pII], "\n")
+
+        @test opC_p.Bx[pII,pII] ≈ 10.0 atol=test_tolerance
+
+
+        print("\n Bx ", opC_p.Bx[pII,pII], "\n")
+        print("\n BxT ", opC_p.BxT[pII,pII], "\n")
+
+        print("\n Bx ", opC_p.Bx[pII,:], "\n")
+        print("\n Bx ", opC_p.Bx[:,pII], "\n")
+
+
+        print("\n By ", opC_p.By[pII,pII], "\n")
+        print("\n ByT ", opC_p.ByT[pII,pII], "\n")
+
+        # print("\n capacities ", grid.LS[1].geoL.cap[II,:], "\n")
+
+        print("\n capacities ", grid.LS[1].geoL.dcap[II,:], "\n")
+    end
 
 end
 
@@ -51,13 +159,15 @@ function ftest_1(x,y)
     return 1
 end
 
+verbosity = 0
+
+#tolerance for tests
+test_tolerance = 1.e-14
 
 
-L0 = 1e-4 
+L0 = 100
 
-L0 = 4.0
-
-n = 64
+n = 10
 
 x = LinRange(0, L0, n+1)
 y = LinRange(0, L0, n+1)
@@ -91,156 +201,23 @@ num = Numerical(
 gp, gu, gv = init_meshes(num)
 op, phS, phL = init_fields(num, gp, gu, gv)
 
-
-figname0=""
-
 gp.LS[1].u .= 1.0 #deactivate interface
 
-figname0="no_intfc"
+
+@time run_forward!(num, gp, gu, gv, op, phS, phL; navier_stokes = true,)
+#navier_stokes = true 
+# or:
+# run_forward!(num, gp, gu, gv, op, phS, phL)
+# update_all_ls_data(num, gp, gu, gv, BC_int, true, true, false)
+# laps = set_matrices!(num, gp, [gp.LS[1].geoL], gu, [gu.LS[1].geoL], gv, [gv.LS[1].geoL], op.opC_pL, op.opC_uL, op.opC_vL, true, true)
+# Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = laps
 
 
-
-@time run_forward!(
-    num, gp, gu, gv, op, phS, phL;
-    BC_uL = Boundaries(
-        left = Dirichlet(),
-        right = Dirichlet(),
-        bottom = Dirichlet(),
-        # top=Neumann(val=0.0),
-        top=Dirichlet(),
-    ),
-    BC_vL = Boundaries(
-        left = Dirichlet(),
-        right=Dirichlet(),
-        bottom = Dirichlet(),
-        # top=Neumann(val=0.0),
-        top=Dirichlet(),
-    ),
-    BC_pL = Boundaries(
-        left  = Neumann(),
-        right = Neumann(),
-        bottom=Neumann(),
-        top= Dirichlet(),
-    ),
-    BC_int = [WallNoSlip()],
-
-    BC_TL = Boundaries(
-    left = Dirichlet(),
-    right=Dirichlet(),
-    bottom = Dirichlet(),
-    top = Dirichlet(),
-    # left = Neumann(),
-    # right=Neumann(),
-    # bottom = Neumann(),
-    # top = Neumann(),
-    ),
-    time_scheme = CN, #or FE?
-    navier_stokes = true,
-    ns_liquid_phase = true,
-    verbose = true,
-    show_every = 1,
-    ns_advection = false,
-)
-
-#Initialize liquid phase
-x_centroid = gp.x .+ getproperty.(gp.LS[1].geoL.centroid, :x) .* gp.dx
-y_centroid = gp.y .+ getproperty.(gp.LS[1].geoL.centroid, :y) .* gp.dy
-
-x_bc = gp.x .+ getproperty.(gp.LS[1].mid_point, :x) .* gp.dx
-y_bc = gp.y .+ getproperty.(gp.LS[1].mid_point, :y) .* gp.dy
-
-#Initialize bulk value
-vec1(phL.TD,gp) .= vec(ftest.(x_centroid,y_centroid))
-#Initialize interfacial value
-vec2(phL.TD,gp) .= vec(ftest.(x_bc,y_bc))
-
-
-vecb_L(phL.TD, gp) .= ftest.(gp.x[:,1] .- gp.x[:,1] ./ 2.0, gp.y[:,1])
-vecb_B(phL.TD, gp) .= ftest.(gp.x[1,:], gp.y[1,:] .- gp.y[1,:] ./ 2.0)
-vecb_R(phL.TD, gp) .= ftest.(gp.x[:,end] .+ gp.x[:,1] ./ 2.0, gp.y[:,1])
-vecb_T(phL.TD, gp) .= ftest.(gp.x[1,:], gp.y[end,:] .+ gp.y[1,:] ./ 2.0)
-
-
-#Initialize solid phase
-
-
-x_centroid = gp.x .+ getproperty.(gp.LS[1].geoS.centroid, :x) .* gp.dx
-y_centroid = gp.y .+ getproperty.(gp.LS[1].geoS.centroid, :y) .* gp.dy
-
-x_bc = gp.x .+ getproperty.(gp.LS[1].mid_point, :x) .* gp.dx
-y_bc = gp.y .+ getproperty.(gp.LS[1].mid_point, :y) .* gp.dy
-
-vec1(phS.TD,gp) .= vec(ftest.(x_centroid,y_centroid))
-vec2(phS.TD,gp) .= vec(ftest.(x_bc,y_bc))
-
-
-vecb_L(phS.TD, gp) .= ftest.(gp.x[:,1] .- gp.x[:,1] ./ 2.0, gp.y[:,1])
-vecb_B(phS.TD, gp) .= ftest.(gp.x[1,:], gp.y[1,:] .- gp.y[1,:] ./ 2.0)
-vecb_R(phS.TD, gp) .= ftest.(gp.x[:,end] .+ gp.x[:,1] ./ 2.0, gp.y[:,1])
-vecb_T(phS.TD, gp) .= ftest.(gp.x[1,:], gp.y[end,:] .+ gp.y[1,:] ./ 2.0)
-
-phL.T .= reshape(veci(phL.TD,gp,1), gp)
-phS.T .= reshape(veci(phS.TD,gp,1), gp)
-
-# phL.T .= ftest.(gp.x,gp.y)
-
-# phS.T .= ftest.(gp.x,gp.y)
-
-LS   = gp.LS
-LS_u = gu.LS
-LS_v = gv.LS
-
-
-# compute_grad_T_x!(num,gp, gu, phL, op.opC_pL)
-# compute_grad_T_x!(num,gp, gu, phS, op.opC_pS)
-
-
-grad_x = zeros(gu)
-grad_y = zeros(gv)
-
-compute_grad_T_x_T_y_array!(num.nLS, gp, gu, gv, op.opC_pL, grad_x, grad_y, phL.TD)
-
-# compute_grad_T_y_array!(num_LS, gp, gv, op.opC_pL, grad_y, TD)
-
-
-# grad_analytical = ftest_1.(
-#     x_centroid,
-#     y_centroid
-# )
-
-x_centroid_u = gu.x .+ getproperty.(gu.LS[1].geoS.centroid, :x) .* gu.dx
-y_centroid_u = gu.y .+ getproperty.(gu.LS[1].geoS.centroid, :y) .* gu.dy
-
-grad_analytical = ftest_1.(
-    x_centroid_u,
-    y_centroid_u
-)
-
-
-#tolerance for tests
-test_tolerance = 1.e-13 #1.e-14
-
-
-j = div(n,2)
-
-
-print("\n grad_analytical ",grad_analytical[j,:],"\n")
-print("\n D ",grad_x[j,:],"\n")
-
-@testset "Simple gradient test x" begin
-    @test grad_x[j,:] ≈ 1.0 atol=test_tolerance
-end
-
-@testset "Simple gradient test y" begin
-    @test grad_y[j,:] ≈ 0.0 atol=test_tolerance
-end
 
 mass_flux_vec1 = fzeros(gp)
 mass_flux_vecb = fzeros(gp)
 mass_flux_veci = fzeros(gp)
 mass_flux = zeros(gp)
-
-
 
 tmp_vec_p = zeros(gp)
 tmp_vec_p0 = zeros(gp)
@@ -248,7 +225,7 @@ tmp_vec_p1 = zeros(gp)
 @testset "Phase change: mass flux" begin
 
 @testset "Phase change: mass flux" begin
-    phL.trans_scalD[:,1] .= 1.0 
+    phL.TD .= 1.0 
     mass_flux_vec1 = fzeros(gp)
     mass_flux_vecb = fzeros(gp)
     mass_flux_veci = fzeros(gp)
@@ -257,26 +234,36 @@ tmp_vec_p1 = zeros(gp)
     # tmp_vec_p0 = zeros(gp)
     # tmp_vec_p1 = zeros(gp)
 
-  
-integrate_mass_flux_over_interface_2_no_writing(num,gp,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,tmp_vec_p,tmp_vec_p0,tmp_vec_p1,mass_flux)
+print("\n TODO check capacities \n")
+integrate_mass_flux_over_interface_2_no_writing(num,gp,op.opC_pL,phL.TD,mass_flux_vec1,mass_flux_vecb,mass_flux_veci,tmp_vec_p,tmp_vec_p0,tmp_vec_p1,mass_flux)
 # @test sum(mass_flux) == 0 
 @test sum(mass_flux) ≈ 0 atol=test_tolerance
-end #"Phase change: mass flux" begin
 
-@testset "Phase change: mass flux old" begin
-    phL.trans_scalD[:,1] .= 1.0 
-    mass_flux_vec1 = fzeros(gp)
-    mass_flux_vecb = fzeros(gp)
-    mass_flux_veci = fzeros(gp)
-    mass_flux = zeros(gp)
-    # tmp_vec_p = zeros(gp)
-    # tmp_vec_p0 = zeros(gp)
-    # tmp_vec_p1 = zeros(gp)
 
-integrate_mass_flux_over_interface_no_writing(num,gp,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,tmp_vec_p,tmp_vec_p0,tmp_vec_p1,mass_flux)
-# @test sum(mass_flux) == 0 
+integrate_mass_flux_over_interface(num,gp,op.opC_pL,
+phL.TD,
+# phL.TD,
+mass_flux_vec1,
+mass_flux_vecb,mass_flux_veci, tmp_vec_p, tmp_vec_p0, tmp_vec_p1, mass_flux,num.index_phase_change)
+
 @test sum(mass_flux) ≈ 0 atol=test_tolerance
+
 end #"Phase change: mass flux" begin
+
+# @testset "Phase change: mass flux old" begin
+#     phL.TD .= 1.0 
+#     mass_flux_vec1 = fzeros(gp)
+#     mass_flux_vecb = fzeros(gp)
+#     mass_flux_veci = fzeros(gp)
+#     mass_flux = zeros(gp)
+#     # tmp_vec_p = zeros(gp)
+#     # tmp_vec_p0 = zeros(gp)
+#     # tmp_vec_p1 = zeros(gp)
+
+# integrate_mass_flux_over_interface_no_writing(num,gp,op.opC_pL,phL.TD,mass_flux_vec1,mass_flux_vecb,mass_flux_veci,tmp_vec_p,tmp_vec_p0,tmp_vec_p1,mass_flux)
+# # @test sum(mass_flux) == 0 
+# @test sum(mass_flux) ≈ 0 atol=test_tolerance
+# end #"Phase change: mass flux" begin
 
 end #phase change
 
@@ -341,38 +328,174 @@ interpolate_grid_liquid_solid!(num,gp,gu.LS[end],gv.LS[end],tmp_vec_u, tmp_vec_v
 # u = phL.Eu
 # v = phL.Ev
 
+if verbosity>2
 
-for j in 1:gp.ny
-    for i in 1:gp.nx
-        if (tmp_vec_p[j,i] != 1.0) 
-            print("\n j",j," i ",i, " tmp_vec_p ",tmp_vec_p[j,i]," tmp_vec_p0 ",tmp_vec_p0[j,i])
-            print("\n LS_u.geoL.dcap[:,2:end,6] ",gu.LS[1].geoL.dcap[j,i,6]," ",gu.LS[1].geoL.dcap[j,i+1,6])
+    for j in 1:gp.ny
+        for i in 1:gp.nx
+            if (tmp_vec_p[j,i] != 1.0) 
+                print("\n j",j," i ",i, " tmp_vec_p ",tmp_vec_p[j,i]," tmp_vec_p0 ",tmp_vec_p0[j,i])
+                print("\n LS_u.geoL.dcap[:,2:end,6] ",gu.LS[1].geoL.dcap[j,i,6]," ",gu.LS[1].geoL.dcap[j,i+1,6])
+            end
         end
     end
-end
 
-for j in 1:gp.ny
-    for i in 1:gp.nx
-        if (tmp_vec_p0[j,i] != 1.0) 
-            print("\n j",j," i ",i, " tmp_vec_p ",tmp_vec_p[j,i]," tmp_vec_p0 ",tmp_vec_p0[j,i])
-            print("\n LS_u.geoL.dcap[:,2:end,6] ",gu.LS[1].geoL.dcap[j,i,6]," ",gu.LS[1].geoL.dcap[j,i+1,6])
+    for j in 1:gp.ny
+        for i in 1:gp.nx
+            if (tmp_vec_p0[j,i] != 1.0) 
+                print("\n j",j," i ",i, " tmp_vec_p ",tmp_vec_p[j,i]," tmp_vec_p0 ",tmp_vec_p0[j,i])
+                print("\n LS_u.geoL.dcap[:,2:end,6] ",gu.LS[1].geoL.dcap[j,i,6]," ",gu.LS[1].geoL.dcap[j,i+1,6])
+            end
         end
     end
-end
 
 end
 
+end
 
 
+
+
+
+
+#Initialize liquid phase
+x_centroid = gp.x .+ getproperty.(gp.LS[1].geoL.centroid, :x) .* gp.dx
+y_centroid = gp.y .+ getproperty.(gp.LS[1].geoL.centroid, :y) .* gp.dy
+
+
+if verbosity > 2
+    print("\n x_centroid ", x_centroid[div(gp.ny,2),:],"\n")
+    print("\n gp.dx ", gp.dx[div(gp.ny,2),:],"\n")
+end
+
+x_bc = gp.x .+ getproperty.(gp.LS[1].mid_point, :x) .* gp.dx
+y_bc = gp.y .+ getproperty.(gp.LS[1].mid_point, :y) .* gp.dy
+
+#Initialize bulk value
+vec1(phL.TD,gp) .= vec(ftest.(x_centroid,y_centroid))
+#Initialize interfacial value
+vec2(phL.TD,gp) .= vec(ftest.(x_bc,y_bc))
+
+
+vecb_L(phL.TD, gp) .= ftest.(gp.x[:,1] .- gp.x[:,1] ./ 2.0, gp.y[:,1])
+vecb_B(phL.TD, gp) .= ftest.(gp.x[1,:], gp.y[1,:] .- gp.y[1,:] ./ 2.0)
+vecb_R(phL.TD, gp) .= ftest.(gp.x[:,end] .+ gp.x[:,1] ./ 2.0, gp.y[:,1])
+vecb_T(phL.TD, gp) .= ftest.(gp.x[1,:], gp.y[end,:] .+ gp.y[1,:] ./ 2.0)
+
+
+#Initialize solid phase
+
+
+x_centroid = gp.x .+ getproperty.(gp.LS[1].geoS.centroid, :x) .* gp.dx
+y_centroid = gp.y .+ getproperty.(gp.LS[1].geoS.centroid, :y) .* gp.dy
+
+x_bc = gp.x .+ getproperty.(gp.LS[1].mid_point, :x) .* gp.dx
+y_bc = gp.y .+ getproperty.(gp.LS[1].mid_point, :y) .* gp.dy
+
+vec1(phS.TD,gp) .= vec(ftest.(x_centroid,y_centroid))
+vec2(phS.TD,gp) .= vec(ftest.(x_bc,y_bc))
+
+
+vecb_L(phS.TD, gp) .= ftest.(gp.x[:,1] .- gp.x[:,1] ./ 2.0, gp.y[:,1])
+vecb_B(phS.TD, gp) .= ftest.(gp.x[1,:], gp.y[1,:] .- gp.y[1,:] ./ 2.0)
+vecb_R(phS.TD, gp) .= ftest.(gp.x[:,end] .+ gp.x[:,1] ./ 2.0, gp.y[:,1])
+vecb_T(phS.TD, gp) .= ftest.(gp.x[1,:], gp.y[end,:] .+ gp.y[1,:] ./ 2.0)
+
+phL.T .= reshape(veci(phL.TD,gp,1), gp)
+phS.T .= reshape(veci(phS.TD,gp,1), gp)
+
+# phL.T .= ftest.(gp.x,gp.y)
+
+# phS.T .= ftest.(gp.x,gp.y)
+
+LS   = gp.LS
+LS_u = gu.LS
+LS_v = gv.LS
+
+
+# compute_grad_T_x!(num,gp, gu, phL, op.opC_pL)
+# compute_grad_T_x!(num,gp, gu, phS, op.opC_pS)
+
+
+grad_x = zeros(gu)
+grad_y = zeros(gv)
+
+# compute_grad_T_x_T_y_array!(num.nLS, gp, gu, gv, op.opC_pL, grad_x, grad_y, phL.TD)
+compute_grad_T_x_T_y_array_test!(num.nLS, gp, gu, gv, op.opC_pL, grad_x, grad_y, phL.TD)
+
+# compute_grad_T_y_array!(num_LS, gp, gv, op.opC_pL, grad_y, TD)
+
+
+# grad_analytical = ftest_1.(
+#     x_centroid,
+#     y_centroid
+# )
+
+x_centroid_u = gu.x .+ getproperty.(gu.LS[1].geoS.centroid, :x) .* gu.dx
+y_centroid_u = gu.y .+ getproperty.(gu.LS[1].geoS.centroid, :y) .* gu.dy
+
+grad_analytical = ftest_1.(
+    x_centroid_u,
+    y_centroid_u
+)
+
+
+
+
+j = div(n,2)
+
+
+print("\n grad_analytical ",grad_analytical[j,:],"\n")
+print("\n D ",grad_x[j,2:end-1],"\n")
+
+@testset "Simple gradient test x" begin
+    print("\n grad_x[j,2:end-1]",grad_x[j,2:end-1]," len ",length(grad_x[j,2:end-1]))
+    test_error = maximum(abs.(grad_x[j,2:end-1] .- 1.0))
+    @test test_error ≈ 0.0 atol=test_tolerance #first and last values are not gradients and correspond to left and right walls
+    # @test grad_x[j,1:end-1] .≈ 1.0 atol=test_tolerance #first and last values are not gradients and correspond to left and right walls
+end
+
+print("\n grad_x at x j",grad_x[:,j]," len ",length(grad_x[:,j]))
+print("\n gu.y at x j",gu.y[:,j]," len ",length(gu.y[:,j]))
+
+
+@testset "Simple gradient test y" begin
+    print("\n grad_y[j,:]",grad_y[j,:]," len ",length(grad_y[j,:]))
+
+    test_error = maximum(abs.(grad_y[j,:] .- 0.0))
+    @test test_error ≈ 0.0 atol=test_tolerance #first and last values are not gradients and correspond to bottom and top walls
+end
+
+
+
+printstyled(color=:red, @sprintf "\n testing divergence \n") 
+
+integrate_mass_flux_over_interface_2_no_writing(num,gp,op.opC_pL,phL.TD,mass_flux_vec1,mass_flux_vecb,mass_flux_veci,tmp_vec_p,tmp_vec_p0,tmp_vec_p1,mass_flux)
+# @test sum(mass_flux) == 0 
+# @test sum(mass_flux) ≈ 0 atol=test_tolerance
+
+
+integrate_mass_flux_over_interface(num,gp,op.opC_pL,
+phL.TD,
+# phL.TD,
+mass_flux_vec1,
+mass_flux_vecb,mass_flux_veci, tmp_vec_p, tmp_vec_p0, tmp_vec_p1, mass_flux,num.index_phase_change)
+
+# @test sum(mass_flux) ≈ 0 atol=test_tolerance
+
+printstyled(color=:red, @sprintf "\n testing divergence \n") 
 
 
 
 integrate_mass_flux_over_interface(num,gp,op.opC_pL,
 phL.TD,
-# phL.trans_scalD[:,1],
+# phL.TD,
 mass_flux_vec1,
 mass_flux_vecb,mass_flux_veci, tmp_vec_p, tmp_vec_p0, tmp_vec_p1, mass_flux,num.index_phase_change)
 
+
+
+
+print("\n flux j line ", mass_flux_vec1[j,:], "\n")
 
 @testset "Orientation BC derivative left" begin
     @test mass_flux_vec1[1,1] < 0

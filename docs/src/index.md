@@ -1,4 +1,4 @@
 
 ```@contents
-Pages = ["index.md","documentation.md","tests.md","tutorial.md]
+Pages = ["index.md","documentation.md","tests.md","tutorial.md"]
 ```

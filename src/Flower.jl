@@ -125,6 +125,7 @@ include("electrolysis_init.jl")
 include("electrolysis_utils.jl")
 include("electrolysis.jl")
 include("electrolysis_2.jl")
+include("electrolysis_operators.jl")
 
 include("run_profile.jl") #for profiling
 

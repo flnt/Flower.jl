@@ -979,7 +979,6 @@ update_all_ls_data
 
 ```@docs
 marching_squares!
-set_cutcell_matrices!
 get_cells_indices
 ```
 
@@ -998,14 +997,40 @@ S2IIOE!
 
 ## Operators
 
-There are several ways to present the method: G and H, Morinishi's notations and a geometric formulation: [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707-024-04133-4).
+### Gradient of a scalar field
+
+```@docs
+compute_grad_T_x_T_y_array!
+compute_grad_T_x_array!
+compute_grad_T_y_array!
+```
+
 ```@docs
 compute_grad_p!
-diamond
-divergence_B!
+normal_gradient
+```
+
+
+### Laplacian
+
+```@docs
+set_matrices!
+```
+
+```@docs
 laplacian
 laplacian_bc
-normal_gradient
+
+```
+
+
+
+
+
+There are several ways to present the method: G and H, Morinishi's notations and a geometric formulation: [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707-024-04133-4).
+```@docs
+diamond
+divergence_B!
 ```
 
 
@@ -1154,6 +1179,13 @@ p not v
 ```@docs
 ilp2cap
 ```
+
+```@docs
+set_cutcell_matrices!
+set_other_cutcell_matrices!
+set_border_matrices!
+```
+
 ### Levelset
 
 !!! todo "TODO"

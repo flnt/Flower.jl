@@ -525,6 +525,8 @@ for (i,n) in enumerate(npts)
     tmp = div(gp.nx,2)
     print("\n alpha line sin i=nx/2", sin.(gp.LS[1].α[:,tmp]),"\n")
 
+  
+
     # debug interface direction
     for II in MIXED #gp.ind.inside
         x_bc = gp.LS[1].mid_point[II].x * gp.dx[II] + gp.x[II]

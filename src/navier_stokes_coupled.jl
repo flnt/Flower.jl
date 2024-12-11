@@ -239,6 +239,25 @@ set iMx, Ax, Ay,... indicator χ..., Bx, By...
     M.diag .= vec(geo[end].dcap[:,:,5])
 ```
 
+Mx: geo[end].dcap[II,8]
+At right: Mx[δx⁺(II)] = geo[end].dcap[II,10]
+
+My: geo[end].dcap[II,9]
+At top: My[δy⁺(II)] = geo[end].dcap[II,11]
+
+divergence_A!(grid, AxT, AyT, geo[end].dcap, ny, ind.all_indices, periodic_x, periodic_y)
+divergence_B!(BxT, ByT, geo[end].dcap, ny, ind.all_indices)
+
+mat_assign!(Bx, sparse(-BxT'))
+mat_assign!(By, sparse(-ByT'))
+
+
+bc_matrix!(grid, Hx[iLS], Hy[iLS], geo[iLS].dcap, geo_p[iLS].dcap, ny, ind.all_indices)
+
+mat_assign_T!
+
+periodic_bcs!(grid, Bx, By, Hx[iLS], Hy[iLS], periodic_x, periodic_y)
+
 """
 function set_cutcell_matrices!(num, grid, geo, geo_p, opC, periodic_x, periodic_y)
     @unpack nx, ny, ind = grid
