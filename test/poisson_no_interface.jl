@@ -1,7 +1,7 @@
 using Revise
 using Flower
 
-# using Polynomials
+using Polynomials
 
 #From poisson.jl (Quiros)
 
@@ -18,7 +18,7 @@ end
 function ∇fx(x, y)
     # return π/1.25 * (- sin((1.25+x)*(π /1.25) + π/2.0) )*cos((1.25+y)*(π /1.25)) 
     L = 2.5
-    return 2*π/L * (- sin((L/2+x)*(2*π/L) + π/2) ) * cos((L/2+y)*(2*π/L)) 
+    return 2π/L * (- sin((L/2+x)*(2*π/L) + π/2) ) * cos((L/2+y)*(2*π/L)) 
 end
 
 function ∇fy(x, y)
@@ -55,51 +55,19 @@ function dirichlet_bcs!(gp, D)
     end
 end
 
-# function neumann_bcs!(gp, N)
-#     @unpack x, y, dx, dy, LS, ind = gp
-
-#     @inbounds @threads for II in ind.inside
-#         x_bc = LS[1].mid_point[II].x * dx[II] + x[II]
-#         y_bc = LS[1].mid_point[II].y * dy[II] + y[II]
-#         Nx = ∇fx(x_bc, y_bc)
-#         Ny = ∇fy(x_bc, y_bc)
-
-#         N[II] = Nx * cos(LS[1].α[II]+π) + Ny * sin(LS[1].α[II]+π)
-#     end
-
-#     replace!(N, NaN=>0.0)
-
-#     return nothing
-# end
-
 function neumann_bcs!(gp, N)
     @unpack x, y, dx, dy, LS, ind = gp
-
-    printstyled(color=:red, @sprintf "\n test Neumann -\n")
-
-    
-    
-    # cos(LS[1].α[II]+π)
 
     @inbounds @threads for II in ind.inside
         x_bc = LS[1].mid_point[II].x * dx[II] + x[II]
         y_bc = LS[1].mid_point[II].y * dy[II] + y[II]
         Nx = ∇fx(x_bc, y_bc)
         Ny = ∇fy(x_bc, y_bc)
-        # print("\n II ",II)
-        # printstyled(color=:red, @sprintf "\n test Neumann %.2e %.2e \n" cos(LS[1].α[II]+π) cos(LS[1].α[II]+π))
 
-        # N[II] = (-1) * (Nx * cos(LS[1].α[II]+π) + Ny * sin(LS[1].α[II]+π))
-        N[II] = Nx * cos(LS[1].α[II]) + Ny * sin(LS[1].α[II])
-
+        N[II] = Nx * cos(LS[1].α[II]+π) + Ny * sin(LS[1].α[II]+π)
     end
 
-    if any(isnan,N)
-        printstyled(color=:red, @sprintf "\n NaN neumann_bcs! \n")
-        print("\n value ",N,"\n")
-    end
-
-    # replace!(N, NaN=>0.0)
+    replace!(N, NaN=>0.0)
 
     return nothing
 end
@@ -119,97 +87,6 @@ function robin_bcs!(gp, R)
     replace!(R, NaN=>0.0)
 
     return nothing
-end
-
-
-function relative_errors(T, Tanalytical, pos, cap, h)
-
-
-    l1_rel_error = 0.0
-    l2_rel_error = 0.0
-    linfty_rel_error = 0.0
-    l1_rel_error_den = 0.0 
-    l2_rel_error_den = 0.0 
-    linfty_rel_error_den = 0.0 
-    
-    volume = 0.0
-    max_diff = 0.0
- 
-
-    @inbounds for ii in pos
-
-        volume = cap[ii]*h^2
-        if volume > 0.0
-            abs_diff = abs(Tanalytical[ii] .- T[ii])
-            abs_val = abs(Tanalytical[ii])
-
-            l1_rel_error += volume * abs_diff
-            l1_rel_error_den += volume * abs_val
-
-            l2_rel_error += volume * abs_diff^2
-            l2_rel_error_den += volume * (Tanalytical[ii])^2
-
-            
-            if (abs_diff > linfty_rel_error) linfty_rel_error = abs_diff end
-            if (abs_val > linfty_rel_error_den) linfty_rel_error_den = abs_val end
-
-        end
-    end
-
-    l1_rel_error = l1_rel_error / l1_rel_error_den
-    l2_rel_error = sqrt(l2_rel_error / l2_rel_error_den )
-    linfty_rel_error = linfty_rel_error / linfty_rel_error_den
-
-    return l1_rel_error, l2_rel_error, linfty_rel_error
-
-
-end
-
-
-function relative_errors_interface(T, Tanalytical, pos, cap, h)
-
-
-    # l1_rel_error = 0.0
-    # l2_rel_error = 0.0
-    linfty_rel_error = 0.0
-    # l1_rel_error_den = 0.0 
-    # l2_rel_error_den = 0.0 
-    linfty_rel_error_den = 0.0 
-    
-    volume = 0.0
-    max_diff = 0.0
-
-    Julia_convergence = false
-
- 
-
-    @inbounds for ii in pos
-
-        volume = cap[ii]*h^2
-        if volume > 0.0
-            abs_diff = abs(Tanalytical[ii] .- T[ii])
-            abs_val = abs(Tanalytical[ii])
-
-            # l1_rel_error += volume * abs_diff
-            # l1_rel_error_den += volume * abs_val
-
-            # l2_rel_error += volume * abs_diff^2
-            # l2_rel_error_den += volume * (Tanalytical[ii])^2
-
-            if (abs_diff > linfty_rel_error) linfty_rel_error = abs_diff end
-            if (abs_val > linfty_rel_error_den) linfty_rel_error_den = abs_val end
-
-        end
-    end
-
-    # l1_rel_error = l1_rel_error / l1_rel_error_den
-    # l2_rel_error = sqrt(l2_rel_error / l2_rel_error_den )
-    linfty_rel_error = linfty_rel_error / linfty_rel_error_den
-
-    # return l1_rel_error, l2_rel_error, linfty_rel_error
-    return linfty_rel_error
-
-
 end
 
 
@@ -274,10 +151,9 @@ verbosity = 0 #for more details, set to 1
 verbosity = 3
 
 ϵ = 0.001
-# bc = rob
-bc = neu
+bc = rob
 
-# bc = dir
+bc = dir
 
 if is_dirichlet(bc)
     bc_str = "dir"
@@ -289,22 +165,27 @@ end
 
 L0 = 2.5
 
-# n_cases = 5 
-# st_case = 5 #starting at n=32
-# npts = 2 .^ [st_case:(st_case+n_cases-1)...]
+# n_cases = 4 
 
-npts = [16,32,64,128,256]
-npts = [32,64,128,256]
+# st_case = 6 #starting at n=64
+# st_case = 3 #starting at n=8
 
-#16 too coarse for Neumannn:
-# T [-25.305022729994047, -25.279650186657015, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, 0.1900664931344108, 0.04989400918972268]
-# Tana [0.1913417161825448, 0.48560903361018903, 0.8154931568489172, 0.9619397662556434, 0.9619397662556434, 0.8154931568489173, 0.5448951067758185, 0.19134171618254528, -0.19134171618254492, -0.5448951067758183, -0.8154931568489171, -0.9619397662556433, -0.9619397662556434, -0.8154931568489174, -0.4856090336123392, -0.1913417161825454]
+n_cases = 3
+st_case = 5 #starting at n=32
 
 
-n_cases = length(npts)
-# st_case = 5 
-# x_reg = 2^st_case:2^(st_case+n_cases-1) #regression interval
-# print("x_reg",x_reg)
+npts = 2 .^ [st_case:(st_case+n_cases-1)...]
+
+npts = [32]
+
+
+n_cases = 3
+n_cases = 5 
+
+st_case = 4 #starting at n=16
+
+npts = 2 .^ [st_case:(st_case+n_cases-1)...]
+
 
 print("\n number of points ", npts, "\n")
 
@@ -395,10 +276,7 @@ if io.pdi>0
 
     @debug "after PDI_multi_expose"
 
-    print(PDI_status)
-
     @debug "After full PDI init"
-
 
 end #if io.pdi>0
 
@@ -413,7 +291,6 @@ l1_full = zeros(n_cases)
 l2_full = zeros(n_cases)
 loo_full = zeros(n_cases)
 
-loo_intfc = zeros(n_cases)
 
 # Convergence study loop
 for (i,n) in enumerate(npts)
@@ -437,8 +314,6 @@ for (i,n) in enumerate(npts)
         case = "Cylinder",
         x = x,
         y = y,
-        xcoord = phys.intfc_x,
-        ycoord = phys.intfc_y,
         CFL = 1.0,
         max_iterations = 0,
         R = 1.0,
@@ -449,7 +324,9 @@ for (i,n) in enumerate(npts)
     gp, gu, gv = init_meshes(num)
     op, phS, phL = init_fields(num, gp, gu, gv)
     # gp.LS[1].u .*= -1.0 #solve inside circle by setting sign of levelset
-    # gp.LS[1].u .= 1.0 #deactivate interface
+
+    # gp.LS[1].u .= 0.0 #deactivate interface
+    gp.LS[1].u .= 1.0 #deactivate interface
 
     # Signs in divergence theorem
     sign_left = -1.0 #n \cdot e_x = -1
@@ -465,10 +342,10 @@ for (i,n) in enumerate(npts)
     sign_Poisson = -1.0 #because we solve -laplacian p = f
     sign_Poisson = 1.0
 
-    print("\n sign Poisson ",sign_Poisson)
-
-    printstyled(color=:green, @sprintf "\n sign_left %.3i sign_right %.3i sign_bottom %.3i sign_top %.3i\n" sign_left sign_right sign_bottom sign_top)
-
+    if verbosity>2
+        print("\n sign Poisson ",sign_Poisson)
+        printstyled(color=:green, @sprintf "\n sign_left %.3i sign_right %.3i sign_bottom %.3i sign_top %.3i\n" sign_left sign_right sign_bottom sign_top)
+    end
 
 
     x_bc_left = gp.x[:,1] .- gp.dx[:,1] ./ 2.0
@@ -479,7 +356,7 @@ for (i,n) in enumerate(npts)
 
     x_bc_right = gp.x[:,end] .+ gp.dx[:,end] ./ 2.0
 
-    if num.verbosity > 0
+    if num.verbosity > 3
         print("\n x_bc_left ",x_bc_left,"\n")
 
         print("\n x_bc_right ",x_bc_right,"\n")
@@ -495,7 +372,7 @@ for (i,n) in enumerate(npts)
 
     # i_butler = gp.x[:,1] .*0.0
 
-    print("\n ∇fx(xtest, ytest) ", ∇fx.(x_bc_left, gp.y[:,1]) ,"\n")
+    # print("\n ∇fx(xtest, ytest) ", ∇fx.(x_bc_left, gp.y[:,1]) ,"\n")
 
 
     run_forward!(num, gp, gu, gv, op, phS, phL)
@@ -514,53 +391,6 @@ for (i,n) in enumerate(npts)
     elseif is_robin(bc)
         robin_bcs!(gp, θd)
     end
-
-
-    tmp = div(gp.ny,2)
-
-    MIXED = gp.ind.all_indices[gp.LS[1].geoL.cap[:,:,5] .<= (1-1e-16) .&& gp.LS[1].geoL.cap[:,:,5] .> 1e-16]
-    
-    print("\n alpha line: alpha ", gp.LS[1].α[tmp,:]*180/π,"\n")
-    print("\n alpha line: cos ", cos.(gp.LS[1].α[tmp,:]),"\n")
-    tmp = div(gp.nx,2)
-    print("\n alpha line sin i=nx/2", sin.(gp.LS[1].α[:,tmp]),"\n")
-
-  
-
-    # debug interface direction
-    for II in MIXED #gp.ind.inside
-        x_bc = gp.LS[1].mid_point[II].x * gp.dx[II] + gp.x[II]
-        y_bc = gp.LS[1].mid_point[II].y * gp.dy[II] + gp.y[II]
-        Nx = ∇fx(x_bc, y_bc)
-        Ny = ∇fy(x_bc, y_bc)
-        print("\n II ",II)
-        printstyled(color=:red, @sprintf "\n test Neumann %.2e %.2e %.2e %.2e %.2e \n" gp.LS[1].α[II]*180.0/π cos(gp.LS[1].α[II]+π) sin(gp.LS[1].α[II]+π) cos(gp.LS[1].α[II]) sin(gp.LS[1].α[II]))
-        
-        i = II[2]
-        j = II[1]
-
-        @testset "Normal definition" begin
-            if i < tmp
-                @test cos(gp.LS[1].α[II]) > 0 
-            end
-
-            if i > tmp
-                @test cos(gp.LS[1].α[II]) < 0 
-            end
-
-            if j < tmp
-                @test sin(gp.LS[1].α[II]) > 0 
-            end
-
-            if j > tmp
-                @test sin(gp.LS[1].α[II]) < 0 
-            end
-
-        
-        end 
-
-     end
-
 
     dx0 = L0 / n
     ni = gp.nx * gp.ny
@@ -687,66 +517,66 @@ for (i,n) in enumerate(npts)
     
     i_corner_vecb_bottom = (num.nLS + 1) * ni + gp.ny + j # 1 = j = i
  
-    # if num.verbosity > 0
-    #     print("\n A ",A[tmp,:],"\n")
+    if num.verbosity > 0
+        print("\n A ",A[tmp,:],"\n")
 
-    #     # print("\n i_corner_vecb_left ",i_corner_vecb_left)
+        # print("\n i_corner_vecb_left ",i_corner_vecb_left)
 
-    #     printstyled(color=:green, @sprintf "\n neighbours : %.3i %.3i %.3i %.3i %.3i\n" tmp tmp+1 tmp+gp.ny i_corner_vecb_bottom i_corner_vecb_left )
+        printstyled(color=:green, @sprintf "\n neighbours : %.3i %.3i %.3i %.3i %.3i\n" tmp tmp+1 tmp+gp.ny i_corner_vecb_bottom i_corner_vecb_left )
 
-    #     print("\n A[i_corner_vecb_left,:]", A[i_corner_vecb_left,:], "\n")
-    #     print("\n A[i_corner_vecb_bottom,:]", A[i_corner_vecb_bottom,:], "\n")
-    # end
+        print("\n A[i_corner_vecb_left,:]", A[i_corner_vecb_left,:], "\n")
+        print("\n A[i_corner_vecb_bottom,:]", A[i_corner_vecb_bottom,:], "\n")
+    end
 
-    # @testset "Corner bulk" begin
+    @testset "Corner bulk" begin
 
-    #     @testset "A[j,j]" begin
-    #         @test A[tmp,tmp] ≈ -6.0 atol = test_tolerance
-    #     end
+        @testset "A[j,j]" begin
+            @test A[tmp,tmp] ≈ -6.0 atol = test_tolerance
+        end
 
-    #     @testset "A[j,i-1]" begin
-    #         @test A[tmp,i_corner_vecb_left] ≈ 2.0 atol = test_tolerance
-    #     end
+        @testset "A[j,i-1]" begin
+            @test A[tmp,i_corner_vecb_left] ≈ 2.0 atol = test_tolerance
+        end
 
-    #     @testset "A[j-1,i]" begin
-    #         @test A[tmp,i_corner_vecb_bottom] ≈ 2.0 atol = test_tolerance
-    #     end
+        @testset "A[j-1,i]" begin
+            @test A[tmp,i_corner_vecb_bottom] ≈ 2.0 atol = test_tolerance
+        end
 
-    #     @testset "A[j+1,i]" begin
-    #         @test A[tmp,tmp+1] ≈ 1.0 atol = test_tolerance
-    #     end
+        @testset "A[j+1,i]" begin
+            @test A[tmp,tmp+1] ≈ 1.0 atol = test_tolerance
+        end
 
-    #     @testset "A[j,i+1]" begin
-    #         @test A[tmp,tmp+gp.ny] ≈ 1.0 atol = test_tolerance
-    #     end
+        @testset "A[j,i+1]" begin
+            @test A[tmp,tmp+gp.ny] ≈ 1.0 atol = test_tolerance
+        end
 
-    # end # Corner
+    end # Corner
 
-    # @testset "Corner border" begin
+    @testset "Corner border" begin
 
-    #     print("\n Corner border \n")
+        print("\n Corner border \n")
 
-    #     print("\n A ",A[i_corner_vecb_left,:],"\n")
-
-
-    #     @testset "A[i_corner_vecb_left,tmp]" begin
-    #         @test A[i_corner_vecb_left,tmp] ≈ 2.0 atol = test_tolerance
-    #     end
-
-    #     @testset "A[i_corner_vecb_left,i_corner_vecb_left]" begin
-    #         @test A[i_corner_vecb_left,i_corner_vecb_left] ≈ -2.0 atol = test_tolerance
-    #     end
-
-    #     @testset "A[i_corner_vecb_bottom,tmp]" begin
-    #         @test A[i_corner_vecb_bottom,tmp] ≈ 2.0 atol = test_tolerance
-    #     end
-
-    #     @testset "A[i_corner_vecb_bottom,i_corner_vecb_bottom]" begin
-    #         @test A[i_corner_vecb_bottom,i_corner_vecb_bottom] ≈ -2.0 atol = test_tolerance
-    #     end
+        print("\n A ",A[i_corner_vecb_left,:],"\n")
 
 
-    # end # Corner
+        @testset "A[i_corner_vecb_left,tmp]" begin
+            @test A[i_corner_vecb_left,tmp] ≈ 2.0 atol = test_tolerance
+        end
+
+        @testset "A[i_corner_vecb_left,i_corner_vecb_left]" begin
+            @test A[i_corner_vecb_left,i_corner_vecb_left] ≈ -2.0 atol = test_tolerance
+        end
+
+        @testset "A[i_corner_vecb_bottom,tmp]" begin
+            @test A[i_corner_vecb_bottom,tmp] ≈ 2.0 atol = test_tolerance
+        end
+
+        @testset "A[i_corner_vecb_bottom,i_corner_vecb_bottom]" begin
+            @test A[i_corner_vecb_bottom,i_corner_vecb_bottom] ≈ -2.0 atol = test_tolerance
+        end
+
+
+    end # Corner
 
     #Away from corner
     j = div(n,2)
@@ -766,123 +596,230 @@ for (i,n) in enumerate(npts)
     
     # Test matrix coefficients at the wall 
 
-    # IIwall = CartesianIndex(j,1)
-    # tmp = lexicographic(IIwall,gp.ny)
+    IIwall = CartesianIndex(j,1)
+    tmp = lexicographic(IIwall,gp.ny)
+
+    i_corner_vecb_left = (num.nLS + 1) * ni + j
+
+    if num.verbosity > 0
+
+        print("\n A ",A[tmp,:],"\n")
+
+        # print("\n A ",A[tmp,tmp],"\n")
+        # print("\n A ",A[tmp,tmp-1],"\n")
+        # print("\n A ",A[tmp,tmp+1],"\n")
+        # print("\n A ",A[tmp,tmp+gp.ny],"\n")
+
+        # print("\n A intfc ",A[tmp,ni+1:2*ni],"\n")
+
+        # print("\n A border ",A[tmp,end-nb+1:end],"\n")
+
+        # testn = gp.ny -tmp+1
+
+        # print("\n A ",A[end-nb+testn,:],"\n")
+
+        # print("\n A[end-nb+testn,1:ni]", A[end-nb+testn,1:ni], "\n")
+        # print("\n A[end-nb+testn,ni+1:2*ni]", A[end-nb+testn,ni+1:2*ni], "\n")
+        # print("\n A[end-nb+testn,end-nb+1:end]", A[end-nb+testn,end-nb+1:end], "\n")
+
+        print("\n At the wall, not at corner \n")
+        printstyled(color=:green, @sprintf "\n neighbours : %.3i %.3i %.3i %.3i %.3i\n" tmp tmp+1 tmp+gp.ny tmp-1 i_corner_vecb_left )
+    end
+
+    @testset "At the wall" begin
+
+        @testset "A[j,j]" begin
+            @test A[tmp,tmp] ≈ -5.0 atol = test_tolerance
+        end
+
+        @testset "A[j,i-1]" begin
+            @test A[tmp,i_corner_vecb_left] ≈ 2.0 atol = test_tolerance
+        end
+
+        @testset "A[j,j+1]" begin
+            @test A[tmp,tmp+1] ≈ 1.0 atol = test_tolerance
+        end
+
+        @testset "A[j,j-1]" begin
+            @test A[tmp,tmp-1] ≈ 1.0 atol = test_tolerance
+        end
+        @testset "A[j,j+gp.ny]" begin
+            @test A[tmp,tmp+gp.ny] ≈ 1.0 atol = test_tolerance
+        end
+
+        # @testset "A[j,j+ni]" begin
+        #     @test A[tmp,tmp+ni] ≈ 1.0 atol = test_tolerance
+        # end
+
+    end #at from the wall
+
+
+    IIwall = CartesianIndex(j,gp.nx)
+    tmp = lexicographic(IIwall,gp.ny)
 
     # i_corner_vecb_left = (num.nLS + 1) * ni + j
 
-    # if num.verbosity > 0
-
-    #     print("\n A ",A[tmp,:],"\n")
-
-    #     # print("\n A ",A[tmp,tmp],"\n")
-    #     # print("\n A ",A[tmp,tmp-1],"\n")
-    #     # print("\n A ",A[tmp,tmp+1],"\n")
-    #     # print("\n A ",A[tmp,tmp+gp.ny],"\n")
-
-    #     # print("\n A intfc ",A[tmp,ni+1:2*ni],"\n")
-
-    #     # print("\n A border ",A[tmp,end-nb+1:end],"\n")
-
-    #     # testn = gp.ny -tmp+1
-
-    #     # print("\n A ",A[end-nb+testn,:],"\n")
-
-    #     # print("\n A[end-nb+testn,1:ni]", A[end-nb+testn,1:ni], "\n")
-    #     # print("\n A[end-nb+testn,ni+1:2*ni]", A[end-nb+testn,ni+1:2*ni], "\n")
-    #     # print("\n A[end-nb+testn,end-nb+1:end]", A[end-nb+testn,end-nb+1:end], "\n")
-
-    #     print("\n At the wall, not at corner \n")
-    #     printstyled(color=:green, @sprintf "\n neighbours : %.3i %.3i %.3i %.3i %.3i\n" tmp tmp+1 tmp+gp.ny tmp-1 i_corner_vecb_left )
-    # end
-
-    # @testset "At the wall" begin
-
-    #     @testset "A[j,j]" begin
-    #         @test A[tmp,tmp] ≈ -5.0 atol = test_tolerance
-    #     end
-
-    #     @testset "A[j,i-1]" begin
-    #         @test A[tmp,i_corner_vecb_left] ≈ 2.0 atol = test_tolerance
-    #     end
-
-    #     @testset "A[j,j+1]" begin
-    #         @test A[tmp,tmp+1] ≈ 1.0 atol = test_tolerance
-    #     end
-
-    #     @testset "A[j,j+gp.ny]" begin
-    #         @test A[tmp,tmp+gp.ny] ≈ 1.0 atol = test_tolerance
-    #     end
-
-    #     # @testset "A[j,j+ni]" begin
-    #     #     @test A[tmp,tmp+ni] ≈ 1.0 atol = test_tolerance
-    #     # end
-
-    # end #away from the wall
+    i_corner_vecb_right = (num.nLS + 1) * ni + gp.ny + gp.nx + j 
 
 
+    if num.verbosity > 0
 
-    # # Test matrix coefficients away from the wall
-    # II = CartesianIndex(j,j)
-    # tmp = lexicographic(II,gp.ny)
+        # print("\n A ",A[tmp,tmp],"\n")
+        # print("\n A ",A[tmp,tmp-1],"\n")
+        # print("\n A ",A[tmp,tmp+1],"\n")
+        # print("\n A ",A[tmp,tmp+gp.ny],"\n")
 
-    # if num.verbosity > 0
-    #     print("\n A ",A[tmp,:],"\n")
-    # end
+        # print("\n A intfc ",A[tmp,ni+1:2*ni],"\n")
 
-    # @testset "Away from the wall" begin
+        # print("\n A border ",A[tmp,end-nb+1:end],"\n")
 
-    #     @testset "A[j,j]" begin
-    #         @test A[tmp,tmp] ≈ -4.0 atol = test_tolerance
-    #     end
+        # testn = gp.ny -tmp+1
 
-    #     @testset "A[j,i-1]" begin
-    #         @test A[tmp,tmp-1] ≈ 1.0 atol = test_tolerance
-    #     end
+        # print("\n A ",A[end-nb+testn,:],"\n")
 
-    #     @testset "A[j,j+1]" begin
-    #         @test A[tmp,tmp+1] ≈ 1.0 atol = test_tolerance
-    #     end
+        # print("\n A[end-nb+testn,1:ni]", A[end-nb+testn,1:ni], "\n")
+        # print("\n A[end-nb+testn,ni+1:2*ni]", A[end-nb+testn,ni+1:2*ni], "\n")
+        # print("\n A[end-nb+testn,end-nb+1:end]", A[end-nb+testn,end-nb+1:end], "\n")
 
-    #     @testset "A[j,j-gp.ny]" begin
-    #         @test A[tmp,tmp-gp.ny] ≈ 1.0 atol = test_tolerance
-    #     end
-    #     @testset "A[j,j+gp.ny]" begin
-    #         @test A[tmp,tmp+gp.ny] ≈ 1.0 atol = test_tolerance
-    #     end
+        print("\n At the right wall, not at corner \n")
 
-    # end #away from the wall
+        print("\n A ",A[tmp,:],"\n")
 
-   
+        printstyled(color=:green, @sprintf "\n neighbours : %.3i %.3i %.3i %.3i %.3i\n" tmp tmp+1 tmp+gp.ny tmp-1 i_corner_vecb_left )
+    end
+
+    @testset "At the wall" begin
+
+        @testset "A[j,j]" begin
+            @test A[tmp,tmp] ≈ -5.0 atol = test_tolerance
+        end
+
+        @testset "A[j,i_corner_vecb_right]" begin
+            @test A[tmp,i_corner_vecb_right] ≈ 2.0 atol = test_tolerance
+        end
+
+        @testset "A[j,j+1]" begin
+            @test A[tmp,tmp+1] ≈ 1.0 atol = test_tolerance
+        end
+
+        @testset "A[j,j-1]" begin
+            @test A[tmp,tmp-1] ≈ 1.0 atol = test_tolerance
+        end
+        
+        @testset "A[j,j-gp.ny]" begin
+            @test A[tmp,tmp-gp.ny] ≈ 1.0 atol = test_tolerance
+        end
+
+        # @testset "A[j,j+ni]" begin
+        #     @test A[tmp,tmp+ni] ≈ 1.0 atol = test_tolerance
+        # end
+
+        
+
+    print("\n A i_corner_vecb_right",A[i_corner_vecb_right,:],"\n")
+
+
+    end #at from the wall
+
+
+
+
+
+
+    # Test matrix coefficients away from the wall
+    II = CartesianIndex(j,j)
+    tmp = lexicographic(II,gp.ny)
+
+    if num.verbosity > 0
+        print("\n A ",A[tmp,:],"\n")
+    end
+
+    @testset "Away from the wall" begin
+
+        @testset "A[j,j]" begin
+            @test A[tmp,tmp] ≈ -4.0 atol = test_tolerance
+        end
+
+        @testset "A[j,i-1]" begin
+            @test A[tmp,tmp-1] ≈ 1.0 atol = test_tolerance
+        end
+
+        @testset "A[j,j+1]" begin
+            @test A[tmp,tmp+1] ≈ 1.0 atol = test_tolerance
+        end
+
+        @testset "A[j,j-gp.ny]" begin
+            @test A[tmp,tmp-gp.ny] ≈ 1.0 atol = test_tolerance
+        end
+        @testset "A[j,j+gp.ny]" begin
+            @test A[tmp,tmp+gp.ny] ≈ 1.0 atol = test_tolerance
+        end
+
+    end #away from the wall
+
+    # Atest = copy(A)
 
     # @inbounds @threads for i in 1:A.m
-    #     if A[i,i] == 0
-    #         @inbounds A[i,i] += 1e-10
-    #     end
+    #     @inbounds Atest[i,i] += 1e-10
     # end
 
-    # @testset "Away from the wall, new" begin
+    # if num.verbosity > 0
+    #     print("\n Away from the wall, after 1e-10 added \n")
+    #     print("\n A ",Atest[tmp,:],"\n")
+    # end
+
+    # #Test matrix coefficients away from the wall
+    # @testset "Away from the wall, after 1e-10 added" begin
 
     #     @testset "A[j,j]" begin
-    #         @test A[tmp,tmp] ≈ -4.0 atol = test_tolerance
+    #         @test Atest[tmp,tmp] ≈ -4.0 atol = test_tolerance
     #     end
 
     #     @testset "A[j,i-1]" begin
-    #         @test A[tmp,tmp-1] ≈ 1.0 atol = test_tolerance
+    #         @test Atest[tmp,tmp-1] ≈ 1.0 atol = test_tolerance
     #     end
 
     #     @testset "A[j,j+1]" begin
-    #         @test A[tmp,tmp+1] ≈ 1.0 atol = test_tolerance
+    #         @test Atest[tmp,tmp+1] ≈ 1.0 atol = test_tolerance
     #     end
 
     #     @testset "A[j,j-gp.ny]" begin
-    #         @test A[tmp,tmp-gp.ny] ≈ 1.0 atol = test_tolerance
+    #         @test Atest[tmp,tmp-gp.ny] ≈ 1.0 atol = test_tolerance
     #     end
     #     @testset "A[j,j+gp.ny]" begin
-    #         @test A[tmp,tmp+gp.ny] ≈ 1.0 atol = test_tolerance
+    #         @test Atest[tmp,tmp+gp.ny] ≈ 1.0 atol = test_tolerance
     #     end
 
     # end #away from the wall
+
+    @inbounds @threads for i in 1:A.m
+        if A[i,i] == 0
+            @inbounds A[i,i] += 1e-10
+        end
+    end
+
+    @testset "Away from the wall, new" begin
+
+        @testset "A[j,j]" begin
+            @test A[tmp,tmp] ≈ -4.0 atol = test_tolerance
+        end
+
+        @testset "A[j,i-1]" begin
+            @test A[tmp,tmp-1] ≈ 1.0 atol = test_tolerance
+        end
+
+        @testset "A[j,j+1]" begin
+            @test A[tmp,tmp+1] ≈ 1.0 atol = test_tolerance
+        end
+
+        @testset "A[j,j-gp.ny]" begin
+            @test A[tmp,tmp-gp.ny] ≈ 1.0 atol = test_tolerance
+        end
+        @testset "A[j,j+gp.ny]" begin
+            @test A[tmp,tmp+gp.ny] ≈ 1.0 atol = test_tolerance
+        end
+
+    end #away from the wall
   
 
 
@@ -903,8 +840,7 @@ for (i,n) in enumerate(npts)
     print("\n D ",D[j,:],"\n")
 
 
-
-
+   
  
     # testvec = A * res
     # print("\n A * res ", testvec[j],"\n")
@@ -912,13 +848,13 @@ for (i,n) in enumerate(npts)
     # print("\n A * res ", testvec[tmp],"\n")
 
     #Test interface
-    # @testset "Interface deactivated" begin
-    #     @test maximum(abs.(D)) ≈ 0.0 atol = test_tolerance
-    # end
+    @testset "Interface deactivated" begin
+        @test maximum(abs.(D)) ≈ 0.0 atol = test_tolerance
+    end
 
     
-    x_bc = gp.x .+ getproperty.(gp.LS[1].mid_point, :x) .* gp.dx
-    y_bc = gp.y .+ getproperty.(gp.LS[1].mid_point, :y) .* gp.dy
+    # x_bc = gp.x .+ getproperty.(gp.LS[1].mid_point, :x) .* gp.dx
+    # y_bc = gp.y .+ getproperty.(gp.LS[1].mid_point, :y) .* gp.dy
     
     # #Initialize bulk value
     # vec1(phL.TD,gp) .= vec(ftest.(x_centroid,y_centroid))
@@ -931,11 +867,7 @@ for (i,n) in enumerate(npts)
     # vecb_B(phL.TD, gp) .= ftest.(gp.x[1,:], gp.y[1,:] .- gp.y[1,:] ./ 2.0)
     # vecb_R(phL.TD, gp) .= ftest.(gp.x[:,end] .+ gp.x[:,1] ./ 2.0, gp.y[:,1])
     # vecb_T(phL.TD, gp) .= ftest.(gp.x[1,:], gp.y[end,:] .+ gp.y[1,:] ./ 2.0)
-
-
-    analytical_interface = f.(x_bc,y_bc)
-
-
+    
    
 
 
@@ -998,10 +930,52 @@ for (i,n) in enumerate(npts)
 
     print("\n Tana vecb ",Tana[j,:],"\n")
 
-    # print("\n Tana veci ",Tana[j,:],"\n")
 
 
 
+    function relative_errors(T, Tanalytical, pos, cap, h)
+
+
+        l1_rel_error = 0.0
+        l2_rel_error = 0.0
+        linfty_rel_error = 0.0
+        l1_rel_error_den = 0.0 
+        l2_rel_error_den = 0.0 
+        linfty_rel_error_den = 0.0 
+        
+        volume = 0.0
+        max_diff = 0.0
+     
+
+        @inbounds for ii in pos
+
+            volume = cap[ii]*h^2
+            if volume > 0.0
+                abs_diff = abs(Tanalytical[ii] .- T[ii])
+                abs_val = abs(Tanalytical[ii])
+
+                l1_rel_error += volume * abs_diff
+                l1_rel_error_den += volume * abs_val
+
+                l2_rel_error += volume * abs_diff^2
+                l2_rel_error_den += volume * (Tanalytical[ii])^2
+
+                
+                if (abs_diff > linfty_rel_error) linfty_rel_error = abs_diff end
+                if (abs_val > linfty_rel_error_den) linfty_rel_error_den = abs_val end
+
+            end
+        end
+
+        l1_rel_error = l1_rel_error / l1_rel_error_den
+        l2_rel_error = sqrt(l2_rel_error / l2_rel_error_den )
+        linfty_rel_error = linfty_rel_error / linfty_rel_error_den
+
+        return l1_rel_error, l2_rel_error, linfty_rel_error
+
+
+    end
+    
    
     #cut small cells for error
     number_small_cells_for_error = 0
@@ -1035,18 +1009,6 @@ for (i,n) in enumerate(npts)
 
 
 
-    norm_interface = relative_errors_interface(D,analytical_interface,MIXED,gp.LS[1].geoL.cap[:,:,5], num.Δ)
-
-
-    loo_intfc[i] = norm_interface
-
-
-    print("\n D ",D[MIXED],"\n")
-    print("\n analytical_interface ",analytical_interface[MIXED],"\n")
-    print("\n norm_interface ",norm_interface,"\n")
-
-
-
     l1[i] = norm_all[1]
     l2[i] = norm_all[2]
     loo[i] = norm_all[3]
@@ -1063,28 +1025,27 @@ for (i,n) in enumerate(npts)
 end #convergence
 
 
-
 # if Julia_convergence
-#     x_reg = 2^st_case:2^(st_case+n_cases-1)
-#     # y_tcks = [1e0, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7]
+    # x_reg = 2^st_case:2^(st_case+n_cases-1)
+    # # y_tcks = [1e0, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7]
 
-#     print("\n x_reg ",x_reg)
+    # print("\n x_reg ",x_reg)
 
-#     conv_l1 = regression(npts, l1, x_reg)
-#     conv_l2 = regression(npts, l2, x_reg)
-#     conv_loo = regression(npts, loo, x_reg)
+    # conv_l1 = regression(npts, l1, x_reg)
+    # conv_l2 = regression(npts, l2, x_reg)
+    # conv_loo = regression(npts, loo, x_reg)
 
-#     conv_l1_mixed = regression(npts, l1_mixed, x_reg)
-#     conv_l2_mixed = regression(npts, l2_mixed, x_reg)
-#     conv_loo_mixed = regression(npts, loo_mixed, x_reg)
+    # conv_l1_mixed = regression(npts, l1_mixed, x_reg)
+    # conv_l2_mixed = regression(npts, l2_mixed, x_reg)
+    # conv_loo_mixed = regression(npts, loo_mixed, x_reg)
 
-#     conv_l1_full = regression(npts, l1_full, x_reg)
-#     conv_l2_full = regression(npts, l2_full, x_reg)
-#     conv_loo_full = regression(npts, loo_full, x_reg)
+    # conv_l1_full = regression(npts, l1_full, x_reg)
+    # conv_l2_full = regression(npts, l2_full, x_reg)
+    # conv_loo_full = regression(npts, loo_full, x_reg)
 
-#     print("\n conv_l1 ",conv_l1,"\n")
-#     print("\n conv_l2 ",conv_l2,"\n")
-#     print("\n conv_loo ",conv_loo,"\n")
+    # print("\n conv_l1 ",conv_l1,"\n")
+    # print("\n conv_l2 ",conv_l2,"\n")
+    # print("\n conv_loo ",conv_loo,"\n")
 
 
 
@@ -1094,12 +1055,6 @@ local PDI_status = @ccall "libpdi".PDI_multi_expose("convergence_study"::Cstring
 "l1_rel_error"::Cstring, l1::Ptr{Cdouble}, PDI_OUT::Cint,
 "l2_rel_error"::Cstring, l2::Ptr{Cdouble}, PDI_OUT::Cint,
 "linfty_rel_error"::Cstring, loo::Ptr{Cdouble}, PDI_OUT::Cint,
-"l1_rel_error_full_cells"::Cstring, l1_full::Ptr{Cdouble}, PDI_OUT::Cint,
-"l2_rel_error_full_cells"::Cstring, l2_full::Ptr{Cdouble}, PDI_OUT::Cint,
-"linfty_rel_error_full_cells"::Cstring, loo_full::Ptr{Cdouble}, PDI_OUT::Cint,
-"l1_rel_error_partial_cells"::Cstring, l1_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
-"l2_rel_error_partial_cells"::Cstring, l2_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
-"linfty_rel_error_partial_cells"::Cstring, loo_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
 C_NULL::Ptr{Cvoid})::Cint
  
 if io.pdi>0

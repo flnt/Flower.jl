@@ -872,6 +872,10 @@ function integrate_mass_flux_over_interface_2_no_writing(num::Numerical{Float64,
     print("\n mass_flux_veci_2 ", sum(mass_flux_veci_2),"\n ")
 
 
+    print("\n test mass flux  ", mass_flux[div(grid.ny,2),:],"\n")
+    print("\n test mass_flux_vec1_2", mass_flux_vec1_2[div(grid.ny,2),:],"\n")
+    print("\n test mass flux b", mass_flux_vecb_2[div(grid.ny,2),:],"\n")
+    print("\n test mass_flux_veci_2", mass_flux_veci_2[div(grid.ny,2),:],"\n")
 
     # iplot = 1
     # for jplot in 1:grid.ny

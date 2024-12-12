@@ -29,17 +29,6 @@ The following test cases are planned:
 ```@raw html
 <table class="styled-table">
 
-    <!-- <tr>
-    
-    <td> </td>
-    <td> Steady </td>
-    <td> Steady </td>
-    <td> Steady </td>
-    <td> Unsteady</td>
-    <td> Unsteady</td>
-
-    </tr> -->
-
     <thead>
         <tr>
             <th> Name </th>
@@ -62,14 +51,17 @@ The following test cases are planned:
             <td><img src="./assets/Poisson_square_circle_arc_arrow.svg" width="75vh" ></td>
         </tr>
  
+        <tr>
+
         <th>Poisson: $ \nabla \cdot (\kappa \nabla \phi)=0$ </th>
-        <td>• • •</td>
+        <td> <a href="https://github.com/flnt/Flower.jl/blob/electrolysis/test/poisson_no_interface.jl"> ✔️ </a> </td>
         <td>  </td>
         <td> </td>
         <td> </td>
         <td> </td>
         </tr>
 
+        <tr>
         <th>Diffusion</th>
         <td> </td>
         <td> </td>
@@ -78,6 +70,7 @@ The following test cases are planned:
         <td> </td>
         </tr>
 
+        <tr>
         <th>Convection</th>
         <td> </td>
         <td> </td>
@@ -99,9 +92,33 @@ The following test cases are planned:
 
 * normal defined by ``\alpha``: pointing towards domain 
 
-* See test/orientation.jl
+* [Orientation](https://github.com/flnt/Flower.jl/blob/electrolysis/test/orientation.jl): tests gradient, interpolation, divergence (work in progress)
 
-* See test/gradient.jl
+* [Poisson](https://github.com/flnt/Flower.jl/blob/electrolysis/test/poisson_no_interface.jl): tests matrix coefficients at bulk, left wall away from corners, bottom left corner, computes convergence order (TODO test value of slope, level of error)
+
+* [Poisson](https://github.com/flnt/Flower.jl/blob/electrolysis/test/poisson_no_interface_right_Neumann.jl): tests matrix coefficients at bulk, left wall away from corners, bottom left corner, computes convergence order (TODO test value of slope, level of error), Neumann at right
+
+```@raw html
+See this equation for the signs given to the g function at the
+<a href="documentation.html#tagdivleftwall">left wall</a> and the <a href="documentation.html#tagdivbubbleinterface"> bubble interface</a>
+```
+For a regular mesh with constant mesh spacing, with ``h_x=h_y``
+* Test that the matrix coefficients away from the interface for a Laplacian are -4, 1, 1, 1, 1
+* Test that the matrix coefficients at the left wall, away from corners for a Laplacian are -5, ...
+* Test that the matrix coefficients at the bottom left corner for a Laplacian are -6, ...
+* Test that the matrix coefficients at the bottom left corner for a Laplacian in the BC system with Neumann at left wall are 2 for bulk, -2 for interfacial value
+
+Example
+
+
+* A[i_corner_vecb_bottom,:]  
+    * [bulk_index]  =  2.0  
+    * [i_corner_vecb_bottom]  =  -2.0
+
+
+* right Neumann: A[i_corner_vecb_right,:]
+    * [bulk_index]  =  2.0
+    * [i_corner_vecb_right]  =  -2.0
 
 
 ## Definition of errors
@@ -168,7 +185,10 @@ The analytical function is: ``g = -f``.
 
 
 
-See [`set_poisson_variable_coeff_SPD!`](@ref) in [Electrical potential](@ref) and [Poisson equation](@ref).
+See [`set_poisson_variable_coeff_SPD!`](@ref) in [Electrical potential](@ref) and 
+```@raw html
+ <a href="documentation.html#Poisson-equation"> Poisson equation section </a>.
+```
 
 The boundary conditions are:
 * left: Neumann: +10
@@ -245,7 +265,10 @@ the coefficients are no longer exact.
 
 
 
-Recalling [Poisson equation](@ref)
+```@raw html
+Recalling <a href="documentation.html#Poisson-equation"> Poisson equation section </a>
+```
+
 
 ```math
 \begin{equation}
@@ -308,233 +331,6 @@ By printing the coefficients we see we have -4 when there is no interface. What 
 !!! todo "TODO"
     Hx Hb...
 
-
-In [`set_poisson`](@ref) system for `` + \nabla \cdot \nabla p = f`` is:
-
-```math
-\begin{cases}
-+ \mathrm{div} (q^\omega, q^\gamma ) &= V f^\omega\\
-I_a I p^\gamma + I_b \mathrm{div} (0, q^\omega) &= I g^\omega\\
-q^\omega &= \mathrm{grad} ( p^\omega, p^\gamma ) \\
-q^\gamma &= q^\omega
-\end{cases}
-```
-
-```math
-\begin{equation}
-    \left [ \begin{array}{>{\centering\arraybackslash$} p{2.0cm} <{$} >{\centering\arraybackslash$} p{3.2cm} <{$}}
-    -G ^ \top W ^ \dagger G & -G ^ \top W ^ \dagger H \\
-    I _ b (-H ^ \top W ^ \dagger G) & I _ b (-H ^ \top W ^ \dagger H) + I _ a I _ \Gamma
-    \end{array} \right ] \left [ \begin{array}{c}
-    p ^ \omega \\
-    p ^ \gamma
-    \end{array} \right ] \simeq \left [ \begin{array}{c}
-    V f ^ \omega \\
-     I _ \Gamma g ^ \gamma
-    \end{array} \right ],
-\end{equation}
-```
-
-cf. :
-```julia
-A[end-nb+1:end,1:ni] = -b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
-```
-
-```julia
-A[end-nb+1:end,1:ni] = b_b * (-1) * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
-```
-This corresponds to ``I _ b (-H ^ \top W ^ \dagger G)``
-
-
-cf. :
-```julia
-A[end-nb+1:end,end-nb+1:end] = -pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b, 4.0)
-```
-
-```julia
-A[end-nb+1:end,end-nb+1:end] = pad(b_b *(-1) * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .+ χ_b * a1_b, -4.0)
-```
-This corresponds to ``I _ b (-H ^ \top W ^ \dagger H) + I _ a I _ \Gamma``
-
-```@docs
-pad
-```
-
-```julia
-A[sb,i*ni+1:(i+1)*ni] = -b * (HxT[iLS] * iMx * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
-```
-
-##### At the interface
-* Dirichlet __a1 = -1.0
-               
-* Neumann  __b = 1.0
-* Robin __a1 = -1.0
-        __a2 = 0.0
-        __b = 1.0
-
-In we have
-
-In [`set_borders!`](@ref), we have:
-
-Dirichlet: a1 = -1
-Neumann: b =1
-Robin: a1 = -1 b = 1
-a0 : BC value 
-
-!!! todo "Signs"
-    * why a1 = -1
-    * why -a0 
-
-
-```julia
-A[sb,sb] = -pad(
-b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .- χ[iLS] * a1 .+
-a2 * Diagonal(diag(fs_mat)), 4.0
-)
-```
-
-```julia
-A[sb,sb] = pad(
-b * (-1) * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .+ χ[iLS] * a1 .-
-a2 * Diagonal(diag(fs_mat)), -4.0
-)
-```
-
-
-!!! todo
-    ``a1 = -1``  
-
-```julia
-A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b * Hy_b)
-```
-
-Why ``+b``? and everywhere else ``-b`` ?
-
-
-
-```julia
-A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b * Hy_b)
-# Boundary conditions for outer boundaries
-A[end-nb+1:end,sb] = -b_b * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
-end
-
-veci(rhs,grid,iLS+1) .= -χ[iLS] * vec(a0[iLS])
-end
-
-vecb(rhs,grid) .= -χ_b * vec(a0_b)
-```
-
-
-```julia
-function set_poisson(
-    bc_type, num, grid, a0, opC, opC_u, opC_v,
-    A, L, bc_L, bc_L_b, BC,
-    ls_advection)
-    @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
-
-    ni = grid.nx * grid.ny
-    nb = 2 * grid.nx + 2 * grid.ny
-
-    rhs = fnzeros(grid, num)
-
-    a0_b = zeros(nb)
-    _a1_b = zeros(nb)
-    _b_b = zeros(nb)
-    # Dirichlet: a1 = -1
-    # Neumann: b =1
-    # Robin: a1 = -1 b = 1
-    # a0 : BC value 
-    for iLS in 1:num.nLS
-        set_borders!(grid, grid.LS[iLS].cl, grid.LS[iLS].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
-    end
-    a1_b = Diagonal(vec(_a1_b))
-    b_b = Diagonal(vec(_b_b))
-
-    if ls_advection
-        # Poisson equation
-        A[1:ni,1:ni] = pad(L, -4.0)
-        A[1:ni,end-nb+1:end] = bc_L_b
-
-        # Boundary conditions for outer boundaries
-        A[end-nb+1:end,1:ni] = -b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
-        A[end-nb+1:end,end-nb+1:end] = -pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b, 4.0)
-    end
-
-    for iLS in 1:num.nLS
-        if ls_advection
-            if is_dirichlet(bc_type[iLS])
-                __a1 = -1.0
-                __a2 = 0.0
-                __b = 0.0
-            elseif is_neumann(bc_type[iLS])
-                __a1 = 0.0
-                __a2 = 0.0
-                __b = 1.0
-            elseif is_robin(bc_type[iLS])
-                __a1 = -1.0
-                __a2 = 0.0
-                __b = 1.0
-            elseif is_fs(bc_type[iLS])
-                __a1 = 0.0
-                __a2 = 1.0
-                __b = 0.0
-            elseif is_wall_no_slip(bc_type[iLS])
-                __a1 = 0.0
-                __a2 = 0.0
-                __b = 1.0
-            elseif is_navier(bc_type[iLS])
-                __a1 = 0.0
-                __a2 = 0.0
-                __b = 1.0
-            elseif is_navier_cl(bc_type[iLS])
-                __a1 = 0.0
-                __a2 = 0.0
-                __b = 1.0
-            else
-                __a1 = 0.0
-                __a2 = 0.0
-                __b = 1.0
-            end
-    
-            _a1 = ones(grid) .* __a1
-            a1 = Diagonal(vec(_a1))
-            _a2 = ones(grid) .* __a2
-            a2 = Diagonal(vec(_a2))
-            _b = ones(grid) .* __b
-            b = Diagonal(vec(_b))
-
-            fs_mat = HxT[iLS] * Hx[iLS] .+ HyT[iLS] * Hy[iLS]
-
-            sb = iLS*ni+1:(iLS+1)*ni
-            
-            # Poisson equation
-            A[1:ni,sb] = bc_L[iLS]
-            # Boundary conditions for inner boundaries
-            A[sb,1:ni] = -b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
-            # Contribution to Neumann BC from other boundaries
-            for i in 1:num.nLS
-                if i != iLS
-                    A[sb,i*ni+1:(i+1)*ni] = -b * (HxT[iLS] * iMx * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
-                end
-            end
-            A[sb,sb] = -pad(
-                b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .- χ[iLS] * a1 .+
-                a2 * Diagonal(diag(fs_mat)), 4.0
-            )
-            A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b * Hy_b)
-            # Boundary conditions for outer boundaries
-            A[end-nb+1:end,sb] = -b_b * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
-        end
-
-        veci(rhs,grid,iLS+1) .= -χ[iLS] * vec(a0[iLS])
-    end
-
-    vecb(rhs,grid) .= -χ_b * vec(a0_b)
-    
-    return rhs
-end
-
-```
 
 
 ### Implementation

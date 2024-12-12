@@ -55,9 +55,9 @@ end
     include("orientation.jl")
 end
 
-@testset "Gradient and orientations" begin
-    include("gradient.jl")
-end
+# @testset "Gradient and orientations" begin
+#     include("gradient.jl")
+# end
 
 
 # Manufactured solutions

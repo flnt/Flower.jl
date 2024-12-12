@@ -101,7 +101,7 @@ sometimes referred to as a Geometric Surface Conservation Law. The same can be d
 
 ### Centroids
 
-In the code, the cell centroid for the p-grid (scalar grid, here noted gp) corresponding to the first levelset (``LS[1]``) is `x^\omega = (x_{\text{centroid},y_{\text{centroid})}`:
+In the code, the cell centroid for the p-grid (scalar grid, here noted gp) corresponding to the first levelset (``LS[1]``) is ``x^\omega = (x_{\text{centroid}},y_{\text{centroid}})``:
 ```julia
 x_centroid = gp.x .+ getproperty.(gp.LS[1].geoL.centroid, :x) .* gp.dx
 y_centroid = gp.y .+ getproperty.(gp.LS[1].geoL.centroid, :y) .* gp.dy
@@ -180,7 +180,7 @@ Others:
 ```julia 
 grid.LS[iLS].geoL.cap[II,8] # W1
 ``` 
-
+See [`set_cutcell_matrices!`](@ref)
 ```julia 
 grid.LS[iLS].geoL.cap[II,9] # W2
 ``` 
@@ -324,7 +324,7 @@ In the case of
 ```math
 \begin{aligned}
 {\mathrm{grad}(c^ω, c^{γ})}_{0 +\frac 12}  &= \mathcal{W}_{\frac 12}^\dagger (B_{1}c_{1}^\omega-B_{0}c_{0}^\omega \\
-&+ (A_{\frac 12} - B_{1})c_{1}^\gamma + (B_{0}-A_{-\frac 12})c_{0}^\gamma) \\
+&+ (A_{\frac 12} - B_{1})c_{1}^\gamma + (B_{0}-A_{\frac 12})c_{0}^\gamma) \\
 &= \frac{1}{\frac{h_x}{2}h_y} (h_yc_{1}^\omega- 0c_{0}^\omega \\
 &+ (h_y - h_y)c_{1}^\gamma + (0-h_y)c_{0}^\gamma) \\
 &=\frac{c_1^\omega-c_0^\gamma}{\frac{h_x}{2}}
@@ -355,10 +355,42 @@ Since ``\Gamma`` is shifted upwards in the y-direction ``A_{\frac 12}=0``:
 ```math
 \begin{aligned}
 {\mathrm{grad}(c^ω, c^{γ})}_{0 +\frac 12}  &= \mathcal{W}_{\frac 12}^\dagger (B_{1}c_{1}^\omega-B_{0}c_{0}^\omega \\
-&+ (A_{\frac 12} - B_{1})c_{1}^\gamma + (B_{0}-A_{-\frac 12})c_{0}^\gamma) \\
+&+ (A_{\frac 12} - B_{1})c_{1}^\gamma + (B_{0}-A_{\frac 12})c_{0}^\gamma) \\
 &= \frac{1}{\frac{h_x}{2}h_y} (h_x c_{1}^\omega- 0c_{0}^\omega \\
 &+ (0 - h_x)c_{1}^\gamma + (0-0)c_{0}^\gamma) \\
 &=\frac{c_i^\omega-c_0^\gamma}{\frac{h_y}{2}}
+\end{aligned}
+```
+
+
+##### Right wall
+For the right wall, with ``nx`` the number of cells in the x direction:
+
+!!! todo "TODO"
+    finish
+```math
+\begin{aligned}
+{\mathrm{grad}(c^ω, c^{γ})}_{nx +\frac 12}  &= \mathcal{W}_{\frac 12}^\dagger (B_{nx+1}c_{nx+1}^\omega-B_{nx}c_{nx}^\omega \\
+&+ (A_{nx+\frac 12} - B_{nx+1})c_{1}^\gamma + (B_{nx}-A_{nx+\frac 12})c_{nx}^\gamma) \\
+&= \frac{1}{\frac{h_x}{2}h_y} (0 c_{nx+1}^\omega- h_yc_{nx}^\omega \\
+&+ (h_y - 0)c_{nx+1}^\gamma + (h_y-h_y)c_{nx}^\gamma) \\
+&=\frac{-c_1^\omega+c_{nx+1}^\gamma}{\frac{h_x}{2}}
+\end{aligned}
+```
+
+##### Interface below
+
+!!! todo "TODO"
+    finish and check
+
+Since ``\Gamma`` is shifted downwards in the y-direction ``A_{\frac 12}=0``:
+```math
+\begin{aligned}
+{\mathrm{grad}(c^ω, c^{γ})}_{}  &= \mathcal{W}_{\frac 12}^\dagger (B_{}c_{1}^\omega-B_{0}c_{0}^\omega \\
+&+ (A_{\frac 12} - B_{1})c_{1}^\gamma + (B_{0}-A_{\frac 12})c_{0}^\gamma) \\
+&= \frac{1}{\frac{h_x}{2}h_y} (0 c_{1}^\omega- h_x c_{0}^\omega \\
+&+ (0 - 0)c_{1}^\gamma + (h_x-0)c_{0}^\gamma) \\
+&=\frac{-c_i^\omega+c_0^\gamma}{\frac{h_y}{2}}
 \end{aligned}
 ```
 
@@ -402,13 +434,92 @@ In the case of <span class="hover_img">
 </span>, the x-contribution from the wall (from the above expression) is:
 ```
 
+```@raw html
+<a name="tagdivleftwall"></a> 
+```
 ```math
-(0-h_y) (\frac{c_i^\omega-c_0^\gamma}{\frac{h_x}{2}})
+\color{flblue}{(0-h_y) (\frac{c_i^\omega-c_0^\gamma}{\frac{h_x}{2}}) + (0-0) q_{i-\frac{1}{2}}^\gamma }
+```
+Since 
+
+```@raw html
+<a name="tagdivbubbleinterface"></a> 
+```
+The y-contribution for the green bubble is (by denoting j=1 the index of the cell cut by the interface, in the phase under consideration, i.e. above the bubble here):
+ ```math
+\color{flblue}{(h_x-h_x) q_{\frac 32}^y + (0-h_x) q_{\frac 12}^y=-h_x (\frac{c_1^\omega-c_1^\gamma}{\frac{h_y}{2}}) }
+```
+The two former equations give an example of discretization of the boundary conditions at the left wall and at the interface.
+
+
+
+##### Right wall
+
+At nx+1
+
+```math
+\color{flblue}{(0-0) (\frac{c_i^\omega-c_0^\gamma}{\frac{h_x}{2}}) + (h_y-0) q_{i-\frac{1}{2}}^\gamma }
 ```
 
-The y-contribution for the green bubble is:
+```math
+\color{flblue}{ h_y q_{i-\frac{1}{2}}^\gamma \frac{-c_1^\omega+c_{nx+1}^\gamma}{\frac{h_x}{2}}}
+```
+
+Since 
+
+```@raw html
+<a name="tagdivbubbleinterface"></a> 
+```
+The y-contribution for the green bubble (under the bubble) is:
  ```math
-(h_x-h_x) q_{\frac 32}^y + (0-h_x) q_{\frac 12}^y=-h_x (\frac{c_1^\omega-c_1^\gamma}{\frac{h_y}{2}})
+\color{flblue}{(h_x-0) q_{i+\frac 12}^y + (h_x-h_x) q_{i-\frac 12}^y=h_x (\frac{-c_1^\omega+c_1^\gamma}{\frac{h_y}{2}}) }
+```
+
+If ``h_x=h_y``, we have the following coefficients on the rows of the interfacial values: +2 for interfacial, -2 for bulk
+
+!!! danger 
+    wrong sign
+
+
+```@raw html
+<table class="styled-table">
+
+    <thead>
+        <tr>
+        <th> BC </th>
+        <th>Border </th>
+        <th>Bulk </th>
+        </tr>
+    </thead>
+
+    <tbody>
+
+    <tr>
+        <th>Left</th>
+        <td> +2</td>
+        <td> -2</td>
+    </tr>
+
+    <tr>
+        <th>Right</th>
+        <td> +2</td>
+        <td> -2</td>
+    </tr>
+
+    <tr>
+        <th>Bottom</th>
+        <td> +2</td>
+        <td> -2</td>
+    </tr>
+
+    <tr>
+        <th>Top</th>
+        <td> +2</td>
+        <td> -2</td>
+    </tr>
+
+    </tbody>
+</table>
 ```
 
 ##### Example away from interfaces
@@ -431,6 +542,261 @@ With ``h_x = h_y``, this simplifies to:
 ```math
 {\mathrm{div}(q^ω, q^{γ})}_{i,j} = -4 c_{i,j} + c_{i-1,j} + c_{i+1,j} + c_{i,j-1} + c_{i,j+1}
 ```
+
+
+#### Poisson equation
+
+
+!!! todo "REMOVE"
+    In [`set_poisson`](@ref) system for `` + \nabla \cdot \nabla p = f`` is:
+
+In [`solve_poisson`](@ref) system for `` + \nabla \cdot \nabla p = f`` is:
+
+
+
+
+```math
+\begin{cases}
++ \mathrm{div} (q^\omega, q^\gamma ) &= V f^\omega\\
+I_a I p^\gamma + I_b \mathrm{div} (0, q^\omega) &= I g^\omega\\
+q^\omega &= \mathrm{grad} ( p^\omega, p^\gamma ) \\
+q^\gamma &= q^\omega
+\end{cases}
+```
+
+First line  ✔️ because ``div = -``
+
+Second line: rechecking
+
+!!! danger "Question"
+    since div in bulk and BC, and BC part of div is of opposite sign, why not opposite signs in matrix ?
+
+full divergence
+
+```@raw html
+<a name="tagfulldivergence"></a> 
+\begin{equation}
+\mathrm{div}(q^ω, q^{γ}  ) = − G^⊤ + H^{Γ1,⊤} + H^{Γ2,⊤} q^ω + H^{Γ1,⊤}q^{γ1} + H^{Γ2,⊤}q^{γ2}
+\end[equation]
+```
+
+```math
+\begin{equation}
+    \left [ \begin{array}{>{\centering\arraybackslash$} p{2.0cm} <{$} >{\centering\arraybackslash$} p{3.2cm} <{$}}
+    -G ^ \top W ^ \dagger G & -G ^ \top W ^ \dagger H \\
+    I _ b (-H ^ \top W ^ \dagger G) & I _ b (-H ^ \top W ^ \dagger H) + I _ a I _ \Gamma
+    \end{array} \right ] \left [ \begin{array}{c}
+    p ^ \omega \\
+    p ^ \gamma
+    \end{array} \right ] \simeq \left [ \begin{array}{c}
+    V f ^ \omega \\
+     I _ \Gamma g ^ \gamma
+    \end{array} \right ],
+\end{equation}
+```
+
+cf. :
+```julia
+A[end-nb+1:end,1:ni] = -b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
+```
+
+```julia
+A[end-nb+1:end,1:ni] = b_b * (-1) * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
+```
+This corresponds to ``I _ b (-H ^ \top W ^ \dagger G)``
+
+
+cf. :
+```julia
+A[end-nb+1:end,end-nb+1:end] = -pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b, 4.0)
+```
+
+```julia
+A[end-nb+1:end,end-nb+1:end] = pad(b_b *(-1) * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .+ χ_b * a1_b, -4.0)
+```
+This corresponds to ``I _ b (-H ^ \top W ^ \dagger H) + I _ a I _ \Gamma``
+
+```@docs
+pad
+```
+
+```julia
+A[sb,i*ni+1:(i+1)*ni] = -b * (HxT[iLS] * iMx * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
+```
+
+##### At the interface
+* Dirichlet __a1 = -1.0
+               
+* Neumann  __b = 1.0
+* Robin __a1 = -1.0
+        __a2 = 0.0
+        __b = 1.0
+
+In we have
+
+In [`set_borders!`](@ref), we have:
+
+Dirichlet: a1 = -1
+Neumann: b =1
+Robin: a1 = -1 b = 1
+a0 : BC value 
+
+!!! todo "Signs"
+    * why a1 = -1
+    * why -a0 
+
+
+```julia
+A[sb,sb] = -pad(
+b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .- χ[iLS] * a1 .+
+a2 * Diagonal(diag(fs_mat)), 4.0
+)
+```
+
+```julia
+A[sb,sb] = pad(
+b * (-1) * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .+ χ[iLS] * a1 .-
+a2 * Diagonal(diag(fs_mat)), -4.0
+)
+```
+
+
+!!! todo
+    ``a1 = -1``  
+
+```julia
+A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b * Hy_b)
+```
+
+Why ``+b``? and everywhere else ``-b`` ?
+
+
+
+```julia
+A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b * Hy_b)
+# Boundary conditions for outer boundaries
+A[end-nb+1:end,sb] = -b_b * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
+end
+
+veci(rhs,grid,iLS+1) .= -χ[iLS] * vec(a0[iLS])
+end
+
+vecb(rhs,grid) .= -χ_b * vec(a0_b)
+```
+
+
+```julia
+function set_poisson(
+    bc_type, num, grid, a0, opC, opC_u, opC_v,
+    A, L, bc_L, bc_L_b, BC,
+    ls_advection)
+    @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
+
+    ni = grid.nx * grid.ny
+    nb = 2 * grid.nx + 2 * grid.ny
+
+    rhs = fnzeros(grid, num)
+
+    a0_b = zeros(nb)
+    _a1_b = zeros(nb)
+    _b_b = zeros(nb)
+    # Dirichlet: a1 = -1
+    # Neumann: b =1
+    # Robin: a1 = -1 b = 1
+    # a0 : BC value 
+    for iLS in 1:num.nLS
+        set_borders!(grid, grid.LS[iLS].cl, grid.LS[iLS].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
+    end
+    a1_b = Diagonal(vec(_a1_b))
+    b_b = Diagonal(vec(_b_b))
+
+    if ls_advection
+        # Poisson equation
+        A[1:ni,1:ni] = pad(L, -4.0)
+        A[1:ni,end-nb+1:end] = bc_L_b
+
+        # Boundary conditions for outer boundaries
+        A[end-nb+1:end,1:ni] = -b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
+        A[end-nb+1:end,end-nb+1:end] = -pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b, 4.0)
+    end
+
+    for iLS in 1:num.nLS
+        if ls_advection
+            if is_dirichlet(bc_type[iLS])
+                __a1 = -1.0
+                __a2 = 0.0
+                __b = 0.0
+            elseif is_neumann(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_robin(bc_type[iLS])
+                __a1 = -1.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_fs(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 1.0
+                __b = 0.0
+            elseif is_wall_no_slip(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_navier(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_navier_cl(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            else
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            end
+    
+            _a1 = ones(grid) .* __a1
+            a1 = Diagonal(vec(_a1))
+            _a2 = ones(grid) .* __a2
+            a2 = Diagonal(vec(_a2))
+            _b = ones(grid) .* __b
+            b = Diagonal(vec(_b))
+
+            fs_mat = HxT[iLS] * Hx[iLS] .+ HyT[iLS] * Hy[iLS]
+
+            sb = iLS*ni+1:(iLS+1)*ni
+            
+            # Poisson equation
+            A[1:ni,sb] = bc_L[iLS]
+            # Boundary conditions for inner boundaries
+            A[sb,1:ni] = -b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
+            # Contribution to Neumann BC from other boundaries
+            for i in 1:num.nLS
+                if i != iLS
+                    A[sb,i*ni+1:(i+1)*ni] = -b * (HxT[iLS] * iMx * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
+                end
+            end
+            A[sb,sb] = -pad(
+                b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .- χ[iLS] * a1 .+
+                a2 * Diagonal(diag(fs_mat)), 4.0
+            )
+            A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b * Hy_b)
+            # Boundary conditions for outer boundaries
+            A[end-nb+1:end,sb] = -b_b * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
+        end
+
+        veci(rhs,grid,iLS+1) .= -χ[iLS] * vec(a0[iLS])
+    end
+
+    vecb(rhs,grid) .= -χ_b * vec(a0_b)
+    
+    return rhs
+end
+
+```
+
+
 
 
 ##### Simultaneous boundary conditions
@@ -535,7 +901,7 @@ where ``I`` measures the boundary within a given cell.
 "
 
 "
-The intermediate variables $q^\omega$ and $q^\gamma$ can be eliminated from the above linear system, which can then be expressed in terms of the previously defined matrices as
+The intermediate variables ``q^\omega`` and ``q^\gamma`` can be eliminated from the above linear system, which can then be expressed in terms of the previously defined matrices as
 ```math
 \begin{equation}
     \left [ \begin{array}{>{\centering\arraybackslash$} p{2.0cm} <{$} >{\centering\arraybackslash$} p{3.2cm} <{$}}
@@ -570,7 +936,9 @@ In [`Rodriguez 2024`](https://theses.fr/s384455), it is defined as:
 
 ``Y_\Gamma = \mathrm{diag}(|H^⊤1|)``
 
-With ``H=\begin{bmatrix}A^x D^x_- -D^x_- B^x_-\\A^y D^y_- -D^y_- B^y_- \end{bmatrix}``
+With ``G=\begin{bmatrix} D^{x}_- B^x \\ D^{y}_- B^y \end{bmatrix}`` and ``H=\begin{bmatrix}A^x D^x_- -D^x_- B^x_-\\A^y D^y_- -D^y_- B^y_- \end{bmatrix}``
+
+
 
 In [`set_cutcell_matrices!`](@ref) and [`scalar_transport!`](@ref), the interface length ``\chi`` is thus computed:
 
@@ -588,7 +956,7 @@ See this equation for the
 <a href="test.html#tagRobin">Robin</a> equations.
 ```
 
-The intermediate variables `q^\omega` and `q^\gamma` can be eliminated from the above linear system, which can then be expressed in terms of the previously defined matrices as 
+The intermediate variables ``q^\omega`` and ``q^\gamma`` can be eliminated from the above linear system, which can then be expressed in terms of the previously defined matrices as 
 
 
 ```math
@@ -902,7 +1270,6 @@ See [Definitions](@ref)
 
 ## Electrical potential
 ### Poisson equation for electrical potential
-cf. [Poisson equation](@ref)
 
 Variable coefficients are interpolated. The Laplacian matrices `L, bc_L_b and bc_L` are defined in the functions [`laplacian`](@ref) and [`laplacian_bc`](@ref). ``coeffD`` is a coefficient involving the electrical conductivity. Then, you have to put the coefficient ``coeffD`` before the matrices ``Bx, By, Hx, Hy, Hx_b`` and ``Hy_b``. The thing is that the gradient is not collocated with the scalar, so they don't have the same shapes for each direction. Five diagonal matrices with coeffD inside are required.
 

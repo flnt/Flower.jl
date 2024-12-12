@@ -118,6 +118,13 @@ sys	0m17,694s
 
 ## On HPC center
 
+### Ruche doc
+
+[Ruche doc](https://mesocentre.pages.centralesupelec.fr/mesocenter_training/main.pdf)
+
+[Julia on Ruche](https://gitlab-research.centralesupelec.fr/mesocentre-public/ruche_examples/-/tree/master/hello_julia
+)
+
 ### Installation
 ```bash
 curl -fsSL https://install.julialang.org | sh

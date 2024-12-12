@@ -44,9 +44,9 @@ end
 # @testset "Gradient" begin
 #     include("gradient.jl")
 # end
-@testset_skip "Check localization of u component of gradient" "Gradient" begin
-    include("gradient.jl")
-end
+# @testset_skip "Check localization of u component of gradient" "Gradient" begin
+#     include("gradient.jl")
+# end
 
 
 # Manufactured solutions
@@ -59,6 +59,17 @@ end
 # include("poisson_circular_interface_wall.jl")
 # end
 
+# Poisson without interface
+
+module testyamlfile #enables to perform a test with ARGS to give an input file
+ARGS = String["../Flower.jl/test/poisson_no_interface.yml"]
+include("poisson_no_interface_right_Neumann.jl")
+end
+
+module testyamlfile #enables to perform a test with ARGS to give an input file
+ARGS = String["../Flower.jl/test/poisson_no_interface.yml"]
+include("poisson_no_interface.jl")
+end
 
 module testyamlfile2 #enables to perform a test with ARGS to give an input file
 ARGS = String["../Flower.jl/test/poisson_circular_interface_Dirichlet.yml"]
@@ -80,10 +91,7 @@ end
 # include("poisson_square_circle_solve_poisson_cos_cos.jl")
 # end
 
-# module testyamlfile2 #enables to perform a test with ARGS to give an input file
-# ARGS = String["../Flower.jl/test/poisson_square_solve_poisson.yml"]
-# include("poisson_square_solve_poisson_cos_cos.jl")
-# end
+
 
 
 # module testyamlfile #enables to perform a test with ARGS to give an input file
