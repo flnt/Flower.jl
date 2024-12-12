@@ -75,8 +75,6 @@ function neumann_bcs!(gp, N)
         N[II] = Nx * cos(LS[1].α[II]+π) + Ny * sin(LS[1].α[II]+π)
     end
 
-    replace!(N, NaN=>0.0)
-
     return nothing
 end
 
@@ -92,7 +90,7 @@ function robin_bcs!(gp, R)
         R[II] = Nx * cos(LS[1].α[II]+π) + Ny * sin(LS[1].α[II]+π) + f(x_bc, y_bc)
     end
 
-    replace!(R, NaN=>0.0)
+    
 
     return nothing
 end

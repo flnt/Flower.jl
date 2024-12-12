@@ -67,8 +67,6 @@ function neumann_bcs!(gp, N)
         N[II] = Nx * cos(LS[1].α[II]+π) + Ny * sin(LS[1].α[II]+π)
     end
 
-    replace!(N, NaN=>0.0)
-
     return nothing
 end
 
@@ -84,7 +82,7 @@ function robin_bcs!(gp, R)
         R[II] = Nx * cos(LS[1].α[II]+π) + Ny * sin(LS[1].α[II]+π) + f(x_bc, y_bc)
     end
 
-    replace!(R, NaN=>0.0)
+    
 
     return nothing
 end
@@ -328,19 +326,20 @@ for (i,n) in enumerate(npts)
     # gp.LS[1].u .= 0.0 #deactivate interface
     gp.LS[1].u .= 1.0 #deactivate interface
 
-    # Signs in divergence theorem
+    # Signs in divergence theorem: for Robin boundary condition, pay attention to the fact that the derivative is defined with the exterior normal
+    #One way to do it is to change the sign in the rhs of the Robin equation
     sign_left = -1.0 #n \cdot e_x = -1
     sign_right = 1.0 #n \cdot e_x = 1
     sign_bottom = -1.0 #n \cdot e_y = -1
     sign_top = 1.0 #n \cdot e_y = 1
 
-    sign_left = 1.0
-    sign_right = 1.0
-    sign_bottom = 1.0
-    sign_top = 1.0
+    # sign_left = -1.0
+    # sign_right = 1.0
+    # sign_bottom = 1.0
+    # sign_top = 1.0
 
     sign_Poisson = -1.0 #because we solve -laplacian p = f
-    sign_Poisson = 1.0
+    sign_Poisson = 1.0 # we solve +laplacian p = f
 
     if verbosity>2
         print("\n sign Poisson ",sign_Poisson)
@@ -560,19 +559,19 @@ for (i,n) in enumerate(npts)
 
 
         @testset "A[i_corner_vecb_left,tmp]" begin
-            @test A[i_corner_vecb_left,tmp] ≈ 2.0 atol = test_tolerance
+            @test A[i_corner_vecb_left,tmp] ≈ -2.0 atol = test_tolerance
         end
 
         @testset "A[i_corner_vecb_left,i_corner_vecb_left]" begin
-            @test A[i_corner_vecb_left,i_corner_vecb_left] ≈ -2.0 atol = test_tolerance
+            @test A[i_corner_vecb_left,i_corner_vecb_left] ≈ 2.0 atol = test_tolerance
         end
 
         @testset "A[i_corner_vecb_bottom,tmp]" begin
-            @test A[i_corner_vecb_bottom,tmp] ≈ 2.0 atol = test_tolerance
+            @test A[i_corner_vecb_bottom,tmp] ≈ -2.0 atol = test_tolerance
         end
 
         @testset "A[i_corner_vecb_bottom,i_corner_vecb_bottom]" begin
-            @test A[i_corner_vecb_bottom,i_corner_vecb_bottom] ≈ -2.0 atol = test_tolerance
+            @test A[i_corner_vecb_bottom,i_corner_vecb_bottom] ≈ 2.0 atol = test_tolerance
         end
 
 

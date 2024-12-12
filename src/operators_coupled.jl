@@ -71,7 +71,15 @@ end
 end
 
 
-"""
+@doc raw"""
+    computes the capacity for the divergence, in the article, this corresponds to:
+
+```math
+-G ^ \top = \left [ \begin{array}{>{\centering\arraybackslash$} p{1.2cm} <{$} >{\centering\arraybackslash$} p{1.2cm} <{$}}
+B _ x D _ x ^ + & B _ y D _ y ^ +
+\end{array} \right ]
+```
+
 fills along x -dcap[II,6] +dcap[II,6] , along y -dcap[II,7] +dcap[II,7]
 """
 function divergence_B!(Ox, Oy, dcap, n, all_indices)
@@ -516,6 +524,7 @@ function mass_matrix_borders!(num,ind, iMx_b, iMy_b, iMx_bd, iMy_bd, dcap, n)
     return nothing
 end
 
+
 """
 Compute Hx and Hy, left: -A1 bottom: -A2 right: A3 top: A4
 """
@@ -547,6 +556,7 @@ function bc_matrix_borders!(grid::Mesh{GridCC,T,N}, ind, Hx, Hy, dcap) where {T,
     return nothing
 end
 
+
 function bc_matrix_borders!(grid::Mesh{GridFCx,T,N}, ind, ind_u, Hx, Hy, dcap, dcap_u) where {T,N}
     @unpack nx, ny = grid
     @unpack b_left, b_right = ind
@@ -575,6 +585,7 @@ function bc_matrix_borders!(grid::Mesh{GridFCx,T,N}, ind, ind_u, Hx, Hy, dcap, d
 
     return nothing
 end
+
 
 function bc_matrix_borders!(grid::Mesh{GridFCy,T,N}, ind, ind_v, Hx, Hy, dcap, dcap_v) where {T,N}
     @unpack nx, ny = grid

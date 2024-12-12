@@ -24,8 +24,6 @@ This document contains extracts from the theses and articles listed in [Referenc
 
 ## Definitions
 
-
-
 ### Convention and orientation of the bubble interface
 The signed distance is positive in the liquid and negative in the bubble. 
 
@@ -477,9 +475,10 @@ The y-contribution for the green bubble (under the bubble) is:
 
 If ``h_x=h_y``, we have the following coefficients on the rows of the interfacial values: +2 for interfacial, -2 for bulk
 
-!!! danger 
-    wrong sign
+!!! danger "Check sign"
 
+
+##### Coefficients in a simple configuration
 
 ```@raw html
 <table class="styled-table">
@@ -544,13 +543,24 @@ With ``h_x = h_y``, this simplifies to:
 ```
 
 
-#### Poisson equation
+##### Approximations inside a cell 
+
+The following hypothesis is made, ``q^\omega=q^\gamma=q``, which means that the cell-averaged gradient (corresponding to the control volume ..., associated with the centroid ...), is associated at the middle of the part of interface, as illustrated by the black arrows below.
 
 
-!!! todo "REMOVE"
-    In [`set_poisson`](@ref) system for `` + \nabla \cdot \nabla p = f`` is:
+```@raw html
+<figure>
+    <img src="./assets/Wx_mesh_square_bubble_wall_4.svg" alt="Face control volume " title="Face control volume">
+    <figcaption>Face control volume</figcaption>
+</figure>
+```
 
-In [`solve_poisson`](@ref) system for `` + \nabla \cdot \nabla p = f`` is:
+## Poisson equation
+
+!!! todo "Old implementation"
+    In [`set_poisson`](@ref) the system is `` + \nabla \cdot \nabla p = f`` :
+
+In [`solve_poisson`](@ref) system is `` + \nabla \cdot \nabla p = f`` :
 
 
 
@@ -564,7 +574,6 @@ q^\gamma &= q^\omega
 \end{cases}
 ```
 
-First line  ✔️ because ``div = -``
 
 Second line: rechecking
 
@@ -575,16 +584,25 @@ full divergence
 
 ```@raw html
 <a name="tagfulldivergence"></a> 
+```
+```math
 \begin{equation}
-\mathrm{div}(q^ω, q^{γ}  ) = − G^⊤ + H^{Γ1,⊤} + H^{Γ2,⊤} q^ω + H^{Γ1,⊤}q^{γ1} + H^{Γ2,⊤}q^{γ2}
-\end[equation]
+\mathrm{div}(q^ω, q^{γ}  ) = − (G^⊤ + H^{Γ1,⊤} + H^{Γ2,⊤}) q^ω + H^{Γ1,⊤}q^{γ1} + H^{Γ2,⊤}q^{γ2}
+\end{equation}
+```
+
+```@raw html
+<a name="grad_concise"></a> 
+```
+```math
+\mathrm{grad}(q^ω, q^{γ}  ) = W ^ \dagger \left ( G p ^ \omega + H p ^ \gamma \right )
 ```
 
 ```math
 \begin{equation}
     \left [ \begin{array}{>{\centering\arraybackslash$} p{2.0cm} <{$} >{\centering\arraybackslash$} p{3.2cm} <{$}}
     -G ^ \top W ^ \dagger G & -G ^ \top W ^ \dagger H \\
-    I _ b (-H ^ \top W ^ \dagger G) & I _ b (-H ^ \top W ^ \dagger H) + I _ a I _ \Gamma
+    I _ b (H ^ \top W ^ \dagger G) & I _ b (H ^ \top W ^ \dagger H) + I _ a I _ \Gamma
     \end{array} \right ] \left [ \begin{array}{c}
     p ^ \omega \\
     p ^ \gamma
@@ -595,34 +613,389 @@ full divergence
 \end{equation}
 ```
 
-cf. :
-```julia
-A[end-nb+1:end,1:ni] = -b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
-```
+### Interface length
+
+The interface length is defined as:
+
+``\chi = \sqrt{{(A_{\frac 12}^x-B_0^x)}^2+{(B_0^x-A_{-\frac 12}^x)}^2 + {(A_{\frac 12}^y-B_0^y)}^2+{(B_0^y-A_{-\frac 12}^y)}^2}``
+
+In [`Rodriguez 2024`](https://theses.fr/s384455), it is defined as:
+
+``Y_\Gamma = \mathrm{diag}(|H^⊤1|)``
+
+With ``G=\begin{bmatrix} D^{x}_- B^x \\ D^{y}_- B^y \end{bmatrix}`` and ``H=\begin{bmatrix}A^x D^x_- -D^x_- B^x_-\\A^y D^y_- -D^y_- B^y_- \end{bmatrix}``
+
+
+
+In [`set_cutcell_matrices!`](@ref) and [`scalar_transport!`](@ref), the interface length ``\chi`` is thus computed:
 
 ```julia
-A[end-nb+1:end,1:ni] = b_b * (-1) * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
-```
-This corresponds to ``I _ b (-H ^ \top W ^ \dagger G)``
-
-
-cf. :
-```julia
-A[end-nb+1:end,end-nb+1:end] = -pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b, 4.0)
+χx = (grid.LS[iLS].geoL.dcap[:,:,3] .- grid.LS[iLS].geoL.dcap[:,:,1]) .^ 2
+χy = (grid.LS[iLS].geoL.dcap[:,:,4] .- grid.LS[iLS].geoL.dcap[:,:,2]) .^ 2
+op.χ[iLS].diag .= sqrt.(vec(χx .+ χy))
 ```
 
-```julia
-A[end-nb+1:end,end-nb+1:end] = pad(b_b *(-1) * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .+ χ_b * a1_b, -4.0)
-```
-This corresponds to ``I _ b (-H ^ \top W ^ \dagger H) + I _ a I _ \Gamma``
+### System
+
+#### For the bulk: 1:ni
+With the [`pad`](@ref) function:
 
 ```@docs
 pad
 ```
 
 ```julia
-A[sb,i*ni+1:(i+1)*ni] = -b * (HxT[iLS] * iMx * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
+A[1:ni,1:ni] = pad(L, -4.0)
+A[1:ni,end-nb+1:end] = bc_L_b
 ```
+The function [`laplacian`](@ref) returns
+
+```
+L = BxT * iMx * Bx .+ ByT * iMy * By
+bc_L[iLS]= BxT * iMx * Hx[iLS] .+ ByT * iMy * Hy[iLS]
+bc_L_b = (BxT * iMx_b * Hx_b .+ ByT * iMy_b * Hy_b)
+```
+ 
+!!! info "Correpondence article-implementation"
+    cf. [`divergence_B!`](@ref)
+    ni: bulk so BxT →-G^T , Bx→G in the article 
+    Hx → H
+    Hx_b →H
+
+So ``A[1:ni,1:ni] = pad(L, -4.0)`` corresponds to ``\mathrm{div}``: ``-G ^ \top W ^ \dagger G ``
+
+```julia
+A[1:ni,end-nb+1:end] = bc_L_b
+``` 
+corresponds to `` -G ^ \top W ^ \dagger H `` (``Hx_b`` is for the wall)
+
+#### For the wall: A[end-nb+1:end,:]
+```julia
+A[end-nb+1:end,1:ni] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
+```
+corresponds to 
+
+``
+I _ b (H ^ \top W ^ \dagger G) 
+``
+
+
+
+in cf. [`set_border_matrices!`](@ref):
+cf. [`bc_matrix_borders!`](@ref) : - sign to the left (cf the outward normal), +sigh to the right
+and with
+
+```julia 
+mat_assign_T!(opC_p.HxT_b, sparse(opC_p.Hx_b'))
+```
+``Hx_b`` is the transpose of ``HxT_b``
+
+
+
+cf. :
+```julia
+A[end-nb+1:end,end-nb+1:end] = pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .+ χ_b * a1_b, -4.0)
+```
+corresponds to
+```math
+I _ b (H ^ \top W ^ \dagger H) + I _ a I _ \Gamma
+```
+
+!!! todo "-4 or 4"
+    -4 (convention, value not important ?)
+
+
+
+
+
+```julia
+A[1:ni,sb] = bc_L[iLS]
+```
+corresponds `` -G ^ \top W ^ \dagger H `` (``Hx[iLS]`` is for the wall in [`laplacian`](@ref))
+
+
+
+#### For the interface (other than wall)
+```julia
+# Boundary conditions for inner boundaries
+A[sb,1:ni] = b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
+# Contribution to Neumann BC from other boundaries
+for i in 1:num.nLS
+    if i != iLS
+        A[sb,i*ni+1:(i+1)*ni] = b * (HxT[iLS] * iMx * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
+    end
+end
+A[sb,sb] = pad(
+    b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .+ χ[iLS] * a1 .-
+    a2 * Diagonal(diag(fs_mat)), -4.0
+)
+#TODO was +b... here in set_poisson 
+A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b * Hy_b) #why was it different in set_poisson ?
+# Boundary conditions for outer boundaries
+A[end-nb+1:end,sb] = b_b * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
+end
+
+veci(rhs,grid,iLS+1) .= +χ[iLS] * vec(a0[iLS]) #was - in set_poisson
+end
+
+vecb(rhs,grid) .= +χ_b * vec(a0_b) #was - in set_poisson
+    
+```
+
+```julia
+A[sb,i*ni+1:(i+1)*ni] = b * (HxT[iLS] * iMx * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
+```
+
+!!! todo "Sign free-surface, check"
+
+
+In [`solve_poisson`](@ref):
+
+```julia
+function solve_poisson(
+    bc_type, num, grid, a0, opC, opC_u, opC_v,
+    A, L, bc_L, bc_L_b, BC,
+    ls_advection)
+    @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
+
+    ni = grid.nx * grid.ny
+    nb = 2 * grid.nx + 2 * grid.ny
+
+    rhs = fnzeros(grid, num)
+
+    a0_b = zeros(nb)
+    _a1_b = zeros(nb)
+    _b_b = zeros(nb)
+    for iLS in 1:num.nLS
+        set_borders_poisson!(grid, grid.LS[iLS].cl, grid.LS[iLS].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
+    end
+    a1_b = Diagonal(vec(_a1_b))
+    b_b = Diagonal(vec(_b_b))
+
+    if ls_advection
+        # Poisson equation
+        A[1:ni,1:ni] = pad(L, -4.0)
+        A[1:ni,end-nb+1:end] = bc_L_b
+
+        # Boundary conditions for outer boundaries
+        A[end-nb+1:end,1:ni] = b_b * ( (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By) )
+        A[end-nb+1:end,end-nb+1:end] = pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .+ χ_b * a1_b,- 4.0)
+    end
+
+    for iLS in 1:num.nLS
+        if ls_advection
+            if is_dirichlet(bc_type[iLS])
+                __a1 = 1.0
+                __a2 = 0.0
+                __b = 0.0
+            elseif is_neumann(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_robin(bc_type[iLS])
+                __a1 = 1.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_fs(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 1.0
+                __b = 0.0
+            elseif is_wall_no_slip(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_navier(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_navier_cl(bc_type[iLS])
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            else
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            end
+    
+            _a1 = ones(grid) .* __a1
+            a1 = Diagonal(vec(_a1))
+            _a2 = ones(grid) .* __a2
+            a2 = Diagonal(vec(_a2))
+            _b = ones(grid) .* __b
+            b = Diagonal(vec(_b))
+
+            fs_mat = HxT[iLS] * Hx[iLS] .+ HyT[iLS] * Hy[iLS]
+
+            sb = iLS*ni+1:(iLS+1)*ni
+            
+            # Poisson equation
+            A[1:ni,sb] = bc_L[iLS]
+            # Boundary conditions for inner boundaries
+            A[sb,1:ni] = b * (-1) * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
+            # Contribution to Neumann BC from other boundaries
+            for i in 1:num.nLS
+                if i != iLS
+                    A[sb,i*ni+1:(i+1)*ni] = b * (-1) * (HxT[iLS] * iMx * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
+                end
+            end
+            A[sb,sb] = pad(
+                b * (-1) *(HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .+ χ[iLS] * a1 .-
+                a2 * Diagonal(diag(fs_mat)), -4.0
+            )
+            #TODO was +b... here in set_poisson 
+            A[sb,end-nb+1:end] = b * (-1) * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b * Hy_b) #why was it different in set_poisson ?
+            # Boundary conditions for outer boundaries
+            A[end-nb+1:end,sb] = b_b * (-1) * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
+        end
+
+        veci(rhs,grid,iLS+1) .= +χ[iLS] * vec(a0[iLS]) #was - in set_poisson
+    end
+
+    vecb(rhs,grid) .= +χ_b * vec(a0_b) #was - in set_poisson
+    
+    return rhs
+end
+
+```
+
+
+
+
+
+
+
+
+##### Simultaneous boundary conditions
+
+##### Corners
+
+!!! todo "TODO"
+    corners
+
+
+
+
+
+
+## Poisson equation (old implementation)
+
+From [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707-024-04133-4)
+
+We consider the Poisson equation ``-\nabla \cdot \nabla p = f~\text{in}~\Omega`` and the Robin boundary condition ``\frac{\partial p}{\partial n} = q = g``  where a and b are two scalar coefficients
+
+
+is written:
+
+`` \color{flblue}{\oint_\Gamma q \cdot n dS} = g \chi``
+```@raw html
+<a name="tagRobin"></a> 
+```
+Robin boundary condition `` ap + b \frac{\partial p}{\partial n} =  g``
+
+
+The hypothesis ``q^\omega=q^\gamma=q`` can be made for system resolution, which simplifies the above expression:
+
+```math
+\begin{aligned}
+\int_\Omega \nabla \cdot q dV = B_i^x (q_{i+ \frac 12}^x-q_{i - \frac 12}^x) + B_i^y (q_{j+ \frac 12}^y-q_{i - \frac 12}^y)
+\end{aligned}
+```
+
+
+"The scalar value along the immersed boundary ( ``p^\gamma`` ) is not explicitly known, and has to be inferred from the values of the normal component of the gradient along the immersed  boundary and ``g``. The discretization of this equation requires the definition of the boundary vectors ``g^\gamma`` , ``a^\gamma`` and ``b^\gamma`` for boundary cells, whose components are set to,
+
+``g^\gamma = g(x_{i,j}^\gamma, y_{i,j}^\gamma)``
+``a^\gamma = a(x_{i,j}^\gamma, y_{i,j}^\gamma)``
+``b^\gamma = b(x_{i,j}^\gamma, y_{i,j}^\gamma)``
+
+where ``a^\gamma`` and ``b^\gamma`` define the diagonal matrices ``I_a`` and ``I_b``,  ``I_a = \mathrm{diag} (a^\gamma)`` and ``I_b = \mathrm{diag} (b^\gamma)``.  Likewise, the components of the discrete load ``f^\omega`` are defined as  ``f^\omega_{i,j} = f  (  x_{i,j}^\gamma, y_{i,j}^\gamma  )``  in fluid cells and zero elsewhere.
+"
+
+
+```@raw html
+See this equation for the
+<a href="documentation.html#divergencetag">divergence</a> and:
+```
+
+"
+In order to discretize the Poisson and Robin 
+```@raw html
+See this equation for the
+<a href="test.html#tagPoisson">Poisson</a> and <a href="test.html#tagRobin">Robin</a> equations
+```
+, the term with the derivative in the normal direction ``(\partial_n p)`` is set as the boundary contribution to the divergence. The resulting system is given by:
+
+
+```math
+\begin{cases}
+− \mathrm{div} (q^\omega, q^\gamma ) &= V f^\omega\\
+I_a I p^\gamma − I_b \mathrm{div} (0, q^\omega) &= I g^\omega\\
+q^\omega &= \mathrm{grad} ( p^\omega, p^\gamma ) \\
+q^\gamma &= q^\omega
+\end{cases}
+```
+
+where ``I`` measures the boundary within a given cell.
+"
+
+"
+The intermediate variables ``q^\omega`` and ``q^\gamma`` can be eliminated from the above linear system, which can then be expressed in terms of the previously defined matrices as
+```math
+\begin{equation}
+    \left [ \begin{array}{>{\centering\arraybackslash$} p{2.0cm} <{$} >{\centering\arraybackslash$} p{3.2cm} <{$}}
+    G ^ \top W ^ \dagger G & G ^ \top W ^ \dagger H \\
+    I _ b H ^ \top W ^ \dagger G & I _ b H ^ \top W ^ \dagger H + I _ a I _ \Gamma
+    \end{array} \right ] \left [ \begin{array}{c}
+    p ^ \omega \\
+    p ^ \gamma
+    \end{array} \right ] \simeq \left [ \begin{array}{c}
+    V f ^ \omega \\
+     I _ \Gamma g ^ \gamma
+    \end{array} \right ],
+\label{eq:roblapmat}
+\end{equation}
+```
+"
+
+
+```@raw html
+by eliminating all intermediate variables and using Eqs.
+<a href="documentation.html#grad_concise">(gradient)</a> and <a href="documentation.html#div_concise">(divergence)</a>.
+```
+"The matrix on the left-hand side is symmetric if the coefficients b are equal to one and it is straightforward to obtain a symmetric matrix if they are not. Appendix C presents the resulting expression for a given cell of the one-dimensional Poisson's equation, for the sake of clarity."
+
+
+
+From [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707-024-04133-4)
+"
+$I^\Gamma$ is needed in order to have a dimensionally consistent equation for the 
+```@raw html
+See this equation for the
+<a href="test.html#tagRobin">Robin</a> equations.
+```
+
+The intermediate variables ``q^\omega`` and ``q^\gamma`` can be eliminated from the above linear system, which can then be expressed in terms of the previously defined matrices as 
+
+
+```math
+\begin{bmatrix}
+G W^\dagger G & G W^\dagger H\\
+I_b H W ^\dagger G & I_b H W ^\dagger  H + I_a I_\Gamma 
+\end{bmatrix}
+\begin{bmatrix}
+p^\omega\\
+p^\gamma
+\end{bmatrix} = 
+\begin{bmatrix}
+V f^\omega\\
+I g^\gamma
+\end{bmatrix}
+```
+
+"
+
+
 
 ##### At the interface
 * Dirichlet __a1 = -1.0
@@ -684,6 +1057,23 @@ end
 vecb(rhs,grid) .= -χ_b * vec(a0_b)
 ```
 
+```@docs
+set_poisson
+```
+
+
+
+cf. [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707-024-04133-4) for a 1D expression in the i-th cell, x component 
+
+
+```math
+\begin{aligned}
+-\mathcal{B}_{x,i} [&\mathcal{W}_{x,i+1} (\mathcal{B}_{x,i+1} p^\omega_{i+1} - \mathcal{B}_{x,i} p^\omega _i ) - \mathcal{W}_{x,i} (\mathcal{B}_{x,i} p^\omega_i - \mathcal{B}_{x,i-1} p^\omega_{i-1} )] \\
+-\mathcal{B}_{x,i} \{&\mathcal{W}_{x,i+1} [(\mathcal{B}_{x,i+1}  - \mathcal{A}_{x,i+1} )p^\gamma_{i+1} - (\mathcal{A}_{x,i+1} - \mathcal{B}_{x,i} ) p^\gamma_i ] \\
+&-\mathcal{W}_{x,i} [(\mathcal{B}_{x,i} - A_{x,i} ) p^\gamma_i + (A_{x,i} - \mathcal{B}_{x,i-1}) p^\gamma_{i-1} ] \} \\
+= V_i f^\omega_i&
+\end{aligned}
+```
 
 ```julia
 function set_poisson(
@@ -795,192 +1185,6 @@ function set_poisson(
 end
 
 ```
-
-
-
-
-##### Simultaneous boundary conditions
-
-##### Corners
-
-!!! todo "TODO"
-    corners
-
-
-##### Epsilon/handling small or cancelled cells
-
-* ``num.\epsilon`` is uded for small cells
-* weights for cancelled cells
-
-```@docs
-inv_weight_clip
-```
-
-
-##### Sources of errors
-* [`inv_weight_clip`](@ref)
-* eps added to diagonal (``A[i,i] += 1e-10``)
-* epsilon for small cells (``num.\epsilon``)
-* Approximation of gradient inside a cell (``q^\omega \approx q^\gamma``)
-* approximation of interface
-
-
-
-##### Approximations inside a cell 
-
-The following hypothesis is made, ``q^\omega=q^\gamma=q``, which means that the cell-averaged gradient (corresponding to the control volume ..., associated with the centroid ...), is associated at the middle of the part of interface, as illustrated by the black arrows below.
-
-
-```@raw html
-<figure>
-    <img src="./assets/Wx_mesh_square_bubble_wall_4.svg" alt="Face control volume " title="Face control volume">
-    <figcaption>Face control volume</figcaption>
-</figure>
-```
-
-
-## Poisson equation
-
-From [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707-024-04133-4)
-
-We consider the Poisson equation ``-\nabla \cdot \nabla p = f~\text{in}~\Omega`` and the Robin boundary condition ``\frac{\partial p}{\partial n} = q = g``  where a and b are two scalar coefficients
-
-
-is written:
-
-`` \color{flblue}{\oint_\Gamma q \cdot n dS} = g \chi``
-```@raw html
-<a name="tagRobin"></a> 
-```
-Robin boundary condition `` ap + b \frac{\partial p}{\partial n} =  g``
-
-
-The hypothesis ``q^\omega=q^\gamma=q`` can be made for system resolution, which simplifies the above expression:
-
-```math
-\begin{aligned}
-\int_\Omega \nabla \cdot q dV = B_i^x (q_{i+ \frac 12}^x-q_{i - \frac 12}^x) + B_i^y (q_{j+ \frac 12}^y-q_{i - \frac 12}^y)
-\end{aligned}
-```
-
-
-"The scalar value along the immersed boundary ( ``p^\gamma`` ) is not explicitly known, and has to be inferred from the values of the normal component of the gradient along the immersed  boundary and ``g``. The discretization of this equation requires the definition of the boundary vectors ``g^\gamma`` , ``a^\gamma`` and ``b^\gamma`` for boundary cells, whose components are set to,
-
-``g^\gamma = g(x_{i,j}^\gamma, y_{i,j}^\gamma)``
-``a^\gamma = a(x_{i,j}^\gamma, y_{i,j}^\gamma)``
-``b^\gamma = b(x_{i,j}^\gamma, y_{i,j}^\gamma)``
-
-where ``a^\gamma`` and ``b^\gamma`` define the diagonal matrices ``I_a`` and ``I_b``,  ``I_a = \mathrm{diag} (a^\gamma)`` and ``I_b = \mathrm{diag} (b^\gamma)``.  Likewise, the components of the discrete load ``f^\omega`` are defined as  ``f^\omega_{i,j} = f  (  x_{i,j}^\gamma, y_{i,j}^\gamma  )``  in fluid cells and zero elsewhere.
-"
-
-
-```@raw html
-See this equation for the
-<a href="documentation.html#divergencetag">divergence</a> and:
-```
-
-"
-In order to discretize the Poisson and Robin 
-```@raw html
-See this equation for the
-<a href="test.html#tagPoisson">Poisson</a> and <a href="test.html#tagRobin">Robin</a> equations
-```
-, the term with the derivative in the normal direction ``(\partial_n p)`` is set as the boundary contribution to the divergence. The resulting system is given by:
-
-
-```math
-\begin{cases}
-− \mathrm{div} (q^\omega, q^\gamma ) &= V f^\omega\\
-I_a I p^\gamma − I_b \mathrm{div} (0, q^\omega) &= I g^\omega\\
-q^\omega &= \mathrm{grad} ( p^\omega, p^\gamma ) \\
-q^\gamma &= q^\omega
-\end{cases}
-```
-
-where ``I`` measures the boundary within a given cell.
-"
-
-"
-The intermediate variables ``q^\omega`` and ``q^\gamma`` can be eliminated from the above linear system, which can then be expressed in terms of the previously defined matrices as
-```math
-\begin{equation}
-    \left [ \begin{array}{>{\centering\arraybackslash$} p{2.0cm} <{$} >{\centering\arraybackslash$} p{3.2cm} <{$}}
-    G ^ \top W ^ \dagger G & G ^ \top W ^ \dagger H \\
-    I _ b H ^ \top W ^ \dagger G & I _ b H ^ \top W ^ \dagger H + I _ a I _ \Gamma
-    \end{array} \right ] \left [ \begin{array}{c}
-    p ^ \omega \\
-    p ^ \gamma
-    \end{array} \right ] \simeq \left [ \begin{array}{c}
-    V f ^ \omega \\
-     I _ \Gamma g ^ \gamma
-    \end{array} \right ],
-\label{eq:roblapmat}
-\end{equation}
-```
-"
-
-
-```@raw html
-by eliminating all intermediate variables and using Eqs.
-<a href="documentation.html#grad_concise">(gradient)</a> and <a href="documentation.html#div_concise">(divergence)</a>.
-```
-"The matrix on the left-hand side is symmetric if the coefficients b are equal to one and it is straightforward to obtain a symmetric matrix if they are not. Appendix C presents the resulting expression for a given cell of the one-dimensional Poisson's equation, for the sake of clarity."
-
-##### Interface length
-
-The interface length is defined as:
-
-``\chi = \sqrt{{(A_{\frac 12}^x-B_0^x)}^2+{(B_0^x-A_{-\frac 12}^x)}^2 + {(A_{\frac 12}^y-B_0^y)}^2+{(B_0^y-A_{-\frac 12}^y)}^2}``
-
-In [`Rodriguez 2024`](https://theses.fr/s384455), it is defined as:
-
-``Y_\Gamma = \mathrm{diag}(|H^⊤1|)``
-
-With ``G=\begin{bmatrix} D^{x}_- B^x \\ D^{y}_- B^y \end{bmatrix}`` and ``H=\begin{bmatrix}A^x D^x_- -D^x_- B^x_-\\A^y D^y_- -D^y_- B^y_- \end{bmatrix}``
-
-
-
-In [`set_cutcell_matrices!`](@ref) and [`scalar_transport!`](@ref), the interface length ``\chi`` is thus computed:
-
-```julia
-χx = (grid.LS[iLS].geoL.dcap[:,:,3] .- grid.LS[iLS].geoL.dcap[:,:,1]) .^ 2
-χy = (grid.LS[iLS].geoL.dcap[:,:,4] .- grid.LS[iLS].geoL.dcap[:,:,2]) .^ 2
-op.χ[iLS].diag .= sqrt.(vec(χx .+ χy))
-```
-
-From [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707-024-04133-4)
-"
-$I^\Gamma$ is needed in order to have a dimensionally consistent equation for the 
-```@raw html
-See this equation for the
-<a href="test.html#tagRobin">Robin</a> equations.
-```
-
-The intermediate variables ``q^\omega`` and ``q^\gamma`` can be eliminated from the above linear system, which can then be expressed in terms of the previously defined matrices as 
-
-
-```math
-\begin{bmatrix}
-G W^\dagger G & G W^\dagger H\\
-I_b H W ^\dagger G & I_b H W ^\dagger  H + I_a I_\Gamma 
-\end{bmatrix}
-\begin{bmatrix}
-p^\omega\\
-p^\gamma
-\end{bmatrix} = 
-\begin{bmatrix}
-V f^\omega\\
-I g^\gamma
-\end{bmatrix}
-```
-
-"
-
-
-```@docs
-set_poisson
-```
-
 
 
 ### Boundary conditions
@@ -1397,8 +1601,39 @@ laplacian_bc
 There are several ways to present the method: G and H, Morinishi's notations and a geometric formulation: [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707-024-04133-4).
 ```@docs
 diamond
+```
+
+
+### Functions for divergence
+
+```math
+-G^T= [ B_xD_x^+ B_yD_y^+ ]
+```
+
+with 
+
+```math
+\begin{equation}
+( D ^ - _ x ) ^ \top = -D ^ + _ x \quad \mathrm{and} \quad ( S ^ - _ x ) ^ \top = S ^ + _ x,
+\label{eq:multitrans}    
+\end{equation}
+```
+
+```math
+\Delta ^ + = \left [ \begin{array}{rrrrr}
+  -1   &    1   &        &        &         \\
+       &   -1   &    1   &        &         \\
+       &        & \ddots & \ddots &         \\
+       &        &        &   -1   &     1   \\
+       &        &        &        &     0
+\end{array} \right ]
+```
+
+```@docs
 divergence_B!
 ```
+
+Then, for the gradient, ``B_x`` corresponds to ``-BxT'`` i.e. ``-(-G^T)^T=G``
 
 
 
@@ -1580,11 +1815,32 @@ init_ghost_neumann_2
 
 
 ## Possible improvements 
+* Interface length
 * Remove ``replace!(N, NaN=>0.0)``
 * imposed constant velocity field : after 100 it : error after scalar transport 3.88e-14
 * pressure BC during prediction 
 * small cells: linear algebra, time step ...
 * Epsilon to prevent NaN, with eps : coefficients not exact 
+
+
+### Epsilon/handling small or cancelled cells
+
+* ``num.\epsilon`` is uded for small cells
+* weights for cancelled cells
+
+```@docs
+inv_weight_clip
+```
+
+
+### Sources of errors
+* [`inv_weight_clip`](@ref)
+* eps added to diagonal (``A[i,i] += 1e-10``)
+* epsilon for small cells (``num.\epsilon``)
+* Approximation of gradient inside a cell (``q^\omega \approx q^\gamma``)
+* approximation of interface
+
+
 
 ## IO/post-processing
 

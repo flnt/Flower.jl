@@ -3814,19 +3814,6 @@ end
 - ls_advection
 
 
-
-cf. [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707-024-04133-4) for a 1D expression in the i-th cell, x component 
-
-
-```math
-\begin{aligned}
--\mathcal{B}_{x,i} [&\mathcal{W}_{x,i+1} (\mathcal{B}_{x,i+1} p^\omega_{i+1} - \mathcal{B}_{x,i} p^\omega _i ) - \mathcal{W}_{x,i} (\mathcal{B}_{x,i} p^\omega_i - \mathcal{B}_{x,i-1} p^\omega_{i-1} )] \\
--\mathcal{B}_{x,i} \{&\mathcal{W}_{x,i+1} [(\mathcal{B}_{x,i+1}  - \mathcal{A}_{x,i+1} )p^\gamma_{i+1} - (\mathcal{A}_{x,i+1} - \mathcal{B}_{x,i} ) p^\gamma_i ] \\
-&-\mathcal{W}_{x,i} [(\mathcal{B}_{x,i} - A_{x,i} ) p^\gamma_i + (A_{x,i} - \mathcal{B}_{x,i-1}) p^\gamma_{i-1} ] \} \\
-= V_i f^\omega_i&
-\end{aligned}
-```
-
 """
 function solve_poisson(
     bc_type, num, grid, a0, opC, opC_u, opC_v,
@@ -3854,8 +3841,8 @@ function solve_poisson(
         A[1:ni,end-nb+1:end] = bc_L_b
 
         # Boundary conditions for outer boundaries
-        A[end-nb+1:end,1:ni] = b_b * ( -(HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By) )
-        A[end-nb+1:end,end-nb+1:end] = pad(b_b * (-1) * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .+ χ_b * a1_b,- 4.0)
+        A[end-nb+1:end,1:ni] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By) 
+        A[end-nb+1:end,end-nb+1:end] = pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .+ χ_b * a1_b,- 4.0)
     end
 
     for iLS in 1:num.nLS
@@ -3908,21 +3895,21 @@ function solve_poisson(
             # Poisson equation
             A[1:ni,sb] = bc_L[iLS]
             # Boundary conditions for inner boundaries
-            A[sb,1:ni] = b * (-1) * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
+            A[sb,1:ni] = b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
             # Contribution to Neumann BC from other boundaries
             for i in 1:num.nLS
                 if i != iLS
-                    A[sb,i*ni+1:(i+1)*ni] = b * (-1) * (HxT[iLS] * iMx * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
+                    A[sb,i*ni+1:(i+1)*ni] = b * (HxT[iLS] * iMx * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
                 end
             end
             A[sb,sb] = pad(
-                b * (-1) *(HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .+ χ[iLS] * a1 .-
+                b *(HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .+ χ[iLS] * a1 .-
                 a2 * Diagonal(diag(fs_mat)), -4.0
             )
             #TODO was +b... here in set_poisson 
-            A[sb,end-nb+1:end] = b * (-1) * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b * Hy_b) #why was it different in set_poisson ?
+            A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b * Hy_b) #why was it different in set_poisson ?
             # Boundary conditions for outer boundaries
-            A[end-nb+1:end,sb] = b_b * (-1) * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
+            A[end-nb+1:end,sb] = b_b * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
         end
 
         veci(rhs,grid,iLS+1) .= +χ[iLS] * vec(a0[iLS]) #was - in set_poisson

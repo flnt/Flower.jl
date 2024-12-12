@@ -428,9 +428,7 @@ end
 
 
 """
-function set_border_matrices!
-
-set boundary indicators, heights...
+set boundary indicators, heights for the wall
 """
 function set_border_matrices!(num,
     grid, geo, grid_u, geo_u, grid_v, geo_v,
@@ -578,8 +576,12 @@ function no_slip_condition!(num, grid, grid_u, LS_u, grid_v, LS_v, periodic_x, p
     grid_u.V .*= normalx
     grid_v.V .*= normaly
 
-    replace!(grid_u.V, NaN=>0.0)
-    replace!(grid_v.V, NaN=>0.0)
+    if any(isnan, grid_u.V) || any(isnan, grid_v.V)
+
+        @error("NaN no_slip_condition!")
+        replace!(grid_u.V, NaN=>0.0)
+        replace!(grid_v.V, NaN=>0.0)
+    end
 
     i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext = indices_extension(grid_u, LS_u, grid_u.ind.inside, periodic_x, periodic_y)
     i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext = indices_extension(grid_v, LS_v, grid_v.ind.inside, periodic_x, periodic_y)
@@ -1044,9 +1046,13 @@ function FE_set_momentum_coupled(
                         )
                     elseif i != iLS
                         sinα = Diagonal(vec(sin.(gp.LS[i].α)))
-                        replace!(sinα.diag, NaN=>0.0)
                         cosα = Diagonal(vec(cos.(gp.LS[i].α)))
-                        replace!(cosα.diag, NaN=>0.0)
+
+                        if any(isnan, sinα.diag) || any(isnan, cosα.diag)
+                            @error("NaN FE_set_momentum_coupled")
+                            replace!(sinα.diag, NaN=>0.0)
+                            replace!(cosα.diag, NaN=>0.0)
+                        end
 
                         cap1 = hcat(
                             zeros(gp.ny),
@@ -1152,14 +1158,23 @@ function FE_set_momentum_coupled(
                 _iLS += 1
             else # Tangential component of velocity if Navier BC #if !is_navier_cl(bc_type[iLS]) && !is_navier(bc_type[iLS])
                 sinα_p = Diagonal(vec(sin.(gp.LS[iLS].α)))
-                replace!(sinα_p.diag, NaN=>0.0)
+                # replace!(sinα_p.diag, NaN=>0.0)
                 cosα_p = Diagonal(vec(cos.(gp.LS[iLS].α)))
-                replace!(cosα_p.diag, NaN=>0.0)
+                # replace!(cosα_p.diag, NaN=>0.0)
 
                 sinα_u = Diagonal(vec(sin.(gu.LS[iLS].α)))
-                replace!(sinα_u.diag, NaN=>0.0)
+                # replace!(sinα_u.diag, NaN=>0.0)
                 cosα_v = Diagonal(vec(cos.(gv.LS[iLS].α)))
-                replace!(cosα_v.diag, NaN=>0.0)
+                # replace!(cosα_v.diag, NaN=>0.0)
+
+                if any(isnan, sinα_p.diag) || any(isnan, cosα_p.diag) || any(isnan, sinα_u.diag) || any(isnan, cosα_v.diag)
+                    @error("NaN FE_set_momentum_coupled")
+                    replace!(sinα.diag, NaN=>0.0)
+                    replace!(cosα.diag, NaN=>0.0)
+                    replace!(sinα_u.diag, NaN=>0.0)
+                    replace!(cosα_v.diag, NaN=>0.0)
+                end
+
 
                 # Contribution to implicit part of viscous term from inner boundaries
                 cap1 = hcat(
@@ -1682,9 +1697,15 @@ function FE_set_momentum_coupled2(
                         )
                     elseif i != iLS
                         sinα = Diagonal(vec(sin.(gp.LS[i].α)))
-                        replace!(sinα.diag, NaN=>0.0)
+                        # replace!(sinα.diag, NaN=>0.0)
                         cosα = Diagonal(vec(cos.(gp.LS[i].α)))
-                        replace!(cosα.diag, NaN=>0.0)
+                        # replace!(cosα.diag, NaN=>0.0)
+
+                        if any(isnan, sinα.diag) || any(isnan, cosα.diag)
+                            @error("NaN FE_set_momentum_coupled")
+                            replace!(sinα.diag, NaN=>0.0)
+                            replace!(cosα.diag, NaN=>0.0)
+                        end
 
                         #TODO hcat can be improved by new 
                         cap1 = hcat(
@@ -1791,14 +1812,22 @@ function FE_set_momentum_coupled2(
                 _iLS += 1
             else # Tangential component of velocity if Navier BC
                 sinα_p = Diagonal(vec(sin.(gp.LS[iLS].α)))
-                replace!(sinα_p.diag, NaN=>0.0)
+                # replace!(sinα_p.diag, NaN=>0.0)
                 cosα_p = Diagonal(vec(cos.(gp.LS[iLS].α)))
-                replace!(cosα_p.diag, NaN=>0.0)
+                # replace!(cosα_p.diag, NaN=>0.0)
 
                 sinα_u = Diagonal(vec(sin.(gu.LS[iLS].α)))
-                replace!(sinα_u.diag, NaN=>0.0)
+                # replace!(sinα_u.diag, NaN=>0.0)
                 cosα_v = Diagonal(vec(cos.(gv.LS[iLS].α)))
-                replace!(cosα_v.diag, NaN=>0.0)
+                # replace!(cosα_v.diag, NaN=>0.0)
+
+                if any(isnan, sinα_p.diag) || any(isnan, cosα_p.diag) || any(isnan, sinα_u.diag) || any(isnan, cosα_v.diag)
+                    @error("NaN FE_set_momentum_coupled")
+                    replace!(sinα.diag, NaN=>0.0)
+                    replace!(cosα.diag, NaN=>0.0)
+                    replace!(sinα_u.diag, NaN=>0.0)
+                    replace!(cosα_v.diag, NaN=>0.0)
+                end
 
                 # Contribution to implicit part of viscous term from inner boundaries
                 cap1 = hcat(

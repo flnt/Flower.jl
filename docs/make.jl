@@ -13,10 +13,13 @@ mathengine = MathJax3(Dict(
 #Generate html
 makedocs(sitename="Flower.jl",
     # prettyurls = false otherwise (locally at least) when you click on 
+    # otherwise use a server in local
+    # for deployment should be turned on
     # tutorial you do not access the tutorial directly and need to click in on "index.md" in a folder
     format = Documenter.HTML(prettyurls = false ; 
     mathengine =mathengine,
     assets=["assets/custom.css"],
+    # assets = ["assets/custom.css", "assets/custom.js"]
     ), 
     pages = Any[
         "Home" => "index.md",

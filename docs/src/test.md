@@ -110,16 +110,87 @@ For a regular mesh with constant mesh spacing, with ``h_x=h_y``
 
 Example
 
+```@raw html
+As seen in <a href="documentation.html#Coefficients-in-a-simple-configuration"> </a>:
+```
 
-* A[i_corner_vecb_bottom,:]  
-    * [bulk_index]  =  2.0  
-    * [i_corner_vecb_bottom]  =  -2.0
+```@raw html
+<table class="styled-table">
+
+    <thead>
+        <tr>
+        <th> BC </th>
+        <th>Border </th>
+        <th>Bulk </th>
+        </tr>
+    </thead>
+
+    <tbody>
+
+    <tr>
+        <th>Left</th>
+        <td> +2</td>
+        <td> -2</td>
+    </tr>
+
+    <tr>
+        <th>Right</th>
+        <td> +2</td>
+        <td> -2</td>
+    </tr>
+
+    <tr>
+        <th>Bottom</th>
+        <td> +2</td>
+        <td> -2</td>
+    </tr>
+
+    <tr>
+        <th>Top</th>
+        <td> +2</td>
+        <td> -2</td>
+    </tr>
+
+    </tbody>
+</table>
+```
+```@raw html
+The coefficients of the matrix for the discretization of a Neumann boundary condition are tested in<a href="https://github.com/flnt/Flower.jl/blob/electrolysis/test/poisson_no_interface.jl"> and <a href="https://github.com/flnt/Flower.jl/blob/electrolysis/test/poisson_no_interface_right_Neumann.jl"> with tmp the index of a bulk value and i_corner_vecb_bottom the index of the boundary value at the bottom:
+```
+
+```julia
+@testset "A[i_corner_vecb_bottom,tmp]" begin
+    @test A[i_corner_vecb_bottom,tmp] ≈ -2.0 atol = test_tolerance
+end
+
+@testset "A[i_corner_vecb_bottom,i_corner_vecb_bottom]" begin
+    @test A[i_corner_vecb_bottom,i_corner_vecb_bottom] ≈ 2.0 atol = test_tolerance
+end
+```
 
 
-* right Neumann: A[i_corner_vecb_right,:]
-    * [bulk_index]  =  2.0
-    * [i_corner_vecb_right]  =  -2.0
 
+!!! todo "Orientation"
+
+    vector given by ``(\cos(\alpha),\sin(\alpha))`` is the interior normal so ``\alpha+\pi`` should be used
+    ```julia
+    function neumann_bcs!(gp, N)
+    @unpack x, y, dx, dy, LS, ind = gp
+
+    @inbounds @threads for II in ind.inside
+        x_bc = LS[1].mid_point[II].x * dx[II] + x[II]
+        y_bc = LS[1].mid_point[II].y * dy[II] + y[II]
+        Nx = ∇fx(x_bc, y_bc)
+        Ny = ∇fy(x_bc, y_bc)
+
+        N[II] = Nx * cos(LS[1].α[II]+π) + Ny * sin(LS[1].α[II]+π)
+    end
+
+    replace!(N, NaN=>0.0)
+
+    return nothing
+    end
+    ```
 
 ## Definition of errors
 

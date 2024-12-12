@@ -67,8 +67,6 @@ function neumann_bcs!(gp, N)
         N[II] = Nx * cos(LS[1].α[II]+π) + Ny * sin(LS[1].α[II]+π)
     end
 
-    replace!(N, NaN=>0.0)
-
     return nothing
 end
 
@@ -84,7 +82,7 @@ function robin_bcs!(gp, R)
         R[II] = Nx * cos(LS[1].α[II]+π) + Ny * sin(LS[1].α[II]+π) + f(x_bc, y_bc)
     end
 
-    replace!(R, NaN=>0.0)
+    
 
     return nothing
 end
@@ -374,7 +372,6 @@ for (i,n) in enumerate(npts)
 
     # print("\n ∇fx(xtest, ytest) ", ∇fx.(x_bc_left, gp.y[:,1]) ,"\n")
 
-    sign_right = -1
 
     run_forward!(num, gp, gu, gv, op, phS, phL)
     BC = Boundaries(left = Dirichlet(val = 0.0), 
@@ -583,11 +580,11 @@ for (i,n) in enumerate(npts)
 
         #Neumann
         @testset "A[i_corner_vecb_bottom,tmp]" begin
-            @test A[i_corner_vecb_bottom,tmp] ≈ 2.0 atol = test_tolerance
+            @test A[i_corner_vecb_bottom,tmp] ≈ -2.0 atol = test_tolerance
         end
 
         @testset "A[i_corner_vecb_bottom,i_corner_vecb_bottom]" begin
-            @test A[i_corner_vecb_bottom,i_corner_vecb_bottom] ≈ -2.0 atol = test_tolerance
+            @test A[i_corner_vecb_bottom,i_corner_vecb_bottom] ≈ 2.0 atol = test_tolerance
         end
 
 
