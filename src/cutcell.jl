@@ -570,7 +570,7 @@ end
 """
     postprocess_grids1!()
 
-    clip_cells!, clip_A_acc_to_V, set_cap_bcs!
+    clip_cells!, clip_A_acc_to_V, set_cap_bcs!, compute alpha the angle of the interior normal
 """
 function postprocess_grids1!(num, grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, periodic_y, neighbours, empty, BC_int)
     clip_cells!(grid, LS, num.ϵ, num.ϵwall, neighbours, BC_int)
@@ -1574,6 +1574,7 @@ function get_curvature(num, grid, geoL, u, κ, inside, per_x, per_y)
         κ[II] = parabola_fit_curvature(itp, mid_point, dx, dy)
     end
 end
+
 
 """
     capacities

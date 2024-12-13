@@ -5137,7 +5137,12 @@ function test_laplacian_pressure(num,grid_v,ph, opC_p, Lv, bc_Lv, bc_Lv_b)
 end
 
 
-function convert_interfacial_D_to_segments(num,gp,field,iLS)
+"""
+    returns x,y,f,connectivities,vtx_index,num_seg which can be used to plot interfacial value
+    supports on interface 
+    field_index is the index of the interfacial value: ex 2 for LS 1 since field_index = 1 is the index of the bulk value
+"""
+function convert_interfacial_D_to_segments(num,gp,field_D,iLS,field_index)
 
     # x = zeros(0)
     # y = zeros(0)
@@ -5150,10 +5155,22 @@ function convert_interfacial_D_to_segments(num,gp,field,iLS)
     ij_index=-ones(Int64,(gp.ny, gp.nx))
     vtx_index = 0 #Integer(0) 
 
+ 
+
+
     for II in gp.LS[iLS].MIXED
         push!( x, gp.LS[1].mid_point[II].x * gp.dx[II] + gp.x[II] )
         push!( y, gp.LS[1].mid_point[II].y * gp.dy[II] + gp.y[II] )
-        push!( f, field[II] )
+
+        # push!( f, field[II] )
+
+        # a[g.ny*g.nx*(p-1)+1:g.ny*g.nx*p]
+        
+        pII = lexicographic(II, gp.ny)
+
+        push!( f, field_D[gp.ny*gp.nx*(field_index-1) + pII] )
+
+
 
         ij_index[II] = vtx_index
 

@@ -1651,8 +1651,8 @@ pdi:
             import numpy as np
             import os
             print('\n \033[93m'+'l1_rel_error ',l1_rel_error,'\033[0m')
-            print('\n \033[93m'+'l2_rel_error ',l1_rel_error,'\033[0m')
-            print('\n \033[93m'+'linfty_rel_error ',l1_rel_error,'\033[0m')
+            print('\n \033[93m'+'l2_rel_error ',l2_rel_error,'\033[0m')
+            print('\n \033[93m'+'linfty_rel_error ',linfty_rel_error,'\033[0m')
             #print('test comment')
             #from convergence_study import plot_errors; plot_errors(domain_length,nx_list,l1_rel_error,l2_rel_error,linfty_rel_error)
 

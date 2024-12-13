@@ -877,7 +877,7 @@ function run_forward!(
             printstyled(color=:red, @sprintf "\n test segments\n" )
     
     
-            intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num, intfc_seg_num = convert_interfacial_D_to_segments(num,grid,phL.T,1)
+            intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num, intfc_seg_num = convert_interfacial_D_to_segments(num,grid,phL.TD,1,2)
             # print("\n number of interface points intfc_vtx_num ", intfc_vtx_num)
             # print("\n intfc_vtx_connectivities ",intfc_vtx_connectivities)
             # print("\n len ", size(intfc_vtx_connectivities),intfc_seg_num)

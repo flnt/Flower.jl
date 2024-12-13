@@ -204,6 +204,12 @@ def polyfit(x, y, degree):
     print('polyfit ',results)
 
 
+
+def manufactured_solution_1(x, y):
+    L = 2.5
+    return np.cos((L/2+x)*(2*np.pi/L) + np.pi/2) * np.cos((L/2+y)*(2*np.pi/L))
+
+
 def logticks(xlim):
    
    logxlim=np.log10(xlim)
@@ -794,11 +800,15 @@ def plot_all_fig_func():
             # data = file['data'][:]
             try:
                 time = file["time"][()]
-                nstep = file["nstep"][()]
             except:
                 time = 0
-                nstep = 0 
                 print("time not available")
+
+            try:
+                nstep = file["nstep"][()]
+            except:
+                nstep = 0 
+                print("nstep not available")
 
             print("time", time, "nstep", nstep)
 
@@ -1298,6 +1308,12 @@ def plot_segments(file,plotpar,figpar,ax2):
                 str1="{:.2e} {:03}".format(intfc_vtx_x[i],i)                        
             elif figpar['plot_levelset_segments_print'] == "ijy": 
                 str1="{:.2e} {:03}".format(intfc_vtx_y[i],i)    
+            elif 'format' in figpar['plot_levelset_segments_print']:
+                # print(figpar['plot_levelset_segments_print'])
+                # error = manufactured_solution_1(intfc_vtx_x,intfc_vtx_y)-intfc_vtx_field[i]
+                # print(error)
+                # str1='{:.2e}'.format(error)
+                str1=eval(figpar['plot_levelset_segments_print'])
             else:
                 str1='{:.2e}'.format(intfc_vtx_field[i])
 
@@ -1415,6 +1431,10 @@ def plot_file(
         
     else:
         print('plot_file else')
+
+        # print('intfc_seg_num', file['intfc_seg_num'][()])
+        # time = file["time"][()]
+
         field = data.transpose()
 
 
@@ -1455,10 +1475,19 @@ def plot_file(
             cmap=plotpar['cmap'],
             extend=plotpar['extend'],)
         else:
-            CS = ax2.contourf(x_1D,y_1D,field, 
-            levels=figpar['levels'],
-            cmap=plotpar['cmap'],
-            extend=plotpar['extend'],)
+            try:
+                CS = ax2.contourf(x_1D,y_1D,field, 
+                levels=figpar['levels'],
+                cmap=plotpar['cmap'],
+                extend=plotpar['extend'],)
+            except:
+                print(x_1D)
+                print(y_1D)
+                # print(field)
+                print(field[128,:])
+                print(field[:,128])
+
+
 
     elif figpar["plot_mode"] == "pcolormesh":
         if figpar["levels"] == 0:
@@ -2414,6 +2443,11 @@ def plot_python_pdf_full2(
     else:
 
         if figpar['plot_mode'] == "contourf":
+            # print(x_arr)
+            # print(y_arr)
+            # print(x_arr)
+
+
             CS = ax2.contourf(x_arr,y_arr,field, 
             levels=figpar['levels'], #10, 
             cmap=plotpar['cmap'],extend=plotpar['extend'],)

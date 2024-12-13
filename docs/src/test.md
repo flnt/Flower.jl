@@ -724,6 +724,14 @@ Normally, we have a b c coefficients such that ``a*h1 -c*h2 = 0`` in ``a*v_{i+1}
 At the moment, we get ``3/4*L +\mathcal{O}(h)``  at the corners and ``L + \mathcal{O}(h^2)`` in the bulk when there is no interface
 
 
+## Growth of bubble away from the wall
+
+!!! todo "Documentation divergence for phase change"
+    can test by initializing c=0.16 at a planar bubble and c1>0.16 in bulk to verify that we have dc/dx*s
+
+
+## Growth of bubble at the wall
+
 
 ## Suggestion: with a simple boundary condition similar to Butler-Volmer
 We use a similar approach as in [`example for sinh`](https://math.stackexchange.com/questions/3472880/solving-sinh-x-kx). We assume a constant conductivity ``\sigma = 1`` and a simplified Butler-Volmer equation.

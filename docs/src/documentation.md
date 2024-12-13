@@ -1847,6 +1847,10 @@ inv_weight_clip
 
 ## IO/post-processing
 
+```@docs
+convert_interfacial_D_to_segments
+```
+
 The output files are generated with [`PDI`](https://github.com/pdidev). The on-line PDI documentation is available at [`PDI documentation`](https://pdi.dev). 
 
 ## References

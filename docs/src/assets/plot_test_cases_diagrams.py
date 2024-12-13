@@ -123,6 +123,8 @@ def plot_figure(plot_interface,plot_wall,case):
 
     if '_BC' in case:
         radius = 0.5
+    if '_radius' in case:
+        radius = 4*1/2.5
     else:
         radius = 1
 
@@ -357,8 +359,16 @@ def plot_figure(plot_interface,plot_wall,case):
             
         elif '_BC_dir' in case:
             
-            xtmp = lx/2
-            ytmp = ly/2-radius
+            if '_radius' in case:
+                xtmp = lx/2
+                ytmp = ly/2
+                ha="center"
+                va='center'
+            else:
+                xtmp = lx/2
+                ytmp = ly/2-radius
+                ha="center"
+                va='top'
 
             # dx = 0
             # dy = shift/72.
@@ -376,8 +386,9 @@ def plot_figure(plot_interface,plot_wall,case):
                 # transform=shadow_transform,
                 fontsize=font_size,
                 c='k',
-                ha="center",
-                va='top')    
+                ha=ha,
+                va=va,
+            )    
 
         if 'arc_BC_neu' in case:
             
@@ -405,8 +416,16 @@ def plot_figure(plot_interface,plot_wall,case):
             
         elif '_BC_neu' in case:
             
-            xtmp = lx/2
-            ytmp = ly/2-radius
+            if '_radius' in case:
+                xtmp = lx/2
+                ytmp = ly/2
+                ha="center"
+                va='center'
+            else:
+                xtmp = lx/2
+                ytmp = ly/2-radius
+                ha="center"
+                va='top'
 
             # dx = 0
             # dy = shift/72.
@@ -424,8 +443,9 @@ def plot_figure(plot_interface,plot_wall,case):
                 # transform=shadow_transform,
                 fontsize=font_size,
                 c='k',
-                ha="center",
-                va='top')    
+                ha=ha,
+                va=va,
+                )    
 
 
         
@@ -564,6 +584,17 @@ plot_figure(plot_interface,plot_wall,'Poisson_square_circle_BC_neu')
 plot_figure(plot_interface,plot_wall,'Poisson_square_circle_arc_BC_dir')
 
 plot_figure(plot_interface,plot_wall,'Poisson_square_circle_arc_BC_neu')
+
+#For same proportions as radius = 1 L = 2.5
+plot_figure(plot_interface,plot_wall,'Poisson_square_circle_BC_radius')
+
+plot_figure(plot_interface,plot_wall,'Poisson_square_circle_BC_dir_radius')
+
+plot_figure(plot_interface,plot_wall,'Poisson_square_circle_BC_neu_radius')
+
+plot_figure(plot_interface,plot_wall,'Poisson_square_circle_arc_BC_dir_radius')
+
+plot_figure(plot_interface,plot_wall,'Poisson_square_circle_arc_BC_neu_radius')
 
 
 plot_figure(plot_interface,plot_wall,'Poisson_square')
