@@ -333,7 +333,7 @@ for (i,n) in enumerate(npts)
     sign_bottom = -1.0 #n \cdot e_y = -1
     sign_top = 1.0 #n \cdot e_y = 1
 
-    # sign_left = -1.0
+    # sign_left = 1.0
     # sign_right = 1.0
     # sign_bottom = 1.0
     # sign_top = 1.0

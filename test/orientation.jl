@@ -869,12 +869,14 @@ mass_flux_vecb,mass_flux_veci, tmp_vec_p, tmp_vec_p0, tmp_vec_p1, mass_flux,num.
 
 print("\n flux j line ", mass_flux_vec1[j,:], "\n")
 
-@testset "Orientation BC derivative left" begin
-    @test mass_flux_vec1[1,1] < 0
+
+#zero because with H interface 
+@testset "mass flux 0" begin
+    @test mass_flux[1,1] ≈ 0.0 atol = test_tolerance
 end
 
-@testset "Orientation BC derivative right" begin
-    @test mass_flux_vec1[1,gp.nx] > 0
+@testset "mass flux 0" begin
+    @test mass_flux[1,gp.nx] ≈ 0.0 atol = test_tolerance
 end
 
 @testset "Gradient x-component" begin
@@ -892,3 +894,5 @@ printstyled(color=:red, @sprintf "\n grad y %f %f %f\n" norm(phS.v) minimum(phS.
 @testset "Gradient y-component" begin
     @test maximum(abs.(phL.v)) ≈ 0.0 atol = test_tolerance
 end
+
+#TODO test mass flux 

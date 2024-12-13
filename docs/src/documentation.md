@@ -479,6 +479,9 @@ If ``h_x=h_y``, we have the following coefficients on the rows of the interfacia
 
 
 ##### Coefficients in a simple configuration
+```@raw html
+<a name="Coefficients-in-a-simple-configuration"></a> 
+```
 
 ```@raw html
 <table class="styled-table">

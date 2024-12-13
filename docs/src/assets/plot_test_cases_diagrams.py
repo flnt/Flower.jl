@@ -330,7 +330,32 @@ def plot_figure(plot_interface,plot_wall,case):
             ha="left",
             va='center')    
         
-        if '_BC_dir' in case:
+
+        if 'arc_BC_dir' in case:
+            
+            xtmp = radius
+            ytmp = ly/2
+
+            # dx = 0
+            # dy = shift/72.
+            # offset = transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
+            # shadow_transform = ax.transData + offset
+
+            text = r"\begin{tabular}{c}" + \
+                    r" Dirichlet \\"+ \
+                    r" $c\neq 0$ \\"+ \
+                    r"\end{tabular}"
+            ax.annotate(
+                text,
+                (xtmp,ytmp),
+                xytext=(+offset,0), textcoords='offset points',
+                # transform=shadow_transform,
+                fontsize=font_size,
+                c='k',
+                ha="left",
+                va='center') 
+            
+        elif '_BC_dir' in case:
             
             xtmp = lx/2
             ytmp = ly/2-radius
@@ -354,7 +379,31 @@ def plot_figure(plot_interface,plot_wall,case):
                 ha="center",
                 va='top')    
 
-        if '_BC_neu' in case:
+        if 'arc_BC_neu' in case:
+            
+            xtmp = radius
+            ytmp = ly/2
+
+            # dx = 0
+            # dy = shift/72.
+            # offset = transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
+            # shadow_transform = ax.transData + offset
+
+            text = r"\begin{tabular}{c}" + \
+                    r" Neumann \\"+ \
+                    r" $\frac{\partial c}{\partial n}\neq 0$ \\"+ \
+                    r"\end{tabular}"
+            ax.annotate(
+                text,
+                (xtmp,ytmp),
+                xytext=(+offset,0), textcoords='offset points',
+                # transform=shadow_transform,
+                fontsize=font_size,
+                c='k',
+                ha="left",
+                va='center')    
+            
+        elif '_BC_neu' in case:
             
             xtmp = lx/2
             ytmp = ly/2-radius
@@ -511,6 +560,10 @@ plot_figure(plot_interface,plot_wall,'Poisson_square_circle_BC')
 plot_figure(plot_interface,plot_wall,'Poisson_square_circle_BC_dir')
 
 plot_figure(plot_interface,plot_wall,'Poisson_square_circle_BC_neu')
+
+plot_figure(plot_interface,plot_wall,'Poisson_square_circle_arc_BC_dir')
+
+plot_figure(plot_interface,plot_wall,'Poisson_square_circle_arc_BC_neu')
 
 
 plot_figure(plot_interface,plot_wall,'Poisson_square')

@@ -333,6 +333,8 @@ def compute_slope(ax,xls,yls,x,y,slopes,R2,param_line,colors,alpha,plot_text=Tru
 
     corr=num/(rmsx*rmsy)
 
+    #https://en.wikipedia.org/wiki/Pearson_correlation_coefficient
+
 
     test_polyfit = True
     test_polyfit = False

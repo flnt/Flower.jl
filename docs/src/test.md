@@ -172,7 +172,7 @@ end
 
 !!! todo "Orientation"
 
-    vector given by ``(\cos(\alpha),\sin(\alpha))`` is the interior normal so ``\alpha+\pi`` should be used
+    vector given by ``(\cos(\alpha),\sin(\alpha))`` is the interior normal so ``\alpha+\pi`` should be used to have the exterior normal
     ```julia
     function neumann_bcs!(gp, N)
     @unpack x, y, dx, dy, LS, ind = gp
@@ -186,7 +186,6 @@ end
         N[II] = Nx * cos(LS[1].α[II]+π) + Ny * sin(LS[1].α[II]+π)
     end
 
-    replace!(N, NaN=>0.0)
 
     return nothing
     end
