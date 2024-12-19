@@ -2579,6 +2579,27 @@ function average_face_capacities!(a, per_x, per_y)
     end
 end
 
+
+
+"""
+    get_cells_indices(iso, all)
+
+This function categorizes cells into three types: mixed, solid, and liquid, based on the values in the `iso` array.
+
+### Inputs
+- `iso`: A 2D array where each element represents the state of a cell (e.g., solid, liquid, or mixed).
+- `all`: A vector of `CartesianIndex{2}` representing the indices of all cells to be categorized.
+
+### Outputs
+- A tuple containing three vectors:
+  - `MIXED`: A vector of `CartesianIndex{2}` representing the indices of cells that are mixed.
+  - `SOLID`: A vector of `CartesianIndex{2}` representing the indices of cells that are solid.
+  - `LIQUID`: A vector of `CartesianIndex{2}` representing the indices of cells that are liquid.
+
+### Description
+The function iterates over the provided cell indices (`all`) and classifies each cell based on its state in the `iso` array. It uses helper functions `is_solid` and `is_liquid` to determine the state of each cell. The categorized indices are stored in separate vectors for mixed, solid, and liquid cells.
+
+"""
 function get_cells_indices(iso, all)
     local M = 1
     local S = 1
@@ -2711,6 +2732,50 @@ end
     end
 end
 
+"""
+    projection_2points(grid, LS, II)
+
+Projects two points onto the grid using the given line segment (LS) and cell index (II).
+
+# Arguments
+- `grid`: A structure containing grid information.
+    - `x_nodes`: Array of x-coordinates of the grid nodes.
+    - `y_nodes`: Array of y-coordinates of the grid nodes.
+    - `x`: Array of x-coordinates of the grid cells.
+    - `y`: Array of y-coordinates of the grid cells.
+    - `nx`: Number of grid cells in the x-direction.
+    - `ny`: Number of grid cells in the y-direction.
+    - `dx`: Array of cell widths in the x-direction.
+    - `dy`: Array of cell heights in the y-direction.
+- `LS`: A structure containing line segment information.
+    - `mid_point`: Array of mid-points of the line segments.
+    - `α`: Array of angles of the line segments.
+- `II`: A tuple containing the indices of the grid cell.
+
+# Returns
+- A tuple containing two `Gradient` objects:
+    - `Gradient(Sflag, β, mid, S1, S2, dS1, dS2, pos)`: Gradient information for the start point.
+    - `Gradient(Lflag, α[II], mid, L1, L2, dL1, dL2, pos)`: Gradient information for the end point.
+
+# Description
+This function projects two points onto the grid based on the given line segment and cell index. It calculates the positions of the projected points and checks if they are within the domain of the grid. The function returns gradient information for both the start and end points of the line segment.
+
+# Detailed Steps
+1. Extract necessary grid and line segment information.
+2. Calculate the cell width and height vectors.
+3. Determine the absolute position of the cell.
+4. Calculate the midpoint and direction vectors for the line segment.
+5. Determine the neighboring cell positions based on the cell index.
+6. Project the start and end points of the line segment onto the grid using affine transformations.
+7. Check if the projected points are within the domain of the grid.
+8. Calculate the gradient information for both points.
+9. Return the gradient information as a tuple of `Gradient` objects.
+
+# Notes
+- The function uses helper functions `δx⁺`, `δx⁻`, `δy⁺`, and `δy⁻` to determine the neighboring cell indices.
+- The function uses the `indomain` function to check if the projected points are within the grid domain.
+- The `Point` and `Gradient` structures are assumed to be defined elsewhere in the code.
+"""
 function projection_2points(grid, LS, II)
     @unpack x_nodes, y_nodes, x, y, nx, ny, dx, dy = grid
     @unpack mid_point, α = LS

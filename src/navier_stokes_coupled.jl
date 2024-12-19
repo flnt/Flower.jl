@@ -505,8 +505,22 @@ end
 
 """    
 set Laplacian and BC for p, u, v
-* periodic_x
-* periodic_y
+
+### Inputs
+
+- `num::Numerical{Float64, Int64}`: A structure containing numerical parameters for the simulation.
+- `grid::Mesh{Flower.GridCC, Float64, Int64}`: The mesh for the pressure (cut-cell grid).
+- `geo::Array{Flower.GeometricInfo{Float64}, 1}`: Geometric information for the pressure grid.
+- `grid_u::Mesh{Flower.GridFCx, Float64, Int64}`: The mesh for the x-velocity component (face-centered grid in x-direction).
+- `geo_u::Array{Flower.GeometricInfo{Float64}, 1}`: Geometric information for the x-velocity grid.
+- `grid_v::Mesh{Flower.GridFCy, Float64, Int64}`: The mesh for the y-velocity component (face-centered grid in y-direction).
+- `geo_v::Array{Flower.GeometricInfo{Float64}, 1}`: Geometric information for the y-velocity grid.
+- `opC_p::Operators{Float64, Int64}`: Operators for the pressure grid.
+- `opC_u::Operators{Float64, Int64}`: Operators for the x-velocity grid.
+- `opC_v::Operators{Float64, Int64}`: Operators for the y-velocity grid.
+- `periodic_x::Bool`: Flag indicating whether the domain is periodic in the x-direction.
+- `periodic_y::Bool`: Flag indicating whether the domain is periodic in the y-direction.
+
 """
 function set_matrices!(
     num::Numerical{Float64, Int64},
@@ -592,6 +606,10 @@ function no_slip_condition!(num, grid, grid_u, LS_u, grid_v, LS_v, periodic_x, p
     return nothing
 end
 
+
+"""
+uses vector_convection
+"""
 function set_convection!(
     num, grid, geo, grid_u, LS_u, grid_v, LS_v,
     u, v, op, ph, BC_u, BC_v,opC_p, opC_u, opC_v

@@ -244,48 +244,7 @@ for (i,n) in enumerate(npts)
 
     rhs = solve_poisson(BC_int, num, gp, a0_p, op.opC_pL, op.opC_uL, op.opC_vL, A, Lp, bc_Lp, bc_Lp_b, BC, true)
 
-    # """    
-    # SPD matrix:
-    # # Arguments
-    # - bc_type: BC for interface, num, grid, 
-    # - a0, 
-    # - opC, 
-    # - pC_v,
-    # - A, 
-    # - BC: BC for wall
-    # - ls_advection
-
-    # ```math
-    # -\\nabla( \\kappa \\nabla \\phi) =f)
-    # ```
-
-    # """
-    # function set_poisson_variable_coeff_SPD!(num::Numerical{Float64, Int64},
-    #     grid::Mesh{Flower.GridCC, Float64, Int64},
-    #     grid_u::Mesh{Flower.GridFCx, Float64, Int64},
-    #     grid_v::Mesh{Flower.GridFCy, Float64, Int64},
-    #     opC::Operators{Float64, Int64},
-    #     A::SparseMatrixCSC{Float64, Int64},
-    #     rhs::Array{Float64, 1},
-    #     a0::Array{Float64, 2},
-    #     a1::SparseMatrixCSC{Float64, Int64},
-    #     BC::BoundariesInt,
-    #     ph::Phase{Float64},
-    #     coeffD::Array{Float64, 1},
-    #     coeffDu::Array{Float64, 2},
-    #     coeffDv::Array{Float64, 2},
-    #     # coeffDu0::Array{Float64, 2},
-    #     # coeffDv0::Array{Float64, 2},
-    #     ls_advection::Bool)
     
-
-    # print("\n rhs ",vecb(rhs,gp)," \n")
-
-    # print("\n rhs ",vecb(rhs,gp)/gp.dx[1,1]," \n")
-
-
-    # print("\n -10 * ones(gp.ny) ",-10 * ones(gp.ny),"\n")
-    # print("\n vecb_L(rhs,gp)./gp.dy[:,1] ",vecb_L(rhs,gp)./gp.dy[:,1],"\n")
 
 
     # Test with tolerance 

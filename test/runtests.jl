@@ -6,6 +6,14 @@ using Test
 #     include("validation_test.jl")
 # end
 
+# Test Poiseuille: 
+# Test that with factor 4/3 we find the right pressure gradient
+module testyamlfile5 #enables to perform a test with ARGS to give an input file
+ARGS = String["../Flower.jl/test/channel_Dirichlet_pressure.yml"]
+include("../examples/main_concise.jl")
+end
+
+
 # Manufactured solutions
 
 # Poisson equation from  

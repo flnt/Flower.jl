@@ -15,6 +15,10 @@ import Base.ones
 import Base.zeros
 import Base.reshape
 
+# import Base.union
+
+# @reexport using Base.Union
+
 @reexport using Printf
 @reexport using Base.Threads
 @reexport using LinearAlgebra
@@ -27,7 +31,11 @@ import Base.reshape
 @reexport using SpecialFunctions
 @reexport using GeometryBasics
 @reexport using GeoInterface
-@reexport using LibGEOS
+
+# @reexport using LibGEOS
+@reexport import LibGEOS #avoids warnings like:
+# "WARNING: both MUMPS and Roots export "solve!"; uses of it in module Flower must be qualified"
+
 
 # @reexport using HDF5
 
@@ -48,7 +56,10 @@ import Base.reshape
 
 @reexport using Statistics #for mean
 @reexport using MPI
-@reexport using MUMPS
+
+# @reexport using MUMPS
+@reexport import MUMPS
+
 
 # #Long version
 # @reexport using Printf
@@ -126,6 +137,7 @@ include("electrolysis_utils.jl")
 include("electrolysis.jl")
 include("electrolysis_2.jl")
 include("electrolysis_operators.jl")
+include("electrolysis_tests.jl")
 
 include("run_profile.jl") #for profiling
 

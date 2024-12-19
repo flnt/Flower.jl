@@ -608,6 +608,9 @@ end
 const weno5 = WENO5()
 const eno2 = ENO2()
 
+@inline is_FE(char::String) = (char == "FE")
+@inline is_CN(char::String) = (char == "CN")
+
 @inline is_FE(::ForwardEuler) = true
 @inline is_FE(::TemporalIntegration) = false
 

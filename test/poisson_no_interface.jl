@@ -418,48 +418,7 @@ for (i,n) in enumerate(npts)
 
     rhs = solve_poisson(BC_int, num, gp, a0_p, op.opC_pL, op.opC_uL, op.opC_vL, A, Lp, bc_Lp, bc_Lp_b, BC, true)
 
-    # """    
-    # SPD matrix:
-    # # Arguments
-    # - bc_type: BC for interface, num, grid, 
-    # - a0, 
-    # - opC, 
-    # - pC_v,
-    # - A, 
-    # - BC: BC for wall
-    # - ls_advection
-
-    # ```math
-    # -\\nabla( \\kappa \\nabla \\phi) =f)
-    # ```
-
-    # """
-    # function set_poisson_variable_coeff_SPD!(num::Numerical{Float64, Int64},
-    #     grid::Mesh{Flower.GridCC, Float64, Int64},
-    #     grid_u::Mesh{Flower.GridFCx, Float64, Int64},
-    #     grid_v::Mesh{Flower.GridFCy, Float64, Int64},
-    #     opC::Operators{Float64, Int64},
-    #     A::SparseMatrixCSC{Float64, Int64},
-    #     rhs::Array{Float64, 1},
-    #     a0::Array{Float64, 2},
-    #     a1::SparseMatrixCSC{Float64, Int64},
-    #     BC::BoundariesInt,
-    #     ph::Phase{Float64},
-    #     coeffD::Array{Float64, 1},
-    #     coeffDu::Array{Float64, 2},
-    #     coeffDv::Array{Float64, 2},
-    #     # coeffDu0::Array{Float64, 2},
-    #     # coeffDv0::Array{Float64, 2},
-    #     ls_advection::Bool)
     
-
-    # print("\n rhs ",vecb(rhs,gp)," \n")
-
-    # print("\n rhs ",vecb(rhs,gp)/gp.dx[1,1]," \n")
-
-
-    # print("\n -10 * ones(gp.ny) ",-10 * ones(gp.ny),"\n")
-    # print("\n vecb_L(rhs,gp)./gp.dy[:,1] ",vecb_L(rhs,gp)./gp.dy[:,1],"\n")
 
 
     # Test with tolerance 
@@ -931,50 +890,6 @@ for (i,n) in enumerate(npts)
 
 
 
-
-    function relative_errors(T, Tanalytical, pos, cap, h)
-
-
-        l1_rel_error = 0.0
-        l2_rel_error = 0.0
-        linfty_rel_error = 0.0
-        l1_rel_error_den = 0.0 
-        l2_rel_error_den = 0.0 
-        linfty_rel_error_den = 0.0 
-        
-        volume = 0.0
-        max_diff = 0.0
-     
-
-        @inbounds for ii in pos
-
-            volume = cap[ii]*h^2
-            if volume > 0.0
-                abs_diff = abs(Tanalytical[ii] .- T[ii])
-                abs_val = abs(Tanalytical[ii])
-
-                l1_rel_error += volume * abs_diff
-                l1_rel_error_den += volume * abs_val
-
-                l2_rel_error += volume * abs_diff^2
-                l2_rel_error_den += volume * (Tanalytical[ii])^2
-
-                
-                if (abs_diff > linfty_rel_error) linfty_rel_error = abs_diff end
-                if (abs_val > linfty_rel_error_den) linfty_rel_error_den = abs_val end
-
-            end
-        end
-
-        l1_rel_error = l1_rel_error / l1_rel_error_den
-        l2_rel_error = sqrt(l2_rel_error / l2_rel_error_den )
-        linfty_rel_error = linfty_rel_error / linfty_rel_error_den
-
-        return l1_rel_error, l2_rel_error, linfty_rel_error
-
-
-    end
-    
    
     #cut small cells for error
     number_small_cells_for_error = 0

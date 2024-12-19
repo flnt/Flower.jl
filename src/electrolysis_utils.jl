@@ -442,3 +442,95 @@ function scal_magnitude_L(ph, gp, gu, gv)
     # ph.p .= sqrt.(ph.p .* LS.geoL.dcap[:,:,5])
 
 end
+
+
+"""
+    computes relative errors of bulk variable for convergence study
+"""
+function relative_errors(T, Tanalytical, pos, cap, h)
+
+    l1_rel_error = 0.0
+    l2_rel_error = 0.0
+    linfty_rel_error = 0.0
+    l1_rel_error_den = 0.0 
+    l2_rel_error_den = 0.0 
+    linfty_rel_error_den = 0.0 
+    
+    volume = 0.0
+    max_diff = 0.0
+ 
+
+    @inbounds for ii in pos
+
+        volume = cap[ii]*h^2
+        if volume > 0.0
+            abs_diff = abs(Tanalytical[ii] .- T[ii])
+            abs_val = abs(Tanalytical[ii])
+
+            l1_rel_error += volume * abs_diff
+            l1_rel_error_den += volume * abs_val
+
+            l2_rel_error += volume * abs_diff^2
+            l2_rel_error_den += volume * (Tanalytical[ii])^2
+
+            
+            if (abs_diff > linfty_rel_error) linfty_rel_error = abs_diff end
+            if (abs_val > linfty_rel_error_den) linfty_rel_error_den = abs_val end
+
+        end
+    end
+
+    l1_rel_error = l1_rel_error / l1_rel_error_den
+    l2_rel_error = sqrt(l2_rel_error / l2_rel_error_den )
+    linfty_rel_error = linfty_rel_error / linfty_rel_error_den
+
+    # if linfty_rel_error < l1_rel_error
+
+    return l1_rel_error, l2_rel_error, linfty_rel_error
+end
+
+
+"""
+    computes relative errors of interfacial variable for convergence study
+"""
+function relative_errors_interface(T, Tanalytical, pos, cap, h)
+
+
+    # l1_rel_error = 0.0
+    # l2_rel_error = 0.0
+    linfty_rel_error = 0.0
+    # l1_rel_error_den = 0.0 
+    # l2_rel_error_den = 0.0 
+    linfty_rel_error_den = 0.0 
+    
+    volume = 0.0
+    max_diff = 0.0
+
+    @inbounds for ii in pos
+
+        volume = cap[ii]*h^2
+        if volume > 0.0
+            abs_diff = abs(Tanalytical[ii] .- T[ii])
+            abs_val = abs(Tanalytical[ii])
+
+            # l1_rel_error += volume * abs_diff
+            # l1_rel_error_den += volume * abs_val
+
+            # l2_rel_error += volume * abs_diff^2
+            # l2_rel_error_den += volume * (Tanalytical[ii])^2
+
+            if (abs_diff > linfty_rel_error) linfty_rel_error = abs_diff end
+            if (abs_val > linfty_rel_error_den) linfty_rel_error_den = abs_val end
+
+        end
+    end
+
+    # l1_rel_error = l1_rel_error / l1_rel_error_den
+    # l2_rel_error = sqrt(l2_rel_error / l2_rel_error_den )
+    linfty_rel_error = linfty_rel_error / linfty_rel_error_den
+
+    # return l1_rel_error, l2_rel_error, linfty_rel_error
+    return linfty_rel_error
+
+
+end

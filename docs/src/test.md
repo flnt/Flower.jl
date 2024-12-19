@@ -594,6 +594,14 @@ A unit test should be added to check the signs:
 
 ## Poisson equation inside a square with circular interface at wall
 
+```bash
+python3 -c "import convergence_study; convergence_study.plot_errors_from_h5()" ../Flower.jl/test/poisson_circular_interface_wall_Dirichlet.yml poisson_circular_interface_wall_Dirichlet.h5
+```
+
+```bash
+python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/test/poisson_circular_interface_wall_Neumann_256.yml poisson_circular_interface_wall_Neumann_00000256.h5
+```
+
 ## Gradient
 
 !!! todo "TODO"
@@ -674,6 +682,14 @@ We initialize a solid circle of radius R = 0.75. The domain size are the same as
 " [`Rodriguez (2024)`](https://theses.fr/s384455)
 
 ## Poiseuille (TODO)
+```@raw html
+<a href="https://github.com/flnt/Flower.jl/blob/electrolysis/test/channel_Dirichlet_pressure.yml"> See this test for the factor 4/3. </a>
+```
+
+To plot the results, you can use:
+```bash
+python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/test/channel_Dirichlet_pressure.yml flower_00000000.h5 flower_00000001.h5
+```
 
 ### Epsilon to prevent NaN
 

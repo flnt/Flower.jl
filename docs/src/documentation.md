@@ -197,7 +197,7 @@ grid.LS[iLS].geoL.cap[II,10] # W4
 
 
 
-``iMx`` is the inverse of a volume. The border cells for u and v have half the normal cell size because the borders of the domain pass through the cell centers, not the cell faces like they do for p
+``iMx`` is the inverse of a volume. The border cells for u and v have half the normal cell size because the borders of the domain pass through the cell centers, not the cell faces like they do for p.
 
 
 
@@ -1489,7 +1489,7 @@ In [`set_borders!`](@ref), we have:
 
 ```@docs
 set_poisson_variable_coeff_SPD!
-set_poisson_variable_coeff!
+solve_poisson_variable_coeff!
 ```
 ### Electrical current
 ```@docs
@@ -1778,6 +1778,25 @@ For the viscous term, you cannot divide by ``opC_v.iMx_bd``, the viscous term is
 
 p not v
 
+cf the parameter 
+
+```julia
+num.prediction
+```
+
+cf. [Brown et al. 2001](https://www.sciencedirect.com/science/article/pii/S0021999101967154)
+
+
+```@docs
+set_convection!
+vector_convection!
+```
+
+In [`set_convection!`](@ref) which uses  [`vector_convection!`](@ref)
+```julia
+Du_y[1,:] .= vecb_B(uD,grid_u) + dt* grd_x[1,:]
+```
+
 
 ## Cutcell
 
@@ -1818,6 +1837,11 @@ init_ghost_neumann_2
 
 
 ## Possible improvements 
+* Restart 
+    # #TODO restart with PDI
+    # if sim.restart == 1:
+    #     cf hello_access.jl
+    # end
 * Interface length
 * Remove ``replace!(N, NaN=>0.0)``
 * imposed constant velocity field : after 100 it : error after scalar transport 3.88e-14

@@ -115,6 +115,7 @@ Stores parameters for the simulation
     average_velocity::D=0
     extend_field::D=0
     verbosity::D=0
+    electrical_potential::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

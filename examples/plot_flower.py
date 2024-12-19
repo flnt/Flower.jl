@@ -419,6 +419,64 @@ def compute_slope(ax,xls,yls,x,y,slopes,R2,param_line,colors,alpha,plot_text=Tru
     return(ax)
 
 
+def compute_zoom(figpar,i0,i1,j0,j1):
+    if figpar['zoom_mode'] == 'coord':
+
+        i0=0
+        i1=0
+        j0=0
+        j1=0
+
+        if figpar["zoom"][0]>figpar["zoom"][1]:
+            print('error zoom')
+
+
+        for i,x in enumerate(x_1D):
+            if figpar["zoom"][0][0]<x:
+                break
+            i0=i
+
+        for i,x in enumerate(x_1D):
+            if figpar["zoom"][0][1]<x:
+                i1=i
+                break
+
+        for j,y in enumerate(y_1D):
+            if figpar["zoom"][1][0]<y:
+                break
+            j0=j
+
+        for j,y in enumerate(y_1D):
+            if figpar["zoom"][1][1]<y:
+                j1=j
+                break
+
+        print(figpar["zoom"],i0,i1,j0,j1,x_1D[i0],x_1D[i1],y_1D[j0],y_1D[j1])
+        x_arr=x_1D[i0:i1+1]
+        y_arr=y_1D[j0:j1+1]
+
+        ii0, ii1 = i0,i1
+        jj0, jj1 = j0,j1
+
+    else:
+        ii0, ii1 = figpar["zoom"][0]
+        jj0, jj1 = figpar["zoom"][1]
+
+
+    i0 = ii0
+    i1 = ii1
+    j0 = jj0
+    j1 = jj1
+    i0tmp = i0 + 1
+    j0tmp = j0 + 1
+    i1tmp = i1 + 1
+    j1tmp = j1 + 1
+    i0tmp2 = i0 + 1
+    j0tmp2 = j0 + 1
+    i1tmp2 = i1 + 1
+    j1tmp2 = j1 + 1
+
+
 def init_fig(plotpar,figpar):
     # layout='constrained'
     layout='compressed'
@@ -1407,7 +1465,10 @@ def plot_file(
     # print(data.shape)
 
     if data.ndim ==1:
-        # print('data_1D.ndim == 1')
+        print('data_1D.ndim == 1')
+        print(file['nstep'][()])
+        print(len(data))
+
         data = veci(data,nx,ny,field_index)
         field=data
     elif data.shape[1] == 1:
@@ -1466,6 +1527,11 @@ def plot_file(
     # radius /= scale_x
 
     shading="nearest"
+
+
+    # if 'zoom' in figpar.keys():
+    #     compute_zoom(figpar,i0,i1,j0,j1)
+
 
     if figpar['plot_mode'] == "contourf":
         if figpar['levels']==0:
@@ -1788,6 +1854,13 @@ def plot_vector(file,
 
     ax2.set_xlabel(r""+plotpar['xlabel'])
     ax2.set_ylabel(r""+plotpar['ylabel'])
+
+    if 'ax_locator_x' in figpar.keys():                                     
+        ax2.xaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_x']))
+        ax2.yaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_y']))
+    else:
+        ax2.xaxis.set_major_locator(mticker.FixedLocator(plotpar['ax_locator_x']))
+        ax2.yaxis.set_major_locator(mticker.FixedLocator(plotpar['ax_locator_y']))
 
     if mode =='first' or mode =='close':
         ax2.spines["right"].set_visible(False)
@@ -2280,9 +2353,9 @@ def plot_python_pdf_full2(
                 j1=j
                 break
 
-        # print(figpar["zoom"],i0,i1,j0,j1,x_1D[i0],x_1D[i1],y_1D[j0],y_1D[j1])
-        # x_arr=x_1D[i0:i1+1]
-        # y_arr=y_1D[j0:j1+1]
+        print(figpar["zoom"],i0,i1,j0,j1,x_1D[i0],x_1D[i1],y_1D[j0],y_1D[j1])
+        x_arr=x_1D[i0:i1+1]
+        y_arr=y_1D[j0:j1+1]
 
         ii0, ii1 = i0,i1
         jj0, jj1 = j0,j1

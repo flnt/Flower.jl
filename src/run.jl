@@ -678,7 +678,7 @@ function run_forward!(
             end
 
             if test_laplacian
-                num.exact_laplacian = test_laplacian_pressure(num,grid_v,phL,op.opC_pL, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L)
+                num.exact_laplacian = test_laplacian_pressure(num,grid_v,phL.vD,op.opC_pL, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L)
                 return
             end
 
@@ -771,7 +771,7 @@ function run_forward!(
            
     #             # phi_array=phL.phi_ele #do not transpose since python row major
                 
-    #             compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+    #                                 if num.electrical_potential>0 compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
         
     #             #store in us, vs instead of Eus, Evs
     #             interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,tmp_vec_p,tmp_vec_p0)
@@ -898,10 +898,10 @@ function run_forward!(
                
                     # phi_array=phL.phi_ele #do not transpose since python row major
                     
-                   
-                    # compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
-                    compute_grad_phi_ele!(num, grid, grid_u, grid_v,grid_u.LS[end], grid_v.LS[end], phL, phS, op.opC_pL, op.opC_pS, elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p1,tmp_vec_p1) #TODO current
-
+                    
+                    if num.electrical_potential>0
+                        compute_grad_phi_ele!(num, grid, grid_u, grid_v,grid_u.LS[end], grid_v.LS[end], phL, phS, op.opC_pL, op.opC_pS, elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p1,tmp_vec_p1) #TODO current
+                    end
                     # #store in us, vs instead of Eus, Evs
                     # interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,tmp_vec_p,tmp_vec_p0)
     
@@ -1119,6 +1119,9 @@ function run_forward!(
                             elseif iscal == 3
                                 inv_stoechiometric_coeff = 1.0 #H2O consummed
                             end
+
+                            # print("\n BC_trans_scal[iscal].left.val ", BC_trans_scal[iscal].left.val )
+                            # print("\n BC_trans_scal[iscal].left.val ", i_butler./(num.Faraday*num.diffusion_coeff[iscal])*inv_stoechiometric_coeff )
 
                             #BC at left wall
                             BC_trans_scal[iscal].left.val = i_butler./(num.Faraday*num.diffusion_coeff[iscal])*inv_stoechiometric_coeff
@@ -1459,7 +1462,7 @@ function run_forward!(
 
                     # printstyled(color=:green, @sprintf "\n BC phi : %.2e \n" BC_phi_ele.int.val)
 
-                    # printstyled(color=:magenta, @sprintf "\n test LS update for set_poisson_variable_coeff!  \n")
+                    # printstyled(color=:magenta, @sprintf "\n test LS update for solve_poisson_variable_coeff!  \n")
 
                     # update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
                     
@@ -1469,7 +1472,7 @@ function run_forward!(
                     #     periodic_x, periodic_y
                     # )
                     # Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = laps
-                    # printstyled(color=:magenta, @sprintf "\n test LS update for set_poisson_variable_coeff!  \n")
+                    # printstyled(color=:magenta, @sprintf "\n test LS update for solve_poisson_variable_coeff!  \n")
 
 
                     # printstyled(color=:red, @sprintf "\n DEBUG -b ")
@@ -1477,7 +1480,7 @@ function run_forward!(
 
                     #TODO BC several grid.LS
                     #Poisson with variable coefficient
-                    set_poisson_variable_coeff!(num, 
+                    solve_poisson_variable_coeff!(num, 
                         grid, 
                         grid_u, 
                         grid_v, 
@@ -1517,7 +1520,7 @@ function run_forward!(
                         # ls_advection)
 
 
-                    printstyled(color=:cyan, @sprintf "\n after set_poisson_variable_coeff! \n")
+                    printstyled(color=:cyan, @sprintf "\n after solve_poisson_variable_coeff! \n")
                     print_electrolysis_statistics(num,grid,phL)
 
                     #TODO still in dev
@@ -1621,10 +1624,10 @@ function run_forward!(
                     #     printstyled(color=:green, @sprintf "\n conductivity one")
 
                     # end 
-
-                    # compute_grad_phi_ele!(grid, phL, grid.V, periodic_x, periodic_y) #TODO current
-                    compute_grad_phi_ele!(num, grid, grid_u, grid_v, grid_u.LS[end], grid_v.LS[end], phL, phS, op.opC_pL, op.opC_pS, 
-                    elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p1,tmp_vec_p1) #TODO current
+                    if num.electrical_potential>0
+                        compute_grad_phi_ele!(num, grid, grid_u, grid_v, grid_u.LS[end], grid_v.LS[end], phL, phS, op.opC_pL, op.opC_pS, 
+                        elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p1,tmp_vec_p1) #TODO current
+                    end
 
                     # scal_magnitude
 
@@ -1666,7 +1669,7 @@ function run_forward!(
                 # phi_array=phL.phi_ele #do not transpose since python row major
                 
                 # Compute electrical current, interpolate velocity on scalar grid
-                # compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+                #                     if num.electrical_potential>0 compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
         
                 # if electrolysis && num.nb_transported_scalars>1
                 #     if heat 
@@ -2635,11 +2638,11 @@ function run_forward!(
                     # phi_array=phL.phi_ele #do not transpose since python row major
                     
                     # Compute electrical current, interpolate velocity on scalar grid
-                    # compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+                    #                     if num.electrical_potential>0 compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
 
-                    #TODO compute_grad_phi_ele! iter 0
-
-                    compute_grad_phi_ele!(num, grid, grid_u, grid_v, grid_u.LS[end], grid_v.LS[end], phL, phS, op.opC_pL, op.opC_pS, elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p1,tmp_vec_p1) #TODO current
+                    if num.electrical_potential>0
+                        compute_grad_phi_ele!(num, grid, grid_u, grid_v, grid_u.LS[end], grid_v.LS[end], phL, phS, op.opC_pL, op.opC_pS, elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p1,tmp_vec_p1) #TODO current
+                    end
 
                     # #store in us, vs instead of Eus, Evs
                     # interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,tmp_vec_p,tmp_vec_p0)

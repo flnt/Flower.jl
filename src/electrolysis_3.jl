@@ -81,7 +81,7 @@
 # end
 
 """    
-set_poisson_variable_coeff!
+solve_poisson_variable_coeff!
 
 # Arguments
 - bc_type: BC for interface, num, grid, 

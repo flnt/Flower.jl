@@ -2448,6 +2448,10 @@ function vec_convx_8!(II, O, v, cap, n, ny, BC)
     return nothing
 end
 
+
+"""
+    fills O and B
+"""
 function vector_convection!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, Du_x, Du_y, Dv_x, Dv_y, cap, n, ny, BC, inside, b_left, b_bottom, b_right, b_top)
     B .= 0.0
     @inbounds @threads for II in inside
@@ -2862,6 +2866,32 @@ function vec_convy_8!(II, O, u, cap, ny, BC)
     return nothing
 end
 
+
+"""
+### Variables
+
+- `GridFCy`: A grid representing the solution to the convection-diffusion problem.
+- `O`: A matrix used to store intermediate results during the computation.
+- `B`: A vector used to store boundary conditions.
+- `u`: Velocity field in the x-direction.
+- `v`: Velocity field in the y-direction.
+- `Du_x`: 
+- `Dv_y`: 
+- `cap`: Capacities related to the convection terms.
+- `ny`: Number of grid points in the y-direction.
+- `inside`: Indices representing the interior grid points.
+- `b_left`, `b_bottom`, `b_right`, `b_top`: Indices representing the boundary grid points.
+- `BC`: Boundary conditions structure.
+
+
+### Functions
+
+- `fill_inside_conv!`: Updates the interior grid points based on convection terms.
+- `vec_convy_1!`, `vec_convy_2!`, `vec_convy_3!`, `vec_convy_4!`, `vec_convy_5!`, `vec_convy_6!`, `vec_convy_7!`, `vec_convy_8!`: Functions to handle different boundary conditions and convection terms.
+- `get_capacities_convection`: Retrieves capacities related to convection terms for a given grid point.
+- `lexicographic`: Converts a multi-dimensional index to a linear index.
+
+"""
 function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y, Dv_x, Dv_y, cap, n, ny, BC, inside, b_left, b_bottom, b_right, b_top)
     B .= 0.0
     @inbounds @threads for II in inside
