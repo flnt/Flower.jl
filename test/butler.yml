@@ -100,7 +100,8 @@ flower:
     contact_angle: 1 #activate advancing/receding contact angle
     convection_Cdivu: 0
     convection_mode: 1 #0 #1
-    electric_potential: 0 #deactivated
+    electric_potential: 2 #deactivated
+    electric_potential_max_iter: 10
     electrolysis_phase_change_case: "None" #"Khalighi" #no phase change
     # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
     # electrolysis_phase_change_case: "levelset" # local
@@ -232,16 +233,15 @@ flower:
       #   BC_trans_scal_KOH, #KOH
       #   BC_trans_scal_H2O] #H2O
 
-      # BC_phi_ele = BoundariesInt(
-      #     left   = Neumann(val=i_butler./elec_cond), #TODO -BC in Flower ? so i_butler not -i_butler
-      #     right  = Dirichlet(),
-      #     bottom = Neumann(val=0.0),
-      #     top    = Neumann(val=0.0),
-      #     int    = Neumann(val=0.0),
-      #     LS = [Neumann(val=0.0)]
-      # )
-
-      BC_phi_ele = Boundaries()
+      BC_phi_ele = BoundariesInt(
+          left   = Neumann(val=i_butler./elec_cond), #TODO -BC in Flower ? so i_butler not -i_butler
+          right  = Dirichlet(),
+          bottom = Neumann(val=0.0),
+          top    = Neumann(val=0.0),
+          int    = Neumann(val=0.0),
+          LS = [Neumann(val=0.0)]
+      )
+      # BC_phi_ele = Boundaries()
       BC_trans_scal = []
 
       BC_uL = Boundaries(
@@ -326,6 +326,9 @@ flower:
 
        print("\n grad ",(BC_pL.top.val-BC_pL.bottom.val)/L0)
 
+      print("\n BC_phi_ele ",BC_phi_ele)
+
+
 
     init_struct2: obj = MyModule.MyType(10, 20.0)
 
@@ -381,89 +384,89 @@ flower:
       print("\n end test print_parameters2 \n")
 
     test_end: |
-      print("\n test end \n")
-      printstyled(color=:green, @sprintf "\n max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(phL.u)) maximum(abs.(phL.v)))
-      test_tolerance = 1e-13
-      # Pressure
-      # p_top = 0
-      # p_bottom = p_top + 8*mu1/phys.ref_length*phys.v_inlet
-      L0 = mesh.xmax - mesh.xmin
-      laps = set_matrices!(num, gp, [gp.LS[1].geoL], gu, [gu.LS[1].geoL], gv, [gv.LS[1].geoL], op.opC_pL, op.opC_uL, op.opC_vL, (sim.periodic_x == 1), (sim.periodic_y == 1))
+      # print("\n test end \n")
+      # printstyled(color=:green, @sprintf "\n max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(phL.u)) maximum(abs.(phL.v)))
+      # test_tolerance = 1e-13
+      # # Pressure
+      # # p_top = 0
+      # # p_bottom = p_top + 8*mu1/phys.ref_length*phys.v_inlet
+      # L0 = mesh.xmax - mesh.xmin
+      # laps = set_matrices!(num, gp, [gp.LS[1].geoL], gu, [gu.LS[1].geoL], gv, [gv.LS[1].geoL], op.opC_pL, op.opC_uL, op.opC_vL, (sim.periodic_x == 1), (sim.periodic_y == 1))
 
-      Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L = laps
+      # Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L = laps
 
-      print("\n num.visc_coeff ", num.visc_coeff)
-      print("\n num.visc_coeff ", num.rho1)
+      # print("\n num.visc_coeff ", num.visc_coeff)
+      # print("\n num.visc_coeff ", num.rho1)
 
 
-      tmp_vec_v = fnzeros(gv,num)
+      # tmp_vec_v = fnzeros(gv,num)
 
-      # vPoiseuille = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length) 
-      # vPoiseuilleb = Poiseuille_fmax.(gv.x[1,:],phys.v_inlet,phys.ref_length) 
+      # # vPoiseuille = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length) 
+      # # vPoiseuilleb = Poiseuille_fmax.(gv.x[1,:],phys.v_inlet,phys.ref_length) 
 
     
-      for j in 1:gv.ny
-        for i in 1:gv.nx
-            II = CartesianIndex(j,i)
-            pII = lexicographic(II,gv.ny)
-            tmp_vec_v[pII] = Poiseuille_fmax.(gv.x[j,i],phys.v_inlet,phys.ref_length)
-        end
-      end
+      # for j in 1:gv.ny
+      #   for i in 1:gv.nx
+      #       II = CartesianIndex(j,i)
+      #       pII = lexicographic(II,gv.ny)
+      #       tmp_vec_v[pII] = Poiseuille_fmax.(gv.x[j,i],phys.v_inlet,phys.ref_length)
+      #   end
+      # end
       
-      vecb(tmp_vec_v,gv) = vPoiseuilleb
+      # vecb(tmp_vec_v,gv) = vPoiseuilleb
 
 
-      print("\n max ", maximum(tmp_vec_v))
+      # print("\n max ", maximum(tmp_vec_v))
      
 
-      # print("\n sizes ",size(phL.vD), " ",size(tmp_vec_v))
-      visc_term = test_laplacian_pressure(num,gv,tmp_vec_v,op.opC_pL, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L)
-      # Test if the viscous term equals the pressure term for Poiseuille
-      # skip =true : skip as long as the discretization does not handle variable spacings
-      # here: v_{i+1} v_i and v_{i-1} with h and h/2 spacings
-      # factor 4/3 missing, we have 3L/4 + O(h)
-      @testset "laplacian" begin
-      #TODO 
-      @test (visc_term - (p_top-p_bottom)/L0)/((p_top-p_bottom)/L0) ≈0 atol=test_tolerance skip=true  
-      end #@testset "laplacian"
+      # # print("\n sizes ",size(phL.vD), " ",size(tmp_vec_v))
+      # visc_term = test_laplacian_pressure(num,gv,tmp_vec_v,op.opC_pL, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L)
+      # # Test if the viscous term equals the pressure term for Poiseuille
+      # # skip =true : skip as long as the discretization does not handle variable spacings
+      # # here: v_{i+1} v_i and v_{i-1} with h and h/2 spacings
+      # # factor 4/3 missing, we have 3L/4 + O(h)
+      # @testset "laplacian" begin
+      # #TODO 
+      # @test (visc_term - (p_top-p_bottom)/L0)/((p_top-p_bottom)/L0) ≈0 atol=test_tolerance skip=true  
+      # end #@testset "laplacian"
 
-      print("\n 4/3visc ",4*visc_term/3," grad ",(p_top-p_bottom)/L0)
+      # print("\n 4/3visc ",4*visc_term/3," grad ",(p_top-p_bottom)/L0)
 
-      @testset "laplacian 4/3" begin
-      #For now factor 4/3 missing
-      @test (4*visc_term/3 - (p_top-p_bottom)/L0)/((p_top-p_bottom)/L0) ≈0 atol=test_tolerance 
-      end #@testset "laplacian 4/3"
+      # @testset "laplacian 4/3" begin
+      # #For now factor 4/3 missing
+      # @test (4*visc_term/3 - (p_top-p_bottom)/L0)/((p_top-p_bottom)/L0) ≈0 atol=test_tolerance 
+      # end #@testset "laplacian 4/3"
 
-      printstyled(color=:green, @sprintf "\n visc_term : %.2e grad p %.2e\n" visc_term (p_top-p_bottom)/L0 )
-      current_i = 2
-
-
-      vec = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length)
-      print("\n Poiseuille_fmax ",vec[1,:])
-      print("\n ")
-      print("\n phL.v ",phL.v[1,:])
-      print("\n ")
+      # printstyled(color=:green, @sprintf "\n visc_term : %.2e grad p %.2e\n" visc_term (p_top-p_bottom)/L0 )
+      # current_i = 2
 
 
-      print("\n rel err",abs.(phL.v[1,:].-vec[1,:])./phys.v_inlet)
+      # vec = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length)
+      # print("\n Poiseuille_fmax ",vec[1,:])
+      # print("\n ")
+      # print("\n phL.v ",phL.v[1,:])
+      # print("\n ")
 
 
-      print("\n ", gv.x[1,:])
-      print("\n ", gv.x[1,1])
-
-      print("\n P ",Poiseuille_fmax(gv.x[1,1],phys.v_inlet,phys.ref_length)," v ",phL.v[1,1]," test ",Poiseuille_fmax(0.0,phys.v_inlet,phys.ref_length))
+      # print("\n rel err",abs.(phL.v[1,:].-vec[1,:])./phys.v_inlet)
 
 
-      printstyled(color=:red, @sprintf "\n iMx %.10e Mx %.10e eps %.10e \n" 1/(1e-4/128)^2 (1e-4/128)^2 eps(0.01))
+      # print("\n ", gv.x[1,:])
+      # print("\n ", gv.x[1,1])
 
-      print("\n mesh.nx ",mesh.nx," nx ",gp.nx," ny ",gp.ny)
+      # print("\n P ",Poiseuille_fmax(gv.x[1,1],phys.v_inlet,phys.ref_length)," v ",phL.v[1,1]," test ",Poiseuille_fmax(0.0,phys.v_inlet,phys.ref_length))
+
+
+      # printstyled(color=:red, @sprintf "\n iMx %.10e Mx %.10e eps %.10e \n" 1/(1e-4/128)^2 (1e-4/128)^2 eps(0.01))
+
+      # print("\n mesh.nx ",mesh.nx," nx ",gp.nx," ny ",gp.ny)
 
           
-      compute_grad_p!(num,gp, gu, gv, phL.pD, op.opC_p, op.opC_u, op.opC_v)
+      # compute_grad_p!(num,gp, gu, gv, phL.pD, op.opC_p, op.opC_u, op.opC_v)
 
      
 
-      print("\n end test  \n")
+      # print("\n end test  \n")
 
 study:
   #tolerance for tests
@@ -1958,6 +1961,32 @@ pdi:
         #   - exec: print('nb levelsets',nLS)
         #     with: { nLS: $nb_levelsets }
 
+        solve_poisson:
+          with: { phi_ele_1D_py: $phi_ele_1D, nx_py: $nx, ny_py: $ny} 
+          exec: |
+            print('\n \033[93m'+'Pycall ','\033[0m')
+
+            print('\n \033[93m'+'phi ',np.max(phi_ele_1D_py),'\033[0m')
+
+            from debug_flower import vecbprint
+            
+            # vecbprint(phi_ele_1D_py,nx_py,ny_py)
+
+            phi = veci(phi_ele_1D_py,nx_py,ny_py,1)
+
+            # print(phi[nx_py/2,:])
+            # print(phi[:,nx_py/2])
+
+            # a = 0.66
+            a = 0.6608349877730476
+            L= 1e-4
+            npoints=2
+            xplot_new = np.linspace(0, L, npoints)
+            yplot_new = a * (xplot_new / L - 1)
+
+
+          # - exec: import plot_flower; plot_flower.print_bc(phi_ele_1D_py) #TODO bug hdf5 so put debugging functions in debug_flower.py
+
 
         write_data_elec_ix_iy:
           with: 
@@ -1976,10 +2005,10 @@ pdi:
         # write_data:
         #   - exec: print('Test nstep',nstep_py)
         #     with: { nstep_py: $nstep }
-          # - exec: from debug_flower import vecbprint; vecbprint(p_1D_py,nx_py,ny_py)
-          #   with: { p_1D_py: $p_1D, nx_py: $nx, ny_py: $ny} 
+        #   - exec: from debug_flower import vecbprint; vecbprint(p_1D_py,nx_py,ny_py)
+        #     with: { p_1D_py: $p_1D, nx_py: $nx, ny_py: $ny} 
 
-          # - exec: import plot_flower; plot_flower.print_bc(p_1D_py) #TODO bug hdf5 so put debugging functions in debug_flower.py
+        #   - exec: import plot_flower; plot_flower.print_bc(p_1D_py) #TODO bug hdf5 so put debugging functions in debug_flower.py
 
 
         # check_concentrations:
@@ -2013,7 +2042,7 @@ pdi:
       # - file: results/data_${nstep:08}_${mpi_coords_x:02}_${mpi_coords_y:02}.h5 #Name of the file test.h5
 
 
-      - file: convergence_Poiseuille.h5
+      - file: Butler.h5
         collision_policy: replace #write_into overwrite old file #TODO
         on_event: convergence_study
         write: [nx_list,l1_rel_error,l2_rel_error,linfty_rel_error,l1_rel_error_full_cells,l2_rel_error_full_cells,linfty_rel_error_full_cells,l1_rel_error_partial_cells,l2_rel_error_partial_cells,linfty_rel_error_partial_cells,domain_length,min_cell_volume]

@@ -4,7 +4,7 @@ import pandas as pd
 import yaml
 import sys
 import h5py
-
+import math
 
 # module to plot files from Flower.jl
 # from plot_flower import * 
@@ -224,7 +224,7 @@ def plot_errors_from_pandas(df,figpar,plotpar,colors,filename):
       y="r"
 
       param_line=[]
-      slopes=0
+      slope_and_correlation=0
       R2=0
       color_line="k"
       # colors="#fa8b2b"
@@ -243,10 +243,10 @@ def plot_errors_from_pandas(df,figpar,plotpar,colors,filename):
 
          print('yls',yls)
 
-         slopes=[0,0]
-         print('test slopes ',slopes)
-         compute_slope(ax2,xls,yls,x,y,slopes,R2,param_line,color_line,alpha,plot_text=False)
-         print(slopes)
+         slope_and_correlation=[0,0]
+         print('test slope_and_correlation ',slope_and_correlation)
+         compute_slope(ax2,xls,yls,x,y,slope_and_correlation,R2,param_line,color_line,alpha,plot_text=False)
+         print(slope_and_correlation)
          if 'l1' in err:
             label = r'$l_1$'
          elif 'l2' in err:
@@ -254,15 +254,18 @@ def plot_errors_from_pandas(df,figpar,plotpar,colors,filename):
          elif 'linfty' in err:
             label = r'$l_\infty$'
 
-         # text_slope=', slope={:.2g}, R²={:.2g}'.format(float(slopes[0]),float(slopes[1]))
+         # text_slope=', slope={:.2g}, R²={:.2g}'.format(float(slope_and_correlation[0]),float(slope_and_correlation[1]))
 
          # text_slope = 'Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$'
-         # text_slope = ', slope '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}, R^2 {1:.2e}".format(slopes[0],slopes[1]) + '$'
-         # text_slope = ', slope '+r"${0:.2f}, R^2 {1:.2f}".format(slopes[0],slopes[1]) + '$'
-         # text_slope = r"$\mathrm{{, slope}} {0:.2f}, R^2 {1:.2f}".format(slopes[0],slopes[1]) + '$'
-         # text_slope = r"$\mathrm{{{}}} {1:.2f}, R^2 {2:.2f}".format(', slope',slopes[0],slopes[1]) + '$'
-         text_slope = r"$\mathrm{{{text}}}: {slope:.2f}, R^2: {R2:.2f}".format(text=', slope',slope=slopes[0],R2=slopes[1]) + '$'
-         # text_slope = r"$ text {slope:.2f}, R^2 {R2:.2f}".format(slope=slopes[0],R2=slopes[1]) + '$'
+         # text_slope = ', slope '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}, R^2 {1:.2e}".format(slope_and_correlation[0],slope_and_correlation[1]) + '$'
+         # text_slope = ', slope '+r"${0:.2f}, R^2 {1:.2f}".format(slope_and_correlation[0],slope_and_correlation[1]) + '$'
+         # text_slope = r"$\mathrm{{, slope}} {0:.2f}, R^2 {1:.2f}".format(slope_and_correlation[0],slope_and_correlation[1]) + '$'
+         # text_slope = r"$\mathrm{{{}}} {1:.2f}, R^2 {2:.2f}".format(', slope',slope_and_correlation[0],slope_and_correlation[1]) + '$'
+         if math.isnan(slope_and_correlation[1]): 
+            text_slope = r"$\mathrm{{{text}}}: {slope:.2f}".format(text=', slope',slope=slope_and_correlation[0]) + '$'
+         else:
+            text_slope = r"$\mathrm{{{text}}}: {slope:.2f}, R^2: {R2:.2f}".format(text=', slope',slope=slope_and_correlation[0],R2=slope_and_correlation[1]) + '$'
+         # text_slope = r"$ text {slope:.2f}, R^2 {R2:.2f}".format(slope=slope_and_correlation[0],R2=slope_and_correlation[1]) + '$'
 
          print('text_slope',text_slope)
 

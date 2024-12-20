@@ -98,6 +98,7 @@ Stores parameters for the simulation
     io_pdi::D=0
     bulk_conductivity::D=0
     electric_potential::D = 0 #solve electric potential
+    electric_potential_max_iter::D=1
     contact_angle::D = 0 #contact angle: advancing, receding
     convection_Cdivu::D = 0
     convection_mode::D = 0
@@ -115,7 +116,6 @@ Stores parameters for the simulation
     average_velocity::D=0
     extend_field::D=0
     verbosity::D=0
-    electrical_potential::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -518,6 +518,7 @@ Dirichlet is applied. The boundary condition is given by:
 end
 
 @with_kw mutable struct Boundaries <: NumericalParameters
+    name::String = ""
     left::BoundaryCondition = Neumann()
     right::BoundaryCondition = Neumann()
     bottom::BoundaryCondition = Neumann()
@@ -533,6 +534,7 @@ end
 #     y::Union{Vector{T},LinRange{T,D}} =
 
 @with_kw mutable struct BoundariesInt <: NumericalParameters
+    name::String = ""
     left::BoundaryCondition = Neumann()
     right::BoundaryCondition = Neumann()
     bottom::BoundaryCondition = Neumann()

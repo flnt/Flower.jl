@@ -2608,6 +2608,8 @@ function set_FE!(
     return rhs_u, rhs_v, rhs_ϕ, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b
 end
 
+
+
 function pressure_projection!(
     time_scheme, bc_int,
     num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
@@ -2629,10 +2631,6 @@ function pressure_projection!(
 
 
     if num.prediction == 1 || num.prediction == 2
-
-        #TODO
-        # compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
-
 
         ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid)
         ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(pD,grid) .+ opC_v.Gy_b * vecb(pD,grid)

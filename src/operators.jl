@@ -2870,7 +2870,7 @@ end
 """
 ### Variables
 
-- `GridFCy`: A grid representing the solution to the convection-diffusion problem.
+- `GridFCy`: v-grid.
 - `O`: A matrix used to store intermediate results during the computation.
 - `B`: A vector used to store boundary conditions.
 - `u`: Velocity field in the x-direction.

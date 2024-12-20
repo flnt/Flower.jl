@@ -689,6 +689,9 @@ We initialize a solid circle of radius R = 0.75. The domain size are the same as
 To plot the results, you can use:
 ```bash
 python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/test/channel_Dirichlet_pressure.yml flower_00000000.h5 flower_00000001.h5
+
+python3 -c "import convergence_study; convergence_study.plot_errors_from_h5()" ../Flower.jl/test/channel_Dirichlet_pressure.yml convergence_Poiseuille.h5
+
 ```
 
 ### Epsilon to prevent NaN

@@ -1216,7 +1216,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
         @test (4*visc_term/3 - (p_top-p_bottom)/L0)/((p_top-p_bottom)/L0) ≈0 atol=test_tolerance 
         end #@testset "laplacian 4/3"
 
-        printstyled(color=:green, @sprintf "\n visc_tem : %.2e grad p %.2e\n" visc_term (p_top-p_bottom)/L0 )
+        printstyled(color=:green, @sprintf "\n visc_term : %.2e grad p %.2e\n" visc_term (p_top-p_bottom)/L0 )
         current_i = 2
 
     end

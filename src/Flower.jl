@@ -138,6 +138,8 @@ include("electrolysis.jl")
 include("electrolysis_2.jl")
 include("electrolysis_operators.jl")
 include("electrolysis_tests.jl")
+include("electrolysis_print.jl")
+
 
 include("run_profile.jl") #for profiling
 

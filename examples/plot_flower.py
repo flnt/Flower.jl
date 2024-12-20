@@ -1499,6 +1499,12 @@ def plot_file(
         field = data.transpose()
 
 
+    if 'norm' in figpar.keys():
+        print("figpar['norm']",figpar['norm'])
+        field = field / figpar['norm']
+
+        print("max field ",np.max(field))
+
     # file_name_1 = key
     file_name = figpar['file']
 
