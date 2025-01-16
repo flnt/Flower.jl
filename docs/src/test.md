@@ -155,8 +155,9 @@ As seen in <a href="documentation.html#Coefficients-in-a-simple-configuration"> 
 </table>
 ```
 ```@raw html
-The coefficients of the matrix for the discretization of a Neumann boundary condition are tested in<a href="https://github.com/flnt/Flower.jl/blob/electrolysis/test/poisson_no_interface.jl"> and <a href="https://github.com/flnt/Flower.jl/blob/electrolysis/test/poisson_no_interface_right_Neumann.jl"> with tmp the index of a bulk value and i_corner_vecb_bottom the index of the boundary value at the bottom:
+The coefficients of the matrix for the discretization of a Neumann boundary condition are tested in<a href="https://github.com/flnt/Flower.jl/blob/electrolysis/test/poisson_no_interface.jl"> poisson_no_interface.jl</a> and <a href="https://github.com/flnt/Flower.jl/blob/electrolysis/test/poisson_no_interface_right_Neumann.jl"> poisson_no_interface_right_Neumann.jl </a> with tmp the index of a bulk value and i_corner_vecb_bottom the index of the boundary value at the bottom:
 ```
+
 
 ```julia
 @testset "A[i_corner_vecb_bottom,tmp]" begin
@@ -499,7 +500,8 @@ python3 -c "import convergence_study; convergence_study.plot_errors_from_h5()" .
 
 
 ```@raw html
-<table border="1" class="dataframe">
+<!-- <table border="1" class="dataframe"> -->
+<table class="styled-table">
   <thead>
     <tr style="text-align: right;">
       <th>nx_list</th>
@@ -752,7 +754,7 @@ At the moment, we get ``3/4*L +\mathcal{O}(h)``  at the corners and ``L + \mathc
 ## Growth of bubble at the wall
 
 
-## Suggestion: with a simple boundary condition similar to Butler-Volmer
+## Butler-Volmer
 We use a similar approach as in [`example for sinh`](https://math.stackexchange.com/questions/3472880/solving-sinh-x-kx). We assume a constant conductivity ``\sigma = 1`` and a simplified Butler-Volmer equation.
 The boundary conditions are:
 * left: simplified Butler-Volmer 
@@ -773,12 +775,138 @@ i=i_0\left[\exp{\left(\frac{\alpha_aF\eta}{R_\mu T}\right)}
 
 !!! todo "Needs to be checked" 
     Poisson with constant conductivity, electroneutrality: ``\Delta \Phi = 0`` so ``\Phi(x) = ax+b``.
-    At ``x = L``, ``\Phi = 0`` so we have ``\Phi(x) = a(\frac{x}{L}-1)`` 
+    At ``x = L``, ``\Phi = 0`` so we have ``\Phi(x) = a(x-L)`` 
     
 !!! todo ""
     with ``a>0`` because 
 
 !!! todo
-    At ``0^+``: ``\Phi(0^+) = -a`` and ``\frac{\partial\Phi}{\partial x }(0^+) = \frac{a}{L}``
-    ``\frac{a}{L} = 2 i_0 \mathrm{sinh}(\frac{\alpha F}{RT}(-0.6-(-a)) )``
+    At ``0^+``: ``\Phi(0^+) = -aL`` and ``\frac{\partial\Phi}{\partial x }(0^+) = a`` so
+    ``a = 2 i_0 \mathrm{sinh}(\frac{\alpha F}{RT}(-0.6-(-aL)) )``
+
+```@raw html
+The results of <a href="https://github.com/flnt/Flower.jl/blob/electrolysis/test/butler.jl"> butler.jl</a> run by <a href="https://github.com/flnt/Flower.jl/blob/electrolysis/test/runtest_butler.jl"> runtest_butler.jl </a> can be compared with <a href="https://github.com/flnt/Flower.jl/blob/electrolysis/example/solve_potential_1D.py"> solve_potential_1D.py</a>.
+```
+
+
+Newton's method with python 1D
+
+```@raw html
+<table class="styled-table">
+<!-- <table border="1" class="dataframe"> -->
+  <thead>
+    <tr style="text-align: right;">
+      <th>k</th>
+      <th>phi_wall</th>
+      <th>Relative error on slope</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0</td>
+      <td>-1.146e-02</td>
+      <td>1.694e-02</td>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td>-1.166e-02</td>
+      <td>4.429e-06</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>-1.166e-02</td>
+      <td>3.003e-13</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>-1.166e-02</td>
+      <td>7.315e-16</td>
+    </tr>
+  </tbody>
+</table>
+```
+
+Successive substitutions: with Flower or python in 1D:
+```@raw html
+<!-- <table border="1" class="dataframe"> -->
+<table class="styled-table">
+  <thead>
+    <tr style="text-align: right;">
+      <th>k</th>
+      <th>phi_wall</th>
+      <th>Relative error on slope</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0</td>
+      <td>-1.412e-02</td>
+      <td>2.112e-01</td>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td>-1.119e-02</td>
+      <td>3.965e-02</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>-1.174e-02</td>
+      <td>7.626e-03</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>-1.164e-02</td>
+      <td>1.460e-03</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>-1.166e-02</td>
+      <td>2.798e-04</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>-1.165e-02</td>
+      <td>5.360e-05</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>-1.166e-02</td>
+      <td>1.027e-05</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>-1.166e-02</td>
+      <td>1.968e-06</td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td>-1.166e-02</td>
+      <td>3.770e-07</td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td>-1.166e-02</td>
+      <td>7.223e-08</td>
+    </tr>
+  </tbody>
+</table>
+```
+
+## Radial flow (qualitative)
+
+The velocity field is imposed with [`init_fields_multiple_levelsets!`](@ref) for "BC_uL" and "BC_vL". The gravity is deactivated.
+
+```bash
+python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/test/radial.yml flower_00000001.h5
+```
+
+
+## Test with dummy advection
+
+```bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/main_concise.jl levelset_Butler.yml
+```
+
+## Variable coefficient
+
 ## Suggestion: use test case from electrostatics from Griffiths

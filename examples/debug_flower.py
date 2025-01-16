@@ -1,3 +1,4 @@
+import numpy as np
 from termcolor import colored
 
 #Debug with PDI + python instead of recompiling code in Julia (for quick tests)
@@ -78,3 +79,22 @@ def vecb_T(data, nx, ny):
 # vecb_B(a,g::G) where {G<:Grid} = @view vecb(a, g)[g.ny+1:g.ny+g.nx]
 # vecb_R(a,g::G) where {G<:Grid} = @view vecb(a, g)[g.ny+g.nx+1:2*g.ny+g.nx]
 # vecb_T(a,g::G) where {G<:Grid} = @view vecb(a, g)[2*g.ny+g.nx+1:2*g.ny+2*g.nx]
+
+
+def butler(x,phi1,Faraday,alpha,Ru,temperature0,c0_KOH,DKOH,i0):
+    # print(L,i0,alpha,Faraday,Ru,temperature0)
+    # elec_cond=2*Faraday**2*c0_KOH*DKOH/(Ru*temperature0)
+    return i0*(np.exp((alpha*Faraday)/(Ru*temperature0)*(phi1-x))-np.exp(-(alpha*Faraday)/(Ru*temperature0)*(phi1-x)))
+
+      
+def butler_grad_phi(x,phi1,Faraday,alpha,Ru,temperature0,c0_KOH,DKOH,i0):
+    # print(L,i0,alpha,Faraday,Ru,temperature0)
+    elec_cond=2*Faraday**2*c0_KOH*DKOH/(Ru*temperature0)
+    return -i0/elec_cond*(np.exp((alpha*Faraday)/(Ru*temperature0)*(phi1-x))-np.exp(-(alpha*Faraday)/(Ru*temperature0)*(phi1-x)))
+
+def butler_minimize(x,phi1,Faraday,alpha,Ru,temperature0,c0_KOH,DKOH,i0):
+    # print(L,i0,alpha,Faraday,Ru,temperature0)
+    elec_cond=2*Faraday**2*c0_KOH*DKOH/(Ru*temperature0)
+    return -i0/elec_cond*(np.exp((alpha*Faraday)/(Ru*temperature0)*(phi1-x))-np.exp(-(alpha*Faraday)/(Ru*temperature0)*(phi1-x)))
+
+      

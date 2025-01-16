@@ -1543,6 +1543,7 @@ pdi:
     l2_rel_error: { size: '$n_tests', type: array, subtype: double }
     linfty_rel_error: { size: '$n_tests', type: array, subtype: double }
     nx_list: { size: '$n_tests', type: array, subtype: int64 }
+    cell_volume_list: { size: '$n_tests', type: array, subtype: double }
 
 
     # stored in 1D
@@ -1692,7 +1693,7 @@ pdi:
       - file: convergence_study.h5
         collision_policy: replace #write_into overwrite old file #TODO
         on_event: convergence_study
-        write: [nx_list,l1_rel_error,l2_rel_error,linfty_rel_error,domain_length]
+        write: [nx_list,cell_volume_list,l1_rel_error,l2_rel_error,linfty_rel_error,domain_length]
 
       - file: flower_${nstep:08}.h5 #Name of the file test.h5
         collision_policy: replace #write_into overwrite old file #TODO

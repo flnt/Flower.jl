@@ -116,6 +116,7 @@ Stores parameters for the simulation
     average_velocity::D=0
     extend_field::D=0
     verbosity::D=0
+    laplacian::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -541,6 +542,10 @@ end
     top::BoundaryCondition = Neumann()
     int::BoundaryCondition = Neumann()
     LS::Vector{BoundaryCondition} = [Neumann(),Neumann()]
+    left_function::Function = x -> x
+    right_function::Function = x -> x
+    bottom_function::Function = x -> x
+    top_function::Function = x -> x
 end
 ####################################################################################################
 

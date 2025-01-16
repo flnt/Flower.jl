@@ -1,18 +1,31 @@
 flower:
   physics:
     #Coefficients for Butler-volmer
+    alpha: &alpha 0.5
     alpha_a: 0.5
     alpha_c: 0.5
     # Species        H2      KOH    H2O
-    concentration0: [1.6e-1, 6.7e3, 4.9e4]
+    # concentration0: &concentration0 [1.6e-1, 6.7e3, 4.9e4]
+    # concentration0: [&cH2, cKOH, cH2O]
+    # concentration0: [1.6e-1, 6.7e3, 4.9e4]
+    concentration0_H2: &concentration0_H2 1.6e-1
+    concentration0_KOH: &concentration0_KOH 6.7e3
+    concentration0_H2O: &concentration0_H2O 4.9e4
+    concentration0: [*concentration0_H2, *concentration0_KOH, *concentration0_H2O]
+
     epsilon_concentration: [1e-14, 1e-14, 1e-14]
     boundary_conditions: "Neumann"
-    electrolysis_reaction: "None" #"Butler_no_concentration"
+    electrolysis_reaction: "Butler_no_concentration"
+    diffusion_coeff_H2: &diffusion_coeff_H2 5.8e-9
+    diffusion_coeff_KOH: &diffusion_coeff_KOH 3.2e-9
+    diffusion_coeff_H2O: &diffusion_coeff_H2O 3.2e-9
     # Species         H2      KOH     H2O
-    diffusion_coeff: [5.8e-9, 3.2e-9, 3.2e-9]
+    # diffusion_coeff: &diffusion_coeff [5.8e-9, 3.2e-9, 3.2e-9]
+    # diffusion_coeff: [5.8e-9, 3.2e-9, 3.2e-9]
+    diffusion_coeff: [*diffusion_coeff_H2, *diffusion_coeff_KOH, *diffusion_coeff_H2O]
     end_time: 7.3 #s
-    Faraday: 9.64853321233100184e4 #C⋅mol−1
-    i0: 1.0
+    Faraday: &Faraday 9.64853321233100184e4 #C⋅mol−1
+    i0: &i0 1.0
     intfc_x: 0.0 # x coordinate of bubble center
     intfc_y: 5.0e-5 # y coordinate of bubble center
     # KOHwtpercent: 30
@@ -28,7 +41,7 @@ flower:
     Navier_slip_length: 1e-2    
     #Electric potential
     phi_ele0: 0.0
-    phi_ele1: -0.6
+    phi_ele1: &phi_ele1 -0.6
     pres0:  0.0 #1e5
     radius: 3.0e-6 #initial radius
     ref_length: 1e-4
@@ -40,9 +53,9 @@ flower:
     # 350 360 353 B 0.13841 353 350 360
     # 7.02E-02 6.82E-02 -0.00194999999999999 A -0.000194999999999999 0.069575 0.07016 0.06821
     radial_vel_factor: 1e-7
-    Ru: 8.314
+    Ru: &Ru 8.314
     sigma: 7.7e-2
-    temperature0: 353.0
+    temperature0: &temperature0 353.0
     theta_e: 30 #145 #90  
     theta_adv: 120
     theta_rec: 30
@@ -57,15 +70,16 @@ flower:
     v_inlet: &v_inlet 6.7e-4
     g: 9.81
     beta: 0.0
+    domain_length: &domain_length 1.0e-4
     
 
   mesh:
     nx: 128
     ny: 128
-    xmin: 0
-    xmax: 1e-4
-    ymin: 0 
-    ymax: 1e-4
+    xmin: &mesh_xmin 0.0
+    xmax: &mesh_xmax 1.0e-4
+    ymin: 0.0 
+    ymax: 1.0e-4
   simulation:
     activate_interface: 0 #no interface
     advection_LS_mode: 10 #9 #8 #2 #5 #4 #3 #2
@@ -100,7 +114,7 @@ flower:
     contact_angle: 1 #activate advancing/receding contact angle
     convection_Cdivu: 0
     convection_mode: 1 #0 #1
-    electric_potential: 2 #deactivated
+    electric_potential: 3 #2 #deactivated
     electric_potential_max_iter: 10
     electrolysis_phase_change_case: "None" #"Khalighi" #no phase change
     # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
@@ -172,16 +186,17 @@ flower:
       i_butler = gp.x[:,1] .*0.0
       phi_ele =  gp.x[:,1] .*0.0
 
+      i_butler=butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_ele,phys.phi_ele1,phys.Ru,phys.temperature0)
+
+      print("\n TEST TEST i_butler ", i_butler)
+
       vPoiseuilleb = Poiseuille_fmax.(gv.x[1,:],phys.v_inlet,phys.ref_length) 
 
       p_top = 0
       p_bottom = p_top + 8*mu1/phys.ref_length*phys.v_inlet
 
 
-      # i_butler = scalar_mesh_x[:,1] .*0.0
-      # phi_ele =  scalar_mesh_x[:,1] .*0.0
 
-      # i_butler=butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_ele,phys.phi_ele1,phys.Ru,phys.temperature0)
 
       # # H2 boundary condition
       # BC_trans_scal_H2 = BoundariesInt(
@@ -324,7 +339,7 @@ flower:
       # print("\n BC_pL ",BC_pL.bottom.val)
       # print("\n BC_pL ",BC_pL.top.val)
 
-       print("\n grad ",(BC_pL.top.val-BC_pL.bottom.val)/L0)
+      print("\n grad ",(BC_pL.top.val-BC_pL.bottom.val)/L0)
 
       print("\n BC_phi_ele ",BC_phi_ele)
 
@@ -356,6 +371,9 @@ flower:
 
       elec_cond=2*phys.Faraday^2*c0_KOH*DKOH/(phys.Ru*phys.temperature0)
 
+      printstyled(color=:red, @sprintf "\n elec_cond : %.2e \n" elec_cond)
+
+
       Re=phys.rho1*phys.v_inlet*phys.ref_length/mu #Reynolds number
       printstyled(color=:green, @sprintf "\n Re : %.2e %.2e %.2e %.2e\n" Re phys.rho1/mu1 phys.rho1 mu1)
 
@@ -384,6 +402,14 @@ flower:
       print("\n end test print_parameters2 \n")
 
     test_end: |
+      phi_test = -1.166e-02
+      i_butler_test = butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_test,phys.phi_ele1,phys.Ru,phys.temperature0)
+
+      printstyled(color=:green, @sprintf "\n test Butler )
+      print("\n test Butler ",i_butler_test,)
+
+      print("\n test Butler ",i_butler_test,-i_butler_test*L)
+
       # print("\n test end \n")
       # printstyled(color=:green, @sprintf "\n max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(phL.u)) maximum(abs.(phL.v)))
       # test_tolerance = 1e-13
@@ -1876,7 +1902,10 @@ pdi:
     # trans_scal_1D: { size: ['($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny','$nb_transported_scalars'], type: array, subtype: double } 
     trans_scal_1DT: { size: ['$nb_transported_scalars','($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny'], type: array, subtype: double } 
     phi_ele_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
-    rhs_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
+    elec_cond_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
+   
+    #BC
+    BC_phi_ele_left: { size: '$ny', type: array, subtype: double } 
     # trans_scal_1D_H2: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
     # trans_scal_1D_KOH: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
     # trans_scal_1D_H2O: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
@@ -1896,6 +1925,7 @@ pdi:
     linfty_rel_error_partial_cells: { size: '$n_tests', type: array, subtype: double }
 
     nx_list: { size: '$n_tests', type: array, subtype: int64 }
+    cell_volume_list: { size: '$n_tests', type: array, subtype: double }
     
     n_tests: int64
     domain_length: double
@@ -1956,33 +1986,109 @@ pdi:
   plugins:
     # trace: ~
     pycall:
+  
+      # logging: "debug"
+
       on_event:
+        # close_pycall:
+        #   exec: |
+        #     Py_FinalizeEx()
         # init_PDI:
+        #   exec: |
+        #     print('\n \033[93m'+'test init PDI','\033[0m')
+        #     print('Py_IsInitialized',Py_IsInitialized)
+        # init_PDI2:
+        #   exec: |
+        #     print('\n \033[93m'+'test init PDI','\033[0m')
+        #     print('Py_IsInitialized',Py_IsInitialized)
         #   - exec: print('nb levelsets',nLS)
         #     with: { nLS: $nb_levelsets }
 
-        solve_poisson:
-          with: { phi_ele_1D_py: $phi_ele_1D, nx_py: $nx, ny_py: $ny} 
+        write_initialization:
+          with: { phi_ele_1D_py: $phi_ele_1D, nx_py: $nx, ny_py: $ny, u_1D: $u_1D, v_1D: $v_1D, p_1D: $p_1D} 
           exec: |
-            print('\n \033[93m'+'Pycall ','\033[0m')
+            import numpy as np
+            print('\033[93m')
+            # print('Initialization')
+            print("min(u)  {u:.2e} min(v)  {v:.2e} min(p)  {p:.2e}".format(u=np.min(u_1D),v=np.min(v_1D),p=np.min(p_1D)))
+            print("max(u)  {u:.2e} max(v)  {v:.2e} max(p)  {p:.2e}".format(u=np.max(u_1D),v=np.max(v_1D),p=np.max(p_1D)))
+            print("mean(u) {u:.2e} mean(v) {v:.2e} mean(p) {p:.2e}".format(u=np.mean(u_1D),v=np.mean(v_1D),p=np.mean(p_1D)))
 
-            print('\n \033[93m'+'phi ',np.max(phi_ele_1D_py),'\033[0m')
+            # print("min(cH2) %.6e", minscal1L))\t$(@sprintf("min(KOH) %.6e", minscal2L))\t$(@sprintf("min(H2O) %.6e", minscal3L))\n")
+            # print("max(cH2) %.6e", maxscal1L))\t$(@sprintf("max(KOH) %.6e", maxscal2L))\t$(@sprintf("max(H2O) %.6e", maxscal3L))\n")
+            # print("moy(cH2) %.6e", moyscal1L))\t$(@sprintf("moy(KOH) %.6e", moyscal2L))\t$(@sprintf("moy(H2O) %.6e", moyscal3L))\n")
 
-            from debug_flower import vecbprint
+            print('\033[0m')
+
+        print_variables:
+          with: { phi_ele_1D_py: $phi_ele_1D, nx_py: $nx, ny_py: $ny, u_1D: $u_1D, v_1D: $v_1D, p_1D: $p_1D, trans_scal_1DT: $trans_scal_1DT} 
+          exec: |
+            import numpy as np
+            print('\033[93m')
+            print("min(u)  {u:.2e} min(v)  {v:.2e} min(p)  {p:.2e}".format(u=np.min(u_1D),v=np.min(v_1D),p=np.min(p_1D)))
+            print("max(u)  {u:.2e} max(v)  {v:.2e} max(p)  {p:.2e}".format(u=np.max(u_1D),v=np.max(v_1D),p=np.max(p_1D)))
+            print("mean(u) {u:.2e} mean(v) {v:.2e} mean(p) {p:.2e}".format(u=np.mean(u_1D),v=np.mean(v_1D),p=np.mean(p_1D)))
+
+            # print("min(cH2)  {cH2:.2e} min(KOH)  {KOH:.2e} min(H2O)  {H2O:.2e}".format(cH2=np.min(trans_scal_1DT[0,:]),KOH=np.min(trans_scal_1DT[1,:]),H2O=np.min(trans_scal_1DT[2,:])))
+            # print("max(cH2)  {cH2:.2e} max(KOH)  {KOH:.2e} max(H2O)  {H2O:.2e}".format(cH2=np.max(trans_scal_1DT[0,:]),KOH=np.max(trans_scal_1DT[1,:]),H2O=np.max(trans_scal_1DT[2,:])))
+            # print("mean(cH2) {cH2:.2e} mean(KOH) {KOH:.2e} mean(H2O) {H2O:.2e}".format(cH2=np.mean(trans_scal_1DT[0,:]),KOH=np.mean(trans_scal_1DT[1,:]),H2O=np.mean(trans_scal_1DT[2,:])))
             
-            # vecbprint(phi_ele_1D_py,nx_py,ny_py)
+        
+            print('\033[0m')
 
-            phi = veci(phi_ele_1D_py,nx_py,ny_py,1)
+       
+        solve_poisson:
+          with: 
+            BC_phi_ele_left_py: $BC_phi_ele_left
+            elec_cond_1D_py: $elec_cond_1D
+            phi_ele_1D_py: $phi_ele_1D
+            nx_py: $nx
+            ny_py: $ny
+            # phi_ele1: $phi_ele1
+            alpha: *alpha
+            i0: *i0
+            phi_ele1: *phi_ele1
+            Faraday: *Faraday
+            Ru: *Ru
+            temperature0: *temperature0
+            concentration0_KOH: *concentration0_KOH
+            diffusion_coeff_KOH: *diffusion_coeff_KOH
+            mesh_xmax: *mesh_xmax
+            mesh_xmin: *mesh_xmin
+            domain_length: *domain_length
+            # with: { phi_ele_1D_py: $phi_ele_1D, nx_py: $nx, ny_py: $ny}  
 
-            # print(phi[nx_py/2,:])
-            # print(phi[:,nx_py/2])
+  
+          exec: |
+            import numpy as np
+            from debug_flower import butler_grad_phi,vecb_L
+            # print('\n \033[93m'+'Pycall ','\033[0m')
+            min_phi = np.min(phi_ele_1D_py)
+            print('\n \033[93m'+'phi ',np.min(phi_ele_1D_py),np.max(phi_ele_1D_py),'\033[0m')
+            print('\n \033[93m'+'elec_cond ',np.min(elec_cond_1D_py),np.max(elec_cond_1D_py),'\033[0m')
+            print('\n \033[93m'+'BC_phi_ele_left ',np.min(BC_phi_ele_left_py),np.max(BC_phi_ele_left_py),'\033[0m')
 
-            # a = 0.66
-            a = 0.6608349877730476
-            L= 1e-4
-            npoints=2
-            xplot_new = np.linspace(0, L, npoints)
-            yplot_new = a * (xplot_new / L - 1)
+            L = mesh_xmax-mesh_xmin
+            print('\n \033[93m'+'phi ',min_phi,-L*butler_grad_phi(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,concentration0_KOH,diffusion_coeff_KOH,i0),'\033[0m')
+            print('\n \033[93m'+'grad phi ',min_phi,butler_grad_phi(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,concentration0_KOH,diffusion_coeff_KOH,i0),'\033[0m')
+
+            print(vecb_L(phi_ele_1D_py,nx_py,ny_py))
+
+            # from debug_flower import vecbprint,veci, butler
+            
+            # # vecbprint(phi_ele_1D_py,nx_py,ny_py)
+
+            # phi = veci(phi_ele_1D_py,nx_py,ny_py,1)
+
+            # # print(phi[nx_py/2,:])
+            # # print(phi[:,nx_py/2])
+
+            # # a = 0.66
+            # a = 0.6608349877730476
+            # L= 1e-4
+            # npoints=2
+            # xplot_new = np.linspace(0, L, npoints)
+            # yplot_new = a * (xplot_new / L - 1)
 
 
           # - exec: import plot_flower; plot_flower.print_bc(phi_ele_1D_py) #TODO bug hdf5 so put debugging functions in debug_flower.py
@@ -2045,7 +2151,7 @@ pdi:
       - file: Butler.h5
         collision_policy: replace #write_into overwrite old file #TODO
         on_event: convergence_study
-        write: [nx_list,l1_rel_error,l2_rel_error,linfty_rel_error,l1_rel_error_full_cells,l2_rel_error_full_cells,linfty_rel_error_full_cells,l1_rel_error_partial_cells,l2_rel_error_partial_cells,linfty_rel_error_partial_cells,domain_length,min_cell_volume]
+        write: [nx_list,cell_volume_list,l1_rel_error,l2_rel_error,linfty_rel_error,l1_rel_error_full_cells,l2_rel_error_full_cells,linfty_rel_error_full_cells,l1_rel_error_partial_cells,l2_rel_error_partial_cells,linfty_rel_error_partial_cells,domain_length,min_cell_volume]
 
 
 
@@ -2067,7 +2173,11 @@ pdi:
         #     subtype: double
         #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
         # when: "$nstep = 0"
-        write: [levelset_p,levelset_u,levelset_v,radius,nstep,time,velocity_x,velocity_y]
+        write: [nstep,time,levelset_p,levelset_u,levelset_v,velocity_x,velocity_y,radius]
+
+ 
+
+
         #write: [levelset_p,levelset_u,levelset_v,levelset_p_wall,radius]
 
       - file: flower_${nstep:08}.h5 #Name of the file test.h5

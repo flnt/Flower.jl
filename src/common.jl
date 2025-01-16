@@ -608,14 +608,14 @@ end
 const weno5 = WENO5()
 const eno2 = ENO2()
 
-@inline is_FE(char::String) = (char == "FE")
-@inline is_CN(char::String) = (char == "CN")
+@inline is_Forward_Euler(char::String) = (char == "FE" || char == "Forward_Euler")
+@inline is_Crank_Nicolson(char::String) = (char == "CN" || char == "Crank_Nicolson")
 
-@inline is_FE(::ForwardEuler) = true
-@inline is_FE(::TemporalIntegration) = false
+@inline is_Forward_Euler(::ForwardEuler) = true
+@inline is_Forward_Euler(::TemporalIntegration) = false
 
-@inline is_CN(::CrankNicolson) = true
-@inline is_CN(::TemporalIntegration) = false
+@inline is_Crank_Nicolson(::CrankNicolson) = true
+@inline is_Crank_Nicolson(::TemporalIntegration) = false
 
 const FE = ForwardEuler()
 const CN = CrankNicolson()

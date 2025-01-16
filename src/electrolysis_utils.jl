@@ -194,6 +194,48 @@ function init_fields_multiple_levelsets!(num,TD,T,H,BC,grid,dir_val_intfc,str)
 
     vec1(TD,grid) .= vec(T)
 
+    if str == "uL"
+
+        #TODO multiple LS: init grid.V
+        iLS = 1
+
+        if BC.LS[iLS].val != 0.0
+
+            printstyled(color=:green, @sprintf "\n Initialising velocity from BC\n")
+
+            for II in grid.ind.inside
+              
+                grid.V[II] = BC.LS[iLS].val * cos(grid.LS[iLS].α[II]+π) # u
+            end
+
+            print("\n BC velocity int ", BC)
+
+        end
+
+    end
+
+    if str == "vL"
+
+        #TODO multiple LS: init grid.V
+        iLS = 1
+
+        
+        if BC.LS[iLS].val != 0.0
+
+            printstyled(color=:green, @sprintf "\n Initialising velocity from BC\n")
+
+            for II in grid.ind.inside
+            
+                grid.V[II] = BC.LS[iLS].val * sin(grid.LS[iLS].α[II]+π) # v
+            end
+            
+            print("\n BC velocity int ", BC)
+
+        end
+
+    end
+
+
     if str =="scalL" && num.nLS>1
         for iLS in 1:num.nLS
             try

@@ -329,7 +329,7 @@ if num.io_pdi>0
         "levelset_v"::Cstring, gv.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
         "levelset_p_wall"::Cstring, LStable::Ptr{Cdouble}, PDI_OUT::Cint,
         # "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+        "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
         # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
         # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
         "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   

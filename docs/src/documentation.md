@@ -878,8 +878,118 @@ end
 
 
 
+## Poisson equation with variable coefficient 
 
 
+
+\begin{equation}
+    \grad\left( p^\omega,p^\gamma \right)=W^\dagger \left( G p^\omega + H p^\gamma \right)
+\end{equation}
+
+With variable coefficient:
+
+\begin{equation}
+    \kappa \grad\left( p^\omega,p^\gamma \right)=\kappa^\omega W^\dagger \left( G p^\omega + H p^\gamma \right)
+\end{equation}
+
+
+
+\begin{equation}
+    \mathrm{div}\left( \mathbf{q}^\omega,\mathbf{q}^\gamma \right)=-\left( G^T + H^T \right) \mathbf{q}^\omega + H^T \mathbf{q}^\gamma 
+\end{equation}
+
+
+
+
+```math
+\begin{cases}
+-\mathrm{div}\left( \mathbf{q}^\omega, \mathbf{q}^\gamma \right) =& Vf^\omega \\
+I_a I_\Gamma p^\gamma - I_b \mathrm{div}\left( 0,\kappa^\gamma \mathbf{q}^\gamma \right) =& I_\Gamma g^\gamma \\
+\mathbf{q}^\omega =& \kappa \grad\left( p^\omega,p^\gamma \right)\\
+\mathbf{q}^\gamma =& \mathbf{q}^\omega
+\end{cases}
+```
+
+```math
+\begin{cases}
+-\mathrm{div}\left( \mathbf{q}^\omega,\mathbf{q}^\gamma \right) =& Vf^\omega \\
+I_a I_\Gamma p^\gamma - I_b \mathrm{div}\left( 0,\kappa^\gamma \mathbf{q}^\gamma \right) =& I_\Gamma g^\gamma \\
+\mathbf{q}^\omega =& W^\dagger \left( \kappa^\omega G p^\omega + \kappa^\gamma H p^\gamma \right)\\
+\mathbf{q}^\gamma =& \mathbf{q}^\omega
+\end{cases}
+```
+
+
+
+```math
+\begin{bmatrix}
+G^T W^\dagger \kappa^\omega G & G^T W^\dagger \kappa^\gamma H \\
+I_b H^T W^\dagger \kappa^\omega G & I_b H^T W^\dagger \kappa^\gamma H + I_a I_\Gamma  
+\end{bmatrix}
+\begin{bmatrix}
+p^\omega \\
+p^\gamma  
+\end{bmatrix} \simeq
+\begin{bmatrix}
+V f^\omega \\
+I_\Gamma g^\gamma   
+\end{bmatrix}
+```math
+
+
+\begin{equation}
+    \mathrm{div}(UA)=U(divA)+A⋅\grad(U)
+\end{equation}
+
+\begin{equation}
+    \mathrm{div}(\kappa \mathbf{q} )=\kappa (\mathrm{div}(\mathbf{q}))+ \mathbf{q}⋅\grad(\kappa)
+\end{equation}
+
+
+% div(kappa grad(A))=U(divgrad(A))+grad(A)⋅gradU
+
+    
+
+
+```julia
+ni = grid.nx * grid.ny
+nb = 2 * grid.nx + 2 * grid.ny
+nt = (num.nLS + 1) * ni + nb
+Aphi_eleL = spzeros(nt, nt)
+
+phL.phi_ele .= reshape(veci(phL.phi_eleD,grid,1), grid)
+
+A[end-nb+1:end,1:ni] = -b_b * (HxT_b * iMx_b' * coeff[end-nb+1:end,1:ni] * Bx .+ HyT_b * iMy_b' * coeff[end-nb+1:end,1:ni] * By)
+
+@inline zeros(g::Grid) = zeros(g.ny, g.nx)
+
+@inline fnzeros(g::Grid, n::Numerical) = zeros((n.nLS + 1) * g.ny * g.nx + 2 * g.nx + 2 * g.ny)
+
+set_border_matrices!
+```
+
+
+```julia
+# Implicit part of heat equation
+        A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* τ .* diffusion_coeff_scal .* LT, grid, τ)
+        A[1:ni,ni+1:2*ni] = - 0.5 .* τ .* diffusion_coeff_scal .* LD
+        A[1:ni,end-nb+1:end] = - 0.5 .* τ .* diffusion_coeff_scal .* LD_b
+
+        # Interior BC
+        A[ni+1:2*ni,1:ni] = b * (HxT[1] * iMx * Bx .+ HyT[1] * iMy * By)
+        A[ni+1:2*ni,ni+1:2*ni] = pad(b * (HxT[1] * iMx * Hx[1] .+ HyT[1] * iMy * Hy[1]) .- χ[1] * a1)
+        A[ni+1:2*ni,end-nb+1:end] = b * (HxT[1] * op.iMx_b * op.Hx_b .+ HyT[1] * op.iMy_b * op.Hy_b)
+
+        # Border BCs
+        A[end-nb+1:end,1:ni] = b_b * (op.HxT_b * op.iMx_b' * Bx .+ op.HyT_b * op.iMy_b' * By)
+        A[end-nb+1:end,ni+1:2*ni] = b_b * (op.HxT_b * op.iMx_b' * Hx[1] .+ op.HyT_b * op.iMy_b' * op.Hy[1])
+        A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b, 4.0)
+
+        # Explicit part of heat equation
+        B[1:ni,1:ni] = M .+ 0.5 .* τ .* diffusion_coeff_scal .* LT .- τ .* CT
+        B[1:ni,ni+1:2*ni] = 0.5 .* τ .* diffusion_coeff_scal .* LD
+        B[1:ni,end-nb+1:end] = 0.5 .* τ .* diffusion_coeff_scal .* LD_b
+```
 
 ## Poisson equation (old implementation)
 
@@ -1375,6 +1485,10 @@ vecb_T
 ### Indices
 In Flower.jl, the dimensions are stored in this order (y,x) i.e. to access the ``data`` of cell ``(i,j)``, one may use ``data[j,i]``.
 
+```@docs
+Indices
+```
+
 ### Mesh and how to access data at (i,j)
 For a 1D vector, grid p
 ```julia
@@ -1522,10 +1636,153 @@ set_heat!
 ```
 
 ## Navier-Stokes
+
+
 ```@docs
-FE_set_momentum_coupled
 FE_set_momentum
 ```
+The resolution is coupled if a Navier BC is activated.
+```@docs
+FE_set_momentum_coupled
+```
+
+
+```@docs
+pressure_projection!
+```
+
+
+In "An important issue is that the boundary condition for u§ must be consistent with Eq. (10), although at the time the boundary conditions are applied the function phi is not yet known and hence must be approximated"
+
+```@docs
+set_Forward_Euler!
+```
+
+```@docs
+set_Crank_Nicolson!
+```
+
+
+## Velocity-pressure coupling
+
+
+Either pressure gradient in prediction or remove component in velocity boundary conditions
+
+!!! todo "TODO"
+    BC document and test 
+
+"For moving boundaries  the gradient of pressure was removed from the prediction because the simulations weren't very stable."
+
+!!! info ""
+    To print information about the matrix in the velocity-pressure coupling:  ``gp.ny +1`` in  lexicographic for v  and ``gp.ny``  in  lexicographic for u 
+
+All the operators in the code are volume integrated, 
+
+so if you want to obtain the actual gradient or divergence you always have to divide by the volume 
+
+(In the finite volume method you have the volume that appears dividing)
+
+For the viscous term, you cannot divide by ``opC_v.iMx_bd``, the viscous term is collocated with the velocity component, and you're dividing by a staggered volume. You have to divide by the collocated volume. You have to divide by ``opC_p.iMy`` .
+
+
+The parameter 
+```julia
+num.prediction
+```
+ is used to choose the prediction method.
+
+cf. [Brown et al. 2001](https://www.sciencedirect.com/science/article/pii/S0021999101967154)
+
+!!! todo "Adams"
+
+```@docs
+set_convection!
+vector_convection!
+```
+
+In [`set_convection!`](@ref) which uses  [`vector_convection!`](@ref)
+```julia
+Du_y[1,:] .= vecb_B(uD,grid_u) + dt* grd_x[1,:]
+```
+
+Extract from [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707-024-04133-4):
+
+"
+This section presents the proposed discretization of the incompressible Navier-Stokes equations for an isotropic Newtonian fluid
+
+```math
+\begin{cases}
+\frac{\partial u}{\partial t} + \left ( u \cdot \nabla \right ) u & = -\dfrac{\nabla p}{\rho} + \dfrac{1}{\mathrm{Re}} \nabla \cdot \nabla u \\
+    \nabla \cdot u & = 0
+\label{eq:ns}
+\end{cases}
+```
+
+where $u$ and $p$ respectively denote the fluid's velocity and pressure fields, $\rho$ its constant density and $\mathrm{Re}$ denotes the Reynolds number. This equation can be rewritten in semi-discrete form using the linear operators previously defined, yielding the momentum equation in direction $\alpha$
+
+\begin{equation} \label{eq:nsSemi}
+V _ \alpha \frac{\mathrm{d} u _ \alpha ^ \omega}{\mathrm{d} t} + \mathrm{conv} _ \alpha \left ( u ^ \omega, u ^ \gamma \right ) = - \dfrac{1}{\rho} \left [ \mathrm{grad} \left ( p ^ \omega, p ^ \gamma \right ) \right ] _ \alpha + \dfrac{1}{\mathrm{Re}} \mathrm{div} _ \alpha \left ( \mathrm{grad} _ \alpha \left ( u _ \alpha ^ \omega, u _ \alpha ^ \gamma \right ) \right ),
+\end{equation}
+
+and the divergence-free condition
+\begin{equation} \label{eq:cont}
+    \mathrm{div} \left ( u ^ \omega, u ^ \gamma \right ) = 0,
+\end{equation}
+where $u ^ \omega$ and $u ^ \gamma$ are two face-centered vector fields and $p ^ \omega$ and $p ^ \gamma$ are two cell-centered scalar fields. [...] The method referred to as projection method II (PmII) by [Brown et al. 2001](https://www.sciencedirect.com/science/article/pii/S0021999101967154) is employed. It ensures a second order discretization of the equations.
+
+In this projection method, the convective term is discretized using the explicit second-order Adams-Bashforth scheme:
+
+
+!!! todo "boundary conditions"
+
+ and the viscous term is discretized using the implicit Crank-Nicolson scheme. The first step of the method consists of obtaining an intermediate velocity field $u ^ \star$ by solving:
+```math
+\begin{multline} \label{eq:pmPred}
+V _ \alpha \frac{u _ \alpha ^ {\omega, \star} - u _ \alpha ^ {\omega, n}}{\tau} + \frac{3}{2} \mathrm{conv} _ \alpha \left ( u ^ {\omega, n}, u ^ {\gamma, n} \right ) \\ 
+- \frac{1}{2} \mathrm{conv} _ \alpha \left ( u ^ {\omega, n - 1}, u ^ {\gamma, n - 1} \right ) = - \dfrac{1}{\rho} \left [ \mathrm{grad} \left ( p ^ {\omega, n - 1 / 2}, p ^ {\gamma, n - 1 / 2} \right ) \right ] _ \alpha \\
++ \dfrac{1}{2 \mathrm{Re}} \left [ \mathrm{div} _ \alpha \left ( \mathrm{grad} _ \alpha \left ( u _ \alpha ^ {\omega, \star}, u _ \alpha ^ {\gamma, \star} \right ) \right ) + \mathrm{div} _ \alpha \left ( \mathrm{grad} _ \alpha \left ( u _ \alpha ^ {\omega, n}, u _ \alpha ^ {\gamma, n} \right ) \right ) \right ]\ \forall\ \alpha \in \{ x, y \},
+\end{multline}
+```
+
+where $\tau$ denotes the time step and the superscript $n$ the iteration number. The boundary conditions applicable to $u ^ \star$ (the predicted velocity field) are those of the velocity field at the next time step. 
+
+
+The Dirichlet boundary conditions applied for example to impose the no-slip condition or the inflow conditions read
+\begin{equation}
+    u _ \alpha ^ {\gamma, \star} = u _ {\alpha, \mathrm{ref}}, \quad \forall \alpha \in \{ x, y \},
+\end{equation}
+where $u _ {\alpha, \mathrm{ref}}$ is the value of the velocity to be imposed at the boundary in the $\alpha$-direction. The homogeneous Neumann boundary condition applied to impose outflow conditions is given by
+\begin{equation}
+    -\mathrm{div} _ \alpha \left ( 0, \, \mathrm{grad} _ \alpha \left ( u _ \alpha ^ {\omega, \star}, u _ \alpha ^ {\gamma, \star} \right ) \right ) = 0, \quad \forall \alpha \in \{ x, y \},
+\end{equation}
+
+In the projection step, the velocity field is updated by projecting $u ^ \star$ using the intermediate pressure field $\psi ^ {n + 1}$, which is obtained by solving the following Poisson equation
+\begin{equation} \label{eq:pmPoisson}
+\mathrm{div} \left ( \mathrm{grad}  \left ( \psi ^ {\omega, n + 1}, \psi ^ {\gamma, n + 1} \right ) \right ) = \dfrac{\rho}{\tau}\mathrm{div} \left ( u ^ {\omega, \star}, u ^ {\gamma, \star} \right ).
+\end{equation}
+Whenever no-slip or inflow conditions are to be imposed, a homogeneous Neumann boundary condition is applied to the intermediate pressure field following
+\begin{equation}
+    -\mathrm{div} \left ( 0, \, \mathrm{grad} \left ( \psi ^ {\omega, n + 1}, \psi ^ {\gamma, n + 1} \right ) \right ) = 0.
+\end{equation}
+With outflow boundary conditions, a Dirichlet boundary condition is imposed following
+\begin{equation}
+    \psi ^ {\gamma, n + 1} = \psi _ {\mathrm{ref}},
+\end{equation}
+
+The velocity field is ultimately corrected as
+\begin{equation}
+u_\alpha ^ {\omega, n + 1} = u ^ {\omega, \star} _\alpha - \dfrac{\tau}{\rho} \left [ \mathrm{grad} \left ( \psi ^ {\omega, n + 1}, \psi ^ {\gamma, n + 1} \right ) \right ] _ \alpha\ \forall\ \alpha \in \{ x, y \}.
+\label{eq:pm_projection}
+\end{equation}
+and the pressure is finally updated as
+\begin{equation}
+p ^ {\omega, n + 1 / 2} = p ^ {\omega, n - 1 / 2} + \psi ^ {n + 1} - \frac{\tau}{2 \mathrm{Re}} \mathrm{div} \left ( \mathrm{grad} \left ( \psi ^ {\omega, n + 1}, \psi ^ {\gamma, n + 1} \right ) \right ),
+\label{eq:pm_update}
+\end{equation}
+where the last term ensures the second order accuracy of the pressure field.
+
+"
+
 
 ## Boundary conditions
 
@@ -1748,54 +2005,14 @@ with diagonal scaling (not useful for direct resolution?): norm2(Ax-b)/norm2(b)=
 
 ## System
 
-``A[end-nb+testn,end-nb+1:end]``  is the contribution to the gradient in the normal direction from the border, and  ``A[end-nb+testn,ni+1:2*ni]`` from the interface
+``A[end-nb+testn,end-nb+1:end]``  is the contribution to the gradient in the normal direction from the border, and
+  ``A[end-nb+testn,ni+1:2*ni]`` from the interface
 
 
 If the interface is nearly perpendicular to the border, there's no much contribution from the interface to the gradient in the x-direction.
 
 
-And ``A[end-nb+testn,end-nb+1:end] > A[end-nb+testn,ni+1:2*ni]`` , so I think it makes sense
 
-At the end, the values that you're interested in are the bulk field and the interface value
-
-
-
-
-## Velocity-pressure coupling
-
-!!! todo "TODO"
-    BC document and test 
-"
-For moving boundaries  the gradient of pressure was removed from the prediction because the simulations weren't very stable."
-
-To print information about the matrix in the velocity-pressure coupling:  gp.ny +1 in  lexicographic for v  and gp.ny  in  lexicographic for u 
-
-
-
-All the operators in the code are volume integrated, so if you want to obtain the actual gradient or divergence you always have to divide by the volume (In the finite volume method you have the volume that appears dividing)
-
-For the viscous term, you cannot divide by ``opC_v.iMx_bd``, the viscous term is collocated with the velocity component, and you're dividing by a staggered volume. You have to divide by the collocated volume. You have to divide by ``opC_p.iMy`` .
-
-p not v
-
-cf the parameter 
-
-```julia
-num.prediction
-```
-
-cf. [Brown et al. 2001](https://www.sciencedirect.com/science/article/pii/S0021999101967154)
-
-
-```@docs
-set_convection!
-vector_convection!
-```
-
-In [`set_convection!`](@ref) which uses  [`vector_convection!`](@ref)
-```julia
-Du_y[1,:] .= vecb_B(uD,grid_u) + dt* grd_x[1,:]
-```
 
 
 ## Cutcell
@@ -1882,3 +2099,4 @@ The output files are generated with [`PDI`](https://github.com/pdidev). The on-l
 * [`Fullana (2017)`](https://theses.hal.science/tel-04053531/)
 * [`Rodriguez et al. 2024`](https://link.springer.com/article/10.1007/s00707-024-04133-4)
 * [`Rodriguez (2024)`](https://theses.fr/s384455)
+* [`Brown et al. (2001)`](https://www.sciencedirect.com/science/article/pii/S0021999101967154)

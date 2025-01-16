@@ -36,25 +36,15 @@ study = PropertyDict(prop_dict.study)
 # print parameters by evaluating Julia code stored in .yml   
 eval(Meta.parseall(macros.print_parameters))
 
-
-
-L0 = 2.5
-
-npts = [32]
+# npts = [32]
 # npts = [16,32,64,128,256]
+npts = study.meshes
 n_cases = length(npts)
 print("\n number of points ", npts, "\n")
 
 
 
 if io.pdi>0
-
-    # try
-    #     ccall(@pysym(:Py_IsInitialized), Int32, ())
-    # catch
-    #     print("\n Bug Py_IsInitialized \n")
-    # end
-
 
     @debug "Before PDI init"
     yml_file = yamlfile
@@ -70,8 +60,8 @@ if io.pdi>0
     mpi_coords_y = 1
     mpi_max_coords_x = 1
     mpi_max_coords_y = 1
-    local nx = 32
-    local ny = 32
+    local nx = npts[1]
+    local ny = npts[1]
     nstep = 0
     # nx=gp.nx
     # ny=gp.ny
@@ -94,19 +84,6 @@ if io.pdi>0
             "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
             C_NULL::Ptr{Cvoid})::Cint
 
-
-    # local PDI_status = @ccall "libpdi".PDI_multi_expose("init_PDI2"::Cstring, 
-    #         "mpi_coords_x"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
-    #         "mpi_coords_y"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
-    #         "mpi_max_coords_x"::Cstring, mpi_max_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
-    #         "mpi_max_coords_y"::Cstring, mpi_max_coords_y::Ref{Clonglong}, PDI_OUT::Cint,
-    #         "nx"::Cstring, nx::Ref{Clonglong}, PDI_OUT::Cint,
-    #         "ny"::Cstring, ny::Ref{Clonglong}, PDI_OUT::Cint,
-    #         "nb_transported_scalars"::Cstring, phys.nb_transported_scalars::Ref{Clonglong}, PDI_OUT::Cint,
-    #         "nb_levelsets"::Cstring, phys.nb_levelsets::Ref{Clonglong}, PDI_OUT::Cint,
-    #         "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
-    #         C_NULL::Ptr{Cvoid})::Cint
-
     @debug "after PDI_multi_expose"
 
     @debug "After full PDI init"
@@ -125,6 +102,8 @@ l2_full = zeros(n_cases)
 loo_full = zeros(n_cases)
 
 cell_volume_list = zeros(n_cases)
+
+
 
 # Convergence study loop
 for (i,n) in enumerate(npts)
@@ -306,13 +285,13 @@ for (i,n) in enumerate(npts)
     phL.T .= phys.temperature0
     phS.T .= phys.temperature0
 
-    vPoiseuille = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length) 
-    vPoiseuilleb = Poiseuille_fmax.(gv.x[1,:],phys.v_inlet,phys.ref_length) 
+    # vPoiseuille = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length) 
+    # vPoiseuilleb = Poiseuille_fmax.(gv.x[1,:],phys.v_inlet,phys.ref_length) 
 
-    phL.u .= 0.0
-    phL.v .= vPoiseuille 
+    # phL.u .= 0.0
+    # phL.v .= vPoiseuille 
 
-    vecb_B(phL.vD,gv) .= vPoiseuilleb
+    # vecb_B(phL.vD,gv) .= vPoiseuilleb
 
     for iscal=1:phys.nb_transported_scalars
         phL.trans_scal[:,:,iscal] .= phys.concentration0[iscal]
@@ -496,9 +475,13 @@ for (i,n) in enumerate(npts)
     LIQUID = gp.ind.all_indices[gp.LS[1].geoL.cap[:,:,5] .> (1-1e-16)]
     MIXED = gp.ind.all_indices[gp.LS[1].geoL.cap[:,:,5] .<= (1-1e-16) .&& gp.LS[1].geoL.cap[:,:,5] .> 1e-16]
 
-    norm_all = relative_errors(phL.v, vPoiseuille, vcat(LIQUID, MIXED), gp.LS[1].geoL.cap[:,:,5], num.Δ)
-    norm_mixed = relative_errors(phL.v, vPoiseuille, MIXED, gp.LS[1].geoL.cap[:,:,5], num.Δ)
-    norm_full = relative_errors(phL.v, vPoiseuille, LIQUID, gp.LS[1].geoL.cap[:,:,5], num.Δ)
+    # norm_all = relative_errors(phL.v, vPoiseuille, vcat(LIQUID, MIXED), gp.LS[1].geoL.cap[:,:,5], num.Δ)
+    # norm_mixed = relative_errors(phL.v, vPoiseuille, MIXED, gp.LS[1].geoL.cap[:,:,5], num.Δ)
+    # norm_full = relative_errors(phL.v, vPoiseuille, LIQUID, gp.LS[1].geoL.cap[:,:,5], num.Δ)
+
+    norm_all = zeros(3)
+    norm_mixed = zeros(3)
+    norm_full = zeros(3)
 
     l1[i] = norm_all[1]
     l2[i] = norm_all[2]
@@ -513,8 +496,6 @@ for (i,n) in enumerate(npts)
     loo_full[i] = norm_full[3]
 
     cell_volume_list[i] = minimum(gp.LS[1].geoL.dcap[:,:,5])
-
-    print("\n analytical ",-0.011655612832847977)
 
 
 end #convergence
@@ -536,19 +517,12 @@ local PDI_status = @ccall "libpdi".PDI_multi_expose("convergence_study"::Cstring
 "l1_rel_error_partial_cells"::Cstring, l1_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
 "l2_rel_error_partial_cells"::Cstring, l2_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
 "linfty_rel_error_partial_cells"::Cstring, loo_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
-"domain_length"::Cstring, L0::Ref{Cdouble}, PDI_OUT::Cint,
+# "domain_length"::Cstring, L0::Ref{Cdouble}, PDI_OUT::Cint,
 "min_cell_volume"::Cstring, min_cell_volume::Ref{Cdouble}, PDI_OUT::Cint,
 C_NULL::Ptr{Cvoid})::Cint
  
 if io.pdi>0
     try
-        
-        # local PDI_status = @ccall "libpdi".PDI_event("close_pycall"::Cstring)::Cint
-
-        # PDI_event("finalization");
-        # local PDI_status = @ccall "libpdi".PDI_event("finalization"::Cstring)::Cint
-
-
         local PDI_status = @ccall "libpdi".PDI_finalize()::Cint
         # printstyled(color=:red, @sprintf "\n PDI end\n" )
 

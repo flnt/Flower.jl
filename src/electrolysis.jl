@@ -563,6 +563,22 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         a0 .= 0.0
         rhs .= 0.0
 
+        printstyled(color=:red, @sprintf "\n rhs modified \n")
+
+        # eval(Meta.parseall(macros.print_parameters))
+        x_centroid = grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx
+        y_centroid = grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
+        
+        b = Δf.(
+            x_centroid,
+            y_centroid,
+            time
+        )
+        veci(rhs,grid_p,1) .+= op.opC_pL.M * vec(b)
+        
+
+        print("\n rhs ",minimum(rhs)," rhs ",maximum(rhs))
+
         # A.nzval .= 0.0
         # B.nzval .= 0.0
         A .= 0.0
@@ -3036,9 +3052,9 @@ function set_poisson_variable_coeff_SPD!(num::Numerical{Float64, Int64},
         d = collect(diag(A))
         for i in eachindex(d)
             if iszero(d[i])
-                print("\n i ", i,"\n d[i] ",d[i])
+                print("\n diag i ", i,"\n d[i] ",d[i])
             end
-            # print("\n i ", i,"\n d[i] ",d[i])
+            # print("\n diag i ", i,"\n d[i] ",d[i])
             d[i] = ifelse(iszero(d[i]), one(d[i]), 1/d[i])
             # d[i] = ifelse(iszero(d[i]), a*one(d[i]), zero(d[i]))
             
@@ -3056,9 +3072,9 @@ function set_poisson_variable_coeff_SPD!(num::Numerical{Float64, Int64},
         d = collect(diag(newA))
         for i in eachindex(d)
             # if iszero(d[i])
-            #     print("\n i ", i,"\n d[i] ",d[i])
+            #     print("\n diag i ", i,"\n d[i] ",d[i])
             # end
-            print("\n i ", i,"\n d[i] ",d[i])
+            print("\n diag i ", i,"\n d[i] ",d[i])
             # d[i] = ifelse(iszero(d[i]), one(d[i]), 1/d[i])
             # d[i] = ifelse(iszero(d[i]), a*one(d[i]), zero(d[i]))
             
@@ -3509,6 +3525,8 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
     coeffD_borders = vecb(coeffD,grid)
     interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(coeffD,grid,1), grid), coeffDu, coeffDv)
 
+    print("\n coeff ",minimum(coeffDu)," ",maximum(coeffDu)," ",minimum(coeffDv)," ",maximum(coeffDv)," ",minimum(coeffD_borders)," ",maximum(coeffD_borders))
+
     coeffDx_bulk = veci(coeffDu,grid_u)
     coeffDy_bulk = veci(coeffDv,grid_v)
 
@@ -3544,8 +3562,15 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
         A[1:ni,end-nb+1:end] = bc_L_b
 
         # Boundary conditions for outer boundaries
-        A[end-nb+1:end,1:ni] = b_b * (HxT_b * iMx_b' * mat_coeffDx * Bx .+ HyT_b * iMy_b' * mat_coeffDy * By)
-        A[end-nb+1:end,end-nb+1:end] = pad(b_b * (HxT_b * iMx_bd * mat_coeffDx_b * Hx_b .+ HyT_b * iMy_bd * mat_coeffDx_b * Hy_b) .+ χ_b * a1_b, -4.0)
+        # A[end-nb+1:end,1:ni] = b_b * (HxT_b * iMx_b' * mat_coeffDx * Bx .+ HyT_b * iMy_b' * mat_coeffDy * By)
+        # A[end-nb+1:end,end-nb+1:end] = pad(b_b * (HxT_b * iMx_bd * mat_coeffDx_b * Hx_b .+ HyT_b * iMy_bd * mat_coeffDx_b * Hy_b) .+ χ_b * a1_b, -4.0)
+        
+        printstyled(color=:red, @sprintf "\n test coeff poisson TODO for iLS too:\n")
+
+        A[end-nb+1:end,1:ni] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
+        A[end-nb+1:end,end-nb+1:end] = pad(b_b * (HxT_b * iMx_bd  * Hx_b .+ HyT_b * iMy_bd * Hy_b) .+ χ_b * a1_b, -4.0)
+        
+
     end
 
     for iLS in 1:num.nLS
@@ -3761,20 +3786,20 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
             A[1:ni,sb] = BxT * iMx * mat_coeffDx_i *Hx[iLS] .+ ByT * iMy * mat_coeffDy_i *Hy[iLS]
 
             # Boundary conditions for inner boundaries
-            A[sb,1:ni] = b * (HxT[iLS] * iMx * mat_coeffDx * Bx .+ HyT[iLS] * iMy * mat_coeffDy * By) #or vec1
+            A[sb,1:ni] = b * (HxT[iLS] * iMx  * Bx .+ HyT[iLS] * iMy * By) #or vec1
             # Contribution to Neumann BC from other boundaries
             for i in 1:num.nLS
                 if i != iLS
-                    A[sb,i*ni+1:(i+1)*ni] = b * (HxT[iLS] * iMx * mat_coeffDx_i * Hx[i] .+ HyT[iLS] * iMy * mat_coeffDy_i * Hy[i])
+                    A[sb,i*ni+1:(i+1)*ni] = b * (HxT[iLS] * iMx  * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
                 end
             end
             A[sb,sb] = pad(
-                b * (HxT[iLS] * iMx * mat_coeffDx_i * Hx[iLS] .+ HyT[iLS] * iMy * mat_coeffDy_i * Hy[iLS]) .+ χ[iLS] * a1 .+
+                b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .+ χ[iLS] * a1 .+
                 a2 * Diagonal(diag(fs_mat)), -4.0
             )
-            A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * mat_coeffDx_b * Hx_b .+ HyT[iLS] * iMy_b * mat_coeffDx_b * Hy_b)
+            A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b  * Hy_b)
             # Boundary conditions for outer boundaries
-            A[end-nb+1:end,sb] = b_b * (HxT_b * iMx_b' * mat_coeffDx_i * Hx[iLS] .+ HyT_b * iMy_b' * mat_coeffDy_i * Hy[iLS])
+            A[end-nb+1:end,sb] = b_b * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
         end #ls_advection
 
         veci(rhs,grid,iLS+1) .= χ[iLS] * vec(a0) #vec(a0[iLS])
@@ -3819,9 +3844,9 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
         d = collect(diag(A))
         for i in eachindex(d)
             if iszero(d[i])
-                print("\n i ", i,"\n d[i] ",d[i])
+                print("\n diag i ", i,"\n d[i] ",d[i])
             end
-            # print("\n i ", i,"\n d[i] ",d[i])
+            # print("\n diag i ", i,"\n d[i] ",d[i])
             d[i] = ifelse(iszero(d[i]), one(d[i]), 1/d[i])
             # d[i] = ifelse(iszero(d[i]), a*one(d[i]), zero(d[i]))
             
@@ -3839,9 +3864,9 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
         d = collect(diag(newA))
         for i in eachindex(d)
             # if iszero(d[i])
-            #     print("\n i ", i,"\n d[i] ",d[i])
+            #     print("\n diag i ", i,"\n d[i] ",d[i])
             # end
-            print("\n i ", i,"\n d[i] ",d[i])
+            print("\n diag i ", i,"\n d[i] ",d[i])
             # d[i] = ifelse(iszero(d[i]), one(d[i]), 1/d[i])
             # d[i] = ifelse(iszero(d[i]), a*one(d[i]), zero(d[i]))
             
@@ -3853,9 +3878,9 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
 
     print("\n norm 2 ", norm(A*ph.phi_eleD)," rhs ",norm(rhs))
 
-
-    print("\n norm 2", norm(A*ph.phi_eleD -rhs)/norm(rhs))
-
+    if norm(rhs) >0.0
+        print("\n norm 2", norm(A*ph.phi_eleD -rhs)/norm(rhs))
+    end
 
     #TODO or use mul!(rhs_scal, BTL, phL.TD, 1.0, 1.0) like in :
 
