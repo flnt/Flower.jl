@@ -10,7 +10,7 @@ vRa = 1e6
     St = 1.0   
     H0 = 0.05
 
-    T1 = 0.7
+    T1 = 1.0
     T2 = -0.3
     TM = 0.0
 
@@ -53,17 +53,18 @@ vRa = 1e6
     op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
     local_shift = 0.0001 + num.Δ / 2
-    @. gp.LS[1].u = -gp.y - L0/2 + H0 + local_shift
+    @. gp.LS[1].u = 1. #-gp.y - L0/2 + H0 + local_shift
 
-    @. phL.T = T1 - (1. - num.θd)*(gp.y + L0/2) / (H0 + local_shift)
+    @. phL.T = 0. #T1 - (1. - num.θd)*(gp.y + L0/2) / (H0 + local_shift)
 
-    @. phS.T = num.θd*(gp.y + L0/2 - 1.) / (H0 + local_shift - 1)
+    @. phS.T = 0. #num.θd*(gp.y + L0/2 - 1.) / (H0 + local_shift - 1)
 
     @time run_forward(
         num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
         periodic_x = true,
         BC_TL = Boundaries(
             bottom = Dirichlet(val = T1),
+            top = Dirichlet(val = 0.),
             left = Periodic(),
             right = Periodic(),
         ),
@@ -92,7 +93,7 @@ vRa = 1e6
             left = Periodic(),
             right = Periodic(),
         ),
-        BC_int = [Stefan()],
+        BC_int = [Periodic()],
         time_scheme = FE,
         ls_scheme = eno2,
         adaptative_t = true,
