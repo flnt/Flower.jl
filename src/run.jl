@@ -81,7 +81,7 @@ function run_forward(
         advection = false
     end
 
-    advection = false
+    # advection = false
 
     iRe = 1.0 / Re
     CFL_sc = num.τ / Δ^2
@@ -425,7 +425,7 @@ function run_forward(
         end
 
         if advection
-            print("advection")
+            # print("advection")
             for (iLS, bc) in enumerate(BC_int)
                 if is_stefan(bc)
                     IIOE_normal!(grid, LS[iLS].A, LS[iLS].B, LS[iLS].u, V, CFL_sc, periodic_x, periodic_y)
@@ -553,7 +553,7 @@ function run_forward(
 
 
         if levelset && (advection || current_i<2)
-            print("level set and advection")
+            # print("level set and advection")
             NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
 
             if heat && heat_convection && heat_liquid_phase && navier_stokes && ns_liquid_phase
