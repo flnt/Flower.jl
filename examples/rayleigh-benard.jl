@@ -7,7 +7,7 @@ prefix = "/home/tf/Documents/Flower_figures/"
 # for vRa = [1e6, 1e5, 5e4, 2e4, 1e4]
 vRa = 1e5
     Ra = vRa
-    St = 1.0   
+    St = 10.   
     H0 = 0.05
 
     T1 = 0.7
@@ -18,11 +18,11 @@ vRa = 1e5
     L0 = 1.
 
     if vRa > 1e5
-        n = 32
+        n = 64
         max_it = 1300
         save_every = 10
     else
-        n = 32
+        n = 64
         max_it = 1300
         save_every = 10
     end
@@ -36,7 +36,7 @@ vRa = 1e5
     num = Numerical(
         case = "Planar",
         Re = 1.0,    
-        CFL = 0.5,
+        CFL = 0.4,
         x = x,
         y = y,
         max_iterations = max_it,
@@ -104,7 +104,7 @@ vRa = 1e5
         ns_advection = true,
         ns_liquid_phase = true,
         verbose = true,
-        show_every = 1,
+        show_every = 10,
         Ra = Ra,
         St = St,
         cutoff_length = 0.8

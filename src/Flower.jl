@@ -39,6 +39,7 @@ import Base.reshape
 @reexport using GeometryBasics
 @reexport using GeoInterface
 @reexport using LibGEOS
+@reexport using Optim
 
 include("types.jl")
 include("init.jl")
