@@ -8,7 +8,7 @@ import math
 
 # module to plot files from Flower.jl
 # from plot_flower import * 
-from plot_flower import set_size, init_fig, compute_slope, roundlog, logticks 
+from plot_flower import set_size, init_fig, compute_slope, roundlog, logticks,reshape_data,veci,vecb_L,reshape_data_veci 
 
 
 
@@ -49,10 +49,15 @@ OkabeIto=["#E69F00", #0 orange clair 230, 159, 0
 # colors[1]=OkabeIto[5] #bleu
 # colors[2]=OkabeIto[6] #orange
 
+
+
+# "#000000", for ref
+
 colors= [
    "#0072B2", #bleu
    "#D55E00", #orange
-   "#009E73", #vert
+   "#009E73", #vert,
+   "#CC79A7",
 ]
 
 def create_camembert_markers(markers,num_slices,startangle0 = np.pi/2):
@@ -456,3 +461,537 @@ def plot_errors_from_h5():
                   print(df)
 
                   plot_errors_from_pandas(df,figpar,plotpar,colors,file_name)
+
+
+
+def plot_convergence_study_func():
+    """
+    Plot all films in YAML file
+    """
+
+    # print('arg', len(sys.argv),sys.argv)
+    if len(sys.argv) == 2:
+        # List all files in the current directory
+        all_files = os.listdir(".")
+        h5_files = [file for file in all_files if file.endswith(".h5")]
+    else:
+        h5_files = sys.argv[2::]
+          
+    
+    # print(h5_files)
+    h5_files = sorted(h5_files)
+    print(h5_files)
+
+    # print(sys.argv)
+
+    try:
+        yamlfile = sys.argv[1]
+        if ".yml" not in yamlfile:
+            yamlfile += ".yml"
+    except Exception as error:
+        print(error)
+        print(colored("error", "red"))
+
+    with open(yamlfile, "r") as file:
+        yml = yaml.safe_load(file)
+
+    # print(yml)
+
+    mesh = yml["flower"]["mesh"]
+    plotpar = yml["plot"]
+
+    plotpar["scale_time"] = float(plotpar["scale_time"])
+
+    mesh["nx"] = int(mesh["nx"])
+    mesh["ny"] = int(mesh["ny"])
+
+    mesh["xmax"] = float(mesh["xmax"])
+    mesh["xmin"] = float(mesh["xmin"])
+
+    mesh["ymax"] = float(mesh["ymax"])
+    mesh["ymin"] = float(mesh["ymin"])
+
+    mesh["dx"] = (mesh["xmax"] - mesh["xmin"]) / mesh["nx"]
+    mesh["dy"] = (mesh["ymax"] - mesh["ymin"]) / mesh["ny"]
+
+    xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+    yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+
+    dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
+    dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
+
+    xu = xp + dx / 2
+    xu = np.insert(xu, 0, xp[0] - dx / 2)
+    # yu = yp # xv = xp
+    yv = yp + dy / 2
+    yv = np.insert(yv, 0, yp[0] - dy / 2)
+
+    plotpar["scale_x"] = float(plotpar["scale_x"])
+    plotpar["scale_y"] = float(plotpar["scale_y"])
+
+    scale_x = float(plotpar["scale_x"])
+    scale_y = float(plotpar["scale_y"])
+
+    xp /= scale_x
+    yp /= scale_y
+    xu /= scale_x
+    yv /= scale_y
+
+
+    
+
+
+    for figpar in plotpar["curves"]:
+      
+      # print(figpar)
+      if 'func' not in figpar.keys():
+         continue
+         
+      # print(figpar)
+
+      if 'func' in figpar.keys():
+         func = globals()[figpar['func']] #'plot_current_lines'
+      else:
+         func = globals()['plot_file']
+
+      if len(figpar['var'])>0:
+         key = figpar['var'][0]
+      else:
+         key = figpar['var']
+
+      # print('key',key)
+
+      # print(figpar)
+
+      
+      plot_convergence_func(
+      h5_files,
+      key,
+      xp,
+      yp,
+      xu,
+      yv,
+      yml,
+      mesh,
+      func,
+      plotpar,
+      figpar,
+      )
+
+
+
+def plot_convergence_func(
+    h5_files,
+    key,
+    xp,
+    yp,
+    xu,
+    yv,
+    yml,
+    mesh,
+    func,
+    plotpar,
+    figpar,
+):
+   # # print(h5_files)
+   # h5_files = sorted(h5_files)
+   # print(h5_files)
+
+   size_frame = len(h5_files)
+
+   print('size_frame',size_frame,key)
+
+   # file_name = h5_files[0]
+
+   fig1,ax2 = init_fig(plotpar,figpar)
+
+   if 'streamplot_color' in figpar.keys():
+      # cbar=[None,None]
+      cbar=[]
+
+   else:
+      cbar=None
+
+   cbar=[]
+
+   for i,file_name in enumerate(h5_files):
+      yml['study']['iter'] = i
+      with h5py.File(file_name, "r") as file:
+
+         try:
+            time = file["time"][()]
+            nstep = file["nstep"][()]
+         except:
+            time = 0
+            nstep = 0 
+            print("time not available")
+
+         print(key,file_name)
+
+
+         nx = file['nx'][()]
+         ny = nx 
+
+         # if key=="u_1D":
+         #    nx=nx+1
+         #    # x_1D = xu 
+         #    # y_1D = yp
+         #    # key_LS = "levelset_u"
+
+         # elif key=="v_1D":
+         #    ny=ny+1
+            # x_1D = xp
+            # y_1D = yv 
+            # key_LS = "levelset_v"
+
+         # else:
+         #    x_1D = xp
+         #    y_1D = yp
+         #    key_LS = "levelset_p"
+
+         # print('nx',nx)
+
+         mesh["nx"] = nx
+         mesh["ny"] = ny
+
+         mesh["xmax"] = float(mesh["xmax"])
+         mesh["xmin"] = float(mesh["xmin"])
+
+         mesh["ymax"] = float(mesh["ymax"])
+         mesh["ymin"] = float(mesh["ymin"])
+
+         mesh["dx"] = (mesh["xmax"] - mesh["xmin"]) / mesh["nx"]
+         mesh["dy"] = (mesh["ymax"] - mesh["ymin"]) / mesh["ny"]
+
+         xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+         yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+
+         dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
+         dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
+
+         xu = xp + dx / 2
+         xu = np.insert(xu, 0, xp[0] - dx / 2)
+         # yu = yp # xv = xp
+         yv = yp + dy / 2
+         yv = np.insert(yv, 0, yp[0] - dy / 2)
+
+         plotpar["scale_x"] = float(plotpar["scale_x"])
+         plotpar["scale_y"] = float(plotpar["scale_y"])
+
+         scale_x = float(plotpar["scale_x"])
+         scale_y = float(plotpar["scale_y"])
+
+         xp /= scale_x
+         yp /= scale_y
+         xu /= scale_x
+         yv /= scale_y
+
+         if i == 0:
+            mode = 'first'
+         else:
+            mode = 'next'
+
+         fig1,ax2,cbar = func(
+         file,
+         key,
+         xp,
+         yp,
+         xu,
+         yv,
+         yml,
+         mesh,
+         time,
+         nstep,
+         plotpar,
+         figpar=figpar,
+         mode=mode,
+         fig1=fig1,
+         ax2=ax2,
+         cbar=cbar,
+         )
+       
+   file_name = figpar['file']
+
+   plt.savefig(file_name+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+
+   plt.close("all")
+
+
+def plot_1D(
+    file,
+    key,
+    xp,
+    yp,
+    xu,
+    yv,
+    yml,
+    mesh,
+    time,
+    nstep,
+    plotpar,
+    figpar=None,
+    mode='close',
+    fig1=None,
+    ax2=None,
+    cbar=None,
+):
+   """Plot one figure for field"""
+
+   file_name = figpar['file']
+
+   nx = file['nx'][()]
+   ny = nx 
+
+   # print('nx',nx,ny)
+
+   if key=="u_1D":
+      nx=nx+1
+      x_1D = xu 
+      y_1D = yp
+      key_LS = "levelset_u"
+
+   elif key=="v_1D":
+      ny=ny+1
+      x_1D = xp
+      y_1D = yv 
+      key_LS = "levelset_v"
+
+   else:
+      x_1D = xp
+      y_1D = yp
+      key_LS = "levelset_p"
+
+   print(file.keys())
+
+   field_index = 1 #bulk
+   file_name = figpar['file']
+
+   if 'field_index' in figpar.keys():
+      field_index = figpar['field_index']
+   else:
+      field_index = 1 # bulk value
+      
+   # print(key,nstep,time,"max ",np.max(data),'min',np.min(data))
+
+   #  print('key',key)
+
+
+
+   if figpar == None:
+      figpar = plotpar
+
+   if mode == 'first':
+      ax20 = ax2
+      # print(ax20)
+      # ax20.cla()
+      if len(figpar['var'])>1:
+         twin1 = ax20.twinx()
+         twin2 = ax20.twinx()
+   else:
+      ax20 = ax2
+
+   # elif mode == 'film':
+   #    # print(ax2)
+   #    ax20,twin1,twin2 = ax2
+   #    # ax20.cla()     
+   #    if len(figpar['var'])>1:   
+   #       twin1.cla()
+   #       twin2.cla()
+   #    # twin1 = ax20.twinx()
+   #    # twin2 = ax20.twinx()
+
+   # else:
+   #    fig1,ax20 = init_fig(plotpar,figpar)
+   #    if len(figpar['var'])>1:
+   #       twin1 = ax20.twinx()
+   #       twin2 = ax20.twinx()
+
+
+
+   ###########################################
+
+
+
+   if 'plot_mode' not in figpar.keys():
+      figpar['plot_mode'] = plotpar['plot_mode']
+
+   scale_time = float(plotpar["scale_time"])
+   scale_x = float(plotpar["scale_x"])
+   cmap = plt.get_cmap(plotpar["cmap"])
+
+   # cbarlabel = plotpar["cbarlabel"]
+   isocontour = plotpar["isocontour"]
+
+   time /= scale_time 
+   # radius /= scale_x
+
+   # fig.subplots_adjust(right=0.75)
+
+   varx = x_1D
+
+   print(varx)
+
+   for i, var in enumerate(figpar['var']):
+      label_i = r""+figpar['labels'][i]
+
+      label1 = str(nx)
+
+      ls  = eval(figpar['linestyles'][i])
+
+      lw = figpar['linewidth']
+  
+      if len(figpar['var'])>1:
+         # Offset the right spine of twin2.  The ticks and label have already been
+         # placed on the right by twinx above.
+         twin2.spines.right.set_position(("axes", figpar['axis_offset']))
+
+      data = file[var][:]
+
+      # data= reshape_data_veci(data,nx,ny,field_index)
+      # slice_1D = data[0,:]
+
+      slice_1D = eval(figpar['macro_slice'])
+
+      print('data',slice_1D)
+
+      tick0 = list(eval(figpar['ticks'][0]))
+
+      # print('varx',varx,len(varx))
+      # print('slice_1D',slice_1D,len(slice_1D))
+
+      print('mesh number',yml['study']['iter'])
+
+   
+      if 'plot_ref' in figpar.keys() and yml['study']['iter'] == 0:
+         print('plotting ref')
+         ref = eval(figpar['plot_ref'])
+         # print('ref',ref)
+         # print(4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])))
+         # print(yml["flower"]["physics"]["v_inlet"])
+         # print((mesh["xmax"]-mesh["xmin"]))
+
+         ax20.plot(varx, ref, 
+         'k',
+         label='Reference solution',
+         ls=ls,lw=lw)
+
+      if 'macro' in figpar.keys():
+         # X = varx
+         # print(X)
+         # local_context = {}
+         exec(figpar['macro'],
+            #   ,globals(),
+            # globals(),
+            # # locals(), 
+            # local_context
+            )
+         
+         # label1 = local_context['label1']
+         label1 = label2
+
+   
+      #    print(label1)
+      #    print(label2)
+
+      # print(label1)
+
+      p1, = ax20.plot(varx, slice_1D, 
+      #  colors[i+1], #color wrt variable
+      colors[yml['study']['iter']],
+      label=label1,ls=ls,lw=lw)
+
+      ax20.set(
+      # xlim=(0, 2),
+      # ylim=(0, 2),
+      xlabel=r""+plotpar['xlabel'],
+      ylabel=label_i)
+         
+      plt.legend()
+
+   # tick0 = list(eval(figpar['ticks'][0]))
+   # ax20.yaxis.set_major_locator(mticker.FixedLocator(tick0))
+   # # ax2.yaxis.set_minor_locator(mticker.FixedLocator(tick0))
+   # ax20.yaxis.set_ticks(tick0)
+
+
+   # twin1.yaxis.set_major_locator(mticker.FixedLocator(eval(figpar['ticks'][1])))
+   # twin1.yaxis.set_ticks(eval(figpar['ticks'][1]))
+
+   # twin2.yaxis.set_major_locator(mticker.FixedLocator(eval(figpar['ticks'][2])))
+
+   # twin2.yaxis.set_ticks(eval(figpar['ticks'][2]))
+
+   # ax20.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+
+   # ax20.yaxis.label.set_color(p1.get_color())
+   # twin1.yaxis.label.set_color(p2.get_color())
+   # twin2.yaxis.label.set_color(p3.get_color())
+
+   # twin1.spines["right"].set_color(p2.get_color())
+   # twin2.spines["right"].set_color(p3.get_color())
+
+   # ax20.set(
+   # # xlim=(0, 2),
+   # # ylim=(0, 2),
+   # xlabel=r""+plotpar['ylabel'],
+   # ylabel=label1)
+   # twin1.set(
+   #    # ylim=(0, 4), 
+   # ylabel=label2)
+   # twin2.set(
+   #    # ylim=(1, 65), 
+   # ylabel=label3)
+
+   # ax20.tick_params(axis="y", right = False, colors=p1.get_color())
+   # twin1.tick_params(axis="y", right = True, labelright = True, left = False, labelleft = False, colors=p2.get_color())
+   # twin2.tick_params(axis="y", right = True, labelright = True, left = False, labelleft = False, colors=p3.get_color())
+
+   # twin1.yaxis.set_label_position("right")
+   # twin2.yaxis.set_label_position("right")
+
+
+   if 'plot_legend' in figpar.keys():
+      if parse_is_true(figpar['plot_legend']):
+         fig1.legend(handles=[p1, p2, p3],
+         # loc = "center left",
+         loc = "outside upper left",
+         )
+
+
+   ###########################################
+
+
+   # return(fig1,ax2,cbar)
+
+
+   # if mode =='first' or mode =='close':
+
+   
+   #    str_nstep = str(nstep)
+   #    plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+
+   # if mode == 'close':
+   #    # str_nstep = str(nstep)
+   #    # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'])
+   #    plt.close(fig1)
+   #    return
+
+   if mode == 'first': 
+      if len(figpar['var'])>1:
+         ax2list = [ax2,twin1,twin2]
+      else:
+         ax2list = ax2
+      # print(mode)
+      # print(ax2list)
+      return(fig1,ax2list,cbar)    
+   else:
+      # print(ax2)
+      # print([ax20,twin1,twin2])
+      return(fig1,ax2,cbar)
+   
+
+
+      
+
+
+

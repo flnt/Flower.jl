@@ -147,7 +147,7 @@ maxfev = 1000
 
 
 print_latex = True
-# print_latex = False
+print_latex = False
 
 
 # Mesh
@@ -176,6 +176,8 @@ print("elec_cond",elec_cond) # elec_cond = 136.0168282397691
 #"analytical" solution if we assume linearity of potential with fsolve 
 solved_slope = fsolve(f, 0.0, args=(L, i0, alpha, Faraday, Ru, temperature0, elec_cond),xtol=xtol,maxfev=maxfev)[0]
 print('with fsolve, slope:',solved_slope,' residual ',f(solved_slope,L, i0, alpha, Faraday, Ru, temperature0, elec_cond),'phi at electrode ',-solved_slope*L)
+
+print('i',-elec_cond * solved_slope)
 
 # Initial guess
 U = np.zeros(N+1)

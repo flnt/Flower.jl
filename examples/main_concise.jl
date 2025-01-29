@@ -172,31 +172,9 @@ end #if num.io_pdi>0
 
 
 # Define interfaces (for bubbles, drops...)
-if sim.activate_interface == 1
+eval(Meta.parseall(macros.interface))
 
-    gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
-  
-    #modify velocity field near interface
-    su = sqrt.((gv.x .- phys.intfc_x).^2 .+ (gv.y .- phys.intfc_y).^2)
-    R1 = phys.radius + 3.0*num.Δ
-
-    bl = 4.0
-    for II in gv.ind.all_indices
-        if su[II] <= R1
-            phL.v[II] = 0.0
-        # elseif su[II] > R1
-        #     uL[II] = tanh(bl*(su[II]-R1))
-        end
-    end
-
-elseif sim.activate_interface == -1
-    gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
-    gp.LS[1].u .*= -1.0
-
-else
-    gp.LS[1].u .= 1.0
-end
-
+# check if interface present in domain
 test_LS(gp)
 
 # Create segments from interface
@@ -208,13 +186,7 @@ test_LS(gp)
 # print("\n x",connectivities)
 # print("\n x",num_vtx)
 
-
-
-
-
 printstyled(color=:green, @sprintf "\n sim.CFL : %.2e dt : %.2e\n" sim.CFL sim.CFL*phys.ref_length/mesh.nx/phys.v_inlet)
-
-
 
 # printstyled(color=:green, @sprintf "\n Initialisation0 \n")
 
@@ -390,7 +362,7 @@ run_forward!(
     electrolysis = true,
     navier_stokes = true,
     ns_advection = (sim.ns_advection ==1),
-    ns_liquid_phase = true,
+    ns_liquid_phase = (sim.solve_Navier_Stokes_liquid_phase == 1),
     verbose = true,
     show_every = sim.show_every,
     electrolysis_convection = true,  

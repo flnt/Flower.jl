@@ -683,7 +683,16 @@ We initialize a solid circle of radius R = 0.75. The domain size are the same as
 "The advection equation  ∂u  ∂t + (u · ∇) u = 0, (2.68)  is solved inside a cylinder of non-dimensionalized radius 0.5. The vector field u is initialized with an angular velocity ω0 = 1, representing the rotation of a rigid body, and slip boundary conditions at the wall, resulting in velocity components expressed as
 " [`Rodriguez (2024)`](https://theses.fr/s384455)
 
-## Poiseuille (TODO)
+## Poiseuille
+
+```bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Poiseuille.jl ../Flower.jl/examples/channel_Dirichlet_pressure.yml
+```
+
+```bash
+python3 -c "import convergence_study; convergence_study.plot_convergence_study_func()" ../Flower.jl/examples/channel_Dirichlet_pressure.yml mesh_00000*
+```
+
 ```@raw html
 <a href="https://github.com/flnt/Flower.jl/blob/electrolysis/test/channel_Dirichlet_pressure.yml"> See this test for the factor 4/3. </a>
 ```
@@ -892,6 +901,36 @@ Successive substitutions: with Flower or python in 1D:
 </table>
 ```
 
+```bash
+python3 -c "import convergence_study; convergence_study.plot_convergence_study_func()" ../Flower.jl/examples/convergence_Butler.yml mesh_00000*
+```
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="./assets/Butler_phi_1D.svg" alt="Butler" title="Poisson">
+    <figcaption>"Electrical potential"</figcaption>
+</figure>
+```
+
+!!! todo "TODO plot" x coord check 0...
+
+!!! todo "TODO log plot "
+ 
+
+
+
+
+## Butler-Volmer with bubble (no analytical solution)
+
+```bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Butler_bubble_wall.jl ../Flower.jl/examples/convergence_Butler_bubble_wall.yml 
+```
+
+```bash
+python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/test/butler_bubble.yml flower_00000001.h5
+```
+
 ## Radial flow (qualitative)
 
 The velocity field is imposed with [`init_fields_multiple_levelsets!`](@ref) for "BC_uL" and "BC_vL". The gravity is deactivated.
@@ -906,6 +945,77 @@ python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/te
 ```bash
 julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/main_concise.jl levelset_Butler.yml
 ```
+
+## Phase-change with diffusion
+From [`Fleckenstein and bothe 2015`](https://www.sciencedirect.com/science/article/pii/S0021999115005306):
+"
+First, we compare a 1D simulation with FS2D to an analytically solvable test case. Similar validation cases have been previously used by, e.g., Welch and Wilson [40] for the validation of numerical methods for evaporation.
+
+For this validation case, we consider mass transfer from a (pure) gas phase into a semi-infinite liquid phase. Initially, the interface between ``\Omega^G`` and ``\Omega^L`` is at position ``x = x_0``. The concentration of the single component inside ``\Omega^G`` remains constant throughout the simulation. Then, under the assumption that the transferred gas is highly diluted in the liquid phase, the equation for the species concentration ``c`` in the liquid phase can be written as:"
+
+```math
+\begin{aligned}
+\partial_{t} c & = D \partial_{x}^{2} c, & & x > 0, t > 0 \\
+c(0, x) & = 0, & & x > 0 \\
+c(t, 0) & = c^G / H, & & t > 0
+\end{aligned}
+```
+
+where the origin of the coordinate system moves with the interface position and H is the Henry coefficient. The time-dependent solution to this diffusion equation is given by [6]:
+
+```math
+c(t, x) = -\frac{c^G}{H} \operatorname{erf}\left(\frac{x}{2 \sqrt{D t}}\right) + \frac{c^G}{H}
+```
+
+With this species distribution in the liquid phase, we obtain:
+
+```math
+\frac{\partial c}{\partial \mathbf{n}_{x}} = -\frac{c^G}{H \sqrt{\pi D}} \frac{1}{\sqrt{t}}
+```
+
+the normal derivative of the transfer species at the interface. Taking this concentration derivative, we can finally compute the velocity of the interface as:
+
+```math
+V_{\Sigma} = -D \frac{c^G}{H \sqrt{\pi D}} \frac{1}{\sqrt{t}}
+```
+
+i.e., the traveled length ``l`` of the interface is:
+
+```math
+\ell = 2 \frac{c^G}{H} \sqrt{t D / \pi}
+```
+
+
+" To validate the numerical method, we use the position of the interface as given by Equation (89) and compare with the simulation results from FS3D. These simulations employ as diffusion coefficients ``D = 3.7 × 10^-7 m^2/s`` and ``D = 3.7 × 10^-8 m²/s`` and a Henry coefficient of ``H = 2``. As the analytical solution has been obtained for a semi-infinite domain, ample distance between the interface position and the right domain boundary (as in Fig. 4) has been chosen. 
+
+
+!!! todo "The comparison of analytical and numerical solution 
+  of the problem up to the final time ``t_{\text{fin}] = 10 s`` is presented in... "
+
+
+```@raw html
+<figure>
+    <a name="phase_change"></a> 
+    <img src="./assets/phase_change.svg" alt="Phase change" title="Phase change">
+    <figcaption>"Phase change"</figcaption>
+</figure>
+```
+
+
+"The minor, slowly growing deviation between numerical and analytical solution is due to the fact that during the motion of the interface, cells with very small phase fractions occur and in some cases, the mass flux into or from the small phase fraction is larger than the physically possible value, i.e., it would lead to a concentration either being negative or larger than the Henry law allows. In this case, the flux is limited to the physically maximum possible value which introduces a small systematic error. It is important to note that this problem is visible only in 1D computations, since the occurrence of several grid cells with interface and with only a very small fraction of one of the phases is very unlikely. We indeed did not observe this in any 3D computation."
+
+<!-- ```math
+\llbracket \rho \mathbf{v} \otimes (\mathbf{v} - \mathbf{v}^{\Sigma}) \rrbracket \cdot \mathbf{n}_{\Sigma} = \tilde{m} \left( \mathbf{v} - \tilde{m} \left\llbracket \frac{1}{\rho} \right\rrbracket \mathbf{n}_{\Sigma}
+``` -->
+
+---
+
+**References:**
+
+[40] S.W. Welch, J. Wilson, A volume of fluid based method for fluid flows with phase change, J. Comput. Phys. 160 (2) (2000) 662-682.
+
+[6] J. Crunk, The Mathematics of Diffusion, Oxford University Press, 1975.
+"
 
 ## Variable coefficient
 

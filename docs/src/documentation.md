@@ -30,6 +30,10 @@ The signed distance is positive in the liquid and negative in the bubble.
 The normal defined by ``LS.\alpha`` is oriented towards the liquid, so we have to take the opposite to define the outward normal for manufactured solutions for example (so that it points towards the interior of the bubble when solving in the liquid). 
 
 
+### Multiple levelsets
+
+In Flower, multiple levelsets may be defined. The last levelset is the combination of all levelsets and is used to define the cell and its centroid.
+
 
 !!! todo "TODO"
     Logic center refers to indices in the matrices.
@@ -82,9 +86,9 @@ Cut-cell methods are firmly grounded in the Finite Volume Method, which defines 
 where ``S`` denotes the outward-pointing surface element and ``e_x`` the unit vector along the ``x`` direction.
 
 For the sake of presentation, the case displayed in Fig.~\ref{fig:moments} is considered where $\Omega \equiv \mathcal{V} _ {i,j}$ consists of the intersection of a phase domain and a computational cell (a right hexahedron). The contour $\partial \Omega$ then consists of the union of the four planar faces $\mathcal{A} _ {x, i, j}$, $\mathcal{A} _ {x, i+1, j}$, $\mathcal{A} _ {y, i, j}$ and $\mathcal{A} _ {y, i, j+1}$ as well as the boundary surface $\Gamma _ {i, j}$. A piece-wise linear approximation of $\Gamma _ {i, j}$, denoted $\widetilde{\Gamma} _ {i, j}$ and of unit normal $\left ( n _ {x, i, j}, n _ {y, i, j} \right )$, can be defined by applying Eq.~\eqref{eq:Stokes} to $\mathcal{V} _ {i, j}$ with $p = 1$, yielding
-$$
+```math
 \int _ {\widetilde{\Omega}} \frac{\partial 1}{\partial x} \mathrm{d} V = \mathcal{A} _ {x, i+1, j} - \mathcal{A} _ {x, i, j} + n _ {x, i, j} \widetilde{\Gamma} _ {i, j} = 0
-$$
+```
 which highlights the existence of a fundamental relation
 \begin{equation}
     \mathcal{A} _ {x, i+1, j}  - \mathcal{A} _ {x, i, j}  = -n _ {x, i, j} \widetilde{\Gamma} _ {i, j}
@@ -880,6 +884,15 @@ end
 
 ## Poisson equation with variable coefficient 
 
+The gradient is not collocated with the scalar, so they don't have the same shapes for each direction. Five diagonal matrices with coeffD inside are required: 
+
+```julia
+mat_coeffDx = Diagonal(vec(coeffDx_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
+mat_coeffDy = Diagonal(vec(coeffDy_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
+mat_coeffDx_i = Diagonal(vec(coeffDx_interface)) # coeffDx_interface is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Hx
+mat_coeffDy_i = Diagonal(vec(coeffDy_interface)) # coeffDx_interface is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies Hy
+mat_coeffDx_b = Diagonal(vec(coeffD_borders)) # coeffDx_interface is a 1d vector with shape (2grid.ny + 2grid.nx), multiplies Hx_b and Hy_b
+```
 
 
 \begin{equation}
@@ -1899,7 +1912,7 @@ Then, for the gradient, ``B_x`` corresponds to ``-BxT'`` i.e. ``-(-G^T)^T=G``
 
 
 ### Updating the operator from Levelset
-!!! Order of updates 
+!!! todo "Order of updates" 
     At every iteration, [`update_all_ls_data`](@ref) is called twice, once inside run.jl and another one 
     (if there's advection of the levelset) inside [`set_heat!`](@ref). 
     The difference between both is a flag as last argument, inside run.jl is implicitly defined as true 
@@ -1943,6 +1956,12 @@ Acpm
 interpolate_grid_liquid!
 interpolated_temperature
 static_stencil
+```
+
+### Interpolating to display solid and liquid
+
+```julia
+@views fwd.trans_scal[1,:,:,iscal] .= phL.trans_scal[:,:,iscal].*LS[end].geoL.cap[:,:,5] .+ phS.trans_scal[:,:,iscal].*LS[end].geoS.cap[:,:,5]
 ```
 
 
@@ -2040,31 +2059,60 @@ init_ghost_neumann_2
 
 ## Temporal scheme
 
-### CN
+!!! todo "Time-step
+    change coefficients for extrapolation in case of adaptive time-step
 
-### FE
+
+### Crank-Nicolson
+
+### Forward-Euler
 
 ### Initialization
 
+#### Interface position for storage
 
+"Moreover, we define the interface centroid as the mid point of the segment crossing the cell which will be used in the computation of the Stefan condition." \citet{fullanaSimulationOptimizationComplex2022}
+
+Store segments in 2D to save up space
+
+```julia 
+#Initialize liquid phase
+
+x_centroid = gp.x .+ getproperty.(gp.LS[1].geoL.centroid, :x) .* gp.dx
+y_centroid = gp.y .+ getproperty.(gp.LS[1].geoL.centroid, :y) .* gp.dy
+
+x_bc = gp.x .+ getproperty.(gp.LS[1].mid_point, :x) .* gp.dx
+y_bc = gp.y .+ getproperty.(gp.LS[1].mid_point, :y) .* gp.dy
+
+#Initialize bulk value
+vec1(phL.TD,gp) .= vec(ftest.(x_centroid,y_centroid))
+#Initialize interfacial value
+vec2(phL.TD,gp) .= vec(ftest.(x_bc,y_bc))
+```
 
 ## Convection
 
 !!! todo "Advection equation of a vector-valued field  2.5.1 Discrete operators for staggered quantities" [`Rodriguez (2024)`](https://theses.fr/s384455)
 
 
+
+
 ## Possible improvements 
 * Restart 
-    # #TODO restart with PDI
-    # if sim.restart == 1:
-    #     cf hello_access.jl
-    # end
+<!-- # #TODO restart with PDI
+# if sim.restart == 1:
+#     cf hello_access.jl
+# end -->
 * Interface length
 * Remove ``replace!(N, NaN=>0.0)``
 * imposed constant velocity field : after 100 it : error after scalar transport 3.88e-14
 * pressure BC during prediction 
 * small cells: linear algebra, time step ...
 * Epsilon to prevent NaN, with eps : coefficients not exact 
+* sometimes Julia reports out of memory 
+* Compilation time: upcoming development: \url{https://jbytecode.github.io/juliac/}
+
+
 
 
 ### Epsilon/handling small or cancelled cells

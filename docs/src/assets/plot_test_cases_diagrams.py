@@ -21,6 +21,18 @@ font_size = 24
 
 lw=4
 
+colors = 'black'
+# colors = 'transparent'
+
+if colors == 'transparent':
+    write_color = 'k'
+    background = 'transparent'
+else:
+    write_color = 'w'
+    background = 'k'
+
+
+
 
 plt.rcParams["font.size"] = str(font_size)
 
@@ -131,11 +143,19 @@ def plot_figure(plot_interface,plot_wall,case):
 
 
 
-    plt.plot([0.,lx], [0.,0.], '-k', lw=lw,zorder=zorder)
-    plt.plot([0.,0.], [0.,ly], '-k', lw=lw,zorder=zorder)
-    plt.plot([0.,lx], [0.,0.], '-k', lw=lw,zorder=zorder)
-    plt.plot([0.,lx], [ly,ly], '-k', lw=lw,zorder=zorder)
-    plt.plot([lx,lx], [0.,ly], '-k', lw=lw,zorder=zorder)
+    # plt.plot([0.,lx], [0.,0.], '-k', lw=lw,zorder=zorder)
+    # plt.plot([0.,0.], [0.,ly], '-k', lw=lw,zorder=zorder)
+    # plt.plot([0.,lx], [0.,0.], '-k', lw=lw,zorder=zorder)
+    # plt.plot([0.,lx], [ly,ly], '-k', lw=lw,zorder=zorder)
+    # plt.plot([lx,lx], [0.,ly], '-k', lw=lw,zorder=zorder)
+
+    
+    ax.add_patch(Rectangle((0.0, 0.0), lx, lx, fill=False, 
+                    #    hatch=h,
+                    color=write_color,
+                    lw=lw,
+                    zorder=zorder,
+                    ))
 
     # p-grid
     # for i in range(0,nx+1):
@@ -263,7 +283,7 @@ def plot_figure(plot_interface,plot_wall,case):
             xytext=(-offset, 0), textcoords='offset points',
             # transform=shadow_transform,
             fontsize=font_size,
-            c='k',
+            c=write_color,
             ha="right",
             va='center')    
         
@@ -284,7 +304,7 @@ def plot_figure(plot_interface,plot_wall,case):
             xytext=(0,-offset), textcoords='offset points',
             # transform=shadow_transform,
             fontsize=font_size,
-            c='k',
+            c=write_color,
             ha="center",
             va='top')    
         
@@ -306,7 +326,7 @@ def plot_figure(plot_interface,plot_wall,case):
             xytext=(0,+offset), textcoords='offset points',
             # transform=shadow_transform,
             fontsize=font_size,
-            c='k',
+            c=write_color,
             ha="center",
             va='bottom')  
 
@@ -328,7 +348,7 @@ def plot_figure(plot_interface,plot_wall,case):
             xytext=(+offset,0), textcoords='offset points',
             # transform=shadow_transform,
             fontsize=font_size,
-            c='k',
+            c=write_color,
             ha="left",
             va='center')    
         
@@ -353,7 +373,7 @@ def plot_figure(plot_interface,plot_wall,case):
                 xytext=(+offset,0), textcoords='offset points',
                 # transform=shadow_transform,
                 fontsize=font_size,
-                c='k',
+                c=write_color,
                 ha="left",
                 va='center') 
             
@@ -385,7 +405,7 @@ def plot_figure(plot_interface,plot_wall,case):
                 xytext=(+offset,0), textcoords='offset points',
                 # transform=shadow_transform,
                 fontsize=font_size,
-                c='k',
+                c=write_color,
                 ha=ha,
                 va=va,
             )    
@@ -410,7 +430,7 @@ def plot_figure(plot_interface,plot_wall,case):
                 xytext=(+offset,0), textcoords='offset points',
                 # transform=shadow_transform,
                 fontsize=font_size,
-                c='k',
+                c=write_color,
                 ha="left",
                 va='center')    
             
@@ -442,7 +462,7 @@ def plot_figure(plot_interface,plot_wall,case):
                 xytext=(+offset,0), textcoords='offset points',
                 # transform=shadow_transform,
                 fontsize=font_size,
-                c='k',
+                c=write_color,
                 ha=ha,
                 va=va,
                 )    
@@ -524,7 +544,7 @@ def plot_figure(plot_interface,plot_wall,case):
         yc = 2
         
 
-        circle1 = plt.Circle((xc, yc), radius, fill=False, color='k',hatch="\\",lw=lw,)
+        circle1 = plt.Circle((xc, yc), radius, fill=False, color=write_color,hatch="\\",lw=lw,)
 
         ax.add_patch(circle1)
 
@@ -534,13 +554,13 @@ def plot_figure(plot_interface,plot_wall,case):
             thetas = np.linspace(0, 2*np.pi, 10)
             for theta in thetas:
                
-                # plt.arrow(xc, yc, xc+vec1[0], yc+vec1[1], head_width=0.15, color='k', length_includes_head=True)
+                # plt.arrow(xc, yc, xc+vec1[0], yc+vec1[1], head_width=0.15, color=write_color, length_includes_head=True)
                 plt.arrow(xc+radius*np.cos(theta), 
                           yc+radius*np.sin(theta), 
                           vec1[0]*np.cos(theta), 
                           vec1[1]*np.sin(theta), 
             
-                          head_width=0.15, color='k', length_includes_head=True)
+                          head_width=0.15, color=write_color, length_includes_head=True)
                 
     elif '_arc' in case:
         xc = 0
@@ -548,7 +568,7 @@ def plot_figure(plot_interface,plot_wall,case):
         thetalim = [-90,90]
         narrows = 5
 
-        arc = Arc((xc, yc), radius*2, radius*2, color='k', theta1=thetalim[0], theta2=thetalim[1],hatch="\\",lw=lw)
+        arc = Arc((xc, yc), radius*2, radius*2, color=write_color, theta1=thetalim[0], theta2=thetalim[1],hatch="\\",lw=lw)
         ax.add_patch(arc)
 
         if 'arrow' in case:
@@ -558,17 +578,17 @@ def plot_figure(plot_interface,plot_wall,case):
 
             for theta in thetas:
                 
-                # plt.arrow(xc, yc, xc+vec1[0], yc+vec1[1], head_width=0.15, color='k', length_includes_head=True)
+                # plt.arrow(xc, yc, xc+vec1[0], yc+vec1[1], head_width=0.15, color=write_color, length_includes_head=True)
                 plt.arrow(xc+radius*np.cos(theta), 
                             yc+radius*np.sin(theta), 
                             vec1[0]*np.cos(theta), 
                             vec1[1]*np.sin(theta), 
             
-                            head_width=0.15, color='k', length_includes_head=True)
+                            head_width=0.15, color=write_color, length_includes_head=True)
 
 
-    plt.savefig(case+'.svg', transparent=True)
-    plt.savefig(case+'.pdf', transparent=True)
+    plt.savefig(case+'_'+colors+'.svg', transparent=True)
+    plt.savefig(case+'_'+colors+'.pdf', transparent=True)
 
     plt.close('all')
 

@@ -3,6 +3,7 @@
 #TODO remove duplicate variables: cap (already dcap), emptied (already iso),...
 #TODO floating-point comparison
 #TODO Crank-Nicolson with moving interfaces: simulations explode
+#TODO flow rate, check conservation
 
 """
     run_forward!
@@ -473,7 +474,7 @@ function run_forward!(
             "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
             "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
             "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
-            # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+            "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
             # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
             # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
             # "normal_x"::Cstring, normal_x::Ptr{Cdouble}, PDI_OUT::Cint,   
@@ -881,7 +882,7 @@ function run_forward!(
     
     
             printstyled(color=:red, @sprintf "\n test segments\n" )
-            print("\n type of elec_cond ", typeof(elec_cond)," \n")
+            # print("\n type of elec_cond ", typeof(elec_cond)," \n")
 
     
             intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num, intfc_seg_num = convert_interfacial_D_to_segments(num,grid,phL.TD,1,2)
@@ -908,7 +909,7 @@ function run_forward!(
                     
                     if num.electric_potential > 0
 
-                        print("\n type of elec_cond ", typeof(elec_cond)," \n")
+                        # print("\n type of elec_cond ", typeof(elec_cond)," \n")
                         try
                             compute_grad_phi_ele!(num, grid, grid_u, grid_v,grid_u.LS[end], grid_v.LS[end], phL, phS, 
                             op.opC_pL, op.opC_pS, elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p0,tmp_vec_p1) #TODO current
@@ -1082,12 +1083,38 @@ function run_forward!(
                     # ....
                     
                     if ((num.current_i-1)%show_every == 0) 
-                        printstyled(color=:red, @sprintf "\n Imposed velocity v min %.2e max %.2e\n" minimum(phL.vD) maximum(phL.vD))
-                        printstyled(color=:red, @sprintf "\n Imposed velocity u min %.2e max %.2e\n" minimum(phL.uD) maximum(phL.uD))       
+                        # printstyled(color=:red, @sprintf "\n Imposed velocity v min %.2e max %.2e\n" minimum(phL.vD) maximum(phL.vD))
+                        # printstyled(color=:red, @sprintf "\n Imposed velocity u min %.2e max %.2e\n" minimum(phL.uD) maximum(phL.uD))       
                         
-                        printstyled(color=:cyan, @sprintf "\n before scalar transport 0\n")
+                        # printstyled(color=:cyan, @sprintf "\n before scalar transport 0\n")
 
-                        print_electrolysis_statistics(num,grid,phL)
+                        # print_electrolysis_statistics(num,grid,phL)
+
+                        # PDI_status = @ccall "libpdi".PDI_multi_expose("print_variables"::Cstring,
+                        # "nstep"::Cstring, nstep ::Ref{Clonglong}, PDI_OUT::Cint,
+                        # "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+                        # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # # "levelset_p_wall"::Cstring, LStable::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+                        # # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+                        # # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                        # # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                        # # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # # "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+                        # C_NULL::Ptr{Cvoid})::Cint
+
                     end 
 
                 elseif imposed_velocity == "radial"
@@ -1212,8 +1239,33 @@ function run_forward!(
                     #TODO check num.nb_transported_scalars>1
 
                     if ((num.current_i-1)%show_every == 0) 
-                        printstyled(color=:cyan, @sprintf "\n before scalar transport \n")
-                        print_electrolysis_statistics(num,grid,phL)
+                        # printstyled(color=:cyan, @sprintf "\n before scalar transport \n")
+                        # print_electrolysis_statistics(num,grid,phL)
+                        
+                        PDI_status = @ccall "libpdi".PDI_multi_expose("print_variables"::Cstring,
+                        "nstep"::Cstring, nstep ::Ref{Clonglong}, PDI_OUT::Cint,
+                        "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+                        "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "levelset_p_wall"::Cstring, LStable::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+                        # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+                        # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                        # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                        # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+                        C_NULL::Ptr{Cvoid})::Cint
                     end
                 
                     # printstyled(color=:red, @sprintf "\n levelset: before scalar_transport\n")
@@ -1323,8 +1375,33 @@ function run_forward!(
                     # periodic_x, periodic_y, electrolysis_convection, true, BC_int, num.diffusion_coeff)
 
                     if ((num.current_i-1)%show_every == 0) 
-                        printstyled(color=:cyan, @sprintf "\n after scalar transport \n")
-                        print_electrolysis_statistics(num,grid,phL)
+                        # printstyled(color=:cyan, @sprintf "\n after scalar transport \n")
+                        # print_electrolysis_statistics(num,grid,phL)
+                        
+                        PDI_status = @ccall "libpdi".PDI_multi_expose("print_variables"::Cstring,
+                        "nstep"::Cstring, nstep ::Ref{Clonglong}, PDI_OUT::Cint,
+                        "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+                        "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "levelset_p_wall"::Cstring, LStable::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+                        # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+                        # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                        # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                        # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+                        C_NULL::Ptr{Cvoid})::Cint
 
 
                         # scal_error=0.0
@@ -1571,20 +1648,40 @@ function run_forward!(
                         ls_advection)
 
                     elseif num.electric_potential == 2 || num.electric_potential ==3
-                        
+
+                    
                         # iterate (non-linear BC with Butler) 
                         for poisson_iter=1:num.electric_potential_max_iter
 
                             printstyled(color=:orange, @sprintf "\n poisson iter %.2i \n" poisson_iter)
 
-                            @ccall "libpdi".PDI_multi_expose("solve_poisson"::Cstring,
-                            # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
-                            # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
-                            # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+                            compute_grad_phi_ele!(num, grid, grid_u, grid_v, grid_u.LS[end], grid_v.LS[end], phL, phS, op.opC_pL, op.opC_pS, 
+                            elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p0,tmp_vec_p1) #TODO current
+
+                     
+                            @ccall "libpdi".PDI_multi_expose("check_electrical_potential"::Cstring,
+                            "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+                            "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+                            "i_current_mag"::Cstring, tmp_vec_p1::Ptr{Cdouble}, PDI_OUT::Cint,
                             "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
                             "elec_cond_1D"::Cstring, elec_condD::Ptr{Cdouble}, PDI_OUT::Cint,  
                             "BC_phi_ele_left"::Cstring, BC_phi_ele.left.val::Ptr{Cdouble}, PDI_OUT::Cint,  
+                            # "grad_phi_ele_u"::Cstring, tmp_vec_u::Ptr{Cdouble}, PDI_OUT::Cint,  
                             C_NULL::Ptr{Cvoid})::Cint
+                            
+                            printstyled(color=:orange, @sprintf "\n grad poisson iter %.2i \n" poisson_iter)
+
+                            print("\n grad ", tmp_vec_u[div(grid_u.ny,2),:]," \n")
+
+                            # @ccall "libpdi".PDI_multi_expose("solve_poisson"::Cstring,
+                            # # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+                            # # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+                            # # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+                            # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                            # "elec_cond_1D"::Cstring, elec_condD::Ptr{Cdouble}, PDI_OUT::Cint,  
+                            # "BC_phi_ele_left"::Cstring, BC_phi_ele.left.val::Ptr{Cdouble}, PDI_OUT::Cint,  
+                            # # "grad_phi_ele_u"::Cstring, tmp_vec_u::Ptr{Cdouble}, PDI_OUT::Cint,  
+                            # C_NULL::Ptr{Cvoid})::Cint
 
                         
                             if electrolysis_reaction == "Butler_no_concentration"
@@ -1682,6 +1779,8 @@ function run_forward!(
                                 
                                 print("\n grad ", tmp_vec_u[div(grid_u.ny,2),1]," \n")
                                 print("\n BC_phi_ele ", BC_phi_ele.left.val[div(grid_u.ny,2)]," \n")
+                                print("\n i_butler ", i_butler," \n")
+
                             end
 
                         end #for loop Poisson
@@ -1691,8 +1790,33 @@ function run_forward!(
  
 
 
-                    printstyled(color=:cyan, @sprintf "\n after solve_poisson_variable_coeff! \n")
-                    print_electrolysis_statistics(num,grid,phL)
+                    # printstyled(color=:cyan, @sprintf "\n after solve_poisson_variable_coeff! \n")
+                    # print_electrolysis_statistics(num,grid,phL)
+
+                    PDI_status = @ccall "libpdi".PDI_multi_expose("print_variables"::Cstring,
+                        "nstep"::Cstring, nstep ::Ref{Clonglong}, PDI_OUT::Cint,
+                        "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+                        "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "levelset_p_wall"::Cstring, LStable::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+                        # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+                        # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                        # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                        # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+                        C_NULL::Ptr{Cvoid})::Cint
 
                     #TODO still in dev
                     # set_poisson_variable_coeff_no_interpolation!(num, 
@@ -1896,7 +2020,7 @@ function run_forward!(
                 # "trans_scal_1D_H2"::Cstring, phL.trans_scalD[:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
                 # "trans_scal_1D_KOH"::Cstring, phL.trans_scalD[:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
                 # "trans_scal_1D_H2O"::Cstring, phL.trans_scalD[:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
                 # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
                 # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,   
                 # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -2031,7 +2155,31 @@ function run_forward!(
             elseif (electrolysis && occursin("Khalighi",electrolysis_phase_change_case))
 
                 if ((num.current_i-1)%show_every == 0) 
-                    print_electrolysis_statistics(num,grid,phL)
+                    # print_electrolysis_statistics(num,grid,phL)
+                    PDI_status = @ccall "libpdi".PDI_multi_expose("print_variables"::Cstring,
+                    "nstep"::Cstring, nstep ::Ref{Clonglong}, PDI_OUT::Cint,
+                    "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+                    "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                    # "levelset_p_wall"::Cstring, LStable::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+                    # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+                    # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                    # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                    # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                    # "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+                    # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+                    # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+                    C_NULL::Ptr{Cvoid})::Cint
                 end
 
                 previous_radius = num.current_radius
@@ -2642,7 +2790,31 @@ function run_forward!(
                         # normpL = norm(phL.p.*num.τ)
                         # print("$(@sprintf("norm(uL) %.6e", normuL))\t$(@sprintf("norm(vL) %.6e", normvL))\t$(@sprintf("norm(pL) %.6e", normpL))\n")
                         if electrolysis
-                            print_electrolysis_statistics(num,grid,phL) 
+                            # print_electrolysis_statistics(num,grid,phL) 
+                            PDI_status = @ccall "libpdi".PDI_multi_expose("print_variables"::Cstring,
+                            "nstep"::Cstring, nstep ::Ref{Clonglong}, PDI_OUT::Cint,
+                            "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+                            "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                            # "levelset_p_wall"::Cstring, LStable::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                            # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+                            # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                            # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                            # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+                            # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+                            # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                            # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                            # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                            # "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+                            # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+                            # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+                            C_NULL::Ptr{Cvoid})::Cint
                         end 
                     end
                 end
@@ -2719,6 +2891,47 @@ function run_forward!(
                 # end
             end
         end
+
+
+
+        intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num, intfc_seg_num = convert_interfacial_D_to_segments(num,grid,phL.TD,1,2)
+        # print("\n number of interface points intfc_vtx_num ", intfc_vtx_num)
+        # print("\n intfc_vtx_connectivities ",intfc_vtx_connectivities)
+        # print("\n len ", size(intfc_vtx_connectivities),intfc_seg_num)
+
+        # print("\n intfc_vtx_x ",intfc_vtx_x)
+        # print("\n intfc_vtx_x ",intfc_vtx_y)
+
+        barycenter_x_coord = mean(intfc_vtx_x)
+
+        PDI_status = @ccall "libpdi".PDI_multi_expose("update_levelset"::Cstring,
+        "nstep"::Cstring, nstep ::Ref{Clonglong}, PDI_OUT::Cint,
+        "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+        # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        # # "levelset_p_wall"::Cstring, LStable::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+        # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+        # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+        # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+        # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+        # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+        "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+        "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
+        "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+        "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+        "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+        "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+        "barycenter_x_coord"::Cstring, barycenter_x_coord::Ref{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
+
+
+
 
         if navier_stokes
             # if !advection
@@ -2851,7 +3064,7 @@ function run_forward!(
                     # "trans_scal_1D_H2"::Cstring, phL.trans_scalD[:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
                     # "trans_scal_1D_KOH"::Cstring, phL.trans_scalD[:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
                     # "trans_scal_1D_H2O"::Cstring, phL.trans_scalD[:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
-                    # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                    "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
                     # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
                     # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,   
                     # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -2891,7 +3104,32 @@ function run_forward!(
                 "\n phL.u: ",norm(phL.u) > 1e8 , "\n phS.u: ",norm(phS.u) > 1e8 , "\n phL.T: ",norm(phL.T) > 1e8 , "\n phS.T: ",norm(phS.T) > 1e8 , "\n phL.trans_scal: ",norm(phL.trans_scal) > 1e8 , "\n phL.phi_ele: ",norm(phL.phi_ele) > 1e8)
     
 
-                print_electrolysis_statistics(num,grid,phL)
+                # print_electrolysis_statistics(num,grid,phL)
+
+                 PDI_status = @ccall "libpdi".PDI_multi_expose("print_variables"::Cstring,
+                        "nstep"::Cstring, nstep ::Ref{Clonglong}, PDI_OUT::Cint,
+                        "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+                        "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "levelset_p_wall"::Cstring, LStable::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+                        # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+                        # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                        # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                        # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+                        C_NULL::Ptr{Cvoid})::Cint
 
                 crashed=true
                 return
@@ -2950,7 +3188,32 @@ function run_forward!(
                     normpL = norm(phL.p.*num.τ)
                     print("$(@sprintf("norm(uL) %.6e", normuL))\t$(@sprintf("norm(vL) %.6e", normvL))\t$(@sprintf("norm(pL) %.6e", normpL))\n")
                     if electrolysis
-                       print_electrolysis_statistics(num,grid,phL)
+                        print_electrolysis_statistics(num,grid,phL)
+                        PDI_status = @ccall "libpdi".PDI_multi_expose("print_variables"::Cstring,
+                        "nstep"::Cstring, nstep ::Ref{Clonglong}, PDI_OUT::Cint,
+                        "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+                        "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "levelset_p_wall"::Cstring, LStable::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+                        # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+                        # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+                        # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                        # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                        # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+                        C_NULL::Ptr{Cvoid})::Cint
+
                     end 
                 end
             end

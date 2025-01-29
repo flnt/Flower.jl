@@ -36,9 +36,12 @@ study = PropertyDict(prop_dict.study)
 # print parameters by evaluating Julia code stored in .yml   
 eval(Meta.parseall(macros.print_parameters))
 
+
+
 npts = study.meshes
 n_cases = length(npts)
 print("\n number of points ", npts, "\n")
+
 
 
 if io.pdi>0
@@ -57,8 +60,8 @@ if io.pdi>0
     mpi_coords_y = 1
     mpi_max_coords_x = 1
     mpi_max_coords_y = 1
-    local nx = npts[1]
-    local ny = npts[1]
+    local nx = 32
+    local ny = 32
     nstep = 0
     # nx=gp.nx
     # ny=gp.ny
@@ -101,14 +104,13 @@ loo_full = zeros(n_cases)
 cell_volume_list = zeros(n_cases)
 
 
-
 # Convergence study loop
 for (i,n) in enumerate(npts)
 
 
     # init regular grid
-    scalar_mesh_x = collect(LinRange(mesh.xmin, mesh.xmax, mesh.nx + 1))    
-    scalar_mesh_y = collect(LinRange(mesh.ymin, mesh.ymax, mesh.ny + 1))
+    scalar_mesh_x = collect(LinRange(mesh.xmin, mesh.xmax, n + 1))    
+    scalar_mesh_y = collect(LinRange(mesh.ymin, mesh.ymax, n + 1))
 
     @debug "Before Numerical"
     global num = Numerical(
@@ -181,7 +183,9 @@ for (i,n) in enumerate(npts)
         index_electrolyte = sim.index_electrolyte,
         extend_field = sim.extend_field,
         average_velocity = sim.average_velocity,
+        laplacian = sim.laplacian,
         electric_potential_max_iter = sim.electric_potential_max_iter,
+
         )
     Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
     @debug "After Numerical"
@@ -195,7 +199,7 @@ for (i,n) in enumerate(npts)
     # Define boundary conditions
     eval(Meta.parseall(macros.boundaries))
 
-    
+
     if num.io_pdi>0
 
 
@@ -267,13 +271,7 @@ for (i,n) in enumerate(npts)
     # print("\n x",connectivities)
     # print("\n x",num_vtx)
 
-
-
-
-
     printstyled(color=:green, @sprintf "\n sim.CFL : %.2e dt : %.2e\n" sim.CFL sim.CFL*phys.ref_length/mesh.nx/phys.v_inlet)
-
-
 
     # printstyled(color=:green, @sprintf "\n Initialisation0 \n")
     # print_electrolysis_statistics(num,gp,phL)
@@ -282,13 +280,13 @@ for (i,n) in enumerate(npts)
     phL.T .= phys.temperature0
     phS.T .= phys.temperature0
 
-    # vPoiseuille = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length) 
-    # vPoiseuilleb = Poiseuille_fmax.(gv.x[1,:],phys.v_inlet,phys.ref_length) 
+    vPoiseuille = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length) 
+    vPoiseuilleb = Poiseuille_fmax.(gv.x[1,:],phys.v_inlet,phys.ref_length) 
 
-    # phL.u .= 0.0
-    # phL.v .= vPoiseuille 
+    phL.u .= 0.0
+    phL.v .= vPoiseuille 
 
-    # vecb_B(phL.vD,gv) .= vPoiseuilleb
+    vecb_B(phL.vD,gv) .= vPoiseuilleb
 
     for iscal=1:phys.nb_transported_scalars
         phL.trans_scal[:,:,iscal] .= phys.concentration0[iscal]
@@ -298,13 +296,6 @@ for (i,n) in enumerate(npts)
 
     printstyled(color=:green, @sprintf "\n Initialisation \n")
 
-    # print_electrolysis_statistics(phys.nb_transported_scalars,gp,phL)
-    # print_electrolysis_statistics(num,gp,phL)
-
-    # PDI_multi_expose(print_var)
-
-
-    
 
     printstyled(color=:green, @sprintf "\n TODO timestep sim.CFL scal, and print \n")
 
@@ -453,7 +444,7 @@ for (i,n) in enumerate(npts)
         electrolysis = true,
         navier_stokes = true,
         ns_advection = (sim.ns_advection ==1),
-        ns_liquid_phase = true,
+        ns_liquid_phase = (sim.solve_Navier_Stokes_liquid_phase == 1),
         verbose = true,
         show_every = sim.show_every,
         electrolysis_convection = true,  
@@ -469,16 +460,28 @@ for (i,n) in enumerate(npts)
 
     @debug "After run"
 
+
+    # #cut small cells for error
+    # number_small_cells_for_error = 0
+    # cutoff_for_error_volume = 1e-12 #TODO
+
+    # for II in gp.ind.all_indices
+    #     if gp.LS[1].geoL.cap[II,5] < cutoff_for_error_volume
+    #         number_small_cells_for_error += 1
+    #         Tana[II] = 0.0
+    #         T[II] = 0.0
+    #     end
+    # end
+
+    # printstyled(color=:green, @sprintf "\n number_small_cells_for_error %.3i \n" number_small_cells_for_error)
+
     LIQUID = gp.ind.all_indices[gp.LS[1].geoL.cap[:,:,5] .> (1-1e-16)]
     MIXED = gp.ind.all_indices[gp.LS[1].geoL.cap[:,:,5] .<= (1-1e-16) .&& gp.LS[1].geoL.cap[:,:,5] .> 1e-16]
 
-    # norm_all = relative_errors(phL.v, vPoiseuille, vcat(LIQUID, MIXED), gp.LS[1].geoL.cap[:,:,5], num.Δ)
-    # norm_mixed = relative_errors(phL.v, vPoiseuille, MIXED, gp.LS[1].geoL.cap[:,:,5], num.Δ)
-    # norm_full = relative_errors(phL.v, vPoiseuille, LIQUID, gp.LS[1].geoL.cap[:,:,5], num.Δ)
 
-    norm_all = zeros(3)
-    norm_mixed = zeros(3)
-    norm_full = zeros(3)
+    norm_all = relative_errors(phL.v, vPoiseuille, vcat(LIQUID, MIXED), gp.LS[1].geoL.cap[:,:,5], num.Δ)
+    norm_mixed = relative_errors(phL.v, vPoiseuille, MIXED, gp.LS[1].geoL.cap[:,:,5], num.Δ)
+    norm_full = relative_errors(phL.v, vPoiseuille, LIQUID, gp.LS[1].geoL.cap[:,:,5], num.Δ)
 
     l1[i] = norm_all[1]
     l2[i] = norm_all[2]
@@ -493,6 +496,8 @@ for (i,n) in enumerate(npts)
     loo_full[i] = norm_full[3]
 
     cell_volume_list[i] = minimum(gp.LS[1].geoL.dcap[:,:,5])
+
+    print("\n analytical ",-0.011655612832847977)
 
 
 end #convergence
@@ -514,12 +519,19 @@ local PDI_status = @ccall "libpdi".PDI_multi_expose("convergence_study"::Cstring
 "l1_rel_error_partial_cells"::Cstring, l1_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
 "l2_rel_error_partial_cells"::Cstring, l2_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
 "linfty_rel_error_partial_cells"::Cstring, loo_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
-# "domain_length"::Cstring, L0::Ref{Cdouble}, PDI_OUT::Cint,
+"domain_length"::Cstring, L0::Ref{Cdouble}, PDI_OUT::Cint,
 "min_cell_volume"::Cstring, min_cell_volume::Ref{Cdouble}, PDI_OUT::Cint,
 C_NULL::Ptr{Cvoid})::Cint
  
 if io.pdi>0
     try
+        
+        # local PDI_status = @ccall "libpdi".PDI_event("close_pycall"::Cstring)::Cint
+
+        # PDI_event("finalization");
+        # local PDI_status = @ccall "libpdi".PDI_event("finalization"::Cstring)::Cint
+
+
         local PDI_status = @ccall "libpdi".PDI_finalize()::Cint
         # printstyled(color=:red, @sprintf "\n PDI end\n" )
 

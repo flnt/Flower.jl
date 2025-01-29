@@ -249,3 +249,117 @@ Base.infer_effects
 code_typed(sum,(Vector{Float64,}))
 ```
 
+
+
+
+## Flower on Ruche mesocenter
+
+!!! todo "Remove Ruche"
+       
+```bash
+%  curl -fsSL https://install.julialang.org | sh
+%   . /gpfs/users/regnaultp/.bashrc
+% juliaup add 1.10.0
+% julia +1.10.0 --project=$HOME/flower/Flower.jl
+% include("/home/regnaultp/flower/Flower.jl/examples/electrolysis_concentration_cyl.jl")
+% using Flower
+% module load anaconda3/2020.02/gcc-9.2.0
+% source activate myenv
+
+% module load python/3.9.10/gcc-11.2.0
+% Pkg.build("PyCall")
+
+% srun --nodes=1 --time=00:30:00 -p cpu_short --pty /bin/bash
+% using Pkg
+% Pkg.rm("Gnuplot")
+% using Pkg
+% Pkg.rm("Makie")
+% Pkg.rm("GLMakie")
+
+% using Pkg
+
+% julia> Pkg.instantiate()
+
+% module load anaconda3/2020.02/gcc-9.2.0
+% LD_LIBRARY_PATH="" julia +1.10.0 –project=Flower.jl
+% dans julia :
+% julia> ENV["PYTHON"]=""
+% julia> using Pkg
+% julia> Pkg.build("PyCall")
+
+
+
+module load anaconda3/2020.02/gcc-9.2.0
+source activate base
+conda list
+juliaup add 1.10.4
+
+% cd $WORKDIR
+
+%julia +1.10.4 --project=$HOME/flower/Flower.jl --threads=1 $HOME/flower/Flower.jl/examples/main_current_folder.jl $HOME/flower/Flower.jl/examples/validation.yml
+```
+
+
+
+```bash
+cd $WORKDIR/similar_to_Khalighi
+module restore pdi4
+srun --nodes=1 --time=00:30:00 -p cpu_short --pty /bin/bash
+
+julia +1.10.4 --project=$HOME/flower/Flower.jl --threads=1 $HOME/flower/Flower.jl/examples/main_current_folder.jl similar_to_Khalighi.yml
+
+source activate myenv
+(myenv)  pip install ... #to install modules
+(myenv) python3 -c "import plot_flower; plot_flower.plot_all_fig()" similar_to_Khalighi.yml
+
+pip install pyyaml and not yaml on Ruche with conda 
+conda install conda-forge::texlive-core
+
+https://www.tug.org/texlive/quickinstall.html
+
+https://gist.github.com/chiang-yuan/62fbcaae06bf77f793a8f9b5aed1ba70
+perl ./install-tl --no-interaction --TEXDIR=. --scheme=small
+
+export PATH=/gpfs/workdir/regnaultp/latex/bin/x86_64-linux:$PATH
+
+tlmgr install siunitx
+
+tlmgr install cm-super
+
+
+in HOME : too heavy, trying in WORK
+
+rsync -a -P -r regnaultp@ruche.mesocentre.universite-paris-saclay.fr:/workdir/regnaultp/half_circle/ half_circle
+
+```
+
+### Precompilation precompile vs package compiler
+
+Problem with PrecompileTools : needs to call using name of precompiled package
+
+\url{https://github.com/JuliaLang/PrecompileTools.jl} according to the table in the llink, package compiler may be better
+
+Talks about HPC and HOME filesystem. + Singularity (Apptainer) \url{https://en.wikipedia.org/wiki/Singularity_(software)} \url{https://github.com/apptainer/apptainer}
+\url{https://vsert.com/posts/precompile/}
+
+use run test routines
+
+
+```bash
+cd test_vlc/
+pr277828@mdlspc92:~/test_vlc$ julia --project=.
+
+add PkgTemplates
+
+using PkgTemplates
+
+help?> Template
+
+tpl = Template(user="Paul102023")
+tpl = Template(user="Paul102023", dir=".")
+
+tpl("Electrolysis")
+```
+
+[`CUDA profiling`](https://cuda.juliagpu.org/stable/development/profiling/)
+

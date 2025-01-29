@@ -563,21 +563,26 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         a0 .= 0.0
         rhs .= 0.0
 
-        printstyled(color=:red, @sprintf "\n rhs modified \n")
 
-        # eval(Meta.parseall(macros.print_parameters))
-        x_centroid = grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx
-        y_centroid = grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
-        
-        b = Δf.(
-            x_centroid,
-            y_centroid,
-            time
-        )
-        veci(rhs,grid_p,1) .+= op.opC_pL.M * vec(b)
-        
+        # TODO define rhs from yaml with 
+        # eval(Meta.parseall(macros.rhs_scalar))
+        # add in macros in yml:
+        # printstyled(color=:red, @sprintf "\n rhs modified \n")
 
-        print("\n rhs ",minimum(rhs)," rhs ",maximum(rhs))
+        # # eval(Meta.parseall(macros.print_parameters))
+        # x_centroid = grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx
+        # y_centroid = grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
+        
+        # b = Δf.(
+        #     x_centroid,
+        #     y_centroid,
+        #     time
+        # )
+        # veci(rhs,grid_p,1) .+= op.opC_pL.M * vec(b)
+        
+        # print("\n rhs ",minimum(rhs)," rhs ",maximum(rhs))
+
+
 
         # A.nzval .= 0.0
         # B.nzval .= 0.0
@@ -2005,6 +2010,17 @@ function compute_grad_phi_ele!(num::Numerical{Float64, Int64},
     # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
     "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
     C_NULL::Ptr{Cvoid})::Cint
+
+
+    # @ccall "libpdi".PDI_multi_expose("solve_poisson"::Cstring,
+    # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+    # # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # "elec_cond_1D"::Cstring, elec_condD::Ptr{Cdouble}, PDI_OUT::Cint,  
+    # # "BC_phi_ele_left"::Cstring, BC_phi_ele.left.val::Ptr{Cdouble}, PDI_OUT::Cint,  
+    # # "grad_phi_ele_u"::Cstring, tmp_vec_u::Ptr{Cdouble}, PDI_OUT::Cint,  
+    # C_NULL::Ptr{Cvoid})::Cint
 
     # tmp_vec_p1 .= (
     #     (tmp_vec_u[:,2:end].^2.0 .* LS_u.geoL.dcap[:,2:end,6] .+ 

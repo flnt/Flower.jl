@@ -20,6 +20,11 @@ from matplotlib.path import Path
 from matplotlib.patches import PathPatch
 from matplotlib.patches import FancyArrowPatch
 
+import matplotlib as mpl
+
+import matplotlib.patches as patches
+
+
 # from matplotlib._layoutgrid import plot_children
 
 
@@ -180,6 +185,8 @@ colors=["#000000" for color in OkabeIto]
 colors[1]="#000000"
 colors[2]=OkabeIto[5] #bleu
 colors[3]=OkabeIto[6] #orange
+
+orange_Okabe = "#D55E00"
 
 
 # Polynomial Regression
@@ -478,8 +485,16 @@ def compute_zoom(figpar,i0,i1,j0,j1):
 
 
 def init_fig(plotpar,figpar):
-    # layout='constrained'
+    layout='constrained'
     layout='compressed'
+
+    golden_ratio_activated = True
+    if 'fig_ratio' in figpar.keys():
+        fig_ratio = figpar['fig_ratio']
+        golden_ratio_activated = False
+    else:
+        fig_ratio=1
+
     if (figpar is None) and (plotpar is None):
         # print('constrained only')
         fig1, ax2 = plt.subplots(layout=layout)
@@ -488,6 +503,7 @@ def init_fig(plotpar,figpar):
             if figpar['figsize'] == 'None':
                 # print('constrained only')
                 fig1, ax2 = plt.subplots(layout=layout)
+                # print('subplot') 0.5
             else:
                 fig1, ax2 = plt.subplots(
                     figsize=set_size(
@@ -495,21 +511,31 @@ def init_fig(plotpar,figpar):
                         fraction=float(plotpar["fig_fraction"]),
                         ratio=1,
                         nvary=1,
-                        ratio2=1,
+                        ratio2=fig_ratio,
                         height=float(plotpar["latex_frame_height"]),
+                        golden_ratio_activated=golden_ratio_activated,
                     ),
                     layout=layout,
                 )
         else:
+            # print('subplot')
+            
+
+            if 'fig_fraction' in figpar.keys():
+                fig_fraction = float(figpar["fig_fraction"])
+            else:
+                fig_fraction = float(plotpar["fig_fraction"])
+
+                                     
             fig1, ax2 = plt.subplots(
                 figsize=set_size(
                     plotpar["latex_frame_width"],
-                    fraction=float(plotpar["fig_fraction"]),
+                    fraction=fig_fraction,
                     ratio=1,
                     nvary=1,
-                    ratio2=1,
+                    ratio2=fig_ratio,
                     height=float(plotpar["latex_frame_height"]),
-                ),
+                    golden_ratio_activated=golden_ratio_activated),
                 layout=layout,
             )
 
@@ -574,6 +600,107 @@ def plot_radius_from_h5():
 
             plot_radius_from_pandas(df,figpar,plotpar)
 
+
+
+def plot_phase_change_from_h5():
+    """
+    Plot radius from h5 files, with slope
+    """
+
+    # print('arg', len(sys.argv),sys.argv)
+    if len(sys.argv) == 2:
+        # List all files in the current directory
+        all_files = os.listdir(".")
+        h5_files = [file for file in all_files if file.endswith(".h5")]
+    else:
+        h5_files = sys.argv[2::]
+
+    try:
+        yamlfile = sys.argv[1]
+        if ".yml" not in yamlfile:
+            yamlfile += ".yml"
+    except Exception as error:
+        print(error)
+        print(colored("error", "red"))
+
+    with open(yamlfile, "r") as file:
+        yml = yaml.safe_load(file)
+
+        plotpar = yml["plot"]
+        physics = yml["flower"]["physics"]
+
+        # print(h5_files)
+        h5_files = sorted(h5_files)
+        print('\n sorted \n')
+        print(h5_files)
+        
+        nsteps = len(h5_files)
+
+        for figpar in plotpar['curves']:
+            print(figpar['file'])
+            print(figpar)
+            time_list =[]
+            radius_list=[]
+            for file_name in h5_files:
+                with h5py.File(file_name, "r") as file:
+                    print(file.keys())
+                    time = file["time"][()]
+                    radius = file["barycenter_x_coord"][()]
+                    print(time,radius)
+                    time_list.append(time)
+                    radius_list.append(radius)
+
+            df = pd.DataFrame({'t': time_list, 'r': radius_list})
+
+            # new_row = {'t': time_list, 'r': radius_list}
+            # df._append(new_row,ignore_index=True)
+
+            # df = pd.DataFrame(columns=['t','r'])
+
+            print(df)
+
+            plot_var_from_pandas(df,figpar,plotpar,physics)
+
+
+
+def plot_var_from_pandas(df,figpar,plotpar,physics):
+    """
+    Plot radius pandas DF, with slope
+    """
+
+    fig1,ax2 = init_fig(plotpar,figpar)
+
+    # print("t",fwd.t)
+    # print("radius",fwd.radius.*1.e6)
+    # print("current_i", current_i)
+    # print("radius ",fwd.radius[1:current_i+1])
+    # print("\nradius ",fwd.radius)
+
+    color="#4d5156"
+
+    interface_pos = [x - float(physics['ls_wall_xmin']) for x in df["r"]]
+    plt.plot(df["t"],interface_pos,color=color) #origin at t=0 : ls_wall_xmin
+
+
+    # ax2.set_title("Title")
+    ax2.set_xlabel(r"$t (s)$")
+    # ax2.set_ylabel(L"$R (m)$")
+    # ax2.set_ylabel(r"$ (\mu m)$")
+
+    plt.plot(df["t"],analytical_interface_position(df["t"],0.16,physics["Henry_H2"],physics["diffusion_coeff_H2"]),color="#009E73")
+
+    
+    # plt.axis("equal")
+
+    prefix="./"
+
+    plt.savefig(prefix+"phase_change.pdf")
+    plt.savefig(prefix+"phase_change.svg")
+    plt.close(fig1)
+
+
+def analytical_interface_position(t,c_G,H,D):
+    return 2 * (c_G / H) * np.sqrt(D * t / np.pi)
 
 def plot_radius_from_pkl():
     """
@@ -687,8 +814,20 @@ def plot_radius_from_pandas(df,figpar,plotpar):
 def parse_is_true(val):
     return bool(val)
 
-def reshape_data(data,nx,ny,field_index):
+def reshape_data(data):
     
+    if data.ndim ==1:
+       return data
+    elif data.shape[1] == 1:
+        return data[:,0]
+    elif data.shape[0] == 1:
+        return data[0,:]
+
+
+def reshape_data_veci(data,nx,ny,field_index):
+    """
+    return bulk field if fied index == 1
+    """
     # print(data.shape)
 
     if data.ndim ==1:
@@ -717,7 +856,7 @@ def reshape_data(data,nx,ny,field_index):
 
     return data
 
-def set_size(width,fraction=1,ratio=1,nvary=1,ratio2=4.8/6.4,height=None):
+def set_size(width,fraction=1,ratio=1,nvary=1,ratio2=4.8/6.4,height=None,golden_ratio_activated=True):
     """Set figure dimensions to avoid scaling in LaTeX.
 
     Parameters
@@ -737,18 +876,46 @@ def set_size(width,fraction=1,ratio=1,nvary=1,ratio2=4.8/6.4,height=None):
     # Convert from pt to inches
     inches_per_pt = 1 / 72.27
 
-    # Golden ratio to set aesthetic figure height
-    # https://disq.us/p/2940ij3
-    golden_ratio = (5**.5 - 1) / 2
+    if golden_ratio_activated:
+        # Golden ratio to set aesthetic figure height
+        # https://disq.us/p/2940ij3
+        golden_ratio = (5**.5 - 1) / 2
 
-    if height == None:
+        if height == None:
+            # Width of figure (in pts)
+            fig_width_pt = width * fraction
+
+            # Figure width in inches
+            fig_width_in = fig_width_pt * inches_per_pt
+            # Figure height in inches
+            fig_height_in = fig_width_in * golden_ratio
+
+            # fig_dim = (fig_width_in, fig_height_in)
+
+            #  print('figdim')
+            #  print(fig_dim,fig_width_in/fig_height_in)
+            #  print(6.4, 4.8,6.4/4.8)
+
+            fig_dim = (fig_width_in, fig_width_in*ratio2/ratio*nvary)
+        else:
+
+            fig_height_pt = height * fraction
+
+            # Figure height in inches
+            fig_height_in = fig_height_pt * inches_per_pt
+
+            fig_width_in = fig_height_in / golden_ratio
+
+            fig_dim = (fig_width_in, fig_height_in*ratio2/ratio*nvary)
+        
+    else: 
         # Width of figure (in pts)
         fig_width_pt = width * fraction
 
         # Figure width in inches
         fig_width_in = fig_width_pt * inches_per_pt
         # Figure height in inches
-        fig_height_in = fig_width_in * golden_ratio
+        fig_height_in = fig_width_in
 
         # fig_dim = (fig_width_in, fig_height_in)
 
@@ -757,19 +924,9 @@ def set_size(width,fraction=1,ratio=1,nvary=1,ratio2=4.8/6.4,height=None):
         #  print(6.4, 4.8,6.4/4.8)
 
         fig_dim = (fig_width_in, fig_width_in*ratio2/ratio*nvary)
-    else:
-
-        fig_height_pt = height * fraction
-
-        # Figure height in inches
-        fig_height_in = fig_height_pt * inches_per_pt
-
-        fig_width_in = fig_height_in / golden_ratio
-
-        fig_dim = (fig_width_in, fig_height_in*ratio2/ratio*nvary)
 
         # print('height mode',fig_dim,ratio,ratio2,nvary,width,height,fig_height_in/inches_per_pt,fraction)
-
+    # print('fig_dim',fig_dim,fig_width_in, fig_height_in,ratio2,ratio,nvary)
     return fig_dim
 
 
@@ -1891,6 +2048,85 @@ def plot_vector(file,
     return(fig1,ax2,cbar)
 
 
+def add_schematics(ax2,fontsize,figpar):
+
+    # x1, x2, y1, y2 = 0,1, 55,57  # subregion of the original image
+    x1, x2, y1, y2 = figpar['add_schematics_coords']
+    inset_ax = ax2.inset_axes(
+    [-1, 0.125, 0.75, 0.75],
+    # [0.5, 0.5, 0.47, 0.47],
+    xlim=(x1, x2), ylim=(y1, y2), xticklabels=[], yticklabels=[])
+    # axins.imshow(Z2, extent=extent, origin="lower")
+
+    lw_inset = 0.5
+    color_inset = orange_Okabe
+
+    rect, lines = ax2.indicate_inset_zoom(inset_ax, edgecolor=color_inset,
+                                          lw=lw_inset,
+                                          alpha=1)
+    
+    # rect.set_edgecolor('none')
+
+    # lines.set_width(0.125)
+    plt.setp(lines, linewidth=lw_inset,color=color_inset)
+
+    xmin = -0.1
+
+    inset_ax.set_xlim(xmin, 1)
+    inset_ax.set_ylim(0, 1)
+    # inset_ax.axis('off')
+
+    inset_ax.get_xaxis().set_visible(False)
+    inset_ax.get_yaxis().set_visible(False)
+
+    for key, spine in inset_ax.spines.items():
+        spine.set_edgecolor(orange_Okabe)
+        spine.set_linewidth(lw_inset)
+
+
+    # Draw the gradient in the inset
+    # inset_ax.fill_between([0, 1], [0, 0], [1, 0.5], color='cyan', alpha=0.3)
+
+
+    gray = 0.3
+    # Draw the electrode
+    electrode = patches.Rectangle((xmin, 0), -xmin, 1.0, 
+                                #   edgecolor='black', 
+                                facecolor= (gray, gray, gray) #'gray'
+                                )
+    inset_ax.add_patch(electrode)
+
+    inset_ax.text(xmin/2, 0.5, 'Electrode', color='w',fontsize=fontsize,rotation=90, va='center',ha='center')
+
+
+
+    liq_height=0.5
+
+    liq_height_2 = 0.75
+
+    # inset_ax.fill_between([0, 1-liq_height], [1, 1], [1, 1-liq_height_2], color='cyan', alpha=0.3)
+
+    inset_ax.fill_between([0, 1],[1,1] ,[1-liq_height, 1-liq_height_2])
+
+    inset_ax.plot([0, 1], [1-liq_height, 1-liq_height_2], ls='-',color='r')
+
+    # Annotate the inset
+
+    # inset_ax.text(xmin/2, 0.5, 'Electrode', color='w',fontsize=12,rotation=90, va='center',ha='center')
+
+
+    # inset_ax.text(xmin/2, 0.75, r'$\frac{\partial c_{H_2}}{\partial n} = -\frac{i}{2FD}$', fontsize=fontsize,color='w')
+    inset_ax.text(xmin/2, 0.8, r'$\frac{\partial \phi }{\partial n} = \frac{i}{\kappa}$', fontsize=fontsize,color='w')
+
+    # inset_ax.text(0.1, 0.35, r'$c_{H_2} = c_{H_2, 0}$', fontsize=fontsize)
+    inset_ax.text(0.5, 0.375, r'$\frac{\partial \phi }{\partial n} = 0$', fontsize=fontsize,va='bottom',ha='left',color='w')
+
+    inset_ax.text(0.5, 0.2, r'$\mathrm{H_2} \text{(gas)}$', fontsize=fontsize,va='center',ha='center',color='k')
+    # inset_ax.text(0.5, 0.3, r'$\mathrm{H_2} \text{bubble}$', fontsize=fontsize,va='center',ha='center',color='k')
+
+
+    return ax2
+
 def plot_current_lines(file,
     key,
     xp,
@@ -1912,6 +2148,13 @@ def plot_current_lines(file,
     args:
 
     """
+
+    if 'font_size' in plotpar.keys():
+        plt.rcParams["font.size"] = str(plotpar['font_size'])
+        print('font_size',plotpar['font_size'],plt.rcParams["font.size"])
+        font_size = str(plotpar['font_size'])
+
+
     # phi_array = file["i_current_x"][:].transpose()
     Eus = file["i_current_x"][:].transpose()
     Evs = file["i_current_y"][:].transpose()
@@ -1922,6 +2165,9 @@ def plot_current_lines(file,
 
     nx = mesh["nx"]
     ny = mesh["ny"]
+
+    print('nx',nx)
+
     field_index = 1 #bulk
     data = file["phi_ele_1D"][:]
 
@@ -1931,6 +2177,11 @@ def plot_current_lines(file,
     file_name = figpar['file']
 
     phi_array = field
+
+    if 'fontsize' in figpar.keys():
+        fontsize = figpar['fontsize']
+    else:
+        fontsize = plotpar['fontsize']
 
     # print('phi_array',np.min(phi_array),np.max(phi_array))
 
@@ -1965,6 +2216,12 @@ def plot_current_lines(file,
         cbar0 = cbar[0] 
     except:
         cbar0 = None
+
+
+    if 'add_schematics' in figpar.keys():
+        ax2 = add_schematics(ax2,font_size,figpar)
+
+        
 
     # print(cbar0)
     # print('cbar',cbar)
@@ -2013,12 +2270,17 @@ def plot_current_lines(file,
     # integration_direction = 'forward'
     integration_direction = 'both'
 
+    if 'interface_color' in plotpar.keys():
+        interface_color = plotpar['interface_color']
+    else:
+        interface_color = 'r'
+
 
     if figpar['plot_levelset']:
         key_LS = 'levelset_p'
         LSdat = file[key_LS][:]
         LSdat = LSdat.transpose()
-        CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
+        CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors=interface_color,linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
 
 
         # Create a mask based on levelset
@@ -2130,7 +2392,22 @@ def plot_current_lines(file,
             key_LS_wall = "levelset_p_wall"
             plot_wall(ax2,xp, yp, file, key_LS_wall,figpar,plotpar)
 
-    ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+
+    if 'plot_schematic_wall' in figpar.keys():
+        # rect_metal = mpl.patches.Rectangle((-1.0, 0), 1, 100, 
+        #                                 #    linewidth=1, 
+        #                                 #    edgecolor='black', 
+        #                                    facecolor='grey', 
+        #                                    label='Metal')
+        # # Add the electrical double layer components to the plot
+        # ax2.add_patch(rect_metal)
+
+        ax2.spines["left"].set_edgecolor('gray')
+        ax2.spines["bottom"].set_visible(False)
+
+
+    if 'title' in figpar.keys():
+        ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
       
     if 'ax_locator_x' in figpar.keys():                                     
         ax2.xaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_x']))
@@ -2389,7 +2666,7 @@ def plot_python_pdf_full2(
     else:
         field_index = 1 # bulk value
 
-    # reshape_data()
+    # reshape_data_veci()
     plot_bc_possible_based_on_dim = True
 
     # print("dim",data_1D.ndim)
@@ -3284,7 +3561,8 @@ def plot_current_wall(
     data = file[key][:]
     # field=veci(data,nx,ny,field_index)
 
-    data= reshape_data(data,nx,ny,field_index)
+    # data= reshape_data_veci(data,nx,ny,field_index)
+    data = veci(reshape_data(data),nx,ny,field_index)
 
     # Eus = file["i_current_x"][:].transpose()
     # Evs = file["i_current_y"][:].transpose()
