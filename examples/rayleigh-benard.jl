@@ -7,23 +7,23 @@ prefix = "/home/tf/Documents/Flower_figures/"
 # for vRa = [1e6, 1e5, 5e4, 2e4, 1e4]
 vRa = 1e5
     Ra = vRa
-    St = 10.   
+    St = 1.   
     H0 = 0.05
 
     T1 = 0.7
-    T2 = -0.5
+    T2 = -0.3
     TM = 0.0
 
     ratio = 4
     L0 = 1.
 
     if vRa > 1e5
-        n = 64
-        max_it = 1300
+        n = 32
+        max_it = 1500
         save_every = 10
     else
-        n = 64
-        max_it = 1300
+        n = 32
+        max_it = 1500
         save_every = 10
     end
 
@@ -68,7 +68,7 @@ vRa = 1e5
             right = Periodic(),
         ),
         BC_TS = Boundaries(
-            top = Dirichlet(val =  T2 .- 0.45*sin.(pi*gp.x[1,:]/2)),
+            top = Dirichlet(val =  T2 .- 0.0*sin.(pi*gp.x[1,:]/2)),
             left = Periodic(),
             right = Periodic(),
         ),
