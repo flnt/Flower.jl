@@ -456,6 +456,10 @@ function periodic_bcs!(grid, Gx, Gy, Hx, Hy, periodic_x, periodic_y)
     return nothing
 end
 
+
+"""
+Apply periodic boundary conditions to the matrices `Rx` and `Ry`
+"""
 function periodic_bcs_R!(grid, Rx, Ry, periodic_x, periodic_y)
     @unpack nx, ny, ind = grid
 

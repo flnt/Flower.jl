@@ -5,10 +5,13 @@ import yaml
 import sys
 import h5py
 import math
+from termcolor import colored
+
 
 # module to plot files from Flower.jl
 # from plot_flower import * 
-from plot_flower import set_size, init_fig, compute_slope, roundlog, logticks,reshape_data,veci,vecb_L,reshape_data_veci 
+from plot_flower import set_size, init_fig, compute_slope, roundlog, \
+   logticks,reshape_data,veci,vecb_L,reshape_data_veci,plot_current_lines,plot_python_pdf_full2,plot_file 
 
 
 
@@ -465,118 +468,171 @@ def plot_errors_from_h5():
 
 
 def plot_convergence_study_func():
-    """
-    Plot all films in YAML file
-    """
+   """
+   Plot all films in YAML file
+   """
 
-    # print('arg', len(sys.argv),sys.argv)
-    if len(sys.argv) == 2:
-        # List all files in the current directory
-        all_files = os.listdir(".")
-        h5_files = [file for file in all_files if file.endswith(".h5")]
-    else:
-        h5_files = sys.argv[2::]
-          
-    
-    # print(h5_files)
-    h5_files = sorted(h5_files)
-    print(h5_files)
-
-    # print(sys.argv)
-
-    try:
-        yamlfile = sys.argv[1]
-        if ".yml" not in yamlfile:
-            yamlfile += ".yml"
-    except Exception as error:
-        print(error)
-        print(colored("error", "red"))
-
-    with open(yamlfile, "r") as file:
-        yml = yaml.safe_load(file)
-
-    # print(yml)
-
-    mesh = yml["flower"]["mesh"]
-    plotpar = yml["plot"]
-
-    plotpar["scale_time"] = float(plotpar["scale_time"])
-
-    mesh["nx"] = int(mesh["nx"])
-    mesh["ny"] = int(mesh["ny"])
-
-    mesh["xmax"] = float(mesh["xmax"])
-    mesh["xmin"] = float(mesh["xmin"])
-
-    mesh["ymax"] = float(mesh["ymax"])
-    mesh["ymin"] = float(mesh["ymin"])
-
-    mesh["dx"] = (mesh["xmax"] - mesh["xmin"]) / mesh["nx"]
-    mesh["dy"] = (mesh["ymax"] - mesh["ymin"]) / mesh["ny"]
-
-    xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
-    yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
-
-    dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
-    dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
-
-    xu = xp + dx / 2
-    xu = np.insert(xu, 0, xp[0] - dx / 2)
-    # yu = yp # xv = xp
-    yv = yp + dy / 2
-    yv = np.insert(yv, 0, yp[0] - dy / 2)
-
-    plotpar["scale_x"] = float(plotpar["scale_x"])
-    plotpar["scale_y"] = float(plotpar["scale_y"])
-
-    scale_x = float(plotpar["scale_x"])
-    scale_y = float(plotpar["scale_y"])
-
-    xp /= scale_x
-    yp /= scale_y
-    xu /= scale_x
-    yv /= scale_y
-
-
-    
-
-
-    for figpar in plotpar["curves"]:
-      
-      # print(figpar)
-      if 'func' not in figpar.keys():
-         continue
+   # print('arg', len(sys.argv),sys.argv)
+   if len(sys.argv) == 2:
+      # List all files in the current directory
+      all_files = os.listdir(".")
+      h5_files = [file for file in all_files if file.endswith(".h5")]
+   else:
+      h5_files = sys.argv[2::]
          
-      # print(figpar)
 
-      if 'func' in figpar.keys():
-         func = globals()[figpar['func']] #'plot_current_lines'
-      else:
-         func = globals()['plot_file']
+   # print(h5_files)
+   h5_files = sorted(h5_files)
+   print(h5_files)
 
-      if len(figpar['var'])>0:
-         key = figpar['var'][0]
-      else:
-         key = figpar['var']
+   # print(sys.argv)
 
-      # print('key',key)
+   try:
+      yamlfile = sys.argv[1]
+      if ".yml" not in yamlfile:
+         yamlfile += ".yml"
+   except Exception as error:
+      print(error)
+      print(colored("error", "red"))
 
-      # print(figpar)
+   with open(yamlfile, "r") as file:
+      yml = yaml.safe_load(file)
 
+   # print(yml)
+
+   mesh = yml["flower"]["mesh"]
+   plotpar = yml["plot"]
+
+   plotpar["scale_time"] = float(plotpar["scale_time"])
+
+   mesh["nx"] = int(mesh["nx"])
+   mesh["ny"] = int(mesh["ny"])
+
+   mesh["xmax"] = float(mesh["xmax"])
+   mesh["xmin"] = float(mesh["xmin"])
+
+   mesh["ymax"] = float(mesh["ymax"])
+   mesh["ymin"] = float(mesh["ymin"])
+
+   mesh["dx"] = (mesh["xmax"] - mesh["xmin"]) / mesh["nx"]
+   mesh["dy"] = (mesh["ymax"] - mesh["ymin"]) / mesh["ny"]
+
+   xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+   yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+
+   dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
+   dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
+
+   xu = xp + dx / 2
+   xu = np.insert(xu, 0, xp[0] - dx / 2)
+   # yu = yp # xv = xp
+   yv = yp + dy / 2
+   yv = np.insert(yv, 0, yp[0] - dy / 2)
+
+   plotpar["scale_x"] = float(plotpar["scale_x"])
+   plotpar["scale_y"] = float(plotpar["scale_y"])
+
+   scale_x = float(plotpar["scale_x"])
+   scale_y = float(plotpar["scale_y"])
+
+   xp /= scale_x
+   yp /= scale_y
+   xu /= scale_x
+   yv /= scale_y
+
+
+
+
+
+   for figpar in plotpar["curves"]:
       
-      plot_convergence_func(
-      h5_files,
-      key,
-      xp,
-      yp,
-      xu,
-      yv,
-      yml,
-      mesh,
-      func,
-      plotpar,
-      figpar,
-      )
+      try:
+         # print(figpar)
+         if 'func' not in figpar.keys():
+            continue
+            
+         # print(figpar)
+
+         if 'func' in figpar.keys():
+            func = globals()[figpar['func']] #'plot_current_lines'
+         else:
+            func = globals()['plot_file']
+
+         if (not isinstance(figpar['var'], str)) and len(figpar['var'])>0:
+            key = figpar['var'][0]
+         else:
+            key = figpar['var']
+
+         # print('key',key)
+
+         # print(figpar)
+
+         print(colored(figpar['file'], "cyan"))
+
+
+         
+         plot_convergence_func(
+         h5_files,
+         key,
+         xp,
+         yp,
+         xu,
+         yv,
+         yml,
+         mesh,
+         func,
+         plotpar,
+         figpar,
+         )
+      except:
+         print(colored('Failed '+figpar['file'], "red"))   
+         raise # was: pass
+
+
+   for figpar in plotpar['figures']:
+      
+      try:
+         # print(figpar)
+         if 'func' not in figpar.keys():
+            continue
+            
+         # print(figpar)
+
+         if 'func' in figpar.keys():
+            func = globals()[figpar['func']] #'plot_current_lines'
+         else:
+            func = globals()['plot_file']
+
+         if (not isinstance(figpar['var'], str)) and len(figpar['var'])>0:
+            key = figpar['var'][0]
+         else:
+            key = figpar['var']
+
+         # print('key',key)
+
+         # print(figpar)
+
+         print(colored(figpar['file'], "cyan"))
+
+
+         
+         plot_convergence_func_new_ax(
+         h5_files,
+         key,
+         xp,
+         yp,
+         xu,
+         yv,
+         yml,
+         mesh,
+         func,
+         plotpar,
+         figpar,
+         )
+      except:
+         print(colored('Failed '+figpar['file'], "red"))
+         raise # was: pass
+
 
 
 
@@ -654,6 +710,8 @@ def plot_convergence_func(
          mesh["nx"] = nx
          mesh["ny"] = ny
 
+         print(colored('mesh '+str(nx)+" "+str(mesh["nx"]),'red'))
+
          mesh["xmax"] = float(mesh["xmax"])
          mesh["xmin"] = float(mesh["xmin"])
 
@@ -666,8 +724,30 @@ def plot_convergence_func(
          xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
          yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
 
+         print('TODO mesh check')
+
          dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
          dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
+
+
+         # print(xp)
+         # print(yp)
+
+         print('len(xp)',len(xp),len(yp))
+
+         xp[0] = dx/2
+         yp[0] = dy/2
+
+         for i in range(1,len(xp)):
+            xp[i] = xp[i-1]+dx
+
+         for i in range(1,len(yp)):
+            yp[i] = yp[i-1]+dx
+
+         # print('xp',xp)
+         # print('yp',yp)
+         
+         print('len(xp)',len(xp),len(yp))
 
          xu = xp + dx / 2
          xu = np.insert(xu, 0, xp[0] - dx / 2)
@@ -712,9 +792,213 @@ def plot_convergence_func(
        
    file_name = figpar['file']
 
-   plt.savefig(file_name+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+   # plt.savefig(file_name+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+   # plt.savefig(file_name+ ".svg",dpi=plotpar['dpi']) #also for film for latex display
+
+
+   if 'macro_file_name' in figpar.keys():
+      # print(figpar['macro_file_name'])
+      # plt.savefig(eval(figpar['macro_file_name']),dpi=plotpar['dpi'])
+
+      for macro in figpar['macro_file_name']:
+         # print(macro)
+         plt.savefig(eval(macro),dpi=plotpar['dpi'])
+   
+   else:
+      plt.savefig(file_name+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+         
+
+
 
    plt.close("all")
+
+
+def plot_convergence_func_new_ax(
+    h5_files,
+    key,
+    xp,
+    yp,
+    xu,
+    yv,
+    yml,
+    mesh,
+    func,
+    plotpar,
+    figpar,
+):
+   # # print(h5_files)
+   # h5_files = sorted(h5_files)
+   # print(h5_files)
+
+   size_frame = len(h5_files)
+
+   print('size_frame',size_frame,key)
+
+   # file_name = h5_files[0]
+
+   fig1,ax2 = init_fig(plotpar,figpar)
+
+   if 'streamplot_color' in figpar.keys():
+      # cbar=[None,None]
+      cbar=[]
+
+   else:
+      cbar=None
+
+   cbar=[]
+
+   for i,file_name in enumerate(h5_files):
+      yml['study']['iter'] = i
+      with h5py.File(file_name, "r") as file:
+
+         try:
+            time = file["time"][()]
+            nstep = file["nstep"][()]
+         except:
+            time = 0
+            nstep = 0 
+            print("time not available")
+
+
+
+         print(colored(key+' '+file_name,'cyan'))
+
+
+         nx = file['nx'][()]
+         ny = nx 
+
+         # if key=="u_1D":
+         #    nx=nx+1
+         #    # x_1D = xu 
+         #    # y_1D = yp
+         #    # key_LS = "levelset_u"
+
+         # elif key=="v_1D":
+         #    ny=ny+1
+            # x_1D = xp
+            # y_1D = yv 
+            # key_LS = "levelset_v"
+
+         # else:
+         #    x_1D = xp
+         #    y_1D = yp
+         #    key_LS = "levelset_p"
+
+         # print('nx',nx)
+
+         mesh["nx"] = nx
+         mesh["ny"] = ny
+
+         mesh["xmax"] = float(mesh["xmax"])
+         mesh["xmin"] = float(mesh["xmin"])
+
+         mesh["ymax"] = float(mesh["ymax"])
+         mesh["ymin"] = float(mesh["ymin"])
+
+         mesh["dx"] = (mesh["xmax"] - mesh["xmin"]) / mesh["nx"]
+         mesh["dy"] = (mesh["ymax"] - mesh["ymin"]) / mesh["ny"]
+
+         xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+         yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+
+      
+
+         dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
+         dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
+
+
+         print(xp)
+         print(yp)
+
+         print(len(xp),len(yp))
+
+         xp[0] = dx/2
+         yp[0] = dy/2
+
+         for i in range(1,len(xp)):
+            xp[i] = xp[i-1]+dx
+
+         for i in range(1,len(yp)):
+            yp[i] = yp[i-1]+dx
+
+         print(xp)
+         print(yp)
+         
+         print(len(xp),len(yp))
+
+
+
+         print('TODO mesh check')
+
+         xu = xp + dx / 2
+         xu = np.insert(xu, 0, xp[0] - dx / 2)
+         # yu = yp # xv = xp
+         yv = yp + dy / 2
+         yv = np.insert(yv, 0, yp[0] - dy / 2)
+
+         plotpar["scale_x"] = float(plotpar["scale_x"])
+         plotpar["scale_y"] = float(plotpar["scale_y"])
+
+         scale_x = float(plotpar["scale_x"])
+         scale_y = float(plotpar["scale_y"])
+
+         xp /= scale_x
+         yp /= scale_y
+         xu /= scale_x
+         yv /= scale_y
+
+         # if i == 0:
+         #    mode = 'first'
+         # else:
+         #    mode = 'next'
+         
+         # mode = ' '
+
+         # fig1,ax2,cbar = func(
+         # file,
+         # key,
+         # xp,
+         # yp,
+         # xu,
+         # yv,
+         # yml,
+         # mesh,
+         # time,
+         # nstep,
+         # plotpar,
+         # figpar=figpar,
+         # mode=mode,
+         # fig1=fig1,
+         # ax2=ax2,
+         # cbar=cbar,
+         # )
+
+         func(
+            file,
+            key,
+            xp,
+            yp,
+            xu,
+            yv,
+            yml,
+            mesh,
+            time,
+            nstep,
+            plotpar,
+            figpar=figpar,
+            mode='close',
+            fig1=None,
+            ax2=None,
+            cbar=None,
+            )
+
+         # plt.close("all")
+       
+   # file_name = figpar['file']
+
+   # plt.savefig(file_name+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+
+   # plt.close("all")
 
 
 def plot_1D(
@@ -741,6 +1025,8 @@ def plot_1D(
 
    nx = file['nx'][()]
    ny = nx 
+   from matplotlib.colors import LinearSegmentedColormap, ListedColormap
+   cmap = ListedColormap(colors)
 
    # print('nx',nx,ny)
 
@@ -827,25 +1113,40 @@ def plot_1D(
 
    # fig.subplots_adjust(right=0.75)
 
-   varx = x_1D
+  
 
-   print(varx)
+   for i, varxy in enumerate(figpar['var']):
 
-   for i, var in enumerate(figpar['var']):
-      label_i = r""+figpar['labels'][i]
+      varx = varxy[0]
+
+      if varx == 'x_1D':
+         varx = x_1D
+         print(x_1D)
+      elif varx == 'y_1D':
+         varx = y_1D
+      else:
+         varx = x_1D
+
+
+
+      vary = varxy[1]
+
+      label_i = r""+figpar['labels'][i][1]
 
       label1 = str(nx)
 
       ls  = eval(figpar['linestyles'][i])
 
       lw = figpar['linewidth']
+
+      labelx = figpar['labels'][i][0]
   
       if len(figpar['var'])>1:
          # Offset the right spine of twin2.  The ticks and label have already been
          # placed on the right by twinx above.
          twin2.spines.right.set_position(("axes", figpar['axis_offset']))
 
-      data = file[var][:]
+      data = file[vary][:]
 
       # data= reshape_data_veci(data,nx,ny,field_index)
       # slice_1D = data[0,:]
@@ -853,6 +1154,8 @@ def plot_1D(
       slice_1D = eval(figpar['macro_slice'])
 
       print('data',slice_1D)
+      print('len data',len(slice_1D))
+
 
       tick0 = list(eval(figpar['ticks'][0]))
 
@@ -869,11 +1172,19 @@ def plot_1D(
          # print(4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])))
          # print(yml["flower"]["physics"]["v_inlet"])
          # print((mesh["xmax"]-mesh["xmin"]))
-
+         print('i test',i,figpar['linestyles'][i+1],figpar['linestyles'][i])
+         # ls  = eval(figpar['linestyles'][i+1])
          ax20.plot(varx, ref, 
          'k',
          label='Reference solution',
-         ls=ls,lw=lw)
+         ls=eval(figpar['linestyles'][i+1]),
+         lw=lw)
+         print('ref',ref)
+         print('len ref',len(ref))
+
+         print('y_1D',y_1D)
+         print('y_1D',y_1D*scale_x)
+
 
       if 'macro' in figpar.keys():
          # X = varx
@@ -897,13 +1208,14 @@ def plot_1D(
 
       p1, = ax20.plot(varx, slice_1D, 
       #  colors[i+1], #color wrt variable
-      colors[yml['study']['iter']],
+      colors[(yml['study']['iter'])%len(colors)],
+      # cmap=cmap,
       label=label1,ls=ls,lw=lw)
 
       ax20.set(
       # xlim=(0, 2),
       # ylim=(0, 2),
-      xlabel=r""+plotpar['xlabel'],
+      xlabel=labelx, #r""+plotpar['xlabel'],
       ylabel=label_i)
          
       plt.legend()

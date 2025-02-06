@@ -1960,8 +1960,11 @@ function compute_grad_phi_ele!(num::Numerical{Float64, Int64},
             tmp_vec_p1[j,i] = 0.0
         end
     end
-    printstyled(color=:red, @sprintf "\n tmp_vec_p1 max %.2e \n" maximum(tmp_vec_p1))
 
+    if maximum(tmp_vec_p1)>0
+        printstyled(color=:red, @sprintf "\n tmp_vec_p1 max %.2e \n" maximum(tmp_vec_p1))
+        throw(DivideError())
+    end
 
     # mass_flux_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
     # mass_flux_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
@@ -2000,8 +2003,19 @@ function compute_grad_phi_ele!(num::Numerical{Float64, Int64},
 
     interpolate_grid_liquid_2!(num, grid, LS_u, LS_v, tmp_vec_u, tmp_vec_v, tmp_vec_p, tmp_vec_p0)
 
-    # tmp_vec_p .*= -elec_cond # i=-κ∇ϕ here magnitude
-    # tmp_vec_p0 .*= -elec_cond # i=-κ∇ϕ here magnitude
+    # to expose the gradient of phi
+    # @ccall "libpdi".PDI_multi_expose("write_data_elec_ix_iy_grad"::Cstring,
+    # "grad_phi_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # "grad_phi_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+    # # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+    # # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # C_NULL::Ptr{Cvoid})::Cint
+
+    # TODO 
+    tmp_vec_p .*= -elec_cond # i=-κ∇ϕ here magnitude
+    tmp_vec_p0 .*= -elec_cond # i=-κ∇ϕ here magnitude
+
+
 
 
     @ccall "libpdi".PDI_multi_expose("write_data_elec_ix_iy"::Cstring,
@@ -4367,3 +4381,186 @@ function contact_angle_advancing_receding(num,grid,grid_u, grid_v, iLS, II)
     # LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u) .+ rhs_LS), grid)
 
 end
+
+function check_positivity_of_capacities(op,rhs_scal)
+
+    min_cap = minimum(op.opC_uL.M)
+
+    if min_cap<0.0
+        printstyled(color=:red, @sprintf "\n [BUG] Sign capacity u\n" )
+    end
+
+    min_cap = minimum(op.opC_vL.M)
+
+    if min_cap<0.0
+        printstyled(color=:red, @sprintf "\n [BUG] Sign capacity v\n" )
+    end
+
+    # rhs_vec1 = vec1,rhs_scal
+
+end
+
+
+"""
+
+"""
+function compute_divergence!(num::Numerical{Float64, Int64},
+    grid,
+    # ::Mesh{Flower.GridCC, Float64, Int64},
+    # grid_u::Mesh{Flower.GridFCx, Float64, Int64},
+    # grid_v::Mesh{Flower.GridFCy, Float64, Int64},
+    op::DiscreteOperators{Float64, Int64},
+    A::SparseMatrixCSC{Float64, Int64},
+    # rhs::Array{Float64, 1},
+    # a0::Array{Float64, 2},
+    tmp_vec_1D::Array{Float64, 1},
+    tmp_vec_1D_2::Array{Float64, 1},
+    Lv, 
+    bc_Lv, 
+    bc_Lv_b
+    # vec_1D::Array{Float64, 1},
+    # ls_advection::Bool
+    )
+
+    @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = op.opC_vL
+    @unpack BxT, ByT,tmp_x, tmp_y = op.opC_vL
+
+    ni = grid.nx * grid.ny
+    nb = 2 * grid.nx + 2 * grid.ny
+
+    #TODO reset zero
+    # rhs .= 0.0
+    tmp_vec_1D .= 0.0
+    tmp_vec_1D_2 .= 0.0
+    A .= 0.0
+    # a0 .= 0.0
+
+    x_centroid = grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx
+    y_centroid = grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
+
+    print("\n size ",size(x_centroid))
+    print("\n size ",size(y_centroid))
+
+    print("\n size op.opC_vL.M",size(op.opC_vL.M))
+
+
+    print("\n x_centroid ",x_centroid[1,:])
+
+    veci(tmp_vec_1D,grid,1)  .= vec(x_centroid)
+    vecb_L(tmp_vec_1D,grid)  .= grid.x[:,1]
+    vecb_R(tmp_vec_1D,grid)  .= grid.x[:,end]
+
+    veci(tmp_vec_1D_2,grid,1) .= vec(y_centroid)
+    vecb_B(tmp_vec_1D_2,grid) .= grid.y[1,:]
+    vecb_T(tmp_vec_1D_2,grid) .= grid.y[end,:]
+
+    for iLS in 1:num.nLS
+        x_bc = grid.x .+ getproperty.(grid.LS[iLS].mid_point, :x) .* grid.dx
+        y_bc = grid.y .+ getproperty.(grid.LS[iLS].mid_point, :y) .* grid.dy
+        veci(tmp_vec_1D,grid,iLS+1) .= vec(x_bc)
+        veci(tmp_vec_1D_2,grid,iLS+1) .= vec(y_bc)
+    end
+
+
+    # PDI_status = @ccall "libpdi".PDI_multi_expose("mesh"::Cstring, 
+    # # "grad_x_coord"::Cstring, tmp_vec_u::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # # "grad_y_coord"::Cstring, tmp_vec_v::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # "mesh_x_1D"::Cstring, tmp_vec_1D::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # "mesh_y_1D"::Cstring, tmp_vec_1D_2::Ptr{Cdouble}, PDI_OUT::Cint,      
+    # C_NULL::Ptr{Cvoid})::Cint
+
+    #TODO sparse
+
+    # compute_grad_T_x_array!(num.nLS, grid, grid_u, op.opC_pL, tmp_vec_u, tmp_vec_1D)
+    # compute_grad_T_y_array!(num.nLS, grid, grid_v, op.opC_pL, tmp_vec_v, tmp_vec_1D_2)
+
+    tmp_vec_1D .^= 2
+    tmp_vec_1D_2 .^= 2
+
+
+
+    # mul!(tmp_x, iMx, Bx)
+    # L = BxT * tmp_x
+    # mul!(tmp_y, iMy, By)
+    # L = L .+ ByT * tmp_y
+
+    # #Boundary for Laplacian
+    # bc_L_b = (BxT * iMx_b * Hx_b .+ ByT * iMy_b * Hy_b)
+
+
+    # if ls_advection
+        # Poisson equation
+    A[1:ni,1:ni] = Lv #pad(Lv, 4.0)
+    A[1:ni,end-nb+1:end] = bc_Lv_b
+
+    # # Boundary conditions for outer boundaries
+    # A[end-nb+1:end,1:ni] = (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By) #b_b * 
+    # A[end-nb+1:end,end-nb+1:end] = pad((HxT_b * iMx_bd  * Hx_b .+ HyT_b * iMy_bd * Hy_b), -4.0) #b_b * 
+    
+    # end
+
+    for iLS in 1:num.nLS
+
+        sb = iLS*ni+1:(iLS+1)*ni
+
+
+        # Poisson equation
+        #Boundary for Laplacian from iLS
+        A[1:ni,sb] = bc_Lv[iLS] #BxT * iMx * Hx[iLS] .+ ByT * iMy * Hy[iLS]
+
+        # # Boundary conditions for inner boundaries
+        # A[sb,1:ni] = (HxT[iLS] * iMx  * Bx .+ HyT[iLS] * iMy * By) #or vec1  b *
+        # Contribution to Neumann BC from other boundaries
+        # for i in 1:num.nLS
+        #     if i != iLS
+        #         A[sb,i*ni+1:(i+1)*ni] = (HxT[iLS] * iMx  * Hx[i] .+ HyT[iLS] * iMy * Hy[i]) #b * 
+        #     end
+        # end
+        # A[sb,sb] = pad(
+        #         (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]), -4.0 #b *
+        # )
+        # A[sb,end-nb+1:end] = (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b  * Hy_b) #b *
+        # # Boundary conditions for outer boundaries
+        # A[end-nb+1:end,sb] = (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS]) #b_b *
+
+    end #for iLS in 1:num.nLS
+
+    # if num.null_space == 0
+    #     @time @inbounds @threads for i in 1:A.m
+    #         @inbounds A[i,i] += 1e-10
+    #     end
+    # end
+
+    print("\n size tmp_vec_1D ",size(tmp_vec_1D))
+
+    print("\n size tmp_vec_1D ",size(A))
+
+    
+   rhs = A*tmp_vec_1D/2.0 #2V
+
+   print("\n min",minimum(rhs)," max ",maximum(rhs))
+
+   rhs_vec1 = vec1(vec(rhs),grid)
+
+   print("\n rhs_vec1 before end",rhs_vec1[1,1])
+
+   print("\n size op ",size(op.opC_vL.M))
+
+   print("\n rhs_vec1 ",rhs_vec1[1,1])
+   
+   print("\n op ",op.opC_vL.M[1,1])
+
+   print("\n ratio ",rhs_vec1[1,1]/op.opC_vL.M[1,1])
+   
+   print("\n size op ",size(op.opC_vL.M))
+   print("\n size op diag ",size(op.opC_vL.M.diag))
+
+   print("\n size rhs_vec1 ",size(rhs_vec1))
+
+
+   op.opC_vL.M.diag .= rhs_vec1
+
+   check_positivity_of_capacities(op,rhs_vec1)
+
+    
+end     #divergence

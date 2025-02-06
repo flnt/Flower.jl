@@ -4,6 +4,7 @@
 #TODO floating-point comparison
 #TODO Crank-Nicolson with moving interfaces: simulations explode
 #TODO flow rate, check conservation
+#TODO i_current_x ... multiply by elec_cond
 
 """
     run_forward!
@@ -67,6 +68,8 @@ function run_forward!(
     test_laplacian::Bool = false,
     )
 
+    # Initialize parameters
+
     # λ::Float64 = 1,
     λ = 1 #for Stefan velocity
     # speed::Float64 = 0.0,
@@ -121,7 +124,7 @@ function run_forward!(
     if free_surface && stefan
         @error ("Cannot advect the levelset using both free-surface and stefan condition.")
         return nothing
-    elseif free_surface || stefan || electrolysis_phase_change_case !="none"
+    elseif free_surface || stefan #|| electrolysis_phase_change_case !="none"
         advection = true
     else
         advection = false
@@ -180,7 +183,7 @@ function run_forward!(
     end
 
     ####################################################################################################
-    #Electrolysis
+    # Electrolysis
     ####################################################################################################
     num.current_radius = 0.0
     # TODO kill_dead_cells! for [:,:,iscal]
@@ -217,7 +220,7 @@ function run_forward!(
 
     local NB_indices;
 
-    #Allocations
+    # Allocations
 
     local Cum1S = fzeros(grid_u)
     local Cum1L = fzeros(grid_u)
@@ -244,6 +247,14 @@ function run_forward!(
     tmp_vec_p = zeros(grid) 
     tmp_vec_p0 = zeros(grid) 
     tmp_vec_p1 = zeros(grid) 
+
+    tmp_vec_1D = fnzeros(grid,num)
+    tmp_vec_1D_2 = fnzeros(grid,num)
+
+    # tmp_vec_1D_u = fnzeros(grid,num)
+    tmp_vec_1D_v = fnzeros(grid_v,num)
+    tmp_vec_1D_v0 = fnzeros(grid_v,num)
+
 
     if electrolysis
         if num.nb_transported_scalars>1
@@ -632,6 +643,29 @@ function run_forward!(
             BuvL = spzeros(nt, nt)
 
 
+
+            # Adapt cell volume W for gradients 
+            # cf 4/3 factor for Laplacian
+            if num.laplacian == 1
+                compute_divergence!(num, 
+                # grid, 
+                # grid_u, 
+                grid_v, 
+                op,
+                AvL, 
+                # rhs_scal,
+                # tmp_vec_p, #a0
+                tmp_vec_1D_v0,
+                tmp_vec_1D_v,
+                Lvm1_L, 
+                bc_Lvm1_L, 
+                bc_Lvm1_b_L
+                # tmp_vec_u0,
+                # tmp_vec_v0,
+                # tmp_vec_1D,
+                # ls_advection
+                )
+            end  
            
          
             #TODO why this call without interface initialization ?
@@ -1304,7 +1338,7 @@ function run_forward!(
         
                     if num.io_pdi>0
 
-                        #or permutedims(gp.LS[iLSpdi].geoL.dcap, (3, 2, 1)) (3, 1, 2)
+                        #or permutedims(grid.LS[iLSpdi].geoL.dcap, (3, 2, 1)) (3, 1, 2)
                         try                            
                             iLSpdi = 1 # TODO all grid.LS                
                             PDI_status = @ccall "libpdi".PDI_multi_expose("write_capacities"::Cstring,                    
@@ -1496,6 +1530,12 @@ function run_forward!(
                             elec_cond .= reshape(vec1(elec_condD,grid),grid)
                             # elec_cond .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, phL.trans_scal)
                             # elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru*num.temperature0) 
+                            
+                            if num.bulk_conductivity == 3
+                                elec_condD .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, num.concentration0[num.index_electrolyte])
+                                elec_cond .= reshape(vec1(elec_condD,grid),grid)
+                            end
+                       
                         end
                     else
                         elec_condD .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, num.concentration0[num.index_electrolyte])
@@ -1547,7 +1587,7 @@ function run_forward!(
                             BC_phi_ele.left.val .= i_butler./elec_cond[:,1]
 
 
-                        elseif num.bulk_conductivity == 2
+                        elseif num.bulk_conductivity == 2 || num.bulk_conductivity == 3
                             BC_phi_ele.left.val .= i_butler./vecb_L(elec_condD, grid)
 
                             iLS = 1 #TODO end ? if several grid.LS ?
@@ -1659,19 +1699,33 @@ function run_forward!(
                             elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p0,tmp_vec_p1) #TODO current
 
                      
+                            residual_electrical_potential = maximum(abs.(-tmp_vec_p[div(grid.ny,2),:].+butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phL.phi_eleD, grid),
+                                        num.phi_ele1,num.Ru,num.temperature0)))
+
+                            printstyled(color=:orange, @sprintf "\n Residual %.3e criterion %.3e\n" residual_electrical_potential num.electrical_potential_residual)
+
+
                             @ccall "libpdi".PDI_multi_expose("check_electrical_potential"::Cstring,
+                            "poisson_iter"::Cstring, poisson_iter ::Ref{Clonglong}, PDI_OUT::Cint,
                             "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
                             "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
                             "i_current_mag"::Cstring, tmp_vec_p1::Ptr{Cdouble}, PDI_OUT::Cint,
                             "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
                             "elec_cond_1D"::Cstring, elec_condD::Ptr{Cdouble}, PDI_OUT::Cint,  
                             "BC_phi_ele_left"::Cstring, BC_phi_ele.left.val::Ptr{Cdouble}, PDI_OUT::Cint,  
+                            "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "residual_electrical_potential"::Cstring, residual_electrical_potential ::Ref{Cdouble}, PDI_OUT::Cint,
                             # "grad_phi_ele_u"::Cstring, tmp_vec_u::Ptr{Cdouble}, PDI_OUT::Cint,  
                             C_NULL::Ptr{Cvoid})::Cint
-                            
-                            printstyled(color=:orange, @sprintf "\n grad poisson iter %.2i \n" poisson_iter)
 
-                            print("\n grad ", tmp_vec_u[div(grid_u.ny,2),:]," \n")
+                            if residual_electrical_potential<num.electrical_potential_residual
+                                printstyled(color=:orange, @sprintf "\n End Poisson loop \n")
+                                break
+                            end
+                            
+                            # printstyled(color=:orange, @sprintf "\n grad poisson iter %.2i \n" poisson_iter)
+
+                            # print("\n grad ", tmp_vec_u[div(grid_u.ny,2),:]," \n")
 
                             # @ccall "libpdi".PDI_multi_expose("solve_poisson"::Cstring,
                             # # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
@@ -1719,7 +1773,7 @@ function run_forward!(
                                         BC_phi_ele.left.val .= i_butler./elec_cond[:,1]
             
             
-                                    elseif num.bulk_conductivity == 2
+                                    elseif num.bulk_conductivity == 2 || num.bulk_conductivity == 3
                                         BC_phi_ele.left.val .= i_butler./vecb_L(elec_condD, grid)
             
                                         iLS = 1 #TODO end ? if several grid.LS ?
@@ -1729,9 +1783,15 @@ function run_forward!(
                                                 BC_phi_ele.left.val[j] = i_butler[j]/elec_cond[j,1] 
                                             end
                                         end
+                                        
+                                    # if num.bulk_conductivity == 3
+                                    #     elec_condD .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, num.concentration0[num.index_electrolyte])
+                                    #     elec_cond .= reshape(vec1(elec_condD,grid),grid)
+                                    # end
+                                   
                                     end
                                 end 
-                                print("\n BC_phi_ele",BC_phi_ele,"\n")
+                                # print("\n BC_phi_ele",BC_phi_ele,"\n")
 
                                 
                             end
@@ -1775,11 +1835,11 @@ function run_forward!(
                                 
                                 printstyled(color=:orange, @sprintf "\n grad poisson iter %.2i \n" poisson_iter)
 
-                                print("\n grad ", tmp_vec_u[div(grid_u.ny,2),:]," \n")
+                                # print("\n grad ", tmp_vec_u[div(grid_u.ny,2),:]," \n")
                                 
-                                print("\n grad ", tmp_vec_u[div(grid_u.ny,2),1]," \n")
-                                print("\n BC_phi_ele ", BC_phi_ele.left.val[div(grid_u.ny,2)]," \n")
-                                print("\n i_butler ", i_butler," \n")
+                                # print("\n grad ", tmp_vec_u[div(grid_u.ny,2),1]," \n")
+                                # print("\n BC_phi_ele ", BC_phi_ele.left.val[div(grid_u.ny,2)]," \n")
+                                # print("\n i_butler ", i_butler," \n")
 
                             end
 
@@ -1905,6 +1965,11 @@ function run_forward!(
                             elec_cond .= reshape(vec1(elec_condD,grid),grid)
                             # elec_cond .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, phL.trans_scal)
                             # elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru*num.temperature0) 
+                       
+                            if num.bulk_conductivity == 3
+                                elec_condD .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, num.concentration0[num.index_electrolyte])
+                                elec_cond .= reshape(vec1(elec_condD,grid),grid)
+                            end
                         end
                     end
 
@@ -2036,7 +2101,7 @@ function run_forward!(
                 # for jplot in 1:gv.ny
                 #     for iplot in 1:gv.nx+1
                 #     II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-                #     pII = lexicographic(II, gp.ny + 1)
+                #     pII = lexicographic(II, grid.ny + 1)
                 #     A[jplot,iplot] =  1 ./ op.opC_vL.iMx.diag[pII]
                 #     end
                 # end
@@ -2939,6 +3004,8 @@ function run_forward!(
             #     # grid_u.V .= num.Δ / (1 * num.τ)
             #     # grid_v.V .= 0.0
             # end
+
+            # Pressure-velocity coupling
 
             if ns_solid_phase
                 geoS = [grid.LS[iLS].geoS for iLS in 1:num._nLS]

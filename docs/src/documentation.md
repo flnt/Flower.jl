@@ -1454,7 +1454,7 @@ init_meshes
 Mesh
 ```
 
-The borders of the domain are defined by x and y, now stored ax ``x_node`` and ``y_node`` in the Mesh structure, you can also compute the coordinates of the borders of the domain with: 
+The borders of the domain are defined by x and y, now stored ax ``x\_node`` and ``y\_node`` in the Mesh structure, you can also compute the coordinates of the borders of the domain with: 
 ```julia
 x_bc_left = gp.x[:,1] .- gp.dx[:,1] ./ 2.0
 
@@ -1466,7 +1466,10 @@ x_bc_right = gp.x[:,end] .+ gp.dx[:,end] ./ 2.0
 ```
 
 ## Storage of bulk and interfacial variables
-Variables are stored in the following order: bulk, interfacial (based on levelsets) and interfacial (borders). The system size is ``nt \times nt``:
+Variables are stored in the following order: bulk, interfacial (based on levelsets) and interfacial (borders, in the order left bottom right top, cf ``grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1] and grid.ind.b_top[1]``).
+
+
+ The system size is ``nt \times nt``:
 
 ```julia
 ni = gp.nx * gp.ny #size of bulk/interfacial (LS) data
@@ -1651,6 +1654,15 @@ set_heat!
 ## Navier-Stokes
 
 
+!!! info "Operators"
+    "I do this:
+    ```julia
+    opC_u.AxT * opC_u.Rx
+    ```
+    so that the same staggered volume is used for all the terms. Otherwise, there were some velocity cells that were not seeing any pressure gradient"
+
+
+
 ```@docs
 FE_set_momentum
 ```
@@ -1677,6 +1689,84 @@ set_Crank_Nicolson!
 
 
 ## Velocity-pressure coupling
+
+
+
+
+Either pressure gradient in prediction or remove component in velocity boundary conditions
+
+
+With the parameter ``num.prediction``, the following methods can be called:
+
+* 0: original pressure-velocity coupling in Flower, the pressure gradient is not in the prediction and the bouondary conditions are not modified accordingly
+* 1: pressure gradient in prediction
+*
+
+"
+In the present work, the method referred to as projection method II (PmII) by [Brown et al. 2001](https://www.sciencedirect.com/science/article/pii/S0021999101967154), which ensures a second order discretization of the equations, is employed. The first step consists in updating an intermediate velocity field $\mathbf{u}^*$ using the momentum equation (referred to as prediction step), where the diffusive transport term is solved using a Crank--Nicolson scheme and the convective transport term using a second-order Adams--Bashforth integrator,
+"
+
+```math
+\frac{\mathbf{u}^* - \mathbf{u}^n}{\tau} + [\mathbf{u} \cdot \nabla \mathbf{u}]^{n+1/2} = -\nabla p^{n-1/2} + \frac{\mu}{2} \Delta (\mathbf{u}^n + \mathbf{u}^*).
+```
+
+Here, $\tau$ refers to the time step and the superscript $n$ the time iteration. In general, the velocity field $\mathbf{u}^*$ is not divergence-free, and the next step enforces this condition by first solving the Poisson's equation
+
+```math
+\tau \Delta \psi^{n+1} = \nabla \cdot \mathbf{u}^*,
+```
+
+for the intermediate pressure field $\psi$, prior to correcting the intermediate velocity field according to
+
+```math
+\mathbf{u}^{n+1} = \mathbf{u}^* - \tau \nabla \psi^{n+1}.
+```
+
+Finally, the pressure is updated for the velocity prediction at the next time-step:
+
+```math
+p^{n+1/2} = p^{n-1/2} + \psi^{n+1} - \frac{\tau \mu}{2} \Delta \psi^{n+1}.
+```
+
+
+"
+
+The discrete cut-cell operators are used to discretize the pressure-projection method. The prediction step reads
+
+```math
+\frac{u_{\alpha}^{\omega_{i, *}} - u_{\alpha}^{\omega_{i, n}}}{\tau} + \frac{3}{2} \text{conv}_{\alpha} \left( \boldsymbol{u}^{\omega_{i, n}}, \boldsymbol{u}^{\gamma, n} \right) - \frac{1}{2} \text{conv}_{\alpha} \left( \boldsymbol{u}^{\omega_{i, n-1}}, \boldsymbol{u}^{\gamma, n-1} \right) = -V_{\alpha} \left[ \text{grad} \left( p^{\omega_{i, n-1/2}}, p^{\gamma, n-1/2} \right) \right]_{\alpha} + \frac{1}{2 \text{Re}} \left[ \text{div}_{\alpha} \left( \text{grad}_{\alpha} \left( u_{\alpha}^{\omega_{i, *}}, u_{\alpha}^{\gamma, *} \right) \right) + \text{div}_{\alpha} \left( \text{grad}_{\alpha} \left( u_{\alpha}^{\omega_{i, n}}, u_{\alpha}^{\gamma, n} \right) \right) \right] \quad \forall \ \alpha \in \{x, y\}
+```
+
+
+The boundary conditions applicable to $\boldsymbol{u}^{*}$ are those of the velocity field at the next time step $\boldsymbol{u}^{n+1}$. The discrete Poisson’s equation results in
+
+```math
+\text{div} \left( \text{grad} \left( \psi^{\omega_{i, n+1}}, \psi^{\gamma, n+1} \right) \right) = \frac{1}{\tau} \text{div} \left( \boldsymbol{u}^{\omega_{i, *}}, \boldsymbol{u}^{\gamma, *} \right)
+```
+
+
+
+The velocity field is ultimately corrected as
+
+```math
+u_{\alpha}^{\omega_{i, n+1}} = u_{\alpha}^{\omega_{i, *}} - \tau V_{\alpha} \left[ \text{grad} \left( \psi^{\omega_{i, n+1}}, \psi^{\gamma, n+1} \right) \right]_{\alpha} \quad \forall \ \alpha \in \{x, y\}
+```
+
+
+
+and the pressure is finally updated as
+
+```math
+p^{\omega_{i, n+1/2}} = p^{\omega_{i, n-1/2}} + \psi^{n+1} - \frac{\tau}{2 \text{Re}} \text{div} \left( \text{grad} \left( \psi^{\omega_{i, n+1}}, \psi^{\gamma, n+1} \right) \right)
+```
+
+
+where the last term ensures the second order accuracy of the pressure field.
+
+As explained in Sec. 1.1.3, in order to obtain an energy preserving discretization of the incompressible Navier–Stokes equations, the pressure gradient must be equal to the negative transpose of the velocity divergence. This means that in the term $\left[ \text{grad} \left( p^{\omega_{i, n-1/2}}, p^{\gamma, n-1/2} \right) \right]_{\alpha}$, instead of using the definition given by Eq. (2.37), the transpose of the operators used in Eq. (2.39) must be employed. Regarding the boundary conditions for the pressure, to ensure the skew-symmetricity of the gradient and the divergence, opposite boundary conditions must be used. This means that whenever a Dirichlet boundary conditions is used in the velocity, a Neumann boundary condition is employed in the pressure and vice-versa.
+
+
+"
 
 
 Either pressure gradient in prediction or remove component in velocity boundary conditions
@@ -1712,6 +1802,42 @@ cf. [Brown et al. 2001](https://www.sciencedirect.com/science/article/pii/S00219
 set_convection!
 vector_convection!
 ```
+
+
+
+
+"
+For moving boundaries  the gradient of pressure was removed from the prediction because the simulations weren't very stable."
+
+To print information about the matrix in the velocity-pressure coupling:  
+gp.ny +1 in  lexicographic for v  and gp.ny  in  lexicographic for u 
+
+
+All the operators in the code are volume integrated, so if you want to obtain the actual gradient or divergence you always have to divide by the volume (In the finite volume method you have the volume that appears dividing)
+
+For the viscous term, you cannot divide by ``opC_v.iMx_bd``, the viscous term is collocated with the velocity component, and you're dividing by a staggered volume. You have to divide by the collocated volume. You have to divide by ``opC_p.iMy`` .
+
+p not v
+
+
+
+## Convection
+!!! todo "multiple LS" 
+
+
+```math
+\begin{equation}
+    \text{conv}_\alpha \left( u^\omega, u^\gamma, v^\omega, v^\gamma \right)= C_x \left( \mathbf{u}^\omega \right) v_x^\omega - \frac{1}{2} K_x\left( \right)
+\end{equation}
+```
+
+```math
+\begin{equation}
+    \text{conv}_\alpha \left( \mathbf{u}^\omega, \mathbf{u}^\gamma, T^\omega, T^\gamma \right)= \sum_\alpha \left\{ \frac{\delta A_\alpha u_\alpha^\omega \overline{T^\omega}^\alpha }{\delta \xi_\alpha} + \left[ \frac{\delta\left( \overline{B_\alpha}^\alpha-A_\alpha\right) \mathbf{u}_\alpha^\gamma}{\delta \xi_\alpha} -\overline{\frac{\delta B_\alpha \mathbf{u}_\alpha^\gamma}{\delta \xi_\alpha}}^\alpha\right]\frac{T^\omega + T^\gamma}{2}\right\}
+\end{equation}
+
+```
+
 
 In [`set_convection!`](@ref) which uses  [`vector_convection!`](@ref)
 ```julia
@@ -1968,6 +2094,28 @@ static_stencil
 ### Convection
 
 ## Capacities
+
+The mass matrix: 
+M: face-centered mass matrices, diagonal with coefficients ``V_\alpha`` (the volume of the staggered control volumes)
+is stored in the struct Operators and defined in:  
+```julia   
+M.diag .= vec(geo[end].dcap[:,:,5]) in [`set_matrices!`](@ref)
+```
+Example: 
+```julia   
+M_vL = Diagonal(fzeros(grid_v))
+```   
+Example:
+V(1,1)  ⋅           ⋅
+
+⋅       V(...,...)  ⋅
+
+⋅       ⋅           V
+
+New capacities from ``x^2``
+
+
+
 ```@docs
 bc_matrix_borders!
 capacities
@@ -1976,6 +2124,13 @@ mass_matrix_borders!
 periodic_bcs_borders!
 set_boundary_indicator!
 ```
+
+!!!todo "Rx Ry"
+
+```@docs
+periodic_bcs_R!
+```
+
 
 B vs H
 
@@ -2096,13 +2251,56 @@ vec2(phL.TD,gp) .= vec(ftest.(x_bc,y_bc))
 
 
 
+## Small cells
+
+Small cells introduce errors, the parameter ``\epsilon`` is used to delete small cells. Merging the cells could help with this problem, though it would involve modifying the capacities and the structure of the cut-cell operators.
+
+
+Need concentration near wall for conductivity for Poisson equation                      
+take the value of the concentration in the bulk field instead 
+
+```julia
+BC_phi_ele.left.val .= -i_butler./elec_cond[:,1]
+```
+
+for the conductivity used in the Poisson equation, instead of doing :
+
+```julia
+BC_phi_ele.left.val .= -i_butler./vecb_L(elec_condD, grid)
+```
+
+
+The conductivity is computed from the scalar. Taking the value in the bulk field is recommended as long as cell merging is not implemented. Due to small cells, we may have slivers/small cells at the left wall, then the divergence term is small,
+which produces a higher concentration in front of the contact line.
+
+
+## Solver
+
+\section{Solvers}
+
+In Flower for LS: gmres
+```julia
+grid.LS[iLS].u .= reshape(gmres(grid.LS[iLS].A, grid.LS[iLS].B * vec(grid.LS[iLS].u) .+ rhs_LS), grid)
+```
+
+Elsewhere: Julia's solver: /
+* Diagonal scaling does not help (direct resolution)
+* MUMPS similar
+
+Changing
+* diag + eps
+* eps small cell
+
+with diagonal scaling (not useful for direct resolution?): norm2(Ax-b)/norm2(b)=21.5550725612907207e-12
+
 
 ## Possible improvements 
-* Restart 
-<!-- # #TODO restart with PDI
-# if sim.restart == 1:
-#     cf hello_access.jl
-# end -->
+* Restart (TODO restart with PDI) cf hello_access.jl
+```julia
+if sim.restart == 1:
+    cf hello_access.jl
+end
+```
 * Interface length
 * Remove ``replace!(N, NaN=>0.0)``
 * imposed constant velocity field : after 100 it : error after scalar transport 3.88e-14
@@ -2111,7 +2309,23 @@ vec2(phL.TD,gp) .= vec(ftest.(x_bc,y_bc))
 * Epsilon to prevent NaN, with eps : coefficients not exact 
 * sometimes Julia reports out of memory 
 * Compilation time: upcoming development: \url{https://jbytecode.github.io/juliac/}
+* Store segments in 2D to save up space
+* Memory, allocations
+* check conservation of variables after n iterations
+* stencils
+* parallelisation
+*  check BC wall pressure (wall no slip : Neumann it seems)
+* List of variables which can be removed:
+    * emptied
+    * cap (already dcap)
+    * ...
 
+List all variables
+* bulk+ interface \rightarrow *2
+* phL.u phL.uD duplicate for bulk 
+* u, v, T, LS, moments (heights,...), phi elec, i current, scalars ...
+* grids
+* liquid/solid
 
 
 
@@ -2128,9 +2342,11 @@ inv_weight_clip
 ### Sources of errors
 * [`inv_weight_clip`](@ref)
 * eps added to diagonal (``A[i,i] += 1e-10``)
-* epsilon for small cells (``num.\epsilon``)
+* epsilon for small cells (to prevent NaN) (``num.\epsilon``), the coefficients are no longer exact in simple cases (like Laplacian: 1 1 -4 1 1)
 * Approximation of gradient inside a cell (``q^\omega \approx q^\gamma``)
 * approximation of interface
+
+
 
 
 
@@ -2141,6 +2357,9 @@ convert_interfacial_D_to_segments
 ```
 
 The output files are generated with [`PDI`](https://github.com/pdidev). The on-line PDI documentation is available at [`PDI documentation`](https://pdi.dev). 
+
+## TODO
+Need details on dimensions: construction not explained (sparsity)
 
 ## References
 

@@ -629,139 +629,6 @@ python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/te
 ### Neumann on interface and Dirichlet at wall
 
 
-## Diffusion
-
-"
-
-With the discrete Laplacian operators (one for each phase) now constructed, we can solve the heat equations on both domains  
-
-```math
-\frac{\partial T}{\partial t} = LT
-```
-
-on both domains. Here, ``L`` is the discrete linear operator. We couple the Cut Cell space discretization with a Crank-Nicolson time discretization, where ``τ`` is the time step, ``∆`` the uniform grid spacing and ``n`` the current iteration, resulting in the following discrete system  
-
-```math
-\frac{T^n-T^{n-1}}{\tau} = \frac{1}{2} \left[  LT^{n-1} +  LT^{n} \right]
-```
-
-
-
-which requires the solution of a linear system forming a pentadiagonal matrix. We validate the method in different stationary setups. 
-
-!!!  todo "Not analytical reference?"
-    A convergence study is carried out for these cases, where the reference solution is taken as the simulation with the highest number of points per dimension. 
-
-In each case, the initial temperature field is set to zero and we impose a Dirichlet boundary condition at the interface. The ratio τ /∆2 = 0.5 is kept constant as we increase the number of points. 
-
-Convergence study of the Cut Cell method coupled with a Crank-Nicolson scheme when solving the heat equation inside a stationary circle with a Dirichlet boundary condition TD = 1 imposed at the interface. The top gures show the position of the interface in red and the temperature eld at nal time tf = 0.03125 for N = 16, 32, 64, 128. The middle gure show the normalized error in temperature eld with respect to the reference solution taken for N = 256. The bottom gure shows the convergence rate of the method in mixed cells, full cells and in all cells.
-
-### Inside circle (TODO)
-1. A solid circle of radius ``R = 0.85``, initialized in a ``2 \times 2`` domain. The level set function is defined as  ``φ(x, y) = px2 + y2 − R``.  The Dirichlet TD = 1 boundary condition is imposed at the interface. We solve only for the phase inside of the circle until a nal time tf = 0.03125. The simulation is carried out for di erent resolutions N = 16, 32, 64, 128 corresponding to 4, 16, 64, 256 iterations, respectively. 
-
-!!! todo "No analytical solution /Richardson extrapolation?"
-    The reference solution is taken for N = 256.
-
-
- The results are summarized in Figure 3.8. As expected, the order of convergence of the error in full cells is close to 2 while the order of convergence in mixed cells is slightly less than 2. This drop in order in mixed cells is due to the assumption of a piece-wise linear interface approximation as well as the accumulation of errors of the bi-quadratic interpolation. The maximal errors are localized in cells where the wetted area is small (typically smaller than 5% of ∆2). Nevertheless, the global order of convergence in all cells is exactly 2.  
-
-### Outside circle (TODO)
-We initialize a solid circle of radius R = 0.75. The domain size are the same as well as the considered grid resolutions than in the previous. This time, we solve outside of the circle with a Dirichlet boundary condition TD = 1 at the interface and insulated boundary conditions at the domain boundary. The results, presented in Figure 3.9 are similar to case 1 with a slight drop in absolute error. This is due to the fact that there are less points per diameter than previously. This case validates the implementation of the Neumann boundary condition imposed at the domain boundaries.  
-
-### Square (TODO)
-3. In this third case, we initialize a square of area 1.6 × 1.6 in a 2 × 2 domain. The level set function is de ned as  ``φ(x, y) = max((x − 0.8), 9(x + 0.8), (y − 0.8), 9(y + 0.8)``.  We impose a Dirichlet boundary condition TD = 1 and solve inside of the square until the same nal time tf = 0.03125 with the same resolutions considered previously. In Figure 3.10, we can see that the maximal errors are located at the corners. The order of convergence for full cells is similar to the circle cases as well as for all cells. This case exhibits the robustness of the method when dealing with mesh aligned geometries as explained in Section 3.2.  
-
-### Crystal (TODO)
-4. Finally, in the last case, we consider a crystal in a 2 × 2 domain where the level set function is de ned as  φ(x, y) = px2 + y2 − R − 0.2 cos (6α) ,  where α is the angle of the interface with respect to the x axis and R = 0.7. 3.4. Validation on stationary geometries 45  At the interface, we impose the Gibbs-Thomson relation  TD = εκκ,  with κ the curvature and εκ = 0.01. The resulting temperature eld will now depend on the sign and amplitude of κ. We solve only for the phase inside of the circle until a nal time tf = 0.0078125. The simulation is performed for di erent resolutions N = 32, 64, 128, 256 corresponding to 4, 16, 64, 256 iterations respectively. The reference solution is taken for N = 512. In Figure 3.11, we can observe a drop in order of convergence for full cells with respect to the cases where TD was constant. This is explained by the accuracy of the curvature computation (Equation 1.8). The error is maximal in regions where the radius of curvature is large, where the interface is quasi aligned with the grid.  With these validation cases, we close the chapter on the Cut Cell method for di usive transport. In the next chapter, we describe the rest of the numerical steps of the two-phase Stefan problem.
-
-" [`Fullana (2017)`](https://theses.hal.science/tel-04053531/)
-
-
-
-## Advection
-
-"The advection equation  ∂u  ∂t + (u · ∇) u = 0, (2.68)  is solved inside a cylinder of non-dimensionalized radius 0.5. The vector field u is initialized with an angular velocity ω0 = 1, representing the rotation of a rigid body, and slip boundary conditions at the wall, resulting in velocity components expressed as
-" [`Rodriguez (2024)`](https://theses.fr/s384455)
-
-## Poiseuille
-
-```bash
-julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Poiseuille.jl ../Flower.jl/examples/channel_Dirichlet_pressure.yml
-```
-
-```bash
-python3 -c "import convergence_study; convergence_study.plot_convergence_study_func()" ../Flower.jl/examples/channel_Dirichlet_pressure.yml mesh_00000*
-```
-
-```@raw html
-<a href="https://github.com/flnt/Flower.jl/blob/electrolysis/test/channel_Dirichlet_pressure.yml"> See this test for the factor 4/3. </a>
-```
-
-To plot the results, you can use:
-```bash
-python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/test/channel_Dirichlet_pressure.yml flower_00000000.h5 flower_00000001.h5
-
-python3 -c "import convergence_study; convergence_study.plot_errors_from_h5()" ../Flower.jl/test/channel_Dirichlet_pressure.yml convergence_Poiseuille.h5
-
-```
-
-### Epsilon to prevent NaN
-
-
-
-
-with epsilon in capacities, ... cf `num.epsilon_mode`: coefficients not exact 
-
-after removing eps : Laplacian 1 1 -4 1 1
-1 1 -5 1 1 2: exact coefficients (like with finite differences) at machine error
-
-
-### Taylor expansion
-The mesh spacings are h/2 then h at left border. 
-
-With ``v_{i+1}`` ``v_i`` and ``v_{i-1}`` with h and h/2 spacings (we can assimilate the BC to ``v_{i-1}``)
-
-
-```math
-\begin{aligned}
-&v_{i+1}=v(x)+\frac{h_1}{1!}v'(x)+\frac{{h_1}^2}{2!}v''(x)+\frac{{h_1}^3}{3!}v^{(3)}(x)+\frac{{h_1}^4}{4!}v^{(4)}(x)\\
-&v_i\\
-&v_{i-1}=v(x)-\frac{h_2}{1!}v'(x)+\frac{{h_2}^2}{2!}v''(x)-\frac{{h_2}^3}{3!}v^{(3)}(x)+\frac{{h_2}^4}{4!}v^{(4)}(x)\\
-\end{aligned}
-```
-
- then I get that the coefficients for the second order derivative are ``4/3(1*v_{i+1} - 3v_{i} +2v_{i-1})``. 
- 
- In Flower the coefficients at the BC, away from the wall are 1 -5 1 1 and 2 for the BC (like 1 -2 1 for y and 1 -3 2 for x). There is a factor 4/3 missing and in fact when I multiply the result given by Flower by 4/3, I have the exact value, like I have away from the wall: rho/Re*Laplacian*v = imposed pressure gradient
-```-3.3882972000e+02 * 4/3 = -4.5177296000e+02```.
-
-The scheme is not second order at the wall because of the irregular spacing. 
-
-Here it is exact . 
-There is a factor ``\frac{4}{3}`` missing at the wall (bulk and border) without interface to get the exact Laplacian (because the Poiseuille profile is a second-order polynomial).
-
-For the interface, there would be a factor ``\frac{2h}{h+dist}``.
-
-
-
-
-when I do a Taylor expansion with ``v_{i+1}`` ``v_i`` and ``v_{i-1}`` with h and h/2 spacings (if I understood correctly, we can assimilate the BC to ``v_{i-1}``, then I get that the coefficients for the second order derivative are ``4/3(1*v_{i+1} - 3v_{i} +2v_{i-1})``. In Flower the coefficients at the BC, away from the wall are 1 -5 1 1 and 2 for the BC (like 1 -2 1 for y and 1 -3 2 for x). I think there is a factor 4/3 missing and in fact when I multiply the result given by Flower by 4/3, I have the exact value, like I have away from the wall: rho/Re*Laplacian*v=-3.3882972000e+02 * 4/3 = -4.5177296000e+02.
-
-
-
-Normally, we have a b c coefficients such that ``a*h1 -c*h2 = 0`` in ``a*v_{i+1} + b*v_i +c*v_{i-1}``.
-
-At the moment, we get ``3/4*L +\mathcal{O}(h)``  at the corners and ``L + \mathcal{O}(h^2)`` in the bulk when there is no interface
-
-
-## Growth of bubble away from the wall
-
-!!! todo "Documentation divergence for phase change"
-    can test by initializing c=0.16 at a planar bubble and c1>0.16 in bulk to verify that we have dc/dx*s
-
-
-## Growth of bubble at the wall
-
 
 ## Butler-Volmer
 We use a similar approach as in [`example for sinh`](https://math.stackexchange.com/questions/3472880/solving-sinh-x-kx). We assume a constant conductivity ``\sigma = 1`` and a simplified Butler-Volmer equation.
@@ -796,6 +663,58 @@ i=i_0\left[\exp{\left(\frac{\alpha_aF\eta}{R_\mu T}\right)}
 ```@raw html
 The results of <a href="https://github.com/flnt/Flower.jl/blob/electrolysis/test/butler.jl"> butler.jl</a> run by <a href="https://github.com/flnt/Flower.jl/blob/electrolysis/test/runtest_butler.jl"> runtest_butler.jl </a> can be compared with <a href="https://github.com/flnt/Flower.jl/blob/electrolysis/example/solve_potential_1D.py"> solve_potential_1D.py</a>.
 ```
+
+In Flower, the following potential is obtained at the electrode: 
+
+```@raw html
+<table class="styled-table">
+<!-- <table border="1" class="dataframe"> -->
+    <table>
+        <thead>
+            <tr>
+                <th>Index</th>
+                <th>Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>0</td>
+                <td>0</td>
+            </tr>
+            <tr>
+                <td>1</td>
+                <td>-0.01411703</td>
+            </tr>
+            <tr>
+                <td>2</td>
+                <td>-0.01119343</td>
+            </tr>
+            <tr>
+                <td>3</td>
+                <td>-0.0117445</td>
+            </tr>
+            <tr>
+                <td>4</td>
+                <td>-0.01163859</td>
+            </tr>
+            <tr>
+                <td>5</td>
+                <td>-0.01165887</td>
+            </tr>
+            <tr>
+                <td>6</td>
+                <td>-0.01165499</td>
+            </tr>
+            <tr>
+                <td>7</td>
+                <td>-0.01165573</td>
+            </tr>
+        </tbody>
+    </table>
+```
+
+!!! todo "Proof for only one fixed point in 
+\citet{olmoThermodynamicDerivationNernst2019}"
 
 
 Newton's method with python 1D
@@ -909,19 +828,160 @@ python3 -c "import convergence_study; convergence_study.plot_convergence_study_f
 <figure>
     <a name="Butler_slope"></a> 
     <img src="./assets/Butler_phi_1D.svg" alt="Butler" title="Poisson">
-    <figcaption>"Electrical potential"</figcaption>
+    <figcaption>Electrical potential</figcaption>
 </figure>
 ```
 
-!!! todo "TODO plot" x coord check 0...
+!!! todo "TODO plot" 
+    x coord check 0...
 
 !!! todo "TODO log plot "
  
+plot iterations of Poisson
+```bash
+python3 -c "import convergence_study; convergence_study.plot_convergence_study_func()" ../Flower.jl/examples/convergence_Butler.yml poisson_00000032_00000001.h5 poisson_00000032_00000002.h5 poisson_00000032_00000003.h5 poisson_00000032_00000004.h5 poisson_00000032_00000005.h5
+```
 
 
+```@raw html
+<a href="https://github.com/flnt/Flower.jl/blob/electrolysis/examples/convergence_Butler.yml"> convergence_Butler.yml </a>
+```
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_Butler/current_lines_32.svg" alt="Butler" title="Poisson">
+    <figcaption>Electrical potential</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_Butler/phi.svg" alt="Butler" title="Poisson">
+    <figcaption>Electrical potential</figcaption>
+</figure>
+```
+
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_Butler/poisson_iter_mesh32.svg" alt="Butler" title="Poisson">
+    <figcaption>Electrical potential: iterations for mesh 32</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_Butler/poisson_iter_mesh64.svg" alt="Butler" title="Poisson">
+    <figcaption>Electrical potential: iterations</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_Butler/poisson_iter_mesh128.svg" alt="Butler" title="Poisson">
+    <figcaption>Electrical potential: iterations</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_Butler/poisson_iter_mesh256.svg" alt="Butler" title="Poisson">
+    <figcaption>Electrical potential: iterations</figcaption>
+</figure>
+```
 
 
 ## Butler-Volmer with bubble (no analytical solution)
+
+```@raw html
+Parameter file: <a href="https://github.com/flnt/Flower.jl/blob/electrolysis/examples/convergence_Butler_bubble.yml"> convergence_Butler_bubble.yml </a>
+```
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_Butler_bubble/current_lines_32.svg" alt="Butler" title="Poisson">
+    <figcaption>Electrical potential</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_Butler_bubble/phi.svg" alt="Butler" title="Poisson">
+    <figcaption>Electrical potential</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_Butler_bubble/phi_through_bubble.svg" alt="Butler" title="Poisson">
+    <figcaption>Electrical potential through bubble</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_Butler_bubble/phi_wall.svg" alt="Butler" title="Poisson">
+    <figcaption>Electrical potential at wall</figcaption>
+</figure>
+```
+
+```bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Butler.jl ../Flower.jl/examples/convergence_Butler_bubble.yml 
+```
+
+```bash
+python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/test/butler_bubble.yml flower_00000001.h5
+```
+
+
+## Butler-Volmer with bubble at wall (no analytical solution)
+
+```@raw html
+<a href="https://github.com/flnt/Flower.jl/blob/electrolysis/examples/convergence_Butler_bubble_wall.yml"> convergence_Butler_bubble_wall.yml </a>
+```
+
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_Butler_bubble_wall/current_lines_32.svg" alt="Butler" title="Poisson">
+    <figcaption>Electrical potential</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_Butler_bubble_wall/phi.svg" alt="Butler" title="Poisson">
+    <figcaption>Electrical potential</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_Butler_bubble_wall/phi_through_bubble.svg" alt="Butler" title="Poisson">
+    <figcaption>Electrical potential through bubble</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_Butler_bubble_wall/phi_wall.svg" alt="Butler" title="Poisson">
+    <figcaption>Electrical potential at wall</figcaption>
+</figure>
+```
 
 ```bash
 julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Butler_bubble_wall.jl ../Flower.jl/examples/convergence_Butler_bubble_wall.yml 
@@ -931,6 +991,122 @@ julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergen
 python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/test/butler_bubble.yml flower_00000001.h5
 ```
 
+
+
+## Diffusion
+
+The following conditions have to be checked:
+* check ``c_{\ce{H2}}  \geq c_{\ce{H2},0}``
+* check ``c_{\ce{KOH}} \geq c_{\ce{KOH},0}``
+* check ``0 < c_{\ce{H2O}} \leq c_{\ce{H2O},0}``
+
+The discrete Laplacian operators are denoted L.
+
+```@raw html
+<a href="https://github.com/flnt/Flower.jl/blob/electrolysis/examples/convergence_diffusion.yml"> convergence_diffusion.yml </a>
+```
+
+
+!!! todo "Stopping criterion"
+
+!!! danger "Bug or due to flow + production so conductivity increased hence the deformation of the current lines?"
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_diffusion/current_lines_32.svg" alt="Butler" title="Poisson">
+    <figcaption>Electrical potential</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_diffusion/phi.svg" alt="Butler" title="Poisson">
+    <figcaption>Electrical potential</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_diffusion/phi_through_bubble.svg" alt="Butler" title="Poisson">
+    <figcaption>Electrical potential through bubble</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_diffusion/phi_wall.svg" alt="Butler" title="Poisson">
+    <figcaption>Electrical potential at wall</figcaption>
+</figure>
+```
+
+!!! todo "Concentration"
+    Not influenced by conductivity ? check conductivity
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_diffusion/concentration_H2_through_bubble.svg" alt="Butler" title="Poisson">
+    <figcaption>Concentration through bubble</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_diffusion/concentration_H2_wall.svg" alt="Butler" title="Poisson">
+    <figcaption>Concentration at wall</figcaption>
+</figure>
+```
+
+```@raw html
+<!-- <body>
+    <h1>Embed PDF Example</h1>
+    <embed src="../../../convergence_diffusion/concentration_H2_wall.pdf" type="application/pdf" width="600" height="400">
+</body>
+
+<body>
+    <h1>Object PDF Example</h1>
+    <object data="../../../convergence_diffusion/concentration_H2_wall.pdf" type="application/pdf" width="600" height="400">
+        <p>Your browser does not support PDFs. <a href="../../../convergence_diffusion/concentration_H2_wall.pdf">Download the PDF</a>.</p>
+    </object>
+</body> -->
+```
+
+```bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Butler.jl ../Flower.jl/examples/convergence_diffusion.yml
+```
+
+```bash
+python3 -c "import convergence_study; convergence_study.plot_convergence_study_func()" ../Flower.jl/examples/convergence_diffusion.yml mesh_0000*
+```
+
+
+```bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Butler.jl ../Flower.jl/examples/convergence_diffusion.yml 
+```
+
+```bash
+python3 -c "import convergence_study; convergence_study.plot_convergence_study_func()" ../Flower.jl/examples/convergence_diffusion.yml mesh_00000032.h5 
+```
+
+```bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Butler.jl ../Flower.jl/examples/convergence_diffusion_constant_conductivity.yml
+```
+
+
+## Diffusion with a bubble
+
+
+## Diffusion with a bubble at the wall
+
+
+
+
+
 ## Radial flow (qualitative)
 
 The velocity field is imposed with [`init_fields_multiple_levelsets!`](@ref) for "BC_uL" and "BC_vL". The gravity is deactivated.
@@ -938,6 +1114,175 @@ The velocity field is imposed with [`init_fields_multiple_levelsets!`](@ref) for
 ```bash
 python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/test/radial.yml flower_00000001.h5
 ```
+
+
+## Poiseuille
+
+```@docs
+test_laplacian_pressure
+```
+
+We want to verify [`test_laplacian_pressure`](@ref)
+
+
+
+Laplacian v, opC_p.iMy or else ? op_CvL.M 
+
+```julia
+M_pL = Diagonal(fzeros(grid))
+iMx_pS = Diagonal(zeros((nx+1)*ny))
+iMx_pL = Diagonal(zeros((nx+1)*ny))
+iMy_pS = Diagonal(zeros(nx*(ny+1)))
+iMy_pL = Diagonal(zeros(nx*(ny+1)))
+```
+
+```julia
+M_vS = Diagonal(fzeros(grid_v)) #nx*(ny+1)
+M_vL = Diagonal(fzeros(grid_v))
+iMx_vS = Diagonal(zeros((grid_v.nx+1)*grid_v.ny))
+iMx_vL = Diagonal(zeros((grid_v.nx+1)*grid_v.ny))
+iMy_vS = Diagonal(zeros(grid_v.nx*(grid_v.ny+1)))
+iMy_vL = Diagonal(zeros(grid_v.nx*(grid_v.ny+1)))
+```
+
+Based on:
+
+```julia   
+grav_y = g .* cos(β) .* opC_v.M * fones(grid_v)
+```
+
+
+```bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Poiseuille.jl ../Flower.jl/examples/channel_Dirichlet_pressure.yml
+```
+
+```bash
+python3 -c "import convergence_study; convergence_study.plot_convergence_study_func()" ../Flower.jl/examples/channel_Dirichlet_pressure.yml mesh_00000*
+```
+
+```@raw html
+<a href="https://github.com/flnt/Flower.jl/blob/electrolysis/test/channel_Dirichlet_pressure.yml"> See this test for the factor 4/3. </a>
+```
+
+To plot the results, you can use:
+```bash
+python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/test/channel_Dirichlet_pressure.yml flower_00000000.h5 flower_00000001.h5
+
+python3 -c "import convergence_study; convergence_study.plot_errors_from_h5()" ../Flower.jl/test/channel_Dirichlet_pressure.yml convergence_Poiseuille.h5
+
+```
+
+### Epsilon to prevent NaN
+
+
+
+
+with epsilon in capacities, ... cf `num.epsilon_mode`: coefficients not exact 
+
+after removing eps : Laplacian 1 1 -4 1 1
+1 1 -5 1 1 2: exact coefficients (like with finite differences) at machine error
+
+
+### Taylor expansion
+The mesh spacings are h/2 then h at left border. 
+
+With ``v_{i+1}`` ``v_i`` and ``v_{i-1}`` with h and h/2 spacings (we can assimilate the BC to ``v_{i-1}``)
+
+
+```math
+\begin{aligned}
+&v_{i+1}=v(x)+\frac{h_1}{1!}v'(x)+\frac{{h_1}^2}{2!}v''(x)+\frac{{h_1}^3}{3!}v^{(3)}(x)+\frac{{h_1}^4}{4!}v^{(4)}(x)\\
+&v_i\\
+&v_{i-1}=v(x)-\frac{h_2}{1!}v'(x)+\frac{{h_2}^2}{2!}v''(x)-\frac{{h_2}^3}{3!}v^{(3)}(x)+\frac{{h_2}^4}{4!}v^{(4)}(x)\\
+\end{aligned}
+```
+
+ then I get that the coefficients for the second order derivative are ``4/3(1*v_{i+1} - 3v_{i} +2v_{i-1})``. 
+ 
+ In Flower the coefficients at the BC, away from the wall are 1 -5 1 1 and 2 for the BC (like 1 -2 1 for y and 1 -3 2 for x). There is a factor 4/3 missing and in fact when I multiply the result given by Flower by 4/3, I have the exact value, like I have away from the wall: rho/Re*Laplacian*v = imposed pressure gradient
+```-3.3882972000e+02 * 4/3 = -4.5177296000e+02```.
+
+The scheme is not second order at the wall because of the irregular spacing. 
+
+Here it is exact . 
+There is a factor ``\frac{4}{3}`` missing at the wall (bulk and border) without interface to get the exact Laplacian (because the Poiseuille profile is a second-order polynomial).
+
+For the interface, there would be a factor ``\frac{2h}{h+dist}``.
+
+
+
+
+when I do a Taylor expansion with ``v_{i+1}`` ``v_i`` and ``v_{i-1}`` with h and h/2 spacings (if I understood correctly, we can assimilate the BC to ``v_{i-1}``, then I get that the coefficients for the second order derivative are ``4/3(1*v_{i+1} - 3v_{i} +2v_{i-1})``. In Flower the coefficients at the BC, away from the wall are 1 -5 1 1 and 2 for the BC (like 1 -2 1 for y and 1 -3 2 for x). I think there is a factor 4/3 missing and in fact when I multiply the result given by Flower by 4/3, I have the exact value, like I have away from the wall: rho/Re*Laplacian*v=-3.3882972000e+02 * 4/3 = -4.5177296000e+02.
+
+
+
+Normally, we have a b c coefficients such that ``a*h1 -c*h2 = 0`` in ``a*v_{i+1} + b*v_i +c*v_{i-1}``.
+
+At the moment, we get ``3/4*L +\mathcal{O}(h)``  at the corners and ``L + \mathcal{O}(h^2)`` in the bulk when there is no interface
+
+
+Need to change opC_u.M
+
+
+## Diffusion (old cf heat equation)
+```math
+\frac{\partial T}{\partial t} = LT
+```
+
+Here, ``L`` is the discrete linear operator. We couple the Cut Cell space discretization with a Crank-Nicolson time discretization, where ``τ`` is the time step, ``∆`` the uniform grid spacing and ``n`` the current iteration, resulting in the following discrete system  
+
+```math
+\frac{T^n-T^{n-1}}{\tau} = \frac{1}{2} \left[  LT^{n-1} +  LT^{n} \right]
+```
+
+
+
+which requires the solution of a linear system forming a pentadiagonal matrix. We validate the method in different stationary setups. 
+
+!!!  todo "Not analytical reference?"
+    A convergence study is carried out for these cases, where the reference solution is taken as the simulation with the highest number of points per dimension. 
+
+In each case, the initial temperature field is set to zero and we impose a Dirichlet boundary condition at the interface. The ratio τ /∆2 = 0.5 is kept constant as we increase the number of points. 
+
+Convergence study of the Cut Cell method coupled with a Crank-Nicolson scheme when solving the heat equation inside a stationary circle with a Dirichlet boundary condition TD = 1 imposed at the interface. The top gures show the position of the interface in red and the temperature eld at nal time tf = 0.03125 for N = 16, 32, 64, 128. The middle gure show the normalized error in temperature eld with respect to the reference solution taken for N = 256. The bottom gure shows the convergence rate of the method in mixed cells, full cells and in all cells.
+
+### Inside circle (TODO)
+1. A solid circle of radius ``R = 0.85``, initialized in a ``2 \times 2`` domain. The level set function is defined as  ``φ(x, y) = px2 + y2 − R``.  The Dirichlet TD = 1 boundary condition is imposed at the interface. We solve only for the phase inside of the circle until a nal time tf = 0.03125. The simulation is carried out for di erent resolutions N = 16, 32, 64, 128 corresponding to 4, 16, 64, 256 iterations, respectively. 
+
+!!! todo "No analytical solution /Richardson extrapolation?"
+    The reference solution is taken for N = 256.
+
+
+ The results are summarized in Figure 3.8. As expected, the order of convergence of the error in full cells is close to 2 while the order of convergence in mixed cells is slightly less than 2. This drop in order in mixed cells is due to the assumption of a piece-wise linear interface approximation as well as the accumulation of errors of the bi-quadratic interpolation. The maximal errors are localized in cells where the wetted area is small (typically smaller than 5% of ∆2). Nevertheless, the global order of convergence in all cells is exactly 2.  
+
+### Outside circle (TODO)
+We initialize a solid circle of radius R = 0.75. The domain size are the same as well as the considered grid resolutions than in the previous. This time, we solve outside of the circle with a Dirichlet boundary condition TD = 1 at the interface and insulated boundary conditions at the domain boundary. The results, presented in Figure 3.9 are similar to case 1 with a slight drop in absolute error. This is due to the fact that there are less points per diameter than previously. This case validates the implementation of the Neumann boundary condition imposed at the domain boundaries.  
+
+### Square (TODO)
+3. In this third case, we initialize a square of area 1.6 × 1.6 in a 2 × 2 domain. The level set function is de ned as  ``φ(x, y) = max((x − 0.8), 9(x + 0.8), (y − 0.8), 9(y + 0.8)``.  We impose a Dirichlet boundary condition TD = 1 and solve inside of the square until the same nal time tf = 0.03125 with the same resolutions considered previously. In Figure 3.10, we can see that the maximal errors are located at the corners. The order of convergence for full cells is similar to the circle cases as well as for all cells. This case exhibits the robustness of the method when dealing with mesh aligned geometries as explained in Section 3.2.  
+
+### Crystal (TODO)
+4. Finally, in the last case, we consider a crystal in a 2 × 2 domain where the level set function is de ned as  φ(x, y) = px2 + y2 − R − 0.2 cos (6α) ,  where α is the angle of the interface with respect to the x axis and R = 0.7. 3.4. Validation on stationary geometries 45  At the interface, we impose the Gibbs-Thomson relation  TD = εκκ,  with κ the curvature and εκ = 0.01. The resulting temperature eld will now depend on the sign and amplitude of κ. We solve only for the phase inside of the circle until a nal time tf = 0.0078125. The simulation is performed for di erent resolutions N = 32, 64, 128, 256 corresponding to 4, 16, 64, 256 iterations respectively. The reference solution is taken for N = 512. In Figure 3.11, we can observe a drop in order of convergence for full cells with respect to the cases where TD was constant. This is explained by the accuracy of the curvature computation (Equation 1.8). The error is maximal in regions where the radius of curvature is large, where the interface is quasi aligned with the grid.  With these validation cases, we close the chapter on the Cut Cell method for di usive transport. In the next chapter, we describe the rest of the numerical steps of the two-phase Stefan problem.
+
+" [`Fullana (2017)`](https://theses.hal.science/tel-04053531/)
+
+
+
+## Advection
+
+"The advection equation  ∂u  ∂t + (u · ∇) u = 0, (2.68)  is solved inside a cylinder of non-dimensionalized radius 0.5. The vector field u is initialized with an angular velocity ω0 = 1, representing the rotation of a rigid body, and slip boundary conditions at the wall, resulting in velocity components expressed as
+" [`Rodriguez (2024)`](https://theses.fr/s384455)
+
+
+
+## Growth of bubble away from the wall
+
+!!! todo "Documentation divergence for phase change"
+    can test by initializing c=0.16 at a planar bubble and c1>0.16 in bulk to verify that we have dc/dx*s
+
+
+## Growth of bubble at the wall
+
 
 
 ## Test with dummy advection
@@ -1004,9 +1349,9 @@ i.e., the traveled length ``l`` of the interface is:
 
 "The minor, slowly growing deviation between numerical and analytical solution is due to the fact that during the motion of the interface, cells with very small phase fractions occur and in some cases, the mass flux into or from the small phase fraction is larger than the physically possible value, i.e., it would lead to a concentration either being negative or larger than the Henry law allows. In this case, the flux is limited to the physically maximum possible value which introduces a small systematic error. It is important to note that this problem is visible only in 1D computations, since the occurrence of several grid cells with interface and with only a very small fraction of one of the phases is very unlikely. We indeed did not observe this in any 3D computation."
 
-<!-- ```math
+```math
 \llbracket \rho \mathbf{v} \otimes (\mathbf{v} - \mathbf{v}^{\Sigma}) \rrbracket \cdot \mathbf{n}_{\Sigma} = \tilde{m} \left( \mathbf{v} - \tilde{m} \left\llbracket \frac{1}{\rho} \right\rrbracket \mathbf{n}_{\Sigma}
-``` -->
+```
 
 ---
 
@@ -1017,6 +1362,19 @@ i.e., the traveled length ``l`` of the interface is:
 [6] J. Crunk, The Mathematics of Diffusion, Oxford University Press, 1975.
 "
 
+
+## TODO check H2O variations at electrode
+
+
+
+
+
 ## Variable coefficient
 
 ## Suggestion: use test case from electrostatics from Griffiths
+
+
+
+
+## Plots
+When the border values are plotted, they are shown at ``-dx/2``.

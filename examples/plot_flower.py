@@ -2156,8 +2156,8 @@ def plot_current_lines(file,
 
 
     # phi_array = file["i_current_x"][:].transpose()
-    Eus = file["i_current_x"][:].transpose()
-    Evs = file["i_current_y"][:].transpose()
+    i_current_x = file["i_current_x"][:].transpose()
+    i_current_y = file["i_current_y"][:].transpose()
 
     i_current_mag = file["i_current_mag"][:].transpose()
 
@@ -2167,9 +2167,18 @@ def plot_current_lines(file,
     ny = mesh["ny"]
 
     print('nx',nx)
+    # print(nx*ny+2*nx+2*ny)
 
     field_index = 1 #bulk
     data = file["phi_ele_1D"][:]
+
+    # print(len(data))
+
+    if (len(data) != nx*ny+2*nx+2*ny):
+        nx = file["nx"][()]
+        ny = nx
+
+        # TODO for convergence study
 
     field=veci(data,nx,ny,field_index)
 
@@ -2284,13 +2293,13 @@ def plot_current_lines(file,
 
 
         # Create a mask based on levelset
-        # mask = np.zeros(Eus.shape, dtype=bool)
+        # mask = np.zeros(i_current_x.shape, dtype=bool)
         # mask[40:60, 40:60] = True
         # U[:20, :20] = np.nan
-        # Eus = np.nan 
-        # Eus = Eus[y <= 0.7]
-        Eus = np.ma.masked_where(LSdat < 0.0, Eus)
-        # Eus = np.ma.array(Eus, mask=mask)
+        # i_current_x = np.nan 
+        # i_current_x = i_current_x[y <= 0.7]
+        i_current_x = np.ma.masked_where(LSdat < 0.0, i_current_x)
+        # i_current_x = np.ma.array(i_current_x, mask=mask)
 
     if 'density' in figpar.keys():
             if 'streamplot_color' in figpar.keys():
@@ -2302,7 +2311,7 @@ def plot_current_lines(file,
                 # cmap='autumn', start_points=seed_points.T)
 
                 if figpar['streamplot_color'] == 'mag':
-                    current_lines = plt.streamplot(xp, yp, -Eus, -Evs, color=i_current_mag, density=eval(figpar['density']),
+                    current_lines = plt.streamplot(xp, yp, i_current_x, i_current_y, color=i_current_mag, density=eval(figpar['density']),
                                                 linewidth=figpar['streamplot_lw'], 
                                                     broken_streamlines=broken_streamlines,
                                                     start_points=start_points,
@@ -2330,7 +2339,7 @@ def plot_current_lines(file,
 
 
                 else:
-                    current_lines = plt.streamplot(xp, yp, -Eus, -Evs, color=figpar['streamplot_color'], density=eval(figpar['density']),
+                    current_lines = plt.streamplot(xp, yp, i_current_x, i_current_y, color=figpar['streamplot_color'], density=eval(figpar['density']),
                                                 linewidth=figpar['streamplot_lw'], 
                                                     broken_streamlines=broken_streamlines,
                                                     start_points=start_points,
@@ -2369,13 +2378,13 @@ def plot_current_lines(file,
                 #     # art.set_zorder(10)
 
             else:
-                plt.streamplot(xp, yp, -Eus, -Evs, color="w", density=eval(figpar['density']),linewidth=figpar['streamplot_lw'], 
+                plt.streamplot(xp, yp, i_current_x, i_current_y, color="w", density=eval(figpar['density']),linewidth=figpar['streamplot_lw'], 
                        broken_streamlines=broken_streamlines,
                        start_points=start_points,
                         integration_direction=integration_direction,
                        )
     else:
-        plt.streamplot(xp, yp, -Eus, -Evs, color="w", density=[0.5, 1], 
+        plt.streamplot(xp, yp, i_current_x, i_current_y, color="w", density=[0.5, 1], 
                        broken_streamlines=broken_streamlines,
                        start_points=start_points,
                        integration_direction=integration_direction,
@@ -2435,7 +2444,32 @@ def plot_current_lines(file,
             print('no locator')
 
         str_nstep = str(nstep)
-        plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also save fig for latex  display
+        # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also save fig for latex  display
+
+        # print(figpar['macro_file_name'])
+
+
+
+        # print(figpar['macro_file_name'])
+
+        if 'macro_file_name' in figpar.keys():
+            # print(figpar['macro_file_name'])
+            # plt.savefig(eval(figpar['macro_file_name']),dpi=plotpar['dpi'])
+
+            for macro in figpar['macro_file_name']:
+                # print(macro)
+                plt.savefig(eval(macro),dpi=plotpar['dpi'])
+
+        else:
+            plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+
+
+        # if 'macro_file_name' in figpar.keys():
+        #     # print(figpar['macro_file_name'])
+        #     plt.savefig(eval(figpar['macro_file_name']),dpi=plotpar['dpi'])
+        # else:
+        #     plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+
 
     if mode == 'close':
         # str_nstep = str(nstep)
@@ -2444,7 +2478,10 @@ def plot_current_lines(file,
         return
 
     # return(fig1,ax2,cbar)
-    return(fig1,ax2,[cbar0,cbarimag])
+    try:
+        return(fig1,ax2,[cbar0,cbarimag])
+    except:
+        return (fig1,ax2,cbar0)
 
 
 def  plot_wall(ax2, x_1D, y_1D, file, key_LS_wall,figpar,plotpar):
@@ -2595,7 +2632,11 @@ def plot_python_pdf_full2(
         x_1D = xp
         y_1D = yp
 
-    data_1D = file[key][:]
+    try:
+        data_1D = file[key][:]
+    except:
+        print(colored('Failed to open '+key+' in '+figpar['file'],'red'))
+        
 
     file_name = figpar['file']
 
@@ -3201,7 +3242,26 @@ def plot_python_pdf_full2(
         # ax2.set_aspect('equal', 'box')
 
         str_nstep = str(nstep)
-        plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+        # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+
+        if 'macro_file_name' in figpar.keys():
+            # print(figpar['macro_file_name'])
+            # plt.savefig(eval(figpar['macro_file_name']),dpi=plotpar['dpi'])
+
+            for macro in figpar['macro_file_name']:
+                # print(macro)
+                plt.savefig(eval(macro),dpi=plotpar['dpi'])
+                
+                print(colored('mesh '+str(nx)+" "+str(mesh["nx"]),'red'))
+
+
+        else:
+            plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+            print(colored('mesh '+str(nx)+" "+str(mesh["nx"]),'red'))
+        
+        print(colored('end plot python full '+str(nx)+" "+str(mesh["nx"]),'red'))
+
+
 
     if mode == 'close':
         # str_nstep = str(nstep)
@@ -3564,8 +3624,8 @@ def plot_current_wall(
     # data= reshape_data_veci(data,nx,ny,field_index)
     data = veci(reshape_data(data),nx,ny,field_index)
 
-    # Eus = file["i_current_x"][:].transpose()
-    # Evs = file["i_current_y"][:].transpose()
+    # i_current_x = file["i_current_x"][:].transpose()
+    # i_current_y = file["i_current_y"][:].transpose()
 
     #concentration = data[1,:]
     concentration0 = data[:,1]
@@ -3794,7 +3854,19 @@ def plot_current_wall(
         # ax2.set_aspect('equal', 'box')
 
         str_nstep = str(nstep)
-        plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+        
+        print(figpar['macro_file_name'])
+
+        if 'macro_file_name' in figpar.keys():
+            # print(figpar['macro_file_name'])
+            # plt.savefig(eval(figpar['macro_file_name']),dpi=plotpar['dpi'])
+
+            for macro in figpar['macro_file_name']:
+                print(macro)
+                plt.savefig(eval(macro),dpi=plotpar['dpi'])
+
+        else:
+            plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
 
     if mode == 'close':
         # str_nstep = str(nstep)

@@ -50,24 +50,7 @@ flower:
     activate_interface: 1
     adapt_timestep_mode: 3 #fixed timestep
     bulk_conductivity: 2
-    # For small cells
-    # if num.bulk_conductivity == 0
-    #     BC_phi_ele.left.val .= -i_butler./vecb_L(elec_condD, grid)
-    # elseif num.bulk_conductivity == 1
-    #     # Recommended as long as cell merging not implemented:
-    #     # Due to small cells, we may have slivers/small cells at the left wall, then the divergence term is small,
-    #     # which produces higher concentration in front of the contact line
-    #     BC_phi_ele.left.val .= -i_butler./elec_cond[:,1]
-    # elseif num.bulk_conductivity == 2
-    #     BC_phi_ele.left.val .= -i_butler./vecb_L(elec_condD, grid)
-
-    #     iLS = 1 #TODO end ? if several LS ?
-    #     for j in 1:grid.ny
-    #         if vecb_L(grid.LS[iLS].geoL.cap[:,5],grid)[j] < ϵ
-    #             BC_phi_ele.left.val[j] = -i_butler[j]/elec_cond[j,1] 
-    #         end
-    #     end
-    # end
+    # uses bulk or interfacial concentrationfor conductivity
     concentration_check_factor: 1e-4
     convection_Cdivu: 0
     electrolysis_phase_change_case: "Khalighi" #no phase change
