@@ -279,7 +279,10 @@ end
 
 
 """
-    Initialises staggered grids p, u, v
+Initialises staggered grids p, u, v
+* p grid origin: (xmin+dx[...]/2, ymin+dy[...]/2)
+* u grid origin (xmin,ymin+dy[...]/2)
+* v grid origin (xmin+dx[...]/2, ymin)
 """
 function init_meshes(num::NumericalParameters)
     mesh_cc = Mesh(GridCC, num.x, num.y, num._nLS)

@@ -115,8 +115,9 @@ flower:
     convection_Cdivu: 0
     convection_mode: 1 #0 #1
     electrolysis_convection: 0 #1
-    electric_potential: 3 #2 #0 deactivated
-    electric_potential_max_iter: 10
+    electrical_potential: 3 #2 #0 deactivated
+    electrical_potential_max_iter: 10
+    electrical_potential_residual: 1e-2
     electrolysis_phase_change_case: "None" #"Khalighi" #no phase change
     # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
     # electrolysis_phase_change_case: "levelset" # local
@@ -194,7 +195,7 @@ flower:
       LS = [Neumann(val=0.0)]
       )
          BC_trans_scal_H2 = BoundariesInt(
-      bottom = Neumann(),
+      bottom = Dirichlet(val = phys.concentration0[1],
       top    = Neumann(),
       left   = Neumann(val=-i_butler/(2*phys.Faraday*DH2)),
       right  = Dirichlet(val = 0.0),

@@ -191,7 +191,7 @@ for (i,n) in enumerate(npts)
         null_space = sim.null_space,
         io_pdi = io.pdi,
         bulk_conductivity = sim.bulk_conductivity,
-        electric_potential = sim.electric_potential,
+        electrical_potential = sim.electrical_potential,
         contact_angle = sim.contact_angle,
         convection_Cdivu = sim.convection_Cdivu,
         convection_mode = sim.convection_mode,
@@ -205,7 +205,7 @@ for (i,n) in enumerate(npts)
         index_electrolyte = sim.index_electrolyte,
         extend_field = sim.extend_field,
         average_velocity = sim.average_velocity,
-        electric_potential_max_iter = sim.electric_potential_max_iter,
+        electrical_potential_max_iter = sim.electrical_potential_max_iter,
         )
     Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
     @debug "After Numerical"

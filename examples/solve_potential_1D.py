@@ -86,7 +86,7 @@ def assemble(h,N):
 
 
 # Successive substitution
-def successive_substitutions(U_first_guess,elec_cond,fact,solved_slope,h,N,tol,max_iter,relaxation=1.0):
+def successive_substitutions(U_first_guess,elec_cond,fact,solved_slope,h,N,tol,max_iter,relaxation=1.0,linearized=False):
     
     U = U_first_guess.copy()
     U_previous = U.copy()
@@ -101,7 +101,11 @@ def successive_substitutions(U_first_guess,elec_cond,fact,solved_slope,h,N,tol,m
     A=assemble(h,N)
 
     for k in range(max_iter):
-        rhs[0] = -1.0/elec_cond * 2*np.sinh(fact * (-0.6 - U[0]))
+        if linearized:        
+            rhs[0] = -1.0/elec_cond * 2*(fact * (-0.6 - U[0]))
+        else:
+            rhs[0] = -1.0/elec_cond * 2*np.sinh(fact * (-0.6 - U[0]))
+
         rhs[N] = 0.0
         U = solve(A, rhs)
 
@@ -131,6 +135,8 @@ def successive_substitutions(U_first_guess,elec_cond,fact,solved_slope,h,N,tol,m
         #     break
 
     return U,df
+
+
 
 
 # Parameters
@@ -168,6 +174,7 @@ c0_KOH=6700
 DKOH=3.2e-9
 
 fact = alpha * Faraday / (Ru * temperature0)
+
 
 elec_cond = 2*Faraday**2*c0_KOH*DKOH/(Ru*temperature0)
 print("elec_cond",elec_cond) # elec_cond = 136.0168282397691
@@ -284,6 +291,37 @@ if print_latex:
     'diff': lambda x: f'{x:.3e}'
     }))
 
+
+print(colored('\nSuccessive substitutions with linearization', 'cyan'))
+U_successive_lin,df_successive_lin = successive_substitutions(U_first_guess,elec_cond,fact,solved_slope,h,N,tol,max_iter,relaxation=0.5,linearized=True)
+
+# Output the solution
+# print("Solution U:", U_successive_relax)
+
+slope_successive_lin = (U_successive_lin[-1]-U_successive_lin[0])/(xmax-xmin)
+
+# print(df_successive)
+
+if print_latex:
+    # df_successive_lin['k'].astype("Int64")
+
+    # Convert the DataFrame to a LaTeX table with scientific notation and three significant digits
+    latex_table = df_successive_lin.to_latex(index=False,formatters={
+    'k': lambda x: f'{x:.0f}',
+    'phi_wall': lambda x: f'{x:.3e}',
+    'diff': lambda x: f'{x:.3e}'
+    })
+
+    # Print the LaTeX table
+    print(latex_table)
+
+    print(df_successive_lin.to_html(index=False,
+    formatters={
+    'k': lambda x: f'{x:.0f}',
+    'phi_wall': lambda x: f'{x:.3e}',
+    'diff': lambda x: f'{x:.3e}'
+    }))
+
 # diff = [(U_successive_relax[i+1]-U_successive_relax[i])/h for i in range(N)]
 
 # print('x component of gradient',diff)
@@ -300,6 +338,13 @@ print('slope_successive                        , slope:{:.3e} residual {:.3e} ph
 
 print('successive substitutions, relaxation 0.5, slope:{:.3e} residual {:.3e} phi at electrode {:.3e}'.format(
     slope_successive_relax,f(slope_successive_relax,L, i0, alpha, Faraday, Ru, temperature0, elec_cond),-slope_successive_relax*L))
+
+print('successive substitutions, linearized, slope:{:.3e} residual {:.3e} phi at electrode {:.3e}'.format(
+    slope_successive_lin,f(slope_successive_lin,L, i0, alpha, Faraday, Ru, temperature0, elec_cond),-slope_successive_lin*L))
+
+overpotential_crit = Ru * temperature0 /Faraday
+
+print('criterion for linearization ',overpotential_crit,'V',overpotential_crit*1000,'mV')
 
 # print('with fsolve, slope:',solved_slope,' residual ',f(solved_slope,L, i0, alpha, Faraday, Ru, temperature0, elec_cond),'phi at electrode ',-solved_slope*L)
 

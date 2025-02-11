@@ -97,8 +97,8 @@ Stores parameters for the simulation
     null_space::D=0
     io_pdi::D=0
     bulk_conductivity::D=0
-    electric_potential::D = 0 #solve electric potential
-    electric_potential_max_iter::D=1
+    electrical_potential::D = 0 #solve electric potential
+    electrical_potential_max_iter::D=1
     contact_angle::D = 0 #contact angle: advancing, receding
     convection_Cdivu::D = 0
     convection_mode::D = 0

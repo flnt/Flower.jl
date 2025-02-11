@@ -1857,7 +1857,27 @@ end
 
 
 """
-uses biquadratic
+Compute the biquadratic interpolation values for the scalar field at the faces of a quadrilateral element whose center is at II_0.
+
+Hypothesis constant mesh spacing ? dx, dy 
+
+### Inputs
+- `itp`: Interpolation object used for the biquadratic interpolation.
+- `II_0`: Index of the reference element.
+- `II`: Index of the current element.
+- `x`: Array of x-coordinates of the element vertices.
+- `y`: Array of y-coordinates of the element vertices.
+- `dx`: Horizontal offset for the face interpolation.
+- `dy`: Vertical offset for the face interpolation.
+
+### Outputs
+- A vector of four biquadratic interpolation values corresponding to the four faces of the quadrilateral element.
+
+The coordinates are normalized.
+
+### Example
+II = II_0
+[biquadratic(itp,-0.25,0),biquadratic(itp,0,-0.25),biquadratic(itp,0.25,0),biquadratic(itp,0,0.25)]
 """
 @inline faces_scalar(itp, II_0, II, x, y, dx, dy) = 
     [biquadratic(itp, (x[II] - x[II_0] - dx/2)/(x[δx⁺(II_0)] - x[δx⁻(II_0)]),
@@ -1872,6 +1892,43 @@ uses biquadratic
 
 """
 static_stencil, B_BT, faces_scalar
+
+
+Interpolates scalar values from a grid to the faces of a cell.
+
+### Inputs
+- `II_0` (`Int`): The index of the cell for which the interpolation is performed.
+- `II` (`Int`): The index of the face for which the interpolation is performed.
+- `u` (`Array{T,2}`): The array containing the scalar values to be interpolated.
+- `x` (`Array{T,1}`): The array of x-coordinates of the grid points.
+- `y` (`Array{T,1}`): The array of y-coordinates of the grid points.
+- `dx` (`Array{T,1}`): The array of x-coordinate differences (grid spacing).
+- `dy` (`Array{T,1}`): The array of y-coordinate differences (grid spacing).
+- `u_faces` (`Array{T,2}`): The array where the interpolated values at the faces will be stored.
+
+### Outputs
+- `nothing`: This function modifies the `u_faces` array in-place and returns nothing.
+
+### Description
+This function interpolates scalar values from a grid to the faces of a cell.
+It uses a static stencil to compute the interpolation weights and applies these weights 
+to the scalar values to obtain the interpolated values at the faces.
+
+### Steps
+1. **Static Stencil Calculation**:
+   - The function first calculates a static stencil `st` based on the scalar values `u` and the index `II_0`.
+
+2. **Matrix Multiplication**:
+   - Matrices `B` and `BT` are computed using the function `B_BT(II_0, x, y)`.
+   - The interpolation weights `itp` are then computed as `B * st * BT`.
+
+3. **Face Interpolation**:
+   - The interpolated values at the faces are computed using the function `faces_scalar(itp, II_0, II, x, y, dx[II], dy[II])`.
+
+4. **In-place Assignment**:
+   - The interpolated values are assigned to the `u_faces` array for the specified cell and face indices.
+
+
 """
 function aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
     st = static_stencil(u, II_0)
@@ -1885,9 +1942,56 @@ end
 
 
 """
-interpolate_scalar!(grid, grid_u, grid_v, u, uu, uv)
-
 Interpolates a scalar: from scalar grid to u and v grids
+
+Interpolates the scalar field `u` onto the faces of the grid, i.e onto the u and v grids.
+
+### Parameters
+- `grid`: A structure containing the grid information.
+  - `x`: x-coordinates of the grid points.
+  - `y`: y-coordinates of the grid points.
+  - `nx`: Number of grid points in the x-direction.
+  - `ny`: Number of grid points in the y-direction.
+  - `dx`: Spacing between grid points in the x-direction.
+  - `dy`: Spacing between grid points in the y-direction.
+  - `ind`: A structure containing grid indices.
+    - `inside`: Indices of the interior grid points.
+    - `b_left`: Indices of the left boundary grid points.
+    - `b_bottom`: Indices of the bottom boundary grid points.
+    - `b_right`: Indices of the right boundary grid points.
+    - `b_top`: Indices of the top boundary grid points.
+
+- `grid_u`: staggered u grid
+- `grid_v`: staggered v grid
+- `u`: The scalar field to be interpolated.
+- `uu`: Array to store the interpolated values on the u-faces.
+- `uv`: Array to store the interpolated values on the v-faces.
+
+### Returns
+- `nothing`: This function modifies the `uu` and `uv` arrays in-place.
+
+### Description
+This function interpolates the scalar field `u` onto the faces of the grid. It handles both interior and boundary points. 
+The interpolated values are stored in the `uu` and `uv` arrays.
+
+### Detailed Steps
+1. **Initialize `u_faces`**: Create an array to store the interpolated values on the faces of the grid.
+2. **Interpolate Interior Points**: Loop over the interior grid points and interpolate the scalar field `u` onto the faces using the `aux_interpolate_scalar!` function.
+3. **Interpolate Left Boundary Points**: Loop over the left boundary grid points (excluding corners) and interpolate the scalar field `u` onto the faces.
+4. **Interpolate Left Boundary Corners**: Handle the interpolation for the left boundary corners separately.
+5. **Interpolate Bottom Boundary Points**: Loop over the bottom boundary grid points (excluding corners) and interpolate the scalar field `u` onto the faces.
+6. **Interpolate Right Boundary Points**: Loop over the right boundary grid points (excluding corners) and interpolate the scalar field `u` onto the faces.
+7. **Interpolate Right Boundary Corners**: Handle the interpolation for the right boundary corners separately.
+8. **Interpolate Top Boundary Points**: Loop over the top boundary grid points (excluding corners) and interpolate the scalar field `u` onto the faces.
+9. **Store Interpolated Values**:
+   - Store the interpolated values on the first and last columns of `uu`.
+   - Store the interpolated values on the first and last rows of `uv`.
+   - Interpolate the remaining values in `uu` and `uv` using averaging.
+
+### Notes
+- The function uses the `@inbounds` macro to avoid bounds checking, which can improve performance.
+- The `@threads` macro is used to parallelize the loops, taking advantage of multiple threads for better performance.
+
 """
 function interpolate_scalar!(grid, grid_u, grid_v, u, uu, uv)
     @unpack x, y, nx, ny, dx, dy, ind = grid
@@ -1899,18 +2003,22 @@ function interpolate_scalar!(grid, grid_u, grid_v, u, uu, uv)
         aux_interpolate_scalar!(II, II, u, x, y, dx, dy, u_faces)
     end
 
+    # Shift point so that stencil is defined and interpolate at II
     @inbounds @threads for II in b_left[1][2:end-1]
         aux_interpolate_scalar!(δx⁺(II), II, u, x, y, dx, dy, u_faces)
     end
 
+    # Shift point to interpolate
     II = b_left[1][1]
     II_0 = δy⁺(δx⁺(II))
     aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
 
+    # Shift point to interpolate
     II = b_left[1][end]
     II_0 = δy⁻(δx⁺(II))
     aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
 
+    # Shift point to interpolate
     @inbounds @threads for II in b_bottom[1][2:end-1]
         aux_interpolate_scalar!(δy⁺(II), II, u, x, y, dx, dy, u_faces)
     end
@@ -1919,10 +2027,12 @@ function interpolate_scalar!(grid, grid_u, grid_v, u, uu, uv)
         aux_interpolate_scalar!(δx⁻(II), II, u, x, y, dx, dy, u_faces)
     end
 
+    # Shift point to interpolate
     II = b_right[1][1]
     II_0 = δy⁺(δx⁻(II))
     aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
 
+    # Shift point to interpolate
     II = b_right[1][end]
     II_0 = δy⁻(δx⁻(II))
     aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
@@ -1931,6 +2041,7 @@ function interpolate_scalar!(grid, grid_u, grid_v, u, uu, uv)
         aux_interpolate_scalar!(δy⁻(II), II, u, x, y, dx, dy, u_faces)
     end
 
+    # The corner points are not interpolated
     @inbounds uu[:,1] .= @view u_faces[:,1,1]
     @inbounds uu[:,end] .= @view u_faces[:,end,3]
 

@@ -81,7 +81,7 @@ flower:
     contact_angle: 1 #activate advancing/receding contact angle
     convection_Cdivu: 0
     convection_mode: 1 #0 #1
-    electric_potential: 1
+    electrical_potential: 1
     electrolysis_phase_change_case: "levelset_averaged" #"Khalighi" #no phase change
     # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
     # electrolysis_phase_change_case: "levelset" # local

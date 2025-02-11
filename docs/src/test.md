@@ -108,6 +108,13 @@ For a regular mesh with constant mesh spacing, with ``h_x=h_y``
 * Test that the matrix coefficients at the bottom left corner for a Laplacian are -6, ...
 * Test that the matrix coefficients at the bottom left corner for a Laplacian in the BC system with Neumann at left wall are 2 for bulk, -2 for interfacial value
 
+### Interpolation
+To check [`interpolate_scalar!`](@ref)
+```bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/test/runtests_operators.jl
+```
+
+
 Example
 
 ```@raw html
@@ -256,7 +263,7 @@ The analytical function is: ``g = -f``.
 
 
 
-See [`set_poisson_variable_coeff_SPD!`](@ref) in [Electrical potential](@ref) and 
+See [`solve_poisson_variable_coeff!`](@ref) in [Electrical potential](@ref) and 
 ```@raw html
  <a href="documentation.html#Poisson-equation"> Poisson equation section </a>.
 ```

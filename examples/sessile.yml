@@ -78,7 +78,7 @@ flower:
     CFL: 0.5
     concentration_check_factor: 1e-4
     convection_Cdivu: 0
-    electric_potential: 0
+    electrical_potential: 0
     electrolysis_phase_change_case: "none" #"Khalighi" #no phase change
     # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
     # electrolysis_phase_change_case: "levelset" # local

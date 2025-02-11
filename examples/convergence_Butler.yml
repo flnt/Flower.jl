@@ -98,8 +98,9 @@ flower:
     convection_Cdivu: 0
     convection_mode: 1 #0 #1
     electrolysis_convection: 0 #1
-    electric_potential: 3 #2 #0 deactivated
-    electric_potential_max_iter: 10
+    electrical_potential: 3 #2 #0 deactivated
+    electrical_potential_max_iter: 20
+    electrical_potential_residual: 1e-2
     electrolysis_phase_change_case: "None" #"Khalighi" #no phase change
     # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
     # electrolysis_phase_change_case: "levelset" # local
@@ -316,7 +317,7 @@ study:
   #tolerance for tests
   test_tolerance: 1.e-11 #1.e-14
   test_tolerance_solution_absolute:  1.e-1 # from n = 16 
-  meshes: [32,64,128,256]
+  meshes: [32] #[32,64,128,256]
 
 
 plot:

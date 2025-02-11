@@ -22,6 +22,26 @@ This document contains extracts from the theses and articles listed in [Referenc
 * v-grid: staggered grid (with regard to p-grid, in y-axis), used to discretize the y-component of the velocity 
 * ghost cells: cells defined outside of the computational domain so that the same stencils may be used near the wall (see [`allocate_ghost_matrices_2`](@ref), [`init_ghost_neumann_2`](@ref), [`IIOE_normal_indices_2!`](@ref); for MPI parallelization, ghost cells may also refer to cells outside the computational domain of the current processor, not implemented here)
 
+
+## Algorithm, main function
+
+```@docs
+run_forward!
+```
+!!! todo "change order scalar transport electrical potential"
+
+
+# Algorithm
+* Initialization
+* Pressure-velocity coupling (Navier-Stokes)
+* Scalar transport
+* Poisson equation (electrical potential)
+* Reevaluate the current i_current for boundary conditions 
+* Phase change
+* Advection of the levelset
+
+
+
 ## Definitions
 
 ### Convention and orientation of the bubble interface
@@ -41,7 +61,7 @@ In Flower, multiple levelsets may be defined. The last levelset is the combinati
 
 "
 
-In this work, a levelset function $\phi$ \cite{Sethian1999} is defined on the computational domain ``\Omega`` to map the locus of one of its iso-levels (``\left \{ \left . x \in \Omega \right | \phi \left ( x, t \right ) = \phi _ 0 \right \}``) to an interface ``\Gamma \left ( t \right )`` that separates two non-overlapping domains, ``\Omega _ 1 \left ( t \right )`` and ``\Omega _ 2 \left ( t \right )``, each occupied by a different phase. The value ``\phi`` is defined as the signed distance to the interface,
+In this work, a levelset function ``\phi`` \cite{Sethian1999} is defined on the computational domain ``\Omega`` to map the locus of one of its iso-levels (``\left \{ \left . x \in \Omega \right | \phi \left ( x, t \right ) = \phi _ 0 \right \}``) to an interface ``\Gamma \left ( t \right )`` that separates two non-overlapping domains, ``\Omega _ 1 \left ( t \right )`` and ``\Omega _ 2 \left ( t \right )``, each occupied by a different phase. The value ``\phi`` is defined as the signed distance to the interface,
 ```math
 \begin{equation}
 	\phi \left ( x, t \right ) = \left \{ \begin{aligned}
@@ -1490,12 +1510,48 @@ You can use the following functions to access bulk and interfacial fields:
 
 ```@docs
 veci
+```
+
+```julia
+vecb(a, g::G) where {G<:Grid} = @view a[end-2*g.ny-2*g.nx+1:end]
+```
+
+```@docs
 vecb
+```
+
+```julia
+vecb_L(a,g::G) where {G<:Grid} = @view vecb(a, g)[1:g.ny]
+```
+
+```@docs
 vecb_L
+```
+
+```julia
+vecb_B(a,g::G) where {G<:Grid} = @view vecb(a, g)[g.ny+1:g.ny+g.nx]
+```
+
+```@docs
 vecb_B
+```
+
+```julia
+vecb_R(a,g::G) where {G<:Grid} = @view vecb(a, g)[g.ny+g.nx+1:2*g.ny+g.nx]
+```
+
+```@docs
 vecb_R
+```
+
+```julia
+vecb_T(a,g::G) where {G<:Grid} = @view vecb(a, g)[2*g.ny+g.nx+1:2*g.ny+2*g.nx]
+```
+
+```@docs
 vecb_T
 ```
+
 
 
 ### Indices
@@ -1617,8 +1673,161 @@ In [`set_borders!`](@ref), we have:
 * Robin: a1 = -1 b = 1
 * a0 : BC value 
 
+
 ```@docs
-set_poisson_variable_coeff_SPD!
+interpolate_scalar!(grid, grid_u, grid_v, u, uu, uv)
+```
+
+```@docs
+aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
+static_stencil(a, II::CartesianIndex)
+faces_scalar(itp, II_0, II, x, y, dx[II], dy[II])
+```
+
+```math
+\phi(\bar{x}, \bar{y}) = \begin{bmatrix} \bar{x}^2 & \bar{x} & 1 \end{bmatrix}
+\begin{bmatrix}
+m_{0,0} & m_{0,1} & m_{0,2} \\
+m_{1,0} & m_{1,1} & m_{1,2} \\
+m_{2,0} & m_{2,1} & m_{2,2}
+\end{bmatrix}
+\begin{bmatrix} \bar{y}^2 \\ \bar{y} \\ 1 \end{bmatrix} = X^T MY
+```
+This matrix is computed in [`B_BT`](@ref).
+```@docs
+B_BT(II_0, x, y)
+```
+where $\bar{x} = \frac{x - x_{i,j}}{x_{i+1,j} - x_{i-1,j}}$ and $\bar{y} = \frac{y - y_{i,j}}{y_{i,j+1} - y_{i,j-1}}$ are normalized Cartesian coordinates, and $M$ is a matrix with the unknown interpolation coefficients. The values of the level-set at the cells of the $3 \times 3$ stencil can be used to set the following system of equations
+
+```math
+\Phi = AMB.
+```
+
+where
+
+```math
+\Phi = \begin{bmatrix}
+\phi_{i-1,j-1} & \phi_{i-1,j} & \phi_{i-1,j+1} \\
+\phi_{i,j-1} & \phi_{i,j} & \phi_{i,j+1} \\
+\phi_{i+1,j-1} & \phi_{i+1,j} & \phi_{i+1,j+1}
+\end{bmatrix},
+```
+
+```math
+A = \begin{bmatrix}
+(\bar{x}_{i-1,j})^2 & \bar{x}_{i-1,j} & 1 \\
+0 & 0 & 1 \\
+(\bar{x}_{i+1,j})^2 & \bar{x}_{i+1,j} & 1
+\end{bmatrix},
+```
+
+```math
+B = \begin{bmatrix}
+(\bar{y}_{i,j-1})^2 & 0 & (\bar{y}_{i,j+1})^2 \\
+\bar{y}_{i,j-1} & 0 & \bar{y}_{i,j+1} \\
+1 & 1 & 1
+\end{bmatrix}.
+```
+
+The interpolation matrix $M$ can be computed after inverting matrices $A$ and $B$
+
+```math
+M = A^{-1}\Phi B^{-1}.
+```
+
+Once the interpolation matrix is obtained, the following equation can be used to interpolate the value of the level-set at a normalized position $(\bar{x}, \bar{y})$:
+```math
+\phi(\bar{x}, \bar{y}) = \begin{bmatrix} \bar{x}^2 & \bar{x} & 1 \end{bmatrix}
+\begin{bmatrix}
+m_{0,0} & m_{0,1} & m_{0,2} \\
+m_{1,0} & m_{1,1} & m_{1,2} \\
+m_{2,0} & m_{2,1} & m_{2,2}
+\end{bmatrix}
+\begin{bmatrix} \bar{y}^2 \\ \bar{y} \\ 1 \end{bmatrix} = X^T MY
+```
+
+
+
+
+"
+The level-set has to be interpolated to compute the required geometric moments. 
+To that end, a biquadratic interpolation defined on the ```3 \times 3``` stencil centered at a cell ```(i, j)``` will be used. 
+The interpolant is defined as
+"
+
+```@docs
+biquadratic(m, x, y)
+```
+
+
+#### Example 
+To determine the values of the corners, we perform a bi-quadratic interpolation on the 3 x 3 stencil centered on the cell of interest. 
+For this exercise, we assume a constant spacing of the Cartesian grid in all dimensions. We want to calculate the
+
+The interpolation matrix \( M \) is given by:
+
+\[
+\phi(x, y) = \sum_{i=0}^{2} \sum_{j=0}^{2} m_{ij} x^i y^j
+\]
+
+This can be expressed as:
+
+\[
+\phi(x, y) = \begin{bmatrix} x^2 & x & 1 \end{bmatrix}
+\begin{bmatrix}
+m_{2,2} & m_{2,1} & m_{2,0} \\
+m_{1,2} & m_{1,1} & m_{1,0} \\
+m_{0,2} & m_{0,1} & m_{0,0}
+\end{bmatrix}
+\begin{bmatrix}
+y^2 \\
+y \\
+1
+\end{bmatrix}
+= X M Y^T
+\]
+
+With \(\phi(x, y)\) being the set of known data points of the level set function, yielding:
+
+\[
+\Phi = G M G^T
+\]
+
+Where:
+
+\[
+\Phi = \begin{bmatrix}
+\phi_{-1,-1} & \phi_{-1,0} & \phi_{-1,1} \\
+\phi_{0,-1} & \phi_{0,0} & \phi_{0,1} \\
+\phi_{1,-1} & \phi_{1,0} & \phi_{1,1}
+\end{bmatrix}
+= \begin{bmatrix}
+(-1)^2 & -1 & 1 \\
+0^2 & 0 & 1 \\
+1^2 & 1 & 1
+\end{bmatrix}
+G
+\begin{bmatrix}
+m_{2,2} & m_{2,1} & m_{2,0} \\
+m_{1,2} & m_{1,1} & m_{1,0} \\
+m_{0,2} & m_{0,1} & m_{0,0}
+\end{bmatrix}
+M
+\begin{bmatrix}
+(-1)^2 & 0 & (1)^2 \\
+-1 & 0 & 1 \\
+1 & 1 & 1
+\end{bmatrix}
+G^T
+\]
+
+
+
+!!! todo "Interpolation for Poisson with variable coefficient"
+    does not take border and intrfacial values into account
+
+
+```@docs
 solve_poisson_variable_coeff!
 ```
 ### Electrical current
@@ -1638,6 +1847,16 @@ update_free_surface_velocity_electrolysis!
 ```
 
 ## Butler-Volmer equation
+
+```@docs
+update_BC_electrical_potential!(num,grid,BC_phi_ele,elec_cond,elec_condD,i_butler)
+```
+
+```@docs
+update_electrical_current_from_Butler_Volmer!(num,grid,heat,phi_eleD,i_butler;T=nothing)
+```
+
+
 ```@docs
 butler_volmer_concentration(alpha_a,alpha_c,c_H2,c0_H2,c_H2O,c0_H2O,c_KOH,c0_KOH,Faraday,i0,phi_ele,phi_ele1,Ru,temperature0)
 butler_volmer_no_concentration(alpha_a,alpha_c,Faraday,i0,phi_ele,phi_ele1,Ru,temperature0)
@@ -2125,7 +2344,7 @@ periodic_bcs_borders!
 set_boundary_indicator!
 ```
 
-!!!todo "Rx Ry"
+!!! todo "Rx Ry"
 
 ```@docs
 periodic_bcs_R!

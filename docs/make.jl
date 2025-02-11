@@ -20,6 +20,7 @@ makedocs(sitename="Flower.jl",
     mathengine =mathengine,
     assets=["assets/custom.css"],
     # assets = ["assets/custom.css", "assets/custom.js"]
+    size_threshold_ignore = ["index.md","documentation.md","test.md","tutorial.md"], #otherwise size threshold exceeded and blocks search bar for instance
     ), 
     pages = Any[
         "Home" => "index.md",

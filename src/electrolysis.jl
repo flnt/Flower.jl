@@ -2674,493 +2674,6 @@ end
 
 
 
-"""    
-SPD matrix:
-# Arguments
-- bc_type: BC for interface, num, grid, 
-- a0, 
-- opC, 
-- pC_v,
-- A, 
-- BC: BC for wall
-- ls_advection
-
-```math
--\\nabla( \\kappa \\nabla \\phi) =f)
-```
-
-"""
-function set_poisson_variable_coeff_SPD!(num::Numerical{Float64, Int64},
-    grid::Mesh{Flower.GridCC, Float64, Int64},
-    grid_u::Mesh{Flower.GridFCx, Float64, Int64},
-    grid_v::Mesh{Flower.GridFCy, Float64, Int64},
-    opC::Operators{Float64, Int64},
-    A::SparseMatrixCSC{Float64, Int64},
-    rhs::Array{Float64, 1},
-    a0::Array{Float64, 2},
-    a1::SparseMatrixCSC{Float64, Int64},
-    BC::BoundariesInt,
-    ph::Phase{Float64},
-    coeffD::Array{Float64, 1},
-    coeffDu::Array{Float64, 2},
-    coeffDv::Array{Float64, 2},
-    # coeffDu0::Array{Float64, 2},
-    # coeffDv0::Array{Float64, 2},
-    ls_advection::Bool)
-
-    @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
-    @unpack BxT, ByT,tmp_x, tmp_y = opC
-
-    ni = grid.nx * grid.ny
-    nb = 2 * grid.nx + 2 * grid.ny
-
-    #TODO reset zero
-    rhs .= 0.0
-    coeffDu .= 0.0
-    coeffDv .= 0.0
-    # coeffDu0 .= 0.0 #TODO
-    # coeffDv0 .= 0.0
-    A .= 0.0
-    a0 .= 0.0
-
-    a0_b = zeros(nb)
-    _a1_b = zeros(nb)
-    _b_b = zeros(nb)
-    for iLS in 1:num.nLS
-        set_borders!(grid, grid.LS[iLS].cl, grid.LS[iLS].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
-    end
-    a1_b = Diagonal(vec(_a1_b))
-    b_b = Diagonal(vec(_b_b))
-
-    #interpolate coefficient
-    coeffD_borders = vecb(coeffD,grid)
-    interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(coeffD,grid,1), grid), coeffDu, coeffDv)
-
-    coeffDx_bulk = veci(coeffDu,grid_u)
-    coeffDy_bulk = veci(coeffDv,grid_v)
-
-    mat_coeffDx = Diagonal(vec(coeffDx_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
-    mat_coeffDy = Diagonal(vec(coeffDy_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
-    
-    mat_coeffDx_b = Diagonal(vec(coeffD_borders)) # is a 1d vector with shape (2grid.ny + 2grid.nx), multiplies Hx_b and Hy_b
-
-
-    # L = BxT * iMx * Bx
-    # L size nx*ny
-    # tmp_x ((nx+1)*ny ?, nx*ny)
-    # BxT (nx*ny, (nx+1)*ny ?)
-    # Bx ((nx+1)*ny ?, nx*ny)
-    # iMx ((nx+1)*ny ?, (nx+1)*ny ?)
-
-    #Laplacian
-    #diag so ok if not order mat_coeffDx iMx Bx ?
-    mul!(tmp_x, iMx, mat_coeffDx * Bx)
-    L = BxT * tmp_x
-    mul!(tmp_y, iMy, mat_coeffDy * By)
-    L = L .+ ByT * tmp_y
-
-    #Boundary for Laplacian
-    bc_L_b = (BxT * iMx_b * mat_coeffDx_b *Hx_b .+ ByT * iMy_b * mat_coeffDx_b *Hy_b)
-
-    #new
-    sign =-1.0
-    sign = 1.0
-
-    sign2 = -1.0
-    sign2 = 1.0
-
-    signb = -1.0
-    signb = 1.0
-
-    signchi = -1.0
-    signchi = 1.0
-
-    signL = -1.0
-    signL = 1.0
-
-    #old
-    sign = 1.0
-
-    sign2 = -1.0
-
-    signb = -1.0
-
-    signchi = -1.0
-
-    signL = -1.0
-
-    # #new
-    # sign = 1.0
-
-    # sign2 = 1.0
-
-    # signb = 1.0
-
-    # signchi = 1.0
-
-    # signL = 1.0
-
-      
-    if ls_advection
-        # Poisson equation
-        A[1:ni,1:ni] = pad(L, signL*4.0)
-        A[1:ni,end-nb+1:end] = bc_L_b
-
-        # Boundary conditions for outer boundaries
-        A[end-nb+1:end,1:ni] = signb*b_b * (HxT_b * iMx_b' * mat_coeffDx * Bx .+ HyT_b * iMy_b' * mat_coeffDy * By)
-        A[end-nb+1:end,end-nb+1:end] = signb*pad(b_b * (HxT_b * iMx_bd * mat_coeffDx_b * Hx_b .+ HyT_b * iMy_bd * mat_coeffDx_b * Hy_b) .+signchi* χ_b * a1_b, 4.0)
-    end
-
-    for iLS in 1:num.nLS
-
-        a0 .= 0.0 #reset
-
-        if ls_advection
-            if is_dirichlet(BC.LS[iLS])
-                __a0 = BC.LS[iLS].val
-                __a1 = -1.0
-                __a2 = 0.0
-                __b = 0.0
-            elseif is_neumann(BC.LS[iLS])
-                __a0 = BC.LS[iLS].val
-                __a1 = 0.0
-                __a2 = 0.0
-                __b = 1.0
-            elseif is_robin(BC.LS[iLS])
-                __a0 = BC.LS[iLS].val
-                __a1 = -1.0
-                __a2 = 0.0
-                __b = 1.0
-            elseif is_fs(BC.LS[iLS])
-                print("error not implemented set_poisson_variable_coeff",BC.LS[iLS])
-                @error ("error set_poisson_variable_coeff")
-
-                __a1 = 0.0
-                __a2 = 1.0
-                __b = 0.0
-            elseif is_wall_no_slip(BC.LS[iLS])
-                print("error not implemented set_poisson_variable_coeff",BC.LS[iLS])
-                @error ("error set_poisson_variable_coeff")
-
-                __a1 = 0.0
-                __a2 = 0.0
-                __b = 1.0
-            elseif is_navier(BC.LS[iLS])
-                print("error not implemented set_poisson_variable_coeff",BC.LS[iLS])
-                @error ("error set_poisson_variable_coeff")
-
-                __a1 = 0.0
-                __a2 = 0.0
-                __b = 1.0
-            elseif is_navier_cl(BC.LS[iLS])
-                print("error not implemented set_poisson_variable_coeff",BC.LS[iLS])
-                @error ("error set_poisson_variable_coeff")
-
-                __a1 = 0.0
-                __a2 = 0.0
-                __b = 1.0
-            else
-                __a1 = 0.0
-                __a2 = 0.0
-                __b = 1.0
-            end
-    
-            if num.nLS == 1
-                # Flags with BCs
-                a0 .= __a0
-                # a0 = ones(grid) .* __a0
-            
-            else 
-                iLS_elec = 2
-                
-                if iLS == iLS_elec 
-
-                    #use Butler-Volmer, supposing the interfacial potential is acceptable and phi = phi_ele1 in metal 
-                    # for conductivity, use interfacial value or bulk in corresponding cell
-
-                    # TODO -(-i/kappa) in Flower ? so i_butler not -i_butler
-
-                    # if num.bulk_conductivity == 0
-                        
-                    # elseif num.bulk_conductivity == 1
-                    #     @error ("error elseif num.bulk_conductivity == 1")
-
-                    if num.bulk_conductivity == 2
-                        # Recommended as long as cell merging not implemented:
-
-                        #TODO remove reshape and use a mapping 
-                        # butler_volmer_no_concentration_potential_Neumann!.(num,
-                        # reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
-                        # reshape(veci(ph.trans_scalD[:,2],grid,iLS+1),grid),
-                        # num.temperature0,
-                        # a0)
-                        # a0 .= butler_volmer_no_concentration_potential_Neumann.(num,
-                        # reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
-                        # reshape(veci(ph.trans_scalD[:,2],grid,iLS+1),grid),
-                        # num.temperature0)
-
-                        for II in grid.LS[iLS].MIXED
-                          
-
-                            # a0[II] .= butler_volmer_no_concentration_potential_Neumann.(num,
-                            # reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
-                            # reshape(veci(ph.trans_scalD[:,2],grid,iLS+1),grid),
-                            # num.temperature0)
-
-                            pII = lexicographic(II, grid.ny)
-
-                            # if grid.LS[iLS].geoL.cap[II,5] < num.ϵ
-                       
-                            if grid.LS[end].geoL.cap[II,5] > num.ϵ #TODO clearer eps
-
-                                a0[II] = butler_volmer_no_concentration_potential_Neumann.(num,
-                                veci(ph.phi_eleD, grid,iLS+1)[pII],
-                                veci(ph.trans_scalD[:,2],grid,iLS+1)[pII],
-                                num.temperature0)
-
-                                if veci(ph.trans_scalD[:,2],grid,iLS+1)[pII] < num.epsilon_concentration[2]
-                                    a0[II] = butler_volmer_no_concentration_potential_Neumann.(num,
-                                    # reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
-                                    veci(ph.phi_eleD, grid,iLS+1)[pII],
-                                    ph.trans_scal[II,2],
-                                    num.temperature0)
-                                end
-
-                                # print("\n II",II,"BC ", BC.LS[iLS].val)
-                                # printstyled(color=:red, @sprintf "\n Butler %.2e %.2e \n" a0[II] reshape(veci(ph.trans_scalD[:,2],grid,iLS+1),grid)[II])
-
-
-                                # a0[II] = butler_volmer_no_concentration_potential_Neumann.(num,
-                                # reshape(veci(ph.phi_eleD, grid,iLS+1),grid)[II],
-                                # reshape(veci(ph.trans_scalD[:,2],grid,iLS+1),grid)[II],
-                                # num.temperature0)
-
-                            else
-                                print("\n grid.LS[end].geoL.cap[II,5] > num.ϵ ", (grid.LS[end].geoL.cap[II,5] > num.ϵ),(ph.trans_scal[II,2]<num.ϵ), " ",ph.trans_scal[II,2], " ",num.ϵ)
-                                #use bulk conductivity of mixed cell
-                                # butler_volmer_no_concentration_potential_Neumann!.(num,
-                                # reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
-                                # ph.trans_scal[II,2],
-                                # num.temperature0,
-                                # a0[II]) #TODO if temperature solved temperature[II]
-
-                                if ph.trans_scal[II,2]<num.epsilon_concentration[2] #inside bubble, do not solve, fill with 1 since concentration=0
-                                    a0[II] = 1.0 
-                                    print("\n zero scal II")
-                                else
-                                    a0[II] = butler_volmer_no_concentration_potential_Neumann.(num,
-                                    veci(ph.phi_eleD, grid,iLS+1)[pII],
-                                    ph.trans_scal[II,2],
-                                    num.temperature0) #TODO if temperature solved temperature[II]
-                                end #ph.trans_scal[II,2]<num.ϵ
-
-
-                            end #grid.LS[end].geoL.cap[II,5] > num.ϵ: liquid cell
-
-                            print("\n II ",II)
-                            # printstyled(color=:red, @sprintf "\n grid.LS[end].geoL.cap[II,5] %.2e grid.LS[iLS].geoL.cap[II,1] %.2e grid.LS[iLS].geoL.cap[II,5] %.2e scal %.2e\n" grid.LS[end].geoL.cap[II,5] grid.LS[iLS].geoL.cap[II,1] grid.LS[iLS].geoL.cap[II,5] ph.trans_scal[II,2] a0[II])
-                            printstyled(color=:red, @sprintf "\n grid.LS[end].geoL.cap[II,5] %.2e scaD %.2e scal %.2e phiD %.2e phi %.2e a0 %.2e \n" grid.LS[end].geoL.cap[II,5] veci(ph.trans_scalD[:,2],grid,iLS+1)[pII] ph.trans_scal[II,2] veci(ph.phi_eleD, grid,iLS+1)[pII] ph.phi_ele[II] a0[II])
-
-
-                            # TODO
-                            #Remove Nan when dividing by conductivity which may be null
-                            # kill_dead_bc_left_wall!(vecb(elec_condD,grid), grid, iLS,1.0)
-                                #Remove Nan when dividing by conductivity which may be null
-                        end   #for
-                    
-                    else #bulk_conductivity!=2
-                        a0 .= __a0
-
-                    end #bulk_conductivity
-
-                else #ilS==iLS_elec
-                    a0 .= __a0
-                end #ilS==iLS_elec
-
-            end #num.nLS == 1
-
-
-            # _a1 = ones(grid) .* __a1
-            # a1 = Diagonal(vec(_a1))
-            a1.nzval .= __a1
-
-            _b = ones(grid) .* __b
-            b = Diagonal(vec(_b))
-
-            # a0_b = zeros(nb)
-            # _a1_b = zeros(nb)
-            # _b_b = zeros(nb)
-            # set_borders!(grid, grid.LS[1].cl, grid.LS[1].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
-            # a1_b = Diagonal(vec(_a1_b))
-            # b_b = Diagonal(vec(_b_b))
-
-           
-            _a2 = ones(grid) .* __a2
-            a2 = Diagonal(vec(_a2))
-         
-            fs_mat = HxT[iLS] * Hx[iLS] .+ HyT[iLS] * Hy[iLS]
-
-            sb = iLS*ni+1:(iLS+1)*ni
-
-            #interpolate conductivity coefficient for interface term
-            #TODO multiple scalars : better to use div grad...?
-            # coeffDu0 .= 0.0
-            # coeffDv0 .= 0.0
-            # interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(coeffD,grid,iLS+1), grid), coeffDu0, coeffDv0)
-            # mat_coeffDx_i = Diagonal(vec(coeffDu0)) # coeffDu is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Hx
-            # mat_coeffDy_i = Diagonal(vec(coeffDv0)) # coeffDu is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies Hy
-
-            # print("\n test coeff")
-            coeffDu .= 0.0
-            coeffDv .= 0.0
-            interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(coeffD,grid,iLS+1), grid), coeffDu, coeffDv)
-            mat_coeffDx_i = Diagonal(vec(coeffDu)) # coeffDu is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Hx
-            mat_coeffDy_i = Diagonal(vec(coeffDv)) # coeffDu is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies Hy
-
-
-            
-            # Poisson equation
-            #Boundary for Laplacian from iLS
-            A[1:ni,sb] = BxT * iMx * mat_coeffDx_i *Hx[iLS] .+ ByT * iMy * mat_coeffDy_i *Hy[iLS]
-
-            # Boundary conditions for inner boundaries
-            A[sb,1:ni] = sign2*b * (HxT[iLS] * iMx * mat_coeffDx * Bx .+ HyT[iLS] * iMy * mat_coeffDy * By) #or vec1
-            # Contribution to Neumann BC from other boundaries
-            for i in 1:num.nLS
-                if i != iLS
-                    A[sb,i*ni+1:(i+1)*ni] = sign2*b * (HxT[iLS] * iMx * mat_coeffDx_i * Hx[i] .+ HyT[iLS] * iMy * mat_coeffDy_i * Hy[i])
-                end
-            end
-            A[sb,sb] = sign2*pad(
-                b * (HxT[iLS] * iMx * mat_coeffDx_i * Hx[iLS] .+ HyT[iLS] * iMy * mat_coeffDy_i * Hy[iLS]) .+ signchi*χ[iLS] * a1 .+
-                a2 * Diagonal(diag(fs_mat)), 4.0
-            )
-            A[sb,end-nb+1:end] = sign*b * (HxT[iLS] * iMx_b * mat_coeffDx_b * Hx_b .+ HyT[iLS] * iMy_b * mat_coeffDx_b * Hy_b)
-            # Boundary conditions for outer boundaries
-            A[end-nb+1:end,sb] = signb*b_b * (HxT_b * iMx_b' * mat_coeffDx_i * Hx[iLS] .+ HyT_b * iMy_b' * mat_coeffDy_i * Hy[iLS])
-        end #ls_advection
-
-        veci(rhs,grid,iLS+1) .= signchi*χ[iLS] * vec(a0) #vec(a0[iLS])
-
-        
-
-        printstyled(color=:red, @sprintf "\n veci(rhs,grid,iLS+1) %.2i %.2e %.2e \n" iLS maximum(abs.(veci(rhs,grid,iLS+1))) maximum(abs.(BC.LS[iLS].val)))
-        print("\n a0 max  ", maximum(a0)," min ",minimum(a0))
-
-    end #for iLS in 1:num.nLS
-
-    vecb(rhs,grid) .= signchi*χ_b * vec(a0_b)
-
-    printstyled(color=:red, @sprintf "\n vecb(rhs,grid) %.2e %.2e \n" maximum(abs.(vecb(rhs,grid))) maximum(abs.(BC.left.val)))
-
-    # b_phi_ele = zeros(grid)
-    # veci(rhs_scal,grid,1) .+= op.opC_pL.M * vec(b_phi_ele)
-
-    if num.null_space == 0
-        @time @inbounds @threads for i in 1:A.m
-            @inbounds A[i,i] += 1e-10
-        end
-    end
-    
-
-    if num.solver == 0
-        @time ph.phi_eleD .= A \ rhs
-    elseif num.solver == 1
-        # using MUMPS, MPI, SparseArrays, LinearAlgebra
-        MPI.Init()
-        # A = sprand(10, 10, 0.2) + I
-        # rhs = rand(10)
-        # x = MUMPS.solve(A, rhs)
-        # norm(x - A \ rhs) / norm(x)
-        # ph.phi_eleD .= x
-        ph.phi_eleD .= MUMPS.solve(A, rhs)
-        MPI.Finalize()
-    
-    elseif num.solver == 2
-        # diagA = A.diag
-
-        d = collect(diag(A))
-        for i in eachindex(d)
-            if iszero(d[i])
-                print("\n diag i ", i,"\n d[i] ",d[i])
-            end
-            # print("\n diag i ", i,"\n d[i] ",d[i])
-            d[i] = ifelse(iszero(d[i]), one(d[i]), 1/d[i])
-            # d[i] = ifelse(iszero(d[i]), a*one(d[i]), zero(d[i]))
-            
-        end
-        # A + Diagonal(d)
-
-        # diagA = diag(A,0)
-        invdiagA= Diagonal(d)
-        newA = invdiagA * A
-        newrhs=  invdiagA * rhs
-        # newA= inv(diagA) * A 
-        # newrhs=  inv(diagA) * rhs
-        @time ph.phi_eleD .= newA \ newrhs
-
-        d = collect(diag(newA))
-        for i in eachindex(d)
-            # if iszero(d[i])
-            #     print("\n diag i ", i,"\n d[i] ",d[i])
-            # end
-            print("\n diag i ", i,"\n d[i] ",d[i])
-            # d[i] = ifelse(iszero(d[i]), one(d[i]), 1/d[i])
-            # d[i] = ifelse(iszero(d[i]), a*one(d[i]), zero(d[i]))
-            
-        end
-
-    end
-
-    print("\n rhs max  ", maximum(rhs)," min",minimum(rhs))
-
-    print("\n norm 2 ", norm(A*ph.phi_eleD)," rhs ",norm(rhs))
-
-
-    print("\n norm 2", norm(A*ph.phi_eleD -rhs)/norm(rhs))
-
-
-    #TODO or use mul!(rhs_scal, BTL, phL.TD, 1.0, 1.0) like in :
-
-    # kill_dead_cells!(phL.T, grid, grid.LS[1].geoL)
-    # veci(phL.TD,grid,1) .= vec(phL.T)
-    # rhs = set_heat!(
-    #     BC_int[1], num, grid, op.opC_TL, grid.LS[1].geoL, phL, num.θd, BC_TL, grid.LS[1].MIXED, grid.LS[1].geoL.projection,
-    #     ATL, BTL,
-    #     op.opL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL,
-    #     periodic_x, periodic_y, heat_convection, advection, BC_int
-    # )
-    # mul!(rhs, BTL, phL.TD, 1.0, 1.0)
-
-    # phL.TD .= ATL \ rhs
-    # phL.T .= reshape(veci(phL.TD,grid,1), grid)
-
-
-    # phL.phi_eleD .= Ascal \ rhs_scal
-
-    ph.phi_ele .= reshape(veci(ph.phi_eleD,grid,1), grid)
-
-
-    if num.io_pdi>0
-        try
-            printstyled(color=:magenta, @sprintf "\n PDI write_electrical_potential %.5i \n" num.current_i)
-            #in YAML file: save only if iscal ==1 for example
-            PDI_status = @ccall "libpdi".PDI_multi_expose("write_electrical_potential"::Cstring,
-            # "iscal"::Cstring, iscal::Ref{Clonglong}, PDI_OUT::Cint,
-            "rhs_1D"::Cstring, rhs::Ptr{Cdouble}, PDI_OUT::Cint,
-            "phi_ele_1D"::Cstring, ph.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-            # "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
-            C_NULL::Ptr{Cvoid})::Cint
-        catch error
-            printstyled(color=:red, @sprintf "\n PDI error \n")
-            print(error)
-            printstyled(color=:red, @sprintf "\n PDI error \n")
-        end
-    end #if io_pdi
-    
-end #set_poisson_variable_coeff
-
-
 
 """
 Prepare boundary conditions
@@ -3524,10 +3037,13 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
     a1::SparseMatrixCSC{Float64, Int64},
     BC::BoundariesInt,
     ph::Phase{Float64},
+    elec_cond,
     coeffD::Array{Float64, 1},
     coeffDu::Array{Float64, 2},
     coeffDv::Array{Float64, 2},
-    ls_advection::Bool)
+    i_butler::Array{Float64, 1},
+    ls_advection::Bool,
+    heat::Bool)
 
     @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
     @unpack BxT, ByT,tmp_x, tmp_y = opC
@@ -3560,10 +3076,88 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
     coeffDx_bulk = veci(coeffDu,grid_u)
     coeffDy_bulk = veci(coeffDv,grid_v)
 
-    mat_coeffDx = Diagonal(vec(coeffDx_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
-    mat_coeffDy = Diagonal(vec(coeffDy_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
+
+
+    # mat_coeffDx = Diagonal(vec(coeffDx_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
+    # mat_coeffDy = Diagonal(vec(coeffDy_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
+
+    print("\n sizes",size(coeffDx_bulk)) #
+    print("\n sizes coeffDy_bulk ",size(coeffDy_bulk)) #
+
+    mat_coeffDx = Diagonal(vec(coeffDu)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
+    mat_coeffDy = Diagonal(vec(coeffDv)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
+
+
     
-    mat_coeffDx_b = Diagonal(vec(coeffD_borders)) # is a 1d vector with shape (2grid.ny + 2grid.nx), multiplies Hx_b and Hy_b
+    # mat_coeffDx_b = Diagonal(vec(coeffD_borders)) # is a 1d vector with shape (2grid.ny + 2grid.nx), multiplies Hx_b and Hy_b
+    
+    coeffDu .= 0.0
+    coeffDv .= 0.0
+
+    # print("\n indices left",grid.ind.b_left)
+    # print("\n indices left",grid.ind.b_right)
+
+    # Interpolate conductivity at center of potential gradient control volumes at the border
+
+    @inbounds @threads for II in grid.ind.b_left[1]#[2:end-1]
+        # aux_interpolate_scalar!(δx⁺(II), II, u, x, y, dx, dy, u_faces)
+        coeffDu[II] = (vecb_L(coeffD,grid)[II[1]]+elec_cond[II])/2.0
+    end
+
+    @inbounds @threads for II in grid.ind.right[1]#[2:end-1]
+        # aux_interpolate_scalar!(δx⁺(II), II, u, x, y, dx, dy, u_faces)
+        coeffDu[II] = (vecb_R(coeffD,grid)[II[1]]+elec_cond[II])/2.0
+    end
+
+    @inbounds @threads for II in grid.ind.b_bottom[1]#[2:end-1]
+        # aux_interpolate_scalar!(δx⁺(II), II, u, x, y, dx, dy, u_faces)
+        coeffDv[II] = (vecb_B(coeffD,grid)[II[2]]+elec_cond[II])/2.0
+    end
+
+    @inbounds @threads for II in grid.ind.right[1]#[2:end-1]
+        # aux_interpolate_scalar!(δx⁺(II), II, u, x, y, dx, dy, u_faces)
+        coeffDv[II] = (vecb_T(coeffD,grid)[II[2]]+elec_cond[II])/2.0
+    end
+
+
+    # # TODO special case 
+    #  # Shift point to interpolate
+    #  II = b_left[1][1]
+    # #  II_0 = δy⁺(δx⁺(II))
+    # #  aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
+ 
+    #  # Shift point to interpolate
+    #  II = b_left[1][end]
+    # #  II_0 = δy⁻(δx⁺(II))
+    # #  aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
+ 
+    #  # Shift point to interpolate
+    #  @inbounds @threads for II in grid.ind.b_bottom[1][2:end-1]
+    #     #  aux_interpolate_scalar!(δy⁺(II), II, u, x, y, dx, dy, u_faces)
+    #     coeff_Dv[II]
+    #  end
+ 
+    #  @inbounds @threads for II in grid.ind.b_right[1][2:end-1]
+    #      aux_interpolate_scalar!(δx⁻(II), II, u, x, y, dx, dy, u_faces)
+    #  end
+ 
+    #  # Shift point to interpolate
+    #  II = b_right[1][1]
+    # #  II_0 = δy⁺(δx⁻(II))
+    # #  aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
+ 
+    #  # Shift point to interpolate
+    #  II = b_right[1][end]
+    # #  II_0 = δy⁻(δx⁻(II))
+    # #  aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
+ 
+    #  @inbounds @threads for II in grid.ind.b_top[1][2:end-1]
+    #      aux_interpolate_scalar!(δy⁻(II), II, u, x, y, dx, dy, u_faces)
+    #  end
+ 
+
+    mat_coeffDx_b = Diagonal(vec(coeffDu)) # is a 1d vector with shape (2grid.ny + 2grid.nx), multiplies Hx_b and Hy_b
+    mat_coeffDy_b = Diagonal(vec(coeffDv)) # is a 1d vector with shape (2grid.ny + 2grid.nx), multiplies Hx_b and Hy_b
 
 
     # L = BxT * iMx * Bx
@@ -3574,16 +3168,51 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
     # iMx ((nx+1)*ny ?, (nx+1)*ny ?)
 
     #Laplacian
-    #diag so ok if not order mat_coeffDx iMx Bx ?
-    mul!(tmp_x, iMx, mat_coeffDx * Bx)
+    # diag so ok if not order mat_coeffDx iMx Bx ?
+    # mul!(tmp_x, iMx, mat_coeffDx * Bx)
+    # L = BxT * tmp_x
+    # mul!(tmp_y, iMy, mat_coeffDy * By)
+    # L = L .+ ByT * tmp_y
+
+    mul!(tmp_x, mat_coeffDx * iMx, Bx)
     L = BxT * tmp_x
-    mul!(tmp_y, iMy, mat_coeffDy * By)
+    mul!(tmp_y, mat_coeffDy * iMy, By)
     L = L .+ ByT * tmp_y
 
-    #Boundary for Laplacian
-    bc_L_b = (BxT * iMx_b * mat_coeffDx_b *Hx_b .+ ByT * iMy_b * mat_coeffDx_b *Hy_b)
+    print("\n sizes",size(iMx_b)) #  (nx+1)*ny,2*nx +2*ny
+    print("\n sizes",size(mat_coeffDx_b)) #2*nx +2*ny,2*nx +2*ny
+    print("\n sizes",size(BxT)) #nx*ny,(nx+1)*ny
+    print("\n sizes",size(Hx_b)) #2*nx +2*ny,2*nx +2*ny
+    print("\n sizes",grid.nx," ny ",grid.ny)
 
+    print("\n sizes",size(coeffDx_bulk)) #
+    print("\n sizes",size(coeffDy_bulk)) #
+    print("\n sizes",size(mat_coeffDx)) #
+    print("\n sizes",size(mat_coeffDy)) #
+
+    # sizes(1056, 128) iMx_b
+    # sizes(128, 128) mat_coeffDx_b
+    # sizes(1024, 1056) BxT
+
+    # mat_coeffDx_b should be of size ((nx+1)*ny,(nx+1)*ny)
+
+    # Interpolation 
+    # Example f(x)=x on scalar grid
+    # Scalar
+    # gp.V j [5.0, 15.0, 25.0, 35.0, 45.0, 55.0, 65.0, 75.0, 85.0, 95.0]
+    # u 
+    # gu.V j [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0]
+    # v
+    # gv.V j [5.0, 15.0, 25.0, 35.0, 45.0, 55.0, 65.0, 75.0, 85.0, 95.0]
    
+
+    # coeff : (nx+1)*ny
+
+    #Boundary for Laplacian
+    # bc_L_b = (BxT * iMx_b * mat_coeffDx_b *Hx_b .+ ByT * iMy_b * mat_coeffDx_b *Hy_b)
+    bc_L_b = (BxT * mat_coeffDx_b * iMx_b * Hx_b .+ ByT * mat_coeffDy_b * iMy_b  * Hy_b)
+
+   #border
 
       
     if ls_advection
@@ -3805,6 +3434,7 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
             # print("\n test coeff")
             coeffDu .= 0.0
             coeffDv .= 0.0
+            # TODO will not interpolate correctly, need to extend ...
             interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(coeffD,grid,iLS+1), grid), coeffDu, coeffDv)
             mat_coeffDx_i = Diagonal(vec(coeffDu)) # coeffDu is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Hx
             mat_coeffDy_i = Diagonal(vec(coeffDv)) # coeffDu is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies Hy
@@ -3813,7 +3443,8 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
             
             # Poisson equation
             #Boundary for Laplacian from iLS
-            A[1:ni,sb] = BxT * iMx * mat_coeffDx_i *Hx[iLS] .+ ByT * iMy * mat_coeffDy_i *Hy[iLS]
+            # A[1:ni,sb] = BxT * iMx * mat_coeffDx_i *Hx[iLS] .+ ByT * iMy * mat_coeffDy_i *Hy[iLS]
+            A[1:ni,sb] = BxT * mat_coeffDx_i * iMx * Hx[iLS] .+ ByT * mat_coeffDy_i * iMy * Hy[iLS]
 
             # Boundary conditions for inner boundaries
             A[sb,1:ni] = b * (HxT[iLS] * iMx  * Bx .+ HyT[iLS] * iMy * By) #or vec1
@@ -3911,6 +3542,57 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
     if norm(rhs) >0.0
         print("\n norm 2", norm(A*ph.phi_eleD -rhs)/norm(rhs))
     end
+
+    print("\n rhs ", minimum(vecb_L(rhs,grid))," rhs ",maximum(vecb_L(rhs,grid)))
+
+
+
+    #TODO reevaluate F=Ax-b 
+    printstyled(color=:red, @sprintf "\n Residual" )
+
+
+    rhs_updated = fnzeros(grid,num)
+
+    for iLS in 1:num.nLS
+        veci(rhs_updated,grid,iLS+1) .= χ[iLS] * vec(a0) #vec(a0[iLS])
+        printstyled(color=:red, @sprintf "\n veci(rhs,grid,iLS+1) %.2i %.2e %.2e \n" iLS maximum(abs.(veci(rhs,grid,iLS+1))) maximum(abs.(BC.LS[iLS].val)))
+        print("\n a0 max  ", maximum(a0)," min ",minimum(a0))
+    end #for iLS in 1:num.nLS
+
+    #TODO reevaluate BC
+    update_electrical_current_from_Butler_Volmer!(num,grid,heat,ph.phi_eleD,i_butler)
+
+    print("\n i_butler ",i_butler)
+    update_BC_electrical_potential!(num,grid,BC,elec_cond,coeffD,i_butler)
+
+    a0_b = zeros(nb)
+    _a1_b = zeros(nb)
+    _b_b = zeros(nb)
+    for iLS in 1:num.nLS
+        set_borders!(grid, grid.LS[iLS].cl, grid.LS[iLS].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
+    end
+
+    vecb(rhs_updated,grid) .= χ_b * vec(a0_b)
+
+
+    F_residual = A*ph.phi_eleD -rhs_updated
+
+    print("\n F_residual ",vecb_L(F_residual,grid))
+
+    print("\n rhs ", minimum(vecb_L(rhs_updated,grid))," rhs ",maximum(vecb_L(rhs_updated,grid)))
+
+
+    print("\n Newton-Raphson")
+    Jacobian = copy(A)
+
+    Jacobian[] .+= 0 #-1 / (h) - 1.0/elec_cond * fact * 2*np.cosh(fact * (-0.6 - U[0]))
+
+    phi_increment = Jacobian \ F_residual
+
+    
+
+
+    printstyled(color=:red, @sprintf "\n Residual" )
 
     #TODO or use mul!(rhs_scal, BTL, phL.TD, 1.0, 1.0) like in :
 
@@ -4564,3 +4246,66 @@ function compute_divergence!(num::Numerical{Float64, Int64},
 
     
 end     #divergence
+
+"""
+Based on num.bulk_conductivity:
+* 0 conductivity computed from wall concentration
+* 1 conductivity computed from bulk concentration
+* 2 conductivity computed from wall concentration and bulk concentration
+* 3 conductivity computed from wall concentration and bulk concentration
+"""
+function update_BC_electrical_potential!(num,grid,BC_phi_ele,elec_cond,elec_condD,i_butler)
+
+    # BC LS 2 in set_poisson directly
+    
+    #use Butler-Volmer, supposing the interfacial potential is acceptable and phi = phi_ele1 in metal 
+    # for conductivity, use interfacial value or bulk in corresponding cell
+
+    # TODO -(-i/kappa) in Flower ? so i_butler not -i_butler
+    # For small cells
+    if num.bulk_conductivity == 0
+        BC_phi_ele.left.val .= i_butler./vecb_L(elec_condD, grid)
+
+    elseif num.bulk_conductivity == 1
+        # Recommended as long as cell merging not implemented:
+        # Due to small cells, we may have slivers/small cells at the left wall, then the divergence term is small,
+        # which produces higher concentration in front of the contact line
+        BC_phi_ele.left.val .= i_butler./elec_cond[:,1]
+
+
+    elseif num.bulk_conductivity == 2 || num.bulk_conductivity == 3
+        BC_phi_ele.left.val .= i_butler./vecb_L(elec_condD, grid)
+
+        iLS = 1 #TODO end ? if several grid.LS ?
+        for j in 1:grid.ny
+            II = CartesianIndex(j,1)
+            if grid.LS[iLS].geoL.cap[II,5] < num.ϵ
+                BC_phi_ele.left.val[j] = i_butler[j]/elec_cond[j,1] 
+            end
+        end
+    end
+
+end
+
+"""
+If the heat equation is solved, it uses the computed temperature, otherwise num.temperature0 is used.
+"""
+function update_electrical_current_from_Butler_Volmer!(num,grid,heat,phi_eleD,i_butler;T=nothing)
+
+    #TODO dev multiple levelsets
+    if heat
+        i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phi_eleD, grid),
+        num.phi_ele1,num.Ru,T)
+    else
+        if num.nLS == 1
+            i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phi_eleD, grid),
+            num.phi_ele1,num.Ru,num.temperature0)
+        # else
+            #imposed by LS 2
+            # iLS_elec = 2
+            # i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(phL.phi_eleD, grid,iLS_elec+1),
+            # num.phi_ele1,num.Ru,num.temperature0)
+        end
+    end   
+
+end

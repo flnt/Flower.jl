@@ -57,8 +57,8 @@ plt.rc('text.latex', preamble="\n".join([ # plots will use this preamble
         r"\setlength{\belowdisplayshortskip}{0pt}",
         r"\setlength{\abovedisplayshortskip}{0pt}",
         r"\addtolength{\jot}{-4pt}",
-        # r"\usepackage{mhchem}",
-        r"\usepackage[version=]{mhchem}",
+        r"\usepackage{mhchem}",
+        # r"\usepackage[version=4]{mhchem}",
         # r"\usepackage[version=4,arrows=pgf-filled,textfontname=sffamily,mathfontname=mathsf]{mhchem}",
        ])
 )
@@ -73,6 +73,19 @@ plt.rc("text", usetex=True)
 plt.rc('text.latex', preamble=r"\usepackage{siunitx}")
 #  matplotlib.verbose.level = 'debug-annoying'
 
+# plt.rc('text.latex', preamble="\n".join([ # plots will use this preamble
+#         r'\usepackage{amsmath}',
+#         r'\usepackage{booktabs}',
+#         r"\usepackage{siunitx}",
+#         r"\setlength{\abovedisplayskip}{0pt}",
+#         r" \setlength{\belowdisplayskip}{0pt}",
+#         r"\setlength{\belowdisplayshortskip}{0pt}",
+#         r"\setlength{\abovedisplayshortskip}{0pt}",
+#         r"\addtolength{\jot}{-4pt}",
+#         r"\usepackage{mhchem}",
+#         # r"\usepackage[version=4]{mhchem}",
+#         # r"\usepackage[version=4,arrows=pgf-filled,textfontname=sffamily,mathfontname=mathsf]{mhchem}",
+#        ]))
 
 #   r"\listfiles"
 #   r"\sisetup{"
@@ -187,6 +200,7 @@ colors[2]=OkabeIto[5] #bleu
 colors[3]=OkabeIto[6] #orange
 
 orange_Okabe = "#D55E00"
+blue_Okabe = "#0072B2"
 
 
 # Polynomial Regression
@@ -2047,6 +2061,320 @@ def plot_vector(file,
 
     return(fig1,ax2,cbar)
 
+
+
+def plot_schematics(figpar,plotpar):
+
+
+    fig1, ax2 = init_fig(plotpar,figpar)
+
+    fontsize = plotpar['font_size']
+
+    # axins.imshow(Z2, extent=extent, origin="lower")
+
+    lw_inset = 0.5
+    color_inset = orange_Okabe
+
+    # x1, x2, y1, y2 = figpar['add_schematics_coords']
+
+    # inset_ax = ax2.inset_axes(
+    # [-1, 0.125, 0.75, 0.75],
+    # # [0.5, 0.5, 0.47, 0.47],
+    # xlim=(x1, x2), ylim=(y1, y2), xticklabels=[], yticklabels=[])
+
+    # rect, lines = ax2.indicate_inset_zoom(inset_ax, edgecolor=color_inset,
+    #                                       lw=lw_inset,
+    #                                       alpha=1)
+    
+    # # rect.set_edgecolor('none')
+
+    # # lines.set_width(0.125)
+
+    # plt.setp(lines, linewidth=lw_inset,color=color_inset)
+
+    dx =0.1
+
+    xmin = 0-dx
+
+    xmax = 1+dx
+    # xmax = 1
+
+
+    inset_ax = ax2
+
+    inset_ax.set_xlim(xmin, xmax)
+    inset_ax.set_ylim(0, 1)
+    # inset_ax.axis('off')
+
+    inset_ax.get_xaxis().set_visible(False)
+    inset_ax.get_yaxis().set_visible(False)
+
+    # for key, spine in inset_ax.spines.items():
+    #     spine.set_edgecolor(orange_Okabe)
+    #     spine.set_linewidth(lw_inset)
+
+
+    # Draw the gradient in the inset
+    # inset_ax.fill_between([0, 1], [0, 0], [1, 0.5], color='cyan', alpha=0.3)
+
+
+    gray = 0.3
+    # Draw the electrode
+    electrode = patches.Rectangle((xmin, 0), -xmin, 1.0, 
+                                #   edgecolor='black', 
+                                facecolor= (gray, gray, gray) #'gray'
+                                )
+    inset_ax.add_patch(electrode)
+
+    # membrane = patches.Rectangle((1, 0), xmax, 1.0, 
+    #                             #   edgecolor='black', 
+    #                             # facecolor= (1,1,1),
+    #                             facecolor= blue_Okabe,
+    #                             # hatch='+',
+    #                             ) #'gray'
+                                
+    # inset_ax.add_patch(membrane)
+
+
+    inset_ax.text(xmin/2, 0.5, 'Electrode', color='w',fontsize=fontsize,rotation=90, va='center',ha='center')
+
+    inset_ax.text((xmax+1)/2, 0.5, 'Membrane', color='w',fontsize=fontsize,rotation=90, va='center',ha='center')
+
+    # inset_ax.plot([1, 1], [0,1], ls='-',color='w')
+    inset_ax.plot([1.0125, 1.0125], [0,1], ls='-',color='w')
+
+
+    # liq_height=0.5
+    # liq_height_2 = 0.75
+
+    liq_height=1
+    liq_height_2=liq_height
+
+    # inset_ax.fill_between([0, 1-liq_height], [1, 1], [1, 1-liq_height_2], color='cyan', alpha=0.3)
+
+    # inset_ax.fill_between([0, 1],[1,1] ,[1-liq_height, 1-liq_height_2])
+    inset_ax.fill_between([0, xmax],[1,1] ,[1-liq_height, 1-liq_height_2])
+
+    # inset_ax.plot([0, 1], [1-liq_height, 1-liq_height_2], ls='-',color='r')
+
+    # Annotate the inset
+
+    # inset_ax.text(xmin/2, 0.5, 'Electrode', color='w',fontsize=12,rotation=90, va='center',ha='center')
+
+
+    # ycoord = 0.5
+
+    # inset_ax.text(xmin/2, 0.75, r'$\frac{\partial c_{H_2}}{\partial n} = -\frac{i}{2FD}$', fontsize=fontsize,color='w')
+    inset_ax.text(xmin/2, 0.8, r'$\frac{\partial \phi }{\partial n} = \frac{i}{\kappa}$', fontsize=fontsize,color='w')
+
+    # inset_ax.text(0.1, 0.35, r'$c_{H_2} = c_{H_2, 0}$', fontsize=fontsize)
+    inset_ax.text(0.5, 0, r'$\frac{\partial \phi }{\partial n} = 0$', fontsize=fontsize,va='bottom',ha='left',color='w')
+
+    inset_ax.text(0.5, 1, r'$\frac{\partial \phi }{\partial n} = 0$', fontsize=fontsize,va='top',ha='left',color='w')
+
+
+    # inset_ax.text(0.5, 0.2, r'$\mathrm{H_2} \text{(gas)}$', fontsize=fontsize,va='center',ha='center',color='k')
+    # inset_ax.text(0.5, 0.3, r'$\mathrm{H_2} \text{bubble}$', fontsize=fontsize,va='center',ha='center',color='k')
+
+
+    inset_ax.text(0.5, 0.2, r'$\mathrm{H_2O}, \mathrm{KOH}, \mathrm{H_2}$', fontsize=fontsize,va='center',ha='center',color='w')
+
+
+    inset_ax.text(1, 0.5, r'$ \phi = 0$', fontsize=fontsize,va='center',ha='right',color='w')
+
+
+    plt.savefig('schematics.pdf')
+
+
+
+
+def plot_schematics_full(figpar,plotpar):
+
+
+    fig1, ax2 = init_fig(plotpar,figpar)
+
+    fontsize = plotpar['font_size']
+
+    # axins.imshow(Z2, extent=extent, origin="lower")
+
+    lw_inset = 0.5
+    color_inset = orange_Okabe
+
+    # x1, x2, y1, y2 = figpar['add_schematics_coords']
+
+    # inset_ax = ax2.inset_axes(
+    # [-1, 0.125, 0.75, 0.75],
+    # # [0.5, 0.5, 0.47, 0.47],
+    # xlim=(x1, x2), ylim=(y1, y2), xticklabels=[], yticklabels=[])
+
+    # rect, lines = ax2.indicate_inset_zoom(inset_ax, edgecolor=color_inset,
+    #                                       lw=lw_inset,
+    #                                       alpha=1)
+    
+    # # rect.set_edgecolor('none')
+
+    # # lines.set_width(0.125)
+
+    # plt.setp(lines, linewidth=lw_inset,color=color_inset)
+
+    dx =0.1
+
+    xmin = 0-dx
+
+    xmax = 1+dx
+    xmax2 = 2 + dx
+
+    xmax = 1+dx
+    # xmax2 = 1 + dx
+
+    # xmax = 1
+
+
+    inset_ax = ax2
+
+    # inset_ax.set_xlim(xmin, xmax)
+    inset_ax.set_ylim(0, 1)
+
+    inset_ax.set_xlim(xmin, xmax2)
+
+    inset_ax.axis('off')
+
+    inset_ax.get_xaxis().set_visible(False)
+    inset_ax.get_yaxis().set_visible(False)
+
+    # for key, spine in inset_ax.spines.items():
+    #     spine.set_edgecolor(orange_Okabe)
+    #     spine.set_linewidth(lw_inset)
+
+
+    # Draw the gradient in the inset
+    # inset_ax.fill_between([0, 1], [0, 0], [1, 0.5], color='cyan', alpha=0.3)
+
+
+    # liq_height=0.5
+    # liq_height_2 = 0.75
+
+    liq_height=1
+    liq_height_2=liq_height
+
+    # inset_ax.fill_between([0, 1-liq_height], [1, 1], [1, 1-liq_height_2], color='cyan', alpha=0.3)
+
+    # inset_ax.fill_between([0, 1],[1,1] ,[1-liq_height, 1-liq_height_2])
+    inset_ax.fill_between([0, 2],[1,1] ,[1-liq_height, 1-liq_height_2])
+
+
+    o2coord = 0.25
+
+    other_radius= 0.125 #0.025
+
+    circle1 = plt.Circle((0.0, 0.15), other_radius/4, color='w')
+    circle2 = plt.Circle((0.15, 0.92), other_radius, color='w')
+
+    circle3 = plt.Circle((0.0, 0.5), 0.12, color='w')
+
+    circle4 = plt.Circle((2.0, o2coord), 0.12, color='w')
+
+
+    inset_ax.text(0, 0.5, r'$H_2$', fontsize=fontsize,va='center',ha='left',color='k')
+   
+    inset_ax.text(2.0, o2coord, r'$O_2$', fontsize=fontsize,va='center',ha='right',color='k')
+
+
+    # circle3 = plt.Arc((0.0, 0.5), 0.1, color='w')
+
+    # radius= 0.1
+    # Arc
+    # arc = patches.Arc((0.0, 0.5), radius, radius, color='w', theta1=-90, theta2=90,
+    #         #   hatch="\\",lw=lw
+    #         fill='w'
+    #           )
+
+    inset_ax.add_patch(circle1)
+    inset_ax.add_patch(circle2)
+    # inset_ax.add_patch(arc)
+    inset_ax.add_patch(circle3)
+
+    inset_ax.add_patch(circle4)
+
+
+    gray = 0.3
+    # Draw the electrode
+    electrode = patches.Rectangle((xmin, 0), -xmin, 1.0, 
+                                #   edgecolor='black', 
+                                facecolor= (gray, gray, gray) #'gray'
+                                )
+    inset_ax.add_patch(electrode)
+
+    anode = patches.Rectangle((2, 0), dx, 1.0, 
+                                #   edgecolor='black', 
+                                facecolor= (gray, gray, gray) #'gray'
+                                )
+    inset_ax.add_patch(anode)
+
+    # membrane = patches.Rectangle((1, 0), xmax, 1.0, 
+    #                             #   edgecolor='black', 
+    #                             # facecolor= (1,1,1),
+    #                             facecolor= blue_Okabe,
+    #                             # hatch='+',
+    #                             ) #'gray'
+                                
+    # inset_ax.add_patch(membrane)
+
+
+    inset_ax.text(xmin/2, 0.5, 'Cathode', color='w',fontsize=fontsize,rotation=90, va='center',ha='center')
+
+    inset_ax.text(1.0, 0.5, 'Membrane', color='w',fontsize=fontsize,rotation=90, va='center',ha='left')
+
+    inset_ax.text((xmax2+2)/2, 0.5, 'Anode', color='w',fontsize=fontsize,rotation=90, va='center',ha='center')
+
+
+    inset_ax.plot([1, 1], [0,1], ls='-',color='w')
+    # inset_ax.plot([1.0125, 1.0125], [0,1], ls='-',color='w')
+    # inset_ax.plot([1.-dx/2, 1.0-dx/2], [0,1], ls='-',color='w')
+    # inset_ax.plot([1.+dx/2, 1.0+dx/2], [0,1], ls='-',color='w')
+
+
+
+
+
+
+
+    # inset_ax.plot([0, 1], [1-liq_height, 1-liq_height_2], ls='-',color='r')
+
+    # Annotate the inset
+
+    # inset_ax.text(xmin/2, 0.5, 'Electrode', color='w',fontsize=12,rotation=90, va='center',ha='center')
+
+
+    # ycoord = 0.5
+
+    # inset_ax.text(xmin/2, 0.75, r'$\frac{\partial c_{H_2}}{\partial n} = -\frac{i}{2FD}$', fontsize=fontsize,color='w')
+    # inset_ax.text(xmin/2, 0.8, r'$\frac{\partial \phi }{\partial n} = \frac{i}{\kappa}$', fontsize=fontsize,color='w')
+
+    # # inset_ax.text(0.1, 0.35, r'$c_{H_2} = c_{H_2, 0}$', fontsize=fontsize)
+    # inset_ax.text(0.5, 0, r'$\frac{\partial \phi }{\partial n} = 0$', fontsize=fontsize,va='bottom',ha='left',color='w')
+
+    # inset_ax.text(0.5, 1, r'$\frac{\partial \phi }{\partial n} = 0$', fontsize=fontsize,va='top',ha='left',color='w')
+
+
+    # inset_ax.text(0.5, 0.2, r'$\mathrm{H_2} \text{(gas)}$', fontsize=fontsize,va='center',ha='center',color='k')
+    # inset_ax.text(0.5, 0.3, r'$\mathrm{H_2} \text{bubble}$', fontsize=fontsize,va='center',ha='center',color='k')
+
+
+    inset_ax.text(0.5, 0.2, r'$\mathrm{H_2O}, \mathrm{KOH}, \mathrm{H_2}$', fontsize=fontsize,va='center',ha='center',color='w')
+
+    # inset_ax.text(0.0, 0.0, r'\ce{2H2O + 2e- -> 2H2 + 2OH-}', fontsize=fontsize,va='bottom',ha='left',color='k')
+    inset_ax.text(0.0, 0.0, r"$\mathrm{2H_2O} + 2e^- \rightarrow \mathrm{2H_2} + \mathrm{2OH^-}$", fontsize=fontsize,va='bottom',ha='left',color='w')
+
+
+    inset_ax.text(2.0, 0.0, r"$\mathrm{2OH^-} \rightarrow \mathrm{H_2O} + \frac 12 \mathrm{O_2} + 2e^-$",
+                   fontsize=fontsize,va='bottom',ha='right',color='w')
+
+    # inset_ax.text(1, 0.5, r'$ \phi = 0$', fontsize=fontsize,va='center',ha='right',color='w')
+
+    plt.axis('equal')
+
+    plt.savefig('schematics_full.pdf')
 
 def add_schematics(ax2,fontsize,figpar):
 

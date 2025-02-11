@@ -6,10 +6,11 @@
 #TODO flow rate, check conservation
 #TODO i_current_x ... multiply by elec_cond
 
-"""
-    run_forward!
+# About PDI: the the Parallel Data Interface https://pdi.dev/1.8/
 
-    Main function of Flower
+"""
+
+Main function of Flower.jl code to run a simulation
 
 """
 function run_forward!(
@@ -277,7 +278,9 @@ function run_forward!(
             elec_condD = fnones(grid,num)
             printstyled(color=:green, @sprintf "\n conductivity one")
         end 
-    end
+
+        i_butler = zeros(grid.ny) #left wall
+    end #electrolysis
 
     if levelset
 
@@ -378,7 +381,7 @@ function run_forward!(
     end
 
     #Electrolysis
-    if electrolysis && num.electric_potential > 0
+    if electrolysis && num.electrical_potential > 0
         init_fields_multiple_levelsets!(num,phS.phi_eleD,phS.phi_ele,tmp_vec_p,BC_phi_ele,grid,num.phi_ele0,"phiS")
     end
 
@@ -405,9 +408,9 @@ function run_forward!(
 
         end
 
-        if num.electric_potential > 0 #TODO init phi =0 or with Neumann for BC of concentration? for now not done since "phiL" given in arg
+        if num.electrical_potential > 0 #TODO init phi =0 or with Neumann for BC of concentration? for now not done since "phiL" given in arg
             init_fields_multiple_levelsets!(num,phL.phi_eleD,phL.phi_ele,tmp_vec_p,BC_phi_ele,grid,num.phi_ele0,"phiL")
-            if num.electric_potential == 3
+            if num.electrical_potential == 3
                 vecb(phL.phi_eleD,grid) .= 0.0
             end
         end
@@ -812,7 +815,7 @@ function run_forward!(
            
     #             # phi_array=phL.phi_ele #do not transpose since python row major
                 
-    #                                 if num.electric_potential>0 compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+    #                                 if num.electrical_potential>0 compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
         
     #             #store in us, vs instead of Eus, Evs
     #             interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,tmp_vec_p,tmp_vec_p0)
@@ -941,7 +944,7 @@ function run_forward!(
                     # phi_array=phL.phi_ele #do not transpose since python row major
                     
                     
-                    if num.electric_potential > 0
+                    if num.electrical_potential > 0
 
                         # print("\n type of elec_cond ", typeof(elec_cond)," \n")
                         try
@@ -1213,22 +1216,25 @@ function run_forward!(
 
                 
                 if electrolysis_reaction == "Butler_no_concentration"
+                    
+                    update_electrical_current_from_Butler_Volmer!(num,grid,heat,phL.phi_eleD,i_butler;phL.T)
 
-                    #TODO dev multiple levelsets
-                    if heat
-                        i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phL.phi_eleD, grid),
-                        num.phi_ele1,num.Ru,phL.T)
-                    else
-                        if num.nLS == 1
-                            i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phL.phi_eleD, grid),
-                            num.phi_ele1,num.Ru,num.temperature0)
-                        # else
-                            #imposed by LS 2
-                            # iLS_elec = 2
-                            # i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(phL.phi_eleD, grid,iLS_elec+1),
-                            # num.phi_ele1,num.Ru,num.temperature0)
-                        end
-                    end   
+                    # #TODO dev multiple levelsets
+                    # if heat
+                    #     i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phL.phi_eleD, grid),
+                    #     num.phi_ele1,num.Ru,phL.T)
+                    # else
+                    #     if num.nLS == 1
+                    #         i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phL.phi_eleD, grid),
+                    #         num.phi_ele1,num.Ru,num.temperature0)
+                    #     # else
+                    #         #imposed by LS 2
+                    #         # iLS_elec = 2
+                    #         # i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(phL.phi_eleD, grid,iLS_elec+1),
+                    #         # num.phi_ele1,num.Ru,num.temperature0)
+                    #     end
+                    # end   
+
                 end
 
                 if num.nb_transported_scalars>0
@@ -1494,7 +1500,7 @@ function run_forward!(
                 
     
                 #Electrolysis: Poisson  
-                if num.electric_potential > 0
+                if num.electrical_potential > 0
                     #electroneutrality assumption
 
                     a0_p = [] 
@@ -1570,34 +1576,9 @@ function run_forward!(
 
                         printstyled(color=:red, @sprintf "\n Recomputing Butler \n" )
 
-                        # BC LS 2 in set_poisson directly
+                        update_BC_electrical_potential!(num,grid,BC_phi_ele,elec_cond,elec_condD,i_butler)
+
                       
-                        #use Butler-Volmer, supposing the interfacial potential is acceptable and phi = phi_ele1 in metal 
-                        # for conductivity, use interfacial value or bulk in corresponding cell
-
-                        # TODO -(-i/kappa) in Flower ? so i_butler not -i_butler
-                        # For small cells
-                        if num.bulk_conductivity == 0
-                            BC_phi_ele.left.val .= i_butler./vecb_L(elec_condD, grid)
-
-                        elseif num.bulk_conductivity == 1
-                            # Recommended as long as cell merging not implemented:
-                            # Due to small cells, we may have slivers/small cells at the left wall, then the divergence term is small,
-                            # which produces higher concentration in front of the contact line
-                            BC_phi_ele.left.val .= i_butler./elec_cond[:,1]
-
-
-                        elseif num.bulk_conductivity == 2 || num.bulk_conductivity == 3
-                            BC_phi_ele.left.val .= i_butler./vecb_L(elec_condD, grid)
-
-                            iLS = 1 #TODO end ? if several grid.LS ?
-                            for j in 1:grid.ny
-                                II = CartesianIndex(j,1)
-                                if grid.LS[iLS].geoL.cap[II,5] < num.ϵ
-                                    BC_phi_ele.left.val[j] = i_butler[j]/elec_cond[j,1] 
-                                end
-                            end
-                        end
 
                         # print("\n before ",BC_phi_ele.left.val) 
 
@@ -1666,7 +1647,7 @@ function run_forward!(
                 #     "BC_phi_ele.left.val"::Cstring, BC_phi_ele.left.val::Ptr{Cdouble}, PDI_OUT::Cint,  
                 #     C_NULL::Ptr{Cvoid})::Cint
 
-                    if num.electric_potential == 1
+                    if num.electrical_potential == 1
                     #TODO BC several grid.LS
                     #Poisson with variable coefficient
                     solve_poisson_variable_coeff!(num, 
@@ -1679,19 +1660,22 @@ function run_forward!(
                         tmp_vec_p, #a0
                         a1_p,
                         BC_phi_ele,
-                        phL,                        
+                        phL,     
+                        elec_cond,                   
                         elec_condD,
                         tmp_vec_u,
                         tmp_vec_v,
                         # tmp_vec_u0,
                         # tmp_vec_v0,
-                        ls_advection)
+                        i_butler,
+                        ls_advection,
+                        heat)
 
-                    elseif num.electric_potential == 2 || num.electric_potential ==3
+                    elseif num.electrical_potential == 2 || num.electrical_potential ==3
 
                     
                         # iterate (non-linear BC with Butler) 
-                        for poisson_iter=1:num.electric_potential_max_iter
+                        for poisson_iter=1:num.electrical_potential_max_iter
 
                             printstyled(color=:orange, @sprintf "\n poisson iter %.2i \n" poisson_iter)
 
@@ -1807,13 +1791,16 @@ function run_forward!(
                             tmp_vec_p, #a0
                             a1_p,
                             BC_phi_ele,
-                            phL,                        
+                            phL,    
+                            elec_cond,                    
                             elec_condD,
                             tmp_vec_u,
                             tmp_vec_v,
                             # tmp_vec_u0,
                             # tmp_vec_v0,
-                            ls_advection)
+                            i_butler,
+                            ls_advection,
+                            heat)
 
 
                             @ccall "libpdi".PDI_multi_expose("solve_poisson"::Cstring,
@@ -1829,7 +1816,7 @@ function run_forward!(
 
                             #TODO compute grad
 
-                            if num.electric_potential>0
+                            if num.electrical_potential>0
                                 compute_grad_phi_ele!(num, grid, grid_u, grid_v, grid_u.LS[end], grid_v.LS[end], phL, phS, op.opC_pL, op.opC_pS, 
                                 elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p0,tmp_vec_p1) #TODO current
                                 
@@ -1984,7 +1971,7 @@ function run_forward!(
                     #     printstyled(color=:green, @sprintf "\n conductivity one")
 
                     # end 
-                    if num.electric_potential>0
+                    if num.electrical_potential>0
                         compute_grad_phi_ele!(num, grid, grid_u, grid_v, grid_u.LS[end], grid_v.LS[end], phL, phS, op.opC_pL, op.opC_pS, 
                         elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p0,tmp_vec_p1) #TODO current
                     end
@@ -2008,7 +1995,7 @@ function run_forward!(
                     # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
                     # C_NULL::Ptr{Cvoid})::Cint
 
-                end #electric_potential
+                end #electrical_potential
 
             end
         end
@@ -2029,7 +2016,7 @@ function run_forward!(
                 # phi_array=phL.phi_ele #do not transpose since python row major
                 
                 # Compute electrical current, interpolate velocity on scalar grid
-                #                     if num.electric_potential>0 compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+                #                     if num.electrical_potential>0 compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
         
                 # if electrolysis && num.nb_transported_scalars>1
                 #     if heat 
@@ -3089,9 +3076,9 @@ function run_forward!(
                     # phi_array=phL.phi_ele #do not transpose since python row major
                     
                     # Compute electrical current, interpolate velocity on scalar grid
-                    #                     if num.electric_potential>0 compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+                    #                     if num.electrical_potential>0 compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
 
-                    if num.electric_potential>0
+                    if num.electrical_potential>0
                         compute_grad_phi_ele!(num, grid, grid_u, grid_v, grid_u.LS[end], grid_v.LS[end], phL, phS,
                         op.opC_pL, op.opC_pS, elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p0,tmp_vec_p1) #TODO current
                     end

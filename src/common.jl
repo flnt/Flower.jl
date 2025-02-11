@@ -66,38 +66,47 @@ const newaxis = [CartesianIndex()]
 # multiple fields. To be removed when working with decomposed 
 # vectors directly
 """
+Access bulk (p=1) or interfacial value (from Levelset)
 """
 veci(a, g::G, p::Integer = 1) where {G<:Grid} = @view a[g.ny*g.nx*(p-1)+1:g.ny*g.nx*p]
 
 """
+Access bulk value
 """
 vec1(a, g::G) where {G<:Grid} = @view a[1:g.ny*g.nx]
 
 """
+Access interfacial value from Levelset 1
 """
 vec2(a, g::G) where {G<:Grid} = @view a[g.ny*g.nx+1:g.ny*g.nx*2]
 
 """
+Access interfacial value from Levelset 2
 """
 vec3(a, g::G) where {G<:Grid} = @view a[g.ny*g.nx*2+1:g.ny*g.nx*3]
 
 """
+Access border value
 """
 vecb(a, g::G) where {G<:Grid} = @view a[end-2*g.ny-2*g.nx+1:end]
 
 """
+Access border value: left
 """
 vecb_L(a,g::G) where {G<:Grid} = @view vecb(a, g)[1:g.ny]
 
 """
+Access border value: bottom
 """
 vecb_B(a,g::G) where {G<:Grid} = @view vecb(a, g)[g.ny+1:g.ny+g.nx]
 
 """
+Access border value: right
 """
 vecb_R(a,g::G) where {G<:Grid} = @view vecb(a, g)[g.ny+g.nx+1:2*g.ny+g.nx]
 
 """
+Access border value: top
 """
 vecb_T(a,g::G) where {G<:Grid} = @view vecb(a, g)[2*g.ny+g.nx+1:2*g.ny+2*g.nx]
 
@@ -226,13 +235,19 @@ end
 
 
 """
-static_stencil
 
-a[j-1,i-1] a[j-1,i] a[j-1,i+1];
+Compute a 3x3 stencil around the given CartesianIndex `II` in the 2D array `a`.
 
-a[j, i-1 ] a[j  ,i] a[j, i+1];
+This function takes a 2D array `a` and a `CartesianIndex` `II`, and returns a 3x3 stencil centered around the element at `II`. 
+The stencil is computed by extracting the values from the array `a` at the relative positions around `II`.
 
-a[j+1,i-1] a[j+1,i] a[j+1,i+1]
+# Arguments
+- `a`: A 2D array (matrix) of type `SA_F64` (assumed to be a subtype of `AbstractArray`).
+- `II`: A `CartesianIndex` specifying the position in the 2D array `a` around which the stencil is computed.
+
+# Returns
+- A 3x3 matrix of type `SA_F64` representing the stencil.
+
 """
 @inline function static_stencil(a, II::CartesianIndex)
    return @inbounds SA_F64[a[II.I[1]-1, II.I[2]-1] a[II.I[1]-1, II.I[2]] a[II.I[1]-1, II.I[2]+1];
@@ -240,6 +255,21 @@ a[j+1,i-1] a[j+1,i] a[j+1,i+1]
                a[II.I[1]+1, II.I[2]-1] a[II.I[1]+1, II.I[2]] a[II.I[1]+1, II.I[2]+1]]
 end
 
+"""
+
+Compute a 3x3 stencil around the given CartesianIndex `II` in the 2D array `a` with peiodicity information.
+
+This function takes a 2D array `a` and a `CartesianIndex` `II`, and returns a 3x3 stencil centered around the element at `II`. 
+The stencil is computed by extracting the values from the array `a` at the relative positions around `II`.
+
+# Arguments
+- `a`: A 2D array (matrix) of type `SA_F64` (assumed to be a subtype of `AbstractArray`).
+- `II`: A `CartesianIndex` specifying the position in the 2D array `a` around which the stencil is computed.
+
+# Returns
+- A 3x3 matrix of type `SA_F64` representing the stencil.
+
+"""
 @inline function static_stencil(a, II::CartesianIndex, nx, ny, per_x, per_y)
     return @inbounds SA_F64[a[δx⁻(δy⁻(II, ny, per_y), nx, per_x)] a[δy⁻(II, ny, per_y)] a[δx⁺(δy⁻(II, ny, per_y), nx, per_x)];
                 a[δx⁻(II, nx, per_x)] a[II] a[δx⁺(II, nx, per_x)];

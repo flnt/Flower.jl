@@ -11,7 +11,7 @@ from termcolor import colored
 # module to plot files from Flower.jl
 # from plot_flower import * 
 from plot_flower import set_size, init_fig, compute_slope, roundlog, \
-   logticks,reshape_data,veci,vecb_L,reshape_data_veci,plot_current_lines,plot_python_pdf_full2,plot_file 
+   logticks,reshape_data,veci,vecb_L,reshape_data_veci,plot_current_lines,plot_python_pdf_full2,plot_file,plot_schematics,plot_schematics_full 
 
 
 
@@ -467,6 +467,93 @@ def plot_errors_from_h5():
 
 
 
+def plot_schematics_func():
+   """
+   Plot all films in YAML file
+   """
+
+   # print('arg', len(sys.argv),sys.argv)
+   if len(sys.argv) == 2:
+      # List all files in the current directory
+      all_files = os.listdir(".")
+      h5_files = [file for file in all_files if file.endswith(".h5")]
+   else:
+      h5_files = sys.argv[2::]
+         
+
+   # print(h5_files)
+   h5_files = sorted(h5_files)
+   print(h5_files)
+
+   # print(sys.argv)
+
+   try:
+      yamlfile = sys.argv[1]
+      if ".yml" not in yamlfile:
+         yamlfile += ".yml"
+   except Exception as error:
+      print(error)
+      print(colored("error", "red"))
+
+   with open(yamlfile, "r") as file:
+      yml = yaml.safe_load(file)
+
+   # print(yml)
+
+   mesh = yml["flower"]["mesh"]
+   plotpar = yml["plot"]
+
+   plotpar["scale_time"] = float(plotpar["scale_time"])
+
+   mesh["nx"] = int(mesh["nx"])
+   mesh["ny"] = int(mesh["ny"])
+
+   mesh["xmax"] = float(mesh["xmax"])
+   mesh["xmin"] = float(mesh["xmin"])
+
+   mesh["ymax"] = float(mesh["ymax"])
+   mesh["ymin"] = float(mesh["ymin"])
+
+   mesh["dx"] = (mesh["xmax"] - mesh["xmin"]) / mesh["nx"]
+   mesh["dy"] = (mesh["ymax"] - mesh["ymin"]) / mesh["ny"]
+
+   xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+   yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+
+   dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
+   dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
+
+   xu = xp + dx / 2
+   xu = np.insert(xu, 0, xp[0] - dx / 2)
+   # yu = yp # xv = xp
+   yv = yp + dy / 2
+   yv = np.insert(yv, 0, yp[0] - dy / 2)
+
+   plotpar["scale_x"] = float(plotpar["scale_x"])
+   plotpar["scale_y"] = float(plotpar["scale_y"])
+
+   scale_x = float(plotpar["scale_x"])
+   scale_y = float(plotpar["scale_y"])
+
+   xp /= scale_x
+   yp /= scale_y
+   xu /= scale_x
+   yv /= scale_y
+
+
+
+    # Schematics describing BC
+   for figpar in plotpar['schematics']:
+
+
+      if 'func' in figpar.keys():
+         func = globals()[figpar['func']] #'plot_current_lines'
+         func(figpar,plotpar)
+      else:
+         plot_schematics(figpar,plotpar)
+
+
+
 def plot_convergence_study_func():
    """
    Plot all films in YAML file
@@ -539,6 +626,10 @@ def plot_convergence_study_func():
    yp /= scale_y
    xu /= scale_x
    yv /= scale_y
+
+
+
+  
 
 
 
@@ -633,7 +724,7 @@ def plot_convergence_study_func():
          print(colored('Failed '+figpar['file'], "red"))
          raise # was: pass
 
-
+ 
 
 
 def plot_convergence_func(

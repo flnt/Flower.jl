@@ -64,9 +64,35 @@
 @inline is_solid(a) = a == 15.0
 
 """
-    biquadratic
-    cf http://basilisk.fr/sandbox/ghigo/src/myembed.h#lifting-the-small-cell-cfl-restriction
-    cf http://basilisk.fr/sandbox/alimare/alex_functions.h#bilinear-with-quadratic-correction
+Evaluate the biquadratic interpolation of a 2D matrix `m` at the point `(x, y)`.
+
+This function computes the value of a biquadratic interpolation at a given point `(x, y)`
+using the coefficients stored in the matrix `m`. 
+The biquadratic interpolation is a type of polynomial interpolation that is used to approximate functions in two dimensions.
+
+### Inputs
+
+- `m`: A 3x3 matrix containing the coefficients for the biquadratic interpolation.
+- `x`: The x-coordinate at which to evaluate the interpolation.
+- `y`: The y-coordinate at which to evaluate the interpolation.
+
+### Outputs
+
+- The interpolated value at the point `(x, y)`.
+
+### Details
+
+The biquadratic interpolation is defined as:
+
+```
+m[1,1] * (y^2) * (x^2) + m[1,2] * (y^2) * x + m[2,1] * y * (x^2) + m[1,3] * (y^2) + m[3,1] * (x^2) + m[2,2] * y * x + m[2,3] * y + m[3,2] * x + m[3,3]
+```
+
+### References
+
+- [Basilisk Sandbox: Ghigo's myembed.h](http://basilisk.fr/sandbox/ghigo/src/myembed.h#lifting-the-small-cell-cfl-restriction)
+- [Basilisk Sandbox: Alimare's alex_functions.h](http://basilisk.fr/sandbox/alimare/alex_functions.h#bilinear-with-quadratic-correction)
+
 """
 @inline biquadratic(m, x, y) = @inbounds m[1,1]*(y^2)*(x^2) + m[1,2]*(y^2)*x + m[2,1]*y*x^2 + m[1,3]*y^2 + m[3,1]*x^2 + m[2,2]*y*x + m[2,3]*y + m[3,2]*x + m[3,3]
 
