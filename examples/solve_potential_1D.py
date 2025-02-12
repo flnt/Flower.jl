@@ -58,7 +58,8 @@ def newton(U_first_guess,elec_cond,fact,solved_slope,h,N,tol,max_iter):
         U += delta_U
         slope = (U[-1]-U[0])/(xmax-xmin)
         diff = abs(slope-solved_slope)/solved_slope
-        print("iter {} phi at wall {:.3e} relative error {:.3e} ".format(k+1,U[0],diff))
+        # print("iter {} phi at wall {:.3e} relative error {:.3e} ".format(k+1,U[0],diff))
+        print("iter {} phi at wall {:.3e} relative error {:.3e} res {:.3e}".format(k+1,U[0],diff,F_U[0]))
 
         # Create the list of values
         data_list = [k, U[0], diff]

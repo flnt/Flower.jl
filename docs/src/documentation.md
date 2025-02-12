@@ -32,15 +32,27 @@ run_forward!
 
 
 # Algorithm
-* Initialization
-* Pressure-velocity coupling (Navier-Stokes)
-* Scalar transport
+* Initialize simulation parameters
+* Allocations
+* Initialisation of bulk and interfacial values
+* Set matrices/operators
+* Solve heat equation
 * Poisson equation (electrical potential)
 * Reevaluate the current i_current for boundary conditions 
+* Scalar transport: update boundary conditions from electrical current
+* Scalar transport: solve
 * Phase change
 * Advection of the levelset
+* Pressure-velocity coupling (Navier-Stokes)
 
 
+
+!!! info "Viewing the regions of code in VScode"
+    You can see some of the regions correponding to this algorithm with "Region marker" in VScode.
+
+!!! danger "update LS"
+    See [Updating the operator from Levelset](@ref)
+    
 
 ## Definitions
 
@@ -287,6 +299,7 @@ The control volume ``\mathcal{W}_{x,i=1}`` associated with the face is represent
 
 ```@raw html
 <figure>
+    <a name="facecontrolvolume"></a> 
     <img src="./assets/Wx_mesh_square_bubble_wall_2.svg" alt="Face control volume " title="Face control volume">
     <figcaption>Face control volume</figcaption>
 </figure>
@@ -1824,12 +1837,34 @@ G^T
 
 
 !!! todo "Interpolation for Poisson with variable coefficient"
-    does not take border and intrfacial values into account
+    does not take border and interfacial values into account
 
+ 
+
+```@raw html
+For the wall term on the left part of the domain, corresponding face control volume <a href="#facecontrolvolume"> (see figure), we should use: $\kappa = \frac{\kappa^\gamma+\kappa^\omega_{1,j}}{2}$.<span><img src="./assets/Wx_mesh_square_bubble_wall_2.svg" alt="image" height="800" /></span></a></span>
+```
+
+```@docs
+interpolate_scalar_to_staggered_u_v_grids_at_border!
+```
 
 ```@docs
 solve_poisson_variable_coeff!
 ```
+
+Laplacian: bulk 
+```julia
+L = BxT * iMx * Bx
+```
+L is of size nx*ny
+tmp_x ((nx+1)*ny , nx*ny)
+BxT (nx*ny, (nx+1)*ny )
+Bx ((nx+1)*ny, nx*ny)
+iMx ((nx+1)*ny, (nx+1)*ny )
+iMx_b (nx+1)*ny,2*nx +2*ny
+Hx_b  2*nx +2*ny,2*nx +2*ny
+
 ### Electrical current
 ```@docs
 compute_grad_phi_ele!

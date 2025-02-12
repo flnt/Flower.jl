@@ -143,7 +143,7 @@ def plot_errors(domain_length,nx_list,l1_rel_error,l2_rel_error,linfty_rel_error
 
    plt.legend()
 
-   plt.savefig("errors.pdf")
+   plt.savefig("errors.pdf",transparent=True)
    print("plot python")
 
    plt.close(fig)
@@ -896,7 +896,7 @@ def plot_convergence_func(
          plt.savefig(eval(macro),dpi=plotpar['dpi'])
    
    else:
-      plt.savefig(file_name+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+      plt.savefig(file_name+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
          
 
 

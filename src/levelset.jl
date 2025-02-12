@@ -1871,9 +1871,10 @@ Hypothesis constant mesh spacing ? dx, dy
 - `dy`: Vertical offset for the face interpolation.
 
 ### Outputs
-- A vector of four biquadratic interpolation values corresponding to the four faces of the quadrilateral element.
+- A vector of four biquadratic interpolation values corresponding to the four faces of the quadrilateral element [left,bottom,right,top].
 
 The coordinates are normalized.
+
 
 ### Example
 II = II_0
@@ -1970,10 +1971,6 @@ Interpolates the scalar field `u` onto the faces of the grid, i.e onto the u and
 ### Returns
 - `nothing`: This function modifies the `uu` and `uv` arrays in-place.
 
-### Description
-This function interpolates the scalar field `u` onto the faces of the grid. It handles both interior and boundary points. 
-The interpolated values are stored in the `uu` and `uv` arrays.
-
 ### Detailed Steps
 1. **Initialize `u_faces`**: Create an array to store the interpolated values on the faces of the grid.
 2. **Interpolate Interior Points**: Loop over the interior grid points and interpolate the scalar field `u` onto the faces using the `aux_interpolate_scalar!` function.
@@ -2041,13 +2038,20 @@ function interpolate_scalar!(grid, grid_u, grid_v, u, uu, uv)
         aux_interpolate_scalar!(δy⁻(II), II, u, x, y, dx, dy, u_faces)
     end
 
-    # The corner points are not interpolated
+    # Use interpolation on the left face: 1
     @inbounds uu[:,1] .= @view u_faces[:,1,1]
+    
+    # Use interpolation on the right face: 3
     @inbounds uu[:,end] .= @view u_faces[:,end,3]
 
+    # Use interpolation on the bottom face: 2
     @inbounds uv[1,:] .= @view u_faces[1,:,2]
+    
+    # Use interpolation on the top face: 4
     @inbounds uv[end,:] .= @view u_faces[end,:,4]
 
+    # Faces [left,bottom,right,top]
+    # Average the interpolation from both sides of the face 
     @inbounds @threads for i = 1:grid_u.ny
         @inbounds uu[i,2:end-1] .= @views 0.5 * (u_faces[i,1:end-1,3] .+ u_faces[i,2:end,1])
     end

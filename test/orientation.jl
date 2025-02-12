@@ -733,6 +733,16 @@ j = div(n,2)
 
 
 @testset "Interpolation: linear" begin
+
+    # Interpolation 
+    # Example f(x)=x on scalar grid
+    # Scalar
+    # gp.V j [5.0, 15.0, 25.0, 35.0, 45.0, 55.0, 65.0, 75.0, 85.0, 95.0]
+    # u 
+    # gu.V j [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0]
+    # v
+    # gv.V j [5.0, 15.0, 25.0, 35.0, 45.0, 55.0, 65.0, 75.0, 85.0, 95.0]
+
     print("\n interpolation size ",size(gp.V))
     gp.V .= ftest.(gp.x,gp.y)
 
@@ -759,7 +769,125 @@ end
 
 
 
+@testset "interpolate_scalar_to_staggered_u_v_grids_at_border!" begin
 
+    @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = op.opC_pL
+    @unpack BxT, ByT,tmp_x, tmp_y = op.opC_pL
+
+    grid = gp
+    grid_u = gu
+    grid_v = gv
+   
+    ni = grid.nx * grid.ny
+    nb = 2 * grid.nx + 2 * grid.ny
+
+    # #TODO reset zero
+    # rhs .= 0.0
+    # coeffDu .= 0.0
+    # coeffDv .= 0.0
+    # A .= 0.0
+    # a0 .= 0.0
+
+    # a0_b = zeros(nb)
+    # _a1_b = zeros(nb)
+    # _b_b = zeros(nb)
+    # for iLS in 1:num.nLS
+    #     set_borders!(grid, grid.LS[iLS].cl, grid.LS[iLS].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
+    # end
+    # a1_b = Diagonal(vec(_a1_b))
+    # b_b = Diagonal(vec(_b_b))
+
+    coeffD = fnones(grid,num)
+    coeffDu = zeros(gu)
+    coeffDv = zeros(gv)
+
+
+    #interpolate coefficient
+    coeffD_borders = vecb(coeffD,grid)
+    interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(coeffD,grid,1), grid), coeffDu, coeffDv)
+
+    print("\n coeff ",minimum(coeffDu)," ",maximum(coeffDu)," ",minimum(coeffDv)," ",maximum(coeffDv)," ",minimum(coeffD_borders)," ",maximum(coeffD_borders))
+
+    coeffDx_bulk = veci(coeffDu,grid_u)
+    coeffDy_bulk = veci(coeffDv,grid_v)
+
+    # mat_coeffDx = Diagonal(vec(coeffDx_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
+    # mat_coeffDy = Diagonal(vec(coeffDy_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
+
+    print("\n sizes",size(coeffDx_bulk)) #
+    print("\n sizes coeffDy_bulk ",size(coeffDy_bulk)) #
+
+    mat_coeffDx = Diagonal(vec(coeffDu)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
+    mat_coeffDy = Diagonal(vec(coeffDv)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
+
+   
+    ni = gp.nx * gp.ny
+    nb = 2 * gp.nx + 2 * gp.ny
+
+
+    mul!(tmp_x, mat_coeffDx * iMx, Bx)
+    L = BxT * tmp_x
+    mul!(tmp_y, mat_coeffDy * iMy, By)
+    L = L .+ ByT * tmp_y
+
+    coeffDu_border = copy(coeffDu)
+    coeffDv_border = copy(coeffDv)
+
+    # Interpolate conductivity at center of control volumes for potential gradient at the border
+    # interpolate_scalar_to_staggered_u_v_grids_at_border!(num,grid,coeffD,coeffDu,coeffDv)
+
+    interpolate_scalar_to_staggered_u_v_grids_at_border_test!(num,gp,coeffD,coeffDu_border,coeffDv_border)
+
+    coeffDx_border = veci(coeffDu_border,gu)
+    coeffDy_border = veci(coeffDv_border,gv)
+
+    mat_coeffDx_b = Diagonal(vec(coeffDx_border)) 
+    mat_coeffDy_b = Diagonal(vec(coeffDy_border))
+
+    # mat_coeffDx_b = Diagonal(vec(coeffDu_border)) 
+    # mat_coeffDy_b = Diagonal(vec(coeffDv_border))
+
+    # for j in 1:gp.ny
+    # #  for i in 1:gp.nx+1
+
+    # #  end
+    # print("\n iMx_b * Hx_b j ", (iMx_b * Hx_b)[j,:])
+    # end
+
+    # for j in 1:gp.ny+1
+    # #  for i in 1:gp.nx+1
+
+    # #  end
+    # print("\n iMy_b * Hy_b j ", (iMy_b * Hy_b)[j,:])
+    # end
+
+    # print("\n iMx_b * Hx_b ", iMx_b * Hx_b)
+
+    # print("\n iMy_b * Hy_b ", iMy_b  * Hy_b)
+
+    print("\n iMx_b * Hx_b ", iMx_b * Hx_b * coeffD_borders)
+
+    coeffD_borders_test = copy(coeffD_borders)
+    coeffD_borders_test .=1.0
+
+    print("\n iMx_b * Hx_b ", mat_coeffDx_b * iMx_b * Hx_b * coeffD_borders_test)
+
+    print("\n iMy_b * Hy_b ", iMy_b  * Hy_b * coeffD_borders)
+
+    print("\n iMy_b * Hy_b ", mat_coeffDy_b * iMy_b  * Hy_b * coeffD_borders_test) #ones(nb))
+
+    # for j in 1:gp.ny
+    #     #  for i in 1:gp.nx+1
+
+    #     #  end
+    #     # print("\n iMx_b * Hx_b j ", (iMx_b * Hx_b)[j,:])
+    #     print("\n iMx_b * Hx_b ", (iMx_b * Hx_b * coeffD_borders)[j,:])
+
+    #     print("\n iMx_b * Hx_b ", (mat_coeffDx_b * iMx_b * Hx_b * ones(nb))[j,:])
+    # end
+
+
+end
 
 
 #Initialize liquid phase

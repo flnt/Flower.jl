@@ -2309,7 +2309,7 @@ pdi:
             # print('\n \033[93m'+'i_current_x_py ',i_current_x_py[:,ny_py//2],'\033[0m')
 
             
-            # print('\n \033[93m'+'phi line ',phi[:,ny_py//2],'\033[0m') # verical line 
+            # print('\n \033[93m'+'phi line ',phi[:,ny_py//2],'\033[0m') # vertical line 
             # print('\n \033[93m'+'phi line ',phi[ny_py//2,:],'\033[0m') #horizontal line
 
 

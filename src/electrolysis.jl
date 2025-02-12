@@ -3076,8 +3076,6 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
     coeffDx_bulk = veci(coeffDu,grid_u)
     coeffDy_bulk = veci(coeffDv,grid_v)
 
-
-
     # mat_coeffDx = Diagonal(vec(coeffDx_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
     # mat_coeffDy = Diagonal(vec(coeffDy_bulk)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
 
@@ -3087,132 +3085,70 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
     mat_coeffDx = Diagonal(vec(coeffDu)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
     mat_coeffDy = Diagonal(vec(coeffDv)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
 
-
-    
-    # mat_coeffDx_b = Diagonal(vec(coeffD_borders)) # is a 1d vector with shape (2grid.ny + 2grid.nx), multiplies Hx_b and Hy_b
-    
-    coeffDu .= 0.0
-    coeffDv .= 0.0
-
-    # print("\n indices left",grid.ind.b_left)
-    # print("\n indices left",grid.ind.b_right)
-
-    # Interpolate conductivity at center of potential gradient control volumes at the border
-
-    @inbounds @threads for II in grid.ind.b_left[1]#[2:end-1]
-        # aux_interpolate_scalar!(δx⁺(II), II, u, x, y, dx, dy, u_faces)
-        coeffDu[II] = (vecb_L(coeffD,grid)[II[1]]+elec_cond[II])/2.0
-    end
-
-    @inbounds @threads for II in grid.ind.right[1]#[2:end-1]
-        # aux_interpolate_scalar!(δx⁺(II), II, u, x, y, dx, dy, u_faces)
-        coeffDu[II] = (vecb_R(coeffD,grid)[II[1]]+elec_cond[II])/2.0
-    end
-
-    @inbounds @threads for II in grid.ind.b_bottom[1]#[2:end-1]
-        # aux_interpolate_scalar!(δx⁺(II), II, u, x, y, dx, dy, u_faces)
-        coeffDv[II] = (vecb_B(coeffD,grid)[II[2]]+elec_cond[II])/2.0
-    end
-
-    @inbounds @threads for II in grid.ind.right[1]#[2:end-1]
-        # aux_interpolate_scalar!(δx⁺(II), II, u, x, y, dx, dy, u_faces)
-        coeffDv[II] = (vecb_T(coeffD,grid)[II[2]]+elec_cond[II])/2.0
-    end
-
-
-    # # TODO special case 
-    #  # Shift point to interpolate
-    #  II = b_left[1][1]
-    # #  II_0 = δy⁺(δx⁺(II))
-    # #  aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
- 
-    #  # Shift point to interpolate
-    #  II = b_left[1][end]
-    # #  II_0 = δy⁻(δx⁺(II))
-    # #  aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
- 
-    #  # Shift point to interpolate
-    #  @inbounds @threads for II in grid.ind.b_bottom[1][2:end-1]
-    #     #  aux_interpolate_scalar!(δy⁺(II), II, u, x, y, dx, dy, u_faces)
-    #     coeff_Dv[II]
-    #  end
- 
-    #  @inbounds @threads for II in grid.ind.b_right[1][2:end-1]
-    #      aux_interpolate_scalar!(δx⁻(II), II, u, x, y, dx, dy, u_faces)
-    #  end
- 
-    #  # Shift point to interpolate
-    #  II = b_right[1][1]
-    # #  II_0 = δy⁺(δx⁻(II))
-    # #  aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
- 
-    #  # Shift point to interpolate
-    #  II = b_right[1][end]
-    # #  II_0 = δy⁻(δx⁻(II))
-    # #  aux_interpolate_scalar!(II_0, II, u, x, y, dx, dy, u_faces)
- 
-    #  @inbounds @threads for II in grid.ind.b_top[1][2:end-1]
-    #      aux_interpolate_scalar!(δy⁻(II), II, u, x, y, dx, dy, u_faces)
-    #  end
- 
-
-    mat_coeffDx_b = Diagonal(vec(coeffDu)) # is a 1d vector with shape (2grid.ny + 2grid.nx), multiplies Hx_b and Hy_b
-    mat_coeffDy_b = Diagonal(vec(coeffDv)) # is a 1d vector with shape (2grid.ny + 2grid.nx), multiplies Hx_b and Hy_b
-
-
+    # Laplacian: bulk 
     # L = BxT * iMx * Bx
-    # L size nx*ny
-    # tmp_x ((nx+1)*ny ?, nx*ny)
-    # BxT (nx*ny, (nx+1)*ny ?)
-    # Bx ((nx+1)*ny ?, nx*ny)
-    # iMx ((nx+1)*ny ?, (nx+1)*ny ?)
-
-    #Laplacian
-    # diag so ok if not order mat_coeffDx iMx Bx ?
-    # mul!(tmp_x, iMx, mat_coeffDx * Bx)
-    # L = BxT * tmp_x
-    # mul!(tmp_y, iMy, mat_coeffDy * By)
-    # L = L .+ ByT * tmp_y
-
-    mul!(tmp_x, mat_coeffDx * iMx, Bx)
-    L = BxT * tmp_x
-    mul!(tmp_y, mat_coeffDy * iMy, By)
-    L = L .+ ByT * tmp_y
-
-    print("\n sizes",size(iMx_b)) #  (nx+1)*ny,2*nx +2*ny
-    print("\n sizes",size(mat_coeffDx_b)) #2*nx +2*ny,2*nx +2*ny
-    print("\n sizes",size(BxT)) #nx*ny,(nx+1)*ny
-    print("\n sizes",size(Hx_b)) #2*nx +2*ny,2*nx +2*ny
-    print("\n sizes",grid.nx," ny ",grid.ny)
-
-    print("\n sizes",size(coeffDx_bulk)) #
-    print("\n sizes",size(coeffDy_bulk)) #
-    print("\n sizes",size(mat_coeffDx)) #
-    print("\n sizes",size(mat_coeffDy)) #
-
-    # sizes(1056, 128) iMx_b
-    # sizes(128, 128) mat_coeffDx_b
-    # sizes(1024, 1056) BxT
+    # L is of size nx*ny
+    # tmp_x ((nx+1)*ny , nx*ny)
+    # BxT (nx*ny, (nx+1)*ny )
+    # Bx ((nx+1)*ny, nx*ny)
+    # iMx ((nx+1)*ny, (nx+1)*ny )
+    # iMx_b (nx+1)*ny,2*nx +2*ny
+    # Hx_b  2*nx +2*ny,2*nx +2*ny
 
     # mat_coeffDx_b should be of size ((nx+1)*ny,(nx+1)*ny)
 
-    # Interpolation 
-    # Example f(x)=x on scalar grid
-    # Scalar
-    # gp.V j [5.0, 15.0, 25.0, 35.0, 45.0, 55.0, 65.0, 75.0, 85.0, 95.0]
-    # u 
-    # gu.V j [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0]
-    # v
-    # gv.V j [5.0, 15.0, 25.0, 35.0, 45.0, 55.0, 65.0, 75.0, 85.0, 95.0]
-   
+    old_method = false
+    # old_method = true
 
-    # coeff : (nx+1)*ny
+    if old_method #(wrong)
 
-    #Boundary for Laplacian
-    # bc_L_b = (BxT * iMx_b * mat_coeffDx_b *Hx_b .+ ByT * iMy_b * mat_coeffDx_b *Hy_b)
-    bc_L_b = (BxT * mat_coeffDx_b * iMx_b * Hx_b .+ ByT * mat_coeffDy_b * iMy_b  * Hy_b)
+        # Laplacian
+        # diag so ok if not order mat_coeffDx iMx Bx ? No, wrong equation
+        mul!(tmp_x, iMx, mat_coeffDx * Bx)
+        L = BxT * tmp_x
+        mul!(tmp_y, iMy, mat_coeffDy * By)
+        L = L .+ ByT * tmp_y
 
-   #border
+
+        # mul!(tmp_x, mat_coeffDx * iMx, Bx)
+        # L = BxT * tmp_x
+        # mul!(tmp_y, mat_coeffDy * iMy, By)
+        # L = L .+ ByT * tmp_y
+
+        mat_coeffDx_b = Diagonal(vec(coeffD_borders)) # is a 1d vector with shape (2grid.ny + 2grid.nx), multiplies Hx_b and Hy_b
+        
+        #Boundary for Laplacian
+        bc_L_b = (BxT * iMx_b * mat_coeffDx_b *Hx_b .+ ByT * iMy_b * mat_coeffDx_b *Hy_b)
+
+    else
+        
+        #TODO wall control volume kappa for bulk vs bulk control volume kappa different  
+        mul!(tmp_x, mat_coeffDx * iMx, Bx)
+        L = BxT * tmp_x
+        mul!(tmp_y, mat_coeffDy * iMy, By)
+        L = L .+ ByT * tmp_y
+
+        coeffDu_border = copy(coeffDu)
+        coeffDv_border = copy(coeffDv)
+
+        # Interpolate conductivity at center of control volumes for potential gradient at the border
+        # interpolate_scalar_to_staggered_u_v_grids_at_border!(num,grid,coeffD,coeffDu,coeffDv)
+
+        interpolate_scalar_to_staggered_u_v_grids_at_border!(num,grid,coeffD,coeffDu_border,coeffDv_border)
+
+        coeffDx_border = veci(coeffDu_border,grid_u)
+        coeffDy_border = veci(coeffDv_border,grid_v)
+
+        mat_coeffDx_b = Diagonal(vec(coeffDx_border)) 
+        mat_coeffDy_b = Diagonal(vec(coeffDy_border))
+
+        #Boundary for Laplacian
+        bc_L_b = (BxT * mat_coeffDx_b * iMx_b * Hx_b .+ ByT * mat_coeffDy_b * iMy_b  * Hy_b)
+
+    end 
+
+    #border
+
 
       
     if ls_advection
@@ -3485,114 +3421,253 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
         end
     end
     
+    #region Solve Ax = b
+    if num.electrical_potential_nonlinear_solver == 0
 
-    if num.solver == 0
-        @time ph.phi_eleD .= A \ rhs
-    elseif num.solver == 1
-        # using MUMPS, MPI, SparseArrays, LinearAlgebra
-        MPI.Init()
-        # A = sprand(10, 10, 0.2) + I
-        # rhs = rand(10)
-        # x = MUMPS.solve(A, rhs)
-        # norm(x - A \ rhs) / norm(x)
-        # ph.phi_eleD .= x
-        ph.phi_eleD .= MUMPS.solve(A, rhs)
-        MPI.Finalize()
-    
-    elseif num.solver == 2
-        # diagA = A.diag
+        if num.solver == 0
+            @time ph.phi_eleD .= A \ rhs
+        elseif num.solver == 1
+            # using MUMPS, MPI, SparseArrays, LinearAlgebra
+            MPI.Init()
+            # A = sprand(10, 10, 0.2) + I
+            # rhs = rand(10)
+            # x = MUMPS.solve(A, rhs)
+            # norm(x - A \ rhs) / norm(x)
+            # ph.phi_eleD .= x
+            ph.phi_eleD .= MUMPS.solve(A, rhs)
+            MPI.Finalize()
+        
+        elseif num.solver == 2
+            # diagA = A.diag
 
-        d = collect(diag(A))
-        for i in eachindex(d)
-            if iszero(d[i])
-                print("\n diag i ", i,"\n d[i] ",d[i])
+            d = collect(diag(A))
+            for i in eachindex(d)
+                if iszero(d[i])
+                    print("\n diag i ", i,"\n d[i] ",d[i])
+                end
+                # print("\n diag i ", i,"\n d[i] ",d[i])
+                d[i] = ifelse(iszero(d[i]), one(d[i]), 1/d[i])
+                # d[i] = ifelse(iszero(d[i]), a*one(d[i]), zero(d[i]))
+                
             end
-            # print("\n diag i ", i,"\n d[i] ",d[i])
-            d[i] = ifelse(iszero(d[i]), one(d[i]), 1/d[i])
-            # d[i] = ifelse(iszero(d[i]), a*one(d[i]), zero(d[i]))
-            
-        end
-        # A + Diagonal(d)
+            # A + Diagonal(d)
 
-        # diagA = diag(A,0)
-        invdiagA= Diagonal(d)
-        newA = invdiagA * A
-        newrhs=  invdiagA * rhs
-        # newA= inv(diagA) * A 
-        # newrhs=  inv(diagA) * rhs
-        @time ph.phi_eleD .= newA \ newrhs
+            # diagA = diag(A,0)
+            invdiagA= Diagonal(d)
+            newA = invdiagA * A
+            newrhs=  invdiagA * rhs
+            # newA= inv(diagA) * A 
+            # newrhs=  inv(diagA) * rhs
+            @time ph.phi_eleD .= newA \ newrhs
 
-        d = collect(diag(newA))
-        for i in eachindex(d)
-            # if iszero(d[i])
-            #     print("\n diag i ", i,"\n d[i] ",d[i])
-            # end
-            print("\n diag i ", i,"\n d[i] ",d[i])
-            # d[i] = ifelse(iszero(d[i]), one(d[i]), 1/d[i])
-            # d[i] = ifelse(iszero(d[i]), a*one(d[i]), zero(d[i]))
-            
+            d = collect(diag(newA))
+            for i in eachindex(d)
+                # if iszero(d[i])
+                #     print("\n diag i ", i,"\n d[i] ",d[i])
+                # end
+                print("\n diag i ", i,"\n d[i] ",d[i])
+                # d[i] = ifelse(iszero(d[i]), one(d[i]), 1/d[i])
+                # d[i] = ifelse(iszero(d[i]), a*one(d[i]), zero(d[i]))
+                
+            end
+
         end
 
-    end
+        print("\n rhs max  ", maximum(rhs)," min",minimum(rhs))
 
-    print("\n rhs max  ", maximum(rhs)," min",minimum(rhs))
+        print("\n norm 2 ", norm(A*ph.phi_eleD)," rhs ",norm(rhs))
 
-    print("\n norm 2 ", norm(A*ph.phi_eleD)," rhs ",norm(rhs))
+        if norm(rhs) >0.0
+            print("\n norm 2 ", norm(A*ph.phi_eleD -rhs)/norm(rhs))
+        end
 
-    if norm(rhs) >0.0
-        print("\n norm 2", norm(A*ph.phi_eleD -rhs)/norm(rhs))
-    end
-
-    print("\n rhs ", minimum(vecb_L(rhs,grid))," rhs ",maximum(vecb_L(rhs,grid)))
+        print("\n rhs ", minimum(vecb_L(rhs,grid))," rhs ",maximum(vecb_L(rhs,grid)))
 
 
 
-    #TODO reevaluate F=Ax-b 
-    printstyled(color=:red, @sprintf "\n Residual" )
+        #TODO reevaluate F=Ax-b 
+        printstyled(color=:red, @sprintf "\n Residual" )
 
 
-    rhs_updated = fnzeros(grid,num)
+        rhs_updated = fnzeros(grid,num)
 
-    for iLS in 1:num.nLS
-        veci(rhs_updated,grid,iLS+1) .= χ[iLS] * vec(a0) #vec(a0[iLS])
-        printstyled(color=:red, @sprintf "\n veci(rhs,grid,iLS+1) %.2i %.2e %.2e \n" iLS maximum(abs.(veci(rhs,grid,iLS+1))) maximum(abs.(BC.LS[iLS].val)))
-        print("\n a0 max  ", maximum(a0)," min ",minimum(a0))
-    end #for iLS in 1:num.nLS
+        for iLS in 1:num.nLS
+            veci(rhs_updated,grid,iLS+1) .= χ[iLS] * vec(a0) #vec(a0[iLS])
+            printstyled(color=:red, @sprintf "\n veci(rhs,grid,iLS+1) %.2i %.2e %.2e \n" iLS maximum(abs.(veci(rhs,grid,iLS+1))) maximum(abs.(BC.LS[iLS].val)))
+            print("\n a0 max  ", maximum(a0)," min ",minimum(a0))
+        end #for iLS in 1:num.nLS
 
-    #TODO reevaluate BC
-    update_electrical_current_from_Butler_Volmer!(num,grid,heat,ph.phi_eleD,i_butler)
+        #TODO reevaluate BC
+        update_electrical_current_from_Butler_Volmer!(num,grid,heat,ph.phi_eleD,i_butler)
 
-    print("\n i_butler ",i_butler)
-    update_BC_electrical_potential!(num,grid,BC,elec_cond,coeffD,i_butler)
+        print("\n i_butler ",i_butler)
+        update_BC_electrical_potential!(num,grid,BC,elec_cond,coeffD,i_butler)
 
-    a0_b = zeros(nb)
-    _a1_b = zeros(nb)
-    _b_b = zeros(nb)
-    for iLS in 1:num.nLS
-        set_borders!(grid, grid.LS[iLS].cl, grid.LS[iLS].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
-    end
+        a0_b = zeros(nb)
+        _a1_b = zeros(nb)
+        _b_b = zeros(nb)
+        for iLS in 1:num.nLS
+            set_borders!(grid, grid.LS[iLS].cl, grid.LS[iLS].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
+        end
 
-    vecb(rhs_updated,grid) .= χ_b * vec(a0_b)
-
-
-    F_residual = A*ph.phi_eleD -rhs_updated
-
-    print("\n F_residual ",vecb_L(F_residual,grid))
-
-    print("\n rhs ", minimum(vecb_L(rhs_updated,grid))," rhs ",maximum(vecb_L(rhs_updated,grid)))
+        vecb(rhs_updated,grid) .= χ_b * vec(a0_b)
 
 
-    print("\n Newton-Raphson")
-    Jacobian = copy(A)
-
-    Jacobian[] .+= 0 #-1 / (h) - 1.0/elec_cond * fact * 2*np.cosh(fact * (-0.6 - U[0]))
-
-    phi_increment = Jacobian \ F_residual
+        F_residual = A*ph.phi_eleD -rhs_updated
 
     
+        #Wall capacity (left)
+        # II = ind.b_left[1][i]
+        # opC.χ_b[i, i] = geo.dcap[II,1]
+
+        if num.io_pdi>0
+            iLSpdi = 1
+            try
+                # in YAML file: save only if iscal ==1 for example
+                PDI_status = @ccall "libpdi".PDI_multi_expose("check_electrical_potential_convergence"::Cstring,
+                "residual_1D"::Cstring, F_residual::Ptr{Cdouble}, PDI_OUT::Cint,
+                "phi_ele_1D"::Cstring, ph.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                "elec_cond_1D"::Cstring, coeffD::Ptr{Cdouble}, PDI_OUT::Cint, 
+                "rhs_1D"::Cstring, rhs_updated::Ptr{Cdouble}, PDI_OUT::Cint, 
+                "dcap_1"::Cstring, grid.LS[iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
+                C_NULL::Ptr{Cvoid})::Cint
+            catch error
+                printstyled(color=:red, @sprintf "\n PDI error \n")
+                print(error)
+                printstyled(color=:red, @sprintf "\n PDI error \n")
+            end
+        end #if io_pdi
 
 
-    printstyled(color=:red, @sprintf "\n Residual" )
+        print("\n rhs ", minimum(vecb_L(rhs_updated,grid))," rhs ",maximum(vecb_L(rhs_updated,grid)))
+    
+    elseif num.electrical_potential_nonlinear_solver == 1 #Newton-Raphson
+
+        print("\n Newton-Raphson")
+
+        print("\n rhs max  ", maximum(rhs)," min",minimum(rhs))
+
+        print("\n norm 2 ", norm(A*ph.phi_eleD)," rhs ",norm(rhs))
+
+        if norm(rhs) >0.0
+            print("\n norm 2 ", norm(A*ph.phi_eleD -rhs)/norm(rhs))
+        end
+
+        # print("\n rhs ", minimum(vecb_L(rhs,grid))," rhs ",maximum(vecb_L(rhs,grid)))
+
+
+
+        #TODO reevaluate F=Ax-b 
+        printstyled(color=:red, @sprintf "\n Residual" )
+
+
+        rhs_updated = fnzeros(grid,num)
+
+        for iLS in 1:num.nLS
+            veci(rhs_updated,grid,iLS+1) .= χ[iLS] * vec(a0) #vec(a0[iLS])
+            printstyled(color=:red, @sprintf "\n veci(rhs,grid,iLS+1) %.2i %.2e %.2e \n" iLS maximum(abs.(veci(rhs,grid,iLS+1))) maximum(abs.(BC.LS[iLS].val)))
+            print("\n a0 max  ", maximum(a0)," min ",minimum(a0))
+        end #for iLS in 1:num.nLS
+
+        #TODO reevaluate BC
+        update_electrical_current_from_Butler_Volmer!(num,grid,heat,ph.phi_eleD,i_butler)
+
+        print("\n i_butler ",i_butler)
+        update_BC_electrical_potential!(num,grid,BC,elec_cond,coeffD,i_butler)
+
+        a0_b = zeros(nb)
+        _a1_b = zeros(nb)
+        _b_b = zeros(nb)
+        for iLS in 1:num.nLS
+            set_borders!(grid, grid.LS[iLS].cl, grid.LS[iLS].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
+        end
+
+        vecb(rhs_updated,grid) .= χ_b * vec(a0_b)
+
+
+        F_residual = A*ph.phi_eleD -rhs_updated
+
+    
+        #Wall capacity (left)
+        # II = ind.b_left[1][i]
+        # opC.χ_b[i, i] = geo.dcap[II,1]
+
+        if num.io_pdi>0
+            iLSpdi = 1
+            try
+                # in YAML file: save only if iscal ==1 for example
+                PDI_status = @ccall "libpdi".PDI_multi_expose("check_electrical_potential_convergence"::Cstring,
+                "residual_1D"::Cstring, F_residual::Ptr{Cdouble}, PDI_OUT::Cint,
+                "phi_ele_1D"::Cstring, ph.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                "elec_cond_1D"::Cstring, coeffD::Ptr{Cdouble}, PDI_OUT::Cint, 
+                "rhs_1D"::Cstring, rhs_updated::Ptr{Cdouble}, PDI_OUT::Cint, 
+                "dcap_1"::Cstring, grid.LS[iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
+                C_NULL::Ptr{Cvoid})::Cint
+            catch error
+                printstyled(color=:red, @sprintf "\n PDI error \n")
+                print(error)
+                printstyled(color=:red, @sprintf "\n PDI error \n")
+            end
+        end #if io_pdi
+
+
+        print("\n rhs ", minimum(vecb_L(rhs_updated,grid))," rhs ",maximum(vecb_L(rhs_updated,grid)))
+
+
+        Jacobian = copy(A)
+
+        #TODO reevaluate BC
+        i_butler_derivative = zeros(grid.ny)
+        jacobian_Butler = zeros(grid.ny)
+        update_derivative_electrical_current_from_Butler_Volmer!(num,grid,heat,ph.phi_eleD,i_butler_derivative)
+
+        print("\n i_butler ",i_butler_derivative)
+        update_BC_derivative_electrical_potential!(num,grid,jacobian_Butler,elec_cond,coeffD,i_butler_derivative)
+
+        # derivative_Butler = - 1.0/elec_cond * fact * 2*np.cosh(fact * (-0.6 - U[0]))
+
+        # BC Jacobian
+        ny = grid.ny
+        jacobian_bc = zeros(nb)
+        jacobian_bc[1:ny] = jacobian_Butler
+        # Jacobian[end-nb+1:end,end-nb+1:end] .+= χ_b * jacobian_bc
+
+        # Jacobian[end-nb+1:end,end-nb+1:end] .-= Diagonal(jacobian_bc)
+
+        print("\n jacobian_bc ",jacobian_bc)
+        print("\n Jacobian[end-nb+1:end,end-nb+1:end]",Jacobian[end-nb+1,:])
+        # Jacobian[end-nb+1:end,end-nb+1:end] .-= χ_b * vec(jacobian_bc)
+        Jacobian[end-nb+1:end,end-nb+1:end] .-= χ_b * Diagonal(vec(jacobian_bc))
+
+
+        print("\n Jacobian[end-nb+1:end,end-nb+1:end]",Jacobian[end-nb+1,:])
+
+
+        # Jacobian[end-nb+1:end,end-nb+1:end] .+= jacobian_Butler
+        # Jacobian[end-nb+1:end-nb+ny,end-nb+1:end-nb+ny] .+= χ_b * #Diagonal(jacobian_Butler) #TODO dx ? diag ?
+
+
+        phi_increment = Jacobian \ (-F_residual)
+
+        print("\n ph.phi_eleD border",vecb(ph.phi_eleD,grid))
+
+        print("\n phi_increment border",vecb(phi_increment,grid))
+
+        print("\n phi_increment bulk", minimum(veci(phi_increment,grid)), maximum(veci(phi_increment,grid)))
+
+
+        ph.phi_eleD .+= phi_increment
+
+        error
+
+        print("\n ph.phi_eleD border",vecb(ph.phi_eleD,grid))
+
+
+
+        printstyled(color=:red, @sprintf "\n Residual" )
+
+    end
+    #endregion
 
     #TODO or use mul!(rhs_scal, BTL, phL.TD, 1.0, 1.0) like in :
 
@@ -4247,6 +4322,7 @@ function compute_divergence!(num::Numerical{Float64, Int64},
     
 end     #divergence
 
+
 """
 Based on num.bulk_conductivity:
 * 0 conductivity computed from wall concentration
@@ -4294,11 +4370,11 @@ function update_electrical_current_from_Butler_Volmer!(num,grid,heat,phi_eleD,i_
 
     #TODO dev multiple levelsets
     if heat
-        i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phi_eleD, grid),
+        i_butler .= butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phi_eleD, grid),
         num.phi_ele1,num.Ru,T)
     else
         if num.nLS == 1
-            i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phi_eleD, grid),
+            i_butler .= butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phi_eleD, grid),
             num.phi_ele1,num.Ru,num.temperature0)
         # else
             #imposed by LS 2
@@ -4307,5 +4383,169 @@ function update_electrical_current_from_Butler_Volmer!(num,grid,heat,phi_eleD,i_
             # num.phi_ele1,num.Ru,num.temperature0)
         end
     end   
+
+end
+
+
+
+"""
+Based on num.bulk_conductivity:
+* 0 conductivity computed from wall concentration
+* 1 conductivity computed from bulk concentration
+* 2 conductivity computed from wall concentration and bulk concentration
+* 3 conductivity computed from wall concentration and bulk concentration
+"""
+function update_BC_derivative_electrical_potential!(num,grid,jacobian_Butler,elec_cond,elec_condD,i_butler_derivative)
+
+    # BC LS 2 in set_poisson directly
+    
+    #use Butler-Volmer, supposing the interfacial potential is acceptable and phi = phi_ele1 in metal 
+    # for conductivity, use interfacial value or bulk in corresponding cell
+
+    # TODO -(-i/kappa) in Flower ? so i_butler not -i_butler
+    # For small cells
+    if num.bulk_conductivity == 0
+        jacobian_Butler .= i_butler_derivative ./ vecb_L(elec_condD, grid)
+
+    elseif num.bulk_conductivity == 1
+        # Recommended as long as cell merging not implemented:
+        # Due to small cells, we may have slivers/small cells at the left wall, then the divergence term is small,
+        # which produces higher concentration in front of the contact line
+        jacobian_Butler .= i_butler_derivative./elec_cond[:,1]
+
+
+    elseif num.bulk_conductivity == 2 || num.bulk_conductivity == 3
+        jacobian_Butler .= i_butler_derivative./vecb_L(elec_condD, grid)
+
+        iLS = 1 #TODO end ? if several grid.LS ?
+        for j in 1:grid.ny
+            II = CartesianIndex(j,1)
+            if grid.LS[iLS].geoL.cap[II,5] < num.ϵ
+                jacobian_Butler[j] = i_butler_derivative[j]/elec_cond[j,1] 
+            end
+        end
+    end
+
+end
+
+"""
+If the heat equation is solved, it uses the computed temperature, otherwise num.temperature0 is used.
+"""
+function update_derivative_electrical_current_from_Butler_Volmer!(num,grid,heat,phi_eleD,i_butler_derivative;T=nothing)
+
+    #TODO dev multiple levelsets
+    if heat
+        i_butler_derivative .= derivative_butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phi_eleD, grid),
+        num.phi_ele1,num.Ru,T)
+    else
+        if num.nLS == 1
+            i_butler_derivative .= derivative_butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phi_eleD, grid),
+            num.phi_ele1,num.Ru,num.temperature0)
+        # else
+            #imposed by LS 2
+            # iLS_elec = 2
+            # i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(phL.phi_eleD, grid,iLS_elec+1),
+            # num.phi_ele1,num.Ru,num.temperature0)
+        end
+    end   
+
+end
+
+
+"""
+Interpolate conductivity at center of control volumes for potential gradient at the border
+"""
+function interpolate_scalar_to_staggered_u_v_grids_at_border!(num,grid,coeffD,coeffDu,coeffDv)
+
+    coeffDu .= 0.0
+    coeffDv .= 0.0
+
+    # or use lexicographic
+
+    @inbounds @threads for II in grid.ind.b_left[1] #[2:end-1]
+    # @inbounds @threads for II in grid_u.ind.b_left[1] #[2:end-1]
+        coeffDu[II] = (vecb_L(coeffD,grid)[II[1]]+reshape(veci(coeffD,grid),grid)[II])/2.0 # veci(coeff,grid) or elec_cond
+        # print("\n left, II ",II, coeffDu[II])
+    end
+
+    @inbounds @threads for II in grid.ind.b_right[1] #[2:end-1]
+        coeffDu[ δx⁺(II) ] = (vecb_R(coeffD,grid)[II[1]]+reshape(veci(coeffD,grid),grid)[II])/2.0
+        # print("\n right, II ",II, coeffDu[II])
+
+    end
+
+    @inbounds @threads for II in grid.ind.b_bottom[1] #[2:end-1]
+        coeffDv[II] = (vecb_B(coeffD,grid)[II[2]]+reshape(veci(coeffD,grid),grid)[II])/2.0
+    end
+
+    @inbounds @threads for II in grid.ind.b_top[1] #[2:end-1]
+        coeffDv[δy⁺(II)] = (vecb_T(coeffD,grid)[II[2]]+reshape(veci(coeffD,grid),grid)[II])/2.0
+    end
+
+    if num.io_pdi>0
+        try
+            PDI_status = @ccall "libpdi".PDI_multi_expose("write_electrical_conductivity"::Cstring,
+            "elec_cond_1D"::Cstring, coeffD::Ptr{Cdouble}, PDI_OUT::Cint,
+            "conductivity_u"::Cstring, coeffDu::Ptr{Cdouble}, PDI_OUT::Cint,
+            "conductivity_v"::Cstring, coeffDv::Ptr{Cdouble}, PDI_OUT::Cint,   
+            C_NULL::Ptr{Cvoid})::Cint
+        catch error
+            printstyled(color=:red, @sprintf "\n PDI error \n")
+            print(error)
+            printstyled(color=:red, @sprintf "\n PDI error \n")
+        end
+    end #if io_pdi
+
+    return coeffDu, coeffDv
+
+end
+
+
+"""
+Interpolate conductivity at center of control volumes for potential gradient at the border
+For test and prints
+"""
+function interpolate_scalar_to_staggered_u_v_grids_at_border_test!(num,grid,coeffD,coeffDu,coeffDv)
+
+    coeffDu .= 0.0
+    coeffDv .= 0.0
+
+    # or use lexicographic
+
+    @inbounds @threads for II in grid.ind.b_left[1] #[2:end-1]
+    # @inbounds @threads for II in grid_u.ind.b_left[1] #[2:end-1]
+        coeffDu[II] = (vecb_L(coeffD,grid)[II[1]]+reshape(veci(coeffD,grid),grid)[II])/2.0 # veci(coeff,grid) or elec_cond
+        print("\n left, II ",II, coeffDu[II])
+    end
+
+    @inbounds @threads for II in grid.ind.b_right[1] #[2:end-1]
+        coeffDu[ δx⁺(II) ] = (vecb_R(coeffD,grid)[II[1]]+reshape(veci(coeffD,grid),grid)[II])/2.0
+        print("\n right, II ",II, coeffDu[II])
+
+    end
+
+    @inbounds @threads for II in grid.ind.b_bottom[1] #[2:end-1]
+        coeffDv[II] = (vecb_B(coeffD,grid)[II[2]]+reshape(veci(coeffD,grid),grid)[II])/2.0
+    end
+
+    @inbounds @threads for II in grid.ind.b_top[1] #[2:end-1]
+        coeffDv[δy⁺(II)] = (vecb_T(coeffD,grid)[II[2]]+reshape(veci(coeffD,grid),grid)[II])/2.0
+    end
+
+    if num.io_pdi>0
+        try
+            PDI_status = @ccall "libpdi".PDI_multi_expose("write_electrical_conductivity"::Cstring,
+            "elec_cond_1D"::Cstring, coeffD::Ptr{Cdouble}, PDI_OUT::Cint,
+            "conductivity_u"::Cstring, coeffDu::Ptr{Cdouble}, PDI_OUT::Cint,
+            "conductivity_v"::Cstring, coeffDv::Ptr{Cdouble}, PDI_OUT::Cint,   
+            C_NULL::Ptr{Cvoid})::Cint
+        catch error
+            printstyled(color=:red, @sprintf "\n PDI error \n")
+            print(error)
+            printstyled(color=:red, @sprintf "\n PDI error \n")
+        end
+    end #if io_pdi
+
+    return coeffDu, coeffDv
 
 end

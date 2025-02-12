@@ -402,9 +402,9 @@ end
 
 
 """
-set_boundary_indicator!(grid::Mesh{GridFCy,T,N}, geo, geo_p, opC) where {T,N}
 
 set indicator*length for Robin BC for v grid
+on the left: geo.dcap[II,1]
 """
 function set_boundary_indicator!(grid::Mesh{GridFCy,T,N}, geo, geo_p, opC) where {T,N}
     @unpack nx, ny, ind = grid

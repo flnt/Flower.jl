@@ -118,6 +118,7 @@ Stores parameters for the simulation
     verbosity::D=0
     laplacian::D=0
     electrical_potential_residual::T=1e-2
+    electrical_potential_nonlinear_solver::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

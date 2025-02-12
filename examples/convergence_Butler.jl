@@ -186,6 +186,7 @@ for (i,n) in enumerate(npts)
         laplacian = sim.laplacian,
         electrical_potential_max_iter = sim.electrical_potential_max_iter,
         electrical_potential_residual = sim.electrical_potential_residual,
+        electrical_potential_nonlinear_solver = sim.electrical_potential_nonlinear_solver,
         )
     Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
     @debug "After Numerical"
@@ -544,4 +545,6 @@ end #if io.pdi>0
 printstyled(color=:red, @sprintf "\n After PDI \n")
 
 #Tests 
-eval(Meta.parseall(macros.test_end))
+if haskey(macros,"test_end")
+    eval(Meta.parseall(macros.test_end))
+end
