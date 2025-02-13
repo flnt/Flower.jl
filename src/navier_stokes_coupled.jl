@@ -2352,7 +2352,7 @@ function FE_set_momentum(
 
         if num.io_pdi>0
             try
-                printstyled(color=:magenta, @sprintf "\n PDI v1       FE_set_momentum %.5i %.5i \n" num.current_i num.nLS)
+                # printstyled(color=:magenta, @sprintf "\n PDI v1       FE_set_momentum %.5i %.5i \n" num.current_i num.nLS)
                 #in YAML file: save only if iscal ==1 for example
                 PDI_status = @ccall "libpdi".PDI_multi_expose("Navier_Stokes_set_momentum"::Cstring,
                 "current_nx"::Cstring, grid.nx::Ref{Clonglong}, PDI_OUT::Cint,

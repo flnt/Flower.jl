@@ -4,6 +4,7 @@ abstract type MutatingFields end
 
 abstract type AbstractOptimizer end
 
+
 """
 Stores parameters for the simulation
 
@@ -117,8 +118,12 @@ Stores parameters for the simulation
     extend_field::D=0
     verbosity::D=0
     laplacian::D=0
+    electrical_potential_relative_residual::T=1e-2
     electrical_potential_residual::T=1e-2
     electrical_potential_nonlinear_solver::D=0
+    electrolysis_reaction::String = "none"
+    index_levelset_pdi::D = 1 #to expose levelset number ... to PDI
+    time::T=0.0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

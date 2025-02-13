@@ -185,8 +185,10 @@ for (i,n) in enumerate(npts)
         average_velocity = sim.average_velocity,
         laplacian = sim.laplacian,
         electrical_potential_max_iter = sim.electrical_potential_max_iter,
+        electrical_potential_relative_residual = sim.electrical_potential_relative_residual,
         electrical_potential_residual = sim.electrical_potential_residual,
         electrical_potential_nonlinear_solver = sim.electrical_potential_nonlinear_solver,
+        electrolysis_reaction = phys.electrolysis_reaction,
         )
     Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
     @debug "After Numerical"
@@ -451,7 +453,6 @@ for (i,n) in enumerate(npts)
         electrolysis_convection = (sim.electrolysis_convection ==1),  
         electrolysis_liquid_phase = true,
         electrolysis_phase_change_case = sim.electrolysis_phase_change_case,
-        electrolysis_reaction = phys.electrolysis_reaction, 
         imposed_velocity = sim.imposed_velocity,
         adapt_timestep_mode = sim.adapt_timestep_mode,#1,
         non_dimensionalize=sim.non_dimensionalize,

@@ -6,7 +6,7 @@
 #TODO flow rate, check conservation
 #TODO i_current_x ... multiply by elec_cond
 #TODO no concentration prefactor
-
+#TODO successive substitution reuse LU decomposition
 
 # About PDI: the the Parallel Data Interface https://pdi.dev/1.8/
 
@@ -63,7 +63,6 @@ function run_forward!(
     electrolysis_liquid_phase::Bool = false,
     electrolysis_solid_phase::Bool = false,
     electrolysis_phase_change_case::String = "Khalighi",
-    electrolysis_reaction::String = "nothing",
     imposed_velocity::String = "none",
     adapt_timestep_mode::Int64 = 0,
     non_dimensionalize::Int64=1,
@@ -419,6 +418,7 @@ function run_forward!(
         nstep = 0
         time = 0.
         iLSpdi = 1
+
 
 
         printstyled(color=:green, @sprintf "\n Check init_fields_2!\n")
@@ -787,59 +787,67 @@ function run_forward!(
 
     current_t = 0.
     num.current_i =1
+    num.time = 0.
 
     #Time loop
     while num.current_i < num.max_iterations + 1
 
-        
+        #region start iter
+
         #region Adapt timestep
-        # printstyled(color=:green, @sprintf "\n num.CFL : %.2e dt : %.2e\n" num.CFL num.τ)
+
         if adapt_timestep_mode !=0
             num.τ = adapt_timestep!(num, phL, phS, grid_u, grid_v,adapt_timestep_mode)
             # print("after adapt_timestep!")
             printstyled(color=:green, @sprintf "\n num.CFL : %.2e dt : %.2e num.τ : %.2e\n" num.CFL num.τ num.τ)
         end
-        #endregion
+        #endregion adapt time
+        
+        if grid.LS[1].geoL.dcap[1,1,:] == 0.0
+            printstyled(color=:red, @sprintf "\n Error operator null \n")
+            return
+        end
 
-        printstyled(color=:red, @sprintf "\n iter: %5i\n" num.current_i)
-        println("\n grid.LS[1].geoL.dcap[1,1,:]",grid.LS[1].geoL.dcap[1,1,:])
+        # Print information at the start of temporal iteration and check definition of operators 
+        # cf update_all_ls_data (true VS false)
+        PDI_status = @ccall "libpdi".PDI_multi_expose("print_start_temporal_iteration"::Cstring,
+        "nstep"::Cstring, num.current_i::Ref{Clonglong}, PDI_OUT::Cint,
+        "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,
+        # "levelset_p"::Cstring, grid.LS[num.index_levelset_pdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        "dcap"::Cstring, grid.LS[num.index_levelset_pdi].geoL.dcap[:,:,:]::Ptr{Cdouble}, PDI_OUT::Cint,
+        # grid.LS[1].geoL.dcap[1,1,:]
+        C_NULL::Ptr{Cvoid})::Cint
 
-        # PDI_multi_expose()
 
-        # PDI_status = @ccall "libpdi".PDI_multi_expose("check_levelset"::Cstring,
-        # "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
-        # "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
-        # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
-        # # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-        # # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
-        # # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
-        # # "normal_x"::Cstring, normal_x::Ptr{Cdouble}, PDI_OUT::Cint,   
-        # # "normal_y"::Cstring, normal_y::Ptr{Cdouble}, PDI_OUT::Cint,  
-        # # grid_u.LS[iLS].α
-        # # "normal_angle"::Cstring, grid.LS[iLSpdi].α::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "velocity_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
-        # "velocity_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,      
-        # "radius"::Cstring, num.current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
-        # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
-        # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
-        # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
-        # C_NULL::Ptr{Cvoid})::Cint
+
+        # if num.io_pdi>0
+
+        #     #or permutedims(grid.LS[iLSpdi].geoL.dcap, (3, 2, 1)) (3, 1, 2)
+        #     try                            
+        #         iLSpdi = 1 # TODO all grid.LS                
+        #         PDI_status = @ccall "libpdi".PDI_multi_expose("write_capacities"::Cstring,                    
+        #         # "dcap"::Cstring, permutedims(grid.LS[iLSpdi].geoL.dcap, (3, 2, 1))::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         "dcap_1"::Cstring, grid.LS[iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         "dcap_2"::Cstring, grid.LS[iLSpdi].geoL.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         "dcap_3"::Cstring, grid.LS[iLSpdi].geoL.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         "dcap_4"::Cstring, grid.LS[iLSpdi].geoL.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint,
+
+        #         C_NULL::Ptr{Cvoid})::Cint                           
+        #     catch error
+        #         printstyled(color=:red, @sprintf "\n PDI error \n")
+        #         print(error)
+        #         printstyled(color=:red, @sprintf "\n PDI error \n")
+        #     end
+        # end #if io_pdi
+
+        #endregion start iter
 
         # PDI (IO)
         if electrolysis
 
             #TODO not necessary to expose everything now for ex only grid.LS ? and the rest later
     
-            printstyled(color=:red, @sprintf "\n test segments\n" )
+            # printstyled(color=:red, @sprintf "\n test segments\n" )
             # print("\n type of elec_cond ", typeof(elec_cond)," \n")
 
     
@@ -895,7 +903,7 @@ function run_forward!(
                     # Exposing data to PDI for IO    
                     # if writing "D" array (bulk, interface, border), add "_1D" to the name
                     
-                    printstyled(color=:magenta, @sprintf "\n PDI write_data_start_loop %.5i \n" num.current_i)
+                    # printstyled(color=:magenta, @sprintf "\n PDI write_data_start_loop %.5i \n" num.current_i)
     
                     PDI_status = @ccall "libpdi".PDI_multi_expose("write_data_start_loop"::Cstring,
                     "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
@@ -981,402 +989,12 @@ function run_forward!(
 
                 #region Electrolysis: Poisson  
                 if num.electrical_potential > 0
-                    
-                    # Electroneutrality assumption
-                    a0_p = [] 
-                    for i in 1:num.nLS
-                        push!(a0_p, zeros(grid))
-                    end
-
-                    # Constant electrical conductivity assumption
-                    #TODO electrical conductivity depends on concentration
-                    #iKOH index of KOH 
-                    # kappa_ele=2*num.Faraday^2*num.concentration0[iKOH]*num.diffusion_coeff[iKOH]/(num.Ru*T)
-                    # elec_cond=2*num.Faraday^2*trans_scal[iKOH]*num.diffusion_coeff[iKOH]/(num.Ru*T)
-
-                    # #print(@sprintf "TODO elec cond and boundary conditions need to be updated for potential\n")
-
-                    if electrolysis && num.nb_transported_scalars>1
-                        if heat 
-                            elec_condD .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, phL.TD, phL.trans_scalD[:,num.index_electrolyte])
-                            elec_cond .= reshape(vec1(elec_condD,grid),grid)
-                            # elec_cond .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, phL.T, phL.trans_scal)
-                            # elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru.*phL.T) #phL.T
-                        else
-                            elec_condD .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, phL.trans_scalD[:,num.index_electrolyte])
-                            elec_cond .= reshape(vec1(elec_condD,grid),grid)
-                            # elec_cond .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, phL.trans_scal)
-                            # elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru*num.temperature0) 
-                            
-                            if num.bulk_conductivity == 3
-                                elec_condD .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, num.concentration0[num.index_electrolyte])
-                                elec_cond .= reshape(vec1(elec_condD,grid),grid)
-                            end
-                       
-                        end
-                    else
-                        elec_condD .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, num.concentration0[num.index_electrolyte])
-                        elec_cond .= reshape(vec1(elec_condD,grid),grid)
-                    end
-
-         
-
-                    # printstyled(color=:red, @sprintf "\n test conductivity")
-
-                    # # elec_condD .= 2*num.Faraday^2 .*num.concentration0[2].*num.diffusion_coeff[2]./(num.Ru.*num.temperature0)
-                    # test_filter_concentration!(num,grid,phL.trans_scalD[:,2],num.concentration0[2])
-
-                    # elec_condD = 2*num.Faraday^2 .*phL.trans_scalD[:,2].*num.diffusion_coeff[2]./(num.Ru.*num.temperature0)
- 
-                    # # TODO icurrent mag and replace huge val scal
-                    
-                    # print("\n test i ",-2*num.Faraday^2*num.concentration0[2]*num.diffusion_coeff[2]./(num.Ru.*num.temperature0))*(num.phi0-num.phi1)/(1e-4)
-                    # print("\n test i ",-2*(num.Faraday^2)*num.concentration0[2]*num.diffusion_coeff[2]./(num.Ru.*num.temperature0))*(num.phi0-num.phi1)/(1e-4)
-
-                    # printstyled(color=:red, @sprintf "\n test conductivity")
-
-
-
-
-
-                    #Update Butler-Volmer Boundary Condition with new potential 
-
-                    if occursin("Butler",electrolysis_reaction) && num.nLS == 1
-
-                        printstyled(color=:red, @sprintf "\n Recomputing Butler \n" )
-
-                        #region Update current
-                        if electrolysis_reaction == "Butler_no_concentration"                
-                            update_electrical_current_from_Butler_Volmer!(num,grid,heat,phL.phi_eleD,i_butler;phL.T)
-                        end
-                        #endregion Update current
-
-                        update_BC_electrical_potential!(num,grid,BC_phi_ele,elec_cond,elec_condD,i_butler)
-
-
-                        # if heat
-                        #     BC_phi_ele.left.val = -butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,phL.phi_ele[:,1],num.phi_ele1,num.Ru,phL.T)./elec_cond[:,1]
-                        # else
-                        #     BC_phi_ele.left.val = -butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,phL.phi_ele[:,1],num.phi_ele1,num.Ru,num.temperature0)./elec_cond[:,1]
-                            
-                        #     # for iscal=1:num.nb_transported_scalars
-                        #     #     BC_trans_scal[iscal].left.val = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,phL.phi_ele[:,1],num.phi_ele1,num.Ru,num.temperature0)./(2*num.Faraday*num.diffusion_coeff[iscal])
-                        #     #     if iscal==1 || iscal==2
-                        #     #         BC_trans_scal[iscal].left.val .*=-1 #H2O
-                        #     #     end
-                        #     # end
-                        # end    
-
-                    # elseif electrolysis_reaction == ""
-                    #     # BC_phi_ele.left.val = -butler_volmer_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,phL.phi_ele[:,1],num.phi_ele1,num.Ru,num.temperature0)./elec_cond
-                    
-                        
-                
-                        # TODO 
-                        #Remove Nan when dividing by conductivity which may be null
-
-                        # TODO bug 1                           
-
-                        for iLS in 1:num.nLS
-                            # kill_dead_bc_left_wall!(vecb(elec_condD,grid), grid, iLS,1.0)
-                            for i = 1:grid.ny
-                                # print("vecb cap",vecb_L(grid.LS[iLS].geoL.cap[:,5],grid))
-                               
-                                # II = CartesianIndex(i,1)
-                                # II = grid.ind.b_left[1][i]
-                                # opC.χ_b[i, i] = geo.dcap[II,1]
-                                # TODO not cleat why zero: grid.LS[iLS].geoL.cap[II,1]
-                                #TODO cf update LS convection not convection where something is overwritten
-                                # wall_liquid_height = grid.LS[iLS].geoL.cap[II,1]
-                                wall_liquid_height = op.opC_pL.χ_b[i, i]
-                                if wall_liquid_height < 1e-12
-                                    BC_phi_ele.left.val[i] = 1.0
-                                    print("\n bug BC_phi_ele.left.val[i] ",II," ",grid.LS[iLS].geoL.cap[II,:])
-                                    # print("\n opC.χ_b[i, i] ",op.opC_pL.χ_b[i, i])
-                                end
-                            end
-                        end
-
-
-
-                    end #if occursin("Butler",electrolysis_reaction)
-
-          
-                    #TODO nLS
-                    #TODO kill_dead_cells! ?
-                    kill_dead_cells!(phL.phi_ele, grid, grid.LS[1].geoL)
-                    veci(phL.phi_eleD,grid,1) .= vec(phL.phi_ele)
-                    
-
-            
-
-                    # iterate (non-linear BC with Butler) 
-                    for poisson_iter=1:num.electrical_potential_max_iter
-
-                        printstyled(color=:orange, @sprintf "\n poisson iter %.2i \n" poisson_iter)
-
-                        compute_grad_phi_ele!(num, grid, grid_u, grid_v, grid_u.LS[end], grid_v.LS[end], phL, phS, op.opC_pL, op.opC_pS, 
-                        elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p0,tmp_vec_p1) #TODO current
-
-                    
-                        residual_electrical_potential = maximum(abs.(-tmp_vec_p[div(grid.ny,2),:].+butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phL.phi_eleD, grid),
-                                    num.phi_ele1,num.Ru,num.temperature0)))
-
-                        printstyled(color=:orange, @sprintf "\n Residual %.3e criterion %.3e\n" residual_electrical_potential num.electrical_potential_residual)
-
-
-                        @ccall "libpdi".PDI_multi_expose("check_electrical_potential"::Cstring,
-                        "poisson_iter"::Cstring, poisson_iter ::Ref{Clonglong}, PDI_OUT::Cint,
-                        "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
-                        "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
-                        "i_current_mag"::Cstring, tmp_vec_p1::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                        "elec_cond_1D"::Cstring, elec_condD::Ptr{Cdouble}, PDI_OUT::Cint,  
-                        "BC_phi_ele_left"::Cstring, BC_phi_ele.left.val::Ptr{Cdouble}, PDI_OUT::Cint,  
-                        "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "residual_electrical_potential"::Cstring, residual_electrical_potential ::Ref{Cdouble}, PDI_OUT::Cint,
-                        # "grad_phi_ele_u"::Cstring, tmp_vec_u::Ptr{Cdouble}, PDI_OUT::Cint,  
-                        C_NULL::Ptr{Cvoid})::Cint
-
-                        if residual_electrical_potential<num.electrical_potential_residual
-                            printstyled(color=:orange, @sprintf "\n End Poisson loop \n")
-                            break
-                        end
-                        
-                        # printstyled(color=:orange, @sprintf "\n grad poisson iter %.2i \n" poisson_iter)
-
-                        # print("\n grad ", tmp_vec_u[div(grid_u.ny,2),:]," \n")
-
-                        # @ccall "libpdi".PDI_multi_expose("solve_poisson"::Cstring,
-                        # # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
-                        # # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
-                        # # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
-                        # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                        # "elec_cond_1D"::Cstring, elec_condD::Ptr{Cdouble}, PDI_OUT::Cint,  
-                        # "BC_phi_ele_left"::Cstring, BC_phi_ele.left.val::Ptr{Cdouble}, PDI_OUT::Cint,  
-                        # # "grad_phi_ele_u"::Cstring, tmp_vec_u::Ptr{Cdouble}, PDI_OUT::Cint,  
-                        # C_NULL::Ptr{Cvoid})::Cint
-
-                    
-                        if electrolysis_reaction == "Butler_no_concentration"
-
-                            # if num.poisson_newton ==1
-                            #     vecb_L(phL.phi_eleD, grid) = vecb_L(phL.phi_eleD, grid) - (partial...+)/deriv
-                            # end
-
-
-                            #TODO dev multiple levelsets
-                            if heat
-                                i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phL.phi_eleD, grid),
-                                num.phi_ele1,num.Ru,phL.T)
-                            else
-                                if num.nLS == 1
-                                    i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phL.phi_eleD, grid),
-                                    num.phi_ele1,num.Ru,num.temperature0)
-                                # else
-                                    #imposed by LS 2
-                                    # iLS_elec = 2
-                                    # i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(phL.phi_eleD, grid,iLS_elec+1),
-                                    # num.phi_ele1,num.Ru,num.temperature0)
-                                end
-                                    
-                            end   
-
-                            if poisson_iter>1
-                                if num.bulk_conductivity == 0
-                                    BC_phi_ele.left.val .= i_butler./vecb_L(elec_condD, grid)
-        
-                                elseif num.bulk_conductivity == 1
-                                    # Recommended as long as cell merging not implemented:
-                                    # Due to small cells, we may have slivers/small cells at the left wall, then the divergence term is small,
-                                    # which produces higher concentration in front of the contact line
-                                    BC_phi_ele.left.val .= i_butler./elec_cond[:,1]
-        
-        
-                                elseif num.bulk_conductivity == 2 || num.bulk_conductivity == 3
-                                    BC_phi_ele.left.val .= i_butler./vecb_L(elec_condD, grid)
-        
-                                    iLS = 1 #TODO end ? if several grid.LS ?
-                                    for j in 1:grid.ny
-                                        II = CartesianIndex(j,1)
-                                        if grid.LS[iLS].geoL.cap[II,5] < num.ϵ
-                                            BC_phi_ele.left.val[j] = i_butler[j]/elec_cond[j,1] 
-                                        end
-                                    end
-                                    
-                                # if num.bulk_conductivity == 3
-                                #     elec_condD .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, num.concentration0[num.index_electrolyte])
-                                #     elec_cond .= reshape(vec1(elec_condD,grid),grid)
-                                # end
-                                
-                                end
-                            end 
-                            # print("\n BC_phi_ele",BC_phi_ele,"\n")
-
-                            
-                        end
-
-                        print("\n BC_phi_ele ",BC_phi_ele)
-
-                        solve_poisson_variable_coeff!(num, 
-                        grid, 
-                        grid_u, 
-                        grid_v, 
-                        op.opC_pL,
-                        Ascal, 
-                        rhs_scal,
-                        tmp_vec_p, #a0
-                        a1_p,
-                        BC_phi_ele,
-                        phL,    
-                        elec_cond,                    
-                        elec_condD,
-                        tmp_vec_u,
-                        tmp_vec_v,
-                        # tmp_vec_u0,
-                        # tmp_vec_v0,
-                        i_butler,
-                        ls_advection,
-                        heat)
-
-
-                        @ccall "libpdi".PDI_multi_expose("solve_poisson"::Cstring,
-                        # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
-                        # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
-                        # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                        "elec_cond_1D"::Cstring, elec_condD::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "BC_phi_ele_left"::Cstring, BC_phi_ele.left.val::Ptr{Cdouble}, PDI_OUT::Cint,  
-                        C_NULL::Ptr{Cvoid})::Cint
-
-                        #TODO or linearize 
-
-                        #TODO compute grad
-
-                        if num.electrical_potential>0
-                            compute_grad_phi_ele!(num, grid, grid_u, grid_v, grid_u.LS[end], grid_v.LS[end], phL, phS, op.opC_pL, op.opC_pS, 
-                            elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p0,tmp_vec_p1) #TODO current
-                            
-                            # printstyled(color=:orange, @sprintf "\n grad poisson iter %.2i \n" poisson_iter)
-
-                            # print("\n grad ", tmp_vec_u[div(grid_u.ny,2),:]," \n")
-                            
-                            # print("\n grad ", tmp_vec_u[div(grid_u.ny,2),1]," \n")
-                            # print("\n BC_phi_ele ", BC_phi_ele.left.val[div(grid_u.ny,2)]," \n")
-                            # print("\n i_butler ", i_butler," \n")
-
-                        end
-
-                    end #for loop Poisson
-
-                    # printstyled(color=:cyan, @sprintf "\n after solve_poisson_variable_coeff! \n")
-                    # print_electrolysis_statistics(num,grid,phL)
-
-                    PDI_status = @ccall "libpdi".PDI_multi_expose("print_variables"::Cstring,
-                        "nstep"::Cstring, nstep ::Ref{Clonglong}, PDI_OUT::Cint,
-                        "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
-                        "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-                        # "levelset_p_wall"::Cstring, LStable::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                        # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
-                        # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
-                        # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-                        # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
-                        # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
-                        # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
-                        # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
-                        # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
-                        # "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
-                        # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
-                        # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
-                        C_NULL::Ptr{Cvoid})::Cint
-
-                    if any(isnan, phL.phi_eleD)
-                        print("\n phL.uD: ",any(isnan, phL.uD) , "\n phL.vD: ",any(isnan, phL.vD) , "\n phL.TD: ",any(isnan, phL.TD) , "\n phS.uD: ",any(isnan, phS.uD) , "\n phS.vD: ",any(isnan, phS.vD) , "\n phS.TD: ",any(isnan, phS.TD) ,
-                        "\n phL.trans_scalD: ",any(isnan, phL.trans_scalD) , "\n phL.phi_eleD: ",any(isnan, phL.phi_eleD) ,
-                        "\n phL.u: ",norm(phL.u) > 1e8 , "\n phS.u: ",norm(phS.u) > 1e8 , "\n phL.T: ",norm(phL.T) > 1e8 , "\n phS.T: ",norm(phS.T) > 1e8 , "\n phL.trans_scal: ",norm(phL.trans_scal) > 1e8 , "\n phL.phi_ele: ",norm(phL.phi_ele) > 1e8)
-            
-                        print("\n phL.phi_eleD: ",any(isnan, phL.phi_eleD),"\n phL.phi_ele: ",any(isnan, phL.phi_ele),"\n")
-
-                        print("\n Ascal: ",any(isnan, Ascal),"\n rhs_scal: ",any(isnan, rhs_scal),"\n")
-
-                        print("\n \n vecb_L",vecb_L(phL.phi_eleD[:,1], grid))
-
-                    end
-
-                
-                    # TODO compute magnitude of exchange current
-                    # gradient!(::Neumann, Ox, Oy, Bx, By, HNx, HNy, Divx, Divy, dcap, num.n, BC, all_indices, b_left_u, b_bottom_v, b_right_u, b_top_v, b_left_p, b_bottom_p, b_right_p, b_top_p)
-                    # TODO add post-treatment variables
-
-                    #TODO update BC concentration
-
-                   
-
-                    if electrolysis && num.nb_transported_scalars>1
-                        if heat 
-                            elec_condD .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, phL.TD, phL.trans_scalD[:,num.index_electrolyte])
-                            elec_cond .= reshape(vec1(elec_condD,grid),grid)
-                            # elec_cond .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, phL.T, phL.trans_scal)
-                            # elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru.*phL.T) #phL.T
-                        else
-                            elec_condD .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, phL.trans_scalD[:,num.index_electrolyte])
-                            elec_cond .= reshape(vec1(elec_condD,grid),grid)
-                            # elec_cond .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, phL.trans_scal)
-                            # elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru*num.temperature0) 
-                       
-                            if num.bulk_conductivity == 3
-                                elec_condD .= compute_ele_cond.(num.Faraday,num.diffusion_coeff[num.index_electrolyte],num.Ru, num.temperature0, num.concentration0[num.index_electrolyte])
-                                elec_cond .= reshape(vec1(elec_condD,grid),grid)
-                            end
-                        end
-                    end
-
-                    # if electrolysis && num.nb_transported_scalars>1
-                    #     if heat 
-                    #         elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru.*phL.T) #phL.T
-                    #     else
-                    #         elec_cond = 2*num.Faraday^2 .*phL.trans_scal[:,:,2].*num.diffusion_coeff[2]./(num.Ru*num.temperature0) 
-                    #     end
-                    # else 
-                    #     elec_cond = ones(grid)
-                    #     printstyled(color=:green, @sprintf "\n conductivity one")
-
-                    # end 
-                    if num.electrical_potential>0
-                        compute_grad_phi_ele!(num, grid, grid_u, grid_v, grid_u.LS[end], grid_v.LS[end], phL, phS, op.opC_pL, op.opC_pS, 
-                        elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p0,tmp_vec_p1) #TODO current
-                    end
-
-                    # scal_magnitude
-
-                    # phL.i_current_mag .*= elec_cond # i=-κ∇ϕ here magnitude
-
-                    printstyled(color=:green, @sprintf "\n test grad")
-
-                    # compute_grad_p!(num,grid, grid_u, grid_v, phL.phi_eleD, op.opC_pL, op.opC_uL, op.opC_vL)
-
-
-                    # #store in us, vs instead of Eus, Evs
-                    # interpolate_grid_liquid!(grid,grid_u,grid_v,phL.Eu, phL.Ev,tmp_vec_p,tmp_vec_p0)
-
-                    # @ccall "libpdi".PDI_multi_expose("write_data_elec"::Cstring,
-                    # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
-                    # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
-                    # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                    # C_NULL::Ptr{Cvoid})::Cint
-
-                end #electrical_potential
-
+                    solve_poisson_loop!(num, grid, grid_u, grid_v, op, Ascal, rhs_scal,
+                        tmp_vec_p,tmp_vec_p0,tmp_vec_p1, a1_p, BC_phi_ele, phL, phS,elec_cond,
+                        elec_condD, tmp_vec_u, tmp_vec_v, i_butler, ls_advection, heat)
+                end
                 #endregion Poisson
-
+    
 
                
                 #TODO check BC not overwritten by different scalars
@@ -1524,7 +1142,7 @@ function run_forward!(
                 #endregion Impose velocity
 
                 #region Update current
-                if electrolysis_reaction == "Butler_no_concentration"
+                if num.electrolysis_reaction == "Butler_no_concentration"
                     
                     update_electrical_current_from_Butler_Volmer!(num,grid,heat,phL.phi_eleD,i_butler;phL.T)
 
@@ -1558,7 +1176,7 @@ function run_forward!(
 
                         @views veci(phL.trans_scalD[:,iscal],grid,1) .= vec(phL.trans_scal[:,:,iscal])
 
-                        if electrolysis_reaction == "Butler_no_concentration" && num.nLS == 1
+                        if num.electrolysis_reaction == "Butler_no_concentration" && num.nLS == 1
 
                             #BC for LS 2 in scalar transport : done in scalar loop
 
@@ -3019,6 +2637,7 @@ function run_forward!(
         num.current_i += 1
         #update time
         current_t += num.τ
+        num.time = current_t
 
         # if adaptative_t
            
@@ -3030,6 +2649,7 @@ function run_forward!(
         # end
     end
 
+    #region print end
     if verbose
         try
             printstyled(color=:blue, @sprintf "\n Final iteration : %d (%d%%) | t = %.2e \n" (num.current_i-1) 100*(num.current_i-1)/num.max_iterations current_t)
@@ -3088,7 +2708,8 @@ function run_forward!(
         catch
             @show (length(grid.LS[end].MIXED))
         end
-    end
+    end #if verbose
+    #endregion print end
 
     if levelset && (save_radius || hill)
         #TODO save radius

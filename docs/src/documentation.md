@@ -47,12 +47,18 @@ run_forward!
 
 
 
-!!! info "Viewing the regions of code in VScode"
-    You can see some of the regions correponding to this algorithm with "Region marker" in VScode.
+!!! info "Viewing the main parts of the algorithm in VScode"
+    Comments starting with #region and ending with #endregion
+    You can visualise the regions correponding to this algorithm more easily with tools like "Region marker" in VScode.
 
 !!! danger "update LS"
     See [Updating the operator from Levelset](@ref)
     
+## Parameters for Flower.jl
+
+```@docs
+Numerical
+```
 
 ## Definitions
 
@@ -1852,7 +1858,6 @@ interpolate_scalar_to_staggered_u_v_grids_at_border!
 ```@docs
 solve_poisson_variable_coeff!
 ```
-
 Laplacian: bulk 
 ```julia
 L = BxT * iMx * Bx
@@ -1864,6 +1869,12 @@ Bx ((nx+1)*ny, nx*ny)
 iMx ((nx+1)*ny, (nx+1)*ny )
 iMx_b (nx+1)*ny,2*nx +2*ny
 Hx_b  2*nx +2*ny,2*nx +2*ny
+
+
+The main loop for the resolution of the Poisson equation is in:
+```@docs 
+solve_poisson_loop!
+```
 
 ### Electrical current
 ```@docs
@@ -1879,6 +1890,12 @@ scalar_transport!
 ```@docs
 integrate_mass_flux_over_interface
 update_free_surface_velocity_electrolysis!
+```
+
+## Electrical conductivity
+
+```@docs
+update_electrical_conductivity!(num,grid,elec_cond,elec_condD)
 ```
 
 ## Butler-Volmer equation
@@ -2580,6 +2597,7 @@ List all variables
 * u, v, T, LS, moments (heights,...), phi elec, i current, scalars ...
 * grids
 * liquid/solid
+* successive substitution reuse LU decomposition
 
 
 
