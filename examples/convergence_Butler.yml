@@ -100,6 +100,7 @@ flower:
     electrolysis_convection: 0 #1
     electrical_potential: 3 #2 #0 deactivated
     electrical_potential_max_iter: 6 #20
+    electrical_potential_relative_residual: 1e-2
     electrical_potential_residual: 1e-2
     electrical_potential_nonlinear_solver: 0 #0 for successive substitutions #1 for Newton-Raphson
     electrolysis_phase_change_case: "None" #"Khalighi" #no phase change
@@ -1748,6 +1749,10 @@ plot:
           # print(label1)
           # print(label2)
 
+          # variation = file['variation_electrical_potential'][()]
+
+          
+
       - var: [[x_1D,phi_ele_1D]]
         file: phi
         func: plot_1D
@@ -2050,7 +2055,11 @@ pdi:
     iscal: int64 #Index for naming files
 
     poisson_iter: int64 #Index for naming files
+
+    # Convergence criteria
     residual_electrical_potential: double
+    variation_electrical_potential: double
+          
 
     conductivity_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdmain
     conductivity_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdmain
@@ -2124,6 +2133,20 @@ pdi:
         #     # print('coeffDu border ',conductivity_u[ny_py//2,:])
         #     # print('coeffDv border ',conductivity_v[:,nx_py//2]) 
 
+        print_start_temporal_iteration:
+          with:
+            time: $time
+            nstep: $nstep
+            dcap: $dcap
+          exec: |
+            print('\033[93m')
+            print()
+            print('Iteration  {nstep:d} time  {time:.2e}'.format(nstep=nstep,time=time))
+
+            # print('Check cut-cell operators ',dcap[:,1,1])
+
+            print('\033[0m')
+
 
 
         print_variables:
@@ -2187,17 +2210,21 @@ pdi:
             from debug_flower import butler_grad_phi,vecb_L,butler,veci
 
             print('\n \033[93m')
+            print()
+            print('check_electrical_potential_convergence')
             
             print('phi wall ',vecb_L(phi_ele_1D_py,nx_py,ny_py))
 
-            print('F_residual ',vecb_L(residual_py,nx_py,ny_py))
-            print('F_residual ',np.min(vecb_L(residual_py,nx_py,ny_py)), np.max(vecb_L(residual_py,nx_py,ny_py)))
+            # print('F_residual ',vecb_L(residual_py,nx_py,ny_py)) #array at wall
+
+            # print('F_residual ',np.min(vecb_L(residual_py,nx_py,ny_py)), np.max(vecb_L(residual_py,nx_py,ny_py)))
+
             # print('F_residual bulk', np.min(veci(residual_py,nx_py,ny_py,1)), np.max(veci(residual_py,nx_py,ny_py,1)) )
 
             # print('len(dcap_1[1,:])',len(dcap_1[1,:]))
             # print('dcap',dcap_1[1,:])
 
-            print('F_residual /dx (homogeneous to a gradient of potential)',vecb_L(residual_py,nx_py,ny_py)/dcap_1[1,:])
+            # print('F_residual /dx (homogeneous to a gradient of potential)',vecb_L(residual_py,nx_py,ny_py)/dcap_1[1,:])
 
             # print('F_residual /dx * cond (homogeneous to a gradient of current) ',vecb_L(residual_py,nx_py,ny_py)/dcap_1[1,:]*vecb_L(elec_cond_1D_py,nx_py,ny_py))
            
@@ -2206,7 +2233,7 @@ pdi:
             print('F_residual normalized infty',np.max(np.abs(vecb_L(residual_py,nx_py,ny_py)))/np.max(np.abs(vecb_L(rhs_1D,nx_py,ny_py))))
 
 
-            print('vecb_L(rhs_1D,nx_py,ny_py)',vecb_L(rhs_1D,nx_py,ny_py))
+            # print('vecb_L(rhs_1D,nx_py,ny_py)',vecb_L(rhs_1D,nx_py,ny_py))
 
 
             print('\033[0m')
@@ -2221,6 +2248,8 @@ pdi:
             i_current_x_py: $i_current_x
             nx_py: $nx
             ny_py: $ny
+            variation_electrical_potential: $variation_electrical_potential
+            residual_electrical_potential: $residual_electrical_potential
             # phi_ele1: $phi_ele1
             alpha: *alpha
             i0: *i0
@@ -2239,16 +2268,25 @@ pdi:
           exec: |
             import numpy as np
             from debug_flower import butler_grad_phi,vecb_L,butler,veci
+            
+            print('\n \033[93m')
+            print()
+            print('check_electrical_potential')
+
+            print("Residual  {:.2e} absolute variation  {:.2e}".format(residual_electrical_potential,variation_electrical_potential))
+            
+            # #num.electrical_potential_residual
 
             # print('\n \033[93m'+'Pycall ','\033[0m')
-            min_phi = np.min(phi_ele_1D_py)
 
             phi = veci(phi_ele_1D_py,nx_py,ny_py,1)
 
             print('\n \033[93m'+'Poisson iter',poisson_iter,'\033[0m')
 
             # print('\n \033[93m'+'phi ',np.min(phi_ele_1D_py),np.max(phi_ele_1D_py),'\033[0m')
+
             print('\n \033[93m'+'Conductivity min',np.min(elec_cond_1D_py),'max',np.max(elec_cond_1D_py),'\033[0m')
+
             # print('\n \033[93m'+'BC_phi_ele_left ',np.min(BC_phi_ele_left_py),np.max(BC_phi_ele_left_py),'\033[0m')
 
 
@@ -2260,10 +2298,11 @@ pdi:
             # print('\n \033[93m'+'phi line ',phi[:,ny_py//2],'\033[0m') # vertical line 
             # print('\n \033[93m'+'phi line ',phi[ny_py//2,:],'\033[0m') #horizontal line
 
+            # min_phi = np.min(phi_ele_1D_py)
 
             # print('\n \033[93m'+'sum ',-i_current_x_py[:,ny_py//2]+butler(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
 
-            print('\n \033[93m'+'Convergence Butler-Volmer ',np.max(np.abs(-i_current_x_py[:,ny_py//2]+butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0))),'\033[0m')
+            # print('\n \033[93m'+'Convergence Butler-Volmer ',np.max(np.abs(-i_current_x_py[:,ny_py//2]+butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0))),'\033[0m')
 
 
             # print('\n \033[93m'+'ratio ',(-i_current_x_py[:,ny_py//2]+butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0)/butler(0,phi_ele1,Faraday,alpha,Ru,temperature0,i0),phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
@@ -2294,6 +2333,109 @@ pdi:
             # npoints=2
             # xplot_new = np.linspace(0, L, npoints)
             # yplot_new = a * (xplot_new / L - 1)
+
+        
+
+
+            print('\033[0m')
+
+
+        print_electrical_potential:
+          with: 
+            poisson_iter: $poisson_iter
+            BC_phi_ele_left_py: $BC_phi_ele_left
+            elec_cond_1D_py: $elec_cond_1D
+            phi_ele_1D_py: $phi_ele_1D
+            i_current_x_py: $i_current_x
+            nx_py: $nx
+            ny_py: $ny
+            # variation_electrical_potential: $variation_electrical_potential
+            # residual_electrical_potential: $residual_electrical_potential
+            # phi_ele1: $phi_ele1
+            alpha: *alpha
+            i0: *i0
+            phi_ele1: *phi_ele1
+            Faraday: *Faraday
+            Ru: *Ru
+            temperature0: *temperature0
+            concentration0_KOH: *concentration0_KOH
+            diffusion_coeff_KOH: *diffusion_coeff_KOH
+            mesh_xmax: *mesh_xmax
+            mesh_xmin: *mesh_xmin
+            domain_length: *domain_length
+            # with: { phi_ele_1D_py: $phi_ele_1D, nx_py: $nx, ny_py: $ny}  
+
+  
+          exec: |
+            import numpy as np
+            from debug_flower import butler_grad_phi,vecb_L,butler,veci
+            
+            print('\n \033[93m')
+            print()
+            print('check_electrical_potential')
+
+            # print('\n \033[93m'+'Pycall ','\033[0m')
+
+            phi = veci(phi_ele_1D_py,nx_py,ny_py,1)
+
+            print('\n \033[93m'+'Poisson iter',poisson_iter,'\033[0m')
+
+            # print('\n \033[93m'+'phi ',np.min(phi_ele_1D_py),np.max(phi_ele_1D_py),'\033[0m')
+
+            print('\n \033[93m'+'Conductivity min',np.min(elec_cond_1D_py),'max',np.max(elec_cond_1D_py),'\033[0m')
+
+            # print('\n \033[93m'+'BC_phi_ele_left ',np.min(BC_phi_ele_left_py),np.max(BC_phi_ele_left_py),'\033[0m')
+
+
+            # print('\n \033[93m'+'i_current_x min ',np.min(i_current_x_py),'max ',np.max(i_current_x_py),'\033[0m')
+
+            # print('\n \033[93m'+'i_current_x_py ',i_current_x_py[:,ny_py//2],'\033[0m')
+
+            
+            # print('\n \033[93m'+'phi line ',phi[:,ny_py//2],'\033[0m') # vertical line 
+            # print('\n \033[93m'+'phi line ',phi[ny_py//2,:],'\033[0m') #horizontal line
+
+            # min_phi = np.min(phi_ele_1D_py)
+
+            # print('\n \033[93m'+'sum ',-i_current_x_py[:,ny_py//2]+butler(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
+
+            # print('\n \033[93m'+'Convergence Butler-Volmer ',np.max(np.abs(-i_current_x_py[:,ny_py//2]+butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0))),'\033[0m')
+
+
+            # print('\n \033[93m'+'ratio ',(-i_current_x_py[:,ny_py//2]+butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0)/butler(0,phi_ele1,Faraday,alpha,Ru,temperature0,i0),phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
+
+            # print('\n \033[93m'+'sum ',butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
+            
+            # print('\n \033[93m'+'sum ',butler(0,phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
+
+
+            # L = mesh_xmax-mesh_xmin
+            # print('\n \033[93m'+'phi ',min_phi,-L*butler_grad_phi(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,concentration0_KOH,diffusion_coeff_KOH,i0),'\033[0m')
+            # print('\n \033[93m'+'grad phi ',min_phi,butler_grad_phi(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,concentration0_KOH,diffusion_coeff_KOH,i0),'\033[0m')
+
+            # print(vecb_L(phi_ele_1D_py,nx_py,ny_py))
+
+            # from debug_flower import vecbprint,veci, butler
+            
+            # # vecbprint(phi_ele_1D_py,nx_py,ny_py)
+
+            # phi = veci(phi_ele_1D_py,nx_py,ny_py,1)
+
+            # # print(phi[nx_py/2,:])
+            # # print(phi[:,nx_py/2])
+
+            # # a = 0.66
+            # a = 0.6608349877730476
+            # L= 1e-4
+            # npoints=2
+            # xplot_new = np.linspace(0, L, npoints)
+            # yplot_new = a * (xplot_new / L - 1)
+
+        
+            # print("Residual  {:.2e} absolute variation  {:.2e}".format(residual_electrical_potential,variation_electrical_potential))
+            # #num.electrical_potential_residual
+
+            print('\033[0m')
 
 
           # - exec: import plot_flower; plot_flower.print_bc(phi_ele_1D_py) #TODO bug hdf5 so put debugging functions in debug_flower.py
@@ -2558,7 +2700,7 @@ pdi:
       - file: poisson_${nx:08}_${poisson_iter:08}.h5 
         collision_policy: write_into
         on_event: check_electrical_potential
-        write: [poisson_iter,nx,phi_ele_1D,i_current_x,i_current_y,levelset_p,residual_electrical_potential]
+        write: [poisson_iter,nx,phi_ele_1D,i_current_x,i_current_y,levelset_p,residual_electrical_potential,variation_electrical_potential]
         # $BC_phi_ele_left,elec_cond_1D
         #     phi_ele_1D_py: $phi_ele_1D
         #     i_current_x_py: $i_current_x

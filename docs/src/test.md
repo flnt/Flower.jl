@@ -107,6 +107,7 @@ For a regular mesh with constant mesh spacing, with ``h_x=h_y``
 * Test that the matrix coefficients at the left wall, away from corners for a Laplacian are -5, ...
 * Test that the matrix coefficients at the bottom left corner for a Laplacian are -6, ...
 * Test that the matrix coefficients at the bottom left corner for a Laplacian in the BC system with Neumann at left wall are 2 for bulk, -2 for interfacial value
+* @testset "interpolate_scalar_to_staggered_u_v_grids_at_border!": test the interpolation of electrical conductivity at wall
 
 ### Interpolation
 To check [`interpolate_scalar!`](@ref)
@@ -826,6 +827,92 @@ Successive substitutions: with Flower or python in 1D:
   </tbody>
 </table>
 ```
+
+Successive substitutions
+
+```bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Butler.jl ../Flower.jl/examples/convergence_Butler.yml
+```
+
+Newton-Raphson
+
+```bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Butler.jl ../Flower.jl/examples/convergence_Butler_Newton.yml
+```
+
+```@raw html
+<!-- <table border="1" class="dataframe"> -->
+<table class="styled-table">
+  <thead>
+    <tr style="text-align: right;">
+      <th>k</th>
+      <th>Residual</th>
+      <th>Variation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1.0</td>
+      <td>1.146e-02</td>
+      <td>1.146e-02</td>
+    </tr>
+    <tr>
+      <td>2.0</td>
+      <td>1.974e-04</td>
+      <td>1.974e-04</td>
+    </tr>
+  </tbody>
+</table>
+```
+
+\begin{tabular}{ccc}
+\toprule
+Iteration & Residual & Variation \\
+\midrule
+1 & 1.412e-02 & 1.412e-02 \\
+2 & 2.924e-03 & 2.924e-03 \\
+3 & 5.511e-04 & 5.511e-04 \\
+\bottomrule
+\end{tabular}
+
+Succesive substitutions
+
+```@raw html
+<!-- <table border="1" class="dataframe"> -->
+<table class="styled-table">
+  <thead>
+    <tr style="text-align: right;">
+      <th>Iteration</th>
+      <th>Residual</th>
+      <th>Variation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>1.412e-02</td>
+      <td>1.412e-02</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>2.924e-03</td>
+      <td>2.924e-03</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>5.511e-04</td>
+      <td>5.511e-04</td>
+    </tr>
+  </tbody>
+</table>
+```
+
+
+Check Poisson iterations
+```bash
+python3 -c "import convergence_study; convergence_study.plot_convergence_study_func()" ../Flower.jl/examples/convergence_Butler.yml poisson_00000032_00000001.h5 poisson_00000032_00000002.h5
+```
+
 
 ```bash
 python3 -c "import convergence_study; convergence_study.plot_convergence_study_func()" ../Flower.jl/examples/convergence_Butler.yml mesh_00000*

@@ -7,6 +7,7 @@
 #TODO i_current_x ... multiply by elec_cond
 #TODO no concentration prefactor
 #TODO successive substitution reuse LU decomposition
+#TODO check if everywhere phL.i_current_mag (especially if temperature solved)
 
 # About PDI: the the Parallel Data Interface https://pdi.dev/1.8/
 
@@ -586,6 +587,8 @@ function run_forward!(
             Ascal = spzeros(nt, nt)
             Bscal = spzeros(nt, nt)
             rhs_scal = fnzeros(grid, num)
+            F_residual = fnzeros(grid, num)
+
 
             all_CUTCT = zeros(grid.ny * grid.nx, num.nb_transported_scalars)
 
@@ -989,7 +992,7 @@ function run_forward!(
 
                 #region Electrolysis: Poisson  
                 if num.electrical_potential > 0
-                    solve_poisson_loop!(num, grid, grid_u, grid_v, op, Ascal, rhs_scal,
+                    solve_poisson_loop!(num, grid, grid_u, grid_v, op, Ascal, rhs_scal,F_residual,
                         tmp_vec_p,tmp_vec_p0,tmp_vec_p1, a1_p, BC_phi_ele, phL, phS,elec_cond,
                         elec_condD, tmp_vec_u, tmp_vec_v, i_butler, ls_advection, heat)
                 end

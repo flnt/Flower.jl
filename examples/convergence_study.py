@@ -761,6 +761,15 @@ def plot_convergence_func(
 
    cbar=[]
 
+   # Create dataframe for latex and html
+   columns = ['Iteration', 
+            #   '$\phi$', 
+              'Residual',
+              'Variation']
+   df = pd.DataFrame(columns=columns)
+   df['Iteration'].astype("Int64")
+   
+
    for i,file_name in enumerate(h5_files):
       yml['study']['iter'] = i
       with h5py.File(file_name, "r") as file:
@@ -774,6 +783,25 @@ def plot_convergence_func(
             print("time not available")
 
          print(key,file_name)
+
+
+         # Fill dataframe for latex and html
+         k = file['poisson_iter'][()]
+
+         # phi_wall = file['variation_electrical_potential'][()]
+
+         residual = file['variation_electrical_potential'][()]
+
+         variation = file['variation_electrical_potential'][()]
+
+         # Create the list of values
+         data_list = [k, 
+                     #  phi_wall,
+                      residual, 
+                      variation]
+
+         # Append the list to the DataFrame
+         df.loc[len(df)] = data_list
 
 
          nx = file['nx'][()]
@@ -902,6 +930,33 @@ def plot_convergence_func(
 
 
    plt.close("all")
+
+   print_latex =True
+
+   if print_latex:
+
+      print()
+      print(colored('Tables','cyan'))
+
+      # Convert the DataFrame to a LaTeX table with scientific notation and three significant digits
+      latex_table = df.to_latex(index=False,column_format='ccc',formatters={
+      'Iteration': lambda x: f'{x:.0f}',
+      'Residual': lambda x: f'{x:.3e}',
+      'Variation': lambda x: f'{x:.3e}'
+      })
+
+      # Print the LaTeX table
+      print(latex_table)
+
+
+      print(df.to_html(index=False,
+         formatters={
+         'Iteration': lambda x: f'{x:.0f}',
+         'Residual': lambda x: f'{x:.3e}',
+         'Variation': lambda x: f'{x:.3e}'
+         }))
+      
+      print()
 
 
 def plot_convergence_func_new_ax(

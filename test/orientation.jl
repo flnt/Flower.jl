@@ -771,6 +771,8 @@ end
 
 @testset "interpolate_scalar_to_staggered_u_v_grids_at_border!" begin
 
+    printstyled(color=:green, @sprintf "\n interpolate_scalar_to_staggered_u_v_grids_at_border!" )
+
     @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = op.opC_pL
     @unpack BxT, ByT,tmp_x, tmp_y = op.opC_pL
 
@@ -798,6 +800,9 @@ end
     # b_b = Diagonal(vec(_b_b))
 
     coeffD = fnones(grid,num)
+
+    vecb(coeffD,grid) .= 9.0 # we test how the wall conductivity intervenes
+
     coeffDu = zeros(gu)
     coeffDv = zeros(gv)
 
