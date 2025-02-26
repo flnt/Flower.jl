@@ -58,10 +58,30 @@
 @inline is_near_interface_tr(u, II::CartesianIndex, nx, ny, per_x, per_y) = @inbounds ifelse(u[II]*u[δx⁻(II, nx, per_x)] < 0 || u[II]*u[δy⁻(II, ny, per_y)] < 0, true, false)
 @inline is_near_interface_tl(u, II::CartesianIndex, nx, ny, per_x, per_y) = @inbounds ifelse(u[II]*u[δx⁺(II, nx, per_x)] < 0 || u[II]*u[δy⁻(II, ny, per_y)] < 0, true, false)
 
+
+"""
 @inline ismixed(a) = a !== 0.0 && a !== 15.0
+"""
+@inline ismixed(a) = a !== 0.0 && a !== 15.0
+
+
+"""
 @inline is_not_mixed(a) = a == 0.0 || a == 15.0
+"""
+@inline is_not_mixed(a) = a == 0.0 || a == 15.0
+
+
+"""
 @inline is_liquid(a) = a == 0.0
+"""
+@inline is_liquid(a) = a == 0.0
+
+
+"""
 @inline is_solid(a) = a == 15.0
+"""
+@inline is_solid(a) = a == 15.0
+
 
 """
 Evaluate the biquadratic interpolation of a 2D matrix `m` at the point `(x, y)`.
@@ -2880,6 +2900,10 @@ function projection_2points(grid, LS, II)
     return Gradient(Sflag, β, mid, S1, S2, distance(mid, S1), distance(mid, S2), pos), Gradient(Lflag, α[II], mid, L1, L2, distance(mid, L1), distance(mid, L2), pos)
 end
 
+"""
+This function updates the matrix `T` by setting the values of certain cells to zero based on the values in matrix `L`.
+
+"""
 function kill_dead_cells!(T::Matrix, L, EMPTY, MIXED, n)
     @inbounds @threads for II in EMPTY
         pII = lexicographic(II, n)
@@ -2897,6 +2921,29 @@ function kill_dead_cells!(T::Matrix, L, EMPTY, MIXED, n)
     end
 end
 
+
+"""
+
+This function updates the matrix `T` by setting the values of certain cells to zero based on the values in matrix `L`.
+
+### Parameters
+- `T::Matrix`: A 2D matrix where cells are marked for modification.
+- `L`: A matrix used to determine which cells are considered "dead".
+- `EMPTY`: A set or collection of indices representing cells that are initially considered empty.
+- `MIXED`: A set or collection of indices representing cells that are initially considered mixed.
+- `n`: An integer representing the dimension of the matrix `T`.
+
+### Description
+The function iterates over the indices in `EMPTY` and `MIXED` sets. 
+    For each index, it calculates the sum of the absolute values of the corresponding row in matrix `L`. 
+    If this sum is close to 4.0 (within a tolerance of `1e-8`), the corresponding cell in matrix `T` is set to zero.
+
+### Details
+- The function uses the `lexicographic` function to convert multi-dimensional indices into a single index for accessing matrix elements.
+- The `@inbounds` macro is used to avoid bounds checking, which can improve performance.
+- The `@threads` macro is used to parallelize the loop over the indices.
+
+"""
 function kill_dead_cells!(T::Vector, L, EMPTY, MIXED, n)
     @inbounds @threads for II in EMPTY
         pII = lexicographic(II, n)

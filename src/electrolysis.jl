@@ -606,7 +606,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         #     # diffusion_coeff_scal *= 2.0
         #     diffusion_coeff_scal *= 0.5
         # end
-        printstyled(color=:red, @sprintf "\n test diffusion_coeff_scal %.2e \n" diffusion_coeff_scal )
+        # printstyled(color=:red, @sprintf "\n test diffusion_coeff_scal %.2e \n" diffusion_coeff_scal )
 
 
         #Interface boundary condition
@@ -921,7 +921,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
 
         if num.io_pdi>0
             try
-                printstyled(color=:magenta, @sprintf "\n PDI write_scalar_transport %.5i \n" num.current_i)
+                # printstyled(color=:magenta, @sprintf "\n PDI write_scalar_transport %.5i \n" num.current_i)
                 #in YAML file: save only if iscal ==1 for example
                 PDI_status = @ccall "libpdi".PDI_multi_expose("write_scalar_transport"::Cstring,
                 "iscal"::Cstring, iscal::Ref{Clonglong}, PDI_OUT::Cint,
@@ -932,59 +932,151 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                 print(error)
                 printstyled(color=:red, @sprintf "\n PDI error \n")
             end
+
+            mask_1D = fnzeros(grid,num)
+            compute_mask_1D!(num,grid,mask_1D)
+            try
+                PDI_status = @ccall "libpdi".PDI_multi_expose("check_scalar_transport"::Cstring,
+                "iscal"::Cstring, iscal::Ref{Clonglong}, PDI_OUT::Cint,
+                "rhs_1D"::Cstring, rhs::Ptr{Cdouble}, PDI_OUT::Cint,
+                "trans_scal_1DT"::Cstring, ph.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,  
+                "mask_1D"::Cstring, mask_1D::Ptr{Cdouble}, PDI_OUT::Cint,
+                C_NULL::Ptr{Cvoid})::Cint
+            catch error
+                printstyled(color=:red, @sprintf "\n PDI error \n")
+                print(error)
+                printstyled(color=:red, @sprintf "\n PDI error \n")
+            end
+
+         
+
+
         end #if io_pdi
 
 
+        # Check after resolutions if the values are physical
+        
+        # Interfaces (bubbles, walls described by LS)
+        for iLS in 1:num.nLS
+            # nonzero = mean_intfc_non_null(ph.trans_scalD,iscal,grid,iLS) #Value at interface
+            concentration_check_min,concentration_check_max,concentration_check_mean = compute_interface_average(ph.trans_scalD[:,iscal],grid,iLS)
+            # printstyled(color=:green, @sprintf "\n mean  interface : %.2e\n" nonzero)
+            # printstyled(color=:green, @sprintf "\n mean  wall LS : %.2e\n" nonzero)
 
-        #Checks after resolutions: is the value physical?
-        iLS = 1
-        nonzero = mean_intfc_non_null(ph.trans_scalD,iscal,grid,iLS) #Value at interface
-        printstyled(color=:green, @sprintf "\n mean  interface : %.2e\n" nonzero)
-
-        if num.nLS>1
-            iLS = 2
-            nonzero = mean_intfc_non_null(ph.trans_scalD,iscal,grid,iLS) #Value at interface
-            printstyled(color=:green, @sprintf "\n mean  wall LS : %.2e\n" nonzero)
-
+            #not solid if grid.LS[end].iso[II] < 14.5
+            # gp.LS[iLS].geoL.cap[:,:,5]
+            # print("\n concentration_check_value",concentration_check_value)
+            if num.io_pdi>0
+                try
+                    PDI_status = @ccall "libpdi".PDI_multi_expose("check_scalar_transport_interface"::Cstring,
+                    "iscal"::Cstring, iscal::Ref{Clonglong}, PDI_OUT::Cint,
+                    "rhs_1D"::Cstring, rhs::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "trans_scal_1DT"::Cstring, ph.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,  
+                    "concentration_check_min"::Cstring, concentration_check_min::Ref{Cdouble}, PDI_OUT::Cint,
+                    "concentration_check_max"::Cstring, concentration_check_max::Ref{Cdouble}, PDI_OUT::Cint,
+                    "concentration_check_mean"::Cstring, concentration_check_mean::Ref{Cdouble}, PDI_OUT::Cint,
+                    C_NULL::Ptr{Cvoid})::Cint
+                catch error
+                    printstyled(color=:red, @sprintf "\n PDI error \n")
+                    print(error)
+                    printstyled(color=:red, @sprintf "\n PDI error \n")
+                end
+    
+            end #if io_pdi
         end
 
-        if iscal!=3 #H2O consummed at the electrode, would need to make distinction to make sure the decrease in H2O is physical or not
+        # Wall (border)
+        # use masked arrays ?
+        # for iLS in 1:num.nLS
+        #     concentration_check_value = compute_bulk_or_interface_average(ph.trans_scalD[:,iscal],grid,iLS)
+          
+        #     if num.io_pdi>0
+        #         try
+        #             PDI_status = @ccall "libpdi".PDI_multi_expose("check_scalar_transport_interface"::Cstring,
+        #             "iscal"::Cstring, iscal::Ref{Clonglong}, PDI_OUT::Cint,
+        #             "rhs_1D"::Cstring, rhs::Ptr{Cdouble}, PDI_OUT::Cint,
+        #             "trans_scal_1DT"::Cstring, ph.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,  
+        #             "concentration_check_value"::Cstring, concentration_check_value::Ref{Cdouble}, PDI_OUT::Cint,
+        #             C_NULL::Ptr{Cvoid})::Cint
+        #         catch error
+        #             printstyled(color=:red, @sprintf "\n PDI error \n")
+        #             print(error)
+        #             printstyled(color=:red, @sprintf "\n PDI error \n")
+        #         end
+    
+        #     end #if io_pdi
+        # end
+        
+
+        if iscal!=3 
+            #H2O consummed at the electrode, would need to make distinction to make sure the decrease in H2O is physical or not
           
             @views kill_dead_cells_val!(ph.trans_scal[:,:,iscal], grid, LS[1].geoL,num.concentration0[iscal]) 
 
             # @views veci(ph.trans_scalD[:,iscal],grid,1) .= vec(ph.trans_scal[:,:,iscal])
 
-            min_border_bulk = min(minimum(ph.trans_scal[:,:,iscal]),minimum(vecb(ph.trans_scal[:,:,iscal],grid)))
+            concentration_check_value = min(minimum(ph.trans_scal[:,:,iscal]),minimum(vecb(ph.trans_scalD[:,iscal],grid)))
 
-            if min_border_bulk.<num.concentration0[iscal]*(1-num.concentration_check_factor)
-                print("iscal ",iscal)
-                printstyled(color=:red, @sprintf "\n concentration: %.10e %.10e \n" min_border_bulk num.concentration0[iscal]*(1-num.concentration_check_factor))
-                # printstyled(color=:red, @sprintf "\n concentration drop: %.2e%% \n" (minimum(ph.trans_scal[:,:,iscal])-num.concentration0[iscal])/num.concentration0[iscal]*100)
-                @error("concentration too low")
+            if concentration_check_value.<num.concentration0[iscal]*(1-num.concentration_check_factor)
+
+                if num.io_pdi>0        
+                    try
+                        PDI_status = @ccall "libpdi".PDI_multi_expose("warning_scalar_transport"::Cstring,
+                        "iscal"::Cstring, iscal::Ref{Clonglong}, PDI_OUT::Cint,
+                        "rhs_1D"::Cstring, rhs::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "trans_scal_1DT"::Cstring, ph.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,  
+                        "concentration_check_value"::Cstring, concentration_check_value::Ref{Cdouble}, PDI_OUT::Cint,                         
+                        C_NULL::Ptr{Cvoid})::Cint
+                    catch error
+                        printstyled(color=:red, @sprintf "\n PDI error \n")
+                        print(error)
+                        printstyled(color=:red, @sprintf "\n PDI error \n")
+                    end        
+                end #if io_pdi
+
+                # print("iscal ",iscal)
+                # printstyled(color=:red, @sprintf "\nconcentration: %.10e %.10e \n" min_border_bulk num.concentration0[iscal]*(1-num.concentration_check_factor))
+                # # printstyled(color=:red, @sprintf "\n concentration drop: %.2e%% \n" (minimum(ph.trans_scal[:,:,iscal])-num.concentration0[iscal])/num.concentration0[iscal]*100)
+                @error("concentration too low") #TODO error handling
 
                
             end #too low
 
-            printstyled(color=:red, @sprintf "\n concentration variation vs min: %.2e%% \n" (minimum(ph.trans_scal[:,:,iscal])-num.concentration0[iscal])/num.concentration0[iscal]*100)
+            # printstyled(color=:red, @sprintf "\n concentration variation vs min: %.2e%% \n" (minimum(ph.trans_scal[:,:,iscal])-num.concentration0[iscal])/num.concentration0[iscal]*100)
 
         else 
             @views kill_dead_cells_val!(ph.trans_scal[:,:,iscal], grid, LS[1].geoL,num.concentration0[iscal]) 
 
-            max_border_bulk = max(maximum(ph.trans_scal[:,:,iscal]),maximum(vecb(ph.trans_scal[:,:,iscal],grid)))
-            if max_border_bulk.> num.concentration0[iscal]*(1+num.concentration_check_factor)
-                print("iscal ",iscal)
-                printstyled(color=:red, @sprintf "\n concentration: %.10e %.10e \n" max_border_bulk num.concentration0[iscal]*(1-num.concentration_check_factor))
+            concentration_check_value = max(maximum(ph.trans_scal[:,:,iscal]),maximum(vecb(ph.trans_scalD[:,iscal],grid)))
+
+            if concentration_check_value.> num.concentration0[iscal]*(1+num.concentration_check_factor)
+                
+                if num.io_pdi>0        
+                    try
+                        PDI_status = @ccall "libpdi".PDI_multi_expose("warning_scalar_transport"::Cstring,
+                        "iscal"::Cstring, iscal::Ref{Clonglong}, PDI_OUT::Cint,
+                        "rhs_1D"::Cstring, rhs::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "trans_scal_1DT"::Cstring, ph.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,  
+                        "concentration_check_value"::Cstring, concentration_check_value::Ref{Cdouble}, PDI_OUT::Cint,                         
+                        C_NULL::Ptr{Cvoid})::Cint
+                    catch error
+                        printstyled(color=:red, @sprintf "\n PDI error \n")
+                        print(error)
+                        printstyled(color=:red, @sprintf "\n PDI error \n")
+                    end        
+                end #if io_pdi
+
+                # print("iscal ",iscal)
+                # printstyled(color=:red, @sprintf "\n concentration: %.10e %.10e \n" max_border_bulk num.concentration0[iscal]*(1+num.concentration_check_factor))
                 # printstyled(color=:red, @sprintf "\n concentration increase: %.2e%% \n" (maximum(ph.trans_scal[:,:,iscal])-num.concentration0[iscal])/num.concentration0[iscal]*100)
                 @error("concentration too high")
 
             end #too high
-            printstyled(color=:red, @sprintf "\n concentration variation vs max: %.2e%% \n" (maximum(ph.trans_scal[:,:,iscal])-num.concentration0[iscal])/num.concentration0[iscal]*100)
+            # printstyled(color=:red, @sprintf "\n concentration variation vs max: %.2e%% \n" (maximum(ph.trans_scal[:,:,iscal])-num.concentration0[iscal])/num.concentration0[iscal]*100)
         end
 
         @views kill_dead_cells_val!(ph.trans_scal[:,:,iscal], grid, LS[1].geoL,0.0)  #reset to zero (for plot)
         #kill_dead_cells_val! can be used for display to avoid displaying a range from 0 to c0 in python
-
-        print("\n test concentration ", minimum(ph.trans_scal[:,:,iscal]), " ", maximum(ph.trans_scal[:,:,iscal]))
 
     end #end loop iscal
 
@@ -2018,12 +2110,12 @@ function compute_grad_phi_ele!(num::Numerical{Float64, Int64},
 
 
 
-    @ccall "libpdi".PDI_multi_expose("write_data_elec_ix_iy"::Cstring,
-    "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
-    "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
-    # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
-    "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-    C_NULL::Ptr{Cvoid})::Cint
+    # @ccall "libpdi".PDI_multi_expose("write_data_elec_ix_iy"::Cstring,
+    # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+    # # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # C_NULL::Ptr{Cvoid})::Cint
 
 
     # @ccall "libpdi".PDI_multi_expose("solve_poisson"::Cstring,
@@ -2173,11 +2265,18 @@ function compute_grad_phi_ele!(num::Numerical{Float64, Int64},
 
 
 
-    @ccall "libpdi".PDI_multi_expose("write_data_elec_imag"::Cstring,
-    # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
-    # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+    # @ccall "libpdi".PDI_multi_expose("write_data_elec_imag"::Cstring,
+    # # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+    # "i_current_mag"::Cstring, tmp_vec_p1::Ptr{Cdouble}, PDI_OUT::Cint,
+    # # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # C_NULL::Ptr{Cvoid})::Cint
+
+    @ccall "libpdi".PDI_multi_expose("write_data_elec_ix_iy"::Cstring,
+    "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+    "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
     "i_current_mag"::Cstring, tmp_vec_p1::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+    "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
     C_NULL::Ptr{Cvoid})::Cint
 
 
@@ -3103,6 +3202,10 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
     old_method = false
     # old_method = true
 
+    if num.nLS>1
+        printstyled(color=:red, @sprintf "\n TODO coeff poisson interpolation multiple levelsets:\n")
+    end
+
     if old_method #(wrong)
 
         # Laplacian
@@ -3163,8 +3266,6 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
         # A[end-nb+1:end,1:ni] = b_b * (HxT_b * iMx_b' * mat_coeffDx * Bx .+ HyT_b * iMy_b' * mat_coeffDy * By)
         # A[end-nb+1:end,end-nb+1:end] = pad(b_b * (HxT_b * iMx_bd * mat_coeffDx_b * Hx_b .+ HyT_b * iMy_bd * mat_coeffDx_b * Hy_b) .+ χ_b * a1_b, -4.0)
         
-        printstyled(color=:red, @sprintf "\n test coeff poisson TODO for iLS too:\n")
-
         A[end-nb+1:end,1:ni] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
         A[end-nb+1:end,end-nb+1:end] = pad(b_b * (HxT_b * iMx_bd  * Hx_b .+ HyT_b * iMy_bd * Hy_b) .+ χ_b * a1_b, -4.0)
         
@@ -3476,6 +3577,21 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
                 # d[i] = ifelse(iszero(d[i]), a*one(d[i]), zero(d[i]))
                 
             end
+        elseif num.solver == 3
+            #TODO do not rebuild A
+            if (num.iter_solve == 1)
+                factorize(A)
+            end
+
+            @time ph.phi_eleD .= A \ rhs
+
+        elseif num.solver == 4
+
+            if (num.iter_solve == 1)
+                lufact(A)
+            end
+
+            @time ph.phi_eleD .= A \ rhs
 
         end
 
@@ -3892,6 +4008,10 @@ function BC_LS_test!(grid, u, A, B, rhs, BC)
     return nothing
 end
 
+
+"""
+replace by val if geo.cap[II,5] < 1e-12
+"""
 function kill_dead_cells_val!(T::Vector, grid, geo,val)
     @unpack ny, ind = grid
 
@@ -3905,6 +4025,10 @@ function kill_dead_cells_val!(T::Vector, grid, geo,val)
     end
 end
 
+
+"""
+replace by val if geo.cap[II,5] < 1e-12
+"""
 function kill_dead_cells_val!(S::SubArray{T,N,P,I,L}, grid, geo,val) where {T,N,P<:Vector{T},I,L}
     @unpack ny, ind = grid
 
@@ -3917,6 +4041,10 @@ function kill_dead_cells_val!(S::SubArray{T,N,P,I,L}, grid, geo,val) where {T,N,
     end
 end
 
+
+"""
+replace by val if geo.cap[II,5] < 1e-12
+"""
 function kill_dead_cells_val!(S::SubArray{T,N,P,I,L}, grid, geo,val) where {T,N,P<:Array{T,3},I,L}
     @unpack ind = grid
     # print("kill dead cells mat")
@@ -4617,7 +4745,7 @@ function solve_poisson_loop!(num::Numerical{Float64, Int64},
     end
 
     #region Update conductivity
-    update_electrical_conductivity!(num,grid,elec_cond,elec_condD)
+    update_electrical_conductivity!(num,grid,elec_cond,elec_condD,heat;phL)
     #endregion Update conductivity
 
     # Store current potential (iteration k)
@@ -4625,6 +4753,8 @@ function solve_poisson_loop!(num::Numerical{Float64, Int64},
 
     # iterate (non-linear BC with Butler-Volmer) 
     for poisson_iter=1:num.electrical_potential_max_iter
+
+        num.iter_solve = poisson_iter
 
         # printstyled(color=:orange, @sprintf "\n poisson iter %.2i \n" poisson_iter)
 
@@ -4657,7 +4787,7 @@ function solve_poisson_loop!(num::Numerical{Float64, Int64},
         #Update Butler-Volmer Boundary Condition with new potential 
         if occursin("Butler",num.electrolysis_reaction) && num.nLS == 1
 
-            printstyled(color=:red, @sprintf "\n Recomputing Butler \n" )
+            # printstyled(color=:red, @sprintf "\n Recomputing Butler \n" )
 
             #region Update current
             if num.electrolysis_reaction == "Butler_no_concentration"                
@@ -4667,37 +4797,13 @@ function solve_poisson_loop!(num::Numerical{Float64, Int64},
 
             update_BC_electrical_potential!(num,grid,BC_phi_ele,elec_cond,elec_condD,i_butler)
 
-            #region Ignore empty cells (prevent NaN) and kill dead cells
-            # TODO Remove Nan when dividing by conductivity which may be null
 
-            for iLS in 1:num.nLS
-                # kill_dead_bc_left_wall!(vecb(elec_condD,grid), grid, iLS,1.0)
-                for i = 1:grid.ny
-                    # print("vecb cap",vecb_L(grid.LS[iLS].geoL.cap[:,5],grid))
-                    
-                    # II = CartesianIndex(i,1)
-                    # II = grid.ind.b_left[1][i]
-                    # opC.χ_b[i, i] = geo.dcap[II,1]
-                    # TODO not cleat why zero: grid.LS[iLS].geoL.cap[II,1]
-                    #TODO cf update LS convection not convection where something is overwritten
-                    # wall_liquid_height = grid.LS[iLS].geoL.cap[II,1]
-                    wall_liquid_height = op.opC_pL.χ_b[i, i]
-                    if wall_liquid_height < 1e-12
-                        BC_phi_ele.left.val[i] = 1.0
-                        print("\n bug BC_phi_ele.left.val[i] ",II," ",grid.LS[iLS].geoL.cap[II,:])
-                        # print("\n opC.χ_b[i, i] ",op.opC_pL.χ_b[i, i])
-                    end
-                end
-            end
 
         end #if occursin("Butler",num.electrolysis_reaction)
 
-        #TODO nLS
-        #TODO kill_dead_cells! ?
-        kill_dead_cells!(phL.phi_ele, grid, grid.LS[1].geoL)
-        veci(phL.phi_eleD,grid,1) .= vec(phL.phi_ele)
-        #endregion
+        print("\n BC_phi_ele ",BC_phi_ele)
 
+        handle_special_cells_electrical_potential!(num,grid,op,BC_phi_ele,phL,elec_condD)
 
         print("\n BC_phi_ele ",BC_phi_ele)
 
@@ -4749,6 +4855,8 @@ function solve_poisson_loop!(num::Numerical{Float64, Int64},
         # "levelset_p"::Cstring, grid.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
         "residual_electrical_potential"::Cstring, residual_electrical_potential ::Ref{Cdouble}, PDI_OUT::Cint,
         "variation_electrical_potential"::Cstring, variation_electrical_potential ::Ref{Cdouble}, PDI_OUT::Cint,
+        "residual_1D"::Cstring, F_residual ::Ref{Cdouble}, PDI_OUT::Cint,
+        "rhs_1D"::Cstring, rhs_scal ::Ref{Cdouble}, PDI_OUT::Cint,
         # "grad_phi_ele_u"::Cstring, tmp_vec_u::Ptr{Cdouble}, PDI_OUT::Cint,  
         C_NULL::Ptr{Cvoid})::Cint
 
@@ -4766,18 +4874,18 @@ function solve_poisson_loop!(num::Numerical{Float64, Int64},
     end #for loop Poisson
 
 
-    PDI_status = @ccall "libpdi".PDI_multi_expose("print_variables"::Cstring,
-        "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
-        "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,
-        "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
-        "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
-        "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-        "levelset_p"::Cstring, grid.LS[num.index_levelset_pdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-        "levelset_u"::Cstring, grid_u.LS[num.index_levelset_pdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-        "levelset_v"::Cstring, grid_v.LS[num.index_levelset_pdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-        "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
-        "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-        C_NULL::Ptr{Cvoid})::Cint
+    # PDI_status = @ccall "libpdi".PDI_multi_expose("print_variables"::Cstring,
+    #     "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
+    #     "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,
+    #     "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+    #     "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+    #     "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    #     "levelset_p"::Cstring, grid.LS[num.index_levelset_pdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+    #     "levelset_u"::Cstring, grid_u.LS[num.index_levelset_pdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+    #     "levelset_v"::Cstring, grid_v.LS[num.index_levelset_pdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+    #     "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+    #     "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+    #     C_NULL::Ptr{Cvoid})::Cint
 
     if any(isnan, phL.phi_eleD)
         print("\n phL.uD: ",any(isnan, phL.uD) , "\n phL.vD: ",any(isnan, phL.vD) , "\n phL.TD: ",any(isnan, phL.TD) , "\n phS.uD: ",any(isnan, phS.uD) , "\n phS.vD: ",any(isnan, phS.vD) , "\n phS.TD: ",any(isnan, phS.TD) ,
@@ -4836,7 +4944,7 @@ end
 update electrical conductivity, using temperature array if it is solved, or homogeneous temperature, 
 depending on concentration (solved or homogeeneous concentration)
 """
-function update_electrical_conductivity!(num,grid,elec_cond,elec_condD)
+function update_electrical_conductivity!(num,grid,elec_cond,elec_condD,heat;phL)
     # Constant electrical conductivity assumption
     #TODO electrical conductivity depends on concentration
     #iKOH index of KOH 
@@ -4981,4 +5089,966 @@ function compute_residual_electrical_potential!(num::Numerical{Float64, Int64},
         end
     end #if io_pdi
 
+end
+
+
+"""
+
+# TODO Remove Nan when dividing by conductivity which may be null
+# cf set_boundary_indicator!
+"""
+function handle_special_cells_electrical_potential!(
+    num::Numerical{Float64, Int64},
+    grid::Mesh{Flower.GridCC, Float64, Int64},
+    op::DiscreteOperators{Float64, Int64},
+    BC_phi_ele::BoundariesInt,
+    phL::Phase{Float64},
+    # elec_cond::Array{Float64, 2},
+    elec_condD::Array{Float64, 1},
+    )
+
+    for i = 1:grid.ny
+        wall_liquid_height = op.opC_pL.χ_b[i, i]
+        if wall_liquid_height < num.epsilon_dist
+            BC_phi_ele.left.val[i] = 1.0
+        end
     end
+    
+    #TODO kill_dead_cells! for multiple levelsets?
+    kill_dead_cells!(phL.phi_ele, grid, grid.LS[1].geoL)
+    veci(phL.phi_eleD,grid,1) .= vec(phL.phi_ele)
+ 
+end
+
+
+"""
+
+# cf set_boundary_indicator!
+"""
+function compute_left_wall(
+    num::Numerical{Float64, Int64},
+    grid::Mesh{Flower.GridCC, Float64, Int64},
+    op::DiscreteOperators{Float64, Int64},
+    BC_phi_ele::BoundariesInt,
+    phL::Phase{Float64},
+    elec_condD::Array{Float64, 1},
+    )
+
+    left_wall_min =0.0 
+    left_wall_max = 0.0
+    left_wall_mean = 0.0
+    count = 0
+
+
+    for i = 1:grid.ny
+        
+        print("\n compute_left_wall ", grid.LS[iLS].geoL.cap[II = CartesianIndex(i,1),1], CartesianIndex(i,1),grid.ind.b_left[1][i],)
+      
+        # TODO not clear why zero: grid.LS[iLS].geoL.cap[II,1]
+
+        #TODO cf update LS convection not convection where something is overwritten
+
+        # wall_liquid_height = grid.LS[iLS].geoL.cap[II,1]
+        wall_liquid_height = op.opC_pL.χ_b[i, i]
+        if wall_liquid_height < num.epsilon_dist
+            left_wall_min = val
+            left_wall_max = val
+        end
+    end
+
+    for i = 1:grid.ny
+        
+        print("\n compute_left_wall ", grid.LS[iLS].geoL.cap[II = CartesianIndex(i,1),1], CartesianIndex(i,1),grid.ind.b_left[1][i],)
+      
+        # TODO not clear why zero: grid.LS[iLS].geoL.cap[II,1]
+
+        #TODO cf update LS convection not convection where something is overwritten
+
+        # wall_liquid_height = grid.LS[iLS].geoL.cap[II,1]
+        wall_liquid_height = op.opC_pL.χ_b[i, i]
+        if wall_liquid_height < num.epsilon_dist
+            left_wall_min = min(left_wall_min,val)
+            left_wall_max = max(left_wall_max,val)
+            left_wall_min += val
+            count += 1
+        end
+    end
+
+
+    return left_wall_min,left_wall_max,left_wall_mean
+
+end
+
+
+"""
+TODO geop for u and v grid
+"""
+function compute_mask_1D!(num::Numerical{Float64, Int64},grid::Mesh{GridCC,T,N},mask_1D) where {T,N}
+    @unpack nx, ny, ind = grid
+    ni = grid.nx * grid.ny
+    # mask_1D = fnzeros(grid,num)
+    mask_1D .= 0.0
+
+    #TODO check how cells are masked LS iLS or end only ?
+    for iLS in 1:num.nLS
+        mask_1D[(iLS-1)*ni+1:(iLS)*ni] = vec(grid.LS[iLS].geoL.dcap[:,:,5]) #sqrt #fill with characteristic length
+    end
+
+    # iLS = 1 #LS for wall or LS end
+
+    # Left wall
+    nb = (num.nLS+1)*ni
+    mask_1D[nb+1:nb+ny] = grid.LS[end].geoL.dcap[:,1,1]
+    # @inbounds @threads for i in 1:ny
+    #     II = ind.b_left[1][i]
+    #     mask_1D[nb+i] = geo.dcap[II,1]
+    #     print("\n left",II,geo.dcap[II,1])
+    # end
+    
+    # Bottom wall
+    nb += ny
+    mask_1D[nb+1:nb+nx] = grid.LS[end].geoL.dcap[1,:,2]
+    # @inbounds @threads for i in 1:nx
+    #     II = ind.b_bottom[1][i]
+    #     mask_1D[nb+i] = geo.dcap[II,2]
+    #     print("\n bottom",II,geo.dcap[II,2])
+    # end
+
+    # Right wall
+    nb += nx
+    mask_1D[nb+1:nb+nx] = grid.LS[end].geoL.dcap[:,end,3]
+    # @inbounds @threads for i in 1:ny
+    #     II = ind.b_right[1][i]
+    #     mask_1D[nb+i] = geo.dcap[II,2]
+    #     print("\n right",II,geo.dcap[II,3])
+    # end
+
+    # Top wall
+    nb += ny
+    mask_1D[nb+1:nb+nx] = grid.LS[end].geoL.dcap[end,:,4]
+    # @inbounds @threads for i in 1:nx
+    #     II = ind.b_top[1][i]
+    #     mask_1D[nb+i] = geo.dcap[II,2]
+    #     print("\n top",II,geo.dcap[II,4])
+    # end
+
+    print("\n mask_1D",mask_1D)
+
+    return nothing
+end
+
+# """
+
+# compute mask 1D
+# """
+# function compute_mask_1D(
+#     num::Numerical{Float64, Int64},
+#     grid::Mesh{Flower.GridCC, Float64, Int64},
+#     op::DiscreteOperators{Float64, Int64},
+#     )
+
+#     left_wall_min =0.0 
+#     left_wall_max = 0.0
+#     left_wall_mean = 0.0
+#     count = 0
+
+
+#     function set_boundary_indicator!(grid::Mesh{GridCC,T,N}, geo, opC) where {T,N}
+#         @unpack nx, ny, ind = grid
+#         @inbounds @threads for i in 1:ny
+#             II = ind.b_left[1][i]
+#             opC.χ_b[i, i] = geo.dcap[II,1]
+#         end
+#         @inbounds @threads for i in 1:nx
+#             II = ind.b_bottom[1][i]
+#             opC.χ_b[i+ny, i+ny] = geo.dcap[II,2]
+#         end
+#         @inbounds @threads for i in 1:ny
+#             II = ind.b_right[1][i]
+#             opC.χ_b[i+ny+nx, i+ny+nx] = geo.dcap[II,3]
+#         end
+#         @inbounds @threads for i in 1:nx
+#             II = ind.b_top[1][i]
+#             opC.χ_b[i+2*ny+nx, i+2*ny+nx] = geo.dcap[II,4]
+#         end
+    
+#         return nothing
+#     end
+
+
+#     for i = 1:grid.ny
+        
+#         print("\n compute_left_wall ", grid.LS[iLS].geoL.cap[II = CartesianIndex(i,1),1], CartesianIndex(i,1),grid.ind.b_left[1][i],)
+      
+#         # TODO not clear why zero: grid.LS[iLS].geoL.cap[II,1]
+
+#         #TODO cf update LS convection not convection where something is overwritten
+
+#         # wall_liquid_height = grid.LS[iLS].geoL.cap[II,1]
+#         wall_liquid_height = op.opC_pL.χ_b[i, i]
+#         if wall_liquid_height < num.epsilon_dist
+#             left_wall_min = val
+#             left_wall_max = val
+#         end
+#     end
+
+#     for i = 1:grid.ny
+        
+#         print("\n compute_left_wall ", grid.LS[iLS].geoL.cap[II = CartesianIndex(i,1),1], CartesianIndex(i,1),grid.ind.b_left[1][i],)
+      
+#         # TODO not clear why zero: grid.LS[iLS].geoL.cap[II,1]
+
+#         #TODO cf update LS convection not convection where something is overwritten
+
+#         # wall_liquid_height = grid.LS[iLS].geoL.cap[II,1]
+#         wall_liquid_height = op.opC_pL.χ_b[i, i]
+#         if wall_liquid_height < num.epsilon_dist
+#             left_wall_min = min(left_wall_min,val)
+#             left_wall_max = max(left_wall_max,val)
+#             left_wall_min += val
+#             count += 1
+#         end
+#     end
+
+
+#     return left_wall_min,left_wall_max,left_wall_mean
+
+# end
+
+
+function pressure_projection_old!(
+    time_scheme, bc_int,
+    num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
+    BC_u, BC_v, BC_p,
+    opC_p, opC_u, opC_v, op_conv,
+    Au, Bu, Av, Bv, Aϕ, Auv, Buv,
+    Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
+    Cum1, Cvm1, Mum1, Mvm1,
+    periodic_x, periodic_y, advection, ls_advection, current_i, Ra, navier, pres_free_suface,jump_mass_flux,mass_flux
+    )
+    @unpack Re, τ, σ, g, β, nLS, nNavier = num
+    @unpack p, pD, ϕ, ϕD, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr, uT = ph
+    @unpack Cu, Cv, CUTCu, CUTCv = op_conv
+    @unpack rho1,rho2,visc_coeff = num
+
+    iRe = visc_coeff
+    iτ = 1.0 / τ
+    irho1 = 1.0/rho1
+
+
+    if num.prediction == 1 || num.prediction == 2
+
+        ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid)
+        ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(pD,grid) .+ opC_v.Gy_b * vecb(pD,grid)
+        for iLS in 1:nLS
+            ∇ϕ_x .+= opC_u.Gx[iLS] * veci(pD,grid,iLS+1)
+            ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid,iLS+1)
+        end
+
+        # grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+        # grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+        # grd_xfull = opC_p.iMx * opC_p.Bx * vec1(pD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(pD,grid)
+        # grd_yfull = opC_p.iMy * opC_p.By * vec1(pD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(pD,grid)
+
+        # for iLS in 1:num.nLS
+        #     grd_xfull .+= opC_p.iMx * opC_p.Hx[iLS] * veci(pD,grid,iLS+1)
+        #     grd_yfull .+= opC_p.iMy * opC_p.Hy[iLS] * veci(pD,grid,iLS+1)
+        # end
+
+        # grd_x = reshape(veci(grd_xfull,grid_u,1), grid_u)
+        # grd_y = reshape(veci(grd_yfull,grid_v,1), grid_v)
+
+        # printstyled(color=:red, @sprintf "\n grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_x) maximum(grd_x) minimum(grd_y) maximum(grd_y))
+
+        # ph.Gxm1 .+= ∇ϕ_x
+        # ph.Gym1 .+= ∇ϕ_y
+
+        ph.Gxm1 .= 0.0
+        ph.Gym1 .= 0.0
+
+        # ph.Gxm1 .= grd_xfull
+        # ph.Gym1 .= grd_yfull
+
+        ph.Gxm1 .= ∇ϕ_x
+        ph.Gym1 .= ∇ϕ_y
+
+        ∇ϕ_x .= 0.0
+        ∇ϕ_y .= 0.0
+        
+
+    end
+
+    nip = grid.nx * grid.ny
+
+    niu = grid_u.nx * grid_u.ny
+    nbu = 2 * grid_u.nx + 2 * grid_u.ny
+    ntu = (nLS - nNavier + 1) * niu + nbu
+
+    niv = grid_v.nx * grid_v.ny
+    nbv = 2 * grid_v.nx + 2 * grid_v.ny
+    ntv = (nLS - nNavier + 1) * niv + nbv
+
+    if is_Forward_Euler(time_scheme)
+        rhs_u, rhs_v, rhs_ϕ, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_Forward_Euler!(
+            bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+            opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
+            Au, Bu, Av, Bv, Aϕ, Auv, Buv,
+            Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
+            Mum1, Mvm1, iRe, op_conv, ph,
+            periodic_x, periodic_y, advection, ls_advection, navier
+        )
+    elseif is_Crank_Nicolson(time_scheme)
+        rhs_u, rhs_v, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_Crank_Nicolson!(
+            bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+            opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
+            Au, Bu, Av, Bv, Aϕ,
+            Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
+            Mum1, Mvm1, iRe, op_conv, ph,
+            periodic_x, periodic_y, advection, ls_advection
+        )
+    end
+
+    ra_x = Ra .* sin(β) .* opC_u.M * vec(hcat(zeros(grid_u.ny), ph.T))
+    ra_y = Ra .* cos(β) .* opC_v.M * vec(vcat(zeros(1,grid_v.nx), ph.T))
+
+    grav_x = g .* sin(β) .* opC_u.M * fones(grid_u)
+    grav_y = g .* cos(β) .* opC_v.M * fones(grid_v)
+
+    Convu = fzeros(grid_u)
+    Convv = fzeros(grid_v)
+    Cui = Cu * vec(u) .+ CUTCu
+    Cvi = Cv * vec(v) .+ CUTCv
+    if advection
+        if current_i == 1
+            Convu .+= Cui
+            Convv .+= Cvi
+        else
+            Convu .+= 1.5 .* Cui .- 0.5 .* Cum1 #Cui returned at the end of function to Cum1
+            Convv .+= 1.5 .* Cvi .- 0.5 .* Cvm1
+        end
+    end
+
+    
+
+    # printstyled(color=:green, @sprintf "\n max abs(Cu) : %.2e u: %.2e CUTCu: %.2e \n" maximum(abs.(Cu)) maximum(abs.(u)) maximum(abs.(CUTCu)))
+
+    # u and v are coupled if a Navier slip BC is employed inside, otherwise they are uncoupled
+    if !navier
+        # if is_wall_no_slip(bc_int)
+        #     vec1(uD,grid_u) .= vec(u)
+        #     # update_dirichlet_field!(grid_u, uD, u, BC_u)
+        #     vec1(rhs_u,grid_u) .+= -τ .* (opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid))
+        #     for iLS in 1:nLS
+        #         vec1(rhs_u,grid_u) .+= -τ .* (opC_u.Gx[iLS] * veci(pD,grid,iLS+1))
+        #     end
+        # end
+        mul!(rhs_u, Bu, uD, 1.0, 1.0)
+        vec1(rhs_u,grid_u) .+= τ .* grav_x
+        vec1(rhs_u,grid_u) .-= τ .* Convu
+        vec1(rhs_u,grid_u) .+= τ .* ra_x
+        # printstyled(color=:green, @sprintf "\n rhs u : %.2e uD %.2e Bu %.2e M %.2e \n" maximum(abs.(rhs_u)) maximum(abs.(uD)) maximum(abs.(Bu)) maximum(abs.(Mum1)))
+
+        vec1(rhs_u,grid_u) .-= τ .* irho1 .* ph.Gxm1 
+        
+        # printstyled(color=:green, @sprintf "\n rhs u : %.2e \n" maximum(abs.(rhs_u)))
+
+        kill_dead_cells!(vec1(rhs_u,grid_u), grid_u, geo_u[end])
+        for iLS in 1:nLS
+            kill_dead_cells!(veci(rhs_u,grid_u,iLS+1), grid_u, geo_u[end])
+        end
+        # @time bicgstabl!(ucorrD, Au, rhs_u, log=true)
+        try
+            # @time bicgstabl!(ucorrD, Au, rhs_u, Pl=Diagonal(Au), log=true)
+            @time ucorrD .= Au \ rhs_u
+        catch e
+            ucorrD .= Inf
+            println(e)
+        end
+
+        # printstyled(color=:green, @sprintf "\n max abs(ucorrD) : %.2e uD: %.2e \n" maximum(abs.(ucorrD)) maximum(abs.(uD)))
+
+        kill_dead_cells!(vec1(ucorrD,grid_u), grid_u, geo_u[end])
+        for iLS in 1:nLS
+            kill_dead_cells!(veci(ucorrD,grid_u,iLS+1), grid_u, geo_u[end])
+        end
+        ucorr .= reshape(vec1(ucorrD,grid_u), grid_u)
+
+        # if is_wall_no_slip(bc_int)
+        #     vec1(vD,grid_v) .= vec(v)
+        #     # update_dirichlet_field!(grid_v, vD, v, BC_v)
+        #     vec1(rhs_v,grid_v) .+= -τ .* (opC_v.AyT * opC_v.Ry * vec1(pD,grid) .+opC_v.Gy_b * vecb(pD,grid))
+        #     for iLS in 1:nLS
+        #         vec1(rhs_v,grid_v) .+= -τ .* (opC_v.Gy[iLS] * veci(pD,grid,iLS+1))
+        #     end
+        # end
+        mul!(rhs_v, Bv, vD, 1.0, 1.0)
+
+        # test1 = vec1(rhs_v,grid_v)[1,1]/Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)
+        # test2 = test1 / (grid_v.dx[1,1]^2/2)
+        # printstyled(color=:red, @sprintf "\n rhs_v vec1 %.10e /pois %.10e /pois %.10e\n" vec1(rhs_v,grid_v)[1,1] test1 test2)
+
+        vec1(rhs_v,grid_v) .+= - τ .* grav_y
+        vec1(rhs_v,grid_v) .-= τ .* Convv
+        vec1(rhs_v,grid_v) .+= τ .* ra_y
+
+        # test1 = vec1(rhs_v,grid_v)[1,1]/Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)
+        # test2 = test1 / (grid_v.dx[1,1]^2/2)
+        # test3 = vec1(rhs_v,grid_v)[1,1]-Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)*(grid_v.dx[1,1]^2/2)
+        # printstyled(color=:red, @sprintf "\n rhs_v vec1 %.10e /pois %.10e /pois %.10e diff %.10e\n" vec1(rhs_v,grid_v)[1,1] test1 test2 test3)
+
+        # # printstyled(color=:green, @sprintf "\n rhs: %.2e vD %.2e \n" maximum(abs.(rhs_v)) maximum(abs.(vD)))
+        # printstyled(color=:green, @sprintf "\n rhs v : %.2e vD %.2e Bv %.2e M %.2e \n" maximum(abs.(rhs_v)) maximum(abs.(vD)) maximum(abs.(Bv)) maximum(abs.(Mvm1)))
+
+
+        vec1(rhs_v,grid_v) .-= τ .* irho1 .* ph.Gym1
+
+        # printstyled(color=:green, @sprintf "\n rhs: %.2e \n" maximum(abs.(rhs_v)))
+
+
+        # test1 = vec1(rhs_v,grid_v)[1,1]/Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)
+        # test2 = test1 / (grid_v.dx[1,1]^2/2)
+        # test3 = vec1(rhs_v,grid_v)[1,1]-Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)*(grid_v.dx[1,1]^2/2)
+        # test4 = test3/(τ .* irho1)/ (grid_v.dx[1,1]^2/2)
+        # printstyled(color=:red, @sprintf "\n rhs_v vec1 %.10e /pois %.10e /pois %.10e diff %.10e diff %.10e\n" vec1(rhs_v,grid_v)[1,1] test1 test2 test3 test4)
+
+
+
+        kill_dead_cells!(vec1(rhs_v,grid_v), grid_v, geo_v[end])
+        for iLS in 1:nLS
+            kill_dead_cells!(veci(rhs_v,grid_v,iLS+1), grid_v, geo_v[end])
+        end
+        # bicgstabl!(vcorrD, Av, rhs_v, log=true)
+        
+        
+        # iplot = 1
+        # jplot = 1
+        # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # # pII = lexicographic(II, grid.ny +1)
+
+        # print("\n after kill dead cells ", (grid_v.dx[1,1]^2/2)," full " ,(grid_v.dx[1,1]^2)," test ",geo_v[end].cap[II,5])
+        # test1 = vec1(rhs_v,grid_v)[1,1]/Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)
+        # test2 = test1 / (grid_v.dx[1,1]^2/2)
+        # test3 = vec1(rhs_v,grid_v)[1,1]-Poiseuille_fmax(grid_v.x[1,1],num.v_inlet,num.L0)*(grid_v.dx[1,1]^2/2)
+        # test4 = test3/(τ .* irho1)/ (grid_v.dx[1,1]^2/2)
+        # printstyled(color=:red, @sprintf "\n rhs_v vec1 %.10e /pois %.10e /pois %.10e diff %.10e diff %.10e\n" vec1(rhs_v,grid_v)[1,1] test1 test2 test3 test4)
+
+
+        try
+            # @time bicgstabl!(vcorrD, Av, rhs_v, Pl=Diagonal(Av), log=true)
+            @time vcorrD .= Av \ rhs_v
+        catch e
+            vcorrD .= Inf
+            println(e)
+        end
+
+        # printstyled(color=:yellow, @sprintf "\n vcorrD \n")
+
+        # iplot = 64
+        # jplot = 64
+        # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # pII = lexicographic(II, grid.ny +1)
+        
+        # # test = τ .* iRe.*Lv *vcorrD
+        # # test =
+        # # bc_Lv, bc_Lv_b
+        # # print("\n testvisc ",Lv)
+        # print("\n ")
+        # # print("\n testvisc ",Lv[jplot,iplot])
+        # print("\n testvisc ", II," ",Lv[pII,:])
+        # printstyled(color=:green, @sprintf "\n Bx: %.10e \n" opC_v.Bx[pII,pII])
+        # printstyled(color=:green, @sprintf "\n BxT: %.10e \n" opC_v.BxT[pII,pII])
+        # printstyled(color=:green, @sprintf "\n iMx: %.10e \n" opC_v.iMx[pII,pII])
+        # printstyled(color=:green, @sprintf "\n Mx: %.10e iMx: %.10e iMx: %.10e\n" geo_v[end].dcap[II,8] 1/geo_v[end].dcap[II,8] 1/(geo_v[end].dcap[II,8]+eps(0.01)))
+
+        
+
+        # @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
+        # @unpack  M = opC_v
+        # print("\n M min ",minimum(M), " max ", maximum(M))
+
+
+        # ni = grid_v.nx * grid_v.ny
+        # nb = 2 * grid_v.nx + 2 * grid_v.ny
+        # nt = (num.nLS + 1) * ni + nb
+
+        # Avtest = spzeros(nt, nt)
+       
+        # # Implicit part of viscous term
+        # Avtest[1:ni,1:ni] = iRe .*Lv #pad_crank_nicolson(Lv, grid, τ)
+        # # Contribution to implicit part of viscous term from outer boundaries
+        # Avtest[1:ni,end-nb+1:end] = iRe .* bc_Lv_b
+
+        # vecv = reshape(vec1(vD,grid_v),grid_v)
+
+
+        # iplot = 1
+        # jplot = 64
+        # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # pII = lexicographic(II, grid.ny +1)
+        # print("\n ")
+        # print("\n testvisc ", II," ",Lv[pII,:])
+        # print("\n testvisc ", II," ",Avtest[pII,:])
+
+        # print("\n testvisc ", II," ",bc_Lv_b[pII,:])
+
+
+        # testAv = Avtest * vcorrD .*rho1 
+        # testAv2 = Avtest * vD .*rho1 
+
+        # printstyled(color=:green, @sprintf "\n Avtest * vcorrD/My : %.10e exact %.10e 4/3exact %.10e\n" testAv[pII]*opC_p.iMy.diag[pII] testAv2[pII]*opC_p.iMy.diag[pII] testAv2[pII]*opC_p.iMy.diag[pII]*4/3)
+
+        # print("\n op ", rho1*opC_p.iMy.diag[pII]*iRe*(-5*vecv[64,1] +1*vecv[64,2]))
+        # print("\n op ",vecv[64,1]," op ",vecv[64,2])
+        # print("\n op ",opC_p.iMy.diag[pII])
+        # print("\n iRe ", iRe)
+
+        # print("\n op ", rho1*iRe)
+
+        # print("\n op ", rho1*iRe*(-5*vecv[64,1] +1*vecv[64,2]))
+
+        # print("\n testvisc ", II," ",Avtest[pII,pII]," ",Avtest[pII,pII]*opC_p.iMy.diag[pII]," ",Avtest[pII,pII]*opC_p.iMy.diag[pII]*rho1, " ",Avtest[pII,pII]*opC_p.iMy.diag[pII]*rho1*vecv[64,1])
+
+
+
+
+        # ####################################################################################################        
+        # iplot = 2
+        # jplot = 64
+        # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # pII = lexicographic(II, grid.ny +1)
+        # print("\n ")
+        # print("\n testvisc ", II," ",Lv[pII,:])
+
+        # printstyled(color=:green, @sprintf "\n Avtest * vcorrD/My : %.10e exact %.10e\n" testAv[pII]*opC_p.iMy.diag[pII] testAv2[pII]*opC_p.iMy.diag[pII])
+        # ####################################################################################################
+
+        # ####################################################################################################        
+        # iplot = 1
+        # jplot = 1
+        # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # pII = lexicographic(II, grid.ny +1)
+        # print("\n ")
+        # print("\n testvisc ", II," ",Lv[pII,:])
+        # print("\n testvisc ", II," ",Avtest[pII,:])
+
+        # printstyled(color=:green, @sprintf "\n Avtest * vcorrD/My : %.10e exact %.10e 4/3exact %.10e\n" testAv[pII]*opC_p.iMy.diag[pII] testAv2[pII]*opC_p.iMy.diag[pII] testAv2[pII]*opC_p.iMy.diag[pII]*4/3)
+        # ####################################################################################################
+
+        # #not 
+        # # printstyled(color=:green, @sprintf "\n Avtest * vcorrD : %.10e Avtest * vcorrD/M : %.10e Avtest * vcorrD/My : %.10e\n" testAv[pII] testAv[pII]*opC_v.iMx_bd[pII,pII] testAv[pII]*opC_v.iMy[pII,pII])
+        # # ####################################################################################################        
+        # # iplot = 2
+        # # jplot = 64
+        # # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # # pII = lexicographic(II, grid.ny +1)
+        # # print("\n ")
+        # # print("\n testvisc ", II," ",Lv[pII,:])
+        # # printstyled(color=:green, @sprintf "\n Avtest * vcorrD : %.10e Avtest * vcorrD/M : %.10e Avtest * vcorrD/My : %.10e \n" testAv[pII] testAv[pII]*opC_v.iMx[pII,pII] testAv[pII]*opC_v.iMy[pII,pII])
+        # # ####################################################################################################
+
+
+        # # 6.103515625000243e-13
+
+        # # testAv = Av * vcorrD - 
+
+
+        # # testLv = fnzeros(grid, num)
+        # # testLv = fnzeros(grid, num)
+        # # mul!(testLv, Lv, vcorrD, 1.0, 1.0)
+        # # print("\n testvisc ", II," ",testLv[pII,:])
+
+        # # mul!(rhs_v, Bv, vD, 1.0, 1.0)
+
+
+        # # printstyled(color=:green, @sprintf "\n Lv: %.10e \n" Lv[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n Bx: %.10e \n" opC_v.Bx[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n BxT: %.10e \n" opC_v.BxT[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n iMx: %.10e \n" opC_v.iMx[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n Mx: %.10e iMx: %.10e iMx: %.10e\n" geo_v[end].dcap[II,8] 1/geo_v[end].dcap[II,8] 1/(geo_v[end].dcap[II,8]+eps(0.01)))
+
+
+
+
+        # iplot = 2
+        # jplot = 64
+        # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # pII = lexicographic(II, grid.ny +1)
+        # print("\n ")
+        # print("\n testvisc ", II," ",Lv[pII,:])
+        
+        # printstyled(color=:green, @sprintf "\n Avtest * vcorrD/My : %.10e exact %.10e\n" testAv[pII]*opC_v.iMy[pII,pII] testAv2[pII]*opC_v.iMy[pII,pII])
+
+        # # print("\n testvisc ", II," ",testLv[pII,:])
+        # # printstyled(color=:green, @sprintf "\n Lv: %.10e \n" Lv[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n Bx: %.10e \n" opC_v.Bx[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n BxT: %.10e \n" opC_v.BxT[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n iMx: %.10e \n" opC_v.iMx[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n Mx: %.10e iMx: %.10e iMx: %.10e\n" geo_v[end].dcap[II,8] 1/geo_v[end].dcap[II,8] 1/(geo_v[end].dcap[II,8]+eps(0.01)))
+
+        # # iplot = 3
+        # # jplot = 64
+        # # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # # pII = lexicographic(II, grid.ny +1)
+        # # print("\n ")
+        # # print("\n testvisc ", II," ",Lv[pII,:])
+        # # printstyled(color=:green, @sprintf "\n Lv: %.10e \n" Lv[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n Bx: %.10e \n" opC_v.Bx[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n BxT: %.10e \n" opC_v.BxT[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n iMx: %.10e \n" opC_v.iMx[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n Mx: %.10e iMx: %.10e iMx: %.10e\n" geo_v[end].dcap[II,8] 1/geo_v[end].dcap[II,8] 1/(geo_v[end].dcap[II,8]+eps(0.01)))
+
+        # # iplot = 4
+        # # jplot = 64
+        # # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # # pII = lexicographic(II, grid.ny +1)
+        # # print("\n ")
+        # # print("\n testvisc ", II," ",Lv[pII,:])
+        # # printstyled(color=:green, @sprintf "\n Lv: %.10e \n" Lv[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n Bx: %.10e \n" opC_v.Bx[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n BxT: %.10e \n" opC_v.BxT[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n iMx: %.10e \n" opC_v.iMx[pII,pII])
+        # # printstyled(color=:green, @sprintf "\n Mx: %.10e iMx: %.10e iMx: %.10e\n" geo_v[end].dcap[II,8] 1/geo_v[end].dcap[II,8] 1/(geo_v[end].dcap[II,8]+eps(0.01)))
+
+
+        # # ny = grid.ny
+    
+        # # testb = jplot
+        # # testn = ny-testb+1
+        # # print("\n test",testn," testb ",testb)
+        # # # printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i chi_b %.2e  chi_b adim %.2e border %.2e\n" testn testb op.χ_b[end-nb+testn,end-nb+testn] op.χ_b[end-nb+testn,end-nb+testn]/grid.dy[1,1] vecb_L(ph.trans_scalD[:,iscal], grid)[testn])
+        # # # printstyled(color=:cyan, @sprintf "\n BC %.5e rhs %.5e rhs %.5e \n" bc[iscal].left.val[testn] bc[iscal].left.val[testn]*op.χ_b[end-nb+testn,end-nb+testn] vecb_L(rhs, grid)[testn])
+        # # # print("\n B ", maximum(B[testb,:])," \n ")
+    
+        # # print("\n A[end-nb+testn,1:ni]", Av[end-nb+testn,1:ni], "\n")
+        # # print("\n A[end-nb+testn,ni+1:2*ni]", Av[end-nb+testn,ni+1:2*ni], "\n")
+        # # print("\n A[end-nb+testn,end-nb+1:end]", Av[end-nb+testn,end-nb+1:end], "\n")
+
+
+        # iplot = 1
+        # jplot = 1
+        # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # pII = lexicographic(II, grid.ny +1)
+        # print("\n ")
+        # print("\n testvisc ", II," ",Lv[pII,:])
+        # printstyled(color=:red, @sprintf "\n iMy %.10e %.10e %.10e\n" opC_p.iMy.diag[pII] 1/grid_v.dx[1,1]^2 grid_v.dx[1,1]^2)
+        # print("\n B ", II," ",opC_p.Bx[pII,pII]," ",opC_p.BxT[pII,pII])
+
+        # iplot = 1
+        # jplot = 64
+        # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # pII = lexicographic(II, grid.ny +1)
+        # print("\n ")
+        # print("\n testvisc ", II," ",Lv[pII,:])
+        # printstyled(color=:red, @sprintf "\n iMy %.10e %.10e %.10e\n" opC_p.iMy.diag[pII] 1/grid_v.dx[1,1]^2 grid_v.dx[1,1]^2)
+        # print("\n B ", II," ",opC_p.Bx[pII,pII]," ",opC_p.BxT[pII,pII])
+
+
+
+        # iplot = 2
+        # jplot = 64
+        # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # pII = lexicographic(II, grid.ny +1)
+        # print("\n ")
+        # print("\n B ", II," ",opC_p.Bx[pII,pII]," ",opC_p.BxT[pII,pII])
+       
+        # # mul!(tmp_x, iMx, Bx)
+        # # L = BxT * tmp_x
+        # # mul!(tmp_y, iMy, By)
+        # # L = L .+ ByT * tmp_y
+
+
+        # # iplot = 1
+        # # jplot = 1
+        # # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # # pII = lexicographic(II, grid_v.ny +1)
+        # # print("\n ")
+        # # print("\n testvisc ", II," ",Lv[pII,:])
+        # # printstyled(color=:red, @sprintf "\n iMy %.10e %.10e %.10e\n" opC_p.iMy.diag[pII] 1/grid_v.dx[1,1]^2 grid_v.dx[1,1]^2)
+
+        # # iplot = 1
+        # # jplot = 64
+        # # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+        # # pII = lexicographic(II, grid_v.ny +1)
+        # # print("\n ")
+        # # print("\n testvisc ", II," ",Lv[pII,:])
+        # # printstyled(color=:red, @sprintf "\n iMy %.10e %.10e %.10e\n" opC_p.iMy.diag[pII] 1/grid_v.dx[1,1]^2 grid_v.dx[1,1]^2)
+
+        
+
+        
+        
+
+        # #TODO Poiseuille
+        # test_Poiseuille(num,vcorrD,grid_v)
+
+        # printstyled(color=:red, @sprintf "\n vcorrD %.2e %.2e\n" minimum(vcorrD) maximum(vcorrD))
+
+        # test_Poiseuille(num,vD,grid_v)
+
+        # printstyled(color=:red, @sprintf "\n vec1 1\n")
+        # print(vecv[1,:])
+
+        # printstyled(color=:red, @sprintf "\n vecb_B \n" )
+        # print(vecb_B(vD,grid_v))
+
+        # printstyled(color=:red, @sprintf "\n vecb_L vD\n")
+        # print(vecb_L(vD,grid_v))
+
+        # printstyled(color=:red, @sprintf "\n vecb_L vcorrD\n" )
+        # print(vecb_L(vcorrD,grid_v))
+
+
+        # printstyled(color=:red, @sprintf "\n rhs_v vecb_L \n" )
+        # print(vecb_L(rhs_v,grid_v))
+
+        kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])
+        for iLS in 1:nLS
+            kill_dead_cells!(veci(vcorrD,grid_v,iLS+1), grid_v, geo_v[end])
+        end
+        vcorr .= reshape(vec1(vcorrD,grid_v), grid_v)
+    else #navier
+        uvm1 = zeros(ntu + ntv + nNavier * nip)
+        uvm1[1:niu] .= vec1(uD,grid_u)
+        uvm1[ntu+1:ntu+niv] .= vec1(vD,grid_v)
+        uvm1[ntu-nbu+1:ntu] .= vecb(uD,grid_u)
+        uvm1[ntu+ntv-nbv+1:ntu+ntv] .= vecb(vD,grid_v)
+        _iLS = 1
+        for iLS in 1:num.nLS
+            if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+                uvm1[_iLS*niu+1:(_iLS+1)*niu] .= veci(uD,grid_u,iLS+1)
+                uvm1[ntu+_iLS*niv+1:ntu+(_iLS+1)*niv] .= veci(vD,grid_v,iLS+1)
+                _iLS += 1
+            end
+        end
+
+        rhs_uv .+=  Buv * uvm1
+
+        rhs_uv[1:niu] .+= τ .* grav_x
+        rhs_uv[1:niu] .-= τ .* Convu
+        rhs_uv[1:niu] .+= τ .* ra_x
+        rhs_uv[1:niu] .-= τ .* irho1 .* ph.Gxm1 
+
+        rhs_uv[ntu+1:ntu+niv] .+= τ .* grav_y
+        rhs_uv[ntu+1:ntu+niv] .-= τ .* Convv
+        rhs_uv[ntu+1:ntu+niv] .+= τ .* ra_y
+        rhs_uv[ntu+1:ntu+niv] .-= τ .* irho1 .* ph.Gym1 
+
+        @views kill_dead_cells!(rhs_uv[1:niu], grid_u, geo_u[end])
+        @views kill_dead_cells!(rhs_uv[ntu+1:ntu+niv], grid_v, geo_v[end])
+        _iLS = 1
+        for iLS in 1:nLS
+            sbu = _iLS*niu+1:(_iLS+1)*niu
+            sbv = ntu+_iLS*niv+1:ntu+(_iLS+1)*niv
+            if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+                @views kill_dead_cells!(rhs_uv[sbu], grid_u, geo_u[end])
+                @views kill_dead_cells!(rhs_uv[sbv], grid_v, geo_v[end])
+                _iLS += 1
+            end
+        end
+
+        uvD = ones(ntu + ntv + nNavier * nip)
+        try
+            @time uvD .= Auv \ rhs_uv
+        catch e
+            uvD .= Inf
+            println(e)
+        end
+
+        vec1(ucorrD, grid_u) .= uvD[1:niu]
+        vecb(ucorrD, grid_u) .= uvD[ntu-nbu+1:ntu]
+        kill_dead_cells!(vec1(ucorrD,grid_u), grid_u, geo_u[end])
+        ucorr .= reshape(vec1(ucorrD,grid_u), grid_u)
+
+        vec1(vcorrD, grid_v) .= uvD[ntu+1:ntu+niv]
+        vecb(vcorrD, grid_v) .= uvD[ntu+ntv-nbv+1:ntu+ntv]
+        kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])
+        vcorr .= reshape(vec1(vcorrD,grid_v), grid_v)
+
+        nNav = 0
+        _iLS = 1
+        for iLS in 1:nLS
+            if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+                veci(ucorrD,grid_u,iLS+1) .= uvD[_iLS*niu+1:(_iLS+1)*niu]
+                kill_dead_cells!(veci(ucorrD,grid_u,iLS+1), grid_u, geo_u[end])
+
+                veci(vcorrD,grid_v,iLS+1) .= uvD[ntu+_iLS*niv+1:ntu+(_iLS+1)*niv]
+                kill_dead_cells!(veci(vcorrD,grid_v,iLS+1), grid_v, geo_v[end])
+                _iLS += 1
+            else
+                @inbounds uT[nNav+1,:] .= vec(uvD[ntu+ntv+1+nNav*nip:ntu+ntv+(nNav+1)*nip])
+                nNav += 1
+            end
+        end
+    end
+
+    # printstyled(color=:green, @sprintf "\n max abs(ucorrD) : %.2e vcorrD %.2e \n" maximum(abs.(ucorrD)) maximum(abs.(vcorrD)))
+
+
+    Duv = opC_p.AxT * vec1(ucorrD,grid_u) .+ opC_p.Gx_b * vecb(ucorrD,grid_u) .+
+          opC_p.AyT * vec1(vcorrD,grid_v) .+ opC_p.Gy_b * vecb(vcorrD,grid_v)
+    for iLS in 1:nLS
+        if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+            Duv .+= opC_p.Gx[iLS] * veci(ucorrD,grid_u,iLS+1) .+ 
+                    opC_p.Gy[iLS] * veci(vcorrD,grid_v,iLS+1)
+        end
+    end
+
+    #Poisson equation
+    # vec1(rhs_ϕ,grid) .= iτ .* Duv
+    vec1(rhs_ϕ,grid) .= rho1 .* iτ .* Duv #TODO
+    # veci(rhs_ϕ,grid) .*= rho1 #TODO
+
+    # pres_free_suface = 0.0
+    #TODO Marangoni
+    #TODO phase change
+    diff_inv_rho = 1.0/rho1 - 1.0/rho2
+    # jump_mass_flux = 0.0 #TODO
+
+    if jump_mass_flux
+        for iLS in 1:nLS
+            if is_fs(bc_int[iLS])
+                Smat = strain_rate(iLS, opC_u, opC_v, opC_p)
+                S = Smat[1,1] * vec1(ucorrD,grid_u) .+ Smat[1,2] * veci(ucorrD,grid_u,iLS+1) .+
+                    Smat[2,1] * vec1(vcorrD,grid_v) .+ Smat[2,2] * veci(vcorrD,grid_v,iLS+1)
+    
+                fs_mat = opC_p.HxT[iLS] * opC_p.Hx[iLS] .+ opC_p.HyT[iLS] * opC_p.Hy[iLS]
+                veci(rhs_ϕ,grid,iLS+1) .= -2.0 .* iRe .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid.LS[iLS].κ) .- pres_free_suface .- diff_inv_rho * mass_flux ^ 2)
+            end
+        end
+    else
+        for iLS in 1:nLS
+            if is_fs(bc_int[iLS])
+                Smat = strain_rate(iLS, opC_u, opC_v, opC_p)
+                S = Smat[1,1] * vec1(ucorrD,grid_u) .+ Smat[1,2] * veci(ucorrD,grid_u,iLS+1) .+
+                    Smat[2,1] * vec1(vcorrD,grid_v) .+ Smat[2,2] * veci(vcorrD,grid_v,iLS+1)
+
+                fs_mat = opC_p.HxT[iLS] * opC_p.Hx[iLS] .+ opC_p.HyT[iLS] * opC_p.Hy[iLS]
+                veci(rhs_ϕ,grid,iLS+1) .= -2.0 .* iRe .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid.LS[iLS].κ) .- pres_free_suface )
+            end
+        end
+    end
+    # Remove nullspace by adding small quantity to main diagonal
+    if num.null_space == 0
+        @inbounds @threads for i in 1:Aϕ.m
+            @inbounds Aϕ[i,i] += 1e-10
+        end
+    end
+    kill_dead_cells!(vec1(rhs_ϕ,grid), grid, geo[end])
+    for iLS in 1:nLS
+        kill_dead_cells!(veci(rhs_ϕ,grid,iLS+1), grid, geo[end])
+    end
+    # @time bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl = Diagonal(Aϕ), log = true)
+
+    # rhs_ϕ .*= rho1 #TODO #TODO not BC
+
+    # vec1(rhs_ϕ,grid) .*= rho1 
+
+    # Aϕ .*= irho1
+
+    # vecb(rhs_ϕ,grid) .*= irho1
+
+    @time ϕD .= Aϕ \ rhs_ϕ
+    kill_dead_cells!(vec1(ϕD,grid), grid, geo[end])
+    for iLS in 1:nLS
+        kill_dead_cells!(veci(ϕD,grid,iLS+1), grid, geo[end])
+    end
+    ϕ .= reshape(vec1(ϕD,grid), grid)
+
+    iMu = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_u.M.diag))
+    iMv = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_v.M.diag))
+    # Gradient of pressure, eq. 17 in 
+    #"A Conservative Cartesian Cut-Cell Method for Mixed Boundary Conditions and the Incompressible Navier-Stokes Equations on Staggered Meshes"
+    ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec(ϕ) .+ opC_u.Gx_b * vecb(ϕD,grid)
+    ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec(ϕ) .+ opC_v.Gy_b * vecb(ϕD,grid)
+    for iLS in 1:nLS
+        ∇ϕ_x .+= opC_u.Gx[iLS] * veci(ϕD,grid,iLS+1)
+        ∇ϕ_y .+= opC_v.Gy[iLS] * veci(ϕD,grid,iLS+1)
+    end
+
+    # ∇ϕ_x = irho1 .* opC_u.AxT * opC_u.Rx * vec(ϕ) .+ opC_u.Gx_b * vecb(ϕD,grid)
+    # ∇ϕ_y = irho1 .* opC_v.AyT * opC_v.Ry * vec(ϕ) .+ opC_v.Gy_b * vecb(ϕD,grid)
+    # for iLS in 1:nLS
+    #     ∇ϕ_x .+= irho1 .* opC_u.Gx[iLS] * veci(ϕD,grid,iLS+1)
+    #     ∇ϕ_y .+= irho1 .* opC_v.Gy[iLS] * veci(ϕD,grid,iLS+1)
+    # end
+
+    # if num.prediction == 1 already done
+    #     ph.Gxm1 .+= ∇ϕ_x
+    #     ph.Gym1 .+= ∇ϕ_y
+    # end
+
+
+    # iM = Diagonal(1. ./ (vec(geo[end].dcap[:,:,5]) .+ eps(0.01)))
+
+    # iM = Diagonal(inv_weight_eps.(num,geo[end].dcap[:,:,5]))
+
+    iM = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(geo[end].dcap[:,:,5])))
+
+    # iM = Diagonal(1. ./ (vec(geo[end].dcap[:,:,5]) ))
+
+    # if is_fs(bc_int)
+    if num.prediction == 1
+        vec1(pD,grid) .= vec(ϕ .- iRe .* rho1 .* reshape(iM * Duv,grid)) #no τ  since div u not rho1
+    elseif num.prediction == 2
+        vec1(pD,grid) .+= vec(ϕ .- iRe./2 .* rho1 .* reshape(iM * Duv,grid)) #no τ  since div u not rho1
+    else
+        vec1(pD,grid) .= vec(ϕ) #.- iRe .* reshape(iM * Duv, grid))
+    end
+    for iLS in 1:nLS
+        veci(pD,grid,iLS+1) .= veci(ϕD,grid,iLS+1)
+    end
+    vecb(pD,grid) .= vecb(ϕD,grid)
+    p .= reshape(vec1(pD,grid), grid)
+
+    #TODO
+    # compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
+
+
+    # else
+    #     vec1(pD,grid) .= vec(p) .+ vec(ϕ) #.- iRe .* iM * Duv
+    #     vec2(pD,grid) .+= vec2(ϕD,grid)
+    #     vecb(pD,grid) .+= vecb(ϕD,grid)
+    #     p .= reshape(vec1(pD,grid), grid)
+    # end
+
+    # vec1(∇ϕ_x,grid) .*= irho1 
+    # vec1(∇ϕ_y,grid) .*= irho1
+
+    
+    # u .= ucorr .- τ .* reshape(iMu * ∇ϕ_x, grid_u)
+    # v .= vcorr .- τ .* reshape(iMv * ∇ϕ_y, grid_v)
+
+    u .= ucorr .- τ .* irho1 .* reshape(iMu * ∇ϕ_x, grid_u)
+    v .= vcorr .- τ .* irho1 .* reshape(iMv * ∇ϕ_y, grid_v)
+
+    kill_dead_cells!(u, grid_u, geo_u[end])
+    kill_dead_cells!(v, grid_v, geo_v[end])
+
+    vec1(uD,grid_u) .= vec(u)
+    vecb(uD,grid_u) .= vecb(ucorrD,grid_u)
+    vec1(vD,grid_v) .= vec(v)
+    vecb(vD,grid_v) .= vecb(vcorrD,grid_v)
+    for iLS in 1:nLS
+        if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+            veci(uD,grid_u,iLS+1) .= veci(ucorrD,grid_u,iLS+1)
+            veci(vD,grid_v,iLS+1) .= veci(vcorrD,grid_v,iLS+1)
+        end
+        # if is_fs(bc_int[iLS])
+        #     @inbounds for II in grid_u.ind.all_indices
+        #         pII = lexicographic(II, grid_u.ny)
+        #         if abs(veci(ucorrD,grid_u,iLS+1)[pII]) > 1e-12
+        #             veci(ucorrD,grid_u,iLS+1)[pII] -= (τ .* iMu * ∇ϕ_x)[pII]
+        #         end
+        #     end
+        #     @inbounds for II in grid_v.ind.all_indices
+        #         pII = lexicographic(II, grid_v.ny)
+        #         if abs(veci(vcorrD,grid_v,iLS+1)[pII]) > 1e-12
+        #             veci(vcorrD,grid_v,iLS+1)[pII] -= (τ .* iMv * ∇ϕ_y)[pII]
+        #         end
+        #     end
+        # end
+    end
+
+    return Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
+end

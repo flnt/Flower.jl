@@ -195,11 +195,11 @@ flower:
       LS = [Neumann(val=0.0)]
       )
          BC_trans_scal_H2 = BoundariesInt(
-      bottom = Dirichlet(val = phys.concentration0[1],
+      bottom = Dirichlet(val = phys.concentration0[2]),
       top    = Neumann(),
       left   = Neumann(val=-i_butler/(2*phys.Faraday*DH2)),
       right  = Dirichlet(val = 0.0),
-      int    = Dirichlet(val = phys.concentration0[2]/phys.Henry_H2))
+      int    = Dirichlet(val = phys.concentration0[1]/phys.Henry_H2))
       #KOH
       BC_trans_scal_KOH = BoundariesInt(
           bottom = Dirichlet(val = phys.concentration0[2]),
@@ -346,15 +346,15 @@ flower:
       print("\n diffusion time ", diffusion_t,"\n")
       print("\n end test print_parameters2 \n")
 
-    test_end: |
-      phi_test = -1.166e-02
-      i_butler_test = butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_test,phys.phi_ele1,phys.Ru,phys.temperature0)
+    # test_end: |
+    #   phi_test = -1.166e-02
+    #   i_butler_test = butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_test,phys.phi_ele1,phys.Ru,phys.temperature0)
 
-      printstyled(color=:green, @sprintf "\n test Butler )
-      print("\n test Butler ",i_butler_test,)
+    #   printstyled(color=:green, @sprintf "\n test Butler )
+    #   print("\n test Butler ",i_butler_test,)
 
-      print("\n test Butler ",i_butler_test,-i_butler_test*L)
-      print("\n")
+    #   print("\n test Butler ",i_butler_test,-i_butler_test*L)
+    #   print("\n")
 
 study:
   #tolerance for tests
@@ -1756,7 +1756,7 @@ plot:
           from scipy.stats import pearsonr
 
           # Calculate the correlation coefficient and p-value
-          correlation_coefficient, p_value = pearsonr(varx, slice_1D)
+          correlation_coefficient, p_value = pearsonr(varx*scale_x, slice_1D)
 
           print(f"Correlation Coefficient: {correlation_coefficient}")
           # print(f"P-value: {p_value}")
@@ -1803,7 +1803,7 @@ plot:
       #     from scipy.stats import pearsonr
 
       #     # Calculate the correlation coefficient and p-value
-      #     correlation_coefficient, p_value = pearsonr(varx, slice_1D)
+      #     correlation_coefficient, p_value = pearsonr(varx*scale_x, slice_1D)
 
       #     print(f"Correlation Coefficient: {correlation_coefficient}")
       #     # print(f"P-value: {p_value}")
@@ -1852,7 +1852,7 @@ plot:
           from scipy.stats import pearsonr
 
           # Calculate the correlation coefficient and p-value
-          correlation_coefficient, p_value = pearsonr(varx, slice_1D)
+          correlation_coefficient, p_value = pearsonr(varx*scale_x, slice_1D)
 
           print(f"Correlation Coefficient: {correlation_coefficient}")
           # print(f"P-value: {p_value}")
@@ -1957,7 +1957,7 @@ plot:
         #   from scipy.stats import pearsonr
 
         #   # Calculate the correlation coefficient and p-value
-        #   correlation_coefficient, p_value = pearsonr(varx, slice_1D)
+        #   correlation_coefficient, p_value = pearsonr(varx*scale_x, slice_1D)
 
         #   print(f"Correlation Coefficient: {correlation_coefficient}")
         #   # print(f"P-value: {p_value}")

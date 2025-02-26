@@ -99,9 +99,9 @@ flower:
     convection_mode: 1 #0 #1
     electrolysis_convection: 0 #1
     electrical_potential: 3 #2 #0 deactivated
-    electrical_potential_max_iter: 6 #20
-    electrical_potential_relative_residual: 1e-2
-    electrical_potential_residual: 1e-2
+    electrical_potential_max_iter: 50 #20
+    electrical_potential_relative_residual: 1e-10
+    electrical_potential_residual: 1e-10
     electrical_potential_nonlinear_solver: 0 #0 for successive substitutions #1 for Newton-Raphson
     electrolysis_phase_change_case: "None" #"Khalighi" #no phase change
     # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
@@ -320,7 +320,7 @@ study:
   #tolerance for tests
   test_tolerance: 1.e-11 #1.e-14
   test_tolerance_solution_absolute:  1.e-1 # from n = 16 
-  meshes: [32] #[32,64,128,256]
+  meshes: [32,64,128,256]
 
 
 plot:
@@ -1649,9 +1649,24 @@ plot:
 
   curves:
 
+      # - var: [[x_1D,phi_ele_1D]]
+      #   file: phi_through_bubble
+      #   func: plot_1D
+      #   labels: [["$x ( \\unit{\\um})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
+      #   linestyles: ['(0, (3, 6))' ] #,
+      #               #  '(3, (3, 6))', #"dashdot"
+      #               #  '(6, (3, 6))'] #"dotted" #['-']
+      #   ticks: ['[0,20,40,60,80,100]', '[0,20,40,60,80,100]']
+      #   linewidth: 0.5
+      #   # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
+        
+      #   macro_slice: "veci(reshape_data(data),nx,ny,field_index)[ny//2,:]"
+
+
       - var: [[x_1D,phi_ele_1D]]
-        file: phi_through_bubble
+        file: phi_through_bubble_poisson_iter
         func: plot_1D
+        fontsize: 10
         labels: [["$x ( \\unit{\\um})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
         linestyles: ['(0, (3, 6))' ] #,
                     #  '(3, (3, 6))', #"dashdot"
@@ -1662,7 +1677,32 @@ plot:
         
         macro_slice: "veci(reshape_data(data),nx,ny,field_index)[ny//2,:]"
 
+        add_schematics: True
+        add_schematics_coords: [0,1,0,0.001]
+        schematics_width: 40%
+        schematics_height: 40%
+        schematics_loc: upper left
+        macro_show_slice: |
+          linewidth_points = 1
+          line, = inset_ax.plot([0, 1], [0.5, 0.5], ls='-',color='r',lw=linewidth_points)
+
+          # shift the object over 2 points, and down 2 points
+          dx, dy = 0, -linewidth_points/72.
+          offset = transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
+          shadow_transform = inset_ax.transData + offset
+
+
+          inset_ax.text(0.5,0.5, 'Slice',
+          va='top', 
+          ha='center',
+          transform = shadow_transform,
+          color='r',
+          fontsize=fontsize,
+          )
         macro: |
+          
+          label1 = str(file['poisson_iter'][()])
+
           X = varx*scale_x
           Y = slice_1D
           # Add a column of ones to X to account for the intercept
@@ -1682,7 +1722,7 @@ plot:
           from scipy.stats import pearsonr
 
           # Calculate the correlation coefficient and p-value
-          correlation_coefficient, p_value = pearsonr(varx, slice_1D)
+          correlation_coefficient, p_value = pearsonr(varx*scale_x, slice_1D)
 
           print(f"Correlation Coefficient: {correlation_coefficient}")
           # print(f"P-value: {p_value}")
@@ -1711,6 +1751,24 @@ plot:
 
         macro_slice: "veci(reshape_data(data),nx,ny,field_index)[0,:]"
 
+        # macro_show_slice: |
+        #   linewidth_points = 1
+        #   line, = inset_ax.plot([0, 1], [0.5, 0.5], ls='-',color='r',lw=linewidth_points)
+
+        #   # shift the object over 2 points, and down 2 points
+        #   dx, dy = 0, -linewidth_points/72.
+        #   offset = transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
+        #   shadow_transform = inset_ax.transData + offset
+
+
+        #   inset_ax.text(0.5,0.5, 'Slice',
+        #   va='top', 
+        #   ha='center',
+        #   transform = shadow_transform,
+        #   color='r',
+        #   fontsize=fontsize,
+        #   )
+
         macro: |
           X = varx*scale_x
           Y = slice_1D
@@ -1731,7 +1789,7 @@ plot:
           from scipy.stats import pearsonr
 
           # Calculate the correlation coefficient and p-value
-          correlation_coefficient, p_value = pearsonr(varx, slice_1D)
+          correlation_coefficient, p_value = pearsonr(varx*scale_x, slice_1D)
 
           print(f"Correlation Coefficient: {correlation_coefficient}")
           # print(f"P-value: {p_value}")
@@ -1786,7 +1844,7 @@ plot:
           from scipy.stats import pearsonr
 
           # Calculate the correlation coefficient and p-value
-          correlation_coefficient, p_value = pearsonr(varx, slice_1D)
+          correlation_coefficient, p_value = pearsonr(varx*scale_x, slice_1D)
 
           print(f"Correlation Coefficient: {correlation_coefficient}")
           # print(f"P-value: {p_value}")
@@ -1802,9 +1860,24 @@ plot:
 
 
 
-      - var: [[y_1D,phi_ele_1D]] 
-        file: phi_wall
+      # - var: [[y_1D,phi_ele_1D]] 
+      #   file: phi_wall
+      #   func: plot_1D
+      #   labels: [["$y ( \\unit{\\um})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
+      #   linestyles: ['(0, (3, 6))' ] #,
+      #               #  '(3, (3, 6))', #"dashdot"
+      #               #  '(6, (3, 6))'] #"dotted" #['-']
+      #   ticks: ['[0,20,40,60,80,100]', '[0,20,40,60,80,100]']
+      #   linewidth: 0.5
+      #   # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
+        
+      #   macro_slice: "vecb_L(reshape_data(data),nx,ny)" #"reshape_data_veci(data,nx,ny,field_index)[:,0]"
+
+
+      - var: [[y_1D,phi_ele_1D]]
+        file: phi_wall_poisson_iter
         func: plot_1D
+        fontsize: 10
         labels: [["$y ( \\unit{\\um})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
         linestyles: ['(0, (3, 6))' ] #,
                     #  '(3, (3, 6))', #"dashdot"
@@ -1815,39 +1888,85 @@ plot:
         
         macro_slice: "vecb_L(reshape_data(data),nx,ny)" #"reshape_data_veci(data,nx,ny,field_index)[:,0]"
 
+        add_schematics: True
+        add_schematics_coords: [0,1,0,0.001]
+        schematics_width: 40%
+        schematics_height: 40%
+        schematics_loc: upper left
+        macro_show_slice: |
+          linewidth_points = 1
+          line, = inset_ax.plot([0, 0], [0, 1], ls='-',color='r',lw=linewidth_points)
+
+          # shift the object over 2 points, and down 2 points
+          dx, dy = +(linewidth_points/2)/72.,0
+          offset = transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
+          shadow_transform = inset_ax.transData + offset
+
+          inset_ax.text(0.0,0.2, 'Slice',
+          va='center', 
+          ha='left',
+          transform = shadow_transform,
+          color='r',
+          fontsize=fontsize,
+          )
+
         # macro: |
-        #   X = varx
-        #   Y = slice_1D
-        #   # Add a column of ones to X to account for the intercept
-        #   X = np.vstack([X, np.ones(len(X))]).T
-
-        #   # Perform least squares fit
-        #   coefficients, residuals, rank, s = np.linalg.lstsq(X, Y, rcond=None)
-
-        #   # coefficients[0] is the slope, coefficients[1] is the intercept
-        #   slope, intercept = coefficients
-
-        #   print(f"Slope: {slope}, Intercept: {intercept}")
-
-        #   import numpy as np
-        #   from scipy.stats import pearsonr
-
-        #   # Calculate the correlation coefficient and p-value
-        #   correlation_coefficient, p_value = pearsonr(varx, slice_1D)
-
-        #   print(f"Correlation Coefficient: {correlation_coefficient}")
-        #   # print(f"P-value: {p_value}")
-
         #   global label2 
-        #   # label2 = label1 + " slope " + str(slope) + " R2 " + str(correlation_coefficient)
+        #   label1 = str(file['poisson_iter'][()])
+        #   label2 = label1 +" "+ r"$\phi_\mathrm{{{text}}}: {val:.3e}".format(text='wall',val=np.mean(slice_1D)) + '$'
+        #   print(colored(label2,'red'))
 
-        #   label2 = label1 + r"$\mathrm{{{text}}}: {slope:.3e}, R^2: {R2:.2f}".format(text=', slope',slope=slope,R2=correlation_coefficient) + '$'
+      - var: [[poisson_iter,phi_ele_1D]]
+        file: phi_wall_poisson_iter_log
+        func: plot_1D
+        fontsize: 10
+        labels: [["Number of iterations", "$|\\phi-\\phi^e|/|\\phi^e|$"]]
+        linestyles: ['(0, (3, 6))' ] #,
+                    #  '(3, (3, 6))', #"dashdot"
+                    #  '(6, (3, 6))'] #"dotted" #['-']
+        ticks: ['[1,2,3,4,5]', '[0,20,40,60,80,100]']
+        linewidth: 0.5
+        # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
+        
+        macro_slice: "abs((np.mean(vecb_L(reshape_data(data),nx,ny))-(-0.011655612832847977)))/0.011655612832847977"
 
+        logplot: True
+        logplot_x: False
+        logplot_y: True
+        slope_start: 2
+        slope_stop: 10
+        legend: False
+        # add_schematics: True
+        add_schematics_coords: [0,1,0,0.001]
+        schematics_width: 40%
+        schematics_height: 40%
+        schematics_loc: upper left
+        macro_show_slice: |
+          linewidth_points = 1
+          line, = inset_ax.plot([0, 0], [0, 1], ls='-',color='r',lw=linewidth_points)
 
-        #   # print(label1)
-        #   # print(label2)
+          # shift the object over 2 points, and down 2 points
+          dx, dy = +(linewidth_points/2)/72.,0
+          offset = transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
+          shadow_transform = inset_ax.transData + offset
 
+          inset_ax.text(0.0,0.2, 'Slice',
+          va='center', 
+          ha='left',
+          transform = shadow_transform,
+          color='r',
+          fontsize=fontsize,
+          )
 
+        macro: |
+          label1 = str(file['poisson_iter'][()])
+
+          global label2 
+          label1 = str(file['poisson_iter'][()])
+          label2 = label1 +" "+ r"$\phi_\mathrm{{{text}}}: {val:.3e}".format(text='wall',val=np.mean(slice_1D)) + '$'
+          print(colored(label2,'red'))
+
+          label2=None
 
       - var: [l1_rel_error,l2_rel_error,linfty_rel_error] 
         file: errors

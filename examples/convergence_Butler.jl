@@ -199,6 +199,9 @@ for (i,n) in enumerate(npts)
 
     gp.LS[1].u .= 1.0 #deactivate interface
 
+    # Init fields
+    eval(Meta.parseall(macros.init_fields))
+
     # Define boundary conditions
     eval(Meta.parseall(macros.boundaries))
 
@@ -238,32 +241,34 @@ for (i,n) in enumerate(npts)
 
 
     # Define interfaces (for bubbles, drops...)
-    if sim.activate_interface == 1
+    eval(Meta.parseall(macros.interface))
 
-        gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
+    # if sim.activate_interface == 1
+
+    #     gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
     
-        #modify velocity field near interface
-        su = sqrt.((gv.x .- phys.intfc_x).^2 .+ (gv.y .- phys.intfc_y).^2)
-        R1 = phys.radius + 3.0*num.Δ
+    #     #modify velocity field near interface
+    #     su = sqrt.((gv.x .- phys.intfc_x).^2 .+ (gv.y .- phys.intfc_y).^2)
+    #     R1 = phys.radius + 3.0*num.Δ
 
-        bl = 4.0
-        for II in gv.ind.all_indices
-            if su[II] <= R1
-                phL.v[II] = 0.0
-            # elseif su[II] > R1
-            #     uL[II] = tanh(bl*(su[II]-R1))
-            end
-        end
+    #     bl = 4.0
+    #     for II in gv.ind.all_indices
+    #         if su[II] <= R1
+    #             phL.v[II] = 0.0
+    #         # elseif su[II] > R1
+    #         #     uL[II] = tanh(bl*(su[II]-R1))
+    #         end
+    #     end
 
-    elseif sim.activate_interface == -1
-        gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
-        gp.LS[1].u .*= -1.0
+    # elseif sim.activate_interface == -1
+    #     gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
+    #     gp.LS[1].u .*= -1.0
 
-    else
-        gp.LS[1].u .= 1.0
-    end
+    # else
+    #     gp.LS[1].u .= 1.0
+    # end
 
-    test_LS(gp)
+    # test_LS(gp)
 
     # Create segments from interface
     # x,y,field,connectivities,num_vtx = convert_interfacial_D_to_segments(num,gp,phL.T,1)
@@ -279,25 +284,25 @@ for (i,n) in enumerate(npts)
     # printstyled(color=:green, @sprintf "\n Initialisation0 \n")
     # print_electrolysis_statistics(num,gp,phL)
 
-    #init Bulk
-    phL.T .= phys.temperature0
-    phS.T .= phys.temperature0
+    # #init Bulk
+    # phL.T .= phys.temperature0
+    # phS.T .= phys.temperature0
 
-    vPoiseuille = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length) 
-    vPoiseuilleb = Poiseuille_fmax.(gv.x[1,:],phys.v_inlet,phys.ref_length) 
+    # vPoiseuille = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length) 
+    # vPoiseuilleb = Poiseuille_fmax.(gv.x[1,:],phys.v_inlet,phys.ref_length) 
 
-    phL.u .= 0.0
-    phL.v .= vPoiseuille 
+    # phL.u .= 0.0
+    # phL.v .= vPoiseuille 
 
-    vecb_B(phL.vD,gv) .= vPoiseuilleb
+    # vecb_B(phL.vD,gv) .= vPoiseuilleb
 
-    for iscal=1:phys.nb_transported_scalars
-        phL.trans_scal[:,:,iscal] .= phys.concentration0[iscal]
-    end
+    # for iscal=1:phys.nb_transported_scalars
+    #     phL.trans_scal[:,:,iscal] .= phys.concentration0[iscal]
+    # end
 
-    phL.phi_ele .= phys.phi_ele0
+    # phL.phi_ele .= phys.phi_ele0
 
-    printstyled(color=:green, @sprintf "\n Initialisation \n")
+    # printstyled(color=:green, @sprintf "\n Initialisation \n")
 
 
     printstyled(color=:green, @sprintf "\n TODO timestep sim.CFL scal, and print \n")

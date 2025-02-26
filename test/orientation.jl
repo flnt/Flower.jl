@@ -892,8 +892,49 @@ end
     # end
 
 
+    # bc_L_b = (BxT * mat_coeffDx_b * iMx_b * Hx_b .+ ByT * mat_coeffDy_b * iMy_b  * Hy_b)
+
+    print("\n iMx_b * Hx_b ", BxT * mat_coeffDx_b * iMx_b * Hx_b * coeffD_borders_test)
+
+    print("\n iMy_b * Hy_b ",  ByT * iMy_b  * Hy_b * coeffD_borders)
+
+    print("\n iMy_b * Hy_b ",  ByT * mat_coeffDy_b * iMy_b  * Hy_b * coeffD_borders_test) #ones(nb))
+
+
+    test_error = maximum(BxT * mat_coeffDx_b * iMx_b * Hx_b * coeffD_borders_test)
+
+    print("\n test_error ",test_error)
+
+    @test test_error ≈ 10.0 atol=test_tolerance #we should have the average conductivity:
+    #(9+1)/2, not 9 multiplied by the Laplacian coeff 2
+
+    mul!(tmp_x, mat_coeffDx * iMx, Bx)
+    L = BxT * tmp_x
+    # mul!(tmp_y, mat_coeffDy * iMy, By)
+    # L = L .+ ByT * tmp_y
+
+    # we check only the x contribution
+    L = BxT * mat_coeffDx * iMx * Bx 
+
+    print("\n L ", L[1,:])
+
+    print("\n L ", L[1,1])
+
+    @testset "bulk interpolation" begin
+
+        @test L[1,1]=-3.0 atol=test_tolerance
+
+    end
+
+    print("\n L ", L[1,1+grid.ny])
+
+
+    print("\n L ", L[10,:])
+
+
 end
 
+printstyled(color=:green, @sprintf "\n gradient" )
 
 #Initialize liquid phase
 x_centroid = gp.x .+ getproperty.(gp.LS[1].geoL.centroid, :x) .* gp.dx

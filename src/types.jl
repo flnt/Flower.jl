@@ -80,6 +80,8 @@ Stores parameters for the simulation
     rho2::T = 1.0
     mu1::T = 1.0
     mu2::T = 1.0
+    mu_cin1::T = 1.0
+    mu_cin2::T = 1.0
     visc_coeff::T = 0.0
     eps::T = 1e-12
     grav_x::T = 0.0
@@ -94,7 +96,7 @@ Stores parameters for the simulation
     radial_vel_factor::T = 0.0
     debug::String = "none"
     v_inlet::T=0.0
-    prediction::D=0
+    prediction::String = "Flower"
     null_space::D=0
     io_pdi::D=0
     bulk_conductivity::D=0
@@ -124,6 +126,7 @@ Stores parameters for the simulation
     electrolysis_reaction::String = "none"
     index_levelset_pdi::D = 1 #to expose levelset number ... to PDI
     time::T=0.0
+    iter_solve::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

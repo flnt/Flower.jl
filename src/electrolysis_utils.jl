@@ -573,6 +573,121 @@ function relative_errors_interface(T, Tanalytical, pos, cap, h)
 
     # return l1_rel_error, l2_rel_error, linfty_rel_error
     return linfty_rel_error
+end
 
+
+
+"""
+compute the average in specified cells 
+"""
+function compute_interface_average(scalar_1D_vec, grid, iLS)
+    min_scal = 0.0
+    max_scal = 0.0
+    average = 0.0
+    count = 0 
+    
+    # volume = 0.0
+    index = iLS+1
+
+
+    @inbounds for II in grid.LS[iLS].MIXED
+        # if grid.LS[iLS].iso[II] < 14.5 #not solid (15) (i.e. liquid or mixed)
+            
+            pII = lexicographic(II, grid.ny)
+            index_1D = grid.ny*grid.nx*(iLS) + pII
+
+            min_scal = scalar_1D_vec[index_1D]
+            max_scal = scalar_1D_vec[index_1D]
+            break
+
+        # end 
+    end
+
+    @inbounds for II in grid.LS[iLS].MIXED
+        # if grid.LS[iLS].iso[II] < 14.5 #not solid (15) (i.e. liquid or mixed)
+            
+
+            # cf veci @view a[g.ny*g.nx*(p-1)+1:g.ny*g.nx*p]
+            
+            # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+            pII = lexicographic(II, grid.ny)
+
+            # index_1D = grid.ny*grid.nx*(index-1) + pII
+            index_1D = grid.ny*grid.nx*(iLS) + pII
+
+            min_scal = min(min_scal,scalar_1D_vec[index_1D])
+            max_scal = max(max_scal,scalar_1D_vec[index_1D])
+
+            average += scalar_1D_vec[index_1D]
+            count += 1
+
+        # end 
+    end
+
+    if count == 0 
+        print("\n no interface, no average")
+    else
+        average = average / count
+    end
+
+    return min_scal,max_scal,average
+
+end
+
+
+"""
+compute the average in specified cells 
+"""
+function compute_bulk_or_interface_average(scalar_1D_vec, grid, iLS)
+    min_scal = 0.0
+    max_scal = 0.0
+    average = 0.0
+    count = 0 
+    
+    # volume = 0.0
+    index = iLS+1
+
+
+    @inbounds for II in grid.ind.all_indices
+        if grid.LS[iLS].iso[II] < 14.5 #not solid (15) (i.e. liquid or mixed)
+            
+            pII = lexicographic(II, grid.ny)
+            index_1D = grid.ny*grid.nx*(iLS) + pII
+
+            min_scal = scalar_1D_vec[index_1D]
+            max_scal = scalar_1D_vec[index_1D]
+            break
+
+        end 
+    end #loop liquid + mixed
+
+    @inbounds for II in grid.ind.all_indices
+        if grid.LS[iLS].iso[II] < 14.5 #not solid (15) (i.e. liquid or mixed)
+            
+
+            # cf veci @view a[g.ny*g.nx*(p-1)+1:g.ny*g.nx*p]
+            
+            # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+            pII = lexicographic(II, grid.ny)
+
+            # index_1D = grid.ny*grid.nx*(index-1) + pII
+            index_1D = grid.ny*grid.nx*(iLS) + pII
+
+            min_scal = min(min_scal,scalar_1D_vec[index_1D])
+            max_scal = max(max_scal,scalar_1D_vec[index_1D])
+
+            average += scalar_1D_vec[index_1D]
+            count += 1
+
+        end 
+    end #loop liquid + mixed
+
+    if count == 0 
+        print("\n no interface, no average")
+    else
+        average = average / count
+    end
+
+    return min_scal,max_scal,average
 
 end

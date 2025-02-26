@@ -7,12 +7,23 @@ import h5py
 import math
 from termcolor import colored
 
+import matplotlib.patches as patches
+
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+import matplotlib.transforms as transforms
+from matplotlib.ticker import MaxNLocator
+
+
+# import numpy as np
+from scipy.stats import pearsonr
 
 # module to plot files from Flower.jl
 # from plot_flower import * 
 from plot_flower import set_size, init_fig, compute_slope, roundlog, \
-   logticks,reshape_data,veci,vecb_L,reshape_data_veci,plot_current_lines,plot_python_pdf_full2,plot_file,plot_schematics,plot_schematics_full 
+   logticks,reshape_data,veci,vecb_L,reshape_data_veci,plot_current_lines,\
+   plot_python_pdf_full2,plot_file,plot_schematics,plot_schematics_full,add_schematics,compute_slope_lin_or_log,plot_vector 
 
+plt.rcParams["text.parse_math"] = False #necessary for mhchem
 
 
 plt.rcParams['text.usetex'] = True
@@ -30,6 +41,7 @@ plt.rc('text.latex', preamble="\n".join([ # plots will use this preamble
         r"\setlength{\belowdisplayshortskip}{0pt}",
         r"\setlength{\abovedisplayshortskip}{0pt}"
         r"\addtolength{\jot}{-4pt}"
+        r"\usepackage{mhchem}",
        ])
 )
 
@@ -62,6 +74,12 @@ colors= [
    "#009E73", #vert,
    "#CC79A7",
 ]
+
+orange_Okabe = "#D55E00"
+blue_Okabe = "#0072B2"
+
+
+
 
 def create_camembert_markers(markers,num_slices,startangle0 = np.pi/2):
 
@@ -253,7 +271,9 @@ def plot_errors_from_pandas(df,figpar,plotpar,colors,filename):
 
          slope_and_correlation=[0,0]
          print('test slope_and_correlation ',slope_and_correlation)
-         compute_slope(ax2,xls,yls,x,y,slope_and_correlation,R2,param_line,color_line,alpha,plot_text=False)
+         compute_slope(ax2,xls,yls,
+                     #   x,y,
+                       slope_and_correlation,R2,param_line,color_line,alpha,plot_text=False)
          print(slope_and_correlation)
          if 'l1' in err:
             label = r'$l_1$'
@@ -428,13 +448,17 @@ def plot_errors_from_h5():
 
       for figpar in plotpar['curves']:
 
-         print(figpar['file'])
-         print(figpar)
+         print(colored(figpar['file'],'cyan'))
+         # print(figpar)
 
          if 'radius' in figpar['var']: #we do not plot the figures with radius
             continue
          
-   
+         if 'func' not in figpar.keys():
+            continue
+         if 'plot_errors_from_h5' != figpar['func']:
+            continue
+
          time_list =[]
          radius_list=[]
          for file_name in h5_files:
@@ -459,6 +483,7 @@ def plot_errors_from_h5():
 
 
                   for i,err in enumerate(figpar['var']):
+                     print(colored(figpar['var'],'red'))
                      df[err] = file[err][()]
 
                   print(df)
@@ -752,6 +777,11 @@ def plot_convergence_func(
 
    fig1,ax2 = init_fig(plotpar,figpar)
 
+   if 'logplot' in figpar.keys():
+      figpar['error_list'] = []
+      figpar['x_list'] = []
+      # print()
+
    if 'streamplot_color' in figpar.keys():
       # cbar=[None,None]
       cbar=[]
@@ -785,23 +815,26 @@ def plot_convergence_func(
          print(key,file_name)
 
 
-         # Fill dataframe for latex and html
-         k = file['poisson_iter'][()]
+         try:
+            # Fill dataframe for latex and html
+            k = file['poisson_iter'][()]
 
-         # phi_wall = file['variation_electrical_potential'][()]
+            # phi_wall = file['variation_electrical_potential'][()]
 
-         residual = file['variation_electrical_potential'][()]
+            residual = file['residual_electrical_potential'][()]
 
-         variation = file['variation_electrical_potential'][()]
+            variation = file['variation_electrical_potential'][()]
 
-         # Create the list of values
-         data_list = [k, 
-                     #  phi_wall,
-                      residual, 
-                      variation]
+            # Create the list of values
+            data_list = [k, 
+                        #  phi_wall,
+                        residual, 
+                        variation]
 
-         # Append the list to the DataFrame
-         df.loc[len(df)] = data_list
+            # Append the list to the DataFrame
+            df.loc[len(df)] = data_list
+         except:
+            print('no poisson_iter')
 
 
          nx = file['nx'][()]
@@ -839,6 +872,8 @@ def plot_convergence_func(
 
          mesh["dx"] = (mesh["xmax"] - mesh["xmin"]) / mesh["nx"]
          mesh["dy"] = (mesh["ymax"] - mesh["ymin"]) / mesh["ny"]
+
+         # import numpy as np
 
          xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
          yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
@@ -914,6 +949,71 @@ def plot_convergence_func(
    # plt.savefig(file_name+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
    # plt.savefig(file_name+ ".svg",dpi=plotpar['dpi']) #also for film for latex display
 
+   if 'fontsize' in figpar.keys():
+      font_size = figpar['fontsize']
+   else:
+      font_size = plotpar['fontsize']
+
+   if 'add_schematics' in figpar.keys():
+      ax2 = add_schematics_curve(fig1,ax2,font_size,figpar)
+
+
+   if 'logplot' in figpar.keys():
+     
+      xls = figpar['x_list']
+      yls = figpar['error_list']
+
+      q_values = []
+      n = len(yls)
+
+      for k in range(2, n-1):
+     
+         # Calculate the numerator and denominator
+         numerator = (yls[k+1] - yls[k]) / (yls[k] - yls[k-1])
+         denominator = (yls[k] - yls[k-1]) / (yls[k-1] - yls[k-2])
+
+         # Compute q
+         q = np.log(abs(numerator)) / np.log(abs(denominator))
+         print(k,'order',q)
+         q_values.append(q)
+      
+      print(colored(q_values,'red'))
+
+      xls = xls[figpar['slope_start']:figpar['slope_stop']]
+      yls = yls[figpar['slope_start']:figpar['slope_stop']]
+
+      print(xls)
+      print(yls)
+
+      for j,yelem in enumerate(yls):
+         print(yelem**2)
+
+      # if plot_slope:
+      #    slope_and_correlation = [0,0]
+      #    R2 = 0
+      #    color_line = 'k'  
+      #    alpha = 1
+      #    param_line=[]
+
+      #    compute_slope_lin_or_log(ax2,xls,yls,
+      #                #   x,y,
+      #                slope_and_correlation,R2,param_line,color_line,alpha,plot_text=False)
+      
+     
+
+
+      
+      ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
+      
+      # plt.legend()
+
+      if 'legend' in figpar.keys():
+         if not figpar['legend']:
+            # print()
+         # else:
+            ax2.get_legend().remove()
+      # print()
+
 
    if 'macro_file_name' in figpar.keys():
       # print(figpar['macro_file_name'])
@@ -921,7 +1021,7 @@ def plot_convergence_func(
 
       for macro in figpar['macro_file_name']:
          # print(macro)
-         plt.savefig(eval(macro),dpi=plotpar['dpi'])
+         plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
    
    else:
       plt.savefig(file_name+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
@@ -933,31 +1033,137 @@ def plot_convergence_func(
 
    print_latex =True
 
-   if print_latex:
+   try:
+      if print_latex:
 
-      print()
-      print(colored('Tables','cyan'))
+         print()
+         print(colored('Tables','cyan'))
 
-      # Convert the DataFrame to a LaTeX table with scientific notation and three significant digits
-      latex_table = df.to_latex(index=False,column_format='ccc',formatters={
-      'Iteration': lambda x: f'{x:.0f}',
-      'Residual': lambda x: f'{x:.3e}',
-      'Variation': lambda x: f'{x:.3e}'
-      })
-
-      # Print the LaTeX table
-      print(latex_table)
-
-
-      print(df.to_html(index=False,
-         formatters={
+         # Convert the DataFrame to a LaTeX table with scientific notation and three significant digits
+         latex_table = df.to_latex(index=False,column_format='ccc',formatters={
          'Iteration': lambda x: f'{x:.0f}',
          'Residual': lambda x: f'{x:.3e}',
          'Variation': lambda x: f'{x:.3e}'
-         }))
-      
-      print()
+         })
 
+         # Print the LaTeX table
+         print(latex_table)
+
+
+         print(df.to_html(index=False,
+            formatters={
+            'Iteration': lambda x: f'{x:.0f}',
+            'Residual': lambda x: f'{x:.3e}',
+            'Variation': lambda x: f'{x:.3e}'
+            }))
+         
+         print()
+   except:
+      print('cannot print table poisson_iter')
+
+
+def add_schematics_curve(fig,ax2,fontsize,figpar):
+
+   # x1, x2, y1, y2 = 0,1, 55,57  # subregion of the original image
+   x1, x2, y1, y2 = figpar['add_schematics_coords']
+
+
+   #  inset_ax = ax2.inset_axes(
+   #  [-1, 0.125, figpar['schematics_width'], figpar['schematics_height']],
+
+   #  # [0.5, 0.5, 0.47, 0.47],
+   #  xlim=(x1, x2), ylim=(y1, y2), xticklabels=[], yticklabels=[])
+
+
+   inset_ax = inset_axes(ax2,width=figpar['schematics_width'], height=figpar['schematics_height'], loc=figpar['schematics_loc'])
+
+   # axins.imshow(Z2, extent=extent, origin="lower")
+
+   lw_inset = 0.5
+   color_inset = orange_Okabe
+
+
+   #  rect, lines = ax2.indicate_inset_zoom(inset_ax, edgecolor=color_inset,
+   #                                        lw=lw_inset,
+   #                                        alpha=1)
+
+   #  # rect.set_edgecolor('none')
+   #  # lines.set_width(0.125)
+   #  plt.setp(lines, linewidth=lw_inset,color=color_inset)
+
+
+
+   xmin = -0.1
+
+   inset_ax.set_xlim(xmin, 1)
+   inset_ax.set_ylim(0, 1)
+   # inset_ax.axis('off')
+
+   inset_ax.get_xaxis().set_visible(False)
+   inset_ax.get_yaxis().set_visible(False)
+
+   for key, spine in inset_ax.spines.items():
+      spine.set_edgecolor(orange_Okabe)
+      spine.set_linewidth(lw_inset)
+
+
+   # Draw the gradient in the inset
+   # inset_ax.fill_between([0, 1], [0, 0], [1, 0.5], color='cyan', alpha=0.3)
+
+
+   gray = 0.3
+   # Draw the electrode
+   electrode = patches.Rectangle((xmin, 0), -xmin, 1.0, 
+                              #   edgecolor='black', 
+                              facecolor= (gray, gray, gray) #'gray'
+                              )
+   inset_ax.add_patch(electrode)
+
+   inset_ax.text(xmin/2, 0.5, 'Electrode', color='w',fontsize=fontsize,rotation=90, va='center',ha='center')
+
+
+
+   liq_height=0.5
+
+   liq_height_2 = 0.75
+
+   liq_height = 1.0
+   liq_height_2 =1.0
+   # inset_ax.fill_between([0, 1-liq_height], [1, 1], [1, 1-liq_height_2], color='cyan', alpha=0.3)
+
+   #region Plot liquid
+   inset_ax.fill_between([0, 1],[1,1] ,[1-liq_height, 1-liq_height_2])
+
+   #  inset_ax.plot([0, 1], [1-liq_height, 1-liq_height_2], ls='-',color='r')
+   #endregion
+
+
+   if 'macro_plot_BC' in figpar.keys():
+      exec(figpar['macro_plot_BC'],
+         )
+   else:
+      #phi
+      inset_ax.text(             
+      0,# xmin/2
+      0.65, r'$\frac{\partial \phi }{\partial n} = \frac{i}{\kappa}$', fontsize=fontsize,color='w',ha='left',va='center')
+
+      inset_ax.text(0.65, 0.0, r'$\frac{\partial \phi }{\partial n} = 0$', fontsize=fontsize,va='bottom',ha='center',color='w')
+      inset_ax.text(1.0, 0.5, r'$\phi = 0$', fontsize=fontsize,va='bottom',ha='right',color='w')
+
+
+ 
+
+
+   # inset_ax.text(0.1, 0.35, r'$c_{H_2} = c_{H_2, 0}$', fontsize=fontsize)
+   # inset_ax.text(xmin/2, 0.5, 'Electrode', color='w',fontsize=12,rotation=90, va='center',ha='center')
+   # inset_ax.text(xmin/2, 0.75, r'$\frac{\partial c_{H_2}}{\partial n} = -\frac{i}{2FD}$', fontsize=fontsize,color='w')
+
+   if 'macro_show_slice' in figpar.keys():
+      exec(figpar['macro_show_slice'],
+         )
+   # print(figpar['macro_show_slice'])
+
+   return ax2
 
 def plot_convergence_func_new_ax(
     h5_files,
@@ -1270,6 +1476,8 @@ def plot_1D(
          print(x_1D)
       elif varx == 'y_1D':
          varx = y_1D
+      elif varx == 'poisson_iter':
+         varx = file['poisson_iter'][()] 
       else:
          varx = x_1D
 
@@ -1300,10 +1508,28 @@ def plot_1D(
       slice_1D = eval(figpar['macro_slice'])
 
       print('data',slice_1D)
-      print('len data',len(slice_1D))
+      try:
+         print('len data',len(slice_1D))
+      except:
+         print('one point')
 
 
-      tick0 = list(eval(figpar['ticks'][0]))
+
+      try:
+         tick0 = list(eval(figpar['ticks'][0]))
+      except:
+         print('no ticks')
+
+      if 'logplot_x' in figpar.keys():
+         if figpar['logplot_x']:
+            ax2.set_xscale("log")
+      
+      if 'logplot_y' in figpar.keys():
+         if figpar['logplot_y']:
+            ax2.set_yscale("log")
+         # print('plot log')
+
+
 
       # print('varx',varx,len(varx))
       # print('slice_1D',slice_1D,len(slice_1D))
@@ -1348,15 +1574,33 @@ def plot_1D(
 
    
       #    print(label1)
-      #    print(label2)
-
+      # print(label2)
       # print(label1)
+      # print(figpar['macro'])
+      # print(figpar)
+      if 'logplot' in figpar.keys():
 
-      p1, = ax20.plot(varx, slice_1D, 
-      #  colors[i+1], #color wrt variable
-      colors[(yml['study']['iter'])%len(colors)],
-      # cmap=cmap,
-      label=label1,ls=ls,lw=lw)
+         ax20.scatter(x=varx, y=slice_1D, 
+                     #  s=10,
+                     #  marker='+',
+         #  colors[i+1], #color wrt variable
+         color=colors[(yml['study']['iter'])%len(colors)],
+         # cmap=cmap,
+         label=label1,
+         # ls=ls, #creates bug
+         lw=lw)
+
+         figpar['error_list'].append(slice_1D)
+         figpar['x_list'].append(varx)
+
+      
+
+      else:
+         p1, = ax20.plot(varx, slice_1D, 
+         #  colors[i+1], #color wrt variable
+         colors[(yml['study']['iter'])%len(colors)],
+         # cmap=cmap,
+         label=label1,ls=ls,lw=lw)
 
       ax20.set(
       # xlim=(0, 2),
@@ -1364,7 +1608,10 @@ def plot_1D(
       xlabel=labelx, #r""+plotpar['xlabel'],
       ylabel=label_i)
          
-      plt.legend()
+      if 'legend_pos' in figpar.keys():
+         plt.legend(loc=figpar['legend_pos'])
+      else:
+         plt.legend()
 
    # tick0 = list(eval(figpar['ticks'][0]))
    # ax20.yaxis.set_major_locator(mticker.FixedLocator(tick0))

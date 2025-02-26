@@ -109,6 +109,10 @@ For a regular mesh with constant mesh spacing, with ``h_x=h_y``
 * Test that the matrix coefficients at the bottom left corner for a Laplacian in the BC system with Neumann at left wall are 2 for bulk, -2 for interfacial value
 * @testset "interpolate_scalar_to_staggered_u_v_grids_at_border!": test the interpolation of electrical conductivity at wall
 
+### Interpolation of conductivity
+We have at the wall an average conductivity, see test "interpolate_scalar_to_staggered_u_v_grids_at_border!" in [Orientation](https://github.com/flnt/Flower.jl/blob/electrolysis/test/orientation.jl)
+
+
 ### Interpolation
 To check [`interpolate_scalar!`](@ref)
 ```bash
@@ -840,45 +844,11 @@ Newton-Raphson
 julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Butler.jl ../Flower.jl/examples/convergence_Butler_Newton.yml
 ```
 
-```@raw html
-<!-- <table border="1" class="dataframe"> -->
-<table class="styled-table">
-  <thead>
-    <tr style="text-align: right;">
-      <th>k</th>
-      <th>Residual</th>
-      <th>Variation</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>1.0</td>
-      <td>1.146e-02</td>
-      <td>1.146e-02</td>
-    </tr>
-    <tr>
-      <td>2.0</td>
-      <td>1.974e-04</td>
-      <td>1.974e-04</td>
-    </tr>
-  </tbody>
-</table>
+```bash
+python3 -c "import convergence_study; convergence_study.plot_convergence_study_func()" ../Flower.jl/examples/convergence_Butler_Newton.yml poisson_00000032_0000000*
 ```
 
-\begin{tabular}{ccc}
-\toprule
-Iteration & Residual & Variation \\
-\midrule
-1 & 1.412e-02 & 1.412e-02 \\
-2 & 2.924e-03 & 2.924e-03 \\
-3 & 5.511e-04 & 5.511e-04 \\
-\bottomrule
-\end{tabular}
-
-Succesive substitutions
-
 ```@raw html
-<!-- <table border="1" class="dataframe"> -->
 <table class="styled-table">
   <thead>
     <tr style="text-align: right;">
@@ -890,18 +860,212 @@ Succesive substitutions
   <tbody>
     <tr>
       <td>1</td>
-      <td>1.412e-02</td>
+      <td>2.013e-02</td>
+      <td>1.146e-02</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>5.278e-06</td>
+      <td>1.974e-04</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>3.701e-13</td>
+      <td>5.163e-08</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>7.739e-15</td>
+      <td>3.508e-15</td>
+    </tr>
+  </tbody>
+</table>
+```
+
+
+Succesive substitutions
+
+```@raw html
+<table class="styled-table">
+   <thead>
+    <tr style="text-align: right;">
+      <th>Iteration</th>
+      <th>Residual</th>
+      <th>Variation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>2.612e-01</td>
       <td>1.412e-02</td>
     </tr>
     <tr>
       <td>2</td>
-      <td>2.924e-03</td>
+      <td>4.692e-02</td>
       <td>2.924e-03</td>
     </tr>
     <tr>
       <td>3</td>
+      <td>9.100e-03</td>
       <td>5.511e-04</td>
-      <td>5.511e-04</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>1.739e-03</td>
+      <td>1.059e-04</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>3.334e-04</td>
+      <td>2.028e-05</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>6.387e-05</td>
+      <td>3.886e-06</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>1.224e-05</td>
+      <td>7.445e-07</td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td>2.345e-06</td>
+      <td>1.426e-07</td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td>4.492e-07</td>
+      <td>2.733e-08</td>
+    </tr>
+  </tbody>
+</table>
+```
+
+With a bubble
+
+``` 
+<table class="styled-table">
+<thead>
+    <tr style="text-align: right;">
+      <th>Iteration</th>
+      <th>Residual</th>
+      <th>Variation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>2.921e-01</td>
+      <td>1.564e-02</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>5.613e-02</td>
+      <td>3.525e-03</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>1.182e-02</td>
+      <td>7.171e-04</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>2.442e-03</td>
+      <td>1.492e-04</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>5.066e-04</td>
+      <td>3.091e-05</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>1.050e-04</td>
+      <td>6.409e-06</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>2.177e-05</td>
+      <td>1.328e-06</td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td>4.512e-06</td>
+      <td>2.754e-07</td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td>9.354e-07</td>
+      <td>5.709e-08</td>
+    </tr>
+    <tr>
+      <td>10</td>
+      <td>1.939e-07</td>
+      <td>1.183e-08</td>
+    </tr>
+    <tr>
+      <td>11</td>
+      <td>4.020e-08</td>
+      <td>2.453e-09</td>
+    </tr>
+    <tr>
+      <td>12</td>
+      <td>8.333e-09</td>
+      <td>5.085e-10</td>
+    </tr>
+    <tr>
+      <td>13</td>
+      <td>1.727e-09</td>
+      <td>1.054e-10</td>
+    </tr>
+    <tr>
+      <td>14</td>
+      <td>3.581e-10</td>
+      <td>2.185e-11</td>
+    </tr>
+    <tr>
+      <td>15</td>
+      <td>7.423e-11</td>
+      <td>4.530e-12</td>
+    </tr>
+  </tbody>
+</table>
+```
+
+With bubble Newton
+
+```@raw html
+<table class="styled-table">
+  <thead>
+    <tr style="text-align: right;">
+      <th>Iteration</th>
+      <th>Residual</th>
+      <th>Variation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>2.400e-02</td>
+      <td>1.246e-02</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>8.490e-06</td>
+      <td>2.507e-04</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>1.052e-12</td>
+      <td>8.810e-08</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>1.102e-14</td>
+      <td>1.081e-14</td>
     </tr>
   </tbody>
 </table>
@@ -934,6 +1098,18 @@ python3 -c "import convergence_study; convergence_study.plot_convergence_study_f
 plot iterations of Poisson
 ```bash
 python3 -c "import convergence_study; convergence_study.plot_convergence_study_func()" ../Flower.jl/examples/convergence_Butler.yml poisson_00000032_00000001.h5 poisson_00000032_00000002.h5 poisson_00000032_00000003.h5 poisson_00000032_00000004.h5 poisson_00000032_00000005.h5
+```
+
+Plot schematics
+```bash
+python3 -c "import convergence_study; convergence_study.plot_schematics_func()" ../Flower.jl/examples/convergence_Butler_bubble_wall_Newton.yml mesh_00000*
+```
+
+```bash
+python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/examples/convergence_Butler_bubble_wall_Newton.yml mesh_00000*
+```
+```bash
+python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/examples/convergence_Butler_bubble_wall_Newton.yml mesh_00000128.h5 
 ```
 
 
@@ -1197,7 +1373,15 @@ julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergen
 
 ## Diffusion with a bubble at the wall
 
+```bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Butler.jl ../Flower.jl/examples/convergence_diffusion_constant_conductivity_bubble_wall.yml
+```
 
+## Diffusion and convection with a bubble at the wall
+
+```bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Butler.jl ../Flower.jl/examples/convergence_diffusion_constant_conductivity_bubble_wall.yml
+```
 
 
 
@@ -1243,6 +1427,22 @@ Based on:
 
 ```julia   
 grav_y = g .* cos(β) .* opC_v.M * fones(grid_v)
+```
+
+```bash
+python3 -c "import convergence_study; convergence_study.plot_convergence_study_func()" ../Flower.jl/examples/convergence_Poiseuille.yml mesh_00000*
+```
+
+```bash
+python3 -c "import convergence_study; convergence_study.plot_errors_from_h5()" ../Flower.jl/examples/convergence_Poiseuille.yml convergence_Poiseuille.h5
+```
+
+```bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Poiseuille.jl ../Flower.jl/examples/channel_Dirichlet_pressure.yml
+```
+
+```bash
+python3 -c "import convergence_study; convergence_study.plot_convergence_study_func()" ../Flower.jl/examples/channel_Dirichlet_pressure.yml mesh_00000*
 ```
 
 
@@ -1472,3 +1672,5 @@ i.e., the traveled length ``l`` of the interface is:
 
 ## Plots
 When the border values are plotted, they are shown at ``-dx/2``.
+!!! todo 
+Todo store centroids 

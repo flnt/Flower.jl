@@ -21,7 +21,7 @@ flower:
     diffusion_coeff: [*diffusion_coeff_H2, *diffusion_coeff_KOH, *diffusion_coeff_H2O]
     end_time: 7.3 #s
     Faraday: &Faraday 9.64853321233100184e4 #C⋅mol−1
-    Henry_H2: &Henry_H2 2
+    Henry_H2: &Henry_H2 1
     Henry_KOH: &Henry_KOH 0
     Henry_H2O: &Henry_H2O 0
     Henry: [*Henry_H2, *Henry_KOH, *Henry_H2O]
@@ -97,9 +97,12 @@ flower:
     contact_angle: 1 #activate advancing/receding contact angle
     convection_Cdivu: 0
     convection_mode: 1 #0 #1
+    electrolysis_convection: 0 #1
     electrical_potential: 3 #2 #0 deactivated
-    electrical_potential_max_iter: 20
-    electrical_potential_residual: 1e-2
+    electrical_potential_max_iter: 50 #20
+    electrical_potential_relative_residual: 1e-10
+    electrical_potential_residual: 1e-10
+    electrical_potential_nonlinear_solver: 0 #0 for successive substitutions #1 for Newton-Raphson
     electrolysis_phase_change_case: "None" #"Khalighi" #no phase change
     # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
     # electrolysis_phase_change_case: "levelset" # local
@@ -129,7 +132,7 @@ flower:
     # mode_2d = 2 #mol/meter 
     # mode_2d = 3 #mol/meter with xcoord and ycoord parameters for LS definition
 
-    name: "convergence_Butler_bubble_wall"
+    name: "convergence_Butler"
     nb_reinit: 2 #10
     non_dimensionalize: 0 # 0: NS equations as is (without non_dimensionalization)
     null_space: 0 #method for null space, matrix diagonal
@@ -302,15 +305,16 @@ flower:
       print("\n diffusion time ", diffusion_t,"\n")
       print("\n end test print_parameters2 \n")
 
-    test_end: |
-      phi_test = -1.166e-02
-      i_butler_test = butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_test,phys.phi_ele1,phys.Ru,phys.temperature0)
+    # test_end: |
+    #   phi_test = -1.166e-02
+    #   i_butler_test = butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_test,phys.phi_ele1,phys.Ru,phys.temperature0)
 
-      printstyled(color=:green, @sprintf "\n test Butler )
-      print("\n test Butler ",i_butler_test,)
+    #   print("\n test Butler ",i_butler_test)
+      
+    #   # L  = Lmesh_xmax-mesh_xmin
 
-      print("\n test Butler ",i_butler_test,-i_butler_test*L)
-      print("\n")
+    #   print("\n test Butler ",i_butler_test,-i_butler_test*L)
+    #   print("\n")
 
 study:
   #tolerance for tests
@@ -836,8 +840,13 @@ plot:
       - var: i_current_x
         figsize: True
         file: current_lines
-        macro_file_name: ['file_name+"_"+str(mesh["nx"])+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ ".svg"']
-        # macro_file_name: file_name+'_'+str(mesh['nx'])+ "." + plotpar["img_format"]
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ ".svg"'] 
+        # [
+        # file_name+'_'+str(mesh['nx'])+ ".pdf" 
+        # , file_name+'_'+str(mesh['nx'])+ ".svg" 
+        # ] 
+        #file_name+'_'+str(mesh['nx'])+ "." + plotpar["img_format"]
+        formats: ['pdf','svg']
         fig_fraction: 1.0
         fig_ratio: 0.5
         # add_schematics: #True
@@ -873,6 +882,53 @@ plot:
         # broken_streamlines: True
         streamplot_lw: 0.25
         # plot_schematic_wall: True
+
+      - var: i_current_x
+        figsize: True
+        file: current_lines_schematics
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ ".svg"'] 
+        # [
+        # file_name+'_'+str(mesh['nx'])+ ".pdf" 
+        # , file_name+'_'+str(mesh['nx'])+ ".svg" 
+        # ] 
+        #file_name+'_'+str(mesh['nx'])+ "." + plotpar["img_format"]
+        formats: ['pdf','svg']
+        fig_fraction: 1.0
+        fig_ratio: 0.5
+        add_schematics: True
+        add_schematics_coords: [0, 2, 61, 63] #[0, 1, 55, 57]
+        fontsize: 6
+        func: plot_current_lines
+        cbarlabel: "$ \\text{Electrical potential} ~ (\\unit{V})$" #Electrical potential
+        ax_locator_x: [0,20,40,60,80,100]
+        ax_locator_y: [0,20,40,60,80,100]
+        img_format: mp4
+        isocontour: #True
+        levels: 10 #10
+        range: np.linspace(-1.116e-2,0,11)
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: True
+        plot_levelset_segments: False
+        plot_mode: contourf
+        # range: [0,1e-4]
+        ticks_format: '%.2e'
+        xlim: [0,100]
+        ylim: [0,100]
+        linewidth: 0.25 #1
+        linestyle: '-' #'dotted'
+        zoom_mode: None
+        #For current lines
+        density: '[0.5,0.5]'
+        streamplot_cbarlabel: "$ \\text{Current magnitude} ~ \\rightarrow$"
+        streamplot_color: 'k' #mag
+        streamplot_mutation_scale: 5 #1 very small, 10 default?
+        # start_points: 'np.array([[100,100,100,100,100,100,100,100,100,100,100,100,100,100], [10,20,30,40,45,47.5,48,51,52.5,55,60,70,80,90]])' #'np.array([[0,20,40,60,80,100], [0,20,40,60,80,100]])'
+     
+        # broken_streamlines: True
+        streamplot_lw: 0.25
+        # plot_schematic_wall: True
+
 
         
 
@@ -1640,6 +1696,174 @@ plot:
 
   curves:
 
+      # - var: [[x_1D,phi_ele_1D]]
+      #   file: phi_through_bubble
+      #   func: plot_1D
+      #   labels: [["$x ( \\unit{\\um})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
+      #   linestyles: ['(0, (3, 6))' ] #,
+      #               #  '(3, (3, 6))', #"dashdot"
+      #               #  '(6, (3, 6))'] #"dotted" #['-']
+      #   ticks: ['[0,20,40,60,80,100]', '[0,20,40,60,80,100]']
+      #   linewidth: 0.5
+      #   # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
+        
+      #   macro_slice: "veci(reshape_data(data),nx,ny,field_index)[ny//2,:]"
+
+
+      - var: [[x_1D,phi_ele_1D]]
+        file: phi_through_bubble #_poisson_iter
+        func: plot_1D
+        fontsize: 10
+        labels: [["$x ( \\unit{\\um})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
+        legend_pos: upper center
+        linestyles: ['(0, (3, 6))' ] #,
+                    #  '(3, (3, 6))', #"dashdot"
+                    #  '(6, (3, 6))'] #"dotted" #['-']
+
+        ticks: ['[0,20,40,60,80,100]', '[0,20,40,60,80,100]']
+        linewidth: 0.5
+        # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
+        
+        macro_slice: "veci(reshape_data(data),nx,ny,field_index)[ny//2,:]"
+
+
+        add_schematics: True
+        add_schematics_coords: [0,1,0,0.001]
+        schematics_width: 40%
+        schematics_height: 40%
+        schematics_loc: lower right
+        macro_show_slice: |
+          linewidth_points = 1
+          line, = inset_ax.plot([0, 1], [0.5, 0.5], ls='-',color='r',lw=linewidth_points)
+
+          # shift the object over 2 points, and down 2 points
+          dx, dy = 0, -linewidth_points/72.
+          offset = transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
+          shadow_transform = inset_ax.transData + offset
+
+
+          inset_ax.text(0.5,0.5, 'Slice',
+          va='top', 
+          ha='center',
+          transform = shadow_transform,
+          color='r',
+          fontsize=fontsize,
+          )
+        macro: |
+          
+          # label1 = str(file['poisson_iter'][()])
+
+          global label2 
+          label2 = label1
+
+          # X = varx*scale_x
+          # Y = slice_1D
+          # # Add a column of ones to X to account for the intercept
+          # X = np.vstack([X, np.ones(len(X))]).T
+
+          # # Perform least squares fit
+          # coefficients, residuals, rank, s = np.linalg.lstsq(X, Y, rcond=None)
+
+          # # coefficients[0] is the slope, coefficients[1] is the intercept
+          # slope, intercept = coefficients
+
+          # # slope = slope/scale_x #rescale if X not resaled
+
+          # print(f"Slope: {slope}, Intercept: {intercept}")
+
+          # import numpy as np
+          # from scipy.stats import pearsonr
+
+          # # Calculate the correlation coefficient and p-value
+          # correlation_coefficient, p_value = pearsonr(varx*scale_x, slice_1D)
+
+          # print(f"Correlation Coefficient: {correlation_coefficient}")
+          # # print(f"P-value: {p_value}")
+
+          # global label2 
+          # # label2 = label1 + " slope " + str(slope) + " R2 " + str(correlation_coefficient)
+
+          # label2 = label1 + r"$\mathrm{{{text}}}: {slope:.3e}, R^2: {R2:.2f}".format(text=', slope',slope=slope,R2=correlation_coefficient) + '$'
+
+
+          # # print(label1)
+          # # print(label2)
+
+      # - var: [[x_1D,phi_ele_1D]]
+      #   file: poisson_iter
+      #   func: plot_1D
+      #   labels: [["$x ( \\unit{\\um})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
+      #   linestyles: ['(0, (3, 6))' ] #,
+      #               #  '(3, (3, 6))', #"dashdot"
+      #               #  '(6, (3, 6))'] #"dotted" #['-']
+      #   ticks: ['[0,20,40,60,80,100]', '[0,20,40,60,80,100]']
+      #   linewidth: 0.5
+      #   # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
+        
+      #   macro_file_name: ['file_name+"_mesh"+str(nx)+ ".pdf"', 'file_name+"_mesh"+str(nx)+".svg"']
+
+      #   macro_slice: "veci(reshape_data(data),nx,ny,field_index)[0,:]"
+
+      #   # macro_show_slice: |
+      #   #   linewidth_points = 1
+      #   #   line, = inset_ax.plot([0, 1], [0.5, 0.5], ls='-',color='r',lw=linewidth_points)
+
+      #   #   # shift the object over 2 points, and down 2 points
+      #   #   dx, dy = 0, -linewidth_points/72.
+      #   #   offset = transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
+      #   #   shadow_transform = inset_ax.transData + offset
+
+
+      #   #   inset_ax.text(0.5,0.5, 'Slice',
+      #   #   va='top', 
+      #   #   ha='center',
+      #   #   transform = shadow_transform,
+      #   #   color='r',
+      #   #   fontsize=fontsize,
+      #   #   )
+
+      #   macro: |
+      #     X = varx*scale_x
+      #     Y = slice_1D
+      #     # Add a column of ones to X to account for the intercept
+      #     X = np.vstack([X, np.ones(len(X))]).T
+
+      #     # Perform least squares fit
+      #     coefficients, residuals, rank, s = np.linalg.lstsq(X, Y, rcond=None)
+
+      #     # coefficients[0] is the slope, coefficients[1] is the intercept
+      #     slope, intercept = coefficients
+
+      #     # slope = slope/scale_x #rescale if X not resaled
+
+      #     print(f"Slope: {slope}, Intercept: {intercept}")
+
+      #     import numpy as np
+      #     from scipy.stats import pearsonr
+
+      #     # Calculate the correlation coefficient and p-value
+      #     correlation_coefficient, p_value = pearsonr(varx*scale_x, slice_1D)
+
+      #     print(f"Correlation Coefficient: {correlation_coefficient}")
+      #     # print(f"P-value: {p_value}")
+      #     label1 = str(file['poisson_iter'][()])
+      #     global label2 
+      #     # label2 = label1 + " slope " + str(slope) + " R2 " + str(correlation_coefficient)
+
+      #     # label2 = label1 + r"$\mathrm{{{text}}}: {slope:.3e}, R^2: {R2:.2f}".format(text=', slope',slope=slope,R2=correlation_coefficient) + '$'
+          
+      #     residual = file['residual_electrical_potential'][()]
+      #     label2 = label1 + r"$\mathrm{{{text}}}: {slope:.3e}, \mathrm{{{textres}}}: {residual:.3e}".format(text=', slope',slope=slope,R2=correlation_coefficient,textres='res',residual=residual) + '$'
+
+      #     # label2 = label2 + str(file['residual_electrical_potential'][()])
+
+      #     # print(label1)
+      #     # print(label2)
+
+      #     # variation = file['variation_electrical_potential'][()]
+
+          
+
       - var: [[x_1D,phi_ele_1D]]
         file: phi
         func: plot_1D
@@ -1650,9 +1874,34 @@ plot:
         ticks: ['[0,20,40,60,80,100]', '[0,20,40,60,80,100]']
         linewidth: 0.5
         # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
-        macro_file_name: ['file_name+ ".pdf"', 'file_name+".svg"']
+        
         macro_slice: "veci(reshape_data(data),nx,ny,field_index)[0,:]"
 
+        add_schematics: True
+        add_schematics_coords: [0,1,0,0.001]
+        schematics_width: 40%
+        schematics_height: 40%
+        schematics_loc: upper left
+        macro_show_slice: |
+          linewidth_points = 1
+
+          slice_pos = 0.0
+          line, = inset_ax.plot([0, 1], [slice_pos, slice_pos], ls='-',color='r',lw=linewidth_points,zorder=10)
+
+          # shift the object over 2 points, and down 2 points
+          dx, dy = 0, +linewidth_points/72.
+          offset = transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
+          shadow_transform = inset_ax.transData + offset
+
+
+          inset_ax.text(0.2,slice_pos, 'Slice',
+          va='bottom', 
+          ha='center',
+          transform = shadow_transform,
+          color='r',
+          fontsize=fontsize,
+          )
+
         macro: |
           X = varx*scale_x
           Y = slice_1D
@@ -1673,7 +1922,7 @@ plot:
           from scipy.stats import pearsonr
 
           # Calculate the correlation coefficient and p-value
-          correlation_coefficient, p_value = pearsonr(varx, slice_1D)
+          correlation_coefficient, p_value = pearsonr(varx*scale_x, slice_1D)
 
           print(f"Correlation Coefficient: {correlation_coefficient}")
           # print(f"P-value: {p_value}")
@@ -1687,60 +1936,26 @@ plot:
           # print(label1)
           # print(label2)
 
-      - var: [[x_1D,phi_ele_1D]]
-        file: phi_through_bubble
-        func: plot_1D
-        labels: [["$x ( \\unit{\\um})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
-        linestyles: ['(0, (3, 6))' ] #,
-                    #  '(3, (3, 6))', #"dashdot"
-                    #  '(6, (3, 6))'] #"dotted" #['-']
-        ticks: ['[0,20,40,60,80,100]', '[0,20,40,60,80,100]']
-        linewidth: 0.5
-        # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
+
+
+      # - var: [[y_1D,phi_ele_1D]] 
+      #   file: phi_wall
+      #   func: plot_1D
+      #   labels: [["$y ( \\unit{\\um})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
+      #   linestyles: ['(0, (3, 6))' ] #,
+      #               #  '(3, (3, 6))', #"dashdot"
+      #               #  '(6, (3, 6))'] #"dotted" #['-']
+      #   ticks: ['[0,20,40,60,80,100]', '[0,20,40,60,80,100]']
+      #   linewidth: 0.5
+      #   # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
         
-        macro_file_name: ['file_name+ ".pdf"', 'file_name+".svg"']
-
-        macro_slice: "veci(reshape_data(data),nx,ny,field_index)[ny//2,:]"
-
-        macro: |
-          X = varx*scale_x
-          Y = slice_1D
-          # Add a column of ones to X to account for the intercept
-          X = np.vstack([X, np.ones(len(X))]).T
-
-          # Perform least squares fit
-          coefficients, residuals, rank, s = np.linalg.lstsq(X, Y, rcond=None)
-
-          # coefficients[0] is the slope, coefficients[1] is the intercept
-          slope, intercept = coefficients
-
-          # slope = slope/scale_x #rescale if X not resaled
-
-          print(f"Slope: {slope}, Intercept: {intercept}")
-
-          import numpy as np
-          from scipy.stats import pearsonr
-
-          # Calculate the correlation coefficient and p-value
-          correlation_coefficient, p_value = pearsonr(varx, slice_1D)
-
-          print(f"Correlation Coefficient: {correlation_coefficient}")
-          # print(f"P-value: {p_value}")
-
-          global label2 
-          # label2 = label1 + " slope " + str(slope) + " R2 " + str(correlation_coefficient)
-
-          label2 = label1 + r"$\mathrm{{{text}}}: {slope:.3e}, R^2: {R2:.2f}".format(text=', slope',slope=slope,R2=correlation_coefficient) + '$'
+      #   macro_slice: "vecb_L(reshape_data(data),nx,ny)" #"reshape_data_veci(data,nx,ny,field_index)[:,0]"
 
 
-          # print(label1)
-          # print(label2)
-
-
-
-      - var: [[y_1D,phi_ele_1D]] 
-        file: phi_wall
+      - var: [[y_1D,phi_ele_1D]]
+        file: phi_wall #_poisson_iter
         func: plot_1D
+        fontsize: 10
         labels: [["$y ( \\unit{\\um})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
         linestyles: ['(0, (3, 6))' ] #,
                     #  '(3, (3, 6))', #"dashdot"
@@ -1749,43 +1964,87 @@ plot:
         linewidth: 0.5
         # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
         
-        macro_file_name: ['file_name+ ".pdf"', 'file_name+".svg"']
-
         macro_slice: "vecb_L(reshape_data(data),nx,ny)" #"reshape_data_veci(data,nx,ny,field_index)[:,0]"
 
+        add_schematics: True
+        add_schematics_coords: [0,1,0,0.001]
+        schematics_width: 40%
+        schematics_height: 40%
+        schematics_loc: center left
+        macro_show_slice: |
+          linewidth_points = 1
+          line, = inset_ax.plot([0, 0], [0, 1], ls='-',color='r',lw=linewidth_points)
+
+          # shift the object over 2 points, and down 2 points
+          dx, dy = +(linewidth_points/2)/72.,0
+          offset = transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
+          shadow_transform = inset_ax.transData + offset
+
+          inset_ax.text(0.0,0.2, 'Slice',
+          va='center', 
+          ha='left',
+          transform = shadow_transform,
+          color='r',
+          fontsize=fontsize,
+          )
+
         # macro: |
-        #   X = varx
-        #   Y = slice_1D
-        #   # Add a column of ones to X to account for the intercept
-        #   X = np.vstack([X, np.ones(len(X))]).T
-
-        #   # Perform least squares fit
-        #   coefficients, residuals, rank, s = np.linalg.lstsq(X, Y, rcond=None)
-
-        #   # coefficients[0] is the slope, coefficients[1] is the intercept
-        #   slope, intercept = coefficients
-
-        #   print(f"Slope: {slope}, Intercept: {intercept}")
-
-        #   import numpy as np
-        #   from scipy.stats import pearsonr
-
-        #   # Calculate the correlation coefficient and p-value
-        #   correlation_coefficient, p_value = pearsonr(varx, slice_1D)
-
-        #   print(f"Correlation Coefficient: {correlation_coefficient}")
-        #   # print(f"P-value: {p_value}")
-
         #   global label2 
-        #   # label2 = label1 + " slope " + str(slope) + " R2 " + str(correlation_coefficient)
+        #   label1 = str(file['poisson_iter'][()])
+        #   label2 = label1 +" "+ r"$\phi_\mathrm{{{text}}}: {val:.3e}".format(text='wall',val=np.mean(slice_1D)) + '$'
+        #   print(colored(label2,'red'))
 
-        #   label2 = label1 + r"$\mathrm{{{text}}}: {slope:.3e}, R^2: {R2:.2f}".format(text=', slope',slope=slope,R2=correlation_coefficient) + '$'
+      # - var: [[poisson_iter,phi_ele_1D]]
+      #   file: phi_wall_poisson_iter_log
+      #   func: plot_1D
+      #   fontsize: 10
+      #   labels: [["Number of iterations", "$|\\phi-\\phi^e|/|\\phi^e|$"]]
+      #   linestyles: ['(0, (3, 6))' ] #,
+      #               #  '(3, (3, 6))', #"dashdot"
+      #               #  '(6, (3, 6))'] #"dotted" #['-']
+      #   ticks: ['[1,2,3,4,5]', '[0,20,40,60,80,100]']
+      #   linewidth: 0.5
+      #   # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
+        
+      #   macro_slice: "abs((np.mean(vecb_L(reshape_data(data),nx,ny))-(-0.011655612832847977)))/0.011655612832847977"
 
+      #   logplot: True
+      #   logplot_x: False
+      #   logplot_y: True
+      #   slope_start: 2
+      #   slope_stop: 10
+      #   legend: False
+      #   # add_schematics: True
+      #   add_schematics_coords: [0,1,0,0.001]
+      #   schematics_width: 40%
+      #   schematics_height: 40%
+      #   schematics_loc: upper left
+      #   macro_show_slice: |
+      #     linewidth_points = 1
+      #     line, = inset_ax.plot([0, 0], [0, 1], ls='-',color='r',lw=linewidth_points)
 
-        #   # print(label1)
-        #   # print(label2)
+      #     # shift the object over 2 points, and down 2 points
+      #     dx, dy = +(linewidth_points/2)/72.,0
+      #     offset = transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
+      #     shadow_transform = inset_ax.transData + offset
 
+      #     inset_ax.text(0.0,0.2, 'Slice',
+      #     va='center', 
+      #     ha='left',
+      #     transform = shadow_transform,
+      #     color='r',
+      #     fontsize=fontsize,
+      #     )
 
+      #   macro: |
+      #     label1 = str(file['poisson_iter'][()])
+
+      #     global label2 
+      #     label1 = str(file['poisson_iter'][()])
+      #     label2 = label1 +" "+ r"$\phi_\mathrm{{{text}}}: {val:.3e}".format(text='wall',val=np.mean(slice_1D)) + '$'
+      #     print(colored(label2,'red'))
+
+      #     label2=None
 
       - var: [l1_rel_error,l2_rel_error,linfty_rel_error] 
         file: errors
@@ -1829,7 +2088,19 @@ plot:
       #   file: current_wall
       #   func: plot_current_wall
     
+  
+  schematics:
 
+    # - file: boundary_conditions_diffusion
+    
+    # - file: boundary_conditions_diffusion
+    #   func: plot_schematics_full
+    #   fig_ratio: 0.5
+
+    
+    - file: schematics
+      func: plot_schematics
+      # fig_ratio: 0.5
         
   dpi: 300
   font_size: 12
@@ -1920,6 +2191,8 @@ pdi:
     mesh_x_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
     mesh_y_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
 
+    residual_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
+
     #BC
     BC_phi_ele_left: { size: '$ny', type: array, subtype: double } 
     # trans_scal_1D_H2: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
@@ -1990,7 +2263,16 @@ pdi:
     
     iscal: int64 #Index for naming files
 
-   
+    poisson_iter: int64 #Index for naming files
+
+    # Convergence criteria
+    residual_electrical_potential: double
+    variation_electrical_potential: double
+          
+
+    conductivity_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    conductivity_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdmain
+
     #chi
     # chi_1: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
     # chi_2: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
@@ -2041,6 +2323,41 @@ pdi:
 
             print('\033[0m')
 
+
+        # write_electrical_conductivity:
+        #   with: 
+        #     elec_cond_1D: $elec_cond_1D
+        #     conductivity_u: $conductivity_u
+        #     conductivity_v: $conductivity_v
+        #     nx_py: $nx
+        #     ny_py: $ny
+
+
+        #   exec: |
+        #     from debug_flower import vecb
+        #     # print('write_electrical_conductivity')
+        #     # print('coeffD borders ',vecb(elec_cond_1D,nx_py,ny_py))
+        #     # print('coeffDu border ',conductivity_u[:,ny_py//2])
+        #     # print('coeffDv border ',conductivity_v[nx_py//2,:]) 
+        #     # print('coeffDu border ',conductivity_u[ny_py//2,:])
+        #     # print('coeffDv border ',conductivity_v[:,nx_py//2]) 
+
+        print_start_temporal_iteration:
+          with:
+            time: $time
+            nstep: $nstep
+            dcap: $dcap
+          exec: |
+            print('\033[93m')
+            print()
+            print('Iteration  {nstep:d} time  {time:.2e}'.format(nstep=nstep,time=time))
+
+            # print('Check cut-cell operators ',dcap[:,1,1])
+
+            print('\033[0m')
+
+
+
         print_variables:
           with: { phi_ele_1D_py: $phi_ele_1D, nx_py: $nx, ny_py: $ny, u_1D: $u_1D, v_1D: $v_1D, p_1D: $p_1D, trans_scal_1DT: $trans_scal_1DT} 
           exec: |
@@ -2060,6 +2377,7 @@ pdi:
         mesh:
           with: 
             mesh_x_1D_py: $mesh_x_1D
+            grad_x_coord_py: $grad_x_coord
             nx_py: $nx
             ny_py: $ny
 
@@ -2067,15 +2385,18 @@ pdi:
             from debug_flower import veci
             # mesh in 1 line in x direction at j = 0
             print('\n \033[93m'+'mesh x  ',veci(mesh_x_1D_py,nx_py,ny_py,1)[0,:],'\033[0m')
+            print('\n \033[93m'+'corr x  ',veci(grad_x_coord_py,nx_py+1,ny_py,1)[0,:],'\033[0m')
 
             
-       
-        check_electrical_potential:
+        check_electrical_potential_convergence:
           with: 
-            BC_phi_ele_left_py: $BC_phi_ele_left
-            elec_cond_1D_py: $elec_cond_1D
+            # BC_phi_ele_left_py: $BC_phi_ele_left
+            residual_py: $residual_1D
             phi_ele_1D_py: $phi_ele_1D
-            i_current_x_py: $i_current_x
+            elec_cond_1D_py: $elec_cond_1D
+            rhs_1D: $rhs_1D
+            dcap_1: $dcap_1
+            # i_current_x_py: $i_current_x
             nx_py: $nx
             ny_py: $ny
             # phi_ele1: $phi_ele1
@@ -2095,38 +2416,116 @@ pdi:
   
           exec: |
             import numpy as np
-            from debug_flower import butler_grad_phi,vecb_L,butler
+            from debug_flower import butler_grad_phi,vecb_L,butler,veci
+
+            print('\n \033[93m')
+            print()
+            print('check_electrical_potential_convergence')
+            
+            print('phi wall ',vecb_L(phi_ele_1D_py,nx_py,ny_py))
+
+            # print('F_residual ',vecb_L(residual_py,nx_py,ny_py)) #array at wall
+
+            # print('F_residual ',np.min(vecb_L(residual_py,nx_py,ny_py)), np.max(vecb_L(residual_py,nx_py,ny_py)))
+
+            # print('F_residual bulk', np.min(veci(residual_py,nx_py,ny_py,1)), np.max(veci(residual_py,nx_py,ny_py,1)) )
+
+            # print('len(dcap_1[1,:])',len(dcap_1[1,:]))
+            # print('dcap',dcap_1[1,:])
+
+            # print('F_residual /dx (homogeneous to a gradient of potential)',vecb_L(residual_py,nx_py,ny_py)/dcap_1[1,:])
+
+            # print('F_residual /dx * cond (homogeneous to a gradient of current) ',vecb_L(residual_py,nx_py,ny_py)/dcap_1[1,:]*vecb_L(elec_cond_1D_py,nx_py,ny_py))
+           
+            # print('F_residual normalized (unitless)',vecb_L(residual_py,nx_py,ny_py)/dcap_1[1,:]/vecb_L(rhs_1D,nx_py,ny_py))
+
+            print('F_residual normalized infty',np.max(np.abs(vecb_L(residual_py,nx_py,ny_py)))/np.max(np.abs(vecb_L(rhs_1D,nx_py,ny_py))))
+
+
+            # print('vecb_L(rhs_1D,nx_py,ny_py)',vecb_L(rhs_1D,nx_py,ny_py))
+
+
+            print('\033[0m')
+
+
+        check_electrical_potential:
+          with: 
+            poisson_iter: $poisson_iter
+            BC_phi_ele_left_py: $BC_phi_ele_left
+            elec_cond_1D_py: $elec_cond_1D
+            phi_ele_1D_py: $phi_ele_1D
+            i_current_x_py: $i_current_x
+            nx_py: $nx
+            ny_py: $ny
+            variation_electrical_potential: $variation_electrical_potential
+            residual_electrical_potential: $residual_electrical_potential
+            # phi_ele1: $phi_ele1
+            alpha: *alpha
+            i0: *i0
+            phi_ele1: *phi_ele1
+            Faraday: *Faraday
+            Ru: *Ru
+            temperature0: *temperature0
+            concentration0_KOH: *concentration0_KOH
+            diffusion_coeff_KOH: *diffusion_coeff_KOH
+            mesh_xmax: *mesh_xmax
+            mesh_xmin: *mesh_xmin
+            domain_length: *domain_length
+            # with: { phi_ele_1D_py: $phi_ele_1D, nx_py: $nx, ny_py: $ny}  
+
+  
+          exec: |
+            import numpy as np
+            from debug_flower import butler_grad_phi,vecb_L,butler,veci
+            
+            print('\n \033[93m')
+            print()
+            print('check_electrical_potential')
+
+            print("Residual  {:.2e} absolute variation  {:.2e}".format(residual_electrical_potential,variation_electrical_potential))
+            
+            # #num.electrical_potential_residual
+
             # print('\n \033[93m'+'Pycall ','\033[0m')
-            min_phi = np.min(phi_ele_1D_py)
 
             phi = veci(phi_ele_1D_py,nx_py,ny_py,1)
 
-            print('\n \033[93m'+'phi ',np.min(phi_ele_1D_py),np.max(phi_ele_1D_py),'\033[0m')
-            print('\n \033[93m'+'elec_cond ',np.min(elec_cond_1D_py),np.max(elec_cond_1D_py),'\033[0m')
-            print('\n \033[93m'+'BC_phi_ele_left ',np.min(BC_phi_ele_left_py),np.max(BC_phi_ele_left_py),'\033[0m')
+            print('\n \033[93m'+'Poisson iter',poisson_iter,'\033[0m')
 
-            print('\n \033[93m'+'i_current_x_py ',np.min(i_current_x_py),np.max(i_current_x_py),'\033[0m')
-            print('\n \033[93m'+'i_current_x_py ',i_current_x_py[:,ny_py//2],'\033[0m')
+            # print('\n \033[93m'+'phi ',np.min(phi_ele_1D_py),np.max(phi_ele_1D_py),'\033[0m')
 
-            print('\n \033[93m'+'phi line ',phi[:,ny_py//2],'\033[0m')
-            print('\n \033[93m'+'phi line ',phi[ny_py//2,:],'\033[0m')
+            print('\n \033[93m'+'Conductivity min',np.min(elec_cond_1D_py),'max',np.max(elec_cond_1D_py),'\033[0m')
+
+            # print('\n \033[93m'+'BC_phi_ele_left ',np.min(BC_phi_ele_left_py),np.max(BC_phi_ele_left_py),'\033[0m')
 
 
-            print('\n \033[93m'+'sum ',-i_current_x_py[:,ny_py//2]+butler(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
-            print('\n \033[93m'+'sum ',-i_current_x_py[:,ny_py//2]+butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
+            # print('\n \033[93m'+'i_current_x min ',np.min(i_current_x_py),'max ',np.max(i_current_x_py),'\033[0m')
 
-            print('\n \033[93m'+'ratio ',(-i_current_x_py[:,ny_py//2]+butler(vecb_L(phi_ele_1D_py,nx_py,ny_py))/butler(0,phi_ele1,Faraday,alpha,Ru,temperature0,i0),phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
+            # print('\n \033[93m'+'i_current_x_py ',i_current_x_py[:,ny_py//2],'\033[0m')
 
-            print('\n \033[93m'+'sum ',butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
             
-            print('\n \033[93m'+'sum ',butler(0,phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
+            # print('\n \033[93m'+'phi line ',phi[:,ny_py//2],'\033[0m') # vertical line 
+            # print('\n \033[93m'+'phi line ',phi[ny_py//2,:],'\033[0m') #horizontal line
+
+            # min_phi = np.min(phi_ele_1D_py)
+
+            # print('\n \033[93m'+'sum ',-i_current_x_py[:,ny_py//2]+butler(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
+
+            # print('\n \033[93m'+'Convergence Butler-Volmer ',np.max(np.abs(-i_current_x_py[:,ny_py//2]+butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0))),'\033[0m')
 
 
-            L = mesh_xmax-mesh_xmin
-            print('\n \033[93m'+'phi ',min_phi,-L*butler_grad_phi(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,concentration0_KOH,diffusion_coeff_KOH,i0),'\033[0m')
-            print('\n \033[93m'+'grad phi ',min_phi,butler_grad_phi(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,concentration0_KOH,diffusion_coeff_KOH,i0),'\033[0m')
+            # print('\n \033[93m'+'ratio ',(-i_current_x_py[:,ny_py//2]+butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0)/butler(0,phi_ele1,Faraday,alpha,Ru,temperature0,i0),phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
 
-            print(vecb_L(phi_ele_1D_py,nx_py,ny_py))
+            # print('\n \033[93m'+'sum ',butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
+            
+            # print('\n \033[93m'+'sum ',butler(0,phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
+
+
+            # L = mesh_xmax-mesh_xmin
+            # print('\n \033[93m'+'phi ',min_phi,-L*butler_grad_phi(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,concentration0_KOH,diffusion_coeff_KOH,i0),'\033[0m')
+            # print('\n \033[93m'+'grad phi ',min_phi,butler_grad_phi(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,concentration0_KOH,diffusion_coeff_KOH,i0),'\033[0m')
+
+            # print(vecb_L(phi_ele_1D_py,nx_py,ny_py))
 
             # from debug_flower import vecbprint,veci, butler
             
@@ -2143,6 +2542,109 @@ pdi:
             # npoints=2
             # xplot_new = np.linspace(0, L, npoints)
             # yplot_new = a * (xplot_new / L - 1)
+
+        
+
+
+            print('\033[0m')
+
+
+        print_electrical_potential:
+          with: 
+            poisson_iter: $poisson_iter
+            BC_phi_ele_left_py: $BC_phi_ele_left
+            elec_cond_1D_py: $elec_cond_1D
+            phi_ele_1D_py: $phi_ele_1D
+            i_current_x_py: $i_current_x
+            nx_py: $nx
+            ny_py: $ny
+            # variation_electrical_potential: $variation_electrical_potential
+            # residual_electrical_potential: $residual_electrical_potential
+            # phi_ele1: $phi_ele1
+            alpha: *alpha
+            i0: *i0
+            phi_ele1: *phi_ele1
+            Faraday: *Faraday
+            Ru: *Ru
+            temperature0: *temperature0
+            concentration0_KOH: *concentration0_KOH
+            diffusion_coeff_KOH: *diffusion_coeff_KOH
+            mesh_xmax: *mesh_xmax
+            mesh_xmin: *mesh_xmin
+            domain_length: *domain_length
+            # with: { phi_ele_1D_py: $phi_ele_1D, nx_py: $nx, ny_py: $ny}  
+
+  
+          exec: |
+            import numpy as np
+            from debug_flower import butler_grad_phi,vecb_L,butler,veci
+            
+            print('\n \033[93m')
+            print()
+            print('check_electrical_potential')
+
+            # print('\n \033[93m'+'Pycall ','\033[0m')
+
+            phi = veci(phi_ele_1D_py,nx_py,ny_py,1)
+
+            print('\n \033[93m'+'Poisson iter',poisson_iter,'\033[0m')
+
+            # print('\n \033[93m'+'phi ',np.min(phi_ele_1D_py),np.max(phi_ele_1D_py),'\033[0m')
+
+            print('\n \033[93m'+'Conductivity min',np.min(elec_cond_1D_py),'max',np.max(elec_cond_1D_py),'\033[0m')
+
+            # print('\n \033[93m'+'BC_phi_ele_left ',np.min(BC_phi_ele_left_py),np.max(BC_phi_ele_left_py),'\033[0m')
+
+
+            # print('\n \033[93m'+'i_current_x min ',np.min(i_current_x_py),'max ',np.max(i_current_x_py),'\033[0m')
+
+            # print('\n \033[93m'+'i_current_x_py ',i_current_x_py[:,ny_py//2],'\033[0m')
+
+            
+            # print('\n \033[93m'+'phi line ',phi[:,ny_py//2],'\033[0m') # vertical line 
+            # print('\n \033[93m'+'phi line ',phi[ny_py//2,:],'\033[0m') #horizontal line
+
+            # min_phi = np.min(phi_ele_1D_py)
+
+            # print('\n \033[93m'+'sum ',-i_current_x_py[:,ny_py//2]+butler(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
+
+            # print('\n \033[93m'+'Convergence Butler-Volmer ',np.max(np.abs(-i_current_x_py[:,ny_py//2]+butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0))),'\033[0m')
+
+
+            # print('\n \033[93m'+'ratio ',(-i_current_x_py[:,ny_py//2]+butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0)/butler(0,phi_ele1,Faraday,alpha,Ru,temperature0,i0),phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
+
+            # print('\n \033[93m'+'sum ',butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
+            
+            # print('\n \033[93m'+'sum ',butler(0,phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
+
+
+            # L = mesh_xmax-mesh_xmin
+            # print('\n \033[93m'+'phi ',min_phi,-L*butler_grad_phi(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,concentration0_KOH,diffusion_coeff_KOH,i0),'\033[0m')
+            # print('\n \033[93m'+'grad phi ',min_phi,butler_grad_phi(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,concentration0_KOH,diffusion_coeff_KOH,i0),'\033[0m')
+
+            # print(vecb_L(phi_ele_1D_py,nx_py,ny_py))
+
+            # from debug_flower import vecbprint,veci, butler
+            
+            # # vecbprint(phi_ele_1D_py,nx_py,ny_py)
+
+            # phi = veci(phi_ele_1D_py,nx_py,ny_py,1)
+
+            # # print(phi[nx_py/2,:])
+            # # print(phi[:,nx_py/2])
+
+            # # a = 0.66
+            # a = 0.6608349877730476
+            # L= 1e-4
+            # npoints=2
+            # xplot_new = np.linspace(0, L, npoints)
+            # yplot_new = a * (xplot_new / L - 1)
+
+        
+            # print("Residual  {:.2e} absolute variation  {:.2e}".format(residual_electrical_potential,variation_electrical_potential))
+            # #num.electrical_potential_residual
+
+            print('\033[0m')
 
 
           # - exec: import plot_flower; plot_flower.print_bc(phi_ele_1D_py) #TODO bug hdf5 so put debugging functions in debug_flower.py
@@ -2400,6 +2902,19 @@ pdi:
         # when: "$nstep%50 = 0"
         write: [u_1D,v_1D,p_1D,time,nx,velocity_x,velocity_y,phi_ele_1D,levelset_p] #,i_current_x,i_current_y,i_current_mag]
         #,trans_scal_1D_H2,trans_scal_1D_KOH,trans_scal_1D_H2O] #,levelset_p,levelset_u,levelset_v]
+      
+      
+     
+
+      - file: poisson_${nx:08}_${poisson_iter:08}.h5 
+        collision_policy: write_into
+        on_event: check_electrical_potential
+        write: [poisson_iter,nx,phi_ele_1D,i_current_x,i_current_y,levelset_p,residual_electrical_potential,variation_electrical_potential]
+        # $BC_phi_ele_left,elec_cond_1D
+        #     phi_ele_1D_py: $phi_ele_1D
+        #     i_current_x_py: $i_current_x
+        #     nx_py: $nx
+        #     ny_py: $ny]
       
 
       - file: mesh_${nx:08}.h5  #flower_${nstep:08}.h5 

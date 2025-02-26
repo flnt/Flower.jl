@@ -85,7 +85,7 @@ function run_forward!(
     #TODO Re
     #TODO homogenize set_poisson... functions which use -b - in the original implementation and not +b + for the Robin BC
 
-
+    # Defining epsilon length and volume to handle special cells
     if num.epsilon_mode == 1 || num.epsilon_mode ==2
         num.epsilon_dist = eps(0.01) * num.Δ
         num.epsilon_vol = (eps(0.01)*num.Δ)^2
@@ -168,6 +168,9 @@ function run_forward!(
     CFL_sc = num.τ / num.Δ^2
 
     irho = 1.0
+
+    num.mu_cin1 = num.mu1 / num.rho1
+    num.mu_cin2 = num.mu2 / num.rho2
 
     if non_dimensionalize==0
         #force L=1 u=1
@@ -2475,6 +2478,13 @@ function run_forward!(
                 # )
             end
         end # if navier_stokes
+
+
+        PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_velocity"::Cstring,
+        "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "v_1D"::Cstring, phL.v::Ptr{Cdouble}, PDI_OUT::Cint,
+        "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
 
         #endregion Navier-Stokes 
 

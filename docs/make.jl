@@ -1,12 +1,12 @@
 using Documenter, Flower
 
-
+#    loader: {load: ['[tex]/boldsymbol']},
 mathengine = MathJax3(Dict(
     :loader => Dict("load" => ["[tex]/physics"]),
     :tex => Dict(
         "inlineMath" => [["\$","\$"], ["\\(","\\)"]],
         "tags" => "ams",
-        "packages" => ["base", "ams", "autoload", "physics"],
+        "packages" => ["base", "ams", "autoload", "physics","boldsymbol"],
     ),
 ))
 

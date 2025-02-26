@@ -37,7 +37,6 @@ study = PropertyDict(prop_dict.study)
 eval(Meta.parseall(macros.print_parameters))
 
 
-# L0 = 2.5
 
 npts = study.meshes
 n_cases = length(npts)
@@ -185,6 +184,11 @@ for (i,n) in enumerate(npts)
         extend_field = sim.extend_field,
         average_velocity = sim.average_velocity,
         laplacian = sim.laplacian,
+        electrical_potential_max_iter = sim.electrical_potential_max_iter,
+        electrical_potential_relative_residual = sim.electrical_potential_relative_residual,
+        electrical_potential_residual = sim.electrical_potential_residual,
+        electrical_potential_nonlinear_solver = sim.electrical_potential_nonlinear_solver,
+        electrolysis_reaction = phys.electrolysis_reaction,
         )
     Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
     @debug "After Numerical"
@@ -194,6 +198,9 @@ for (i,n) in enumerate(npts)
     global op, phS, phL = init_fields(num, gp, gu, gv)
 
     gp.LS[1].u .= 1.0 #deactivate interface
+
+    # Init fields
+    eval(Meta.parseall(macros.init_fields))
 
     # Define boundary conditions
     eval(Meta.parseall(macros.boundaries))
@@ -234,32 +241,34 @@ for (i,n) in enumerate(npts)
 
 
     # Define interfaces (for bubbles, drops...)
-    if sim.activate_interface == 1
+    eval(Meta.parseall(macros.interface))
 
-        gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
+    # if sim.activate_interface == 1
+
+    #     gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
     
-        #modify velocity field near interface
-        su = sqrt.((gv.x .- phys.intfc_x).^2 .+ (gv.y .- phys.intfc_y).^2)
-        R1 = phys.radius + 3.0*num.Δ
+    #     #modify velocity field near interface
+    #     su = sqrt.((gv.x .- phys.intfc_x).^2 .+ (gv.y .- phys.intfc_y).^2)
+    #     R1 = phys.radius + 3.0*num.Δ
 
-        bl = 4.0
-        for II in gv.ind.all_indices
-            if su[II] <= R1
-                phL.v[II] = 0.0
-            # elseif su[II] > R1
-            #     uL[II] = tanh(bl*(su[II]-R1))
-            end
-        end
+    #     bl = 4.0
+    #     for II in gv.ind.all_indices
+    #         if su[II] <= R1
+    #             phL.v[II] = 0.0
+    #         # elseif su[II] > R1
+    #         #     uL[II] = tanh(bl*(su[II]-R1))
+    #         end
+    #     end
 
-    elseif sim.activate_interface == -1
-        gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
-        gp.LS[1].u .*= -1.0
+    # elseif sim.activate_interface == -1
+    #     gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
+    #     gp.LS[1].u .*= -1.0
 
-    else
-        gp.LS[1].u .= 1.0
-    end
+    # else
+    #     gp.LS[1].u .= 1.0
+    # end
 
-    test_LS(gp)
+    # test_LS(gp)
 
     # Create segments from interface
     # x,y,field,connectivities,num_vtx = convert_interfacial_D_to_segments(num,gp,phL.T,1)
@@ -275,28 +284,9 @@ for (i,n) in enumerate(npts)
     # printstyled(color=:green, @sprintf "\n Initialisation0 \n")
     # print_electrolysis_statistics(num,gp,phL)
 
-    #init Bulk
-    phL.T .= phys.temperature0
-    phS.T .= phys.temperature0
 
-    vPoiseuille = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length) 
-    vPoiseuilleb = Poiseuille_fmax.(gv.x[1,:],phys.v_inlet,phys.ref_length) 
 
-    phL.u .= 0.0
-    phL.v .= vPoiseuille 
 
-    vecb_B(phL.vD,gv) .= vPoiseuilleb
-
-    for iscal=1:phys.nb_transported_scalars
-        phL.trans_scal[:,:,iscal] .= phys.concentration0[iscal]
-    end
-
-    phL.phi_ele .= phys.phi_ele0
-
-    printstyled(color=:green, @sprintf "\n Initialisation \n")
-
-    # print_electrolysis_statistics(phys.nb_transported_scalars,gp,phL)
-    print_electrolysis_statistics(num,gp,phL)
 
     printstyled(color=:green, @sprintf "\n TODO timestep sim.CFL scal, and print \n")
 
@@ -384,7 +374,7 @@ for (i,n) in enumerate(npts)
             "levelset_v"::Cstring, gv.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
             "levelset_p_wall"::Cstring, LStable::Ptr{Cdouble}, PDI_OUT::Cint,
             # "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
-            # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+            "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
             # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
             # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
             "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
@@ -445,13 +435,12 @@ for (i,n) in enumerate(npts)
         electrolysis = true,
         navier_stokes = true,
         ns_advection = (sim.ns_advection ==1),
-        ns_liquid_phase = true,
+        ns_liquid_phase = (sim.solve_Navier_Stokes_liquid_phase == 1),
         verbose = true,
         show_every = sim.show_every,
-        electrolysis_convection = true,  
+        electrolysis_convection = (sim.electrolysis_convection ==1),  
         electrolysis_liquid_phase = true,
         electrolysis_phase_change_case = sim.electrolysis_phase_change_case,
-        electrolysis_reaction = phys.electrolysis_reaction, 
         imposed_velocity = sim.imposed_velocity,
         adapt_timestep_mode = sim.adapt_timestep_mode,#1,
         non_dimensionalize=sim.non_dimensionalize,
@@ -517,7 +506,7 @@ local PDI_status = @ccall "libpdi".PDI_multi_expose("convergence_study"::Cstring
 "l1_rel_error_partial_cells"::Cstring, l1_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
 "l2_rel_error_partial_cells"::Cstring, l2_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
 "linfty_rel_error_partial_cells"::Cstring, loo_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
-# "domain_length"::Cstring, L0::Ref{Cdouble}, PDI_OUT::Cint,
+"domain_length"::Cstring, L0::Ref{Cdouble}, PDI_OUT::Cint,
 "min_cell_volume"::Cstring, min_cell_volume::Ref{Cdouble}, PDI_OUT::Cint,
 C_NULL::Ptr{Cvoid})::Cint
  
@@ -535,4 +524,6 @@ end #if io.pdi>0
 printstyled(color=:red, @sprintf "\n After PDI \n")
 
 #Tests 
-eval(Meta.parseall(macros.test_end))
+if haskey(macros,"test_end")
+    eval(Meta.parseall(macros.test_end))
+end

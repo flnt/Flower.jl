@@ -154,7 +154,7 @@ x_centroid = gv.x .+ getproperty.(gv.LS[1].geoL.centroid, :x) .* gv.dx
 y_centroid = gv.y .+ getproperty.(gv.LS[1].geoL.centroid, :y) .* gv.dy
 ```
 
-The interface centroid ``x^\gamma`` is defined as "the mid point of the segment crossing the cell which will be used in the computation of the Stefan condition." [`(Fullana 2017)`](https://theses.hal.science/tel-04053531/).
+The interface centroid ``x^\gamma`` is defined as "the mid point of the segment crossing the cell which will be used in the computation of the Stefan condition." [`(Fullana 2022)`](https://theses.hal.science/tel-04053531/).
 
 ```julia
 x_bc = gp.x .+ getproperty.(gp.LS[1].mid_point, :x) .* gp.dx
@@ -1436,7 +1436,7 @@ and
 H^{Γi,⊤} = B_x^{Γi} D_x+ − D_x+A_x^{Γi} B_y^{Γi} D_y+ − D_y+A_y^{Γi}
 ```
 
-The reader may find details in [`Rodriguez 2024`](https://theses.fr/s384455) and [`Fullana (2017)`](https://theses.hal.science/tel-04053531/)
+The reader may find details in [`Rodriguez 2024`](https://theses.fr/s384455) and [`Fullana (2022)`](https://theses.hal.science/tel-04053531/)
 for Morinishi's notation for proofs.
 
 
@@ -1886,6 +1886,11 @@ compute_grad_phi_ele!
 scalar_transport!
 ```
 
+The concentrations are checked during the scalar transport:
+```@docs
+compute_bulk_or_interface_average
+```
+
 ## Phase change
 ```@docs
 integrate_mass_flux_over_interface
@@ -1895,7 +1900,29 @@ update_free_surface_velocity_electrolysis!
 ## Electrical conductivity
 
 ```@docs
-update_electrical_conductivity!(num,grid,elec_cond,elec_condD)
+update_electrical_conductivity!
+```
+
+
+### Fresh and dead cells
+
+"
+The last step of the method presented in this study is the treatment of fresh and dead cells. As the interface moves through the Cartesian grid, the temperature field needs to be initialized according to the front position. Two cases can be distinguished:
+
+- A full or partial cell becomes an empty cell.
+- An empty cell becomes a partial cell.
+
+In the first case, the previous temperature value is simply set to 0. In the second case, the temperature previously non-existing needs to be initialized. The algorithm is similar to that of the Stefan condition (Section 4.2.1)
+
+1. A shifted $3 \times 3$ stencil is chosen, as shown in Figure 4.7.
+
+2. A line from the interface centroid is cast in the opposite normal direction $-\mathbf{n}$.
+
+3. The crossing points $A$ and $B$ of this line and the vertical (or horizontal depending on the normal orientation) segments of the neighboring 3 points, are identified.
+" [`Fullana (2022)`](https://theses.hal.science/tel-04053531/)
+
+```@docs
+kill_dead_cells!
 ```
 
 ## Butler-Volmer equation
@@ -1962,14 +1989,122 @@ set_Crank_Nicolson!
 ## Velocity-pressure coupling
 
 
+"
+```math
+\begin{equation*}
+\frac{\mathbf{u}^{*} - \mathbf{u}^{n}}{\Delta t} + \nabla q = \frac{\nu}{2} \nabla^2 (\mathbf{u}^{n} + \mathbf{u}^{*})
+\end{equation*}
+```
 
+where $\nabla q$ is related to the pressure. The velocity satisfies $\nabla \cdot \mathbf{u}^{n+1} = 0$ and is given by
+```math
+\begin{equation*}
+\mathbf{u}^{n+1} = \mathbf{u}^{*} - \Delta t \nabla \phi^{n+1}
+\end{equation*}
+```
+and the pressure is updated with
+```math
+\begin{equation*}
+p^{n+1/2} = q + L \phi^{n+1}
+\end{equation*}
+```
+where $L$ is a linear differential operator.
+
+Referring to Eqs. (8), (10), and (12), three combinations of $q$ and $L$ will be considered:
+
+* a projection method similar to that of Bell, Colella, and Glaz, described by $q = p^{n-1/2}$ and $L = I$. This combination will be referred to as projection method I (PmI).
+* a similar projection method that uses the improved pressure-update formula Eq. (13). This combination corresponds to $q = p^{n-1/2}$ and $L = I - \frac{\nu \Delta t}{2} \nabla^2$ and will be referred to as PmII.
+* a projection method similar to that of Kim and Moin's, which corresponds to $q = 0$ and $L = I - \frac{\nu \Delta t}{2} \nabla^2$. This method will be referred to as PmIII.
+
+"
+
+"
+
+\subsection*{Projection Methods with a Lagged Pressure Term}
+
+### Projection method I (PmI)
+The method first described in this section is referred to as PmI. It is similar to the method developed by Bell \textit{et al.} \cite{bell1989second}, except in the treatment of the advective derivatives which are computed as in \cite{adams1959method} with a second-order Adams--Bashforth formula.
+
+The first step of the projection method is found by solving
+```math
+\begin{equation*}
+\frac{\mathbf{u}^{*} - \mathbf{u}^{n}}{\Delta t} + \nabla p^{n-1/2} = -[(\mathbf{u} \cdot \nabla_h)\mathbf{u}]^{n+1/2} + \frac{\nu}{2} \nabla_h^2 (\mathbf{u}^{n} + \mathbf{u}^{*})
+\end{equation*}
+```
+
+for the intermediate field $\mathbf{u}^{*}$ with boundary conditions
+```math
+\begin{equation*}
+\mathbf{u}^{*} = \mathbf{u}_b^{n+1}.
+\end{equation*}
+```
+
+Next, $\mathbf{u}^{n+1}$ is recovered from the projection of $\mathbf{u}^{*}$ by solving
+```math
+\begin{equation}
+\Delta t \nabla_h^2 \phi^{n+1} = \nabla_h \cdot \mathbf{u}^{*} \quad \text{in } \Omega
+\end{equation}
+```
+
+```math
+\begin{equation}
+\hat{\mathbf{n}} \cdot \nabla_h \phi^{n+1} = 0 \quad \text{on } \partial \Omega
+\end{equation}
+```
+
+and setting
+```math
+
+\begin{equation}
+\mathbf{u}^{n+1} = \mathbf{u}^{*} - \Delta t \nabla_h \phi^{n+1}.
+\end{equation}
+```
+
+The new pressure is computed as in \cite{bell1989second, kim1985application} by
+
+```math
+\begin{equation}
+\nabla_h p^{n+1/2} = \nabla_h p^{n-1/2} + \nabla_h \phi^{n+1}.
+\end{equation}
+```
+
+As discussed before, this formula is not consistent with a second-order discretization of the Navier--Stokes equations since, due to Eq. (72), the normal component of the pressure gradient will remain constant in time at the boundary.
+
+### Projection method II (PmII)
+A second implementation of the method just described can be made by utilizing the correct pressure update given by Eq. (13). Specifically, Eqs. (70)--(72) are used in combination with
+
+```math
+\begin{equation}
+\nabla_h p^{n+1/2} = \nabla_h p^{n-1/2} + \nabla_h \phi^{n+1} - \frac{\nu \Delta t}{2} \nabla_h \nabla_h^2 \phi^{n+1}.
+\end{equation}
+```
+
+### Projection method III (PmIII), a Projection Method without Pressure Gradient
+
+It is similar to the method of Kim and Moin \cite{KimMoin}, but uses a different spatial discretization and a slightly different treatment of the boundary conditions. The momentum equation is discretized by
+```math
+\begin{equation}
+\frac{\mathbf{u}^* - \mathbf{u}^n}{\Delta t} = -[(\mathbf{u} \cdot \nabla_h) \mathbf{u}]^{n+1/2} + \frac{\nu}{2} \nabla_h^2 (\mathbf{u}^n + \mathbf{u}^*)
+\end{equation}
+```
+and we first consider boundary conditions
+```math
+\begin{align}
+\hat{\mathbf{n}} \cdot \mathbf{u}^*|_{\partial \Omega} &= \hat{\mathbf{n}} \cdot \mathbf{u}_b^{n+1} \\
+\hat{\mathbf{t}} \cdot \mathbf{u}^*|_{\partial \Omega} &= \hat{\mathbf{t}} \cdot (\mathbf{u}_b^{n+1} + \Delta t \nabla_h \phi^n)|_{\partial \Omega}.
+\end{align}
+```
+As before, $\mathbf{u}^{n+1} = \mathbf{P}(\mathbf{u}^*)$, i.e., $\mathbf{u}^{n+1} = \mathbf{u}^* - \Delta t \nabla_h \phi^{n+1}$, where $\phi^{n+1}$ satisfies Eqs. (71) and (72).
+
+
+"
 
 Either pressure gradient in prediction or remove component in velocity boundary conditions
 
 
 With the parameter ``num.prediction``, the following methods can be called:
 
-* 0: original pressure-velocity coupling in Flower, the pressure gradient is not in the prediction and the bouondary conditions are not modified accordingly
+* 0: original pressure-velocity coupling in Flower, the pressure gradient is not in the prediction and the boundary conditions are not modified accordingly
 * 1: pressure gradient in prediction
 *
 
@@ -2093,6 +2228,58 @@ p not v
 
 
 ## Convection
+
+From [`Rodriguez et al. 2024`](https://link.springer.com/article/10.1007/s00707-024-04133-4)
+
+
+ The convective transport of a vector field $\boldsymbol{q}$ by a flow velocity field $\boldsymbol{u}$, which can be rewritten in conservative form if $\boldsymbol{u}$ is divergence-free as
+```math
+\begin{equation}
+    \left ( \boldsymbol{u} \cdot \nabla \right ) \boldsymbol{q} = \nabla \cdot \left ( \boldsymbol{q} \otimes \boldsymbol{u} \right ) - \left ( \nabla \cdot \boldsymbol{u} \right ) \boldsymbol{q} = \nabla \cdot \left ( \boldsymbol{q} \otimes \boldsymbol{u} \right ),
+\end{equation}
+```
+
+param num.Cdivu
+
+
+"
+
+which in discrete form can be defined as
+```math
+\begin{equation} \label{eq:conv1}
+\begin{split}
+    \operatorname{conv} _ x \left ( \boldsymbol{u} ^ {\omega _ i}, \boldsymbol{u} ^ \gamma, \boldsymbol{q} ^ {\omega _ i}, \boldsymbol{q} ^ \gamma \right ) &= C _ x\left ( \boldsymbol{u} ^ {\omega _ i} \right ) q _ x ^ {\omega _ i} - \dfrac{K _ x \left ( \boldsymbol{u} ^ \gamma \right ) q _ x ^ {\omega _ i} + K _ x \left ( \boldsymbol{q} ^ \gamma \right ) u _ x ^ {\omega _ i}}{2}, \\
+	\operatorname{conv} _ y \left ( \boldsymbol{u} ^ {\omega _ i}, \boldsymbol{u} ^ \gamma, \boldsymbol{q} ^ {\omega _ i}, \boldsymbol{q} ^ \gamma \right ) &= C _ y \left ( \boldsymbol{u} ^ {\omega _ i} \right ) q _ y ^ {\omega _ i} - \dfrac{K _ y \left ( \boldsymbol{u} ^ \gamma \right ) q _ y ^ {\omega _ i} + K _ y \left ( \boldsymbol{q} ^ \gamma \right ) u _ y ^ {\omega _ i}}{2},
+\end{split}
+\end{equation}
+```
+
+where $\boldsymbol{q} ^ \omega$, $\boldsymbol{q} ^ \gamma$, $\boldsymbol{u} ^ \omega$ and $\boldsymbol{u} ^ \gamma$ denote face-centered discrete vector fields and
+```math
+\begin{equation}
+\begin{split}
+    C _ x \left ( \boldsymbol{u} ^ {\omega _ i} \right ) &= D _ {x, x} ^ + \operatorname{diag} \left ( S _ {x, x} ^ - A _ x u ^ {\omega _ i} _ x \right ) S _ {x, x} ^ - + D _ {x, y} ^ + \operatorname{diag} \left ( S _ {x, x} ^ - A _ y u ^ {\omega _ i} _ y \right ) S _ {x, y} ^ -, \\
+	K _ x \left ( \boldsymbol{u} ^ \gamma \right ) &= \operatorname{diag} \left ( S ^ + _ {x, x}  H ^  \top \boldsymbol{u} ^ \gamma \right ), \\
+	C _ y \left ( \boldsymbol{u} ^ {\omega _ i} \right ) &= D _ {y, x} ^ + \operatorname{diag} \left ( S _ {y, y} ^ - A _ x u ^ {\omega _ i} _ x \right ) S _ {y, x} ^ - + D _ {y, y} ^ + \operatorname{diag} \left ( S _ {y, y} ^ - A _ y u ^ {\omega _ i} _ y \right ) S _ {y, y} ^ -, \\
+	K _ y \left ( \boldsymbol{u} ^ \gamma \right ) &= \operatorname{diag} \left ( S ^ + _ {y, y} H ^  \top \boldsymbol{u} ^ \gamma \right ).
+\end{split}
+\end{equation}
+```
+
+The definition of the convective term is based on the skew-symmetric convective operator given in \cite{Morinishi1998} for finite differences, which has been modified to work with the cut-cell method. The operators acting on the bulk field are skew-symmetric, as required to have a conservative discretization of the Navier-Stokes equation. Eq. \eqref{eq:conv1} can be rearranged to show the skew-symmetric operator
+```math
+\begin{equation}
+\begin{split}
+	\operatorname{conv} _ x \left ( \boldsymbol{u} ^ {\omega _ i}, \boldsymbol{u} ^ \gamma, \boldsymbol{q} ^ {\omega _ i}, \boldsymbol{q} ^ \gamma \right ) &= \underbrace{\left [ C _ x \left ( \boldsymbol{u} ^ {\omega _ i} \right ) - \dfrac{1}{2} K _ x \left ( \boldsymbol{u} ^ \gamma \right ) \right ]} _ \text{Skew-symmetric} v _ x ^ {\omega _ i} - \dfrac{1}{2} K _ x \left ( \boldsymbol{q} ^ \gamma \right ) u _ x ^ {\omega _ i}, \\
+	\operatorname{conv} _ y \left ( \boldsymbol{u} ^ {\omega _ i}, \boldsymbol{u} ^ \gamma, \boldsymbol{q} ^ {\omega _ i}, \boldsymbol{q} ^ \gamma \right ) &= \underbrace{\left [ C _ y \left ( \boldsymbol{u} ^ {\omega _ i} \right )- \dfrac{1}{2} K _ y \left ( \boldsymbol{u} ^ \gamma \right ) \right ]} _ \text{Skew-symmetric} v _ y ^ {\omega _ i} - \dfrac{1}{2} K _ y \left ( \boldsymbol{q} ^ \gamma \right ) u _ y ^ {\omega _ i}.
+\end{split}
+\end{equation}
+```
+
+In the following, whenever $\boldsymbol{q} = \boldsymbol{u}$, the convective term will be referred as $\operatorname{conv} _ \alpha \left ( \boldsymbol{u} ^ \omega, \boldsymbol{u} ^ \gamma \right )\ \forall\ \alpha \in \{ x, y \}$. The discrete convective operator also exhibits the free-streaming condition, hence for $\boldsymbol{u} ^ \omega = \boldsymbol{u} ^ \gamma = \boldsymbol{c}$, $\operatorname{conv} _ x \left ( \boldsymbol{c}, \boldsymbol{c} \right ) = 0$ and $\operatorname{conv} _ y \left ( \boldsymbol{c}, \boldsymbol{c} \right ) = 0$.
+"
+
+
 !!! todo "multiple LS" 
 
 
@@ -2497,7 +2684,7 @@ init_ghost_neumann_2
 
 #### Interface position for storage
 
-"Moreover, we define the interface centroid as the mid point of the segment crossing the cell which will be used in the computation of the Stefan condition." \citet{fullanaSimulationOptimizationComplex2022}
+"Moreover, we define the interface centroid as the mid point of the segment crossing the cell which will be used in the computation of the Stefan condition." [`Fullana (2022)`](https://theses.hal.science/tel-04053531/)
 
 Store segments in 2D to save up space
 
@@ -2598,8 +2785,27 @@ List all variables
 * grids
 * liquid/solid
 * successive substitution reuse LU decomposition
+* BitArray to mask values (small cells or solid) to compute min, mask, ...
 
+!!! todo "Document capacities p, u, v"
+    ```julia
+    # opC_p = op.opC_p
 
+    # ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(pD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(pD,grid)
+    # ∇ϕ_y = opC_p.iMy * opC_p.By * vec1(pD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(pD,grid)
+
+    # for iLS in 1:num.nLS
+    #     ∇ϕ_x .+= opC_p.iMx * opC_p.Hx[iLS] * veci(pD,grid,iLS+1)
+    #     ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(pD,grid,iLS+1)
+    # end
+
+    ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid)
+    ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(pD,grid) .+ opC_v.Gy_b * vecb(pD,grid)
+    for iLS in 1:num.nLS
+        ∇ϕ_x .+= opC_u.Gx[iLS] * veci(pD,grid,iLS+1)
+        ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid,iLS+1)
+    end
+    ```
 
 ### Epsilon/handling small or cancelled cells
 
@@ -2633,9 +2839,12 @@ The output files are generated with [`PDI`](https://github.com/pdidev). The on-l
 ## TODO
 Need details on dimensions: construction not explained (sparsity)
 
+## Scripts
+* For diagrams mesh_square_bubble_wall.py
+
 ## References
 
-* [`Fullana (2017)`](https://theses.hal.science/tel-04053531/)
+* [`Fullana (2022)`](https://theses.hal.science/tel-04053531/)
 * [`Rodriguez et al. 2024`](https://link.springer.com/article/10.1007/s00707-024-04133-4)
 * [`Rodriguez (2024)`](https://theses.fr/s384455)
 * [`Brown et al. (2001)`](https://www.sciencedirect.com/science/article/pii/S0021999101967154)

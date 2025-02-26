@@ -21,7 +21,7 @@ flower:
     diffusion_coeff: [*diffusion_coeff_H2, *diffusion_coeff_KOH, *diffusion_coeff_H2O]
     end_time: 7.3 #s
     Faraday: &Faraday 9.64853321233100184e4 #C⋅mol−1
-    Henry_H2: &Henry_H2 2
+    Henry_H2: &Henry_H2 1
     Henry_KOH: &Henry_KOH 0
     Henry_H2O: &Henry_H2O 0
     Henry: [*Henry_H2, *Henry_KOH, *Henry_H2O]
@@ -35,8 +35,8 @@ flower:
     mu_cin1: 6.7e-7
     mu_cin2: 6.7e-7 #m^2/s
     MWH2: 2.01568e-3 #kg/mol
-    nb_levelsets: 1 #2
-    nb_transported_scalars: 0
+    nb_levelsets: &nb_levelsets 1 #2
+    nb_transported_scalars: &nb_transported_scalars 0
 
     Navier_slip_length: 1e-2    
     #Electric potential
@@ -85,11 +85,11 @@ flower:
     advection_LS_mode: 10 #9 #8 #2 #5 #4 #3 #2
     adapt_timestep_mode: 3 #fixed timestep
     average_liquid_solid: 0
-    ns_advection: 0 #1 #0 no advection
+    ns_advection: 1 #0 no advection
     auto_reinit: 1 #activated: 1
     bc_int: WallNoSlip #FreeSurface #WallNoSlip
     breakup: 1
-    bulk_conductivity: 2
+    bulk_conductivity: 3 #2 3:constant conductivity from c_0
     # uses bulk or interfacial concentrationfor conductivity
     case: None #Planar #Cylinder
     CFL: 0.5
@@ -97,14 +97,16 @@ flower:
     contact_angle: 1 #activate advancing/receding contact angle
     convection_Cdivu: 0
     convection_mode: 1 #0 #1
-    electrolysis_convection: 1 #0
-    electrical_potential: 0 #3 #2 #0 deactivated
-    electrical_potential_max_iter: 10
-    electrical_potential_residual: 1e-2
+    electrolysis_convection: 1 #1
+    electrical_potential: 0 #2 #0 deactivated
+    electrical_potential_max_iter: 50 #20
+    electrical_potential_relative_residual: 1.0e-10
+    electrical_potential_residual: 1.0e-10
+    electrical_potential_nonlinear_solver: 0 #0 for successive substitutions #1 for Newton-Raphson
     electrolysis_phase_change_case: "None" #"Khalighi" #no phase change
     # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
     # electrolysis_phase_change_case: "levelset" # local
-    eps: 1e-12 #eps for small numbers
+    eps: 1.0e-12 #eps for small numbers
     epsilon: 0.2 #0.05 #0.2 #cut small cells
     epsilon_wall: 0.2 #0.05 #0.2
     #if epsilon=0 centroids will be on the interface
@@ -120,10 +122,10 @@ flower:
     imposed_velocity : "none" #"zero" #"none"
     index_phase_change: 1
     index_electrolyte: 2
-    dt0: 1e-5 #1e-4 #1e-3 #1e-6 #2.5e-5 #5e-5 #3.125e-6 #1e-4 #5e-3 #3.125e-6 #first timestep
+    dt0: 1.0e-5 #1e-4 #1e-3 #1e-6 #2.5e-5 #5e-5 #3.125e-6 #1e-4 #5e-3 #3.125e-6 #first timestep
     max_iter: 1 #1 #60 #1 #60 #1 #60 #maximum number of iterations
     average_velocity: 1 #0
-    laplacian: 1 #0 #1 #multiply by 4/3
+    laplacian: 0 #0 #1 #multiply by 4/3
     mass_flux: 1 #Johansen & Colella
     mode_2d: 3
     # mode_2d = 1 #use equivalent cylinder
@@ -201,6 +203,19 @@ flower:
         top    = Dirichlet(val = p_top),
       )
 
+      # Or velocity imposed
+      # BC_uL = Boundaries(
+      #   left   = Dirichlet(),
+      #   right  = Dirichlet(),
+      #   bottom = Dirichlet(),
+      #   top    = Neumann(val=0.0),
+      # ),
+      # BC_vL = Boundaries(
+      #   left   = Dirichlet(),
+      #   right  = Dirichlet(),
+      #   bottom = Dirichlet(val = copy(vPoiseuilleb)),
+      #   top    = Neumann(val=0.0),
+
       BC_u = Boundaries(
         bottom = Neumann_inh(),
         top = Neumann_inh(),
@@ -234,12 +249,65 @@ flower:
       print("\n grad ",(BC_pL.top.val-BC_pL.bottom.val)/L0)
 
 
+    init_fields: |
+      printstyled(color=:green, @sprintf "\n Initialisation \n")
+
+      #init Bulk
+      phL.T .= phys.temperature0
+      phS.T .= phys.temperature0
+
+      vPoiseuille = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length) 
+      vPoiseuilleb = Poiseuille_fmax.(gv.x[1,:],phys.v_inlet,phys.ref_length) 
+
+      phL.u .= 0.0
+      phL.v .= vPoiseuille 
+
+      vecb_B(phL.vD,gv) .= vPoiseuilleb
+
+      for iscal=1:phys.nb_transported_scalars
+          phL.trans_scal[:,:,iscal] .= phys.concentration0[iscal]
+      end
+
+      phL.phi_ele .= phys.phi_ele0
+
+
     init_struct2: obj = MyModule.MyType(10, 20.0)
 
     init_struct: |
       print("\n test obj \n")
       obj = MyModule.MyType(10, 20.0)
       print("\n test obj \n")
+
+    interface: |
+
+      # gp.LS[1].u .= gp.x .- phys.ls_wall_xmin
+      
+      if sim.activate_interface == 1
+
+        gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
+      
+        #modify velocity field near interface
+        su = sqrt.((gv.x .- phys.intfc_x).^2 .+ (gv.y .- phys.intfc_y).^2)
+        R1 = phys.radius + 3.0*num.Δ
+
+        bl = 4.0
+        for II in gv.ind.all_indices
+            if su[II] <= R1
+                phL.v[II] = 0.0
+            # elseif su[II] > R1
+            #     uL[II] = tanh(bl*(su[II]-R1))
+            end
+        end
+
+      elseif sim.activate_interface == -1
+        gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
+        gp.LS[1].u .*= -1.0
+
+      else
+          gp.LS[1].u .= 1.0
+      end
+      
+      test_LS(gp)
 
 
     print_parameters: | 
@@ -381,9 +449,13 @@ flower:
       print("\n mesh.nx ",mesh.nx," nx ",gp.nx," ny ",gp.ny)
 
           
-      compute_grad_p!(num,gp, gu, gv, phL.pD, op.opC_pL, op.opC_uL, op.opC_vL)
-
-     
+      # compute_grad_p!(num,gp, gu, gv, phL.pD, op.opC_pL, op.opC_uL, op.opC_vL)
+      
+      grad_x = zeros(gu)
+      grad_y = zeros(gv)
+      compute_grad_T_x_T_y_array!(num.nLS, gp, gu, gv, op.opC_pL, grad_x, grad_y, phL.pD)
+      
+      printstyled(color=:red, @sprintf "\n grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grad_x) maximum(grad_x) minimum(grad_y) maximum(grad_y))
 
       print("\n end test  \n")
 
@@ -1720,18 +1792,21 @@ plot:
 
 
       - var: [l1_rel_error,l2_rel_error,linfty_rel_error] 
+        func: plot_errors_from_h5
         file: errors
         slope_start: 32 #16
         slope_stop: 256
         xlim: [1e-3,1e-1]
 
       - var: [l1_rel_error_full_cells,l2_rel_error_full_cells,linfty_rel_error_full_cells] 
+        func: plot_errors_from_h5
         file: errors_full_cells
         slope_start: 32 #16
         slope_stop: 256
         xlim: [1e-3,1e-1]
 
       - var: [l1_rel_error_partial_cells,l2_rel_error_partial_cells,linfty_rel_error_partial_cells] 
+        func: plot_errors_from_h5
         file: errors_partial_cells
         slope_start: 32 #16
         slope_stop: 256

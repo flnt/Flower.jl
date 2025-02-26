@@ -48,6 +48,9 @@ import matplotlib.patches as patches
 plt.rcParams['text.usetex'] = True
 plt.rcParams["font.size"] = "11"
 
+plt.rcParams["text.parse_math"] = False #necessary for mhchem
+
+
 plt.rc('text.latex', preamble="\n".join([ # plots will use this preamble
         r'\usepackage{amsmath}',
         r'\usepackage{booktabs}',
@@ -70,7 +73,7 @@ plt.rc("text", usetex=True)
 # rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
 # rc_params["text.latex.preamble"] = [r"\usepackage{siunitx}"]
 
-plt.rc('text.latex', preamble=r"\usepackage{siunitx}")
+# plt.rc('text.latex', preamble=r"\usepackage{siunitx}")
 #  matplotlib.verbose.level = 'debug-annoying'
 
 # plt.rc('text.latex', preamble="\n".join([ # plots will use this preamble
@@ -319,7 +322,142 @@ def roundlog(xlim):
 
    return xlim
 
-def compute_slope(ax,xls,yls,x,y,slopes,R2,param_line,colors,alpha,plot_text=True):
+
+
+def compute_slope_lin_or_log(ax,xls,yls,
+                #   x,y,
+                  slopes,R2,param_line,colors,alpha,plot_text=True):
+   #https://math.stackexchange.com/questions/3500898/understanding-the-least-squares-regression-formula
+   #https://towardsdatascience.com/linear-regression-using-least-squares-a4c3456e8570
+   # print('least-squares',len(xls),len(yls))
+
+    print('compute_slope')
+    print(xls)
+    print(yls)
+    logslope=True
+    if logslope:
+        X_mean1 = np.mean(xls)
+        Y_mean1 = np.mean(yls)
+        xls=np.log10(xls)
+        yls=np.log10(yls)
+
+        # print(xls,yls)
+
+    X_mean = np.mean(xls)
+    Y_mean = np.mean(yls)
+    X_min = np.min(xls)
+    Y_min = np.min(yls)
+    X_max = np.max(xls)
+    Y_max = np.max(yls)
+
+    num = 0
+    den = 0
+    for i in range(len(xls)):
+        num += (xls[i] - X_mean)*(yls[i] - Y_mean)
+        den += (xls[i] - X_mean)**2
+    m = num / den
+    c = Y_mean - m*X_mean
+
+    Y_pred = m*xls + c
+
+    rms=np.linalg.norm(yls-Y_pred, ord=2)
+
+    rmsx=np.linalg.norm(xls-X_mean, ord=2)
+    rmsy=np.linalg.norm(yls-Y_mean, ord=2)
+
+    corr=num/(rmsx*rmsy)
+
+    #https://en.wikipedia.org/wiki/Pearson_correlation_coefficient
+
+
+    test_polyfit = True
+    test_polyfit = False
+    if test_polyfit:
+        polyfit(xls,yls,1)
+
+
+    if logslope:
+        # ax.plot([10**(X_mean), 10**(max(xls))], [10**(X_mean*m+c), 10**(max(Y_pred))], color='black',alpha=0.5)
+        # line1,=ax.plot([10**(min(xls)), 10**(max(xls))], [10**(min(Y_pred)), 10**(max(Y_pred))],
+        #                             # color='black',
+        #                             color=colors,
+        #                             alpha=alpha,
+        #                             # label=str(m)
+        #                             )
+        print([10**(xls[0]), 10**(xls[-1])], [10**(Y_pred[0]), 10**(Y_pred[-1])])
+        line1,=ax.plot([10**(xls[0]), 10**(xls[-1])], [10**(Y_pred[0]), 10**(Y_pred[-1])],
+                                # color='black',
+                                color=colors,
+                                alpha=alpha,
+                                # label=str(m)
+                                )
+
+        xy=(X_mean1,Y_mean1)
+        text='Slope={:.2g}\nR²={:.2g}'.format(float(m),float(corr))
+        
+        if plot_text:
+            ax.annotate(text=text,xy=xy,ha='left',va='top')
+
+        
+        # param_line.append(line1)
+    #   ax.annotate('Slope '+"{:.1f}".format(m),xy=(X_mean1,Y_mean1))
+
+
+
+        # print ('least-squares',x,y,m,c,10**(X_mean),10**(Y_mean))
+
+        # ax.scatter(x=10**(X_mean),y=10**(Y_mean))
+        # ax.scatter(x=10**(X_min),y=10**(Y_min))
+        # ax.scatter(x=10**(X_max),y=10**(Y_max))
+
+        # print(xls)
+        # print(yls)
+
+
+        # plt.text(0.8,0.9,
+        # 'Slope={:.2g}\nR²{:.2g}'.format(float(m),float(rms)),
+        # transform =ax.transAxes,fontsize=16,ha='center')
+        # slopes=m
+        R2=corr#rms
+
+        # ax.annotate('Slope={:.2g}\nR²={:.2g}'.format(float(m),float(rms)),
+        # xy=(0.8,0.1),xycoords='axes fraction',ha='center')
+
+
+        # plt.legend(('data', 'line-regression r={}'.format(r_value)), 'best')
+        # legendslope=plt.legend(handles=[],labels=('Slope={:.2g}\nR²{:.2g}'.format(float(m),float(rms))), loc='best')
+        # ax.add_artist(legendslope)
+
+    else:   
+        if (min(Y_pred)<0):
+            ax.plot([X_mean, max(xls)], [X_mean*m+c, max(Y_pred)], color='black',
+                #   alpha=0.5,
+                    lw=lw) # predicted
+        else:
+            ax.plot([min(xls), max(xls)], [min(Y_pred), max(Y_pred)], color='black',
+                #   alpha=0.5,
+                    lw=lw) # predicted
+
+        # ax.annotate("{:.1f}".format(m)+'*x'+"{:.3f}".format(c),xy=(X_mean,Y_mean))
+        ax.annotate('Slope '+"{:.1f}".format(m),xy=(X_mean,Y_mean))
+
+    # print ('least-squares',x,y,m,c,corr)#,10**(X_mean),10**(Y_mean))
+    print ('least-squares',m,c,corr)#,10**(X_mean),10**(Y_mean))
+
+    # print(X_mean,Y_mean,
+    #       # len(xls),len(yls)
+    #       ,min(xls),max(xls),min(Y_pred),max(Y_pred))
+
+    print(min(Y_pred),max(Y_pred),Y_min,Y_max,10**(min(xls)),10**(max(xls)))  
+    slopes[0:1]=[m,R2]
+
+    print('return test',slopes)
+ 
+    return(ax)
+
+def compute_slope(ax,xls,yls,
+                #   x,y,
+                  slopes,R2,param_line,colors,alpha,plot_text=True):
    #https://math.stackexchange.com/questions/3500898/understanding-the-least-squares-regression-formula
    #https://towardsdatascience.com/linear-regression-using-least-squares-a4c3456e8570
    # print('least-squares',len(xls),len(yls))
@@ -377,6 +515,8 @@ def compute_slope(ax,xls,yls,x,y,slopes,R2,param_line,colors,alpha,plot_text=Tru
                                     alpha=alpha,
                                     # label=str(m)
                                     )
+        
+        
         xy=(X_mean1,Y_mean1)
         text='Slope={:.2g}\nR²={:.2g}'.format(float(m),float(corr))
         
@@ -426,7 +566,8 @@ def compute_slope(ax,xls,yls,x,y,slopes,R2,param_line,colors,alpha,plot_text=Tru
         # ax.annotate("{:.1f}".format(m)+'*x'+"{:.3f}".format(c),xy=(X_mean,Y_mean))
         ax.annotate('Slope '+"{:.1f}".format(m),xy=(X_mean,Y_mean))
 
-    print ('least-squares',x,y,m,c,corr)#,10**(X_mean),10**(Y_mean))
+    # print ('least-squares',x,y,m,c,corr)#,10**(X_mean),10**(Y_mean))
+    print ('least-squares',m,c,corr)#,10**(X_mean),10**(Y_mean))
 
     # print(X_mean,Y_mean,
     #       # len(xls),len(yls)
@@ -708,8 +849,8 @@ def plot_var_from_pandas(df,figpar,plotpar,physics):
 
     prefix="./"
 
-    plt.savefig(prefix+"phase_change.pdf")
-    plt.savefig(prefix+"phase_change.svg")
+    plt.savefig(prefix+"phase_change.pdf",transparent=True)
+    plt.savefig(prefix+"phase_change.svg",transparent=True)
     plt.close(fig1)
 
 
@@ -821,7 +962,7 @@ def plot_radius_from_pandas(df,figpar,plotpar):
 
     prefix="./"
 
-    plt.savefig(prefix+"R.pdf")
+    plt.savefig(prefix+"R.pdf",transparent=True)
     plt.close(fig1)
 
 
@@ -1259,7 +1400,7 @@ def plot_all_fig():
                             )
 
                     else:
-                        if key in plotpar["no_2D_plot"]:
+                        if key in plotpar["n\ce{O2}D_plot"]:
                             continue  # no plot
 
                         if "zoom" in figpar.keys():
@@ -1928,7 +2069,7 @@ def plot_file(
         ax2.set_aspect('equal', 'box')
 
         str_nstep = str(nstep)
-        plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+        plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
 
     if mode == 'close':
         # str_nstep = str(nstep)
@@ -2051,7 +2192,7 @@ def plot_vector(file,
         ax2.set_aspect('equal', 'box')
         
         str_nstep = str(nstep)
-        plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also save fig for latex  display
+        plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also save fig for latex  display
 
     if mode == 'close':
         # str_nstep = str(nstep)
@@ -2164,26 +2305,45 @@ def plot_schematics(figpar,plotpar):
 
     # ycoord = 0.5
 
-    # inset_ax.text(xmin/2, 0.75, r'$\frac{\partial c_{H_2}}{\partial n} = -\frac{i}{2FD}$', fontsize=fontsize,color='w')
+    # inset_ax.text(xmin/2, 0.75, r'$\frac{\partial c_{\ce{H2}}}{\partial n} = -\frac{i}{2FD}$', fontsize=fontsize,color='w')
     inset_ax.text(xmin/2, 0.8, r'$\frac{\partial \phi }{\partial n} = \frac{i}{\kappa}$', fontsize=fontsize,color='w')
 
-    # inset_ax.text(0.1, 0.35, r'$c_{H_2} = c_{H_2, 0}$', fontsize=fontsize)
+    # inset_ax.text(0.1, 0.35, r'$c_{\ce{H2}} = c_{\ce{H2}, 0}$', fontsize=fontsize)
     inset_ax.text(0.5, 0, r'$\frac{\partial \phi }{\partial n} = 0$', fontsize=fontsize,va='bottom',ha='left',color='w')
 
     inset_ax.text(0.5, 1, r'$\frac{\partial \phi }{\partial n} = 0$', fontsize=fontsize,va='top',ha='left',color='w')
 
 
-    # inset_ax.text(0.5, 0.2, r'$\mathrm{H_2} \text{(gas)}$', fontsize=fontsize,va='center',ha='center',color='k')
-    # inset_ax.text(0.5, 0.3, r'$\mathrm{H_2} \text{bubble}$', fontsize=fontsize,va='center',ha='center',color='k')
+    # inset_ax.text(0.5, 0.2, r'$\mathrm{\ce{H2}} \text{(gas)}$', fontsize=fontsize,va='center',ha='center',color='k')
+    # inset_ax.text(0.5, 0.3, r'$\mathrm{\ce{H2}} \text{bubble}$', fontsize=fontsize,va='center',ha='center',color='k')
 
 
-    inset_ax.text(0.5, 0.2, r'$\mathrm{H_2O}, \mathrm{KOH}, \mathrm{H_2}$', fontsize=fontsize,va='center',ha='center',color='w')
+    inset_ax.text(0.5, 0.2, r'$\mathrm{\ce{H2}O}, \mathrm{KOH}, \mathrm{\ce{H2}}$', fontsize=fontsize,va='center',ha='center',color='w')
 
 
     inset_ax.text(1, 0.5, r'$ \phi = 0$', fontsize=fontsize,va='center',ha='right',color='w')
 
 
-    plt.savefig('schematics.pdf')
+    plt.savefig('schematics.pdf',transparent=True)
+
+    plt.axis('equal')
+
+    inset_ax.spines['top'].set_visible(False)
+    inset_ax.spines['right'].set_visible(False)
+    inset_ax.spines['bottom'].set_visible(False)
+    inset_ax.spines['left'].set_visible(False)
+
+    radius = 0.25
+    circle1 = plt.Circle((0.5, 0.5), radius, color='w')
+
+   
+    inset_ax.add_patch(circle1)
+
+    inset_ax.text(0.5+radius, 0.5, r'$\frac{\partial \phi }{\partial n} = 0$', 
+                  fontsize=fontsize,va='center',ha='right',color='k')
+
+
+    plt.savefig('schematics_bubble.pdf',transparent=True)
 
 
 
@@ -2216,6 +2376,8 @@ def plot_schematics_full(figpar,plotpar):
     # # lines.set_width(0.125)
 
     # plt.setp(lines, linewidth=lw_inset,color=color_inset)
+
+
 
     dx =0.1
 
@@ -2267,17 +2429,29 @@ def plot_schematics_full(figpar,plotpar):
 
     other_radius= 0.125 #0.025
 
-    circle1 = plt.Circle((0.0, 0.15), other_radius/4, color='w')
-    circle2 = plt.Circle((0.15, 0.92), other_radius, color='w')
-
-    circle3 = plt.Circle((0.0, 0.5), 0.12, color='w')
-
-    circle4 = plt.Circle((2.0, o2coord), 0.12, color='w')
+    zorder_bubbles=1
+    edgecolor=None
+    circle1 = plt.Circle((0.0, 0.15), other_radius/4, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+    circle2 = plt.Circle((0.15, 0.92), other_radius, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
 
 
-    inset_ax.text(0, 0.5, r'$H_2$', fontsize=fontsize,va='center',ha='left',color='k')
+
+    circle3 = plt.Circle((0.0, 0.5), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+
+    circle4 = plt.Circle((2.0, o2coord), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+
+
+    # circle1.set_clip_on(True)
+    # circle2.set_clip_on(True)
+    # circle3.set_clip_on(True)
+    # circle4.set_clip_on(True)
+
+    # inset_ax.axvline(-0.1,c='k')
+
+
+    inset_ax.text(0, 0.5, r'$\ce{H2}$', fontsize=fontsize,va='center',ha='left',color='k')
    
-    inset_ax.text(2.0, o2coord, r'$O_2$', fontsize=fontsize,va='center',ha='right',color='k')
+    inset_ax.text(2.0, o2coord, r'$\ce{O2}$', fontsize=fontsize,va='center',ha='right',color='k')
 
 
     # circle3 = plt.Arc((0.0, 0.5), 0.1, color='w')
@@ -2296,17 +2470,23 @@ def plot_schematics_full(figpar,plotpar):
 
     inset_ax.add_patch(circle4)
 
+    
+
+    # inset_ax.set_ylim(0, 1)
+    # inset_ax.set_xlim(0, 1)
 
     gray = 0.3
+    dx2 = 1e-2
     # Draw the electrode
-    electrode = patches.Rectangle((xmin, 0), -xmin, 1.0, 
-                                #   edgecolor='black', 
+    electrode = patches.Rectangle((xmin, 0), -xmin-dx2, 1.0, 
+                                edgecolor= (gray, gray, gray), 
                                 facecolor= (gray, gray, gray) #'gray'
                                 )
     inset_ax.add_patch(electrode)
 
-    anode = patches.Rectangle((2, 0), dx, 1.0, 
+    anode = patches.Rectangle((2, 0), dx+dx2, 1.0, 
                                 #   edgecolor='black', 
+                                edgecolor= (gray, gray, gray), 
                                 facecolor= (gray, gray, gray) #'gray'
                                 )
     inset_ax.add_patch(anode)
@@ -2348,33 +2528,39 @@ def plot_schematics_full(figpar,plotpar):
 
     # ycoord = 0.5
 
-    # inset_ax.text(xmin/2, 0.75, r'$\frac{\partial c_{H_2}}{\partial n} = -\frac{i}{2FD}$', fontsize=fontsize,color='w')
+    # inset_ax.text(xmin/2, 0.75, r'$\frac{\partial c_{\ce{H2}}}{\partial n} = -\frac{i}{2FD}$', fontsize=fontsize,color='w')
     # inset_ax.text(xmin/2, 0.8, r'$\frac{\partial \phi }{\partial n} = \frac{i}{\kappa}$', fontsize=fontsize,color='w')
 
-    # # inset_ax.text(0.1, 0.35, r'$c_{H_2} = c_{H_2, 0}$', fontsize=fontsize)
+    # # inset_ax.text(0.1, 0.35, r'$c_{\ce{H2}} = c_{\ce{H2}, 0}$', fontsize=fontsize)
     # inset_ax.text(0.5, 0, r'$\frac{\partial \phi }{\partial n} = 0$', fontsize=fontsize,va='bottom',ha='left',color='w')
 
     # inset_ax.text(0.5, 1, r'$\frac{\partial \phi }{\partial n} = 0$', fontsize=fontsize,va='top',ha='left',color='w')
 
 
-    # inset_ax.text(0.5, 0.2, r'$\mathrm{H_2} \text{(gas)}$', fontsize=fontsize,va='center',ha='center',color='k')
-    # inset_ax.text(0.5, 0.3, r'$\mathrm{H_2} \text{bubble}$', fontsize=fontsize,va='center',ha='center',color='k')
+    # inset_ax.text(0.5, 0.2, r'$\mathrm{\ce{H2}} \text{(gas)}$', fontsize=fontsize,va='center',ha='center',color='k')
+    # inset_ax.text(0.5, 0.3, r'$\mathrm{\ce{H2}} \text{bubble}$', fontsize=fontsize,va='center',ha='center',color='k')
 
 
-    inset_ax.text(0.5, 0.2, r'$\mathrm{H_2O}, \mathrm{KOH}, \mathrm{H_2}$', fontsize=fontsize,va='center',ha='center',color='w')
+    inset_ax.text(0.5, 0.2, r'$\mathrm{\ce{H2}O}, \mathrm{KOH}, \mathrm{\ce{H2}}$', fontsize=fontsize,va='center',ha='center',color='w')
 
-    # inset_ax.text(0.0, 0.0, r'\ce{2H2O + 2e- -> 2H2 + 2OH-}', fontsize=fontsize,va='bottom',ha='left',color='k')
-    inset_ax.text(0.0, 0.0, r"$\mathrm{2H_2O} + 2e^- \rightarrow \mathrm{2H_2} + \mathrm{2OH^-}$", fontsize=fontsize,va='bottom',ha='left',color='w')
+    inset_ax.text(0.0, 0.0, r'\ce{2H2O + 2e- -> 2H2 + 2OH-}', fontsize=fontsize,va='bottom',ha='left',color='w')
+    # inset_ax.text(0.0, 0.0, r"$\mathrm{2\ce{H2}O} + 2e^- \rightarrow \mathrm{2\ce{H2}} + \mathrm{2OH^-}$", fontsize=fontsize,va='bottom',ha='left',color='w')
 
 
-    inset_ax.text(2.0, 0.0, r"$\mathrm{2OH^-} \rightarrow \mathrm{H_2O} + \frac 12 \mathrm{O_2} + 2e^-$",
+    inset_ax.text(2.0, 0.5, r"\ce{2OH- -> H2O + 1/2O2 + 2OH- + 2e-}",
                    fontsize=fontsize,va='bottom',ha='right',color='w')
+
+    # inset_ax.text(2.0, 0.0, r"$\mathrm{2OH^-} \rightarrow \mathrm{\ce{H2}O} + \frac 12 \mathrm{\ce{O2}} + 2e^-$",
+    #                fontsize=fontsize,va='bottom',ha='right',color='w')
 
     # inset_ax.text(1, 0.5, r'$ \phi = 0$', fontsize=fontsize,va='center',ha='right',color='w')
 
     plt.axis('equal')
 
-    plt.savefig('schematics_full.pdf')
+    inset_ax.set_ylim(0, 1)
+    inset_ax.set_xlim(-0.1, 2.1)
+
+    plt.savefig('schematics_full.pdf',transparent=True)
 
 def add_schematics(ax2,fontsize,figpar):
 
@@ -2443,14 +2629,18 @@ def add_schematics(ax2,fontsize,figpar):
     # inset_ax.text(xmin/2, 0.5, 'Electrode', color='w',fontsize=12,rotation=90, va='center',ha='center')
 
 
-    # inset_ax.text(xmin/2, 0.75, r'$\frac{\partial c_{H_2}}{\partial n} = -\frac{i}{2FD}$', fontsize=fontsize,color='w')
+    # inset_ax.text(xmin/2, 0.75, r'$\frac{\partial c_{\ce{H2}}}{\partial n} = -\frac{i}{2FD}$', fontsize=fontsize,color='w')
     inset_ax.text(xmin/2, 0.8, r'$\frac{\partial \phi }{\partial n} = \frac{i}{\kappa}$', fontsize=fontsize,color='w')
 
-    # inset_ax.text(0.1, 0.35, r'$c_{H_2} = c_{H_2, 0}$', fontsize=fontsize)
+    # inset_ax.text(0.1, 0.35, r'$c_{\ce{H2}} = c_{\ce{H2}, 0}$', fontsize=fontsize)
     inset_ax.text(0.5, 0.375, r'$\frac{\partial \phi }{\partial n} = 0$', fontsize=fontsize,va='bottom',ha='left',color='w')
 
-    inset_ax.text(0.5, 0.2, r'$\mathrm{H_2} \text{(gas)}$', fontsize=fontsize,va='center',ha='center',color='k')
-    # inset_ax.text(0.5, 0.3, r'$\mathrm{H_2} \text{bubble}$', fontsize=fontsize,va='center',ha='center',color='k')
+   
+    inset_ax.text(0.5, 0.2, r'$\ce{H2} (gas)$', fontsize=fontsize,va='center',ha='center',
+                #   color='k',
+                  color=figpar['text_color'],
+                  )
+    # inset_ax.text(0.5, 0.3, r'$\mathrm{\ce{H2}} \text{bubble}$', fontsize=fontsize,va='center',ha='center',color='k')
 
 
     return ax2
@@ -2481,7 +2671,6 @@ def plot_current_lines(file,
         plt.rcParams["font.size"] = str(plotpar['font_size'])
         print('font_size',plotpar['font_size'],plt.rcParams["font.size"])
         font_size = str(plotpar['font_size'])
-
 
     # phi_array = file["i_current_x"][:].transpose()
     i_current_x = file["i_current_x"][:].transpose()
@@ -2539,6 +2728,36 @@ def plot_current_lines(file,
     else:
         CS = ax2.contourf(xp, yp, phi_array, levels=figpar['levels'], cmap=plotpar["cmap"],extend=plotpar['extend'],)
 
+
+    if 'theme' in figpar.keys():
+        if figpar['theme'] == 'dark':
+            figpar['text_color'] = 'w'
+
+            ax2.spines['bottom'].set_color(figpar['text_color'])
+            ax2.spines['top'].set_color(figpar['text_color']) 
+            ax2.spines['right'].set_color(figpar['text_color'])
+            ax2.spines['left'].set_color(figpar['text_color'])
+
+            # Use the following to change only the ticks:
+            # which="both" changes both the major and minor tick colors
+
+            ax2.tick_params(axis='x', colors=figpar['text_color'])
+            ax2.tick_params(axis='y', colors=figpar['text_color'])
+
+            # And the following to change only the label:
+
+            ax2.yaxis.label.set_color(figpar['text_color'])
+            ax2.xaxis.label.set_color(figpar['text_color'])
+
+            # And finally the title:
+
+            ax2.title.set_color(figpar['text_color'])
+
+
+    else: 
+        figpar['text_color'] = 'k'
+
+
     # CS = ax2.contourf(xp, yp, phi_array, 10, cmap=plotpar["cmap"])
 
     # CS2 = ax2.contour(
@@ -2565,7 +2784,12 @@ def plot_current_lines(file,
     # Make a colorbar for the ContourSet returned by the contourf call.
     if mode !='film':
         cbar0 = fig1.colorbar(CS)
-        cbar0.ax.set_ylabel(r""+figpar['cbarlabel'])
+        cbar0.ax.set_ylabel(r""+figpar['cbarlabel'],color=figpar['text_color'])
+        cbar0.ax.tick_params(labelcolor=figpar['text_color'])
+        # cbar.ax.tick_params(which='both', color='white', labelcolor='white')
+        cbar0.ax.tick_params(colors=figpar['text_color'])
+        cbar0.outline.set_edgecolor(figpar['text_color'])
+
         if 'ticks_format' in figpar:
             if figpar['ticks_format']!=None:
                 cbar0.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
@@ -2786,10 +3010,10 @@ def plot_current_lines(file,
 
             for macro in figpar['macro_file_name']:
                 # print(macro)
-                plt.savefig(eval(macro),dpi=plotpar['dpi'])
+                plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
 
         else:
-            plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+            plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
 
 
         # if 'macro_file_name' in figpar.keys():
@@ -2916,7 +3140,7 @@ def plot_radius(time_list,radius_list):
 
     plt.axis("equal")
 
-    plt.savefig("R.pdf")
+    plt.savefig("R.pdf",transparent=True)
     plt.close(fig1)
 
 
@@ -3578,13 +3802,13 @@ def plot_python_pdf_full2(
 
             for macro in figpar['macro_file_name']:
                 # print(macro)
-                plt.savefig(eval(macro),dpi=plotpar['dpi'])
+                plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
                 
                 print(colored('mesh '+str(nx)+" "+str(mesh["nx"]),'red'))
 
 
         else:
-            plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+            plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
             print(colored('mesh '+str(nx)+" "+str(mesh["nx"]),'red'))
         
         print(colored('end plot python full '+str(nx)+" "+str(mesh["nx"]),'red'))
@@ -4191,10 +4415,10 @@ def plot_current_wall(
 
             for macro in figpar['macro_file_name']:
                 print(macro)
-                plt.savefig(eval(macro),dpi=plotpar['dpi'])
+                plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
 
         else:
-            plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+            plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
 
     if mode == 'close':
         # str_nstep = str(nstep)
@@ -4234,7 +4458,7 @@ def plot_bc(iter_list,vec,grid,plotpar,figname,prefix,time):
 
     ax2.set_ylim(ylim0,ylim1)
     plt.legend()
-    plt.savefig(prefix*figname*".pdf")
+    plt.savefig(prefix*figname*".pdf",transparent=True)
 
     plt.close(fig1)
 
@@ -4258,7 +4482,7 @@ def plot_bc2(iter_list,vec,grid,plotpar,figname,prefix,time):
 
     ax2.set_ylim(ylim0,ylim1)
     plt.legend()
-    plt.savefig(prefix*figname*".pdf")
+    plt.savefig(prefix*figname*".pdf",transparent=True)
 
     plt.close(fig1)
 
