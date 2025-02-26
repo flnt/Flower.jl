@@ -1,6 +1,7 @@
 using Revise
 using Flower
 using JLD2
+using Optim
 
 prefix = "/home/tf/Documents/Flower_figures/"
 
@@ -68,7 +69,7 @@ vRa = 1e5
             right = Periodic(),
         ),
         BC_TS = Boundaries(
-            top = Dirichlet(val =  T2 .- 0.0*sin.(pi*gp.x[1,:]/2)),
+            top = Dirichlet(val =  T2 .- 0.2*sin.(pi*gp.x[1,:]/2)),
             left = Periodic(),
             right = Periodic(),
         ),
