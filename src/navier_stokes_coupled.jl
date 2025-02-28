@@ -1734,7 +1734,7 @@ function pressure_projection!(
         # @time bicgstabl!(ucorrD, Au, rhs_u, log=true)
         try
             # @time bicgstabl!(ucorrD, Au, rhs_u, Pl=Diagonal(Au), log=true)
-            @time ucorrD .= Au \ rhs_u
+            ucorrD .= Au \ rhs_u
         catch e
             ucorrD .= Inf
             println(e)
@@ -1765,7 +1765,7 @@ function pressure_projection!(
         # bicgstabl!(vcorrD, Av, rhs_v, log=true)
         try
             # @time bicgstabl!(vcorrD, Av, rhs_v, Pl=Diagonal(Av), log=true)
-            @time vcorrD .= Av \ rhs_v
+            vcorrD .= Av \ rhs_v
         catch e
             vcorrD .= Inf
             println(e)
@@ -1817,7 +1817,7 @@ function pressure_projection!(
 
         uvD = ones(ntu + ntv + nNavier * nip)
         try
-            @time uvD .= Auv \ rhs_uv
+            uvD .= Auv \ rhs_uv
         catch e
             uvD .= Inf
             println(e)
@@ -1879,7 +1879,7 @@ function pressure_projection!(
         kill_dead_cells!(veci(rhs_ϕ,grid,iLS+1), grid, geo[end])
     end
     # @time bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl = Diagonal(Aϕ), log = true)
-    @time ϕD .= Aϕ \ rhs_ϕ
+    ϕD .= Aϕ \ rhs_ϕ
     kill_dead_cells!(vec1(ϕD,grid), grid, geo[end])
     for iLS in 1:nLS
         kill_dead_cells!(veci(ϕD,grid,iLS+1), grid, geo[end])

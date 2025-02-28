@@ -5,11 +5,17 @@ using Optim
 
 prefix = "/home/tf/Documents/Flower_figures/"
 
+@. model(t, p) =
+    p[1]*sin(0.5π*t) +
+    p[2]*sin(π*t)^2 + 
+    p[3]*sin(2π*t)^2;
+
+p = [1.0, 0.0, 0.0]
 # for vRa = [1e6, 1e5, 5e4, 2e4, 1e4]
-vRa = 1e5
+vRa = 5e4
     Ra = vRa
     St = 1.   
-    H0 = 0.05
+    H0 = 0.3
 
     T1 = 0.7
     T2 = -0.3
@@ -69,7 +75,7 @@ vRa = 1e5
             right = Periodic(),
         ),
         BC_TS = Boundaries(
-            top = Dirichlet(val =  T2 .- 0.2*sin.(pi*gp.x[1,:]/2)),
+            top = Dirichlet(val =  T2 .* (0.5*model(gp.x[1,:], p) .- 0.5)), # .- 0.0*sin.(pi*gp.x[1,:]/2)),
             left = Periodic(),
             right = Periodic(),
         ),
@@ -96,7 +102,7 @@ vRa = 1e5
         BC_int = [Stefan()],
         time_scheme = FE,
         ls_scheme = eno2,
-        adaptative_t = true,
+        adaptative_t = false,
         heat = true,
         heat_convection = true,
         heat_liquid_phase = true,
@@ -124,7 +130,7 @@ vRa = 1e5
 
 fT = Figure(size = (1600, 1000))
 ax = Axis(fT[1,1], aspect = ratio)
-contourf!(gp.x[1,:], gp.y[:,1], phL.T', colormap=:dense, levels = 20)
+contourf!(gp.x[1,:], gp.y[:,1], phL.T' + phS.T', colormap=:dense, levels = 20)
 contour!(gp.x[1,:], gp.y[:,1], gp.LS[1].u', levels = 0:0, color=:red, linewidth = 5);
 # arrows!(gp.x[1,:], gp.y[:,1], fwd.ux[1,125,:,2:end]', fwd.uy[1,125,2:end,:]')
 # contour!(gp.x[1,:], gp.y[:,1], fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 5, linestyle=:dot);

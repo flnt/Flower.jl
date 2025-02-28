@@ -420,7 +420,7 @@ function run_forward(
             end
         end
 
-        if verbose && adaptative_t
+        if verbose && adaptative_t && (current_i-1)%show_every == 0 
             println("τ = $(num.τ)")
         end
 
@@ -577,8 +577,12 @@ function run_forward(
                 end
                 tmp = (sum / count + 0.5)
                 fwd.RB[2,current_i] = tmp
-                fwd.RB[3,current_i] = Ra * (1. - num.θd) * tmp^3      
-                print("$(@sprintf("height %g", fwd.RB[2,current_i]))\t$(@sprintf("Ra_eff %g", fwd.RB[3,current_i]))\n")
+                fwd.RB[3,current_i] = Ra * (1. - num.θd) * tmp^3     
+                if verbose
+                    if (current_i-1)%show_every == 0 
+                        print("$(@sprintf("height %g", fwd.RB[2,current_i]))\t$(@sprintf("Ra_eff %g", fwd.RB[3,current_i]))\n")
+                    end
+                end
                 if tmp > cutoff_length
                     return nothing
                 end
