@@ -332,8 +332,7 @@ function run_forward!(
     # Initialisation of bulk and interfacial values
     
     #TODO which grid.LS
-    presintfc = 0.0
-    # presintfc = pres0 + p_lapl ? #TODO init pressure
+ 
     #TODO perio, intfc, ... check init_fields_2!
 
     #No scalar in "solid" phase
@@ -375,7 +374,7 @@ function run_forward!(
 
     get_height!(grid.LS[1],grid.ind,grid.dx,grid.dy,grid.LS[end].geoS,tmp_vec_p) #here tmp_vec_p solid
 
-    init_fields_multiple_levelsets!(num,phS.pD,phS.p,tmp_vec_p,BC_pS,grid,presintfc,"pS")
+    init_fields_multiple_levelsets!(num,phS.pD,phS.p,tmp_vec_p,BC_pS,grid,num.pres_intfc,"pS")
 
     if heat
         init_fields_multiple_levelsets!(num,phS.TD,phS.T,tmp_vec_p,BC_TS,grid,num.θd,"TS")
@@ -388,7 +387,7 @@ function run_forward!(
 
     get_height!(grid.LS[1],grid.ind,grid.dx,grid.dy,grid.LS[end].geoL,tmp_vec_p) #here tmp_vec_p liquid
 
-    init_fields_multiple_levelsets!(num,phL.pD,phL.p,tmp_vec_p,BC_pL,grid,presintfc,"pL")
+    init_fields_multiple_levelsets!(num,phL.pD,phL.p,tmp_vec_p,BC_pL,grid,num.pres_intfc,"pL")
 
     if heat
         init_fields_multiple_levelsets!(num,phL.TD,phL.T,tmp_vec_p,BC_TL,grid,num.θd,"TL")
@@ -2456,6 +2455,9 @@ function run_forward!(
                 geoL = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
                 geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
                 geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+
+                # Mum1_L is put in B matrix that multiplies v
+
                 Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = pressure_projection!(
                     time_scheme, BC_int,
                     num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
@@ -2480,11 +2482,11 @@ function run_forward!(
         end # if navier_stokes
 
 
-        PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_velocity"::Cstring,
-        "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
-        "v_1D"::Cstring, phL.v::Ptr{Cdouble}, PDI_OUT::Cint,
-        "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-        C_NULL::Ptr{Cvoid})::Cint
+        # PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_velocity"::Cstring,
+        # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # C_NULL::Ptr{Cvoid})::Cint
 
         #endregion Navier-Stokes 
 

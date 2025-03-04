@@ -345,7 +345,7 @@ for (i,n) in enumerate(npts)
             # Exposing data to PDI for IO    
             # if writing "D" array (bulk, interface, border), add "_1D" to the name
             
-            printstyled(color=:magenta, @sprintf "\n PDI write_data_start_loop %.5i \n" num.current_i)
+            # printstyled(color=:magenta, @sprintf "\n PDI write_data_start_loop %.5i \n" num.current_i)
 
             #print("\n size LS wall ", size( gp.LS[2].u))
             LStable = zeros(gp)

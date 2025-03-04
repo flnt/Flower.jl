@@ -4,9 +4,10 @@
     computes the cell-averaged gradient (grad_x, grad_y) for scalar TD (stored in 1D)
 * grad_x : the useful information is of size (nx-1,ny) in an array of size (nx+1,ny) : grad_x[:,2:end-1]
 * grad_y : the useful information is of size (nx,ny-1) in an array of size (nx,ny+1) : grad_y[2:end-1,:]
+Test in orientation.jl
 """
 function compute_grad_T_x_T_y_array!(num_LS, grid, grid_u, grid_v, opC_p, grad_x, grad_y, TD)
-
+    #TODO use inv_weight_eps2
     ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(TD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(TD,grid)
     ∇ϕ_y = opC_p.iMy * opC_p.By * vec1(TD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(TD,grid)
 
@@ -22,8 +23,37 @@ end
 
 
 """
+    computes the cell-averaged gradient with u and v capacities
+* grad_x : array of size (nx+1,ny), the values at 1 and nx+1 are associated with half control volumes
+* grad_y : array of size (nx,ny+1), the values at 1 and ny+1 are associated with half control volumes 
+Test in orientation.jl
+"""
+function compute_grad_T_x_T_y_array_u_v_capacities!(num, grid, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, TD)
+
+
+    ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(TD,grid) .+ opC_u.Gx_b * vecb(TD,grid)
+    ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(TD,grid) .+ opC_v.Gy_b * vecb(TD,grid)
+    for iLS in 1:num.nLS
+        ∇ϕ_x .+= opC_u.Gx[iLS] * veci(TD,grid,iLS+1)
+        ∇ϕ_y .+= opC_v.Gy[iLS] * veci(TD,grid,iLS+1)
+    end
+
+    iMu = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_u.M.diag))
+    iMv = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_v.M.diag)) 
+
+    ∇ϕ_x = iMu * ∇ϕ_x
+    ∇ϕ_y = iMv * ∇ϕ_y
+
+    grad_x .= reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    grad_y .= reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+end
+
+
+"""
     computes the x component of the cell-averaged gradient: grad_x, for scalar TD (stored in 1D)
-* grad_x : the useful information is of size (nx-1,ny) in an array of size (nx+1,ny) : grad_x[:,2:end-1]
+* grad_x : array of size (nx+1,ny), the values at 1 and nx+1 are associated with half control volumes
+Test in orientation.jl
 """
 function compute_grad_T_x_array!(num_LS, grid, grid_u, opC_p, grad_x, TD)
     
@@ -40,7 +70,7 @@ end
 
 """
     computes the y component of the cell-averaged gradient: grad_y) for scalar TD (stored in 1D)
-* grad_y : the useful information is of size (nx,ny-1) in an array of size (nx,ny+1) : grad_y[2:end-1,:]
+* grad_y : array of size (nx,ny+1), the values at 1 and ny+1 are associated with half control volumes 
 """
 function compute_grad_T_y_array!(num_LS, grid, grid_v, opC_p, grad_y, TD)
     

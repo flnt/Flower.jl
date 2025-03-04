@@ -611,6 +611,8 @@ end
 
 """
 uses vector_convection
+
+set BC
 """
 function set_convection!(
     num, grid, geo, grid_u, LS_u, grid_v, LS_v,
@@ -619,156 +621,90 @@ function set_convection!(
     @unpack Cu, CUTCu, Cv, CUTCv = op
     @unpack uD, vD = ph
 
-    if num.prediction == "PmIII" #cf Brown 2001
-        @unpack pD = ph
+    Du_x = zeros(grid_u)
+    Du_y = zeros(grid_u)
 
-        ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid)
-        ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(pD,grid) .+ opC_v.Gy_b * vecb(pD,grid)
-        for iLS in 1:num.nLS
-            ∇ϕ_x .+= opC_u.Gx[iLS] * veci(pD,grid,iLS+1)
-            ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid,iLS+1)
-        end
-
-        iMu = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_u.M.diag))
-        iMv = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_v.M.diag)) 
-        ∇ϕ_x = iMu * ∇ϕ_x
-        ∇ϕ_y = iMv * ∇ϕ_y
-
-        grd_x = reshape(veci(∇ϕ_x,grid_u,1), grid_u)
-        grd_y = reshape(veci(∇ϕ_y,grid_v,1), grid_v)
-
-        printstyled(color=:red, @sprintf "\n grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_x) maximum(grd_x) minimum(grd_y) maximum(grd_y))
-    
-        printstyled(color=:red, @sprintf "\n set_convection B %.2e T %.2e L %.2e R %.2e\n" maximum(abs.(vecb_B(∇ϕ_x,grid_u))) maximum(abs.(vecb_T(∇ϕ_x,grid_u))) maximum(abs.(vecb_L(∇ϕ_y,grid_v))) maximum(abs.(vecb_R(∇ϕ_y,grid_v))))
-        printstyled(color=:red, @sprintf "\n set_convection B %.2e T %.2e L %.2e R %.2e\n" maximum(grd_x[end,:]) maximum(grd_x[1,:]) maximum(grd_y[:,1]) maximum(grd_y[:,end]))
-
-
-        print("\n dt ", num.τ)
-        dt = num.τ
-
-        Du_x = zeros(grid_u)
-        Du_y = zeros(grid_u)
-        # Du_x .= reshape(vec1(uD,grid_u), grid_u)
-        # Du_y .= reshape(vec1(uD,grid_u), grid_u)
-        for iLS in 1:num.nLS
-            Du_x[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
-            Du_y[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
-        end
-        # Du_x .= reshape(vec2(uD,grid_u), grid_u)
-        # Du_y .= reshape(vec2(uD,grid_u), grid_u)
-        Du_x[:,1] .= vecb_L(uD,grid_u) #+ vecb_L(∇ϕ_x,grid_u)*dt
-        # Du_x[:,2] .= u[:,2]
-        Du_y[1,:] .= vecb_B(uD,grid_u) + dt* grd_x[1,:]
-        # Du_y[2,:] .= u[2,:]
-        Du_x[:,end] .= vecb_R(uD,grid_u) #+ vecb_R(∇ϕ_x,grid_u)*dt
-        # Du_x[:,end-1] .= u[:,end-1]
-        Du_y[end,:] .= vecb_T(uD,grid_u) + dt* grd_x[end,:]
-        # Du_y[end-1,:] .= u[end-1,:]
-    
-        Dv_x = zeros(grid_v)
-        Dv_y = zeros(grid_v)
-        # Dv_x .= reshape(vec1(vD,grid_v), grid_v)
-        # Dv_y .= reshape(vec1(vD,grid_v), grid_v)
-        for iLS in 1:num.nLS
-            Dv_x[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
-            Dv_y[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
-        end
-        # Dv_x .= reshape(vec2(vD,grid_v), grid_v)
-        # Dv_y .= reshape(vec2(vD,grid_v), grid_v)
-        Dv_x[:,1] .= vecb_L(vD,grid_v) + dt* grd_y[:,1]
-        # Dv_x[:,2] .= v[:,2]
-        Dv_y[1,:] .= vecb_B(vD,grid_v) #+ vecb_B(∇ϕ_y,grid_v) * dt
-        # Dv_y[2,:] .= v[2,:]
-        Dv_x[:,end] .= vecb_R(vD,grid_v) + dt* grd_y[:,end]
-        # Dv_x[:,end-1] .= v[:,end-1]
-        Dv_y[end,:] .= vecb_T(vD,grid_v) #+ vecb_T(∇ϕ_y,grid_v) * dt
-        # Dv_y[end-1,:] .= v[end-1,:]
-
-        ∇ϕ_x .= 0.0
-
-        ∇ϕ_x .= 0.0
-    
-        
-    else
-        Du_x = zeros(grid_u)
-        Du_y = zeros(grid_u)
-        # Du_x .= reshape(vec1(uD,grid_u), grid_u)
-        # Du_y .= reshape(vec1(uD,grid_u), grid_u)
-        for iLS in 1:num.nLS
-            Du_x[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
-            Du_y[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
-        end
-        # Du_x .= reshape(vec2(uD,grid_u), grid_u)
-        # Du_y .= reshape(vec2(uD,grid_u), grid_u)
-        Du_x[:,1] .= vecb_L(uD,grid_u) 
-        # Du_x[:,2] .= u[:,2]
-        Du_y[1,:] .= vecb_B(uD,grid_u)
-        # Du_y[2,:] .= u[2,:]
-        Du_x[:,end] .= vecb_R(uD,grid_u)
-        # Du_x[:,end-1] .= u[:,end-1]
-        Du_y[end,:] .= vecb_T(uD,grid_u)
-        # Du_y[end-1,:] .= u[end-1,:]
-    
-        Dv_x = zeros(grid_v)
-        Dv_y = zeros(grid_v)
-        # Dv_x .= reshape(vec1(vD,grid_v), grid_v)
-        # Dv_y .= reshape(vec1(vD,grid_v), grid_v)
-        for iLS in 1:num.nLS
-            Dv_x[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
-            Dv_y[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
-        end
-        # Dv_x .= reshape(vec2(vD,grid_v), grid_v)
-        # Dv_y .= reshape(vec2(vD,grid_v), grid_v)
-        Dv_x[:,1] .= vecb_L(vD,grid_v)
-        # Dv_x[:,2] .= v[:,2]
-        Dv_y[1,:] .= vecb_B(vD,grid_v)
-        # Dv_y[2,:] .= v[2,:]
-        Dv_x[:,end] .= vecb_R(vD,grid_v)
-        # Dv_x[:,end-1] .= v[:,end-1]
-        Dv_y[end,:] .= vecb_T(vD,grid_v)
-        # Dv_y[end-1,:] .= v[end-1,:]
+    for iLS in 1:num.nLS
+        Du_x[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED] #TODO PmIII
+        Du_y[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
     end
 
-    #######################################################################
-    # Du_x = zeros(grid_u)
-    # Du_y = zeros(grid_u)
-    # # Du_x .= reshape(vec1(uD,grid_u), grid_u)
-    # # Du_y .= reshape(vec1(uD,grid_u), grid_u)
-    # for iLS in 1:num.nLS
-    #     Du_x[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
-    #     Du_y[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
-    # end
-    # # Du_x .= reshape(vec2(uD,grid_u), grid_u)
-    # # Du_y .= reshape(vec2(uD,grid_u), grid_u)
-    # Du_x[:,1] .= vecb_L(uD,grid_u) 
-    # # Du_x[:,2] .= u[:,2]
-    # Du_y[1,:] .= vecb_B(uD,grid_u)
-    # # Du_y[2,:] .= u[2,:]
-    # Du_x[:,end] .= vecb_R(uD,grid_u)
-    # # Du_x[:,end-1] .= u[:,end-1]
-    # Du_y[end,:] .= vecb_T(uD,grid_u)
-    # # Du_y[end-1,:] .= u[end-1,:]
+    Du_x[:,1] .= vecb_L(uD,grid_u) 
+    Du_y[1,:] .= vecb_B(uD,grid_u)
+    Du_x[:,end] .= vecb_R(uD,grid_u)
+    Du_y[end,:] .= vecb_T(uD,grid_u)
 
-    # Dv_x = zeros(grid_v)
-    # Dv_y = zeros(grid_v)
-    # # Dv_x .= reshape(vec1(vD,grid_v), grid_v)
-    # # Dv_y .= reshape(vec1(vD,grid_v), grid_v)
-    # for iLS in 1:num.nLS
-    #     Dv_x[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
-    #     Dv_y[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
-    # end
-    # # Dv_x .= reshape(vec2(vD,grid_v), grid_v)
-    # # Dv_y .= reshape(vec2(vD,grid_v), grid_v)
-    # Dv_x[:,1] .= vecb_L(vD,grid_v)
-    # # Dv_x[:,2] .= v[:,2]
-    # Dv_y[1,:] .= vecb_B(vD,grid_v)
-    # # Dv_y[2,:] .= v[2,:]
-    # Dv_x[:,end] .= vecb_R(vD,grid_v)
-    # # Dv_x[:,end-1] .= v[:,end-1]
-    # Dv_y[end,:] .= vecb_T(vD,grid_v)
-    # # Dv_y[end-1,:] .= v[end-1,:]
+    Dv_x = zeros(grid_v)
+    Dv_y = zeros(grid_v)
 
-    #######################################################################
+    for iLS in 1:num.nLS
+        Dv_x[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED] #TODO PmIII
+        Dv_y[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
+    end
+   
+    Dv_x[:,1] .= vecb_L(vD,grid_v)
+    Dv_y[1,:] .= vecb_B(vD,grid_v)
+    Dv_x[:,end] .= vecb_R(vD,grid_v)
+    Dv_y[end,:] .= vecb_T(vD,grid_v)
+
+    if num.prediction == "PmIII" #cf Brown 2001
+        # and we first consider boundary conditions
+        # ```math
+        # \begin{align}
+        # \hat{\mathbf{n}} \cdot \mathbf{u}^*|_{\partial \Omega} &= \hat{\mathbf{n}} \cdot \mathbf{u}_b^{n+1} \\
+        # \hat{\mathbf{t}} \cdot \mathbf{u}^*|_{\partial \Omega} &= \hat{\mathbf{t}} \cdot (\mathbf{u}_b^{n+1} + \Delta t \nabla_h \phi^n)|_{\partial \Omega}.
+        # \end{align}
+        # ```
+        
+        #region Compute gradient
+        grad_x = zeros(grid_u)
+        grad_y = zeros(grid_v)
+        compute_grad_T_x_T_y_array_u_v_capacities!(num, grid, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
+        #endregion Compute gradient
+
+        # printstyled(color=:red, @sprintf "\n grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_x) maximum(grd_x) minimum(grd_y) maximum(grd_y))
+    
+        # printstyled(color=:red, @sprintf "\n set_convection B %.2e T %.2e L %.2e R %.2e\n" maximum(abs.(vecb_B(∇ϕ_x,grid_u))) maximum(abs.(vecb_T(∇ϕ_x,grid_u))) maximum(abs.(vecb_L(∇ϕ_y,grid_v))) maximum(abs.(vecb_R(∇ϕ_y,grid_v))))
+        # printstyled(color=:red, @sprintf "\n set_convection B %.2e T %.2e L %.2e R %.2e\n" maximum(grd_x[end,:]) maximum(grd_x[1,:]) maximum(grd_y[:,1]) maximum(grd_y[:,end]))
+
+        # print("\n dt ", num.τ)
+        dt = num.τ
+
+        Du_y[1,:] .+= dt* grad_x[1,:] #vecb_B(uD,grid_u) + 
+        Du_y[end,:] .+= dt* grad_x[end,:] #vecb_T(uD,grid_u) + 
+        Dv_x[:,1] .+= dt* grad_y[:,1] #vecb_L(vD,grid_v) +
+        Dv_x[:,end] .+= dt* grad_y[:,end] #vecb_R(vD,grid_v) + 
+        
+        # ∇ϕ_x .= 0.0
+        # ∇ϕ_y .= 0.0
+
+    end
+
+
+
+    # Du_x .= reshape(vec1(uD,grid_u), grid_u)
+    # Du_y .= reshape(vec1(uD,grid_u), grid_u)
+
+    # Du_x .= reshape(vec2(uD,grid_u), grid_u)
+    # Du_y .= reshape(vec2(uD,grid_u), grid_u)
+
+    # Du_x[:,2] .= u[:,2]
+    # Du_y[2,:] .= u[2,:]
+
+    # Du_x[:,end-1] .= u[:,end-1]
+    # Du_y[end-1,:] .= u[end-1,:]
+
+    # Dv_x .= reshape(vec1(vD,grid_v), grid_v)
+    # Dv_y .= reshape(vec1(vD,grid_v), grid_v)
+
+    # Dv_x .= reshape(vec2(vD,grid_v), grid_v)
+    # Dv_y .= reshape(vec2(vD,grid_v), grid_v)
+
+    # Dv_x[:,2] .= v[:,2]
+    # Dv_y[2,:] .= v[2,:]
+    # Dv_x[:,end-1] .= v[:,end-1]
+    # Dv_y[end-1,:] .= v[end-1,:]
+
 
     # bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
     # bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
@@ -2231,7 +2167,7 @@ Forward Euler
 - bc_type: BC for interface, num, grid
 - opC
 - A: out
-- B: out
+- B: out,  B[1:ni,1:ni] = Mm1
 - L: Laplacian
 - bc_L: Laplacian BC
 - bc_L_b: Laplacian BC?
@@ -2644,17 +2580,23 @@ function set_Crank_Nicolson!(
     for i in 1:num.nLS
         push!(a0_p, zeros(grid))
     end
-    rhs_ϕ = set_poisson(
+    # rhs_ϕ = set_poisson(
+    #     bc_int, num, grid, a0_p, opC_p, opC_u, opC_v,
+    #     Aϕ, Lp, bc_Lp, bc_Lp_b, BC_p,
+    #     ls_advection
+    # )
+
+    # vecb(rhs,grid) .= +χ_b * vec(a0_b) #was - in set_poisson , -a0, a1 = -1,...
+
+    # In solve_poisson, the equation a \frac{\partial p}{\partial n} + bp = g , 
+    # if inhomogeneous Neumann: -1 at bottom and left
+    # +1 sign at top and right
+    
+    rhs_ϕ = solve_poisson(
         bc_int, num, grid, a0_p, opC_p, opC_u, opC_v,
         Aϕ, Lp, bc_Lp, bc_Lp_b, BC_p,
         ls_advection
     )
-
-    # rhs_ϕ = set_poisson(
-    #     bc_int, num, grid, a0_p, opC_p, opC_u, opC_v,
-    #     Aϕ, irho1.*Lp, irho1.*bc_Lp, irho1.*bc_Lp_b, BC_p,
-    #     ls_advection
-    # )
 
     return rhs_u, rhs_v, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b
 end
@@ -2773,7 +2715,19 @@ function set_Forward_Euler!(
     for i in 1:num.nLS
         push!(a0_p, zeros(grid))
     end
-    rhs_ϕ = set_poisson(
+    # rhs_ϕ = set_poisson(
+    #     bc_int, num, grid, a0_p, opC_p, opC_u, opC_v,
+    #     Aϕ, Lp, bc_Lp, bc_Lp_b, BC_p,
+    #     ls_advection
+    # )
+
+    # vecb(rhs,grid) .= +χ_b * vec(a0_b) #was - in set_poisson , -a0, a1 = -1,...
+
+    # In solve_poisson, the equation a \frac{\partial p}{\partial n} + bp = g , 
+    # if inhomogeneous Neumann: -1 at bottom and left
+    # +1 sign at top and right
+    
+    rhs_ϕ = solve_poisson(
         bc_int, num, grid, a0_p, opC_p, opC_u, opC_v,
         Aϕ, Lp, bc_Lp, bc_Lp_b, BC_p,
         ls_advection
@@ -2887,12 +2841,20 @@ function pressure_projection!(
     irho1 = 1.0/rho1
     mu1_over_rho1 = num.mu1 / num.rho1 
 
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction"::Cstring,
+    "u_1D"::Cstring, uD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "v_1D"::Cstring, vD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
     #region prediction 
    
-    #region add gradient to prediction
-    # Compute gradient of pressure localized on u and v grids
+    #region add gradient of pressure to prediction
+    # Compute gradient of pressure localized on u and v grids , times volume
     # $ \nabla p^{n-1/2} $
-    if num.prediction == "PmI" || num.prediction == "PmII" #cf Brown 2001
+    if num.prediction == "PmI" || num.prediction == "PmII" || num.prediction == "PmIIimposedpressure" || num.prediction == "PmIIimposedpressureBCincrement"
+        #cf Brown 2001
 
         ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid)
         ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(pD,grid) .+ opC_v.Gy_b * vecb(pD,grid)
@@ -2901,14 +2863,42 @@ function pressure_projection!(
             ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid,iLS+1)
         end
 
-        ph.Gxm1 .= 0.0
+        ph.Gxm1 .= 0.0 #TODO
         ph.Gym1 .= 0.0
+        
+        # gradient \times volume of cell (cells at border: volume = dx*dy/2)
+        ph.Gxm1 .= copy(∇ϕ_x)
+        ph.Gym1 .= copy(∇ϕ_y)
 
-        ph.Gxm1 .= ∇ϕ_x
-        ph.Gym1 .= ∇ϕ_y
+        #TODO add gradient check
+    
+        # ph.Gxm1 .= ∇ϕ_x
+        # ph.Gym1 .= ∇ϕ_y
+
+
+        PDI_status = @ccall "libpdi".PDI_multi_expose("print_pressure_gradient_in_prediction"::Cstring,
+        "grad_x_1D"::Cstring, ph.Gxm1::Ptr{Cdouble}, PDI_OUT::Cint,
+        "grad_y_1D"::Cstring, ph.Gym1::Ptr{Cdouble}, PDI_OUT::Cint,
+        "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
 
         ∇ϕ_x .= 0.0
         ∇ϕ_y .= 0.0
+
+        grad_x = zeros(grid_u)
+        grad_y = zeros(grid_v)
+        compute_grad_T_x_T_y_array_u_v_capacities!(num, grid, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
+    
+        #TODO divergence level
+      
+        PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_velocity_end"::Cstring,
+        "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+        "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+        "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
+    
         
     end
     #endregion add gradient to prediction
@@ -2923,10 +2913,16 @@ function pressure_projection!(
     nbv = 2 * grid_v.nx + 2 * grid_v.ny
     ntv = (nLS - nNavier + 1) * niv + nbv
 
+    if num.prediction == "PmIIimposedpressure" || num.prediction == "PmIIimposedpressureBCincrement" 
+        BC_Poisson = Boundaries() #Neumann everywhere
+    else
+        BC_Poisson = copy(BC_p) 
+    end
+
     if is_Forward_Euler(time_scheme)
         rhs_u, rhs_v, rhs_ϕ, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_Forward_Euler!(
             bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
-            opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
+            opC_p, opC_u, opC_v, BC_Poisson, BC_u, BC_v,
             Au, Bu, Av, Bv, Aϕ, Auv, Buv,
             Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
             Mum1, Mvm1, mu1_over_rho1, op_conv, ph,
@@ -2935,7 +2931,7 @@ function pressure_projection!(
     elseif is_Crank_Nicolson(time_scheme)
         rhs_u, rhs_v, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_Crank_Nicolson!(
             bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
-            opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
+            opC_p, opC_u, opC_v, BC_Poisson, BC_u, BC_v,
             Au, Bu, Av, Bv, Aϕ,
             Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
             Mum1, Mvm1, mu1_over_rho1, op_conv, ph,
@@ -2953,7 +2949,9 @@ function pressure_projection!(
     Convv = fzeros(grid_v)
     Cui = Cu * vec(u) .+ CUTCu
     Cvi = Cv * vec(v) .+ CUTCv
+
     if advection
+        # scheme
         if current_i == 1
             Convu .+= Cui
             Convv .+= Cvi
@@ -3014,7 +3012,8 @@ function pressure_projection!(
         "v_1D"::Cstring, rhs_v::Ptr{Cdouble}, PDI_OUT::Cint,
         C_NULL::Ptr{Cvoid})::Cint
         
-        mul!(rhs_v, Bv, vD, 1.0, 1.0)
+        # add M * vD , i.e. dx*dy*v:
+        mul!(rhs_v, Bv, vD, 1.0, 1.0) 
 
         PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_v"::Cstring,
         "v_1D"::Cstring, rhs_v::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -3059,14 +3058,20 @@ function pressure_projection!(
             println(e)
         end
 
-        PDI_status = @ccall "libpdi".PDI_multi_expose("print_pressure_projection"::Cstring,
-        "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-        "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-        "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-        C_NULL::Ptr{Cvoid})::Cint
+        # PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_prediction"::Cstring,
+        # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # C_NULL::Ptr{Cvoid})::Cint
 
-        print("\n proj v ",reshape(vec1(vcorrD,grid_v),grid_v)[div(grid_v.ny,2),:]," size ",size(reshape(vec1(vcorrD,grid_v),grid_v)[div(grid_v.ny,2),:]))
-        print("\n proj v vecb_L",vecb_L(vcorrD,grid_v)," size ",size(vecb_L(vcorrD,grid_v))," size ",size(vecb_B(vcorrD,grid_v)))
+        # PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_prediction"::Cstring,
+        # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # C_NULL::Ptr{Cvoid})::Cint
+
+        # print("\n proj v ",reshape(vec1(vcorrD,grid_v),grid_v)[div(grid_v.ny,2),:]," size ",size(reshape(vec1(vcorrD,grid_v),grid_v)[div(grid_v.ny,2),:]))
+        # print("\n proj v vecb_L",vecb_L(vcorrD,grid_v)," size ",size(vecb_L(vcorrD,grid_v))," size ",size(vecb_B(vcorrD,grid_v)))
 
 
         kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])
@@ -3132,13 +3137,6 @@ function pressure_projection!(
         kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])
         vcorr .= reshape(vec1(vcorrD,grid_v), grid_v)
 
-
-        PDI_status = @ccall "libpdi".PDI_multi_expose("print_pressure_projection"::Cstring,
-        "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-        "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-        "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-        C_NULL::Ptr{Cvoid})::Cint
-
         nNav = 0
         _iLS = 1
         for iLS in 1:nLS
@@ -3156,10 +3154,29 @@ function pressure_projection!(
         end
     end
 
+    PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_prediction"::Cstring,
+    "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    # # Test analytical vel
+    # ucorrD = copy(uD)
+    # vcorrD = copy(vD)
+    # print("\n test analytical vel ")
+
+    # PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_prediction"::Cstring,
+    # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # C_NULL::Ptr{Cvoid})::Cint
+
+
     #endregion prediction 
 
     #region correction 
 
+    # Compute divergence of velocity
     Duv = opC_p.AxT * vec1(ucorrD,grid_u) .+ opC_p.Gx_b * vecb(ucorrD,grid_u) .+
           opC_p.AyT * vec1(vcorrD,grid_v) .+ opC_p.Gy_b * vecb(vcorrD,grid_v)
     for iLS in 1:nLS
@@ -3169,11 +3186,15 @@ function pressure_projection!(
         end
     end
 
-    #Poisson equation
-    # vec1(rhs_ϕ,grid) .= iτ .* Duv
-    vec1(rhs_ϕ,grid) .= rho1 .* iτ .* Duv #TODO
-    # veci(rhs_ϕ,grid) .*= rho1 #TODO
 
+    #TODO replace
+
+    # Poisson equation: source term
+    # divergence of velocity / dt
+    vec1(rhs_ϕ,grid) .= iτ .* Duv
+
+    #region needs to be corrected/documented for the signs
+    
     # pres_free_suface = 0.0
     #TODO Marangoni
     #TODO phase change
@@ -3223,7 +3244,11 @@ function pressure_projection!(
 
     # vecb(rhs_ϕ,grid) .*= irho1
 
-    # \phi^{n+1}
+    #endregion needs to be corrected/documented for the signs
+
+    # Solve Poisson equation
+
+    # \phi^{n+1}: ϕD
     @time ϕD .= Aϕ \ rhs_ϕ
     kill_dead_cells!(vec1(ϕD,grid), grid, geo[end])
     for iLS in 1:nLS
@@ -3272,15 +3297,34 @@ function pressure_projection!(
         # Brown 2001
         vec1(pD,grid) .+= vec(ϕ) #no τ  since div u not rho1
 
-    elseif num.prediction == "PmII"
+    elseif num.prediction == "PmII" || num.prediction == "PmIIimposedpressure" || num.prediction == "PmIIimposedpressureBCincrement"
+        # \nabla_h p^{n+1/2} = \nabla_h p^{n-1/2} + \nabla_h \phi^{n+1} - 
         #nu dt/2
         # \Delta t \nabla_h^2 \phi^{n+1} = \nabla_h \cdot \mathbf{u}^{*} \quad \text{in } \Omega
-        vec1(pD,grid) .+= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * Duv,grid)) #no τ  since div u not rho1
+        
+
+        print("\n max p vec1 ",maximum(vec1(pD,grid)))
+        print("\n max p",minimum(ϕ),maximum(ϕ))
+        print("\n max p",minimum(num.mu_cin1./2 .* reshape(iM * Duv,grid))," ",maximum(num.mu_cin1./2 .* reshape(iM * Duv,grid)))
+
+        # todo zero neumann bc !!!!
+        # vec1(pD,grid) .+= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * Duv,grid))
+        # or,
+        # for better readability
+        vec1(pD,grid) .= vec1(pD,grid) .+ vec(ϕ .- num.mu_cin1./2 .* reshape(iM * Duv,grid)) 
+        # vec1(pD,grid) .+= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * Duv,grid)) 
+
+        print("\n max p vec1 ",maximum(vec1(pD,grid)))
+        print("\n max p",maximum(ϕ))
+        print("\n max p",minimum(num.mu_cin1./2 .* reshape(iM * Duv,grid))," ",maximum(num.mu_cin1./2 .* reshape(iM * Duv,grid)))
+
+
 
     elseif num.prediction == "PmIII"
-        vec1(pD,grid) .+= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * Duv,grid)) #no τ  since div u not rho1
+        # \Delta t \nabla_h^2 \phi^{n+1} = \nabla_h \cdot \mathbf{u}^{*} \quad \text{in } \Omega
+        vec1(pD,grid) .= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * Duv,grid)) #no contribution from p^{n-1/2}
     
-    elseif num.prediction == "Flower"
+    elseif num.prediction == "Flower" #occursin("Flower",num.prediction)
         # \nabla_h p^{n+1/2} = \nabla_h \phi^{n+1} # TODO: does not correspond to any formula in Brown 2001 ?
         vec1(pD,grid) .= vec(ϕ) #.- mu1_over_rho1 .* reshape(iM * Duv, grid))
     
@@ -3288,10 +3332,41 @@ function pressure_projection!(
         @error("wrong prediction method, does not exist")
     end
 
-    for iLS in 1:nLS
-        veci(pD,grid,iLS+1) .= veci(ϕD,grid,iLS+1)
+    # PDI_status = @ccall "libpdi".PDI_multi_expose("print_pressure_projection"::Cstring,
+    # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # C_NULL::Ptr{Cvoid})::Cint
+
+    #region interfacial pressure is overwritten
+    # TODO check and document: for pressure-imposed Poiseuille, not sure
+    #  
+    if num.prediction == "PmIIimposedpressure"
+
+    elseif num.prediction == "PmIIimposedpressureBCincrement"
+        #TODO
+        #init p for Poiseuille : grad_x = 0
+        #increment : grad_x=0
+        # so grad_x still zero ? even with div ?
+        tmp_vec_p = zeros(grid) 
+        # tmp_vec_p .= 0.0
+        get_height!(grid.LS[1],grid.ind,grid.dx,grid.dy,grid.LS[end].geoS,tmp_vec_p) #here tmp_vec_p solid
+
+        init_fields_multiple_levelsets!(num,ph.pD,ph.p,tmp_vec_p,BC_p,grid,num.pres_intfc,"pL")
+
+    else
+        for iLS in 1:nLS
+            veci(pD,grid,iLS+1) .= veci(ϕD,grid,iLS+1)
+        end
+        vecb(pD,grid) .= vecb(ϕD,grid) 
     end
-    vecb(pD,grid) .= vecb(ϕD,grid)
+
+
+    #endregion interfacial pressure is overwritten
+
+    #TODO reapply Neumann BC for pressure boundary values ?
+
+
     p .= reshape(vec1(pD,grid), grid)
 
     #TODO
@@ -3342,6 +3417,27 @@ function pressure_projection!(
         #     end
         # end
     end
+
+
+    grad_x = zeros(grid_u)
+    grad_y = zeros(grid_v)
+    compute_grad_T_x_T_y_array_u_v_capacities!(num, grid, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
+
+    #TODO divergence level
+  
+    PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_velocity_end"::Cstring,
+    "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    # PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_correction"::Cstring,
+    # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # C_NULL::Ptr{Cvoid})::Cint
 
     #endregion correction 
 

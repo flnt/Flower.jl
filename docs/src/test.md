@@ -1396,6 +1396,158 @@ python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/te
 
 ## Poiseuille
 
+!!! todo "output BC/results to html"
+  https://github.com/JuliaPluto/HypertextLiteral.jl
+
+### Flower
+
+```julia
+ BC_uL  left = Dirichlet 0.0 
+ right = Dirichlet 0.0 
+ bottom = Dirichlet 0.0 
+ top = Neumann 0.0 
+ LS 1 = Dirichlet 0.0 
+
+ BC_vL  left = Dirichlet 0.0 
+ right = Dirichlet 0.0 
+ bottom = Dirichlet [4.1220703125000004e-5, 0.00011973632812500001, 0.00019301757812500002, 0.000261064453125, 0.000323876953125, 0.000381455078125, 0.00043379882812499994, 0.000480908203125, 0.000522783203125, 0.000559423828125, 0.0005908300781250002, 0.000617001953125, 0.0006379394531250002, 0.0006536425781250001, 0.0006641113281249999, 0.000669345703125, 0.0006693457031250001, 0.000664111328125, 0.0006536425781250001, 0.0006379394531250001, 0.000617001953125, 0.0005908300781249999, 0.0005594238281250001, 0.0005227832031250001, 0.0004809082031250002, 0.0004337988281250001, 0.00038145507812499985, 0.0003238769531250002, 0.000261064453125, 0.00019301757812499978, 0.000119736328125, 4.1220703125e-5] 
+ top = Neumann 0.0 
+ LS 1 = Dirichlet 0.0 
+
+ BC_pL  left = Neumann 0.0 
+ right = Neumann 0.0 
+ bottom = Neumann 0.0 
+ top = Dirichlet 0 
+
+```
+
+!!! danger "After one step"
+
+```bash
+[check_pressure_velocity_end]
+min(u)  0.00e+00 min(v)  0.00e+00 min(p)  -0.00e+00
+max(u)  0.00e+00 max(v)  6.69e-04 max(p)  3.34e-05
+mean(u) 0.00e+00 mean(v) 2.22e-04 mean(p) 8.98e-06
+min(grad_x)  -7.02e-02 min(grad_y)  -3.50e-01 
+max(grad_x)  7.02e-02 max(grad_y)  -1.03e-09 
+```
+
+
+
+### Flower, top and bottom pressure imposed
+
+
+```
+[check_pressure_velocity_end]
+min(u)  0.00e+00 min(v)  0.00e+00 min(p)  -4.52e-02
+max(u)  0.00e+00 max(v)  6.69e-04 max(p)  -0.00e+00
+mean(u) 0.00e+00 mean(v) 2.22e-04 mean(p) -1.20e-02
+min(grad_x)  -2.76e-02 min(grad_y)  4.52e+02 
+max(grad_x)  2.76e-02 max(grad_y)  4.52e+02 
+```
+
+
+### PmII, pressure imposed
+
+```
+[Before prediction]
+min(u)  0.00e+00 min(v)  0.00e+00 min(p)  0.00e+00
+max(u)  0.00e+00 max(v)  6.69e-04 max(p)  4.52e-02
+mean(u) 0.00e+00 mean(v) 2.23e-04 mean(p) 1.20e-02
+```
+
+
+```@raw html
+<table class="styled-table">
+<thead>
+<tr>
+<th> Variable </th>
+<th> left </th> <th> right </th> <th>bottom</th> <th>top </th> 
+</tr>
+</thead>
+<tbody>
+<tr> <td> u </td> <td> left = Dirichlet 0.0</td> <td> right = Dirichlet 0.0</td> <td>bottom = Dirichlet 0.0 </td> <td> top = Neumann 0.0 </td> </tr>
+<tr> <td> v </td> <td> left = Dirichlet 0.0</td> <td> right = Dirichlet 0.0</td> <td>bottom = Neumann 0.0 </td> <td> top = Neumann 0.0 </td> </tr>
+<tr> <td> p </td> <td> left = Neumann 0.0</td> <td> right = Neumann 0.0</td> <td>bottom = Dirichlet 0.045177296000000006 </td> <td> top = Dirichlet 0 </td> </tr>
+</tbody>
+</table>
+```
+
+
+!!! danger "With pressure BC for phi, a part of the increment of pressure"
+    cf [`Brown et al. (2001)`](https://www.sciencedirect.com/science/article/pii/S0021999101967154)
+
+    min(u)  0.00e+00 min(v)  0.00e+00 min(p)  -1.42e-06
+    max(u)  0.00e+00 max(v)  6.69e-04 max(p)  4.52e-02
+    mean(u) 0.00e+00 mean(v) 2.23e-04 mean(p) 1.33e-03
+    min(grad_x)  -2.85e+04 min(grad_y)  -2.89e+04 
+    max(grad_x)  1.04e-06 max(grad_y)  1.45e-02 
+
+
+!!! info "With homogeneous Neumann for phi, a part of the increment of pressure"
+    [check_pressure_velocity_end]
+    min(u)  0.00e+00 min(v)  0.00e+00 min(p)  0.00e+00
+    max(u)  0.00e+00 max(v)  6.69e-04 max(p)  4.52e-02
+    mean(u) 0.00e+00 mean(v) 2.23e-04 mean(p) 1.20e-02
+    min(grad_x)  -1.69e-13 min(grad_y)  -4.52e+02 
+    max(grad_x)  1.69e-13 max(grad_y)  -4.52e+02 
+
+
+
+### BC pressure imposed and BC for pressure increment
+
+```@raw html
+<table class="styled-table">
+<thead>
+<tr>
+<th> Variable </th>
+<th> left </th> <th> right </th> <th>bottom</th> <th>top </th> 
+</tr>
+</thead>
+<tbody>
+<tr> <td> u </td> <td>Dirichlet 0.0</td> <td>Dirichlet 0.0</td> <td>Dirichlet 0.0 </td> <td> Neumann 0.0 </td> </tr> 
+ <tr> <td> v </td> <td>Dirichlet 0.0</td> <td>Dirichlet 0.0</td> <td>Neumann 0.0 </td> <td> Neumann 0.0 </td> </tr> 
+<tr> <td> p </td> <td>Neumann 0.0</td> <td>Neumann 0.0</td> <td>Dirichlet 0.045177296000000006 </td> <td> Dirichlet 0 </td> </tr>
+</tbody>
+</table>
+```
+
+```@raw html
+<figure>
+    <a name="PoiseuillePmIIiposedpressureBCincrement"></a> 
+    <img src="../../../convergence_Poiseuille_prediction_PmII_imposed_pressure_BC_increment/convergence_Poiseuille_errors.svg" alt="Poiseuille" title="Poiseuille">
+    <figcaption>Errors on velocity</figcaption>
+</figure>
+```
+
+
+
+
+
+
+
+!!! todo "compare"
+
+
+Pressure-velocity coupling
+* 1 : rh_v: add M * v
+* prediction
+* correction
+
+!!! todo "BUG p"
+
+!!! todo "BUG v"
+
+We expect the following profile:
+
+```bash
+min(u)  0.00e+00 min(v)  0.00e+00 min(p)  0.00e+00
+max(u)  0.00e+00 max(v)  6.69e-04 max(p)  4.45e-02
+mean(u) 0.00e+00 mean(v) 6.38e-06 mean(p) 1.06e-02
+```
+
+
+
 ```@docs
 test_laplacian_pressure
 ```

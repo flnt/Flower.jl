@@ -1410,7 +1410,7 @@ It should be noted that if the vector field represents a gradient, which is a hi
 
 cf fig 2.3 in [`Rodriguez 2024`](https://theses.fr/s384455)
 
-Divergence of a face-centered vector field
+#### Divergence of a face-centered vector field
 
 ```@raw html
 <figure>
@@ -1419,6 +1419,41 @@ Divergence of a face-centered vector field
     <figcaption>"Geometric moments. $\mathcal{A} _ x$ in red dashed lines, $\mathcal{A} _ y$ in blue dashed lines, $\mathcal{B} _ x$ in green dashed lines. $\mathcal{B} _ y$ are not shown."</figcaption>
 </figure>
 ```
+
+!!! todo "Staggered capcities and gradients"
+    for Poiseuille
+
+* u grid: xmin, xmin+dx, ...xmax-dx,xmax
+* v grid: ymin, ymin+dx, ...ymax-dy,ymax
+
+```@docs
+set_bc_bnds
+```
+
+```julia
+if is_neumann(BC_v.bottom)
+    @inbounds Dy[1,:] .= v[1,:] .+ Hv[1,:] .* BC_v.bottom.val 
+elseif is_dirichlet(BC_v.bottom)
+    @inbounds Dy[1,:] .= BC_v.bottom.val
+elseif is_periodic(BC_v.bottom)
+    @inbounds Dy[1,:] .= v[end,:]
+end
+```
+
+but gamma for u v grids ?
+
+!!! todo "add param special init BC"
+
+"
+As explained in Chapter 1, a **staggered grid arrangement** has to be employed to discretize the incompressible Navier-Stokes equations if a conservative method is to be developed. The use of staggered quantities means that Eqs. (2.2) have to be applied to staggered finite volumes. This leads to the need of additional geometrical information as follows. For each domain $\Omega_i$, two staggered grids are defined in the $x$ and $y$-directions. These staggered grids are defined by tracing vertical and horizontal lines passing through each corresponding cell centroid $(x_{i,j}^c, y_{i,j}^c)$ (and through the cell centers if the domain $\Omega_i$ is not defined in the cell). The intersection of these lines with the domain $\Omega_i$ define two additional surface moments $B_x$ and $B_y$. The planar faces $B_x$, $A_y$ and the boundary surface $\Gamma$ enclose the staggered volumes $W_x$ and likewise, the planar faces $B_y$, $A_x$ and the boundary surface $\Gamma$ define the staggered volumes $W_y$. For the sake of presentation, in Fig. 2.3, the $x$-staggered grid and the staggered volume $W_{x,(i+1,j-1)}$ are also shown. These additional geometric moments define an additional set of diagonal matrices.
+
+"
+
+"
+To avoid any confusions, the $\alpha$ component of a gradient will be denoted $\left[\text{grad}(p^{\omega}, p^{\eta})\right]_{\alpha}$ for a scalar field $p$ and $\left[\text{grad}_{\beta} (u_{\beta}^{\omega}, u_{\beta}^{\eta})\right]_{\alpha}$ for the $\beta$ component of a vector field $u$.
+
+"
+
 
 cf *A levelset based cut-cell method for two-phase flows. Part 2: Free-surface flows and dynamic contact angle treatment*:
 
@@ -1505,7 +1540,7 @@ x_bc_right = gp.x[:,end] .+ gp.dx[:,end] ./ 2.0
 ```
 
 ## Storage of bulk and interfacial variables
-Variables are stored in the following order: bulk, interfacial (based on levelsets) and interfacial (borders, in the order left bottom right top, cf ``grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1] and grid.ind.b_top[1]``).
+Variables are stored in the following order: bulk, interfacial (based on levelsets) and interfacial (borders, in the order left bottom right top, cf grid.ind.b_left[1], grid.ind.b_bottom[1], grid.ind.b_right[1] and grid.ind.b_top[1]).
 
 
  The system size is ``nt \times nt``:
@@ -2104,10 +2139,10 @@ Either pressure gradient in prediction or remove component in velocity boundary 
 
 With the parameter ``num.prediction``, the following methods can be called:
 
-* 0: original pressure-velocity coupling in Flower, the pressure gradient is not in the prediction and the boundary conditions are not modified accordingly
-* 1: pressure gradient in prediction
-*
-
+* "Flower": original pressure-velocity coupling in Flower, the pressure gradient is not in the prediction and the boundary conditions are not modified accordingly
+* "PmI": pressure gradient in prediction
+* "PmII": 
+* "PmIII": TODO, the pressure gradient is not in the prediction
 "
 In the present work, the method referred to as projection method II (PmII) by [Brown et al. 2001](https://www.sciencedirect.com/science/article/pii/S0021999101967154), which ensures a second order discretization of the equations, is employed. The first step consists in updating an intermediate velocity field $\mathbf{u}^*$ using the momentum equation (referred to as prediction step), where the diffusive transport term is solved using a Crank--Nicolson scheme and the convective transport term using a second-order Adams--Bashforth integrator,
 "
@@ -2427,6 +2462,16 @@ S2IIOE!
 
 ### Gradient of a scalar field
 
+!!! todo "u v nodes at wall"
+    At the wall, the u and v nodes are associated with the midpoints of the border but are in fact in the centroid of the half control volume.
+
+!!! todo "difference grad p cap and u v cap"
+    difference: half control volumes ...
+
+```@docs
+compute_grad_T_x_T_y_array_u_v_capacities!
+```
+
 ```@docs
 compute_grad_T_x_T_y_array!
 compute_grad_T_x_array!
@@ -2708,6 +2753,15 @@ vec2(phL.TD,gp) .= vec(ftest.(x_bc,y_bc))
 !!! todo "Advection equation of a vector-valued field  2.5.1 Discrete operators for staggered quantities" [`Rodriguez (2024)`](https://theses.fr/s384455)
 
 
+## Boundaries
+
+```@docs
+Boundaries
+```
+
+```@docs
+BoundariesInt
+```
 
 ## Small cells
 
@@ -2784,8 +2838,11 @@ List all variables
 * u, v, T, LS, moments (heights,...), phi elec, i current, scalars ...
 * grids
 * liquid/solid
-* successive substitution reuse LU decomposition
+* successive substitution reuse LU decomposition: use "factorize(A)"
 * BitArray to mask values (small cells or solid) to compute min, mask, ...
+* integral quantities
+* test radial + BC wall
+* manufactured solution for diffusion
 
 !!! todo "Document capacities p, u, v"
     ```julia

@@ -11,6 +11,19 @@ mathengine = MathJax3(Dict(
 ))
 
 #Generate html
+#cf https://documenter.juliadocs.org/stable/lib/public/#Documenter.makedocs
+# Documenter.HTML(assets = [
+#     # Standard local asset
+#     "assets/extra_styles.css",
+#     # Standard remote asset (extension used to determine that class = :js)
+#     asset("https://example.com/jslibrary.js"),
+#     # Setting asset class manually, since it can't be determined manually
+#     asset("https://example.com/fonts", class = :css),
+#     # Same as above, but for a local asset
+#     asset("asset/foo.script", class=:js, islocal=true),
+# ])
+# <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+# <script src="https://www.w3schools.com/lib/w3.js"></script>
 makedocs(sitename="Flower.jl",
     # prettyurls = false otherwise (locally at least) when you click on 
     # otherwise use a server in local
@@ -18,7 +31,12 @@ makedocs(sitename="Flower.jl",
     # tutorial you do not access the tutorial directly and need to click in on "index.md" in a folder
     format = Documenter.HTML(prettyurls = false ; 
     mathengine =mathengine,
-    assets=["assets/custom.css"],
+    assets=[
+    "assets/custom.css",  
+    # asset("https://www.w3schools.com/lib/w3.js", class=:js), w3 not working here
+    # asset("https://www.w3schools.com/w3css/4/w3.css", class=:css),
+    ],
+
     # assets = ["assets/custom.css", "assets/custom.js"]
     size_threshold_ignore = ["index.md","documentation.md","test.md","tutorial.md"], #otherwise size threshold exceeded and blocks search bar for instance
     ), 

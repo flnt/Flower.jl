@@ -794,6 +794,9 @@ function strain_rate!(::Dirichlet, O11, O12_x, O12_y, O22, cap_x, cap_y, n, all_
     return nothing
 end
 
+"""
+set BC for ...
+"""
 function set_bc_bnds(::Dirichlet, Du, Dv, Hu, Hv, u, v, BC_u, BC_v)
     Dx = copy(Du)
     Dy = copy(Dv)

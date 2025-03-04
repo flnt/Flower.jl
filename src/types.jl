@@ -127,6 +127,7 @@ Stores parameters for the simulation
     index_levelset_pdi::D = 1 #to expose levelset number ... to PDI
     time::T=0.0
     iter_solve::D=0
+    pres_intfc::T=0.0 # presintfc = pres0 + p_lapl ? #TODO init pressure
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -528,12 +529,16 @@ Dirichlet is applied. The boundary condition is given by:
     θe::T = π / 2
 end
 
+"""
+init_mode specifies how the vector is initialized based on boundary conditions
+"""
 @with_kw mutable struct Boundaries <: NumericalParameters
     name::String = ""
     left::BoundaryCondition = Neumann()
     right::BoundaryCondition = Neumann()
     bottom::BoundaryCondition = Neumann()
     top::BoundaryCondition = Neumann()
+    init_mode::String = ""
 end
 
 ####################################################################################################
@@ -543,7 +548,9 @@ end
    
 #     x::Union{Vector{T},LinRange{T,D}} = [-0.5 - 1/127 / 2 + i * 1/127 for i = 0:128] # Vector of cells positions in x
 #     y::Union{Vector{T},LinRange{T,D}} =
-
+"""
+init_mode specifies how the vector is initialized based on boundary conditions
+"""
 @with_kw mutable struct BoundariesInt <: NumericalParameters
     name::String = ""
     left::BoundaryCondition = Neumann()
@@ -556,6 +563,7 @@ end
     right_function::Function = x -> x
     bottom_function::Function = x -> x
     top_function::Function = x -> x
+    init_mode::String = ""
 end
 ####################################################################################################
 

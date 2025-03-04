@@ -2991,6 +2991,10 @@ Solves the Poisson equation for a given set of boundary conditions and grid conf
 - `BC`: boundary conditions for the borders of the domain.
 - `ls_advection`: Boolean flag indicating whether advection terms are included.
 
+In BC:
+* Dirichlet : set as is, for instance BC.left = value
+* Neumann : set value you want for derivative with sign, for instance BC.left = value * sign(n \cdot e_x)
+
 ### Returns
 - `rhs`: The right-hand side vector for the Poisson equation.
 

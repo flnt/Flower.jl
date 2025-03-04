@@ -768,7 +768,7 @@ end
 
 
 
-
+#region interpolate_scalar_to_staggered_u_v_grids_at_border!
 @testset "interpolate_scalar_to_staggered_u_v_grids_at_border!" begin
 
     printstyled(color=:green, @sprintf "\n interpolate_scalar_to_staggered_u_v_grids_at_border!" )
@@ -922,7 +922,7 @@ end
 
     @testset "bulk interpolation" begin
 
-        @test L[1,1]=-3.0 atol=test_tolerance
+        @test L[1,1] ≈ -3.0 atol=test_tolerance
 
     end
 
@@ -934,6 +934,10 @@ end
 
 end
 
+#endregion interpolate_scalar_to_staggered_u_v_grids_at_border!
+
+
+#region gradient
 printstyled(color=:green, @sprintf "\n gradient" )
 
 #Initialize liquid phase
@@ -955,10 +959,10 @@ vec1(phL.TD,gp) .= vec(ftest.(x_centroid,y_centroid))
 vec2(phL.TD,gp) .= vec(ftest.(x_bc,y_bc))
 
 
-vecb_L(phL.TD, gp) .= ftest.(gp.x[:,1] .- gp.x[:,1] ./ 2.0, gp.y[:,1])
-vecb_B(phL.TD, gp) .= ftest.(gp.x[1,:], gp.y[1,:] .- gp.y[1,:] ./ 2.0)
-vecb_R(phL.TD, gp) .= ftest.(gp.x[:,end] .+ gp.x[:,1] ./ 2.0, gp.y[:,1])
-vecb_T(phL.TD, gp) .= ftest.(gp.x[1,:], gp.y[end,:] .+ gp.y[1,:] ./ 2.0)
+vecb_L(phL.TD, gp) .= ftest.(gp.x[:,1] .- gp.dx[:,1] ./ 2.0, gp.y[:,1])
+vecb_B(phL.TD, gp) .= ftest.(gp.x[1,:], gp.y[1,:] .- gp.dy[1,:] ./ 2.0)
+vecb_R(phL.TD, gp) .= ftest.(gp.x[:,end] .+ gp.dx[:,1] ./ 2.0, gp.y[:,1])
+vecb_T(phL.TD, gp) .= ftest.(gp.x[1,:], gp.y[end,:] .+ gp.dy[1,:] ./ 2.0)
 
 
 #Initialize solid phase
@@ -1020,11 +1024,12 @@ grad_analytical = ftest_1.(
 j = div(n,2)
 
 print("\n grad_analytical ",grad_analytical[j,:],"\n")
-print("\n D ",grad_x[j,2:end-1],"\n")
+print("\n D grad_x[j,:]",grad_x[j,:],"\n")
+print("\n D grad_x[j,:]",grad_x[j,:],"\n")
 
 @testset "Simple gradient test x" begin
-    print("\n grad_x[j,2:end-1]",grad_x[j,2:end-1]," len ",length(grad_x[j,2:end-1]))
-    test_error = maximum(abs.(grad_x[j,2:end-1] .- 1.0))
+    print("\n grad_x[j,:]",grad_x[j,:]," len ",length(grad_x[j,:]))
+    test_error = maximum(abs.(grad_x[j,:] .- 1.0))
     @test test_error ≈ 0.0 atol=test_tolerance #first and last values are not gradients and correspond to left and right walls
     # @test grad_x[j,1:end-1] .≈ 1.0 atol=test_tolerance #first and last values are not gradients and correspond to left and right walls
 end
@@ -1040,9 +1045,87 @@ end
     @test test_error ≈ 0.0 atol=test_tolerance #first and last values are not gradients and correspond to bottom and top walls
 end
 
+#endregion gradient
+
+
+#region gradient staggered
+
+@testset "Simple gradient staggered" begin
+
+    printstyled(color=:red, @sprintf "\n compute_grad_T_x_T_y_array_u_v_capacities! \n") 
+
+    
+
+    # x_centroid_u = gu.x .+ getproperty.(gu.LS[1].geoS.centroid, :x) .* gu.dx
+    # y_centroid_v = gv.y .+ getproperty.(gv.LS[1].geoS.centroid, :y) .* gv.dy
+    #geoS ?
+
+    # print("\n x_centroid_u ",x_centroid_u[1,:])
+    # print("\n y_centroid_v ",y_centroid_v[:,1])
+
+
+    grad_x = zeros(gu)
+    grad_y = zeros(gv)
+    
+    # compute_grad_T_x_T_y_array!(num.nLS, gp, gu, gv, op.opC_pL, grad_x, grad_y, phL.TD)
+    compute_grad_T_x_T_y_array_u_v_capacities!(num, gp, gu, gv, op.opC_uL,op.opC_vL, grad_x, grad_y, phL.TD)
+    
+    # compute_grad_T_y_array!(num_LS, gp, gv, op.opC_pL, grad_y, TD)
+    
+    
+    # grad_analytical = ftest_1.(
+    #     x_centroid,
+    #     y_centroid
+    # )
+    
+    # L
+    x_centroid_u = gu.x .+ getproperty.(gu.LS[1].geoL.centroid, :x) .* gu.dx
+    y_centroid_u = gu.y .+ getproperty.(gu.LS[1].geoL.centroid, :y) .* gu.dy
+    
+    grad_analytical = ftest_1.(
+        x_centroid_u,
+        y_centroid_u
+    )
+    
+    j = div(n,2)
+    print("\n length grad_analytical ",length(grad_analytical[j,:]),"\n")
+
+    print("\n grad_analytical ",grad_analytical[j,:],"\n")
+
+    print("\n length grad_x ",length(grad_x[j,:]),"\n")
+
+    print("\n D grad_x[j,:]",grad_x[j,:],"\n")
+    print("\n D grad_x[j,:]",grad_x[j,:],"\n")
+    
+    print("\n D grad_y[:,i]",grad_x[:,j],"\n")
+
+    print("\n vecb_L",vecb_L(phL.TD,gp),"\n")
 
 
 
+    @testset "Simple gradient test x" begin
+        print("\n grad_x[j,:]",grad_x[j,:]," len ",length(grad_x[j,:]))
+        test_error = maximum(abs.(grad_x[j,:] .- 1.0))
+        @test test_error ≈ 0.0 atol=test_tolerance #first and last values are not gradients and correspond to left and right walls
+        # @test grad_x[j,1:end-1] .≈ 1.0 atol=test_tolerance #first and last values are not gradients and correspond to left and right walls
+    end
+    
+    # print("\n grad_x at x j",grad_x[j,:]," len ",length(grad_x[j,:]))
+    # print("\n gu.y at x j",gu.y[j,:]," len ",length(gu.y[j,:]))
+    
+    
+    @testset "Simple gradient test y" begin
+        print("\n grad_y[j,:]",grad_y[j,:]," len ",length(grad_y[j,:]))
+    
+        test_error = maximum(abs.(grad_y[j,:] .- 0.0))
+        @test test_error ≈ 0.0 atol=test_tolerance #first and last values are not gradients and correspond to bottom and top walls
+    end
+
+end
+#region gradient staggered
+
+
+#region mass flux
 
 printstyled(color=:red, @sprintf "\n testing divergence \n") 
 
@@ -1098,3 +1181,5 @@ end
 # end
 
 #TODO test mass flux 
+
+#endregion mass flux

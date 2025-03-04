@@ -192,6 +192,10 @@ end
 """
 function init_fields_multiple_levelsets!(num,TD,T,H,BC,grid,dir_val_intfc,str)
 
+    if BC.init_mode == "None" #no init
+        return
+    end
+
     vec1(TD,grid) .= vec(T)
 
     if str == "uL"

@@ -27,6 +27,23 @@ def veci(data,nx,ny,field_index):
     return field
 
 
+# def veci_for_print(data,nx,ny,field_index):
+#     """Returns ith field stored in the 1D vector like in Flower.jl code
+    
+#     args:
+#         field_index (int): index of bulk or interface data
+#     return: 
+#         bulk (i=1) or i-th interface field
+#     """
+#     # print(data.shape)
+#     field = data[(field_index-1)*ny*nx:field_index*ny*nx] 
+#     # print(field.shape)
+
+#     field = np.reshape(field, (nx, ny))            
+#     # field = field.transpose()
+#     return field
+
+
 def vecb(data, nx, ny):
     """BC at border"""
     extract = data[-2 * ny - 2 * nx:]
