@@ -6,9 +6,9 @@ using Optim
 prefix = "/home/tf/Documents/Flower_figures/"
 
 @. model(t, p) =
-    p[1]*sin(0.5π*t) +
+    p[1]*sin(0.5π*t + π/2) +
     p[2]*sin(π*t)^2 + 
-    p[3]*sin(2π*t)^2;
+    p[3]*sin(2π*t)^2 + 1.1;
 
 p = [1.0, 0.0, 0.0]
 # for vRa = [1e6, 1e5, 5e4, 2e4, 1e4]
@@ -75,7 +75,7 @@ vRa = 5e4
             right = Periodic(),
         ),
         BC_TS = Boundaries(
-            top = Dirichlet(val =  T2 .* (0.5*model(gp.x[1,:], p) .- 0.5)), # .- 0.0*sin.(pi*gp.x[1,:]/2)),
+            top = Dirichlet(val = T2*0.5*model(gp.x[1,:], p)), #T2 .* (0.5*model(gp.x[1,:], p) .- 0.5)), # .- 0.0*sin.(pi*gp.x[1,:]/2)),
             left = Periodic(),
             right = Periodic(),
         ),
