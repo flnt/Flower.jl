@@ -221,12 +221,6 @@ flower:
 
 
 
-    init_struct2: obj = MyModule.MyType(10, 20.0)
-
-    init_struct: |
-      print("\n test obj \n")
-      obj = MyModule.MyType(10, 20.0)
-      print("\n test obj \n")
 
     interface: |
 

@@ -81,7 +81,7 @@ flower:
     ymin: &mesh_ymin 0.0 
     ymax: &mesh_ymax 1.0e-4
   simulation:
-    activate_interface: 0 #no interface
+    activate_interface: &activate_interface 0 #no interface
     advection_LS_mode: 10 #9 #8 #2 #5 #4 #3 #2
     adapt_timestep_mode: 3 #fixed timestep
     average_liquid_solid: 0
@@ -93,7 +93,7 @@ flower:
     # uses bulk or interfacial concentrationfor conductivity
     case: None #Planar #Cylinder
     CFL: 0.5
-    concentration_check_factor: 1e-4
+    concentration_check_factor: &concentration_check_factor 1e-4
     contact_angle: 1 #activate advancing/receding contact angle
     convection_Cdivu: 0
     convection_mode: 1 #0 #1
@@ -164,24 +164,17 @@ flower:
 
     boundaries: |
 
-      if phys.nb_levelsets ==1
-        BC_int = [WallNoSlip()] #[FreeSurface()]
-      end
-
-      # BC 
-      i_butler = gp.x[:,1] .*0.0
-      phi_ele =  gp.x[:,1] .*0.0
-
-      vPoiseuilleb = Poiseuille_fmax.(gv.x[1,:],phys.v_inlet,phys.ref_length) 
-
-      p_top = 0
-      p_bottom = p_top + 8*mu1/phys.ref_length*phys.v_inlet
-      
       # Signs in divergence theorem
       sign_left = -1.0 #n \cdot e_x = -1
       sign_right = 1.0 #n \cdot e_x = 1
       sign_bottom = -1.0 #n \cdot e_y = -1
       sign_top = 1.0 #n \cdot e_y = 1
+
+      if phys.nb_levelsets ==1
+        BC_int = [WallNoSlip()] #[FreeSurface()]
+      end
+      
+
 
       BC_phi_ele = Boundaries()
       BC_trans_scal = []
@@ -201,6 +194,10 @@ flower:
         top    = Neumann(),
         LS = [Dirichlet()],
       )
+      i_butler = gp.x[:,1] .*0.0
+      phi_ele =  gp.x[:,1] .*0.0
+
+      
 
       #equation a \frac ... +bp = g 
       #here we impose at the bottom with a = 0 and b=1: p=pbottom 
@@ -235,7 +232,6 @@ flower:
         right = Neumann_inh()
       )
 
-     
       BC_uS = BoundariesInt()
 
       BC_vS = BoundariesInt()
@@ -280,6 +276,25 @@ flower:
       phL.T .= phys.temperature0
       phS.T .= phys.temperature0
 
+     
+
+      for iscal=1:phys.nb_transported_scalars
+          phL.trans_scal[:,:,iscal] .= phys.concentration0[iscal]
+      end
+
+      phL.phi_ele .= phys.phi_ele0
+
+      # Initialize Poiseuille pressure profile 
+
+      p_top = 0
+      p_bottom = p_top + 8*mu1/phys.ref_length*phys.v_inlet
+      
+      phL.p .= p_bottom .+ (gp.y .- mesh.ymin)*(p_top-p_bottom)/(mesh.ymax - mesh.ymin) 
+  
+      vec1(phL.pD,gp) .= vec(phL.p)
+
+      # Initialize Poiseuille velocity profile 
+
       vPoiseuille = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length) 
       vPoiseuilleb = Poiseuille_fmax.(gv.x[1,:],phys.v_inlet,phys.ref_length) 
 
@@ -288,27 +303,6 @@ flower:
 
       vecb_B(phL.vD,gv) .= vPoiseuilleb
 
-      for iscal=1:phys.nb_transported_scalars
-          phL.trans_scal[:,:,iscal] .= phys.concentration0[iscal]
-      end
-
-      phL.phi_ele .= phys.phi_ele0
-
-      # Init Poiseuille pressure profile 
-      p_top = 0
-      p_bottom = p_top + 8*mu1/phys.ref_length*phys.v_inlet
-      
-      phL.p .= p_bottom .+ (gp.y .- mesh.ymin)*(p_top-p_bottom)/(mesh.ymax - mesh.ymin) 
-  
-      vec1(phL.pD,gp) .= vec(phL.p)
-
-
-    init_struct2: obj = MyModule.MyType(10, 20.0)
-
-    init_struct: |
-      print("\n test obj \n")
-      obj = MyModule.MyType(10, 20.0)
-      print("\n test obj \n")
 
     interface: |
 
@@ -1474,7 +1468,7 @@ plot:
       - var: concentration_H2_1DT 
         func: plot_python_pdf_full2
         file: concentration_H2_zoom
-        cbarlabel: "$ \\text{Concentration} ~ H_2$"
+        cbarlabel: "$ \\text{Concentration} ~ \\ce{H2}$"
         img_format: mp4
         isocontour: False
         levels: 10
@@ -1982,6 +1976,10 @@ pdi:
     mesh_x_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
     mesh_y_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
 
+    residual_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
+    
+    # for computations, to ignore small cells
+    mask_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
 
     grad_x_1D: { size: ' ($ny) * ($nx+1) ', type: array, subtype: double } 
     grad_y_1D: { size: ' ($ny+1) * ($nx) ', type: array, subtype: double } 
@@ -2164,7 +2162,7 @@ pdi:
           exec: |
             import numpy as np
             print('\033[36m')
-            print('[Pressure gradient]')
+            print('[print_pressure_gradient_in_prediction]')
             dx = (xmax-xmin)/ nx
             volume = dx**2
             # grad_x = np.reshape(grad_x_1D, (nx, ny)) 

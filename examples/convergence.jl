@@ -31,6 +31,9 @@ sim = PropertyDict(flower.simulation)
 phys = PropertyDict(flower.physics)
 macros = PropertyDict(flower.macros) #to parse code from .yml
 
+# boundaries_dict = PropertyDict(macros.boundaries_list)
+
+
 study = PropertyDict(prop_dict.study)
 
 # print parameters by evaluating Julia code stored in .yml   
@@ -279,17 +282,8 @@ for (i,n) in enumerate(npts)
     # print("\n x",connectivities)
     # print("\n x",num_vtx)
 
-    printstyled(color=:green, @sprintf "\n sim.CFL : %.2e dt : %.2e\n" sim.CFL sim.CFL*phys.ref_length/mesh.nx/phys.v_inlet)
-
     # printstyled(color=:green, @sprintf "\n Initialisation0 \n")
     # print_electrolysis_statistics(num,gp,phL)
-
-
-
-
-
-    printstyled(color=:green, @sprintf "\n TODO timestep sim.CFL scal, and print \n")
-
 
 
     if sim.time_scheme == "FE"

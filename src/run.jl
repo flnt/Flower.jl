@@ -142,8 +142,6 @@ function run_forward!(
 
     if adapt_timestep_mode !=0
         num.τ = adapt_timestep!(num, phL, phS, grid_u, grid_v,adapt_timestep_mode)
-        # print("after adapt_timestep!")
-        printstyled(color=:green, @sprintf "\n num.CFL : %.2e dt : %.2e num.τ : %.2e\n" num.CFL num.τ num.τ)
     end
 
     pres_free_surfaceS = 0.0
@@ -647,12 +645,13 @@ function run_forward!(
             # Adapt cell volume W for gradients 
             # cf 4/3 factor for Laplacian
             if num.laplacian == 1
-                compute_divergence!(num, 
+                AvLcopy = copy(AvL)
+                Lvm1_L,bc_Lvm1_L,bc_Lvm1_b_L=compute_divergence!(num, 
                 # grid, 
                 # grid_u, 
                 grid_v, 
                 op,
-                AvL, 
+                AvLcopy, 
                 # rhs_scal,
                 # tmp_vec_p, #a0
                 tmp_vec_1D_v0,
@@ -1546,6 +1545,7 @@ function run_forward!(
         #region Phase change
 
         print("\n electrolysis_phase_change_case ",electrolysis_phase_change_case)
+        #TODO print case, quantity, ...
 
         if electrolysis && electrolysis_phase_change_case != "None"
             printstyled(color=:magenta, @sprintf "\n integrate_mass_flux_over_interface\n")
@@ -2428,6 +2428,39 @@ function run_forward!(
         #region Navier-Stokes
 
         if navier_stokes
+
+
+            # Adapt cell volume W for gradients 
+            # cf 4/3 factor for Laplacian
+            if num.laplacian == 1
+                AvLcopy = copy(AvL) #does not work if reset A after operations in compute_divergence!
+                Lvm1_L,bc_Lvm1_L,bc_Lvm1_b_L=compute_divergence!(num, 
+                # grid, 
+                # grid_u, 
+                grid_v, 
+                op,
+                AvLcopy, 
+                # rhs_scal,
+                # tmp_vec_p, #a0
+                tmp_vec_1D_v0,
+                tmp_vec_1D_v,
+                Lvm1_L, 
+                bc_Lvm1_L, 
+                bc_Lvm1_b_L
+                # tmp_vec_u0,
+                # tmp_vec_v0,
+                # tmp_vec_1D,
+                # ls_advection
+                )
+                print("\nbefore pressure")
+                II = CartesianIndex(div(grid_v.ny,2),1)
+                pII = lexicographic(II,grid_v.ny)
+                print("\nLv[pII,:] ",Lvm1_L[pII,:])
+                print("\bc_Lvm1_b[pII,:] ",bc_Lvm1_b_L[pII,:])
+            
+            end  
+
+
             # if !advection
             #     @time no_slip_condition!(num, grid, grid_u, grid_u.LS[1], grid_v, grid_v.LS[1], periodic_x, periodic_y)
             #     # grid_u.V .= num.Δ / (1 * num.τ)

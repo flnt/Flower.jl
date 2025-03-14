@@ -6,9 +6,23 @@ mathengine = MathJax3(Dict(
     :tex => Dict(
         "inlineMath" => [["\$","\$"], ["\\(","\\)"]],
         "tags" => "ams",
-        "packages" => ["base", "ams", "autoload", "physics","boldsymbol"],
+        "packages" => ["base", "ams", "autoload", "physics","boldsymbol"]
+        # "algorithm","algorithm2e",
+        # "processEscapes" => "true",
+        # "processEnvironments" => "true",
     ),
 ))
+
+# <script>
+#     MathJax = {
+#         tex: {
+#             inlineMath: [['$','$'], ['\\(','\\)']],
+#             displayMath: [['$$','$$'], ['\\[','\\]']],
+#             processEscapes: true,
+#             processEnvironments: true,
+#         }
+#     }
+# </script>
 
 #Generate html
 #cf https://documenter.juliadocs.org/stable/lib/public/#Documenter.makedocs
@@ -33,6 +47,8 @@ makedocs(sitename="Flower.jl",
     mathengine =mathengine,
     assets=[
     "assets/custom.css",  
+    # asset("https://cdn.jsdelivr.net/npm/pseudocode@2.4.1/build/pseudocode.min.css"),
+    # asset("https://cdn.jsdelivr.net/npm/pseudocode@2.4.1/build/pseudocode.min.js"),
     # asset("https://www.w3schools.com/lib/w3.js", class=:js), w3 not working here
     # asset("https://www.w3schools.com/w3css/4/w3.css", class=:css),
     ],

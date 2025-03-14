@@ -1,6 +1,10 @@
+"""
+Formula for poiseuille based on maximal velocity
+"""
 function Poiseuille_fmax(x,v_inlet_max,L0)
     return 4*v_inlet_max*x/L0*(1-x/L0)
 end
+
 
 function Poiseuille_favg(x,v_inlet_moy,L0)
     return 6*v_inlet_moy*x/L0*(1-x/L0)

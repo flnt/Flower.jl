@@ -1373,26 +1373,243 @@ julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergen
 
 ## Diffusion with a bubble at the wall
 
+```@bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Butler.jl ../Flower.jl/examples/convergence_diffusion_constant_conductivity_bubble_wall.yml
+```
+
+* simulation time 1.0
+* dt 0.0001
+* simulation max_iter 100
+* diffusion time scale L^2/D [1.7241379310344829, 3.125, 3.125]
+
+
+Re : 1.00e-01 1.49e+06 1.26e+03 8.43e-04
+
+'Re' i.e. rho/mu : 1.49e+06 1.49e+06 1.26e+03 8.43e-04
+
+
+!!! danger "Quantify unphysical concentration drop"
+
+
+```@raw html
+<table class="styled-table">
+<thead>
+<tr>
+<th> Variable </th>
+<th> left </th> <th> right </th> <th>bottom</th> <th>top </th> 
+</tr>
+</thead>
+<tbody>
+
+<tr> <td> u </td> <td>Neumann 0.0</td> <td>Neumann 0.0</td> <td>Neumann 0.0 </td> <td> Neumann 0.0 </td> </tr> 
+ <tr> <td> v </td> <td>Neumann 0.0</td> <td>Neumann 0.0</td> <td>Neumann 0.0 </td> <td> Neumann 0.0 </td> </tr> 
+ <tr> <td> p </td> <td>Neumann 0.0</td> <td>Neumann 0.0</td> <td>Neumann 0.0 </td> <td> Neumann 0.0 </td> </tr> 
+ <tr> <td> phi </td> <td>Neumann </td> <td>Dirichlet 0.0</td> <td>Neumann 0.0 </td> <td> Neumann 0.0 </td> </tr> 
+ <tr> <td> H2 </td> <td>Neumann </td> <td>Dirichlet 0.16</td> <td>Dirichlet 0.16 </td> <td> Neumann 0.0 </td> </tr> 
+ <tr> <td> KOH </td> <td>Neumann </td> <td>Dirichlet 6700.0</td> <td>Dirichlet 6700.0 </td> <td> Neumann 0.0 </td> </tr> 
+ <tr> <td> H2O </td> <td>Neumann </td> <td>Dirichlet 49000.0</td> <td>Dirichlet 49000.0 </td> <td> Neumann 0.0 </td> </tr>
+
+</tbody>
+</table>
+```
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_diffusion_constant_conductivity_bubble_wall/concentration_H2_wall.svg" alt="Diffusion" title="Diffusion">
+    <figcaption>Concentration at wall</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="Butler_slope"></a> 
+    <img src="../../../convergence_diffusion_constant_conductivity_bubble_wall/concentration_H2_through_bubble.svg" alt="Diffusion" title="Diffusion">
+    <figcaption>Concentration through bubble</figcaption>
+</figure>
+```
+
 ```bash
 julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Butler.jl ../Flower.jl/examples/convergence_diffusion_constant_conductivity_bubble_wall.yml
 ```
 
 ## Diffusion and convection with a bubble at the wall
 
+Diffusion time scale
+
 ```bash
 julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Butler.jl ../Flower.jl/examples/convergence_diffusion_constant_conductivity_bubble_wall.yml
 ```
 
 
+## Diffusion + convection + 0 gravity (check Poiseuille)
+
+!!! danger "Check gravity"
+
+## Diffusion + convection + gravity (check Poiseuille)
+
+!!! danger "Check gravity"
+
+
+The new bottom boundary condition is $ \text{p\_bottom} + \rho g L$
 
 ## Radial flow (qualitative)
 
+A radial flow is imposed from the interface defined by the Levelset. 
 The velocity field is imposed with [`init_fields_multiple_levelsets!`](@ref) for "BC_uL" and "BC_vL". The gravity is deactivated.
+
+
+
+```@raw html
+<table class="styled-table">
+<thead>
+<tr>
+<th> Variable </th>
+<th> Left </th> <th> Right </th> <th>Bottom</th> <th>Top </th> <th> Interface </th> 
+</tr>
+</thead>
+<tbody>
+<tr> <td> u </td> <td>Dirichlet 0.0</td> <td>Dirichlet 0.0</td> <td>Dirichlet 0.0 </td> <td> Neumann 0.0 </td> <td> Dirichlet -0.001 </td> </tr> 
+<tr> <td> v </td> <td>Dirichlet 0.0</td> <td>Dirichlet 0.0</td> <td>Neumann 0.0 </td> <td> Neumann 0.0 </td> <td> Dirichlet -0.001 </td> </tr> 
+<tr> <td> p </td> <td>Neumann 0.0</td> <td>Neumann 0.0</td> <td>Neumann 0.0 </td> <td> Neumann 0.0 </td> <td> Neumann 0.0 </td> </tr> 
+</tbody>
+</table>
+```
 
 ```bash
 python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/test/radial.yml flower_00000001.h5
+
+python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/examples/convergence_radial_prediction_PmII_imposed_pressure_BC_increment.yml flower_00000001.h5 
+
+
 ```
 
+```@raw html
+<figure>
+    <a name="PoiseuillePmIIiposedpressureBCincrement"></a> 
+    <img src="../../../radial/velocity_vectors_64_1.svg" alt="Radial" title="Radial">
+    <figcaption>Radial flow, iteration 1</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="PoiseuillePmIIiposedpressureBCincrement"></a> 
+    <img src="../../../radial/velocity_vectors_64_60.svg" alt="Radial" title="Radial">
+    <figcaption>Radial flow, iteration 60</figcaption>
+</figure>
+```
+
+### Radial at wall
+
+
+!!! todo "plot u v velocity wall"
+
+```@raw html
+<table class="styled-table">
+<thead>
+<tr>
+<th> Variable </th>
+<th> Left </th> <th> Right </th> <th>Bottom</th> <th>Top </th> <th> Interface </th> 
+</tr>
+</thead>
+<tbody>
+<tr> <td> u </td> <td>Dirichlet 0.0</td> <td>Dirichlet 0.0</td> <td>Dirichlet 0.0 </td> <td> Neumann 0.0 </td> <td> Dirichlet -0.001 </td> </tr> 
+<tr> <td> v </td> <td>Dirichlet 0.0</td> <td>Dirichlet 0.0</td> <td>Neumann 0.0 </td> <td> Neumann 0.0 </td> <td> Dirichlet -0.001 </td> </tr> 
+<tr> <td> p </td> <td>Neumann 0.0</td> <td>Neumann 0.0</td> <td>Neumann 0.0 </td> <td> Neumann 0.0 </td> <td> Neumann 0.0 </td> </tr> 
+</tbody>
+</table>
+```
+
+```@raw html
+<figure>
+    <a name="PoiseuillePmIIiposedpressureBCincrement"></a> 
+    <img src="../../../radial_wall/velocity_vectors_64_1.svg" alt="Radial" title="Radial">
+    <figcaption>Radial flow, iteration 1</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="PoiseuillePmIIiposedpressureBCincrement"></a> 
+    <img src="../../../radial_wall/velocity_vectors_64_60.svg" alt="Radial" title="Radial">
+    <figcaption>Radial flow, iteration 60</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="PoiseuillePmIIiposedpressureBCincrement"></a> 
+    <img src="../../../radial_wall/velocity_x_wall_64.svg" alt="Radial" title="Radial">
+    <figcaption>Radial flow</figcaption>
+</figure>
+```
+
+
+```@raw html
+<figure>
+    <a name="PoiseuillePmIIiposedpressureBCincrement"></a> 
+    <img src="../../../radial_wall/velocity_y_wall_64.svg" alt="Radial" title="Radial">
+    <figcaption>Radial flow</figcaption>
+</figure>
+```
+
+### Radial at wall with Neumann boundary condition on the left
+
+!!! danger "Not good at wall"
+
+```@raw html
+<table class="styled-table">
+<thead>
+<tr>
+<th> Variable </th>
+<th> Left </th> <th> Right </th> <th>Bottom</th> <th>Top </th> <th> Interface </th> 
+</tr>
+</thead>
+<tbody>
+<tr> <td> u </td> <td>Neumann 0.0</td> <td>Dirichlet 0.0</td> <td>Dirichlet 0.0 </td> <td> Neumann 0.0 </td> <td> Dirichlet -0.001 </td> </tr> 
+<tr> <td> v </td> <td>Neumann 0.0</td> <td>Dirichlet 0.0</td> <td>Neumann 0.0 </td> <td> Neumann 0.0 </td> <td> Dirichlet -0.001 </td> </tr> 
+<tr> <td> p </td> <td>Neumann 0.0</td> <td>Neumann 0.0</td> <td>Neumann 0.0 </td> <td> Neumann 0.0 </td> <td> Neumann 0.0 </td> </tr> 
+</tbody>
+</table>
+```
+
+```@raw html
+<figure>
+    <a name="PoiseuillePmIIiposedpressureBCincrement"></a> 
+    <img src="../../../radial_wall_Neumann/velocity_vectors_64_1.svg" alt="Radial" title="Radial">
+    <figcaption>Radial flow, iteration 1</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="PoiseuillePmIIiposedpressureBCincrement"></a> 
+    <img src="../../../radial_wall_Neumann/velocity_vectors_64_60.svg" alt="Radial" title="Radial">
+    <figcaption>Radial flow, iteration 60</figcaption>
+</figure>
+```
+
+```@raw html
+<figure>
+    <a name="PoiseuillePmIIiposedpressureBCincrement"></a> 
+    <img src="../../../radial_wall_Neumann/velocity_x_wall_64.svg" alt="Radial" title="Radial">
+    <figcaption>Radial flow</figcaption>
+</figure>
+```
+
+
+```@raw html
+<figure>
+    <a name="PoiseuillePmIIiposedpressureBCincrement"></a> 
+    <img src="../../../radial_wall_Neumann/velocity_y_wall_64.svg" alt="Radial" title="Radial">
+    <figcaption>Radial flow</figcaption>
+</figure>
+```
+
+```bash
+python3 -c "import plot_flower; plot_flower.report()" ../Flower.jl/examples/convergence_radial_wall_Neumann_prediction_PmII_imposed_pressure_BC_increment.yml
+```
 
 ## Poiseuille
 
@@ -1525,7 +1742,6 @@ mean(u) 0.00e+00 mean(v) 2.23e-04 mean(p) 1.20e-02
 
 
 
-
 !!! todo "compare"
 
 
@@ -1618,10 +1834,31 @@ python3 -c "import convergence_study; convergence_study.plot_errors_from_h5()" .
 
 ```
 
+
+### Poiseuille Flow, convergence to stationary solution
+
+```bash
+convergence_Poiseuille_prediction_PmII_imposed_pressure_BC_increment_no_init
+```
+
+
+!!! todo "Poiseuille Flow, convergence to stationary solution"
+    "
+    An elementary Poiseuille flow is tested. The simulation is set up in a $8 \times 8 \times 2$ grid in which the system reduces to a 2D planar flow in the box $(0,1) \times (0,1)$. The parameters are $\|\nabla p\| = \mu = \rho = 1$. The boundary conditions set pressure on the left and right. The simulation is continued until the flow becomes stationary, which happens with $10^{-3}$ accuracy around time 1. This time is reached in 1000 time steps. The explicit version of viscous diffusion is used.
+
+    This test passes if the numerical segments are tangent to the theoretical profile as seen in Fig.~\ref{fig:theoretical_profile}. Because the Poiseuille flow profile is quadratic, second-order finite differences offer exact values for the second derivative of velocity, which ensures that the profile found is exactly a parabola. The accuracy of the parabola amplitude is set by the quality of the approximation of the $u = 0$ boundary condition (solid wall). Since this condition is set at first order, there is a small $O(h^2)$ difference with the exact parabola.
+
+    The bottom wall tangential velocity boundary condition is $u = 0$ on $y = 0$. Since the wall is at $y_{i,1/2}$, the boundary condition is written using a ghost velocity at $y_{i,-1/2}$ that satisfies $u_{i,-1/2}^{\text{ghost}} + u_{i,1/2} = 2u^{\text{wall}}$. The boundary condition is thus implemented by writing in a ``ghost layer'' of the grid
+
+    \begin{equation}
+    u_{i,-1/2}^{\text{ghost}} \leftarrow 2u^{\text{wall}} - u_{i,1/2}.
+    \end{equation}
+
+    The result is shown on Fig.~\ref{fig:theoretical_profile}. It is also possible to run the Poiseuille flow test in other manners, for example with set inflow velocity, or to run it with the implicit version of viscous diffusion, in which case the flow converges in a few time steps.
+    " [`PARIS`](https://www.sciencedirect.com/science/article/pii/S0010465521000175)
+
+
 ### Epsilon to prevent NaN
-
-
-
 
 with epsilon in capacities, ... cf `num.epsilon_mode`: coefficients not exact 
 

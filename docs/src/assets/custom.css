@@ -31,6 +31,7 @@ figure figcaption {
 
 
 .styled-table {
+    background-color: transparent;
     /* border-style: dashed; */
     border-collapse: collapse;
 
@@ -38,24 +39,28 @@ figure figcaption {
     margin-right: auto; */
 
     margin: 25px 0;
-
+    /* margin: 0 0; */
     /* margin: 25px auto; */
 
 
     font-size: 0.9em;
     font-family: sans-serif;
     min-width: 400px;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+    /* box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);  */
+    /* box shadow adds whitespace */
     /* border-left: 1px solid black; */
     vertical-align: middle;
+
+    /* opacity: 0.0; */
 
 }
 
 
 .styled-table thead tr {
     background-color: #009879;
-    color: #ffffff;
-    text-align: left;
+    color: #ffffff; /* bottom line color */
+    text-align: center;
+    /* text-align: left; */
     /* border-left: 1px solid black; */
 
 }
@@ -204,3 +209,66 @@ td {
     width:400px;
     height:400px;
 }
+
+/* For algorithms: https://www.peterkrautzberger.org/0217/ */
+
+.algorithm {
+    counter-reset: algolinecounter;
+    display: grid;
+    grid-template-columns: repeat(3, max-content);
+    grid-column-gap: 1em;
+  }
+
+.counter {
+    grid-column-start: 1;
+    counter-increment: algolinecounter;
+  }
+  
+  .counter::before {
+    content: counter(algolinecounter) ': ';
+  }
+
+.comment {
+    margin-left: 3em;
+  }
+  
+  .comment::before {
+    content: '▷ ';
+  }
+
+.while::before,
+.while::after {
+  font-weight: bolder;
+}
+
+.while__start::before {
+  content: 'while ';
+}
+
+.while__start::after {
+  content: ' do';
+}
+
+.while__end::before {
+  content: 'end while';
+}
+
+.ml1 {
+    margin-left: 1em;
+  }
+
+.ml2 {
+    margin-left: 2em;
+  }
+
+.procedure::before {
+    font-weight: bolder;
+  }
+  
+  .procedure__start::before {
+    content: 'procedure ';
+  }
+  
+  .procedure__end::before {
+    content: 'end procedure';
+  }

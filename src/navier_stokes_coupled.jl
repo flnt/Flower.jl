@@ -2841,6 +2841,12 @@ function pressure_projection!(
     irho1 = 1.0/rho1
     mu1_over_rho1 = num.mu1 / num.rho1 
 
+    II = CartesianIndex(div(grid_v.ny,2),1)
+    pII = lexicographic(II,grid_v.ny)
+    print("\nLv[pII,:] ",Lvm1[pII,:])
+    print("\bc_Lvm1_b[pII,:] ",bc_Lvm1_b[pII,:])
+
+
 
     PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction"::Cstring,
     "u_1D"::Cstring, uD::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -2892,8 +2898,10 @@ function pressure_projection!(
         #TODO divergence level
       
         PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_velocity_end"::Cstring,
-        "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
-        "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+        "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+        "grad_v"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
         "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
         "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
         "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -3019,7 +3027,7 @@ function pressure_projection!(
         "v_1D"::Cstring, rhs_v::Ptr{Cdouble}, PDI_OUT::Cint,
         C_NULL::Ptr{Cvoid})::Cint
 
-        vec1(rhs_v,grid_v) .+= - τ .* grav_y
+        vec1(rhs_v,grid_v) .+= - τ .* grav_y #TODO - minus sign here + sign there
 
         PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_v"::Cstring,
         "v_1D"::Cstring, rhs_v::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -3058,11 +3066,16 @@ function pressure_projection!(
             println(e)
         end
 
-        # PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_prediction"::Cstring,
-        # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-        # C_NULL::Ptr{Cvoid})::Cint
+
+        PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_prediction"::Cstring,
+        "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
+
+        # II = CartesianIndex(div(grid_v.ny,2),1)
+        # pII = lexicographic(II,grid_v.ny)
+        # print("\n A coeff ",Av[pII,:])
 
         # PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_prediction"::Cstring,
         # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -3159,6 +3172,16 @@ function pressure_projection!(
     "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
     "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
+
+    II = CartesianIndex(div(grid_v.ny,2),1)
+    pII = lexicographic(II,grid_v.ny)
+    # print("\n A coeff ",Av[pII,:])
+    # print("\nM ",opC_p.iMy.diag[pII])
+
+    print("\nAv[pII,:]./mu1_over_rho1 ",Av[pII,:]./mu1_over_rho1)
+
+    # print("\nmu1_over_rho1 ",mu1_over_rho1)
+
 
     # # Test analytical vel
     # ucorrD = copy(uD)
@@ -3426,8 +3449,10 @@ function pressure_projection!(
     #TODO divergence level
   
     PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_velocity_end"::Cstring,
-    "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
-    "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    "grad_v"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
     "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
     "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
     "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,

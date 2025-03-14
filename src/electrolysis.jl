@@ -933,6 +933,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                 printstyled(color=:red, @sprintf "\n PDI error \n")
             end
 
+            # mask_1D to ignore empty cells based on capacities for 1D data (bulk + interfacial + border)
             mask_1D = fnzeros(grid,num)
             compute_mask_1D!(num,grid,mask_1D)
             try
@@ -1015,8 +1016,8 @@ function scalar_transport!(num::Numerical{Float64, Int64},
 
             # @views veci(ph.trans_scalD[:,iscal],grid,1) .= vec(ph.trans_scal[:,:,iscal])
 
-            concentration_check_value = min(minimum(ph.trans_scal[:,:,iscal]),minimum(vecb(ph.trans_scalD[:,iscal],grid)))
-
+            # concentration_check_value = min(minimum(ph.trans_scal[:,:,iscal]),minimum(vecb(ph.trans_scalD[:,iscal],grid)))
+            concentration_check_value = minimum(ph.trans_scalD[:,iscal][mask_1D .> 0.0])
             if concentration_check_value.<num.concentration0[iscal]*(1-num.concentration_check_factor)
 
                 if num.io_pdi>0        
@@ -1047,7 +1048,8 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         else 
             @views kill_dead_cells_val!(ph.trans_scal[:,:,iscal], grid, LS[1].geoL,num.concentration0[iscal]) 
 
-            concentration_check_value = max(maximum(ph.trans_scal[:,:,iscal]),maximum(vecb(ph.trans_scalD[:,iscal],grid)))
+            # concentration_check_value = max(maximum(ph.trans_scal[:,:,iscal]),maximum(vecb(ph.trans_scalD[:,iscal],grid)))
+            concentration_check_value = maximum(ph.trans_scalD[:,iscal][mask_1D .> 0.0])
 
             if concentration_check_value.> num.concentration0[iscal]*(1+num.concentration_check_factor)
                 
@@ -2568,14 +2570,22 @@ function adapt_timestep!(num, phL, phS, grid_u, grid_v,adapt_timestep_mode)
 
         c_tot = (c_conv+c_visc)+ sqrt((c_conv+c_visc)^2+4*c_grav^2+4*c_surf^2 )
 
-        return 2*CFL/c_tot
+        new_timestep = 2*CFL/c_tot
     elseif adapt_timestep_mode==2
         c_conv = max(abs.(phL.u)./grid_u.dx..., abs.(phL.v)./grid_v.dy..., abs.(phS.u)./grid_u.dx..., abs.(phS.v)./grid_v.dy...)
 
-        return CFL/c_conv
+        new_timestep = CFL/c_conv
     elseif adapt_timestep_mode==3
-        return num.dt0
+        new_timestep = num.dt0
     end
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("print_timestep"::Cstring,
+    "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
+    "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,
+    "timestep"::Cstring, new_timestep::Ref{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    return new_timestep
 
     # printstyled(color=:green, @sprintf "\n rho1 %.2e rho2 %.2e mu1 %.2e mu2 %.2e\n" rho1 rho2 mu1 mu2) 
     # printstyled(color=:green, @sprintf "\n dx %.2e dy %.2e \n" min_spacing_x min_spacing_x) 
@@ -4304,18 +4314,18 @@ function contact_angle_advancing_receding(num,grid,grid_u, grid_v, iLS, II)
 
 end
 
-function check_positivity_of_capacities(op,rhs_scal)
+function check_positivity_of_capacities(op)
 
     min_cap = minimum(op.opC_uL.M)
 
     if min_cap<0.0
-        printstyled(color=:red, @sprintf "\n [BUG] Sign capacity u\n" )
+        printstyled(color=:red, @sprintf "\n [BUG] Sign capacity u %.2e\n" min_cap)
     end
 
     min_cap = minimum(op.opC_vL.M)
 
     if min_cap<0.0
-        printstyled(color=:red, @sprintf "\n [BUG] Sign capacity v\n" )
+        printstyled(color=:red, @sprintf "\n [BUG] Sign capacity v %.2e\n" min_cap)
     end
 
     # rhs_vec1 = vec1,rhs_scal
@@ -4360,6 +4370,368 @@ function compute_divergence!(num::Numerical{Float64, Int64},
     x_centroid = grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx
     y_centroid = grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
 
+    # print("\n size ",size(x_centroid))
+    # print("\n size ",size(y_centroid))
+
+    # print("\n size op.opC_vL.M",size(op.opC_vL.M))
+
+
+    # print("\n x_centroid ",x_centroid[1,:])
+
+    veci(tmp_vec_1D,grid,1)  .= vec(x_centroid)
+
+    # print("\n num.x ", num.x)
+    # print("\n num.x ", num.x[1])
+    # print("\n num.x ", num.x[end])
+    # print("\n num.y ", num.y[1])
+    # print("\n num.y ", num.y[end])
+
+    vecb_L(tmp_vec_1D,grid)  .= num.x[1] #not grid.x[:,1]
+    vecb_R(tmp_vec_1D,grid)  .= num.x[end] #not grid.x[:,end]
+
+    vecb_B(tmp_vec_1D,grid)  .= x_centroid[1,:] #hypothesis
+    vecb_T(tmp_vec_1D,grid)  .= x_centroid[end,:] #hypothesis
+
+    veci(tmp_vec_1D_2,grid,1) .= vec(y_centroid)
+    vecb_B(tmp_vec_1D_2,grid) .= num.y[1] #not grid.y[1,:]
+    vecb_T(tmp_vec_1D_2,grid) .= num.y[end] #not grid.y[end,:]
+
+    vecb_L(tmp_vec_1D_2,grid)  .= y_centroid[:,1] #hypothesis
+    vecb_R(tmp_vec_1D_2,grid)  .= y_centroid[:,end] #hypothesis
+
+    for iLS in 1:num.nLS
+        x_bc = grid.x .+ getproperty.(grid.LS[iLS].mid_point, :x) .* grid.dx
+        y_bc = grid.y .+ getproperty.(grid.LS[iLS].mid_point, :y) .* grid.dy
+        veci(tmp_vec_1D,grid,iLS+1) .= vec(x_bc)
+        veci(tmp_vec_1D_2,grid,iLS+1) .= vec(y_bc)
+    end
+
+
+    # PDI_status = @ccall "libpdi".PDI_multi_expose("mesh"::Cstring, 
+    # # "grad_x_coord"::Cstring, tmp_vec_u::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # # "grad_y_coord"::Cstring, tmp_vec_v::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # "mesh_x_1D"::Cstring, tmp_vec_1D::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # "mesh_y_1D"::Cstring, tmp_vec_1D_2::Ptr{Cdouble}, PDI_OUT::Cint,      
+    # C_NULL::Ptr{Cvoid})::Cint
+
+    #TODO sparse
+
+    # compute_grad_T_x_array!(num.nLS, grid, grid_u, op.opC_pL, tmp_vec_u, tmp_vec_1D)
+    # compute_grad_T_y_array!(num.nLS, grid, grid_v, op.opC_pL, tmp_vec_v, tmp_vec_1D_2)
+
+    tmp_vec_1D .^= 2
+    tmp_vec_1D_2 .^= 2
+
+
+
+    # mul!(tmp_x, iMx, Bx)
+    # L = BxT * tmp_x
+    # mul!(tmp_y, iMy, By)
+    # L = L .+ ByT * tmp_y
+
+    # #Boundary for Laplacian
+    # bc_L_b = (BxT * iMx_b * Hx_b .+ ByT * iMy_b * Hy_b)
+
+
+    # if ls_advection
+        # Poisson equation
+    A[1:ni,1:ni] = Lv #pad(Lv, 4.0)
+    A[1:ni,end-nb+1:end] = bc_Lv_b
+
+    # # Boundary conditions for outer boundaries
+    # A[end-nb+1:end,1:ni] = (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By) #b_b * 
+    # A[end-nb+1:end,end-nb+1:end] = pad((HxT_b * iMx_bd  * Hx_b .+ HyT_b * iMy_bd * Hy_b), -4.0) #b_b * 
+    
+    # end
+
+    for iLS in 1:num.nLS
+
+        sb = iLS*ni+1:(iLS+1)*ni
+
+
+        # Poisson equation
+        #Boundary for Laplacian from iLS
+        A[1:ni,sb] = bc_Lv[iLS] #BxT * iMx * Hx[iLS] .+ ByT * iMy * Hy[iLS]
+
+        # # Boundary conditions for inner boundaries
+        # A[sb,1:ni] = (HxT[iLS] * iMx  * Bx .+ HyT[iLS] * iMy * By) #or vec1  b *
+        # Contribution to Neumann BC from other boundaries
+        # for i in 1:num.nLS
+        #     if i != iLS
+        #         A[sb,i*ni+1:(i+1)*ni] = (HxT[iLS] * iMx  * Hx[i] .+ HyT[iLS] * iMy * Hy[i]) #b * 
+        #     end
+        # end
+        # A[sb,sb] = pad(
+        #         (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]), -4.0 #b *
+        # )
+        # A[sb,end-nb+1:end] = (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b  * Hy_b) #b *
+        # # Boundary conditions for outer boundaries
+        # A[end-nb+1:end,sb] = (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS]) #b_b *
+
+    end #for iLS in 1:num.nLS
+
+    # if num.null_space == 0
+    #     @time @inbounds @threads for i in 1:A.m
+    #         @inbounds A[i,i] += 1e-10
+    #     end
+    # end
+
+    # print("\n size tmp_vec_1D ",size(tmp_vec_1D))
+
+    # print("\n size tmp_vec_1D ",size(A))
+    # II = CartesianIndex(5,1)
+    # tmp = lexicographic(II,grid.ny)
+    # print("\n A ", A[tmp,:])
+
+    # debug_A_rhs(num,grid,A,tmp_vec_1D,1,5)
+    
+    # print("\n rhs -y", tmp_vec_1D[tmp-1])
+    # print("\n rhs ", tmp_vec_1D[tmp])
+    # print("\n rhs +y", tmp_vec_1D[tmp+1])
+    # print("\n rhs +x ", tmp_vec_1D[tmp+grid.ny])
+
+
+    # print("\n vecb_L",vecb_L(tmp_vec_1D,grid))
+
+    # print("\n tmp_vec_1D",tmp_vec_1D)
+
+    rhs = A*tmp_vec_1D/2.0 #2V
+
+
+
+  
+
+    # print("\n min",minimum(rhs)," max ",maximum(rhs))
+
+    rhs_vec1 = reshape(vec1(rhs,grid),grid)
+
+    # print("\n rhs_vec1 before end",rhs_vec1[1,1])
+
+    # print("\n size op ",size(op.opC_vL.M))
+
+    # print("\n rhs_vec1 ",rhs_vec1[1,1])
+
+    # print("\n op ",op.opC_vL.M[1,1])
+
+    # print("\n ratio ",rhs_vec1[1,1]/op.opC_vL.M[1,1])
+
+    # print("\n size op ",size(op.opC_vL.M))
+    # print("\n size op diag ",size(op.opC_vL.M.diag))
+
+    # print("\n size rhs_vec1 ",size(rhs_vec1))
+
+    # print("\n vecb_L ",vecb_L(rhs,grid))
+    # print("\n vec1 ",rhs_vec1[5,1])
+    # print("\n vec1 ",rhs_vec1[5,2])
+    # print("\n vec1 ",rhs_vec1[5,3])
+
+    II = CartesianIndex(div(grid.ny,2),1)
+    pII = lexicographic(II,grid.ny)
+    print("\n A coeff ",Lv[pII,:])
+    print("\n bc coeff ",bc_Lv_b[pII,:])
+
+    print("\n min max ",minimum(Lv)," ",maximum(Lv))
+
+
+
+    II = CartesianIndex(1,1)
+    pII = lexicographic(II,grid.ny)
+    print("\n A coeff ",Lv[pII,:])
+    print("\n bc coeff ",bc_Lv_b[pII,:])
+
+
+    II = CartesianIndex(grid.ny,grid.nx)
+    pII = lexicographic(II,grid.ny)
+    print("\n A coeff ",Lv[pII,:])
+    print("\n bc coeff ",bc_Lv_b[pII,:])
+
+    # print("\n A coeff ",Lv[pII,:]./(1.0e-4/32)^2)
+    # print("\nM ",opC_p.iMy.diag[pII])
+
+    printstyled(color=:red, @sprintf "\n modifying Lv")
+    # Lv = Lv .* Diagonal(vec1(rhs,grid))
+
+    printstyled(color=:red, @sprintf "\n modifying Lv check for zero and NaN")
+
+    # TODO 
+    # @unpack Bx, By, BxT, ByT, iMx, iMy, tmp_x, tmp_y = op.opC_vL #opC
+
+    mul!(tmp_x, iMx, Bx)
+
+
+    # print("\nsize ",size(Diagonal(vec1(rhs,grid))))
+    # print("\nsize ",size(iMx))
+    # print("\nsize ",size(BxT * tmp_x))
+
+    # # Mass matrices
+    # M.diag .= vec(grid.LS[1].geoL.dcap[:,:,5])
+    # Mx = zeros(ny,nx+1)
+    # for II in ind.all_indices
+    #     Mx[II] = grid.LS[1].geoL.dcap[II,8]
+    # end
+    # for II in ind.b_right[1]
+    #     Mx[δx⁺(II)] = grid.LS[1].geoL.dcap[II,10]
+    # end
+    # My = zeros(ny+1,nx)
+    # for II in ind.all_indices
+    #     My[II] = grid.LS[1].geoL.dcap[II,9]
+    # end
+    # for II in ind.b_top[1]
+    #     My[δy⁺(II)] = grid.LS[1].geoL.dcap[II,11]
+    # end
+
+    # # iMx.diag .= 1. ./ (vec(Mx) .+ eps(0.01))
+    # # iMy.diag .= 1. ./ (vec(My) .+ eps(0.01))
+    # # iMx = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(Mx)))
+    # # iMy = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(My)))
+
+    # iMx.diag .= inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(Mx))
+    # iMy.diag .= inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(My))
+   
+    # invertM = 1.0 ./grid.LS[1].geoL.dcap[:,:,5]
+
+    # print("\nsize ",size(invertM))
+    # invertM = Diagonal(1.0 ./vec(grid.LS[1].geoL.dcap[:,:,5]))
+    # # print("\nsize ",size(invertM))
+    # Lv = Diagonal(vec1(rhs,grid)) * invertM * BxT * tmp_x
+
+    vecM = Diagonal(vec(grid.LS[1].geoL.dcap[:,:,5]))
+    # print("\nsize ",size(invertM))
+
+    modification_laplacian = Diagonal(1.0./vec1(rhs,grid)) * vecM
+
+    
+
+    print("\n modification_laplacian ", minimum(modification_laplacian)," ",maximum(modification_laplacian))
+
+
+
+    new_Lv = modification_laplacian * BxT * tmp_x
+
+    mul!(tmp_y, iMy, By)
+    new_Lv = new_Lv .+ ByT * tmp_y
+
+    # bc_L_b = (BxT * iMx_b * Hx_b .+ ByT * iMy_b * Hy_b)
+
+
+    # A[1:ni,end-nb+1:end] = bc_new_Lv_b
+
+    bc_new_Lv_b = (modification_laplacian * BxT * iMx_b * Hx_b .+ ByT * iMy_b * Hy_b)
+
+
+
+    # new_Lv = BxT * tmp_x
+    # mul!(tmp_y, iMy, By)
+    # new_Lv = new_Lv .+ ByT * tmp_y
+
+    # bc_new_Lv_b = ( BxT * iMx_b * Hx_b .+ ByT * iMy_b * Hy_b)
+
+
+    # print("\nsize ",size(bc_new_Lv_b))
+
+
+    
+
+    #TODO change boundary value too
+
+    II = CartesianIndex(div(grid.ny,2),1)
+    pII = lexicographic(II,grid.ny)
+    print("\n A coeff ",new_Lv[pII,:])
+    print("\n bc coeff ",bc_new_Lv_b[pII,:])
+
+    print("\n min max ",minimum(new_Lv)," ",maximum(new_Lv))
+
+    print("\n modification_laplacian ", modification_laplacian[pII,:])
+
+
+
+    II = CartesianIndex(1,1)
+    pII = lexicographic(II,grid.ny)
+    print("\n A coeff ",new_Lv[pII,:])
+    print("\n bc coeff ",bc_new_Lv_b[pII,:])
+    print("\n modification_laplacian ", modification_laplacian[pII,:])
+
+
+    II = CartesianIndex(grid.ny,grid.nx)
+    pII = lexicographic(II,grid.ny)
+    print("\n A coeff ",new_Lv[pII,:])
+    print("\n bc coeff ",bc_new_Lv_b[pII,:])
+    print("\n modification_laplacian ", modification_laplacian[pII,:])
+
+    # print("\nnew_Lv ",new_Lv)
+
+    # print("\n A coeff ",new_Lv[pII,:]./(1.0e-4/32)^2)
+    # print("\nM ",opC_p.iMy.diag[pII])
+
+
+    # op.opC_vL.M.diag .= vec1(rhs,grid)
+
+    # check_positivity_of_capacities(op)
+
+
+    # *opC_p.iMy.diag[pII]
+   
+    # print("\n Laplacian coefficients ", II," ",new_Lv[pII,:]," ",bc_new_Lv_b[pII,:])
+
+    # printstyled(color=:green, @sprintf "\n exact %.10e 4/3exact %.10e\n" rhs[pII]*opC_p.iMy.diag[pII] rhs[pII]*opC_p.iMy.diag[pII]*4/3)
+
+    tmp_vec_1D .= 0.0
+    tmp_vec_1D_2 .= 0.0
+    A.nzval .= 0.0
+
+    bc_new_Lv = copy(bc_Lv)
+
+
+    printstyled(color=:green, @sprintf "\n before end modification" )
+
+
+    II = CartesianIndex(div(grid.ny,2),1)
+    pII = lexicographic(II,grid.ny)
+    print("\nLv[pII,:] ",new_Lv[pII,:])
+    print("\bc_Lvm1_b[pII,:] ",bc_new_Lv_b[pII,:])
+
+    return new_Lv,bc_new_Lv,bc_new_Lv_b
+
+end     #divergence
+
+
+"""
+
+"""
+function compute_divergence_test!(num::Numerical{Float64, Int64},
+    grid,
+    # ::Mesh{Flower.GridCC, Float64, Int64},
+    # grid_u::Mesh{Flower.GridFCx, Float64, Int64},
+    # grid_v::Mesh{Flower.GridFCy, Float64, Int64},
+    op::DiscreteOperators{Float64, Int64},
+    A::SparseMatrixCSC{Float64, Int64},
+    # rhs::Array{Float64, 1},
+    # a0::Array{Float64, 2},
+    tmp_vec_1D::Array{Float64, 1},
+    tmp_vec_1D_2::Array{Float64, 1},
+    Lv, 
+    bc_Lv, 
+    bc_Lv_b
+    # vec_1D::Array{Float64, 1},
+    # ls_advection::Bool
+    )
+
+    @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = op.opC_vL
+    @unpack BxT, ByT,tmp_x, tmp_y = op.opC_vL
+
+    ni = grid.nx * grid.ny
+    nb = 2 * grid.nx + 2 * grid.ny
+
+    #TODO reset zero
+    # rhs .= 0.0
+    tmp_vec_1D .= 0.0
+    tmp_vec_1D_2 .= 0.0
+    A .= 0.0
+    # a0 .= 0.0
+
+    x_centroid = grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx
+    y_centroid = grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
+
     print("\n size ",size(x_centroid))
     print("\n size ",size(y_centroid))
 
@@ -4369,12 +4741,23 @@ function compute_divergence!(num::Numerical{Float64, Int64},
     print("\n x_centroid ",x_centroid[1,:])
 
     veci(tmp_vec_1D,grid,1)  .= vec(x_centroid)
-    vecb_L(tmp_vec_1D,grid)  .= grid.x[:,1]
-    vecb_R(tmp_vec_1D,grid)  .= grid.x[:,end]
+
+    print("\n num.x ", num.x)
+    print("\n num.x ", num.x[1])
+    print("\n num.x ", num.x[end])
+    print("\n num.y ", num.y[1])
+    print("\n num.y ", num.y[end])
+
+    vecb_L(tmp_vec_1D,grid)  .= num.x[1] #not grid.x[:,1]
+    vecb_R(tmp_vec_1D,grid)  .= num.x[end] #not grid.x[:,end]
+
+    vecb_B(tmp_vec_1D,grid)  .= x_centroid[1,:] #hypothesis
+    vecb_T(tmp_vec_1D,grid)  .= x_centroid[end,:] #hypothesis
+
 
     veci(tmp_vec_1D_2,grid,1) .= vec(y_centroid)
-    vecb_B(tmp_vec_1D_2,grid) .= grid.y[1,:]
-    vecb_T(tmp_vec_1D_2,grid) .= grid.y[end,:]
+    vecb_B(tmp_vec_1D_2,grid) .= num.y[1] #not grid.y[1,:]
+    vecb_T(tmp_vec_1D_2,grid) .= num.y[end] #not grid.y[end,:]
 
     for iLS in 1:num.nLS
         x_bc = grid.x .+ getproperty.(grid.LS[iLS].mid_point, :x) .* grid.dx
@@ -4456,37 +4839,114 @@ function compute_divergence!(num::Numerical{Float64, Int64},
     print("\n size tmp_vec_1D ",size(tmp_vec_1D))
 
     print("\n size tmp_vec_1D ",size(A))
+    II = CartesianIndex(5,1)
+    tmp = lexicographic(II,grid.ny)
+    print("\n A ", A[tmp,:])
 
+    debug_A_rhs(num,grid,A,tmp_vec_1D,1,5)
     
-   rhs = A*tmp_vec_1D/2.0 #2V
+    print("\n rhs -y", tmp_vec_1D[tmp-1])
+    print("\n rhs ", tmp_vec_1D[tmp])
+    print("\n rhs +y", tmp_vec_1D[tmp+1])
+    print("\n rhs +x ", tmp_vec_1D[tmp+grid.ny])
 
-   print("\n min",minimum(rhs)," max ",maximum(rhs))
 
-   rhs_vec1 = vec1(vec(rhs),grid)
+    print("\n vecb_L",vecb_L(tmp_vec_1D,grid))
 
-   print("\n rhs_vec1 before end",rhs_vec1[1,1])
+    print("\n tmp_vec_1D",tmp_vec_1D)
 
-   print("\n size op ",size(op.opC_vL.M))
+    rhs = A*tmp_vec_1D/2.0 #2V
 
-   print("\n rhs_vec1 ",rhs_vec1[1,1])
+    print("\n min",minimum(rhs)," max ",maximum(rhs))
+
+    rhs_vec1 = reshape(vec1(rhs,grid),grid)
+
+    print("\n rhs_vec1 before end",rhs_vec1[1,1])
+
+    print("\n size op ",size(op.opC_vL.M))
+
+    print("\n rhs_vec1 ",rhs_vec1[1,1])
+
+    print("\n op ",op.opC_vL.M[1,1])
+
+    print("\n ratio ",rhs_vec1[1,1]/op.opC_vL.M[1,1])
+
+    print("\n size op ",size(op.opC_vL.M))
+    print("\n size op diag ",size(op.opC_vL.M.diag))
+
+    print("\n size rhs_vec1 ",size(rhs_vec1))
+
+    print("\n vecb_L ",vecb_L(rhs,grid))
+    print("\n vec1 ",rhs_vec1[5,1])
+    print("\n vec1 ",rhs_vec1[5,2])
+    print("\n vec1 ",rhs_vec1[5,3])
+
+    print("\n rhs ",rhs)
+    print("\n rhs vec1",vec1(rhs,grid))
+    print("\n rhs vec2",vec2(rhs,grid))
+
+
+    # TODO modify matrix
+    # op.opC_vL.M.diag .= vec1(rhs,grid)
+
+    # check_positivity_of_capacities(op)
+
+
+    # *opC_p.iMy.diag[pII]
    
-   print("\n op ",op.opC_vL.M[1,1])
+    # print("\n Laplacian coefficients ", II," ",Lv[pII,:]," ",bc_Lv_b[pII,:])
 
-   print("\n ratio ",rhs_vec1[1,1]/op.opC_vL.M[1,1])
-   
-   print("\n size op ",size(op.opC_vL.M))
-   print("\n size op diag ",size(op.opC_vL.M.diag))
-
-   print("\n size rhs_vec1 ",size(rhs_vec1))
-
-
-   op.opC_vL.M.diag .= rhs_vec1
-
-   check_positivity_of_capacities(op,rhs_vec1)
+    # printstyled(color=:green, @sprintf "\n exact %.10e 4/3exact %.10e\n" rhs[pII]*opC_p.iMy.diag[pII] rhs[pII]*opC_p.iMy.diag[pII]*4/3)
 
     
 end     #divergence
 
+
+"""
+debug with stencil
+"""
+function debug_A_rhs(num,grid,A,rhs,i,j)
+
+    ni = grid.nx * grid.ny
+    nb = 2 * grid.nx + 2 * grid.ny
+    nt = (num.nLS + 1) * ni + nb
+
+    print("\ndebug A rhs")
+    II = CartesianIndex(j,i)
+    pII = lexicographic(II,grid.ny)
+
+    print("\nA i j ", A[pII,:])
+    print("\nA i j ", A[pII,pII]," rhs ", rhs[pII]," pII ",pII)
+    
+    II = CartesianIndex(j-1,i)
+    pII2 = lexicographic(II,grid.ny) 
+    print("\nA i j -1 ", A[pII,pII2]," rhs ", rhs[pII2]," pII ",pII2)
+
+    II = CartesianIndex(j+1,i)
+    pII2 = lexicographic(II,grid.ny) 
+    print("\nA i j +1 ", A[pII,pII2]," rhs ", rhs[pII2]," pII ",pII2)
+
+    II = CartesianIndex(j,i+1)
+    pII2 = lexicographic(II,grid.ny) 
+    print("\nA i +1 j ", A[pII,pII2]," rhs ", rhs[pII2]," pII ",pII2)
+
+    print("\nA i j ", A[pII,end-nb+j]," rhs ", rhs[end-nb+j]," pII b")
+
+    pII2 = (num.nLS + 1) * ni + j #for left 
+
+    print("\nA i +1 j ", A[pII,pII2]," rhs ", rhs[pII2]," pII ",pII2)
+
+    pII2 = (num.nLS + 1) * ni + j #for left 
+
+    print("\nA i +1 j ", A[pII,pII2]," rhs ", rhs[pII2]," pII ",pII2)
+
+    pII2 =  ni + pII #for left 
+
+    print("\nA i +1 j ", A[pII,pII2]," rhs ", rhs[pII2]," pII ",pII2)
+
+
+
+end
 
 """
 Based on num.bulk_conductivity:
@@ -5185,7 +5645,9 @@ end
 
 
 """
-TODO geop for u and v grid
+mask for 1D vectors (bulk + interfacial + border) to ignore empty cells based on the capacities 
+TODO geo p for u and v grid
+TODO sparse array
 """
 function compute_mask_1D!(num::Numerical{Float64, Int64},grid::Mesh{GridCC,T,N},mask_1D) where {T,N}
     @unpack nx, ny, ind = grid
@@ -5236,7 +5698,7 @@ function compute_mask_1D!(num::Numerical{Float64, Int64},grid::Mesh{GridCC,T,N},
     #     print("\n top",II,geo.dcap[II,4])
     # end
 
-    print("\n mask_1D",mask_1D)
+    # print("\n mask_1D",mask_1D)
 
     return nothing
 end

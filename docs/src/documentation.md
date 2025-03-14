@@ -2114,6 +2114,115 @@ A second implementation of the method just described can be made by utilizing th
 \end{equation}
 ```
 
+
+```@raw html
+<section class="algorithm">
+  <div class="counter"></div>
+  <div class="procedure procedure__start">
+    <span class="sc">PmII Algorithm</span>(<i>Initial velocity</i> <b>u</b><sup>n</sup>, <i>pressure</i> <b>p</b><sup>n-1/2</sup>, <i>viscosity</i> ν, <i>time step</i> Δt)
+  </div>
+  <div class="comment">
+    Update velocity <b>u</b><sup>n+1</sup> and pressure <b>p</b><sup>n+1/2</sup>
+  </div>
+  <div class="counter"></div>
+  <div class="procedure procedure__start">
+    <span class="sc">Step 1:</span> Solve for the intermediate velocity field <b>u</b><sup>*</sup>
+  </div>
+  <div class="counter"></div>
+  <div class="state ml1">
+    \[
+    \frac{\mathbf{u}^* - \mathbf{u}^n}{\Delta t} + \nabla p^{n-1/2} = -[(\mathbf{u} \cdot \nabla) \mathbf{u}]^{n+1/2} + \frac{\nu}{2} \nabla^2 (\mathbf{u}^* + \mathbf{u}^n)
+    \]
+  </div>
+  <div class="comment">
+    with boundary conditions <b>u</b><sup>*,γ</sup> = <b>u</b><sup>γ</sup>
+  </div>
+  <div class="counter"></div>
+  <div class="procedure procedure__start">
+    <span class="sc">Step 2:</span> Perform the projection
+  </div>
+  <div class="counter"></div>
+  <div class="state ml1">
+    \[
+    \Delta \phi = \frac{1}{\Delta t} \nabla \cdot \mathbf{u}
+    \]
+  </div>
+  <div class="comment">
+    With <span>\(\frac{\partial \phi}{\partial n}=0\)</span>
+  </div>
+  <div class="counter"></div>
+  <div class="state ml1">
+    \[
+    \mathbf{u}^{n+1} = \mathbf{u}^* - \Delta t \nabla \phi^{n+1}
+    \]
+  </div>
+  <div class="state ml1">
+    \[
+    \nabla \cdot \mathbf{u}^{n+1} = 0
+    \]
+  </div>
+  <!-- <div class="comment">
+    with boundary conditions consistent with <span>\(B(\mathbf{u}^*) = 0\)</span> and <span>\(\mathbf{u}^{n+1}|_{\partial \Omega} = \mathbf{u}_b^{n+1}\)</span>
+  </div> -->
+  <div class="counter"></div>
+  <div class="procedure procedure__start">
+    <span class="sc">Step 3:</span> Update the pressure
+  </div>
+  <div class="counter"></div>
+  <div class="state ml1">
+    \[
+    p^{n+1/2} = p^{n-1/2} + \phi^{n+1} - \frac{\nu \Delta t}{2} \nabla^2 \phi^{n+1}
+    \]
+  </div>
+  <div class="comment">
+    Re-impose BC or naturally satisfied if <span>\(p^0\)</span> satisfies pressure BC ? <span>\(\phi\)</span>: OK but <span>\(\Delta \phi\)</span> : <span>\(\nabla \nabla^2 \phi = \nabla \nabla \cdot \mathbf{u}=0\)</span>?
+    But with accumulation of numerical errors ?
+  </div>
+  <div class="counter"></div>
+  <div class="procedure procedure__end"></div>
+</section>
+```
+
+!!! todo "Example algo html"
+
+```@raw html
+<section class="algorithm">
+<div class="counter"></div>
+<div class="procedure procedure__start">
+    <span class="sc">Euclid</span>(<i>a, b</i>)
+</div>
+<div class="comment">
+    The g.c.d. of <i>a</i> and <i>b</i>
+</div>
+<div class="counter"></div>
+<div class="state ml1"><i>r ← a </i>mod<i> b</i></div>
+<div class="counter"></div>
+<div class="while while__start ml1">
+    <i>r ≠ </i>0
+</div>
+<div class="comment">
+    We have the answer if <i>r</i> is 0
+</div>
+<div class="counter"></div>
+<div class="ml2"><i>a ← b</i></div>
+<div class="counter"></div>
+<div class="state ml2"><i>b ← r</i></div>
+<div class="counter"></div>
+<div class="ml2"><i>r ← a </i>mod<i> b</i></div>
+<div class="counter"></div>
+<div class="while while__end  ml1"></div>
+<div class="counter"></div>
+<div class="ml1"><strong>return</strong> <i>b</i></div>
+<div role="region" aria-label="comment" class="comment">
+    The gcd is <i>b</i>
+</div>
+<div role="region" aria-label="line" class="counter"></div>
+<div class="procedure procedure__end"></div>
+</section>
+```
+
+
+
 ### Projection method III (PmIII), a Projection Method without Pressure Gradient
 
 It is similar to the method of Kim and Moin \cite{KimMoin}, but uses a different spatial discretization and a slightly different treatment of the boundary conditions. The momentum equation is discretized by
@@ -2135,6 +2244,13 @@ As before, $\mathbf{u}^{n+1} = \mathbf{P}(\mathbf{u}^*)$, i.e., $\mathbf{u}^{n+1
 "
 
 Either pressure gradient in prediction or remove component in velocity boundary conditions
+
+
+### Flower original projection
+
+
+
+Problem: BC for velocity used as is but pressure gradient not in prediction, also Flower test case "channel.jl" has homogeneous Neumann BC at the injection whereas there is a pressure gradient in Poiseuille (in the direction of the flow)
 
 
 With the parameter ``num.prediction``, the following methods can be called:
@@ -2763,6 +2879,12 @@ Boundaries
 BoundariesInt
 ```
 
+## Masks
+
+```@docs
+compute_mask_1D!
+```
+
 ## Small cells
 
 Small cells introduce errors, the parameter ``\epsilon`` is used to delete small cells. Merging the cells could help with this problem, though it would involve modifying the capacities and the structure of the cut-cell operators.
@@ -2843,6 +2965,8 @@ List all variables
 * integral quantities
 * test radial + BC wall
 * manufactured solution for diffusion
+* sparse array for mask 1D
+
 
 !!! todo "Document capacities p, u, v"
     ```julia

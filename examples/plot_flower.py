@@ -23,6 +23,8 @@ from matplotlib.patches import FancyArrowPatch
 import matplotlib as mpl
 
 import matplotlib.patches as patches
+import matplotlib.transforms as transforms
+
 
 
 # from matplotlib._layoutgrid import plot_children
@@ -1119,12 +1121,22 @@ def plot_all_fig_func():
     # print(yml)
 
     mesh = yml["flower"]["mesh"]
+    study = yml["study"]
+
     plotpar = yml["plot"]
 
     plotpar["scale_time"] = float(plotpar["scale_time"])
-
-    mesh["nx"] = int(mesh["nx"])
-    mesh["ny"] = int(mesh["ny"])
+    
+    try:
+        mesh["nx"] = int(mesh["nx"])
+        mesh["ny"] = int(mesh["ny"])
+    # except:
+    #     with h5py.File(h5_files[0], "r") as file_first_read_mesh:
+    #         mesh["nx"] = file_first_read_mesh["nx"][()]
+    #         mesh["ny"] = file_first_read_mesh["ny"][()]
+    except:
+        mesh["nx"] = int(study["meshes"][0])
+        mesh["ny"] = int(study["meshes"][0])
 
     mesh["xmax"] = float(mesh["xmax"])
     mesh["xmin"] = float(mesh["xmin"])
@@ -1170,13 +1182,17 @@ def plot_all_fig_func():
             # data = file['data'][:]
             try:
                 time = file["time"][()]
+                # nstep = file["nstep"][()]
             except:
                 time = 0
+                # nstep = 0 
                 print("time not available")
 
             try:
+                # time = file["time"][()]
                 nstep = file["nstep"][()]
             except:
+                # time = 0
                 nstep = 0 
                 print("nstep not available")
 
@@ -1330,13 +1346,29 @@ def plot_all_fig():
             print(file.keys())
 
             # data = file['data'][:]
+            # try:
+            #     time = file["time"][()]
+            #     nstep = file["nstep"][()]
+            # except:
+            #     time = 0
+            #     nstep = 0 
+            #     print("time not available")
+
             try:
                 time = file["time"][()]
-                nstep = file["nstep"][()]
+                # nstep = file["nstep"][()]
             except:
                 time = 0
-                nstep = 0 
+                # nstep = 0 
                 print("time not available")
+
+            try:
+                # time = file["time"][()]
+                nstep = file["nstep"][()]
+            except:
+                # time = 0
+                nstep = 0 
+                print("nstep not available")
 
             print("time", time, "nstep", nstep)
 
@@ -2116,49 +2148,66 @@ def plot_vector(file,
     scale_units=plotpar["quiver_scale_unit"]
     scale_units = None if scale_units == 'None' else scale_units
 
-    skip_every = int(figpar['skip_every'])
-    skip = (slice(None, None, skip_every), slice(None, None, skip_every))
-    skip1D = slice(None, None, skip_every)
+    if 'skip_every' in figpar.keys():
+        skip_every = int(figpar['skip_every'])
+        # print(skip_every) 
+        skip = (slice(None, None, skip_every), slice(None, None, skip_every))
+        skip1D = slice(None, None, skip_every)
+    else:
+        skip = (slice(None, None, None), slice(None, None, None))
+        skip1D = slice(None, None, None)
 
     q = ax2.quiver(xp[skip1D],yp[skip1D],us[skip],vs[skip],
     scale=float(plotpar["quiver_scale"]),
     scale_units=scale_units,
     angles=scale_units,
-    #color = "red",
+    # color = "k",
     )
 
-    # txt1 = "My name is {fname}, I'm {age}".format(fname = "John", age = 36)
-    # txt2 = "My name is {0}, I'm {1}".format("John",36)
-    # txt3 = "My name is {}, I'm {}".format("John",36) 
-    # print(txt1)
-    # print(txt2)
-    # print(txt3)
+    # print('us',np.min(us),np.max(us),np.max(us)/float(plotpar["quiver_scale"]))
+    # print('vs',np.min(vs),np.max(vs),np.max(vs)/float(plotpar["quiver_scale"]))
+    # print('scale_units',scale_units)
+    # print('scale',plotpar["quiver_scale"])
+
+    # print(xp)
+    # print(yp)
+    # print(us)
+    # print(vs)
 
 
-    if parse_is_true(figpar['quiverkey']):
-        v_inlet = float(yml['flower']['physics']['v_inlet'])
+    if 'quiverkey' in figpar.keys():
+        if parse_is_true(figpar['quiverkey']):
+            v_inlet = float(yml['flower']['physics']['v_inlet'])
 
-        # textquiver = "$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(v_inlet)
-        # textquiver += '{m/s}'
-        # textquiver += '$'
-        # textquiver = r''+textquiver
-        # print(textquiver)
+            # textquiver = "$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(v_inlet)
+            # textquiver += '{m/s}'
+            # textquiver += '$'
+            # textquiver = r''+textquiver
+            # print(textquiver)
 
-        qk = ax2.quiverkey(
-            q,
-            figpar['quiver_x'],
-            figpar['quiver_y'],
-            v_inlet,
-            # r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}{{}}$".format(v_inlet,'m/s'),
-            # textquiver,
-            r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(v_inlet)+'{'+figpar['quiver_unit']+'}$',
-            labelpos="E",
-            coordinates="figure",
-        )
+            qk = ax2.quiverkey(
+                q,
+                figpar['quiver_x'],
+                figpar['quiver_y'],
+                v_inlet,
+                # r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}{{}}$".format(v_inlet,'m/s'),
+                # textquiver,
+                r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(v_inlet)+'{'+figpar['quiver_unit']+'}$',
+                labelpos="E",
+                coordinates="figure",
+            )
 
     if figpar['plot_levelset']:
         key_LS = 'levelset_p'
-        LSdat = file[key_LS][:]
+
+        try:
+            LSdat = file[key_LS][:]
+        except:
+            if 'levelset_file' in figpar.keys():
+                with h5py.File(figpar['levelset_file'], "r") as levelset_file:
+                    LSdat = levelset_file[key_LS][:]
+
+
         LSdat = LSdat.transpose()
         CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'])
 
@@ -2192,7 +2241,20 @@ def plot_vector(file,
         ax2.set_aspect('equal', 'box')
         
         str_nstep = str(nstep)
-        plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also save fig for latex  display
+
+        # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also save fig for latex  display
+
+        if 'macro_file_name' in figpar.keys():
+            # print(figpar['macro_file_name'])
+            # plt.savefig(eval(figpar['macro_file_name']),dpi=plotpar['dpi'])
+
+            for macro in figpar['macro_file_name']:
+                # print(macro)
+                plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
+
+        else:
+            plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
+
 
     if mode == 'close':
         # str_nstep = str(nstep)
@@ -2308,10 +2370,29 @@ def plot_schematics(figpar,plotpar):
     # inset_ax.text(xmin/2, 0.75, r'$\frac{\partial c_{\ce{H2}}}{\partial n} = -\frac{i}{2FD}$', fontsize=fontsize,color='w')
     inset_ax.text(xmin/2, 0.8, r'$\frac{\partial \phi }{\partial n} = \frac{i}{\kappa}$', fontsize=fontsize,color='w')
 
-    # inset_ax.text(0.1, 0.35, r'$c_{\ce{H2}} = c_{\ce{H2}, 0}$', fontsize=fontsize)
-    inset_ax.text(0.5, 0, r'$\frac{\partial \phi }{\partial n} = 0$', fontsize=fontsize,va='bottom',ha='left',color='w')
 
-    inset_ax.text(0.5, 1, r'$\frac{\partial \phi }{\partial n} = 0$', fontsize=fontsize,va='top',ha='left',color='w')
+    # shift the object by linewidth
+    linewidth_points = 1 #lw_inset
+    dx, dy = 0, +linewidth_points/72.
+    offset = transforms.ScaledTranslation(dx, dy, fig1.dpi_scale_trans)
+    shadow_transform = inset_ax.transData + offset
+    shadow_transform_minus = inset_ax.transData - offset
+
+
+    
+    # inset_ax.text(0.1, 0.35, r'$c_{\ce{H2}} = c_{\ce{H2}, 0}$', fontsize=fontsize)
+    inset_ax.text(0.5, 0, r'$\frac{\partial \phi }{\partial n} = 0$', 
+                  fontsize=fontsize,va='bottom',ha='left',color='w',
+                  transform = shadow_transform,
+                  )
+
+
+
+
+    inset_ax.text(0.5, 1, r'$\frac{\partial \phi }{\partial n} = 0$',
+                fontsize=fontsize,va='top',ha='left',color='w',
+                transform = shadow_transform_minus,
+)
 
 
     # inset_ax.text(0.5, 0.2, r'$\mathrm{\ce{H2}} \text{(gas)}$', fontsize=fontsize,va='center',ha='center',color='k')
@@ -2344,6 +2425,198 @@ def plot_schematics(figpar,plotpar):
 
 
     plt.savefig('schematics_bubble.pdf',transparent=True)
+
+
+
+
+
+def plot_schematics_fluxes(figpar,plotpar):
+
+
+    fig1, ax2 = init_fig(plotpar,figpar)
+
+    fontsize = plotpar['font_size']
+
+    # axins.imshow(Z2, extent=extent, origin="lower")
+
+    lw_inset = 0.5
+    color_inset = orange_Okabe
+
+    # x1, x2, y1, y2 = figpar['add_schematics_coords']
+
+    # inset_ax = ax2.inset_axes(
+    # [-1, 0.125, 0.75, 0.75],
+    # # [0.5, 0.5, 0.47, 0.47],
+    # xlim=(x1, x2), ylim=(y1, y2), xticklabels=[], yticklabels=[])
+
+    # rect, lines = ax2.indicate_inset_zoom(inset_ax, edgecolor=color_inset,
+    #                                       lw=lw_inset,
+    #                                       alpha=1)
+    
+    # # rect.set_edgecolor('none')
+
+    # # lines.set_width(0.125)
+
+    # plt.setp(lines, linewidth=lw_inset,color=color_inset)
+
+    dx =0.1
+
+    xmin = 0-dx
+
+    xmax = 1+dx
+    # xmax = 1
+
+
+    inset_ax = ax2
+
+    inset_ax.set_xlim(xmin, xmax)
+    inset_ax.set_ylim(0, 1)
+    # inset_ax.axis('off')
+
+    inset_ax.get_xaxis().set_visible(False)
+    inset_ax.get_yaxis().set_visible(False)
+
+    # for key, spine in inset_ax.spines.items():
+    #     spine.set_edgecolor(orange_Okabe)
+    #     spine.set_linewidth(lw_inset)
+
+
+    # Draw the gradient in the inset
+    # inset_ax.fill_between([0, 1], [0, 0], [1, 0.5], color='cyan', alpha=0.3)
+
+
+    gray = 0.3
+    # Draw the electrode
+    electrode = patches.Rectangle((xmin, 0), -xmin, 1.0, 
+                                #   edgecolor='black', 
+                                facecolor= (gray, gray, gray) #'gray'
+                                )
+    inset_ax.add_patch(electrode)
+
+    # membrane = patches.Rectangle((1, 0), xmax, 1.0, 
+    #                             #   edgecolor='black', 
+    #                             # facecolor= (1,1,1),
+    #                             facecolor= blue_Okabe,
+    #                             # hatch='+',
+    #                             ) #'gray'
+                                
+    # inset_ax.add_patch(membrane)
+
+
+    inset_ax.text(xmin/2, 0.5, 'Electrode', color='w',
+            fontsize=fontsize,rotation=90, va='center',ha='center')
+
+    # inset_ax.text((xmax+1)/2, 0.5, 'Membrane', color='w',fontsize=fontsize,rotation=90, va='center',ha='center')
+
+    # inset_ax.plot([1, 1], [0,1], ls='-',color='w')
+    # inset_ax.plot([1.0125, 1.0125], [0,1], ls='-',color='w')
+
+
+    # liq_height=0.5
+    # liq_height_2 = 0.75
+
+    liq_height=1
+    liq_height_2=liq_height
+
+    # inset_ax.fill_between([0, 1-liq_height], [1, 1], [1, 1-liq_height_2], color='cyan', alpha=0.3)
+
+    # inset_ax.fill_between([0, 1],[1,1] ,[1-liq_height, 1-liq_height_2])
+    inset_ax.fill_between([0, xmax],[1,1] ,[1-liq_height, 1-liq_height_2])
+
+    # inset_ax.plot([0, 1], [1-liq_height, 1-liq_height_2], ls='-',color='r')
+
+    # Annotate the inset
+
+    # inset_ax.text(xmin/2, 0.5, 'Electrode', color='w',fontsize=12,rotation=90, va='center',ha='center')
+
+
+    # ycoord = 0.5
+
+    # inset_ax.text(xmin/2, 0.75, r'$\frac{\partial c_{\ce{H2}}}{\partial n} = -\frac{i}{2FD}$', fontsize=fontsize,color='w')
+    # inset_ax.text(xmin/2, 0.8, r'$\frac{\partial \phi }{\partial n} = \frac{i}{\kappa}$', 
+    #               fontsize=fontsize,color='w')
+
+     # shift the object by linewidth
+    linewidth_points = 1 #lw_inset
+    dx, dy = 0, +linewidth_points/72.
+    offset = transforms.ScaledTranslation(dx, dy, fig1.dpi_scale_trans)
+    shadow_transform = inset_ax.transData + offset
+    shadow_transform_minus = inset_ax.transData - offset
+    
+    dx, dy = +linewidth_points/72. ,0
+    offset = transforms.ScaledTranslation(dx, dy, fig1.dpi_scale_trans)
+    xtransform = inset_ax.transData + offset
+   
+
+    inset_ax.text(
+                # xmin/2,
+                  0,
+                  0.6, r'$ \frac{i_y}{z_+F}=N_{+y}=-z_+u_+F\nu_+c\frac{\partial \phi}{\partial y}-D_+\nu_+\frac{\partial c}{\partial y}$', 
+                  fontsize=fontsize,color='w',
+                  ha='left',
+                  transform=xtransform,
+                  )
+
+
+    inset_ax.text(
+                # xmin/2,
+                0,
+                0.4, r'$ 0=N_{-y}=-z_-u_-F\nu_-c\frac{\partial \phi}{\partial y}-D_-\nu_-\frac{\partial c}{\partial y} $', 
+                fontsize=fontsize,color='w',
+                ha='left',
+                transform=xtransform,
+                )
+
+
+   
+
+
+    
+    # inset_ax.text(0.1, 0.35, r'$c_{\ce{H2}} = c_{\ce{H2}, 0}$', fontsize=fontsize)
+    # inset_ax.text(0.5, 0, r'$\frac{\partial \phi }{\partial n} = 0$', 
+    #               fontsize=fontsize,va='bottom',ha='left',color='w',
+    #               transform = shadow_transform,
+    #               )
+
+
+
+
+#     inset_ax.text(0.5, 1, r'$\frac{\partial \phi }{\partial n} = 0$',
+#                 fontsize=fontsize,va='top',ha='left',color='w',
+#                 transform = shadow_transform_minus,
+# )
+
+
+    # inset_ax.text(0.5, 0.2, r'$\mathrm{\ce{H2}} \text{(gas)}$', fontsize=fontsize,va='center',ha='center',color='k')
+    # inset_ax.text(0.5, 0.3, r'$\mathrm{\ce{H2}} \text{bubble}$', fontsize=fontsize,va='center',ha='center',color='k')
+
+
+    # inset_ax.text(0.5, 0.2, r'$\mathrm{\ce{H2}O}, \mathrm{KOH}, \mathrm{\ce{H2}}$', fontsize=fontsize,va='center',ha='center',color='w')
+
+
+    # inset_ax.text(1, 0.5, r'$ \phi = 0$', fontsize=fontsize,va='center',ha='right',color='w')
+
+
+    plt.savefig('schematics_fluxes.pdf',transparent=True)
+
+    # plt.axis('equal')
+
+    # inset_ax.spines['top'].set_visible(False)
+    # inset_ax.spines['right'].set_visible(False)
+    # inset_ax.spines['bottom'].set_visible(False)
+    # inset_ax.spines['left'].set_visible(False)
+
+    # radius = 0.25
+    # circle1 = plt.Circle((0.5, 0.5), radius, color='w')
+
+   
+    # inset_ax.add_patch(circle1)
+
+    # inset_ax.text(0.5+radius, 0.5, r'$\frac{\partial \phi }{\partial n} = 0$', 
+    #               fontsize=fontsize,va='center',ha='right',color='k')
+
+
+    # plt.savefig('schematics_bubble.pdf',transparent=True)
 
 
 
@@ -2547,7 +2820,7 @@ def plot_schematics_full(figpar,plotpar):
     # inset_ax.text(0.0, 0.0, r"$\mathrm{2\ce{H2}O} + 2e^- \rightarrow \mathrm{2\ce{H2}} + \mathrm{2OH^-}$", fontsize=fontsize,va='bottom',ha='left',color='w')
 
 
-    inset_ax.text(2.0, 0.5, r"\ce{2OH- -> H2O + 1/2O2 + 2OH- + 2e-}",
+    inset_ax.text(2.0, 0.0, r"\ce{2OH- -> H2O + 1/2O2 + 2OH- + 2e-}",
                    fontsize=fontsize,va='bottom',ha='right',color='w')
 
     # inset_ax.text(2.0, 0.0, r"$\mathrm{2OH^-} \rightarrow \mathrm{\ce{H2}O} + \frac 12 \mathrm{\ce{O2}} + 2e^-$",
@@ -2561,6 +2834,244 @@ def plot_schematics_full(figpar,plotpar):
     inset_ax.set_xlim(-0.1, 2.1)
 
     plt.savefig('schematics_full.pdf',transparent=True)
+
+
+
+
+
+def plot_schematics_full_with_losses(figpar,plotpar):
+
+
+    fig1, ax2 = init_fig(plotpar,figpar)
+
+    fontsize = plotpar['font_size']
+
+    # axins.imshow(Z2, extent=extent, origin="lower")
+
+    lw_inset = 0.5
+    color_inset = orange_Okabe
+
+    # x1, x2, y1, y2 = figpar['add_schematics_coords']
+
+    # inset_ax = ax2.inset_axes(
+    # [-1, 0.125, 0.75, 0.75],
+    # # [0.5, 0.5, 0.47, 0.47],
+    # xlim=(x1, x2), ylim=(y1, y2), xticklabels=[], yticklabels=[])
+
+    # rect, lines = ax2.indicate_inset_zoom(inset_ax, edgecolor=color_inset,
+    #                                       lw=lw_inset,
+    #                                       alpha=1)
+    
+    # # rect.set_edgecolor('none')
+
+    # # lines.set_width(0.125)
+
+    # plt.setp(lines, linewidth=lw_inset,color=color_inset)
+
+
+
+    dx =0.1
+
+    xmin = 0-dx
+
+    xmax = 1+dx
+    xmax2 = 2 + dx
+
+    xmax = 1+dx
+    # xmax2 = 1 + dx
+
+    # xmax = 1
+
+
+    inset_ax = ax2
+
+    # inset_ax.set_xlim(xmin, xmax)
+    inset_ax.set_ylim(0, 1)
+
+    inset_ax.set_xlim(xmin, xmax2)
+
+    inset_ax.axis('off')
+
+    inset_ax.get_xaxis().set_visible(False)
+    inset_ax.get_yaxis().set_visible(False)
+
+    # for key, spine in inset_ax.spines.items():
+    #     spine.set_edgecolor(orange_Okabe)
+    #     spine.set_linewidth(lw_inset)
+
+
+    # Draw the gradient in the inset
+    # inset_ax.fill_between([0, 1], [0, 0], [1, 0.5], color='cyan', alpha=0.3)
+
+
+    # liq_height=0.5
+    # liq_height_2 = 0.75
+
+    liq_height=1
+    liq_height_2=liq_height
+
+    # inset_ax.fill_between([0, 1-liq_height], [1, 1], [1, 1-liq_height_2], color='cyan', alpha=0.3)
+
+    # inset_ax.fill_between([0, 1],[1,1] ,[1-liq_height, 1-liq_height_2])
+    inset_ax.fill_between([0, 2],[1,1] ,[1-liq_height, 1-liq_height_2])
+
+
+    o2coord = 0.25
+
+    other_radius= 0.125 #0.025
+
+    zorder_bubbles=1
+    edgecolor=None
+    circle1 = plt.Circle((0.0, 0.15), other_radius/4, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+    circle2 = plt.Circle((0.15, 0.92), other_radius, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+
+
+
+    circle3 = plt.Circle((0.0, 0.5), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+
+    circle4 = plt.Circle((2.0, o2coord), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+
+
+    # circle1.set_clip_on(True)
+    # circle2.set_clip_on(True)
+    # circle3.set_clip_on(True)
+    # circle4.set_clip_on(True)
+
+    # inset_ax.axvline(-0.1,c='k')
+
+
+    inset_ax.text(0, 0.5, r'$\ce{H2}$', fontsize=fontsize,va='center',ha='left',color='k')
+   
+    inset_ax.text(2.0, o2coord, r'$\ce{O2}$', fontsize=fontsize,va='center',ha='right',color='k')
+
+
+    # circle3 = plt.Arc((0.0, 0.5), 0.1, color='w')
+
+    # radius= 0.1
+    # Arc
+    # arc = patches.Arc((0.0, 0.5), radius, radius, color='w', theta1=-90, theta2=90,
+    #         #   hatch="\\",lw=lw
+    #         fill='w'
+    #           )
+
+    inset_ax.add_patch(circle1)
+    inset_ax.add_patch(circle2)
+    # inset_ax.add_patch(arc)
+    inset_ax.add_patch(circle3)
+
+    inset_ax.add_patch(circle4)
+
+    
+
+    # inset_ax.set_ylim(0, 1)
+    # inset_ax.set_xlim(0, 1)
+
+    gray = 0.3
+    dx2 = 1e-2
+    # Draw the electrode
+    electrode = patches.Rectangle((xmin, 0), -xmin-dx2, 1.0, 
+                                edgecolor= (gray, gray, gray), 
+                                facecolor= (gray, gray, gray) #'gray'
+                                )
+    inset_ax.add_patch(electrode)
+
+    anode = patches.Rectangle((2, 0), dx+dx2, 1.0, 
+                                #   edgecolor='black', 
+                                edgecolor= (gray, gray, gray), 
+                                facecolor= (gray, gray, gray) #'gray'
+                                )
+    inset_ax.add_patch(anode)
+
+    # membrane = patches.Rectangle((1, 0), xmax, 1.0, 
+    #                             #   edgecolor='black', 
+    #                             # facecolor= (1,1,1),
+    #                             facecolor= blue_Okabe,
+    #                             # hatch='+',
+    #                             ) #'gray'
+                                
+    # inset_ax.add_patch(membrane)
+
+
+    inset_ax.text(xmin/2, 0.5, 'Cathode', color='w',fontsize=fontsize,rotation=90, va='center',ha='center')
+
+    inset_ax.text(1.0, 0.5, 'Membrane', color='w',fontsize=fontsize,rotation=90, va='center',ha='left')
+
+    inset_ax.text((xmax2+2)/2, 0.5, 'Anode', color='w',fontsize=fontsize,rotation=90, va='center',ha='center')
+
+
+    inset_ax.plot([1, 1], [0,1], ls='-',color='w')
+    # inset_ax.plot([1.0125, 1.0125], [0,1], ls='-',color='w')
+    # inset_ax.plot([1.-dx/2, 1.0-dx/2], [0,1], ls='-',color='w')
+    # inset_ax.plot([1.+dx/2, 1.0+dx/2], [0,1], ls='-',color='w')
+
+
+
+
+
+
+
+    # inset_ax.plot([0, 1], [1-liq_height, 1-liq_height_2], ls='-',color='r')
+
+    # Annotate the inset
+
+    # inset_ax.text(xmin/2, 0.5, 'Electrode', color='w',fontsize=12,rotation=90, va='center',ha='center')
+
+
+    # ycoord = 0.5
+
+    # inset_ax.text(xmin/2, 0.75, r'$\frac{\partial c_{\ce{H2}}}{\partial n} = -\frac{i}{2FD}$', fontsize=fontsize,color='w')
+    # inset_ax.text(xmin/2, 0.8, r'$\frac{\partial \phi }{\partial n} = \frac{i}{\kappa}$', fontsize=fontsize,color='w')
+
+    # # inset_ax.text(0.1, 0.35, r'$c_{\ce{H2}} = c_{\ce{H2}, 0}$', fontsize=fontsize)
+    # inset_ax.text(0.5, 0, r'$\frac{\partial \phi }{\partial n} = 0$', fontsize=fontsize,va='bottom',ha='left',color='w')
+
+    # inset_ax.text(0.5, 1, r'$\frac{\partial \phi }{\partial n} = 0$', fontsize=fontsize,va='top',ha='left',color='w')
+
+
+    # inset_ax.text(0.5, 0.2, r'$\mathrm{\ce{H2}} \text{(gas)}$', fontsize=fontsize,va='center',ha='center',color='k')
+    # inset_ax.text(0.5, 0.3, r'$\mathrm{\ce{H2}} \text{bubble}$', fontsize=fontsize,va='center',ha='center',color='k')
+
+
+    # inset_ax.text(0.5, 0.2, r'$\mathrm{\ce{H2}O}, \mathrm{KOH}, \mathrm{\ce{H2}}$', fontsize=fontsize,va='center',ha='center',color='w')
+
+    # inset_ax.text(0.0, 0.0, r'\ce{2H2O + 2e- -> 2H2 + 2OH-}', fontsize=fontsize,va='bottom',ha='left',color='w')
+    # # inset_ax.text(0.0, 0.0, r"$\mathrm{2\ce{H2}O} + 2e^- \rightarrow \mathrm{2\ce{H2}} + \mathrm{2OH^-}$", fontsize=fontsize,va='bottom',ha='left',color='w')
+
+
+    # inset_ax.text(2.0, 0.0, r"\ce{2OH- -> H2O + 1/2O2 + 2OH- + 2e-}",
+    #                fontsize=fontsize,va='bottom',ha='right',color='w')
+
+    # inset_ax.text(2.0, 0.0, r"$\mathrm{2OH^-} \rightarrow \mathrm{\ce{H2}O} + \frac 12 \mathrm{\ce{O2}} + 2e^-$",
+    #                fontsize=fontsize,va='bottom',ha='right',color='w')
+
+    # inset_ax.text(1, 0.5, r'$ \phi = 0$', fontsize=fontsize,va='center',ha='right',color='w')
+
+    plt.axis('equal')
+
+    inset_ax.set_ylim(0, 1)
+    inset_ax.set_xlim(-0.1, 2.1)
+
+    # plt.savefig('schematics_full.pdf',transparent=True)
+
+    height_loss = 0.0
+    color_loss = 'k'
+    inset_ax.text(1.0, height_loss, r'$\eta_{\text{ohmic}}$', fontsize=fontsize,va='top',ha='center',color=color_loss)
+    
+    inset_ax.text(0.0, height_loss, r'$\eta_{\text{c}}$', fontsize=fontsize,va='top',ha='right',color=color_loss)
+    inset_ax.text(2.0, height_loss, r'$\eta_{\text{a}}$', fontsize=fontsize,va='top',ha='left',color=color_loss)
+
+    # Define the start and end points of the bracket
+    x1, x2 = 0.0, 2.0
+    y = 0.0
+
+    # Plot the bracket
+    inset_ax.annotate('', xy=(x2, y), xytext=(x1, y), 
+                    #   arrowprops=dict(arrowstyle='-[, widthB=5.0, lengthB=0.2', lw=1.5),
+                    arrowprops=dict(arrowstyle='|-|,widthA=0.5,widthB=0.5', color='black')
+                      )
+
+    plt.savefig('schematics_full_losses.pdf',transparent=True)
+
 
 def add_schematics(ax2,fontsize,figpar):
 
@@ -3851,13 +4362,28 @@ def python_movie_zoom(
 
     with h5py.File(file_name, "r") as file:
 
+        # try:
+        #     time = file["time"][()]
+        #     nstep = file["nstep"][()]
+        # except:
+        #     time = 0
+        #     nstep = 0 
+        #     print("time not available")
         try:
             time = file["time"][()]
-            nstep = file["nstep"][()]
+            # nstep = file["nstep"][()]
         except:
             time = 0
-            nstep = 0 
+            # nstep = 0 
             print("time not available")
+
+        try:
+            # time = file["time"][()]
+            nstep = file["nstep"][()]
+        except:
+            # time = 0
+            nstep = 0 
+            print("nstep not available")
 
         fig1,ax2,CS = plot_file(
         file,
@@ -3896,13 +4422,29 @@ def python_movie_zoom(
 
             # print(file.keys())
 
+            # try:
+            #     time = file["time"][()]
+            #     nstep = file["nstep"][()]
+            # except:
+            #     time = 0
+            #     nstep = 0 
+            #     print("time not available")     
+
             try:
                 time = file["time"][()]
-                nstep = file["nstep"][()]
+                # nstep = file["nstep"][()]
             except:
                 time = 0
+                # nstep = 0 
+                print("time not available")
+
+            try:
+                # time = file["time"][()]
+                nstep = file["nstep"][()]
+            except:
+                # time = 0
                 nstep = 0 
-                print("time not available")     
+                print("nstep not available")
 
             fig1,ax2,CS = plot_file(
             file,
@@ -3992,13 +4534,29 @@ def python_movie_zoom_func(
 
     with h5py.File(file_name, "r") as file:
 
+        # try:
+        #     time = file["time"][()]
+        #     nstep = file["nstep"][()]
+        # except:
+        #     time = 0
+        #     nstep = 0 
+        #     print("time not available")
+
         try:
             time = file["time"][()]
-            nstep = file["nstep"][()]
+            # nstep = file["nstep"][()]
         except:
             time = 0
-            nstep = 0 
+            # nstep = 0 
             print("time not available")
+
+        try:
+            # time = file["time"][()]
+            nstep = file["nstep"][()]
+        except:
+            # time = 0
+            nstep = 0 
+            print("nstep not available")
 
         # print(key,file_name)
 
@@ -4044,13 +4602,29 @@ def python_movie_zoom_func(
 
             # print(file.keys())
 
+            # try:
+            #     time = file["time"][()]
+            #     nstep = file["nstep"][()]
+            # except:
+            #     time = 0
+            #     nstep = 0 
+            #     print("time not available")
+
             try:
                 time = file["time"][()]
-                nstep = file["nstep"][()]
+                # nstep = file["nstep"][()]
             except:
                 time = 0
-                nstep = 0 
+                # nstep = 0 
                 print("time not available")
+
+            try:
+                # time = file["time"][()]
+                nstep = file["nstep"][()]
+            except:
+                # time = 0
+                nstep = 0 
+                print("nstep not available")
 
             # print(key,file_name,nstep,time)
 
@@ -4578,3 +5152,73 @@ def vecb_T(data, nx, ny):
 # vecb_B(a,g::G) where {G<:Grid} = @view vecb(a, g)[g.ny+1:g.ny+g.nx]
 # vecb_R(a,g::G) where {G<:Grid} = @view vecb(a, g)[g.ny+g.nx+1:2*g.ny+g.nx]
 # vecb_T(a,g::G) where {G<:Grid} = @view vecb(a, g)[2*g.ny+g.nx+1:2*g.ny+2*g.nx]
+
+
+def report():
+    """
+    Plot all films in YAML file
+    """
+
+    try:
+        yamlfile = sys.argv[1]
+        if ".yml" not in yamlfile:
+            yamlfile += ".yml"
+    except Exception as error:
+        print(error)
+        print(colored("error", "red"))
+
+    with open(yamlfile, "r") as file:
+        yml = yaml.safe_load(file)
+
+    boundaries_list = yml["flower"]["macros"]["boundaries_list"]
+
+    print(boundaries_list)
+
+    # columns = ['u', 'v', 'p']
+
+    # df = pd.DataFrame(boundaries_list
+    #                 #   ,columns=columns
+    #                   )
+
+    df = pd.DataFrame.from_dict(boundaries_list,
+                    #              orient='index',
+                    #    columns=columns,
+                       )
+    print(df)
+    df = df.transpose()
+
+    # df['Variable'] = df.index
+
+    # Convert the index into a column
+    df = df.reset_index()
+
+    # Rename the new column if desired
+    df.rename(columns={'index': 'Variable'}, inplace=True)
+    
+    print(df)
+
+
+    # List of replacements
+    replacements = {
+    'BC_uL': 'u',
+    'BC_vL': 'v',
+    'BC_pL': 'p',
+    }
+
+    df = df.replace(replacements)
+
+    print(df)
+
+    print(df.to_latex(
+        index=False,
+
+    formatters={"name": str.upper},
+
+    float_format="{:.2e}".format,))
+
+    print(df.to_html(
+        index=False,
+
+    formatters={"name": str.upper},
+
+    float_format="{:.2e}".format,))

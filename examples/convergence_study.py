@@ -21,7 +21,9 @@ from scipy.stats import pearsonr
 # from plot_flower import * 
 from plot_flower import set_size, init_fig, compute_slope, roundlog, \
    logticks,reshape_data,veci,vecb_L,reshape_data_veci,plot_current_lines,\
-   plot_python_pdf_full2,plot_file,plot_schematics,plot_schematics_full,add_schematics,compute_slope_lin_or_log,plot_vector 
+   plot_python_pdf_full2,plot_file,plot_schematics,plot_schematics_full,\
+   add_schematics,compute_slope_lin_or_log,plot_vector,plot_schematics_fluxes,\
+   plot_schematics_full_with_losses 
 
 plt.rcParams["text.parse_math"] = False #necessary for mhchem
 
@@ -613,12 +615,18 @@ def plot_convergence_study_func():
    # print(yml)
 
    mesh = yml["flower"]["mesh"]
+   study = yml["study"]
+
    plotpar = yml["plot"]
 
    plotpar["scale_time"] = float(plotpar["scale_time"])
 
-   mesh["nx"] = int(mesh["nx"])
-   mesh["ny"] = int(mesh["ny"])
+   try:
+        mesh["nx"] = int(mesh["nx"])
+        mesh["ny"] = int(mesh["ny"])
+   except:
+        mesh["nx"] = int(study["meshes"][0])
+        mesh["ny"] = int(study["meshes"][0])
 
    mesh["xmax"] = float(mesh["xmax"])
    mesh["xmin"] = float(mesh["xmin"])
@@ -806,11 +814,19 @@ def plot_convergence_func(
 
          try:
             time = file["time"][()]
-            nstep = file["nstep"][()]
+            # nstep = file["nstep"][()]
          except:
             time = 0
-            nstep = 0 
+            # nstep = 0 
             print("time not available")
+
+         try:
+            # time = file["time"][()]
+            nstep = file["nstep"][()]
+         except:
+            # time = 0
+            nstep = 0 
+            print("nstep not available")
 
          print(key,file_name)
 
@@ -1205,12 +1221,19 @@ def plot_convergence_func_new_ax(
 
          try:
             time = file["time"][()]
-            nstep = file["nstep"][()]
+            # nstep = file["nstep"][()]
          except:
             time = 0
-            nstep = 0 
+            # nstep = 0 
             print("time not available")
 
+         try:
+            # time = file["time"][()]
+            nstep = file["nstep"][()]
+         except:
+            # time = 0
+            nstep = 0 
+            print("nstep not available")
 
 
          print(colored(key+' '+file_name,'cyan'))

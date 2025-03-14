@@ -311,14 +311,6 @@ flower:
        print("\n grad ",(BC_pL.top.val-BC_pL.bottom.val)/L0)
 
 
-    init_struct2: obj = MyModule.MyType(10, 20.0)
-
-    init_struct: |
-      print("\n test obj \n")
-      obj = MyModule.MyType(10, 20.0)
-      print("\n test obj \n")
-
-
     print_parameters: | 
       print("\n test print_parameters2 \n")
       mu = phys.mu_cin1 *phys.rho1 #in Pa s = M L^{-1} T^{-1}}

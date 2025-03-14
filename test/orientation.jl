@@ -1122,7 +1122,89 @@ end
     end
 
 end
-#region gradient staggered
+#endregion gradient staggered
+
+
+#region laplacian
+printstyled(color=:red, @sprintf "\n test laplacian \n") 
+
+@testset "Laplacian" begin
+    #Allocations for scalar grid
+    ni = gv.nx * gv.ny
+    nb = 2 * gv.nx + 2 * gv.ny
+    nt = (num.nLS + 1) * ni + nb
+
+    AvL =  spzeros(nt, nt) 
+    tmp_vec_1D_v = fnzeros(gv,num)
+    tmp_vec_1D_v0 = fnzeros(gv,num)
+
+    BC_int = [WallNoSlip()]
+
+    periodic_x = false
+    periodic_y = false
+
+    update_all_ls_data(num, gp, gu, gv, BC_int, periodic_x, periodic_y, false) #not periodic
+
+    # geoL = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
+    # geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
+    # geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+    # Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L = set_matrices!(
+    #     num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL,
+    #     op.opC_pL, op.opC_uL, op.opC_vL, periodic_x, periodic_y
+    # )
+
+    laps = set_matrices!(num, gp, [gp.LS[1].geoL], gu, [gu.LS[1].geoL], gv, [gv.LS[1].geoL], 
+    op.opC_pL, op.opC_uL, op.opC_vL, periodic_x, periodic_y) #not periodic
+    # Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = laps
+    Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L = laps
+
+    compute_divergence_test!(num, 
+    # grid, 
+    # grid_u, 
+    gv, 
+    op,
+    AvL, 
+    # rhs_scal,
+    # tmp_vec_p, #a0
+    tmp_vec_1D_v0,
+    tmp_vec_1D_v,
+    Lvm1_L, 
+    bc_Lvm1_L, 
+    bc_Lvm1_b_L
+    # tmp_vec_u0,
+    # tmp_vec_v0,
+    # tmp_vec_1D,
+    # ls_advection
+    )
+
+    dx0 = L0/n
+    volume0 = dx0^2
+    volume02 = volume0/2
+    print("\n volume ",volume0," wall ",volume02,"op.opC_vL.M.diag[5,1] ",op.opC_vL.M.diag[5,1])
+    # @test rhs_vec1[5,1] ≈ volume02 atol = test_tolerance
+    # @test op.opC_vL.M.diag ≈ volume02 atol = test_tolerance
+    @test op.opC_vL.M.diag[5,1] ≈ volume0*3/4 atol = test_tolerance
+end
+#endregion laplacian
+
+#region mask
+
+@testset "mask_1D" begin
+    # TODO add bubble wall to check mask
+    mask_1D = fnzeros(gp,num)
+    compute_mask_1D!(num,gp,mask_1D)
+    # mask_1D ≈ 0 atol=test_tolerance
+    @test mask_1D ≈ 0 atol=test_tolerance
+
+end 
+
+#endregion mask
+
+#region wall gradient
+#TODO
+
+#endregion wall gradient
+
 
 
 #region mass flux

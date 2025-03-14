@@ -13,41 +13,6 @@ flower:
     concentration0_H2O: &concentration0_H2O 4.9e4
     concentration0: [*concentration0_H2, *concentration0_KOH, *concentration0_H2O]
 
-    # concentration0_H2: &concentration0_H2
-    #   -1.6e-1
-    # concentration0_KOH: &concentration0_KOH
-    #   -6.7e3
-    # concentration0_H2O: &concentration0_H2O 
-    #   -4.9e4
-    # concentration0: &concentration0 [*concentration0_H2, *concentration0_KOH, *concentration0_H2O]
-    # concentration0: &concentration0 
-    # - *concentration0_H2
-    # - *concentration0_KOH
-    # - *concentration0_H2O
-    # concentration0: &concentration0  #<<
-    #   *concentration0_H2
-    #   *concentration0_KOH
-    #   *concentration0_H2O
-    # - *concentration0_H2
-    # - *concentration0_KOH
-    # - *concentration0_H2O
-    # concentration0: &concentration0
-    #   - *concentration0_H2
-    #   - *concentration0_KOH
-    #   - *concentration0_H2O
-    # concentration0: &concentration0
-    #   # - &concentration0_H2 1.6e-1
-    #   # - &concentration0_KOH 6.7e3
-    #   # - &concentration0_H2O 4.9e4
-    #   # concentration0_H2: &concentration0_H2 1.6e-1
-    #   # concentration0_KOH: &concentration0_KOH 6.7e3
-    #   # concentration0_H2O: &concentration0_H2O 4.9e4
-    #   concentration0_H2: &concentration0_H2 1.6e-1
-    #   concentration0_KOH: &concentration0_KOH 6.7e3
-    #   concentration0_H2O: &concentration0_H2O 4.9e4
-
-
-
     epsilon_concentration: [1e-14, 1e-14, 1e-14]
     electrolysis_reaction: "Butler_no_concentration"
     diffusion_coeff_H2: &diffusion_coeff_H2 5.8e-9
@@ -55,7 +20,7 @@ flower:
     diffusion_coeff_H2O: &diffusion_coeff_H2O 3.2e-9
     diffusion_coeff: [*diffusion_coeff_H2, *diffusion_coeff_KOH, *diffusion_coeff_H2O]
     species_names: &species_names ['H2','KOH','H2O']
-    end_time: 1 #s
+    end_time: 1.0 #7.3 #s
     Faraday: &Faraday 9.64853321233100184e4 #C⋅mol−1
     Henry_H2: &Henry_H2 1
     Henry_KOH: &Henry_KOH 0
@@ -66,10 +31,10 @@ flower:
     intfc_y: 5.0e-5 # y coordinate of bubble center
     # KOHwtpercent: 30
     ls_wall_xmin: 5e-6
-    mu1: 1.0 #6.7e-7*1258.0
-    mu2: 1.0
-    mu_cin1: 6.7e-7
-    mu_cin2: 6.7e-7 #m^2/s
+    mu1: 0.0 #6.7e-7*1258.0
+    mu2: 0.0
+    mu_cin1: &mu_cin1 6.7e-7
+    mu_cin2: &mu_cin2 6.7e-7 #m^2/s
     MWH2: 2.01568e-3 #kg/mol
     nb_levelsets: &nb_levelsets 1 #2
     nb_transported_scalars: &nb_transported_scalars 3
@@ -81,7 +46,7 @@ flower:
     pres0:  0.0 #1e5
     radius: 1.2e-5 # 6.0e-6 #3.0e-6 #initial radius
     ref_length: 1e-4
-    rho1: 1258.0 #liquid
+    rho1: &rho1 1258.0 #liquid
     rho2: 0.069575 #gaz
     #TODO need for 80°C, check with other study
     #"0.7016E-01" in \citet{cohnTABLETHERMODYNAMICPROPERTIES1963} H2
@@ -104,7 +69,7 @@ flower:
     # end
 
     v_inlet: &v_inlet 6.7e-4
-    g: 9.81
+    g: 0.0 #9.81 #gravity
     beta: 0.0
     domain_length: &domain_length 1.0e-4
 
@@ -129,22 +94,22 @@ flower:
     # uses bulk or interfacial concentrationfor conductivity
     case: None #Planar #Cylinder
     CFL: 0.5
-    concentration_check_factor: &concentration_check_factor 1e-4
+    concentration_check_factor: &concentration_check_factor 1.0e-4 #TODO do not write 1e-4, ill read in python
     contact_angle: 1 #activate advancing/receding contact angle
     convection_Cdivu: 0
     convection_mode: 1 #0 #1
-    electrolysis_convection: 0 #1
+    electrolysis_convection: 1 #1
     electrical_potential: 3 #2 #0 deactivated
     electrical_potential_max_iter: 50 #20
-    electrical_potential_relative_residual: 1e-10
-    electrical_potential_residual: 1e-10
+    electrical_potential_relative_residual: 1.0e-10
+    electrical_potential_residual: 1.0e-10
     electrical_potential_nonlinear_solver: 0 #0 for successive substitutions #1 for Newton-Raphson
     electrolysis_phase_change_case: "None" #"Khalighi" #no phase change
     # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
     # electrolysis_phase_change_case: "levelset" # local
-    eps: 1e-12 #eps for small numbers
-    epsilon: 0.2 #0.05 #0.2 #cut small cells
-    epsilon_wall: 0.2 #0.05 #0.2
+    eps: 1.0e-30 #1.0e-12 #eps for small numbers
+    epsilon: 0.0 #0.2 #0.05 #0.2 #cut small cells
+    epsilon_wall: 0.0 #0.2 #0.05 #0.2
     #if epsilon=0 centroids will be on the interface
     epsilon_mode: 2 #way to handle epsilon:
     # if num.epsilon_mode == 0
@@ -158,23 +123,23 @@ flower:
     imposed_velocity : "none" #"zero" #"none"
     index_phase_change: 1
     index_electrolyte: 2
-    dt0: 1e-2 #1e-5 #1e-4 #1e-3 #1e-6 #2.5e-5 #5e-5 #3.125e-6 #1e-4 #5e-3 #3.125e-6 #first timestep
-    max_iter: 100 #1 #60 #1 #60 #1 #60 #maximum number of iterations
+    dt0: 1e-4 #1.0e-5 #1e-4 #1e-3 #1e-6 #2.5e-5 #5e-5 #3.125e-6 #1e-4 #5e-3 #3.125e-6 #first timestep
+    max_iter: 1 # 100 #1 #60 #1 #60 #1 #60 #maximum number of iterations
     average_velocity: 1 #0
-    laplacian: 0 #1 #multiply by 4/3
+    laplacian: 1 #1 #1 #multiply by 4/3
     mass_flux: 1 #Johansen & Colella
     mode_2d: 3
     # mode_2d = 1 #use equivalent cylinder
     # mode_2d = 2 #mol/meter 
     # mode_2d = 3 #mol/meter with xcoord and ycoord parameters for LS definition
 
-    name: "convergence_diffusion"
+    name: "convergence_diffusion_convection"
     nb_reinit: 2 #10
     non_dimensionalize: 0 # 0: NS equations as is (without non_dimensionalization)
     null_space: 0 #method for null space, matrix diagonal
     periodic_x: 0
     periodic_y: 0
-    prediction: 0 #0 #4 #0 #pressure-velocity coupling
+    prediction: PmIIimposedpressureBCincrement #0 #4 #0 #pressure-velocity coupling
     # prediction = 0
     # prediction = 1
     # prediction = 2
@@ -185,7 +150,7 @@ flower:
     show_every: 1
     scalar_bc: 0 #1 for multiple LS (describing wall) #0 for one LS
     scalar_scheme: 0 #1 #0 #CN 1  #Backward Euler (implicit)
-    solve_Navier_Stokes_liquid_phase: 0 #1 activated
+    solve_Navier_Stokes_liquid_phase: 1 #1 activated
     solver: 0 #2 #0 #1 #0: Julia 1: MUMPS
     debug: "None" #"allocations_start" #"scalar_testing" #"scalar_debug" 
     time_scheme: FE #CN #FE #Forward Euler
@@ -196,8 +161,77 @@ flower:
     verbosity: 3
 
   macros:
+    # boundaries_list: # Define the boundary conditions here, they will be read with 
+    # # the macro "boundaries"
+
+    #   BC_uL: # Boundaries for x component of velocity
+    #     left: Dirichlet()
+    #     right: Dirichlet()
+    #     bottom: Dirichlet()
+    #     top: Neumann()
+    #     LS: '[Dirichlet()]'
+
+    #   BC_vL: # Boundaries for y component of velocity
+    #     left: Dirichlet()
+    #     right: Dirichlet()
+    #     bottom: Neumann()
+    #     top: Neumann()
+    #     LS: '[Dirichlet()]'
+
+    #   BC_pL: # Boundaries for pressure
+    #     left: Neumann()
+    #     right: Neumann()
+    #     bottom: Dirichlet(val = p_bottom)
+    #     top: Dirichlet(val = p_top)
+    #     LS: '[Neumann()]'
+
+    #   BC_phi_ele:
+    #     left: Neumann(val=i_butler./elec_cond) #TODO -BC in Flower ? so i_butler not -i_butler
+    #     right: Dirichlet()
+    #     bottom: Neumann(val=0.0)
+    #     top: Neumann(val=0.0)
+    #     int: Neumann(val=0.0)
+    #     LS: [Neumann(val=0.0)]
+
+    #   BC_trans_scal_H2: 
+    #     bottom: Dirichlet(val = phys.concentration0[1])
+    #     top: Neumann()
+    #     left: Neumann(val=-i_butler/(2*phys.Faraday*DH2))
+    #     right: Dirichlet(val = phys.concentration0[1])
+    #     int: Dirichlet(val = phys.concentration0[1]/phys.Henry_H2)
+      
+    #   BC_trans_scal_KOH:
+    #     bottom: Dirichlet(val = phys.concentration0[2])
+    #     top: Neumann()
+    #     left: Neumann(val=-i_butler/(2*phys.Faraday*DKOH))
+    #     right: Dirichlet(val = phys.concentration0[2])
+    #     int: Neumann(val=0.0)
+      
+    #   BC_trans_scal_H2O:
+    #     bottom: Dirichlet(val = phys.concentration0[3])
+    #     top: Neumann()
+    #     left: Neumann(val=i_butler/(phys.Faraday*DH2O))
+    #     right: Dirichlet(val = phys.concentration0[3])
+    #     int: Neumann(val=0.0)
+
+      # BC_u: Boundaries( #TODO BounadariesInt for u
+      #   bottom = Neumann_inh(),
+      #   top = Neumann_inh(),
+      #   left = Neumann_inh(),
+      #   right = Neumann_inh()
+      # )
+      
+    
 
     boundaries: |
+
+      # Signs in divergence theorem
+      # to be used to define Neumann BC, with derivatives defined in (e_x,e_y)
+      # Example derivative*sign_left on the left
+      sign_left = -1.0 #n \cdot e_x = -1
+      sign_right = 1.0 #n \cdot e_x = 1
+      sign_bottom = -1.0 #n \cdot e_y = -1
+      sign_top = 1.0 #n \cdot e_y = 1
 
       if phys.nb_levelsets ==1
         BC_int = [WallNoSlip()] #[FreeSurface()]
@@ -207,6 +241,34 @@ flower:
       phi_ele =  gp.x[:,1] .*0.0
       i_butler=butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_ele,phys.phi_ele1,phys.Ru,phys.temperature0)
       
+    
+      BC_uL = BoundariesInt(
+        left   = Dirichlet(),
+        right  = Dirichlet(),
+        bottom = Dirichlet(),
+        top    = Neumann(val=0.0),
+        LS = [Dirichlet()],
+      )
+
+      BC_vL= BoundariesInt(
+        left   = Dirichlet(),
+        right  = Dirichlet(),
+        bottom = Neumann(),
+        top    = Neumann(),
+        LS = [Dirichlet()],
+      )
+    
+      #equation a \frac ... +bp = g 
+      #here we impose at the bottom with a = 0 and b=1: p=pbottom 
+      BC_pL = Boundaries(
+        name = "BC_pL",
+        left   = Neumann(),
+        right  = Neumann(),
+        bottom = Dirichlet(val = p_bottom),
+        top    = Dirichlet(val = p_top),
+        init_mode = "True",
+      )  
+
       BC_phi_ele = BoundariesInt(
       left   = Neumann(val=i_butler./elec_cond), #TODO -BC in Flower ? so i_butler not -i_butler
       right  = Dirichlet(),
@@ -215,22 +277,24 @@ flower:
       int    = Neumann(val=0.0),
       LS = [Neumann(val=0.0)]
       )
-      
+
+      # H2
       BC_trans_scal_H2 = BoundariesInt(
       bottom = Dirichlet(val = phys.concentration0[1]),
       top    = Neumann(),
       left   = Neumann(val=-i_butler/(2*phys.Faraday*DH2)),
-      right  = Dirichlet(val = 0.0),
+      right  = Dirichlet(val = phys.concentration0[1]),
       int    = Dirichlet(val = phys.concentration0[1]/phys.Henry_H2))
-      #KOH
+
+      # KOH
       BC_trans_scal_KOH = BoundariesInt(
           bottom = Dirichlet(val = phys.concentration0[2]),
           top    = Neumann(),
           left   = Neumann(val=-i_butler/(2*phys.Faraday*DKOH)),
           right  = Dirichlet(val = phys.concentration0[2]),
-          int    = Neumann(val=0.0)) #KOH
+          int    = Neumann(val=0.0))
       
-      #H2O   
+      # H2O   
       BC_trans_scal_H2O = BoundariesInt(
           bottom = Dirichlet(val = phys.concentration0[3]),
           top    = Neumann(),
@@ -239,23 +303,21 @@ flower:
           int    = Neumann(val=0.0)) 
 
 
+      # BC_uL = @read_BC(PropertyDict(boundaries_dict.BC_uL))
+      # BC_vL = @read_BC(PropertyDict(boundaries_dict.BC_vL))
+      # BC_pL = @read_BC(PropertyDict(boundaries_dict.BC_pL))
+      # BC_phi_ele = @read_BC(PropertyDict(boundaries_dict.BC_phi_ele))
+      # BC_trans_scal_H2 = @read_BC(PropertyDict(boundaries_dict.BC_trans_scal_H2))
+      # BC_trans_scal_KOH = @read_BC(PropertyDict(boundaries_dict.BC_trans_scal_KOH))
+      # BC_trans_scal_H2O = @read_BC(PropertyDict(boundaries_dict.BC_trans_scal_H2O))
+
+      # print("\n BC_uL ",BC_uL)
+
+
       BC_trans_scal = [
         BC_trans_scal_H2, #H2
         BC_trans_scal_KOH, #KOH
         BC_trans_scal_H2O] #H2O
-
-
-      BC_uL= BoundariesInt()
-      
-      BC_vL= BoundariesInt()
-
-      BC_pL = Boundaries(
-          name = "BC_pL",
-          left   = Neumann(),
-          right  = Neumann(),
-          bottom = Neumann(),
-          top    = Neumann(),
-      )
 
       BC_u = Boundaries(
         bottom = Neumann_inh(),
@@ -270,18 +332,67 @@ flower:
 
       BC_pS = Boundaries()
 
-      # print BC
 
+      # Print boundary conditions
       # print("\n BC_int ",BC_int)
       print("\n BC_uL ",BC_uL)
       print("\n BC_vL ",BC_vL)
-      # print("\n BC_trans_scal ",BC_trans_scal)
+
       print("\n BC_pL ",BC_pL)
 
       print("\n BC_phi_ele ",BC_phi_ele)
+
+      print("\n BC_trans_scal ",BC_trans_scal)
+
+      open("BC0.html", "w") do file
+          print_BC_html(BC_uL,"u";io=file)
+          print_BC_html(BC_vL,"v";io=file)
+          print_BC_html(BC_pL,"p";io=file)
+          print_BC_html(BC_phi_ele,"phi";io=file)
+          print_BC_html(BC_trans_scal_H2,"H2";io=file)
+          print_BC_html(BC_trans_scal_KOH,"KOH";io=file)
+          print_BC_html(BC_trans_scal_H2O,"H2O";io=file)
+
+          # write(file, "This is a line of text.\n")
+          # The file will be automatically closed here
+      end
+
       
       L0 = mesh.xmax - mesh.xmin
 
+    init_fields: |
+      printstyled(color=:green, @sprintf "\n Initialisation \n")
+
+      #init Bulk
+      phL.T .= phys.temperature0
+      phS.T .= phys.temperature0
+
+     
+      # Electrochemistry 
+      for iscal=1:phys.nb_transported_scalars
+          phL.trans_scal[:,:,iscal] .= phys.concentration0[iscal]
+      end
+
+      phL.phi_ele .= phys.phi_ele0
+
+
+      # Initialize Poiseuille pressure profile 
+      p_top = 0
+      p_bottom = p_top + 8*mu1/phys.ref_length*phys.v_inlet
+      
+      phL.p .= p_bottom .+ (gp.y .- mesh.ymin)*(p_top-p_bottom)/(mesh.ymax - mesh.ymin) 
+  
+      vec1(phL.pD,gp) .= vec(phL.p)
+
+      # Initialize Poiseuille velocity profile 
+
+      vPoiseuille = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length) 
+      vPoiseuilleb = Poiseuille_fmax.(gv.x[1,:],phys.v_inlet,phys.ref_length) 
+
+      phL.u .= 0.0
+      phL.v .= vPoiseuille 
+
+      vecb_B(phL.vD,gv) .= vPoiseuilleb
 
 
     interface: |
@@ -312,6 +423,9 @@ flower:
       else
           gp.LS[1].u .= 1.0
       end
+      
+      test_LS(gp)
+
 
     print_parameters: | 
       print("\n test print_parameters2 \n")
@@ -367,17 +481,24 @@ flower:
 
       print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
 
-      diffusion_t = (phys.radius^2)./phys.diffusion_coeff
-      print("\n diffusion time ", diffusion_t,"\n")
+      # diffusion_t = (phys.radius^2)./phys.diffusion_coeff
+     
+      diffusion_t = ((mesh.xmax-mesh.xmin)^2)./phys.diffusion_coeff
 
+
+      print("\n diffusion time ", diffusion_t,"\n")
 
       open("report.html", "w") do file
 
-        write("simulation time ", sim.end_time)
-        write("simulation dt ", sim.dt0)
-        write("simulation max_iter ", sim.max_iter)
+        # write("simulation time ", phys.end_time)
+        # write("simulation dt ", sim.dt0)
+        # write("simulation max_iter ", sim.max_iter)
+        # write("diffusion time ", diffusion_t)
 
-        write("diffusion time ", diffusion_t)
+        print(file,"\nsimulation time ", phys.end_time)
+        print(file,"\ndt ", sim.dt0)
+        print(file,"\nsimulation max_iter ", sim.max_iter)
+        print(file,"\ndiffusion time ", diffusion_t)
 
         # print_BC_html(BC_uL,"u";io=file)
         # print_BC_html(BC_vL,"v";io=file)
@@ -403,7 +524,8 @@ study:
   #tolerance for tests
   test_tolerance: 1.e-11 #1.e-14
   test_tolerance_solution_absolute:  1.e-1 # from n = 16 
-  meshes: [32,64,128,256]
+  meshes:  [32] #[32,64,128] #[32,64,128,256]
+  compute_errors: None
 
 
 plot:
@@ -1752,6 +1874,7 @@ plot:
       - var: [[x_1D,concentration_H2_1DT]]
         file: concentration_H2_through_bubble
         func: plot_1D
+        fontsize: 10
         labels: [["$x ( \\unit{\\um})$", "$ \\text{Concentration} ~ \\ce{H2}$" ]]
         linestyles: ['(0, (3, 6))' ] #,
                     #  '(3, (3, 6))', #"dashdot"
@@ -2272,18 +2395,21 @@ plot:
       #     label2=None
 
       - var: [l1_rel_error,l2_rel_error,linfty_rel_error] 
+        # func: plot_errors_from_h5
         file: errors
         slope_start: 32 #16
         slope_stop: 256
         xlim: [1e-3,1e-1]
 
       - var: [l1_rel_error_full_cells,l2_rel_error_full_cells,linfty_rel_error_full_cells] 
+        # func: plot_errors_from_h5
         file: errors_full_cells
         slope_start: 32 #16
         slope_stop: 256
         xlim: [1e-3,1e-1]
 
       - var: [l1_rel_error_partial_cells,l2_rel_error_partial_cells,linfty_rel_error_partial_cells] 
+        # func: plot_errors_from_h5
         file: errors_partial_cells
         slope_start: 32 #16
         slope_stop: 256
@@ -2322,10 +2448,20 @@ plot:
     #   func: plot_schematics_full
     #   fig_ratio: 0.5
 
+    - file: schematics_full_with_losses
+      func: plot_schematics_full_with_losses
+      fig_ratio: 0.5
+
     
     - file: schematics
       func: plot_schematics
       # fig_ratio: 0.5
+
+    - file: schematics_fluxes
+      func: plot_schematics_fluxes
+      # fig_ratio: 0.5
+
+    
         
   dpi: 300
   font_size: 12
@@ -2417,6 +2553,13 @@ pdi:
     mesh_y_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
 
     residual_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
+    
+    # for computations, to ignore small cells
+    mask_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
+
+    grad_x_1D: { size: ' ($ny) * ($nx+1) ', type: array, subtype: double } 
+    grad_y_1D: { size: ' ($ny+1) * ($nx) ', type: array, subtype: double } 
+
 
     #BC
     BC_phi_ele_left: { size: '$ny', type: array, subtype: double } 
@@ -2481,6 +2624,12 @@ pdi:
     grad_x_coord: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
     grad_y_coord: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
 
+    grad_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    grad_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+
+    grad_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    grad_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdmain
+
 
 
     # stored in 3D
@@ -2494,7 +2643,11 @@ pdi:
     residual_electrical_potential: double
     variation_electrical_potential: double
     concentration_check_value: double
+    concentration_check_min: double
+    concentration_check_max: double
+    concentration_check_mean: double
           
+
 
     conductivity_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdmain
     conductivity_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdmain
@@ -2533,6 +2686,262 @@ pdi:
         #   - exec: print('nb levelsets',nLS)
         #     with: { nLS: $nb_levelsets }
 
+
+        print_velocity_prediction:
+          with: 
+            nx: $nx
+            ny: $ny
+            u_1D: $u_1D
+            v_1D: $v_1D
+            p_1D: $p_1D
+            mu_cin1: *mu_cin1 
+            rho1: *rho1
+            v_inlet: *v_inlet
+            xmin: *mesh_xmin
+            xmax: *mesh_xmax
+            ymin: *mesh_ymin
+            ymax: *mesh_ymax
+
+          exec: |
+            import numpy as np
+            print('\033[36m')
+            print('[print_velocity_prediction]')
+            print("min(u)  {u:.2e} min(v)  {v:.2e} min(p)  {p:.2e}".format(u=np.min(u_1D),v=np.min(v_1D),p=np.min(p_1D)))
+            print("max(u)  {u:.2e} max(v)  {v:.2e} max(p)  {p:.2e}".format(u=np.max(u_1D),v=np.max(v_1D),p=np.max(p_1D)))
+            print("mean(u) {u:.2e} mean(v) {v:.2e} mean(p) {p:.2e}".format(u=np.mean(u_1D),v=np.mean(v_1D),p=np.mean(p_1D)))
+            print('\033[0m')
+            
+            from debug_flower import veci
+            field_index = 1
+            # slice_1D = veci(v_1D,nx,ny,field_index)[ny//2,:]
+            # print('slice projection', slice_1D)
+
+            # print('len',len(slice_1D))
+
+            # print('nx',nx,ny)
+
+            # slice_1D = veci(v_1D,nx,ny+1,field_index)[(ny+1)//2,:]
+            # print('slice projection', slice_1D)
+
+            # print('len',len(slice_1D))
+
+            # for j in range(0,ny):
+            #   slice_p = veci(p_1D,nx,ny,field_index)[ny-1-j,:] #0: end (top), ny, 1
+            #   print('Slice p',j,slice_p)
+            
+            # from plot_pdi import plot_profile; plot_profile(x,slice_1D,"Poiseuille_during_projection")
+
+            ny_print_max = 1
+            # ny_print_max = ny+1
+            for j in range(0,ny_print_max):
+              slice_p = veci(v_1D,nx,ny+1,field_index)[j,:] #0: end (top), ny, 1
+              print('Slice v',j,slice_p)
+
+            mu1 = mu_cin1 * rho1
+
+            # import numpy as np
+            xp = np.zeros(nx)
+            yp = np.zeros(ny)
+
+            # xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+            # yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+
+            dx = (xmax - xmin) / nx
+            dy = (ymax - ymin) / ny
+
+         
+
+            # print('len(xp)',len(xp),len(yp))
+
+            xp[0] = xmin + dx/2
+            yp[0] = ymin + dy/2
+
+            for i in range(1,len(xp)):
+                xp[i] = xp[i-1]+dx
+
+            for i in range(1,len(yp)):
+                yp[i] = yp[i-1]+dx
+
+            yv = yp + dy / 2
+            yv = np.insert(yv, 0, yp[0] - dy / 2)
+
+            # print('xp',xp) #xv too
+            # print('yp',yp)
+            # print('yv',yv)
+
+
+            # # p
+            # p_top = 0
+            # p_bottom = p_top + 8*mu1/(xmax-xmin)*v_inlet
+            # p_along_y = p_bottom + (yv - ymin)*(p_top-p_bottom)/(ymax - ymin)
+            # print('p',p_along_y)
+
+            # v
+            slice_v_exact = 4* v_inlet * xp /(xmax-xmin)*(1-xp/(xmax-xmin))
+            print('slice v exact', slice_v_exact)
+            
+           
+
+            # def Poiseuille(v_inlet,xp_full,xmin,xmax):
+            #   slice_v_exact = 4* v_inlet * xp_full /(xmax-xmin)*(1-xp_full/(xmax-xmin))
+            #   return slice_v_exact
+            
+            # xp_full = xmin
+            # print('Poiseuille',xp_full,Poiseuille(v_inlet,xp_full,xmin,xmax))
+            # xp_full = xmax
+            # print('Poiseuille',xp_full,Poiseuille(v_inlet,xp_full,xmin,xmax))
+
+        check_pressure_velocity_end:
+          with: 
+            nx: $nx
+            ny: $ny
+            u_1D: $u_1D
+            v_1D: $v_1D
+            p_1D: $p_1D
+            # grad_x: $grad_x
+            # grad_y: $grad_y
+            grad_x: $grad_u
+            grad_y: $grad_v
+            mu_cin1: *mu_cin1 
+            rho1: *rho1
+            v_inlet: *v_inlet
+            xmin: *mesh_xmin
+            xmax: *mesh_xmax
+            ymin: *mesh_ymin
+            ymax: *mesh_ymax
+          exec: |
+            import numpy as np
+            
+            print('\033[38;5;206m')
+
+            # print('\033[36m')
+            print('[check_pressure_velocity_end]')
+            print("min(u)  {u:.2e} min(v)  {v:.2e} min(p)  {p:.2e}".format(u=np.min(u_1D),v=np.min(v_1D),p=np.min(p_1D)))
+            print("max(u)  {u:.2e} max(v)  {v:.2e} max(p)  {p:.2e}".format(u=np.max(u_1D),v=np.max(v_1D),p=np.max(p_1D)))
+            print("mean(u) {u:.2e} mean(v) {v:.2e} mean(p) {p:.2e}".format(u=np.mean(u_1D),v=np.mean(v_1D),p=np.mean(p_1D)))
+            # print('\033[0m')
+
+            print("min(grad_x)  {u:.2e} min(grad_y)  {v:.2e} ".format(u=np.min(grad_x),v=np.min(grad_y)))
+            print("max(grad_x)  {u:.2e} max(grad_y)  {v:.2e} ".format(u=np.max(grad_x),v=np.max(grad_y)))
+
+            # grad_x = grad_x.transpose()
+            # grad_y = grad_y.transpose() 
+            # for j in range(0,ny+1):
+            #   slice_p = grad_y[j,:] #0: end (top), ny, 1
+            #   print('grad_y',j,slice_p)
+    
+            from debug_flower import veci
+
+            field_index = 1
+            
+            # # slice_1D = veci(v_1D,nx,ny,field_index)[ny//2,:]
+
+            # # print('slice projection', slice_1D)
+
+            # # print('len',len(slice_1D))
+
+            # print('nx',nx,ny)
+
+            # slice_1D = veci(v_1D,nx,ny+1,field_index)[(ny+1)//2,:]
+            
+            # print('slice projection', slice_1D)
+
+            # # print('len',len(slice_1D))
+
+
+            # # Print p and v
+
+            # # for j in range(0,ny):
+            # #   slice_p = veci(p_1D,nx,ny,field_index)[j,:]
+            # #   print('Slice p',j,slice_p)
+            # #   slice_1D = veci(v_1D,nx,ny+1,field_index)[j,:]
+            # #   print('Slice v',j,slice_1D)
+
+            pressure_equal_on_line = True
+
+            # Print v
+            for j in range(0,ny):
+              slice_p = veci(p_1D,nx,ny,field_index)[j,:]
+              if (max(slice_p)-min(slice_p))/min(slice_p) > 1.0e-10:
+                pressure_equal_on_line = False 
+                print('Slice p',j,max(slice_p)-min(slice_p),(max(slice_p)-min(slice_p))/min(slice_p) )
+                # print('Slice p',j,slice_p)
+              slice_1D = veci(v_1D,nx,ny+1,field_index)[j,:]
+              print('Slice v',j,slice_1D)
+            
+         
+            mu1 = mu_cin1 * rho1
+
+            # print('mu1',mu1)
+
+            x_1D = 0
+            y_1D = 0
+            
+            # import numpy as np
+            xp = np.zeros(nx)
+            yp = np.zeros(ny)
+
+            # xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+            # yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+
+            dx = (xmax - xmin) / nx
+            dy = (ymax - ymin) / ny
+
+         
+
+            # print('len(xp)',len(xp),len(yp))
+
+            xp[0] = xmin + dx/2
+            yp[0] = ymin + dy/2
+
+            for i in range(1,len(xp)):
+                xp[i] = xp[i-1]+dx
+
+            for i in range(1,len(yp)):
+                yp[i] = yp[i-1]+dx
+
+            yv = yp + dy / 2
+            yv = np.insert(yv, 0, yp[0] - dy / 2)
+
+            # print('xp',xp) #xv too
+            # print('yp',yp)
+            # print('yv',yv)
+
+
+            # p
+            from debug_flower import vecb, vecb_B,vecb_T,vecb_L,vecb_R
+
+            p_top = 0
+            p_bottom = p_top + 8*mu1/(xmax-xmin)*v_inlet
+            p_along_y = p_bottom + (yv - ymin)*(p_top-p_bottom)/(ymax - ymin)
+            print('p',p_along_y)
+
+            print('Bottom',vecb_B(p_1D,nx,ny))
+            print('Top',vecb_T(p_1D,nx,ny))
+
+            print('Left',vecb_L(p_1D,nx,ny))
+            print('Right',vecb_R(p_1D,nx,ny))
+
+            
+
+            # v
+            slice_v_exact = 4* v_inlet * xp /(xmax-xmin)*(1-xp/(xmax-xmin))
+            print('slice v exact', slice_v_exact)
+            
+           
+
+            # def Poiseuille(v_inlet,xp_full,xmin,xmax):
+            #   slice_v_exact = 4* v_inlet * xp_full /(xmax-xmin)*(1-xp_full/(xmax-xmin))
+            #   return slice_v_exact
+            
+            # xp_full = xmin
+            # print('Poiseuille',xp_full,Poiseuille(v_inlet,xp_full,xmin,xmax))
+            # xp_full = xmax
+            # print('Poiseuille',xp_full,Poiseuille(v_inlet,xp_full,xmin,xmax))
+
+            print('\033[0m')
+
+            
         write_initialization:
           with: { phi_ele_1D_py: $phi_ele_1D, nx_py: $nx, ny_py: $ny, u_1D: $u_1D, v_1D: $v_1D, p_1D: $p_1D} 
           exec: |
@@ -2583,12 +2992,108 @@ pdi:
             print('\033[0m')
 
 
+        print_before_prediction:
+          with: { nx: $nx, ny: $ny, u_1D: $u_1D, v_1D: $v_1D, p_1D: $p_1D} 
+          exec: |
+            import numpy as np
+            print('\033[36m')
+            print('[Before prediction]')
+            print("min(u)  {u:.2e} min(v)  {v:.2e} min(p)  {p:.2e}".format(u=np.min(u_1D),v=np.min(v_1D),p=np.min(p_1D)))
+            print("max(u)  {u:.2e} max(v)  {v:.2e} max(p)  {p:.2e}".format(u=np.max(u_1D),v=np.max(v_1D),p=np.max(p_1D)))
+            print("mean(u) {u:.2e} mean(v) {v:.2e} mean(p) {p:.2e}".format(u=np.mean(u_1D),v=np.mean(v_1D),p=np.mean(p_1D)))
+            print('\033[0m')
+            
+            # from debug_flower import veci
+            # field_index = 1
+            # # slice_1D = veci(v_1D,nx,ny,field_index)[ny//2,:]
+            # # print('slice projection', slice_1D)
+
+            # # print('len',len(slice_1D))
+
+            # # print('nx',nx,ny)
+
+            # slice_1D = veci(v_1D,nx,ny+1,field_index)[(ny+1)//2,:]
+            # print('slice projection', slice_1D)
+
+            # # print('len',len(slice_1D))
+
+            # for j in range(0,ny):
+            #   slice_p = veci(p_1D,nx,ny,field_index)[ny-1-j,:] #0: end (top), ny, 1
+            #   print('Slice p',j,slice_p)
+            
+            # # from plot_pdi import plot_profile; plot_profile(x,slice_1D,"Poiseuille_during_projection")
+
+
+        # print_pressure_gradient_in_prediction:
+        #   with: 
+        #     grad_x_1D: $grad_x_1D
+        #     grad_y_1D: $grad_y_1D
+        #     p_1D: $p_1D
+        #     nx: $nx
+        #     ny: $ny
+        #     # mu_cin1: *mu_cin1 
+        #     # rho1: *rho1
+        #     # v_inlet: *v_inlet
+        #     xmin: *mesh_xmin
+        #     xmax: *mesh_xmax
+        #     ymin: *mesh_ymin
+        #     ymax: *mesh_ymax
+
+        #   exec: |
+        #     import numpy as np
+        #     print('\033[36m')
+        #     print('[print_pressure_gradient_in_prediction]')
+        #     dx = (xmax-xmin)/ nx
+        #     volume = dx**2
+        #     # grad_x = np.reshape(grad_x_1D, (nx, ny)) 
+        #     # grad_y = np.reshape(grad_y_1D, (nx, ny)) 
+
+        #     grad_x = np.reshape(grad_x_1D, (nx+1, ny)) 
+        #     grad_y = np.reshape(grad_y_1D, (nx, ny+1)) 
+        #     grad_x = grad_x.transpose()
+        #     grad_y = grad_y.transpose()
+
+        #     for j in range(0,ny):
+        #       slice_p = grad_x[j,:] #0: end (top), ny, 1
+        #       print('grad_x',j,slice_p)
+
+        #     for j in range(0,ny+1):
+        #       slice_p = grad_y[j,:] #0: end (top), ny, 1
+        #       print('grad_y',j,slice_p)
+
+        #     # # Select only useful part of vector, the actual gradient
+        #     # grad_x = grad_x[:,1:-1] #size ny, nx-1
+        #     # grad_y = grad_y[1:-1,:] #size ny-1, nx
+
+        #     print("min(u)  {u:.2e} min(v)  {v:.2e} min(v)/volume  {p:.2e}".format(u=np.min(grad_x),v=np.min(grad_y),p=np.min(grad_y)/volume))
+        #     print("max(u)  {u:.2e} max(v)  {v:.2e} max(v)/volume  {p:.2e}".format(u=np.max(grad_x),v=np.max(grad_y),p=np.max(grad_y)/volume))
+        #     print("mean(u) {u:.2e} mean(v) {v:.2e} mean(v)/volume {p:.2e}".format(u=np.mean(grad_x),v=np.mean(grad_y),p=np.mean(grad_y)/volume))
+            
+            
+        #     # for j in range(0,ny):
+        #     #   slice_p = grad_x[j,:] #0: end (top), ny, 1
+        #     #   print('grad_x',j,slice_p)
+
+        #     # for j in range(0,ny-1):
+        #     #   slice_p = grad_y[j,:] #0: end (top), ny, 1
+        #     #   print('grad_y',j,slice_p)
+
+        #     from debug_flower import vecb, vecb_B, vecb_T, vecb_L,vecb_R
+        #     print('bottom BC pressure',vecb_B(p_1D,nx,ny))
+        #     print('top    BC pressure',vecb_T(p_1D,nx,ny))
+        #     print('left   BC pressure',vecb_L(p_1D,nx,ny))
+        #     print('right  BC pressure',vecb_R(p_1D,nx,ny))
+
+        #     # print('vecb pressure',vecb(p_1D,nx,ny))
+
+        #     print('\033[0m')
 
         print_variables:
           with: { phi_ele_1D_py: $phi_ele_1D, nx_py: $nx, ny_py: $ny, u_1D: $u_1D, v_1D: $v_1D, p_1D: $p_1D, trans_scal_1DT: $trans_scal_1DT} 
           exec: |
             import numpy as np
             print('\033[93m')
+            print('[print_variables]')
             print("min(u)  {u:.2e} min(v)  {v:.2e} min(p)  {p:.2e}".format(u=np.min(u_1D),v=np.min(v_1D),p=np.min(p_1D)))
             print("max(u)  {u:.2e} max(v)  {v:.2e} max(p)  {p:.2e}".format(u=np.max(u_1D),v=np.max(v_1D),p=np.max(p_1D)))
             print("mean(u) {u:.2e} mean(v) {v:.2e} mean(p) {p:.2e}".format(u=np.mean(u_1D),v=np.mean(v_1D),p=np.mean(p_1D)))
@@ -2693,7 +3198,12 @@ pdi:
             
             concentration0 = [concentration0_H2,concentration0_KOH,concentration0_H2O]
 
-            print("[warning_scalar_transport] scalar {} {%.2e}".format(iscal,concentration_check_value,concentration0[iscal-1]*(1-concentration_check_factor)),species_names[iscal-1])
+            if iscal == 1:
+              print("[warning_scalar_transport] H2  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1-concentration_check_factor)))
+            elif iscal == 2: 
+              print("[warning_scalar_transport] KOH  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1-concentration_check_factor)))
+            elif iscal == 3: 
+              print("[warning_scalar_transport] H2O  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1+concentration_check_factor)))
 
             # concentration drop:(minimum(ph.trans_scal[:,:,iscal])-num.concentration0[iscal])/num.concentration0[iscal]*100)
             print("concentration too low")
@@ -2707,7 +3217,10 @@ pdi:
             nb_levelsets: *nb_levelsets
             nb_transported_scalars: *nb_transported_scalars
             activate_interface: *activate_interface
-            concentration_check_value: $concentration_check_value
+            # concentration_check_value: $concentration_check_value
+            concentration_check_min: $concentration_check_min
+            concentration_check_max: $concentration_check_max
+            concentration_check_mean: $concentration_check_mean
             trans_scal_1DT: $trans_scal_1DT
             concentration0_H2: *concentration0_H2
             concentration0_KOH: *concentration0_KOH
@@ -2725,12 +3238,16 @@ pdi:
 
             concentration0 = np.array([concentration0_H2,concentration0_KOH,concentration0_H2O])
 
+            print("[check_scalar_transport_interface] min  {concentration_check_min:.2e} max {concentration_check_max:.2e} mean {concentration_check_mean:.2e}".format(concentration_check_min=concentration_check_min,concentration_check_max=concentration_check_max,concentration_check_mean=concentration_check_mean))
+
+            concentration_check_value = concentration_check_min
+
             if iscal == 1:
-              print("[check_scalar_transport_interface] H2  {} {:.2e} {:.2e}".format(iscal,concentration_check_value,concentration0[iscal-1]*(1-concentration_check_factor)))
+              print("[check_scalar_transport_interface] H2  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1-concentration_check_factor)))
             elif iscal == 2: 
-              print("[check_scalar_transport_interface] KOH {} {:.2e} {:.2e}".format(iscal,concentration_check_value,concentration0[iscal-1]*(1-concentration_check_factor)))
+              print("[check_scalar_transport_interface] KOH  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1-concentration_check_factor)))
             elif iscal == 3: 
-              print("[check_scalar_transport_interface] H2O {} {:.2e} {:.2e}".format(iscal,concentration_check_value,concentration0[iscal-1]*(1+concentration_check_factor)))
+              print("[check_scalar_transport_interface] H2O  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1+concentration_check_factor)))
 
             print('\033[0m')
 
@@ -2750,6 +3267,8 @@ pdi:
             concentration0_H2: *concentration0_H2
             concentration0_KOH: *concentration0_KOH
             concentration0_H2O: *concentration0_H2O
+            mask_1D: $mask_1D #mask containing volumes in bulk, and liquid heights on interfaces, and 0 when a cell is cut
+            # so that small cells are ignored when computing min, max, ...
 
           exec: |
             print('\n \033[92m')
@@ -2759,6 +3278,19 @@ pdi:
             print("max(cH2)  {cH2:.2e} max(KOH)  {KOH:.2e} max(H2O)  {H2O:.2e}".format(cH2=np.max(trans_scal_1DT[0,:]),KOH=np.max(trans_scal_1DT[1,:]),H2O=np.max(trans_scal_1DT[2,:])))
             print("mean(cH2) {cH2:.2e} mean(KOH) {KOH:.2e} mean(H2O) {H2O:.2e}".format(cH2=np.mean(trans_scal_1DT[0,:]),KOH=np.mean(trans_scal_1DT[1,:]),H2O=np.mean(trans_scal_1DT[2,:])))
             
+            print('with mask')
+
+            scal0 = np.ma.masked_where(mask_1D <= 0.0, trans_scal_1DT[0,:])
+            scal1 = np.ma.masked_where(mask_1D <= 0.0, trans_scal_1DT[1,:])
+            scal2 = np.ma.masked_where(mask_1D <= 0.0, trans_scal_1DT[2,:])
+
+            print('with mask')
+            print("min(cH2)  {cH2:.2e} min(KOH)  {KOH:.2e} min(H2O)  {H2O:.2e}".format(cH2=np.min(scal0), KOH=np.min(scal1), H2O=np.min(scal2)))
+            print("max(cH2)  {cH2:.2e} max(KOH)  {KOH:.2e} max(H2O)  {H2O:.2e}".format(cH2=np.max(scal0), KOH=np.max(scal1), H2O=np.max(scal2)))
+            print("mean(cH2) {cH2:.2e} mean(KOH) {KOH:.2e} mean(H2O) {H2O:.2e}".format(cH2=np.mean(scal0),KOH=np.mean(scal1),H2O=np.mean(scal2)))
+            
+
+
             concentration0 = np.array([concentration0_H2,concentration0_KOH,concentration0_H2O])
             # concentration0 = [concentration0_H2[0],concentration0_KOH[0],concentration0_H2O[0]]
 

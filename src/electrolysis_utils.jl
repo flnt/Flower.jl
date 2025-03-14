@@ -187,7 +187,13 @@ end
 """
     init bulk interfacial and border values of field
     
-    TODO Neumann...
+    For Neumann BC, one may extrapolate spatially a value
+
+    
+
+    For a radial flow, the velocity components u and v are calculated using the boundary conditions
+    and the angle of the normal to the interface computed from the Levelset.
+
 
 """
 function init_fields_multiple_levelsets!(num,TD,T,H,BC,grid,dir_val_intfc,str)
@@ -202,7 +208,7 @@ function init_fields_multiple_levelsets!(num,TD,T,H,BC,grid,dir_val_intfc,str)
 
         #TODO multiple LS: init grid.V
         iLS = 1
-
+        # For radial flow 
         if BC.LS[iLS].val != 0.0
 
             printstyled(color=:green, @sprintf "\n Initialising velocity from BC\n")
@@ -695,3 +701,57 @@ function compute_bulk_or_interface_average(scalar_1D_vec, grid, iLS)
     return min_scal,max_scal,average
 
 end
+
+"""
+To read BC from dict
+"""
+# function read_BC(dict)
+
+#     try
+#         BC = BoundariesInt(
+#             left   = eval(Meta.parseall(dict.left)),
+#             right   = eval(Meta.parseall(dict.right)),
+#             bottom   = eval(Meta.parseall(dict.bottom)),
+#             top   = eval(Meta.parseall(dict.top)),
+#             LS   = eval(Meta.parseall(dict.LS)),
+#           )
+
+#         # print(BC)
+#         return BC
+
+#     catch error
+#         printstyled(color=:red, @sprintf "\n Initialization error \n")
+#         print(error)
+#         BC = BoundariesInt()
+#         # print(BC)
+#         return BC
+#     end
+
+# end
+
+
+# macro read_BC(dict)
+#     # Generate the code for the macro
+#     quote
+       
+#         try
+#             BC = BoundariesInt(
+#                 left   = eval(Meta.parseall($(dict).left)),
+#                 right  = eval(Meta.parseall($(dict).right)),
+#                 bottom = eval(Meta.parseall($(dict).bottom)),
+#                 top    = eval(Meta.parseall($(dict).top)),
+#                 LS     = eval(Meta.parseall($(dict).LS)),
+#             )
+
+#             # print(BC)
+#             return BC
+
+#         catch error
+#             printstyled(color=:red, @sprintf "\n Initialization error \n")
+#             print(error)
+#             BC = BoundariesInt()
+#             # print(BC)
+#             return BC
+#         end
+#     end
+# end

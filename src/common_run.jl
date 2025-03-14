@@ -39,6 +39,7 @@ handles 2 crossing levelsets, levelsets are combined at grid.LS[end]
 8:11 volume
 * periodic_x
 * periodic_y
+* empty = true
 """
 function update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, empty = true)
     if num.nLS > 1
