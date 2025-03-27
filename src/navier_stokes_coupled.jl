@@ -3367,6 +3367,7 @@ function pressure_projection!(
     if num.prediction == "PmIIimposedpressure"
 
     elseif num.prediction == "PmIIimposedpressureBCincrement"
+        #TODO reapply BC 
         #TODO
         #init p for Poiseuille : grad_x = 0
         #increment : grad_x=0
@@ -3377,7 +3378,7 @@ function pressure_projection!(
 
         init_fields_multiple_levelsets!(num,ph.pD,ph.p,tmp_vec_p,BC_p,grid,num.pres_intfc,"pL")
 
-    else
+    else #update pressure at boundaries
         for iLS in 1:nLS
             veci(pD,grid,iLS+1) .= veci(ϕD,grid,iLS+1)
         end

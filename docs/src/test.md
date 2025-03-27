@@ -1834,11 +1834,42 @@ python3 -c "import convergence_study; convergence_study.plot_errors_from_h5()" .
 
 ```
 
+### Safe run
+
+```bash
+safe-run -m 1073741824 julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence.jl ../Flower.jl/examples/convergence_Poiseuille_prediction_PmII_imposed_pressure_BC_increment_no_init_laplacian.yml
+```
+
+
+### With Laplacian modification
+
+```@raw html
+<figure>
+    <a name="PoiseuillePmIIiposedpressureBCincrement"></a> 
+    <img src="../../../convergence_diffusion_convection_constant_conductivity_no_gravity_laplacian/convergence_Poiseuille_errors.svg" alt="Poiseuille" title="Poiseuille">
+    <figcaption>Errors on velocity</figcaption>
+</figure>
+```
+
+
+```bash 
+ julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence.jl ../Flower.jl/examples/convergence_diffusion_convection_constant_conductivity_bubble_wall_no_gravity_laplacian.yml 
+```
 
 ### Poiseuille Flow, convergence to stationary solution
 
+
+```@raw html
+<figure>
+    <a name="PoiseuillePmIIiposedpressureBCincrement"></a> 
+    <img src="../../../convergence_Poiseuille_prediction_PmII_imposed_pressure_BC_increment_no_init/convergence_Poiseuille_errors.svg" alt="Poiseuille" title="Poiseuille">
+    <figcaption>Errors on velocity</figcaption>
+</figure>
+```
+
+
 ```bash
-convergence_Poiseuille_prediction_PmII_imposed_pressure_BC_increment_no_init
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence.jl ../Flower.jl/examples/convergence_Poiseuille_prediction_PmII_imposed_pressure_BC_increment_no_init_laplacian.yml
 ```
 
 

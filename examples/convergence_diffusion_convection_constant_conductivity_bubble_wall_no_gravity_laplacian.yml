@@ -19,7 +19,6 @@ flower:
     diffusion_coeff_KOH: &diffusion_coeff_KOH 3.2e-9
     diffusion_coeff_H2O: &diffusion_coeff_H2O 3.2e-9
     diffusion_coeff: [*diffusion_coeff_H2, *diffusion_coeff_KOH, *diffusion_coeff_H2O]
-    species_names: &species_names ['H2','KOH','H2O']
     end_time: 1.0 #7.3 #s
     Faraday: &Faraday 9.64853321233100184e4 #C⋅mol−1
     Henry_H2: &Henry_H2 1

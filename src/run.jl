@@ -2515,6 +2515,42 @@ function run_forward!(
         end # if navier_stokes
 
 
+        #region conservation, divergence checks
+        # TODO check global mass conservation and divergence free
+
+        conservation = 0.0 
+        not_divergence_free = true
+
+        #TODO mutlple levelsets 1 or end
+        conservation += -vecb_L(uD,grid_u) .* grid_u.LS[1].geoL.dcap[:,:,1] # left capacity: u
+        conservation +=  vecb_R(uD,grid_u) .* grid_u.LS[1].geoL.dcap[:,:,3] # right capacity: u
+        conservation += -vecb_B(vD,grid_v) .* grid_v.LS[1].geoL.dcap[:,:,2] # bottom capacity: v
+        conservation +=  vecb_T(vD,grid_v) .* grid_v.LS[1].geoL.dcap[:,:,4] # top capacity: v 
+        
+        # Compute divergence of velocity
+        Duv = opC_p.AxT * vec1(ucorrD,grid_u) .+ opC_p.Gx_b * vecb(ucorrD,grid_u) .+
+        opC_p.AyT * vec1(vcorrD,grid_v) .+ opC_p.Gy_b * vecb(vcorrD,grid_v)
+        for iLS in 1:nLS
+            if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+                Duv .+= opC_p.Gx[iLS] * veci(ucorrD,grid_u,iLS+1) .+ 
+                opC_p.Gy[iLS] * veci(vcorrD,grid_v,iLS+1)
+            end
+        end
+
+        if maximum(Duv)< num.epsilon_divergence
+            not_divergence_free = false
+        end
+
+        if abs(conservation) > num.epsilon_conservation || not_divergence_free
+            
+            PDI_status = @ccall "libpdi".PDI_multi_expose("conservation_error"::Cstring,
+            "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+            "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+            "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+            C_NULL::Ptr{Cvoid})::Cint
+        end
+        #endregion conservation, divergence checks
+
         # PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_velocity"::Cstring,
         # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
         # "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
