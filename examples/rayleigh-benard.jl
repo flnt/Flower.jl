@@ -5,12 +5,11 @@ using Optim
 
 prefix = "/home/tf/Documents/Flower_figures/"
 
-# @. model(t, p) =
-#     p[1] +
-#     p[2]*(1. - tanh((t - p[3])/0.4)^2);
+@. model(t, p) = -abs(p[1] - p[2]*cos(π*t/2));
 
-@. model(t, p) = -abs(p[1]) - abs(p[2])*(1 - tanh(((mod(t + 2 - p[3], 4) - 2))/0.4)^2)    
-p = [-0.1, -0.6, 1.5]
+@. model(t, p) = -abs(p[1]) - abs(p[2])*(1 - tanh(t/0.5)^2)
+p = [0.3, 2.0]
+
 # for vRa = [1e6, 1e5, 5e4, 2e4, 1e4]
 vRa = 5e4
     Ra = vRa
@@ -26,11 +25,11 @@ vRa = 5e4
 
     if vRa > 1e5
         n = 32
-        max_it = 750
+        max_it = 1000
         save_every = 10
     else
         n = 32
-        max_it = 750
+        max_it = 1000
         save_every = 10
     end
 
