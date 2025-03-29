@@ -1268,9 +1268,9 @@ function run_backward2(
             # print("advection")
             for (iLS, bc) in enumerate(BC_int)
                 if is_stefan(bc)
-                    IIOE_normal!(grid, LS[iLS].A, LS[iLS].B, LS[iLS].u, V, CFL_sc, periodic_x, periodic_y)
-                    LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u)), grid)
-                    # LS[iLS].u .= fwd.u[iLS,end-current_i,:,:]
+                    # IIOE_normal!(grid, LS[iLS].A, LS[iLS].B, LS[iLS].u, V, CFL_sc, periodic_x, periodic_y)
+                    # LS[iLS].u .= reshape(gmres(LS[iLS].A, LS[iLS].B * vec(LS[iLS].u)), grid)
+                    LS[iLS].u .= fwd.u[iLS,end-current_i,:,:]
                     # u .= sqrt.((x .- current_i*Δ/1).^ 2 + y .^ 2) - (0.5) * ones(nx, ny);
                 elseif is_fs(bc)
                     # rhs_LS .= 0.0
