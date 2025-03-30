@@ -6,7 +6,7 @@ using Optim
 #System parameters 
 Ra = 1e5 #5e4
 St = 1.   
-H0 = 0.3
+H0 = 0.05
 T1 = 0.7
 TM = 0.0
 
@@ -14,7 +14,7 @@ TM = 0.0
 ratio = 4
 L0 = 1.
 n = 32
-max_it = 600 #150 for n = 16 and 600 for n = 32
+max_it = 1280 #150 for n = 16 and 600 for n = 32
 # TEND = 2.34e-01
 save_every = 1
 nx = ratio * n
@@ -41,7 +41,7 @@ num = Numerical(
 #Optimization parameters
 @. model(t, p) = -abs(p[1]) - abs(p[2])*(1 - tanh(t/0.5)^2)
 p_desired = [0.3, 2.0]
-p_initial = [0., 0.]
+p_initial = [0.3, 0.]
 
 γ = [1.0, 1.0, 1e-4, 1.0, 1.0]
 
@@ -228,76 +228,76 @@ function gradient_based_optimization2(x_initial, num, basis, γ, opt_p, opt_S, o
 end
 
 
-# #0 Compute initial solution
+#0 Compute initial solution
 
-# gp, gu, gv = init_meshes(num)
-# op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
+gp, gu, gv = init_meshes(num)
+op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
-# local_shift = 0.0001 + num.Δ / 2
-# @. gp.LS[1].u = -gp.y - L0/2 + H0 + local_shift
-# @. phL.T = T1 - (1. - num.θd)*(gp.y + L0/2) / (H0 + local_shift)
-# @. phS.T = num.θd*(gp.y + L0/2 - 1.) / (H0 + local_shift - 1)
+local_shift = 0.0001 + num.Δ / 2
+@. gp.LS[1].u = -gp.y - L0/2 + H0 + local_shift
+@. phL.T = T1 - (1. - num.θd)*(gp.y + L0/2) / (H0 + local_shift)
+@. phS.T = num.θd*(gp.y + L0/2 - 1.) / (H0 + local_shift - 1)
 
-# fwd_ini = copy(fwd)
-# fwdS_ini = copy(fwdS)
-# fwdL_ini = copy(fwdL)
+fwd_ini = copy(fwd)
+fwdS_ini = copy(fwdS)
+fwdL_ini = copy(fwdL)
 
-# @time run_forward(
-#         num, gp, gu, gv, op, phS, phL, fwd_ini, fwdS_ini, fwdL_des;
-#         periodic_x = true,
-#         BC_TL = Boundaries(
-#             bottom = Dirichlet(val = T1),
-#             left = Periodic(),
-#             right = Periodic(),
-#         ),
-#         BC_TS = Boundaries(
-#             top = Dirichlet(val = model(gp.x[1,:], p_initial)), 
-#             left = Periodic(),
-#             right = Periodic(),
-#         ),
-#         BC_uL = Boundaries(
-#             bottom = Dirichlet(val = num.u_inf),
-#             top = Dirichlet(val = num.u_inf),
-#             left = Periodic(),
-#             right = Periodic(),
-#         ),
-#         BC_vL = Boundaries(
-#             bottom = Dirichlet(val = num.v_inf),
-#             top = Dirichlet(val = num.v_inf),
-#             left = Periodic(),
-#             right = Periodic(),
-#         ),
-#         BC_u = Boundaries(
-#             left = Periodic(),
-#             right = Periodic(),
-#         ),
-#         BC_pL = Boundaries(
-#             left = Periodic(),
-#             right = Periodic(),
-#         ),
-#         BC_int = [Stefan()],
-#         time_scheme = FE,
-#         ls_scheme = eno2,
-#         adaptative_t = false,
-#         heat = true,
-#         heat_convection = true,
-#         heat_liquid_phase = true,
-#         heat_solid_phase = true,
-#         navier_stokes = true,
-#         ns_advection = true,
-#         ns_liquid_phase = true,
-#         verbose = true,
-#         show_every = 10,
-#         Ra = Ra,
-#         St = St,
-#         cutoff_length = 0.9
-#     )
+@time run_forward(
+        num, gp, gu, gv, op, phS, phL, fwd_ini, fwdS_ini, fwdL_ini;
+        periodic_x = true,
+        BC_TL = Boundaries(
+            bottom = Dirichlet(val = T1),
+            left = Periodic(),
+            right = Periodic(),
+        ),
+        BC_TS = Boundaries(
+            top = Dirichlet(val = model(gp.x[1,:], p_initial)), 
+            left = Periodic(),
+            right = Periodic(),
+        ),
+        BC_uL = Boundaries(
+            bottom = Dirichlet(val = num.u_inf),
+            top = Dirichlet(val = num.u_inf),
+            left = Periodic(),
+            right = Periodic(),
+        ),
+        BC_vL = Boundaries(
+            bottom = Dirichlet(val = num.v_inf),
+            top = Dirichlet(val = num.v_inf),
+            left = Periodic(),
+            right = Periodic(),
+        ),
+        BC_u = Boundaries(
+            left = Periodic(),
+            right = Periodic(),
+        ),
+        BC_pL = Boundaries(
+            left = Periodic(),
+            right = Periodic(),
+        ),
+        BC_int = [Stefan()],
+        time_scheme = FE,
+        ls_scheme = eno2,
+        adaptative_t = false,
+        heat = true,
+        heat_convection = true,
+        heat_liquid_phase = true,
+        heat_solid_phase = true,
+        navier_stokes = true,
+        ns_advection = true,
+        ns_liquid_phase = true,
+        verbose = true,
+        show_every = 10,
+        Ra = Ra,
+        St = St,
+        cutoff_length = 0.9
+    )
 
-# Fini = Figure(size = (1600, 1000))
-# ax = Axis(Fini[1,1], aspect = ratio)
-# contourf!(gp.x[1,:], gp.y[:,1], fwd_ini.T[end,:,:]', colormap=:dense, levels = 20)
-# contour!(gp.x[1,:], gp.y[:,1], fwd_ini.u[1,end,:,:]', levels = 0:0, color=:red, linewidth = 5);
-# resize_to_layout!(Fini)
+Fini = Figure(size = (1600, 1000))
+ax = Axis(Fini[1,1], aspect = ratio)
+contourf!(gp.x[1,:], gp.y[:,1], phL.T' + phS.T', colormap=:dense, levels = 20)
+contour!(gp.x[1,:], gp.y[:,1], gp.LS[1].u', levels = 0:0, color=:red, linewidth = 5);
+resize_to_layout!(Fini)
 
 #1 Compute desired solution
 
@@ -365,12 +365,25 @@ fwdL_des = copy(fwdL)
     )
 
 Fdes = Figure(size = (1600, 1000))
-ax = Axis(Fdes[1,1], aspect = ratio)
-contourf!(gp.x[1,:], gp.y[:,1], fwd_des.T[end,:,:]', colormap=:dense, levels = 20)
-contour!(gp.x[1,:], gp.y[:,1], fwd_des.u[1,end,:,:]', levels = 0:0, color=:red, linewidth = 5);
+ax = Axis(Fdes[1,1], aspect = ratio,)
+contourf!(gp.x[1,:], gp.y[:,1], phL.T' + phS.T', colormap=:dense, levels = 20)
+contour!(gp.x[1,:], gp.y[:,1], gp.LS[1].u', levels = 0:0, color=:red, linewidth = 5);
 resize_to_layout!(Fdes)
 
 
+
+Flines = Figure()
+ax = Axis(Flines[1,1], yscale = log10)
+lines!(Flines[1,1],fwd_ini.RB[1,2:end-450], (0.7+0.3)*fwd_ini.RB[3,2:end-450]/4)
+lines!(Flines[1,1],fwd_ini.RB[1,2:end-1], 1707.7 .+ (0.0)*fwd_ini.RB[3,2:end-1]/4)
+# lines!(Flines[1,1],fwd_des.RB[1,2:end-1], (0.7)*fwd_des.RB[3,2:end-1]/4)
+current_figure()
+
+Flines2 = Figure()
+ax = Axis(Flines2[1,1])
+lines!(Flines2[1,1],fwd_ini.RB[1,2:end-450], fwd_ini.RB[2,2:end-450])
+# lines!(Flines2[1,1],fwd_des.RB[1,2:end-1], fwd_des.RB[2,2:end-1])
+current_figure()
 #2 Run optimization !
 
 res = gradient_based_optimization2(model(gp.x[1,:], p_initial), num, model, γ, opt_p, opt_S, opt_L, opt_u, fwd_des, fwdS_des, fwdL_des,
