@@ -14,7 +14,7 @@ TM = 0.0
 ratio = 4
 L0 = 1.
 n = 32
-max_it = 1280 #150 for n = 16 and 600 for n = 32
+max_it = 800 #150 for n = 16 and 600 for n = 32
 # TEND = 2.34e-01
 save_every = 1
 nx = ratio * n
@@ -28,7 +28,6 @@ num = Numerical(
     x = x,
     y = y,
     max_iterations = max_it,
-    # TEND = TEND,
     u_inf = 0.0,
     θd = TM,
     save_every = save_every,
@@ -41,7 +40,7 @@ num = Numerical(
 #Optimization parameters
 @. model(t, p) = -abs(p[1]) - abs(p[2])*(1 - tanh(t/0.5)^2)
 p_desired = [0.3, 2.0]
-p_initial = [0.3, 0.]
+p_initial = [0.0, 0.]
 
 γ = [1.0, 1.0, 1e-4, 1.0, 1.0]
 
@@ -56,7 +55,8 @@ opt_p = []
 opt_S = []
 opt_L = []
 opt_u = []
-
+opt_uu = []
+opt_RB = []
 
 #Optimization functions
 
@@ -124,7 +124,7 @@ function fg2!(F, G, x, num, basis, γ, opt_p, opt_S, opt_L, opt_u, fwd_des, fwdS
                 St = St,
                 cutoff_length = 0.9
             )
-
+        tmp_u = copy(gp.LS[1].u)
         op, adj_phS, adj_phL, adj, adjS, adjL = init_fields(num, gp, gu, gv)
 
         adj = copy(fwd)
@@ -192,6 +192,8 @@ function fg2!(F, G, x, num, basis, γ, opt_p, opt_S, opt_L, opt_u, fwd_des, fwdS
             push!(opt_S, phS.T)
             push!(opt_L, phL.T)
             push!(opt_u, fwd.u[1,end,:,:])
+            push!(opt_uu, tmp_u)
+            push!(opt_RB, fwd.RB)
         end
         if F != nothing
         value = sum(my_costfunc(γ, fwdS_des.T[end,:,:], fwd_des.u[1,end,:,:], fwdS.T[end,:,:], fwd.u[1,end,:,:]))
@@ -372,18 +374,234 @@ resize_to_layout!(Fdes)
 
 
 
-Flines = Figure()
-ax = Axis(Flines[1,1], yscale = log10)
-lines!(Flines[1,1],fwd_ini.RB[1,2:end-450], (0.7+0.3)*fwd_ini.RB[3,2:end-450]/4)
-lines!(Flines[1,1],fwd_ini.RB[1,2:end-1], 1707.7 .+ (0.0)*fwd_ini.RB[3,2:end-1]/4)
-# lines!(Flines[1,1],fwd_des.RB[1,2:end-1], (0.7)*fwd_des.RB[3,2:end-1]/4)
-current_figure()
 
-Flines2 = Figure()
-ax = Axis(Flines2[1,1])
-lines!(Flines2[1,1],fwd_ini.RB[1,2:end-450], fwd_ini.RB[2,2:end-450])
-# lines!(Flines2[1,1],fwd_des.RB[1,2:end-1], fwd_des.RB[2,2:end-1])
-current_figure()
+
+
+
+
+
+
+
+
+
+
+
+
+# Set adjustable temperature limits (change these as needed)
+temp_min = -0.3    # e.g. minimum temperature
+temp_max = 0.7 # e.g. maximum temperature
+
+F1 = Figure(size = (1600, 400))
+
+# Create the axis without xlims, ylims, ticklabelsize, or labelfontsize keywords.
+ax = Axis(F1[1, 1],
+    aspect = ratio,
+    xlabel = "x", 
+    ylabel = "y",
+    xticks = -2:0.5:2,
+    yticks = [-0.5, 0, 0.5]
+)
+
+# Set the axis limits after creation.
+xlims!(ax, (-2, 2))
+ylims!(ax, (-0.5, 0.5))
+
+# Increase the font sizes by setting the properties directly.
+ax.xticklabelsize[] = 30         # size of tick labels on the x axis
+ax.yticklabelsize[] = 30         # size of tick labels on the y axis
+ax.xlabelsize[]     = 34         # size of the x-axis label
+ax.ylabelsize[]     = 34         # size of the y-axis label
+
+# Plot the filled contour (using clims to control the color range)
+hm = contourf!(ax, gp.x[1, :], gp.y[:, 1],
+    # min.(abs.(abs.(opt_S[1]' + opt_L[1]') - abs.(fwdS_des.T[end,:,:]' + fwdL_des.T[end,:,:]')), 1.99), 
+    fwd_des.T[end,:,:]', 
+    colormap = :dense,
+    levels = 30,
+    # clims = (-0.31, 0.71)
+)
+# hm.colorrange[] = (temp_min, temp_max)
+# hm.clims[] = (temp_min, temp_max)
+
+# Add a contour line (for example, at level 0) in red.
+contour!(ax, gp.x[1, :], gp.y[:, 1], fwd_des.u[1,end,:,:]',
+    levels = [0],
+    color = :red,
+    linewidth = 5
+)
+
+
+# Add a colorbar to the figure next to the axis.
+Colorbar(F1[1, 2];
+    colormap = :dense,
+    label = "Temperature",
+    labelsize = 34,
+    ticklabelsize = 30,
+    width = 40,
+    height = 300,
+    limits = (-2.2, 0.71)
+)
+
+# resize_to_layout!(F1)
+F1  # display the figure
+Makie.save("/home/tf/Documents/RB_opt/RB_opt_des.png", F1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Set adjustable temperature limits (change these as needed)
+temp_min = -0.3    # e.g. minimum temperature
+temp_max = 0.7 # e.g. maximum temperature
+
+F1 = Figure(size = (1600, 400))
+
+# Create the axis without xlims, ylims, ticklabelsize, or labelfontsize keywords.
+ax = Axis(F1[1, 1],
+    aspect = ratio,
+    xlabel = "x", 
+    ylabel = "y",
+    xticks = -2:0.5:2,
+    yticks = [-0.5, 0, 0.5]
+)
+
+# Set the axis limits after creation.
+xlims!(ax, (-2, 2))
+ylims!(ax, (-0.5, 0.5))
+
+# Increase the font sizes by setting the properties directly.
+ax.xticklabelsize[] = 30         # size of tick labels on the x axis
+ax.yticklabelsize[] = 30         # size of tick labels on the y axis
+ax.xlabelsize[]     = 34         # size of the x-axis label
+ax.ylabelsize[]     = 34         # size of the y-axis label
+
+# Plot the filled contour (using clims to control the color range)
+hm = contourf!(ax, gp.x[1, :], gp.y[:, 1],
+    # min.(abs.(abs.(opt_S[1]' + opt_L[1]') - abs.(fwdS_des.T[end,:,:]' + fwdL_des.T[end,:,:]')), 1.99), 
+    fwd_ini.T[end,:,:]', 
+    colormap = :dense,
+    levels = 30,
+    # clims = (-0.31, 0.71)
+)
+# hm.colorrange[] = (temp_min, temp_max)
+# hm.clims[] = (temp_min, temp_max)
+
+# Add a contour line (for example, at level 0) in red.
+contour!(ax, gp.x[1, :], gp.y[:, 1], fwd_ini.u[1,end,:,:]',
+    levels = [0],
+    color = :black,
+    linewidth = 5
+)
+
+
+# Add a colorbar to the figure next to the axis.
+Colorbar(F1[1, 2];
+    colormap = :dense,
+    label = "Temperature",
+    labelsize = 34,
+    ticklabelsize = 30,
+    width = 40,
+    height = 300,
+    limits = (-0.01, 0.71)
+)
+
+# resize_to_layout!(F1)
+F1  # display the figure
+Makie.save("/home/tf/Documents/RB_opt/RB_opt_ini.png", F1)
+
+
+
+
+
+
+
+
+
+struct IntegerTicks end
+
+Makie.get_tickvalues(::IntegerTicks, vmin, vmax) = ceil(Int, vmin) : floor(Int, vmax)
+
+fh = Figure(resolution = (1600, 1600))
+fontsize_theme = Theme(fontsize = 50)
+set_theme!(fontsize_theme)
+colsize!(fh.layout, 1, Aspect(1, 1.0))
+ax = Axis(fh[1,1], aspect = 1, xlabel = "Time", ylabel = "Average height")
+ax.yticks = (0.1:0.2:1.0)
+ax.xticks = (0:0.1:1.1)
+xlims!(ax, 0, 0.35)
+ylims!(ax, 0, 1.0)
+lines!(fwd_des.RB[1,1:end-1], fwd_des.RB[2,1:end-1], linewidth = 9, label = "Desired solution", color=:red)
+lines!(fwd_ini.RB[1,1:end-1], fwd_ini.RB[2,1:end-1], linewidth = 9, label = "Initial guess", color=:black)
+# lines!(RB5103[1,:], RB5103[2,:], linewidth = 9, label = "Ra = 5 × 10³")
+resize_to_layout!(fh)
+axislegend(position = :rb)
+fh = current_figure()
+
+Makie.save("/home/tf/Documents/RB_opt/RB_opt_avheight_des_ini.png", fh)
+
+fh = Figure(resolution = (1600, 1600))
+fontsize_theme = Theme(fontsize = 50)
+set_theme!(fontsize_theme)
+colsize!(fh.layout, 1, Aspect(1, 1.0))
+ax = Axis(fh[1,1], yscale = log10, aspect = 1, xlabel = "Time", ylabel = "Effective Rayleigh number")
+# ax.yticks = (0.:1000:1*0.25*findmax(RB1105[3,:])[1]+500)
+ax.xticks = (0:0.1:1.1)
+xlims!(ax, 0, 0.35)
+ylims!(ax, 5, 1*0.25*findmax(fwd_ini.RB[3,1:end-1])[1]+500)
+lines!(fwd_des.RB[1,1:end-1], fwd_des.RB[3,1:end-1]/4, linewidth = 9, label = "Desired solution", color=:red)
+lines!(fwd_ini.RB[1,1:end-1], fwd_ini.RB[3,1:end-1]/4, linewidth = 9, label = "Initial guess", color=:black)
+# lines!(RB5103[1,:], 0.7*RB5103[3,:]/4, linewidth = 9, label = "Ra = 5 × 10³")
+# lines!(fwd_des.RB[1,1:end-1], 1707.7 .+ 0.0*fwd_des.RB[1,1:end-1]/4, linewidth = 9, label = "Ra = 1707.7", color=:black)
+resize_to_layout!(fh)
+axislegend(position = :rb)
+fh = current_figure()
+
+Makie.save("/home/tf/Documents/RB_opt/RB_opt_effectiveRa_des_ini.png", fh)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Flines = Figure()
+# ax = Axis(Flines[1,1], yscale = log10)
+# lines!(Flines[1,1],fwd_ini.RB[1,2:end-450], (0.7+0.3)*fwd_ini.RB[3,2:end-450]/4)
+# lines!(Flines[1,1],fwd_ini.RB[1,2:end-1], 1707.7 .+ (0.0)*fwd_ini.RB[3,2:end-1]/4)
+# # lines!(Flines[1,1],fwd_des.RB[1,2:end-1], (0.7)*fwd_des.RB[3,2:end-1]/4)
+# current_figure()
+
+# Flines2 = Figure()
+# ax = Axis(Flines2[1,1])
+# lines!(Flines2[1,1],fwd_ini.RB[1,2:end-450], fwd_ini.RB[2,2:end-450])
+# # lines!(Flines2[1,1],fwd_des.RB[1,2:end-1], fwd_des.RB[2,2:end-1])
+# current_figure()
 #2 Run optimization !
 
 res = gradient_based_optimization2(model(gp.x[1,:], p_initial), num, model, γ, opt_p, opt_S, opt_L, opt_u, fwd_des, fwdS_des, fwdL_des,
@@ -395,6 +613,8 @@ for i in axes(store,1)
     store[i, 1] = res.trace[i].iteration
     store[i, 2] = res.trace[i].value
 end
+
+JLD2.@save "/home/tf/Documents/RB_opt/opt_data.jld2" num gp gu gv fwd_des opt_p opt_S opt_L opt_u opt_uu opt_RB res
 
 f = Figure()
 fontsize_theme = Theme(fontsize = 20)
