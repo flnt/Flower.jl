@@ -1433,6 +1433,13 @@ Re : 1.00e-01 1.49e+06 1.26e+03 8.43e-04
 julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Butler.jl ../Flower.jl/examples/convergence_diffusion_constant_conductivity_bubble_wall.yml
 ```
 
+
+## Periodic BC
+
+```bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence.jl ../Flower.jl/examples/convergence_diffusion_constant_conductivity_bubble_wall_perio.yml
+```
+
 ## Diffusion and convection with a bubble at the wall
 
 Diffusion time scale
@@ -1855,6 +1862,18 @@ safe-run -m 1073741824 julia +1.10.5 --project=../Flower.jl --threads=1 ../Flowe
 ```bash 
  julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence.jl ../Flower.jl/examples/convergence_diffusion_convection_constant_conductivity_bubble_wall_no_gravity_laplacian.yml 
 ```
+
+### Coupled velocity-pressure, with Laplacian modification
+
+```bash 
+safe-run -m 1073741824 julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence.jl ../Flower.jl/examples/convergence_diffusion_convection_constant_conductivity_no_gravity_coupled_laplacian.yml 
+```
+
+```bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence.jl ../Flower.jl/examples/convergence_diffusion_convection_constant_conductivity_no_gravity_coupled_laplacian.yml 
+```
+
+
 
 ### Poiseuille Flow, convergence to stationary solution
 

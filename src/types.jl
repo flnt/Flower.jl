@@ -128,6 +128,8 @@ Stores parameters for the simulation
     time::T=0.0
     iter_solve::D=0
     pres_intfc::T=0.0 # presintfc = pres0 + p_lapl ? #TODO init pressure
+    pressure_velocity_coupling::D=0 #0 projection 1 coupled
+    solve_solid::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -283,15 +285,15 @@ opC_vS::Operators{T,D}
 opC_vL::Operators{T,D}
 """
 struct DiscreteOperators{T <: Real, D <: Integer}
-    opS::OperatorsConvection{T,D}
+    opS::Union{OperatorsConvection{T,D},Nothing}
     opL::OperatorsConvection{T,D}
-    opC_TS::Operators{T,D}
+    opC_TS::Union{Operators{T,D},Nothing}
     opC_TL::Operators{T,D}
-    opC_pS::Operators{T,D}
+    opC_pS::Union{Operators{T,D},Nothing}
     opC_pL::Operators{T,D}
-    opC_uS::Operators{T,D}
+    opC_uS::Union{Operators{T,D},Nothing}
     opC_uL::Operators{T,D}
-    opC_vS::Operators{T,D}
+    opC_vS::Union{Operators{T,D},Nothing}
     opC_vL::Operators{T,D}
 end
 

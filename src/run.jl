@@ -8,6 +8,7 @@
 #TODO no concentration prefactor
 #TODO successive substitution reuse LU decomposition
 #TODO check if everywhere phL.i_current_mag (especially if temperature solved)
+#TODO remove alloc in this file
 
 # About PDI: the the Parallel Data Interface https://pdi.dev/1.8/
 
@@ -22,7 +23,7 @@ function run_forward!(
     grid_u::Mesh{Flower.GridFCx, Float64, Int64},
     grid_v::Mesh{Flower.GridFCy, Float64, Int64},
     op::DiscreteOperators{Float64, Int64}, 
-    phS::Phase{Float64}, 
+    phS::Union{Phase{Float64},Nothing}, 
     phL::Phase{Float64};
     periodic_x::Bool = false,
     periodic_y::Bool = false,
@@ -72,7 +73,7 @@ function run_forward!(
     )
 
 
-    # Initialize simulation parameters
+    #region Initialize simulation parameters
 
     # λ::Float64 = 1,
     λ = 1 #for Stefan velocity
@@ -186,6 +187,8 @@ function run_forward!(
         printstyled(color=:magenta, @sprintf "\n CFL_sc : %.2e\n" CFL_sc)
     end
 
+
+
     
     # Electrolysis
     num.current_radius = 0.0
@@ -220,22 +223,25 @@ function run_forward!(
 
     end # if electrolysis    
     
+    #endregion Initialize simulation parameters
+
 
     local NB_indices;
 
 
     #region Allocations
-    # Allocations
 
-    local Cum1S = fzeros(grid_u)
+    if num.solve_solid == 1
+        local Cum1S = fzeros(grid_u)
+        local Cvm1S = fzeros(grid_v)
+        local Mm1_S
+        local Mum1_S
+        local Mvm1_S
+    end
+
+
     local Cum1L = fzeros(grid_u)
-    local Cvm1S = fzeros(grid_v)
     local Cvm1L = fzeros(grid_v)
-
-    local Mm1_S
-    local Mum1_S
-    local Mvm1_S
-
     local Mm1_L
     local Mum1_L
     local Mvm1_L
@@ -340,12 +346,14 @@ function run_forward!(
     # TODO reset zero
     tmp_vec_u .= 0.0
 
-    #tmp_vec_u
-    #from LS 1 to centroid grid_u.LS[end].geoS
-    get_height!(grid_u.LS[1],grid_u.ind,grid_u.dx,grid_u.dy,grid_u.LS[end].geoS,tmp_vec_u) #here tmp_vec_u solid
+    if num.solve_solid == 1
+        #tmp_vec_u
+        #from LS 1 to centroid grid_u.LS[end].geoS
+        get_height!(grid_u.LS[1],grid_u.ind,grid_u.dx,grid_u.dy,grid_u.LS[end].geoS,tmp_vec_u) #here tmp_vec_u solid
 
-    init_fields_multiple_levelsets!(num,phS.uD,phS.u,tmp_vec_u,BC_uS,grid_u,num.uD,"uS")
-    # init_fields_multiple_levelsets!(num,phS.ucorrD,phS.u,HSu,BC_uS,grid_u,num.uD)
+        init_fields_multiple_levelsets!(num,phS.uD,phS.u,tmp_vec_u,BC_uS,grid_u,num.uD,"uS")
+        # init_fields_multiple_levelsets!(num,phS.ucorrD,phS.u,HSu,BC_uS,grid_u,num.uD)
+    end
 
     get_height!(grid_u.LS[1],grid_u.ind,grid_u.dx,grid_u.dy,grid_u.LS[end].geoL,tmp_vec_u)  #here tmp_vec_u liquid
 
@@ -355,11 +363,12 @@ function run_forward!(
 
     # TODO reset zero
     tmp_vec_v .= 0.0
+    if num.solve_solid == 1
+        get_height!(grid_v.LS[1],grid_v.ind,grid_v.dx,grid_v.dy,grid_v.LS[end].geoS,tmp_vec_v) 
 
-    get_height!(grid_v.LS[1],grid_v.ind,grid_v.dx,grid_v.dy,grid_v.LS[end].geoS,tmp_vec_v) 
-
-    init_fields_multiple_levelsets!(num,phS.vD,phS.v,tmp_vec_v,BC_vS,grid_v,num.vD,"vS")
-    # init_fields_multiple_levelsets!(num,phS.vcorrD,phS.v,HSv,BC_vS,grid_v,num.vD)
+        init_fields_multiple_levelsets!(num,phS.vD,phS.v,tmp_vec_v,BC_vS,grid_v,num.vD,"vS")
+        # init_fields_multiple_levelsets!(num,phS.vcorrD,phS.v,HSv,BC_vS,grid_v,num.vD)
+    end
 
     get_height!(grid_v.LS[1],grid_v.ind,grid_v.dx,grid_v.dy,grid_v.LS[end].geoL,tmp_vec_v)
 
@@ -370,17 +379,20 @@ function run_forward!(
     # TODO reset zero
     tmp_vec_p .= 0.0
 
-    get_height!(grid.LS[1],grid.ind,grid.dx,grid.dy,grid.LS[end].geoS,tmp_vec_p) #here tmp_vec_p solid
+    if num.solve_solid == 1
 
-    init_fields_multiple_levelsets!(num,phS.pD,phS.p,tmp_vec_p,BC_pS,grid,num.pres_intfc,"pS")
+        get_height!(grid.LS[1],grid.ind,grid.dx,grid.dy,grid.LS[end].geoS,tmp_vec_p) #here tmp_vec_p solid
 
-    if heat
-        init_fields_multiple_levelsets!(num,phS.TD,phS.T,tmp_vec_p,BC_TS,grid,num.θd,"TS")
-    end
+        init_fields_multiple_levelsets!(num,phS.pD,phS.p,tmp_vec_p,BC_pS,grid,num.pres_intfc,"pS")
 
-    #Electrolysis
-    if electrolysis && num.electrical_potential > 0
-        init_fields_multiple_levelsets!(num,phS.phi_eleD,phS.phi_ele,tmp_vec_p,BC_phi_ele,grid,num.phi_ele0,"phiS")
+        if heat
+            init_fields_multiple_levelsets!(num,phS.TD,phS.T,tmp_vec_p,BC_TS,grid,num.θd,"TS")
+        end
+
+        #Electrolysis
+        if electrolysis && num.electrical_potential > 0
+            init_fields_multiple_levelsets!(num,phS.phi_eleD,phS.phi_ele,tmp_vec_p,BC_phi_ele,grid,num.phi_ele0,"phiS")
+        end
     end
 
     get_height!(grid.LS[1],grid.ind,grid.dx,grid.dy,grid.LS[end].geoL,tmp_vec_p) #here tmp_vec_p liquid
@@ -450,23 +462,49 @@ function run_forward!(
         # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
         C_NULL::Ptr{Cvoid})::Cint
 
-        if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || any(isnan, phS.uD) || any(isnan, phS.vD) || any(isnan, phS.TD) ||
-            any(isnan, phL.trans_scalD) || any(isnan, phL.phi_eleD) ||
-            norm(phL.u) > 1e8 || norm(phS.u) > 1e8 || norm(phL.T) > 1e8 || norm(phS.T) > 1e8 || norm(phL.trans_scal) > 1e8 || norm(phL.phi_ele) > 1e8 ||
-            any(phL.trans_scal .<0))
-            println(@sprintf "\n CRASHED start \n")
+        if num.solve_solid == 1
 
-            # println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
-            
-            print("\n phL.uD: ",any(isnan, phL.uD) , "\n phL.vD: ",any(isnan, phL.vD) , "\n phL.TD: ",any(isnan, phL.TD) , "\n phS.uD: ",any(isnan, phS.uD) , "\n phS.vD: ",any(isnan, phS.vD) , "\n phS.TD: ",any(isnan, phS.TD) ,
-            "\n phL.trans_scalD: ",any(isnan, phL.trans_scalD) , "\n phL.phi_eleD: ",any(isnan, phL.phi_eleD) ,
-            "\n phL.u: ",norm(phL.u) > 1e8 , "\n phS.u: ",norm(phS.u) > 1e8 , "\n phL.T: ",norm(phL.T) > 1e8 , 
-            "\n phS.T: ",norm(phS.T) > 1e8 , "\n phL.trans_scal: ",norm(phL.trans_scal) > 1e8 ,
-             "\n phL.phi_ele: ",norm(phL.phi_ele) > 1e8,"\n any(phL.trans_scal .<0): ", any(phL.trans_scal .<0))
+            if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || 
+                any(isnan, phS.uD) || any(isnan, phS.vD) || any(isnan, phS.TD) ||
+                any(isnan, phL.trans_scalD) || any(isnan, phL.phi_eleD) ||
+                norm(phL.u) > 1e8 || norm(phL.T) > 1e8 || 
+                norm(phS.u) > 1e8 || norm(phS.T) > 1e8 || 
+                norm(phL.trans_scal) > 1e8 || norm(phL.phi_ele) > 1e8 ||
+                any(phL.trans_scal .<0))
+                println(@sprintf "\n CRASHED start \n")
+                
+                print("\n phL.uD: ",any(isnan, phL.uD) , "\n phL.vD: ",any(isnan, phL.vD) , "\n phL.TD: ",any(isnan, phL.TD) ,
+                "\n phS.uD: ",any(isnan, phS.uD) , "\n phS.vD: ",any(isnan, phS.vD) , "\n phS.TD: ",any(isnan, phS.TD) ,
+                "\n phL.trans_scalD: ",any(isnan, phL.trans_scalD) , "\n phL.phi_eleD: ",any(isnan, phL.phi_eleD) ,
+                "\n phL.u: ",norm(phL.u) > 1e8 , "\n phS.u: ",norm(phS.u) > 1e8 , "\n phL.T: ",norm(phL.T) > 1e8 , 
+                "\n phS.T: ",norm(phS.T) > 1e8 , "\n phL.trans_scal: ",norm(phL.trans_scal) > 1e8 ,
+                "\n phL.phi_ele: ",norm(phL.phi_ele) > 1e8,"\n any(phL.trans_scal .<0): ", any(phL.trans_scal .<0))
 
-            crashed=true
-            # return nothing
-            return num.current_i
+                crashed=true
+                return num.current_i
+
+            end
+        else 
+
+            if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || 
+                any(isnan, phL.trans_scalD) || any(isnan, phL.phi_eleD) ||
+                norm(phL.u) > 1e8 || norm(phL.T) > 1e8 || 
+                norm(phL.trans_scal) > 1e8 || norm(phL.phi_ele) > 1e8 ||
+                any(phL.trans_scal .<0))
+                println(@sprintf "\n CRASHED start \n")
+
+                # println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
+                
+                print("\n phL.uD: ",any(isnan, phL.uD) , "\n phL.vD: ",any(isnan, phL.vD) , "\n phL.TD: ",any(isnan, phL.TD) ,
+                "\n phL.trans_scalD: ",any(isnan, phL.trans_scalD) , "\n phL.phi_eleD: ",any(isnan, phL.phi_eleD) ,
+                "\n phL.u: ",norm(phL.u) > 1e8, "\n phL.T: ",norm(phL.T) > 1e8 , 
+                "\n phL.trans_scal: ",norm(phL.trans_scal) > 1e8 ,
+                "\n phL.phi_ele: ",norm(phL.phi_ele) > 1e8,"\n any(phL.trans_scal .<0): ", any(phL.trans_scal .<0))
+
+                crashed=true
+                return num.current_i
+
+            end
 
         end
 
@@ -500,9 +538,12 @@ function run_forward!(
             # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
             C_NULL::Ptr{Cvoid})::Cint
     end
-    
-    kill_dead_cells!(phS.T, grid, grid.LS[end].geoS)
+
+    if num.solve_solid == 1
+        kill_dead_cells!(phS.T, grid, grid.LS[end].geoS)
+    end
     kill_dead_cells!(phL.T, grid, grid.LS[end].geoL)
+
 
     #TODO check timestep coefficients num.n-1 
 
@@ -532,6 +573,8 @@ function run_forward!(
     #     printstyled(color=:green, @sprintf "\n average T %s\n" average!(phL.T, grid, grid.LS[1].geoL, num))
     # end
 
+    #region Allocations
+
     # Set matrices/operators
     if is_Forward_Euler(time_scheme) || is_Crank_Nicolson(time_scheme)
         NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
@@ -540,13 +583,15 @@ function run_forward!(
         # println(grid.LS[1].geoL.dcap[1,1,:])
 
         if navier_stokes || heat || electrolysis
-            geoS = [grid.LS[iLS].geoS for iLS in 1:num._nLS]
-            geo_uS = [grid_u.LS[iLS].geoS for iLS in 1:num._nLS]
-            geo_vS = [grid_v.LS[iLS].geoS for iLS in 1:num._nLS]
-            Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S = set_matrices!(
-                num, grid, geoS, grid_u, geo_uS, grid_v, geo_vS,
-                op.opC_pS, op.opC_uS, op.opC_vS, periodic_x, periodic_y
-            )
+            if num.solve_solid == 1
+                geoS = [grid.LS[iLS].geoS for iLS in 1:num._nLS]
+                geo_uS = [grid_u.LS[iLS].geoS for iLS in 1:num._nLS]
+                geo_vS = [grid_v.LS[iLS].geoS for iLS in 1:num._nLS]
+                Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S = set_matrices!(
+                    num, grid, geoS, grid_u, geo_uS, grid_v, geo_vS,
+                    op.opC_pS, op.opC_uS, op.opC_vS, periodic_x, periodic_y
+                )
+            end
 
             geoL = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
             geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
@@ -557,12 +602,15 @@ function run_forward!(
             )
         end
 
+        # Contains volumes
+        if num.solve_solid == 1
+            Mm1_S = copy(op.opC_pS.M)
+            Mum1_S = copy(op.opC_uS.M)
+            Mvm1_S = copy(op.opC_vS.M)
+        end
         Mm1_L = copy(op.opC_pL.M)
-        Mm1_S = copy(op.opC_pS.M)
         Mum1_L = copy(op.opC_uL.M)
-        Mum1_S = copy(op.opC_uS.M)
         Mvm1_L = copy(op.opC_vL.M)
-        Mvm1_S = copy(op.opC_vS.M)
 
         if navier_stokes || heat || electrolysis
 
@@ -571,10 +619,12 @@ function run_forward!(
             #TODO optimize allocations
 
             #Preallocate for mass flux computations
-            mass_flux_vec1 = fzeros(grid)
-            mass_flux_vecb = fzeros(grid)
-            mass_flux_veci = fzeros(grid)
-            mass_flux = zeros(grid)
+            if electrolysis_phase_change_case != "None"
+                mass_flux_vec1 = fzeros(grid)
+                mass_flux_vecb = fzeros(grid)
+                mass_flux_veci = fzeros(grid)
+                mass_flux = zeros(grid)
+            end
 
 
             #Allocations for scalar grid
@@ -592,14 +642,10 @@ function run_forward!(
 
             all_CUTCT = zeros(grid.ny * grid.nx, num.nb_transported_scalars)
 
-            # us=zeros(grid)
-            # vs=zeros(grid)
 
-            #save up memory: do not allocate Eus
-            # Eus=zeros(grid) 
-            # Evs=zeros(grid)
-
-            AϕS = spzeros(nt, nt)
+            if num.solve_solid == 1
+                AϕS = spzeros(nt, nt)
+            end
             AϕL = spzeros(nt, nt)
 
             if electrolysis 
@@ -611,35 +657,82 @@ function run_forward!(
                 coeffDy_interface = zeros(grid_v)
             end
 
-            ATS = spzeros(nt, nt)
+            if num.solve_solid == 1
+                ATS = spzeros(nt, nt)
+                BTS = spzeros(nt, nt)
+            end
             ATL = spzeros(nt, nt)
-            BTS = spzeros(nt, nt)
             BTL = spzeros(nt, nt)
 
             ni = grid_u.nx * grid_u.ny
             nb = 2 * grid_u.nx + 2 * grid_u.ny
             nt = (num.nLS + 1) * ni + nb
+            if num.solve_solid == 1
             AuS = spzeros(nt, nt)
-            AuL = spzeros(nt, nt)
             BuS = spzeros(nt, nt)
+            end
+            AuL = spzeros(nt, nt)
             BuL = spzeros(nt, nt)
 
             ni = grid_v.nx * grid_v.ny
             nb = 2 * grid_v.nx + 2 * grid_v.ny
             nt = (num.nLS + 1) * ni + nb
-            AvS = spzeros(nt, nt)
+            if ns_solid_phase
+                AvS = spzeros(nt, nt)
+                BvS = spzeros(nt, nt)
+            end
             AvL = spzeros(nt, nt)
-            BvS = spzeros(nt, nt)
             BvL = spzeros(nt, nt)
 
+            #region Allocate for Navier case
             ni = grid_u.nx * grid_u.ny + grid_v.nx * grid_v.ny
             nb = 2 * grid_u.nx + 2 * grid_u.ny + 2 * grid_v.nx + 2 * grid_v.ny
             nt = (num.nLS - num.nNavier + 1) * ni + num.nNavier * grid.nx * grid.ny + nb
-            AuvS = spzeros(nt, nt)
-            AuvL = spzeros(nt, nt)
-            BuvS = spzeros(nt, nt)
-            BuvL = spzeros(nt, nt)
+            #dev was done with nNavier == 1
+            
+            #when no Navier: nt = (num.nLS + 1) * ni + nb
 
+            if num.pressure_velocity_coupling == 0 
+            
+                if ns_solid_phase
+                    AuvS = spzeros(nt, nt)
+                    BuvS = spzeros(nt, nt)
+                end
+
+                AuvL = spzeros(nt, nt)
+                BuvL = spzeros(nt, nt)
+
+            else
+                # We solve for u, v with borders 
+                # dev was done with nNavier == 1
+
+                ni_p = grid.nx * grid.ny
+                nb_p = 2 * grid.nx + 2 * grid.ny
+            
+                ni_u = grid_u.nx * grid_u.ny
+                nb_u = 2 * grid_u.nx + 2 * grid_u.ny
+            
+                ni_v = grid_v.nx * grid_v.ny
+                nb_v = 2 * grid_v.nx + 2 * grid_v.ny
+
+                ni_uv = ni_u + ni_v
+                nb_uv = nb_u + nb_v
+
+                nt = (num.nLS - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv + (num.nLS + 1) * ni_p + nb_p
+                # so 1 * ni + 1 * ni_p +nb + ni_p + nb
+                # u v Navier, pression     
+               
+                AuvL = spzeros(nt, nt)
+                BuvL = spzeros(nt, nt)
+                rhs_uv = zeros(nt)  
+
+            end
+
+            #endregion Allocate for Navier case
+
+            #endregion Allocations
+
+            #TODO remove allocations
 
 
             # Adapt cell volume W for gradients 
@@ -666,31 +759,44 @@ function run_forward!(
                 )
             end  
            
-         
-            #TODO why this call without interface initialization ?
-            if !navier
-                _ = FE_set_momentum(
-                    num, grid_u, op.opC_uS,
-                    AuS, BuS,
-                    iRe.*Lum1_S, iRe.*bc_Lum1_S, iRe.*bc_Lum1_b_S, Mum1_S, BC_uS,
-                    true
-                )
-                _ = FE_set_momentum(
-                    num, grid_v, op.opC_vS,
-                    AvS, BvS,
-                    iRe.*Lvm1_S, iRe.*bc_Lvm1_S, iRe.*bc_Lvm1_b_S, Mvm1_S, BC_vS,
-                    true
-                )
-            else
-                _ = FE_set_momentum_coupled(
-                    BC_int, num, grid, grid_u, grid_v,
-                    op.opC_pS, op.opC_uS, op.opC_vS,
-                    AuvS, BuvS,
-                    iRe.*Lum1_S, iRe.*bc_Lum1_S, iRe.*bc_Lum1_b_S, Mum1_S, BC_uS,
-                    iRe.*Lvm1_S, iRe.*bc_Lvm1_S, iRe.*bc_Lvm1_b_S, Mvm1_S, BC_vS,
-                    true
+            if num.pressure_velocity_coupling == 0
+                #TODO why this call without interface initialization ?
+                if !navier
+                    _ = FE_set_momentum(
+                        num, grid_u, op.opC_uS,
+                        AuS, BuS,
+                        iRe.*Lum1_S, iRe.*bc_Lum1_S, iRe.*bc_Lum1_b_S, Mum1_S, BC_uS,
+                        true
+                    )
+                    _ = FE_set_momentum(
+                        num, grid_v, op.opC_vS,
+                        AvS, BvS,
+                        iRe.*Lvm1_S, iRe.*bc_Lvm1_S, iRe.*bc_Lvm1_b_S, Mvm1_S, BC_vS,
+                        true
+                    )
+                else
+                    _ = FE_set_momentum_coupled(
+                        BC_int, num, grid, grid_u, grid_v,
+                        op.opC_pS, op.opC_uS, op.opC_vS,
+                        AuvS, BuvS,
+                        iRe.*Lum1_S, iRe.*bc_Lum1_S, iRe.*bc_Lum1_b_S, Mum1_S, BC_uS,
+                        iRe.*Lvm1_S, iRe.*bc_Lvm1_S, iRe.*bc_Lvm1_b_S, Mvm1_S, BC_vS,
+                        true
+                    )
+                end
+            elseif num.pressure_velocity_coupling == 1
+                # Coupled resolution of u and v
+                _ = FE_set_momentum_coupled2(
+                BC_int, num, grid, grid_u, grid_v,
+                op.opC_pL, op.opC_uL, op.opC_vL,
+                AuvL, BuvL,rhs_uv,
+                iRe.*Lum1_L, iRe.*bc_Lum1_L, iRe.*bc_Lum1_b_L, Mum1_L, BC_uL,
+                iRe.*Lvm1_L, iRe.*bc_Lvm1_L, iRe.*bc_Lvm1_b_L, Mvm1_L, BC_vL,
+                true
                 )
             end
+
+
             #TODO remove alloc a0_p
             a0_p = []
             for i in 1:num.nLS
@@ -698,7 +804,7 @@ function run_forward!(
             end
             
             
-            if !advection
+            if !advection && (num.solve_solid == 1)
             #call to set_heat! is there to set up the matrices for the heat equation. 
             #If the level-set is not advected, then after this call there is no need to update these matrices anymore
 
@@ -721,30 +827,45 @@ function run_forward!(
                 return
             end
 
-            if !navier
-                _ = FE_set_momentum(
-                    num, grid_u, op.opC_uL,
-                    AuL, BuL,
-                    iRe.*Lum1_L, iRe.*bc_Lum1_L, iRe.*bc_Lum1_b_L, Mum1_L, BC_uL,
-                    true
-                )
-                _ = FE_set_momentum(
-                    num, grid_v, op.opC_vL,
-                    AvL, BvL,
-                    iRe.*Lvm1_L, iRe.*bc_Lvm1_L, iRe.*bc_Lvm1_b_L, Mvm1_L, BC_vL,
-                    true
-                )
-            else
-                # Coupled resolution if navier BC is activated
-                _ = FE_set_momentum_coupled(
-                    BC_int, num, grid, grid_u, grid_v,
-                    op.opC_pL, op.opC_uL, op.opC_vL,
-                    AuvL, BuvL,
-                    iRe.*Lum1_L, iRe.*bc_Lum1_L, iRe.*bc_Lum1_b_L, Mum1_L, BC_uL,
-                    iRe.*Lvm1_L, iRe.*bc_Lvm1_L, iRe.*bc_Lvm1_b_L, Mvm1_L, BC_vL,
-                    true
+            # Segregated resolution for u and v since the viscosity is assumed to be constant in a phase 
+            if num.pressure_velocity_coupling == 0
+                if !navier
+                    _ = FE_set_momentum(
+                        num, grid_u, op.opC_uL,
+                        AuL, BuL,
+                        iRe.*Lum1_L, iRe.*bc_Lum1_L, iRe.*bc_Lum1_b_L, Mum1_L, BC_uL,
+                        true
+                    )
+                    _ = FE_set_momentum(
+                        num, grid_v, op.opC_vL,
+                        AvL, BvL,
+                        iRe.*Lvm1_L, iRe.*bc_Lvm1_L, iRe.*bc_Lvm1_b_L, Mvm1_L, BC_vL,
+                        true
+                    )
+                else
+                    # Coupled resolution of u and v if navier BC is activated
+                    _ = FE_set_momentum_coupled(
+                        BC_int, num, grid, grid_u, grid_v,
+                        op.opC_pL, op.opC_uL, op.opC_vL,
+                        AuvL, BuvL,
+                        iRe.*Lum1_L, iRe.*bc_Lum1_L, iRe.*bc_Lum1_b_L, Mum1_L, BC_uL,
+                        iRe.*Lvm1_L, iRe.*bc_Lvm1_L, iRe.*bc_Lvm1_b_L, Mvm1_L, BC_vL,
+                        true
+                    )
+                end
+
+            elseif num.pressure_velocity_coupling == 1
+                # Coupled resolution of u and v
+                _ = FE_set_momentum_coupled2(
+                BC_int, num, grid, grid_u, grid_v,
+                op.opC_pL, op.opC_uL, op.opC_vL,
+                AuvL, BuvL,rhs_uv,
+                iRe.*Lum1_L, iRe.*bc_Lum1_L, iRe.*bc_Lum1_b_L, Mum1_L, BC_uL,
+                iRe.*Lvm1_L, iRe.*bc_Lvm1_L, iRe.*bc_Lvm1_b_L, Mvm1_L, BC_vL,
+                true
                 )
             end
+
             a0_p = []
             for i in 1:num.nLS
                 push!(a0_p, zeros(grid))
@@ -881,8 +1002,12 @@ function run_forward!(
 
                         # print("\n type of elec_cond ", typeof(elec_cond)," \n")
                         try
-                            compute_grad_phi_ele!(num, grid, grid_u, grid_v,grid_u.LS[end], grid_v.LS[end], phL, phS, 
-                            op.opC_pL, op.opC_pS, elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p0,tmp_vec_p1) #TODO current
+                            compute_grad_phi_ele!(num, grid, grid_u, grid_v,grid_u.LS[end], grid_v.LS[end], 
+                            phL, 
+                            # phS, 
+                            op.opC_pL, 
+                            # op.opC_pS, 
+                            elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p0,tmp_vec_p1) #TODO current
                         catch
                             @error("compute_grad_phi_ele!")
                             break
@@ -954,7 +1079,7 @@ function run_forward!(
         #region Heat equation
         # Solve heat equation
         if heat
-            if heat_solid_phase
+            if heat_solid_phase 
                 kill_dead_cells!(phS.T, grid, grid.LS[1].geoS)
                 veci(phS.TD,grid,1) .= vec(phS.T)
                 set_heat!(
@@ -1088,60 +1213,7 @@ function run_forward!(
                     end 
 
                 elseif imposed_velocity == "radial"
-
-                    phL.v .= 0.0
-                    phL.u .= 0.0
-                    phS.v .= 0.0
-                    phS.u .= 0.0
-
-                    for ju in 1:grid_u.ny
-                        for iu in 1:grid_u.nx
-                            xcell = grid_u.x[ju,iu]
-                            ycell = grid_u.y[ju,iu]
-
-                            vec0 = [num.xcoord, num.ycoord]
-                            vec1 = [xcell, ycell]
-
-                            vecr = vec1-vec0
-                            normr = norm(vecr)
-                            vecr .*= 1.0/normr
-                            factor = 1.0/normr 
-                            factor *= num.radial_vel_factor
-                            # if normr>radius                              
-                            #     phL.u[ju,iu] = factor * vecr[1]
-                            #     phS.u[ju,iu] = factor * vecr[1]                
-                            # end
-                            phL.u[ju,iu] = factor * vecr[1]
-                            phS.u[ju,iu] = factor * vecr[1]   
-                        end
-                    end
-
-                    for jv in 1:grid_v.ny
-                        for iv in 1:grid_v.nx    
-                            xcell = grid_v.x[jv,iv]
-                            ycell = grid_v.y[jv,iv]
-
-                            vec0 = [num.xcoord, num.ycoord]
-                            vec1 = [xcell, ycell]
-
-                            vecr = vec1-vec0
-                            normr = norm(vecr)
-                            vecr .*= 1.0/normr
-                            factor = 1.0/normr 
-                            factor *= num.radial_vel_factor
-
-                            # if normr>radius           
-                            #     phL.v[jv,iv] = factor * vecr[2]
-                            #     phS.v[jv,iv] = factor * vecr[2]                
-                            # end
-                            #print("\n i ",iv," j ",jv," vec",vecr[2]," y ",ycell," ycoord ",ycoord," v ",phL.v[jv,iv])
-                            phL.v[jv,iv] = factor * vecr[2]
-                            phS.v[jv,iv] = factor * vecr[2]   
-
-                        end
-                    end
-                    
-                
+                    impose_radial_velocity(phS,phL,num)
                 end #imposed_velocity
                 #endregion Impose velocity
 
@@ -2257,7 +2329,10 @@ function run_forward!(
         if verbose
             if (num.current_i-1)%show_every == 0
                 printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) | t = %.2e \n" (num.current_i-1) 100*(num.current_i-1)/num.max_iterations current_t)
-                printstyled(color=:green, @sprintf "\n num.CFL : %.2e num.CFL : %.2e num.τ : %.2e\n" num.CFL max(abs.(grid.V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)*num.τ/num.Δ num.τ)
+                
+                #TODO CFL
+                # printstyled(color=:green, @sprintf "\n num.CFL : %.2e num.CFL : %.2e num.τ : %.2e\n" num.CFL max(abs.(grid.V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)*num.τ/num.Δ num.τ)
+                
                 if heat && length(grid.LS[end].MIXED) != 0
                     print(@sprintf "V_mean = %.2e  V_max = %.2e  V_min = %.2e\n" mean(grid.V[grid.LS[1].MIXED]) findmax(grid.V[grid.LS[1].MIXED])[1] findmin(grid.V[grid.LS[1].MIXED])[1])
                     print(@sprintf "κ_mean = %.2e  κ_max = %.2e  κ_min = %.2e\n" mean(grid.LS[1].κ[grid.LS[1].MIXED]) findmax(grid.LS[1].κ[grid.LS[1].MIXED])[1] findmin(grid.LS[1].κ[grid.LS[1].MIXED])[1])
@@ -2328,33 +2403,17 @@ function run_forward!(
             # println(grid.LS[1].geoL.dcap[1,1,:])
 
             grid.LS[end].geoL.fresh .= false
-            grid.LS[end].geoS.fresh .= false
             grid_u.LS[end].geoL.fresh .= false
-            grid_u.LS[end].geoS.fresh .= false
             grid_v.LS[end].geoL.fresh .= false
-            grid_v.LS[end].geoS.fresh .= false
 
-            get_fresh_cells!(grid, grid.LS[end].geoS, Mm1_S, grid.ind.all_indices)
             get_fresh_cells!(grid, grid.LS[end].geoL, Mm1_L, grid.ind.all_indices)
-            get_fresh_cells!(grid_u, grid_u.LS[end].geoS, Mum1_S, grid_u.ind.all_indices)
             get_fresh_cells!(grid_u, grid_u.LS[end].geoL, Mum1_L, grid_u.ind.all_indices)
-            get_fresh_cells!(grid_v, grid_v.LS[end].geoS, Mvm1_S, grid_v.ind.all_indices)
             get_fresh_cells!(grid_v, grid_v.LS[end].geoL, Mvm1_L, grid_v.ind.all_indices)
 
             FRESH_L_u = findall(grid_u.LS[end].geoL.fresh)
-            FRESH_S_u = findall(grid_u.LS[end].geoS.fresh)
             FRESH_L_v = findall(grid_v.LS[end].geoL.fresh)
-            FRESH_S_v = findall(grid_v.LS[end].geoS.fresh)
 
             if navier_stokes
-                init_fresh_cells!(grid_u, veci(phS.uD,grid_u,1), veci(phS.uD,grid_u,1),
-                    grid_u.LS[end].geoS.projection, FRESH_S_u, periodic_x, periodic_y)
-                init_fresh_cells!(grid_v, veci(phS.vD,grid_v,1), veci(phS.vD,grid_v,1),
-                    grid_v.LS[end].geoS.projection, FRESH_S_v, periodic_x, periodic_y)
-                init_fresh_cells!(grid_u, veci(phS.uD,grid_u,2), veci(phS.uD,grid_u,1),
-                    grid_u.LS[end].geoS.projection, FRESH_S_u, periodic_x, periodic_y)
-                init_fresh_cells!(grid_v, veci(phS.vD,grid_v,2), veci(phS.vD,grid_v,1),
-                    grid_v.LS[end].geoS.projection, FRESH_S_v, periodic_x, periodic_y)
 
                 init_fresh_cells!(grid_u, veci(phL.uD,grid_u,1), veci(phL.uD,grid_u,1),
                     grid_u.LS[end].geoL.projection, FRESH_L_u, periodic_x, periodic_y)
@@ -2364,6 +2423,30 @@ function run_forward!(
                     grid_u.LS[end].geoL.projection, FRESH_L_u, periodic_x, periodic_y)
                 init_fresh_cells!(grid_v, veci(phL.vD,grid_v,2), veci(phL.vD,grid_v,1),
                     grid_v.LS[end].geoL.projection, FRESH_L_v, periodic_x, periodic_y)
+            end
+
+            if num.solve_solid == 1 
+                grid.LS[end].geoS.fresh .= false
+                grid_u.LS[end].geoS.fresh .= false
+                grid_v.LS[end].geoS.fresh .= false
+
+                get_fresh_cells!(grid, grid.LS[end].geoS, Mm1_S, grid.ind.all_indices)
+                get_fresh_cells!(grid_u, grid_u.LS[end].geoS, Mum1_S, grid_u.ind.all_indices)
+                get_fresh_cells!(grid_v, grid_v.LS[end].geoS, Mvm1_S, grid_v.ind.all_indices)
+
+                FRESH_S_u = findall(grid_u.LS[end].geoS.fresh)
+                FRESH_S_v = findall(grid_v.LS[end].geoS.fresh)
+                
+                if navier_stokes
+                    init_fresh_cells!(grid_u, veci(phL.uD,grid_u,1), veci(phL.uD,grid_u,1),
+                        grid_u.LS[end].geoL.projection, FRESH_L_u, periodic_x, periodic_y)
+                    init_fresh_cells!(grid_v, veci(phL.vD,grid_v,1), veci(phL.vD,grid_v,1),
+                        grid_v.LS[end].geoL.projection, FRESH_L_v, periodic_x, periodic_y)
+                    init_fresh_cells!(grid_u, veci(phL.uD,grid_u,2), veci(phL.uD,grid_u,1),
+                        grid_u.LS[end].geoL.projection, FRESH_L_u, periodic_x, periodic_y)
+                    init_fresh_cells!(grid_v, veci(phL.vD,grid_v,2), veci(phL.vD,grid_v,1),
+                        grid_v.LS[end].geoL.projection, FRESH_L_v, periodic_x, periodic_y)
+                end
             end
 
             if iszero(num.current_i%num.save_every) || num.current_i==num.max_iterations
@@ -2469,49 +2552,84 @@ function run_forward!(
 
             # Pressure-velocity coupling
 
-            if ns_solid_phase
-                geoS = [grid.LS[iLS].geoS for iLS in 1:num._nLS]
-                geo_uS = [grid_u.LS[iLS].geoS for iLS in 1:num._nLS]
-                geo_vS = [grid_v.LS[iLS].geoS for iLS in 1:num._nLS]
-                Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,Mm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = pressure_projection!(
-                    time_scheme, BC_int,
-                    num, grid, geoS, grid_u, geo_uS, grid_v, geo_vS, phS,
-                    BC_uS, BC_vS, BC_pS,
-                    op.opC_pS, op.opC_uS, op.opC_vS, op.opS,
-                    AuS, BuS, AvS, BvS, AϕS, AuvS, BuvS,
-                    Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,
-                    Cum1S, Cvm1S, Mum1_S, Mvm1_S,
-                    periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceS,jump_mass_fluxS,mass_fluxS
-                )
-            end
-            if ns_liquid_phase
-                geoL = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
-                geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
-                geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+            if num.pressure_velocity_coupling == 0 
+                if ns_solid_phase
+                    geoS = [grid.LS[iLS].geoS for iLS in 1:num._nLS]
+                    geo_uS = [grid_u.LS[iLS].geoS for iLS in 1:num._nLS]
+                    geo_vS = [grid_v.LS[iLS].geoS for iLS in 1:num._nLS]
+                    Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,Mm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = pressure_projection!(
+                        time_scheme, BC_int,
+                        num, grid, geoS, grid_u, geo_uS, grid_v, geo_vS, phS,
+                        BC_uS, BC_vS, BC_pS,
+                        op.opC_pS, op.opC_uS, op.opC_vS, op.opS,
+                        AuS, BuS, AvS, BvS, AϕS, AuvS, BuvS,
+                        Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,
+                        Cum1S, Cvm1S, Mum1_S, Mvm1_S,
+                        periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceS,jump_mass_fluxS,mass_fluxS
+                    )
+                end
+                if ns_liquid_phase
+                    geoL = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
+                    geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
+                    geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
 
-                # Mum1_L is put in B matrix that multiplies v
+                    # Mum1_L is put in B matrix that multiplies v
 
-                Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = pressure_projection!(
-                    time_scheme, BC_int,
-                    num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
-                    BC_uL, BC_vL, BC_pL,
-                    op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
-                    AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,
-                    Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
-                    Cum1L, Cvm1L, Mum1_L, Mvm1_L,
-                    periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_fluxL,mass_fluxL
-                )
-                # if num.current_i == 1
-                #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
-                #     phL.v .= 0.5 .* grid_v.x .+ getproperty.(grid_v.LS[1].geoL.centroid, :x) .* grid_v.dx
-                #     phL.u[grid_u.LS[1].SOLID] .= 0.0
-                #     phL.v[grid_v.LS[1].SOLID] .= 0.0
-                # end
-                # linear_advection!(
-                #     num, grid, grid.LS[1].geoL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL, phL,
-                #     BC_uL, BC_vL, op.opL
-                # )
-            end
+                    Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = pressure_projection!(
+                        time_scheme, BC_int,
+                        num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
+                        BC_uL, BC_vL, BC_pL,
+                        op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
+                        AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,
+                        Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
+                        Cum1L, Cvm1L, Mum1_L, Mvm1_L,
+                        periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_fluxL,mass_fluxL
+                    )
+                    # if num.current_i == 1
+                    #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
+                    #     phL.v .= 0.5 .* grid_v.x .+ getproperty.(grid_v.LS[1].geoL.centroid, :x) .* grid_v.dx
+                    #     phL.u[grid_u.LS[1].SOLID] .= 0.0
+                    #     phL.v[grid_v.LS[1].SOLID] .= 0.0
+                    # end
+                    # linear_advection!(
+                    #     num, grid, grid.LS[1].geoL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL, phL,
+                    #     BC_uL, BC_vL, op.opL
+                    # )
+                end
+
+            elseif num.pressure_velocity_coupling == 1
+
+                if ns_liquid_phase
+                    geoL = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
+                    geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
+                    geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+
+                    # Mum1_L is put in B matrix that multiplies v
+
+                    Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = coupled_pressure_velocity!(
+                        time_scheme, BC_int,
+                        num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
+                        BC_uL, BC_vL, BC_pL,
+                        op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
+                        AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,rhs_uv,
+                        Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
+                        Cum1L, Cvm1L, Mum1_L, Mvm1_L,
+                        periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_fluxL,mass_fluxL
+                    )
+                    # if num.current_i == 1
+                    #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
+                    #     phL.v .= 0.5 .* grid_v.x .+ getproperty.(grid_v.LS[1].geoL.centroid, :x) .* grid_v.dx
+                    #     phL.u[grid_u.LS[1].SOLID] .= 0.0
+                    #     phL.v[grid_v.LS[1].SOLID] .= 0.0
+                    # end
+                    # linear_advection!(
+                    #     num, grid, grid.LS[1].geoL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL, phL,
+                    #     BC_uL, BC_vL, op.opL
+                    # )
+                end
+
+            end #if num.pressure_velocity_coupling
+
         end # if navier_stokes
 
 
@@ -2522,20 +2640,21 @@ function run_forward!(
         not_divergence_free = true
 
         #TODO mutlple levelsets 1 or end
-        conservation += -vecb_L(uD,grid_u) .* grid_u.LS[1].geoL.dcap[:,:,1] # left capacity: u
-        conservation +=  vecb_R(uD,grid_u) .* grid_u.LS[1].geoL.dcap[:,:,3] # right capacity: u
-        conservation += -vecb_B(vD,grid_v) .* grid_v.LS[1].geoL.dcap[:,:,2] # bottom capacity: v
-        conservation +=  vecb_T(vD,grid_v) .* grid_v.LS[1].geoL.dcap[:,:,4] # top capacity: v 
+        conservation += -vecb_L(phL.uD,grid_u) .* grid_u.LS[1].geoL.dcap[:,:,1] # left capacity: u
+        conservation +=  vecb_R(phL.uD,grid_u) .* grid_u.LS[1].geoL.dcap[:,:,3] # right capacity: u
+        conservation += -vecb_B(phL.vD,grid_v) .* grid_v.LS[1].geoL.dcap[:,:,2] # bottom capacity: v
+        conservation +=  vecb_T(phL.vD,grid_v) .* grid_v.LS[1].geoL.dcap[:,:,4] # top capacity: v 
         
         # Compute divergence of velocity
         Duv = opC_p.AxT * vec1(ucorrD,grid_u) .+ opC_p.Gx_b * vecb(ucorrD,grid_u) .+
-        opC_p.AyT * vec1(vcorrD,grid_v) .+ opC_p.Gy_b * vecb(vcorrD,grid_v)
+              opC_p.AyT * vec1(vcorrD,grid_v) .+ opC_p.Gy_b * vecb(vcorrD,grid_v)
         for iLS in 1:nLS
-            if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+            if !is_navier(BC_int[iLS]) && !is_navier_cl(BC_int[iLS]) #otherwise normal velocity null if no blowing
                 Duv .+= opC_p.Gx[iLS] * veci(ucorrD,grid_u,iLS+1) .+ 
                 opC_p.Gy[iLS] * veci(vcorrD,grid_v,iLS+1)
             end
         end
+        #TODO divergence when Navier ?
 
         if maximum(Duv)< num.epsilon_divergence
             not_divergence_free = false

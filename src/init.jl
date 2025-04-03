@@ -296,6 +296,10 @@ function init_meshes(num::NumericalParameters)
     return (mesh_cc, mesh_stx, mesh_sty)
 end
 
+
+"""
+init sparse structure for Bx capacity
+"""
 function init_sparse_Bx(grid)
     @unpack nx, ny = grid
     iw = collect(i for i = ny+1:(nx+1)*ny)
@@ -317,6 +321,10 @@ function init_sparse_Bx(grid)
     Bx = sparse(II,JJ,a)
 end
 
+
+"""
+
+"""
 function init_sparse_By(grid)
     @unpack nx, ny = grid
 
@@ -454,11 +462,14 @@ function init_fields(num::NumericalParameters,
     @unpack τ, N, T_inf, u_inf, v_inf, A, R, L0, Δ, shifted, shifted_y, max_iterations, save_every, CFL, x_airfoil, y_airfoil, nLS, _nLS, nb_transported_scalars = num
     @unpack x, y, nx, ny, LS, ind = grid
 
-    SCUTCT = fzeros(grid)
+    if num.solve_solid == 1
+        SCUTCT = fzeros(grid)
+        SCUTCu = fzeros(grid_u)
+        SCUTCv = fzeros(grid_v)
+    end
+
     LCUTCT = fzeros(grid)
-    SCUTCu = fzeros(grid_u)
     LCUTCu = fzeros(grid_u)
-    SCUTCv = fzeros(grid_v)
     LCUTCv = fzeros(grid_v)
 
     # Star stencil (p and T grid)
@@ -555,123 +566,192 @@ function init_fields(num::NumericalParameters,
     b = zeros(length(jw)+length(js)+length(jn)+length(je))
     c = zeros(length(jwp)+length(jsp)+length(jnp)+length(jep))
 
-    CvS = sparse(II,JJ,vcat(a,b,c))
+    if num.solve_solid == 1
+
+        CvS = sparse(II,JJ,vcat(a,b,c))
+
+        # 2 points stencil (p grid to u grid)
+        # Coupled system operators
+        Bx_TS = init_sparse_Bx(grid)
+        Hx_TS = [init_sparse_Bx(grid) for iLS in 1:nLS]
+
+        Bx_pS = init_sparse_Bx(grid)
+        Hx_pS = [init_sparse_Bx(grid) for iLS in 1:nLS]
+        Gx_S = [init_sparse_Bx(grid) for iLS in 1:nLS]
+
+        Bx_uS = init_sparse_Bx(grid_u)
+        Hx_uS = [init_sparse_Bx(grid_u) for iLS in 1:nLS]
+
+        Bx_vS = init_sparse_Bx(grid_v)
+        Hx_vS = [init_sparse_Bx(grid_v) for iLS in 1:nLS]
+
+        # 2 points stencil (p grid to v grid)
+        # Coupled system operators
+        By_TS = init_sparse_By(grid)
+        Hy_TS = [init_sparse_By(grid) for iLS in 1:nLS]
+
+        By_pS = init_sparse_By(grid)
+        Hy_pS = [init_sparse_By(grid) for iLS in 1:nLS]
+        Gy_S = [init_sparse_By(grid) for iLS in 1:nLS]
+
+        By_uS = init_sparse_By(grid_u)
+        Hy_uS = [init_sparse_By(grid_u) for iLS in 1:nLS]
+
+        By_vS = init_sparse_By(grid_v)
+        Hy_vS = [init_sparse_By(grid_v) for iLS in 1:nLS]
+
+        # Coupled system operators
+        AxT_TS = init_sparse_BxT(grid)
+        BxT_TS = init_sparse_BxT(grid)
+        HxT_TS = [init_sparse_BxT(grid) for iLS in 1:nLS]
+        AxT_pS = init_sparse_BxT(grid)
+        BxT_pS = init_sparse_BxT(grid)
+        HxT_pS = [init_sparse_BxT(grid) for iLS in 1:nLS]
+        GxT_S = [init_sparse_BxT(grid) for iLS in 1:nLS]
+        AxT_uS = init_sparse_BxT(grid_u)
+        BxT_uS = init_sparse_BxT(grid_u)
+        HxT_uS = [init_sparse_BxT(grid_u) for iLS in 1:nLS]
+        AxT_vS = init_sparse_BxT(grid_v)
+        BxT_vS = init_sparse_BxT(grid_v)
+        HxT_vS = [init_sparse_BxT(grid_v) for iLS in 1:nLS]
+
+        # Coupled system operators
+        AyT_TS = init_sparse_ByT(grid)
+        ByT_TS = init_sparse_ByT(grid)
+        HyT_TS = [init_sparse_ByT(grid) for iLS in 1:nLS]
+        AyT_pS = init_sparse_ByT(grid)
+        ByT_pS = init_sparse_ByT(grid)
+        HyT_pS = [init_sparse_ByT(grid) for iLS in 1:nLS]
+        GyT_S = [init_sparse_ByT(grid) for iLS in 1:nLS]
+        AyT_uS = init_sparse_ByT(grid_u)
+        ByT_uS = init_sparse_ByT(grid_u)
+        HyT_uS = [init_sparse_ByT(grid_u) for iLS in 1:nLS]
+        AyT_vS = init_sparse_ByT(grid_v)
+        ByT_vS = init_sparse_ByT(grid_v)
+        HyT_vS = [init_sparse_ByT(grid_v) for iLS in 1:nLS]
+
+        #TODO falster than copy ? like just allocate ? #copy(Bx_TS)
+        tmp_x_TS = init_sparse_Bx(grid) 
+        tmp_x_pS = init_sparse_Bx(grid) 
+        tmp_x_uS = init_sparse_Bx(grid_u)
+        tmp_x_vS = init_sparse_Bx(grid_v)
+
+        tmp_y_TS = init_sparse_By(grid) 
+        tmp_y_pS = init_sparse_By(grid) 
+        tmp_y_uS = init_sparse_By(grid_u)
+        tmp_y_vS = init_sparse_By(grid_v)
+
+        #TS
+        M_TS = Diagonal(fzeros(grid))
+        iMx_TS = Diagonal(zeros((nx+1)*ny))
+        iMy_TS = Diagonal(zeros(nx*(ny+1)))
+        iMx_bd_TS = Diagonal(zeros(2*nx+2*ny))
+        iMy_bd_TS = Diagonal(zeros(2*nx+2*ny))
+        χ_TS = [Diagonal(fzeros(grid)) for iLS in 1:nLS]
+        χ_b_TS = Diagonal(zeros(2*grid.nx+2*grid.ny))
+
+        #pS
+        M_pS = Diagonal(fzeros(grid))
+        iMx_pS = Diagonal(zeros((nx+1)*ny))
+        iMy_pS = Diagonal(zeros(nx*(ny+1)))
+        iMx_bd_pS = Diagonal(zeros(2*nx+2*ny))
+        iMy_bd_pS = Diagonal(zeros(2*nx+2*ny))
+        χ_pS = [Diagonal(fzeros(grid)) for iLS in 1:nLS]
+        χ_b_pS = Diagonal(zeros(2*grid.nx+2*grid.ny))
+
+        #uS
+        M_uS = Diagonal(fzeros(grid_u))
+        iMx_uS = Diagonal(zeros((grid_u.nx+1)*grid_u.ny))
+        iMy_uS = Diagonal(zeros(grid_u.nx*(grid_u.ny+1)))
+        iMx_bd_uS = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
+        iMy_bd_uS = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
+        χ_uS = [Diagonal(fzeros(grid_u)) for iLS in 1:nLS]
+        χ_b_uS = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
+
+        #vS
+        M_vS = Diagonal(fzeros(grid_v))
+        iMx_vS = Diagonal(zeros((grid_v.nx+1)*grid_v.ny))
+        iMy_vS = Diagonal(zeros(grid_v.nx*(grid_v.ny+1)))
+        iMx_bd_vS = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
+        iMy_bd_vS = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
+        χ_vS = [Diagonal(fzeros(grid_v)) for iLS in 1:nLS]
+        χ_b_vS = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
+
+    end
+
+
     CvL = sparse(II,JJ,vcat(a,b,c))
 
     # 2 points stencil (p grid to u grid)
     # Coupled system operators
-    Bx_TS = init_sparse_Bx(grid)
     Bx_TL = init_sparse_Bx(grid)
-    Hx_TS = [init_sparse_Bx(grid) for iLS in 1:nLS]
     Hx_TL = [init_sparse_Bx(grid) for iLS in 1:nLS]
 
-    Bx_pS = init_sparse_Bx(grid)
     Bx_pL = init_sparse_Bx(grid)
-    Hx_pS = [init_sparse_Bx(grid) for iLS in 1:nLS]
     Hx_pL = [init_sparse_Bx(grid) for iLS in 1:nLS]
-    Gx_S = [init_sparse_Bx(grid) for iLS in 1:nLS]
     Gx_L = [init_sparse_Bx(grid) for iLS in 1:nLS]
 
-    Bx_uS = init_sparse_Bx(grid_u)
     Bx_uL = init_sparse_Bx(grid_u)
-    Hx_uS = [init_sparse_Bx(grid_u) for iLS in 1:nLS]
     Hx_uL = [init_sparse_Bx(grid_u) for iLS in 1:nLS]
 
-    Bx_vS = init_sparse_Bx(grid_v)
     Bx_vL = init_sparse_Bx(grid_v)
-    Hx_vS = [init_sparse_Bx(grid_v) for iLS in 1:nLS]
     Hx_vL = [init_sparse_Bx(grid_v) for iLS in 1:nLS]
 
     # 2 points stencil (p grid to v grid)
     # Coupled system operators
-    By_TS = init_sparse_By(grid)
     By_TL = init_sparse_By(grid)
-    Hy_TS = [init_sparse_By(grid) for iLS in 1:nLS]
     Hy_TL = [init_sparse_By(grid) for iLS in 1:nLS]
 
-    By_pS = init_sparse_By(grid)
+   
     By_pL = init_sparse_By(grid)
-    Hy_pS = [init_sparse_By(grid) for iLS in 1:nLS]
     Hy_pL = [init_sparse_By(grid) for iLS in 1:nLS]
-    Gy_S = [init_sparse_By(grid) for iLS in 1:nLS]
     Gy_L = [init_sparse_By(grid) for iLS in 1:nLS]
 
-    By_uS = init_sparse_By(grid_u)
+    
     By_uL = init_sparse_By(grid_u)
-    Hy_uS = [init_sparse_By(grid_u) for iLS in 1:nLS]
     Hy_uL = [init_sparse_By(grid_u) for iLS in 1:nLS]
 
-    By_vS = init_sparse_By(grid_v)
     By_vL = init_sparse_By(grid_v)
-    Hy_vS = [init_sparse_By(grid_v) for iLS in 1:nLS]
     Hy_vL = [init_sparse_By(grid_v) for iLS in 1:nLS]
 
     # 2 points stencil (u grid to p grid)
     E11 = init_sparse_BxT(grid)
 
     # Coupled system operators
-    AxT_TS = init_sparse_BxT(grid)
+
     AxT_TL = init_sparse_BxT(grid)
-    BxT_TS = init_sparse_BxT(grid)
     BxT_TL = init_sparse_BxT(grid)
-    HxT_TS = [init_sparse_BxT(grid) for iLS in 1:nLS]
     HxT_TL = [init_sparse_BxT(grid) for iLS in 1:nLS]
-
-    AxT_pS = init_sparse_BxT(grid)
     AxT_pL = init_sparse_BxT(grid)
-    BxT_pS = init_sparse_BxT(grid)
     BxT_pL = init_sparse_BxT(grid)
-    HxT_pS = [init_sparse_BxT(grid) for iLS in 1:nLS]
     HxT_pL = [init_sparse_BxT(grid) for iLS in 1:nLS]
-    GxT_S = [init_sparse_BxT(grid) for iLS in 1:nLS]
     GxT_L = [init_sparse_BxT(grid) for iLS in 1:nLS]
-
-    AxT_uS = init_sparse_BxT(grid_u)
     AxT_uL = init_sparse_BxT(grid_u)
-    BxT_uS = init_sparse_BxT(grid_u)
     BxT_uL = init_sparse_BxT(grid_u)
-    HxT_uS = [init_sparse_BxT(grid_u) for iLS in 1:nLS]
     HxT_uL = [init_sparse_BxT(grid_u) for iLS in 1:nLS]
-
-    AxT_vS = init_sparse_BxT(grid_v)
     AxT_vL = init_sparse_BxT(grid_v)
-    BxT_vS = init_sparse_BxT(grid_v)
     BxT_vL = init_sparse_BxT(grid_v)
-    HxT_vS = [init_sparse_BxT(grid_v) for iLS in 1:nLS]
-    HxT_vL = [init_sparse_BxT(grid_v) for iLS in 1:nLS]
-
+    HxT_vL = [init_sparse_BxT(grid_v) for iLS in 1:nLS]  
+      
     # 2 points stencil (v grid to p grid)
     E22 = init_sparse_ByT(grid)
 
     # Coupled system operators
-    AyT_TS = init_sparse_ByT(grid)
     AyT_TL = init_sparse_ByT(grid)
-    ByT_TS = init_sparse_ByT(grid)
     ByT_TL = init_sparse_ByT(grid)
-    HyT_TS = [init_sparse_ByT(grid) for iLS in 1:nLS]
     HyT_TL = [init_sparse_ByT(grid) for iLS in 1:nLS]
 
-    AyT_pS = init_sparse_ByT(grid)
     AyT_pL = init_sparse_ByT(grid)
-    ByT_pS = init_sparse_ByT(grid)
     ByT_pL = init_sparse_ByT(grid)
-    HyT_pS = [init_sparse_ByT(grid) for iLS in 1:nLS]
     HyT_pL = [init_sparse_ByT(grid) for iLS in 1:nLS]
-    GyT_S = [init_sparse_ByT(grid) for iLS in 1:nLS]
     GyT_L = [init_sparse_ByT(grid) for iLS in 1:nLS]
 
-    AyT_uS = init_sparse_ByT(grid_u)
     AyT_uL = init_sparse_ByT(grid_u)
-    ByT_uS = init_sparse_ByT(grid_u)
     ByT_uL = init_sparse_ByT(grid_u)
-    HyT_uS = [init_sparse_ByT(grid_u) for iLS in 1:nLS]
     HyT_uL = [init_sparse_ByT(grid_u) for iLS in 1:nLS]
 
-    AyT_vS = init_sparse_ByT(grid_v)
     AyT_vL = init_sparse_ByT(grid_v)
-    ByT_vS = init_sparse_ByT(grid_v)
     ByT_vL = init_sparse_ByT(grid_v)
-    HyT_vS = [init_sparse_ByT(grid_v) for iLS in 1:nLS]
     HyT_vL = [init_sparse_ByT(grid_v) for iLS in 1:nLS]
 
     # 2 points stencil (u grid to p' grid)
@@ -761,83 +841,51 @@ function init_fields(num::NumericalParameters,
     b = zeros(length(jn)+length(jsp)+length(jnp))
     Ry = sparse(II,JJ,vcat(a,b))
 
-    tmp_x_TS = copy(Bx_TS)
-    tmp_x_TL = copy(Bx_TL)
-    tmp_x_pS = copy(Bx_pS)
-    tmp_x_pL = copy(Bx_pL)
-    tmp_x_uS = copy(Bx_uS)
-    tmp_x_uL = copy(Bx_uL)
-    tmp_x_vS = copy(Bx_vS)
-    tmp_x_vL = copy(Bx_vL)
+    #TODO falster than copy ? like just allocate ? #copy(Bx_TL)
+    tmp_x_TL = init_sparse_Bx(grid) 
+    tmp_x_pL = init_sparse_Bx(grid) 
+    tmp_x_uL = init_sparse_Bx(grid_u)
+    tmp_x_vL = init_sparse_Bx(grid_v)
 
-    tmp_y_TS = copy(By_TS)
-    tmp_y_TL = copy(By_TL)
-    tmp_y_pS = copy(By_pS)
-    tmp_y_pL = copy(By_pL)
-    tmp_y_uS = copy(By_uS)
-    tmp_y_uL = copy(By_uL)
-    tmp_y_vS = copy(By_vS)
-    tmp_y_vL = copy(By_vL)
+    tmp_y_TL = init_sparse_By(grid) 
+    tmp_y_pL = init_sparse_By(grid) 
+    tmp_y_uL = init_sparse_By(grid_u)
+    tmp_y_vL = init_sparse_By(grid_v)
 
-    M_TS = Diagonal(fzeros(grid))
+    #TL
     M_TL = Diagonal(fzeros(grid))
-    iMx_TS = Diagonal(zeros((nx+1)*ny))
     iMx_TL = Diagonal(zeros((nx+1)*ny))
-    iMy_TS = Diagonal(zeros(nx*(ny+1)))
     iMy_TL = Diagonal(zeros(nx*(ny+1)))
-    iMx_bd_TS = Diagonal(zeros(2*nx+2*ny))
     iMx_bd_TL = Diagonal(zeros(2*nx+2*ny))
-    iMy_bd_TS = Diagonal(zeros(2*nx+2*ny))
     iMy_bd_TL = Diagonal(zeros(2*nx+2*ny))
-    χ_TS = [Diagonal(fzeros(grid)) for iLS in 1:nLS]
     χ_TL = [Diagonal(fzeros(grid)) for iLS in 1:nLS]
-    χ_b_TS = Diagonal(zeros(2*grid.nx+2*grid.ny))
     χ_b_TL = Diagonal(zeros(2*grid.nx+2*grid.ny))
 
-
-    M_pS = Diagonal(fzeros(grid))
+    #pL
     M_pL = Diagonal(fzeros(grid))
-    iMx_pS = Diagonal(zeros((nx+1)*ny))
     iMx_pL = Diagonal(zeros((nx+1)*ny))
-    iMy_pS = Diagonal(zeros(nx*(ny+1)))
     iMy_pL = Diagonal(zeros(nx*(ny+1)))
-    iMx_bd_pS = Diagonal(zeros(2*nx+2*ny))
     iMx_bd_pL = Diagonal(zeros(2*nx+2*ny))
-    iMy_bd_pS = Diagonal(zeros(2*nx+2*ny))
     iMy_bd_pL = Diagonal(zeros(2*nx+2*ny))
-    χ_pS = [Diagonal(fzeros(grid)) for iLS in 1:nLS]
     χ_pL = [Diagonal(fzeros(grid)) for iLS in 1:nLS]
-    χ_b_pS = Diagonal(zeros(2*grid.nx+2*grid.ny))
     χ_b_pL = Diagonal(zeros(2*grid.nx+2*grid.ny))
 
-    M_uS = Diagonal(fzeros(grid_u))
+    #uL
     M_uL = Diagonal(fzeros(grid_u))
-    iMx_uS = Diagonal(zeros((grid_u.nx+1)*grid_u.ny))
     iMx_uL = Diagonal(zeros((grid_u.nx+1)*grid_u.ny))
-    iMy_uS = Diagonal(zeros(grid_u.nx*(grid_u.ny+1)))
     iMy_uL = Diagonal(zeros(grid_u.nx*(grid_u.ny+1)))
-    iMx_bd_uS = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
     iMx_bd_uL = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
-    iMy_bd_uS = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
     iMy_bd_uL = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
-    χ_uS = [Diagonal(fzeros(grid_u)) for iLS in 1:nLS]
     χ_uL = [Diagonal(fzeros(grid_u)) for iLS in 1:nLS]
-    χ_b_uS = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
     χ_b_uL = Diagonal(zeros(2*grid_u.nx+2*grid_u.ny))
 
-    M_vS = Diagonal(fzeros(grid_v))
+    #vL
     M_vL = Diagonal(fzeros(grid_v))
-    iMx_vS = Diagonal(zeros((grid_v.nx+1)*grid_v.ny))
     iMx_vL = Diagonal(zeros((grid_v.nx+1)*grid_v.ny))
-    iMy_vS = Diagonal(zeros(grid_v.nx*(grid_v.ny+1)))
     iMy_vL = Diagonal(zeros(grid_v.nx*(grid_v.ny+1)))
-    iMx_bd_vS = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
     iMx_bd_vL = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
-    iMy_bd_vS = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
     iMy_bd_vL = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
-    χ_vS = [Diagonal(fzeros(grid_v)) for iLS in 1:nLS]
     χ_vL = [Diagonal(fzeros(grid_v)) for iLS in 1:nLS]
-    χ_b_vS = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
     χ_b_vL = Diagonal(zeros(2*grid_v.nx+2*grid_v.ny))
 
     # Outer borders cutcell matrices
@@ -853,22 +901,26 @@ function init_fields(num::NumericalParameters,
     JJ = vcat(jj,jp,jm)
     a = zeros(length(jj))
     b = zeros(length(jp)+length(jm))
-    Hx_b_pS = sparse(II,JJ,vcat(a,b))
-    Hx_b_pL = copy(Hx_b_pS)
-    Hy_b_pS = copy(Hx_b_pS)
-    Hy_b_pL = copy(Hx_b_pS)
-    HxT_b_pS = copy(Hx_b_pS)
-    HxT_b_pL = copy(Hx_b_pS)
-    HyT_b_pS = copy(Hx_b_pS)
-    HyT_b_pL = copy(Hx_b_pS)
-    Hx_b_TS = copy(Hx_b_pS)
-    Hx_b_TL = copy(Hx_b_TS)
-    Hy_b_TS = copy(Hx_b_TS)
-    Hy_b_TL = copy(Hx_b_TS)
-    HxT_b_TS = copy(Hx_b_TS)
-    HxT_b_TL = copy(Hx_b_TS)
-    HyT_b_TS = copy(Hx_b_TS)
-    HyT_b_TL = copy(Hx_b_TS)
+
+    if num.solve_solid == 1
+        Hx_b_pS = sparse(II,JJ,vcat(a,b))
+        Hy_b_pS = sparse(II,JJ,vcat(a,b))
+        HxT_b_pS = sparse(II,JJ,vcat(a,b))
+        HyT_b_pS = sparse(II,JJ,vcat(a,b))
+        Hx_b_TS = sparse(II,JJ,vcat(a,b))
+        Hy_b_TS = sparse(II,JJ,vcat(a,b))
+        HxT_b_TS = sparse(II,JJ,vcat(a,b))
+        HyT_b_TS = sparse(II,JJ,vcat(a,b))
+    end
+
+    Hx_b_pL = sparse(II,JJ,vcat(a,b))
+    Hy_b_pL = sparse(II,JJ,vcat(a,b))
+    HxT_b_pL = sparse(II,JJ,vcat(a,b))
+    HyT_b_pL = sparse(II,JJ,vcat(a,b))
+    Hx_b_TL = sparse(II,JJ,vcat(a,b))
+    Hy_b_TL = sparse(II,JJ,vcat(a,b))
+    HxT_b_TL = sparse(II,JJ,vcat(a,b))
+    HyT_b_TL = sparse(II,JJ,vcat(a,b))
 
     iw = collect(i for i = 1:ny)
     ie = collect(i for i = (nx-1)*ny+1:nx*ny)
@@ -881,10 +933,14 @@ function init_fields(num::NumericalParameters,
     II = vcat(iw,ie,iF)
     JJ = vcat(jw,je,jf)
     a = zeros(length(jw)+length(je)+1)
-    Gx_b_pS = sparse(II,JJ,a)
-    Gx_b_pL = copy(Gx_b_pS)
-    Gx_b_TS = copy(Gx_b_pS)
-    Gx_b_TL = copy(Gx_b_pS)
+
+    if num.solve_solid == 1
+        Gx_b_pS = sparse(II,JJ,a)
+        Gx_b_TS = sparse(II,JJ,a)
+    end
+
+    Gx_b_pL = sparse(II,JJ,a)
+    Gx_b_TL = sparse(II,JJ,a)
 
     is = collect(i for i = 1:ny:(nx-1)*ny+1)
     iN = collect(i for i = ny:ny:ny*nx)
@@ -895,10 +951,14 @@ function init_fields(num::NumericalParameters,
     II = vcat(is,iN)
     JJ = vcat(js,jn)
     a = zeros(length(js)+length(jn))
-    Gy_b_pS = sparse(II,JJ,a)
-    Gy_b_pL = copy(Gy_b_pS)
-    Gy_b_TS = copy(Gy_b_pS)
-    Gy_b_TL = copy(Gy_b_pS)
+    
+    if num.solve_solid == 1
+        Gy_b_pS = sparse(II,JJ,a)
+        Gy_b_TS = sparse(II,JJ,a)
+    end
+
+    Gy_b_pL = sparse(II,JJ,a)
+    Gy_b_TL = sparse(II,JJ,a)
 
     ii = collect(i for i = 1:2*grid_u.ny+2*grid_u.nx)
     ip = collect(i for i = 1:grid_u.nx+grid_u.ny)
@@ -912,14 +972,18 @@ function init_fields(num::NumericalParameters,
     JJ = vcat(jj,jp,jm)
     a = zeros(length(jj))
     b = zeros(length(jp)+length(jm))
-    Hx_b_uS = sparse(II,JJ,vcat(a,b))
-    Hx_b_uL = copy(Hx_b_uS)
-    Hy_b_uS = copy(Hx_b_uS)
-    Hy_b_uL = copy(Hx_b_uS)
-    HxT_b_uS = copy(Hx_b_uS)
-    HxT_b_uL = copy(Hx_b_uS)
-    HyT_b_uS = copy(Hx_b_uS)
-    HyT_b_uL = copy(Hx_b_uS)
+
+    if num.solve_solid == 1
+        Hx_b_uS = sparse(II,JJ,vcat(a,b))
+        Hy_b_uS = sparse(II,JJ,vcat(a,b))
+        HxT_b_uS = sparse(II,JJ,vcat(a,b))
+        HyT_b_uS = sparse(II,JJ,vcat(a,b))
+    end
+
+    Hx_b_uL = sparse(II,JJ,vcat(a,b))
+    Hy_b_uL = sparse(II,JJ,vcat(a,b))
+    HxT_b_uL = sparse(II,JJ,vcat(a,b))
+    HyT_b_uL = sparse(II,JJ,vcat(a,b))
 
     iw = collect(i for i = 1:grid_u.ny)
     ie = collect(i for i = (grid_u.nx-1)*grid_u.ny+1:grid_u.nx*grid_u.ny)
@@ -932,10 +996,14 @@ function init_fields(num::NumericalParameters,
     II = vcat(iw,ie,iF)
     JJ = vcat(jw,je,jf)
     a = zeros(length(jw)+length(je)+1)
-    Gx_b_uS = sparse(II,JJ,a)
-    Gx_b_uL = copy(Gx_b_uS)
-    Gy_b_uS = copy(Gx_b_uS)
-    Gy_b_uL = copy(Gx_b_uS)
+
+    if num.solve_solid == 1
+        Gx_b_uS = sparse(II,JJ,a)
+        Gy_b_uS = sparse(II,JJ,a)
+    end
+
+    Gx_b_uL = sparse(II,JJ,a)
+    Gy_b_uL = sparse(II,JJ,a)
 
     ii = collect(i for i = 1:2*grid_v.ny+2*grid_v.nx)
     ip = collect(i for i = 1:grid_v.nx+grid_v.ny)
@@ -949,14 +1017,18 @@ function init_fields(num::NumericalParameters,
     JJ = vcat(jj,jp,jm)
     a = zeros(length(jj))
     b = zeros(length(jp)+length(jp))
-    Hx_b_vS = sparse(II,JJ,vcat(a,b))
-    Hx_b_vL = copy(Hx_b_vS)
-    Hy_b_vS = copy(Hx_b_vS)
-    Hy_b_vL = copy(Hx_b_vS)
-    HxT_b_vS = copy(Hx_b_vS)
-    HxT_b_vL = copy(Hx_b_vS)
-    HyT_b_vS = copy(Hx_b_vS)
-    HyT_b_vL = copy(Hx_b_vS)
+
+    if num.solve_solid == 1
+        Hx_b_vS = sparse(II,JJ,vcat(a,b))
+        Hy_b_vS = sparse(II,JJ,vcat(a,b))
+        HxT_b_vS = sparse(II,JJ,vcat(a,b))
+        HyT_b_vS = sparse(II,JJ,vcat(a,b))
+    end
+
+    Hx_b_vL = sparse(II,JJ,vcat(a,b))
+    Hy_b_vL = sparse(II,JJ,vcat(a,b))
+    HxT_b_vL = sparse(II,JJ,vcat(a,b))
+    HyT_b_vL = sparse(II,JJ,vcat(a,b))
 
     is = collect(i for i = 1:grid_v.ny:(grid_v.nx-1)*grid_v.ny+1)
     iN = collect(i for i = grid_v.ny:grid_v.ny:grid_v.ny*grid_v.nx)
@@ -967,10 +1039,14 @@ function init_fields(num::NumericalParameters,
     II = vcat(is,iN)
     JJ = vcat(js,jn)
     a = zeros(length(js)+length(jn))
-    Gx_b_vS = sparse(II,JJ,a)
-    Gx_b_vL = copy(Gx_b_vS)
-    Gy_b_vS = copy(Gx_b_vS)
-    Gy_b_vL = copy(Gx_b_vS)
+
+    if num.solve_solid == 1
+        Gx_b_vS = sparse(II,JJ,a)
+        Gy_b_vS = sparse(II,JJ,a)
+    end
+
+    Gx_b_vL = sparse(II,JJ,a)
+    Gy_b_vL = sparse(II,JJ,a)
 
     ie = collect(i for i = 1:ny)
     iw = collect(i for i = nx*ny+1:(nx+1)*ny)
@@ -983,10 +1059,13 @@ function init_fields(num::NumericalParameters,
     II = vcat(ie,iw,iF)
     JJ = vcat(je,jw,jf)
     a = zeros(length(je)+length(jw)+1)
-    iMx_b_pS = sparse(II,JJ,a)
-    iMx_b_pL = copy(iMx_b_pS)
-    iMx_b_TS = copy(iMx_b_pS)
-    iMx_b_TL = copy(iMx_b_pS)
+    
+    if num.solve_solid == 1
+        iMx_b_pS = sparse(II,JJ,a)
+        iMx_b_TS = sparse(II,JJ,a)
+    end
+    iMx_b_pL = sparse(II,JJ,a)
+    iMx_b_TL = sparse(II,JJ,a)
 
     is = collect(i for i = 1:ny+1:(nx-1)*(ny+1)+1)
     iN = collect(i for i = ny+1:ny+1:nx*(ny+1))
@@ -997,10 +1076,14 @@ function init_fields(num::NumericalParameters,
     II = vcat(is,iN)
     JJ = vcat(js,jn)
     a = zeros(length(js)+length(jn))
-    iMy_b_pS = sparse(II,JJ,a)
-    iMy_b_pL = copy(iMy_b_pS)
-    iMy_b_TS = copy(iMy_b_pS)
-    iMy_b_TL = copy(iMy_b_pS)
+
+    if num.solve_solid == 1
+        iMy_b_pS = sparse(II,JJ,a)
+        iMy_b_TS = sparse(II,JJ,a)
+    end
+    
+    iMy_b_pL = sparse(II,JJ,a)
+    iMy_b_TL = sparse(II,JJ,a)
 
     ie = collect(i for i = 1:grid_u.ny)
     iw = collect(i for i = grid_u.nx*grid_u.ny+1:(grid_u.nx+1)*grid_u.ny)
@@ -1013,8 +1096,10 @@ function init_fields(num::NumericalParameters,
     II = vcat(ie,iw,iF)
     JJ = vcat(je,jw,jf)
     a = zeros(length(je)+length(jw)+1)
-    iMx_b_uS = sparse(II,JJ,a)
-    iMx_b_uL = copy(iMx_b_uS)
+    if num.solve_solid == 1
+        iMx_b_uS = sparse(II,JJ,a)
+    end
+    iMx_b_uL = sparse(II,JJ,a)
 
     is = collect(i for i = 1:grid_u.ny+1:(grid_u.nx-1)*(grid_u.ny+1)+1)
     iN = collect(i for i = grid_u.ny+1:grid_u.ny+1:grid_u.nx*(grid_u.ny+1))
@@ -1025,8 +1110,12 @@ function init_fields(num::NumericalParameters,
     II = vcat(is,iN)
     JJ = vcat(js,jn)
     a = zeros(length(js)+length(jn))
-    iMy_b_uS = sparse(II,JJ,a)
-    iMy_b_uL = copy(iMy_b_uS)
+
+    if num.solve_solid == 1
+        iMy_b_uS = sparse(II,JJ,a)
+    end
+
+    iMy_b_uL = sparse(II,JJ,a)
 
     ie = collect(i for i = 1:grid_v.ny)
     iw = collect(i for i = grid_v.nx*grid_v.ny+1:(grid_v.nx+1)*grid_v.ny)
@@ -1039,8 +1128,12 @@ function init_fields(num::NumericalParameters,
     II = vcat(ie,iw,iF)
     JJ = vcat(je,jw,jf)
     a = zeros(length(je)+length(jw)+1)
-    iMx_b_vS = sparse(II,JJ,a)
-    iMx_b_vL = copy(iMx_b_vS)
+
+    if num.solve_solid == 1
+        iMx_b_vS = sparse(II,JJ,a)
+    end 
+
+    iMx_b_vL = sparse(II,JJ,a)
 
     is = collect(i for i = 1:grid_v.ny+1:(grid_v.nx-1)*(grid_v.ny+1)+1)
     iN = collect(i for i = grid_v.ny+1:grid_v.ny+1:grid_v.nx*(grid_v.ny+1))
@@ -1051,42 +1144,55 @@ function init_fields(num::NumericalParameters,
     II = vcat(is,iN)
     JJ = vcat(js,jn)
     a = zeros(length(js)+length(jn))
-    iMy_b_vS = sparse(II,JJ,a)
-    iMy_b_vL = copy(iMy_b_vS)
 
-    TS = zeros(grid)
+    if num.solve_solid == 1
+        iMy_b_vS = sparse(II,JJ,a)
+    end
+
+    iMy_b_vL = sparse(II,JJ,a)
+
+    if num.solve_solid == 1
+
+        TS = zeros(grid)
+        pS = zeros(grid)
+        ϕS = zeros(grid)
+        Gxm1S = fzeros(grid_u)
+        Gym1S = fzeros(grid_v)
+        uS = zeros(grid_u)
+        vS = zeros(grid_v)
+        ucorrS = zeros(grid_u)
+        vcorrS = zeros(grid_v)
+        TDS = fnzeros(grid, num)
+        pDS = fnzeros(grid, num)
+        ϕDS = fnzeros(grid, num)
+        uDS = fnzeros(grid_u, num)
+        vDS = fnzeros(grid_v, num)
+        ucorrDS = fnzeros(grid_u, num)
+        vcorrDS = fnzeros(grid_v, num)
+        uTS = fzeros(num.nNavier, grid)
+        trans_scalS = zeros(grid, nb_transported_scalars)
+        phi_eleS = zeros(grid)
+        trans_scalDS = zeros(1,1) #[;;] #Float64[] #zeros( (num.nLS + 1) * grid.ny * grid.nx + 2 * grid.nx + 2 * grid.ny, nb_transported_scalars)
+        phi_eleDS = fnzeros(grid, num)
+
+    end
+
     TL = zeros(grid)
-    pS = zeros(grid)
     pL = zeros(grid)
-    ϕS = zeros(grid)
     ϕL = zeros(grid)
-    Gxm1S = fzeros(grid_u)
-    Gym1S = fzeros(grid_v)
     Gxm1L = fzeros(grid_u)
     Gym1L = fzeros(grid_v)
-    uS = zeros(grid_u)
     uL = zeros(grid_u)
-    vS = zeros(grid_v)
     vL = zeros(grid_v)
-    ucorrS = zeros(grid_u)
     ucorrL = zeros(grid_u)
-    vcorrS = zeros(grid_v)
     vcorrL = zeros(grid_v)
-    TDS = fnzeros(grid, num)
     TDL = fnzeros(grid, num)
-    pDS = fnzeros(grid, num)
     pDL = fnzeros(grid, num)
-    ϕDS = fnzeros(grid, num)
     ϕDL = fnzeros(grid, num)
-    uDS = fnzeros(grid_u, num)
     uDL = fnzeros(grid_u, num)
-    vDS = fnzeros(grid_v, num)
     vDL = fnzeros(grid_v, num)
-    ucorrDS = fnzeros(grid_u, num)
     ucorrDL = fnzeros(grid_u, num)
-    vcorrDS = fnzeros(grid_v, num)
     vcorrDL = fnzeros(grid_v, num)
-    uTS = fzeros(num.nNavier, grid)
     uTL = fzeros(num.nNavier, grid)
 
     trans_scalL = zeros(grid, nb_transported_scalars)
@@ -1094,10 +1200,7 @@ function init_fields(num::NumericalParameters,
     trans_scalDL = zeros( (num.nLS + 1) * grid.ny * grid.nx + 2 * grid.nx + 2 * grid.ny, nb_transported_scalars)
     phi_eleDL = fnzeros(grid, num)
 
-    trans_scalS = zeros(grid, nb_transported_scalars)
-    phi_eleS = zeros(grid)
-    trans_scalDS = zeros(1,1) #[;;] #Float64[] #zeros( (num.nLS + 1) * grid.ny * grid.nx + 2 * grid.nx + 2 * grid.ny, nb_transported_scalars)
-    phi_eleDS = fnzeros(grid, num)
+  
 
 
 
@@ -1216,22 +1319,44 @@ function init_fields(num::NumericalParameters,
         end
     end
 
-    return (
-        DiscreteOperators(
-            OperatorsConvection(SCUTCT, SCUTCu, SCUTCv, CTS, CuS, CvS, E11, E12_x, E12_y, E22),
-            OperatorsConvection(LCUTCT, LCUTCu, LCUTCv, CTL, CuL, CvL, E11, E12_x, E12_y, E22),
-            Operators(AxT_TS, AyT_TS, Bx_TS, By_TS, BxT_TS, ByT_TS, Hx_TS, Hy_TS, HxT_TS, HyT_TS, tmp_x_TS, tmp_y_TS, M_TS, iMx_TS, iMy_TS, χ_TS, Rx, Ry, GxT_S, GyT_S, Hx_b_TS, Hy_b_TS, HxT_b_TS, HyT_b_TS, iMx_b_TS, iMy_b_TS, iMx_bd_TS, iMy_bd_TS, Gx_b_TS, Gy_b_TS, χ_b_TS),
-            Operators(AxT_TL, AyT_TL, Bx_TL, By_TL, BxT_TL, ByT_TL, Hx_TL, Hy_TL, HxT_TL, HyT_TL, tmp_x_TL, tmp_y_TL, M_TL, iMx_TL, iMy_TL, χ_TL, Rx, Ry, GxT_L, GyT_L, Hx_b_TL, Hy_b_TL, HxT_b_TL, HyT_b_TL, iMx_b_TL, iMy_b_TL, iMx_bd_TL, iMy_bd_TL, Gx_b_TL, Gy_b_TL, χ_b_TL),
-            Operators(AxT_pS, AyT_pS, Bx_pS, By_pS, BxT_pS, ByT_pS, Hx_pS, Hy_pS, HxT_pS, HyT_pS, tmp_x_pS, tmp_y_pS, M_pS, iMx_pS, iMy_pS, χ_pS, Rx, Ry, GxT_S, GyT_S, Hx_b_pS, Hy_b_pS, HxT_b_pS, HyT_b_pS, iMx_b_pS, iMy_b_pS, iMx_bd_pS, iMy_bd_pS, Gx_b_pS, Gy_b_pS, χ_b_pS),
-            Operators(AxT_pL, AyT_pL, Bx_pL, By_pL, BxT_pL, ByT_pL, Hx_pL, Hy_pL, HxT_pL, HyT_pL, tmp_x_pL, tmp_y_pL, M_pL, iMx_pL, iMy_pL, χ_pL, Rx, Ry, GxT_L, GyT_L, Hx_b_pL, Hy_b_pL, HxT_b_pL, HyT_b_pL, iMx_b_pL, iMy_b_pL, iMx_bd_pL, iMy_bd_pL, Gx_b_pL, Gy_b_pL, χ_b_pL),
-            Operators(AxT_uS, AyT_uS, Bx_uS, By_uS, BxT_uS, ByT_uS, Hx_uS, Hy_uS, HxT_uS, HyT_uS, tmp_x_uS, tmp_y_uS, M_uS, iMx_uS, iMy_uS, χ_uS, Rx, Ry, Gx_S, Gy_S, Hx_b_uS, Hy_b_uS, HxT_b_uS, HyT_b_uS, iMx_b_uS, iMy_b_uS, iMx_bd_uS, iMy_bd_uS, Gx_b_uS, Gy_b_uS, χ_b_uS),
-            Operators(AxT_uL, AyT_uL, Bx_uL, By_uL, BxT_uL, ByT_uL, Hx_uL, Hy_uL, HxT_uL, HyT_uL, tmp_x_uL, tmp_y_uL, M_uL, iMx_uL, iMy_uL, χ_uL, Rx, Ry, Gx_L, Gy_L, Hx_b_uL, Hy_b_uL, HxT_b_uL, HyT_b_uL, iMx_b_uL, iMy_b_uL, iMx_bd_uL, iMy_bd_uL, Gx_b_uL, Gy_b_uL, χ_b_uL),
-            Operators(AxT_vS, AyT_vS, Bx_vS, By_vS, BxT_vS, ByT_vS, Hx_vS, Hy_vS, HxT_vS, HyT_vS, tmp_x_vS, tmp_y_vS, M_vS, iMx_vS, iMy_vS, χ_vS, Rx, Ry, Gx_S, Gy_S, Hx_b_vS, Hy_b_vS, HxT_b_vS, HyT_b_vS, iMx_b_vS, iMy_b_vS, iMx_bd_vS, iMy_bd_vS, Gx_b_vS, Gy_b_vS, χ_b_vS),
-            Operators(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L, Hx_b_vL, Hy_b_vL, HxT_b_vL, HyT_b_vL, iMx_b_vL, iMy_b_vL, iMx_bd_vL, iMy_bd_vL, Gx_b_vL, Gy_b_vL, χ_b_vL)
-        ),
-        Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS, uTS, trans_scalS, phi_eleS, trans_scalDS, phi_eleDS),
-        Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL, uTL, trans_scalL, phi_eleL, trans_scalDL, phi_eleDL),
-    )
+    if num.solve_solid == 1
+
+        return (
+            DiscreteOperators(
+                OperatorsConvection(SCUTCT, SCUTCu, SCUTCv, CTS, CuS, CvS, E11, E12_x, E12_y, E22),
+                OperatorsConvection(LCUTCT, LCUTCu, LCUTCv, CTL, CuL, CvL, E11, E12_x, E12_y, E22),
+                Operators(AxT_TS, AyT_TS, Bx_TS, By_TS, BxT_TS, ByT_TS, Hx_TS, Hy_TS, HxT_TS, HyT_TS, tmp_x_TS, tmp_y_TS, M_TS, iMx_TS, iMy_TS, χ_TS, Rx, Ry, GxT_S, GyT_S, Hx_b_TS, Hy_b_TS, HxT_b_TS, HyT_b_TS, iMx_b_TS, iMy_b_TS, iMx_bd_TS, iMy_bd_TS, Gx_b_TS, Gy_b_TS, χ_b_TS),
+                Operators(AxT_TL, AyT_TL, Bx_TL, By_TL, BxT_TL, ByT_TL, Hx_TL, Hy_TL, HxT_TL, HyT_TL, tmp_x_TL, tmp_y_TL, M_TL, iMx_TL, iMy_TL, χ_TL, Rx, Ry, GxT_L, GyT_L, Hx_b_TL, Hy_b_TL, HxT_b_TL, HyT_b_TL, iMx_b_TL, iMy_b_TL, iMx_bd_TL, iMy_bd_TL, Gx_b_TL, Gy_b_TL, χ_b_TL),
+                Operators(AxT_pS, AyT_pS, Bx_pS, By_pS, BxT_pS, ByT_pS, Hx_pS, Hy_pS, HxT_pS, HyT_pS, tmp_x_pS, tmp_y_pS, M_pS, iMx_pS, iMy_pS, χ_pS, Rx, Ry, GxT_S, GyT_S, Hx_b_pS, Hy_b_pS, HxT_b_pS, HyT_b_pS, iMx_b_pS, iMy_b_pS, iMx_bd_pS, iMy_bd_pS, Gx_b_pS, Gy_b_pS, χ_b_pS),
+                Operators(AxT_pL, AyT_pL, Bx_pL, By_pL, BxT_pL, ByT_pL, Hx_pL, Hy_pL, HxT_pL, HyT_pL, tmp_x_pL, tmp_y_pL, M_pL, iMx_pL, iMy_pL, χ_pL, Rx, Ry, GxT_L, GyT_L, Hx_b_pL, Hy_b_pL, HxT_b_pL, HyT_b_pL, iMx_b_pL, iMy_b_pL, iMx_bd_pL, iMy_bd_pL, Gx_b_pL, Gy_b_pL, χ_b_pL),
+                Operators(AxT_uS, AyT_uS, Bx_uS, By_uS, BxT_uS, ByT_uS, Hx_uS, Hy_uS, HxT_uS, HyT_uS, tmp_x_uS, tmp_y_uS, M_uS, iMx_uS, iMy_uS, χ_uS, Rx, Ry, Gx_S, Gy_S, Hx_b_uS, Hy_b_uS, HxT_b_uS, HyT_b_uS, iMx_b_uS, iMy_b_uS, iMx_bd_uS, iMy_bd_uS, Gx_b_uS, Gy_b_uS, χ_b_uS),
+                Operators(AxT_uL, AyT_uL, Bx_uL, By_uL, BxT_uL, ByT_uL, Hx_uL, Hy_uL, HxT_uL, HyT_uL, tmp_x_uL, tmp_y_uL, M_uL, iMx_uL, iMy_uL, χ_uL, Rx, Ry, Gx_L, Gy_L, Hx_b_uL, Hy_b_uL, HxT_b_uL, HyT_b_uL, iMx_b_uL, iMy_b_uL, iMx_bd_uL, iMy_bd_uL, Gx_b_uL, Gy_b_uL, χ_b_uL),
+                Operators(AxT_vS, AyT_vS, Bx_vS, By_vS, BxT_vS, ByT_vS, Hx_vS, Hy_vS, HxT_vS, HyT_vS, tmp_x_vS, tmp_y_vS, M_vS, iMx_vS, iMy_vS, χ_vS, Rx, Ry, Gx_S, Gy_S, Hx_b_vS, Hy_b_vS, HxT_b_vS, HyT_b_vS, iMx_b_vS, iMy_b_vS, iMx_bd_vS, iMy_bd_vS, Gx_b_vS, Gy_b_vS, χ_b_vS),
+                Operators(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L, Hx_b_vL, Hy_b_vL, HxT_b_vL, HyT_b_vL, iMx_b_vL, iMy_b_vL, iMx_bd_vL, iMy_bd_vL, Gx_b_vL, Gy_b_vL, χ_b_vL)
+            ),
+            Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, vcorrS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, vcorrDS, uTS, trans_scalS, phi_eleS, trans_scalDS, phi_eleDS),
+            Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL, uTL, trans_scalL, phi_eleL, trans_scalDL, phi_eleDL),
+        )
+
+    else
+        return (
+            DiscreteOperators(
+                nothing,
+                OperatorsConvection(LCUTCT, LCUTCu, LCUTCv, CTL, CuL, CvL, E11, E12_x, E12_y, E22),
+                nothing,
+                Operators(AxT_TL, AyT_TL, Bx_TL, By_TL, BxT_TL, ByT_TL, Hx_TL, Hy_TL, HxT_TL, HyT_TL, tmp_x_TL, tmp_y_TL, M_TL, iMx_TL, iMy_TL, χ_TL, Rx, Ry, GxT_L, GyT_L, Hx_b_TL, Hy_b_TL, HxT_b_TL, HyT_b_TL, iMx_b_TL, iMy_b_TL, iMx_bd_TL, iMy_bd_TL, Gx_b_TL, Gy_b_TL, χ_b_TL),
+                nothing,
+                Operators(AxT_pL, AyT_pL, Bx_pL, By_pL, BxT_pL, ByT_pL, Hx_pL, Hy_pL, HxT_pL, HyT_pL, tmp_x_pL, tmp_y_pL, M_pL, iMx_pL, iMy_pL, χ_pL, Rx, Ry, GxT_L, GyT_L, Hx_b_pL, Hy_b_pL, HxT_b_pL, HyT_b_pL, iMx_b_pL, iMy_b_pL, iMx_bd_pL, iMy_bd_pL, Gx_b_pL, Gy_b_pL, χ_b_pL),
+                nothing,
+                Operators(AxT_uL, AyT_uL, Bx_uL, By_uL, BxT_uL, ByT_uL, Hx_uL, Hy_uL, HxT_uL, HyT_uL, tmp_x_uL, tmp_y_uL, M_uL, iMx_uL, iMy_uL, χ_uL, Rx, Ry, Gx_L, Gy_L, Hx_b_uL, Hy_b_uL, HxT_b_uL, HyT_b_uL, iMx_b_uL, iMy_b_uL, iMx_bd_uL, iMy_bd_uL, Gx_b_uL, Gy_b_uL, χ_b_uL),
+                nothing,
+                Operators(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L, Hx_b_vL, Hy_b_vL, HxT_b_vL, HyT_b_vL, iMx_b_vL, iMy_b_vL, iMx_bd_vL, iMy_bd_vL, Gx_b_vL, Gy_b_vL, χ_b_vL)
+            ),
+            nothing,
+            Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, vcorrL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, vcorrDL, uTL, trans_scalL, phi_eleL, trans_scalDL, phi_eleDL),
+        )
+
+    end
 end
 
 function init_mullins!(grid, T, V, t, A, N, shift)

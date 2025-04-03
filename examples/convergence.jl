@@ -192,6 +192,8 @@ for (i,n) in enumerate(npts)
         electrical_potential_residual = sim.electrical_potential_residual,
         electrical_potential_nonlinear_solver = sim.electrical_potential_nonlinear_solver,
         electrolysis_reaction = phys.electrolysis_reaction,
+        pressure_velocity_coupling = sim.pressure_velocity_coupling,
+        solve_solid = sim.solve_solid,
         )
     Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
     @debug "After Numerical"

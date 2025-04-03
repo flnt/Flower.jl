@@ -1391,21 +1391,435 @@ function FE_set_momentum_coupled(
     return rhs
 end
 
-"""
-    FE_set_momentum_coupled(
-    bc_type, num, grid, opC,
-    A, B,
-    L, bc_L, bc_L_b, Mm1, BC,
-    ls_advection
-    )
 
-Set `u` and `v` system matrices for Forward-Euler scheme in the diffusive term in 
-presence of a Navier slip BC.
 """
-#    rhs = zeros(ntu + ntv + nNavier * nip)
+Apply velocity boundary conditions
+"""
+function set_velocity_boundary_conditions(bc_type, iLS, gu, gv, gp, num)
+    a0p = nothing
+    bp = nothing 
+    
+    if is_dirichlet(bc_type[iLS])
+        velu = copy(gu.V) #TODO really reed to copy ? allocates a whole new 
+        a0u = ones(gu) .* velu
+        __a1u = -1.0
+        __bu = 0.0
+        _a1u = ones(gu) .* __a1u
+        a1u = Diagonal(vec(_a1u))
+        _bu = ones(gu) .* __bu
+        bu = Diagonal(vec(_bu))
 
+        velv = copy(gv.V)
+        a0v = ones(gv) .* velv
+        __a1v = -1.0
+        __bv = 0.0
+        _a1v = ones(gv) .* __a1v
+        a1v = Diagonal(vec(_a1v))
+        _bv = ones(gv) .* __bv
+        bv = Diagonal(vec(_bv))
+    elseif is_neumann(bc_type[iLS])
+        velu = 0.0
+        a0u = ones(gu) .* velu
+        __a1u = 0.0
+        __bu = 1.0
+        _a1u = ones(gu) .* __a1u
+        a1u = Diagonal(vec(_a1u))
+        _bu = ones(gu) .* __bu
+        bu = Diagonal(vec(_bu))
+
+        velv = 0.0
+        a0v = ones(gv) .* velv
+        __a1v = 0.0
+        __bv = 1.0
+        _a1v = ones(gv) .* __a1v
+        a1v = Diagonal(vec(_a1v))
+        _bv = ones(gv) .* __bv
+        bv = Diagonal(vec(_bv))
+    elseif is_robin(bc_type[iLS])
+        velu = 0.0
+        a0u = ones(gu) .* velu
+        __a1u = -1.0
+        __bu = 1.0
+        _a1u = ones(gu) .* __a1u
+        a1u = Diagonal(vec(_a1u))
+        _bu = ones(gu) .* __bu
+        bu = Diagonal(vec(_bu))
+
+        velv = 0.0
+        a0v = ones(gv) .* velv
+        __a1v = -1.0
+        __bv = 1.0
+        _a1v = ones(gv) .* __a1v
+        a1v = Diagonal(vec(_a1v))
+        _bv = ones(gv) .* __bv
+        bv = Diagonal(vec(_bv))
+    elseif is_fs(bc_type[iLS])
+        velu = 0.0
+        a0u = ones(gu) .* velu
+        __a1u = 0.0
+        __bu = 1.0
+        _a1u = ones(gu) .* __a1u
+        a1u = Diagonal(vec(_a1u))
+        _bu = ones(gu) .* __bu
+        bu = Diagonal(vec(_bu))
+
+        velv = 0.0
+        a0v = ones(gv) .* velv
+        __a1v = 0.0
+        __bv = 1.0
+        _a1v = ones(gv) .* __a1v
+        a1v = Diagonal(vec(_a1v))
+        _bv = ones(gv) .* __bv
+        bv = Diagonal(vec(_bv))
+    elseif is_wall_no_slip(bc_type[iLS])
+        velu = bc_type[iLS].val
+        a0u = ones(gu) .* velu
+        __a1u = -1.0
+        __bu = 0.0
+        _a1u = ones(gu) .* __a1u
+        a1u = Diagonal(vec(_a1u))
+        _bu = ones(gu) .* __bu
+        bu = Diagonal(vec(_bu))
+
+        velv = bc_type[iLS].val
+        a0v = ones(gv) .* velv
+        __a1v = -1.0
+        __bv = 0.0
+        _a1v = ones(gv) .* __a1v
+        a1v = Diagonal(vec(_a1v))
+        _bv = ones(gv) .* __bv
+        bv = Diagonal(vec(_bv))
+    elseif is_navier_cl(bc_type[iLS])
+        velp = bc_type[iLS].val
+        a0p = ones(gp) .* velp
+
+        # Assumes FreeSurface() is the first interface!!! (LS[1])
+        ϵb = num.n_ext_cl .* sqrt.(gp.dx.^2 .+ gp.dy.^2)
+        bp = Diagonal(vec(bc_type[iLS].λ * bell_function2.(gp.LS[1].u, ϵb)))
+    elseif is_navier(bc_type[iLS])
+        velp = bc_type[iLS].val
+        a0p = ones(gp) .* velp
+
+        λ = bc_type[iLS].λ .* ones(gp)
+        bp = Diagonal(vec(λ))
+    else
+        velu = bc_type[iLS].val
+        a0u = ones(gu) .* velu
+        __a1u = -1.0
+        __bu = 0.0
+        _a1u = ones(gu) .* __a1u
+        a1u = Diagonal(vec(_a1u))
+        _bu = ones(gu) .* __bu
+        bu = Diagonal(vec(_bu))
+
+        velv = bc_type[iLS].val
+        a0v = ones(gv) .* velv
+        __a1v = -1.0
+        __bv = 0.0
+        _a1v = ones(gv) .* __a1v
+        a1v = Diagonal(vec(_a1v))
+        _bv = ones(gv) .* __bv
+        bv = Diagonal(vec(_bv))
+    end
+
+    return a0u, a1u, bu, a0v, a1v, bv, a0p, bp
+
+end
+
+
+"""
+if bc_
+"""
+function compute_averaging_coefficient_Navier(gu::Mesh{GridFCx,T,N},gp::Mesh{GridCC,T,N},bc_type) where {T,N}
+
+    #Compute the averaging coefficients for 
+    #if empty: 0.5 otherwise infty
+
+    #TODO check
+    # avgx = copy(opp.Bx)
+    # avgx.nzval .= 0.0
+
+    avgx = init_sparse_Bx(gp)
+    
+    @inbounds @threads for II in gu.ind.all_indices[:,2:end-1]
+        pII = lexicographic(II, gu.ny)
+        if capx[II] > num.epsilon_dist
+            avgx[pII,pII-gu.ny] = cap1[II] * inv_weight_eps(num,capx[II])
+            avgx[pII,pII] = cap3[II] * inv_weight_eps(num,capx[II])
+        else           
+            avgx[pII,pII-gu.ny] = 0.5
+            avgx[pII,pII] = 0.5            
+        end
+    end
+    @inbounds @threads for II in gu.ind.all_indices[:,1]
+        pII = lexicographic(II, gu.ny)
+        avgx[pII,pII] = 0.5
+    end
+    @inbounds @threads for II in gu.ind.all_indices[:,end]
+        pII = lexicographic(II, gu.ny)
+        avgx[pII,pII-gu.ny] = 0.5
+    end
+
+end
+
+
+"""
+
+"""
+function compute_averaging_coefficient_Navier(gu::Mesh{GridFCx,T,N},gp::Mesh{GridCC,T,N},bc_type::Union{Navier{T,N},Navier_cl{T,N}}) where {T,N}
+
+    #Compute the averaging coefficients for 
+    #if empty: 0.5 otherwise infty
+
+    #TODO check
+    # avgx = copy(opp.Bx)
+    # avgx.nzval .= 0.0
+
+    avgx = init_sparse_Bx(gp)
+    
+    @inbounds @threads for II in gu.ind.all_indices[:,2:end-1]
+        pII = lexicographic(II, gu.ny)
+        if capx[II] > num.epsilon_dist
+            avgx[pII,pII-gu.ny] = cap1[II] * inv_weight_eps(num,capx[II])
+            avgx[pII,pII] = cap3[II] * inv_weight_eps(num,capx[II])
+        else
+            if gp.LS[iLS].geoL.cap[δx⁻(II),5] > num.epsilon_vol && gp.LS[iLS].geoL.cap[II,5] > num.epsilon_vol
+                if !(δx⁻(II) in gp.LS[1].MIXED)
+                    avgx[pII,pII] = 1.0
+                elseif !(II in gp.LS[1].MIXED)
+                    avgx[pII,pII-gu.ny] = 1.0 #averaging coefficients
+                else
+                    avgx[pII,pII-gu.ny] = 0.5
+                    avgx[pII,pII] = 0.5
+                end
+            elseif gp.LS[iLS].geoL.cap[δx⁻(II),5] > num.epsilon_vol
+                avgx[pII,pII-gu.ny] = 1.0
+            else
+                avgx[pII,pII] = 1.0
+            end
+        end
+    end
+    @inbounds @threads for II in gu.ind.all_indices[:,1]
+        pII = lexicographic(II, gu.ny)
+        avgx[pII,pII] = 0.5
+    end
+    @inbounds @threads for II in gu.ind.all_indices[:,end]
+        pII = lexicographic(II, gu.ny)
+        avgx[pII,pII-gu.ny] = 0.5
+    end
+
+end
+
+# avgx = copy(opp.Bx)
+# avgx.nzval .= 0.0
+# @inbounds @threads for II in gu.ind.all_indices[:,2:end-1]
+#     pII = lexicographic(II, gu.ny)
+#     if capx[II] > num.epsilon_dist
+#         avgx[pII,pII-gu.ny] = cap1[II] * inv_weight_eps(num,capx[II])
+#         avgx[pII,pII] = cap3[II] * inv_weight_eps(num,capx[II])
+#     else
+#         avgx[pII,pII-gu.ny] = 0.5
+#         avgx[pII,pII] = 0.5
+#     end
+# end
+# @inbounds @threads for II in gu.ind.all_indices[:,1]
+#     pII = lexicographic(II, gu.ny)
+#     avgx[pII,pII] = 0.5
+# end
+# @inbounds @threads for II in gu.ind.all_indices[:,end]
+#     pII = lexicographic(II, gu.ny)
+#     avgx[pII,pII-gu.ny] = 0.5
+# end
+
+"""
+
+# !is_navier_cl(bc_type[iLS]) 
+# && !is_navier(bc_type[iLS])
+"""
+function compute_averaging_coefficient_Navier(gv::Mesh{GridFCx,T,N},gp::Mesh{GridCC,T,N},bc_type) where {T,N}
+    #TODO check
+    # avgy = copy(opp.By)
+    # avgy.nzval .= 0.0
+    avgy = init_sparse_By(gp)
+
+    # !is_navier_cl(bc_type[iLS]) 
+    # && !is_navier(bc_type[iLS])
+
+    @inbounds @threads for II in gv.ind.all_indices[2:end-1,:]
+        pII = lexicographic(II, gp.ny)
+        pJJ = lexicographic(II, gv.ny)
+        if capy[II] > num.epsilon_dist
+            avgy[pJJ,pII-1] = cap2[II] * inv_weight_eps(num,capy[II])
+            avgy[pJJ,pII] = cap4[II] * inv_weight_eps(num,capy[II])
+        else
+            avgy[pJJ,pII-1] = 0.5
+            avgy[pJJ,pII] = 0.5
+        end
+    end
+    @inbounds @threads for II in gv.ind.all_indices[1,:]
+        pII = lexicographic(II, gp.ny)
+        pJJ = lexicographic(II, gv.ny)
+        avgy[pJJ,pII] = 0.5
+    end
+    @inbounds @threads for II in gv.ind.all_indices[end,:]
+        pII = lexicographic(II, gp.ny)
+        pJJ = lexicographic(II, gv.ny)
+        avgy[pJJ,pII-1] = 0.5
+    end
+end
+
+
+function compute_averaging_coefficient_Navier(gv::Mesh{GridFCx,T,N},gp::Mesh{GridCC,T,N},bc_type::Union{Navier{T,N},Navier_cl{T,N}}) where {T,N}
+    #TODO check
+    # avgy = copy(opp.By)
+    # avgy.nzval .= 0.0
+    avgy = init_sparse_By(gp)
+
+    @inbounds @threads for II in gv.ind.all_indices[2:end-1,:]
+        pII = lexicographic(II, gp.ny)
+        pJJ = lexicographic(II, gv.ny)
+        if capy[II] > num.epsilon_dist
+            avgy[pJJ,pII-1] = cap2[II] * inv_weight_eps(num,capy[II])
+            avgy[pJJ,pII] = cap4[II] * inv_weight_eps(num,capy[II])
+        else
+            if gp.LS[iLS].geoL.cap[δy⁻(II),5] > num.epsilon_vol && gp.LS[iLS].geoL.cap[II,5] > num.epsilon_vol
+                avgy[pJJ,pII-1] = 0.5
+                avgy[pJJ,pII] = 0.5
+                if !(δy⁻(II) in gp.LS[1].MIXED)
+                    avgy[pJJ,pII] = 1.0
+                elseif !(II in gp.LS[1].MIXED)
+                    avgy[pJJ,pII-1] = 1.0
+                else
+                    avgy[pJJ,pII-1] = 0.5
+                    avgy[pJJ,pII] = 0.5
+                end
+            elseif gp.LS[iLS].geoL.cap[δy⁻(II),5] > num.epsilon_vol
+                avgy[pJJ,pII-1] = 1.0
+            else
+                avgy[pJJ,pII] = 1.0
+            end
+        end
+    end
+    @inbounds @threads for II in gv.ind.all_indices[1,:]
+        pII = lexicographic(II, gp.ny)
+        pJJ = lexicographic(II, gv.ny)
+        avgy[pJJ,pII] = 0.5
+    end
+    @inbounds @threads for II in gv.ind.all_indices[end,:]
+        pII = lexicographic(II, gp.ny)
+        pJJ = lexicographic(II, gv.ny)
+        avgy[pJJ,pII-1] = 0.5
+    end
+end
+
+# avgy = copy(opp.By)
+# avgy.nzval .= 0.0
+# @inbounds @threads for II in gv.ind.all_indices[2:end-1,:]
+#     pII = lexicographic(II, gp.ny)
+#     pJJ = lexicographic(II, gv.ny)
+#     if capy[II] > num.epsilon_dist
+#         avgy[pJJ,pII-1] = cap2[II] * inv_weight_eps(num,capy[II])
+#         avgy[pJJ,pII] = cap4[II] * inv_weight_eps(num,capy[II])
+#     else
+#         avgy[pJJ,pII-1] = 0.5
+#         avgy[pJJ,pII] = 0.5
+#     end
+# end
+# @inbounds @threads for II in gv.ind.all_indices[1,:]
+#     pII = lexicographic(II, gp.ny)
+#     pJJ = lexicographic(II, gv.ny)
+#     avgy[pJJ,pII] = 0.5
+# end
+# @inbounds @threads for II in gv.ind.all_indices[end,:]
+#     pII = lexicographic(II, gp.ny)
+#     pJJ = lexicographic(II, gv.ny)
+#     avgy[pJJ,pII-1] = 0.5
+# end
+
+
+"""
+returns averaging coefficients for u and v: between i and i+1 based on volume from levelset iLS
+    V(i) / ( V(i) +V(i+1) ) with epsilon handling 
+"""
+function compute_averaging_coefficient_Navier_uv_grids_to_p_grid_volume(num,gp,gu,gv,iLS)
+
+    # Averaging
+    cap1 = gu.LS[iLS].geoL.cap[:,1:end-1,5]
+    cap2 = gv.LS[iLS].geoL.cap[1:end-1,:,5]
+    cap3 = gu.LS[iLS].geoL.cap[:,2:end,5]
+    cap4 = gv.LS[iLS].geoL.cap[2:end,:,5]
+    capx = cap1 + cap3
+    capy = cap2 + cap4
+
+    avgu = init_sparse_BxT(gu)
+    # avgu = copy(opp.BxT) #remove copy
+    # avgu.nzval .= 0.0
+
+    avgv = init_sparse_ByT(gv)
+    # avgv = copy(opp.ByT)
+    # avgv.nzval .= 0.0
+
+    @inbounds @threads for II in gp.ind.all_indices
+        pII = lexicographic(II, gp.ny)
+        pJJ = lexicographic(II, gv.ny)
+
+        avgu[pII,pII] = cap1[II] * inv_weight_eps(num,capx[II])
+        avgu[pII,pII+gu.ny] = cap3[II] * inv_weight_eps(num,capx[II])
+
+        avgv[pII,pJJ] = cap2[II] * inv_weight_eps(num,capy[II])
+        avgv[pII,pJJ+1] = cap4[II] * inv_weight_eps(num,capy[II])
+    end
+    return avgu, avgv
+end
+
+
+"""
+returns averaging coefficients for u and v: between i and i+1 based on height from levelset i
+    dh = Ax3-Ax1 diffrence of liquid heights at the two faces
+    dh(i) / ( dh(i) + dh(i+1) ) 
+    
+    with epsilon handling 
+"""
+function compute_averaging_coefficient_Navier_uv_grids_to_p_grid_height(num,gp,gu,gv,i)
+
+    # Averaging
+    cap1 = gu.LS[i].geoL.cap[:,1:end-1,3] .- gu.LS[i].geoL.cap[:,1:end-1,1]
+    cap2 = gv.LS[i].geoL.cap[1:end-1,:,4] .- gv.LS[i].geoL.cap[1:end-1,:,2]
+    cap3 = gu.LS[i].geoL.cap[:,2:end,3] .- gu.LS[i].geoL.cap[:,2:end,1]
+    cap4 = gv.LS[i].geoL.cap[2:end,:,4] .- gv.LS[i].geoL.cap[2:end,:,2]
+    capx = cap1 + cap3
+    capy = cap2 + cap4
+
+    avgu = init_sparse_BxT(gu)
+    # avgu = copy(opp.BxT) #remove copy
+    # avgu.nzval .= 0.0
+
+    avgv = init_sparse_ByT(gv)
+    # avgv = copy(opp.ByT)
+    # avgv.nzval .= 0.0
+
+    @inbounds @threads for II in gp.ind.all_indices
+        pII = lexicographic(II, gp.ny)
+        pJJ = lexicographic(II, gv.ny)
+
+        avgu[pII,pII] = cap1[II] * inv_weight_eps(num,capx[II])
+        avgu[pII,pII+gu.ny] = cap3[II] * inv_weight_eps(num,capx[II])
+
+        avgv[pII,pJJ] = cap2[II] * inv_weight_eps(num,capy[II])
+        avgv[pII,pJJ+1] = cap4[II] * inv_weight_eps(num,capy[II])
+    end
+    return avgu, avgv
+end
+
+
+"""
+Set the system matrix for Forward-Euler scheme
+
+* bc_interface: interface boundary condition
+* B contains Mum1 and Mvm1 (cell volumes)
+"""
 function FE_set_momentum_coupled2(
-    bc_type, num, gp, gu, gv,
+    bc_interface, num, gp, gu, gv,
     opp, opu, opv,
     A, B,
     rhs,
@@ -1413,10 +1827,10 @@ function FE_set_momentum_coupled2(
     Lv, bc_Lv, bc_Lv_b, Mvm1, BCv,
     ls_advection
     )
-    @unpack τ, Re, nLS, nNavier, visc_coeff = num
+    @unpack τ, Re, nLS, nNavier = num
 
-    # iRe = 1.0 / Re
-    iRe = visc_coeff
+    #region init
+    iRe = num.visc_coeff
 
     nip = gp.nx * gp.ny
     nbp = 2 * gp.nx + 2 * gp.ny
@@ -1430,8 +1844,9 @@ function FE_set_momentum_coupled2(
     ntv = (nLS - nNavier + 1) * niv + nbv
 
     #Reset to zero
-    rhs = 0.0
+    rhs .= 0.0 
 
+    # Borders u
     a0_bu = zeros(nbu)
     _a1_bu = zeros(nbu)
     _b_bu = zeros(nbu)
@@ -1441,6 +1856,7 @@ function FE_set_momentum_coupled2(
     a1_bu = Diagonal(vec(_a1_bu))
     b_bu = Diagonal(vec(_b_bu))
 
+    # Borders v
     a0_bv = zeros(nbv)
     _a1_bv = zeros(nbv)
     _b_bv = zeros(nbv)
@@ -1449,6 +1865,8 @@ function FE_set_momentum_coupled2(
     end
     a1_bv = Diagonal(vec(_a1_bv))
     b_bv = Diagonal(vec(_b_bv))
+    #endregion init
+
 
     if ls_advection
         A.nzval .= 0.0
@@ -1456,6 +1874,10 @@ function FE_set_momentum_coupled2(
         A[1:niu,1:niu] = pad_crank_nicolson(opu.M .- τ .* Lu, gu, τ)
         # Contribution to implicit part of viscous term from outer boundaries
         A[1:niu,ntu-nbu+1:ntu] = - τ .* bc_Lu_b
+
+        # Implicit gradient of pressure
+        A[1:niu,ntu+ntv+1:ntu+ntv+nip] = opu.AxT * opu.Rx
+
         # Boundary conditions for outer boundaries
         A[ntu-nbu+1:ntu,1:niu] = b_bu * (opu.HxT_b * opu.iMx_b' * opu.Bx .+ opu.HyT_b * opu.iMy_b' * opu.By)
         A[ntu-nbu+1:ntu,ntu-nbu+1:ntu] = pad(b_bu * (
@@ -1467,12 +1889,68 @@ function FE_set_momentum_coupled2(
         A[ntu+1:ntu+niv,ntu+1:ntu+niv] = pad_crank_nicolson(opv.M .- τ .* Lv, gv, τ)
         # Contribution to implicit part of viscous term from outer boundaries
         A[ntu+1:ntu+niv,ntu+ntv-nbv+1:ntu+ntv] = - τ .* bc_Lv_b
+
+        # Implicit gradient of pressure
+        A[ntu+1:ntu+niv,ntu+ntv+1:ntu+ntv+nip] = opv.AyT * opv.Ry 
+
         # Boundary conditions for outer boundaries
         A[ntu+ntv-nbv+1:ntu+ntv,ntu+1:ntu+niv] = b_bv * (opv.HxT_b * opv.iMx_b' * opv.Bx .+ opv.HyT_b * opv.iMy_b' * opv.By)
         A[ntu+ntv-nbv+1:ntu+ntv,ntu+ntv-nbv+1:ntu+ntv] = pad(b_bv * (
             opv.HxT_b * opv.iMx_bd * opv.Hx_b .+ 
             opv.HyT_b * opv.iMy_bd * opv.Hy_b
         ) .- opv.χ_b * a1_bv)
+
+        #region coupled pression
+        # Implicit gradient of pressure (volume integrated)
+        for iLS in 1:nLS
+            sbp = ntu+ntv+nip*iLS+1:ntu+ntv+(iLS+1)*nip
+            A[1:niu,sbp] .+= opu.Gx[iLS] 
+            A[ntu+1:ntu+niv,sbp] .+= opv.Gy[iLS] 
+        end
+
+        # Explicit gradient of pressure
+        # ∇ϕ_x = opu.AxT * opu.Rx * vec1(pD,grid) .+ opu.Gx_b * vecb(pD,grid)
+        # ∇ϕ_y = opv.AyT * opv.Ry * vec1(pD,grid) .+ opv.Gy_b * vecb(pD,grid)
+        # for iLS in 1:nLS
+        #     ∇ϕ_x .+= opu.Gx[iLS] * veci(pD,grid,iLS+1)
+        #     ∇ϕ_y .+= opv.Gy[iLS] * veci(pD,grid,iLS+1)
+        # end
+        #endregion coupled pression
+
+        #TODO sbu sbv sbp
+
+        #region divergence of velocity
+        #equation written on lines ntu+ntv+1:ntu+ntv+nip 
+        # u bulk
+        A[ntu+ntv+1:ntu+ntv+nip,1:niu] = opp.AxT 
+        # u border
+        A[ntu+ntv+1:ntu+ntv+nip,ntu-nbu+1:ntu] = opp.Gx_b
+        # v bulk
+        A[ntu+ntv+1:ntu+ntv+nip,ntu+1:ntu+niv] = opp.AyT 
+        # v border
+        A[ntu+ntv+1:ntu+ntv+nip,ntu+ntv-nbv+1:ntu+ntv] = opp.Gy_b
+
+        for iLS in 1:nLS
+            sbu = iLS*niu+1:(iLS+1)*niu
+            sbv = ntu+iLS*niv+1:ntu+(iLS+1)*niv
+            # hypothesis no blowing so normal velocity null if Navier
+            if !is_navier(bc_interface[iLS]) && !is_navier_cl(bc_interface[iLS]) 
+                A[ntu+ntv+1:ntu+ntv+nip,sbu] = opp.Gx[iLS] 
+                A[ntu+ntv+1:ntu+ntv+nip,sbv] = opp.Gy[iLS] 
+            end
+        end
+
+        # divergence of velocity explicit
+        # Duv = opp.AxT * vec1(ucorrD,grid_u) .+ opp.Gx_b * vecb(ucorrD,grid_u) .+
+        #       opp.AyT * vec1(vcorrD,grid_v) .+ opp.Gy_b * vecb(vcorrD,grid_v)
+        # for iLS in 1:nLS
+        #     if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+        #         Duv .+= opp.Gx[iLS] * veci(ucorrD,grid_u,iLS+1) .+ 
+        #                 opp.Gy[iLS] * veci(vcorrD,grid_v,iLS+1)
+        #     end
+        # end
+        #endregion divergence of velocity
+
 
         B[1:niu,1:niu] = Mum1
         B[ntu+1:ntu+niv,ntu+1:ntu+niv] = Mvm1
@@ -1482,146 +1960,21 @@ function FE_set_momentum_coupled2(
     _iLS = 1
     for iLS in 1:num.nLS
         #TODO can be improved for readability / compilation:
-        # "_a1u = ones(gu) .* __a1u
-        # a1u = Diagonal(vec(_a1u))
-        # _bu = ones(gu) .* __bu
-        # bu = Diagonal(vec(_bu)) " is the same
-
-
-        _a1u = ones(gu) .* __a1u
-        a1u = Diagonal(vec(_a1u))
-        _bu = ones(gu) .* __bu
-        bu = Diagonal(vec(_bu))
-
+     
         # allocates ones...
         # better tot do mapping function if cte... else if matrix ...
 
+        #region BC
+        a0u, a1u, bu, a0v, a1v, bv, a0p, bp = set_velocity_boundary_conditions(bc_interface, iLS, gu, gv, gp, num)
+        #endregion BC
 
-        if is_dirichlet(bc_type[iLS])
-            velu = copy(gu.V) #TODO really reed to copy ? allocates a whole new 
-            a0u = ones(gu) .* velu
-            __a1u = -1.0
-            __bu = 0.0
-            
-
-            velv = copy(gv.V)
-            a0v = ones(gv) .* velv
-            __a1v = -1.0
-            __bv = 0.0
-            _a1v = ones(gv) .* __a1v
-            a1v = Diagonal(vec(_a1v))
-            _bv = ones(gv) .* __bv
-            bv = Diagonal(vec(_bv))
-        elseif is_neumann(bc_type[iLS])
-            velu = 0.0
-            a0u = ones(gu) .* velu
-            __a1u = 0.0
-            __bu = 1.0
-            _a1u = ones(gu) .* __a1u
-            a1u = Diagonal(vec(_a1u))
-            _bu = ones(gu) .* __bu
-            bu = Diagonal(vec(_bu))
-
-            velv = 0.0
-            a0v = ones(gv) .* velv
-            __a1v = 0.0
-            __bv = 1.0
-            _a1v = ones(gv) .* __a1v
-            a1v = Diagonal(vec(_a1v))
-            _bv = ones(gv) .* __bv
-            bv = Diagonal(vec(_bv))
-        elseif is_robin(bc_type[iLS])
-            velu = 0.0
-            a0u = ones(gu) .* velu
-            __a1u = -1.0
-            __bu = 1.0
-            _a1u = ones(gu) .* __a1u
-            a1u = Diagonal(vec(_a1u))
-            _bu = ones(gu) .* __bu
-            bu = Diagonal(vec(_bu))
-
-            velv = 0.0
-            a0v = ones(gv) .* velv
-            __a1v = -1.0
-            __bv = 1.0
-            _a1v = ones(gv) .* __a1v
-            a1v = Diagonal(vec(_a1v))
-            _bv = ones(gv) .* __bv
-            bv = Diagonal(vec(_bv))
-        elseif is_fs(bc_type[iLS])
-            velu = 0.0
-            a0u = ones(gu) .* velu
-            __a1u = 0.0
-            __bu = 1.0
-            _a1u = ones(gu) .* __a1u
-            a1u = Diagonal(vec(_a1u))
-            _bu = ones(gu) .* __bu
-            bu = Diagonal(vec(_bu))
-
-            velv = 0.0
-            a0v = ones(gv) .* velv
-            __a1v = 0.0
-            __bv = 1.0
-            _a1v = ones(gv) .* __a1v
-            a1v = Diagonal(vec(_a1v))
-            _bv = ones(gv) .* __bv
-            bv = Diagonal(vec(_bv))
-        elseif is_wall_no_slip(bc_type[iLS])
-            velu = bc_type[iLS].val
-            a0u = ones(gu) .* velu
-            __a1u = -1.0
-            __bu = 0.0
-            _a1u = ones(gu) .* __a1u
-            a1u = Diagonal(vec(_a1u))
-            _bu = ones(gu) .* __bu
-            bu = Diagonal(vec(_bu))
-
-            velv = bc_type[iLS].val
-            a0v = ones(gv) .* velv
-            __a1v = -1.0
-            __bv = 0.0
-            _a1v = ones(gv) .* __a1v
-            a1v = Diagonal(vec(_a1v))
-            _bv = ones(gv) .* __bv
-            bv = Diagonal(vec(_bv))
-        elseif is_navier_cl(bc_type[iLS])
-            velp = bc_type[iLS].val
-            a0p = ones(gp) .* velp
-
-            # Assumes FreeSurface() is the first interface!!! (LS[1])
-            ϵb = num.n_ext_cl .* sqrt.(gp.dx.^2 .+ gp.dy.^2)
-            bp = Diagonal(vec(bc_type[iLS].λ * bell_function2.(gp.LS[1].u, ϵb)))
-        elseif is_navier(bc_type[iLS])
-            velp = bc_type[iLS].val
-            a0p = ones(gp) .* velp
-
-            λ = bc_type[iLS].λ .* ones(gp)
-            bp = Diagonal(vec(λ))
-        else
-            velu = bc_type[iLS].val
-            a0u = ones(gu) .* velu
-            __a1u = -1.0
-            __bu = 0.0
-            _a1u = ones(gu) .* __a1u
-            a1u = Diagonal(vec(_a1u))
-            _bu = ones(gu) .* __bu
-            bu = Diagonal(vec(_bu))
-
-            velv = bc_type[iLS].val
-            a0v = ones(gv) .* velv
-            __a1v = -1.0
-            __bv = 0.0
-            _a1v = ones(gv) .* __a1v
-            a1v = Diagonal(vec(_a1v))
-            _bv = ones(gv) .* __bv
-            bv = Diagonal(vec(_bv))
-        end
 
         sbu = _iLS*niu+1:(_iLS+1)*niu
         sbv = ntu+_iLS*niv+1:ntu+(_iLS+1)*niv
 
         if ls_advection
-            if !is_navier_cl(bc_type[iLS]) && !is_navier(bc_type[iLS])
+            if !is_navier_cl(bc_interface[iLS]) && !is_navier(bc_interface[iLS])
+                #region not Navier
                 # Contribution to implicit part of viscous term from inner boundaries
                 A[1:niu,sbu] = - τ .* bc_Lu[iLS]
                 A[ntu+1:ntu+niv,sbv] = - τ .* bc_Lv[iLS]
@@ -1631,7 +1984,7 @@ function FE_set_momentum_coupled2(
                 # Contribution to Neumann BC from other boundaries
                 nNav2 = 0
                 for i in 1:num.nLS
-                    if i != iLS && (!is_navier_cl(bc_type[i]) && !is_navier(bc_type[i]))
+                    if i != iLS && (!is_navier_cl(bc_interface[i]) && !is_navier(bc_interface[i]))
                         A[sbu,i*niu+1:(i+1)*niu] = bu * (
                             opu.HxT[iLS] * opu.iMx * opu.Hx[i] .+
                             opu.HyT[iLS] * opu.iMy * opu.Hy[i]
@@ -1676,49 +2029,10 @@ function FE_set_momentum_coupled2(
                         capx = cap1 + cap3
                         capy = cap2 + cap4
 
-                        avgx = copy(opp.Bx)
-                        avgx.nzval .= 0.0
-                        @inbounds @threads for II in gu.ind.all_indices[:,2:end-1]
-                            pII = lexicographic(II, gu.ny)
-                            if capx[II] > num.epsilon_dist
-                                avgx[pII,pII-gu.ny] = cap1[II] * inv_weight_eps(num,capx[II])
-                                avgx[pII,pII] = cap3[II] * inv_weight_eps(num,capx[II])
-                            else
-                                avgx[pII,pII-gu.ny] = 0.5
-                                avgx[pII,pII] = 0.5
-                            end
-                        end
-                        @inbounds @threads for II in gu.ind.all_indices[:,1]
-                            pII = lexicographic(II, gu.ny)
-                            avgx[pII,pII] = 0.5
-                        end
-                        @inbounds @threads for II in gu.ind.all_indices[:,end]
-                            pII = lexicographic(II, gu.ny)
-                            avgx[pII,pII-gu.ny] = 0.5
-                        end
-                        avgy = copy(opp.By)
-                        avgy.nzval .= 0.0
-                        @inbounds @threads for II in gv.ind.all_indices[2:end-1,:]
-                            pII = lexicographic(II, gp.ny)
-                            pJJ = lexicographic(II, gv.ny)
-                            if capy[II] > num.epsilon_dist
-                                avgy[pJJ,pII-1] = cap2[II] * inv_weight_eps(num,capy[II])
-                                avgy[pJJ,pII] = cap4[II] * inv_weight_eps(num,capy[II])
-                            else
-                                avgy[pJJ,pII-1] = 0.5
-                                avgy[pJJ,pII] = 0.5
-                            end
-                        end
-                        @inbounds @threads for II in gv.ind.all_indices[1,:]
-                            pII = lexicographic(II, gp.ny)
-                            pJJ = lexicographic(II, gv.ny)
-                            avgy[pJJ,pII] = 0.5
-                        end
-                        @inbounds @threads for II in gv.ind.all_indices[end,:]
-                            pII = lexicographic(II, gp.ny)
-                            pJJ = lexicographic(II, gv.ny)
-                            avgy[pJJ,pII-1] = 0.5
-                        end
+                        # not Navier, averaging coefficients differently computed 
+                        avgx = compute_averaging_coefficient_Navier(gu,gp,bc_interface[iLS])
+                        avgy = compute_averaging_coefficient_Navier(gv,gp,bc_interface[iLS])
+
                         A[sbu,ntu+ntv+1+nNav2*nip:ntu+ntv+(nNav2+1)*nip] = bu * (
                             opu.HxT[iLS] * opu.iMx * opu.Hx[i] .+
                             opu.HyT[iLS] * opu.iMy * opu.Hy[i]
@@ -1755,7 +2069,11 @@ function FE_set_momentum_coupled2(
                 )
 
                 _iLS += 1
-            else # Tangential component of velocity if Navier BC
+                #endregion not Navier
+
+            else 
+                #region Navier
+                # Tangential component of velocity if Navier BC #if !is_navier_cl(bc_interface[iLS]) && !is_navier(bc_interface[iLS])
                 sinα_p = Diagonal(vec(sin.(gp.LS[iLS].α)))
                 # replace!(sinα_p.diag, NaN=>0.0)
                 cosα_p = Diagonal(vec(cos.(gp.LS[iLS].α)))
@@ -1798,75 +2116,10 @@ function FE_set_momentum_coupled2(
                 capx = cap1 + cap3
                 capy = cap2 + cap4
 
-                avgx = copy(opp.Bx)
-                avgx.nzval .= 0.0
-                @inbounds @threads for II in gu.ind.all_indices[:,2:end-1]
-                    pII = lexicographic(II, gu.ny)
-                    if capx[II] > num.epsilon_dist
-                        avgx[pII,pII-gu.ny] = cap1[II] * inv_weight_eps(num,capx[II])
-                        avgx[pII,pII] = cap3[II] * inv_weight_eps(num,capx[II])
-                    else
-                        if gp.LS[iLS].geoL.cap[δx⁻(II),5] > num.epsilon_vol && gp.LS[iLS].geoL.cap[II,5] > num.epsilon_vol
-                            if !(δx⁻(II) in gp.LS[1].MIXED)
-                                avgx[pII,pII] = 1.0
-                            elseif !(II in gp.LS[1].MIXED)
-                                avgx[pII,pII-gu.ny] = 1.0
-                            else
-                                avgx[pII,pII-gu.ny] = 0.5
-                                avgx[pII,pII] = 0.5
-                            end
-                        elseif gp.LS[iLS].geoL.cap[δx⁻(II),5] > num.epsilon_vol
-                            avgx[pII,pII-gu.ny] = 1.0
-                        else
-                            avgx[pII,pII] = 1.0
-                        end
-                    end
-                end
-                @inbounds @threads for II in gu.ind.all_indices[:,1]
-                    pII = lexicographic(II, gu.ny)
-                    avgx[pII,pII] = 0.5
-                end
-                @inbounds @threads for II in gu.ind.all_indices[:,end]
-                    pII = lexicographic(II, gu.ny)
-                    avgx[pII,pII-gu.ny] = 0.5
-                end
-                avgy = copy(opp.By)
-                avgy.nzval .= 0.0
-                @inbounds @threads for II in gv.ind.all_indices[2:end-1,:]
-                    pII = lexicographic(II, gp.ny)
-                    pJJ = lexicographic(II, gv.ny)
-                    if capy[II] > num.epsilon_dist
-                        avgy[pJJ,pII-1] = cap2[II] * inv_weight_eps(num,capy[II])
-                        avgy[pJJ,pII] = cap4[II] * inv_weight_eps(num,capy[II])
-                    else
-                        if gp.LS[iLS].geoL.cap[δy⁻(II),5] > num.epsilon_vol && gp.LS[iLS].geoL.cap[II,5] > num.epsilon_vol
-                            avgy[pJJ,pII-1] = 0.5
-                            avgy[pJJ,pII] = 0.5
-                            if !(δy⁻(II) in gp.LS[1].MIXED)
-                                avgy[pJJ,pII] = 1.0
-                            elseif !(II in gp.LS[1].MIXED)
-                                avgy[pJJ,pII-1] = 1.0
-                            else
-                                avgy[pJJ,pII-1] = 0.5
-                                avgy[pJJ,pII] = 0.5
-                            end
-                        elseif gp.LS[iLS].geoL.cap[δy⁻(II),5] > num.epsilon_vol
-                            avgy[pJJ,pII-1] = 1.0
-                        else
-                            avgy[pJJ,pII] = 1.0
-                        end
-                    end
-                end
-                @inbounds @threads for II in gv.ind.all_indices[1,:]
-                    pII = lexicographic(II, gp.ny)
-                    pJJ = lexicographic(II, gv.ny)
-                    avgy[pJJ,pII] = 0.5
-                end
-                @inbounds @threads for II in gv.ind.all_indices[end,:]
-                    pII = lexicographic(II, gp.ny)
-                    pJJ = lexicographic(II, gv.ny)
-                    avgy[pJJ,pII-1] = 0.5
-                end
+                # Navier BC, averaging coefficient computed differently
+                avgx = compute_averaging_coefficient_Navier(gu,gp,bc_interface[iLS])
+                avgy = compute_averaging_coefficient_Navier(gv,gp,bc_interface[iLS])
+
                 A[1:niu,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * τ .* (
                     opu.BxT * opu.iMx * opu.Hx[iLS] .+
                     opu.ByT * opu.iMy * opu.Hy[iLS]
@@ -1877,27 +2130,9 @@ function FE_set_momentum_coupled2(
                 ) * (-cosα_v) * avgy
 
                 # Boundary conditions for inner boundaries
-                cap1 = gu.LS[iLS].geoL.cap[:,1:end-1,5]
-                cap2 = gv.LS[iLS].geoL.cap[1:end-1,:,5]
-                cap3 = gu.LS[iLS].geoL.cap[:,2:end,5]
-                cap4 = gv.LS[iLS].geoL.cap[2:end,:,5]
-                capx = cap1 + cap3
-                capy = cap2 + cap4
+                
+                avgu, avgv = compute_averaging_coefficient_Navier_uv_grids_to_p_grid_volume(num,gp,gu,gv,iLS)
 
-                avgu = copy(opp.BxT)
-                avgu.nzval .= 0.0
-                avgv = copy(opp.ByT)
-                avgv.nzval .= 0.0
-                @inbounds @threads for II in gp.ind.all_indices
-                    pII = lexicographic(II, gp.ny)
-                    pJJ = lexicographic(II, gv.ny)
-
-                    avgu[pII,pII] = cap1[II] * inv_weight_eps(num,capx[II])
-                    avgu[pII,pII+gu.ny] = cap3[II] * inv_weight_eps(num,capx[II])
-
-                    avgv[pII,pJJ] = cap2[II] * inv_weight_eps(num,capy[II])
-                    avgv[pII,pJJ+1] = cap4[II] * inv_weight_eps(num,capy[II])
-                end
                 A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,1:niu] = bp * (
                     opp.HxT[iLS] * opp.iMx * opp.Bx .+
                     opp.HyT[iLS] * opp.iMy * opp.By
@@ -1908,28 +2143,10 @@ function FE_set_momentum_coupled2(
                 ) * (-cosα_p) * avgv
 
                 for i in 1:num.nLS
-                    if i != iLS && (!is_navier_cl(bc_type[i]) && !is_navier(bc_type[i]))
-                        cap1 = gu.LS[i].geoL.cap[:,1:end-1,3] .- gu.LS[i].geoL.cap[:,1:end-1,1]
-                        cap2 = gv.LS[i].geoL.cap[1:end-1,:,4] .- gv.LS[i].geoL.cap[1:end-1,:,2]
-                        cap3 = gu.LS[i].geoL.cap[:,2:end,3] .- gu.LS[i].geoL.cap[:,2:end,1]
-                        cap4 = gv.LS[i].geoL.cap[2:end,:,4] .- gv.LS[i].geoL.cap[2:end,:,2]
-                        capx = cap1 + cap3
-                        capy = cap2 + cap4
+                    if i != iLS && (!is_navier_cl(bc_interface[i]) && !is_navier(bc_interface[i]))
+                        #TODO why isn't it with volume like in compute_averaging_coefficient_Navier_uv_grids_to_p_grid_volume ?
+                        avgu, avgv = compute_averaging_coefficient_Navier_uv_grids_to_p_grid_height(num,gp,gu,gv,i)
 
-                        avgu = copy(opp.BxT)
-                        avgu.nzval .= 0.0
-                        avgv = copy(opp.ByT)
-                        avgv.nzval .= 0.0
-                        @inbounds @threads for II in gp.ind.all_indices
-                            pII = lexicographic(II, gp.ny)
-                            pJJ = lexicographic(II, gv.ny)
-
-                            avgu[pII,pII] = cap1[II] * inv_weight_eps(num,capx[II])
-                            avgu[pII,pII+gu.ny] = cap3[II] * inv_weight_eps(num,capx[II])
-
-                            avgv[pII,pJJ] = cap2[II] * inv_weight_eps(num,capy[II])
-                            avgv[pII,pJJ+1] = cap4[II] * inv_weight_eps(num,capy[II])
-                        end
                         A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,i*niu+1:(i+1)*niu] = bp * (
                             opp.HxT[iLS] * opp.iMx * opp.Hx[i] .+
                             opp.HyT[iLS] * opp.iMy * opp.Hy[i]
@@ -1956,6 +2173,7 @@ function FE_set_momentum_coupled2(
                 cosα_b.diag[gp.ny+gp.nx+1:2gp.ny+gp.nx] .= cos.(gp.LS[iLS].α[:,end])
                 cosα_b.diag[2gp.ny+gp.nx+1:end] .= cos.(gp.LS[iLS].α[end,:])
 
+                #region interpolation coefficients
                 avgu = spdiagm(nbp, nbu, 0 => zeros(nbp), 1 => zeros(nbp-1))
                 for ii in 1:gp.ny
                     avgu[ii,ii] = 1.0
@@ -1978,6 +2196,8 @@ function FE_set_momentum_coupled2(
                     avgv[ii+gp.ny,ii+gv.ny] = 1.0
                     avgv[ii+2gp.ny+gp.nx,ii+2gv.ny+gv.nx] = 1.0
                 end
+                #endregion interpolation coefficients
+
                 A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu-nbu+1:ntu] = bp * (
                     opp.HxT[iLS] * opp.iMx_b * opp.Hx_b .+ 
                     opp.HyT[iLS] * opp.iMy_b * opp.Hy_b
@@ -1988,6 +2208,7 @@ function FE_set_momentum_coupled2(
                 ) * (-cosα_b) * avgv
                 
                 # Boundary conditions for outer boundaries
+                #region interpolation coefficients
                 avgu = spdiagm(nbu, nbp, 0 => zeros(nbp), 1 => zeros(nbp-1))
                 for ii in 1:gu.ny
                     avgu[ii,ii] = 1.0
@@ -2018,29 +2239,38 @@ function FE_set_momentum_coupled2(
                     avgv[ii+gv.ny,ii+gp.ny] = 1.0
                     avgv[ii+2gv.ny+gv.nx,ii+2gp.ny+gp.nx] = 1.0
                 end
+                #endregion interpolation coefficients
+
                 A[ntu-nbu+1:ntu,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = b_bu * (
                     opu.HxT_b * opu.iMx_b' * opu.Hx[iLS] .+ opu.HyT_b * opu.iMy_b' * opu.Hy[iLS]
                 ) * avgx * sinα_p
                 A[ntu+ntv-nbv+1:ntu+ntv,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = b_bv * (
                     opv.HxT_b * opv.iMx_b' * opv.Hx[iLS] .+ opv.HyT_b * opv.iMy_b' * opv.Hy[iLS]
                 ) * avgy * (-cosα_p)
-            end
-        end
+                
+                #endregion Navier
 
-        if !is_navier_cl(bc_type[iLS]) && !is_navier(bc_type[iLS])
+            end # if !is_navier_cl(bc_interface[iLS]) && !is_navier(bc_interface[iLS])
+        end #advection
+
+        if !is_navier_cl(bc_interface[iLS]) && !is_navier(bc_interface[iLS])
             @inbounds rhs[sbu] .= opu.χ[iLS] * vec(a0u)
             @inbounds rhs[sbv] .= opv.χ[iLS] * vec(a0v)
         else
             @inbounds rhs[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] .= opp.χ[iLS] * vec(a0p)
             nNav1 += 1
-        end
-    end
+        end #!is_navier_cl(bc_interface[iLS]) && !is_navier(bc_interface[iLS])
+
+    end #for iLS in 1:num.nLS
 
     @inbounds rhs[ntu-nbu+1:ntu] .= opu.χ_b * vec(a0_bu)
     @inbounds rhs[ntu+ntv-nbv+1:ntu+ntv] .= opv.χ_b * vec(a0_bv)
-    
+
+    #rhs div u : 0 for Incompressible
+
     return rhs
-end
+end #end FE_set_momentum_coupled2
+
 
 
 """
@@ -2665,7 +2895,7 @@ function set_Forward_Euler!(
     Au, Bu, Av, Bv, Aϕ, Auv, Buv,
     Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
     Mum1, Mvm1, iRe, op_conv, ph,
-    periodic_x, periodic_y, advection, ls_advection, navier
+    periodic_x, periodic_y, advection, ls_advection, navier,rhs_uv = nothing,
     )
 
     if advection
@@ -2685,54 +2915,71 @@ function set_Forward_Euler!(
     end
     Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = laps
 
-    if !navier
-        rhs_u = FE_set_momentum(
-            num, grid_u, opC_u,
-            Au, Bu,
-            iRe.*Lu, iRe.*bc_Lu, iRe.*bc_Lu_b, Mum1, BC_u,
+    if num.pressure_velocity_coupling == 0
+        if !navier
+            rhs_u = FE_set_momentum(
+                num, grid_u, opC_u,
+                Au, Bu,
+                iRe.*Lu, iRe.*bc_Lu, iRe.*bc_Lu_b, Mum1, BC_u,
+                ls_advection
+            )
+            rhs_v = FE_set_momentum(
+                num, grid_v, opC_v,
+                Av, Bv,
+                iRe.*Lv, iRe.*bc_Lv, iRe.*bc_Lv_b, Mvm1, BC_v,
+                ls_advection
+            )
+            rhs_uv = nothing
+        else
+            rhs_u = nothing
+            rhs_v = nothing
+            rhs_uv = FE_set_momentum_coupled(
+                bc_int, num, grid, grid_u, grid_v,
+                opC_p, opC_u, opC_v,
+                Auv, Buv,
+                iRe.*Lu, iRe.*bc_Lu, iRe.*bc_Lu_b, Mum1, BC_u,
+                iRe.*Lv, iRe.*bc_Lv, iRe.*bc_Lv_b, Mvm1, BC_v,
+                ls_advection
+            )
+        end
+        a0_p = []
+        for i in 1:num.nLS
+            push!(a0_p, zeros(grid))
+        end
+        # rhs_ϕ = set_poisson(
+        #     bc_int, num, grid, a0_p, opC_p, opC_u, opC_v,
+        #     Aϕ, Lp, bc_Lp, bc_Lp_b, BC_p,
+        #     ls_advection
+        # )
+
+        # vecb(rhs,grid) .= +χ_b * vec(a0_b) #was - in set_poisson , -a0, a1 = -1,...
+
+        # In solve_poisson, the equation a \frac{\partial p}{\partial n} + bp = g , 
+        # if inhomogeneous Neumann: -1 at bottom and left
+        # +1 sign at top and right
+        
+        rhs_ϕ = solve_poisson(
+            bc_int, num, grid, a0_p, opC_p, opC_u, opC_v,
+            Aϕ, Lp, bc_Lp, bc_Lp_b, BC_p,
             ls_advection
         )
-        rhs_v = FE_set_momentum(
-            num, grid_v, opC_v,
-            Av, Bv,
-            iRe.*Lv, iRe.*bc_Lv, iRe.*bc_Lv_b, Mvm1, BC_v,
-            ls_advection
-        )
-        rhs_uv = nothing
-    else
+
+    elseif num.pressure_velocity_coupling == 1
         rhs_u = nothing
         rhs_v = nothing
-        rhs_uv = FE_set_momentum_coupled(
+        rhs_ϕ = nothing
+        rhs_uv = FE_set_momentum_coupled2(
             bc_int, num, grid, grid_u, grid_v,
             opC_p, opC_u, opC_v,
             Auv, Buv,
+            rhs_uv,
             iRe.*Lu, iRe.*bc_Lu, iRe.*bc_Lu_b, Mum1, BC_u,
             iRe.*Lv, iRe.*bc_Lv, iRe.*bc_Lv_b, Mvm1, BC_v,
             ls_advection
         )
-    end
-    a0_p = []
-    for i in 1:num.nLS
-        push!(a0_p, zeros(grid))
-    end
-    # rhs_ϕ = set_poisson(
-    #     bc_int, num, grid, a0_p, opC_p, opC_u, opC_v,
-    #     Aϕ, Lp, bc_Lp, bc_Lp_b, BC_p,
-    #     ls_advection
-    # )
 
-    # vecb(rhs,grid) .= +χ_b * vec(a0_b) #was - in set_poisson , -a0, a1 = -1,...
-
-    # In solve_poisson, the equation a \frac{\partial p}{\partial n} + bp = g , 
-    # if inhomogeneous Neumann: -1 at bottom and left
-    # +1 sign at top and right
+    end
     
-    rhs_ϕ = solve_poisson(
-        bc_int, num, grid, a0_p, opC_p, opC_u, opC_v,
-        Aϕ, Lp, bc_Lp, bc_Lp_b, BC_p,
-        ls_advection
-    )
-
     return rhs_u, rhs_v, rhs_ϕ, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b
 end
 
@@ -2755,7 +3002,7 @@ solves Navier-Stokes equations with a pressure projection method.
 - `p`: Pressure.
 - `opC_p`, `opC_u`, `opC_v`: Operator matrices for pressure, horizontal velocity, and vertical velocity, respectively.
 - `geo`, `geo_u`, `geo_v`: Geometric data for the grid.
-- `bc_int`: Internal boundary conditions.
+- `bc_int`: Interfacial boundary conditions.
 - `nLS`: Number of levelsets.
 - `ntu`, `ntv`, `niu`, `niv`: Grid dimensions.
 - `nbv`: Number of boundary cells in the vertical direction.
@@ -2873,15 +3120,10 @@ function pressure_projection!(
         ph.Gym1 .= 0.0
         
         # gradient \times volume of cell (cells at border: volume = dx*dy/2)
-        ph.Gxm1 .= copy(∇ϕ_x)
-        ph.Gym1 .= copy(∇ϕ_y)
+        ph.Gxm1 .= copy(∇ϕ_x) #∇ϕ_x
+        ph.Gym1 .= copy(∇ϕ_y) #∇ϕ_y
 
-        #TODO add gradient check
-    
-        # ph.Gxm1 .= ∇ϕ_x
-        # ph.Gym1 .= ∇ϕ_y
-
-
+        # gradient check
         PDI_status = @ccall "libpdi".PDI_multi_expose("print_pressure_gradient_in_prediction"::Cstring,
         "grad_x_1D"::Cstring, ph.Gxm1::Ptr{Cdouble}, PDI_OUT::Cint,
         "grad_y_1D"::Cstring, ph.Gym1::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -2906,10 +3148,9 @@ function pressure_projection!(
         "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
         "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
         C_NULL::Ptr{Cvoid})::Cint
-    
-        
     end
     #endregion add gradient to prediction
+
 
     nip = grid.nx * grid.ny
 
@@ -2934,7 +3175,7 @@ function pressure_projection!(
             Au, Bu, Av, Bv, Aϕ, Auv, Buv,
             Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
             Mum1, Mvm1, mu1_over_rho1, op_conv, ph,
-            periodic_x, periodic_y, advection, ls_advection, navier
+            periodic_x, periodic_y, advection, ls_advection, navier,rhs_uv = nothing,
         )
     elseif is_Crank_Nicolson(time_scheme)
         rhs_u, rhs_v, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_Crank_Nicolson!(
@@ -2973,6 +3214,7 @@ function pressure_projection!(
     # TODO PDI_multi_expose() #Cu u CUTCu
 
     # u and v are coupled if a Navier slip BC is employed inside, otherwise they are uncoupled
+    #region not Navier
     if !navier
         # if is_wall_no_slip(bc_int)
         #     vec1(uD,grid_u) .= vec(u)
@@ -3092,7 +3334,12 @@ function pressure_projection!(
             kill_dead_cells!(veci(vcorrD,grid_v,iLS+1), grid_v, geo_v[end])
         end
         vcorr .= reshape(vec1(vcorrD,grid_v), grid_v)
+    #endregion not Navier
+
+    #region Navier
+
     else #navier
+        #fill u part at 1:niu
         uvm1 = zeros(ntu + ntv + nNavier * nip)
         uvm1[1:niu] .= vec1(uD,grid_u)
         uvm1[ntu+1:ntu+niv] .= vec1(vD,grid_v)
@@ -3165,7 +3412,9 @@ function pressure_projection!(
                 nNav += 1
             end
         end
-    end
+    end #navier
+    #endregion Navier
+
 
     PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_prediction"::Cstring,
     "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -3216,7 +3465,7 @@ function pressure_projection!(
     # divergence of velocity / dt
     vec1(rhs_ϕ,grid) .= iτ .* Duv
 
-    #region needs to be corrected/documented for the signs
+    #region needs to be corrected/documented for the signs, free surface pressure BC 
     
     # pres_free_suface = 0.0
     #TODO Marangoni
@@ -3267,7 +3516,7 @@ function pressure_projection!(
 
     # vecb(rhs_ϕ,grid) .*= irho1
 
-    #endregion needs to be corrected/documented for the signs
+    #endregion needs to be corrected/documented for the signs, free surface pressure BC 
 
     # Solve Poisson equation
 
@@ -3459,14 +3708,346 @@ function pressure_projection!(
     "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
-    # PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_correction"::Cstring,
-    # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-    # C_NULL::Ptr{Cvoid})::Cint
-
     #endregion correction 
 
+
+    return Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
+end
+
+
+
+"""
+solves Navier-Stokes equations with a coupled pressure velocity method. 
+
+
+#### Variables and Data Structures
+- `vec1(ucorrD, grid_u)`: Velocity correction for the horizontal grid.
+- `vec1(vcorrD, grid_v)`: Velocity correction for the vertical grid.
+- `vec1(rhs_ϕ, grid)`: Right-hand side of the Poisson equation.
+- `vec1(pD, grid)`: Pressure correction.
+- `vec1(uD, grid_u)`: Updated horizontal velocity.
+- `vec1(vD, grid_v)`: Updated vertical velocity.
+- `vec1(ϕD, grid)`: Pressure correction potential.
+- `ϕ`: Pressure correction potential.
+- `u`: Updated horizontal velocity.
+- `v`: Updated vertical velocity.
+- `p`: Pressure.
+- `opC_p`, `opC_u`, `opC_v`: Operator matrices for pressure, horizontal velocity, and vertical velocity, respectively.
+- `geo`, `geo_u`, `geo_v`: Geometric data for the grid.
+- `bc_int`: Interfacial boundary conditions.
+- `nLS`: Number of levelsets.
+- `ntu`, `ntv`, `niu`, `niv`: Grid dimensions.
+- `nbv`: Number of boundary cells in the vertical direction.
+- `nNav`: Counter for Navier boundary conditions.
+- `iLS`: index of levelset
+- `iRe`: Reynolds number.
+- `ρ1`, `ρ2`: Densities.
+- `σ`: Surface tension coefficient.
+- `mass_flux`: Mass flux.
+- `pres_free_suface`: Free surface pressure.
+- `diff_inv_rho`: Difference in inverse densities.
+- `jump_mass_flux`: Flag for mass flux jump.
+- `τ`: Time step.
+- `Aϕ`: Matrix for the Poisson equation.
+- `num`: Numerical parameters.
+- `epsilon_mode`, `epsilon_vol`: parameters for epsilon handling.
+- `strain_rate`: Function to compute strain rate.
+- `Diagonal`: Function to create a diagonal matrix.
+- `inv_weight_eps2`: Function to compute inverse weights.
+- `iMu`, `iMv`: Inverse weight matrices for horizontal and vertical velocities, respectively.
+- `∇ϕ_x`, `∇ϕ_y`: Gradients of the pressure correction potential.
+- `iM`: Inverse weight matrix for the pressure correction.
+
+#### Functions and Operations
+1. **Initialization and Updates**
+   - `vecb(vcorrD, grid_v) .= uvD[ntu+ntv-nbv+1:ntu+ntv]`: Updates the vertical velocity correction.
+   - `kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])`: Removes dead cells from the vertical velocity correction grid.
+   - `vcorr .= reshape(vec1(vcorrD,grid_v), grid_v)`: Reshapes the vertical velocity correction.
+
+2. **Navier and Non-Navier Boundary Conditions**
+   - Loop through linear solvers (`iLS`) to apply boundary conditions:
+     - If not Navier or Navier-CL, update and apply boundary conditions for horizontal and vertical velocities.
+     - If Navier or Navier-CL, update the Navier matrix.
+
+
+3. **Return Values**
+   - Return various matrices and boundary conditions for further use.
+
+#### Notes
+- The code includes handling for free surfaces and Navier boundary conditions.
+- The Poisson equation is solved using a linear solver (`Aϕ / rhs_ϕ`).
+- The pressure correction is applied to update the velocities.
+- Dead cells are removed from the grids to maintain numerical stability.
+
+---
+
+This documentation provides a high-level overview of the code's functionality and the key operations performed. For detailed implementation of specific functions or operations, refer to the corresponding sections of the code.
+"""
+function coupled_pressure_velocity!(
+    time_scheme, bc_int,
+    num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
+    BC_u, BC_v, BC_p,
+    opC_p, opC_u, opC_v, op_conv,
+    Au, Bu, Av, Bv, Aϕ, Auv, Buv,rhs_uv,
+    Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
+    Cum1, Cvm1, Mum1, Mvm1,
+    periodic_x, periodic_y, advection, ls_advection, current_i, Ra, navier, pres_free_suface,jump_mass_flux,mass_flux
+    )
+    @unpack Re, τ, σ, g, β, nLS, nNavier = num
+    @unpack p, pD, ϕ, ϕD, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr, uT = ph
+    @unpack Cu, Cv, CUTCu, CUTCv = op_conv
+    @unpack rho1,rho2,visc_coeff = num
+
+    iRe = visc_coeff
+    iτ = 1.0 / τ
+    irho1 = 1.0/rho1
+    mu1_over_rho1 = num.mu1 / num.rho1 
+
+    II = CartesianIndex(div(grid_v.ny,2),1)
+    pII = lexicographic(II,grid_v.ny)
+    print("\nLv[pII,:] ",Lvm1[pII,:])
+    print("\bc_Lvm1_b[pII,:] ",bc_Lvm1_b[pII,:])
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction"::Cstring,
+    "u_1D"::Cstring, uD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "v_1D"::Cstring, vD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("print_coupled"::Cstring,
+    "num_Navier"::Cstring, num.nNavier::Ref{Clonglong}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+   
+    nip = grid.nx * grid.ny
+
+    niu = grid_u.nx * grid_u.ny
+    nbu = 2 * grid_u.nx + 2 * grid_u.ny
+    ntu = (nLS - nNavier + 1) * niu + nbu
+
+    niv = grid_v.nx * grid_v.ny
+    nbv = 2 * grid_v.nx + 2 * grid_v.ny
+    ntv = (nLS - nNavier + 1) * niv + nbv
+
+
+    BC_Poisson = nothing 
+    
+
+    if is_Forward_Euler(time_scheme)
+        rhs_u, rhs_v, rhs_ϕ, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_Forward_Euler!(
+            bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+            opC_p, opC_u, opC_v, BC_Poisson, BC_u, BC_v,
+            Au, Bu, Av, Bv, Aϕ, Auv, Buv,
+            Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
+            Mum1, Mvm1, mu1_over_rho1, op_conv, ph,
+            periodic_x, periodic_y, advection, ls_advection, navier,rhs_uv,
+        )
+    elseif is_Crank_Nicolson(time_scheme)
+
+        @error("set_Crank_Nicolson! not implemented for coupled pressure velocity")
+
+        rhs_u, rhs_v, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_Crank_Nicolson!(
+            bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+            opC_p, opC_u, opC_v, BC_Poisson, BC_u, BC_v,
+            Au, Bu, Av, Bv, Aϕ,
+            Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
+            Mum1, Mvm1, mu1_over_rho1, op_conv, ph,
+            periodic_x, periodic_y, advection, ls_advection
+        )
+    end
+
+    ra_x = Ra .* sin(β) .* opC_u.M * vec(hcat(zeros(grid_u.ny), ph.T))
+    ra_y = Ra .* cos(β) .* opC_v.M * vec(vcat(zeros(1,grid_v.nx), ph.T))
+
+    grav_x = g .* sin(β) .* opC_u.M * fones(grid_u)
+    grav_y = g .* cos(β) .* opC_v.M * fones(grid_v)
+
+    Convu = fzeros(grid_u)
+    Convv = fzeros(grid_v)
+    Cui = Cu * vec(u) .+ CUTCu
+    Cvi = Cv * vec(v) .+ CUTCv
+
+    if advection
+        # scheme
+        if current_i == 1
+            Convu .+= Cui
+            Convv .+= Cvi
+        else
+            Convu .+= 1.5 .* Cui .- 0.5 .* Cum1 #Cui returned at the end of function to Cum1
+            Convv .+= 1.5 .* Cvi .- 0.5 .* Cvm1
+        end
+    end
+
+    
+    # TODO PDI_multi_expose() #Cu u CUTCu
+
+    #cf in prediction
+    # mul!(rhs_u, Bu, uD, 1.0, 1.0)
+    # vec1(rhs_u,grid_u) .+= τ .* grav_x
+    # vec1(rhs_u,grid_u) .-= τ .* Convu
+    # vec1(rhs_u,grid_u) .+= τ .* ra_x
+    # vec1(rhs_u,grid_u) .-= τ .* irho1 .* ph.Gxm1 
+    
+    # kill_dead_cells!(vec1(rhs_u,grid_u), grid_u, geo_u[end])
+    # for iLS in 1:nLS
+    #     kill_dead_cells!(veci(rhs_u,grid_u,iLS+1), grid_u, geo_u[end])
+    # end
+
+    # u and v are coupled 
+    #region Navier
+    #navier
+    #fill u part at 1:niu
+    uvm1 = zeros(ntu + ntv + nNavier * nip)
+    uvm1[1:niu] .= vec1(uD,grid_u)
+    uvm1[ntu+1:ntu+niv] .= vec1(vD,grid_v)
+    uvm1[ntu-nbu+1:ntu] .= vecb(uD,grid_u)
+    uvm1[ntu+ntv-nbv+1:ntu+ntv] .= vecb(vD,grid_v)
+    _iLS = 1
+    for iLS in 1:num.nLS
+        if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+            uvm1[_iLS*niu+1:(_iLS+1)*niu] .= veci(uD,grid_u,iLS+1)
+            uvm1[ntu+_iLS*niv+1:ntu+(_iLS+1)*niv] .= veci(vD,grid_v,iLS+1)
+            _iLS += 1
+        end
+    end
+
+    #and contribution from tangential velocity ??
+    #without blowing: normal velocity null at wall
+
+    nbp =  2 * grid.nx + 2 * grid.ny
+
+    print("\n nt ",ntu + ntv + nNavier * nip + nip * (nLS + 1) + nbp)
+    print("\n size rhs_uv ",size(rhs_uv))
+    print("\n size Buv ",size(Buv))
+    print("\n size uvm1 ",size(uvm1))
+    print("\n ")
+    print("\n nip ",nip)
+    print("\n niu ",niu)
+    print("\n niv ",niv)
+    print("\n nbu ",nbu)
+    print("\n nbu ",nbu)
+    print("\n vel block length ",ntu + ntv + nNavier * nip)
+ 
+    print("size block ",size(@view(Buv[1:ntu + ntv + nNavier * nip,1:ntu + ntv + nNavier * nip])))
+
+    # tmp = @view(Buv[1:ntu + ntv + nNavier * nip,1:ntu + ntv + nNavier * nip])
+
+    # mul!(rhs_uv,)
+
+  
+
+    # rhs_uv .+=  Buv * uvm1
+    # (num.nLS - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv 
+    # we remove pressure part 
+    # rhs_uv .+=  @view(Buv[1:ntu + ntv + nNavier * nip,1:ntu + ntv + nNavier * nip]) * uvm1
+    # @views rhs_uv[1:ntu + ntv + nNavier * nip] .+=  (Buv[1:ntu + ntv + nNavier * nip,1:ntu + ntv + nNavier * nip]) * uvm1
+
+    velocity_block = 1:ntu + ntv + nNavier * nip
+    # print("\n velocity_block ",velocity_block)
+
+    @views mul!(rhs_uv[velocity_block], Buv[velocity_block,velocity_block], uvm1, 1.0, 1.0)
+    
+    PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+    "rhs_uv"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+
+
+    rhs_uv[1:niu] .+= τ .* grav_x
+    rhs_uv[1:niu] .-= τ .* Convu
+    rhs_uv[1:niu] .+= τ .* ra_x
+    rhs_uv[1:niu] .-= τ .* irho1 .* ph.Gxm1 
+
+    rhs_uv[ntu+1:ntu+niv] .+= τ .* grav_y
+    rhs_uv[ntu+1:ntu+niv] .-= τ .* Convv
+    rhs_uv[ntu+1:ntu+niv] .+= τ .* ra_y
+    rhs_uv[ntu+1:ntu+niv] .-= τ .* irho1 .* ph.Gym1 
+
+    @views kill_dead_cells!(rhs_uv[1:niu], grid_u, geo_u[end])
+    @views kill_dead_cells!(rhs_uv[ntu+1:ntu+niv], grid_v, geo_v[end])
+    _iLS = 1
+    for iLS in 1:nLS
+        sbu = _iLS*niu+1:(_iLS+1)*niu
+        sbv = ntu+_iLS*niv+1:ntu+(_iLS+1)*niv
+        if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+            @views kill_dead_cells!(rhs_uv[sbu], grid_u, geo_u[end])
+            @views kill_dead_cells!(rhs_uv[sbv], grid_v, geo_v[end])
+            _iLS += 1
+        end
+    end
+
+    uvD = ones(ntu + ntv + nNavier * nip)
+    try
+        @time uvD .= Auv \ rhs_uv
+    catch e
+        printstyled(color=:red, @sprintf "\nError coupled pressure-velocity\n")
+        println(e)
+        print(e)
+        uvD .= Inf
+    end
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_prediction"::Cstring,
+    "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    vec1(ucorrD, grid_u) .= uvD[1:niu]
+    vecb(ucorrD, grid_u) .= uvD[ntu-nbu+1:ntu]
+    kill_dead_cells!(vec1(ucorrD,grid_u), grid_u, geo_u[end])
+    ucorr .= reshape(vec1(ucorrD,grid_u), grid_u)
+
+    vec1(vcorrD, grid_v) .= uvD[ntu+1:ntu+niv]
+    vecb(vcorrD, grid_v) .= uvD[ntu+ntv-nbv+1:ntu+ntv]
+    kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])
+    vcorr .= reshape(vec1(vcorrD,grid_v), grid_v)
+
+    nNav = 0
+    _iLS = 1
+    for iLS in 1:nLS
+        if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+            veci(ucorrD,grid_u,iLS+1) .= uvD[_iLS*niu+1:(_iLS+1)*niu]
+            kill_dead_cells!(veci(ucorrD,grid_u,iLS+1), grid_u, geo_u[end])
+
+            veci(vcorrD,grid_v,iLS+1) .= uvD[ntu+_iLS*niv+1:ntu+(_iLS+1)*niv]
+            kill_dead_cells!(veci(vcorrD,grid_v,iLS+1), grid_v, geo_v[end])
+            _iLS += 1
+        else
+            @inbounds uT[nNav+1,:] .= vec(uvD[ntu+ntv+1+nNav*nip:ntu+ntv+(nNav+1)*nip])
+            nNav += 1
+        end
+    end
+    #endregion Navier
+
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_prediction"::Cstring,
+    "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    II = CartesianIndex(div(grid_v.ny,2),1)
+    pII = lexicographic(II,grid_v.ny)
+    # print("\n A coeff ",Av[pII,:])
+    # print("\nM ",opC_p.iMy.diag[pII])
+
+    print("\nAv[pII,:]./mu1_over_rho1 ",Av[pII,:]./mu1_over_rho1)
+
+    grad_x = zeros(grid_u)
+    grad_y = zeros(grid_v)
+    compute_grad_T_x_T_y_array_u_v_capacities!(num, grid, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
+
+    #TODO divergence level
+  
+    PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_velocity_end"::Cstring,
+    # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    "grad_v"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
 
     return Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
 end

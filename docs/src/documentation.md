@@ -1999,10 +1999,152 @@ set_heat!
 ```@docs
 FE_set_momentum
 ```
+
+### Navier-slip boundary conditions
+"
+If the Navier-slip boundary condition is to be applied to a straight surface, the Navier-slip model
+
+
+```math
+\begin{cases}
+u_t &= \lambda \frac{\partial u_t}{\partial n} \\
+u_n &= 0 \\
+\end{cases}
+```
+
+can be discretized with Robin boundary conditions: `` ap + b \frac{\partial p}{\partial n} =  g``
+
+"
+For a general Robin boundary condition as in Eq. (2.44) applied on the boundary $\Gamma_i$, the discretized version reads
+
+```math
+\begin{equation} \label{eq:robin_discretized}
+Y^{\Gamma_i}_a Y^{\Gamma_i} p^{\gamma_i} + Y^{\Gamma_i}_b H^{\Gamma_i, \top} W^{\Gamma_i} \left[ G p^{\omega} + H^{\Gamma_i} p^{\gamma_i} + H^{\Gamma_{3-i}} p^{\gamma_{3-i}} \right] = Y^{\Gamma_i} g^{\gamma_i},
+\end{equation}
+```
+
+where the diagonal matrices $Y^{\Gamma_i}_a = \text{diag}(a^{\gamma_i})$ and $Y^{\Gamma_i}_b = \text{diag}(b^{\gamma_i})$ are coefficients that can be used to impose either Dirichlet, Neumann or Robin boundary conditions, the diagonal matrix $Y^{\Gamma_i} = \text{diag}(\|H^{\Gamma_i, \top} \mathbf{1}\|)$ measures the boundary within a given cell.
+
+It should be noted that the last term on the left-hand-side of Eq. (\ref{eq:robin_discretized}) represents the contribution from the second boundary: $\Gamma_{3-i}$
+```math
+\Gamma_{3-i}
+```
+  to the projection of the gradient onto the direction normal to $\Gamma_i$.
+
+"
+
+
+
+. However, if the boundary condition is applied to an arbitrarily oriented boundary surface, some modifications are required.
+
+For an arbitrary orientation, the tangential component of the velocity $u_t$ depends on both velocity components $u_x$ and $u_y$. As presented in Sec. \ref{sec:2.4}, the proposed methodology (and operators previously defined) leverages on bulk and boundary values, the later being defined implicitly as roots of the discretized boundary conditions. This results in a system of algebraic equation that consists of the discretized bulk (momentum) and boundary conditions, that is solved to determine both bulk and boundary fields.
+
+In Part I, both boundary velocity components ($u_x^i$ and $u_y^i$) were solved. However, for the Navier-slip condition, a different approach is used: in the absence of blowing or suction, the velocity component normal to the boundary is identically zero. As far as the velocity component tangential to the boundary is concerned, it is implicitly defined by a discretized form of Eq. \eqref{eq:3.7} (see below). For simplicity, the boundary field $u_t^i$ is collocated with the cells where $p$ is defined. However, in order to assemble the viscous and convective transport terms and the velocity boundary conditions, this information (together with the vanishing normal velocity) must be interpolated to the mesh faces before being included in the viscous transport term.
+
+To illustrate this, let us consider the case where the Navier-slip condition (Eq. \eqref{eq:3.7}) is applied on $\Gamma_i$, and a different boundary condition (e.g., a free-surface or Dirichlet boundary condition) on $\Gamma_{3-i}$. The discrete version of Eq. \eqref{eq:3.7} then reads
+
+```math
+\begin{equation}
+Y^{\Gamma_i} u_t^{\gamma_i} - \lambda \left[ H^{\Gamma_i, \top} W^{\Gamma} H^{\Gamma_i} u_t^{\gamma_i} +
+H^{\Gamma_i, \top} W^{\Gamma} H^{\Gamma_{3-i}} \left( \text{diag}(\sin \alpha) S_x^- u_x^{\gamma_{3-i}} + \text{diag}(-\cos \alpha) S_y^- u_y^{\gamma_{3-i}} \right) +
+H^{\Gamma_i, \top} W^{\Gamma} G \left( \text{diag}(\sin \alpha) S_x^- u_x^{\gamma_i} + \text{diag}(-\cos \alpha) S_y^- u_y^{\gamma_i} \right) \right] = Y^{\Gamma_i} U_b. \tag{3.60}
+\end{equation}
+```
+
+The projection and interpolation of the tangential velocity onto the mesh faces can be performed following
+
+```math
+\begin{align}
+u_x^{\gamma_i} &= \text{diag}(\sin \alpha) S_x^+ u_t^{\gamma_i}, \tag{3.61} \\
+u_y^{\gamma_i} &= \text{diag}(-\cos \alpha) S_y^+ u_t^{\gamma_i},
+\end{align}
+```
+
+
+which is used in the viscous and convective transport terms and in boundary conditions where the Cartesian components of the velocity appear, as mentioned earlier.
+
+Regarding the velocity divergence which appears in the right-hand-side of the Poisson's equation for the pressure, there is no contribution from the Navier-slip boundary since there is no velocity in the normal direction.
+
+
+"
+
+
+
+
+```@docs
+set_velocity_boundary_conditions
+```
+
 The resolution is coupled if a Navier BC is activated.
+
 ```@docs
 FE_set_momentum_coupled
 ```
+
+!!! todo "change bc_type to BCu and BCv"
+
+
+
+
+New version 
+
+!!! todo "capcities for divergence"
+    ```julia
+    Duv = opC_p.AxT * vec1(ucorrD,grid_u) .+ opC_p.Gx_b * vecb(ucorrD,grid_u) .+
+          opC_p.AyT * vec1(vcorrD,grid_v) .+ opC_p.Gy_b * vecb(vcorrD,grid_v)
+    for iLS in 1:nLS
+        if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+            Duv .+= opC_p.Gx[iLS] * veci(ucorrD,grid_u,iLS+1) .+ 
+                    opC_p.Gy[iLS] * veci(vcorrD,grid_v,iLS+1)
+        end
+    end
+    ```
+
+```math
+\[
+\begin{pmatrix}
+F_u & B_p^T \\
+B_u & 0
+\end{pmatrix}
+\begin{pmatrix}
+\vec{u}^{n+1} \\
+p^{n+1}
+\end{pmatrix}
+=
+\begin{pmatrix}
+\vec{f} \\
+0
+\end{pmatrix}
+\]
+\vspace{0.5cm}
+```
+where \( F_u = M_u^{(\rho)} + N_u^{(\rho)} + L_u^{(\mu)} \), and finally:
+
+* \( B_u \vec{u}^{n+1} \approx \int_{\Omega_{i,j,k}} \nabla \cdot \vec{u}^{n+1} dV \) is the discrete part of the divergence,
+* \( B_p^T p^{n+1} \approx \int_{\Omega_{i,j,k}} \nabla p^{n+1} dV \) is the discrete gradient pressure operator,
+* \( M_u^{(\rho)} \vec{u}^{n+1} \approx \int_{\Omega_{i,j,k}} \left( \frac{\rho^{n+1} \vec{u}^{n+1} + \overline{B}_{\text{penu}} f(\vec{u}^{n+1})}{\Delta t} \right) dV \) is the mass matrix,
+* \( L_u^{(\mu)} \vec{u}^{n+1} \approx -\int_{\Sigma_{i,j,k}} \overline{\mathbf{T}^{n+1}} \cdot \vec{n} dS \) is the viscous stresses operator,
+* \( N_u^{(\rho)} \vec{u}^{n+1} \approx \int_{\Sigma_{i,j,k}} \rho \vec{u}^{n+1} \vec{u}^n \cdot \vec{n} dS \) is the discrete part of the convective term,
+* \( \vec{f} \approx \int_{\Omega_{i,j,k}} \left( \frac{\rho^n \vec{u}^n + \overline{B}_{\text{penu}} \vec{u}_\infty + \vec{F}_s}{\Delta t} \right) dV \) is the second member associated with the speed.
+
+
+
+
+
+
+!!! todo "explain interpolation uv to grid p with averaging coefficients"
+    why volume used for interpolating for iLS and difference in liquid heights for i ?
+
+```@docs
+compute_averaging_coefficient_Navier_uv_grids_to_p_grid_volume
+compute_averaging_coefficient_Navier_uv_grids_to_p_grid_height
+```
+
+
+```@docs
+FE_set_momentum_coupled2
+```
+
 
 
 ```@docs
