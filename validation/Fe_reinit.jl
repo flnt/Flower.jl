@@ -6,8 +6,8 @@ num = Numerical(
     n = 128
     )
 
-idx = set_indices(num.n)
-tmp, fwd = init_fields(num, idx)
+idx, idxu, idxv = set_indices(num.n)
+tmp, fwd = init_fields(num, idx, idxu, idxv)
 
 r = 1.
 a = 0.7

@@ -27,10 +27,10 @@ function conv_cutcell_johansen_colella(x;
             max_iterations = 1,
             R = R);
 
-        idx = set_indices(num.n);
-        tmp, fwd = init_fields(num, idx);
+        idx, idxu, idxv = set_indices(num.n);
+        tmp, fwd = init_fields(num, idx, idxu, idxv);
         fwd.TL .= fwd.u
-        MIXED, SOLID, LIQUID = run_forward(num, idx, tmp, fwd,
+        MIXED, SOLID, LIQUID = run_forward(num, idx, idxu, idxv, tmp, fwd,
         stefan = true,
         verbose = false
         )

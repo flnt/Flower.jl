@@ -29,9 +29,9 @@ function conv_cutcell_CN(x;
             n = x[i] + 1,
             max_iterations = ii*4^(i),
             R = R + 1/x[1]);
-        idx = set_indices(num.n);
-        tmp, fwd = init_fields(num, idx);
-        MIXED, SOLID, LIQUID = run_forward(num, idx, tmp, fwd,
+        idx, idxu, idxv = set_indices(num.n);
+        tmp, fwd = init_fields(num, idx, idxu, idxv);
+        MIXED, SOLID, LIQUID = run_forward(num, idx, idxu, idxv, tmp, fwd,
         heat = true,
         solid_phase = solid,
         liquid_phase = liquid,
@@ -97,7 +97,7 @@ lines!(f[2:3,1:4], N_array, a*(1 ./ N_array).^b, linewidth = 3, linestyle =:dash
 scatter!(f[2:3,1:4], N_array, ERR[2, 2, :, 2], label = "Full cells, L-2 norm", markersize = 25, color =:black, marker=:utriangle)
 a, b = fit_order(N_array, ERR[2, 2, :, 2])
 lines!(f[2:3,1:4], N_array, a*(1 ./ N_array).^b, linewidth = 3, linestyle =:dashdot, color =:black, label = @sprintf "order %.2f" b)
-rm("fit.log")
+
 axislegend(position = :lb)
 
 resize_to_layout!(f)

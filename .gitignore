@@ -5,3 +5,5 @@
 *.log
 *.ps
 *.gz
+*.code-workspace
+.vscode/

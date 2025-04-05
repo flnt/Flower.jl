@@ -35,10 +35,10 @@ function conv_IIOE_CFL(x, y;
                 R = R,
                 nb_reinit = 0);
 
-            idx = set_indices(num.n);
-            tmp, fwd = init_fields(num, idx);
+            idx, idxu, idxv = set_indices(num.n);
+            tmp, fwd = init_fields(num, idx, idxu, idxv);
 
-            MIXED, SOLID, LIQUID = run_forward(num, idx, tmp, fwd,
+            MIXED, SOLID, LIQUID = run_forward(num, idx, idxu, idxv, tmp, fwd,
             advection = true,
             analytical = true,
             speed = speed,

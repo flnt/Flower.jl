@@ -19,9 +19,14 @@ num = Numerical(T_inf = -0.6,
     #max_iterations = 1
     )
 
+<<<<<<< HEAD
 idx = set_indices(num.n)
 
 tmp, fwd = init_fields(num, idx)
+=======
+idx, idxu, idxv = set_indices(num.n)
+tmp, fwd = init_fields(num, idx, idxu, idxv)
+>>>>>>> rayleigh_benard
 
 @. model(t, p) = p[1]*sin(num.N*pi*t/8) + p[2]*cos(num.N*pi*t/8) + p[3]*cos(num.N*pi*t/8)^2 + p[4]*sin(num.N*pi*t/8)^2;
 
@@ -44,11 +49,24 @@ opt = Optim_parameters(nprobes, ind, idx.b_top[1][ind], [1.0, 10.0, 1e-2, 1.0, 1
 initial_levelset = fwd.u
 initial_temperature = fwd.TL
 
+<<<<<<< HEAD
 MIXED, SOLID, LIQUID = run_forward(num, idx, tmp, fwd,
     BC_TL = Boundaries(top = Boundary(f = neumann, val = x_desired),
     bottom = Boundary(f = neumann, val = x_desired[end:-1:1]),
     right = Boundary(f = neumann, val = x_desired),
     left = Boundary(f = neumann, val = x_desired[end:-1:1])),
+=======
+f = Figure()
+ax = Axis(f[1,1])
+f = lines!(boundary_values)
+f = current_figure()
+
+@time MIXED, SOLID, LIQUID = run_forward(num, idx, idxu, idxv, tmp, fwd,
+    BC_TL = Boundaries(top = Boundary(f = neumann, val = boundary_values),
+    bottom = Boundary(f = neumann, val = boundary_values[end:-1:1]),
+    right = Boundary(f = neumann, val = boundary_values),
+    left = Boundary(f = neumann, val = boundary_values[end:-1:1])),
+>>>>>>> rayleigh_benard
     stefan = true,
     heat = true,
     liquid_phase = true,

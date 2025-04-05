@@ -26,10 +26,10 @@ for i in 1:2
         A = 0.2
         )
 
-    idx = set_indices(num.n)
-    tmp, fwd = init_fields(num, idx)
+    idx, idxu, idxv = set_indices(num.n)
+    tmp, fwd = init_fields(num, idx, idxu, idxv)
 
-    MIXED = run_forward(num, idx, tmp, fwd,
+    MIXED = run_forward(num, idx, idxu, idxv, tmp, fwd,
     stefan = true,
     advection = true,
     heat = true,

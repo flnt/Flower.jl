@@ -17,18 +17,19 @@ num = Numerical(case = "Sphere",
     TEND = 0.5,
     R = 0.7)
 
-idx = set_indices(num.n)
-tmp, fwd = init_fields(num, idx)
+idx, idxu, idxv = set_indices(num.n)
+tmp, fwd = init_fields(num, idx, idxu, idxv)
 fwd.TL .= 0.
 
-MIXED = run_forward(num, idx, tmp, fwd,
-BC_TL = Boundaries(top = Boundary(f = dirichlet, val = 1.0)),
+MIXED = run_forward(num, idx, idxu, idxv, tmp, fwd,
+BC_TL = Boundaries(top = Boundary(t = dir, f = dirichlet, val = 1.0)),
 stefan = true,
 advection = true,
 heat = true,
-solid_phase = false,
-liquid_phase = true,
-verbose = false
+heat_solid_phase = false,
+heat_liquid_phase = true,
+verbose = true,
+show_every = 1
 )
 
 f = heatmap!(num.H, num.H, (fwd.TL+fwd.TS)', colormap= Reverse(:ice))

@@ -1,13 +1,19 @@
 using Revise
 using Flower
 
+L0 = 4.
+n = 128
+
+x = LinRange(-L0/2.0 - L0/2.0/n, L0/2.0 + L0/2.0/n, n+1)
+y = LinRange(-L0/2.0 - L0/2.0/n, L0/2.0 + L0/2.0/n, n+1)
+
 num = Numerical(T_inf = -0.8,
     case = "Crystal",
     θd = 0.,
-    ϵ_κ = 0.001,
+    ϵ_κ = 0.003,
     ϵ_V = 0.000,
-    L0 = 4.,
-    n = 300,
+    x = x,
+    y = y,
     CFL = 0.5,
     TEND = 0.09,
     aniso = true,
@@ -16,23 +22,27 @@ num = Numerical(T_inf = -0.8,
     A = -0.2,
     N = 6,
     R = 0.1,
-    #max_iterations = 1
-    )
+    # max_iterations = 1,
+    ϵ = 0.05,
+    subdomains = 2,
+    overlaps = 1
+)
 
-idx = set_indices(num.n)
-tmp, fwd = init_fields(num, idx)
+gp, gu, gv = init_meshes(num)
+op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
-fwd.TL .= num.T_inf;
+phL.T .= num.T_inf;
 
-@time MIXED, SOLID, LIQUID = run_forward(num, idx, tmp, fwd,
+@time MIXED, SOLID, LIQUID = run_forward(
+    num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
     stefan = true,
     heat = true,
-    liquid_phase = true,
-    solid_phase = true,
+    heat_liquid_phase = true,
+    heat_solid_phase = true,
     verbose = true,
     advection = true,
-    show_every = 50
-    );
+    show_every = 1
+);
 
 
 fontsize_theme = Theme(fontsize = 30)
@@ -45,20 +55,22 @@ colsize!(f.layout, 1, Aspect(1, 1))
 
 resize_to_layout!(f)
 hidedecorations!(ax)
-f = heatmap!(num.H, num.H, (fwd.TL)', colormap=:ice)
+f = heatmap!(gp.x[1,:], gp.y[:,1], phL.T', colormap=:ice)
 
 
 step = num.max_iterations÷20
-#f = contour!(num.H, num.H, fwd.usave[1,:,:]', levels = 0:0, color=:red, linewidth = 3);
+f = contour!(gp.x[1,:], gp.y[:,1], fwd.u[end-1,:,:]', levels = 0:0, color=:red, linewidth = 3);
 
 if step != 0
 for i in 1:step:num.max_iterations
-    f = contour!(num.H, num.H, fwd.usave[i,:,:]', levels = 0:0, color=:black, linewidth = 3);
+    f = contour!(gp.x[1,:], gp.y[:,1], fwd.u[i,:,:]', levels = 0:0, color=:black, linewidth = 3);
 end
-f = contour!(num.H, num.H, fwd.usave[end,:,:]', levels = 0:0, color=:black, linewidth = 3);
+f = contour!(gp.x[1,:], gp.y[:,1], fwd.u[end,:,:]', levels = 0:0, color=:black, linewidth = 3);
 end
+
+limits!(ax, -L0/2., L0/2., -L0/2., L0/2.)
 
 
 f = current_figure()
 
-#Makie.save("./figures/paper_figures/aniso_theta_pi_4.png", f)
+# Makie.save("./figures/paper_figures/aniso_theta_pi_4.png", f)

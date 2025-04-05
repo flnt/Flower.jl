@@ -27,13 +27,13 @@ for i in 1:4
         TEND = 0.2,
         )
 
-    idx = set_indices(num.n)
-    tmp, fwd = init_fields(num, idx)
+    idx, idxu, idxv = set_indices(num.n)
+    tmp, fwd = init_fields(num, idx, idxu, idxv)
 
     fwd.u = -num.R*ones(num.n, num.n) + sqrt.(num.X.^2 + transpose(num.X).^2).*(ones(num.n,num.n) + 0.3*sin.(4*atan.(num.X./(transpose(num.X) + 1E-30*ones(num.n, num.n)))))
     fwd.TL[:,:] .= num.T_inf
 
-    MIXED, SOLID, LIQUID = run_forward(num, idx, tmp, fwd,
+    MIXED, SOLID, LIQUID = run_forward(num, idx, idxu, idxv, tmp, fwd,
     stefan = true,
     advection = true,
     heat = true,
