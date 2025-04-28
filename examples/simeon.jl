@@ -4,7 +4,7 @@ using Flower
 fontsize_theme = Theme(fonts=(;regular="CMU Serif"), fontsize = 50)
 set_theme!(fontsize_theme)
 
-n = 256
+n = 32
 CFL = 0.5
 max_it = 3000
 K = 1
@@ -34,8 +34,13 @@ num = Numerical(
     nb_reinit = 2
 )
 
+function eta_f(x, k)
+    return -1/(24*k).*(4 .+ (27*(k.*x).-sqrt.(81*(k.*x).^2 .+ 12)).*cbrt.(sqrt.((k.*x).^2/4 .+ 1/27).+(k.*x)./2).-(27*(k.*x).+sqrt.(81*(k.*x).^2 .+ 12)).*cbrt.(sqrt.((k.*x).^2/4 .+ 1/27).-(k.*x)/2))
+end
+
+
 gp, gu, gv = init_meshes(num)
-op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
+op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv);
 
 # @. gp.LS[1].u = -gp.y;
 # @. gp.LS[1].u = -(gp.y + A*sin(N*2*pi*gp.x));
@@ -68,10 +73,6 @@ function f_interface(α, κ, x, y)
     end
     # V = -κ
     return V
-end
-
-function eta_f(x, k)
-    return -1/(24*k).*(4 .+ (27*(k.*x).-sqrt.(81*(k.*x).^2 .+ 12)).*cbrt.(sqrt.((k.*x).^2/4 .+ 1/27).+(k.*x)./2).-(27*(k.*x).+sqrt.(81*(k.*x).^2 .+ 12)).*cbrt.(sqrt.((k.*x).^2/4 .+ 1/27).-(k.*x)/2))
 end
 
 @time peaky = run_forward(
