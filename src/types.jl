@@ -5,6 +5,7 @@ abstract type MutatingFields end
 abstract type AbstractOptimizer end
 
 
+# @with_kw struct Numerical{T <: Real, D <: Integer} <: NumericalParameters
 """
 Stores parameters for the simulation
 
@@ -37,6 +38,8 @@ Stores parameters for the simulation
     epsilon_mode::D = 0
     epsilon_vol::T = 1e-10
     epsilon_dist::T = 1e-10 #redefined afterwards in run.jl
+    epsilon_divergence::T = 1e-10
+    epsilon_conservation::T = 1e-10
     ϵwall::T = ϵ # cell-clipping threshold at mixed cells in walls
     NB::D = nb_reinit÷2 # number of cells the velocity is extended
     T_inf::T = 0.0 # value of temperature at ∞
@@ -129,6 +132,7 @@ Stores parameters for the simulation
     iter_solve::D=0
     pres_intfc::T=0.0 # presintfc = pres0 + p_lapl ? #TODO init pressure
     pressure_velocity_coupling::D=0 #0 projection 1 coupled
+    pressure_velocity_solver::D=0
     solve_solid::D=0
 end
 

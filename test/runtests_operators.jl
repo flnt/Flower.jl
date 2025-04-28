@@ -1,7 +1,8 @@
 using Flower
 using Test
 
-using Revise
+# using Revise
+import Revise
 
 import Test: Test, finish
 using Test: DefaultTestSet, Broken
@@ -51,20 +52,26 @@ end
 # end
 
 
-module testyamlfile #enables to perform a test with ARGS to give an input file
-ARGS = String["../Flower.jl/test/poisson_no_interface.yml"]
-include("poisson_no_interface.jl")
-end
-
-
-@testset "Poisson equation inside square: solve_poisson" begin
-    using testyamlfile
-end
-
-#Tests for gradient, divergence and orientations
 @testset "Gradient and orientations" begin
     include("orientation.jl")
 end
+
+#region test
+# module testyamlfile #enables to perform a test with ARGS to give an input file
+# ARGS = String["../Flower.jl/test/poisson_no_interface.yml"]
+# include("poisson_no_interface.jl")
+# end
+
+
+# @testset "Poisson equation inside square: solve_poisson" begin
+#     using testyamlfile
+# end
+
+# #Tests for gradient, divergence and orientations
+# @testset "Gradient and orientations" begin
+#     include("orientation.jl")
+# end
+#endregion test
 
 # @testset "Gradient and orientations" begin
 #     include("gradient.jl")

@@ -688,7 +688,7 @@ function run_forward!(
             ni = grid_u.nx * grid_u.ny + grid_v.nx * grid_v.ny
             nb = 2 * grid_u.nx + 2 * grid_u.ny + 2 * grid_v.nx + 2 * grid_v.ny
             nt = (num.nLS - num.nNavier + 1) * ni + num.nNavier * grid.nx * grid.ny + nb
-            #dev was done with nNavier == 1
+            #dev was done with nNavier == ?
             
             #when no Navier: nt = (num.nLS + 1) * ni + nb
 
@@ -704,7 +704,7 @@ function run_forward!(
 
             else
                 # We solve for u, v with borders 
-                # dev was done with nNavier == 1
+                # dev was done with nNavier == ?
 
                 ni_p = grid.nx * grid.ny
                 nb_p = 2 * grid.nx + 2 * grid.ny
@@ -718,13 +718,34 @@ function run_forward!(
                 ni_uv = ni_u + ni_v
                 nb_uv = nb_u + nb_v
 
-                nt = (num.nLS - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv + (num.nLS + 1) * ni_p + nb_p
-                # so 1 * ni + 1 * ni_p +nb + ni_p + nb
-                # u v Navier, pression     
-               
-                AuvL = spzeros(nt, nt)
-                BuvL = spzeros(nt, nt)
-                rhs_uv = zeros(nt)  
+                if num.pressure_velocity_coupling == 1
+                    nt = (num.nLS - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv + (num.nLS + 1) * ni_p + nb_p
+                    ncol_A = (num.nLS - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv + ni_p
+                    # so 1 * ni + 1 * ni_p +nb + ni_p + nb
+                    # u v Navier, pression     
+                
+                    # AuvL = spzeros(nt, nt)
+                    # BuvL = spzeros(nt, nt)
+
+                    AuvL = spzeros(ncol_A, nt)
+                    BuvL = spzeros(ncol_A, nt)
+                    rhs_uv = zeros(ncol_A)  
+
+                elseif num.pressure_velocity_coupling == 2
+                    nt = (num.nLS - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv + (num.nLS + 1) * ni_p + nb_p
+                    ncol_A = nt
+                    
+                    # so 1 * ni + 1 * ni_p +nb + ni_p + nb
+                    # u v Navier, pression     
+                
+                    # AuvL = spzeros(nt, nt)
+                    # BuvL = spzeros(nt, nt)
+
+                    AuvL = spzeros(ncol_A, nt)
+                    BuvL = spzeros(ncol_A, nt)
+                    rhs_uv = zeros(ncol_A)  
+
+                end
 
             end
 
@@ -762,18 +783,21 @@ function run_forward!(
             if num.pressure_velocity_coupling == 0
                 #TODO why this call without interface initialization ?
                 if !navier
-                    _ = FE_set_momentum(
-                        num, grid_u, op.opC_uS,
-                        AuS, BuS,
-                        iRe.*Lum1_S, iRe.*bc_Lum1_S, iRe.*bc_Lum1_b_S, Mum1_S, BC_uS,
-                        true
-                    )
+                    if (num.solve_solid == 1) && ns_solid_phase
+                        _ = FE_set_momentum(
+                            num, grid_u, op.opC_uS,
+                            AuS, BuS,
+                            iRe.*Lum1_S, iRe.*bc_Lum1_S, iRe.*bc_Lum1_b_S, Mum1_S, BC_uS,
+                            true
+                        )
+                    
                     _ = FE_set_momentum(
                         num, grid_v, op.opC_vS,
                         AvS, BvS,
                         iRe.*Lvm1_S, iRe.*bc_Lvm1_S, iRe.*bc_Lvm1_b_S, Mvm1_S, BC_vS,
                         true
                     )
+                    end
                 else
                     _ = FE_set_momentum_coupled(
                         BC_int, num, grid, grid_u, grid_v,
@@ -784,7 +808,7 @@ function run_forward!(
                         true
                     )
                 end
-            elseif num.pressure_velocity_coupling == 1
+            elseif num.pressure_velocity_coupling > 1
                 # Coupled resolution of u and v
                 _ = FE_set_momentum_coupled2(
                 BC_int, num, grid, grid_u, grid_v,
@@ -792,7 +816,7 @@ function run_forward!(
                 AuvL, BuvL,rhs_uv,
                 iRe.*Lum1_L, iRe.*bc_Lum1_L, iRe.*bc_Lum1_b_L, Mum1_L, BC_uL,
                 iRe.*Lvm1_L, iRe.*bc_Lvm1_L, iRe.*bc_Lvm1_b_L, Mvm1_L, BC_vL,
-                true
+                true,BC_pL,phL
                 )
             end
 
@@ -854,7 +878,7 @@ function run_forward!(
                     )
                 end
 
-            elseif num.pressure_velocity_coupling == 1
+            elseif num.pressure_velocity_coupling > 1
                 # Coupled resolution of u and v
                 _ = FE_set_momentum_coupled2(
                 BC_int, num, grid, grid_u, grid_v,
@@ -862,7 +886,7 @@ function run_forward!(
                 AuvL, BuvL,rhs_uv,
                 iRe.*Lum1_L, iRe.*bc_Lum1_L, iRe.*bc_Lum1_b_L, Mum1_L, BC_uL,
                 iRe.*Lvm1_L, iRe.*bc_Lvm1_L, iRe.*bc_Lvm1_b_L, Mvm1_L, BC_vL,
-                true
+                true,BC_pL,phL
                 )
             end
 
@@ -2159,55 +2183,56 @@ function run_forward!(
 
                     elseif num.advection_LS_mode == 8
                         print("\n num.advection_LS_mode == 8 iLS", iLS)
+                        print("\n deprecated", iLS)
 
-                        nghost = 1
+                        # nghost = 1
 
-                        Aghost, Bghost = allocate_ghost_matrices(grid.nx,grid.ny,nghost)
+                        # Aghost, Bghost = allocate_ghost_matrices(grid.nx,grid.ny,nghost)
 
-                        print("\n periodic ",periodic_x," y ",periodic_y)
-
-
-                        print_CL_length(num,grid, grid.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+                        # print("\n periodic ",periodic_x," y ",periodic_y)
 
 
-                        printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
+                        # print_CL_length(num,grid, grid.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
 
-                        # IIOE_normal!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y)
-                        # IIOE_normal_indices!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
 
-                        # print("\n sizes LS A ",size(grid.LS[iLS].A), " B ", size(grid.LS[iLS].B)," LS ",size(grid.LS[iLS].u)," V ",size(grid.V),"\n")
+                        # printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
 
-                        #recopy value in ghost cell
-                        LSghost = init_ghost_neumann(grid.LS[iLS].u,grid.nx,grid.ny,nghost)
+                        # # IIOE_normal!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y)
+                        # # IIOE_normal_indices!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, grid.V, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
+
+                        # # print("\n sizes LS A ",size(grid.LS[iLS].A), " B ", size(grid.LS[iLS].B)," LS ",size(grid.LS[iLS].u)," V ",size(grid.V),"\n")
+
+                        # #recopy value in ghost cell
+                        # LSghost = init_ghost_neumann(grid.LS[iLS].u,grid.nx,grid.ny,nghost)
                         
-                        Vghost = init_ghost_neumann(grid.V,grid.nx,grid.ny,nghost)
+                        # Vghost = init_ghost_neumann(grid.V,grid.nx,grid.ny,nghost)
 
-                        # print("\n LSghost \n")
-                        # print("\n ",LSghost[0,:])
-                        # print("\n ",LSghost[1,:])
-                        # print("\n ",LSghost[:,0])
-                        # print("\n ",LSghost[:,1])
+                        # # print("\n LSghost \n")
+                        # # print("\n ",LSghost[0,:])
+                        # # print("\n ",LSghost[1,:])
+                        # # print("\n ",LSghost[:,0])
+                        # # print("\n ",LSghost[:,1])
 
-                        IIOE_normal_indices!(grid, Aghost, Bghost, grid.LS[iLS].u, LSghost, 
-                        grid.V, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
-
-                        # IIOE_normal_indices!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, LSghost, 
+                        # IIOE_normal_indices!(grid, Aghost, Bghost, grid.LS[iLS].u, LSghost, 
                         # grid.V, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
 
-                        # IIOE_normal_indices!(grid, Aghost, Bghost, LSghost, Vghost, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
+                        # # IIOE_normal_indices!(grid, grid.LS[iLS].A, grid.LS[iLS].B, grid.LS[iLS].u, LSghost, 
+                        # # grid.V, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
 
-                        # print("\n sizes LS A ",size(grid.LS[iLS].A), " B ", size(grid.LS[iLS].B)," LS ",size(grid.LS[iLS].u)," V ",size(grid.V),"\n")
-                        # print("\n sizes LS A ",size(OffsetArrays.no_offset_view(Aghost)), " B ", size(OffsetArrays.no_offset_view(Bghost))," LS ",size(LSghost)," V ",size(grid.V),"\n")
+                        # # IIOE_normal_indices!(grid, Aghost, Bghost, LSghost, Vghost, CFL_sc, periodic_x, periodic_y,grid.ind.all_indices)
 
-                        OffsetArrays.no_offset_view(LSghost) .= reshape(gmres(OffsetArrays.no_offset_view(Aghost), OffsetArrays.no_offset_view(Bghost) * vec(OffsetArrays.no_offset_view(LSghost))), (grid.ny+2,grid.nx+2))
+                        # # print("\n sizes LS A ",size(grid.LS[iLS].A), " B ", size(grid.LS[iLS].B)," LS ",size(grid.LS[iLS].u)," V ",size(grid.V),"\n")
+                        # # print("\n sizes LS A ",size(OffsetArrays.no_offset_view(Aghost)), " B ", size(OffsetArrays.no_offset_view(Bghost))," LS ",size(LSghost)," V ",size(grid.V),"\n")
 
-                        grid.LS[iLS].u .= LSghost[1:grid.ny,1:grid.nx]
+                        # OffsetArrays.no_offset_view(LSghost) .= reshape(gmres(OffsetArrays.no_offset_view(Aghost), OffsetArrays.no_offset_view(Bghost) * vec(OffsetArrays.no_offset_view(LSghost))), (grid.ny+2,grid.nx+2))
 
-                        # grid.LS[iLS].u .= reshape(gmres(OffsetArrays.no_offset_view(Aghost), OffsetArrays.no_offset_view(Bghost) * vec(grid.LS[iLS].u)), grid)
+                        # grid.LS[iLS].u .= LSghost[1:grid.ny,1:grid.nx]
+
+                        # # grid.LS[iLS].u .= reshape(gmres(OffsetArrays.no_offset_view(Aghost), OffsetArrays.no_offset_view(Bghost) * vec(grid.LS[iLS].u)), grid)
 
 
 
-                        print_CL_length(num,grid, grid.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+                        # print_CL_length(num,grid, grid.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
 
                     elseif ((num.advection_LS_mode == 9) || (num.advection_LS_mode == 10))
                         print("\n num.advection_LS_mode == 8 iLS", iLS)
@@ -2597,7 +2622,7 @@ function run_forward!(
                     # )
                 end
 
-            elseif num.pressure_velocity_coupling == 1
+            elseif num.pressure_velocity_coupling > 1
 
                 if ns_liquid_phase
                     geoL = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
@@ -2639,22 +2664,29 @@ function run_forward!(
         conservation = 0.0 
         not_divergence_free = true
 
-        #TODO mutlple levelsets 1 or end
-        conservation += -vecb_L(phL.uD,grid_u) .* grid_u.LS[1].geoL.dcap[:,:,1] # left capacity: u
-        conservation +=  vecb_R(phL.uD,grid_u) .* grid_u.LS[1].geoL.dcap[:,:,3] # right capacity: u
-        conservation += -vecb_B(phL.vD,grid_v) .* grid_v.LS[1].geoL.dcap[:,:,2] # bottom capacity: v
-        conservation +=  vecb_T(phL.vD,grid_v) .* grid_v.LS[1].geoL.dcap[:,:,4] # top capacity: v 
+        #TODO mutliple levelsets 1 or end
+        # cf bc_matrix_borders!(grid, opC_u.Gx_b, opC_v.Gy_b, opC_p.Gx_b, opC_p.Gy_b, geo.dcap)
+        conservation += -dot(vecb_L(phL.uD,grid_u) , grid.LS[1].geoL.dcap[:,1,1]) 
+        conservation +=  dot(vecb_R(phL.uD,grid_u) , grid.LS[1].geoL.dcap[:,grid.nx,3]) # right capacity: u
+        conservation += -dot(vecb_B(phL.vD,grid_v) , grid.LS[1].geoL.dcap[1,:,2]) # bottom capacity: v
+        conservation +=  dot(vecb_T(phL.vD,grid_v) , grid.LS[1].geoL.dcap[grid.ny,:,4]) # top capacity: v 
         
         # Compute divergence of velocity
-        Duv = opC_p.AxT * vec1(ucorrD,grid_u) .+ opC_p.Gx_b * vecb(ucorrD,grid_u) .+
-              opC_p.AyT * vec1(vcorrD,grid_v) .+ opC_p.Gy_b * vecb(vcorrD,grid_v)
-        for iLS in 1:nLS
+        Duv = op.opC_pL.AxT * vec1(phL.uD,grid_u) .+ op.opC_pL.Gx_b * vecb(phL.uD,grid_u) .+
+        op.opC_pL.AyT * vec1(phL.vD,grid_v) .+ op.opC_pL.Gy_b * vecb(phL.vD,grid_v)
+        for iLS in 1:num.nLS
             if !is_navier(BC_int[iLS]) && !is_navier_cl(BC_int[iLS]) #otherwise normal velocity null if no blowing
-                Duv .+= opC_p.Gx[iLS] * veci(ucorrD,grid_u,iLS+1) .+ 
-                opC_p.Gy[iLS] * veci(vcorrD,grid_v,iLS+1)
+                Duv .+= op.opC_pL.Gx[iLS] * veci(phL.uD,grid_u,iLS+1) .+ 
+                        op.opC_pL.Gy[iLS] * veci(phL.vD,grid_v,iLS+1)
             end
         end
         #TODO divergence when Navier ?
+
+        PDI_status = @ccall "libpdi".PDI_multi_expose("print_conservation"::Cstring,
+        "conservation"::Cstring, conservation::Ref{Cdouble}, PDI_OUT::Cint,
+        "divergence"::Cstring, Duv::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
 
         if maximum(Duv)< num.epsilon_divergence
             not_divergence_free = false
@@ -2713,8 +2745,8 @@ function run_forward!(
                     #                     if num.electrical_potential>0 compute_grad_phi_ele!(num, grid, grid_u, grid_v, phL, phS, op.opC_pL, op.opC_pS) #TODO current
 
                     if num.electrical_potential>0
-                        compute_grad_phi_ele!(num, grid, grid_u, grid_v, grid_u.LS[end], grid_v.LS[end], phL, phS,
-                        op.opC_pL, op.opC_pS, elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p0,tmp_vec_p1) #TODO current
+                        compute_grad_phi_ele!(num, grid, grid_u, grid_v, grid_u.LS[end], grid_v.LS[end], phL,
+                        op.opC_pL, elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p0,tmp_vec_p1) #TODO current
                     end
 
                     # #store in us, vs instead of Eus, Evs
@@ -2781,20 +2813,55 @@ function run_forward!(
                 return
             end
 
-        
-            if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || any(isnan, phS.uD) || any(isnan, phS.vD) || any(isnan, phS.TD) ||
-                any(isnan, phL.trans_scalD) || any(isnan, phL.phi_eleD) ||
-                norm(phL.u) > 1e8 || norm(phS.u) > 1e8 || norm(phL.T) > 1e8 || norm(phS.T) > 1e8 || norm(phL.trans_scal) > 1e8 || norm(phL.phi_ele) > 1e8)
-                println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
-                
-                print("\n phL.uD: ",any(isnan, phL.uD) , "\n phL.vD: ",any(isnan, phL.vD) , "\n phL.TD: ",any(isnan, phL.TD) , "\n phS.uD: ",any(isnan, phS.uD) , "\n phS.vD: ",any(isnan, phS.vD) , "\n phS.TD: ",any(isnan, phS.TD) ,
-                "\n phL.trans_scalD: ",any(isnan, phL.trans_scalD) , "\n phL.phi_eleD: ",any(isnan, phL.phi_eleD) ,
-                "\n phL.u: ",norm(phL.u) > 1e8 , "\n phS.u: ",norm(phS.u) > 1e8 , "\n phL.T: ",norm(phL.T) > 1e8 , "\n phS.T: ",norm(phS.T) > 1e8 , "\n phL.trans_scal: ",norm(phL.trans_scal) > 1e8 , "\n phL.phi_ele: ",norm(phL.phi_ele) > 1e8)
+
+            #region test NaN
+            if num.solve_solid == 1
+
+                if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || 
+                    any(isnan, phS.uD) || any(isnan, phS.vD) || any(isnan, phS.TD) ||
+                    any(isnan, phL.trans_scalD) || any(isnan, phL.phi_eleD) ||
+                    norm(phL.u) > 1e8 || norm(phL.T) > 1e8 || 
+                    norm(phS.u) > 1e8 || norm(phS.T) > 1e8 || 
+                    norm(phL.trans_scal) > 1e8 || norm(phL.phi_ele) > 1e8 ||
+                    any(phL.trans_scal .<0))
+                    println(@sprintf "\n CRASHED start \n")
+                    
+                    print("\n phL.uD: ",any(isnan, phL.uD) , "\n phL.vD: ",any(isnan, phL.vD) , "\n phL.TD: ",any(isnan, phL.TD) ,
+                    "\n phS.uD: ",any(isnan, phS.uD) , "\n phS.vD: ",any(isnan, phS.vD) , "\n phS.TD: ",any(isnan, phS.TD) ,
+                    "\n phL.trans_scalD: ",any(isnan, phL.trans_scalD) , "\n phL.phi_eleD: ",any(isnan, phL.phi_eleD) ,
+                    "\n phL.u: ",norm(phL.u) > 1e8 , "\n phS.u: ",norm(phS.u) > 1e8 , "\n phL.T: ",norm(phL.T) > 1e8 , 
+                    "\n phS.T: ",norm(phS.T) > 1e8 , "\n phL.trans_scal: ",norm(phL.trans_scal) > 1e8 ,
+                    "\n phL.phi_ele: ",norm(phL.phi_ele) > 1e8,"\n any(phL.trans_scal .<0): ", any(phL.trans_scal .<0))
     
+                    crashed=true
+    
+                end
+            else 
+    
+                if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || 
+                    any(isnan, phL.trans_scalD) || any(isnan, phL.phi_eleD) ||
+                    norm(phL.u) > 1e8 || norm(phL.T) > 1e8 || 
+                    norm(phL.trans_scal) > 1e8 || norm(phL.phi_ele) > 1e8 ||
+                    any(phL.trans_scal .<0))
+                    println(@sprintf "\n CRASHED start \n")
+    
+                    # println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
+                    
+                    print("\n phL.uD: ",any(isnan, phL.uD) , "\n phL.vD: ",any(isnan, phL.vD) , "\n phL.TD: ",any(isnan, phL.TD) ,
+                    "\n phL.trans_scalD: ",any(isnan, phL.trans_scalD) , "\n phL.phi_eleD: ",any(isnan, phL.phi_eleD) ,
+                    "\n phL.u: ",norm(phL.u) > 1e8, "\n phL.T: ",norm(phL.T) > 1e8 , 
+                    "\n phL.trans_scal: ",norm(phL.trans_scal) > 1e8 ,
+                    "\n phL.phi_ele: ",norm(phL.phi_ele) > 1e8,"\n any(phL.trans_scal .<0): ", any(phL.trans_scal .<0))
+    
+                    crashed=true
+    
+                end
+    
+            end
 
-                # print_electrolysis_statistics(num,grid,phL)
-
-                 PDI_status = @ccall "libpdi".PDI_multi_expose("print_variables"::Cstring,
+            if crashed
+                
+                PDI_status = @ccall "libpdi".PDI_multi_expose("print_variables"::Cstring,
                         "nstep"::Cstring, nstep ::Ref{Clonglong}, PDI_OUT::Cint,
                         "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
                         "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -2818,24 +2885,45 @@ function run_forward!(
                         # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
                         # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
                         C_NULL::Ptr{Cvoid})::Cint
-
-                crashed=true
-                return
-
-            end
-        else
-            if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || any(isnan, phS.uD) || any(isnan, phS.vD) || any(isnan, phS.TD) ||
-                norm(phL.u) > 1e8 || norm(phS.u) > 1e8 || norm(phL.T) > 1e8 || norm(phS.T) > 1e8)
-                println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
                
-                crashed=true
-                return
-                
+                return num.current_i
             end
 
-        end
 
-        #update iter number and time
+          
+        else #not electrolysis
+
+            if num.solve_solid == 1
+
+                if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || 
+                    any(isnan, phS.uD) || any(isnan, phS.vD) || any(isnan, phS.TD) ||
+                    norm(phL.u) > 1e8 || norm(phS.u) > 1e8 || norm(phL.T) > 1e8 || norm(phS.T) > 1e8)
+                    println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
+                
+                    crashed=true
+                    return
+                    
+                end
+
+            else
+
+                if (any(isnan, phL.uD) || any(isnan, phL.vD) || any(isnan, phL.TD) || 
+                    norm(phL.u) > 1e8 || norm(phL.T) > 1e8 )
+                    println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
+                
+                    crashed=true
+                    return
+                    
+                end
+
+            end
+
+        end #if electrolysis
+        
+        #endregion test NaN
+
+
+        #region update iter number and time
 
         num.current_i += 1
         #update time
@@ -2850,6 +2938,8 @@ function run_forward!(
         #         abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)
         #     )
         # end
+        #endregion update iter number and time
+
     end
 
     #region print end

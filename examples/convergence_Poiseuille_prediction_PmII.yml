@@ -1924,7 +1924,7 @@ pdi:
 
   data: # values for which PDI does not keep a copy
     #in Flower: zeros((n.nLS + 1) * g.ny * g.nx + 2 * g.nx + 2 * g.ny)
-    #Field of the current subdmain
+    #Field of the current subdomain
     #Bulk, interface and border u velocity, ...
     # u grid nx+1, ny
     # v grid nx, ny
@@ -1989,52 +1989,52 @@ pdi:
     intfc_vtx_connectivities: { size: '2*($intfc_seg_num)', type: array, subtype: int64 } 
 
     # stored in 2D
-    i_current_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    i_current_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    i_current_mag: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    levelset_iso: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    levelset_p: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    levelset_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    levelset_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdmain
-    levelset_p_wall: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    velocity_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    velocity_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    mass_flux: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    mass_flux_bulk: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    mass_flux_border: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    mass_flux_intfc: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    i_current_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    i_current_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    i_current_mag: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    levelset_iso: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    levelset_p: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    levelset_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    levelset_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
+    levelset_p_wall: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    velocity_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    velocity_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    mass_flux: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    mass_flux_bulk: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    mass_flux_border: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    mass_flux_intfc: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     normal_angle: { size: [ '$nx', '$ny' ], type: array, subtype: double } # angle to compute normal (cos,sin) in 2D
-    normal_velocity_intfc: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    dcap_1: { size: [ '$nx', '$ny'], type: array, subtype: double } #Field of the current subdmain
-    dcap_2: { size: [ '$nx', '$ny'], type: array, subtype: double } #Field of the current subdmain
-    dcap_3: { size: [ '$nx', '$ny'], type: array, subtype: double } #Field of the current subdmain
-    dcap_4: { size: [ '$nx', '$ny'], type: array, subtype: double } #Field of the current subdmain
+    normal_velocity_intfc: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    dcap_1: { size: [ '$nx', '$ny'], type: array, subtype: double } #Field of the current subdomain
+    dcap_2: { size: [ '$nx', '$ny'], type: array, subtype: double } #Field of the current subdomain
+    dcap_3: { size: [ '$nx', '$ny'], type: array, subtype: double } #Field of the current subdomain
+    dcap_4: { size: [ '$nx', '$ny'], type: array, subtype: double } #Field of the current subdomain
 
-    grad_x_coord: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    grad_y_coord: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    grad_x_coord: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    grad_y_coord: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
 
-    grad_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    grad_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    grad_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    grad_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
 
 
     # stored in 3D
-    dcap: { size: [ 11,'$nx', '$ny'], type: array, subtype: double } #Field of the current subdmain
+    dcap: { size: [ 11,'$nx', '$ny'], type: array, subtype: double } #Field of the current subdomain
     
     iscal: int64 #Index for naming files
 
    
     #chi
-    # chi_1: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    # chi_2: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    # chi_3: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    # chi_1: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    # chi_2: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    # chi_3: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
 
    # To save only bulk field, with u given in Flower
-    # u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    # v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdmain
-    # trans_scal: { size: [ '$nx', '$ny','$nb_transported_scalars' ], type: array, subtype: double } #Field of the current subdmain
-    # phi_ele: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    # iu: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    # iv: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    # u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    # v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
+    # trans_scal: { size: [ '$nx', '$ny','$nb_transported_scalars' ], type: array, subtype: double } #Field of the current subdomain
+    # phi_ele: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    # iu: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    # iv: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
 
   plugins:
     # trace: ~

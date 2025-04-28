@@ -1873,6 +1873,10 @@ safe-run -m 1073741824 julia +1.10.5 --project=../Flower.jl --threads=1 ../Flowe
 julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence.jl ../Flower.jl/examples/convergence_diffusion_convection_constant_conductivity_no_gravity_coupled_laplacian.yml 
 ```
 
+To load a compiled function and another library
+```bash
+LD_LIBRARY_PATH=. LD_PRELOAD="simple.so /usr/lib/x86_64-linux-gnu/libcurl.so" julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence.jl ../Flower.jl/examples/convergence_diffusion_convection_constant_conductivity_no_gravity_coupled_laplacian.yml
+```
 
 
 ### Poiseuille Flow, convergence to stationary solution

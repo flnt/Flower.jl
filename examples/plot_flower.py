@@ -11,6 +11,7 @@ import pandas as pd
 import sys
 from termcolor import colored
 import matplotlib.animation as animation
+
 import functools
 
 import matplotlib.font_manager as fm
@@ -24,6 +25,8 @@ import matplotlib as mpl
 
 import matplotlib.patches as patches
 import matplotlib.transforms as transforms
+
+import scipy
 
 
 
@@ -2551,7 +2554,7 @@ def plot_schematics_fluxes(figpar,plotpar):
     inset_ax.text(
                 # xmin/2,
                   0,
-                  0.6, r'$ \frac{i_y}{z_+F}=N_{+y}=-z_+u_+F\nu_+c\frac{\partial \phi}{\partial y}-D_+\nu_+\frac{\partial c}{\partial y}$', 
+                  0.6, r'$ \frac{i_x}{z_+F}=N_{+x}=-z_+u_+F\nu_+c\frac{\partial \phi}{\partial x}-D_+\nu_+\frac{\partial c}{\partial x}$', 
                   fontsize=fontsize,color='w',
                   ha='left',
                   transform=xtransform,
@@ -2561,7 +2564,7 @@ def plot_schematics_fluxes(figpar,plotpar):
     inset_ax.text(
                 # xmin/2,
                 0,
-                0.4, r'$ 0=N_{-y}=-z_-u_-F\nu_-c\frac{\partial \phi}{\partial y}-D_-\nu_-\frac{\partial c}{\partial y} $', 
+                0.4, r'$ 0=N_{-x}=-z_-u_-F\nu_-c\frac{\partial \phi}{\partial x}-D_-\nu_-\frac{\partial c}{\partial x} $', 
                 fontsize=fontsize,color='w',
                 ha='left',
                 transform=xtransform,
@@ -2626,9 +2629,15 @@ def plot_schematics_full(figpar,plotpar):
 
     fig1, ax2 = init_fig(plotpar,figpar)
 
-    fontsize = plotpar['font_size']
+    try:
+        fontsize = figpar['font_size']
+    except:
+        fontsize = plotpar['font_size']
 
     # axins.imshow(Z2, extent=extent, origin="lower")
+
+
+    linewidth = 0.5
 
     lw_inset = 0.5
     color_inset = orange_Okabe
@@ -2695,23 +2704,55 @@ def plot_schematics_full(figpar,plotpar):
     # inset_ax.fill_between([0, 1-liq_height], [1, 1], [1, 1-liq_height_2], color='cyan', alpha=0.3)
 
     # inset_ax.fill_between([0, 1],[1,1] ,[1-liq_height, 1-liq_height_2])
-    inset_ax.fill_between([0, 2],[1,1] ,[1-liq_height, 1-liq_height_2])
+    inset_ax.fill_between([0, 2],[1,1] ,[1-liq_height, 1-liq_height_2],
+                        #   color='k',
+                          )
 
 
-    o2coord = 0.25
 
     other_radius= 0.125 #0.025
 
     zorder_bubbles=1
     edgecolor=None
-    circle1 = plt.Circle((0.0, 0.15), other_radius/4, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
-    circle2 = plt.Circle((0.15, 0.92), other_radius, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+
+    plot_difusion = True
 
 
+    if plot_difusion:
+        o2coord = 0.4
+        h2coord = 0.6
 
-    circle3 = plt.Circle((0.0, 0.5), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+        circle1 = plt.Circle((0.0, 0.42), other_radius/4, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+        circle2 = plt.Circle((0.15, 0.92), other_radius, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
 
-    circle4 = plt.Circle((2.0, o2coord), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+        circle3 = plt.Circle((0.0, h2coord), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+
+        circle4 = plt.Circle((2.0, o2coord), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+
+
+        plot_coord_diffusion = 0.25
+        plot_diffusion(figpar,plotpar,inset_ax,plot_coord_diffusion)
+        
+
+        inset_ax.text(1.5, plot_coord_diffusion+0.02, 'c', color='w',fontsize=fontsize, va='center',ha='center')
+        inset_ax.text(1.75, plot_coord_diffusion-0.05, 't', color='w',fontsize=fontsize, va='center',ha='center')
+
+        inset_ax.annotate('', xy=(1.7, plot_coord_diffusion-0.1), xytext=(1.75, plot_coord_diffusion), 
+                        #   arrowprops=dict(arrowstyle='-[, widthB=5.0, lengthB=0.2', lw=1.5),
+                        arrowprops=dict(arrowstyle='->,widthA=0.5,widthB=0.5', color='w',linewidth=linewidth),
+                        # linewidth=0.25,
+                        )
+    
+    else:
+        o2coord = 0.25
+        h2coord = 0.5
+
+        circle1 = plt.Circle((0.0, 0.15), other_radius/4, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+        circle2 = plt.Circle((0.15, 0.92), other_radius, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+
+        circle3 = plt.Circle((0.0, 0.5), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+
+        circle4 = plt.Circle((2.0, o2coord), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
 
 
     # circle1.set_clip_on(True)
@@ -2722,7 +2763,7 @@ def plot_schematics_full(figpar,plotpar):
     # inset_ax.axvline(-0.1,c='k')
 
 
-    inset_ax.text(0, 0.5, r'$\ce{H2}$', fontsize=fontsize,va='center',ha='left',color='k')
+    inset_ax.text(0, h2coord, r'$\ce{H2}$', fontsize=fontsize,va='center',ha='left',color='k')
    
     inset_ax.text(2.0, o2coord, r'$\ce{O2}$', fontsize=fontsize,va='center',ha='right',color='k')
 
@@ -2737,6 +2778,7 @@ def plot_schematics_full(figpar,plotpar):
     #           )
 
     inset_ax.add_patch(circle1)
+
     inset_ax.add_patch(circle2)
     # inset_ax.add_patch(arc)
     inset_ax.add_patch(circle3)
@@ -2751,15 +2793,23 @@ def plot_schematics_full(figpar,plotpar):
     gray = 0.3
     dx2 = 1e-2
     # Draw the electrode
-    electrode = patches.Rectangle((xmin, 0), -xmin-dx2, 1.0, 
-                                edgecolor= (gray, gray, gray), 
+    #    xmin = 0-dx
+    patchedge = (gray, gray, gray)
+    patchedge = None
+
+    cathode = patches.Rectangle((xmin, 0), 
+                                dx,
+                                # dx+dx2,
+                                # -xmin-dx2,
+                                1.0, 
+                                edgecolor= patchedge, 
                                 facecolor= (gray, gray, gray) #'gray'
                                 )
-    inset_ax.add_patch(electrode)
+    inset_ax.add_patch(cathode)
 
     anode = patches.Rectangle((2, 0), dx+dx2, 1.0, 
                                 #   edgecolor='black', 
-                                edgecolor= (gray, gray, gray), 
+                                edgecolor= patchedge, 
                                 facecolor= (gray, gray, gray) #'gray'
                                 )
     inset_ax.add_patch(anode)
@@ -2781,7 +2831,8 @@ def plot_schematics_full(figpar,plotpar):
     inset_ax.text((xmax2+2)/2, 0.5, 'Anode', color='w',fontsize=fontsize,rotation=90, va='center',ha='center')
 
 
-    inset_ax.plot([1, 1], [0,1], ls='-',color='w')
+    inset_ax.plot([1, 1], [0,1], ls='-',color='w') #membrane
+
     # inset_ax.plot([1.0125, 1.0125], [0,1], ls='-',color='w')
     # inset_ax.plot([1.-dx/2, 1.0-dx/2], [0,1], ls='-',color='w')
     # inset_ax.plot([1.+dx/2, 1.0+dx/2], [0,1], ls='-',color='w')
@@ -2814,28 +2865,233 @@ def plot_schematics_full(figpar,plotpar):
     # inset_ax.text(0.5, 0.3, r'$\mathrm{\ce{H2}} \text{bubble}$', fontsize=fontsize,va='center',ha='center',color='k')
 
 
-    inset_ax.text(0.5, 0.2, r'$\mathrm{\ce{H2}O}, \mathrm{KOH}, \mathrm{\ce{H2}}$', fontsize=fontsize,va='center',ha='center',color='w')
+    inset_ax.text(0.5, 0.5, r'$\mathrm{\ce{H2}O}, \mathrm{KOH}, \mathrm{\ce{H2}}$', 
+                  fontsize=fontsize,va='center',ha='center',color='w')
 
-    inset_ax.text(0.0, 0.0, r'\ce{2H2O + 2e- -> 2H2 + 2OH-}', fontsize=fontsize,va='bottom',ha='left',color='w')
+    va_eq = 'center'
+
+    eq2coord = 0.05 #0.8
+
+    inset_ax.text(0.0, eq2coord, r'\ce{2H2O + 2e- -> 2H2 + 2OH-}', fontsize=fontsize,va=va_eq,ha='left',color='w')
     # inset_ax.text(0.0, 0.0, r"$\mathrm{2\ce{H2}O} + 2e^- \rightarrow \mathrm{2\ce{H2}} + \mathrm{2OH^-}$", fontsize=fontsize,va='bottom',ha='left',color='w')
 
+    
+    inset_ax.text(2.0, eq2coord, r"\ce{2OH- -> H2O + 1/2O2 + 2e-}",
+                   fontsize=fontsize,va=va_eq,ha='right',color='w')
+    
+    
+    #electroneutrality
 
-    inset_ax.text(2.0, 0.0, r"\ce{2OH- -> H2O + 1/2O2 + 2OH- + 2e-}",
-                   fontsize=fontsize,va='bottom',ha='right',color='w')
+
+    arrow_length = 0.3
+    arrow_coord = 1
+    inset_ax.annotate('', xy=(arrow_coord, 0.2), xytext=(arrow_coord-arrow_length, 0.2), 
+                    #   arrowprops=dict(arrowstyle='-[, widthB=5.0, lengthB=0.2', lw=1.5),
+                    arrowprops=dict(arrowstyle='->,widthA=0.5,widthB=0.5', color='w',linewidth=linewidth)
+                      )
+    
+  
+
+    
+    inset_ax.annotate('', xy=(arrow_coord, 0.2), xytext=(arrow_coord+arrow_length, 0.2), 
+                    #   arrowprops=dict(arrowstyle='-[, widthB=5.0, lengthB=0.2', lw=1.5),
+                    arrowprops=dict(arrowstyle='->,widthA=0.5,widthB=0.5', color='w',linewidth=linewidth)
+                      )
+    # inset_ax.text(1.2, 0.2, r'$\mathrm{\ce{OH-}}$', 
+    #             fontsize=fontsize,va='top',ha='center',color='w')
 
     # inset_ax.text(2.0, 0.0, r"$\mathrm{2OH^-} \rightarrow \mathrm{\ce{H2}O} + \frac 12 \mathrm{\ce{O2}} + 2e^-$",
     #                fontsize=fontsize,va='bottom',ha='right',color='w')
 
     # inset_ax.text(1, 0.5, r'$ \phi = 0$', fontsize=fontsize,va='center',ha='right',color='w')
 
+
+
+    # shift the object by linewidth
+    linewidth_points = 1 #lw_inset
+    dx, dy = 0, -linewidth_points/72.
+    offset = transforms.ScaledTranslation(dx, dy, fig1.dpi_scale_trans)
+    shadow_transform = inset_ax.transData + offset
+    shadow_transform_minus = inset_ax.transData - offset
+
+
+    
+    # # inset_ax.text(0.1, 0.35, r'$c_{\ce{H2}} = c_{\ce{H2}, 0}$', fontsize=fontsize)
+    # inset_ax.text(0.5, 0, r'$\frac{\partial \phi }{\partial n} = 0$', 
+    #               fontsize=fontsize,va='bottom',ha='left',color='w',
+    #               transform = shadow_transform,
+    #               )
+
+    inset_ax.text(1.2, 0.2, r'$\mathrm{\ce{K+}}$', 
+    fontsize=fontsize,va='top',ha='center',color='w',
+    transform = shadow_transform,
+    )
+
+    inset_ax.text(0.8, 0.2, r'$\mathrm{\ce{OH-}}$', 
+    fontsize=fontsize,va='top',ha='center',color='w',
+    transform = shadow_transform,
+    )
+
+    xarr = np.linspace(0,2,10)
+
+    # def electrochem_func(x):
+    #     return scipy.special.erf(x)-scipy.special.erf(2-x)
+
+    # plt.plot(xarr,electrochem_func(xarr),color='w')
+
+
     plt.axis('equal')
 
     inset_ax.set_ylim(0, 1)
     inset_ax.set_xlim(-0.1, 2.1)
 
-    plt.savefig('schematics_full.pdf',transparent=True)
+    plt.savefig('schematics_full_migration.pdf',transparent=True)
+   
+   
+
+    plt.savefig('schematics_full_migration_diffusion.pdf',transparent=True)
 
 
+    # plt.savefig('schematics_full.pdf',transparent=True)
+
+
+
+def plot_diffusion(figpar,plotpar,inset_ax,plot_coord = 0.2):
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    # Parameters
+    L = 1e-4  # Length of the wire
+    D = 3.2e-9  #  diffusivity
+
+    nx = 100
+    nx = 1000 #accumulating error if n too small so if N big, accumulating too much if nx=100 and N=1000
+
+    diffusion_time_scale = L**2/D
+
+    print('diffusion time scale',diffusion_time_scale)
+    # Time step
+
+    Faraday = 9.64853321233100184e4
+    i= -1e4
+    F1 = i/(2*Faraday*D) #BC
+    t_max = diffusion_time_scale #1e-4  # Maximum time
+    # t_max = diffusion_time_scale / 10
+
+    dx = L/nx  # Spatial step size
+
+    nstep = 10
+    dt = t_max/nstep #1e-5  # Time step size
+
+    x = np.arange(0, L + dx, dx)  # Spatial domain
+    # t = np.arange(0, t_max + dt, dt)  # Time domain
+    t = np.arange(dt, t_max + dt, dt)  # Time domain
+    t = np.arange(0, t_max + dt, dt)  # Time domain
+
+    t = np.array([0,t_max/100,t_max])
+
+    # time_list = [0.1, 0.5, 1.0, 1.5, 2.0]
+
+    time_list = t
+
+    print('time_list',time_list)
+    c0 = 6700
+
+    # N = 10
+    N = 1000
+
+    # N = 100
+
+    # Special function u1
+    def u1(x, t):
+        return F1 * x
+        # return (F2-F1)/(2*L) + F1 * x + D*(F2-F1)/L*t #if different left right
+
+
+    # Initial condition f(x)
+    def f(x):
+        return c0-u1(x,0)  # Example initial condition c0-u1?
+
+    # Coefficients A_n
+    def A_n(n, L, F1,x):
+        integral = np.trapz([f(xi)*np.cos(n * np.pi * xi / L) for xi in x], x)
+        return (2 / L) * integral #* np.cos(n * np.pi * x / L)
+
+    # Solution u2
+    def u2(x, t, L, D, N):        
+        result = sum(A_n(n, L, F1,x) * np.cos(n * np.pi * x / L) *np.exp(-D * (n * np.pi / L)**2 * t) for n in range(1, N + 1))
+        n=0
+        result += A_n(n, L, F1,x) * np.cos(n * np.pi * x / L) *np.exp(-D * (n * np.pi / L)**2 * t) /2
+        #case 0 special int cos(0) cos(0)dx = L
+        return result
+
+    # Total solution u
+    def u(x, t, L, D, N):
+        return u1(x, t) + u2(x, t, L, D, N)
+
+    # Plot the solution
+
+    # plt.figure(figsize=(10, 6))
+
+    # plt.plot(x, [c0]*len(x), label=f't = {0.0:.2e}')
+    # plt.plot(x, u1(x, 0), label='u1')
+
+    # #Test influence of nx vs N (accumulation of errors, for example nx=100 and N=1000 for t=0)
+    # print('f(x)',f(x))
+    # print('u2',u2(x, 0, L, D, N),u2(x, 0, L, D, N)[0]/c0)
+    # print('u',u(x, 0, L, D, N),u(x, 0, L, D, N)[0]/c0)
+    # print('u1',u1(x, 0),u1(x, 0)[0]/c0)
+    # print('u2',u2(x, 0, L, D, N)/10,u2(x, 0, L, D, N)[0]/c0/10)
+
+    # # print('np.exp(-D * (n * np.pi / L)**2 * t)',np.exp(-D * (1000 * np.pi / L)**2 * 0))
+
+    # # print('u2test',u2test(x, 0, L, D, N)/10,u2test(x, 0, L, D, N)[0]/c0/10)
+
+    # print('u2',u2(x, 0, L, D, 100))
+
+    
+    xplot = x*1e4*2
+    scale_y_fig = 6700
+
+    for time in time_list:
+        val = u(x, time, L, D, N)
+        # val = x
+        # val = u1(x, time)
+        # val = u1(x, time)+f(x)
+
+        # print('time',time,u(0, time, L, D, N),u1(0, time))
+        # print('time',time,val)
+
+        plot_val =plot_coord+(val-scale_y_fig)/scale_y_fig #scale to fit,center a
+
+        print(plot_val)
+        # print('x',x)
+        zorder_bubbles = 1
+
+        inset_ax.plot(xplot, plot_val,
+                    #    label=f't = {time:.2e}',
+                    #   color='w',
+                      color='w',
+                      linewidth=0.5,
+                      zorder=1,
+                      )
+    
+
+    # plt.xlabel('x')
+    # plt.ylabel('u(x, t)')
+    # plt.title('Solution of the Heat Equation with Inhomogeneous Neumann BC')
+    # plt.legend()
+    # plt.grid(True)
+
+    # plt.axis("equal")
+    # plt.savefig('diffusion.pdf')
+
+    # plt.show()
+
+    #Test trapz
+    # def g(x):
+    #     return x
+    # print(np.trapz([g(xi) for xi in x], x))
 
 
 
@@ -2969,7 +3225,7 @@ def plot_schematics_full_with_losses(figpar,plotpar):
     gray = 0.3
     dx2 = 1e-2
     # Draw the electrode
-    electrode = patches.Rectangle((xmin, 0), -xmin-dx2, 1.0, 
+    electrode = patches.Rectangle((xmin, 0), dx, 1.0, 
                                 edgecolor= (gray, gray, gray), 
                                 facecolor= (gray, gray, gray) #'gray'
                                 )
@@ -3038,7 +3294,7 @@ def plot_schematics_full_with_losses(figpar,plotpar):
     # # inset_ax.text(0.0, 0.0, r"$\mathrm{2\ce{H2}O} + 2e^- \rightarrow \mathrm{2\ce{H2}} + \mathrm{2OH^-}$", fontsize=fontsize,va='bottom',ha='left',color='w')
 
 
-    # inset_ax.text(2.0, 0.0, r"\ce{2OH- -> H2O + 1/2O2 + 2OH- + 2e-}",
+    # inset_ax.text(2.0, 0.0, r"\ce{2OH- -> H2O + 1/2O2 + 2e-}",
     #                fontsize=fontsize,va='bottom',ha='right',color='w')
 
     # inset_ax.text(2.0, 0.0, r"$\mathrm{2OH^-} \rightarrow \mathrm{\ce{H2}O} + \frac 12 \mathrm{\ce{O2}} + 2e^-$",

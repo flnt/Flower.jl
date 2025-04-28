@@ -623,7 +623,10 @@ end
 
 """
     bc_matrix_borders!(grid, Hx_u, Hy_v, Hx_p, Hy_p, dcap)
+    for Gx_b for divergence of velocity and gradient of pressure
     
+    bc_matrix_borders!(grid, opC_u.Gx_b, opC_v.Gy_b, opC_p.Gx_b, opC_p.Gy_b, geo.dcap)
+
 """
 function bc_matrix_borders!(grid, Hx_u, Hy_v, Hx_p, Hy_p, dcap)
     @unpack nx, ny, ind = grid
@@ -635,7 +638,7 @@ function bc_matrix_borders!(grid, Hx_u, Hy_v, Hx_p, Hy_p, dcap)
         @inbounds A1 = dcap[II,1]
 
         @inbounds Hx_u[pII, i] = -A1
-        @inbounds Hx_p[pII, i] = -A1
+        @inbounds Hx_p[pII, i] = -A1 #Gx_b
     end
     @inbounds @threads for i in 1:nx
         II = CartesianIndex(1,i)
@@ -653,7 +656,7 @@ function bc_matrix_borders!(grid, Hx_u, Hy_v, Hx_p, Hy_p, dcap)
         @inbounds A3 = dcap[II,3]
         
         @inbounds Hx_u[pII, i+ny+nx] = A3
-        @inbounds Hx_p[pJJ, i+ny+nx+1] = A3
+        @inbounds Hx_p[pJJ, i+ny+nx+1] = A3 #Gx_b
     end
     @inbounds @threads for i in 1:nx
         II = CartesianIndex(ny,i)

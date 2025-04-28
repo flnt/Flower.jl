@@ -333,6 +333,13 @@ rsync -a -P -r regnaultp@ruche.mesocentre.universite-paris-saclay.fr:/workdir/re
 
 ```
 
+### Juliac attempt: load juliac lib with another external lib
+
+LD_LIBRARY_PATH=. LD_PRELOAD="simple.so /usr/lib/x86_64-linux-gnu/libcurl.so" julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence.jl ../Flower.jl/examples/convergence_diffusion_convection_constant_conductivity_no_gravity_coupled_laplacian.yml
+
+
+
+
 ### Precompilation precompile vs package compiler
 
 Problem with PrecompileTools : needs to call using name of precompiled package

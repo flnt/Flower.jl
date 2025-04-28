@@ -570,6 +570,7 @@ num = Numerical(
     shifted_y = ycoord,
     R = radius,
     ϵ = ϵ,
+    solve_solid=1,
 )
 
 gp, gu, gv = init_meshes(num)
@@ -578,7 +579,7 @@ op, phS, phL = init_fields(num, gp, gu, gv)
 gp.LS[1].u .= 1.0 #deactivate interface
 
 
-@time run_forward!(num, gp, gu, gv, op, phS, phL; navier_stokes = true,)
+@time run_forward!(num, gp, gu, gv, op, phS, phL; navier_stokes = true)
 #navier_stokes = true 
 # or:
 # run_forward!(num, gp, gu, gv, op, phS, phL)
@@ -1015,6 +1016,27 @@ compute_grad_T_x_T_y_array_test!(num.nLS, gp, gu, gv, op.opC_pL, grad_x, grad_y,
 
 x_centroid_u = gu.x .+ getproperty.(gu.LS[1].geoS.centroid, :x) .* gu.dx
 y_centroid_u = gu.y .+ getproperty.(gu.LS[1].geoS.centroid, :y) .* gu.dy
+
+print("\nx_centroid_u ",x_centroid_u)
+print("\ny_centroid_u ",y_centroid_u)
+
+x_centroid_v = gv.x .+ getproperty.(gv.LS[1].geoS.centroid, :x) .* gv.dx
+y_centroid_v = gv.y .+ getproperty.(gv.LS[1].geoS.centroid, :y) .* gv.dy
+
+print("\nx_centroid_v ",x_centroid_v)
+print("\ny_centroid_v ",y_centroid_v)
+
+x_centroid_u = gu.x .+ getproperty.(gu.LS[1].geoL.centroid, :x) .* gu.dx
+y_centroid_u = gu.y .+ getproperty.(gu.LS[1].geoL.centroid, :y) .* gu.dy
+
+print("\nx_centroid_u ",x_centroid_u)
+print("\ny_centroid_u ",y_centroid_u)
+
+x_centroid_v = gv.x .+ getproperty.(gv.LS[1].geoL.centroid, :x) .* gv.dx
+y_centroid_v = gv.y .+ getproperty.(gv.LS[1].geoL.centroid, :y) .* gv.dy
+
+print("\nx_centroid_v ",x_centroid_v)
+print("\ny_centroid_v ",y_centroid_v)
 
 grad_analytical = ftest_1.(
     x_centroid_u,

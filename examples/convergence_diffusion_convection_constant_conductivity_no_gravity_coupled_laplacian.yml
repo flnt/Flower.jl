@@ -144,7 +144,8 @@ flower:
     # prediction = 2
     # prediction = 3 # PIII in Brown's article
     # prediction = 4
-    pressure_velocity_coupling: 1 # 0: projection, 1: coupled
+    pressure_velocity_coupling: 2 #1 # 0: projection, 1: coupled
+    pressure_velocity_solver: 1 #BICGSTAB(2)
     solve_solid: 0 #0 do not solve in solid
     reinit_every: 3 # period of levelset reinialization
     restart: 0 #TODO restart with PDI
@@ -259,7 +260,17 @@ flower:
         LS = [Dirichlet()],
       )
     
-      BC_pL = Boundaries()
+      # BC_pL = Boundaries()
+
+      #Dummy BC to test resolution
+      BC_pL = Boundaries( 
+        name = "BC_pL",
+        left   = Neumann(),
+        right  = Neumann(),
+        bottom = Dirichlet(val = p_bottom),
+        top    = Dirichlet(val = p_top),
+        init_mode = "True",
+      )  
 
       BC_phi_ele = BoundariesInt(
       left   = Neumann(val=i_butler./elec_cond), #TODO -BC in Flower ? so i_butler not -i_butler
@@ -375,9 +386,9 @@ flower:
       p_top = 0
       p_bottom = p_top + 8*mu1/phys.ref_length*phys.v_inlet
       
-      # phL.p .= p_bottom .+ (gp.y .- mesh.ymin)*(p_top-p_bottom)/(mesh.ymax - mesh.ymin) 
+      phL.p .= p_bottom .+ (gp.y .- mesh.ymin)*(p_top-p_bottom)/(mesh.ymax - mesh.ymin) 
   
-      # vec1(phL.pD,gp) .= vec(phL.p)
+      vec1(phL.pD,gp) .= vec(phL.p)
 
       # Initialize Poiseuille velocity profile 
 
@@ -519,7 +530,7 @@ study:
   #tolerance for tests
   test_tolerance: 1.e-11 #1.e-14
   test_tolerance_solution_absolute:  1.e-1 # from n = 16 
-  meshes:  [32] #[32,64,128] #[32,64,128,256]
+  meshes:  [10] #[32] #[32,64,128] #[32,64,128,256]
   compute_errors: None
 
 
@@ -2448,6 +2459,10 @@ plot:
       fig_ratio: 0.5
 
     
+    - file: schematics_full
+      func: plot_schematics_full
+      font_size: 8
+
     - file: schematics
       func: plot_schematics
       # fig_ratio: 0.5
@@ -2523,10 +2538,12 @@ pdi:
     intfc_vtx_num: int64 # number of vertices to describe the interface
     intfc_seg_num: int64 #number of segments
     vtx_num: int64 # number of vertices for debugging phase-change
+    nb_Navier_slip_BC: int64 #number of Navier BC
+
 
   data: # values for which PDI does not keep a copy
     #in Flower: zeros((n.nLS + 1) * g.ny * g.nx + 2 * g.nx + 2 * g.ny)
-    #Field of the current subdmain
+    #Field of the current subdomain
     #Bulk, interface and border u velocity, ...
     # u grid nx+1, ny
     # v grid nx, ny
@@ -2541,6 +2558,33 @@ pdi:
     trans_scal_1DT: { size: ['$nb_transported_scalars','($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny'], type: array, subtype: double } 
     phi_ele_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
     rhs_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
+    
+    # rhs_uv_1D:
+    #   size: '($nb_levelsets - $nb_Navier_slip_BC + 1) * ($ny) * ($nx+1) + 2 * ($nx+1) + 2 * $ny + ($nb_levelsets -$nb_Navier_slip_BC + 1) * ($ny+1) * ($nx) + 2 * ($nx) + 2 * ($ny+1) +($nb_Navier_slip_BC + $nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * ($ny)'
+    #   type: array
+    #   subtype: double
+    
+    rhs_uv_1D: { size: '$rhs_uv_len', type: array, subtype: double } 
+
+    vec_1D: { size: '$vec_1D_len', type: array, subtype: double } 
+
+
+    Auv_colptr_1D: { size: '$Auv_colptr_len', type: array, subtype: int64 } 
+    Auv_rowval_1D: { size: '$Auv_rowval_len', type: array, subtype: int64 } 
+    Auv_nzval_1D: { size: '$Auv_nzval_len', type: array, subtype: double } 
+
+    Auv_colptr_len: int64
+    Auv_rowval_len: int64
+    Auv_nzval_len: int64
+
+    Auv_n: int64
+    Auv_m: int64
+
+    rhs_uv_len: int64
+    
+    vec_1D_len: int64
+
+
 
     elec_cond_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
    
@@ -2595,45 +2639,45 @@ pdi:
     intfc_vtx_connectivities: { size: '2*($intfc_seg_num)', type: array, subtype: int64 } 
 
     # stored in 2D
-    i_current_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    i_current_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    i_current_mag: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    levelset_iso: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    levelset_p: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    levelset_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    levelset_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdmain
-    levelset_p_wall: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    velocity_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    velocity_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    mass_flux: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    mass_flux_bulk: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    mass_flux_border: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    mass_flux_intfc: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    i_current_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    i_current_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    i_current_mag: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    levelset_iso: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    levelset_p: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    levelset_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    levelset_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
+    levelset_p_wall: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    velocity_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    velocity_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    mass_flux: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    mass_flux_bulk: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    mass_flux_border: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    mass_flux_intfc: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     normal_angle: { size: [ '$nx', '$ny' ], type: array, subtype: double } # angle to compute normal (cos,sin) in 2D
-    normal_velocity_intfc: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    dcap_1: { size: [ '$nx', '$ny'], type: array, subtype: double } #Field of the current subdmain
-    dcap_2: { size: [ '$nx', '$ny'], type: array, subtype: double } #Field of the current subdmain
-    dcap_3: { size: [ '$nx', '$ny'], type: array, subtype: double } #Field of the current subdmain
-    dcap_4: { size: [ '$nx', '$ny'], type: array, subtype: double } #Field of the current subdmain
+    normal_velocity_intfc: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    dcap_1: { size: [ '$nx', '$ny'], type: array, subtype: double } #Field of the current subdomain
+    dcap_2: { size: [ '$nx', '$ny'], type: array, subtype: double } #Field of the current subdomain
+    dcap_3: { size: [ '$nx', '$ny'], type: array, subtype: double } #Field of the current subdomain
+    dcap_4: { size: [ '$nx', '$ny'], type: array, subtype: double } #Field of the current subdomain
 
-    grad_x_coord: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    grad_y_coord: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    grad_x_coord: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    grad_y_coord: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
 
-    grad_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    grad_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    grad_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    grad_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
 
-    grad_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    grad_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdmain
+    grad_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    grad_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
 
 
 
     # stored in 3D
-    dcap: { size: [ 11,'$nx', '$ny'], type: array, subtype: double } #Field of the current subdmain
+    dcap: { size: [ 11,'$nx', '$ny'], type: array, subtype: double } #Field of the current subdomain
     
     iscal: int64 #Index for naming files
 
     poisson_iter: int64 #Index for naming files
-    num_Navier: int64 #number of Navier BC
+    # nb_Navier_slip_BC: int64 #number of Navier BC
 
     # Convergence criteria
     residual_electrical_potential: double
@@ -2645,21 +2689,21 @@ pdi:
           
 
 
-    conductivity_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    conductivity_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdmain
+    conductivity_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    conductivity_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
 
     #chi
-    # chi_1: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    # chi_2: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    # chi_3: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    # chi_1: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    # chi_2: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    # chi_3: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
 
    # To save only bulk field, with u given in Flower
-    # u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    # v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdmain
-    # trans_scal: { size: [ '$nx', '$ny','$nb_transported_scalars' ], type: array, subtype: double } #Field of the current subdmain
-    # phi_ele: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    # iu: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
-    # iv: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdmain
+    # u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    # v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
+    # trans_scal: { size: [ '$nx', '$ny','$nb_transported_scalars' ], type: array, subtype: double } #Field of the current subdomain
+    # phi_ele: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    # iu: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    # iv: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
 
   plugins:
     # trace: ~
@@ -2682,10 +2726,277 @@ pdi:
         #   - exec: print('nb levelsets',nLS)
         #     with: { nLS: $nb_levelsets }
 
+        print_matrix_test:
+          with:
+            # Auv_colptr_1D: $Auv_colptr_1D
+            # Auv_colptr_len: $Auv_colptr_len
+            # Auv_nzval_1D: $Auv_nzval_1D
+            # Auv_nzval_len: $Auv_nzval_len
+            # Auv_rowval_1D: $Auv_rowval_1D
+            # Auv_rowval_len: $Auv_rowval_len
+            Auv_n: $Auv_n
+            Auv_m: $Auv_m
+            nx: $nx
+            ny: $ny
+            nNavier: $nb_Navier_slip_BC
+            nb_levelsets: $nb_levelsets
+
+          exec: |
+            print('\033[36m')
+            print('[print_matrix_test]')
+
+            print('Auv_n',Auv_n,Auv_m)
+            print('nx',nx,ny,nNavier,nb_levelsets)
+
+            print('\033[0m')
+
+
+
+        print_matrix:
+          with:
+            Auv_colptr_1D: $Auv_colptr_1D
+            Auv_colptr_len: $Auv_colptr_len
+            Auv_nzval_1D: $Auv_nzval_1D
+            Auv_nzval_len: $Auv_nzval_len
+            Auv_rowval_1D: $Auv_rowval_1D
+            Auv_rowval_len: $Auv_rowval_len
+            Auv_n: $Auv_n
+            Auv_m: $Auv_m
+            nx: $nx
+            ny: $ny
+            nNavier: $nb_Navier_slip_BC
+            nb_levelsets: $nb_levelsets
+
+          exec: |
+            print('\033[36m')
+            print('[print_matrix]')
+
+            import numpy as np
+            from scipy.sparse import csc_matrix #csr_matrix
+
+            data = np.array(Auv_nzval_1D)
+            row_indices = np.array(Auv_rowval_1D-1)
+            col_indices = np.array(Auv_colptr_1D-1)
+
+            # print('Auv_n',Auv_n,Auv_m)
+            # print('len',len(data),len(row_indices),len(col_indices))
+            
+            # print('Auv_nzval_1D',Auv_nzval_1D)
+            # print('row_indices',row_indices)
+            # print('col_indices',col_indices)
+
+
+           
+            # Create a sparse matrix in CSC format
+            print('csc')
+            # sparse_matrix = csc_matrix((data, (row_indices, col_indices)), shape=(Auv_m, Auv_n))
+            sparse_matrix = csc_matrix((data, row_indices, col_indices), shape=(Auv_m, Auv_n))
+
+            # # Print the sparse matrix
+            # print("Sparse Matrix (CSR format):")
+            # print(sparse_matrix)
+
+            from matrepr import mprint,to_html
+            mprint(sparse_matrix, 
+            #    fill_value=0,
+            # max_rows = None,
+            # max_cols = None,
+            )
+
+
+            # row_labels = ["sci", "single", "complex", "nested", "strings", "numpy"]
+            # col_labels = ["one", "two", "three", "four", "five"]
+
+
+            nip = nx * ny
+            nbp = 2 * nx + 2 * ny
+
+            niu = (nx+1) * ny
+            nbu = 2 * (nx+1) + 2 * ny
+            ntu = (nb_levelsets - nNavier + 1) * niu + nbu
+
+            niv = nx * (ny+1)
+            nbv = 2 * nx + 2 * (ny+1)
+            ntv = (nb_levelsets - nNavier + 1) * niv + nbv
+
+            ntNavier = nNavier * nip
+
+            nt = ntu+ntv+ntNavier+nip*(nb_levelsets+1)+nbp
+
+            # labels = [
+            #     "ntu (upper levelset points)" * ntu,
+            #     "ntv (lower levelset points)" * ntv,
+            #     "ntNavier (Navier-Stokes points)" * ntNavier,
+            #     "nip (interior points)" * (nip * (nb_levelsets + 1)),
+            #     "nbp (boundary points)" * nbp
+            # ]
+
+            labels = [
+                "u" * ntu,
+                "v" * ntv,
+                "N" * ntNavier,
+                "p" * (nip * (nb_levelsets + 1)),
+                "b" * nbp
+            ]
+
+
+            # Flatten the list
+            labels = [item for sublist in labels for item in sublist]
+            # print(labels)
+
+            row_labels = labels
+            col_labels = labels
+
+
+            # mdisplay(list_mat, "html", row_labels=row_labels, col_labels=col_labels)
+
+
+
+           
+            with open("sparse_matrix.html", "w") as f:
+              print(to_html(sparse_matrix,
+                            max_rows = None,
+                            max_cols = None,
+                            row_labels=row_labels,
+                            col_labels=col_labels,
+            ), file=f)
+
+            print('\033[0m')
+          # # Print the dense representation of the sparse matrix
+          # print("\nDense Representation:")
+          # print(sparse_matrix.toarray())
+            
+
+
+        rhs_uv:
+          with: 
+            nx: $nx
+            ny: $ny
+            rhs_uv: $rhs_uv_1D 
+            nNavier: $nb_Navier_slip_BC
+            nb_levelsets: $nb_levelsets
+
+          exec: |
+            import numpy as np
+
+            from debug_flower import vecb, vecb_B,vecb_T,vecb_L,vecb_R
+
+            print('\033[36m')
+            print('[rhs_uv]')
+            
+
+            nip = nx * ny
+            nbp = 2 * nx + 2 * ny
+
+            niu = (nx+1) * ny
+            nbu = 2 * (nx+1) + 2 * ny
+            ntu = (nb_levelsets - nNavier + 1) * niu + nbu
+
+            niv = nx * (ny+1)
+            nbv = 2 * nx + 2 * (ny+1)
+            ntv = (nb_levelsets - nNavier + 1) * niv + nbv
+
+            ntNavier = nNavier * nip
+            
+            nt = ntu+ntv+ntNavier+nip*(nb_levelsets+1)+nbp
+
+
+            #Examples
+            # extract = data[-2 * ny - 2 * nx:]
+            # extract = data[-2 * ny - 2 * nx:]
+            # extract = data[0 : ny]
+    
+        
+            # nt = (num.nb_levelsets - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv + (num.nb_levelsets + 1) * ni_p + nb_p
+
+            print('bulk_u_velocity',rhs_uv[0:niu],len(rhs_uv[0:niu]))
+            print('border_u_velocity',rhs_uv[ntu-nbu:ntu],len(rhs_uv[ntu-nbu:ntu]))
+
+
+            # print('whole_u_velocity',rhs_uv[0:ntu],len(rhs_uv[0:ntu]))
+
+            # print('whole_v_velocity',rhs_uv[ntu:ntu+ntv],len(rhs_uv[ntu:ntu+ntv]))
+
+
+            print('bulk_v_velocity',rhs_uv[ntu:ntu+niv],len(rhs_uv[ntu:ntu+niv]))
+            
+            print('border_v_velocity',rhs_uv[ntu+ntv-nbv:ntu+ntv],len(rhs_uv[ntu+ntv-nbv:ntu+ntv]))
+
+            # border_v_velocity = rhs_uv[ntu+ntv-nbv:ntu+ntv]
+
+            # print('border v velocity left  ', border_v_velocity[0:ny+1])
+            # print('border v velocity bottom', border_v_velocity[ny+1:ny+1+nx])
+
+            print('v velocity left  ',vecb_L(rhs_uv[ntu:ntu+ntv],nx,ny+1))
+            print('v velocity bottom',vecb_B(rhs_uv[ntu:ntu+ntv],nx,ny+1))
+            print('v velocity right ',vecb_R(rhs_uv[ntu:ntu+ntv],nx,ny+1))
+            print('v velocity top   ',vecb_T(rhs_uv[ntu:ntu+ntv],nx,ny+1))
+
+            # bulk
+            field = rhs_uv[ntu:ntu+niv]
+            field = np.reshape(field, (nx, ny+1))   
+            field = field.transpose()
+
+            for line in field:
+              print('bulk v velocity',*line)
+
+
+            print('bulk_pressure',rhs_uv[ntu+ntv+nNavier*nip:ntu+ntv+(nNavier+1)*nip],len(rhs_uv[ntu+ntv+nNavier*nip:ntu+ntv+(nNavier+1)*nip]))
+
+            # bulk
+            field = rhs_uv[ntu+ntv+nNavier*nip:ntu+ntv+(nNavier+1)*nip]
+            field = np.reshape(field, (nx, ny))   
+            field = field.transpose()
+
+            for line in field:
+              print('bulk p',*line)
+
+            print('interface_pressure',rhs_uv[ntu+ntv+(nNavier+1)*nip:ntu+ntv+(nNavier+2)*nip],len(rhs_uv[ntu+ntv+(nNavier+1)*nip:ntu+ntv+(nNavier+2)*nip]))
+
+
+            print('border_pressure',rhs_uv[nt-nbp:nt],len(rhs_uv[nt-nbp:nt]))
+
+            print('\033[0m')
+
+
+        check_coupled_matrix:
+          with:
+            # nb_Navier_slip_BC: $nb_Navier_slip_BC 
+            # nx: $nx
+            # ny: $ny
+            vec_1D: $vec_1D
+            vec_1D_len: $vec_1D_len
+            # v_1D: $v_1D
+            # p_1D: $p_1D
+            # mu_cin1: *mu_cin1 
+            # rho1: *rho1
+            # v_inlet: *v_inlet
+            # xmin: *mesh_xmin
+            # xmax: *mesh_xmax
+            # ymin: *mesh_ymin
+            # ymax: *mesh_ymax
+
+          exec: |
+            import numpy as np
+            print('\033[36m')
+            print('[check_coupled_matrix]')
+
+            print('Gradient of pressure')
+
+            print('Auv*u*rho/dt/cell_volume',vec_1D)
+            # print('Auv*u*rho/dt/cell_volume',vec_1D)
+
+            
+
+
+
+
+            print('\033[0m')
+
 
         print_coupled:
           with:
-            num_Navier: $num_Navier 
+            nb_Navier_slip_BC: $nb_Navier_slip_BC 
             # nx: $nx
             # ny: $ny
             # u_1D: $u_1D
@@ -2702,7 +3013,8 @@ pdi:
           exec: |
             import numpy as np
             print('\033[36m')
-            print('Number of Navier boundary conditions',num_Navier)
+            print('[print_coupled]')
+            print('Number of Navier boundary conditions',nb_Navier_slip_BC)
             print('\033[0m')
 
         print_velocity_prediction:

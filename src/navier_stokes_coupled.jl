@@ -431,6 +431,7 @@ end
 
 """
 set boundary indicators, heights for the wall
+sets Gx_b
 """
 function set_border_matrices!(num,
     grid, geo, grid_u, geo_u, grid_v, geo_v,
@@ -457,6 +458,9 @@ function set_border_matrices!(num,
     bc_matrix_borders!(grid_v, grid.ind, grid_v.ind, opC_v.Hx_b, opC_v.Hy_b, geo.dcap, geo_v.dcap)
     mat_assign_T!(opC_v.HxT_b, sparse(opC_v.Hx_b'))
     mat_assign_T!(opC_v.HyT_b, sparse(opC_v.Hy_b'))
+    #Gx_b
+
+    #bc_matrix_borders!(grid, Hx_u, Hy_v, Hx_p, Hy_p, dcap)
 
     bc_matrix_borders!(grid, opC_u.Gx_b, opC_v.Gy_b, opC_p.Gx_b, opC_p.Gy_b, geo.dcap)
 
@@ -1530,7 +1534,22 @@ end
 """
 if bc_
 """
-function compute_averaging_coefficient_Navier(gu::Mesh{GridFCx,T,N},gp::Mesh{GridCC,T,N},bc_type) where {T,N}
+function interpolating_coefficient_Navier(gu::Mesh{GridFCx,T,N},gp::Mesh{GridCC,T,N},index_LS,bc_type) where {T,N}
+
+
+    cap1 = hcat(
+        zeros(gp.ny),
+        gp.LS[index_LS].geoL.cap[:,1:end-1,3] .- gp.LS[index_LS].geoL.cap[:,1:end-1,1],
+        zeros(gp.ny)
+    )
+   
+    cap3 = hcat(
+        zeros(gp.ny),
+        gp.LS[index_LS].geoL.cap[:,2:end,3] .- gp.LS[index_LS].geoL.cap[:,2:end,1],
+        zeros(gp.ny)
+    )
+    
+    capx = cap1 + cap3
 
     #Compute the averaging coefficients for 
     #if empty: 0.5 otherwise infty
@@ -1566,7 +1585,7 @@ end
 """
 
 """
-function compute_averaging_coefficient_Navier(gu::Mesh{GridFCx,T,N},gp::Mesh{GridCC,T,N},bc_type::Union{Navier{T,N},Navier_cl{T,N}}) where {T,N}
+function interpolating_coefficient_Navier(gu::Mesh{GridFCx,T,N},gp::Mesh{GridCC,T,N},bc_type::Union{Navier{T,N},Navier_cl{T,N}}) where {T,N}
 
     #Compute the averaging coefficients for 
     #if empty: 0.5 otherwise infty
@@ -1636,7 +1655,7 @@ end
 # !is_navier_cl(bc_type[iLS]) 
 # && !is_navier(bc_type[iLS])
 """
-function compute_averaging_coefficient_Navier(gv::Mesh{GridFCx,T,N},gp::Mesh{GridCC,T,N},bc_type) where {T,N}
+function interpolating_coefficient_Navier(gv::Mesh{GridFCy,T,N},gp::Mesh{GridCC,T,N},bc_type) where {T,N}
     #TODO check
     # avgy = copy(opp.By)
     # avgy.nzval .= 0.0
@@ -1644,6 +1663,18 @@ function compute_averaging_coefficient_Navier(gv::Mesh{GridFCx,T,N},gp::Mesh{Gri
 
     # !is_navier_cl(bc_type[iLS]) 
     # && !is_navier(bc_type[iLS])
+
+    cap2 = vcat(
+        zeros(1,gp.nx),
+        gp.LS[iLS].geoL.cap[1:end-1,:,4] .- gp.LS[iLS].geoL.cap[1:end-1,:,2],
+        zeros(1,gp.nx)
+    )
+    cap4 = vcat(
+        zeros(1,gp.nx),
+        gp.LS[iLS].geoL.cap[2:end,:,4] .- gp.LS[iLS].geoL.cap[2:end,:,2],
+        zeros(1,gp.nx)
+    )
+    capy = cap2 + cap4
 
     @inbounds @threads for II in gv.ind.all_indices[2:end-1,:]
         pII = lexicographic(II, gp.ny)
@@ -1669,7 +1700,7 @@ function compute_averaging_coefficient_Navier(gv::Mesh{GridFCx,T,N},gp::Mesh{Gri
 end
 
 
-function compute_averaging_coefficient_Navier(gv::Mesh{GridFCx,T,N},gp::Mesh{GridCC,T,N},bc_type::Union{Navier{T,N},Navier_cl{T,N}}) where {T,N}
+function interpolating_coefficient_Navier(gv::Mesh{GridFCy,T,N},gp::Mesh{GridCC,T,N},bc_type::Union{Navier{T,N},Navier_cl{T,N}}) where {T,N}
     #TODO check
     # avgy = copy(opp.By)
     # avgy.nzval .= 0.0
@@ -1741,7 +1772,7 @@ end
 returns averaging coefficients for u and v: between i and i+1 based on volume from levelset iLS
     V(i) / ( V(i) +V(i+1) ) with epsilon handling 
 """
-function compute_averaging_coefficient_Navier_uv_grids_to_p_grid_volume(num,gp,gu,gv,iLS)
+function interpolating_coefficient_Navier_uv_grids_to_p_grid_volume(num,gp,gu,gv,iLS)
 
     # Averaging
     cap1 = gu.LS[iLS].geoL.cap[:,1:end-1,5]
@@ -1780,7 +1811,7 @@ returns averaging coefficients for u and v: between i and i+1 based on height fr
     
     with epsilon handling 
 """
-function compute_averaging_coefficient_Navier_uv_grids_to_p_grid_height(num,gp,gu,gv,i)
+function interpolating_coefficient_Navier_uv_grids_to_p_grid_height(num,gp,gu,gv,i)
 
     # Averaging
     cap1 = gu.LS[i].geoL.cap[:,1:end-1,3] .- gu.LS[i].geoL.cap[:,1:end-1,1]
@@ -1810,467 +1841,6 @@ function compute_averaging_coefficient_Navier_uv_grids_to_p_grid_height(num,gp,g
     end
     return avgu, avgv
 end
-
-
-"""
-Set the system matrix for Forward-Euler scheme
-
-* bc_interface: interface boundary condition
-* B contains Mum1 and Mvm1 (cell volumes)
-"""
-function FE_set_momentum_coupled2(
-    bc_interface, num, gp, gu, gv,
-    opp, opu, opv,
-    A, B,
-    rhs,
-    Lu, bc_Lu, bc_Lu_b, Mum1, BCu,
-    Lv, bc_Lv, bc_Lv_b, Mvm1, BCv,
-    ls_advection
-    )
-    @unpack τ, Re, nLS, nNavier = num
-
-    #region init
-    iRe = num.visc_coeff
-
-    nip = gp.nx * gp.ny
-    nbp = 2 * gp.nx + 2 * gp.ny
-
-    niu = gu.nx * gu.ny
-    nbu = 2 * gu.nx + 2 * gu.ny
-    ntu = (nLS - nNavier + 1) * niu + nbu
-
-    niv = gv.nx * gv.ny
-    nbv = 2 * gv.nx + 2 * gv.ny
-    ntv = (nLS - nNavier + 1) * niv + nbv
-
-    #Reset to zero
-    rhs .= 0.0 
-
-    # Borders u
-    a0_bu = zeros(nbu)
-    _a1_bu = zeros(nbu)
-    _b_bu = zeros(nbu)
-    for iLS in 1:num.nLS
-        set_borders!(gu, gu.LS[iLS].cl, gu.LS[iLS].u, a0_bu, _a1_bu, _b_bu, BCu, num.n_ext_cl)
-    end
-    a1_bu = Diagonal(vec(_a1_bu))
-    b_bu = Diagonal(vec(_b_bu))
-
-    # Borders v
-    a0_bv = zeros(nbv)
-    _a1_bv = zeros(nbv)
-    _b_bv = zeros(nbv)
-    for iLS in 1:num.nLS
-        set_borders!(gv, gv.LS[iLS].cl, gv.LS[iLS].u, a0_bv, _a1_bv, _b_bv, BCv, num.n_ext_cl)
-    end
-    a1_bv = Diagonal(vec(_a1_bv))
-    b_bv = Diagonal(vec(_b_bv))
-    #endregion init
-
-
-    if ls_advection
-        A.nzval .= 0.0
-        # Implicit part of viscous term
-        A[1:niu,1:niu] = pad_crank_nicolson(opu.M .- τ .* Lu, gu, τ)
-        # Contribution to implicit part of viscous term from outer boundaries
-        A[1:niu,ntu-nbu+1:ntu] = - τ .* bc_Lu_b
-
-        # Implicit gradient of pressure
-        A[1:niu,ntu+ntv+1:ntu+ntv+nip] = opu.AxT * opu.Rx
-
-        # Boundary conditions for outer boundaries
-        A[ntu-nbu+1:ntu,1:niu] = b_bu * (opu.HxT_b * opu.iMx_b' * opu.Bx .+ opu.HyT_b * opu.iMy_b' * opu.By)
-        A[ntu-nbu+1:ntu,ntu-nbu+1:ntu] = pad(b_bu * (
-            opu.HxT_b * opu.iMx_bd * opu.Hx_b .+ 
-            opu.HyT_b * opu.iMy_bd * opu.Hy_b
-        ) .- opu.χ_b * a1_bu)
-
-        # Implicit part of viscous term
-        A[ntu+1:ntu+niv,ntu+1:ntu+niv] = pad_crank_nicolson(opv.M .- τ .* Lv, gv, τ)
-        # Contribution to implicit part of viscous term from outer boundaries
-        A[ntu+1:ntu+niv,ntu+ntv-nbv+1:ntu+ntv] = - τ .* bc_Lv_b
-
-        # Implicit gradient of pressure
-        A[ntu+1:ntu+niv,ntu+ntv+1:ntu+ntv+nip] = opv.AyT * opv.Ry 
-
-        # Boundary conditions for outer boundaries
-        A[ntu+ntv-nbv+1:ntu+ntv,ntu+1:ntu+niv] = b_bv * (opv.HxT_b * opv.iMx_b' * opv.Bx .+ opv.HyT_b * opv.iMy_b' * opv.By)
-        A[ntu+ntv-nbv+1:ntu+ntv,ntu+ntv-nbv+1:ntu+ntv] = pad(b_bv * (
-            opv.HxT_b * opv.iMx_bd * opv.Hx_b .+ 
-            opv.HyT_b * opv.iMy_bd * opv.Hy_b
-        ) .- opv.χ_b * a1_bv)
-
-        #region coupled pression
-        # Implicit gradient of pressure (volume integrated)
-        for iLS in 1:nLS
-            sbp = ntu+ntv+nip*iLS+1:ntu+ntv+(iLS+1)*nip
-            A[1:niu,sbp] .+= opu.Gx[iLS] 
-            A[ntu+1:ntu+niv,sbp] .+= opv.Gy[iLS] 
-        end
-
-        # Explicit gradient of pressure
-        # ∇ϕ_x = opu.AxT * opu.Rx * vec1(pD,grid) .+ opu.Gx_b * vecb(pD,grid)
-        # ∇ϕ_y = opv.AyT * opv.Ry * vec1(pD,grid) .+ opv.Gy_b * vecb(pD,grid)
-        # for iLS in 1:nLS
-        #     ∇ϕ_x .+= opu.Gx[iLS] * veci(pD,grid,iLS+1)
-        #     ∇ϕ_y .+= opv.Gy[iLS] * veci(pD,grid,iLS+1)
-        # end
-        #endregion coupled pression
-
-        #TODO sbu sbv sbp
-
-        #region divergence of velocity
-        #equation written on lines ntu+ntv+1:ntu+ntv+nip 
-        # u bulk
-        A[ntu+ntv+1:ntu+ntv+nip,1:niu] = opp.AxT 
-        # u border
-        A[ntu+ntv+1:ntu+ntv+nip,ntu-nbu+1:ntu] = opp.Gx_b
-        # v bulk
-        A[ntu+ntv+1:ntu+ntv+nip,ntu+1:ntu+niv] = opp.AyT 
-        # v border
-        A[ntu+ntv+1:ntu+ntv+nip,ntu+ntv-nbv+1:ntu+ntv] = opp.Gy_b
-
-        for iLS in 1:nLS
-            sbu = iLS*niu+1:(iLS+1)*niu
-            sbv = ntu+iLS*niv+1:ntu+(iLS+1)*niv
-            # hypothesis no blowing so normal velocity null if Navier
-            if !is_navier(bc_interface[iLS]) && !is_navier_cl(bc_interface[iLS]) 
-                A[ntu+ntv+1:ntu+ntv+nip,sbu] = opp.Gx[iLS] 
-                A[ntu+ntv+1:ntu+ntv+nip,sbv] = opp.Gy[iLS] 
-            end
-        end
-
-        # divergence of velocity explicit
-        # Duv = opp.AxT * vec1(ucorrD,grid_u) .+ opp.Gx_b * vecb(ucorrD,grid_u) .+
-        #       opp.AyT * vec1(vcorrD,grid_v) .+ opp.Gy_b * vecb(vcorrD,grid_v)
-        # for iLS in 1:nLS
-        #     if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
-        #         Duv .+= opp.Gx[iLS] * veci(ucorrD,grid_u,iLS+1) .+ 
-        #                 opp.Gy[iLS] * veci(vcorrD,grid_v,iLS+1)
-        #     end
-        # end
-        #endregion divergence of velocity
-
-
-        B[1:niu,1:niu] = Mum1
-        B[ntu+1:ntu+niv,ntu+1:ntu+niv] = Mvm1
-    end
-
-    nNav1 = 0
-    _iLS = 1
-    for iLS in 1:num.nLS
-        #TODO can be improved for readability / compilation:
-     
-        # allocates ones...
-        # better tot do mapping function if cte... else if matrix ...
-
-        #region BC
-        a0u, a1u, bu, a0v, a1v, bv, a0p, bp = set_velocity_boundary_conditions(bc_interface, iLS, gu, gv, gp, num)
-        #endregion BC
-
-
-        sbu = _iLS*niu+1:(_iLS+1)*niu
-        sbv = ntu+_iLS*niv+1:ntu+(_iLS+1)*niv
-
-        if ls_advection
-            if !is_navier_cl(bc_interface[iLS]) && !is_navier(bc_interface[iLS])
-                #region not Navier
-                # Contribution to implicit part of viscous term from inner boundaries
-                A[1:niu,sbu] = - τ .* bc_Lu[iLS]
-                A[ntu+1:ntu+niv,sbv] = - τ .* bc_Lv[iLS]
-                # Boundary conditions for inner boundaries
-                A[sbu,1:niu] = bu * (opu.HxT[iLS] * opu.iMx * opu.Bx .+ opu.HyT[iLS] * opu.iMy * opu.By)
-                A[sbv,ntu+1:ntu+niv] = bv * (opv.HxT[iLS] * opv.iMx * opv.Bx .+ opv.HyT[iLS] * opv.iMy * opv.By)
-                # Contribution to Neumann BC from other boundaries
-                nNav2 = 0
-                for i in 1:num.nLS
-                    if i != iLS && (!is_navier_cl(bc_interface[i]) && !is_navier(bc_interface[i]))
-                        A[sbu,i*niu+1:(i+1)*niu] = bu * (
-                            opu.HxT[iLS] * opu.iMx * opu.Hx[i] .+
-                            opu.HyT[iLS] * opu.iMy * opu.Hy[i]
-                        )
-                        A[sbv,ntu+i*niv+1:ntu+(i+1)*niv] = bv * (
-                            opv.HxT[iLS] * opv.iMx * opv.Hx[i] .+
-                            opv.HyT[iLS] * opv.iMy * opv.Hy[i]
-                        )
-                    elseif i != iLS
-                        sinα = Diagonal(vec(sin.(gp.LS[i].α)))
-                        # replace!(sinα.diag, NaN=>0.0)
-                        cosα = Diagonal(vec(cos.(gp.LS[i].α)))
-                        # replace!(cosα.diag, NaN=>0.0)
-
-                        if any(isnan, sinα.diag) || any(isnan, cosα.diag)
-                            @error("NaN FE_set_momentum_coupled")
-                            replace!(sinα.diag, NaN=>0.0)
-                            replace!(cosα.diag, NaN=>0.0)
-                        end
-
-                        #TODO hcat can be improved by new 
-                        cap1 = hcat(
-                            zeros(gp.ny),
-                            gp.LS[i].geoL.cap[:,1:end-1,3] .- gp.LS[i].geoL.cap[:,1:end-1,1],
-                            zeros(gp.ny)
-                        )
-                        cap2 = vcat(
-                            zeros(1,gp.nx),
-                            gp.LS[i].geoL.cap[1:end-1,:,4] .- gp.LS[i].geoL.cap[1:end-1,:,2],
-                            zeros(1,gp.nx)
-                        )
-                        cap3 = hcat(
-                            zeros(gp.ny),
-                            gp.LS[i].geoL.cap[:,2:end,3] .- gp.LS[i].geoL.cap[:,2:end,1],
-                            zeros(gp.ny)
-                        )
-                        cap4 = vcat(
-                            zeros(1,gp.nx),
-                            gp.LS[i].geoL.cap[2:end,:,4] .- gp.LS[i].geoL.cap[2:end,:,2],
-                            zeros(1,gp.nx)
-                        )
-                        capx = cap1 + cap3
-                        capy = cap2 + cap4
-
-                        # not Navier, averaging coefficients differently computed 
-                        avgx = compute_averaging_coefficient_Navier(gu,gp,bc_interface[iLS])
-                        avgy = compute_averaging_coefficient_Navier(gv,gp,bc_interface[iLS])
-
-                        A[sbu,ntu+ntv+1+nNav2*nip:ntu+ntv+(nNav2+1)*nip] = bu * (
-                            opu.HxT[iLS] * opu.iMx * opu.Hx[i] .+
-                            opu.HyT[iLS] * opu.iMy * opu.Hy[i]
-                        ) * avgx * sinα
-                        A[sbv,ntu+ntv+1+nNav2*nip:ntu+ntv+(nNav2+1)*nip] = bv * (
-                            opv.HxT[iLS] * opv.iMx * opv.Hx[i] .+
-                            opv.HyT[iLS] * opv.iMy * opv.Hy[i]
-                        ) * avgy * (-cosα)
-
-                        nNav2 += 1
-                    end
-                end
-                A[sbu,sbu] = pad(bu * (
-                    opu.HxT[iLS] * opu.iMx * opu.Hx[iLS] .+
-                    opu.HyT[iLS] * opu.iMy * opu.Hy[iLS]
-                ) .- opu.χ[iLS] * a1u)
-                A[sbv,sbv] = pad(bv * (
-                    opv.HxT[iLS] * opv.iMx * opv.Hx[iLS] .+
-                    opv.HyT[iLS] * opv.iMy * opv.Hy[iLS]
-                ) .- opv.χ[iLS] * a1v)
-
-                A[sbu,ntu-nbu+1:ntu] = bu * (
-                    opu.HxT[iLS] * opu.iMx_b * opu.Hx_b .+ opu.HyT[iLS] * opu.iMy_b * opu.Hy_b
-                )
-                A[sbv,ntu+ntv-nbv+1:ntu+ntv] = bv * (
-                    opv.HxT[iLS] * opv.iMx_b * opv.Hx_b .+ opv.HyT[iLS] * opv.iMy_b * opv.Hy_b
-                )
-                # Boundary conditions for outer boundaries
-                A[ntu-nbu+1:ntu,sbu] = b_bu * (
-                    opu.HxT_b * opu.iMx_b' * opu.Hx[iLS] .+ opu.HyT_b * opu.iMy_b' * opu.Hy[iLS]
-                )
-                A[ntu+ntv-nbv+1:ntu+ntv,sbv] = b_bv * (
-                    opv.HxT_b * opv.iMx_b' * opv.Hx[iLS] .+ opv.HyT_b * opv.iMy_b' * opv.Hy[iLS]
-                )
-
-                _iLS += 1
-                #endregion not Navier
-
-            else 
-                #region Navier
-                # Tangential component of velocity if Navier BC #if !is_navier_cl(bc_interface[iLS]) && !is_navier(bc_interface[iLS])
-                sinα_p = Diagonal(vec(sin.(gp.LS[iLS].α)))
-                # replace!(sinα_p.diag, NaN=>0.0)
-                cosα_p = Diagonal(vec(cos.(gp.LS[iLS].α)))
-                # replace!(cosα_p.diag, NaN=>0.0)
-
-                sinα_u = Diagonal(vec(sin.(gu.LS[iLS].α)))
-                # replace!(sinα_u.diag, NaN=>0.0)
-                cosα_v = Diagonal(vec(cos.(gv.LS[iLS].α)))
-                # replace!(cosα_v.diag, NaN=>0.0)
-
-                if any(isnan, sinα_p.diag) || any(isnan, cosα_p.diag) || any(isnan, sinα_u.diag) || any(isnan, cosα_v.diag)
-                    @error("NaN FE_set_momentum_coupled")
-                    replace!(sinα.diag, NaN=>0.0)
-                    replace!(cosα.diag, NaN=>0.0)
-                    replace!(sinα_u.diag, NaN=>0.0)
-                    replace!(cosα_v.diag, NaN=>0.0)
-                end
-
-                # Contribution to implicit part of viscous term from inner boundaries
-                cap1 = hcat(
-                    zeros(gp.ny),
-                    gp.LS[iLS].geoL.cap[:,1:end-1,3] .- gp.LS[iLS].geoL.cap[:,1:end-1,1],
-                    zeros(gp.ny)
-                )
-                cap2 = vcat(
-                    zeros(1,gp.nx),
-                    gp.LS[iLS].geoL.cap[1:end-1,:,4] .- gp.LS[iLS].geoL.cap[1:end-1,:,2],
-                    zeros(1,gp.nx)
-                )
-                cap3 = hcat(
-                    zeros(gp.ny),
-                    gp.LS[iLS].geoL.cap[:,2:end,3] .- gp.LS[iLS].geoL.cap[:,2:end,1],
-                    zeros(gp.ny)
-                )
-                cap4 = vcat(
-                    zeros(1,gp.nx),
-                    gp.LS[iLS].geoL.cap[2:end,:,4] .- gp.LS[iLS].geoL.cap[2:end,:,2],
-                    zeros(1,gp.nx)
-                )
-                capx = cap1 + cap3
-                capy = cap2 + cap4
-
-                # Navier BC, averaging coefficient computed differently
-                avgx = compute_averaging_coefficient_Navier(gu,gp,bc_interface[iLS])
-                avgy = compute_averaging_coefficient_Navier(gv,gp,bc_interface[iLS])
-
-                A[1:niu,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * τ .* (
-                    opu.BxT * opu.iMx * opu.Hx[iLS] .+
-                    opu.ByT * opu.iMy * opu.Hy[iLS]
-                ) * sinα_u * avgx
-                A[ntu+1:ntu+niv,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * τ .* (
-                    opv.BxT * opv.iMx * opv.Hx[iLS] .+
-                    opv.ByT * opv.iMy * opv.Hy[iLS]
-                ) * (-cosα_v) * avgy
-
-                # Boundary conditions for inner boundaries
-                
-                avgu, avgv = compute_averaging_coefficient_Navier_uv_grids_to_p_grid_volume(num,gp,gu,gv,iLS)
-
-                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,1:niu] = bp * (
-                    opp.HxT[iLS] * opp.iMx * opp.Bx .+
-                    opp.HyT[iLS] * opp.iMy * opp.By
-                ) * sinα_p * avgu
-                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu+1:ntu+niv] = bp * (
-                    opp.HxT[iLS] * opp.iMx * opp.Bx .+
-                    opp.HyT[iLS] * opp.iMy * opp.By
-                ) * (-cosα_p) * avgv
-
-                for i in 1:num.nLS
-                    if i != iLS && (!is_navier_cl(bc_interface[i]) && !is_navier(bc_interface[i]))
-                        #TODO why isn't it with volume like in compute_averaging_coefficient_Navier_uv_grids_to_p_grid_volume ?
-                        avgu, avgv = compute_averaging_coefficient_Navier_uv_grids_to_p_grid_height(num,gp,gu,gv,i)
-
-                        A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,i*niu+1:(i+1)*niu] = bp * (
-                            opp.HxT[iLS] * opp.iMx * opp.Hx[i] .+
-                            opp.HyT[iLS] * opp.iMy * opp.Hy[i]
-                        ) * sinα_p * avgu
-                        A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu+i*niv+1:ntu+(i+1)*niv] = bp * (
-                            opp.HxT[iLS] * opp.iMx * opp.Hx[i] .+
-                            opp.HyT[iLS] * opp.iMy * opp.Hy[i]
-                        ) * (-cosα_p) * avgv
-                    end
-                end
-                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = pad(bp * (
-                    opp.HxT[iLS] * opp.iMx * opp.Hx[iLS] .+
-                    opp.HyT[iLS] * opp.iMy * opp.Hy[iLS]
-                ) .+ opp.χ[iLS])
-
-                sinα_b = Diagonal(zeros(nbp))
-                sinα_b.diag[1:gp.ny] .= sin.(gp.LS[iLS].α[:,1])
-                sinα_b.diag[gp.ny+1:gp.ny+gp.nx] .= sin.(gp.LS[iLS].α[1,:])
-                sinα_b.diag[gp.ny+gp.nx+1:2gp.ny+gp.nx] .= sin.(gp.LS[iLS].α[:,end])
-                sinα_b.diag[2gp.ny+gp.nx+1:end] .= sin.(gp.LS[iLS].α[end,:])
-                cosα_b = Diagonal(zeros(nbp))
-                cosα_b.diag[1:gp.ny] .= cos.(gp.LS[iLS].α[:,1])
-                cosα_b.diag[gp.ny+1:gp.ny+gp.nx] .= cos.(gp.LS[iLS].α[1,:])
-                cosα_b.diag[gp.ny+gp.nx+1:2gp.ny+gp.nx] .= cos.(gp.LS[iLS].α[:,end])
-                cosα_b.diag[2gp.ny+gp.nx+1:end] .= cos.(gp.LS[iLS].α[end,:])
-
-                #region interpolation coefficients
-                avgu = spdiagm(nbp, nbu, 0 => zeros(nbp), 1 => zeros(nbp-1))
-                for ii in 1:gp.ny
-                    avgu[ii,ii] = 1.0
-                    avgu[gp.ny+gp.nx+ii,gu.ny+gu.nx+ii] = 1.0
-                end
-                for ii in 1:gp.nx
-                    avgu[ii+gp.ny,ii+gu.ny] = 0.5
-                    avgu[ii+gp.ny,ii+gu.ny+1] = 0.5
-                    avgu[ii+2gp.ny+gp.nx,ii+2gu.ny+gu.nx] = 0.5
-                    avgu[ii+2gp.ny+gp.nx,ii+2gu.ny+gu.nx+1] = 0.5
-                end
-                avgv = spdiagm(nbp, nbv, 0 => zeros(nbp), 1 => zeros(nbp-1))
-                for ii in 1:gp.ny
-                    avgv[ii,ii] = 0.5
-                    avgv[ii,ii+1] = 0.5
-                    avgv[gp.ny+gp.nx+ii,gv.ny+gv.nx+ii] = 0.5
-                    avgv[gp.ny+gp.nx+ii,gv.ny+gv.nx+ii+1] = 0.5
-                end
-                for ii in 1:gp.nx
-                    avgv[ii+gp.ny,ii+gv.ny] = 1.0
-                    avgv[ii+2gp.ny+gp.nx,ii+2gv.ny+gv.nx] = 1.0
-                end
-                #endregion interpolation coefficients
-
-                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu-nbu+1:ntu] = bp * (
-                    opp.HxT[iLS] * opp.iMx_b * opp.Hx_b .+ 
-                    opp.HyT[iLS] * opp.iMy_b * opp.Hy_b
-                ) * sinα_b * avgu
-                A[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip,ntu+ntv-nbv+1:ntu+ntv] = bp * (
-                    opp.HxT[iLS] * opp.iMx_b * opp.Hx_b .+ 
-                    opp.HyT[iLS] * opp.iMy_b * opp.Hy_b
-                ) * (-cosα_b) * avgv
-                
-                # Boundary conditions for outer boundaries
-                #region interpolation coefficients
-                avgu = spdiagm(nbu, nbp, 0 => zeros(nbp), 1 => zeros(nbp-1))
-                for ii in 1:gu.ny
-                    avgu[ii,ii] = 1.0
-                    avgu[gu.ny+gu.nx+ii,gp.ny+gp.nx+ii] = 1.0
-                end
-                avgu[gu.ny+1,gp.ny+1]  = 1.0
-                avgu[gu.ny+gu.nx,gp.ny+gp.nx]  = 1.0
-                avgu[2gu.ny+gu.nx+1,2gp.ny+gp.nx+1]  = 1.0
-                avgu[end,end]  = 1.0
-                for ii in 2:(gu.nx-1)
-                    avgu[ii+gu.ny,ii+gp.ny-1] = 0.5
-                    avgu[ii+gu.ny,ii+gp.ny] = 0.5
-                    avgu[ii+2gu.ny+gu.nx,ii+2gp.ny+gp.nx-1] = 0.5
-                    avgu[ii+2gu.ny+gu.nx,ii+2gp.ny+gp.nx] = 0.5
-                end
-                avgv = spdiagm(nbv, nbp, 0 => zeros(nbp), 1 => zeros(nbp-1))
-                avgv[1,1]  = 1.0
-                avgv[gv.ny,gp.ny]  = 1.0
-                avgv[gv.ny+gv.nx+1,gp.ny+gp.nx+1]  = 1.0
-                avgv[2gv.ny+gv.nx,2gp.ny+gp.nx]  = 1.0
-                for ii in 2:(gv.ny-1)
-                    avgv[ii,ii-1] = 0.5
-                    avgv[ii,ii] = 0.5
-                    avgv[gv.ny+gv.nx+ii,gp.ny+gp.nx+ii] = 0.5
-                    avgv[gv.ny+gv.nx+ii,gp.ny+gp.nx+ii] = 0.5
-                end
-                for ii in 1:gv.nx
-                    avgv[ii+gv.ny,ii+gp.ny] = 1.0
-                    avgv[ii+2gv.ny+gv.nx,ii+2gp.ny+gp.nx] = 1.0
-                end
-                #endregion interpolation coefficients
-
-                A[ntu-nbu+1:ntu,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = b_bu * (
-                    opu.HxT_b * opu.iMx_b' * opu.Hx[iLS] .+ opu.HyT_b * opu.iMy_b' * opu.Hy[iLS]
-                ) * avgx * sinα_p
-                A[ntu+ntv-nbv+1:ntu+ntv,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = b_bv * (
-                    opv.HxT_b * opv.iMx_b' * opv.Hx[iLS] .+ opv.HyT_b * opv.iMy_b' * opv.Hy[iLS]
-                ) * avgy * (-cosα_p)
-                
-                #endregion Navier
-
-            end # if !is_navier_cl(bc_interface[iLS]) && !is_navier(bc_interface[iLS])
-        end #advection
-
-        if !is_navier_cl(bc_interface[iLS]) && !is_navier(bc_interface[iLS])
-            @inbounds rhs[sbu] .= opu.χ[iLS] * vec(a0u)
-            @inbounds rhs[sbv] .= opv.χ[iLS] * vec(a0v)
-        else
-            @inbounds rhs[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] .= opp.χ[iLS] * vec(a0p)
-            nNav1 += 1
-        end #!is_navier_cl(bc_interface[iLS]) && !is_navier(bc_interface[iLS])
-
-    end #for iLS in 1:num.nLS
-
-    @inbounds rhs[ntu-nbu+1:ntu] .= opu.χ_b * vec(a0_bu)
-    @inbounds rhs[ntu+ntv-nbv+1:ntu+ntv] .= opv.χ_b * vec(a0_bv)
-
-    #rhs div u : 0 for Incompressible
-
-    return rhs
-end #end FE_set_momentum_coupled2
-
 
 
 """
@@ -2964,7 +2534,7 @@ function set_Forward_Euler!(
             ls_advection
         )
 
-    elseif num.pressure_velocity_coupling == 1
+    elseif num.pressure_velocity_coupling > 1
         rhs_u = nothing
         rhs_v = nothing
         rhs_ϕ = nothing
@@ -2975,7 +2545,7 @@ function set_Forward_Euler!(
             rhs_uv,
             iRe.*Lu, iRe.*bc_Lu, iRe.*bc_Lu_b, Mum1, BC_u,
             iRe.*Lv, iRe.*bc_Lv, iRe.*bc_Lv_b, Mvm1, BC_v,
-            ls_advection
+            ls_advection,BC_p,ph
         )
 
     end
@@ -3171,7 +2741,7 @@ function pressure_projection!(
     if is_Forward_Euler(time_scheme)
         rhs_u, rhs_v, rhs_ϕ, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_Forward_Euler!(
             bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
-            opC_p, opC_u, opC_v, BC_Poisson, BC_u, BC_v,
+            opC_p, opC_u, opC_v, BC_Poisson,BC_u, BC_v,
             Au, Bu, Av, Bv, Aϕ, Auv, Buv,
             Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
             Mum1, Mvm1, mu1_over_rho1, op_conv, ph,
@@ -3794,7 +3364,7 @@ function coupled_pressure_velocity!(
     periodic_x, periodic_y, advection, ls_advection, current_i, Ra, navier, pres_free_suface,jump_mass_flux,mass_flux
     )
     @unpack Re, τ, σ, g, β, nLS, nNavier = num
-    @unpack p, pD, ϕ, ϕD, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr, uT = ph
+    @unpack p, pD, ϕ, ϕD, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr = ph
     @unpack Cu, Cv, CUTCu, CUTCv = op_conv
     @unpack rho1,rho2,visc_coeff = num
 
@@ -3815,11 +3385,12 @@ function coupled_pressure_velocity!(
     C_NULL::Ptr{Cvoid})::Cint
 
     PDI_status = @ccall "libpdi".PDI_multi_expose("print_coupled"::Cstring,
-    "num_Navier"::Cstring, num.nNavier::Ref{Clonglong}, PDI_OUT::Cint,
+    "nb_Navier_slip_BC"::Cstring, num.nNavier::Ref{Clonglong}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
    
     nip = grid.nx * grid.ny
+    nbp =  2 * grid.nx + 2 * grid.ny
 
     niu = grid_u.nx * grid_u.ny
     nbu = 2 * grid_u.nx + 2 * grid_u.ny
@@ -3829,14 +3400,17 @@ function coupled_pressure_velocity!(
     nbv = 2 * grid_v.nx + 2 * grid_v.ny
     ntv = (nLS - nNavier + 1) * niv + nbv
 
+    ntNavier = num.nNavier * nip
 
-    BC_Poisson = nothing 
+
+
+    # BC_Poisson = nothing 
     
 
     if is_Forward_Euler(time_scheme)
         rhs_u, rhs_v, rhs_ϕ, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_Forward_Euler!(
             bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
-            opC_p, opC_u, opC_v, BC_Poisson, BC_u, BC_v,
+            opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
             Au, Bu, Av, Bv, Aϕ, Auv, Buv,
             Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
             Mum1, Mvm1, mu1_over_rho1, op_conv, ph,
@@ -3848,7 +3422,7 @@ function coupled_pressure_velocity!(
 
         rhs_u, rhs_v, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_Crank_Nicolson!(
             bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
-            opC_p, opC_u, opC_v, BC_Poisson, BC_u, BC_v,
+            opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
             Au, Bu, Av, Bv, Aϕ,
             Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
             Mum1, Mvm1, mu1_over_rho1, op_conv, ph,
@@ -3914,7 +3488,6 @@ function coupled_pressure_velocity!(
     #and contribution from tangential velocity ??
     #without blowing: normal velocity null at wall
 
-    nbp =  2 * grid.nx + 2 * grid.ny
 
     print("\n nt ",ntu + ntv + nNavier * nip + nip * (nLS + 1) + nbp)
     print("\n size rhs_uv ",size(rhs_uv))
@@ -3925,7 +3498,7 @@ function coupled_pressure_velocity!(
     print("\n niu ",niu)
     print("\n niv ",niv)
     print("\n nbu ",nbu)
-    print("\n nbu ",nbu)
+    print("\n nbu ",nbv)
     print("\n vel block length ",ntu + ntv + nNavier * nip)
  
     print("size block ",size(@view(Buv[1:ntu + ntv + nNavier * nip,1:ntu + ntv + nNavier * nip])))
@@ -3948,20 +3521,43 @@ function coupled_pressure_velocity!(
     @views mul!(rhs_uv[velocity_block], Buv[velocity_block,velocity_block], uvm1, 1.0, 1.0)
     
     PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
-    "rhs_uv"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
+    "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
+    "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
+    # print("\nAuv")
+    # print(Auv)
+    # print("\nAuv")
+    
+    # print("\n  size(Auv.colptr) ", size(Auv.colptr)," ",length(Auv.colptr))
+    # print("\n  size(Auv.rowval) ", size(Auv.rowval))
+    # print("\n  size(Auv.nzval) ", size(Auv.nzval))
+    # print("\n  Auv.n ", Auv.n)
+    # print("\n  Auv.m ", Auv.m)
+
+
+
+    # PDI_status = @ccall "libpdi".PDI_multi_expose("print_matrix"::Cstring,
+    # "Auv_n"::Cstring, Auv.n::Ref{Clonglong}, PDI_OUT::Cint,
+    # "Auv_m"::Cstring, Auv.m::Ref{Clonglong}, PDI_OUT::Cint,
+    # "Auv_colptr_len"::Cstring, length(Auv.colptr)::Ref{Clonglong}, PDI_OUT::Cint,
+    # "Auv_rowval_len"::Cstring, length(Auv.rowval)::Ref{Clonglong}, PDI_OUT::Cint,
+    # "Auv_nzval_len"::Cstring, length(Auv.nzval)::Ref{Clonglong}, PDI_OUT::Cint,
+    # "Auv_colptr_1D"::Cstring, Auv.colptr::Ptr{Clonglong}, PDI_OUT::Cint,
+    # "Auv_rowval_1D"::Cstring, Auv.rowval::Ptr{Clonglong}, PDI_OUT::Cint,
+    # "Auv_nzval_1D"::Cstring, Auv.nzval::Ptr{Cdouble}, PDI_OUT::Cint,
+    # C_NULL::Ptr{Cvoid})::Cint
 
 
     rhs_uv[1:niu] .+= τ .* grav_x
     rhs_uv[1:niu] .-= τ .* Convu
     rhs_uv[1:niu] .+= τ .* ra_x
-    rhs_uv[1:niu] .-= τ .* irho1 .* ph.Gxm1 
+    # rhs_uv[1:niu] .-= τ .* irho1 .* ph.Gxm1 
 
     rhs_uv[ntu+1:ntu+niv] .+= τ .* grav_y
     rhs_uv[ntu+1:ntu+niv] .-= τ .* Convv
     rhs_uv[ntu+1:ntu+niv] .+= τ .* ra_y
-    rhs_uv[ntu+1:ntu+niv] .-= τ .* irho1 .* ph.Gym1 
+    # rhs_uv[ntu+1:ntu+niv] .-= τ .* irho1 .* ph.Gym1 
 
     @views kill_dead_cells!(rhs_uv[1:niu], grid_u, geo_u[end])
     @views kill_dead_cells!(rhs_uv[ntu+1:ntu+niv], grid_v, geo_v[end])
@@ -3976,44 +3572,244 @@ function coupled_pressure_velocity!(
         end
     end
 
-    uvD = ones(ntu + ntv + nNavier * nip)
-    try
+    # uvD = ones(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)
+    uvD = zeros(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)
+
+    # #region check matrix coupled
+    # if debug_coupled
+    #     # uvD_dummy = zeros(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)
+
+    #     # uvD_dummy[1:ntu] .= ph.uD
+    #     # uvD_dummy[ntu+1:ntu+ntv] .= ph.vD 
+    #     # uvD_dummy[ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+(num.nLS+1)*nip+nbp] .= ph.pD
+
+    #     # # test residual
+    #     # # F_residual = zeros(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)
+    #     # F_residual = zeros(ntu + ntv + nNavier * nip + nip)
+
+    #     # # ncol_A = (num.nLS - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv + ni_p
+
+    #     # # Adummy = spzeros(ncol_A, nt)
+
+
+    #     # print("\n size ",size(F_residual))
+    #     # print("\n size ",size(rhs_uv))
+    #     # print("\n size ",size(uvD_dummy))
+    #     # print("\n size ",size(Auv))
+
+    #     # # F_residual .= Auv*uvD_dummy .-rhs_uv
+    #     # F_residual .= Auv*uvD_dummy 
+
+    #     # F_residual .-= rhs_uv
+
+
+    #     # print("\nF_residual",F_residual)
+    #     # print("\nAuv*ph.phi_eleD",Auv*uvD_dummy)
+    #     # print("\nAuv*ph.phi_eleD",Auv*uvD_dummy/(grid.dx[1,1])^2)
+
+
+    #     # print("\nrhs_uv dummy")
+
+    #     # rhs_uv_dummy = Auv*uvD_dummy/(grid.dx[1,1])^2
+
+    #     # PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+    #     # "rhs_uv_len"::Cstring, length(rhs_uv_dummy)::Ref{Clonglong}, PDI_OUT::Cint,
+    #     # "rhs_uv_1D"::Cstring, rhs_uv_dummy::Ptr{Cdouble}, PDI_OUT::Cint,
+    #     # C_NULL::Ptr{Cvoid})::Cint
+
+    #     # uvD = zeros(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)
+
+    #     uvD[1:ntu] .= ph.uD
+    #     uvD[ntu+1:ntu+ntv] .= ph.vD 
+    #     uvD[ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+(num.nLS+1)*nip+nbp] .= ph.pD
+
+    #     # test residual
+    #     # F_residual = zeros(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)
+    #     F_residual = zeros(ntu + ntv + nNavier * nip + nip)
+
+    #     # ncol_A = (num.nLS - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv + ni_p
+
+    #     # Adummy = spzeros(ncol_A, nt)
+
+
+    #     print("\n size ",size(F_residual))
+    #     print("\n size ",size(rhs_uv))
+    #     print("\n size ",size(uvD))
+    #     print("\n size ",size(Auv))
+
+    #     # F_residual .= Auv*uvD .-rhs_uv
+    #     F_residual .= Auv*uvD 
+
+    #     F_residual .-= rhs_uv
+
+
+    #     print("\nF_residual",F_residual,"\n")
+    #     print("\nAuv*ph.phi_eleD",Auv*uvD,"\n")
+    #     print("\nAuv*ph.phi_eleD",Auv*uvD/(grid.dx[1,1])^2,"\n")
+
+
+    #     print("\nrhs_uv dummy")
+
+    #     rhs_uv_dummy = Auv*uvD/(grid.dx[1,1])^2
+
+    #     PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+    #     "rhs_uv_len"::Cstring, length(rhs_uv_dummy)::Ref{Clonglong}, PDI_OUT::Cint,
+    #     "rhs_uv_1D"::Cstring, rhs_uv_dummy::Ptr{Cdouble}, PDI_OUT::Cint,
+    #     C_NULL::Ptr{Cvoid})::Cint
+
+    #     uvD .= 0.0
+    
+    # end
+    # #endregion check matrix coupled
+
+
+
+    printstyled(color=:red, @sprintf "\nSolving NS\n")
+
+    if num.pressure_velocity_solver == 1
+        printstyled(color=:red, @sprintf "\nBICGSTAB(2)\n")
+
+        # bicgstabl!(x, A, b, l; kwargs...)
+        # uvD, history = bicgstabl!(uvD, Auv, rhs_uv, 2, reltol=1.0e-6,log=true)
+
+        print("\n size Auv ", size(Auv))
+        print("\n size rhs_uv ", size(rhs_uv))
+        print("\n size uvD ", size(uvD))
+
+        # uvD = Auv \ rhs_uv
+
+        uvD, history = bicgstabl(Auv, rhs_uv, 2; Pl=Identity(),reltol=1.0e-6,log=true)
+        # uvD, history = bicgstabl(Auv, rhs_uv)
+
+        # maxiter=100,
+        #residual normalised in Julia ? 
+        # tol: (relative) stopping tolerance of the method;
+        # verbose: print information during the iterations;
+        # maxiter: maximum number of allowed iterations;
+        # Pl and Pr: left and right precon
+
+        print("\n history ",history)
+    else
+        printstyled(color=:red, @sprintf "\nJulia solve\n")
+
         @time uvD .= Auv \ rhs_uv
-    catch e
-        printstyled(color=:red, @sprintf "\nError coupled pressure-velocity\n")
-        println(e)
-        print(e)
-        uvD .= Inf
     end
 
+    printstyled(color=:red, @sprintf "\nSolving NS\n")
+
+    # print("uvD",uvD)
+
+    #region print matrix
+    PDI_status = @ccall "libpdi".PDI_multi_expose("print_matrix"::Cstring,
+    "Auv_n"::Cstring, Auv.n::Ref{Clonglong}, PDI_OUT::Cint,
+    "Auv_m"::Cstring, Auv.m::Ref{Clonglong}, PDI_OUT::Cint,
+    # "Auv_colptr_len"::Cstring, length_colptr::Ref{Clonglong}, PDI_OUT::Cint,
+    # "Auv_rowval_len"::Cstring, length_rowval::Ref{Clonglong}, PDI_OUT::Cint,
+    # "Auv_nzval_len"::Cstring, length_nzval::Ref{Clonglong}, PDI_OUT::Cint,
+    "Auv_colptr_len"::Cstring, length(Auv.colptr)::Ref{Clonglong}, PDI_OUT::Cint,
+    "Auv_rowval_len"::Cstring, length(Auv.rowval)::Ref{Clonglong}, PDI_OUT::Cint,
+    "Auv_nzval_len"::Cstring, length(Auv.nzval)::Ref{Clonglong}, PDI_OUT::Cint,
+    "Auv_colptr_1D"::Cstring, Auv.colptr::Ptr{Clonglong}, PDI_OUT::Cint,
+    "Auv_rowval_1D"::Cstring, Auv.rowval::Ptr{Clonglong}, PDI_OUT::Cint,
+    "Auv_nzval_1D"::Cstring, Auv.nzval::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+    #endregion print matrix
+
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+    "rhs_uv_len"::Cstring, length(uvD)::Ref{Clonglong}, PDI_OUT::Cint,
+    "rhs_uv_1D"::Cstring, uvD::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    # F_residual = zeros(ntu + ntv + nNavier * nip + nip)
+    F_residual = similar(rhs_uv)
+
+    # F_residual .= Auv*uvD_dummy .-rhs_uv
+    F_residual .= Auv*uvD 
+
+    printstyled(color=:red, @sprintf "\n A u\n")
+
+    print("\n Auv*uvD  ", F_residual)
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+    "rhs_uv_len"::Cstring, length(F_residual)::Ref{Clonglong}, PDI_OUT::Cint,
+    "rhs_uv_1D"::Cstring, F_residual::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    printstyled(color=:red, @sprintf "\n A u\n")
+
+
+    F_residual .-= rhs_uv
+
+    print("\n F_residual ", F_residual)
+
+
+    # try
+    #     if num.pressure_velocity_solver == 1
+    #         printstyled(color=:red, @sprintf "\nBICGSTAB(2)\n")
+
+    #         # bicgstabl!(x, A, b, l; kwargs...)
+    #         bicgstabl!(uvD, Auv, rhs_uv, 2; tol=1.0e-6,maxiter=100) #residual normalised in Julia ? 
+    #         # tol: (relative) stopping tolerance of the method;
+    #         # verbose: print information during the iterations;
+    #         # maxiter: maximum number of allowed iterations;
+    #         # Pl and Pr: left and right precon
+    #     else
+    #         @time uvD .= Auv \ rhs_uv
+    #     end
+
+    # # try
+    # #     @time uvD .= Auv \ rhs_uv
+    # catch e
+    #     printstyled(color=:red, @sprintf "\nError coupled pressure-velocity\n")
+    #     # println(e)
+    #     print(e)
+    #     uvD .= Inf
+    # end
+
+    ph.uD .= uvD[1:ntu]
+    ph.vD .= uvD[ntu+1:ntu+ntv]
+    ph.pD .= uvD[ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+(num.nLS+1)*nip+nbp]
+
+    # print("uvD",uvD)
+
+    kill_dead_cells!(vec1(ph.uD,grid_u), grid_u, geo_u[end])
+    ph.u .= reshape(vec1(ph.uD,grid_u), grid_u)
+    kill_dead_cells!(vec1(ph.vD,grid_v), grid_v, geo_v[end])
+    ph.v .= reshape(vec1(ph.vD,grid_v), grid_v)
+    
     PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_prediction"::Cstring,
-    "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-    "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "u_1D"::Cstring, ph.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "v_1D"::Cstring, ph.vD::Ptr{Cdouble}, PDI_OUT::Cint,
     "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
-    vec1(ucorrD, grid_u) .= uvD[1:niu]
-    vecb(ucorrD, grid_u) .= uvD[ntu-nbu+1:ntu]
-    kill_dead_cells!(vec1(ucorrD,grid_u), grid_u, geo_u[end])
-    ucorr .= reshape(vec1(ucorrD,grid_u), grid_u)
 
-    vec1(vcorrD, grid_v) .= uvD[ntu+1:ntu+niv]
-    vecb(vcorrD, grid_v) .= uvD[ntu+ntv-nbv+1:ntu+ntv]
-    kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])
-    vcorr .= reshape(vec1(vcorrD,grid_v), grid_v)
+
+
+
+    # vec1(ucorrD, grid_u) .= uvD[1:niu]
+    # vecb(ucorrD, grid_u) .= uvD[ntu-nbu+1:ntu]
+    # kill_dead_cells!(vec1(ucorrD,grid_u), grid_u, geo_u[end])
+    # ucorr .= reshape(vec1(ucorrD,grid_u), grid_u)
+
+    # vec1(vcorrD, grid_v) .= uvD[ntu+1:ntu+niv]
+    # vecb(vcorrD, grid_v) .= uvD[ntu+ntv-nbv+1:ntu+ntv]
+    # kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])
+    # vcorr .= reshape(vec1(vcorrD,grid_v), grid_v)
 
     nNav = 0
     _iLS = 1
     for iLS in 1:nLS
         if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
-            veci(ucorrD,grid_u,iLS+1) .= uvD[_iLS*niu+1:(_iLS+1)*niu]
-            kill_dead_cells!(veci(ucorrD,grid_u,iLS+1), grid_u, geo_u[end])
+            veci(ph.uD,grid_u,iLS+1) .= uvD[_iLS*niu+1:(_iLS+1)*niu]
+            kill_dead_cells!(veci(ph.uD,grid_u,iLS+1), grid_u, geo_u[end])
 
-            veci(vcorrD,grid_v,iLS+1) .= uvD[ntu+_iLS*niv+1:ntu+(_iLS+1)*niv]
-            kill_dead_cells!(veci(vcorrD,grid_v,iLS+1), grid_v, geo_v[end])
+            veci(ph.vD,grid_v,iLS+1) .= uvD[ntu+_iLS*niv+1:ntu+(_iLS+1)*niv]
+            kill_dead_cells!(veci(ph.vD,grid_v,iLS+1), grid_v, geo_v[end])
             _iLS += 1
         else
-            @inbounds uT[nNav+1,:] .= vec(uvD[ntu+ntv+1+nNav*nip:ntu+ntv+(nNav+1)*nip])
+            @inbounds ph.uT[nNav+1,:] .= vec(uvD[ntu+ntv+1+nNav*nip:ntu+ntv+(nNav+1)*nip])
             nNav += 1
         end
     end
@@ -4021,8 +3817,8 @@ function coupled_pressure_velocity!(
 
 
     PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_prediction"::Cstring,
-    "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-    "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "u_1D"::Cstring, ph.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "v_1D"::Cstring, ph.vD::Ptr{Cdouble}, PDI_OUT::Cint,
     "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 

@@ -289,6 +289,8 @@ l1_full = zeros(n_cases)
 l2_full = zeros(n_cases)
 loo_full = zeros(n_cases)
 
+cell_volume_list = zeros(n_cases)
+
 
 # Convergence study loop
 for (i,n) in enumerate(npts)
@@ -935,6 +937,9 @@ for (i,n) in enumerate(npts)
     l2_full[i] = norm_full[2]
     loo_full[i] = norm_full[3]
 
+    cell_volume_list[i] = minimum(gp.LS[1].geoL.dcap[:,:,5])
+
+
 
 end #convergence
 
@@ -964,6 +969,7 @@ end #convergence
 
 
 local PDI_status = @ccall "libpdi".PDI_multi_expose("convergence_study"::Cstring, 
+"cell_volume_list"::Cstring, cell_volume_list::Ptr{Cdouble}, PDI_OUT::Cint,
 "n_tests"::Cstring, n_cases::Ref{Clonglong}, PDI_OUT::Cint,
 "nx_list"::Cstring, npts::Ptr{Clonglong}, PDI_OUT::Cint,
 "l1_rel_error"::Cstring, l1::Ptr{Cdouble}, PDI_OUT::Cint,

@@ -2302,6 +2302,296 @@ function compute_grad_phi_ele!(num::Numerical{Float64, Int64},
 end
 
 
+"""
+  Compute norm of gradient for exchange current 
+    phL.i_current_mag is interpolated
+    gradient is cell-averaged
+"""
+function compute_grad_phi_ele!(num::Numerical{Float64, Int64},
+    grid::Mesh{Flower.GridCC, Float64, Int64},
+    grid_u::Mesh{Flower.GridFCx, Float64, Int64},
+    grid_v::Mesh{Flower.GridFCy, Float64, Int64},
+    LS_u::Levelset{Float64, Int64},
+    LS_v::Levelset{Float64, Int64},
+    phL::Phase{Float64},
+    phS::Phase{Float64}, 
+    opC_pL::Operators{Float64, Int64}, 
+    opC_pS::Operators{Float64, Int64},
+    elec_cond::Array{Float64, 2},
+    tmp_vec_u::Array{Float64, 2},
+    tmp_vec_v::Array{Float64, 2},
+    tmp_vec_p::Array{Float64, 2},
+    tmp_vec_p0::Array{Float64, 2},
+    tmp_vec_p1::Array{Float64, 2},
+    )
+    
+    @unpack nLS = num
+
+    # LS =gp.LS[1]
+
+    #TODO different way to do it?
+
+    #Liquid phase
+    @unpack phi_eleD = phL
+    opC_p = opC_pL
+
+
+    # tmp_vec_p1 .= 0.0
+
+    tmp_vec_p1 = zeros(grid.ny,grid.nx)
+
+    for j in 1:grid.ny
+        for i in 1:grid.nx
+            tmp_vec_p1[j,i] = 0.0
+        end
+    end
+
+    if maximum(tmp_vec_p1)>0
+        printstyled(color=:red, @sprintf "\n tmp_vec_p1 max %.2e \n" maximum(tmp_vec_p1))
+        throw(DivideError())
+    end
+
+    # mass_flux_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
+    # mass_flux_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+
+    # for iLS in 1:nLS
+    #     mass_flux_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+    #     mass_flux_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+    # end
+
+ 
+    # mass_flux_vec1_2 .= reshape(mass_flux_vec1,grid)
+    # mass_flux_vecb_2 .= reshape(mass_flux_vecb,grid)
+    # mass_flux_veci_2 .= reshape(mass_flux_veci,grid)
+
+    # mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
+
+
+    ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(phi_eleD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(phi_eleD,grid)
+    ∇ϕ_y = opC_p.iMy * opC_p.By * vec1(phi_eleD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(phi_eleD,grid)
+
+    for iLS in 1:nLS
+        ∇ϕ_x .+= opC_p.iMx * opC_p.Hx[iLS] * veci(phi_eleD,grid,iLS+1)
+        ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(phi_eleD,grid,iLS+1)
+    end
+
+    tmp_vec_u .= reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    tmp_vec_v .= reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+   
+
+    # tmp_vec_u .= grd_x
+    # tmp_vec_v .= grd_y
+
+    #store in us, vs instead of Eus, Evs
+    # interpolate_grid_liquid!(grid,grid_u,grid_v,tmp_vec_u, tmp_vec_v ,tmp_vec_p,tmp_vec_p0)
+
+    interpolate_grid_liquid_2!(num, grid, LS_u, LS_v, tmp_vec_u, tmp_vec_v, tmp_vec_p, tmp_vec_p0)
+
+    # to expose the gradient of phi
+    # @ccall "libpdi".PDI_multi_expose("write_data_elec_ix_iy_grad"::Cstring,
+    # "grad_phi_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # "grad_phi_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+    # # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+    # # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # C_NULL::Ptr{Cvoid})::Cint
+
+    # TODO 
+    tmp_vec_p .*= -elec_cond # i=-κ∇ϕ here magnitude
+    tmp_vec_p0 .*= -elec_cond # i=-κ∇ϕ here magnitude
+
+
+
+
+    # @ccall "libpdi".PDI_multi_expose("write_data_elec_ix_iy"::Cstring,
+    # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+    # # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # C_NULL::Ptr{Cvoid})::Cint
+
+
+    # @ccall "libpdi".PDI_multi_expose("solve_poisson"::Cstring,
+    # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+    # # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # "elec_cond_1D"::Cstring, elec_condD::Ptr{Cdouble}, PDI_OUT::Cint,  
+    # # "BC_phi_ele_left"::Cstring, BC_phi_ele.left.val::Ptr{Cdouble}, PDI_OUT::Cint,  
+    # # "grad_phi_ele_u"::Cstring, tmp_vec_u::Ptr{Cdouble}, PDI_OUT::Cint,  
+    # C_NULL::Ptr{Cvoid})::Cint
+
+    # tmp_vec_p1 .= (
+    #     (tmp_vec_u[:,2:end].^2.0 .* LS_u.geoL.dcap[:,2:end,6] .+ 
+    #     tmp_vec_u[:,1:end-1].^2.0 .* LS_u.geoL.dcap[:,1:end-1,6]) ./ 
+    #     (LS_u.geoL.dcap[:,1:end-1,6] .+ LS_u.geoL.dcap[:,2:end,6])
+    # )
+    # tmp_vec_p1 .+= (
+    #     (tmp_vec_v[2:end,:].^2.0 .* LS_v.geoL.dcap[2:end,:,7] .+ 
+    #     tmp_vec_v[1:end-1,:].^2.0 .* LS_v.geoL.dcap[1:end-1,:,7]) ./
+    #     (LS_v.geoL.dcap[1:end-1,:,7] .+ LS_v.geoL.dcap[2:end,:,7])
+    # )
+    if num.average_liquid_solid == 0 #solid contribution set to zeoro
+
+        # printstyled(color=:red, @sprintf "\n tmp_vec_p1 25 49 %.2e \n" tmp_vec_p1[49,25])
+
+    
+
+        for j in 1:grid.ny
+            for i in 1:grid.nx
+                # print("\n i j tmp_vec_p1[j,i] ",i, " ",j," ",tmp_vec_p1[j,i])
+                # printstyled(color=:red, @sprintf "\n tmp_vec_p1 25 49 %.2e \n" tmp_vec_p1[49,25])
+
+                if tmp_vec_p1[j,i] !=0.0
+                    printstyled(color=:red, @sprintf "\n  i %.3i j  %.3i tmp_vec_p1 %.2e \n" i j tmp_vec_p1[j,i])
+                    return
+                end
+
+                if LS_u.geoL.dcap[j,i,5] >num.epsilon_vol
+                    tmp_vec_p1[j,i] += (tmp_vec_u[j,i+1]^2.0 * LS_u.geoL.dcap[j,i+1,6] + tmp_vec_u[j,i]^2.0 * LS_u.geoL.dcap[j,i,6]) / (LS_u.geoL.dcap[j,i+1,6] + LS_u.geoL.dcap[j,i,6] + LS_u.geoS.dcap[j,i+1,6] + LS_u.geoS.dcap[j,i,6])
+
+                    tmp_vec_p1[j,i] += (tmp_vec_v[j+1,i]^2.0 * LS_v.geoL.dcap[j+1,i,7] + tmp_vec_v[j,i]^2.0 * LS_v.geoL.dcap[j,i,7]) / (LS_v.geoL.dcap[j+1,i,7] + LS_v.geoL.dcap[j,i,7] + LS_v.geoS.dcap[j+1,i,7] + LS_v.geoS.dcap[j,i,7])
+
+                    try
+                        tmp_vec_p1[j,i] = sqrt(tmp_vec_p1[j,i])
+                    catch e
+                        print("\n i j liq ",i," ",j," ", tmp_vec_p1[j,i]," ",LS_u.geoL.dcap[j,i+1,6] , " ", LS_u.geoL.dcap[j,i,6] ," ", LS_u.geoS.dcap[j,i+1,6] ," ", LS_u.geoS.dcap[j,i,6]," ",LS_u.geoL.dcap[j,i+1,6] + LS_u.geoL.dcap[j,i,6] + LS_u.geoS.dcap[j,i+1,6] + LS_u.geoS.dcap[j,i,6] ," ",tmp_vec_u[j,i+1]^2.0 ," ", tmp_vec_u[j,i]^2.0," ",tmp_vec_v[j+1,i]^2.0 ," ", tmp_vec_v[j,i]^2.0)
+                        print("\n i j liq ",i," ",j," ", tmp_vec_p1[j,i]," ",LS_v.geoL.dcap[j+1,i,7] , " ", LS_v.geoL.dcap[j,i,7] ," ", LS_v.geoL.dcap[j+1,i,7] , " ", LS_v.geoL.dcap[j,i,7])
+
+                        print(e)
+                        return
+                    end
+
+                    # if (LS_u.geoL.dcap[j,i+1,6] + LS_u.geoL.dcap[j,i,6] 
+                        
+                    #     + LS_u.geoS.dcap[j,i+1,6] + )
+
+                end
+
+            end
+        end 
+
+    end # if num.average_liquid_solid == 0
+
+
+    # if num.average_liquid_solid == 1 #TODO
+
+    #     #Solid phase
+    #     @unpack phi_eleD = phS
+
+    #     opC_p = opC_pS
+
+    #     ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(phi_eleD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(phi_eleD,grid)
+    #     ∇ϕ_y = opC_p.iMy * opC_p.By * vec1(phi_eleD,grid) .+ opC_p.iMy_b * opC_p.Hy_b * vecb(phi_eleD,grid)
+
+    #     for iLS in 1:nLS
+    #         ∇ϕ_x .+= opC_p.iMx * opC_p.Hx[iLS] * veci(phi_eleD,grid,iLS+1)
+    #         ∇ϕ_y .+= opC_p.iMy * opC_p.Hy[iLS] * veci(phi_eleD,grid,iLS+1)
+    #     end
+
+    #     # grd_x .= reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    #     # grd_y .= reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+    #     tmp_vec_u .= reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    #     tmp_vec_v .= reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+    #     #Output everything to phL
+
+    #     # phS.i_current_mag .= (
+    #     #     (grd_x[:,2:end].^2.0 .* LS_u.geoS.dcap[:,2:end,6] .+ 
+    #     #     grd_x[:,1:end-1].^2.0 .* LS_u.geoS.dcap[:,1:end-1,6]) ./ 
+    #     #     (LS_u.geoS.dcap[:,1:end-1,6] .+ LS_u.geoS.dcap[:,2:end,6] + eps_den )
+    #     # )
+    #     # phS.i_current_mag .+= (
+    #     #     (grd_y[2:end,:].^2.0 .* LS_v.geoS.dcap[2:end,:,7] .+ 
+    #     #     ph.v[1:end-1,:].^2.0 .* LS_v.geoS.dcap[1:end-1,:,7]) ./
+    #     #     (LS_v.geoS.dcap[1:end-1,:,7] .+ LS_v.geoS.dcap[2:end,:,7] + eps_den )
+    #     # )
+
+    #     # tmp_vec_p1 .+= (
+    #     #     (tmp_vec_u[:,2:end].^2.0 .* LS_u.geoS.dcap[:,2:end,6] .+ 
+    #     #     tmp_vec_u[:,1:end-1].^2.0 .* LS_u.geoS.dcap[:,1:end-1,6]) ./ 
+    #     #     (LS_u.geoS.dcap[:,1:end-1,6] .+ LS_u.geoS.dcap[:,2:end,6])
+    #     # )
+    #     # # #Store also S value or reset 0
+    #     # tmp_vec_p1 .+= (
+    #     #     (tmp_vec_v[2:end,:].^2.0 .* LS_v.geoS.dcap[2:end,:,7] .+ 
+    #     #     tmp_vec_v[1:end-1,:].^2.0 .* LS_v.geoS.dcap[1:end-1,:,7]) ./
+    #     #     (LS_v.geoS.dcap[1:end-1,:,7] .+ LS_v.geoS.dcap[2:end,:,7] )
+    #     # )
+        
+    #     # for j in 1:grid.ny
+    #     #     for i in 1:grid.nx
+
+    #     #         if LS_u.geoS.dcap[j,i,5] >num.epsilon_vol
+    #     #             print("\n test solid ",tmp_vec_p1[j,i]," ", (tmp_vec_u[j,i+1]^2.0 * LS_u.geoS.dcap[j,i+1,6] + tmp_vec_u[j,i]^2.0 * LS_u.geoS.dcap[j,i,6]) / (LS_u.geoS.dcap[j,i+1,6] + LS_u.geoS.dcap[j,i,6])," ", (tmp_vec_v[j+1,i]^2.0 * LS_v.geoS.dcap[j+1,i,7] + tmp_vec_v[j,i]^2.0 * LS_v.geoS.dcap[j,i,7]) / (LS_v.geoS.dcap[j+1,i,7] + LS_v.geoS.dcap[j,i,7]))
+    #     #             tmp_vec_p1[j,i] += (tmp_vec_u[j,i+1]^2.0 * LS_u.geoS.dcap[j,i+1,6] + tmp_vec_u[j,i]^2.0 * LS_u.geoS.dcap[j,i,6]) / (LS_u.geoS.dcap[j,i+1,6] + LS_u.geoS.dcap[j,i,6])
+
+    #     #             tmp_vec_p1[j,i] += (tmp_vec_v[j+1,i]^2.0 * LS_v.geoS.dcap[j+1,i,7] + tmp_vec_v[j,i]^2.0 * LS_v.geoS.dcap[j,i,7]) / (LS_v.geoS.dcap[j+1,i,7] + LS_v.geoS.dcap[j,i,7])
+                    
+    #     #             try
+    #     #                 tmp_vec_p1[j,i] = sqrt(tmp_vec_p1[j,i])
+    #     #             catch e
+    #     #                 print("\n i j sol ",i," ",j," ", tmp_vec_p1[j,i])
+    #     #                 print(e)
+    #     #             end
+
+    #     #         end
+
+    #     #     end
+    #     # end 
+
+
+    # end
+
+    # tmp_vec_p1 .= sqrt.(tmp_vec_p1)
+    # phS.i_current_mag .= sqrt.(phS.i_current_mag)
+
+    tmp_vec_p1 .*= elec_cond # i=-κ∇ϕ here magnitude
+
+
+    #TODO Eu Ev S
+    # phS.Eu .= grd_x
+    # phS.Ev .= grd_y
+
+
+
+
+
+    # @ccall "libpdi".PDI_multi_expose("write_data_elec_imag"::Cstring,
+    # # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+    # "i_current_mag"::Cstring, tmp_vec_p1::Ptr{Cdouble}, PDI_OUT::Cint,
+    # # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # C_NULL::Ptr{Cvoid})::Cint
+
+    @ccall "libpdi".PDI_multi_expose("write_data_elec_ix_iy"::Cstring,
+    "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+    "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+    "i_current_mag"::Cstring, tmp_vec_p1::Ptr{Cdouble}, PDI_OUT::Cint,
+    "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+    C_NULL::Ptr{Cvoid})::Cint
+
+
+    # minphi_eleL = minimum(phL.phi_eleD)
+    # miniL=minimum(phL.i_current_mag)
+
+    # maxphi_eleL = maximum(phL.phi_eleD)
+    # maxiL=maximum(phL.i_current_mag)
+
+    # moyphi_eleL = mean(phL.phi_eleD)
+    # moyiL=mean(phL.i_current_mag)
+
+    # print("$(@sprintf("norm(cH2) %.6e", normscal1L))\t$(@sprintf("norm(KOH) %.6e", normscal2L))\t$(@sprintf("norm(H2O) %.6e", normscal3L))\n")
+    # print("$(@sprintf("norm(phi_ele) %.6e", normphi_eleL))\t$(@sprintf("norm(T) %.6e", normTL))\t$(@sprintf("norm(i) %.6e", normiL))\n")
+
+    # print("$(@sprintf("min(phi_ele) %.6e", minphi_eleL))\t$(@sprintf("min(T) %.6e", minTL))\t$(@sprintf("min(i) %.6e", miniL))\n")
+    # print("$(@sprintf("max(phi_ele) %.6e", maxphi_eleL))\t$(@sprintf("max(T) %.6e", maxTL))\t$(@sprintf("max(i) %.6e", maxiL))\n")
+    # print("$(@sprintf("moy(phi_ele) %.6e", moyphi_eleL))\t$(@sprintf("moy(T) %.6e", moyTL))\t$(@sprintf("moy(i) %.6e", moyiL))\n")
+
+
+end
+
 
 """
   Compute norm of gradient for exchange current 

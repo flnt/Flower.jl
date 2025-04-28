@@ -1,8 +1,9 @@
-using Revise
+# using Revise 
 using Flower
 
 
 # PDI
+
 
 localARGS = ARGS
 @show localARGS
@@ -46,6 +47,36 @@ n_cases = length(npts)
 print("\n number of points ", npts, "\n")
 
 
+#region attempt at precompiling Flower modules to librairies (.so)
+# print("\n test juliac")
+
+# # @ccall "simple.so".add_julia(2::Cint, 2::Cint)::Cint
+
+# # test_juliac = @ccall "simple.so".add_julia(2::Cint, 2::Cint)::Cint
+
+# # # Get the current working directory
+# # current_directory = pwd()
+
+# # # Print the current working directory
+# # println("Current working directory: ", current_directory)
+
+# # test_juliac = @ccall "./simple.so".add_julia(2::Cint, 2::Cint)::Cint
+
+# # test_juliac = @ccall "/local/home/pr277828/flower/juliac/simple.so".add_julia(2::Cint, 2::Cint)::Cint
+
+# test_juliac = @ccall add_julia(2::Cint, 2::Cint)::Cint
+
+
+# print("\n test ",test_juliac)
+# # juliac_status = @ccall "mylib".load_parameters()::Cint
+# # juliac_status = @ccall "libmylib.so".load_parameters()::Cint
+
+# print("\n test juliac")
+
+# # pdipath = "libpdi"
+# pdipath = "/usr/lib/x86_64-linux-gnu/libpdi.so"
+#endregion attempt at precompiling Flower modules to librairies (.so)
+
 
 if io.pdi>0
 
@@ -85,6 +116,7 @@ if io.pdi>0
             "nb_transported_scalars"::Cstring, phys.nb_transported_scalars::Ref{Clonglong}, PDI_OUT::Cint,
             "nb_levelsets"::Cstring, phys.nb_levelsets::Ref{Clonglong}, PDI_OUT::Cint,
             "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+            # "nb_Navier_slip_BC"::Cstring, num.nNavier::Ref{Clonglong}, PDI_OUT::Cint,
             C_NULL::Ptr{Cvoid})::Cint
 
     @debug "after PDI_multi_expose"
@@ -114,6 +146,15 @@ for (i,n) in enumerate(npts)
     # init regular grid
     scalar_mesh_x = collect(LinRange(mesh.xmin, mesh.xmax, n + 1))    
     scalar_mesh_y = collect(LinRange(mesh.ymin, mesh.ymax, n + 1))
+
+
+    # # print("\n test juliac")
+
+    # # juliac_status = @ccall "mylib".load_parameters()::Cint
+    # juliac_status = @ccall "libmylib".load_parameters()::Cint
+
+    # # print("\n test juliac")
+
 
     @debug "Before Numerical"
     global num = Numerical(
@@ -193,6 +234,7 @@ for (i,n) in enumerate(npts)
         electrical_potential_nonlinear_solver = sim.electrical_potential_nonlinear_solver,
         electrolysis_reaction = phys.electrolysis_reaction,
         pressure_velocity_coupling = sim.pressure_velocity_coupling,
+        pressure_velocity_solver = sim.pressure_velocity_solver,
         solve_solid = sim.solve_solid,
         )
     Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
@@ -229,6 +271,7 @@ for (i,n) in enumerate(npts)
                     "nb_transported_scalars"::Cstring, phys.nb_transported_scalars::Ref{Clonglong}, PDI_OUT::Cint,
                     "nb_levelsets"::Cstring, phys.nb_levelsets::Ref{Clonglong}, PDI_OUT::Cint,
                     "nstep"::Cstring, num.current_i::Ref{Clonglong}, PDI_OUT::Cint,
+                    "nb_Navier_slip_BC"::Cstring, num.nNavier::Ref{Clonglong}, PDI_OUT::Cint,
                     C_NULL::Ptr{Cvoid})::Cint
 
         catch
@@ -411,6 +454,8 @@ for (i,n) in enumerate(npts)
     # printstyled(color=:red, @sprintf "\n after pdi \n")
 
     # printstyled(color=:red, @sprintf "\n before run_forward \n")
+
+    # print("\n BC_uL ",BC_uL)
 
     run_forward!(
         num, gp, gu, gv, op, phS, phL;

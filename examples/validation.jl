@@ -878,7 +878,8 @@ if num.io_pdi>0
 
         # phi_array=phL.phi_ele #do not transpose since python row major
         
-        compute_grad_phi_ele!(num, gp, gu, gv, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+        # compute_grad_phi_ele!(num, gp, gu, gv, phL, phS, op.opC_pL, op.opC_pS) #TODO current
+        compute_grad_phi_ele!(num, gp, gu, gv, phL, op.opC_pL) #TODO current
 
         Eus,Evs = interpolate_grid_liquid(gp,gu,gv,phL.Eu, phL.Ev)
 

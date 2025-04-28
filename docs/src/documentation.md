@@ -154,6 +154,28 @@ x_centroid = gv.x .+ getproperty.(gv.LS[1].geoL.centroid, :x) .* gv.dx
 y_centroid = gv.y .+ getproperty.(gv.LS[1].geoL.centroid, :y) .* gv.dy
 ```
 
+```@raw html
+<figure>
+    <a name="numbering_doc"></a> 
+    <img src="./assets/staggered.svg" alt="Staggered grids" title="Staggered grids">
+    <figcaption> Staggered grids </figcaption>
+</figure>
+```
+
+
+```@raw html
+<figure>
+    <a name="numbering_doc"></a> 
+    <img src="./assets/staggered_coupled.svg" alt="Staggered grids" title="Staggered grids">
+    <figcaption> Staggered grids </figcaption>
+</figure>
+```
+
+```bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence.jl ../Flower.jl/examples/convergence_diffusion_constant_conductivity_bubble_wall_perio.yml
+```
+
+
 The interface centroid ``x^\gamma`` is defined as "the mid point of the segment crossing the cell which will be used in the computation of the Stefan condition." [`(Fullana 2022)`](https://theses.hal.science/tel-04053531/).
 
 ```julia
@@ -1420,7 +1442,7 @@ cf fig 2.3 in [`Rodriguez 2024`](https://theses.fr/s384455)
 </figure>
 ```
 
-!!! todo "Staggered capcities and gradients"
+!!! todo "Staggered capacities and gradients"
     for Poiseuille
 
 * u grid: xmin, xmin+dx, ...xmax-dx,xmax
@@ -2101,7 +2123,7 @@ New version
     ```
 
 ```math
-\[
+\begin{equation}
 \begin{pmatrix}
 F_u & B_p^T \\
 B_u & 0
@@ -2115,8 +2137,7 @@ p^{n+1}
 \vec{f} \\
 0
 \end{pmatrix}
-\]
-\vspace{0.5cm}
+\end{equation}
 ```
 where \( F_u = M_u^{(\rho)} + N_u^{(\rho)} + L_u^{(\mu)} \), and finally:
 
@@ -2130,14 +2151,15 @@ where \( F_u = M_u^{(\rho)} + N_u^{(\rho)} + L_u^{(\mu)} \), and finally:
 
 
 
+!!! todo "Should nNavier be set to 1? Or only for 2 LS?"
 
 
 !!! todo "explain interpolation uv to grid p with averaging coefficients"
     why volume used for interpolating for iLS and difference in liquid heights for i ?
 
 ```@docs
-compute_averaging_coefficient_Navier_uv_grids_to_p_grid_volume
-compute_averaging_coefficient_Navier_uv_grids_to_p_grid_height
+interpolating_coefficient_Navier_uv_grids_to_p_grid_volume
+interpolating_coefficient_Navier_uv_grids_to_p_grid_height
 ```
 
 
@@ -2958,7 +2980,21 @@ ilp2cap
 
 ```@docs
 set_cutcell_matrices!
+```
+
+```@docs
 set_other_cutcell_matrices!
+```@docs
+
+
+Sets Gx_b for divergence of velocity
+
+```@docs
+bc_matrix_borders!(grid, Hx_u, Hy_v, Hx_p, Hy_p, dcap)
+```
+
+called in
+```@docs
 set_border_matrices!
 ```
 
