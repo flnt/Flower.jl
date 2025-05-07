@@ -533,7 +533,7 @@ end #if sim.name ==
 num = Numerical(
     CFL = sim.CFL,
     Re = Re,
-    TEND=phys.end_time,
+    end_time=phys.end_time,
     x = x,
     y = y,
     xcoord = phys.intfc_x,
@@ -1954,7 +1954,7 @@ end #if sim.name ==
 num = Numerical(
     CFL = sim.CFL,
     Re = Re,
-    TEND=phys.end_time,
+    end_time=phys.end_time,
     x = x,
     y = y,
     xcoord = phys.intfc_x,

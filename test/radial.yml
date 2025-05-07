@@ -134,7 +134,7 @@ flower:
     null_space: 0 #method for null space, matrix diagonal
     periodic_x: 0
     periodic_y: 0
-    prediction: 0 #4 #0 #pressure-velocity coupling
+    prediction: Flower #4 #0 #pressure-velocity coupling
     # prediction = 0
     # prediction = 1
     # prediction = 2

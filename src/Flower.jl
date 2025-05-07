@@ -53,6 +53,7 @@ import Base.reshape
 # @reexport using BenchmarkTools
 
 @reexport using IterativeSolvers #for gmres
+# @reexport using ConvergenceHistory #for reserve!
 
 @reexport using Statistics #for mean
 @reexport using MPI
@@ -141,6 +142,7 @@ include("electrolysis_operators.jl")
 include("electrolysis_tests.jl")
 include("electrolysis_print.jl")
 
+include("bicgstabl_flower.jl")
 
 include("run_profile.jl") #for profiling
 

@@ -22,7 +22,7 @@ from scipy.stats import pearsonr
 from plot_flower import set_size, init_fig, compute_slope, roundlog, \
    logticks,reshape_data,veci,vecb_L,reshape_data_veci,plot_current_lines,\
    plot_python_pdf_full2,plot_file,plot_schematics,plot_schematics_full,\
-   add_schematics,compute_slope_lin_or_log,plot_vector,plot_schematics_fluxes,\
+   add_schematics,add_schematics_full_cell,compute_slope_lin_or_log,plot_vector,plot_schematics_fluxes,\
    plot_schematics_full_with_losses 
 
 plt.rcParams["text.parse_math"] = False #necessary for mhchem
@@ -595,9 +595,6 @@ def plot_convergence_study_func():
       h5_files = sys.argv[2::]
          
 
-   # print(h5_files)
-   h5_files = sorted(h5_files)
-   print(h5_files)
 
    # print(sys.argv)
 
@@ -620,6 +617,14 @@ def plot_convergence_study_func():
    plotpar = yml["plot"]
 
    plotpar["scale_time"] = float(plotpar["scale_time"])
+
+      # print(h5_files)
+   if 'sort_files' in plotpar.keys():
+      h5_files = h5_files
+   else:
+      h5_files = sorted(h5_files)
+   print(h5_files)
+
 
    try:
         mesh["nx"] = int(mesh["nx"])
@@ -784,6 +789,10 @@ def plot_convergence_func(
    # file_name = h5_files[0]
 
    fig1,ax2 = init_fig(plotpar,figpar)
+
+   if 'macro_analytical' in figpar.keys():
+      exec(figpar['macro_analytical'])
+
 
    if 'logplot' in figpar.keys():
       figpar['error_list'] = []
@@ -971,7 +980,14 @@ def plot_convergence_func(
       font_size = plotpar['fontsize']
 
    if 'add_schematics' in figpar.keys():
-      ax2 = add_schematics_curve(fig1,ax2,font_size,figpar)
+      if figpar['add_schematics'] == 'add_schematics_curve_full_cell':
+         ax2 = add_schematics_curve_full_cell(fig1,ax2,font_size,figpar)
+      else:
+         ax2 = add_schematics_curve(fig1,ax2,font_size,figpar)
+
+   if 'macro_analytical' in figpar.keys():
+      exec(figpar['macro_analytical'])
+
 
 
    if 'logplot' in figpar.keys():
@@ -1136,6 +1152,119 @@ def add_schematics_curve(fig,ax2,fontsize,figpar):
    inset_ax.add_patch(electrode)
 
    inset_ax.text(xmin/2, 0.5, 'Electrode', color='w',fontsize=fontsize,rotation=90, va='center',ha='center')
+
+
+
+   liq_height=0.5
+
+   liq_height_2 = 0.75
+
+   liq_height = 1.0
+   liq_height_2 =1.0
+   # inset_ax.fill_between([0, 1-liq_height], [1, 1], [1, 1-liq_height_2], color='cyan', alpha=0.3)
+
+   #region Plot liquid
+   inset_ax.fill_between([0, 1],[1,1] ,[1-liq_height, 1-liq_height_2])
+
+   #  inset_ax.plot([0, 1], [1-liq_height, 1-liq_height_2], ls='-',color='r')
+   #endregion
+
+
+   if 'macro_plot_BC' in figpar.keys():
+      exec(figpar['macro_plot_BC'],
+         )
+   else:
+      #phi
+      inset_ax.text(             
+      0,# xmin/2
+      0.65, r'$\frac{\partial \phi }{\partial n} = \frac{i}{\kappa}$', fontsize=fontsize,color='w',ha='left',va='center')
+
+      inset_ax.text(0.65, 0.0, r'$\frac{\partial \phi }{\partial n} = 0$', fontsize=fontsize,va='bottom',ha='center',color='w')
+      inset_ax.text(1.0, 0.5, r'$\phi = 0$', fontsize=fontsize,va='bottom',ha='right',color='w')
+
+
+ 
+
+
+   # inset_ax.text(0.1, 0.35, r'$c_{H_2} = c_{H_2, 0}$', fontsize=fontsize)
+   # inset_ax.text(xmin/2, 0.5, 'Electrode', color='w',fontsize=12,rotation=90, va='center',ha='center')
+   # inset_ax.text(xmin/2, 0.75, r'$\frac{\partial c_{H_2}}{\partial n} = -\frac{i}{2FD}$', fontsize=fontsize,color='w')
+
+   if 'macro_show_slice' in figpar.keys():
+      exec(figpar['macro_show_slice'],
+         )
+   # print(figpar['macro_show_slice'])
+
+   return ax2
+
+
+def add_schematics_curve_full_cell(fig,ax2,fontsize,figpar):
+
+   # x1, x2, y1, y2 = 0,1, 55,57  # subregion of the original image
+   x1, x2, y1, y2 = figpar['add_schematics_coords']
+
+
+   #  inset_ax = ax2.inset_axes(
+   #  [-1, 0.125, figpar['schematics_width'], figpar['schematics_height']],
+
+   #  # [0.5, 0.5, 0.47, 0.47],
+   #  xlim=(x1, x2), ylim=(y1, y2), xticklabels=[], yticklabels=[])
+
+
+   inset_ax = inset_axes(ax2,width=figpar['schematics_width'], height=figpar['schematics_height'], loc=figpar['schematics_loc'])
+
+   # axins.imshow(Z2, extent=extent, origin="lower")
+
+   lw_inset = 0.5
+   color_inset = orange_Okabe
+
+
+   #  rect, lines = ax2.indicate_inset_zoom(inset_ax, edgecolor=color_inset,
+   #                                        lw=lw_inset,
+   #                                        alpha=1)
+
+   #  # rect.set_edgecolor('none')
+   #  # lines.set_width(0.125)
+   #  plt.setp(lines, linewidth=lw_inset,color=color_inset)
+
+
+
+   xmin = -0.1
+
+   inset_ax.set_xlim(xmin, 1-xmin)
+   inset_ax.set_ylim(0, 1)
+   # inset_ax.axis('off')
+
+   inset_ax.get_xaxis().set_visible(False)
+   inset_ax.get_yaxis().set_visible(False)
+
+   for key, spine in inset_ax.spines.items():
+      spine.set_edgecolor(orange_Okabe)
+      spine.set_linewidth(lw_inset)
+
+
+   # Draw the gradient in the inset
+   # inset_ax.fill_between([0, 1], [0, 0], [1, 0.5], color='cyan', alpha=0.3)
+
+
+   gray = 0.3
+   # Draw the electrode
+   electrode = patches.Rectangle((xmin, 0), -xmin, 1.0, 
+                              #   edgecolor='black', 
+                              facecolor= (gray, gray, gray) #'gray'
+                              )
+   inset_ax.add_patch(electrode)
+
+   inset_ax.text(xmin/2, 0.5, 'Cathode', color='w',fontsize=fontsize,rotation=90, va='center',ha='center')
+
+
+   anode = patches.Rectangle((1, 0), -xmin, 1.0, 
+                                #   edgecolor='black', 
+                                facecolor= (gray, gray, gray) #'gray'
+                                )
+   inset_ax.add_patch(anode)
+
+   inset_ax.text(1-xmin/2, 0.5, 'Anode', color='w',fontsize=fontsize,rotation=90, va='center',ha='center')
 
 
 
@@ -1536,6 +1665,8 @@ def plot_1D(
       except:
          print('one point')
 
+      # if 'macro_analytical' in figpar.keys():
+      #    exec(figpar['macro_analytical'])
 
 
       try:
@@ -1631,10 +1762,14 @@ def plot_1D(
       xlabel=labelx, #r""+plotpar['xlabel'],
       ylabel=label_i)
          
+      handles, labels = plt.gca().get_legend_handles_labels()
+      print('handles',handles,labels)
       if 'legend_pos' in figpar.keys():
          plt.legend(loc=figpar['legend_pos'])
       else:
          plt.legend()
+
+
 
    # tick0 = list(eval(figpar['ticks'][0]))
    # ax20.yaxis.set_major_locator(mticker.FixedLocator(tick0))
@@ -1679,11 +1814,28 @@ def plot_1D(
 
 
    if 'plot_legend' in figpar.keys():
+      if 'legend_pos' in figpar.keys():
+         legend_pos = figpar['legend_pos']
+         # plt.legend(loc=figpar['legend_pos'])
+      else:
+         # plt.legend()
+         legend_pos = "outside upper left"
+
+
+      from plot_flower import parse_is_true
       if parse_is_true(figpar['plot_legend']):
-         fig1.legend(handles=[p1, p2, p3],
-         # loc = "center left",
-         loc = "outside upper left",
-         )
+         if 'macro_analytical' in figpar.keys():
+            # print(analytical)
+            fig1.legend(
+               # handles=[p1, analytical],
+            # loc = "center left",
+            loc = legend_pos,
+            )
+         else:
+            fig1.legend(handles=[p1, p2, p3],
+            # loc = "center left",
+            loc = legend_pos,
+            )
 
 
    ###########################################

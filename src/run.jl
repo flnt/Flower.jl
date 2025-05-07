@@ -266,6 +266,9 @@ function run_forward!(
     tmp_vec_1D_v = fnzeros(grid_v,num)
     tmp_vec_1D_v0 = fnzeros(grid_v,num)
 
+    tmp_vec_1D_p = fnzeros(grid,num)
+    tmp_vec_1D_p0 = fnzeros(grid,num)
+
 
     if electrolysis
         if num.nb_transported_scalars>1
@@ -745,6 +748,22 @@ function run_forward!(
                     BuvL = spzeros(ncol_A, nt)
                     rhs_uv = zeros(ncol_A)  
 
+                elseif num.pressure_velocity_coupling == 3
+                    nt = (num.nLS - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv + ni_p
+                    
+                    ncol_A = nt
+                    
+                    # so 1 * ni + 1 * ni_p +nb + ni_p + nb
+                    # u v Navier, pression     
+                
+                    # AuvL = spzeros(nt, nt)
+                    # BuvL = spzeros(nt, nt)
+
+                    AuvL = spzeros(ncol_A, nt)
+                    BuvL = spzeros(ncol_A, nt)
+                    rhs_uv = zeros(ncol_A)  
+
+
                 end
 
             end
@@ -764,7 +783,7 @@ function run_forward!(
                 # grid, 
                 # grid_u, 
                 grid_v, 
-                op,
+                op.opC_vL,
                 AvLcopy, 
                 # rhs_scal,
                 # tmp_vec_p, #a0
@@ -778,6 +797,27 @@ function run_forward!(
                 # tmp_vec_1D,
                 # ls_advection
                 )
+
+                ApLcopy = copy(Ascal)
+                Lpm1_L,bc_Lpm1_L,bc_Lpm1_b_L=compute_divergence!(num, 
+                # grid, 
+                # grid_u, 
+                grid, 
+                op.opC_pL,
+                ApLcopy, 
+                # rhs_scal,
+                # tmp_vec_p, #a0
+                tmp_vec_1D_p0,
+                tmp_vec_1D_p,
+                Lpm1_L, 
+                bc_Lpm1_L, 
+                bc_Lpm1_b_L
+                # tmp_vec_u0,
+                # tmp_vec_v0,
+                # tmp_vec_1D,
+                # ls_advection
+                )
+
             end  
            
             if num.pressure_velocity_coupling == 0
@@ -937,9 +977,12 @@ function run_forward!(
     current_t = 0.
     num.current_i =1
     num.time = 0.
+    simulation_finished = false
 
-    #Time loop
-    while num.current_i < num.max_iterations + 1
+    #TODO variable time steps 
+
+    #region time loop
+    while (num.current_i < num.max_iterations + 1) && (num.time < num.end_time) 
 
         #region start iter
 
@@ -966,6 +1009,7 @@ function run_forward!(
         "dcap"::Cstring, grid.LS[num.index_levelset_pdi].geoL.dcap[:,:,:]::Ptr{Cdouble}, PDI_OUT::Cint,
         # grid.LS[1].geoL.dcap[1,1,:]
         C_NULL::Ptr{Cvoid})::Cint
+ 
 
 
 
@@ -1381,7 +1425,6 @@ function run_forward!(
                             "dcap_2"::Cstring, grid.LS[iLSpdi].geoL.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
                             "dcap_3"::Cstring, grid.LS[iLSpdi].geoL.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
                             "dcap_4"::Cstring, grid.LS[iLSpdi].geoL.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint,
-
                             C_NULL::Ptr{Cvoid})::Cint                           
                         catch error
                             printstyled(color=:red, @sprintf "\n PDI error \n")
@@ -2546,7 +2589,7 @@ function run_forward!(
                 # grid, 
                 # grid_u, 
                 grid_v, 
-                op,
+                op.opC_vL,
                 AvLcopy, 
                 # rhs_scal,
                 # tmp_vec_p, #a0
@@ -2566,7 +2609,67 @@ function run_forward!(
                 print("\nLv[pII,:] ",Lvm1_L[pII,:])
                 print("\bc_Lvm1_b[pII,:] ",bc_Lvm1_b_L[pII,:])
             
+                ApLcopy = copy(Ascal)
+                Lpm1_L,bc_Lpm1_L,bc_Lpm1_b_L=compute_divergence!(num, 
+                # grid, 
+                # grid_u, 
+                grid, 
+                op.opC_pL,
+                ApLcopy, 
+                # rhs_scal,
+                # tmp_vec_p, #a0
+                tmp_vec_1D_p0,
+                tmp_vec_1D_p,
+                Lpm1_L, 
+                bc_Lpm1_L, 
+                bc_Lpm1_b_L
+                # tmp_vec_u0,
+                # tmp_vec_v0,
+                # tmp_vec_1D,
+                # ls_advection
+                )
+
             end  
+
+            if num.pressure_velocity_coupling == 3
+
+                iLSpdi = 1 # TODO all grid.LS                
+                PDI_status = @ccall "libpdi".PDI_multi_expose("print_capacities"::Cstring,                    
+                # "dcap"::Cstring, permutedims(grid.LS[iLSpdi].geoL.dcap, (3, 2, 1))::Ptr{Cdouble}, PDI_OUT::Cint,
+                "dcap_1"::Cstring, grid_u.LS[iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
+                "dcap_2"::Cstring, grid_u.LS[iLSpdi].geoL.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
+                "dcap_3"::Cstring, grid_u.LS[iLSpdi].geoL.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
+                "dcap_4"::Cstring, grid_u.LS[iLSpdi].geoL.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint,
+                C_NULL::Ptr{Cvoid})::Cint                           
+
+                PDI_status = @ccall "libpdi".PDI_multi_expose("print_capacities"::Cstring,                    
+                # "dcap"::Cstring, permutedims(grid.LS[iLSpdi].geoL.dcap, (3, 2, 1))::Ptr{Cdouble}, PDI_OUT::Cint,
+                "dcap_1"::Cstring, grid_v.LS[iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
+                "dcap_2"::Cstring, grid_v.LS[iLSpdi].geoL.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
+                "dcap_3"::Cstring, grid_v.LS[iLSpdi].geoL.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
+                "dcap_4"::Cstring, grid_v.LS[iLSpdi].geoL.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint,
+                C_NULL::Ptr{Cvoid})::Cint   
+
+                print("\n cap_1 ",grid_u.LS[iLSpdi].geoL.dcap[1,:,1])
+                print("\n cap_1 ",grid_u.LS[iLSpdi].geoL.dcap[2,:,1])
+
+                print("\n cap_1 ",grid_v.LS[iLSpdi].geoL.dcap[1,:,1])
+                print("\n cap_1 ",grid_v.LS[iLSpdi].geoL.dcap[2,:,1])
+
+                print("\n cap_2 ",grid_v.LS[iLSpdi].geoL.dcap[1,:,2])
+                print("\n cap_2 ",grid_v.LS[iLSpdi].geoL.dcap[2,:,2])
+
+                print("\n cap_3 ",grid_v.LS[iLSpdi].geoL.dcap[1,:,3])
+                print("\n cap_3 ",grid_v.LS[iLSpdi].geoL.dcap[2,:,3])
+
+                # for u grid
+                # cap 1 same 
+                # cap_1 [0.0, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5]
+
+
+    
+
+            end
 
 
             # if !advection
@@ -2930,6 +3033,11 @@ function run_forward!(
         current_t += num.τ
         num.time = current_t
 
+        if num.time + num.τ > num.end_time
+            print("\n num.time + num.τ > num.end_time, break")
+            break
+        end
+
         # if adaptative_t
            
         # elseif adaptative_t
@@ -2940,12 +3048,14 @@ function run_forward!(
         # end
         #endregion update iter number and time
 
-    end
+    end 
+    #endregion time loop
 
     #region print end
     if verbose
         try
             printstyled(color=:blue, @sprintf "\n Final iteration : %d (%d%%) | t = %.2e \n" (num.current_i-1) 100*(num.current_i-1)/num.max_iterations current_t)
+            print("\n num.time ",num.time)
             if stefan && advection
                 print(@sprintf "V_mean = %.2e  V_max = %.2e  V_min = %.2e  V_stdev = %.5f\n" mean(grid.V[grid.LS[1].MIXED]) findmax(grid.V[grid.LS[1].MIXED])[1] findmin(grid.V[grid.LS[1].MIXED])[1] std(grid.V[grid.LS[1].MIXED]))
                 print(@sprintf "κ_mean = %.2e  κ_max = %.2e  κ_min = %.2e  κ_stdev = %.5f\n" mean(grid.LS[1].κ[grid.LS[1].MIXED]) findmax(grid.LS[1].κ[grid.LS[1].MIXED])[1] findmin(grid.LS[1].κ[grid.LS[1].MIXED])[1] std(grid.LS[1].κ[grid.LS[1].MIXED]))

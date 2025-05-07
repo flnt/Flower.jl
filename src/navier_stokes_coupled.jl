@@ -544,6 +544,17 @@ function set_matrices!(
     )
     @unpack ny, ind = grid
 
+    if num.pressure_velocity_coupling == 3
+
+        printstyled(color=:red, @sprintf "\nModifying capacities\n")
+
+        deactivate_merge_first_cells_capacities!(num,grid_u)
+        deactivate_merge_first_cells_capacities!(num,grid_v)
+        #TODO cap
+        printstyled(color=:red, @sprintf "\nModifying capacities\n")
+
+    end
+
     set_other_cutcell_matrices!(
         num, grid, geo, geo_u, geo_v,
         opC_p, opC_u, opC_v,
@@ -2708,6 +2719,7 @@ function pressure_projection!(
         compute_grad_T_x_T_y_array_u_v_capacities!(num, grid, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
     
         #TODO divergence level
+        
       
         PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_velocity_end"::Cstring,
         # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -3441,6 +3453,12 @@ function coupled_pressure_velocity!(
     Cui = Cu * vec(u) .+ CUTCu
     Cvi = Cv * vec(v) .+ CUTCv
 
+    # print("\nconv u ", u)
+    # print("\nconv v ", v)
+
+    # print("\nconv u ", Cui)
+    # print("\nconv v ", Cvi)
+
     if advection
         # scheme
         if current_i == 1
@@ -3501,7 +3519,7 @@ function coupled_pressure_velocity!(
     print("\n nbu ",nbv)
     print("\n vel block length ",ntu + ntv + nNavier * nip)
  
-    print("size block ",size(@view(Buv[1:ntu + ntv + nNavier * nip,1:ntu + ntv + nNavier * nip])))
+    print("\n size block ",size(@view(Buv[1:ntu + ntv + nNavier * nip,1:ntu + ntv + nNavier * nip])))
 
     # tmp = @view(Buv[1:ntu + ntv + nNavier * nip,1:ntu + ntv + nNavier * nip])
 
@@ -3517,13 +3535,24 @@ function coupled_pressure_velocity!(
 
     velocity_block = 1:ntu + ntv + nNavier * nip
     # print("\n velocity_block ",velocity_block)
+  
+    printstyled(color=:red, @sprintf "\n temporal\n")
 
-    @views mul!(rhs_uv[velocity_block], Buv[velocity_block,velocity_block], uvm1, 1.0, 1.0)
-    
     PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
     "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
     "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
+
+    @views mul!(rhs_uv[velocity_block], Buv[velocity_block,velocity_block], uvm1, 1.0, 1.0)
+    
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+    "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
+    "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    printstyled(color=:red, @sprintf "\n temporal\n")
+
 
     # print("\nAuv")
     # print(Auv)
@@ -3572,17 +3601,53 @@ function coupled_pressure_velocity!(
         end
     end
 
-    # uvD = ones(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)
-    uvD = zeros(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)
+    if num.pressure_velocity_coupling == 3
+        # uvD = ones(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)
+        uvD = zeros(ntu + ntv + nNavier * nip + nip)
+    else
+        # uvD = ones(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)
+        uvD = zeros(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)
+    end
+
+    debug_coupled = true
+    if num.pressure_velocity_coupling == 3
+        debug_coupled = false
+    end
 
     # #region check matrix coupled
-    # if debug_coupled
-    #     # uvD_dummy = zeros(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)
+    if debug_coupled
+    
+        uvD_dummy = zeros(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)
 
-    #     # uvD_dummy[1:ntu] .= ph.uD
-    #     # uvD_dummy[ntu+1:ntu+ntv] .= ph.vD 
-    #     # uvD_dummy[ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+(num.nLS+1)*nip+nbp] .= ph.pD
+        uvD_dummy[1:ntu] .= ph.uD
+        uvD_dummy[ntu+1:ntu+ntv] .= ph.vD 
+        uvD_dummy[ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+(num.nLS+1)*nip+nbp] .= ph.pD
 
+
+        F_residual = similar(rhs_uv)
+
+        # F_residual .= Auv*uvD_dummy .-rhs_uv
+        F_residual .= Auv*uvD_dummy 
+
+        printstyled(color=:red, @sprintf "\n A u\n")
+
+        # print("\n Auv*uvD  ", F_residual)
+
+        PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+        "rhs_uv_len"::Cstring, length(F_residual)::Ref{Clonglong}, PDI_OUT::Cint,
+        "rhs_uv_1D"::Cstring, F_residual::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
+
+        F_residual .= Auv*uvD_dummy .-rhs_uv
+
+        PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+        "rhs_uv_len"::Cstring, length(F_residual)::Ref{Clonglong}, PDI_OUT::Cint,
+        "rhs_uv_1D"::Cstring, F_residual::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
+
+        printstyled(color=:red, @sprintf "\n A u\n")
+
+    end #debug_coupled
     #     # # test residual
     #     # # F_residual = zeros(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)
     #     # F_residual = zeros(ntu + ntv + nNavier * nip + nip)
@@ -3659,7 +3724,7 @@ function coupled_pressure_velocity!(
 
     #     uvD .= 0.0
     
-    # end
+    # end #check
     # #endregion check matrix coupled
 
 
@@ -3678,8 +3743,170 @@ function coupled_pressure_velocity!(
 
         # uvD = Auv \ rhs_uv
 
-        uvD, history = bicgstabl(Auv, rhs_uv, 2; Pl=Identity(),reltol=1.0e-6,log=true)
+        # uvD, history = bicgstabl(Auv, rhs_uv, 2; Pl=Identity(),reltol=1.0e-6,log=true,verbose=true)
         # uvD, history = bicgstabl(Auv, rhs_uv)
+
+
+        # uvD, history = bicgstabl_flower!(uvD,Auv, rhs_uv, 2; Pl=Identity(),reltol=1.0e-6,log=true,verbose=true)
+        
+        printstyled(color=:red, @sprintf "\nLast check\n")
+
+        PDI_status = @ccall "libpdi".PDI_multi_expose("print_iteration_solver"::Cstring,
+        "u_1D"::Cstring, ph.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "v_1D"::Cstring, ph.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
+
+
+        grad_x = zeros(grid_u)
+        grad_y = zeros(grid_v)
+        compute_grad_T_x_T_y_array_u_v_capacities!(num, grid, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
+    
+        #TODO divergence level
+
+        PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_velocity_end"::Cstring,
+        # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+        "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+        "grad_v"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+        "u_1D"::Cstring,  ph.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "v_1D"::Cstring,  ph.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
+
+        printstyled(color=:red, @sprintf "\nLast check\n")
+
+
+        #region Iterator approach
+        max_mv_products = 10
+        abstol = 1.0e-10
+        reltol = 1.0e-10
+        log = true
+        verbose = true
+
+        history = ConvergenceHistory(partial = !log)
+        history[:abstol] = abstol
+        history[:reltol] = reltol
+    
+        # This doesn't yet make sense: the number of iters is smaller.
+        log && reserve!(history, :resnorm, max_mv_products)
+    
+        # Actually perform iterative solve
+        # iterable = bicgstabl_iterator_flower!(x, A, b, l; Pl = Pl,
+        #                                abstol = abstol, reltol = reltol,
+        #                                max_mv_products = max_mv_products, kwargs...)
+        iterable = bicgstabl_iterator_flower!(uvD, Auv, rhs_uv, 2; Pl = Identity(),
+                                            abstol = abstol, 
+                                            reltol = reltol,
+                                            max_mv_products = max_mv_products, 
+                                            # log=true,
+                                            # verbose=true,
+                                            norm_type = Inf,
+                                            # kwargs...
+                                            )
+
+        # function bicgstabl_iterator_flower!(x, A, b, l::Int = 2;
+        #     Pl = Identity(),
+        #     max_mv_products = size(A, 2),
+        #     abstol::Real = zero(real(eltype(b))),
+        #     reltol::Real = sqrt(eps(real(eltype(b)))),
+        #     initial_zero = false,
+        #     norm_type=Inf)
+
+        if log
+            history.mvps = iterable.mv_products
+        end
+    
+        for (iteration, item) = enumerate(iterable)
+            if log
+                nextiter!(history)
+                history.mvps = iterable.mv_products
+                push!(history, :resnorm, iterable.residual)
+
+
+                ph.uD .= uvD[1:ntu]
+                ph.vD .= uvD[ntu+1:ntu+ntv]
+                ph.pD .= uvD[ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+(num.nLS+1)*nip+nbp]
+            
+                # # print("uvD",uvD)
+            
+                # kill_dead_cells!(vec1(ph.uD,grid_u), grid_u, geo_u[end])
+                # ph.u .= reshape(vec1(ph.uD,grid_u), grid_u)
+                # kill_dead_cells!(vec1(ph.vD,grid_v), grid_v, geo_v[end])
+                # ph.v .= reshape(vec1(ph.vD,grid_v), grid_v)
+                
+                # PDI_status = @ccall "libpdi".PDI_multi_expose("print_iteration_solver"::Cstring,
+                # "u_1D"::Cstring, ph.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "v_1D"::Cstring, ph.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                # C_NULL::Ptr{Cvoid})::Cint
+
+                grad_x = zeros(grid_u)
+                grad_y = zeros(grid_v)
+                compute_grad_T_x_T_y_array_u_v_capacities!(num, grid, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
+            
+                #TODO divergence level
+
+                # Compute divergence of velocity
+                velocity_divergence = opC_p.AxT * vec1(ph.uD,grid_u) .+ opC_p.Gx_b * vecb(ph.uD,grid_u) .+
+                                      opC_p.AyT * vec1(ph.vD,grid_v) .+ opC_p.Gy_b * vecb(ph.vD,grid_v)
+                for iLS in 1:nLS
+                    if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+                        velocity_divergence .+= opC_p.Gx[iLS] * veci(ph.uD,grid_u,iLS+1) .+ 
+                                opC_p.Gy[iLS] * veci(ph.vD,grid_v,iLS+1)
+                    end
+                end
+
+                normalise_velocity_divergence = abs.(opC_p.AxT * vec1(ph.uD,grid_u)) .+ abs.(opC_p.Gx_b * vecb(ph.uD,grid_u)) .+
+                                                abs.(opC_p.AyT * vec1(ph.vD,grid_v)) .+ abs.(opC_p.Gy_b * vecb(ph.vD,grid_v))
+                for iLS in 1:nLS
+                    if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+                        normalise_velocity_divergence .+= abs.(opC_p.Gx[iLS] * veci(ph.uD,grid_u,iLS+1)) .+ 
+                                abs.(opC_p.Gy[iLS] * veci(ph.vD,grid_v,iLS+1))
+                    end
+                end
+
+                F_residual .= Auv*uvD .-rhs_uv
+
+                max_abs_residual = maximum(abs.(F_residual))
+                max_abs_rhs = maximum(abs.(rhs_uv))
+
+                # PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+                # "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
+                # "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
+                # C_NULL::Ptr{Cvoid})::Cint
+
+                # PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+                # "rhs_uv_len"::Cstring, length(F_residual)::Ref{Clonglong}, PDI_OUT::Cint,
+                # "rhs_uv_1D"::Cstring, F_residual::Ptr{Cdouble}, PDI_OUT::Cint,
+                # C_NULL::Ptr{Cvoid})::Cint
+            
+              
+                PDI_status = @ccall "libpdi".PDI_multi_expose("check_coupled_solver_iteration"::Cstring,
+                # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+                "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                "grad_v"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+                "u_1D"::Cstring,  ph.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                "v_1D"::Cstring,  ph.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                "velocity_divergence"::Cstring, velocity_divergence::Ptr{Cdouble}, PDI_OUT::Cint,
+                "normalise_velocity_divergence"::Cstring, normalise_velocity_divergence::Ptr{Cdouble}, PDI_OUT::Cint,
+                "max_abs_residual"::Cstring, max_abs_residual::Ref{Cdouble}, PDI_OUT::Cint,
+                "max_abs_rhs"::Cstring, max_abs_rhs::Ref{Cdouble}, PDI_OUT::Cint,
+                C_NULL::Ptr{Cvoid})::Cint
+
+            end
+            verbose && @printf("%3d\t%1.2e\n", iteration, iterable.residual)
+        end
+    
+        verbose && println()
+        log && setconv(history, converged(iterable))
+        log && shrink!(history)
+    
+        log ? (iterable.x, history) : iterable.x
+        #endregion Iterator approach
+
 
         # maxiter=100,
         #residual normalised in Julia ? 
@@ -3729,7 +3956,7 @@ function coupled_pressure_velocity!(
 
     printstyled(color=:red, @sprintf "\n A u\n")
 
-    print("\n Auv*uvD  ", F_residual)
+    # print("\n Auv*uvD  ", F_residual)
 
     PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
     "rhs_uv_len"::Cstring, length(F_residual)::Ref{Clonglong}, PDI_OUT::Cint,
@@ -3741,7 +3968,7 @@ function coupled_pressure_velocity!(
 
     F_residual .-= rhs_uv
 
-    print("\n F_residual ", F_residual)
+    # print("\n F_residual ", F_residual)
 
 
     # try
@@ -3769,9 +3996,69 @@ function coupled_pressure_velocity!(
 
     ph.uD .= uvD[1:ntu]
     ph.vD .= uvD[ntu+1:ntu+ntv]
-    ph.pD .= uvD[ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+(num.nLS+1)*nip+nbp]
-
+    if num.pressure_velocity_coupling ==3
+        vec1(ph.pD,grid) .= uvD[ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+nip]
+    else
+        ph.pD .= uvD[ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+(num.nLS+1)*nip+nbp]
+    end
     # print("uvD",uvD)
+
+
+    grad_x = zeros(grid_u)
+    grad_y = zeros(grid_v)
+    compute_grad_T_x_T_y_array_u_v_capacities!(num, grid, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
+
+    #TODO divergence level
+
+    # Compute divergence of velocity
+    velocity_divergence = opC_p.AxT * vec1(ph.uD,grid_u) .+ opC_p.Gx_b * vecb(ph.uD,grid_u) .+
+                          opC_p.AyT * vec1(ph.vD,grid_v) .+ opC_p.Gy_b * vecb(ph.vD,grid_v)
+    for iLS in 1:nLS
+        if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+            velocity_divergence .+= opC_p.Gx[iLS] * veci(ph.uD,grid_u,iLS+1) .+ 
+                    opC_p.Gy[iLS] * veci(ph.vD,grid_v,iLS+1)
+        end
+    end
+
+    normalise_velocity_divergence = abs.(opC_p.AxT * vec1(ph.uD,grid_u)) .+ abs.(opC_p.Gx_b * vecb(ph.uD,grid_u)) .+
+                                    abs.(opC_p.AyT * vec1(ph.vD,grid_v)) .+ abs.(opC_p.Gy_b * vecb(ph.vD,grid_v))
+    for iLS in 1:nLS
+        if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+            normalise_velocity_divergence .+= abs.(opC_p.Gx[iLS] * veci(ph.uD,grid_u,iLS+1)) .+ 
+                    abs.(opC_p.Gy[iLS] * veci(ph.vD,grid_v,iLS+1))
+        end
+    end
+
+    F_residual .= Auv*uvD .-rhs_uv
+
+    max_abs_residual = maximum(abs.(F_residual))
+    max_abs_rhs = maximum(abs.(rhs_uv))
+
+    # PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+    # "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
+    # "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
+    # C_NULL::Ptr{Cvoid})::Cint
+
+    # PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+    # "rhs_uv_len"::Cstring, length(F_residual)::Ref{Clonglong}, PDI_OUT::Cint,
+    # "rhs_uv_1D"::Cstring, F_residual::Ptr{Cdouble}, PDI_OUT::Cint,
+    # C_NULL::Ptr{Cvoid})::Cint
+
+  
+    PDI_status = @ccall "libpdi".PDI_multi_expose("check_coupled_solver_iteration"::Cstring,
+    # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    "grad_v"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    "u_1D"::Cstring,  ph.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "v_1D"::Cstring,  ph.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "velocity_divergence"::Cstring, velocity_divergence::Ptr{Cdouble}, PDI_OUT::Cint,
+    "normalise_velocity_divergence"::Cstring, normalise_velocity_divergence::Ptr{Cdouble}, PDI_OUT::Cint,
+    "max_abs_residual"::Cstring, max_abs_residual::Ref{Cdouble}, PDI_OUT::Cint,
+    "max_abs_rhs"::Cstring, max_abs_rhs::Ref{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
 
     kill_dead_cells!(vec1(ph.uD,grid_u), grid_u, geo_u[end])
     ph.u .= reshape(vec1(ph.uD,grid_u), grid_u)
@@ -3835,15 +4122,7 @@ function coupled_pressure_velocity!(
 
     #TODO divergence level
   
-    PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_velocity_end"::Cstring,
-    # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
-    "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
-    "grad_v"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
-    "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-    "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-    "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-    C_NULL::Ptr{Cvoid})::Cint
+
 
     return Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
 end

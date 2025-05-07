@@ -4690,7 +4690,7 @@ function compute_divergence!(num::Numerical{Float64, Int64},
     # ::Mesh{Flower.GridCC, Float64, Int64},
     # grid_u::Mesh{Flower.GridFCx, Float64, Int64},
     # grid_v::Mesh{Flower.GridFCy, Float64, Int64},
-    op::DiscreteOperators{Float64, Int64},
+    operator::Operators{Float64, Int64},
     A::SparseMatrixCSC{Float64, Int64},
     # rhs::Array{Float64, 1},
     # a0::Array{Float64, 2},
@@ -4703,8 +4703,10 @@ function compute_divergence!(num::Numerical{Float64, Int64},
     # ls_advection::Bool
     )
 
-    @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = op.opC_vL
-    @unpack BxT, ByT,tmp_x, tmp_y = op.opC_vL
+    # print("red")
+
+    @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = operator
+    @unpack BxT, ByT,tmp_x, tmp_y = operator
 
     ni = grid.nx * grid.ny
     nb = 2 * grid.nx + 2 * grid.ny
@@ -4715,6 +4717,9 @@ function compute_divergence!(num::Numerical{Float64, Int64},
     tmp_vec_1D_2 .= 0.0
     A .= 0.0
     # a0 .= 0.0
+
+    debug_laplacian = false
+    # debug_laplacian = true
 
     x_centroid = grid.x .+ getproperty.(grid.LS[1].geoL.centroid, :x) .* grid.dx
     y_centroid = grid.y .+ getproperty.(grid.LS[1].geoL.centroid, :y) .* grid.dy
@@ -4874,33 +4879,36 @@ function compute_divergence!(num::Numerical{Float64, Int64},
     # print("\n vec1 ",rhs_vec1[5,2])
     # print("\n vec1 ",rhs_vec1[5,3])
 
-    II = CartesianIndex(div(grid.ny,2),1)
-    pII = lexicographic(II,grid.ny)
-    print("\n A coeff ",Lv[pII,:])
-    print("\n bc coeff ",bc_Lv_b[pII,:])
+    if debug_laplacian
 
-    print("\n min max ",minimum(Lv)," ",maximum(Lv))
+        II = CartesianIndex(div(grid.ny,2),1)
+        pII = lexicographic(II,grid.ny)
+        print("\n A coeff ",Lv[pII,:])
+        print("\n bc coeff ",bc_Lv_b[pII,:])
 
-
-
-    II = CartesianIndex(1,1)
-    pII = lexicographic(II,grid.ny)
-    print("\n A coeff ",Lv[pII,:])
-    print("\n bc coeff ",bc_Lv_b[pII,:])
+        print("\n min max ",minimum(Lv)," ",maximum(Lv))
 
 
-    II = CartesianIndex(grid.ny,grid.nx)
-    pII = lexicographic(II,grid.ny)
-    print("\n A coeff ",Lv[pII,:])
-    print("\n bc coeff ",bc_Lv_b[pII,:])
 
-    # print("\n A coeff ",Lv[pII,:]./(1.0e-4/32)^2)
-    # print("\nM ",opC_p.iMy.diag[pII])
+        II = CartesianIndex(1,1)
+        pII = lexicographic(II,grid.ny)
+        print("\n A coeff ",Lv[pII,:])
+        print("\n bc coeff ",bc_Lv_b[pII,:])
 
-    printstyled(color=:red, @sprintf "\n modifying Lv")
-    # Lv = Lv .* Diagonal(vec1(rhs,grid))
 
-    printstyled(color=:red, @sprintf "\n modifying Lv check for zero and NaN")
+        II = CartesianIndex(grid.ny,grid.nx)
+        pII = lexicographic(II,grid.ny)
+        print("\n A coeff ",Lv[pII,:])
+        print("\n bc coeff ",bc_Lv_b[pII,:])
+
+        # print("\n A coeff ",Lv[pII,:]./(1.0e-4/32)^2)
+        # print("\nM ",opC_p.iMy.diag[pII])
+
+        printstyled(color=:red, @sprintf "\n modifying Lv")
+        # Lv = Lv .* Diagonal(vec1(rhs,grid))
+
+        printstyled(color=:red, @sprintf "\n modifying Lv check for zero and NaN")
+    end
 
     # TODO 
     # @unpack Bx, By, BxT, ByT, iMx, iMy, tmp_x, tmp_y = op.opC_vL #opC
@@ -4949,10 +4957,11 @@ function compute_divergence!(num::Numerical{Float64, Int64},
 
     modification_laplacian = Diagonal(1.0./vec1(rhs,grid)) * vecM
 
-    
 
-    print("\n modification_laplacian ", minimum(modification_laplacian)," ",maximum(modification_laplacian))
 
+    if debug_laplacian
+        print("\n modification_laplacian ", minimum(modification_laplacian)," ",maximum(modification_laplacian))
+    end
 
 
     new_Lv = modification_laplacian * BxT * tmp_x
@@ -4983,46 +4992,49 @@ function compute_divergence!(num::Numerical{Float64, Int64},
 
     #TODO change boundary value too
 
-    II = CartesianIndex(div(grid.ny,2),1)
-    pII = lexicographic(II,grid.ny)
-    print("\n A coeff ",new_Lv[pII,:])
-    print("\n bc coeff ",bc_new_Lv_b[pII,:])
+    if debug_laplacian
 
-    print("\n min max ",minimum(new_Lv)," ",maximum(new_Lv))
+        II = CartesianIndex(div(grid.ny,2),1)
+        pII = lexicographic(II,grid.ny)
+        print("\n A coeff ",new_Lv[pII,:])
+        print("\n bc coeff ",bc_new_Lv_b[pII,:])
 
-    print("\n modification_laplacian ", modification_laplacian[pII,:])
+        print("\n min max ",minimum(new_Lv)," ",maximum(new_Lv))
 
-
-
-    II = CartesianIndex(1,1)
-    pII = lexicographic(II,grid.ny)
-    print("\n A coeff ",new_Lv[pII,:])
-    print("\n bc coeff ",bc_new_Lv_b[pII,:])
-    print("\n modification_laplacian ", modification_laplacian[pII,:])
+        print("\n modification_laplacian ", modification_laplacian[pII,:])
 
 
-    II = CartesianIndex(grid.ny,grid.nx)
-    pII = lexicographic(II,grid.ny)
-    print("\n A coeff ",new_Lv[pII,:])
-    print("\n bc coeff ",bc_new_Lv_b[pII,:])
-    print("\n modification_laplacian ", modification_laplacian[pII,:])
 
-    # print("\nnew_Lv ",new_Lv)
-
-    # print("\n A coeff ",new_Lv[pII,:]./(1.0e-4/32)^2)
-    # print("\nM ",opC_p.iMy.diag[pII])
+        II = CartesianIndex(1,1)
+        pII = lexicographic(II,grid.ny)
+        print("\n A coeff ",new_Lv[pII,:])
+        print("\n bc coeff ",bc_new_Lv_b[pII,:])
+        print("\n modification_laplacian ", modification_laplacian[pII,:])
 
 
-    # op.opC_vL.M.diag .= vec1(rhs,grid)
+        II = CartesianIndex(grid.ny,grid.nx)
+        pII = lexicographic(II,grid.ny)
+        print("\n A coeff ",new_Lv[pII,:])
+        print("\n bc coeff ",bc_new_Lv_b[pII,:])
+        print("\n modification_laplacian ", modification_laplacian[pII,:])
 
-    # check_positivity_of_capacities(op)
+        # print("\nnew_Lv ",new_Lv)
+
+        # print("\n A coeff ",new_Lv[pII,:]./(1.0e-4/32)^2)
+        # print("\nM ",opC_p.iMy.diag[pII])
 
 
-    # *opC_p.iMy.diag[pII]
-   
-    # print("\n Laplacian coefficients ", II," ",new_Lv[pII,:]," ",bc_new_Lv_b[pII,:])
+        # op.opC_vL.M.diag .= vec1(rhs,grid)
 
-    # printstyled(color=:green, @sprintf "\n exact %.10e 4/3exact %.10e\n" rhs[pII]*opC_p.iMy.diag[pII] rhs[pII]*opC_p.iMy.diag[pII]*4/3)
+        # check_positivity_of_capacities(op)
+
+
+        # *opC_p.iMy.diag[pII]
+    
+        # print("\n Laplacian coefficients ", II," ",new_Lv[pII,:]," ",bc_new_Lv_b[pII,:])
+
+        # printstyled(color=:green, @sprintf "\n exact %.10e 4/3exact %.10e\n" rhs[pII]*opC_p.iMy.diag[pII] rhs[pII]*opC_p.iMy.diag[pII]*4/3)
+    end
 
     tmp_vec_1D .= 0.0
     tmp_vec_1D_2 .= 0.0
@@ -5030,14 +5042,16 @@ function compute_divergence!(num::Numerical{Float64, Int64},
 
     bc_new_Lv = copy(bc_Lv)
 
+    if debug_laplacian
 
-    printstyled(color=:green, @sprintf "\n before end modification" )
+        printstyled(color=:green, @sprintf "\n before end modification" )
 
 
-    II = CartesianIndex(div(grid.ny,2),1)
-    pII = lexicographic(II,grid.ny)
-    print("\nLv[pII,:] ",new_Lv[pII,:])
-    print("\bc_Lvm1_b[pII,:] ",bc_new_Lv_b[pII,:])
+        II = CartesianIndex(div(grid.ny,2),1)
+        pII = lexicographic(II,grid.ny)
+        print("\nLv[pII,:] ",new_Lv[pII,:])
+        print("\bc_Lvm1_b[pII,:] ",bc_new_Lv_b[pII,:])
+    end
 
     return new_Lv,bc_new_Lv,bc_new_Lv_b
 

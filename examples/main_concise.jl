@@ -36,7 +36,7 @@ eval(Meta.parseall(macros.print_parameters))
 num = Numerical(
     CFL = sim.CFL,
     Re = Re,
-    TEND=phys.end_time,
+    end_time=phys.end_time,
     x = scalar_mesh_x,
     y = scalar_mesh_y,
     xcoord = phys.intfc_x,

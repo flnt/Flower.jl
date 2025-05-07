@@ -13,49 +13,13 @@ flower:
     concentration0_H2O: &concentration0_H2O 4.9e4
     concentration0: [*concentration0_H2, *concentration0_KOH, *concentration0_H2O]
 
-    # concentration0_H2: &concentration0_H2
-    #   -1.6e-1
-    # concentration0_KOH: &concentration0_KOH
-    #   -6.7e3
-    # concentration0_H2O: &concentration0_H2O 
-    #   -4.9e4
-    # concentration0: &concentration0 [*concentration0_H2, *concentration0_KOH, *concentration0_H2O]
-    # concentration0: &concentration0 
-    # - *concentration0_H2
-    # - *concentration0_KOH
-    # - *concentration0_H2O
-    # concentration0: &concentration0  #<<
-    #   *concentration0_H2
-    #   *concentration0_KOH
-    #   *concentration0_H2O
-    # - *concentration0_H2
-    # - *concentration0_KOH
-    # - *concentration0_H2O
-    # concentration0: &concentration0
-    #   - *concentration0_H2
-    #   - *concentration0_KOH
-    #   - *concentration0_H2O
-    # concentration0: &concentration0
-    #   # - &concentration0_H2 1.6e-1
-    #   # - &concentration0_KOH 6.7e3
-    #   # - &concentration0_H2O 4.9e4
-    #   # concentration0_H2: &concentration0_H2 1.6e-1
-    #   # concentration0_KOH: &concentration0_KOH 6.7e3
-    #   # concentration0_H2O: &concentration0_H2O 4.9e4
-    #   concentration0_H2: &concentration0_H2 1.6e-1
-    #   concentration0_KOH: &concentration0_KOH 6.7e3
-    #   concentration0_H2O: &concentration0_H2O 4.9e4
-
-
-
     epsilon_concentration: [1e-14, 1e-14, 1e-14]
     electrolysis_reaction: "Butler_no_concentration"
     diffusion_coeff_H2: &diffusion_coeff_H2 5.8e-9
     diffusion_coeff_KOH: &diffusion_coeff_KOH 3.2e-9
     diffusion_coeff_H2O: &diffusion_coeff_H2O 3.2e-9
     diffusion_coeff: [*diffusion_coeff_H2, *diffusion_coeff_KOH, *diffusion_coeff_H2O]
-    species_names: &species_names ['H2','KOH','H2O']
-    end_time: 1.0 #s
+    end_time: 1.0 #7.3 #s
     Faraday: &Faraday 9.64853321233100184e4 #C⋅mol−1
     Henry_H2: &Henry_H2 1
     Henry_KOH: &Henry_KOH 0
@@ -66,10 +30,10 @@ flower:
     intfc_y: 5.0e-5 # y coordinate of bubble center
     # KOHwtpercent: 30
     ls_wall_xmin: 5e-6
-    mu1: 1.0 #6.7e-7*1258.0
-    mu2: 1.0
-    mu_cin1: 6.7e-7
-    mu_cin2: 6.7e-7 #m^2/s
+    mu1: 0.0 #6.7e-7*1258.0
+    mu2: 0.0
+    mu_cin1: &mu_cin1 6.7e-7
+    mu_cin2: &mu_cin2 6.7e-7 #m^2/s
     MWH2: 2.01568e-3 #kg/mol
     nb_levelsets: &nb_levelsets 1 #2
     nb_transported_scalars: &nb_transported_scalars 3
@@ -81,7 +45,7 @@ flower:
     pres0:  0.0 #1e5
     radius: 1.2e-5 # 6.0e-6 #3.0e-6 #initial radius
     ref_length: 1e-4
-    rho1: 1258.0 #liquid
+    rho1: &rho1 1258.0 #liquid
     rho2: 0.069575 #gaz
     #TODO need for 80°C, check with other study
     #"0.7016E-01" in \citet{cohnTABLETHERMODYNAMICPROPERTIES1963} H2
@@ -104,7 +68,7 @@ flower:
     # end
 
     v_inlet: &v_inlet 6.7e-4
-    g: 9.81
+    g: 0.0 #9.81 #gravity
     beta: 0.0
     domain_length: &domain_length 1.0e-4
 
@@ -129,7 +93,7 @@ flower:
     # uses bulk or interfacial concentrationfor conductivity
     case: None #Planar #Cylinder
     CFL: 0.5
-    concentration_check_factor: &concentration_check_factor 1e-4
+    concentration_check_factor: &concentration_check_factor 1.0e-4 #TODO do not write 1e-4, ill read in python
     contact_angle: 1 #activate advancing/receding contact angle
     convection_Cdivu: 0
     convection_mode: 1 #0 #1
@@ -142,7 +106,7 @@ flower:
     electrolysis_phase_change_case: "None" #"Khalighi" #no phase change
     # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
     # electrolysis_phase_change_case: "levelset" # local
-    eps: 1e-12 #eps for small numbers
+    eps: 1.0e-12 #eps for small numbers
     epsilon: 0.2 #0.05 #0.2 #cut small cells
     epsilon_wall: 0.2 #0.05 #0.2
     #if epsilon=0 centroids will be on the interface
@@ -158,7 +122,7 @@ flower:
     imposed_velocity : "none" #"zero" #"none"
     index_phase_change: 1
     index_electrolyte: 2
-    dt0: 1e-2 #1e-5 #1e-4 #1e-3 #1e-6 #2.5e-5 #5e-5 #3.125e-6 #1e-4 #5e-3 #3.125e-6 #first timestep
+    dt0: 1.0e-2 #1e-5 #1e-4 #1e-3 #1e-6 #2.5e-5 #5e-5 #3.125e-6 #1e-4 #5e-3 #3.125e-6 #first timestep
     max_iter: 100 #1 #60 #1 #60 #1 #60 #maximum number of iterations
     average_velocity: 1 #0
     laplacian: 0 #1 #multiply by 4/3
@@ -174,7 +138,7 @@ flower:
     null_space: 0 #method for null space, matrix diagonal
     periodic_x: 0
     periodic_y: 0
-    prediction: 0 #0 #4 #0 #pressure-velocity coupling
+    prediction: Flower #0 #4 #0 #pressure-velocity coupling
     # prediction = 0
     # prediction = 1
     # prediction = 2
@@ -183,7 +147,7 @@ flower:
     pressure_velocity_coupling: 0
     # pressure_velocity_coupling: 2 #1 # 0: projection, 1: coupled
     pressure_velocity_solver: 1 #BICGSTAB(2)
-    solve_solid: 0
+    solve_solid: 1 #0
     reinit_every: 3 # period of levelset reinialization
     restart: 0 #TODO restart with PDI
     show_every: 1
@@ -203,6 +167,14 @@ flower:
 
     boundaries: |
 
+      # Signs in divergence theorem
+      # to be used to define Neumann BC, with derivatives defined in (e_x,e_y)
+      # Example derivative*sign_left on the left
+      sign_left = -1.0 #n \cdot e_x = -1
+      sign_right = 1.0 #n \cdot e_x = 1
+      sign_bottom = -1.0 #n \cdot e_y = -1
+      sign_top = 1.0 #n \cdot e_y = 1
+
       if phys.nb_levelsets ==1
         BC_int = [WallNoSlip()] #[FreeSurface()]
       end
@@ -219,22 +191,24 @@ flower:
       int    = Neumann(val=0.0),
       LS = [Neumann(val=0.0)]
       )
-      
+
+      # H2
       BC_trans_scal_H2 = BoundariesInt(
       bottom = Dirichlet(val = phys.concentration0[1]),
       top    = Neumann(),
       left   = Neumann(val=-i_butler/(2*phys.Faraday*DH2)),
-      right  = Dirichlet(val = 0.0),
+      right  = Dirichlet(val = phys.concentration0[1]),
       int    = Dirichlet(val = phys.concentration0[1]/phys.Henry_H2))
-      #KOH
+
+      # KOH
       BC_trans_scal_KOH = BoundariesInt(
           bottom = Dirichlet(val = phys.concentration0[2]),
           top    = Neumann(),
           left   = Neumann(val=-i_butler/(2*phys.Faraday*DKOH)),
           right  = Dirichlet(val = phys.concentration0[2]),
-          int    = Neumann(val=0.0)) #KOH
+          int    = Neumann(val=0.0))
       
-      #H2O   
+      # H2O   
       BC_trans_scal_H2O = BoundariesInt(
           bottom = Dirichlet(val = phys.concentration0[3]),
           top    = Neumann(),
@@ -276,16 +250,69 @@ flower:
 
       # print BC
 
-      # print("\n BC_int ",BC_int)
+      # Print boundary conditions
+      print("\n BC_int ",BC_int)
       print("\n BC_uL ",BC_uL)
       print("\n BC_vL ",BC_vL)
-      # print("\n BC_trans_scal ",BC_trans_scal)
+
       print("\n BC_pL ",BC_pL)
 
       print("\n BC_phi_ele ",BC_phi_ele)
+
+      print("\n BC_trans_scal ",BC_trans_scal)
+
+      open("BC0.html", "w") do file
+          # print_BC_html(BC_int[1],"interface";io=file)
+          print_BC_html(BC_uL,"u";io=file)
+          print_BC_html(BC_vL,"v";io=file)
+          print_BC_html(BC_pL,"p";io=file)
+          print_BC_html(BC_phi_ele,"phi";io=file)
+          print_BC_html(BC_trans_scal_H2,"H2";io=file)
+          print_BC_html(BC_trans_scal_KOH,"KOH";io=file)
+          print_BC_html(BC_trans_scal_H2O,"H2O";io=file)
+
+          # write(file, "This is a line of text.\n")
+          # The file will be automatically closed here
+      end
+
       
       L0 = mesh.xmax - mesh.xmin
 
+    init_fields: |
+      printstyled(color=:green, @sprintf "\n Initialisation \n")
+
+      #init Bulk
+      if num.solve_solid == 1 
+        phS.T .= phys.temperature0
+      end
+      phL.T .= phys.temperature0
+
+     
+      # Electrochemistry 
+      for iscal=1:phys.nb_transported_scalars
+          phL.trans_scal[:,:,iscal] .= phys.concentration0[iscal]
+      end
+
+      phL.phi_ele .= phys.phi_ele0
+
+
+      # Initialize Poiseuille pressure profile 
+      p_top = 0
+      p_bottom = p_top + 8*mu1/phys.ref_length*phys.v_inlet
+      
+      phL.p .= p_bottom .+ (gp.y .- mesh.ymin)*(p_top-p_bottom)/(mesh.ymax - mesh.ymin) 
+  
+      vec1(phL.pD,gp) .= vec(phL.p)
+
+      # Initialize Poiseuille velocity profile 
+
+      vPoiseuille = Poiseuille_fmax.(gv.x,phys.v_inlet,phys.ref_length) 
+      vPoiseuilleb = Poiseuille_fmax.(gv.x[1,:],phys.v_inlet,phys.ref_length) 
+
+      phL.u .= 0.0
+      phL.v .= vPoiseuille 
+
+      vecb_B(phL.vD,gv) .= vPoiseuilleb
 
 
     interface: |
@@ -316,6 +343,9 @@ flower:
       else
           gp.LS[1].u .= 1.0
       end
+      
+      test_LS(gp)
+
 
     print_parameters: | 
       print("\n test print_parameters2 \n")
@@ -371,17 +401,25 @@ flower:
 
       print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
 
-      diffusion_t = (phys.radius^2)./phys.diffusion_coeff
+      # diffusion_t = (phys.radius^2)./phys.diffusion_coeff
+     
+      diffusion_t = ((mesh.xmax-mesh.xmin)^2)./phys.diffusion_coeff
+
+
       print("\n diffusion time ", diffusion_t,"\n")
 
 
       open("report.html", "w") do file
 
-        write("simulation time ", phys.end_time)
-        write("simulation dt ", sim.dt0)
-        write("simulation max_iter ", sim.max_iter)
+        # write("simulation time ", phys.end_time)
+        # write("simulation dt ", sim.dt0)
+        # write("simulation max_iter ", sim.max_iter)
+        # write("diffusion time ", diffusion_t)
 
-        write("diffusion time ", diffusion_t)
+        print(file,"\nsimulation time ", phys.end_time)
+        print(file,"\ndt ", sim.dt0)
+        print(file,"\nsimulation max_iter ", sim.max_iter)
+        print(file,"\ndiffusion time ", diffusion_t)
 
         # print_BC_html(BC_uL,"u";io=file)
         # print_BC_html(BC_vL,"v";io=file)
@@ -1756,6 +1794,7 @@ plot:
       - var: [[x_1D,concentration_H2_1DT]]
         file: concentration_H2_through_bubble
         func: plot_1D
+        fontsize: 10
         labels: [["$x ( \\unit{\\um})$", "$ \\text{Concentration} ~ \\ce{H2}$" ]]
         linestyles: ['(0, (3, 6))' ] #,
                     #  '(3, (3, 6))', #"dashdot"
@@ -2326,10 +2365,24 @@ plot:
     #   func: plot_schematics_full
     #   fig_ratio: 0.5
 
+    - file: schematics_full_with_losses
+      func: plot_schematics_full_with_losses
+      fig_ratio: 0.5
+
     
+    - file: schematics_full
+      func: plot_schematics_full
+      font_size: 8
+
     - file: schematics
       func: plot_schematics
       # fig_ratio: 0.5
+
+    - file: schematics_fluxes
+      func: plot_schematics_fluxes
+      # fig_ratio: 0.5
+
+    
         
   dpi: 300
   font_size: 12
@@ -2396,6 +2449,8 @@ pdi:
     intfc_vtx_num: int64 # number of vertices to describe the interface
     intfc_seg_num: int64 #number of segments
     vtx_num: int64 # number of vertices for debugging phase-change
+    nb_Navier_slip_BC: int64 #number of Navier BC
+
 
   data: # values for which PDI does not keep a copy
     #in Flower: zeros((n.nLS + 1) * g.ny * g.nx + 2 * g.nx + 2 * g.ny)
@@ -2414,6 +2469,33 @@ pdi:
     trans_scal_1DT: { size: ['$nb_transported_scalars','($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny'], type: array, subtype: double } 
     phi_ele_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
     rhs_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
+    
+    # rhs_uv_1D:
+    #   size: '($nb_levelsets - $nb_Navier_slip_BC + 1) * ($ny) * ($nx+1) + 2 * ($nx+1) + 2 * $ny + ($nb_levelsets -$nb_Navier_slip_BC + 1) * ($ny+1) * ($nx) + 2 * ($nx) + 2 * ($ny+1) +($nb_Navier_slip_BC + $nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * ($ny)'
+    #   type: array
+    #   subtype: double
+    
+    rhs_uv_1D: { size: '$rhs_uv_len', type: array, subtype: double } 
+
+    vec_1D: { size: '$vec_1D_len', type: array, subtype: double } 
+
+
+    Auv_colptr_1D: { size: '$Auv_colptr_len', type: array, subtype: int64 } 
+    Auv_rowval_1D: { size: '$Auv_rowval_len', type: array, subtype: int64 } 
+    Auv_nzval_1D: { size: '$Auv_nzval_len', type: array, subtype: double } 
+
+    Auv_colptr_len: int64
+    Auv_rowval_len: int64
+    Auv_nzval_len: int64
+
+    Auv_n: int64
+    Auv_m: int64
+
+    rhs_uv_len: int64
+    
+    vec_1D_len: int64
+
+
 
     elec_cond_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
    
@@ -2421,6 +2503,13 @@ pdi:
     mesh_y_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
 
     residual_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
+    
+    # for computations, to ignore small cells
+    mask_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
+
+    grad_x_1D: { size: ' ($ny) * ($nx+1) ', type: array, subtype: double } 
+    grad_y_1D: { size: ' ($ny+1) * ($nx) ', type: array, subtype: double } 
+
 
     #BC
     BC_phi_ele_left: { size: '$ny', type: array, subtype: double } 
@@ -2485,6 +2574,12 @@ pdi:
     grad_x_coord: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     grad_y_coord: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
 
+    grad_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    grad_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+
+    grad_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    grad_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
+
 
 
     # stored in 3D
@@ -2498,7 +2593,11 @@ pdi:
     residual_electrical_potential: double
     variation_electrical_potential: double
     concentration_check_value: double
+    concentration_check_min: double
+    concentration_check_max: double
+    concentration_check_mean: double
           
+
 
     conductivity_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     conductivity_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
@@ -2593,6 +2692,7 @@ pdi:
           exec: |
             import numpy as np
             print('\033[93m')
+            print('[print_variables]')
             print("min(u)  {u:.2e} min(v)  {v:.2e} min(p)  {p:.2e}".format(u=np.min(u_1D),v=np.min(v_1D),p=np.min(p_1D)))
             print("max(u)  {u:.2e} max(v)  {v:.2e} max(p)  {p:.2e}".format(u=np.max(u_1D),v=np.max(v_1D),p=np.max(p_1D)))
             print("mean(u) {u:.2e} mean(v) {v:.2e} mean(p) {p:.2e}".format(u=np.mean(u_1D),v=np.mean(v_1D),p=np.mean(p_1D)))
@@ -2697,7 +2797,12 @@ pdi:
             
             concentration0 = [concentration0_H2,concentration0_KOH,concentration0_H2O]
 
-            print("[warning_scalar_transport] scalar {} {%.2e}".format(iscal,concentration_check_value,concentration0[iscal-1]*(1-concentration_check_factor)),species_names[iscal-1])
+            if iscal == 1:
+              print("[warning_scalar_transport] H2  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1-concentration_check_factor)))
+            elif iscal == 2: 
+              print("[warning_scalar_transport] KOH  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1-concentration_check_factor)))
+            elif iscal == 3: 
+              print("[warning_scalar_transport] H2O  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1+concentration_check_factor)))
 
             # concentration drop:(minimum(ph.trans_scal[:,:,iscal])-num.concentration0[iscal])/num.concentration0[iscal]*100)
             print("concentration too low")
@@ -2711,7 +2816,10 @@ pdi:
             nb_levelsets: *nb_levelsets
             nb_transported_scalars: *nb_transported_scalars
             activate_interface: *activate_interface
-            concentration_check_value: $concentration_check_value
+            # concentration_check_value: $concentration_check_value
+            concentration_check_min: $concentration_check_min
+            concentration_check_max: $concentration_check_max
+            concentration_check_mean: $concentration_check_mean
             trans_scal_1DT: $trans_scal_1DT
             concentration0_H2: *concentration0_H2
             concentration0_KOH: *concentration0_KOH
@@ -2729,12 +2837,16 @@ pdi:
 
             concentration0 = np.array([concentration0_H2,concentration0_KOH,concentration0_H2O])
 
+            print("[check_scalar_transport_interface] min  {concentration_check_min:.2e} max {concentration_check_max:.2e} mean {concentration_check_mean:.2e}".format(concentration_check_min=concentration_check_min,concentration_check_max=concentration_check_max,concentration_check_mean=concentration_check_mean))
+
+            concentration_check_value = concentration_check_min
+
             if iscal == 1:
-              print("[check_scalar_transport_interface] H2  {} {:.2e} {:.2e}".format(iscal,concentration_check_value,concentration0[iscal-1]*(1-concentration_check_factor)))
+              print("[check_scalar_transport_interface] H2  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1-concentration_check_factor)))
             elif iscal == 2: 
-              print("[check_scalar_transport_interface] KOH {} {:.2e} {:.2e}".format(iscal,concentration_check_value,concentration0[iscal-1]*(1-concentration_check_factor)))
+              print("[check_scalar_transport_interface] KOH  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1-concentration_check_factor)))
             elif iscal == 3: 
-              print("[check_scalar_transport_interface] H2O {} {:.2e} {:.2e}".format(iscal,concentration_check_value,concentration0[iscal-1]*(1+concentration_check_factor)))
+              print("[check_scalar_transport_interface] H2O  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1+concentration_check_factor)))
 
             print('\033[0m')
 
@@ -2754,6 +2866,8 @@ pdi:
             concentration0_H2: *concentration0_H2
             concentration0_KOH: *concentration0_KOH
             concentration0_H2O: *concentration0_H2O
+            mask_1D: $mask_1D #mask containing volumes in bulk, and liquid heights on interfaces, and 0 when a cell is cut
+            # so that small cells are ignored when computing min, max, ...
 
           exec: |
             print('\n \033[92m')
@@ -2763,6 +2877,19 @@ pdi:
             print("max(cH2)  {cH2:.2e} max(KOH)  {KOH:.2e} max(H2O)  {H2O:.2e}".format(cH2=np.max(trans_scal_1DT[0,:]),KOH=np.max(trans_scal_1DT[1,:]),H2O=np.max(trans_scal_1DT[2,:])))
             print("mean(cH2) {cH2:.2e} mean(KOH) {KOH:.2e} mean(H2O) {H2O:.2e}".format(cH2=np.mean(trans_scal_1DT[0,:]),KOH=np.mean(trans_scal_1DT[1,:]),H2O=np.mean(trans_scal_1DT[2,:])))
             
+            print('with mask')
+
+            scal0 = np.ma.masked_where(mask_1D <= 0.0, trans_scal_1DT[0,:])
+            scal1 = np.ma.masked_where(mask_1D <= 0.0, trans_scal_1DT[1,:])
+            scal2 = np.ma.masked_where(mask_1D <= 0.0, trans_scal_1DT[2,:])
+
+            print('with mask')
+            print("min(cH2)  {cH2:.2e} min(KOH)  {KOH:.2e} min(H2O)  {H2O:.2e}".format(cH2=np.min(scal0), KOH=np.min(scal1), H2O=np.min(scal2)))
+            print("max(cH2)  {cH2:.2e} max(KOH)  {KOH:.2e} max(H2O)  {H2O:.2e}".format(cH2=np.max(scal0), KOH=np.max(scal1), H2O=np.max(scal2)))
+            print("mean(cH2) {cH2:.2e} mean(KOH) {KOH:.2e} mean(H2O) {H2O:.2e}".format(cH2=np.mean(scal0),KOH=np.mean(scal1),H2O=np.mean(scal2)))
+            
+
+
             concentration0 = np.array([concentration0_H2,concentration0_KOH,concentration0_H2O])
             # concentration0 = [concentration0_H2[0],concentration0_KOH[0],concentration0_H2O[0]]
 

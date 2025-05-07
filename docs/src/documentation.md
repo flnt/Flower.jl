@@ -48,7 +48,9 @@ run_forward!
 
 
 !!! info "Viewing the main parts of the algorithm in VScode"
-    Comments starting with #region and ending with #endregion
+    Comments starting with 
+    #region and ending with 
+    #endregion
     You can visualise the regions correponding to this algorithm more easily with tools like "Region marker" in VScode.
 
 !!! danger "update LS"
@@ -153,15 +155,6 @@ For the v-grid:
 x_centroid = gv.x .+ getproperty.(gv.LS[1].geoL.centroid, :x) .* gv.dx
 y_centroid = gv.y .+ getproperty.(gv.LS[1].geoL.centroid, :y) .* gv.dy
 ```
-
-```@raw html
-<figure>
-    <a name="numbering_doc"></a> 
-    <img src="./assets/staggered.svg" alt="Staggered grids" title="Staggered grids">
-    <figcaption> Staggered grids </figcaption>
-</figure>
-```
-
 
 ```@raw html
 <figure>
@@ -2540,6 +2533,12 @@ For the viscous term, you cannot divide by ``opC_v.iMx_bd``, the viscous term is
 
 p not v
 
+
+### Coupled
+
+```@docs
+set_first_cells!
+```
 
 
 ## Convection

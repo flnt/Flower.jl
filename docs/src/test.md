@@ -1265,6 +1265,23 @@ python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/te
 
 ## Diffusion
 
+
+### Diffusion whole cell
+
+```bash
+python3 -c "import convergence_study; convergence_study.plot_convergence_study_func()" ../Flower.jl/examples/diffusion_whole_cell.yml timestep_3_1250e-02/mesh_00032/mesh_00000032.h5 timestep_3_1250e-03/mesh_00032/mesh_00000032.h5
+```
+
+
+```bash
+julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence.jl ../Flower.jl/examples/diffusion_whole_cell_unmodified_laplacian_hundredth_diffusion_time.yml
+```
+
+```bash
+python3 -c "import convergence_study; convergence_study.plot_convergence_study_func()" ../Flower.jl/examples/diffusion_whole_cell_unmodified_laplacian_hundredth_diffusion_time.yml timestep*/mesh*/mesh*
+```
+
+
 The following conditions have to be checked:
 * check ``c_{\ce{H2}}  \geq c_{\ce{H2},0}``
 * check ``c_{\ce{KOH}} \geq c_{\ce{KOH},0}``
@@ -1447,6 +1464,8 @@ Diffusion time scale
 ```bash
 julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence_Butler.jl ../Flower.jl/examples/convergence_diffusion_constant_conductivity_bubble_wall.yml
 ```
+
+
 
 
 ## Diffusion + convection + 0 gravity (check Poiseuille)

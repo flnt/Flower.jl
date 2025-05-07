@@ -247,7 +247,8 @@ flower:
       BC_uL = BoundariesInt(
         left   = Dirichlet(),
         right  = Dirichlet(),
-        bottom = Dirichlet(),
+        # bottom = Dirichlet(),
+        bottom = Neumann(),
         top    = Neumann(val=0.0),
         LS = [Dirichlet()],
       )
@@ -255,7 +256,8 @@ flower:
       BC_vL= BoundariesInt(
         left   = Dirichlet(),
         right  = Dirichlet(),
-        bottom = Dirichlet(val = copy(vPoiseuilleb)),
+        # bottom = Dirichlet(val = copy(vPoiseuilleb)),
+        bottom = Neumann(),
         top    = Neumann(),
         LS = [Dirichlet()],
       )
@@ -532,6 +534,7 @@ study:
   test_tolerance_solution_absolute:  1.e-1 # from n = 16 
   meshes:  [10] #[32] #[32,64,128] #[32,64,128,256]
   compute_errors: None
+  timesteps: [1e-4]
 
 
 plot:
@@ -2669,6 +2672,9 @@ pdi:
     grad_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     grad_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
 
+    velocity_divergence: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    normalise_velocity_divergence: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+
 
 
     # stored in 3D
@@ -2686,6 +2692,8 @@ pdi:
     concentration_check_min: double
     concentration_check_max: double
     concentration_check_mean: double
+    max_abs_residual: double
+    max_abs_rhs: double
           
 
 
@@ -3017,6 +3025,111 @@ pdi:
             print('Number of Navier boundary conditions',nb_Navier_slip_BC)
             print('\033[0m')
 
+
+        print_iteration_solver:
+          with: 
+            nx: $nx
+            ny: $ny
+            u_1D: $u_1D
+            v_1D: $v_1D
+            p_1D: $p_1D
+            mu_cin1: *mu_cin1 
+            rho1: *rho1
+            v_inlet: *v_inlet
+            xmin: *mesh_xmin
+            xmax: *mesh_xmax
+            ymin: *mesh_ymin
+            ymax: *mesh_ymax
+
+          exec: |
+            import numpy as np
+            print('\033[36m')
+            print('[print_velocity_prediction]')
+            print("min(u)  {u:.2e} min(v)  {v:.2e} min(p)  {p:.2e}".format(u=np.min(u_1D),v=np.min(v_1D),p=np.min(p_1D)))
+            print("max(u)  {u:.2e} max(v)  {v:.2e} max(p)  {p:.2e}".format(u=np.max(u_1D),v=np.max(v_1D),p=np.max(p_1D)))
+            print("mean(u) {u:.2e} mean(v) {v:.2e} mean(p) {p:.2e}".format(u=np.mean(u_1D),v=np.mean(v_1D),p=np.mean(p_1D)))
+            print('\033[0m')
+            
+            from debug_flower import veci
+            field_index = 1
+            # slice_1D = veci(v_1D,nx,ny,field_index)[ny//2,:]
+            # print('slice projection', slice_1D)
+
+            # print('len',len(slice_1D))
+
+            # print('nx',nx,ny)
+
+            # slice_1D = veci(v_1D,nx,ny+1,field_index)[(ny+1)//2,:]
+            # print('slice projection', slice_1D)
+
+            # print('len',len(slice_1D))
+
+            for j in range(0,ny):
+              slice_p = veci(p_1D,nx,ny,field_index)[ny-1-j,:] #0: end (top), ny, 1
+              print('Slice p',j,slice_p)
+            
+            # from plot_pdi import plot_profile; plot_profile(x,slice_1D,"Poiseuille_during_projection")
+
+            ny_print_max = 1
+            # ny_print_max = ny+1
+            for j in range(0,ny_print_max):
+              slice_p = veci(v_1D,nx,ny+1,field_index)[j,:] #0: end (top), ny, 1
+              print('Slice v',j,slice_p)
+
+            mu1 = mu_cin1 * rho1
+
+            # import numpy as np
+            xp = np.zeros(nx)
+            yp = np.zeros(ny)
+
+            # xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+            # yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+
+            dx = (xmax - xmin) / nx
+            dy = (ymax - ymin) / ny
+
+         
+
+            # print('len(xp)',len(xp),len(yp))
+
+            xp[0] = xmin + dx/2
+            yp[0] = ymin + dy/2
+
+            for i in range(1,len(xp)):
+                xp[i] = xp[i-1]+dx
+
+            for i in range(1,len(yp)):
+                yp[i] = yp[i-1]+dx
+
+            yv = yp + dy / 2
+            yv = np.insert(yv, 0, yp[0] - dy / 2)
+
+            # print('xp',xp) #xv too
+            # print('yp',yp)
+            # print('yv',yv)
+
+
+            # # p
+            # p_top = 0
+            # p_bottom = p_top + 8*mu1/(xmax-xmin)*v_inlet
+            # p_along_y = p_bottom + (yv - ymin)*(p_top-p_bottom)/(ymax - ymin)
+            # print('p',p_along_y)
+
+            # v
+            slice_v_exact = 4* v_inlet * xp /(xmax-xmin)*(1-xp/(xmax-xmin))
+            print('slice v exact', slice_v_exact)
+            
+           
+
+            # def Poiseuille(v_inlet,xp_full,xmin,xmax):
+            #   slice_v_exact = 4* v_inlet * xp_full /(xmax-xmin)*(1-xp_full/(xmax-xmin))
+            #   return slice_v_exact
+            
+            # xp_full = xmin
+            # print('Poiseuille',xp_full,Poiseuille(v_inlet,xp_full,xmin,xmax))
+            # xp_full = xmax
+            # print('Poiseuille',xp_full,Poiseuille(v_inlet,xp_full,xmin,xmax))
+
         print_velocity_prediction:
           with: 
             nx: $nx
@@ -3120,6 +3233,170 @@ pdi:
             # print('Poiseuille',xp_full,Poiseuille(v_inlet,xp_full,xmin,xmax))
             # xp_full = xmax
             # print('Poiseuille',xp_full,Poiseuille(v_inlet,xp_full,xmin,xmax))
+
+
+        check_coupled_solver_iteration:
+          with: 
+            nx: $nx
+            ny: $ny
+            u_1D: $u_1D
+            v_1D: $v_1D
+            p_1D: $p_1D
+            velocity_divergence: $velocity_divergence
+            normalise_velocity_divergence: $normalise_velocity_divergence
+            max_abs_residual: $max_abs_residual
+            max_abs_rhs: $max_abs_rhs
+            # grad_x: $grad_x
+            # grad_y: $grad_y
+            grad_x: $grad_u
+            grad_y: $grad_v
+            mu_cin1: *mu_cin1 
+            rho1: *rho1
+            v_inlet: *v_inlet
+            xmin: *mesh_xmin
+            xmax: *mesh_xmax
+            ymin: *mesh_ymin
+            ymax: *mesh_ymax
+          exec: |
+            import numpy as np
+            
+            print('\033[38;5;206m')
+
+            # print('\033[36m')
+            print('[check_coupled_solver_iteration]')
+            print("min(u)  {u:.2e} min(v)  {v:.2e} min(p)  {p:.2e}".format(u=np.min(u_1D),v=np.min(v_1D),p=np.min(p_1D)))
+            print("max(u)  {u:.2e} max(v)  {v:.2e} max(p)  {p:.2e}".format(u=np.max(u_1D),v=np.max(v_1D),p=np.max(p_1D)))
+            print("mean(u) {u:.2e} mean(v) {v:.2e} mean(p) {p:.2e}".format(u=np.mean(u_1D),v=np.mean(v_1D),p=np.mean(p_1D)))
+            # print('\033[0m')
+
+            print("min(grad_x)  {u:.2e} min(grad_y)  {v:.2e} ".format(u=np.min(grad_x),v=np.min(grad_y)))
+            print("max(grad_x)  {u:.2e} max(grad_y)  {v:.2e} ".format(u=np.max(grad_x),v=np.max(grad_y)))
+
+            print("min(divergence)  {u:.2e} max(divergence)  {v:.2e} ".format(u=np.min(velocity_divergence),v=np.max(velocity_divergence)))
+            
+            print("min(normalise_velocity_divergence)  {u:.2e} max(normalise_velocity_divergence)  {v:.2e} ".format(u=np.min(normalise_velocity_divergence),v=np.max(normalise_velocity_divergence)))
+
+            if max_abs_rhs != 0:
+              print("norm(Ax-rhs)  {u:.2e} norm(rhs)  {v:.2e} relative error  {w:.2e} ".format(u=max_abs_residual,v=max_abs_rhs,w=max_abs_residual/max_abs_rhs))
+            else:
+              print('null rhs, not printing relative error')
+
+            # grad_x = grad_x.transpose()
+            # grad_y = grad_y.transpose() 
+            # for j in range(0,ny+1):
+            #   slice_p = grad_y[j,:] #0: end (top), ny, 1
+            #   print('grad_y',j,slice_p)
+    
+            from debug_flower import veci
+
+            field_index = 1
+            
+            # # slice_1D = veci(v_1D,nx,ny,field_index)[ny//2,:]
+
+            # # print('slice projection', slice_1D)
+
+            # # print('len',len(slice_1D))
+
+            # print('nx',nx,ny)
+
+            # slice_1D = veci(v_1D,nx,ny+1,field_index)[(ny+1)//2,:]
+            
+            # print('slice projection', slice_1D)
+
+            # # print('len',len(slice_1D))
+
+
+            # # Print p and v
+
+            # # for j in range(0,ny):
+            # #   slice_p = veci(p_1D,nx,ny,field_index)[j,:]
+            # #   print('Slice p',j,slice_p)
+            # #   slice_1D = veci(v_1D,nx,ny+1,field_index)[j,:]
+            # #   print('Slice v',j,slice_1D)
+
+            pressure_equal_on_line = True
+
+            # Print v
+            for j in range(0,ny):
+              slice_p = veci(p_1D,nx,ny,field_index)[j,:]
+              if (max(slice_p)-min(slice_p))/min(slice_p) > 1.0e-10:
+                pressure_equal_on_line = False 
+                print('Slice p',j,max(slice_p)-min(slice_p),(max(slice_p)-min(slice_p))/min(slice_p) )
+                # print('Slice p',j,slice_p)
+              slice_1D = veci(v_1D,nx,ny+1,field_index)[j,:]
+              print('Slice v',j,slice_1D)
+            
+         
+            mu1 = mu_cin1 * rho1
+
+            # print('mu1',mu1)
+
+            x_1D = 0
+            y_1D = 0
+            
+            # import numpy as np
+            xp = np.zeros(nx)
+            yp = np.zeros(ny)
+
+            # xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+            # yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+
+            dx = (xmax - xmin) / nx
+            dy = (ymax - ymin) / ny
+
+         
+
+            # print('len(xp)',len(xp),len(yp))
+
+            xp[0] = xmin + dx/2
+            yp[0] = ymin + dy/2
+
+            for i in range(1,len(xp)):
+                xp[i] = xp[i-1]+dx
+
+            for i in range(1,len(yp)):
+                yp[i] = yp[i-1]+dx
+
+            yv = yp + dy / 2
+            yv = np.insert(yv, 0, yp[0] - dy / 2)
+
+            # print('xp',xp) #xv too
+            # print('yp',yp)
+            # print('yv',yv)
+
+
+            # p
+            from debug_flower import vecb, vecb_B,vecb_T,vecb_L,vecb_R
+
+            p_top = 0
+            p_bottom = p_top + 8*mu1/(xmax-xmin)*v_inlet
+            p_along_y = p_bottom + (yv - ymin)*(p_top-p_bottom)/(ymax - ymin)
+            print('p',p_along_y)
+
+            print('Bottom',vecb_B(p_1D,nx,ny))
+            print('Top',vecb_T(p_1D,nx,ny))
+
+            print('Left',vecb_L(p_1D,nx,ny))
+            print('Right',vecb_R(p_1D,nx,ny))
+
+            
+
+            # v
+            slice_v_exact = 4* v_inlet * xp /(xmax-xmin)*(1-xp/(xmax-xmin))
+            print('slice v exact', slice_v_exact)
+            
+           
+
+            # def Poiseuille(v_inlet,xp_full,xmin,xmax):
+            #   slice_v_exact = 4* v_inlet * xp_full /(xmax-xmin)*(1-xp_full/(xmax-xmin))
+            #   return slice_v_exact
+            
+            # xp_full = xmin
+            # print('Poiseuille',xp_full,Poiseuille(v_inlet,xp_full,xmin,xmax))
+            # xp_full = xmax
+            # print('Poiseuille',xp_full,Poiseuille(v_inlet,xp_full,xmin,xmax))
+
+            print('\033[0m')
 
         check_pressure_velocity_end:
           with: 

@@ -2956,9 +2956,17 @@ def plot_schematics_full(figpar,plotpar):
 
 
 
-def plot_diffusion(figpar,plotpar,inset_ax,plot_coord = 0.2):
+def plot_diffusion(figpar,plotpar,inset_ax,plot_coord = 0.2,time_list=None):
     import numpy as np
     import matplotlib.pyplot as plt
+
+    plot_color = 'w'
+    if 'plot_color' in figpar.keys():
+        plot_color=figpar['plot_color']
+
+    scale_fig = "plot_schematics"
+    if 'scale_fig' in figpar.keys():
+        scale_fig=figpar['scale_fig']
 
     # Parameters
     L = 1e-4  # Length of the wire
@@ -2974,9 +2982,13 @@ def plot_diffusion(figpar,plotpar,inset_ax,plot_coord = 0.2):
 
     Faraday = 9.64853321233100184e4
     i= -1e4
+    i = -1.59e4
     F1 = i/(2*Faraday*D) #BC
+
     t_max = diffusion_time_scale #1e-4  # Maximum time
     # t_max = diffusion_time_scale / 10
+
+    print('diffusion_time_scale',diffusion_time_scale)
 
     dx = L/nx  # Spatial step size
 
@@ -2991,11 +3003,18 @@ def plot_diffusion(figpar,plotpar,inset_ax,plot_coord = 0.2):
     t = np.array([0,t_max/100,t_max])
 
     # time_list = [0.1, 0.5, 1.0, 1.5, 2.0]
-
-    time_list = t
-
+    
     print('time_list',time_list)
+
+    if time_list is None:
+        time_list = t
+        print('time_list',time_list)
+    else:
+        print('time_list',time_list)
+
     c0 = 6700
+
+    print('max c',c0-F1*L/2,c0+F1*L/2)
 
     # N = 10
     N = 1000
@@ -3049,33 +3068,82 @@ def plot_diffusion(figpar,plotpar,inset_ax,plot_coord = 0.2):
 
     # print('u2',u2(x, 0, L, D, 100))
 
-    
-    xplot = x*1e4*2
-    scale_y_fig = 6700
+    if scale_fig == "plot_schematics":
+            
+        xplot = x*1e4*2
+        scale_y_fig = 6700
 
-    for time in time_list:
-        val = u(x, time, L, D, N)
-        # val = x
-        # val = u1(x, time)
-        # val = u1(x, time)+f(x)
+        for iter,time in enumerate(time_list):
+            val = u(x, time, L, D, N)
+            # val = x
+            # val = u1(x, time)
+            # val = u1(x, time)+f(x)
 
-        # print('time',time,u(0, time, L, D, N),u1(0, time))
-        # print('time',time,val)
+            # print('time',time,u(0, time, L, D, N),u1(0, time))
+            print('time',time,val)
 
-        plot_val =plot_coord+(val-scale_y_fig)/scale_y_fig #scale to fit,center a
+            plot_val =plot_coord+(val-scale_y_fig)/scale_y_fig #scale to fit,center a
 
-        print(plot_val)
-        # print('x',x)
-        zorder_bubbles = 1
+            print(plot_val)
+            # print('x',x)
+            zorder_bubbles = 1
+            if iter == 0:
+                inset_ax.plot(xplot, plot_val,
+                            #    label=f't = {time:.2e}',
+                            # label = 'pseudo-analytical',
+                            #   color='w',
+                            color=plot_color,
+                            linewidth=0.5,
+                            zorder=1,
+                            )
+            else:
+                inset_ax.plot(xplot, plot_val,
+                            #    label=f't = {time:.2e}',
+                            # label = 'pseudo-analytical',
+                            #   color='w',
+                            color=plot_color,
+                            linewidth=0.5,
+                            zorder=1,
+                            )
+    else:
+              
+        xplot = x*1e6
+        # *1e4*2
+        # scale_y_fig = 6700
 
-        inset_ax.plot(xplot, plot_val,
-                    #    label=f't = {time:.2e}',
-                    #   color='w',
-                      color='w',
-                      linewidth=0.5,
-                      zorder=1,
-                      )
-    
+        for iter,time in enumerate(time_list):
+            val = u(x, time, L, D, N)
+            # val = x
+            # val = u1(x, time)
+            # val = u1(x, time)+f(x)
+
+            # print('time',time,u(0, time, L, D, N),u1(0, time))
+            # print('time',time,val)
+
+            # plot_val =plot_coord+(val-scale_y_fig)/scale_y_fig #scale to fit,center a
+            plot_val = val 
+            print(plot_val)
+            # print('x',x)
+            zorder_bubbles = 1
+            if iter == 0:
+
+                analytical = inset_ax.plot(xplot, plot_val,
+                            #    label=f't = {time:.2e}',
+                            label = 'pseudo-analytical',
+                            #   color='w',
+                            color=plot_color,
+                            linewidth=0.5,
+                            zorder=1,
+                            )
+            else:
+                analytical = inset_ax.plot(xplot, plot_val,
+                        #    label=f't = {time:.2e}',
+                        # label = 'pseudo-analytical',
+                        #   color='w',
+                        color=plot_color,
+                        linewidth=0.5,
+                        zorder=1,
+                        )
 
     # plt.xlabel('x')
     # plt.ylabel('u(x, t)')
@@ -3092,7 +3160,7 @@ def plot_diffusion(figpar,plotpar,inset_ax,plot_coord = 0.2):
     # def g(x):
     #     return x
     # print(np.trapz([g(xi) for xi in x], x))
-
+    return analytical
 
 
 def plot_schematics_full_with_losses(figpar,plotpar):
@@ -3379,6 +3447,99 @@ def add_schematics(ax2,fontsize,figpar):
 
     inset_ax.text(xmin/2, 0.5, 'Electrode', color='w',fontsize=fontsize,rotation=90, va='center',ha='center')
 
+
+
+    liq_height=0.5
+
+    liq_height_2 = 0.75
+
+    # inset_ax.fill_between([0, 1-liq_height], [1, 1], [1, 1-liq_height_2], color='cyan', alpha=0.3)
+
+    inset_ax.fill_between([0, 1],[1,1] ,[1-liq_height, 1-liq_height_2])
+
+    inset_ax.plot([0, 1], [1-liq_height, 1-liq_height_2], ls='-',color='r')
+
+    # Annotate the inset
+
+    # inset_ax.text(xmin/2, 0.5, 'Electrode', color='w',fontsize=12,rotation=90, va='center',ha='center')
+
+
+    # inset_ax.text(xmin/2, 0.75, r'$\frac{\partial c_{\ce{H2}}}{\partial n} = -\frac{i}{2FD}$', fontsize=fontsize,color='w')
+    inset_ax.text(xmin/2, 0.8, r'$\frac{\partial \phi }{\partial n} = \frac{i}{\kappa}$', fontsize=fontsize,color='w')
+
+    # inset_ax.text(0.1, 0.35, r'$c_{\ce{H2}} = c_{\ce{H2}, 0}$', fontsize=fontsize)
+    inset_ax.text(0.5, 0.375, r'$\frac{\partial \phi }{\partial n} = 0$', fontsize=fontsize,va='bottom',ha='left',color='w')
+
+   
+    inset_ax.text(0.5, 0.2, r'$\ce{H2} (gas)$', fontsize=fontsize,va='center',ha='center',
+                #   color='k',
+                  color=figpar['text_color'],
+                  )
+    # inset_ax.text(0.5, 0.3, r'$\mathrm{\ce{H2}} \text{bubble}$', fontsize=fontsize,va='center',ha='center',color='k')
+
+
+    return ax2
+
+
+def add_schematics_full_cell(ax2,fontsize,figpar):
+
+    # x1, x2, y1, y2 = 0,1, 55,57  # subregion of the original image
+    x1, x2, y1, y2 = figpar['add_schematics_coords']
+    inset_ax = ax2.inset_axes(
+    [-1, 0.125, 0.75, 0.75],
+    # [0.5, 0.5, 0.47, 0.47],
+    xlim=(x1, x2), ylim=(y1, y2), xticklabels=[], yticklabels=[])
+    # axins.imshow(Z2, extent=extent, origin="lower")
+
+    lw_inset = 0.5
+    color_inset = orange_Okabe
+
+    rect, lines = ax2.indicate_inset_zoom(inset_ax, edgecolor=color_inset,
+                                          lw=lw_inset,
+                                          alpha=1)
+    
+    # rect.set_edgecolor('none')
+
+    # lines.set_width(0.125)
+    plt.setp(lines, linewidth=lw_inset,color=color_inset)
+
+    xmin = -0.1
+
+    inset_ax.set_xlim(xmin, 1)
+    inset_ax.set_ylim(0, 1)
+    # inset_ax.axis('off')
+
+    inset_ax.get_xaxis().set_visible(False)
+    inset_ax.get_yaxis().set_visible(False)
+
+    for key, spine in inset_ax.spines.items():
+        spine.set_edgecolor(orange_Okabe)
+        spine.set_linewidth(lw_inset)
+
+
+    # Draw the gradient in the inset
+    # inset_ax.fill_between([0, 1], [0, 0], [1, 0.5], color='cyan', alpha=0.3)
+
+
+    gray = 0.3
+    # Draw the electrode
+    electrode = patches.Rectangle((xmin, 0), -xmin, 1.0, 
+                                #   edgecolor='black', 
+                                facecolor= (gray, gray, gray) #'gray'
+                                )
+    inset_ax.add_patch(electrode)
+
+
+
+    inset_ax.text(xmin/2, 0.5, 'Cathode', color='w',fontsize=fontsize,rotation=90, va='center',ha='center')
+
+    anode = patches.Rectangle((1, 0), -xmin, 1.0, 
+                                #   edgecolor='black', 
+                                facecolor= (gray, gray, gray) #'gray'
+                                )
+    inset_ax.add_patch(anode)
+
+    inset_ax.text(1-xmin/2, 0.5, 'anode', color='w',fontsize=fontsize,rotation=90, va='center',ha='center')
 
 
     liq_height=0.5

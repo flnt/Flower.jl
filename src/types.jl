@@ -18,6 +18,7 @@ Stores parameters for the simulation
     CFL::T = 0.5 # Courant number
     Re::T = 1.0 # Reynolds number
     TEND::T = 0.0 # Final time of the simulation
+    end_time::T = 0.0 # Final time of the simulation
     x::Union{Vector{T},LinRange{T,D}} = [-0.5 - 1/127 / 2 + i * 1/127 for i = 0:128] # Vector of cells positions in x
     y::Union{Vector{T},LinRange{T,D}} = [-0.5 - 1/127 / 2 + i * 1/127 for i = 0:128] # Vector of cells positions in y
     L0::T = max(x[end]-x[1], y[end]-y[1])
