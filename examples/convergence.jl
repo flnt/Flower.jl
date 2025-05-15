@@ -135,21 +135,21 @@ if io.pdi>0
 end #if io.pdi>0
 
 # arrays to store errors
-l1 = zeros(n_cases)
-l2 = zeros(n_cases)
-loo = zeros(n_cases)
-l1_mixed = zeros(n_cases)
-l2_mixed = zeros(n_cases)
-loo_mixed = zeros(n_cases)
-l1_full = zeros(n_cases)
-l2_full = zeros(n_cases)
-loo_full = zeros(n_cases)
+error_list_l1 = zeros(n_cases)
+error_list_l2 = zeros(n_cases)
+error_list_loo = zeros(n_cases)
+error_list_l1_mixed = zeros(n_cases)
+error_list_l2_mixed = zeros(n_cases)
+error_list_loo_mixed = zeros(n_cases)
+error_list_l1_full = zeros(n_cases)
+error_list_l2_full = zeros(n_cases)
+error_list_loo_full = zeros(n_cases)
 
 cell_volume_list = zeros(n_cases)
 
 base_directory = pwd()
 
-print("\n base directory ",base_directory)
+# print("\n base directory ",base_directory)
 
 #region timestep convergence
 for timestep in timesteps
@@ -158,24 +158,24 @@ for timestep in timesteps
     timestep_to_string = @sprintf "timestep_%.4e" timestep
     # print("\n timestep_to_string ",timestep_to_string)
     timestep_to_string = replace(timestep_to_string, "." => "_")
-    print("\n timestep_to_string ",timestep_to_string)
+    # print("\n timestep_to_string ",timestep_to_string)
 
     mkpath(timestep_to_string)
     cd(timestep_to_string)
 
-    print("\n pwd() ",pwd())
+    # print("\n pwd() ",pwd())
 
     #region mesh convergence
-    for (i,n) in enumerate(nb_grid_points)
+    for (i,study_nb_grid_points) in enumerate(nb_grid_points)
 
-        mesh_to_string = @sprintf "mesh_%.5i" n
+        mesh_to_string = @sprintf "mesh_%.5i" study_nb_grid_points
 
         mkpath(mesh_to_string)
         cd(mesh_to_string)
 
         # init regular grid
-        scalar_mesh_x = collect(LinRange(mesh.xmin, mesh.xmax, n + 1))    
-        scalar_mesh_y = collect(LinRange(mesh.ymin, mesh.ymax, n + 1))
+        scalar_mesh_x = collect(LinRange(mesh.xmin, mesh.xmax, study_nb_grid_points + 1))    
+        scalar_mesh_y = collect(LinRange(mesh.ymin, mesh.ymax, study_nb_grid_points + 1))
 
 
         # # print("\n test juliac")
@@ -538,31 +538,159 @@ for timestep in timesteps
         # printstyled(color=:green, @sprintf "\n number_small_cells_for_error %.3i \n" number_small_cells_for_error)
 
 
-        if study.compute_errors == "Poiseuille"
+        if study.compute_errors != "None" #"Poiseuille"
+
             LIQUID = gp.ind.all_indices[gp.LS[1].geoL.cap[:,:,5] .> (1-1e-16)]
             MIXED = gp.ind.all_indices[gp.LS[1].geoL.cap[:,:,5] .<= (1-1e-16) .&& gp.LS[1].geoL.cap[:,:,5] .> 1e-16]
 
+            if study.compute_errors == "Poiseuille"
+                norm_all = relative_errors(phL.v, vPoiseuille, vcat(LIQUID, MIXED), gp.LS[1].geoL.cap[:,:,5], num.Δ)
+                norm_mixed = relative_errors(phL.v, vPoiseuille, MIXED, gp.LS[1].geoL.cap[:,:,5], num.Δ)
+                norm_full = relative_errors(phL.v, vPoiseuille, LIQUID, gp.LS[1].geoL.cap[:,:,5], num.Δ)
+            elseif study.compute_errors == "diffusion_full_cell"
+                
+                # Parameters
 
-            norm_all = relative_errors(phL.v, vPoiseuille, vcat(LIQUID, MIXED), gp.LS[1].geoL.cap[:,:,5], num.Δ)
-            norm_mixed = relative_errors(phL.v, vPoiseuille, MIXED, gp.LS[1].geoL.cap[:,:,5], num.Δ)
-            norm_full = relative_errors(phL.v, vPoiseuille, LIQUID, gp.LS[1].geoL.cap[:,:,5], num.Δ)
+                L = mesh.xmax-mesh.xmin
 
-            l1[i] = norm_all[1]
-            l2[i] = norm_all[2]
-            loo[i] = norm_all[3]
+                D = num.diffusion_coeff[2] #3.2e-9  #  diffusivity
 
-            l1_mixed[i] = norm_mixed[1]
-            l2_mixed[i] = norm_mixed[2]
-            loo_mixed[i] = norm_mixed[3]
+                analytical_nx = 1000 #accumulating error if n too small so if N big, accumulating too much if nx=100 and N=1000
 
-            l1_full[i] = norm_full[1]
-            l2_full[i] = norm_full[2]
-            loo_full[i] = norm_full[3]
+                diffusion_time_scale = L^2 / D
+
+                println("diffusion time scale", diffusion_time_scale)
+
+
+                # ele_current_i = minimum(i_current_mag from gradient)
+                # print("i mag min ", ele_current_i)
+
+                ele_current_i = -1.59e4
+
+                F1 = ele_current_i / (2 * num.Faraday * D) #BC
+
+                t_max = diffusion_time_scale 
+
+                println("diffusion_time_scale", diffusion_time_scale)
+
+                analytical_dx = L / analytical_nx  # Spatial step size
+
+                analytical_x = collect(0:analytical_dx:L)  # Spatial domain
+               
+             
+                c0 = num.concentration0[2] 
+
+                println("max c without convection", c0 - F1 * L / 2, c0 + F1 * L / 2)
+
+                max_nb_Fourier_series = 1000
+
+
+                # Special function u1
+                function full_cell_u1(x, t)
+                    return F1 * x
+                    # return (F2-F1)/(2*L) + F1 * x + D*(F2-F1)/L*t #if different left right
+                end
+
+                # Initial condition f(x)
+                function full_cell_f(x)
+                    return c0 - full_cell_u1(x, 0)  # Example initial condition c0-u1?
+                end
+
+                # Coefficients A_n
+                function full_cell_A_n(n, L, F1, dx,c0)
+                    # integral = sum(full_cell_f(xi) * cos(n * π * xi / L) for xi in x) * dx
+                    # return (2 / L) * integral #* cos(n * π * x / L)
+                    if n == 0
+                        return -F1*L +2*c0 #-c0*L*2/L #analytical if just F1 * x 
+                    else
+                        return (-2*F1*L)/(n*π)^2*((-1)^n-1) #analytical if just F1 * x 
+                    end
+                end
+
+
+
+                # Solution u2
+                function full_cell_u2(x, t, L, D, max_nb_Fourier_series,c0,analytical_dx)
+                    result = sum(full_cell_A_n(n, L, F1, analytical_dx,c0) * cos(n * π * x / L) * exp(-D * (n * π / L)^2 * t) for n in 1:max_nb_Fourier_series)
+                    result += full_cell_A_n(0, L, F1, analytical_dx,c0) * cos(0 * π * x / L) * exp(-D * (0 * π / L)^2 * t) / 2
+                    #case 0 special int cos(0) cos(0)dx = L
+                    return result
+                end
+
+                # Total solution u
+                function full_cell_u(x, t, L, D, max_nb_Fourier_series,c0,analytical_dx)
+                    return full_cell_u1(x, t) + full_cell_u2(x, t, L, D, max_nb_Fourier_series,c0,analytical_dx)
+                end
+                
+
+                # print("\n param ",gp.x[2,:]," | ",num.time," | ",L," | ",num.diffusion_coeff[2]," | ",max_nb_Fourier_series," | ",c0," | ",analytical_dx)
+                #TODO NX vs n ... need to interpolate
+                # concentration_profile = full_cell_u.(analytical_x,num.time,L,num.diffusion_coeff[2],max_nb_Fourier_series,c0,analytical_dx)
+                concentration_profile = full_cell_u.(gp.x[2,:],num.time,L,num.diffusion_coeff[2],max_nb_Fourier_series,c0,analytical_dx)
+                
+                print("\n concentration profile ",phL.trans_scal[2,:,2])
+
+                print("\n concentration profile ",concentration_profile)
+
+                # norm_all = relative_errors(phL.trans_scal[:,:,2], concentration_profile, vcat(LIQUID, MIXED), gp.LS[1].geoL.cap[:,:,5], num.Δ)
+                # norm_mixed = relative_errors(phL.trans_scal[:,:,2], concentration_profile, MIXED, gp.LS[1].geoL.cap[:,:,5], num.Δ)
+                # norm_full = relative_errors(phL.trans_scal[:,:,2], concentration_profile, LIQUID, gp.LS[1].geoL.cap[:,:,5], num.Δ)
+               
+                l1,l2,loo = relative_errors(phL.trans_scal[:,:,2], concentration_profile, vcat(LIQUID, MIXED), gp.LS[1].geoL.cap[:,:,5], num.Δ)
+                l1_mixed,l2_mixed,loo_mixed = relative_errors(phL.trans_scal[:,:,2], concentration_profile, MIXED, gp.LS[1].geoL.cap[:,:,5], num.Δ)
+                l1_full,l2_full,loo_full = relative_errors(phL.trans_scal[:,:,2], concentration_profile, LIQUID, gp.LS[1].geoL.cap[:,:,5], num.Δ)
+            end
+
+            # error_list_l1[i] = norm_all[1]
+            # error_list_l2[i] = norm_all[2]
+            # error_list_loo[i] = norm_all[3]
+
+            # error_list_l1_mixed[i] = norm_mixed[1]
+            # error_list_l2_mixed[i] = norm_mixed[2]
+            # error_list_loo_mixed[i] = norm_mixed[3]
+
+            # error_list_l1_full[i] = norm_full[1]
+            # error_list_l2_full[i] = norm_full[2]
+            # error_list_loo_full[i] = norm_full[3]
+
+            error_list_l1[i] = l1
+            error_list_l2[i] = l2
+            error_list_loo[i] = loo
+
+            error_list_l1_mixed[i] = l1_mixed
+            error_list_l2_mixed[i] = l2_mixed
+            error_list_loo_mixed[i] = loo_mixed
+
+            error_list_l1_full[i] = l1_full
+            error_list_l2_full[i] = l2_full
+            error_list_loo_full[i] = loo_full
 
             cell_volume_list[i] = minimum(gp.LS[1].geoL.dcap[:,:,5])
-        end
+           
+            min_cell_volume = minimum(gp.LS[1].geoL.dcap[:,:,5])
 
-        # print("\n analytical ",-0.011655612832847977)
+            if study.compute_errors != "None" #"Poiseuille"
+
+                local PDI_status = @ccall "libpdi".PDI_multi_expose("convergence_study_iter"::Cstring, 
+                "study_nb_grid_points"::Cstring, study_nb_grid_points::Ref{Clong}, PDI_OUT::Cint,
+                "study_timestep"::Cstring, timestep::Ref{Cdouble}, PDI_OUT::Cint,
+                # "cell_volume"::Cstring, cell_volume_list::Ptr{Cdouble}, PDI_OUT::Cint,
+                "study_l1_rel_error"::Cstring, l1::Ref{Cdouble}, PDI_OUT::Cint,
+                "study_l2_rel_error"::Cstring, l2::Ref{Cdouble}, PDI_OUT::Cint,
+                "study_linfty_rel_error"::Cstring, loo::Ref{Cdouble}, PDI_OUT::Cint,
+                "study_l1_rel_error_full_cells"::Cstring, l1_full::Ref{Cdouble}, PDI_OUT::Cint,
+                "study_l2_rel_error_full_cells"::Cstring, l2_full::Ref{Cdouble}, PDI_OUT::Cint,
+                "study_linfty_rel_error_full_cells"::Cstring, loo_full::Ref{Cdouble}, PDI_OUT::Cint,
+                "study_l1_rel_error_partial_cells"::Cstring, l1_mixed::Ref{Cdouble}, PDI_OUT::Cint,
+                "study_l2_rel_error_partial_cells"::Cstring, l2_mixed::Ref{Cdouble}, PDI_OUT::Cint,
+                "study_linfty_rel_error_partial_cells"::Cstring, loo_mixed::Ref{Cdouble}, PDI_OUT::Cint,
+                "domain_length"::Cstring, L0::Ref{Cdouble}, PDI_OUT::Cint,
+                "min_cell_volume"::Cstring, min_cell_volume::Ref{Cdouble}, PDI_OUT::Cint,
+                C_NULL::Ptr{Cvoid})::Cint
+
+            end
+
+        end
 
         current_directory = pwd()
         if current_directory == base_directory*"/"*timestep_to_string*"/"*mesh_to_string
@@ -592,21 +720,21 @@ min_cell_volume = minimum(gp.LS[1].geoL.cap[:,:,5])
 
 print("\n min_cell_volume ",min_cell_volume," type ",typeof(min_cell_volume))
 
-if study.compute_errors == "Poiseuille"
+if study.compute_errors != "None" #"Poiseuille"
 
     local PDI_status = @ccall "libpdi".PDI_multi_expose("convergence_study"::Cstring, 
     "n_tests"::Cstring, n_cases::Ref{Clonglong}, PDI_OUT::Cint,
     "nx_list"::Cstring, nb_grid_points::Ptr{Clonglong}, PDI_OUT::Cint,
     "cell_volume_list"::Cstring, cell_volume_list::Ptr{Cdouble}, PDI_OUT::Cint,
-    "l1_rel_error"::Cstring, l1::Ptr{Cdouble}, PDI_OUT::Cint,
-    "l2_rel_error"::Cstring, l2::Ptr{Cdouble}, PDI_OUT::Cint,
-    "linfty_rel_error"::Cstring, loo::Ptr{Cdouble}, PDI_OUT::Cint,
-    "l1_rel_error_full_cells"::Cstring, l1_full::Ptr{Cdouble}, PDI_OUT::Cint,
-    "l2_rel_error_full_cells"::Cstring, l2_full::Ptr{Cdouble}, PDI_OUT::Cint,
-    "linfty_rel_error_full_cells"::Cstring, loo_full::Ptr{Cdouble}, PDI_OUT::Cint,
-    "l1_rel_error_partial_cells"::Cstring, l1_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
-    "l2_rel_error_partial_cells"::Cstring, l2_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
-    "linfty_rel_error_partial_cells"::Cstring, loo_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
+    "l1_rel_error"::Cstring, error_list_l1::Ptr{Cdouble}, PDI_OUT::Cint,
+    "l2_rel_error"::Cstring, error_list_l2::Ptr{Cdouble}, PDI_OUT::Cint,
+    "linfty_rel_error"::Cstring, error_list_loo::Ptr{Cdouble}, PDI_OUT::Cint,
+    "l1_rel_error_full_cells"::Cstring, error_list_l1_full::Ptr{Cdouble}, PDI_OUT::Cint,
+    "l2_rel_error_full_cells"::Cstring, error_list_l2_full::Ptr{Cdouble}, PDI_OUT::Cint,
+    "linfty_rel_error_full_cells"::Cstring, error_list_loo_full::Ptr{Cdouble}, PDI_OUT::Cint,
+    "l1_rel_error_partial_cells"::Cstring, error_list_l1_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
+    "l2_rel_error_partial_cells"::Cstring, error_list_l2_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
+    "linfty_rel_error_partial_cells"::Cstring, error_list_loo_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
     "domain_length"::Cstring, L0::Ref{Cdouble}, PDI_OUT::Cint,
     "min_cell_volume"::Cstring, min_cell_volume::Ref{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint

@@ -1871,7 +1871,329 @@ def plot_1D(
    
 
 
+def plot_convergence_study_errors():
+   """
+   Plot errors from h5 files
+   """
+
+   # print('arg', len(sys.argv),sys.argv)
+   if len(sys.argv) == 2:
+      # List all files in the current directory
+      all_files = os.listdir(".")
+      h5_files = [file for file in all_files if file.endswith(".h5")]
+   else:
+      h5_files = sys.argv[2::]
+   
+   print(h5_files)
+
+   try:
+      yamlfile = sys.argv[1]
+      if ".yml" not in yamlfile:
+         yamlfile += ".yml"
+   except Exception as error:
+      print(error)
+      print(colored("error", "red"))
+
+   with open(yamlfile, "r") as file:
+      yml = yaml.safe_load(file)
+
+      plotpar = yml["plot"]
+
+      # print(h5_files)
+      # h5_files = sorted(h5_files)
+      # print('\n sorted \n')
+      print(h5_files)
       
+      nsteps = len(h5_files)
+
+      for figpar in plotpar['curves']:
+
+         print(colored(figpar['file'],'cyan'))
+         # print(figpar)
+
+         if 'radius' in figpar['var']: #we do not plot the figures with radius
+            continue
+         
+         if 'func' not in figpar.keys():
+            continue
+         if 'plot_convergence_study_errors' != figpar['func']:
+            continue
+
+         df = pd.DataFrame()
+
+         for file_name in h5_files:
+            with h5py.File(file_name, "r") as file:
+               print(file.keys())
+
+               nx = file["study_nb_grid_points"][()]
+               timestep = file["study_timestep"][()]
+
+               l1_rel_error = file["study_l1_rel_error"][()]
+               l2_rel_error = file["study_l2_rel_error"][()]
+               linfty_rel_error = file["study_linfty_rel_error"][()]
+               
+               # df = df.append({
+               #     'nx': nx,
+               #     'timestep': timestep,
+               #     'l1_rel_error': l1_rel_error,
+               #     'l2_rel_error': l2_rel_error,
+               #     'linfty_rel_error': linfty_rel_error
+               # }, ignore_index=True)
+
+               temp_df = pd.DataFrame({
+                   'nx': [nx],
+                   'timestep': [timestep],
+                   'l1_rel_error': [l1_rel_error],
+                   'l2_rel_error': [l2_rel_error],
+                   'linfty_rel_error': [linfty_rel_error]
+               })
+
+               df = pd.concat([df, temp_df], ignore_index=True)
+
+               #fill with array
+               # for i,err in enumerate(figpar['var']):
+               #    print(colored(figpar['var'],'red'))
+               #    df[err] = file[err][()]
+
+         print(df)
+
+         plot_convergence_study_errors_from_pandas(df,figpar,plotpar,colors,file_name)
 
 
 
+def plot_convergence_study_errors_from_pandas(df,figpar,plotpar,colors,filename):
+   """
+   Plot radius pandas DF, with slope
+   """
+
+
+
+   fig1,ax2 = init_fig(plotpar,figpar)
+
+
+   # print(figpar)
+   # print(figpar.keys())
+
+
+   color="#4d5156"
+
+   if 'abscissa' in figpar.keys():
+      xls = df['timestep']
+      abscissa = figpar['abscissa']
+      abscissa_fig = abscissa
+   else:
+      df['1/n'] = 1/df["nx_list"]
+      xls=df["1/n"].to_numpy()
+      abscissa = 'nx_list'
+      abscissa_fig = '1/n'
+   print('abscissa_fig',abscissa_fig)
+
+   alpha=0.75
+
+   markers = ['<','>','^']
+
+   markers, sizes  = create_camembert_markers(markers,3,np.pi/2)
+
+   print(df)
+
+   plot_slope = True
+   # plot_slope = False
+
+   if plot_slope:
+ 
+      xlsindex=df[abscissa].to_numpy()
+
+      tstart=float(figpar['slope_start'])
+      tstop=float(figpar['slope_stop'])
+
+
+      # tstop=1/float(figpar['slope_start'])
+      # tstart=1/float(figpar['slope_stop'])
+
+      print('tstart',tstart,tstop)
+      istart = 0
+      istop = 0
+
+      print("first")
+      for i in range(len(xlsindex)):
+         print(i,xlsindex[i],tstart,tstop)
+         # if xlsindex[i]<=tstart:
+         #    break
+         # elif xlsindex[i]>=tstart:
+         #    # print('larger',xlsindex[i],istart)
+         #    istart=i
+         #    break
+         # istart=i
+         if xlsindex[i]>=tstart:
+            # print('larger',xlsindex[i],istart)
+            istart=i
+            break
+      # print('larger',istart)
+
+      print("second")
+
+      for i in range(len(xlsindex)):
+         print(i,xlsindex[i],tstart,tstop)
+         if xlsindex[i]>tstop:
+            istop=i
+            break
+         istop=i
+      print('istart',istart,istop)
+
+      print(xls)
+
+      x="t"
+      y="r"
+
+      param_line=[]
+      slope_and_correlation=0
+      R2=0
+      color_line="k"
+      # colors="#fa8b2b"
+      alpha= 1 
+     
+      print('xls',xls)
+      xls=xls[istart:istop+1]
+
+      print('xls',xls)
+
+      for i,err in enumerate(figpar['var']):
+         yls=df[err].to_numpy()
+         yls=yls[istart:istop+1]
+
+         print('yls',yls)
+
+         slope_and_correlation=[0,0]
+         print('test slope_and_correlation ',slope_and_correlation)
+         compute_slope(ax2,xls,yls,
+                     #   x,y,
+                       slope_and_correlation,R2,param_line,color_line,alpha,plot_text=False)
+         print(slope_and_correlation)
+         if 'l1' in err:
+            label = r'$l_1$'
+         elif 'l2' in err:
+            label = r'$l_2$'
+         elif 'linfty' in err:
+            label = r'$l_\infty$'
+
+         # text_slope=', slope={:.2g}, R²={:.2g}'.format(float(slope_and_correlation[0]),float(slope_and_correlation[1]))
+
+         # text_slope = 'Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$'
+         # text_slope = ', slope '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}, R^2 {1:.2e}".format(slope_and_correlation[0],slope_and_correlation[1]) + '$'
+         # text_slope = ', slope '+r"${0:.2f}, R^2 {1:.2f}".format(slope_and_correlation[0],slope_and_correlation[1]) + '$'
+         # text_slope = r"$\mathrm{{, slope}} {0:.2f}, R^2 {1:.2f}".format(slope_and_correlation[0],slope_and_correlation[1]) + '$'
+         # text_slope = r"$\mathrm{{{}}} {1:.2f}, R^2 {2:.2f}".format(', slope',slope_and_correlation[0],slope_and_correlation[1]) + '$'
+         if math.isnan(slope_and_correlation[1]): 
+            text_slope = r"$\mathrm{{{text}}}: {slope:.2f}".format(text=', slope',slope=slope_and_correlation[0]) + '$'
+         else:
+            text_slope = r"$\mathrm{{{text}}}: {slope:.2f}, R^2: {R2:.2f}".format(text=', slope',slope=slope_and_correlation[0],R2=slope_and_correlation[1]) + '$'
+         # text_slope = r"$ text {slope:.2f}, R^2 {R2:.2f}".format(slope=slope_and_correlation[0],R2=slope_and_correlation[1]) + '$'
+
+         print('text_slope',text_slope)
+
+         ax2.scatter(df[abscissa_fig],df[err],
+                     color=colors[i],
+                     alpha=alpha,
+                     marker=markers[i],
+                     s = sizes[i],
+
+                     linewidth=0,
+                     # linewidth=camembert_linewidth, #edge pie 
+                     # edgecolors='white',
+                     clip_on = True,
+
+                     label = label+text_slope,
+
+                     zorder=5,
+                     )
+         
+
+         # print(colors)
+   
+
+   
+   # ax2.scatter(df["1/n"],df["l1_rel_error"],color=color,alpha=alpha,marker='<',label = r'$l_1$')
+
+   # ax2.scatter(df["1/n"],df["l2_rel_error"],color=colors[2],alpha=alpha,marker='>',label = r'$l_2$')
+
+   # ax2.scatter(df["1/n"],df["linfty_rel_error"],color=colors[3],alpha=alpha,marker='^',label = r'$l_\infty$')
+
+
+
+   if 'macro' in figpar.keys():
+      exec(figpar['macro'])
+
+
+
+   ax2.set_xscale("log")
+   ax2.set_yscale("log")
+
+
+
+
+   plt.legend()
+   # plt.axis("equal")
+
+
+
+
+   if 'xlim' in figpar:
+      # ax2.set_xlim(figpar['xlim'])
+      xlim=np.zeros(2)
+
+      xlim[0] = figpar['xlim'][0]
+      xlim[1] = figpar['xlim'][1]
+      print('xlim',xlim)
+      # roundlog(xlim)
+      ax2.set_xlim(xlim)
+      # ax2.set_xlim([(10**-1,10**0) )])
+
+      # plt.xlim( [10**-3,10**-1] )
+      
+      # plt.xlim( [10**-5,10**-1] )
+
+
+      # xticks,xlabels,xminorticks,xminorticklabels=logticks(xlim)
+      
+   
+      # ax2.set_clip_on(False)
+      # xminorticklabels='' #deactivate
+
+      # try:
+      #    # plt.savefig(filename+'bug'+str(bug)+'.'+ext)
+      #    # if plotscatter:
+      #    minorlabels=ax2.set_xticks(ticks=xminorticks,
+      #                labels=xminorticklabels,
+      #                minor=True,
+      #                #   rotation=axrotation,
+      #                #   rotation_mode="anchor",
+      #                #   ha=axpos,
+      #                )
+      # except:
+      #    print('Error ticks')
+
+   # plt.xlim( [10**-5,10**-1] )
+
+   # prefix="./"
+
+   # prefix = filename.replace(".h5", "") +'_'
+   prefix=''
+   
+   print(prefix+figpar['file']+".pdf")
+
+   plt.savefig(prefix+figpar['file']+".pdf",transparent=True)
+   plt.savefig(prefix+figpar['file']+".svg",transparent=True)
+
+   plt.close(fig1)
+
+   print(df.to_latex(index=False,
+
+                  formatters={"name": str.upper},
+
+                  float_format="{:.2e}".format,))
+   
+   print(df.to_html(index=False,
+
+               formatters={"name": str.upper},
+
+               float_format="{:.2e}".format,))

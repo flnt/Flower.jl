@@ -30,6 +30,8 @@ Test in orientation.jl
 """
 function compute_grad_T_x_T_y_array_u_v_capacities!(num, grid, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, TD)
 
+    print("\n opC_v.Ry",opC_v.Ry)
+    print("\n opC_v.AyT",opC_v.AyT)
 
     ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(TD,grid) .+ opC_u.Gx_b * vecb(TD,grid)
     ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(TD,grid) .+ opC_v.Gy_b * vecb(TD,grid)

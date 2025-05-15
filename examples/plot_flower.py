@@ -3033,8 +3033,13 @@ def plot_diffusion(figpar,plotpar,inset_ax,plot_coord = 0.2,time_list=None):
 
     # Coefficients A_n
     def A_n(n, L, F1,x):
-        integral = np.trapz([f(xi)*np.cos(n * np.pi * xi / L) for xi in x], x)
-        return (2 / L) * integral #* np.cos(n * np.pi * x / L)
+        # integral = np.trapz([f(xi)*np.cos(n * np.pi * xi / L) for xi in x], x) #numerical integration
+        if n == 0:
+            return -F1*L+ 2*c0 #-c0*L*2/L #analytical if just F1 * x 
+        else:
+            return (-2*F1*L)/((n*np.pi)**2)*((-1)**n-1) #analytical if just F1 * x 
+    
+        # return (2 / L) * integral #* np.cos(n * np.pi * x / L)
 
     # Solution u2
     def u2(x, t, L, D, N):        

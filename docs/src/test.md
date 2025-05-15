@@ -1268,6 +1268,8 @@ python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/te
 
 ### Diffusion whole cell
 
+For the pseudo-analytical solution, the BC are "homogenized" (see [`Daileda`](http://ramanujan.math.trinity.edu/rdaileda/teach/s17/m3357/lectures/lecture10_slides.pdf), The One-Dimensional Heat Equation: Neumann and Robin boundary conditions)
+
 ```bash
 python3 -c "import convergence_study; convergence_study.plot_convergence_study_func()" ../Flower.jl/examples/diffusion_whole_cell.yml timestep_3_1250e-02/mesh_00032/mesh_00000032.h5 timestep_3_1250e-03/mesh_00032/mesh_00000032.h5
 ```
@@ -1279,6 +1281,13 @@ julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergen
 
 ```bash
 python3 -c "import convergence_study; convergence_study.plot_convergence_study_func()" ../Flower.jl/examples/diffusion_whole_cell_unmodified_laplacian_hundredth_diffusion_time.yml timestep*/mesh*/mesh*
+```
+
+```bash
+python3 -c "import convergence_study; convergence_study.plot_errors_from_h5()" ../Flower.jl/examples/diffusion_whole_cell_unmodified_laplacian_hundredth_diffusion_time.yml convergence_study_time_diffusion.h5
+```
+```bash
+python3 -c "import convergence_study; convergence_study.plot_convergence_study_errors()" ../Flower.jl/examples/diffusion_whole_cell_unmodified_laplacian_hundredth_diffusion_time.yml timestep*/mesh*/convergence*h5
 ```
 
 
@@ -2054,6 +2063,9 @@ First, we compare a 1D simulation with FS2D to an analytically solvable test cas
 
 For this validation case, we consider mass transfer from a (pure) gas phase into a semi-infinite liquid phase. Initially, the interface between ``\Omega^G`` and ``\Omega^L`` is at position ``x = x_0``. The concentration of the single component inside ``\Omega^G`` remains constant throughout the simulation. Then, under the assumption that the transferred gas is highly diluted in the liquid phase, the equation for the species concentration ``c`` in the liquid phase can be written as:"
 
+See [`Maes and Soulaine 2020`](https://www.sciencedirect.com/science/article/pii/S0021999119307302#se0100) assumption density `\rho<<\rho`
+<!-- maesUnifiedSinglefieldVolumeofFluidbased2020 -->
+
 ```math
 \begin{aligned}
 \partial_{t} c & = D \partial_{x}^{2} c, & & x > 0, t > 0 \\
@@ -2122,7 +2134,8 @@ i.e., the traveled length ``l`` of the interface is:
 ## TODO check H2O variations at electrode
 
 
-
+## TODO
+[Glas and Westwater 1964](https://www.sciencedirect.com/science/article/pii/0017931064901309)
 
 
 ## Variable coefficient
