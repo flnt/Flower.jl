@@ -35,6 +35,7 @@ function run_forward(
     adaptative_t = false,
     breakup = false,
     toy_model = false,
+    rillen_karren = false,
     f_interface::Function,
     Ra = 0.0,
     λ = 1,
@@ -467,8 +468,12 @@ function run_forward(
             xy_mid_point = hcat([p.x for p in LS[1].mid_point[LS[1].MIXED]], [p.y for p in LS[1].mid_point[LS[1].MIXED]])'
             xy = xy_cells + num.Δ*xy_mid_point
             # @. V[LS[1].MIXED] = speed*f_interface(LS[1].α[LS[1].MIXED],LS[1].κ[LS[1].MIXED], xy[1,:], xy[2,:])
+            if rillen_karren
             xrand = rand(xy[1,:])
             @. V[LS[1].MIXED] = speed*f_interface(LS[1].α[LS[1].MIXED],LS[1].κ[LS[1].MIXED], xy[1,:], xrand)
+            else
+                @. V[LS[1].MIXED] = speed*f_interface(LS[1].α[LS[1].MIXED],LS[1].κ[LS[1].MIXED], xy[1,:], xy[2,:])
+            end
             i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, LS[1], grid.ind.inside, periodic_x, periodic_y)
             field_extension!(grid, LS[1].u, grid.V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
             BC_LS!(grid, LS[1].u, LS[1].A, LS[1].B, 0., BC_u)

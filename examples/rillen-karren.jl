@@ -70,6 +70,7 @@ speed = 1
     periodic_x = true,
     time_scheme = CN,
     toy_model = true,
+    rillen_karren = true,
     verbose = true,
     f_interface = f_rillen,
     show_every = 1,
