@@ -907,7 +907,7 @@ function run_forward(
 
     if levelset && (save_radius || hill)
         return radius
-    elseif toy_model &&  !rillen_karren
+    elseif toy_model && !rillen_karren
         return peakx, peaky
     else
         return nothing

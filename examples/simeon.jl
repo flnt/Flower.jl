@@ -4,22 +4,53 @@ using Flower
 fontsize_theme = Theme(fonts=(;regular="CMU Serif"), fontsize = 50)
 set_theme!(fontsize_theme)
 
-n = 128
+function sdf_line(x, y, x1, y1, x2, y2)
+    # Calculate vector from line start to point
+    vx = x - x1
+    vy = y - y1
+
+    # Calculate vector of line segment
+    wx = x2 - x1
+    wy = y2 - y1
+
+    # Calculate dot product of vx and wx
+    dot_product = vx * wx + vy * wy
+
+    # Calculate length squared of line segment
+    length_squared = wx^2 + wy^2
+
+    # Calculate parameter t
+    t = clamp(dot_product / length_squared, 0, 1)
+
+    # Calculate closest point on line segment
+    closest_x = x1 + t * wx
+    closest_y = y1 + t * wy
+
+    # Calculate distance to closest point
+    ddx = x - closest_x
+    ddy = y - closest_y
+
+    # Return distance
+    return sqrt(ddx^2 + ddy^2)
+end
+
+n = 64
 CFL = 0.5
-max_it = 2100
-K = 2/3
+max_it = 1300
+K = 3
 A = 12
+L = 3*A
 N = 1
 alpha = atan(24*(K*A/2)/(4+(27*(K*A/2)-sqrt(81*(K*A/2)^2+12))*cbrt(sqrt((K*A/2)^2/4+1/27)+(K*A/2)/2)-(27*(K*A/2)+sqrt(81*(K*A/2)^2+12))*cbrt(sqrt((K*A/2)^2/4+1/27)-(K*A/2)/2)))
 
-L0x = 26 # 13
-L0y = 26 # ceil(A/2/tan(alpha))
+L0x = 2*(A+1) # 13
+L0y = A+L+2 # ceil(A/2/tan(alpha))
 
 peaky0 = A # A/2/tan(alpha)
 
 x = collect(LinRange(-L0x / 2, L0x / 2, n + 1))
 dx = diff(x)[1]
-y = collect(LinRange(-L0y / 2, L0y / 2, n + 1)) # collect(-1:dx:L0y+dx)
+y = collect(-(L+1):dx:(A+1)+dx)
 
 num = Numerical(
     case = "Planar",
@@ -43,9 +74,9 @@ op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 # @. gp.LS[1].u = -(gp.y*(gp.x^2<A^2)*(gp.y-sqrt(3)*(gp.x+A))*(gp.y+sqrt(3)*(gp.x-A))*(gp.y<=sqrt(3)*A)); # ??
 # @. gp.LS[1].u = -(gp.y + abs(gp.x)); # ??
 
-@. gp.LS[1].u = -(sqrt(gp.y^2 + gp.x^2) - A); # circle of radius A
+# @. gp.LS[1].u = -(sqrt(gp.y^2 + gp.x^2) - A); # circle of radius A
 # @. gp.LS[1].u = -((gp.y>0)*(sqrt(gp.y^2 + gp.x^2) - A)+(gp.y<=0)*(abs(gp.x)-A)); # infinite capped rod of radius A
-# @. gp.LS[1].u = -((gp.y>0)*(sqrt(gp.y^2 + gp.x^2) - A)+(gp.y<=0)*(abs(gp.x)-A)); # finite capped rod of radius A
+@. gp.LS[1].u = -((gp.y>=0)*(sqrt(gp.y^2 + gp.x^2) - A)-(gp.y<=0)*((gp.y>=-L)*(abs(gp.x)<A)*min(sdf_line(abs(gp.x),gp.y,A,0,A,-L),sdf_line(abs(gp.x),gp.y,0,-L,A,-L))-(1-(gp.y>=-L)*(abs(gp.x)<A))*min(sdf_line(abs(gp.x),gp.y,A,0,A,-L),sdf_line(abs(gp.x),gp.y,0,-L,A,-L)))); # finite capped rod of radius A and height L
 # @. gp.LS[1].u = -(-(abs(gp.x)<=A/2)*(gp.y<=tan(alpha/2-pi/4)*(abs(gp.x)-A/2))*gp.y + (gp.y>tan(alpha/2-pi/4)*(abs(gp.x)-A/2))*(gp.y<=tan(alpha)*abs(gp.x)+A/(2*tan(alpha)))*(gp.y>=tan(alpha)*(abs(gp.x)-A/2))*(cos(alpha)*abs(gp.x)+sin(alpha)*gp.y-cos(alpha)*A/2) + (abs(gp.x)>A/2)*(gp.y<tan(alpha)*(abs(gp.x)-A/2))*sqrt((abs(gp.x)-A/2)^2+gp.y^2) + (gp.y>tan(alpha)*abs(gp.x)+A/(2*tan(alpha)))*sqrt(gp.x^2+(gp.y-A/(2*tan(alpha)))^2)); # isosceles triangle of base A and opposite angle 2*alpha
 # @. gp.LS[1].u = -((gp.y>=-13)*(gp.y+gp.x^2-6)+(gp.y<-13)*(13-gp.y));
 
@@ -56,8 +87,8 @@ end
 
 f1 = Figure(size = (1600, 1000))
 ax = Axis(f1[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y", xtickalign=0,  ytickalign=0)
-contour!(gp.x[1,:], gp.y[:,1].-peaky0.*ones(length(y)-1), gp.LS[1].u', levels = 0:0, color=:red, linewidth = 3);
-lines!(ax, x, eta_f(x,K), color=:green, linestyle=:dash, linewidth = 3)
+contour!(gp.x[1,:], gp.y[:,1].-0*peaky0.*ones(length(y)-1), gp.LS[1].u', levels = 0:0, color=:red, linewidth = 3);
+# lines!(ax, x, eta_f(x,K), color=:green, linestyle=:dash, linewidth = 3)
 f1
 
 function f_interface(α, κ, x, y)
@@ -90,7 +121,7 @@ peakx[1], peaky[1] = 0, peaky0
 f1 = Figure(size = (1000, 1000))
 ax = Axis(f1[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y", xtickalign=0,  ytickalign=0)
 contour!(gp.x[1,:], gp.y[:,1] .-peaky0.*ones(length(y)-1), fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 3);
-for i = 200:200:max_it
+for i = 100:100:max_it
     contour!(gp.x[1,:], gp.y[:,1].-peaky[i].*ones(length(y)-1), fwd.u[1,i,:,:]', levels = 0:0, color=:red, linewidth = 3);
 end
 contour!(gp.x[1,:], gp.y[:,1] .-peaky[end].*ones(length(y)-1), fwd.u[1,end,:,:]', levels = 0:0, color=:black, linewidth = 3);
