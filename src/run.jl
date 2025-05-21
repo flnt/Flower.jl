@@ -45,8 +45,9 @@ function run_forward(
     @unpack opS, opL, opC_TS, opC_TL, opC_pS, opC_pL, opC_uS, opC_uL, opC_vS, opC_vL = op
     @unpack x, y, nx, ny, dx, dy, ind, LS, V = grid
 
-    if toy_model
+    if toy_model &&  !rillen_karren
         n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
+        local peakx = zeros(n_snaps)
         local peaky = zeros(n_snaps)
     end
 
@@ -469,8 +470,8 @@ function run_forward(
             xy = xy_cells + num.Δ*xy_mid_point
             # @. V[LS[1].MIXED] = speed*f_interface(LS[1].α[LS[1].MIXED],LS[1].κ[LS[1].MIXED], xy[1,:], xy[2,:])
             if rillen_karren
-            xrand = rand(xy[1,:])
-            @. V[LS[1].MIXED] = speed*f_interface(LS[1].α[LS[1].MIXED],LS[1].κ[LS[1].MIXED], xy[1,:], xrand)
+                xrand = rand(xy[1,:])
+                @. V[LS[1].MIXED] = speed*f_interface(LS[1].α[LS[1].MIXED],LS[1].κ[LS[1].MIXED], xy[1,:], xrand)
             else
                 @. V[LS[1].MIXED] = speed*f_interface(LS[1].α[LS[1].MIXED],LS[1].κ[LS[1].MIXED], xy[1,:], xy[2,:])
             end
@@ -808,8 +809,9 @@ function run_forward(
                 @views fwd.uy[iLS,snap,:,:] .= grid_v.LS[iLS].u
                 @views fwd.κ[iLS,snap,:,:] .= LS[iLS].κ
             end
-            if toy_model
-                peaky[snap] = maximum(xy[2,:]) # push!(peaky, maximum(xy[2,:]))
+            if toy_model &&  !rillen_karren
+                peaky[snap],peakid = findmax(xy[2,:]) # push!(peaky, maximum(xy[2,:]))
+                peakx[snap] = xy[1,peakid]
             end
             if heat_solid_phase && heat_liquid_phase
                 @views fwd.T[snap,:,:] .= phL.T.*LS[end].geoL.cap[:,:,5] .+ phS.T.*LS[end].geoS.cap[:,:,5]
@@ -905,8 +907,8 @@ function run_forward(
 
     if levelset && (save_radius || hill)
         return radius
-    elseif toy_model
-        return peaky
+    elseif toy_model &&  !rillen_karren
+        return peakx, peaky
     else
         return nothing
     end
