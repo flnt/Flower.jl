@@ -1,6 +1,8 @@
 using Revise
 using Flower
 
+using MeshGrid
+
 fontsize_theme = Theme(fonts=(;regular="CMU Serif"), fontsize = 50)
 set_theme!(fontsize_theme)
 
@@ -36,7 +38,7 @@ end
 
 n = 64
 CFL = 0.5
-max_it = 1300
+max_it = 300
 K = 3
 A = 12
 L = 3*A
@@ -85,6 +87,21 @@ function eta_f(x, k)
     return -1/(24*k).*(4 .+ (27*(k.*x).-sqrt.(81*(k.*x).^2 .+ 12)).*cbrt.(sqrt.((k.*x).^2/4 .+ 1/27).+(k.*x)./2).-(27*(k.*x).+sqrt.(81*(k.*x).^2 .+ 12)).*cbrt.(sqrt.((k.*x).^2/4 .+ 1/27).-(k.*x)/2))
 end
 
+function deta_f(x)
+    return cbrt.(sqrt.(x.^2/4 .+ 1/27) .- x/2) .- cbrt.(sqrt.(x.^2/4 .+ 1/27) .+ x/2)
+end
+
+function vXi(x)
+    return 3*(eta_f(x,1) .- x.*deta_f(x))
+end
+
+function IC(r)
+    phi = sqrt.(A^2 .- r.^2)
+    kappa = A^2 ./ sqrt.(A^2 .- r.^2).^3
+    return phi,kappa
+end
+
+
 f1 = Figure(size = (1600, 1000))
 ax = Axis(f1[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y", xtickalign=0,  ytickalign=0)
 contour!(gp.x[1,:], gp.y[:,1].-0*peaky0.*ones(length(y)-1), gp.LS[1].u', levels = 0:0, color=:red, linewidth = 3);
@@ -106,7 +123,7 @@ function f_interface(α, κ, x, y)
     return V
 end
 
-@time peakx, peaky = run_forward(
+@time peakx, peaky, tt = run_forward(
     num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
     time_scheme = CN,
     toy_model = true,
@@ -116,14 +133,25 @@ end
     speed = 1
 )
 
+r0 = collect(LinRange(1e-9, A-1e-3, 1001)) #1001))
+RR,R0 = meshgrid(r0,r0)
+H0, K0 = IC(R0)
+HH = H0 .+ eta_f(K0.*RR,1)./K0 .- eta_f(K0.*R0,1)./K0 .- (1 .+ 1 ./ cbrt.(K0)).*(vXi(K0.*R0) .- vXi(K0.*RR))./cbrt.(K0).^2
+TT = (1 .+ 1 ./ cbrt.(K0)).^2 .* (vXi(K0.*R0) .- vXi(K0.*RR))./cbrt.(K0).^2
+
+
+
 peakx[1], peaky[1] = 0, peaky0
 
 f1 = Figure(size = (1000, 1000))
 ax = Axis(f1[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y", xtickalign=0,  ytickalign=0)
-contour!(gp.x[1,:], gp.y[:,1] .-peaky0.*ones(length(y)-1), fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 3);
+contour!(gp.x[1,:], gp.y[:,1] .-0*peaky0.*ones(length(y)-1), fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 3);
+heatmap!(RR, HH, TT, levels = 0:0, color=:green, linestyle=:dash, linewidth = 3)
 for i = 100:100:max_it
-    contour!(gp.x[1,:], gp.y[:,1].-peaky[i].*ones(length(y)-1), fwd.u[1,i,:,:]', levels = 0:0, color=:red, linewidth = 3);
+    contour!(gp.x[1,:], gp.y[:,1].-0*peaky[i].*ones(length(y)-1), fwd.u[1,i,:,:]', levels = 0:0, color=:red, linewidth = 3);
+    contour!(RR, HH, TT, levels = [tt[i]], color=:green, linestyle=:dash, linewidth = 3)
 end
-contour!(gp.x[1,:], gp.y[:,1] .-peaky[end].*ones(length(y)-1), fwd.u[1,end,:,:]', levels = 0:0, color=:black, linewidth = 3);
-lines!(ax, x, eta_f(x,K), color=:green, linestyle=:dash, linewidth = 3)
+contour!(gp.x[1,:], gp.y[:,1] .-0*peaky[end].*ones(length(y)-1), fwd.u[1,end,:,:]', levels = 0:0, color=:black, linewidth = 3);
+contour!(RR, HH, TT, levels = [tt[end]], color=:green, linestyle=:dash, linewidth = 3)
+# lines!(ax, x, eta_f(x,K), color=:green, linestyle=:dash, linewidth = 3)
 f1

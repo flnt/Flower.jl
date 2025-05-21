@@ -49,6 +49,7 @@ function run_forward(
         n_snaps = iszero(max_iterations%save_every) ? max_iterations÷save_every+1 : max_iterations÷save_every+2
         local peakx = zeros(n_snaps)
         local peaky = zeros(n_snaps)
+        local tt = zeros(n_snaps)
     end
 
     if length(BC_int) != nLS
@@ -812,6 +813,7 @@ function run_forward(
             if toy_model &&  !rillen_karren
                 peaky[snap],peakid = findmax(xy[2,:]) # push!(peaky, maximum(xy[2,:]))
                 peakx[snap] = xy[1,peakid]
+                tt[snap] = current_t
             end
             if heat_solid_phase && heat_liquid_phase
                 @views fwd.T[snap,:,:] .= phL.T.*LS[end].geoL.cap[:,:,5] .+ phS.T.*LS[end].geoS.cap[:,:,5]
@@ -908,7 +910,7 @@ function run_forward(
     if levelset && (save_radius || hill)
         return radius
     elseif toy_model && !rillen_karren
-        return peakx, peaky
+        return peakx, peaky, tt
     else
         return nothing
     end
