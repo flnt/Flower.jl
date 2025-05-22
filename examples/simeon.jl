@@ -38,7 +38,7 @@ end
 
 n = 64
 CFL = 0.5
-max_it = 300
+max_it = 600
 K = 3
 A = 12
 L = 3*A
@@ -133,6 +133,7 @@ end
     speed = 1
 )
 
+
 r0 = collect(LinRange(1e-9, A-1e-3, 1001)) #1001))
 RR,R0 = meshgrid(r0,r0)
 H0, K0 = IC(R0)
@@ -146,7 +147,7 @@ peakx[1], peaky[1] = 0, peaky0
 f1 = Figure(size = (1000, 1000))
 ax = Axis(f1[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y", xtickalign=0,  ytickalign=0)
 contour!(gp.x[1,:], gp.y[:,1] .-0*peaky0.*ones(length(y)-1), fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 3);
-heatmap!(RR, HH, TT, levels = 0:0, color=:green, linestyle=:dash, linewidth = 3)
+contour!(RR, HH, TT, levels = 0:0, color=:green, linestyle=:dash, linewidth = 3)
 for i = 100:100:max_it
     contour!(gp.x[1,:], gp.y[:,1].-0*peaky[i].*ones(length(y)-1), fwd.u[1,i,:,:]', levels = 0:0, color=:red, linewidth = 3);
     contour!(RR, HH, TT, levels = [tt[i]], color=:green, linestyle=:dash, linewidth = 3)
@@ -154,4 +155,5 @@ end
 contour!(gp.x[1,:], gp.y[:,1] .-0*peaky[end].*ones(length(y)-1), fwd.u[1,end,:,:]', levels = 0:0, color=:black, linewidth = 3);
 contour!(RR, HH, TT, levels = [tt[end]], color=:green, linestyle=:dash, linewidth = 3)
 # lines!(ax, x, eta_f(x,K), color=:green, linestyle=:dash, linewidth = 3)
+ylims!(-L,A)
 f1
