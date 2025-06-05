@@ -39,6 +39,7 @@ function run_forward(
     f_interface::Function,
     Ra = 0.0,
     λ = 1,
+    sdim = 0,
     )
     @unpack L0, A, N, θd, ϵ_κ, ϵ_V, σ, T_inf, L0, NB, Δ, CFL, Re, max_iterations,
             save_every, reinit_every, nb_reinit, δreinit, ϵ, m, θ₀, aniso, nLS, _nLS, nNavier = num
@@ -474,7 +475,10 @@ function run_forward(
                 xrand = rand(xy[1,:])
                 @. V[LS[1].MIXED] = speed*f_interface(LS[1].α[LS[1].MIXED],LS[1].κ[LS[1].MIXED], xy[1,:], xrand)
             else
-                @. V[LS[1].MIXED] = speed*f_interface(LS[1].α[LS[1].MIXED],LS[1].κ[LS[1].MIXED], xy[1,:], xy[2,:])
+#                 @. V[LS[1].MIXED] = speed*f_interface(LS[1].α[LS[1].MIXED],LS[1].κ[LS[1].MIXED], xy[1,:], xy[2,:]) # old symmetric model
+                y0,peakid = findmax(xy[2,:]) # push!(peaky, maximum(xy[2,:]))
+                x0 = xy[1,peakid]
+                @. V[LS[1].MIXED] = speed*f_interface(LS[1].α[LS[1].MIXED],LS[1].κ[LS[1].MIXED], xy[1,:], x0, sdim) # new general model
             end
             i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, LS[1], grid.ind.inside, periodic_x, periodic_y)
             field_extension!(grid, LS[1].u, grid.V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
@@ -811,8 +815,8 @@ function run_forward(
                 @views fwd.κ[iLS,snap,:,:] .= LS[iLS].κ
             end
             if toy_model &&  !rillen_karren
-                peaky[snap],peakid = findmax(xy[2,:]) # push!(peaky, maximum(xy[2,:]))
-                peakx[snap] = xy[1,peakid]
+                peaky[snap] = y0 # peaky[snap],peakid = findmax(xy[2,:]) # push!(peaky, maximum(xy[2,:]))
+                peakx[snap] = x0 # xy[1,peakid]
                 tt[snap] = current_t
             end
             if heat_solid_phase && heat_liquid_phase
