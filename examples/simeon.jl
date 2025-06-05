@@ -66,6 +66,38 @@ function sdf_triangle(x, y, x0, y0, x1, y1, x2, y2)
     end
 end
 
+function sdf_quadrilateral(x, y, x0, y0, x1, y1, x2, y2, x3, y3)
+    function point_to_line_distance(px, py, p1x, p1y, p2x, p2y)
+        line_length_squared = (p2x - p1x)^2 + (p2y - p1y)^2
+        t = max(0, min(1, ((px - p1x) * (p2x - p1x) + (py - p1y) * (p2y - p1y)) / line_length_squared))
+        nearest_x = p1x + t * (p2x - p1x)
+        nearest_y = p1y + t * (p2y - p1y)
+        dx = px - nearest_x
+        dy = py - nearest_y
+        return sqrt(dx^2 + dy^2)
+    end
+
+    d0 = point_to_line_distance(x, y, x0, y0, x1, y1)
+    d1 = point_to_line_distance(x, y, x1, y1, x2, y2)
+    d2 = point_to_line_distance(x, y, x2, y2, x3, y3)
+    d3 = point_to_line_distance(x, y, x3, y3, x0, y0)
+
+    function sign(p1x, p1y, p2x, p2y, p3x, p3y)
+        return (p1x - p3x) * (p2y - p3y) - (p2x - p3x) * (p1y - p3y)
+    end
+
+    b0 = sign(x, y, x1, y1, x0, y0)
+    b1 = sign(x, y, x2, y2, x1, y1)
+    b2 = sign(x, y, x3, y3, x2, y2)
+    b3 = sign(x, y, x0, y0, x3, y3)
+
+    if (b0 >= 0 && b1 >= 0 && b2 >= 0 && b3 >= 0) || (b0 <= 0 && b1 <= 0 && b2 <= 0 && b3 <= 0)
+        return -min(d0, d1, d2, d3)
+    else
+        return min(d0, d1, d2, d3)
+    end
+end
+
 n = 98
 CFL = 0.5
 max_it = 900
@@ -77,11 +109,11 @@ N = 1
 alpha = pi/6 # atan(24*(K*A/2)/(4+(27*(K*A/2)-sqrt(81*(K*A/2)^2+12))*cbrt(sqrt((K*A/2)^2/4+1/27)+(K*A/2)/2)-(27*(K*A/2)+sqrt(81*(K*A/2)^2+12))*cbrt(sqrt((K*A/2)^2/4+1/27)-(K*A/2)/2)))
 
 L0x =  A + 2 # 2*A+4 # 2*(A+1) # A+1 # 2*(A+1)
-L0y = L + 1 # A+L+2 # ceil(A/2/tan(alpha))
+L0y = 2*L + 2 # A+L+2 # ceil(A/2/tan(alpha))
 
 x = collect(LinRange( - 1, L0x - 1, n + 1)) #collect(LinRange(-L0x / 2, L0x / 2, n + 1))
 dx = diff(x)[1]
-y = collect( - 1 : dx : L0y - 1 + dx) # collect(-L-1:dx:(A+1)+0*L0y+dx)
+y = collect(-L-1:dx:(A+1)+0*L0y+dx) # collect( - 1 : dx : L0y - 1 + dx) # collect(-L-1:dx:(A+1)+0*L0y+dx)
 
 num = Numerical(
     case = "Planar",
@@ -112,7 +144,8 @@ op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 # @. gp.LS[1].u = -(-(abs(gp.x)<=A/2)*(gp.y<=tan(alpha/2-pi/4)*(abs(gp.x)-A/2))*gp.y + (gp.y>tan(alpha/2-pi/4)*(abs(gp.x)-A/2))*(gp.y<=tan(alpha)*abs(gp.x)+A/(2*tan(alpha)))*(gp.y>=tan(alpha)*(abs(gp.x)-A/2))*(cos(alpha)*abs(gp.x)+sin(alpha)*gp.y-cos(alpha)*A/2) + (abs(gp.x)>A/2)*(gp.y<tan(alpha)*(abs(gp.x)-A/2))*sqrt((abs(gp.x)-A/2)^2+gp.y^2) + (gp.y>tan(alpha)*abs(gp.x)+A/(2*tan(alpha)))*sqrt(gp.x^2+(gp.y-A/(2*tan(alpha)))^2)); # isosceles triangle of base A and opposite angle 2*alpha
 # @. gp.LS[1].u = (2*(gp.x>0)*(gp.y>0)*(gp.y<L-L*gp.x/A)-1)*min(sdf_line(gp.x,gp.y,0,0,A,0),sdf_line(gp.x,gp.y,A,0,0,L),sdf_line(gp.x,gp.y,0,L,0,0)); # right triangle of heights L and A
 # @. gp.LS[1].u = -((gp.y>=-13)*(gp.y+gp.x^2-6)+(gp.y<-13)*(13-gp.y));
-@. gp.LS[1].u = -sdf_triangle(gp.x, gp.y, 0, 0, W, L, A, 0 );
+# @. gp.LS[1].u = -sdf_triangle(gp.x, gp.y, 0, 0, W, L, A, 0 );
+@. gp.LS[1].u = -sdf_quadrilateral(gp.x, gp.y, 0, 0, W, L, A, 0, A - W, -L );
 
 function eta_f(x, k)
     return -1/(24*k).*(4 .+ (27*(k.*x).-sqrt.(81*(k.*x).^2 .+ 12)).*cbrt.(sqrt.((k.*x).^2/4 .+ 1/27).+(k.*x)./2).-(27*(k.*x).+sqrt.(81*(k.*x).^2 .+ 12)).*cbrt.(sqrt.((k.*x).^2/4 .+ 1/27).-(k.*x)/2))
