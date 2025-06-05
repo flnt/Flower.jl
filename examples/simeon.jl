@@ -36,23 +36,53 @@ function sdf_line(x, y, x1, y1, x2, y2)
     return sqrt(ddx^2 + ddy^2)
 end
 
-n = 64
+function sdf_triangle(x, y, x0, y0, x1, y1, x2, y2)
+    function point_to_line_distance(px, py, p1x, p1y, p2x, p2y)
+        line_length_squared = (p2x - p1x)^2 + (p2y - p1y)^2
+        t = max(0, min(1, ((px - p1x) * (p2x - p1x) + (py - p1y) * (p2y - p1y)) / line_length_squared))
+        nearest_x = p1x + t * (p2x - p1x)
+        nearest_y = p1y + t * (p2y - p1y)
+        dx = px - nearest_x
+        dy = py - nearest_y
+        return sqrt(dx^2 + dy^2)
+    end
+
+    d1 = point_to_line_distance(x, y, x0, y0, x1, y1)
+    d2 = point_to_line_distance(x, y, x1, y1, x2, y2)
+    d3 = point_to_line_distance(x, y, x2, y2, x0, y0)
+
+    function sign(p1x, p1y, p2x, p2y, p3x, p3y)
+        return (p1x - p3x) * (p2y - p3y) - (p2x - p3x) * (p1y - p3y)
+    end
+
+    b1 = sign(x, y, x1, y1, x2, y2)
+    b2 = sign(x, y, x2, y2, x0, y0)
+    b3 = sign(x, y, x0, y0, x1, y1)
+
+    if (b1 >= 0 && b2 >= 0 && b3 >= 0) || (b1 <= 0 && b2 <= 0 && b3 <= 0)
+        return -min(d1, d2, d3)
+    else
+        return min(d1, d2, d3)
+    end
+end
+
+n = 128
 CFL = 0.5
-max_it = 2000
+max_it = 1200
 K = 3
-A = 3
-L = 3*A
+A = 24
+L = A
 N = 1
 alpha = pi/6 # atan(24*(K*A/2)/(4+(27*(K*A/2)-sqrt(81*(K*A/2)^2+12))*cbrt(sqrt((K*A/2)^2/4+1/27)+(K*A/2)/2)-(27*(K*A/2)+sqrt(81*(K*A/2)^2+12))*cbrt(sqrt((K*A/2)^2/4+1/27)-(K*A/2)/2)))
 
-L0x = 2*A+4 # 2*(A+1) # A+1 # 2*(A+1)
-L0y = L+1 # A+L+2 # ceil(A/2/tan(alpha))
+L0x =  A + 2 # 2*A+4 # 2*(A+1) # A+1 # 2*(A+1)
+L0y = L + 1 # A+L+2 # ceil(A/2/tan(alpha))
 
 peaky0  = A # A # A/2/tan(alpha)
 
 x = collect(LinRange( - 1, L0x - 1, n + 1)) #collect(LinRange(-L0x / 2, L0x / 2, n + 1))
 dx = diff(x)[1]
-y = collect(-L-1:dx:(A+1)+0*L0y+dx) # collect( - 1 : dx : L0y - 1 + dx) # collect(-L-1:dx:(A+1)+0*L0y+dx)
+y = collect( - 1 : dx : L0y - 1 + dx) # collect(-L-1:dx:(A+1)+0*L0y+dx)
 
 num = Numerical(
     case = "Planar",
@@ -79,11 +109,11 @@ op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 # @. gp.LS[1].u = -(sqrt(gp.y^2 + gp.x^2) - A); # circle of radius A
 # @. gp.LS[1].u = -((gp.y>0)*(sqrt(gp.y^2 + gp.x^2) - A)+(gp.y<=0)*(abs(gp.x)-A)); # infinite capped rod of radius A
 # @. gp.LS[1].u = -((gp.y>=0)*(sqrt(gp.y^2 + gp.x^2) - A)-(gp.y<=0)*((gp.y>=-L)*(abs(gp.x)<A)*min(sdf_line(abs(gp.x),gp.y,A,0,A,-L),sdf_line(abs(gp.x),gp.y,0,-L,A,-L))-(1-(gp.y>=-L)*(abs(gp.x)<A))*min(sdf_line(abs(gp.x),gp.y,A,0,A,-L),sdf_line(abs(gp.x),gp.y,0,-L,A,-L)))); # finite capped rod of radius A and height L
-@. gp.LS[1].u = -((gp.y>=0)*(sqrt(gp.y^2 + (gp.x-A-1)^2) - A)-(gp.y<=0)*((gp.y>=-L)*(abs(gp.x-A-1)<A)*min(sdf_line(abs(gp.x-A-1),gp.y,A,0,A,-L),sdf_line(abs(gp.x-A-1),gp.y,0,-L,A,-L))-(1-(gp.y>=-L)*(abs(gp.x-A-1)<A))*min(sdf_line(abs(gp.x-A-1),gp.y,A,0,A,-L),sdf_line(abs(gp.x-A-1),gp.y,0,-L,A,-L)))); # finite capped rod of radius A and height L
+# @. gp.LS[1].u = -((gp.y>=0)*(sqrt(gp.y^2 + (gp.x-A-1)^2) - A)-(gp.y<=0)*((gp.y>=-L)*(abs(gp.x-A-1)<A)*min(sdf_line(abs(gp.x-A-1),gp.y,A,0,A,-L),sdf_line(abs(gp.x-A-1),gp.y,0,-L,A,-L))-(1-(gp.y>=-L)*(abs(gp.x-A-1)<A))*min(sdf_line(abs(gp.x-A-1),gp.y,A,0,A,-L),sdf_line(abs(gp.x-A-1),gp.y,0,-L,A,-L)))); # finite capped rod of radius A and height L
 # @. gp.LS[1].u = -(-(abs(gp.x)<=A/2)*(gp.y<=tan(alpha/2-pi/4)*(abs(gp.x)-A/2))*gp.y + (gp.y>tan(alpha/2-pi/4)*(abs(gp.x)-A/2))*(gp.y<=tan(alpha)*abs(gp.x)+A/(2*tan(alpha)))*(gp.y>=tan(alpha)*(abs(gp.x)-A/2))*(cos(alpha)*abs(gp.x)+sin(alpha)*gp.y-cos(alpha)*A/2) + (abs(gp.x)>A/2)*(gp.y<tan(alpha)*(abs(gp.x)-A/2))*sqrt((abs(gp.x)-A/2)^2+gp.y^2) + (gp.y>tan(alpha)*abs(gp.x)+A/(2*tan(alpha)))*sqrt(gp.x^2+(gp.y-A/(2*tan(alpha)))^2)); # isosceles triangle of base A and opposite angle 2*alpha
 # @. gp.LS[1].u = (2*(gp.x>0)*(gp.y>0)*(gp.y<L-L*gp.x/A)-1)*min(sdf_line(gp.x,gp.y,0,0,A,0),sdf_line(gp.x,gp.y,A,0,0,L),sdf_line(gp.x,gp.y,0,L,0,0)); # right triangle of heights L and A
 # @. gp.LS[1].u = -((gp.y>=-13)*(gp.y+gp.x^2-6)+(gp.y<-13)*(13-gp.y));
-
+@. gp.LS[1].u = -sdf_triangle(gp.x, gp.y, 0, 0, L/4, L, A, 0 );
 
 function eta_f(x, k)
     return -1/(24*k).*(4 .+ (27*(k.*x).-sqrt.(81*(k.*x).^2 .+ 12)).*cbrt.(sqrt.((k.*x).^2/4 .+ 1/27).+(k.*x)./2).-(27*(k.*x).+sqrt.(81*(k.*x).^2 .+ 12)).*cbrt.(sqrt.((k.*x).^2/4 .+ 1/27).-(k.*x)/2))
@@ -106,7 +136,7 @@ end
 
 f1 = Figure(size = (1600, 1000))
 ax = Axis(f1[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y", xtickalign=0,  ytickalign=0)
-contour!(gp.x[1,:], gp.y[:,1].-0*peaky0.*ones(length(y)-1), gp.LS[1].u', levels = 0:0, color=:red, linewidth = 3);
+contour!(gp.x[1,:], gp.y[:,1].-0*peaky0.*ones(length(y)-1), gp.LS[1].u', levels = 0, color=:red, linewidth = 3);
 # lines!(ax, x, eta_f(x,K), color=:green, linestyle=:dash, linewidth = 3)
 f1
 
@@ -155,7 +185,7 @@ end
     f_interface = genf_interface,
     show_every = 1,
     speed = 1,
-    sdim = 1
+    sdim = 0
 )
 
 
@@ -166,18 +196,27 @@ end
 # TT = (1 .+ 1 ./ cbrt.(K0)).^2 .* (vXi(K0.*R0) .- vXi(K0.*RR))./cbrt.(K0).^2
 
 
-peakx[1], peaky[1] = A+1, peaky0
+peakx[1], peaky[1] = L/4, peaky0
+cent = 0
 
 f1 = Figure(size = (1000, 1000))
 ax = Axis(f1[1,1], aspect=DataAspect(), xlabel=L"x", ylabel=L"y", xtickalign=0,  ytickalign=0)
-contour!(gp.x[1,:], gp.y[:,1] .-0*peaky0.*ones(length(y)-1), fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 3);
-# contour!(RR, HH, TT, levels = 0:0, color=:green, linestyle=:dash, linewidth = 3)
+contour!(gp.x[1,:] .-cent*peakx[1].*ones(length(x)-1), gp.y[:,1] .-cent*peaky[1].*ones(length(y)-1), fwd.u[1,1,:,:]', levels = 0:0, color=:black, linewidth = 3);
+# contour!(RR+(A+1).*RR./RR, HH, TT, levels = 0:0, color=:green, linestyle=:dash, linewidth = 3)
+# contour!(-RR+(A+1).*RR./RR, HH, TT, levels = 0:0, color=:green, linestyle=:dash, linewidth = 3)
 for i = 100:100:max_it
-    contour!(gp.x[1,:], gp.y[:,1].-0*peaky[i].*ones(length(y)-1), fwd.u[1,i,:,:]', levels = 0:0, color=:red, linewidth = 3);
-    # contour!(RR, HH, TT, levels = [tt[i]], color=:green, linestyle=:dash, linewidth = 3)
+    contour!(gp.x[1,:] .-cent*peakx[i].*ones(length(x)-1), gp.y[:,1].-cent*peaky[i].*ones(length(y)-1), fwd.u[1,i,:,:]', levels = 0:0, color=:red, linewidth = 3);
+    # contour!(RR+(A+1).*RR./RR, HH, TT, levels = [tt[i]], color=:green, linestyle=:dash, linewidth = 3)
+    # contour!(-RR+(A+1).*RR./RR, HH, TT, levels = [tt[i]], color=:green, linestyle=:dash, linewidth = 3)
 end
-contour!(gp.x[1,:], gp.y[:,1] .-0*peaky[end].*ones(length(y)-1), fwd.u[1,end,:,:]', levels = 0:0, color=:black, linewidth = 3);
-# contour!(RR, HH, TT, levels = [tt[end]], color=:green, linestyle=:dash, linewidth = 3)
+contour!(gp.x[1,:] .-cent*peakx[end].*ones(length(x)-1), gp.y[:,1] .-cent*peaky[end].*ones(length(y)-1), fwd.u[1,end,:,:]', levels = 0:0, color=:black, linewidth = 3);
+# contour!(RR+(A+1).*RR./RR, HH, TT, levels = [tt[end]], color=:green, linestyle=:dash, linewidth = 3)
+# contour!(-RR+(A+1).*RR./RR, HH, TT, levels = [tt[end]], color=:green, linestyle=:dash, linewidth = 3)
 # lines!(ax, x, eta_f(x,K), color=:green, linestyle=:dash, linewidth = 3)
-ylims!(-L,A)
+# ylims!(-L,A)
 f1
+
+f2 = Figure(size = (1000, 1000))
+bx = Axis(f2[1,1], xlabel=L"x_0", ylabel=L"y_0", xtickalign=0,  ytickalign=0)
+lines!(bx,peakx,peaky, color=:green, linewidth = 3)
+f2

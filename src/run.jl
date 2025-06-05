@@ -476,7 +476,7 @@ function run_forward(
                 @. V[LS[1].MIXED] = speed*f_interface(LS[1].α[LS[1].MIXED],LS[1].κ[LS[1].MIXED], xy[1,:], xrand)
             else
 #                 @. V[LS[1].MIXED] = speed*f_interface(LS[1].α[LS[1].MIXED],LS[1].κ[LS[1].MIXED], xy[1,:], xy[2,:]) # old symmetric model
-                y0,peakid = findmax(xy[2,:]) # push!(peaky, maximum(xy[2,:]))
+                y0, peakid = findmax(xy[2,:]) # push!(peaky, maximum(xy[2,:]))
                 x0 = xy[1,peakid]
                 @. V[LS[1].MIXED] = speed*f_interface(LS[1].α[LS[1].MIXED],LS[1].κ[LS[1].MIXED], xy[1,:], x0, sdim) # new general model
             end
