@@ -1560,6 +1560,9 @@ function get_interface_location_borders!(grid::Mesh{GridFCy,T,N}, u, periodic_y)
     return nothing
 end
 
+"""
+computes curvature, uses parabola_fit_curvature
+"""
 function get_curvature(num, grid, geoL, u, κ, inside, per_x, per_y)
     @unpack Δ = num
     @unpack x, y, nx, ny, ind = grid

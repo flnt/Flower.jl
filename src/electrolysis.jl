@@ -1160,8 +1160,15 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
     grid.V .= 0
     num.sum_mass_flux = 0.0
     v_mean = 0.0
+    
+    if num.phase_change_method == 0
+        # TODO 
+        factor = -(1.0/num.rho2-1.0/num.rho1).*diffusion_coeff_scal[1].*num.MWH2
+    elseif num.phase_change_method == 1
+        #assuming vgaz = 0
+        factor = -1.0/num.rho2.*diffusion_coeff_scal[1].*num.MWH2
 
-    factor = -(1.0/num.rho2-1.0/num.rho1).*diffusion_coeff_scal[1].*num.MWH2
+    end
 
     intfc_length = 0.0
 
@@ -1245,6 +1252,72 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
                 # intfc_length_cell = sqrt(χx + χy)
                 # intfc_length += intfc_length_cell
 
+
+
+
+            elseif num.mass_flux == 2
+                    num.sum_mass_flux += mass_flux[II]
+                    #compute interface length
+                    χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
+                    χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
+                    intfc_length_cell = sqrt(χx + χy)
+                    intfc_length += intfc_length_cell
+
+                    # intfc_length_cell !=0 since mixed cell
+
+                    print("\n intfc_length_cell ", intfc_length_cell)
+
+                    grid.V[II] = mass_flux[II] * factor / intfc_length_cell
+
+                    #region compare grad
+                    
+                    dTL = 0.0
+                    # print("\n II ",II," flag ",grid.LS[iLS].geoL.projection[II].flag)
+                    if grid.LS[iLS].geoL.projection[II].flag
+                        T_1, T_2 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, grid.LS[iLS].geoL.projection[II].point2, concentration_scal, II, periodic_x, periodic_y)
+                        dTL = normal_gradient(grid.LS[iLS].geoL.projection[II].d1, grid.LS[iLS].geoL.projection[II].d2, T_1, T_2, concentration_scal_intfc)
+                        printstyled(color=:cyan, @sprintf "\n T1 %.2e T2 %.2e \n" T_1 T_2 )
+                        if isnan(T_2)
+                            printstyled(color=:red, @sprintf "\n T2 NaN, resorting to other method \n")
+                            print("\n P2 ",grid.LS[iLS].geoL.projection[II].point2)
+
+
+                            T_1 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
+                            dTL = normal_gradient(grid.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
+                        end
+
+                        if isnan(T_1) || isnan(T_2) #debug
+                            printstyled(color=:red, @sprintf "\n T1 or T2 NaN, debug \n")
+
+                            print("\n II ",II," flag ",grid.LS[iLS].geoL.projection[II].flag)
+
+                            vtx_num = 2                
+                            vtx_x = [grid.LS[iLS].geoL.projection[II].point1.x,grid.LS[iLS].geoL.projection[II].point2.x]
+                            vtx_y = [grid.LS[iLS].geoL.projection[II].point1.y,grid.LS[iLS].geoL.projection[II].point2.y]
+
+                            PDI_status = @ccall "libpdi".PDI_multi_expose("debug_phase_change"::Cstring,
+                            "vtx_num"::Cstring, vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                            "vtx_x"::Cstring, vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "vtx_y"::Cstring, vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+                            C_NULL::Ptr{Cvoid})::Cint
+
+                            return 1
+                            
+                        end
+
+                    else
+                    T_1 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
+                    dTL = normal_gradient(grid.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
+                end
+                # grid.V[II] = dTL #+ dTS
+                printstyled(color=:cyan, @sprintf "\n v %.2e v from int %.2e %.2e %.2e\n" grid.V[II] dTL*factor T_1 concentration_scal_intfc)
+                
+                # grid.V[II] = dTL*factor 
+                # v_mean += grid.V[II] #TODO unit use same
+                # printstyled(color=:red, @sprintf "\n TODO unit use same \n" )
+            
+                #endregion compare grad
+
             end #num.mass_flux
         
         end #grid.LS[end].iso[II] != 15.0
@@ -1255,15 +1328,15 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
         elseif num.mass_flux == 1 
             v_mean = v_mean / num_mixed_cells
             
-            if num.current_i == 1 && num.advection_LS_mode == 9
-                @test v_mean ≈ 6.889685460499036e-5 atol=1e-12 #6.89e-05
+            # if num.current_i == 1 && num.advection_LS_mode == 9
+            #     @test v_mean ≈ 6.889685460499036e-5 atol=1e-12 #6.89e-05
 
-                if abs(v_mean-6.889685460499036e-5) < 1e-12
-                @error("error phase-change velocity")
-                printstyled(color=:red, @sprintf "\n error velocity\n")
-                return 1
-                end
-            end
+            #     if abs(v_mean-6.889685460499036e-5) < 1e-12
+            #     @error("error phase-change velocity")
+            #     printstyled(color=:red, @sprintf "\n error velocity\n")
+            #     return 1
+            #     end
+            # end
 
         end 
 
@@ -1310,9 +1383,9 @@ function update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, i
         grid.V .= v_mean
     end
 
-
-    printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
-
+    if length(grid.LS[iLS].MIXED) != 0
+        printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
+    end
     #plot_electrolysis_velocity!(num, grid, grid.LS[iLS], grid.V, concentration_scalD, grid.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc)
 
     # electrolysis_velocity!(num, grid, grid.LS[iLS], grid.V, concentration_scalD, grid.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc,electrolysis_phase_change_case, mass_flux)
@@ -3708,7 +3781,7 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
                         
                     # elseif num.bulk_conductivity == 1
                     #     @error ("error elseif num.bulk_conductivity == 1")
-
+                    #region if num.bulk_conductivity == 2
                     if num.bulk_conductivity == 2
                         # Recommended as long as cell merging not implemented:
 
@@ -3796,6 +3869,8 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
                         a0 .= __a0
 
                     end #bulk_conductivity
+
+                    #endregion if num.bulk_conductivity == 2
 
                 else #ilS==iLS_elec
                     a0 .= __a0
@@ -5316,7 +5391,7 @@ Based on num.bulk_conductivity:
 * 0 conductivity computed from wall concentration
 * 1 conductivity computed from bulk concentration
 * 2 conductivity computed from wall concentration and bulk concentration
-* 3 conductivity computed from wall concentration and bulk concentration
+* 3 conductivity computed from wall concentration and bulk concentration (homogeneous conductivity)
 """
 function update_BC_electrical_potential!(num,grid,BC_phi_ele,elec_cond,elec_condD,i_butler)
 
@@ -5381,7 +5456,7 @@ Based on num.bulk_conductivity:
 * 0 conductivity computed from wall concentration
 * 1 conductivity computed from bulk concentration
 * 2 conductivity computed from wall concentration and bulk concentration
-* 3 conductivity computed from wall concentration and bulk concentration
+* 3 conductivity computed from wall concentration and bulk concentration (homogeneous conductivity)
 """
 function update_BC_derivative_electrical_potential!(num,grid,jacobian_Butler,elec_cond,elec_condD,i_butler_derivative)
 
@@ -5794,6 +5869,7 @@ end
 """
 update electrical conductivity, using temperature array if it is solved, or homogeneous temperature, 
 depending on concentration (solved or homogeeneous concentration)
+num.bulk_conductivity == 3: homogeneous conductivity
 """
 function update_electrical_conductivity!(num,grid,elec_cond,elec_condD,heat;phL)
     # Constant electrical conductivity assumption

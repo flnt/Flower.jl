@@ -296,12 +296,12 @@ l2 = zeros(n_cases)
 loo = zeros(n_cases)
 l1_mixed = zeros(n_cases)
 l2_mixed = zeros(n_cases)
-loo_mixed = zeros(n_cases)
+linfty_mixed = zeros(n_cases)
 l1_full = zeros(n_cases)
 l2_full = zeros(n_cases)
-loo_full = zeros(n_cases)
+linfty_full = zeros(n_cases)
 
-loo_intfc = zeros(n_cases)
+linfty_intfc = zeros(n_cases)
 
 # Convergence study loop
 for (i,n) in enumerate(npts)
@@ -843,7 +843,7 @@ for (i,n) in enumerate(npts)
     norm_interface = relative_errors_interface(D,analytical_interface,MIXED,gp.LS[1].geoL.cap[:,:,5], num.Δ)
 
 
-    loo_intfc[i] = norm_interface
+    linfty_intfc[i] = norm_interface
 
 
     print("\n D ",D[MIXED],"\n")
@@ -858,11 +858,11 @@ for (i,n) in enumerate(npts)
 
     l1_mixed[i] = norm_mixed[1]
     l2_mixed[i] = norm_mixed[2]
-    loo_mixed[i] = norm_mixed[3]
+    linfty_mixed[i] = norm_mixed[3]
 
     l1_full[i] = norm_full[1]
     l2_full[i] = norm_full[2]
-    loo_full[i] = norm_full[3]
+    linfty_full[i] = norm_full[3]
 
 
 end #convergence
@@ -881,11 +881,11 @@ end #convergence
 
 #     conv_l1_mixed = regression(npts, l1_mixed, x_reg)
 #     conv_l2_mixed = regression(npts, l2_mixed, x_reg)
-#     conv_loo_mixed = regression(npts, loo_mixed, x_reg)
+#     conv_linfty_mixed = regression(npts, linfty_mixed, x_reg)
 
 #     conv_l1_full = regression(npts, l1_full, x_reg)
 #     conv_l2_full = regression(npts, l2_full, x_reg)
-#     conv_loo_full = regression(npts, loo_full, x_reg)
+#     conv_linfty_full = regression(npts, linfty_full, x_reg)
 
 #     print("\n conv_l1 ",conv_l1,"\n")
 #     print("\n conv_l2 ",conv_l2,"\n")
@@ -901,10 +901,10 @@ local PDI_status = @ccall "libpdi".PDI_multi_expose("convergence_study"::Cstring
 "linfty_rel_error"::Cstring, loo::Ptr{Cdouble}, PDI_OUT::Cint,
 "l1_rel_error_full_cells"::Cstring, l1_full::Ptr{Cdouble}, PDI_OUT::Cint,
 "l2_rel_error_full_cells"::Cstring, l2_full::Ptr{Cdouble}, PDI_OUT::Cint,
-"linfty_rel_error_full_cells"::Cstring, loo_full::Ptr{Cdouble}, PDI_OUT::Cint,
+"linfty_rel_error_full_cells"::Cstring, linfty_full::Ptr{Cdouble}, PDI_OUT::Cint,
 "l1_rel_error_partial_cells"::Cstring, l1_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
 "l2_rel_error_partial_cells"::Cstring, l2_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
-"linfty_rel_error_partial_cells"::Cstring, loo_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
+"linfty_rel_error_partial_cells"::Cstring, linfty_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
 C_NULL::Ptr{Cvoid})::Cint
  
 if io.pdi>0

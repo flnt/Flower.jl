@@ -96,10 +96,10 @@ l2 = zeros(n_cases)
 loo = zeros(n_cases)
 l1_mixed = zeros(n_cases)
 l2_mixed = zeros(n_cases)
-loo_mixed = zeros(n_cases)
+linfty_mixed = zeros(n_cases)
 l1_full = zeros(n_cases)
 l2_full = zeros(n_cases)
-loo_full = zeros(n_cases)
+linfty_full = zeros(n_cases)
 
 cell_volume_list = zeros(n_cases)
 
@@ -481,11 +481,11 @@ for (i,n) in enumerate(npts)
 
         l1_mixed[i] = norm_mixed[1]
         l2_mixed[i] = norm_mixed[2]
-        loo_mixed[i] = norm_mixed[3]
+        linfty_mixed[i] = norm_mixed[3]
 
         l1_full[i] = norm_full[1]
         l2_full[i] = norm_full[2]
-        loo_full[i] = norm_full[3]
+        linfty_full[i] = norm_full[3]
 
         cell_volume_list[i] = minimum(gp.LS[1].geoL.dcap[:,:,5])
     end
@@ -510,10 +510,10 @@ if study.compute_errors == "Poiseuille"
     "linfty_rel_error"::Cstring, loo::Ptr{Cdouble}, PDI_OUT::Cint,
     "l1_rel_error_full_cells"::Cstring, l1_full::Ptr{Cdouble}, PDI_OUT::Cint,
     "l2_rel_error_full_cells"::Cstring, l2_full::Ptr{Cdouble}, PDI_OUT::Cint,
-    "linfty_rel_error_full_cells"::Cstring, loo_full::Ptr{Cdouble}, PDI_OUT::Cint,
+    "linfty_rel_error_full_cells"::Cstring, linfty_full::Ptr{Cdouble}, PDI_OUT::Cint,
     "l1_rel_error_partial_cells"::Cstring, l1_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
     "l2_rel_error_partial_cells"::Cstring, l2_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
-    "linfty_rel_error_partial_cells"::Cstring, loo_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
+    "linfty_rel_error_partial_cells"::Cstring, linfty_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
     "domain_length"::Cstring, L0::Ref{Cdouble}, PDI_OUT::Cint,
     "min_cell_volume"::Cstring, min_cell_volume::Ref{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint

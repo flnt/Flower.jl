@@ -135,6 +135,7 @@ Stores parameters for the simulation
     pressure_velocity_coupling::D=0 #0 projection 1 coupled
     pressure_velocity_solver::D=0
     solve_solid::D=0
+    phase_change_method::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

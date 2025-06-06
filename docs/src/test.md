@@ -1210,6 +1210,14 @@ julia +1.10.5 --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergen
 ```
 
 ```bash
+ python3 -c "import convergence_study; convergence_study.plot_convergence_study_func()" ../Flower.jl/examples/convergence_diffusion_constant_conductivity_bubble_wall.yml mesh_00000*
+```
+
+```bash
+plot_convergence_study_func() mesh_0000...
+```
+
+```bash
 python3 -c "import plot_flower; plot_flower.plot_all_fig_func()" ../Flower.jl/test/butler_bubble.yml flower_00000001.h5
 ```
 

@@ -512,29 +512,66 @@ function relative_errors(T, Tanalytical, pos, cap, h)
     max_diff = 0.0
  
 
-    @inbounds for ii in pos
+    if size(Tanalytical) != size(T) #if Tanalytical a slice (assuming it is an x slice)
 
-        volume = cap[ii]*h^2
-        if volume > 0.0
-            abs_diff = abs(Tanalytical[ii] .- T[ii])
-            abs_val = abs(Tanalytical[ii])
+        # print("\n size ",size(Tanalytical)," ",size(T))
 
-            l1_rel_error += volume * abs_diff
-            l1_rel_error_den += volume * abs_val
+        @inbounds for ii in pos
 
-            l2_rel_error += volume * abs_diff^2
-            l2_rel_error_den += volume * (Tanalytical[ii])^2
+            volume = cap[ii]*h^2
+            if volume > 0.0
 
-            
-            if (abs_diff > linfty_rel_error) linfty_rel_error = abs_diff end
-            if (abs_val > linfty_rel_error_den) linfty_rel_error_den = abs_val end
+                i_slice = ii[2]
+                # print("\n ii ",ii," ",i_slice," ",Tanalytical[i_slice]," ",T[ii])
+                abs_diff = abs(Tanalytical[i_slice] .- T[ii])
+                abs_val = abs(Tanalytical[i_slice])
 
+                l1_rel_error += volume * abs_diff
+                l1_rel_error_den += volume * abs_val
+
+                l2_rel_error += volume * abs_diff^2
+                l2_rel_error_den += volume * (Tanalytical[i_slice])^2
+
+                
+                if (abs_diff > linfty_rel_error) linfty_rel_error = abs_diff end
+                if (abs_val > linfty_rel_error_den) linfty_rel_error_den = abs_val end
+
+            end
+        end
+
+    else
+
+        @inbounds for ii in pos
+
+            volume = cap[ii]*h^2
+            if volume > 0.0
+                abs_diff = abs(Tanalytical[ii] .- T[ii])
+                abs_val = abs(Tanalytical[ii])
+
+                l1_rel_error += volume * abs_diff
+                l1_rel_error_den += volume * abs_val
+
+                l2_rel_error += volume * abs_diff^2
+                l2_rel_error_den += volume * (Tanalytical[ii])^2
+
+                
+                if (abs_diff > linfty_rel_error) linfty_rel_error = abs_diff end
+                if (abs_val > linfty_rel_error_den) linfty_rel_error_den = abs_val end
+
+            end
         end
     end
+
+    
+
 
     l1_rel_error = l1_rel_error / l1_rel_error_den
     l2_rel_error = sqrt(l2_rel_error / l2_rel_error_den )
     linfty_rel_error = linfty_rel_error / linfty_rel_error_den
+
+    print("\n l1    ",l1_rel_error ," ", l1_rel_error," ",l1_rel_error_den)
+    print("\n l2    ",l2_rel_error ," ", l2_rel_error," ",l2_rel_error_den)
+    print("\n linfty",linfty_rel_error ," ", linfty_rel_error," ",linfty_rel_error_den)
 
     # if linfty_rel_error < l1_rel_error
 

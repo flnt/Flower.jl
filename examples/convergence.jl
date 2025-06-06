@@ -137,13 +137,13 @@ end #if io.pdi>0
 # arrays to store errors
 error_list_l1 = zeros(n_cases)
 error_list_l2 = zeros(n_cases)
-error_list_loo = zeros(n_cases)
+error_list_linfty = zeros(n_cases)
 error_list_l1_mixed = zeros(n_cases)
 error_list_l2_mixed = zeros(n_cases)
-error_list_loo_mixed = zeros(n_cases)
+error_list_linfty_mixed = zeros(n_cases)
 error_list_l1_full = zeros(n_cases)
 error_list_l2_full = zeros(n_cases)
-error_list_loo_full = zeros(n_cases)
+error_list_linfty_full = zeros(n_cases)
 
 cell_volume_list = zeros(n_cases)
 
@@ -266,6 +266,7 @@ for timestep in timesteps
             pressure_velocity_coupling = sim.pressure_velocity_coupling,
             pressure_velocity_solver = sim.pressure_velocity_solver,
             solve_solid = sim.solve_solid,
+            phase_change_method = sim.phase_change_method,
             )
         Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
         @debug "After Numerical"
@@ -398,7 +399,7 @@ for timestep in timesteps
                 # Exposing data to PDI for IO    
                 # if writing "D" array (bulk, interface, border), add "_1D" to the name
                 
-                # printstyled(color=:magenta, @sprintf "\n PDI write_data_start_loop %.5i \n" num.current_i)
+                # printstyled(color=:magenta, @sprintf "\n PDI write_data_start_linftyp %.5i \n" num.current_i)
 
                 #print("\n size LS wall ", size( gp.LS[2].u))
                 LStable = zeros(gp)
@@ -636,34 +637,35 @@ for timestep in timesteps
                 # norm_mixed = relative_errors(phL.trans_scal[:,:,2], concentration_profile, MIXED, gp.LS[1].geoL.cap[:,:,5], num.Δ)
                 # norm_full = relative_errors(phL.trans_scal[:,:,2], concentration_profile, LIQUID, gp.LS[1].geoL.cap[:,:,5], num.Δ)
                
-                l1,l2,loo = relative_errors(phL.trans_scal[:,:,2], concentration_profile, vcat(LIQUID, MIXED), gp.LS[1].geoL.cap[:,:,5], num.Δ)
-                l1_mixed,l2_mixed,loo_mixed = relative_errors(phL.trans_scal[:,:,2], concentration_profile, MIXED, gp.LS[1].geoL.cap[:,:,5], num.Δ)
-                l1_full,l2_full,loo_full = relative_errors(phL.trans_scal[:,:,2], concentration_profile, LIQUID, gp.LS[1].geoL.cap[:,:,5], num.Δ)
+                
+                l1,l2,linfty = relative_errors(phL.trans_scal[:,:,2], concentration_profile, vcat(LIQUID, MIXED), gp.LS[1].geoL.cap[:,:,5], num.Δ)
+                l1_mixed,l2_mixed,linfty_mixed = relative_errors(phL.trans_scal[:,:,2], concentration_profile, MIXED, gp.LS[1].geoL.cap[:,:,5], num.Δ)
+                l1_full,l2_full,linfty_full = relative_errors(phL.trans_scal[:,:,2], concentration_profile, LIQUID, gp.LS[1].geoL.cap[:,:,5], num.Δ)
             end
 
             # error_list_l1[i] = norm_all[1]
             # error_list_l2[i] = norm_all[2]
-            # error_list_loo[i] = norm_all[3]
+            # error_list_linfty[i] = norm_all[3]
 
             # error_list_l1_mixed[i] = norm_mixed[1]
             # error_list_l2_mixed[i] = norm_mixed[2]
-            # error_list_loo_mixed[i] = norm_mixed[3]
+            # error_list_linfty_mixed[i] = norm_mixed[3]
 
             # error_list_l1_full[i] = norm_full[1]
             # error_list_l2_full[i] = norm_full[2]
-            # error_list_loo_full[i] = norm_full[3]
+            # error_list_linfty_full[i] = norm_full[3]
 
             error_list_l1[i] = l1
             error_list_l2[i] = l2
-            error_list_loo[i] = loo
+            error_list_linfty[i] = linfty
 
             error_list_l1_mixed[i] = l1_mixed
             error_list_l2_mixed[i] = l2_mixed
-            error_list_loo_mixed[i] = loo_mixed
+            error_list_linfty_mixed[i] = linfty_mixed
 
             error_list_l1_full[i] = l1_full
             error_list_l2_full[i] = l2_full
-            error_list_loo_full[i] = loo_full
+            error_list_linfty_full[i] = linfty_full
 
             cell_volume_list[i] = minimum(gp.LS[1].geoL.dcap[:,:,5])
            
@@ -677,13 +679,13 @@ for timestep in timesteps
                 # "cell_volume"::Cstring, cell_volume_list::Ptr{Cdouble}, PDI_OUT::Cint,
                 "study_l1_rel_error"::Cstring, l1::Ref{Cdouble}, PDI_OUT::Cint,
                 "study_l2_rel_error"::Cstring, l2::Ref{Cdouble}, PDI_OUT::Cint,
-                "study_linfty_rel_error"::Cstring, loo::Ref{Cdouble}, PDI_OUT::Cint,
+                "study_linfty_rel_error"::Cstring, linfty::Ref{Cdouble}, PDI_OUT::Cint,
                 "study_l1_rel_error_full_cells"::Cstring, l1_full::Ref{Cdouble}, PDI_OUT::Cint,
                 "study_l2_rel_error_full_cells"::Cstring, l2_full::Ref{Cdouble}, PDI_OUT::Cint,
-                "study_linfty_rel_error_full_cells"::Cstring, loo_full::Ref{Cdouble}, PDI_OUT::Cint,
+                "study_linfty_rel_error_full_cells"::Cstring, linfty_full::Ref{Cdouble}, PDI_OUT::Cint,
                 "study_l1_rel_error_partial_cells"::Cstring, l1_mixed::Ref{Cdouble}, PDI_OUT::Cint,
                 "study_l2_rel_error_partial_cells"::Cstring, l2_mixed::Ref{Cdouble}, PDI_OUT::Cint,
-                "study_linfty_rel_error_partial_cells"::Cstring, loo_mixed::Ref{Cdouble}, PDI_OUT::Cint,
+                "study_linfty_rel_error_partial_cells"::Cstring, linfty_mixed::Ref{Cdouble}, PDI_OUT::Cint,
                 "domain_length"::Cstring, L0::Ref{Cdouble}, PDI_OUT::Cint,
                 "min_cell_volume"::Cstring, min_cell_volume::Ref{Cdouble}, PDI_OUT::Cint,
                 C_NULL::Ptr{Cvoid})::Cint
@@ -728,13 +730,13 @@ if study.compute_errors != "None" #"Poiseuille"
     "cell_volume_list"::Cstring, cell_volume_list::Ptr{Cdouble}, PDI_OUT::Cint,
     "l1_rel_error"::Cstring, error_list_l1::Ptr{Cdouble}, PDI_OUT::Cint,
     "l2_rel_error"::Cstring, error_list_l2::Ptr{Cdouble}, PDI_OUT::Cint,
-    "linfty_rel_error"::Cstring, error_list_loo::Ptr{Cdouble}, PDI_OUT::Cint,
+    "linfty_rel_error"::Cstring, error_list_linfty::Ptr{Cdouble}, PDI_OUT::Cint,
     "l1_rel_error_full_cells"::Cstring, error_list_l1_full::Ptr{Cdouble}, PDI_OUT::Cint,
     "l2_rel_error_full_cells"::Cstring, error_list_l2_full::Ptr{Cdouble}, PDI_OUT::Cint,
-    "linfty_rel_error_full_cells"::Cstring, error_list_loo_full::Ptr{Cdouble}, PDI_OUT::Cint,
+    "linfty_rel_error_full_cells"::Cstring, error_list_linfty_full::Ptr{Cdouble}, PDI_OUT::Cint,
     "l1_rel_error_partial_cells"::Cstring, error_list_l1_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
     "l2_rel_error_partial_cells"::Cstring, error_list_l2_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
-    "linfty_rel_error_partial_cells"::Cstring, error_list_loo_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
+    "linfty_rel_error_partial_cells"::Cstring, error_list_linfty_mixed::Ptr{Cdouble}, PDI_OUT::Cint,
     "domain_length"::Cstring, L0::Ref{Cdouble}, PDI_OUT::Cint,
     "min_cell_volume"::Cstring, min_cell_volume::Ref{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint

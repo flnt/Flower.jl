@@ -23,7 +23,7 @@ from plot_flower import set_size, init_fig, compute_slope, roundlog, \
    logticks,reshape_data,veci,vecb_L,reshape_data_veci,plot_current_lines,\
    plot_python_pdf_full2,plot_file,plot_schematics,plot_schematics_full,\
    add_schematics,add_schematics_full_cell,compute_slope_lin_or_log,plot_vector,plot_schematics_fluxes,\
-   plot_schematics_full_with_losses 
+   plot_schematics_full_with_losses,call_inkscape 
 
 plt.rcParams["text.parse_math"] = False #necessary for mhchem
 
@@ -399,7 +399,8 @@ def plot_errors_from_pandas(df,figpar,plotpar,colors,filename):
 
 
    plt.savefig(prefix+figpar['file']+".pdf",transparent=True)
-   plt.savefig(prefix+figpar['file']+".svg",transparent=True)
+   call_inkscape(figpar,prefix+figpar['file'])
+   # plt.savefig(prefix+figpar['file']+".svg",transparent=True)
 
    plt.close(fig1)
 
@@ -671,7 +672,7 @@ def plot_convergence_study_func():
 
 
 
-
+   print(colored('Curves','red'))
 
    for figpar in plotpar["curves"]:
       
@@ -698,10 +699,16 @@ def plot_convergence_study_func():
 
          print(colored(figpar['file'], "cyan"))
 
+         if 'plot_errors_from_h5' == figpar['func']:
+            continue
 
+         if 'files' in figpar.keys():
+            h5_files_tmp = figpar['files']
+         else:
+            h5_files_tmp = h5_files
          
          plot_convergence_func(
-         h5_files,
+         h5_files_tmp,
          key,
          xp,
          yp,
@@ -1054,7 +1061,12 @@ def plot_convergence_func(
       for macro in figpar['macro_file_name']:
          # print(macro)
          plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
-   
+         
+         if 'svg' in macro:
+            gen_name = eval(macro).split('.')[0]
+            #print(gen_name)
+            call_inkscape(figpar,gen_name)
+
    else:
       plt.savefig(file_name+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
          
@@ -1875,16 +1887,21 @@ def plot_convergence_study_errors():
    """
    Plot errors from h5 files
    """
+   import glob
 
    # print('arg', len(sys.argv),sys.argv)
-   if len(sys.argv) == 2:
-      # List all files in the current directory
-      all_files = os.listdir(".")
-      h5_files = [file for file in all_files if file.endswith(".h5")]
-   else:
+   # if len(sys.argv) == 2:
+   #    # List all files in the current directory
+   #    all_files = os.listdir(".")
+   #    h5_files = [file for file in all_files if file.endswith(".h5")]
+   # else:
+   #    h5_files = sys.argv[2::]
+
+   if len(sys.argv) != 2:
       h5_files = sys.argv[2::]
-   
-   print(h5_files)
+      print(h5_files)
+
+
 
    try:
       yamlfile = sys.argv[1]
@@ -1898,13 +1915,16 @@ def plot_convergence_study_errors():
       yml = yaml.safe_load(file)
 
       plotpar = yml["plot"]
+      mesh = yml["flower"]["mesh"]
+      physics = yml["flower"]["physics"]
+
 
       # print(h5_files)
       # h5_files = sorted(h5_files)
       # print('\n sorted \n')
-      print(h5_files)
+      # print(h5_files)
       
-      nsteps = len(h5_files)
+      # nsteps = len(h5_files)
 
       for figpar in plotpar['curves']:
 
@@ -1919,49 +1939,68 @@ def plot_convergence_study_errors():
          if 'plot_convergence_study_errors' != figpar['func']:
             continue
 
-         df = pd.DataFrame()
+         if 'files_list' in figpar.keys():
+            fig_names = figpar['fig_names']
+         else:
+            fig_names = [figpar['file']]
+         
+         for i_fig_name,fig_name in enumerate(fig_names):
 
-         for file_name in h5_files:
-            with h5py.File(file_name, "r") as file:
-               print(file.keys())
+            if isinstance(fig_names,list):
+               pattern = figpar['files_list'][i_fig_name]
 
-               nx = file["study_nb_grid_points"][()]
-               timestep = file["study_timestep"][()]
+               # Define the pattern to search for
+            
+               # Use glob to find all files matching the pattern
+               h5_files = glob.glob(pattern, recursive=True)
 
-               l1_rel_error = file["study_l1_rel_error"][()]
-               l2_rel_error = file["study_l2_rel_error"][()]
-               linfty_rel_error = file["study_linfty_rel_error"][()]
-               
-               # df = df.append({
-               #     'nx': nx,
-               #     'timestep': timestep,
-               #     'l1_rel_error': l1_rel_error,
-               #     'l2_rel_error': l2_rel_error,
-               #     'linfty_rel_error': linfty_rel_error
-               # }, ignore_index=True)
-
-               temp_df = pd.DataFrame({
-                   'nx': [nx],
-                   'timestep': [timestep],
-                   'l1_rel_error': [l1_rel_error],
-                   'l2_rel_error': [l2_rel_error],
-                   'linfty_rel_error': [linfty_rel_error]
-               })
-
-               df = pd.concat([df, temp_df], ignore_index=True)
-
-               #fill with array
-               # for i,err in enumerate(figpar['var']):
-               #    print(colored(figpar['var'],'red'))
-               #    df[err] = file[err][()]
-
-         print(df)
-
-         plot_convergence_study_errors_from_pandas(df,figpar,plotpar,colors,file_name)
+            
+            print(h5_files)
 
 
+            df = pd.DataFrame()
 
-def plot_convergence_study_errors_from_pandas(df,figpar,plotpar,colors,filename):
+            for file_name in h5_files:
+               with h5py.File(file_name, "r") as file:
+                  # print(file.keys())
+
+                  nx = file["study_nb_grid_points"][()]
+                  timestep = file["study_timestep"][()]
+
+                  l1_rel_error = file["study_l1_rel_error"][()]
+                  l2_rel_error = file["study_l2_rel_error"][()]
+                  linfty_rel_error = file["study_linfty_rel_error"][()]
+                  
+                  # df = df.append({
+                  #     'nx': nx,
+                  #     'timestep': timestep,
+                  #     'l1_rel_error': l1_rel_error,
+                  #     'l2_rel_error': l2_rel_error,
+                  #     'linfty_rel_error': linfty_rel_error
+                  # }, ignore_index=True)
+
+                  temp_df = pd.DataFrame({
+                     'nx': [nx],
+                     'timestep': [timestep],
+                     'l1_rel_error': [l1_rel_error],
+                     'l2_rel_error': [l2_rel_error],
+                     'linfty_rel_error': [linfty_rel_error]
+                  })
+
+                  df = pd.concat([df, temp_df], ignore_index=True)
+
+                  #fill with array
+                  # for i,err in enumerate(figpar['var']):
+                  #    print(colored(figpar['var'],'red'))
+                  #    df[err] = file[err][()]
+
+            # print(df)
+
+            plot_convergence_study_errors_from_pandas(df,mesh,physics,figpar,plotpar,colors,fig_name)
+
+
+
+def plot_convergence_study_errors_from_pandas(df,mesh,physics,figpar,plotpar,colors,filename):
    """
    Plot radius pandas DF, with slope
    """
@@ -1976,17 +2015,29 @@ def plot_convergence_study_errors_from_pandas(df,figpar,plotpar,colors,filename)
 
 
    color="#4d5156"
+   abscissa = 'None'
+   abscissa_fig = 'None'
 
    if 'abscissa' in figpar.keys():
-      xls = df['timestep']
-      abscissa = figpar['abscissa']
-      abscissa_fig = abscissa
+      if 'macro_abscissa' in figpar.keys():
+         exec(figpar['macro_abscissa'])
+         abscissa = abscissa_2
+         abscissa_fig = abscissa_fig_2
+         xls = xls_2
+         # diffusion_time_scale = diffusion_time_scale_2
+         # df[abscissa_fig] = df['timestep']/diffusion_time_scale
+         # df[abscissa_fig] = df['timestep']
+         # print('abscissa_fig',abscissa_fig)
+         # print('abscissa_',abscissa)
+   
    else:
       df['1/n'] = 1/df["nx_list"]
       xls=df["1/n"].to_numpy()
       abscissa = 'nx_list'
       abscissa_fig = '1/n'
    print('abscissa_fig',abscissa_fig)
+   print('abscissa_',abscissa)
+
 
    alpha=0.75
 
@@ -2177,12 +2228,14 @@ def plot_convergence_study_errors_from_pandas(df,figpar,plotpar,colors,filename)
    # prefix="./"
 
    # prefix = filename.replace(".h5", "") +'_'
-   prefix=''
-   
-   print(prefix+figpar['file']+".pdf")
+   # prefix=''
+   # print(prefix+figpar['file']+".pdf")
 
-   plt.savefig(prefix+figpar['file']+".pdf",transparent=True)
-   plt.savefig(prefix+figpar['file']+".svg",transparent=True)
+   # plt.savefig(prefix+figpar['file']+".pdf",transparent=True)
+   # plt.savefig(prefix+figpar['file']+".svg",transparent=True)
+   
+   plt.savefig(filename+".pdf",transparent=True)
+   plt.savefig(filename+".svg",transparent=True)
 
    plt.close(fig1)
 

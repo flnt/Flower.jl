@@ -97,10 +97,10 @@ l2 = zeros(n_cases)
 loo = zeros(n_cases)
 l1_mixed = zeros(n_cases)
 l2_mixed = zeros(n_cases)
-loo_mixed = zeros(n_cases)
+linfty_mixed = zeros(n_cases)
 l1_full = zeros(n_cases)
 l2_full = zeros(n_cases)
-loo_full = zeros(n_cases)
+linfty_full = zeros(n_cases)
 
 st_case = 6
 
@@ -198,11 +198,11 @@ n = 512
 
     l1_mixed[i] = norm_mixed[1]
     l2_mixed[i] = norm_mixed[2]
-    loo_mixed[i] = norm_mixed[3]
+    linfty_mixed[i] = norm_mixed[3]
 
     l1_full[i] = norm_full[1]
     l2_full[i] = norm_full[2]
-    loo_full[i] = norm_full[3]
+    linfty_full[i] = norm_full[3]
 
     for II in gp.ind.all_indices
         if abs.(Tana[II]) < 1e-16
@@ -225,11 +225,11 @@ n = 512
 
 # conv_l1_mixed = regression(npts, l1_mixed, x_reg)
 # conv_l2_mixed = regression(npts, l2_mixed, x_reg)
-# conv_loo_mixed = regression(npts, loo_mixed, x_reg)
+# conv_linfty_mixed = regression(npts, linfty_mixed, x_reg)
 
 # conv_l1_full = regression(npts, l1_full, x_reg)
 # conv_l2_full = regression(npts, l2_full, x_reg)
-# conv_loo_full = regression(npts, loo_full, x_reg)
+# conv_linfty_full = regression(npts, linfty_full, x_reg)
 
 # fl1 = Figure(resolution = (1600, 1000))
 # ax = Axis(fl1[1,1], aspect = 1.0, xscale=log10, yscale=log10,
@@ -269,16 +269,16 @@ n = 512
 #             xlabel="pts", ylabel=L"$L _ \infty$ error", xticks = npts
 # )
 # colsize!(floo.layout, 1, Aspect(1, 1.0))
-# floo = lines!(x_reg, conv_loo_mixed.yreg, label="order $(@sprintf("%.2f", conv_loo_mixed.coef1))", linewidth=6.0)
-# floo = scatter!(npts, loo_mixed, label="Partial cells", markersize=40)
+# floo = lines!(x_reg, conv_linfty_mixed.yreg, label="order $(@sprintf("%.2f", conv_linfty_mixed.coef1))", linewidth=6.0)
+# floo = scatter!(npts, linfty_mixed, label="Partial cells", markersize=40)
 # floo = lines!(x_reg, conv_loo.yreg, label="order $(@sprintf("%.2f", conv_loo.coef1))", linewidth=6.0)
 # floo = scatter!(npts, loo, marker=:rect, label="All cells", markersize=40)
-# floo = lines!(x_reg, conv_loo_full.yreg, label="order $(@sprintf("%.2f", conv_loo_full.coef1))", linewidth=6.0)
-# floo = scatter!(npts, loo_full, marker=:diamond, label="Full cells", markersize=40)
+# floo = lines!(x_reg, conv_linfty_full.yreg, label="order $(@sprintf("%.2f", conv_linfty_full.coef1))", linewidth=6.0)
+# floo = scatter!(npts, linfty_full, marker=:diamond, label="Full cells", markersize=40)
 # axislegend(position = :lb)
 # floo = current_figure()
 # resize_to_layout!(floo)
-# Makie.save(prefix*"conv_loo_"*bc_str*"_eps$(ϵ).pdf", floo)
+# Makie.save(prefix*"conv_linfty_"*bc_str*"_eps$(ϵ).pdf", floo)
 
 tcks = -num.L0:0.5:num.L0
 

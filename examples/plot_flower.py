@@ -66,6 +66,8 @@ plt.rc('text.latex', preamble="\n".join([ # plots will use this preamble
         r"\setlength{\abovedisplayshortskip}{0pt}",
         r"\addtolength{\jot}{-4pt}",
         r"\usepackage{mhchem}",
+        r"\RequirePackage{fix-cm}",
+        # r"\usepackage{fix-cm}",
         # r"\usepackage[version=4]{mhchem}",
         # r"\usepackage[version=4,arrows=pgf-filled,textfontname=sffamily,mathfontname=mathsf]{mhchem}",
        ])
@@ -119,7 +121,7 @@ plt.rc("text", usetex=True)
 # /gpfs/workdir/regnaultp/latex/texmf-dist/fonts/opentype/public/tex-gyre-math
 
 def apply_font(fontpath1):
-
+    
     fontpath2 = 'public/tex-gyre/texgyrepagella-regular.otf'
     fontpath = fontpath1 + fontpath2
 
@@ -151,6 +153,14 @@ except:
     os.path.isfile(fontpath)
 
 apply_font(fontpath)
+
+#TODO for svg
+
+# plt.rcParams['text.usetex'] = True #Let TeX do the typsetting
+# plt.rcParams['text.latex.preamble'] = [r'\usepackage{sansmath}',r'\sansmath']
+# #Force sans-serif math mode
+# plt.rcParams['font.family'] = 'sans-serif' # ... for regular text
+# plt.rcParams['font.sans-serif'] = 'Helvetica' # Choose a nice font here
 
 
 # fontpath2 = 'public/tex-gyre/texgyrepagella-regular.otf'
@@ -736,8 +746,11 @@ def plot_radius_from_h5():
         nsteps = len(h5_files)
 
         for figpar in plotpar['curves']:
-            print(figpar['file'])
+            print(colored(figpar['file'],'red'))
+
             print(figpar)
+            if 'radius' not in figpar['file']:
+                continue
             time_list =[]
             radius_list=[]
             for file_name in h5_files:
@@ -944,8 +957,19 @@ def plot_radius_from_pandas(df,figpar,plotpar):
 
     print('xls',xls)
 
+    slope_and_correlation=[0,0]
 
-    compute_slope(ax2,xls,yls,x,y,slopes,R2,param_line,colors,alpha)
+    compute_slope(ax2,xls,yls,
+                #   x,y,
+                #   slopes,
+                    slope_and_correlation,
+                  R2,param_line,colors,alpha)
+    
+    print('slope_and_correlation',slope_and_correlation)
+    
+    # compute_slope(ax2,xls,yls,
+    #                 #   x,y,
+    #                 slope_and_correlation,R2,param_line,color_line,alpha,plot_text=False)
 
 
     # ilog0 = size_frame ÷ 2 
@@ -1639,7 +1663,7 @@ def plot_all_films_func():
 
 
     for figpar in plotpar["films"]:
-
+        print(colored(figpar['file'],'red'))
         if 'func' in figpar.keys():
             func = globals()[figpar['func']] #'plot_current_lines'
         else:
@@ -1753,6 +1777,26 @@ def plot_segments(file,plotpar,figpar,ax2):
 
     return ax2
 
+"""
+correction for matplotlib error for fontsize with special characters with svg
+"""
+def call_inkscape(figpar,gen_name):
+
+    import subprocess
+
+    # pdf_file = eval(figpar['macro_file_name'][0])
+    # svg_file = eval(macro)
+    pdf_file = gen_name + '.pdf'
+    svg_file = gen_name + '.svg'
+
+    try:
+        subprocess.run(['inkscape', pdf_file, '--export-filename=' + svg_file], check=True)
+        print(f"Successfully converted {pdf_file} to {svg_file}")
+    except subprocess.CalledProcessError as e:
+        print(f"An error occurred: {e}")
+
+    # print('inkscape '+eval(figpar['macro_file_name'][0])+ ' --export-filename='+eval(macro))
+    # os.sys('inkscape '+eval(figpar['macro_file_name'][0])+ ' --export-filename='+eval(macro))
 
 def plot_file(
     file,
@@ -2104,7 +2148,23 @@ def plot_file(
         ax2.set_aspect('equal', 'box')
 
         str_nstep = str(nstep)
-        plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
+
+        if 'macro_file_name' in figpar.keys():
+            # print(figpar['macro_file_name'])
+            # plt.savefig(eval(figpar['macro_file_name']),dpi=plotpar['dpi'])
+
+            for macro in figpar['macro_file_name']:
+                # print(macro)
+                plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
+
+                if 'svg' in macro:
+                    gen_name = eval(macro).split('.')[0]
+                    #print(gen_name)
+                    call_inkscape(figpar,gen_name)
+        else:
+            plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
+            # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
+
 
     if mode == 'close':
         # str_nstep = str(nstep)
@@ -2254,6 +2314,11 @@ def plot_vector(file,
             for macro in figpar['macro_file_name']:
                 # print(macro)
                 plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
+
+                if 'svg' in macro:
+                    gen_name = eval(macro).split('.')[0]
+                    #print(gen_name)
+                    call_inkscape(figpar,gen_name)
 
         else:
             plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
@@ -2410,6 +2475,9 @@ def plot_schematics(figpar,plotpar):
 
     plt.savefig('schematics.pdf',transparent=True)
 
+    # os.sys('inkscape schematics.pdf --export-filename= schematics.svg')
+    call_inkscape(figpar,'schematics')
+
     plt.axis('equal')
 
     inset_ax.spines['top'].set_visible(False)
@@ -2428,8 +2496,8 @@ def plot_schematics(figpar,plotpar):
 
 
     plt.savefig('schematics_bubble.pdf',transparent=True)
-
-
+    gen_name = 'schematics_bubble'
+    call_inkscape(figpar,gen_name)
 
 
 
@@ -2601,6 +2669,7 @@ def plot_schematics_fluxes(figpar,plotpar):
 
 
     plt.savefig('schematics_fluxes.pdf',transparent=True)
+    plt.savefig('schematics_fluxes.svg',transparent=True)
 
     # plt.axis('equal')
 
@@ -2946,10 +3015,12 @@ def plot_schematics_full(figpar,plotpar):
     inset_ax.set_xlim(-0.1, 2.1)
 
     plt.savefig('schematics_full_migration.pdf',transparent=True)
-   
+    plt.savefig('schematics_full_migration.svg',transparent=True)
+
    
 
     plt.savefig('schematics_full_migration_diffusion.pdf',transparent=True)
+    plt.savefig('schematics_full_migration_diffusion.svg',transparent=True)
 
 
     # plt.savefig('schematics_full.pdf',transparent=True)
@@ -3093,7 +3164,7 @@ def plot_diffusion(figpar,plotpar,inset_ax,plot_coord = 0.2,time_list=None):
             # print('x',x)
             zorder_bubbles = 1
             if iter == 0:
-                inset_ax.plot(xplot, plot_val,
+                analytical = inset_ax.plot(xplot, plot_val,
                             #    label=f't = {time:.2e}',
                             # label = 'pseudo-analytical',
                             #   color='w',
@@ -3102,7 +3173,7 @@ def plot_diffusion(figpar,plotpar,inset_ax,plot_coord = 0.2,time_list=None):
                             zorder=1,
                             )
             else:
-                inset_ax.plot(xplot, plot_val,
+                analytical = inset_ax.plot(xplot, plot_val,
                             #    label=f't = {time:.2e}',
                             # label = 'pseudo-analytical',
                             #   color='w',
@@ -3400,6 +3471,7 @@ def plot_schematics_full_with_losses(figpar,plotpar):
                       )
 
     plt.savefig('schematics_full_losses.pdf',transparent=True)
+    plt.savefig('schematics_full_losses.svg',transparent=True)
 
 
 def add_schematics(ax2,fontsize,figpar):
@@ -3609,12 +3681,19 @@ def plot_current_lines(file,
     i_current_x = file["i_current_x"][:].transpose()
     i_current_y = file["i_current_y"][:].transpose()
 
-    i_current_mag = file["i_current_mag"][:].transpose()
+    if "i_current_mag" in file.keys():
+        i_current_mag = file["i_current_mag"][:].transpose()
 
-    print('imag ',np.min(i_current_mag),np.max(i_current_mag))
+        print('imag ',np.min(i_current_mag),np.max(i_current_mag))
+    else:
+        i_current_mag = np.sqrt(i_current_x**2+i_current_y**2)
 
-    nx = mesh["nx"]
-    ny = mesh["ny"]
+    if file["nx"][()] != None:
+        nx = file["nx"][()]
+        ny = nx
+    else:
+        nx = mesh["nx"]
+        ny = mesh["ny"]
 
     print('nx',nx)
     # print(nx*ny+2*nx+2*ny)
@@ -3626,6 +3705,14 @@ def plot_current_lines(file,
 
     if (len(data) != nx*ny+2*nx+2*ny):
         nx = file["nx"][()]
+        print('nx from file',nx)
+        # try:
+        #     nx = file["nx"][()]
+        # except:
+        #     print("nx",nx)
+        #     # print("data",data)
+        #     print("size",len(data),nx*ny+2*nx+2*ny)
+
         ny = nx
 
         # TODO for convergence study
@@ -3944,7 +4031,11 @@ def plot_current_lines(file,
             for macro in figpar['macro_file_name']:
                 # print(macro)
                 plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
-
+                
+                if 'svg' in macro:
+                    gen_name = eval(macro).split('.')[0]
+                    #print(gen_name)
+                    call_inkscape(figpar,gen_name)
         else:
             plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
 
@@ -4121,6 +4212,7 @@ def plot_python_pdf_full2(
         data_1D = file[key][:]
     except:
         print(colored('Failed to open '+key+' in '+figpar['file'],'red'))
+        print(file.keys())
         
 
     file_name = figpar['file']
@@ -4737,6 +4829,11 @@ def plot_python_pdf_full2(
                 # print(macro)
                 plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
                 
+                if 'svg' in macro:
+                    gen_name = eval(macro).split('.')[0]
+                    #print(gen_name)
+                    call_inkscape(figpar,gen_name)
+
                 print(colored('mesh '+str(nx)+" "+str(mesh["nx"]),'red'))
 
 
@@ -5412,6 +5509,11 @@ def plot_current_wall(
             for macro in figpar['macro_file_name']:
                 print(macro)
                 plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
+                
+                if 'svg' in macro:
+                    gen_name = eval(macro).split('.')[0]
+                    #print(gen_name)
+                    call_inkscape(figpar,gen_name)
 
         else:
             plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display

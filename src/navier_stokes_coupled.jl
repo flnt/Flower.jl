@@ -544,7 +544,7 @@ function set_matrices!(
     )
     @unpack ny, ind = grid
 
-    if num.pressure_velocity_coupling == 3
+    if num.pressure_velocity_coupling == 3 || num.pressure_velocity_coupling == 4
 
         printstyled(color=:red, @sprintf "\nModifying capacities\n")
 
@@ -3604,6 +3604,32 @@ function coupled_pressure_velocity!(
     if num.pressure_velocity_coupling == 3
         # uvD = ones(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)
         uvD = zeros(ntu + ntv + nNavier * nip + nip)
+    elseif num.pressure_velocity_coupling == 4
+        # uvD = ones(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)
+
+        n_phase = 2
+        # nip = grid.nx * grid.ny
+        # nbp =  2 * grid.nx + 2 * grid.ny
+
+        # niu = grid_u.nx * grid_u.ny
+        # nbu = 2 * grid_u.nx + 2 * grid_u.ny
+        # ntu = (nLS - nNavier + 1) * niu + nbu
+
+        # niv = grid_v.nx * grid_v.ny
+        # nbv = 2 * grid_v.nx + 2 * grid_v.ny
+        # ntv = (nLS - nNavier + 1) * niv + nbv
+
+        # ntNavier = num.nNavier * nip
+
+        ntu1 = (nLS - nNavier + 1) * niu 
+        ntv1 = (nLS - nNavier + 1) * niv 
+
+
+        uvD = zeros(nphase * (ntu1 + ntv1 + nNavier * nip + (num.nLS + 1) * nip) + nbu + nbv)
+
+
+
+
     else
         # uvD = ones(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)
         uvD = zeros(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)

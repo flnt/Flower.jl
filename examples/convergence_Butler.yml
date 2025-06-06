@@ -1657,7 +1657,9 @@ plot:
 
       - var: [[x_1D,phi_ele_1D]]
         file: phi_through_bubble_poisson_iter
+        macro_file_name: ['file_name+"_mesh"+str(nx)+ ".pdf"', 'file_name+"_mesh"+str(nx)+".svg"']
         func: plot_1D
+        files: [poisson_00000032_00000001.h5, poisson_00000032_00000002.h5, poisson_00000032_00000003.h5, poisson_00000032_00000004.h5] 
         fontsize: 10
         labels: [["$x ( \\unit{\\um})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
         linestyles: ['(0, (3, 6))' ] #,
@@ -1731,6 +1733,8 @@ plot:
       - var: [[x_1D,phi_ele_1D]]
         file: poisson_iter
         func: plot_1D
+        files: [poisson_00000032_00000001.h5, poisson_00000032_00000002.h5, poisson_00000032_00000003.h5, poisson_00000032_00000004.h5] 
+
         labels: [["$x ( \\unit{\\um})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
         linestyles: ['(0, (3, 6))' ] #,
                     #  '(3, (3, 6))', #"dashdot"
@@ -1868,6 +1872,8 @@ plot:
 
       - var: [[y_1D,phi_ele_1D]]
         file: phi_wall_poisson_iter
+        files: [poisson_00000032_00000001.h5, poisson_00000032_00000002.h5, poisson_00000032_00000003.h5, poisson_00000032_00000004.h5] 
+        macro_file_name: ['file_name+"_mesh"+str(nx)+ ".pdf"', 'file_name+"_mesh"+str(nx)+".svg"']
         func: plot_1D
         fontsize: 10
         labels: [["$y ( \\unit{\\um})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
@@ -1910,6 +1916,12 @@ plot:
 
       - var: [[poisson_iter,phi_ele_1D]]
         file: phi_wall_poisson_iter_log
+        files: [poisson_00000032_00000001.h5, poisson_00000032_00000002.h5, poisson_00000032_00000003.h5, 
+                poisson_00000032_00000004.h5, poisson_00000032_00000004.h5, poisson_00000032_00000005.h5,
+                poisson_00000032_00000006.h5, poisson_00000032_00000007.h5, poisson_00000032_00000008.h5,
+                poisson_00000032_00000009.h5, poisson_00000032_00000010.h5, poisson_00000032_00000011.h5,
+                poisson_00000032_00000012.h5, poisson_00000032_00000013.h5, poisson_00000032_00000014.h5, poisson_00000032_00000015.h5] 
+        macro_file_name: ['file_name+"_mesh"+str(nx)+ ".pdf"', 'file_name+"_mesh"+str(nx)+".svg"']
         func: plot_1D
         fontsize: 10
         labels: [["Number of iterations", "$|\\phi-\\phi^e|/|\\phi^e|$"]]

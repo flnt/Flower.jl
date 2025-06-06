@@ -748,7 +748,7 @@ function run_forward!(
                     BuvL = spzeros(ncol_A, nt)
                     rhs_uv = zeros(ncol_A)  
 
-                elseif num.pressure_velocity_coupling == 3
+                elseif num.pressure_velocity_coupling == 3 #no BC for pressure
                     nt = (num.nLS - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv + ni_p
                     
                     ncol_A = nt
@@ -763,6 +763,23 @@ function run_forward!(
                     BuvL = spzeros(ncol_A, nt)
                     rhs_uv = zeros(ncol_A)  
 
+                elseif num.pressure_velocity_coupling == 4 # BC for pressure on interfaces (bubble)
+                    
+                    n_phase = 2
+                    
+                    nt = n_phase * ((num.nLS - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + (num.nLS + 1) * ni_p ) + nb_uv
+
+                    ncol_A = nt
+                    
+                    # so 1 * ni + 1 * ni_p +nb + ni_p + nb
+                    # u v Navier, pression     
+                
+                    # AuvL = spzeros(nt, nt)
+                    # BuvL = spzeros(nt, nt)
+
+                    AuvL = spzeros(ncol_A, nt)
+                    BuvL = spzeros(ncol_A, nt)
+                    rhs_uv = zeros(ncol_A)  
 
                 end
 
@@ -849,15 +866,31 @@ function run_forward!(
                     )
                 end
             elseif num.pressure_velocity_coupling > 1
-                # Coupled resolution of u and v
-                _ = FE_set_momentum_coupled2(
-                BC_int, num, grid, grid_u, grid_v,
-                op.opC_pL, op.opC_uL, op.opC_vL,
-                AuvL, BuvL,rhs_uv,
-                iRe.*Lum1_L, iRe.*bc_Lum1_L, iRe.*bc_Lum1_b_L, Mum1_L, BC_uL,
-                iRe.*Lvm1_L, iRe.*bc_Lvm1_L, iRe.*bc_Lvm1_b_L, Mvm1_L, BC_vL,
-                true,BC_pL,phL
-                )
+                if num.pressure_velocity_coupling == 4
+                    # Coupled resolution of u and v, going to two-phases for pressure
+                    _ = FE_set_momentum_coupled_two_phases(
+                    BC_int, num, grid, grid_u, grid_v,
+                    op,
+                    AuvL, BuvL,rhs_uv,
+                    iRe.*Lum1_L, iRe.*bc_Lum1_L, iRe.*bc_Lum1_b_L, Mum1_L, BC_uL,
+                    iRe.*Lvm1_L, iRe.*bc_Lvm1_L, iRe.*bc_Lvm1_b_L, Mvm1_L, BC_vL,
+                    iRe.*Lum1_S, iRe.*bc_Lum1_S, iRe.*bc_Lum1_b_S, Mum1_S, BC_uS,
+                    iRe.*Lvm1_S, iRe.*bc_Lvm1_S, iRe.*bc_Lvm1_b_S, Mvm1_S, BC_vS,
+                    true,BC_pL,phL,phS
+                    )
+                else
+                    # Coupled resolution of u and v
+                    _ = FE_set_momentum_coupled2(
+                    BC_int, num, grid, grid_u, grid_v,
+                    op.opC_pL, op.opC_uL, op.opC_vL,
+                    AuvL, BuvL,rhs_uv,
+                    iRe.*Lum1_L, iRe.*bc_Lum1_L, iRe.*bc_Lum1_b_L, Mum1_L, BC_uL,
+                    iRe.*Lvm1_L, iRe.*bc_Lvm1_L, iRe.*bc_Lvm1_b_L, Mvm1_L, BC_vL,
+                    true,BC_pL,phL
+                    )
+                end
+
+
             end
 
 
@@ -1719,16 +1752,17 @@ function run_forward!(
                         # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
 
                        
-                            
-                        flower_status = update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, 
-                        periodic_x, periodic_y, num.average_velocity, phL.trans_scalD[:,num.index_phase_change],phL.trans_scal[:,:,num.index_phase_change],
-                        num.diffusion_coeff[num.index_phase_change],num.concentration0[num.index_phase_change],electrolysis_phase_change_case,mass_flux)
+                        if num.advection_LS_mode !=10    
+                            flower_status = update_free_surface_velocity_electrolysis!(num, grid, grid_u, grid_v, iLS, phL.uD, phL.vD, 
+                            periodic_x, periodic_y, num.average_velocity, phL.trans_scalD[:,num.index_phase_change],phL.trans_scal[:,:,num.index_phase_change],
+                            num.diffusion_coeff[num.index_phase_change],num.concentration0[num.index_phase_change],electrolysis_phase_change_case,mass_flux)
 
-                        if flower_status !=0
-                            printstyled(color=:red, @sprintf "\n Stopping simulation %.3i " flower_status)
-                            return
+                            if flower_status !=0
+                                printstyled(color=:red, @sprintf "\n Stopping simulation %.3i " flower_status)
+                                return
+                            end
                         end
-                            
+
                             # # iLS = 1
                             # # intfc_length = 0.0
                             # # @inbounds @threads for II in grid.LS[iLS].MIXED
@@ -1766,7 +1800,7 @@ function run_forward!(
                                 nH2 = new_nH2
                             end
 
-                         end #num.mass_flux == 0
+                        end #num.mass_flux == 0
 
 
                     end
@@ -1909,9 +1943,13 @@ function run_forward!(
             println("num.τ = $num.τ")
         end
 
+        printstyled(color=:red, @sprintf "\n advection")
+        print("\n num.advection_LS_mode ",num.advection_LS_mode,advection)
+        printstyled(color=:red, @sprintf "\n advection")
+
 
         #region Advection 
-        if advection
+        if advection || electrolysis_advection
 
             if num.io_pdi>0
 
@@ -2278,7 +2316,7 @@ function run_forward!(
                         # print_CL_length(num,grid, grid.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
 
                     elseif ((num.advection_LS_mode == 9) || (num.advection_LS_mode == 10))
-                        print("\n num.advection_LS_mode == 8 iLS", iLS)
+                        print("\n num.advection_LS_mode == 9 or 10 iLS", iLS)
 
                         if num.advection_LS_mode == 10
                             grid.V .=0.25*grid.dx[1,1]/num.τ  
@@ -2650,17 +2688,17 @@ function run_forward!(
                 "dcap_4"::Cstring, grid_v.LS[iLSpdi].geoL.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint,
                 C_NULL::Ptr{Cvoid})::Cint   
 
-                print("\n cap_1 ",grid_u.LS[iLSpdi].geoL.dcap[1,:,1])
-                print("\n cap_1 ",grid_u.LS[iLSpdi].geoL.dcap[2,:,1])
+                # print("\n cap_1 ",grid_u.LS[iLSpdi].geoL.dcap[1,:,1])
+                # print("\n cap_1 ",grid_u.LS[iLSpdi].geoL.dcap[2,:,1])
 
-                print("\n cap_1 ",grid_v.LS[iLSpdi].geoL.dcap[1,:,1])
-                print("\n cap_1 ",grid_v.LS[iLSpdi].geoL.dcap[2,:,1])
+                # print("\n cap_1 ",grid_v.LS[iLSpdi].geoL.dcap[1,:,1])
+                # print("\n cap_1 ",grid_v.LS[iLSpdi].geoL.dcap[2,:,1])
 
-                print("\n cap_2 ",grid_v.LS[iLSpdi].geoL.dcap[1,:,2])
-                print("\n cap_2 ",grid_v.LS[iLSpdi].geoL.dcap[2,:,2])
+                # print("\n cap_2 ",grid_v.LS[iLSpdi].geoL.dcap[1,:,2])
+                # print("\n cap_2 ",grid_v.LS[iLSpdi].geoL.dcap[2,:,2])
 
-                print("\n cap_3 ",grid_v.LS[iLSpdi].geoL.dcap[1,:,3])
-                print("\n cap_3 ",grid_v.LS[iLSpdi].geoL.dcap[2,:,3])
+                # print("\n cap_3 ",grid_v.LS[iLSpdi].geoL.dcap[1,:,3])
+                # print("\n cap_3 ",grid_v.LS[iLSpdi].geoL.dcap[2,:,3])
 
                 # for u grid
                 # cap 1 same 
