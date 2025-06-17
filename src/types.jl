@@ -90,7 +90,7 @@ Stores parameters for the simulation
     eps::T = 1e-12
     grav_x::T = 0.0
     grav_y::T = 0.0
-    nNavier::D =0 # number of Navier inner BCs
+    nNavier::D = 0 # number of Navier inner BCs
     pres0::T=0.0
     ref_thickness_2d::T=1.0
     plot_xscale::T = 1.0
@@ -136,6 +136,9 @@ Stores parameters for the simulation
     pressure_velocity_solver::D=0
     solve_solid::D=0
     phase_change_method::D=0
+    one_fluid_model::D=0
+    mu_one_fluid_average::D=0
+    rho_one_fluid_average::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

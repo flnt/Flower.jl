@@ -146,6 +146,8 @@ include("bicgstabl_flower.jl")
 
 include("run_profile.jl") #for profiling
 
+include("one_fluid.jl")
+
 
 ###################################################################################################
 # For plotting with python

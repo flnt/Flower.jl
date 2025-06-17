@@ -9,6 +9,8 @@
 #TODO successive substitution reuse LU decomposition
 #TODO check if everywhere phL.i_current_mag (especially if temperature solved)
 #TODO remove alloc in this file
+#TODO one fluid
+#TODO one fluid u and v dependent for diffusion?
 
 # About PDI: the the Parallel Data Interface https://pdi.dev/1.8/
 
@@ -305,7 +307,7 @@ function run_forward!(
         # The flag=true, the capacities are set for the convection, the flag=false they are set for the other operators
 
         NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y)
-       
+
         # printstyled(color=:red, @sprintf "\n levelset:\n")
         # println(grid.LS[1].geoL.dcap[1,1,:])
 
@@ -695,6 +697,19 @@ function run_forward!(
             
             #when no Navier: nt = (num.nLS + 1) * ni + nb
 
+            if num.one_fluid_model == 1
+                rho_one_fluid = zeros(grid)
+                mu_one_fluid  = zeros(grid)
+                volume_fraction = zeros(grid)
+
+                rho_one_fluid_u = zeros(grid_u)
+                mu_one_fluid_u  = zeros(grid_u)
+
+                rho_one_fluid_v = zeros(grid_v)
+                mu_one_fluid_v  = zeros(grid_v)
+
+            end
+
             if num.pressure_velocity_coupling == 0 
             
                 if ns_solid_phase
@@ -780,6 +795,8 @@ function run_forward!(
                     AuvL = spzeros(ncol_A, nt)
                     BuvL = spzeros(ncol_A, nt)
                     rhs_uv = zeros(ncol_A)  
+
+                # elseif num.pressure
 
                 end
 
@@ -2718,83 +2735,129 @@ function run_forward!(
 
             # Pressure-velocity coupling
 
-            if num.pressure_velocity_coupling == 0 
-                if ns_solid_phase
-                    geoS = [grid.LS[iLS].geoS for iLS in 1:num._nLS]
-                    geo_uS = [grid_u.LS[iLS].geoS for iLS in 1:num._nLS]
-                    geo_vS = [grid_v.LS[iLS].geoS for iLS in 1:num._nLS]
-                    Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,Mm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = pressure_projection!(
-                        time_scheme, BC_int,
-                        num, grid, geoS, grid_u, geo_uS, grid_v, geo_vS, phS,
-                        BC_uS, BC_vS, BC_pS,
-                        op.opC_pS, op.opC_uS, op.opC_vS, op.opS,
-                        AuS, BuS, AvS, BvS, AϕS, AuvS, BuvS,
-                        Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,
-                        Cum1S, Cvm1S, Mum1_S, Mvm1_S,
-                        periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceS,jump_mass_fluxS,mass_fluxS
-                    )
-                end
-                if ns_liquid_phase
-                    geoL = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
-                    geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
-                    geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+            if num.one_fluid_model == 1
+
+                update_one_fluid_density_viscosity(num,grid,grid_u,grid_v,volume_fraction,rho_one_fluid,mu_one_fluid,
+                                                    rho_one_fluid_u,mu_one_fluid_u,rho_one_fluid_v,mu_one_fluid_v)
+
+
+
+                # MIXED =
+
+                nb_levelsets = num.nLS
+                num.nLS = 1 #deactivate cut-cell for one-fluid model
+
+                NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y) 
+
+
+                geoL = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
+                geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
+                geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+
+
+
+                    # TODO update density
 
                     # Mum1_L is put in B matrix that multiplies v
 
-                    Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = pressure_projection!(
-                        time_scheme, BC_int,
-                        num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
-                        BC_uL, BC_vL, BC_pL,
-                        op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
-                        AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,
-                        Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
-                        Cum1L, Cvm1L, Mum1_L, Mvm1_L,
-                        periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_fluxL,mass_fluxL
-                    )
-                    # if num.current_i == 1
-                    #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
-                    #     phL.v .= 0.5 .* grid_v.x .+ getproperty.(grid_v.LS[1].geoL.centroid, :x) .* grid_v.dx
-                    #     phL.u[grid_u.LS[1].SOLID] .= 0.0
-                    #     phL.v[grid_v.LS[1].SOLID] .= 0.0
-                    # end
-                    # linear_advection!(
-                    #     num, grid, grid.LS[1].geoL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL, phL,
-                    #     BC_uL, BC_vL, op.opL
-                    # )
-                end
+                Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = pressure_projection_one_fluid!(
+                    time_scheme, BC_int,
+                    num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
+                    BC_uL, BC_vL, BC_pL,
+                    op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
+                    AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,
+                    Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
+                    Cum1L, Cvm1L, Mum1_L, Mvm1_L,
+                    periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,
+                    rho_one_fluid,mu_one_fluid,
+                    rho_one_fluid_u,mu_one_fluid_u,
+                    rho_one_fluid_v,mu_one_fluid_v,
+                    pres_free_surfaceL,jump_mass_fluxL,mass_fluxL
+                )  
+                
+                num.nLS = nb_levelsets #reactivate cut-cell for one-fluid model
 
-            elseif num.pressure_velocity_coupling > 1
+            else
 
-                if ns_liquid_phase
-                    geoL = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
-                    geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
-                    geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+                if num.pressure_velocity_coupling == 0 
+                    if ns_solid_phase
+                        geoS = [grid.LS[iLS].geoS for iLS in 1:num._nLS]
+                        geo_uS = [grid_u.LS[iLS].geoS for iLS in 1:num._nLS]
+                        geo_vS = [grid_v.LS[iLS].geoS for iLS in 1:num._nLS]
+                        Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,Mm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = pressure_projection!(
+                            time_scheme, BC_int,
+                            num, grid, geoS, grid_u, geo_uS, grid_v, geo_vS, phS,
+                            BC_uS, BC_vS, BC_pS,
+                            op.opC_pS, op.opC_uS, op.opC_vS, op.opS,
+                            AuS, BuS, AvS, BvS, AϕS, AuvS, BuvS,
+                            Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,
+                            Cum1S, Cvm1S, Mum1_S, Mvm1_S,
+                            periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceS,jump_mass_fluxS,mass_fluxS
+                        )
+                    end
+                    if ns_liquid_phase
+                        geoL = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
+                        geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
+                        geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
 
-                    # Mum1_L is put in B matrix that multiplies v
+                        # Mum1_L is put in B matrix that multiplies v
 
-                    Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = coupled_pressure_velocity!(
-                        time_scheme, BC_int,
-                        num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
-                        BC_uL, BC_vL, BC_pL,
-                        op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
-                        AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,rhs_uv,
-                        Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
-                        Cum1L, Cvm1L, Mum1_L, Mvm1_L,
-                        periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_fluxL,mass_fluxL
-                    )
-                    # if num.current_i == 1
-                    #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
-                    #     phL.v .= 0.5 .* grid_v.x .+ getproperty.(grid_v.LS[1].geoL.centroid, :x) .* grid_v.dx
-                    #     phL.u[grid_u.LS[1].SOLID] .= 0.0
-                    #     phL.v[grid_v.LS[1].SOLID] .= 0.0
-                    # end
-                    # linear_advection!(
-                    #     num, grid, grid.LS[1].geoL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL, phL,
-                    #     BC_uL, BC_vL, op.opL
-                    # )
-                end
+                        Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = pressure_projection!(
+                            time_scheme, BC_int,
+                            num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
+                            BC_uL, BC_vL, BC_pL,
+                            op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
+                            AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,
+                            Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
+                            Cum1L, Cvm1L, Mum1_L, Mvm1_L,
+                            periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_fluxL,mass_fluxL
+                        )
+                        # if num.current_i == 1
+                        #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
+                        #     phL.v .= 0.5 .* grid_v.x .+ getproperty.(grid_v.LS[1].geoL.centroid, :x) .* grid_v.dx
+                        #     phL.u[grid_u.LS[1].SOLID] .= 0.0
+                        #     phL.v[grid_v.LS[1].SOLID] .= 0.0
+                        # end
+                        # linear_advection!(
+                        #     num, grid, grid.LS[1].geoL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL, phL,
+                        #     BC_uL, BC_vL, op.opL
+                        # )
+                    end
 
-            end #if num.pressure_velocity_coupling
+                elseif num.pressure_velocity_coupling > 1
+
+                    if ns_liquid_phase
+                        geoL = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
+                        geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
+                        geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+
+                        # Mum1_L is put in B matrix that multiplies v
+
+                        Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = coupled_pressure_velocity!(
+                            time_scheme, BC_int,
+                            num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
+                            BC_uL, BC_vL, BC_pL,
+                            op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
+                            AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,rhs_uv,
+                            Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
+                            Cum1L, Cvm1L, Mum1_L, Mvm1_L,
+                            periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_fluxL,mass_fluxL
+                        )
+                        # if num.current_i == 1
+                        #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
+                        #     phL.v .= 0.5 .* grid_v.x .+ getproperty.(grid_v.LS[1].geoL.centroid, :x) .* grid_v.dx
+                        #     phL.u[grid_u.LS[1].SOLID] .= 0.0
+                        #     phL.v[grid_v.LS[1].SOLID] .= 0.0
+                        # end
+                        # linear_advection!(
+                        #     num, grid, grid.LS[1].geoL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL, phL,
+                        #     BC_uL, BC_vL, op.opL
+                        # )
+                    end
+
+                end #if num.pressure_velocity_coupling
+
+            end # if num.one_fluid_model == 1
 
         end # if navier_stokes
 

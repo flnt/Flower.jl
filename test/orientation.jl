@@ -808,8 +808,9 @@ end
     coeffDv = zeros(gv)
 
 
-    #interpolate coefficient
+    # interpolate coefficient from p grid to u and v grids
     coeffD_borders = vecb(coeffD,grid)
+
     interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(coeffD,grid,1), grid), coeffDu, coeffDv)
 
     print("\n coeff ",minimum(coeffDu)," ",maximum(coeffDu)," ",minimum(coeffDv)," ",maximum(coeffDv)," ",minimum(coeffD_borders)," ",maximum(coeffD_borders))
@@ -1287,3 +1288,497 @@ end
 #TODO test mass flux 
 
 #endregion mass flux
+
+
+#region diffusion u v 
+
+function bilinear_interpolation(x, y, x1, y1, x2, y2, Q11, Q12, Q21, Q22)
+        # Calculate the intermediate terms
+        term1 = (x2 - x) * (y2 - y) * Q11 / ((x2 - x1) * (y2 - y1))
+        term2 = (x - x1) * (y2 - y) * Q21 / ((x2 - x1) * (y2 - y1))
+        term3 = (x2 - x) * (y - y1) * Q12 / ((x2 - x1) * (y2 - y1))
+        term4 = (x - x1) * (y - y1) * Q22 / ((x2 - x1) * (y2 - y1))
+
+        # print("\n term1 ", term1," ", term2, " ", term3," ",term4 , " ",((x2 - x1) * (y2 - y1)))
+        # Sum the terms to get the interpolated value
+        return term1 + term2 + term3 + term4
+    end
+
+
+    function bilinear_interpolation(grid, x, y,values)
+        dx = grid.dx[2,2] #constant dx
+        dy = grid.dy[2,2] #constant dx
+        # print("\n dx dy ",dx," dy ",dy)
+        # Calculate the indices and weights for interpolation
+        i0 = floor(Int, x / dx) #TODO
+        j0 = floor(Int, y / dy)
+        i1 = i0 + 1
+        j1 = j0 + 1
+        
+        print("\nindices "," i0 ",i0," i1 ",i1," j0 ",j0," j1 ",j1)
+        print("\ngrid "," i0 j0 ",grid.x[j0,i0]," i1 j0 ",grid.x[j0,i1]," i0 j1 ",grid.x[j1,i0]," i1 j1 ",grid.x[j1,i1])
+
+        # Calculate the weights
+        wx = (x - grid.x[j0,i0]) / dx
+        wy = (y - grid.y[j0,i0]) / dy
+
+        # Perform bilinear interpolation
+        value = (1 - wx) * (1 - wy) * values[j0,i0] +
+                wx * (1 - wy) * values[j0,i1] +
+                (1 - wx) * wy * values[j1,i0] +
+                wx * wy * values[j1, i1]
+
+        return value
+    end
+
+    function set_cutcell_matrices_test!(num, grid, geo, geo_p, opC, periodic_x, periodic_y)
+        @unpack nx, ny, ind = grid
+        @unpack AxT, AyT, Bx, By, BxT, ByT, Hx, Hy, HxT, HyT, M, iMx, iMy, χ = opC
+
+        M.diag .= vec(geo[end].dcap[:,:,5])
+        Mx = zeros(ny,nx+1)
+        for II in ind.all_indices
+            Mx[II] = geo[end].dcap[II,8]
+            pII = lexicographic(II, grid.ny)
+            iMx.diag[pII] = inv_weight_eps(num,Mx[II])
+        end
+        for II in ind.b_right[1]
+            Mx[δx⁺(II)] = geo[end].dcap[II,10]
+            pII = lexicographic(δx⁺(II), grid.ny)
+            iMx.diag[pII] = inv_weight_eps(num,Mx[δx⁺(II)])
+        end
+
+        print("\n Mx ",size(Mx))
+        print("\n Mx ",Mx)
+
+
+
+        My = zeros(ny+1,nx)
+        for II in ind.all_indices
+            My[II] = geo[end].dcap[II,9]
+            pII = lexicographic(II, grid.ny + 1)
+            iMy.diag[pII] = inv_weight_eps(num,My[II])
+        end
+        for II in ind.b_top[1]
+            My[δy⁺(II)] = geo[end].dcap[II,11]
+            pII = lexicographic(δy⁺(II), grid.ny + 1)
+            iMy.diag[pII] = inv_weight_eps(num,My[δy⁺(II)])
+        end   
+
+        # Discrete gradient and divergence operators
+        divergence_A!(grid, AxT, AyT, geo[end].dcap, ny, ind.all_indices, periodic_x, periodic_y)
+        divergence_B!(BxT, ByT, geo[end].dcap, ny, ind.all_indices)
+
+        mat_assign!(Bx, sparse(-BxT'))
+        mat_assign!(By, sparse(-ByT'))
+
+        # Matrices for BCs
+        for iLS in 1:num.nLS
+            bc_matrix!(grid, Hx[iLS], Hy[iLS], geo[iLS].dcap, geo_p[iLS].dcap, ny, ind.all_indices)
+
+            mat_assign_T!(HxT[iLS], sparse(Hx[iLS]'))
+            mat_assign_T!(HyT[iLS], sparse(Hy[iLS]'))
+
+            periodic_bcs!(grid, Bx, By, Hx[iLS], Hy[iLS], periodic_x, periodic_y)
+
+            χx = (geo[iLS].dcap[:,:,3] .- geo[iLS].dcap[:,:,1]) .^ 2
+            χy = (geo[iLS].dcap[:,:,4] .- geo[iLS].dcap[:,:,2]) .^ 2
+            χ[iLS].diag .= sqrt.(vec(χx .+ χy))
+        end
+
+        mat_assign!(BxT, sparse(-Bx'))
+        mat_assign!(ByT, sparse(-By'))
+
+        return nothing
+    end
+@testset "diffusion_u_v" begin
+
+    printstyled(color=:magenta, @sprintf "\n testing diffusion_u_v \n") 
+
+
+    @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = op.opC_pL
+    @unpack BxT, ByT,tmp_x, tmp_y = op.opC_pL
+
+    opC_p = op.opC_pL
+    opC_u = op.opC_uL
+    opC_v = op.opC_vL
+
+
+    grid = gp
+    grid_u = gu
+    grid_v = gv
+   
+    ni = grid.nx * grid.ny
+    nb = 2 * grid.nx + 2 * grid.ny
+
+    coeffD = fnones(grid,num)
+
+
+    #region scalar_all_nodes
+
+
+
+    create_2D_grid = zeros(grid.ny+2,grid.nx+2)
+
+    x_centroid = gp.x .+ getproperty.(gp.LS[1].geoS.centroid, :x) .* gp.dx
+    y_centroid = gp.y .+ getproperty.(gp.LS[1].geoS.centroid, :y) .* gp.dy
+
+    create_2D_grid[2:grid.ny+1,2:grid.nx+1] = x_centroid #grid.x
+
+    x_bc_left = gp.x[:,1] .- gp.dx[:,1] ./ 2.0
+
+    y_bc_bottom = gp.y[1,:] .- gp.dy[1,:] ./ 2.0
+
+    y_bc_top = gp.y[end,:] .+ gp.dy[end,:] ./ 2.0
+
+    x_bc_right = gp.x[:,end] .+ gp.dx[:,end] ./ 2.0
+
+    # create_2D_grid[1,2:grid.nx] = create_2D_grid[2,2:grid.nx]
+
+    # create_2D_grid[end,2:grid.nx] = create_2D_grid[end-1,2:grid.nx]
+
+    # display(create_2D_grid)
+
+
+    create_2D_grid[2:grid.ny+1,1] = x_bc_left
+
+    create_2D_grid[2:grid.ny+1,end] = x_bc_right
+
+    create_2D_grid[1,:] = create_2D_grid[2,:]
+
+    create_2D_grid[end,:] = create_2D_grid[end-1,:]
+
+    printstyled(color=:magenta, @sprintf "\n create_2D_grid all scalar nodes \n") 
+    
+    # display(create_2D_grid)
+
+    create_2D_grid = create_2D_grid_x(gp)
+
+    display(create_2D_grid)
+
+
+    #endregion scalar_all_nodes
+
+
+    #region viscosity_coeff_for_du_dx
+    # Mx is the volume of the control volume associated to the gradient, between two nodes
+    # for grid_u: staggered in x, between (border + bulk) nodes there are n+2 control volumes 
+
+    viscosity_coeff_for_du_dx = zeros(grid_u.ny,grid_u.nx+1)
+
+    viscosity_coeff_for_du_dx[:,2:grid_u.nx] = grid.x #grid.x*1000 +grid.y
+
+    x_centroid_u = gu.x .+ getproperty.(gu.LS[1].geoL.centroid, :x) .* gu.dx
+    y_centroid_u = gu.y .+ getproperty.(gu.LS[1].geoL.centroid, :y) .* gu.dy
+
+    viscosity_coeff_for_du_dx[:,1] = (gu.x[:,1] + x_centroid_u[:,1]) / 2
+    viscosity_coeff_for_du_dx[:,grid_u.nx+1] = (x_centroid_u[:,grid_u.nx] + gu.x[:,grid_u.nx]) / 2
+
+    #endregion viscosity_coeff_for_du_dx
+
+    print("\ngridu x ",grid_u.x[1,:])
+    print("\ngrid x ",grid.x[1,:])
+    print("\nx_centroid_u ",x_centroid_u)
+    print("\ny_centroid_u ",y_centroid_u)
+    
+
+    printstyled(color=:magenta, @sprintf "\ninterp for du/dx \n")
+
+    display(viscosity_coeff_for_du_dx)
+
+    
+    viscosity_coeff_for_du_dx = zeros(grid_u.ny,grid_u.nx+1)
+    viscosity_coeff_for_du_dx[:,2:grid_u.nx] = grid.LS[end].geoL.cap[:,:,5]
+
+    viscosity_coeff_for_du_dx[:,1] = viscosity_coeff_for_du_dx[:,2]
+    viscosity_coeff_for_du_dx[:,end] = viscosity_coeff_for_du_dx[:,end-1]
+    #TODO contact angle change  viscosity_coeff_for_du_dx[:,1] and at end
+
+    display(viscosity_coeff_for_du_dx)
+
+
+    # print("\n size ",size(viscosity_coeff_for_du_dx))
+
+
+
+    # laps = set_matrices!(num, gp, [gp.LS[1].geoL], gu, [gu.LS[1].geoL], gv, [gv.LS[1].geoL], 
+    # op.opC_pL, op.opC_uL, op.opC_vL, periodic_x, periodic_y)
+    
+    # geo = [gp.LS[1].geoL]
+    # geo_u = [gu.LS[1].geoL]
+    # geo_v = [gv.LS[1].geoL]
+
+    # set_cutcell_matrices_test!(num, grid, geo, geo, opC_p, false, false)
+
+    # set_cutcell_matrices_test!(num, grid_u, geo_u, geo, opC_u, false, false)
+
+    # set_cutcell_matrices_test!(num, grid_v, geo_v, geo, opC_v, false, false)
+
+    # print("\n size(opC_u.Bx) ",size(opC_u.Bx)) #from u (n+1) to grad u (n+2)
+    # print("\n size(opC_u.iMx) ",size(opC_u.iMx)) #size grad u 
+    # print("\n size(mat_coeffD) ",size(diag_viscosity_coeff_for_du_dx)) #
+    # print("\n size(tmp_x) ",size(tmp_x))
+
+    # print("\n size(mat_coeffD * opC_u.iMx) ",size(diag_viscosity_coeff_for_du_dx * opC_u.iMx))
+
+    
+    diag_viscosity_coeff_for_du_dx = Diagonal(vec(viscosity_coeff_for_du_dx))
+
+    mul!(opC_u.tmp_x, diag_viscosity_coeff_for_du_dx * opC_u.iMx, opC_u.Bx)
+
+    diffusion_bulk_u = opC_u.BxT * opC_u.tmp_x
+
+
+
+
+    printstyled(color=:magenta, @sprintf "\n testing du_dy \n") 
+
+    viscosity_coeff_for_du_dy = zeros(grid_u.ny+1,grid_u.nx)
+
+  
+
+
+   
+
+    mu1 = 1
+    mu2 = 100
+
+
+
+   
+
+
+    #region interpolate 
+    volume_fraction_full = create_2D_grid_volume_fraction(gp)
+    grid_x_full_2D = create_2D_grid_x(gp,true,true)
+    grid_y_full_2D = create_2D_grid_y(gp,true,true)
+
+    all_grid_u_nodes_2D_x_for_du_dy_interp = create_2D_grid_x(gu,false,true)
+    all_grid_u_nodes_2D_y_for_du_dy_interp = create_2D_grid_y(gu,false,true)
+
+    printstyled(color=:magenta, @sprintf "\n grid_x_full_2D \n") 
+
+    display(grid_x_full_2D)
+    
+    printstyled(color=:magenta, @sprintf "\n grid_y_full_2D \n") 
+
+    display(grid_y_full_2D)
+
+    printstyled(color=:magenta, @sprintf "\n x for viscosity_coeff_for_du_dy \n") 
+
+    display(all_grid_u_nodes_2D_x_for_du_dy_interp)    
+    # display(grid_u.x)    
+    # display(x_centroid_u)    
+
+    
+    printstyled(color=:magenta, @sprintf "\n all_grid_u_nodes_2D_y_for_du_dy_interp \n") 
+
+    display(all_grid_u_nodes_2D_y_for_du_dy_interp)
+
+
+    for j in 1:grid_u.ny+1
+        for i in 1:grid_u.nx
+
+            print("\nvolume_fraction i ",i," j ",j,"\n")
+
+            du_dy_coord_x = all_grid_u_nodes_2D_x_for_du_dy_interp[j,i] 
+            # du_dy_coord_x = x_centroid_u[j,i]  #grid_u.x[j,i] 
+
+            du_dy_coord_y = (all_grid_u_nodes_2D_y_for_du_dy_interp[j,i] + all_grid_u_nodes_2D_y_for_du_dy_interp[j+1,i])/2 
+
+            # x1 = grid.x[j-1,i-1]
+            # x2 = grid_u.x[j-1,i]
+            # y1 = grid.y[j-1,i-1]
+            # y2 = grid.y[j,i-1]
+
+            # x1 = grid_x_full_2D[j-1,i-1]
+            # x2 = grid_x_full_2D[j-1,i]
+            # y1 = grid_y_full_2D[j-1,i-1]
+            # y2 = grid_y_full_2D[j,i-1]
+
+            # Q11 = volume_fraction_full[j-1,i-1]
+            # Q12 = volume_fraction_full[j,i-1]
+            # Q21 = volume_fraction_full[j-1,i]
+            # Q22 = volume_fraction_full[j,i]
+
+
+
+            x1 = grid_x_full_2D[j,i]
+            x2 = grid_x_full_2D[j,i+1]
+            y1 = grid_y_full_2D[j,i]
+            y2 = grid_y_full_2D[j+1,i+1]
+
+            Q11 = volume_fraction_full[j,i]
+            Q12 = volume_fraction_full[j+1,i]
+            Q21 = volume_fraction_full[j,i+1]
+            Q22 = volume_fraction_full[j+1,i+1]
+
+            volume_fraction_face = bilinear_interpolation(du_dy_coord_x, du_dy_coord_y, x1, y1, x2, y2, Q11, Q12, Q21, Q22)
+
+            printstyled(color=:green, @sprintf "\n i %.5i j %.5i x %.2e y %.2e x1 %.2e y1 %.2e x2 %.2e y2 %.2e Q11 %.2e Q12 %.2e Q21 %.2e Q22 %.2e\n" i j du_dy_coord_x du_dy_coord_y x1 y1 x2 y2 Q11 Q12 Q21 Q22)
+
+            print("\nvolume_fraction i ",i," j ",j," ",volume_fraction_face)
+            viscosity_coeff_for_du_dy[j,i] = harmonic_average_one_fluid(mu1,mu2,volume_fraction_face)
+
+        end
+    end
+    
+    printstyled(color=:cyan, @sprintf "\n viscosity_coeff_for_du_dy\n")
+
+    display(viscosity_coeff_for_du_dy)
+
+    #endregion interpolate 
+
+  
+    #region old method of interpolation
+   
+    old_method = false 
+
+    if old_method
+        volume_fraction = grid.LS[end].geoL.cap[:,:,5]
+
+        for j in 2:grid_u.ny
+            for i in 2:grid_u.nx-1
+
+                du_dy_coord_x = x_centroid_u[j,i] #grid_u.x[j,i]
+                du_dy_coord_y = (y_centroid_u[j-1,i] + y_centroid_u[j,i])/2 #(grid_u.y[j,i] + grid_u.y[j+1,i])/2
+            
+                # print("\n du_dy_coord_x ",du_dy_coord_x," ",du_dy_coord_y," ",x_centroid_u[j,i]," ",y_centroid_u[j,i])
+                # test_cooord = bilinear_interpolation(grid, du_dy_coord_x, du_dy_coord_y,grid.x)
+                # print("\ntest x i ",i," j ",j," ",test_cooord," ",du_dy_coord_x)
+                # @test test_cooord == du_dy_coord_x
+                # test_cooord = bilinear_interpolation(grid, du_dy_coord_x, du_dy_coord_y,grid.y)
+                # print("\ntest y i ",i," j ",j," ",test_cooord," ",du_dy_coord_y)
+                # @test test_cooord == du_dy_coord_y
+
+
+                volume_fraction_face = bilinear_interpolation(grid, du_dy_coord_x, du_dy_coord_y,volume_fraction)
+                # print("\nvolume_fraction i ",i," j ",j," ",volume_fraction_face)
+                viscosity_coeff_for_du_dy[j,i] = harmonic_average_one_fluid(mu1,mu2,volume_fraction_face)
+            end
+        end
+
+        display(viscosity_coeff_for_du_dy)
+
+        printstyled(color=:magenta, @sprintf "\n last row \n") 
+
+
+        # # Example usage:
+        # x = 1.2
+        # y = 2.3
+        # x1, y1 = 1.0, 2.0
+        # x2, y2 = 3.0, 4.0
+        # Q11, Q12, Q21, Q22 = 10.0, 20.0, 30.0, 40.0
+
+
+        # y2 | Q21 Q22 
+        #    |    x
+        # y1 | Q11 Q21
+        
+        #      x1  x2
+
+        # result = bilinear_interpolation(x, y, x1, y1, x2, y2, Q11, Q12, Q21, Q22)
+        # println("The interpolated value at ($x, $y) is $result")
+
+        # x = 1.0
+        # y = 2.0 
+        # result = bilinear_interpolation(x, y, x1, y1, x2, y2, Q11, Q12, Q21, Q22)
+        # println("The interpolated value at ($x, $y) is $result")
+
+        # x = 1.0
+        # y = 4.0 
+        # result = bilinear_interpolation(x, y, x1, y1, x2, y2, Q11, Q12, Q21, Q22)
+        # println("The interpolated value at ($x, $y) is $result")
+
+        # x = 3.0
+        # y = 2.0 
+        # result = bilinear_interpolation(x, y, x1, y1, x2, y2, Q11, Q12, Q21, Q22)
+        # println("The interpolated value at ($x, $y) is $result")
+
+        # x = 3.0
+        # y = 4.0 
+        # result = bilinear_interpolation(x, y, x1, y1, x2, y2, Q11, Q12, Q21, Q22)
+        # println("The interpolated value at ($x, $y) is $result")
+
+        print("\n grid.x ",grid.x[1,:])
+        print("\n grid_u.x ",grid_u.x[1,:])
+
+        volume_fraction_1D = fnones(grid,num)
+
+        volume_fraction_1D .= 10.0
+
+        # right border
+        i = grid_u.nx
+        for j in 2:grid_u.ny
+            du_dy_coord_x = x_centroid_u[j,i] #grid_u.x[j,i]
+            du_dy_coord_y = (y_centroid_u[j-1,i] + y_centroid_u[j,i])/2 #(grid_u.y[j,i] + grid_u.y[j+1,i])/2
+            x1 = grid.x[j-1,i-1]
+            x2 = grid_u.x[j-1,i]
+            y1 = grid.y[j-1,i-1]
+            y2 = grid.y[j,i-1]
+
+            Q11 = volume_fraction[j-1,i-1]
+            Q12 = volume_fraction[j,i-1]
+            Q21 = vecb_R(volume_fraction_1D,grid)[j-1]
+            Q22 = vecb_R(volume_fraction_1D,grid)[j]
+
+            volume_fraction_face = bilinear_interpolation(du_dy_coord_x, du_dy_coord_y, x1, y1, x2, y2, Q11, Q12, Q21, Q22)
+
+            printstyled(color=:green, @sprintf "\n i %.5i j %.5i x %.2e y %.2e x1 %.2e y1 %.2e x2 %.2e y2 %.2e Q11 %.2e Q12 %.2e Q21 %.2e Q22 %.2e\n" i j du_dy_coord_x du_dy_coord_y x1 y1 x2 y2 Q11 Q12 Q21 Q22)
+
+            print("\nvolume_fraction i ",i," j ",j," ",volume_fraction_face)
+            viscosity_coeff_for_du_dy[j,i] = harmonic_average_one_fluid(mu1,mu2,volume_fraction_face)
+            
+        end
+        
+
+        # left border
+        i = 1
+        for j in 2:grid_u.ny
+            du_dy_coord_x = x_centroid_u[j,i] #grid_u.x[j,i]
+            du_dy_coord_y = (y_centroid_u[j-1,i] + y_centroid_u[j,i])/2 #(grid_u.y[j,i] + grid_u.y[j+1,i])/2
+            x1 = grid_u.x[j-1,i]
+            x2 = grid.x[j-1,i]
+            y1 = grid.y[j-1,i]
+            y2 = grid.y[j,i]
+
+            Q11 = vecb_L(volume_fraction_1D,grid)[j-1]
+            Q12 = vecb_L(volume_fraction_1D,grid)[j]
+            Q21 = volume_fraction[j-1,i]
+            Q22 = volume_fraction[j,i]
+
+            volume_fraction_face = bilinear_interpolation(du_dy_coord_x, du_dy_coord_y, x1, y1, x2, y2, Q11, Q12, Q21, Q22)
+
+            printstyled(color=:green, @sprintf "\n i %.5i j %.5i x %.2e y %.2e x1 %.2e y1 %.2e x2 %.2e y2 %.2e Q11 %.2e Q12 %.2e Q21 %.2e Q22 %.2e\n" i j du_dy_coord_x du_dy_coord_y x1 y1 x2 y2 Q11 Q12 Q21 Q22)
+
+            print("\nvolume_fraction i ",i," j ",j," ",volume_fraction_face)
+            viscosity_coeff_for_du_dy[j,i] = harmonic_average_one_fluid(mu1,mu2,volume_fraction_face)
+            
+        end
+
+    end #old method
+    #endregion old method of interpolation
+
+
+
+    display(viscosity_coeff_for_du_dy)
+
+    print("\n size viscosity_coeff_for_du_dy ",size(viscosity_coeff_for_du_dy),"\n")
+
+
+    diag_viscosity_coeff_for_du_dy = Diagonal(vec(viscosity_coeff_for_du_dy))
+
+    mul!(opC_u.tmp_y, diag_viscosity_coeff_for_du_dy * opC_u.iMy, opC_u.By)
+    diffusion_bulk_u = L .+ opC_u.ByT * opC_u.tmp_y
+
+    j = div(grid.ny,2)
+    i = 1
+
+    II = CartesianIndex(j,i)
+
+    print("\n diffusion_bulk_u ", diffusion_bulk_u[II])
+
+
+    printstyled(color=:magenta, @sprintf "\n testing diffusion_u_v \n") 
+end
+#endregion diffusion u v

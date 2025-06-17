@@ -3605,6 +3605,7 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
     a1_b = Diagonal(vec(_a1_b))
     b_b = Diagonal(vec(_b_b))
 
+    #region Poisson variable coefficient
     #interpolate coefficient
     coeffD_borders = vecb(coeffD,grid)
     interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(coeffD,grid,1), grid), coeffDu, coeffDv)
@@ -3688,8 +3689,8 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
         bc_L_b = (BxT * mat_coeffDx_b * iMx_b * Hx_b .+ ByT * mat_coeffDy_b * iMy_b  * Hy_b)
 
     end 
+    #endregion Poisson variable coefficient
 
-    #border
 
 
       

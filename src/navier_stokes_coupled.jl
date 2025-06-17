@@ -260,6 +260,9 @@ mat_assign_T!
 
 periodic_bcs!(grid, Bx, By, Hx[iLS], Hy[iLS], periodic_x, periodic_y)
 
+
+Mx is the volume of the control volume associated to the gradient, between two nodes
+for grid_u: staggered in x, between (border + bulk) nodes there are n+2 control volumes  
 """
 function set_cutcell_matrices!(num, grid, geo, geo_p, opC, periodic_x, periodic_y)
     @unpack nx, ny, ind = grid

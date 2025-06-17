@@ -2177,6 +2177,12 @@ set_Forward_Euler!
 set_Crank_Nicolson!
 ```
 
+## One-fluid model
+
+```@docs
+pressure_projection_one_fluid!
+```
+
 
 ## Velocity-pressure coupling
 

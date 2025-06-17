@@ -185,6 +185,7 @@ for timestep in timesteps
 
         # # print("\n test juliac")
 
+        print("\nmu1 mu2",phys.mu1,typeof(phys.mu1),phys.mu2,typeof(phys.mu2))
 
         @debug "Before Numerical"
         global num = Numerical(
@@ -267,6 +268,7 @@ for timestep in timesteps
             pressure_velocity_solver = sim.pressure_velocity_solver,
             solve_solid = sim.solve_solid,
             phase_change_method = sim.phase_change_method,
+            one_fluid_model = sim.one_fluid_model,
             )
         Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
         @debug "After Numerical"
