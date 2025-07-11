@@ -52,6 +52,7 @@ Stores parameters for the simulation
     ϵ_κ::T = 0.0 # surface tension coefficient for Stefan BCs
     ϵ_V::T = 0.0 # molecular kinetic coefficient for Stefan BCs
     σ::T = 0.0 # surface tension coefficient
+    sigma::T = 0.0 # surface tension coefficient
     case::String = "notmycase"
     cases::String = "Planar, Sphere, Cylinder, Ellipse, Crystal, Mullins, Nothing, Airfoil, Jet, Drop"
     A::T = 0.05 #geometric parameter
@@ -139,6 +140,9 @@ Stores parameters for the simulation
     one_fluid_model::D=0
     mu_one_fluid_average::D=0
     rho_one_fluid_average::D=0
+    smooth_VOF::D=0
+    surface_tension::D=0
+    non_dimensionalize::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

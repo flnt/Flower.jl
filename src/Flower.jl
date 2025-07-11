@@ -147,6 +147,8 @@ include("bicgstabl_flower.jl")
 include("run_profile.jl") #for profiling
 
 include("one_fluid.jl")
+include("surface_tension_LS.jl")
+include("surface_tension_VOF.jl")
 
 
 ###################################################################################################

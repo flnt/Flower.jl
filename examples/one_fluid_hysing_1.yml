@@ -22,8 +22,8 @@ flower:
     Henry_H2O: &Henry_H2O 0
     Henry: [*Henry_H2, *Henry_KOH, *Henry_H2O]
     i0: &i0 1.0
-    intfc_x: 0.0 # x coordinate of bubble center
-    intfc_y: 5.0e-5 # y coordinate of bubble center
+    intfc_x: 5.0e-1 # x coordinate of bubble center
+    intfc_y: 5.0e-1 # y coordinate of bubble center
     # KOHwtpercent: 30
     ls_wall_xmin: 5.0e-6
     mu1: 10.0 #0.0 #6.7e-7*1258.0
@@ -38,8 +38,8 @@ flower:
     phi_ele0: 0.0
     phi_ele1: &phi_ele1 -0.6
     pres0:  0.0 #1e5
-    radius: 3.0e-6 #initial radius
-    ref_length: 1.0e-4
+    radius: 2.5e-1 #initial radius
+    ref_length: 1.0
     rho1: &rho1 1000.0 #1258.0 #liquid
     rho2: &rho2 100.0 #0.069575 #gaz
     #TODO need for 80°C, check with other study
@@ -65,16 +65,16 @@ flower:
     v_inlet: &v_inlet 6.7e-4
     g: 9.8e-1 #Hysing 0.98 9.81 #gravity
     beta: 0.0
-    domain_length: &domain_length 1.0e-4
+    domain_length: &domain_length 1.0
 
 
   mesh:
     nx: 128
-    ny: 128
+    ny: 256
     xmin: &mesh_xmin 0.0
-    xmax: &mesh_xmax 1.0e-4
+    xmax: &mesh_xmax 1.0
     ymin: &mesh_ymin 0.0 
-    ymax: &mesh_ymax 1.0e-4
+    ymax: &mesh_ymax 2.0
   simulation:
     activate_interface: &activate_interface 1
     advection_LS_mode: 9 #8 #2 #5 #4 #3 #2
@@ -94,17 +94,17 @@ flower:
     convection_mode: 1 #0 #1
     electrolysis_convection: 1 #1
     electrical_potential: 3 #2 #0 deactivated
-    electrical_potential_max_iter: 50 #20
+    electrical_potential_max_iter: 1 #50 #20
     electrical_potential_relative_residual: 1.0e-10
     electrical_potential_residual: 1.0e-10
-    electrical_potential_nonlinear_solver: 0 #0 for successive substitutions #1 for Newton-Raphson
+    electrical_potential_nonlinear_solver: 1 #0 for successive substitutions #1 for Newton-Raphson
     electrolysis_phase_change_case: "levelset_averaged" #"Khalighi" #no phase change
     phase_change_method: 1
     # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
     # electrolysis_phase_change_case: "levelset" # local
     eps: 1.0e-12 #1.0e-30 #eps for small numbers
-    epsilon: 0.2 #0.0 #0.05 #0.2 #cut small cells
-    epsilon_wall: 0.2 #0.0 #0.05 #0.2
+    epsilon: 0.05 #0.2 #0.0 #0.05 #0.2 #cut small cells
+    epsilon_wall: 0.05 #0.2 #0.0 #0.05 #0.2
     #if epsilon=0 centroids will be on the interface
     epsilon_mode: 2 #way to handle epsilon:
     # if num.epsilon_mode == 0
@@ -121,7 +121,7 @@ flower:
     dt0: 1e-5 #1e-4 #1e-3 #1e-6 #2.5e-5 #5e-5 #3.125e-6 #1e-4 #5e-3 #3.125e-6 #first timestep
     max_iter: 1 #60 #1 #60 #1 #60 #maximum number of iterations
     average_velocity: 1 #0
-    laplacian: 1 #1 #1 #multiply by 4/3
+    laplacian: 0 #1 #1 #1 #multiply by 4/3
     mass_flux: 2 #1 #Johansen & Colella
     mode_2d: 3
     # mode_2d = 1 #use equivalent cylinder
@@ -130,9 +130,11 @@ flower:
 
     name: "levelset_Butler"
     nb_reinit: 2 #10
-    non_dimensionalize: 0 # 0: NS equations as is (without non_dimensionalization)
+    non_dimensionalize: 0 # -1: NS equations as is (without dividing by rho), 0 divide by rho
     null_space: 0 #method for null space, matrix diagonal
     one_fluid_model: 1
+    surface_tension: 1 # 0 for CSF from VOF, 1 for LS
+    smooth_VOF: 2
     periodic_x: 0
     periodic_y: 0
     prediction: PmIIimposedpressureBCincrement #0 #4 #0 #pressure-velocity coupling
@@ -141,7 +143,7 @@ flower:
     # prediction = 2
     # prediction = 3 # PIII in Brown's article
     # prediction = 4
-    pressure_velocity_coupling: 3 #1 # 0: projection, 1: coupled
+    pressure_velocity_coupling: 0 #3 #1 # 0: projection, 1: coupled
     pressure_velocity_solver: 0 #direct 1 #BICGSTAB(2)
     solve_solid: 0 #0 do not solve in solid
     reinit_every: 3 # period of levelset reinialization
@@ -491,14 +493,14 @@ study:
   #tolerance for tests
   test_tolerance: 1.e-11 #1.e-14
   test_tolerance_solution_absolute:  1.e-1 # from n = 16 
-  meshes:  [128] #[64] #[128] #[32] #[32,64,128] #[32,64,128,256]
+  meshes:  [16] #  [32] #   [128] #[64] #[128] #[32] #[32,64,128] #[32,64,128,256]
   compute_errors: None
   timesteps: [1e-4]
 
 
 plot:
-  ax_locator_x: [0,20,40,60,80,100] #ticks in matplotlib
-  ax_locator_y: [0,20,40,60,80,100]
+  ax_locator_x: [0,0.5,1] #ticks in matplotlib
+  ax_locator_y: [0,0.5,1]
   cbarlabel: "" #["u","v"]
   cmap: "viridis"
   color_line: "k" #"w" #"k"
@@ -506,13 +508,603 @@ plot:
   fig_fraction: 1.0 #0.5
   interface_color: 'r' #'k'
   extend: neither #max
-  xlabel: $x ( \unit{\um})$
-  ylabel: $y ( \unit{\um})$
+  xlabel: $x ( \unit{\m})$
+  ylabel: $y ( \unit{\m})$
   linewidth: 1
   linestyle: None
+  skip_every: 1 #12
+  text_color: k
+  themes: [dark,light]
+  theme: light
     
   figures:
 
+
+
+
+      - var: i_current_x
+        figsize: True
+        file: current_lines
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        fig_fraction: 1.0
+        fig_ratio: 0.5
+        # add_schematics: #True
+        add_schematics_coords: [0, 2, 61, 63] #[0, 1, 55, 57]
+        fontsize: 6
+        func: plot_current_lines
+        cbarlabel: "$ \\text{Electrical potential} ~ (\\unit{V})$" #Electrical potential
+        ax_locator_x: [0,0.5,1]
+        ax_locator_y: [0,0.5,1,0.5,2]
+        img_format: mp4
+        isocontour: #True
+        levels: 10 #10
+        range: np.linspace(-1.116e-2,0,11)
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: #True
+        plot_levelset_segments: False
+        plot_mode: contourf
+        # range: [0,1e-4]
+        ticks_format: '%.2e'
+        xlim: [0,1]
+        ylim: [0,2]
+        linewidth: 0.25 #1
+        linestyle: '-' #'dotted'
+        zoom_mode: None
+        #For current lines
+        density: '[0.5,0.5]'
+        streamplot_cbarlabel: "$ \\text{Current magnitude} ~ \\rightarrow$"
+        streamplot_color: 'k' #mag
+        streamplot_mutation_scale: 5 #1 very small, 10 default?
+        # start_points: 'np.array([[100,100,100,100,100,100,100,100,100,100,100,100,100,100], [10,20,30,40,45,47.5,48,51,52.5,55,60,70,80,90]])' #'np.array([[0,0.5,1], [0,0.5,1]])'
+     
+        # broken_streamlines: True
+        streamplot_lw: 0.25
+        # plot_schematic_wall: True
+
+
+      - var: volume_fraction
+        func: plot_python_pdf_full2
+        file: volume_fraction_annotated
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        figsize: None
+        aspect_box: 'box'
+        aspect_ratio: 'equal'
+        cbarlabel: volume_fraction
+        fontsize: 4
+        isocontour: False
+        levels: 10
+        mesh_macro: |
+          global x_1D_2, y_1D_2
+          dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
+      
+          xp = np.zeros(mesh['nx'])
+          xp[0] = mesh["xmin"]+dx/2.0
+          for i in range(1,mesh['nx']):
+              xp[i] = xp[i-1] + dx
+
+          x_1D_2 = xp
+
+          dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
+
+          yp = np.zeros(mesh['ny'])
+          yp[0] = mesh["ymin"]+dy/2.0
+          for i in range(1,mesh['ny']):
+              yp[i] = yp[i-1] + dy
+
+
+          y_1D_2 = yp
+          print('x_1D_2', x_1D_2)
+          print('y_1D_2', y_1D_2)
+
+        plot_bc: False #True
+        plot_grid: True
+        plot_levelset: True
+        plot_levelset_segments: #True 
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        range: [0,1e-4]
+        xlim: [0,1]
+        ylim: [0,2]
+        # zoom: [[0,5],[0,5]]
+        # zoom_mode: index
+        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        zoom: [[0.0,1.0],[0.0,1.0]] #[[1,10],[45,55]] activates BC plot so no longer square
+        zoom_mode: coord
+        color_annot_bc: w
+        color_annot_bulk: w
+        linewidth: 1
+        linestyle: None
+
+      - var: levelset_surface_tension
+        # func: plot_python_pdf_full2
+        file: levelset_surface_tension
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        figsize: None
+        aspect_box: 'box'
+        aspect_ratio: 'equal'
+        cbarlabel: levelset_surface_tension
+        fontsize: 4
+        isocontour: False
+        levels: 10
+        # mesh_macro: |
+        #   global x_1D_2, y_1D_2
+        #   x_1D_2 = range(data.shape[0])
+        #   y_1D_2 = range(data.shape[1])
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: True
+        plot_levelset_segments: #True 
+        plot_normal: True
+        plot_normal_macro: |
+          normal_x
+        quiver_scale: 10
+        # skip_every: 
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        range: [0,1e-4]
+        xlim: [0,1]
+        ylim: [0,2]
+        # zoom: [[0,5],[0,5]]
+        # zoom_mode: index
+        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom_mode: coord
+        color_annot_bc: w
+        color_annot_bulk: w
+        linewidth: 1
+        linestyle: None
+
+      - var: levelset_heavyside
+        # func: plot_python_pdf_full2
+        file: levelset_heavyside
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        figsize: None
+        aspect_box: 'box'
+        aspect_ratio: 'equal'
+        cbarlabel: levelset_surface_tension
+        fontsize: 4
+        isocontour: False
+        levels: 10
+        # mesh_macro: |
+        #   global x_1D_2, y_1D_2
+        #   x_1D_2 = range(data.shape[0])
+        #   y_1D_2 = range(data.shape[1])
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: True
+        plot_levelset_segments: #True 
+        plot_normal: True
+        plot_normal_macro: |
+          normal_x
+        quiver_scale: 10
+        # skip_every: 
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        range: [0,1e-4]
+        xlim: [0,1]
+        ylim: [0,2]
+        # zoom: [[0,5],[0,5]]
+        # zoom_mode: index
+        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom_mode: coord
+        color_annot_bc: w
+        color_annot_bulk: w
+        linewidth: 1
+        linestyle: None
+
+      - var: levelset_surface_tension
+        func: plot_python_pdf_full2
+        file: levelset_surface_tension_zoom
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        figsize: None
+        aspect_box: 'box'
+        aspect_ratio: 'equal'
+        cbarlabel: levelset_surface_tension
+        fontsize: 4
+        isocontour: False
+        levels: 10
+        # mesh_macro: |
+        #   global x_1D_2, y_1D_2
+        #   x_1D_2 = range(data.shape[0])
+        #   y_1D_2 = range(data.shape[1])
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: True
+        plot_levelset_segments: #True 
+        plot_normal: True
+        plot_normal_macro: |
+          normal_x
+        quiver_scale: 10
+        # skip_every: 
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        range: [0,1e-4]
+        xlim: [0,1]
+        ylim: [0,2]
+        zoom: [[0,15],[0,15]]
+        zoom_mode: index
+        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom_mode: coord
+        color_annot_bc: w
+        color_annot_bulk: w
+        linewidth: 1
+        linestyle: None
+
+      # - var: smoothed_volume_fraction
+      #   # func: plot_python_pdf_full2
+      #   file: smoothed_volume_fraction
+      #   macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+      #   figsize: None
+      #   aspect_box: 'box'
+      #   aspect_ratio: 'equal'
+      #   cbarlabel: volume_fraction
+      #   fontsize: 4
+      #   isocontour: False
+      #   levels: 10
+      #   # mesh_macro: |
+      #   #   global x_1D_2, y_1D_2
+      #   #   x_1D_2 = range(data.shape[0])
+      #   #   y_1D_2 = range(data.shape[1])
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: True
+      #   plot_levelset_segments: #True 
+      #   plot_normal: True
+      #   plot_normal_macro: |
+      #     normal_x
+      #   quiver_scale: 10
+      #   # skip_every: 
+      #   plot_mode: pcolormesh #contourf
+      #   print_mode: "val"
+      #   range: [0,1e-4]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
+      #   # zoom: [[0,5],[0,5]]
+      #   # zoom_mode: index
+      #   # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   # zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   # zoom_mode: coord
+      #   color_annot_bc: w
+      #   color_annot_bulk: w
+      #   linewidth: 1
+      #   linestyle: None
+
+      - var: volume_fraction
+        # func: plot_python_pdf_full2
+        file: volume_fraction
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        figsize: None
+        aspect_box: 'box'
+        aspect_ratio: 'equal'
+        cbarlabel: volume_fraction
+        fontsize: 4
+        isocontour: False
+        levels: 10
+        # mesh_macro: |
+        #   global x_1D_2, y_1D_2
+        #   x_1D_2 = range(data.shape[0])
+        #   y_1D_2 = range(data.shape[1])
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: True
+        plot_levelset_segments: #True 
+        plot_normal: True
+        plot_normal_macro: |
+          normal_x
+        # skip_every: 
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        range: [0,1e-4]
+        xlim: [0,1]
+        ylim: [0,2]
+        # zoom: [[0,5],[0,5]]
+        # zoom_mode: index
+        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom_mode: coord
+        color_annot_bc: w
+        color_annot_bulk: w
+        linewidth: 1
+        linestyle: None
+
+      - var: curvature_p
+        func: plot_python_pdf_full2
+        file: curvature_p
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+str("VOF" if yml["flower"]["simulation"]["surface_tension"] == 0 else "LS")+"_"+plotpar["theme"]+ ".pdf"',
+                          'file_name+"_"+str(mesh["nx"])+"_"+str("VOF" if yml["flower"]["simulation"]["surface_tension"] == 0 else "LS") + "_"+plotpar["theme"]+".svg"']
+        figsize: None
+        aspect_box: 'box'
+        aspect_ratio: 'equal'
+        cbarlabel: curvature_p
+        fontsize: 4
+        isocontour: False
+        levels: 10
+        mesh_macro: |
+          global x_1D_2, y_1D_2
+          dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
+      
+          xp = np.zeros(mesh['nx'])
+          xp[0] = mesh["xmin"]+dx/2.0
+          for i in range(1,mesh['nx']):
+              xp[i] = xp[i-1] + dx
+
+          x_1D_2 = xp
+
+          dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
+
+          yp = np.zeros(mesh['ny'])
+          yp[0] = mesh["ymin"]+dy/2.0
+          for i in range(1,mesh['ny']):
+              yp[i] = yp[i-1] + dy
+
+
+          y_1D_2 = yp
+          print('x_1D_2', x_1D_2)
+          print('y_1D_2', y_1D_2)
+
+        plot_bc: False #True
+        plot_grid: True
+        plot_levelset: True
+        plot_levelset_segments: #True 
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        range: [0,1e-4]
+        xlim: [0,1]
+        ylim: [0,2]
+        # zoom: [[0,5],[0,5]]
+        # zoom_mode: index
+        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        zoom: [[0.0,1.0],[0.0,1.0]] #[[1,10],[45,55]] activates BC plot so no longer square
+        zoom_mode: coord
+        color_annot_bc: w
+        color_annot_bulk: w
+        linewidth: 1
+        linestyle: None
+
+      - var: viscosity_coeff_for_du_dy
+        # func: plot_python_pdf_full2
+        file: viscosity_coeff_for_du_dy
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        figsize: None
+        aspect_box: 'box'
+        aspect_ratio: 'equal'
+        cbarlabel: viscosity_coeff_for_du_dy
+        fontsize: 4
+        isocontour: False
+        levels: 10
+        show_nodes: True
+        size_macro: |
+          global nx_2, ny_2
+          nx_2 = data.shape[0]-1
+          ny_2 = data.shape[1]-1
+
+        mesh_macro: |
+          global x_1D_2, y_1D_2
+
+          x_1D_2 = xu
+          y_1D_2 = yv
+          print('x_1D_2', x_1D_2)
+          print('y_1D_2', y_1D_2)
+
+          print('x_1D_2', len(x_1D_2))
+          print('y_1D_2', len(y_1D_2))
+          
+
+
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: True
+        plot_levelset_segments: #True 
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        range: [2,20] #[0,1e-4]
+        xlim: [0,1]
+        ylim: [0,2]
+        # zoom: [[0,5],[0,5]]
+        # zoom_mode: index
+        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom_mode: coord
+        color_annot_bc: w
+        color_annot_bulk: w
+        linewidth: 1
+        linestyle: None
+
+      - var: viscosity_coeff_for_du_dx
+        # func: plot_python_pdf_full2
+        file: viscosity_coeff_for_du_dx
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        figsize: None
+        aspect_box: 'box'
+        aspect_ratio: 'equal'
+        cbarlabel: viscosity_coeff_for_du_dx
+        fontsize: 4
+        isocontour: False
+        levels: 10
+        show_nodes: True
+        size_macro: |
+          global nx_2, ny_2
+          nx_2 = data.shape[0]-2
+          ny_2 = data.shape[1]
+        mesh_macro: |
+          global x_1D_2, y_1D_2
+          
+          # dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
+          # print('dx',dx)
+          # print('xu',xu)
+          # # x_1D_2 = [dx/8]+ xp + [xp[-1]+dx/4]
+          # # x_1D_2 = range(data.shape[0])/nx
+
+          # dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / (int(mesh["nx"]))
+
+          # xp = np.zeros(mesh['nx'])
+          # xp[0] = mesh["xmin"]+dx/2.0
+          # for i in range(1,mesh['nx']):
+          #     xp[i] = xp[i-1] + dx
+
+          dudx = np.zeros(nx+2)
+          dudx[0] = dx/8
+          dudx[1:nx+1] = xp
+          dudx[-1] = mesh["xmax"]-dx/8
+          x_1D_2 = dudx
+
+          # xufull = np.zeros(nx+2)
+          # xufull[1] = dx/4
+          # xufull[-1] = mesh["xmax"]
+          # xufull[-3] = mesh["xmax"]-dx/4
+
+
+          y_1D_2 = yp
+          print('x_1D_2', x_1D_2)
+          print('y_1D_2', y_1D_2)
+
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: True
+        plot_levelset_segments: #True 
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        range: [2,20] #[0,1e-4]
+        xlim: [0,1]
+        ylim: [0,2]
+        # zoom: [[0,5],[0,5]]
+        # zoom_mode: index
+        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom_mode: coord
+        color_annot_bc: w
+        color_annot_bulk: w
+        linewidth: 1
+        linestyle: None
+
+      - var: viscosity_coeff_for_dv_dy
+        # func: plot_python_pdf_full2
+        file: viscosity_coeff_for_dv_dy
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        figsize: None
+        aspect_box: 'box'
+        aspect_ratio: 'equal'
+        cbarlabel: viscosity_coeff_for_dv_dy
+        fontsize: 4
+        isocontour: False
+        levels: 10
+        show_nodes: True
+        mesh_macro: |
+          global x_1D_2, y_1D_2
+          dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
+        
+          xp = np.zeros(mesh['nx'])
+          xp[0] = mesh["xmin"]+dx/2.0
+          for i in range(1,mesh['nx']):
+              xp[i] = xp[i-1] + dx
+
+          dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
+
+          yp = np.zeros(mesh['ny'])
+          yp[0] = mesh["ymin"]+dy/2.0
+          for i in range(1,mesh['ny']):
+              yp[i] = yp[i-1] + dy
+
+          # dudx = np.zeros(nx+2)
+          # dudx[0] = dx/8
+          # dudx[1:nx+1] = xp
+          # dudx[-1] = mesh["xmax"]-dx/8
+          # x_1D_2 = dudx
+
+          # # xufull = np.zeros(nx+2)
+          # # xufull[1] = dx/4
+          # # xufull[-1] = mesh["xmax"]
+          # # xufull[-3] = mesh["xmax"]-dx/4
+
+          # y_1D_2 = y_1D
+          # print('x_1D_2', x_1D_2)
+          # print('y_1D_2', y_1D_2)
+
+          dvdy = np.zeros(ny+2)
+          dvdy[0] = dy/8
+          dvdy[1:ny+1] = yp
+          dvdy[-1] = mesh["ymax"]-dy/8
+
+          x_1D_2 = xp
+
+          y_1D_2 = dvdy
+          print('x_1D_2', x_1D_2)
+          print('y_1D_2', y_1D_2)
+
+
+
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: True
+        plot_levelset_segments: #True 
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        range: [0,1e-4]
+        xlim: [0,1]
+        ylim: [0,2]
+        # zoom: [[0,5],[0,5]]
+        # zoom_mode: index
+        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom_mode: coord
+        color_annot_bc: w
+        color_annot_bulk: w
+        linewidth: 1
+        linestyle: None
+
+      - var: viscosity_coeff_for_dv_dx
+        # func: plot_python_pdf_full2
+        file: viscosity_coeff_for_dv_dx
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        figsize: None
+        aspect_box: 'box'
+        aspect_ratio: 'equal'
+        cbarlabel: viscosity_coeff_for_dv_dx
+        fontsize: 4
+        isocontour: False
+        levels: 10
+        show_nodes: True
+        mesh_macro: |
+          global x_1D_2, y_1D_2         
+          x_1D_2 = xu
+          y_1D_2 = yv      
+          print('x_1D_2', x_1D_2)
+          print('y_1D_2', y_1D_2)
+
+
+
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: True
+        plot_levelset_segments: #True 
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        range: [0,1e-4]
+        xlim: [0,1]
+        ylim: [0,2]
+        # zoom: [[0,5],[0,5]]
+        # zoom_mode: index
+        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom_mode: coord
+        color_annot_bc: w
+        color_annot_bulk: w
+        linewidth: 1
+        linestyle: None
 
       # - var: dcap_1 
       #   func: plot_python_pdf_full2
@@ -529,8 +1121,8 @@ plot:
       #   plot_capacities: True
       #   plot_capacities_ijlist: [[1,1],[1,5],[1,10]]
       #   plot_mode: contourf
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
       #   zoom_mode: coord
       #   color_annot_bc: w
@@ -555,8 +1147,8 @@ plot:
       #   plot_mode: contourf
       #   print_mode: 
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: None
 
@@ -577,8 +1169,8 @@ plot:
       #   plot_mode: contourf
       #   print_mode: 
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: None
 
@@ -599,8 +1191,8 @@ plot:
       #   plot_mode: contourf
       #   print_mode: 
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: None
 
@@ -621,8 +1213,8 @@ plot:
       #   plot_mode: contourf
       #   print_mode: 
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: None
 
@@ -653,8 +1245,8 @@ plot:
       #   plot_mode: contourf #pcolormesh #contourf
       #   print_mode: "val"
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   # zoom: [[0,5],[0,5]]
       #   # zoom_mode: index
       #   # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
@@ -668,7 +1260,7 @@ plot:
 
       - var: concentration_H2_1DT 
         func: plot_python_pdf_full2
-        macro_file_name: ['file_name+"_"+str(mesh["nx"])+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ ".svg"']
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
         file: concentration_H2_zoom_no_bc
         cbarlabel: "$ \\text{Concentration} ~ \\ce{H2}$"
         img_format: pdf
@@ -680,8 +1272,8 @@ plot:
         plot_levelset: True
         plot_levelset_segments: False
         plot_mode: contourf
-        xlim: [0,100]
-        ylim: [0,100]
+        xlim: [0,1]
+        ylim: [0,2]
         zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
         zoom_mode: coord
         color_annot_bc: w
@@ -692,7 +1284,7 @@ plot:
       - var: concentration_H2_1DT
         file: concentration_H2
         func: plot_file
-        macro_file_name: ['file_name+"_"+str(mesh["nx"])+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ ".svg"']
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
         cbarlabel: "$\\text{Concentration}~H_2$"
         fontsize: 4
         isocontour: False
@@ -706,8 +1298,8 @@ plot:
         plot_mode: contourf
         print_mode: 
         range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
+        xlim: [0,1]
+        ylim: [0,2]
         linewidth: 1
         linestyle: None
 
@@ -727,8 +1319,8 @@ plot:
       #   plot_mode: pcolormesh #contourf
       #   print_mode: "val"
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   #zoom: [[0,5],[0,5]]
       #   #zoom_mode: index
       #   zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
@@ -754,8 +1346,8 @@ plot:
       #   plot_mode: contourf #pcolormesh #contourf
       #   print_mode: "val"
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   # zoom: [[0,5],[0,5]]
       #   # zoom_mode: index
       #   # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
@@ -782,8 +1374,8 @@ plot:
       #   plot_mode: pcolormesh #contourf
       #   print_mode: "val"
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   #zoom: [[0,5],[0,5]]
       #   #zoom_mode: index
       #   zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
@@ -808,8 +1400,8 @@ plot:
       #   plot_mode: pcolormesh #contourf
       #   print_mode: "val"
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   #zoom: [[0,5],[0,5]]
       #   #zoom_mode: index
       #   zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
@@ -832,8 +1424,8 @@ plot:
       #   plot_mode: pcolormesh #contourf
       #   print_mode: "val"
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   #zoom: [[0,5],[0,5]]
       #   #zoom_mode: index
       #   zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
@@ -856,14 +1448,16 @@ plot:
       #   plot_mode: pcolormesh #contourf
       #   print_mode: "val"
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   #zoom: [[0,5],[0,5]]
       #   #zoom_mode: index
       #   zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
       #   zoom_mode: coord
       #   color_annot_bc: k #w
       #   color_annot_bulk: w
+
+     
 
       - var: rho_one_fluid
         # func: plot_python_pdf_full2
@@ -882,8 +1476,8 @@ plot:
         plot_mode: pcolormesh #contourf
         print_mode: "val"
         range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
+        xlim: [0,1]
+        ylim: [0,2]
         # zoom: [[0,5],[0,5]]
         # zoom_mode: index
         # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
@@ -912,8 +1506,8 @@ plot:
         plot_mode: pcolormesh #contourf
         print_mode: "val"
         range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
+        xlim: [0,1]
+        ylim: [0,2]
         # zoom: [[0,5],[0,5]]
         # zoom_mode: index
         # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
@@ -942,8 +1536,8 @@ plot:
         plot_mode: pcolormesh #contourf
         print_mode: "val"
         range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
+        xlim: [0,1]
+        ylim: [0,2]
         # zoom: [[0,5],[0,5]]
         # zoom_mode: index
         # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
@@ -972,8 +1566,8 @@ plot:
         plot_mode: pcolormesh #contourf
         print_mode: "val"
         range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
+        xlim: [0,1]
+        ylim: [0,2]
         # zoom: [[0,5],[0,5]]
         # zoom_mode: index
         # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
@@ -1002,8 +1596,8 @@ plot:
         plot_mode: pcolormesh #contourf
         print_mode: "val"
         range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
+        xlim: [0,1]
+        ylim: [0,2]
         # zoom: [[0,5],[0,5]]
         # zoom_mode: index
         # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
@@ -1024,16 +1618,16 @@ plot:
       #   plot_levelset: True
       #   plot_levelset_segments: False
       #   skip_every: 12
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   quiverkey: True 
       #   quiver_unit: m/s #given value v_inlet
       #   quiver_x: 0.7
       #   quiver_y: 0.97
       #   linewidth: 1
       #   linestyle: 'dotted'
-      #   ax_locator_x: [0,20,40,60,80,100]
-      #   ax_locator_y: [0,20,40,60,80,100]
+      #   ax_locator_x: [0,0.5,1]
+      #   ax_locator_y: [0,0.5,1]
 
 
       # - var: i_current_x
@@ -1051,8 +1645,8 @@ plot:
       #   plot_mode: contourf
       #   # range: [0,1e-4]
       #   ticks_format: '%.2e'
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: 'dotted'
       #   zoom_mode: None
@@ -1066,7 +1660,7 @@ plot:
       - var: i_current_x
         figsize: True
         file: current_lines
-        macro_file_name: ['file_name+"_"+str(mesh["nx"])+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ ".svg"']
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
         fig_fraction: 1.0
         fig_ratio: 0.5
         # add_schematics: #True
@@ -1074,8 +1668,8 @@ plot:
         fontsize: 6
         func: plot_current_lines
         cbarlabel: "$ \\text{Electrical potential} ~ (\\unit{V})$" #Electrical potential
-        ax_locator_x: [0,20,40,60,80,100]
-        ax_locator_y: [0,20,40,60,80,100]
+        ax_locator_x: [0,0.5,1]
+        ax_locator_y: [0,0.5,1]
         img_format: mp4
         isocontour: #True
         levels: 10 #10
@@ -1087,8 +1681,8 @@ plot:
         plot_mode: contourf
         # range: [0,1e-4]
         ticks_format: '%.2e'
-        xlim: [0,100]
-        ylim: [0,100]
+        xlim: [0,1]
+        ylim: [0,2]
         linewidth: 0.25 #1
         linestyle: '-' #'dotted'
         zoom_mode: None
@@ -1097,7 +1691,7 @@ plot:
         streamplot_cbarlabel: "$ \\text{Current magnitude} ~ \\rightarrow$"
         streamplot_color: 'k' #mag
         streamplot_mutation_scale: 5 #1 very small, 10 default?
-        # start_points: 'np.array([[100,100,100,100,100,100,100,100,100,100,100,100,100,100], [10,20,30,40,45,47.5,48,51,52.5,55,60,70,80,90]])' #'np.array([[0,20,40,60,80,100], [0,20,40,60,80,100]])'
+        # start_points: 'np.array([[100,100,100,100,100,100,100,100,100,100,100,100,100,100], [10,20,30,40,45,47.5,48,51,52.5,55,60,70,80,90]])' #'np.array([[0,0.5,1], [0,0.5,1]])'
      
         # broken_streamlines: True
         streamplot_lw: 0.25
@@ -1117,8 +1711,8 @@ plot:
         plot_levelset_segments: False
         plot_mode: contourf
         range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
+        xlim: [0,1]
+        ylim: [0,2]
         linewidth: 0.5
         linestyle: 'dotted'
 
@@ -1133,8 +1727,8 @@ plot:
       #   plot_levelset_segments: False
       #   plot_mode: contourf
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: None
 
@@ -1149,8 +1743,8 @@ plot:
       #   plot_levelset_segments: False
       #   plot_mode: contourf
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: None
 
@@ -1164,8 +1758,8 @@ plot:
       #   plot_levelset: False
       #   plot_mode: contourf
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: None
       
@@ -1182,8 +1776,8 @@ plot:
       #   plot_mode: colormesh
       #   print_mode: "val"
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: None
       #   zoom: [[0,5],[0,5]]
@@ -1204,8 +1798,8 @@ plot:
       #   plot_mode: contourf
       #   print_mode: 
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: None
 
@@ -1220,8 +1814,8 @@ plot:
       #   plot_levelset_segments: False
       #   plot_mode: contourf
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: None
 
@@ -1236,8 +1830,8 @@ plot:
       #   plot_levelset_segments: False
       #   plot_mode: contourf
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: None
 
@@ -1259,8 +1853,8 @@ plot:
       #   plot_mode: pcolormesh #contourf
       #   print_mode: "ijcoord" #"val"
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   # zoom: [[0,5],[0,5]]
       #   # zoom_mode: index
       #   # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
@@ -1289,8 +1883,8 @@ plot:
       #   plot_mode: pcolormesh #contourf
       #   print_mode: "ijval" #"val"
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   # zoom: [[0,5],[0,5]]
       #   # zoom_mode: index
       #   # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
@@ -1318,8 +1912,8 @@ plot:
       #   plot_mode: pcolormesh #contourf
       #   print_mode: "val"
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   # zoom: [[0,5],[0,5]]
       #   # zoom_mode: index
       #   # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
@@ -1345,8 +1939,8 @@ plot:
       #   plot_mode: pcolormesh #contourf
       #   print_mode: "val"
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   #zoom: [[0,5],[0,5]]
       #   #zoom_mode: index
       #   zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
@@ -1369,8 +1963,8 @@ plot:
       #   plot_mode: pcolormesh #contourf
       #   print_mode: ijy #ijx #ijcoord #ijval #ij #"val"
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
       #   zoom_mode: coord
       #   color_annot_bc: w
@@ -1390,8 +1984,8 @@ plot:
       #   plot_mode: pcolormesh #contourf
       #   print_mode: ijval #ij #"val"
       #   range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
       #   zoom_mode: coord
       #   color_annot_bc: w
@@ -1415,8 +2009,8 @@ plot:
       #   plot_mode: contourf
       #   range: [0,1e-4]
       #   ticks_format: '%.2e'
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: None
       #   zoom: [[0,5],[0,5]]
@@ -1439,8 +2033,8 @@ plot:
       #   plot_mode: pcolormesh #contourf
       #   print_mode: "val"
       #   # range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   #zoom: [[0,5],[0,5]]
       #   #zoom_mode: index
       #   zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
@@ -1456,8 +2050,8 @@ plot:
       #   file: current_lines
       #   func: plot_current_lines
       #   cbarlabel: Electrical potential
-      #   ax_locator_x: [0,20,40,60,80,100]
-      #   ax_locator_y: [0,20,40,60,80,100]
+      #   ax_locator_x: [0,0.5,1]
+      #   ax_locator_y: [0,0.5,1]
       #   img_format: mp4
       #   isocontour: #True
       #   levels: 10 #10
@@ -1469,8 +2063,8 @@ plot:
       #   plot_mode: contourf
       #   # range: [0,1e-4]
       #   ticks_format: '%.2e'
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: 'dotted'
       #   zoom_mode: None
@@ -1484,8 +2078,8 @@ plot:
       # - var: i_current_mag 
       #   file: i_current_mag
       #   cbarlabel: "Current magnitude"
-      #   ax_locator_x: [0,20,40,60,80,100]
-      #   ax_locator_y: [0,20,40,60,80,100]
+      #   ax_locator_x: [0,0.5,1]
+      #   ax_locator_y: [0,0.5,1]
       #   img_format: mp4
       #   isocontour: False
       #   levels: 10
@@ -1495,8 +2089,8 @@ plot:
       #   plot_levelset: True
       #   plot_levelset_segments: False
       #   plot_mode: contourf
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: None
       #   zoom_mode: None
@@ -1515,8 +2109,8 @@ plot:
       #   plot_mode: contourf
       #   range: [0,1e-4]
       #   ticks_format: '%.2e'
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: None
       #   zoom: [[0,5],[0,5]]
@@ -1537,8 +2131,8 @@ plot:
         # plot_mode: pcolormesh #contourf
         # print_mode: "val"
         # range: [0,1e-4]
-        # xlim: [0,100]
-        # ylim: [0,100]
+        # xlim: [0,1]
+        # ylim: [0,2]
         # #zoom: [[0,5],[0,5]]
         # #zoom_mode: index
         # zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
@@ -1559,8 +2153,8 @@ plot:
         plot_levelset: True
         plot_levelset_segments: False
         plot_mode: contourf
-        xlim: [0,100]
-        ylim: [0,100]
+        xlim: [0,1]
+        ylim: [0,2]
         zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
         zoom_mode: coord
         color_annot_bc: w
@@ -1589,8 +2183,8 @@ plot:
       #   plot_mode: contourf #contourf_LS #pcolormesh #contourf
       #   print_mode: "val"
       #   # range: [0,1e-4]
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
       #   zoom_mode: coord
       #   color_annot_bc: w
@@ -1619,8 +2213,8 @@ plot:
         plot_mode: contourf_LS #pcolormesh #contourf
         print_mode: "val"
         # range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
+        xlim: [0,1]
+        ylim: [0,2]
         zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
         zoom_mode: coord
         color_annot_bc: w
@@ -1633,8 +2227,8 @@ plot:
         figsize: None
         aspect_box: 'box'
         aspect_ratio: 'equal'
-        ax_locator_x: [0,20,40,60,80,100]
-        ax_locator_y: [0,20,40,60,80,100]
+        ax_locator_x: [0,0.5,1]
+        ax_locator_y: [0,0.5,1]
         cbarlabel: Levelset p
         color_LS: "#0072B2" #'cyan'
         img_format: mp4
@@ -1650,8 +2244,8 @@ plot:
         plot_mode: contourf_LS #pcolormesh #contourf
         print_mode: "val"
         # range: [0,1e-4]
-        xlim: [0,100]
-        ylim: [0,100]
+        xlim: [0,1]
+        ylim: [0,2]
         # zoom: [[0,5],[0,5]]
         # zoom_mode: index
         # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
@@ -1677,8 +2271,8 @@ plot:
         plot_mode: contourf
         range: [0,1e-4]
         ticks_format: '%.2e'
-        xlim: [0,100]
-        ylim: [0,100]
+        xlim: [0,1]
+        ylim: [0,2]
         linewidth: 1
         linestyle: None
         # zoom: [[0,5],[0,5]]
@@ -1699,8 +2293,8 @@ plot:
       #   plot_mode: contourf
       #   range: [0,1e-4]
       #   ticks_format: '%.2e'
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: None
       #   zoom: [[0,5],[0,5]]
@@ -1713,8 +2307,8 @@ plot:
         plot_levelset: True
         plot_levelset_segments: False
         skip_every: 12
-        xlim: [0,100]
-        ylim: [0,100]
+        xlim: [0,1]
+        ylim: [0,2]
         quiverkey: True 
         quiver_unit: m/s #given value v_inlet
         quiver_x: 0.7
@@ -1740,8 +2334,8 @@ plot:
       #   plot_levelset: True
       #   plot_levelset_segments: False
       #   plot_mode: contourf
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: None
       #   zoom_mode: None
@@ -1758,8 +2352,8 @@ plot:
       #   plot_levelset: True
       #   plot_levelset_segments: False
       #   plot_mode: contourf
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: None
       #   zoom_mode: None
@@ -1776,8 +2370,8 @@ plot:
       #   plot_levelset: True
       #   plot_levelset_segments: False
       #   plot_mode: contourf
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: None
       #   zoom_mode: None
@@ -1791,8 +2385,8 @@ plot:
         plot_levelset: True
         plot_levelset_segments: False
         skip_every: 12
-        xlim: [0,100]
-        ylim: [0,100]
+        xlim: [0,1]
+        ylim: [0,2]
         quiverkey: True 
         quiver_unit: m/s #given value v_inlet
         quiver_x: 0.7
@@ -1815,8 +2409,8 @@ plot:
       #   plot_mode: contourf
       #   # range: [0,1e-4]
       #   ticks_format: '%.2e'
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   linewidth: 1
       #   linestyle: 'dotted'
       #   zoom_mode: None
@@ -1839,8 +2433,8 @@ plot:
         plot_mode: contourf
         range: [0,1e-4]
         ticks_format: '%.2e'
-        xlim: [0,100]
-        ylim: [0,100]
+        xlim: [0,1]
+        ylim: [0,2]
         linewidth: 1
         linestyle: None
         zoom_mode: None
@@ -1858,8 +2452,8 @@ plot:
         plot_mode: contourf
         range: [0,1e-4]
         ticks_format: '%.2e'
-        xlim: [0,100]
-        ylim: [0,100]
+        xlim: [0,1]
+        ylim: [0,2]
         linewidth: 1
         linestyle: None
         zoom_mode: None
@@ -1873,15 +2467,15 @@ plot:
         file: concentration_H2_through_bubble
         func: plot_1D
         fontsize: 10
-        labels: [["$x ( \\unit{\\um})$", "$ \\text{Concentration} ~ \\ce{H2}$" ]]
+        labels: [["$x ( \\unit{\\m})$", "$ \\text{Concentration} ~ \\ce{H2}$" ]]
         linestyles: ['(0, (3, 6))' ] #,
                     #  '(3, (3, 6))', #"dashdot"
                     #  '(6, (3, 6))'] #"dotted" #['-']
-        ticks: ['[0,20,40,60,80,100]', '[0,20,40,60,80,100]']
+        ticks: ['[0,0.5,1]', '[0,0.5,1]']
         linewidth: 0.5
         # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
         
-        macro_file_name: ['file_name+ ".pdf"', 'file_name+".svg"']
+        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+plotpar["theme"]+".svg"']
 
         macro_slice: "veci(reshape_data(data),nx,ny,field_index)[ny//2,:]"
 
@@ -1923,13 +2517,13 @@ plot:
         file: phi_through_bubble #_poisson_iter
         func: plot_1D
         fontsize: 10
-        labels: [["$x ( \\unit{\\um})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
+        labels: [["$x ( \\unit{\\m})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
         legend_pos: upper center
         linestyles: ['(0, (3, 6))' ] #,
                     #  '(3, (3, 6))', #"dashdot"
                     #  '(6, (3, 6))'] #"dotted" #['-']
 
-        ticks: ['[0,20,40,60,80,100]', '[0,20,40,60,80,100]']
+        ticks: ['[0,0.5,1]', '[0,0.5,1]']
         linewidth: 0.5
         # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
         
@@ -2000,11 +2594,11 @@ plot:
       # - var: [[x_1D,phi_ele_1D]]
       #   file: poisson_iter
       #   func: plot_1D
-      #   labels: [["$x ( \\unit{\\um})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
+      #   labels: [["$x ( \\unit{\\m})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
       #   linestyles: ['(0, (3, 6))' ] #,
       #               #  '(3, (3, 6))', #"dashdot"
       #               #  '(6, (3, 6))'] #"dotted" #['-']
-      #   ticks: ['[0,20,40,60,80,100]', '[0,20,40,60,80,100]']
+      #   ticks: ['[0,0.5,1]', '[0,0.5,1]']
       #   linewidth: 0.5
       #   # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
         
@@ -2075,11 +2669,11 @@ plot:
       - var: [[x_1D,phi_ele_1D]]
         file: phi
         func: plot_1D
-        labels: [["$x ( \\unit{\\um})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
+        labels: [["$x ( \\unit{\\m})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
         linestyles: ['(0, (3, 6))' ] #,
                     #  '(3, (3, 6))', #"dashdot"
                     #  '(6, (3, 6))'] #"dotted" #['-']
-        ticks: ['[0,20,40,60,80,100]', '[0,20,40,60,80,100]']
+        ticks: ['[0,0.5,1]', '[0,0.5,1]']
         linewidth: 0.5
         # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
         
@@ -2149,11 +2743,11 @@ plot:
       # - var: [[y_1D,phi_ele_1D]] 
       #   file: phi_wall
       #   func: plot_1D
-      #   labels: [["$y ( \\unit{\\um})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
+      #   labels: [["$y ( \\unit{\\m})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
       #   linestyles: ['(0, (3, 6))' ] #,
       #               #  '(3, (3, 6))', #"dashdot"
       #               #  '(6, (3, 6))'] #"dotted" #['-']
-      #   ticks: ['[0,20,40,60,80,100]', '[0,20,40,60,80,100]']
+      #   ticks: ['[0,0.5,1]', '[0,0.5,1]']
       #   linewidth: 0.5
       #   # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
         
@@ -2164,16 +2758,16 @@ plot:
         file: phi_wall #_poisson_iter
         func: plot_1D
         fontsize: 10
-        labels: [["$y ( \\unit{\\um})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
+        labels: [["$y ( \\unit{\\m})$", "$ \\text{Electrical potential} ~ (\\unit{V})$"]]
         linestyles: ['(0, (3, 6))' ] #,
                     #  '(3, (3, 6))', #"dashdot"
                     #  '(6, (3, 6))'] #"dotted" #['-']
-        ticks: ['[0,20,40,60,80,100]', '[0,20,40,60,80,100]']
+        ticks: ['[0,0.5,1]', '[0,0.5,1]']
         linewidth: 0.5
         # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
         
-        # macro_file_name: ['file_name+"_"+str(mesh["nx"])+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ ".svg"']
-        macro_file_name: ['file_name+ ".pdf"', 'file_name+".svg"']
+        # macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+plotpar["theme"]+".svg"']
         macro_slice: "vecb_L(reshape_data(data),nx,ny)" #"reshape_data_veci(data,nx,ny,field_index)[:,0]"
         add_schematics: True
         add_schematics_coords: [0,1,0,0.001]
@@ -2201,16 +2795,16 @@ plot:
         file: concentration_KOH_wall #_poisson_iter
         func: plot_1D
         fontsize: 10
-        labels: [["$y ( \\unit{\\um})$", "$ \\text{Concentration} ~ KOH$" ]]
+        labels: [["$y ( \\unit{\\m})$", "$ \\text{Concentration} ~ KOH$" ]]
         linestyles: ['(0, (3, 6))' ] #,
                     #  '(3, (3, 6))', #"dashdot"
                     #  '(6, (3, 6))'] #"dotted" #['-']
-        ticks: ['[0,20,40,60,80,100]', '[0,20,40,60,80,100]']
+        ticks: ['[0,0.5,1]', '[0,0.5,1]']
         linewidth: 0.5
         # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
         
-        # macro_file_name: ['file_name+"_"+str(mesh["nx"])+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ ".svg"']
-        macro_file_name: ['file_name+ ".pdf"', 'file_name+".svg"']
+        # macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+plotpar["theme"]+".svg"']
         macro_slice: "vecb_L(reshape_data(data),nx,ny)" #"reshape_data_veci(data,nx,ny,field_index)[:,0]"
         add_schematics: True
         add_schematics_coords: [0,1,0,0.001]
@@ -2249,16 +2843,16 @@ plot:
         file: concentration_H2_wall #_poisson_iter
         func: plot_1D
         fontsize: 10
-        labels: [["$y ( \\unit{\\um})$", "$ \\text{Concentration} ~ \\ce{H2}$" ]]
+        labels: [["$y ( \\unit{\\m})$", "$ \\text{Concentration} ~ \\ce{H2}$" ]]
         linestyles: ['(0, (3, 6))' ] #,
                     #  '(3, (3, 6))', #"dashdot"
                     #  '(6, (3, 6))'] #"dotted" #['-']
-        ticks: ['[0,20,40,60,80,100]', '[0,20,40,60,80,100]']
+        ticks: ['[0,0.5,1]', '[0,0.5,1]']
         linewidth: 0.5
         # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
         
-        # macro_file_name: ['file_name+"_"+str(mesh["nx"])+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ ".svg"']
-        macro_file_name: ['file_name+ ".pdf"', 'file_name+".svg"']
+        # macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+plotpar["theme"]+".svg"']
         macro_slice: "vecb_L(reshape_data(data),nx,ny)" #"reshape_data_veci(data,nx,ny,field_index)[:,0]"
         add_schematics: True
         add_schematics_coords: [0,1,0,0.001]
@@ -2296,16 +2890,16 @@ plot:
       # - var: [[y_1D,concentration_KOH_1DT]] 
       #   file: concentration_KOH_wall
       #   func: plot_1D
-      #   labels: [["$y ( \\unit{\\um})$", "$ \\text{Concentration} ~ KOH$" ]]
+      #   labels: [["$y ( \\unit{\\m})$", "$ \\text{Concentration} ~ KOH$" ]]
       #   linestyles: ['(0, (3, 6))' ] #,
       #               #  '(3, (3, 6))', #"dashdot"
       #               #  '(6, (3, 6))'] #"dotted" #['-']
-      #   ticks: ['[0,20,40,60,80,100]', '[0,20,40,60,80,100]']
+      #   ticks: ['[0,0.5,1]', '[0,0.5,1]']
       #   linewidth: 0.5
       #   # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
         
-      #   # macro_file_name: ['file_name+"_"+str(mesh["nx"])+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ ".svg"']
-      #   macro_file_name: ['file_name+ ".pdf"', 'file_name+".svg"']
+      #   # macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+      #   macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+plotpar["theme"]+".svg"']
 
       #   macro_slice: "vecb_L(reshape_data(data),nx,ny)" #"reshape_data_veci(data,nx,ny,field_index)[:,0]"
 
@@ -2323,8 +2917,8 @@ plot:
       #   plot_levelset: True
       #   plot_levelset_segments: False
       #   plot_mode: contourf
-      #   xlim: [0,100]
-      #   ylim: [0,100]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
       #   zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
       #   zoom_mode: coord
       #   color_annot_bc: w
@@ -2348,7 +2942,7 @@ plot:
       #   linestyles: ['(0, (3, 6))' ] #,
       #               #  '(3, (3, 6))', #"dashdot"
       #               #  '(6, (3, 6))'] #"dotted" #['-']
-      #   ticks: ['[1,2,3,4,5]', '[0,20,40,60,80,100]']
+      #   ticks: ['[1,2,3,4,5]', '[0,0.5,1]']
       #   linewidth: 0.5
       #   # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
         
@@ -2427,8 +3021,8 @@ plot:
         # plot_levelset_segments: False
         # plot_mode: contourf
         # range: [0,1e-4]
-        # xlim: [0,100]
-        # ylim: [0,100]
+        # xlim: [0,1]
+        # ylim: [0,2]
         # linewidth: 1
         # linestyle: None
         # zoom_mode: None
@@ -2474,16 +3068,16 @@ plot:
   #do not plot 2D figure, used in special plots (velocity vectors and current lines):
   no_2D_plot: ["velocity_x","velocity_y","i_current_x","i_current_y"] 
   pdi: 1 #1: pdi activated
-  quiver_scale: 1e-4
+  quiver_scale: 1 #1 #1e-4
   quiver_scale_unit: xy #None
   scale_time: 1e-3
   scale_vel: 1e-4 
-  scale_x: 1e-6
-  scale_y: 1e-6
+  scale_x: 1.0 #1e-6
+  scale_y: 1.0 #1e-6
   theta1: 0
   theta2: 90
-  ticks_x: 0:20:100
-  ticks_y: 0:20:100
+  ticks_x: 0:1:0.5 #0:20:100
+  ticks_y: 0:2:0.5 #0:20:100
   unit_time: ms
   write_h5: 0
   
@@ -2504,6 +3098,7 @@ plot:
   print_mode: "val"
   plotbc: true
   prefix: "./"
+  show_nodes: False
 
 
   #TODO call compute_grad_phi_ele! only when needed
@@ -2646,6 +3241,9 @@ pdi:
     mass_flux_border: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     mass_flux_intfc: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     normal_angle: { size: [ '$nx', '$ny' ], type: array, subtype: double } # angle to compute normal (cos,sin) in 2D
+    normal_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } # angle to compute normal (cos,sin) in 2D
+    normal_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } # angle to compute normal (cos,sin) in 2D
+
     normal_velocity_intfc: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     dcap_1: { size: [ '$nx', '$ny'], type: array, subtype: double } #Field of the current subdomain
     dcap_2: { size: [ '$nx', '$ny'], type: array, subtype: double } #Field of the current subdomain
@@ -2669,6 +3267,11 @@ pdi:
     mu_one_fluid: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
 
     volume_fraction: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    smoothed_volume_fraction: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    levelset_surface_tension: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+   
+    levelset_heavyside: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+
     curvature_p: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
 
     curvature_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdomain
@@ -2676,6 +3279,17 @@ pdi:
    
     volumic_surface_tension_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     volumic_surface_tension_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
+
+    viscosity_coeff_for_du_dx: { size: [ '$nx+2', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    
+    viscosity_coeff_for_dv_dy: { size: [ '$nx', '$ny+2' ], type: array, subtype: double } #Field of the current subdomain
+
+    viscosity_coeff_for_du_dy: { size: [ '$nx+1', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
+    
+    viscosity_coeff_for_dv_dx: { size: [ '$nx+1', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
+
+
+    
 
     # stored in 3D
     dcap: { size: [ 11,'$nx', '$ny'], type: array, subtype: double } #Field of the current subdomain
@@ -2874,7 +3488,34 @@ pdi:
         #   # print("\nDense Representation:")
         #   # print(sparse_matrix.toarray())
             
+        write_one_fluid_surface_tension:
+          #curvature should be 4 (R =0.25)
+          with: 
+            volume_fraction: $volume_fraction
+            curvature_p: $curvature_p
+            curvature_u: $curvature_u
+            curvature_v: $curvature_v
+            volumic_surface_tension_u: $volumic_surface_tension_u
+            volumic_surface_tension_v: $volumic_surface_tension_v
 
+          exec: |
+            import numpy as np
+
+            print('\033[36m')
+
+            print('[write_one_fluid_surface_tension]')
+            print('curvature')
+            print("min(u)  {u:.2e} min(v)  {v:.2e} min(p)  {p:.2e}".format(u=np.min(curvature_u),v=np.min(curvature_v),p=np.min(curvature_p)))
+            print("max(u)  {u:.2e} max(v)  {v:.2e} max(p)  {p:.2e}".format(u=np.max(curvature_u),v=np.max(curvature_v),p=np.max(curvature_p)))
+            print("mean(u) {u:.2e} mean(v) {v:.2e} mean(p) {p:.2e}".format(u=np.mean(curvature_u),v=np.mean(curvature_v),p=np.mean(curvature_p)))
+            print('volumic_surface_tension')
+            print("min(u)  {u:.2e} min(v)  {v:.2e} ".format(u=np.min(volumic_surface_tension_u),v=np.min(volumic_surface_tension_v)))
+            print("max(u)  {u:.2e} max(v)  {v:.2e} ".format(u=np.max(volumic_surface_tension_u),v=np.max(volumic_surface_tension_v)))
+
+
+            print('\033[0m')
+
+     
 
         rhs_uv:
           with: 
@@ -2951,20 +3592,56 @@ pdi:
               print('bulk v velocity',*line)
 
 
-            print('bulk_pressure',rhs_uv[ntu+ntv+nNavier*nip:ntu+ntv+(nNavier+1)*nip],len(rhs_uv[ntu+ntv+nNavier*nip:ntu+ntv+(nNavier+1)*nip]))
+            # print('bulk_pressure',rhs_uv[ntu+ntv+nNavier*nip:ntu+ntv+(nNavier+1)*nip],len(rhs_uv[ntu+ntv+nNavier*nip:ntu+ntv+(nNavier+1)*nip]))
 
-            # bulk
-            field = rhs_uv[ntu+ntv+nNavier*nip:ntu+ntv+(nNavier+1)*nip]
-            field = np.reshape(field, (nx, ny))   
-            field = field.transpose()
+            # # bulk
+            # field = rhs_uv[ntu+ntv+nNavier*nip:ntu+ntv+(nNavier+1)*nip]
+            # field = np.reshape(field, (nx, ny))   
+            # field = field.transpose()
 
-            for line in field:
-              print('bulk p',*line)
+            # for line in field:
+            #   print('bulk p',*line)
 
-            print('interface_pressure',rhs_uv[ntu+ntv+(nNavier+1)*nip:ntu+ntv+(nNavier+2)*nip],len(rhs_uv[ntu+ntv+(nNavier+1)*nip:ntu+ntv+(nNavier+2)*nip]))
+            # print('interface_pressure',rhs_uv[ntu+ntv+(nNavier+1)*nip:ntu+ntv+(nNavier+2)*nip],len(rhs_uv[ntu+ntv+(nNavier+1)*nip:ntu+ntv+(nNavier+2)*nip]))
 
 
-            print('border_pressure',rhs_uv[nt-nbp:nt],len(rhs_uv[nt-nbp:nt]))
+            # print('border_pressure',rhs_uv[nt-nbp:nt],len(rhs_uv[nt-nbp:nt]))
+
+            print('\033[0m')
+
+
+        viscosity_coeff_for_du_dx:
+          with:
+            viscosity_coeff_for_du_dx: $viscosity_coeff_for_du_dx          
+            nx: $nx
+            ny: $ny
+          exec: |
+            import numpy as np
+            print('\033[36m')
+            print('[viscosity_coeff_for_du_dx]')
+            print(np.min(viscosity_coeff_for_du_dx),np.max(viscosity_coeff_for_du_dx))
+
+            for j in range(ny):
+              print(viscosity_coeff_for_du_dx[:,j])
+
+
+            print(viscosity_coeff_for_du_dx)
+
+            print('\033[0m')
+
+        viscosity_coeff_for_dv_dy:
+          with:
+            viscosity_coeff_for_dv_dy: $viscosity_coeff_for_dv_dy          
+          exec: |
+            import numpy as np
+            print('\033[36m')
+            print('[viscosity_coeff_for_dv_dy]')
+            print(np.min(viscosity_coeff_for_dv_dy),np.max(viscosity_coeff_for_dv_dy))
+
+            for j in range(ny+2):
+              print(viscosity_coeff_for_dv_dy[:,j])
+
+            print(viscosity_coeff_for_dv_dy)
 
             print('\033[0m')
 
@@ -3555,85 +4232,85 @@ pdi:
 
             pressure_equal_on_line = True
 
-            # Print v
-            for j in range(0,ny):
-              slice_p = veci(p_1D,nx,ny,field_index)[j,:]
-              if (max(slice_p)-min(slice_p))/min(slice_p) > 1.0e-10:
-                pressure_equal_on_line = False 
-                print('Slice p',j,max(slice_p)-min(slice_p),(max(slice_p)-min(slice_p))/min(slice_p) )
-                # print('Slice p',j,slice_p)
-              slice_1D = veci(v_1D,nx,ny+1,field_index)[j,:]
-              print('Slice v',j,slice_1D)
+            # # Print v
+            # for j in range(0,ny):
+            #   slice_p = veci(p_1D,nx,ny,field_index)[j,:]
+            #   if (max(slice_p)-min(slice_p))/min(slice_p) > 1.0e-10:
+            #     pressure_equal_on_line = False 
+            #     print('Slice p',j,max(slice_p)-min(slice_p),(max(slice_p)-min(slice_p))/min(slice_p) )
+            #     # print('Slice p',j,slice_p)
+            #   slice_1D = veci(v_1D,nx,ny+1,field_index)[j,:]
+            #   print('Slice v',j,slice_1D)
             
          
-            mu1 = mu_cin1 * rho1
+            # mu1 = mu_cin1 * rho1
 
-            # print('mu1',mu1)
+            # # print('mu1',mu1)
 
-            x_1D = 0
-            y_1D = 0
+            # x_1D = 0
+            # y_1D = 0
             
-            # import numpy as np
-            xp = np.zeros(nx)
-            yp = np.zeros(ny)
+            # # import numpy as np
+            # xp = np.zeros(nx)
+            # yp = np.zeros(ny)
 
-            # xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
-            # yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+            # # xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+            # # yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
 
-            dx = (xmax - xmin) / nx
-            dy = (ymax - ymin) / ny
+            # dx = (xmax - xmin) / nx
+            # dy = (ymax - ymin) / ny
 
          
 
-            # print('len(xp)',len(xp),len(yp))
+            # # print('len(xp)',len(xp),len(yp))
 
-            xp[0] = xmin + dx/2
-            yp[0] = ymin + dy/2
+            # xp[0] = xmin + dx/2
+            # yp[0] = ymin + dy/2
 
-            for i in range(1,len(xp)):
-                xp[i] = xp[i-1]+dx
+            # for i in range(1,len(xp)):
+            #     xp[i] = xp[i-1]+dx
 
-            for i in range(1,len(yp)):
-                yp[i] = yp[i-1]+dx
+            # for i in range(1,len(yp)):
+            #     yp[i] = yp[i-1]+dx
 
-            yv = yp + dy / 2
-            yv = np.insert(yv, 0, yp[0] - dy / 2)
+            # yv = yp + dy / 2
+            # yv = np.insert(yv, 0, yp[0] - dy / 2)
 
-            # print('xp',xp) #xv too
-            # print('yp',yp)
-            # print('yv',yv)
+            # # print('xp',xp) #xv too
+            # # print('yp',yp)
+            # # print('yv',yv)
 
 
-            # p
-            from debug_flower import vecb, vecb_B,vecb_T,vecb_L,vecb_R
+            # # p
+            # from debug_flower import vecb, vecb_B,vecb_T,vecb_L,vecb_R
 
-            p_top = 0
-            p_bottom = p_top + 8*mu1/(xmax-xmin)*v_inlet
-            p_along_y = p_bottom + (yv - ymin)*(p_top-p_bottom)/(ymax - ymin)
-            print('p',p_along_y)
+            # p_top = 0
+            # p_bottom = p_top + 8*mu1/(xmax-xmin)*v_inlet
+            # p_along_y = p_bottom + (yv - ymin)*(p_top-p_bottom)/(ymax - ymin)
+            # print('p',p_along_y)
 
-            print('Bottom',vecb_B(p_1D,nx,ny))
-            print('Top',vecb_T(p_1D,nx,ny))
+            # print('Bottom',vecb_B(p_1D,nx,ny))
+            # print('Top',vecb_T(p_1D,nx,ny))
 
-            print('Left',vecb_L(p_1D,nx,ny))
-            print('Right',vecb_R(p_1D,nx,ny))
+            # print('Left',vecb_L(p_1D,nx,ny))
+            # print('Right',vecb_R(p_1D,nx,ny))
 
             
 
-            # v
-            slice_v_exact = 4* v_inlet * xp /(xmax-xmin)*(1-xp/(xmax-xmin))
-            print('slice v exact', slice_v_exact)
+            # # v
+            # slice_v_exact = 4* v_inlet * xp /(xmax-xmin)*(1-xp/(xmax-xmin))
+            # print('slice v exact', slice_v_exact)
             
            
 
-            # def Poiseuille(v_inlet,xp_full,xmin,xmax):
-            #   slice_v_exact = 4* v_inlet * xp_full /(xmax-xmin)*(1-xp_full/(xmax-xmin))
-            #   return slice_v_exact
+            # # def Poiseuille(v_inlet,xp_full,xmin,xmax):
+            # #   slice_v_exact = 4* v_inlet * xp_full /(xmax-xmin)*(1-xp_full/(xmax-xmin))
+            # #   return slice_v_exact
             
-            # xp_full = xmin
-            # print('Poiseuille',xp_full,Poiseuille(v_inlet,xp_full,xmin,xmax))
-            # xp_full = xmax
-            # print('Poiseuille',xp_full,Poiseuille(v_inlet,xp_full,xmin,xmax))
+            # # xp_full = xmin
+            # # print('Poiseuille',xp_full,Poiseuille(v_inlet,xp_full,xmin,xmax))
+            # # xp_full = xmax
+            # # print('Poiseuille',xp_full,Poiseuille(v_inlet,xp_full,xmin,xmax))
 
             print('\033[0m')
 
@@ -3866,10 +4543,20 @@ pdi:
            
             # print('F_residual normalized (unitless)',vecb_L(residual_py,nx_py,ny_py)/dcap_1[1,:]/vecb_L(rhs_1D,nx_py,ny_py))
 
-            print('F_residual normalized infty',np.max(np.abs(vecb_L(residual_py,nx_py,ny_py)))/np.max(np.abs(vecb_L(rhs_1D,nx_py,ny_py))))
-
-
             # print('vecb_L(rhs_1D,nx_py,ny_py)',vecb_L(rhs_1D,nx_py,ny_py))
+
+            if (np.max(np.abs(vecb_L(rhs_1D,nx_py,ny_py))) != 0):
+              
+              # print('np.max(np.abs(vecb_L(rhs_1D,nx_py,ny_py)) != 0',(np.max(np.abs(vecb_L(rhs_1D,nx_py,ny_py))) != 0) )
+             
+              print('vecb_L(rhs_1D,nx_py,ny_py)',vecb_L(rhs_1D,nx_py,ny_py))
+
+              print('vecb_L(elec_cond_1D_py,nx_py,ny_py)',vecb_L(elec_cond_1D_py,nx_py,ny_py) )
+
+              print('F_residual normalized infty',np.max(np.abs(vecb_L(residual_py,nx_py,ny_py)))/np.max(np.abs(vecb_L(rhs_1D,nx_py,ny_py))))
+            else:
+              print('vecb_L(rhs_1D,nx_py,ny_py)',vecb_L(rhs_1D,nx_py,ny_py))
+              print('F_residual normalized infty',np.max(np.abs(vecb_L(residual_py,nx_py,ny_py)))/np.max(np.abs(vecb_L(rhs_1D,nx_py,ny_py))))
 
 
             print('\033[0m')
@@ -4053,7 +4740,6 @@ pdi:
             domain_length: *domain_length
             # with: { phi_ele_1D_py: $phi_ele_1D, nx_py: $nx, ny_py: $ny}  
 
-  
           exec: |
             import numpy as np
             from debug_flower import butler_grad_phi,vecb_L,butler,veci
@@ -4086,6 +4772,97 @@ pdi:
             print("Residual wall {:.2e} whole  {:.2e}".format(residual_electrical_potential_wall,residual_electrical_potential_total))
 
 
+            # print('\n \033[93m'+'BC_phi_ele_left ',np.min(BC_phi_ele_left_py),np.max(BC_phi_ele_left_py),'\033[0m')
+
+
+            # print('\n \033[93m'+'i_current_x min ',np.min(i_current_x_py),'max ',np.max(i_current_x_py),'\033[0m')
+
+            # print('\n \033[93m'+'i_current_x_py ',i_current_x_py[:,ny_py//2],'\033[0m')
+
+            
+            # print('\n \033[93m'+'phi line ',phi[:,ny_py//2],'\033[0m') # vertical line 
+            # print('\n \033[93m'+'phi line ',phi[ny_py//2,:],'\033[0m') #horizontal line
+
+            # min_phi = np.min(phi_ele_1D_py)
+
+            # print('\n \033[93m'+'sum ',-i_current_x_py[:,ny_py//2]+butler(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
+
+            # print('\n \033[93m'+'Convergence Butler-Volmer ',np.max(np.abs(-i_current_x_py[:,ny_py//2]+butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0))),'\033[0m')
+
+
+            # print('\n \033[93m'+'ratio ',(-i_current_x_py[:,ny_py//2]+butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0)/butler(0,phi_ele1,Faraday,alpha,Ru,temperature0,i0),phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
+
+            # print('\n \033[93m'+'sum ',butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
+            
+            # print('\n \033[93m'+'sum ',butler(0,phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
+
+            # L = mesh_xmax-mesh_xmin
+            # print('\n \033[93m'+'phi ',min_phi,-L*butler_grad_phi(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,concentration0_KOH,diffusion_coeff_KOH,i0),'\033[0m')
+            # print('\n \033[93m'+'grad phi ',min_phi,butler_grad_phi(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,concentration0_KOH,diffusion_coeff_KOH,i0),'\033[0m')
+
+            # print(vecb_L(phi_ele_1D_py,nx_py,ny_py))
+
+            # from debug_flower import vecbprint,veci, butler
+            
+            # # vecbprint(phi_ele_1D_py,nx_py,ny_py)
+
+            # phi = veci(phi_ele_1D_py,nx_py,ny_py,1)
+
+            # # print(phi[nx_py/2,:])
+            # # print(phi[:,nx_py/2])
+
+            # # a = 0.66
+            # a = 0.6608349877730476
+            # L= 1e-4
+            # npoints=2
+            # xplot_new = np.linspace(0, L, npoints)
+            # yplot_new = a * (xplot_new / L - 1)
+
+            print('\033[0m')
+
+
+        print_electrical_potential:
+          with: 
+            poisson_iter: $poisson_iter
+            BC_phi_ele_left_py: $BC_phi_ele_left
+            elec_cond_1D_py: $elec_cond_1D
+            phi_ele_1D_py: $phi_ele_1D
+            i_current_x_py: $i_current_x
+            nx_py: $nx
+            ny_py: $ny
+            # variation_electrical_potential: $variation_electrical_potential
+            # residual_electrical_potential: $residual_electrical_potential
+            # phi_ele1: $phi_ele1
+            alpha: *alpha
+            i0: *i0
+            phi_ele1: *phi_ele1
+            Faraday: *Faraday
+            Ru: *Ru
+            temperature0: *temperature0
+            concentration0_KOH: *concentration0_KOH
+            diffusion_coeff_KOH: *diffusion_coeff_KOH
+            mesh_xmax: *mesh_xmax
+            mesh_xmin: *mesh_xmin
+            domain_length: *domain_length
+            # with: { phi_ele_1D_py: $phi_ele_1D, nx_py: $nx, ny_py: $ny}  
+
+  
+          exec: |
+            import numpy as np
+            from debug_flower import butler_grad_phi,vecb_L,butler,veci
+            
+            print('\n \033[93m')
+            print()
+            print('[print_electrical_potential] Poisson iter',poisson_iter,'\033[0m')
+
+            # print('\n \033[93m'+'Pycall ','\033[0m')
+
+            phi = veci(phi_ele_1D_py,nx_py,ny_py,1)
+
+
+            print('\n \033[93m'+'phi ',np.min(phi_ele_1D_py),np.max(phi_ele_1D_py),'\033[0m')
+
+            print('\n \033[93m'+'Conductivity min',np.min(elec_cond_1D_py),'max',np.max(elec_cond_1D_py),'\033[0m')
 
             # print('\n \033[93m'+'BC_phi_ele_left ',np.min(BC_phi_ele_left_py),np.max(BC_phi_ele_left_py),'\033[0m')
 
@@ -4135,106 +4912,10 @@ pdi:
             # yplot_new = a * (xplot_new / L - 1)
 
         
-
+            # print("Residual  {:.2e} absolute variation  {:.2e}".format(residual_electrical_potential,variation_electrical_potential))
+            # #num.electrical_potential_residual
 
             print('\033[0m')
-
-
-        # print_electrical_potential:
-        #   with: 
-        #     poisson_iter: $poisson_iter
-        #     BC_phi_ele_left_py: $BC_phi_ele_left
-        #     elec_cond_1D_py: $elec_cond_1D
-        #     phi_ele_1D_py: $phi_ele_1D
-        #     i_current_x_py: $i_current_x
-        #     nx_py: $nx
-        #     ny_py: $ny
-        #     # variation_electrical_potential: $variation_electrical_potential
-        #     # residual_electrical_potential: $residual_electrical_potential
-        #     # phi_ele1: $phi_ele1
-        #     alpha: *alpha
-        #     i0: *i0
-        #     phi_ele1: *phi_ele1
-        #     Faraday: *Faraday
-        #     Ru: *Ru
-        #     temperature0: *temperature0
-        #     concentration0_KOH: *concentration0_KOH
-        #     diffusion_coeff_KOH: *diffusion_coeff_KOH
-        #     mesh_xmax: *mesh_xmax
-        #     mesh_xmin: *mesh_xmin
-        #     domain_length: *domain_length
-        #     # with: { phi_ele_1D_py: $phi_ele_1D, nx_py: $nx, ny_py: $ny}  
-
-  
-        #   exec: |
-        #     import numpy as np
-        #     from debug_flower import butler_grad_phi,vecb_L,butler,veci
-            
-        #     print('\n \033[93m')
-        #     print()
-        #     print('[print_electrical_potential] Poisson iter',poisson_iter,'\033[0m')
-
-        #     # print('\n \033[93m'+'Pycall ','\033[0m')
-
-        #     phi = veci(phi_ele_1D_py,nx_py,ny_py,1)
-
-
-        #     # print('\n \033[93m'+'phi ',np.min(phi_ele_1D_py),np.max(phi_ele_1D_py),'\033[0m')
-
-        #     print('\n \033[93m'+'Conductivity min',np.min(elec_cond_1D_py),'max',np.max(elec_cond_1D_py),'\033[0m')
-
-        #     # print('\n \033[93m'+'BC_phi_ele_left ',np.min(BC_phi_ele_left_py),np.max(BC_phi_ele_left_py),'\033[0m')
-
-
-        #     # print('\n \033[93m'+'i_current_x min ',np.min(i_current_x_py),'max ',np.max(i_current_x_py),'\033[0m')
-
-        #     # print('\n \033[93m'+'i_current_x_py ',i_current_x_py[:,ny_py//2],'\033[0m')
-
-            
-        #     # print('\n \033[93m'+'phi line ',phi[:,ny_py//2],'\033[0m') # vertical line 
-        #     # print('\n \033[93m'+'phi line ',phi[ny_py//2,:],'\033[0m') #horizontal line
-
-        #     # min_phi = np.min(phi_ele_1D_py)
-
-        #     # print('\n \033[93m'+'sum ',-i_current_x_py[:,ny_py//2]+butler(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
-
-        #     # print('\n \033[93m'+'Convergence Butler-Volmer ',np.max(np.abs(-i_current_x_py[:,ny_py//2]+butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0))),'\033[0m')
-
-
-        #     # print('\n \033[93m'+'ratio ',(-i_current_x_py[:,ny_py//2]+butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0)/butler(0,phi_ele1,Faraday,alpha,Ru,temperature0,i0),phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
-
-        #     # print('\n \033[93m'+'sum ',butler(vecb_L(phi_ele_1D_py,nx_py,ny_py),phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
-            
-        #     # print('\n \033[93m'+'sum ',butler(0,phi_ele1,Faraday,alpha,Ru,temperature0,i0),'\033[0m')
-
-
-        #     # L = mesh_xmax-mesh_xmin
-        #     # print('\n \033[93m'+'phi ',min_phi,-L*butler_grad_phi(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,concentration0_KOH,diffusion_coeff_KOH,i0),'\033[0m')
-        #     # print('\n \033[93m'+'grad phi ',min_phi,butler_grad_phi(min_phi,phi_ele1,Faraday,alpha,Ru,temperature0,concentration0_KOH,diffusion_coeff_KOH,i0),'\033[0m')
-
-        #     # print(vecb_L(phi_ele_1D_py,nx_py,ny_py))
-
-        #     # from debug_flower import vecbprint,veci, butler
-            
-        #     # # vecbprint(phi_ele_1D_py,nx_py,ny_py)
-
-        #     # phi = veci(phi_ele_1D_py,nx_py,ny_py,1)
-
-        #     # # print(phi[nx_py/2,:])
-        #     # # print(phi[:,nx_py/2])
-
-        #     # # a = 0.66
-        #     # a = 0.6608349877730476
-        #     # L= 1e-4
-        #     # npoints=2
-        #     # xplot_new = np.linspace(0, L, npoints)
-        #     # yplot_new = a * (xplot_new / L - 1)
-
-        
-        #     # print("Residual  {:.2e} absolute variation  {:.2e}".format(residual_electrical_potential,variation_electrical_potential))
-        #     # #num.electrical_potential_residual
-
-        #     print('\033[0m')
 
 
           # - exec: import plot_flower; plot_flower.print_bc(phi_ele_1D_py) #TODO bug hdf5 so put debugging functions in debug_flower.py
@@ -4514,6 +5195,26 @@ pdi:
       
       - file: flower_${nstep:08}.h5 
         collision_policy: write_into
+        on_event: viscosity_coeff_for_du_dx
+        write: [viscosity_coeff_for_du_dx]
+      
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: viscosity_coeff_for_dv_dy
+        write: [viscosity_coeff_for_dv_dy]
+
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: viscosity_coeff_for_du_dy
+        write: [viscosity_coeff_for_du_dy]
+      
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: viscosity_coeff_for_dv_dx
+        write: [viscosity_coeff_for_dv_dx]
+
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
         on_event: write_data
         # datasets: #Dataset we are writing in: the whole solution
         #   data:
@@ -4521,7 +5222,7 @@ pdi:
         #     subtype: double
         #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
         # when: "$nstep%50 = 0"
-        write: [u_1D,v_1D,p_1D,time,nx,velocity_x,velocity_y,phi_ele_1D,levelset_p] #,i_current_x,i_current_y,i_current_mag]
+        write: [u_1D,v_1D,p_1D,time,nx,ny,velocity_x,velocity_y,phi_ele_1D,levelset_p] #,i_current_x,i_current_y,i_current_mag]
         #,trans_scal_1D_H2,trans_scal_1D_KOH,trans_scal_1D_H2O] #,levelset_p,levelset_u,levelset_v]
 
 
@@ -4534,7 +5235,7 @@ pdi:
         #     subtype: double
         #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
         # when: "$nstep%50 = 0"
-        write: [rho_one_fluid,mu_one_fluid]
+        write: [rho_one_fluid,volume_fraction] #mu_one_fluid
 
       - file: flower_${nstep:08}.h5 
         collision_policy: write_into
@@ -4545,14 +5246,25 @@ pdi:
         #     subtype: double
         #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
         # when: "$nstep%50 = 0"
-        write: [rho_one_fluid,mu_one_fluid,volume_fraction,curvature_p,curvature_u,curvature_v,volumic_surface_tension_u,volumic_surface_tension_v]
+        write: [volume_fraction,grad_u,grad_v,curvature_p,curvature_u,curvature_v,volumic_surface_tension_u,volumic_surface_tension_v,normal_x,normal_y,normal_angle]
 
+     
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: write_one_fluid_smoothed_volume_fraction
+        write: [smoothed_volume_fraction]
+
+
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: write_one_fluid_levelset
+        write: [levelset_surface_tension,levelset_heavyside]
      
 
       - file: poisson_${nx:08}_${poisson_iter:08}.h5 
         collision_policy: write_into
         on_event: check_electrical_potential
-        write: [poisson_iter,nx,phi_ele_1D,i_current_x,i_current_y,levelset_p,residual_electrical_potential,variation_electrical_potential]
+        write: [poisson_iter,nx,ny,phi_ele_1D,i_current_x,i_current_y,levelset_p,residual_electrical_potential,variation_electrical_potential]
         # $BC_phi_ele_left,elec_cond_1D
         #     phi_ele_1D_py: $phi_ele_1D
         #     i_current_x_py: $i_current_x

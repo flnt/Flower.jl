@@ -867,8 +867,8 @@ def plot_var_from_pandas(df,figpar,plotpar,physics):
 
     prefix="./"
 
-    plt.savefig(prefix+"phase_change.pdf",transparent=True)
-    plt.savefig(prefix+"phase_change.svg",transparent=True)
+    plt.savefig(prefix+'phase_change'+'_'+plotpar['theme']+'.pdf',transparent=True)
+    plt.savefig(prefix+'phase_change'+'_'+plotpar['theme']+'.svg',transparent=True)
     plt.close(fig1)
 
 
@@ -1231,7 +1231,7 @@ def plot_all_fig_func():
                     try:
                         func = globals()[figpar['func']] #'plot_current_lines'
 
-                        print(colored(figpar['func'], "cyan"))
+                        print(colored(figpar['func']+' '+figpar['file'], "cyan"))
                     except:
                         func = globals()['plot_file']
                         print(colored("Defaulting to plot_file" , "cyan"))
@@ -1239,6 +1239,8 @@ def plot_all_fig_func():
                     
                 else:
                     func = globals()['plot_file']
+                    
+                    print(colored('plot_file'+' '+figpar['file'], "cyan"))
 
 
                 key = figpar['var']
@@ -1818,9 +1820,122 @@ def plot_file(
 ):
     """Plot one figure for field"""
 
+    # print(key)
+    data = file[key][:]
+
+    print(key,"max ",np.max(data))
+
+    print('data shape',data.shape,data.ndim)
+
+    # if data.ndim == 2:
+
+    #     nx = data.shape[0]
+    #     ny = data.shape[1]
+    #     mesh["nx"] = nx
+    #     mesh["ny"] = ny
+     
+    if 'size_macro' in figpar.keys():
+        exec(figpar['size_macro'])
+        nx = nx_2
+        ny = ny_2
+
     nx = mesh["nx"]
     ny = mesh["ny"]
-    if key=="u_1D":
+
+    dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
+    xp = np.zeros(mesh['nx'])
+    xp[0] = mesh["xmin"]+dx/2.0
+    for i in range(1,mesh['nx']):
+        xp[i] = xp[i-1] + dx
+
+    # x_1D_2 = xp
+
+    dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
+
+    yp = np.zeros(mesh['ny'])
+    yp[0] = mesh["ymin"]+dy/2.0
+    for i in range(1,mesh['ny']):
+        yp[i] = yp[i-1] + dy
+
+    xu = np.zeros(nx+1)
+    xu[0] = dx/4
+    xu[1] = dx
+    for i in range(2,nx+1):
+        xu[i] = xu[i-1] + dx
+
+    print('xu',xu)
+
+    yv = np.zeros(ny+1)
+    yv[0] = dy/4
+    yv[1] = dy
+    for i in range(2,ny+1):
+        yv[i] = yv[i-1] + dx
+
+    print('yv',yv)
+
+    #region scale mesh
+
+    plotpar["scale_x"] = float(plotpar["scale_x"])
+    plotpar["scale_y"] = float(plotpar["scale_y"])
+
+    scale_x = float(plotpar["scale_x"])
+    scale_y = float(plotpar["scale_y"])
+
+    xp /= scale_x
+    yp /= scale_y
+    xu /= scale_x
+    yv /= scale_y
+
+    #endregion scale mesh
+
+
+    # print('after macro ')
+    # # print('len x1d ',())
+    # print('xp',xp)
+    
+    # dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / (int(mesh["nx"]))
+    # print('dx',dx)
+    # print('xmin',float(mesh["xmin"]), ' xmax ', float(mesh["xmax"]),dx )
+
+    # xp = np.zeros(mesh['nx'])
+    # xp[0] = mesh["xmin"]+dx/2.0
+    # for i in range(1,mesh['nx']):
+    #     xp[i] = xp[i-1] + dx
+    # # xp = np.linspace(mesh["xmin"]+dx/2.0,mesh["xmax"]-dx/2.0,mesh["nx"])
+
+    # print('test',dx/2,dx,mesh["xmin"]+dx/2.0, mesh["xmax"]-dx/2.0)
+
+
+    # print('xp',xp)
+    # print('len xp',len(xp))
+
+    # for ixp in range(len(xp)-1):
+    #     print('xp',(xp[ixp+1]-xp[ixp])/dx, xp[ixp],xp[ixp+1])
+
+    # print('yp',yp)
+    # print('len yp',len(yp))
+
+    # for i in range(len(yp)-1):
+    #     print('yp',(yp[i+1]-yp[i])/dy, yp[i],yp[i+1])
+
+
+
+    if 'mesh_macro' in figpar.keys():
+        # print('x_1D',len(x_1D),x_1D)
+        # print('y_1D',len(y_1D),y_1D)
+
+        exec(figpar['mesh_macro'])
+        x_1D = x_1D_2
+        y_1D = y_1D_2
+
+        print('x_1D',len(x_1D),x_1D)
+        print('y_1D',len(y_1D),y_1D)
+
+        key_LS = "levelset_p"
+        key_LS_wall = "levelset_p_wall"
+        key_normal = 'normal_angle'
+
+    elif key=="u_1D":
         nx=nx+1
         x_1D = xu 
         y_1D = yp
@@ -1840,10 +1955,10 @@ def plot_file(
         key_normal = 'normal_angle'
 
 
-    # print(key)
-    data = file[key][:]
 
-    print(key,"max ",np.max(data))
+
+
+
 
     
     if 'field_index' in figpar.keys():
@@ -1889,6 +2004,20 @@ def plot_file(
 
         field = data.transpose()
 
+    
+    # mesh["nx"] = nx
+    # mesh["ny"] = ny
+
+    # xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+    # yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+
+    # print('xp',xp)
+    # print('yp',yp)
+    # x_1D = xp
+    # y_1D = yp
+
+
+  
 
     if 'norm' in figpar.keys():
         print("figpar['norm']",figpar['norm'])
@@ -1926,6 +2055,8 @@ def plot_file(
     shading="nearest"
 
 
+   
+
     # if 'zoom' in figpar.keys():
     #     compute_zoom(figpar,i0,i1,j0,j1)
 
@@ -1954,11 +2085,18 @@ def plot_file(
 
     elif figpar["plot_mode"] == "pcolormesh":
         if figpar["levels"] == 0:
+
+            # print('pcolormesh',len(x_1D),len(y_1D),field.shape)
+
             norm = mpl_colors.BoundaryNorm(range, ncolors=cmap.N, clip=True)
             CS = ax2.pcolormesh(
                 x_1D, y_1D, field, cmap=plotpar["cmap"], norm=norm, shading=shading
             )
         else:
+
+            print('pcolormesh',len(x_1D),len(y_1D),field.shape)
+
+
             levels = mticker.MaxNLocator(nbins=figpar["levels"]).tick_values(
                 np.min(field), np.max(field)
             )
@@ -1986,16 +2124,23 @@ def plot_file(
             else:
                 collection.set_facecolor(figpar['color_LS'])  
 
+    print(colored('Test field','red'))
+
+    print(field)
+
+    # plt.savefig('test.svg',dpi=plotpar['dpi'],transparent=True)
+
+
     if figpar['plot_mode'] != "contourf_LS":
         # Make a colorbar for the ContourSet returned by the contourf call.
         if mode !='film':
             cbar = fig1.colorbar(CS)
-            cbar.ax.set_ylabel(r""+figpar['cbarlabel'])
+            cbar.ax.set_ylabel(r""+figpar['cbarlabel'],color=plotpar['text_color'])
         # Add the contour line levels to the colorbar
 
         else:
             cbar = plt.colorbar(CS,cax=cbar.ax)
-            cbar.ax.set_ylabel(r""+figpar['cbarlabel'])
+            cbar.ax.set_ylabel(r""+figpar['cbarlabel'],color=plotpar['text_color'])
             if 'ticks_format' in figpar:
                 if figpar['ticks_format']!=None:
                     cbar.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
@@ -2008,13 +2153,70 @@ def plot_file(
         colors="r")
         cbar.add_lines(CS2)
 
+    if plotpar['theme'] == 'dark':
+        cbar.outline.set_edgecolor(plotpar['text_color'])
+
+
+        cbar.ax.tick_params(axis='both', which='both', colors=plotpar['text_color'])
+        # cbar.ax.yaxis.set_tick_params(color='white')
+        plt.setp(plt.getp(cbar.ax, 'yticklabels'), color=plotpar['text_color'])
+
+    # plt.savefig('test.svg',dpi=plotpar['dpi'],transparent=True)
+
+
     if figpar['plot_levelset']:
         LSdat = file[key_LS][:]
         LSdat = LSdat.transpose()
-        CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
+        # CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
+        CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
 
     if 'plot_normal' in figpar.keys():
-        if figpar['plot_normal']:
+        if 'plot_normal_macro' in figpar.keys(): 
+            normal_x = file['normal_x'][:]
+            normal_y = file['normal_y'][:]
+
+            us = normal_x.transpose()
+            vs = normal_y.transpose()
+
+            # norm = us**2 + vs**2
+            # us = us/norm
+            # vs = vs/norm
+            print("nx",nx,"ny",ny)
+            for j in range(ny):
+                for i in range(nx):
+                    norm = np.sqrt(us[j,i]**2 + vs[j,i]**2)
+                    if norm !=0:
+                        us[j,i] = us[j,i]/norm
+                        vs[j,i] = vs[j,i]/norm
+                        print('norm i,j',i,j,us[j,i],vs[j,i],np.sqrt(us[j,i]**2 + vs[j,i]**2))
+
+    
+            scale_units=plotpar["quiver_scale_unit"]
+            scale_units = None if scale_units == 'None' else scale_units
+            
+            # if 'skip_every' in figpar.keys():
+            #     skip_every = int(figpar['skip_every'])
+            # else:
+            #     skip_every = int(plotpar['skip_every'])
+            
+            skip_every = int(figpar.get('skip_every', plotpar['skip_every']))
+
+            quiver_scale = float(figpar.get('quiver_scale', plotpar['quiver_scale']))
+
+            print('quiver scale',quiver_scale)
+
+            skip = (slice(None, None, skip_every), slice(None, None, skip_every))
+            skip1D = slice(None, None, skip_every)
+
+            q = ax2.quiver(xp[skip1D],yp[skip1D],us[skip],vs[skip],
+            scale=quiver_scale,
+            scale_units=scale_units,
+            angles=scale_units,
+            #color = "re
+            )
+        
+        else:
+        # if figpar['plot_normal']:
             normal_angle = file[key_normal][:]
             normal_angle = normal_angle.transpose()
 
@@ -2023,19 +2225,28 @@ def plot_file(
             
             scale_units=plotpar["quiver_scale_unit"]
             scale_units = None if scale_units == 'None' else scale_units
+            
+            # if 'skip_every' in figpar.keys():
+            #     skip_every = int(figpar['skip_every'])
+            # else:
+            #     skip_every = int(plotpar['skip_every'])
+            
+            skip_every = int(figpar.get('skip_every', plotpar['skip_every']))
 
-            skip_every = int(figpar['skip_every'])
+            quiver_scale = float(figpar.get('quiver_scale', plotpar['quiver_scale']))
+
             skip = (slice(None, None, skip_every), slice(None, None, skip_every))
             skip1D = slice(None, None, skip_every)
 
             q = ax2.quiver(xp[skip1D],yp[skip1D],us[skip],vs[skip],
-            scale=float(figpar["quiver_scale"]),
+            scale=quiver_scale,
             scale_units=scale_units,
             angles=scale_units,
             #color = "red",
             )
-
+        
         # CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
+        
         
     
 
@@ -2116,8 +2327,91 @@ def plot_file(
         ax2 = plot_segments(file,plotpar,figpar,ax2)
     
 
+    size_nodes = 0.7
+
+    # print('plotpar', plotpar['show_nodes'])
+    # show_nodes = figpar.get('show_nodes', plotpar['show_nodes'],False)
+    show_nodes = figpar.get('show_nodes', plotpar.get('show_nodes', False))
+
+    if show_nodes:
+        # plotxcoordy = yp[int(len(yp)/2)]
+        
+        plotxcoordy = yp[int(len(yp)/4)]
 
 
+        ax2.scatter(xp,len(xp)*[plotxcoordy],marker='s',edgecolor='none',s=size_nodes,color='k')
+
+        plotycoordx = xp[int(len(xp)/2)]
+
+        ax2.scatter(len(yp)*[plotycoordx],yp,marker='s',edgecolor='none',s=size_nodes,color='k')
+
+    
+        dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / (int(mesh["nx"]))
+
+        dudx = np.zeros(nx+2)
+        dudx[0] = dx/8
+        dudx[1:nx+1] = xp
+        dudx[-1] = mesh["xmax"]-dx/8
+
+        print('dudx',dudx)
+
+        ax2.scatter(dudx,len(dudx)*[plotxcoordy],marker='s',edgecolor='none',s=size_nodes,color='r',label=r'$\frac{\partial u}{\partial x}$')
+
+        dvdy = np.zeros(ny+2)
+        dvdy[0] = dy/8
+        dvdy[1:ny+1] = yp
+        dvdy[-1] = mesh["ymax"]-dy/8
+
+        print('dvdy',dvdy)
+        # plotycoordx =
+        ax2.scatter(len(dvdy)*[plotycoordx],dvdy,marker='s',edgecolor='none',s=size_nodes,color='b',label=r'$\frac{\partial v}{\partial y}$')
+
+
+        xufull = np.zeros(nx+2)
+        xufull[1] = dx/4
+        xufull[2] = dx
+
+        for i in range(3,len(xufull)-1):
+            xufull[i] = xufull[i-1] + dx
+            # xufull[i] = i*dx
+
+            print('xufull',xufull)
+
+        xufull[-1] = mesh["xmax"]
+
+        xufull[-2] = mesh["xmax"]-dx/4
+
+        ax2.scatter(xufull,len(xufull)*[plotxcoordy],marker='>',s=size_nodes,color='r',edgecolors='none',label=r'$\frac{\partial u}{\partial y}$')
+
+
+        yvfull = np.zeros(ny+2)
+        yvfull[1] = dy/4
+        yvfull[2] = dy
+
+        for i in range(3,len(yvfull)-1):
+            yvfull[i] = yvfull[i-1] + dy
+            # xufull[i] = i*dx
+
+            print('xufull',yvfull)
+
+        yvfull[-1] = mesh["ymax"]
+
+        yvfull[-2] = mesh["ymax"]-dy/4
+
+        ax2.scatter(len(yvfull)*[plotycoordx],yvfull,marker='^',s=size_nodes,color='b',edgecolors='none',label=r'$\frac{\partial v}{\partial x}$')
+
+
+
+        plt.legend()
+
+            
+
+        for ixp in range(len(xp)-1):
+            print('xp',(xp[ixp+1]-xp[ixp])/dx,'xufull',(xufull[ixp+1]-xufull[ixp])/dx)
+
+
+        for ixp in range(len(xufull)-1):
+            print('xufull',(xufull[ixp+1]-xufull[ixp])/dx)
 
     str_time = '{:.2e}'.format(time/plotpar['scale_time'])
     # strrad = '{:.2e}'.format(radius)
@@ -2125,7 +2419,23 @@ def plot_file(
 
     # plt.title("t "+str_time +r"$(\unit{s})$")
 
-    ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+    ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$',color=plotpar['text_color'])
+
+
+    if plotpar['theme'] == 'dark':
+
+        # Change the color of the ticks
+        ax2.tick_params(axis='x', colors=plotpar['text_color'])  # Change x ticks color
+        ax2.tick_params(axis='y', colors=plotpar['text_color'])  # Change y ticks color
+
+        # Change the color of the splines (spines are the lines connecting the axis tick marks)
+        ax2.spines['bottom'].set_color(plotpar['text_color'])  # Change bottom spine color
+        ax2.spines['top'].set_color(plotpar['text_color'])    # Change top spine color
+        ax2.spines['left'].set_color(plotpar['text_color'])  # Change left spine color
+        ax2.spines['right'].set_color(plotpar['text_color']) # Change right spine color
+
+
+
 
     if 'ax_locator_x' in figpar.keys():                                     
         ax2.xaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_x']))
@@ -2140,14 +2450,17 @@ def plot_file(
 
         # ax2.set_xlabel(r"$x ( \unit{\um})$")
         # ax2.set_ylabel(r"$y ( \unit{\um})$")
-        ax2.set_xlabel(r""+plotpar['xlabel'])
-        ax2.set_ylabel(r""+plotpar['ylabel'])
+        ax2.set_xlabel(r""+plotpar['xlabel'],color=plotpar['text_color'])
+        ax2.set_ylabel(r""+plotpar['ylabel'],color=plotpar['text_color'])
+
 
         ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
         ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
         ax2.set_aspect('equal', 'box')
 
         str_nstep = str(nstep)
+
+
 
         if 'macro_file_name' in figpar.keys():
             # print(figpar['macro_file_name'])
@@ -2171,6 +2484,8 @@ def plot_file(
         # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'])
         plt.close(fig1)
         return
+    
+
 
     return(fig1,ax2,cbar)
 
@@ -2280,10 +2595,10 @@ def plot_vector(file,
     # str_time = '{:.2e}'.format(time/plotpar['scale_time'])
     # plt.title("t "+str_time +r"$(\unit{s})$")
 
-    ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+    ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$',color=plotpar['text_color'])
 
-    ax2.set_xlabel(r""+plotpar['xlabel'])
-    ax2.set_ylabel(r""+plotpar['ylabel'])
+    ax2.set_xlabel(r""+plotpar['xlabel'],color=plotpar['text_color'])
+    ax2.set_ylabel(r""+plotpar['ylabel'],color=plotpar['text_color'])
 
     if 'ax_locator_x' in figpar.keys():                                     
         ax2.xaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_x']))
@@ -2792,11 +3107,26 @@ def plot_schematics_full(figpar,plotpar):
         h2coord = 0.6
 
         circle1 = plt.Circle((0.0, 0.42), other_radius/4, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
-        circle2 = plt.Circle((0.15, 0.92), other_radius, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
 
-        circle3 = plt.Circle((0.0, h2coord), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+        circle2 = plt.Circle((0.15, 0.9), other_radius, color='w',zorder=zorder_bubbles,edgecolor=edgecolor) #0.92
 
-        circle4 = plt.Circle((2.0, o2coord), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+        # circle3 = plt.Circle((0.0, h2coord), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+
+        # circle4 = plt.Circle((2.0, o2coord), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+
+        # circle3 = plt.Circle((0.0, 0.5), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+        # inset_ax.add_patch(circle3)
+
+        wedge = patches.Wedge((0.0, h2coord), 0.12,270,450, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+        inset_ax.add_patch(wedge)
+
+        # circle4 = plt.Circle((2.0, o2coord), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+        # inset_ax.add_patch(circle4)
+
+
+        wedge = patches.Wedge((2.0, o2coord), 0.12, 90, 270, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+        inset_ax.add_patch(wedge)
+
 
 
         plot_coord_diffusion = 0.25
@@ -2811,6 +3141,14 @@ def plot_schematics_full(figpar,plotpar):
                         arrowprops=dict(arrowstyle='->,widthA=0.5,widthB=0.5', color='w',linewidth=linewidth),
                         # linewidth=0.25,
                         )
+        
+        inset_ax.add_patch(circle1)
+
+        inset_ax.add_patch(circle2)
+        # inset_ax.add_patch(arc)
+        # inset_ax.add_patch(circle3)
+
+        # inset_ax.add_patch(circle4)
     
     else:
         o2coord = 0.25
@@ -2819,10 +3157,33 @@ def plot_schematics_full(figpar,plotpar):
         circle1 = plt.Circle((0.0, 0.15), other_radius/4, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
         circle2 = plt.Circle((0.15, 0.92), other_radius, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
 
-        circle3 = plt.Circle((0.0, 0.5), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+        # circle3 = plt.Circle((0.0, 0.5), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
 
-        circle4 = plt.Circle((2.0, o2coord), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+        # circle4 = plt.Circle((2.0, o2coord), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
 
+
+        # circle3 = plt.Circle((0.0, 0.5), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+        # inset_ax.add_patch(circle3)
+
+        wedge = patches.Wedge((0.0, 0.5), 0.12,270,450, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+        inset_ax.add_patch(wedge)
+
+        # circle4 = plt.Circle((2.0, o2coord), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+        # inset_ax.add_patch(circle4)
+
+
+        wedge = patches.Wedge((2.0, o2coord), 0.12, 90, 270, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+        inset_ax.add_patch(wedge)
+
+
+
+        inset_ax.add_patch(circle1)
+
+        inset_ax.add_patch(circle2)
+        # inset_ax.add_patch(arc)
+        # inset_ax.add_patch(circle3)
+
+        # inset_ax.add_patch(circle4)
 
     # circle1.set_clip_on(True)
     # circle2.set_clip_on(True)
@@ -2846,13 +3207,7 @@ def plot_schematics_full(figpar,plotpar):
     #         fill='w'
     #           )
 
-    inset_ax.add_patch(circle1)
-
-    inset_ax.add_patch(circle2)
-    # inset_ax.add_patch(arc)
-    inset_ax.add_patch(circle3)
-
-    inset_ax.add_patch(circle4)
+  
 
     
 
@@ -3013,14 +3368,15 @@ def plot_schematics_full(figpar,plotpar):
 
     inset_ax.set_ylim(0, 1)
     inset_ax.set_xlim(-0.1, 2.1)
+    
 
-    plt.savefig('schematics_full_migration.pdf',transparent=True)
-    plt.savefig('schematics_full_migration.svg',transparent=True)
+    plt.savefig('schematics_full_migration'+'_'+plotpar['theme']+'.pdf',transparent=True)
+    plt.savefig('schematics_full_migration'+'_'+plotpar['theme']+'.svg',transparent=True)
 
    
 
-    plt.savefig('schematics_full_migration_diffusion.pdf',transparent=True)
-    plt.savefig('schematics_full_migration_diffusion.svg',transparent=True)
+    plt.savefig('schematics_full_migration_diffusion'+'_'+plotpar['theme']+'.pdf',transparent=True)
+    plt.savefig('schematics_full_migration_diffusion'+'_'+plotpar['theme']+'.svg',transparent=True)
 
 
     # plt.savefig('schematics_full.pdf',transparent=True)
@@ -3323,13 +3679,22 @@ def plot_schematics_full_with_losses(figpar,plotpar):
     zorder_bubbles=1
     edgecolor=None
     circle1 = plt.Circle((0.0, 0.15), other_radius/4, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
-    circle2 = plt.Circle((0.15, 0.92), other_radius, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+    circle2 = plt.Circle((0.15, 0.85), other_radius, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
 
 
 
-    circle3 = plt.Circle((0.0, 0.5), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+    # circle3 = plt.Circle((0.0, 0.5), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+    # inset_ax.add_patch(circle3)
 
-    circle4 = plt.Circle((2.0, o2coord), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+    wedge = patches.Wedge((0.0, 0.5), 0.12,270,450, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+    inset_ax.add_patch(wedge)
+
+    # circle4 = plt.Circle((2.0, o2coord), 0.12, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+    # inset_ax.add_patch(circle4)
+
+
+    wedge = patches.Wedge((2.0, o2coord), 0.12, 90, 270, color='w',zorder=zorder_bubbles,edgecolor=edgecolor)
+    inset_ax.add_patch(wedge)
 
 
     # circle1.set_clip_on(True)
@@ -3357,9 +3722,7 @@ def plot_schematics_full_with_losses(figpar,plotpar):
     inset_ax.add_patch(circle1)
     inset_ax.add_patch(circle2)
     # inset_ax.add_patch(arc)
-    inset_ax.add_patch(circle3)
 
-    inset_ax.add_patch(circle4)
 
     
 
@@ -3454,7 +3817,7 @@ def plot_schematics_full_with_losses(figpar,plotpar):
     # plt.savefig('schematics_full.pdf',transparent=True)
 
     height_loss = 0.0
-    color_loss = 'k'
+    color_loss = plotpar['text_color']
     inset_ax.text(1.0, height_loss, r'$\eta_{\text{ohmic}}$', fontsize=fontsize,va='top',ha='center',color=color_loss)
     
     inset_ax.text(0.0, height_loss, r'$\eta_{\text{c}}$', fontsize=fontsize,va='top',ha='right',color=color_loss)
@@ -3467,11 +3830,11 @@ def plot_schematics_full_with_losses(figpar,plotpar):
     # Plot the bracket
     inset_ax.annotate('', xy=(x2, y), xytext=(x1, y), 
                     #   arrowprops=dict(arrowstyle='-[, widthB=5.0, lengthB=0.2', lw=1.5),
-                    arrowprops=dict(arrowstyle='|-|,widthA=0.5,widthB=0.5', color='black')
+                    arrowprops=dict(arrowstyle='|-|,widthA=0.5,widthB=0.5', color = plotpar['text_color'])
                       )
 
-    plt.savefig('schematics_full_losses.pdf',transparent=True)
-    plt.savefig('schematics_full_losses.svg',transparent=True)
+    plt.savefig('schematics_full_losses'+'_'+plotpar['theme']+'.pdf',transparent=True)
+    plt.savefig('schematics_full_losses'+'_'+plotpar['theme']+'.svg',transparent=True)
 
 
 def add_schematics(ax2,fontsize,figpar):
@@ -3689,8 +4052,16 @@ def plot_current_lines(file,
         i_current_mag = np.sqrt(i_current_x**2+i_current_y**2)
 
     if file["nx"][()] != None:
+        # print('testtest',file.keys())
         nx = file["nx"][()]
-        ny = nx
+
+        try:
+            ny = file["ny"][()]
+        except:
+            ny = nx
+
+        print(colored('nx {} ny {}'.format(nx,ny),'red'))
+
     else:
         nx = mesh["nx"]
         ny = mesh["ny"]
@@ -3702,8 +4073,11 @@ def plot_current_lines(file,
     data = file["phi_ele_1D"][:]
 
     # print(len(data))
-
-    if (len(data) != nx*ny+2*nx+2*ny):
+    # print(nx*ny+2*nx+2*ny)
+    # print(128*256+2*128+2*256)
+    nLS = 1 #phys['nb_levelsets']
+    print('nLS',nLS)
+    if (len(data) != nx*ny*(nLS+1)+2*nx+2*ny ):
         nx = file["nx"][()]
         print('nx from file',nx)
         # try:
@@ -3716,6 +4090,15 @@ def plot_current_lines(file,
         ny = nx
 
         # TODO for convergence study
+
+    mesh["nx"] = nx
+    mesh["ny"] = ny
+
+    xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+    yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+
+    print('xp',xp)
+    print('yp',yp)
 
     field=veci(data,nx,ny,field_index)
 
@@ -3907,7 +4290,7 @@ def plot_current_lines(file,
                             if figpar['ticks_format']!=None:
                                 cbarimag.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
                     
-                    cbarimag.ax.set_ylabel(r""+figpar['streamplot_cbarlabel'])
+                    cbarimag.ax.set_ylabel(r""+figpar['streamplot_cbarlabel'],color=plotpar['text_color'])
 
 
                 else:
@@ -3988,7 +4371,7 @@ def plot_current_lines(file,
 
 
     if 'title' in figpar.keys():
-        ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+        ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$',color=plotpar['text_color'])
       
     if 'ax_locator_x' in figpar.keys():                                     
         ax2.xaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_x']))
@@ -4001,8 +4384,8 @@ def plot_current_lines(file,
         ax2.spines["right"].set_visible(False)
         ax2.spines["top"].set_visible(False)
 
-        ax2.set_xlabel(r""+plotpar['xlabel'])
-        ax2.set_ylabel(r""+plotpar['ylabel'])
+        ax2.set_xlabel(r""+plotpar['xlabel'],color=plotpar['text_color'])
+        ax2.set_ylabel(r""+plotpar['ylabel'],color=plotpar['text_color'])
 
         ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
         ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
@@ -4208,6 +4591,36 @@ def plot_python_pdf_full2(
         x_1D = xp
         y_1D = yp
 
+
+    # mesh["nx"] = nx
+    # mesh["ny"] = ny
+
+    # xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+    # yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+
+    # print('xp',xp)
+    # print('yp',yp)
+    # x_1D = xp
+    # y_1D = yp
+
+    # print('data shape',data.shape)
+    if 'mesh_macro' in figpar.keys():
+        # print('x_1D',len(x_1D),x_1D)
+        # print('y_1D',len(y_1D),y_1D)
+
+        exec(figpar['mesh_macro'])
+
+
+
+        x_1D = x_1D_2
+        y_1D = y_1D_2
+
+
+        print('x_1D',len(x_1D),x_1D)
+        print('y_1D',len(y_1D),y_1D)
+
+
+
     try:
         data_1D = file[key][:]
     except:
@@ -4240,8 +4653,9 @@ def plot_python_pdf_full2(
             i0=i
 
         for i,x in enumerate(x_1D):
+            # print('test zoom',figpar["zoom"][0][1],x,(figpar["zoom"][0][1]<x))
+            i1=i
             if figpar["zoom"][0][1]<x:
-                i1=i
                 break
 
         for j,y in enumerate(y_1D):
@@ -4254,7 +4668,7 @@ def plot_python_pdf_full2(
                 j1=j
                 break
 
-        print(figpar["zoom"],i0,i1,j0,j1,x_1D[i0],x_1D[i1],y_1D[j0],y_1D[j1])
+        print('zoom',figpar["zoom"],i0,i1,j0,j1,x_1D[i0],x_1D[i1],y_1D[j0],y_1D[j1])
         x_arr=x_1D[i0:i1+1]
         y_arr=y_1D[j0:j1+1]
 
@@ -4408,6 +4822,10 @@ def plot_python_pdf_full2(
         fig1,ax2 = init_fig(plotpar,figpar)
    
     # print(field.shape,nx,ny,len(x_1D),len(y_1D))
+
+    print('xarr',len(x_arr),x_arr)
+    print('yarr',len(y_arr))
+
 
     if figpar['levels']==0: 
         CS = ax2.contourf(x_arr,y_arr,field, 
@@ -4563,7 +4981,7 @@ def plot_python_pdf_full2(
                         print('not plotted')
    
 
-    ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+    ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$',color=plotpar['text_color'])
 
 
    
@@ -4573,12 +4991,12 @@ def plot_python_pdf_full2(
 
     if mode !='film':
         cbar = fig1.colorbar(CS)
-        cbar.ax.set_ylabel(r""+figpar['cbarlabel'])
+        cbar.ax.set_ylabel(r""+figpar['cbarlabel'],color=plotpar['text_color'])
     # Add the contour line levels to the colorbar
 
     else:
         cbar = plt.colorbar(CS,cax=cbar.ax)
-        cbar.ax.set_ylabel(r""+figpar['cbarlabel'])
+        cbar.ax.set_ylabel(r""+figpar['cbarlabel'],color=plotpar['text_color'])
         if 'ticks_format' in figpar:
             if figpar['ticks_format']!=None:
                 cbar.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
@@ -4811,8 +5229,8 @@ def plot_python_pdf_full2(
         ax2.spines["right"].set_visible(False)
         ax2.spines["top"].set_visible(False)
 
-        ax2.set_xlabel(r""+plotpar['xlabel'])
-        ax2.set_ylabel(r""+plotpar['ylabel'])
+        ax2.set_xlabel(r""+plotpar['xlabel'],color=plotpar['text_color'])
+        ax2.set_ylabel(r""+plotpar['ylabel'],color=plotpar['text_color'])
 
         # ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
         # ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
@@ -4827,6 +5245,9 @@ def plot_python_pdf_full2(
 
             for macro in figpar['macro_file_name']:
                 # print(macro)
+                # print(colored(file_name+"_"+(mesh["nx"])+"_"+("VOF" if yml["flower"]["simulation"]["surface_tension"] == 0 else "LS")+"_"+plotpar["theme"]+ ".pdf","red"))
+                # print(colored(file_name+"_"+str(mesh["nx"])+"_"+("VOF" if yml["flower"]["simulation"]["surface_tension"] == 0 else "LS")+"_"+plotpar["theme"]+ ".pdf","red"))
+               
                 plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
                 
                 if 'svg' in macro:
@@ -5402,7 +5823,7 @@ def plot_current_wall(
 
     # plt.title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
 
-    ax20.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+    ax20.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$',color=plotpar['text_color'])
 
     ax20.yaxis.label.set_color(p1.get_color())
     twin1.yaxis.label.set_color(p2.get_color())

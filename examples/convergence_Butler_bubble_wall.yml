@@ -833,7 +833,7 @@ plot:
       - var: i_current_x
         figsize: True
         file: current_lines
-        macro_file_name: ['file_name+"_"+str(mesh["nx"])+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ ".svg"'] 
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"'] 
         # [
         # file_name+'_'+str(mesh['nx'])+ ".pdf" 
         # , file_name+'_'+str(mesh['nx'])+ ".svg" 
@@ -879,7 +879,7 @@ plot:
       - var: i_current_x
         figsize: True
         file: current_lines_schematics
-        macro_file_name: ['file_name+"_"+str(mesh["nx"])+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ ".svg"'] 
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"'] 
         # [
         # file_name+'_'+str(mesh['nx'])+ ".pdf" 
         # , file_name+'_'+str(mesh['nx'])+ ".svg" 

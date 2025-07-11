@@ -167,15 +167,25 @@ for timestep in timesteps
 
     #region mesh convergence
     for (i,study_nb_grid_points) in enumerate(nb_grid_points)
+        
 
         mesh_to_string = @sprintf "mesh_%.5i" study_nb_grid_points
+       
+        mesh_ratio = Int((mesh.ymax - mesh.ymin)/ (mesh.xmax - mesh.xmin) )
+        
+        print("\n mesh ratio ", mesh_ratio ) 
+
+        study_nb_grid_points_x = study_nb_grid_points
+        study_nb_grid_points_y = study_nb_grid_points * mesh_ratio
+
+        print("\n nx ",study_nb_grid_points_x, " ny ",study_nb_grid_points_y)
 
         mkpath(mesh_to_string)
         cd(mesh_to_string)
 
         # init regular grid
-        scalar_mesh_x = collect(LinRange(mesh.xmin, mesh.xmax, study_nb_grid_points + 1))    
-        scalar_mesh_y = collect(LinRange(mesh.ymin, mesh.ymax, study_nb_grid_points + 1))
+        scalar_mesh_x = collect(LinRange(mesh.xmin, mesh.xmax, study_nb_grid_points_x + 1))    
+        scalar_mesh_y = collect(LinRange(mesh.ymin, mesh.ymax, study_nb_grid_points_y + 1))
 
 
         # # print("\n test juliac")
@@ -185,7 +195,7 @@ for timestep in timesteps
 
         # # print("\n test juliac")
 
-        print("\nmu1 mu2",phys.mu1,typeof(phys.mu1),phys.mu2,typeof(phys.mu2))
+        print("\nmu1 mu2 ",phys.mu1," ",typeof(phys.mu1)," ",phys.mu2," ",typeof(phys.mu2))
 
         @debug "Before Numerical"
         global num = Numerical(
@@ -228,7 +238,8 @@ for timestep in timesteps
             pres0=phys.pres0,
             g = phys.g,
             β = phys.beta,
-            σ = phys.sigma,   
+            σ = phys.sigma,  
+            sigma = phys.sigma,
             reinit_every = sim.reinit_every,
             nb_reinit = sim.nb_reinit,
             δreinit = sim.delta_reinit,
@@ -269,6 +280,9 @@ for timestep in timesteps
             solve_solid = sim.solve_solid,
             phase_change_method = sim.phase_change_method,
             one_fluid_model = sim.one_fluid_model,
+            smooth_VOF = sim.smooth_VOF,
+            surface_tension = sim.surface_tension,
+            non_dimensionalize=sim.non_dimensionalize,
             )
         Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
         @debug "After Numerical"

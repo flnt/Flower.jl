@@ -528,7 +528,7 @@ plot:
 
       - var: concentration_H2_1DT 
         func: plot_python_pdf_full2
-        macro_file_name: ['file_name+"_"+str(mesh["nx"])+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ ".svg"']
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
         file: concentration_H2_zoom_no_bc
         cbarlabel: "$ \\text{Concentration} ~ H_2$"
         img_format: pdf
@@ -552,7 +552,7 @@ plot:
       - var: concentration_H2_1DT
         file: concentration_H2
         func: plot_file
-        macro_file_name: ['file_name+"_"+str(mesh["nx"])+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ ".svg"']
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
         cbarlabel: "$\\text{Concentration}~H_2$"
         fontsize: 4
         isocontour: False
@@ -896,7 +896,7 @@ plot:
       - var: i_current_x
         figsize: True
         file: current_lines
-        macro_file_name: ['file_name+"_"+str(mesh["nx"])+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ ".svg"']
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
         fig_fraction: 1.0
         fig_ratio: 0.5
         # add_schematics: #True
@@ -1710,7 +1710,7 @@ plot:
         linewidth: 0.5
         # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
         
-        macro_file_name: ['file_name+ ".pdf"', 'file_name+".svg"']
+        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+plotpar["theme"]+".svg"']
 
         macro_slice: "veci(reshape_data(data),nx,ny,field_index)[ny//2,:]"
 
@@ -1725,7 +1725,7 @@ plot:
         linewidth: 0.5
         # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
         
-        macro_file_name: ['file_name+ ".pdf"', 'file_name+".svg"']
+        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+plotpar["theme"]+".svg"']
 
         macro_slice: "veci(reshape_data(data),nx,ny,field_index)[ny//2,:]"
 
@@ -1821,7 +1821,7 @@ plot:
         linewidth: 0.5
         # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
         
-        macro_file_name: ['file_name+ ".pdf"', 'file_name+".svg"']
+        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+plotpar["theme"]+".svg"']
 
         macro_slice: "veci(reshape_data(data),nx,ny,field_index)[0,:]"
 
@@ -1871,7 +1871,7 @@ plot:
         ticks: ['[0,20,40,60,80,100]', '[0,20,40,60,80,100]']
         linewidth: 0.5
         # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
-        macro_file_name: ['file_name+ ".pdf"', 'file_name+".svg"']
+        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+plotpar["theme"]+".svg"']
 
         macro_slice: "vecb_L(reshape_data(data),nx,ny)" #"reshape_data_veci(data,nx,ny,field_index)[:,0]"
 
@@ -1886,8 +1886,8 @@ plot:
         linewidth: 0.5
         # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
         
-        # macro_file_name: ['file_name+"_"+str(mesh["nx"])+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ ".svg"']
-        macro_file_name: ['file_name+ ".pdf"', 'file_name+".svg"']
+        # macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+plotpar["theme"]+".svg"']
 
         macro_slice: "vecb_L(reshape_data(data),nx,ny)" #"reshape_data_veci(data,nx,ny,field_index)[:,0]"
 
@@ -1902,8 +1902,8 @@ plot:
         linewidth: 0.5
         # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
         
-        # macro_file_name: ['file_name+"_"+str(mesh["nx"])+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ ".svg"']
-        macro_file_name: ['file_name+ ".pdf"', 'file_name+".svg"']
+        # macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+plotpar["theme"]+".svg"']
 
         macro_slice: "vecb_L(reshape_data(data),nx,ny)" #"reshape_data_veci(data,nx,ny,field_index)[:,0]"
 

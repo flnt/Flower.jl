@@ -2183,6 +2183,29 @@ set_Crank_Nicolson!
 pressure_projection_one_fluid!
 ```
 
+The interpolations for the viscosity are done with:
+
+```@docs
+bilinear_interpolation
+```
+
+```@raw html
+<figure>
+    <a name="levelset_doc"></a> 
+    <img src="./assets/staggered_viscosity.svg" alt="Staggered grids" title="Staggered grids">
+    <figcaption>Staggered grids </figcaption>
+</figure>
+```
+
+```@docs
+compute_surface_tension!
+```
+
+
+```@docs
+get_curvature
+```
+
 
 ## Velocity-pressure coupling
 

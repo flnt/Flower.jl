@@ -697,20 +697,28 @@ function run_forward!(
             
             #when no Navier: nt = (num.nLS + 1) * ni + nb
 
+
+            if (num.one_fluid_model == 1 && num.pressure_velocity_coupling != 0)
+                @error("\nCoupled pressure velocity + one-fluid model error")
+                return
+            end
+
+
             if num.one_fluid_model == 1
                 rho_one_fluid = zeros(grid)
-                mu_one_fluid  = zeros(grid)
+                # mu_one_fluid  = zeros(grid)
                 volume_fraction = zeros(grid)
+                levelset_one_fluid = zeros(grid)
 
                 rho_one_fluid_u = zeros(grid_u)
-                mu_one_fluid_u  = zeros(grid_u)
+                # mu_one_fluid_u  = zeros(grid_u)
 
                 rho_one_fluid_v = zeros(grid_v)
-                mu_one_fluid_v  = zeros(grid_v)
+                # mu_one_fluid_v  = zeros(grid_v)
 
             end
 
-            if num.pressure_velocity_coupling == 0 
+            if (num.pressure_velocity_coupling == 0 && num.one_fluid_model == 0)
             
                 if ns_solid_phase
                     AuvS = spzeros(nt, nt)
@@ -736,7 +744,17 @@ function run_forward!(
                 ni_uv = ni_u + ni_v
                 nb_uv = nb_u + nb_v
 
-                if num.pressure_velocity_coupling == 1
+                if num.pressure_velocity_coupling == 0
+                    
+                    nt = (num.nLS - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv 
+                    ncol_A = (num.nLS - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv
+                
+                    AuvL = spzeros(ncol_A, nt)
+                    BuvL = spzeros(ncol_A, nt)
+                    rhs_uv = zeros(ncol_A)  
+
+
+                elseif num.pressure_velocity_coupling == 1
                     nt = (num.nLS - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv + (num.nLS + 1) * ni_p + nb_p
                     ncol_A = (num.nLS - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv + ni_p
                     # so 1 * ni + 1 * ni_p +nb + ni_p + nb
@@ -2735,24 +2753,73 @@ function run_forward!(
 
             # Pressure-velocity coupling
 
-            if num.one_fluid_model == 1
+            if num.one_fluid_model == 1 
 
-                update_one_fluid_density_viscosity(num,grid,grid_u,grid_v,volume_fraction,rho_one_fluid,mu_one_fluid,
-                                                    rho_one_fluid_u,mu_one_fluid_u,rho_one_fluid_v,mu_one_fluid_v)
+                update_one_fluid_density_viscosity(num,grid,grid_u,grid_v,volume_fraction,levelset_one_fluid,rho_one_fluid,
+                                                    rho_one_fluid_u,rho_one_fluid_v)
 
 
 
                 # MIXED =
 
                 nb_levelsets = num.nLS
-                num.nLS = 1 #deactivate cut-cell for one-fluid model
+                num.nLS = 0 #1 #deactivate cut-cell for one-fluid model
+                
+                #region deactivate LS
+                empty_capacities = vcat(zeros(7), zeros(4))
+                full_capacities = vcat(ones(7), 0.5.*ones(4))
 
-                NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y) 
+                for grid_iter in [grid,grid_u,grid_v]
+
+                    grid_iter.LS[1].u .= 1.0
+                    grid_iter.LS[end].u .= 1.0
+
+                    # for j in 1:grid_iter.ny
+                    #     for i in 1:grid_iter.nx
+                    #         II = CartesianIndex(j,i)
+                    #         # grid_iter.LS[end].geoL.cap[II,:] .= full_capacities
+                    #         # grid_iter.LS[end].geoS.cap[II,:] .= empty_capacities
+                    #     end
+                    # end
+                end
+
+                # grid_u.LS[end].geoL.cap[:,:,:] .= full_capacities
+                # grid_u.LS[end].geoS.cap[:,:,:] .= empty_capacities
+
+                # grid_v.LS[end].geoL.cap[:,:,:] .= full_capacities
+                # grid_v.LS[end].geoS.cap[:,:,:] .= empty_capacities
+
+                #endregion  deactivate LS
+
+                NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y,true,true) 
 
 
                 geoL = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
                 geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
                 geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+
+                #region reset centroids 
+                #HACK reset centroids 
+                # grid.LS[1].geoL.centroid .= Point(0.0, 0.0)
+                # grid_u.LS[1].geoL.centroid .= Point(0.0, 0.0)
+                # grid_v.LS[1].geoL.centroid .= Point(0.0, 0.0)
+
+                # grid.LS[1].geoL.centroid.x .= 0.0
+                # grid_u.LS[1].geoL.centroid.x .= 0.0
+                # grid_v.LS[1].geoL.centroid.x .= 0.0
+
+                # grid.LS[1].geoL.centroid.y .= 0.0
+                # grid_u.LS[1].geoL.centroid.y .= 0.0
+                # grid_v.LS[1].geoL.centroid.y .= 0.0
+
+
+                for grid_iter in [grid,grid_u,grid_v]
+                    for II in grid_iter.ind.inside
+                        grid_iter.LS[1].geoL.centroid[II] = Point(0.0,0.0)
+                    end
+                end
+                #TODO reactivate centroids ?
+                #endregion reset centroids 
 
 
 
@@ -2765,17 +2832,35 @@ function run_forward!(
                     num, grid, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
                     BC_uL, BC_vL, BC_pL,
                     op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
-                    AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,
+                    AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,rhs_uv,
                     Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
                     Cum1L, Cvm1L, Mum1_L, Mvm1_L,
                     periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,
-                    rho_one_fluid,mu_one_fluid,
-                    rho_one_fluid_u,mu_one_fluid_u,
-                    rho_one_fluid_v,mu_one_fluid_v,
+                    volume_fraction,
+                    levelset_one_fluid,
+                    rho_one_fluid,
+                    # mu_one_fluid,
+                    rho_one_fluid_u,
+                    # mu_one_fluid_u,
+                    rho_one_fluid_v,
+                    # mu_one_fluid_v,
+                    tmp_vec_p,
+                    tmp_vec_p0,
                     pres_free_surfaceL,jump_mass_fluxL,mass_fluxL
                 )  
-                
+
+
+
                 num.nLS = nb_levelsets #reactivate cut-cell for one-fluid model
+
+                NB_indices = update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y) 
+                # geoL = [grid.LS[iLS].geoL for iLS in 1:num._nLS]
+                # geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
+                # geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+
+                # reactivate centroids
+                printstyled(color=:red, @sprintf "\n reactivate centroids \n")
+                display(grid.LS[1].geoL.centroid.x)
 
             else
 

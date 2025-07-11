@@ -569,16 +569,28 @@ def plot_schematics_func():
    yv /= scale_y
 
 
+   for theme in plotpar['themes']:
 
-    # Schematics describing BC
-   for figpar in plotpar['schematics']:
+      print(colored('Theme : '+theme,'green'))
 
 
-      if 'func' in figpar.keys():
-         func = globals()[figpar['func']] #'plot_current_lines'
-         func(figpar,plotpar)
-      else:
-         plot_schematics(figpar,plotpar)
+      if theme == 'light':
+         plotpar['text_color'] = 'k'
+         plotpar['theme'] = theme
+
+      elif theme == 'dark':
+         plotpar['text_color'] = 'w'
+         plotpar['theme'] = theme
+
+
+      # Schematics describing BC
+      for figpar in plotpar['schematics']:
+
+         if 'func' in figpar.keys():
+            func = globals()[figpar['func']] #'plot_current_lines'
+            func(figpar,plotpar)
+         else:
+            plot_schematics(figpar,plotpar)
 
 
 
@@ -669,105 +681,115 @@ def plot_convergence_study_func():
 
 
   
+   for theme in plotpar['themes']:
+
+      print(colored('Theme : '+theme,'green'))
 
 
+      if theme == 'light':
+         plotpar['text_color'] = 'k'
+         plotpar['theme'] = theme
 
-   print(colored('Curves','red'))
+      elif theme == 'dark':
+         plotpar['text_color'] = 'w'
+         plotpar['theme'] = theme
 
-   for figpar in plotpar["curves"]:
-      
-      try:
-         # print(figpar)
-         if 'func' not in figpar.keys():
-            continue
-            
-         # print(figpar)
+      print(colored('Curves','red'))
 
-         if 'func' in figpar.keys():
-            func = globals()[figpar['func']] #'plot_current_lines'
-         else:
-            func = globals()['plot_file']
-
-         if (not isinstance(figpar['var'], str)) and len(figpar['var'])>0:
-            key = figpar['var'][0]
-         else:
-            key = figpar['var']
-
-         # print('key',key)
-
-         # print(figpar)
-
-         print(colored(figpar['file'], "cyan"))
-
-         if 'plot_errors_from_h5' == figpar['func']:
-            continue
-
-         if 'files' in figpar.keys():
-            h5_files_tmp = figpar['files']
-         else:
-            h5_files_tmp = h5_files
+      for figpar in plotpar["curves"]:
          
-         plot_convergence_func(
-         h5_files_tmp,
-         key,
-         xp,
-         yp,
-         xu,
-         yv,
-         yml,
-         mesh,
-         func,
-         plotpar,
-         figpar,
-         )
-      except:
-         print(colored('Failed '+figpar['file'], "red"))   
-         raise # was: pass
+         try:
+            # print(figpar)
+            if 'func' not in figpar.keys():
+               continue
+               
+            # print(figpar)
 
+            if 'func' in figpar.keys():
+               func = globals()[figpar['func']] #'plot_current_lines'
+            else:
+               func = globals()['plot_file']
 
-   for figpar in plotpar['figures']:
-      
-      try:
-         # print(figpar)
-         if 'func' not in figpar.keys():
-            continue
+            if (not isinstance(figpar['var'], str)) and len(figpar['var'])>0:
+               key = figpar['var'][0]
+            else:
+               key = figpar['var']
+
+            # print('key',key)
+
+            # print(figpar)
+
+            print(colored(figpar['file'], "cyan"))
+
+            if 'plot_errors_from_h5' == figpar['func']:
+               continue
+
+            if 'files' in figpar.keys():
+               h5_files_tmp = figpar['files']
+            else:
+               h5_files_tmp = h5_files
             
-         # print(figpar)
+            plot_convergence_func(
+            h5_files_tmp,
+            key,
+            xp,
+            yp,
+            xu,
+            yv,
+            yml,
+            mesh,
+            func,
+            plotpar,
+            figpar,
+            )
+         except:
+            print(colored('Failed '+figpar['file'], "red"))   
+            raise # was: pass
 
-         if 'func' in figpar.keys():
-            func = globals()[figpar['func']] #'plot_current_lines'
-         else:
-            func = globals()['plot_file']
 
-         if (not isinstance(figpar['var'], str)) and len(figpar['var'])>0:
-            key = figpar['var'][0]
-         else:
-            key = figpar['var']
-
-         # print('key',key)
-
-         # print(figpar)
-
-         print(colored(figpar['file'], "cyan"))
-
-
+      for figpar in plotpar['figures']:
          
-         plot_convergence_func_new_ax(
-         h5_files,
-         key,
-         xp,
-         yp,
-         xu,
-         yv,
-         yml,
-         mesh,
-         func,
-         plotpar,
-         figpar,
-         )
-      except:
-         print(colored('Failed '+figpar['file'], "red"))
-         raise # was: pass
+         try:
+            # print(figpar)
+            if 'func' not in figpar.keys():
+               continue
+               
+            # print(figpar)
+
+            if 'func' in figpar.keys():
+               func = globals()[figpar['func']] #'plot_current_lines'
+            else:
+               func = globals()['plot_file']
+
+            if (not isinstance(figpar['var'], str)) and len(figpar['var'])>0:
+               key = figpar['var'][0]
+            else:
+               key = figpar['var']
+
+            # print('key',key)
+
+            # print(figpar)
+
+            print(colored(figpar['file'], "cyan"))
+
+
+            
+            plot_convergence_func_new_ax(
+            h5_files,
+            key,
+            xp,
+            yp,
+            xu,
+            yv,
+            yml,
+            mesh,
+            func,
+            plotpar,
+            figpar,
+            )
+         except:
+            print(colored('Failed '+figpar['file'], "red"))
+            raise # was: pass
 
  
 
@@ -1064,7 +1086,7 @@ def plot_convergence_func(
          
          if 'svg' in macro:
             gen_name = eval(macro).split('.')[0]
-            #print(gen_name)
+            print(gen_name)
             call_inkscape(figpar,gen_name)
 
    else:
@@ -1768,11 +1790,15 @@ def plot_1D(
          # cmap=cmap,
          label=label1,ls=ls,lw=lw)
 
-      ax20.set(
-      # xlim=(0, 2),
-      # ylim=(0, 2),
-      xlabel=labelx, #r""+plotpar['xlabel'],
-      ylabel=label_i)
+      # ax20.set(
+      # # xlim=(0, 2),
+      # # ylim=(0, 2),
+      # xlabel=labelx, #r""+plotpar['xlabel'],
+      # ylabel=label_i,color=plotpar['text_color'])
+
+      ax20.set_xlabel(labelx, color=plotpar['text_color'])   # Set xlabel color
+      ax20.set_ylabel(label_i, color=plotpar['text_color'])   # Set xlabel color
+
          
       handles, labels = plt.gca().get_legend_handles_labels()
       print('handles',handles,labels)
@@ -1823,6 +1849,19 @@ def plot_1D(
 
    # twin1.yaxis.set_label_position("right")
    # twin2.yaxis.set_label_position("right")
+
+
+   if plotpar['theme'] == 'dark':
+
+      # Change the color of the ticks
+      ax2.tick_params(axis='x', colors=plotpar['text_color'])  # Change x ticks color
+      ax2.tick_params(axis='y', colors=plotpar['text_color'])  # Change y ticks color
+
+      # Change the color of the splines (spines are the lines connecting the axis tick marks)
+      ax2.spines['bottom'].set_color(plotpar['text_color'])  # Change bottom spine color
+      ax2.spines['top'].set_color(plotpar['text_color'])    # Change top spine color
+      ax2.spines['left'].set_color(plotpar['text_color'])  # Change left spine color
+      ax2.spines['right'].set_color(plotpar['text_color']) # Change right spine color
 
 
    if 'plot_legend' in figpar.keys():

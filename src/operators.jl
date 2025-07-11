@@ -35,6 +35,10 @@ end
     return ret
 end
 
+"""
+    A1, A2, A3, A4, B1, B2
+    @inbounds ret = cap[II,1], cap[II,2], cap[II,3], cap[II,4], cap[II,6], cap[II,7]
+"""
 @inline function get_capacities_convection(cap, II)
     @inbounds ret = cap[II,1], cap[II,2], cap[II,3], cap[II,4], cap[II,6], cap[II,7]
     return ret
@@ -854,6 +858,11 @@ end
     return nothing
 end
 
+
+"""
+inside : B[pII] += -0.5 * Dx[II] * ((A3 - B1) * Du[δx⁺(II)] + (B1 - A1) * Du[II])
+
+"""
 function scalar_convection!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC, inside, b_left, b_bottom, b_right, b_top)
     B .= 0.0
     O .= 0.0
@@ -2242,6 +2251,15 @@ end
 #     return nothing
 # end
 
+
+"""
+...
+@inbounds O[pII,pII] += -0.25 * (A3_2 - B1_2) * Du[δx⁺(II)]
+...
+@inbounds B[pII] += -0.25 * u[II] * (A3_2 - B1_2) * Du[δx⁺(II)]
+...
+
+"""
 function fill_inside_conv!(::Type{GridFCx}, O, B, u, v, Du, Dv, cap, ny, II)
     pII = lexicographic(II, ny)
     A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δx⁻(II))
@@ -2662,6 +2680,14 @@ function vector_convection!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, Du_x, Du_y
     return nothing
 end
 
+
+"""
+...
+@inbounds O[pII,pII] += -0.25 * (A4_2 - B2_2) * Dv[δy⁺(II)]
+...
+@inbounds B[pII] += -0.25 * v[II] * (A4_2 - B2_2) * Dv[δy⁺(II)]
+...
+"""
 function fill_inside_conv!(::Type{GridFCy}, O, B, u, v, Du, Dv, cap, ny, II)
     pII = lexicographic(II, ny+1)
     A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δy⁻(II))
@@ -2701,6 +2727,10 @@ function fill_inside_conv!(::Type{GridFCy}, O, B, u, v, Du, Dv, cap, ny, II)
     @inbounds B[pII] += -0.25 * v[II] * (B1_2 - A1_2) * Du[II]
 end
 
+
+"""
+fills O (bulk) B (cutcell part, with v ... Du and Dv) 
+"""
 function vec_convy_1!(II, O, B, v, Du, Dv, cap, ny)
     pII = lexicographic(II, ny+1)
     A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
@@ -2727,6 +2757,10 @@ function vec_convy_1!(II, O, B, v, Du, Dv, cap, ny)
     return nothing
 end
 
+
+"""
+fills O (bulk) B (cutcell part, with v ... Du and Dv) 
+"""
 function vec_convy_2!(II, O, B, v, Du, Dv, cap, ny)
     pII = lexicographic(II, ny+1)
     A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δy⁻(II))
@@ -2753,6 +2787,10 @@ function vec_convy_2!(II, O, B, v, Du, Dv, cap, ny)
     return nothing
 end
 
+
+"""
+fills O (bulk)
+"""
 function vec_convy_3!(II, O, u, cap, ny)
     pII = lexicographic(II, ny+1)
     A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δy⁻(II))
@@ -2769,6 +2807,10 @@ function vec_convy_3!(II, O, u, cap, ny)
     return nothing
 end
 
+
+"""
+fills O (bulk)
+"""
 function vec_convy_4!(II, O, u, cap, ny)
     pII = lexicographic(II, ny+1)
     A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δy⁻(II))
@@ -2785,6 +2827,10 @@ function vec_convy_4!(II, O, u, cap, ny)
     return nothing
 end
 
+
+"""
+fills O (bulk)
+"""
 function vec_convy_5!(II, O, u, cap, ny, BC)
     pII = lexicographic(II, ny+1)
     A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
@@ -2806,6 +2852,10 @@ function vec_convy_5!(II, O, u, cap, ny, BC)
     return nothing
 end
 
+
+"""
+fills O (bulk) 
+"""
 function vec_convy_6!(II, O, u, cap, ny, BC)
     pII = lexicographic(II, ny+1)
     A1_2, A2_2, A3_2, A4_2, B1_2, B2_2 = get_capacities_convection(cap, II)
@@ -2827,6 +2877,10 @@ function vec_convy_6!(II, O, u, cap, ny, BC)
     return nothing
 end
 
+
+"""
+fills O (bulk) 
+"""
 function vec_convy_7!(II, O, u, cap, ny, BC)
     pII = lexicographic(II, ny+1)
     A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δy⁻(II))
@@ -2848,6 +2902,10 @@ function vec_convy_7!(II, O, u, cap, ny, BC)
     return nothing
 end
 
+
+"""
+fills O (bulk) 
+"""
 function vec_convy_8!(II, O, u, cap, ny, BC)
     pII = lexicographic(II, ny+1)
     A1_1, A2_1, A3_1, A4_1, B1_1, B2_1 = get_capacities_convection(cap, δy⁻(II))
@@ -2874,12 +2932,12 @@ end
 ### Variables
 
 - `GridFCy`: v-grid.
-- `O`: A matrix used to store intermediate results during the computation.
-- `B`: A vector used to store boundary conditions.
+- `O`: bulk part of convection, Cv
+- `B`: boundary/border part of convection, CUTCv
 - `u`: Velocity field in the x-direction.
 - `v`: Velocity field in the y-direction.
-- `Du_x`: 
-- `Dv_y`: 
+- `Du_x`: velocity and BC
+- `Dv_y`: velocity and BC
 - `cap`: Capacities related to the convection terms.
 - `ny`: Number of grid points in the y-direction.
 - `inside`: Indices representing the interior grid points.
@@ -2954,7 +3012,7 @@ function vector_convection!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y
             @inbounds O[pII,pII] += -0.25 * (A4_1 - B2_1) * Dv_y[II]
             @inbounds O[pII,pII] += -0.25 * (B2_1 - A2_1) * Dv_y[JJ]
 
-            @inbounds O[pII,pII] += -0.25 * (A3_1 - B1_1) * Du_x[δx⁺(δy⁻(JJ))]
+            @inbounds O[pII,pII] += -0.25 * (A3_1 - B1_1) * Du_x[δx⁺(δy⁻(JJ))] #bulk part Du_x
             @inbounds O[pII,pII] += -0.25 * (B1_1 - A1_1) * Du_x[δy⁻(JJ)]
 
             @inbounds B[pII] += -0.25 * v[II] * (A4_1 - B2_1) * Dv_y[II]

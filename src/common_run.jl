@@ -41,15 +41,15 @@ handles 2 crossing levelsets, levelsets are combined at grid.LS[end]
 * periodic_y
 * empty = true
 """
-function update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, empty = true)
+function update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, empty = true,one_fluid_model=false)
     if num.nLS > 1
         for iLS in 1:num.nLS
-            update_ls_data(num, grid, grid_u, grid_v, iLS, grid.LS[iLS].u, grid.LS[iLS].κ, BC_int, BC_int[iLS], periodic_x, periodic_y, false, empty)
+            update_ls_data(num, grid, grid_u, grid_v, iLS, grid.LS[iLS].u, grid.LS[iLS].κ, BC_int, BC_int[iLS], periodic_x, periodic_y, false, empty,one_fluid_model)
             grid.LS[iLS].geoL.cap0 .= grid.LS[iLS].geoL.cap
             grid.LS[iLS].mid_point0 .= grid.LS[iLS].mid_point
         end
         combine_levelsets!(num, grid)
-        NB_indices = update_ls_data(num, grid, grid_u, grid_v, num._nLS, grid.LS[end].u, grid.LS[end].κ, BC_int, DummyBC(), periodic_x, periodic_y, true, empty)
+        NB_indices = update_ls_data(num, grid, grid_u, grid_v, num._nLS, grid.LS[end].u, grid.LS[end].κ, BC_int, DummyBC(), periodic_x, periodic_y, true, empty,one_fluid_model)
         grid.LS[end].geoL.cap0 .= grid.LS[end].geoL.cap
         grid.LS[end].mid_point0 .= grid.LS[end].mid_point
         crossing_2levelsets!(num, grid, grid.LS[1], grid.LS[2], BC_int)
@@ -64,7 +64,7 @@ function update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, perio
         end
         postprocess_grids2!(grid, grid.LS[end], grid_u, grid_u.LS[end], grid_v, grid_v.LS[end], periodic_x, periodic_y, true)
     else
-        NB_indices = update_ls_data(num, grid, grid_u, grid_v, 1, grid.LS[1].u, grid.LS[1].κ, BC_int, BC_int[1], periodic_x, periodic_y, true, empty)
+        NB_indices = update_ls_data(num, grid, grid_u, grid_v, 1, grid.LS[1].u, grid.LS[1].κ, BC_int, BC_int[1], periodic_x, periodic_y, true, empty,one_fluid_model)
         grid.LS[1].geoL.cap0 .= grid.LS[1].geoL.cap
         grid.LS[1].mid_point0 .= grid.LS[1].mid_point
         postprocess_grids2!(grid, grid.LS[1], grid_u, grid_u.LS[1], grid_v, grid_v.LS[1], periodic_x, periodic_y, true)
@@ -79,7 +79,7 @@ end
 updates LS on p-grid, interpolates LS from scalar grid (p) to u and v grids 
 
 """
-function update_ls_data(num, grid, grid_u, grid_v, iLS, u, κ, BC_int, bc_int, periodic_x, periodic_y, neighbours, empty = true)
+function update_ls_data(num, grid, grid_u, grid_v, iLS, u, κ, BC_int, bc_int, periodic_x, periodic_y, neighbours, empty = true,one_fluid_model=false)
     NB_indices = update_ls_data_grid(num, grid, grid.LS[iLS], u, κ, periodic_x, periodic_y)
     
     #interpolate from scalar grid (p) to u and v grids 
@@ -88,7 +88,7 @@ function update_ls_data(num, grid, grid_u, grid_v, iLS, u, κ, BC_int, bc_int, p
     _ = update_ls_data_grid(num, grid_u, grid_u.LS[iLS], grid_u.LS[iLS].u, grid_u.LS[iLS].κ, periodic_x, periodic_y)
     _ = update_ls_data_grid(num, grid_v, grid_v.LS[iLS], grid_v.LS[iLS].u, grid_v.LS[iLS].κ, periodic_x, periodic_y)
 
-    postprocess_grids1!(num, grid, grid.LS[iLS], grid_u, grid_u.LS[iLS], grid_v, grid_v.LS[iLS], periodic_x, periodic_y, neighbours, empty, BC_int)
+    postprocess_grids1!(num, grid, grid.LS[iLS], grid_u, grid_u.LS[iLS], grid_v, grid_v.LS[iLS], periodic_x, periodic_y, neighbours, empty, BC_int,one_fluid_model)
 
     for i in 1:num.nLS
         if is_wall(BC_int[i])

@@ -618,13 +618,16 @@ end
 
     clip_cells!, clip_A_acc_to_V, set_cap_bcs!, compute alpha the angle of the interior normal
 """
-function postprocess_grids1!(num, grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, periodic_y, neighbours, empty, BC_int)
-    clip_cells!(grid, LS, num.ϵ, num.ϵwall, neighbours, BC_int)
-    clip_cells!(grid_u, LS_u, num.ϵ, num.ϵwall, neighbours, BC_int)
-    clip_cells!(grid_v, LS_v, num.ϵ, num.ϵwall, neighbours, BC_int)
+function postprocess_grids1!(num, grid, LS, grid_u, LS_u, grid_v, LS_v, periodic_x, periodic_y, neighbours, empty, BC_int,one_fluid_model)
+    
+    if ( !one_fluid_model) #if not one-fluid model, cut cells
+        clip_cells!(grid, LS, num.ϵ, num.ϵwall, neighbours, BC_int)
+        clip_cells!(grid_u, LS_u, num.ϵ, num.ϵwall, neighbours, BC_int)
+        clip_cells!(grid_v, LS_v, num.ϵ, num.ϵwall, neighbours, BC_int)
 
-    clip_A_acc_to_V(grid, grid_u, grid_v, LS.geoS, LS_u.geoS, LS_v.geoS, num.ϵ, num.ϵwall, neighbours, BC_int)
-    clip_A_acc_to_V(grid, grid_u, grid_v, LS.geoL, LS_u.geoL, LS_v.geoL, num.ϵ, num.ϵwall, neighbours, BC_int)
+        clip_A_acc_to_V(grid, grid_u, grid_v, LS.geoS, LS_u.geoS, LS_v.geoS, num.ϵ, num.ϵwall, neighbours, BC_int)
+        clip_A_acc_to_V(grid, grid_u, grid_v, LS.geoL, LS_u.geoL, LS_v.geoL, num.ϵ, num.ϵwall, neighbours, BC_int)
+    end
 
     clip_middle_cells!(grid, LS)
     clip_middle_cells!(grid_u, LS_u)

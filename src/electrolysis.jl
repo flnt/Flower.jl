@@ -3763,12 +3763,8 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
                 __b = 1.0
             end
     
-            if num.nLS == 1
-                # Flags with BCs
-                a0 .= __a0
-                # a0 = ones(grid) .* __a0
-            
-            else 
+            if num.nLS > 1
+               
                 iLS_elec = 2
                 
                 if iLS == iLS_elec 
@@ -3877,7 +3873,12 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
                     a0 .= __a0
                 end #ilS==iLS_elec
 
-            end #num.nLS == 1
+                else
+                    # Flags with BCs
+                    a0 .= __a0
+                    # a0 = ones(grid) .* __a0
+            
+            end #num.nLS > 1
 
 
             # _a1 = ones(grid) .* __a1
@@ -5281,6 +5282,18 @@ function compute_divergence_test!(num::Numerical{Float64, Int64},
     II = CartesianIndex(5,1)
     tmp = lexicographic(II,grid.ny)
     print("\n A ", A[tmp,:])
+   
+    printstyled(color=:red, @sprintf "\n test laplacian \n") 
+
+    print("\n Lv ")
+
+    print("\n Lv ", Lv[tmp,:])
+    print("\n bc_L ", bc_Lv)
+    display(bc_Lv)
+    # print("\n bc_L ", bc_Lv[tmp,:])
+
+    printstyled(color=:red, @sprintf "\n test laplacian \n") 
+
 
     debug_A_rhs(num,grid,A,tmp_vec_1D,1,5)
     
@@ -5387,6 +5400,7 @@ function debug_A_rhs(num,grid,A,rhs,i,j)
 
 end
 
+
 """
 Based on num.bulk_conductivity:
 * 0 conductivity computed from wall concentration
@@ -5400,6 +5414,15 @@ function update_BC_electrical_potential!(num,grid,BC_phi_ele,elec_cond,elec_cond
     
     #use Butler-Volmer, supposing the interfacial potential is acceptable and phi = phi_ele1 in metal 
     # for conductivity, use interfacial value or bulk in corresponding cell
+
+
+    print("\n i butler ",i_butler )
+    PDI_status = @ccall "libpdi".PDI_multi_expose("update_BC_electrical_potential!"::Cstring,
+        "elec_cond_1D"::Cstring, elec_condD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "i_butler"::Cstring, i_butler::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
+
+
 
     # TODO -(-i/kappa) in Flower ? so i_butler not -i_butler
     # For small cells
@@ -5438,16 +5461,23 @@ function update_electrical_current_from_Butler_Volmer!(num,grid,heat,phi_eleD,i_
         i_butler .= butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phi_eleD, grid),
         num.phi_ele1,num.Ru,T)
     else
-        if num.nLS == 1
-            i_butler .= butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phi_eleD, grid),
+        #
+        i_butler .= butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phi_eleD, grid),
             num.phi_ele1,num.Ru,num.temperature0)
-        # else
-            #imposed by LS 2
-            # iLS_elec = 2
-            # i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(phL.phi_eleD, grid,iLS_elec+1),
-            # num.phi_ele1,num.Ru,num.temperature0)
-        end
+        # if num.nLS == 1
+        #     i_butler .= butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phi_eleD, grid),
+        #     num.phi_ele1,num.Ru,num.temperature0)
+        # # else
+        #     #imposed by LS 2
+        #     # iLS_elec = 2
+        #     # i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(phL.phi_eleD, grid,iLS_elec+1),
+        #     # num.phi_ele1,num.Ru,num.temperature0)
+        # end
     end   
+
+    # print("\n update_electrical_current_from_Butler_Volmer! ",i_butler)
+    # print("\n update_electrical_current_from_Butler_Volmer! ",num.alpha_a,num.alpha_c,num.Faraday,num.i0,num.phi_ele1,num.Ru,num.temperature0)
+    # print("\n update_electrical_current_from_Butler_Volmer! ",vecb_L(phi_eleD, grid))
 
 end
 
@@ -5502,15 +5532,17 @@ function update_derivative_electrical_current_from_Butler_Volmer!(num,grid,heat,
         i_butler_derivative .= derivative_butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phi_eleD, grid),
         num.phi_ele1,num.Ru,T)
     else
-        if num.nLS == 1
-            i_butler_derivative .= derivative_butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phi_eleD, grid),
+        i_butler_derivative .= derivative_butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phi_eleD, grid),
             num.phi_ele1,num.Ru,num.temperature0)
-        # else
-            #imposed by LS 2
-            # iLS_elec = 2
-            # i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(phL.phi_eleD, grid,iLS_elec+1),
-            # num.phi_ele1,num.Ru,num.temperature0)
-        end
+        # if num.nLS == 1
+        #     i_butler_derivative .= derivative_butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phi_eleD, grid),
+        #     num.phi_ele1,num.Ru,num.temperature0)
+        # # else
+        #     #imposed by LS 2
+        #     # iLS_elec = 2
+        #     # i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(phL.phi_eleD, grid,iLS_elec+1),
+        #     # num.phi_ele1,num.Ru,num.temperature0)
+        # end
     end   
 
 end
@@ -5520,6 +5552,10 @@ end
 Interpolate conductivity at center of control volumes for potential gradient at the border
 """
 function interpolate_scalar_to_staggered_u_v_grids_at_border!(num,grid,coeffD,coeffDu,coeffDv)
+
+    printstyled(color=:green, @sprintf "\n interpolate scal") 
+    print("\n grid.ind.b_left[1][1] grid.ind.b_right[1][1]",grid.ind.b_left[1][1], " ",grid.ind.b_right[1][1] )
+    print("\n grid.ind.b_left[1][1] grid.ind.b_right[1][1]",size(coeffDu), " ",size(coeffDv) )
 
     coeffDu .= 0.0
     coeffDv .= 0.0
@@ -5671,6 +5707,12 @@ function solve_poisson_loop!(num::Numerical{Float64, Int64},
         # residual_electrical_potential = maximum(abs.(-tmp_vec_p[div(grid.ny,2),:].+butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phL.phi_eleD, grid),
         #             num.phi_ele1,num.Ru,num.temperature0)))
 
+        if any(isinf, phL.phi_eleD) 
+
+            @error("\n phi Inf error in solve_poisson_loop") 
+
+        end
+
         @ccall "libpdi".PDI_multi_expose("print_electrical_potential"::Cstring,
         "poisson_iter"::Cstring, poisson_iter ::Ref{Clonglong}, PDI_OUT::Cint,
         "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
@@ -5753,6 +5795,8 @@ function solve_poisson_loop!(num::Numerical{Float64, Int64},
 
         @ccall "libpdi".PDI_multi_expose("check_electrical_potential"::Cstring,
         "poisson_iter"::Cstring, poisson_iter ::Ref{Clonglong}, PDI_OUT::Cint,
+        "nx"::Cstring, grid.nx::Ref{Clonglong}, PDI_OUT::Cint,
+        "ny"::Cstring, grid.ny::Ref{Clonglong}, PDI_OUT::Cint,
         "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
         "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
         "i_current_mag"::Cstring, tmp_vec_p1::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -6146,7 +6190,7 @@ function compute_mask_1D!(num::Numerical{Float64, Int64},grid::Mesh{GridCC,T,N},
 
     # Right wall
     nb += nx
-    mask_1D[nb+1:nb+nx] = grid.LS[end].geoL.dcap[:,end,3]
+    mask_1D[nb+1:nb+ny] = grid.LS[end].geoL.dcap[:,end,3]
     # @inbounds @threads for i in 1:ny
     #     II = ind.b_right[1][i]
     #     mask_1D[nb+i] = geo.dcap[II,2]

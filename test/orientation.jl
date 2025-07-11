@@ -1292,45 +1292,6 @@ end
 
 #region diffusion u v 
 
-function bilinear_interpolation(x, y, x1, y1, x2, y2, Q11, Q12, Q21, Q22)
-        # Calculate the intermediate terms
-        term1 = (x2 - x) * (y2 - y) * Q11 / ((x2 - x1) * (y2 - y1))
-        term2 = (x - x1) * (y2 - y) * Q21 / ((x2 - x1) * (y2 - y1))
-        term3 = (x2 - x) * (y - y1) * Q12 / ((x2 - x1) * (y2 - y1))
-        term4 = (x - x1) * (y - y1) * Q22 / ((x2 - x1) * (y2 - y1))
-
-        # print("\n term1 ", term1," ", term2, " ", term3," ",term4 , " ",((x2 - x1) * (y2 - y1)))
-        # Sum the terms to get the interpolated value
-        return term1 + term2 + term3 + term4
-    end
-
-
-    function bilinear_interpolation(grid, x, y,values)
-        dx = grid.dx[2,2] #constant dx
-        dy = grid.dy[2,2] #constant dx
-        # print("\n dx dy ",dx," dy ",dy)
-        # Calculate the indices and weights for interpolation
-        i0 = floor(Int, x / dx) #TODO
-        j0 = floor(Int, y / dy)
-        i1 = i0 + 1
-        j1 = j0 + 1
-        
-        print("\nindices "," i0 ",i0," i1 ",i1," j0 ",j0," j1 ",j1)
-        print("\ngrid "," i0 j0 ",grid.x[j0,i0]," i1 j0 ",grid.x[j0,i1]," i0 j1 ",grid.x[j1,i0]," i1 j1 ",grid.x[j1,i1])
-
-        # Calculate the weights
-        wx = (x - grid.x[j0,i0]) / dx
-        wy = (y - grid.y[j0,i0]) / dy
-
-        # Perform bilinear interpolation
-        value = (1 - wx) * (1 - wy) * values[j0,i0] +
-                wx * (1 - wy) * values[j0,i1] +
-                (1 - wx) * wy * values[j1,i0] +
-                wx * wy * values[j1, i1]
-
-        return value
-    end
-
     function set_cutcell_matrices_test!(num, grid, geo, geo_p, opC, periodic_x, periodic_y)
         @unpack nx, ny, ind = grid
         @unpack AxT, AyT, Bx, By, BxT, ByT, Hx, Hy, HxT, HyT, M, iMx, iMy, χ = opC
@@ -1412,6 +1373,245 @@ function bilinear_interpolation(x, y, x1, y1, x2, y2, Q11, Q12, Q21, Q22)
     nb = 2 * grid.nx + 2 * grid.ny
 
     coeffD = fnones(grid,num)
+
+
+    #region interpolate at border
+
+    print("\n opC_u.iMx_b", size(opC_u.iMx_b)," opC_u.BxT ",size(opC_u.BxT))
+    print("\n opC_u.iMy_b", size(opC_u.iMy_b)," opC_u.ByT ",size(opC_u.ByT))
+
+    print("\n opC_v.iMx_b", size(opC_v.iMx_b)," opC_v.BxT ",size(opC_v.BxT))
+    print("\n opC_v.iMy_b", size(opC_v.iMy_b)," opC_v.ByT ",size(opC_v.ByT))
+
+
+    laps = set_matrices!(num, gp, [gp.LS[1].geoL], gu, [gu.LS[1].geoL], gv, [gv.LS[1].geoL], 
+    op.opC_pL, op.opC_uL, op.opC_vL, false, false)
+    Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = laps
+    
+    print("\n bc_Lu_b", size(bc_Lu_b)," bc_Lv_b ",size(bc_Lv_b))
+
+    j = Int(grid.ny /2) 
+    i = 1
+    II = CartesianIndex(j,i)
+    pII = lexicographic(II,grid.ny)
+
+    # test_index = Int(grid.nx /2)
+    test_index = pII
+    print("\n Lu ", Lu[test_index,:])
+
+    print("\n bc_Lu_b ", bc_Lu_b[test_index,:])
+
+    print("\n bc_Lv_b ", bc_Lv_b[test_index,:])
+
+  
+
+    print("\nprint scal \n")
+
+    print("\n Lp ", Lp[test_index,:])
+
+    print("\n bc_Lp_b ", bc_Lp_b[test_index,:])
+
+    # print("\nprint matrix \n")
+
+    # # display(test_bcL)
+    # Base.print_matrix(stdout,test_bcL)
+
+
+    @testset " Laplacian u" begin
+        testval = -(1 + 4/3 + 4) 
+        print("\n -(1 + 4/3 + 4) ",testval,Lu[test_index,test_index])
+        print("\n test Lu")
+        @test Lu[test_index,test_index] ≈ testval atol=test_tolerance # 1 because half cell 0.5
+        
+        print("\n test bc_Lu_b")
+
+        @test bc_Lu_b[test_index,test_index] ≈ 4.0 atol=test_tolerance # 1 because half cell 0.5
+
+        printstyled(color=:magenta, @sprintf "\n testing bottom of the domain \n") 
+        II = CartesianIndex(1,2)
+        print("\n II ",II)
+        pII = lexicographic(II,grid.ny)
+        print("\n Lu ", Lu[pII,:])
+        print("\n bc_Lu_b ", bc_Lu_b[pII,:])
+
+
+        II = CartesianIndex(1,Int(grid.nx /2))
+        print("\n II ",II)
+        pII = lexicographic(II,grid.ny)
+        print("\n Lu ", Lu[pII,:])
+        print("\n bc_Lu_b ", bc_Lu_b[pII,:])
+
+
+
+        # @test Lu[pII,pII] ≈ testval atol=test_tolerance # 1 because half cell 0.5
+        # print("\n test bc_Lu_b")
+        # @test bc_Lu_b[pII,pII] ≈ 4.0 atol=test_tolerance # 1 because half cell 0.5
+        
+    end
+
+    @testset " Laplacian u with coefficient" begin
+
+
+        viscosity_coeff_for_u_border_x = zeros(grid.ny, grid.nx+2) # copy(coeffDu)
+        viscosity_coeff_for_u_border_y = zeros(grid.ny+1, grid.nx+1) # copy(coeffDv)
+
+        viscosity_coeff_for_v_border_x = zeros(grid.ny+1, grid.nx+1) #copy(coeffDu)
+        viscosity_coeff_for_v_border_y = zeros(grid.ny+2, grid.nx) #copy(coeffDv)
+        print("\n grid_u size ")
+
+        print("\n grid.ind.b_left[1][1] grid.ind.b_right[1][1]",grid_u.ind.b_left[1][1], " ",grid_u.ind.b_right[1][1] )
+        print("\n grid.ind.b_bottom[1][1] grid.ind.b_top[1][1]",grid_u.ind.b_bottom[1][1], " ",grid_u.ind.b_top[1][1] )
+
+
+        printstyled(color=:magenta, @sprintf "\n testing variable coefficient \n") 
+
+        viscosity_coeff_for_du_dx = zeros(grid_u.ny,grid_u.nx+1)
+        viscosity_coeff_for_du_dx[:,2:grid_u.nx] .= 1.0 #volume_fraction #grid.LS[end].geoL.cap[:,:,5]
+
+        #TODO contact angle change  viscosity_coeff_for_du_dx[:,1] and at end (not interpolating right now)
+        viscosity_coeff_for_du_dx[:,1] = viscosity_coeff_for_du_dx[:,2]
+        viscosity_coeff_for_du_dx[:,end] = viscosity_coeff_for_du_dx[:,end-1]
+
+        display(viscosity_coeff_for_du_dx)
+
+        viscosity_coeff_for_u_border_x = viscosity_coeff_for_du_dx
+        
+        viscosity_coeff_for_u_border_y = zeros(grid.ny+1, grid.nx+1)
+
+        viscosity_coeff_for_u_border_y .= 1.0
+
+
+        viscosity_coeff_for_v_border_x = ones(grid.ny+1, grid.nx+1)
+        viscosity_coeff_for_v_border_y = ones(grid.ny+2, grid.nx)
+
+        # print("\n grid.ind.b_left[1][1] grid.ind.b_right[1][1]",size(coeffDu), " ",size(coeffDv) )
+
+        # Interpolate at the border
+        # interpolate_scalar_to_staggered_u_v_grids_at_border!(num,grid_u,coeffD,viscosity_coeff_for_u_border_x,viscosity_coeff_for_u_border_y)
+
+        # display(viscosity_coeff_for_u_border_x)
+        # display(viscosity_coeff_for_u_border_y)
+
+
+        # interpolate_scalar_to_staggered_u_v_grids_at_border!(num,grid_v,coeffD,viscosity_coeff_for_v_border_x,viscosity_coeff_for_v_border_y)
+
+        # viscosity_coeff_for_u_border_x = veci(viscosity_coeff_for_u_border_x,grid_u) #should be of size (ny, nx+2)
+        # viscosity_coeff_for_u_border_y = veci(viscosity_coeff_for_u_border_y,grid_v) #should be of size (ny+1, nx+1)
+
+        # viscosity_coeff_for_v_border_x = veci(viscosity_coeff_for_v_border_x,grid_u) #should be of size (ny+1, nx+1)
+        # viscosity_coeff_for_v_border_y = veci(viscosity_coeff_for_v_border_y,grid_v) #should be of size (ny+2, nx)
+
+        diag_viscosity_coeff_for_u_border_x = Diagonal(vec(viscosity_coeff_for_u_border_x)) 
+        diag_viscosity_coeff_for_u_border_y = Diagonal(vec(viscosity_coeff_for_u_border_y)) 
+
+        diag_viscosity_coeff_for_v_border_x = Diagonal(vec(viscosity_coeff_for_v_border_x)) 
+        diag_viscosity_coeff_for_v_border_y = Diagonal(vec(viscosity_coeff_for_v_border_y)) 
+
+        # print("\n size(diag_viscosity_coeff_for_u_border_x) ",size(diag_viscosity_coeff_for_u_border_x), " ",size(opC_u.BxT)," ",size(opC_u.iMx_b))
+
+        bc_Lu_b = (opC_u.BxT * diag_viscosity_coeff_for_u_border_x * opC_u.iMx_b * opC_u.Hx_b .+ opC_u.ByT * diag_viscosity_coeff_for_u_border_y * opC_u.iMy_b * opC_u.Hy_b)
+
+        bc_Lv_b = (opC_v.BxT * diag_viscosity_coeff_for_v_border_x * opC_v.iMx_b * opC_v.Hx_b .+ opC_v.ByT * diag_viscosity_coeff_for_v_border_y * opC_v.iMy_b * opC_v.Hy_b)
+
+
+        print("\nprint matrix \n")
+       
+        test_bcL = opC_u.BxT * opC_u.iMx_b * opC_u.Hx_b .+ opC_u.ByT * opC_u.iMy_b * opC_u.Hy_b
+
+        # print("\nprint matrix ", test_bcL[1,:] )
+        # print("\nprint matrix ", test_bcL[2,:] )
+
+        testyindex = Int(grid.ny /2)
+        
+        II = CartesianIndex( testyindex, 1)
+        print("\n II ",II)
+        pII = lexicographic(II,grid.ny)
+        print("\n Lu ", Lu[pII,:])
+        print("\n bc_Lu_b ", bc_Lu_b[pII,:])
+
+        II = CartesianIndex( testyindex-1, 1)
+        print("\n II ",II)
+        pII = lexicographic(II,grid.ny)
+        print("\n Lu ", Lu[pII,:])
+        print("\n bc_Lu_b ", bc_Lu_b[pII,:])
+
+        II = CartesianIndex( testyindex+1, 1)
+        print("\n II ",II)
+        pII = lexicographic(II,grid.ny)
+        print("\n Lu ", Lu[pII,:])
+        print("\n bc_Lu_b ", bc_Lu_b[pII,:])
+
+
+        viscosity_coeff_for_u_border_x .= 0.0
+        
+        viscosity_coeff_for_u_border_y .= 0.0
+
+        # II = CartesianIndex( testyindex, 1)
+        viscosity_coeff_for_u_border_x[testyindex,1] = 1.0 #TODO why 2, and 4 ? staggered +1 -1
+
+        # for j in 1:size(viscosity_coeff_for_u_border_x,1)
+        #     for i in 1:size(viscosity_coeff_for_u_border_x,2)
+
+        #         print("\n j i ",j," ",i," ",j*1000+i)
+
+        #         viscosity_coeff_for_u_border_x[j,i] = (j*1000+i)/4
+
+        #     end
+
+        # end
+
+        # print("\n opC_u.iMx_b * opC_u.Hx_b")
+        # display(opC_u.iMx_b * opC_u.Hx_b)
+
+        # print("\n opC_u.BxT")
+        # display(opC_u.BxT)
+        
+        # viscosity_coeff_for_u_border_y .= 0.0
+
+        diag_viscosity_coeff_for_u_border_x = Diagonal(vec(viscosity_coeff_for_u_border_x)) 
+        diag_viscosity_coeff_for_u_border_y = Diagonal(vec(viscosity_coeff_for_u_border_y)) 
+
+        bc_Lu_b = (opC_u.BxT * diag_viscosity_coeff_for_u_border_x * opC_u.iMx_b * opC_u.Hx_b .+ opC_u.ByT * diag_viscosity_coeff_for_u_border_y * opC_u.iMy_b * opC_u.Hy_b)
+
+        II = CartesianIndex( testyindex, 1)
+        print("\n II ",II)
+        pII = lexicographic(II,grid.ny)
+        print("\n Lu ", Lu[pII,:])
+        print("\n bc_Lu_b ", bc_Lu_b[pII,:])
+
+        II = CartesianIndex( testyindex-1, 1)
+        print("\n II ",II)
+        pII = lexicographic(II,grid.ny)
+        print("\n Lu ", Lu[pII,:])
+        print("\n bc_Lu_b ", bc_Lu_b[pII,:])
+
+        II = CartesianIndex( testyindex+1, 1)
+        print("\n II ",II)
+        pII = lexicographic(II,grid.ny)
+        print("\n Lu ", Lu[pII,:])
+        print("\n bc_Lu_b ", bc_Lu_b[pII,:])
+
+        ###################################
+
+        testval = -(1 + 4/3 + 4) 
+        print("\n -(1 + 4/3 + 4) ",testval,Lu[test_index,test_index])
+        print("\n test Lu")
+        @test Lu[test_index,test_index] ≈ testval atol=test_tolerance # 1 because half cell 0.5
+        
+        print("\n test bc_Lu_b")
+
+        @test bc_Lu_b[test_index,test_index] ≈ 4.0 atol=test_tolerance # 1 because half cell 0.5
+
+
+        printstyled(color=:magenta, @sprintf "\n testing variable coefficient \n") 
+
+
+    end
+
+
+
+    #endregion interpolate at border
+
 
 
     #region scalar_all_nodes
@@ -1531,17 +1731,51 @@ function bilinear_interpolation(x, y, x1, y1, x2, y2, Q11, Q12, Q21, Q22)
 
 
 
-    printstyled(color=:magenta, @sprintf "\n testing du_dy \n") 
+    printstyled(color=:magenta, @sprintf "\n viscosity_coeff_for_dv_dy \n") 
 
     viscosity_coeff_for_du_dy = zeros(grid_u.ny+1,grid_u.nx)
 
-  
+    #region Viscosity coefficient for \frac{\partial v}{\partial y}
+    #cf test in orientation.jl
+    viscosity_coeff_for_dv_dy = zeros(grid_v.ny+1,grid_v.nx)
+
+    viscosity_coeff_for_dv_dy[2:grid_v.ny,:] = grid.y #volume_fraction #grid.LS[end].geoL.cap[:,:,5]
+
+    # x_centroid_v
+
+    viscosity_coeff_for_dv_dy[1,:] = (gv.y[1,:] + y_centroid_v[1,:]) / 2
+    viscosity_coeff_for_dv_dy[grid_v.ny+1,:] = (y_centroid_v[grid_v.ny,:] + gv.y[grid_v.ny,:]) / 2
+
+
+    display(viscosity_coeff_for_dv_dy)
+
+    viscosity_coeff_for_dv_dy[2:grid_v.ny,:] = grid.LS[end].geoL.cap[:,:,5]
+
+    #TODO contact angle change  viscosity_coeff_for_dv_dy[:,1] and at end (not interpolating right now)
+    viscosity_coeff_for_dv_dy[1,:] = viscosity_coeff_for_dv_dy[2,:]
+    viscosity_coeff_for_dv_dy[end,:] = viscosity_coeff_for_dv_dy[end-1,:]
+
+    display(viscosity_coeff_for_dv_dy)
+
+    # arithmetic average 
+    # viscosity_coeff_for_dv_dy .= 2 * ( (num.mu1 - num.mu2) * viscosity_coeff_for_dv_dy  .+ num.mu2 )
+
+    # # display(viscosity_coeff_for_dv_dy)
+    # PDI_status = @ccall "libpdi".PDI_multi_expose("viscosity_coeff_for_dv_dy"::Cstring,
+    # "viscosity_coeff_for_dv_dy"::Cstring, viscosity_coeff_for_dv_dy::Ptr{Cdouble}, PDI_OUT::Cint,        
+    # C_NULL::Ptr{Cvoid})::Cint
+
+    # diag_viscosity_coeff_for_dv_dy = Diagonal(vec(viscosity_coeff_for_dv_dy))
+
+    #endregion Viscosity coefficient for \frac{\partial v}{\partial y}
 
 
    
 
     mu1 = 1
     mu2 = 100
+
+
 
 
 
@@ -1761,22 +1995,22 @@ function bilinear_interpolation(x, y, x1, y1, x2, y2, Q11, Q12, Q21, Q22)
 
 
 
-    display(viscosity_coeff_for_du_dy)
+#     display(viscosity_coeff_for_du_dy)
 
-    print("\n size viscosity_coeff_for_du_dy ",size(viscosity_coeff_for_du_dy),"\n")
+#     print("\n size viscosity_coeff_for_du_dy ",size(viscosity_coeff_for_du_dy),"\n")
 
 
-    diag_viscosity_coeff_for_du_dy = Diagonal(vec(viscosity_coeff_for_du_dy))
+#     diag_viscosity_coeff_for_du_dy = Diagonal(vec(viscosity_coeff_for_du_dy))
 
-    mul!(opC_u.tmp_y, diag_viscosity_coeff_for_du_dy * opC_u.iMy, opC_u.By)
-    diffusion_bulk_u = L .+ opC_u.ByT * opC_u.tmp_y
+#     mul!(opC_u.tmp_y, diag_viscosity_coeff_for_du_dy * opC_u.iMy, opC_u.By)
+#     diffusion_bulk_u = L .+ opC_u.ByT * opC_u.tmp_y
 
-    j = div(grid.ny,2)
-    i = 1
+#     j = div(grid.ny,2)
+#     i = 1
 
-    II = CartesianIndex(j,i)
+#     II = CartesianIndex(j,i)
 
-    print("\n diffusion_bulk_u ", diffusion_bulk_u[II])
+#     print("\n diffusion_bulk_u ", diffusion_bulk_u[II])
 
 
     printstyled(color=:magenta, @sprintf "\n testing diffusion_u_v \n") 
