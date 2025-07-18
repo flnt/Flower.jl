@@ -7,8 +7,7 @@ L0 = 1.
 tcks = -Ratio*L0/2:2:Ratio*L0/2
 lim = L0 / 2
 
-#JLD2.@save "/home/tf/Documents/RB_opt/opt_data.jld2" 
-# num gp gu gv fwd_des opt_p opt_S opt_L opt_u opt_uu opt_RB res
+JLD2.@load "/home/tf/Documents/RB_opt/opt_data.jld2" num gp gu gv fwd_des opt_p opt_S opt_L opt_u opt_uu opt_RB res
 
 
 # JLD2.@load "/home/tf/Documents/RB_opt/RB_nx_128_ny_32_ratio_4_tend_1.0e+00_TM_0.0_T1_0.7_T2_-0.3_St_1.0_Ra_5.0e+03.jld2"

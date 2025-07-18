@@ -6,7 +6,7 @@ using Optim
 #System parameters 
 Ra = 1e5 #5e4
 St = 1.   
-H0 = 0.05
+H0 = 0.35
 T1 = 0.7
 TM = 0.0
 
@@ -40,7 +40,7 @@ num = Numerical(
 #Optimization parameters
 @. model(t, p) = -abs(p[1]) - abs(p[2])*(1 - tanh(t/0.5)^2)
 p_desired = [0.3, 2.0]
-p_initial = [0.0, 0.]
+p_initial = [0.0, 0.0]
 
 γ = [1.0, 1.0, 1e-4, 1.0, 1.0]
 
@@ -444,7 +444,7 @@ Colorbar(F1[1, 2];
 
 # resize_to_layout!(F1)
 F1  # display the figure
-Makie.save("/home/tf/Documents/RB_opt/RB_opt_des.png", F1)
+Makie.save("/home/tf/Documents/RB_opt/RB_opt_des3.png", F1)
 
 
 
@@ -515,7 +515,7 @@ Colorbar(F1[1, 2];
 
 # resize_to_layout!(F1)
 F1  # display the figure
-Makie.save("/home/tf/Documents/RB_opt/RB_opt_ini.png", F1)
+Makie.save("/home/tf/Documents/RB_opt/RB_opt_ini3.png", F1)
 
 
 
@@ -545,7 +545,7 @@ resize_to_layout!(fh)
 axislegend(position = :rb)
 fh = current_figure()
 
-Makie.save("/home/tf/Documents/RB_opt/RB_opt_avheight_des_ini.png", fh)
+Makie.save("/home/tf/Documents/RB_opt/RB_opt_avheight_des_ini3.png", fh)
 
 fh = Figure(resolution = (1600, 1600))
 fontsize_theme = Theme(fontsize = 50)
@@ -564,7 +564,7 @@ resize_to_layout!(fh)
 axislegend(position = :rb)
 fh = current_figure()
 
-Makie.save("/home/tf/Documents/RB_opt/RB_opt_effectiveRa_des_ini.png", fh)
+Makie.save("/home/tf/Documents/RB_opt/RB_opt_effectiveRa_des_ini3.png", fh)
 
 
 
@@ -576,6 +576,128 @@ Makie.save("/home/tf/Documents/RB_opt/RB_opt_effectiveRa_des_ini.png", fh)
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# function fg2_nothing!(F, G, x, num, basis, γ, fwd_des, fwdS_des)
+
+#     gp, gu, gv = init_meshes(num)
+#     op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
+
+#     local_shift = 0.0001 + num.Δ / 2
+#     @. gp.LS[1].u = -gp.y - L0/2 + H0 + local_shift
+#     @. phL.T = T1 - (1. - num.θd)*(gp.y + L0/2) / (H0 + local_shift)
+#     @. phS.T = num.θd*(gp.y + L0/2 - 1.) / (H0 + local_shift - 1)
+
+#     p = curve_fit(basis, gp.x[1,:], x, rand(2))
+#     @show (p.param)
+
+#     try
+#         @time run_forward(
+#                 num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
+#                 periodic_x = true,
+#                 BC_TL = Boundaries(
+#                     bottom = Dirichlet(val = T1),
+#                     left = Periodic(),
+#                     right = Periodic(),
+#                 ),
+#                 BC_TS = Boundaries(
+#                     top = Dirichlet(val = basis(gp.x[1,:], p.param)), 
+#                     left = Periodic(),
+#                     right = Periodic(),
+#                 ),
+#                 BC_uL = Boundaries(
+#                     bottom = Dirichlet(val = num.u_inf),
+#                     top = Dirichlet(val = num.u_inf),
+#                     left = Periodic(),
+#                     right = Periodic(),
+#                 ),
+#                 BC_vL = Boundaries(
+#                     bottom = Dirichlet(val = num.v_inf),
+#                     top = Dirichlet(val = num.v_inf),
+#                     left = Periodic(),
+#                     right = Periodic(),
+#                 ),
+#                 BC_u = Boundaries(
+#                     left = Periodic(),
+#                     right = Periodic(),
+#                 ),
+#                 BC_pL = Boundaries(
+#                     left = Periodic(),
+#                     right = Periodic(),
+#                 ),
+#                 BC_int = [Stefan()],
+#                 time_scheme = FE,
+#                 ls_scheme = eno2,
+#                 adaptative_t = false,
+#                 heat = true,
+#                 heat_convection = true,
+#                 heat_liquid_phase = true,
+#                 heat_solid_phase = true,
+#                 navier_stokes = true,
+#                 ns_advection = true,
+#                 ns_liquid_phase = true,
+#                 verbose = false,
+#                 show_every = 10,
+#                 Ra = Ra,
+#                 St = St,
+#                 cutoff_length = 0.9
+#             )
+
+#         if F != nothing
+#         value = sum(my_costfunc(γ, fwdS_des.T[end,:,:], fwd_des.u[1,end,:,:], fwdS.T[end,:,:], fwd.u[1,end,:,:]))
+#         @show (value)
+#         return value
+#         end
+#     catch
+#         if F != nothing
+#             value = 1e10
+#             @show (value)
+#             return value
+#         end
+#     end
+    
+#   end
+
+# function gradient_based_optimization2_nothing(x_initial, num, basis, γ, fwd_des, fwdS_des;
+#     method_opt = ParticleSwarm(),
+#     opt_iter = 10)
+#     G = nothing
+#     res = optimize(Optim.only_fg!((F, G, x)->fg2_nothing!(F, G, x, num, basis, γ, fwd_des, fwdS_des)), x_initial, method_opt,
+#     Optim.Options(store_trace = true, show_trace=true, iterations = opt_iter, allow_f_increases = false))
+
+#     @show Optim.minimizer(res)
+
+#     return res
+# end
+
+
+
+# res_nothing = gradient_based_optimization2_nothing(model(gp.x[1,:], p_initial), num, model, γ, fwd_des, fwdS_des,opt_iter = 15, method_opt = ParticleSwarm())
 
 
 
@@ -608,13 +730,14 @@ res = gradient_based_optimization2(model(gp.x[1,:], p_initial), num, model, γ, 
     opt_iter = 15,
     method_opt = LBFGS(linesearch = Optim.LineSearches.BackTracking()))
 
+
 store = zeros(length(res.trace), 2)
 for i in axes(store,1)
     store[i, 1] = res.trace[i].iteration
     store[i, 2] = res.trace[i].value
 end
 
-JLD2.@save "/home/tf/Documents/RB_opt/opt_data.jld2" num gp gu gv fwd_des opt_p opt_S opt_L opt_u opt_uu opt_RB res
+JLD2.@save "/home/tf/Documents/RB_opt/opt_data3.jld2" num gp gu gv fwd_des opt_p opt_S opt_L opt_u opt_uu opt_RB res
 
 f = Figure()
 fontsize_theme = Theme(fontsize = 20)
@@ -625,7 +748,7 @@ lines!(f[1,1], store[:,1], store[:,2]./store[1,2], color =:black, linewidth = 3)
 scatter!(f[1,1], store[:,1], store[:,2]./store[1,2], markersize = 10, color =:black, marker=:rect)
 
 f = current_figure()
-# Makie.save("./figures/paper_figures/RB_opt_cost32.png", f)
+# Makie.save("./figures/paper_figures/RB_opt_cost33.png", f)
 
 
 
@@ -691,7 +814,7 @@ Colorbar(F1[1, 2], hm;
 
 # resize_to_layout!(F1)
 F1  # display the figure
-Makie.save("./figures/paper_figures/new_RB_opt$(i).png", F1)
+Makie.save("./figures/paper_figures/new_RB2_opt$(i).png", F1)
 end
 
 

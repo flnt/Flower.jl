@@ -37,8 +37,8 @@ num = Numerical(
     shift = 0.0,
 )
 
-for Ra = [1e5, 8e4, 4e4, 1e4, 5e3]
-
+# for Ra = [1e5, 8e4, 4e4, 1e4, 5e3]
+for Ra = [1e5]
     gp, gu, gv = init_meshes(num)
     op, phS, phL, fwd, fwdS, fwdL = init_fields(num, gp, gu, gv)
 
@@ -101,7 +101,8 @@ for Ra = [1e5, 8e4, 4e4, 1e4, 5e3]
     temp = copy(fwd.T[:,:,:])
     ls = copy(fwd.u[1,:,:,:])
     RB = copy(fwd.RB)
-
-    JLD2.@save "/home/tf/Documents/RB_opt/RB_nx_$(nx)_ny_$(ny)_ratio_$(ratio)_tend_$(@sprintf("%.1e", num.τ*max_it))_TM_$(TM)_T1_$(T1)_T2_$(T2)_St_$(St)_Ra_$(@sprintf("%.1e", Ra)).jld2" num gp gu gv phS phL temp ls RB
+    uvel = copy(fwdL.u[:,:,:])
+    vvel = copy(fwdL.v[:,:,:])
+    JLD2.@save "/home/tf/Documents/RB_opt/vel_RB_nx_$(nx)_ny_$(ny)_ratio_$(ratio)_tend_$(@sprintf("%.1e", num.τ*max_it))_TM_$(TM)_T1_$(T1)_T2_$(T2)_St_$(St)_Ra_$(@sprintf("%.1e", Ra)).jld2" num gp gu gv phS phL temp ls RB uvel vvel
 
 end
