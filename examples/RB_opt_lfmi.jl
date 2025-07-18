@@ -70,7 +70,7 @@ function fg2!(F, G, x, num, basis, γ, opt_p, opt_S, opt_L, opt_u, fwd_des, fwdS
     @. phL.T = T1 - (1. - num.θd)*(gp.y + L0/2) / (H0 + local_shift)
     @. phS.T = num.θd*(gp.y + L0/2 - 1.) / (H0 + local_shift - 1)
 
-    p = curve_fit(basis, gp.x[1,:], x, rand(2))
+    p = curve_fit(basis, gp.x[1,:], x, rand(10))
     @show (p.param)
 
     try
