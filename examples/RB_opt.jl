@@ -6,7 +6,7 @@ using Optim
 #System parameters 
 Ra = 1e5 #5e4
 St = 1.   
-H0 = 0.35
+H0 = 0.05
 T1 = 0.7
 TM = 0.0
 
@@ -750,6 +750,23 @@ scatter!(f[1,1], store[:,1], store[:,2]./store[1,2], markersize = 10, color =:bl
 f = current_figure()
 # Makie.save("./figures/paper_figures/RB_opt_cost33.png", f)
 
+store_p = zeros(length(opt_p), 2)
+for i in axes(store,1)
+    store_p[i, 1] = opt_p[i][1]
+    store_p[i, 2] = opt_p[i][2]
+end
+f2 = Figure()
+fontsize_theme = Theme(fontsize = 20)
+set_theme!(fontsize_theme)
+ax = Axis(f2[1,1], xlabel = "Iteration", ylabel = "Actuator coefficients")
+
+lines!(f2[1,1], store[:,1],  store_p[:, 1], color =:blue, linewidth = 3, label = L"a_1")
+scatter!(f2[1,1], store[:,1], store_p[:, 1], markersize = 10, color =:blue, marker=:rect)
+lines!(f2[1,1], store[:,1],  store_p[:, 2], color =:orange, linewidth = 3, label = L"a_2")
+scatter!(f2[1,1], store[:,1], store_p[:, 2], markersize = 10, color =:orange, marker=:rect)
+axislegend(position = :rc)
+f2 = current_figure()
+Makie.save("./figures/paper_figures/RB_opt_coeff.png", f2)
 
 
 for i = 1:15
