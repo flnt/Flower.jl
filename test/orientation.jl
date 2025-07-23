@@ -1863,6 +1863,38 @@ end
 
     #endregion interpolate 
 
+
+    #region unit normal
+
+    @testset "unit normal" begin
+
+    #TODO norm 1, interp coord < , check interp  
+    compute_unit_normal_debug(num,grid, grid_u, grid_v, 
+    # opC_p, 
+    opC_u, opC_v,levelset_1D,
+    volume_fraction,
+    # levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,
+    tmp_vec_p,tmp_vec_p0,
+    normal_and_dirac_u,
+    normal_and_dirac_v
+    )
+
+    @test normal_and_dirac_u < 1.0
+    @test normal_and_dirac_v < 1.0
+
+    end
+
+    #endregion unit normal
+
+
+    #region NS 
+
+    # TODO
+    set_Forward_Euler_one_fluid!()
+
+    #endregion NS
+
+
   
     #region old method of interpolation
    

@@ -64,7 +64,7 @@ flower:
 
     v_inlet: &v_inlet 6.7e-4
     g: 9.8e-1 #Hysing 0.98 9.81 #gravity
-    beta: 0.0
+    beta: 0.0 #angle for gravity
     domain_length: &domain_length 1.0
 
 

@@ -143,6 +143,7 @@ Stores parameters for the simulation
     smooth_VOF::D=0
     surface_tension::D=0
     non_dimensionalize::D=0
+    levelset_reinitialize::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

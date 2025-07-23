@@ -2227,7 +2227,12 @@ function set_cap_bcs!(grid::Mesh{GridFCx,T,N}, num, LS, periodic_x, periodic_y, 
                 tmpL = min(geoL.cap[II,7], 0.5)
             end
 
-            set_cap_diff_S_L!(num,geoS,geoL,tmpS,tmpL,7,II)
+            try
+                set_cap_diff_S_L!(num,geoS,geoL,tmpS,tmpL,7,II)
+            catch
+                @error("set_cap_diff_S_L!")
+                print("\n io ",II)
+            end
 
             @inbounds geoS.cap[II,7] = tmpS
             @inbounds geoL.cap[II,7] = tmpL

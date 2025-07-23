@@ -44,8 +44,16 @@ function compute_grad_T_x_T_y_array_u_v_capacities!(num, grid, grid_u, grid_v, o
     iMu = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_u.M.diag))
     iMv = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_v.M.diag)) 
 
-    print("\n iMu",opC_u.M.diag)
-    print("\n iMv",opC_u.M.diag)
+    # print("\n iMu",opC_u.M.diag)
+    # print("\n iMv",opC_v.M.diag)
+
+    # # display(reshape(vec1(iMu,grid_u),grid_u))
+    # for j in 1:grid_u.ny
+    #     for i in 1:grid_u.nx
+    #         pII = lexicographic(CartesianIndex(j,i),grid_u.ny)
+    #         print("\n iMu ",j," ",i," ",opC_u.M.diag[pII])
+    #     end
+    # end
 
 
     ∇ϕ_x = iMu * ∇ϕ_x

@@ -1834,59 +1834,79 @@ def plot_file(
     #     mesh["nx"] = nx
     #     mesh["ny"] = ny
      
-    if 'size_macro' in figpar.keys():
-        exec(figpar['size_macro'])
-        nx = nx_2
-        ny = ny_2
 
-    nx = mesh["nx"]
-    ny = mesh["ny"]
+    if file["nx"][()] != None:
+        nx = file["nx"][()]
+        try:
+            ny = file["ny"][()]
+        except:
+            ny = nx
+        print(colored('nx {} ny {}'.format(nx,ny),'red'))
 
-    dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
-    xp = np.zeros(mesh['nx'])
-    xp[0] = mesh["xmin"]+dx/2.0
-    for i in range(1,mesh['nx']):
-        xp[i] = xp[i-1] + dx
+    # else:
+    # nx = mesh["nx"]
+    # ny = mesh["ny"]
+    mesh["nx"] = nx
+    mesh["ny"] = ny
 
-    # x_1D_2 = xp
+    print('nx',nx)
 
-    dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
+    xp,yp,xu,yv = create_mesh(figpar,mesh,plotpar,nx,ny,xp,yp,xu,yv,data)
 
-    yp = np.zeros(mesh['ny'])
-    yp[0] = mesh["ymin"]+dy/2.0
-    for i in range(1,mesh['ny']):
-        yp[i] = yp[i-1] + dy
 
-    xu = np.zeros(nx+1)
-    xu[0] = dx/4
-    xu[1] = dx
-    for i in range(2,nx+1):
-        xu[i] = xu[i-1] + dx
+    # if 'size_macro' in figpar.keys():
+    #     exec(figpar['size_macro'])
+    #     nx = nx_2
+    #     ny = ny_2
 
-    print('xu',xu)
+    # nx = mesh["nx"]
+    # ny = mesh["ny"]
 
-    yv = np.zeros(ny+1)
-    yv[0] = dy/4
-    yv[1] = dy
-    for i in range(2,ny+1):
-        yv[i] = yv[i-1] + dx
+    # dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
+    # xp = np.zeros(mesh['nx'])
+    # xp[0] = mesh["xmin"]+dx/2.0
+    # for i in range(1,mesh['nx']):
+    #     xp[i] = xp[i-1] + dx
 
-    print('yv',yv)
+    # # x_1D_2 = xp
 
-    #region scale mesh
+    # dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
 
-    plotpar["scale_x"] = float(plotpar["scale_x"])
-    plotpar["scale_y"] = float(plotpar["scale_y"])
+    # yp = np.zeros(mesh['ny'])
+    # yp[0] = mesh["ymin"]+dy/2.0
+    # for i in range(1,mesh['ny']):
+    #     yp[i] = yp[i-1] + dy
 
-    scale_x = float(plotpar["scale_x"])
-    scale_y = float(plotpar["scale_y"])
+    # xu = np.zeros(nx+1)
+    # xu[0] = dx/4
+    # xu[1] = dx
+    # for i in range(2,nx+1):
+    #     xu[i] = xu[i-1] + dx
 
-    xp /= scale_x
-    yp /= scale_y
-    xu /= scale_x
-    yv /= scale_y
+    # print('xu',xu)
 
-    #endregion scale mesh
+    # yv = np.zeros(ny+1)
+    # yv[0] = dy/4
+    # yv[1] = dy
+    # for i in range(2,ny+1):
+    #     yv[i] = yv[i-1] + dx
+
+    # print('yv',yv)
+
+    # #region scale mesh
+
+    # plotpar["scale_x"] = float(plotpar["scale_x"])
+    # plotpar["scale_y"] = float(plotpar["scale_y"])
+
+    # scale_x = float(plotpar["scale_x"])
+    # scale_y = float(plotpar["scale_y"])
+
+    # xp /= scale_x
+    # yp /= scale_y
+    # xu /= scale_x
+    # yv /= scale_y
+
+    # #endregion scale mesh
 
 
     # print('after macro ')
@@ -1917,7 +1937,9 @@ def plot_file(
 
     # for i in range(len(yp)-1):
     #     print('yp',(yp[i+1]-yp[i])/dy, yp[i],yp[i+1])
-
+    
+    print('xp',xp)
+    print('yp',yp)
 
 
     if 'mesh_macro' in figpar.keys():
@@ -1957,7 +1979,7 @@ def plot_file(
 
 
 
-
+    print('size xp ',len(xp),len(yp))
 
 
     
@@ -2347,6 +2369,7 @@ def plot_file(
 
     
         dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / (int(mesh["nx"]))
+        dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / (int(mesh["ny"]))
 
         dudx = np.zeros(nx+2)
         dudx[0] = dx/8
@@ -4013,6 +4036,70 @@ def add_schematics_full_cell(ax2,fontsize,figpar):
 
     return ax2
 
+
+def create_mesh(figpar,mesh,plotpar,nx,ny,xp,yp,xu,yv,data):
+    if 'size_macro' in figpar.keys():
+        exec(figpar['size_macro'])
+        nx = nx_2
+        ny = ny_2
+
+        mesh["nx"] = nx
+        mesh["ny"] = ny
+    # else:
+    #     nx = mesh["nx"]
+    #     ny = mesh["ny"]
+    print('nx ny',nx,ny, mesh["nx"] , mesh["ny"] )
+
+    dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
+    xp = np.zeros(mesh['nx'])
+    xp[0] = mesh["xmin"]+dx/2.0
+    for i in range(1,mesh['nx']):
+        xp[i] = xp[i-1] + dx
+
+    # x_1D_2 = xp
+
+    dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
+
+    yp = np.zeros(mesh['ny'])
+    yp[0] = mesh["ymin"]+dy/2.0
+    for i in range(1,mesh['ny']):
+        yp[i] = yp[i-1] + dy
+
+    xu = np.zeros(nx+1)
+    xu[0] = dx/4
+    xu[1] = dx
+    for i in range(2,nx+1):
+        xu[i] = xu[i-1] + dx
+
+    # print('xu',xu)
+
+    yv = np.zeros(ny+1)
+    yv[0] = dy/4
+    yv[1] = dy
+    for i in range(2,ny+1):
+        yv[i] = yv[i-1] + dx
+
+    # print('yv',yv)
+
+    #region scale mesh
+
+    plotpar["scale_x"] = float(plotpar["scale_x"])
+    plotpar["scale_y"] = float(plotpar["scale_y"])
+
+    scale_x = float(plotpar["scale_x"])
+    scale_y = float(plotpar["scale_y"])
+
+    xp /= scale_x
+    yp /= scale_y
+    xu /= scale_x
+    yv /= scale_y
+
+    print('size xp ',len(xp),len(yp))
+    return xp,yp,xu,yv
+
+    #endregion scale mesh
+
+
 def plot_current_lines(file,
     key,
     xp,
@@ -4034,6 +4121,8 @@ def plot_current_lines(file,
     args:
 
     """
+
+    # xu,yu,xv,yv
 
     if 'font_size' in plotpar.keys():
         plt.rcParams["font.size"] = str(plotpar['font_size'])
@@ -4062,9 +4151,9 @@ def plot_current_lines(file,
 
         print(colored('nx {} ny {}'.format(nx,ny),'red'))
 
-    else:
-        nx = mesh["nx"]
-        ny = mesh["ny"]
+    # else:
+    mesh["nx"] = nx
+    mesh["ny"] = ny
 
     print('nx',nx)
     # print(nx*ny+2*nx+2*ny)
@@ -4094,11 +4183,18 @@ def plot_current_lines(file,
     mesh["nx"] = nx
     mesh["ny"] = ny
 
-    xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
-    yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+    print('nx ny',nx,ny, mesh["nx"] , mesh["ny"] )
 
-    print('xp',xp)
-    print('yp',yp)
+    # xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+    # yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+
+    xp,yp,xu,yv = create_mesh(figpar,mesh,plotpar,nx,ny,xp,yp,xu,yv,data)
+
+    # print('xp',xp)
+    # print('yp',yp)
+
+    print('xp',np.size(xp))
+    print('yp',np.size(yp))
 
     field=veci(data,nx,ny,field_index)
 
@@ -4120,6 +4216,9 @@ def plot_current_lines(file,
         ax2.clear()
     else:
         fig1,ax2 = init_fig(plotpar,figpar)
+
+
+    print('sizes',len(xp),len(yp),np.size(phi_array,0),np.size(phi_array,1))
 
     if figpar['levels']==0:
         # CS = ax2.contourf(x_1D,y_1D,field,

@@ -54,7 +54,7 @@ flower:
 
     v_inlet: 6.7e-4
     g: 9.81
-    beta: 0.0
+    beta: 0.0 #angle for gravity
     
 
   mesh:

@@ -558,7 +558,8 @@ end
     p = lexicographic(II, nyghost)
     # a = (-n, -1, n, 1)
     # a = (-nx, -1, nx, 1)
-    a = (-nxghost, -1, nxghost, 1)
+    # a = (-nxghost, -1, nxghost, 1)
+    a = (-nyghost, -1, nyghost, 1)
 
     # a = (lexicographic(δx⁻(II, nx, per_x), ny),
     #      lexicographic(δy⁻(II, ny, per_y), ny), 

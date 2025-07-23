@@ -43,7 +43,7 @@ flower:
     theta_e2: 135
     v_inlet: 6.7e-4
     g: 20.0
-    beta: 0.0
+    beta: 0.0 #angle for gravity
     
 
   mesh:

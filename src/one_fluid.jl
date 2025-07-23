@@ -1,32 +1,32 @@
 """
 
 """
-function update_one_fluid_density_viscosity(num,gp,gu,gv,volume_fraction,levelset_one_fluid,rho_one_fluid,
+function update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_fraction,levelset_one_fluid,rho_one_fluid,
     rho_one_fluid_u,rho_one_fluid_v,)
 
-    volume_fraction .= gp.LS[end].geoL.cap[:,:,5]
-    levelset_one_fluid .= gp.LS[end].u
+    volume_fraction .= grid_p.LS[end].geoL.cap[:,:,5]
+    levelset_one_fluid .= grid_p.LS[end].u
 
 
     # print("\nvolume fraction update")
     # display(volume_fraction)
-    # display(gp.LS[end].geoL.cap[:,:,5])
+    # display(grid_p.LS[end].geoL.cap[:,:,5])
 
 
     if num.rho_one_fluid_average == 0 #arithmetic average
-        rho_one_fluid .= num.rho1 * gp.LS[end].geoL.cap[:,:,5] .+ num.rho2 * (1.0 .- gp.LS[end].geoL.cap[:,:,5] )
-        rho_one_fluid_u .= num.rho1 * gu.LS[end].geoL.cap[:,:,5] .+ num.rho2 * (1.0 .- gu.LS[end].geoL.cap[:,:,5] )
-        rho_one_fluid_v .= num.rho1 * gv.LS[end].geoL.cap[:,:,5] .+ num.rho2 * (1.0 .- gv.LS[end].geoL.cap[:,:,5] )
+        rho_one_fluid .= num.rho1 * grid_p.LS[end].geoL.cap[:,:,5] .+ num.rho2 * (1.0 .- grid_p.LS[end].geoL.cap[:,:,5] )
+        rho_one_fluid_u .= num.rho1 * grid_u.LS[end].geoL.cap[:,:,5] .+ num.rho2 * (1.0 .- grid_u.LS[end].geoL.cap[:,:,5] )
+        rho_one_fluid_v .= num.rho1 * grid_v.LS[end].geoL.cap[:,:,5] .+ num.rho2 * (1.0 .- grid_v.LS[end].geoL.cap[:,:,5] )
     end
 
     # if num.mu_one_fluid_average == 0 #arithmetic average
-    #     mu_one_fluid  .= (num.mu1 - num.mu2) * gp.LS[end].geoL.cap[:,:,5]  .+ num.mu2
-    #     mu_one_fluid_u  .= (num.mu1 - num.mu2) * gu.LS[end].geoL.cap[:,:,5] .+ num.mu2  
-    #     mu_one_fluid_v  .= (num.mu1 - num.mu2) * gv.LS[end].geoL.cap[:,:,5] .+ num.mu2  
+    #     mu_one_fluid  .= (num.mu1 - num.mu2) * grid_p.LS[end].geoL.cap[:,:,5]  .+ num.mu2
+    #     mu_one_fluid_u  .= (num.mu1 - num.mu2) * grid_u.LS[end].geoL.cap[:,:,5] .+ num.mu2  
+    #     mu_one_fluid_v  .= (num.mu1 - num.mu2) * grid_v.LS[end].geoL.cap[:,:,5] .+ num.mu2  
     # elseif num.mu_one_fluid_average == 1 #harmonic average
-    #     mu_one_fluid   .= harmonic_average_one_fluid.(num.mu1,num.mu2,gp.LS[end].geoL.cap[:,:,5])
-    #     mu_one_fluid_u .= harmonic_average_one_fluid.(num.mu1,num.mu2,gu.LS[end].geoL.cap[:,:,5])
-    #     mu_one_fluid_v .= harmonic_average_one_fluid.(num.mu1,num.mu2,gv.LS[end].geoL.cap[:,:,5])
+    #     mu_one_fluid   .= harmonic_average_one_fluid.(num.mu1,num.mu2,grid_p.LS[end].geoL.cap[:,:,5])
+    #     mu_one_fluid_u .= harmonic_average_one_fluid.(num.mu1,num.mu2,grid_u.LS[end].geoL.cap[:,:,5])
+    #     mu_one_fluid_v .= harmonic_average_one_fluid.(num.mu1,num.mu2,grid_v.LS[end].geoL.cap[:,:,5])
     # end
 
     # PDI_status = @ccall "libpdi".PDI_multi_expose("print_one_fluid"::Cstring,
@@ -65,11 +65,11 @@ function bilinear_interpolation(x, y, x1, y1, x2, y2, Q11, Q12, Q21, Q22)
 
 
 """
-bilinear interpolation, based on grid, assuming constant mesh spacing
+bilinear interpolation, based on grid_p, assuming constant mesh spacing
 """
-function bilinear_interpolation(grid, x, y,values)
-    dx = grid.dx[2,2] #constant dx
-    dy = grid.dy[2,2] #constant dx
+function bilinear_interpolation(grid_p, x, y,values)
+    dx = grid_p.dx[2,2] #constant dx
+    dy = grid_p.dy[2,2] #constant dx
     # print("\n dx dy ",dx," dy ",dy)
     # Calculate the indices and weights for interpolation
     i0 = floor(Int, x / dx) #TODO
@@ -78,11 +78,11 @@ function bilinear_interpolation(grid, x, y,values)
     j1 = j0 + 1
     
     print("\nindices "," i0 ",i0," i1 ",i1," j0 ",j0," j1 ",j1)
-    print("\ngrid "," i0 j0 ",grid.x[j0,i0]," i1 j0 ",grid.x[j0,i1]," i0 j1 ",grid.x[j1,i0]," i1 j1 ",grid.x[j1,i1])
+    print("\ngrid "," i0 j0 ",grid_p.x[j0,i0]," i1 j0 ",grid_p.x[j0,i1]," i0 j1 ",grid_p.x[j1,i0]," i1 j1 ",grid_p.x[j1,i1])
 
     # Calculate the weights
-    wx = (x - grid.x[j0,i0]) / dx
-    wy = (y - grid.y[j0,i0]) / dy
+    wx = (x - grid_p.x[j0,i0]) / dx
+    wy = (y - grid_p.y[j0,i0]) / dy
 
     # Perform bilinear interpolation
     value = (1 - wx) * (1 - wy) * values[j0,i0] +
@@ -98,22 +98,22 @@ end
 store every nodes (border included) in a 2D matrix for interpolations
 uses geoL, not geoS
 """
-function create_2D_grid_x(gp,add_x=true,add_y=true)
+function create_2D_grid_x(grid_p,add_x=true,add_y=true)
 
     if add_x
-        nx = gp.nx+2
-        rangex = 2:gp.nx+1
+        nx = grid_p.nx+2
+        rangex = 2:grid_p.nx+1
     else
-        nx = gp.nx
-        rangex = 1:gp.nx
+        nx = grid_p.nx
+        rangex = 1:grid_p.nx
     end
 
     if add_y
-        ny = gp.ny+2
-        rangey = 2:gp.ny+1
+        ny = grid_p.ny+2
+        rangey = 2:grid_p.ny+1
     else
-        ny = gp.ny
-        rangey= 1:gp.ny
+        ny = grid_p.ny
+        rangey= 1:grid_p.ny
     end
 
     #all_grid_v_nodes_2D_x_for_dv_dx_interp = create_2D_grid_x(grid_v,true,false)
@@ -122,33 +122,33 @@ function create_2D_grid_x(gp,add_x=true,add_y=true)
     create_2D_grid = zeros(ny,nx)
     
 
-    x_centroid = gp.x .+ getproperty.(gp.LS[1].geoL.centroid, :x) .* gp.dx #geoS
-    # y_centroid = gp.y .+ getproperty.(gp.LS[1].geoS.centroid, :y) .* gp.dy
+    x_centroid = grid_p.x .+ getproperty.(grid_p.LS[1].geoL.centroid, :x) .* grid_p.dx #geoS
+    # y_centroid = grid_p.y .+ getproperty.(grid_p.LS[1].geoS.centroid, :y) .* grid_p.dy
 
 
 
     # print("\n x_centroid")
     # display(x_centroid)
 
-    create_2D_grid[rangey,rangex] = x_centroid #grid.x
+    create_2D_grid[rangey,rangex] = x_centroid #grid_p.x
 
-    x_bc_left = gp.x[:,1] .- gp.dx[:,1] ./ 2.0
+    x_bc_left = grid_p.x[:,1] .- grid_p.dx[:,1] ./ 2.0
 
-    # y_bc_bottom = gp.y[1,:] .- gp.dy[1,:] ./ 2.0
+    # y_bc_bottom = grid_p.y[1,:] .- grid_p.dy[1,:] ./ 2.0
 
-    # y_bc_top = gp.y[end,:] .+ gp.dy[end,:] ./ 2.0
+    # y_bc_top = grid_p.y[end,:] .+ grid_p.dy[end,:] ./ 2.0
 
-    x_bc_right = gp.x[:,end] .+ gp.dx[:,end] ./ 2.0
+    x_bc_right = grid_p.x[:,end] .+ grid_p.dx[:,end] ./ 2.0
 
-    # create_2D_grid[1,2:gp.nx] = create_2D_grid[2,2:gp.nx]
+    # create_2D_grid[1,2:grid_p.nx] = create_2D_grid[2,2:grid_p.nx]
 
-    # create_2D_grid[end,2:gp.nx] = create_2D_grid[end-1,2:gp.nx]
+    # create_2D_grid[end,2:grid_p.nx] = create_2D_grid[end-1,2:grid_p.nx]
 
     # display(create_2D_grid)
 
     if add_x
-        # create_2D_grid[2:gp.ny+1,1] = x_bc_left
-        # create_2D_grid[2:gp.ny+1,end] = x_bc_right
+        # create_2D_grid[2:grid_p.ny+1,1] = x_bc_left
+        # create_2D_grid[2:grid_p.ny+1,end] = x_bc_right
         create_2D_grid[rangey,1] = x_bc_left
         create_2D_grid[rangey,end] = x_bc_right
     end
@@ -166,72 +166,72 @@ end
 store every nodes (border included) in a 2D matrix for interpolations
 uses geoL, not geoS
 """
-function create_2D_grid_y(gp,add_x=true,add_y=true)
+function create_2D_grid_y(grid_p,add_x=true,add_y=true)
     
     if add_x
-        nx = gp.nx+2
-        rangex = 2:gp.nx+1
+        nx = grid_p.nx+2
+        rangex = 2:grid_p.nx+1
     else
-        nx = gp.nx
-        rangex = 1:gp.nx
+        nx = grid_p.nx
+        rangex = 1:grid_p.nx
     end
 
     if add_y
-        ny = gp.ny+2
-        rangey = 2:gp.ny+1
+        ny = grid_p.ny+2
+        rangey = 2:grid_p.ny+1
     else
-        ny = gp.ny
-        rangey= 1:gp.ny
+        ny = grid_p.ny
+        rangey= 1:grid_p.ny
     end
 
     
     create_2D_grid = zeros(ny,nx)
     
-    # x_centroid = gp.x .+ getproperty.(gp.LS[1].geoS.centroid, :x) .* gp.dx
-    y_centroid = gp.y .+ getproperty.(gp.LS[1].geoL.centroid, :y) .* gp.dy #geoS
+    # x_centroid = grid_p.x .+ getproperty.(grid_p.LS[1].geoS.centroid, :x) .* grid_p.dx
+    y_centroid = grid_p.y .+ getproperty.(grid_p.LS[1].geoL.centroid, :y) .* grid_p.dy #geoS
 
     # print("\n y centroid")
 
     # display(y_centroid)
 
-    create_2D_grid[rangey,rangex] = y_centroid #grid.x
+    create_2D_grid[rangey,rangex] = y_centroid #grid_p.x
 
-    # x_bc_left = gp.x[:,1] .- gp.dx[:,1] ./ 2.0
+    # x_bc_left = grid_p.x[:,1] .- grid_p.dx[:,1] ./ 2.0
 
-    y_bc_bottom = gp.y[1,:] .- gp.dy[1,:] ./ 2.0
+    y_bc_bottom = grid_p.y[1,:] .- grid_p.dy[1,:] ./ 2.0
 
-    y_bc_top = gp.y[end,:] .+ gp.dy[end,:] ./ 2.0
+    y_bc_top = grid_p.y[end,:] .+ grid_p.dy[end,:] ./ 2.0
 
-    # x_bc_right = gp.x[:,end] .+ gp.dx[:,end] ./ 2.0
+    # x_bc_right = grid_p.x[:,end] .+ grid_p.dx[:,end] ./ 2.0
 
-    # create_2D_grid[1,2:gp.nx] = create_2D_grid[2,2:gp.nx]
+    # create_2D_grid[1,2:grid_p.nx] = create_2D_grid[2,2:grid_p.nx]
 
-    # create_2D_grid[end,2:gp.nx] = create_2D_grid[end-1,2:gp.nx]
+    # create_2D_grid[end,2:grid_p.nx] = create_2D_grid[end-1,2:grid_p.nx]
 
     # display(create_2D_grid)
 
-    # create_2D_grid[2:gp.ny+1,1] = x_bc_left
+    # create_2D_grid[2:grid_p.ny+1,1] = x_bc_left
 
-    # create_2D_grid[2:gp.ny+1,end] = x_bc_right
+    # create_2D_grid[2:grid_p.ny+1,end] = x_bc_right
 
     # create_2D_grid[1,:] = create_2D_grid[2,:]
 
     # create_2D_grid[end,:] = create_2D_grid[end-1,:]
 
-    # create_2D_grid[2:gp.ny+1,1] = create_2D_grid[2:gp.ny+1,2]
-    # create_2D_grid[2:gp.ny+1,end] = create_2D_grid[2:gp.ny+1,end-1]
+    # create_2D_grid[2:grid_p.ny+1,1] = create_2D_grid[2:grid_p.ny+1,2]
+    # create_2D_grid[2:grid_p.ny+1,end] = create_2D_grid[2:grid_p.ny+1,end-1]
 
-    # create_2D_grid[1,2:gp.nx+1] = y_bc_bottom
+    # create_2D_grid[1,2:grid_p.nx+1] = y_bc_bottom
 
-    # create_2D_grid[end,2:gp.nx+1] = y_bc_top
+    # create_2D_grid[end,2:grid_p.nx+1] = y_bc_top
 
     # create_2D_grid[end,1] = create_2D_grid[end,2]
     # create_2D_grid[end,end] = create_2D_grid[end,end-1]
 
 
     if add_x
-        # create_2D_grid[2:gp.ny+1,1] = create_2D_grid[2:gp.ny+1,2]
-        # create_2D_grid[2:gp.ny+1,end] = create_2D_grid[2:gp.ny+1,end-1]
+        # create_2D_grid[2:grid_p.ny+1,1] = create_2D_grid[2:grid_p.ny+1,2]
+        # create_2D_grid[2:grid_p.ny+1,end] = create_2D_grid[2:grid_p.ny+1,end-1]
         create_2D_grid[rangey,1] = create_2D_grid[rangey,2]
         create_2D_grid[rangey,end] = create_2D_grid[rangey,end-1]
     end
@@ -254,33 +254,33 @@ end
 """
 store every nodes (border included) in a 2D matrix for interpolations
 """
-function create_2D_grid_volume_fraction(gp,volume_fraction)
+function create_2D_grid_volume_fraction(grid_p,volume_fraction)
     #assuming no contact angle method
-    create_2D_grid = zeros(gp.ny+2,gp.nx+2)
+    create_2D_grid = zeros(grid_p.ny+2,grid_p.nx+2)
 
-    # x_centroid = gp.x .+ getproperty.(gp.LS[1].geoS.centroid, :x) .* gp.dx
-    # y_centroid = gp.y .+ getproperty.(gp.LS[1].geoS.centroid, :y) .* gp.dy
+    # x_centroid = grid_p.x .+ getproperty.(grid_p.LS[1].geoS.centroid, :x) .* grid_p.dx
+    # y_centroid = grid_p.y .+ getproperty.(grid_p.LS[1].geoS.centroid, :y) .* grid_p.dy
 
-    create_2D_grid[2:gp.ny+1,2:gp.nx+1] = volume_fraction
+    create_2D_grid[2:grid_p.ny+1,2:grid_p.nx+1] = volume_fraction
 
 
-    # x_bc_left = gp.x[:,1] .- gp.dx[:,1] ./ 2.0
+    # x_bc_left = grid_p.x[:,1] .- grid_p.dx[:,1] ./ 2.0
 
-    # y_bc_bottom = gp.y[1,:] .- gp.dy[1,:] ./ 2.0
+    # y_bc_bottom = grid_p.y[1,:] .- grid_p.dy[1,:] ./ 2.0
 
-    # y_bc_top = gp.y[end,:] .+ gp.dy[end,:] ./ 2.0
+    # y_bc_top = grid_p.y[end,:] .+ grid_p.dy[end,:] ./ 2.0
 
-    # x_bc_right = gp.x[:,end] .+ gp.dx[:,end] ./ 2.0
+    # x_bc_right = grid_p.x[:,end] .+ grid_p.dx[:,end] ./ 2.0
 
-    # # create_2D_grid[1,2:gp.nx] = create_2D_grid[2,2:gp.nx]
+    # # create_2D_grid[1,2:grid_p.nx] = create_2D_grid[2,2:grid_p.nx]
 
-    # # create_2D_grid[end,2:gp.nx] = create_2D_grid[end-1,2:gp.nx]
+    # # create_2D_grid[end,2:grid_p.nx] = create_2D_grid[end-1,2:grid_p.nx]
 
     # # display(create_2D_grid)
 
-    # create_2D_grid[2:gp.ny+1,1] = x_bc_left
+    # create_2D_grid[2:grid_p.ny+1,1] = x_bc_left
 
-    # create_2D_grid[2:gp.ny+1,end] = x_bc_right
+    # create_2D_grid[2:grid_p.ny+1,end] = x_bc_right
 
     create_2D_grid[1,:] = create_2D_grid[2,:]
 
@@ -298,8 +298,8 @@ function create_2D_grid_volume_fraction(gp,volume_fraction)
     #TODO if contact angle
     # Q11 = volume_fraction[j-1,i-1]
     # Q12 = volume_fraction[j,i-1]
-    # Q21 = vecb_R(volume_fraction_1D,grid)[j-1]
-    # Q22 = vecb_R(volume_fraction_1D,grid)[j]
+    # Q21 = vecb_R(volume_fraction_1D,grid_p)[j-1]
+    # Q22 = vecb_R(volume_fraction_1D,grid_p)[j]
 
 
     return create_2D_grid
@@ -331,9 +331,9 @@ end
 """
 Smooth the volume fraction in the hope of improving the computation of the curvature
 """
-function smooth_vof_2d!(grid,vof_field, num_smoothings,smoothed_vof)
+function smooth_vof_2d!(grid_p,vof_field, num_smoothings,smoothed_vof)
     # Get the dimensions of the VOF field
-    @unpack nx, ny = grid
+    @unpack nx, ny = grid_p
 
     # Create a copy of the VOF field to store the smoothed values
 
@@ -411,19 +411,19 @@ solves Navier-Stokes equations with a pressure projection method.
 
 
 #### Variables and Data Structures
-- `vec1(ucorrD, grid_u)`: Velocity correction for the horizontal grid.
-- `vec1(vcorrD, grid_v)`: Velocity correction for the vertical grid.
-- `vec1(rhs_ϕ, grid)`: Right-hand side of the Poisson equation.
-- `vec1(pD, grid)`: Pressure correction.
+- `vec1(ucorrD, grid_u)`: Velocity correction for the horizontal grid_p.
+- `vec1(vcorrD, grid_v)`: Velocity correction for the vertical grid_p.
+- `vec1(rhs_ϕ, grid_p)`: Right-hand side of the Poisson equation.
+- `vec1(pD, grid_p)`: Pressure correction.
 - `vec1(uD, grid_u)`: Updated horizontal velocity.
 - `vec1(vD, grid_v)`: Updated vertical velocity.
-- `vec1(ϕD, grid)`: Pressure correction potential.
+- `vec1(result_p, grid_p)`: Pressure correction potential.
 - `ϕ`: Pressure correction potential.
 - `u`: Updated horizontal velocity.
 - `v`: Updated vertical velocity.
 - `p`: Pressure.
 - `opC_p`, `opC_u`, `opC_v`: Operator matrices for pressure, horizontal velocity, and vertical velocity, respectively.
-- `geo`, `geo_u`, `geo_v`: Geometric data for the grid.
+- `geo`, `geo_u`, `geo_v`: Geometric data for the grid_p.
 - `bc_int`: Interfacial boundary conditions.
 - `nLS`: Number of levelsets.
 - `ntu`, `ntv`, `niu`, `niv`: Grid dimensions.
@@ -450,8 +450,8 @@ solves Navier-Stokes equations with a pressure projection method.
 
 #### Functions and Operations
 1. **Initialization and Updates**
-   - `vecb(vcorrD, grid_v) .= uvD[ntu+ntv-nbv+1:ntu+ntv]`: Updates the vertical velocity correction.
-   - `kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])`: Removes dead cells from the vertical velocity correction grid.
+   - `vecb(vcorrD, grid_v) .= uvD[border_v_velocity]`: Updates the vertical velocity correction.
+   - `kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])`: Removes dead cells from the vertical velocity correction grid_p.
    - `vcorr .= reshape(vec1(vcorrD,grid_v), grid_v)`: Reshapes the vertical velocity correction.
 
 2. **Navier and Non-Navier Boundary Conditions**
@@ -492,7 +492,7 @@ This documentation provides a high-level overview of the code's functionality an
 """
 function pressure_projection_one_fluid!(
     time_scheme, bc_int,
-    num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
+    num, grid_p, geo, grid_u, geo_u, grid_v, geo_v, ph,
     BC_u, BC_v, BC_p,
     opC_p, opC_u, opC_v, op_conv,
     Au, Bu, Av, Bv, Aϕ, Auv, Buv,rhs_uv,
@@ -512,7 +512,7 @@ function pressure_projection_one_fluid!(
     pres_free_suface,jump_mass_flux,mass_flux
     )
     @unpack Re, τ, σ, g, β, nLS, nNavier = num
-    @unpack p, pD, ϕ, ϕD, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr, uT = ph
+    @unpack p, pD, ϕ, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr, uT = ph
     @unpack Cu, Cv, CUTCu, CUTCv = op_conv
 
     iτ = 1.0 / τ
@@ -540,12 +540,12 @@ function pressure_projection_one_fluid!(
     if num.prediction == "PmI" || num.prediction == "PmII" || num.prediction == "PmIIimposedpressure" || num.prediction == "PmIIimposedpressureBCincrement"
         #cf Brown 2001
 
-        ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid)
-        ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(pD,grid) .+ opC_v.Gy_b * vecb(pD,grid)
+        ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid_p) .+ opC_u.Gx_b * vecb(pD,grid_p)
+        ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(pD,grid_p) .+ opC_v.Gy_b * vecb(pD,grid_p)
         #region cut-cell
         # for iLS in 1:nLS
-        #     ∇ϕ_x .+= opC_u.Gx[iLS] * veci(pD,grid,iLS+1)
-        #     ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid,iLS+1)
+        #     ∇ϕ_x .+= opC_u.Gx[iLS] * veci(pD,grid_p,iLS+1)
+        #     ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid_p,iLS+1)
         # end
         #endregion cut-cell
 
@@ -568,7 +568,7 @@ function pressure_projection_one_fluid!(
 
         grad_x = zeros(grid_u)
         grad_y = zeros(grid_v)
-        compute_grad_T_x_T_y_array_u_v_capacities!(num, grid, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
+        compute_grad_T_x_T_y_array_u_v_capacities!(num, grid_p, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
     
         #TODO divergence level
         
@@ -586,17 +586,29 @@ function pressure_projection_one_fluid!(
     #endregion add gradient to prediction
 
 
-    nip = grid.nx * grid.ny
+    nip = grid_p.nx * grid_p.ny
 
     niu = grid_u.nx * grid_u.ny
     nbu = 2 * grid_u.nx + 2 * grid_u.ny
-    ntu = (nLS - nNavier + 1) * niu + nbu
+    # ntu = (nLS - nNavier + 1) * niu + nbu
+    ntu = niu + nbu
 
     niv = grid_v.nx * grid_v.ny
     nbv = 2 * grid_v.nx + 2 * grid_v.ny
-    ntv = (nLS - nNavier + 1) * niv + nbv
+    # ntv = (nLS - nNavier + 1) * niv + nbv
+    ntv = niv + nbv
 
     ntNavier = num.nNavier * nip
+
+
+    # Array indices 
+    bulk_u_velocity = 1:niu
+    bulk_v_velocity =  ntu+1:ntu+niv
+    # bulk_tangential_velocity = 
+
+    border_u_velocity = ntu-nbu+1:ntu
+    border_v_velocity = ntu+ntv-nbv+1:ntu+ntv
+
 
     if num.prediction == "PmIIimposedpressure" || num.prediction == "PmIIimposedpressureBCincrement" 
         BC_Poisson = Boundaries() #Neumann everywhere
@@ -605,8 +617,8 @@ function pressure_projection_one_fluid!(
     end
 
     if is_Forward_Euler(time_scheme)
-        rhs_u, rhs_v, rhs_ϕ, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_Forward_Euler_one_fluid!(
-            bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+        rhs_u, rhs_v, rhs_ϕ, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, diffusion_LS_u, diffusion_border_u, Lv, diffusion_LS_v, diffusion_border_v = set_Forward_Euler_one_fluid!(
+            bc_int, num, grid_p, geo, grid_u, geo_u, grid_v, geo_v,
             opC_p, opC_u, opC_v, BC_Poisson,BC_u, BC_v,
             Au, Bu, Av, Bv, Aϕ, Auv, Buv,
             volume_fraction,rho_one_fluid_u,rho_one_fluid_v,
@@ -616,8 +628,8 @@ function pressure_projection_one_fluid!(
         )
     elseif is_Crank_Nicolson(time_scheme)
         @error("\n Crank_Nicolson not implemented")
-        # rhs_u, rhs_v, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = set_Crank_Nicolson!(
-        #     bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+        # rhs_u, rhs_v, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, diffusion_LS_u, diffusion_border_u, Lv, diffusion_LS_v, diffusion_border_v = set_Crank_Nicolson!(
+        #     bc_int, num, grid_p, geo, grid_u, geo_u, grid_v, geo_v,
         #     opC_p, opC_u, opC_v, BC_Poisson, BC_u, BC_v,
         #     Au, Bu, Av, Bv, Aϕ,
         #     Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
@@ -663,24 +675,45 @@ function pressure_projection_one_fluid!(
         volumic_surface_tension_v = zeros(grid_v)
 
         if num.surface_tension == 0
-            compute_surface_tension_VOF!(num,grid, grid_u, grid_v, opC_p, opC_u, opC_v, volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0)
+            compute_surface_tension_VOF!(num,grid_p, grid_u, grid_v, opC_p, opC_u, opC_v, 
+            volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0)
         elseif num.surface_tension == 1
-            compute_surface_tension_LS!(num,grid, grid_u, grid_v, opC_p, opC_u, opC_v, volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0)
+            compute_surface_tension_LS!(num,grid_p, grid_u, grid_v, opC_p, opC_u, opC_v, 
+            volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0)
         end
     end
     
+    PDI_status = @ccall "libpdi".PDI_multi_expose("write_one_fluid_surface_tension_concise"::Cstring,
+    "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
+    # "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "grad_u"::Cstring, normal_and_dirac_u::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "grad_v"::Cstring, normal_and_dirac_v::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "curvature_p"::Cstring, curvature_p::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "curvature_u"::Cstring, curvature_u::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "curvature_v"::Cstring, curvature_v::Ptr{Cdouble}, PDI_OUT::Cint,
+    "volumic_surface_tension_u"::Cstring, volumic_surface_tension_u::Ptr{Cdouble}, PDI_OUT::Cint,
+    "volumic_surface_tension_v"::Cstring, volumic_surface_tension_v::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "normal_angle"::Cstring, grid_p.LS[iLSpdi].α::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "normal_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+    # "normal_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+    C_NULL::Ptr{Cvoid})::Cint
+
+
     # TODO PDI_multi_expose() #Cu u CUTCu
+
 
    
 
     #region Navier
 
-    #fill u part at 1:niu
+    #fill u part at bulk_u_velocity
     uvm1 = zeros(ntu + ntv + nNavier * nip)
-    uvm1[1:niu] .= vec1(uD,grid_u)
-    uvm1[ntu+1:ntu+niv] .= vec1(vD,grid_v)
-    uvm1[ntu-nbu+1:ntu] .= vecb(uD,grid_u)
-    uvm1[ntu+ntv-nbv+1:ntu+ntv] .= vecb(vD,grid_v)
+    uvm1[bulk_u_velocity] .= vec1(uD,grid_u)
+    uvm1[bulk_v_velocity] .= vec1(vD,grid_v)
+    uvm1[border_u_velocity] .= vecb(uD,grid_u)
+    uvm1[border_v_velocity] .= vecb(vD,grid_v)
 
     #region cut-cell
     # _iLS = 1
@@ -749,57 +782,78 @@ function pressure_projection_one_fluid!(
 
         grav_x = g .* sin(β) .* opC_u.M * diag_rho_u * fones(grid_u)
         grav_y = g .* cos(β) .* opC_v.M * diag_rho_v * fones(grid_v)
+    else
+        grav_x = g .* sin(β) .* opC_u.M * fones(grid_u)
+        grav_y = g .* cos(β) .* opC_v.M * fones(grid_v)
     end
 
-    rhs_uv[1:niu] .+= τ .* grav_x #τ * rho_one_fluid_u .* grav_x
+    # printstyled(color=:red, @sprintf "\n gravity \n")
 
-    rhs_uv[1:niu] .-= τ .* Convu #rho in Convu
+    # display(grav_y)
 
-    print("\n volumic_surface_tension_u")
-    display(volumic_surface_tension_u)
-    display(volumic_surface_tension_v)
+    rhs_uv[bulk_u_velocity] .+= τ .* grav_x #τ * rho_one_fluid_u .* grav_x
 
-    print("\n rhs_uv",rhs_uv)
+    rhs_uv[bulk_u_velocity] .-= τ .* Convu #rho in Convu
 
-    # rhs_uv[1:niu] .+= τ .* ra_x
+     PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+    "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
+    "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    # print("\n volumic_surface_tension_u")
+    # display(volumic_surface_tension_u)
+    # display(volumic_surface_tension_v)
+
+    # print("\n rhs_uv",rhs_uv)
+
+    # rhs_uv[bulk_u_velocity] .+= τ .* ra_x
     if num.pressure_velocity_coupling == 0
         if num.non_dimensionalize == 0
-            rhs_uv[1:niu] .-= τ .* ph.Gxm1 ./ vec(rho_one_fluid_u)
+            rhs_uv[bulk_u_velocity] .-= τ .* ph.Gxm1 ./ vec(rho_one_fluid_u)
             #Surface tension
-            rhs_uv[1:niu] .+= τ .* volumic_surface_tension_u ./ vec(rho_one_fluid_u)
+            rhs_uv[bulk_u_velocity] .+= τ .* vec(volumic_surface_tension_u) ./ vec(rho_one_fluid_u)
+
+            print("\n surface tension u")
+            PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+            "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
+            "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
+            C_NULL::Ptr{Cvoid})::Cint
 
         else
-            rhs_uv[1:niu] .-= τ .* ph.Gxm1 
+            rhs_uv[bulk_u_velocity] .-= τ .* ph.Gxm1 
             #Surface tension
-            rhs_uv[1:niu] .+= τ .* volumic_surface_tension_u
+            rhs_uv[bulk_u_velocity] .+= τ .* vec(volumic_surface_tension_u)
 
         end
 
     end 
 
    
-    rhs_uv[ntu+1:ntu+niv] .+= τ .* grav_y
-    rhs_uv[ntu+1:ntu+niv] .-= τ .* Convv
-    # rhs_uv[ntu+1:ntu+niv] .+= τ .* ra_y
+    rhs_uv[bulk_v_velocity] .+= τ .* grav_y
+    rhs_uv[bulk_v_velocity] .-= τ .* Convv
+    # rhs_uv[bulk_v_velocity] .+= τ .* ra_y
     if num.pressure_velocity_coupling == 0
          
         if num.non_dimensionalize == 0
-            rhs_uv[ntu+1:ntu+niv] .-= τ .* ph.Gym1 ./ vec(rho_one_fluid_v)
+            rhs_uv[bulk_v_velocity] .-= τ .* ph.Gym1 ./ vec(rho_one_fluid_v)
             #Surface tension
-            rhs_uv[ntu+1:ntu+niv] .+= τ .* volumic_surface_tension_v ./  vec(rho_one_fluid_v)
+            rhs_uv[bulk_v_velocity] .+= τ .* vec(volumic_surface_tension_v) ./  vec(rho_one_fluid_v)
         else
-            rhs_uv[ntu+1:ntu+niv] .-= τ .* ph.Gym1
+            rhs_uv[bulk_v_velocity] .-= τ .* ph.Gym1
             #Surface tension
-            rhs_uv[ntu+1:ntu+niv] .+= τ .* volumic_surface_tension_v
+            rhs_uv[bulk_v_velocity] .+= τ .* vec(volumic_surface_tension_v)
         end
     end
 
    
-
+    PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+    "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
+    "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
 
     #region cut-cell
-    # @views kill_dead_cells!(rhs_uv[1:niu], grid_u, geo_u[end])
-    # @views kill_dead_cells!(rhs_uv[ntu+1:ntu+niv], grid_v, geo_v[end])
+    # @views kill_dead_cells!(rhs_uv[bulk_u_velocity], grid_u, geo_u[end])
+    # @views kill_dead_cells!(rhs_uv[bulk_v_velocity], grid_v, geo_v[end])
     # _iLS = 1
     # for iLS in 1:nLS
     #     sbu = _iLS*niu+1:(_iLS+1)*niu
@@ -819,8 +873,8 @@ function pressure_projection_one_fluid!(
         # uvD = ones(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)
 
         n_phase = 2
-        # nip = grid.nx * grid.ny
-        # nbp =  2 * grid.nx + 2 * grid.ny
+        # nip = grid_p.nx * grid_p.ny
+        # nbp =  2 * grid_p.nx + 2 * grid_p.ny
 
         # niu = grid_u.nx * grid_u.ny
         # nbu = 2 * grid_u.nx + 2 * grid_u.ny
@@ -846,8 +900,16 @@ function pressure_projection_one_fluid!(
         uvD = zeros(ntu + ntv + nNavier * nip + (num.nLS + 1) * nip + nbp)
     end
 
+    # print("\n before solving")
+    PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+    "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
+    "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
 
-
+    # print("\n diag Auv ", Auv.nzval)
+    # display(Auv)
+    # print("\n size Auv ",size(Auv))
+    
     try
         @time uvD .= Auv \ rhs_uv
     catch e
@@ -855,16 +917,17 @@ function pressure_projection_one_fluid!(
         println(e)
     end
 
-    vec1(ucorrD, grid_u) .= uvD[1:niu]
-    vecb(ucorrD, grid_u) .= uvD[ntu-nbu+1:ntu]
+
+    vec1(ucorrD, grid_u) .= uvD[bulk_u_velocity]
+    vecb(ucorrD, grid_u) .= uvD[border_u_velocity]
     #region cut-cell
     # kill_dead_cells!(vec1(ucorrD,grid_u), grid_u, geo_u[end])
     #endregion cut-cell
     
     ucorr .= reshape(vec1(ucorrD,grid_u), grid_u)
 
-    vec1(vcorrD, grid_v) .= uvD[ntu+1:ntu+niv]
-    vecb(vcorrD, grid_v) .= uvD[ntu+ntv-nbv+1:ntu+ntv]
+    vec1(vcorrD, grid_v) .= uvD[bulk_v_velocity]
+    vecb(vcorrD, grid_v) .= uvD[border_v_velocity]
     #region cut-cell
     # kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])
     #endregion cut-cell
@@ -940,7 +1003,7 @@ function pressure_projection_one_fluid!(
 
     # Poisson equation: source term
     # divergence of velocity / dt
-    vec1(rhs_ϕ,grid) .= iτ .* Duv
+    vec1(rhs_ϕ,grid_p) .= iτ .* Duv
 
     #region needs to be corrected/documented for the signs, free surface pressure BC 
     
@@ -959,7 +1022,7 @@ function pressure_projection_one_fluid!(
     #                 Smat[2,1] * vec1(vcorrD,grid_v) .+ Smat[2,2] * veci(vcorrD,grid_v,iLS+1)
     
     #             fs_mat = opC_p.HxT[iLS] * opC_p.Hx[iLS] .+ opC_p.HyT[iLS] * opC_p.Hy[iLS]
-    #             veci(rhs_ϕ,grid,iLS+1) .= -2.0 .* mu1_over_rho1 .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid.LS[iLS].κ) .- pres_free_suface .- diff_inv_rho * mass_flux ^ 2)
+    #             veci(rhs_ϕ,grid_p,iLS+1) .= -2.0 .* mu1_over_rho1 .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid_p.LS[iLS].κ) .- pres_free_suface .- diff_inv_rho * mass_flux ^ 2)
     #         end
     #     end
     # else
@@ -970,7 +1033,7 @@ function pressure_projection_one_fluid!(
     #                 Smat[2,1] * vec1(vcorrD,grid_v) .+ Smat[2,2] * veci(vcorrD,grid_v,iLS+1)
 
     #             fs_mat = opC_p.HxT[iLS] * opC_p.Hx[iLS] .+ opC_p.HyT[iLS] * opC_p.Hy[iLS]
-    #             veci(rhs_ϕ,grid,iLS+1) .= -2.0 .* mu1_over_rho1 .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid.LS[iLS].κ) .- pres_free_suface )
+    #             veci(rhs_ϕ,grid_p,iLS+1) .= -2.0 .* mu1_over_rho1 .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid_p.LS[iLS].κ) .- pres_free_suface )
     #         end
     #     end
     # end
@@ -982,46 +1045,51 @@ function pressure_projection_one_fluid!(
             @inbounds Aϕ[i,i] += 1e-10
         end
     end
-    kill_dead_cells!(vec1(rhs_ϕ,grid), grid, geo[end])
+    kill_dead_cells!(vec1(rhs_ϕ,grid_p), grid_p, geo[end])
     for iLS in 1:nLS
-        kill_dead_cells!(veci(rhs_ϕ,grid,iLS+1), grid, geo[end])
+        kill_dead_cells!(veci(rhs_ϕ,grid_p,iLS+1), grid_p, geo[end])
     end
-    # @time bicgstabl!(ϕD, Aϕ, rhs_ϕ, Pl = Diagonal(Aϕ), log = true)
+    # @time bicgstabl!(result_p, Aϕ, rhs_ϕ, Pl = Diagonal(Aϕ), log = true)
 
     #endregion needs to be corrected/documented for the signs, free surface pressure BC 
 
+
+    # print("size pressure ",size(rhs_ϕ)," ",size(result_p)," ",size(Aϕ))
     # Solve Poisson equation
-    # \phi^{n+1}: ϕD
-    @time ϕD .= Aϕ \ rhs_ϕ
+    # \phi^{n+1}: result_p
+    # @time result_p .= Aϕ \ rhs_ϕ
+    result_p = Aϕ \ rhs_ϕ
+
+    
 
     #region cut-cell
-    # kill_dead_cells!(vec1(ϕD,grid), grid, geo[end])
+    # kill_dead_cells!(vec1(result_p,grid_p), grid_p, geo[end])
     # for iLS in 1:nLS
-    #     kill_dead_cells!(veci(ϕD,grid,iLS+1), grid, geo[end])
+    #     kill_dead_cells!(veci(result_p,grid_p,iLS+1), grid_p, geo[end])
     # end
     #endregion cut-cell
 
-    ϕ .= reshape(vec1(ϕD,grid), grid)
+    ϕ .= reshape(vec1(result_p,grid_p), grid_p)
 
     iMu = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_u.M.diag))
     iMv = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_v.M.diag))
     # Gradient of pressure, eq. 17 in 
     #"A Conservative Cartesian Cut-Cell Method for Mixed Boundary Conditions and the Incompressible Navier-Stokes Equations on Staggered Meshes"
-    ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec(ϕ) .+ opC_u.Gx_b * vecb(ϕD,grid)
-    ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec(ϕ) .+ opC_v.Gy_b * vecb(ϕD,grid)
+    ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec(ϕ) .+ opC_u.Gx_b * vecb(result_p,grid_p)
+    ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec(ϕ) .+ opC_v.Gy_b * vecb(result_p,grid_p)
   
     #region cut-cell
     # for iLS in 1:nLS
-    #     ∇ϕ_x .+= opC_u.Gx[iLS] * veci(ϕD,grid,iLS+1)
-    #     ∇ϕ_y .+= opC_v.Gy[iLS] * veci(ϕD,grid,iLS+1)
+    #     ∇ϕ_x .+= opC_u.Gx[iLS] * veci(result_p,grid_p,iLS+1)
+    #     ∇ϕ_y .+= opC_v.Gy[iLS] * veci(result_p,grid_p,iLS+1)
     # end
     #endregion cut-cell
 
-    # ∇ϕ_x = irho1 .* opC_u.AxT * opC_u.Rx * vec(ϕ) .+ opC_u.Gx_b * vecb(ϕD,grid)
-    # ∇ϕ_y = irho1 .* opC_v.AyT * opC_v.Ry * vec(ϕ) .+ opC_v.Gy_b * vecb(ϕD,grid)
+    # ∇ϕ_x = irho1 .* opC_u.AxT * opC_u.Rx * vec(ϕ) .+ opC_u.Gx_b * vecb(result_p,grid_p)
+    # ∇ϕ_y = irho1 .* opC_v.AyT * opC_v.Ry * vec(ϕ) .+ opC_v.Gy_b * vecb(result_p,grid_p)
     # for iLS in 1:nLS
-    #     ∇ϕ_x .+= irho1 .* opC_u.Gx[iLS] * veci(ϕD,grid,iLS+1)
-    #     ∇ϕ_y .+= irho1 .* opC_v.Gy[iLS] * veci(ϕD,grid,iLS+1)
+    #     ∇ϕ_x .+= irho1 .* opC_u.Gx[iLS] * veci(result_p,grid_p,iLS+1)
+    #     ∇ϕ_y .+= irho1 .* opC_v.Gy[iLS] * veci(result_p,grid_p,iLS+1)
     # end
 
     # if num.prediction == 1 already done
@@ -1045,7 +1113,7 @@ function pressure_projection_one_fluid!(
         # "not consistent with a second-order discretization of the Navier–Stokes equations since, 
         # due to Eq. (72), the normal component of the pressure gradient will remain constant in time at the boundary"
         # Brown 2001
-        vec1(pD,grid) .+= vec(ϕ) #no τ  since div u not rho1
+        vec1(pD,grid_p) .+= vec(ϕ) #no τ  since div u not rho1
 
     elseif num.prediction == "PmII" || num.prediction == "PmIIimposedpressure" || num.prediction == "PmIIimposedpressureBCincrement"
         # \nabla_h p^{n+1/2} = \nabla_h p^{n-1/2} + \nabla_h \phi^{n+1} - 
@@ -1053,30 +1121,30 @@ function pressure_projection_one_fluid!(
         # \Delta t \nabla_h^2 \phi^{n+1} = \nabla_h \cdot \mathbf{u}^{*} \quad \text{in } \Omega
         
 
-        print("\n max p vec1 ",maximum(vec1(pD,grid)))
-        print("\n max p",minimum(ϕ),maximum(ϕ))
-        print("\n max p",minimum(num.mu_cin1./2 .* reshape(iM * Duv,grid))," ",maximum(num.mu_cin1./2 .* reshape(iM * Duv,grid)))
+        print("\n max p vec1 ",maximum(vec1(pD,grid_p)))
+        print("\n min p",minimum(ϕ)," max ",maximum(ϕ))
+        print("\n max p",minimum(num.mu_cin1./2 .* reshape(iM * Duv,grid_p))," ",maximum(num.mu_cin1./2 .* reshape(iM * Duv,grid_p)))
 
         # todo zero neumann bc !!!!
-        # vec1(pD,grid) .+= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * Duv,grid))
+        # vec1(pD,grid_p) .+= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * Duv,grid_p))
         # or,
         # for better readability
-        vec1(pD,grid) .= vec1(pD,grid) .+ vec(ϕ .- num.mu_cin1./2 .* reshape(iM * Duv,grid)) 
-        # vec1(pD,grid) .+= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * Duv,grid)) 
+        vec1(pD,grid_p) .= vec1(pD,grid_p) .+ vec(ϕ .- num.mu_cin1./2 .* reshape(iM * Duv,grid_p)) 
+        # vec1(pD,grid_p) .+= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * Duv,grid_p)) 
 
-        print("\n max p vec1 ",maximum(vec1(pD,grid)))
-        print("\n max p",maximum(ϕ))
-        print("\n max p",minimum(num.mu_cin1./2 .* reshape(iM * Duv,grid))," ",maximum(num.mu_cin1./2 .* reshape(iM * Duv,grid)))
+        print("\n max p vec1 ",maximum(vec1(pD,grid_p)))
+        print("\n min p",minimum(ϕ)," max ",maximum(ϕ))
+        print("\n max p",minimum(num.mu_cin1./2 .* reshape(iM * Duv,grid_p))," ",maximum(num.mu_cin1./2 .* reshape(iM * Duv,grid_p)))
 
 
 
     elseif num.prediction == "PmIII"
         # \Delta t \nabla_h^2 \phi^{n+1} = \nabla_h \cdot \mathbf{u}^{*} \quad \text{in } \Omega
-        vec1(pD,grid) .= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * Duv,grid)) #no contribution from p^{n-1/2}
+        vec1(pD,grid_p) .= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * Duv,grid_p)) #no contribution from p^{n-1/2}
     
     elseif num.prediction == "Flower" #occursin("Flower",num.prediction)
         # \nabla_h p^{n+1/2} = \nabla_h \phi^{n+1} # TODO: does not correspond to any formula in Brown 2001 ?
-        vec1(pD,grid) .= vec(ϕ) #.- mu1_over_rho1 .* reshape(iM * Duv, grid))
+        vec1(pD,grid_p) .= vec(ϕ) #.- mu1_over_rho1 .* reshape(iM * Duv, grid_p))
     
     else
         @error("wrong prediction method, does not exist")
@@ -1099,19 +1167,19 @@ function pressure_projection_one_fluid!(
         #init p for Poiseuille : grad_x = 0
         #increment : grad_x=0
         # so grad_x still zero ? even with div ?
-        tmp_vec_p = zeros(grid) 
+        tmp_vec_p = zeros(grid_p) 
         # tmp_vec_p .= 0.0
-        get_height!(grid.LS[1],grid.ind,grid.dx,grid.dy,grid.LS[end].geoS,tmp_vec_p) #here tmp_vec_p solid #TODO geoS ??
+        get_height!(grid_p.LS[1],grid_p.ind,grid_p.dx,grid_p.dy,grid_p.LS[end].geoS,tmp_vec_p) #here tmp_vec_p solid #TODO geoS ??
 
-        init_fields_multiple_levelsets!(num,ph.pD,ph.p,tmp_vec_p,BC_p,grid,num.pres_intfc,"pL")
+        init_fields_multiple_levelsets!(num,ph.pD,ph.p,tmp_vec_p,BC_p,grid_p,num.pres_intfc,"pL")
 
     else #update pressure at boundaries
         #region cut-cell
         # for iLS in 1:nLS
-        #     veci(pD,grid,iLS+1) .= veci(ϕD,grid,iLS+1)
+        #     veci(pD,grid_p,iLS+1) .= veci(result_p,grid_p,iLS+1)
         # end
         #endregion cut-cell
-        vecb(pD,grid) .= vecb(ϕD,grid) 
+        vecb(pD,grid_p) .= vecb(result_p,grid_p) 
     end
 
 
@@ -1120,21 +1188,21 @@ function pressure_projection_one_fluid!(
     #TODO reapply Neumann BC for pressure boundary values ?
 
 
-    p .= reshape(vec1(pD,grid), grid)
+    p .= reshape(vec1(pD,grid_p), grid_p)
 
     #TODO
-    # compute_grad_p!(num,grid, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
+    # compute_grad_p!(num,grid_p, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
 
 
     # else
-    #     vec1(pD,grid) .= vec(p) .+ vec(ϕ) #.- mu1_over_rho1 .* iM * Duv
-    #     vec2(pD,grid) .+= vec2(ϕD,grid)
-    #     vecb(pD,grid) .+= vecb(ϕD,grid)
-    #     p .= reshape(vec1(pD,grid), grid)
+    #     vec1(pD,grid_p) .= vec(p) .+ vec(ϕ) #.- mu1_over_rho1 .* iM * Duv
+    #     vec2(pD,grid_p) .+= vec2(result_p,grid_p)
+    #     vecb(pD,grid_p) .+= vecb(result_p,grid_p)
+    #     p .= reshape(vec1(pD,grid_p), grid_p)
     # end
 
-    # vec1(∇ϕ_x,grid) .*= irho1 
-    # vec1(∇ϕ_y,grid) .*= irho1
+    # vec1(∇ϕ_x,grid_p) .*= irho1 
+    # vec1(∇ϕ_y,grid_p) .*= irho1
 
     
     # u .= ucorr .- τ .* reshape(iMu * ∇ϕ_x, grid_u)
@@ -1180,10 +1248,11 @@ function pressure_projection_one_fluid!(
     grad_y = zeros(grid_v)
 
     #region cut-cell
-    # compute_grad_T_x_T_y_array_u_v_capacities!(num, grid, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
+    # compute_grad_T_x_T_y_array_u_v_capacities!(num, grid_p, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
     #endregion cut-cell
 
-    compute_grad_T_x_T_y_array_u_v_capacities_one_fluid!(num, grid, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
+    compute_grad_T_x_T_y_array_u_v_capacities!(num, grid_p, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
+    # compute_grad_T_x_T_y_array_u_v_capacities_one_fluid!(num, grid_p, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
 
     # TODO give another set of capacities (allocate twice or special cases everywhere?) 
 
@@ -1203,13 +1272,13 @@ function pressure_projection_one_fluid!(
 
     #end pressure velocity
 
-    return Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
+    return Lp, bc_Lp, bc_Lp_b, Lu, diffusion_LS_u, diffusion_border_u, Lv, diffusion_LS_v, diffusion_border_v, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
 end
 
 
 """
     set_Forward_Euler_one_fluid!(
-        bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+        bc_int, num, grid_p, geo, grid_u, geo_u, grid_v, geo_v,
         opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
         Au, Bu, Av, Bv, Aϕ, Auv, Buv,
         Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
@@ -1224,7 +1293,7 @@ Sets up the matrices and right-hand side (RHS) for Forward Euler (FE)
 
 - `bc_int`: Boundary conditions for the interface.
 - `num`: Numerical parameters structure.
-- `grid`: Grid structure.
+- `grid_p`: Grid structure.
 - `geo`: Geometry structure.
 - `grid_u`, `geo_u`: Grid for the x-component of velocity (u).
 - `grid_v`, `geo_v`: Grid for the y-component (v).
@@ -1252,8 +1321,8 @@ Sets up the matrices and right-hand side (RHS) for Forward Euler (FE)
 - `rhs_ϕ`: Right-hand side vector for the pressure.
 - `rhs_uv`: Right-hand side vector for the coupled system (if `navier` is true).
 - `Lp`, `bc_Lp`, `bc_Lp_b`: Laplacian matrix and boundary conditions for pressure.
-- `Lu`, `bc_Lu`, `bc_Lu_b`: Laplacian matrix and boundary conditions for the u-component.
-- `Lv`, `bc_Lv`, `bc_Lv_b`: Laplacian matrix and boundary conditions for the v-component.
+- `Lu`, `diffusion_LS_u`, `diffusion_border_u`: Laplacian matrix and boundary conditions for the u-component.
+- `Lv`, `diffusion_LS_v`, `diffusion_border_v`: Laplacian matrix and boundary conditions for the v-component.
 
 ### Description
 
@@ -1266,7 +1335,7 @@ Sets up the matrices and right-hand side (RHS) for Forward Euler (FE)
 
 """
 function set_Forward_Euler_one_fluid!(
-    bc_int, num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+    bc_int, num, grid_p, geo, grid_u, geo_u, grid_v, geo_v,
     opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
     Au, Bu, Av, Bv, Aϕ, Auv, Buv,
     volume_fraction,rho_one_fluid_u,rho_one_fluid_v,
@@ -1275,34 +1344,67 @@ function set_Forward_Euler_one_fluid!(
     periodic_x, periodic_y, advection, ls_advection, navier,rhs_uv = nothing)
 
     if advection
-        set_convection!(num, grid, geo[end], grid_u, grid_u.LS, grid_v, grid_v.LS, ph.u, ph.v, op_conv, ph, BC_u, BC_v,opC_p, opC_u, opC_v)
+        set_convection!(num, grid_p, geo[end], grid_u, grid_u.LS, grid_v, grid_v.LS, ph.u, ph.v, op_conv, ph, BC_u, BC_v,opC_p, opC_u, opC_v)
     end
 
     if ls_advection
-        update_all_ls_data(num, grid, grid_u, grid_v, bc_int, periodic_x, periodic_y, false)
+        update_all_ls_data(num, grid_p, grid_u, grid_v, bc_int, periodic_x, periodic_y, false)
 
         laps = set_matrices!(
-            num, grid, geo, grid_u, geo_u, grid_v, geo_v,
+            num, grid_p, geo, grid_u, geo_u, grid_v, geo_v,
             opC_p, opC_u, opC_v,
             periodic_x, periodic_y
         )
+
+     
+
+        # print("\n iMu",opC_u.M.diag)
+        # print("\n iMv",opC_v.M.diag)
+
+        # # display(reshape(vec1(iMu,grid_u),grid_u))
+        # for j in 1:grid_u.ny
+        #     for i in 1:grid_u.nx
+        #         pII = lexicographic(CartesianIndex(j,i),grid_u.ny)
+        #         print("\n iMu ",j," ",i," ",opC_u.M.diag[pII])
+        #     end
+        # end
+
+        # if any(opC_u.M.diag  == 0 )
+        #     @error("\n One-fluid model error M null")
+        # end
+
     else
         laps = Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b
     end
 
-    Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b = laps
+    Lp, bc_Lp, bc_Lp_b, Lu, diffusion_LS_u, diffusion_border_u, Lv, diffusion_LS_v, diffusion_border_v = laps
+
+
+
+    # print("\n ls_advection ", ls_advection)
+
+    # for j in 1:grid_u.ny
+    #     for i in 1:grid_u.nx
+    #         pII = lexicographic(CartesianIndex(j,i),grid_u.ny)
+    #         print("\n iMu ",j," ",i," ",opC_u.M.diag[pII])
+    #     end
+    # end
+
+    # if any(opC_u.M.diag  == 0 )
+    #     @error("\n One-fluid model error M null")
+    # end
 
     #region if num.one_fluid_model == 0
     # if num.one_fluid_model == 0
         
 
     #     diffusion_bulk_u = mu_over_rho.*Lu
-    #     diffusion_LS_u = mu_over_rho.*bc_Lu
-    #     diffusion_border_u = mu_over_rho.*bc_Lu_b
+    #     diffusion_LS_u = mu_over_rho.*diffusion_LS_u
+    #     diffusion_border_u = mu_over_rho.*diffusion_border_u
 
     #     diffusion_bulk_v = mu_over_rho.*Lv
-    #     diffusion_LS_v = mu_over_rho.*bc_Lv
-    #     diffusion_border_v = mu_over_rho.*bc_Lv_b
+    #     diffusion_LS_v = mu_over_rho.*diffusion_LS_v
+    #     diffusion_border_v = mu_over_rho.*diffusion_border_v
 
     # else
 
@@ -1333,23 +1435,24 @@ function set_Forward_Euler_one_fluid!(
     #region Viscosity coefficient for \frac{\partial u}{\partial x}
     #cf test in orientation.jl
     viscosity_coeff_for_du_dx = zeros(grid_u.ny,grid_u.nx+1)
-    viscosity_coeff_for_du_dx[:,2:grid_u.nx] = volume_fraction #grid.LS[end].geoL.cap[:,:,5]
+    viscosity_coeff_for_du_dx[:,2:grid_u.nx] = volume_fraction #grid_p.LS[end].geoL.cap[:,:,5]
 
     #TODO contact angle change  viscosity_coeff_for_du_dx[:,1] and at end (not interpolating right now)
     viscosity_coeff_for_du_dx[:,1] = viscosity_coeff_for_du_dx[:,2]
     viscosity_coeff_for_du_dx[:,end] = viscosity_coeff_for_du_dx[:,end-1]
 
-    print("\n debug volume_fraction")
-    display(volume_fraction)
+    # print("\n debug volume_fraction")
+    # display(volume_fraction)
 
-    print("\n debug viscosity_coeff_for_du_dx")
-    display(viscosity_coeff_for_du_dx)
+    # print("\n debug viscosity_coeff_for_du_dx")
+    # display(viscosity_coeff_for_du_dx)
 
 
     # arithmetic average 
+    # factor 2
     viscosity_coeff_for_du_dx .= 2 * ( (num.mu1 - num.mu2) * viscosity_coeff_for_du_dx  .+ num.mu2 )
 
-    display(viscosity_coeff_for_du_dx)
+    # display(viscosity_coeff_for_du_dx)
 
 
     # print("\n num.mu1 num.mu2 ",num.mu1 ," ",num.mu2)
@@ -1371,9 +1474,9 @@ function set_Forward_Euler_one_fluid!(
 
 
     #region interpolate 
-    volume_fraction_full = create_2D_grid_volume_fraction(grid,volume_fraction)
-    grid_x_full_2D = create_2D_grid_x(grid,true,true)
-    grid_y_full_2D = create_2D_grid_y(grid,true,true)
+    volume_fraction_full = create_2D_grid_volume_fraction(grid_p,volume_fraction)
+    grid_x_full_2D = create_2D_grid_x(grid_p,true,true)
+    grid_y_full_2D = create_2D_grid_y(grid_p,true,true)
 
     all_grid_u_nodes_2D_x_for_du_dy_interp = create_2D_grid_x(grid_u,false,true)
     all_grid_u_nodes_2D_y_for_du_dy_interp = create_2D_grid_y(grid_u,false,true)
@@ -1456,6 +1559,7 @@ function set_Forward_Euler_one_fluid!(
     mul!(opC_u.tmp_y, diag_viscosity_coeff_for_du_dy * opC_u.iMy, opC_u.By)
     diffusion_bulk_u = diffusion_bulk_u .+ opC_u.ByT * opC_u.tmp_y
 
+    # replaces Lu
 
 
     #region v diffusion
@@ -1464,7 +1568,7 @@ function set_Forward_Euler_one_fluid!(
     #cf test in orientation.jl
     viscosity_coeff_for_dv_dy = zeros(grid_v.ny+1,grid_v.nx)
 
-    viscosity_coeff_for_dv_dy[2:grid_v.ny,:] = volume_fraction #grid.LS[end].geoL.cap[:,:,5]
+    viscosity_coeff_for_dv_dy[2:grid_v.ny,:] = volume_fraction #grid_p.LS[end].geoL.cap[:,:,5]
 
     #TODO contact angle change  viscosity_coeff_for_dv_dy[:,1] and at end (not interpolating right now)
     viscosity_coeff_for_dv_dy[1,:] = viscosity_coeff_for_dv_dy[2,:]
@@ -1488,13 +1592,13 @@ function set_Forward_Euler_one_fluid!(
 
 
     #region interpolate 
-    # volume_fraction_full = create_2D_grid_volume_fraction(grid,volume_fraction)
-    # grid_x_full_2D = create_2D_grid_x(grid,true,true)
-    # grid_y_full_2D = create_2D_grid_y(grid,true,true)
+    # volume_fraction_full = create_2D_grid_volume_fraction(grid_p,volume_fraction)
+    # grid_x_full_2D = create_2D_grid_x(grid_p,true,true)
+    # grid_y_full_2D = create_2D_grid_y(grid_p,true,true)
 
-    print("\n all_grid_v_nodes_2D_x_for_dv_dx_interp")
+    # print("\n all_grid_v_nodes_2D_x_for_dv_dx_interp")
     all_grid_v_nodes_2D_x_for_dv_dx_interp = create_2D_grid_x(grid_v,true,false)
-    print("\n all_grid_v_nodes_2D_y_for_dv_dx_interp")
+    # print("\n all_grid_v_nodes_2D_y_for_dv_dx_interp")
     all_grid_v_nodes_2D_y_for_dv_dx_interp = create_2D_grid_y(grid_v,true,false)
 
     for j in 1:grid_v.ny
@@ -1562,37 +1666,37 @@ function set_Forward_Euler_one_fluid!(
  
     # print("\n opC_u.iMx_b", size(opC_u.iMx_b))
 
-    # printstyled(color=:green, @sprintf "\n bc_Lu_b ")
+    # printstyled(color=:green, @sprintf "\n diffusion_border_u ")
 
-    # print("\n bc_Lu_b")
-    # display(bc_Lu_b)
+    # print("\n diffusion_border_u")
+    # display(diffusion_border_u)
 
-    # viscosity_coeff_for_u_border_x = zeros(grid.ny, grid.nx+2) # copy(coeffDu)
-    # viscosity_coeff_for_u_border_y = zeros(grid.ny+1, grid.nx+1) # copy(coeffDv)
+    # viscosity_coeff_for_u_border_x = zeros(grid_p.ny, grid_p.nx+2) # copy(coeffDu)
+    # viscosity_coeff_for_u_border_y = zeros(grid_p.ny+1, grid_p.nx+1) # copy(coeffDv)
 
-    # viscosity_coeff_for_v_border_x = zeros(grid.ny+1, grid.nx+1) #copy(coeffDu)
-    # viscosity_coeff_for_v_border_y = zeros(grid.ny+2, grid.nx) #copy(coeffDv)
+    # viscosity_coeff_for_v_border_x = zeros(grid_p.ny+1, grid_p.nx+1) #copy(coeffDu)
+    # viscosity_coeff_for_v_border_y = zeros(grid_p.ny+2, grid_p.nx) #copy(coeffDv)
 
 
 
-    # @inbounds @threads for II in grid.ind.b_left[1] #[2:end-1]
+    # @inbounds @threads for II in grid_p.ind.b_left[1] #[2:end-1]
     # # @inbounds @threads for II in grid_u.ind.b_left[1] #[2:end-1]
-    #     coeffDu[II] = (vecb_L(coeffD,grid)[II[1]]+reshape(veci(coeffD,grid),grid)[II])/2.0 # veci(coeff,grid) or elec_cond
+    #     coeffDu[II] = (vecb_L(coeffD,grid_p)[II[1]]+reshape(veci(coeffD,grid_p),grid_p)[II])/2.0 # veci(coeff,grid_p) or elec_cond
     #     # print("\n left, II ",II, coeffDu[II])
     # end
 
-    # @inbounds @threads for II in grid.ind.b_right[1] #[2:end-1]
-    #     coeffDu[ δx⁺(II) ] = (vecb_R(coeffD,grid)[II[1]]+reshape(veci(coeffD,grid),grid)[II])/2.0
+    # @inbounds @threads for II in grid_p.ind.b_right[1] #[2:end-1]
+    #     coeffDu[ δx⁺(II) ] = (vecb_R(coeffD,grid_p)[II[1]]+reshape(veci(coeffD,grid_p),grid_p)[II])/2.0
     #     # print("\n right, II ",II, coeffDu[II])
 
     # end
 
-    # @inbounds @threads for II in grid.ind.b_bottom[1] #[2:end-1]
-    #     coeffDv[II] = (vecb_B(coeffD,grid)[II[2]]+reshape(veci(coeffD,grid),grid)[II])/2.0
+    # @inbounds @threads for II in grid_p.ind.b_bottom[1] #[2:end-1]
+    #     coeffDv[II] = (vecb_B(coeffD,grid_p)[II[2]]+reshape(veci(coeffD,grid_p),grid_p)[II])/2.0
     # end
 
-    # @inbounds @threads for II in grid.ind.b_top[1] #[2:end-1]
-    #     coeffDv[δy⁺(II)] = (vecb_T(coeffD,grid)[II[2]]+reshape(veci(coeffD,grid),grid)[II])/2.0
+    # @inbounds @threads for II in grid_p.ind.b_top[1] #[2:end-1]
+    #     coeffDv[δy⁺(II)] = (vecb_T(coeffD,grid_p)[II[2]]+reshape(veci(coeffD,grid_p),grid_p)[II])/2.0
     # end
 
     # coeffD = fones()
@@ -1619,11 +1723,13 @@ function set_Forward_Euler_one_fluid!(
     # diag_viscosity_coeff_for_v_border_x = Diagonal(vec(viscosity_coeff_for_v_border_x)) 
     # diag_viscosity_coeff_for_v_border_y = Diagonal(vec(viscosity_coeff_for_v_border_y)) 
 
-    # bc_Lu_b = (opC_u.BxT * diag_viscosity_coeff_for_u_border_x * opC_u.iMx_b * opC_u.Hx_b .+ opC_u.ByT * diag_viscosity_coeff_for_u_border_y * opC_u.iMy_b * opC_u.Hy_b)
-    # bc_Lv_b = (opC_v.BxT * diag_viscosity_coeff_for_v_border_x * opC_v.iMx_b * opC_v.Hx_b .+ opC_v.ByT * diag_viscosity_coeff_for_v_border_y * opC_v.iMy_b * opC_v.Hy_b)
+    # diffusion_border_u = (opC_u.BxT * diag_viscosity_coeff_for_u_border_x * opC_u.iMx_b * opC_u.Hx_b .+ opC_u.ByT * diag_viscosity_coeff_for_u_border_y * opC_u.iMy_b * opC_u.Hy_b)
+    # diffusion_border_v = (opC_v.BxT * diag_viscosity_coeff_for_v_border_x * opC_v.iMx_b * opC_v.Hx_b .+ opC_v.ByT * diag_viscosity_coeff_for_v_border_y * opC_v.iMy_b * opC_v.Hy_b)
 
-    bc_Lu_b = (opC_u.BxT * diag_viscosity_coeff_for_du_dx * opC_u.iMx_b * opC_u.Hx_b .+ opC_u.ByT * diag_viscosity_coeff_for_du_dy * opC_u.iMy_b * opC_u.Hy_b)
-    bc_Lv_b = (opC_v.BxT * diag_viscosity_coeff_for_dv_dx * opC_v.iMx_b * opC_v.Hx_b .+ opC_v.ByT * diag_viscosity_coeff_for_dv_dy * opC_v.iMy_b * opC_v.Hy_b)
+    diffusion_border_u = (opC_u.BxT * diag_viscosity_coeff_for_du_dx * opC_u.iMx_b * opC_u.Hx_b .+ 
+                          opC_u.ByT * diag_viscosity_coeff_for_du_dy * opC_u.iMy_b * opC_u.Hy_b)
+    diffusion_border_v = (opC_v.BxT * diag_viscosity_coeff_for_dv_dx * opC_v.iMx_b * opC_v.Hx_b .+ 
+                          opC_v.ByT * diag_viscosity_coeff_for_dv_dy * opC_v.iMy_b * opC_v.Hy_b)
 
 
     # # cf  for Poisson
@@ -1631,7 +1737,7 @@ function set_Forward_Euler_one_fluid!(
     # coeffDv_border = copy(coeffDv)
 
     # # Interpolate conductivity at center of control volumes for potential gradient at the border
-    # interpolate_scalar_to_staggered_u_v_grids_at_border!(num,grid,coeffD,coeffDu_border,coeffDv_border)
+    # interpolate_scalar_to_staggered_u_v_grids_at_border!(num,grid_p,coeffD,coeffDu_border,coeffDv_border)
 
     # coeffDx_border = veci(coeffDu_border,grid_u)
     # coeffDy_border = veci(coeffDv_border,grid_v)
@@ -1643,15 +1749,13 @@ function set_Forward_Euler_one_fluid!(
 
 
     # diffusion_bulk_u   = mu_over_rho.*Lu
-    # diffusion_LS_u     = 0.0 * iRe.*bc_Lu
-    # diffusion_border_u = iRe.*bc_Lu_b
-    diffusion_border_u = bc_Lu_b
+    # diffusion_LS_u     = 0.0 * iRe.*diffusion_LS_u
+    # diffusion_border_u = iRe.*diffusion_border_u
 
 
     # diffusion_bulk_v   = mu_over_rho.*Lv
-    # diffusion_LS_v     = 0.0 * iRe.*bc_Lu
-    # diffusion_border_u = iRe.*bc_Lu_b
-    diffusion_border_v = bc_Lv_b
+    # diffusion_LS_v     = 0.0 * iRe.*diffusion_LS_u
+    # diffusion_border_u = iRe.*diffusion_border_u
     
     #endregion Poisson variable coefficient
 
@@ -1661,27 +1765,77 @@ function set_Forward_Euler_one_fluid!(
 
     #region cross-terms
     
+    # function laplacian(
+    #mul!(tmp_x, iMx, Bx)
+    # L = BxT * tmp_x
+    # mul!(tmp_y, iMy, By)
+    # L = L .+ ByT * tmp_y
+
+  
+
     mul!(opC_v.tmp_x, diag_viscosity_coeff_for_dv_dx * opC_v.iMx, opC_v.Bx)
     # diffusion_bulk_v = opC_v.BxT * opC_v.tmp_x
+
+    # Test
+    # cross_term_diffusion_bulk_d_dv_dx_dy =
+
+    print("\n size opC_v.iMx, opC_v.Bx",size(opC_v.tmp_x))
+    print("\n size opC_u.ByT",size(opC_u.ByT))
+    print("\n size opC_v.BxT",size(opC_v.BxT))
+
+
     cross_term_diffusion_bulk_d_dv_dx_dy = opC_u.ByT * opC_v.tmp_x
 
+    # pII = lexicographic(CartesianIndex(div(grid_u.ny,2),div(grid_u.nx,2)),grid_u.ny)
+    pII = lexicographic(CartesianIndex(5,5),grid_u.ny)
+
+    print("\n cross_term_diffusion_bulk_d_dv_dx_dy ",pII)
+
+    print("\n cross_term_diffusion_bulk_d_dv_dx_dy ",cross_term_diffusion_bulk_d_dv_dx_dy[pII,:])
+
+    nip = grid_p.nx * grid_p.ny
+    nbp = 2 * grid_p.nx + 2 * grid_p.ny
+
+    niu = grid_u.nx * grid_u.ny
+    nbu = 2 * grid_u.nx + 2 * grid_u.ny
+    # ntu = (nLS - nNavier + 1) * niu + nbu
+    ntu = niu + nbu
+
+    niv = grid_v.nx * grid_v.ny
+    nbv = 2 * grid_v.nx + 2 * grid_v.ny
+    # ntv = (nLS - nNavier + 1) * niv + nbv
+    ntv = niv + nbv
+
+    bulk_u_velocity = 1:niu
+    bulk_v_velocity =  ntu+1:ntu+niv
+    # bulk_tangential_velocity = 
+
+    border_u_velocity = ntu-nbu+1:ntu
+    border_v_velocity = ntu+ntv-nbv+1:ntu+ntv
+  
+
+    print("\n indices ",bulk_u_velocity," ",bulk_v_velocity," ",border_u_velocity," ",border_v_velocity)
+
+    print("\n indices ",size(bulk_u_velocity)," ",size(bulk_v_velocity)," ",size(border_u_velocity)," ",size(border_v_velocity))
+
+
+    #TODO shift stencil
 
     mul!(opC_u.tmp_y, diag_viscosity_coeff_for_du_dy * opC_u.iMy, opC_u.By)
     # diffusion_bulk_u = diffusion_bulk_u .+ opC_u.ByT * opC_u.tmp_y
     cross_term_diffusion_bulk_d_du_dy_dx =  opC_v.BxT * opC_u.tmp_y
 
 
-    # bc_Lu_b = (opC_u.BxT * diag_viscosity_coeff_for_du_dx * opC_u.iMx_b * opC_u.Hx_b 
+    # diffusion_border_u = (opC_u.BxT * diag_viscosity_coeff_for_du_dx * opC_u.iMx_b * opC_u.Hx_b 
     #         .+ opC_u.ByT * diag_viscosity_coeff_for_du_dy * opC_u.iMy_b * opC_u.Hy_b)
 
-    # bc_Lv_b = (opC_v.BxT * diag_viscosity_coeff_for_dv_dx * opC_v.iMx_b * opC_v.Hx_b 
+    # diffusion_border_v = (opC_v.BxT * diag_viscosity_coeff_for_dv_dx * opC_v.iMx_b * opC_v.Hx_b 
     #         .+ opC_v.ByT * diag_viscosity_coeff_for_dv_dy * opC_v.iMy_b * opC_v.Hy_b)
 
 
-
-    cross_term_border_ddu = opC_u.ByT * diag_viscosity_coeff_for_dv_dx * opC_v.iMx_b * opC_v.Hx_b 
+    cross_term_diffusion_bulk_d_dv_dx_dy_border = opC_u.ByT * diag_viscosity_coeff_for_dv_dx * opC_v.iMx_b * opC_v.Hx_b 
     
-    cross_term_border_ddv = opC_v.BxT * diag_viscosity_coeff_for_du_dy * opC_u.iMy_b * opC_u.Hy_b
+    cross_term_diffusion_bulk_d_du_dy_dx_border = opC_v.BxT * diag_viscosity_coeff_for_du_dy * opC_u.iMy_b * opC_u.Hy_b
 
 
     #endregion cross-terms
@@ -1698,20 +1852,22 @@ function set_Forward_Euler_one_fluid!(
 
             rhs_u = nothing
             rhs_v = nothing
-            rhs_ϕ = nothing
+            # rhs_ϕ = nothing
             diffusion_LS_u = nothing
             diffusion_LS_v = nothing
             rhs_uv = FE_set_momentum_coupled2_one_fluid(
-            bc_int, num, grid, grid_u, grid_v,
+            bc_int, num, grid_p, grid_u, grid_v,
             opC_p, opC_u, opC_v,
             Auv, Buv,
             rhs_uv,
             diffusion_bulk_u, diffusion_LS_u, diffusion_border_u, Mum1, BC_u,
             diffusion_bulk_v, diffusion_LS_v, diffusion_border_v, Mvm1, BC_v,
             cross_term_diffusion_bulk_d_dv_dx_dy,cross_term_diffusion_bulk_d_du_dy_dx,
-            cross_term_border_ddu,cross_term_border_ddv,
+            cross_term_diffusion_bulk_d_dv_dx_dy_border,cross_term_diffusion_bulk_d_du_dy_dx_border,rho_one_fluid_u,rho_one_fluid_v,
             ls_advection,BC_p,ph
         )
+
+        
 
         elseif !navier
             rhs_u = FE_set_momentum(
@@ -1731,7 +1887,7 @@ function set_Forward_Euler_one_fluid!(
             rhs_u = nothing
             rhs_v = nothing
             rhs_uv = FE_set_momentum_coupled(
-                bc_int, num, grid, grid_u, grid_v,
+                bc_int, num, grid_p, grid_u, grid_v,
                 opC_p, opC_u, opC_v,
                 Auv, Buv,
                 diffusion_bulk_u, diffusion_LS_u, diffusion_border_u, Mum1, BC_u,
@@ -1742,25 +1898,27 @@ function set_Forward_Euler_one_fluid!(
 
         a0_p = []
         for i in 1:num.nLS
-            push!(a0_p, zeros(grid))
+            push!(a0_p, zeros(grid_p))
         end
         # rhs_ϕ = set_poisson(
-        #     bc_int, num, grid, a0_p, opC_p, opC_u, opC_v,
+        #     bc_int, num, grid_p, a0_p, opC_p, opC_u, opC_v,
         #     Aϕ, Lp, bc_Lp, bc_Lp_b, BC_p,
         #     ls_advection
         # )
 
-        # vecb(rhs,grid) .= +χ_b * vec(a0_b) #was - in set_poisson , -a0, a1 = -1,...
+        # vecb(rhs,grid_p) .= +χ_b * vec(a0_b) #was - in set_poisson , -a0, a1 = -1,...
 
         # In solve_poisson, the equation a \frac{\partial p}{\partial n} + bp = g , 
         # if inhomogeneous Neumann: -1 at bottom and left
         # +1 sign at top and right
         
         rhs_ϕ = solve_poisson(
-            bc_int, num, grid, a0_p, opC_p, opC_u, opC_v,
+            bc_int, num, grid_p, a0_p, opC_p, opC_u, opC_v,
             Aϕ, Lp, bc_Lp, bc_Lp_b, BC_p,
             ls_advection
         )
+
+        print("\n rhs phi ",size(rhs_ϕ))
         
 
     elseif num.pressure_velocity_coupling > 1
@@ -1768,7 +1926,7 @@ function set_Forward_Euler_one_fluid!(
         rhs_v = nothing
         rhs_ϕ = nothing
         rhs_uv = FE_set_momentum_coupled2(
-            bc_int, num, grid, grid_u, grid_v,
+            bc_int, num, grid_p, grid_u, grid_v,
             opC_p, opC_u, opC_v,
             Auv, Buv,
             rhs_uv,
@@ -1779,7 +1937,7 @@ function set_Forward_Euler_one_fluid!(
 
     end
     
-    return rhs_u, rhs_v, rhs_ϕ, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, bc_Lu, bc_Lu_b, Lv, bc_Lv, bc_Lv_b #TODO
+    return rhs_u, rhs_v, rhs_ϕ, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, diffusion_LS_u, diffusion_border_u, Lv, diffusion_LS_v, diffusion_border_v #TODO
 end
 
 
@@ -1811,23 +1969,25 @@ Set the system matrix for Forward-Euler scheme
 
 2. **For the outer boundaries/borders:**
    ```julia
-   @inbounds rhs[ntu-nbu+1:ntu] .= opu.χ_b * vec(a0_bu) #BC for u component on borders
-   @inbounds rhs[ntu+ntv-nbv+1:ntu+ntv] .= opv.χ_b * vec(a0_bv) #BC for v component on borders
+   @inbounds rhs[border_u_velocity] .= opu.χ_b * vec(a0_bu) #BC for u component on borders
+   @inbounds rhs[border_v_velocity] .= opv.χ_b * vec(a0_bv) #BC for v component on borders
 
 robin BC : source term a0
                 
 At the moment, the Levelset is not computed at borders/interfaces ? Only bulk
 """
 function FE_set_momentum_coupled2_one_fluid(
-    bc_interface, num, gp, gu, gv,
+    bc_interface, num, grid_p, grid_u, grid_v,
     opp, opu, opv,
     A, B,
     rhs,
-    Lu, bc_Lu, bc_Lu_b, Mum1, BCu,
-    Lv, bc_Lv, bc_Lv_b, Mvm1, BCv,
+    diffusion_bulk_u, diffusion_LS_u, diffusion_border_u, Mum1, BCu,
+    diffusion_bulk_v, diffusion_LS_v, diffusion_border_v, Mvm1, BCv,
     cross_term_diffusion_bulk_d_dv_dx_dy,cross_term_diffusion_bulk_d_du_dy_dx,
-    cross_term_border_ddu,cross_term_border_ddv,
-    ls_advection,BCp,ph=nothing
+    cross_term_diffusion_bulk_d_dv_dx_dy_border,cross_term_diffusion_bulk_d_du_dy_dx_border,
+    rho_one_fluid_u,rho_one_fluid_v,
+    ls_advection::Bool,
+    BCp,ph=nothing
     )
     @unpack τ, Re, nLS, nNavier = num
 
@@ -1838,16 +1998,18 @@ function FE_set_momentum_coupled2_one_fluid(
     #region init
     iRe = num.visc_coeff
 
-    nip = gp.nx * gp.ny
-    nbp = 2 * gp.nx + 2 * gp.ny
+    nip = grid_p.nx * grid_p.ny
+    nbp = 2 * grid_p.nx + 2 * grid_p.ny
 
-    niu = gu.nx * gu.ny
-    nbu = 2 * gu.nx + 2 * gu.ny
-    ntu = (nLS - nNavier + 1) * niu + nbu
+    niu = grid_u.nx * grid_u.ny
+    nbu = 2 * grid_u.nx + 2 * grid_u.ny
+    # ntu = (nLS - nNavier + 1) * niu + nbu
+    ntu = niu + nbu
 
-    niv = gv.nx * gv.ny
-    nbv = 2 * gv.nx + 2 * gv.ny
-    ntv = (nLS - nNavier + 1) * niv + nbv
+    niv = grid_v.nx * grid_v.ny
+    nbv = 2 * grid_v.nx + 2 * grid_v.ny
+    # ntv = (nLS - nNavier + 1) * niv + nbv
+    ntv = niv + nbv
 
     #Reset to zero
     rhs .= 0.0 
@@ -1857,7 +2019,7 @@ function FE_set_momentum_coupled2_one_fluid(
     _a1_bu = zeros(nbu)
     _b_bu = zeros(nbu)
     for iLS in 1:num.nLS
-        set_borders!(gu, gu.LS[iLS].cl, gu.LS[iLS].u, a0_bu, _a1_bu, _b_bu, BCu, num.n_ext_cl)
+        set_borders!(grid_u, grid_u.LS[iLS].cl, grid_u.LS[iLS].u, a0_bu, _a1_bu, _b_bu, BCu, num.n_ext_cl)
     end
     a1_bu = Diagonal(vec(_a1_bu))
     b_bu = Diagonal(vec(_b_bu))
@@ -1868,7 +2030,7 @@ function FE_set_momentum_coupled2_one_fluid(
     _a1_bv = zeros(nbv)
     _b_bv = zeros(nbv)
     for iLS in 1:num.nLS
-        set_borders!(gv, gv.LS[iLS].cl, gv.LS[iLS].u, a0_bv, _a1_bv, _b_bv, BCv, num.n_ext_cl)
+        set_borders!(grid_v, grid_v.LS[iLS].cl, grid_v.LS[iLS].u, a0_bv, _a1_bv, _b_bv, BCv, num.n_ext_cl)
     end
     a1_bv = Diagonal(vec(_a1_bv))
     b_bv = Diagonal(vec(_b_bv))
@@ -1877,13 +2039,13 @@ function FE_set_momentum_coupled2_one_fluid(
 
     #region BC borders p
     if num.pressure_velocity_coupling == 2
-        # rhs = fnzeros(gp, num)
+        # rhs = fnzeros(grid_p, num)
 
         a0_bp = zeros(nbp)
         _a1_bp = zeros(nbp)
         _b_bp = zeros(nbp)
         for iLS in 1:num.nLS
-            set_borders_poisson!(gp, gp.LS[iLS].cl, gp.LS[iLS].u, a0_bp, _a1_bp, _b_bp, BCp, num.n_ext_cl)
+            set_borders_poisson!(grid_p, grid_p.LS[iLS].cl, grid_p.LS[iLS].u, a0_bp, _a1_bp, _b_bp, BCp, num.n_ext_cl)
         end
         a1_bp = Diagonal(vec(_a1_bp))
         b_bp = Diagonal(vec(_b_bp))
@@ -1935,11 +2097,11 @@ function FE_set_momentum_coupled2_one_fluid(
     #             __b = 1.0
     #         end
     
-    #         _a1 = ones(gp) .* __a1
+    #         _a1 = ones(grid_p) .* __a1
     #         a1 = Diagonal(vec(_a1))
-    #         _a2 = ones(gp) .* __a2
+    #         _a2 = ones(grid_p) .* __a2
     #         a2 = Diagonal(vec(_a2))
-    #         _b = ones(gp) .* __b
+    #         _b = ones(grid_p) .* __b
     #         b = Diagonal(vec(_b))
 
     #         fs_mat = HxT[iLS] * Hx[iLS] .+ HyT[iLS] * Hy[iLS]
@@ -1966,10 +2128,10 @@ function FE_set_momentum_coupled2_one_fluid(
     #         A[end-nb+1:end,sb] = b_b * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
     #     end
 
-    #     veci(rhs,gp,iLS+1) .= +χ[iLS] * vec(a0[iLS]) #was - in set_poisson
+    #     veci(rhs,grid_p,iLS+1) .= +χ[iLS] * vec(a0[iLS]) #was - in set_poisson
     # end
 
-    # vecb(rhs,gp) .= +χ_b * vec(a0_b) #was - in set_poisson
+    # vecb(rhs,grid_p) .= +χ_b * vec(a0_b) #was - in set_poisson
     #endregion BC borders p
 
 
@@ -1977,7 +2139,7 @@ function FE_set_momentum_coupled2_one_fluid(
 
     # Array indices 
     bulk_u_velocity = 1:niu
-    bulk_v_velocity = ntu+1:ntu+niv
+    bulk_v_velocity =  ntu+1:ntu+niv
     # bulk_tangential_velocity = 
 
     border_u_velocity = ntu-nbu+1:ntu
@@ -1985,27 +2147,105 @@ function FE_set_momentum_coupled2_one_fluid(
 
     # nt = (num.nLS - num.nNavier + 1) * ni_uv + num.nNavier * nip + nb_uv + (num.nLS + 1) * nip + nbp
     ntNavier = num.nNavier * nip
-    bulk_pressure = ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+nip
-    #ntu+ntv+1:ntu+ntv+nip
-    border_pressure = ntu+ntv+ntNavier+(num.nLS + 1)*nip+1:ntu+ntv+ntNavier+(num.nLS + 1)*nip+nbp
+    # bulk_pressure = ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+nip
+    # #ntu+ntv+1:ntu+ntv+nip
+    # border_pressure = ntu+ntv+ntNavier+(num.nLS + 1)*nip+1:ntu+ntv+ntNavier+(num.nLS + 1)*nip+nbp
 
-    print("\n len rhs_uv ",size(rhs))
+    # print("\n len rhs_uv ",size(rhs))
 
-    print("bulk_pressure ",bulk_pressure)
-    print("border_pressure ",border_pressure)
+    # print("bulk_pressure ",bulk_pressure)
+    # print("border_pressure ",border_pressure)
+
+
 
 
     if ls_advection
         A.nzval .= 0.0
-        # Implicit part of viscous term
-        A[bulk_u_velocity,bulk_u_velocity] = pad_crank_nicolson(rho_one_fluid_u*opu.M .- τ .* Lu, gu, τ)
 
-        A[bulk_u_velocity,bulk_v_velocity] = pad_crank_nicolson(- τ .* cross_term_u, gu, τ)
+        pII = lexicographic(CartesianIndex(5,5),grid_u.ny)
+
+        print("\n A[bulk_u_velocity,bulk_u_velocity] before ",pII)
+
+        print("\n dt ",τ )
+        print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
+        # example with mu1=mu2=1 and dt =1 : factor 2 for x, so 2-4 2 and 1 -2 1
+        # diffusion_bulk_u   [101]  =  2.0
+        # [132]  =  1.0
+        # [133]  =  -6.0
+        # [134]  =  1.0
+        # [165]  =  2.0
+
+        pII = lexicographic(CartesianIndex(1,5),grid_u.ny)
+        pIIv = lexicographic(CartesianIndex(1,5),grid_v.ny)
+
+        print("\n pIIv ",ntu + pIIv," pII ",pII)
+
+        print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
+
+        pII = lexicographic(CartesianIndex(5,1),grid_u.ny)
+        pIIv = lexicographic(CartesianIndex(5,1),grid_v.ny)
+
+        print("\n pIIv ",ntu + pIIv," pII ",pII)
+
+        print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
+
+        pII = lexicographic(CartesianIndex(1,1),grid_u.ny)
+        pIIv = lexicographic(CartesianIndex(1,1),grid_v.ny)
+
+        print("\n pIIv ",ntu + pIIv," pII ",pII)
+
+        print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
+
+
+        # Implicit part of viscous term
+        if num.non_dimensionalize == 0
+            A[bulk_u_velocity,bulk_u_velocity] = pad_crank_nicolson(opu.M .- τ .* diffusion_bulk_u, grid_u, τ)
+        else
+            A[bulk_u_velocity,bulk_u_velocity] = pad_crank_nicolson(rho_one_fluid_u*opu.M .- τ .* diffusion_bulk_u, grid_u, τ)
+        end
+
+        # example 
+        # A[bulk_u_velocity,bulk_u_velocity]   [101]  =  -2.0
+        # [132]  =  -1.0
+        # [133]  =  6.00391
+        # [134]  =  -1.0
+        # [165]  =  -2.0
+        #same with opu.M
+
+
+        print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
+
+        print("\n size(A) ",size(A))
+
+        print("\n size(bulk_u_velocity) ",size(bulk_u_velocity))
+        print("\n bulk_u_velocity ",bulk_u_velocity)
+        print("\n bulk_v_velocity ",bulk_v_velocity)
+
+        pIIv = lexicographic(CartesianIndex(5,5),grid_v.ny)
+
+        # A[bulk_u_velocity,ntu + pIIv] .= 333
+        
+        print("\n pIIv ",ntu + pIIv)
+
+        print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
+        
+        print("\n grid_p ",grid_p.dx[5,5]," ", grid_u.dx[5,5] ," ",grid_v.dx[5,5]," ")
+        print("\n grid_p ",grid_p.dy[5,5]," ", grid_u.dy[5,5] ," ",grid_v.dy[5,5]," ")
+
+
+        A[bulk_u_velocity,bulk_v_velocity] = - τ * cross_term_diffusion_bulk_d_dv_dx_dy
+        
+
+        print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
+
 
         # Contribution to implicit part of viscous term from outer boundaries
-        A[bulk_u_velocity,border_u_velocity] = - τ .* bc_Lu_b 
+        A[bulk_u_velocity,border_u_velocity] = - τ .* diffusion_border_u 
 
-        A[bulk_u_velocity,border_v_velocity] = - τ .* cross_term_diffusion_bulk_d_dv_dx_dy
+        print("\n A[bulk_u_velocity,bulk_u_velocity] after border ",A[pII,:])
+
+       
+        A[bulk_u_velocity,border_v_velocity] = - τ .* cross_term_diffusion_bulk_d_dv_dx_dy_border
 
         # Boundary conditions for outer boundaries
         A[border_u_velocity,bulk_u_velocity] = b_bu * (opu.HxT_b * opu.iMx_b' * opu.Bx .+ opu.HyT_b * opu.iMy_b' * opu.By)
@@ -2015,14 +2255,18 @@ function FE_set_momentum_coupled2_one_fluid(
         ) .- opu.χ_b * a1_bu)
 
         # Implicit part of viscous term
-        A[bulk_v_velocity,bulk_v_velocity] = pad_crank_nicolson(rho_v * opv.M .- τ .* Lv, gv, τ)
+        if num.non_dimensionalize == 0
+            A[bulk_v_velocity,bulk_v_velocity] = pad_crank_nicolson(opv.M .- τ .* diffusion_bulk_v, grid_v, τ)
+        else
+            A[bulk_v_velocity,bulk_v_velocity] = pad_crank_nicolson(rho_one_fluid_v * opv.M .- τ .* diffusion_bulk_v, grid_v, τ)
+        end
 
-        A[bulk_v_velocity,bulk_u_velocity] = pad_crank_nicolson(- τ .* cross_term_v, gv, τ)
+        A[bulk_v_velocity,bulk_u_velocity] = - τ .* cross_term_diffusion_bulk_d_du_dy_dx
 
 
         # Contribution to implicit part of viscous term from outer boundaries
-        A[bulk_v_velocity,border_v_velocity] = - τ .* bc_Lv_b 
-        A[bulk_v_velocity,border_u_velocity] = - τ .* cross_term_diffusion_bulk_d_du_dy_dx
+        A[bulk_v_velocity,border_v_velocity] = - τ .* diffusion_border_v 
+        A[bulk_v_velocity,border_u_velocity] = - τ .* cross_term_diffusion_bulk_d_du_dy_dx_border
 
         
         # Boundary conditions for outer boundaries
@@ -2034,6 +2278,34 @@ function FE_set_momentum_coupled2_one_fluid(
 
         # TODO pad 1 or -4
         #TODO sign divergence not same u v and p
+
+        pII = lexicographic(CartesianIndex(5,5),grid_u.ny)
+        pIIv = lexicographic(CartesianIndex(5,5),grid_v.ny)
+
+        print("\n pIIv ",ntu + pIIv," pII ",pII, " 5 5")
+
+        print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
+
+        pII = lexicographic(CartesianIndex(1,5),grid_u.ny)
+        pIIv = lexicographic(CartesianIndex(1,5),grid_v.ny)
+
+        print("\n pIIv ",ntu + pIIv," pII ",pII, " 1 5 ")
+
+        print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
+
+        pII = lexicographic(CartesianIndex(5,1),grid_u.ny)
+        pIIv = lexicographic(CartesianIndex(5,1),grid_v.ny)
+
+        print("\n pIIv ",ntu + pIIv," pII ",pII, " 5 1")
+
+        print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
+
+        pII = lexicographic(CartesianIndex(1,1),grid_u.ny)
+        pIIv = lexicographic(CartesianIndex(1,1),grid_v.ny)
+
+        print("\n pIIv ",ntu + pIIv," pII ",pII)
+
+        print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
 
         #region coupled pression
         
@@ -2054,11 +2326,11 @@ function FE_set_momentum_coupled2_one_fluid(
         #region Implicit gradient of pressure (volume integrated)
 
         # cf. Explicit gradient of pressure
-        # ∇ϕ_x = opu.AxT * opu.Rx * vec1(pD,grid) .+ opu.Gx_b * vecb(pD,grid)
-        # ∇ϕ_y = opv.AyT * opv.Ry * vec1(pD,grid) .+ opv.Gy_b * vecb(pD,grid)
+        # ∇ϕ_x = opu.AxT * opu.Rx * vec1(pD,grid_p) .+ opu.Gx_b * vecb(pD,grid_p)
+        # ∇ϕ_y = opv.AyT * opv.Ry * vec1(pD,grid_p) .+ opv.Gy_b * vecb(pD,grid_p)
         # for iLS in 1:nLS
-        #     ∇ϕ_x .+= opu.Gx[iLS] * veci(pD,grid,iLS+1)
-        #     ∇ϕ_y .+= opv.Gy[iLS] * veci(pD,grid,iLS+1)
+        #     ∇ϕ_x .+= opu.Gx[iLS] * veci(pD,grid_p,iLS+1)
+        #     ∇ϕ_y .+= opv.Gy[iLS] * veci(pD,grid_p,iLS+1)
         # end
         if num.pressure_velocity_coupling > 0
 
@@ -2129,9 +2401,15 @@ function FE_set_momentum_coupled2_one_fluid(
             # end
         end
         #endregion divergence of velocity: -div U for symmetry
-        
-        B[bulk_u_velocity,bulk_u_velocity] = rho_one_fluid_u * Mum1 #TODO rho_u ???
-        B[bulk_v_velocity,bulk_v_velocity] = rho_v * Mvm1
+        print("size Mum1 " ,size(Mum1), " rho_one_fluid_u ", size(rho_one_fluid_u))
+
+        if num.non_dimensionalize == 0
+            B[bulk_u_velocity,bulk_u_velocity] = Mum1 #TODO rho_u ???
+            B[bulk_v_velocity,bulk_v_velocity] = Mvm1
+        elseif num.non_dimensionalize == 1 #TODO
+            B[bulk_u_velocity,bulk_u_velocity] = rho_one_fluid_u * Mum1 #TODO rho_u ???
+            B[bulk_v_velocity,bulk_v_velocity] = rho_one_fluid_v * Mvm1
+        end
     end #ls_advection
 
 
@@ -2146,7 +2424,7 @@ function FE_set_momentum_coupled2_one_fluid(
 
         #region BC iLS
         #for Navier: tangential velocity = \lambda grad tangential vel 
-        a0u, a1u, bu, a0v, a1v, bv, a0p, bp = set_velocity_boundary_conditions(bc_interface, iLS, gu, gv, gp, num)
+        a0u, a1u, bu, a0v, a1v, bv, a0p, bp = set_velocity_boundary_conditions(bc_interface, iLS, grid_u, grid_v, grid_p, num)
         #endregion BC iLS
 
 
@@ -2157,8 +2435,8 @@ function FE_set_momentum_coupled2_one_fluid(
             if !is_navier_cl(bc_interface[iLS]) && !is_navier(bc_interface[iLS])
                 #region not Navier
                 # Contribution to implicit part of viscous term from inner boundaries
-                A[bulk_u_velocity,interfacial_nb_1_u_velocity] = - τ .* bc_Lu[iLS]
-                A[bulk_v_velocity,interfacial_nb_1_v_velocity] = - τ .* bc_Lv[iLS] 
+                A[bulk_u_velocity,interfacial_nb_1_u_velocity] = - τ .* diffusion_LS_u[iLS]
+                A[bulk_v_velocity,interfacial_nb_1_v_velocity] = - τ .* diffusion_LS_v[iLS] 
                 # Boundary conditions for inner boundaries
                 A[interfacial_nb_1_u_velocity,bulk_u_velocity] = bu * (opu.HxT[iLS] * opu.iMx * opu.Bx .+ opu.HyT[iLS] * opu.iMy * opu.By)
                 A[interfacial_nb_1_v_velocity,bulk_v_velocity] = bv * (opv.HxT[iLS] * opv.iMx * opv.Bx .+ opv.HyT[iLS] * opv.iMy * opv.By)
@@ -2175,9 +2453,9 @@ function FE_set_momentum_coupled2_one_fluid(
                             opv.HyT[iLS] * opv.iMy * opv.Hy[i]
                         )
                     elseif i != iLS
-                        sinα = Diagonal(vec(sin.(gp.LS[i].α)))
+                        sinα = Diagonal(vec(sin.(grid_p.LS[i].α)))
                         # replace!(sinα.diag, NaN=>0.0)
-                        cosα = Diagonal(vec(cos.(gp.LS[i].α)))
+                        cosα = Diagonal(vec(cos.(grid_p.LS[i].α)))
                         # replace!(cosα.diag, NaN=>0.0)
 
                         if any(isnan, sinα.diag) || any(isnan, cosα.diag)
@@ -2187,8 +2465,8 @@ function FE_set_momentum_coupled2_one_fluid(
                         end
 
                         # not Navier, averaging coefficients differently computed 
-                        interpolate_x = interpolating_coefficient_Navier(gu,gp,i,bc_interface[iLS])
-                        interpolate_y = interpolating_coefficient_Navier(gv,gp,i,bc_interface[iLS])
+                        interpolate_x = interpolating_coefficient_Navier(grid_u,grid_p,i,bc_interface[iLS])
+                        interpolate_y = interpolating_coefficient_Navier(grid_v,grid_p,i,bc_interface[iLS])
 
                         A[interfacial_nb_1_u_velocity,ntu+ntv+1+nNav2*nip:ntu+ntv+(nNav2+1)*nip] = bu * (
                             opu.HxT[iLS] * opu.iMx * opu.Hx[i] .+
@@ -2231,10 +2509,10 @@ function FE_set_momentum_coupled2_one_fluid(
             else 
                 #region Navier
                 # Tangential component of velocity if Navier BC #if !is_navier_cl(bc_interface[iLS]) && !is_navier(bc_interface[iLS])
-                sinα_p = Diagonal(vec(sin.(gp.LS[iLS].α)))
-                cosα_p = Diagonal(vec(cos.(gp.LS[iLS].α)))
-                sinα_u = Diagonal(vec(sin.(gu.LS[iLS].α)))
-                cosα_v = Diagonal(vec(cos.(gv.LS[iLS].α)))
+                sinα_p = Diagonal(vec(sin.(grid_p.LS[iLS].α)))
+                cosα_p = Diagonal(vec(cos.(grid_p.LS[iLS].α)))
+                sinα_u = Diagonal(vec(sin.(grid_u.LS[iLS].α)))
+                cosα_v = Diagonal(vec(cos.(grid_v.LS[iLS].α)))
 
                 if any(isnan, sinα_p.diag) || any(isnan, cosα_p.diag) || any(isnan, sinα_u.diag) || any(isnan, cosα_v.diag)
                     @error("NaN FE_set_momentum_coupled")
@@ -2247,8 +2525,8 @@ function FE_set_momentum_coupled2_one_fluid(
                 # Contribution to implicit part of viscous term from inner boundaries
            
                 # Navier BC, averaging coefficient computed differently
-                interpolate_x = interpolating_coefficient_Navier(gu,gp,bc_interface[iLS])
-                interpolate_y = interpolating_coefficient_Navier(gv,gp,bc_interface[iLS])
+                interpolate_x = interpolating_coefficient_Navier(grid_u,grid_p,bc_interface[iLS])
+                interpolate_y = interpolating_coefficient_Navier(grid_v,grid_p,bc_interface[iLS])
                 # implicit part of viscous stress, from tangential velocity at wall with Navier, 
                 # interpolated from scalar to u, v grids
                 A[bulk_u_velocity,range_nb_iLS_Navier] = - iRe * τ .* (
@@ -2262,7 +2540,7 @@ function FE_set_momentum_coupled2_one_fluid(
 
                 # Boundary conditions for inner boundaries
                 
-                interpolate_u_to_p, interpolate_v_to_p = interpolating_coefficient_Navier_uv_grids_to_p_grid_volume(num,gp,gu,gv,iLS)
+                interpolate_u_to_p, interpolate_v_to_p = interpolating_coefficient_Navier_uv_grids_to_p_grid_volume(num,grid_p,grid_u,grid_v,iLS)
 
                 A[range_nb_iLS_Navier,bulk_u_velocity] = bp * (
                     opp.HxT[iLS] * opp.iMx * opp.Bx .+
@@ -2276,7 +2554,7 @@ function FE_set_momentum_coupled2_one_fluid(
                 for i in 1:num.nLS
                     if i != iLS && (!is_navier_cl(bc_interface[i]) && !is_navier(bc_interface[i]))
                         #TODO why isn't it with volume like in interpolating_coefficient_Navier_uv_grids_to_p_grid_volume ?
-                        interpolate_u_to_p, interpolate_v_to_p = interpolating_coefficient_Navier_uv_grids_to_p_grid_height(num,gp,gu,gv,i)
+                        interpolate_u_to_p, interpolate_v_to_p = interpolating_coefficient_Navier_uv_grids_to_p_grid_height(num,grid_p,grid_u,grid_v,i)
 
                         A[range_nb_iLS_Navier,i*niu+1:(i+1)*niu] = bp * (
                             opp.HxT[iLS] * opp.iMx * opp.Hx[i] .+
@@ -2295,38 +2573,38 @@ function FE_set_momentum_coupled2_one_fluid(
 
                 # coefficients (u,v) frame to (normal, tangent)
                 sin_alpha_border = Diagonal(zeros(nbp))
-                sin_alpha_border.diag[1:gp.ny] .= sin.(gp.LS[iLS].α[:,1])
-                sin_alpha_border.diag[gp.ny+1:gp.ny+gp.nx] .= sin.(gp.LS[iLS].α[1,:])
-                sin_alpha_border.diag[gp.ny+gp.nx+1:2gp.ny+gp.nx] .= sin.(gp.LS[iLS].α[:,end])
-                sin_alpha_border.diag[2gp.ny+gp.nx+1:end] .= sin.(gp.LS[iLS].α[end,:])
+                sin_alpha_border.diag[1:grid_p.ny] .= sin.(grid_p.LS[iLS].α[:,1])
+                sin_alpha_border.diag[grid_p.ny+1:grid_p.ny+grid_p.nx] .= sin.(grid_p.LS[iLS].α[1,:])
+                sin_alpha_border.diag[grid_p.ny+grid_p.nx+1:2gp.ny+grid_p.nx] .= sin.(grid_p.LS[iLS].α[:,end])
+                sin_alpha_border.diag[2gp.ny+grid_p.nx+1:end] .= sin.(grid_p.LS[iLS].α[end,:])
                 cos_alpha_border = Diagonal(zeros(nbp))
-                cos_alpha_border.diag[1:gp.ny] .= cos.(gp.LS[iLS].α[:,1])
-                cos_alpha_border.diag[gp.ny+1:gp.ny+gp.nx] .= cos.(gp.LS[iLS].α[1,:])
-                cos_alpha_border.diag[gp.ny+gp.nx+1:2gp.ny+gp.nx] .= cos.(gp.LS[iLS].α[:,end])
-                cos_alpha_border.diag[2gp.ny+gp.nx+1:end] .= cos.(gp.LS[iLS].α[end,:])
+                cos_alpha_border.diag[1:grid_p.ny] .= cos.(grid_p.LS[iLS].α[:,1])
+                cos_alpha_border.diag[grid_p.ny+1:grid_p.ny+grid_p.nx] .= cos.(grid_p.LS[iLS].α[1,:])
+                cos_alpha_border.diag[grid_p.ny+grid_p.nx+1:2gp.ny+grid_p.nx] .= cos.(grid_p.LS[iLS].α[:,end])
+                cos_alpha_border.diag[2gp.ny+grid_p.nx+1:end] .= cos.(grid_p.LS[iLS].α[end,:])
 
                 #region interpolation coefficients
                 interpolate_u_to_p = spdiagm(nbp, nbu, 0 => zeros(nbp), 1 => zeros(nbp-1))
-                for ii in 1:gp.ny
+                for ii in 1:grid_p.ny
                     interpolate_u_to_p[ii,ii] = 1.0
-                    interpolate_u_to_p[gp.ny+gp.nx+ii,gu.ny+gu.nx+ii] = 1.0
+                    interpolate_u_to_p[grid_p.ny+grid_p.nx+ii,grid_u.ny+grid_u.nx+ii] = 1.0
                 end
-                for ii in 1:gp.nx
-                    interpolate_u_to_p[ii+gp.ny,ii+gu.ny] = 0.5
-                    interpolate_u_to_p[ii+gp.ny,ii+gu.ny+1] = 0.5
-                    interpolate_u_to_p[ii+2gp.ny+gp.nx,ii+2gu.ny+gu.nx] = 0.5
-                    interpolate_u_to_p[ii+2gp.ny+gp.nx,ii+2gu.ny+gu.nx+1] = 0.5
+                for ii in 1:grid_p.nx
+                    interpolate_u_to_p[ii+grid_p.ny,ii+grid_u.ny] = 0.5
+                    interpolate_u_to_p[ii+grid_p.ny,ii+grid_u.ny+1] = 0.5
+                    interpolate_u_to_p[ii+2gp.ny+grid_p.nx,ii+2gu.ny+grid_u.nx] = 0.5
+                    interpolate_u_to_p[ii+2gp.ny+grid_p.nx,ii+2gu.ny+grid_u.nx+1] = 0.5
                 end
                 interpolate_v_to_p = spdiagm(nbp, nbv, 0 => zeros(nbp), 1 => zeros(nbp-1))
-                for ii in 1:gp.ny
+                for ii in 1:grid_p.ny
                     interpolate_v_to_p[ii,ii] = 0.5
                     interpolate_v_to_p[ii,ii+1] = 0.5
-                    interpolate_v_to_p[gp.ny+gp.nx+ii,gv.ny+gv.nx+ii] = 0.5
-                    interpolate_v_to_p[gp.ny+gp.nx+ii,gv.ny+gv.nx+ii+1] = 0.5
+                    interpolate_v_to_p[grid_p.ny+grid_p.nx+ii,grid_v.ny+grid_v.nx+ii] = 0.5
+                    interpolate_v_to_p[grid_p.ny+grid_p.nx+ii,grid_v.ny+grid_v.nx+ii+1] = 0.5
                 end
-                for ii in 1:gp.nx
-                    interpolate_v_to_p[ii+gp.ny,ii+gv.ny] = 1.0
-                    interpolate_v_to_p[ii+2gp.ny+gp.nx,ii+2gv.ny+gv.nx] = 1.0
+                for ii in 1:grid_p.nx
+                    interpolate_v_to_p[ii+grid_p.ny,ii+grid_v.ny] = 1.0
+                    interpolate_v_to_p[ii+2gp.ny+grid_p.nx,ii+2gv.ny+grid_v.nx] = 1.0
                 end
                 #endregion interpolation coefficients
 
@@ -2344,34 +2622,34 @@ function FE_set_momentum_coupled2_one_fluid(
                 # Boundary conditions for outer boundaries
                 #region interpolation coefficients
                 interpolate_u_to_p = spdiagm(nbu, nbp, 0 => zeros(nbp), 1 => zeros(nbp-1))
-                for ii in 1:gu.ny
+                for ii in 1:grid_u.ny
                     interpolate_u_to_p[ii,ii] = 1.0
-                    interpolate_u_to_p[gu.ny+gu.nx+ii,gp.ny+gp.nx+ii] = 1.0
+                    interpolate_u_to_p[grid_u.ny+grid_u.nx+ii,grid_p.ny+grid_p.nx+ii] = 1.0
                 end
-                interpolate_u_to_p[gu.ny+1,gp.ny+1]  = 1.0
-                interpolate_u_to_p[gu.ny+gu.nx,gp.ny+gp.nx]  = 1.0
-                interpolate_u_to_p[2gu.ny+gu.nx+1,2gp.ny+gp.nx+1]  = 1.0
+                interpolate_u_to_p[grid_u.ny+1,grid_p.ny+1]  = 1.0
+                interpolate_u_to_p[grid_u.ny+grid_u.nx,grid_p.ny+grid_p.nx]  = 1.0
+                interpolate_u_to_p[2gu.ny+grid_u.nx+1,2gp.ny+grid_p.nx+1]  = 1.0
                 interpolate_u_to_p[end,end]  = 1.0
-                for ii in 2:(gu.nx-1)
-                    interpolate_u_to_p[ii+gu.ny,ii+gp.ny-1] = 0.5
-                    interpolate_u_to_p[ii+gu.ny,ii+gp.ny] = 0.5
-                    interpolate_u_to_p[ii+2gu.ny+gu.nx,ii+2gp.ny+gp.nx-1] = 0.5
-                    interpolate_u_to_p[ii+2gu.ny+gu.nx,ii+2gp.ny+gp.nx] = 0.5
+                for ii in 2:(grid_u.nx-1)
+                    interpolate_u_to_p[ii+grid_u.ny,ii+grid_p.ny-1] = 0.5
+                    interpolate_u_to_p[ii+grid_u.ny,ii+grid_p.ny] = 0.5
+                    interpolate_u_to_p[ii+2gu.ny+grid_u.nx,ii+2gp.ny+grid_p.nx-1] = 0.5
+                    interpolate_u_to_p[ii+2gu.ny+grid_u.nx,ii+2gp.ny+grid_p.nx] = 0.5
                 end
                 interpolate_v_to_p = spdiagm(nbv, nbp, 0 => zeros(nbp), 1 => zeros(nbp-1))
                 interpolate_v_to_p[1,1]  = 1.0
-                interpolate_v_to_p[gv.ny,gp.ny]  = 1.0
-                interpolate_v_to_p[gv.ny+gv.nx+1,gp.ny+gp.nx+1]  = 1.0
-                interpolate_v_to_p[2gv.ny+gv.nx,2gp.ny+gp.nx]  = 1.0
-                for ii in 2:(gv.ny-1)
+                interpolate_v_to_p[grid_v.ny,grid_p.ny]  = 1.0
+                interpolate_v_to_p[grid_v.ny+grid_v.nx+1,grid_p.ny+grid_p.nx+1]  = 1.0
+                interpolate_v_to_p[2gv.ny+grid_v.nx,2gp.ny+grid_p.nx]  = 1.0
+                for ii in 2:(grid_v.ny-1)
                     interpolate_v_to_p[ii,ii-1] = 0.5
                     interpolate_v_to_p[ii,ii] = 0.5
-                    interpolate_v_to_p[gv.ny+gv.nx+ii,gp.ny+gp.nx+ii] = 0.5
-                    interpolate_v_to_p[gv.ny+gv.nx+ii,gp.ny+gp.nx+ii] = 0.5
+                    interpolate_v_to_p[grid_v.ny+grid_v.nx+ii,grid_p.ny+grid_p.nx+ii] = 0.5
+                    interpolate_v_to_p[grid_v.ny+grid_v.nx+ii,grid_p.ny+grid_p.nx+ii] = 0.5
                 end
-                for ii in 1:gv.nx
-                    interpolate_v_to_p[ii+gv.ny,ii+gp.ny] = 1.0
-                    interpolate_v_to_p[ii+2gv.ny+gv.nx,ii+2gp.ny+gp.nx] = 1.0
+                for ii in 1:grid_v.nx
+                    interpolate_v_to_p[ii+grid_v.ny,ii+grid_p.ny] = 1.0
+                    interpolate_v_to_p[ii+2gv.ny+grid_v.nx,ii+2gp.ny+grid_p.nx] = 1.0
                 end
                 #endregion interpolation coefficients
 
@@ -2408,8 +2686,8 @@ function FE_set_momentum_coupled2_one_fluid(
 
     #region set first cells to boundary velocity
     if num.pressure_velocity_coupling == 3
-        set_first_cells!(A,rhs,gu,ntu-nbu,0,true,false,true,false)
-        set_first_cells!(A,rhs,gv,ntu+ntv-nbv,ntu,false,true,false,true)
+        set_first_cells!(A,rhs,grid_u,ntu-nbu,0,true,false,true,false)
+        set_first_cells!(A,rhs,grid_v,ntu+ntv-nbv,ntu,false,true,false,true)
     end
     #endregion set first cells to boundary velocity
 
@@ -2430,14 +2708,14 @@ function check_coupled_matrix()
     # nt = ntu+ntv + nNavier * nip + (num.nLS + 1) * nip + nbp
     # ncol_A = ntu+ntv + nNavier * nip + nip
 
-    ni_p = gp.nx * gp.ny
-    nb_p = 2 * gp.nx + 2 * gp.ny
+    ni_p = grid_p.nx * grid_p.ny
+    nb_p = 2 * grid_p.nx + 2 * grid_p.ny
 
-    ni_u = gu.nx * gu.ny
-    nb_u = 2 * gu.nx + 2 * gu.ny
+    ni_u = grid_u.nx * grid_u.ny
+    nb_u = 2 * grid_u.nx + 2 * grid_u.ny
 
-    ni_v = gv.nx * gv.ny
-    nb_v = 2 * gv.nx + 2 * gv.ny
+    ni_v = grid_v.nx * grid_v.ny
+    nb_v = 2 * grid_v.nx + 2 * grid_v.ny
 
     ni_uv = ni_u + ni_v
     nb_uv = nb_u + nb_v
@@ -2507,8 +2785,8 @@ function check_coupled_matrix()
     # PDI_status = @ccall "libpdi".PDI_multi_expose("print_matrix_test"::Cstring,
     # "Auv_n"::Cstring, A.n::Ref{Clonglong}, PDI_OUT::Cint,
     # "Auv_m"::Cstring, A.m::Ref{Clonglong}, PDI_OUT::Cint,
-    # "nx"::Cstring, gp.nx::Ref{Clonglong}, PDI_OUT::Cint,
-    # "ny"::Cstring, gp.ny::Ref{Clonglong}, PDI_OUT::Cint,
+    # "nx"::Cstring, grid_p.nx::Ref{Clonglong}, PDI_OUT::Cint,
+    # "ny"::Cstring, grid_p.ny::Ref{Clonglong}, PDI_OUT::Cint,
     # "nb_Navier_slip_BC"::Cstring, num.nNavier::Ref{Clonglong}, PDI_OUT::Cint,
     # # "Auv_colptr_len"::Cstring, length_colptr::Ref{Clonglong}, PDI_OUT::Cint,
     # # "Auv_rowval_len"::Cstring, length_rowval::Ref{Clonglong}, PDI_OUT::Cint,
@@ -2581,27 +2859,27 @@ function check_coupled_matrix()
 
     # print("\n test Adummy\n",Adummy*uvD)
 
-    # print("\n test Adummy\n",Adummy*uvD/gp.dx[1,1]^2)
+    # print("\n test Adummy\n",Adummy*uvD/grid_p.dx[1,1]^2)
 
-    # print("\n test grid ",gp.dx[1,1])
+    # print("\n test grid_p ",grid_p.dx[1,1])
     # print("\n factor ", factor )
 
     control_volumes = ones(ncol_A)
 
-    # control_volumes[1:ntu] .= vec(gu.LS[1].geoL.dcap[:,:,5])
-    # control_volumes[[ntu+1:ntu+ntv]] .= vec(gv.LS[1].geoL.dcap[:,:,5])
-    # control_volumes[ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+(num.nLS+1)*nip+nbp] .= vec(gp.LS[1].geoL.dcap[:,:,5])
+    # control_volumes[1:ntu] .= vec(grid_u.LS[1].geoL.dcap[:,:,5])
+    # control_volumes[[ntu+1:ntu+ntv]] .= vec(grid_v.LS[1].geoL.dcap[:,:,5])
+    # control_volumes[ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+(num.nLS+1)*nip+nbp] .= vec(grid_p.LS[1].geoL.dcap[:,:,5])
     
-    control_volumes[1:ni_u] .= vec(gu.LS[1].geoL.dcap[:,:,5]) #non-dimensionalise bulk rhs
+    control_volumes[1:ni_u] .= vec(grid_u.LS[1].geoL.dcap[:,:,5]) #non-dimensionalise bulk rhs
 
-    control_volumes[ntu+1:ntu+ni_v] .= vec(gv.LS[1].geoL.dcap[:,:,5]) #non-dimensionalise bulk rhs
-    # control_volumes[ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+(num.nLS+1)*nip+nbp] .= vec(gp.LS[1].geoL.dcap[:,:,5])
+    control_volumes[ntu+1:ntu+ni_v] .= vec(grid_v.LS[1].geoL.dcap[:,:,5]) #non-dimensionalise bulk rhs
+    # control_volumes[ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+(num.nLS+1)*nip+nbp] .= vec(grid_p.LS[1].geoL.dcap[:,:,5])
 
     #niu 
 
-    # print("\n test Adummy\n",Adummy*uvD/factor/gp.dx[1,1]^2)
+    # print("\n test Adummy\n",Adummy*uvD/factor/grid_p.dx[1,1]^2)
 
-    # print("\n test volume\n",vec(gu.LS[1].geoL.dcap[:,:,5]))
+    # print("\n test volume\n",vec(grid_u.LS[1].geoL.dcap[:,:,5]))
 
     # print("\n test Adummy\n",Adummy*uvD/factor ./ control_volumes)
 
@@ -2624,7 +2902,7 @@ uses vector_convection
 set BC
 """
 function set_convection_with_rho!(
-    num, grid, geo, grid_u, LS_u, grid_v, LS_v,
+    num, grid_p, geo, grid_u, LS_u, grid_v, LS_v,
     u, v, op, ph, BC_u, BC_v,opC_p, opC_u, opC_v
     )
     @unpack Cu, CUTCu, Cv, CUTCv = op
@@ -2668,7 +2946,7 @@ function set_convection_with_rho!(
         #region Compute gradient
         grad_x = zeros(grid_u)
         grad_y = zeros(grid_v)
-        compute_grad_T_x_T_y_array_u_v_capacities!(num, grid, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
+        compute_grad_T_x_T_y_array_u_v_capacities!(num, grid_p, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
         #endregion Compute gradient
 
         # printstyled(color=:red, @sprintf "\n grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_x) maximum(grd_x) minimum(grd_y) maximum(grd_y))
@@ -2757,10 +3035,10 @@ function set_convection_with_rho!(
     # Compute convection Cu, CUTCu, Cv, CUTCv
     # vector_convection_with_rho!
     vector_convection!(dir, GridFCx, Cu, CUTCu, u, v, Du_x, Du_y, Dv_x, Dv_y,
-            geo.dcap, grid.nx, grid.ny, BC_u, grid_u.ind.inside,
+            geo.dcap, grid_p.nx, grid_p.ny, BC_u, grid_u.ind.inside,
             grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1])
     vector_convection!(dir, GridFCy, Cv, CUTCv, u, v, Du_x, Du_y, Dv_x, Dv_y,
-            geo.dcap, grid.nx, grid.ny, BC_v, grid_v.ind.inside,
+            geo.dcap, grid_p.nx, grid_p.ny, BC_v, grid_v.ind.inside,
             grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1])
     
     return nothing
@@ -2983,7 +3261,7 @@ end
 """
 ### Variables
 
-- `GridFCy`: v-grid.
+- `GridFCy`: v-grid_p.
 - `O`: A matrix used to store intermediate results during the computation.
 - `B`: A vector used to store boundary conditions.
 - `u`: Velocity field in the x-direction.
@@ -2991,17 +3269,17 @@ end
 - `Du_x`: 
 - `Dv_y`: 
 - `cap`: Capacities related to the convection terms.
-- `ny`: Number of grid points in the y-direction.
-- `inside`: Indices representing the interior grid points.
-- `b_left`, `b_bottom`, `b_right`, `b_top`: Indices representing the boundary grid points.
+- `ny`: Number of grid_p points in the y-direction.
+- `inside`: Indices representing the interior grid_p points.
+- `b_left`, `b_bottom`, `b_right`, `b_top`: Indices representing the boundary grid_p points.
 - `BC`: Boundary conditions structure.
 
 
 ### Functions
 
-- `fill_inside_conv!`: Updates the interior grid points based on convection terms.
+- `fill_inside_conv!`: Updates the interior grid_p points based on convection terms.
 - `vec_convy_1!`, `vec_convy_2!`, `vec_convy_3!`, `vec_convy_4!`, `vec_convy_5!`, `vec_convy_6!`, `vec_convy_7!`, `vec_convy_8!`: Functions to handle different boundary conditions and convection terms.
-- `get_capacities_convection`: Retrieves capacities related to convection terms for a given grid point.
+- `get_capacities_convection`: Retrieves capacities related to convection terms for a given grid_p point.
 - `lexicographic`: Converts a multi-dimensional index to a linear index.
 
 """
@@ -3212,3 +3490,137 @@ function vector_convection_with_rho!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, D
     return nothing
 end
 
+@doc raw"""
+# Arguments
+- bc_type: BC for interface, num, grid, 
+- a0, 
+- opC, 
+- opC_u, 
+- pC_v,
+- A, system matrix
+- L, 
+- bc_L, 
+- bc_L_b, 
+- BC: BC for wall (aka border)
+- ls_advection
+
+
+
+cf. [`(Rodriguez et al. 2024)`](https://link.springer.com/article/10.1007/s00707-024-04133-4) for a 1D expression in the i-th cell, x component 
+
+
+```math
+\begin{aligned}
+-\mathcal{B}_{x,i} [&\mathcal{W}_{x,i+1} (\mathcal{B}_{x,i+1} p^\omega_{i+1} - \mathcal{B}_{x,i} p^\omega _i ) - \mathcal{W}_{x,i} (\mathcal{B}_{x,i} p^\omega_i - \mathcal{B}_{x,i-1} p^\omega_{i-1} )] \\
+-\mathcal{B}_{x,i} \{&\mathcal{W}_{x,i+1} [(\mathcal{B}_{x,i+1}  - \mathcal{A}_{x,i+1} )p^\gamma_{i+1} - (\mathcal{A}_{x,i+1} - \mathcal{B}_{x,i} ) p^\gamma_i ] \\
+&-\mathcal{W}_{x,i} [(\mathcal{B}_{x,i} - A_{x,i} ) p^\gamma_i + (A_{x,i} - \mathcal{B}_{x,i-1}) p^\gamma_{i-1} ] \} \\
+= V_i f^\omega_i&
+\end{aligned}
+```
+
+"""
+function set_poisson_one_fluid(
+    bc_type, num, grid, a0, opC, opC_u, opC_v,
+    A, L, bc_L, bc_L_b, BC,
+    ls_advection)
+    @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
+
+    
+
+    ni = grid.nx * grid.ny
+    nb = 2 * grid.nx + 2 * grid.ny
+
+    rhs = fnzeros(grid, num)
+
+    a0_b = zeros(nb)
+    _a1_b = zeros(nb)
+    _b_b = zeros(nb)
+    # for iLS in 1:num.nLS
+    #     set_borders!(grid, grid.LS[iLS].cl, grid.LS[iLS].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
+    # end
+    a1_b = Diagonal(vec(_a1_b))
+    b_b = Diagonal(vec(_b_b))
+
+    if ls_advection
+        # Poisson equation
+        A[1:ni,1:ni] = pad(L, -4.0)
+        A[1:ni,end-nb+1:end] = bc_L_b
+
+        # Boundary conditions for outer boundaries
+        A[end-nb+1:end,1:ni] = -b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
+        A[end-nb+1:end,end-nb+1:end] = -pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b, 4.0)
+    end
+
+    # for iLS in 1:num.nLS
+    #     if ls_advection
+    #         if is_dirichlet(bc_type[iLS])
+    #             __a1 = -1.0
+    #             __a2 = 0.0
+    #             __b = 0.0
+    #         elseif is_neumann(bc_type[iLS])
+    #             __a1 = 0.0
+    #             __a2 = 0.0
+    #             __b = 1.0
+    #         elseif is_robin(bc_type[iLS])
+    #             __a1 = -1.0
+    #             __a2 = 0.0
+    #             __b = 1.0
+    #         elseif is_fs(bc_type[iLS])
+    #             __a1 = 0.0
+    #             __a2 = 1.0
+    #             __b = 0.0
+    #         elseif is_wall_no_slip(bc_type[iLS])
+    #             __a1 = 0.0
+    #             __a2 = 0.0
+    #             __b = 1.0
+    #         elseif is_navier(bc_type[iLS])
+    #             __a1 = 0.0
+    #             __a2 = 0.0
+    #             __b = 1.0
+    #         elseif is_navier_cl(bc_type[iLS])
+    #             __a1 = 0.0
+    #             __a2 = 0.0
+    #             __b = 1.0
+    #         else
+    #             __a1 = 0.0
+    #             __a2 = 0.0
+    #             __b = 1.0
+    #         end
+    
+    #         _a1 = ones(grid) .* __a1
+    #         a1 = Diagonal(vec(_a1))
+    #         _a2 = ones(grid) .* __a2
+    #         a2 = Diagonal(vec(_a2))
+    #         _b = ones(grid) .* __b
+    #         b = Diagonal(vec(_b))
+
+    #         fs_mat = HxT[iLS] * Hx[iLS] .+ HyT[iLS] * Hy[iLS]
+
+    #         sb = iLS*ni+1:(iLS+1)*ni
+            
+    #         # Poisson equation
+    #         A[1:ni,sb] = bc_L[iLS]
+    #         # Boundary conditions for inner boundaries
+    #         A[sb,1:ni] = -b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
+    #         # Contribution to Neumann BC from other boundaries
+    #         for i in 1:num.nLS
+    #             if i != iLS
+    #                 A[sb,i*ni+1:(i+1)*ni] = -b * (HxT[iLS] * iMx * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
+    #             end
+    #         end
+    #         A[sb,sb] = -pad(
+    #             b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .- χ[iLS] * a1 .+
+    #             a2 * Diagonal(diag(fs_mat)), 4.0
+    #         )
+    #         A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b * Hy_b)
+    #         # Boundary conditions for outer boundaries
+    #         A[end-nb+1:end,sb] = -b_b * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
+    #     end
+
+    #     veci(rhs,grid,iLS+1) .= -χ[iLS] * vec(a0[iLS])
+    # end
+
+    vecb(rhs,grid) .= -χ_b * vec(a0_b)
+    
+    return rhs
+end

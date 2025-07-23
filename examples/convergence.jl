@@ -283,6 +283,7 @@ for timestep in timesteps
             smooth_VOF = sim.smooth_VOF,
             surface_tension = sim.surface_tension,
             non_dimensionalize=sim.non_dimensionalize,
+            levelset_reinitialize=sim.levelset_reinitialize,
             )
         Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
         @debug "After Numerical"

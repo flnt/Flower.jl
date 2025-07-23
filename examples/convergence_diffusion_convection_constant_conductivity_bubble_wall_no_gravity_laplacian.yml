@@ -69,7 +69,7 @@ flower:
 
     v_inlet: &v_inlet 6.7e-4
     g: 0.0 #9.81 #gravity
-    beta: 0.0
+    beta: 0.0 #angle for gravity
     domain_length: &domain_length 1.0e-4
 
 
