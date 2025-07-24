@@ -47,11 +47,23 @@ function compute_surface_tension_LS!(num,grid, grid_u, grid_v, opC_p, opC_u, opC
 
     levelset_1D = fnzeros(grid,num)
 
-    for j in 1:grid.ny
-        for i in 1:grid.nx
-            pII = lexicographic(CartesianIndex(j,i),grid.ny)
-            levelset_1D[pII] = levelset_heavyside(levelset_one_fluid[j,i],heavyside_epsilon)
+    if num.one_fluid_normal == 0
+
+        for j in 1:grid.ny
+            for i in 1:grid.nx
+                pII = lexicographic(CartesianIndex(j,i),grid.ny)
+                levelset_1D[pII] = levelset_heavyside(levelset_one_fluid[j,i],heavyside_epsilon)
+            end
         end
+    elseif num.one_fluid_normal == 1
+        
+        for j in 1:grid.ny
+            for i in 1:grid.nx
+                pII = lexicographic(CartesianIndex(j,i),grid.ny)
+                levelset_1D[pII] = levelset_to_binary(levelset_one_fluid[j,i])
+            end
+        end
+
     end
 
     # vec1(levelset_1D,grid) .= vec(levelset_one_fluid)
@@ -86,6 +98,8 @@ function compute_surface_tension_LS!(num,grid, grid_u, grid_v, opC_p, opC_u, opC
     
     normal_and_dirac_u = zeros(grid_u)
     normal_and_dirac_v = zeros(grid_v)
+    normal_u = zeros(grid_u)
+    normal_v = zeros(grid_v)
 
     compute_unit_normal(num,grid, grid_u, grid_v, 
     # opC_p, 
@@ -93,7 +107,8 @@ function compute_surface_tension_LS!(num,grid, grid_u, grid_v, opC_p, opC_u, opC
     volume_fraction,
     # levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,
     tmp_vec_p,tmp_vec_p0,
-    normal_and_dirac_u,normal_and_dirac_v
+    normal_and_dirac_u,normal_and_dirac_v,
+    normal_u,normal_v,
     )
 
 
@@ -119,9 +134,19 @@ function compute_surface_tension_LS!(num,grid, grid_u, grid_v, opC_p, opC_u, opC
 
     #endregion interpolate curvature from scalar to u and v grids
 
-
+    # integrate the volumic surface tension
     volumic_surface_tension_u .= - num.sigma .* curvature_u .* normal_and_dirac_u
     volumic_surface_tension_v .= - num.sigma .* curvature_v .* normal_and_dirac_v
+
+    # volumic_surface_tension_u .= - num.sigma .* curvature_u .* normal_u * grid.dx[2,2]
+    # volumic_surface_tension_v .= - num.sigma .* curvature_v .* normal_v * grid.dx[2,2]
+
+    # volumic_surface_tension_u .= - num.sigma .* curvature_u .* normal_u /grid.dx[2,2]
+    # volumic_surface_tension_v .= - num.sigma .* curvature_v .* normal_v /grid.dx[2,2]
+
+    # volumic_surface_tension_u .= - num.sigma .* curvature_u .* normal_u 
+    # volumic_surface_tension_v .= - num.sigma .* curvature_v .* normal_v 
+
     iLSpdi = 1
 
     # norm
@@ -195,14 +220,24 @@ function compute_unit_normal(num,grid, grid_u, grid_v,
     # levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,
     tmp_vec_p,tmp_vec_p0,
     normal_and_dirac_u,
-    normal_and_dirac_v
+    normal_and_dirac_v,
+    normal_u,
+    normal_v,
     )
 
+    # cell-averaged gradient of levelset_1D
     compute_grad_T_x_T_y_array_u_v_capacities!(num, grid, grid_u, grid_v, opC_u, opC_v, normal_and_dirac_u, normal_and_dirac_v, levelset_1D)
+
+
+    # or
+    # ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(TD,grid) .+ opC_u.Gx_b * vecb(TD,grid)
+    # ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(TD,grid) .+ opC_v.Gy_b * vecb(TD,grid)
 
     #TODO check interpolation
     interpolate_grid_liquid_2!(num, grid, grid_u.LS[end], grid_v.LS[end], normal_and_dirac_u, normal_and_dirac_v, tmp_vec_p, tmp_vec_p0) #compute normal x and y on scalar grid
     #compute normal x and y on scalar grid 
+
+
 
     # normalize 
     # normal_and_dirac_u .= normal_and_dirac_u / sqrt(normal_and_dirac_u**2+interpolate_v_to_u())
@@ -301,7 +336,7 @@ function compute_unit_normal(num,grid, grid_u, grid_v,
             
             norm = sqrt(normal_and_dirac_u[j,i]^2+interpolate_v_to_u^2)
             if norm != 0.0
-                normal_and_dirac_u[j,i] = normal_and_dirac_u[j,i] / norm
+                normal_u[j,i] = normal_and_dirac_u[j,i] / norm
             end
         end
     end
@@ -349,7 +384,7 @@ function compute_unit_normal(num,grid, grid_u, grid_v,
 
             norm = sqrt(normal_and_dirac_v[j,i]^2+interpolate_u_to_v^2)
             if norm !=0.0
-                normal_and_dirac_v[j,i] = normal_and_dirac_v[j,i] / norm
+                normal_v[j,i] = normal_and_dirac_v[j,i] / norm
             end
         end
     end
@@ -360,6 +395,9 @@ function compute_unit_normal(num,grid, grid_u, grid_v,
     # display(normal_and_dirac_u)
     # display(normal_and_dirac_v)
 
+    #region integrate gradient of levelset_1D
+    compute_grad_T_x_T_y_array_u_v_capacities_cell_integrated!(num, grid, grid_u, grid_v, opC_u, opC_v, normal_and_dirac_u, normal_and_dirac_v, levelset_1D)
+    #endregion integrate gradient of levelset_1D
 
 end
 

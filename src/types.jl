@@ -144,6 +144,7 @@ Stores parameters for the simulation
     surface_tension::D=0
     non_dimensionalize::D=0
     levelset_reinitialize::D=0
+    one_fluid_normal::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

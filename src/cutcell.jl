@@ -594,6 +594,7 @@ end
 ```julia
     dcap... = cap*dx...dx*dy...
 ```
+#TODO Warning factor 1/2 in cap at half cells instead of dx or dy 
 """
 function dimensionalize!(grid, geo)
     @unpack dx, dy = grid

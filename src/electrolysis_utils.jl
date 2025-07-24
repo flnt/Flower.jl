@@ -198,7 +198,7 @@ end
 """
 function init_fields_multiple_levelsets!(num,TD,T,H,BC,grid,dir_val_intfc,str)
 
-    if BC.init_mode == "None" #no init
+    if BC.init_mode == "None" || BC.init_mode == "False" #no init
         return
     end
 

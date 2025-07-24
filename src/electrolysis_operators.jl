@@ -66,6 +66,49 @@ end
 
 
 """
+    computes the cell-integrated gradient with u and v capacities
+* grad_x : array of size (nx+1,ny), the values at 1 and nx+1 are associated with half control volumes
+* grad_y : array of size (nx,ny+1), the values at 1 and ny+1 are associated with half control volumes 
+Test in orientation.jl
+"""
+function compute_grad_T_x_T_y_array_u_v_capacities_cell_integrated!(num, grid, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, TD)
+
+    # print("\n opC_v.Ry",opC_v.Ry)
+    # print("\n opC_v.AyT",opC_v.AyT)
+
+    ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(TD,grid) .+ opC_u.Gx_b * vecb(TD,grid)
+    ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(TD,grid) .+ opC_v.Gy_b * vecb(TD,grid)
+    
+    for iLS in 1:num.nLS
+        ∇ϕ_x .+= opC_u.Gx[iLS] * veci(TD,grid,iLS+1)
+        ∇ϕ_y .+= opC_v.Gy[iLS] * veci(TD,grid,iLS+1)
+    end
+
+    iMu = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_u.M.diag))
+    iMv = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_v.M.diag)) 
+
+    # print("\n iMu",opC_u.M.diag)
+    # print("\n iMv",opC_v.M.diag)
+
+    # # display(reshape(vec1(iMu,grid_u),grid_u))
+    # for j in 1:grid_u.ny
+    #     for i in 1:grid_u.nx
+    #         pII = lexicographic(CartesianIndex(j,i),grid_u.ny)
+    #         print("\n iMu ",j," ",i," ",opC_u.M.diag[pII])
+    #     end
+    # end
+
+
+    # ∇ϕ_x = iMu * ∇ϕ_x
+    # ∇ϕ_y = iMv * ∇ϕ_y
+
+    grad_x .= reshape(veci(∇ϕ_x,grid_u,1), grid_u)
+    grad_y .= reshape(veci(∇ϕ_y,grid_v,1), grid_v)
+
+end
+
+
+"""
     computes the x component of the cell-averaged gradient: grad_x, for scalar TD (stored in 1D)
 * grad_x : array of size (nx+1,ny), the values at 1 and nx+1 are associated with half control volumes
 Test in orientation.jl

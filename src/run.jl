@@ -661,7 +661,7 @@ function run_forward!(
             else
                 nt_pressure = ni + nb
                 AϕL = spzeros(nt_pressure, nt_pressure)
-
+                rhs_phi = zeros(nt_pressure)
             end
 
             if electrolysis 
@@ -717,7 +717,7 @@ function run_forward!(
 
             if num.one_fluid_model == 1
                 rho_one_fluid = zeros(grid_p)
-                # mu_one_fluid  = zeros(grid_p)
+                mu_one_fluid  = zeros(grid_p)
                 volume_fraction = zeros(grid_p)
                 levelset_one_fluid = zeros(grid_p)
 
@@ -1872,8 +1872,15 @@ function run_forward!(
 
 
                 else
+                    printstyled(color=:magenta, @sprintf "\n update_free_surface_velocity")
+                 
                     update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y)
                 end
+
+                printstyled(color=:magenta, @sprintf "\n update_free_surface_velocity")
+                #TODO
+                update_free_surface_velocity(num, grid_u, grid_v, 1, phL.uD, phL.vD, periodic_x, periodic_y)
+
 
             
             elseif (electrolysis && occursin("Khalighi",electrolysis_phase_change_case))
@@ -2801,7 +2808,7 @@ function run_forward!(
             if num.one_fluid_model == 1 
 
                 update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_fraction,levelset_one_fluid,rho_one_fluid,
-                                                    rho_one_fluid_u,rho_one_fluid_v)
+                                                    rho_one_fluid_u,rho_one_fluid_v,mu_one_fluid)
 
 
 
@@ -2885,13 +2892,14 @@ function run_forward!(
                     volume_fraction,
                     levelset_one_fluid,
                     rho_one_fluid,
-                    # mu_one_fluid,
+                    mu_one_fluid,
                     rho_one_fluid_u,
                     # mu_one_fluid_u,
                     rho_one_fluid_v,
                     # mu_one_fluid_v,
                     tmp_vec_p,
                     tmp_vec_p0,
+                    rhs_phi,
                     pres_free_surfaceL,jump_mass_fluxL,mass_fluxL
                 )  
 

@@ -1949,11 +1949,11 @@ def plot_file(
         exec(figpar['mesh_macro'])
         x_1D = x_1D_2
         y_1D = y_1D_2
+        key_LS = key_LS_2
 
         print('x_1D',len(x_1D),x_1D)
         print('y_1D',len(y_1D),y_1D)
 
-        key_LS = "levelset_p"
         key_LS_wall = "levelset_p_wall"
         key_normal = 'normal_angle'
 
@@ -2084,7 +2084,7 @@ def plot_file(
 
 
     if figpar['plot_mode'] == "contourf":
-        if figpar['levels']==0:
+        if get_value_from_dicts('levels',figpar,plotpar)==0:
             CS = ax2.contourf(x_1D,y_1D,field, 
             # levels=figpar['range'], #10, 
             levels=eval(figpar['range']),
@@ -2093,15 +2093,15 @@ def plot_file(
         else:
             try:
                 CS = ax2.contourf(x_1D,y_1D,field, 
-                levels=figpar['levels'],
+                levels=get_value_from_dicts('levels',figpar,plotpar),
                 cmap=plotpar['cmap'],
                 extend=plotpar['extend'],)
             except:
                 print(x_1D)
                 print(y_1D)
                 # print(field)
-                print(field[128,:])
-                print(field[:,128])
+                # print(field[128,:])
+                # print(field[:,128])
 
 
 
@@ -2127,7 +2127,7 @@ def plot_file(
                 x_1D, y_1D, field, cmap=plotpar["cmap"], norm=norm, shading=shading
             )
     elif figpar['plot_mode'] == "contourf_LS":
-        if figpar['levels']==0:
+        if get_value_from_dicts('levels',figpar,plotpar)==0:
             CS = ax2.contourf(x_1D,y_1D,field, 
             # levels=figpar['range'], #10, 
             levels=eval(figpar['range']),
@@ -2135,7 +2135,7 @@ def plot_file(
             extend=plotpar['extend'],)
         else:
             CS = ax2.contourf(x_1D,y_1D,field, 
-            levels=figpar['levels'],
+            levels=get_value_from_dicts('levels',figpar,plotpar),
             cmap=plotpar['cmap'],
             extend=plotpar['extend'],)
 
@@ -2187,10 +2187,15 @@ def plot_file(
 
 
     if figpar['plot_levelset']:
+
+        print('key_LS',key_LS)
+
         LSdat = file[key_LS][:]
         LSdat = LSdat.transpose()
-        # CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
-        CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
+        if key_LS == 'levelset_p':
+            CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
+        else:
+            CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
 
     if 'plot_normal' in figpar.keys():
         if 'plot_normal_macro' in figpar.keys(): 
@@ -4220,7 +4225,7 @@ def plot_current_lines(file,
 
     print('sizes',len(xp),len(yp),np.size(phi_array,0),np.size(phi_array,1))
 
-    if figpar['levels']==0:
+    if get_value_from_dicts('levels',figpar,plotpar)==0:
         # CS = ax2.contourf(x_1D,y_1D,field,
         # levels=figpar['range'], #10,
         # cmap=plotpar['cmap'],)
@@ -4228,7 +4233,7 @@ def plot_current_lines(file,
         # print(eval(figpar['range']))
 
     else:
-        CS = ax2.contourf(xp, yp, phi_array, levels=figpar['levels'], cmap=plotpar["cmap"],extend=plotpar['extend'],)
+        CS = ax2.contourf(xp, yp, phi_array, levels=get_value_from_dicts('levels',figpar,plotpar), cmap=plotpar["cmap"],extend=plotpar['extend'],)
 
 
     if 'theme' in figpar.keys():
@@ -4926,7 +4931,7 @@ def plot_python_pdf_full2(
     print('yarr',len(y_arr))
 
 
-    if figpar['levels']==0: 
+    if get_value_from_dicts('levels',figpar,plotpar)==0: 
         CS = ax2.contourf(x_arr,y_arr,field, 
         # levels=figpar['range'], 
         levels=eval(figpar['range']),
@@ -4940,11 +4945,11 @@ def plot_python_pdf_full2(
 
 
             CS = ax2.contourf(x_arr,y_arr,field, 
-            levels=figpar['levels'], #10, 
+            levels=get_value_from_dicts('levels',figpar,plotpar), #10, 
             cmap=plotpar['cmap'],extend=plotpar['extend'],)
         else:
 
-            mpl_levels = mticker.MaxNLocator(nbins=figpar['levels']).tick_values(np.min(field), np.max(field))
+            mpl_levels = mticker.MaxNLocator(nbins=get_value_from_dicts('levels',figpar,plotpar)).tick_values(np.min(field), np.max(field))
             norm = mpl_colors.BoundaryNorm(mpl_levels, ncolors=cmap.N, clip=True)
             CS = ax2.pcolormesh(x_arr,y_arr,field, cmap=plotpar['cmap'], norm=norm)
 
@@ -6266,3 +6271,15 @@ def report():
     formatters={"name": str.upper},
 
     float_format="{:.2e}".format,))
+
+
+def get_value_from_dicts(key,dict1, dict2):
+    # Try to get the value from dict1
+    if dict1 is not None and key in dict1:
+        return dict1[key]
+    # If dict1 does not have the key, try to get the value from dict2
+    elif dict2 is not None and key in dict2:
+        return dict2[key]
+    else:
+        # Return None or raise an error if the key is not found in either dictionary
+        return None

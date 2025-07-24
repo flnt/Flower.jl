@@ -248,6 +248,8 @@ grid.LS[iLS].geoL.cap[II,10] # W3
 grid.LS[iLS].geoL.cap[II,10] # W4
 ``` 
 
+!!! danger "half cells for u and v cap = 1/2 ?"
+
 
 !!! info 
     In the code, B1 B2 are placed at the cell centroid, not the cell center.

@@ -2,32 +2,53 @@
 
 """
 function update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_fraction,levelset_one_fluid,rho_one_fluid,
-    rho_one_fluid_u,rho_one_fluid_v,)
+    rho_one_fluid_u,rho_one_fluid_v,mu_one_fluid)
 
     volume_fraction .= grid_p.LS[end].geoL.cap[:,:,5]
     levelset_one_fluid .= grid_p.LS[end].u
 
 
-    # print("\nvolume fraction update")
+    print("\nvolume fraction update")
+
+    # display(volume_fraction)
     # display(volume_fraction)
     # display(grid_p.LS[end].geoL.cap[:,:,5])
+
+    # display(grid_u.LS[end].geoL.cap[:,:,5])
+
+
+    # display(grid_u.dx)
 
 
     if num.rho_one_fluid_average == 0 #arithmetic average
         rho_one_fluid .= num.rho1 * grid_p.LS[end].geoL.cap[:,:,5] .+ num.rho2 * (1.0 .- grid_p.LS[end].geoL.cap[:,:,5] )
         rho_one_fluid_u .= num.rho1 * grid_u.LS[end].geoL.cap[:,:,5] .+ num.rho2 * (1.0 .- grid_u.LS[end].geoL.cap[:,:,5] )
         rho_one_fluid_v .= num.rho1 * grid_v.LS[end].geoL.cap[:,:,5] .+ num.rho2 * (1.0 .- grid_v.LS[end].geoL.cap[:,:,5] )
+
+        #region because cap is defined as 1/2 when full liquid instead of using dx and dy
+        # TODO cap is defined as 1/2 when full liquid instead of using dx and dy
+
+        rho_one_fluid_u[:,1] .= (num.rho1 - num.rho2)* (2 * grid_u.LS[end].geoL.cap[:,1,5]) .+ num.rho2
+        rho_one_fluid_u[:,end] .= (num.rho1 - num.rho2)* (2 * grid_u.LS[end].geoL.cap[:,end,5]) .+ num.rho2
+
+        rho_one_fluid_v[1,:] .= (num.rho1 - num.rho2)* (2 * grid_v.LS[end].geoL.cap[1,:,5]) .+ num.rho2
+        rho_one_fluid_v[end,:] .= (num.rho1 - num.rho2)* (2 * grid_v.LS[end].geoL.cap[end,:,5]) .+ num.rho2
+        #endregion because cap is defined as 1/2 when full liquid instead of using dx and dy
+
+
     end
 
-    # if num.mu_one_fluid_average == 0 #arithmetic average
-    #     mu_one_fluid  .= (num.mu1 - num.mu2) * grid_p.LS[end].geoL.cap[:,:,5]  .+ num.mu2
-    #     mu_one_fluid_u  .= (num.mu1 - num.mu2) * grid_u.LS[end].geoL.cap[:,:,5] .+ num.mu2  
-    #     mu_one_fluid_v  .= (num.mu1 - num.mu2) * grid_v.LS[end].geoL.cap[:,:,5] .+ num.mu2  
-    # elseif num.mu_one_fluid_average == 1 #harmonic average
-    #     mu_one_fluid   .= harmonic_average_one_fluid.(num.mu1,num.mu2,grid_p.LS[end].geoL.cap[:,:,5])
-    #     mu_one_fluid_u .= harmonic_average_one_fluid.(num.mu1,num.mu2,grid_u.LS[end].geoL.cap[:,:,5])
-    #     mu_one_fluid_v .= harmonic_average_one_fluid.(num.mu1,num.mu2,grid_v.LS[end].geoL.cap[:,:,5])
-    # end
+    if num.mu_one_fluid_average == 0 #arithmetic average
+        mu_one_fluid  .= (num.mu1 - num.mu2) * grid_p.LS[end].geoL.cap[:,:,5]  .+ num.mu2
+        # mu_one_fluid_u  .= (num.mu1 - num.mu2) * grid_u.LS[end].geoL.cap[:,:,5] .+ num.mu2  
+        # mu_one_fluid_v  .= (num.mu1 - num.mu2) * grid_v.LS[end].geoL.cap[:,:,5] .+ num.mu2  
+    elseif num.mu_one_fluid_average == 1 #harmonic average
+        mu_one_fluid   .= harmonic_average_one_fluid.(num.mu1,num.mu2,grid_p.LS[end].geoL.cap[:,:,5])
+        # mu_one_fluid_u .= harmonic_average_one_fluid.(num.mu1,num.mu2,grid_u.LS[end].geoL.cap[:,:,5])
+        # mu_one_fluid_v .= harmonic_average_one_fluid.(num.mu1,num.mu2,grid_v.LS[end].geoL.cap[:,:,5])
+    end
+
+
 
     # PDI_status = @ccall "libpdi".PDI_multi_expose("print_one_fluid"::Cstring,
     # "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -37,7 +58,9 @@ function update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_frac
     PDI_status = @ccall "libpdi".PDI_multi_expose("write_one_fluid"::Cstring,
     "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
     "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
+    "rho_one_fluid_u"::Cstring, rho_one_fluid_u::Ptr{Cdouble}, PDI_OUT::Cint,
+    "rho_one_fluid_v"::Cstring, rho_one_fluid_v::Ptr{Cdouble}, PDI_OUT::Cint,
+    "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
     "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
@@ -46,6 +69,18 @@ end
 function harmonic_average_one_fluid(mu1,mu2, volume_fraction)
     return (mu1*mu2) / (mu2 * volume_fraction + (1.0 - volume_fraction) * mu1)
 end
+
+function average_one_fluid(average_mode,mu1,mu2, volume_fraction)
+    if average_mode == 0 #arithmetic average
+        return (mu1 - mu2) * volume_fraction + mu2
+    elseif average_mode == 1 #harmonic average
+        return harmonic_average_one_fluid(mu1,mu2,volume_fraction)
+    end
+end
+
+
+
+
 
 
 """
@@ -326,6 +361,21 @@ function levelset_heavyside(phi, epsilon)
 end
 
 
+"""
+Compute a heavyside from levelset
+
+# Arguments
+- `phi`: A scalar value representing the level set function value.
+"""
+function levelset_to_binary(phi)
+    if phi < 0.0
+        return 0
+    else
+        return 1
+    end
+end
+
+
 
 
 """
@@ -413,7 +463,7 @@ solves Navier-Stokes equations with a pressure projection method.
 #### Variables and Data Structures
 - `vec1(ucorrD, grid_u)`: Velocity correction for the horizontal grid_p.
 - `vec1(vcorrD, grid_v)`: Velocity correction for the vertical grid_p.
-- `vec1(rhs_ϕ, grid_p)`: Right-hand side of the Poisson equation.
+- `vec1(rhs_phi, grid_p)`: Right-hand side of the Poisson equation.
 - `vec1(pD, grid_p)`: Pressure correction.
 - `vec1(uD, grid_u)`: Updated horizontal velocity.
 - `vec1(vD, grid_v)`: Updated vertical velocity.
@@ -438,7 +488,7 @@ solves Navier-Stokes equations with a pressure projection method.
 - `diff_inv_rho`: Difference in inverse densities.
 - `jump_mass_flux`: Flag for mass flux jump.
 - `τ`: Time step.
-- `Aϕ`: Matrix for the Poisson equation.
+- `A_phi`: Matrix for the Poisson equation.
 - `num`: Numerical parameters.
 - `epsilon_mode`, `epsilon_vol`: parameters for epsilon handling.
 - `strain_rate`: Function to compute strain rate.
@@ -460,14 +510,14 @@ solves Navier-Stokes equations with a pressure projection method.
      - If Navier or Navier-CL, update the Navier matrix.
 
 3. **Divergence Calculation**
-   - Calculate the divergence of the velocity corrections (`Duv`).
+   - Calculate the divergence of the velocity corrections (`velocity_divergence`).
    - Add contributions from internal boundary conditions.
 
 4. **Poisson Equation**
-   - Set the right-hand side of the Poisson equation (`rhs_ϕ`).
+   - Set the right-hand side of the Poisson equation (`rhs_phi`).
    - Handle free surface conditions and Marangoni effects if `jump_mass_flux` is true.
-   - Remove nullspace from the matrix `Aϕ`.
-   - Apply boundary conditions and solve the Poisson equation using `Aϕ / rhs_ϕ`.
+   - Remove nullspace from the matrix `A_phi`.
+   - Apply boundary conditions and solve the Poisson equation using `A_phi / rhs_phi`.
 
 5. **Pressure Correction**
    - Update the pressure correction potential (`ϕ`).
@@ -482,7 +532,7 @@ solves Navier-Stokes equations with a pressure projection method.
 
 #### Notes
 - The code includes handling for free surfaces and Navier boundary conditions.
-- The Poisson equation is solved using a linear solver (`Aϕ / rhs_ϕ`).
+- The Poisson equation is solved using a linear solver (`A_phi / rhs_phi`).
 - The pressure correction is applied to update the velocities.
 - Dead cells are removed from the grids to maintain numerical stability.
 
@@ -495,20 +545,21 @@ function pressure_projection_one_fluid!(
     num, grid_p, geo, grid_u, geo_u, grid_v, geo_v, ph,
     BC_u, BC_v, BC_p,
     opC_p, opC_u, opC_v, op_conv,
-    Au, Bu, Av, Bv, Aϕ, Auv, Buv,rhs_uv,
+    Au, Bu, Av, Bv, A_phi, Auv, Buv,rhs_uv,
     Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
     Cum1, Cvm1, Mum1, Mvm1,
     periodic_x, periodic_y, advection, ls_advection, current_i, Ra, navier,
     volume_fraction,
     levelset_one_fluid,
     rho_one_fluid, 
-    # mu_one_fluid,
+    mu_one_fluid,
     rho_one_fluid_u, 
     # mu_one_fluid_u,
     rho_one_fluid_v, 
     # mu_one_fluid_v,
     tmp_vec_p,
     tmp_vec_p0,
+    rhs_phi,
     pres_free_suface,jump_mass_flux,mass_flux
     )
     @unpack Re, τ, σ, g, β, nLS, nNavier = num
@@ -526,7 +577,66 @@ function pressure_projection_one_fluid!(
     # print("\nLv[pII,:] ",Lvm1[pII,:])
     # print("\bc_Lvm1_b[pII,:] ",bc_Lvm1_b[pII,:])
 
-    PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction"::Cstring,
+  
+
+
+    nip = grid_p.nx * grid_p.ny
+
+    niu = grid_u.nx * grid_u.ny
+    nbu = 2 * grid_u.nx + 2 * grid_u.ny
+    # ntu = (nLS - nNavier + 1) * niu + nbu
+    ntu = niu + nbu
+
+    niv = grid_v.nx * grid_v.ny
+    nbv = 2 * grid_v.nx + 2 * grid_v.ny
+    # ntv = (nLS - nNavier + 1) * niv + nbv
+    ntv = niv + nbv
+
+    ntNavier = num.nNavier * nip
+
+
+    # Array indices 
+    bulk_u_velocity = 1:niu
+    bulk_v_velocity =  ntu+1:ntu+niv
+    # bulk_tangential_velocity = 
+
+    border_u_velocity = ntu-nbu+1:ntu
+    border_v_velocity = ntu+ntv-nbv+1:ntu+ntv
+
+
+    if num.prediction == "PmIIimposedpressure" || num.prediction == "PmIIimposedpressureBCincrement" 
+        BC_Poisson = Boundaries() #Neumann everywhere
+    else
+        BC_Poisson = copy(BC_p) 
+    end
+
+    if is_Forward_Euler(time_scheme)
+        rhs_u, rhs_v, rhs_phi, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, diffusion_LS_u, diffusion_border_u, Lv, diffusion_LS_v, diffusion_border_v = set_Forward_Euler_one_fluid!(
+            bc_int, num, grid_p, geo, grid_u, geo_u, grid_v, geo_v,
+            opC_p, opC_u, opC_v, BC_Poisson,BC_u, BC_v,
+            Au, Bu, Av, Bv, A_phi, rhs_phi,Auv, Buv,
+            volume_fraction,rho_one_fluid_u,rho_one_fluid_v,
+            Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
+            Mum1, Mvm1, op_conv, ph,
+            periodic_x, periodic_y, advection, ls_advection, navier,rhs_uv,
+        )
+    elseif is_Crank_Nicolson(time_scheme)
+        @error("\n Crank_Nicolson not implemented")
+        # rhs_u, rhs_v, rhs_phi, Lp, bc_Lp, bc_Lp_b, Lu, diffusion_LS_u, diffusion_border_u, Lv, diffusion_LS_v, diffusion_border_v = set_Crank_Nicolson!(
+        #     bc_int, num, grid_p, geo, grid_u, geo_u, grid_v, geo_v,
+        #     opC_p, opC_u, opC_v, BC_Poisson, BC_u, BC_v,
+        #     Au, Bu, Av, Bv, A_phi,
+        #     Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
+        #     Mum1, Mvm1, mu1_over_rho1, op_conv, ph,
+        #     periodic_x, periodic_y, advection, ls_advection
+        # )
+    end
+
+    # ra_x = Ra .* sin(β) .* opC_u.M * vec(hcat(zeros(grid_u.ny), ph.T))
+    # ra_y = Ra .* cos(β) .* opC_v.M * vec(vcat(zeros(1,grid_v.nx), ph.T))
+
+   
+      PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction"::Cstring,
     "u_1D"::Cstring, uD::Ptr{Cdouble}, PDI_OUT::Cint,
     "v_1D"::Cstring, vD::Ptr{Cdouble}, PDI_OUT::Cint,
     "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -585,71 +695,16 @@ function pressure_projection_one_fluid!(
     end
     #endregion add gradient to prediction
 
-
-    nip = grid_p.nx * grid_p.ny
-
-    niu = grid_u.nx * grid_u.ny
-    nbu = 2 * grid_u.nx + 2 * grid_u.ny
-    # ntu = (nLS - nNavier + 1) * niu + nbu
-    ntu = niu + nbu
-
-    niv = grid_v.nx * grid_v.ny
-    nbv = 2 * grid_v.nx + 2 * grid_v.ny
-    # ntv = (nLS - nNavier + 1) * niv + nbv
-    ntv = niv + nbv
-
-    ntNavier = num.nNavier * nip
-
-
-    # Array indices 
-    bulk_u_velocity = 1:niu
-    bulk_v_velocity =  ntu+1:ntu+niv
-    # bulk_tangential_velocity = 
-
-    border_u_velocity = ntu-nbu+1:ntu
-    border_v_velocity = ntu+ntv-nbv+1:ntu+ntv
-
-
-    if num.prediction == "PmIIimposedpressure" || num.prediction == "PmIIimposedpressureBCincrement" 
-        BC_Poisson = Boundaries() #Neumann everywhere
-    else
-        BC_Poisson = copy(BC_p) 
-    end
-
-    if is_Forward_Euler(time_scheme)
-        rhs_u, rhs_v, rhs_ϕ, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, diffusion_LS_u, diffusion_border_u, Lv, diffusion_LS_v, diffusion_border_v = set_Forward_Euler_one_fluid!(
-            bc_int, num, grid_p, geo, grid_u, geo_u, grid_v, geo_v,
-            opC_p, opC_u, opC_v, BC_Poisson,BC_u, BC_v,
-            Au, Bu, Av, Bv, Aϕ, Auv, Buv,
-            volume_fraction,rho_one_fluid_u,rho_one_fluid_v,
-            Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
-            Mum1, Mvm1, op_conv, ph,
-            periodic_x, periodic_y, advection, ls_advection, navier,rhs_uv,
-        )
-    elseif is_Crank_Nicolson(time_scheme)
-        @error("\n Crank_Nicolson not implemented")
-        # rhs_u, rhs_v, rhs_ϕ, Lp, bc_Lp, bc_Lp_b, Lu, diffusion_LS_u, diffusion_border_u, Lv, diffusion_LS_v, diffusion_border_v = set_Crank_Nicolson!(
-        #     bc_int, num, grid_p, geo, grid_u, geo_u, grid_v, geo_v,
-        #     opC_p, opC_u, opC_v, BC_Poisson, BC_u, BC_v,
-        #     Au, Bu, Av, Bv, Aϕ,
-        #     Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
-        #     Mum1, Mvm1, mu1_over_rho1, op_conv, ph,
-        #     periodic_x, periodic_y, advection, ls_advection
-        # )
-    end
-
-    # ra_x = Ra .* sin(β) .* opC_u.M * vec(hcat(zeros(grid_u.ny), ph.T))
-    # ra_y = Ra .* cos(β) .* opC_v.M * vec(vcat(zeros(1,grid_v.nx), ph.T))
-
-   
-
     Convu = fzeros(grid_u)
     Convv = fzeros(grid_v)
 
     #region convection
     if num.non_dimensionalize == 0
-        Cui = Cu * vec(u) .+ CUTCu
-        Cvi = Cv * vec(v) .+ CUTCv
+        # Cui = Cu * vec(u) .+ CUTCu
+        # Cvi = Cv * vec(v) .+ CUTCv
+        Cui = Cu * vec(u) 
+        Cvi = Cv * vec(v) 
+
     elseif num.non_dimensionalize == -1 
         # Element-wise multiplication
         Cui = Cu * vec(rho_one_fluid_u .* u) .+ CUTCu #_rho should be included  #TODO 
@@ -769,10 +824,14 @@ function pressure_projection_one_fluid!(
     # C_NULL::Ptr{Cvoid})::Cint
 
 
-
+    #TODO doc beta 
     if num.non_dimensionalize == 0
         grav_x = g .* sin(β) .* opC_u.M * fones(grid_u)
         grav_y = g .* cos(β) .* opC_v.M * fones(grid_v)
+        print("\n test gravity")
+        grav_x = fzeros(grid_u)
+        grav_y = g .* opC_v.M * fones(grid_v)
+
     elseif num.non_dimensionalize == -1
         diag_rho_u = Diagonal(vec(rho_one_fluid_u))
         diag_rho_v = Diagonal(vec(rho_one_fluid_v))
@@ -787,11 +846,19 @@ function pressure_projection_one_fluid!(
         grav_y = g .* cos(β) .* opC_v.M * fones(grid_v)
     end
 
+    # grav_x .= 0.0 
+    # grav_y .= 0.0
+    # print("\n test grav...")
+
+    # print("\n opC_u.M ",opC_u.M)
+    # print("\n opC_v.M ",opC_v.M)
+
+    
     # printstyled(color=:red, @sprintf "\n gravity \n")
 
     # display(grav_y)
 
-    rhs_uv[bulk_u_velocity] .+= τ .* grav_x #τ * rho_one_fluid_u .* grav_x
+    rhs_uv[bulk_u_velocity] .-= τ .* grav_x #τ * rho_one_fluid_u .* grav_x
 
     rhs_uv[bulk_u_velocity] .-= τ .* Convu #rho in Convu
 
@@ -805,11 +872,28 @@ function pressure_projection_one_fluid!(
     # display(volumic_surface_tension_v)
 
     # print("\n rhs_uv",rhs_uv)
+    # print("\n ph GGGGG",rhs_uv)
+
+    # display(ph.Gxm1)
+
+    # display(ph.Gym1)
+
+    # ph.Gxm1 .= 0.0
+    # ph.Gym1 .= 0.0
+
+
 
     # rhs_uv[bulk_u_velocity] .+= τ .* ra_x
     if num.pressure_velocity_coupling == 0
         if num.non_dimensionalize == 0
             rhs_uv[bulk_u_velocity] .-= τ .* ph.Gxm1 ./ vec(rho_one_fluid_u)
+
+            print("\n grad pressure u")
+            PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+            "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
+            "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
+            C_NULL::Ptr{Cvoid})::Cint
+
             #Surface tension
             rhs_uv[bulk_u_velocity] .+= τ .* vec(volumic_surface_tension_u) ./ vec(rho_one_fluid_u)
 
@@ -829,15 +913,52 @@ function pressure_projection_one_fluid!(
     end 
 
    
-    rhs_uv[bulk_v_velocity] .+= τ .* grav_y
+    # print("\n grav_y ",grav_y)
+
+    rhs_uv[bulk_v_velocity] .-= τ .* grav_y
+    
+    print("\n grav y")
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+    "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
+    "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
     rhs_uv[bulk_v_velocity] .-= τ .* Convv
+
+    print("\n conv y")
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+    "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
+    "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    # print("\n test rhs 0 ")
+    # rhs_uv .= 0.0
+
     # rhs_uv[bulk_v_velocity] .+= τ .* ra_y
     if num.pressure_velocity_coupling == 0
          
         if num.non_dimensionalize == 0
             rhs_uv[bulk_v_velocity] .-= τ .* ph.Gym1 ./ vec(rho_one_fluid_v)
+
+            print("\n grad pressure y")
+
+            PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+            "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
+            "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
+            C_NULL::Ptr{Cvoid})::Cint
+
             #Surface tension
             rhs_uv[bulk_v_velocity] .+= τ .* vec(volumic_surface_tension_v) ./  vec(rho_one_fluid_v)
+
+            print("\n surface tension y")
+
+            PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+            "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
+            "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
+            C_NULL::Ptr{Cvoid})::Cint
+
         else
             rhs_uv[bulk_v_velocity] .-= τ .* ph.Gym1
             #Surface tension
@@ -906,9 +1027,16 @@ function pressure_projection_one_fluid!(
     "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
+    PDI_status = @ccall "libpdi".PDI_multi_expose("write_rhs_uv_v"::Cstring,
+    "rhs_uv_v"::Cstring, rhs_uv[bulk_v_velocity]::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
     # print("\n diag Auv ", Auv.nzval)
     # display(Auv)
     # print("\n size Auv ",size(Auv))
+
+    # print("\n test rhs 0 ")
+    # rhs_uv .= 0.0
     
     try
         @time uvD .= Auv \ rhs_uv
@@ -961,8 +1089,17 @@ function pressure_projection_one_fluid!(
     "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
-    II = CartesianIndex(div(grid_v.ny,2),1)
-    pII = lexicographic(II,grid_v.ny)
+    ucorr = reshape(vec1(ucorrD,grid_u),grid_u)
+    vcorr = reshape(vec1(vcorrD,grid_v),grid_v)
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("write_velocity_prediction"::Cstring,
+    "ucorr"::Cstring, ucorr::Ptr{Cdouble}, PDI_OUT::Cint,
+    "vcorr"::Cstring, vcorr::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    # II = CartesianIndex(div(grid_v.ny,2),1)
+    # pII = lexicographic(II,grid_v.ny)
     # print("\n A coeff ",Av[pII,:])
     # print("\nM ",opC_p.iMy.diag[pII])
 
@@ -988,12 +1125,12 @@ function pressure_projection_one_fluid!(
     #region correction 
 
     # Compute divergence of velocity
-    Duv = opC_p.AxT * vec1(ucorrD,grid_u) .+ opC_p.Gx_b * vecb(ucorrD,grid_u) .+
+    velocity_divergence = opC_p.AxT * vec1(ucorrD,grid_u) .+ opC_p.Gx_b * vecb(ucorrD,grid_u) .+
           opC_p.AyT * vec1(vcorrD,grid_v) .+ opC_p.Gy_b * vecb(vcorrD,grid_v)
     #region cut-cell
     # for iLS in 1:nLS
     #     if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
-    #         Duv .+= opC_p.Gx[iLS] * veci(ucorrD,grid_u,iLS+1) .+ 
+    #         velocity_divergence .+= opC_p.Gx[iLS] * veci(ucorrD,grid_u,iLS+1) .+ 
     #                 opC_p.Gy[iLS] * veci(vcorrD,grid_v,iLS+1)
     #     end
     # end
@@ -1001,9 +1138,54 @@ function pressure_projection_one_fluid!(
 
     #TODO replace
 
+
+
+
+    #region check divergence
+    #TODO function
+    normalise_velocity_divergence = abs.(opC_p.AxT * vec1(ucorrD,grid_u)) .+ abs.(opC_p.Gx_b * vecb(ucorrD,grid_u)) .+
+                                    abs.(opC_p.AyT * vec1(vcorrD,grid_v)) .+ abs.(opC_p.Gy_b * vecb(vcorrD,grid_v))
+    # for iLS in 1:nLS
+    #     if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+    #         normalise_velocity_divergence .+= abs.(opC_p.Gx[iLS] * veci(ph.uD,grid_u,iLS+1)) .+ 
+    #                 abs.(opC_p.Gy[iLS] * veci(ph.vD,grid_v,iLS+1))
+    #     end
+    # end
+
+  
+
+    # PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+    # "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
+    # "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
+    # C_NULL::Ptr{Cvoid})::Cint
+
+    # PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+    # "rhs_uv_len"::Cstring, length(F_residual)::Ref{Clonglong}, PDI_OUT::Cint,
+    # "rhs_uv_1D"::Cstring, F_residual::Ptr{Cdouble}, PDI_OUT::Cint,
+    # C_NULL::Ptr{Cvoid})::Cint
+
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("check_divergence"::Cstring,
+    # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "grad_v"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "u_1D"::Cstring,  ph.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "v_1D"::Cstring,  ph.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "velocity_divergence"::Cstring, velocity_divergence::Ptr{Cdouble}, PDI_OUT::Cint,
+    "normalise_velocity_divergence"::Cstring, normalise_velocity_divergence::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "max_abs_residual"::Cstring, max_abs_residual::Ref{Cdouble}, PDI_OUT::Cint,
+    # "max_abs_rhs"::Cstring, max_abs_rhs::Ref{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    #endregion check divergence
+
+
+
     # Poisson equation: source term
     # divergence of velocity / dt
-    vec1(rhs_ϕ,grid_p) .= iτ .* Duv
+    vec1(rhs_phi,grid_p) .= iτ .* velocity_divergence
 
     #region needs to be corrected/documented for the signs, free surface pressure BC 
     
@@ -1022,7 +1204,7 @@ function pressure_projection_one_fluid!(
     #                 Smat[2,1] * vec1(vcorrD,grid_v) .+ Smat[2,2] * veci(vcorrD,grid_v,iLS+1)
     
     #             fs_mat = opC_p.HxT[iLS] * opC_p.Hx[iLS] .+ opC_p.HyT[iLS] * opC_p.Hy[iLS]
-    #             veci(rhs_ϕ,grid_p,iLS+1) .= -2.0 .* mu1_over_rho1 .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid_p.LS[iLS].κ) .- pres_free_suface .- diff_inv_rho * mass_flux ^ 2)
+    #             veci(rhs_phi,grid_p,iLS+1) .= -2.0 .* mu1_over_rho1 .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid_p.LS[iLS].κ) .- pres_free_suface .- diff_inv_rho * mass_flux ^ 2)
     #         end
     #     end
     # else
@@ -1033,7 +1215,7 @@ function pressure_projection_one_fluid!(
     #                 Smat[2,1] * vec1(vcorrD,grid_v) .+ Smat[2,2] * veci(vcorrD,grid_v,iLS+1)
 
     #             fs_mat = opC_p.HxT[iLS] * opC_p.Hx[iLS] .+ opC_p.HyT[iLS] * opC_p.Hy[iLS]
-    #             veci(rhs_ϕ,grid_p,iLS+1) .= -2.0 .* mu1_over_rho1 .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid_p.LS[iLS].κ) .- pres_free_suface )
+    #             veci(rhs_phi,grid_p,iLS+1) .= -2.0 .* mu1_over_rho1 .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid_p.LS[iLS].κ) .- pres_free_suface )
     #         end
     #     end
     # end
@@ -1041,24 +1223,24 @@ function pressure_projection_one_fluid!(
 
     # Remove nullspace by adding small quantity to main diagonal
     if num.null_space == 0
-        @inbounds @threads for i in 1:Aϕ.m
-            @inbounds Aϕ[i,i] += 1e-10
+        @inbounds @threads for i in 1:A_phi.m
+            @inbounds A_phi[i,i] += 1e-10
         end
     end
-    kill_dead_cells!(vec1(rhs_ϕ,grid_p), grid_p, geo[end])
+    kill_dead_cells!(vec1(rhs_phi,grid_p), grid_p, geo[end])
     for iLS in 1:nLS
-        kill_dead_cells!(veci(rhs_ϕ,grid_p,iLS+1), grid_p, geo[end])
+        kill_dead_cells!(veci(rhs_phi,grid_p,iLS+1), grid_p, geo[end])
     end
-    # @time bicgstabl!(result_p, Aϕ, rhs_ϕ, Pl = Diagonal(Aϕ), log = true)
+    # @time bicgstabl!(result_p, A_phi, rhs_phi, Pl = Diagonal(A_phi), log = true)
 
     #endregion needs to be corrected/documented for the signs, free surface pressure BC 
 
 
-    # print("size pressure ",size(rhs_ϕ)," ",size(result_p)," ",size(Aϕ))
+    # print("size pressure ",size(rhs_phi)," ",size(result_p)," ",size(A_phi))
     # Solve Poisson equation
     # \phi^{n+1}: result_p
-    # @time result_p .= Aϕ \ rhs_ϕ
-    result_p = Aϕ \ rhs_ϕ
+    # @time result_p .= A_phi \ rhs_phi
+    result_p = A_phi \ rhs_phi
 
     
 
@@ -1123,28 +1305,30 @@ function pressure_projection_one_fluid!(
 
         print("\n max p vec1 ",maximum(vec1(pD,grid_p)))
         print("\n min p",minimum(ϕ)," max ",maximum(ϕ))
-        print("\n max p",minimum(num.mu_cin1./2 .* reshape(iM * Duv,grid_p))," ",maximum(num.mu_cin1./2 .* reshape(iM * Duv,grid_p)))
+        # print("\n max p",minimum(num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p))," ",maximum(num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p)))
 
         # todo zero neumann bc !!!!
-        # vec1(pD,grid_p) .+= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * Duv,grid_p))
+        # vec1(pD,grid_p) .+= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p))
         # or,
         # for better readability
-        vec1(pD,grid_p) .= vec1(pD,grid_p) .+ vec(ϕ .- num.mu_cin1./2 .* reshape(iM * Duv,grid_p)) 
-        # vec1(pD,grid_p) .+= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * Duv,grid_p)) 
+        # vec1(pD,grid_p) .= vec1(pD,grid_p) .+ vec(ϕ .- num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p)) 
+        vec1(pD,grid_p) .= vec1(pD,grid_p) .+ vec(ϕ .- mu_one_fluid./rho_one_fluid./2 .* reshape(iM * velocity_divergence,grid_p)) 
+        
+        # vec1(pD,grid_p) .+= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p)) 
 
         print("\n max p vec1 ",maximum(vec1(pD,grid_p)))
         print("\n min p",minimum(ϕ)," max ",maximum(ϕ))
-        print("\n max p",minimum(num.mu_cin1./2 .* reshape(iM * Duv,grid_p))," ",maximum(num.mu_cin1./2 .* reshape(iM * Duv,grid_p)))
+        # print("\n max p",minimum(num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p))," ",maximum(num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p)))
 
 
 
     elseif num.prediction == "PmIII"
         # \Delta t \nabla_h^2 \phi^{n+1} = \nabla_h \cdot \mathbf{u}^{*} \quad \text{in } \Omega
-        vec1(pD,grid_p) .= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * Duv,grid_p)) #no contribution from p^{n-1/2}
+        vec1(pD,grid_p) .= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p)) #no contribution from p^{n-1/2}
     
     elseif num.prediction == "Flower" #occursin("Flower",num.prediction)
         # \nabla_h p^{n+1/2} = \nabla_h \phi^{n+1} # TODO: does not correspond to any formula in Brown 2001 ?
-        vec1(pD,grid_p) .= vec(ϕ) #.- mu1_over_rho1 .* reshape(iM * Duv, grid_p))
+        vec1(pD,grid_p) .= vec(ϕ) #.- mu1_over_rho1 .* reshape(iM * velocity_divergence, grid_p))
     
     else
         @error("wrong prediction method, does not exist")
@@ -1195,7 +1379,7 @@ function pressure_projection_one_fluid!(
 
 
     # else
-    #     vec1(pD,grid_p) .= vec(p) .+ vec(ϕ) #.- mu1_over_rho1 .* iM * Duv
+    #     vec1(pD,grid_p) .= vec(p) .+ vec(ϕ) #.- mu1_over_rho1 .* iM * velocity_divergence
     #     vec2(pD,grid_p) .+= vec2(result_p,grid_p)
     #     vecb(pD,grid_p) .+= vecb(result_p,grid_p)
     #     p .= reshape(vec1(pD,grid_p), grid_p)
@@ -1268,6 +1452,8 @@ function pressure_projection_one_fluid!(
     "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
+    # print("\n num.mu_one_fluid_average " , num.mu_one_fluid_average)
+    # display(mu_one_fluid)
     #endregion correction 
 
     #end pressure velocity
@@ -1280,7 +1466,7 @@ end
     set_Forward_Euler_one_fluid!(
         bc_int, num, grid_p, geo, grid_u, geo_u, grid_v, geo_v,
         opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
-        Au, Bu, Av, Bv, Aϕ, Auv, Buv,
+        Au, Bu, Av, Bv, A_phi, Auv, Buv,
         Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
         Mum1, Mvm1, iRe, op_conv, ph,
         periodic_x, periodic_y, advection, ls_advection, navier
@@ -1300,7 +1486,7 @@ Sets up the matrices and right-hand side (RHS) for Forward Euler (FE)
 - `opC_p`, `opC_u`, `opC_v`: Operator structures for pressure, u-component, and v-component.
 - `BC_p`, `BC_u`, `BC_v`: Boundary conditions for pressure, u-component, and v-component.
 - `Au`, `Bu`, `Av`, `Bv`: Matrices for the u and v components.
-- `Aϕ`: Matrix for the pressure.
+- `A_phi`: Matrix for the pressure.
 - `Auv`, `Buv`: Matrices for the coupled system.
 - `Lpm1`, `bc_Lpm1`, `bc_Lpm1_b`: Laplacian matrix and boundary conditions for pressure.
 - `Lum1`, `bc_Lum1`, `bc_Lum1_b`: Laplacian matrix and boundary conditions for u-component.
@@ -1318,7 +1504,7 @@ Sets up the matrices and right-hand side (RHS) for Forward Euler (FE)
 
 - `rhs_u`: Right-hand side vector for the u-component.
 - `rhs_v`: Right-hand side vector for the v-component.
-- `rhs_ϕ`: Right-hand side vector for the pressure.
+- `rhs_phi`: Right-hand side vector for the pressure.
 - `rhs_uv`: Right-hand side vector for the coupled system (if `navier` is true).
 - `Lp`, `bc_Lp`, `bc_Lp_b`: Laplacian matrix and boundary conditions for pressure.
 - `Lu`, `diffusion_LS_u`, `diffusion_border_u`: Laplacian matrix and boundary conditions for the u-component.
@@ -1337,7 +1523,7 @@ Sets up the matrices and right-hand side (RHS) for Forward Euler (FE)
 function set_Forward_Euler_one_fluid!(
     bc_int, num, grid_p, geo, grid_u, geo_u, grid_v, geo_v,
     opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
-    Au, Bu, Av, Bv, Aϕ, Auv, Buv,
+    Au, Bu, Av, Bv, A_phi,rhs_phi, Auv, Buv,
     volume_fraction,rho_one_fluid_u,rho_one_fluid_v,
     Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
     Mum1, Mvm1, op_conv, ph,
@@ -1529,7 +1715,9 @@ function set_Forward_Euler_one_fluid!(
             # printstyled(color=:green, @sprintf "\n i %.5i j %.5i x %.2e y %.2e x1 %.2e y1 %.2e x2 %.2e y2 %.2e Q11 %.2e Q12 %.2e Q21 %.2e Q22 %.2e\n" i j interp_coord_x interp_coord_y x1 y1 x2 y2 Q11 Q12 Q21 Q22)
             # print("\nvolume_fraction i ",i," j ",j," ",volume_fraction_face)
             
-            viscosity_coeff_for_du_dy[j,i] = harmonic_average_one_fluid(num.mu1,num.mu2,volume_fraction_face)
+            viscosity_coeff_for_du_dy[j,i] = average_one_fluid(num.mu_one_fluid_average,num.mu1,num.mu2,volume_fraction_face)
+
+            
 
         end
     end
@@ -1632,7 +1820,7 @@ function set_Forward_Euler_one_fluid!(
             # printstyled(color=:green, @sprintf "\n i %.5i j %.5i x %.2e y %.2e x1 %.2e y1 %.2e x2 %.2e y2 %.2e Q11 %.2e Q12 %.2e Q21 %.2e Q22 %.2e\n" i j interp_coord_x interp_coord_y x1 y1 x2 y2 Q11 Q12 Q21 Q22)
             # print("\nvolume_fraction i ",i," j ",j," ",volume_fraction_face)
             
-            viscosity_coeff_for_dv_dx[j,i] = harmonic_average_one_fluid(num.mu1,num.mu2,volume_fraction_face)
+            viscosity_coeff_for_dv_dx[j,i] = average_one_fluid(num.mu_one_fluid_average,num.mu1,num.mu2,volume_fraction_face)
 
         end
     end
@@ -1852,7 +2040,7 @@ function set_Forward_Euler_one_fluid!(
 
             rhs_u = nothing
             rhs_v = nothing
-            # rhs_ϕ = nothing
+            # rhs_phi = nothing
             diffusion_LS_u = nothing
             diffusion_LS_v = nothing
             rhs_uv = FE_set_momentum_coupled2_one_fluid(
@@ -1900,9 +2088,9 @@ function set_Forward_Euler_one_fluid!(
         for i in 1:num.nLS
             push!(a0_p, zeros(grid_p))
         end
-        # rhs_ϕ = set_poisson(
+        # rhs_phi = set_poisson(
         #     bc_int, num, grid_p, a0_p, opC_p, opC_u, opC_v,
-        #     Aϕ, Lp, bc_Lp, bc_Lp_b, BC_p,
+        #     A_phi, Lp, bc_Lp, bc_Lp_b, BC_p,
         #     ls_advection
         # )
 
@@ -1912,19 +2100,59 @@ function set_Forward_Euler_one_fluid!(
         # if inhomogeneous Neumann: -1 at bottom and left
         # +1 sign at top and right
         
-        rhs_ϕ = solve_poisson(
-            bc_int, num, grid_p, a0_p, opC_p, opC_u, opC_v,
-            Aϕ, Lp, bc_Lp, bc_Lp_b, BC_p,
-            ls_advection
-        )
+        # rhs_phi = solve_poisson(
+        #     bc_int, num, grid_p, a0_p, opC_p, opC_u, opC_v,
+        #     A_phi, Lp, bc_Lp, bc_Lp_b, BC_p,
+        #     ls_advection
+        # )
 
-        print("\n rhs phi ",size(rhs_ϕ))
+        # elec_cond rho u rho v
+
+        #TODO check coeff border!
+
+        # rhs_phi = fnzeros(grid_p,num)
+
+        mat_coeffDx = Diagonal(vec(1.0./rho_one_fluid_u)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
+        mat_coeffDy = Diagonal(vec(1.0./rho_one_fluid_v)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
+
+        printstyled(color=:green, @sprintf "\n check solve_poisson_one_fluid")
+
+
+        print("\n min max coeff ",minimum(mat_coeffDx),maximum(mat_coeffDx),minimum(mat_coeffDy),maximum(mat_coeffDy))
+
+        solve_poisson_one_fluid!(num, 
+        grid_p, 
+        grid_u, 
+        grid_v, 
+        opC_p,
+        A_phi, 
+        rhs_phi,
+        # F_residual,
+        # tmp_vec_p, #a0
+        # a1_p,
+        BC_p,
+        # phL,    
+        # elec_cond,                    
+        # elec_condD,
+        # rho_one_fluid,
+        # rho_one_fluid_u, #tmp_vec_u,
+        # rho_one_fluid_v ,#tmp_vec_v,
+        mat_coeffDx,
+        mat_coeffDy,
+        # tmp_vec_u0,
+        # tmp_vec_v0,
+        # i_butler,
+        ls_advection)  # heat
+        
+
+
+        # print("\n rhs phi ",size(rhs_phi))
         
 
     elseif num.pressure_velocity_coupling > 1
         rhs_u = nothing
         rhs_v = nothing
-        rhs_ϕ = nothing
+        rhs_phi = nothing
         rhs_uv = FE_set_momentum_coupled2(
             bc_int, num, grid_p, grid_u, grid_v,
             opC_p, opC_u, opC_v,
@@ -1937,7 +2165,7 @@ function set_Forward_Euler_one_fluid!(
 
     end
     
-    return rhs_u, rhs_v, rhs_ϕ, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, diffusion_LS_u, diffusion_border_u, Lv, diffusion_LS_v, diffusion_border_v #TODO
+    return rhs_u, rhs_v, rhs_phi, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, diffusion_LS_u, diffusion_border_u, Lv, diffusion_LS_v, diffusion_border_v #TODO
 end
 
 
@@ -2391,11 +2619,11 @@ function FE_set_momentum_coupled2_one_fluid(
             end
 
             # divergence of velocity explicit
-            # Duv = opp.AxT * vec1(ucorrD,grid_u) .+ opp.Gx_b * vecb(ucorrD,grid_u) .+
+            # velocity_divergence = opp.AxT * vec1(ucorrD,grid_u) .+ opp.Gx_b * vecb(ucorrD,grid_u) .+
             #       opp.AyT * vec1(vcorrD,grid_v) .+ opp.Gy_b * vecb(vcorrD,grid_v)
             # for iLS in 1:nLS
             #     if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
-            #         Duv .+= opp.Gx[iLS] * veci(ucorrD,grid_u,iLS+1) .+ 
+            #         velocity_divergence .+= opp.Gx[iLS] * veci(ucorrD,grid_u,iLS+1) .+ 
             #                 opp.Gy[iLS] * veci(vcorrD,grid_v,iLS+1)
             #     end
             # end
@@ -3624,3 +3852,741 @@ function set_poisson_one_fluid(
     
     return rhs
 end
+
+
+
+@doc raw"""
+    solve_poisson_one_fluid!(bc_type, num, grid, a0, opC, opC_u, opC_v, A, L, bc_L, bc_L_b, BC, ls_advection)
+
+Solves the Poisson equation for a given set of boundary conditions and grid configuration.
+
+### Parameters
+- `bc_type`: A vector specifying the type of boundary conditions for interfaces.
+- `num`: A structure containing numerical parameters for the simulation.
+- `grid`: A structure defining the grid configuration.
+- `a0`: Initial values for the solution.
+- `opC`: Operator configuration containing various grid and boundary parameters.
+- `opC_u`: Operator configuration for the u-component.
+- `opC_v`: Operator configuration for the v-component.
+- `A`: The matrix to be populated with the Poisson equation coefficients.
+- `L`: The right-hand side matrix for the Poisson equation.
+- `bc_L`: Boundary conditions for the left side of the domain.
+- `bc_L_b`: Boundary conditions for the left side of the outer boundaries.
+- `BC`: boundary conditions for the borders of the domain.
+- `ls_advection`: Boolean flag indicating whether advection terms are included.
+
+- `F_residual` is the residual F = Ax-b
+
+### Returns
+- `rhs`: The right-hand side vector for the Poisson equation.
+
+"""
+function solve_poisson_one_fluid!(num::Numerical{Float64, Int64},
+    grid::Mesh{Flower.GridCC, Float64, Int64},
+    grid_u::Mesh{Flower.GridFCx, Float64, Int64},
+    grid_v::Mesh{Flower.GridFCy, Float64, Int64},
+    opC::Operators{Float64, Int64},
+    A::SparseMatrixCSC{Float64, Int64},
+    rhs::Array{Float64, 1},
+    # F_residual::Array{Float64, 1},
+    # a0::Array{Float64, 2},
+    # a1::SparseMatrixCSC{Float64, Int64},
+    BC::Boundaries,
+    # ph::Phase{Float64},
+    # elec_cond::Array{Float64, 2},
+    # coeffD::Array{Float64, 1},
+    # coeffDu::Array{Float64, 2},
+    # coeffDv::Array{Float64, 2},
+    mat_coeffDx,
+    mat_coeffDy,
+    # i_butler::Array{Float64, 1},
+    ls_advection::Bool,
+    # heat::Bool
+    )
+
+    @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
+    @unpack BxT, ByT,tmp_x, tmp_y = opC
+
+    ni = grid.nx * grid.ny
+    nb = 2 * grid.nx + 2 * grid.ny
+
+    #TODO reset zero
+    rhs .= 0.0
+    # coeffDu .= 0.0
+    # coeffDv .= 0.0
+    A .= 0.0
+    # a0 .= 0.0
+
+    a0_b = zeros(nb)
+    _a1_b = zeros(nb)
+    _b_b = zeros(nb)
+    for iLS in 1:num.nLS
+        set_borders!(grid, grid.LS[iLS].cl, grid.LS[iLS].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
+    end
+    a1_b = Diagonal(vec(_a1_b))
+    b_b = Diagonal(vec(_b_b))
+
+    #region Poisson variable coefficient
+    #interpolate coefficient
+    # interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(coeffD,grid,1), grid), coeffDu, coeffDv)
+
+    # print("\n coeff ",minimum(coeffDu)," ",maximum(coeffDu)," ",minimum(coeffDv)," ",maximum(coeffDv)," ",minimum(coeffD_borders)," ",maximum(coeffD_borders))
+
+    # mat_coeffDx = Diagonal(vec(coeffDu)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
+    # mat_coeffDy = Diagonal(vec(coeffDv)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
+
+    # Laplacian: bulk 
+    # L = BxT * iMx * Bx
+    # L is of size nx*ny
+    # tmp_x ((nx+1)*ny , nx*ny)
+    # BxT (nx*ny, (nx+1)*ny )
+    # Bx ((nx+1)*ny, nx*ny)
+    # iMx ((nx+1)*ny, (nx+1)*ny )
+    # iMx_b (nx+1)*ny,2*nx +2*ny
+    # Hx_b  2*nx +2*ny,2*nx +2*ny
+
+    # mat_coeffDx_b should be of size ((nx+1)*ny,(nx+1)*ny)
+
+ 
+
+    # if num.nLS>1
+    #     printstyled(color=:red, @sprintf "\n TODO coeff poisson interpolation multiple levelsets:\n")
+    # end
+
+   
+    
+    #TODO wall control volume kappa for bulk vs bulk control volume kappa different  
+    mul!(tmp_x, mat_coeffDx * iMx, Bx)
+    L = BxT * tmp_x
+    mul!(tmp_y, mat_coeffDy * iMy, By)
+    L = L .+ ByT * tmp_y
+
+    # coeffDu_border = copy(coeffDu)
+    # coeffDv_border = copy(coeffDv)
+
+    # # Interpolate conductivity at center of control volumes for potential gradient at the border
+    # # interpolate_scalar_to_staggered_u_v_grids_at_border!(num,grid,coeffD,coeffDu,coeffDv)
+
+    # interpolate_scalar_to_staggered_u_v_grids_at_border!(num,grid,coeffD,coeffDu_border,coeffDv_border)
+
+    # coeffDx_border = veci(coeffDu_border,grid_u)
+    # coeffDy_border = veci(coeffDv_border,grid_v)
+
+    # mat_coeffDx_b = Diagonal(vec(coeffDx_border)) 
+    # mat_coeffDy_b = Diagonal(vec(coeffDy_border))
+
+    #Boundary for Laplacian
+    # bc_L_b = (BxT * mat_coeffDx_b * iMx_b * Hx_b .+ ByT * mat_coeffDy_b * iMy_b  * Hy_b)
+    bc_L_b = (BxT * mat_coeffDx * iMx_b * Hx_b .+ ByT * mat_coeffDy * iMy_b  * Hy_b)
+
+     
+    #endregion Poisson variable coefficient
+
+
+
+      
+    if ls_advection
+        # Poisson equation
+        A[1:ni,1:ni] = pad(L, 4.0)
+        A[1:ni,end-nb+1:end] = bc_L_b
+
+        # Boundary conditions for outer boundaries
+        # A[end-nb+1:end,1:ni] = b_b * (HxT_b * iMx_b' * mat_coeffDx * Bx .+ HyT_b * iMy_b' * mat_coeffDy * By)
+        # A[end-nb+1:end,end-nb+1:end] = pad(b_b * (HxT_b * iMx_bd * mat_coeffDx_b * Hx_b .+ HyT_b * iMy_bd * mat_coeffDx_b * Hy_b) .+ χ_b * a1_b, -4.0)
+        
+        A[end-nb+1:end,1:ni] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
+        A[end-nb+1:end,end-nb+1:end] = pad(b_b * (HxT_b * iMx_bd  * Hx_b .+ HyT_b * iMy_bd * Hy_b) .+ χ_b * a1_b, -4.0)
+        
+
+    end
+
+    
+
+    vecb(rhs,grid) .= χ_b * vec(a0_b)
+
+    # printstyled(color=:red, @sprintf "\n vecb(rhs,grid) %.2e %.2e \n" maximum(abs.(vecb(rhs,grid))) maximum(abs.(BC.left.val)))
+
+    # b_phi_ele = zeros(grid)
+    # veci(rhs_scal,grid,1) .+= op.opC_pL.M * vec(b_phi_ele)
+
+
+end #solve_poisson_variable_coeff
+
+
+
+"""
+
+"""
+function variable_coeff_LS_part()
+    for iLS in 1:num.nLS
+
+        a0 .= 0.0 #reset
+
+        if ls_advection
+            if is_dirichlet(BC.LS[iLS])
+                __a0 = BC.LS[iLS].val
+                __a1 = -1.0
+                __a2 = 0.0
+                __b = 0.0
+            elseif is_neumann(BC.LS[iLS])
+                __a0 = BC.LS[iLS].val
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_robin(BC.LS[iLS])
+                __a0 = BC.LS[iLS].val
+                __a1 = -1.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_fs(BC.LS[iLS])
+                print("error not implemented set_poisson_variable_coeff",BC.LS[iLS])
+                @error ("error set_poisson_variable_coeff")
+
+                __a1 = 0.0
+                __a2 = 1.0
+                __b = 0.0
+            elseif is_wall_no_slip(BC.LS[iLS])
+                print("error not implemented set_poisson_variable_coeff",BC.LS[iLS])
+                @error ("error set_poisson_variable_coeff")
+
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_navier(BC.LS[iLS])
+                print("error not implemented set_poisson_variable_coeff",BC.LS[iLS])
+                @error ("error set_poisson_variable_coeff")
+
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            elseif is_navier_cl(BC.LS[iLS])
+                print("error not implemented set_poisson_variable_coeff",BC.LS[iLS])
+                @error ("error set_poisson_variable_coeff")
+
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            else
+                __a1 = 0.0
+                __a2 = 0.0
+                __b = 1.0
+            end
+    
+            if num.nLS > 1
+               
+                iLS_elec = 2
+                
+                if iLS == iLS_elec 
+
+                    #use Butler-Volmer, supposing the interfacial potential is acceptable and phi = phi_ele1 in metal 
+                    # for conductivity, use interfacial value or bulk in corresponding cell
+
+                    # TODO -(-i/kappa) in Flower ? so i_butler not -i_butler
+
+                    # if num.bulk_conductivity == 0
+                        
+                    # elseif num.bulk_conductivity == 1
+                    #     @error ("error elseif num.bulk_conductivity == 1")
+                    #region if num.bulk_conductivity == 2
+                    if num.bulk_conductivity == 2
+                        # Recommended as long as cell merging not implemented:
+
+                        #TODO remove reshape and use a mapping 
+                        # butler_volmer_no_concentration_potential_Neumann!.(num,
+                        # reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
+                        # reshape(veci(ph.trans_scalD[:,2],grid,iLS+1),grid),
+                        # num.temperature0,
+                        # a0)
+                        # a0 .= butler_volmer_no_concentration_potential_Neumann.(num,
+                        # reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
+                        # reshape(veci(ph.trans_scalD[:,2],grid,iLS+1),grid),
+                        # num.temperature0)
+
+                        for II in grid.LS[iLS].MIXED
+                          
+
+                            # a0[II] .= butler_volmer_no_concentration_potential_Neumann.(num,
+                            # reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
+                            # reshape(veci(ph.trans_scalD[:,2],grid,iLS+1),grid),
+                            # num.temperature0)
+
+                            pII = lexicographic(II, grid.ny)
+
+                            # if grid.LS[iLS].geoL.cap[II,5] < num.ϵ
+                       
+                            if grid.LS[end].geoL.cap[II,5] > num.ϵ #TODO clearer eps
+
+                                a0[II] = butler_volmer_no_concentration_potential_Neumann.(num,
+                                veci(ph.phi_eleD, grid,iLS+1)[pII],
+                                veci(ph.trans_scalD[:,2],grid,iLS+1)[pII],
+                                num.temperature0)
+
+                                if veci(ph.trans_scalD[:,2],grid,iLS+1)[pII] < num.epsilon_concentration[2]
+                                    a0[II] = butler_volmer_no_concentration_potential_Neumann.(num,
+                                    # reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
+                                    veci(ph.phi_eleD, grid,iLS+1)[pII],
+                                    ph.trans_scal[II,2],
+                                    num.temperature0)
+                                end
+
+                                # print("\n II",II,"BC ", BC.LS[iLS].val)
+                                # printstyled(color=:red, @sprintf "\n Butler %.2e %.2e \n" a0[II] reshape(veci(ph.trans_scalD[:,2],grid,iLS+1),grid)[II])
+
+
+                                # a0[II] = butler_volmer_no_concentration_potential_Neumann.(num,
+                                # reshape(veci(ph.phi_eleD, grid,iLS+1),grid)[II],
+                                # reshape(veci(ph.trans_scalD[:,2],grid,iLS+1),grid)[II],
+                                # num.temperature0)
+
+                            else
+                                print("\n grid.LS[end].geoL.cap[II,5] > num.ϵ ", (grid.LS[end].geoL.cap[II,5] > num.ϵ),(ph.trans_scal[II,2]<num.ϵ), " ",ph.trans_scal[II,2], " ",num.ϵ)
+                                #use bulk conductivity of mixed cell
+                                # butler_volmer_no_concentration_potential_Neumann!.(num,
+                                # reshape(veci(ph.phi_eleD, grid,iLS+1),grid),
+                                # ph.trans_scal[II,2],
+                                # num.temperature0,
+                                # a0[II]) #TODO if temperature solved temperature[II]
+
+                                if ph.trans_scal[II,2]<num.epsilon_concentration[2] #inside bubble, do not solve, fill with 1 since concentration=0
+                                    a0[II] = 1.0 
+                                    print("\n zero scal II")
+                                else
+                                    a0[II] = butler_volmer_no_concentration_potential_Neumann.(num,
+                                    veci(ph.phi_eleD, grid,iLS+1)[pII],
+                                    ph.trans_scal[II,2],
+                                    num.temperature0) #TODO if temperature solved temperature[II]
+                                end #ph.trans_scal[II,2]<num.ϵ
+
+
+                            end #grid.LS[end].geoL.cap[II,5] > num.ϵ: liquid cell
+
+                            print("\n II ",II)
+                            # printstyled(color=:red, @sprintf "\n grid.LS[end].geoL.cap[II,5] %.2e grid.LS[iLS].geoL.cap[II,1] %.2e grid.LS[iLS].geoL.cap[II,5] %.2e scal %.2e\n" grid.LS[end].geoL.cap[II,5] grid.LS[iLS].geoL.cap[II,1] grid.LS[iLS].geoL.cap[II,5] ph.trans_scal[II,2] a0[II])
+                            printstyled(color=:red, @sprintf "\n grid.LS[end].geoL.cap[II,5] %.2e scaD %.2e scal %.2e phiD %.2e phi %.2e a0 %.2e \n" grid.LS[end].geoL.cap[II,5] veci(ph.trans_scalD[:,2],grid,iLS+1)[pII] ph.trans_scal[II,2] veci(ph.phi_eleD, grid,iLS+1)[pII] ph.phi_ele[II] a0[II])
+
+
+                            # TODO
+                            #Remove Nan when dividing by conductivity which may be null
+                            # kill_dead_bc_left_wall!(vecb(elec_condD,grid), grid, iLS,1.0)
+                                #Remove Nan when dividing by conductivity which may be null
+                        end   #for
+                    
+                    else #bulk_conductivity!=2
+                        a0 .= __a0
+
+                    end #bulk_conductivity
+
+                    #endregion if num.bulk_conductivity == 2
+
+                else #ilS==iLS_elec
+                    a0 .= __a0
+                end #ilS==iLS_elec
+
+                else
+                    # Flags with BCs
+                    a0 .= __a0
+                    # a0 = ones(grid) .* __a0
+            
+            end #num.nLS > 1
+
+
+            # _a1 = ones(grid) .* __a1
+            # a1 = Diagonal(vec(_a1))
+            a1.nzval .= __a1
+
+            _b = ones(grid) .* __b
+            b = Diagonal(vec(_b))
+
+            # a0_b = zeros(nb)
+            # _a1_b = zeros(nb)
+            # _b_b = zeros(nb)
+            # set_borders!(grid, grid.LS[1].cl, grid.LS[1].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
+            # a1_b = Diagonal(vec(_a1_b))
+            # b_b = Diagonal(vec(_b_b))
+
+           
+            _a2 = ones(grid) .* __a2
+            a2 = Diagonal(vec(_a2))
+         
+            fs_mat = HxT[iLS] * Hx[iLS] .+ HyT[iLS] * Hy[iLS]
+
+            sb = iLS*ni+1:(iLS+1)*ni
+
+            #interpolate conductivity coefficient for interface term
+            #TODO multiple scalars : better to use div grad...?
+            # coeffDu0 .= 0.0
+            # coeffDv0 .= 0.0
+            # interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(coeffD,grid,iLS+1), grid), coeffDu0, coeffDv0)
+            # mat_coeffDx_i = Diagonal(vec(coeffDu0)) # coeffDu is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Hx
+            # mat_coeffDy_i = Diagonal(vec(coeffDv0)) # coeffDu is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies Hy
+
+            # print("\n test coeff")
+            coeffDu .= 0.0
+            coeffDv .= 0.0
+            # TODO will not interpolate correctly, need to extend ...
+            interpolate_scalar!(grid, grid_u, grid_v, reshape(veci(coeffD,grid,iLS+1), grid), coeffDu, coeffDv)
+            mat_coeffDx_i = Diagonal(vec(coeffDu)) # coeffDu is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Hx
+            mat_coeffDy_i = Diagonal(vec(coeffDv)) # coeffDu is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies Hy
+
+
+            
+            # Poisson equation
+            #Boundary for Laplacian from iLS
+            # A[1:ni,sb] = BxT * iMx * mat_coeffDx_i *Hx[iLS] .+ ByT * iMy * mat_coeffDy_i *Hy[iLS]
+            A[1:ni,sb] = BxT * mat_coeffDx_i * iMx * Hx[iLS] .+ ByT * mat_coeffDy_i * iMy * Hy[iLS]
+
+            # Boundary conditions for inner boundaries
+            A[sb,1:ni] = b * (HxT[iLS] * iMx  * Bx .+ HyT[iLS] * iMy * By) #or vec1
+            # Contribution to Neumann BC from other boundaries
+            for i in 1:num.nLS
+                if i != iLS
+                    A[sb,i*ni+1:(i+1)*ni] = b * (HxT[iLS] * iMx  * Hx[i] .+ HyT[iLS] * iMy * Hy[i])
+                end
+            end
+            A[sb,sb] = pad(
+                b * (HxT[iLS] * iMx * Hx[iLS] .+ HyT[iLS] * iMy * Hy[iLS]) .+ χ[iLS] * a1 .+
+                a2 * Diagonal(diag(fs_mat)), -4.0
+            )
+            A[sb,end-nb+1:end] = b * (HxT[iLS] * iMx_b * Hx_b .+ HyT[iLS] * iMy_b  * Hy_b)
+            # Boundary conditions for outer boundaries
+            A[end-nb+1:end,sb] = b_b * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
+        end #ls_advection
+
+        veci(rhs,grid,iLS+1) .= χ[iLS] * vec(a0) #vec(a0[iLS])
+
+        
+
+        # printstyled(color=:red, @sprintf "\n veci(rhs,grid,iLS+1) %.2i %.2e %.2e \n" iLS maximum(abs.(veci(rhs,grid,iLS+1))) maximum(abs.(BC.LS[iLS].val)))
+        # print("\n a0 max  ", maximum(a0)," min ",minimum(a0))
+
+    end #for iLS in 1:num.nLS
+end
+
+
+
+"""
+
+"""
+function variable_coeff_part()
+
+  if num.null_space == 0
+        @time @inbounds @threads for i in 1:A.m
+            @inbounds A[i,i] += 1e-10
+        end
+    end
+    
+    #region Solve Ax = b
+    if num.electrical_potential_nonlinear_solver == 0
+
+        #region Successive substitution
+
+        #region solve Ax = b
+        if num.solver == 0
+            @time ph.phi_eleD .= A \ rhs
+        elseif num.solver == 1
+            # using MUMPS, MPI, SparseArrays, LinearAlgebra
+            MPI.Init()
+            # A = sprand(10, 10, 0.2) + I
+            # rhs = rand(10)
+            # x = MUMPS.solve(A, rhs)
+            # norm(x - A \ rhs) / norm(x)
+            # ph.phi_eleD .= x
+            ph.phi_eleD .= MUMPS.solve(A, rhs)
+            MPI.Finalize()
+        
+        elseif num.solver == 2
+            # diagA = A.diag
+
+            d = collect(diag(A))
+            for i in eachindex(d)
+                if iszero(d[i])
+                    print("\n diag i ", i,"\n d[i] ",d[i])
+                end
+                # print("\n diag i ", i,"\n d[i] ",d[i])
+                d[i] = ifelse(iszero(d[i]), one(d[i]), 1/d[i])
+                # d[i] = ifelse(iszero(d[i]), a*one(d[i]), zero(d[i]))
+                
+            end
+            # A + Diagonal(d)
+
+            # diagA = diag(A,0)
+            invdiagA= Diagonal(d)
+            newA = invdiagA * A
+            newrhs=  invdiagA * rhs
+            # newA= inv(diagA) * A 
+            # newrhs=  inv(diagA) * rhs
+            @time ph.phi_eleD .= newA \ newrhs
+
+            d = collect(diag(newA))
+            for i in eachindex(d)
+                # if iszero(d[i])
+                #     print("\n diag i ", i,"\n d[i] ",d[i])
+                # end
+                print("\n diag i ", i,"\n d[i] ",d[i])
+                # d[i] = ifelse(iszero(d[i]), one(d[i]), 1/d[i])
+                # d[i] = ifelse(iszero(d[i]), a*one(d[i]), zero(d[i]))
+                
+            end
+        elseif num.solver == 3
+            #TODO do not rebuild A
+            if (num.iter_solve == 1)
+                factorize(A)
+            end
+
+            @time ph.phi_eleD .= A \ rhs
+
+        elseif num.solver == 4
+
+            if (num.iter_solve == 1)
+                lufact(A)
+            end
+
+            @time ph.phi_eleD .= A \ rhs
+
+        end
+
+        if num.io_pdi>0
+            try
+                # printstyled(color=:magenta, @sprintf "\n PDI write_electrical_potential %.5i \n" num.current_i)
+                #in YAML file: save only if iscal ==1 for example
+                PDI_status = @ccall "libpdi".PDI_multi_expose("write_electrical_potential"::Cstring,
+                # "iscal"::Cstring, iscal::Ref{Clonglong}, PDI_OUT::Cint,
+                "rhs_1D"::Cstring, rhs::Ptr{Cdouble}, PDI_OUT::Cint,
+                "phi_ele_1D"::Cstring, ph.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+                C_NULL::Ptr{Cvoid})::Cint
+            catch error
+                printstyled(color=:red, @sprintf "\n PDI error \n")
+                print(error)
+                printstyled(color=:red, @sprintf "\n PDI error \n")
+            end
+        end #if io_pdi
+
+        #endregion solve Ax=b
+
+
+        # print("\n rhs max  ", maximum(rhs)," min",minimum(rhs))
+
+        # print("\n norm 2 ", norm(A*ph.phi_eleD)," rhs ",norm(rhs))
+
+        # if norm(rhs) >0.0
+        #     print("\n norm 2 ", norm(A*ph.phi_eleD -rhs)/norm(rhs))
+        # end
+
+        # print("\n rhs ", minimum(vecb_L(rhs,grid))," rhs ",maximum(vecb_L(rhs,grid)))
+
+
+        # Compute residual to evaluate convergence
+        compute_residual_electrical_potential!(num,grid,opC,A,rhs,F_residual,a0,BC,ph,elec_cond,coeffD,i_butler,heat)
+
+        # #region compute_residual_electrical_potential!
+        # # printstyled(color=:red, @sprintf "\n Residual" )
+
+
+        # rhs_updated = fnzeros(grid,num)
+
+        # for iLS in 1:num.nLS
+        #     veci(rhs_updated,grid,iLS+1) .= χ[iLS] * vec(a0) #vec(a0[iLS])
+        #     # printstyled(color=:red, @sprintf "\n veci(rhs,grid,iLS+1) %.2i %.2e %.2e \n" iLS maximum(abs.(veci(rhs,grid,iLS+1))) maximum(abs.(BC.LS[iLS].val)))
+        #     # print("\n a0 max  ", maximum(a0)," min ",minimum(a0))
+        # end #for iLS in 1:num.nLS
+
+        # #TODO reevaluate BC
+        # update_electrical_current_from_Butler_Volmer!(num,grid,heat,ph.phi_eleD,i_butler)
+
+        # # print("\n i_butler ",i_butler)
+        # update_BC_electrical_potential!(num,grid,BC,elec_cond,coeffD,i_butler)
+
+        # a0_b = zeros(nb)
+        # _a1_b = zeros(nb)
+        # _b_b = zeros(nb)
+        # for iLS in 1:num.nLS
+        #     set_borders!(grid, grid.LS[iLS].cl, grid.LS[iLS].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
+        # end
+
+        # vecb(rhs_updated,grid) .= χ_b * vec(a0_b)
+
+        # F_residual = A*ph.phi_eleD -rhs_updated
+
+    
+        # if num.io_pdi>0
+        #     iLSpdi = 1
+        #     # dcap_1 for Wall capacity (left)
+        #     # II = ind.b_left[1][i]
+        #     # opC.χ_b[i, i] = geo.dcap[II,1]
+        #     try
+        #         # in YAML file: save only if iscal ==1 for example
+        #         PDI_status = @ccall "libpdi".PDI_multi_expose("check_electrical_potential_convergence"::Cstring,
+        #         "residual_1D"::Cstring, F_residual::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         "phi_ele_1D"::Cstring, ph.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+        #         "elec_cond_1D"::Cstring, coeffD::Ptr{Cdouble}, PDI_OUT::Cint, 
+        #         "rhs_1D"::Cstring, rhs_updated::Ptr{Cdouble}, PDI_OUT::Cint, 
+        #         "dcap_1"::Cstring, grid.LS[iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         C_NULL::Ptr{Cvoid})::Cint
+        #     catch error
+        #         printstyled(color=:red, @sprintf "\n PDI error \n")
+        #         print(error)
+        #         printstyled(color=:red, @sprintf "\n PDI error \n")
+        #     end
+        # end #if io_pdi
+        # # print("\n rhs ", minimum(vecb_L(rhs_updated,grid))," rhs ",maximum(vecb_L(rhs_updated,grid)))
+
+        # #endregion compute_residual_electrical_potential!
+
+    
+        #endregion Successive substitution
+
+
+    elseif num.electrical_potential_nonlinear_solver == 1 #Newton-Raphson
+
+        #region Newton-Raphson
+
+        # print("\n Newton-Raphson")
+
+        # print("\n rhs max  ", maximum(rhs)," min",minimum(rhs))
+
+        # print("\n norm 2 ", norm(A*ph.phi_eleD)," rhs ",norm(rhs))
+
+        # if norm(rhs) >0.0
+        #     print("\n norm 2 ", norm(A*ph.phi_eleD -rhs)/norm(rhs))
+        # end
+
+        # print("\n rhs ", minimum(vecb_L(rhs,grid))," rhs ",maximum(vecb_L(rhs,grid)))
+
+        compute_residual_electrical_potential!(num,grid,opC,A,rhs,F_residual,a0,BC,ph,elec_cond,coeffD,i_butler,heat)
+
+        # print("\n after compute_residual_electrical_potential!")
+        # if num.io_pdi>0
+        #     # dcap_1 for Wall capacity (left)
+        #     # II = ind.b_left[1][i]
+        #     # opC.χ_b[i, i] = geo.dcap[II,1]
+        #     try
+        #         # in YAML file: save only if iscal ==1 for example
+        #         PDI_status = @ccall "libpdi".PDI_multi_expose("check_electrical_potential_convergence"::Cstring,
+        #         "residual_1D"::Cstring, F_residual::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         "phi_ele_1D"::Cstring, ph.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+        #         "elec_cond_1D"::Cstring, coeffD::Ptr{Cdouble}, PDI_OUT::Cint, 
+        #         "rhs_1D"::Cstring, rhs::Ptr{Cdouble}, PDI_OUT::Cint, 
+        #         "dcap_1"::Cstring, grid.LS[num.index_levelset_pdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         C_NULL::Ptr{Cvoid})::Cint
+        #     catch error
+        #         printstyled(color=:red, @sprintf "\n PDI error \n")
+        #         print(error)
+        #         printstyled(color=:red, @sprintf "\n PDI error \n")
+        #     end
+        # end #if io_pdi
+
+        #region compute_residual_electrical_potential!
+
+        # #TODO reevaluate F=Ax-b 
+        # # printstyled(color=:red, @sprintf "\n Residual" )
+
+
+        # rhs_updated = fnzeros(grid,num)
+
+        # for iLS in 1:num.nLS
+        #     veci(rhs_updated,grid,iLS+1) .= χ[iLS] * vec(a0) #vec(a0[iLS])
+        #     printstyled(color=:red, @sprintf "\n veci(rhs,grid,iLS+1) %.2i %.2e %.2e \n" iLS maximum(abs.(veci(rhs,grid,iLS+1))) maximum(abs.(BC.LS[iLS].val)))
+        #     print("\n a0 max  ", maximum(a0)," min ",minimum(a0))
+        # end #for iLS in 1:num.nLS
+
+        # #TODO reevaluate BC
+        # update_electrical_current_from_Butler_Volmer!(num,grid,heat,ph.phi_eleD,i_butler)
+
+        # print("\n i_butler ",i_butler)
+        # update_BC_electrical_potential!(num,grid,BC,elec_cond,coeffD,i_butler)
+
+        # a0_b = zeros(nb)
+        # _a1_b = zeros(nb)
+        # _b_b = zeros(nb)
+        # for iLS in 1:num.nLS
+        #     set_borders!(grid, grid.LS[iLS].cl, grid.LS[iLS].u, a0_b, _a1_b, _b_b, BC, num.n_ext_cl)
+        # end
+
+        # vecb(rhs_updated,grid) .= χ_b * vec(a0_b)
+
+
+        # F_residual = A*ph.phi_eleD -rhs_updated
+
+
+
+        # if num.io_pdi>0
+        #     # dcap_1 for Wall capacity (left)
+        #     # II = ind.b_left[1][i]
+        #     # opC.χ_b[i, i] = geo.dcap[II,1]
+        #     iLSpdi = 1
+        #     try
+        #         # in YAML file: save only if iscal ==1 for example
+        #         PDI_status = @ccall "libpdi".PDI_multi_expose("check_electrical_potential_convergence"::Cstring,
+        #         "residual_1D"::Cstring, F_residual::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         "phi_ele_1D"::Cstring, ph.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+        #         "elec_cond_1D"::Cstring, coeffD::Ptr{Cdouble}, PDI_OUT::Cint, 
+        #         "rhs_1D"::Cstring, rhs_updated::Ptr{Cdouble}, PDI_OUT::Cint, 
+        #         "dcap_1"::Cstring, grid.LS[iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         C_NULL::Ptr{Cvoid})::Cint
+        #     catch error
+        #         printstyled(color=:red, @sprintf "\n PDI error \n")
+        #         print(error)
+        #         printstyled(color=:red, @sprintf "\n PDI error \n")
+        #     end
+        # end #if io_pdi
+
+
+        # # # # print("\n rhs ", minimum(vecb_L(rhs_updated,grid))," rhs ",maximum(vecb_L(rhs_updated,grid)))
+        
+        #endregion compute_residual_electrical_potential!
+
+        Jacobian = copy(A)
+
+        #Add contribution from BC to Jacobian 
+        i_butler_derivative = zeros(grid.ny)
+        jacobian_Butler = zeros(grid.ny)
+        update_derivative_electrical_current_from_Butler_Volmer!(num,grid,heat,ph.phi_eleD,i_butler_derivative)
+
+        update_BC_derivative_electrical_potential!(num,grid,jacobian_Butler,elec_cond,coeffD,i_butler_derivative)
+
+        # BC Jacobian
+        ny = grid.ny
+        jacobian_bc = zeros(nb)
+        jacobian_bc[1:ny] = jacobian_Butler #left wall at 1:ny
+      
+        # print("\n Jacobian[end-nb+1:end,end-nb+1:end]",Jacobian[end-nb+1,:]) #print a coefficient influenced by BC
+        Jacobian[end-nb+1:end,end-nb+1:end] .-= χ_b * Diagonal(vec(jacobian_bc))
+        # print("\n Jacobian[end-nb+1:end,end-nb+1:end]",Jacobian[end-nb+1,:]) #print a coefficient influenced by BC
+
+        phi_increment = Jacobian \ (-F_residual)
+
+        ph.phi_eleD .+= phi_increment
+
+        # Recompute residual to evaluate convergence
+        compute_residual_electrical_potential!(num,grid,opC,A,rhs,F_residual,a0,BC,ph,elec_cond,coeffD,i_butler,heat)
+
+        #endregion Newton-Raphson
+
+    end
+    #endregion
+
+
+
+
+
+    ph.phi_ele .= reshape(veci(ph.phi_eleD,grid,1), grid)
+
+    if num.io_pdi>0
+        try
+            # printstyled(color=:magenta, @sprintf "\n PDI write_electrical_potential %.5i \n" num.current_i)
+            #in YAML file: save only if iscal ==1 for example
+            PDI_status = @ccall "libpdi".PDI_multi_expose("write_electrical_potential"::Cstring,
+            # "iscal"::Cstring, iscal::Ref{Clonglong}, PDI_OUT::Cint,
+            "rhs_1D"::Cstring, rhs::Ptr{Cdouble}, PDI_OUT::Cint,
+            "phi_ele_1D"::Cstring, ph.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+            # "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+            C_NULL::Ptr{Cvoid})::Cint
+        catch error
+            printstyled(color=:red, @sprintf "\n PDI error \n")
+            print(error)
+            printstyled(color=:red, @sprintf "\n PDI error \n")
+        end
+    end #if io_pdi
+
+end 

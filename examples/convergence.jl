@@ -284,6 +284,8 @@ for timestep in timesteps
             surface_tension = sim.surface_tension,
             non_dimensionalize=sim.non_dimensionalize,
             levelset_reinitialize=sim.levelset_reinitialize,
+            mu_one_fluid_average = sim.mu_one_fluid_average,
+            one_fluid_normal = sim.one_fluid_normal,
             )
         Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
         @debug "After Numerical"
