@@ -669,34 +669,13 @@ def init_fig(plotpar,figpar):
         # print('constrained only')
         fig1, ax2 = plt.subplots(layout=layout)
     else:
-        if 'figsize' in figpar.keys():
-            if figpar['figsize'] == 'None':
+
+        if get_value_from_dicts('figsize',figpar,plotpar) == 'None':
                 # print('constrained only')
                 fig1, ax2 = plt.subplots(layout=layout)
                 # print('subplot') 0.5
-            else:
-                fig1, ax2 = plt.subplots(
-                    figsize=set_size(
-                        plotpar["latex_frame_width"],
-                        fraction=float(plotpar["fig_fraction"]),
-                        ratio=1,
-                        nvary=1,
-                        ratio2=fig_ratio,
-                        height=float(plotpar["latex_frame_height"]),
-                        golden_ratio_activated=golden_ratio_activated,
-                    ),
-                    layout=layout,
-                )
         else:
-            # print('subplot')
-            
-
-            if 'fig_fraction' in figpar.keys():
-                fig_fraction = float(figpar["fig_fraction"])
-            else:
-                fig_fraction = float(plotpar["fig_fraction"])
-
-                                     
+            fig_fraction = float(get_value_from_dicts('fig_fraction',figpar,plotpar))
             fig1, ax2 = plt.subplots(
                 figsize=set_size(
                     plotpar["latex_frame_width"],
@@ -705,9 +684,50 @@ def init_fig(plotpar,figpar):
                     nvary=1,
                     ratio2=fig_ratio,
                     height=float(plotpar["latex_frame_height"]),
-                    golden_ratio_activated=golden_ratio_activated),
+                    golden_ratio_activated=golden_ratio_activated,
+                ),
                 layout=layout,
             )
+
+        # if 'figsize' in figpar.keys():
+        #     if get_value_from_dicts('figsize',figpar,plotpar) == 'None':
+        #         # print('constrained only')
+        #         fig1, ax2 = plt.subplots(layout=layout)
+        #         # print('subplot') 0.5
+        #     else:
+        #         fig1, ax2 = plt.subplots(
+        #             figsize=set_size(
+        #                 plotpar["latex_frame_width"],
+        #                 fraction=float(plotpar["fig_fraction"]),
+        #                 ratio=1,
+        #                 nvary=1,
+        #                 ratio2=fig_ratio,
+        #                 height=float(plotpar["latex_frame_height"]),
+        #                 golden_ratio_activated=golden_ratio_activated,
+        #             ),
+        #             layout=layout,
+        #         )
+        # else:
+        #     # print('subplot')
+            
+
+        #     if 'fig_fraction' in figpar.keys():
+        #         fig_fraction = float(figpar["fig_fraction"])
+        #     else:
+        #         fig_fraction = float(plotpar["fig_fraction"])
+
+                                     
+        #     fig1, ax2 = plt.subplots(
+        #         figsize=set_size(
+        #             plotpar["latex_frame_width"],
+        #             fraction=fig_fraction,
+        #             ratio=1,
+        #             nvary=1,
+        #             ratio2=fig_ratio,
+        #             height=float(plotpar["latex_frame_height"]),
+        #             golden_ratio_activated=golden_ratio_activated),
+        #         layout=layout,
+        #     )
 
     return fig1,ax2
 
@@ -1748,7 +1768,7 @@ def plot_segments(file,plotpar,figpar,ax2):
             else:
                 str1='{:.2e}'.format(intfc_vtx_field[i])
 
-            ax2.annotate(str1,(intfc_vtx_x[i],intfc_vtx_y[i]),fontsize=figpar['fontsize'],c=lcolor,ha="center",va=va)
+            ax2.annotate(str1,(intfc_vtx_x[i],intfc_vtx_y[i]),fontsize=get_value_from_dicts('fontsize',figpar,plotpar),c=lcolor,ha="center",va=va)
 
     
     for i in range(intfc_seg_num):
@@ -2061,8 +2081,7 @@ def plot_file(
         fig1,ax2 = init_fig(plotpar,figpar)
 
 
-    if 'plot_mode' not in figpar.keys():
-        figpar['plot_mode'] = plotpar['plot_mode']
+  
 
     scale_time = float(plotpar["scale_time"])
     scale_x = float(plotpar["scale_x"])
@@ -2083,7 +2102,7 @@ def plot_file(
     #     compute_zoom(figpar,i0,i1,j0,j1)
 
 
-    if figpar['plot_mode'] == "contourf":
+    if get_value_from_dicts('plot_mode',figpar,plotpar) == "contourf":
         if get_value_from_dicts('levels',figpar,plotpar)==0:
             CS = ax2.contourf(x_1D,y_1D,field, 
             # levels=figpar['range'], #10, 
@@ -2105,8 +2124,8 @@ def plot_file(
 
 
 
-    elif figpar["plot_mode"] == "pcolormesh":
-        if figpar["levels"] == 0:
+    elif get_value_from_dicts('plot_mode',figpar,plotpar) == "pcolormesh":
+        if get_value_from_dicts('levels',figpar,plotpar) == 0:
 
             # print('pcolormesh',len(x_1D),len(y_1D),field.shape)
 
@@ -2119,14 +2138,14 @@ def plot_file(
             print('pcolormesh',len(x_1D),len(y_1D),field.shape)
 
 
-            levels = mticker.MaxNLocator(nbins=figpar["levels"]).tick_values(
+            levels = mticker.MaxNLocator(nbins=get_value_from_dicts('levels',figpar,plotpar)).tick_values(
                 np.min(field), np.max(field)
             )
             norm = mpl_colors.BoundaryNorm(levels, ncolors=cmap.N, clip=True)
             CS = ax2.pcolormesh(
                 x_1D, y_1D, field, cmap=plotpar["cmap"], norm=norm, shading=shading
             )
-    elif figpar['plot_mode'] == "contourf_LS":
+    elif get_value_from_dicts('plot_mode',figpar,plotpar) == "contourf_LS":
         if get_value_from_dicts('levels',figpar,plotpar)==0:
             CS = ax2.contourf(x_1D,y_1D,field, 
             # levels=figpar['range'], #10, 
@@ -2153,12 +2172,15 @@ def plot_file(
     # plt.savefig('test.svg',dpi=plotpar['dpi'],transparent=True)
 
 
-    if figpar['plot_mode'] != "contourf_LS":
+    if get_value_from_dicts('plot_mode',figpar,plotpar) != "contourf_LS":
         # Make a colorbar for the ContourSet returned by the contourf call.
         if mode !='film':
             cbar = fig1.colorbar(CS)
             cbar.ax.set_ylabel(r""+figpar['cbarlabel'],color=plotpar['text_color'])
         # Add the contour line levels to the colorbar
+        if 'ticks_format' in figpar:
+            if figpar['ticks_format']!=None:
+                cbar.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
 
         else:
             cbar = plt.colorbar(CS,cax=cbar.ax)
@@ -2186,16 +2208,16 @@ def plot_file(
     # plt.savefig('test.svg',dpi=plotpar['dpi'],transparent=True)
 
 
-    if figpar['plot_levelset']:
+    if get_value_from_dicts('plot_levelset',figpar,plotpar):
 
         print('key_LS',key_LS)
-
+        print(file.keys())
         LSdat = file[key_LS][:]
         LSdat = LSdat.transpose()
         if key_LS == 'levelset_p':
-            CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
+            CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors="r",linewidths=get_value_from_dicts('linewidth',figpar,plotpar),linestyles=get_value_from_dicts('linestyle',figpar,plotpar),zorder=1)
         else:
-            CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
+            CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=get_value_from_dicts('linewidth',figpar,plotpar),linestyles=get_value_from_dicts('linestyle',figpar,plotpar),zorder=1)
 
     if 'plot_normal' in figpar.keys():
         if 'plot_normal_macro' in figpar.keys(): 
@@ -2272,7 +2294,7 @@ def plot_file(
             #color = "red",
             )
         
-        # CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
+        # CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=get_value_from_dicts('linewidth',figpar,plotpar),linestyles=get_value_from_dicts('linestyle',figpar,plotpar),zorder=1)
         
         
     
@@ -2323,7 +2345,7 @@ def plot_file(
         # #     print('plot wall')
         # #     LSdat = file[key_LS_wall][:]
         # #     LSdat = LSdat.transpose()
-        # #     CSlvl2 = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=10)
+        # #     CSlvl2 = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=get_value_from_dicts('linewidth',figpar,plotpar),linestyles=get_value_from_dicts('linestyle',figpar,plotpar),zorder=10)
 
         # #     # cutoff = 0
         # #     # LSdat = np.ma.masked_where(LSdat >=cutoff, LSdat)
@@ -2338,7 +2360,7 @@ def plot_file(
         # #     with h5py.File(file_wall_name, "r") as file_wall:
         # #         LSdat = file_wall[key_LS_wall][:]
         # #         LSdat = LSdat.transpose()
-        # #         CSlvl2 = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=10)
+        # #         CSlvl2 = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=get_value_from_dicts('linewidth',figpar,plotpar),linestyles=get_value_from_dicts('linestyle',figpar,plotpar),zorder=10)
 
         # #         # cutoff = 0
         # #         # LSdat = np.ma.masked_where(LSdat >=cutoff, LSdat)
@@ -2350,7 +2372,7 @@ def plot_file(
 
 
 
-    if figpar['plot_levelset_segments']:
+    if get_value_from_dicts('plot_levelset_segments',figpar,plotpar):
         ax2 = plot_segments(file,plotpar,figpar,ax2)
     
 
@@ -2466,8 +2488,8 @@ def plot_file(
 
 
     if 'ax_locator_x' in figpar.keys():                                     
-        ax2.xaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_x']))
-        ax2.yaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_y']))
+        ax2.xaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_x',figpar,plotpar)))
+        ax2.yaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_y',figpar,plotpar)))
     else:
         ax2.xaxis.set_major_locator(mticker.FixedLocator(plotpar['ax_locator_x']))
         ax2.yaxis.set_major_locator(mticker.FixedLocator(plotpar['ax_locator_y']))
@@ -2482,8 +2504,8 @@ def plot_file(
         ax2.set_ylabel(r""+plotpar['ylabel'],color=plotpar['text_color'])
 
 
-        ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
-        ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
+        ax2.set_xlim([float(x0) for x0 in get_value_from_dicts('xlim',figpar,plotpar)])
+        ax2.set_ylim([float(x0) for x0 in get_value_from_dicts('ylim',figpar,plotpar)])
         ax2.set_aspect('equal', 'box')
 
         str_nstep = str(nstep)
@@ -2603,7 +2625,7 @@ def plot_vector(file,
                 coordinates="figure",
             )
 
-    if figpar['plot_levelset']:
+    if get_value_from_dicts('plot_levelset',figpar,plotpar):
         key_LS = 'levelset_p'
 
         try:
@@ -2615,7 +2637,7 @@ def plot_vector(file,
 
 
         LSdat = LSdat.transpose()
-        CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'])
+        CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors="r",linewidths=get_value_from_dicts('linewidth',figpar,plotpar),linestyles=get_value_from_dicts('linestyle',figpar,plotpar))
 
   
     # str_nstep = str1="{:05}".format(nstep)
@@ -2628,12 +2650,9 @@ def plot_vector(file,
     ax2.set_xlabel(r""+plotpar['xlabel'],color=plotpar['text_color'])
     ax2.set_ylabel(r""+plotpar['ylabel'],color=plotpar['text_color'])
 
-    if 'ax_locator_x' in figpar.keys():                                     
-        ax2.xaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_x']))
-        ax2.yaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_y']))
-    else:
-        ax2.xaxis.set_major_locator(mticker.FixedLocator(plotpar['ax_locator_x']))
-        ax2.yaxis.set_major_locator(mticker.FixedLocator(plotpar['ax_locator_y']))
+    ax2.xaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_x',figpar,plotpar)))
+    ax2.yaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_y',figpar,plotpar)))
+
 
     if mode =='first' or mode =='close':
         ax2.spines["right"].set_visible(False)
@@ -2642,8 +2661,8 @@ def plot_vector(file,
         # ax2.set_xlabel(r"$x ( \unit{\um})$")
         # ax2.set_ylabel(r"$y ( \unit{\um})$")
 
-        ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
-        ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
+        ax2.set_xlim([float(x0) for x0 in get_value_from_dicts('xlim',figpar,plotpar)])
+        ax2.set_ylim([float(x0) for x0 in get_value_from_dicts('ylim',figpar,plotpar)])
         ax2.set_aspect('equal', 'box')
         
         str_nstep = str(nstep)
@@ -4209,7 +4228,7 @@ def plot_current_lines(file,
     phi_array = field
 
     if 'fontsize' in figpar.keys():
-        fontsize = figpar['fontsize']
+        fontsize = get_value_from_dicts('fontsize',figpar,plotpar)
     else:
         fontsize = plotpar['fontsize']
 
@@ -4306,7 +4325,7 @@ def plot_current_lines(file,
             if figpar['ticks_format']!=None:
                 cbar0.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
 
-    if str(figpar['isocontour']) == 'True':
+    if str(get_value_from_dicts('isocontour',figpar,plotpar)) == 'True':
         CS2 = ax2.contour(CS, 
         # levels=CS.levels[::2], 
         # levels=
@@ -4344,11 +4363,11 @@ def plot_current_lines(file,
         interface_color = 'r'
 
 
-    if figpar['plot_levelset']:
+    if get_value_from_dicts('plot_levelset',figpar,plotpar):
         key_LS = 'levelset_p'
         LSdat = file[key_LS][:]
         LSdat = LSdat.transpose()
-        CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors=interface_color,linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=1)
+        CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors=interface_color,linewidths=get_value_from_dicts('linewidth',figpar,plotpar),linestyles=get_value_from_dicts('linestyle',figpar,plotpar),zorder=1)
 
 
         # Create a mask based on levelset
@@ -4477,12 +4496,10 @@ def plot_current_lines(file,
     if 'title' in figpar.keys():
         ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$',color=plotpar['text_color'])
       
-    if 'ax_locator_x' in figpar.keys():                                     
-        ax2.xaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_x']))
-        ax2.yaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_y']))
-    else:
-        ax2.xaxis.set_major_locator(mticker.FixedLocator(plotpar['ax_locator_x']))
-        ax2.yaxis.set_major_locator(mticker.FixedLocator(plotpar['ax_locator_y']))
+                                    
+    ax2.xaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_x',figpar,plotpar)))
+    ax2.yaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_y',figpar,plotpar)))
+    
 
     if mode =='first' or mode =='close':
         ax2.spines["right"].set_visible(False)
@@ -4491,13 +4508,13 @@ def plot_current_lines(file,
         ax2.set_xlabel(r""+plotpar['xlabel'],color=plotpar['text_color'])
         ax2.set_ylabel(r""+plotpar['ylabel'],color=plotpar['text_color'])
 
-        ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
-        ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
+        ax2.set_xlim([float(x0) for x0 in get_value_from_dicts('xlim',figpar,plotpar)])
+        ax2.set_ylim([float(x0) for x0 in get_value_from_dicts('ylim',figpar,plotpar)])
         ax2.set_aspect('equal', 'box')
 
         try:
-            ax2.xaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_x']))
-            ax2.yaxis.set_major_locator(mticker.FixedLocator(figpar['ax_locator_y']))
+            ax2.xaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_x',figpar,plotpar)))
+            ax2.yaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_y',figpar,plotpar)))
 
         except:
             print('no locator')
@@ -4590,7 +4607,7 @@ def  plot_wall(ax2, x_1D, y_1D, file, key_LS_wall,figpar,plotpar):
         #     print('plot wall')
         #     LSdat = file[key_LS_wall][:]
         #     LSdat = LSdat.transpose()
-        #     CSlvl2 = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=10)
+        #     CSlvl2 = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=get_value_from_dicts('linewidth',figpar,plotpar),linestyles=get_value_from_dicts('linestyle',figpar,plotpar),zorder=10)
 
         #     # cutoff = 0
         #     # LSdat = np.ma.masked_where(LSdat >=cutoff, LSdat)
@@ -4605,7 +4622,7 @@ def  plot_wall(ax2, x_1D, y_1D, file, key_LS_wall,figpar,plotpar):
         #     with h5py.File(file_wall_name, "r") as file_wall:
         #         LSdat = file_wall[key_LS_wall][:]
         #         LSdat = LSdat.transpose()
-        #         CSlvl2 = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],zorder=10)
+        #         CSlvl2 = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=get_value_from_dicts('linewidth',figpar,plotpar),linestyles=get_value_from_dicts('linestyle',figpar,plotpar),zorder=10)
 
         #         # cutoff = 0
         #         # LSdat = np.ma.masked_where(LSdat >=cutoff, LSdat)
@@ -4938,7 +4955,7 @@ def plot_python_pdf_full2(
         cmap=plotpar['cmap'],extend=plotpar['extend'],)
     else:
 
-        if figpar['plot_mode'] == "contourf":
+        if get_value_from_dicts('plot_mode',figpar,plotpar) == "contourf":
             # print(x_arr)
             # print(y_arr)
             # print(x_arr)
@@ -4959,7 +4976,7 @@ def plot_python_pdf_full2(
     lw=0.5
     ms=0.5
 
-    if parse_is_true(figpar['plot_grid']):
+    if parse_is_true(get_value_from_dicts('plot_grid',figpar,plotpar)):
         # for igrid in i0:i1
         #     ax2.axvline(x_1D[igrid],c=lcolor,lw=lw)
         # end
@@ -4967,16 +4984,18 @@ def plot_python_pdf_full2(
         #     ax2.axhline(y_1D[igrid],c=lcolor,lw=lw)
         # end
 
+        color_annot_bc = get_value_from_dicts('color_annot_bc',figpar,plotpar)
+        color_annot_bulk = get_value_from_dicts('color_annot_bulk',figpar,plotpar)
 
-        if 'color_annot_bc' in figpar.keys():
-            color_annot_bc = figpar['color_annot_bc']
-        else:
-            color_annot_bc = 'k'
+        # if 'color_annot_bc' in figpar.keys():
+        #     color_annot_bc = figpar['color_annot_bc']
+        # else:
+        #     color_annot_bc = 'k'
 
-        if 'color_annot_bulk' in figpar.keys():
-            color_annot_bulk = figpar['color_annot_bulk']
-        else:
-            color_annot_bulk = 'w'
+        # if 'color_annot_bulk' in figpar.keys():
+        #     color_annot_bulk = figpar['color_annot_bulk']
+        # else:
+        #     color_annot_bulk = 'w'
 
 
 
@@ -5023,7 +5042,7 @@ def plot_python_pdf_full2(
                     str1='{:.2e}'.format(field[jgrid,igrid])
 
                 if 'fontsize' in figpar.keys():
-                    fontsize = figpar['fontsize']
+                    fontsize = get_value_from_dicts('fontsize',figpar,plotpar)
                 else:
                     fontsize = plotpar['fontsize']
 
@@ -5106,14 +5125,14 @@ def plot_python_pdf_full2(
                 cbar.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
 
     # Add the contour line levels to the colorbar
-    if str(figpar['isocontour']) == 'True':
+    if str(get_value_from_dicts('isocontour',figpar,plotpar)) == 'True':
         CS2 = ax2.contour(CS, 
         # levels=CS.levels[::2], 
         # levels=
         colors="r")
         cbar.add_lines(CS2)
 
-    if figpar["plot_levelset"]:
+    if get_value_from_dicts('plot_levelset',figpar,plotpar):
         if "plot_case" in figpar.keys():
             if figpar["plot_case"] == "circle":
                 theta1 = figpar["theta1"]
@@ -5139,8 +5158,8 @@ def plot_python_pdf_full2(
 
         # print("test ii0 ",ii0,ii1+1,jj0,jj1+1)
         try:
-            linewidths = figpar['linewidth']
-            linestyles=figpar['linestyle']
+            linewidths = get_value_from_dicts('linewidth',figpar,plotpar)
+            linestyles=get_value_from_dicts('linestyle',figpar,plotpar)
         except:
             linewidths = plotpar['linewidth']
             linestyles=plotpar['linestyle']
@@ -5174,7 +5193,7 @@ def plot_python_pdf_full2(
 
                 CSlvl = ax2.contour(
                 x_1D[wallii0:wallii1+1], y_1D[walljj0:walljj1+1], LSdat[walljj0:walljj1+1, wallii0:wallii1+1], [0.0], 
-                colors="orange",linewidths=figpar['linewidth'],linestyles=figpar['linestyle'],
+                colors="orange",linewidths=get_value_from_dicts('linewidth',figpar,plotpar),linestyles=get_value_from_dicts('linestyle',figpar,plotpar),
                 clip_on=True,
                 )
 
@@ -5227,7 +5246,7 @@ def plot_python_pdf_full2(
                     LSdat = LSdat.transpose()
 
                     CSlvl = ax2.contour(
-                    x_1D[wallii0:wallii1+1], y_1D[walljj0:walljj1+1], LSdat[walljj0:walljj1+1, wallii0:wallii1+1], [0.0], colors="orange",linewidths=figpar['linewidth'],linestyles=figpar['linestyle']
+                    x_1D[wallii0:wallii1+1], y_1D[walljj0:walljj1+1], LSdat[walljj0:walljj1+1, wallii0:wallii1+1], [0.0], colors="orange",linewidths=get_value_from_dicts('linewidth',figpar,plotpar),linestyles=get_value_from_dicts('linestyle',figpar,plotpar)
                     )
                     
                     # CSlvlwall = ax2.contourf(x_1D, y_1D, LSdat, levels=1,colors='gray') #not very precise
@@ -5272,7 +5291,7 @@ def plot_python_pdf_full2(
                         if "clip" in figpar.keys():
                             collection.set_clip_path(PathPatch(Path(vertices, codes), transform=ax2.transData))
 
-    if figpar['plot_levelset_segments']:
+    if get_value_from_dicts('plot_levelset_segments',figpar,plotpar):
         ax2 = plot_segments(file,plotpar,figpar,ax2)
 
 
@@ -5319,13 +5338,13 @@ def plot_python_pdf_full2(
     #     ax2.set_xlim([float(x0) for x0 in figpar['zoom'][0]]) #zoom
     #     ax2.set_ylim([float(x0) for x0 in  figpar['zoom'][1]])
 
-    # ax2.set_xlim([float(x0) for x0 in figpar['xlim']]) #zoom
-    # ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
+    # ax2.set_xlim([float(x0) for x0 in get_value_from_dicts('xlim',figpar,plotpar)]) #zoom
+    # ax2.set_ylim([float(x0) for x0 in get_value_from_dicts('ylim',figpar,plotpar)])
 
     # ax2.set_aspect('equal', 'box')
     # ax2.set_aspect('equal')
     if 'aspect_ratio' in figpar.keys():
-        ax2.set_aspect(aspect=figpar['aspect_ratio'],adjustable=figpar['aspect_box'])
+        ax2.set_aspect(aspect=get_value_from_dicts('aspect_ratio',figpar,plotpar),adjustable=get_value_from_dicts('aspect_box',figpar,plotpar))
 
     #debug subplots with  plot_children(fig1)
 
@@ -5336,8 +5355,8 @@ def plot_python_pdf_full2(
         ax2.set_xlabel(r""+plotpar['xlabel'],color=plotpar['text_color'])
         ax2.set_ylabel(r""+plotpar['ylabel'],color=plotpar['text_color'])
 
-        # ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
-        # ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
+        # ax2.set_xlim([float(x0) for x0 in get_value_from_dicts('xlim',figpar,plotpar)])
+        # ax2.set_ylim([float(x0) for x0 in get_value_from_dicts('ylim',figpar,plotpar)])
         # ax2.set_aspect('equal', 'box')
 
         str_nstep = str(nstep)
@@ -5533,7 +5552,7 @@ def python_movie_zoom(
     anim = functools.partial(animate,fig1=fig1,ax2=ax2)
     ani = animation.FuncAnimation(fig1, anim, frames=size_frame,init_func=init, interval=size_frame, blit=False)
 
-    ani.save(figpar['file'] + "." + figpar["img_format"],dpi=plotpar['dpi'])  # mp4, gif
+    ani.save(figpar['file'] + "." + get_value_from_dicts('film_format',figpar,plotpar),dpi=plotpar['dpi'])  # mp4, gif
 
     # with open(key+'_jshtml'+'.html', "w") as f:
     #     print(ani.to_jshtml(), file=f)
@@ -5569,12 +5588,14 @@ def python_movie_zoom_func(
 
     fig1,ax2 = init_fig(plotpar,figpar)
 
-    if 'streamplot_color' in figpar.keys():
-        # cbar=[None,None]
-        cbar=[]
 
-    else:
-        cbar=None
+    cbar=[]
+    # if 'streamplot_color' in figpar.keys():
+    #     # cbar=[None,None]
+    #     cbar=[]
+
+    # else:
+    #     cbar=None
 
     with h5py.File(file_name, "r") as file:
 
@@ -5721,7 +5742,7 @@ def python_movie_zoom_func(
     anim = functools.partial(animate,fig1=fig1,ax2=ax2,cbar=cbar)
     ani = animation.FuncAnimation(fig1, anim, frames=size_frame, init_func = init, interval=size_frame, blit=False)
 
-    ani.save(figpar['file'] + "." + figpar["img_format"],dpi=plotpar['dpi'])  # mp4, gif
+    ani.save(figpar['file'] + "." + get_value_from_dicts('film_format',figpar,plotpar),dpi=plotpar['dpi'])  # mp4, gif
 
     # with open(key+'_jshtml'+'.html', "w") as f:
     #     print(ani.to_jshtml(), file=f)
@@ -5851,8 +5872,6 @@ def plot_current_wall(
 
 
 
-    if 'plot_mode' not in figpar.keys():
-        figpar['plot_mode'] = plotpar['plot_mode']
 
     scale_time = float(plotpar["scale_time"])
     scale_x = float(plotpar["scale_x"])
@@ -6019,8 +6038,8 @@ def plot_current_wall(
         # ax2.set_xlabel(r"$x ( \unit{\um})$")
         # ax2.set_ylabel(r"$y ( \unit{\um})$")
 
-        # ax2.set_xlim([float(x0) for x0 in figpar['xlim']])
-        # ax2.set_ylim([float(x0) for x0 in figpar['ylim']])
+        # ax2.set_xlim([float(x0) for x0 in get_value_from_dicts('xlim',figpar,plotpar)])
+        # ax2.set_ylim([float(x0) for x0 in get_value_from_dicts('ylim',figpar,plotpar)])
         # ax2.set_aspect('equal', 'box')
 
         str_nstep = str(nstep)

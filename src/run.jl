@@ -74,9 +74,24 @@ function run_forward!(
     test_laplacian::Bool = false,
     )
 
+# precompile(Tuple{typeof(Core.kwcall), 
+
+# NamedTuple{(:periodic_x, :periodic_y, :BC_uL, :BC_uS, :BC_vL, :BC_vS, :BC_pL, :BC_pS, :BC_u, :BC_int,
+#  :BC_trans_scal, :BC_phi_ele, :auto_reinit, :time_scheme, :electrolysis, :navier_stokes, :ns_advection,
+#   :ns_liquid_phase, :verbose, :show_every, :electrolysis_convection, :electrolysis_liquid_phase, 
+#   :electrolysis_phase_change_case, :imposed_velocity, :adapt_timestep_mode, :non_dimensionalize, :mode_2d, :breakup), 
+#   Tuple{Bool, Bool, Flower.BoundariesInt, Flower.BoundariesInt, Flower.BoundariesInt, Flower.BoundariesInt,
+#    Flower.Boundaries, Flower.Boundaries, Flower.Boundaries, Array{Flower.WallNoSlip{Float64, Float64}, 1}, 
+#    Array{Flower.BoundariesInt, 1}, Flower.BoundariesInt, Int64, Flower.ForwardEuler, Bool, Bool, Bool, Bool,
+#     Bool, Int64, Bool, Bool, String, String, Vararg{Int64, 4}}}, typeof(Flower.run_forward!), 
+#     Flower.Numerical{Float64, Int64}, Flower.Mesh{Flower.GridCC, Float64, Int64}, 
+#     Flower.Mesh{Flower.GridFCx, Float64, Int64}, Flower.Mesh{Flower.GridFCy, Float64, Int64}, 
+#     Flower.DiscreteOperators{Float64, Int64}, Nothing, Flower.Phase{Float64}})
+
+
 
     #region Initialize simulation parameters
-
+    iLSpdi = 1 #levelset index for IO: levelset number 1
     # λ::Float64 = 1,
     λ = 1 #for Stefan velocity
     # speed::Float64 = 0.0,
@@ -1061,11 +1076,46 @@ function run_forward!(
         return
     end
 
+    num.current_i = 0
 
+    interpolate_grid_liquid!(grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
+    
+    PDI_status = @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
+        "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+        "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+        "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "levelset_p"::Cstring, grid_p.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+        "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+        # "i_current_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+        # "i_current_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+        # "normal_x"::Cstring, normal_x::Ptr{Cdouble}, PDI_OUT::Cint,   
+        # "normal_y"::Cstring, normal_y::Ptr{Cdouble}, PDI_OUT::Cint,  
+        # grid_u.LS[iLS].α
+        # "normal_angle"::Cstring, grid_p.LS[iLSpdi].α::Ptr{Cdouble}, PDI_OUT::Cint,
+        "velocity_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+        "velocity_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,      
+        "radius"::Cstring, num.current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+        # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+        # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
+        # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
     
 
+    if num.one_fluid_model == 1 
 
-    
+        update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_fraction,levelset_one_fluid,rho_one_fluid,
+                                                    rho_one_fluid_u,rho_one_fluid_v,mu_one_fluid,tmp_vec_p0)
+
+                                                    
+    end
 
 
     current_t = 0.
@@ -1877,9 +1927,9 @@ function run_forward!(
                     update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y)
                 end
 
-                printstyled(color=:magenta, @sprintf "\n update_free_surface_velocity")
-                #TODO
-                update_free_surface_velocity(num, grid_u, grid_v, 1, phL.uD, phL.vD, periodic_x, periodic_y)
+                # printstyled(color=:magenta, @sprintf "\n update_free_surface_velocity")
+                # #TODO
+                # update_free_surface_velocity(num, grid_u, grid_v, 1, phL.uD, phL.vD, periodic_x, periodic_y)
 
 
             
@@ -2448,6 +2498,59 @@ function run_forward!(
 
                         print_CL_length(num,grid_p, grid_p.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
 
+                    elseif num.advection_LS_mode == 11 || num.advection_LS_mode == 12 
+
+                        printstyled(color=:magenta, @sprintf "\n update_free_surface_velocity")
+                        #TODO
+                        update_free_surface_velocity(num, grid_u, grid_v, 1, phL.uD, phL.vD, periodic_x, periodic_y)
+
+                        display(grid_v.V)
+
+                        # "write_"
+
+                        i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext = indices_extension(grid_u, grid_u.LS[1], grid_u.ind.inside, periodic_x, periodic_y)
+                        i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext = indices_extension(grid_v, grid_v.LS[1], grid_v.ind.inside, periodic_x, periodic_y)
+
+                        field_extension!(grid_u, grid_u.LS[1].u, grid_u.V, i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext, num.NB, periodic_x, periodic_y)
+                        field_extension!(grid_v, grid_v.LS[1].u, grid_v.V, i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext, num.NB, periodic_x, periodic_y)
+                        
+                        printstyled(color=:magenta, @sprintf "\n extended")
+
+                        display(grid_v.V)
+
+
+
+                        if num.advection_LS_mode == 11 
+                            print("\n dummy grid_v.V ")
+
+                            grid_v.V .=0.25*grid_p.dx[2,2]/num.τ  
+                        end
+
+                        print("\n grid_v.V ")
+                        printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
+
+
+                        rhs_LS .= 0.0
+                        grid_p.LS[iLS].A.nzval .= 0.0
+                        grid_p.LS[iLS].B.nzval .= 0.0
+                        IIOE!(grid_p, grid_u, grid_v, grid_p.LS[iLS].A, grid_p.LS[iLS].B, θ_out, num.τ, periodic_x, periodic_y)
+
+
+
+                        rhs_LS .= 0.0
+                        grid_p.LS[iLS].A.nzval .= 0.0
+                        grid_p.LS[iLS].B.nzval .= 0.0
+                        IIOE!(grid_p, grid_u, grid_v, grid_p.LS[iLS].A, grid_p.LS[iLS].B, θ_out, num.τ, periodic_x, periodic_y)
+                        # BC_LS_interior!(num, grid_p, grid_u, grid_v, iLS, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
+                        BC_LS!(grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
+                        utmp .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u) .+ rhs_LS), grid_p)
+
+                        rhs_LS .= 0.0
+                        S2IIOE!(grid_p, grid_u, grid_v, grid_p.LS[iLS].A, grid_p.LS[iLS].B, utmp, grid_p.LS[iLS].u, θ_out, num.τ, periodic_x, periodic_y)
+                        # BC_LS_interior!(num, grid_p, grid_u, grid_v, iLS, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
+                        BC_LS!(grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
+                        grid_p.LS[iLS].u .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u) .+ rhs_LS), grid_p)
+
 
 
                     end #num.advection_LS_mode == 
@@ -2807,8 +2910,11 @@ function run_forward!(
 
             if num.one_fluid_model == 1 
 
+                interpolate_grid_liquid!(grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
+
+
                 update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_fraction,levelset_one_fluid,rho_one_fluid,
-                                                    rho_one_fluid_u,rho_one_fluid_v,mu_one_fluid)
+                                                    rho_one_fluid_u,rho_one_fluid_v,mu_one_fluid,tmp_vec_p0)
 
 
 

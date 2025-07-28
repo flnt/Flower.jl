@@ -32,9 +32,9 @@ function compute_surface_tension_LS!(num,grid, grid_u, grid_v, opC_p, opC_u, opC
     iLS = 1
 
     # levelset_one_fluid = grid.LS[iLS].u saved or end
-    display(levelset_one_fluid)
+    # display(levelset_one_fluid)
 
-    print("\n size LS ",size(levelset_one_fluid))
+    # print("\n size LS ",size(levelset_one_fluid))
 
 
     volumic_surface_tension_u .= 0.0
@@ -119,11 +119,11 @@ function compute_surface_tension_LS!(num,grid, grid_u, grid_v, opC_p, opC_u, opC
     #endregion compute curvature Flower.jl
 
 
-    printstyled(color=:red, @sprintf "\n curvature_p with LS method")
+    # printstyled(color=:red, @sprintf "\n curvature_p with LS method")
 
     curvature_p = compute_curvature_levelset(levelset_one_fluid,grid.dx[2,2],grid.dy[2,2])
 
-    display(curvature_p)
+    # display(curvature_p)
 
   
     #region interpolate curvature from scalar to u and v grids
@@ -598,9 +598,9 @@ function compute_curvature_cutcell_operator(opC_p,normal_and_dirac_u,normal_and_
     curvature_p = reshape(veci(curvature_p_1D,grid,1), grid)
 
 
-    printstyled(color=:green, @sprintf "\n curvature_p")
+    # printstyled(color=:green, @sprintf "\n curvature_p")
 
-    display(curvature_p)
+    # display(curvature_p)
 
 
     # ∇ϕ_x = iMu * ∇ϕ_x
@@ -610,10 +610,10 @@ function compute_curvature_cutcell_operator(opC_p,normal_and_dirac_u,normal_and_
 
    
 
-    printstyled(color=:green, @sprintf "\n volume")
-    # print("\n vol ",(grid.dx[2,2])^2)
-    # display(grid.LS[end].geoL.dcap[:,:,5])
-    display(grid.LS[1].geoL.dcap[:,:,5])
+    # printstyled(color=:green, @sprintf "\n volume")
+    # # print("\n vol ",(grid.dx[2,2])^2)
+    # # display(grid.LS[end].geoL.dcap[:,:,5])
+    # display(grid.LS[1].geoL.dcap[:,:,5])
 
 
     # curvature_p = iM * curvature_p
@@ -621,8 +621,8 @@ function compute_curvature_cutcell_operator(opC_p,normal_and_dirac_u,normal_and_
     
     curvature_p = curvature_p ./ grid.LS[1].geoL.dcap[:,:,5]
     
-    printstyled(color=:green, @sprintf "\n curvature_p")
-    display(curvature_p)
+    # printstyled(color=:green, @sprintf "\n curvature_p")
+    # display(curvature_p)
 
     #no interface: one-fluid model      
     # for iLS in 1:nLS

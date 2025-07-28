@@ -2,7 +2,7 @@
 
 """
 function update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_fraction,levelset_one_fluid,rho_one_fluid,
-    rho_one_fluid_u,rho_one_fluid_v,mu_one_fluid)
+    rho_one_fluid_u,rho_one_fluid_v,mu_one_fluid,velocity_y)
 
     volume_fraction .= grid_p.LS[end].geoL.cap[:,:,5]
     levelset_one_fluid .= grid_p.LS[end].u
@@ -48,7 +48,7 @@ function update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_frac
         # mu_one_fluid_v .= harmonic_average_one_fluid.(num.mu1,num.mu2,grid_v.LS[end].geoL.cap[:,:,5])
     end
 
-
+    iLSpdi = 1
 
     # PDI_status = @ccall "libpdi".PDI_multi_expose("print_one_fluid"::Cstring,
     # "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -62,7 +62,34 @@ function update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_frac
     "rho_one_fluid_v"::Cstring, rho_one_fluid_v::Ptr{Cdouble}, PDI_OUT::Cint,
     "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
     "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "mesh_p_x"::Cstring, grid_p.x::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "mesh_p_y"::Cstring, grid_p.y::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("post_processing_rising_bubble"::Cstring,
+    "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
+    # "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "rho_one_fluid_u"::Cstring, rho_one_fluid_u::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "rho_one_fluid_v"::Cstring, rho_one_fluid_v::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
+    "velocity_y"::Cstring, velocity_y::Ptr{Cdouble}, PDI_OUT::Cint,      
+    "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
+    "volume_cell"::Cstring, grid_p.LS[end].geoL.cap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint,
+    "mesh_p_x"::Cstring, grid_p.x::Ptr{Cdouble}, PDI_OUT::Cint,
+    "mesh_p_y"::Cstring, grid_p.y::Ptr{Cdouble}, PDI_OUT::Cint,
+    "dcap_1"::Cstring, grid_p.LS[iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
+    "dcap_2"::Cstring, grid_p.LS[iLSpdi].geoL.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
+    "dcap_3"::Cstring, grid_p.LS[iLSpdi].geoL.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
+    "dcap_4"::Cstring, grid_p.LS[iLSpdi].geoL.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    print("\n num.current_i ",num.current_i)
+
+    #    χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
+    #             χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
+    #             intfc_length_cell = sqrt(χx + χy)
+    #             intfc_length += intfc_length_cell
+
 
 end
 
@@ -440,19 +467,19 @@ function smooth_vof_2d!(grid_p,vof_field, num_smoothings,smoothed_vof)
 
                 smoothed_vof[j,i] = smoothed_vof_prev[j,i]/2.0 + (smoothed_vof_prev[j,i-1]+smoothed_vof_prev[j-1,i]+smoothed_vof_prev[j+1,i]+smoothed_vof_prev[j,i+1])/8.0
                 
-                print("\n smoothed ","vof_field ",vof_field[j,i]," ",smoothed_vof[j,i])
+                # print("\n smoothed ","vof_field ",vof_field[j,i]," ",smoothed_vof[j,i])
 
             end
         end
 
-        print("\n smoothed ")
-        display(smoothed_vof_prev)
-        display(smoothed_vof)
-        display(vof_field)
+        # print("\n smoothed ")
+        # display(smoothed_vof_prev)
+        # display(smoothed_vof)
+        # display(vof_field)
     end
     # return smoothed_vof
-    print("\n smoothed ")
-    display(smoothed_vof)
+    # print("\n smoothed ")
+    # display(smoothed_vof)
 end
 
 

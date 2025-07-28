@@ -15,7 +15,7 @@ flower:
     diffusion_coeff_KOH: &diffusion_coeff_KOH 3.2e-9
     diffusion_coeff_H2O: &diffusion_coeff_H2O 3.2e-9
     diffusion_coeff: [*diffusion_coeff_H2, *diffusion_coeff_KOH, *diffusion_coeff_H2O]
-    end_time: 3.0 #7.3 #s
+    end_time: 6.0 #3.0 #7.3 #s
     Faraday: &Faraday 9.64853321233100184e4 #C⋅mol−1
     Henry_H2: &Henry_H2 1
     Henry_KOH: &Henry_KOH 0
@@ -81,7 +81,7 @@ flower:
     ymax: &mesh_ymax 2.0
   simulation:
     activate_interface: &activate_interface 1
-    advection_LS_mode: 9 #10:dummy adv #9 #8 #2 #5 #4 #3 #2
+    advection_LS_mode: 12 #11 #0 #9 #10:dummy adv #9 #8 #2 #5 #4 #3 #2
     adapt_timestep_mode: 3 #fixed timestep
     average_liquid_solid: 0
     ns_advection: 1 #0 no advection
@@ -122,7 +122,7 @@ flower:
     imposed_velocity : "none" #"zero" #"none" #"zero" #"none"
     index_phase_change: 1
     index_electrolyte: 2
-    max_iter: 10 #10 #60 #1 #60 #1 #60 #maximum number of iterations
+    max_iter: 200 #10 #60 #1 #60 #1 #60 #maximum number of iterations
     average_velocity: 1 #0
     laplacian: 0 #1 #1 #1 #multiply by 4/3
     mass_flux: 2 #1 #Johansen & Colella
@@ -520,7 +520,7 @@ study:
   test_tolerance_solution_absolute:  1.e-1 # from n = 16 
   meshes:  [40] #[40] #[16] #  [32] #   [128] #[64] #[128] #[32] #[32,64,128] #[32,64,128,256]
   compute_errors: None
-  timesteps: [1e-3] #[1e-4]
+  timesteps: [5e-2] #[1e-3] #[1e-4]
 
 
 plot: #default parameters for plots
@@ -539,11 +539,10 @@ plot: #default parameters for plots
   linestyle: None
   skip_every: 1 #12
   text_color: k
-  themes: [dark,light]
+  themes: [light] #[dark,light]
   theme: light
+  film_format: mp4
 
-
-        
   dpi: 300
   font_size: 12
   img_format: "pdf"
@@ -618,7 +617,8 @@ plot: #default parameters for plots
   # zoom_mode: coord
   color_annot_bc: w
   color_annot_bulk: w
-
+  linestyles: ['(0, (3, 6))' ]
+  macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
 
 
     
@@ -629,48 +629,81 @@ plot: #default parameters for plots
         file: rhs_uv_v
         macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
         cbarlabel: rhs_uv_v
+        mesh_macro: |
+          global x_1D_2, y_1D_2,key_LS_2
+          x_1D_2 = xp
+          y_1D_2 = yv
+          key_LS_2 = 'levelset_v'
 
+        # aspect_box: 'box'
+        # aspect_ratio: 'equal'
+        # fontsize: 4
+
+        # plot_bc: True
+        # plot_grid: True
+        # plot_levelset: True
+        # plot_levelset_segments: #True 
+        # plot_normal: True
+        # plot_normal_macro: |
+        #   normal_x
+        # quiver_scale: 10
+        # # skip_every: 
+        # plot_mode: pcolormesh #contourf
+        # print_mode: "val"
+        # range: [0,1e-4]
+        # xlim: [0,1]
+        # ylim: [0,2]
+        # # zoom: [[0,5],[0,5]]
+        # # zoom_mode: index
+        # # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # # zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # # zoom_mode: coord
+        # color_annot_bc: w
+        # color_annot_bulk: w
+        # linewidth: 1
+        # linestyle: None
 
 
       - var: vcorr
         # func: plot_python_pdf_full2
         file: vcorr
         macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
-        figsize: None
-        aspect_box: 'box'
-        aspect_ratio: 'equal'
+        # figsize: None
+        # aspect_box: 'box'
+        # aspect_ratio: 'equal'
         cbarlabel: vcorr
-        fontsize: 4
-        isocontour: False
-        levels: 10
+        # fontsize: 4
+        # isocontour: False
+        # levels: 10
         mesh_macro: |
           global x_1D_2, y_1D_2
           x_1D_2 = xp
           y_1D_2 = yv
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: True
-        plot_levelset_segments: #True 
-        plot_normal: True
-        plot_normal_macro: |
-          normal_x
-        quiver_scale: 10
+        # plot_bc: True
+        # plot_grid: True
+        # plot_levelset: True
+        # plot_levelset_segments: #True 
+        # plot_normal: True
+        # plot_normal_macro: |
+        #   normal_x
+        # quiver_scale: 10
         # skip_every: 
-        plot_mode: pcolormesh #contourf
-        print_mode: "val"
-        range: [0,1e-4]
-        xlim: [0,1]
-        ylim: [0,2]
+        # plot_mode: pcolormesh #contourf
+        # print_mode: "val"
+        # range: [0,1e-4]
+        # xlim: [0,1]
+        # ylim: [0,2]
         # zoom: [[0,5],[0,5]]
         # zoom_mode: index
         # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
         # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
         # zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
         # zoom_mode: coord
-        color_annot_bc: w
-        color_annot_bulk: w
-        linewidth: 1
-        linestyle: None
+        # color_annot_bc: w
+        # color_annot_bulk: w
+        # linewidth: 1
+        # linestyle: None
 
       - var: ucorr
         # func: plot_python_pdf_full2
@@ -2314,6 +2347,101 @@ plot: #default parameters for plots
 
   films:
 
+
+      - var: i_current_x
+        file: current_lines
+        func: plot_current_lines
+        cbarlabel: Electrical potential
+      #   ax_locator_x: [0,0.5,1]
+      #   ax_locator_y: [0,0.5,1]
+      #   img_format: mp4
+      #   isocontour: #True
+      #   levels: 10 #10
+      #   range: np.linspace(-1.5e-4,0,11)
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: True
+      #   plot_levelset_segments: False
+      #   plot_mode: contourf
+      #   # range: [0,1e-4]
+      #   ticks_format: '%.2e'
+      #   xlim: [0,1]
+      #   ylim: [0,2]
+      #   linewidth: 1
+      #   linestyle: 'dotted'
+      #   zoom_mode: None
+      #   #For current lines
+      #   density: '[0.5,0.5]'
+      #   streamplot_cbarlabel: "$ \\text{Current magnitude} ~ \\rightarrow$"
+      #   streamplot_color: mag
+      #   streamplot_mutation_scale: 5 #1 very small, 10 default?
+      #   streamplot_lw: 0.25
+
+      - var: p_1D
+        # func: plot_python_pdf_full2
+        # img_format: mp4
+        file: pressure
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        # figsize: None
+        # aspect_box: 'box'
+        # aspect_ratio: 'equal'
+        cbarlabel: pressure
+        # fontsize: 4
+        # isocontour: False
+        # levels: 10
+        # mesh_macro: |
+        #   global x_1D_2, y_1D_2,key_LS_2
+        #   x_1D_2 = xp
+        #   y_1D_2 = yv
+        #   key_LS_2 = 'levelset_v'
+
+      - var: rho_one_fluid_v
+        # func: plot_python_pdf_full2
+        # img_format: mp4
+        file: rho_one_fluid_v_test
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        # figsize: None
+        # aspect_box: 'box'
+        # aspect_ratio: 'equal'
+        cbarlabel: rho_one_fluid_v
+        # fontsize: 4
+        # isocontour: False
+        # levels: 10
+        mesh_macro: |
+          global x_1D_2, y_1D_2,key_LS_2
+          x_1D_2 = xp
+          y_1D_2 = yv
+          key_LS_2 = 'levelset_v'
+       
+        # plot_bc: True
+        # plot_grid: True
+        # plot_levelset: True
+        # plot_levelset_segments: #True 
+        # # plot_normal: True
+        # plot_normal_macro: |
+        #   normal_x
+        # quiver_scale: 10
+        # # skip_every: 
+        # plot_mode: pcolormesh #contourf
+        # print_mode: "val"
+        # range: [0,1e-4]
+        # xlim: [0,1]
+        # ylim: [0,2]
+
+
+      - var: v_1D
+        # func: plot_python_pdf_full2
+        file: velocity_v
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        cbarlabel: velocity_v
+        ticks_format: '%.2e'
+        # fontsize: 2
+        # mesh_macro: |
+        #   global x_1D_2, y_1D_2,key_LS_2
+        #   x_1D_2 = xp
+        #   y_1D_2 = yv
+        #   key_LS_2 = 'levelset_v'
+
       - var: rho_one_fluid_u
         # func: plot_python_pdf_full2
         img_format: mp4
@@ -2887,6 +3015,137 @@ plot: #default parameters for plots
      
 
   curves:
+
+
+  
+
+      - var: [[time,center_of_mass_y]]
+        file: center_of_mass_y
+        files: [timestep_5_0000e-02/mesh_00040/flower*.h5]
+        # files: [timestep_5_0000e-02/mesh_00040/flower_00000060.h5]
+        func: plot_time #plot_1D
+        labels: [["$time ( \\unit{\\s})$", "$ \\text{Center of mass y} ( \\unit{\\m})$" ]]
+        # linestyles: ['(0, (3, 6))' ]
+        linestyles: ['(0, (3, 6))',
+                     '(0, ())', #solid
+                     '(3, (3, 6))', #"dashdot"
+                     '(6, (3, 6))'] #"dotted"
+        macro_ref: |
+          global time_ref_2,val_ref_2
+          file_path = '../data_bench_quantities/c1g1l4.txt'
+          data = pd.read_csv(file_path, sep="\s+", header=None, names=["time", "bubble_mass_area", "circularity", "center_of_mass_y", "rise_velocity_y"])
+          time_ref_2 = data['time']
+          val_ref_2 = data['center_of_mass_y']
+        macro_data: |
+          global varx_2,vary_2,values
+          import glob
+
+          # time_list =[]
+
+          # radius_list=[]
+
+          values = {}
+
+          for var_list in figpar['var']:
+            # print('var_list',var_list)
+            for var in var_list:
+              values[var] = []
+
+          for files in h5_files:
+
+            files = glob.glob(files)
+
+            files = sorted(files)
+            # print('h5_files',h5_files)
+
+            # print(files)
+
+            for file_name in files:
+          
+              with h5py.File(file_name, "r") as file:
+
+                # print(file.keys())
+                try:
+                  for var_list in figpar['var']:
+                    for var in var_list:
+                      value = file[var][()]
+                      values[var].append(value)
+                      print('var',var,value)
+                except:
+                  # print('variable not saved')
+                  print(colored(var+' not saved','red'))
+
+
+          
+          print(values)
+          varx_2 = values[figpar['var'][0][0]]
+          vary_2 = values[figpar['var'][0][1]]
+
+
+      - var: [[time,rise_velocity_y]]
+        file: rise_velocity_y
+        files: [timestep_5_0000e-02/mesh_00040/flower*.h5]
+        # files: [timestep_5_0000e-02/mesh_00040/flower_00000060.h5]
+        func: plot_time #plot_1D
+        labels: [["$time ( \\unit{\\s})$", "$ \\text{Rise velocity} ( \\unit{\\m/s})$" ]]
+        # linestyles: ['(0, (3, 6))' ]
+        linestyles: ['(0, (3, 6))',
+                     '(0, ())', #solid
+                     '(3, (3, 6))', #"dashdot"
+                     '(6, (3, 6))'] #"dotted"
+        macro_ref: |
+          global time_ref_2,val_ref_2
+          file_path = '../data_bench_quantities/c1g1l4.txt'
+          data = pd.read_csv(file_path, sep="\s+", header=None, names=["time", "bubble_mass_area", "circularity", "center_of_mass_y", "rise_velocity_y"])
+          time_ref_2 = data['time']
+          val_ref_2 = data['rise_velocity_y']
+        macro_data: |
+          global varx_2,vary_2,values
+          import glob
+
+          # time_list =[]
+
+          # radius_list=[]
+
+          values = {}
+
+          for var_list in figpar['var']:
+            # print('var_list',var_list)
+            for var in var_list:
+              values[var] = []
+
+          for files in h5_files:
+
+            files = glob.glob(files)
+
+            files = sorted(files)
+            # print('h5_files',h5_files)
+
+            # print(files)
+
+            for file_name in files:
+          
+              with h5py.File(file_name, "r") as file:
+
+                print(file.keys())
+                try:
+                  for var_list in figpar['var']:
+                    for var in var_list:
+                      value = file[var][()]
+                      values[var].append(value)
+                      print('var',var,value)
+                except:
+                  # print('variable not saved')
+                  print(colored(var+' not saved','red'))
+
+
+          
+          print(values)
+          varx_2 = values[figpar['var'][0][0]]
+          vary_2 = values[figpar['var'][0][1]]
+
+
+
 
       - var: [[x_1D,concentration_H2_1DT]]
         file: concentration_H2_through_bubble
@@ -3653,9 +3912,11 @@ pdi:
     rho_one_fluid: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     mu_one_fluid: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
 
+    volume_cell: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     volume_fraction: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     smoothed_volume_fraction: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     levelset_surface_tension: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+
    
     levelset_heavyside: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
 
@@ -3681,6 +3942,9 @@ pdi:
    
     rhs_uv_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
 
+    mesh_p_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    mesh_p_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+
 
     # stored in 3D
     dcap: { size: [ 11,'$nx', '$ny'], type: array, subtype: double } #Field of the current subdomain
@@ -3699,7 +3963,10 @@ pdi:
     concentration_check_mean: double
     max_abs_residual: double
     max_abs_rhs: double
-          
+
+    # Post-processing
+    center_of_mass_x: double        
+    center_of_mass_y: double        
 
 
     conductivity_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdomain
@@ -3738,6 +4005,97 @@ pdi:
         #     print('Py_IsInitialized',Py_IsInitialized)
         #   - exec: print('nb levelsets',nLS)
         #     with: { nLS: $nb_levelsets }
+
+        post_processing_rising_bubble:
+          with:
+            nstep: $nstep
+            volume_fraction: $volume_fraction
+            volume_cell: $volume_cell
+            mesh_p_x: $mesh_p_x
+            mesh_p_y: $mesh_p_y
+            # center_of_mass_x
+            velocity_y: $velocity_y
+            dcap_1: $dcap_1
+            dcap_2: $dcap_2
+            dcap_3: $dcap_3
+            dcap_4: $dcap_4
+          exec: |
+            print('\033[36m')
+            print('[post_processing_rising_bubble]')
+            from post_processing import calculate_centroid,calculate_circularity, calculate_rise_velocity
+            import pdi, yaml
+            
+            # TODO variable mesh spacing
+            dx = 1 
+            dy = 1
+            circularity = 0
+            rise_velocity_y = 0
+            center_of_mass_y = 0
+
+            volume_cell = 1 - volume_cell # for gaz phase
+
+
+            center_of_mass_x, center_of_mass_y = calculate_centroid(mesh_p_x, mesh_p_y, volume_cell)
+
+            print('center of mass',center_of_mass_x, center_of_mass_y)
+
+            area = sum(volume_cell)
+
+            # perimeter_bubble = sum(capa) #cf interface length
+
+            #    χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
+            #             χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
+            #             intfc_length_cell = sqrt(χx + χy)
+            #             intfc_length += intfc_length_cell
+
+         
+            rise_velocity_y = calculate_rise_velocity(velocity_y, volume_cell)
+
+          
+            circularity = 0
+
+            pdi.multi_expose('write_postprocessing_rising_bubble', [
+                    ('nstep', nstep, pdi.OUT),
+                    ('center_of_mass_x', center_of_mass_x, pdi.OUT),
+                    ('center_of_mass_y', center_of_mass_y, pdi.OUT),
+                    ('rise_velocity_y', rise_velocity_y, pdi.OUT),
+                    ('circularity', circularity, pdi.OUT),
+                    ])
+            
+
+            perimeter_bubble = sum( np.sqrt ( (dcap_3 - dcap_1)**2 + (dcap_4 - dcap_2)**2 ) )
+
+            print('area',area,perimeter_bubble)
+
+            circularity = calculate_circularity(perimeter_bubble, area)
+            
+            print('test py ',center_of_mass_y,rise_velocity_y,circularity)
+            print("center_of_mass_y {c:.2e} v {v:.2e} circ  {circ:.2e}".format(c=center_of_mass_y,v=rise_velocity_y,
+            circ=circularity))
+
+          
+            # main_comm = MPI.COMM_WORLD
+            # pdi.init(yaml.dump(config['pdi']))
+            # main_comm_f = np.array(main_comm.py2f())
+            # pdi.expose('mpi_comm_F', main_comm_f, pdi.INOUT)
+   
+           
+
+            # pdi.expose('center_of_mass_x', center_of_mass_x, pdi.OUT)
+            # pdi.expose('center_of_mass_y', center_of_mass_y, pdi.OUT)
+
+
+            # pdi.multi_expose('newiter', [
+            #             ('iter', ii, pdi.INOUT),
+            #             ('main_field', cur, pdi.INOUT)
+            #             ])
+            # pdi.expose('iter', ii, pdi.OUT)
+            # pdi.expose('main_field', cur, pdi.OUT)
+            # pdi.finalize()
+
+            print('\033[0m')
+
+
 
         print_matrix_test:
           with:
@@ -3978,7 +4336,7 @@ pdi:
             # nt = (num.nb_levelsets - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv + (num.nb_levelsets + 1) * ni_p + nb_p
 
             print('bulk_u_velocity',rhs_uv[0:niu],len(rhs_uv[0:niu]))
-            print('border_u_velocity',rhs_uv[ntu-nbu:ntu],len(rhs_uv[ntu-nbu:ntu]))
+            # print('border_u_velocity',rhs_uv[ntu-nbu:ntu],len(rhs_uv[ntu-nbu:ntu]))
 
 
             # print('whole_u_velocity',rhs_uv[0:ntu],len(rhs_uv[0:ntu]))
@@ -3988,17 +4346,17 @@ pdi:
 
             print('bulk_v_velocity',rhs_uv[ntu:ntu+niv],len(rhs_uv[ntu:ntu+niv]))
             
-            print('border_v_velocity',rhs_uv[ntu+ntv-nbv:ntu+ntv],len(rhs_uv[ntu+ntv-nbv:ntu+ntv]))
+            # print('border_v_velocity',rhs_uv[ntu+ntv-nbv:ntu+ntv],len(rhs_uv[ntu+ntv-nbv:ntu+ntv]))
 
             # border_v_velocity = rhs_uv[ntu+ntv-nbv:ntu+ntv]
 
             # print('border v velocity left  ', border_v_velocity[0:ny+1])
             # print('border v velocity bottom', border_v_velocity[ny+1:ny+1+nx])
 
-            print('v velocity left  ',vecb_L(rhs_uv[ntu:ntu+ntv],nx,ny+1))
-            print('v velocity bottom',vecb_B(rhs_uv[ntu:ntu+ntv],nx,ny+1))
-            print('v velocity right ',vecb_R(rhs_uv[ntu:ntu+ntv],nx,ny+1))
-            print('v velocity top   ',vecb_T(rhs_uv[ntu:ntu+ntv],nx,ny+1))
+            # print('v velocity left  ',vecb_L(rhs_uv[ntu:ntu+ntv],nx,ny+1))
+            # print('v velocity bottom',vecb_B(rhs_uv[ntu:ntu+ntv],nx,ny+1))
+            # print('v velocity right ',vecb_R(rhs_uv[ntu:ntu+ntv],nx,ny+1))
+            # print('v velocity top   ',vecb_T(rhs_uv[ntu:ntu+ntv],nx,ny+1))
 
             # #region print line by line
             # field = rhs_uv[ntu:ntu+niv]
@@ -4815,69 +5173,69 @@ pdi:
             # # from plot_pdi import plot_profile; plot_profile(x,slice_1D,"Poiseuille_during_projection")
 
 
-        # print_pressure_gradient_in_prediction:
-        #   with: 
-        #     grad_x_1D: $grad_x_1D
-        #     grad_y_1D: $grad_y_1D
-        #     p_1D: $p_1D
-        #     nx: $nx
-        #     ny: $ny
-        #     # mu_cin1: *mu_cin1 
-        #     # rho1: *rho1
-        #     # v_inlet: *v_inlet
-        #     xmin: *mesh_xmin
-        #     xmax: *mesh_xmax
-        #     ymin: *mesh_ymin
-        #     ymax: *mesh_ymax
+        print_pressure_gradient_in_prediction:
+          with: 
+            grad_x_1D: $grad_x_1D
+            grad_y_1D: $grad_y_1D
+            p_1D: $p_1D
+            nx: $nx
+            ny: $ny
+            # mu_cin1: *mu_cin1 
+            # rho1: *rho1
+            # v_inlet: *v_inlet
+            xmin: *mesh_xmin
+            xmax: *mesh_xmax
+            ymin: *mesh_ymin
+            ymax: *mesh_ymax
 
-        #   exec: |
-        #     import numpy as np
-        #     print('\033[36m')
-        #     print('[print_pressure_gradient_in_prediction]')
-        #     dx = (xmax-xmin)/ nx
-        #     volume = dx**2
-        #     # grad_x = np.reshape(grad_x_1D, (nx, ny)) 
-        #     # grad_y = np.reshape(grad_y_1D, (nx, ny)) 
+          exec: |
+            import numpy as np
+            print('\033[36m')
+            print('[print_pressure_gradient_in_prediction]')
+            dx = (xmax-xmin)/ nx
+            volume = dx**2
+            # grad_x = np.reshape(grad_x_1D, (nx, ny)) 
+            # grad_y = np.reshape(grad_y_1D, (nx, ny)) 
 
-        #     grad_x = np.reshape(grad_x_1D, (nx+1, ny)) 
-        #     grad_y = np.reshape(grad_y_1D, (nx, ny+1)) 
-        #     grad_x = grad_x.transpose()
-        #     grad_y = grad_y.transpose()
+            grad_x = np.reshape(grad_x_1D, (nx+1, ny)) 
+            grad_y = np.reshape(grad_y_1D, (nx, ny+1)) 
+            grad_x = grad_x.transpose()
+            grad_y = grad_y.transpose()
 
-        #     for j in range(0,ny):
-        #       slice_p = grad_x[j,:] #0: end (top), ny, 1
-        #       print('grad_x',j,slice_p)
+            for j in range(0,ny):
+              slice_p = grad_x[j,:] #0: end (top), ny, 1
+              print('grad_x',j,slice_p)
 
-        #     for j in range(0,ny+1):
-        #       slice_p = grad_y[j,:] #0: end (top), ny, 1
-        #       print('grad_y',j,slice_p)
+            for j in range(0,ny+1):
+              slice_p = grad_y[j,:] #0: end (top), ny, 1
+              print('grad_y',j,slice_p)
 
-        #     # # Select only useful part of vector, the actual gradient
-        #     # grad_x = grad_x[:,1:-1] #size ny, nx-1
-        #     # grad_y = grad_y[1:-1,:] #size ny-1, nx
+            # # Select only useful part of vector, the actual gradient
+            # grad_x = grad_x[:,1:-1] #size ny, nx-1
+            # grad_y = grad_y[1:-1,:] #size ny-1, nx
 
-        #     print("min(u)  {u:.2e} min(v)  {v:.2e} min(v)/volume  {p:.2e}".format(u=np.min(grad_x),v=np.min(grad_y),p=np.min(grad_y)/volume))
-        #     print("max(u)  {u:.2e} max(v)  {v:.2e} max(v)/volume  {p:.2e}".format(u=np.max(grad_x),v=np.max(grad_y),p=np.max(grad_y)/volume))
-        #     print("mean(u) {u:.2e} mean(v) {v:.2e} mean(v)/volume {p:.2e}".format(u=np.mean(grad_x),v=np.mean(grad_y),p=np.mean(grad_y)/volume))
+            print("min(u)  {u:.2e} min(v)  {v:.2e} min(v)/volume  {p:.2e}".format(u=np.min(grad_x),v=np.min(grad_y),p=np.min(grad_y)/volume))
+            print("max(u)  {u:.2e} max(v)  {v:.2e} max(v)/volume  {p:.2e}".format(u=np.max(grad_x),v=np.max(grad_y),p=np.max(grad_y)/volume))
+            print("mean(u) {u:.2e} mean(v) {v:.2e} mean(v)/volume {p:.2e}".format(u=np.mean(grad_x),v=np.mean(grad_y),p=np.mean(grad_y)/volume))
             
             
-        #     # for j in range(0,ny):
-        #     #   slice_p = grad_x[j,:] #0: end (top), ny, 1
-        #     #   print('grad_x',j,slice_p)
+            # for j in range(0,ny):
+            #   slice_p = grad_x[j,:] #0: end (top), ny, 1
+            #   print('grad_x',j,slice_p)
 
-        #     # for j in range(0,ny-1):
-        #     #   slice_p = grad_y[j,:] #0: end (top), ny, 1
-        #     #   print('grad_y',j,slice_p)
+            # for j in range(0,ny-1):
+            #   slice_p = grad_y[j,:] #0: end (top), ny, 1
+            #   print('grad_y',j,slice_p)
 
-        #     from debug_flower import vecb, vecb_B, vecb_T, vecb_L,vecb_R
-        #     print('bottom BC pressure',vecb_B(p_1D,nx,ny))
-        #     print('top    BC pressure',vecb_T(p_1D,nx,ny))
-        #     print('left   BC pressure',vecb_L(p_1D,nx,ny))
-        #     print('right  BC pressure',vecb_R(p_1D,nx,ny))
+            from debug_flower import vecb, vecb_B, vecb_T, vecb_L,vecb_R
+            print('bottom BC pressure',vecb_B(p_1D,nx,ny))
+            print('top    BC pressure',vecb_T(p_1D,nx,ny))
+            print('left   BC pressure',vecb_L(p_1D,nx,ny))
+            print('right  BC pressure',vecb_R(p_1D,nx,ny))
 
-        #     # print('vecb pressure',vecb(p_1D,nx,ny))
+            # print('vecb pressure',vecb(p_1D,nx,ny))
 
-        #     print('\033[0m')
+            print('\033[0m')
 
         print_variables:
           with: { phi_ele_1D_py: $phi_ele_1D, nx_py: $nx, ny_py: $ny, u_1D: $u_1D, v_1D: $v_1D, p_1D: $p_1D, trans_scal_1DT: $trans_scal_1DT} 
@@ -5426,6 +5784,13 @@ pdi:
       #   write: [nstep,levelset_p,normal_angle,phi_ele_1D,radius,intfc_vtx_num,intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_seg_num,intfc_vtx_connectivities]
 
 
+
+    
+
+      - file: flower_${nstep:08}.h5 
+        collision_policy: replace #write_into overwrite old file #TODO
+        on_event: write_postprocessing_rising_bubble
+        write: [center_of_mass_x,center_of_mass_y,rise_velocity_y,circularity]
     
       - file: flower_${nstep:08}.h5 
         collision_policy: replace #write_into overwrite old file #TODO

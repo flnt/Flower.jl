@@ -28,7 +28,7 @@ import Base.reshape
 @reexport using StaticArrays
 @reexport using OffsetArrays
 @reexport using Roots
-@reexport using SpecialFunctions
+# @reexport using SpecialFunctions
 @reexport using GeometryBasics
 @reexport using GeoInterface
 
@@ -56,7 +56,7 @@ import Base.reshape
 # @reexport using ConvergenceHistory #for reserve!
 
 @reexport using Statistics #for mean
-@reexport using MPI
+# @reexport using MPI
 
 # @reexport using MUMPS
 @reexport import MUMPS

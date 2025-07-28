@@ -195,7 +195,7 @@ for timestep in timesteps
 
         # # print("\n test juliac")
 
-        print("\nmu1 mu2 ",phys.mu1," ",typeof(phys.mu1)," ",phys.mu2," ",typeof(phys.mu2))
+        # print("\n mu1 mu2 ",phys.mu1," ",typeof(phys.mu1)," ",phys.mu2," ",typeof(phys.mu2))
 
         @debug "Before Numerical"
         global num = Numerical(
