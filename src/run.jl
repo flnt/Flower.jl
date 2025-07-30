@@ -1079,7 +1079,7 @@ function run_forward!(
     num.current_i = 0
 
     interpolate_grid_liquid!(grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
-    
+    nstep = 0
     PDI_status = @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
         "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
         "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
@@ -2504,7 +2504,7 @@ function run_forward!(
                         #TODO
                         update_free_surface_velocity(num, grid_u, grid_v, 1, phL.uD, phL.vD, periodic_x, periodic_y)
 
-                        display(grid_v.V)
+                        # display(grid_v.V)
 
                         # "write_"
 
@@ -2514,9 +2514,9 @@ function run_forward!(
                         field_extension!(grid_u, grid_u.LS[1].u, grid_u.V, i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext, num.NB, periodic_x, periodic_y)
                         field_extension!(grid_v, grid_v.LS[1].u, grid_v.V, i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext, num.NB, periodic_x, periodic_y)
                         
-                        printstyled(color=:magenta, @sprintf "\n extended")
+                        # printstyled(color=:magenta, @sprintf "\n extended")
 
-                        display(grid_v.V)
+                        # display(grid_v.V)
 
 
 
@@ -2684,6 +2684,30 @@ function run_forward!(
             end
         end
 
+        PDI_status = @ccall "libpdi".PDI_multi_expose("write_after_advection"::Cstring,
+        "nstep"::Cstring, nstep ::Ref{Clonglong}, PDI_OUT::Cint,
+        "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+        # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "levelset_p"::Cstring, grid_p.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "levelset_p_wall"::Cstring, LStable::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+        # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+        # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+        # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+        # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+        # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+        # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+        # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
+        # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
 
         # if levelset && (advection || num.current_i<2 || electrolysis_advection)
         if levelset && (advection || num.current_i<2)
@@ -2693,6 +2717,7 @@ function run_forward!(
                 println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
                 printstyled(color=:red, @sprintf "\n grid_p.LS not updated \n")
                 print(errorLS)
+                print(errorLS.task.exception)
                 return
             end
             # printstyled(color=:red, @sprintf "\n levelset 4:\n")

@@ -1,7 +1,7 @@
-@inline SOUTH_face(itp, p=Point(0.0,-0.5), dx=1.0, dx2=2.0, dy2=2.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), maxevals = 10, atol = 1e-9) * dx2
-@inline WEST_face(itp, p=Point(-0.5,0.0), dy=1.0, dx2=2.0, dy2=2.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x/dx2, y), (-dy/2+p.y,dy/2+p.y)./dy2, FalsePosition(), maxevals = 10, atol = 1e-9) * dy2
-@inline NORTH_face(itp, p=Point(0.0,0.5), dx=1.0, dx2=2.0, dy2=2.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), maxevals = 10, atol = 1e-9) * dx2
-@inline EAST_face(itp, p=Point(0.5,0.0), dy=1.0, dx2=2.0, dy2=2.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x/dx2, y), (-dy/2+p.y,dy/2+p.y)./dy2, FalsePosition(), maxevals = 10, atol = 1e-9) * dy2
+# @inline SOUTH_face(num,itp, p=Point(0.0,-0.5), dx=1.0, dx2=2.0, dy2=2.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), maxevals = 10, atol = num.epsilon_marching_squares) * dx2
+# @inline WEST_face(num,itp, p=Point(-0.5,0.0), dy=1.0, dx2=2.0, dy2=2.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x/dx2, y), (-dy/2+p.y,dy/2+p.y)./dy2, FalsePosition(), maxevals = 10, atol = num.epsilon_marching_squares) * dy2
+# @inline NORTH_face(num,itp, p=Point(0.0,0.5), dx=1.0, dx2=2.0, dy2=2.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), maxevals = 10, atol = num.epsilon_marching_squares) * dx2
+# @inline EAST_face(num,itp, p=Point(0.5,0.0), dy=1.0, dx2=2.0, dy2=2.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x/dx2, y), (-dy/2+p.y,dy/2+p.y)./dy2, FalsePosition(), maxevals = 10, atol = num.epsilon_marching_squares) * dy2
 
 @inline WE(g, LS, II, l_face, s_face, per) = ismixed(LS.iso[δx⁻(II, g.nx, per)]) ? 0.5*(LS.faces[II,1] + LS.faces[δx⁻(II, g.nx, per), 3]) : (is_liquid(LS.iso[δx⁻(II, g.nx, per)]) ? l_face : s_face)
 @inline WE_border(g, LS, II, l_face, s_face, per) = LS.faces[II,1]
@@ -1356,7 +1356,7 @@ marching marching_squares
 
 2.3.2.4 Marching squares algorithm in rodriguezNumericalMethodsModeling2024
 """
-function _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, near_interface)
+function _marching_squares!(num,grid, LS, u, periodic_x, periodic_y, II, II_0, near_interface)
     @unpack x, y, nx, ny, dx, dy, ind = grid
     @unpack iso, faces, geoS, geoL, mid_point, α = LS
 
@@ -1391,7 +1391,7 @@ function _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, near_
             ISO = isovalue(vertices)
 
             if is_not_mixed(ISO) @goto notmixed end
-            face_capacities(grid, faces, itp, ISO, II_0, II, posW, posS, posE, posN)
+            face_capacities(num,grid, faces, itp, ISO, II_0, II, posW, posS, posE, posN)
 
         end
         if ISO == -1
@@ -2525,29 +2525,131 @@ function Wcapacities!(cap, periodic_x, periodic_y)
     return nothing
 end
 
-function face_capacities(grid, faces, itp, case, II_0, II, posW, posS, posE, posN)
-    @unpack nx, ny, dx, dy = grid
 
-    if case == 1.0 || case == 14.0
-        faces[II, 1] = ispositive(WEST_face(itp, posW, dy[II], dx[II_0], dy[II_0])) / dy[II]
-        faces[II, 2] = ispositive(SOUTH_face(itp, posS, dx[II], dx[II_0], dy[II_0])) / dx[II]
-    elseif case == 2.0 || case == 13.0
-        faces[II, 2] = ispositive(SOUTH_face(itp, posS, dx[II], dx[II_0], dy[II_0])) / dx[II]
-        faces[II, 3] = ispositive(EAST_face(itp, posE, dy[II], dx[II_0], dy[II_0])) / dy[II]
-    elseif case == 3.0 || case == 12.0
-        faces[II, 1] = ispositive(WEST_face(itp, posW, dy[II], dx[II_0], dy[II_0])) / dy[II]
-        faces[II, 3] = ispositive(EAST_face(itp, posE, dy[II], dx[II_0], dy[II_0])) / dy[II]
-    elseif case == 4.0 || case == 11.0
-        faces[II, 3] = ispositive(EAST_face(itp, posE, dy[II], dx[II_0], dy[II_0])) / dy[II]
-        faces[II, 4] = ispositive(NORTH_face(itp, posN, dx[II], dx[II_0], dy[II_0])) / dx[II]
-    elseif case == 6.0 || case == 9.0
-        faces[II, 2] = ispositive(SOUTH_face(itp, posS, dx[II], dx[II_0], dy[II_0])) / dx[II]
-        faces[II, 4] = ispositive(NORTH_face(itp, posN, dx[II], dx[II_0], dy[II_0])) / dx[II]
-    elseif case == 7.0 || case == 8.0
-        faces[II, 1] = ispositive(WEST_face(itp, posW, dy[II], dx[II_0], dy[II_0])) / dy[II]
-        faces[II, 4] = ispositive(NORTH_face(itp, posN, dx[II], dx[II_0], dy[II_0])) / dx[II]
+"""
+From Fullana 
+
+"
+
+1. The values of the corners of a cell, characterized by these 4 cardinal positions (south-west, south-east, north-east, north-west),
+ are computed using a biquadratic interpolation.  
+
+2. Given the signs of the corners, the unique isovalue of the cell is computed by the formula  iso = SW +2 SE +4 NE +8 NW . (3.14)  
+
+3. Depending on the isovalue (case), the intersection points are located re-using the bi-quadratic interpolation.  
+To determine the values of the corners, we perform a bi-quadratic interpolation on the 3 × 3 stencil centered on the cell of interest. 
+For this exercise, we assume a constant spacing of the Cartesian grid in all dimensions.
+
+"
+
+"""
+function face_capacities(num,grid, faces, itp, case, II_0, II, posW, posS, posE, posN)
+    @unpack nx, ny, dx, dy = grid
+    try
+        if case == 1.0 || case == 14.0
+            faces[II, 1] = ispositive(WEST_face(num,itp, posW, dy[II], dx[II_0], dy[II_0])) / dy[II]
+            faces[II, 2] = ispositive(SOUTH_face(num,itp, posS, dx[II], dx[II_0], dy[II_0])) / dx[II]
+        elseif case == 2.0 || case == 13.0
+            faces[II, 2] = ispositive(SOUTH_face(num,itp, posS, dx[II], dx[II_0], dy[II_0])) / dx[II]
+            faces[II, 3] = ispositive(EAST_face(num,itp, posE, dy[II], dx[II_0], dy[II_0])) / dy[II]
+        elseif case == 3.0 || case == 12.0
+            faces[II, 1] = ispositive(WEST_face(num,itp, posW, dy[II], dx[II_0], dy[II_0])) / dy[II]
+            faces[II, 3] = ispositive(EAST_face(num,itp, posE, dy[II], dx[II_0], dy[II_0])) / dy[II]
+        elseif case == 4.0 || case == 11.0
+            faces[II, 3] = ispositive(EAST_face(num,itp, posE, dy[II], dx[II_0], dy[II_0])) / dy[II]
+            faces[II, 4] = ispositive(NORTH_face(num,itp, posN, dx[II], dx[II_0], dy[II_0])) / dx[II]
+        elseif case == 6.0 || case == 9.0
+            faces[II, 2] = ispositive(SOUTH_face(num,itp, posS, dx[II], dx[II_0], dy[II_0])) / dx[II]
+            faces[II, 4] = ispositive(NORTH_face(num,itp, posN, dx[II], dx[II_0], dy[II_0])) / dx[II]
+        elseif case == 7.0 || case == 8.0
+            faces[II, 1] = ispositive(WEST_face(num,itp, posW, dy[II], dx[II_0], dy[II_0])) / dy[II]
+            faces[II, 4] = ispositive(NORTH_face(num,itp, posN, dx[II], dx[II_0], dy[II_0])) / dx[II]
+        end
+    catch errorLS
+        printstyled(color=:red, @sprintf "\n error face_capacities ")
+        print("\n check face ",itp," ", case," ", II_0," ", II, " ",posW," ", posS," ", posE," ", posN," ",dx[II]," ",dy[II])
+        EAST_face_debug()
+        printstyled(color=:red, @sprintf "\n error face_capacities ")
+        # print(errorLS)
+        print(errorLS.task.exception)
+
     end
+
 end
+
+"""
+debug when root finfing error
+"""
+function EAST_face(num,itp, p=Point(0.5,0.0), dy=1.0, dx2=2.0, dy2=2.0) 
+    try
+        find_zero_res = find_zero(y -> biquadratic(itp, p.x/dx2, y),
+                                (-dy/2+p.y,dy/2+p.y)./dy2, 
+                                FalsePosition(), 
+                                maxevals = 10, 
+                                atol = num.epsilon_marching_squares,
+                                ) 
+    catch
+        find_zero_res = find_zero(y -> biquadratic(itp, p.x/dx2, y),
+                                (-dy/2+p.y,dy/2+p.y)./dy2, 
+                                FalsePosition(), 
+                                maxevals = 10, 
+                                atol = num.epsilon_marching_squares,
+                                verbose=True,
+                                ) 
+    end
+
+    result = dy/2 - p.y + find_zero_res * dy2
+
+    return result
+end
+
+function WEST_face(num,itp, p=Point(-0.5,0.0), dy=1.0, dx2=2.0, dy2=2.0)
+    try
+        find_zero_res = find_zero(y -> biquadratic(itp, p.x/dx2, y), (-dy/2+p.y,dy/2+p.y)./dy2, FalsePosition(), 
+        maxevals = 10, atol = num.epsilon_marching_squares)
+    catch
+        find_zero_res = find_zero(y -> biquadratic(itp, p.x/dx2, y), (-dy/2+p.y,dy/2+p.y)./dy2, FalsePosition(), 
+        maxevals = 10, atol = num.epsilon_marching_squares,
+        verbose=True)
+    end
+    result= dy/2 - p.y + find_zero_res * dy2
+    return result
+end
+
+function SOUTH_face(num,itp, p=Point(0.0,-0.5), dx=1.0, dx2=2.0, dy2=2.0)
+    try
+        find_zero_res = find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), 
+        maxevals = 10, atol = num.epsilon_marching_squares)
+    catch
+        find_zero_res = find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), 
+        maxevals = 10, atol = num.epsilon_marching_squares,
+        verbose=True)
+    end
+
+    result = dx/2 - p.x + find_zero_res * dx2
+    return result
+end
+
+function NORTH_face(num,itp, p=Point(0.0,0.5), dx=1.0, dx2=2.0, dy2=2.0) 
+    try
+        find_zero_res = find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), maxevals = 10, atol = num.epsilon_marching_squares)
+    catch
+        find_zero_res = find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), 
+        maxevals = 10, atol = num.epsilon_marching_squares,
+        verbose=True)
+    end
+    result = dx/2 - p.x + find_zero_res * dx2
+    return result
+end
+
+
+# @inline SOUTH_face(num,itp, p=Point(0.0,-0.5), dx=1.0, dx2=2.0, dy2=2.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), maxevals = 10, atol = num.epsilon_marching_squares) * dx2
+# @inline WEST_face(num,itp, p=Point(-0.5,0.0), dy=1.0, dx2=2.0, dy2=2.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x/dx2, y), (-dy/2+p.y,dy/2+p.y)./dy2, FalsePosition(), maxevals = 10, atol = num.epsilon_marching_squares) * dy2
+# @inline NORTH_face(num,itp, p=Point(0.0,0.5), dx=1.0, dx2=2.0, dy2=2.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), maxevals = 10, atol = num.epsilon_marching_squares) * dx2
+# @inline EAST_face(num,itp, p=Point(0.5,0.0), dy=1.0, dx2=2.0, dy2=2.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x/dx2, y), (-dy/2+p.y,dy/2+p.y)./dy2, FalsePosition(), maxevals = 10, atol = num.epsilon_marching_squares) * dy2
+
+
+
 
 function average_face_capacities(grid, LS, iso, II, per_x, per_y)
     @unpack nx, ny, ind = grid

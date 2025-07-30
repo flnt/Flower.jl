@@ -847,7 +847,8 @@ def plot_convergence_func(
    
 
    for i,file_name in enumerate(h5_files):
-      yml['study']['iter'] = i
+      # yml['study']['iter'] = i
+      figpar['iter'] = i
       if 'macro_data' in figpar.keys():
          print(colored('macro_data','red'))
          # exec(figpar['macro_data'])
@@ -1706,11 +1707,13 @@ def plot_time(
       
          print(colored('macro_data','red'))
          exec(figpar['macro_data'])
+         varx = []
+         slice_1D = []
          varx = varx_2
          slice_1D = vary_2
 
-         print('varx',varx)
-         print('slice_1D',slice_1D)
+         # print('varx',varx)
+         # print('slice_1D',slice_1D)
 
    
       else:
@@ -1771,7 +1774,7 @@ def plot_time(
       #endregion get data
 
 
-      print('data',slice_1D)
+      # print('data',slice_1D)
       try:
          print('len data',len(slice_1D))
       except:
@@ -1800,10 +1803,10 @@ def plot_time(
       # print('varx',varx,len(varx))
       # print('slice_1D',slice_1D,len(slice_1D))
 
-      print('mesh number',yml['study']['iter'])
+      # print('mesh number',yml['study']['iter'])
 
 
-      if 'macro_ref' in figpar.keys() and yml['study']['iter'] == 0:
+      if 'macro_ref' in figpar.keys() and figpar['iter'] == 0:
          print('macro_ref')
          exec(figpar['macro_ref'])
 
@@ -1825,7 +1828,7 @@ def plot_time(
          # print('y_1D',y_1D*scale_x)
       
    
-      if 'plot_ref' in figpar.keys() and yml['study']['iter'] == 0:
+      if 'plot_ref' in figpar.keys() and figpar['iter'] == 0:
          print('plotting ref')
          ref = eval(figpar['plot_ref'])
          # print('ref',ref)
@@ -1845,7 +1848,8 @@ def plot_time(
          print('y_1D',y_1D)
          print('y_1D',y_1D*scale_x)
 
-
+      color1 = colors[(figpar['iter'])%len(colors)]
+      ls1=ls
       if 'macro' in figpar.keys():
          # X = varx
          # print(X)
@@ -1859,7 +1863,8 @@ def plot_time(
          
          # label1 = local_context['label1']
          label1 = label2
-
+         color1=color2
+         ls1=ls2
    
       #    print(label1)
       # print(label2)
@@ -1872,10 +1877,10 @@ def plot_time(
                      #  s=10,
                      #  marker='+',
          #  colors[i+1], #color wrt variable
-         color=colors[(yml['study']['iter'])%len(colors)],
+         color=color1,
          # cmap=cmap,
          label=label1,
-         # ls=ls, #creates bug
+         ls=ls1, #creates bug
          lw=lw)
 
          figpar['error_list'].append(slice_1D)
@@ -1886,10 +1891,12 @@ def plot_time(
       else:
          p1, = ax20.plot(varx, slice_1D, 
          #  colors[i+1], #color wrt variable
-         colors[(yml['study']['iter'])%len(colors)],
+         color1,
          # cmap=cmap,
-         label=label1,ls=ls,lw=lw)
+         label=label1,ls=ls1,lw=lw)
 
+      # print(colored(color1,'red'))
+      # print(slice_1D)
       # ax20.set(
       # # xlim=(0, 2),
       # # ylim=(0, 2),
@@ -2198,7 +2205,7 @@ def plot_1D(
       #    varx = varx_2
       #    slice_1D = vary_2
 
-      print('data',slice_1D)
+      # print('data',slice_1D)
       try:
          print('len data',len(slice_1D))
       except:

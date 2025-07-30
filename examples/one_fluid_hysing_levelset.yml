@@ -15,7 +15,7 @@ flower:
     diffusion_coeff_KOH: &diffusion_coeff_KOH 3.2e-9
     diffusion_coeff_H2O: &diffusion_coeff_H2O 3.2e-9
     diffusion_coeff: [*diffusion_coeff_H2, *diffusion_coeff_KOH, *diffusion_coeff_H2O]
-    end_time: 6.0 #3.0 #7.3 #s
+    end_time: 3.0 #7.3 #s
     Faraday: &Faraday 9.64853321233100184e4 #C⋅mol−1
     Henry_H2: &Henry_H2 1
     Henry_KOH: &Henry_KOH 0
@@ -29,8 +29,11 @@ flower:
     mu1: 10.0 #0.0 #6.7e-7*1258.0
     mu2: 1.0 #0.0
 
-    # mu1: 1.0 #0.0 #6.7e-7*1258.0
-    # mu2: 1.0 #0.0
+    # mu1: 5.0 #10.0 #0.0 #6.7e-7*1258.0
+    # mu2: 5.0e-1 #1.0 #0.0
+
+    # mu1: 0.0 
+    # mu2: 0.0
 
     mu_cin1: &mu_cin1 6.7e-7
     mu_cin2: &mu_cin2 6.7e-7 #m^2/s
@@ -53,7 +56,7 @@ flower:
     # 7.02E-02 6.82E-02 -0.00194999999999999 A -0.000194999999999999 0.069575 0.07016 0.06821
     radial_vel_factor: 1.0e-7
     Ru: &Ru 8.314
-    sigma: 2.45e+1 #7.7e-2 #0.0 # 
+    sigma: 2.45e+1 #2.45e+1 #7.7e-2 #0.0 # 
     temperature0: &temperature0 353.0
     theta_e: 30 #145 #90  
     theta_adv: 120
@@ -106,6 +109,7 @@ flower:
     phase_change_method: 1
     # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
     # electrolysis_phase_change_case: "levelset" # local
+    epsilon_marching_squares: 1.0e-9
     eps: 1.0e-12 #1.0e-30 #eps for small numbers
     epsilon: 0.05 #0.2 #0.0 #0.05 #0.2 #cut small cells
     epsilon_wall: 0.05 #0.2 #0.0 #0.05 #0.2
@@ -122,7 +126,7 @@ flower:
     imposed_velocity : "none" #"zero" #"none" #"zero" #"none"
     index_phase_change: 1
     index_electrolyte: 2
-    max_iter: 200 #10 #60 #1 #60 #1 #60 #maximum number of iterations
+    max_iter: 200 #20 #60 #1 #60 #1 #60 #maximum number of iterations
     average_velocity: 1 #0
     laplacian: 0 #1 #1 #1 #multiply by 4/3
     mass_flux: 2 #1 #Johansen & Colella
@@ -138,11 +142,11 @@ flower:
     one_fluid_model: 1
     one_fluid_normal: 1
     surface_tension: 1 # 0 for CSF from VOF, 1 for LS
-    mu_one_fluid_average: 0
+    mu_one_fluid_average: 1 #0 : arithmetic #1 harmonic
     smooth_VOF: 2
     periodic_x: 0
     periodic_y: 0
-    prediction: PmIIimposedpressure # PmIII 
+    prediction: PmIIimposedpressure_nodiv_2 # testpressure #PmIIimposedpressure_nodiv_2 #PmIIimposedpressure # PmIII 
     #PmIIimposedpressureBCincrement #0 #4 #0 #pressure-velocity coupling
     # prediction = 0
     # prediction = 1
@@ -152,8 +156,8 @@ flower:
     pressure_velocity_coupling: 0 #3 #1 # 0: projection, 1: coupled
     pressure_velocity_solver: 0 #direct 1 #BICGSTAB(2)
     solve_solid: 0 #0 do not solve in solid
-    reinit_every: 0 #3 # period of levelset reinialization
-    levelset_reinitialize: -1 #do not reinit
+    reinit_every: 3 #0 #3 # period of levelset reinialization
+    levelset_reinitialize: 0 #do not reinit
     restart: 0 #TODO restart with PDI
     show_every: 1
     scalar_bc: 0 #1 for multiple LS (describing wall) #0 for one LS
@@ -518,9 +522,9 @@ study:
   #tolerance for tests
   test_tolerance: 1.e-11 #1.e-14
   test_tolerance_solution_absolute:  1.e-1 # from n = 16 
-  meshes:  [40] #[40] #[16] #  [32] #   [128] #[64] #[128] #[32] #[32,64,128] #[32,64,128,256]
+  meshes:  [40] #[64] #[80] #[40] #[40] #[16] #  [32] #   [128] #[64] #[128] #[32] #[32,64,128] #[32,64,128,256]
   compute_errors: None
-  timesteps: [5e-2] #[1e-3] #[1e-4]
+  timesteps: [1e-3] #[5e-3] #[1e-2] #[5e-2] #[5e-3] # #[1e-3] #[1e-4]
 
 
 plot: #default parameters for plots
@@ -591,7 +595,7 @@ plot: #default parameters for plots
   isocontour: False
   levels: 10
   # mesh_macro: |
-  #   global x_1D_2, y_1D_2
+  #   global x_1D_2, y_1D_2,key_LS_2
   #   x_1D_2 = xp
   #   y_1D_2 = yv
   plot_bc: True
@@ -618,11 +622,24 @@ plot: #default parameters for plots
   color_annot_bc: w
   color_annot_bulk: w
   linestyles: ['(0, (3, 6))' ]
-  macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+  # macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 
+  #                   'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+  macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+"it"+"_"+str(nstep)+"_"+plotpar["theme"]+ ".pdf"', 
+                    'file_name+"_"+str(mesh["nx"])+"_"+"it"+"_"+str(nstep)+"_"+plotpar["theme"]+".svg"']
 
+  ticks_format: '%.2e'
 
     
   figures:
+
+      - var: levelset_p
+        file: levelset_p
+      #   figsize: None
+      #   aspect_box: 'box'
+      #   aspect_ratio: 'equal'
+        cbarlabel: Levelset p
+      #   fontsize: 4
+      #   isocontour: False
 
       - var: rhs_uv_v
         # func: plot_python_pdf_full2
@@ -677,7 +694,7 @@ plot: #default parameters for plots
         # isocontour: False
         # levels: 10
         mesh_macro: |
-          global x_1D_2, y_1D_2
+          global x_1D_2, y_1D_2,key_LS_2
           x_1D_2 = xp
           y_1D_2 = yv
         # plot_bc: True
@@ -717,9 +734,10 @@ plot: #default parameters for plots
         isocontour: False
         levels: 10
         mesh_macro: |
-          global x_1D_2, y_1D_2
+          global x_1D_2, y_1D_2,key_LS_2
           x_1D_2 = xu
           y_1D_2 = yp
+          key_LS_2 = 'levelset_u'
         plot_bc: True
         plot_grid: True
         plot_levelset: True
@@ -757,7 +775,7 @@ plot: #default parameters for plots
         isocontour: False
         levels: 10
         # mesh_macro: |
-        #   global x_1D_2, y_1D_2
+        #   global x_1D_2, y_1D_2,key_LS_2
         #   x_1D_2 = range(data.shape[0])
         #   y_1D_2 = range(data.shape[1])
         plot_bc: True
@@ -837,7 +855,7 @@ plot: #default parameters for plots
       #   isocontour: False
       #   levels: 10
       #   mesh_macro: |
-      #     global x_1D_2, y_1D_2
+      #     global x_1D_2, y_1D_2,key_LS_2
       #     dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
       
       #     xp = np.zeros(mesh['nx'])
@@ -892,9 +910,10 @@ plot: #default parameters for plots
         isocontour: False
         levels: 10
         mesh_macro: |
-          global x_1D_2, y_1D_2
+          global x_1D_2, y_1D_2,key_LS_2
           x_1D_2 = xu
           y_1D_2 = yp
+          key_LS_2 = 'levelset_u'
         plot_bc: True
         plot_grid: True
         plot_levelset: True
@@ -933,9 +952,11 @@ plot: #default parameters for plots
         isocontour: False
         levels: 10
         mesh_macro: |
-          global x_1D_2, y_1D_2
+          global x_1D_2, y_1D_2,key_LS_2
           x_1D_2 = xp
           y_1D_2 = yv
+          key_LS_2 = 'levelset_v'
+
         plot_bc: True
         plot_grid: True
         plot_levelset: True
@@ -974,7 +995,7 @@ plot: #default parameters for plots
         isocontour: False
         levels: 10
         # mesh_macro: |
-        #   global x_1D_2, y_1D_2
+        #   global x_1D_2, y_1D_2,key_LS_2
         #   x_1D_2 = range(data.shape[0])
         #   y_1D_2 = range(data.shape[1])
         plot_bc: True
@@ -1014,7 +1035,7 @@ plot: #default parameters for plots
         isocontour: False
         levels: 10
         # mesh_macro: |
-        #   global x_1D_2, y_1D_2
+        #   global x_1D_2, y_1D_2,key_LS_2
         #   x_1D_2 = range(data.shape[0])
         #   y_1D_2 = range(data.shape[1])
         plot_bc: True
@@ -1054,7 +1075,7 @@ plot: #default parameters for plots
         isocontour: False
         levels: 10
         # mesh_macro: |
-        #   global x_1D_2, y_1D_2
+        #   global x_1D_2, y_1D_2,key_LS_2
         #   x_1D_2 = range(data.shape[0])
         #   y_1D_2 = range(data.shape[1])
         plot_bc: True
@@ -1094,7 +1115,7 @@ plot: #default parameters for plots
       #   isocontour: False
       #   levels: 10
       #   # mesh_macro: |
-      #   #   global x_1D_2, y_1D_2
+      #   #   global x_1D_2, y_1D_2,key_LS_2
       #   #   x_1D_2 = range(data.shape[0])
       #   #   y_1D_2 = range(data.shape[1])
       #   plot_bc: True
@@ -1136,7 +1157,7 @@ plot: #default parameters for plots
         isocontour: False
         levels: 10
         # mesh_macro: |
-        #   global x_1D_2, y_1D_2
+        #   global x_1D_2, y_1D_2,key_LS_2
         #   x_1D_2 = range(data.shape[0])
         #   y_1D_2 = range(data.shape[1])
         plot_bc: True
@@ -1176,7 +1197,7 @@ plot: #default parameters for plots
         isocontour: False
         levels: 10
         mesh_macro: |
-          global x_1D_2, y_1D_2
+          global x_1D_2, y_1D_2,key_LS_2
           dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
       
           xp = np.zeros(mesh['nx'])
@@ -1236,7 +1257,7 @@ plot: #default parameters for plots
           ny_2 = data.shape[1]-1
 
         mesh_macro: |
-          global x_1D_2, y_1D_2
+          global x_1D_2, y_1D_2,key_LS_2
 
           x_1D_2 = xu
           y_1D_2 = yv
@@ -1285,7 +1306,7 @@ plot: #default parameters for plots
           nx_2 = data.shape[0]-2
           ny_2 = data.shape[1]
         mesh_macro: |
-          global x_1D_2, y_1D_2
+          global x_1D_2, y_1D_2,key_LS_2
           
           dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
           # print('dx',dx)
@@ -1349,7 +1370,7 @@ plot: #default parameters for plots
         levels: 10
         show_nodes: True
         mesh_macro: |
-          global x_1D_2, y_1D_2
+          global x_1D_2, y_1D_2,key_LS_2
           dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
         
           xp = np.zeros(mesh['nx'])
@@ -1425,7 +1446,7 @@ plot: #default parameters for plots
         levels: 10
         show_nodes: True
         mesh_macro: |
-          global x_1D_2, y_1D_2         
+          global x_1D_2, y_1D_2,key_LS_2         
           x_1D_2 = xu
           y_1D_2 = yv      
           print('x_1D_2', x_1D_2)
@@ -2348,34 +2369,85 @@ plot: #default parameters for plots
   films:
 
 
-      - var: i_current_x
-        file: current_lines
-        func: plot_current_lines
-        cbarlabel: Electrical potential
-      #   ax_locator_x: [0,0.5,1]
-      #   ax_locator_y: [0,0.5,1]
-      #   img_format: mp4
-      #   isocontour: #True
-      #   levels: 10 #10
-      #   range: np.linspace(-1.5e-4,0,11)
-      #   plot_bc: True
-      #   plot_grid: True
-      #   plot_levelset: True
-      #   plot_levelset_segments: False
-      #   plot_mode: contourf
-      #   # range: [0,1e-4]
+      - var: conv_y
+        # func: plot_python_pdf_full2
+        file: conv_y
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        cbarlabel: conv_y
+        mesh_macro: |
+          global x_1D_2, y_1D_2,key_LS_2
+          x_1D_2 = xp
+          y_1D_2 = yv
+          key_LS_2 = 'levelset_v'
+        # range: 'np.linspace(-1000,0,11)' #'[0,3e-4]'
+        # plot_mode: contourf
+
+      # - var: grav_y
+      #   # func: plot_python_pdf_full2
+      #   file: grav_y
+      #   macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+      #   cbarlabel: grav_y
+      #   mesh_macro: |
+      #     global x_1D_2, y_1D_2,key_LS_2
+      #     x_1D_2 = xp
+      #     y_1D_2 = yv
+      #     key_LS_2 = 'levelset_v'
+      #   # range: 'np.linspace(-1000,0,11)' #'[0,3e-4]'
+      #   # plot_mode: contourf
+
+      - var: grad_pres_y
+        # func: plot_python_pdf_full2
+        file: grad_pres_y
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        cbarlabel: grad_pres_y
+        mesh_macro: |
+          global x_1D_2, y_1D_2,key_LS_2
+          x_1D_2 = xp
+          y_1D_2 = yv
+          key_LS_2 = 'levelset_v'
+        range: 'np.linspace(-1000,0,11)' #'[0,3e-4]'
+        plot_mode: contourf
+
+      - var: rhs_uv_v
+        # func: plot_python_pdf_full2
+        file: rhs_uv_v
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        cbarlabel: rhs_uv_v
+        mesh_macro: |
+          global x_1D_2, y_1D_2,key_LS_2
+          x_1D_2 = xp
+          y_1D_2 = yv
+          key_LS_2 = 'levelset_v'
+        range: 'np.linspace(-0.00001,3e-4,10)' #'[0,3e-4]'
+        plot_mode: contourf
+      # - var: i_current_x
+      #   file: current_lines
+      #   func: plot_current_lines
+      #   cbarlabel: Electrical potential
+      # #   ax_locator_x: [0,0.5,1]
+      # #   ax_locator_y: [0,0.5,1]
+      # #   img_format: mp4
+      # #   isocontour: #True
+      # #   levels: 10 #10
+      # #   range: np.linspace(-1.5e-4,0,11)
+      # #   plot_bc: True
+      # #   plot_grid: True
+      # #   plot_levelset: True
+      # #   plot_levelset_segments: False
+      # #   plot_mode: contourf
+      # #   # 
       #   ticks_format: '%.2e'
-      #   xlim: [0,1]
-      #   ylim: [0,2]
-      #   linewidth: 1
-      #   linestyle: 'dotted'
-      #   zoom_mode: None
-      #   #For current lines
-      #   density: '[0.5,0.5]'
-      #   streamplot_cbarlabel: "$ \\text{Current magnitude} ~ \\rightarrow$"
-      #   streamplot_color: mag
-      #   streamplot_mutation_scale: 5 #1 very small, 10 default?
-      #   streamplot_lw: 0.25
+      # #   xlim: [0,1]
+      # #   ylim: [0,2]
+      # #   linewidth: 1
+      # #   linestyle: 'dotted'
+      # #   zoom_mode: None
+      # #   #For current lines
+      # #   density: '[0.5,0.5]'
+      # #   streamplot_cbarlabel: "$ \\text{Current magnitude} ~ \\rightarrow$"
+      # #   streamplot_color: mag
+      # #   streamplot_mutation_scale: 5 #1 very small, 10 default?
+      # #   streamplot_lw: 0.25
 
       - var: p_1D
         # func: plot_python_pdf_full2
@@ -2484,67 +2556,67 @@ plot: #default parameters for plots
         linewidth: 1
         linestyle: None
 
-      - var: rho_one_fluid_v
-        # func: plot_python_pdf_full2
-        img_format: mp4
-        file: rho_one_fluid_v
-        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
-        figsize: None
-        aspect_box: 'box'
-        aspect_ratio: 'equal'
-        cbarlabel: rho_one_fluid_v
-        fontsize: 4
-        isocontour: False
-        levels: 10
-        mesh_macro: |
-          global x_1D_2, y_1D_2,key_LS_2
-          x_1D_2 = xp
-          y_1D_2 = yv
-          key_LS_2 = 'levelset_v'
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: True
-        plot_levelset_segments: #True 
-        # plot_normal: True
-        plot_normal_macro: |
-          normal_x
-        quiver_scale: 10
-        # skip_every: 
-        plot_mode: pcolormesh #contourf
-        print_mode: "val"
-        range: [0,1e-4]
-        xlim: [0,1]
-        ylim: [0,2]
-        # zoom: [[0,5],[0,5]]
-        # zoom_mode: index
-        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        # zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        # zoom_mode: coord
-        color_annot_bc: w
-        color_annot_bulk: w
-        linewidth: 1
-        linestyle: None
+      # - var: rho_one_fluid_v
+      #   # func: plot_python_pdf_full2
+      #   img_format: mp4
+      #   file: rho_one_fluid_v
+      #   macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+      #   figsize: None
+      #   aspect_box: 'box'
+      #   aspect_ratio: 'equal'
+      #   cbarlabel: rho_one_fluid_v
+      #   fontsize: 4
+      #   isocontour: False
+      #   levels: 10
+      #   mesh_macro: |
+      #     global x_1D_2, y_1D_2,key_LS_2
+      #     x_1D_2 = xp
+      #     y_1D_2 = yv
+      #     key_LS_2 = 'levelset_v'
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: True
+      #   plot_levelset_segments: #True 
+      #   # plot_normal: True
+      #   plot_normal_macro: |
+      #     normal_x
+      #   quiver_scale: 10
+      #   # skip_every: 
+      #   plot_mode: pcolormesh #contourf
+      #   print_mode: "val"
+      #   range: [0,1e-4]
+      #   xlim: [0,1]
+      #   ylim: [0,2]
+      #   # zoom: [[0,5],[0,5]]
+      #   # zoom_mode: index
+      #   # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   # zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+      #   # zoom_mode: coord
+      #   color_annot_bc: w
+      #   color_annot_bulk: w
+      #   linewidth: 1
+      #   linestyle: None
 
 
-      - var: rho_one_fluid_v
-        file: rho_one_fluid_v
-        cbarlabel: v
-        img_format: mp4
-        isocontour: False
-        levels: 10
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: True
-        plot_levelset_segments: False
-        plot_mode: contourf
-        range: [0,1e-4]
-        ticks_format: '%.2e'
-        xlim: [0,1]
-        ylim: [0,2]
-        linewidth: 1
-        linestyle: None
-        zoom_mode: None
+      # - var: rho_one_fluid_v
+      #   file: rho_one_fluid_v
+      #   cbarlabel: v
+      #   img_format: mp4
+      #   isocontour: False
+      #   levels: 10
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: True
+      #   plot_levelset_segments: False
+      #   plot_mode: contourf
+      #   range: [0,1e-4]
+      #   ticks_format: '%.2e'
+      #   xlim: [0,1]
+      #   ylim: [0,2]
+      #   linewidth: 1
+      #   linestyle: None
+      #   zoom_mode: None
 
       # - var: normal_velocity_intfc
       #   file: normal_velocity_intfc_zoom
@@ -3021,7 +3093,16 @@ plot: #default parameters for plots
 
       - var: [[time,center_of_mass_y]]
         file: center_of_mass_y
-        files: [timestep_5_0000e-02/mesh_00040/flower*.h5]
+        files: [
+                # timestep_5_0000e-02/mesh_00040/flower*.h5,
+                timestep_1_0000e-02/mesh_00040/flower*.h5,
+                timestep_5_0000e-03/mesh_00040/flower*.h5,
+                timestep_1_0000e-03/mesh_00040/flower*.h5,
+
+                # timestep_5_0000e-02/mesh_00040/flower_0000001*.h5,
+                  # timestep_5_0000e-02/mesh_00040/flower_0000000*.h5,
+                # timestep_5_0000e-03/mesh_00040/flower*.h5,
+        ]
         # files: [timestep_5_0000e-02/mesh_00040/flower_00000060.h5]
         func: plot_time #plot_1D
         labels: [["$time ( \\unit{\\s})$", "$ \\text{Center of mass y} ( \\unit{\\m})$" ]]
@@ -3030,12 +3111,22 @@ plot: #default parameters for plots
                      '(0, ())', #solid
                      '(3, (3, 6))', #"dashdot"
                      '(6, (3, 6))'] #"dotted"
+        macro: |
+          global label2,color2,ls2 
+          label2 = file[figpar['iter']]
+          # label1
+          color2 = colors[figpar['iter']]
+          print(color2)
+          print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
+          ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
+
         macro_ref: |
           global time_ref_2,val_ref_2
           file_path = '../data_bench_quantities/c1g1l4.txt'
           data = pd.read_csv(file_path, sep="\s+", header=None, names=["time", "bubble_mass_area", "circularity", "center_of_mass_y", "rise_velocity_y"])
           time_ref_2 = data['time']
           val_ref_2 = data['center_of_mass_y']
+
         macro_data: |
           global varx_2,vary_2,values
           import glob
@@ -3051,40 +3142,49 @@ plot: #default parameters for plots
             for var in var_list:
               values[var] = []
 
-          for files in h5_files:
+          # for files in h5_files:
+          files = h5_files[figpar['iter']]
 
-            files = glob.glob(files)
+          files = glob.glob(files)
 
-            files = sorted(files)
-            # print('h5_files',h5_files)
+          files = sorted(files)
+          print('h5_files',h5_files)
 
-            # print(files)
+          # print(files)
 
-            for file_name in files:
+          for file_name in files:
+        
+            with h5py.File(file_name, "r") as file:
+
+              # print(file.keys())
+              try:
+                for var_list in figpar['var']:
+                  for var in var_list:
+                    value = file[var][()]
+                    values[var].append(value)
+                    # print('var',var,value)
+              except:
+                # print('variable not saved')
+                print(colored(var+' not saved','red'))
+
+
           
-              with h5py.File(file_name, "r") as file:
-
-                # print(file.keys())
-                try:
-                  for var_list in figpar['var']:
-                    for var in var_list:
-                      value = file[var][()]
-                      values[var].append(value)
-                      print('var',var,value)
-                except:
-                  # print('variable not saved')
-                  print(colored(var+' not saved','red'))
-
-
-          
-          print(values)
+          # print(values)
           varx_2 = values[figpar['var'][0][0]]
           vary_2 = values[figpar['var'][0][1]]
 
 
       - var: [[time,rise_velocity_y]]
         file: rise_velocity_y
-        files: [timestep_5_0000e-02/mesh_00040/flower*.h5]
+        files: [
+                # timestep_5_0000e-02/mesh_00040/flower*.h5,
+                timestep_1_0000e-02/mesh_00040/flower*.h5,
+                timestep_5_0000e-03/mesh_00040/flower*.h5,
+
+                # timestep_5_0000e-02/mesh_00040/flower_0000000*.h5,
+
+                # timestep_5_0000e-03/mesh_00040/flower*.h5,
+                ]
         # files: [timestep_5_0000e-02/mesh_00040/flower_00000060.h5]
         func: plot_time #plot_1D
         labels: [["$time ( \\unit{\\s})$", "$ \\text{Rise velocity} ( \\unit{\\m/s})$" ]]
@@ -3099,6 +3199,43 @@ plot: #default parameters for plots
           data = pd.read_csv(file_path, sep="\s+", header=None, names=["time", "bubble_mass_area", "circularity", "center_of_mass_y", "rise_velocity_y"])
           time_ref_2 = data['time']
           val_ref_2 = data['rise_velocity_y']
+
+          # np.set_printoptions(edgeitems=30, linewidth=100000,
+          # formatter={'float': lambda x: format(x, '.2e')})
+
+          # acceleration = np.gradient(data['rise_velocity_y'], data['time'])
+
+          # print(colored('aceleration','red'))
+          # print('aceleration',acceleration)
+
+          # test  = [0]*len(time_ref_2)
+          # test = 0.5*time_ref_2
+          # ax20.plot(time_ref_2, test, 
+          # 'r',
+          # label='test',
+          # # ls=eval(get_value_from_dicts('linestyles',figpar,plotpar)[i+1]),
+          # lw=lw)
+
+          # dt =5e-2
+
+          # print(colored('time_ref_2','red'))
+
+          # print(time_ref_2)
+          # dt = time_ref_2[1]-time_ref_2[0]
+          # print('dt',dt)
+
+          # test2 = [0]*len(time_ref_2)
+
+          # for i in range(len(test2)-1):
+          #   test2[i+1] = test2[i] + dt*acceleration[i]
+          # ax20.plot(time_ref_2, test2, 
+          # 'green',
+          # label='test2',
+          # # ls=eval(get_value_from_dicts('linestyles',figpar,plotpar)[i+1]),
+          # lw=lw)
+
+       
+
         macro_data: |
           global varx_2,vary_2,values
           import glob
@@ -3114,37 +3251,106 @@ plot: #default parameters for plots
             for var in var_list:
               values[var] = []
 
-          for files in h5_files:
+          # for files in h5_files:
+          files = h5_files[figpar['iter']]
+          files = glob.glob(files)
 
-            files = glob.glob(files)
+          files = sorted(files)
+          # print('h5_files',h5_files)
 
-            files = sorted(files)
-            # print('h5_files',h5_files)
+          # print(files)
 
-            # print(files)
+          for file_name in files:
+        
+            with h5py.File(file_name, "r") as file:
 
-            for file_name in files:
+              # print(file.keys())
+              try:
+                for var_list in figpar['var']:
+                  for var in var_list:
+                    value = file[var][()]
+                    values[var].append(value)
+                    # print('var',var,value)
+              except:
+                # print('variable not saved')
+                print(colored(var+' not saved','red'))
+
+
           
-              with h5py.File(file_name, "r") as file:
-
-                print(file.keys())
-                try:
-                  for var_list in figpar['var']:
-                    for var in var_list:
-                      value = file[var][()]
-                      values[var].append(value)
-                      print('var',var,value)
-                except:
-                  # print('variable not saved')
-                  print(colored(var+' not saved','red'))
-
-
-          
-          print(values)
+          # print(values)
           varx_2 = values[figpar['var'][0][0]]
           vary_2 = values[figpar['var'][0][1]]
 
 
+      - var: [[time,circularity]]
+        file: circularity
+        files: [
+                # timestep_5_0000e-02/mesh_00040/flower*.h5,
+                timestep_1_0000e-02/mesh_00040/flower*.h5,
+                timestep_5_0000e-03/mesh_00040/flower*.h5,
+
+                # timestep_5_0000e-02/mesh_00040/flower_0000000*.h5,
+                ]
+        # files: [timestep_5_0000e-02/mesh_00040/flower_00000060.h5]
+        func: plot_time #plot_1D
+        labels: [["$time ( \\unit{\\s})$", "Circularity" ]]
+        # linestyles: ['(0, (3, 6))' ]
+        linestyles: ['(0, (3, 6))',
+                     '(0, ())', #solid
+                     '(3, (3, 6))', #"dashdot"
+                     '(6, (3, 6))'] #"dotted"
+        macro_ref: |
+          global time_ref_2,val_ref_2
+          file_path = '../data_bench_quantities/c1g1l4.txt'
+          data = pd.read_csv(file_path, sep="\s+", header=None, names=["time", "bubble_mass_area", "circularity", "center_of_mass_y", "rise_velocity_y"])
+          time_ref_2 = data['time']
+          val_ref_2 = data['circularity']
+        macro_data: |
+          global varx_2,vary_2,values
+          import glob
+
+          # time_list =[]
+
+          # radius_list=[]
+
+          values = {}
+
+          for var_list in figpar['var']:
+            # print('var_list',var_list)
+            for var in var_list:
+              values[var] = []
+
+
+          # for files in h5_files:
+          files = h5_files[figpar['iter']]
+
+          files = glob.glob(files)
+
+          files = sorted(files)
+          # print('h5_files',h5_files)
+
+          # print(files)
+
+          for file_name in files:
+        
+            with h5py.File(file_name, "r") as file:
+
+              # print(file.keys())
+              try:
+                for var_list in figpar['var']:
+                  for var in var_list:
+                    value = file[var][()]
+                    values[var].append(value)
+                    # print('var',var,value)
+              except:
+                # print('variable not saved')
+                print(colored(var+' not saved','red'))
+
+
+          
+          # print(values)
+          varx_2 = values[figpar['var'][0][0]]
+          vary_2 = values[figpar['var'][0][1]]
 
 
       - var: [[x_1D,concentration_H2_1DT]]
@@ -3904,6 +4110,12 @@ pdi:
 
     grad_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     grad_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
+    
+    grad_pres_y: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
+
+    grav_y: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
+    conv_y: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
+
 
     velocity_divergence: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     normalise_velocity_divergence: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
@@ -4032,14 +4244,17 @@ pdi:
             rise_velocity_y = 0
             center_of_mass_y = 0
 
-            volume_cell = 1 - volume_cell # for gaz phase
+            # volume_cell = 1 - volume_cell # for gaz phase
 
+            # for j in range(40):
+            #   for i in range(40):
+            #     print('volume_cell',j,i,volume_cell[j,i])
 
             center_of_mass_x, center_of_mass_y = calculate_centroid(mesh_p_x, mesh_p_y, volume_cell)
 
-            print('center of mass',center_of_mass_x, center_of_mass_y)
+            # print('center of mass',center_of_mass_x, center_of_mass_y)
 
-            area = sum(volume_cell)
+            area = np.sum(volume_cell)
 
             # perimeter_bubble = sum(capa) #cf interface length
 
@@ -4052,7 +4267,15 @@ pdi:
             rise_velocity_y = calculate_rise_velocity(velocity_y, volume_cell)
 
           
-            circularity = 0
+            perimeter_bubble = np.sum( np.sqrt ( (dcap_3 - dcap_1)**2 + (dcap_4 - dcap_2)**2 ) )
+
+            # print('area',area,perimeter_bubble)
+
+            circularity = calculate_circularity(perimeter_bubble, area)
+            
+            # print('test py ',center_of_mass_y,rise_velocity_y,circularity)
+            print("center_of_mass_y {c:.2e} v {v:.2e} circ  {circ:.2e}".format(c=center_of_mass_y,v=rise_velocity_y,
+            circ=circularity))
 
             pdi.multi_expose('write_postprocessing_rising_bubble', [
                     ('nstep', nstep, pdi.OUT),
@@ -4063,15 +4286,7 @@ pdi:
                     ])
             
 
-            perimeter_bubble = sum( np.sqrt ( (dcap_3 - dcap_1)**2 + (dcap_4 - dcap_2)**2 ) )
-
-            print('area',area,perimeter_bubble)
-
-            circularity = calculate_circularity(perimeter_bubble, area)
             
-            print('test py ',center_of_mass_y,rise_velocity_y,circularity)
-            print("center_of_mass_y {c:.2e} v {v:.2e} circ  {circ:.2e}".format(c=center_of_mass_y,v=rise_velocity_y,
-            circ=circularity))
 
           
             # main_comm = MPI.COMM_WORLD
@@ -4094,6 +4309,63 @@ pdi:
             # pdi.finalize()
 
             print('\033[0m')
+
+
+
+
+
+
+        write_after_advection:
+          with:
+            nstep: $nstep
+
+          exec: |
+            print('\033[36m')
+            print('[write_after_advection]')
+
+            print('nstep',nstep)
+
+            print('\033[0m')
+
+
+        # write_data:
+        #   with:
+        #     nstep: $nstep
+
+        #   exec: |
+        #     print('\033[36m')
+        #     print('[write_data]')
+
+        #     print('nstep',nstep)
+
+        #     print('\033[0m')
+
+
+        # write_data_start_loop:
+        #   with:
+        #     nstep: $nstep
+
+        #   exec: |
+        #     print('\033[36m')
+        #     print('[write_data_start_loop]')
+
+        #     print('nstep',nstep)
+
+        #     print('\033[0m')
+
+
+        # write_one_fluid:
+        #   with:
+        #     nstep: $nstep
+        #     rho_one_fluid_v: $rho_one_fluid_v
+
+        #   exec: |
+        #     print('\033[36m')
+        #     print('[write_one_fluid]')
+
+        #     print('nstep',nstep,np.min(rho_one_fluid_v),np.max(rho_one_fluid_v))
+
+        #     print('\033[0m')
 
 
 
@@ -4551,11 +4823,11 @@ pdi:
             
             # from plot_pdi import plot_profile; plot_profile(x,slice_1D,"Poiseuille_during_projection")
 
-            ny_print_max = 1
-            # ny_print_max = ny+1
-            for j in range(0,ny_print_max):
-              slice_p = veci(v_1D,nx,ny+1,field_index)[j,:] #0: end (top), ny, 1
-              print('Slice v',j,slice_p)
+            # ny_print_max = 1
+            # # ny_print_max = ny+1
+            # for j in range(0,ny_print_max):
+            #   slice_p = veci(v_1D,nx,ny+1,field_index)[j,:] #0: end (top), ny, 1
+            #   print('Slice v',j,slice_p)
 
             mu1 = mu_cin1 * rho1
 
@@ -4597,8 +4869,8 @@ pdi:
             # print('p',p_along_y)
 
             # v
-            slice_v_exact = 4* v_inlet * xp /(xmax-xmin)*(1-xp/(xmax-xmin))
-            print('slice v exact', slice_v_exact)
+            # slice_v_exact = 4* v_inlet * xp /(xmax-xmin)*(1-xp/(xmax-xmin))
+            # print('slice v exact', slice_v_exact)
             
            
 
@@ -4655,11 +4927,11 @@ pdi:
             
             # from plot_pdi import plot_profile; plot_profile(x,slice_1D,"Poiseuille_during_projection")
 
-            ny_print_max = 1
-            # ny_print_max = ny+1
-            for j in range(0,ny_print_max):
-              slice_p = veci(v_1D,nx,ny+1,field_index)[j,:] #0: end (top), ny, 1
-              print('Slice v',j,slice_p)
+            # ny_print_max = 1
+            # # ny_print_max = ny+1
+            # for j in range(0,ny_print_max):
+            #   slice_p = veci(v_1D,nx,ny+1,field_index)[j,:] #0: end (top), ny, 1
+            #   print('Slice v',j,slice_p)
 
             mu1 = mu_cin1 * rho1
 
@@ -4700,9 +4972,9 @@ pdi:
             # p_along_y = p_bottom + (yv - ymin)*(p_top-p_bottom)/(ymax - ymin)
             # print('p',p_along_y)
 
-            # v
-            slice_v_exact = 4* v_inlet * xp /(xmax-xmin)*(1-xp/(xmax-xmin))
-            print('slice v exact', slice_v_exact)
+            # # v
+            # slice_v_exact = 4* v_inlet * xp /(xmax-xmin)*(1-xp/(xmax-xmin))
+            # print('slice v exact', slice_v_exact)
             
            
 
@@ -5788,7 +6060,7 @@ pdi:
     
 
       - file: flower_${nstep:08}.h5 
-        collision_policy: replace #write_into overwrite old file #TODO
+        collision_policy: write_into #write_into overwrite old file #TODO
         on_event: write_postprocessing_rising_bubble
         write: [center_of_mass_x,center_of_mass_y,rise_velocity_y,circularity]
     
@@ -6003,6 +6275,22 @@ pdi:
         on_event: write_rhs_uv_v
         write: [rhs_uv_v]
 
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: grad_pres_y
+        write: [grad_pres_y]
+
+        
+      # - file: flower_${nstep:08}.h5 
+      #   collision_policy: write_into
+      #   on_event: grav_y
+      #   write: [grav_y]
+
+
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: conv_y
+        write: [conv_y]
         
 
       - file: flower_${nstep:08}.h5 
@@ -6014,13 +6302,25 @@ pdi:
         #     subtype: double
         #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
         # when: "$nstep%50 = 0"
-        write: [u_1D,v_1D,p_1D,time,nx,ny,velocity_x,velocity_y,phi_ele_1D,levelset_p] #,i_current_x,i_current_y,i_current_mag]
+        write: [u_1D,v_1D,p_1D,time,nx,ny,velocity_x,velocity_y,phi_ele_1D,levelset_p,levelset_u,levelset_v] #,i_current_x,i_current_y,i_current_mag]
         #,trans_scal_1D_H2,trans_scal_1D_KOH,trans_scal_1D_H2O] #,levelset_p,levelset_u,levelset_v]
 
       - file: flower_${nstep:08}.h5 
         collision_policy: write_into
         on_event: write_velocity_prediction
         write: [ucorr,vcorr]
+
+
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: write_after_advection
+        # datasets: #Dataset we are writing in: the whole solution
+        #   data:
+        #     type: array
+        #     subtype: double
+        #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
+        # when: "$nstep%50 = 0"
+        write: [time,levelset_p,levelset_u,levelset_v] 
 
 
       - file: flower_${nstep:08}.h5 
@@ -6032,7 +6332,7 @@ pdi:
         #     subtype: double
         #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
         # when: "$nstep%50 = 0"
-        write: [rho_one_fluid,rho_one_fluid_u,rho_one_fluid_v,volume_fraction] #mu_one_fluid
+        write: [nstep,rho_one_fluid,rho_one_fluid_u,rho_one_fluid_v,volume_fraction] #mu_one_fluid
 
       - file: flower_${nstep:08}.h5 
         collision_policy: write_into

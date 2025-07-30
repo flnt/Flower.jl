@@ -1224,7 +1224,7 @@ def plot_all_fig_func():
         print(file_name)
         # Load the HDF5 file
         with h5py.File(file_name, "r") as file:
-            print(file.keys())
+            # print(file.keys())
 
             # data = file['data'][:]
             try:
@@ -1392,7 +1392,7 @@ def plot_all_fig():
         print(file_name)
         # Load the HDF5 file
         with h5py.File(file_name, "r") as file:
-            print(file.keys())
+            # print(file.keys())
 
             # data = file['data'][:]
             # try:
@@ -1806,7 +1806,7 @@ def call_inkscape(figpar,gen_name):
 
     import subprocess
 
-    # pdf_file = eval(figpar['macro_file_name'][0])
+    # pdf_file = eval(get_value_from_dicts('macro_file_name',figpar,plotpar)[0])
     # svg_file = eval(macro)
     pdf_file = gen_name + '.pdf'
     svg_file = gen_name + '.svg'
@@ -1817,8 +1817,8 @@ def call_inkscape(figpar,gen_name):
     except subprocess.CalledProcessError as e:
         print(f"An error occurred: {e}")
 
-    # print('inkscape '+eval(figpar['macro_file_name'][0])+ ' --export-filename='+eval(macro))
-    # os.sys('inkscape '+eval(figpar['macro_file_name'][0])+ ' --export-filename='+eval(macro))
+    # print('inkscape '+eval(get_value_from_dicts('macro_file_name',figpar,plotpar)[0])+ ' --export-filename='+eval(macro))
+    # os.sys('inkscape '+eval(get_value_from_dicts('macro_file_name',figpar,plotpar)[0])+ ' --export-filename='+eval(macro))
 
 def plot_file(
     file,
@@ -1843,9 +1843,9 @@ def plot_file(
     # print(key)
     data = file[key][:]
 
-    print(key,"max ",np.max(data))
+    # print(key,"max ",np.max(data))
 
-    print('data shape',data.shape,data.ndim)
+    # print('data shape',data.shape,data.ndim)
 
     # if data.ndim == 2:
 
@@ -1861,7 +1861,7 @@ def plot_file(
             ny = file["ny"][()]
         except:
             ny = nx
-        print(colored('nx {} ny {}'.format(nx,ny),'red'))
+        # print(colored('nx {} ny {}'.format(nx,ny),'red'))
 
     # else:
     # nx = mesh["nx"]
@@ -1869,7 +1869,7 @@ def plot_file(
     mesh["nx"] = nx
     mesh["ny"] = ny
 
-    print('nx',nx)
+    # print('nx',nx)
 
     xp,yp,xu,yv = create_mesh(figpar,mesh,plotpar,nx,ny,xp,yp,xu,yv,data)
 
@@ -1958,8 +1958,8 @@ def plot_file(
     # for i in range(len(yp)-1):
     #     print('yp',(yp[i+1]-yp[i])/dy, yp[i],yp[i+1])
     
-    print('xp',xp)
-    print('yp',yp)
+    # print('xp',xp)
+    # print('yp',yp)
 
 
     if 'mesh_macro' in figpar.keys():
@@ -1971,8 +1971,8 @@ def plot_file(
         y_1D = y_1D_2
         key_LS = key_LS_2
 
-        print('x_1D',len(x_1D),x_1D)
-        print('y_1D',len(y_1D),y_1D)
+        # print('x_1D',len(x_1D),x_1D)
+        # print('y_1D',len(y_1D),y_1D)
 
         key_LS_wall = "levelset_p_wall"
         key_normal = 'normal_angle'
@@ -1999,7 +1999,7 @@ def plot_file(
 
 
 
-    print('size xp ',len(xp),len(yp))
+    # print('size xp ',len(xp),len(yp))
 
 
     
@@ -2013,9 +2013,12 @@ def plot_file(
     # print(data.shape)
 
     if data.ndim ==1:
-        print('data_1D.ndim == 1')
-        print(file['nstep'][()])
-        print(len(data))
+        # print('data_1D.ndim == 1')
+        # try:
+        #     print(file['nstep'][()])
+        # except:
+        #     print('keys',file.keys())
+        # print(len(data))
 
         data = veci(data,nx,ny,field_index)
         field=data
@@ -2039,7 +2042,7 @@ def plot_file(
         # print(data)
         
     else:
-        print('plot_file else')
+        # print('plot_file else')
 
         # print('intfc_seg_num', file['intfc_seg_num'][()])
         # time = file["time"][()]
@@ -2103,7 +2106,8 @@ def plot_file(
 
 
     if get_value_from_dicts('plot_mode',figpar,plotpar) == "contourf":
-        if get_value_from_dicts('levels',figpar,plotpar)==0:
+        # if get_value_from_dicts('levels',figpar,plotpar)==0:
+        if 'range' in figpar.keys():
             CS = ax2.contourf(x_1D,y_1D,field, 
             # levels=figpar['range'], #10, 
             levels=eval(figpar['range']),
@@ -2135,7 +2139,7 @@ def plot_file(
             )
         else:
 
-            print('pcolormesh',len(x_1D),len(y_1D),field.shape)
+            # print('pcolormesh',len(x_1D),len(y_1D),field.shape)
 
 
             levels = mticker.MaxNLocator(nbins=get_value_from_dicts('levels',figpar,plotpar)).tick_values(
@@ -2146,7 +2150,9 @@ def plot_file(
                 x_1D, y_1D, field, cmap=plotpar["cmap"], norm=norm, shading=shading
             )
     elif get_value_from_dicts('plot_mode',figpar,plotpar) == "contourf_LS":
-        if get_value_from_dicts('levels',figpar,plotpar)==0:
+        # if get_value_from_dicts('levels',figpar,plotpar)==0:
+        if 'range' in figpar.keys():
+
             CS = ax2.contourf(x_1D,y_1D,field, 
             # levels=figpar['range'], #10, 
             levels=eval(figpar['range']),
@@ -2165,9 +2171,9 @@ def plot_file(
             else:
                 collection.set_facecolor(figpar['color_LS'])  
 
-    print(colored('Test field','red'))
+    # print(colored('Test field','red'))
 
-    print(field)
+    # print(field)
 
     # plt.savefig('test.svg',dpi=plotpar['dpi'],transparent=True)
 
@@ -2178,16 +2184,18 @@ def plot_file(
             cbar = fig1.colorbar(CS)
             cbar.ax.set_ylabel(r""+figpar['cbarlabel'],color=plotpar['text_color'])
         # Add the contour line levels to the colorbar
-        if 'ticks_format' in figpar:
-            if figpar['ticks_format']!=None:
-                cbar.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
-
+        # if 'ticks_format' in figpar:
+        #     if get_value_from_dicts('ticks_format',figpar,plotpar)!=None:
+        #         cbar.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(get_value_from_dicts('ticks_format',figpar,plotpar)))
+            # if 'ticks_format' in figpar:
+            if get_value_from_dicts('ticks_format',figpar,plotpar)!=None:
+                cbar.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(get_value_from_dicts('ticks_format',figpar,plotpar)))
         else:
             cbar = plt.colorbar(CS,cax=cbar.ax)
             cbar.ax.set_ylabel(r""+figpar['cbarlabel'],color=plotpar['text_color'])
-            if 'ticks_format' in figpar:
-                if figpar['ticks_format']!=None:
-                    cbar.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
+            # if 'ticks_format' in figpar:
+            if get_value_from_dicts('ticks_format',figpar,plotpar)!=None:
+                cbar.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(get_value_from_dicts('ticks_format',figpar,plotpar)))
 
 
     if isocontour:
@@ -2211,7 +2219,7 @@ def plot_file(
     if get_value_from_dicts('plot_levelset',figpar,plotpar):
 
         print('key_LS',key_LS)
-        print(file.keys())
+        # print(file.keys())
         LSdat = file[key_LS][:]
         LSdat = LSdat.transpose()
         if key_LS == 'levelset_p':
@@ -2230,14 +2238,14 @@ def plot_file(
             # norm = us**2 + vs**2
             # us = us/norm
             # vs = vs/norm
-            print("nx",nx,"ny",ny)
+            # print("nx",nx,"ny",ny)
             for j in range(ny):
                 for i in range(nx):
                     norm = np.sqrt(us[j,i]**2 + vs[j,i]**2)
                     if norm !=0:
                         us[j,i] = us[j,i]/norm
                         vs[j,i] = vs[j,i]/norm
-                        print('norm i,j',i,j,us[j,i],vs[j,i],np.sqrt(us[j,i]**2 + vs[j,i]**2))
+                        # print('norm i,j',i,j,us[j,i],vs[j,i],np.sqrt(us[j,i]**2 + vs[j,i]**2))
 
     
             scale_units=plotpar["quiver_scale_unit"]
@@ -2252,7 +2260,7 @@ def plot_file(
 
             quiver_scale = float(figpar.get('quiver_scale', plotpar['quiver_scale']))
 
-            print('quiver scale',quiver_scale)
+            # print('quiver scale',quiver_scale)
 
             skip = (slice(None, None, skip_every), slice(None, None, skip_every))
             skip1D = slice(None, None, skip_every)
@@ -2511,12 +2519,7 @@ def plot_file(
         str_nstep = str(nstep)
 
 
-
-        if 'macro_file_name' in figpar.keys():
-            # print(figpar['macro_file_name'])
-            # plt.savefig(eval(figpar['macro_file_name']),dpi=plotpar['dpi'])
-
-            for macro in figpar['macro_file_name']:
+        for macro in get_value_from_dicts('macro_file_name',figpar,plotpar):
                 # print(macro)
                 plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
 
@@ -2524,9 +2527,22 @@ def plot_file(
                     gen_name = eval(macro).split('.')[0]
                     #print(gen_name)
                     call_inkscape(figpar,gen_name)
-        else:
-            plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
-            # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
+
+        # if 'macro_file_name' in figpar.keys():
+        #     # print(get_value_from_dicts('macro_file_name',figpar,plotpar))
+        #     # plt.savefig(eval(get_value_from_dicts('macro_file_name',figpar,plotpar)),dpi=plotpar['dpi'])
+
+        #     for macro in get_value_from_dicts('macro_file_name',figpar,plotpar):
+        #         # print(macro)
+        #         plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
+
+        #         if 'svg' in macro:
+        #             gen_name = eval(macro).split('.')[0]
+        #             #print(gen_name)
+        #             call_inkscape(figpar,gen_name)
+        # else:
+        #     plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
+        #     # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
 
 
     if mode == 'close':
@@ -2669,21 +2685,31 @@ def plot_vector(file,
 
         # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also save fig for latex  display
 
-        if 'macro_file_name' in figpar.keys():
-            # print(figpar['macro_file_name'])
-            # plt.savefig(eval(figpar['macro_file_name']),dpi=plotpar['dpi'])
 
-            for macro in figpar['macro_file_name']:
-                # print(macro)
-                plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
+        for macro in get_value_from_dicts('macro_file_name',figpar,plotpar):
+            # print(macro)
+            plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
 
-                if 'svg' in macro:
-                    gen_name = eval(macro).split('.')[0]
-                    #print(gen_name)
-                    call_inkscape(figpar,gen_name)
+            if 'svg' in macro:
+                gen_name = eval(macro).split('.')[0]
+                #print(gen_name)
+                call_inkscape(figpar,gen_name)
 
-        else:
-            plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
+        # if 'macro_file_name' in figpar.keys():
+        #     # print(get_value_from_dicts('macro_file_name',figpar,plotpar))
+        #     # plt.savefig(eval(get_value_from_dicts('macro_file_name',figpar,plotpar)),dpi=plotpar['dpi'])
+
+        #     for macro in get_value_from_dicts('macro_file_name',figpar,plotpar):
+        #         # print(macro)
+        #         plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
+
+        #         if 'svg' in macro:
+        #             gen_name = eval(macro).split('.')[0]
+        #             #print(gen_name)
+        #             call_inkscape(figpar,gen_name)
+
+        # else:
+        #     plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
 
 
     if mode == 'close':
@@ -3960,7 +3986,7 @@ def add_schematics(ax2,fontsize,figpar):
    
     inset_ax.text(0.5, 0.2, r'$\ce{H2} (gas)$', fontsize=fontsize,va='center',ha='center',
                 #   color='k',
-                  color=figpar['text_color'],
+                  color=get_value_from_dicts('text_color',figpar,plotpar),
                   )
     # inset_ax.text(0.5, 0.3, r'$\mathrm{\ce{H2}} \text{bubble}$', fontsize=fontsize,va='center',ha='center',color='k')
 
@@ -4053,7 +4079,7 @@ def add_schematics_full_cell(ax2,fontsize,figpar):
    
     inset_ax.text(0.5, 0.2, r'$\ce{H2} (gas)$', fontsize=fontsize,va='center',ha='center',
                 #   color='k',
-                  color=figpar['text_color'],
+                  color=get_value_from_dicts('text_color',figpar,plotpar),
                   )
     # inset_ax.text(0.5, 0.3, r'$\mathrm{\ce{H2}} \text{bubble}$', fontsize=fontsize,va='center',ha='center',color='k')
 
@@ -4072,7 +4098,7 @@ def create_mesh(figpar,mesh,plotpar,nx,ny,xp,yp,xu,yv,data):
     # else:
     #     nx = mesh["nx"]
     #     ny = mesh["ny"]
-    print('nx ny',nx,ny, mesh["nx"] , mesh["ny"] )
+    # print('nx ny',nx,ny, mesh["nx"] , mesh["ny"] )
 
     dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
     xp = np.zeros(mesh['nx'])
@@ -4118,7 +4144,7 @@ def create_mesh(figpar,mesh,plotpar,nx,ny,xp,yp,xu,yv,data):
     xu /= scale_x
     yv /= scale_y
 
-    print('size xp ',len(xp),len(yp))
+    # print('size xp ',len(xp),len(yp))
     return xp,yp,xu,yv
 
     #endregion scale mesh
@@ -4146,6 +4172,8 @@ def plot_current_lines(file,
 
     """
 
+    # print(colored('plot_current_lines '+mode,'red'))
+    # print('cbar',cbar)
     # xu,yu,xv,yv
 
     if 'font_size' in plotpar.keys():
@@ -4244,7 +4272,8 @@ def plot_current_lines(file,
 
     print('sizes',len(xp),len(yp),np.size(phi_array,0),np.size(phi_array,1))
 
-    if get_value_from_dicts('levels',figpar,plotpar)==0:
+    # if get_value_from_dicts('levels',figpar,plotpar)==0:
+    if 'range' in figpar.keys():
         # CS = ax2.contourf(x_1D,y_1D,field,
         # levels=figpar['range'], #10,
         # cmap=plotpar['cmap'],)
@@ -4257,31 +4286,31 @@ def plot_current_lines(file,
 
     if 'theme' in figpar.keys():
         if figpar['theme'] == 'dark':
-            figpar['text_color'] = 'w'
+            # get_value_from_dicts('text_color',figpar,plotpar) = 'w'
 
-            ax2.spines['bottom'].set_color(figpar['text_color'])
-            ax2.spines['top'].set_color(figpar['text_color']) 
-            ax2.spines['right'].set_color(figpar['text_color'])
-            ax2.spines['left'].set_color(figpar['text_color'])
+            ax2.spines['bottom'].set_color(get_value_from_dicts('text_color',figpar,plotpar))
+            ax2.spines['top'].set_color(get_value_from_dicts('text_color',figpar,plotpar)) 
+            ax2.spines['right'].set_color(get_value_from_dicts('text_color',figpar,plotpar))
+            ax2.spines['left'].set_color(get_value_from_dicts('text_color',figpar,plotpar))
 
             # Use the following to change only the ticks:
             # which="both" changes both the major and minor tick colors
 
-            ax2.tick_params(axis='x', colors=figpar['text_color'])
-            ax2.tick_params(axis='y', colors=figpar['text_color'])
+            ax2.tick_params(axis='x', colors=get_value_from_dicts('text_color',figpar,plotpar))
+            ax2.tick_params(axis='y', colors=get_value_from_dicts('text_color',figpar,plotpar))
 
             # And the following to change only the label:
 
-            ax2.yaxis.label.set_color(figpar['text_color'])
-            ax2.xaxis.label.set_color(figpar['text_color'])
+            ax2.yaxis.label.set_color(get_value_from_dicts('text_color',figpar,plotpar))
+            ax2.xaxis.label.set_color(get_value_from_dicts('text_color',figpar,plotpar))
 
             # And finally the title:
 
-            ax2.title.set_color(figpar['text_color'])
+            ax2.title.set_color(get_value_from_dicts('text_color',figpar,plotpar))
 
 
-    else: 
-        figpar['text_color'] = 'k'
+    # else: 
+    #     get_value_from_dicts('text_color',figpar,plotpar) = 'k'
 
 
     # CS = ax2.contourf(xp, yp, phi_array, 10, cmap=plotpar["cmap"])
@@ -4310,20 +4339,35 @@ def plot_current_lines(file,
     # Make a colorbar for the ContourSet returned by the contourf call.
     if mode !='film':
         cbar0 = fig1.colorbar(CS)
-        cbar0.ax.set_ylabel(r""+figpar['cbarlabel'],color=figpar['text_color'])
-        cbar0.ax.tick_params(labelcolor=figpar['text_color'])
+        cbar0.ax.set_ylabel(r""+figpar['cbarlabel'],color=get_value_from_dicts('text_color',figpar,plotpar))
+        cbar0.ax.tick_params(labelcolor=get_value_from_dicts('text_color',figpar,plotpar))
         # cbar.ax.tick_params(which='both', color='white', labelcolor='white')
-        cbar0.ax.tick_params(colors=figpar['text_color'])
-        cbar0.outline.set_edgecolor(figpar['text_color'])
+        cbar0.ax.tick_params(colors=get_value_from_dicts('text_color',figpar,plotpar))
+        cbar0.outline.set_edgecolor(get_value_from_dicts('text_color',figpar,plotpar))
 
-        if 'ticks_format' in figpar:
-            if figpar['ticks_format']!=None:
-                cbar0.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
+        # if 'ticks_format' in figpar:
+        if get_value_from_dicts('ticks_format',figpar,plotpar)!=None:
+            cbar0.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(get_value_from_dicts('ticks_format',figpar,plotpar)))
     else:
         cbar0 = plt.colorbar(CS,cax=cbar0.ax)
-        if 'ticks_format' in figpar:
-            if figpar['ticks_format']!=None:
-                cbar0.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
+        # if 'ticks_format' in figpar:
+        if get_value_from_dicts('ticks_format',figpar,plotpar)!=None:
+            cbar0.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(get_value_from_dicts('ticks_format',figpar,plotpar)))
+
+
+#   else:
+#             cbar = plt.colorbar(CS,cax=cbar.ax)
+#             cbar.ax.set_ylabel(r""+figpar['cbarlabel'],color=plotpar['text_color'])
+#             if 'ticks_format' in figpar:
+#                 if get_value_from_dicts('ticks_format',figpar,plotpar)!=None:
+#                     cbar.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(get_value_from_dicts('ticks_format',figpar,plotpar)))
+
+    # else:
+    #     cbar = plt.colorbar(CS,cax=cbar.ax)
+    #     cbar.ax.set_ylabel(r""+figpar['cbarlabel'],color=plotpar['text_color'])
+    #     if 'ticks_format' in figpar:
+    #         if get_value_from_dicts('ticks_format',figpar,plotpar)!=None:
+    #             cbar.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(get_value_from_dicts('ticks_format',figpar,plotpar)))
 
     if str(get_value_from_dicts('isocontour',figpar,plotpar)) == 'True':
         CS2 = ax2.contour(CS, 
@@ -4404,14 +4448,14 @@ def plot_current_lines(file,
                     if mode !='film':
                         cbarimag = fig1.colorbar(current_lines.lines)
                         cbarimag.ax.set_ylabel(r""+figpar['streamplot_cbarlabel'])
-                        if 'ticks_format' in figpar:
-                            if figpar['ticks_format']!=None:
-                                cbarimag.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
+                        # if 'ticks_format' in figpar:
+                        if get_value_from_dicts('ticks_format',figpar,plotpar)!=None:
+                            cbarimag.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(get_value_from_dicts('ticks_format',figpar,plotpar)))
                     else:
                         cbarimag = plt.colorbar(current_lines.lines,cax=cbarimag.ax)
-                        if 'ticks_format' in figpar:
-                            if figpar['ticks_format']!=None:
-                                cbarimag.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
+                        # if 'ticks_format' in figpar:
+                        if get_value_from_dicts('ticks_format',figpar,plotpar)!=None:
+                            cbarimag.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(get_value_from_dicts('ticks_format',figpar,plotpar)))
                     
                     cbarimag.ax.set_ylabel(r""+figpar['streamplot_cbarlabel'],color=plotpar['text_color'])
 
@@ -4522,31 +4566,40 @@ def plot_current_lines(file,
         str_nstep = str(nstep)
         # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also save fig for latex  display
 
-        # print(figpar['macro_file_name'])
+        # print(get_value_from_dicts('macro_file_name',figpar,plotpar))
 
 
 
-        # print(figpar['macro_file_name'])
+        # print(get_value_from_dicts('macro_file_name',figpar,plotpar))
 
-        if 'macro_file_name' in figpar.keys():
-            # print(figpar['macro_file_name'])
-            # plt.savefig(eval(figpar['macro_file_name']),dpi=plotpar['dpi'])
+        for macro in get_value_from_dicts('macro_file_name',figpar,plotpar):
+            # print(macro)
+            plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
+            
+            if 'svg' in macro:
+                gen_name = eval(macro).split('.')[0]
+                #print(gen_name)
+                call_inkscape(figpar,gen_name)
 
-            for macro in figpar['macro_file_name']:
-                # print(macro)
-                plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
+        # if 'macro_file_name' in figpar.keys():
+        #     # print(get_value_from_dicts('macro_file_name',figpar,plotpar))
+        #     # plt.savefig(eval(get_value_from_dicts('macro_file_name',figpar,plotpar)),dpi=plotpar['dpi'])
+
+        #     for macro in get_value_from_dicts('macro_file_name',figpar,plotpar):
+        #         # print(macro)
+        #         plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
                 
-                if 'svg' in macro:
-                    gen_name = eval(macro).split('.')[0]
-                    #print(gen_name)
-                    call_inkscape(figpar,gen_name)
-        else:
-            plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
+        #         if 'svg' in macro:
+        #             gen_name = eval(macro).split('.')[0]
+        #             #print(gen_name)
+        #             call_inkscape(figpar,gen_name)
+        # else:
+        #     plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
 
 
         # if 'macro_file_name' in figpar.keys():
-        #     # print(figpar['macro_file_name'])
-        #     plt.savefig(eval(figpar['macro_file_name']),dpi=plotpar['dpi'])
+        #     # print(get_value_from_dicts('macro_file_name',figpar,plotpar))
+        #     plt.savefig(eval(get_value_from_dicts('macro_file_name',figpar,plotpar)),dpi=plotpar['dpi'])
         # else:
         #     plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
 
@@ -4558,10 +4611,13 @@ def plot_current_lines(file,
         return
 
     # return(fig1,ax2,cbar)
+    # print('cbar',cbar,cbar0)
+
     try:
         return(fig1,ax2,[cbar0,cbarimag])
     except:
-        return (fig1,ax2,cbar0)
+        # return (fig1,ax2,cbar0)
+        return (fig1,ax2,[cbar0])
 
 
 def  plot_wall(ax2, x_1D, y_1D, file, key_LS_wall,figpar,plotpar):
@@ -4737,8 +4793,8 @@ def plot_python_pdf_full2(
         y_1D = y_1D_2
 
 
-        print('x_1D',len(x_1D),x_1D)
-        print('y_1D',len(y_1D),y_1D)
+        # print('x_1D',len(x_1D),x_1D)
+        # print('y_1D',len(y_1D),y_1D)
 
 
 
@@ -4948,7 +5004,8 @@ def plot_python_pdf_full2(
     print('yarr',len(y_arr))
 
 
-    if get_value_from_dicts('levels',figpar,plotpar)==0: 
+    # if get_value_from_dicts('levels',figpar,plotpar)==0: 
+    if 'range' in figpar.keys():
         CS = ax2.contourf(x_arr,y_arr,field, 
         # levels=figpar['range'], 
         levels=eval(figpar['range']),
@@ -5120,9 +5177,9 @@ def plot_python_pdf_full2(
     else:
         cbar = plt.colorbar(CS,cax=cbar.ax)
         cbar.ax.set_ylabel(r""+figpar['cbarlabel'],color=plotpar['text_color'])
-        if 'ticks_format' in figpar:
-            if figpar['ticks_format']!=None:
-                cbar.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(figpar['ticks_format']))
+        # if 'ticks_format' in figpar:
+        if get_value_from_dicts('ticks_format',figpar,plotpar)!=None:
+            cbar.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(get_value_from_dicts('ticks_format',figpar,plotpar)))
 
     # Add the contour line levels to the colorbar
     if str(get_value_from_dicts('isocontour',figpar,plotpar)) == 'True':
@@ -5362,30 +5419,44 @@ def plot_python_pdf_full2(
         str_nstep = str(nstep)
         # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
 
-        if 'macro_file_name' in figpar.keys():
-            # print(figpar['macro_file_name'])
-            # plt.savefig(eval(figpar['macro_file_name']),dpi=plotpar['dpi'])
 
-            for macro in figpar['macro_file_name']:
-                # print(macro)
-                # print(colored(file_name+"_"+(mesh["nx"])+"_"+("VOF" if yml["flower"]["simulation"]["surface_tension"] == 0 else "LS")+"_"+plotpar["theme"]+ ".pdf","red"))
-                # print(colored(file_name+"_"+str(mesh["nx"])+"_"+("VOF" if yml["flower"]["simulation"]["surface_tension"] == 0 else "LS")+"_"+plotpar["theme"]+ ".pdf","red"))
+        for macro in get_value_from_dicts('macro_file_name',figpar,plotpar):
+            # print(macro)
+            # print(colored(file_name+"_"+(mesh["nx"])+"_"+("VOF" if yml["flower"]["simulation"]["surface_tension"] == 0 else "LS")+"_"+plotpar["theme"]+ ".pdf","red"))
+            # print(colored(file_name+"_"+str(mesh["nx"])+"_"+("VOF" if yml["flower"]["simulation"]["surface_tension"] == 0 else "LS")+"_"+plotpar["theme"]+ ".pdf","red"))
+            
+            plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
+            
+            if 'svg' in macro:
+                gen_name = eval(macro).split('.')[0]
+                #print(gen_name)
+                call_inkscape(figpar,gen_name)
+
+
+        # if 'macro_file_name' in figpar.keys():
+        #     # print(get_value_from_dicts('macro_file_name',figpar,plotpar))
+        #     # plt.savefig(eval(get_value_from_dicts('macro_file_name',figpar,plotpar)),dpi=plotpar['dpi'])
+
+        #     for macro in get_value_from_dicts('macro_file_name',figpar,plotpar):
+        #         # print(macro)
+        #         # print(colored(file_name+"_"+(mesh["nx"])+"_"+("VOF" if yml["flower"]["simulation"]["surface_tension"] == 0 else "LS")+"_"+plotpar["theme"]+ ".pdf","red"))
+        #         # print(colored(file_name+"_"+str(mesh["nx"])+"_"+("VOF" if yml["flower"]["simulation"]["surface_tension"] == 0 else "LS")+"_"+plotpar["theme"]+ ".pdf","red"))
                
-                plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
+        #         plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
                 
-                if 'svg' in macro:
-                    gen_name = eval(macro).split('.')[0]
-                    #print(gen_name)
-                    call_inkscape(figpar,gen_name)
+        #         if 'svg' in macro:
+        #             gen_name = eval(macro).split('.')[0]
+        #             #print(gen_name)
+        #             call_inkscape(figpar,gen_name)
 
-                print(colored('mesh '+str(nx)+" "+str(mesh["nx"]),'red'))
+        #         print(colored('mesh '+str(nx)+" "+str(mesh["nx"]),'red'))
 
 
-        else:
-            plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
-            print(colored('mesh '+str(nx)+" "+str(mesh["nx"]),'red'))
+        # else:
+        #     plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
+        #     print(colored('mesh '+str(nx)+" "+str(mesh["nx"]),'red'))
         
-        print(colored('end plot python full '+str(nx)+" "+str(mesh["nx"]),'red'))
+        # print(colored('end plot python full '+str(nx)+" "+str(mesh["nx"]),'red'))
 
 
 
@@ -6044,23 +6115,32 @@ def plot_current_wall(
 
         str_nstep = str(nstep)
         
-        print(figpar['macro_file_name'])
+        print(get_value_from_dicts('macro_file_name',figpar,plotpar))
 
-        if 'macro_file_name' in figpar.keys():
-            # print(figpar['macro_file_name'])
-            # plt.savefig(eval(figpar['macro_file_name']),dpi=plotpar['dpi'])
+        for macro in get_value_from_dicts('macro_file_name',figpar,plotpar):
+            print(macro)
+            plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
+            
+            if 'svg' in macro:
+                gen_name = eval(macro).split('.')[0]
+                #print(gen_name)
+                call_inkscape(figpar,gen_name)
 
-            for macro in figpar['macro_file_name']:
-                print(macro)
-                plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
+        # if 'macro_file_name' in figpar.keys():
+        #     # print(get_value_from_dicts('macro_file_name',figpar,plotpar))
+        #     # plt.savefig(eval(get_value_from_dicts('macro_file_name',figpar,plotpar)),dpi=plotpar['dpi'])
+
+        #     for macro in get_value_from_dicts('macro_file_name',figpar,plotpar):
+        #         print(macro)
+        #         plt.savefig(eval(macro),dpi=plotpar['dpi'],transparent=True)
                 
-                if 'svg' in macro:
-                    gen_name = eval(macro).split('.')[0]
-                    #print(gen_name)
-                    call_inkscape(figpar,gen_name)
+        #         if 'svg' in macro:
+        #             gen_name = eval(macro).split('.')[0]
+        #             #print(gen_name)
+        #             call_inkscape(figpar,gen_name)
 
-        else:
-            plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
+        # else:
+        #     plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
 
     if mode == 'close':
         # str_nstep = str(nstep)

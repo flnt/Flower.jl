@@ -286,6 +286,7 @@ for timestep in timesteps
             levelset_reinitialize=sim.levelset_reinitialize,
             mu_one_fluid_average = sim.mu_one_fluid_average,
             one_fluid_normal = sim.one_fluid_normal,
+            epsilon_marching_squares = sim.epsilon_marching_squares,
             )
         Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
         @debug "After Numerical"

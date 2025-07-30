@@ -145,6 +145,7 @@ Stores parameters for the simulation
     non_dimensionalize::D=0
     levelset_reinitialize::D=0
     one_fluid_normal::D=0
+    epsilon_marching_squares::D=1e-9
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

@@ -74,16 +74,16 @@ function update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_frac
     # "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
     "velocity_y"::Cstring, velocity_y::Ptr{Cdouble}, PDI_OUT::Cint,      
     "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
-    "volume_cell"::Cstring, grid_p.LS[end].geoL.cap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint,
+    "volume_cell"::Cstring, grid_p.LS[end].geoS.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
     "mesh_p_x"::Cstring, grid_p.x::Ptr{Cdouble}, PDI_OUT::Cint,
     "mesh_p_y"::Cstring, grid_p.y::Ptr{Cdouble}, PDI_OUT::Cint,
-    "dcap_1"::Cstring, grid_p.LS[iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
-    "dcap_2"::Cstring, grid_p.LS[iLSpdi].geoL.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
-    "dcap_3"::Cstring, grid_p.LS[iLSpdi].geoL.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
-    "dcap_4"::Cstring, grid_p.LS[iLSpdi].geoL.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint,
+    "dcap_1"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+    "dcap_2"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+    "dcap_3"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+    "dcap_4"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
     C_NULL::Ptr{Cvoid})::Cint
 
-    print("\n num.current_i ",num.current_i)
+    # print("\n num.current_i ",num.current_i)
 
     #    χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
     #             χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
@@ -631,8 +631,13 @@ function pressure_projection_one_fluid!(
     border_v_velocity = ntu+ntv-nbv+1:ntu+ntv
 
 
-    if num.prediction == "PmIIimposedpressure" || num.prediction == "PmIIimposedpressureBCincrement" 
+    if num.prediction == "PmIIimposedpressure" || 
+        num.prediction == "PmIIimposedpressureBCincrement" || 
+        num.prediction == "PmIIimposedpressure_nodiv" ||
+        num.prediction == "testpressure"
         BC_Poisson = Boundaries() #Neumann everywhere
+    elseif num.prediction == "PmIIimposedpressure_nodiv_2"
+        BC_Poisson = Boundaries(top=Dirichlet()) #Neumann everywhere
     else
         BC_Poisson = copy(BC_p) 
     end
@@ -674,7 +679,14 @@ function pressure_projection_one_fluid!(
     #region add gradient of pressure to prediction
     # Compute gradient of pressure localized on u and v grids , times volume
     # $ \nabla p^{n-1/2} $
-    if num.prediction == "PmI" || num.prediction == "PmII" || num.prediction == "PmIIimposedpressure" || num.prediction == "PmIIimposedpressureBCincrement"
+    if num.prediction == "PmI" || 
+       num.prediction == "PmII" || 
+       num.prediction == "PmIIimposedpressure" || 
+       num.prediction == "PmIIimposedpressureBCincrement" || 
+       num.prediction == "PmIIimposedpressure_nodiv" ||
+       num.prediction == "PmIIimposedpressure_nodiv_2" ||
+       num.prediction == "testpressure"
+
         #cf Brown 2001
 
         ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid_p) .+ opC_u.Gx_b * vecb(pD,grid_p)
@@ -731,6 +743,9 @@ function pressure_projection_one_fluid!(
         # Cvi = Cv * vec(v) .+ CUTCv
         Cui = Cu * vec(u) 
         Cvi = Cv * vec(v) 
+
+        # print("\n max CUTCv ",maximum(CUTCv))
+
 
     elseif num.non_dimensionalize == -1 
         # Element-wise multiplication
@@ -953,6 +968,30 @@ function pressure_projection_one_fluid!(
 
     rhs_uv[bulk_v_velocity] .-= τ .* Convv
 
+    conv_y = reshape(Convv,grid_v)
+
+    grav_y_2D = reshape(grav_y,grid_v)
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("conv_y"::Cstring,
+    # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    "conv_y"::Cstring, conv_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("grav_y"::Cstring,
+    # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    "grav_y"::Cstring, grav_y_2D::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
     print("\n conv y")
 
     PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
@@ -993,6 +1032,16 @@ function pressure_projection_one_fluid!(
         end
     end
 
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("grad_pres_y"::Cstring,
+    # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    "grad_pres_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
    
     PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
     "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
@@ -1348,15 +1397,23 @@ function pressure_projection_one_fluid!(
         # print("\n max p",minimum(num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p))," ",maximum(num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p)))
 
 
+    elseif num.prediction == "PmIIimposedpressure_nodiv" ||
+       num.prediction == "PmIIimposedpressure_nodiv_2"
+
+        vec1(pD,grid_p) .= vec1(pD,grid_p) .+ vec(ϕ)
 
     elseif num.prediction == "PmIII"
+        #TODO which zverage better here for higher order term mu_one_fluid./rho_one_fluid ?
         # \Delta t \nabla_h^2 \phi^{n+1} = \nabla_h \cdot \mathbf{u}^{*} \quad \text{in } \Omega
-        vec1(pD,grid_p) .= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p)) #no contribution from p^{n-1/2}
+        vec1(pD,grid_p) .= vec(ϕ .- mu_one_fluid./rho_one_fluid ./2 .* reshape(iM * velocity_divergence,grid_p)) #no contribution from p^{n-1/2}
     
     elseif num.prediction == "Flower" #occursin("Flower",num.prediction)
         # \nabla_h p^{n+1/2} = \nabla_h \phi^{n+1} # TODO: does not correspond to any formula in Brown 2001 ?
         vec1(pD,grid_p) .= vec(ϕ) #.- mu1_over_rho1 .* reshape(iM * velocity_divergence, grid_p))
     
+    elseif num.prediction == "testpressure"
+        print("test pressure")
+
     else
         @error("wrong prediction method, does not exist")
     end
@@ -1370,7 +1427,9 @@ function pressure_projection_one_fluid!(
     #region interfacial pressure is overwritten
     # TODO check and document: for pressure-imposed Poiseuille, not sure
     #  
-    if num.prediction == "PmIIimposedpressure"
+    if num.prediction == "PmIIimposedpressure" || num.prediction == "PmIIimposedpressure_nodiv" ||
+       num.prediction == "PmIIimposedpressure_nodiv_2" || num.prediction == "testpressure"
+
 
     elseif num.prediction == "PmIIimposedpressureBCincrement"
         #TODO reapply BC 
@@ -2417,44 +2476,50 @@ function FE_set_momentum_coupled2_one_fluid(
     if ls_advection
         A.nzval .= 0.0
 
-        pII = lexicographic(CartesianIndex(5,5),grid_u.ny)
+        #region print debug coeff
+        # pII = lexicographic(CartesianIndex(5,5),grid_u.ny)
+        
+        # print("\n A[bulk_u_velocity,bulk_u_velocity] before ",pII)
 
-        print("\n A[bulk_u_velocity,bulk_u_velocity] before ",pII)
+        # print("\n dt ",τ )
+        # print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
 
-        print("\n dt ",τ )
-        print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
-        # example with mu1=mu2=1 and dt =1 : factor 2 for x, so 2-4 2 and 1 -2 1
-        # diffusion_bulk_u   [101]  =  2.0
-        # [132]  =  1.0
-        # [133]  =  -6.0
-        # [134]  =  1.0
-        # [165]  =  2.0
+        # # example with mu1=mu2=1 and dt =1 : factor 2 for x, so 2-4 2 and 1 -2 1
+        # # diffusion_bulk_u   [101]  =  2.0
+        # # [132]  =  1.0
+        # # [133]  =  -6.0
+        # # [134]  =  1.0
+        # # [165]  =  2.0
 
-        pII = lexicographic(CartesianIndex(1,5),grid_u.ny)
-        pIIv = lexicographic(CartesianIndex(1,5),grid_v.ny)
+        # pII = lexicographic(CartesianIndex(1,5),grid_u.ny)
+        # pIIv = lexicographic(CartesianIndex(1,5),grid_v.ny)
 
-        print("\n pIIv ",ntu + pIIv," pII ",pII)
+        # print("\n pIIv ",ntu + pIIv," pII ",pII)
 
-        print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
+        # print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
 
-        pII = lexicographic(CartesianIndex(5,1),grid_u.ny)
-        pIIv = lexicographic(CartesianIndex(5,1),grid_v.ny)
+        # pII = lexicographic(CartesianIndex(5,1),grid_u.ny)
+        # pIIv = lexicographic(CartesianIndex(5,1),grid_v.ny)
 
-        print("\n pIIv ",ntu + pIIv," pII ",pII)
+        # print("\n pIIv ",ntu + pIIv," pII ",pII)
 
-        print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
+        # print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
 
-        pII = lexicographic(CartesianIndex(1,1),grid_u.ny)
-        pIIv = lexicographic(CartesianIndex(1,1),grid_v.ny)
+        # pII = lexicographic(CartesianIndex(1,1),grid_u.ny)
+        # pIIv = lexicographic(CartesianIndex(1,1),grid_v.ny)
 
-        print("\n pIIv ",ntu + pIIv," pII ",pII)
+        # print("\n pIIv ",ntu + pIIv," pII ",pII)
 
-        print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
+        # print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
+        #endregion print debug coeff
+
+        diag_inv_rho_u = Diagonal(1.0./vec(rho_one_fluid_u))
+        diag_inv_rho_v = Diagonal(1.0./vec(rho_one_fluid_v))
 
 
         # Implicit part of viscous term
         if num.non_dimensionalize == 0
-            A[bulk_u_velocity,bulk_u_velocity] = pad_crank_nicolson(opu.M .- τ .* diffusion_bulk_u, grid_u, τ)
+            A[bulk_u_velocity,bulk_u_velocity] = pad_crank_nicolson(opu.M .- τ * diag_inv_rho_u * diffusion_bulk_u , grid_u, τ)
         else
             A[bulk_u_velocity,bulk_u_velocity] = pad_crank_nicolson(rho_one_fluid_u*opu.M .- τ .* diffusion_bulk_u, grid_u, τ)
         end
@@ -2467,40 +2532,53 @@ function FE_set_momentum_coupled2_one_fluid(
         # [165]  =  -2.0
         #same with opu.M
 
+        #region print debug coeff
+        # print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
 
-        print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
+        # print("\n size(A) ",size(A))
 
-        print("\n size(A) ",size(A))
+        # print("\n size(bulk_u_velocity) ",size(bulk_u_velocity))
+        # print("\n bulk_u_velocity ",bulk_u_velocity)
+        # print("\n bulk_v_velocity ",bulk_v_velocity)
 
-        print("\n size(bulk_u_velocity) ",size(bulk_u_velocity))
-        print("\n bulk_u_velocity ",bulk_u_velocity)
-        print("\n bulk_v_velocity ",bulk_v_velocity)
+        # pIIv = lexicographic(CartesianIndex(5,5),grid_v.ny)
 
-        pIIv = lexicographic(CartesianIndex(5,5),grid_v.ny)
-
-        # A[bulk_u_velocity,ntu + pIIv] .= 333
+        # # A[bulk_u_velocity,ntu + pIIv] .= 333
         
-        print("\n pIIv ",ntu + pIIv)
+        # print("\n pIIv ",ntu + pIIv)
 
-        print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
+        # print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
         
-        print("\n grid_p ",grid_p.dx[5,5]," ", grid_u.dx[5,5] ," ",grid_v.dx[5,5]," ")
-        print("\n grid_p ",grid_p.dy[5,5]," ", grid_u.dy[5,5] ," ",grid_v.dy[5,5]," ")
-
-
-        A[bulk_u_velocity,bulk_v_velocity] = - τ * cross_term_diffusion_bulk_d_dv_dx_dy
+        # print("\n grid_p ",grid_p.dx[5,5]," ", grid_u.dx[5,5] ," ",grid_v.dx[5,5]," ")
+        # print("\n grid_p ",grid_p.dy[5,5]," ", grid_u.dy[5,5] ," ",grid_v.dy[5,5]," ")
+        #endregion print debug coeff
+        if num.non_dimensionalize == 0 
+            A[bulk_u_velocity,bulk_v_velocity] = - τ * diag_inv_rho_u * cross_term_diffusion_bulk_d_dv_dx_dy 
+        else
+            A[bulk_u_velocity,bulk_v_velocity] = - τ * cross_term_diffusion_bulk_d_dv_dx_dy
+        end
         
-
-        print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
-
+        #region print debug coeff
+        # print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
+        #endregion print debug coeff
 
         # Contribution to implicit part of viscous term from outer boundaries
-        A[bulk_u_velocity,border_u_velocity] = - τ .* diffusion_border_u 
-
-        print("\n A[bulk_u_velocity,bulk_u_velocity] after border ",A[pII,:])
-
-       
-        A[bulk_u_velocity,border_v_velocity] = - τ .* cross_term_diffusion_bulk_d_dv_dx_dy_border
+        if num.non_dimensionalize == 0 
+            A[bulk_u_velocity,border_u_velocity] = - τ .* diag_inv_rho_u * diffusion_border_u 
+        else
+            A[bulk_u_velocity,border_u_velocity] = - τ .* diffusion_border_u
+        end
+         
+        
+        #region print debug coeff
+        # print("\n A[bulk_u_velocity,bulk_u_velocity] after border ",A[pII,:])
+        #endregion print debug coeff
+        if num.non_dimensionalize == 0 
+            A[bulk_u_velocity,border_v_velocity] = - τ .* diag_inv_rho_u * cross_term_diffusion_bulk_d_dv_dx_dy_border 
+        else
+            A[bulk_u_velocity,border_v_velocity] = - τ .* cross_term_diffusion_bulk_d_dv_dx_dy_border
+        end
+        
 
         # Boundary conditions for outer boundaries
         A[border_u_velocity,bulk_u_velocity] = b_bu * (opu.HxT_b * opu.iMx_b' * opu.Bx .+ opu.HyT_b * opu.iMy_b' * opu.By)
@@ -2511,17 +2589,23 @@ function FE_set_momentum_coupled2_one_fluid(
 
         # Implicit part of viscous term
         if num.non_dimensionalize == 0
-            A[bulk_v_velocity,bulk_v_velocity] = pad_crank_nicolson(opv.M .- τ .* diffusion_bulk_v, grid_v, τ)
+            A[bulk_v_velocity,bulk_v_velocity] = pad_crank_nicolson(opv.M .- τ .* diag_inv_rho_v * diffusion_bulk_v  , grid_v, τ)
+            A[bulk_v_velocity,bulk_u_velocity] = - τ .* diag_inv_rho_v * cross_term_diffusion_bulk_d_du_dy_dx 
         else
             A[bulk_v_velocity,bulk_v_velocity] = pad_crank_nicolson(rho_one_fluid_v * opv.M .- τ .* diffusion_bulk_v, grid_v, τ)
+            A[bulk_v_velocity,bulk_u_velocity] = - τ .* cross_term_diffusion_bulk_d_du_dy_dx 
         end
 
-        A[bulk_v_velocity,bulk_u_velocity] = - τ .* cross_term_diffusion_bulk_d_du_dy_dx
-
-
         # Contribution to implicit part of viscous term from outer boundaries
-        A[bulk_v_velocity,border_v_velocity] = - τ .* diffusion_border_v 
-        A[bulk_v_velocity,border_u_velocity] = - τ .* cross_term_diffusion_bulk_d_du_dy_dx_border
+
+        if num.non_dimensionalize == 0
+            A[bulk_v_velocity,border_v_velocity] = - τ .* diag_inv_rho_v * diffusion_border_v 
+            A[bulk_v_velocity,border_u_velocity] = - τ .* diag_inv_rho_v * cross_term_diffusion_bulk_d_du_dy_dx_border 
+        else
+           A[bulk_v_velocity,border_v_velocity] = - τ .* diffusion_border_v 
+            A[bulk_v_velocity,border_u_velocity] = - τ .* cross_term_diffusion_bulk_d_du_dy_dx_border
+        end
+        
 
         
         # Boundary conditions for outer boundaries
@@ -2534,33 +2618,35 @@ function FE_set_momentum_coupled2_one_fluid(
         # TODO pad 1 or -4
         #TODO sign divergence not same u v and p
 
-        pII = lexicographic(CartesianIndex(5,5),grid_u.ny)
-        pIIv = lexicographic(CartesianIndex(5,5),grid_v.ny)
+        #region print debug coeff
+        # pII = lexicographic(CartesianIndex(5,5),grid_u.ny)
+        # pIIv = lexicographic(CartesianIndex(5,5),grid_v.ny)
 
-        print("\n pIIv ",ntu + pIIv," pII ",pII, " 5 5")
+        # print("\n pIIv ",ntu + pIIv," pII ",pII, " 5 5")
 
-        print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
+        # print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
 
-        pII = lexicographic(CartesianIndex(1,5),grid_u.ny)
-        pIIv = lexicographic(CartesianIndex(1,5),grid_v.ny)
+        # pII = lexicographic(CartesianIndex(1,5),grid_u.ny)
+        # pIIv = lexicographic(CartesianIndex(1,5),grid_v.ny)
 
-        print("\n pIIv ",ntu + pIIv," pII ",pII, " 1 5 ")
+        # print("\n pIIv ",ntu + pIIv," pII ",pII, " 1 5 ")
 
-        print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
+        # print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
 
-        pII = lexicographic(CartesianIndex(5,1),grid_u.ny)
-        pIIv = lexicographic(CartesianIndex(5,1),grid_v.ny)
+        # pII = lexicographic(CartesianIndex(5,1),grid_u.ny)
+        # pIIv = lexicographic(CartesianIndex(5,1),grid_v.ny)
 
-        print("\n pIIv ",ntu + pIIv," pII ",pII, " 5 1")
+        # print("\n pIIv ",ntu + pIIv," pII ",pII, " 5 1")
 
-        print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
+        # print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
 
-        pII = lexicographic(CartesianIndex(1,1),grid_u.ny)
-        pIIv = lexicographic(CartesianIndex(1,1),grid_v.ny)
+        # pII = lexicographic(CartesianIndex(1,1),grid_u.ny)
+        # pIIv = lexicographic(CartesianIndex(1,1),grid_v.ny)
 
-        print("\n pIIv ",ntu + pIIv," pII ",pII)
+        # print("\n pIIv ",ntu + pIIv," pII ",pII)
 
-        print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
+        # print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
+        #endregion print debug coeff
 
         #region coupled pression
         
@@ -2656,7 +2742,7 @@ function FE_set_momentum_coupled2_one_fluid(
             # end
         end
         #endregion divergence of velocity: -div U for symmetry
-        print("size Mum1 " ,size(Mum1), " rho_one_fluid_u ", size(rho_one_fluid_u))
+        # print("size Mum1 " ,size(Mum1), " rho_one_fluid_u ", size(rho_one_fluid_u))
 
         if num.non_dimensionalize == 0
             B[bulk_u_velocity,bulk_u_velocity] = Mum1 #TODO rho_u ???
