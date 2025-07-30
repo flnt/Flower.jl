@@ -1,7 +1,7 @@
-# @inline SOUTH_face(num,itp, p=Point(0.0,-0.5), dx=1.0, dx2=2.0, dy2=2.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), maxevals = 10, atol = num.epsilon_marching_squares) * dx2
-# @inline WEST_face(num,itp, p=Point(-0.5,0.0), dy=1.0, dx2=2.0, dy2=2.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x/dx2, y), (-dy/2+p.y,dy/2+p.y)./dy2, FalsePosition(), maxevals = 10, atol = num.epsilon_marching_squares) * dy2
-# @inline NORTH_face(num,itp, p=Point(0.0,0.5), dx=1.0, dx2=2.0, dy2=2.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), maxevals = 10, atol = num.epsilon_marching_squares) * dx2
-# @inline EAST_face(num,itp, p=Point(0.5,0.0), dy=1.0, dx2=2.0, dy2=2.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x/dx2, y), (-dy/2+p.y,dy/2+p.y)./dy2, FalsePosition(), maxevals = 10, atol = num.epsilon_marching_squares) * dy2
+# @inline SOUTH_face(num,itp, p=Point(0.0,-0.5), dx=1.0, dx2=2.0, dy2=2.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), maxevals =  num.marching_squares_max_iter, atol = num.marching_squares_epsilon) * dx2
+# @inline WEST_face(num,itp, p=Point(-0.5,0.0), dy=1.0, dx2=2.0, dy2=2.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x/dx2, y), (-dy/2+p.y,dy/2+p.y)./dy2, FalsePosition(), maxevals =  num.marching_squares_max_iter, atol = num.marching_squares_epsilon) * dy2
+# @inline NORTH_face(num,itp, p=Point(0.0,0.5), dx=1.0, dx2=2.0, dy2=2.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), maxevals =  num.marching_squares_max_iter, atol = num.marching_squares_epsilon) * dx2
+# @inline EAST_face(num,itp, p=Point(0.5,0.0), dy=1.0, dx2=2.0, dy2=2.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x/dx2, y), (-dy/2+p.y,dy/2+p.y)./dy2, FalsePosition(), maxevals =  num.marching_squares_max_iter, atol = num.marching_squares_epsilon) * dy2
 
 @inline WE(g, LS, II, l_face, s_face, per) = ismixed(LS.iso[δx⁻(II, g.nx, per)]) ? 0.5*(LS.faces[II,1] + LS.faces[δx⁻(II, g.nx, per), 3]) : (is_liquid(LS.iso[δx⁻(II, g.nx, per)]) ? l_face : s_face)
 @inline WE_border(g, LS, II, l_face, s_face, per) = LS.faces[II,1]
@@ -1416,7 +1416,7 @@ marching_squares!
 
 cf [`Maple (2003)`](https://ieeexplore.ieee.org/document/1219671)   
 """
-function marching_squares!(grid, LS, u, periodic_x, periodic_y)
+function marching_squares!(num,grid, LS, u, periodic_x, periodic_y)
     @unpack x, y, nx, ny, dx, dy, ind = grid
 
     indices = vcat(
@@ -1437,43 +1437,43 @@ function marching_squares!(grid, LS, u, periodic_x, periodic_y)
     if !periodic_x
         @inbounds @threads for II in ind.b_left[1][2:end-1]
             II_0 = δx⁺(II)
-            _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_l)
+            _marching_squares!(num,grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_l)
         end
         @inbounds @threads for II in ind.b_right[1][2:end-1]
             II_0 = δx⁻(II)
-            _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_r)
+            _marching_squares!(num,grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_r)
         end
     end
     if !periodic_y
         @inbounds @threads for II in ind.b_bottom[1][2:end-1]
             II_0 = δy⁺(II)
-            _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_b)
+            _marching_squares!(num,grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_b)
         end
         @inbounds @threads for II in ind.b_top[1][2:end-1]
             II_0 = δy⁻(II)
-            _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_t)
+            _marching_squares!(num,grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_t)
         end
     end
 
     @inbounds @threads for II in _indices
-        _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II, is_near_interface)
+        _marching_squares!(num,grid, LS, u, periodic_x, periodic_y, II, II, is_near_interface)
     end
 
     II = ind.b_left[1][1]
     II_0 = δy⁺(δx⁺(II))
-    _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_bl)
+    _marching_squares!(num,grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_bl)
     
     II = ind.b_left[1][end]
     II_0 = δy⁻(δx⁺(II))
-    _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_tl)
+    _marching_squares!(num,grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_tl)
     
     II = ind.b_right[1][1]
     II_0 = δy⁺(δx⁻(II))
-    _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_br)
+    _marching_squares!(num,grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_br)
     
     II = ind.b_right[1][end]
     II_0 = δy⁻(δx⁻(II))
-    _marching_squares!(grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_tr)
+    _marching_squares!(num,grid, LS, u, periodic_x, periodic_y, II, II_0, is_near_interface_tr)
     
     return nothing
 end
@@ -2568,10 +2568,10 @@ function face_capacities(num,grid, faces, itp, case, II_0, II, posW, posS, posE,
     catch errorLS
         printstyled(color=:red, @sprintf "\n error face_capacities ")
         print("\n check face ",itp," ", case," ", II_0," ", II, " ",posW," ", posS," ", posE," ", posN," ",dx[II]," ",dy[II])
-        EAST_face_debug()
         printstyled(color=:red, @sprintf "\n error face_capacities ")
         # print(errorLS)
-        print(errorLS.task.exception)
+        # print(errorLS.task.exception)
+        print(errorLS.exception)
 
     end
 
@@ -2585,20 +2585,27 @@ function EAST_face(num,itp, p=Point(0.5,0.0), dy=1.0, dx2=2.0, dy2=2.0)
         find_zero_res = find_zero(y -> biquadratic(itp, p.x/dx2, y),
                                 (-dy/2+p.y,dy/2+p.y)./dy2, 
                                 FalsePosition(), 
-                                maxevals = 10, 
-                                atol = num.epsilon_marching_squares,
-                                ) 
-    catch
+                                maxevals =  num.marching_squares_max_iter, 
+                                atol = num.marching_squares_epsilon) 
+        result = dy/2 - p.y + find_zero_res * dy2
+        return result
+    catch err         
+        printstyled(color=:red, @sprintf "\n error EAST_face ")
+        print(err.exception)
+
         find_zero_res = find_zero(y -> biquadratic(itp, p.x/dx2, y),
                                 (-dy/2+p.y,dy/2+p.y)./dy2, 
                                 FalsePosition(), 
-                                maxevals = 10, 
-                                atol = num.epsilon_marching_squares,
-                                verbose=True,
-                                ) 
+                                maxevals =  num.marching_squares_max_iter, 
+                                atol = num.marching_squares_epsilon,
+                                verbose=true) 
+        
+        result = dy/2 - p.y + find_zero_res * dy2
+        return result
+
     end
 
-    result = dy/2 - p.y + find_zero_res * dy2
+    # result = dy/2 - p.y + find_zero_res * dy2
 
     return result
 end
@@ -2606,47 +2613,66 @@ end
 function WEST_face(num,itp, p=Point(-0.5,0.0), dy=1.0, dx2=2.0, dy2=2.0)
     try
         find_zero_res = find_zero(y -> biquadratic(itp, p.x/dx2, y), (-dy/2+p.y,dy/2+p.y)./dy2, FalsePosition(), 
-        maxevals = 10, atol = num.epsilon_marching_squares)
-    catch
+        maxevals =  num.marching_squares_max_iter, atol = num.marching_squares_epsilon)
+        result= dy/2 - p.y + find_zero_res * dy2
+        return result
+    catch err
+        printstyled(color=:red, @sprintf "\n error WEST_face ")
+        print(err.exception)
         find_zero_res = find_zero(y -> biquadratic(itp, p.x/dx2, y), (-dy/2+p.y,dy/2+p.y)./dy2, FalsePosition(), 
-        maxevals = 10, atol = num.epsilon_marching_squares,
-        verbose=True)
+        maxevals =  num.marching_squares_max_iter, atol = num.marching_squares_epsilon,
+        verbose=true)
+        result= dy/2 - p.y + find_zero_res * dy2
+        return result
     end
-    result= dy/2 - p.y + find_zero_res * dy2
-    return result
+    # result= dy/2 - p.y + find_zero_res * dy2
+    # return result
 end
 
 function SOUTH_face(num,itp, p=Point(0.0,-0.5), dx=1.0, dx2=2.0, dy2=2.0)
     try
         find_zero_res = find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), 
-        maxevals = 10, atol = num.epsilon_marching_squares)
-    catch
+        maxevals =  num.marching_squares_max_iter, atol = num.marching_squares_epsilon)
+        result = dx/2 - p.x + find_zero_res * dx2
+        return result
+    catch err
+        printstyled(color=:red, @sprintf "\n error SOUTH_face ")
+        print(err.exception)
         find_zero_res = find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), 
-        maxevals = 10, atol = num.epsilon_marching_squares,
-        verbose=True)
+        maxevals =  num.marching_squares_max_iter, atol = num.marching_squares_epsilon,
+        verbose=true)
+        result = dx/2 - p.x + find_zero_res * dx2
+        return result    
     end
 
-    result = dx/2 - p.x + find_zero_res * dx2
-    return result
+    # result = dx/2 - p.x + find_zero_res * dx2
+    # return result
 end
 
 function NORTH_face(num,itp, p=Point(0.0,0.5), dx=1.0, dx2=2.0, dy2=2.0) 
     try
-        find_zero_res = find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), maxevals = 10, atol = num.epsilon_marching_squares)
-    catch
         find_zero_res = find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), 
-        maxevals = 10, atol = num.epsilon_marching_squares,
-        verbose=True)
+        maxevals =  num.marching_squares_max_iter, atol = num.marching_squares_epsilon)
+        result = dx/2 - p.x + find_zero_res * dx2
+        return result
+    catch err
+        printstyled(color=:red, @sprintf "\n error NORTH_face ")
+        print(err.exception)
+        find_zero_res = find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), 
+        maxevals = num.marching_squares_max_iter, atol = num.marching_squares_epsilon,
+        verbose=true)
+        result = dx/2 - p.x + find_zero_res * dx2
+        return result
     end
-    result = dx/2 - p.x + find_zero_res * dx2
-    return result
+    # result = dx/2 - p.x + find_zero_res * dx2
+    # return result
 end
 
 
-# @inline SOUTH_face(num,itp, p=Point(0.0,-0.5), dx=1.0, dx2=2.0, dy2=2.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), maxevals = 10, atol = num.epsilon_marching_squares) * dx2
-# @inline WEST_face(num,itp, p=Point(-0.5,0.0), dy=1.0, dx2=2.0, dy2=2.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x/dx2, y), (-dy/2+p.y,dy/2+p.y)./dy2, FalsePosition(), maxevals = 10, atol = num.epsilon_marching_squares) * dy2
-# @inline NORTH_face(num,itp, p=Point(0.0,0.5), dx=1.0, dx2=2.0, dy2=2.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), maxevals = 10, atol = num.epsilon_marching_squares) * dx2
-# @inline EAST_face(num,itp, p=Point(0.5,0.0), dy=1.0, dx2=2.0, dy2=2.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x/dx2, y), (-dy/2+p.y,dy/2+p.y)./dy2, FalsePosition(), maxevals = 10, atol = num.epsilon_marching_squares) * dy2
+# @inline SOUTH_face(num,itp, p=Point(0.0,-0.5), dx=1.0, dx2=2.0, dy2=2.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), maxevals =  num.marching_squares_max_iter, atol = num.marching_squares_epsilon) * dx2
+# @inline WEST_face(num,itp, p=Point(-0.5,0.0), dy=1.0, dx2=2.0, dy2=2.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x/dx2, y), (-dy/2+p.y,dy/2+p.y)./dy2, FalsePosition(), maxevals =  num.marching_squares_max_iter, atol = num.marching_squares_epsilon) * dy2
+# @inline NORTH_face(num,itp, p=Point(0.0,0.5), dx=1.0, dx2=2.0, dy2=2.0) = dx/2 - p.x + find_zero(x -> biquadratic(itp, x, p.y/dy2), (-dx/2+p.x,dx/2+p.x)./dx2, FalsePosition(), maxevals =  num.marching_squares_max_iter, atol = num.marching_squares_epsilon) * dx2
+# @inline EAST_face(num,itp, p=Point(0.5,0.0), dy=1.0, dx2=2.0, dy2=2.0) = dy/2 - p.y + find_zero(y -> biquadratic(itp, p.x/dx2, y), (-dy/2+p.y,dy/2+p.y)./dy2, FalsePosition(), maxevals =  num.marching_squares_max_iter, atol = num.marching_squares_epsilon) * dy2
 
 
 

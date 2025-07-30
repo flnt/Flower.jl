@@ -124,7 +124,7 @@ function update_ls_data_grid(num, grid, LS, u, κ, periodic_x, periodic_y)
     LS.faces .= 0.0
     LS.mid_point .= [Point(0.0, 0.0)]
 
-    marching_squares!(grid, LS, u, periodic_x, periodic_y)
+    marching_squares!(num,grid, LS, u, periodic_x, periodic_y)
 
     LS.MIXED, LS.SOLID, LS.LIQUID = get_cells_indices(LS.iso, grid.ind.all_indices)
     NB_indices_base = get_NB_width_indices_base(num.NB)
