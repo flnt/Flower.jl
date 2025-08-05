@@ -1970,6 +1970,7 @@ def plot_file(
         x_1D = x_1D_2
         y_1D = y_1D_2
         key_LS = key_LS_2
+        # ny = ny_2
 
         # print('x_1D',len(x_1D),x_1D)
         # print('y_1D',len(y_1D),y_1D)
@@ -1998,6 +1999,7 @@ def plot_file(
 
 
 
+    # print(colored('nx','red'))
 
     # print('size xp ',len(xp),len(yp))
 
@@ -2113,18 +2115,30 @@ def plot_file(
             levels=eval(figpar['range']),
             cmap=plotpar['cmap'],
             extend=plotpar['extend'],)
+            # print(colored('range','red'))
         else:
-            try:
-                CS = ax2.contourf(x_1D,y_1D,field, 
-                levels=get_value_from_dicts('levels',figpar,plotpar),
-                cmap=plotpar['cmap'],
-                extend=plotpar['extend'],)
-            except:
-                print(x_1D)
-                print(y_1D)
-                # print(field)
-                # print(field[128,:])
-                # print(field[:,128])
+            print('test')
+            print(x_1D)
+            print(y_1D)
+            print(field)
+            print('sizes',len(x_1D),len(y_1D),np.size(field,0),np.size(field,1))
+
+
+            CS = ax2.contourf(x_1D,y_1D,field, 
+            levels=get_value_from_dicts('levels',figpar,plotpar),
+            cmap=plotpar['cmap'],
+            extend=plotpar['extend'],)
+            # try:
+            #     CS = ax2.contourf(x_1D,y_1D,field, 
+            #     levels=get_value_from_dicts('levels',figpar,plotpar),
+            #     cmap=plotpar['cmap'],
+            #     extend=plotpar['extend'],)
+            # except:
+            #     print(x_1D)
+            #     print(y_1D)
+            #     # print(field)
+            #     # print(field[128,:])
+            #     # print(field[:,128])
 
 
 
@@ -2218,7 +2232,7 @@ def plot_file(
 
     if get_value_from_dicts('plot_levelset',figpar,plotpar):
 
-        print('key_LS',key_LS)
+        # print('key_LS',key_LS)
         # print(file.keys())
         LSdat = file[key_LS][:]
         LSdat = LSdat.transpose()
@@ -2256,9 +2270,9 @@ def plot_file(
             # else:
             #     skip_every = int(plotpar['skip_every'])
             
-            skip_every = int(figpar.get('skip_every', plotpar['skip_every']))
+            skip_every = int(get_value_from_dicts('skip_every',figpar,plotpar))
 
-            quiver_scale = float(figpar.get('quiver_scale', plotpar['quiver_scale']))
+            quiver_scale = float(get_value_from_dicts('quiver_scale',figpar,plotpar))
 
             # print('quiver scale',quiver_scale)
 
@@ -2288,9 +2302,9 @@ def plot_file(
             # else:
             #     skip_every = int(plotpar['skip_every'])
             
-            skip_every = int(figpar.get('skip_every', plotpar['skip_every']))
+            skip_every = int(get_value_from_dicts('skip_every',figpar,plotpar))
 
-            quiver_scale = float(figpar.get('quiver_scale', plotpar['quiver_scale']))
+            quiver_scale = float(get_value_from_dicts('quiver_scale',figpar,plotpar))
 
             skip = (slice(None, None, skip_every), slice(None, None, skip_every))
             skip1D = slice(None, None, skip_every)
@@ -2388,7 +2402,10 @@ def plot_file(
 
     # print('plotpar', plotpar['show_nodes'])
     # show_nodes = figpar.get('show_nodes', plotpar['show_nodes'],False)
-    show_nodes = figpar.get('show_nodes', plotpar.get('show_nodes', False))
+    # show_nodes = figpar.get('show_nodes', plotpar.get('show_nodes', False))
+
+    show_nodes = get_value_from_dicts('show_nodes',figpar,plotpar)
+
 
     if show_nodes:
         # plotxcoordy = yp[int(len(yp)/2)]
@@ -2589,7 +2606,8 @@ def plot_vector(file,
     else:
         fig1,ax2 = init_fig(plotpar,figpar)
 
-    scale_units=plotpar["quiver_scale_unit"]
+    # scale_units=plotpar["quiver_scale_unit"]
+    scale_units = get_value_from_dicts('quiver_scale_unit',figpar,plotpar)
     scale_units = None if scale_units == 'None' else scale_units
 
     if 'skip_every' in figpar.keys():
@@ -2602,7 +2620,7 @@ def plot_vector(file,
         skip1D = slice(None, None, None)
 
     q = ax2.quiver(xp[skip1D],yp[skip1D],us[skip],vs[skip],
-    scale=float(plotpar["quiver_scale"]),
+    scale=float(get_value_from_dicts('quiver_scale',figpar,plotpar)),
     scale_units=scale_units,
     angles=scale_units,
     # color = "k",
@@ -4749,48 +4767,108 @@ def plot_python_pdf_full2(
     """Plot one figure for field, with BC
     args:
     """
+    
+    data = file[key][:]
+
+    if file["nx"][()] != None:
+        nx = file["nx"][()]
+        try:
+            ny = file["ny"][()]
+        except:
+            ny = nx
+    # print(colored('nx {} ny {}'.format(nx,ny),'red'))
+
+    # else:
+    # nx = mesh["nx"]
+    # ny = mesh["ny"]
+    mesh["nx"] = nx
+    mesh["ny"] = ny
+
+    # print('nx',nx)
+
+    xp,yp,xu,yv = create_mesh(figpar,mesh,plotpar,nx,ny,xp,yp,xu,yv,data)
+
 
     nx = mesh["nx"]
     ny = mesh["ny"]
-    if key == "u_1D":
-        nx = nx + 1
-        key_LS = "levelset_u"
-        x_1D = xu
-        y_1D = yp
-    elif key == "v_1D":
-        ny = ny + 1
-        key_LS = "levelset_v"
-        x_1D = xp
-        y_1D = yv
-    else:
-        key_LS = "levelset_p"
-        key_LS_wall = "levelset_p_wall"
-        x_1D = xp
-        y_1D = yp
 
 
-    # mesh["nx"] = nx
-    # mesh["ny"] = ny
-
-    # xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
-    # yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
-
-    # print('xp',xp)
-    # print('yp',yp)
-    # x_1D = xp
-    # y_1D = yp
-
-    # print('data shape',data.shape)
     if 'mesh_macro' in figpar.keys():
         # print('x_1D',len(x_1D),x_1D)
         # print('y_1D',len(y_1D),y_1D)
 
         exec(figpar['mesh_macro'])
-
-
-
         x_1D = x_1D_2
         y_1D = y_1D_2
+        key_LS = key_LS_2
+        # ny = ny_2
+
+        # print('x_1D',len(x_1D),x_1D)
+        # print('y_1D',len(y_1D),y_1D)
+
+        key_LS_wall = "levelset_p_wall"
+        key_normal = 'normal_angle'
+
+    elif key=="u_1D":
+        nx=nx+1
+        x_1D = xu 
+        y_1D = yp
+        key_LS = "levelset_u"
+
+    elif key=="v_1D":
+        ny=ny+1
+        x_1D = xp
+        y_1D = yv 
+        key_LS = "levelset_v"
+
+    else:
+        x_1D = xp
+        y_1D = yp
+        key_LS = "levelset_p"
+        key_LS_wall = "levelset_p_wall"
+        key_normal = 'normal_angle'
+
+
+
+    # if key == "u_1D":
+    #     nx = nx + 1
+    #     key_LS = "levelset_u"
+    #     x_1D = xu
+    #     y_1D = yp
+    # elif key == "v_1D":
+    #     ny = ny + 1
+    #     key_LS = "levelset_v"
+    #     x_1D = xp
+    #     y_1D = yv
+    # else:
+    #     key_LS = "levelset_p"
+    #     key_LS_wall = "levelset_p_wall"
+    #     x_1D = xp
+    #     y_1D = yp
+
+
+    # # mesh["nx"] = nx
+    # # mesh["ny"] = ny
+
+    # # xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+    # # yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+
+    # # print('xp',xp)
+    # # print('yp',yp)
+    # # x_1D = xp
+    # # y_1D = yp
+
+    # # print('data shape',data.shape)
+    # if 'mesh_macro' in figpar.keys():
+    #     # print('x_1D',len(x_1D),x_1D)
+    #     # print('y_1D',len(y_1D),y_1D)
+
+    #     exec(figpar['mesh_macro'])
+
+
+
+    #     x_1D = x_1D_2
+    #     y_1D = y_1D_2
 
 
         # print('x_1D',len(x_1D),x_1D)
@@ -4919,7 +4997,7 @@ def plot_python_pdf_full2(
 
     # TODO distinguish u, v, w grids even though it is a dummy position to plot BC
 
-    if parse_is_true(figpar['plot_bc']) and plot_bc_possible_based_on_dim:
+    if parse_is_true(get_value_from_dicts('plot_bc',figpar,plotpar)) and plot_bc_possible_based_on_dim:
         if ii0 == 0:
             vecb_l=True
             i1+=1
@@ -5078,25 +5156,32 @@ def plot_python_pdf_full2(
                 s=ms,
                 )
 
-                if 'print_mode' in figpar.keys():
-                    if figpar['print_mode'] == "val":
-                        str1='{:.2e}'.format(field[jgrid,igrid])
-                    elif figpar['print_mode'] == "valres":
-                        str1=figpar['print_res'].format(field[jgrid,igrid])
-                    elif figpar['print_mode'] == "val10":
-                        str1='{:.10e}'.format(field[jgrid,igrid])
-                    elif figpar['print_mode'] == "ij":
-                        str1="{:03} {:03}".format(igrid0,jgrid0)
-                    elif figpar['print_mode'] == "ijval": 
-                        str1="{:.2e} {:03} {:03}".format(field[jgrid,igrid],igrid0,jgrid0)      
-                    elif figpar['print_mode'] == "ijcoord": 
-                        str1="{:.2e} {:.2e} {:03} {:03}".format(x_arr[igrid],y_arr[jgrid],igrid0,jgrid0)        
-                    elif figpar['print_mode'] == "ijx": 
-                        str1="{:.2e} {:03} {:03}".format(x_arr[igrid],igrid0,jgrid0)         
-                    elif figpar['print_mode'] == "ijy": 
-                        str1="{:.2e} {:03} {:03}".format(y_arr[jgrid],igrid0,jgrid0)  
+                if 'macro_print' in figpar.keys():
+                    exec(figpar['macro_print'])
+                    str1=str2
+
                 else:
-                    str1='{:.2e}'.format(field[jgrid,igrid])
+                    if 'print_mode' in figpar.keys():
+                        if figpar['print_mode'] == "val":
+                            str1='{:.2e}'.format(field[jgrid,igrid])
+                        elif figpar['print_mode'] == "valres":
+                            str1=figpar['print_res'].format(field[jgrid,igrid])
+                        elif figpar['print_mode'] == "val10":
+                            str1='{:.10e}'.format(field[jgrid,igrid])
+                        elif figpar['print_mode'] == "ij":
+                            str1="{:03} {:03}".format(igrid0,jgrid0)
+                        elif figpar['print_mode'] == "ijval": 
+                            str1="{:.2e} {:03} {:03}".format(field[jgrid,igrid],igrid0,jgrid0)      
+                        elif figpar['print_mode'] == "ijcoord": 
+                            str1="{:.2e} {:.2e} {:03} {:03}".format(x_arr[igrid],y_arr[jgrid],igrid0,jgrid0)   
+                        elif figpar['print_mode'] == "valcoord": 
+                            str1="{:.2e} {:.2e} {:.2e}".format(field[jgrid,igrid],x_arr[igrid],y_arr[jgrid])   
+                        elif figpar['print_mode'] == "ijx": 
+                            str1="{:.2e} {:03} {:03}".format(x_arr[igrid],igrid0,jgrid0)         
+                        elif figpar['print_mode'] == "ijy": 
+                            str1="{:.2e} {:03} {:03}".format(y_arr[jgrid],igrid0,jgrid0)  
+                    else:
+                        str1='{:.2e}'.format(field[jgrid,igrid])
 
                 if 'fontsize' in figpar.keys():
                     fontsize = get_value_from_dicts('fontsize',figpar,plotpar)

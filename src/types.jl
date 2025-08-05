@@ -147,6 +147,7 @@ Stores parameters for the simulation
     one_fluid_normal::D=0
     marching_squares_epsilon::T=1e-9
     marching_squares_max_iter::D=10
+    convection::D=0
 
 end
 

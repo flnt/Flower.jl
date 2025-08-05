@@ -62,6 +62,7 @@ function update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_frac
     "rho_one_fluid_v"::Cstring, rho_one_fluid_v::Ptr{Cdouble}, PDI_OUT::Cint,
     "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
     "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
+    "volume_fraction_v"::Cstring, grid_v.LS[end].geoL.cap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint,
     # "mesh_p_x"::Cstring, grid_p.x::Ptr{Cdouble}, PDI_OUT::Cint,
     # "mesh_p_y"::Cstring, grid_p.y::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
@@ -567,7 +568,7 @@ solves Navier-Stokes equations with a pressure projection method.
 
 This documentation provides a high-level overview of the code's functionality and the key operations performed. For detailed implementation of specific functions or operations, refer to the corresponding sections of the code.
 """
-function pressure_projection_one_fluid!(
+function solve_one_fluid_NS!(
     time_scheme, bc_int,
     num, grid_p, geo, grid_u, geo_u, grid_v, geo_v, ph,
     BC_u, BC_v, BC_p,
@@ -593,7 +594,10 @@ function pressure_projection_one_fluid!(
     @unpack p, pD, ϕ, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr, uT = ph
     @unpack Cu, Cv, CUTCu, CUTCv = op_conv
 
-    iτ = 1.0 / τ
+    u0 = copy(u)
+    v0 = copy(v)
+
+    idt = 1.0 / τ
     # irho1 = 1.0 ./ rho_one_fluid
     # mu1_over_rho1 = mu_one_fluid ./ rho_one_fluid
     # mu1_over_rho1 = num.mu1 / num.rho1 
@@ -638,6 +642,9 @@ function pressure_projection_one_fluid!(
         BC_Poisson = Boundaries() #Neumann everywhere
     elseif num.prediction == "PmIIimposedpressure_nodiv_2"
         BC_Poisson = Boundaries(top=Dirichlet()) #Neumann everywhere
+    elseif num.prediction == "PmIIimposedpressure_nodiv_3"
+        BC_Poisson = Boundaries(top=Dirichlet(),
+                                bottom=Dirichlet()) #Neumann everywhere
     else
         BC_Poisson = copy(BC_p) 
     end
@@ -685,6 +692,7 @@ function pressure_projection_one_fluid!(
        num.prediction == "PmIIimposedpressureBCincrement" || 
        num.prediction == "PmIIimposedpressure_nodiv" ||
        num.prediction == "PmIIimposedpressure_nodiv_2" ||
+       num.prediction == "PmIIimposedpressure_nodiv_3" ||
        num.prediction == "testpressure"
 
         #cf Brown 2001
@@ -731,6 +739,19 @@ function pressure_projection_one_fluid!(
         "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
         "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
         C_NULL::Ptr{Cvoid})::Cint
+
+        PDI_status = @ccall "libpdi".PDI_multi_expose("grad_pres_y"::Cstring,
+        # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+        "grad_pres_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "grad_pres_coupled_y"::Cstring, grad_y[2:end-1,:]::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
+    
+
     end
     #endregion add gradient to prediction
 
@@ -752,19 +773,30 @@ function pressure_projection_one_fluid!(
         Cui = Cu * vec(rho_one_fluid_u .* u) .+ CUTCu #_rho should be included  #TODO 
         Cvi = Cv * vec(rho_one_fluid_v .* v) .+ CUTCv #_rho
     end
+
+    if num.convection == 0
+       
+        if advection
+            # scheme
+            if current_i == 1
+                Convu .+= Cui
+                Convv .+= Cvi
+            else
+                Convu .+= 1.5 .* Cui .- 0.5 .* Cum1 #Cui returned at the end of function to Cum1
+                Convv .+= 1.5 .* Cvi .- 0.5 .* Cvm1
+            end
+        end
+    else
+        Convu .= 0.0
+        Convv .= 0.0
+
+    end
+
+
     #endregion convection
 
 
-    if advection
-        # scheme
-        if current_i == 1
-            Convu .+= Cui
-            Convv .+= Cvi
-        else
-            Convu .+= 1.5 .* Cui .- 0.5 .* Cum1 #Cui returned at the end of function to Cum1
-            Convv .+= 1.5 .* Cvi .- 0.5 .* Cvm1
-        end
-    end
+    
 
 
     if num.one_fluid_model == 1 
@@ -935,24 +967,30 @@ function pressure_projection_one_fluid!(
             "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
             "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
             C_NULL::Ptr{Cvoid})::Cint
-
-            #Surface tension
-            rhs_uv[bulk_u_velocity] .+= τ .* vec(volumic_surface_tension_u) ./ vec(rho_one_fluid_u)
-
-            print("\n surface tension u")
-            PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
-            "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
-            "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
-            C_NULL::Ptr{Cvoid})::Cint
-
         else
             rhs_uv[bulk_u_velocity] .-= τ .* ph.Gxm1 
-            #Surface tension
-            rhs_uv[bulk_u_velocity] .+= τ .* vec(volumic_surface_tension_u)
-
         end
-
     end 
+
+    # rhs_uv[bulk_u_velocity] .+= τ .* ra_x
+    if num.non_dimensionalize == 0
+        
+        #Surface tension
+        rhs_uv[bulk_u_velocity] .+= τ .* vec(volumic_surface_tension_u) ./ vec(rho_one_fluid_u)
+
+        print("\n surface tension u")
+        PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+        "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
+        "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
+
+    else
+        #Surface tension
+        rhs_uv[bulk_u_velocity] .+= τ .* vec(volumic_surface_tension_u)
+
+    end
+
+    
 
    
     # print("\n grav_y ",grav_y)
@@ -1014,30 +1052,40 @@ function pressure_projection_one_fluid!(
             "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
             "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
             C_NULL::Ptr{Cvoid})::Cint
-
-            #Surface tension
-            rhs_uv[bulk_v_velocity] .+= τ .* vec(volumic_surface_tension_v) ./  vec(rho_one_fluid_v)
-
-            print("\n surface tension y")
-
-            PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
-            "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
-            "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
-            C_NULL::Ptr{Cvoid})::Cint
-
         else
             rhs_uv[bulk_v_velocity] .-= τ .* ph.Gym1
-            #Surface tension
-            rhs_uv[bulk_v_velocity] .+= τ .* vec(volumic_surface_tension_v)
+            
         end
     end
 
 
-    PDI_status = @ccall "libpdi".PDI_multi_expose("grad_pres_y"::Cstring,
+          
+    if num.non_dimensionalize == 0
+
+        #Surface tension
+        rhs_uv[bulk_v_velocity] .+= τ .* vec(volumic_surface_tension_v) ./  vec(rho_one_fluid_v)
+
+        print("\n surface tension y")
+
+        PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+        "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
+        "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
+
+    else
+        #Surface tension
+        rhs_uv[bulk_v_velocity] .+= τ .* vec(volumic_surface_tension_v)
+    end
+
+
+
+    NS_force_y = reshape(-grav_y .-ph.Gym1 ./ vec(rho_one_fluid_v),grid_v)
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("NS_force_y"::Cstring,
     # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
     # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
     # "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
-    "grad_pres_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    "NS_force_y"::Cstring, NS_force_y::Ptr{Cdouble}, PDI_OUT::Cint,
     # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
     # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
     # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -1109,18 +1157,126 @@ function pressure_projection_one_fluid!(
 
     # print("\n diag Auv ", Auv.nzval)
     # display(Auv)
+    
+    II = CartesianIndex(div(grid_u.ny,4),div(grid_u.nx,2)) #center
+    pII = lexicographic(II, grid_u.ny)
+    print("\n test A ",Auv[pII,:])
+
+    print("\n test rhs ",rhs_uv[pII])
+
+
+    II = CartesianIndex(div(grid_u.ny,2),div(grid_u.nx,2)) #center
+    pII = lexicographic(II, grid_u.ny)
+    print("\n test A ",Auv[pII,:])
+
+    print("\n test rhs ",rhs_uv[pII])
+
     # print("\n size Auv ",size(Auv))
 
     # print("\n test rhs 0 ")
     # rhs_uv .= 0.0
+
+
+    if num.pressure_velocity_coupling == 3
+        print("\n Setting first cells")
+        set_first_cells!(Auv,rhs_uv,grid_u,ntu-nbu,0,true,false,true,false)
+        set_first_cells!(Auv,rhs_uv,grid_v,ntu+ntv-nbv,ntu,false,true,false,true)
+    end
     
+    #region solver
     try
         @time uvD .= Auv \ rhs_uv
     catch e
         uvD .= Inf
         println(e)
     end
+    #endregion solver
 
+    for j in 1:grid_v.ny
+        II = CartesianIndex(j,div(grid_v.nx,2)) #center
+        pII = lexicographic(II, grid_v.ny)
+        IIp = CartesianIndex(j,div(grid_p.nx,2)) #center
+        pIIp = lexicographic(IIp, grid_p.ny)
+        print("\n test A v",II," ",pII," v ",uvD[pII+ntu]," rhs ",rhs_uv[pII+ntu]," ",uvD[ntu+ntv+pIIp-1]," ",uvD[ntu+ntv+pIIp]," ",uvD[ntu+ntv+pIIp+1]," grad ",(uvD[ntu+ntv+pIIp+1]-uvD[ntu+ntv+pIIp])*40," ",(uvD[ntu+ntv+pIIp]-uvD[ntu+ntv+pIIp-1])*40," ",Auv[pII+ntu,:])
+    end
+
+    II = CartesianIndex(div(grid_v.ny,4),div(grid_v.nx,2)) #center
+    pII = lexicographic(II, grid_v.ny)
+
+    print("\n test A v",Auv[pII+ntu,:])
+    print("\n test A v",uvD[pII+ntu])
+    print("\n test rhs ",rhs_uv[pII+ntu])
+
+    print("\n pII +ntu ",pII+ntu)
+    print("\n test A v",uvD[pII+ntu+1])
+    print("\n test A v",uvD[pII+ntu-1])
+    print("\n test A v",uvD[pII+ntu+grid_v.ny])
+    print("\n test A v",uvD[pII+ntu-grid_v.ny])
+
+    IIp = CartesianIndex(div(grid_p.ny,4),div(grid_p.nx,2)) #center
+    pIIp = lexicographic(IIp, grid_p.ny)
+    print("\n test A p",uvD[ntu+ntv+pIIp])
+    print("\n test A p",uvD[ntu+ntv+pIIp+1])
+    print("\n test A p",uvD[ntu+ntv+pIIp-1])
+
+
+    II = CartesianIndex(div(grid_u.ny,4),div(grid_u.nx,2)) #center
+    pII = lexicographic(II, grid_u.ny)
+    print("\n test A ",Auv[pII,:])
+
+
+    
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_rising"::Cstring,
+    # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    # print("\n test rhs ",rhs_uv[pII])
+    # print("\n pII ",pII)
+    # print("\n pII ",uvD[pII])
+    # print("\n pII ",uvD[1539])
+    # print("\n pII ",uvD[pII+1])
+    # print("\n pII ",uvD[pII+2])
+    
+    # print("\n pII ",uvD[1620])
+    # print("\n pII ",uvD[5000])
+    # print("\n pII ",uvD[5000+grid_p.ny])
+    # print("\n pII ",uvD[5000])
+    # print("\n pII ",uvD[5000])
+
+    # print("\n pII ",uvD[8464])
+    # print("\n pII ",uvD[8544])
+
+    
+    # vec1(ph.uD,grid_u) .= uvD[1:niu]
+    # vecb(ph.uD,grid_u) .= uvD[niu+1:ntu]
+
+    # vec1(ph.vD,grid_v) .= uvD[ntu+1:ntu+niv]
+    # vecb(ph.vD,grid_v) .= uvD[ntu+1+niv:ntu+ntv]
+
+
+
+
+#     [1539]  =  -0.0001
+#   [1540]  =  0.001225
+#   [1541]  =  -0.0001
+#   [1620]  =  -0.0002
+#   [5000]  =  -0.0001
+#   [5001]  =  0.0001
+#   [5081]  =  0.0001
+#   [5082]  =  -0.0001
+#   [8464]  =  -2.5e-6
+#   [8544]  =  2.5e-6
+
+
+
+    II = CartesianIndex(div(grid_u.ny,2),div(grid_u.nx,2)) #center
+    pII = lexicographic(II, grid_u.ny)
+    print("\n test A ",Auv[pII,:])
+
+    print("\n test rhs ",rhs_uv[pII])
 
     vec1(ucorrD, grid_u) .= uvD[bulk_u_velocity]
     vecb(ucorrD, grid_u) .= uvD[border_u_velocity]
@@ -1137,6 +1293,14 @@ function pressure_projection_one_fluid!(
     #endregion cut-cell
     
     vcorr .= reshape(vec1(vcorrD,grid_v), grid_v)
+
+
+    II = CartesianIndex(div(grid_v.ny,4),div(grid_v.nx,2)) #center
+    pII = lexicographic(II, grid_v.ny)
+
+    print("\n test A v",uvD[pII+ntu])
+
+    print("\n vcorr ",vcorr[II]," ",vcorrD[pII])
 
     #region cut-cell
     # nNav = 0
@@ -1258,291 +1422,561 @@ function pressure_projection_one_fluid!(
     #endregion check divergence
 
 
+    #region correction
 
-    # Poisson equation: source term
-    # divergence of velocity / dt
-    vec1(rhs_phi,grid_p) .= iτ .* velocity_divergence
+    #region velocity correction, compute pressure with Poisson
+    if num.pressure_velocity_coupling == 0
+        # Poisson equation: source term
+        # divergence of velocity / dt
+        # vec1(rhs_phi,grid_p) .= idt .* velocity_divergence
+        vec1(rhs_phi,grid_p) .= velocity_divergence
 
-    #region needs to be corrected/documented for the signs, free surface pressure BC 
-    
-    # pres_free_suface = 0.0
-    #TODO Marangoni
-    #TODO phase change
-    # diff_inv_rho = 1.0/rho1 - 1.0/rho2
-    # jump_mass_flux = 0.0 #TODO
-
-    #region cut-cell
-    # if jump_mass_flux
-    #     for iLS in 1:nLS
-    #         if is_fs(bc_int[iLS])
-    #             Smat = strain_rate(iLS, opC_u, opC_v, opC_p)
-    #             S = Smat[1,1] * vec1(ucorrD,grid_u) .+ Smat[1,2] * veci(ucorrD,grid_u,iLS+1) .+
-    #                 Smat[2,1] * vec1(vcorrD,grid_v) .+ Smat[2,2] * veci(vcorrD,grid_v,iLS+1)
-    
-    #             fs_mat = opC_p.HxT[iLS] * opC_p.Hx[iLS] .+ opC_p.HyT[iLS] * opC_p.Hy[iLS]
-    #             veci(rhs_phi,grid_p,iLS+1) .= -2.0 .* mu1_over_rho1 .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid_p.LS[iLS].κ) .- pres_free_suface .- diff_inv_rho * mass_flux ^ 2)
-    #         end
-    #     end
-    # else
-    #     for iLS in 1:nLS
-    #         if is_fs(bc_int[iLS])
-    #             Smat = strain_rate(iLS, opC_u, opC_v, opC_p)
-    #             S = Smat[1,1] * vec1(ucorrD,grid_u) .+ Smat[1,2] * veci(ucorrD,grid_u,iLS+1) .+
-    #                 Smat[2,1] * vec1(vcorrD,grid_v) .+ Smat[2,2] * veci(vcorrD,grid_v,iLS+1)
-
-    #             fs_mat = opC_p.HxT[iLS] * opC_p.Hx[iLS] .+ opC_p.HyT[iLS] * opC_p.Hy[iLS]
-    #             veci(rhs_phi,grid_p,iLS+1) .= -2.0 .* mu1_over_rho1 .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid_p.LS[iLS].κ) .- pres_free_suface )
-    #         end
-    #     end
-    # end
-    #endregion cut-cell
-
-    # Remove nullspace by adding small quantity to main diagonal
-    if num.null_space == 0
-        @inbounds @threads for i in 1:A_phi.m
-            @inbounds A_phi[i,i] += 1e-10
-        end
-    end
-    kill_dead_cells!(vec1(rhs_phi,grid_p), grid_p, geo[end])
-    for iLS in 1:nLS
-        kill_dead_cells!(veci(rhs_phi,grid_p,iLS+1), grid_p, geo[end])
-    end
-    # @time bicgstabl!(result_p, A_phi, rhs_phi, Pl = Diagonal(A_phi), log = true)
-
-    #endregion needs to be corrected/documented for the signs, free surface pressure BC 
-
-
-    # print("size pressure ",size(rhs_phi)," ",size(result_p)," ",size(A_phi))
-    # Solve Poisson equation
-    # \phi^{n+1}: result_p
-    # @time result_p .= A_phi \ rhs_phi
-    result_p = A_phi \ rhs_phi
-
-    
-
-    #region cut-cell
-    # kill_dead_cells!(vec1(result_p,grid_p), grid_p, geo[end])
-    # for iLS in 1:nLS
-    #     kill_dead_cells!(veci(result_p,grid_p,iLS+1), grid_p, geo[end])
-    # end
-    #endregion cut-cell
-
-    ϕ .= reshape(vec1(result_p,grid_p), grid_p)
-
-    iMu = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_u.M.diag))
-    iMv = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_v.M.diag))
-    # Gradient of pressure, eq. 17 in 
-    #"A Conservative Cartesian Cut-Cell Method for Mixed Boundary Conditions and the Incompressible Navier-Stokes Equations on Staggered Meshes"
-    ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec(ϕ) .+ opC_u.Gx_b * vecb(result_p,grid_p)
-    ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec(ϕ) .+ opC_v.Gy_b * vecb(result_p,grid_p)
-  
-    #region cut-cell
-    # for iLS in 1:nLS
-    #     ∇ϕ_x .+= opC_u.Gx[iLS] * veci(result_p,grid_p,iLS+1)
-    #     ∇ϕ_y .+= opC_v.Gy[iLS] * veci(result_p,grid_p,iLS+1)
-    # end
-    #endregion cut-cell
-
-    # ∇ϕ_x = irho1 .* opC_u.AxT * opC_u.Rx * vec(ϕ) .+ opC_u.Gx_b * vecb(result_p,grid_p)
-    # ∇ϕ_y = irho1 .* opC_v.AyT * opC_v.Ry * vec(ϕ) .+ opC_v.Gy_b * vecb(result_p,grid_p)
-    # for iLS in 1:nLS
-    #     ∇ϕ_x .+= irho1 .* opC_u.Gx[iLS] * veci(result_p,grid_p,iLS+1)
-    #     ∇ϕ_y .+= irho1 .* opC_v.Gy[iLS] * veci(result_p,grid_p,iLS+1)
-    # end
-
-    # if num.prediction == 1 already done
-    #     ph.Gxm1 .+= ∇ϕ_x
-    #     ph.Gym1 .+= ∇ϕ_y
-    # end
-
-
-    # iM = Diagonal(1. ./ (vec(geo[end].dcap[:,:,5]) .+ eps(0.01)))
-
-    # iM = Diagonal(inv_weight_eps.(num,geo[end].dcap[:,:,5]))
-
-    iM = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(geo[end].dcap[:,:,5])))
-
-    # iM = Diagonal(1. ./ (vec(geo[end].dcap[:,:,5]) ))
-
-    # if is_fs(bc_int)
-    # p^{n-1/2} is the pressure of the previous timestep (for pressure, which is lagging by dt/2 wrt other wariables)
-    if num.prediction == "PmI"
-        # \nabla_h p^{n+1/2} = \nabla_h p^{n-1/2} + \nabla_h \phi^{n+1}.
-        # "not consistent with a second-order discretization of the Navier–Stokes equations since, 
-        # due to Eq. (72), the normal component of the pressure gradient will remain constant in time at the boundary"
-        # Brown 2001
-        vec1(pD,grid_p) .+= vec(ϕ) #no τ  since div u not rho1
-
-    elseif num.prediction == "PmII" || num.prediction == "PmIIimposedpressure" || num.prediction == "PmIIimposedpressureBCincrement"
-        # \nabla_h p^{n+1/2} = \nabla_h p^{n-1/2} + \nabla_h \phi^{n+1} - 
-        #nu dt/2
-        # \Delta t \nabla_h^2 \phi^{n+1} = \nabla_h \cdot \mathbf{u}^{*} \quad \text{in } \Omega
+        #region needs to be corrected/documented for the signs, free surface pressure BC 
         
+        # pres_free_suface = 0.0
+        #TODO Marangoni
+        #TODO phase change
+        # diff_inv_rho = 1.0/rho1 - 1.0/rho2
+        # jump_mass_flux = 0.0 #TODO
 
-        print("\n max p vec1 ",maximum(vec1(pD,grid_p)))
-        print("\n min p",minimum(ϕ)," max ",maximum(ϕ))
-        # print("\n max p",minimum(num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p))," ",maximum(num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p)))
-
-        # todo zero neumann bc !!!!
-        # vec1(pD,grid_p) .+= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p))
-        # or,
-        # for better readability
-        # vec1(pD,grid_p) .= vec1(pD,grid_p) .+ vec(ϕ .- num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p)) 
-        vec1(pD,grid_p) .= vec1(pD,grid_p) .+ vec(ϕ .- mu_one_fluid./rho_one_fluid./2 .* reshape(iM * velocity_divergence,grid_p)) 
-        
-        # vec1(pD,grid_p) .+= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p)) 
-
-        print("\n max p vec1 ",maximum(vec1(pD,grid_p)))
-        print("\n min p",minimum(ϕ)," max ",maximum(ϕ))
-        # print("\n max p",minimum(num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p))," ",maximum(num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p)))
-
-
-    elseif num.prediction == "PmIIimposedpressure_nodiv" ||
-       num.prediction == "PmIIimposedpressure_nodiv_2"
-
-        vec1(pD,grid_p) .= vec1(pD,grid_p) .+ vec(ϕ)
-
-    elseif num.prediction == "PmIII"
-        #TODO which zverage better here for higher order term mu_one_fluid./rho_one_fluid ?
-        # \Delta t \nabla_h^2 \phi^{n+1} = \nabla_h \cdot \mathbf{u}^{*} \quad \text{in } \Omega
-        vec1(pD,grid_p) .= vec(ϕ .- mu_one_fluid./rho_one_fluid ./2 .* reshape(iM * velocity_divergence,grid_p)) #no contribution from p^{n-1/2}
-    
-    elseif num.prediction == "Flower" #occursin("Flower",num.prediction)
-        # \nabla_h p^{n+1/2} = \nabla_h \phi^{n+1} # TODO: does not correspond to any formula in Brown 2001 ?
-        vec1(pD,grid_p) .= vec(ϕ) #.- mu1_over_rho1 .* reshape(iM * velocity_divergence, grid_p))
-    
-    elseif num.prediction == "testpressure"
-        print("test pressure")
-
-    else
-        @error("wrong prediction method, does not exist")
-    end
-
-    # PDI_status = @ccall "libpdi".PDI_multi_expose("print_pressure_projection"::Cstring,
-    # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-    # C_NULL::Ptr{Cvoid})::Cint
-
-    #region interfacial pressure is overwritten
-    # TODO check and document: for pressure-imposed Poiseuille, not sure
-    #  
-    if num.prediction == "PmIIimposedpressure" || num.prediction == "PmIIimposedpressure_nodiv" ||
-       num.prediction == "PmIIimposedpressure_nodiv_2" || num.prediction == "testpressure"
-
-
-    elseif num.prediction == "PmIIimposedpressureBCincrement"
-        #TODO reapply BC 
-        #TODO
-        #init p for Poiseuille : grad_x = 0
-        #increment : grad_x=0
-        # so grad_x still zero ? even with div ?
-        tmp_vec_p = zeros(grid_p) 
-        # tmp_vec_p .= 0.0
-        get_height!(grid_p.LS[1],grid_p.ind,grid_p.dx,grid_p.dy,grid_p.LS[end].geoS,tmp_vec_p) #here tmp_vec_p solid #TODO geoS ??
-
-        init_fields_multiple_levelsets!(num,ph.pD,ph.p,tmp_vec_p,BC_p,grid_p,num.pres_intfc,"pL")
-
-    else #update pressure at boundaries
         #region cut-cell
-        # for iLS in 1:nLS
-        #     veci(pD,grid_p,iLS+1) .= veci(result_p,grid_p,iLS+1)
+        # if jump_mass_flux
+        #     for iLS in 1:nLS
+        #         if is_fs(bc_int[iLS])
+        #             Smat = strain_rate(iLS, opC_u, opC_v, opC_p)
+        #             S = Smat[1,1] * vec1(ucorrD,grid_u) .+ Smat[1,2] * veci(ucorrD,grid_u,iLS+1) .+
+        #                 Smat[2,1] * vec1(vcorrD,grid_v) .+ Smat[2,2] * veci(vcorrD,grid_v,iLS+1)
+        
+        #             fs_mat = opC_p.HxT[iLS] * opC_p.Hx[iLS] .+ opC_p.HyT[iLS] * opC_p.Hy[iLS]
+        #             veci(rhs_phi,grid_p,iLS+1) .= -2.0 .* mu1_over_rho1 .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid_p.LS[iLS].κ) .- pres_free_suface .- diff_inv_rho * mass_flux ^ 2)
+        #         end
+        #     end
+        # else
+        #     for iLS in 1:nLS
+        #         if is_fs(bc_int[iLS])
+        #             Smat = strain_rate(iLS, opC_u, opC_v, opC_p)
+        #             S = Smat[1,1] * vec1(ucorrD,grid_u) .+ Smat[1,2] * veci(ucorrD,grid_u,iLS+1) .+
+        #                 Smat[2,1] * vec1(vcorrD,grid_v) .+ Smat[2,2] * veci(vcorrD,grid_v,iLS+1)
+
+        #             fs_mat = opC_p.HxT[iLS] * opC_p.Hx[iLS] .+ opC_p.HyT[iLS] * opC_p.Hy[iLS]
+        #             veci(rhs_phi,grid_p,iLS+1) .= -2.0 .* mu1_over_rho1 .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid_p.LS[iLS].κ) .- pres_free_suface )
+        #         end
+        #     end
         # end
         #endregion cut-cell
-        vecb(pD,grid_p) .= vecb(result_p,grid_p) 
-    end
+
+        # Remove nullspace by adding small quantity to main diagonal
+        if num.null_space == 0
+            @inbounds @threads for i in 1:A_phi.m
+                @inbounds A_phi[i,i] += 1e-10
+            end
+        end
+        kill_dead_cells!(vec1(rhs_phi,grid_p), grid_p, geo[end])
+        for iLS in 1:nLS
+            kill_dead_cells!(veci(rhs_phi,grid_p,iLS+1), grid_p, geo[end])
+        end
+        # @time bicgstabl!(result_p, A_phi, rhs_phi, Pl = Diagonal(A_phi), log = true)
+
+        #endregion needs to be corrected/documented for the signs, free surface pressure BC 
 
 
-    #endregion interfacial pressure is overwritten
+        # print("size pressure ",size(rhs_phi)," ",size(result_p)," ",size(A_phi))
+        # Solve Poisson equation
+        # \phi^{n+1}: result_p
+        # @time result_p .= A_phi \ rhs_phi
+        result_p = A_phi \ rhs_phi
 
-    #TODO reapply Neumann BC for pressure boundary values ?
+        
 
+        #region cut-cell
+        # kill_dead_cells!(vec1(result_p,grid_p), grid_p, geo[end])
+        # for iLS in 1:nLS
+        #     kill_dead_cells!(veci(result_p,grid_p,iLS+1), grid_p, geo[end])
+        # end
+        #endregion cut-cell
 
-    p .= reshape(vec1(pD,grid_p), grid_p)
+        ϕ .= reshape(vec1(result_p,grid_p), grid_p)
 
-    #TODO
-    # compute_grad_p!(num,grid_p, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
-
-
-    # else
-    #     vec1(pD,grid_p) .= vec(p) .+ vec(ϕ) #.- mu1_over_rho1 .* iM * velocity_divergence
-    #     vec2(pD,grid_p) .+= vec2(result_p,grid_p)
-    #     vecb(pD,grid_p) .+= vecb(result_p,grid_p)
-    #     p .= reshape(vec1(pD,grid_p), grid_p)
-    # end
-
-    # vec1(∇ϕ_x,grid_p) .*= irho1 
-    # vec1(∇ϕ_y,grid_p) .*= irho1
-
+        iMu = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_u.M.diag))
+        iMv = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_v.M.diag))
+        # Gradient of pressure, eq. 17 in 
+        #"A Conservative Cartesian Cut-Cell Method for Mixed Boundary Conditions and the Incompressible Navier-Stokes Equations on Staggered Meshes"
+        ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec(ϕ) .+ opC_u.Gx_b * vecb(result_p,grid_p)
+        ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec(ϕ) .+ opC_v.Gy_b * vecb(result_p,grid_p)
     
-    # u .= ucorr .- τ .* reshape(iMu * ∇ϕ_x, grid_u)
-    # v .= vcorr .- τ .* reshape(iMv * ∇ϕ_y, grid_v)
+        #region cut-cell
+        # for iLS in 1:nLS
+        #     ∇ϕ_x .+= opC_u.Gx[iLS] * veci(result_p,grid_p,iLS+1)
+        #     ∇ϕ_y .+= opC_v.Gy[iLS] * veci(result_p,grid_p,iLS+1)
+        # end
+        #endregion cut-cell
 
-    u .= ucorr .- τ .* reshape(iMu * ∇ϕ_x, grid_u) ./ rho_one_fluid_u
-    v .= vcorr .- τ .* reshape(iMv * ∇ϕ_y, grid_v) ./ rho_one_fluid_v
-    #region cut-cell
-    # kill_dead_cells!(u, grid_u, geo_u[end])
-    # kill_dead_cells!(v, grid_v, geo_v[end])
-    #endregion cut-cell
+        # ∇ϕ_x = irho1 .* opC_u.AxT * opC_u.Rx * vec(ϕ) .+ opC_u.Gx_b * vecb(result_p,grid_p)
+        # ∇ϕ_y = irho1 .* opC_v.AyT * opC_v.Ry * vec(ϕ) .+ opC_v.Gy_b * vecb(result_p,grid_p)
+        # for iLS in 1:nLS
+        #     ∇ϕ_x .+= irho1 .* opC_u.Gx[iLS] * veci(result_p,grid_p,iLS+1)
+        #     ∇ϕ_y .+= irho1 .* opC_v.Gy[iLS] * veci(result_p,grid_p,iLS+1)
+        # end
 
-    vec1(uD,grid_u) .= vec(u)
-    vecb(uD,grid_u) .= vecb(ucorrD,grid_u)
-    vec1(vD,grid_v) .= vec(v)
-    vecb(vD,grid_v) .= vecb(vcorrD,grid_v)
+        # if num.prediction == 1 already done
+        #     ph.Gxm1 .+= ∇ϕ_x
+        #     ph.Gym1 .+= ∇ϕ_y
+        # end
 
-    #region cut-cell
-    # for iLS in 1:nLS
-    #     if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
-    #         veci(uD,grid_u,iLS+1) .= veci(ucorrD,grid_u,iLS+1)
-    #         veci(vD,grid_v,iLS+1) .= veci(vcorrD,grid_v,iLS+1)
+
+        # iM = Diagonal(1. ./ (vec(geo[end].dcap[:,:,5]) .+ eps(0.01)))
+
+        # iM = Diagonal(inv_weight_eps.(num,geo[end].dcap[:,:,5]))
+
+        iM = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(geo[end].dcap[:,:,5])))
+
+        # iM = Diagonal(1. ./ (vec(geo[end].dcap[:,:,5]) ))
+
+        # if is_fs(bc_int)
+        # p^{n-1/2} is the pressure of the previous timestep (for pressure, which is lagging by dt/2 wrt other wariables)
+        if num.prediction == "PmI"
+            # \nabla_h p^{n+1/2} = \nabla_h p^{n-1/2} + \nabla_h \phi^{n+1}.
+            # "not consistent with a second-order discretization of the Navier–Stokes equations since, 
+            # due to Eq. (72), the normal component of the pressure gradient will remain constant in time at the boundary"
+            # Brown 2001
+            vec1(pD,grid_p) .+= vec(ϕ) #no τ  since div u not rho1
+
+        elseif num.prediction == "PmII" || num.prediction == "PmIIimposedpressure" || num.prediction == "PmIIimposedpressureBCincrement"
+            # \nabla_h p^{n+1/2} = \nabla_h p^{n-1/2} + \nabla_h \phi^{n+1} - 
+            #nu dt/2
+            # \Delta t \nabla_h^2 \phi^{n+1} = \nabla_h \cdot \mathbf{u}^{*} \quad \text{in } \Omega
+            
+
+            print("\n max p vec1 ",maximum(vec1(pD,grid_p)))
+            print("\n min p",minimum(ϕ)," max ",maximum(ϕ))
+            # print("\n max p",minimum(num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p))," ",maximum(num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p)))
+
+            # todo zero neumann bc !!!!
+            # vec1(pD,grid_p) .+= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p))
+            # or,
+            # for better readability
+            # vec1(pD,grid_p) .= vec1(pD,grid_p) .+ vec(ϕ .- num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p)) 
+            vec1(pD,grid_p) .= vec1(pD,grid_p) .+ vec(ϕ .- mu_one_fluid./rho_one_fluid./2 .* reshape(iM * velocity_divergence,grid_p)) 
+            
+            # vec1(pD,grid_p) .+= vec(ϕ .- num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p)) 
+
+            print("\n max p vec1 ",maximum(vec1(pD,grid_p)))
+            print("\n min p",minimum(ϕ)," max ",maximum(ϕ))
+            # print("\n max p",minimum(num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p))," ",maximum(num.mu_cin1./2 .* reshape(iM * velocity_divergence,grid_p)))
+
+
+        elseif num.prediction == "PmIIimposedpressure_nodiv" ||
+        num.prediction == "PmIIimposedpressure_nodiv_2" ||
+        num.prediction == "PmIIimposedpressure_nodiv_3"
+
+            vec1(pD,grid_p) .= vec1(pD,grid_p) .+ vec(ϕ)
+
+        elseif num.prediction == "PmIII"
+            #TODO which zverage better here for higher order term mu_one_fluid./rho_one_fluid ?
+            # \Delta t \nabla_h^2 \phi^{n+1} = \nabla_h \cdot \mathbf{u}^{*} \quad \text{in } \Omega
+            vec1(pD,grid_p) .= vec(ϕ .- mu_one_fluid./rho_one_fluid ./2 .* reshape(iM * velocity_divergence,grid_p)) #no contribution from p^{n-1/2}
+        
+        elseif num.prediction == "Flower" #occursin("Flower",num.prediction)
+            # \nabla_h p^{n+1/2} = \nabla_h \phi^{n+1} # TODO: does not correspond to any formula in Brown 2001 ?
+            vec1(pD,grid_p) .= vec(ϕ) #.- mu1_over_rho1 .* reshape(iM * velocity_divergence, grid_p))
+        
+        elseif num.prediction == "testpressure"
+            print("test pressure")
+
+        else
+            @error("wrong prediction method, does not exist")
+        end
+
+        # PDI_status = @ccall "libpdi".PDI_multi_expose("print_pressure_projection"::Cstring,
+        # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # C_NULL::Ptr{Cvoid})::Cint
+
+        #region interfacial pressure is overwritten
+        # TODO check and document: for pressure-imposed Poiseuille, not sure
+        #  
+        if num.prediction == "PmIIimposedpressure" || num.prediction == "PmIIimposedpressure_nodiv" ||
+        num.prediction == "PmIIimposedpressure_nodiv_2" || 
+        num.prediction == "PmIIimposedpressure_nodiv_3" || 
+        num.prediction == "testpressure"
+
+
+        elseif num.prediction == "PmIIimposedpressureBCincrement"
+            #TODO reapply BC 
+            #TODO
+            #init p for Poiseuille : grad_x = 0
+            #increment : grad_x=0
+            # so grad_x still zero ? even with div ?
+            tmp_vec_p = zeros(grid_p) 
+            # tmp_vec_p .= 0.0
+            get_height!(grid_p.LS[1],grid_p.ind,grid_p.dx,grid_p.dy,grid_p.LS[end].geoS,tmp_vec_p) #here tmp_vec_p solid #TODO geoS ??
+
+            init_fields_multiple_levelsets!(num,ph.pD,ph.p,tmp_vec_p,BC_p,grid_p,num.pres_intfc,"pL")
+
+        else #update pressure at boundaries
+            #region cut-cell
+            # for iLS in 1:nLS
+            #     veci(pD,grid_p,iLS+1) .= veci(result_p,grid_p,iLS+1)
+            # end
+            #endregion cut-cell
+            vecb(pD,grid_p) .= vecb(result_p,grid_p) 
+        end
+
+
+        #endregion interfacial pressure is overwritten
+
+        #TODO reapply Neumann BC for pressure boundary values ?
+
+
+        p .= reshape(vec1(pD,grid_p), grid_p)
+
+        #TODO
+        # compute_grad_p!(num,grid_p, grid_u, grid_v, pD, opC_p, opC_u, opC_v)
+
+
+        # else
+        #     vec1(pD,grid_p) .= vec(p) .+ vec(ϕ) #.- mu1_over_rho1 .* iM * velocity_divergence
+        #     vec2(pD,grid_p) .+= vec2(result_p,grid_p)
+        #     vecb(pD,grid_p) .+= vecb(result_p,grid_p)
+        #     p .= reshape(vec1(pD,grid_p), grid_p)
+        # end
+
+        # vec1(∇ϕ_x,grid_p) .*= irho1 
+        # vec1(∇ϕ_y,grid_p) .*= irho1
+
+        
+        # u .= ucorr .- τ .* reshape(iMu * ∇ϕ_x, grid_u)
+        # v .= vcorr .- τ .* reshape(iMv * ∇ϕ_y, grid_v)
+
+        u .= ucorr .- τ .* reshape(iMu * ∇ϕ_x, grid_u) ./ rho_one_fluid_u
+        v .= vcorr .- τ .* reshape(iMv * ∇ϕ_y, grid_v) ./ rho_one_fluid_v
+        #region cut-cell
+        # kill_dead_cells!(u, grid_u, geo_u[end])
+        # kill_dead_cells!(v, grid_v, geo_v[end])
+        #endregion cut-cell
+
+        vec1(uD,grid_u) .= vec(u)
+        vecb(uD,grid_u) .= vecb(ucorrD,grid_u)
+        vec1(vD,grid_v) .= vec(v)
+        vecb(vD,grid_v) .= vecb(vcorrD,grid_v)
+
+        #region cut-cell
+        # for iLS in 1:nLS
+        #     if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+        #         veci(uD,grid_u,iLS+1) .= veci(ucorrD,grid_u,iLS+1)
+        #         veci(vD,grid_v,iLS+1) .= veci(vcorrD,grid_v,iLS+1)
+        #     end
+        #     # if is_fs(bc_int[iLS])
+        #     #     @inbounds for II in grid_u.ind.all_indices
+        #     #         pII = lexicographic(II, grid_u.ny)
+        #     #         if abs(veci(ucorrD,grid_u,iLS+1)[pII]) > 1e-12
+        #     #             veci(ucorrD,grid_u,iLS+1)[pII] -= (τ .* iMu * ∇ϕ_x)[pII]
+        #     #         end
+        #     #     end
+        #     #     @inbounds for II in grid_v.ind.all_indices
+        #     #         pII = lexicographic(II, grid_v.ny)
+        #     #         if abs(veci(vcorrD,grid_v,iLS+1)[pII]) > 1e-12
+        #     #             veci(vcorrD,grid_v,iLS+1)[pII] -= (τ .* iMv * ∇ϕ_y)[pII]
+        #     #         end
+        #     #     end
+        #     # end
+        # end
+        #endregion cut-cell
+
+
+        grad_x = zeros(grid_u)
+        grad_y = zeros(grid_v)
+
+        #region cut-cell
+        # compute_grad_T_x_T_y_array_u_v_capacities!(num, grid_p, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
+        #endregion cut-cell
+
+        compute_grad_T_x_T_y_array_u_v_capacities!(num, grid_p, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
+        # compute_grad_T_x_T_y_array_u_v_capacities_one_fluid!(num, grid_p, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
+
+        # TODO give another set of capacities (allocate twice or special cases everywhere?) 
+
+        #TODO divergence level
+    
+        PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_velocity_end"::Cstring,
+        # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+        "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+        "grad_v"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+        "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
+
+        # print("\n num.mu_one_fluid_average " , num.mu_one_fluid_average)
+        # display(mu_one_fluid)
+    
+    end #if num.pressure_velocity_coupling == 0
+    # #region velocity correction, compute pressure with Poisson
+    
+    #endregion correction 
+
+
+
+    #region end coupled
+
+    F_residual = similar(rhs_uv)
+
+    # F_residual .= Auv*uvD_dummy .-rhs_uv
+    F_residual .= Auv*uvD 
+
+    printstyled(color=:red, @sprintf "\n A u\n")
+
+    # print("\n Auv*uvD  ", F_residual)
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+    "rhs_uv_len"::Cstring, length(F_residual)::Ref{Clonglong}, PDI_OUT::Cint,
+    "rhs_uv_1D"::Cstring, F_residual::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    printstyled(color=:red, @sprintf "\n A u\n")
+
+
+    F_residual .-= rhs_uv
+
+    # print("\n F_residual ", F_residual)
+
+
+    # try
+    #     if num.pressure_velocity_solver == 1
+    #         printstyled(color=:red, @sprintf "\nBICGSTAB(2)\n")
+
+    #         # bicgstabl!(x, A, b, l; kwargs...)
+    #         bicgstabl!(uvD, Auv, rhs_uv, 2; tol=1.0e-6,maxiter=100) #residual normalised in Julia ? 
+    #         # tol: (relative) stopping tolerance of the method;
+    #         # verbose: print information during the iterations;
+    #         # maxiter: maximum number of allowed iterations;
+    #         # Pl and Pr: left and right precon
+    #     else
+    #         @time uvD .= Auv \ rhs_uv
     #     end
-    #     # if is_fs(bc_int[iLS])
-    #     #     @inbounds for II in grid_u.ind.all_indices
-    #     #         pII = lexicographic(II, grid_u.ny)
-    #     #         if abs(veci(ucorrD,grid_u,iLS+1)[pII]) > 1e-12
-    #     #             veci(ucorrD,grid_u,iLS+1)[pII] -= (τ .* iMu * ∇ϕ_x)[pII]
-    #     #         end
-    #     #     end
-    #     #     @inbounds for II in grid_v.ind.all_indices
-    #     #         pII = lexicographic(II, grid_v.ny)
-    #     #         if abs(veci(vcorrD,grid_v,iLS+1)[pII]) > 1e-12
-    #     #             veci(vcorrD,grid_v,iLS+1)[pII] -= (τ .* iMv * ∇ϕ_y)[pII]
-    #     #         end
-    #     #     end
-    #     # end
+
+    # # try
+    # #     @time uvD .= Auv \ rhs_uv
+    # catch e
+    #     printstyled(color=:red, @sprintf "\nError coupled pressure-velocity\n")
+    #     # println(e)
+    #     print(e)
+    #     uvD .= Inf
     # end
-    #endregion cut-cell
+    print("\n size uvD ",ntu, " ",size(ph.uD)," ",size(vec1(ph.uD,grid_u))," " ,size(uvD[1:nbu]))
+    vec1(ph.uD,grid_u) .= uvD[1:niu]
+    vecb(ph.uD,grid_u) .= uvD[niu+1:ntu]
+
+    vec1(ph.vD,grid_v) .= uvD[ntu+1:ntu+niv]
+    vecb(ph.vD,grid_v) .= uvD[ntu+1+niv:ntu+ntv]
+
+    ph.u .= reshape(vec1(ph.uD,grid_u), grid_u)
+    ph.v .= reshape(vec1(ph.vD,grid_v), grid_v)
+
+    # print("\n velocity")
+    # display(ph.v)
+
+    # ph.uD .= uvD[1:ntu]
+    # ph.vD .= uvD[ntu+1:ntu+ntv]
+    if num.pressure_velocity_coupling ==3
+
+       
+        
+        vec1(ph.pD,grid_p) .= uvD[ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+nip]
+
+        #region correct pressure with top corner value (pressure known at a constant from NS)
+
+        ph.p .= reshape(vec1(ph.pD,grid_p), grid_p)
+
+        corr_p = ph.p[grid_p.ny,1]
+        print("\n corr_p",corr_p)
+        ph.p .-= corr_p
+        vec1(ph.pD,grid_p) .= vec(ph.p)
+        #endregion correct pressure with top corner value (pressure known at a constant from NS)
+
+    else
+        ph.pD .= uvD[ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+(num.nLS+1)*nip+nbp]
+    end
+    # print("uvD",uvD)
 
 
     grad_x = zeros(grid_u)
     grad_y = zeros(grid_v)
-
-    #region cut-cell
-    # compute_grad_T_x_T_y_array_u_v_capacities!(num, grid_p, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
-    #endregion cut-cell
-
     compute_grad_T_x_T_y_array_u_v_capacities!(num, grid_p, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
-    # compute_grad_T_x_T_y_array_u_v_capacities_one_fluid!(num, grid_p, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
-
-    # TODO give another set of capacities (allocate twice or special cases everywhere?) 
 
     #TODO divergence level
+
+    # Compute divergence of velocity
+    velocity_divergence = opC_p.AxT * vec1(ph.uD,grid_u) .+ opC_p.Gx_b * vecb(ph.uD,grid_u) .+
+                          opC_p.AyT * vec1(ph.vD,grid_v) .+ opC_p.Gy_b * vecb(ph.vD,grid_v)
+    for iLS in 1:nLS
+        if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+            velocity_divergence .+= opC_p.Gx[iLS] * veci(ph.uD,grid_u,iLS+1) .+ 
+                    opC_p.Gy[iLS] * veci(ph.vD,grid_v,iLS+1)
+        end
+    end
+
+    normalise_velocity_divergence = abs.(opC_p.AxT * vec1(ph.uD,grid_u)) .+ abs.(opC_p.Gx_b * vecb(ph.uD,grid_u)) .+
+                                    abs.(opC_p.AyT * vec1(ph.vD,grid_v)) .+ abs.(opC_p.Gy_b * vecb(ph.vD,grid_v))
+    for iLS in 1:nLS
+        if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+            normalise_velocity_divergence .+= abs.(opC_p.Gx[iLS] * veci(ph.uD,grid_u,iLS+1)) .+ 
+                    abs.(opC_p.Gy[iLS] * veci(ph.vD,grid_v,iLS+1))
+        end
+    end
+
+    F_residual .= Auv*uvD .-rhs_uv
+
+    max_abs_residual = maximum(abs.(F_residual))
+    max_abs_rhs = maximum(abs.(rhs_uv))
+
+    # PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+    # "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
+    # "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
+    # C_NULL::Ptr{Cvoid})::Cint
+
+    # PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+    # "rhs_uv_len"::Cstring, length(F_residual)::Ref{Clonglong}, PDI_OUT::Cint,
+    # "rhs_uv_1D"::Cstring, F_residual::Ptr{Cdouble}, PDI_OUT::Cint,
+    # C_NULL::Ptr{Cvoid})::Cint
+
   
-    PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_velocity_end"::Cstring,
+    PDI_status = @ccall "libpdi".PDI_multi_expose("check_coupled_solver_iteration"::Cstring,
     # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
     # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
     "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
     "grad_v"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
-    "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-    "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "u_1D"::Cstring,  ph.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "v_1D"::Cstring,  ph.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "velocity_divergence"::Cstring, velocity_divergence::Ptr{Cdouble}, PDI_OUT::Cint,
+    "normalise_velocity_divergence"::Cstring, normalise_velocity_divergence::Ptr{Cdouble}, PDI_OUT::Cint,
+    "max_abs_residual"::Cstring, max_abs_residual::Ref{Cdouble}, PDI_OUT::Cint,
+    "max_abs_rhs"::Cstring, max_abs_rhs::Ref{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+
+    kill_dead_cells!(vec1(ph.uD,grid_u), grid_u, geo_u[end])
+    ph.u .= reshape(vec1(ph.uD,grid_u), grid_u)
+    kill_dead_cells!(vec1(ph.vD,grid_v), grid_v, geo_v[end])
+    ph.v .= reshape(vec1(ph.vD,grid_v), grid_v)
+    
+    PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_prediction"::Cstring,
+    "u_1D"::Cstring, ph.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "v_1D"::Cstring, ph.vD::Ptr{Cdouble}, PDI_OUT::Cint,
     "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
-    # print("\n num.mu_one_fluid_average " , num.mu_one_fluid_average)
-    # display(mu_one_fluid)
-    #endregion correction 
 
-    #end pressure velocity
+    PDI_status = @ccall "libpdi".PDI_multi_expose("grad_pres_y"::Cstring,
+    # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    "grad_pres_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+    
+    # NS_force_y = reshape(-grav_y .-ph.Gym1 ./ vec(rho_one_fluid_v),grid_v)
+   
+   
+       
+   compute_grad_T_x_T_y_array_u_v_capacities_cell_integrated!(num, grid_p, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
+
+    NS_force_y = reshape(-grav_y,grid_v)
+    NS_force_y .-= grad_y ./ rho_one_fluid_v
+
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("NS_force_y"::Cstring,
+    # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    "NS_force_y"::Cstring, NS_force_y::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+
+    # vec1(ucorrD, grid_u) .= uvD[1:niu]
+    # vecb(ucorrD, grid_u) .= uvD[ntu-nbu+1:ntu]
+    # kill_dead_cells!(vec1(ucorrD,grid_u), grid_u, geo_u[end])
+    # ucorr .= reshape(vec1(ucorrD,grid_u), grid_u)
+
+    # vec1(vcorrD, grid_v) .= uvD[ntu+1:ntu+niv]
+    # vecb(vcorrD, grid_v) .= uvD[ntu+ntv-nbv+1:ntu+ntv]
+    # kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])
+    # vcorr .= reshape(vec1(vcorrD,grid_v), grid_v)
+
+    nNav = 0
+    _iLS = 1
+    for iLS in 1:nLS
+        if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
+            veci(ph.uD,grid_u,iLS+1) .= uvD[_iLS*niu+1:(_iLS+1)*niu]
+            kill_dead_cells!(veci(ph.uD,grid_u,iLS+1), grid_u, geo_u[end])
+
+            veci(ph.vD,grid_v,iLS+1) .= uvD[ntu+_iLS*niv+1:ntu+(_iLS+1)*niv]
+            kill_dead_cells!(veci(ph.vD,grid_v,iLS+1), grid_v, geo_v[end])
+            _iLS += 1
+        else
+            @inbounds ph.uT[nNav+1,:] .= vec(uvD[ntu+ntv+1+nNav*nip:ntu+ntv+(nNav+1)*nip])
+            nNav += 1
+        end
+    end
+    #endregion Navier
+
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_prediction"::Cstring,
+    "u_1D"::Cstring, ph.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "v_1D"::Cstring, ph.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    II = CartesianIndex(div(grid_v.ny,2),1)
+    pII = lexicographic(II,grid_v.ny)
+    # print("\n A coeff ",Av[pII,:])
+    # print("\nM ",opC_p.iMy.diag[pII])
+
+    # print("\nAv[pII,:]./mu1_over_rho1 ",Av[pII,:]./mu1_over_rho1)
+
+    grad_x = zeros(grid_u)
+    grad_y = zeros(grid_v)
+    compute_grad_T_x_T_y_array_u_v_capacities!(num, grid_p, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
+
+    #TODO divergence level
+  
+
+
+
+    #endregion end coupled
+
+    #region check_acceleration
+    printstyled(color=:red, @sprintf "\n Check acceleration \n")
+
+    rho_l = 1000.0
+    rho_g = 100.0
+    g = 9.81e-1
+    print("\n accel ", 2*(rho_l-rho_g)/(rho_l+2*rho_g)*g)
+
+    #v only, TODO interp and u
+    # acceleration = (ph.v.-v0)/num.τ
+    # display(acceleration)
+    
+    printstyled(color=:red, @sprintf "\n Check acceleration \n")
+
+    # print("\n opv.M ",opC_v.M[1,:])
+
+    # # print("\n opv.M ",opC_v.M[pII,:])
+
+    # print("\n opv.M ",opC_v.M[pII,:])
+
+
+
+    #endregion check_acceleration
+
 
     return Lp, bc_Lp, bc_Lp_b, Lu, diffusion_LS_u, diffusion_border_u, Lv, diffusion_LS_v, diffusion_border_v, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
 end
@@ -1615,9 +2049,20 @@ function set_Forward_Euler_one_fluid!(
     Mum1, Mvm1, op_conv, ph,
     periodic_x, periodic_y, advection, ls_advection, navier,rhs_uv = nothing)
 
+
+    #region update LS for convection (bool=true)+ one fluid
+
+    # At every iteration, update_all_ls_data is called twice, once inside run.jl and another one (if there's advection of the levelset) inside set_heat!. The difference between both is a flag as last argument, inside run.jl is implicitly defined as true and inside set_heat! is false. If you're calling your version of set_heat! several times, then you're calling the version with the flag set to false, but for the convective term it has to be set to true.
+
+    # The flag=true, the capacities are set for the convection, the flag=false they are set for the other operators
+
     if advection
+        update_all_ls_data(num, grid_p, grid_u, grid_v, bc_int, periodic_x, periodic_y, true)
+
         set_convection!(num, grid_p, geo[end], grid_u, grid_u.LS, grid_v, grid_v.LS, ph.u, ph.v, op_conv, ph, BC_u, BC_v,opC_p, opC_u, opC_v)
     end
+
+    #endregion
 
     if ls_advection
         update_all_ls_data(num, grid_p, grid_u, grid_v, bc_int, periodic_x, periodic_y, false)
@@ -2198,8 +2643,13 @@ function set_Forward_Euler_one_fluid!(
 
         # rhs_phi = fnzeros(grid_p,num)
 
-        mat_coeffDx = Diagonal(vec(1.0./rho_one_fluid_u)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
-        mat_coeffDy = Diagonal(vec(1.0./rho_one_fluid_v)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
+
+        # mat_coeffDx = Diagonal(vec(1.0./rho_one_fluid_u)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
+        # mat_coeffDy = Diagonal(vec(1.0./rho_one_fluid_v)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
+        dt = num.τ
+        mat_coeffDx = Diagonal(vec(dt./rho_one_fluid_u)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
+        mat_coeffDy = Diagonal(vec(dt./rho_one_fluid_v)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
+
 
         printstyled(color=:green, @sprintf "\n check solve_poisson_one_fluid")
 
@@ -2236,19 +2686,40 @@ function set_Forward_Euler_one_fluid!(
         
 
     elseif num.pressure_velocity_coupling > 1
-        rhs_u = nothing
-        rhs_v = nothing
-        rhs_phi = nothing
-        rhs_uv = FE_set_momentum_coupled2(
+
+        if num.one_fluid_model == 1
+
+            rhs_u = nothing
+            rhs_v = nothing
+            # rhs_phi = nothing
+            diffusion_LS_u = nothing
+            diffusion_LS_v = nothing
+            rhs_uv = FE_set_momentum_coupled2_one_fluid(
             bc_int, num, grid_p, grid_u, grid_v,
             opC_p, opC_u, opC_v,
             Auv, Buv,
             rhs_uv,
             diffusion_bulk_u, diffusion_LS_u, diffusion_border_u, Mum1, BC_u,
             diffusion_bulk_v, diffusion_LS_v, diffusion_border_v, Mvm1, BC_v,
+            cross_term_diffusion_bulk_d_dv_dx_dy,cross_term_diffusion_bulk_d_du_dy_dx,
+            cross_term_diffusion_bulk_d_dv_dx_dy_border,cross_term_diffusion_bulk_d_du_dy_dx_border,rho_one_fluid_u,rho_one_fluid_v,
             ls_advection,BC_p,ph
         )
+        else
+            rhs_u = nothing
+            rhs_v = nothing
+            rhs_phi = nothing
+            rhs_uv = FE_set_momentum_coupled2(
+                bc_int, num, grid_p, grid_u, grid_v,
+                opC_p, opC_u, opC_v,
+                Auv, Buv,
+                rhs_uv,
+                diffusion_bulk_u, diffusion_LS_u, diffusion_border_u, Mum1, BC_u,
+                diffusion_bulk_v, diffusion_LS_v, diffusion_border_v, Mvm1, BC_v,
+                ls_advection,BC_p,ph
+            )
 
+        end #one-fluid
     end
     
     return rhs_u, rhs_v, rhs_phi, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, diffusion_LS_u, diffusion_border_u, Lv, diffusion_LS_v, diffusion_border_v #TODO
@@ -2459,8 +2930,14 @@ function FE_set_momentum_coupled2_one_fluid(
     border_u_velocity = ntu-nbu+1:ntu
     border_v_velocity = ntu+ntv-nbv+1:ntu+ntv
 
+    ntNavier = 0 # num.nNavier * nip
+
+    bulk_pressure = ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+nip
+    border_pressure = ntu+ntv+ntNavier+(num.nLS + 1)*nip+1:ntu+ntv+ntNavier+(num.nLS + 1)*nip+nbp
+
+
     # nt = (num.nLS - num.nNavier + 1) * ni_uv + num.nNavier * nip + nb_uv + (num.nLS + 1) * nip + nbp
-    ntNavier = num.nNavier * nip
+    
     # bulk_pressure = ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+nip
     # #ntu+ntv+1:ntu+ntv+nip
     # border_pressure = ntu+ntv+ntNavier+(num.nLS + 1)*nip+1:ntu+ntv+ntNavier+(num.nLS + 1)*nip+nbp
@@ -2519,7 +2996,7 @@ function FE_set_momentum_coupled2_one_fluid(
 
         # Implicit part of viscous term
         if num.non_dimensionalize == 0
-            A[bulk_u_velocity,bulk_u_velocity] = pad_crank_nicolson(opu.M .- τ * diag_inv_rho_u * diffusion_bulk_u , grid_u, τ)
+            A[bulk_u_velocity,bulk_u_velocity] = opu.M .- τ * diag_inv_rho_u * diffusion_bulk_u #pad_crank_nicolson(opu.M .- τ * diag_inv_rho_u * diffusion_bulk_u , grid_u, τ)
         else
             A[bulk_u_velocity,bulk_u_velocity] = pad_crank_nicolson(rho_one_fluid_u*opu.M .- τ .* diffusion_bulk_u, grid_u, τ)
         end
@@ -2589,7 +3066,7 @@ function FE_set_momentum_coupled2_one_fluid(
 
         # Implicit part of viscous term
         if num.non_dimensionalize == 0
-            A[bulk_v_velocity,bulk_v_velocity] = pad_crank_nicolson(opv.M .- τ .* diag_inv_rho_v * diffusion_bulk_v  , grid_v, τ)
+            A[bulk_v_velocity,bulk_v_velocity] = opv.M .- τ .* diag_inv_rho_v * diffusion_bulk_v #pad_crank_nicolson(opv.M .- τ .* diag_inv_rho_v * diffusion_bulk_v  , grid_v, τ)
             A[bulk_v_velocity,bulk_u_velocity] = - τ .* diag_inv_rho_v * cross_term_diffusion_bulk_d_du_dy_dx 
         else
             A[bulk_v_velocity,bulk_v_velocity] = pad_crank_nicolson(rho_one_fluid_v * opv.M .- τ .* diffusion_bulk_v, grid_v, τ)
@@ -2663,6 +3140,15 @@ function FE_set_momentum_coupled2_one_fluid(
                 opp.HyT_b * opp.iMy_bd * opp.Hy_b) .+ opp.χ_b * a1_bp) #-4.0
             
         end
+
+
+        II = CartesianIndex(div(grid_u.ny,4),div(grid_u.nx,2)) #center
+        pII = lexicographic(II, grid_u.ny)
+        print("\n test A ",A[pII,:])
+
+        II = CartesianIndex(div(grid_u.ny,2),div(grid_u.nx,2)) #center
+        pII = lexicographic(II, grid_u.ny)
+        print("\n test A ",A[pII,:])
         
         #region Implicit gradient of pressure (volume integrated)
 
@@ -2675,25 +3161,42 @@ function FE_set_momentum_coupled2_one_fluid(
         # end
         if num.pressure_velocity_coupling > 0
 
+          
+        
+            diag_inv_rho_u = Diagonal(1.0./vec(rho_one_fluid_u))
+            diag_inv_rho_v = Diagonal(1.0./vec(rho_one_fluid_v))
 
-            irho1 = 1.0/num.rho1
-            factor = num.τ * irho1
-            A[bulk_u_velocity,bulk_pressure] = factor * opu.AxT * opu.Rx #TODO + or multiply by cell volume ? + not required, only component of matrix
-            A[bulk_v_velocity,bulk_pressure] = factor * opv.AyT * opv.Ry 
+            irho1 = 1.0/num.rho1 
+            # factor = num.τ * irho1
+            factor = num.τ
+            
+            A[bulk_u_velocity,bulk_pressure] = diag_inv_rho_u * factor * opu.AxT * opu.Rx #TODO + or multiply by cell volume ? + not required, only component of matrix
+            A[bulk_v_velocity,bulk_pressure] = diag_inv_rho_v * factor * opv.AyT * opv.Ry 
         
             if num.pressure_velocity_coupling !=3
                 #Outer boundaries
-                A[bulk_u_velocity,border_pressure] = factor * opu.Gx_b
-                A[bulk_v_velocity,border_pressure] = factor * opv.Gy_b
+                A[bulk_u_velocity,border_pressure] = diag_inv_rho_u * factor * opu.Gx_b
+                A[bulk_v_velocity,border_pressure] = diag_inv_rho_v * factor * opv.Gy_b
             
 
                 for iLS in 1:nLS
                     interfacial_nb_iLS_pressure = ntu+ntv+nNavier*nip+nip*iLS+1:ntu+ntv+nNavier*nip+(iLS+1)*nip
-                    A[bulk_u_velocity,interfacial_nb_iLS_pressure] .+= factor * opu.Gx[iLS] 
-                    A[bulk_v_velocity,interfacial_nb_iLS_pressure] .+= factor * opv.Gy[iLS] 
+                    A[bulk_u_velocity,interfacial_nb_iLS_pressure] .+= diag_inv_rho_u * factor * opu.Gx[iLS] 
+                    A[bulk_v_velocity,interfacial_nb_iLS_pressure] .+= diag_inv_rho_v * factor * opv.Gy[iLS] 
                 end
             
             end #num.pressure_velocity_coupling !=3
+            
+            printstyled(color=:red, @sprintf "\n test grad")
+
+            II = CartesianIndex(div(grid_u.ny,4),div(grid_u.nx,2)) #center
+            pII = lexicographic(II, grid_u.ny)
+            print("\n test A ",A[pII,:])
+
+            II = CartesianIndex(div(grid_u.ny,2),div(grid_u.nx,2)) #center
+            pII = lexicographic(II, grid_u.ny)
+            print("\n test A ",A[pII,:])
+
         end
         #endregion Implicit gradient of pressure (volume integrated)
 
@@ -2712,6 +3215,15 @@ function FE_set_momentum_coupled2_one_fluid(
             #equation written on lines ntu+ntv+1:ntu+ntv+nip 
 
             range_divergence = ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+nip
+
+            # printstyled(color=:green, @sprintf "\n range divergence\n")
+            # print("\n divergence range",range_divergence)
+            # print("\n bulk_u_velocity",bulk_u_velocity)
+            # print("\n bulk_u_velocity",bulk_u_velocity)
+            # print("\n bulk_v_velocity",bulk_v_velocity)
+            # print("\n bulk_pressure",bulk_pressure)
+
+            # print("\n A size ",size(A))
             # u bulk
             A[range_divergence,bulk_u_velocity] = -opp.AxT 
             # u border
@@ -2740,6 +3252,17 @@ function FE_set_momentum_coupled2_one_fluid(
             #                 opp.Gy[iLS] * veci(vcorrD,grid_v,iLS+1)
             #     end
             # end
+
+            printstyled(color=:red, @sprintf "\n test grad")
+
+            II = CartesianIndex(div(grid_u.ny,4),div(grid_u.nx,2)) #center
+            pII = lexicographic(II, grid_u.ny)
+            print("\n test A ",A[pII,:])
+
+            II = CartesianIndex(div(grid_u.ny,2),div(grid_u.nx,2)) #center
+            pII = lexicographic(II, grid_u.ny)
+            print("\n test A ",A[pII,:])
+
         end
         #endregion divergence of velocity: -div U for symmetry
         # print("size Mum1 " ,size(Mum1), " rho_one_fluid_u ", size(rho_one_fluid_u))

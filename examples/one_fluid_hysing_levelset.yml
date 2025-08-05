@@ -147,7 +147,7 @@ flower:
     smooth_VOF: 2
     periodic_x: 0
     periodic_y: 0
-    prediction: PmIIimposedpressure_nodiv_2 # testpressure #PmIIimposedpressure_nodiv_2 #PmIIimposedpressure # PmIII 
+    prediction: Flower #PmIIimposedpressure_nodiv_3 # testpressure #PmIIimposedpressure_nodiv_2 #PmIIimposedpressure # PmIII 
     #PmIIimposedpressureBCincrement #0 #4 #0 #pressure-velocity coupling
     # prediction = 0
     # prediction = 1
@@ -525,8 +525,7 @@ study:
   test_tolerance_solution_absolute:  1.e-1 # from n = 16 
   meshes:  [40] #[64] #[80] #[40] #[40] #[16] #  [32] #   [128] #[64] #[128] #[32] #[32,64,128] #[32,64,128,256]
   compute_errors: None
-  timesteps: [1e-3] #[5e-3] #[1e-2] #[5e-2] #[5e-3] # #[1e-3] #[1e-4]
-
+  timesteps: [1e-2] #[1e-3] #[5e-3] #[1e-2] #[5e-2] #[5e-3] # #[1e-3] #[1e-4]
 
 plot: #default parameters for plots
   ax_locator_x: [0,0.5,1] #ticks in matplotlib
@@ -633,14 +632,94 @@ plot: #default parameters for plots
     
   figures:
 
-      - var: levelset_p
-        file: levelset_p
-      #   figsize: None
-      #   aspect_box: 'box'
-      #   aspect_ratio: 'equal'
-        cbarlabel: Levelset p
-      #   fontsize: 4
-      #   isocontour: False
+
+      - var: v_1D
+        file: v_LS
+        cbarlabel: v/v_inlet
+        isocontour: False
+        norm: *v_inlet #reference inside yaml
+        levels: 10
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: True
+        plot_levelset_segments: False
+        plot_mode: contourf
+        # range: [0,1e-4]
+        xlim: [0,1]
+        ylim: [0,2]
+        linewidth: 0.5
+        linestyle: 'dotted'
+        mesh_macro: |
+          global x_1D_2, y_1D_2,key_LS_2
+          x_1D_2 = xp
+          y_1D_2 = yv
+          key_LS_2 = 'levelset_v'
+
+
+      # - var: v_1D
+      #   # func: plot_python_pdf_full2
+      #   file: v_1D
+      #   macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+      #   # figsize: None
+      #   # aspect_box: 'box'
+      #   # aspect_ratio: 'equal'
+      #   cbarlabel: v_1D
+      #   # fontsize: 4
+      #   # isocontour: False
+      #   # levels: 10
+      #   mesh_macro: |
+      #     global x_1D_2, y_1D_2,key_LS_2
+      #     x_1D_2 = xp
+      #     y_1D_2 = yv
+      #     key_LS_2 = 'levelset_v'
+
+      - var: p_1D
+        # func: plot_python_pdf_full2
+        file: pressure
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        figsize: None
+        aspect_box: 'box'
+        aspect_ratio: 'equal'
+        cbarlabel: pressure
+        fontsize: 4
+        isocontour: False
+        levels: 10
+        # mesh_macro: |
+        #   global x_1D_2, y_1D_2,key_LS_2
+        #   x_1D_2 = range(data.shape[0])
+        #   y_1D_2 = range(data.shape[1])
+        plot_bc: True
+        plot_grid: True
+        plot_levelset: True
+        plot_levelset_segments: #True 
+        # plot_normal: #True
+        # plot_normal_macro: |
+        #   normal_x
+        # skip_every: 
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        range: [0,1e-4]
+        xlim: [0,1]
+        ylim: [0,2]
+        # zoom: [[0,5],[0,5]]
+        # zoom_mode: index
+        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
+        # zoom_mode: coord
+        color_annot_bc: w
+        color_annot_bulk: w
+        linewidth: 1
+        linestyle: None
+
+      # - var: levelset_p
+      #   file: levelset_p
+      # #   figsize: None
+      # #   aspect_box: 'box'
+      # #   aspect_ratio: 'equal'
+      #   cbarlabel: Levelset p
+      # #   fontsize: 4
+      # #   isocontour: False
 
       - var: rhs_uv_v
         # func: plot_python_pdf_full2
@@ -764,44 +843,7 @@ plot: #default parameters for plots
         linewidth: 1
         linestyle: None
 
-      - var: p_1D
-        # func: plot_python_pdf_full2
-        file: pressure
-        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
-        figsize: None
-        aspect_box: 'box'
-        aspect_ratio: 'equal'
-        cbarlabel: pressure
-        fontsize: 4
-        isocontour: False
-        levels: 10
-        # mesh_macro: |
-        #   global x_1D_2, y_1D_2,key_LS_2
-        #   x_1D_2 = range(data.shape[0])
-        #   y_1D_2 = range(data.shape[1])
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: True
-        plot_levelset_segments: #True 
-        # plot_normal: #True
-        # plot_normal_macro: |
-        #   normal_x
-        # skip_every: 
-        plot_mode: pcolormesh #contourf
-        print_mode: "val"
-        range: [0,1e-4]
-        xlim: [0,1]
-        ylim: [0,2]
-        # zoom: [[0,5],[0,5]]
-        # zoom_mode: index
-        # zoom: [[1,11],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        # zoom: [[0,10],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        # zoom: [[0,4],[45,55]] #[[1,10],[45,55]] activates BC plot so no longer square
-        # zoom_mode: coord
-        color_annot_bc: w
-        color_annot_bulk: w
-        linewidth: 1
-        linestyle: None
+      
 
       - var: i_current_x
         figsize: True
@@ -2368,6 +2410,27 @@ plot: #default parameters for plots
 
 
   films:
+      
+      - var: p_1D
+        # func: plot_python_pdf_full2  
+        file: pressure
+        macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+        cbarlabel: pressure
+        range: np.linspace(0,2000,11)
+        plot_mode: contourf
+
+
+      - var: NS_force_y
+        # func: plot_python_pdf_full2
+        file: NS_force_y
+        cbarlabel: NS_force_y
+        mesh_macro: |
+          global x_1D_2, y_1D_2,key_LS_2
+          x_1D_2 = xp
+          y_1D_2 = yv
+          key_LS_2 = 'levelset_v'
+        range: np.linspace(0,6e-3,11)
+        plot_mode: contourf
 
 
       - var: conv_y
@@ -3181,6 +3244,7 @@ plot: #default parameters for plots
                 # timestep_5_0000e-02/mesh_00040/flower*.h5,
                 timestep_1_0000e-02/mesh_00040/flower*.h5,
                 timestep_5_0000e-03/mesh_00040/flower*.h5,
+                timestep_1_0000e-03/mesh_00040/flower*.h5,
 
                 # timestep_5_0000e-02/mesh_00040/flower_0000000*.h5,
 
@@ -3289,6 +3353,7 @@ plot: #default parameters for plots
                 # timestep_5_0000e-02/mesh_00040/flower*.h5,
                 timestep_1_0000e-02/mesh_00040/flower*.h5,
                 timestep_5_0000e-03/mesh_00040/flower*.h5,
+                timestep_1_0000e-03/mesh_00040/flower*.h5,
 
                 # timestep_5_0000e-02/mesh_00040/flower_0000000*.h5,
                 ]
@@ -4113,6 +4178,8 @@ pdi:
     grad_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
     
     grad_pres_y: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
+    
+    NS_force_y: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
 
     grav_y: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
     conv_y: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
@@ -6281,6 +6348,11 @@ pdi:
         on_event: grad_pres_y
         write: [grad_pres_y]
 
+
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: NS_force_y
+        write: [NS_force_y]
         
       # - file: flower_${nstep:08}.h5 
       #   collision_policy: write_into

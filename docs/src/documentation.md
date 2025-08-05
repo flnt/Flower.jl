@@ -2182,7 +2182,7 @@ set_Crank_Nicolson!
 ## One-fluid model
 
 ```@docs
-pressure_projection_one_fluid!
+solve_one_fluid_NS!
 ```
 
 The interpolations for the viscosity are done with:

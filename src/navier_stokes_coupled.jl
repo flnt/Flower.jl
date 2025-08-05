@@ -757,7 +757,13 @@ function set_convection!(
     vector_convection!(dir, GridFCy, Cv, CUTCv, u, v, Du_x, Du_y, Dv_x, Dv_y,
             geo.dcap, grid.nx, grid.ny, BC_v, grid_v.ind.inside,
             grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1])
-    
+
+    # printstyled(color=:red, @sprintf "\n set convection inside ")
+
+    # print("inside v ",grid_v.ind.inside)
+
+    # display(geo.dcap)
+
     return nothing
 end
 

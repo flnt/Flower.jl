@@ -562,6 +562,10 @@ function run_forward!(
             # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
             # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
             C_NULL::Ptr{Cvoid})::Cint
+
+
+
+
     end
 
     if num.solve_solid == 1
@@ -724,10 +728,10 @@ function run_forward!(
             #when no Navier: nt = (num.nLS + 1) * ni + nb
 
 
-            if (num.one_fluid_model == 1 && num.pressure_velocity_coupling != 0)
-                @error("\nCoupled pressure velocity + one-fluid model error")
-                return
-            end
+            # if (num.one_fluid_model == 1 && num.pressure_velocity_coupling != 0)
+            #     @error("\nCoupled pressure velocity + one-fluid model error")
+            #     return
+            # end
 
 
             if num.one_fluid_model == 1
@@ -814,19 +818,22 @@ function run_forward!(
                     rhs_uv = zeros(ncol_A)  
 
                 elseif num.pressure_velocity_coupling == 3 #no BC for pressure
-                    nt = (num.nLS - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv + ni_p
-                    
-                    ncol_A = nt
-                    
-                    # so 1 * ni + 1 * ni_p +nb + ni_p + nb
-                    # u v Navier, pression     
-                
-                    # AuvL = spzeros(nt, nt)
-                    # BuvL = spzeros(nt, nt)
+                   
+
+
+                    if num.one_fluid_model == 1
+                        nt = ni_uv + nb_uv + ni_p
+                        ncol_A = ni_uv + nb_uv + ni_p
+                    else
+                        nt = (num.nLS - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv + ni_p
+                        ncol_A = nt               
+                    end
 
                     AuvL = spzeros(ncol_A, nt)
                     BuvL = spzeros(ncol_A, nt)
                     rhs_uv = zeros(ncol_A)  
+                    # AϕL = spzeros(nt, nt)
+
 
                 elseif num.pressure_velocity_coupling == 4 # BC for pressure on interfaces (bubble)
                     
@@ -946,15 +953,31 @@ function run_forward!(
                     true,BC_pL,phL,phS
                     )
                 else
-                    # Coupled resolution of u and v
-                    _ = FE_set_momentum_coupled2(
-                    BC_int, num, grid_p, grid_u, grid_v,
-                    op.opC_pL, op.opC_uL, op.opC_vL,
-                    AuvL, BuvL,rhs_uv,
-                    iRe.*Lum1_L, iRe.*bc_Lum1_L, iRe.*bc_Lum1_b_L, Mum1_L, BC_uL,
-                    iRe.*Lvm1_L, iRe.*bc_Lvm1_L, iRe.*bc_Lvm1_b_L, Mvm1_L, BC_vL,
-                    true,BC_pL,phL
-                    )
+                    if num.one_fluid_model == 1
+                        # _ = FE_set_momentum_coupled2_one_fluid(
+                        #     BC_int, num, grid_p, grid_u, grid_v,
+                        #     op.opC_pL, op.opC_uL, op.opC_vL,
+                        #     AuvL, BuvL,rhs_uv,
+                        #     diffusion_bulk_u, diffusion_LS_u, diffusion_border_u, Mum1, BC_uL,
+                        #     diffusion_bulk_v, diffusion_LS_v, diffusion_border_v, Mvm1, BC_vL,
+                        #     cross_term_diffusion_bulk_d_dv_dx_dy,cross_term_diffusion_bulk_d_du_dy_dx,
+                        #     cross_term_diffusion_bulk_d_dv_dx_dy_border,cross_term_diffusion_bulk_d_du_dy_dx_border,
+                        #     rho_one_fluid_u,rho_one_fluid_v,
+                        #     true,
+                        #     BC_pL,phL
+                        #     )
+                    else
+
+                        # Coupled resolution of u and v
+                        _ = FE_set_momentum_coupled2(
+                        BC_int, num, grid_p, grid_u, grid_v,
+                        op.opC_pL, op.opC_uL, op.opC_vL,
+                        AuvL, BuvL,rhs_uv,
+                        iRe.*Lum1_L, iRe.*bc_Lum1_L, iRe.*bc_Lum1_b_L, Mum1_L, BC_uL,
+                        iRe.*Lvm1_L, iRe.*bc_Lvm1_L, iRe.*bc_Lvm1_b_L, Mvm1_L, BC_vL,
+                        true,BC_pL,phL
+                        )
+                    end
                 end
 
 
@@ -1019,15 +1042,33 @@ function run_forward!(
                 end
 
             elseif num.pressure_velocity_coupling > 1
-                # Coupled resolution of u and v
-                _ = FE_set_momentum_coupled2(
-                BC_int, num, grid_p, grid_u, grid_v,
-                op.opC_pL, op.opC_uL, op.opC_vL,
-                AuvL, BuvL,rhs_uv,
-                iRe.*Lum1_L, iRe.*bc_Lum1_L, iRe.*bc_Lum1_b_L, Mum1_L, BC_uL,
-                iRe.*Lvm1_L, iRe.*bc_Lvm1_L, iRe.*bc_Lvm1_b_L, Mvm1_L, BC_vL,
-                true,BC_pL,phL
-                )
+
+
+                if num.one_fluid_model == 1
+                        # _ = FE_set_momentum_coupled2_one_fluid(
+                        #     BC_int, num, grid_p, grid_u, grid_v,
+                        #     op.opC_pL, op.opC_uL, op.opC_vL,
+                        #     AuvL, BuvL,rhs_uv,
+                        #     diffusion_bulk_u, diffusion_LS_u, diffusion_border_u, Mum1, BC_uL,
+                        #     diffusion_bulk_v, diffusion_LS_v, diffusion_border_v, Mvm1, BC_vL,
+                        #     cross_term_diffusion_bulk_d_dv_dx_dy,cross_term_diffusion_bulk_d_du_dy_dx,
+                        #     cross_term_diffusion_bulk_d_dv_dx_dy_border,cross_term_diffusion_bulk_d_du_dy_dx_border,
+                        #     rho_one_fluid_u,rho_one_fluid_v,
+                        #     true,
+                        #     BC_pL,phL
+                        #     )
+                else
+                    # Coupled resolution of u and v
+                    _ = FE_set_momentum_coupled2(
+                    BC_int, num, grid_p, grid_u, grid_v,
+                    op.opC_pL, op.opC_uL, op.opC_vL,
+                    AuvL, BuvL,rhs_uv,
+                    iRe.*Lum1_L, iRe.*bc_Lum1_L, iRe.*bc_Lum1_b_L, Mum1_L, BC_uL,
+                    iRe.*Lvm1_L, iRe.*bc_Lvm1_L, iRe.*bc_Lvm1_b_L, Mvm1_L, BC_vL,
+                    true,BC_pL,phL
+                    )
+                end #one-fluid
+                
             end
 
             a0_p = []
@@ -1078,7 +1119,27 @@ function run_forward!(
 
     num.current_i = 0
 
-    interpolate_grid_liquid!(grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
+    # interpolate_grid_liquid!(grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
+
+
+    # function interpolate_grid_one_fluid!(grid,fwdL)
+    
+    tmp_vec_p  .= 0.0
+    tmp_vec_p0 .= 0.0
+
+    for j = 1:grid_p.ny
+    for i = 1:grid_p.nx
+        tmp_vec_p[j,i] =(phL.u[j,i]+phL.u[j,i+1])/2
+        tmp_vec_p0[j,i]=(phL.v[j,i]+phL.v[j+1,i])/2
+    end
+    end
+    
+    # return us,vs
+    # end
+
+    # interpolate_grid_one_fluid!(grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
+
+
     nstep = 0
     PDI_status = @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
         "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
@@ -1110,11 +1171,49 @@ function run_forward!(
     
 
     if num.one_fluid_model == 1 
+        rise_velocity_y =0.0
+        PDI_status = @ccall "libpdi".PDI_multi_expose("post_processing_rising_bubble_first_share"::Cstring,
+        "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
+        # "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "rho_one_fluid_u"::Cstring, rho_one_fluid_u::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "rho_one_fluid_v"::Cstring, rho_one_fluid_v::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
+        "rise_velocity_y"::Cstring, rise_velocity_y::Ref{Cdouble}, PDI_OUT::Cint,  
+        "timestep"::Cstring, num.τ::Ref{Cdouble}, PDI_OUT::Cint,  
+        # "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "volume_cell"::Cstring, grid_p.LS[end].geoS.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # "mesh_p_x"::Cstring, grid_p.x::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "mesh_p_y"::Cstring, grid_p.y::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "dcap_1"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # "dcap_2"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # "dcap_3"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # "dcap_4"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        C_NULL::Ptr{Cvoid})::Cint
 
         update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_fraction,levelset_one_fluid,rho_one_fluid,
                                                     rho_one_fluid_u,rho_one_fluid_v,mu_one_fluid,tmp_vec_p0)
 
-                                                    
+        # PDI_status = @ccall "libpdi".PDI_multi_expose("print_timestep"::Cstring,
+        # "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
+        # "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,
+        # "timestep"::Cstring, num.τ::Ref{Cdouble}, PDI_OUT::Cint,
+        # C_NULL::Ptr{Cvoid})::Cint
+
+        # #region initial values
+        # PDI_status = @ccall "libpdi".PDI_multi_expose("post_processing_rising_bubble"::Cstring,
+        # "nstep"::Cstring, nstep ::Ref{Clonglong}, PDI_OUT::Cint,            
+        # "velocity_y"::Cstring, velocity_y::Ptr{Cdouble}, PDI_OUT::Cint,      
+        # "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "volume_cell"::Cstring, grid_p.LS[end].geoS.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # "mesh_p_x"::Cstring, grid_p.x::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "mesh_p_y"::Cstring, grid_p.y::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "dcap_1"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # "dcap_2"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # "dcap_3"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # "dcap_4"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # C_NULL::Ptr{Cvoid})::Cint
+        # #endregion initial values          
+                                           
     end
 
 
@@ -2935,7 +3034,17 @@ function run_forward!(
 
             if num.one_fluid_model == 1 
 
-                interpolate_grid_liquid!(grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
+                # interpolate_grid_liquid!(grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
+
+                tmp_vec_p  .= 0.0
+                tmp_vec_p0 .= 0.0
+
+                for j = 1:grid_p.ny
+                for i = 1:grid_p.nx
+                    tmp_vec_p[j,i] =(phL.u[j,i]+phL.u[j,i+1])/2
+                    tmp_vec_p0[j,i]=(phL.v[j,i]+phL.v[j+1,i])/2
+                end
+                end
 
 
                 update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_fraction,levelset_one_fluid,rho_one_fluid,
@@ -3009,9 +3118,15 @@ function run_forward!(
 
                     # TODO update density
 
-                    # Mum1_L is put in B matrix that multiplies v
+                # if num.pressure_velocity_coupling == 0 
+
+                #region update LS
+
+                #endregion update LS
+
+                # Mum1_L is put in B matrix that multiplies v
                 # print("\n advection ", ns_advection, " adv ",advection)
-                Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = pressure_projection_one_fluid!(
+                Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = solve_one_fluid_NS!(
                     time_scheme, BC_int,
                     num, grid_p, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
                     BC_uL, BC_vL, BC_pL,

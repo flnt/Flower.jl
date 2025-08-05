@@ -23,22 +23,10 @@ end
 
 data = YAML.load_file(yamlpath)
 
+
+
 # Dictionaries 
 prop_dict = PropertyDict(data)
-io = PropertyDict(prop_dict.plot) 
-flower = PropertyDict(prop_dict.flower)
-mesh = PropertyDict(flower.mesh)
-sim = PropertyDict(flower.simulation)
-phys = PropertyDict(flower.physics)
-macros = PropertyDict(flower.macros) #to parse code from .yml
-
-# boundaries_dict = PropertyDict(macros.boundaries_list)
-
-
-
-# print parameters by evaluating Julia code stored in .yml   
-eval(Meta.parseall(macros.print_parameters))
-
 
 #region study parameters
 study = PropertyDict(prop_dict.study)
@@ -52,6 +40,63 @@ print("\n number of points ", nb_grid_points, "\n")
 timesteps = study.timesteps
 
 #endregion study parameters
+
+io = PropertyDict(prop_dict.plot) 
+flower = PropertyDict(prop_dict.flower)
+mesh = PropertyDict(flower.mesh)
+sim = PropertyDict(flower.simulation)
+phys = PropertyDict(flower.physics)
+macros = PropertyDict(flower.macros) #to parse code from .yml
+
+# boundaries_dict = PropertyDict(macros.boundaries_list)
+study_name = ""
+
+
+#region change one parameter at a time
+# # print("\n changing parameters",Meta.parseall(study.macro))
+# change_one_parameter_at_a_time = PropertyDict(study.change_one_parameter_at_a_time)
+
+# # eval(Meta.parseall(study.change_one_parameter_at_a_time.macro))
+# # for 
+# # study_name = change_one_parameter_at_a_time
+
+# for (key, value) in change_one_parameter_at_a_time
+#     print("\n changing parameter")
+#     print("\n key ",key) 
+#     print("\n value ",value)
+#     # eval(value.macro)    
+#     print("\n mu ",phys.mu1,phys.mu2)
+#     eval(value["macro"])
+#     print("\n mu ",phys.mu1,phys.mu2)
+# end
+
+# # Step 2: Modify multiple parameters
+# # Define a dictionary with the parameters you want to change and their new values
+# # changes = Dict(
+# #     "parameter1" => "new_value1",
+# #     "parameter2" => "new_value2",
+# #     "parameter3" => "new_value3"
+# #     # Add more parameters as needed
+# # )
+# # changes = eval(study.change_one_parameter_at_a_time)
+
+
+# # Apply the changes to the original YAML data
+# # for (key, value) in study.change_one_parameter_at_a_time
+# #     print("\n changing parameter")
+# #     print(key) 
+# #     eval(value.macro)
+# # end
+
+#endregion change one parameter at a time
+
+
+
+# print parameters by evaluating Julia code stored in .yml   
+eval(Meta.parseall(macros.print_parameters))
+
+
+
 
 
 
@@ -183,6 +228,12 @@ for timestep in timesteps
         mkpath(mesh_to_string)
         cd(mesh_to_string)
 
+        # if study_name !=""
+        #     # mkpath(study.change_one_parameter_at_a_time.name)
+        #     print("\nstudy ",study.change_one_parameter_at_a_time.name)
+        # end
+        
+
         # init regular grid
         scalar_mesh_x = collect(LinRange(mesh.xmin, mesh.xmax, study_nb_grid_points_x + 1))    
         scalar_mesh_y = collect(LinRange(mesh.ymin, mesh.ymax, study_nb_grid_points_y + 1))
@@ -288,6 +339,7 @@ for timestep in timesteps
             one_fluid_normal = sim.one_fluid_normal,
             marching_squares_epsilon = sim.marching_squares_epsilon,
             marching_squares_max_iter = sim.marching_squares_max_iter,
+            convection = sim.convection_mode,
             )
         Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
         @debug "After Numerical"
