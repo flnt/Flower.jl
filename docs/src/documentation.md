@@ -1946,7 +1946,7 @@ compute_bulk_or_interface_average
 ## Phase change
 ```@docs
 integrate_mass_flux_over_interface
-update_free_surface_velocity_electrolysis!
+compute_mass_flux_and_velocity_electrolysis!
 ```
 
 ## Electrical conductivity

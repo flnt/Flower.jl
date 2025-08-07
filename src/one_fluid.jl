@@ -655,6 +655,7 @@ function solve_one_fluid_NS!(
             opC_p, opC_u, opC_v, BC_Poisson,BC_u, BC_v,
             Au, Bu, Av, Bv, A_phi, rhs_phi,Auv, Buv,
             volume_fraction,rho_one_fluid_u,rho_one_fluid_v,
+            mass_flux,
             Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
             Mum1, Mvm1, op_conv, ph,
             periodic_x, periodic_y, advection, ls_advection, navier,rhs_uv,
@@ -1078,6 +1079,13 @@ function solve_one_fluid_NS!(
     end
 
 
+    #region phase change
+    if num.phase_change_currently_activated == 1
+        range_divergence = ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+nip
+        rhs_uv[range_divergence] = vec(mass_flux * ( 1.0/num.rho1 - 1.0/num.rho2 ) )
+        # print("\n TODO sign factor divergence and Dirac and one sided, not a problem ?", range_divergence)
+    end
+    #endregion phase change
 
     NS_force_y = reshape(-grav_y .-ph.Gym1 ./ vec(rho_one_fluid_v),grid_v)
 
@@ -1155,27 +1163,28 @@ function solve_one_fluid_NS!(
     "rhs_uv_v"::Cstring, rhs_uv[bulk_v_velocity]::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
-    # print("\n diag Auv ", Auv.nzval)
-    # display(Auv)
-    
-    II = CartesianIndex(div(grid_u.ny,4),div(grid_u.nx,2)) #center
-    pII = lexicographic(II, grid_u.ny)
-    print("\n test A ",Auv[pII,:])
+    #region check_one_fluid
+    # check_one_fluid = false
+    # if check_one_fluid
+    #     II = CartesianIndex(div(grid_u.ny,4),div(grid_u.nx,2)) #center
+    #     pII = lexicographic(II, grid_u.ny)
+    #     print("\n test A ",Auv[pII,:])
 
-    print("\n test rhs ",rhs_uv[pII])
+    #     print("\n test rhs ",rhs_uv[pII])
 
 
-    II = CartesianIndex(div(grid_u.ny,2),div(grid_u.nx,2)) #center
-    pII = lexicographic(II, grid_u.ny)
-    print("\n test A ",Auv[pII,:])
+    #     II = CartesianIndex(div(grid_u.ny,2),div(grid_u.nx,2)) #center
+    #     pII = lexicographic(II, grid_u.ny)
+    #     print("\n test A ",Auv[pII,:])
 
-    print("\n test rhs ",rhs_uv[pII])
+    #     print("\n test rhs ",rhs_uv[pII])
 
-    # print("\n size Auv ",size(Auv))
+    #     # print("\n size Auv ",size(Auv))
 
-    # print("\n test rhs 0 ")
-    # rhs_uv .= 0.0
-
+    #     # print("\n test rhs 0 ")
+    #     # rhs_uv .= 0.0
+    # end
+    #endregion check_one_fluid
 
     if num.pressure_velocity_coupling == 3
         print("\n Setting first cells")
@@ -1192,91 +1201,97 @@ function solve_one_fluid_NS!(
     end
     #endregion solver
 
-    for j in 1:grid_v.ny
-        II = CartesianIndex(j,div(grid_v.nx,2)) #center
-        pII = lexicographic(II, grid_v.ny)
-        IIp = CartesianIndex(j,div(grid_p.nx,2)) #center
-        pIIp = lexicographic(IIp, grid_p.ny)
-        print("\n test A v",II," ",pII," v ",uvD[pII+ntu]," rhs ",rhs_uv[pII+ntu]," ",uvD[ntu+ntv+pIIp-1]," ",uvD[ntu+ntv+pIIp]," ",uvD[ntu+ntv+pIIp+1]," grad ",(uvD[ntu+ntv+pIIp+1]-uvD[ntu+ntv+pIIp])*40," ",(uvD[ntu+ntv+pIIp]-uvD[ntu+ntv+pIIp-1])*40," ",Auv[pII+ntu,:])
-    end
+    
+    #region check_one_fluid
+    # check_one_fluid = false
+    # if check_one_fluid
+    #     for j in 1:grid_v.ny
+    #         II = CartesianIndex(j,div(grid_v.nx,2)) #center
+    #         pII = lexicographic(II, grid_v.ny)
+    #         IIp = CartesianIndex(j,div(grid_p.nx,2)) #center
+    #         pIIp = lexicographic(IIp, grid_p.ny)
+    #         print("\n test A v",II," ",pII," v ",uvD[pII+ntu]," rhs ",rhs_uv[pII+ntu]," ",uvD[ntu+ntv+pIIp-1]," ",uvD[ntu+ntv+pIIp]," ",uvD[ntu+ntv+pIIp+1]," grad ",(uvD[ntu+ntv+pIIp+1]-uvD[ntu+ntv+pIIp])*40," ",(uvD[ntu+ntv+pIIp]-uvD[ntu+ntv+pIIp-1])*40," ",Auv[pII+ntu,:])
+    #     end
 
-    II = CartesianIndex(div(grid_v.ny,4),div(grid_v.nx,2)) #center
-    pII = lexicographic(II, grid_v.ny)
+    #     II = CartesianIndex(div(grid_v.ny,4),div(grid_v.nx,2)) #center
+    #     pII = lexicographic(II, grid_v.ny)
 
-    print("\n test A v",Auv[pII+ntu,:])
-    print("\n test A v",uvD[pII+ntu])
-    print("\n test rhs ",rhs_uv[pII+ntu])
+    #     print("\n test A v",Auv[pII+ntu,:])
+    #     print("\n test A v",uvD[pII+ntu])
+    #     print("\n test rhs ",rhs_uv[pII+ntu])
 
-    print("\n pII +ntu ",pII+ntu)
-    print("\n test A v",uvD[pII+ntu+1])
-    print("\n test A v",uvD[pII+ntu-1])
-    print("\n test A v",uvD[pII+ntu+grid_v.ny])
-    print("\n test A v",uvD[pII+ntu-grid_v.ny])
+    #     print("\n pII +ntu ",pII+ntu)
+    #     print("\n test A v",uvD[pII+ntu+1])
+    #     print("\n test A v",uvD[pII+ntu-1])
+    #     print("\n test A v",uvD[pII+ntu+grid_v.ny])
+    #     print("\n test A v",uvD[pII+ntu-grid_v.ny])
 
-    IIp = CartesianIndex(div(grid_p.ny,4),div(grid_p.nx,2)) #center
-    pIIp = lexicographic(IIp, grid_p.ny)
-    print("\n test A p",uvD[ntu+ntv+pIIp])
-    print("\n test A p",uvD[ntu+ntv+pIIp+1])
-    print("\n test A p",uvD[ntu+ntv+pIIp-1])
+    #     IIp = CartesianIndex(div(grid_p.ny,4),div(grid_p.nx,2)) #center
+    #     pIIp = lexicographic(IIp, grid_p.ny)
+    #     print("\n test A p",uvD[ntu+ntv+pIIp])
+    #     print("\n test A p",uvD[ntu+ntv+pIIp+1])
+    #     print("\n test A p",uvD[ntu+ntv+pIIp-1])
 
 
-    II = CartesianIndex(div(grid_u.ny,4),div(grid_u.nx,2)) #center
-    pII = lexicographic(II, grid_u.ny)
-    print("\n test A ",Auv[pII,:])
-
+    #     II = CartesianIndex(div(grid_u.ny,4),div(grid_u.nx,2)) #center
+    #     pII = lexicographic(II, grid_u.ny)
+    #     print("\n test A ",Auv[pII,:])
 
     
 
-    PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_rising"::Cstring,
-    # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-    "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-    C_NULL::Ptr{Cvoid})::Cint
+    #     PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_rising"::Cstring,
+    #     # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    #     # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    #     "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    #     C_NULL::Ptr{Cvoid})::Cint
 
-    # print("\n test rhs ",rhs_uv[pII])
-    # print("\n pII ",pII)
-    # print("\n pII ",uvD[pII])
-    # print("\n pII ",uvD[1539])
-    # print("\n pII ",uvD[pII+1])
-    # print("\n pII ",uvD[pII+2])
+    #     # print("\n test rhs ",rhs_uv[pII])
+    #     # print("\n pII ",pII)
+    #     # print("\n pII ",uvD[pII])
+    #     # print("\n pII ",uvD[1539])
+    #     # print("\n pII ",uvD[pII+1])
+    #     # print("\n pII ",uvD[pII+2])
+        
+    #     # print("\n pII ",uvD[1620])
+    #     # print("\n pII ",uvD[5000])
+    #     # print("\n pII ",uvD[5000+grid_p.ny])
+    #     # print("\n pII ",uvD[5000])
+    #     # print("\n pII ",uvD[5000])
+
+    #     # print("\n pII ",uvD[8464])
+    #     # print("\n pII ",uvD[8544])
+
+        
+    #     # vec1(ph.uD,grid_u) .= uvD[1:niu]
+    #     # vecb(ph.uD,grid_u) .= uvD[niu+1:ntu]
+
+    #     # vec1(ph.vD,grid_v) .= uvD[ntu+1:ntu+niv]
+    #     # vecb(ph.vD,grid_v) .= uvD[ntu+1+niv:ntu+ntv]
+
+
+
+
+    # #     [1539]  =  -0.0001
+    # #   [1540]  =  0.001225
+    # #   [1541]  =  -0.0001
+    # #   [1620]  =  -0.0002
+    # #   [5000]  =  -0.0001
+    # #   [5001]  =  0.0001
+    # #   [5081]  =  0.0001
+    # #   [5082]  =  -0.0001
+    # #   [8464]  =  -2.5e-6
+    # #   [8544]  =  2.5e-6
+
+
+
+    #     II = CartesianIndex(div(grid_u.ny,2),div(grid_u.nx,2)) #center
+    #     pII = lexicographic(II, grid_u.ny)
+    #     print("\n test A ",Auv[pII,:])
+
+    #     print("\n test rhs ",rhs_uv[pII])
     
-    # print("\n pII ",uvD[1620])
-    # print("\n pII ",uvD[5000])
-    # print("\n pII ",uvD[5000+grid_p.ny])
-    # print("\n pII ",uvD[5000])
-    # print("\n pII ",uvD[5000])
-
-    # print("\n pII ",uvD[8464])
-    # print("\n pII ",uvD[8544])
-
-    
-    # vec1(ph.uD,grid_u) .= uvD[1:niu]
-    # vecb(ph.uD,grid_u) .= uvD[niu+1:ntu]
-
-    # vec1(ph.vD,grid_v) .= uvD[ntu+1:ntu+niv]
-    # vecb(ph.vD,grid_v) .= uvD[ntu+1+niv:ntu+ntv]
-
-
-
-
-#     [1539]  =  -0.0001
-#   [1540]  =  0.001225
-#   [1541]  =  -0.0001
-#   [1620]  =  -0.0002
-#   [5000]  =  -0.0001
-#   [5001]  =  0.0001
-#   [5081]  =  0.0001
-#   [5082]  =  -0.0001
-#   [8464]  =  -2.5e-6
-#   [8544]  =  2.5e-6
-
-
-
-    II = CartesianIndex(div(grid_u.ny,2),div(grid_u.nx,2)) #center
-    pII = lexicographic(II, grid_u.ny)
-    print("\n test A ",Auv[pII,:])
-
-    print("\n test rhs ",rhs_uv[pII])
+    # end
+    #endregion check_one_fluid
 
     vec1(ucorrD, grid_u) .= uvD[bulk_u_velocity]
     vecb(ucorrD, grid_u) .= uvD[border_u_velocity]
@@ -1765,7 +1780,7 @@ function solve_one_fluid_NS!(
     #     print(e)
     #     uvD .= Inf
     # end
-    print("\n size uvD ",ntu, " ",size(ph.uD)," ",size(vec1(ph.uD,grid_u))," " ,size(uvD[1:nbu]))
+    # print("\n size uvD ",ntu, " ",size(ph.uD)," ",size(vec1(ph.uD,grid_u))," " ,size(uvD[1:nbu]))
     vec1(ph.uD,grid_u) .= uvD[1:niu]
     vecb(ph.uD,grid_u) .= uvD[niu+1:ntu]
 
@@ -2045,6 +2060,7 @@ function set_Forward_Euler_one_fluid!(
     opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
     Au, Bu, Av, Bv, A_phi,rhs_phi, Auv, Buv,
     volume_fraction,rho_one_fluid_u,rho_one_fluid_v,
+    mass_flux,
     Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
     Mum1, Mvm1, op_conv, ph,
     periodic_x, periodic_y, advection, ls_advection, navier,rhs_uv = nothing)
@@ -2498,19 +2514,26 @@ function set_Forward_Euler_one_fluid!(
     # Test
     # cross_term_diffusion_bulk_d_dv_dx_dy =
 
-    print("\n size opC_v.iMx, opC_v.Bx",size(opC_v.tmp_x))
-    print("\n size opC_u.ByT",size(opC_u.ByT))
-    print("\n size opC_v.BxT",size(opC_v.BxT))
+    # print("\n size opC_v.iMx, opC_v.Bx",size(opC_v.tmp_x))
+    # print("\n size opC_u.ByT",size(opC_u.ByT))
+    # print("\n size opC_v.BxT",size(opC_v.BxT))
 
 
     cross_term_diffusion_bulk_d_dv_dx_dy = opC_u.ByT * opC_v.tmp_x
 
-    # pII = lexicographic(CartesianIndex(div(grid_u.ny,2),div(grid_u.nx,2)),grid_u.ny)
-    pII = lexicographic(CartesianIndex(5,5),grid_u.ny)
+    #region check_one_fluid
+    # check_one_fluid = false
 
-    print("\n cross_term_diffusion_bulk_d_dv_dx_dy ",pII)
+    # if check_one_fluid
+    #     # pII = lexicographic(CartesianIndex(div(grid_u.ny,2),div(grid_u.nx,2)),grid_u.ny)
+    #     pII = lexicographic(CartesianIndex(5,5),grid_u.ny)
 
-    print("\n cross_term_diffusion_bulk_d_dv_dx_dy ",cross_term_diffusion_bulk_d_dv_dx_dy[pII,:])
+    #     print("\n cross_term_diffusion_bulk_d_dv_dx_dy ",pII)
+
+    #     print("\n cross_term_diffusion_bulk_d_dv_dx_dy ",cross_term_diffusion_bulk_d_dv_dx_dy[pII,:])
+    # end
+    #endregion check_one_fluid
+
 
     nip = grid_p.nx * grid_p.ny
     nbp = 2 * grid_p.nx + 2 * grid_p.ny
@@ -2533,9 +2556,9 @@ function set_Forward_Euler_one_fluid!(
     border_v_velocity = ntu+ntv-nbv+1:ntu+ntv
   
 
-    print("\n indices ",bulk_u_velocity," ",bulk_v_velocity," ",border_u_velocity," ",border_v_velocity)
+    # print("\n indices ",bulk_u_velocity," ",bulk_v_velocity," ",border_u_velocity," ",border_v_velocity)
 
-    print("\n indices ",size(bulk_u_velocity)," ",size(bulk_v_velocity)," ",size(border_u_velocity)," ",size(border_v_velocity))
+    # print("\n indices ",size(bulk_u_velocity)," ",size(bulk_v_velocity)," ",size(border_u_velocity)," ",size(border_v_velocity))
 
 
     #TODO shift stencil
@@ -2583,6 +2606,7 @@ function set_Forward_Euler_one_fluid!(
             diffusion_bulk_v, diffusion_LS_v, diffusion_border_v, Mvm1, BC_v,
             cross_term_diffusion_bulk_d_dv_dx_dy,cross_term_diffusion_bulk_d_du_dy_dx,
             cross_term_diffusion_bulk_d_dv_dx_dy_border,cross_term_diffusion_bulk_d_du_dy_dx_border,rho_one_fluid_u,rho_one_fluid_v,
+            mass_flux,
             ls_advection,BC_p,ph
         )
 
@@ -2703,6 +2727,7 @@ function set_Forward_Euler_one_fluid!(
             diffusion_bulk_v, diffusion_LS_v, diffusion_border_v, Mvm1, BC_v,
             cross_term_diffusion_bulk_d_dv_dx_dy,cross_term_diffusion_bulk_d_du_dy_dx,
             cross_term_diffusion_bulk_d_dv_dx_dy_border,cross_term_diffusion_bulk_d_du_dy_dx_border,rho_one_fluid_u,rho_one_fluid_v,
+            mass_flux,
             ls_advection,BC_p,ph
         )
         else
@@ -2771,6 +2796,7 @@ function FE_set_momentum_coupled2_one_fluid(
     cross_term_diffusion_bulk_d_dv_dx_dy,cross_term_diffusion_bulk_d_du_dy_dx,
     cross_term_diffusion_bulk_d_dv_dx_dy_border,cross_term_diffusion_bulk_d_du_dy_dx_border,
     rho_one_fluid_u,rho_one_fluid_v,
+    mass_flux,
     ls_advection::Bool,
     BCp,ph=nothing
     )
@@ -3141,14 +3167,18 @@ function FE_set_momentum_coupled2_one_fluid(
             
         end
 
+        #region check_one_fluid
 
-        II = CartesianIndex(div(grid_u.ny,4),div(grid_u.nx,2)) #center
-        pII = lexicographic(II, grid_u.ny)
-        print("\n test A ",A[pII,:])
+        # II = CartesianIndex(div(grid_u.ny,4),div(grid_u.nx,2)) #center
+        # pII = lexicographic(II, grid_u.ny)
+        # print("\n test A ",A[pII,:])
 
-        II = CartesianIndex(div(grid_u.ny,2),div(grid_u.nx,2)) #center
-        pII = lexicographic(II, grid_u.ny)
-        print("\n test A ",A[pII,:])
+        # II = CartesianIndex(div(grid_u.ny,2),div(grid_u.nx,2)) #center
+        # pII = lexicographic(II, grid_u.ny)
+        # print("\n test A ",A[pII,:])
+
+        #endregion check_one_fluid
+
         
         #region Implicit gradient of pressure (volume integrated)
 
@@ -3187,15 +3217,20 @@ function FE_set_momentum_coupled2_one_fluid(
             
             end #num.pressure_velocity_coupling !=3
             
-            printstyled(color=:red, @sprintf "\n test grad")
+            #region check_one_fluid
 
-            II = CartesianIndex(div(grid_u.ny,4),div(grid_u.nx,2)) #center
-            pII = lexicographic(II, grid_u.ny)
-            print("\n test A ",A[pII,:])
+            # printstyled(color=:red, @sprintf "\n test grad")
 
-            II = CartesianIndex(div(grid_u.ny,2),div(grid_u.nx,2)) #center
-            pII = lexicographic(II, grid_u.ny)
-            print("\n test A ",A[pII,:])
+            # II = CartesianIndex(div(grid_u.ny,4),div(grid_u.nx,2)) #center
+            # pII = lexicographic(II, grid_u.ny)
+            # print("\n test A ",A[pII,:])
+
+            # II = CartesianIndex(div(grid_u.ny,2),div(grid_u.nx,2)) #center
+            # pII = lexicographic(II, grid_u.ny)
+            # print("\n test A ",A[pII,:])
+
+            #endregion check_one_fluid
+
 
         end
         #endregion Implicit gradient of pressure (volume integrated)
@@ -3233,6 +3268,9 @@ function FE_set_momentum_coupled2_one_fluid(
             # v border
             A[range_divergence,border_v_velocity] = -opp.Gy_b
 
+     
+            
+
             for iLS in 1:nLS
                 sbu = iLS*niu+1:(iLS+1)*niu
                 sbv = ntu+iLS*niv+1:ntu+(iLS+1)*niv
@@ -3253,15 +3291,20 @@ function FE_set_momentum_coupled2_one_fluid(
             #     end
             # end
 
-            printstyled(color=:red, @sprintf "\n test grad")
+             #region check_one_fluid
 
-            II = CartesianIndex(div(grid_u.ny,4),div(grid_u.nx,2)) #center
-            pII = lexicographic(II, grid_u.ny)
-            print("\n test A ",A[pII,:])
+            # printstyled(color=:red, @sprintf "\n test grad")
 
-            II = CartesianIndex(div(grid_u.ny,2),div(grid_u.nx,2)) #center
-            pII = lexicographic(II, grid_u.ny)
-            print("\n test A ",A[pII,:])
+            # II = CartesianIndex(div(grid_u.ny,4),div(grid_u.nx,2)) #center
+            # pII = lexicographic(II, grid_u.ny)
+            # print("\n test A ",A[pII,:])
+
+            # II = CartesianIndex(div(grid_u.ny,2),div(grid_u.nx,2)) #center
+            # pII = lexicographic(II, grid_u.ny)
+            # print("\n test A ",A[pII,:])
+
+            #endregion check_one_fluid
+
 
         end
         #endregion divergence of velocity: -div U for symmetry
@@ -5226,3 +5269,15 @@ function variable_coeff_part()
     end #if io_pdi
 
 end 
+
+
+"""
+From one-fluid velocity to interfacial velocity
+"""
+function interpolate_interface_velocity!(ph,grid_u,grid_v)
+    iLS = 1
+
+    veci(ph.uD,grid_u,iLS+1) .= veci(ph.uD,grid_u,iLS) #phL.u
+    veci(ph.vD,grid_v,iLS+1) .= veci(ph.vD,grid_v,iLS) #phL.v
+
+end

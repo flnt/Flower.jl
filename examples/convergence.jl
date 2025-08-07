@@ -340,6 +340,7 @@ for timestep in timesteps
             marching_squares_epsilon = sim.marching_squares_epsilon,
             marching_squares_max_iter = sim.marching_squares_max_iter,
             convection = sim.convection_mode,
+            nucleation_time = phys.nucleation_time,
             )
         Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
         @debug "After Numerical"

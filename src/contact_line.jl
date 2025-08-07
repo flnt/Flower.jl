@@ -112,7 +112,7 @@ end
 """
   from BC_LS
 """
-function print_CL_length(num,grid, u, A, B, rhs, BC)
+function update_radius_from_contact_line(num,grid, u, BC)
     @unpack x, y, nx, ny, dx, dy, ind = grid
     @unpack all_indices, b_left, b_bottom, b_right, b_top = ind
     @unpack left, bottom, right, top = BC
@@ -145,105 +145,18 @@ function print_CL_length(num,grid, u, A, B, rhs, BC)
             pks1 = idx[pks[1]]
             pkse = idx[pks[end]]
 
-            # # Gradually update the contact angle
-            # Δθe = 2.0 * π / 180
-
-            # # Find current contact angle
-            # dist = sqrt((x[idx2[pks[1]]] - x[pks1])^2 + (y[idx2[pks[1]]] - y[pks1])^2)
-            # old = u[pks1] - u[idx2[pks[1]]]
-            # # Levelset difference between two consecutive points might be bigger
-            # # than the distance between them if it's not reinitialized often enough
-            # if abs(old) > dist
-            #     old = sign(old) * dist
-            # end
-            # θe_old = acos(old / dist)
-
-            # # Compute new contact angle
-            # if abs(boundaries_t[i].θe - θe_old) > Δθe
-            #     θe = θe_old + sign(boundaries_t[i].θe - θe_old) * Δθe
-            # else
-            #     θe = boundaries_t[i].θe
-            # end
-
             # distance between the center of the drop and the contact line
             d = abs(xy[pks1] + u[pks1] - (xy[pkse] + u[pkse])) / 2.0
 
             if d > 0.0 
                 printstyled(color=:magenta, @sprintf "\n distance between the center of the drop and the contact line %.2e R from volume LS end %.2e \n" d sqrt(2*volume(grid.LS[end].geoL)/π))
                 num.current_radius  = d
+                print("u[idx] ",u[idx])
             end 
         catch e 
             # print("\n no contact line found\n ")
         end
 
-        # if is_neumann(boundaries_t[i])
-        #     for (II, JJ) in zip(idx, idx2)
-        #         pII = lexicographic(II, grid.ny)
-        #         pJJ = lexicographic(JJ, grid.ny)
-
-        #         A[pII,:] .= 0.0
-        #         A[pII,pII] = 1.0
-        #         A[pII,pJJ] = -1.0
-        #         B[pII,:] .= 0.0
-        #     end
-        # elseif is_neumann_cl(boundaries_t[i]) && maximum(u[idx]) > 0.0 && minimum(u[idx]) < 0.0 && length(pks) >= 2
-        #     pks1 = idx[pks[1]]
-        #     pkse = idx[pks[end]]
-
-        #     # Gradually update the contact angle
-        #     Δθe = 2.0 * π / 180
-
-        #     # Find current contact angle
-        #     dist = sqrt((x[idx2[pks[1]]] - x[pks1])^2 + (y[idx2[pks[1]]] - y[pks1])^2)
-        #     old = u[pks1] - u[idx2[pks[1]]]
-        #     # Levelset difference between two consecutive points might be bigger
-        #     # than the distance between them if it's not reinitialized often enough
-        #     if abs(old) > dist
-        #         old = sign(old) * dist
-        #     end
-        #     θe_old = acos(old / dist)
-
-        #     # Compute new contact angle
-        #     if abs(boundaries_t[i].θe - θe_old) > Δθe
-        #         θe = θe_old + sign(boundaries_t[i].θe - θe_old) * Δθe
-        #     else
-        #         θe = boundaries_t[i].θe
-        #     end
-
-        #     # distance between the center of the drop and the contact line
-        #     d = abs(xy[pks1] + u[pks1] - (xy[pkse] + u[pkse])) / 2.0
-
-        #     for (II, JJ) in zip(idx[2:end-1], idx2[2:end-1])
-        #         pII = lexicographic(II, grid.ny)
-        #         pJJ = lexicographic(JJ, grid.ny)
-
-        #         A[pII,:] .= 0.0
-        #         A[pII,pII] = 1.0
-        #         A[pII,pJJ] = -1.0
-        #         B[pII,:] .= 0.0
-
-        #         # Compute levelset angle at a distance u[II] from the contact line
-        #         if θe < π2
-        #             newθ = atan(tan(θe) * (1.0 - u[II] / d))
-        #         else
-        #             newθ = π - atan(tan(π - θe) * (1.0 - u[II] / d))
-        #         end
-
-        #         rhs[pII] = dist * cos(newθ)
-        #     end
-        # elseif is_neumann_cl(boundaries_t[i]) || is_neumann_inh(boundaries_t[i])
-        #     for (II, JJ, KK) in zip(idx, idx2, idx3)
-        #         pII = lexicographic(II, grid.ny)
-        #         pJJ = lexicographic(JJ, grid.ny)
-
-        #         A[pII,:] .= 0.0
-        #         A[pII,pII] = 1.0
-        #         A[pII,pJJ] = -1.0
-        #         B[pII,:] .= 0.0
-
-        #         rhs[pII] = u[JJ] - u[KK]
-        #     end
-        # end
     end
 
     return nothing

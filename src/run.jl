@@ -175,7 +175,6 @@ function run_forward!(
     end
 
     mass_fluxS = 0.0
-    mass_fluxL = 0.0
     
 
     iRe = 1.0 / num.Re
@@ -210,8 +209,8 @@ function run_forward!(
     # Electrolysis
     num.current_radius = 0.0
     # TODO kill_dead_cells! for [:,:,iscal]
+    #region init number of moles
     if electrolysis
-        
         if electrolysis_phase_change_case != "none"
             num.current_radius = num.R
 
@@ -237,9 +236,9 @@ function run_forward!(
             printstyled(color=:green, @sprintf "\n Mole test: %.2e %.2e\n" num.concentration0[num.index_phase_change]*4.0/3.0*pi*num.current_radius^3 p_g*4.0/3.0*pi*num.current_radius^3/(num.temperature0*num.Ru))
 
         end
-
     end # if electrolysis    
-    
+    #endregion init number of moles
+
     #endregion Initialize simulation parameters
 
 
@@ -1126,7 +1125,7 @@ function run_forward!(
     
     tmp_vec_p  .= 0.0
     tmp_vec_p0 .= 0.0
-
+    #TODO interp variable spacing
     for j = 1:grid_p.ny
     for i = 1:grid_p.nx
         tmp_vec_p[j,i] =(phL.u[j,i]+phL.u[j,i+1])/2
@@ -1225,7 +1224,7 @@ function run_forward!(
     #TODO variable time steps 
 
     #region time loop
-    while (num.current_i < num.max_iterations + 1) && (num.time < num.end_time) 
+    while (num.current_i < num.max_iterations + 1) && (num.time < num.end_time) && num.stop_simulation == 0 
 
         #region start iter
 
@@ -1448,6 +1447,12 @@ function run_forward!(
                 #but here BC
                 
                 # New start scalar loop
+
+                #region velocity
+
+                interpolate_interface_velocity!(phL,grid_u,grid_v)
+
+                #endregion velocity
 
                 #region Impose velocity
                 if imposed_velocity == "zero"
@@ -1704,9 +1709,10 @@ function run_forward!(
                     tmp_vec_p, #used to store a0 for rhs of interfacial value
                     tmp_vec_u,
                     tmp_vec_v,
+                    mass_flux,
                     periodic_x, 
                     periodic_y, 
-                    electrolysis_convection, 
+                    electrolysis_convection,                 
                     ls_advection)
 
                     # PDI_status = @ccall "libpdi".PDI_multi_expose("check_concentrations"::Cstring,
@@ -1926,6 +1932,9 @@ function run_forward!(
         
         #region Phase change
 
+            printstyled(color=:magenta, @sprintf "\n radius ")
+            print("\n radius",num.current_radius)
+
         print("\n electrolysis_phase_change_case ",electrolysis_phase_change_case)
         #TODO print case, quantity, ...
 
@@ -1933,7 +1942,6 @@ function run_forward!(
             printstyled(color=:magenta, @sprintf "\n integrate_mass_flux_over_interface\n")
 
             # @views integrate_mass_flux_over_interface(num,grid_p,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
-
             # @views integrate_mass_flux_over_interface_2(num,grid_p,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
 
             @views integrate_mass_flux_over_interface(num,grid_p,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,
@@ -1963,7 +1971,7 @@ function run_forward!(
 
                        
                         if num.advection_LS_mode !=10    
-                            flower_status = update_free_surface_velocity_electrolysis!(num, grid_p, grid_u, grid_v, iLS, phL.uD, phL.vD, 
+                            flower_status = compute_mass_flux_and_velocity_electrolysis!(num, grid_p, grid_u, grid_v, iLS, phL.uD, phL.vD, 
                             periodic_x, periodic_y, num.average_velocity, phL.trans_scalD[:,num.index_phase_change],phL.trans_scal[:,:,num.index_phase_change],
                             num.diffusion_coeff[num.index_phase_change],num.concentration0[num.index_phase_change],electrolysis_phase_change_case,mass_flux)
 
@@ -2156,12 +2164,14 @@ function run_forward!(
 
         #endregion
 
+        printstyled(color=:red, @sprintf "\n after phase change radius: %.2e \n" num.current_radius)
+
         if verbose && adaptative_t
             println("num.τ = $num.τ")
         end
 
         printstyled(color=:red, @sprintf "\n advection")
-        print("\n num.advection_LS_mode ",num.advection_LS_mode,advection)
+        print("\n num.advection_LS_mode ",num.advection_LS_mode," advection ",advection)
         printstyled(color=:red, @sprintf "\n advection")
 
 
@@ -2273,7 +2283,7 @@ function run_forward!(
                         print("\n num.advection_LS_mode == 2 iLS", iLS)
 
 
-                        print_CL_length(num,grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
+                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
 
 
                         printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
@@ -2284,7 +2294,7 @@ function run_forward!(
 
 
 
-                        print_CL_length(num,grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
+                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
 
 
                     elseif num.advection_LS_mode == 3
@@ -2306,7 +2316,7 @@ function run_forward!(
                         print("\n num.advection_LS_mode == 3 iLS", iLS)
 
 
-                        print_CL_length(num,grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
+                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
 
 
                         printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
@@ -2327,7 +2337,7 @@ function run_forward!(
                         grid_p.LS[iLS].u .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u) .+ rhs_LS), grid_p)
 
 
-                        print_CL_length(num,grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
+                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
 
                     elseif num.advection_LS_mode == 4
 
@@ -2401,7 +2411,7 @@ function run_forward!(
                         print("\n num.advection_LS_mode == 5 iLS", iLS)
 
 
-                        print_CL_length(num,grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
+                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
 
                         grid_p.V .=0.25*grid_p.dx[1,1]/num.τ  
 
@@ -2412,7 +2422,7 @@ function run_forward!(
 
 
 
-                        print_CL_length(num,grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
+                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
 
                     elseif (num.advection_LS_mode == 6) || (num.advection_LS_mode == 7)
 
@@ -2423,7 +2433,7 @@ function run_forward!(
                         print("\n num.advection_LS_mode == 2 iLS", iLS)
 
 
-                        print_CL_length(num,grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
+                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
 
 
                         printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
@@ -2476,7 +2486,7 @@ function run_forward!(
 
 
 
-                        print_CL_length(num,grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
+                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
 
 
                     elseif num.advection_LS_mode == 8
@@ -2490,7 +2500,7 @@ function run_forward!(
                         # print("\n periodic ",periodic_x," y ",periodic_y)
 
 
-                        # print_CL_length(num,grid_p, grid_p.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+                        # update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
 
 
                         # printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
@@ -2530,7 +2540,7 @@ function run_forward!(
 
 
 
-                        # print_CL_length(num,grid_p, grid_p.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+                        # update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
 
                     elseif ((num.advection_LS_mode == 9) || (num.advection_LS_mode == 10))
                         print("\n num.advection_LS_mode == 9 or 10 iLS", iLS)
@@ -2547,7 +2557,7 @@ function run_forward!(
                         Aghost, Bghost = allocate_ghost_matrices_2(grid_p.nx,grid_p.ny,nghost)
 
 
-                        print_CL_length(num,grid_p, grid_p.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
 
 
                         printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
@@ -2595,7 +2605,7 @@ function run_forward!(
 
 
 
-                        print_CL_length(num,grid_p, grid_p.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
 
                     elseif num.advection_LS_mode == 11 || num.advection_LS_mode == 12 
 
@@ -2650,11 +2660,61 @@ function run_forward!(
                         BC_LS!(grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
                         grid_p.LS[iLS].u .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u) .+ rhs_LS), grid_p)
 
+                    #region bulk +phase-change velocity    
+                    elseif num.advection_LS_mode == 13
+
+                        #region bulk velocity
+
+                        if num.time > num.nucleation_time #TODO more precisely no mass transfer but velocity 
+                            
+                            num.phase_change_currently_activated = 1 #TODO before after
+
+                            update_free_surface_velocity(num, grid_u, grid_v, 1, phL.uD, phL.vD, periodic_x, periodic_y)
+
+                            i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext = indices_extension(grid_u, grid_u.LS[1], grid_u.ind.inside, periodic_x, periodic_y)
+                            i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext = indices_extension(grid_v, grid_v.LS[1], grid_v.ind.inside, periodic_x, periodic_y)
+
+                            field_extension!(grid_u, grid_u.LS[1].u, grid_u.V, i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext, num.NB, periodic_x, periodic_y)
+                            field_extension!(grid_v, grid_v.LS[1].u, grid_v.V, i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext, num.NB, periodic_x, periodic_y)
+                            
+                            interpolate_scalar!(grid_p, grid_u, grid_v, grid_p.V, grid_u.V, grid_v.V)
+
+                            #enregion bulk velocity
+
+                            nghost = 1
+                            Aghost, Bghost = allocate_ghost_matrices_2(grid_p.nx,grid_p.ny,nghost)
+                            update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+                            printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
+                            LSghost = init_ghost_neumann_2(grid_p.LS[iLS].u,grid_p.nx,grid_p.ny,nghost)
+                            Vghost = init_ghost_neumann_2(grid_p.V,grid_p.nx,grid_p.ny,nghost)
+                            IIOE_normal_indices_2!(grid_p, Aghost, Bghost, grid_p.LS[iLS].u, LSghost, 
+                            Vghost, CFL_sc, periodic_x, periodic_y,nghost)
+                            LSghost .= reshape(gmres(Aghost, Bghost * vec(LSghost)), (grid_p.ny+2*nghost,grid_p.nx+2*nghost))
+
+                            #Store result of LS advection without ghost cells
+                            for j=1:grid_p.ny
+                                for i=1:grid_p.nx
+                                    grid_p.LS[iLS].u[j,i] = LSghost[j+1,i+1]
+                                end
+                            end
+
+                            update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+                        else
+                            printstyled(color=:red, @sprintf "\n no levelset advection before nucleation \n" )
+
+                        end
+
+                        printstyled(color=:red, @sprintf "\n after advection 13 radius: %.2e \n" num.current_radius)
+
+
+                    #endregion bulk +phase-change velocity    
 
 
                     end #num.advection_LS_mode == 
                 end
             end
+
+            printstyled(color=:red, @sprintf "\n after advection_LS_mode radius: %.2e \n" num.current_radius)
 
             #region reinitialize Levelset
 
@@ -2720,6 +2780,8 @@ function run_forward!(
         end
 
         #endregion reinitialize Levelset
+            
+        printstyled(color=:red, @sprintf "\n after reinit radius: %.2e \n" num.current_radius)
 
         if verbose
             if (num.current_i-1)%show_every == 0
@@ -3123,6 +3185,13 @@ function run_forward!(
                 #region update LS
 
                 #endregion update LS
+                #pbm mass_fluxL
+                PDI_status = @ccall "libpdi".PDI_multi_expose("check_mass_flux_NS"::Cstring,
+                # "conservation"::Cstring, conservation::Ref{Cdouble}, PDI_OUT::Cint,
+                "mass_flux"::Cstring, mass_flux::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                C_NULL::Ptr{Cvoid})::Cint
+
 
                 # Mum1_L is put in B matrix that multiplies v
                 # print("\n advection ", ns_advection, " adv ",advection)
@@ -3146,7 +3215,7 @@ function run_forward!(
                     tmp_vec_p,
                     tmp_vec_p0,
                     rhs_phi,
-                    pres_free_surfaceL,jump_mass_fluxL,mass_fluxL
+                    pres_free_surfaceL,jump_mass_fluxL,mass_flux
                 )  
 
 
@@ -3208,7 +3277,7 @@ function run_forward!(
                             AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,
                             Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
                             Cum1L, Cvm1L, Mum1_L, Mvm1_L,
-                            periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_fluxL,mass_fluxL
+                            periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_fluxL,mass_flux
                         )
                         # if num.current_i == 1
                         #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
@@ -3239,7 +3308,7 @@ function run_forward!(
                             AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,rhs_uv,
                             Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
                             Cum1L, Cvm1L, Mum1_L, Mvm1_L,
-                            periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_fluxL,mass_fluxL
+                            periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_fluxL,mass_flux
                         )
                         # if num.current_i == 1
                         #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy

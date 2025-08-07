@@ -1619,7 +1619,8 @@ def plot_all_films_func():
         h5_files = [file for file in all_files if file.endswith(".h5")]
     else:
         h5_files = sys.argv[2::]
-          
+
+   
     
     # print(h5_files)
     h5_files = sorted(h5_files)
@@ -1691,11 +1692,16 @@ def plot_all_films_func():
         else:
             func = globals()['plot_file']
 
+        if 'files_macro' in figpar.keys():
+            exec(figpar['files_macro'])
+            h5_files_tmp = h5_files_2      
+        else:
+            h5_files_tmp = h5_files
 
         key = figpar['var']
         
         python_movie_zoom_func(
-        h5_files,
+        h5_files_tmp,
         key,
         xp,
         yp,
@@ -2493,8 +2499,10 @@ def plot_file(
     # str_iter = "{:05}".format(i)
 
     # plt.title("t "+str_time +r"$(\unit{s})$")
-
-    ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$',color=plotpar['text_color'])
+    if get_value_from_dicts('title_macro',figpar,plotpar) != None:
+        exec(get_value_from_dicts('title_macro',figpar,plotpar))
+    else:
+        ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$',color=plotpar['text_color'])
 
 
     if plotpar['theme'] == 'dark':
@@ -2512,12 +2520,34 @@ def plot_file(
 
 
 
-    if 'ax_locator_x' in figpar.keys():                                     
-        ax2.xaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_x',figpar,plotpar)))
-        ax2.yaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_y',figpar,plotpar)))
-    else:
-        ax2.xaxis.set_major_locator(mticker.FixedLocator(plotpar['ax_locator_x']))
-        ax2.yaxis.set_major_locator(mticker.FixedLocator(plotpar['ax_locator_y']))
+    # if 'ax_locator_x' in figpar.keys():   
+
+    # # Define a formatter function
+    # def format_func(value, tick_number):
+    #     return 'test'
+    #     # if value == 0:
+    #     #     return "label0"
+    #     # elif value == 0.5:
+    #     #     return "label1"
+    #     # elif value == 1:
+    #     #     return "label2"
+    #     # else:
+    #     #     return ""
+
+    # # Apply the FuncFormatter
+    # ax2.xaxis.set_major_formatter(mticker.FuncFormatter(format_func))
+    # ax2.yaxis.set_major_formatter(mticker.FuncFormatter(format_func))
+
+    ax2.xaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_x',figpar,plotpar)))
+    ax2.yaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_y',figpar,plotpar)))
+
+    if get_value_from_dicts('ax_formatter_x',figpar,plotpar) != None:
+        ax2.xaxis.set_major_formatter(mticker.FixedFormatter(get_value_from_dicts('ax_formatter_x',figpar,plotpar)))
+        ax2.yaxis.set_major_formatter(mticker.FixedFormatter(get_value_from_dicts('ax_formatter_y',figpar,plotpar)))
+
+    # else:
+    #     ax2.xaxis.set_major_locator(mticker.FixedLocator(plotpar['ax_locator_x']))
+    #     ax2.yaxis.set_major_locator(mticker.FixedLocator(plotpar['ax_locator_y']))
 
     if mode =='first' or mode =='close':
         ax2.spines["right"].set_visible(False)
@@ -2686,6 +2716,10 @@ def plot_vector(file,
 
     ax2.xaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_x',figpar,plotpar)))
     ax2.yaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_y',figpar,plotpar)))
+
+    if get_value_from_dicts('ax_formatter_x',figpar,plotpar) != None:
+        ax2.xaxis.set_major_formatter(mticker.FixedFormatter(get_value_from_dicts('ax_formatter_x',figpar,plotpar)))
+        ax2.yaxis.set_major_formatter(mticker.FixedFormatter(get_value_from_dicts('ax_formatter_y',figpar,plotpar)))
 
 
     if mode =='first' or mode =='close':
@@ -4561,6 +4595,10 @@ def plot_current_lines(file,
                                     
     ax2.xaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_x',figpar,plotpar)))
     ax2.yaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_y',figpar,plotpar)))
+
+    if get_value_from_dicts('ax_formatter_x',figpar,plotpar) != None:
+        ax2.xaxis.set_major_formatter(mticker.FixedFormatter(get_value_from_dicts('ax_formatter_x',figpar,plotpar)))
+        ax2.yaxis.set_major_formatter(mticker.FixedFormatter(get_value_from_dicts('ax_formatter_y',figpar,plotpar)))
     
 
     if mode =='first' or mode =='close':
