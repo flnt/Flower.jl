@@ -177,7 +177,7 @@ for (i,n) in enumerate(npts)
         scalar_bc = sim.scalar_bc,
         scalar_scheme = sim.scalar_scheme,
         solver = sim.solver,
-        mass_flux = sim.mass_flux,
+        mass_transfer_rate = sim.mass_transfer_rate,
         average_liquid_solid = sim.average_liquid_solid,
         index_phase_change = sim.index_phase_change,
         index_electrolyte = sim.index_electrolyte,

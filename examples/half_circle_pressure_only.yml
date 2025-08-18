@@ -148,9 +148,9 @@ plot:
         linewidth: 0.5
         linestyle: 'dotted'
 
-      - var: mass_flux
-        file: mass_flux
-        cbarlabel: mass_flux
+      - var: mass_transfer_rate
+        file: mass_transfer_rate
+        cbarlabel: mass_transfer_rate
         isocontour: False
         levels: 10
         plot_bc: True
@@ -253,12 +253,12 @@ plot:
 
         #Zoom
 
-      - var: mass_flux
-        file: mass_flux_zoom
+      - var: mass_transfer_rate
+        file: mass_transfer_rate_zoom
         figsize: None
         aspect_box: 'box'
         aspect_ratio: 'equal'
-        cbarlabel: Mass flux
+        cbarlabel: Mass transfer rate
         fontsize: 4
         isocontour: False
         levels: 10
@@ -667,10 +667,10 @@ pdi:
     levelset_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
     velocity_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     velocity_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
-    mass_flux: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
-    mass_flux_bulk: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
-    mass_flux_border: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
-    mass_flux_intfc: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    mass_transfer_rate: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    mass_transfer_rate_bulk: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    mass_transfer_rate_border: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    mass_transfer_rate_intfc: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     
    
    
@@ -732,14 +732,14 @@ pdi:
       #write mass flux used in phase change
       - file: flower_${nstep:08}.h5 #Name of the file test.h5
         collision_policy: write_into
-        on_event: write_mass_flux
+        on_event: write_mass_transfer_rate
         # datasets: #Dataset we are writing in: the whole solution
         #   data:
         #     type: array
         #     subtype: double
         #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
         # when: #"$nstep%50 = 0"
-        write: [mass_flux,mass_flux_bulk,mass_flux_border,mass_flux_intfc]
+        write: [mass_transfer_rate,mass_transfer_rate_bulk,mass_transfer_rate_border,mass_transfer_rate_intfc]
 
       - file: flower_${nstep:08}.h5 #Name of the file test.h5
         collision_policy: write_into

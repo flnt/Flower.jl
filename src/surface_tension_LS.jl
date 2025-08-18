@@ -3,7 +3,10 @@
     compute surface tension (CSF, Brackbill) with LS
 """
 function compute_surface_tension_LS!(num,grid, grid_u, grid_v, opC_p, opC_u, opC_v,
-    volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0)
+    volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0,
+    levelset_1D, levelset_heavyside_2D, normal_and_dirac_u, normal_and_dirac_v,
+    normal_u, normal_v, curvature_u, curvature_v
+    )
 
 
     #HACK reset centroids 
@@ -147,6 +150,8 @@ function compute_surface_tension_LS!(num,grid, grid_u, grid_v, opC_p, opC_u, opC
     # volumic_surface_tension_u .= - num.sigma .* curvature_u .* normal_u 
     # volumic_surface_tension_v .= - num.sigma .* curvature_v .* normal_v 
 
+    
+
     iLSpdi = 1
 
     # norm
@@ -168,6 +173,7 @@ function compute_surface_tension_LS!(num,grid, grid_u, grid_v, opC_p, opC_u, opC
     "normal_angle"::Cstring, grid.LS[iLSpdi].α::Ptr{Cdouble}, PDI_OUT::Cint,
     "normal_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
     "normal_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+    "mean_curvature"::Cstring, num.mean_curvature::Ref{Cdouble}, PDI_OUT::Cint,  
     C_NULL::Ptr{Cvoid})::Cint
 
     # print("\n volumic_surface_tension_u")

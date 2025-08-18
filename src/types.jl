@@ -39,6 +39,7 @@ Stores parameters for the simulation
     epsilon_mode::D = 0
     epsilon_vol::T = 1e-10
     epsilon_dist::T = 1e-10 #redefined afterwards in run.jl
+    epsilon_dist_mass_transfer_rate::T=1e-10
     epsilon_divergence::T = 1e-10
     epsilon_conservation::T = 1e-10
     ϵwall::T = ϵ # cell-clipping threshold at mixed cells in walls
@@ -116,8 +117,8 @@ Stores parameters for the simulation
     scalar_scheme::D = 0
     solver::D = 0
     current_radius::T=0.0
-    sum_mass_flux::T=0.0
-    mass_flux::D=0
+    sum_mass_transfer_rate::T=0.0
+    mass_transfer_rate::D=0
     average_liquid_solid::D=0
     index_phase_change::D=1
     index_electrolyte::D=2
@@ -151,6 +152,11 @@ Stores parameters for the simulation
     nucleation_time::T=0.0
     phase_change_currently_activated::D=0
     stop_simulation::D=0
+    mean_curvature::T=0.0
+    solve_potential::D=0
+    solve_species::D=0
+    kill_dead_cells::D=0
+    epsilon_volume_fraction_phase_change::T=1e-6
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -412,7 +418,7 @@ struct Forward{T <: Real} <: MutatingFields
     Eu::Array{T,4}
     Ev::Array{T,4}
     radius::Array{T,1}
-    # mass_flux::Array{T,3}
+    # mass_transfer_rate::Array{T,3}
     # saved_scal::Array{T,4}
 end
 

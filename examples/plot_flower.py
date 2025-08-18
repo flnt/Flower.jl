@@ -1692,8 +1692,8 @@ def plot_all_films_func():
         else:
             func = globals()['plot_file']
 
-        if 'files_macro' in figpar.keys():
-            exec(figpar['files_macro'])
+        if get_value_from_dicts('files_macro',figpar,plotpar) != None:
+            exec(get_value_from_dicts('files_macro',figpar,plotpar))
             h5_files_tmp = h5_files_2      
         else:
             h5_files_tmp = h5_files
@@ -1825,6 +1825,45 @@ def call_inkscape(figpar,gen_name):
 
     # print('inkscape '+eval(get_value_from_dicts('macro_file_name',figpar,plotpar)[0])+ ' --export-filename='+eval(macro))
     # os.sys('inkscape '+eval(get_value_from_dicts('macro_file_name',figpar,plotpar)[0])+ ' --export-filename='+eval(macro))
+
+def get_data(data,nx,ny,field_index):
+    if data.ndim ==1:
+        # print('data_1D.ndim == 1')
+        # try:
+        #     print(file['nstep'][()])
+        # except:
+        #     print('keys',file.keys())
+        # print(len(data))
+
+        data = veci(data,nx,ny,field_index)
+        field=data
+    elif data.shape[1] == 1:
+        # print('data.shape[1] == 1')
+        data = veci(data[:,0],nx,ny,field_index)
+        field=data
+    elif data.shape[0] == 1:
+        # print('data.shape[0] == 1')
+        # print(key,"max ",np.max(data),'min',np.min(data))
+
+        # field_index = 2
+        # np.set_printoptions(threshold=sys.maxsize)
+        # # print(data)
+        # print(data[0,:])
+
+        data = veci(data[0,:],nx,ny,field_index)
+
+        field=data
+        # np.set_printoptions(threshold=sys.maxsize)
+        # print(data)
+        
+    else:
+        # print('plot_file else')
+
+        # print('intfc_seg_num', file['intfc_seg_num'][()])
+        # time = file["time"][()]
+
+        field = data.transpose()
+    return field
 
 def plot_file(
     file,
@@ -2246,6 +2285,52 @@ def plot_file(
             CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors="r",linewidths=get_value_from_dicts('linewidth',figpar,plotpar),linestyles=get_value_from_dicts('linestyle',figpar,plotpar),zorder=1)
         else:
             CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=get_value_from_dicts('linewidth',figpar,plotpar),linestyles=get_value_from_dicts('linestyle',figpar,plotpar),zorder=1)
+
+    if 'plot_vector_macro' in figpar.keys():
+        exec(figpar['plot_vector_macro'])
+        vec_x = vec_x_2
+        vec_y = vec_y_2
+
+        us = vec_x.transpose()
+        vs = vec_y.transpose()
+
+        # norm = us**2 + vs**2
+        # us = us/norm
+        # vs = vs/norm
+        # print("nx",nx,"ny",ny)
+        # for j in range(ny):
+        #     for i in range(nx):
+        #         norm = np.sqrt(us[j,i]**2 + vs[j,i]**2)
+        #         if norm !=0:
+        #             us[j,i] = us[j,i]/norm
+        #             vs[j,i] = vs[j,i]/norm
+        #             # print('norm i,j',i,j,us[j,i],vs[j,i],np.sqrt(us[j,i]**2 + vs[j,i]**2))
+
+
+        scale_units=plotpar["quiver_scale_unit"]
+        scale_units = None if scale_units == 'None' else scale_units
+        
+        # if 'skip_every' in figpar.keys():
+        #     skip_every = int(figpar['skip_every'])
+        # else:
+        #     skip_every = int(plotpar['skip_every'])
+        
+        skip_every = int(get_value_from_dicts('skip_every',figpar,plotpar))
+
+        quiver_scale = float(get_value_from_dicts('quiver_scale',figpar,plotpar))
+
+        # print('quiver scale',quiver_scale)
+
+        skip = (slice(None, None, skip_every), slice(None, None, skip_every))
+        skip1D = slice(None, None, skip_every)
+
+        q = ax2.quiver(xp[skip1D],yp[skip1D],us[skip],vs[skip],
+        scale=quiver_scale,
+        scale_units=scale_units,
+        angles=scale_units,
+        #color = "re
+        )
+
 
     if 'plot_normal' in figpar.keys():
         if 'plot_normal_macro' in figpar.keys(): 
@@ -2703,6 +2788,9 @@ def plot_vector(file,
         LSdat = LSdat.transpose()
         CSlvl = ax2.contour(xp, yp, LSdat, [0.0],colors="r",linewidths=get_value_from_dicts('linewidth',figpar,plotpar),linestyles=get_value_from_dicts('linestyle',figpar,plotpar))
 
+    # if 'contour_var' in figpar.keys():
+    #     key_contour = figpar['contour_var']
+    #     plot_contour()
   
     # str_nstep = str1="{:05}".format(nstep)
     str_nstep = str(nstep)
@@ -5200,6 +5288,7 @@ def plot_python_pdf_full2(
 
                 else:
                     if 'print_mode' in figpar.keys():
+                        # print(colored('print_mode'+figpar['print_mode'] ,'red'))
                         if figpar['print_mode'] == "val":
                             str1='{:.2e}'.format(field[jgrid,igrid])
                         elif figpar['print_mode'] == "valres":
@@ -5227,6 +5316,9 @@ def plot_python_pdf_full2(
                     fontsize = plotpar['fontsize']
 
                 ax2.annotate(str1,(x_arr[igrid],y_arr[jgrid]),fontsize=fontsize,c=lcolor,ha="center",va=va)
+
+        if 'macro_plot' in figpar.keys():
+            exec(figpar['macro_plot'])
 
         if 'plot_capacities' in figpar.keys():
             for igrid0 in range(i0,i1+1):        
@@ -5301,8 +5393,11 @@ def plot_python_pdf_full2(
         cbar = plt.colorbar(CS,cax=cbar.ax)
         cbar.ax.set_ylabel(r""+figpar['cbarlabel'],color=plotpar['text_color'])
         # if 'ticks_format' in figpar:
-        if get_value_from_dicts('ticks_format',figpar,plotpar)!=None:
-            cbar.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(get_value_from_dicts('ticks_format',figpar,plotpar)))
+        # if get_value_from_dicts('ticks_format',figpar,plotpar)!=None:
+        #     cbar.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(get_value_from_dicts('ticks_format',figpar,plotpar)))
+
+    if get_value_from_dicts('ticks_format',figpar,plotpar)!=None:
+        cbar.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter(get_value_from_dicts('ticks_format',figpar,plotpar)))
 
     # Add the contour line levels to the colorbar
     if str(get_value_from_dicts('isocontour',figpar,plotpar)) == 'True':
@@ -5348,6 +5443,58 @@ def plot_python_pdf_full2(
             x_1D[ii0:ii1+1], y_1D[jj0:jj1+1], LSdat[jj0:jj1+1, ii0:ii1+1], [0.0], colors="r",
             linewidths=linewidths,linestyles=linestyles,
         )
+
+    if 'plot_vector_macro' in figpar.keys():
+        exec(figpar['plot_vector_macro'])
+        vec_x = vec_x_2
+        vec_y = vec_y_2
+
+        us = vec_x.transpose()
+        vs = vec_y.transpose()
+
+        # norm = us**2 + vs**2
+        # us = us/norm
+        # vs = vs/norm
+        # print("nx",nx,"ny",ny)
+        # for j in range(ny):
+        #     for i in range(nx):
+        #         norm = np.sqrt(us[j,i]**2 + vs[j,i]**2)
+        #         if norm !=0:
+        #             us[j,i] = us[j,i]/norm
+        #             vs[j,i] = vs[j,i]/norm
+        #             # print('norm i,j',i,j,us[j,i],vs[j,i],np.sqrt(us[j,i]**2 + vs[j,i]**2))
+
+
+        scale_units=plotpar["quiver_scale_unit"]
+        scale_units = None if scale_units == 'None' else scale_units
+        
+        # if 'skip_every' in figpar.keys():
+        #     skip_every = int(figpar['skip_every'])
+        # else:
+        #     skip_every = int(plotpar['skip_every'])
+        
+        skip_every = int(get_value_from_dicts('skip_every',figpar,plotpar))
+
+        quiver_scale = float(get_value_from_dicts('quiver_scale',figpar,plotpar))
+
+        # print('quiver scale',quiver_scale)
+
+        skip = (slice(None, None, skip_every), slice(None, None, skip_every))
+        skip1D = slice(None, None, skip_every)
+
+        # x_1D[ii0:ii1+1], y_1D[jj0:jj1+1], LSdat[jj0:jj1+1, ii0:ii1+1]
+        q = ax2.quiver(x_1D[ii0:ii1+1][skip1D],y_1D[jj0:jj1+1][skip1D],us[jj0:jj1+1, ii0:ii1+1][skip],vs[jj0:jj1+1, ii0:ii1+1][skip],
+        scale=quiver_scale,
+        scale_units=scale_units,
+        angles=scale_units,
+        #color = "re
+        )
+        # q = ax2.quiver(xp[skip1D],yp[skip1D],us[skip],vs[skip],
+        # scale=quiver_scale,
+        # scale_units=scale_units,
+        # angles=scale_units,
+        # #color = "re
+        # )
 
 
     if 'plot_wall' in figpar.keys():

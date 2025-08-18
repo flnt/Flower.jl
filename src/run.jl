@@ -107,6 +107,7 @@ function run_forward!(
     if num.epsilon_mode == 1 || num.epsilon_mode ==2
         num.epsilon_dist = eps(0.01) * num.Δ
         num.epsilon_vol = (eps(0.01)*num.Δ)^2
+        num.epsilon_dist_mass_transfer_rate =  num.Δ / 10 #TODO improve ex crit vol cf num.epsilon_volume_fraction_phase_change
         #TODO kill dead cells
         #TODO 1e-...
     end
@@ -158,23 +159,36 @@ function run_forward!(
         printstyled(color=:green, @sprintf "\n num.CFL : %.2e dt : %.2e\n" num.CFL num.τ)
     end
 
-    if adapt_timestep_mode !=0
-        num.τ = adapt_timestep!(num, phL, phS, grid_u, grid_v,adapt_timestep_mode)
-    end
+    #compute initial curvature (TODO other interfaces than circle)
+    num.mean_curvature = 1.0/num.R 
+    num.current_radius = num.R
+
+    # if num.surface_tension == 0
+    #     compute_surface_tension_VOF!(num,grid_p, grid_u, grid_v, opC_p, opC_u, opC_v, 
+    #     volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0)
+    # elseif num.surface_tension == 1
+    #     compute_surface_tension_LS!(num,grid_p, grid_u, grid_v, opC_p, opC_u, opC_v, 
+    #     volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0,
+    #     levelset_1D, levelset_heavyside_2D, normal_and_dirac_u, normal_and_dirac_v,
+    #     normal_u, normal_v, curvature_u, curvature_v)
+    # end
+
+    
+    num.τ = adapt_timestep!(num, phL, phS, grid_u, grid_v,adapt_timestep_mode)
 
     pres_free_surfaceS = 0.0
     # pres_free_surfaceL = 0.0
     pres_free_surfaceL = num.pres0
 
     if occursin("levelset",electrolysis_phase_change_case)
-        jump_mass_fluxS = false 
-        jump_mass_fluxL = true
+        jump_mass_transfer_rateS = false 
+        jump_mass_transfer_rateL = true
     else
-        jump_mass_fluxS = false 
-        jump_mass_fluxL = false
+        jump_mass_transfer_rateS = false 
+        jump_mass_transfer_rateL = false
     end
 
-    mass_fluxS = 0.0
+    mass_transfer_rateS = 0.0
     
 
     iRe = 1.0 / num.Re
@@ -271,6 +285,10 @@ function run_forward!(
     tmp_vec_v = zeros(grid_v) 
     tmp_vec_u0 = zeros(grid_u) 
     tmp_vec_v0 = zeros(grid_v)
+   
+    tmp_vec_u1 = zeros(grid_u) 
+    tmp_vec_v1 = zeros(grid_v)
+
     tmp_vec_p = zeros(grid_p) 
     tmp_vec_p0 = zeros(grid_p) 
     tmp_vec_p1 = zeros(grid_p) 
@@ -284,6 +302,9 @@ function run_forward!(
 
     tmp_vec_1D_p = fnzeros(grid_p,num)
     tmp_vec_1D_p0 = fnzeros(grid_p,num)
+
+
+    # nb_gaz_acceptors = zeros(grid_p)
 
 
     if electrolysis
@@ -532,7 +553,7 @@ function run_forward!(
 
         end
 
-        interpolate_grid_liquid!(grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
+        interpolate_staggered_u_v_to_scalar_grid_one_fluid_or_one_phase!(num,grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
 
         PDI_status = @ccall "libpdi".PDI_multi_expose("write_data"::Cstring,
             "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
@@ -583,8 +604,16 @@ function run_forward!(
             # @views kill_dead_cells!(phL.trans_scal[:,:,iscal], grid_p, grid_p.LS[end].geoL) 
             # @views kill_dead_cells_val!(phS.trans_scal[:,:,iscal], grid_p, grid_p.LS[end].geoS) #TODO
             # @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid_p, grid_p.LS[end].geoL,num.concentration0[iscal]) 
-            @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid_p, grid_p.LS[end].geoL,0.0) 
+            # @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid_p, grid_p.LS[end].geoL,0.0) 
+
+            if num.kill_dead_cells == 0
+                @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid_p, grid_p.LS[end].geoL,0.0)
+            else
+                @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid_p, grid_p.LS[end].geoL,num.concentration0[iscal])
+            end
+
             @views veci(phL.trans_scalD[:,iscal],grid_p,1) .= vec(phL.trans_scal[:,:,iscal])
+
 
         end
     end #if electrolysis    
@@ -646,14 +675,23 @@ function run_forward!(
             #TODO pre-allocate at start to save up allocations
             #TODO optimize allocations
 
-            #Preallocate for mass flux computations
-            if electrolysis_phase_change_case != "None"
-                mass_flux_vec1 = fzeros(grid_p)
-                mass_flux_vecb = fzeros(grid_p)
-                mass_flux_veci = fzeros(grid_p)
-                mass_flux = zeros(grid_p)
-            end
+            # #Preallocate for mass flux computations
+            # if electrolysis_phase_change_case != "None"
+            #     mass_transfer_rate_vec1 = fzeros(grid_p)
+            #     mass_transfer_rate_vecb = fzeros(grid_p)
+            #     mass_transfer_rate_veci = fzeros(grid_p)
+            #     mass_transfer_rate = zeros(grid_p)
+            # else
+            #     mass_transfer_rate = 0.0
+            # end
+            mass_transfer_rate_vec1 = fzeros(grid_p)
+            mass_transfer_rate_vecb = fzeros(grid_p)
+            mass_transfer_rate_veci = fzeros(grid_p)
+            mass_transfer_rate = zeros(grid_p)
 
+            mass_transfer_rate_redistributed = zeros(grid_p)
+            nb_gaz_acceptors = zeros(Int64,grid_p.ny,grid_p.nx)
+            # nb_gaz_acceptors = zeros(grid_p)
 
             #Allocations for scalar grid_p
             ni = grid_p.nx * grid_p.ny
@@ -745,6 +783,40 @@ function run_forward!(
                 rho_one_fluid_v = zeros(grid_v)
                 # mu_one_fluid_v  = zeros(grid_v)
 
+                volumic_surface_tension_u = zeros(grid_u)
+                volumic_surface_tension_v = zeros(grid_v)
+
+                # Pre-allocate arrays
+                levelset_1D = fnzeros(grid_p, num)
+                levelset_heavyside_2D = zeros(grid_p)
+
+                convection_u = fzeros(grid_u)
+                convection_v = fzeros(grid_v)
+
+                viscosity_coeff_for_du_dx = zeros(grid_u.ny, grid_u.nx+1)
+                viscosity_coeff_for_du_dy = zeros(grid_u.ny+1, grid_u.nx)
+                viscosity_coeff_for_dv_dx = zeros(grid_v.ny, grid_v.nx+1)
+                viscosity_coeff_for_dv_dy = zeros(grid_v.ny+1, grid_v.nx)
+
+                velocity_and_BC_convection_u_x = zeros(grid_u) #Du_x
+                velocity_and_BC_convection_u_y = zeros(grid_u)
+                velocity_and_BC_convection_v_x = zeros(grid_v)
+                velocity_and_BC_convection_v_y = zeros(grid_v)
+
+                #tmp vec u and v
+
+                # tmp_vec_u
+                # tmp_vec_u0 =
+                # tmp_vec_u1 =     
+
+                # normal_and_dirac_u = zeros(grid_u)
+                # normal_and_dirac_v = zeros(grid_v)
+                # normal_u = zeros(grid_u)
+                # normal_v = zeros(grid_v)
+                # curvature_u = zeros(grid_u)
+                # curvature_v = zeros(grid_v)
+
+        
             end
 
             if (num.pressure_velocity_coupling == 0 && num.one_fluid_model == 0)
@@ -1118,20 +1190,19 @@ function run_forward!(
 
     num.current_i = 0
 
-    # interpolate_grid_liquid!(grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
 
 
-    # function interpolate_grid_one_fluid!(grid,fwdL)
+    interpolate_staggered_u_v_to_scalar_grid_one_fluid_or_one_phase!(num,grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
     
-    tmp_vec_p  .= 0.0
-    tmp_vec_p0 .= 0.0
-    #TODO interp variable spacing
-    for j = 1:grid_p.ny
-    for i = 1:grid_p.nx
-        tmp_vec_p[j,i] =(phL.u[j,i]+phL.u[j,i+1])/2
-        tmp_vec_p0[j,i]=(phL.v[j,i]+phL.v[j+1,i])/2
-    end
-    end
+    # tmp_vec_p  .= 0.0
+    # tmp_vec_p0 .= 0.0
+    # #TODO interp variable spacing
+    # for j = 1:grid_p.ny
+    # for i = 1:grid_p.nx
+    #     tmp_vec_p[j,i] =(phL.u[j,i]+phL.u[j,i+1])/2
+    #     tmp_vec_p0[j,i]=(phL.v[j,i]+phL.v[j+1,i])/2
+    # end
+    # end
     
     # return us,vs
     # end
@@ -1224,17 +1295,16 @@ function run_forward!(
     #TODO variable time steps 
 
     #region time loop
-    while (num.current_i < num.max_iterations + 1) && (num.time < num.end_time) && num.stop_simulation == 0 
+    while (num.current_i < num.max_iterations + 1) && (num.time < num.end_time) && (num.stop_simulation == 0) 
 
         #region start iter
 
         #region Adapt timestep
 
-        if adapt_timestep_mode !=0
-            num.τ = adapt_timestep!(num, phL, phS, grid_u, grid_v,adapt_timestep_mode)
-            # print("after adapt_timestep!")
-            printstyled(color=:green, @sprintf "\n num.CFL : %.2e dt : %.2e num.τ : %.2e\n" num.CFL num.τ num.τ)
-        end
+        
+        num.τ = adapt_timestep!(num, phL, phS, grid_u, grid_v,adapt_timestep_mode)
+        printstyled(color=:green, @sprintf "\n num.CFL : %.2e dt : %.2e num.τ : %.2e\n" num.CFL num.τ num.τ)
+        print("\n num.stop_simulation start loop ",num.stop_simulation)
         #endregion adapt time
         
         if grid_p.LS[1].geoL.dcap[1,1,:] == 0.0
@@ -1332,8 +1402,8 @@ function run_forward!(
                     # "i_current_mag"::Cstring, phL.i_current_mag::Ptr{Cdouble}, PDI_OUT::Cint,
                     # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
                     # C_NULL::Ptr{Cvoid})::Cint
-    
-                    interpolate_grid_liquid!(grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
+                    
+                    interpolate_staggered_u_v_to_scalar_grid_one_fluid_or_one_phase!(num,grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
             
                     # print("\n before write \n ")
             
@@ -1423,7 +1493,7 @@ function run_forward!(
 
         
         #region Electrolysis 
-        if electrolysis
+        if electrolysis && (num.solve_potential == 1 ) && (num.solve_species == 1)
             if electrolysis_liquid_phase
 
                 #region Electrolysis: Poisson  
@@ -1449,7 +1519,7 @@ function run_forward!(
                 # New start scalar loop
 
                 #region velocity
-
+                # TODO
                 interpolate_interface_velocity!(phL,grid_u,grid_v)
 
                 #endregion velocity
@@ -1563,8 +1633,14 @@ function run_forward!(
                     # printstyled(color=:magenta, @sprintf "\n num.nb_transported_scalars %.5i " num.nb_transported_scalars)
 
                     for iscal=1:num.nb_transported_scalars
-                        @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid_p, grid_p.LS[1].geoL,0.0) 
+                        # @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid_p, grid_p.LS[1].geoL,0.0) 
                         # @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid_p, grid_p.LS[1].geoL,num.concentration0[iscal]) 
+
+                        if num.kill_dead_cells == 0
+                            @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid_p, grid_p.LS[end].geoL,0.0)
+                        else
+                            @views kill_dead_cells_val!(phL.trans_scal[:,:,iscal], grid_p, grid_p.LS[end].geoL,num.concentration0[iscal])
+                        end
 
                         @views veci(phL.trans_scalD[:,iscal],grid_p,1) .= vec(phL.trans_scal[:,:,iscal])
 
@@ -1695,10 +1771,15 @@ function run_forward!(
 
                     #interface term in rhs comes from op.opC_TL
                     #TODO variable CL
+                    
+                    PDI_status = @ccall "libpdi".PDI_multi_expose("write_iso"::Cstring,
+                    "nstep"::Cstring, num.current_i::Ref{Clonglong}, PDI_OUT::Cint,
+                    "levelset_iso"::Cstring, grid_p.LS[iLSpdi].iso::Ptr{Cdouble}, PDI_OUT::Cint,
+                    C_NULL::Ptr{Cvoid})::Cint
 
                     scalar_transport!(num, grid_p, grid_u, grid_v,
-                    op.opC_TL,
-                    op.opL,
+                    op.opC_TL, #op
+                    op.opL, #op_conv
                     phL, 
                     BC_trans_scal,
                     BC_int,                     
@@ -1709,11 +1790,14 @@ function run_forward!(
                     tmp_vec_p, #used to store a0 for rhs of interfacial value
                     tmp_vec_u,
                     tmp_vec_v,
-                    mass_flux,
+                    mass_transfer_rate,
                     periodic_x, 
                     periodic_y, 
                     electrolysis_convection,                 
                     ls_advection)
+
+                    print("\n num.stop_simulation after scalar ",num.stop_simulation)
+
 
                     # PDI_status = @ccall "libpdi".PDI_multi_expose("check_concentrations"::Cstring,
                     # "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
@@ -1875,7 +1959,7 @@ function run_forward!(
                 # "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
                 # C_NULL::Ptr{Cvoid})::Cint
             
-                interpolate_grid_liquid!(grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
+                interpolate_staggered_u_v_to_scalar_grid_one_fluid_or_one_phase!(num,grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
                     
                 iLSpdi = 1 # TODO all grid_p.LS
 
@@ -1932,22 +2016,25 @@ function run_forward!(
         
         #region Phase change
 
-            printstyled(color=:magenta, @sprintf "\n radius ")
-            print("\n radius",num.current_radius)
+       
 
-        print("\n electrolysis_phase_change_case ",electrolysis_phase_change_case)
+        # print("\n electrolysis_phase_change_case ",electrolysis_phase_change_case)
         #TODO print case, quantity, ...
 
         if electrolysis && electrolysis_phase_change_case != "None"
-            printstyled(color=:magenta, @sprintf "\n integrate_mass_flux_over_interface\n")
+            printstyled(color=:magenta, @sprintf "\n integrate_mass_transfer_rate_over_interface\n")
 
-            # @views integrate_mass_flux_over_interface(num,grid_p,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
-            # @views integrate_mass_flux_over_interface_2(num,grid_p,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,mass_flux)
+            # @views integrate_mass_transfer_rate_over_interface(num,grid_p,op.opC_pL,phL.trans_scalD[:,1],mass_transfer_rate_vec1,mass_transfer_rate_vecb,mass_transfer_rate_veci,mass_transfer_rate)
+            # @views integrate_mass_transfer_rate_over_interface_2(num,grid_p,op.opC_pL,phL.trans_scalD[:,1],mass_transfer_rate_vec1,mass_transfer_rate_vecb,mass_transfer_rate_veci,mass_transfer_rate)
 
-            @views integrate_mass_flux_over_interface(num,grid_p,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,
-            mass_flux_vecb,mass_flux_veci, tmp_vec_p, tmp_vec_p0, tmp_vec_p1, mass_flux,num.index_phase_change) #1
+            @views integrate_mass_transfer_rate_over_interface(num,grid_p,op.opC_pL,phL.trans_scalD[:,1],mass_transfer_rate_vec1,
+            mass_transfer_rate_vecb,mass_transfer_rate_veci, tmp_vec_p, tmp_vec_p0, tmp_vec_p1, mass_transfer_rate,num.index_phase_change) #1
 
-            print("\n sum mass flux all levelsets (walls and interfaces alike) ", sum(mass_flux),"\n ")
+            PDI_status = @ccall "libpdi".PDI_multi_expose("check_mass_transfer_rate_NS"::Cstring,
+            "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
+            C_NULL::Ptr{Cvoid})::Cint
+
+            # print("\n sum mass flux all levelsets (walls and interfaces alike) ", sum(mass_transfer_rate),"\n ")
         end
         
         #    grid_p.LS[i].α  which is the angle of the outward point normal with respect to the horizontal axis
@@ -1971,9 +2058,49 @@ function run_forward!(
 
                        
                         if num.advection_LS_mode !=10    
-                            flower_status = compute_mass_flux_and_velocity_electrolysis!(num, grid_p, grid_u, grid_v, iLS, phL.uD, phL.vD, 
+
+
+                            PDI_status = @ccall "libpdi".PDI_multi_expose("check_mass_transfer_rate_NS"::Cstring,
+                            "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "mass_transfer_rate_redistributed"::Cstring, mass_transfer_rate_redistributed::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "nb_gaz_acceptors"::Cstring, nb_gaz_acceptors::Ptr{Cdouble}, PDI_OUT::Cint,
+                            C_NULL::Ptr{Cvoid})::Cint
+                          
+                            # display(nb_gaz_acceptors)
+
+                            flower_status = compute_mass_transfer_rate!(num, grid_p, grid_u, grid_v, iLS, phL.uD, phL.vD, 
                             periodic_x, periodic_y, num.average_velocity, phL.trans_scalD[:,num.index_phase_change],phL.trans_scal[:,:,num.index_phase_change],
-                            num.diffusion_coeff[num.index_phase_change],num.concentration0[num.index_phase_change],electrolysis_phase_change_case,mass_flux)
+                            num.diffusion_coeff[num.index_phase_change],num.concentration0[num.index_phase_change],
+                            electrolysis_phase_change_case,mass_transfer_rate, mass_transfer_rate_redistributed,
+                            nb_gaz_acceptors,volume_fraction,tmp_vec_p0)
+
+                            PDI_status = @ccall "libpdi".PDI_multi_expose("check_mass_transfer_rate_NS"::Cstring,
+                            "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "mass_transfer_rate_redistributed"::Cstring, mass_transfer_rate_redistributed::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "nb_gaz_acceptors"::Cstring, nb_gaz_acceptors::Ptr{Cdouble}, PDI_OUT::Cint,
+                            C_NULL::Ptr{Cvoid})::Cint
+                            
+                            
+                            @ccall "libpdi".PDI_multi_expose("write_mass_transfer_rate_redistributed"::Cstring,
+                            "mass_transfer_rate"::Cstring, mass_transfer_rate_redistributed::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "mass_transfer_rate_before_redistribution"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,   
+                            "nb_gaz_acceptors"::Cstring, nb_gaz_acceptors::Ptr{Cdouble}, PDI_OUT::Cint,                               
+                            C_NULL::Ptr{Cvoid})::Cvoid
+
+                            mass_transfer_rate .= mass_transfer_rate_redistributed
+
+
+                            flower_status = compute_phase_change_velocity_electrolysis!(num, grid_p, grid_u, grid_v, iLS, phL.uD, phL.vD, 
+                            periodic_x, periodic_y, num.average_velocity, phL.trans_scalD[:,num.index_phase_change],phL.trans_scal[:,:,num.index_phase_change],
+                            num.diffusion_coeff[num.index_phase_change],num.concentration0[num.index_phase_change],
+                            electrolysis_phase_change_case,mass_transfer_rate, mass_transfer_rate_redistributed,
+                            nb_gaz_acceptors,volume_fraction,tmp_vec_p0)
+
+
+
+                            PDI_status = @ccall "libpdi".PDI_multi_expose("check_mass_transfer_rate_NS"::Cstring,
+                            "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
+                            C_NULL::Ptr{Cvoid})::Cint
 
                             if flower_status !=0
                                 printstyled(color=:red, @sprintf "\n Stopping simulation %.3i " flower_status)
@@ -1994,16 +2121,16 @@ function run_forward!(
 
                             # #TODO check velocity
                             # @inbounds @threads for II in grid_p.LS[iLS].MIXED
-                            #     grid_p.V[II] = sum(mass_flux) * num.diffusion_coeff[num.index_phase_change] *(1.0/num.rho2-1.0/num.rho1).*num.diffusion_coeff[num.index_phase_change].*num.MWH2
+                            #     grid_p.V[II] = sum(mass_transfer_rate) * num.diffusion_coeff[num.index_phase_change] *(1.0/num.rho2-1.0/num.rho1).*num.diffusion_coeff[num.index_phase_change].*num.MWH2
                             # end
 
 
-                        if num.mass_flux == 0
-                            varnH2 = num.sum_mass_flux * num.diffusion_coeff[num.index_phase_change] 
+                        if num.mass_transfer_rate == 0
+                            varnH2 = num.sum_mass_transfer_rate * num.diffusion_coeff[num.index_phase_change] 
 
                             new_nH2 = nH2 + varnH2 * num.τ
 
-                            print("\n varn ",varnH2 ," dt ", num.τ," dn ",varnH2 * num.τ, " sum ", num.sum_mass_flux)
+                            print("\n varn ",varnH2 ," dt ", num.τ," dn ",varnH2 * num.τ, " sum ", num.sum_mass_transfer_rate)
                             printstyled(color=:green, @sprintf "\n it %.5i Mole: %.2e dn %.2e new nH2 %.2e \n" num.current_i nH2 varnH2*num.τ new_nH2)
 
                             if varnH2 < 0.0 
@@ -2018,7 +2145,7 @@ function run_forward!(
                                 nH2 = new_nH2
                             end
 
-                        end #num.mass_flux == 0
+                        end #num.mass_transfer_rate == 0
 
 
                     end
@@ -2073,7 +2200,7 @@ function run_forward!(
                 previous_radius = num.current_radius
 
                 # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
-                varnH2 =  sum(mass_flux) * num.diffusion_coeff[num.index_phase_change] 
+                varnH2 =  sum(mass_transfer_rate) * num.diffusion_coeff[num.index_phase_change] 
 
                 #TODO mode_2d==0 flux corresponds to cylinder of length 1
                 #2D cylinder reference length
@@ -2130,7 +2257,7 @@ function run_forward!(
                 end
 
                
-                printstyled(color=:cyan, @sprintf "\n div(0,grad): %.5i %.2e %.2e %.2e %.2e\n" grid_p.nx num.τ num.L0/grid_p.nx (num.current_radius-previous_radius)/(num.L0/grid_p.nx) sum(mass_flux))
+                printstyled(color=:cyan, @sprintf "\n div(0,grad): %.5i %.2e %.2e %.2e %.2e\n" grid_p.nx num.τ num.L0/grid_p.nx (num.current_radius-previous_radius)/(num.L0/grid_p.nx) sum(mass_transfer_rate))
                 
                 printstyled(color=:green, @sprintf "\n num.n(H2): %.2e added %.2e old R %.2e new R %.2e \n" nH2 varnH2*num.τ previous_radius num.current_radius)
                 printstyled(color=:green, @sprintf "\n p0: %.2e p_liq %.2e p_lapl %.2e \n" num.pres0 p_liq p_g)
@@ -2344,7 +2471,7 @@ function run_forward!(
                         previous_radius = num.current_radius
 
                         # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
-                        varnH2 = sign_mass_flux * sum(mass_flux) * num.diffusion_coeff[num.index_phase_change] 
+                        varnH2 = sign_mass_transfer_rate * sum(mass_transfer_rate) * num.diffusion_coeff[num.index_phase_change] 
 
                         #TODO mode_2d==0 flux corresponds to cylinder of length 1
                         #2D cylinder reference length
@@ -2395,7 +2522,7 @@ function run_forward!(
         
                        
                         printstyled(color=:cyan, @sprintf "\n div(0,grad): %.5i %.2e %.2e %.2e \n" grid_p.nx num.τ num.L0/grid_p.nx (num.current_radius-previous_radius)/(num.L0/grid_p.nx)) 
-                        # sum(mass_flux))
+                        # sum(mass_transfer_rate))
                         
                         printstyled(color=:green, @sprintf "\n num.n(H2): %.2e added %.2e old R %.2e new R %.2e \n" nH2 varnH2*num.τ previous_radius num.current_radius)
                         printstyled(color=:green, @sprintf "\n p0: %.2e p_liq %.2e p_lapl %.2e \n" num.pres0 p_liq p_g)
@@ -2500,7 +2627,7 @@ function run_forward!(
                         # print("\n periodic ",periodic_x," y ",periodic_y)
 
 
-                        # update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+                        # update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
 
 
                         # printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
@@ -2540,7 +2667,7 @@ function run_forward!(
 
 
 
-                        # update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+                        # update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
 
                     elseif ((num.advection_LS_mode == 9) || (num.advection_LS_mode == 10))
                         print("\n num.advection_LS_mode == 9 or 10 iLS", iLS)
@@ -2557,7 +2684,7 @@ function run_forward!(
                         Aghost, Bghost = allocate_ghost_matrices_2(grid_p.nx,grid_p.ny,nghost)
 
 
-                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
 
 
                         printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
@@ -2605,7 +2732,7 @@ function run_forward!(
 
 
 
-                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
 
                     elseif num.advection_LS_mode == 11 || num.advection_LS_mode == 12 
 
@@ -2683,7 +2810,7 @@ function run_forward!(
 
                             nghost = 1
                             Aghost, Bghost = allocate_ghost_matrices_2(grid_p.nx,grid_p.ny,nghost)
-                            update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+                            update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
                             printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
                             LSghost = init_ghost_neumann_2(grid_p.LS[iLS].u,grid_p.nx,grid_p.ny,nghost)
                             Vghost = init_ghost_neumann_2(grid_p.V,grid_p.nx,grid_p.ny,nghost)
@@ -2698,7 +2825,34 @@ function run_forward!(
                                 end
                             end
 
-                            update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, Aghost, Bghost, rhs_LS, BC_u)
+                            update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
+
+                            test_radius = Ref{Cdouble}(0.0)
+
+                            test_radius_list = [0.0]
+
+                            PDI_status = @ccall "libpdi".PDI_multi_expose("compute_radius"::Cstring,
+                            "levelset_p"::Cstring, grid_p.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "mesh_p_x"::Cstring, grid_p.x::Ptr{Cdouble}, PDI_OUT::Cint,
+                            # "radius"::Cstring, test_radius::Ref{Cdouble}, PDI_INOUT::Cint,  
+                            "radius_vec"::Cstring, test_radius_list::Ptr{Cdouble}, PDI_INOUT::Cint,                             
+                            C_NULL::Ptr{Cvoid})::Cint
+
+                            # printstyled(color=:red, @sprintf "\n test radius: %.2e \n" test_radius[])
+                            # print("\n test test_radius_list ",test_radius_list)
+
+                            num.current_radius = test_radius_list[1]
+
+                            # print("\n test radius ",test_radius)
+                            # print("\n test PDI_INOUT ",PDI_INOUT)
+
+                            # PDI_status = @ccall "libpdi".PDI_multi_expose("compute_radius"::Cstring,
+                            # "levelset_p"::Cstring, grid_p.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                            # "mesh_p_x"::Cstring, grid_p.x::Ptr{Cdouble}, PDI_OUT::Cint,
+                            # "radius"::Cstring, num.current_radius::Ref{Cdouble}, PDI_INOUT::Cint,  
+                            # C_NULL::Ptr{Cvoid})::Cint
+
+
                         else
                             printstyled(color=:red, @sprintf "\n no levelset advection before nucleation \n" )
 
@@ -2714,7 +2868,7 @@ function run_forward!(
                 end
             end
 
-            printstyled(color=:red, @sprintf "\n after advection_LS_mode radius: %.2e \n" num.current_radius)
+            # printstyled(color=:red, @sprintf "\n after advection_LS_mode radius: %.2e \n" num.current_radius)
 
             #region reinitialize Levelset
 
@@ -2781,11 +2935,11 @@ function run_forward!(
 
         #endregion reinitialize Levelset
             
-        printstyled(color=:red, @sprintf "\n after reinit radius: %.2e \n" num.current_radius)
+        # printstyled(color=:red, @sprintf "\n after reinit radius: %.2e \n" num.current_radius)
 
         if verbose
             if (num.current_i-1)%show_every == 0
-                printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) | t = %.2e \n" (num.current_i-1) 100*(num.current_i-1)/num.max_iterations current_t)
+                printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) | t = %.2e \n" (num.current_i) 100*(num.current_i)/num.max_iterations current_t)
                 
                 #TODO CFL
                 # printstyled(color=:green, @sprintf "\n num.CFL : %.2e num.CFL : %.2e num.τ : %.2e\n" num.CFL max(abs.(grid_p.V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)*num.τ/num.Δ num.τ)
@@ -2992,6 +3146,15 @@ function run_forward!(
 
         #region Navier-Stokes
 
+        if num.time < num.nucleation_time
+            printstyled(color=:red, @sprintf "\n Navier-Stokes not solved")
+
+            navier_stokes = false
+        else
+            printstyled(color=:red, @sprintf "\n Navier-Stokes solved")
+            navier_stokes = true
+        end
+
         if navier_stokes
 
 
@@ -3096,7 +3259,7 @@ function run_forward!(
 
             if num.one_fluid_model == 1 
 
-                # interpolate_grid_liquid!(grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
+                # interpolate_staggered_u_v_to_scalar_grid_one_fluid_or_one_phase!(num,grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
 
                 tmp_vec_p  .= 0.0
                 tmp_vec_p0 .= 0.0
@@ -3185,38 +3348,134 @@ function run_forward!(
                 #region update LS
 
                 #endregion update LS
-                #pbm mass_fluxL
-                PDI_status = @ccall "libpdi".PDI_multi_expose("check_mass_flux_NS"::Cstring,
+
+
+
+
+
+
+                #pbm mass_transfer_rateL
+                PDI_status = @ccall "libpdi".PDI_multi_expose("check_mass_transfer_rate_NS"::Cstring,
                 # "conservation"::Cstring, conservation::Ref{Cdouble}, PDI_OUT::Cint,
-                "mass_flux"::Cstring, mass_flux::Ptr{Cdouble}, PDI_OUT::Cint,
+                "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
                 # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
                 C_NULL::Ptr{Cvoid})::Cint
 
 
+
+                #region update LS for convection (bool=true)+ one fluid
+
+                # At every iteration, update_all_ls_data is called twice, once inside run.jl 
+                # and another one (if there's advection of the levelset) inside set_heat!. 
+                # The difference between both is a flag as last argument, inside run.jl is implicitly defined 
+                # as true and inside set_heat! is false. If you're calling your version of set_heat! several times, 
+                # then you're calling the version with the flag set to false, but for the convective term it has to be set to true.
+                # The flag=true, the capacities are set for the convection, the flag=false they are set for the other operators
+
+                if advection
+                    # update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y, true) 
+                    update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y, true,true) 
+
+                    # op.opL is op_conv
+                    set_convection_preallocated!(num, grid_p, geoL[end], grid_u, grid_u.LS, grid_v, grid_v.LS, phL.u, phL.v, op.opL,
+                    phL, BC_uL, BC_vL,op.opC_pL, op.opC_uL, op.opC_vL,
+                    velocity_and_BC_convection_u_x ,
+                    velocity_and_BC_convection_u_y ,
+                    velocity_and_BC_convection_v_x ,
+                    velocity_and_BC_convection_v_y)
+                end
+                #endregion update LS for convection (bool=true)+ one fluid
+
+
+                #region update LS for other operators than convection (bool=false)+ one fluid
+                # update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
+                update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y, false,true)
+
+                #endregion
+
+
+
+                if num.one_fluid_model == 1 
+                    if num.surface_tension == 0
+                        compute_surface_tension_VOF!(num,grid_p, grid_u, grid_v, op.opC_pL, op.opC_uL, op.opC_vL, 
+                        volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0)
+                    elseif num.surface_tension == 1
+                        # compute_surface_tension_LS!(num,grid_p, grid_u, grid_v, opC_p, opC_u, opC_v, 
+                        # volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0)
+                        compute_surface_tension_LS!(num,grid_p, grid_u, grid_v, op.opC_pL, op.opC_uL, op.opC_vL, 
+                        volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0,
+                        levelset_1D, levelset_heavyside_2D, 
+                        tmp_vec_u0,tmp_vec_v0, #normal_and_dirac_u, normal_and_dirac_v,
+                        tmp_vec_u1,tmp_vec_v1,#normal_u, normal_v, 
+                        tmp_vec_u,tmp_vec_v,#curvature_u, curvature_v
+                        )
+                    end
+                end
+                
+                PDI_status = @ccall "libpdi".PDI_multi_expose("write_one_fluid_surface_tension_concise"::Cstring,
+                "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
+                # "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "grad_u"::Cstring, normal_and_dirac_u::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "grad_v"::Cstring, normal_and_dirac_v::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "curvature_p"::Cstring, curvature_p::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "curvature_u"::Cstring, curvature_u::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "curvature_v"::Cstring, curvature_v::Ptr{Cdouble}, PDI_OUT::Cint,
+                "volumic_surface_tension_u"::Cstring, volumic_surface_tension_u::Ptr{Cdouble}, PDI_OUT::Cint,
+                "volumic_surface_tension_v"::Cstring, volumic_surface_tension_v::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "normal_angle"::Cstring, grid_p.LS[iLSpdi].α::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "normal_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "normal_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+                C_NULL::Ptr{Cvoid})::Cint
+
+
+                II = CartesianIndex(3,37)
+                pII =lexicographic(II,grid_p.ny)
+                print("\n op.χ[1] NS",op.opC_TL.χ[1].diag[pII])
+
+                print("\n op.χ[1] NS",op.opC_pL.χ[1].diag[pII])
+                # print("\n size ",size(op.opC_TL))
+                # print("\n size ",size(op.opC_pL))
+
                 # Mum1_L is put in B matrix that multiplies v
                 # print("\n advection ", ns_advection, " adv ",advection)
-                Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = solve_one_fluid_NS!(
-                    time_scheme, BC_int,
-                    num, grid_p, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
-                    BC_uL, BC_vL, BC_pL,
-                    op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
-                    AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,rhs_uv,
-                    Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
-                    Cum1L, Cvm1L, Mum1_L, Mvm1_L,
-                    periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,
-                    volume_fraction,
-                    levelset_one_fluid,
-                    rho_one_fluid,
-                    mu_one_fluid,
-                    rho_one_fluid_u,
-                    # mu_one_fluid_u,
-                    rho_one_fluid_v,
-                    # mu_one_fluid_v,
-                    tmp_vec_p,
-                    tmp_vec_p0,
-                    rhs_phi,
-                    pres_free_surfaceL,jump_mass_fluxL,mass_flux
-                )  
+                Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L,
+                Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = solve_one_fluid_NS!(
+                time_scheme, BC_int,
+                num, grid_p, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
+                BC_uL, BC_vL, BC_pL,
+                op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
+                # op.opC_TL,
+                AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,rhs_uv,
+                Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
+                Cum1L, Cvm1L, Mum1_L, Mvm1_L,
+                periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,
+                volume_fraction,
+                levelset_one_fluid,
+                rho_one_fluid,
+                mu_one_fluid,
+                rho_one_fluid_u,
+                # mu_one_fluid_u,
+                rho_one_fluid_v,
+                # mu_one_fluid_v,
+                volumic_surface_tension_u,
+                volumic_surface_tension_v,
+                convection_u,convection_v,
+                viscosity_coeff_for_du_dx ,
+                viscosity_coeff_for_du_dy ,
+                viscosity_coeff_for_dv_dx ,
+                viscosity_coeff_for_dv_dy,
+                # velocity_and_BC_convection_u_x ,
+                # velocity_and_BC_convection_u_y ,
+                # velocity_and_BC_convection_v_x ,
+                # velocity_and_BC_convection_v_y ,
+                tmp_vec_p,
+                tmp_vec_p0,            
+                rhs_phi,
+                pres_free_surfaceL,jump_mass_transfer_rateL,mass_transfer_rate )  
+
+                print("\n num.stop_simulation after NS ",num.stop_simulation)
 
 
                 #region reactivate cut-cell for one-fluid model
@@ -3227,6 +3486,10 @@ function run_forward!(
 
 
                 NB_indices = update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y) 
+
+                
+                # TODO check after activation NS after nucleation
+
                 # geoL = [grid_p.LS[iLS].geoL for iLS in 1:num._nLS]
                 # geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
                 # geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
@@ -3259,7 +3522,7 @@ function run_forward!(
                             AuS, BuS, AvS, BvS, AϕS, AuvS, BuvS,
                             Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,
                             Cum1S, Cvm1S, Mum1_S, Mvm1_S,
-                            periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceS,jump_mass_fluxS,mass_fluxS
+                            periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceS,jump_mass_transfer_rateS,mass_transfer_rateS
                         )
                     end
                     if ns_liquid_phase
@@ -3277,7 +3540,7 @@ function run_forward!(
                             AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,
                             Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
                             Cum1L, Cvm1L, Mum1_L, Mvm1_L,
-                            periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_fluxL,mass_flux
+                            periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_transfer_rateL,mass_transfer_rate
                         )
                         # if num.current_i == 1
                         #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
@@ -3308,7 +3571,7 @@ function run_forward!(
                             AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,rhs_uv,
                             Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
                             Cum1L, Cvm1L, Mum1_L, Mvm1_L,
-                            periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_fluxL,mass_flux
+                            periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_transfer_rateL,mass_transfer_rate
                         )
                         # if num.current_i == 1
                         #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
@@ -3433,8 +3696,8 @@ function run_forward!(
                     # C_NULL::Ptr{Cvoid})::Cint
 
                     # interpolate_grid_liquid!(grid_p,grid_u,grid_v,phL.Eu, phL.Ev,Eus,Evs)
-            
-                    interpolate_grid_liquid!(grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
+                    
+                    interpolate_staggered_u_v_to_scalar_grid_one_fluid_or_one_phase!(num,grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
                         
                     iLSpdi = 1 # TODO all grid_p.LS
 

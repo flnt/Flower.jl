@@ -154,7 +154,7 @@ end
                 @inbounds Dy[end,:] .= bc.top.val
             end
 
-        elseif num.convection_mode == 1
+        elseif num.convection_mode == 1 || num.convection_mode == 2
 
           
 
@@ -244,7 +244,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
     a0::Array{Float64, 2},
     tmp_vec_u::Array{Float64, 2},
     tmp_vec_v::Array{Float64, 2},
-    mass_flux,
+    mass_transfer_rate,
     periodic_x::Bool, 
     periodic_y::Bool, 
     convection::Bool, 
@@ -279,10 +279,20 @@ function scalar_transport!(num::Numerical{Float64, Int64},
     all_CUTCT .=0.0
     a0 .= 0.0
 
+  
+    # #region test reactivate
+    
+    # II = CartesianIndex(3,37)
+    # pII =lexicographic(II,grid.ny)
+    # # print("\n A[pII,:]",A[pII,:])
+    # # print("\n rhs[pII]",rhs[pII])
+
+    # #endregion test reactivate
+
     # rhs_test = fnzeros(grid, num)
 
     #tmp vec scalar
-    tmp_vec_p_2 = zeros(grid)
+    tmp_vec_p_2 = zeros(grid) #TODO
     tmp_vec_p_3 = zeros(grid)
 
     
@@ -292,14 +302,14 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         if num.convection_mode == 0
 
             #old
-            tmp_vec_u = zeros(grid_u)
+            tmp_vec_u .= 0.0
             tmp_vec_u .= reshape(vec2(uD,grid_u), grid_u)
             tmp_vec_u[1,:] .= vecb_B(uD, grid_u)
             tmp_vec_u[end,:] .= vecb_T(uD, grid_u)
             tmp_vec_u[:,1] .= vecb_L(uD, grid_u)
             tmp_vec_u[:,end] .= vecb_R(uD, grid_u)
             
-            tmp_vec_v = zeros(grid_v)
+            tmp_vec_v .= 0.0
             tmp_vec_v .= reshape(vec2(vD,grid_v), grid_v)
             tmp_vec_v[:,1] .= vecb_L(vD, grid_v)
             tmp_vec_v[:,end] .= vecb_R(vD, grid_v)
@@ -320,6 +330,25 @@ function scalar_transport!(num::Numerical{Float64, Int64},
             tmp_vec_v .= 0.0
             for iLS in 1:num.nLS
                 tmp_vec_v[grid_v.LS[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[grid_v.LS[iLS].MIXED]
+            end
+            tmp_vec_v[:,1] .= vecb_L(vD,grid_v)
+            tmp_vec_v[1,:] .= vecb_B(vD,grid_v)
+            tmp_vec_v[:,end] .= vecb_R(vD,grid_v)
+            tmp_vec_v[end,:] .= vecb_T(vD,grid_v)
+        elseif num.convection_mode ==2
+            tmp_vec_u .= 0.0
+            tmp_vec_v .= 0.0
+            for iLS in 1:num.nLS
+                tmp_vec_u[grid_u.LS[iLS].MIXED] .= 0.0
+            end
+            tmp_vec_u[:,1] .= vecb_L(uD,grid_u) 
+            tmp_vec_u[1,:] .= vecb_B(uD,grid_u)
+            tmp_vec_u[:,end] .= vecb_R(uD,grid_u)
+            tmp_vec_u[end,:] .= vecb_T(uD,grid_u)
+        
+            tmp_vec_v .= 0.0
+            for iLS in 1:num.nLS
+                tmp_vec_v[grid_v.LS[iLS].MIXED] .= 0.0
             end
             tmp_vec_v[:,1] .= vecb_L(vD,grid_v)
             tmp_vec_v[1,:] .= vecb_B(vD,grid_v)
@@ -694,11 +723,28 @@ function scalar_transport!(num::Numerical{Float64, Int64},
             # A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b)
 
             # Explicit part of heat equation
-            B[1:ni,1:ni] = M .+ time_factor .* diffusion_coeff_scal .* LT .- num.τ .* op_conv.CT
+            if num.convection_mode == 2
+                B[1:ni,1:ni] = M .+ time_factor .* diffusion_coeff_scal .* LT
+            else
+                B[1:ni,1:ni] = M .+ time_factor .* diffusion_coeff_scal .* LT .- num.τ .* op_conv.CT
+            end
             B[1:ni,ni+1:2*ni] = time_factor .* diffusion_coeff_scal .* LD
             B[1:ni,end-nb+1:end] = time_factor .* diffusion_coeff_scal .* LD_b
 
             vec2(rhs,grid) .+= op.χ[1] * vec(a0)
+
+            #region test reactivate
+    
+   
+            # print("\n a0",a0[II])
+            # print("\n op.χ[1]",op.χ[1].diag[pII])
+
+            # II = CartesianIndex(3,37)
+            # pII =lexicographic(II,grid.ny)
+            # # print("\n A[pII,:]",A[pII,:])
+            # print("\n after vec2 rhs[pII]",rhs[pII])
+
+            #endregion test reactivate
 
 
         else #num.nLS != 1
@@ -881,16 +927,28 @@ function scalar_transport!(num::Numerical{Float64, Int64},
 
         end #if num.nLS ==1
 
+        # #region test reactivate
+        
+        # II = CartesianIndex(3,37)
+        # pII =lexicographic(II,grid.ny)
+        # # print("\n A[pII,:]",A[pII,:])
+        # print("\n before conv rhs[pII]",rhs[pII])
+
+        # #endregion test reactivate
+
         if convection
             vec1(rhs,grid) .-= num.τ .* all_CUTCT[:,iscal]
         end
 
-        if num.phase_change_method == 2 && num.phase_change_currently_activated == 1
-
-            if iscal ==1
-                #TODO Dirac ?
-                vec1(rhs,grid) .-= vec(mass_flux ./ num.MWH2) 
-
+        if iscal == 1
+            # if num.phase_change_method == 2 && num.phase_change_currently_activated == 1
+            #     #TODO Dirac ?
+            #     vec1(rhs,grid) .-= vec(num.τ * mass_transfer_rate ./ num.MWH2)             
+            # elseif num.phase_change_method == 4 && num.phase_change_currently_activated == 1
+            #     vec1(rhs,grid) .-= vec(num.τ * mass_transfer_rate ./ num.MWH2) #grid.LS[end].geoL.dcap[:,:,5]
+            # end
+            if num.phase_change_currently_activated == 1
+                vec1(rhs,grid) .-= vec(num.τ * mass_transfer_rate ./ num.MWH2)
             end
 
         end
@@ -921,12 +979,38 @@ function scalar_transport!(num::Numerical{Float64, Int64},
 
         end #num.convection_Cdivu>0
         
+
+        # #region test reactivate
+        
+        # II = CartesianIndex(3,37)
+        # pII =lexicographic(II,grid.ny)
+        # # print("\n A[pII,:]",A[pII,:])
+        # print("\n before scal rhs[pII]",rhs[pII])
+
+        # #endregion test reactivate
+
         if num.scalar_scheme == 0
         @views mul!(rhs, B, ph.trans_scalD[:,iscal], 1.0, 1.0) #TODO @views not necessary ?
         end
 
+        # II = CartesianIndex(3,37)
+        # pII =lexicographic(II,grid.ny)
+        # # print("\n A[pII,:]",A[pII,:])
+        # print("\n  scal rhs[pII]",rhs[pII])
+
         #System resolution
         @views ph.trans_scalD[:,iscal] .= A \ rhs
+
+
+        # #region test reactivate
+        
+        # II = CartesianIndex(3,37)
+        # pII =lexicographic(II,grid.ny)
+        # print("\n A[pII,:]",A[pII,:])
+        # print("\n rhs[pII]",rhs[pII])
+
+        # #endregion test reactivate
+
         
         @views ph.trans_scal[:,:,iscal] .= reshape(veci(ph.trans_scalD[:,iscal],grid,1), grid)
 
@@ -971,7 +1055,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         # Interfaces (bubbles, walls described by LS)
         for iLS in 1:num.nLS
             # nonzero = mean_intfc_non_null(ph.trans_scalD,iscal,grid,iLS) #Value at interface
-            concentration_check_min,concentration_check_max,concentration_check_mean = compute_interface_average(ph.trans_scalD[:,iscal],grid,iLS)
+            concentration_check_min,concentration_check_max,concentration_check_mean = compute_interface_average(num,ph.trans_scalD[:,iscal],grid,iLS)
             # printstyled(color=:green, @sprintf "\n mean  interface : %.2e\n" nonzero)
             # printstyled(color=:green, @sprintf "\n mean  wall LS : %.2e\n" nonzero)
 
@@ -987,6 +1071,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                     "concentration_check_min"::Cstring, concentration_check_min::Ref{Cdouble}, PDI_OUT::Cint,
                     "concentration_check_max"::Cstring, concentration_check_max::Ref{Cdouble}, PDI_OUT::Cint,
                     "concentration_check_mean"::Cstring, concentration_check_mean::Ref{Cdouble}, PDI_OUT::Cint,
+                    # "LS_iso"::Cstring, grid.LS[iLS].iso::Ptr{Cdouble}, PDI_OUT::Cint,
                     C_NULL::Ptr{Cvoid})::Cint
                 catch error
                     printstyled(color=:red, @sprintf "\n PDI error \n")
@@ -1030,15 +1115,18 @@ function scalar_transport!(num::Numerical{Float64, Int64},
             # concentration_check_value = min(minimum(ph.trans_scal[:,:,iscal]),minimum(vecb(ph.trans_scalD[:,iscal],grid)))
             concentration_check_value = minimum(ph.trans_scalD[:,iscal][mask_1D .> 0.0])
             if concentration_check_value.<num.concentration0[iscal]*(1-num.concentration_check_factor)
+                stop_simulation_vec = [0] #zeros(1)
 
                 if num.io_pdi>0        
                     try
+                        # print("\n stop_simulation_vec ",stop_simulation_vec)
                         PDI_status = @ccall "libpdi".PDI_multi_expose("warning_scalar_transport"::Cstring,
                         "iscal"::Cstring, iscal::Ref{Clonglong}, PDI_OUT::Cint,
                         "rhs_1D"::Cstring, rhs::Ptr{Cdouble}, PDI_OUT::Cint,
                         "trans_scal_1DT"::Cstring, ph.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,  
                         "concentration_check_value"::Cstring, concentration_check_value::Ref{Cdouble}, PDI_OUT::Cint,   
-                        "stop_simulation"::Cstring, num.stop_simulation::Ref{Clonglong}, PDI_OUT::Cint,
+                        "stop_simulation"::Cstring, num.stop_simulation::Ref{Clonglong}, PDI_INOUT::Cint,
+                        "stop_simulation_vec"::Cstring, stop_simulation_vec::Ptr{Clonglong}, PDI_INOUT::Cint,
                         C_NULL::Ptr{Cvoid})::Cint
                     catch error
                         printstyled(color=:red, @sprintf "\n PDI error \n")
@@ -1052,6 +1140,11 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                 # printstyled(color=:red, @sprintf "\nconcentration: %.10e %.10e \n" min_border_bulk num.concentration0[iscal]*(1-num.concentration_check_factor))
                 # # printstyled(color=:red, @sprintf "\n concentration drop: %.2e%% \n" (minimum(ph.trans_scal[:,:,iscal])-num.concentration0[iscal])/num.concentration0[iscal]*100)
                 @error("concentration too low") #TODO error handling
+                # print("\n num.stop_simulation scalar ",num.stop_simulation)
+                # print("\n stop_simulation_vec ",stop_simulation_vec)
+
+
+                num.stop_simulation = stop_simulation_vec[1] #1
 
                
             end #too low
@@ -1065,7 +1158,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
             concentration_check_value = maximum(ph.trans_scalD[:,iscal][mask_1D .> 0.0])
 
             if concentration_check_value.> num.concentration0[iscal]*(1+num.concentration_check_factor)
-                
+                stop_simulation_vec = [0]
                 if num.io_pdi>0        
                     try
                         PDI_status = @ccall "libpdi".PDI_multi_expose("warning_scalar_transport"::Cstring,
@@ -1073,8 +1166,25 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                         "rhs_1D"::Cstring, rhs::Ptr{Cdouble}, PDI_OUT::Cint,
                         "trans_scal_1DT"::Cstring, ph.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,  
                         "concentration_check_value"::Cstring, concentration_check_value::Ref{Cdouble}, PDI_OUT::Cint,       
-                        "stop_simulation"::Cstring, num.stop_simulation::Ref{Clonglong}, PDI_OUT::Cint,            
+                        "stop_simulation"::Cstring, num.stop_simulation::Ref{Clonglong}, PDI_INOUT::Cint,   
+                        "stop_simulation_vec"::Cstring, stop_simulation_vec::Ptr{Clonglong}, PDI_INOUT::Cint,         
                         C_NULL::Ptr{Cvoid})::Cint
+                        
+                        num.stop_simulation = stop_simulation_vec[1]
+
+                        # print("\n num.stop_simulation scalar ",num.stop_simulation)
+                        # print("\n stop_simulation_vec ",stop_simulation_vec)
+
+                        # print("\n PDI share ")
+
+                        # PDI_status = @ccall "libpdi".PDI_share("stop_simulation"::Cstring, num.stop_simulation::Ref{Clonglong}, PDI_INOUT::Cint)::Cint         
+                        
+                        # PDI_status = @ccall "libpdi".PDI_event("stop_scalar"::Cstring)::Cint
+                        # PDI_status = @ccall "libpdi".PDI_reclaim("stop_simulation"::Cstring)::Cint            
+
+                        # print("\n num.stop_simulation scalar ",num.stop_simulation)
+
+
                     catch error
                         printstyled(color=:red, @sprintf "\n PDI error \n")
                         print(error)
@@ -1086,12 +1196,17 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                 # printstyled(color=:red, @sprintf "\n concentration: %.10e %.10e \n" max_border_bulk num.concentration0[iscal]*(1+num.concentration_check_factor))
                 # printstyled(color=:red, @sprintf "\n concentration increase: %.2e%% \n" (maximum(ph.trans_scal[:,:,iscal])-num.concentration0[iscal])/num.concentration0[iscal]*100)
                 @error("concentration too high")
+                print("\n num.stop_simulation scalar ",num.stop_simulation)
+
 
             end #too high
             # printstyled(color=:red, @sprintf "\n concentration variation vs max: %.2e%% \n" (maximum(ph.trans_scal[:,:,iscal])-num.concentration0[iscal])/num.concentration0[iscal]*100)
         end
-
-        @views kill_dead_cells_val!(ph.trans_scal[:,:,iscal], grid, LS[1].geoL,0.0)  #reset to zero (for plot)
+        if num.kill_dead_cells == 0
+            @views kill_dead_cells_val!(ph.trans_scal[:,:,iscal], grid, LS[1].geoL,0.0)  #reset to zero (for plot)
+        else
+            @views kill_dead_cells_val!(ph.trans_scal[:,:,iscal], grid, LS[1].geoL,num.concentration0[iscal])
+        end
         #kill_dead_cells_val! can be used for display to avoid displaying a range from 0 to c0 in python
 
     end #end loop iscal
@@ -1107,7 +1222,7 @@ end
 # """
 # From Stefan_velocity!
 # """
-# function electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodic_y, concentration_scal_intfc,electrolysis_phase_change_case, mass_flux)
+# function electrolysis_velocity!(num, grid, LS, V, TL, MIXED, periodic_x, periodic_y, concentration_scal_intfc,electrolysis_phase_change_case, mass_transfer_rate)
 #     @unpack geoS, geoL, κ = LS
 
 #     V .= 0
@@ -1137,7 +1252,7 @@ end
 
 #         intfc_length = 0.0
 #         @inbounds for II in MIXED
-#             V[II] = sum(mass_flux)
+#             V[II] = sum(mass_transfer_rate)
 
 #             #χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
 #             #χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
@@ -1151,9 +1266,9 @@ end
 
 #         V./= intfc_length
 
-#         print("\n phase-change velocity ", sum(mass_flux)/intfc_length)
+#         print("\n phase-change velocity ", sum(mass_transfer_rate)/intfc_length)
 
-#         printstyled(color=:magenta, @sprintf "\n phase-change velocity %.2e intfc_length %.2e πR %.2e\n" sum(mass_flux)/intfc_length intfc_length π*num.R)
+#         printstyled(color=:magenta, @sprintf "\n phase-change velocity %.2e intfc_length %.2e πR %.2e\n" sum(mass_transfer_rate)/intfc_length intfc_length π*num.R)
 
 #         i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, grid.LS[iLS], grid.ind.inside, periodic_x, periodic_y)
 #         field_extension!(grid, u, grid.V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
@@ -1164,27 +1279,103 @@ end
 #     return nothing
 # end
 
+
+
 """
 From update_free_surface_velocity and update_stefan_velocity
+TODO si deux cellules adj ont un flux non nul par ex au niveau de la ligne de contact
 """
-function compute_mass_flux_and_velocity_electrolysis!(num, grid, grid_u, grid_v, iLS, uD, vD, 
+function compute_mass_transfer_rate!(num, grid_p, grid_u, grid_v, iLS, uD, vD, 
     periodic_x, periodic_y, average_velocity, concentration_scalD, concentration_scal, diffusion_coeff_scal,concentration_scal_intfc, 
-    electrolysis_phase_change_case,mass_flux)
+    electrolysis_phase_change_case,mass_transfer_rate,mass_transfer_rate_redistributed,nb_gaz_acceptors,volume_fraction,interface_length)
 
-    grid.V .= 0
-    num.sum_mass_flux = 0.0
-    v_mean = 0.0
+    # nb_gaz_acceptors .= 0
 
+    # grid_p.V .= 0
+    # num.sum_mass_transfer_rate = 0.0
 
-    rho_bulk = num.rho2
+    interface_length .= 0.0
+    intfc_length = 0.0
+    # num_mixed_cells = 0
+    rho_bulk = num.rho1
+    rho_gaz = num.rho2
 
     # if num.rho_bulk == 0
-    #     rho_bulk = num.rho2 #TODO + other species
+    #     rho_bulk = num.rho1 #TODO + other species
     # else
     #     rho_bulk = sum(ph.trans_scal[II,:])
     # end
 
-    factor_mass_flux = (num.MWH2 * diffusion_coeff_scal[1]) / (1 - num.rho1/rho_bulk)
+    factor_mass_transfer_rate = (num.MWH2 * diffusion_coeff_scal[1]) / (1 - rho_gaz/rho_bulk)
+    
+   
+
+
+    #region redistribute mass transfer rate
+
+
+    for II in grid_p.LS[iLS].MIXED
+        # print("\n II update ",II, grid_p.LS[end].u[II], " iso end ",grid_p.LS[end].iso[II]," iso 1 ",grid_p.LS[1].iso[II])
+        if grid_p.LS[end].iso[II] < 14.5 #15.0 -0.5 # check if inside domain defined by other LS 
+        # if grid_p.LS[end].u[II]>0.0 # check if inside domain defined by other LS 
+        # if grid_p.LS[2].u[II]>0.0 #second wall
+   
+            #compute interface length
+            χx = (grid_p.LS[iLS].geoL.dcap[II,3] .- grid_p.LS[iLS].geoL.dcap[II,1]) .^ 2
+            χy = (grid_p.LS[iLS].geoL.dcap[II,4] .- grid_p.LS[iLS].geoL.dcap[II,2]) .^ 2
+            intfc_length_cell = sqrt(χx + χy)
+
+            if intfc_length_cell > num.epsilon_dist
+            # if num.epsilon_volume_fraction_phase_change < volume_fraction TODO ? 
+
+                intfc_length += intfc_length_cell
+
+                interface_length[II] = intfc_length_cell
+                mass_transfer_rate[II] *= factor_mass_transfer_rate / intfc_length_cell
+            end
+
+            
+        end
+    end
+    
+    
+    # display(nb_gaz_acceptors)
+    # if redistr
+    compute_number_gaz_acceptors!(nb_gaz_acceptors,num.epsilon_volume_fraction_phase_change,grid_p.nx,grid_p.ny,volume_fraction)
+
+    redistribute_mass_transfer_rate!(num.epsilon_volume_fraction_phase_change,interface_length,
+    nb_gaz_acceptors,mass_transfer_rate,mass_transfer_rate_redistributed,grid_p.nx,grid_p.ny,volume_fraction)
+
+
+    #endregion redistribute mass transfer rate
+
+end
+
+
+"""
+
+"""
+function compute_phase_change_velocity_electrolysis!(num, grid_p, grid_u, grid_v, iLS, uD, vD, 
+    periodic_x, periodic_y, average_velocity, concentration_scalD, concentration_scal, diffusion_coeff_scal,concentration_scal_intfc, 
+    electrolysis_phase_change_case,mass_transfer_rate,mass_transfer_rate_redistributed,nb_gaz_acceptors,volume_fraction,interface_length)
+
+
+    grid_p.V .= 0
+    num.sum_mass_transfer_rate = 0.0
+    v_mean = 0.0
+
+    interface_length .= 0.0
+
+    rho_bulk = num.rho1
+    rho_gaz = num.rho2
+
+    # if num.rho_bulk == 0
+    #     rho_bulk = num.rho1 #TODO + other species
+    # else
+    #     rho_bulk = sum(ph.trans_scal[II,:])
+    # end
+
+    # factor_mass_transfer_rate = (num.MWH2 * diffusion_coeff_scal[1]) / (1 - rho_gaz/rho_bulk)
     
     if num.phase_change_method == 0
         # TODO 
@@ -1192,7 +1383,9 @@ function compute_mass_flux_and_velocity_electrolysis!(num, grid, grid_u, grid_v,
     elseif num.phase_change_method == 1
         #assuming vgaz = 0
         factor_velocity = -1.0/num.rho2.*diffusion_coeff_scal[1].*num.MWH2
-    elseif num.phase_change_method == 2
+    elseif num.phase_change_method == 2 || num.phase_change_method == 3|| num.phase_change_method == 4
+        factor_velocity = -1.0/num.rho1.*diffusion_coeff_scal[1].*num.MWH2
+    else
         factor_velocity = -1.0/num.rho1.*diffusion_coeff_scal[1].*num.MWH2
     end
 
@@ -1200,117 +1393,63 @@ function compute_mass_flux_and_velocity_electrolysis!(num, grid, grid_u, grid_v,
 
     num_mixed_cells = 0
 
-    @inbounds for II in grid.LS[iLS].MIXED
-        # print("\n II update ",II, grid.LS[end].u[II], " iso end ",grid.LS[end].iso[II]," iso 1 ",grid.LS[1].iso[II])
-        if grid.LS[end].iso[II] < 14.5 #15.0 -0.5 # check if inside domain defined by other LS 
-        # if grid.LS[end].u[II]>0.0 # check if inside domain defined by other LS 
-        # if grid.LS[2].u[II]>0.0 #second wall
-            # print("\n cells for free surface", II," x ",grid.x[II]," LS[iLS] ",grid.LS[iLS].u[II]," LS[end] ",grid.LS[end].u[II]," LS[2] ",grid.LS[2].u[II])
-            # grid.V[II] = mass_flux[II] * factor_velocity
+    for II in grid_p.LS[iLS].MIXED
+        # print("\n II update ",II, grid_p.LS[end].u[II], " iso end ",grid_p.LS[end].iso[II]," iso 1 ",grid_p.LS[1].iso[II])
+        if grid_p.LS[end].iso[II] < 14.5 #15.0 -0.5 # check if inside domain defined by other LS 
+        # if grid_p.LS[end].u[II]>0.0 # check if inside domain defined by other LS 
+        # if grid_p.LS[2].u[II]>0.0 #second wall
+            # print("\n cells for free surface", II," x ",grid_p.x[II]," LS[iLS] ",grid_p.LS[iLS].u[II]," LS[end] ",grid_p.LS[end].u[II]," LS[2] ",grid_p.LS[2].u[II])
+            # grid_p.V[II] = mass_transfer_rate[II] * factor_velocity
 
             num_mixed_cells += 1
             # intfc_length_cell !=0 since mixed cell
 
         
 
-            #compute interface length
-            χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
-            χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
-            intfc_length_cell = sqrt(χx + χy)
-            intfc_length += intfc_length_cell
+            # #compute interface length
+            # χx = (grid_p.LS[iLS].geoL.dcap[II,3] .- grid_p.LS[iLS].geoL.dcap[II,1]) .^ 2
+            # χy = (grid_p.LS[iLS].geoL.dcap[II,4] .- grid_p.LS[iLS].geoL.dcap[II,2]) .^ 2
+            # intfc_length_cell = sqrt(χx + χy)
 
-            mass_flux[II] *= factor_mass_flux / intfc_length_cell
-            num.sum_mass_flux += mass_flux[II]
+            if interface_length[II] > num.epsilon_dist
+            # if     epsilon_volume_fraction_phase_change
 
+                # intfc_length += intfc_length_cell
 
+                # interface_length[II] = intfc_length_cell
+                # mass_transfer_rate[II] *= factor_mass_transfer_rate / intfc_length_cell
 
-            if num.mass_flux == 0
-                grid.V[II] = mass_flux[II] * factor_velocity
-            elseif num.mass_flux == 1
-                #region Johansen & Colella
-                #TODO iLS or end grid.LS[iLS].geoL
-
-                dTL = 0.0
-                # print("\n II ",II," flag ",grid.LS[iLS].geoL.projection[II].flag)
-                if grid.LS[iLS].geoL.projection[II].flag
-                    T_1, T_2 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, grid.LS[iLS].geoL.projection[II].point2, concentration_scal, II, periodic_x, periodic_y)
-                    dTL = normal_gradient(grid.LS[iLS].geoL.projection[II].d1, grid.LS[iLS].geoL.projection[II].d2, T_1, T_2, concentration_scal_intfc)
-                    printstyled(color=:cyan, @sprintf "\n T1 %.2e T2 %.2e \n" T_1 T_2 )
-                    if isnan(T_2)
-                        printstyled(color=:red, @sprintf "\n T2 NaN, resorting to other method \n")
-                        print("\n P2 ",grid.LS[iLS].geoL.projection[II].point2)
-
-
-                        T_1 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
-                        dTL = normal_gradient(grid.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
-                    end
-
-                    if isnan(T_1) || isnan(T_2) #debug
-                        printstyled(color=:red, @sprintf "\n T1 or T2 NaN, debug \n")
-
-                        print("\n II ",II," flag ",grid.LS[iLS].geoL.projection[II].flag)
-
-                        vtx_num = 2                
-                        vtx_x = [grid.LS[iLS].geoL.projection[II].point1.x,grid.LS[iLS].geoL.projection[II].point2.x]
-                        vtx_y = [grid.LS[iLS].geoL.projection[II].point1.y,grid.LS[iLS].geoL.projection[II].point2.y]
-
-                        PDI_status = @ccall "libpdi".PDI_multi_expose("debug_phase_change"::Cstring,
-                        "vtx_num"::Cstring, vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
-                        "vtx_x"::Cstring, vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "vtx_y"::Cstring, vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
-                        C_NULL::Ptr{Cvoid})::Cint
-
-                        return 1
-                        
-                    end
-
-                else
-                    T_1 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
-                    dTL = normal_gradient(grid.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
-                end
-                #region Johansen & Colella
-
-                printstyled(color=:cyan, @sprintf "\n v %.2e v from int %.2e %.2e %.2e\n" grid.V[II] dTL*factor_velocity T_1 concentration_scal_intfc)
+                num.sum_mass_transfer_rate += mass_transfer_rate[II]
                 
-                grid.V[II] = dTL*factor_velocity 
-                v_mean += grid.V[II] #TODO unit use same
-                # printstyled(color=:red, @sprintf "\n TODO unit use same \n" )
-            
-           
+                if num.mass_transfer_rate == 0
+                    grid_p.V[II] = mass_transfer_rate[II] * factor_velocity
+                elseif num.mass_transfer_rate == 1
+                    #region Johansen & Colella
+                    #TODO iLS or end grid_p.LS[iLS].geoL
 
-
-
-            elseif num.mass_flux == 2
-                   
-                    grid.V[II] = mass_flux[II] * factor_velocity 
-
-                    #region compare grad
-                    
                     dTL = 0.0
-                    # print("\n II ",II," flag ",grid.LS[iLS].geoL.projection[II].flag)
-                    if grid.LS[iLS].geoL.projection[II].flag
-                        T_1, T_2 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, grid.LS[iLS].geoL.projection[II].point2, concentration_scal, II, periodic_x, periodic_y)
-                        dTL = normal_gradient(grid.LS[iLS].geoL.projection[II].d1, grid.LS[iLS].geoL.projection[II].d2, T_1, T_2, concentration_scal_intfc)
-                       
-                        # printstyled(color=:cyan, @sprintf "\n intfc_length_cell %.2e T1 %.2e T2 %.2e \n" intfc_length_cell T_1 T_2 )
-
+                    # print("\n II ",II," flag ",grid_p.LS[iLS].geoL.projection[II].flag)
+                    if grid_p.LS[iLS].geoL.projection[II].flag
+                        T_1, T_2 = interpolated_temperature(grid, grid_p.LS[iLS].geoL.projection[II].angle, grid_p.LS[iLS].geoL.projection[II].point1, grid_p.LS[iLS].geoL.projection[II].point2, concentration_scal, II, periodic_x, periodic_y)
+                        dTL = normal_gradient(grid_p.LS[iLS].geoL.projection[II].d1, grid_p.LS[iLS].geoL.projection[II].d2, T_1, T_2, concentration_scal_intfc)
+                        printstyled(color=:cyan, @sprintf "\n T1 %.2e T2 %.2e \n" T_1 T_2 )
                         if isnan(T_2)
                             printstyled(color=:red, @sprintf "\n T2 NaN, resorting to other method \n")
-                            print("\n P2 ",grid.LS[iLS].geoL.projection[II].point2)
+                            print("\n P2 ",grid_p.LS[iLS].geoL.projection[II].point2)
 
 
-                            T_1 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
-                            dTL = normal_gradient(grid.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
+                            T_1 = interpolated_temperature(grid, grid_p.LS[iLS].geoL.projection[II].angle, grid_p.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
+                            dTL = normal_gradient(grid_p.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
                         end
 
                         if isnan(T_1) || isnan(T_2) #debug
                             printstyled(color=:red, @sprintf "\n T1 or T2 NaN, debug \n")
 
-                            print("\n II ",II," flag ",grid.LS[iLS].geoL.projection[II].flag)
+                            print("\n II ",II," flag ",grid_p.LS[iLS].geoL.projection[II].flag)
 
                             vtx_num = 2                
-                            vtx_x = [grid.LS[iLS].geoL.projection[II].point1.x,grid.LS[iLS].geoL.projection[II].point2.x]
-                            vtx_y = [grid.LS[iLS].geoL.projection[II].point1.y,grid.LS[iLS].geoL.projection[II].point2.y]
+                            vtx_x = [grid_p.LS[iLS].geoL.projection[II].point1.x,grid_p.LS[iLS].geoL.projection[II].point2.x]
+                            vtx_y = [grid_p.LS[iLS].geoL.projection[II].point1.y,grid_p.LS[iLS].geoL.projection[II].point2.y]
 
                             PDI_status = @ccall "libpdi".PDI_multi_expose("debug_phase_change"::Cstring,
                             "vtx_num"::Cstring, vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
@@ -1323,28 +1462,89 @@ function compute_mass_flux_and_velocity_electrolysis!(num, grid, grid_u, grid_v,
                         end
 
                     else
-                    T_1 = interpolated_temperature(grid, grid.LS[iLS].geoL.projection[II].angle, grid.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
-                    dTL = normal_gradient(grid.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
-                end
-                # grid.V[II] = dTL #+ dTS
-                # printstyled(color=:cyan, @sprintf "\n v %.2e v from int %.2e %.2e %.2e\n" grid.V[II] dTL*factor_velocity T_1 concentration_scal_intfc)
-                # 
-                printstyled(color=:cyan, @sprintf "\n intfc_length_cell %.2e T1 %.2e T2 %.2e v %.2e v from int %.2e %.2e %.2e \n" intfc_length_cell T_1 T_2 grid.V[II] dTL*factor_velocity T_1 concentration_scal_intfc)
+                        T_1 = interpolated_temperature(grid, grid_p.LS[iLS].geoL.projection[II].angle, grid_p.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
+                        dTL = normal_gradient(grid_p.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
+                    end
+                    #region Johansen & Colella
 
-                # grid.V[II] = dTL*factor 
-                # v_mean += grid.V[II] #TODO unit use same
-                # printstyled(color=:red, @sprintf "\n TODO unit use same \n" )
-            
-                #endregion compare grad
+                    printstyled(color=:cyan, @sprintf "\n v %.2e v from int %.2e %.2e %.2e\n" grid_p.V[II] dTL*factor_velocity T_1 concentration_scal_intfc)
+                    
+                    grid_p.V[II] = dTL*factor_velocity 
+                    v_mean += grid_p.V[II] #TODO unit use same
+                    # printstyled(color=:red, @sprintf "\n TODO unit use same \n" )
+                
 
-            end #num.mass_flux
+                elseif num.mass_transfer_rate == 2
+                    
+                        grid_p.V[II] = mass_transfer_rate[II] * factor_velocity 
+
+                        #region compare grad
+                        
+                        dTL = 0.0
+                        # print("\n II ",II," flag ",grid_p.LS[iLS].geoL.projection[II].flag)
+                        if grid_p.LS[iLS].geoL.projection[II].flag
+                            T_1, T_2 = interpolated_temperature(grid, grid_p.LS[iLS].geoL.projection[II].angle, grid_p.LS[iLS].geoL.projection[II].point1, grid_p.LS[iLS].geoL.projection[II].point2, concentration_scal, II, periodic_x, periodic_y)
+                            dTL = normal_gradient(grid_p.LS[iLS].geoL.projection[II].d1, grid_p.LS[iLS].geoL.projection[II].d2, T_1, T_2, concentration_scal_intfc)
+                        
+                            # printstyled(color=:cyan, @sprintf "\n intfc_length_cell %.2e T1 %.2e T2 %.2e \n" intfc_length_cell T_1 T_2 )
+
+                            if isnan(T_2)
+                                printstyled(color=:red, @sprintf "\n T2 NaN, resorting to other method \n")
+                                print("\n P2 ",grid_p.LS[iLS].geoL.projection[II].point2)
+
+
+                                T_1 = interpolated_temperature(grid, grid_p.LS[iLS].geoL.projection[II].angle, grid_p.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
+                                dTL = normal_gradient(grid_p.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
+                            end
+
+                            if isnan(T_1) || isnan(T_2) #debug
+                                printstyled(color=:red, @sprintf "\n T1 or T2 NaN, debug \n")
+
+                                print("\n II ",II," flag ",grid_p.LS[iLS].geoL.projection[II].flag)
+
+                                vtx_num = 2                
+                                vtx_x = [grid_p.LS[iLS].geoL.projection[II].point1.x,grid_p.LS[iLS].geoL.projection[II].point2.x]
+                                vtx_y = [grid_p.LS[iLS].geoL.projection[II].point1.y,grid_p.LS[iLS].geoL.projection[II].point2.y]
+
+                                PDI_status = @ccall "libpdi".PDI_multi_expose("debug_phase_change"::Cstring,
+                                "vtx_num"::Cstring, vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                                "vtx_x"::Cstring, vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                                "vtx_y"::Cstring, vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+                                C_NULL::Ptr{Cvoid})::Cint
+
+                                return 1
+                                
+                            end
+
+                        else
+                        T_1 = interpolated_temperature(grid, grid_p.LS[iLS].geoL.projection[II].angle, grid_p.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
+                        dTL = normal_gradient(grid_p.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
+                    end
+                    # grid_p.V[II] = dTL #+ dTS
+                    # printstyled(color=:cyan, @sprintf "\n v %.2e v from int %.2e %.2e %.2e\n" grid_p.V[II] dTL*factor_velocity T_1 concentration_scal_intfc)
+                    # 
+                    printstyled(color=:cyan, @sprintf "\n intfc_length_cell %.2e j %.5i i %.5i T1 %.2e T2 %.2e v %.2e v from int %.2e %.2e %.2e mass_transfer_rate %.2e %.2e\n" intfc_length_cell II[1] II[2] T_1 T_2 grid_p.V[II] dTL*factor_velocity T_1 concentration_scal_intfc mass_transfer_rate[II] factor_mass_transfer_rate)
+
+                    # grid_p.V[II] = dTL*factor 
+                    # v_mean += grid_p.V[II] #TODO unit use same
+                    # printstyled(color=:red, @sprintf "\n TODO unit use same \n" )
+                
+                    #endregion compare grad
+
+                end #num.mass_transfer_rate
+
+            else
+                mass_transfer_rate[II] = 0.0 #cancelling mass flux
+            end #if length not null
         
-        end #grid.LS[end].iso[II] != 15.0
-    end 
+        end #grid_p.LS[end].iso[II] != 15.0
+    end #for
+
+
     if average_velocity == 1
-        if num.mass_flux == 0
-            v_mean = factor_velocity * num.sum_mass_flux
-        elseif num.mass_flux == 1 
+        if num.mass_transfer_rate == 0
+            v_mean = factor_velocity * num.sum_mass_transfer_rate
+        elseif num.mass_transfer_rate == 1 
             v_mean = v_mean / num_mixed_cells             
         end 
 
@@ -1354,49 +1554,58 @@ function compute_mass_flux_and_velocity_electrolysis!(num, grid, grid_u, grid_v,
             return 1
         end
 
-        @inbounds for II in grid.LS[iLS].MIXED
-            grid.V[II] = v_mean
+        @inbounds for II in grid_p.LS[iLS].MIXED
+            grid_p.V[II] = v_mean
         end 
         
-        cfl_tmp = v_mean*num.dt0/grid.dx[1,1]
-        printstyled(color=:cyan, @sprintf "\n v_mean %.2e CFL %.2e dt %.2e dx %.2e\n" v_mean cfl_tmp num.dt0 grid.dx[1,1])
+        cfl_tmp = v_mean*num.dt0/grid_p.dx[1,1]
+        printstyled(color=:cyan, @sprintf "\n v_mean %.2e CFL %.2e dt %.2e dx %.2e\n" v_mean cfl_tmp num.dt0 grid_p.dx[1,1])
 
         if cfl_tmp > num.CFL
             @error("Error phase-change CFL ")
             return 1
         end
         # else
-    #     grid.V ./= intfc_length
+    #     grid_p.V ./= intfc_length
 
     end
 
 
-    # printstyled(color=:magenta, @sprintf "\n test sign velocity\n" )
-    # grid.V.*=-1.0
 
-    # printstyled(color=:cyan, @sprintf "\n flux %.2e factor_velocity %.2e intfc_length %.2e\n" num.sum_mass_flux factor_velocity intfc_length)
+    # printstyled(color=:cyan, @sprintf "\n flux %.2e factor_velocity %.2e intfc_length %.2e\n" num.sum_mass_transfer_rate factor_velocity intfc_length)
 
-    # printstyled(color=:magenta, @sprintf "\n sum_intfc %.2e sum_intfc/intfc_length %.2e sum all cells %.2e \n" num.sum_mass_flux num.sum_mass_flux/intfc_length sum(mass_flux))
+    # printstyled(color=:magenta, @sprintf "\n sum_intfc %.2e sum_intfc/intfc_length %.2e sum all cells %.2e \n" num.sum_mass_transfer_rate num.sum_mass_transfer_rate/intfc_length sum(mass_transfer_rate))
 
-    # printstyled(color=:red, @sprintf "\n test phase-change velocity %.2e intfc_length %.2e πR %.2e\n" sum(mass_flux)*factor_velocity/intfc_length intfc_length π*num.R)
-    # printstyled(color=:magenta, @sprintf "\n phase-change velocity %.2e intfc_length %.2e πR %.2e\n" num.sum_mass_flux*factor_velocity/intfc_length intfc_length π*num.R)
+    # printstyled(color=:red, @sprintf "\n test phase-change velocity %.2e intfc_length %.2e πR %.2e\n" sum(mass_transfer_rate)*factor_velocity/intfc_length intfc_length π*num.R)
+    # printstyled(color=:magenta, @sprintf "\n phase-change velocity %.2e intfc_length %.2e πR %.2e\n" num.sum_mass_transfer_rate*factor_velocity/intfc_length intfc_length π*num.R)
 
     # printstyled(color=:magenta, @sprintf "\n intfc_length %.2e πR %.2e\n" intfc_length π*num.R)
 
     if num.extend_field == 0
-        i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, grid.LS[iLS], grid.ind.inside, periodic_x, periodic_y)
-        field_extension!(grid, grid.LS[iLS].u, grid.V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
+        i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid, grid_p.LS[iLS], grid_p.ind.inside, periodic_x, periodic_y)
+        field_extension!(grid, grid_p.LS[iLS].u, grid_p.V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
     
     elseif num.extend_field == 1 #constant velocity everywhere
-        grid.V .= v_mean
+        grid_p.V .= v_mean
     end
 
-    if length(grid.LS[iLS].MIXED) != 0
-        printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
-    end
-    #plot_electrolysis_velocity!(num, grid, grid.LS[iLS], grid.V, concentration_scalD, grid.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc)
+    PDI_status = @ccall "libpdi".PDI_multi_expose("write_interface_length"::Cstring,
+                        "interface_length"::Cstring, interface_length::Ptr{Cdouble}, PDI_OUT::Cint,
+                        C_NULL::Ptr{Cvoid})::Cint
 
-    # electrolysis_velocity!(num, grid, grid.LS[iLS], grid.V, concentration_scalD, grid.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc,electrolysis_phase_change_case, mass_flux)
+    @ccall "libpdi".PDI_multi_expose("write_mass_transfer_rate_only"::Cstring,
+        "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "mass_transfer_rate_bulk"::Cstring, mass_transfer_rate_vec1_2::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "mass_transfer_rate_border"::Cstring, mass_transfer_rate_vecb_2::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "mass_transfer_rate_intfc"::Cstring, mass_transfer_rate_veci_2::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cvoid
+
+    if length(grid_p.LS[iLS].MIXED) != 0
+        printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
+    end
+    #plot_electrolysis_velocity!(num, grid, grid_p.LS[iLS], grid_p.V, concentration_scalD, grid_p.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc)
+
+    # electrolysis_velocity!(num, grid, grid_p.LS[iLS], grid_p.V, concentration_scalD, grid_p.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc,electrolysis_phase_change_case, mass_transfer_rate)
     
 
     # concentration_scalu = zeros(grid_u)
@@ -1408,7 +1617,7 @@ function compute_mass_flux_and_velocity_electrolysis!(num, grid, grid_u, grid_v,
     # #TODO H: suppose val on interface for u and v same as for p 
     # electrolysis_velocity!(num, grid_u, grid_u.LS[iLS], grid_u.V, concentration_scalu, grid_u.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc)
     # electrolysis_velocity!(num, grid_v, grid_v.LS[iLS], grid_v.V, concentration_scalv, grid_v.LS[iLS].MIXED, periodic_x, periodic_y, concentration_scal_intfc)
-    # grid.V[grid.LS[iLS].MIXED] .*= 1. ./ λ
+    # grid_p.V[grid_p.LS[iLS].MIXED] .*= 1. ./ λ
     #H2
     #TODO check order rho1 rho2
     #no surface term
@@ -1417,19 +1626,19 @@ function compute_mass_flux_and_velocity_electrolysis!(num, grid, grid_u, grid_v,
     # grid_u.V[grid_u.LS[iLS].MIXED] .*= factor_velocity
     # grid_v.V[grid_v.LS[iLS].MIXED] .*= factor_velocity
 
-    # grid.V[grid.LS[iLS].MIXED] .*= factor_velocity
+    # grid_p.V[grid_p.LS[iLS].MIXED] .*= factor_velocity
 
    
     # if average_velocity
-    #     a = mean(grid.V[grid.LS[iLS].MIXED])
-    #     grid.V[grid.LS[iLS].MIXED] .= a
+    #     a = mean(grid_p.V[grid_p.LS[iLS].MIXED])
+    #     grid_p.V[grid_p.LS[iLS].MIXED] .= a
     # end
 
     # grid_u.V .= reshape(vec1(uD,grid_u), grid_u)
     # grid_v.V .= reshape(vec1(vD,grid_v), grid_v)
 
 
-    # printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
+    # printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
 
     #TODO extension
 
@@ -1451,7 +1660,7 @@ function compute_mass_flux_and_velocity_electrolysis!(num, grid, grid_u, grid_v,
 
     #         PDI_status = @ccall "libpdi".PDI_multi_expose("write_iso"::Cstring,
     #         "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
-    #         "levelset_iso_end"::Cstring, grid.LS[iLSpdi].iso::Ptr{Cdouble}, PDI_OUT::Cint,
+    #         "levelset_iso_end"::Cstring, grid_p.LS[iLSpdi].iso::Ptr{Cdouble}, PDI_OUT::Cint,
     #         C_NULL::Ptr{Cvoid})::Cint
 
     #     catch error
@@ -1460,10 +1669,75 @@ function compute_mass_flux_and_velocity_electrolysis!(num, grid, grid_u, grid_v,
     #     end 
     # end #if num.io_pdi>0
 
-    # print("\n sum_mass_flux ",sum_mass_flux)
+    # print("\n sum_mass_transfer_rate ",sum_mass_transfer_rate)
 
     return 0
 end
+
+# Fonction pour vérifier si les indices sont valides
+@inline is_valid_index(ni, nj, nx, ny) = 1 ≤ ni ≤ nx && 1 ≤ nj ≤ ny
+
+"""
+@gennariCFDMethodologyMass2023
+"""
+function compute_number_gaz_acceptors!(nb_gaz_acceptors,eps,nx,ny,volume_fraction)
+
+    nb_gaz_acceptors .= 0
+
+
+
+    # Parcourir chaque cellule
+    for j in 1:ny, i in 1:nx
+        # Vérifier si la cellule est interfaciale
+        if eps ≤ volume_fraction[j,i] ≤ 1 - eps
+            count = 0
+            # Parcourir le voisinage 3x3
+            for dj in -1:1, di in -1:1
+                ni, nj = i + di, j + dj
+                if is_valid_index(ni, nj, nx, ny)
+                    # Vérifier si la cellule voisine est du gaz pur
+                    if volume_fraction[nj, ni] < eps
+                        count += 1
+                    end
+                end
+            end
+            nb_gaz_acceptors[j,i] = count
+            if count == 0
+                printstyled(color=:red, @sprintf "\n under-resolved in compute_number_gaz_acceptors i%.5i j %.5i\n" i j)
+                # A drawback of the proposed methodology is given by the possibility that no acceptors exist for one or more donors. 
+                # This can happen for highly curved interfaces and/or low mesh resolution
+
+            end
+        end
+    end
+
+end
+
+
+"""
+@gennariCFDMethodologyMass2023
+"""
+function redistribute_mass_transfer_rate!(eps_redistr,intfc_length,nb_gaz_acceptors,mass_transfer_rate,mass_transfer_rate_redistr,nx,ny,volume_fraction)
+
+    mass_transfer_rate_redistr .= 0.0
+
+    for j in 1:ny, i in 1:nx
+        if volume_fraction[j, i] < eps_redistr  # Si la cellule est une cellule acceptrice
+            sum_contribution = 0.0
+            for dj in -1:1, di in -1:1
+                nj, ni = j + dj, i + di
+                if is_valid_index(ni, nj, nx, ny)
+                    if eps_redistr ≤ volume_fraction[nj, ni] ≤ 1.0 - eps_redistr && nb_gaz_acceptors[nj, ni] > 0
+                        sum_contribution += mass_transfer_rate[nj, ni] * intfc_length[nj, ni] / nb_gaz_acceptors[nj, ni]
+                    end
+                end
+            end
+            mass_transfer_rate_redistr[j, i] = sum_contribution
+        end
+    end
+
+end
+
 
 
 """Interpolate velocity on scalar grid for regular grids for vizualisation
@@ -1516,6 +1790,25 @@ function interpolate_grid_liquid!( grid::Mesh{Flower.GridCC, Float64, Int64},
     # end
 end
 
+
+function interpolate_staggered_u_v_to_scalar_grid_one_fluid_or_one_phase!(num,grid_p,grid_u,grid_v,u,v,tmp_vec_p,tmp_vec_p0)
+
+    if num.one_fluid_model == 1 
+        tmp_vec_p  .= 0.0
+        tmp_vec_p0 .= 0.0
+        #TODO interp variable spacing
+        for j = 1:grid_p.ny
+            for i = 1:grid_p.nx
+                tmp_vec_p[j,i] =(u[j,i]+u[j,i+1])/2
+                tmp_vec_p0[j,i]=(v[j,i]+v[j+1,i])/2
+            end
+        end
+
+    else
+        interpolate_grid_liquid!(grid_p,grid_u,grid_v,u,v,tmp_vec_p,tmp_vec_p0)
+    end
+end
+    
 
 """Interpolate velocity on scalar grid for regular grids for vizualisation
 
@@ -2141,20 +2434,20 @@ function compute_grad_phi_ele!(num::Numerical{Float64, Int64},
         throw(DivideError())
     end
 
-    # mass_flux_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
-    # mass_flux_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+    # mass_transfer_rate_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
+    # mass_transfer_rate_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
 
     # for iLS in 1:nLS
-    #     mass_flux_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
-    #     mass_flux_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+    #     mass_transfer_rate_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+    #     mass_transfer_rate_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
     # end
 
  
-    # mass_flux_vec1_2 .= reshape(mass_flux_vec1,grid)
-    # mass_flux_vecb_2 .= reshape(mass_flux_vecb,grid)
-    # mass_flux_veci_2 .= reshape(mass_flux_veci,grid)
+    # mass_transfer_rate_vec1_2 .= reshape(mass_transfer_rate_vec1,grid)
+    # mass_transfer_rate_vecb_2 .= reshape(mass_transfer_rate_vecb,grid)
+    # mass_transfer_rate_veci_2 .= reshape(mass_transfer_rate_veci,grid)
 
-    # mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
+    # mass_transfer_rate .= mass_transfer_rate_vec1_2 .+ mass_transfer_rate_vecb_2 .+ mass_transfer_rate_veci_2
 
 
     ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(phi_eleD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(phi_eleD,grid)
@@ -2432,20 +2725,20 @@ function compute_grad_phi_ele!(num::Numerical{Float64, Int64},
         throw(DivideError())
     end
 
-    # mass_flux_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
-    # mass_flux_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+    # mass_transfer_rate_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
+    # mass_transfer_rate_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
 
     # for iLS in 1:nLS
-    #     mass_flux_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
-    #     mass_flux_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+    #     mass_transfer_rate_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+    #     mass_transfer_rate_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
     # end
 
  
-    # mass_flux_vec1_2 .= reshape(mass_flux_vec1,grid)
-    # mass_flux_vecb_2 .= reshape(mass_flux_vecb,grid)
-    # mass_flux_veci_2 .= reshape(mass_flux_veci,grid)
+    # mass_transfer_rate_vec1_2 .= reshape(mass_transfer_rate_vec1,grid)
+    # mass_transfer_rate_vecb_2 .= reshape(mass_transfer_rate_vecb,grid)
+    # mass_transfer_rate_veci_2 .= reshape(mass_transfer_rate_veci,grid)
 
-    # mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
+    # mass_transfer_rate .= mass_transfer_rate_vec1_2 .+ mass_transfer_rate_vecb_2 .+ mass_transfer_rate_veci_2
 
 
     ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(phi_eleD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(phi_eleD,grid)
@@ -2700,20 +2993,20 @@ function compute_grad_phi_ele_liquid_solid!(num::Numerical{Float64, Int64},
     opC_p = opC_pL
 
 
-    # mass_flux_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
-    # mass_flux_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+    # mass_transfer_rate_vec1   = opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
+    # mass_transfer_rate_vecb   = opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
 
     # for iLS in 1:nLS
-    #     mass_flux_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
-    #     mass_flux_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+    #     mass_transfer_rate_veci .+= opC_p.HxT[iLS] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+    #     mass_transfer_rate_veci .+= opC_p.HyT[iLS] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
     # end
 
  
-    # mass_flux_vec1_2 .= reshape(mass_flux_vec1,grid)
-    # mass_flux_vecb_2 .= reshape(mass_flux_vecb,grid)
-    # mass_flux_veci_2 .= reshape(mass_flux_veci,grid)
+    # mass_transfer_rate_vec1_2 .= reshape(mass_transfer_rate_vec1,grid)
+    # mass_transfer_rate_vecb_2 .= reshape(mass_transfer_rate_vecb,grid)
+    # mass_transfer_rate_veci_2 .= reshape(mass_transfer_rate_veci,grid)
 
-    # mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
+    # mass_transfer_rate .= mass_transfer_rate_vec1_2 .+ mass_transfer_rate_vecb_2 .+ mass_transfer_rate_veci_2
 
 
     ∇ϕ_x = opC_p.iMx * opC_p.Bx * vec1(phi_eleD,grid) .+ opC_p.iMx_b * opC_p.Hx_b * vecb(phi_eleD,grid)
@@ -2920,7 +3213,7 @@ function adapt_timestep!(num, phL, phS::Phase{Float64}, grid_u, grid_v,adapt_tim
     min_spacing_x = minimum(grid_u.dx)
     min_spacing_y = minimum(grid_u.dy)
 
-    # min_spacing_xyz = min(min_spacing_x,min_spacing_y)
+    min_spacing_xy = min(min_spacing_x,min_spacing_y)
 
     # τ = min(CFL*Δ^2*Re, CFL*Δ/max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...))
 
@@ -2933,20 +3226,31 @@ function adapt_timestep!(num, phL, phS::Phase{Float64}, grid_u, grid_v,adapt_tim
     c_visc = max(mu1/rho1, mu2/rho2) * (2.0/min_spacing_x^2 + 2.0/min_spacing_y^2 ) 
     
     c_grav = sqrt(max(abs(grav_x)/min_spacing_x, abs(grav_y)/min_spacing_y))
-
     
+    c_grav = sqrt( abs(num.g)/min_spacing_y)
+
+
+    # c_surf = num.sigma*(1/num.current_radius) / (min(rho1,rho2)*min_spacing_xy^2) #TODO compute kappa from VOF or LS
+    c_surf = num.sigma*num.mean_curvature / (min(rho1,rho2)*min_spacing_xy^2) #TODO compute kappa from VOF or LS
+
+    c_diff = max(num.diffusion_coeff[1]) * (2.0/min_spacing_x^2 + 2.0/min_spacing_y^2 ) #H2
+
+    #TODO phase change : restriction ?
+
+    # c_surf = sigma*kappa / (min(rho1,rho2)*min_spacing_xy^2)
+
 
     if adapt_timestep_mode==1
-        c_conv = max(abs.(phL.u)./grid_u.dx..., abs.(phL.v)./grid_v.dy..., abs.(phS.u)./grid_u.dx..., abs.(phS.v)./grid_v.dy...)
+        # c_conv = max(abs.(phL.u)./grid_u.dx..., abs.(phL.v)./grid_v.dy..., abs.(phS.u)./grid_u.dx..., abs.(phS.v)./grid_v.dy...)
 
-        c_visc = max(mu1/rho1, mu2/rho2) * (2.0/min_spacing_x^2 + 2.0/min_spacing_y^2 ) 
+        # c_visc = max(mu1/rho1, mu2/rho2) * (2.0/min_spacing_x^2 + 2.0/min_spacing_y^2 ) 
         
-        c_grav = sqrt(max(abs(grav_x)/min_spacing_x, abs(grav_y)/min_spacing_y))
+        # c_grav = sqrt(max(abs(grav_x)/min_spacing_x, abs(grav_y)/min_spacing_y))
 
-        #TODO capillary timestep
-        c_surf = 0.0
+        # #TODO capillary timestep
+        # c_surf = 0.0
 
-        # c_surf = sigma*kappa / (min(rho1,rho2)*min_spacing_xyz^2)
+        # c_surf = sigma*kappa / (min(rho1,rho2)*min_spacing_xy^2)
 
         c_tot = (c_conv+c_visc)+ sqrt((c_conv+c_visc)^2+4*c_grav^2+4*c_surf^2 )
 
@@ -2959,13 +3263,29 @@ function adapt_timestep!(num, phL, phS::Phase{Float64}, grid_u, grid_v,adapt_tim
         new_timestep = num.dt0
     end
 
+
+
+
+    if adapt_timestep_mode != 0
+        num.τ = new_timestep
+    end
+
+    return num.τ
+
     PDI_status = @ccall "libpdi".PDI_multi_expose("print_timestep"::Cstring,
     "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
     "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,
-    "timestep"::Cstring, new_timestep::Ref{Cdouble}, PDI_OUT::Cint,
+    "timestep"::Cstring, num.τ::Ref{Cdouble}, PDI_OUT::Cint,
+    "timestep_restriction_conv"::Cstring, c_conv::Ref{Cdouble}, PDI_OUT::Cint,
+    "timestep_restriction_surf"::Cstring, c_surf::Ref{Cdouble}, PDI_OUT::Cint,
+    "timestep_restriction_visc"::Cstring, c_visc::Ref{Cdouble}, PDI_OUT::Cint,
+    "timestep_restriction_diff"::Cstring, c_diff::Ref{Cdouble}, PDI_OUT::Cint,
+    "timestep_restriction_grav"::Cstring, c_grav::Ref{Cdouble}, PDI_OUT::Cint,
+    "min_spacing_xy"::Cstring, min_spacing_xy::Ref{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
-    return new_timestep
+
+    # return new_timestep
 
     # printstyled(color=:green, @sprintf "\n rho1 %.2e rho2 %.2e mu1 %.2e mu2 %.2e\n" rho1 rho2 mu1 mu2) 
     # printstyled(color=:green, @sprintf "\n dx %.2e dy %.2e \n" min_spacing_x min_spacing_x) 
@@ -2988,8 +3308,30 @@ function adapt_timestep!(num, phL, phS::Nothing, grid_u, grid_v,adapt_timestep_m
     #With grid_u
     min_spacing_x = minimum(grid_u.dx)
     min_spacing_y = minimum(grid_u.dy)
+    min_spacing_xy = min(min_spacing_x,min_spacing_y)
 
-    # min_spacing_xyz = min(min_spacing_x,min_spacing_y)
+    # print("\n test adapt ", min_spacing_xy, " ",min_spacing_x, " ",min_spacing_y," ",num.current_radius)
+
+    c_conv = max(abs.(phL.u)./grid_u.dx..., abs.(phL.v)./grid_v.dy...)
+
+    c_visc = max(mu1/rho1, mu2/rho2) * (2.0/min_spacing_x^2 + 2.0/min_spacing_y^2 ) 
+    
+    # c_grav = sqrt(max(abs(grav_x)/min_spacing_x, abs(grav_y)/min_spacing_y))
+    c_grav = sqrt( abs(num.g)/min_spacing_y)
+
+    # c_surf = num.sigma*(1/num.current_radius) / (min(rho1,rho2)*min_spacing_xy^2) #TODO compute kappa from VOF or LS
+    c_surf = num.sigma*num.mean_curvature / (min(rho1,rho2)*min_spacing_xy^2) #TODO compute kappa from VOF or LS
+    
+    # c_surf = num.sigma*num.mean_curvature / (min(rho1,rho2)*min_spacing_xy) #in 2D
+
+    # c_surf = sqrt(4*pi*num.sigma)/ ((rho1+rho2)*min_spacing_xy^2) #TODO compute kappa from VOF or LS
+
+    # in 3D min_spacing_xy^3
+
+
+    c_diff = max(num.diffusion_coeff[1]) * (2.0/min_spacing_x^2 + 2.0/min_spacing_y^2 ) #H2
+
+    
 
     # τ = min(CFL*Δ^2*Re, CFL*Δ/max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...))
 
@@ -2997,16 +3339,16 @@ function adapt_timestep!(num, phL, phS::Nothing, grid_u, grid_v,adapt_timestep_m
     # vel = max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)
 
     if adapt_timestep_mode==1
-        c_conv = max(abs.(phL.u)./grid_u.dx..., abs.(phL.v)./grid_v.dy...)
+        # c_conv = max(abs.(phL.u)./grid_u.dx..., abs.(phL.v)./grid_v.dy...)
 
-        c_visc = max(mu1/rho1, mu2/rho2) * (2.0/min_spacing_x^2 + 2.0/min_spacing_y^2 ) 
+        # c_visc = max(mu1/rho1, mu2/rho2) * (2.0/min_spacing_x^2 + 2.0/min_spacing_y^2 ) 
         
-        c_grav = sqrt(max(abs(grav_x)/min_spacing_x, abs(grav_y)/min_spacing_y))
+        # c_grav = sqrt(max(abs(grav_x)/min_spacing_x, abs(grav_y)/min_spacing_y))
 
-        #TODO capillary timestep
-        c_surf = 0.0
+        # #TODO capillary timestep
+        # c_surf = 0.0
 
-        # c_surf = sigma*kappa / (min(rho1,rho2)*min_spacing_xyz^2)
+        # c_surf = sigma*kappa / (min(rho1,rho2)*min_spacing_xy^2)
 
         c_tot = (c_conv+c_visc)+ sqrt((c_conv+c_visc)^2+4*c_grav^2+4*c_surf^2 )
 
@@ -3019,13 +3361,26 @@ function adapt_timestep!(num, phL, phS::Nothing, grid_u, grid_v,adapt_timestep_m
         new_timestep = num.dt0
     end
 
+
+
+    if adapt_timestep_mode != 0
+        num.τ = new_timestep
+    end
+
+
+    # print("\n test adapt ",num.current_i,num.time,num.τ,c_conv,c_surf,c_visc,c_diff,c_grav)
     PDI_status = @ccall "libpdi".PDI_multi_expose("print_timestep"::Cstring,
     "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
     "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,
-    "timestep"::Cstring, new_timestep::Ref{Cdouble}, PDI_OUT::Cint,
+    "timestep"::Cstring, num.τ::Ref{Cdouble}, PDI_OUT::Cint,
+    "timestep_restriction_conv"::Cstring, c_conv::Ref{Cdouble}, PDI_OUT::Cint,
+    "timestep_restriction_surf"::Cstring, c_surf::Ref{Cdouble}, PDI_OUT::Cint,
+    "timestep_restriction_visc"::Cstring, c_visc::Ref{Cdouble}, PDI_OUT::Cint,
+    "timestep_restriction_diff"::Cstring, c_diff::Ref{Cdouble}, PDI_OUT::Cint,
+    "timestep_restriction_grav"::Cstring, c_grav::Ref{Cdouble}, PDI_OUT::Cint,
+    "min_spacing_xy"::Cstring, min_spacing_xy::Ref{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
-    return new_timestep
 
     # printstyled(color=:green, @sprintf "\n rho1 %.2e rho2 %.2e mu1 %.2e mu2 %.2e\n" rho1 rho2 mu1 mu2) 
     # printstyled(color=:green, @sprintf "\n dx %.2e dy %.2e \n" min_spacing_x min_spacing_x) 
@@ -3035,6 +3390,9 @@ function adapt_timestep!(num, phL, phS::Nothing, grid_u, grid_v,adapt_timestep_m
 
     #  printstyled(color=:green, @sprintf "\n c_conv %.2e c_visc %.2e c_grad %.2e\n" c_conv c_visc c_grav)
     #  printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL num.τ)
+
+    return num.τ
+
 end
 
 

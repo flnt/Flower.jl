@@ -511,10 +511,10 @@ solves Navier-Stokes equations with a pressure projection method.
 - `iRe`: Reynolds number.
 - `ρ1`, `ρ2`: Densities.
 - `σ`: Surface tension coefficient.
-- `mass_flux`: Mass flux.
+- `mass_transfer_rate`: Mass transfer rate.
 - `pres_free_suface`: Free surface pressure.
 - `diff_inv_rho`: Difference in inverse densities.
-- `jump_mass_flux`: Flag for mass flux jump.
+- `jump_mass_transfer_rate`: Flag for mass flux jump.
 - `τ`: Time step.
 - `A_phi`: Matrix for the Poisson equation.
 - `num`: Numerical parameters.
@@ -543,7 +543,7 @@ solves Navier-Stokes equations with a pressure projection method.
 
 4. **Poisson Equation**
    - Set the right-hand side of the Poisson equation (`rhs_phi`).
-   - Handle free surface conditions and Marangoni effects if `jump_mass_flux` is true.
+   - Handle free surface conditions and Marangoni effects if `jump_mass_transfer_rate` is true.
    - Remove nullspace from the matrix `A_phi`.
    - Apply boundary conditions and solve the Poisson equation using `A_phi / rhs_phi`.
 
@@ -585,10 +585,17 @@ function solve_one_fluid_NS!(
     # mu_one_fluid_u,
     rho_one_fluid_v, 
     # mu_one_fluid_v,
+    volumic_surface_tension_u,
+    volumic_surface_tension_v,
+    convection_u,convection_v,
+    viscosity_coeff_for_du_dx ,
+    viscosity_coeff_for_du_dy ,
+    viscosity_coeff_for_dv_dx ,
+    viscosity_coeff_for_dv_dy,
     tmp_vec_p,
     tmp_vec_p0,
     rhs_phi,
-    pres_free_suface,jump_mass_flux,mass_flux
+    pres_free_suface,jump_mass_transfer_rate,mass_transfer_rate
     )
     @unpack Re, τ, σ, g, β, nLS, nNavier = num
     @unpack p, pD, ϕ, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr, uT = ph
@@ -634,19 +641,22 @@ function solve_one_fluid_NS!(
     border_u_velocity = ntu-nbu+1:ntu
     border_v_velocity = ntu+ntv-nbv+1:ntu+ntv
 
-
-    if num.prediction == "PmIIimposedpressure" || 
-        num.prediction == "PmIIimposedpressureBCincrement" || 
-        num.prediction == "PmIIimposedpressure_nodiv" ||
-        num.prediction == "testpressure"
-        BC_Poisson = Boundaries() #Neumann everywhere
-    elseif num.prediction == "PmIIimposedpressure_nodiv_2"
-        BC_Poisson = Boundaries(top=Dirichlet()) #Neumann everywhere
-    elseif num.prediction == "PmIIimposedpressure_nodiv_3"
-        BC_Poisson = Boundaries(top=Dirichlet(),
-                                bottom=Dirichlet()) #Neumann everywhere
-    else
-        BC_Poisson = copy(BC_p) 
+    if num.pressure_velocity_coupling == 0
+        if num.prediction == "PmIIimposedpressure" || 
+            num.prediction == "PmIIimposedpressureBCincrement" || 
+            num.prediction == "PmIIimposedpressure_nodiv" ||
+            num.prediction == "testpressure"
+            BC_Poisson = Boundaries() #Neumann everywhere
+        elseif num.prediction == "PmIIimposedpressure_nodiv_2"
+            BC_Poisson = Boundaries(top=Dirichlet()) #Neumann everywhere
+        elseif num.prediction == "PmIIimposedpressure_nodiv_3"
+            BC_Poisson = Boundaries(top=Dirichlet(),
+                                    bottom=Dirichlet()) #Neumann everywhere
+        else
+            BC_Poisson = copy(BC_p) 
+        end
+    else 
+        BC_Poisson = nothing 
     end
 
     if is_Forward_Euler(time_scheme)
@@ -655,7 +665,11 @@ function solve_one_fluid_NS!(
             opC_p, opC_u, opC_v, BC_Poisson,BC_u, BC_v,
             Au, Bu, Av, Bv, A_phi, rhs_phi,Auv, Buv,
             volume_fraction,rho_one_fluid_u,rho_one_fluid_v,
-            mass_flux,
+            mass_transfer_rate,
+            viscosity_coeff_for_du_dx ,
+            viscosity_coeff_for_du_dy ,
+            viscosity_coeff_for_dv_dx ,
+            viscosity_coeff_for_dv_dy,
             Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
             Mum1, Mvm1, op_conv, ph,
             periodic_x, periodic_y, advection, ls_advection, navier,rhs_uv,
@@ -687,77 +701,78 @@ function solve_one_fluid_NS!(
     #region add gradient of pressure to prediction
     # Compute gradient of pressure localized on u and v grids , times volume
     # $ \nabla p^{n-1/2} $
-    if num.prediction == "PmI" || 
-       num.prediction == "PmII" || 
-       num.prediction == "PmIIimposedpressure" || 
-       num.prediction == "PmIIimposedpressureBCincrement" || 
-       num.prediction == "PmIIimposedpressure_nodiv" ||
-       num.prediction == "PmIIimposedpressure_nodiv_2" ||
-       num.prediction == "PmIIimposedpressure_nodiv_3" ||
-       num.prediction == "testpressure"
+    if num.pressure_velocity_coupling == 0
+        if num.prediction == "PmI" || 
+        num.prediction == "PmII" || 
+        num.prediction == "PmIIimposedpressure" || 
+        num.prediction == "PmIIimposedpressureBCincrement" || 
+        num.prediction == "PmIIimposedpressure_nodiv" ||
+        num.prediction == "PmIIimposedpressure_nodiv_2" ||
+        num.prediction == "PmIIimposedpressure_nodiv_3" ||
+        num.prediction == "testpressure"
 
-        #cf Brown 2001
+            #cf Brown 2001
 
-        ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid_p) .+ opC_u.Gx_b * vecb(pD,grid_p)
-        ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(pD,grid_p) .+ opC_v.Gy_b * vecb(pD,grid_p)
-        #region cut-cell
-        # for iLS in 1:nLS
-        #     ∇ϕ_x .+= opC_u.Gx[iLS] * veci(pD,grid_p,iLS+1)
-        #     ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid_p,iLS+1)
-        # end
-        #endregion cut-cell
+            ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(pD,grid_p) .+ opC_u.Gx_b * vecb(pD,grid_p)
+            ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(pD,grid_p) .+ opC_v.Gy_b * vecb(pD,grid_p)
+            #region cut-cell
+            # for iLS in 1:nLS
+            #     ∇ϕ_x .+= opC_u.Gx[iLS] * veci(pD,grid_p,iLS+1)
+            #     ∇ϕ_y .+= opC_v.Gy[iLS] * veci(pD,grid_p,iLS+1)
+            # end
+            #endregion cut-cell
 
-        ph.Gxm1 .= 0.0 #TODO
-        ph.Gym1 .= 0.0
+            ph.Gxm1 .= 0.0 #TODO
+            ph.Gym1 .= 0.0
+            
+            # gradient \times volume of cell (cells at border: volume = dx*dy/2)
+            ph.Gxm1 .= copy(∇ϕ_x) #∇ϕ_x
+            ph.Gym1 .= copy(∇ϕ_y) #∇ϕ_y
+
+            # gradient check
+            PDI_status = @ccall "libpdi".PDI_multi_expose("print_pressure_gradient_in_prediction"::Cstring,
+            "grad_x_1D"::Cstring, ph.Gxm1::Ptr{Cdouble}, PDI_OUT::Cint,
+            "grad_y_1D"::Cstring, ph.Gym1::Ptr{Cdouble}, PDI_OUT::Cint,
+            "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+            C_NULL::Ptr{Cvoid})::Cint
+
+            ∇ϕ_x .= 0.0
+            ∇ϕ_y .= 0.0
+
+            grad_x = zeros(grid_u)
+            grad_y = zeros(grid_v)
+            compute_grad_T_x_T_y_array_u_v_capacities!(num, grid_p, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
         
-        # gradient \times volume of cell (cells at border: volume = dx*dy/2)
-        ph.Gxm1 .= copy(∇ϕ_x) #∇ϕ_x
-        ph.Gym1 .= copy(∇ϕ_y) #∇ϕ_y
-
-        # gradient check
-        PDI_status = @ccall "libpdi".PDI_multi_expose("print_pressure_gradient_in_prediction"::Cstring,
-        "grad_x_1D"::Cstring, ph.Gxm1::Ptr{Cdouble}, PDI_OUT::Cint,
-        "grad_y_1D"::Cstring, ph.Gym1::Ptr{Cdouble}, PDI_OUT::Cint,
-        "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-        C_NULL::Ptr{Cvoid})::Cint
-
-        ∇ϕ_x .= 0.0
-        ∇ϕ_y .= 0.0
-
-        grad_x = zeros(grid_u)
-        grad_y = zeros(grid_v)
-        compute_grad_T_x_T_y_array_u_v_capacities!(num, grid_p, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
-    
-        #TODO divergence level
+            #TODO divergence level
+            
         
-      
-        PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_velocity_end"::Cstring,
-        # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
-        "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
-        "grad_v"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
-        "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-        "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-        "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-        C_NULL::Ptr{Cvoid})::Cint
+            PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_velocity_end"::Cstring,
+            # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+            # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+            "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+            "grad_v"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+            "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+            "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+            "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+            C_NULL::Ptr{Cvoid})::Cint
 
-        PDI_status = @ccall "libpdi".PDI_multi_expose("grad_pres_y"::Cstring,
-        # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
-        "grad_pres_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "grad_pres_coupled_y"::Cstring, grad_y[2:end-1,:]::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-        C_NULL::Ptr{Cvoid})::Cint
-    
+            PDI_status = @ccall "libpdi".PDI_multi_expose("grad_pres_y"::Cstring,
+            # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+            # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+            # "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+            "grad_pres_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+            # "grad_pres_coupled_y"::Cstring, grad_y[2:end-1,:]::Ptr{Cdouble}, PDI_OUT::Cint,
+            # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+            # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+            # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+            C_NULL::Ptr{Cvoid})::Cint
+        
 
+        end
     end
     #endregion add gradient to prediction
 
-    Convu = fzeros(grid_u)
-    Convv = fzeros(grid_v)
+
 
     #region convection
     if num.non_dimensionalize == 0
@@ -780,16 +795,16 @@ function solve_one_fluid_NS!(
         if advection
             # scheme
             if current_i == 1
-                Convu .+= Cui
-                Convv .+= Cvi
+                convection_u .+= Cui
+                convection_v .+= Cvi
             else
-                Convu .+= 1.5 .* Cui .- 0.5 .* Cum1 #Cui returned at the end of function to Cum1
-                Convv .+= 1.5 .* Cvi .- 0.5 .* Cvm1
+                convection_u .+= 1.5 .* Cui .- 0.5 .* Cum1 #Cui returned at the end of function to Cum1
+                convection_v .+= 1.5 .* Cvi .- 0.5 .* Cvm1
             end
         end
     else
-        Convu .= 0.0
-        Convv .= 0.0
+        convection_u .= 0.0
+        convection_v .= 0.0
 
     end
 
@@ -799,36 +814,6 @@ function solve_one_fluid_NS!(
 
     
 
-
-    if num.one_fluid_model == 1 
-        volumic_surface_tension_u = zeros(grid_u)
-        volumic_surface_tension_v = zeros(grid_v)
-
-        if num.surface_tension == 0
-            compute_surface_tension_VOF!(num,grid_p, grid_u, grid_v, opC_p, opC_u, opC_v, 
-            volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0)
-        elseif num.surface_tension == 1
-            compute_surface_tension_LS!(num,grid_p, grid_u, grid_v, opC_p, opC_u, opC_v, 
-            volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0)
-        end
-    end
-    
-    PDI_status = @ccall "libpdi".PDI_multi_expose("write_one_fluid_surface_tension_concise"::Cstring,
-    "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
-    # "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "grad_u"::Cstring, normal_and_dirac_u::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "grad_v"::Cstring, normal_and_dirac_v::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "curvature_p"::Cstring, curvature_p::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "curvature_u"::Cstring, curvature_u::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "curvature_v"::Cstring, curvature_v::Ptr{Cdouble}, PDI_OUT::Cint,
-    "volumic_surface_tension_u"::Cstring, volumic_surface_tension_u::Ptr{Cdouble}, PDI_OUT::Cint,
-    "volumic_surface_tension_v"::Cstring, volumic_surface_tension_v::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "normal_angle"::Cstring, grid_p.LS[iLSpdi].α::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "normal_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
-    # "normal_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
-    C_NULL::Ptr{Cvoid})::Cint
 
 
     # TODO PDI_multi_expose() #Cu u CUTCu
@@ -901,9 +886,10 @@ function solve_one_fluid_NS!(
 
     #TODO doc beta 
     if num.non_dimensionalize == 0
-        grav_x = g .* sin(β) .* opC_u.M * fones(grid_u)
-        grav_y = g .* cos(β) .* opC_v.M * fones(grid_v)
-        print("\n test gravity")
+        # grav_x = g .* sin(β) .* opC_u.M * fones(grid_u)
+        # grav_y = g .* cos(β) .* opC_v.M * fones(grid_v)
+        # print("\n test gravity")
+
         grav_x = fzeros(grid_u)
         grav_y = g .* opC_v.M * fones(grid_v)
 
@@ -935,7 +921,7 @@ function solve_one_fluid_NS!(
 
     rhs_uv[bulk_u_velocity] .-= τ .* grav_x #τ * rho_one_fluid_u .* grav_x
 
-    rhs_uv[bulk_u_velocity] .-= τ .* Convu #rho in Convu
+    rhs_uv[bulk_u_velocity] .-= τ .* convection_u #rho in convection_u
 
      PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
     "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
@@ -1005,9 +991,9 @@ function solve_one_fluid_NS!(
     "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
-    rhs_uv[bulk_v_velocity] .-= τ .* Convv
+    rhs_uv[bulk_v_velocity] .-= τ .* convection_v
 
-    conv_y = reshape(Convv,grid_v)
+    conv_y = reshape(convection_v,grid_v)
 
     grav_y_2D = reshape(grav_y,grid_v)
 
@@ -1080,11 +1066,30 @@ function solve_one_fluid_NS!(
 
 
     #region phase change
+    range_divergence = ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+nip
+
+    # if num.phase_change_method == 2 && num.phase_change_currently_activated == 1
+    #     rhs_uv[range_divergence] = vec(mass_transfer_rate * ( 1.0/num.rho1 - 1.0/num.rho2 ) )
+    #     # print("\n TODO sign factor divergence and Dirac and one sided, not a problem ?", range_divergence)
+    # elseif num.phase_change_method == 4 && num.phase_change_currently_activated == 1 #TODO
+    #     # iM = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,vec(geo[end].dcap[:,:,5])))
+
+    #     # rhs_uv[range_divergence] = vec(geo[end].dcap[:,:,5] * mass_transfer_rate * ( 1.0/num.rho1 - 1.0/num.rho2 ) )
+    #     # Dirac so intfc length
+    #     # print("\n opC_p.χ[1] * mass_transfer_rate ",opC_p.χ[1] * mass_transfer_rate)
+    #     # Dirac : opC_p.χ[1]/geo[end].dcap[:,:,5] so volume integrated intfc len * \dot m (1/rho-...)
+    #     # rhs_uv[range_divergence] = opC_p.χ[1] * vec( mass_transfer_rate * ( 1.0/num.rho1 - 1.0/num.rho2 ) )
+    #     rhs_uv[range_divergence] =  vec( mass_transfer_rate * ( 1.0/num.rho1 - 1.0/num.rho2 ) ) #opC_p.χ[1] in the redistribution
+
+    #     # II = CartesianIndex(3,37)
+    #     # pII =lexicographic(II,grid_p.ny)
+    #     # print("\n op.χ[1] NS",opC_p.χ[1].diag[pII])
+    # end
+
     if num.phase_change_currently_activated == 1
-        range_divergence = ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+nip
-        rhs_uv[range_divergence] = vec(mass_flux * ( 1.0/num.rho1 - 1.0/num.rho2 ) )
-        # print("\n TODO sign factor divergence and Dirac and one sided, not a problem ?", range_divergence)
+        rhs_uv[range_divergence] =  vec( mass_transfer_rate * ( 1.0/num.rho1 - 1.0/num.rho2 ) )
     end
+
     #endregion phase change
 
     NS_force_y = reshape(-grav_y .-ph.Gym1 ./ vec(rho_one_fluid_v),grid_v)
@@ -1452,10 +1457,10 @@ function solve_one_fluid_NS!(
         #TODO Marangoni
         #TODO phase change
         # diff_inv_rho = 1.0/rho1 - 1.0/rho2
-        # jump_mass_flux = 0.0 #TODO
+        # jump_mass_transfer_rate = 0.0 #TODO
 
         #region cut-cell
-        # if jump_mass_flux
+        # if jump_mass_transfer_rate
         #     for iLS in 1:nLS
         #         if is_fs(bc_int[iLS])
         #             Smat = strain_rate(iLS, opC_u, opC_v, opC_p)
@@ -1463,7 +1468,7 @@ function solve_one_fluid_NS!(
         #                 Smat[2,1] * vec1(vcorrD,grid_v) .+ Smat[2,2] * veci(vcorrD,grid_v,iLS+1)
         
         #             fs_mat = opC_p.HxT[iLS] * opC_p.Hx[iLS] .+ opC_p.HyT[iLS] * opC_p.Hy[iLS]
-        #             veci(rhs_phi,grid_p,iLS+1) .= -2.0 .* mu1_over_rho1 .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid_p.LS[iLS].κ) .- pres_free_suface .- diff_inv_rho * mass_flux ^ 2)
+        #             veci(rhs_phi,grid_p,iLS+1) .= -2.0 .* mu1_over_rho1 .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid_p.LS[iLS].κ) .- pres_free_suface .- diff_inv_rho * mass_transfer_rate ^ 2)
         #         end
         #     end
         # else
@@ -1806,7 +1811,7 @@ function solve_one_fluid_NS!(
         ph.p .= reshape(vec1(ph.pD,grid_p), grid_p)
 
         corr_p = ph.p[grid_p.ny,1]
-        print("\n corr_p",corr_p)
+        print("\n corr_p ",corr_p)
         ph.p .-= corr_p
         vec1(ph.pD,grid_p) .= vec(ph.p)
         #endregion correct pressure with top corner value (pressure known at a constant from NS)
@@ -1969,18 +1974,18 @@ function solve_one_fluid_NS!(
     #endregion end coupled
 
     #region check_acceleration
-    printstyled(color=:red, @sprintf "\n Check acceleration \n")
+    # printstyled(color=:red, @sprintf "\n Check acceleration \n")
 
-    rho_l = 1000.0
-    rho_g = 100.0
-    g = 9.81e-1
-    print("\n accel ", 2*(rho_l-rho_g)/(rho_l+2*rho_g)*g)
+    # rho_l = 1000.0
+    # rho_g = 100.0
+    # g = 9.81e-1
+    # print("\n accel ", 2*(rho_l-rho_g)/(rho_l+2*rho_g)*g)
 
-    #v only, TODO interp and u
-    # acceleration = (ph.v.-v0)/num.τ
-    # display(acceleration)
+    # #v only, TODO interp and u
+    # # acceleration = (ph.v.-v0)/num.τ
+    # # display(acceleration)
     
-    printstyled(color=:red, @sprintf "\n Check acceleration \n")
+    # printstyled(color=:red, @sprintf "\n Check acceleration \n")
 
     # print("\n opv.M ",opC_v.M[1,:])
 
@@ -1991,6 +1996,14 @@ function solve_one_fluid_NS!(
 
 
     #endregion check_acceleration
+
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("check_NS_end"::Cstring,
+    "u_1D"::Cstring, ph.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "v_1D"::Cstring, ph.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "stop_simulation"::Cstring, num.stop_simulation::Ref{Clonglong}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
 
 
     return Lp, bc_Lp, bc_Lp_b, Lu, diffusion_LS_u, diffusion_border_u, Lv, diffusion_LS_v, diffusion_border_v, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
@@ -2060,36 +2073,21 @@ function set_Forward_Euler_one_fluid!(
     opC_p, opC_u, opC_v, BC_p, BC_u, BC_v,
     Au, Bu, Av, Bv, A_phi,rhs_phi, Auv, Buv,
     volume_fraction,rho_one_fluid_u,rho_one_fluid_v,
-    mass_flux,
+    mass_transfer_rate,
+    viscosity_coeff_for_du_dx ,
+    viscosity_coeff_for_du_dy ,
+    viscosity_coeff_for_dv_dx ,
+    viscosity_coeff_for_dv_dy,
     Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
     Mum1, Mvm1, op_conv, ph,
     periodic_x, periodic_y, advection, ls_advection, navier,rhs_uv = nothing)
 
-
-    #region update LS for convection (bool=true)+ one fluid
-
-    # At every iteration, update_all_ls_data is called twice, once inside run.jl and another one (if there's advection of the levelset) inside set_heat!. The difference between both is a flag as last argument, inside run.jl is implicitly defined as true and inside set_heat! is false. If you're calling your version of set_heat! several times, then you're calling the version with the flag set to false, but for the convective term it has to be set to true.
-
-    # The flag=true, the capacities are set for the convection, the flag=false they are set for the other operators
-
-    if advection
-        update_all_ls_data(num, grid_p, grid_u, grid_v, bc_int, periodic_x, periodic_y, true)
-
-        set_convection!(num, grid_p, geo[end], grid_u, grid_u.LS, grid_v, grid_v.LS, ph.u, ph.v, op_conv, ph, BC_u, BC_v,opC_p, opC_u, opC_v)
-    end
-
-    #endregion
-
     if ls_advection
-        update_all_ls_data(num, grid_p, grid_u, grid_v, bc_int, periodic_x, periodic_y, false)
 
         laps = set_matrices!(
             num, grid_p, geo, grid_u, geo_u, grid_v, geo_v,
             opC_p, opC_u, opC_v,
-            periodic_x, periodic_y
-        )
-
-     
+            periodic_x, periodic_y )
 
         # print("\n iMu",opC_u.M.diag)
         # print("\n iMv",opC_v.M.diag)
@@ -2167,7 +2165,7 @@ function set_Forward_Euler_one_fluid!(
 
     #region Viscosity coefficient for \frac{\partial u}{\partial x}
     #cf test in orientation.jl
-    viscosity_coeff_for_du_dx = zeros(grid_u.ny,grid_u.nx+1)
+    # viscosity_coeff_for_du_dx = zeros(grid_u.ny,grid_u.nx+1)
     viscosity_coeff_for_du_dx[:,2:grid_u.nx] = volume_fraction #grid_p.LS[end].geoL.cap[:,:,5]
 
     #TODO contact angle change  viscosity_coeff_for_du_dx[:,1] and at end (not interpolating right now)
@@ -2202,8 +2200,8 @@ function set_Forward_Euler_one_fluid!(
     #region Viscosity coefficient for \frac{\partial u}{\partial y}
 
 
-    viscosity_coeff_for_du_dy = zeros(grid_u.ny+1,grid_u.nx)
-    viscosity_coeff_for_dv_dx = zeros(grid_v.ny,grid_v.nx+1)
+    # viscosity_coeff_for_du_dy = zeros(grid_u.ny+1,grid_u.nx)
+    # viscosity_coeff_for_dv_dx = zeros(grid_v.ny,grid_v.nx+1)
 
 
     #region interpolate 
@@ -2301,7 +2299,7 @@ function set_Forward_Euler_one_fluid!(
 
     #region Viscosity coefficient for \frac{\partial v}{\partial y}
     #cf test in orientation.jl
-    viscosity_coeff_for_dv_dy = zeros(grid_v.ny+1,grid_v.nx)
+    # viscosity_coeff_for_dv_dy = zeros(grid_v.ny+1,grid_v.nx)
 
     viscosity_coeff_for_dv_dy[2:grid_v.ny,:] = volume_fraction #grid_p.LS[end].geoL.cap[:,:,5]
 
@@ -2606,7 +2604,7 @@ function set_Forward_Euler_one_fluid!(
             diffusion_bulk_v, diffusion_LS_v, diffusion_border_v, Mvm1, BC_v,
             cross_term_diffusion_bulk_d_dv_dx_dy,cross_term_diffusion_bulk_d_du_dy_dx,
             cross_term_diffusion_bulk_d_dv_dx_dy_border,cross_term_diffusion_bulk_d_du_dy_dx_border,rho_one_fluid_u,rho_one_fluid_v,
-            mass_flux,
+            mass_transfer_rate,
             ls_advection,BC_p,ph
         )
 
@@ -2727,7 +2725,7 @@ function set_Forward_Euler_one_fluid!(
             diffusion_bulk_v, diffusion_LS_v, diffusion_border_v, Mvm1, BC_v,
             cross_term_diffusion_bulk_d_dv_dx_dy,cross_term_diffusion_bulk_d_du_dy_dx,
             cross_term_diffusion_bulk_d_dv_dx_dy_border,cross_term_diffusion_bulk_d_du_dy_dx_border,rho_one_fluid_u,rho_one_fluid_v,
-            mass_flux,
+            mass_transfer_rate,
             ls_advection,BC_p,ph
         )
         else
@@ -2753,7 +2751,7 @@ end
 
 
 # compute_grad_...
-# mass_flux...
+# mass_transfer_rate...
 # -sigma kappa noru (noru grad c contains dirac)
 
 
@@ -2796,7 +2794,7 @@ function FE_set_momentum_coupled2_one_fluid(
     cross_term_diffusion_bulk_d_dv_dx_dy,cross_term_diffusion_bulk_d_du_dy_dx,
     cross_term_diffusion_bulk_d_dv_dx_dy_border,cross_term_diffusion_bulk_d_du_dy_dx_border,
     rho_one_fluid_u,rho_one_fluid_v,
-    mass_flux,
+    mass_transfer_rate,
     ls_advection::Bool,
     BCp,ph=nothing
     )
@@ -3815,31 +3813,31 @@ function set_convection_with_rho!(
     @unpack Cu, CUTCu, Cv, CUTCv = op
     @unpack uD, vD = ph
 
-    Du_x = zeros(grid_u)
-    Du_y = zeros(grid_u)
+    velocity_and_BC_convection_u_x = zeros(grid_u)
+    velocity_and_BC_convection_u_y = zeros(grid_u)
 
     for iLS in 1:num.nLS
-        Du_x[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED] #TODO PmIII
-        Du_y[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
+        velocity_and_BC_convection_u_x[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED] #TODO PmIII
+        velocity_and_BC_convection_u_y[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
     end
 
-    Du_x[:,1] .= vecb_L(uD,grid_u) 
-    Du_y[1,:] .= vecb_B(uD,grid_u)
-    Du_x[:,end] .= vecb_R(uD,grid_u)
-    Du_y[end,:] .= vecb_T(uD,grid_u)
+    velocity_and_BC_convection_u_x[:,1] .= vecb_L(uD,grid_u) 
+    velocity_and_BC_convection_u_y[1,:] .= vecb_B(uD,grid_u)
+    velocity_and_BC_convection_u_x[:,end] .= vecb_R(uD,grid_u)
+    velocity_and_BC_convection_u_y[end,:] .= vecb_T(uD,grid_u)
 
-    Dv_x = zeros(grid_v)
-    Dv_y = zeros(grid_v)
+    velocity_and_BC_convection_v_x = zeros(grid_v)
+    velocity_and_BC_convection_v_y = zeros(grid_v)
 
     for iLS in 1:num.nLS
-        Dv_x[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED] #TODO PmIII
-        Dv_y[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
+        velocity_and_BC_convection_v_x[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED] #TODO PmIII
+        velocity_and_BC_convection_v_y[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
     end
    
-    Dv_x[:,1] .= vecb_L(vD,grid_v)
-    Dv_y[1,:] .= vecb_B(vD,grid_v)
-    Dv_x[:,end] .= vecb_R(vD,grid_v)
-    Dv_y[end,:] .= vecb_T(vD,grid_v)
+    velocity_and_BC_convection_v_x[:,1] .= vecb_L(vD,grid_v)
+    velocity_and_BC_convection_v_y[1,:] .= vecb_B(vD,grid_v)
+    velocity_and_BC_convection_v_x[:,end] .= vecb_R(vD,grid_v)
+    velocity_and_BC_convection_v_y[end,:] .= vecb_T(vD,grid_v)
 
     if num.prediction == "PmIII" #cf Brown 2001, BC are to be corrected (intermediate step)
         # and we first consider boundary conditions
@@ -3864,10 +3862,10 @@ function set_convection_with_rho!(
         # print("\n dt ", num.τ)
         dt = num.τ
 
-        Du_y[1,:] .+= dt* grad_x[1,:] #vecb_B(uD,grid_u) + 
-        Du_y[end,:] .+= dt* grad_x[end,:] #vecb_T(uD,grid_u) + 
-        Dv_x[:,1] .+= dt* grad_y[:,1] #vecb_L(vD,grid_v) +
-        Dv_x[:,end] .+= dt* grad_y[:,end] #vecb_R(vD,grid_v) + 
+        velocity_and_BC_convection_u_y[1,:] .+= dt* grad_x[1,:] #vecb_B(uD,grid_u) + 
+        velocity_and_BC_convection_u_y[end,:] .+= dt* grad_x[end,:] #vecb_T(uD,grid_u) + 
+        velocity_and_BC_convection_v_x[:,1] .+= dt* grad_y[:,1] #vecb_L(vD,grid_v) +
+        velocity_and_BC_convection_v_x[:,end] .+= dt* grad_y[:,end] #vecb_R(vD,grid_v) + 
         
         # ∇ϕ_x .= 0.0
         # ∇ϕ_y .= 0.0
@@ -3876,28 +3874,28 @@ function set_convection_with_rho!(
 
 
 
-    # Du_x .= reshape(vec1(uD,grid_u), grid_u)
-    # Du_y .= reshape(vec1(uD,grid_u), grid_u)
+    # velocity_and_BC_convection_u_x .= reshape(vec1(uD,grid_u), grid_u)
+    # velocity_and_BC_convection_u_y .= reshape(vec1(uD,grid_u), grid_u)
 
-    # Du_x .= reshape(vec2(uD,grid_u), grid_u)
-    # Du_y .= reshape(vec2(uD,grid_u), grid_u)
+    # velocity_and_BC_convection_u_x .= reshape(vec2(uD,grid_u), grid_u)
+    # velocity_and_BC_convection_u_y .= reshape(vec2(uD,grid_u), grid_u)
 
-    # Du_x[:,2] .= u[:,2]
-    # Du_y[2,:] .= u[2,:]
+    # velocity_and_BC_convection_u_x[:,2] .= u[:,2]
+    # velocity_and_BC_convection_u_y[2,:] .= u[2,:]
 
-    # Du_x[:,end-1] .= u[:,end-1]
-    # Du_y[end-1,:] .= u[end-1,:]
+    # velocity_and_BC_convection_u_x[:,end-1] .= u[:,end-1]
+    # velocity_and_BC_convection_u_y[end-1,:] .= u[end-1,:]
 
-    # Dv_x .= reshape(vec1(vD,grid_v), grid_v)
-    # Dv_y .= reshape(vec1(vD,grid_v), grid_v)
+    # velocity_and_BC_convection_v_x .= reshape(vec1(vD,grid_v), grid_v)
+    # velocity_and_BC_convection_v_y .= reshape(vec1(vD,grid_v), grid_v)
 
-    # Dv_x .= reshape(vec2(vD,grid_v), grid_v)
-    # Dv_y .= reshape(vec2(vD,grid_v), grid_v)
+    # velocity_and_BC_convection_v_x .= reshape(vec2(vD,grid_v), grid_v)
+    # velocity_and_BC_convection_v_y .= reshape(vec2(vD,grid_v), grid_v)
 
-    # Dv_x[:,2] .= v[:,2]
-    # Dv_y[2,:] .= v[2,:]
-    # Dv_x[:,end-1] .= v[:,end-1]
-    # Dv_y[end-1,:] .= v[end-1,:]
+    # velocity_and_BC_convection_v_x[:,2] .= v[:,2]
+    # velocity_and_BC_convection_v_y[2,:] .= v[2,:]
+    # velocity_and_BC_convection_v_x[:,end-1] .= v[:,end-1]
+    # velocity_and_BC_convection_v_y[end-1,:] .= v[end-1,:]
 
 
     # bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
@@ -3919,13 +3917,13 @@ function set_convection_with_rho!(
     #     end
     # end
 
-    # set_bc_bnds(dir, GridFCx, Du_x, Du_y, Dv_x, Dv_y, Hu, Hv, u, v, BC_u, BC_v)
-    # set_bc_bnds(dir, GridFCy, Dv_x, Dv_y, Du_x, Du_y, Hv, Hu, v, u, BC_v, BC_u)
+    # set_bc_bnds(dir, GridFCx, velocity_and_BC_convection_u_x, velocity_and_BC_convection_u_y, velocity_and_BC_convection_v_x, velocity_and_BC_convection_v_y, Hu, Hv, u, v, BC_u, BC_v)
+    # set_bc_bnds(dir, GridFCy, velocity_and_BC_convection_v_x, velocity_and_BC_convection_v_y, velocity_and_BC_convection_u_x, velocity_and_BC_convection_u_y, Hv, Hu, v, u, BC_v, BC_u)
 
-    # Du_x .= 0.0
-    # Du_y .= 0.0
-    # Dv_x .= 0.0
-    # Dv_y .= 0.0
+    # velocity_and_BC_convection_u_x .= 0.0
+    # velocity_and_BC_convection_u_y .= 0.0
+    # velocity_and_BC_convection_v_x .= 0.0
+    # velocity_and_BC_convection_v_y .= 0.0
 
 
     #compare with:
@@ -3941,10 +3939,10 @@ function set_convection_with_rho!(
 
     # Compute convection Cu, CUTCu, Cv, CUTCv
     # vector_convection_with_rho!
-    vector_convection!(dir, GridFCx, Cu, CUTCu, u, v, Du_x, Du_y, Dv_x, Dv_y,
+    vector_convection!(dir, GridFCx, Cu, CUTCu, u, v, velocity_and_BC_convection_u_x, velocity_and_BC_convection_u_y, velocity_and_BC_convection_v_x, velocity_and_BC_convection_v_y,
             geo.dcap, grid_p.nx, grid_p.ny, BC_u, grid_u.ind.inside,
             grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1])
-    vector_convection!(dir, GridFCy, Cv, CUTCv, u, v, Du_x, Du_y, Dv_x, Dv_y,
+    vector_convection!(dir, GridFCy, Cv, CUTCv, u, v, velocity_and_BC_convection_u_x, velocity_and_BC_convection_u_y, velocity_and_BC_convection_v_x, velocity_and_BC_convection_v_y,
             geo.dcap, grid_p.nx, grid_p.ny, BC_v, grid_v.ind.inside,
             grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1])
     
@@ -3956,10 +3954,10 @@ end
 """
     fills O and B
 """
-function vector_convection_with_rho!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, Du_x, Du_y, Dv_x, Dv_y, cap, n, ny, BC, inside, b_left, b_bottom, b_right, b_top)
+function vector_convection_with_rho!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, velocity_and_BC_convection_u_x, velocity_and_BC_convection_u_y, velocity_and_BC_convection_v_x, velocity_and_BC_convection_v_y, cap, n, ny, BC, inside, b_left, b_bottom, b_right, b_top)
     B .= 0.0
     @inbounds @threads for II in inside
-        fill_inside_conv!(GridFCx, O, B, u, v, Du_x, Dv_y, cap, ny, II)
+        fill_inside_conv!(GridFCx, O, B, u, v, velocity_and_BC_convection_u_x, velocity_and_BC_convection_v_y, cap, ny, II)
     end
 
     @inbounds @threads for II in vcat(b_left, b_bottom[2:end-1], b_right, b_top[2:end-1])
@@ -3967,14 +3965,14 @@ function vector_convection_with_rho!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, D
         @inbounds O[pII,pII] = 0.0
     end
     bnds = (b_left, b_bottom[2:end-1], b_top[2:end-1])
-    bc = ((Du_x, Dv_y), (Du_x, Dv_y), (Du_x, Dv_y))
+    bc = ((velocity_and_BC_convection_u_x, velocity_and_BC_convection_v_y), (velocity_and_BC_convection_u_x, velocity_and_BC_convection_v_y), (velocity_and_BC_convection_u_x, velocity_and_BC_convection_v_y))
     for (bnd, (Du, Dv)) in zip(bnds, bc)
         @inbounds @threads for II in bnd
             vec_convx_1!(II, O, B, u, Du, Dv, cap, ny)
         end
     end
     bnds = (b_bottom[2:end-1], b_right, b_top[2:end-1])
-    bc = ((Du_x, Dv_y), (Du_x, Dv_y), (Du_x, Dv_y))
+    bc = ((velocity_and_BC_convection_u_x, velocity_and_BC_convection_v_y), (velocity_and_BC_convection_u_x, velocity_and_BC_convection_v_y), (velocity_and_BC_convection_u_x, velocity_and_BC_convection_v_y))
     for (bnd, (Du, Dv)) in zip(bnds, bc)
         @inbounds @threads for II in bnd
             vec_convx_2!(II, O, B, u, Du, Dv, cap, ny)
@@ -4012,17 +4010,17 @@ function vector_convection_with_rho!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, D
             @inbounds O[pII,pII] += -0.5 * Au1
             @inbounds O[pII,pJJ] = -0.5 * Au1
 
-            @inbounds O[pII,pII] += -0.25 * (A3_1 - B1_1) * Du_x[II]
-            @inbounds O[pII,pII] += -0.25 * (B1_1 - A1_1) * Du_x[JJ]
+            @inbounds O[pII,pII] += -0.25 * (A3_1 - B1_1) * velocity_and_BC_convection_u_x[II]
+            @inbounds O[pII,pII] += -0.25 * (B1_1 - A1_1) * velocity_and_BC_convection_u_x[JJ]
 
-            @inbounds O[pII,pII] += -0.25 * (A4_1 - B2_1) * Dv_y[δy⁺(δx⁻(JJ))]
-            @inbounds O[pII,pII] += -0.25 * (B2_1 - A2_1) * Dv_y[δx⁻(JJ)]
+            @inbounds O[pII,pII] += -0.25 * (A4_1 - B2_1) * velocity_and_BC_convection_v_y[δy⁺(δx⁻(JJ))]
+            @inbounds O[pII,pII] += -0.25 * (B2_1 - A2_1) * velocity_and_BC_convection_v_y[δx⁻(JJ)]
 
-            @inbounds B[pII] += -0.25 * u[II] * (A3_1 - B1_1) * Du_x[II]
-            @inbounds B[pII] += -0.25 * u[II] * (B1_1 - A1_1) * Du_x[JJ]
+            @inbounds B[pII] += -0.25 * u[II] * (A3_1 - B1_1) * velocity_and_BC_convection_u_x[II]
+            @inbounds B[pII] += -0.25 * u[II] * (B1_1 - A1_1) * velocity_and_BC_convection_u_x[JJ]
 
-            @inbounds B[pII] += -0.25 * u[II] * (A4_1 - B2_1) * Dv_y[δy⁺(δx⁻(JJ))]
-            @inbounds B[pII] += -0.25 * u[II] * (B2_1 - A2_1) * Dv_y[δx⁻(JJ)]
+            @inbounds B[pII] += -0.25 * u[II] * (A4_1 - B2_1) * velocity_and_BC_convection_v_y[δy⁺(δx⁻(JJ))]
+            @inbounds B[pII] += -0.25 * u[II] * (B2_1 - A2_1) * velocity_and_BC_convection_v_y[δx⁻(JJ)]
         end
         @inbounds for (II, JJ) in zip(b_right, b_left)
             pII = lexicographic(II, ny)
@@ -4036,17 +4034,17 @@ function vector_convection_with_rho!(::Dirichlet, ::Type{GridFCx}, O, B, u, v, D
             @inbounds O[pII,pII] += 0.5 * Au3
             @inbounds O[pII,pJJ] = 0.5 * Au3
 
-            @inbounds O[pII,pII] += -0.25 * (A3_2 - B1_2) * Du_x[JJ]
-            @inbounds O[pII,pII] += -0.25 * (B1_2 - A1_2) * Du_x[II]
+            @inbounds O[pII,pII] += -0.25 * (A3_2 - B1_2) * velocity_and_BC_convection_u_x[JJ]
+            @inbounds O[pII,pII] += -0.25 * (B1_2 - A1_2) * velocity_and_BC_convection_u_x[II]
 
-            @inbounds O[pII,pII] += -0.25 * (A4_2 - B2_2) * Dv_y[δy⁺(δx⁻(II))]
-            @inbounds O[pII,pII] += -0.25 * (B2_2 - A2_2) * Dv_y[δx⁻(II)]
+            @inbounds O[pII,pII] += -0.25 * (A4_2 - B2_2) * velocity_and_BC_convection_v_y[δy⁺(δx⁻(II))]
+            @inbounds O[pII,pII] += -0.25 * (B2_2 - A2_2) * velocity_and_BC_convection_v_y[δx⁻(II)]
 
-            @inbounds B[pII] += -0.25 * u[II] * (A3_2 - B1_2) * Du_x[JJ]
-            @inbounds B[pII] += -0.25 * u[II] * (B1_2 - A1_2) * Du_x[II]
+            @inbounds B[pII] += -0.25 * u[II] * (A3_2 - B1_2) * velocity_and_BC_convection_u_x[JJ]
+            @inbounds B[pII] += -0.25 * u[II] * (B1_2 - A1_2) * velocity_and_BC_convection_u_x[II]
 
-            @inbounds B[pII] += -0.25 * u[II] * (A4_2 - B2_2) * Dv_y[δy⁺(δx⁻(II))]
-            @inbounds B[pII] += -0.25 * u[II] * (B2_2 - A2_2) * Dv_y[δx⁻(II)]
+            @inbounds B[pII] += -0.25 * u[II] * (A4_2 - B2_2) * velocity_and_BC_convection_v_y[δy⁺(δx⁻(II))]
+            @inbounds B[pII] += -0.25 * u[II] * (B2_2 - A2_2) * velocity_and_BC_convection_v_y[δx⁻(II)]
         end
     end
     if is_periodic(BC.bottom) && is_periodic(BC.top)
@@ -4173,8 +4171,8 @@ end
 - `B`: A vector used to store boundary conditions.
 - `u`: Velocity field in the x-direction.
 - `v`: Velocity field in the y-direction.
-- `Du_x`: 
-- `Dv_y`: 
+- `velocity_and_BC_convection_u_x`: 
+- `velocity_and_BC_convection_v_y`: 
 - `cap`: Capacities related to the convection terms.
 - `ny`: Number of grid_p points in the y-direction.
 - `inside`: Indices representing the interior grid_p points.
@@ -4190,10 +4188,10 @@ end
 - `lexicographic`: Converts a multi-dimensional index to a linear index.
 
 """
-function vector_convection_with_rho!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, Du_x, Du_y, Dv_x, Dv_y, cap, n, ny, BC, inside, b_left, b_bottom, b_right, b_top)
+function vector_convection_with_rho!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, velocity_and_BC_convection_u_x, velocity_and_BC_convection_u_y, velocity_and_BC_convection_v_x, velocity_and_BC_convection_v_y, cap, n, ny, BC, inside, b_left, b_bottom, b_right, b_top)
     B .= 0.0
     @inbounds @threads for II in inside
-        fill_inside_conv!(GridFCy, O, B, u, v, Du_x, Dv_y, cap, ny, II)
+        fill_inside_conv!(GridFCy, O, B, u, v, velocity_and_BC_convection_u_x, velocity_and_BC_convection_v_y, cap, ny, II)
     end
 
     @inbounds @threads for II in vcat(b_left, b_bottom[2:end-1], b_right, b_top[2:end-1])
@@ -4201,14 +4199,14 @@ function vector_convection_with_rho!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, D
         @inbounds O[pII,pII] = 0.0
     end
     bnds = (b_left[2:end-1], b_bottom, b_right[2:end-1])
-    bc = ((Du_x, Dv_y), (Du_x, Dv_y), (Du_x, Dv_y))
+    bc = ((velocity_and_BC_convection_u_x, velocity_and_BC_convection_v_y), (velocity_and_BC_convection_u_x, velocity_and_BC_convection_v_y), (velocity_and_BC_convection_u_x, velocity_and_BC_convection_v_y))
     for (bnd, (Du, Dv)) in zip(bnds, bc)
         @inbounds @threads for II in bnd
             vec_convy_1!(II, O, B, v, Du, Dv, cap, ny)
         end
     end
     bnds = (b_left[2:end-1], b_right[2:end-1], b_top)
-    bc = ((Du_x, Dv_y), (Du_x, Dv_y), (Du_x, Dv_y))
+    bc = ((velocity_and_BC_convection_u_x, velocity_and_BC_convection_v_y), (velocity_and_BC_convection_u_x, velocity_and_BC_convection_v_y), (velocity_and_BC_convection_u_x, velocity_and_BC_convection_v_y))
     for (bnd, (Du, Dv)) in zip(bnds, bc)
         @inbounds @threads for II in bnd
             vec_convy_2!(II, O, B, v, Du, Dv, cap, ny)
@@ -4246,17 +4244,17 @@ function vector_convection_with_rho!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, D
             @inbounds O[pII,pII] += -0.5 * Au2
             @inbounds O[pII,pJJ] = -0.5 * Au2
 
-            @inbounds O[pII,pII] += -0.25 * (A4_1 - B2_1) * Dv_y[II]
-            @inbounds O[pII,pII] += -0.25 * (B2_1 - A2_1) * Dv_y[JJ]
+            @inbounds O[pII,pII] += -0.25 * (A4_1 - B2_1) * velocity_and_BC_convection_v_y[II]
+            @inbounds O[pII,pII] += -0.25 * (B2_1 - A2_1) * velocity_and_BC_convection_v_y[JJ]
 
-            @inbounds O[pII,pII] += -0.25 * (A3_1 - B1_1) * Du_x[δx⁺(δy⁻(JJ))]
-            @inbounds O[pII,pII] += -0.25 * (B1_1 - A1_1) * Du_x[δy⁻(JJ)]
+            @inbounds O[pII,pII] += -0.25 * (A3_1 - B1_1) * velocity_and_BC_convection_u_x[δx⁺(δy⁻(JJ))]
+            @inbounds O[pII,pII] += -0.25 * (B1_1 - A1_1) * velocity_and_BC_convection_u_x[δy⁻(JJ)]
 
-            @inbounds B[pII] += -0.25 * v[II] * (A4_1 - B2_1) * Dv_y[II]
-            @inbounds B[pII] += -0.25 * v[II] * (B2_1 - A2_1) * Dv_y[JJ]
+            @inbounds B[pII] += -0.25 * v[II] * (A4_1 - B2_1) * velocity_and_BC_convection_v_y[II]
+            @inbounds B[pII] += -0.25 * v[II] * (B2_1 - A2_1) * velocity_and_BC_convection_v_y[JJ]
 
-            @inbounds B[pII] += -0.25 * v[II] * (A3_1 - B1_1) * Du_x[δx⁺(δy⁻(JJ))]
-            @inbounds B[pII] += -0.25 * v[II] * (B1_1 - A1_1) * Du_x[δy⁻(JJ)]
+            @inbounds B[pII] += -0.25 * v[II] * (A3_1 - B1_1) * velocity_and_BC_convection_u_x[δx⁺(δy⁻(JJ))]
+            @inbounds B[pII] += -0.25 * v[II] * (B1_1 - A1_1) * velocity_and_BC_convection_u_x[δy⁻(JJ)]
         end
         @inbounds for (II, JJ) in zip(b_top, b_bottom)
             pII = lexicographic(II, ny+1)
@@ -4270,17 +4268,17 @@ function vector_convection_with_rho!(::Dirichlet, ::Type{GridFCy}, O, B, u, v, D
             @inbounds O[pII,pII] += 0.5 * Au4
             @inbounds O[pII,pJJ] = 0.5 * Au4
 
-            @inbounds O[pII,pII] += -0.25 * (A4_2 - B2_2) * Dv_y[JJ]
-            @inbounds O[pII,pII] += -0.25 * (B2_2 - A2_2) * Dv_y[II]
+            @inbounds O[pII,pII] += -0.25 * (A4_2 - B2_2) * velocity_and_BC_convection_v_y[JJ]
+            @inbounds O[pII,pII] += -0.25 * (B2_2 - A2_2) * velocity_and_BC_convection_v_y[II]
 
-            @inbounds O[pII,pII] += -0.25 * (A3_2 - B1_2) * Du_x[δx⁺(δy⁻(II))]
-            @inbounds O[pII,pII] += -0.25 * (B1_2 - A1_2) * Du_x[δy⁻(II)]
+            @inbounds O[pII,pII] += -0.25 * (A3_2 - B1_2) * velocity_and_BC_convection_u_x[δx⁺(δy⁻(II))]
+            @inbounds O[pII,pII] += -0.25 * (B1_2 - A1_2) * velocity_and_BC_convection_u_x[δy⁻(II)]
 
-            @inbounds B[pII] += -0.25 * v[II] * (A4_2 - B2_2) * Dv_y[JJ]
-            @inbounds B[pII] += -0.25 * v[II] * (B2_2 - A2_2) * Dv_y[II]
+            @inbounds B[pII] += -0.25 * v[II] * (A4_2 - B2_2) * velocity_and_BC_convection_v_y[JJ]
+            @inbounds B[pII] += -0.25 * v[II] * (B2_2 - A2_2) * velocity_and_BC_convection_v_y[II]
 
-            @inbounds B[pII] += -0.25 * v[II] * (A3_2 - B1_2) * Du_x[δx⁺(δy⁻(II))]
-            @inbounds B[pII] += -0.25 * v[II] * (B1_2 - A1_2) * Du_x[δy⁻(II)]
+            @inbounds B[pII] += -0.25 * v[II] * (A3_2 - B1_2) * velocity_and_BC_convection_u_x[δx⁺(δy⁻(II))]
+            @inbounds B[pII] += -0.25 * v[II] * (B1_2 - A1_2) * velocity_and_BC_convection_u_x[δy⁻(II)]
         end
     end
     if is_periodic(BC.left) && is_periodic(BC.right)
@@ -5280,4 +5278,151 @@ function interpolate_interface_velocity!(ph,grid_u,grid_v)
     veci(ph.uD,grid_u,iLS+1) .= veci(ph.uD,grid_u,iLS) #phL.u
     veci(ph.vD,grid_v,iLS+1) .= veci(ph.vD,grid_v,iLS) #phL.v
 
+end
+
+
+
+
+"""
+uses vector_convection
+
+set BC
+"""
+function set_convection_preallocated!(
+    num, grid, geo, grid_u, LS_u, grid_v, LS_v,
+    u, v, op, ph, BC_u, BC_v,opC_p, opC_u, opC_v,
+    velocity_and_BC_convection_u_x ,
+    velocity_and_BC_convection_u_y ,
+    velocity_and_BC_convection_v_x ,
+    velocity_and_BC_convection_v_y ,
+    )
+    @unpack Cu, CUTCu, Cv, CUTCv = op
+    @unpack uD, vD = ph
+
+    # velocity_and_BC_convection_u_x = zeros(grid_u)
+    # velocity_and_BC_convection_u_y = zeros(grid_u)
+
+    for iLS in 1:num.nLS
+        velocity_and_BC_convection_u_x[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED] #TODO PmIII
+        velocity_and_BC_convection_u_y[LS_u[iLS].MIXED] .= reshape(veci(uD,grid_u,iLS+1), grid_u)[LS_u[iLS].MIXED]
+    end
+
+    velocity_and_BC_convection_u_x[:,1] .= vecb_L(uD,grid_u) 
+    velocity_and_BC_convection_u_y[1,:] .= vecb_B(uD,grid_u)
+    velocity_and_BC_convection_u_x[:,end] .= vecb_R(uD,grid_u)
+    velocity_and_BC_convection_u_y[end,:] .= vecb_T(uD,grid_u)
+
+    # velocity_and_BC_convection_v_x = zeros(grid_v)
+    # velocity_and_BC_convection_v_y = zeros(grid_v)
+
+    for iLS in 1:num.nLS
+        velocity_and_BC_convection_v_x[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED] #TODO PmIII
+        velocity_and_BC_convection_v_y[LS_v[iLS].MIXED] .= reshape(veci(vD,grid_v,iLS+1), grid_v)[LS_v[iLS].MIXED]
+    end
+   
+    velocity_and_BC_convection_v_x[:,1] .= vecb_L(vD,grid_v)
+    velocity_and_BC_convection_v_y[1,:] .= vecb_B(vD,grid_v)
+    velocity_and_BC_convection_v_x[:,end] .= vecb_R(vD,grid_v)
+    velocity_and_BC_convection_v_y[end,:] .= vecb_T(vD,grid_v)
+
+    if num.pressure_velocity_coupling == 0 && num.prediction == "PmIII" #cf Brown 2001
+        # and we first consider boundary conditions
+        # ```math
+        # \begin{align}
+        # \hat{\mathbf{n}} \cdot \mathbf{u}^*|_{\partial \Omega} &= \hat{\mathbf{n}} \cdot \mathbf{u}_b^{n+1} \\
+        # \hat{\mathbf{t}} \cdot \mathbf{u}^*|_{\partial \Omega} &= \hat{\mathbf{t}} \cdot (\mathbf{u}_b^{n+1} + \Delta t \nabla_h \phi^n)|_{\partial \Omega}.
+        # \end{align}
+        # ```
+        
+        #region Compute gradient
+        grad_x = zeros(grid_u)
+        grad_y = zeros(grid_v)
+        compute_grad_T_x_T_y_array_u_v_capacities!(num, grid, grid_u, grid_v, opC_u, opC_v, grad_x, grad_y, ph.pD)
+        #endregion Compute gradient
+
+        # printstyled(color=:red, @sprintf "\n grad min max x %.2e %.2e y %.2e %.2e\n" minimum(grd_x) maximum(grd_x) minimum(grd_y) maximum(grd_y))
+    
+        # printstyled(color=:red, @sprintf "\n set_convection B %.2e T %.2e L %.2e R %.2e\n" maximum(abs.(vecb_B(∇ϕ_x,grid_u))) maximum(abs.(vecb_T(∇ϕ_x,grid_u))) maximum(abs.(vecb_L(∇ϕ_y,grid_v))) maximum(abs.(vecb_R(∇ϕ_y,grid_v))))
+        # printstyled(color=:red, @sprintf "\n set_convection B %.2e T %.2e L %.2e R %.2e\n" maximum(grd_x[end,:]) maximum(grd_x[1,:]) maximum(grd_y[:,1]) maximum(grd_y[:,end]))
+
+        # print("\n dt ", num.τ)
+        dt = num.τ
+
+        velocity_and_BC_convection_u_y[1,:] .+= dt* grad_x[1,:] #vecb_B(uD,grid_u) + 
+        velocity_and_BC_convection_u_y[end,:] .+= dt* grad_x[end,:] #vecb_T(uD,grid_u) + 
+        velocity_and_BC_convection_v_x[:,1] .+= dt* grad_y[:,1] #vecb_L(vD,grid_v) +
+        velocity_and_BC_convection_v_x[:,end] .+= dt* grad_y[:,end] #vecb_R(vD,grid_v) + 
+        
+        # ∇ϕ_x .= 0.0
+        # ∇ϕ_y .= 0.0
+
+    end
+
+
+
+    # velocity_and_BC_convection_u_x .= reshape(vec1(uD,grid_u), grid_u)
+    # velocity_and_BC_convection_u_y .= reshape(vec1(uD,grid_u), grid_u)
+
+    # velocity_and_BC_convection_u_x .= reshape(vec2(uD,grid_u), grid_u)
+    # velocity_and_BC_convection_u_y .= reshape(vec2(uD,grid_u), grid_u)
+
+    # velocity_and_BC_convection_u_x[:,2] .= u[:,2]
+    # velocity_and_BC_convection_u_y[2,:] .= u[2,:]
+
+    # velocity_and_BC_convection_u_x[:,end-1] .= u[:,end-1]
+    # velocity_and_BC_convection_u_y[end-1,:] .= u[end-1,:]
+
+    # velocity_and_BC_convection_v_x .= reshape(vec1(vD,grid_v), grid_v)
+    # velocity_and_BC_convection_v_y .= reshape(vec1(vD,grid_v), grid_v)
+
+    # velocity_and_BC_convection_v_x .= reshape(vec2(vD,grid_v), grid_v)
+    # velocity_and_BC_convection_v_y .= reshape(vec2(vD,grid_v), grid_v)
+
+    # velocity_and_BC_convection_v_x[:,2] .= v[:,2]
+    # velocity_and_BC_convection_v_y[2,:] .= v[2,:]
+    # velocity_and_BC_convection_v_x[:,end-1] .= v[:,end-1]
+    # velocity_and_BC_convection_v_y[end-1,:] .= v[end-1,:]
+
+
+    # bnds_u = [grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1]]
+    # bnds_v = [grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1]]
+    # Δu = [grid_u.dx[1,1] * 0.25, grid_u.dy[1,1] * 0.5, grid_u.dx[end,end] * 0.25, grid_u.dy[end,end] * 0.5]
+    # Δv = [grid_v.dx[1,1] * 0.5, grid_v.dy[1,1] * 0.25, grid_v.dx[end,end] * 0.5, grid_v.dy[end,end] * 0.25]
+
+    # Hu = zeros(grid_u)
+    # for i in eachindex(bnds_u)
+    #     for II in bnds_u[i]
+    #         Hu[II] = Δu[i]
+    #     end
+    # end
+
+    # Hv = zeros(grid_v)
+    # for i in eachindex(bnds_v)
+    #     for II in bnds_v[i]
+    #         Hv[II] = Δv[i]
+    #     end
+    # end
+
+    # set_bc_bnds(dir, GridFCx, velocity_and_BC_convection_u_x, velocity_and_BC_convection_u_y, velocity_and_BC_convection_v_x, velocity_and_BC_convection_v_y, Hu, Hv, u, v, BC_u, BC_v)
+    # set_bc_bnds(dir, GridFCy, velocity_and_BC_convection_v_x, velocity_and_BC_convection_v_y, velocity_and_BC_convection_u_x, velocity_and_BC_convection_u_y, Hv, Hu, v, u, BC_v, BC_u)
+
+    # velocity_and_BC_convection_u_x .= 0.0
+    # velocity_and_BC_convection_u_y .= 0.0
+    # velocity_and_BC_convection_v_x .= 0.0
+    # velocity_and_BC_convection_v_y .= 0.0
+
+    vector_convection!(dir, GridFCx, Cu, CUTCu, u, v, velocity_and_BC_convection_u_x, velocity_and_BC_convection_u_y, velocity_and_BC_convection_v_x, velocity_and_BC_convection_v_y,
+            geo.dcap, grid.nx, grid.ny, BC_u, grid_u.ind.inside,
+            grid_u.ind.b_left[1], grid_u.ind.b_bottom[1], grid_u.ind.b_right[1], grid_u.ind.b_top[1])
+    vector_convection!(dir, GridFCy, Cv, CUTCv, u, v, velocity_and_BC_convection_u_x, velocity_and_BC_convection_u_y, velocity_and_BC_convection_v_x, velocity_and_BC_convection_v_y,
+            geo.dcap, grid.nx, grid.ny, BC_v, grid_v.ind.inside,
+            grid_v.ind.b_left[1], grid_v.ind.b_bottom[1], grid_v.ind.b_right[1], grid_v.ind.b_top[1])
+
+    # printstyled(color=:red, @sprintf "\n set convection inside ")
+
+    # print("inside v ",grid_v.ind.inside)
+
+    # display(geo.dcap)
+
+    return nothing
 end

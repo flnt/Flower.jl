@@ -130,7 +130,7 @@ flower:
     laplacian: 0 #1 #1 #1 #multiply by 4/3
     marching_squares_epsilon: 1.0e-9
     marching_squares_max_iter: 15
-    mass_flux: 2 #1 #Johansen & Colella
+    mass_transfer_rate: 2 #1 #Johansen & Colella
     mode_2d: 3
     # mode_2d = 1 #use equivalent cylinder
     # mode_2d = 2 #mol/meter 
@@ -1900,13 +1900,13 @@ plot: #default parameters for plots
         linewidth: 1
         linestyle: None
 
-      # - var: mass_flux_border
+      # - var: mass_transfer_rate_border
       #   func: plot_python_pdf_full2
-      #   file: mass_flux_zoom_border
+      #   file: mass_transfer_rate_zoom_border
       #   figsize: None
       #   aspect_box: 'box'
       #   aspect_ratio: 'equal'
-      #   cbarlabel: Mass flux
+      #   cbarlabel: Mass transfer rate
       #   fontsize: 4
       #   isocontour: False
       #   levels: 10
@@ -1930,13 +1930,13 @@ plot: #default parameters for plots
       #   linewidth: 1
       #   linestyle: None
 
-      # - var: mass_flux_intfc
+      # - var: mass_transfer_rate_intfc
       #   func: plot_python_pdf_full2
-      #   file: mass_flux_zoom_intfc
+      #   file: mass_transfer_rate_zoom_intfc
       #   figsize: None
       #   aspect_box: 'box'
       #   aspect_ratio: 'equal'
-      #   cbarlabel: Mass flux
+      #   cbarlabel: Mass transfer rate
       #   fontsize: 4
       #   isocontour: False
       #   levels: 10
@@ -1960,13 +1960,13 @@ plot: #default parameters for plots
       #   linewidth: 1
       #   linestyle: None
 
-      # - var: mass_flux_bulk
+      # - var: mass_transfer_rate_bulk
       #   func: plot_python_pdf_full2
-      #   file: mass_flux_zoom_bulk
+      #   file: mass_transfer_rate_zoom_bulk
       #   figsize: None
       #   aspect_box: 'box'
       #   aspect_ratio: 'equal'
-      #   cbarlabel: Mass flux
+      #   cbarlabel: Mass transfer rate
       #   fontsize: 4
       #   isocontour: False
       #   levels: 10
@@ -1990,13 +1990,13 @@ plot: #default parameters for plots
       #   linewidth: 1
       #   linestyle: None
 
-      # - var: mass_flux
+      # - var: mass_transfer_rate
       #   func: plot_python_pdf_full2
-      #   file: mass_flux_zoom
+      #   file: mass_transfer_rate_zoom
       #   figsize: None
       #   aspect_box: 'box'
       #   aspect_ratio: 'equal'
-      #   cbarlabel: Mass flux
+      #   cbarlabel: Mass transfer rate
       #   fontsize: 4
       #   isocontour: False
       #   levels: 10
@@ -2132,9 +2132,9 @@ plot: #default parameters for plots
           y_1D_2 = yv
           key_LS_2 = 'levelset_v'
 
-      # - var: mass_flux
-      #   file: mass_flux
-      #   cbarlabel: mass_flux
+      # - var: mass_transfer_rate
+      #   file: mass_transfer_rate
+      #   cbarlabel: mass_transfer_rate
       #   isocontour: False
       #   levels: 10
       #   plot_bc: True
@@ -2148,9 +2148,9 @@ plot: #default parameters for plots
       #   linewidth: 1
       #   linestyle: None
 
-      # - var: mass_flux
-      #   file: mass_flux_no_intfc
-      #   cbarlabel: mass_flux
+      # - var: mass_transfer_rate
+      #   file: mass_transfer_rate_no_intfc
+      #   cbarlabel: mass_transfer_rate
       #   isocontour: False
       #   levels: 10
       #   plot_bc: True
@@ -2252,13 +2252,13 @@ plot: #default parameters for plots
       #   linestyle: None
 
       #   #Zoom
-      # - var: mass_flux
+      # - var: mass_transfer_rate
       #   func: plot_python_pdf_full2
-      #   file: mass_flux_zoom_coord
+      #   file: mass_transfer_rate_zoom_coord
       #   figsize: None
       #   aspect_box: 'box'
       #   aspect_ratio: 'equal'
-      #   cbarlabel: Mass flux
+      #   cbarlabel: Mass transfer rate
       #   fontsize: 4
       #   isocontour: False
       #   levels: 10
@@ -2282,13 +2282,13 @@ plot: #default parameters for plots
       #   linewidth: 1
       #   linestyle: None
 
-      # - var: mass_flux
+      # - var: mass_transfer_rate
       #   func: plot_python_pdf_full2
-      #   file: mass_flux_zoom
+      #   file: mass_transfer_rate_zoom
       #   figsize: None
       #   aspect_box: 'box'
       #   aspect_ratio: 'equal'
-      #   cbarlabel: Mass flux
+      #   cbarlabel: Mass transfer rate
       #   fontsize: 4
       #   isocontour: False
       #   levels: 10
@@ -4151,10 +4151,10 @@ pdi:
     levelset_p_wall: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     velocity_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     velocity_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
-    mass_flux: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
-    mass_flux_bulk: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
-    mass_flux_border: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
-    mass_flux_intfc: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    mass_transfer_rate: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    mass_transfer_rate_bulk: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    mass_transfer_rate_border: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    mass_transfer_rate_intfc: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     normal_angle: { size: [ '$nx', '$ny' ], type: array, subtype: double } # angle to compute normal (cos,sin) in 2D
     normal_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } # angle to compute normal (cos,sin) in 2D
     normal_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } # angle to compute normal (cos,sin) in 2D
@@ -6164,14 +6164,14 @@ pdi:
       #write mass flux used in phase change
       - file: flower_${nstep:08}.h5 
         collision_policy: write_into
-        on_event: write_mass_flux
+        on_event: write_mass_transfer_rate
         # datasets: #Dataset we are writing in: the whole solution
         #   data:
         #     type: array
         #     subtype: double
         #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
         # when: #"$nstep%50 = 0"
-        write: [mass_flux,mass_flux_bulk,mass_flux_border,mass_flux_intfc]
+        write: [mass_transfer_rate,mass_transfer_rate_bulk,mass_transfer_rate_border,mass_transfer_rate_intfc]
 
       # - file: flower_${nstep:08}.h5 
       #   collision_policy: write_into

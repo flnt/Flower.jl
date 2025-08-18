@@ -627,7 +627,7 @@ end
 """
 compute the average in specified cells 
 """
-function compute_interface_average(scalar_1D_vec, grid, iLS)
+function compute_interface_average(num,scalar_1D_vec, grid, iLS)
     min_scal = 0.0
     max_scal = 0.0
     average = 0.0
@@ -637,38 +637,73 @@ function compute_interface_average(scalar_1D_vec, grid, iLS)
     index = iLS+1
 
 
+        # @inbounds for II in grid.LS[iLS].MIXED
+        # # print("\n II update ",II, grid.LS[end].u[II], " iso end ",grid.LS[end].iso[II]," iso 1 ",grid.LS[1].iso[II])
+        # if grid.LS[end].iso[II] < 14.5 #15.0 -0.5 # check if inside domain defined by other LS 
+        # # if grid.LS[end].u[II]>0.0 # check if inside domain defined by other LS 
+        # # if grid.LS[2].u[II]>0.0 #second wall
+        #     # print("\n cells for free surface", II," x ",grid.x[II]," LS[iLS] ",grid.LS[iLS].u[II]," LS[end] ",grid.LS[end].u[II]," LS[2] ",grid.LS[2].u[II])
+        #     # grid.V[II] = mass_transfer_rate[II] * factor_velocity
+
+        #     num_mixed_cells += 1
+        #     # intfc_length_cell !=0 since mixed cell
+
+        
+
+        #     #compute interface length
+        #     χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
+        #     χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
+        #     intfc_length_cell = sqrt(χx + χy)
+
+        #     if intfc_length_cell > num.epsilon_dist_mass_transfer_rate
+
+
+
     @inbounds for II in grid.LS[iLS].MIXED
-        # if grid.LS[iLS].iso[II] < 14.5 #not solid (15) (i.e. liquid or mixed)
+
+        if grid.LS[iLS].iso[II] < 14.5 #not solid (15) (i.e. liquid or mixed)
+            χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
+            χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
+            intfc_length_cell = sqrt(χx + χy)
+
+            if intfc_length_cell > num.epsilon_dist_mass_transfer_rate
             
-            pII = lexicographic(II, grid.ny)
-            index_1D = grid.ny*grid.nx*(iLS) + pII
+                pII = lexicographic(II, grid.ny)
+                index_1D = grid.ny*grid.nx*(iLS) + pII
 
-            min_scal = scalar_1D_vec[index_1D]
-            max_scal = scalar_1D_vec[index_1D]
-            break
+                min_scal = scalar_1D_vec[index_1D]
+                max_scal = scalar_1D_vec[index_1D]
+                break
+            end
 
-        # end 
+        end 
     end
 
     @inbounds for II in grid.LS[iLS].MIXED
-        # if grid.LS[iLS].iso[II] < 14.5 #not solid (15) (i.e. liquid or mixed)
-            
+        if grid.LS[iLS].iso[II] < 14.5 #not solid (15) (i.e. liquid or mixed)
+            # if grid.LS[iLS].iso[II] < 14.5 #not solid (15) (i.e. liquid or mixed)
+            χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
+            χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
+            intfc_length_cell = sqrt(χx + χy)
 
-            # cf veci @view a[g.ny*g.nx*(p-1)+1:g.ny*g.nx*p]
-            
-            # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
-            pII = lexicographic(II, grid.ny)
+            if intfc_length_cell > num.epsilon_dist_mass_transfer_rate
 
-            # index_1D = grid.ny*grid.nx*(index-1) + pII
-            index_1D = grid.ny*grid.nx*(iLS) + pII
+                # cf veci @view a[g.ny*g.nx*(p-1)+1:g.ny*g.nx*p]
+                
+                # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
+                pII = lexicographic(II, grid.ny)
 
-            min_scal = min(min_scal,scalar_1D_vec[index_1D])
-            max_scal = max(max_scal,scalar_1D_vec[index_1D])
+                # index_1D = grid.ny*grid.nx*(index-1) + pII
+                index_1D = grid.ny*grid.nx*(iLS) + pII
 
-            average += scalar_1D_vec[index_1D]
-            count += 1
+                min_scal = min(min_scal,scalar_1D_vec[index_1D])
+                max_scal = max(max_scal,scalar_1D_vec[index_1D])
 
-        # end 
+                average += scalar_1D_vec[index_1D]
+                count += 1
+            end
+
+        end 
     end
 
     if count == 0 

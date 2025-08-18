@@ -2801,3 +2801,49 @@ def plot_convergence_study_errors_from_pandas(df,mesh,physics,figpar,plotpar,col
                formatters={"name": str.upper},
 
                float_format="{:.2e}".format,))
+
+
+def get_time_data(figpar,h5_files):
+   # time_list =[]
+
+   # radius_list=[]
+
+   values = {}
+
+   for var_list in figpar['var']:
+      # print('var_list',var_list)
+      for var in var_list:
+         values[var] = []
+
+      # for files in h5_files:
+      files = h5_files[figpar['iter']]
+
+      files = glob.glob(files)
+
+      files = sorted(files)
+      print('h5_files',h5_files)
+
+      # print(files)
+
+      for file_name in files:
+
+         with h5py.File(file_name, "r") as file:
+
+            # print(file.keys())
+            try:
+               for var_list in figpar['var']:
+                  for var in var_list:
+                     value = file[var][()]
+                     values[var].append(value)
+                     # print('var',var,value)
+            except:
+               # print('variable not saved')
+               print(colored(var+' not saved','red'))
+
+
+   
+   # print(values)
+   varx_2 = values[figpar['var'][0][0]]
+   vary_2 = values[figpar['var'][0][1]]
+
+   return varx_2,vary_2

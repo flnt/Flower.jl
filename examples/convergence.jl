@@ -314,7 +314,7 @@ for timestep in timesteps
             scalar_bc = sim.scalar_bc,
             scalar_scheme = sim.scalar_scheme,
             solver = sim.solver,
-            mass_flux = sim.mass_flux,
+            mass_transfer_rate = sim.mass_transfer_rate,
             average_liquid_solid = sim.average_liquid_solid,
             index_phase_change = sim.index_phase_change,
             index_electrolyte = sim.index_electrolyte,
@@ -341,6 +341,10 @@ for timestep in timesteps
             marching_squares_max_iter = sim.marching_squares_max_iter,
             convection = sim.convection_mode,
             nucleation_time = phys.nucleation_time,
+            solve_potential = sim.solve_potential,
+            solve_species = sim.solve_species,
+            kill_dead_cells = sim.kill_dead_cells,
+            epsilon_volume_fraction_phase_change = sim.epsilon_volume_fraction_phase_change
             )
         Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
         @debug "After Numerical"

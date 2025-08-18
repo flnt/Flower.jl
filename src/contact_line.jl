@@ -151,7 +151,9 @@ function update_radius_from_contact_line(num,grid, u, BC)
             if d > 0.0 
                 printstyled(color=:magenta, @sprintf "\n distance between the center of the drop and the contact line %.2e R from volume LS end %.2e \n" d sqrt(2*volume(grid.LS[end].geoL)/π))
                 num.current_radius  = d
-                print("u[idx] ",u[idx])
+                # print("u[idx] ",u[idx])
+                print("\n abs(xy[pks1] + u[pks1] - (xy[pkse] + u[pkse]))", xy[pks1] ," ",xy[pkse]," ", u[pks1], " ", u[pkse])
+
             end 
         catch e 
             # print("\n no contact line found\n ")

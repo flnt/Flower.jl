@@ -57,17 +57,17 @@ opC_p.Hy_b: left: 0 , bottom: -dx, right: 0, top: +dx
 ```
 
 """
-function integrate_mass_flux_over_interface_3(num::Numerical{Float64, Int64},
+function integrate_mass_transfer_rate_over_interface_3(num::Numerical{Float64, Int64},
     grid::Mesh{Flower.GridCC, Float64, Int64},
     opC_pL::Operators{Float64, Int64}, 
     scalD::AbstractArray{Float64, 1},
-    mass_flux_vec1::Array{Float64, 1},
-    mass_flux_vecb::Array{Float64, 1}, 
-    mass_flux_veci::Array{Float64, 1},
-    mass_flux_vec1_2::Array{Float64, 2},
-    mass_flux_vecb_2::Array{Float64, 2},
-    mass_flux_veci_2::Array{Float64, 2},
-    mass_flux::Array{Float64, 2},
+    mass_transfer_rate_vec1::Array{Float64, 1},
+    mass_transfer_rate_vecb::Array{Float64, 1}, 
+    mass_transfer_rate_veci::Array{Float64, 1},
+    mass_transfer_rate_vec1_2::Array{Float64, 2},
+    mass_transfer_rate_vecb_2::Array{Float64, 2},
+    mass_transfer_rate_veci_2::Array{Float64, 2},
+    mass_transfer_rate::Array{Float64, 2},
     interface_id::Int64,
     )
 
@@ -78,28 +78,28 @@ function integrate_mass_flux_over_interface_3(num::Numerical{Float64, Int64},
     #TODO opC_p.HxT[iLStmp] everywhere
 
     # for iLS in 1:num.nLS
-    #     mass_flux_veci .+= opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
-    #     mass_flux_veci .+= opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+    #     mass_transfer_rate_veci .+= opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+    #     mass_transfer_rate_veci .+= opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
     # end
 
     #size (nx*ny)
-    mass_flux_vec1 .= 0.0 
-    mass_flux_vecb .= 0.0
-    mass_flux_veci .= 0.0
+    mass_transfer_rate_vec1 .= 0.0 
+    mass_transfer_rate_vecb .= 0.0
+    mass_transfer_rate_veci .= 0.0
     
     #size (ny,nx)
-    mass_flux .= 0.0
-    mass_flux_vec1_2 .= 0.0
-    mass_flux_vecb_2 .= 0.0
-    mass_flux_veci_2 .= 0.0
+    mass_transfer_rate .= 0.0
+    mass_transfer_rate_vec1_2 .= 0.0
+    mass_transfer_rate_vecb_2 .= 0.0
+    mass_transfer_rate_veci_2 .= 0.0
 
 
-    mass_flux_vec1   .= opC_p.HxT[interface_id] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[interface_id] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
-    mass_flux_vecb   .= opC_p.HxT[interface_id] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[interface_id] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+    mass_transfer_rate_vec1   .= opC_p.HxT[interface_id] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[interface_id] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
+    mass_transfer_rate_vecb   .= opC_p.HxT[interface_id] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[interface_id] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
 
     for iLS in 1:num.nLS
-        mass_flux_veci .+= opC_p.HxT[interface_id] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
-        mass_flux_veci .+= opC_p.HyT[interface_id] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+        mass_transfer_rate_veci .+= opC_p.HxT[interface_id] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+        mass_transfer_rate_veci .+= opC_p.HyT[interface_id] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
     end
 
     # printstyled(color=:red, @sprintf "\n vec1 x y %.2e %.2e \n" sum(opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid)) sum(opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)))
@@ -140,26 +140,26 @@ function integrate_mass_flux_over_interface_3(num::Numerical{Float64, Int64},
     # print("\n new test ", opC_p.ByT[iLStmp] * opC_p.iMy_b * opC_p.Hy_b * testvec)
 
 
-  # mass_flux = mass_flux_vec1 .+ mass_flux_vecb .+ mass_flux_veci
+  # mass_transfer_rate = mass_transfer_rate_vec1 .+ mass_transfer_rate_vecb .+ mass_transfer_rate_veci
 
-    # mass_flux_2 .= reshape(mass_flux,grid)
-    mass_flux_vec1_2 .= reshape(mass_flux_vec1,grid)
-    mass_flux_vecb_2 .= reshape(mass_flux_vecb,grid)
-    mass_flux_veci_2 .= reshape(mass_flux_veci,grid)
+    # mass_transfer_rate_2 .= reshape(mass_transfer_rate,grid)
+    mass_transfer_rate_vec1_2 .= reshape(mass_transfer_rate_vec1,grid)
+    mass_transfer_rate_vecb_2 .= reshape(mass_transfer_rate_vecb,grid)
+    mass_transfer_rate_veci_2 .= reshape(mass_transfer_rate_veci,grid)
 
-    mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
+    mass_transfer_rate .= mass_transfer_rate_vec1_2 .+ mass_transfer_rate_vecb_2 .+ mass_transfer_rate_veci_2
 
-    print("\n sum mass flux all levelsets (walls and interfaces alike) ", sum(mass_flux),"\n ")
+    print("\n sum mass flux all levelsets (walls and interfaces alike) ", sum(mass_transfer_rate),"\n ")
     
-    print("\n mass_flux ", sum(mass_flux),"\n ")
-    print("\n mass_flux_vec1_2 ", sum(mass_flux_vec1_2),"\n ")
-    print("\n mass_flux_vecb_2 ", sum(mass_flux_vecb_2),"\n ")
-    print("\n mass_flux_veci_2 ", sum(mass_flux_veci_2),"\n ")
+    print("\n mass_transfer_rate ", sum(mass_transfer_rate),"\n ")
+    print("\n mass_transfer_rate_vec1_2 ", sum(mass_transfer_rate_vec1_2),"\n ")
+    print("\n mass_transfer_rate_vecb_2 ", sum(mass_transfer_rate_vecb_2),"\n ")
+    print("\n mass_transfer_rate_veci_2 ", sum(mass_transfer_rate_veci_2),"\n ")
 
-    print("\n test mass flux  ", mass_flux[div(grid.ny,2),:],"\n")
-    print("\n test mass_flux_vec1_2", mass_flux_vec1_2[div(grid.ny,2),:],"\n")
-    print("\n test mass flux b", mass_flux_vecb_2[div(grid.ny,2),:],"\n")
-    print("\n test mass_flux_veci_2", mass_flux_veci_2[div(grid.ny,2),:],"\n")
+    print("\n test mass flux  ", mass_transfer_rate[div(grid.ny,2),:],"\n")
+    print("\n test mass_transfer_rate_vec1_2", mass_transfer_rate_vec1_2[div(grid.ny,2),:],"\n")
+    print("\n test mass flux b", mass_transfer_rate_vecb_2[div(grid.ny,2),:],"\n")
+    print("\n test mass_transfer_rate_veci_2", mass_transfer_rate_veci_2[div(grid.ny,2),:],"\n")
 
 
     # iplot = 1
@@ -168,8 +168,8 @@ function integrate_mass_flux_over_interface_3(num::Numerical{Float64, Int64},
     #     II = CartesianIndex(jplot, iplot) #(id_y, id_x)
     #     pII = lexicographic(II, grid.ny)
 
-    #     if mass_flux_vec1_2[II]>0
-    #         printstyled(color=:green, @sprintf "\n j %.5i m %.2e HxT %.2e\n" jplot mass_flux_vec1_2[II] opC_p.HxT[iLStmp][II])
+    #     if mass_transfer_rate_vec1_2[II]>0
+    #         printstyled(color=:green, @sprintf "\n j %.5i m %.2e HxT %.2e\n" jplot mass_transfer_rate_vec1_2[II] opC_p.HxT[iLStmp][II])
     #         printstyled(color=:red, @sprintf "\n iMx %.10e iMy %.10e \n" opC_p.iMy.diag[pII] opC_p.iMy.diag[pII] )
     #         print("\n B ", II," ",opC_p.Bx[pII,pII]," ",opC_p.BxT[pII,pII])
     #     end
@@ -181,7 +181,7 @@ function integrate_mass_flux_over_interface_3(num::Numerical{Float64, Int64},
     # jplot = 59
     # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
     # pII = lexicographic(II, grid.ny)
-    # printstyled(color=:magenta, @sprintf "\n j %.5i m %.2e HxT %.2e HyT %.2e Bx %.2e By %.2e iMx %.10e iMy %.10e\n" jplot mass_flux_vec1_2[II] opC_p.HxT[iLStmp][II] opC_p.HyT[iLStmp][II] opC_p.Bx[pII,pII] opC_p.By[pII,pII] opC_p.iMy.diag[pII] opC_p.iMy.diag[pII])
+    # printstyled(color=:magenta, @sprintf "\n j %.5i m %.2e HxT %.2e HyT %.2e Bx %.2e By %.2e iMx %.10e iMy %.10e\n" jplot mass_transfer_rate_vec1_2[II] opC_p.HxT[iLStmp][II] opC_p.HyT[iLStmp][II] opC_p.Bx[pII,pII] opC_p.By[pII,pII] opC_p.iMy.diag[pII] opC_p.iMy.diag[pII])
 
     ######################################################################################
 
@@ -196,23 +196,23 @@ function integrate_mass_flux_over_interface_3(num::Numerical{Float64, Int64},
     # χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
     # χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
     # #     χ[iLS].diag .= sqrt.(vec(χx .+ χy))
-    # radial_flux_surf = mass_flux_2 ./ sqrt.(vec(χx .+ χy))
-    # # radial_flux_surf = mass_flux_2 ./ χ[1]
+    # radial_flux_surf = mass_transfer_rate_2 ./ sqrt.(vec(χx .+ χy))
+    # # radial_flux_surf = mass_transfer_rate_2 ./ χ[1]
 
     # printstyled(color=:green, @sprintf "\n Radial flux: %.2e \n" radial_flux_surf)
 
     if num.io_pdi>0
-        printstyled(color=:magenta, @sprintf "\n PDI write_mass_flux %.5i \n" num.current_i)
+        printstyled(color=:magenta, @sprintf "\n PDI write_mass_transfer_rate %.5i \n" num.current_i)
         #nstep needs to be updated beforehand
-        @ccall "libpdi".PDI_multi_expose("write_mass_flux"::Cstring,
-        "mass_flux"::Cstring, mass_flux::Ptr{Cdouble}, PDI_OUT::Cint,
-        "mass_flux_bulk"::Cstring, mass_flux_vec1_2::Ptr{Cdouble}, PDI_OUT::Cint,
-        "mass_flux_border"::Cstring, mass_flux_vecb_2::Ptr{Cdouble}, PDI_OUT::Cint,
-        "mass_flux_intfc"::Cstring, mass_flux_veci_2::Ptr{Cdouble}, PDI_OUT::Cint,
+        @ccall "libpdi".PDI_multi_expose("write_mass_transfer_rate"::Cstring,
+        "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
+        "mass_transfer_rate_bulk"::Cstring, mass_transfer_rate_vec1_2::Ptr{Cdouble}, PDI_OUT::Cint,
+        "mass_transfer_rate_border"::Cstring, mass_transfer_rate_vecb_2::Ptr{Cdouble}, PDI_OUT::Cint,
+        "mass_transfer_rate_intfc"::Cstring, mass_transfer_rate_veci_2::Ptr{Cdouble}, PDI_OUT::Cint,
         C_NULL::Ptr{Cvoid})::Cvoid
     end #if num.io_pdi>0
      
-    print("\n sum mass flux ", sum(mass_flux),"\n ")
+    print("\n sum mass flux ", sum(mass_transfer_rate),"\n ")
 end
 
 
@@ -240,39 +240,39 @@ end
     opC_p.Hx_b: left: -dy (cell height along y), bottom: 0, right: +dy, top: 0
     opC_p.Hy_b: left: 0 , bottom: -dx, right: 0, top: +dx
 """
-function integrate_mass_flux_over_interface_3_no_writing(num::Numerical{Float64, Int64},
+function integrate_mass_transfer_rate_over_interface_3_no_writing(num::Numerical{Float64, Int64},
     grid::Mesh{Flower.GridCC, Float64, Int64},
     opC_pL::Operators{Float64, Int64}, 
     scalD::AbstractArray{Float64, 1},
-    mass_flux_vec1::Array{Float64, 1},
-    mass_flux_vecb::Array{Float64, 1}, 
-    mass_flux_veci::Array{Float64, 1},
-    mass_flux_vec1_2::Array{Float64, 2},
-    mass_flux_vecb_2::Array{Float64, 2},
-    mass_flux_veci_2::Array{Float64, 2},
-    mass_flux::Array{Float64, 2}
+    mass_transfer_rate_vec1::Array{Float64, 1},
+    mass_transfer_rate_vecb::Array{Float64, 1}, 
+    mass_transfer_rate_veci::Array{Float64, 1},
+    mass_transfer_rate_vec1_2::Array{Float64, 2},
+    mass_transfer_rate_vecb_2::Array{Float64, 2},
+    mass_transfer_rate_veci_2::Array{Float64, 2},
+    mass_transfer_rate::Array{Float64, 2}
     )
 
     opC_p = opC_pL
 
 
     #size (nx*ny)
-    mass_flux_vec1 .= 0.0 
-    mass_flux_vecb .= 0.0
-    mass_flux_veci .= 0.0
+    mass_transfer_rate_vec1 .= 0.0 
+    mass_transfer_rate_vecb .= 0.0
+    mass_transfer_rate_veci .= 0.0
     
     #size (ny,nx)
-    mass_flux .= 0.0
-    mass_flux_vec1_2 .= 0.0
-    mass_flux_vecb_2 .= 0.0
-    mass_flux_veci_2 .= 0.0
+    mass_transfer_rate .= 0.0
+    mass_transfer_rate_vec1_2 .= 0.0
+    mass_transfer_rate_vecb_2 .= 0.0
+    mass_transfer_rate_veci_2 .= 0.0
 
-    mass_flux_vec1   .= opC_p.BxT * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.ByT * opC_p.iMy * opC_p.By * vec1(scalD,grid)
-    mass_flux_vecb   .= opC_p.BxT * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.ByT *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
+    mass_transfer_rate_vec1   .= opC_p.BxT * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.ByT * opC_p.iMy * opC_p.By * vec1(scalD,grid)
+    mass_transfer_rate_vecb   .= opC_p.BxT * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.ByT *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
 
     for iLS in 1:num.nLS
-        mass_flux_veci .+= opC_p.BxT * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
-        mass_flux_veci .+= opC_p.ByT * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+        mass_transfer_rate_veci .+= opC_p.BxT * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+        mass_transfer_rate_veci .+= opC_p.ByT * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
     end
 
     # printstyled(color=:red, @sprintf "\n vec1 x y %.2e %.2e \n" sum(opC_p.BxT * opC_p.iMx * opC_p.Bx * vec1(scalD,grid)) sum(opC_p.ByT * opC_p.iMy * opC_p.By * vec1(scalD,grid)))
@@ -313,27 +313,27 @@ function integrate_mass_flux_over_interface_3_no_writing(num::Numerical{Float64,
     # print("\n new test ", opC_p.ByT * opC_p.iMy_b * opC_p.Hy_b * testvec)
 
 
-  # mass_flux = mass_flux_vec1 .+ mass_flux_vecb .+ mass_flux_veci
+  # mass_transfer_rate = mass_transfer_rate_vec1 .+ mass_transfer_rate_vecb .+ mass_transfer_rate_veci
 
-    # mass_flux_2 .= reshape(mass_flux,grid)
-    mass_flux_vec1_2 .= reshape(mass_flux_vec1,grid)
-    mass_flux_vecb_2 .= reshape(mass_flux_vecb,grid)
-    mass_flux_veci_2 .= reshape(mass_flux_veci,grid)
+    # mass_transfer_rate_2 .= reshape(mass_transfer_rate,grid)
+    mass_transfer_rate_vec1_2 .= reshape(mass_transfer_rate_vec1,grid)
+    mass_transfer_rate_vecb_2 .= reshape(mass_transfer_rate_vecb,grid)
+    mass_transfer_rate_veci_2 .= reshape(mass_transfer_rate_veci,grid)
 
-    mass_flux .= mass_flux_vec1_2 .+ mass_flux_vecb_2 .+ mass_flux_veci_2
+    mass_transfer_rate .= mass_transfer_rate_vec1_2 .+ mass_transfer_rate_vecb_2 .+ mass_transfer_rate_veci_2
 
-    print("\n sum mass flux all levelsets (walls and interfaces alike) ", sum(mass_flux),"\n ")
+    print("\n sum mass flux all levelsets (walls and interfaces alike) ", sum(mass_transfer_rate),"\n ")
     
-    print("\n mass_flux ", sum(mass_flux),"\n ")
-    print("\n mass_flux_vec1_2 ", sum(mass_flux_vec1_2),"\n ")
-    print("\n mass_flux_vecb_2 ", sum(mass_flux_vecb_2),"\n ")
-    print("\n mass_flux_veci_2 ", sum(mass_flux_veci_2),"\n ")
+    print("\n mass_transfer_rate ", sum(mass_transfer_rate),"\n ")
+    print("\n mass_transfer_rate_vec1_2 ", sum(mass_transfer_rate_vec1_2),"\n ")
+    print("\n mass_transfer_rate_vecb_2 ", sum(mass_transfer_rate_vecb_2),"\n ")
+    print("\n mass_transfer_rate_veci_2 ", sum(mass_transfer_rate_veci_2),"\n ")
 
 
-    print("\n test mass flux  ", mass_flux[div(grid.ny,2),:],"\n")
-    print("\n test mass_flux_vec1_2", mass_flux_vec1_2[div(grid.ny,2),:],"\n")
-    print("\n test mass flux b", mass_flux_vecb_2[div(grid.ny,2),:],"\n")
-    print("\n test mass_flux_veci_2", mass_flux_veci_2[div(grid.ny,2),:],"\n")
+    print("\n test mass flux  ", mass_transfer_rate[div(grid.ny,2),:],"\n")
+    print("\n test mass_transfer_rate_vec1_2", mass_transfer_rate_vec1_2[div(grid.ny,2),:],"\n")
+    print("\n test mass flux b", mass_transfer_rate_vecb_2[div(grid.ny,2),:],"\n")
+    print("\n test mass_transfer_rate_veci_2", mass_transfer_rate_veci_2[div(grid.ny,2),:],"\n")
 
     # iplot = 1
     # for jplot in 1:grid.ny
@@ -341,8 +341,8 @@ function integrate_mass_flux_over_interface_3_no_writing(num::Numerical{Float64,
     #     II = CartesianIndex(jplot, iplot) #(id_y, id_x)
     #     pII = lexicographic(II, grid.ny)
 
-    #     if mass_flux_vec1_2[II]>0
-    #         printstyled(color=:green, @sprintf "\n j %.5i m %.2e HxT %.2e\n" jplot mass_flux_vec1_2[II] opC_p.HxT[iLStmp][II])
+    #     if mass_transfer_rate_vec1_2[II]>0
+    #         printstyled(color=:green, @sprintf "\n j %.5i m %.2e HxT %.2e\n" jplot mass_transfer_rate_vec1_2[II] opC_p.HxT[iLStmp][II])
     #         printstyled(color=:red, @sprintf "\n iMx %.10e iMy %.10e \n" opC_p.iMy.diag[pII] opC_p.iMy.diag[pII] )
     #         print("\n B ", II," ",opC_p.Bx[pII,pII]," ",opC_p.BxT[pII,pII])
     #     end
@@ -354,7 +354,7 @@ function integrate_mass_flux_over_interface_3_no_writing(num::Numerical{Float64,
     # jplot = 59
     # II = CartesianIndex(jplot, iplot) #(id_y, id_x)
     # pII = lexicographic(II, grid.ny)
-    # printstyled(color=:magenta, @sprintf "\n j %.5i m %.2e HxT %.2e HyT %.2e Bx %.2e By %.2e iMx %.10e iMy %.10e\n" jplot mass_flux_vec1_2[II] opC_p.HxT[iLStmp][II] opC_p.HyT[iLStmp][II] opC_p.Bx[pII,pII] opC_p.By[pII,pII] opC_p.iMy.diag[pII] opC_p.iMy.diag[pII])
+    # printstyled(color=:magenta, @sprintf "\n j %.5i m %.2e HxT %.2e HyT %.2e Bx %.2e By %.2e iMx %.10e iMy %.10e\n" jplot mass_transfer_rate_vec1_2[II] opC_p.HxT[iLStmp][II] opC_p.HyT[iLStmp][II] opC_p.Bx[pII,pII] opC_p.By[pII,pII] opC_p.iMy.diag[pII] opC_p.iMy.diag[pII])
 
     ######################################################################################
 
@@ -369,12 +369,12 @@ function integrate_mass_flux_over_interface_3_no_writing(num::Numerical{Float64,
     # χx = (geo.dcap[:,:,3] .- geo.dcap[:,:,1]) .^ 2
     # χy = (geo.dcap[:,:,4] .- geo.dcap[:,:,2]) .^ 2
     # #     χ[iLS].diag .= sqrt.(vec(χx .+ χy))
-    # radial_flux_surf = mass_flux_2 ./ sqrt.(vec(χx .+ χy))
-    # # radial_flux_surf = mass_flux_2 ./ χ[1]
+    # radial_flux_surf = mass_transfer_rate_2 ./ sqrt.(vec(χx .+ χy))
+    # # radial_flux_surf = mass_transfer_rate_2 ./ χ[1]
 
     # printstyled(color=:green, @sprintf "\n Radial flux: %.2e \n" radial_flux_surf)
    
-    print("\n sum mass flux ", sum(mass_flux),"\n ")
+    print("\n sum mass flux ", sum(mass_transfer_rate),"\n ")
 end
 
 function compute_grad_T_x_T_y_array_test!(num_LS, grid, grid_u, grid_v, opC_p, grad_x, grad_y, TD)
@@ -589,10 +589,10 @@ gp.LS[1].u .= 1.0 #deactivate interface
 
 
 
-mass_flux_vec1 = fzeros(gp)
-mass_flux_vecb = fzeros(gp)
-mass_flux_veci = fzeros(gp)
-mass_flux = zeros(gp)
+mass_transfer_rate_vec1 = fzeros(gp)
+mass_transfer_rate_vecb = fzeros(gp)
+mass_transfer_rate_veci = fzeros(gp)
+mass_transfer_rate = zeros(gp)
 
 tmp_vec_p = zeros(gp)
 tmp_vec_p0 = zeros(gp)
@@ -601,42 +601,42 @@ tmp_vec_p1 = zeros(gp)
 
 @testset "Phase change: mass flux" begin
     phL.TD .= 1.0 
-    mass_flux_vec1 = fzeros(gp)
-    mass_flux_vecb = fzeros(gp)
-    mass_flux_veci = fzeros(gp)
-    mass_flux = zeros(gp)
+    mass_transfer_rate_vec1 = fzeros(gp)
+    mass_transfer_rate_vecb = fzeros(gp)
+    mass_transfer_rate_veci = fzeros(gp)
+    mass_transfer_rate = zeros(gp)
     # tmp_vec_p = zeros(gp)
     # tmp_vec_p0 = zeros(gp)
     # tmp_vec_p1 = zeros(gp)
 
 print("\n TODO check capacities \n")
-integrate_mass_flux_over_interface_2_no_writing(num,gp,op.opC_pL,phL.TD,mass_flux_vec1,mass_flux_vecb,mass_flux_veci,tmp_vec_p,tmp_vec_p0,tmp_vec_p1,mass_flux)
-# @test sum(mass_flux) == 0 
-@test sum(mass_flux) ≈ 0 atol=test_tolerance
+integrate_mass_transfer_rate_over_interface_2_no_writing(num,gp,op.opC_pL,phL.TD,mass_transfer_rate_vec1,mass_transfer_rate_vecb,mass_transfer_rate_veci,tmp_vec_p,tmp_vec_p0,tmp_vec_p1,mass_transfer_rate)
+# @test sum(mass_transfer_rate) == 0 
+@test sum(mass_transfer_rate) ≈ 0 atol=test_tolerance
 
 
-integrate_mass_flux_over_interface(num,gp,op.opC_pL,
+integrate_mass_transfer_rate_over_interface(num,gp,op.opC_pL,
 phL.TD,
-mass_flux_vec1,
-mass_flux_vecb,mass_flux_veci, tmp_vec_p, tmp_vec_p0, tmp_vec_p1, mass_flux,num.index_phase_change)
+mass_transfer_rate_vec1,
+mass_transfer_rate_vecb,mass_transfer_rate_veci, tmp_vec_p, tmp_vec_p0, tmp_vec_p1, mass_transfer_rate,num.index_phase_change)
 
-@test sum(mass_flux) ≈ 0 atol=test_tolerance
+@test sum(mass_transfer_rate) ≈ 0 atol=test_tolerance
 
 end #"Phase change: mass flux" begin
 
 # @testset "Phase change: mass flux old" begin
 #     phL.TD .= 1.0 
-#     mass_flux_vec1 = fzeros(gp)
-#     mass_flux_vecb = fzeros(gp)
-#     mass_flux_veci = fzeros(gp)
-#     mass_flux = zeros(gp)
+#     mass_transfer_rate_vec1 = fzeros(gp)
+#     mass_transfer_rate_vecb = fzeros(gp)
+#     mass_transfer_rate_veci = fzeros(gp)
+#     mass_transfer_rate = zeros(gp)
 #     # tmp_vec_p = zeros(gp)
 #     # tmp_vec_p0 = zeros(gp)
 #     # tmp_vec_p1 = zeros(gp)
 
-# integrate_mass_flux_over_interface_no_writing(num,gp,op.opC_pL,phL.TD,mass_flux_vec1,mass_flux_vecb,mass_flux_veci,tmp_vec_p,tmp_vec_p0,tmp_vec_p1,mass_flux)
-# # @test sum(mass_flux) == 0 
-# @test sum(mass_flux) ≈ 0 atol=test_tolerance
+# integrate_mass_transfer_rate_over_interface_no_writing(num,gp,op.opC_pL,phL.TD,mass_transfer_rate_vec1,mass_transfer_rate_vecb,mass_transfer_rate_veci,tmp_vec_p,tmp_vec_p0,tmp_vec_p1,mass_transfer_rate)
+# # @test sum(mass_transfer_rate) == 0 
+# @test sum(mass_transfer_rate) ≈ 0 atol=test_tolerance
 # end #"Phase change: mass flux" begin
 
 end #phase change
@@ -1234,41 +1234,41 @@ end
 
 printstyled(color=:red, @sprintf "\n testing divergence \n") 
 
-integrate_mass_flux_over_interface_3_no_writing(num,gp,op.opC_pL,
-phL.TD,mass_flux_vec1,mass_flux_vecb,mass_flux_veci,tmp_vec_p,tmp_vec_p0,tmp_vec_p1,mass_flux)
-# @test sum(mass_flux) == 0 
-# @test sum(mass_flux) ≈ 0 atol=test_tolerance
+integrate_mass_transfer_rate_over_interface_3_no_writing(num,gp,op.opC_pL,
+phL.TD,mass_transfer_rate_vec1,mass_transfer_rate_vecb,mass_transfer_rate_veci,tmp_vec_p,tmp_vec_p0,tmp_vec_p1,mass_transfer_rate)
+# @test sum(mass_transfer_rate) == 0 
+# @test sum(mass_transfer_rate) ≈ 0 atol=test_tolerance
 
 
-integrate_mass_flux_over_interface_3(num,gp,op.opC_pL,
+integrate_mass_transfer_rate_over_interface_3(num,gp,op.opC_pL,
 phL.TD,
-mass_flux_vec1,
-mass_flux_vecb,mass_flux_veci, tmp_vec_p, tmp_vec_p0, tmp_vec_p1, mass_flux,num.index_phase_change)
+mass_transfer_rate_vec1,
+mass_transfer_rate_vecb,mass_transfer_rate_veci, tmp_vec_p, tmp_vec_p0, tmp_vec_p1, mass_transfer_rate,num.index_phase_change)
 
-# @test sum(mass_flux) ≈ 0 atol=test_tolerance
+# @test sum(mass_transfer_rate) ≈ 0 atol=test_tolerance
 print("\n num.index_phase_change ",num.index_phase_change,"\n")
 printstyled(color=:red, @sprintf "\n testing divergence \n") 
 
 
 
-integrate_mass_flux_over_interface(num,gp,op.opC_pL,
+integrate_mass_transfer_rate_over_interface(num,gp,op.opC_pL,
 phL.TD,
-mass_flux_vec1,
-mass_flux_vecb,mass_flux_veci, tmp_vec_p, tmp_vec_p0, tmp_vec_p1, mass_flux,num.index_phase_change)
+mass_transfer_rate_vec1,
+mass_transfer_rate_vecb,mass_transfer_rate_veci, tmp_vec_p, tmp_vec_p0, tmp_vec_p1, mass_transfer_rate,num.index_phase_change)
 
 
 
 
-print("\n flux j line ", mass_flux_vec1[j,:], "\n")
+print("\n flux j line ", mass_transfer_rate_vec1[j,:], "\n")
 
 
 #zero because with H interface 
 @testset "mass flux 0" begin
-    @test mass_flux[1,1] ≈ 0.0 atol = test_tolerance
+    @test mass_transfer_rate[1,1] ≈ 0.0 atol = test_tolerance
 end
 
 @testset "mass flux 0" begin
-    @test mass_flux[1,gp.nx] ≈ 0.0 atol = test_tolerance
+    @test mass_transfer_rate[1,gp.nx] ≈ 0.0 atol = test_tolerance
 end
 
 # @testset "Gradient x-component" begin

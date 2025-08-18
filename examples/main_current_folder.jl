@@ -603,7 +603,7 @@ num = Numerical(
     scalar_bc = sim.scalar_bc,
     scalar_scheme = sim.scalar_scheme,
     solver = sim.solver,
-    mass_flux = sim.mass_flux,
+    mass_transfer_rate = sim.mass_transfer_rate,
     average_liquid_solid = sim.average_liquid_solid,
     index_phase_change = sim.index_phase_change,
     index_electrolyte = sim.index_electrolyte,
@@ -2007,33 +2007,33 @@ tmp_vec_p1 = zeros(gp)
 
 @testset "Phase change: mass flux" begin
     phL.trans_scalD[:,1] .= 1.0 
-    mass_flux_vec1 = fzeros(gp)
-    mass_flux_vecb = fzeros(gp)
-    mass_flux_veci = fzeros(gp)
-    mass_flux = zeros(gp)
+    mass_transfer_rate_vec1 = fzeros(gp)
+    mass_transfer_rate_vecb = fzeros(gp)
+    mass_transfer_rate_veci = fzeros(gp)
+    mass_transfer_rate = zeros(gp)
     # tmp_vec_p = zeros(gp)
     # tmp_vec_p0 = zeros(gp)
     # tmp_vec_p1 = zeros(gp)
 
   
-integrate_mass_flux_over_interface_2_no_writing(num,gp,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,tmp_vec_p,tmp_vec_p0,tmp_vec_p1,mass_flux)
-# @test sum(mass_flux) == 0 
-@test sum(mass_flux) ≈ 0 atol=test_tolerance
+integrate_mass_transfer_rate_over_interface_2_no_writing(num,gp,op.opC_pL,phL.trans_scalD[:,1],mass_transfer_rate_vec1,mass_transfer_rate_vecb,mass_transfer_rate_veci,tmp_vec_p,tmp_vec_p0,tmp_vec_p1,mass_transfer_rate)
+# @test sum(mass_transfer_rate) == 0 
+@test sum(mass_transfer_rate) ≈ 0 atol=test_tolerance
 end #"Phase change: mass flux" begin
 
 @testset "Phase change: mass flux old" begin
     phL.trans_scalD[:,1] .= 1.0 
-    mass_flux_vec1 = fzeros(gp)
-    mass_flux_vecb = fzeros(gp)
-    mass_flux_veci = fzeros(gp)
-    mass_flux = zeros(gp)
+    mass_transfer_rate_vec1 = fzeros(gp)
+    mass_transfer_rate_vecb = fzeros(gp)
+    mass_transfer_rate_veci = fzeros(gp)
+    mass_transfer_rate = zeros(gp)
     # tmp_vec_p = zeros(gp)
     # tmp_vec_p0 = zeros(gp)
     # tmp_vec_p1 = zeros(gp)
 
-integrate_mass_flux_over_interface_no_writing(num,gp,op.opC_pL,phL.trans_scalD[:,1],mass_flux_vec1,mass_flux_vecb,mass_flux_veci,tmp_vec_p,tmp_vec_p0,tmp_vec_p1,mass_flux)
-# @test sum(mass_flux) == 0 
-@test sum(mass_flux) ≈ 0 atol=test_tolerance
+integrate_mass_transfer_rate_over_interface_no_writing(num,gp,op.opC_pL,phL.trans_scalD[:,1],mass_transfer_rate_vec1,mass_transfer_rate_vecb,mass_transfer_rate_veci,tmp_vec_p,tmp_vec_p0,tmp_vec_p1,mass_transfer_rate)
+# @test sum(mass_transfer_rate) == 0 
+@test sum(mass_transfer_rate) ≈ 0 atol=test_tolerance
 end #"Phase change: mass flux" begin
 
 end #phase change

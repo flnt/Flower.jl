@@ -1023,7 +1023,7 @@ for isnap in 1:size_frame
     fig1, ax2 = plt.subplots(layout="constrained")
     # CS = ax2.contourf(x_array,y_array,max.((phL.trans_scal[:,:,1] .-c0_H2)./c0_H2,0.0), 10, cmap=cmap)
     # CS = ax2.contourf(x_array,y_array,(fwd.trans_scal[isnap,:,:,1] .-c0_H2)./c0_H2, 10, cmap=cmap)
-    CS = ax2.contourf(x_array,y_array, fwd.mass_flux[isnap,:,:], 10, cmap=cmap)
+    CS = ax2.contourf(x_array,y_array, fwd.mass_transfer_rate[isnap,:,:], 10, cmap=cmap)
     # print("nx ny ", nx,ny)
     nplot=5
     nplotx=nx ÷ nplot 
@@ -1046,7 +1046,7 @@ for isnap in 1:size_frame
 
                 # print("\nplot i ",i," j ",j)
 
-                str=@sprintf "%.2e" fwd.mass_flux[isnap,j,i]
+                str=@sprintf "%.2e" fwd.mass_transfer_rate[isnap,j,i]
                 # str=@sprintf "%.2e %.2e" x_array[i] y_array[j]
                 # str=@sprintf "%.2e" x_array[i]
 
@@ -1597,7 +1597,7 @@ plt.close("all")
 
 ######################################################################################################
 
-var = fwd.mass_flux
+var = fwd.mass_transfer_rate
 # size_frame=size(var,1)
 
 fig1, ax2 = plt.subplots(layout="constrained")
@@ -1615,7 +1615,7 @@ cmap=cmap)
 
  # Make a colorbar for the ContourSet returned by the contourf call.
  cbar = fig1.colorbar(CS)
- cbar.ax.set_ylabel("mass_flux")
+ cbar.ax.set_ylabel("mass_transfer_rate")
 
 function make_frame_3(i)
     # ax1.clear()
