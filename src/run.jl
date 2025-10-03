@@ -59,7 +59,6 @@ function run_forward!(
     )
 
 # precompile(Tuple{typeof(Core.kwcall), 
-
 # NamedTuple{(:periodic_x, :periodic_y, :BC_uL, :BC_uS, :BC_vL, :BC_vS, :BC_pL, :BC_pS, :BC_u, :BC_int,
 #  :BC_trans_scal, :BC_phi_ele, :auto_reinit, :time_scheme, :electrolysis, :navier_stokes, :ns_advection,
 #   :ns_liquid_phase, :verbose, :show_every, :electrolysis_convection, :electrolysis_liquid_phase, 
@@ -71,7 +70,6 @@ function run_forward!(
 #     Flower.Numerical{Float64, Int64}, Flower.Mesh{Flower.GridCC, Float64, Int64}, 
 #     Flower.Mesh{Flower.GridFCx, Float64, Int64}, Flower.Mesh{Flower.GridFCy, Float64, Int64}, 
 #     Flower.DiscreteOperators{Float64, Int64}, Nothing, Flower.Phase{Float64}})
-
 
 
     #region Initialize simulation parameters
@@ -150,6 +148,12 @@ function run_forward!(
         advection = true
     else
         advection = false
+    end
+
+    if num.advection_LS_mode == 16 #test Cipriano 2024 's method
+        extend_liquid_velocity = true
+    else
+        extend_liquid_velocity = false
     end
 
     # The count threshold shouldn't be smaller than 2
@@ -253,9 +257,7 @@ function run_forward!(
 
     #endregion Initialize simulation parameters
 
-
     local NB_indices;
-
 
     #region Allocations
 
@@ -273,6 +275,14 @@ function run_forward!(
     local Mm1_L
     local Mum1_L
     local Mvm1_L
+   
+    if num.advection_LS_mode == 16
+        local Cum1L_extended = fzeros(grid_u)
+        local Cvm1L_extended = fzeros(grid_v)
+        local Mm1_L_extended
+        local Mum1_L_extended
+        local Mvm1_L_extended
+    end
 
     θ_out = zeros(grid_p, 4)
     utmp = copy(grid_p.LS[1].u)
@@ -2014,9 +2024,8 @@ function run_forward!(
             end
         end #if io_pdi
 
-                #region Phase change
+        #region Phase change
 
-       
 
         # print("\n electrolysis_phase_change_case ",electrolysis_phase_change_case)
         #TODO print case, quantity, ...
@@ -2493,31 +2502,14 @@ function run_forward!(
                 geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
 
                 #region reset centroids 
-                #HACK reset centroids 
-                # grid_p.LS[1].geoL.centroid .= Point(0.0, 0.0)
-                # grid_u.LS[1].geoL.centroid .= Point(0.0, 0.0)
-                # grid_v.LS[1].geoL.centroid .= Point(0.0, 0.0)
-
-                # grid_p.LS[1].geoL.centroid.x .= 0.0
-                # grid_u.LS[1].geoL.centroid.x .= 0.0
-                # grid_v.LS[1].geoL.centroid.x .= 0.0
-
-                # grid_p.LS[1].geoL.centroid.y .= 0.0
-                # grid_u.LS[1].geoL.centroid.y .= 0.0
-                # grid_v.LS[1].geoL.centroid.y .= 0.0
-
-
                 for grid_iter in [grid_p,grid_u,grid_v]
                     for II in grid_iter.ind.inside
                         grid_iter.LS[1].geoL.centroid[II] = Point(0.0,0.0)
                     end
                 end
-                #TODO reactivate centroids ?
                 #endregion reset centroids 
-
-
-
-                    # TODO update density
+                #TODO reactivate centroids ?
+                # TODO update density
 
                 # if num.pressure_velocity_coupling == 0 
 
@@ -2606,14 +2598,7 @@ function run_forward!(
                 C_NULL::Ptr{Cvoid})::Cint
 
 
-                # II = CartesianIndex(3,37)
-                # pII =lexicographic(II,grid_p.ny)
-                # print("\n op.χ[1] NS",op.opC_TL.χ[1].diag[pII])
-
-                # print("\n op.χ[1] NS",op.opC_pL.χ[1].diag[pII])
-
-                # print("\n size ",size(op.opC_TL))
-                # print("\n size ",size(op.opC_pL))
+              
 
                 # Mum1_L is put in B matrix that multiplies v
                 # print("\n advection ", ns_advection, " adv ",advection)
@@ -2651,6 +2636,44 @@ function run_forward!(
                 tmp_vec_p0,            
                 rhs_phi,
                 pres_free_surfaceL,jump_mass_transfer_rateL,mass_transfer_rate )  
+
+                if extend_liquid_velocity
+
+                    # num.phase_change_currently_activated == 1 
+                    phase_change_currently_activated = 0
+
+                    Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L,
+                    Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = solve_one_fluid_NS_no_phase!(
+                    time_scheme, BC_int,
+                    num, grid_p, geoL, grid_u, geo_uL, grid_v, geo_vL, 
+                    # phL,
+                    p_ext_vel, pD_ext_vel, ϕ_ext_vel, u_ext_vel, v_ext_vel, ucorrD_ext_vel, vcorrD_ext_vel, uD_ext_vel, vD_ext_vel, ucorr_ext_vel, vcorr_ext_vel, uT_ext_vel,
+                    BC_uL, BC_vL, BC_pL,
+                    op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
+                    # op.opC_TL,
+                    AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,rhs_uv,
+                    Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
+                    Cum1L, Cvm1L, Mum1_L, Mvm1_L,
+                    periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,
+                    volume_fraction,
+                    levelset_one_fluid,
+                    rho_one_fluid,
+                    mu_one_fluid,
+                    rho_one_fluid_u,
+                    rho_one_fluid_v,
+                    volumic_surface_tension_u,
+                    volumic_surface_tension_v,
+                    convection_u,convection_v,
+                    viscosity_coeff_for_du_dx ,
+                    viscosity_coeff_for_du_dy ,
+                    viscosity_coeff_for_dv_dx ,
+                    viscosity_coeff_for_dv_dy,             
+                    tmp_vec_p,
+                    tmp_vec_p0,            
+                    rhs_phi,
+                    pres_free_surfaceL,jump_mass_transfer_rateL,mass_transfer_rate )  
+                end
+
 
                 print("\n num.stop_simulation after NS ",num.stop_simulation)
 
