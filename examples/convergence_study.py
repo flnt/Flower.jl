@@ -399,7 +399,7 @@ def plot_errors_from_pandas(df,figpar,plotpar,colors,filename):
 
 
    plt.savefig(prefix+figpar['file']+".pdf",transparent=True)
-   call_inkscape(figpar,prefix+figpar['file'])
+   call_inkscape(prefix+figpar['file'])
    # plt.savefig(prefix+figpar['file']+".svg",transparent=True)
 
    plt.close(fig1)
@@ -1117,7 +1117,7 @@ def plot_convergence_func(
       if 'svg' in macro:
          gen_name = eval(macro).split('.')[0]
          print(gen_name)
-         call_inkscape(figpar,gen_name)
+         call_inkscape(gen_name)
 
    # if 'macro_file_name' in figpar.keys():
    #    # print(figpar['macro_file_name'])
@@ -1130,7 +1130,7 @@ def plot_convergence_func(
    #       if 'svg' in macro:
    #          gen_name = eval(macro).split('.')[0]
    #          print(gen_name)
-   #          call_inkscape(figpar,gen_name)
+   #          call_inkscape(gen_name)
 
    # else:
    #    plt.savefig(file_name+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
@@ -1582,6 +1582,69 @@ def plot_convergence_func_new_ax(
    # plt.close("all")
 
 
+def compute_slope_figpar(ax, xls, yls, plotpar, figpar, plot_text=True, logslope=True):
+   #  print('compute_slope')
+   #  print(xls)
+   #  print(yls)
+
+    if logslope:
+        X_mean1 = np.mean(xls)
+        Y_mean1 = np.mean(yls)
+        xls = np.log10(xls)
+        yls = np.log10(yls)
+
+    X_mean = np.mean(xls)
+    Y_mean = np.mean(yls)
+    X_min = np.min(xls)
+    Y_min = np.min(yls)
+    X_max = np.max(xls)
+    Y_max = np.max(yls)
+
+    num = sum((xls[i] - X_mean) * (yls[i] - Y_mean) for i in range(len(xls)))
+    den = sum((xls[i] - X_mean) ** 2 for i in range(len(xls)))
+    m = num / den
+    c = Y_mean - m * X_mean
+
+    Y_pred = m * xls + c
+
+    rms = np.linalg.norm(yls - Y_pred, ord=2)
+    rmsx = np.linalg.norm(xls - X_mean, ord=2)
+    rmsy = np.linalg.norm(yls - Y_mean, ord=2)
+
+    corr = num / (rmsx * rmsy)
+    R2 = corr
+
+    if logslope:
+        line1, = ax.plot([10 ** (min(xls)), 10 ** (max(xls))], [10 ** (min(Y_pred)), 10 ** (max(Y_pred))],
+                         color=get_value_from_dicts('slope_color',figpar,plotpar), 
+                         alpha=get_value_from_dicts('slope_alpha',figpar,plotpar))
+        xy = (X_mean1, Y_mean1)
+    else:
+        if min(Y_pred) < 0:
+            ax.plot([X_mean, max(xls)], [X_mean * m + c, max(Y_pred)], 
+                    color=get_value_from_dicts('slope_color',figpar,plotpar), 
+                     alpha=get_value_from_dicts('slope_alpha',figpar,plotpar),
+                     lw=get_value_from_dicts('linewidth',figpar,plotpar))
+        else:
+            ax.plot([min(xls), max(xls)], [min(Y_pred), max(Y_pred)], 
+                    color=get_value_from_dicts('slope_color',figpar,plotpar),
+                     alpha=get_value_from_dicts('slope_alpha',figpar,plotpar),
+                    lw=get_value_from_dicts('linewidth',figpar,plotpar))
+        xy = (X_mean, Y_mean)
+
+    text = 'Slope={:.2g}\nR²={:.2g}'.format(float(m), float(corr))
+    if plot_text:
+        ax.annotate(text=text, xy=xy, ha='left', va='top')
+
+   #  print(colored('test' + str(m), 'red'))
+    print('least-squares', m, c, corr)
+    print('alpha',get_value_from_dicts('slope_alpha',figpar,plotpar))
+   #  print(min(Y_pred), max(Y_pred), Y_min, Y_max, 10 ** (min(xls)), 10 ** (max(xls)))
+   #  slopes[0:2] = [m, R2]
+
+   #  print('return test', slopes)
+    return ax
+
 def plot_time(
     file,
     key,
@@ -1902,6 +1965,9 @@ def plot_time(
       # # ylim=(0, 2),
       # xlabel=labelx, #r""+plotpar['xlabel'],
       # ylabel=label_i,color=plotpar['text_color'])
+
+         if 'macro_slope' in figpar.keys():
+            exec(figpar['macro_slope'])
 
       ax20.set_xlabel(labelx, color=plotpar['text_color'])   # Set xlabel color
       ax20.set_ylabel(label_i, color=plotpar['text_color'])   # Set xlabel color

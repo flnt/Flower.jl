@@ -472,15 +472,16 @@ def compute_slope_lin_or_log(ax,xls,yls,
 
 def compute_slope(ax,xls,yls,
                 #   x,y,
-                  slopes,R2,param_line,colors,alpha,plot_text=True):
+                  slopes,R2,param_line,colors,alpha,plot_text=True,logslope=True):
    #https://math.stackexchange.com/questions/3500898/understanding-the-least-squares-regression-formula
    #https://towardsdatascience.com/linear-regression-using-least-squares-a4c3456e8570
    # print('least-squares',len(xls),len(yls))
 
+    lw=1
     print('compute_slope')
     print(xls)
     print(yls)
-    logslope=True
+    # logslope=True
     if logslope:
         X_mean1 = np.mean(xls)
         Y_mean1 = np.mean(yls)
@@ -504,6 +505,8 @@ def compute_slope(ax,xls,yls,
     m = num / den
     c = Y_mean - m*X_mean
 
+    # print('m',m,'xls',xls,'c',c)
+
     Y_pred = m*xls + c
 
     rms=np.linalg.norm(yls-Y_pred, ord=2)
@@ -512,7 +515,7 @@ def compute_slope(ax,xls,yls,
     rmsy=np.linalg.norm(yls-Y_mean, ord=2)
 
     corr=num/(rmsx*rmsy)
-
+    R2 = corr
     #https://en.wikipedia.org/wiki/Pearson_correlation_coefficient
 
 
@@ -579,7 +582,16 @@ def compute_slope(ax,xls,yls,
                     lw=lw) # predicted
 
         # ax.annotate("{:.1f}".format(m)+'*x'+"{:.3f}".format(c),xy=(X_mean,Y_mean))
-        ax.annotate('Slope '+"{:.1f}".format(m),xy=(X_mean,Y_mean))
+        # ax.annotate('Slope '+"{:.1f}".format(m),xy=(X_mean,Y_mean))
+
+        xy=(X_mean,Y_mean)
+        text='Slope={:.2g}\nR²={:.2g}'.format(float(m),float(corr))
+        
+        if plot_text:
+            ax.annotate(text=text,xy=xy,ha='left',va='top')
+    
+    print(colored('test'+str(m),'red'))
+            # ax.annotate('Slope '+"{:.1f}".format(m),xy=(X_mean,Y_mean))
 
     # print ('least-squares',x,y,m,c,corr)#,10**(X_mean),10**(Y_mean))
     print ('least-squares',m,c,corr)#,10**(X_mean),10**(Y_mean))
@@ -1808,7 +1820,7 @@ def plot_segments(file,plotpar,figpar,ax2):
 """
 correction for matplotlib error for fontsize with special characters with svg
 """
-def call_inkscape(figpar,gen_name):
+def call_inkscape(gen_name):
 
     import subprocess
 
@@ -2097,6 +2109,10 @@ def plot_file(
         field = data.transpose()
 
     
+    if 'macro_data' in figpar.keys():
+        exec(figpar['macro_data'])
+        field = field_2
+
     # mesh["nx"] = nx
     # mesh["ny"] = ny
 
@@ -2334,8 +2350,9 @@ def plot_file(
 
     if 'plot_normal' in figpar.keys():
         if 'plot_normal_macro' in figpar.keys(): 
-            normal_x = file['normal_x'][:]
-            normal_y = file['normal_y'][:]
+            exec(figpar['plot_normal_macro'])
+            normal_x = normal_x_2
+            normal_y = normal_y_2
 
             us = normal_x.transpose()
             vs = normal_y.transpose()
@@ -2658,7 +2675,7 @@ def plot_file(
                 if 'svg' in macro:
                     gen_name = eval(macro).split('.')[0]
                     #print(gen_name)
-                    call_inkscape(figpar,gen_name)
+                    call_inkscape(gen_name)
 
         # if 'macro_file_name' in figpar.keys():
         #     # print(get_value_from_dicts('macro_file_name',figpar,plotpar))
@@ -2671,7 +2688,7 @@ def plot_file(
         #         if 'svg' in macro:
         #             gen_name = eval(macro).split('.')[0]
         #             #print(gen_name)
-        #             call_inkscape(figpar,gen_name)
+        #             call_inkscape(gen_name)
         # else:
         #     plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
         #     # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
@@ -2833,7 +2850,7 @@ def plot_vector(file,
             if 'svg' in macro:
                 gen_name = eval(macro).split('.')[0]
                 #print(gen_name)
-                call_inkscape(figpar,gen_name)
+                call_inkscape(gen_name)
 
         # if 'macro_file_name' in figpar.keys():
         #     # print(get_value_from_dicts('macro_file_name',figpar,plotpar))
@@ -2846,7 +2863,7 @@ def plot_vector(file,
         #         if 'svg' in macro:
         #             gen_name = eval(macro).split('.')[0]
         #             #print(gen_name)
-        #             call_inkscape(figpar,gen_name)
+        #             call_inkscape(gen_name)
 
         # else:
         #     plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
@@ -3004,7 +3021,7 @@ def plot_schematics(figpar,plotpar):
     plt.savefig('schematics.pdf',transparent=True)
 
     # os.sys('inkscape schematics.pdf --export-filename= schematics.svg')
-    call_inkscape(figpar,'schematics')
+    call_inkscape('schematics')
 
     plt.axis('equal')
 
@@ -3025,7 +3042,7 @@ def plot_schematics(figpar,plotpar):
 
     plt.savefig('schematics_bubble.pdf',transparent=True)
     gen_name = 'schematics_bubble'
-    call_inkscape(figpar,gen_name)
+    call_inkscape(gen_name)
 
 
 
@@ -4723,7 +4740,7 @@ def plot_current_lines(file,
             if 'svg' in macro:
                 gen_name = eval(macro).split('.')[0]
                 #print(gen_name)
-                call_inkscape(figpar,gen_name)
+                call_inkscape(gen_name)
 
         # if 'macro_file_name' in figpar.keys():
         #     # print(get_value_from_dicts('macro_file_name',figpar,plotpar))
@@ -4736,7 +4753,7 @@ def plot_current_lines(file,
         #         if 'svg' in macro:
         #             gen_name = eval(macro).split('.')[0]
         #             #print(gen_name)
-        #             call_inkscape(figpar,gen_name)
+        #             call_inkscape(gen_name)
         # else:
         #     plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display
 
@@ -5040,14 +5057,18 @@ def plot_python_pdf_full2(
                 break
 
         for j,y in enumerate(y_1D):
+            # print('test zoom',figpar["zoom"][1][0],y,(figpar["zoom"][1][0]<y))
             if figpar["zoom"][1][0]<y:
                 break
             j0=j
 
         for j,y in enumerate(y_1D):
+            # print('test zoom',figpar["zoom"][1][1],y,(figpar["zoom"][1][1]<y))
+            j1=j
             if figpar["zoom"][1][1]<y:
-                j1=j
+                # j1=j TODO
                 break
+        
 
         print('zoom',figpar["zoom"],i0,i1,j0,j1,x_1D[i0],x_1D[i1],y_1D[j0],y_1D[j1])
         x_arr=x_1D[i0:i1+1]
@@ -5121,6 +5142,11 @@ def plot_python_pdf_full2(
 
     fieldtmp = np.zeros((ny + 2, nx + 2))
 
+    print('xarr',len(x_arr),x_arr)
+    print('yarr',len(y_arr),y_arr)
+
+    print('nx ny',nx,ny)
+
     # TODO distinguish u, v, w grids even though it is a dummy position to plot BC
 
     if parse_is_true(get_value_from_dicts('plot_bc',figpar,plotpar)) and plot_bc_possible_based_on_dim:
@@ -5128,27 +5154,35 @@ def plot_python_pdf_full2(
             vecb_l=True
             i1+=1
             i0tmp2-=1 
-
+            # print('x_arr',x_arr,x_1D[i0]-0.5*mesh['dx']/plotpar['scale_x'])
             x_arr = np.insert(x_arr,0,x_1D[i0]-0.5*mesh['dx']/plotpar['scale_x'])
 
         if ii1 == nx-1:
             i1+=1
             vecb_r=True
             # x_arr.append(x_1D[end]+0.5*mesh['dx']/plotpar['scale_x'])
-            np.append(x_arr,x_1D[-1]+0.5*mesh['dx']/plotpar['scale_x'])
+            # print('x_arr',x_arr,x_1D[-1]+0.5*mesh['dx']/plotpar['scale_x'])
+            # np.append(x_arr,x_1D[-1]+0.5*mesh['dx']/plotpar['scale_x'])
+            x_arr = np.insert(x_arr,x_arr.size,x_1D[-1]+0.5*mesh['dx']/plotpar['scale_x'])
+
+            # print('append',x_arr)
             i1tmp2+=1 
 
         if jj0 == 0:
             vecb_b=True
             j1+=1
             j0tmp2-=1
+            # print('y_arr',y_arr,0,y_1D[j0]-0.5*mesh['dy']/plotpar['scale_x'])
             y_arr= np.insert(y_arr,0,y_1D[j0]-0.5*mesh['dy']/plotpar['scale_x'])
 
         if jj1 == ny-1:
             vecb_t=True
             j1+=1
             # y_arr.append(y_1D[end]+0.5*mesh['dy']/plotpar['scale_x'])
-            np.append(y_arr, y_1D[-1]+0.5*mesh['dy']/plotpar['scale_x'])
+            # print('y_arr',y_arr, y_1D[-1]+0.5*mesh['dy']/plotpar['scale_x'])
+            # np.append(y_arr, y_1D[-1]+0.5*mesh['dy']/plotpar['scale_x'])
+            y_arr = np.insert(y_arr,y_arr.size, y_1D[-1]+0.5*mesh['dy']/plotpar['scale_x'])
+
             j1tmp2+=1
 
         # print(np.size(data_1D),nx,ny,vecb_l,vecb_r,vecb_b,vecb_t)
@@ -5205,8 +5239,8 @@ def plot_python_pdf_full2(
     # print(field.shape,nx,ny,len(x_1D),len(y_1D))
 
     print('xarr',len(x_arr),x_arr)
-    print('yarr',len(y_arr))
-
+    print('yarr',len(y_arr),y_arr)
+    # print('vecb_l',vecb_l,vecb_r,vecb_b,vecb_t)
 
     # if get_value_from_dicts('levels',figpar,plotpar)==0: 
     if 'range' in figpar.keys():
@@ -5632,7 +5666,8 @@ def plot_python_pdf_full2(
         ax2.set_xticklabels(labels)
 
     if vecb_r:
-        x = x_arr[i1]
+        # x = x_arr[i1]
+        x = x_arr[-1]
         ticks_loc = ax2.get_xticks().tolist()        
         labels = [w.get_text() for w in ax2.get_xticklabels()]
         labels+=[r'$BC$']
@@ -5642,7 +5677,6 @@ def plot_python_pdf_full2(
     if vecb_b:
 
         x = y_arr[j0]
-
         ticks_loc = ax2.get_yticks().tolist()        
         labels = [w.get_text() for w in ax2.get_yticklabels()]
         labels+=[r'$BC$']
@@ -5651,8 +5685,8 @@ def plot_python_pdf_full2(
         ax2.set_yticklabels(labels)
 
     if vecb_t:
-        x = y_arr[j1]
-
+        # x = y_arr[j1]
+        x = y_arr[-1]
         ticks_loc = ax2.get_yticks().tolist()        
         labels = [w.get_text() for w in ax2.get_yticklabels()]
         labels+=[r'$BC$']
@@ -5700,7 +5734,7 @@ def plot_python_pdf_full2(
             if 'svg' in macro:
                 gen_name = eval(macro).split('.')[0]
                 #print(gen_name)
-                call_inkscape(figpar,gen_name)
+                call_inkscape(gen_name)
 
 
         # if 'macro_file_name' in figpar.keys():
@@ -5717,7 +5751,7 @@ def plot_python_pdf_full2(
         #         if 'svg' in macro:
         #             gen_name = eval(macro).split('.')[0]
         #             #print(gen_name)
-        #             call_inkscape(figpar,gen_name)
+        #             call_inkscape(gen_name)
 
         #         print(colored('mesh '+str(nx)+" "+str(mesh["nx"]),'red'))
 
@@ -6394,7 +6428,7 @@ def plot_current_wall(
             if 'svg' in macro:
                 gen_name = eval(macro).split('.')[0]
                 #print(gen_name)
-                call_inkscape(figpar,gen_name)
+                call_inkscape(gen_name)
 
         # if 'macro_file_name' in figpar.keys():
         #     # print(get_value_from_dicts('macro_file_name',figpar,plotpar))
@@ -6407,7 +6441,7 @@ def plot_current_wall(
         #         if 'svg' in macro:
         #             gen_name = eval(macro).split('.')[0]
         #             #print(gen_name)
-        #             call_inkscape(figpar,gen_name)
+        #             call_inkscape(gen_name)
 
         # else:
         #     plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'],transparent=True) #also for film for latex display

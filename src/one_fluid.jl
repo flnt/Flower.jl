@@ -885,26 +885,33 @@ function solve_one_fluid_NS!(
 
 
     #TODO doc beta 
-    if num.non_dimensionalize == 0
-        # grav_x = g .* sin(β) .* opC_u.M * fones(grid_u)
-        # grav_y = g .* cos(β) .* opC_v.M * fones(grid_v)
-        # print("\n test gravity")
 
+    if num.prediction == "Flowergravproj"
         grav_x = fzeros(grid_u)
-        grav_y = g .* opC_v.M * fones(grid_v)
-
-    elseif num.non_dimensionalize == -1
-        diag_rho_u = Diagonal(vec(rho_one_fluid_u))
-        diag_rho_v = Diagonal(vec(rho_one_fluid_v))
-
-        # print("\n size diag_rho_u ",size(diag_rho_u))
-        # print("\n size grav_x ",size(grav_x)," opC_u.M ", size(opC_u.M))
-
-        grav_x = g .* sin(β) .* opC_u.M * diag_rho_u * fones(grid_u)
-        grav_y = g .* cos(β) .* opC_v.M * diag_rho_v * fones(grid_v)
+        grav_y = fzeros(grid_v)
     else
-        grav_x = g .* sin(β) .* opC_u.M * fones(grid_u)
-        grav_y = g .* cos(β) .* opC_v.M * fones(grid_v)
+
+        if num.non_dimensionalize == 0
+            # grav_x = g .* sin(β) .* opC_u.M * fones(grid_u)
+            # grav_y = g .* cos(β) .* opC_v.M * fones(grid_v)
+            # print("\n test gravity")
+
+            grav_x = fzeros(grid_u)
+            grav_y = g .* opC_v.M * fones(grid_v)
+
+        elseif num.non_dimensionalize == -1
+            diag_rho_u = Diagonal(vec(rho_one_fluid_u))
+            diag_rho_v = Diagonal(vec(rho_one_fluid_v))
+
+            # print("\n size diag_rho_u ",size(diag_rho_u))
+            # print("\n size grav_x ",size(grav_x)," opC_u.M ", size(opC_u.M))
+
+            grav_x = g .* sin(β) .* opC_u.M * diag_rho_u * fones(grid_u)
+            grav_y = g .* cos(β) .* opC_v.M * diag_rho_v * fones(grid_v)
+        else
+            grav_x = g .* sin(β) .* opC_u.M * fones(grid_u)
+            grav_y = g .* cos(β) .* opC_v.M * fones(grid_v)
+        end
     end
 
     # grav_x .= 0.0 
@@ -1086,8 +1093,14 @@ function solve_one_fluid_NS!(
     #     # print("\n op.χ[1] NS",opC_p.χ[1].diag[pII])
     # end
 
-    if num.phase_change_currently_activated == 1
+    if num.phase_change_currently_activated == 1 && num.pressure_velocity_coupling == 3
         rhs_uv[range_divergence] =  vec( mass_transfer_rate * ( 1.0/num.rho1 - 1.0/num.rho2 ) )
+
+        PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv_divergence"::Cstring,
+        "rhs_uv_divergence"::Cstring, rhs_uv[range_divergence]::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
+
+        #TODO BC u v mass transfer outflow , so Neumann
     end
 
     #endregion phase change
@@ -1191,11 +1204,40 @@ function solve_one_fluid_NS!(
     # end
     #endregion check_one_fluid
 
+
+    print("\n test A")
+    II = CartesianIndex(1,1)
+    pII = lexicographic(II, grid_v.ny)
+    print("\n test A v",Auv[pII+ntu,:])
+    print("\n end test A \n")
+
+
     if num.pressure_velocity_coupling == 3
         print("\n Setting first cells")
-        set_first_cells!(Auv,rhs_uv,grid_u,ntu-nbu,0,true,false,true,false)
-        set_first_cells!(Auv,rhs_uv,grid_v,ntu+ntv-nbv,ntu,false,true,false,true)
+        if BC_u.left isa Dirichlet
+            print("\n Setting first cells: Dirichlet")
+            set_first_cells!(Auv,rhs_uv,grid_u,ntu-nbu,0,true,false,true,false)
+        else
+            print("\n Setting first cells: Neumann")
+            set_first_cells_Neumann!(Auv,rhs_uv,grid_u,ntu-nbu,0,true,false,true,false)
+        end
+
+        if BC_v.bottom isa Dirichlet
+            print("\n Setting first cells: Dirichlet")
+            set_first_cells!(Auv,rhs_uv,grid_v,ntu+ntv-nbv,ntu,false,true,false,true)
+        else
+            print("\n Setting first cells: Neumann")
+            set_first_cells_Neumann!(Auv,rhs_uv,grid_v,ntu+ntv-nbv,ntu,false,true,false,true)
+        end
+        print("\n End setting first cells \n")
     end
+
+    print("\n test A")
+    II = CartesianIndex(1,1)
+    pII = lexicographic(II, grid_v.ny)
+    print("\n test A v",Auv[pII+ntu,:])
+    print("\n end test A \n")
+
     
     #region solver
     try
@@ -1426,6 +1468,7 @@ function solve_one_fluid_NS!(
 
 
     PDI_status = @ccall "libpdi".PDI_multi_expose("check_divergence"::Cstring,
+    "nstep"::Cstring, num.current_i::Ref{Clonglong}, PDI_OUT::Cint,
     # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
     # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
     # "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -1450,6 +1493,18 @@ function solve_one_fluid_NS!(
         # divergence of velocity / dt
         # vec1(rhs_phi,grid_p) .= idt .* velocity_divergence
         vec1(rhs_phi,grid_p) .= velocity_divergence
+
+        if num.phase_change_currently_activated == 1
+            vec1(rhs_phi,grid_p) .+=  vec( mass_transfer_rate * ( 1.0/num.rho1 - 1.0/num.rho2 ) )
+
+            # PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv_divergence"::Cstring,
+            # "rhs_uv_divergence"::Cstring, vec1(rhs_phi,grid_p)::Ptr{Cdouble}, PDI_OUT::Cint,
+            # C_NULL::Ptr{Cvoid})::Cint
+
+            #TODO BC u v mass transfer outflow , so Neumann
+        end
+
+
 
         #region needs to be corrected/documented for the signs, free surface pressure BC 
         
@@ -1596,10 +1651,14 @@ function solve_one_fluid_NS!(
             # \Delta t \nabla_h^2 \phi^{n+1} = \nabla_h \cdot \mathbf{u}^{*} \quad \text{in } \Omega
             vec1(pD,grid_p) .= vec(ϕ .- mu_one_fluid./rho_one_fluid ./2 .* reshape(iM * velocity_divergence,grid_p)) #no contribution from p^{n-1/2}
         
-        elseif num.prediction == "Flower" #occursin("Flower",num.prediction)
+        elseif num.prediction == "Flower"  #occursin("Flower",num.prediction)
             # \nabla_h p^{n+1/2} = \nabla_h \phi^{n+1} # TODO: does not correspond to any formula in Brown 2001 ?
             vec1(pD,grid_p) .= vec(ϕ) #.- mu1_over_rho1 .* reshape(iM * velocity_divergence, grid_p))
         
+        elseif  num.prediction == "Flowergravproj" 
+
+            vec1(pD,grid_p) .= vec(ϕ) .- vec(rho_one_fluid .* g .* grid_p.y)
+
         elseif num.prediction == "testpressure"
             print("test pressure")
 
@@ -1634,6 +1693,9 @@ function solve_one_fluid_NS!(
 
             init_fields_multiple_levelsets!(num,ph.pD,ph.p,tmp_vec_p,BC_p,grid_p,num.pres_intfc,"pL")
 
+        elseif  num.prediction == "Flowergravproj" 
+            vecb(pD,grid_p) .= vecb(result_p,grid_p)  #TODO.+ ... vec(rho_one_fluid*g*grid_p.y)
+
         else #update pressure at boundaries
             #region cut-cell
             # for iLS in 1:nLS
@@ -1641,6 +1703,8 @@ function solve_one_fluid_NS!(
             # end
             #endregion cut-cell
             vecb(pD,grid_p) .= vecb(result_p,grid_p) 
+
+      
         end
 
 
@@ -1741,65 +1805,68 @@ function solve_one_fluid_NS!(
 
     #region end coupled
 
-    F_residual = similar(rhs_uv)
+    if num.pressure_velocity_coupling == 3
+        F_residual = similar(rhs_uv)
 
-    # F_residual .= Auv*uvD_dummy .-rhs_uv
-    F_residual .= Auv*uvD 
+        # F_residual .= Auv*uvD_dummy .-rhs_uv
+        F_residual .= Auv*uvD 
 
-    printstyled(color=:red, @sprintf "\n A u\n")
+        printstyled(color=:red, @sprintf "\n A u\n")
 
-    # print("\n Auv*uvD  ", F_residual)
+        # print("\n Auv*uvD  ", F_residual)
 
-    PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
-    "rhs_uv_len"::Cstring, length(F_residual)::Ref{Clonglong}, PDI_OUT::Cint,
-    "rhs_uv_1D"::Cstring, F_residual::Ptr{Cdouble}, PDI_OUT::Cint,
-    C_NULL::Ptr{Cvoid})::Cint
+        PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+        "rhs_uv_len"::Cstring, length(F_residual)::Ref{Clonglong}, PDI_OUT::Cint,
+        "rhs_uv_1D"::Cstring, F_residual::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
 
-    printstyled(color=:red, @sprintf "\n A u\n")
-
-
-    F_residual .-= rhs_uv
-
-    # print("\n F_residual ", F_residual)
+        printstyled(color=:red, @sprintf "\n A u\n")
 
 
-    # try
-    #     if num.pressure_velocity_solver == 1
-    #         printstyled(color=:red, @sprintf "\nBICGSTAB(2)\n")
+        F_residual .-= rhs_uv
 
-    #         # bicgstabl!(x, A, b, l; kwargs...)
-    #         bicgstabl!(uvD, Auv, rhs_uv, 2; tol=1.0e-6,maxiter=100) #residual normalised in Julia ? 
-    #         # tol: (relative) stopping tolerance of the method;
-    #         # verbose: print information during the iterations;
-    #         # maxiter: maximum number of allowed iterations;
-    #         # Pl and Pr: left and right precon
-    #     else
-    #         @time uvD .= Auv \ rhs_uv
-    #     end
+        # print("\n F_residual ", F_residual)
 
-    # # try
-    # #     @time uvD .= Auv \ rhs_uv
-    # catch e
-    #     printstyled(color=:red, @sprintf "\nError coupled pressure-velocity\n")
-    #     # println(e)
-    #     print(e)
-    #     uvD .= Inf
-    # end
-    # print("\n size uvD ",ntu, " ",size(ph.uD)," ",size(vec1(ph.uD,grid_u))," " ,size(uvD[1:nbu]))
-    vec1(ph.uD,grid_u) .= uvD[1:niu]
-    vecb(ph.uD,grid_u) .= uvD[niu+1:ntu]
 
-    vec1(ph.vD,grid_v) .= uvD[ntu+1:ntu+niv]
-    vecb(ph.vD,grid_v) .= uvD[ntu+1+niv:ntu+ntv]
+        # try
+        #     if num.pressure_velocity_solver == 1
+        #         printstyled(color=:red, @sprintf "\nBICGSTAB(2)\n")
 
-    ph.u .= reshape(vec1(ph.uD,grid_u), grid_u)
-    ph.v .= reshape(vec1(ph.vD,grid_v), grid_v)
+        #         # bicgstabl!(x, A, b, l; kwargs...)
+        #         bicgstabl!(uvD, Auv, rhs_uv, 2; tol=1.0e-6,maxiter=100) #residual normalised in Julia ? 
+        #         # tol: (relative) stopping tolerance of the method;
+        #         # verbose: print information during the iterations;
+        #         # maxiter: maximum number of allowed iterations;
+        #         # Pl and Pr: left and right precon
+        #     else
+        #         @time uvD .= Auv \ rhs_uv
+        #     end
+
+        # # try
+        # #     @time uvD .= Auv \ rhs_uv
+        # catch e
+        #     printstyled(color=:red, @sprintf "\nError coupled pressure-velocity\n")
+        #     # println(e)
+        #     print(e)
+        #     uvD .= Inf
+        # end
+        # print("\n size uvD ",ntu, " ",size(ph.uD)," ",size(vec1(ph.uD,grid_u))," " ,size(uvD[1:nbu]))
+        vec1(ph.uD,grid_u) .= uvD[1:niu]
+        vecb(ph.uD,grid_u) .= uvD[niu+1:ntu]
+
+        vec1(ph.vD,grid_v) .= uvD[ntu+1:ntu+niv]
+        vecb(ph.vD,grid_v) .= uvD[ntu+1+niv:ntu+ntv]
+
+        ph.u .= reshape(vec1(ph.uD,grid_u), grid_u)
+        ph.v .= reshape(vec1(ph.vD,grid_v), grid_v)
+    end
 
     # print("\n velocity")
     # display(ph.v)
 
     # ph.uD .= uvD[1:ntu]
     # ph.vD .= uvD[ntu+1:ntu+ntv]
+
     if num.pressure_velocity_coupling ==3
 
        
@@ -1816,8 +1883,8 @@ function solve_one_fluid_NS!(
         vec1(ph.pD,grid_p) .= vec(ph.p)
         #endregion correct pressure with top corner value (pressure known at a constant from NS)
 
-    else
-        ph.pD .= uvD[ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+(num.nLS+1)*nip+nbp]
+    # else
+    #     ph.pD .= uvD[ntu+ntv+ntNavier+1:ntu+ntv+ntNavier+(num.nLS+1)*nip+nbp]
     end
     # print("uvD",uvD)
 
@@ -1847,35 +1914,37 @@ function solve_one_fluid_NS!(
         end
     end
 
-    F_residual .= Auv*uvD .-rhs_uv
+    if num.pressure_velocity_coupling == 3
+        F_residual .= Auv*uvD .-rhs_uv
 
-    max_abs_residual = maximum(abs.(F_residual))
-    max_abs_rhs = maximum(abs.(rhs_uv))
+        max_abs_residual = maximum(abs.(F_residual))
+        max_abs_rhs = maximum(abs.(rhs_uv))
 
-    # PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
-    # "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
-    # "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
-    # C_NULL::Ptr{Cvoid})::Cint
+        # PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+        # "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
+        # "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
+        # C_NULL::Ptr{Cvoid})::Cint
 
-    # PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
-    # "rhs_uv_len"::Cstring, length(F_residual)::Ref{Clonglong}, PDI_OUT::Cint,
-    # "rhs_uv_1D"::Cstring, F_residual::Ptr{Cdouble}, PDI_OUT::Cint,
-    # C_NULL::Ptr{Cvoid})::Cint
+        # PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+        # "rhs_uv_len"::Cstring, length(F_residual)::Ref{Clonglong}, PDI_OUT::Cint,
+        # "rhs_uv_1D"::Cstring, F_residual::Ptr{Cdouble}, PDI_OUT::Cint,
+        # C_NULL::Ptr{Cvoid})::Cint
 
-  
-    PDI_status = @ccall "libpdi".PDI_multi_expose("check_coupled_solver_iteration"::Cstring,
-    # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
-    "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
-    "grad_v"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
-    "u_1D"::Cstring,  ph.uD::Ptr{Cdouble}, PDI_OUT::Cint,
-    "v_1D"::Cstring,  ph.vD::Ptr{Cdouble}, PDI_OUT::Cint,
-    "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-    "velocity_divergence"::Cstring, velocity_divergence::Ptr{Cdouble}, PDI_OUT::Cint,
-    "normalise_velocity_divergence"::Cstring, normalise_velocity_divergence::Ptr{Cdouble}, PDI_OUT::Cint,
-    "max_abs_residual"::Cstring, max_abs_residual::Ref{Cdouble}, PDI_OUT::Cint,
-    "max_abs_rhs"::Cstring, max_abs_rhs::Ref{Cdouble}, PDI_OUT::Cint,
-    C_NULL::Ptr{Cvoid})::Cint
+    
+        PDI_status = @ccall "libpdi".PDI_multi_expose("check_coupled_solver_iteration"::Cstring,
+        # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+        "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
+        "grad_v"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
+        "u_1D"::Cstring,  ph.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "v_1D"::Cstring,  ph.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "velocity_divergence"::Cstring, velocity_divergence::Ptr{Cdouble}, PDI_OUT::Cint,
+        "normalise_velocity_divergence"::Cstring, normalise_velocity_divergence::Ptr{Cdouble}, PDI_OUT::Cint,
+        "max_abs_residual"::Cstring, max_abs_residual::Ref{Cdouble}, PDI_OUT::Cint,
+        "max_abs_rhs"::Cstring, max_abs_rhs::Ref{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
+    end
 
 
     kill_dead_cells!(vec1(ph.uD,grid_u), grid_u, geo_u[end])
@@ -2827,9 +2896,14 @@ function FE_set_momentum_coupled2_one_fluid(
     a0_bu = zeros(nbu)
     _a1_bu = zeros(nbu)
     _b_bu = zeros(nbu)
-    for iLS in 1:num.nLS
-        set_borders!(grid_u, grid_u.LS[iLS].cl, grid_u.LS[iLS].u, a0_bu, _a1_bu, _b_bu, BCu, num.n_ext_cl)
-    end
+    
+    # iLS deactivated but need to impose BC for walls
+    set_borders!(grid_u, grid_u.LS[1].cl, grid_u.LS[1].u, a0_bu, _a1_bu, _b_bu, BCu, num.n_ext_cl)
+
+    # for iLS in 1:num.nLS
+    #     set_borders!(grid_u, grid_u.LS[iLS].cl, grid_u.LS[iLS].u, a0_bu, _a1_bu, _b_bu, BCu, num.n_ext_cl)
+    # end
+
     a1_bu = Diagonal(vec(_a1_bu))
     b_bu = Diagonal(vec(_b_bu))
     #endregion BC borders u
@@ -2838,9 +2912,13 @@ function FE_set_momentum_coupled2_one_fluid(
     a0_bv = zeros(nbv)
     _a1_bv = zeros(nbv)
     _b_bv = zeros(nbv)
-    for iLS in 1:num.nLS
-        set_borders!(grid_v, grid_v.LS[iLS].cl, grid_v.LS[iLS].u, a0_bv, _a1_bv, _b_bv, BCv, num.n_ext_cl)
-    end
+
+    # iLS deactivated but need to impose BC for walls
+    set_borders!(grid_v, grid_v.LS[1].cl, grid_v.LS[1].u, a0_bv, _a1_bv, _b_bv, BCv, num.n_ext_cl)
+
+    # for iLS in 1:num.nLS
+    #     set_borders!(grid_v, grid_v.LS[iLS].cl, grid_v.LS[iLS].u, a0_bv, _a1_bv, _b_bv, BCv, num.n_ext_cl)
+    # end
     a1_bv = Diagonal(vec(_a1_bv))
     b_bv = Diagonal(vec(_b_bv))
     #endregion BC borders v

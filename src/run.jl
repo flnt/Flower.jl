@@ -1,19 +1,3 @@
-
-#TODO test with run_forward! or alloc grid_p inside or ; or no unpack
-#TODO remove duplicate variables: cap (already dcap), emptied (already iso),...
-#TODO floating-point comparison
-#TODO Crank-Nicolson with moving interfaces: simulations explode
-#TODO flow rate, check conservation
-#TODO i_current_x ... multiply by elec_cond
-#TODO no concentration prefactor
-#TODO successive substitution reuse LU decomposition
-#TODO check if everywhere phL.i_current_mag (especially if temperature solved)
-#TODO remove alloc in this file
-#TODO one fluid
-#TODO one fluid u and v dependent for diffusion?
-
-# About PDI: the the Parallel Data Interface https://pdi.dev/1.8/
-
 """
 
 Main function of Flower.jl code to run a simulation
@@ -91,14 +75,30 @@ function run_forward!(
 
 
     #region Initialize simulation parameters
+    iLSbubble = 1 #index of bubble interface
     iLSpdi = 1 #levelset index for IO: levelset number 1
-    # λ::Float64 = 1,
     λ = 1 #for Stefan velocity
-    # speed::Float64 = 0.0,
     speed = 0.0
 
-    #index of bubble interface
-    iLSbubble = 1
+    test_radius = Ref{Cdouble}(0.0)
+
+    test_radius_list = [0.0] #to save radius
+
+    if num.time > num.nucleation_time #TODO more precisely no mass transfer but velocity     
+        num.phase_change_currently_activated = 1
+    end
+
+    if num.mu1 == 0.0 && num.mu2 == 0.0 && num.mu_one_fluid_average !=0
+        @error ("Resetting num.mu_one_fluid_average to 0")
+        num.mu_one_fluid_average = 0
+    end
+
+    # if num.one_fluid_model == 1
+    #     if CL BC 
+    #     # grid_u.LS[1].cl
+    #     @error("BC CL with one fluid")
+    #     end
+    # end
     
     #TODO Re
     #TODO homogenize set_poisson... functions which use -b - in the original implementation and not +b + for the Robin BC
@@ -217,11 +217,9 @@ function run_forward!(
         printstyled(color=:magenta, @sprintf "\n CFL_sc : %.2e\n" CFL_sc)
     end
 
-
-
-    
     # Electrolysis
     num.current_radius = 0.0
+
     # TODO kill_dead_cells! for [:,:,iscal]
     #region init number of moles
     if electrolysis
@@ -306,7 +304,7 @@ function run_forward!(
 
     # nb_gaz_acceptors = zeros(grid_p)
 
-
+    #region electrolysis
     if electrolysis
         if num.nb_transported_scalars>1
             elec_cond = zeros(grid_p)
@@ -331,6 +329,7 @@ function run_forward!(
 
         i_butler = zeros(grid_p.ny) #left wall
     end #electrolysis
+    #endregion electrolysis
 
     if levelset
 
@@ -775,6 +774,7 @@ function run_forward!(
                 rho_one_fluid = zeros(grid_p)
                 mu_one_fluid  = zeros(grid_p)
                 volume_fraction = zeros(grid_p)
+                interface_length = zeros(grid_p)
                 levelset_one_fluid = zeros(grid_p)
 
                 rho_one_fluid_u = zeros(grid_u)
@@ -803,20 +803,6 @@ function run_forward!(
                 velocity_and_BC_convection_v_x = zeros(grid_v)
                 velocity_and_BC_convection_v_y = zeros(grid_v)
 
-                #tmp vec u and v
-
-                # tmp_vec_u
-                # tmp_vec_u0 =
-                # tmp_vec_u1 =     
-
-                # normal_and_dirac_u = zeros(grid_u)
-                # normal_and_dirac_v = zeros(grid_v)
-                # normal_u = zeros(grid_u)
-                # normal_v = zeros(grid_v)
-                # curvature_u = zeros(grid_u)
-                # curvature_v = zeros(grid_v)
-
-        
             end
 
             if (num.pressure_velocity_coupling == 0 && num.one_fluid_model == 0)
@@ -1238,6 +1224,17 @@ function run_forward!(
         # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
         # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
         C_NULL::Ptr{Cvoid})::Cint
+
+        #compute numerical radius 
+        PDI_status = @ccall "libpdi".PDI_multi_expose("compute_radius"::Cstring,
+        "levelset_p"::Cstring, grid_p.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        "mesh_p_x"::Cstring, grid_p.x::Ptr{Cdouble}, PDI_OUT::Cint,
+        "mesh_p_y"::Cstring, grid_p.y::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "radius"::Cstring, test_radius::Ref{Cdouble}, PDI_INOUT::Cint,  
+        "radius_vec"::Cstring, test_radius_list::Ptr{Cdouble}, PDI_INOUT::Cint,                             
+        C_NULL::Ptr{Cvoid})::Cint
+        num.current_radius = test_radius_list[1]
+
     
 
     if num.one_fluid_model == 1 
@@ -1296,6 +1293,10 @@ function run_forward!(
 
     #region time loop
     while (num.current_i < num.max_iterations + 1) && (num.time < num.end_time) && (num.stop_simulation == 0) 
+
+        #update time
+        current_t += num.τ
+        num.time = current_t
 
         #region start iter
 
@@ -2013,8 +2014,7 @@ function run_forward!(
             end
         end #if io_pdi
 
-        
-        #region Phase change
+                #region Phase change
 
        
 
@@ -2023,6 +2023,16 @@ function run_forward!(
 
         if electrolysis && electrolysis_phase_change_case != "None"
             printstyled(color=:magenta, @sprintf "\n integrate_mass_transfer_rate_over_interface\n")
+            
+            # print("\n total_interface_length ",total_interface_length)
+
+            total_interface_length = compute_interface_length!(num, grid_p, 1, interface_length)
+
+            print("\n total_interface_length ",total_interface_length)
+
+            if total_interface_length == 0.0
+                @error("\n error total_interface_length")
+            end
 
             # @views integrate_mass_transfer_rate_over_interface(num,grid_p,op.opC_pL,phL.trans_scalD[:,1],mass_transfer_rate_vec1,mass_transfer_rate_vecb,mass_transfer_rate_veci,mass_transfer_rate)
             # @views integrate_mass_transfer_rate_over_interface_2(num,grid_p,op.opC_pL,phL.trans_scalD[:,1],mass_transfer_rate_vec1,mass_transfer_rate_vecb,mass_transfer_rate_veci,mass_transfer_rate)
@@ -2068,11 +2078,13 @@ function run_forward!(
                           
                             # display(nb_gaz_acceptors)
 
+                            #use interface_length or temp_vec_p0
+
                             flower_status = compute_mass_transfer_rate!(num, grid_p, grid_u, grid_v, iLS, phL.uD, phL.vD, 
                             periodic_x, periodic_y, num.average_velocity, phL.trans_scalD[:,num.index_phase_change],phL.trans_scal[:,:,num.index_phase_change],
                             num.diffusion_coeff[num.index_phase_change],num.concentration0[num.index_phase_change],
                             electrolysis_phase_change_case,mass_transfer_rate, mass_transfer_rate_redistributed,
-                            nb_gaz_acceptors,volume_fraction,tmp_vec_p0)
+                            nb_gaz_acceptors,volume_fraction,interface_length)
 
                             PDI_status = @ccall "libpdi".PDI_multi_expose("check_mass_transfer_rate_NS"::Cstring,
                             "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -2087,20 +2099,37 @@ function run_forward!(
                             "nb_gaz_acceptors"::Cstring, nb_gaz_acceptors::Ptr{Cdouble}, PDI_OUT::Cint,                               
                             C_NULL::Ptr{Cvoid})::Cvoid
 
-                            mass_transfer_rate .= mass_transfer_rate_redistributed
-
+                            if num.phase_change_method == 5
+                                print("\n no redistribution")
+                            else
+                                mass_transfer_rate .= mass_transfer_rate_redistributed
+                            end
 
                             flower_status = compute_phase_change_velocity_electrolysis!(num, grid_p, grid_u, grid_v, iLS, phL.uD, phL.vD, 
                             periodic_x, periodic_y, num.average_velocity, phL.trans_scalD[:,num.index_phase_change],phL.trans_scal[:,:,num.index_phase_change],
                             num.diffusion_coeff[num.index_phase_change],num.concentration0[num.index_phase_change],
                             electrolysis_phase_change_case,mass_transfer_rate, mass_transfer_rate_redistributed,
-                            nb_gaz_acceptors,volume_fraction,tmp_vec_p0)
+                            nb_gaz_acceptors,volume_fraction,interface_length)
 
 
 
                             PDI_status = @ccall "libpdi".PDI_multi_expose("check_mass_transfer_rate_NS"::Cstring,
                             "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
                             C_NULL::Ptr{Cvoid})::Cint
+
+                            
+                            PDI_status = @ccall "libpdi".PDI_multi_expose("check_advection"::Cstring,
+                            "levelset_p"::Cstring, grid_p.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "advection_velocity_p"::Cstring, grid_p.V::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "advection_velocity_u"::Cstring, grid_u.V::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "advection_velocity_v"::Cstring, grid_v.V::Ptr{Cdouble}, PDI_OUT::Cint,                        
+                            C_NULL::Ptr{Cvoid})::Cint
+
+                            PDI_status = @ccall "libpdi".PDI_multi_expose("write_normal_phase_change_velocity"::Cstring,
+                            "normal_phase_change_velocity"::Cstring, grid_p.V::Ptr{Cdouble}, PDI_OUT::Cint,                                     
+                            C_NULL::Ptr{Cvoid})::Cint
+
+
 
                             if flower_status !=0
                                 printstyled(color=:red, @sprintf "\n Stopping simulation %.3i " flower_status)
@@ -2289,9 +2318,819 @@ function run_forward!(
 
         end #iLS
 
-        #endregion
+        #endregion Phase change
 
-        printstyled(color=:red, @sprintf "\n after phase change radius: %.2e \n" num.current_radius)
+
+        #region Navier-Stokes
+
+        if num.time < num.nucleation_time
+            printstyled(color=:red, @sprintf "\n Navier-Stokes not solved")
+
+            navier_stokes = false
+        else
+            printstyled(color=:red, @sprintf "\n Navier-Stokes solved")
+            navier_stokes = true
+        end
+
+        if navier_stokes
+
+
+            # Adapt cell volume W for gradients 
+            # cf 4/3 factor for Laplacian
+            if num.laplacian == 1
+                AvLcopy = copy(AvL) #does not work if reset A after operations in compute_divergence!
+                Lvm1_L,bc_Lvm1_L,bc_Lvm1_b_L=compute_divergence!(num, 
+                # grid_p, 
+                # grid_u, 
+                grid_v, 
+                op.opC_vL,
+                AvLcopy, 
+                # rhs_scal,
+                # tmp_vec_p, #a0
+                tmp_vec_1D_v0,
+                tmp_vec_1D_v,
+                Lvm1_L, 
+                bc_Lvm1_L, 
+                bc_Lvm1_b_L
+                # tmp_vec_u0,
+                # tmp_vec_v0,
+                # tmp_vec_1D,
+                # ls_advection
+                )
+                print("\nbefore pressure")
+                II = CartesianIndex(div(grid_v.ny,2),1)
+                pII = lexicographic(II,grid_v.ny)
+                print("\nLv[pII,:] ",Lvm1_L[pII,:])
+                print("\bc_Lvm1_b[pII,:] ",bc_Lvm1_b_L[pII,:])
+            
+                ApLcopy = copy(Ascal)
+                Lpm1_L,bc_Lpm1_L,bc_Lpm1_b_L=compute_divergence!(num, 
+                # grid_p, 
+                # grid_u, 
+                grid_p, 
+                op.opC_pL,
+                ApLcopy, 
+                # rhs_scal,
+                # tmp_vec_p, #a0
+                tmp_vec_1D_p0,
+                tmp_vec_1D_p,
+                Lpm1_L, 
+                bc_Lpm1_L, 
+                bc_Lpm1_b_L
+                # tmp_vec_u0,
+                # tmp_vec_v0,
+                # tmp_vec_1D,
+                # ls_advection
+                )
+
+            end  
+
+            if num.pressure_velocity_coupling == 3
+
+                iLSpdi = 1 # TODO all grid_p.LS                
+                PDI_status = @ccall "libpdi".PDI_multi_expose("print_capacities"::Cstring,                    
+                # "dcap"::Cstring, permutedims(grid_p.LS[iLSpdi].geoL.dcap, (3, 2, 1))::Ptr{Cdouble}, PDI_OUT::Cint,
+                "dcap_1"::Cstring, grid_u.LS[iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
+                "dcap_2"::Cstring, grid_u.LS[iLSpdi].geoL.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
+                "dcap_3"::Cstring, grid_u.LS[iLSpdi].geoL.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
+                "dcap_4"::Cstring, grid_u.LS[iLSpdi].geoL.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint,
+                C_NULL::Ptr{Cvoid})::Cint                           
+
+                PDI_status = @ccall "libpdi".PDI_multi_expose("print_capacities"::Cstring,                    
+                # "dcap"::Cstring, permutedims(grid_p.LS[iLSpdi].geoL.dcap, (3, 2, 1))::Ptr{Cdouble}, PDI_OUT::Cint,
+                "dcap_1"::Cstring, grid_v.LS[iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
+                "dcap_2"::Cstring, grid_v.LS[iLSpdi].geoL.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
+                "dcap_3"::Cstring, grid_v.LS[iLSpdi].geoL.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
+                "dcap_4"::Cstring, grid_v.LS[iLSpdi].geoL.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint,
+                C_NULL::Ptr{Cvoid})::Cint   
+
+                # print("\n cap_1 ",grid_u.LS[iLSpdi].geoL.dcap[1,:,1])
+                # print("\n cap_1 ",grid_u.LS[iLSpdi].geoL.dcap[2,:,1])
+
+                # print("\n cap_1 ",grid_v.LS[iLSpdi].geoL.dcap[1,:,1])
+                # print("\n cap_1 ",grid_v.LS[iLSpdi].geoL.dcap[2,:,1])
+
+                # print("\n cap_2 ",grid_v.LS[iLSpdi].geoL.dcap[1,:,2])
+                # print("\n cap_2 ",grid_v.LS[iLSpdi].geoL.dcap[2,:,2])
+
+                # print("\n cap_3 ",grid_v.LS[iLSpdi].geoL.dcap[1,:,3])
+                # print("\n cap_3 ",grid_v.LS[iLSpdi].geoL.dcap[2,:,3])
+
+                # for u grid_p
+                # cap 1 same 
+                # cap_1 [0.0, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5]
+
+
+    
+
+            end
+
+
+            # if !advection
+            #     @time no_slip_condition!(num, grid_p, grid_u, grid_u.LS[1], grid_v, grid_v.LS[1], periodic_x, periodic_y)
+            #     # grid_u.V .= num.Δ / (1 * num.τ)
+            #     # grid_v.V .= 0.0
+            # end
+
+            # Pressure-velocity coupling
+
+            if num.one_fluid_model == 1 
+
+                # interpolate_staggered_u_v_to_scalar_grid_one_fluid_or_one_phase!(num,grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
+
+                tmp_vec_p  .= 0.0
+                tmp_vec_p0 .= 0.0
+
+                for j = 1:grid_p.ny
+                for i = 1:grid_p.nx
+                    tmp_vec_p[j,i] =(phL.u[j,i]+phL.u[j,i+1])/2
+                    tmp_vec_p0[j,i]=(phL.v[j,i]+phL.v[j+1,i])/2
+                end
+                end
+
+
+                update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_fraction,levelset_one_fluid,rho_one_fluid,
+                                                    rho_one_fluid_u,rho_one_fluid_v,mu_one_fluid,tmp_vec_p0)
+
+                total_interface_length = compute_interface_length!(num, grid_p, 1, interface_length)
+                # MIXED =
+
+                nb_levelsets = num.nLS
+                num.nLS = 0 #1 #deactivate cut-cell for one-fluid model
+                
+                #region deactivate LS
+                empty_capacities = vcat(zeros(7), zeros(4))
+                full_capacities = vcat(ones(7), 0.5.*ones(4))
+
+                for grid_iter in [grid_p,grid_u,grid_v]
+
+                    grid_iter.LS[1].u .= 1.0
+                    grid_iter.LS[end].u .= 1.0
+
+
+                    # for j in 1:grid_iter.ny
+                    #     for i in 1:grid_iter.nx
+                    #         II = CartesianIndex(j,i)
+                    #         # grid_iter.LS[end].geoL.cap[II,:] .= full_capacities
+                    #         # grid_iter.LS[end].geoS.cap[II,:] .= empty_capacities
+                    #     end
+                    # end
+                end
+
+                # grid_u.LS[end].geoL.cap[:,:,:] .= full_capacities
+                # grid_u.LS[end].geoS.cap[:,:,:] .= empty_capacities
+
+                # grid_v.LS[end].geoL.cap[:,:,:] .= full_capacities
+                # grid_v.LS[end].geoS.cap[:,:,:] .= empty_capacities
+
+                #endregion  deactivate LS
+
+                NB_indices = update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y,true,true) 
+
+
+                geoL = [grid_p.LS[iLS].geoL for iLS in 1:num._nLS]
+                geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
+                geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+
+                #region reset centroids 
+                #HACK reset centroids 
+                # grid_p.LS[1].geoL.centroid .= Point(0.0, 0.0)
+                # grid_u.LS[1].geoL.centroid .= Point(0.0, 0.0)
+                # grid_v.LS[1].geoL.centroid .= Point(0.0, 0.0)
+
+                # grid_p.LS[1].geoL.centroid.x .= 0.0
+                # grid_u.LS[1].geoL.centroid.x .= 0.0
+                # grid_v.LS[1].geoL.centroid.x .= 0.0
+
+                # grid_p.LS[1].geoL.centroid.y .= 0.0
+                # grid_u.LS[1].geoL.centroid.y .= 0.0
+                # grid_v.LS[1].geoL.centroid.y .= 0.0
+
+
+                for grid_iter in [grid_p,grid_u,grid_v]
+                    for II in grid_iter.ind.inside
+                        grid_iter.LS[1].geoL.centroid[II] = Point(0.0,0.0)
+                    end
+                end
+                #TODO reactivate centroids ?
+                #endregion reset centroids 
+
+
+
+                    # TODO update density
+
+                # if num.pressure_velocity_coupling == 0 
+
+                #region update LS
+
+                #endregion update LS
+
+
+
+
+
+
+                #pbm mass_transfer_rateL
+                PDI_status = @ccall "libpdi".PDI_multi_expose("check_mass_transfer_rate_NS"::Cstring,
+                # "conservation"::Cstring, conservation::Ref{Cdouble}, PDI_OUT::Cint,
+                "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                C_NULL::Ptr{Cvoid})::Cint
+
+
+
+                #region update LS for convection (bool=true)+ one fluid
+
+                # At every iteration, update_all_ls_data is called twice, once inside run.jl 
+                # and another one (if there's advection of the levelset) inside set_heat!. 
+                # The difference between both is a flag as last argument, inside run.jl is implicitly defined 
+                # as true and inside set_heat! is false. If you're calling your version of set_heat! several times, 
+                # then you're calling the version with the flag set to false, but for the convective term it has to be set to true.
+                # The flag=true, the capacities are set for the convection, the flag=false they are set for the other operators
+
+                if advection
+                    # update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y, true) 
+                    update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y, true,true) 
+
+                    # op.opL is op_conv
+                    set_convection_preallocated!(num, grid_p, geoL[end], grid_u, grid_u.LS, grid_v, grid_v.LS, phL.u, phL.v, op.opL,
+                    phL, BC_uL, BC_vL,op.opC_pL, op.opC_uL, op.opC_vL,
+                    velocity_and_BC_convection_u_x ,
+                    velocity_and_BC_convection_u_y ,
+                    velocity_and_BC_convection_v_x ,
+                    velocity_and_BC_convection_v_y)
+                end
+                #endregion update LS for convection (bool=true)+ one fluid
+
+
+                #region update LS for other operators than convection (bool=false)+ one fluid
+                # update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
+                update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y, false,true)
+
+                #endregion
+
+
+
+                if num.one_fluid_model == 1 
+                    if num.surface_tension == 0
+                        compute_surface_tension_VOF!(num,grid_p, grid_u, grid_v, op.opC_pL, op.opC_uL, op.opC_vL, 
+                        volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0)
+                    elseif num.surface_tension == 1
+                        # compute_surface_tension_LS!(num,grid_p, grid_u, grid_v, opC_p, opC_u, opC_v, 
+                        # volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0)
+                        compute_surface_tension_LS!(num,grid_p, grid_u, grid_v, op.opC_pL, op.opC_uL, op.opC_vL, 
+                        volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0,
+                        levelset_1D, levelset_heavyside_2D, 
+                        tmp_vec_u0,tmp_vec_v0, #normal_and_dirac_u, normal_and_dirac_v,
+                        tmp_vec_u1,tmp_vec_v1,#normal_u, normal_v, 
+                        tmp_vec_u,tmp_vec_v,#curvature_u, curvature_v
+                        )
+                    end
+                end
+                
+                PDI_status = @ccall "libpdi".PDI_multi_expose("write_one_fluid_surface_tension_concise"::Cstring,
+                "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
+                # "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "grad_u"::Cstring, normal_and_dirac_u::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "grad_v"::Cstring, normal_and_dirac_v::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "curvature_p"::Cstring, curvature_p::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "curvature_u"::Cstring, curvature_u::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "curvature_v"::Cstring, curvature_v::Ptr{Cdouble}, PDI_OUT::Cint,
+                "volumic_surface_tension_u"::Cstring, volumic_surface_tension_u::Ptr{Cdouble}, PDI_OUT::Cint,
+                "volumic_surface_tension_v"::Cstring, volumic_surface_tension_v::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "normal_angle"::Cstring, grid_p.LS[iLSpdi].α::Ptr{Cdouble}, PDI_OUT::Cint,
+                # "normal_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+                # "normal_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+                C_NULL::Ptr{Cvoid})::Cint
+
+
+                # II = CartesianIndex(3,37)
+                # pII =lexicographic(II,grid_p.ny)
+                # print("\n op.χ[1] NS",op.opC_TL.χ[1].diag[pII])
+
+                # print("\n op.χ[1] NS",op.opC_pL.χ[1].diag[pII])
+
+                # print("\n size ",size(op.opC_TL))
+                # print("\n size ",size(op.opC_pL))
+
+                # Mum1_L is put in B matrix that multiplies v
+                # print("\n advection ", ns_advection, " adv ",advection)
+                Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L,
+                Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = solve_one_fluid_NS!(
+                time_scheme, BC_int,
+                num, grid_p, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
+                BC_uL, BC_vL, BC_pL,
+                op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
+                # op.opC_TL,
+                AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,rhs_uv,
+                Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
+                Cum1L, Cvm1L, Mum1_L, Mvm1_L,
+                periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,
+                volume_fraction,
+                levelset_one_fluid,
+                rho_one_fluid,
+                mu_one_fluid,
+                rho_one_fluid_u,
+                # mu_one_fluid_u,
+                rho_one_fluid_v,
+                # mu_one_fluid_v,
+                volumic_surface_tension_u,
+                volumic_surface_tension_v,
+                convection_u,convection_v,
+                viscosity_coeff_for_du_dx ,
+                viscosity_coeff_for_du_dy ,
+                viscosity_coeff_for_dv_dx ,
+                viscosity_coeff_for_dv_dy,
+                # velocity_and_BC_convection_u_x ,
+                # velocity_and_BC_convection_u_y ,
+                # velocity_and_BC_convection_v_x ,
+                # velocity_and_BC_convection_v_y ,
+                tmp_vec_p,
+                tmp_vec_p0,            
+                rhs_phi,
+                pres_free_surfaceL,jump_mass_transfer_rateL,mass_transfer_rate )  
+
+                print("\n num.stop_simulation after NS ",num.stop_simulation)
+
+
+                #region reactivate cut-cell for one-fluid model
+                num.nLS = nb_levelsets 
+
+                grid_p.LS[1].u .= levelset_one_fluid
+                grid_p.LS[end].u .= levelset_one_fluid
+
+
+                NB_indices = update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y) 
+
+                
+                # TODO check after activation NS after nucleation
+
+                # geoL = [grid_p.LS[iLS].geoL for iLS in 1:num._nLS]
+                # geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
+                # geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+
+                # reactivate centroids
+                # printstyled(color=:red, @sprintf "\n reactivate centroids \n")
+
+                # x_centroid = grid_p.x .+ getproperty.(grid_p.LS[1].geoL.centroid, :x) .* grid_p.dx #geoS
+                # display(x_centroid)
+
+                # y_centroid = grid_p.y .+ getproperty.(grid_p.LS[1].geoL.centroid, :y) .* grid_p.dy #geoS
+                # display(y_centroid)
+
+                # display(levelset_one_fluid)
+                #endregion reactivate cut-cell for one-fluid model
+
+
+            else
+
+                if num.pressure_velocity_coupling == 0 
+                    if ns_solid_phase
+                        geoS = [grid_p.LS[iLS].geoS for iLS in 1:num._nLS]
+                        geo_uS = [grid_u.LS[iLS].geoS for iLS in 1:num._nLS]
+                        geo_vS = [grid_v.LS[iLS].geoS for iLS in 1:num._nLS]
+                        Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,Mm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = pressure_projection!(
+                            time_scheme, BC_int,
+                            num, grid_p, geoS, grid_u, geo_uS, grid_v, geo_vS, phS,
+                            BC_uS, BC_vS, BC_pS,
+                            op.opC_pS, op.opC_uS, op.opC_vS, op.opS,
+                            AuS, BuS, AvS, BvS, AϕS, AuvS, BuvS,
+                            Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,
+                            Cum1S, Cvm1S, Mum1_S, Mvm1_S,
+                            periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceS,jump_mass_transfer_rateS,mass_transfer_rateS
+                        )
+                    end
+                    if ns_liquid_phase
+                        geoL = [grid_p.LS[iLS].geoL for iLS in 1:num._nLS]
+                        geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
+                        geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+
+                        # Mum1_L is put in B matrix that multiplies v
+
+                        Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = pressure_projection!(
+                            time_scheme, BC_int,
+                            num, grid_p, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
+                            BC_uL, BC_vL, BC_pL,
+                            op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
+                            AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,
+                            Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
+                            Cum1L, Cvm1L, Mum1_L, Mvm1_L,
+                            periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_transfer_rateL,mass_transfer_rate
+                        )
+                        # if num.current_i == 1
+                        #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
+                        #     phL.v .= 0.5 .* grid_v.x .+ getproperty.(grid_v.LS[1].geoL.centroid, :x) .* grid_v.dx
+                        #     phL.u[grid_u.LS[1].SOLID] .= 0.0
+                        #     phL.v[grid_v.LS[1].SOLID] .= 0.0
+                        # end
+                        # linear_advection!(
+                        #     num, grid_p, grid_p.LS[1].geoL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL, phL,
+                        #     BC_uL, BC_vL, op.opL
+                        # )
+                    end
+
+                elseif num.pressure_velocity_coupling > 1
+
+                    if ns_liquid_phase
+                        geoL = [grid_p.LS[iLS].geoL for iLS in 1:num._nLS]
+                        geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
+                        geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+
+                        # Mum1_L is put in B matrix that multiplies v
+
+                        Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = coupled_pressure_velocity!(
+                            time_scheme, BC_int,
+                            num, grid_p, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
+                            BC_uL, BC_vL, BC_pL,
+                            op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
+                            AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,rhs_uv,
+                            Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
+                            Cum1L, Cvm1L, Mum1_L, Mvm1_L,
+                            periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_transfer_rateL,mass_transfer_rate
+                        )
+                        # if num.current_i == 1
+                        #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
+                        #     phL.v .= 0.5 .* grid_v.x .+ getproperty.(grid_v.LS[1].geoL.centroid, :x) .* grid_v.dx
+                        #     phL.u[grid_u.LS[1].SOLID] .= 0.0
+                        #     phL.v[grid_v.LS[1].SOLID] .= 0.0
+                        # end
+                        # linear_advection!(
+                        #     num, grid_p, grid_p.LS[1].geoL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL, phL,
+                        #     BC_uL, BC_vL, op.opL
+                        # )
+                    end
+
+                end #if num.pressure_velocity_coupling
+
+            end # if num.one_fluid_model == 1
+
+        end # if navier_stokes
+
+
+        #region conservation, divergence checks
+        # TODO check global mass conservation and divergence free
+
+        conservation = 0.0 
+        not_divergence_free = true
+
+        #TODO mutliple levelsets 1 or end
+        # cf bc_matrix_borders!(grid_p, opC_u.Gx_b, opC_v.Gy_b, opC_p.Gx_b, opC_p.Gy_b, geo.dcap)
+        conservation += -dot(vecb_L(phL.uD,grid_u) , grid_p.LS[1].geoL.dcap[:,1,1]) 
+        conservation +=  dot(vecb_R(phL.uD,grid_u) , grid_p.LS[1].geoL.dcap[:,grid_p.nx,3]) # right capacity: u
+        conservation += -dot(vecb_B(phL.vD,grid_v) , grid_p.LS[1].geoL.dcap[1,:,2]) # bottom capacity: v
+        conservation +=  dot(vecb_T(phL.vD,grid_v) , grid_p.LS[1].geoL.dcap[grid_p.ny,:,4]) # top capacity: v 
+        
+        # Compute divergence of velocity
+        Duv = op.opC_pL.AxT * vec1(phL.uD,grid_u) .+ op.opC_pL.Gx_b * vecb(phL.uD,grid_u) .+
+        op.opC_pL.AyT * vec1(phL.vD,grid_v) .+ op.opC_pL.Gy_b * vecb(phL.vD,grid_v)
+        for iLS in 1:num.nLS
+            if !is_navier(BC_int[iLS]) && !is_navier_cl(BC_int[iLS]) #otherwise normal velocity null if no blowing
+                Duv .+= op.opC_pL.Gx[iLS] * veci(phL.uD,grid_u,iLS+1) .+ 
+                        op.opC_pL.Gy[iLS] * veci(phL.vD,grid_v,iLS+1)
+            end
+        end
+        #TODO divergence when Navier ?
+
+        PDI_status = @ccall "libpdi".PDI_multi_expose("print_conservation"::Cstring,
+        "conservation"::Cstring, conservation::Ref{Cdouble}, PDI_OUT::Cint,
+        "divergence"::Cstring, Duv::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
+
+        if maximum(Duv)< num.epsilon_divergence
+            not_divergence_free = false
+        end
+
+        if abs(conservation) > num.epsilon_conservation || not_divergence_free
+            
+            PDI_status = @ccall "libpdi".PDI_multi_expose("conservation_error"::Cstring,
+            "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+            "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+            "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+            C_NULL::Ptr{Cvoid})::Cint
+        end
+        #endregion conservation, divergence checks
+
+        # PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_velocity"::Cstring,
+        # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # C_NULL::Ptr{Cvoid})::Cint
+
+        #endregion Navier-Stokes 
+
+
+
+
+        # #region Phase change
+
+       
+
+        # # print("\n electrolysis_phase_change_case ",electrolysis_phase_change_case)
+        # #TODO print case, quantity, ...
+
+        # if electrolysis && electrolysis_phase_change_case != "None"
+        #     printstyled(color=:magenta, @sprintf "\n integrate_mass_transfer_rate_over_interface\n")
+            
+        #     # print("\n total_interface_length ",total_interface_length)
+
+        #     total_interface_length = compute_interface_length!(num, grid_p, 1, interface_length)
+
+        #     print("\n total_interface_length ",total_interface_length)
+
+        #     if total_interface_length == 0.0
+        #         @error("\n error total_interface_length")
+        #     end
+
+        #     # @views integrate_mass_transfer_rate_over_interface(num,grid_p,op.opC_pL,phL.trans_scalD[:,1],mass_transfer_rate_vec1,mass_transfer_rate_vecb,mass_transfer_rate_veci,mass_transfer_rate)
+        #     # @views integrate_mass_transfer_rate_over_interface_2(num,grid_p,op.opC_pL,phL.trans_scalD[:,1],mass_transfer_rate_vec1,mass_transfer_rate_vecb,mass_transfer_rate_veci,mass_transfer_rate)
+
+        #     @views integrate_mass_transfer_rate_over_interface(num,grid_p,op.opC_pL,phL.trans_scalD[:,1],mass_transfer_rate_vec1,
+        #     mass_transfer_rate_vecb,mass_transfer_rate_veci, tmp_vec_p, tmp_vec_p0, tmp_vec_p1, mass_transfer_rate,num.index_phase_change) #1
+
+        #     PDI_status = @ccall "libpdi".PDI_multi_expose("check_mass_transfer_rate_NS"::Cstring,
+        #     "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
+        #     C_NULL::Ptr{Cvoid})::Cint
+
+        #     # print("\n sum mass flux all levelsets (walls and interfaces alike) ", sum(mass_transfer_rate),"\n ")
+        # end
+        
+        # #    grid_p.LS[i].α  which is the angle of the outward point normal with respect to the horizontal axis
+
+        # for iLS in 1:num.nLS
+        #     if is_stefan(BC_int[iLS])
+        #         update_stefan_velocity(num, grid_p, iLS, grid_p.LS[iLS].u, phS.T, phL.T, periodic_x, periodic_y, λ, Vmean)
+        #     elseif is_fs(BC_int[iLS]) || (occursin("levelset",electrolysis_phase_change_case) && iLS == iLSbubble)
+        #         printstyled(color=:green, @sprintf "\n grid_p.V %.2e max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(grid_p.V)) maximum(abs.(phL.u)) maximum(abs.(phL.v)))
+
+        #         if electrolysis_phase_change_case!="none"    
+        #             if occursin("levelset",electrolysis_phase_change_case)
+
+        #                 printstyled(color=:magenta, @sprintf "\n phase-change for LS %.2i " iLS)
+
+        #                 # plot_electrolysis_velocity!(num, grid_p, grid_p.LS, grid_p.V, TL, MIXED, periodic_x, periodic_y, concentration_scal_intfc)
+
+        #                 # TODO send to PDI points and velocity for phase change like in plot_electrolysis_velocity!
+                        
+        #                 # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
+
+                       
+        #                 if num.advection_LS_mode !=10    
+
+
+        #                     PDI_status = @ccall "libpdi".PDI_multi_expose("check_mass_transfer_rate_NS"::Cstring,
+        #                     "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
+        #                     "mass_transfer_rate_redistributed"::Cstring, mass_transfer_rate_redistributed::Ptr{Cdouble}, PDI_OUT::Cint,
+        #                     "nb_gaz_acceptors"::Cstring, nb_gaz_acceptors::Ptr{Cdouble}, PDI_OUT::Cint,
+        #                     C_NULL::Ptr{Cvoid})::Cint
+                          
+        #                     # display(nb_gaz_acceptors)
+
+        #                     #use interface_length or temp_vec_p0
+
+        #                     flower_status = compute_mass_transfer_rate!(num, grid_p, grid_u, grid_v, iLS, phL.uD, phL.vD, 
+        #                     periodic_x, periodic_y, num.average_velocity, phL.trans_scalD[:,num.index_phase_change],phL.trans_scal[:,:,num.index_phase_change],
+        #                     num.diffusion_coeff[num.index_phase_change],num.concentration0[num.index_phase_change],
+        #                     electrolysis_phase_change_case,mass_transfer_rate, mass_transfer_rate_redistributed,
+        #                     nb_gaz_acceptors,volume_fraction,interface_length)
+
+        #                     PDI_status = @ccall "libpdi".PDI_multi_expose("check_mass_transfer_rate_NS"::Cstring,
+        #                     "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
+        #                     "mass_transfer_rate_redistributed"::Cstring, mass_transfer_rate_redistributed::Ptr{Cdouble}, PDI_OUT::Cint,
+        #                     "nb_gaz_acceptors"::Cstring, nb_gaz_acceptors::Ptr{Cdouble}, PDI_OUT::Cint,
+        #                     C_NULL::Ptr{Cvoid})::Cint
+                            
+                            
+        #                     @ccall "libpdi".PDI_multi_expose("write_mass_transfer_rate_redistributed"::Cstring,
+        #                     "mass_transfer_rate"::Cstring, mass_transfer_rate_redistributed::Ptr{Cdouble}, PDI_OUT::Cint,
+        #                     "mass_transfer_rate_before_redistribution"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,   
+        #                     "nb_gaz_acceptors"::Cstring, nb_gaz_acceptors::Ptr{Cdouble}, PDI_OUT::Cint,                               
+        #                     C_NULL::Ptr{Cvoid})::Cvoid
+
+        #                     if num.phase_change_method == 5
+        #                         print("\n no redistribution")
+        #                     else
+        #                         mass_transfer_rate .= mass_transfer_rate_redistributed
+        #                     end
+
+        #                     flower_status = compute_phase_change_velocity_electrolysis!(num, grid_p, grid_u, grid_v, iLS, phL.uD, phL.vD, 
+        #                     periodic_x, periodic_y, num.average_velocity, phL.trans_scalD[:,num.index_phase_change],phL.trans_scal[:,:,num.index_phase_change],
+        #                     num.diffusion_coeff[num.index_phase_change],num.concentration0[num.index_phase_change],
+        #                     electrolysis_phase_change_case,mass_transfer_rate, mass_transfer_rate_redistributed,
+        #                     nb_gaz_acceptors,volume_fraction,interface_length)
+
+
+
+        #                     PDI_status = @ccall "libpdi".PDI_multi_expose("check_mass_transfer_rate_NS"::Cstring,
+        #                     "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
+        #                     C_NULL::Ptr{Cvoid})::Cint
+
+                            
+        #                     PDI_status = @ccall "libpdi".PDI_multi_expose("check_advection"::Cstring,
+        #                     "levelset_p"::Cstring, grid_p.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        #                     "advection_velocity_p"::Cstring, grid_p.V::Ptr{Cdouble}, PDI_OUT::Cint,
+        #                     "advection_velocity_u"::Cstring, grid_u.V::Ptr{Cdouble}, PDI_OUT::Cint,
+        #                     "advection_velocity_v"::Cstring, grid_v.V::Ptr{Cdouble}, PDI_OUT::Cint,                        
+        #                     C_NULL::Ptr{Cvoid})::Cint
+
+        #                     PDI_status = @ccall "libpdi".PDI_multi_expose("write_normal_phase_change_velocity"::Cstring,
+        #                     "normal_phase_change_velocity"::Cstring, grid_p.V::Ptr{Cdouble}, PDI_OUT::Cint,                                     
+        #                     C_NULL::Ptr{Cvoid})::Cint
+
+
+
+        #                     if flower_status !=0
+        #                         printstyled(color=:red, @sprintf "\n Stopping simulation %.3i " flower_status)
+        #                         return
+        #                     end
+        #                 end
+
+        #                     # # iLS = 1
+        #                     # # intfc_length = 0.0
+        #                     # # @inbounds @threads for II in grid_p.LS[iLS].MIXED
+        #                     # #     intfc_length += 
+        #                     # # end
+
+
+        #                     # printstyled(color=:green, @sprintf "\n pi*R %.2e len : %.2e \n" π*num.R intfc_length)
+
+        #                     # #TODO u-vphase change
+
+        #                     # #TODO check velocity
+        #                     # @inbounds @threads for II in grid_p.LS[iLS].MIXED
+        #                     #     grid_p.V[II] = sum(mass_transfer_rate) * num.diffusion_coeff[num.index_phase_change] *(1.0/num.rho2-1.0/num.rho1).*num.diffusion_coeff[num.index_phase_change].*num.MWH2
+        #                     # end
+
+
+        #                 if num.mass_transfer_rate == 0
+        #                     varnH2 = num.sum_mass_transfer_rate * num.diffusion_coeff[num.index_phase_change] 
+
+        #                     new_nH2 = nH2 + varnH2 * num.τ
+
+        #                     print("\n varn ",varnH2 ," dt ", num.τ," dn ",varnH2 * num.τ, " sum ", num.sum_mass_transfer_rate)
+        #                     printstyled(color=:green, @sprintf "\n it %.5i Mole: %.2e dn %.2e new nH2 %.2e \n" num.current_i nH2 varnH2*num.τ new_nH2)
+
+        #                     if varnH2 < 0.0 
+        #                         # print(@sprintf "error nH2 %.2e dnH2 %.2e new nH2 %.2e\n" nH2-varnH2*num.τ varnH2*num.τ nH2 )
+        #                         @error ("error nH2")
+        #                         crashed = true
+        #                         new_nH2 = nH2
+        #                         print("wrong nH2 ")
+        #                         # println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
+        #                         return
+        #                     else
+        #                         nH2 = new_nH2
+        #                     end
+
+        #                 end #num.mass_transfer_rate == 0
+
+
+        #             end
+        #             # update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y)
+        #             printstyled(color=:green, @sprintf "\n grid_p.V %.2e max abs(u) : %.2e max abs(v)%.2e\n" maximum(abs.(grid_p.V)) maximum(abs.(phL.u)) maximum(abs.(phL.v)))
+                    
+        #             printstyled(color=:green, @sprintf "\n grid_p.V %.2e dx : %.2e CFL %.2e\n" maximum(abs.(grid_p.V)) grid_p.dx[1,1] maximum(abs.(grid_p.V))*num.τ/grid_p.dx[1,1])
+
+
+        #         else
+        #             printstyled(color=:magenta, @sprintf "\n update_free_surface_velocity")
+                 
+        #             update_free_surface_velocity(num, grid_u, grid_v, iLS, phL.uD, phL.vD, periodic_x, periodic_y)
+        #         end
+
+        #         # printstyled(color=:magenta, @sprintf "\n update_free_surface_velocity")
+        #         # #TODO
+        #         # update_free_surface_velocity(num, grid_u, grid_v, 1, phL.uD, phL.vD, periodic_x, periodic_y)
+
+
+            
+        #     elseif (electrolysis && occursin("Khalighi",electrolysis_phase_change_case))
+
+        #         if ((num.current_i-1)%show_every == 0) 
+        #             # print_electrolysis_statistics(num,grid_p,phL)
+        #             PDI_status = @ccall "libpdi".PDI_multi_expose("print_variables"::Cstring,
+        #             "nstep"::Cstring, nstep ::Ref{Clonglong}, PDI_OUT::Cint,
+        #             "time"::Cstring, time::Ref{Cdouble}, PDI_OUT::Cint,
+        #             "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+        #             "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+        #             "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        #             "levelset_p"::Cstring, grid_p.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        #             "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        #             "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        #             # "levelset_p_wall"::Cstring, LStable::Ptr{Cdouble}, PDI_OUT::Cint,
+        #             "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+        #             "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
+        #             # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
+        #             # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
+        #             # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
+        #             # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
+        #             # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
+        #             # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+        #             # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
+        #             # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+        #             # "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+        #             # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+        #             # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+        #             C_NULL::Ptr{Cvoid})::Cint
+        #         end
+
+        #         previous_radius = num.current_radius
+
+        #         # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
+        #         varnH2 =  sum(mass_transfer_rate) * num.diffusion_coeff[num.index_phase_change] 
+
+        #         #TODO mode_2d==0 flux corresponds to cylinder of length 1
+        #         #2D cylinder reference length
+        #         if mode_2d == 1
+        #             varnH2 .*= num.ref_thickness_2d
+        #         end
+
+        #         #Pliquid is the average value of p over the bubble interface plus the ambient operating pressure (P).
+        #         p_liq= num.pres0 + mean(veci(phL.pD,grid_p,2)) #TODO here one bubble
+        #         # p_g=p_liq + 2 * num.σ / num.current_radius #3D
+        #         p_g=p_liq + num.σ / num.current_radius #2D
+
+        #         new_nH2 = nH2 + varnH2 * num.τ
+
+               
+        #         printstyled(color=:green, @sprintf "\n it %.5i Mole: %.2e dn %.2e new nH2 %.2e \n" num.current_i nH2 varnH2*num.τ new_nH2)
+
+        #         if varnH2 < 0.0 
+        #             # print(@sprintf "error nH2 %.2e dnH2 %.2e new nH2 %.2e\n" nH2-varnH2*num.τ varnH2*num.τ nH2 )
+        #             @error ("error nH2")
+        #             crashed = true
+        #             new_nH2 = nH2
+        #             print("wrong nH2 ")
+        #             # println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
+        #             return
+        #         end
+
+        #         if occursin("Khalighi_no_update",electrolysis_phase_change_case)
+
+        #         else
+        #             nH2 = new_nH2
+        #         end
+                
+        #         #TODO using num.temperature0
+        #         if mode_2d == 0
+        #             num.current_radius = cbrt(3.0 * nH2 * num.Ru * num.temperature0/( 4.0 * pi * p_g) )
+        #         elseif mode_2d == 1
+        #             num.current_radius = sqrt(nH2 * num.Ru * num.temperature0/( pi * p_g * num.ref_thickness_2d) )
+        #         elseif mode_2d == 2
+        #             num.current_radius = sqrt(nH2/(num.concentration0[num.index_phase_change] * pi))
+        #         elseif mode_2d == 3
+        #             num.current_radius = sqrt(2*nH2/(num.concentration0[num.index_phase_change] * pi))
+        #         elseif mode_2d == 4 #TODO
+        #             num.current_radius = sqrt(nH2 * num.Ru * num.temperature0/( pi * p_g) )
+        #         end
+
+        #         printstyled(color=:green, @sprintf "\n radius num.CFL: %.2e \n" (num.current_radius-previous_radius)/(num.L0/grid_p.nx))
+
+        #         if (num.current_radius-previous_radius)/(num.L0/grid_p.nx) > 0.5
+        #             printstyled(color=:red, @sprintf "\n radius num.CFL: %.2e \n" (num.current_radius-previous_radius)/(num.L0/grid_p.nx))
+        #             @error ("num.CFL radius")
+        #             crashed = true
+        #             return
+        #         end
+
+               
+        #         printstyled(color=:cyan, @sprintf "\n div(0,grad): %.5i %.2e %.2e %.2e %.2e\n" grid_p.nx num.τ num.L0/grid_p.nx (num.current_radius-previous_radius)/(num.L0/grid_p.nx) sum(mass_transfer_rate))
+                
+        #         printstyled(color=:green, @sprintf "\n num.n(H2): %.2e added %.2e old R %.2e new R %.2e \n" nH2 varnH2*num.τ previous_radius num.current_radius)
+        #         printstyled(color=:green, @sprintf "\n p0: %.2e p_liq %.2e p_lapl %.2e \n" num.pres0 p_liq p_g)
+
+        #         if mode_2d == 3
+        #             grid_p.LS[1].u .= sqrt.((grid_p.x.- num.xcoord).^ 2 + (grid_p.y .- num.ycoord) .^ 2) - (num.current_radius) * ones(grid_p.ny, grid_p.nx)                  
+        #         else
+        #             grid_p.LS[1].u .= sqrt.((grid_p.x .- num.xcoord .- num.current_radius .+ num.R ).^ 2 + (grid_p.y .- num.ycoord) .^ 2) - (num.current_radius) * ones(grid_p.ny, grid_p.nx)
+        #         end
+        #         # init_franck!(grid_p, TL, R, num.T_inf, 0)
+        #         # u
+
+        #     elseif (electrolysis && electrolysis_phase_change_case == "imposed_radius")
+
+        #         #num.CFL 0.5
+        #         num.current_radius = num.current_radius + grid_p.dx[1,1]/2
+
+        #         grid_p.LS[1].u .= sqrt.((grid_p.x.- num.xcoord).^ 2 + (grid_p.y .- num.ycoord) .^ 2) - (num.current_radius) * ones(grid_p.ny, grid_p.nx)                  
+
+        #     elseif (electrolysis && electrolysis_phase_change_case == "imposed_radius4")
+
+        #         #num.CFL 0.5
+        #         num.current_radius = num.current_radius + grid_p.dx[1,1]/4
+
+        #         grid_p.LS[1].u .= sqrt.((grid_p.x.- num.xcoord).^ 2 + (grid_p.y .- num.ycoord) .^ 2) - (num.current_radius) * ones(grid_p.ny, grid_p.nx)                  
+
+
+        #     end #phase change
+
+        # end #iLS
+
+        # #endregion
+
+        # printstyled(color=:red, @sprintf "\n after phase change radius: %.2e \n" num.current_radius)
 
         if verbose && adaptative_t
             println("num.τ = $num.τ")
@@ -2333,540 +3172,58 @@ function run_forward!(
 
             end # if num.io_pdi>0
 
-
-            #In the current implementations, the first cell is not solved: levelset not advected
-            for (iLS, bc) in enumerate(BC_int)
-                if is_stefan(bc)
-                    IIOE_normal!(grid_p, grid_p.LS[iLS].A, grid_p.LS[iLS].B, grid_p.LS[iLS].u, grid_p.V, CFL_sc, periodic_x, periodic_y)
-                    grid_p.LS[iLS].u .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u)), grid_p)
-                    # u .= sqrt.((grid_p.x .- num.current_i*num.Δ/1).^ 2 + grid_p.y .^ 2) - (0.5) * ones(grid_p.nx, grid_p.ny);
-                elseif is_fs(bc) || (occursin("levelset",electrolysis_phase_change_case) && iLS == iLSbubble)
-
-                    if num.advection_LS_mode == 0
-                        rhs_LS .= 0.0
-                        grid_p.LS[iLS].A.nzval .= 0.0
-                        grid_p.LS[iLS].B.nzval .= 0.0
-                        IIOE!(grid_p, grid_u, grid_v, grid_p.LS[iLS].A, grid_p.LS[iLS].B, θ_out, num.τ, periodic_x, periodic_y)
-                        BC_LS_interior!(num, grid_p, grid_u, grid_v, iLS, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
-                        BC_LS!(grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
-                        utmp .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u) .+ rhs_LS), grid_p)
-
-                        rhs_LS .= 0.0
-                        S2IIOE!(grid_p, grid_u, grid_v, grid_p.LS[iLS].A, grid_p.LS[iLS].B, utmp, grid_p.LS[iLS].u, θ_out, num.τ, periodic_x, periodic_y)
-                        BC_LS_interior!(num, grid_p, grid_u, grid_v, iLS, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
-                        BC_LS!(grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
-                        grid_p.LS[iLS].u .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u) .+ rhs_LS), grid_p)
-
-                    elseif num.advection_LS_mode == 1
-
-                        # Project velocities to the normal and use advection scheme for advection just
-                        # in the normal direction
-                        tmpVx = zeros(grid_p)
-                        tmpVy = zeros(grid_p)
-                        grid_p.V .= 0.0
-                        @inbounds @threads for II in grid_p.LS[iLS].MIXED
-                            cap1 = grid_u.LS[iLS].geoL.cap[II,5]
-                            cap3 = grid_u.LS[iLS].geoL.cap[δx⁺(II),5]
-                            tmpVx[II] = (grid_u.V[II] * cap1 + grid_u.V[δx⁺(II)] * cap3) / (cap1 + cap3 + eps(0.01))
-
-                            cap2 = grid_v.LS[iLS].geoL.cap[II,5]
-                            cap4 = grid_v.LS[iLS].geoL.cap[δy⁺(II),5]
-                            tmpVy[II] = (grid_v.V[II] * cap2 + grid_v.V[δy⁺(II)] * cap4) / (cap2 + cap4 + eps(0.01))
-
-                            tmpV = sqrt(tmpVx[II]^2 + tmpVy[II]^2)
-                            β = atan(tmpVy[II], tmpVx[II])
-                            if grid_p.LS[iLS].α[II] > 0.0 && β < 0.0
-                                β += 2π
-                            end
-                            if grid_p.LS[iLS].α[II] < 0.0 && β > 0.0
-                                β -= 2π
-                            end
-
-                            grid_p.V[II] = tmpV * cos(β - grid_p.LS[iLS].α[II])
-                        end
-
-                        i_ext, l_ext, b_ext, r_ext, t_ext = indices_extension(grid_p, grid_p.LS[iLS], grid_p.ind.inside, periodic_x, periodic_y)
-                        field_extension!(grid_p, grid_p.LS[iLS].u, grid_p.V, i_ext, l_ext, b_ext, r_ext, t_ext, num.NB, periodic_x, periodic_y)
-
-                        rhs_LS .= 0.0
-                        IIOE_normal!(grid_p, grid_p.LS[iLS].A, grid_p.LS[iLS].B, grid_p.LS[iLS].u, grid_p.V, CFL_sc, periodic_x, periodic_y)
-                        BC_LS!(grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
-                        BC_LS_interior!(num, grid_p, iLS, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
-                        grid_p.LS[iLS].u .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u) .+ rhs_LS), grid_p)
-
-                        # Impose contact angle if a wall is present
-                        rhs_LS .= 0.0
-                        grid_p.LS[iLS].A.nzval .= 0.0
-                        grid_p.LS[iLS].B.nzval .= 0.0
-                        for II in grid_p.ind.all_indices
-                            pII = lexicographic(II, grid_p.ny)
-                            grid_p.LS[iLS].A[pII,pII] = 1.0
-                            grid_p.LS[iLS].B[pII,pII] = 1.0
-                        end
-                        BC_LS_interior!(num, grid_p, iLS, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
-                        grid_p.LS[iLS].u .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u) .+ rhs_LS), grid_p)
-
-                    elseif num.advection_LS_mode == 2
-                        print("\n num.advection_LS_mode == 2 iLS", iLS)
-
-
-                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
-
-
-                        printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
-
-                        IIOE_normal!(grid_p, grid_p.LS[iLS].A, grid_p.LS[iLS].B, grid_p.LS[iLS].u, grid_p.V, CFL_sc, periodic_x, periodic_y)
-                      
-                        grid_p.LS[iLS].u .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u)), grid_p)
-
-
-
-                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
-
-
-                    elseif num.advection_LS_mode == 3
-
-                        # from scalar grid_p, normal to u and v
-                        #TODO 
-                        print("\n setting 0 u and v velocities \n")
-                        grid_u.V .= 0
-                        grid_v.V .= 0
-
-                        interpolate_scalar!(grid_p, grid_u, grid_v, grid_p.V, grid_u.V, grid_v.V)
-
-                        normalx = cos.(grid_u.LS[iLS].α)
-                        normaly = sin.(grid_v.LS[iLS].α)
-                    
-                        grid_u.V .*= normalx
-                        grid_v.V .*= normaly
-
-                        print("\n num.advection_LS_mode == 3 iLS", iLS)
-
-
-                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
-
-
-                        printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
-
-
-                        rhs_LS .= 0.0
-                        grid_p.LS[iLS].A.nzval .= 0.0
-                        grid_p.LS[iLS].B.nzval .= 0.0
-                        IIOE!(grid_p, grid_u, grid_v, grid_p.LS[iLS].A, grid_p.LS[iLS].B, θ_out, num.τ, periodic_x, periodic_y)
-                        BC_LS_interior!(num, grid_p, grid_u, grid_v, iLS, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
-                        BC_LS!(grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
-                        utmp .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u) .+ rhs_LS), grid_p)
-
-                        rhs_LS .= 0.0
-                        S2IIOE!(grid_p, grid_u, grid_v, grid_p.LS[iLS].A, grid_p.LS[iLS].B, utmp, grid_p.LS[iLS].u, θ_out, num.τ, periodic_x, periodic_y)
-                        BC_LS_interior!(num, grid_p, grid_u, grid_v, iLS, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
-                        BC_LS!(grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
-                        grid_p.LS[iLS].u .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u) .+ rhs_LS), grid_p)
-
-
-                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
-
-                    elseif num.advection_LS_mode == 4
-
-                        previous_radius = num.current_radius
-
-                        # Minus sign because normal points toward bubble and varnH2 for gaz, not liquid phase 
-                        varnH2 = sign_mass_transfer_rate * sum(mass_transfer_rate) * num.diffusion_coeff[num.index_phase_change] 
-
-                        #TODO mode_2d==0 flux corresponds to cylinder of length 1
-                        #2D cylinder reference length
-                        if mode_2d == 1
-                            varnH2 .*= num.ref_thickness_2d
-                        end
-
-                      
-                        nH2 = nH2 + varnH2 * num.τ
-
-                        # printstyled(color=:green, @sprintf "\n it %.5i Mole: %.2e dn %.2e new nH2 %.2e \n" num.current_i nH2 varnH2*num.τ new_nH2)
-
-                        # if varnH2 < 0.0 
-                        #     # print(@sprintf "error nH2 %.2e dnH2 %.2e new nH2 %.2e\n" nH2-varnH2*num.τ varnH2*num.τ nH2 )
-                        #     @error ("error nH2")
-                        #     crashed = true
-                        #     new_nH2 = nH2
-                        #     print("wrong nH2 ")
-                        #     # println(@sprintf "\n CRASHED after %d iterations \n" num.current_i)
-                        #     return
-                        # end
-        
-                        # if occursin("Khalighi_no_update",electrolysis_phase_change_case)
-        
-                        # else
-                        #     nH2 = new_nH2
-                        # end
-                        
-                        #TODO using num.temperature0
-                        if mode_2d == 0
-                            num.current_radius = cbrt(3.0 * nH2 * num.Ru * num.temperature0/( 4.0 * pi * p_g) )
-                        elseif mode_2d == 1
-                            num.current_radius = sqrt(nH2 * num.Ru * num.temperature0/( pi * p_g * num.ref_thickness_2d) )
-                        elseif mode_2d == 2
-                            num.current_radius = sqrt(nH2/(num.concentration0[num.index_phase_change] * pi))
-                        elseif mode_2d == 3
-                            num.current_radius = sqrt(2*nH2/(num.concentration0[num.index_phase_change] * pi))
-                        end
-        
-                        printstyled(color=:green, @sprintf "\n radius num.CFL: %.2e \n" (num.current_radius-previous_radius)/(num.L0/grid_p.nx))
-        
-                        if (num.current_radius-previous_radius)/(num.L0/grid_p.nx) > 0.5
-                            printstyled(color=:red, @sprintf "\n radius num.CFL: %.2e \n" (num.current_radius-previous_radius)/(num.L0/grid_p.nx))
-                            @error ("num.CFL radius")
-                            crashed = true
-                            return
-                        end
-        
-                       
-                        printstyled(color=:cyan, @sprintf "\n div(0,grad): %.5i %.2e %.2e %.2e \n" grid_p.nx num.τ num.L0/grid_p.nx (num.current_radius-previous_radius)/(num.L0/grid_p.nx)) 
-                        # sum(mass_transfer_rate))
-                        
-                        printstyled(color=:green, @sprintf "\n num.n(H2): %.2e added %.2e old R %.2e new R %.2e \n" nH2 varnH2*num.τ previous_radius num.current_radius)
-                        printstyled(color=:green, @sprintf "\n p0: %.2e p_liq %.2e p_lapl %.2e \n" num.pres0 p_liq p_g)
-        
-                        if mode_2d == 3
-                            grid_p.LS[1].u .= sqrt.((grid_p.x.- num.xcoord).^ 2 + (grid_p.y .- num.ycoord) .^ 2) - (num.current_radius) * ones(grid_p.ny, grid_p.nx)                  
-                        else
-                            grid_p.LS[1].u .= sqrt.((grid_p.x .- num.xcoord .- num.current_radius .+ num.R ).^ 2 + (grid_p.y .- num.ycoord) .^ 2) - (num.current_radius) * ones(grid_p.ny, grid_p.nx)
-                        end
-
-
-                    elseif num.advection_LS_mode == 5
-                        print("\n num.advection_LS_mode == 5 iLS", iLS)
-
-
-                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
-
-                        grid_p.V .=0.25*grid_p.dx[1,1]/num.τ  
-
-                        printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
-
-                        IIOE_normal!(grid_p, grid_p.LS[iLS].A, grid_p.LS[iLS].B, grid_p.LS[iLS].u, grid_p.V, CFL_sc, periodic_x, periodic_y)
-                        grid_p.LS[iLS].u .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u)), grid_p)
-
-
-
-                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
-
-                    elseif (num.advection_LS_mode == 6) || (num.advection_LS_mode == 7)
-
-                        rhs_LS .= 0.0
-                        # grid_p.LS[iLS].A.nzval .= 0.0
-                        # grid_p.LS[iLS].B.nzval .= 0.0
-
-                        print("\n num.advection_LS_mode == 2 iLS", iLS)
-
-
-                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
-
-
-                        printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
-
-                        IIOE_normal!(grid_p, grid_p.LS[iLS].A, grid_p.LS[iLS].B, grid_p.LS[iLS].u, grid_p.V, CFL_sc, periodic_x, periodic_y)
-
-                        # IIOE_normal_indices!(grid_p, grid_p.LS[iLS].A, grid_p.LS[iLS].B, grid_p.LS[iLS].u, grid_p.V, CFL_sc, periodic_x, periodic_y,grid_p.ind.all_indices)
-                        # grid_p.LS[iLS].u .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u)), grid_p)
-
-
-                        # rhs_LS .= 0.0
-                        # grid_p.LS[iLS].A.nzval .= 0.0
-                        # grid_p.LS[iLS].B.nzval .= 0.0
-                        # IIOE!(grid_p, grid_u, grid_v, grid_p.LS[iLS].A, grid_p.LS[iLS].B, θ_out, num.τ, periodic_x, periodic_y)
-                        # BC_LS_interior!(num, grid_p, grid_u, grid_v, iLS, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
-                        # BC_LS!(grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
-                        # utmp .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u) .+ rhs_LS), grid_p)
-
-                        # rhs_LS .= 0.0
-                        # S2IIOE!(grid_p, grid_u, grid_v, grid_p.LS[iLS].A, grid_p.LS[iLS].B, utmp, grid_p.LS[iLS].u, θ_out, num.τ, periodic_x, periodic_y)
-                        # BC_LS_interior!(num, grid_p, grid_u, grid_v, iLS, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
-                        # BC_LS!(grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
-                        # grid_p.LS[iLS].u .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u) .+ rhs_LS), grid_p)
-
-                       
-
-                        if num.advection_LS_mode == 6
-
-                            # IIOE_normal!(grid_p, grid_p.LS[iLS].A, grid_p.LS[iLS].B, grid_p.LS[iLS].u, grid_p.V, CFL_sc, periodic_x, periodic_y)
-                            BC_LS!(grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
-                            BC_LS_interior!(num, grid_p, grid_u, grid_v, iLS, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
-                        
-                        end
-                        
-                        grid_p.LS[iLS].u .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u) .+ rhs_LS), grid_p)
-
-                        # # Impose contact angle if a wall is present
-                        # rhs_LS .= 0.0
-                        # grid_p.LS[iLS].A.nzval .= 0.0
-                        # grid_p.LS[iLS].B.nzval .= 0.0
-                        # for II in grid_p.ind.all_indices
-                        #     pII = lexicographic(II, grid_p.ny)
-                        #     grid_p.LS[iLS].A[pII,pII] = 1.0
-                        #     grid_p.LS[iLS].B[pII,pII] = 1.0
-                        # end
-                        # BC_LS_interior!(num, grid_p, iLS, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
-                        # grid_p.LS[iLS].u .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u) .+ rhs_LS), grid_p)
-
-
-
-
-
-                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
-
-
-                    elseif num.advection_LS_mode == 8
-                        print("\n num.advection_LS_mode == 8 iLS", iLS)
-                        print("\n deprecated", iLS)
-
-                        # nghost = 1
-
-                        # Aghost, Bghost = allocate_ghost_matrices(grid_p.nx,grid_p.ny,nghost)
-
-                        # print("\n periodic ",periodic_x," y ",periodic_y)
-
-
-                        # update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
-
-
-                        # printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
-
-                        # # IIOE_normal!(grid_p, grid_p.LS[iLS].A, grid_p.LS[iLS].B, grid_p.LS[iLS].u, grid_p.V, CFL_sc, periodic_x, periodic_y)
-                        # # IIOE_normal_indices!(grid_p, grid_p.LS[iLS].A, grid_p.LS[iLS].B, grid_p.LS[iLS].u, grid_p.V, CFL_sc, periodic_x, periodic_y,grid_p.ind.all_indices)
-
-                        # # print("\n sizes LS A ",size(grid_p.LS[iLS].A), " B ", size(grid_p.LS[iLS].B)," LS ",size(grid_p.LS[iLS].u)," V ",size(grid_p.V),"\n")
-
-                        # #recopy value in ghost cell
-                        # LSghost = init_ghost_neumann(grid_p.LS[iLS].u,grid_p.nx,grid_p.ny,nghost)
-                        
-                        # Vghost = init_ghost_neumann(grid_p.V,grid_p.nx,grid_p.ny,nghost)
-
-                        # # print("\n LSghost \n")
-                        # # print("\n ",LSghost[0,:])
-                        # # print("\n ",LSghost[1,:])
-                        # # print("\n ",LSghost[:,0])
-                        # # print("\n ",LSghost[:,1])
-
-                        # IIOE_normal_indices!(grid_p, Aghost, Bghost, grid_p.LS[iLS].u, LSghost, 
-                        # grid_p.V, CFL_sc, periodic_x, periodic_y,grid_p.ind.all_indices)
-
-                        # # IIOE_normal_indices!(grid_p, grid_p.LS[iLS].A, grid_p.LS[iLS].B, grid_p.LS[iLS].u, LSghost, 
-                        # # grid_p.V, CFL_sc, periodic_x, periodic_y,grid_p.ind.all_indices)
-
-                        # # IIOE_normal_indices!(grid_p, Aghost, Bghost, LSghost, Vghost, CFL_sc, periodic_x, periodic_y,grid_p.ind.all_indices)
-
-                        # # print("\n sizes LS A ",size(grid_p.LS[iLS].A), " B ", size(grid_p.LS[iLS].B)," LS ",size(grid_p.LS[iLS].u)," V ",size(grid_p.V),"\n")
-                        # # print("\n sizes LS A ",size(OffsetArrays.no_offset_view(Aghost)), " B ", size(OffsetArrays.no_offset_view(Bghost))," LS ",size(LSghost)," V ",size(grid_p.V),"\n")
-
-                        # OffsetArrays.no_offset_view(LSghost) .= reshape(gmres(OffsetArrays.no_offset_view(Aghost), OffsetArrays.no_offset_view(Bghost) * vec(OffsetArrays.no_offset_view(LSghost))), (grid_p.ny+2,grid_p.nx+2))
-
-                        # grid_p.LS[iLS].u .= LSghost[1:grid_p.ny,1:grid_p.nx]
-
-                        # # grid_p.LS[iLS].u .= reshape(gmres(OffsetArrays.no_offset_view(Aghost), OffsetArrays.no_offset_view(Bghost) * vec(grid_p.LS[iLS].u)), grid_p)
-
-
-
-                        # update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
-
-                    elseif ((num.advection_LS_mode == 9) || (num.advection_LS_mode == 10))
-                        print("\n num.advection_LS_mode == 9 or 10 iLS", iLS)
-
-                        if num.advection_LS_mode == 10
-                            grid_p.V .=0.25*grid_p.dx[2,2]/num.τ  
-                            
-                            print("\n dummy adv", 0.25*grid_p.dx[2,2]/num.τ , " ",grid_p.dx[2,2]," ",num.τ)
-
-                        end
-
-                        nghost = 1
-
-                        Aghost, Bghost = allocate_ghost_matrices_2(grid_p.nx,grid_p.ny,nghost)
-
-
-                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
-
-
-                        printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
-
-                        # IIOE_normal!(grid_p, grid_p.LS[iLS].A, grid_p.LS[iLS].B, grid_p.LS[iLS].u, grid_p.V, CFL_sc, periodic_x, periodic_y)
-                        # IIOE_normal_indices!(grid_p, grid_p.LS[iLS].A, grid_p.LS[iLS].B, grid_p.LS[iLS].u, grid_p.V, CFL_sc, periodic_x, periodic_y,grid_p.ind.all_indices)
-
-                        # print("\n sizes LS A ",size(grid_p.LS[iLS].A), " B ", size(grid_p.LS[iLS].B)," LS ",size(grid_p.LS[iLS].u)," V ",size(grid_p.V),"\n")
-
-
-                        LSghost = init_ghost_neumann_2(grid_p.LS[iLS].u,grid_p.nx,grid_p.ny,nghost)
-
-                        # print("\n LSghost \n")
-                        # print("\n ",LSghost[0,:])
-                        # print("\n ",LSghost[1,:])
-                        # print("\n ",LSghost[:,0])
-                        # print("\n ",LSghost[:,1])
-                                               
-                        Vghost = init_ghost_neumann_2(grid_p.V,grid_p.nx,grid_p.ny,nghost)
-
-                        IIOE_normal_indices_2!(grid_p, Aghost, Bghost, grid_p.LS[iLS].u, LSghost, 
-                        Vghost, CFL_sc, periodic_x, periodic_y,nghost)
-
-                        # IIOE_normal_indices!(grid_p, grid_p.LS[iLS].A, grid_p.LS[iLS].B, grid_p.LS[iLS].u, LSghost, 
-                        # grid_p.V, CFL_sc, periodic_x, periodic_y,grid_p.ind.all_indices)
-
-                        # IIOE_normal_indices!(grid_p, Aghost, Bghost, LSghost, Vghost, CFL_sc, periodic_x, periodic_y,grid_p.ind.all_indices)
-
-                        # print("\n sizes LS A ",size(grid_p.LS[iLS].A), " B ", size(grid_p.LS[iLS].B)," LS ",size(grid_p.LS[iLS].u)," V ",size(grid_p.V),"\n")
-                        # print("\n sizes LS A ",size(OffsetArrays.no_offset_view(Aghost)), " B ", size(OffsetArrays.no_offset_view(Bghost))," LS ",size(LSghost)," V ",size(grid_p.V),"\n")
-
-                        LSghost .= reshape(gmres(Aghost, Bghost * vec(LSghost)), (grid_p.ny+2*nghost,grid_p.nx+2*nghost))
-
-
-                        # grid_p.LS[iLS].u .= LSghost[1:grid_p.ny,1:grid_p.nx]
-
-                        #Store result of LS advection without ghost cells
-                        for j=1:grid_p.ny
-                            for i=1:grid_p.nx
-                                grid_p.LS[iLS].u[j,i] = LSghost[j+1,i+1]
-                            end
-                        end
-
-                        # grid_p.LS[iLS].u .= reshape(gmres(OffsetArrays.no_offset_view(Aghost), OffsetArrays.no_offset_view(Bghost) * vec(grid_p.LS[iLS].u)), grid_p)
-
-
-
-                        update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
-
-                    elseif num.advection_LS_mode == 11 || num.advection_LS_mode == 12 
-
-                        printstyled(color=:magenta, @sprintf "\n update_free_surface_velocity")
-                        #TODO
-                        update_free_surface_velocity(num, grid_u, grid_v, 1, phL.uD, phL.vD, periodic_x, periodic_y)
-
-                        # display(grid_v.V)
-
-                        # "write_"
-
-                        i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext = indices_extension(grid_u, grid_u.LS[1], grid_u.ind.inside, periodic_x, periodic_y)
-                        i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext = indices_extension(grid_v, grid_v.LS[1], grid_v.ind.inside, periodic_x, periodic_y)
-
-                        field_extension!(grid_u, grid_u.LS[1].u, grid_u.V, i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext, num.NB, periodic_x, periodic_y)
-                        field_extension!(grid_v, grid_v.LS[1].u, grid_v.V, i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext, num.NB, periodic_x, periodic_y)
-                        
-                        # printstyled(color=:magenta, @sprintf "\n extended")
-
-                        # display(grid_v.V)
-
-
-
-                        if num.advection_LS_mode == 11 
-                            print("\n dummy grid_v.V ")
-
-                            grid_v.V .=0.25*grid_p.dx[2,2]/num.τ  
-                        end
-
-                        print("\n grid_v.V ")
-                        printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
-
-
-                        rhs_LS .= 0.0
-                        grid_p.LS[iLS].A.nzval .= 0.0
-                        grid_p.LS[iLS].B.nzval .= 0.0
-                        IIOE!(grid_p, grid_u, grid_v, grid_p.LS[iLS].A, grid_p.LS[iLS].B, θ_out, num.τ, periodic_x, periodic_y)
-
-
-
-                        rhs_LS .= 0.0
-                        grid_p.LS[iLS].A.nzval .= 0.0
-                        grid_p.LS[iLS].B.nzval .= 0.0
-                        IIOE!(grid_p, grid_u, grid_v, grid_p.LS[iLS].A, grid_p.LS[iLS].B, θ_out, num.τ, periodic_x, periodic_y)
-                        # BC_LS_interior!(num, grid_p, grid_u, grid_v, iLS, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
-                        BC_LS!(grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
-                        utmp .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u) .+ rhs_LS), grid_p)
-
-                        rhs_LS .= 0.0
-                        S2IIOE!(grid_p, grid_u, grid_v, grid_p.LS[iLS].A, grid_p.LS[iLS].B, utmp, grid_p.LS[iLS].u, θ_out, num.τ, periodic_x, periodic_y)
-                        # BC_LS_interior!(num, grid_p, grid_u, grid_v, iLS, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
-                        BC_LS!(grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
-                        grid_p.LS[iLS].u .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u) .+ rhs_LS), grid_p)
-
-                    #region bulk +phase-change velocity    
-                    elseif num.advection_LS_mode == 13
-
-                        #region bulk velocity
-
-                        if num.time > num.nucleation_time #TODO more precisely no mass transfer but velocity 
-                            
-                            num.phase_change_currently_activated = 1 #TODO before after
-
-                            update_free_surface_velocity(num, grid_u, grid_v, 1, phL.uD, phL.vD, periodic_x, periodic_y)
-
-                            i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext = indices_extension(grid_u, grid_u.LS[1], grid_u.ind.inside, periodic_x, periodic_y)
-                            i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext = indices_extension(grid_v, grid_v.LS[1], grid_v.ind.inside, periodic_x, periodic_y)
-
-                            field_extension!(grid_u, grid_u.LS[1].u, grid_u.V, i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext, num.NB, periodic_x, periodic_y)
-                            field_extension!(grid_v, grid_v.LS[1].u, grid_v.V, i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext, num.NB, periodic_x, periodic_y)
-                            
-                            interpolate_scalar!(grid_p, grid_u, grid_v, grid_p.V, grid_u.V, grid_v.V)
-
-                            #enregion bulk velocity
-
-                            nghost = 1
-                            Aghost, Bghost = allocate_ghost_matrices_2(grid_p.nx,grid_p.ny,nghost)
-                            update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
-                            printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
-                            LSghost = init_ghost_neumann_2(grid_p.LS[iLS].u,grid_p.nx,grid_p.ny,nghost)
-                            Vghost = init_ghost_neumann_2(grid_p.V,grid_p.nx,grid_p.ny,nghost)
-                            IIOE_normal_indices_2!(grid_p, Aghost, Bghost, grid_p.LS[iLS].u, LSghost, 
-                            Vghost, CFL_sc, periodic_x, periodic_y,nghost)
-                            LSghost .= reshape(gmres(Aghost, Bghost * vec(LSghost)), (grid_p.ny+2*nghost,grid_p.nx+2*nghost))
-
-                            #Store result of LS advection without ghost cells
-                            for j=1:grid_p.ny
-                                for i=1:grid_p.nx
-                                    grid_p.LS[iLS].u[j,i] = LSghost[j+1,i+1]
-                                end
-                            end
-
-                            update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
-
-                            test_radius = Ref{Cdouble}(0.0)
-
-                            test_radius_list = [0.0]
-
-                            PDI_status = @ccall "libpdi".PDI_multi_expose("compute_radius"::Cstring,
-                            "levelset_p"::Cstring, grid_p.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-                            "mesh_p_x"::Cstring, grid_p.x::Ptr{Cdouble}, PDI_OUT::Cint,
-                            # "radius"::Cstring, test_radius::Ref{Cdouble}, PDI_INOUT::Cint,  
-                            "radius_vec"::Cstring, test_radius_list::Ptr{Cdouble}, PDI_INOUT::Cint,                             
-                            C_NULL::Ptr{Cvoid})::Cint
-
-                            # printstyled(color=:red, @sprintf "\n test radius: %.2e \n" test_radius[])
-                            # print("\n test test_radius_list ",test_radius_list)
-
-                            num.current_radius = test_radius_list[1]
-
-                            # print("\n test radius ",test_radius)
-                            # print("\n test PDI_INOUT ",PDI_INOUT)
-
-                            # PDI_status = @ccall "libpdi".PDI_multi_expose("compute_radius"::Cstring,
-                            # "levelset_p"::Cstring, grid_p.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-                            # "mesh_p_x"::Cstring, grid_p.x::Ptr{Cdouble}, PDI_OUT::Cint,
-                            # "radius"::Cstring, num.current_radius::Ref{Cdouble}, PDI_INOUT::Cint,  
-                            # C_NULL::Ptr{Cvoid})::Cint
-
-
-                        else
-                            printstyled(color=:red, @sprintf "\n no levelset advection before nucleation \n" )
-
-                        end
-
-                        printstyled(color=:red, @sprintf "\n after advection 13 radius: %.2e \n" num.current_radius)
-
-
-                    #endregion bulk +phase-change velocity    
-
-
-                    end #num.advection_LS_mode == 
-                end
+            
+            #region u_E NS cipriano 2024
+            #compute u_E, velocity without masss transfer rate in divergence
+            if num.advection_LS_mode == 16
+                init_copy(Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L,
+                    Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L)
+
+                    Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L,
+                    Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = solve_one_fluid_NS!(
+                    time_scheme, BC_int,
+                    num, grid_p, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
+                    BC_uL, BC_vL, BC_pL,
+                    op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
+                    # op.opC_TL,
+                    AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,rhs_uv,
+                    Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
+                    Cum1L, Cvm1L, Mum1_L, Mvm1_L,
+                    periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,
+                    volume_fraction,
+                    levelset_one_fluid,
+                    rho_one_fluid,
+                    mu_one_fluid,
+                    rho_one_fluid_u,
+                    # mu_one_fluid_u,
+                    rho_one_fluid_v,
+                    # mu_one_fluid_v,
+                    volumic_surface_tension_u,
+                    volumic_surface_tension_v,
+                    convection_u,convection_v,
+                    viscosity_coeff_for_du_dx ,
+                    viscosity_coeff_for_du_dy ,
+                    viscosity_coeff_for_dv_dx ,
+                    viscosity_coeff_for_dv_dy,
+                    # velocity_and_BC_convection_u_x ,
+                    # velocity_and_BC_convection_u_y ,
+                    # velocity_and_BC_convection_v_x ,
+                    # velocity_and_BC_convection_v_y ,
+                    tmp_vec_p,
+                    tmp_vec_p0,            
+                    rhs_phi,
+                    pres_free_surfaceL,jump_mass_transfer_rateL,mass_transfer_rate )  
             end
+
+            #endregion  u_E NS cipriano 2024
+
+
+            select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, periodic_x, periodic_y, 
+                θ_out, rhs_LS, utmp, iLSbubble, electrolysis_phase_change_case, sign_mass_transfer_rate, mass_transfer_rate, 
+                nH2, mode_2d, p_g, p_liq, phL.uD, phL.vD, iLSpdi)
+
+
+            
 
             # printstyled(color=:red, @sprintf "\n after advection_LS_mode radius: %.2e \n" num.current_radius)
 
@@ -3144,505 +3501,505 @@ function run_forward!(
         #endregion Advection 
 
 
-        #region Navier-Stokes
+        # #region Navier-Stokes
 
-        if num.time < num.nucleation_time
-            printstyled(color=:red, @sprintf "\n Navier-Stokes not solved")
+        # if num.time < num.nucleation_time
+        #     printstyled(color=:red, @sprintf "\n Navier-Stokes not solved")
 
-            navier_stokes = false
-        else
-            printstyled(color=:red, @sprintf "\n Navier-Stokes solved")
-            navier_stokes = true
-        end
+        #     navier_stokes = false
+        # else
+        #     printstyled(color=:red, @sprintf "\n Navier-Stokes solved")
+        #     navier_stokes = true
+        # end
 
-        if navier_stokes
+        # if navier_stokes
 
 
-            # Adapt cell volume W for gradients 
-            # cf 4/3 factor for Laplacian
-            if num.laplacian == 1
-                AvLcopy = copy(AvL) #does not work if reset A after operations in compute_divergence!
-                Lvm1_L,bc_Lvm1_L,bc_Lvm1_b_L=compute_divergence!(num, 
-                # grid_p, 
-                # grid_u, 
-                grid_v, 
-                op.opC_vL,
-                AvLcopy, 
-                # rhs_scal,
-                # tmp_vec_p, #a0
-                tmp_vec_1D_v0,
-                tmp_vec_1D_v,
-                Lvm1_L, 
-                bc_Lvm1_L, 
-                bc_Lvm1_b_L
-                # tmp_vec_u0,
-                # tmp_vec_v0,
-                # tmp_vec_1D,
-                # ls_advection
-                )
-                print("\nbefore pressure")
-                II = CartesianIndex(div(grid_v.ny,2),1)
-                pII = lexicographic(II,grid_v.ny)
-                print("\nLv[pII,:] ",Lvm1_L[pII,:])
-                print("\bc_Lvm1_b[pII,:] ",bc_Lvm1_b_L[pII,:])
+        #     # Adapt cell volume W for gradients 
+        #     # cf 4/3 factor for Laplacian
+        #     if num.laplacian == 1
+        #         AvLcopy = copy(AvL) #does not work if reset A after operations in compute_divergence!
+        #         Lvm1_L,bc_Lvm1_L,bc_Lvm1_b_L=compute_divergence!(num, 
+        #         # grid_p, 
+        #         # grid_u, 
+        #         grid_v, 
+        #         op.opC_vL,
+        #         AvLcopy, 
+        #         # rhs_scal,
+        #         # tmp_vec_p, #a0
+        #         tmp_vec_1D_v0,
+        #         tmp_vec_1D_v,
+        #         Lvm1_L, 
+        #         bc_Lvm1_L, 
+        #         bc_Lvm1_b_L
+        #         # tmp_vec_u0,
+        #         # tmp_vec_v0,
+        #         # tmp_vec_1D,
+        #         # ls_advection
+        #         )
+        #         print("\nbefore pressure")
+        #         II = CartesianIndex(div(grid_v.ny,2),1)
+        #         pII = lexicographic(II,grid_v.ny)
+        #         print("\nLv[pII,:] ",Lvm1_L[pII,:])
+        #         print("\bc_Lvm1_b[pII,:] ",bc_Lvm1_b_L[pII,:])
             
-                ApLcopy = copy(Ascal)
-                Lpm1_L,bc_Lpm1_L,bc_Lpm1_b_L=compute_divergence!(num, 
-                # grid_p, 
-                # grid_u, 
-                grid_p, 
-                op.opC_pL,
-                ApLcopy, 
-                # rhs_scal,
-                # tmp_vec_p, #a0
-                tmp_vec_1D_p0,
-                tmp_vec_1D_p,
-                Lpm1_L, 
-                bc_Lpm1_L, 
-                bc_Lpm1_b_L
-                # tmp_vec_u0,
-                # tmp_vec_v0,
-                # tmp_vec_1D,
-                # ls_advection
-                )
+        #         ApLcopy = copy(Ascal)
+        #         Lpm1_L,bc_Lpm1_L,bc_Lpm1_b_L=compute_divergence!(num, 
+        #         # grid_p, 
+        #         # grid_u, 
+        #         grid_p, 
+        #         op.opC_pL,
+        #         ApLcopy, 
+        #         # rhs_scal,
+        #         # tmp_vec_p, #a0
+        #         tmp_vec_1D_p0,
+        #         tmp_vec_1D_p,
+        #         Lpm1_L, 
+        #         bc_Lpm1_L, 
+        #         bc_Lpm1_b_L
+        #         # tmp_vec_u0,
+        #         # tmp_vec_v0,
+        #         # tmp_vec_1D,
+        #         # ls_advection
+        #         )
 
-            end  
+        #     end  
 
-            if num.pressure_velocity_coupling == 3
+        #     if num.pressure_velocity_coupling == 3
 
-                iLSpdi = 1 # TODO all grid_p.LS                
-                PDI_status = @ccall "libpdi".PDI_multi_expose("print_capacities"::Cstring,                    
-                # "dcap"::Cstring, permutedims(grid_p.LS[iLSpdi].geoL.dcap, (3, 2, 1))::Ptr{Cdouble}, PDI_OUT::Cint,
-                "dcap_1"::Cstring, grid_u.LS[iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
-                "dcap_2"::Cstring, grid_u.LS[iLSpdi].geoL.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
-                "dcap_3"::Cstring, grid_u.LS[iLSpdi].geoL.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
-                "dcap_4"::Cstring, grid_u.LS[iLSpdi].geoL.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint,
-                C_NULL::Ptr{Cvoid})::Cint                           
+        #         iLSpdi = 1 # TODO all grid_p.LS                
+        #         PDI_status = @ccall "libpdi".PDI_multi_expose("print_capacities"::Cstring,                    
+        #         # "dcap"::Cstring, permutedims(grid_p.LS[iLSpdi].geoL.dcap, (3, 2, 1))::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         "dcap_1"::Cstring, grid_u.LS[iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         "dcap_2"::Cstring, grid_u.LS[iLSpdi].geoL.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         "dcap_3"::Cstring, grid_u.LS[iLSpdi].geoL.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         "dcap_4"::Cstring, grid_u.LS[iLSpdi].geoL.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         C_NULL::Ptr{Cvoid})::Cint                           
 
-                PDI_status = @ccall "libpdi".PDI_multi_expose("print_capacities"::Cstring,                    
-                # "dcap"::Cstring, permutedims(grid_p.LS[iLSpdi].geoL.dcap, (3, 2, 1))::Ptr{Cdouble}, PDI_OUT::Cint,
-                "dcap_1"::Cstring, grid_v.LS[iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
-                "dcap_2"::Cstring, grid_v.LS[iLSpdi].geoL.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
-                "dcap_3"::Cstring, grid_v.LS[iLSpdi].geoL.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
-                "dcap_4"::Cstring, grid_v.LS[iLSpdi].geoL.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint,
-                C_NULL::Ptr{Cvoid})::Cint   
+        #         PDI_status = @ccall "libpdi".PDI_multi_expose("print_capacities"::Cstring,                    
+        #         # "dcap"::Cstring, permutedims(grid_p.LS[iLSpdi].geoL.dcap, (3, 2, 1))::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         "dcap_1"::Cstring, grid_v.LS[iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         "dcap_2"::Cstring, grid_v.LS[iLSpdi].geoL.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         "dcap_3"::Cstring, grid_v.LS[iLSpdi].geoL.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         "dcap_4"::Cstring, grid_v.LS[iLSpdi].geoL.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         C_NULL::Ptr{Cvoid})::Cint   
 
-                # print("\n cap_1 ",grid_u.LS[iLSpdi].geoL.dcap[1,:,1])
-                # print("\n cap_1 ",grid_u.LS[iLSpdi].geoL.dcap[2,:,1])
+        #         # print("\n cap_1 ",grid_u.LS[iLSpdi].geoL.dcap[1,:,1])
+        #         # print("\n cap_1 ",grid_u.LS[iLSpdi].geoL.dcap[2,:,1])
 
-                # print("\n cap_1 ",grid_v.LS[iLSpdi].geoL.dcap[1,:,1])
-                # print("\n cap_1 ",grid_v.LS[iLSpdi].geoL.dcap[2,:,1])
+        #         # print("\n cap_1 ",grid_v.LS[iLSpdi].geoL.dcap[1,:,1])
+        #         # print("\n cap_1 ",grid_v.LS[iLSpdi].geoL.dcap[2,:,1])
 
-                # print("\n cap_2 ",grid_v.LS[iLSpdi].geoL.dcap[1,:,2])
-                # print("\n cap_2 ",grid_v.LS[iLSpdi].geoL.dcap[2,:,2])
+        #         # print("\n cap_2 ",grid_v.LS[iLSpdi].geoL.dcap[1,:,2])
+        #         # print("\n cap_2 ",grid_v.LS[iLSpdi].geoL.dcap[2,:,2])
 
-                # print("\n cap_3 ",grid_v.LS[iLSpdi].geoL.dcap[1,:,3])
-                # print("\n cap_3 ",grid_v.LS[iLSpdi].geoL.dcap[2,:,3])
+        #         # print("\n cap_3 ",grid_v.LS[iLSpdi].geoL.dcap[1,:,3])
+        #         # print("\n cap_3 ",grid_v.LS[iLSpdi].geoL.dcap[2,:,3])
 
-                # for u grid_p
-                # cap 1 same 
-                # cap_1 [0.0, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5]
+        #         # for u grid_p
+        #         # cap 1 same 
+        #         # cap_1 [0.0, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5]
 
 
     
 
-            end
+        #     end
 
 
-            # if !advection
-            #     @time no_slip_condition!(num, grid_p, grid_u, grid_u.LS[1], grid_v, grid_v.LS[1], periodic_x, periodic_y)
-            #     # grid_u.V .= num.Δ / (1 * num.τ)
-            #     # grid_v.V .= 0.0
-            # end
+        #     # if !advection
+        #     #     @time no_slip_condition!(num, grid_p, grid_u, grid_u.LS[1], grid_v, grid_v.LS[1], periodic_x, periodic_y)
+        #     #     # grid_u.V .= num.Δ / (1 * num.τ)
+        #     #     # grid_v.V .= 0.0
+        #     # end
 
-            # Pressure-velocity coupling
+        #     # Pressure-velocity coupling
 
-            if num.one_fluid_model == 1 
+        #     if num.one_fluid_model == 1 
 
-                # interpolate_staggered_u_v_to_scalar_grid_one_fluid_or_one_phase!(num,grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
+        #         # interpolate_staggered_u_v_to_scalar_grid_one_fluid_or_one_phase!(num,grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
 
-                tmp_vec_p  .= 0.0
-                tmp_vec_p0 .= 0.0
+        #         tmp_vec_p  .= 0.0
+        #         tmp_vec_p0 .= 0.0
 
-                for j = 1:grid_p.ny
-                for i = 1:grid_p.nx
-                    tmp_vec_p[j,i] =(phL.u[j,i]+phL.u[j,i+1])/2
-                    tmp_vec_p0[j,i]=(phL.v[j,i]+phL.v[j+1,i])/2
-                end
-                end
-
-
-                update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_fraction,levelset_one_fluid,rho_one_fluid,
-                                                    rho_one_fluid_u,rho_one_fluid_v,mu_one_fluid,tmp_vec_p0)
+        #         for j = 1:grid_p.ny
+        #         for i = 1:grid_p.nx
+        #             tmp_vec_p[j,i] =(phL.u[j,i]+phL.u[j,i+1])/2
+        #             tmp_vec_p0[j,i]=(phL.v[j,i]+phL.v[j+1,i])/2
+        #         end
+        #         end
 
 
+        #         update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_fraction,levelset_one_fluid,rho_one_fluid,
+        #                                             rho_one_fluid_u,rho_one_fluid_v,mu_one_fluid,tmp_vec_p0)
 
-                # MIXED =
+        #         total_interface_length = compute_interface_length!(num, grid_p, 1, interface_length)
+        #         # MIXED =
 
-                nb_levelsets = num.nLS
-                num.nLS = 0 #1 #deactivate cut-cell for one-fluid model
+        #         nb_levelsets = num.nLS
+        #         num.nLS = 0 #1 #deactivate cut-cell for one-fluid model
                 
-                #region deactivate LS
-                empty_capacities = vcat(zeros(7), zeros(4))
-                full_capacities = vcat(ones(7), 0.5.*ones(4))
+        #         #region deactivate LS
+        #         empty_capacities = vcat(zeros(7), zeros(4))
+        #         full_capacities = vcat(ones(7), 0.5.*ones(4))
 
-                for grid_iter in [grid_p,grid_u,grid_v]
+        #         for grid_iter in [grid_p,grid_u,grid_v]
 
-                    grid_iter.LS[1].u .= 1.0
-                    grid_iter.LS[end].u .= 1.0
-
-
-                    # for j in 1:grid_iter.ny
-                    #     for i in 1:grid_iter.nx
-                    #         II = CartesianIndex(j,i)
-                    #         # grid_iter.LS[end].geoL.cap[II,:] .= full_capacities
-                    #         # grid_iter.LS[end].geoS.cap[II,:] .= empty_capacities
-                    #     end
-                    # end
-                end
-
-                # grid_u.LS[end].geoL.cap[:,:,:] .= full_capacities
-                # grid_u.LS[end].geoS.cap[:,:,:] .= empty_capacities
-
-                # grid_v.LS[end].geoL.cap[:,:,:] .= full_capacities
-                # grid_v.LS[end].geoS.cap[:,:,:] .= empty_capacities
-
-                #endregion  deactivate LS
-
-                NB_indices = update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y,true,true) 
+        #             grid_iter.LS[1].u .= 1.0
+        #             grid_iter.LS[end].u .= 1.0
 
 
-                geoL = [grid_p.LS[iLS].geoL for iLS in 1:num._nLS]
-                geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
-                geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+        #             # for j in 1:grid_iter.ny
+        #             #     for i in 1:grid_iter.nx
+        #             #         II = CartesianIndex(j,i)
+        #             #         # grid_iter.LS[end].geoL.cap[II,:] .= full_capacities
+        #             #         # grid_iter.LS[end].geoS.cap[II,:] .= empty_capacities
+        #             #     end
+        #             # end
+        #         end
 
-                #region reset centroids 
-                #HACK reset centroids 
-                # grid_p.LS[1].geoL.centroid .= Point(0.0, 0.0)
-                # grid_u.LS[1].geoL.centroid .= Point(0.0, 0.0)
-                # grid_v.LS[1].geoL.centroid .= Point(0.0, 0.0)
+        #         # grid_u.LS[end].geoL.cap[:,:,:] .= full_capacities
+        #         # grid_u.LS[end].geoS.cap[:,:,:] .= empty_capacities
 
-                # grid_p.LS[1].geoL.centroid.x .= 0.0
-                # grid_u.LS[1].geoL.centroid.x .= 0.0
-                # grid_v.LS[1].geoL.centroid.x .= 0.0
+        #         # grid_v.LS[end].geoL.cap[:,:,:] .= full_capacities
+        #         # grid_v.LS[end].geoS.cap[:,:,:] .= empty_capacities
 
-                # grid_p.LS[1].geoL.centroid.y .= 0.0
-                # grid_u.LS[1].geoL.centroid.y .= 0.0
-                # grid_v.LS[1].geoL.centroid.y .= 0.0
+        #         #endregion  deactivate LS
 
-
-                for grid_iter in [grid_p,grid_u,grid_v]
-                    for II in grid_iter.ind.inside
-                        grid_iter.LS[1].geoL.centroid[II] = Point(0.0,0.0)
-                    end
-                end
-                #TODO reactivate centroids ?
-                #endregion reset centroids 
+        #         NB_indices = update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y,true,true) 
 
 
+        #         geoL = [grid_p.LS[iLS].geoL for iLS in 1:num._nLS]
+        #         geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
+        #         geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
 
-                    # TODO update density
+        #         #region reset centroids 
+        #         #HACK reset centroids 
+        #         # grid_p.LS[1].geoL.centroid .= Point(0.0, 0.0)
+        #         # grid_u.LS[1].geoL.centroid .= Point(0.0, 0.0)
+        #         # grid_v.LS[1].geoL.centroid .= Point(0.0, 0.0)
 
-                # if num.pressure_velocity_coupling == 0 
+        #         # grid_p.LS[1].geoL.centroid.x .= 0.0
+        #         # grid_u.LS[1].geoL.centroid.x .= 0.0
+        #         # grid_v.LS[1].geoL.centroid.x .= 0.0
 
-                #region update LS
+        #         # grid_p.LS[1].geoL.centroid.y .= 0.0
+        #         # grid_u.LS[1].geoL.centroid.y .= 0.0
+        #         # grid_v.LS[1].geoL.centroid.y .= 0.0
 
-                #endregion update LS
+
+        #         for grid_iter in [grid_p,grid_u,grid_v]
+        #             for II in grid_iter.ind.inside
+        #                 grid_iter.LS[1].geoL.centroid[II] = Point(0.0,0.0)
+        #             end
+        #         end
+        #         #TODO reactivate centroids ?
+        #         #endregion reset centroids 
 
 
+
+        #             # TODO update density
+
+        #         # if num.pressure_velocity_coupling == 0 
+
+        #         #region update LS
+
+        #         #endregion update LS
 
 
 
 
-                #pbm mass_transfer_rateL
-                PDI_status = @ccall "libpdi".PDI_multi_expose("check_mass_transfer_rate_NS"::Cstring,
-                # "conservation"::Cstring, conservation::Ref{Cdouble}, PDI_OUT::Cint,
-                "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-                C_NULL::Ptr{Cvoid})::Cint
+
+
+        #         #pbm mass_transfer_rateL
+        #         PDI_status = @ccall "libpdi".PDI_multi_expose("check_mass_transfer_rate_NS"::Cstring,
+        #         # "conservation"::Cstring, conservation::Ref{Cdouble}, PDI_OUT::Cint,
+        #         "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         C_NULL::Ptr{Cvoid})::Cint
 
 
 
-                #region update LS for convection (bool=true)+ one fluid
+        #         #region update LS for convection (bool=true)+ one fluid
 
-                # At every iteration, update_all_ls_data is called twice, once inside run.jl 
-                # and another one (if there's advection of the levelset) inside set_heat!. 
-                # The difference between both is a flag as last argument, inside run.jl is implicitly defined 
-                # as true and inside set_heat! is false. If you're calling your version of set_heat! several times, 
-                # then you're calling the version with the flag set to false, but for the convective term it has to be set to true.
-                # The flag=true, the capacities are set for the convection, the flag=false they are set for the other operators
+        #         # At every iteration, update_all_ls_data is called twice, once inside run.jl 
+        #         # and another one (if there's advection of the levelset) inside set_heat!. 
+        #         # The difference between both is a flag as last argument, inside run.jl is implicitly defined 
+        #         # as true and inside set_heat! is false. If you're calling your version of set_heat! several times, 
+        #         # then you're calling the version with the flag set to false, but for the convective term it has to be set to true.
+        #         # The flag=true, the capacities are set for the convection, the flag=false they are set for the other operators
 
-                if advection
-                    # update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y, true) 
-                    update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y, true,true) 
+        #         if advection
+        #             # update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y, true) 
+        #             update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y, true,true) 
 
-                    # op.opL is op_conv
-                    set_convection_preallocated!(num, grid_p, geoL[end], grid_u, grid_u.LS, grid_v, grid_v.LS, phL.u, phL.v, op.opL,
-                    phL, BC_uL, BC_vL,op.opC_pL, op.opC_uL, op.opC_vL,
-                    velocity_and_BC_convection_u_x ,
-                    velocity_and_BC_convection_u_y ,
-                    velocity_and_BC_convection_v_x ,
-                    velocity_and_BC_convection_v_y)
-                end
-                #endregion update LS for convection (bool=true)+ one fluid
-
-
-                #region update LS for other operators than convection (bool=false)+ one fluid
-                # update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
-                update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y, false,true)
-
-                #endregion
+        #             # op.opL is op_conv
+        #             set_convection_preallocated!(num, grid_p, geoL[end], grid_u, grid_u.LS, grid_v, grid_v.LS, phL.u, phL.v, op.opL,
+        #             phL, BC_uL, BC_vL,op.opC_pL, op.opC_uL, op.opC_vL,
+        #             velocity_and_BC_convection_u_x ,
+        #             velocity_and_BC_convection_u_y ,
+        #             velocity_and_BC_convection_v_x ,
+        #             velocity_and_BC_convection_v_y)
+        #         end
+        #         #endregion update LS for convection (bool=true)+ one fluid
 
 
+        #         #region update LS for other operators than convection (bool=false)+ one fluid
+        #         # update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
+        #         update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y, false,true)
 
-                if num.one_fluid_model == 1 
-                    if num.surface_tension == 0
-                        compute_surface_tension_VOF!(num,grid_p, grid_u, grid_v, op.opC_pL, op.opC_uL, op.opC_vL, 
-                        volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0)
-                    elseif num.surface_tension == 1
-                        # compute_surface_tension_LS!(num,grid_p, grid_u, grid_v, opC_p, opC_u, opC_v, 
-                        # volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0)
-                        compute_surface_tension_LS!(num,grid_p, grid_u, grid_v, op.opC_pL, op.opC_uL, op.opC_vL, 
-                        volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0,
-                        levelset_1D, levelset_heavyside_2D, 
-                        tmp_vec_u0,tmp_vec_v0, #normal_and_dirac_u, normal_and_dirac_v,
-                        tmp_vec_u1,tmp_vec_v1,#normal_u, normal_v, 
-                        tmp_vec_u,tmp_vec_v,#curvature_u, curvature_v
-                        )
-                    end
-                end
+        #         #endregion
+
+
+
+        #         if num.one_fluid_model == 1 
+        #             if num.surface_tension == 0
+        #                 compute_surface_tension_VOF!(num,grid_p, grid_u, grid_v, op.opC_pL, op.opC_uL, op.opC_vL, 
+        #                 volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0)
+        #             elseif num.surface_tension == 1
+        #                 # compute_surface_tension_LS!(num,grid_p, grid_u, grid_v, opC_p, opC_u, opC_v, 
+        #                 # volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0)
+        #                 compute_surface_tension_LS!(num,grid_p, grid_u, grid_v, op.opC_pL, op.opC_uL, op.opC_vL, 
+        #                 volume_fraction,levelset_one_fluid,volumic_surface_tension_u,volumic_surface_tension_v,tmp_vec_p,tmp_vec_p0,
+        #                 levelset_1D, levelset_heavyside_2D, 
+        #                 tmp_vec_u0,tmp_vec_v0, #normal_and_dirac_u, normal_and_dirac_v,
+        #                 tmp_vec_u1,tmp_vec_v1,#normal_u, normal_v, 
+        #                 tmp_vec_u,tmp_vec_v,#curvature_u, curvature_v
+        #                 )
+        #             end
+        #         end
                 
-                PDI_status = @ccall "libpdi".PDI_multi_expose("write_one_fluid_surface_tension_concise"::Cstring,
-                "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
-                # "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "grad_u"::Cstring, normal_and_dirac_u::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "grad_v"::Cstring, normal_and_dirac_v::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "curvature_p"::Cstring, curvature_p::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "curvature_u"::Cstring, curvature_u::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "curvature_v"::Cstring, curvature_v::Ptr{Cdouble}, PDI_OUT::Cint,
-                "volumic_surface_tension_u"::Cstring, volumic_surface_tension_u::Ptr{Cdouble}, PDI_OUT::Cint,
-                "volumic_surface_tension_v"::Cstring, volumic_surface_tension_v::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "normal_angle"::Cstring, grid_p.LS[iLSpdi].α::Ptr{Cdouble}, PDI_OUT::Cint,
-                # "normal_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
-                # "normal_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
-                C_NULL::Ptr{Cvoid})::Cint
+        #         PDI_status = @ccall "libpdi".PDI_multi_expose("write_one_fluid_surface_tension_concise"::Cstring,
+        #         "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
+        #         # "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         # "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         # "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         # "grad_u"::Cstring, normal_and_dirac_u::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         # "grad_v"::Cstring, normal_and_dirac_v::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         # "curvature_p"::Cstring, curvature_p::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         # "curvature_u"::Cstring, curvature_u::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         # "curvature_v"::Cstring, curvature_v::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         "volumic_surface_tension_u"::Cstring, volumic_surface_tension_u::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         "volumic_surface_tension_v"::Cstring, volumic_surface_tension_v::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         # "normal_angle"::Cstring, grid_p.LS[iLSpdi].α::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         # "normal_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
+        #         # "normal_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,  
+        #         C_NULL::Ptr{Cvoid})::Cint
 
 
-                II = CartesianIndex(3,37)
-                pII =lexicographic(II,grid_p.ny)
-                print("\n op.χ[1] NS",op.opC_TL.χ[1].diag[pII])
+        #         # II = CartesianIndex(3,37)
+        #         # pII =lexicographic(II,grid_p.ny)
+        #         # print("\n op.χ[1] NS",op.opC_TL.χ[1].diag[pII])
 
-                print("\n op.χ[1] NS",op.opC_pL.χ[1].diag[pII])
-                # print("\n size ",size(op.opC_TL))
-                # print("\n size ",size(op.opC_pL))
+        #         # print("\n op.χ[1] NS",op.opC_pL.χ[1].diag[pII])
 
-                # Mum1_L is put in B matrix that multiplies v
-                # print("\n advection ", ns_advection, " adv ",advection)
-                Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L,
-                Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = solve_one_fluid_NS!(
-                time_scheme, BC_int,
-                num, grid_p, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
-                BC_uL, BC_vL, BC_pL,
-                op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
-                # op.opC_TL,
-                AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,rhs_uv,
-                Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
-                Cum1L, Cvm1L, Mum1_L, Mvm1_L,
-                periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,
-                volume_fraction,
-                levelset_one_fluid,
-                rho_one_fluid,
-                mu_one_fluid,
-                rho_one_fluid_u,
-                # mu_one_fluid_u,
-                rho_one_fluid_v,
-                # mu_one_fluid_v,
-                volumic_surface_tension_u,
-                volumic_surface_tension_v,
-                convection_u,convection_v,
-                viscosity_coeff_for_du_dx ,
-                viscosity_coeff_for_du_dy ,
-                viscosity_coeff_for_dv_dx ,
-                viscosity_coeff_for_dv_dy,
-                # velocity_and_BC_convection_u_x ,
-                # velocity_and_BC_convection_u_y ,
-                # velocity_and_BC_convection_v_x ,
-                # velocity_and_BC_convection_v_y ,
-                tmp_vec_p,
-                tmp_vec_p0,            
-                rhs_phi,
-                pres_free_surfaceL,jump_mass_transfer_rateL,mass_transfer_rate )  
+        #         # print("\n size ",size(op.opC_TL))
+        #         # print("\n size ",size(op.opC_pL))
 
-                print("\n num.stop_simulation after NS ",num.stop_simulation)
+        #         # Mum1_L is put in B matrix that multiplies v
+        #         # print("\n advection ", ns_advection, " adv ",advection)
+        #         Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L,
+        #         Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = solve_one_fluid_NS!(
+        #         time_scheme, BC_int,
+        #         num, grid_p, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
+        #         BC_uL, BC_vL, BC_pL,
+        #         op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
+        #         # op.opC_TL,
+        #         AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,rhs_uv,
+        #         Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
+        #         Cum1L, Cvm1L, Mum1_L, Mvm1_L,
+        #         periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,
+        #         volume_fraction,
+        #         levelset_one_fluid,
+        #         rho_one_fluid,
+        #         mu_one_fluid,
+        #         rho_one_fluid_u,
+        #         # mu_one_fluid_u,
+        #         rho_one_fluid_v,
+        #         # mu_one_fluid_v,
+        #         volumic_surface_tension_u,
+        #         volumic_surface_tension_v,
+        #         convection_u,convection_v,
+        #         viscosity_coeff_for_du_dx ,
+        #         viscosity_coeff_for_du_dy ,
+        #         viscosity_coeff_for_dv_dx ,
+        #         viscosity_coeff_for_dv_dy,
+        #         # velocity_and_BC_convection_u_x ,
+        #         # velocity_and_BC_convection_u_y ,
+        #         # velocity_and_BC_convection_v_x ,
+        #         # velocity_and_BC_convection_v_y ,
+        #         tmp_vec_p,
+        #         tmp_vec_p0,            
+        #         rhs_phi,
+        #         pres_free_surfaceL,jump_mass_transfer_rateL,mass_transfer_rate )  
 
-
-                #region reactivate cut-cell for one-fluid model
-                num.nLS = nb_levelsets 
-
-                grid_p.LS[1].u .= levelset_one_fluid
-                grid_p.LS[end].u .= levelset_one_fluid
+        #         print("\n num.stop_simulation after NS ",num.stop_simulation)
 
 
-                NB_indices = update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y) 
+        #         #region reactivate cut-cell for one-fluid model
+        #         num.nLS = nb_levelsets 
+
+        #         grid_p.LS[1].u .= levelset_one_fluid
+        #         grid_p.LS[end].u .= levelset_one_fluid
+
+
+        #         NB_indices = update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y) 
 
                 
-                # TODO check after activation NS after nucleation
+        #         # TODO check after activation NS after nucleation
 
-                # geoL = [grid_p.LS[iLS].geoL for iLS in 1:num._nLS]
-                # geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
-                # geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+        #         # geoL = [grid_p.LS[iLS].geoL for iLS in 1:num._nLS]
+        #         # geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
+        #         # geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
 
-                # reactivate centroids
-                # printstyled(color=:red, @sprintf "\n reactivate centroids \n")
+        #         # reactivate centroids
+        #         # printstyled(color=:red, @sprintf "\n reactivate centroids \n")
 
-                # x_centroid = grid_p.x .+ getproperty.(grid_p.LS[1].geoL.centroid, :x) .* grid_p.dx #geoS
-                # display(x_centroid)
+        #         # x_centroid = grid_p.x .+ getproperty.(grid_p.LS[1].geoL.centroid, :x) .* grid_p.dx #geoS
+        #         # display(x_centroid)
 
-                # y_centroid = grid_p.y .+ getproperty.(grid_p.LS[1].geoL.centroid, :y) .* grid_p.dy #geoS
-                # display(y_centroid)
+        #         # y_centroid = grid_p.y .+ getproperty.(grid_p.LS[1].geoL.centroid, :y) .* grid_p.dy #geoS
+        #         # display(y_centroid)
 
-                # display(levelset_one_fluid)
-                #endregion reactivate cut-cell for one-fluid model
-
-
-            else
-
-                if num.pressure_velocity_coupling == 0 
-                    if ns_solid_phase
-                        geoS = [grid_p.LS[iLS].geoS for iLS in 1:num._nLS]
-                        geo_uS = [grid_u.LS[iLS].geoS for iLS in 1:num._nLS]
-                        geo_vS = [grid_v.LS[iLS].geoS for iLS in 1:num._nLS]
-                        Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,Mm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = pressure_projection!(
-                            time_scheme, BC_int,
-                            num, grid_p, geoS, grid_u, geo_uS, grid_v, geo_vS, phS,
-                            BC_uS, BC_vS, BC_pS,
-                            op.opC_pS, op.opC_uS, op.opC_vS, op.opS,
-                            AuS, BuS, AvS, BvS, AϕS, AuvS, BuvS,
-                            Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,
-                            Cum1S, Cvm1S, Mum1_S, Mvm1_S,
-                            periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceS,jump_mass_transfer_rateS,mass_transfer_rateS
-                        )
-                    end
-                    if ns_liquid_phase
-                        geoL = [grid_p.LS[iLS].geoL for iLS in 1:num._nLS]
-                        geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
-                        geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
-
-                        # Mum1_L is put in B matrix that multiplies v
-
-                        Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = pressure_projection!(
-                            time_scheme, BC_int,
-                            num, grid_p, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
-                            BC_uL, BC_vL, BC_pL,
-                            op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
-                            AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,
-                            Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
-                            Cum1L, Cvm1L, Mum1_L, Mvm1_L,
-                            periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_transfer_rateL,mass_transfer_rate
-                        )
-                        # if num.current_i == 1
-                        #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
-                        #     phL.v .= 0.5 .* grid_v.x .+ getproperty.(grid_v.LS[1].geoL.centroid, :x) .* grid_v.dx
-                        #     phL.u[grid_u.LS[1].SOLID] .= 0.0
-                        #     phL.v[grid_v.LS[1].SOLID] .= 0.0
-                        # end
-                        # linear_advection!(
-                        #     num, grid_p, grid_p.LS[1].geoL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL, phL,
-                        #     BC_uL, BC_vL, op.opL
-                        # )
-                    end
-
-                elseif num.pressure_velocity_coupling > 1
-
-                    if ns_liquid_phase
-                        geoL = [grid_p.LS[iLS].geoL for iLS in 1:num._nLS]
-                        geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
-                        geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
-
-                        # Mum1_L is put in B matrix that multiplies v
-
-                        Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = coupled_pressure_velocity!(
-                            time_scheme, BC_int,
-                            num, grid_p, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
-                            BC_uL, BC_vL, BC_pL,
-                            op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
-                            AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,rhs_uv,
-                            Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
-                            Cum1L, Cvm1L, Mum1_L, Mvm1_L,
-                            periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_transfer_rateL,mass_transfer_rate
-                        )
-                        # if num.current_i == 1
-                        #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
-                        #     phL.v .= 0.5 .* grid_v.x .+ getproperty.(grid_v.LS[1].geoL.centroid, :x) .* grid_v.dx
-                        #     phL.u[grid_u.LS[1].SOLID] .= 0.0
-                        #     phL.v[grid_v.LS[1].SOLID] .= 0.0
-                        # end
-                        # linear_advection!(
-                        #     num, grid_p, grid_p.LS[1].geoL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL, phL,
-                        #     BC_uL, BC_vL, op.opL
-                        # )
-                    end
-
-                end #if num.pressure_velocity_coupling
-
-            end # if num.one_fluid_model == 1
-
-        end # if navier_stokes
+        #         # display(levelset_one_fluid)
+        #         #endregion reactivate cut-cell for one-fluid model
 
 
-        #region conservation, divergence checks
-        # TODO check global mass conservation and divergence free
+        #     else
 
-        conservation = 0.0 
-        not_divergence_free = true
+        #         if num.pressure_velocity_coupling == 0 
+        #             if ns_solid_phase
+        #                 geoS = [grid_p.LS[iLS].geoS for iLS in 1:num._nLS]
+        #                 geo_uS = [grid_u.LS[iLS].geoS for iLS in 1:num._nLS]
+        #                 geo_vS = [grid_v.LS[iLS].geoS for iLS in 1:num._nLS]
+        #                 Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,Mm1_S, Mum1_S, Mvm1_S, Cum1S, Cvm1S = pressure_projection!(
+        #                     time_scheme, BC_int,
+        #                     num, grid_p, geoS, grid_u, geo_uS, grid_v, geo_vS, phS,
+        #                     BC_uS, BC_vS, BC_pS,
+        #                     op.opC_pS, op.opC_uS, op.opC_vS, op.opS,
+        #                     AuS, BuS, AvS, BvS, AϕS, AuvS, BuvS,
+        #                     Lpm1_S, bc_Lpm1_S, bc_Lpm1_b_S, Lum1_S, bc_Lum1_S, bc_Lum1_b_S, Lvm1_S, bc_Lvm1_S, bc_Lvm1_b_S,
+        #                     Cum1S, Cvm1S, Mum1_S, Mvm1_S,
+        #                     periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceS,jump_mass_transfer_rateS,mass_transfer_rateS
+        #                 )
+        #             end
+        #             if ns_liquid_phase
+        #                 geoL = [grid_p.LS[iLS].geoL for iLS in 1:num._nLS]
+        #                 geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
+        #                 geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
 
-        #TODO mutliple levelsets 1 or end
-        # cf bc_matrix_borders!(grid_p, opC_u.Gx_b, opC_v.Gy_b, opC_p.Gx_b, opC_p.Gy_b, geo.dcap)
-        conservation += -dot(vecb_L(phL.uD,grid_u) , grid_p.LS[1].geoL.dcap[:,1,1]) 
-        conservation +=  dot(vecb_R(phL.uD,grid_u) , grid_p.LS[1].geoL.dcap[:,grid_p.nx,3]) # right capacity: u
-        conservation += -dot(vecb_B(phL.vD,grid_v) , grid_p.LS[1].geoL.dcap[1,:,2]) # bottom capacity: v
-        conservation +=  dot(vecb_T(phL.vD,grid_v) , grid_p.LS[1].geoL.dcap[grid_p.ny,:,4]) # top capacity: v 
+        #                 # Mum1_L is put in B matrix that multiplies v
+
+        #                 Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = pressure_projection!(
+        #                     time_scheme, BC_int,
+        #                     num, grid_p, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
+        #                     BC_uL, BC_vL, BC_pL,
+        #                     op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
+        #                     AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,
+        #                     Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
+        #                     Cum1L, Cvm1L, Mum1_L, Mvm1_L,
+        #                     periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_transfer_rateL,mass_transfer_rate
+        #                 )
+        #                 # if num.current_i == 1
+        #                 #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
+        #                 #     phL.v .= 0.5 .* grid_v.x .+ getproperty.(grid_v.LS[1].geoL.centroid, :x) .* grid_v.dx
+        #                 #     phL.u[grid_u.LS[1].SOLID] .= 0.0
+        #                 #     phL.v[grid_v.LS[1].SOLID] .= 0.0
+        #                 # end
+        #                 # linear_advection!(
+        #                 #     num, grid_p, grid_p.LS[1].geoL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL, phL,
+        #                 #     BC_uL, BC_vL, op.opL
+        #                 # )
+        #             end
+
+        #         elseif num.pressure_velocity_coupling > 1
+
+        #             if ns_liquid_phase
+        #                 geoL = [grid_p.LS[iLS].geoL for iLS in 1:num._nLS]
+        #                 geo_uL = [grid_u.LS[iLS].geoL for iLS in 1:num._nLS]
+        #                 geo_vL = [grid_v.LS[iLS].geoL for iLS in 1:num._nLS]
+
+        #                 # Mum1_L is put in B matrix that multiplies v
+
+        #                 Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = coupled_pressure_velocity!(
+        #                     time_scheme, BC_int,
+        #                     num, grid_p, geoL, grid_u, geo_uL, grid_v, geo_vL, phL,
+        #                     BC_uL, BC_vL, BC_pL,
+        #                     op.opC_pL, op.opC_uL, op.opC_vL, op.opL,
+        #                     AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,rhs_uv,
+        #                     Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
+        #                     Cum1L, Cvm1L, Mum1_L, Mvm1_L,
+        #                     periodic_x, periodic_y, ns_advection, advection, num.current_i, Ra, navier,pres_free_surfaceL,jump_mass_transfer_rateL,mass_transfer_rate
+        #                 )
+        #                 # if num.current_i == 1
+        #                 #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
+        #                 #     phL.v .= 0.5 .* grid_v.x .+ getproperty.(grid_v.LS[1].geoL.centroid, :x) .* grid_v.dx
+        #                 #     phL.u[grid_u.LS[1].SOLID] .= 0.0
+        #                 #     phL.v[grid_v.LS[1].SOLID] .= 0.0
+        #                 # end
+        #                 # linear_advection!(
+        #                 #     num, grid_p, grid_p.LS[1].geoL, grid_u, grid_u.LS[1].geoL, grid_v, grid_v.LS[1].geoL, phL,
+        #                 #     BC_uL, BC_vL, op.opL
+        #                 # )
+        #             end
+
+        #         end #if num.pressure_velocity_coupling
+
+        #     end # if num.one_fluid_model == 1
+
+        # end # if navier_stokes
+
+
+        # #region conservation, divergence checks
+        # # TODO check global mass conservation and divergence free
+
+        # conservation = 0.0 
+        # not_divergence_free = true
+
+        # #TODO mutliple levelsets 1 or end
+        # # cf bc_matrix_borders!(grid_p, opC_u.Gx_b, opC_v.Gy_b, opC_p.Gx_b, opC_p.Gy_b, geo.dcap)
+        # conservation += -dot(vecb_L(phL.uD,grid_u) , grid_p.LS[1].geoL.dcap[:,1,1]) 
+        # conservation +=  dot(vecb_R(phL.uD,grid_u) , grid_p.LS[1].geoL.dcap[:,grid_p.nx,3]) # right capacity: u
+        # conservation += -dot(vecb_B(phL.vD,grid_v) , grid_p.LS[1].geoL.dcap[1,:,2]) # bottom capacity: v
+        # conservation +=  dot(vecb_T(phL.vD,grid_v) , grid_p.LS[1].geoL.dcap[grid_p.ny,:,4]) # top capacity: v 
         
-        # Compute divergence of velocity
-        Duv = op.opC_pL.AxT * vec1(phL.uD,grid_u) .+ op.opC_pL.Gx_b * vecb(phL.uD,grid_u) .+
-        op.opC_pL.AyT * vec1(phL.vD,grid_v) .+ op.opC_pL.Gy_b * vecb(phL.vD,grid_v)
-        for iLS in 1:num.nLS
-            if !is_navier(BC_int[iLS]) && !is_navier_cl(BC_int[iLS]) #otherwise normal velocity null if no blowing
-                Duv .+= op.opC_pL.Gx[iLS] * veci(phL.uD,grid_u,iLS+1) .+ 
-                        op.opC_pL.Gy[iLS] * veci(phL.vD,grid_v,iLS+1)
-            end
-        end
-        #TODO divergence when Navier ?
+        # # Compute divergence of velocity
+        # Duv = op.opC_pL.AxT * vec1(phL.uD,grid_u) .+ op.opC_pL.Gx_b * vecb(phL.uD,grid_u) .+
+        # op.opC_pL.AyT * vec1(phL.vD,grid_v) .+ op.opC_pL.Gy_b * vecb(phL.vD,grid_v)
+        # for iLS in 1:num.nLS
+        #     if !is_navier(BC_int[iLS]) && !is_navier_cl(BC_int[iLS]) #otherwise normal velocity null if no blowing
+        #         Duv .+= op.opC_pL.Gx[iLS] * veci(phL.uD,grid_u,iLS+1) .+ 
+        #                 op.opC_pL.Gy[iLS] * veci(phL.vD,grid_v,iLS+1)
+        #     end
+        # end
+        # #TODO divergence when Navier ?
 
-        PDI_status = @ccall "libpdi".PDI_multi_expose("print_conservation"::Cstring,
-        "conservation"::Cstring, conservation::Ref{Cdouble}, PDI_OUT::Cint,
-        "divergence"::Cstring, Duv::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-        C_NULL::Ptr{Cvoid})::Cint
-
-        if maximum(Duv)< num.epsilon_divergence
-            not_divergence_free = false
-        end
-
-        if abs(conservation) > num.epsilon_conservation || not_divergence_free
-            
-            PDI_status = @ccall "libpdi".PDI_multi_expose("conservation_error"::Cstring,
-            "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
-            "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
-            "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-            C_NULL::Ptr{Cvoid})::Cint
-        end
-        #endregion conservation, divergence checks
-
-        # PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_velocity"::Cstring,
-        # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # PDI_status = @ccall "libpdi".PDI_multi_expose("print_conservation"::Cstring,
+        # "conservation"::Cstring, conservation::Ref{Cdouble}, PDI_OUT::Cint,
+        # "divergence"::Cstring, Duv::Ptr{Cdouble}, PDI_OUT::Cint,
+        # # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
         # C_NULL::Ptr{Cvoid})::Cint
 
-        #endregion Navier-Stokes 
+        # if maximum(Duv)< num.epsilon_divergence
+        #     not_divergence_free = false
+        # end
+
+        # if abs(conservation) > num.epsilon_conservation || not_divergence_free
+            
+        #     PDI_status = @ccall "libpdi".PDI_multi_expose("conservation_error"::Cstring,
+        #     "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+        #     "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+        #     "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        #     C_NULL::Ptr{Cvoid})::Cint
+        # end
+        # #endregion conservation, divergence checks
+
+        # # PDI_status = @ccall "libpdi".PDI_multi_expose("check_pressure_velocity"::Cstring,
+        # # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # # "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # # C_NULL::Ptr{Cvoid})::Cint
+
+        # #endregion Navier-Stokes 
 
 
         # cD, cL, D, L = force_coefficients!(num, grid_p, grid_u, grid_v, op.opL, fwd, phL; step = num.current_i+1, saveCoeffs = false)
@@ -3727,9 +4084,7 @@ function run_forward!(
                     "radius"::Cstring, num.current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
                     C_NULL::Ptr{Cvoid})::Cint
             
-                    # print("\n after write \n ")
                         
-                    # printstyled(color=:red, @sprintf "\n PDI test end\n" )
             
                 catch error
                     printstyled(color=:red, @sprintf "\n PDI error \n")
@@ -3740,7 +4095,6 @@ function run_forward!(
                
             end #if io_pdi
 
-            ####################################################################################################
 
 
             if crashed #due to nH2<0...
@@ -3810,20 +4164,8 @@ function run_forward!(
                         "levelset_p"::Cstring, grid_p.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
                         "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
                         "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-                        # "levelset_p_wall"::Cstring, LStable::Ptr{Cdouble}, PDI_OUT::Cint,
                         "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                        # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
-                        # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
-                        # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-                        # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
-                        # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
-                        # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
-                        # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
-                        # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
-                        # "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
-                        # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
-                        # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+                        "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,                           
                         C_NULL::Ptr{Cvoid})::Cint
                
                 return num.current_i
@@ -3866,23 +4208,13 @@ function run_forward!(
         #region update iter number and time
 
         num.current_i += 1
-        #update time
-        current_t += num.τ
-        num.time = current_t
-
+      
         if num.time + num.τ > num.end_time
             print("\n num.time + num.τ > num.end_time, break")
             break
         end
 
-        # if adaptative_t
-           
-        # elseif adaptative_t
-        #     num.τ = min(num.CFL*num.Δ^2*Re, num.CFL*num.Δ/max(
-        #         abs.(grid_p.V)..., abs.(grid_u.V)..., abs.(grid_v.V)..., 
-        #         abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)
-        #     )
-        # end
+       
         #endregion update iter number and time
 
     end 
@@ -3892,7 +4224,7 @@ function run_forward!(
     if verbose
         try
             printstyled(color=:blue, @sprintf "\n Final iteration : %d (%d%%) | t = %.2e \n" (num.current_i-1) 100*(num.current_i-1)/num.max_iterations current_t)
-            print("\n num.time ",num.time)
+            print("\n num.time ",num.time," stop_simulation ",num.stop_simulation)
             if stefan && advection
                 print(@sprintf "V_mean = %.2e  V_max = %.2e  V_min = %.2e  V_stdev = %.5f\n" mean(grid_p.V[grid_p.LS[1].MIXED]) findmax(grid_p.V[grid_p.LS[1].MIXED])[1] findmin(grid_p.V[grid_p.LS[1].MIXED])[1] std(grid_p.V[grid_p.LS[1].MIXED]))
                 print(@sprintf "κ_mean = %.2e  κ_max = %.2e  κ_min = %.2e  κ_stdev = %.5f\n" mean(grid_p.LS[1].κ[grid_p.LS[1].MIXED]) findmax(grid_p.LS[1].κ[grid_p.LS[1].MIXED])[1] findmin(grid_p.LS[1].κ[grid_p.LS[1].MIXED])[1] std(grid_p.LS[1].κ[grid_p.LS[1].MIXED]))
@@ -3925,20 +4257,8 @@ function run_forward!(
                         "levelset_p"::Cstring, grid_p.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
                         "levelset_u"::Cstring, grid_u.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
                         "levelset_v"::Cstring, grid_v.LS[iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
-                        # "levelset_p_wall"::Cstring, LStable::Ptr{Cdouble}, PDI_OUT::Cint,
                         "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
-                        # "i_current_x"::Cstring, Eus::Ptr{Cdouble}, PDI_OUT::Cint,   
-                        # "i_current_y"::Cstring, Evs::Ptr{Cdouble}, PDI_OUT::Cint,   
-                        # "velocity_x"::Cstring, us::Ptr{Cdouble}, PDI_OUT::Cint,   
-                        # "velocity_y"::Cstring, vs::Ptr{Cdouble}, PDI_OUT::Cint,      
-                        # "radius"::Cstring, current_radius::Ref{Cdouble}, PDI_OUT::Cint,  
-                        # "intfc_vtx_num"::Cstring, intfc_vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
-                        # "intfc_seg_num"::Cstring, intfc_seg_num::Ref{Clonglong}, PDI_OUT::Cint, 
-                        # "intfc_vtx_x"::Cstring, intfc_vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
-                        # "intfc_vtx_y"::Cstring, intfc_vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
-                        # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
-                        # "intfc_vtx_connectivities"::Cstring, intfc_vtx_connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+                        "phi_ele_1D"::Cstring, phL.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,                        
                         C_NULL::Ptr{Cvoid})::Cint
 
                     end 

@@ -48,7 +48,7 @@ function compute_surface_tension_LS!(num,grid, grid_u, grid_v, opC_p, opC_u, opC
     #region heavyside
     heavyside_epsilon = grid.dx[2,2]
 
-    levelset_1D = fnzeros(grid,num)
+    # levelset_1D = fnzeros(grid,num)
 
     if num.one_fluid_normal == 0
 
@@ -74,9 +74,9 @@ function compute_surface_tension_LS!(num,grid, grid_u, grid_v, opC_p, opC_u, opC
 
     #endregion heavyside
 
-    levelset_heavyside_2D = zeros(grid)
+    # levelset_heavyside_2D = zeros(grid)
 
-    levelset_heavyside_2D = reshape(vec1(levelset_1D,grid), grid)
+    levelset_heavyside_2D .= reshape(vec1(levelset_1D,grid), grid)
 
     # print("\n num ",num.nLS)
 
@@ -99,10 +99,10 @@ function compute_surface_tension_LS!(num,grid, grid_u, grid_v, opC_p, opC_u, opC
     vecb_R(levelset_1D,grid) .= levelset_heavyside_2D[:,end]
     vecb_T(levelset_1D,grid) .= levelset_heavyside_2D[end,:]
     
-    normal_and_dirac_u = zeros(grid_u)
-    normal_and_dirac_v = zeros(grid_v)
-    normal_u = zeros(grid_u)
-    normal_v = zeros(grid_v)
+    # normal_and_dirac_u = zeros(grid_u)
+    # normal_and_dirac_v = zeros(grid_v)
+    # normal_u = zeros(grid_u)
+    # normal_v = zeros(grid_v)
 
     compute_unit_normal(num,grid, grid_u, grid_v, 
     # opC_p, 
@@ -130,8 +130,8 @@ function compute_surface_tension_LS!(num,grid, grid_u, grid_v, opC_p, opC_u, opC
 
   
     #region interpolate curvature from scalar to u and v grids
-    curvature_u = zeros(grid_u)
-    curvature_v = zeros(grid_v)
+    # curvature_u = zeros(grid_u)
+    # curvature_v = zeros(grid_v)
 
     interpolate_scalar!(grid, grid_u, grid_v, curvature_p, curvature_u, curvature_v)
 

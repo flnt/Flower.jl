@@ -28,7 +28,6 @@ The following test cases are planned:
 
 ```@raw html
 <table class="styled-table">
-
     <thead>
         <tr>
             <th> Name </th>
@@ -128,7 +127,6 @@ As seen in <a href="documentation.html#Coefficients-in-a-simple-configuration"> 
 
 ```@raw html
 <table class="styled-table">
-
     <thead>
         <tr>
         <th> BC </th>

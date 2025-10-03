@@ -152,3 +152,19 @@ makedocs(sitename="Flower.jl",
 #         # "florange" =>"\\definecolor{florange}{HTML}{D55E00}",
 #     ),
 # ))
+
+# docs/make.jl
+
+# Test quarto
+
+# using DocumenterQuarto
+# # using Flower   # your package
+
+# # Generate API documentation into a Quarto-compatible file
+# autodoc(Flower;
+#     output = joinpath(@__DIR__, "..", "book", "chapters", "api.qmd"),
+#     header = "# Flower.jl API Reference"
+# )
+
+# # println("✅ Generated API docs at book/chapters/api.qmd")
+# println("DocumenterQuarto")

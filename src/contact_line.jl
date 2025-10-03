@@ -367,11 +367,11 @@ function BC_LS_interior!(num, grid, grid_u, grid_v, iLS, A, B, rhs, BC_int, peri
                     d2 = sqrt((x[pks1] - x[pkse])^2.0 + (y[pks1] - y[pkse])^2.0) / 2.0
                     
                     #Imposing contact angle for wall BC
-                    printstyled(color=:magenta, @sprintf "\n Imposing contact angle: %.2e" BC_int[i].θe)
+                    # printstyled(color=:magenta, @sprintf "\n Imposing contact angle: %.2e" BC_int[i].θe)
                     
                     if num.contact_angle == 1
                         advancing_receding = contact_angle_advancing_receding(num,grid, grid_u, grid_v, i, II)
-                        print("\n advancing/receding II ",II, " ",advancing_receding)
+                        # print("\n advancing/receding II ",II, " ",advancing_receding)
                         if advancing_receding>0
                             theta_adv_reced = BC_int[i].θadv
                         else

@@ -1946,8 +1946,8 @@ compute_bulk_or_interface_average
 ## Phase change
 ```@docs
 integrate_mass_transfer_rate_over_interface
-compute_mass_transfer_rate_and_velocity_electrolysis!
 ```
+<!-- compute_mass_transfer_rate_and_velocity_electrolysis! -->
 
 ## Electrical conductivity
 
@@ -2200,9 +2200,12 @@ bilinear_interpolation
 ```
 
 ```@docs
-compute_surface_tension!
+compute_surface_tension_LS!
 ```
 
+```@docs
+compute_surface_tension_VOF!
+```
 
 ```@docs
 get_curvature
