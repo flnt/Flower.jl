@@ -338,7 +338,7 @@ function integrate_mass_transfer_rate_over_interface(num::Numerical{Float64, Int
     # printstyled(color=:green, @sprintf "\n Radial flux: %.2e \n" radial_flux_surf)
 
     if num.io_pdi>0
-        # printstyled(color=:magenta, @sprintf "\n PDI write_mass_transfer_rate %.5i \n" num.current_i)
+        # printstyled(color=:magenta, @sprintf "\n PDI write_mass_transfer_rate %.5i \n" num.current_iter)
         #nstep needs to be updated beforehand
         @ccall "libpdi".PDI_multi_expose("write_mass_transfer_rate"::Cstring,
         "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -505,7 +505,7 @@ function integrate_mass_transfer_rate_over_interface_old(num::Numerical{Float64,
     # printstyled(color=:green, @sprintf "\n Radial flux: %.2e \n" radial_flux_surf)
 
     if num.io_pdi>0
-        printstyled(color=:magenta, @sprintf "\n PDI write_mass_transfer_rate %.5i \n" num.current_i)
+        printstyled(color=:magenta, @sprintf "\n PDI write_mass_transfer_rate %.5i \n" num.current_iter)
         #nstep needs to be updated beforehand
         @ccall "libpdi".PDI_multi_expose("write_mass_transfer_rate"::Cstring,
         "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -832,7 +832,7 @@ function integrate_mass_transfer_rate_over_interface_2(num::Numerical{Float64, I
     # printstyled(color=:green, @sprintf "\n Radial flux: %.2e \n" radial_flux_surf)
     
     if num.io_pdi>0
-        printstyled(color=:magenta, @sprintf "\n PDI write_mass_transfer_rate %.5i \n" num.current_i)
+        printstyled(color=:magenta, @sprintf "\n PDI write_mass_transfer_rate %.5i \n" num.current_iter)
         #nstep needs to be updated beforehand
         @ccall "libpdi".PDI_multi_expose("write_mass_transfer_rate"::Cstring,
         "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,

@@ -566,7 +566,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
             # itest=-1
             # if num.io_pdi>0
             #     try
-            #         printstyled(color=:magenta, @sprintf "\n PDI write_scalar_transport %.5i \n" num.current_i)
+            #         printstyled(color=:magenta, @sprintf "\n PDI write_scalar_transport %.5i \n" num.current_iter)
             #         #in YAML file: save only if iscal ==1 for example
             #         PDI_status = @ccall "libpdi".PDI_multi_expose("write_scalar_transport"::Cstring,
             #         "iscal"::Cstring, itest::Ref{Clonglong}, PDI_OUT::Cint,
@@ -1016,7 +1016,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
 
         if num.io_pdi>0
             try
-                # printstyled(color=:magenta, @sprintf "\n PDI write_scalar_transport %.5i \n" num.current_i)
+                # printstyled(color=:magenta, @sprintf "\n PDI write_scalar_transport %.5i \n" num.current_iter)
                 #in YAML file: save only if iscal ==1 for example
                 PDI_status = @ccall "libpdi".PDI_multi_expose("write_scalar_transport"::Cstring,
                 "iscal"::Cstring, iscal::Ref{Clonglong}, PDI_OUT::Cint,
@@ -1365,12 +1365,11 @@ function compute_mass_transfer_rate!(num, grid_p, grid_u, grid_v, iLS, uD, vD,
                 total_interface_length += interface_length_cell
 
                 interface_length[II] = interface_length_cell
-                if num.phase_change_method == 5  #no redistrib, multiply by interface_length_cell to get Dirac time volume
-                    mass_transfer_rate[II] = 0.05 * rho_bulk * interface_length_cell # @ciprianoMulticomponentDropletEvaporation2024 , 0.05 m/s
-                elseif num.phase_change_method == 6
-                    mass_transfer_rate[II] = 0.05 * rho_bulk # @ciprianoMulticomponentDropletEvaporation2024
+                if num.phase_change_method in [5,6,7] 
+                    mass_transfer_rate[II] = -num.mass_transfer_rate_imposed_value 
+                    #minus sign because in Flower.jl normal towards liquid, so opposite sign when \:dot m refers to the liquid
                 else
-                    mass_transfer_rate[II] *= factor_mass_transfer_rate / interface_length_cell
+                    mass_transfer_rate[II] *= factor_mass_transfer_rate / interface_length_cell #was integrated on surface
                 end
 
                 num.sum_mass_transfer_rate += mass_transfer_rate[II]
@@ -1393,7 +1392,7 @@ function compute_mass_transfer_rate!(num, grid_p, grid_u, grid_v, iLS, uD, vD,
     # if redistr
     compute_number_gaz_acceptors!(nb_gaz_acceptors,num.epsilon_volume_fraction_phase_change,grid_p.nx,grid_p.ny,volume_fraction)
 
-    redistribute_mass_transfer_rate!(num.epsilon_volume_fraction_phase_change,interface_length,
+    redistribute_mass_transfer_rate!(num,num.epsilon_volume_fraction_phase_change,interface_length,
     nb_gaz_acceptors,mass_transfer_rate,mass_transfer_rate_redistributed,grid_p.nx,grid_p.ny,volume_fraction)
 
 
@@ -1513,7 +1512,9 @@ function compute_phase_change_velocity_electrolysis!(num, grid_p, grid_u, grid_v
 
                 elseif num.mass_transfer_rate == 2
                     
-                    grid_p.V[II] = mass_transfer_rate[II] * factor_velocity / interface_length[II]
+                    # grid_p.V[II] = mass_transfer_rate[II] * factor_velocity / interface_length[II] # if redistributed and *interface length
+                    grid_p.V[II] = mass_transfer_rate[II] * factor_velocity 
+
                     v_mean += grid_p.V[II] 
 
                     #region compare grad
@@ -1615,12 +1616,12 @@ function compute_phase_change_velocity_electrolysis!(num, grid_p, grid_u, grid_v
                         "interface_length"::Cstring, interface_length::Ptr{Cdouble}, PDI_OUT::Cint,
                         C_NULL::Ptr{Cvoid})::Cint
 
-    @ccall "libpdi".PDI_multi_expose("write_mass_transfer_rate_only"::Cstring,
-        "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "mass_transfer_rate_bulk"::Cstring, mass_transfer_rate_vec1_2::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "mass_transfer_rate_border"::Cstring, mass_transfer_rate_vecb_2::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "mass_transfer_rate_intfc"::Cstring, mass_transfer_rate_veci_2::Ptr{Cdouble}, PDI_OUT::Cint,
-        C_NULL::Ptr{Cvoid})::Cvoid
+    # @ccall "libpdi".PDI_multi_expose("write_mass_transfer_rate_only"::Cstring,
+    #     "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
+    #     # "mass_transfer_rate_bulk"::Cstring, mass_transfer_rate_vec1_2::Ptr{Cdouble}, PDI_OUT::Cint,
+    #     # "mass_transfer_rate_border"::Cstring, mass_transfer_rate_vecb_2::Ptr{Cdouble}, PDI_OUT::Cint,
+    #     # "mass_transfer_rate_intfc"::Cstring, mass_transfer_rate_veci_2::Ptr{Cdouble}, PDI_OUT::Cint,
+    #     C_NULL::Ptr{Cvoid})::Cvoid
 
     if length(grid_p.LS[iLS].MIXED) != 0
         printstyled(color=:green, @sprintf "\n grid p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
@@ -1677,8 +1678,8 @@ function compute_phase_change_velocity_electrolysis!(num, grid_p, grid_u, grid_v
     # if num.io_pdi>0
         
     #     try
-    #         nstep = num.current_i
-    #         printstyled(color=:magenta, @sprintf "\n PDI write_iso %.5i \n" num.current_i)
+    #         nstep = num.current_iter
+    #         printstyled(color=:magenta, @sprintf "\n PDI write_iso %.5i \n" num.current_iter)
 
     #         PDI_status = @ccall "libpdi".PDI_multi_expose("write_iso"::Cstring,
     #         "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
@@ -1739,22 +1740,26 @@ end
 """
 @gennariCFDMethodologyMass2023
 """
-function redistribute_mass_transfer_rate!(eps_redistr,total_interface_length,nb_gaz_acceptors,mass_transfer_rate,mass_transfer_rate_redistr,nx,ny,volume_fraction)
+function redistribute_mass_transfer_rate!(num,eps_redistr,total_interface_length,nb_gaz_acceptors,mass_transfer_rate,mass_transfer_rate_redistr,nx,ny,volume_fraction)
 
     mass_transfer_rate_redistr .= 0.0
+    if num.phase_change_method == 5
+        mass_transfer_rate_redistr .= mass_transfer_rate .* total_interface_length
+    else
 
-    for j in 1:ny, i in 1:nx
-        if volume_fraction[j, i] < eps_redistr  # Si la cellule est une cellule acceptrice
-            sum_contribution = 0.0
-            for dj in -1:1, di in -1:1
-                nj, ni = j + dj, i + di
-                if is_valid_index(ni, nj, nx, ny)
-                    if eps_redistr ≤ volume_fraction[nj, ni] ≤ 1.0 - eps_redistr && nb_gaz_acceptors[nj, ni] > 0
-                        sum_contribution += mass_transfer_rate[nj, ni] * total_interface_length[nj, ni] / nb_gaz_acceptors[nj, ni]
+        for j in 1:ny, i in 1:nx
+            if volume_fraction[j, i] < eps_redistr  # Si la cellule est une cellule acceptrice
+                sum_contribution = 0.0
+                for dj in -1:1, di in -1:1
+                    nj, ni = j + dj, i + di
+                    if is_valid_index(ni, nj, nx, ny)
+                        if eps_redistr ≤ volume_fraction[nj, ni] ≤ 1.0 - eps_redistr && nb_gaz_acceptors[nj, ni] > 0
+                            sum_contribution += mass_transfer_rate[nj, ni] * total_interface_length[nj, ni] / nb_gaz_acceptors[nj, ni]
+                        end
                     end
                 end
+                mass_transfer_rate_redistr[j, i] = sum_contribution
             end
-            mass_transfer_rate_redistr[j, i] = sum_contribution
         end
     end
 
@@ -3358,13 +3363,13 @@ function adapt_timestep!(num, phL, phS::Phase{Float64}, grid_u, grid_v,adapt_tim
 
     #TODO expose without printing in case of bug otherwise pbm store in h5 (variable may be absent)
     PDI_status = @ccall "libpdi".PDI_multi_expose("expose_timestep"::Cstring,
-    "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
+    "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
     "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,
     "timestep"::Cstring, num.τ::Ref{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
     PDI_status = @ccall "libpdi".PDI_multi_expose("print_timestep"::Cstring,
-    "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
+    "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
     "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,
     "timestep"::Cstring, num.τ::Ref{Cdouble}, PDI_OUT::Cint,
     "timestep_restriction_conv"::Cstring, c_conv::Ref{Cdouble}, PDI_OUT::Cint,
@@ -3461,14 +3466,14 @@ function adapt_timestep!(num, phL, phS::Nothing, grid_u, grid_v,adapt_timestep_m
 
     #TODO expose without printing in case of bug otherwise pbm store in h5 (variable may be absent)
     PDI_status = @ccall "libpdi".PDI_multi_expose("expose_timestep"::Cstring,
-    "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
+    "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
     "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,
     "timestep"::Cstring, num.τ::Ref{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
-    # print("\n test adapt ",num.current_i,num.time,num.τ,c_conv,c_surf,c_visc,c_diff,c_grav)
+    # print("\n test adapt ",num.current_iter,num.time,num.τ,c_conv,c_surf,c_visc,c_diff,c_grav)
     PDI_status = @ccall "libpdi".PDI_multi_expose("print_timestep"::Cstring,
-    "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
+    "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
     "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,
     "timestep"::Cstring, num.τ::Ref{Cdouble}, PDI_OUT::Cint,
     "timestep_restriction_conv"::Cstring, c_conv::Ref{Cdouble}, PDI_OUT::Cint,
@@ -4510,7 +4515,7 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
 
         if num.io_pdi>0
             try
-                # printstyled(color=:magenta, @sprintf "\n PDI write_electrical_potential %.5i \n" num.current_i)
+                # printstyled(color=:magenta, @sprintf "\n PDI write_electrical_potential %.5i \n" num.current_iter)
                 #in YAML file: save only if iscal ==1 for example
                 PDI_status = @ccall "libpdi".PDI_multi_expose("write_electrical_potential"::Cstring,
                 # "iscal"::Cstring, iscal::Ref{Clonglong}, PDI_OUT::Cint,
@@ -4737,7 +4742,7 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
 
     if num.io_pdi>0
         try
-            # printstyled(color=:magenta, @sprintf "\n PDI write_electrical_potential %.5i \n" num.current_i)
+            # printstyled(color=:magenta, @sprintf "\n PDI write_electrical_potential %.5i \n" num.current_iter)
             #in YAML file: save only if iscal ==1 for example
             PDI_status = @ccall "libpdi".PDI_multi_expose("write_electrical_potential"::Cstring,
             # "iscal"::Cstring, iscal::Ref{Clonglong}, PDI_OUT::Cint,
@@ -5092,6 +5097,14 @@ function convert_interfacial_D_to_segments(num,gp,field_D,iLS,field_index)
     end
 
     # num_vtx = vtx_index already incremented vtx_index +=1
+
+    # print("\n number of interface points intfc_vtx_num ", intfc_vtx_num)
+    # print("\n intfc_vtx_connectivities ",intfc_vtx_connectivities)
+    # print("\n len ", size(intfc_vtx_connectivities),intfc_seg_num)
+
+    # print("\n intfc_vtx_x ",intfc_vtx_x)
+    # print("\n intfc_vtx_x ",intfc_vtx_y)
+
     
     return x,y,f,connectivities,vtx_index,num_seg
 
@@ -6301,7 +6314,7 @@ function solve_poisson_loop!(num::Numerical{Float64, Int64},
 
 
     # PDI_status = @ccall "libpdi".PDI_multi_expose("print_variables"::Cstring,
-    #     "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
+    #     "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
     #     "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,
     #     "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
     #     "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,

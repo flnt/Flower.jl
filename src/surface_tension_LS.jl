@@ -81,7 +81,7 @@ function compute_surface_tension_LS!(num,grid, grid_u, grid_v, opC_p, opC_u, opC
     # print("\n num ",num.nLS)
 
     PDI_status = @ccall "libpdi".PDI_multi_expose("write_one_fluid_levelset"::Cstring,
-    "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
+    "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
     "levelset_surface_tension"::Cstring, levelset_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
     "levelset_heavyside"::Cstring, levelset_heavyside_2D::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
@@ -159,7 +159,7 @@ function compute_surface_tension_LS!(num,grid, grid_u, grid_v, opC_p, opC_u, opC
     # tmp_vec_p0
 
     PDI_status = @ccall "libpdi".PDI_multi_expose("write_one_fluid_surface_tension"::Cstring,
-    "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
+    "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
     # "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
     # "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
     "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,

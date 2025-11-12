@@ -466,19 +466,19 @@ flower:
 
       if phys.nb_transported_scalars>0
         if length(phys.concentration0)!=phys.nb_transported_scalars
-            print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
+            print(@sprintf "\nnb_transported_scalars: %5i\n" phys.nb_transported_scalars)
             @error ("nb_transported_scalars")
         end
 
         if length(phys.diffusion_coeff)!=phys.nb_transported_scalars
-            print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
+            print(@sprintf "\nnb_transported_scalars: %5i\n" phys.nb_transported_scalars)
             @error ("nb_transported_scalars")
         end
       else
         printstyled(color=:red, @sprintf "\n WARNING no scalar transport\n")
       end
 
-      print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
+      print(@sprintf "\nnb_transported_scalars: %5i\n" phys.nb_transported_scalars)
 
       # diffusion_t = (phys.radius^2)./phys.diffusion_coeff
      
@@ -6375,7 +6375,7 @@ pdi:
         #     subtype: double
         #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
         # when: "$nstep%50 = 0"
-        write: [u_1D,v_1D,p_1D,time,nx,ny,velocity_x,velocity_y,phi_ele_1D,levelset_p,levelset_u,levelset_v] #,i_current_x,i_current_y,i_current_mag]
+        write: [u_1D,v_1D,p_1D,time,timestep,nx,ny,velocity_x,velocity_y,phi_ele_1D,levelset_p,levelset_u,levelset_v] #,i_current_x,i_current_y,i_current_mag]
         #,trans_scal_1D_H2,trans_scal_1D_KOH,trans_scal_1D_H2O] #,levelset_p,levelset_u,levelset_v]
 
       - file: flower_${nstep:08}.h5 

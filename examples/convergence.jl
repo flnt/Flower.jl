@@ -156,7 +156,7 @@ if io.pdi>0
     #TODO check Clonglong ...
 
     phys_time = 0.0 #Cdouble
-    # nstep = num.current_i
+    # nstep = num.current_iter
     
 
     local PDI_status = @ccall "libpdi".PDI_multi_expose("init_PDI"::Cstring, 
@@ -228,6 +228,10 @@ for timestep in timesteps
         mkpath(mesh_to_string)
         cd(mesh_to_string)
 
+        
+        #delete output.txt:
+        # local PDI_status = @ccall "libpdi".PDI_multi_expose("macro_delete_file"::Cstring,C_NULL::Ptr{Cvoid})::Cint
+        #bug
         # if study_name !=""
         #     # mkpath(study.change_one_parameter_at_a_time.name)
         #     print("\nstudy ",study.change_one_parameter_at_a_time.name)
@@ -249,103 +253,248 @@ for timestep in timesteps
         # print("\n mu1 mu2 ",phys.mu1," ",typeof(phys.mu1)," ",phys.mu2," ",typeof(phys.mu2))
 
         @debug "Before Numerical"
-        global num = Numerical(
-            CFL = sim.CFL,
-            Re = Re,
-            end_time=phys.end_time,
-            x = scalar_mesh_x,
-            y = scalar_mesh_y,
-            xcoord = phys.intfc_x,
-            ycoord = phys.intfc_y,
-            case = sim.case,
-            R = phys.radius,
-            max_iterations = sim.max_iter,
-            save_every = sim.max_iter,
-            ϵ = sim.epsilon, 
-            ϵwall = sim.epsilon_wall,
-            epsilon_mode = sim.epsilon_mode,
-            nLS = phys.nb_levelsets,
-            nb_transported_scalars=phys.nb_transported_scalars,
-            concentration0=phys.concentration0, 
-            epsilon_concentration=phys.epsilon_concentration,
-            diffusion_coeff=phys.diffusion_coeff,
-            temperature0=phys.temperature0,
-            i0=phys.i0,
-            phi_ele0=phys.phi_ele0,
-            phi_ele1=phys.phi_ele1,
-            alpha_c=phys.alpha_c,
-            alpha_a=phys.alpha_a,
-            Ru=phys.Ru,
-            Faraday=phys.Faraday,
-            MWH2=phys.MWH2,
-            θd=phys.temperature0,
-            eps=sim.eps,
-            mu1=phys.mu1,
-            mu2=phys.mu2,
-            rho1=phys.rho1,
-            rho2=phys.rho2,
-            u_inf = 0.0,
-            v_inf = 0.0,
-            pres0=phys.pres0,
-            g = phys.g,
-            β = phys.beta,
-            σ = phys.sigma,  
-            sigma = phys.sigma,
-            reinit_every = sim.reinit_every,
-            nb_reinit = sim.nb_reinit,
-            δreinit = sim.delta_reinit,
-            n_ext_cl = sim.n_ext,
-            NB = sim.NB,
-            plot_xscale = io.scale_x,
-            dt0 = timestep, #timestep convergence #sim.dt0,
-            concentration_check_factor = sim.concentration_check_factor,
-            radial_vel_factor = phys.radial_vel_factor,
-            debug = sim.debug,
-            v_inlet = phys.v_inlet,
-            prediction = sim.prediction,
-            null_space = sim.null_space,
-            io_pdi = io.pdi,
-            bulk_conductivity = sim.bulk_conductivity,
-            electrical_potential = sim.electrical_potential,
-            contact_angle = sim.contact_angle,
-            convection_Cdivu = sim.convection_Cdivu,
-            convection_mode = sim.convection_mode,
-            advection_LS_mode = sim.advection_LS_mode,
-            scalar_bc = sim.scalar_bc,
-            scalar_scheme = sim.scalar_scheme,
-            solver = sim.solver,
-            mass_transfer_rate = sim.mass_transfer_rate,
-            average_liquid_solid = sim.average_liquid_solid,
-            index_phase_change = sim.index_phase_change,
-            index_electrolyte = sim.index_electrolyte,
-            extend_field = sim.extend_field,
-            average_velocity = sim.average_velocity,
-            laplacian = sim.laplacian,
-            electrical_potential_max_iter = sim.electrical_potential_max_iter,
-            electrical_potential_relative_residual = sim.electrical_potential_relative_residual,
-            electrical_potential_residual = sim.electrical_potential_residual,
-            electrical_potential_nonlinear_solver = sim.electrical_potential_nonlinear_solver,
-            electrolysis_reaction = phys.electrolysis_reaction,
-            pressure_velocity_coupling = sim.pressure_velocity_coupling,
-            pressure_velocity_solver = sim.pressure_velocity_solver,
-            solve_solid = sim.solve_solid,
-            phase_change_method = sim.phase_change_method,
-            one_fluid_model = sim.one_fluid_model,
-            smooth_VOF = sim.smooth_VOF,
-            surface_tension = sim.surface_tension,
-            non_dimensionalize=sim.non_dimensionalize,
-            levelset_reinitialize=sim.levelset_reinitialize,
-            mu_one_fluid_average = sim.mu_one_fluid_average,
-            one_fluid_normal = sim.one_fluid_normal,
-            marching_squares_epsilon = sim.marching_squares_epsilon,
-            marching_squares_max_iter = sim.marching_squares_max_iter,
-            convection = sim.convection_mode,
-            nucleation_time = phys.nucleation_time,
-            solve_potential = sim.solve_potential,
-            solve_species = sim.solve_species,
-            kill_dead_cells = sim.kill_dead_cells,
-            epsilon_volume_fraction_phase_change = sim.epsilon_volume_fraction_phase_change
-            )
+
+        #region test fill struct
+        # # Safe getter: returns field if available, else the default value from Numerical()
+        # safeget(obj, field) =
+        #     hasproperty(obj, field) ? getproperty(obj, field) :
+        #     (obj isa AbstractDict && haskey(obj, field) ? obj[field] : nothing)
+
+        # # Helper version with default fallback from Numerical()
+        # safeget(obj, field, default_obj::Numerical, fieldname::Symbol) =
+        #     let val = safeget(obj, field)
+        #         isnothing(val) ? getproperty(default_obj, fieldname) : val
+        #     end
+        # macro safefill(T, fields...)
+        #     quote
+        #         defaults = $(esc(T))()
+        #         pairs = Dict{Symbol, Any}()
+
+        #         for field in $(Expr(:vect, esc.(fields)...))
+        #             found = false
+        #             for srcname in (:sim, :phys, :io)
+        #                 if @isdefined(srcname)
+        #                     src = eval(srcname)
+        #                     if hasproperty(src, field)
+        #                         pairs[field] = getproperty(src, field)
+        #                         found = true
+        #                         break
+        #                     elseif src isa AbstractDict && haskey(src, field)
+        #                         pairs[field] = src[field]
+        #                         found = true
+        #                         break
+        #                     end
+        #                 end
+        #             end
+        #             if !found
+        #                 pairs[field] = getproperty(defaults, field)
+        #             end
+        #         end
+
+        #         $(esc(T))(; pairs...)
+        #     end
+        # end
+
+        # global num = @safefill Numerical(
+        #     :CFL, :Re, :end_time, :x, :y, :xcoord, :ycoord,
+        #     :case, :R, :max_iterations, :save_every, :ϵ, :ϵwall,
+        #     :epsilon_mode, :nLS, :nb_transported_scalars, :concentration0,
+        #     :epsilon_concentration, :diffusion_coeff, :temperature0,
+        #     :i0, :phi_ele0, :phi_ele1, :alpha_c, :alpha_a, :Ru, :Faraday,
+        #     :MWH2, :θd, :eps, :mu1, :mu2, :rho1, :rho2, :pres0, :g, :β, :σ,
+        #     :reinit_every, :nb_reinit, :δreinit, :n_ext_cl, :NB, :plot_xscale,
+        #     :dt0, :concentration_check_factor, :radial_vel_factor, :debug,
+        #     :v_inlet, :prediction, :null_space, :io_pdi, :bulk_conductivity,
+        #     :electrical_potential, :contact_angle, :convection_Cdivu,
+        #     :convection_mode, :advection_LS_mode, :scalar_bc, :scalar_scheme,
+        #     :solver, :mass_transfer_rate, :average_liquid_solid,
+        #     :index_phase_change, :index_electrolyte, :extend_field,
+        #     :average_velocity, :laplacian, :electrical_potential_max_iter,
+        #     :electrical_potential_relative_residual,
+        #     :electrical_potential_residual,
+        #     :electrical_potential_nonlinear_solver, :electrolysis_reaction,
+        #     :pressure_velocity_coupling, :pressure_velocity_solver,
+        #     :solve_solid, :phase_change_method, :one_fluid_model, :smooth_VOF,
+        #     :surface_tension, :non_dimensionalize, :levelset_reinitialize,
+        #     :mu_one_fluid_average, :one_fluid_normal, :marching_squares_epsilon,
+        #     :marching_squares_max_iter, :convection, :nucleation_time,
+        #     :solve_potential, :solve_species, :kill_dead_cells,
+        #     :epsilon_volume_fraction_phase_change,
+        #     :solve_Navier_Stokes_liquid_phase,
+        #     :mass_transfer_rate_imposed_value
+        # )
+        """
+            safefill(T; sources=(;), defaults=nothing)
+
+        Constructs a struct `T` (like `Numerical`) using field values from one or more
+        sources (`NamedTuple`, `struct`, or `Dict`). If a field is missing, uses the
+        default from `T()`.
+        """
+        function safefill(T; sources=(;), defaults=nothing)
+            defaults = isnothing(defaults) ? T() : defaults
+            fnames = fieldnames(T)
+            kwargs = Dict{Symbol, Any}()
+
+            # Try to find each field in sources
+            for f in fnames
+                found = false
+                for src in sources
+                    if hasproperty(src, f)
+                        kwargs[f] = getproperty(src, f)
+                        found = true
+                        break
+                    elseif src isa AbstractDict && haskey(src, f)
+                        kwargs[f] = src[f]
+                        found = true
+                        break
+                    end
+                end
+                if !found
+                    kwargs[f] = getproperty(defaults, f)
+                end
+            end
+
+            return T(; kwargs...)   # ✅ keyword construction (works with @with_kw)
+        end
+
+        # function safefill(T; sources=(;), defaults=nothing)
+        #     # create default instance if not provided
+        #     defaults = isnothing(defaults) ? T() : defaults
+
+        #     # Collect all field names of the struct
+        #     fnames = fieldnames(T)
+
+        #     # Prepare named arguments for construction
+        #     args = Dict{Symbol,Any}()
+
+        #     for f in fnames
+        #         found = false
+        #         for src in sources
+        #             if hasproperty(src, f)
+        #                 args[f] = getproperty(src, f)
+        #                 found = true
+        #                 break
+        #             elseif src isa AbstractDict && haskey(src, f)
+        #                 args[f] = src[f]
+        #                 found = true
+        #                 break
+        #             end
+        #         end
+        #         if !found
+        #             args[f] = getproperty(defaults, f)
+        #         end
+        #     end
+
+        #     return T(; args...)
+        # end
+
+        # global num = safefill(Numerical; sources=(sim, phys, io))
+        global num = safefill(Numerical{Float64, Int}; sources=(sim, phys, io))
+
+        #endregion test fill struct
+
+        
+
+
+        # global num = Numerical(
+        #     CFL = sim.CFL,
+        #     Re = Re,
+        #     end_time=phys.end_time,
+        #     x = scalar_mesh_x,
+        #     y = scalar_mesh_y,
+        #     xcoord = phys.intfc_x,
+        #     ycoord = phys.intfc_y,
+        #     case = sim.case,
+        #     R = phys.radius,
+        #     max_iterations = sim.max_iter,
+        #     save_every = sim.max_iter,
+        #     ϵ = sim.epsilon, 
+        #     ϵwall = sim.epsilon_wall,
+        #     epsilon_mode = sim.epsilon_mode,
+        #     nLS = phys.nb_levelsets,
+        #     nb_transported_scalars=phys.nb_transported_scalars,
+        #     concentration0=phys.concentration0, 
+        #     epsilon_concentration=phys.epsilon_concentration,
+        #     diffusion_coeff=phys.diffusion_coeff,
+        #     temperature0=phys.temperature0,
+        #     i0=phys.i0,
+        #     phi_ele0=phys.phi_ele0,
+        #     phi_ele1=phys.phi_ele1,
+        #     alpha_c=phys.alpha_c,
+        #     alpha_a=phys.alpha_a,
+        #     Ru=phys.Ru,
+        #     Faraday=phys.Faraday,
+        #     MWH2=phys.MWH2,
+        #     θd=phys.temperature0,
+        #     eps=sim.eps,
+        #     mu1=phys.mu1,
+        #     mu2=phys.mu2,
+        #     rho1=phys.rho1,
+        #     rho2=phys.rho2,
+        #     u_inf = 0.0,
+        #     v_inf = 0.0,
+        #     pres0=phys.pres0,
+        #     g = phys.g,
+        #     β = phys.beta,
+        #     σ = phys.sigma,  
+        #     sigma = phys.sigma,
+        #     reinit_every = sim.reinit_every,
+        #     nb_reinit = sim.nb_reinit,
+        #     δreinit = sim.delta_reinit,
+        #     n_ext_cl = sim.n_ext,
+        #     NB = sim.NB,
+        #     plot_xscale = io.scale_x,
+        #     dt0 = timestep, #timestep convergence #sim.dt0,
+        #     concentration_check_factor = sim.concentration_check_factor,
+        #     radial_vel_factor = phys.radial_vel_factor,
+        #     debug = sim.debug,
+        #     v_inlet = phys.v_inlet,
+        #     prediction = sim.prediction,
+        #     null_space = sim.null_space,
+        #     io_pdi = io.pdi,
+        #     bulk_conductivity = sim.bulk_conductivity,
+        #     electrical_potential = sim.electrical_potential,
+        #     contact_angle = sim.contact_angle,
+        #     convection_Cdivu = sim.convection_Cdivu,
+        #     convection_mode = sim.convection_mode,
+        #     advection_LS_mode = sim.advection_LS_mode,
+        #     scalar_bc = sim.scalar_bc,
+        #     scalar_scheme = sim.scalar_scheme,
+        #     solver = sim.solver,
+        #     mass_transfer_rate = sim.mass_transfer_rate,
+        #     average_liquid_solid = sim.average_liquid_solid,
+        #     index_phase_change = sim.index_phase_change,
+        #     index_electrolyte = sim.index_electrolyte,
+        #     extend_field = sim.extend_field,
+        #     average_velocity = sim.average_velocity,
+        #     laplacian = sim.laplacian,
+        #     electrical_potential_max_iter = sim.electrical_potential_max_iter,
+        #     electrical_potential_relative_residual = sim.electrical_potential_relative_residual,
+        #     electrical_potential_residual = sim.electrical_potential_residual,
+        #     electrical_potential_nonlinear_solver = sim.electrical_potential_nonlinear_solver,
+        #     electrolysis_reaction = phys.electrolysis_reaction,
+        #     pressure_velocity_coupling = sim.pressure_velocity_coupling,
+        #     pressure_velocity_solver = sim.pressure_velocity_solver,
+        #     solve_solid = sim.solve_solid,
+        #     phase_change_method = sim.phase_change_method,
+        #     one_fluid_model = sim.one_fluid_model,
+        #     smooth_VOF = sim.smooth_VOF,
+        #     surface_tension = sim.surface_tension,
+        #     non_dimensionalize=sim.non_dimensionalize,
+        #     levelset_reinitialize=sim.levelset_reinitialize,
+        #     mu_one_fluid_average = sim.mu_one_fluid_average,
+        #     one_fluid_normal = sim.one_fluid_normal,
+        #     marching_squares_epsilon = sim.marching_squares_epsilon,
+        #     marching_squares_max_iter = sim.marching_squares_max_iter,
+        #     convection = sim.convection_mode,
+        #     nucleation_time = phys.nucleation_time,
+        #     solve_potential = sim.solve_potential,
+        #     solve_species = sim.solve_species,
+        #     kill_dead_cells = sim.kill_dead_cells,
+        #     epsilon_volume_fraction_phase_change = sim.epsilon_volume_fraction_phase_change,
+        #     solve_Navier_Stokes_liquid_phase = sim.solve_Navier_Stokes_liquid_phase,
+        #     mass_transfer_rate_imposed_value = sim.mass_transfer_rate_imposed_value
+        #     )
         Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
         @debug "After Numerical"
 
@@ -379,7 +528,7 @@ for timestep in timesteps
                         "ny"::Cstring, ny::Ref{Clonglong}, PDI_OUT::Cint,
                         "nb_transported_scalars"::Cstring, phys.nb_transported_scalars::Ref{Clonglong}, PDI_OUT::Cint,
                         "nb_levelsets"::Cstring, phys.nb_levelsets::Ref{Clonglong}, PDI_OUT::Cint,
-                        "nstep"::Cstring, num.current_i::Ref{Clonglong}, PDI_OUT::Cint,
+                        "nstep"::Cstring, num.current_iter::Ref{Clonglong}, PDI_OUT::Cint,
                         "nb_Navier_slip_BC"::Cstring, num.nNavier::Ref{Clonglong}, PDI_OUT::Cint,
                         "timestep"::Cstring, timestep::Ref{Cdouble}, PDI_OUT::Cint,
                         C_NULL::Ptr{Cvoid})::Cint
@@ -477,7 +626,7 @@ for timestep in timesteps
                 # Exposing data to PDI for IO    
                 # if writing "D" array (bulk, interface, border), add "_1D" to the name
                 
-                # printstyled(color=:magenta, @sprintf "\n PDI write_data_start_linftyp %.5i \n" num.current_i)
+                # printstyled(color=:magenta, @sprintf "\n PDI write_data_start_linftyp %.5i \n" num.current_iter)
 
                 #print("\n size LS wall ", size( gp.LS[2].u))
                 LStable = zeros(gp)
@@ -513,7 +662,7 @@ for timestep in timesteps
                 current_radius = phys.radius
 
                 PDI_status = @ccall "libpdi".PDI_multi_expose("write_initialization"::Cstring,
-                "nstep"::Cstring, num.current_i::Ref{Clonglong}, PDI_OUT::Cint,
+                "nstep"::Cstring, num.current_iter::Ref{Clonglong}, PDI_OUT::Cint,
                 "time"::Cstring, phys_time::Ref{Cdouble}, PDI_OUT::Cint,
                 "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
                 "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,

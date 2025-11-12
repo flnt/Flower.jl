@@ -111,7 +111,7 @@ A[1] = 0.1
         breakup = true,
     )
 
-    suffix = "/$(θe)deg_$(num.current_i)_$(n)_reinit$(num.reinit_every)_nb$(num.nb_reinit)_δ$(num.δreinit)_σ$(num.σ)_hart_breakup"
+    suffix = "/$(θe)deg_$(num.current_iter)_$(n)_reinit$(num.reinit_every)_nb$(num.nb_reinit)_δ$(num.δreinit)_σ$(num.σ)_hart_breakup"
     file = suffix*".jld2"
     # save_field(prefix*case*file, num, gp, phL, fwdL, fwd)
 
@@ -206,7 +206,7 @@ A[1] = 0.1
     rowsize!(fLS0.layout, 1, widths(ax.scene.viewport[])[2])
     resize_to_layout!(fLS0)
 
-    suffix = "$(θe)deg_$(num.current_i)_$(n)_reinit$(num.reinit_every)_nb$(num.nb_reinit)_δ$(num.δreinit)_σ$(num.σ)_hart_breakup"
+    suffix = "$(θe)deg_$(num.current_iter)_$(n)_reinit$(num.reinit_every)_nb$(num.nb_reinit)_δ$(num.δreinit)_σ$(num.σ)_hart_breakup"
 
     limx = num.x[end]
     limy0 = num.y[1]
@@ -234,7 +234,7 @@ A[1] = 0.1
             title_suffix=suffix, framerate=1000÷num.save_every, limitsx=(-limx,limx),
             limitsy=(limy0,limye), liquid=[1], solid=[2], hide_decors=true, plot_bottom=true);
     catch e
-        last_snap = (num.current_i-1)÷num.save_every
+        last_snap = (num.current_iter-1)÷num.save_every
         make_video(num, gu, fwd.ux, fwdL.u; title_prefix=prefix*case*"/u_field_",
             title_suffix=suffix, framerate=1000÷num.save_every, limitsx=(-limx-num.Δ/2,limx+num.Δ/2),
             limitsy=(limy0,limye), stepf = last_snap)

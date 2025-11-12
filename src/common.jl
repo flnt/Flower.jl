@@ -110,6 +110,28 @@ Access border value: top
 """
 vecb_T(a,g::G) where {G<:Grid} = @view vecb(a, g)[2*g.ny+g.nx+1:2*g.ny+2*g.nx]
 
+
+"""
+Access border value: left (border part already extracted, for op.opC_pL.Gx_b for ex)
+"""
+left_border_view(a,g::G) where {G<:Grid} = @view a[1:g.ny]
+
+"""
+Access border value: bottom (border part already extracted, for op.opC_pL.Gx_b for ex)
+"""
+bottom_border_view(a,g::G) where {G<:Grid} = @view a[g.ny+1:g.ny+g.nx]
+
+"""
+Access border value: right (border part already extracted, for op.opC_pL.Gx_b for ex)
+"""
+right_border_view(a,g::G) where {G<:Grid} = @view a[g.ny+g.nx+1:2*g.ny+g.nx]
+
+"""
+Access border value: top (border part already extracted, for op.opC_pL.Gx_b for ex)
+"""
+top_border_view(a,g::G) where {G<:Grid} = @view a[2*g.ny+g.nx+1:2*g.ny+2*g.nx]
+
+
 function veci(a, g::Vector{G}, p::Integer) where {G<:Grid}
     c0 = 1
     c1 = g[1].ny * g[1].nx

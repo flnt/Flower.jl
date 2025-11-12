@@ -149,16 +149,16 @@ else
     printstyled(color=:green, @sprintf "\n 'Re' i.e. rho/mu : %.2e %.2e %.2e %.2e\n" Re phys.rho1/mu1 phys.rho1 mu1)
 
     if length(phys.concentration0)!=phys.nb_transported_scalars
-        print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
+        print(@sprintf "\nnb_transported_scalars: %5i\n" phys.nb_transported_scalars)
         @error ("nb_transported_scalars")
     end
 
     if length(phys.diffusion_coeff)!=phys.nb_transported_scalars
-        print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
+        print(@sprintf "\nnb_transported_scalars: %5i\n" phys.nb_transported_scalars)
         @error ("nb_transported_scalars")
     end
 
-    print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
+    print(@sprintf "\nnb_transported_scalars: %5i\n" phys.nb_transported_scalars)
 
     diffusion_t = (phys.radius^2)./phys.diffusion_coeff
     print("\n diffusion time ", diffusion_t,"\n")
@@ -1470,7 +1470,7 @@ if num.io_pdi>0
     #TODO check Clonglong ...
 
     phys_time = 0.0 #Cdouble
-    nstep = num.current_i
+    nstep = num.current_iter
 
     local PDI_status = @ccall "libpdi".PDI_multi_expose("init_PDI"::Cstring, 
             "mpi_coords_x"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,
@@ -1492,8 +1492,8 @@ end #if num.io_pdi>0
 
 
 
-# current_t = 0
-# num.current_i = 0
+# current_time = 0
+# num.current_iter = 0
 
 # #PDI (IO)
 
@@ -1502,8 +1502,8 @@ end #if num.io_pdi>0
 #     try
 #         printstyled(color=:red, @sprintf "\n PDI test \n" )
 
-#         phys_time = current_t #Cdouble
-#         nstep = num.current_i
+#         phys_time = current_time #Cdouble
+#         nstep = num.current_iter
 #         # print("\n nstep ",typeof(nstep))
 #         # pdi_array =zeros(nx,ny)
 
@@ -1745,7 +1745,7 @@ if num.io_pdi>0
         # Exposing data to PDI for IO    
         # if writing "D" array (bulk, interface, border), add "_1D" to the name
         
-        printstyled(color=:magenta, @sprintf "\n PDI write_data_start_loop %.5i \n" num.current_i)
+        printstyled(color=:magenta, @sprintf "\n PDI write_data_start_loop %.5i \n" num.current_iter)
 
         #print("\n size LS wall ", size( gp.LS[2].u))
         LStable = zeros(gp)
@@ -1854,7 +1854,7 @@ printstyled(color=:red, @sprintf "\n before run_forward \n")
 run_forward!(
 # tinf = @snoop_inference run_forward!(
 # tinf = @snoopi_deep run_forward!(
-# @profile @time current_i=run_forward(
+# @profile @time current_iter=run_forward(
     num, gp, gu, gv, op, phS, phL;
     periodic_x = (sim.periodic_x == 1),
     periodic_y = (sim.periodic_y == 1),

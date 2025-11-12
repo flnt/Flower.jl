@@ -28,7 +28,7 @@ import matplotlib.transforms as transforms
 
 import scipy
 
-
+from matplotlib.ticker import MaxNLocator, ScalarFormatter
 
 # from matplotlib._layoutgrid import plot_children
 
@@ -411,7 +411,7 @@ def compute_slope_lin_or_log(ax,xls,yls,
         text='Slope={:.2g}\nR²={:.2g}'.format(float(m),float(corr))
         
         if plot_text:
-            ax.annotate(text=text,xy=xy,ha='left',va='top')
+            ax.annotate(text=text,xy=xy,ha='left',va='top',color=colors)
 
         
         # param_line.append(line1)
@@ -524,10 +524,19 @@ def compute_slope(ax,xls,yls,
     if test_polyfit:
         polyfit(xls,yls,1)
 
+    plot_line = False
 
     if logslope:
         # ax.plot([10**(X_mean), 10**(max(xls))], [10**(X_mean*m+c), 10**(max(Y_pred))], color='black',alpha=0.5)
-        line1,=ax.plot([10**(min(xls)), 10**(max(xls))], [10**(min(Y_pred)), 10**(max(Y_pred))],
+        # line1,=ax.plot([10**(min(xls)), 10**(max(xls))], [10**(min(Y_pred)), 10**(max(Y_pred))],
+        #                             # color='black',
+        #                             color=colors,
+        #                             alpha=alpha,
+        #                             # label=str(m)
+        #                             )
+
+        if plot_line:
+            line1,=ax.plot([10**(min(xls)), 10**(max(xls))], [10**(Y_pred[0]), 10**(Y_pred[-1])],
                                     # color='black',
                                     color=colors,
                                     alpha=alpha,
@@ -539,7 +548,7 @@ def compute_slope(ax,xls,yls,
         text='Slope={:.2g}\nR²={:.2g}'.format(float(m),float(corr))
         
         if plot_text:
-            ax.annotate(text=text,xy=xy,ha='left',va='top')
+            ax.annotate(text=text,xy=xy,ha='left',va='top',color=colors)
 
         
         # param_line.append(line1)
@@ -572,14 +581,26 @@ def compute_slope(ax,xls,yls,
         # ax.add_artist(legendslope)
 
     else:   
-        if (min(Y_pred)<0):
-            ax.plot([X_mean, max(xls)], [X_mean*m+c, max(Y_pred)], color='black',
-                #   alpha=0.5,
+        if plot_line:
+            if (min(Y_pred)<0):
+                # ax.plot([X_mean, max(xls)], [X_mean*m+c, max(Y_pred)], color=colors,
+                #     #   alpha=0.5,
+                #         lw=lw) # predicted
+                ax.plot([min(xls), max(xls)], [Y_pred[0], Y_pred[-1]], color=colors, #'black',
+                    #   alpha=0.5,
                     lw=lw) # predicted
-        else:
-            ax.plot([min(xls), max(xls)], [min(Y_pred), max(Y_pred)], color='black',
-                #   alpha=0.5,
+            else:
+                # Y_pred = np.array(Y_pred)
+                # print(Y_pred)
+                # print(Y_pred[::-1])
+                # ax.plot([min(xls), max(xls)], [min(Y_pred), max(Y_pred)], color=colors,
+                #     #   alpha=0.5,
+                #         lw=lw) # predicted
+
+                ax.plot([min(xls), max(xls)], [Y_pred[0], Y_pred[-1]], color=colors, #'black',
+                    #   alpha=0.5,
                     lw=lw) # predicted
+                
 
         # ax.annotate("{:.1f}".format(m)+'*x'+"{:.3f}".format(c),xy=(X_mean,Y_mean))
         # ax.annotate('Slope '+"{:.1f}".format(m),xy=(X_mean,Y_mean))
@@ -588,7 +609,7 @@ def compute_slope(ax,xls,yls,
         text='Slope={:.2g}\nR²={:.2g}'.format(float(m),float(corr))
         
         if plot_text:
-            ax.annotate(text=text,xy=xy,ha='left',va='top')
+            ax.annotate(text=text,xy=xy,ha='left',va='top',color=colors)
     
     print(colored('test'+str(m),'red'))
             # ax.annotate('Slope '+"{:.1f}".format(m),xy=(X_mean,Y_mean))
@@ -877,8 +898,8 @@ def plot_var_from_pandas(df,figpar,plotpar,physics):
 
     # print("t",fwd.t)
     # print("radius",fwd.radius.*1.e6)
-    # print("current_i", current_i)
-    # print("radius ",fwd.radius[1:current_i+1])
+    # print("current_iter", current_iter)
+    # print("radius ",fwd.radius[1:current_iter+1])
     # print("\nradius ",fwd.radius)
 
     color="#4d5156"
@@ -928,8 +949,8 @@ def plot_radius_from_pandas(df,figpar,plotpar):
 
     # print("t",fwd.t)
     # print("radius",fwd.radius.*1.e6)
-    # print("current_i", current_i)
-    # print("radius ",fwd.radius[1:current_i+1])
+    # print("current_iter", current_iter)
+    # print("radius ",fwd.radius[1:current_iter+1])
     # print("\nradius ",fwd.radius)
 
     color="#4d5156"
@@ -1259,62 +1280,75 @@ def plot_all_fig_func():
 
             for figpar in plotpar["figures"]:
 
-                if 'func' in figpar.keys():
-                    try:
-                        func = globals()[figpar['func']] #'plot_current_lines'
+                for theme in plotpar['themes']:
 
-                        print(colored(figpar['func']+' '+figpar['file'], "cyan"))
-                    except:
+                    print(colored('Theme : '+theme,'green'))
+
+
+                    if theme == 'light':
+                        plotpar['text_color'] = 'k'
+                        plotpar['theme'] = theme
+
+                    elif theme == 'dark':
+                        plotpar['text_color'] = 'w'
+                        plotpar['theme'] = theme
+
+                    if 'func' in figpar.keys():
+                        try:
+                            func = globals()[figpar['func']] #'plot_current_lines'
+
+                            print(colored(figpar['func']+' '+figpar['file'], "cyan"))
+                        except:
+                            func = globals()['plot_file']
+                            print(colored("Defaulting to plot_file" , "cyan"))
+
+                        
+                    else:
                         func = globals()['plot_file']
-                        print(colored("Defaulting to plot_file" , "cyan"))
-
-                    
-                else:
-                    func = globals()['plot_file']
-                    
-                    print(colored('plot_file'+' '+figpar['file'], "cyan"))
+                        
+                        print(colored('plot_file'+' '+figpar['file'], "cyan"))
 
 
-                key = figpar['var']
+                    key = figpar['var']
 
-                # print(key,func)
+                    # print(key,func)
 
-                if key == 'rhs_1D':
-                    data = file[key][:]
-                    # print("vecb ",vecb(data,mesh["nx"],mesh["ny"]))
+                    if key == 'rhs_1D':
+                        data = file[key][:]
+                        # print("vecb ",vecb(data,mesh["nx"],mesh["ny"]))
 
-                    print(colored('vecb_B'+str(min(vecb_B(data,mesh["nx"],mesh["ny"]))), "cyan"))
-                    print(colored('vecb_T'+str(min(vecb_T(data,mesh["nx"],mesh["ny"]))), "cyan"))
-                    print(colored('vecb_L'+str(min(vecb_L(data,mesh["nx"],mesh["ny"]))), "cyan"))
-                    print(colored('vecb_R'+str(min(vecb_R(data,mesh["nx"],mesh["ny"]))), "cyan"))
-                    
-                    # print("vecb_B ",vecb_B(data,mesh["nx"],mesh["ny"]))
-                    # print("vecb_T ",vecb_T(data,mesh["nx"],mesh["ny"]))
-                    # print("vecb_L ",vecb_L(data,mesh["nx"],mesh["ny"]))
-                    # print("vecb_R ",vecb_R(data,mesh["nx"],mesh["ny"]))
+                        print(colored('vecb_B'+str(min(vecb_B(data,mesh["nx"],mesh["ny"]))), "cyan"))
+                        print(colored('vecb_T'+str(min(vecb_T(data,mesh["nx"],mesh["ny"]))), "cyan"))
+                        print(colored('vecb_L'+str(min(vecb_L(data,mesh["nx"],mesh["ny"]))), "cyan"))
+                        print(colored('vecb_R'+str(min(vecb_R(data,mesh["nx"],mesh["ny"]))), "cyan"))
+                        
+                        # print("vecb_B ",vecb_B(data,mesh["nx"],mesh["ny"]))
+                        # print("vecb_T ",vecb_T(data,mesh["nx"],mesh["ny"]))
+                        # print("vecb_L ",vecb_L(data,mesh["nx"],mesh["ny"]))
+                        # print("vecb_R ",vecb_R(data,mesh["nx"],mesh["ny"]))
 
 
 
-            
                 
-                func(
-                file,
-                key,
-                xp,
-                yp,
-                xu,
-                yv,
-                yml,
-                mesh,
-                time,
-                nstep,
-                plotpar,
-                figpar=figpar,
-                mode='close',
-                fig1=None,
-                ax2=None,
-                cbar=None,
-                )
+                    
+                    func(
+                    file,
+                    key,
+                    xp,
+                    yp,
+                    xu,
+                    yv,
+                    yml,
+                    mesh,
+                    time,
+                    nstep,
+                    plotpar,
+                    figpar=figpar,
+                    mode='close',
+                    fig1=None,
+                    ax2=None,
+                    cbar=None,
+                    )
 
 
 def plot_all_fig():
@@ -1435,101 +1469,114 @@ def plot_all_fig():
 
             # Figures defined in YAML file
             for figpar in plotpar["figures"]:
+
+                for theme in plotpar['themes']:
+
+                    print(colored('Theme : '+theme,'green'))
+
+
+                    if theme == 'light':
+                        plotpar['text_color'] = 'k'
+                        plotpar['theme'] = theme
+
+                    elif theme == 'dark':
+                        plotpar['text_color'] = 'w'
+                        plotpar['theme'] = theme
                 
-                key = figpar["var"]
-
-
-                # print(colored(figpar["var"] + " " + figpar["file"], "cyan"))
-
-                if (
-                    figpar["var"] == "velocity_x"
-                ):  # plot vector with velocity interpolated on scalar grid
-
-                    plot_vector(file, key, xp, yp, xu, yv, yml, mesh, time, nstep, plotpar, figpar)
-
-                elif (
-                    figpar["var"] == "i_current_x"
-                ):  # plot vector with velocity interpolated on scalar grid
-
-                    plot_current_lines(file, key, xp, yp, xu, yv, yml, mesh, time, nstep, plotpar, figpar)
-
-                elif figpar["var"] in file.keys():
                     key = figpar["var"]
 
-                    # print(key)
 
-                    if "_1D" in key:
+                    # print(colored(figpar["var"] + " " + figpar["file"], "cyan"))
 
-                        if "zoom" in figpar.keys():
-                            plot_python_pdf_full2(
-                                file,
-                                key,
-                                xp,
-                                yp,
-                                xu,
-                                yv,
-                                yml,
-                                mesh,
-                                time,
-                                nstep,
-                                plotpar,
-                                figpar,
-                            )
+                    if (
+                        figpar["var"] == "velocity_x"
+                    ):  # plot vector with velocity interpolated on scalar grid
 
-                        else:            
-                            plot_file(
-                                file,
-                                key,
-                                xp,
-                                yp,
-                                xu,
-                                yv,
-                                yml,
-                                mesh,
-                                time,
-                                nstep,
-                                plotpar,
-                                figpar,
-                            )
+                        plot_vector(file, key, xp, yp, xu, yv, yml, mesh, time, nstep, plotpar, figpar)
 
-                    else:
-                        if key in plotpar["n\ce{O2}D_plot"]:
-                            continue  # no plot
+                    elif (
+                        figpar["var"] == "i_current_x"
+                    ):  # plot vector with velocity interpolated on scalar grid
 
-                        if "zoom" in figpar.keys():
-                                
-                            print('plot_python_pdf_full2 ',key)
+                        plot_current_lines(file, key, xp, yp, xu, yv, yml, mesh, time, nstep, plotpar, figpar)
 
-                            plot_python_pdf_full2(
-                                file,
-                                key,
-                                xp,
-                                yp,
-                                xu,
-                                yv,
-                                yml,
-                                mesh,
-                                time,
-                                nstep,
-                                plotpar,
-                                figpar,
-                            )
+                    elif figpar["var"] in file.keys():
+                        key = figpar["var"]
+
+                        # print(key)
+
+                        if "_1D" in key:
+
+                            if "zoom" in figpar.keys():
+                                plot_python_pdf_full2(
+                                    file,
+                                    key,
+                                    xp,
+                                    yp,
+                                    xu,
+                                    yv,
+                                    yml,
+                                    mesh,
+                                    time,
+                                    nstep,
+                                    plotpar,
+                                    figpar,
+                                )
+
+                            else:            
+                                plot_file(
+                                    file,
+                                    key,
+                                    xp,
+                                    yp,
+                                    xu,
+                                    yv,
+                                    yml,
+                                    mesh,
+                                    time,
+                                    nstep,
+                                    plotpar,
+                                    figpar,
+                                )
+
                         else:
-                            print('plot_file ',key)
-                            plot_file(
-                                file,
-                                key,
-                                xp,
-                                yp,
-                                xu,
-                                yv,
-                                yml,
-                                mesh,
-                                time,
-                                nstep,
-                                plotpar,
-                                figpar,
-                            )
+                            if key in plotpar["n\ce{O2}D_plot"]:
+                                continue  # no plot
+
+                            if "zoom" in figpar.keys():
+                                    
+                                print('plot_python_pdf_full2 ',key)
+
+                                plot_python_pdf_full2(
+                                    file,
+                                    key,
+                                    xp,
+                                    yp,
+                                    xu,
+                                    yv,
+                                    yml,
+                                    mesh,
+                                    time,
+                                    nstep,
+                                    plotpar,
+                                    figpar,
+                                )
+                            else:
+                                print('plot_file ',key)
+                                plot_file(
+                                    file,
+                                    key,
+                                    xp,
+                                    yp,
+                                    xu,
+                                    yv,
+                                    yml,
+                                    mesh,
+                                    time,
+                                    nstep,
+                                    plotpar,
+                                    figpar,
+                                )
 
 
 def plot_all_films():
@@ -1711,6 +1758,8 @@ def plot_all_films_func():
             h5_files_tmp = h5_files
 
         key = figpar['var']
+
+        # print('func',func)
         
         python_movie_zoom_func(
         h5_files_tmp,
@@ -2282,8 +2331,6 @@ def plot_file(
 
     if plotpar['theme'] == 'dark':
         cbar.outline.set_edgecolor(plotpar['text_color'])
-
-
         cbar.ax.tick_params(axis='both', which='both', colors=plotpar['text_color'])
         # cbar.ax.yaxis.set_tick_params(color='white')
         plt.setp(plt.getp(cbar.ax, 'yticklabels'), color=plotpar['text_color'])
@@ -2619,7 +2666,7 @@ def plot_file(
         ax2.spines['left'].set_color(plotpar['text_color'])  # Change left spine color
         ax2.spines['right'].set_color(plotpar['text_color']) # Change right spine color
 
-
+ 
 
 
     # if 'ax_locator_x' in figpar.keys():   
@@ -3618,8 +3665,15 @@ def plot_diffusion(figpar,plotpar,inset_ax,plot_coord = 0.2,time_list=None):
     import matplotlib.pyplot as plt
 
     plot_color = 'w'
-    if 'plot_color' in figpar.keys():
-        plot_color=figpar['plot_color']
+
+    if plotpar['theme'] == 'dark':
+        plot_color =  'w'
+    else:
+        plot_color =  'k'
+
+
+    # if 'plot_color' in figpar.keys():
+    #     plot_color=figpar['plot_color']
 
     scale_fig = "plot_schematics"
     if 'scale_fig' in figpar.keys():
@@ -3793,7 +3847,8 @@ def plot_diffusion(figpar,plotpar,inset_ax,plot_coord = 0.2,time_list=None):
                             #    label=f't = {time:.2e}',
                             label = 'pseudo-analytical',
                             #   color='w',
-                            color=plot_color,
+                            color=plotpar['text_color'],
+                            # color=plot_color,
                             linewidth=0.5,
                             zorder=1,
                             )
@@ -3802,7 +3857,8 @@ def plot_diffusion(figpar,plotpar,inset_ax,plot_coord = 0.2,time_list=None):
                         #    label=f't = {time:.2e}',
                         # label = 'pseudo-analytical',
                         #   color='w',
-                        color=plot_color,
+                        color=plotpar['text_color'],
+                        # color=plot_color,
                         linewidth=0.5,
                         zorder=1,
                         )
@@ -4067,7 +4123,7 @@ def plot_schematics_full_with_losses(figpar,plotpar):
     plt.savefig('schematics_full_losses'+'_'+plotpar['theme']+'.svg',transparent=True)
 
 
-def add_schematics(ax2,fontsize,figpar):
+def add_schematics(ax2,fontsize,figpar,plotpar):
 
     # x1, x2, y1, y2 = 0,1, 55,57  # subregion of the original image
     x1, x2, y1, y2 = figpar['add_schematics_coords']
@@ -4441,8 +4497,8 @@ def plot_current_lines(file,
         CS = ax2.contourf(xp, yp, phi_array, levels=get_value_from_dicts('levels',figpar,plotpar), cmap=plotpar["cmap"],extend=plotpar['extend'],)
 
 
-    if 'theme' in figpar.keys():
-        if figpar['theme'] == 'dark':
+    if 'theme' in plotpar.keys():
+        if plotpar['theme'] == 'dark':
             # get_value_from_dicts('text_color',figpar,plotpar) = 'w'
 
             ax2.spines['bottom'].set_color(get_value_from_dicts('text_color',figpar,plotpar))
@@ -4464,6 +4520,8 @@ def plot_current_lines(file,
             # And finally the title:
 
             ax2.title.set_color(get_value_from_dicts('text_color',figpar,plotpar))
+
+           
 
 
     # else: 
@@ -4487,7 +4545,7 @@ def plot_current_lines(file,
 
 
     if 'add_schematics' in figpar.keys():
-        ax2 = add_schematics(ax2,font_size,figpar)
+        ax2 = add_schematics(ax2,font_size,figpar,plotpar)
 
         
 
@@ -4863,8 +4921,8 @@ def plot_radius(time_list,radius_list):
 
     # print("t",fwd.t)
     # print("radius",fwd.radius.*1.e6)
-    # print("current_i", current_i)
-    # print("radius ",fwd.radius[1:current_i+1])
+    # print("current_iter", current_iter)
+    # print("radius ",fwd.radius[1:current_iter+1])
     # print("\nradius ",fwd.radius)
 
     plt.plot(time_list,radius_list*1.e6)
@@ -4912,6 +4970,8 @@ def plot_python_pdf_full2(
     """
     
     data = file[key][:]
+
+    # print('check keys',file.keys())
 
     if file["nx"][()] != None:
         nx = file["nx"][()]
@@ -5441,6 +5501,29 @@ def plot_python_pdf_full2(
         colors="r")
         cbar.add_lines(CS2)
 
+
+    if plotpar['theme'] == 'dark':
+
+        # Change the color of the ticks
+        ax2.tick_params(axis='x', colors=plotpar['text_color'])  # Change x ticks color
+        ax2.tick_params(axis='y', colors=plotpar['text_color'])  # Change y ticks color
+
+        # Change the color of the splines (spines are the lines connecting the axis tick marks)
+        ax2.spines['bottom'].set_color(plotpar['text_color'])  # Change bottom spine color
+        ax2.spines['top'].set_color(plotpar['text_color'])    # Change top spine color
+        ax2.spines['left'].set_color(plotpar['text_color'])  # Change left spine color
+        ax2.spines['right'].set_color(plotpar['text_color']) # Change right spine color
+
+    if plotpar['theme'] == 'dark':
+        cbar.outline.set_edgecolor(plotpar['text_color'])
+        cbar.ax.tick_params(axis='both', which='both', colors=plotpar['text_color'])
+        # cbar.ax.yaxis.set_tick_params(color='white')
+        plt.setp(plt.getp(cbar.ax, 'yticklabels'), color=plotpar['text_color'])
+
+
+    # if 'macro_cbar' in figpar.keys():
+    #     exec(figpar['macro_cbar'])
+
     if get_value_from_dicts('plot_levelset',figpar,plotpar):
         if "plot_case" in figpar.keys():
             if figpar["plot_case"] == "circle":
@@ -5708,6 +5791,9 @@ def plot_python_pdf_full2(
         ax2.set_aspect(aspect=get_value_from_dicts('aspect_ratio',figpar,plotpar),adjustable=get_value_from_dicts('aspect_box',figpar,plotpar))
 
     #debug subplots with  plot_children(fig1)
+
+    if 'macro_cbar' in figpar.keys():
+        exec(figpar['macro_cbar'])
 
     if mode =='first' or mode =='close':
         ax2.spines["right"].set_visible(False)

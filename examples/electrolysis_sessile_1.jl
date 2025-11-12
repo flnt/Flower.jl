@@ -162,10 +162,10 @@ plot_levelset=true
 isocontour=false#true
 cmap = plt.cm.viridis
 
-# if isnothing(current_i)
+# if isnothing(current_iter)
 #     size_frame=size(fwdL.p,1)
 # else
-#     size_frame=current_i
+#     size_frame=current_iter
 # end
 size_frame=size(fwdL.p,1)
 

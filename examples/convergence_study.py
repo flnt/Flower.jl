@@ -20,7 +20,7 @@ from scipy.stats import pearsonr
 # module to plot files from Flower.jl
 # from plot_flower import * 
 from plot_flower import set_size, init_fig, compute_slope, roundlog, \
-   logticks,reshape_data,veci,vecb_L,reshape_data_veci,plot_current_lines,\
+   logticks,reshape_data,veci,vecb_L,vecb_B,reshape_data_veci,plot_current_lines,\
    plot_python_pdf_full2,plot_file,plot_schematics,plot_schematics_full,\
    add_schematics,add_schematics_full_cell,compute_slope_lin_or_log,plot_vector,plot_schematics_fluxes,\
    plot_schematics_full_with_losses,call_inkscape, get_value_from_dicts 
@@ -179,11 +179,11 @@ def plot_errors_from_pandas(df,figpar,plotpar,colors,filename):
 
    # print("t",fwd.t)
    # print("radius",fwd.radius.*1.e6)
-   # print("current_i", current_i)
-   # print("radius ",fwd.radius[1:current_i+1])
+   # print("current_iter", current_iter)
+   # print("radius ",fwd.radius[1:current_iter+1])
    # print("\nradius ",fwd.radius)
 
-   color="#4d5156"
+   # color="#4d5156"
 
    df['1/n'] = 1/df["nx_list"]
    # plt.plot(df["1/n"],df["l1_rel_error"],color=color)
@@ -254,7 +254,7 @@ def plot_errors_from_pandas(df,figpar,plotpar,colors,filename):
       param_line=[]
       slope_and_correlation=0
       R2=0
-      color_line="k"
+      color_line=plotpar['text_color']
       # colors="#fa8b2b"
       alpha= 1 
       # \definecolor{mdlsorange}{HTML}{fa8b2b}
@@ -398,8 +398,13 @@ def plot_errors_from_pandas(df,figpar,plotpar,colors,filename):
    # plt.xlim( [10**-5,10**-1] )
 
 
-   plt.savefig(prefix+figpar['file']+".pdf",transparent=True)
-   call_inkscape(prefix+figpar['file'])
+   plt.savefig(prefix+figpar['file']+'_'+plotpar['theme']+'.pdf',transparent=True)
+   # plt.savefig(prefix+figpar['file']+'_'+plotpar['theme']+'.svg',transparent=True)
+
+   # plt.savefig(prefix+figpar['file']+".pdf",transparent=True)
+
+   call_inkscape(prefix+figpar['file']+'_'+plotpar['theme'])
+
    # plt.savefig(prefix+figpar['file']+".svg",transparent=True)
 
    plt.close(fig1)
@@ -449,49 +454,62 @@ def plot_errors_from_h5():
       
       nsteps = len(h5_files)
 
-      for figpar in plotpar['curves']:
+      for theme in plotpar['themes']:
 
-         print(colored(figpar['file'],'cyan'))
-         # print(figpar)
+         print(colored('Theme : '+theme,'green'))
 
-         if 'radius' in figpar['var']: #we do not plot the figures with radius
-            continue
-         
-         if 'func' not in figpar.keys():
-            continue
-         if 'plot_errors_from_h5' != figpar['func']:
-            continue
 
-         time_list =[]
-         radius_list=[]
-         for file_name in h5_files:
-               with h5py.File(file_name, "r") as file:
-                  print(file.keys())
-                  nx_list = file["nx_list"][()]
-                  l1_rel_error = file["l1_rel_error"][()]
-                  l2_rel_error = file["l2_rel_error"][()]
-                  linfty_rel_error = file["linfty_rel_error"][()]
-                  
+         if theme == 'light':
+            plotpar['text_color'] = 'k'
+            plotpar['theme'] = theme
+
+         elif theme == 'dark':
+            plotpar['text_color'] = 'w'
+            plotpar['theme'] = theme
+
+         for figpar in plotpar['curves']:
+
+            print(colored(figpar['file'],'cyan'))
+            # print(figpar)
+
+            if 'radius' in figpar['var']: #we do not plot the figures with radius
+               continue
             
+            if 'func' not in figpar.keys():
+               continue
+            if 'plot_errors_from_h5' != figpar['func']:
+               continue
 
-                  print(nx_list,l1_rel_error)
-                  # time_list.append(time)
-                  # radius_list.append(radius)
+            time_list =[]
+            radius_list=[]
+            for file_name in h5_files:
+                  with h5py.File(file_name, "r") as file:
+                     print(file.keys())
+                     nx_list = file["nx_list"][()]
+                     l1_rel_error = file["l1_rel_error"][()]
+                     l2_rel_error = file["l2_rel_error"][()]
+                     linfty_rel_error = file["linfty_rel_error"][()]
+                     
+               
 
-                  # df = pd.DataFrame({'nx_list': nx_list, 'l1_rel_error': l1_rel_error})
-                  # df['l2_rel_error'] = l2_rel_error
-                  # df['linfty_rel_error'] = linfty_rel_error
+                     print(nx_list,l1_rel_error)
+                     # time_list.append(time)
+                     # radius_list.append(radius)
 
-                  df = pd.DataFrame({'nx_list': nx_list})
+                     # df = pd.DataFrame({'nx_list': nx_list, 'l1_rel_error': l1_rel_error})
+                     # df['l2_rel_error'] = l2_rel_error
+                     # df['linfty_rel_error'] = linfty_rel_error
+
+                     df = pd.DataFrame({'nx_list': nx_list})
 
 
-                  for i,err in enumerate(figpar['var']):
-                     print(colored(figpar['var'],'red'))
-                     df[err] = file[err][()]
+                     for i,err in enumerate(figpar['var']):
+                        print(colored(figpar['var'],'red'))
+                        df[err] = file[err][()]
 
-                  print(df)
+                     print(df)
 
-                  plot_errors_from_pandas(df,figpar,plotpar,colors,file_name)
+                     plot_errors_from_pandas(df,figpar,plotpar,colors,file_name)
 
 
 
@@ -681,54 +699,57 @@ def plot_convergence_study_func():
 
 
   
-   for theme in plotpar['themes']:
-
-      print(colored('Theme : '+theme,'green'))
 
 
-      if theme == 'light':
-         plotpar['text_color'] = 'k'
-         plotpar['theme'] = theme
 
-      elif theme == 'dark':
-         plotpar['text_color'] = 'w'
-         plotpar['theme'] = theme
+      # print(colored('Curves','red'))
 
-      print(colored('Curves','red'))
-
-      for figpar in plotpar["curves"]:
+   for figpar in plotpar["curves"]:
          
-         try:
-            # print(figpar)
-            if 'func' not in figpar.keys():
-               continue
-               
-            # print(figpar)
-
-            if 'func' in figpar.keys():
-               func = globals()[figpar['func']] #'plot_current_lines'
-            else:
-               func = globals()['plot_file']
-
-            if (not isinstance(figpar['var'], str)) and len(figpar['var'])>0:
-               key = figpar['var'][0]
-            else:
-               key = figpar['var']
-
-            # print('key',key)
-
-            # print(figpar)
-
-            print(colored(figpar['file'], "cyan"))
-
-            if 'plot_errors_from_h5' == figpar['func']:
-               continue
-
-            if 'files' in figpar.keys():
-               h5_files_tmp = figpar['files']
-            else:
-               h5_files_tmp = h5_files
+      try:
+         # print(figpar)
+         if 'func' not in figpar.keys():
+            continue
             
+         # print(figpar)
+
+         if 'func' in figpar.keys():
+            func = globals()[figpar['func']] #'plot_current_lines'
+         else:
+            func = globals()['plot_file']
+
+         if (not isinstance(figpar['var'], str)) and len(figpar['var'])>0:
+            key = figpar['var'][0]
+         else:
+            key = figpar['var']
+
+         # print('key',key)
+
+         # print(figpar)
+
+         print(colored(figpar['file'], "cyan"))
+
+         if 'plot_errors_from_h5' == figpar['func']:
+            continue
+
+         if 'files' in figpar.keys():
+            h5_files_tmp = figpar['files']
+         else:
+            h5_files_tmp = h5_files
+
+         for theme in plotpar['themes']:
+
+            print(colored('Theme : '+theme,'green'))
+
+
+            if theme == 'light':
+               plotpar['text_color'] = 'k'
+               plotpar['theme'] = theme
+
+            elif theme == 'dark':
+               plotpar['text_color'] = 'w'
+               plotpar['theme'] = theme
+         
             plot_convergence_func(
             h5_files_tmp,
             key,
@@ -742,54 +763,54 @@ def plot_convergence_study_func():
             plotpar,
             figpar,
             )
-         except:
-            print(colored('Failed '+figpar['file'], "red"))   
-            raise # was: pass
+      except:
+         print(colored('Failed '+figpar['file'], "red"))   
+         raise # was: pass
 
 
-      for figpar in plotpar['figures']:
+      # for figpar in plotpar['figures']:
          
-         try:
-            # print(figpar)
-            if 'func' not in figpar.keys():
-               continue
+      #    try:
+      #       # print(figpar)
+      #       if 'func' not in figpar.keys():
+      #          continue
                
-            # print(figpar)
+      #       # print(figpar)
 
-            if 'func' in figpar.keys():
-               func = globals()[figpar['func']] #'plot_current_lines'
-            else:
-               func = globals()['plot_file']
+      #       if 'func' in figpar.keys():
+      #          func = globals()[figpar['func']] #'plot_current_lines'
+      #       else:
+      #          func = globals()['plot_file']
 
-            if (not isinstance(figpar['var'], str)) and len(figpar['var'])>0:
-               key = figpar['var'][0]
-            else:
-               key = figpar['var']
+      #       if (not isinstance(figpar['var'], str)) and len(figpar['var'])>0:
+      #          key = figpar['var'][0]
+      #       else:
+      #          key = figpar['var']
 
-            # print('key',key)
+      #       # print('key',key)
 
-            # print(figpar)
+      #       # print(figpar)
 
-            print(colored(figpar['file'], "cyan"))
+      #       print(colored(figpar['file'], "cyan"))
 
 
             
-            plot_convergence_func_new_ax(
-            h5_files,
-            key,
-            xp,
-            yp,
-            xu,
-            yv,
-            yml,
-            mesh,
-            func,
-            plotpar,
-            figpar,
-            )
-         except:
-            print(colored('Failed '+figpar['file'], "red"))
-            raise # was: pass
+      #       plot_convergence_func_new_ax(
+      #       h5_files,
+      #       key,
+      #       xp,
+      #       yp,
+      #       xu,
+      #       yv,
+      #       yml,
+      #       mesh,
+      #       func,
+      #       plotpar,
+      #       figpar,
+      #       )
+      #    except:
+      #       print(colored('Failed '+figpar['file'], "red"))
+      #       raise # was: pass
 
  
 
@@ -847,8 +868,9 @@ def plot_convergence_func(
    
 
    for i,file_name in enumerate(h5_files):
-      # yml['study']['iter'] = i
+      # figpar['iter'] = i
       figpar['iter'] = i
+      # print('figpar iter',i)
       if 'macro_data' in figpar.keys():
          print(colored('macro_data','red'))
          # exec(figpar['macro_data'])
@@ -924,113 +946,114 @@ def plot_convergence_func(
             except:
                print('no poisson_iter')
 
+            # print('test keys',file.keys())
+            # print(file.keys())
+            nx = file['nx'][()]
+            ny = nx 
 
-         nx = file['nx'][()]
-         ny = nx 
+            # if key=="u_1D":
+            #    nx=nx+1
+            #    # x_1D = xu 
+            #    # y_1D = yp
+            #    # key_LS = "levelset_u"
 
-         # if key=="u_1D":
-         #    nx=nx+1
-         #    # x_1D = xu 
-         #    # y_1D = yp
-         #    # key_LS = "levelset_u"
+            # elif key=="v_1D":
+            #    ny=ny+1
+               # x_1D = xp
+               # y_1D = yv 
+               # key_LS = "levelset_v"
 
-         # elif key=="v_1D":
-         #    ny=ny+1
-            # x_1D = xp
-            # y_1D = yv 
-            # key_LS = "levelset_v"
+            # else:
+            #    x_1D = xp
+            #    y_1D = yp
+            #    key_LS = "levelset_p"
 
-         # else:
-         #    x_1D = xp
-         #    y_1D = yp
-         #    key_LS = "levelset_p"
+            # print('nx',nx)
 
-         # print('nx',nx)
+            mesh["nx"] = nx
+            mesh["ny"] = ny
 
-         mesh["nx"] = nx
-         mesh["ny"] = ny
+            print(colored('mesh '+str(nx)+" "+str(mesh["nx"]),'red'))
 
-         print(colored('mesh '+str(nx)+" "+str(mesh["nx"]),'red'))
+            mesh["xmax"] = float(mesh["xmax"])
+            mesh["xmin"] = float(mesh["xmin"])
 
-         mesh["xmax"] = float(mesh["xmax"])
-         mesh["xmin"] = float(mesh["xmin"])
+            mesh["ymax"] = float(mesh["ymax"])
+            mesh["ymin"] = float(mesh["ymin"])
 
-         mesh["ymax"] = float(mesh["ymax"])
-         mesh["ymin"] = float(mesh["ymin"])
+            mesh["dx"] = (mesh["xmax"] - mesh["xmin"]) / mesh["nx"]
+            mesh["dy"] = (mesh["ymax"] - mesh["ymin"]) / mesh["ny"]
 
-         mesh["dx"] = (mesh["xmax"] - mesh["xmin"]) / mesh["nx"]
-         mesh["dy"] = (mesh["ymax"] - mesh["ymin"]) / mesh["ny"]
+            # import numpy as np
 
-         # import numpy as np
+            xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+            yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
 
-         xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
-         yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+            print('TODO mesh check')
 
-         print('TODO mesh check')
-
-         dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
-         dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
+            dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
+            dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
 
 
-         # print(xp)
-         # print(yp)
+            # print(xp)
+            # print(yp)
 
-         print('len(xp)',len(xp),len(yp))
+            print('len(xp)',len(xp),len(yp))
 
-         xp[0] = dx/2
-         yp[0] = dy/2
+            xp[0] = dx/2
+            yp[0] = dy/2
 
-         for i in range(1,len(xp)):
-            xp[i] = xp[i-1]+dx
+            for i in range(1,len(xp)):
+               xp[i] = xp[i-1]+dx
 
-         for i in range(1,len(yp)):
-            yp[i] = yp[i-1]+dx
+            for i in range(1,len(yp)):
+               yp[i] = yp[i-1]+dx
 
-         # print('xp',xp)
-         # print('yp',yp)
-         
-         print('len(xp)',len(xp),len(yp))
+            # print('xp',xp)
+            # print('yp',yp)
+            
+            print('len(xp)',len(xp),len(yp))
 
-         xu = xp + dx / 2
-         xu = np.insert(xu, 0, xp[0] - dx / 2)
-         # yu = yp # xv = xp
-         yv = yp + dy / 2
-         yv = np.insert(yv, 0, yp[0] - dy / 2)
+            xu = xp + dx / 2
+            xu = np.insert(xu, 0, xp[0] - dx / 2)
+            # yu = yp # xv = xp
+            yv = yp + dy / 2
+            yv = np.insert(yv, 0, yp[0] - dy / 2)
 
-         plotpar["scale_x"] = float(plotpar["scale_x"])
-         plotpar["scale_y"] = float(plotpar["scale_y"])
+            plotpar["scale_x"] = float(plotpar["scale_x"])
+            plotpar["scale_y"] = float(plotpar["scale_y"])
 
-         scale_x = float(plotpar["scale_x"])
-         scale_y = float(plotpar["scale_y"])
+            scale_x = float(plotpar["scale_x"])
+            scale_y = float(plotpar["scale_y"])
 
-         xp /= scale_x
-         yp /= scale_y
-         xu /= scale_x
-         yv /= scale_y
+            xp /= scale_x
+            yp /= scale_y
+            xu /= scale_x
+            yv /= scale_y
 
-         if i == 0:
-            mode = 'first'
-         else:
-            mode = 'next'
+            if i == 0:
+               mode = 'first'
+            else:
+               mode = 'next'
 
-         fig1,ax2,cbar = func(
-         file,
-         key,
-         xp,
-         yp,
-         xu,
-         yv,
-         yml,
-         mesh,
-         time,
-         nstep,
-         plotpar,
-         figpar=figpar,
-         mode=mode,
-         fig1=fig1,
-         ax2=ax2,
-         cbar=cbar,
-         )
+            fig1,ax2,cbar = func(
+            file,
+            key,
+            xp,
+            yp,
+            xu,
+            yv,
+            yml,
+            mesh,
+            time,
+            nstep,
+            plotpar,
+            figpar=figpar,
+            mode=mode,
+            fig1=fig1,
+            ax2=ax2,
+            cbar=cbar,
+            )
        
    file_name = figpar['file']
 
@@ -1422,7 +1445,7 @@ def plot_convergence_func_new_ax(
    cbar=[]
 
    for i,file_name in enumerate(h5_files):
-      yml['study']['iter'] = i
+      figpar['iter'] = i
       with h5py.File(file_name, "r") as file:
 
          try:
@@ -1614,27 +1637,34 @@ def compute_slope_figpar(ax, xls, yls, plotpar, figpar, plot_text=True, logslope
     corr = num / (rmsx * rmsy)
     R2 = corr
 
+    plot_line = False
+   #  if plot_line:
     if logslope:
         line1, = ax.plot([10 ** (min(xls)), 10 ** (max(xls))], [10 ** (min(Y_pred)), 10 ** (max(Y_pred))],
                          color=get_value_from_dicts('slope_color',figpar,plotpar), 
                          alpha=get_value_from_dicts('slope_alpha',figpar,plotpar))
         xy = (X_mean1, Y_mean1)
     else:
+        
         if min(Y_pred) < 0:
             ax.plot([X_mean, max(xls)], [X_mean * m + c, max(Y_pred)], 
                     color=get_value_from_dicts('slope_color',figpar,plotpar), 
                      alpha=get_value_from_dicts('slope_alpha',figpar,plotpar),
                      lw=get_value_from_dicts('linewidth',figpar,plotpar))
         else:
-            ax.plot([min(xls), max(xls)], [min(Y_pred), max(Y_pred)], 
-                    color=get_value_from_dicts('slope_color',figpar,plotpar),
-                     alpha=get_value_from_dicts('slope_alpha',figpar,plotpar),
-                    lw=get_value_from_dicts('linewidth',figpar,plotpar))
+            if plot_line:
+               # ax.plot([min(xls), max(xls)], [min(Y_pred), max(Y_pred)], 
+               ax.plot([min(xls), max(xls)], [Y_pred[0], Y_pred[-1]], 
+                     color=get_value_from_dicts('slope_color',figpar,plotpar),
+                        alpha=get_value_from_dicts('slope_alpha',figpar,plotpar),
+                     lw=get_value_from_dicts('linewidth',figpar,plotpar))
+
+
         xy = (X_mean, Y_mean)
 
     text = 'Slope={:.2g}\nR²={:.2g}'.format(float(m), float(corr))
     if plot_text:
-        ax.annotate(text=text, xy=xy, ha='left', va='top')
+        ax.annotate(text=text, xy=xy, ha='left', va='top',color=plotpar['text_color'])
 
    #  print(colored('test' + str(m), 'red'))
     print('least-squares', m, c, corr)
@@ -1866,7 +1896,7 @@ def plot_time(
       # print('varx',varx,len(varx))
       # print('slice_1D',slice_1D,len(slice_1D))
 
-      # print('mesh number',yml['study']['iter'])
+      # print('mesh number',figpar['iter'])
 
 
       if 'macro_ref' in figpar.keys() and figpar['iter'] == 0:
@@ -1879,7 +1909,8 @@ def plot_time(
          val_ref = val_ref_2
          print('i test',i,get_value_from_dicts('linestyles',figpar,plotpar)[i+1],get_value_from_dicts('linestyles',figpar,plotpar)[i])
          ax20.plot(time_ref, val_ref, 
-         'k',
+         # 'k',
+         plotpar['text_color'],
          label='Reference solution',
          ls=eval(get_value_from_dicts('linestyles',figpar,plotpar)[i+1]),
          lw=lw)
@@ -1901,7 +1932,7 @@ def plot_time(
          print('i test',i,get_value_from_dicts('linestyles',figpar,plotpar)[i+1],get_value_from_dicts('linestyles',figpar,plotpar)[i])
          # ls  = eval(get_value_from_dicts('linestyles',figpar,plotpar)[i+1])
          ax20.plot(varx, ref, 
-         'k',
+         plotpar['text_color'],
          label='Reference solution',
          ls=eval(get_value_from_dicts('linestyles',figpar,plotpar)[i+1]),
          lw=lw)
@@ -1974,11 +2005,28 @@ def plot_time(
 
          
       handles, labels = plt.gca().get_legend_handles_labels()
-      print('handles',handles,labels)
-      if 'legend_pos' in figpar.keys():
-         plt.legend(loc=figpar['legend_pos'])
+      # print('handles',handles,labels)
+      if plotpar['theme'] == 'dark':
+         if 'legend_pos' in figpar.keys():
+            plt.legend(loc=figpar['legend_pos'], 
+                        facecolor='none',       # Legend background
+                        edgecolor='white',      # Legend border
+                        labelcolor='white',     # Text color
+                        )
+         else:
+            plt.legend( facecolor='none',       # Legend background
+                        edgecolor='white',      # Legend border
+                        labelcolor='white',     # Text color
+                        )
       else:
-         plt.legend()
+         if 'legend_pos' in figpar.keys():
+               plt.legend(loc=figpar['legend_pos'], 
+                           # facecolor='black',       # Legend background
+                           # edgecolor='white',      # Legend border
+                           # labelcolor='white',     # Text color
+               )
+         else:
+            plt.legend()
 
 
 
@@ -2300,10 +2348,10 @@ def plot_1D(
       # print('varx',varx,len(varx))
       # print('slice_1D',slice_1D,len(slice_1D))
 
-      print('mesh number',yml['study']['iter'])
+      print('mesh number',figpar['iter'])
 
    
-      if 'plot_ref' in figpar.keys() and yml['study']['iter'] == 0:
+      if 'plot_ref' in figpar.keys() and figpar['iter'] == 0:
          print('plotting ref')
          ref = eval(figpar['plot_ref'])
          # print('ref',ref)
@@ -2313,7 +2361,8 @@ def plot_1D(
          print('i test',i,get_value_from_dicts('linestyles',figpar,plotpar)[i+1],get_value_from_dicts('linestyles',figpar,plotpar)[i])
          # ls  = eval(get_value_from_dicts('linestyles',figpar,plotpar)[i+1])
          ax20.plot(varx, ref, 
-         'k',
+         # 'k',
+         plotpar['text_color'],
          label='Reference solution',
          ls=eval(get_value_from_dicts('linestyles',figpar,plotpar)[i+1]),
          lw=lw)
@@ -2350,7 +2399,7 @@ def plot_1D(
                      #  s=10,
                      #  marker='+',
          #  colors[i+1], #color wrt variable
-         color=colors[(yml['study']['iter'])%len(colors)],
+         color=colors[(figpar['iter'])%len(colors)],
          # cmap=cmap,
          label=label1,
          # ls=ls, #creates bug
@@ -2364,7 +2413,7 @@ def plot_1D(
       else:
          p1, = ax20.plot(varx, slice_1D, 
          #  colors[i+1], #color wrt variable
-         colors[(yml['study']['iter'])%len(colors)],
+         colors[(figpar['iter'])%len(colors)],
          # cmap=cmap,
          label=label1,ls=ls,lw=lw)
 
@@ -2379,13 +2428,30 @@ def plot_1D(
 
          
       handles, labels = plt.gca().get_legend_handles_labels()
-      print('handles',handles,labels)
+      # print('handles',handles,labels)
+
+
       if 'legend_pos' in figpar.keys():
-         plt.legend(loc=figpar['legend_pos'])
+         if plotpar['theme'] == 'dark':
+            plt.legend(loc=figpar['legend_pos'],
+               facecolor='none',       # Legend background
+               edgecolor='white',      # Legend border
+               labelcolor='white',     # Text color
+                       )
+         else:
+            plt.legend(loc=figpar['legend_pos'])
       else:
-         plt.legend()
+         if plotpar['theme'] == 'dark':
+            plt.legend(
+               facecolor='none',       # Legend background
+               edgecolor='white',      # Legend border
+               labelcolor='white',     # Text color
+                       )
+         else:
+            plt.legend()
 
 
+    
 
    # tick0 = list(eval(figpar['ticks'][0]))
    # ax20.yaxis.set_major_locator(mticker.FixedLocator(tick0))
@@ -2452,19 +2518,56 @@ def plot_1D(
 
 
       from plot_flower import parse_is_true
+      # if parse_is_true(figpar['plot_legend']):
+      #    if 'macro_analytical' in figpar.keys():
+      #       # print(analytical)
+      #       fig1.legend(
+      #          # handles=[p1, analytical],
+      #       # loc = "center left",
+      #       loc = legend_pos,
+      #       )
+      #    else:
+      #       fig1.legend(handles=[p1, p2, p3],
+      #       # loc = "center left",
+      #       loc = legend_pos,
+      #       )
+
       if parse_is_true(figpar['plot_legend']):
-         if 'macro_analytical' in figpar.keys():
-            # print(analytical)
-            fig1.legend(
-               # handles=[p1, analytical],
-            # loc = "center left",
-            loc = legend_pos,
-            )
+         print(colored('theme'+plotpar['theme'],'red'))
+         if plotpar['theme'] == 'dark':
+            if 'macro_analytical' in figpar.keys():
+               # print(analytical)
+               fig1.legend(
+                  # handles=[p1, analytical],
+               # loc = "center left",
+               loc = legend_pos,
+               facecolor='none',       # Legend background
+               edgecolor='white',      # Legend border
+               labelcolor='white',     # Text color
+               )
+            else:
+               fig1.legend(handles=[p1, p2, p3],
+               # loc = "center left",
+               loc = legend_pos,
+               facecolor='none',       # Legend background
+               edgecolor='white',      # Legend border
+               labelcolor='white',     # Text color
+               )
+
+             
          else:
-            fig1.legend(handles=[p1, p2, p3],
-            # loc = "center left",
-            loc = legend_pos,
-            )
+               if 'macro_analytical' in figpar.keys():
+                  # print(analytical)
+                  fig1.legend(
+                     # handles=[p1, analytical],
+                  # loc = "center left",
+                  loc = legend_pos,
+                  )
+               else:
+                  fig1.legend(handles=[p1, p2, p3],
+                  # loc = "center left",
+                  loc = legend_pos,
+                  )
 
 
    ###########################################
@@ -2484,6 +2587,9 @@ def plot_1D(
    #    # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'])
    #    plt.close(fig1)
    #    return
+
+   print(colored('theme '+plotpar['theme'],'red'))
+
 
    if mode == 'first': 
       if len(figpar['var'])>1:
@@ -2548,72 +2654,85 @@ def plot_convergence_study_errors():
          print(colored(figpar['file'],'cyan'))
          # print(figpar)
 
-         if 'radius' in figpar['var']: #we do not plot the figures with radius
-            continue
-         
-         if 'func' not in figpar.keys():
-            continue
-         if 'plot_convergence_study_errors' != figpar['func']:
-            continue
+         for theme in plotpar['themes']:
 
-         if 'files_list' in figpar.keys():
-            fig_names = figpar['fig_names']
-         else:
-            fig_names = [figpar['file']]
-         
-         for i_fig_name,fig_name in enumerate(fig_names):
-
-            if isinstance(fig_names,list):
-               pattern = figpar['files_list'][i_fig_name]
-
-               # Define the pattern to search for
-            
-               # Use glob to find all files matching the pattern
-               h5_files = glob.glob(pattern, recursive=True)
-
-            
-            print(h5_files)
+            print(colored('Theme : '+theme,'green'))
 
 
-            df = pd.DataFrame()
+            if theme == 'light':
+               plotpar['text_color'] = 'k'
+               plotpar['theme'] = theme
 
-            for file_name in h5_files:
-               with h5py.File(file_name, "r") as file:
-                  # print(file.keys())
+            elif theme == 'dark':
+               plotpar['text_color'] = 'w'
+               plotpar['theme'] = theme
 
-                  nx = file["study_nb_grid_points"][()]
-                  timestep = file["study_timestep"][()]
+               if 'radius' in figpar['var']: #we do not plot the figures with radius
+                  continue
+               
+               if 'func' not in figpar.keys():
+                  continue
+               if 'plot_convergence_study_errors' != figpar['func']:
+                  continue
 
-                  l1_rel_error = file["study_l1_rel_error"][()]
-                  l2_rel_error = file["study_l2_rel_error"][()]
-                  linfty_rel_error = file["study_linfty_rel_error"][()]
+               if 'files_list' in figpar.keys():
+                  fig_names = figpar['fig_names']
+               else:
+                  fig_names = [figpar['file']]
+               
+               for i_fig_name,fig_name in enumerate(fig_names):
+
+                  if isinstance(fig_names,list):
+                     pattern = figpar['files_list'][i_fig_name]
+
+                     # Define the pattern to search for
                   
-                  # df = df.append({
-                  #     'nx': nx,
-                  #     'timestep': timestep,
-                  #     'l1_rel_error': l1_rel_error,
-                  #     'l2_rel_error': l2_rel_error,
-                  #     'linfty_rel_error': linfty_rel_error
-                  # }, ignore_index=True)
+                     # Use glob to find all files matching the pattern
+                     h5_files = glob.glob(pattern, recursive=True)
 
-                  temp_df = pd.DataFrame({
-                     'nx': [nx],
-                     'timestep': [timestep],
-                     'l1_rel_error': [l1_rel_error],
-                     'l2_rel_error': [l2_rel_error],
-                     'linfty_rel_error': [linfty_rel_error]
-                  })
+                  
+                  print(h5_files)
 
-                  df = pd.concat([df, temp_df], ignore_index=True)
 
-                  #fill with array
-                  # for i,err in enumerate(figpar['var']):
-                  #    print(colored(figpar['var'],'red'))
-                  #    df[err] = file[err][()]
+                  df = pd.DataFrame()
 
-            # print(df)
+                  for file_name in h5_files:
+                     with h5py.File(file_name, "r") as file:
+                        # print(file.keys())
 
-            plot_convergence_study_errors_from_pandas(df,mesh,physics,figpar,plotpar,colors,fig_name)
+                        nx = file["study_nb_grid_points"][()]
+                        timestep = file["study_timestep"][()]
+
+                        l1_rel_error = file["study_l1_rel_error"][()]
+                        l2_rel_error = file["study_l2_rel_error"][()]
+                        linfty_rel_error = file["study_linfty_rel_error"][()]
+                        
+                        # df = df.append({
+                        #     'nx': nx,
+                        #     'timestep': timestep,
+                        #     'l1_rel_error': l1_rel_error,
+                        #     'l2_rel_error': l2_rel_error,
+                        #     'linfty_rel_error': linfty_rel_error
+                        # }, ignore_index=True)
+
+                        temp_df = pd.DataFrame({
+                           'nx': [nx],
+                           'timestep': [timestep],
+                           'l1_rel_error': [l1_rel_error],
+                           'l2_rel_error': [l2_rel_error],
+                           'linfty_rel_error': [linfty_rel_error]
+                        })
+
+                        df = pd.concat([df, temp_df], ignore_index=True)
+
+                        #fill with array
+                        # for i,err in enumerate(figpar['var']):
+                        #    print(colored(figpar['var'],'red'))
+                        #    df[err] = file[err][()]
+
+                  # print(df)
+
+                  plot_convergence_study_errors_from_pandas(df,mesh,physics,figpar,plotpar,colors,fig_name)
 
 
 
@@ -2716,7 +2835,11 @@ def plot_convergence_study_errors_from_pandas(df,mesh,physics,figpar,plotpar,col
       param_line=[]
       slope_and_correlation=0
       R2=0
-      color_line="k"
+      if plotpar['theme'] =='dark':
+         color_line="w"
+      else:
+         color_line="k"
+
       # colors="#fa8b2b"
       alpha= 1 
      
@@ -2771,7 +2894,7 @@ def plot_convergence_study_errors_from_pandas(df,mesh,physics,figpar,plotpar,col
                      clip_on = True,
 
                      label = label+text_slope,
-
+                  
                      zorder=5,
                      )
          
@@ -2798,8 +2921,16 @@ def plot_convergence_study_errors_from_pandas(df,mesh,physics,figpar,plotpar,col
 
 
 
+   if plotpar['theme'] == 'dark':
+      plt.legend(
+      facecolor='none',       # Legend background
+      edgecolor='white',      # Legend border
+      labelcolor='white',     # Text color
+      )
 
-   plt.legend()
+   else:
+      plt.legend()
+
    # plt.axis("equal")
 
 
@@ -2850,9 +2981,23 @@ def plot_convergence_study_errors_from_pandas(df,mesh,physics,figpar,plotpar,col
 
    # plt.savefig(prefix+figpar['file']+".pdf",transparent=True)
    # plt.savefig(prefix+figpar['file']+".svg",transparent=True)
-   
-   plt.savefig(filename+".pdf",transparent=True)
-   plt.savefig(filename+".svg",transparent=True)
+
+   if plotpar['theme'] == 'dark':
+
+      # Change the color of the ticks
+      ax2.tick_params(axis='x', colors=plotpar['text_color'])  # Change x ticks color
+      ax2.tick_params(axis='y', colors=plotpar['text_color'])  # Change y ticks color
+
+      # Change the color of the splines (spines are the lines connecting the axis tick marks)
+      ax2.spines['bottom'].set_color(plotpar['text_color'])  # Change bottom spine color
+      ax2.spines['top'].set_color(plotpar['text_color'])    # Change top spine color
+      ax2.spines['left'].set_color(plotpar['text_color'])  # Change left spine color
+      ax2.spines['right'].set_color(plotpar['text_color']) # Change right spine color
+      ax2.xaxis.label.set_color(plotpar['text_color'])
+      ax2.yaxis.label.set_color(plotpar['text_color'])
+
+   plt.savefig(filename+'_'+plotpar['theme']+".pdf",transparent=True)
+   plt.savefig(filename+'_'+plotpar['theme']+".svg",transparent=True)
 
    plt.close(fig1)
 
@@ -2913,3 +3058,36 @@ def get_time_data(figpar,h5_files):
    vary_2 = values[figpar['var'][0][1]]
 
    return varx_2,vary_2
+
+
+def process_h5_files(figpar, h5_files):
+    import glob
+    values = {}
+
+    # Initialize the values dictionary with empty lists for each variable
+    for var_list in figpar['var']:
+        for var in var_list:
+            values[var] = []
+
+    # Get the list of files to process
+    files = h5_files[figpar['iter']]
+    files = glob.glob(files)
+    files = sorted(files)
+
+    # Process each file
+    for file_name in files:
+        with h5py.File(file_name, "r") as file:
+            try:
+                for var_list in figpar['var']:
+                    for var in var_list:
+                        value = file[var][()]
+                        values[var].append(value)
+            except KeyError as e:
+                print(colored(f"{e} not saved", 'red'))
+               #  print(file.keys())
+
+    # Extract the variables for plotting or further processing
+    varx_2 = values[figpar['var'][0][0]]
+    vary_2 = values[figpar['var'][0][1]]
+
+    return varx_2, vary_2

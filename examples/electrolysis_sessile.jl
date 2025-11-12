@@ -165,16 +165,16 @@ nb_saved_scalars=2
 
 
 if length(concentration0)!=nb_transported_scalars
-    print(@sprintf "nb_transported_scalars = %5i\n" nb_transported_scalars)
+    print(@sprintf "\nnb_transported_scalars = %5i\n" nb_transported_scalars)
     @error ("nb_transported_scalars")
 end
 
 if length(diffusion_coeff)!=nb_transported_scalars
-    print(@sprintf "nb_transported_scalars = %5i\n" nb_transported_scalars)
+    print(@sprintf "\nnb_transported_scalars = %5i\n" nb_transported_scalars)
     @error ("nb_transported_scalars")
 end
 
-print(@sprintf "nb_transported_scalars = %5i\n" nb_transported_scalars)
+print(@sprintf "\nnb_transported_scalars = %5i\n" nb_transported_scalars)
 
 # pretty_table(concentration0'; header = ["cH2", "cKOH", "cH2O"])
 # pretty_table(diffusion_coeff'; header = ["DH2", "DKOH", "DH2O"])
@@ -494,7 +494,7 @@ BC_u = Boundaries(
     right = Neumann_inh()
 )
 
-@time current_i=run_forward(
+@time current_iter=run_forward(
     num, gp, gu, gv, op, phS, phL, fwd, fwdS, fwdL;
     BC_uL = Boundaries(
         left   = Navier_cl(λ = 1e-2), #Dirichlet(),
@@ -630,10 +630,10 @@ plot_levelset=true
 isocontour=false#true
 cmap = plt.cm.viridis
 
-if isnothing(current_i)
+if isnothing(current_iter)
     size_frame=size(fwdL.p,1)
 else
-    size_frame=current_i
+    size_frame=current_iter
 end
 
 ######################################################################################################
@@ -920,8 +920,8 @@ fig1, ax2 = plt.subplots(layout="constrained")
 
 # print("t",fwd.t)
 # print("radius",fwd.radius.*1.e6)
-# print("current_i", current_i)
-# print("radius ",fwd.radius[1:current_i+1])
+# print("current_iter", current_iter)
+# print("radius ",fwd.radius[1:current_iter+1])
 # print("\nradius ",fwd.radius)
 
 plt.plot(fwd.t[1:size_frame],fwd.radius[1:size_frame].*1.e6)

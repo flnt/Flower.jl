@@ -31,7 +31,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
     show_every = 100,
     )
 
-    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, num.τ, L0, NB, max_iterations, num.current_i, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
+    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, num.τ, L0, NB, max_iterations, num.current_iter, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
     @unpack nx, ny, ind, faces, geoS, geoL, mid_point = grid
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
     @unpack usave, TSsave, TLsave, Tsave, Vsave, κsave = fwd
@@ -60,7 +60,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
         BC_u.top.ind = b_top;
     end
 
-    num.current_i = max_iterations + 1
+    num.current_iter = max_iterations + 1
 
     if levelset
         marching_squares!(num, grid, u, periodic_x, periodic_y)
@@ -104,7 +104,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
     laplacian!(dir, num, opL.LT, opL.CUTT, bcLx, bcLy, geoL.dcap, ny, BC_TL, inside, SOLID,
                 MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
 
-    while num.current_i > 1
+    while num.current_iter > 1
 
         if heat
             opL.CUTT .= zeros(nx*ny)
@@ -148,15 +148,15 @@ function run_backward(num, grid, opS, opL, fwd, adj;
                     TL .= reshape(gmres(opL.A,(opL.B*vec(TL) + 2.0*num.τ*opL.CUTT)), (ny,nx))
                 end
             catch
-                @error ("Unphysical temperature field, iteration $num.current_i")
+                @error ("Unphysical temperature field, iteration $num.current_iter")
                 break
             end
         end
 
         if verbose
-            if num.current_i%show_every == 0
+            if num.current_iter%show_every == 0
                 try
-                    printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) \n" (num.current_i-1) 100*(num.current_i-1)/max_iterations)
+                    printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) \n" (num.current_iter-1) 100*(num.current_iter-1)/max_iterations)
                     printstyled(color=:green, @sprintf "\n CFL : %.2e CFL : %.2e num.τ : %.2e\n" CFL max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)*num.τ/Δ num.τ)
 
                     print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f\n" mean(V[MIXED]) findmax(V[MIXED])[1] findmin(V[MIXED])[1])
@@ -187,14 +187,14 @@ function run_backward(num, grid, opS, opL, fwd, adj;
             get_curvature(num, grid, u, MIXED, periodic_x, periodic_y)
         end
 
-        num.current_i -= 1
-        κ .= κsave[num.current_i,:,:]
-        u .= usave[num.current_i,:,:]
+        num.current_iter -= 1
+        κ .= κsave[num.current_iter,:,:]
+        u .= usave[num.current_iter,:,:]
     end
 
     if verbose
         try
-            printstyled(color=:blue, @sprintf "\n Final iteration : %d (%d%%) \n" (num.current_i-1) 100*(num.current_i-1)/max_iterations)
+            printstyled(color=:blue, @sprintf "\n Final iteration : %d (%d%%) \n" (num.current_iter-1) 100*(num.current_iter-1)/max_iterations)
             print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f  V_stdev = %.5f\n" mean(V[MIXED]) findmax(V[MIXED])[1] findmin(V[MIXED])[1] std(V[MIXED]))
             print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f  κ_stdev = %.5f\n" mean(κ[MIXED]) findmax(κ[MIXED])[1] findmin(κ[MIXED])[1] std(κ[MIXED]))
             print("\n \n")

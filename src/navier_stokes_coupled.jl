@@ -2095,7 +2095,7 @@ function FE_set_momentum(
 
         if num.io_pdi>0
             try
-                # printstyled(color=:magenta, @sprintf "\n PDI v1       FE_set_momentum %.5i %.5i \n" num.current_i num.nLS)
+                # printstyled(color=:magenta, @sprintf "\n PDI v1       FE_set_momentum %.5i %.5i \n" num.current_iter num.nLS)
                 #in YAML file: save only if iscal ==1 for example
                 PDI_status = @ccall "libpdi".PDI_multi_expose("Navier_Stokes_set_momentum"::Cstring,
                 "current_nx"::Cstring, grid.nx::Ref{Clonglong}, PDI_OUT::Cint,
@@ -2666,7 +2666,7 @@ function pressure_projection!(
     Au, Bu, Av, Bv, Aϕ, Auv, Buv,
     Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
     Cum1, Cvm1, Mum1, Mvm1,
-    periodic_x, periodic_y, advection, ls_advection, current_i, Ra, navier, pres_free_suface,jump_mass_transfer_rate,mass_transfer_rate
+    periodic_x, periodic_y, advection, ls_advection, current_iter, Ra, navier, pres_free_suface,jump_mass_transfer_rate,mass_transfer_rate
     )
     @unpack Re, τ, σ, g, β, nLS, nNavier = num
     @unpack p, pD, ϕ, ϕD, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr, uT = ph
@@ -2792,7 +2792,7 @@ function pressure_projection!(
 
     if advection
         # scheme
-        if current_i == 1
+        if current_iter == 1
             Convu .+= Cui
             Convv .+= Cvi
         else
@@ -3382,7 +3382,7 @@ function coupled_pressure_velocity!(
     Au, Bu, Av, Bv, Aϕ, Auv, Buv,rhs_uv,
     Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b,
     Cum1, Cvm1, Mum1, Mvm1,
-    periodic_x, periodic_y, advection, ls_advection, current_i, Ra, navier, pres_free_suface,jump_mass_transfer_rate,mass_transfer_rate
+    periodic_x, periodic_y, advection, ls_advection, current_iter, Ra, navier, pres_free_suface,jump_mass_transfer_rate,mass_transfer_rate
     )
     @unpack Re, τ, σ, g, β, nLS, nNavier = num
     @unpack p, pD, ϕ, ϕD, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr = ph
@@ -3470,7 +3470,7 @@ function coupled_pressure_velocity!(
 
     if advection
         # scheme
-        if current_i == 1
+        if current_iter == 1
             Convu .+= Cui
             Convv .+= Cvi
         else
@@ -3931,6 +3931,12 @@ function coupled_pressure_velocity!(
                 "max_abs_rhs"::Cstring, max_abs_rhs::Ref{Cdouble}, PDI_OUT::Cint,
                 C_NULL::Ptr{Cvoid})::Cint
 
+                PDI_status = @ccall "libpdi".PDI_multi_expose("check_divergence"::Cstring,
+                "nstep"::Cstring, num.current_iter::Ref{Clonglong}, PDI_OUT::Cint,
+                "velocity_divergence"::Cstring, velocity_divergence::Ptr{Cdouble}, PDI_OUT::Cint,
+                "normalise_velocity_divergence"::Cstring, normalise_velocity_divergence::Ptr{Cdouble}, PDI_OUT::Cint,
+                C_NULL::Ptr{Cvoid})::Cint
+
             end
             verbose && @printf("%3d\t%1.2e\n", iteration, iterable.residual)
         end
@@ -4094,6 +4100,12 @@ function coupled_pressure_velocity!(
     "max_abs_rhs"::Cstring, max_abs_rhs::Ref{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("check_divergence"::Cstring,
+    "nstep"::Cstring, num.current_iter::Ref{Clonglong}, PDI_OUT::Cint,
+    "velocity_divergence"::Cstring, velocity_divergence::Ptr{Cdouble}, PDI_OUT::Cint,
+    "normalise_velocity_divergence"::Cstring, normalise_velocity_divergence::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
 
     kill_dead_cells!(vec1(ph.uD,grid_u), grid_u, geo_u[end])
     ph.u .= reshape(vec1(ph.uD,grid_u), grid_u)

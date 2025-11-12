@@ -36,7 +36,7 @@ function compute_surface_tension_VOF!(num,grid, grid_u, grid_v, opC_p, opC_u, op
         vec1(volume_fraction_1D,grid) .= vec(smoothed_volume_fraction) 
 
         PDI_status = @ccall "libpdi".PDI_multi_expose("write_one_fluid_smoothed_volume_fraction"::Cstring,
-        "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
+        "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
         # "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
         # "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
         "smoothed_volume_fraction"::Cstring, smoothed_volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -297,7 +297,7 @@ end
     # tmp_vec_p0
 
     PDI_status = @ccall "libpdi".PDI_multi_expose("write_one_fluid_surface_tension"::Cstring,
-    "nstep"::Cstring, num.current_i ::Ref{Clonglong}, PDI_OUT::Cint,
+    "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
     # "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
     # "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
     "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,

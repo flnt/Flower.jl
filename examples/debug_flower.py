@@ -114,4 +114,8 @@ def butler_minimize(x,phi1,Faraday,alpha,Ru,temperature0,c0_KOH,DKOH,i0):
     elec_cond=2*Faraday**2*c0_KOH*DKOH/(Ru*temperature0)
     return -i0/elec_cond*(np.exp((alpha*Faraday)/(Ru*temperature0)*(phi1-x))-np.exp(-(alpha*Faraday)/(Ru*temperature0)*(phi1-x)))
 
-      
+def print_and_save(message, filename="output.txt"):
+    """Print a message to the terminal and append it to a text file."""
+    print(message)
+    with open(filename, "a") as f:
+        f.write(str(message) + "\n")

@@ -61,6 +61,9 @@ import Base.reshape
 # @reexport using MUMPS
 @reexport import MUMPS
 
+@reexport using SpecialFunctions #not @reexport import SpecialFunctions
+
+# using SpecialFunctions
 
 # #Long version
 # @reexport using Printf
@@ -150,7 +153,9 @@ include("one_fluid.jl")
 include("surface_tension_LS.jl")
 include("surface_tension_VOF.jl")
 include("interface_transport.jl")
-
+include("solve_one_fluid.jl")
+include("compute_mass_transfer_rate.jl")
+include("test_functions.jl")
 
 ###################################################################################################
 # For plotting with python

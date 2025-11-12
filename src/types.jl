@@ -30,7 +30,7 @@ Stores parameters for the simulation
     ycoord::T = 0.0
     τ::T = min(CFL*Δ^2*Re, CFL*Δ) # timestep
     max_iterations::D = TEND÷τ # maximum number of iterations
-    current_i::D = 0
+    current_iter::D = 0
     save_every::D = 1
     reinit_every::D = 1 # period of levelset reinialization
     nb_reinit::D = length(x)÷8 # number of reinitializations
@@ -157,6 +157,14 @@ Stores parameters for the simulation
     solve_species::D=0
     kill_dead_cells::D=0
     epsilon_volume_fraction_phase_change::T=1e-6
+    nH2::T=0.0
+    new_nH2::T=0.0
+    var_nH2::T=0.0
+    previous_radius::T=0.0
+    iLSbubble::D=1 #index of bubble interface
+    iLSpdi::D=1 #levelset index for IO: levelset number 1
+    solve_Navier_Stokes_liquid_phase::D=1
+    mass_transfer_rate_imposed_value::T=0.0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -324,56 +332,6 @@ struct DiscreteOperators{T <: Real, D <: Integer}
     opC_vL::Operators{T,D}
 end
 
-# struct Phase{T <: Real} <: MutatingFields
-#     T::Array{T,2}
-#     p::Array{T,2}
-#     ϕ::Array{T,2}
-#     Gxm1::Array{T,1}
-#     Gym1::Array{T,1}
-#     u::Array{T,2}
-#     v::Array{T,2}
-#     ucorr::Array{T,2}
-#     vcorr::Array{T,2}
-#     DT::Array{T,2}
-#     Dϕ::Array{T,2}
-#     Du::Array{T,2}
-#     Dv::Array{T,2}
-#     TD::Array{T,1}
-#     pD::Array{T,1}
-#     ϕD::Array{T,1}
-#     uD::Array{T,1}
-#     vD::Array{T,1}
-#     ucorrD::Array{T,1}
-#     vcorrD::Array{T,1}
-# end
-
-# struct Phase{T <: Real, D <: Integer} <: MutatingFields
-#     T::Array{T,2}
-#     p::Array{T,2}
-#     ϕ::Array{T,2}
-#     Gxm1::Array{T,1}
-#     Gym1::Array{T,1}
-#     u::Array{T,2}
-#     v::Array{T,2}
-#     ucorr::Array{T,2}
-#     vcorr::Array{T,2}
-#     DT::Array{T,2}
-#     Dϕ::Array{T,2}
-#     Du::Array{T,2}
-#     Dv::Array{T,2}
-#     TD::Array{T,1}
-#     pD::Array{T,1}
-#     ϕD::Array{T,1}
-#     uD::Array{T,1}
-#     vD::Array{T,1}
-#     ucorrD::Array{T,1}
-#     vcorrD::Array{T,1}
-#     trans_scal::Array{T,2,D}
-#     phi_ele::Array{T,2}
-#     trans_scalD::Array{T,1,D}
-#     phi_eleD::Array{T,1}
-# end
-
 struct Phase{T <: Real} <: MutatingFields
     T::Array{T,2}
     p::Array{T,2}
@@ -396,9 +354,6 @@ struct Phase{T <: Real} <: MutatingFields
     phi_ele::Array{T,2}
     trans_scalD::Array{T,2}
     phi_eleD::Array{T,1}
-    # i_current_mag::Array{T,2}
-    # Eu::Array{T,2}
-    # Ev::Array{T,2}
 end
 
 struct Forward{T <: Real} <: MutatingFields

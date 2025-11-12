@@ -52,8 +52,71 @@ end
 # end
 
 
+# # ----------------------------
+# # 1️⃣ Find PDI library
+# # ----------------------------
+# function find_pdi_library()
+#     # Common system paths (add more if needed)
+#     search_paths = [
+#         "/usr/lib",
+#         "/usr/lib/x86_64-linux-gnu",
+#         "/usr/local/lib",
+#         "/usr/local/lib64"
+#     ]
+
+#     # Also include LD_LIBRARY_PATH directories
+#     ld_paths = split(get(ENV, "LD_LIBRARY_PATH", ""), ':')
+#     append!(search_paths, ld_paths)
+
+#     # Names to search for
+#     lib_names = ["libPDI.so", "libPDI"]
+
+#     # Search
+#     for path in search_paths
+#         for lib in lib_names
+#             candidate = joinpath(path, lib)
+#             if isfile(candidate)
+#                 return candidate
+#             end
+#         end
+#     end
+
+#     error("PDI library not found! Make sure it is installed in standard library paths or set LD_LIBRARY_PATH.")
+# end
+
+# # ----------------------------
+# # 2️⃣ Load the library
+# # ----------------------------
+# function load_pdi_library()
+#     lib_path = find_pdi_library()
+#     println("Found PDI library at: ", lib_path)
+#     return Libdl.dlopen(lib_path)
+# end
+
+# # ----------------------------
+# # 3️⃣ Example: ccall into PDI
+# # ----------------------------
+# # Usage:
+# # pdi_handle = load_pdi_library()
+
+# yamlfile = "fixed_mass_transfer_rate_proj_redist_evap_drop2.yml"
+
+# @debug "Before PDI init"
+# yml_file = yamlfile
+# conf = @ccall "libparaconf".PC_parse_path(yml_file::Cstring)::PC_tree_t
+# @debug "after conf"
+# getsubyml = @ccall "libparaconf".PC_get(conf::PC_tree_t,".pdi"::Cstring)::PC_tree_t  
+# @debug "after getsubyml"
+# local pdi_status = @ccall "libpdi".PDI_init(getsubyml::PC_tree_t)::Cint
+# @debug "after PDI_init"
+
+
 @testset "Gradient and orientations" begin
-    include("orientation.jl")
+    include("test_operators.jl")
+end
+
+@testset "Gradient and orientations 2" begin
+    include("test_operators_2.jl")
 end
 
 #region test

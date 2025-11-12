@@ -79,7 +79,7 @@ if io.pdi>0
     #TODO check Clonglong ...
 
     phys_time = 0.0 #Cdouble
-    # nstep = num.current_i
+    # nstep = num.current_iter
     
 
     local PDI_status = @ccall "libpdi".PDI_multi_expose("init_PDI"::Cstring, 
@@ -237,7 +237,7 @@ for (i,n) in enumerate(npts)
                     "ny"::Cstring, ny::Ref{Clonglong}, PDI_OUT::Cint,
                     "nb_transported_scalars"::Cstring, phys.nb_transported_scalars::Ref{Clonglong}, PDI_OUT::Cint,
                     "nb_levelsets"::Cstring, phys.nb_levelsets::Ref{Clonglong}, PDI_OUT::Cint,
-                    "nstep"::Cstring, num.current_i::Ref{Clonglong}, PDI_OUT::Cint,
+                    "nstep"::Cstring, num.current_iter::Ref{Clonglong}, PDI_OUT::Cint,
                     C_NULL::Ptr{Cvoid})::Cint
 
         catch
@@ -370,7 +370,7 @@ for (i,n) in enumerate(npts)
             # Exposing data to PDI for IO    
             # if writing "D" array (bulk, interface, border), add "_1D" to the name
             
-            printstyled(color=:magenta, @sprintf "\n PDI write_data_start_loop %.5i \n" num.current_i)
+            printstyled(color=:magenta, @sprintf "\n PDI write_data_start_loop %.5i \n" num.current_iter)
 
             #print("\n size LS wall ", size( gp.LS[2].u))
             LStable = zeros(gp)
@@ -406,7 +406,7 @@ for (i,n) in enumerate(npts)
             current_radius = phys.radius
 
             PDI_status = @ccall "libpdi".PDI_multi_expose("write_initialization"::Cstring,
-            "nstep"::Cstring, num.current_i::Ref{Clonglong}, PDI_OUT::Cint,
+            "nstep"::Cstring, num.current_iter::Ref{Clonglong}, PDI_OUT::Cint,
             "time"::Cstring, phys_time::Ref{Cdouble}, PDI_OUT::Cint,
             "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
             "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,

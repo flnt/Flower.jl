@@ -128,16 +128,16 @@ printstyled(color=:green, @sprintf "\n 'Re' i.e. rho/mu : %.2e %.2e %.2e %.2e\n"
 
 
 if length(phys.concentration0)!=phys.nb_transported_scalars
-    print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
+    print(@sprintf "\nnb_transported_scalars: %5i\n" phys.nb_transported_scalars)
     @error ("nb_transported_scalars")
 end
 
 if length(phys.diffusion_coeff)!=phys.nb_transported_scalars
-    print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
+    print(@sprintf "\nnb_transported_scalars: %5i\n" phys.nb_transported_scalars)
     @error ("nb_transported_scalars")
 end
 
-print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
+print(@sprintf "\nnb_transported_scalars: %5i\n" phys.nb_transported_scalars)
 
 # pretty_table(phys.concentration0'; header = ["cH2", "cKOH", "cH2O"])
 # pretty_table(phys.diffusion_coeff'; header = ["DH2", "DKOH", "DH2O"])
@@ -895,8 +895,8 @@ end #if io_pdi
 
 
 
-# current_t = 0
-# num.current_i = 0
+# current_time = 0
+# num.current_iter = 0
 # ####################################################################################################
 # #PDI (IO)
 # ####################################################################################################
@@ -905,8 +905,8 @@ end #if io_pdi
 #     try
 #         printstyled(color=:red, @sprintf "\n PDI test \n" )
 
-#         time = current_t #Cdouble
-#         nstep = num.current_i
+#         time = current_time #Cdouble
+#         nstep = num.current_iter
 #         # print("\n nstep ",typeof(nstep))
 #         # pdi_array =zeros(nx,ny)
 
@@ -1075,7 +1075,7 @@ end
 
 print("\n before run_forward \n")
 
-@time current_i=run_forward(
+@time current_iter=run_forward(
     num, gp, gu, gv, op, phS, phL;
     BC_uL = Boundaries(
         left   = Dirichlet(),#Navier_cl(λ = 1e-2), #Dirichlet(),
@@ -1166,9 +1166,9 @@ print("\n P ",Poiseuille_fmax(gv.x[1,1],phys.v_inlet,phys.ref_length)," v ",phL.
 
 if io.write_h5>0
     #test HDF5
-    print("\n current_i ", current_i)
-    current_i = 2
-    striter = @sprintf "%.5i" current_i
+    print("\n current_iter ", current_iter)
+    current_iter = 2
+    striter = @sprintf "%.5i" current_iter
 
 
     filename="Mx"

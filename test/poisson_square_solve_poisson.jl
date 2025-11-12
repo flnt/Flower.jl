@@ -185,7 +185,7 @@ end
 #     #TODO check Clonglong ...
 
 #     phys_time = 0.0 #Cdouble
-#     # nstep = num.current_i
+#     # nstep = num.current_iter
 
 #     local PDI_status = @ccall "libpdi".PDI_multi_expose("init_PDI"::Cstring, 
 #             "mpi_coords_x"::Cstring, mpi_coords_x::Ref{Clonglong}, PDI_OUT::Cint,

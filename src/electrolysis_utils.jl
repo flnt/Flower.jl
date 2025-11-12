@@ -774,9 +774,9 @@ function compute_bulk_or_interface_average(scalar_1D_vec, grid, iLS)
 
 end
 
-"""
-To read BC from dict
-"""
+# """
+# To read BC from dict
+# """
 # function read_BC(dict)
 
 #     try

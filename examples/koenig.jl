@@ -10,7 +10,7 @@ function run_koenig(num, idx, tmp, fwd, s_l, u_x, u_y;
         top = Boundary())
     )
 
-    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, τ, L0, NB, n, Δ, CFL, max_iterations, current_i, reinit_every, nb_reinit, ϵ, H, B, BT, m, θ₀, aniso = num
+    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, τ, L0, NB, n, Δ, CFL, max_iterations, current_iter, reinit_every, nb_reinit, ϵ, H, B, BT, m, θ₀, aniso = num
     @unpack inside, b_left, b_bottom, b_right, b_top = idx
     @unpack SCUT, LCUT, AS, AL, BS, BL, LSA, LSB, SOL, LIQ, sol_projection, liq_projection = tmp
     @unpack iso, u, TS, TL, Tall, V, κ, usave, TSsave, TLsave, Tsave, Vsave, κsave, lengthsave = fwd
@@ -21,7 +21,7 @@ function run_koenig(num, idx, tmp, fwd, s_l, u_x, u_y;
 
     usave[1, :, :] .= u[:,:]
 
-    while current_i < max_iterations + 1
+    while current_iter < max_iterations + 1
 
         t += τ
         marching_squares!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, Δ, L0, B, BT, inside, ϵ, n, faces)
@@ -43,10 +43,10 @@ function run_koenig(num, idx, tmp, fwd, s_l, u_x, u_y;
 
         FE_reinit(u, Δ, n, nb_reinit, BC_u, idx)
 
-        usave[current_i+1, :, :] .= u[:,:]; Vsave[current_i+1,:,:] .= V
-        Vxsave[current_i+1,:,:] .= Vx; Vysave[current_i+1,:,:] .= Vy
+        usave[current_iter+1, :, :] .= u[:,:]; Vsave[current_iter+1,:,:] .= V
+        Vxsave[current_iter+1,:,:] .= Vx; Vysave[current_iter+1,:,:] .= Vy
 
-        current_i += 1
+        current_iter += 1
     end
     return Vsave, Vxsave, Vysave
 end

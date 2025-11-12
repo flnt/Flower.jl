@@ -203,16 +203,16 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
 
 
     if length(concentration0)!=nb_transported_scalars
-        print(@sprintf "nb_transported_scalars = %5i\n" nb_transported_scalars)
+        print(@sprintf "\nnb_transported_scalars = %5i\n" nb_transported_scalars)
         @error ("nb_transported_scalars")
     end
 
     if length(diffusion_coeff)!=nb_transported_scalars
-        print(@sprintf "nb_transported_scalars = %5i\n" nb_transported_scalars)
+        print(@sprintf "\nnb_transported_scalars = %5i\n" nb_transported_scalars)
         @error ("nb_transported_scalars")
     end
 
-    print(@sprintf "nb_transported_scalars = %5i\n" nb_transported_scalars)
+    print(@sprintf "\nnb_transported_scalars = %5i\n" nb_transported_scalars)
 
     # pretty_table(concentration0'; header = ["cH2", "cKOH", "cH2O"])
     # pretty_table(diffusion_coeff'; header = ["DH2", "DKOH", "DH2O"])
@@ -1123,7 +1123,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
 
     print("\n before run_forward \n")
 
-    @time current_i=run_forward(
+    @time current_iter=run_forward(
         num, gp, gu, gv, op, phS, phL;
         BC_uL = Boundaries(
             left   = Dirichlet(),#Navier_cl(λ = 1e-2), #Dirichlet(),
@@ -1200,7 +1200,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
     #Tests for operators 
     ##################################################
     if test_case == "channel_Dirichlet_pressure"
-        visc_term = current_i
+        visc_term = current_iter
         
         # Test if the viscous term equals the pressure term for Poiseuille
         # skip =true : skip as long as the discretization does not handle variable spacings
@@ -1217,7 +1217,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
         end #@testset "laplacian 4/3"
 
         printstyled(color=:green, @sprintf "\n visc_term : %.2e grad p %.2e\n" visc_term (p_top-p_bottom)/L0 )
-        current_i = 2
+        current_iter = 2
 
     end
     ##################################################

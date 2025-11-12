@@ -466,19 +466,19 @@ flower:
 
       if phys.nb_transported_scalars>0
         if length(phys.concentration0)!=phys.nb_transported_scalars
-            print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
+            print(@sprintf "\nnb_transported_scalars: %5i\n" phys.nb_transported_scalars)
             @error ("nb_transported_scalars")
         end
 
         if length(phys.diffusion_coeff)!=phys.nb_transported_scalars
-            print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
+            print(@sprintf "\nnb_transported_scalars: %5i\n" phys.nb_transported_scalars)
             @error ("nb_transported_scalars")
         end
       else
         printstyled(color=:red, @sprintf "\n WARNING no scalar transport\n")
       end
 
-      print(@sprintf "nb_transported_scalars: %5i\n" phys.nb_transported_scalars)
+      print(@sprintf "\nnb_transported_scalars: %5i\n" phys.nb_transported_scalars)
 
       # diffusion_t = (phys.radius^2)./phys.diffusion_coeff
      

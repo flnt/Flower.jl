@@ -267,7 +267,7 @@ if io.pdi>0
     #TODO check Clonglong ...
 
     phys_time = 0.0 #Cdouble
-    # nstep = num.current_i
+    # nstep = num.current_iter
     
 
     local PDI_status = @ccall "libpdi".PDI_multi_expose("init_PDI"::Cstring, 

@@ -161,12 +161,12 @@ concentration0=[0.16, 6700, 49000]
 nb_transported_scalars=3
 
 if length(concentration0)!=nb_transported_scalars
-    print(@sprintf "nb_transported_scalars = %5i\n" nb_transported_scalars)
+    print(@sprintf "\nnb_transported_scalars = %5i\n" nb_transported_scalars)
     @error ("nb_transported_scalars")
 end
 
 if length(diffusion_coeff)!=nb_transported_scalars
-    print(@sprintf "nb_transported_scalars = %5i\n" nb_transported_scalars)
+    print(@sprintf "\nnb_transported_scalars = %5i\n" nb_transported_scalars)
     @error ("nb_transported_scalars")
 end
 
@@ -175,7 +175,7 @@ end
 
 
 
-print(@sprintf "nb_transported_scalars = %5i\n" nb_transported_scalars)
+print(@sprintf "\nnb_transported_scalars = %5i\n" nb_transported_scalars)
 
 # pretty_table(concentration0'; header = ["cH2", "cKOH", "cH2O"])
 # pretty_table(diffusion_coeff'; header = ["DH2", "DKOH", "DH2O"])
