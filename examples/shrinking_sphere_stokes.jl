@@ -98,7 +98,7 @@ resize_to_layout!(fv)
 fp = Figure(resolution = (1600, 1000))
 colsize!(fp.layout, 1, Aspect(1, 1.0))
 ax = Axis(fp[1,1], aspect = 1, xticks = -4:0.5:4, yticks = -4:0.5:4)  # customized as you see fit
-hmap = heatmap!(gp.x[1,:], gp.y[:,1], (phL.p.*num.τ)')
+hmap = heatmap!(gp.x[1,:], gp.y[:,1], (phL.p.*num.timestep_n)')
 contour!(gp.x[1,:], gp.y[:,1], gp.u', levels = 0:0, color=:red, linewidrth = 3);
 cbar = fp[1,2] = Colorbar(fp, hmap)
 limits!(ax, -lim, lim, -lim, lim)

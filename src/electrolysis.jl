@@ -697,9 +697,9 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         LD_b = BxT * op.iMx_b * op.Hx_b .+ ByT * op.iMy_b * op.Hy_b
 
         if num.scalar_scheme == 0
-            time_factor = 0.5 .* num.τ
+            time_factor = 0.5 .* num.timestep_n
         elseif num.scalar_scheme == 1
-            time_factor = num.τ
+            time_factor = num.timestep_n
         end
       
 
@@ -726,7 +726,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
             if num.convection_mode == 2
                 B[1:ni,1:ni] = M .+ time_factor .* diffusion_coeff_scal .* LT
             else
-                B[1:ni,1:ni] = M .+ time_factor .* diffusion_coeff_scal .* LT .- num.τ .* op_conv.CT
+                B[1:ni,1:ni] = M .+ time_factor .* diffusion_coeff_scal .* LT .- num.timestep_n .* op_conv.CT
             end
             B[1:ni,ni+1:2*ni] = time_factor .* diffusion_coeff_scal .* LD
             B[1:ni,end-nb+1:end] = time_factor .* diffusion_coeff_scal .* LD_b
@@ -762,7 +762,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
             # A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b)
 
             # Explicit part of heat equation
-            B[1:ni,1:ni] = M .+ time_factor .* diffusion_coeff_scal .* LT .- num.τ .* op_conv.CT
+            B[1:ni,1:ni] = M .+ time_factor .* diffusion_coeff_scal .* LT .- num.timestep_n .* op_conv.CT
             # B[1:ni,ni+1:2*ni] = time_factor .* diffusion_coeff_scal .* LD
             B[1:ni,end-nb+1:end] = time_factor .* diffusion_coeff_scal .* LD_b
 
@@ -937,18 +937,18 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         # #endregion test reactivate
 
         if convection
-            vec1(rhs,grid) .-= num.τ .* all_CUTCT[:,iscal]
+            vec1(rhs,grid) .-= num.timestep_n .* all_CUTCT[:,iscal]
         end
 
         if iscal == 1
             # if num.phase_change_method == 2 && num.phase_change_currently_activated == 1
             #     #TODO Dirac ?
-            #     vec1(rhs,grid) .-= vec(num.τ * mass_transfer_rate ./ num.MWH2)             
+            #     vec1(rhs,grid) .-= vec(num.timestep_n * mass_transfer_rate ./ num.MWH2)             
             # elseif num.phase_change_method == 4 && num.phase_change_currently_activated == 1
-            #     vec1(rhs,grid) .-= vec(num.τ * mass_transfer_rate ./ num.MWH2) #grid.LS[end].geoL.dcap[:,:,5]
+            #     vec1(rhs,grid) .-= vec(num.timestep_n * mass_transfer_rate ./ num.MWH2) #grid.LS[end].geoL.dcap[:,:,5]
             # end
             if num.phase_change_currently_activated == 1
-                vec1(rhs,grid) .-= vec(num.τ * mass_transfer_rate ./ num.MWH2)
+                vec1(rhs,grid) .-= vec(num.timestep_n * mass_transfer_rate ./ num.MWH2)
             end
 
         end
@@ -972,7 +972,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         
             # rhs .+= Duv #.* ph.trans_scalD[:,iscal] multiplied just after
 
-            # vec1(rhs_ϕ,grid) .= rho1 .* iτ .* Duv #TODO
+            # vec1(rhs_ϕ,grid) .= rho1 .* itimestep_n .* Duv #TODO
             vec1(rhs,grid) .+= Duv 
 
             printstyled(color=:green, @sprintf "\n max Duv for C.div(u): %.2e\n" maximum(Duv))
@@ -1601,7 +1601,7 @@ function compute_phase_change_velocity_electrolysis!(num, grid_p, grid_u, grid_v
     "advection_velocity_u"::Cstring, grid_u.V::Ptr{Cdouble}, PDI_OUT::Cint,
     "advection_velocity_v"::Cstring, grid_v.V::Ptr{Cdouble}, PDI_OUT::Cint,
     "mean_phase_change_velocity"::Cstring, v_mean::Ref{Cdouble}, PDI_OUT::Cint,    
-    "timestep"::Cstring, num.τ::Ref{Cdouble}, PDI_OUT::Cint,
+    "timestep"::Cstring, num.timestep_n::Ref{Cdouble}, PDI_OUT::Cint,
     "cell_length"::Cstring, num.Δ::Ref{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
@@ -1856,7 +1856,7 @@ end
 """
 if one fluid, only for constant spacing and not for first cells
 """
-function interpolate_scalar_one_fluid_or_one_phase!(grid_p, grid_u, grid_v, V, tmp_vec_u0, tmp_vec_v0)
+function interpolate_scalar_one_fluid_or_one_phase!(num,grid_p, grid_u, grid_v, V, tmp_vec_u0, tmp_vec_v0)
 
     if num.one_fluid_model == 1 
         tmp_vec_u0  .= 0.0
@@ -1869,7 +1869,7 @@ function interpolate_scalar_one_fluid_or_one_phase!(grid_p, grid_u, grid_v, V, t
         end
 
         for j = 2:grid_v.ny-1
-            for i = 2:grid_u.nx
+            for i = 2:grid_v.nx
                 tmp_vec_v0[j,i] = (V[j-1,i]+V[j,i])/2
             end
         end
@@ -3304,7 +3304,7 @@ function adapt_timestep!(num, phL, phS::Phase{Float64}, grid_u, grid_v,adapt_tim
 
     min_spacing_xy = min(min_spacing_x,min_spacing_y)
 
-    # τ = min(CFL*Δ^2*Re, CFL*Δ/max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...))
+    # timestep_n = min(CFL*Δ^2*Re, CFL*Δ/max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...))
 
     #TODO V ?
     # vel = max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)
@@ -3349,14 +3349,14 @@ function adapt_timestep!(num, phL, phS::Phase{Float64}, grid_u, grid_v,adapt_tim
 
         new_timestep = CFL/c_conv
     elseif adapt_timestep_mode==3
-        new_timestep = num.dt0
+        new_timestep = num.timestep_0
     end
 
 
 
 
     if adapt_timestep_mode != 0
-        num.τ = new_timestep
+        num.timestep_n = new_timestep
     end
 
 
@@ -3365,13 +3365,13 @@ function adapt_timestep!(num, phL, phS::Phase{Float64}, grid_u, grid_v,adapt_tim
     PDI_status = @ccall "libpdi".PDI_multi_expose("expose_timestep"::Cstring,
     "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
     "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,
-    "timestep"::Cstring, num.τ::Ref{Cdouble}, PDI_OUT::Cint,
+    "timestep"::Cstring, num.timestep_n::Ref{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
     PDI_status = @ccall "libpdi".PDI_multi_expose("print_timestep"::Cstring,
     "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
     "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,
-    "timestep"::Cstring, num.τ::Ref{Cdouble}, PDI_OUT::Cint,
+    "timestep"::Cstring, num.timestep_n::Ref{Cdouble}, PDI_OUT::Cint,
     "timestep_restriction_conv"::Cstring, c_conv::Ref{Cdouble}, PDI_OUT::Cint,
     "timestep_restriction_surf"::Cstring, c_surf::Ref{Cdouble}, PDI_OUT::Cint,
     "timestep_restriction_visc"::Cstring, c_visc::Ref{Cdouble}, PDI_OUT::Cint,
@@ -3380,7 +3380,7 @@ function adapt_timestep!(num, phL, phS::Phase{Float64}, grid_u, grid_v,adapt_tim
     "min_spacing_xy"::Cstring, min_spacing_xy::Ref{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
-    return num.τ
+    return num.timestep_n
 
     # return new_timestep
 
@@ -3391,7 +3391,7 @@ function adapt_timestep!(num, phL, phS::Phase{Float64}, grid_u, grid_v,adapt_tim
     # max(mu1/rho1, mu2/rho2) * (2.0/min_spacing_x^2 + 2.0/min_spacing_y^2 )
 
     #  printstyled(color=:green, @sprintf "\n c_conv %.2e c_visc %.2e c_grad %.2e\n" c_conv c_visc c_grav)
-    #  printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL num.τ)
+    #  printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL num.timestep_n)
 end
 
 
@@ -3430,7 +3430,7 @@ function adapt_timestep!(num, phL, phS::Nothing, grid_u, grid_v,adapt_timestep_m
 
     
 
-    # τ = min(CFL*Δ^2*Re, CFL*Δ/max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...))
+    # timestep_n = min(CFL*Δ^2*Re, CFL*Δ/max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...))
 
     #TODO V ?
     # vel = max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)
@@ -3455,27 +3455,27 @@ function adapt_timestep!(num, phL, phS::Nothing, grid_u, grid_v,adapt_timestep_m
 
         new_timestep = CFL/c_conv
     elseif adapt_timestep_mode==3
-        new_timestep = num.dt0
+        new_timestep = num.timestep_0
     end
 
 
 
     if adapt_timestep_mode != 0
-        num.τ = new_timestep
+        num.timestep_n = new_timestep
     end
 
     #TODO expose without printing in case of bug otherwise pbm store in h5 (variable may be absent)
     PDI_status = @ccall "libpdi".PDI_multi_expose("expose_timestep"::Cstring,
     "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
     "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,
-    "timestep"::Cstring, num.τ::Ref{Cdouble}, PDI_OUT::Cint,
+    "timestep"::Cstring, num.timestep_n::Ref{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
-    # print("\n test adapt ",num.current_iter,num.time,num.τ,c_conv,c_surf,c_visc,c_diff,c_grav)
+    # print("\n test adapt ",num.current_iter,num.time,num.timestep_n,c_conv,c_surf,c_visc,c_diff,c_grav)
     PDI_status = @ccall "libpdi".PDI_multi_expose("print_timestep"::Cstring,
     "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
     "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,
-    "timestep"::Cstring, num.τ::Ref{Cdouble}, PDI_OUT::Cint,
+    "timestep"::Cstring, num.timestep_n::Ref{Cdouble}, PDI_OUT::Cint,
     "timestep_restriction_conv"::Cstring, c_conv::Ref{Cdouble}, PDI_OUT::Cint,
     "timestep_restriction_surf"::Cstring, c_surf::Ref{Cdouble}, PDI_OUT::Cint,
     "timestep_restriction_visc"::Cstring, c_visc::Ref{Cdouble}, PDI_OUT::Cint,
@@ -3492,9 +3492,9 @@ function adapt_timestep!(num, phL, phS::Nothing, grid_u, grid_v,adapt_timestep_m
     # max(mu1/rho1, mu2/rho2) * (2.0/min_spacing_x^2 + 2.0/min_spacing_y^2 )
 
     #  printstyled(color=:green, @sprintf "\n c_conv %.2e c_visc %.2e c_grad %.2e\n" c_conv c_visc c_grav)
-    #  printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL num.τ)
+    #  printstyled(color=:green, @sprintf "\n CFL : %.2e dt : %.2e\n" CFL num.timestep_n)
 
-    return num.τ
+    return num.timestep_n
 
 end
 

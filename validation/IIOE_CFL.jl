@@ -45,9 +45,9 @@ function conv_IIOE_CFL(x, y;
             verbose = verbose
             )
 
-            @show (R + speed*num.max_iterations*num.τ, num.CFL)
+            @show (R + speed*num.max_iterations*num.timestep_n, num.CFL)
 
-            ua = sqrt.(num.X .^ 2 + num.Y .^ 2) - (R + speed*num.max_iterations*num.τ) * ones(num.n, num.n);
+            ua = sqrt.(num.X .^ 2 + num.Y .^ 2) - (R + speed*num.max_iterations*num.timestep_n) * ones(num.n, num.n);
             e = similar(ua)
             for II in idx.inside
                 e[II] = abs(fwd.u[II] - ua[II])

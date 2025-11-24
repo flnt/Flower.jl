@@ -160,7 +160,7 @@ for (i,n) in enumerate(npts)
         n_ext_cl = sim.n_ext,
         NB = sim.NB,
         plot_xscale = io.scale_x,
-        dt0 = sim.dt0,
+        timestep_0 = sim.timestep_0,
         concentration_check_factor = sim.concentration_check_factor,
         radial_vel_factor = phys.radial_vel_factor,
         debug = sim.debug,

@@ -111,7 +111,7 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
     A, B,rhs,
     op_conv, grid_u, geo_u, grid_v, geo_v,
     periodic_x, periodic_y, convection, ls_advection, BC_int)
-    @unpack τ, aniso = num
+    @unpack timestep_n, aniso = num
     @unpack nx, ny, dx, dy, ind  = grid
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
     @unpack Bx, By, BxT, ByT, Hx, Hy, HxT, HyT, M, iMx, iMy, χ = op
@@ -269,9 +269,9 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
     LD_b = BxT * op.iMx_b * op.Hx_b .+ ByT * op.iMy_b * op.Hy_b
 
     # Implicit part of heat equation
-    A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* τ .* LT, grid, τ)
-    A[1:ni,ni+1:2*ni] = - 0.5 .* τ .* LD
-    A[1:ni,end-nb+1:end] = - 0.5 .* τ .* LD_b
+    A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* timestep_n .* LT, grid, timestep_n)
+    A[1:ni,ni+1:2*ni] = - 0.5 .* timestep_n .* LD
+    A[1:ni,end-nb+1:end] = - 0.5 .* timestep_n .* LD_b
 
     # Interior BC
     A[ni+1:2*ni,1:ni] = b * (HxT[1] * iMx * Bx .+ HyT[1] * iMy * By)
@@ -284,13 +284,13 @@ function set_heat!(bc_type, num, grid, op, geo, ph, θd, BC_T, MIXED, projection
     A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b, 4.0)
 
     # Explicit part of heat equation
-    B[1:ni,1:ni] = M .+ 0.5 .* τ .* LT .- τ .* CT
-    B[1:ni,ni+1:2*ni] = 0.5 .* τ .* LD
-    B[1:ni,end-nb+1:end] = 0.5 .* τ .* LD_b
+    B[1:ni,1:ni] = M .+ 0.5 .* timestep_n .* LT .- timestep_n .* CT
+    B[1:ni,ni+1:2*ni] = 0.5 .* timestep_n .* LD
+    B[1:ni,end-nb+1:end] = 0.5 .* timestep_n .* LD_b
 
     rhs .= 0.0 #fnzeros(grid, num)
     if convection
-        vec1(rhs,grid) .-= τ .* CUTCT
+        vec1(rhs,grid) .-= timestep_n .* CUTCT
     end
     vec2(rhs,grid) .+= χ[1] * vec(a0)
     vecb(rhs,grid) .+= op.χ_b * vec(a0_b)

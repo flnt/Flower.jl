@@ -111,12 +111,12 @@ colsize!(fv.layout, 1, widths(ax.scene.viewport[])[1])
 rowsize!(fv.layout, 1, widths(ax.scene.viewport[])[2])
 resize_to_layout!(fv)
 
-pavg = mean(phL.p[gp.LS[1].LIQUID].*num.τ)
-pstd = std(phL.p[gp.LS[1].LIQUID].*num.τ)*2
+pavg = mean(phL.p[gp.LS[1].LIQUID].*num.timestep_n)
+pstd = std(phL.p[gp.LS[1].LIQUID].*num.timestep_n)*2
 
 fp = Figure(size = (1600, 1000))
 ax = Axis(fp[1,1], aspect = DataAspect(), xlabel = L"x", ylabel = L"y")
-hmap = heatmap!(gp.x[1,:], gp.y[:,1], (phL.p.*num.τ)', colorrange=(pavg-pstd, pavg+pstd))
+hmap = heatmap!(gp.x[1,:], gp.y[:,1], (phL.p.*num.timestep_n)', colorrange=(pavg-pstd, pavg+pstd))
 poly!(Circle(Point2f(0, 0), 0.5), color = :gray)
 cbar = fv[1,2] = Colorbar(fp, hmap, labelpadding = 0)
 limits!(ax, -2, 10, -6, 6)
@@ -141,8 +141,8 @@ resize_to_layout!(fCl)
 # save_field(prefix*"data"*suffix, num, gp, phL)
 
 pks, vals = findmaxima(fwd.Cl)
-f = 1 / ((pks[end-1]-pks[end-2])*num.τ*num.save_every)
-# f = 1 / ((pks[end]-pks[end-1])*num.τ*num.save_every)
+f = 1 / ((pks[end-1]-pks[end-2])*num.timestep_n*num.save_every)
+# f = 1 / ((pks[end]-pks[end-1])*num.timestep_n*num.save_every)
 
 rms_Cl = sqrt(1/(pks[end-1]-pks[end-2]) * sum(fwd.Cl[pks[end-2]:pks[end-1]].^2))
 # rms_Cl = sqrt(1/(pks[end]-pks[end-1]) * sum(fwd.Cl[pks[end-1]:pks[end]].^2))

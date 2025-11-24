@@ -28,8 +28,9 @@ Stores parameters for the simulation
     shifted_y::T = 0.0
     xcoord::T = 0.0
     ycoord::T = 0.0
-    τ::T = min(CFL*Δ^2*Re, CFL*Δ) # timestep
-    max_iterations::D = TEND÷τ # maximum number of iterations
+    timestep_n::T = 1.0 #min(CFL*Δ^2*Re, CFL*Δ) # timestep
+    timestep_0::T = 1.0
+    max_iterations::D = TEND÷timestep_n # maximum number of iterations
     current_iter::D = 0
     save_every::D = 1
     reinit_every::D = 1 # period of levelset reinialization
@@ -95,9 +96,8 @@ Stores parameters for the simulation
     nNavier::D = 0 # number of Navier inner BCs
     pres0::T=0.0
     ref_thickness_2d::T=1.0
-    plot_xscale::T = 1.0
+    # plot_xscale::T = 1.0
     plot_prefix::String = "."
-    dt0::T = 1.0
     concentration_check_factor::T = 0.0
     radial_vel_factor::T = 0.0
     debug::String = "none"
@@ -165,6 +165,8 @@ Stores parameters for the simulation
     iLSpdi::D=1 #levelset index for IO: levelset number 1
     solve_Navier_Stokes_liquid_phase::D=1
     mass_transfer_rate_imposed_value::T=0.0
+    activate_interface::D=1
+    status::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

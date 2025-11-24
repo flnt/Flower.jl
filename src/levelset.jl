@@ -186,7 +186,7 @@ function advection(gx, gy,
     return F
 end
 
-function θout(a_out, u, umax, umin, II, τ, nx, ny, mp, per_x, per_y)
+function θout(a_out, u, umax, umin, II, timestep_n, nx, ny, mp, per_x, per_y)
     θ_out = zeros(4)
 
     a = (δx⁻(II, nx, per_x),
@@ -199,10 +199,10 @@ function θout(a_out, u, umax, umin, II, τ, nx, ny, mp, per_x, per_y)
         if abs(cond) < 1e-12
             θ_out[i] = 0.5
         elseif cond >= 1e-12
-            θ = mp * (umax - u[II]) / (τ * n_out * cond)
+            θ = mp * (umax - u[II]) / (timestep_n * n_out * cond)
             θ_out[i] = min(0.5, θ)
         else
-            θ = mp * (umin - u[II]) / (τ * n_out * cond)
+            θ = mp * (umin - u[II]) / (timestep_n * n_out * cond)
             θ_out[i] = min(0.5, θ)
         end
     end
@@ -457,11 +457,12 @@ end
 
 
 """
-    IIOE!(grid, grid_u, grid_v, A, B, θ_out, τ, periodic_x, periodic_y)
+    IIOE!(grid, grid_u, grid_v, A, B, θ_out, timestep_n, periodic_x, periodic_y)
 
 Advection of the levelset using the basic IIOE scheme [`Mikula et al. (2014)`](https://www.sciencedirect.com/science/article/pii/S0168927414001032).
+using the velocities grid_u.V and grid_v.V
 """
-function IIOE!(grid, grid_u, grid_v, A, B, θ_out, τ, periodic_x, periodic_y)
+function IIOE!(grid, grid_u, grid_v, A, B, θ_out, timestep_n, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy, ind = grid
     @unpack inside, all_indices = ind
 
@@ -484,16 +485,16 @@ function IIOE!(grid, grid_u, grid_v, A, B, θ_out, τ, periodic_x, periodic_y)
         θ_out[II,:] .= 0.5
         S = sumloc(a_in .* θ_in, a_ou .* θ_out[II,:])
         mp = dx[II] * dy[II]
-        A[p,p], B[p,p] = fill_matrices2!(a_in, a_ou, θ_in, θ_out[II,:], S, A, B, II, nx, ny, mp, τ, periodic_x, periodic_y)
+        A[p,p], B[p,p] = fill_matrices2!(a_in, a_ou, θ_in, θ_out[II,:], S, A, B, II, nx, ny, mp, timestep_n, periodic_x, periodic_y)
     end
 end
 
 """
-    S2IIOE!(grid, grid_u, grid_v, A, B, utmp, u, θ_out, τ, periodic_x, periodic_y) 
+    S2IIOE!(grid, grid_u, grid_v, A, B, utmp, u, θ_out, timestep_n, periodic_x, periodic_y) 
 
 Advection of the levelset using the S2IIOE scheme [`Mikula et al. (2014)`](https://www.sciencedirect.com/science/article/pii/S0168927414001032)
 """
-function S2IIOE!(grid, grid_u, grid_v, A, B, utmp, u, θ_out, τ, periodic_x, periodic_y)
+function S2IIOE!(grid, grid_u, grid_v, A, B, utmp, u, θ_out, timestep_n, periodic_x, periodic_y)
     @unpack nx, ny, dx, dy, ind = grid
     @unpack inside, all_indices = ind
 
@@ -516,7 +517,7 @@ function S2IIOE!(grid, grid_u, grid_v, A, B, utmp, u, θ_out, τ, periodic_x, pe
             F = advection(grid_u.V, grid_v.V, dx, dy, II)
             _, a_ou = inflow_outflow(F)
             mp = dx[II] * dy[II]
-            θ_out[II,:] .= θout(a_ou, u, umax, umin, II, τ, nx, ny, mp, periodic_x, periodic_y)
+            θ_out[II,:] .= θout(a_ou, u, umax, umin, II, timestep_n, nx, ny, mp, periodic_x, periodic_y)
         end
     end
     @inbounds @threads for II in indices
@@ -529,7 +530,7 @@ function S2IIOE!(grid, grid_u, grid_v, A, B, utmp, u, θ_out, τ, periodic_x, pe
             θ_in .= θin(θ_out, nx, ny, periodic_x, periodic_y, II)
             S = sumloc(a_in .* θ_in, a_ou .* θ_out[II,:])
             mp = dx[II] * dy[II]
-            A[p,p], B[p,p] = fill_matrices2!(a_in, a_ou, θ_in, θ_out[II,:], S, A, B, II, nx, ny, mp, τ, periodic_x, periodic_y)
+            A[p,p], B[p,p] = fill_matrices2!(a_in, a_ou, θ_in, θ_out[II,:], S, A, B, II, nx, ny, mp, timestep_n, periodic_x, periodic_y)
         end
     end
 end
@@ -603,17 +604,17 @@ end
 end
 
 @inline function fill_matrices2!(a_in::SArray{Tuple{4},Float64,1,4}, a_ou::SArray{Tuple{4},Float64,1,4},
-    θ_in, θ_out, S, A, B, II, nx, ny, mp, τ, per_x, per_y)
+    θ_in, θ_out, S, A, B, II, nx, ny, mp, timestep_n, per_x, per_y)
     p = lexicographic(II, ny)
     a = (lexicographic(δx⁻(II, nx, per_x), ny),
          lexicographic(δy⁻(II, ny, per_y), ny), 
          lexicographic(δx⁺(II, nx, per_x), ny),
          lexicographic(δy⁺(II, ny, per_y), ny))
     @inbounds for (i,j) in zip(1:4,a)
-        @inbounds A[p, j] = -τ * θ_in[i] * a_in[i] / mp
-        @inbounds B[p, j] = τ * θ_out[i] * a_ou[i] / mp
+        @inbounds A[p, j] = -timestep_n * θ_in[i] * a_in[i] / mp
+        @inbounds B[p, j] = timestep_n * θ_out[i] * a_ou[i] / mp
     end
-    return 1 + τ*S[1]/mp, 1 - τ*S[2]/mp
+    return 1 + timestep_n*S[1]/mp, 1 - timestep_n*S[2]/mp
 end
 
 @inline central_differences(u, II, dx, dy, nx, ny, per_x, per_y) =
@@ -1773,15 +1774,15 @@ function field_extension!(grid, u, f, indices_ext, left_ext, bottom_ext, right_e
     local cfl = 0.45 #for a "pseudo-time"
     local ft = similar(f) #TODO allocation
 
-    τ = cfl * max(dx..., dy...)
+    timestep_n = cfl * max(dx..., dy...)
 
     for j = 1:NB
         ft .= f
 
         if !periodic_x
             @inbounds @threads for II in left_ext
-                cfl_x = τ / dx[II]
-                cfl_y = τ / dy[II]
+                cfl_x = timestep_n / dx[II]
+                cfl_y = timestep_n / dy[II]
                 sx = mysign(u[II], dx[II])
                 sy = mysign(u[II], dy[II])
                 II_0 = δx⁺(II, nx, periodic_x)
@@ -1794,8 +1795,8 @@ function field_extension!(grid, u, f, indices_ext, left_ext, bottom_ext, right_e
                                         ⁻(sy*nny)*(∇y⁺(ft, II, ny, periodic_y)))
             end
             @inbounds @threads for II in right_ext
-                cfl_x = τ / dx[II]
-                cfl_y = τ / dy[II]
+                cfl_x = timestep_n / dx[II]
+                cfl_y = timestep_n / dy[II]
                 sx = mysign(u[II], dx[II])
                 sy = mysign(u[II], dy[II])
                 II_0 = δx⁻(II, nx, periodic_x)
@@ -1810,8 +1811,8 @@ function field_extension!(grid, u, f, indices_ext, left_ext, bottom_ext, right_e
         end
         if !periodic_y
             @inbounds @threads for II in bottom_ext
-                cfl_x = τ / dx[II]
-                cfl_y = τ / dy[II]
+                cfl_x = timestep_n / dx[II]
+                cfl_y = timestep_n / dy[II]
                 sx = mysign(u[II], dx[II])
                 sy = mysign(u[II], dy[II])
                 II_0 = δy⁺(II, ny, periodic_y)
@@ -1824,8 +1825,8 @@ function field_extension!(grid, u, f, indices_ext, left_ext, bottom_ext, right_e
                                         ⁻(sy*nny)*(∇y⁺(ft, II, ny, periodic_y)))
             end
             @inbounds @threads for II in top_ext
-                cfl_x = τ / dx[II]
-                cfl_y = τ / dy[II]
+                cfl_x = timestep_n / dx[II]
+                cfl_y = timestep_n / dy[II]
                 sx = mysign(u[II], dx[II])
                 sy = mysign(u[II], dy[II])
                 II_0 = δy⁻(II, ny, periodic_y)
@@ -1840,8 +1841,8 @@ function field_extension!(grid, u, f, indices_ext, left_ext, bottom_ext, right_e
         end
 
         @inbounds @threads for II in indices_ext
-            cfl_x = τ / dx[II]
-            cfl_y = τ / dy[II]
+            cfl_x = timestep_n / dx[II]
+            cfl_y = timestep_n / dy[II]
             sx = mysign(u[II], dx[II])
             sy = mysign(u[II], dy[II])
             hx = dx[II] + dx[δx⁺(II, nx, periodic_x)] / 2.0 + dx[δx⁻(II, nx, periodic_x)] / 2.0

@@ -2000,7 +2000,7 @@ Need to change opC_u.M
 \frac{\partial T}{\partial t} = LT
 ```
 
-Here, ``L`` is the discrete linear operator. We couple the Cut Cell space discretization with a Crank-Nicolson time discretization, where ``τ`` is the time step, ``∆`` the uniform grid spacing and ``n`` the current iteration, resulting in the following discrete system  
+Here, ``L`` is the discrete linear operator. We couple the Cut Cell space discretization with a Crank-Nicolson time discretization, where ``timestep_n`` is the time step, ``∆`` the uniform grid spacing and ``n`` the current iteration, resulting in the following discrete system  
 
 ```math
 \frac{T^n-T^{n-1}}{\tau} = \frac{1}{2} \left[  LT^{n-1} +  LT^{n} \right]
@@ -2013,7 +2013,7 @@ which requires the solution of a linear system forming a pentadiagonal matrix. W
 !!!  todo "Not analytical reference?"
     A convergence study is carried out for these cases, where the reference solution is taken as the simulation with the highest number of points per dimension. 
 
-In each case, the initial temperature field is set to zero and we impose a Dirichlet boundary condition at the interface. The ratio τ /∆2 = 0.5 is kept constant as we increase the number of points. 
+In each case, the initial temperature field is set to zero and we impose a Dirichlet boundary condition at the interface. The ratio timestep_n /∆2 = 0.5 is kept constant as we increase the number of points. 
 
 Convergence study of the Cut Cell method coupled with a Crank-Nicolson scheme when solving the heat equation inside a stationary circle with a Dirichlet boundary condition TD = 1 imposed at the interface. The top gures show the position of the interface in red and the temperature eld at nal time tf = 0.03125 for N = 16, 32, 64, 128. The middle gure show the normalized error in temperature eld with respect to the reference solution taken for N = 256. The bottom gure shows the convergence rate of the method in mixed cells, full cells and in all cells.
 

@@ -98,7 +98,7 @@ flower:
     #     return inv_weight_clip(num,W)   
     # end
     imposed_velocity : "none"
-    dt0: 3.125e-6 #1e-4 #3.125e-6  #1e-7 #1e-6 #3.125e-6  #5e-5 #3.125e-6 #1e-4 #5e-3 #3.125e-6 #first timestep
+    timestep_0: 3.125e-6 #1e-4 #3.125e-6  #1e-7 #1e-6 #3.125e-6  #5e-5 #3.125e-6 #1e-4 #5e-3 #3.125e-6 #first timestep
     max_iter: 1 #60 #1 #60 #maximum number of iterations
     mean_velocity: 0
     mode_2d: 3

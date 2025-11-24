@@ -461,11 +461,11 @@ print_electrolysis_statistics(num,gp,phL)
 printstyled(color=:green, @sprintf "\n TODO timestep CFL scal, and print \n")
 
 
-@unpack τ,CFL,Δ,Re,θd=num
-# print(@sprintf "dt %.2e %.2e %.2e %.2e %.2e %.2e\n" τ CFL CFL*Δ CFL*Δ^2*Re Re θd)
-# τ=CFL*Δ/v_inlet
-# num.τ=τ
-# print(@sprintf "dt %.2e \n" τ)
+@unpack timestep_n,CFL,Δ,Re,θd=num
+# print(@sprintf "dt %.2e %.2e %.2e %.2e %.2e %.2e\n" timestep_n CFL CFL*Δ CFL*Δ^2*Re Re θd)
+# timestep_n=CFL*Δ/v_inlet
+# num.timestep_n=timestep_n
+# print(@sprintf "dt %.2e \n" timestep_n)
 
 #TODO pressure left and right BC not mentioned in the article Khalighi 2023
 

@@ -1,11 +1,11 @@
 function fill_empty_rows!(num, grid, geo, O)
-    @unpack τ = num
+    @unpack timestep_n = num
     @unpack nx, ny, dx, dy, ind = grid
 
     @inbounds @threads for II in ind.all_indices
         pII = lexicographic(II, ny)
         if geo.cap[II,5] < 1e-12
-            O[pII,pII] = dx[II] * dy[II] + 0.5 * τ * 4.0
+            O[pII,pII] = dx[II] * dy[II] + 0.5 * timestep_n * 4.0
         end
         if (2*dx[II]+2*dy[II] - sum(geo.dcap[II,1:4])) < 1e-12
             O[pII+nx*ny,pII+nx*ny] = 1.
@@ -31,15 +31,15 @@ end
 """
 pad_crank_nicolson
 
-adds dx[II] * dy[II] + 0.5 * τ * 4.0 to the diagonal where it is null, for ind.all_indices
+adds dx[II] * dy[II] + 0.5 * timestep_n * 4.0 to the diagonal where it is null, for ind.all_indices
 """
-function pad_crank_nicolson(A, grid, τ)
+function pad_crank_nicolson(A, grid, timestep_n)
     @unpack ny, dx, dy, ind = grid
 
     d = collect(diag(A))
     for II in ind.all_indices
         pII = lexicographic(II, ny)
-        pad = dx[II] * dy[II] + 0.5 * τ * 4.0
+        pad = dx[II] * dy[II] + 0.5 * timestep_n * 4.0
         d[pII] = ifelse(iszero(d[pII]), pad, zero(d[pII]))
     end
     A + Diagonal(d)

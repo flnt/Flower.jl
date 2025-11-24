@@ -6,8 +6,7 @@ using Flower
 
 
 localARGS = ARGS
-@show localARGS
-
+# @show localARGS 
 # print("\n Arguments ", localARGS)
 # print("\n length(localARGS) ",length(localARGS))
 
@@ -255,74 +254,39 @@ for timestep in timesteps
         @debug "Before Numerical"
 
         #region test fill struct
-        # # Safe getter: returns field if available, else the default value from Numerical()
-        # safeget(obj, field) =
-        #     hasproperty(obj, field) ? getproperty(obj, field) :
-        #     (obj isa AbstractDict && haskey(obj, field) ? obj[field] : nothing)
+        
+        #aliases from yml to Flower.jl
+        aliases = Dict(
+            :x => :scalar_mesh_x,
+            :y => :scalar_mesh_y,
+            :xcoord => :intfc_x,
+            :ycoord => :intfc_y,
+            :R => :radius,
+            :max_iterations => :max_iter,
+            :save_every => :max_iter,
+            :ϵ => :epsilon,
+            :ϵwall => :epsilon_wall,
+            :nLS => :nb_levelsets,
+            :θd => :temperature0,
+            :β => :beta,
+            :σ => :sigma,
+            :δreinit => :delta_reinit,
+            :n_ext_cl => :n_ext,
+            :timestep_0 => :timestep,
+            :timestep_n => :timestep,
+            :io_pdi => :pdi,
+            # :convection => :convection_mode, #debug
+        )
 
-        # # Helper version with default fallback from Numerical()
-        # safeget(obj, field, default_obj::Numerical, fieldname::Symbol) =
-        #     let val = safeget(obj, field)
-        #         isnothing(val) ? getproperty(default_obj, fieldname) : val
-        #     end
-        # macro safefill(T, fields...)
-        #     quote
-        #         defaults = $(esc(T))()
-        #         pairs = Dict{Symbol, Any}()
+        # fields defined locally, not in yml
+        extra = Dict(
+            :scalar_mesh_x => scalar_mesh_x,
+            :scalar_mesh_y => scalar_mesh_y,
+            # :intfc_x       => intfc_x,
+            # :intfc_y       => intfc_y,
+        )
 
-        #         for field in $(Expr(:vect, esc.(fields)...))
-        #             found = false
-        #             for srcname in (:sim, :phys, :io)
-        #                 if @isdefined(srcname)
-        #                     src = eval(srcname)
-        #                     if hasproperty(src, field)
-        #                         pairs[field] = getproperty(src, field)
-        #                         found = true
-        #                         break
-        #                     elseif src isa AbstractDict && haskey(src, field)
-        #                         pairs[field] = src[field]
-        #                         found = true
-        #                         break
-        #                     end
-        #                 end
-        #             end
-        #             if !found
-        #                 pairs[field] = getproperty(defaults, field)
-        #             end
-        #         end
 
-        #         $(esc(T))(; pairs...)
-        #     end
-        # end
-
-        # global num = @safefill Numerical(
-        #     :CFL, :Re, :end_time, :x, :y, :xcoord, :ycoord,
-        #     :case, :R, :max_iterations, :save_every, :ϵ, :ϵwall,
-        #     :epsilon_mode, :nLS, :nb_transported_scalars, :concentration0,
-        #     :epsilon_concentration, :diffusion_coeff, :temperature0,
-        #     :i0, :phi_ele0, :phi_ele1, :alpha_c, :alpha_a, :Ru, :Faraday,
-        #     :MWH2, :θd, :eps, :mu1, :mu2, :rho1, :rho2, :pres0, :g, :β, :σ,
-        #     :reinit_every, :nb_reinit, :δreinit, :n_ext_cl, :NB, :plot_xscale,
-        #     :dt0, :concentration_check_factor, :radial_vel_factor, :debug,
-        #     :v_inlet, :prediction, :null_space, :io_pdi, :bulk_conductivity,
-        #     :electrical_potential, :contact_angle, :convection_Cdivu,
-        #     :convection_mode, :advection_LS_mode, :scalar_bc, :scalar_scheme,
-        #     :solver, :mass_transfer_rate, :average_liquid_solid,
-        #     :index_phase_change, :index_electrolyte, :extend_field,
-        #     :average_velocity, :laplacian, :electrical_potential_max_iter,
-        #     :electrical_potential_relative_residual,
-        #     :electrical_potential_residual,
-        #     :electrical_potential_nonlinear_solver, :electrolysis_reaction,
-        #     :pressure_velocity_coupling, :pressure_velocity_solver,
-        #     :solve_solid, :phase_change_method, :one_fluid_model, :smooth_VOF,
-        #     :surface_tension, :non_dimensionalize, :levelset_reinitialize,
-        #     :mu_one_fluid_average, :one_fluid_normal, :marching_squares_epsilon,
-        #     :marching_squares_max_iter, :convection, :nucleation_time,
-        #     :solve_potential, :solve_species, :kill_dead_cells,
-        #     :epsilon_volume_fraction_phase_change,
-        #     :solve_Navier_Stokes_liquid_phase,
-        #     :mass_transfer_rate_imposed_value
-        # )
         """
             safefill(T; sources=(;), defaults=nothing)
 
@@ -357,144 +321,234 @@ for timestep in timesteps
             return T(; kwargs...)   # ✅ keyword construction (works with @with_kw)
         end
 
-        # function safefill(T; sources=(;), defaults=nothing)
-        #     # create default instance if not provided
-        #     defaults = isnothing(defaults) ? T() : defaults
+        function safefill_with_aliases(::Type{Numerical{T,D}}, sim, phys, io,aliases) where {T<:Real, D<:Integer}
+            default = Numerical{T,D}()  # construct default parametric instance
+          
+            args = Dict{Symbol,Any}()
 
-        #     # Collect all field names of the struct
-        #     fnames = fieldnames(T)
+            for field in fieldnames(Numerical{T,D})
+                srcsym = haskey(aliases, field) ? aliases[field] : field
 
-        #     # Prepare named arguments for construction
-        #     args = Dict{Symbol,Any}()
+                val = nothing
+                if hasproperty(sim, srcsym)
+                    val = getproperty(sim, srcsym)
+                elseif hasproperty(phys, srcsym)
+                    val = getproperty(phys, srcsym)
+                elseif hasproperty(io, srcsym)
+                    val = getproperty(io, srcsym)
+                end
 
-        #     for f in fnames
-        #         found = false
-        #         for src in sources
-        #             if hasproperty(src, f)
-        #                 args[f] = getproperty(src, f)
-        #                 found = true
-        #                 break
-        #             elseif src isa AbstractDict && haskey(src, f)
-        #                 args[f] = src[f]
-        #                 found = true
-        #                 break
-        #             end
-        #         end
-        #         if !found
-        #             args[f] = getproperty(defaults, f)
-        #         end
-        #     end
+                args[field] = val === nothing ? getproperty(default, field) : val
+            end
 
-        #     return T(; args...)
-        # end
+            # Use keyword or positional constructor depending on your struct definition
+            return Numerical{T,D}(; args...)
+        end
 
-        # global num = safefill(Numerical; sources=(sim, phys, io))
-        global num = safefill(Numerical{Float64, Int}; sources=(sim, phys, io))
+        function safefill_with_aliases_and_extra(::Type{Numerical{T,D}}, sim, phys, io, aliases, extra) where {T<:Real, D<:Integer}
+            default = Numerical{T,D}()
+            args = Dict{Symbol,Any}()
+
+            for field in fieldnames(Numerical{T,D})
+                srcsym = get(aliases, field, field)
+
+                val =
+                    hasproperty(sim,  srcsym)  ? getproperty(sim, srcsym)  :
+                    hasproperty(phys, srcsym)  ? getproperty(phys, srcsym) :
+                    hasproperty(io,   srcsym)  ? getproperty(io, srcsym)   :
+                    haskey(extra, srcsym)      ? extra[srcsym]             :
+                    nothing
+
+                args[field] = val === nothing ? getproperty(default, field) : val
+            end
+
+            return Numerical{T,D}(; args...)
+        end
+
+        function safefill_with_aliases_and_extra_already_init(::Type{Numerical{T,D}}, default,sim, phys, io, aliases, extra) where {T<:Real, D<:Integer}
+            # default = Numerical{T,D}()
+            args = Dict{Symbol,Any}()
+
+            for field in fieldnames(Numerical{T,D})
+                srcsym = get(aliases, field, field)
+
+                val =
+                    hasproperty(sim,  srcsym)  ? getproperty(sim, srcsym)  :
+                    hasproperty(phys, srcsym)  ? getproperty(phys, srcsym) :
+                    hasproperty(io,   srcsym)  ? getproperty(io, srcsym)   :
+                    haskey(extra, srcsym)      ? extra[srcsym]             :
+                    nothing
+
+                args[field] = val === nothing ? getproperty(default, field) : val
+            end
+
+            return Numerical{T,D}(; args...)
+        end
+        
+
+        default = Numerical{Float64,Int}(
+            x = scalar_mesh_x,
+            y = scalar_mesh_y,
+            timestep_n = timestep,
+            timestep_0 = timestep)  # construct default parametric instance with x otherwise L0 and ... not defined in the same way
+
+
+        # global num_new = safefill_with_aliases(Numerical{Float64, Int}, sim, phys, io,aliases)
+
+        # global num_new = safefill_with_aliases_and_extra(Numerical{Float64,Int},
+        #                          sim, phys, io,
+        #                          aliases,
+        #                          extra)
+
+        print("\n ns_advection ",(sim.ns_advection ==1))
+
+        global num_new = safefill_with_aliases_and_extra_already_init(Numerical{Float64,Int},default,
+                                 sim, phys, io,
+                                 aliases,
+                                 extra)
 
         #endregion test fill struct
 
         
 
 
-        # global num = Numerical(
-        #     CFL = sim.CFL,
-        #     Re = Re,
-        #     end_time=phys.end_time,
-        #     x = scalar_mesh_x,
-        #     y = scalar_mesh_y,
-        #     xcoord = phys.intfc_x,
-        #     ycoord = phys.intfc_y,
-        #     case = sim.case,
-        #     R = phys.radius,
-        #     max_iterations = sim.max_iter,
-        #     save_every = sim.max_iter,
-        #     ϵ = sim.epsilon, 
-        #     ϵwall = sim.epsilon_wall,
-        #     epsilon_mode = sim.epsilon_mode,
-        #     nLS = phys.nb_levelsets,
-        #     nb_transported_scalars=phys.nb_transported_scalars,
-        #     concentration0=phys.concentration0, 
-        #     epsilon_concentration=phys.epsilon_concentration,
-        #     diffusion_coeff=phys.diffusion_coeff,
-        #     temperature0=phys.temperature0,
-        #     i0=phys.i0,
-        #     phi_ele0=phys.phi_ele0,
-        #     phi_ele1=phys.phi_ele1,
-        #     alpha_c=phys.alpha_c,
-        #     alpha_a=phys.alpha_a,
-        #     Ru=phys.Ru,
-        #     Faraday=phys.Faraday,
-        #     MWH2=phys.MWH2,
-        #     θd=phys.temperature0,
-        #     eps=sim.eps,
-        #     mu1=phys.mu1,
-        #     mu2=phys.mu2,
-        #     rho1=phys.rho1,
-        #     rho2=phys.rho2,
-        #     u_inf = 0.0,
-        #     v_inf = 0.0,
-        #     pres0=phys.pres0,
-        #     g = phys.g,
-        #     β = phys.beta,
-        #     σ = phys.sigma,  
-        #     sigma = phys.sigma,
-        #     reinit_every = sim.reinit_every,
-        #     nb_reinit = sim.nb_reinit,
-        #     δreinit = sim.delta_reinit,
-        #     n_ext_cl = sim.n_ext,
-        #     NB = sim.NB,
-        #     plot_xscale = io.scale_x,
-        #     dt0 = timestep, #timestep convergence #sim.dt0,
-        #     concentration_check_factor = sim.concentration_check_factor,
-        #     radial_vel_factor = phys.radial_vel_factor,
-        #     debug = sim.debug,
-        #     v_inlet = phys.v_inlet,
-        #     prediction = sim.prediction,
-        #     null_space = sim.null_space,
-        #     io_pdi = io.pdi,
-        #     bulk_conductivity = sim.bulk_conductivity,
-        #     electrical_potential = sim.electrical_potential,
-        #     contact_angle = sim.contact_angle,
-        #     convection_Cdivu = sim.convection_Cdivu,
-        #     convection_mode = sim.convection_mode,
-        #     advection_LS_mode = sim.advection_LS_mode,
-        #     scalar_bc = sim.scalar_bc,
-        #     scalar_scheme = sim.scalar_scheme,
-        #     solver = sim.solver,
-        #     mass_transfer_rate = sim.mass_transfer_rate,
-        #     average_liquid_solid = sim.average_liquid_solid,
-        #     index_phase_change = sim.index_phase_change,
-        #     index_electrolyte = sim.index_electrolyte,
-        #     extend_field = sim.extend_field,
-        #     average_velocity = sim.average_velocity,
-        #     laplacian = sim.laplacian,
-        #     electrical_potential_max_iter = sim.electrical_potential_max_iter,
-        #     electrical_potential_relative_residual = sim.electrical_potential_relative_residual,
-        #     electrical_potential_residual = sim.electrical_potential_residual,
-        #     electrical_potential_nonlinear_solver = sim.electrical_potential_nonlinear_solver,
-        #     electrolysis_reaction = phys.electrolysis_reaction,
-        #     pressure_velocity_coupling = sim.pressure_velocity_coupling,
-        #     pressure_velocity_solver = sim.pressure_velocity_solver,
-        #     solve_solid = sim.solve_solid,
-        #     phase_change_method = sim.phase_change_method,
-        #     one_fluid_model = sim.one_fluid_model,
-        #     smooth_VOF = sim.smooth_VOF,
-        #     surface_tension = sim.surface_tension,
-        #     non_dimensionalize=sim.non_dimensionalize,
-        #     levelset_reinitialize=sim.levelset_reinitialize,
-        #     mu_one_fluid_average = sim.mu_one_fluid_average,
-        #     one_fluid_normal = sim.one_fluid_normal,
-        #     marching_squares_epsilon = sim.marching_squares_epsilon,
-        #     marching_squares_max_iter = sim.marching_squares_max_iter,
-        #     convection = sim.convection_mode,
-        #     nucleation_time = phys.nucleation_time,
-        #     solve_potential = sim.solve_potential,
-        #     solve_species = sim.solve_species,
-        #     kill_dead_cells = sim.kill_dead_cells,
-        #     epsilon_volume_fraction_phase_change = sim.epsilon_volume_fraction_phase_change,
-        #     solve_Navier_Stokes_liquid_phase = sim.solve_Navier_Stokes_liquid_phase,
-        #     mass_transfer_rate_imposed_value = sim.mass_transfer_rate_imposed_value
-        #     )
+        # # global num = Numerical(
+        # #     CFL = sim.CFL,
+        # #     Re = Re, #in Flower, not real Re
+        # #     end_time=phys.end_time,
+        # #     x = scalar_mesh_x,
+        # #     y = scalar_mesh_y,
+        # #     xcoord = phys.intfc_x,
+        # #     ycoord = phys.intfc_y,
+        # #     case = sim.case,
+        # #     R = phys.radius,
+        # #     max_iterations = sim.max_iter,
+        # #     save_every = sim.max_iter,
+        # #     ϵ = sim.epsilon, 
+        # #     ϵwall = sim.epsilon_wall,
+        # #     epsilon_mode = sim.epsilon_mode,
+        # #     nLS = phys.nb_levelsets,
+        # #     nb_transported_scalars=phys.nb_transported_scalars,
+        # #     concentration0=phys.concentration0, 
+        # #     epsilon_concentration=phys.epsilon_concentration,
+        # #     diffusion_coeff=phys.diffusion_coeff,
+        # #     temperature0=phys.temperature0,
+        # #     i0=phys.i0,
+        # #     phi_ele0=phys.phi_ele0,
+        # #     phi_ele1=phys.phi_ele1,
+        # #     alpha_c=phys.alpha_c,
+        # #     alpha_a=phys.alpha_a,
+        # #     Ru=phys.Ru,
+        # #     Faraday=phys.Faraday,
+        # #     MWH2=phys.MWH2,
+        # #     θd=phys.temperature0,
+        # #     eps=sim.eps,
+        # #     mu1=phys.mu1,
+        # #     mu2=phys.mu2,
+        # #     rho1=phys.rho1,
+        # #     rho2=phys.rho2,
+        # #     # u_inf = 0.0,
+        # #     # v_inf = 0.0,
+        # #     pres0=phys.pres0,
+        # #     g = phys.g,
+        # #     β = phys.beta,
+        # #     σ = phys.sigma,  
+        # #     sigma = phys.sigma,
+        # #     reinit_every = sim.reinit_every,
+        # #     nb_reinit = sim.nb_reinit,
+        # #     δreinit = sim.delta_reinit,
+        # #     n_ext_cl = sim.n_ext,
+        # #     NB = sim.NB,
+        # #     # plot_xscale = io.scale_x,
+        # #     timestep_n = timestep, #timestep convergence #sim.timestep_0,
+        # #     timestep_0 = timestep, #timestep convergence #sim.timestep_0,
+        # #     concentration_check_factor = sim.concentration_check_factor,
+        # #     radial_vel_factor = phys.radial_vel_factor,
+        # #     debug = sim.debug,
+        # #     v_inlet = phys.v_inlet,
+        # #     prediction = sim.prediction,
+        # #     null_space = sim.null_space,
+        # #     io_pdi = io.pdi,
+        # #     bulk_conductivity = sim.bulk_conductivity,
+        # #     electrical_potential = sim.electrical_potential,
+        # #     contact_angle = sim.contact_angle,
+        # #     convection_Cdivu = sim.convection_Cdivu,
+        # #     convection_mode = sim.convection_mode,
+        # #     advection_LS_mode = sim.advection_LS_mode,
+        # #     scalar_bc = sim.scalar_bc,
+        # #     scalar_scheme = sim.scalar_scheme,
+        # #     solver = sim.solver,
+        # #     mass_transfer_rate = sim.mass_transfer_rate,
+        # #     average_liquid_solid = sim.average_liquid_solid,
+        # #     index_phase_change = sim.index_phase_change,
+        # #     index_electrolyte = sim.index_electrolyte,
+        # #     extend_field = sim.extend_field,
+        # #     average_velocity = sim.average_velocity,
+        # #     laplacian = sim.laplacian,
+        # #     electrical_potential_max_iter = sim.electrical_potential_max_iter,
+        # #     electrical_potential_relative_residual = sim.electrical_potential_relative_residual,
+        # #     electrical_potential_residual = sim.electrical_potential_residual,
+        # #     electrical_potential_nonlinear_solver = sim.electrical_potential_nonlinear_solver,
+        # #     electrolysis_reaction = phys.electrolysis_reaction,
+        # #     pressure_velocity_coupling = sim.pressure_velocity_coupling,
+        # #     pressure_velocity_solver = sim.pressure_velocity_solver,
+        # #     solve_solid = sim.solve_solid,
+        # #     phase_change_method = sim.phase_change_method,
+        # #     one_fluid_model = sim.one_fluid_model,
+        # #     smooth_VOF = sim.smooth_VOF,
+        # #     surface_tension = sim.surface_tension,
+        # #     non_dimensionalize=sim.non_dimensionalize,
+        # #     levelset_reinitialize=sim.levelset_reinitialize,
+        # #     mu_one_fluid_average = sim.mu_one_fluid_average,
+        # #     one_fluid_normal = sim.one_fluid_normal,
+        # #     marching_squares_epsilon = sim.marching_squares_epsilon,
+        # #     marching_squares_max_iter = sim.marching_squares_max_iter,
+        # #     convection = sim.convection_mode,
+        # #     nucleation_time = phys.nucleation_time,
+        # #     solve_potential = sim.solve_potential,
+        # #     solve_species = sim.solve_species,
+        # #     kill_dead_cells = sim.kill_dead_cells,
+        # #     epsilon_volume_fraction_phase_change = sim.epsilon_volume_fraction_phase_change,
+        # #     solve_Navier_Stokes_liquid_phase = sim.solve_Navier_Stokes_liquid_phase,
+        # #     mass_transfer_rate_imposed_value = sim.mass_transfer_rate_imposed_value,
+        # #     verbosity = sim.verbosity,
+        # #     mode_2d = sim.mode_2d,
+        # #     mu_cin1 = phys.mu_cin1,
+        # #     mu_cin2 = phys.mu_cin2,
+        # #     # u_inf = phys.u_inf,
+        # #     )
+
+        # if (num == num_new)
+        #     print("\n New init of num OK")
+        # else
+        #     @error("\n init num")
+        # end
+
+        # function diff_struct(a, b)
+        #     @assert typeof(a) == typeof(b) "Types differ"
+
+        #     for name in fieldnames(typeof(a))
+        #         va = getfield(a, name)
+        #         vb = getfield(b, name)
+        #         if va != vb
+        #             println("Field $name differs:")
+        #             println("   a.$name = $va")
+        #             println("   b.$name = $vb")
+        #         end
+        #     end
+        # end
+
+        # diff_struct(num, num_new)
+
+        # print("\n num x ",num.x)
+        # print("\n num x ",num_new.x)
+        # print("\n num y ",num.y)
+        # print("\n num y ",num_new.y)
+
+        global num = num_new
+
+        print("\n num",num)
+
         Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
         @debug "After Numerical"
 

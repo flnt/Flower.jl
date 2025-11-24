@@ -37,8 +37,8 @@ function conv_cutcell_CN(x;
         liquid_phase = liquid,
         verbose = verbose
         )
-        @show (num.max_iterations*num.τ)
-        @show (num.τ)
+        @show (num.max_iterations*num.timestep_n)
+        @show (num.timestep_n)
         if solid
             ERR[1, :, i, 1] .= normf(fwd.TS, MIXED, tmp.SOL[:,:,5], num.Δ)
             ERR[2, :, i, 1] .= normf(fwd.TS, SOLID, tmp.SOL[:,:,5], num.Δ)

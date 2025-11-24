@@ -53,9 +53,9 @@ function force_coefficients!(num, grid, grid_u, grid_v, op, fwd, ph; A=1., p0=0.
     strain_rate!(dir, E11, E12_x, E12_y, E22, grid_u.LS[1].geoL.dcap, grid_v.LS[1].geoL.dcap,
                  ny, ind.all_indices, ind.inside)
 
-    τ11 = reshape(2 ./ Re .* (E11 * vec(u)), (ny, nx))
-    τ12 = reshape(2 ./ Re .* (E12_x * vec(u) .+ E12_y * vec(v)), (ny, nx))
-    τ22 = reshape(2 ./ Re .* (E22 * vec(v)), (ny, nx))
+    timestep_n11 = reshape(2 ./ Re .* (E11 * vec(u)), (ny, nx))
+    timestep_n12 = reshape(2 ./ Re .* (E12_x * vec(u) .+ E12_y * vec(v)), (ny, nx))
+    timestep_n22 = reshape(2 ./ Re .* (E22 * vec(v)), (ny, nx))
 
     @inbounds for II in ind.inside
         # pressure forces
@@ -63,13 +63,13 @@ function force_coefficients!(num, grid, grid_u, grid_v, op, fwd, ph; A=1., p0=0.
         L_p += -(p[II] - p0) * (LS[1].geoL.dcap[II,4] - LS[1].geoL.dcap[II,2])
 
         # friction forces (diagonal terms)
-        D_ν += τ11[II] * (grid_u.LS[1].geoL.dcap[δx⁺(II),6] - grid_u.LS[1].geoL.dcap[II,6])
-        L_ν += τ22[II] * (grid_v.LS[1].geoL.dcap[δy⁺(II),7] - grid_v.LS[1].geoL.dcap[II,7])
+        D_ν += timestep_n11[II] * (grid_u.LS[1].geoL.dcap[δx⁺(II),6] - grid_u.LS[1].geoL.dcap[II,6])
+        L_ν += timestep_n22[II] * (grid_v.LS[1].geoL.dcap[δy⁺(II),7] - grid_v.LS[1].geoL.dcap[II,7])
     end
     @inbounds for II in ind.all_indices[1:end-1,2:end]
         # friction forces (off-diagonal terms)
-        D_ν += τ12[II] * (grid_u.LS[1].geoL.dcap[δy⁺(II),7] - grid_u.LS[1].geoL.dcap[II,7])
-        L_ν += τ12[II] * (grid_v.LS[1].geoL.dcap[δy⁺(II),6] - grid_v.LS[1].geoL.dcap[δx⁻(δy⁺(II)),6])
+        D_ν += timestep_n12[II] * (grid_u.LS[1].geoL.dcap[δy⁺(II),7] - grid_u.LS[1].geoL.dcap[II,7])
+        L_ν += timestep_n12[II] * (grid_v.LS[1].geoL.dcap[δy⁺(II),6] - grid_v.LS[1].geoL.dcap[δx⁻(δy⁺(II)),6])
     end
 
     D = D_p + D_ν

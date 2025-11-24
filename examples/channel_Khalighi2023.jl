@@ -87,11 +87,11 @@ phL.p .= 0.0
 vPoiseuilleb=f.(gv.x[1,:],v_inlet,L0)
 
 
-@unpack τ,CFL,Δ,Re,θd=num
-print(@sprintf "dt %.2e CFL %.2e CFL*Δ %.2e CFL*Δ^2*Re %.2e Re %.2e θd %.2e\n" τ CFL CFL*Δ CFL*Δ^2*Re Re θd)
-# τ=CFL*Δ/v_inlet
-# num.τ=τ
-print(@sprintf "dt %.2e \n" τ)
+@unpack timestep_n,CFL,Δ,Re,θd=num
+print(@sprintf "dt %.2e CFL %.2e CFL*Δ %.2e CFL*Δ^2*Re %.2e Re %.2e θd %.2e\n" timestep_n CFL CFL*Δ CFL*Δ^2*Re Re θd)
+# timestep_n=CFL*Δ/v_inlet
+# num.timestep_n=timestep_n
+print(@sprintf "dt %.2e \n" timestep_n)
 
 #Re<2000
 

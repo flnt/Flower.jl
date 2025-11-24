@@ -117,13 +117,13 @@ Makie.save(prefix*"grid_airfoil.pdf", fgrid)
 # # # contour!(gv.x[1,:], gv.y[:,1], gv.u', levels = 0:0, color=:red, linewidth = 3);
 # # # resize_to_layout!(fv)
 
-# # # pavg = mean(phL.p[LIQUID].*num.τ)
-# # # pstd = std(phL.p[LIQUID].*num.τ)*2
+# # # pavg = mean(phL.p[LIQUID].*num.timestep_n)
+# # # pstd = std(phL.p[LIQUID].*num.timestep_n)*2
 
 # # # fp = Figure(resolution = (1600, 1000))
 # # # colsize!(fp.layout, 1, Aspect(1, 1.0))
 # # # ax = Axis(fp[1,1], aspect = DataAspect())
-# # # heatmap!(gp.x[1,:], gp.y[:,1], (phL.p.*num.τ)', colorrange=(pavg-pstd, pavg+pstd))
+# # # heatmap!(gp.x[1,:], gp.y[:,1], (phL.p.*num.timestep_n)', colorrange=(pavg-pstd, pavg+pstd))
 # # # contour!(gp.x[1,:], gp.y[:,1], gp.u', levels = 0:0, color=:red, linewidth = 3);
 # # # resize_to_layout!(fp)
 
@@ -156,13 +156,13 @@ Makie.save(prefix*"grid_airfoil.pdf", fgrid)
 
 # # # using Peaks
 # # # pks, vals = findmaxima(fwd.Cl)
-# # # f = 1 / ((pks[end-1]-pks[end-2])*num.τ*num.save_every)
+# # # f = 1 / ((pks[end-1]-pks[end-2])*num.timestep_n*num.save_every)
 # # # # rms_Cl = sqrt(1/(pks[end-1]-pks[end-2]) * sum(fwd.Cl[pks[end-2]:pks[end-1]].^2))
 # # # mean_Cl = mean(fwd.Cl[pks[end-2]:pks[end-1]])
 # # # # mean_Cl = mean(fwd.Cl)
 
 # # # pks, vals = findmaxima(fwd.Cd)
-# # # # f = 1 / ((pks[end-1]-pks[end-2])*num.τ*num.save_every)
+# # # # f = 1 / ((pks[end-1]-pks[end-2])*num.timestep_n*num.save_every)
 # # # # rms_Cd = sqrt(1/(pks[end-1]-pks[end-2]) * sum(fwd.Cd[pks[end-2]:pks[end-1]].^2))
 # # # mean_Cd = mean(fwd.Cd[pks[end-2]:pks[end-1]])
 # # # # mean_Cd = mean(fwd.Cd)

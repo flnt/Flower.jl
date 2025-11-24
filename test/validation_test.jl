@@ -93,13 +93,13 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
     adapt_timestep_mode=2
     adapt_timestep_mode=3
 
-    dt0 = 5e-5
-    dt0 = 2.5e-5 #CFL >1 for n = 128
-    dt0 = 1.25e-5 #CFL >0.5 for n = 128
-    dt0 = 6.25e-6 #CFL >0.5 for n = 128
-    dt0 = 3.125e-6 #radius CFL: 3.54e-01 -7.17e+00% 
-    # dt0 = 1e-6 #error dnH2 -2.40e-15
-    # dt0 = 1e-6 #dnH2 -2.40e-15
+    timestep_0 = 5e-5
+    timestep_0 = 2.5e-5 #CFL >1 for n = 128
+    timestep_0 = 1.25e-5 #CFL >0.5 for n = 128
+    timestep_0 = 6.25e-6 #CFL >0.5 for n = 128
+    timestep_0 = 3.125e-6 #radius CFL: 3.54e-01 -7.17e+00% 
+    # timestep_0 = 1e-6 #error dnH2 -2.40e-15
+    # timestep_0 = 1e-6 #dnH2 -2.40e-15
 
 
     ###################################################################################################
@@ -499,7 +499,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
         test_v=-(p_top - p_bottom)/L0 * (L0^2)/4/2/mu
 
         
-        printstyled(color=:green, @sprintf "\n mu1 : %.2e v %.2e vtest %.2e CFL %.2e \n" mu1 v_inlet test_v v_inlet*dt0/(L0/n))
+        printstyled(color=:green, @sprintf "\n mu1 : %.2e v %.2e vtest %.2e CFL %.2e \n" mu1 v_inlet test_v v_inlet*timestep_0/(L0/n))
 
         printstyled(color=:green, @sprintf "\n p_bottom : %.2e p_top %.2e grad %.2e grad %.2e \n" p_bottom p_top -(p_top-p_bottom)/L0 8*mu1/L0^2*v_inlet)
 
@@ -533,10 +533,10 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
 
 
         # CFL 1
-        dt0 = L0/n/v_inlet
+        timestep_0 = L0/n/v_inlet
 
         # CFL 0.5
-        dt0 = L0/n/v_inlet/2 
+        timestep_0 = L0/n/v_inlet/2 
 
 
         save_v = true
@@ -600,10 +600,10 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
         save_every = max_iter
 
         # CFL 1
-        dt0 = L0/n/v_inlet
+        timestep_0 = L0/n/v_inlet
 
         # CFL 0.5
-        dt0 = L0/n/v_inlet/2 
+        timestep_0 = L0/n/v_inlet/2 
 
 
         save_v = true
@@ -665,10 +665,10 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
         # save_every = 1
 
         # # CFL 1
-        # dt0 = L0/n/v_inlet 
+        # timestep_0 = L0/n/v_inlet 
 
         # CFL 0.5
-        dt0 = L0/n/v_inlet/2 
+        timestep_0 = L0/n/v_inlet/2 
 
         save_v = true
         save_KOH = false
@@ -847,7 +847,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
         # NB = 24,
         plot_xscale = plot_xscale,
         plot_prefix = prefix,
-        dt0 = dt0,
+        timestep_0 = timestep_0,
         concentration_check_factor = concentration_check_factor,
         radial_vel_factor = radial_vel_factor,
         # scalar_debug =scalar_debug,
@@ -928,7 +928,7 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
             end
         end
 
-        printstyled(color=:red, @sprintf "\n radial vel: %.2e %.2e CFL %.2e dt0 %.2e dx %.2e \n" maximum(phL.u) maximum(phL.v) max(maximum(phL.u),maximum(phL.v))*dt0/gp.dx[1,1] dt0 gp.dx[1,1])
+        printstyled(color=:red, @sprintf "\n radial vel: %.2e %.2e CFL %.2e timestep_0 %.2e dx %.2e \n" maximum(phL.u) maximum(phL.v) max(maximum(phL.u),maximum(phL.v))*timestep_0/gp.dx[1,1] timestep_0 gp.dx[1,1])
 
                 
 
@@ -1066,11 +1066,11 @@ function run_case(test_case,n,max_iter,prefix,prediction,test_tolerance)
     printstyled(color=:green, @sprintf "\n TODO timestep CFL scal, and print \n")
 
 
-    @unpack τ,CFL,Δ,Re,θd=num
-    # print(@sprintf "dt %.2e %.2e %.2e %.2e %.2e %.2e\n" τ CFL CFL*Δ CFL*Δ^2*Re Re θd)
-    # τ=CFL*Δ/v_inlet
-    # num.τ=τ
-    # print(@sprintf "dt %.2e \n" τ)
+    @unpack timestep_n,CFL,Δ,Re,θd=num
+    # print(@sprintf "dt %.2e %.2e %.2e %.2e %.2e %.2e\n" timestep_n CFL CFL*Δ CFL*Δ^2*Re Re θd)
+    # timestep_n=CFL*Δ/v_inlet
+    # num.timestep_n=timestep_n
+    # print(@sprintf "dt %.2e \n" timestep_n)
 
     #TODO pressure left and right BC not mentioned in the article Khalighi 2023
 

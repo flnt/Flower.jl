@@ -516,7 +516,7 @@ solves Navier-Stokes equations with a pressure projection method.
 - `pres_free_suface`: Free surface pressure.
 - `diff_inv_rho`: Difference in inverse densities.
 - `jump_mass_transfer_rate`: Flag for mass flux jump.
-- `τ`: Time step.
+- `timestep_n`: Time step.
 - `A_phi`: Matrix for the Poisson equation.
 - `num`: Numerical parameters.
 - `epsilon_mode`, `epsilon_vol`: parameters for epsilon handling.
@@ -598,14 +598,14 @@ function solve_one_fluid_NS!(
     rhs_phi,
     pres_free_suface,jump_mass_transfer_rate,mass_transfer_rate
     )
-    @unpack Re, τ, σ, g, β, nLS, nNavier = num
+    @unpack Re, timestep_n, σ, g, β, nLS, nNavier = num
     @unpack p, pD, ϕ, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr, uT = ph
     @unpack Cu, Cv, CUTCu, CUTCv = op_conv
 
     u0 = copy(u)
     v0 = copy(v)
 
-    idt = 1.0 / τ
+    idt = 1.0 / timestep_n
     # irho1 = 1.0 ./ rho_one_fluid
     # mu1_over_rho1 = mu_one_fluid ./ rho_one_fluid
     # mu1_over_rho1 = num.mu1 / num.rho1 
@@ -661,7 +661,8 @@ function solve_one_fluid_NS!(
     end
 
     if is_Forward_Euler(time_scheme)
-        rhs_u, rhs_v, rhs_phi, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, diffusion_LS_u, diffusion_border_u, Lv, diffusion_LS_v, diffusion_border_v = set_Forward_Euler_one_fluid!(
+        rhs_u, rhs_v, rhs_phi, rhs_uv, Lp, bc_Lp, bc_Lp_b, Lu, 
+        diffusion_LS_u, diffusion_border_u, Lv, diffusion_LS_v, diffusion_border_v = set_Forward_Euler_one_fluid!(
             bc_int, num, grid_p, geo, grid_u, geo_u, grid_v, geo_v,
             opC_p, opC_u, opC_v, BC_Poisson,BC_u, BC_v,
             Au, Bu, Av, Bv, A_phi, rhs_phi,Auv, Buv,
@@ -928,9 +929,9 @@ function solve_one_fluid_NS!(
 
     # display(grav_y)
 
-    rhs_uv[bulk_u_velocity] .-= τ .* grav_x #τ * rho_one_fluid_u .* grav_x
+    rhs_uv[bulk_u_velocity] .-= timestep_n .* grav_x #timestep_n * rho_one_fluid_u .* grav_x
 
-    rhs_uv[bulk_u_velocity] .-= τ .* convection_u #rho in convection_u
+    rhs_uv[bulk_u_velocity] .-= timestep_n .* convection_u #rho in convection_u
 
      PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
     "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
@@ -953,10 +954,10 @@ function solve_one_fluid_NS!(
 
 
 
-    # rhs_uv[bulk_u_velocity] .+= τ .* ra_x
+    # rhs_uv[bulk_u_velocity] .+= timestep_n .* ra_x
     if num.pressure_velocity_coupling == 0
         if num.non_dimensionalize == 0
-            rhs_uv[bulk_u_velocity] .-= τ .* ph.Gxm1 ./ vec(rho_one_fluid_u)
+            rhs_uv[bulk_u_velocity] .-= timestep_n .* ph.Gxm1 ./ vec(rho_one_fluid_u)
 
             print("\n grad pressure u")
             PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
@@ -964,15 +965,15 @@ function solve_one_fluid_NS!(
             "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
             C_NULL::Ptr{Cvoid})::Cint
         else
-            rhs_uv[bulk_u_velocity] .-= τ .* ph.Gxm1 
+            rhs_uv[bulk_u_velocity] .-= timestep_n .* ph.Gxm1 
         end
     end 
 
-    # rhs_uv[bulk_u_velocity] .+= τ .* ra_x
+    # rhs_uv[bulk_u_velocity] .+= timestep_n .* ra_x
     if num.non_dimensionalize == 0
         
         #Surface tension
-        rhs_uv[bulk_u_velocity] .+= τ .* vec(volumic_surface_tension_u) ./ vec(rho_one_fluid_u)
+        rhs_uv[bulk_u_velocity] .+= timestep_n .* vec(volumic_surface_tension_u) ./ vec(rho_one_fluid_u)
 
         print("\n surface tension u")
         PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
@@ -982,7 +983,7 @@ function solve_one_fluid_NS!(
 
     else
         #Surface tension
-        rhs_uv[bulk_u_velocity] .+= τ .* vec(volumic_surface_tension_u)
+        rhs_uv[bulk_u_velocity] .+= timestep_n .* vec(volumic_surface_tension_u)
 
     end
 
@@ -991,7 +992,7 @@ function solve_one_fluid_NS!(
    
     # print("\n grav_y ",grav_y)
 
-    rhs_uv[bulk_v_velocity] .-= τ .* grav_y
+    rhs_uv[bulk_v_velocity] .-= timestep_n .* grav_y
     
     print("\n grav y")
 
@@ -1000,7 +1001,7 @@ function solve_one_fluid_NS!(
     "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
-    rhs_uv[bulk_v_velocity] .-= τ .* convection_v
+    rhs_uv[bulk_v_velocity] .-= timestep_n .* convection_v
 
     conv_y = reshape(convection_v,grid_v)
 
@@ -1036,11 +1037,11 @@ function solve_one_fluid_NS!(
     # print("\n test rhs 0 ")
     # rhs_uv .= 0.0
 
-    # rhs_uv[bulk_v_velocity] .+= τ .* ra_y
+    # rhs_uv[bulk_v_velocity] .+= timestep_n .* ra_y
     if num.pressure_velocity_coupling == 0
          
         if num.non_dimensionalize == 0
-            rhs_uv[bulk_v_velocity] .-= τ .* ph.Gym1 ./ vec(rho_one_fluid_v)
+            rhs_uv[bulk_v_velocity] .-= timestep_n .* ph.Gym1 ./ vec(rho_one_fluid_v)
 
             print("\n grad pressure y")
 
@@ -1049,7 +1050,7 @@ function solve_one_fluid_NS!(
             "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
             C_NULL::Ptr{Cvoid})::Cint
         else
-            rhs_uv[bulk_v_velocity] .-= τ .* ph.Gym1
+            rhs_uv[bulk_v_velocity] .-= timestep_n .* ph.Gym1
             
         end
     end
@@ -1059,7 +1060,7 @@ function solve_one_fluid_NS!(
     if num.non_dimensionalize == 0
 
         #Surface tension
-        rhs_uv[bulk_v_velocity] .+= τ .* vec(volumic_surface_tension_v) ./  vec(rho_one_fluid_v)
+        rhs_uv[bulk_v_velocity] .+= timestep_n .* vec(volumic_surface_tension_v) ./  vec(rho_one_fluid_v)
 
         print("\n surface tension y")
 
@@ -1070,7 +1071,7 @@ function solve_one_fluid_NS!(
 
     else
         #Surface tension
-        rhs_uv[bulk_v_velocity] .+= τ .* vec(volumic_surface_tension_v)
+        rhs_uv[bulk_v_velocity] .+= timestep_n .* vec(volumic_surface_tension_v)
     end
 
 
@@ -1246,7 +1247,74 @@ function solve_one_fluid_NS!(
         @time uvD .= Auv \ rhs_uv
     catch e
         uvD .= Inf
+        
+        printstyled(color=:red, @sprintf "\n --------------------------------------------------------------\n")
+
+        printstyled(color=:red, @sprintf "\n NS solver error solve_one_fluid_NS!\n")
         println(e)
+        @error("NS solver error solve_one_fluid_NS!")
+        num.status = 1
+        # print("\n rhs_uv ", rhs_uv)
+        # display(Auv)
+
+
+        # ni_p = grid_p.nx * grid_p.ny
+        # nb_p = 2 * grid_p.nx + 2 * grid_p.ny
+
+        # ni_u = grid_u.nx * grid_u.ny
+        # nb_u = 2 * grid_u.nx + 2 * grid_u.ny
+
+        # ni_v = grid_v.nx * grid_v.ny
+        # nb_v = 2 * grid_v.nx + 2 * grid_v.ny
+
+        # ni_uv = ni_u + ni_v
+        # nb_uv = nb_u + nb_v
+
+        # nt = ni_uv + nb_uv
+
+        # Auv = spzeros(ncol_A, nt)
+        # Buv = spzeros(ncol_A, nt)
+        # rhs_uv = zeros(ncol_A)  
+
+        # [...]
+
+        display(Auv)
+
+        # FE_set_momentum_coupled2_one_fluid
+
+        # display(opC_u.M)
+
+        print("\n test A")
+        II = CartesianIndex(1,1)
+        pII = lexicographic(II, grid_v.ny)
+        print("\n test A v",Auv[pII+ntu,:])
+
+        II = CartesianIndex(10,10)
+        pII = lexicographic(II, grid_v.ny)
+        print("\n test A v",Auv[pII+ntu,:])
+
+        print("\n test A ",Auv[pII,:])
+        print("\n test A ",opC_u.M[pII,:])
+
+
+
+        print("\n end test A \n")
+
+        
+        # PDI_status = @ccall "libpdi".PDI_multi_expose("print_matrix"::Cstring,
+        # "Auv_n"::Cstring, Auv.n::Ref{Clonglong}, PDI_OUT::Cint,
+        # "Auv_m"::Cstring, Auv.m::Ref{Clonglong}, PDI_OUT::Cint,
+        # "Auv_colptr_len"::Cstring, length(Auv.colptr)::Ref{Clonglong}, PDI_OUT::Cint,
+        # "Auv_rowval_len"::Cstring, length(Auv.rowval)::Ref{Clonglong}, PDI_OUT::Cint,
+        # "Auv_nzval_len"::Cstring, length(Auv.nzval)::Ref{Clonglong}, PDI_OUT::Cint,
+        # "Auv_colptr_1D"::Cstring, Auv.colptr::Ptr{Clonglong}, PDI_OUT::Cint,
+        # "Auv_rowval_1D"::Cstring, Auv.rowval::Ptr{Clonglong}, PDI_OUT::Cint,
+        # "Auv_nzval_1D"::Cstring, Auv.nzval::Ptr{Cdouble}, PDI_OUT::Cint,
+        # C_NULL::Ptr{Cvoid})::Cint
+
+
+        printstyled(color=:red, @sprintf "\n --------------------------------------------------------------\n")
+
     end
     #endregion solver
 
@@ -1616,7 +1684,7 @@ function solve_one_fluid_NS!(
             # "not consistent with a second-order discretization of the Navier–Stokes equations since, 
             # due to Eq. (72), the normal component of the pressure gradient will remain constant in time at the boundary"
             # Brown 2001
-            vec1(pD,grid_p) .+= vec(ϕ) #no τ  since div u not rho1
+            vec1(pD,grid_p) .+= vec(ϕ) #no timestep_n  since div u not rho1
 
         elseif num.prediction == "PmII" || num.prediction == "PmIIimposedpressure" || num.prediction == "PmIIimposedpressureBCincrement"
             # \nabla_h p^{n+1/2} = \nabla_h p^{n-1/2} + \nabla_h \phi^{n+1} - 
@@ -1735,11 +1803,11 @@ function solve_one_fluid_NS!(
         # vec1(∇ϕ_y,grid_p) .*= irho1
 
         
-        # u .= ucorr .- τ .* reshape(iMu * ∇ϕ_x, grid_u)
-        # v .= vcorr .- τ .* reshape(iMv * ∇ϕ_y, grid_v)
+        # u .= ucorr .- timestep_n .* reshape(iMu * ∇ϕ_x, grid_u)
+        # v .= vcorr .- timestep_n .* reshape(iMv * ∇ϕ_y, grid_v)
 
-        u .= ucorr .- τ .* reshape(iMu * ∇ϕ_x, grid_u) ./ rho_one_fluid_u
-        v .= vcorr .- τ .* reshape(iMv * ∇ϕ_y, grid_v) ./ rho_one_fluid_v
+        u .= ucorr .- timestep_n .* reshape(iMu * ∇ϕ_x, grid_u) ./ rho_one_fluid_u
+        v .= vcorr .- timestep_n .* reshape(iMv * ∇ϕ_y, grid_v) ./ rho_one_fluid_v
         #region cut-cell
         # kill_dead_cells!(u, grid_u, geo_u[end])
         # kill_dead_cells!(v, grid_v, geo_v[end])
@@ -1798,13 +1866,13 @@ function solve_one_fluid_NS!(
         #     #     @inbounds for II in grid_u.ind.all_indices
         #     #         pII = lexicographic(II, grid_u.ny)
         #     #         if abs(veci(ucorrD,grid_u,iLS+1)[pII]) > 1e-12
-        #     #             veci(ucorrD,grid_u,iLS+1)[pII] -= (τ .* iMu * ∇ϕ_x)[pII]
+        #     #             veci(ucorrD,grid_u,iLS+1)[pII] -= (timestep_n .* iMu * ∇ϕ_x)[pII]
         #     #         end
         #     #     end
         #     #     @inbounds for II in grid_v.ind.all_indices
         #     #         pII = lexicographic(II, grid_v.ny)
         #     #         if abs(veci(vcorrD,grid_v,iLS+1)[pII]) > 1e-12
-        #     #             veci(vcorrD,grid_v,iLS+1)[pII] -= (τ .* iMv * ∇ϕ_y)[pII]
+        #     #             veci(vcorrD,grid_v,iLS+1)[pII] -= (timestep_n .* iMv * ∇ϕ_y)[pII]
         #     #         end
         #     #     end
         #     # end
@@ -2101,7 +2169,7 @@ function solve_one_fluid_NS!(
     # print("\n accel ", 2*(rho_l-rho_g)/(rho_l+2*rho_g)*g)
 
     # #v only, TODO interp and u
-    # # acceleration = (ph.v.-v0)/num.τ
+    # # acceleration = (ph.v.-v0)/num.timestep_n
     # # display(acceleration)
     
     # printstyled(color=:red, @sprintf "\n Check acceleration \n")
@@ -2820,7 +2888,7 @@ function set_Forward_Euler_one_fluid!(
 
         # mat_coeffDx = Diagonal(vec(1.0./rho_one_fluid_u)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
         # mat_coeffDy = Diagonal(vec(1.0./rho_one_fluid_v)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
-        dt = num.τ
+        dt = num.timestep_n
         mat_coeffDx = Diagonal(vec(dt./rho_one_fluid_u)) # coeffDx_bulk is a 2d matrix with shape (grid_u.ny, grid_u.nx), multiplies Bx
         mat_coeffDy = Diagonal(vec(dt./rho_one_fluid_v)) # coeffDx_bulk is a 2d matrix with shape (grid_v.ny, grid_v.nx), multiplies By
 
@@ -2868,6 +2936,7 @@ function set_Forward_Euler_one_fluid!(
             # rhs_phi = nothing
             diffusion_LS_u = nothing
             diffusion_LS_v = nothing
+            # rhs_uv = nothing
             rhs_uv = FE_set_momentum_coupled2_one_fluid(
             bc_int, num, grid_p, grid_u, grid_v,
             opC_p, opC_u, opC_v,
@@ -2916,22 +2985,22 @@ Set the system matrix for Forward-Euler scheme
 ## Modifications to `rhs`
 
 1. **For each interface `iLS`:**
-   - If the boundary condition is not Navier and not Navier-CL:
-     ```julia
-     @inbounds rhs[sbu] .= opu.χ[iLS] * vec(a0u)
-     @inbounds rhs[sbv] .= opv.χ[iLS] * vec(a0v)
-     ```
-   - Otherwise (if the boundary condition is Navier or Navier-CL):
-     ```julia
-     @inbounds rhs[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] .= opp.χ[iLS] * vec(a0p)
-     nNav1 += 1
-     ```
+- If the boundary condition is not Navier and not Navier-CL:
+```julia
+@inbounds rhs[sbu] .= opu.χ[iLS] * vec(a0u)
+@inbounds rhs[sbv] .= opv.χ[iLS] * vec(a0v)
+```
+- Otherwise (if the boundary condition is Navier or Navier-CL):
+```julia
+@inbounds rhs[ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] .= opp.χ[iLS] * vec(a0p)
+nNav1 += 1
+```
 
 2. **For the outer boundaries/borders:**
-   ```julia
-   @inbounds rhs[border_u_velocity] .= opu.χ_b * vec(a0_bu) #BC for u component on borders
-   @inbounds rhs[border_v_velocity] .= opv.χ_b * vec(a0_bv) #BC for v component on borders
-
+```julia
+@inbounds rhs[border_u_velocity] .= opu.χ_b * vec(a0_bu) #BC for u component on borders
+@inbounds rhs[border_v_velocity] .= opv.χ_b * vec(a0_bv) #BC for v component on borders
+```
 robin BC : source term a0
                 
 At the moment, the Levelset is not computed at borders/interfaces ? Only bulk
@@ -2950,11 +3019,12 @@ function FE_set_momentum_coupled2_one_fluid(
     ls_advection::Bool,
     BCp,ph=nothing
     )
-    @unpack τ, Re, nLS, nNavier = num
+    @unpack timestep_n, Re, nLS, nNavier = num
 
 
-    printstyled(color=:red, @sprintf "\n coupled pressure-velocity FE_set_momentum_coupled2\n")
+    printstyled(color=:red, @sprintf "\n coupled pressure-velocity FE_set_momentum_coupled2_one_fluid\n")
     
+    print("\n ls_advection",ls_advection)
 
     #region init
     iRe = num.visc_coeff
@@ -3139,40 +3209,40 @@ function FE_set_momentum_coupled2_one_fluid(
         A.nzval .= 0.0
 
         #region print debug coeff
-        # pII = lexicographic(CartesianIndex(5,5),grid_u.ny)
+        pII = lexicographic(CartesianIndex(5,5),grid_u.ny)
         
-        # print("\n A[bulk_u_velocity,bulk_u_velocity] before ",pII)
+        print("\n A[bulk_u_velocity,bulk_u_velocity] before ",pII)
 
-        # print("\n dt ",τ )
-        # print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
+        print("\n dt ",timestep_n )
+        print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
 
-        # # example with mu1=mu2=1 and dt =1 : factor 2 for x, so 2-4 2 and 1 -2 1
-        # # diffusion_bulk_u   [101]  =  2.0
-        # # [132]  =  1.0
-        # # [133]  =  -6.0
-        # # [134]  =  1.0
-        # # [165]  =  2.0
+        # example with mu1=mu2=1 and dt =1 : factor 2 for x, so 2-4 2 and 1 -2 1
+        # diffusion_bulk_u   [101]  =  2.0
+        # [132]  =  1.0
+        # [133]  =  -6.0
+        # [134]  =  1.0
+        # [165]  =  2.0
 
-        # pII = lexicographic(CartesianIndex(1,5),grid_u.ny)
-        # pIIv = lexicographic(CartesianIndex(1,5),grid_v.ny)
+        pII = lexicographic(CartesianIndex(1,5),grid_u.ny)
+        pIIv = lexicographic(CartesianIndex(1,5),grid_v.ny)
 
-        # print("\n pIIv ",ntu + pIIv," pII ",pII)
+        print("\n pIIv ",ntu + pIIv," pII ",pII)
 
-        # print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
+        print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
 
-        # pII = lexicographic(CartesianIndex(5,1),grid_u.ny)
-        # pIIv = lexicographic(CartesianIndex(5,1),grid_v.ny)
+        pII = lexicographic(CartesianIndex(5,1),grid_u.ny)
+        pIIv = lexicographic(CartesianIndex(5,1),grid_v.ny)
 
-        # print("\n pIIv ",ntu + pIIv," pII ",pII)
+        print("\n pIIv ",ntu + pIIv," pII ",pII)
 
-        # print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
+        print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
 
-        # pII = lexicographic(CartesianIndex(1,1),grid_u.ny)
-        # pIIv = lexicographic(CartesianIndex(1,1),grid_v.ny)
+        pII = lexicographic(CartesianIndex(1,1),grid_u.ny)
+        pIIv = lexicographic(CartesianIndex(1,1),grid_v.ny)
 
-        # print("\n pIIv ",ntu + pIIv," pII ",pII)
+        print("\n pIIv ",ntu + pIIv," pII ",pII)
 
-        # print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
+        print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
         #endregion print debug coeff
 
         diag_inv_rho_u = Diagonal(1.0./vec(rho_one_fluid_u))
@@ -3181,9 +3251,9 @@ function FE_set_momentum_coupled2_one_fluid(
 
         # Implicit part of viscous term
         if num.non_dimensionalize == 0
-            A[bulk_u_velocity,bulk_u_velocity] = opu.M .- τ * diag_inv_rho_u * diffusion_bulk_u #pad_crank_nicolson(opu.M .- τ * diag_inv_rho_u * diffusion_bulk_u , grid_u, τ)
+            A[bulk_u_velocity,bulk_u_velocity] = opu.M .- timestep_n * diag_inv_rho_u * diffusion_bulk_u #pad_crank_nicolson(opu.M .- timestep_n * diag_inv_rho_u * diffusion_bulk_u , grid_u, timestep_n)
         else
-            A[bulk_u_velocity,bulk_u_velocity] = pad_crank_nicolson(rho_one_fluid_u*opu.M .- τ .* diffusion_bulk_u, grid_u, τ)
+            A[bulk_u_velocity,bulk_u_velocity] = pad_crank_nicolson(rho_one_fluid_u*opu.M .- timestep_n .* diffusion_bulk_u, grid_u, timestep_n)
         end
 
         # example 
@@ -3195,29 +3265,29 @@ function FE_set_momentum_coupled2_one_fluid(
         #same with opu.M
 
         #region print debug coeff
-        # print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
+        print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
 
-        # print("\n size(A) ",size(A))
+        print("\n size(A) ",size(A))
 
-        # print("\n size(bulk_u_velocity) ",size(bulk_u_velocity))
-        # print("\n bulk_u_velocity ",bulk_u_velocity)
-        # print("\n bulk_v_velocity ",bulk_v_velocity)
+        print("\n size(bulk_u_velocity) ",size(bulk_u_velocity))
+        print("\n bulk_u_velocity ",bulk_u_velocity)
+        print("\n bulk_v_velocity ",bulk_v_velocity)
 
-        # pIIv = lexicographic(CartesianIndex(5,5),grid_v.ny)
+        pIIv = lexicographic(CartesianIndex(5,5),grid_v.ny)
 
-        # # A[bulk_u_velocity,ntu + pIIv] .= 333
+        # A[bulk_u_velocity,ntu + pIIv] .= 333
         
-        # print("\n pIIv ",ntu + pIIv)
+        print("\n pIIv ",ntu + pIIv)
 
-        # print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
+        print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
         
-        # print("\n grid_p ",grid_p.dx[5,5]," ", grid_u.dx[5,5] ," ",grid_v.dx[5,5]," ")
-        # print("\n grid_p ",grid_p.dy[5,5]," ", grid_u.dy[5,5] ," ",grid_v.dy[5,5]," ")
+        print("\n grid_p ",grid_p.dx[5,5]," ", grid_u.dx[5,5] ," ",grid_v.dx[5,5]," ")
+        print("\n grid_p ",grid_p.dy[5,5]," ", grid_u.dy[5,5] ," ",grid_v.dy[5,5]," ")
         #endregion print debug coeff
         if num.non_dimensionalize == 0 
-            A[bulk_u_velocity,bulk_v_velocity] = - τ * diag_inv_rho_u * cross_term_diffusion_bulk_d_dv_dx_dy 
+            A[bulk_u_velocity,bulk_v_velocity] = - timestep_n * diag_inv_rho_u * cross_term_diffusion_bulk_d_dv_dx_dy 
         else
-            A[bulk_u_velocity,bulk_v_velocity] = - τ * cross_term_diffusion_bulk_d_dv_dx_dy
+            A[bulk_u_velocity,bulk_v_velocity] = - timestep_n * cross_term_diffusion_bulk_d_dv_dx_dy
         end
         
         #region print debug coeff
@@ -3226,9 +3296,9 @@ function FE_set_momentum_coupled2_one_fluid(
 
         # Contribution to implicit part of viscous term from outer boundaries
         if num.non_dimensionalize == 0 
-            A[bulk_u_velocity,border_u_velocity] = - τ .* diag_inv_rho_u * diffusion_border_u 
+            A[bulk_u_velocity,border_u_velocity] = - timestep_n .* diag_inv_rho_u * diffusion_border_u 
         else
-            A[bulk_u_velocity,border_u_velocity] = - τ .* diffusion_border_u
+            A[bulk_u_velocity,border_u_velocity] = - timestep_n .* diffusion_border_u
         end
          
         
@@ -3236,9 +3306,9 @@ function FE_set_momentum_coupled2_one_fluid(
         # print("\n A[bulk_u_velocity,bulk_u_velocity] after border ",A[pII,:])
         #endregion print debug coeff
         if num.non_dimensionalize == 0 
-            A[bulk_u_velocity,border_v_velocity] = - τ .* diag_inv_rho_u * cross_term_diffusion_bulk_d_dv_dx_dy_border 
+            A[bulk_u_velocity,border_v_velocity] = - timestep_n .* diag_inv_rho_u * cross_term_diffusion_bulk_d_dv_dx_dy_border 
         else
-            A[bulk_u_velocity,border_v_velocity] = - τ .* cross_term_diffusion_bulk_d_dv_dx_dy_border
+            A[bulk_u_velocity,border_v_velocity] = - timestep_n .* cross_term_diffusion_bulk_d_dv_dx_dy_border
         end
         
 
@@ -3251,21 +3321,21 @@ function FE_set_momentum_coupled2_one_fluid(
 
         # Implicit part of viscous term
         if num.non_dimensionalize == 0
-            A[bulk_v_velocity,bulk_v_velocity] = opv.M .- τ .* diag_inv_rho_v * diffusion_bulk_v #pad_crank_nicolson(opv.M .- τ .* diag_inv_rho_v * diffusion_bulk_v  , grid_v, τ)
-            A[bulk_v_velocity,bulk_u_velocity] = - τ .* diag_inv_rho_v * cross_term_diffusion_bulk_d_du_dy_dx 
+            A[bulk_v_velocity,bulk_v_velocity] = opv.M .- timestep_n .* diag_inv_rho_v * diffusion_bulk_v #pad_crank_nicolson(opv.M .- timestep_n .* diag_inv_rho_v * diffusion_bulk_v  , grid_v, timestep_n)
+            A[bulk_v_velocity,bulk_u_velocity] = - timestep_n .* diag_inv_rho_v * cross_term_diffusion_bulk_d_du_dy_dx 
         else
-            A[bulk_v_velocity,bulk_v_velocity] = pad_crank_nicolson(rho_one_fluid_v * opv.M .- τ .* diffusion_bulk_v, grid_v, τ)
-            A[bulk_v_velocity,bulk_u_velocity] = - τ .* cross_term_diffusion_bulk_d_du_dy_dx 
+            A[bulk_v_velocity,bulk_v_velocity] = pad_crank_nicolson(rho_one_fluid_v * opv.M .- timestep_n .* diffusion_bulk_v, grid_v, timestep_n)
+            A[bulk_v_velocity,bulk_u_velocity] = - timestep_n .* cross_term_diffusion_bulk_d_du_dy_dx 
         end
 
         # Contribution to implicit part of viscous term from outer boundaries
 
         if num.non_dimensionalize == 0
-            A[bulk_v_velocity,border_v_velocity] = - τ .* diag_inv_rho_v * diffusion_border_v 
-            A[bulk_v_velocity,border_u_velocity] = - τ .* diag_inv_rho_v * cross_term_diffusion_bulk_d_du_dy_dx_border 
+            A[bulk_v_velocity,border_v_velocity] = - timestep_n .* diag_inv_rho_v * diffusion_border_v 
+            A[bulk_v_velocity,border_u_velocity] = - timestep_n .* diag_inv_rho_v * cross_term_diffusion_bulk_d_du_dy_dx_border 
         else
-           A[bulk_v_velocity,border_v_velocity] = - τ .* diffusion_border_v 
-            A[bulk_v_velocity,border_u_velocity] = - τ .* cross_term_diffusion_bulk_d_du_dy_dx_border
+           A[bulk_v_velocity,border_v_velocity] = - timestep_n .* diffusion_border_v 
+            A[bulk_v_velocity,border_u_velocity] = - timestep_n .* cross_term_diffusion_bulk_d_du_dy_dx_border
         end
         
 
@@ -3356,8 +3426,8 @@ function FE_set_momentum_coupled2_one_fluid(
             diag_inv_rho_v = Diagonal(1.0./vec(rho_one_fluid_v))
 
             irho1 = 1.0/num.rho1 
-            # factor = num.τ * irho1
-            factor = num.τ
+            # factor = num.timestep_n * irho1
+            factor = num.timestep_n
             
             A[bulk_u_velocity,bulk_pressure] = diag_inv_rho_u * factor * opu.AxT * opu.Rx #TODO + or multiply by cell volume ? + not required, only component of matrix
             A[bulk_v_velocity,bulk_pressure] = diag_inv_rho_v * factor * opv.AyT * opv.Ry 
@@ -3501,8 +3571,8 @@ function FE_set_momentum_coupled2_one_fluid(
             if !is_navier_cl(bc_interface[iLS]) && !is_navier(bc_interface[iLS])
                 #region not Navier
                 # Contribution to implicit part of viscous term from inner boundaries
-                A[bulk_u_velocity,interfacial_nb_1_u_velocity] = - τ .* diffusion_LS_u[iLS]
-                A[bulk_v_velocity,interfacial_nb_1_v_velocity] = - τ .* diffusion_LS_v[iLS] 
+                A[bulk_u_velocity,interfacial_nb_1_u_velocity] = - timestep_n .* diffusion_LS_u[iLS]
+                A[bulk_v_velocity,interfacial_nb_1_v_velocity] = - timestep_n .* diffusion_LS_v[iLS] 
                 # Boundary conditions for inner boundaries
                 A[interfacial_nb_1_u_velocity,bulk_u_velocity] = bu * (opu.HxT[iLS] * opu.iMx * opu.Bx .+ opu.HyT[iLS] * opu.iMy * opu.By)
                 A[interfacial_nb_1_v_velocity,bulk_v_velocity] = bv * (opv.HxT[iLS] * opv.iMx * opv.Bx .+ opv.HyT[iLS] * opv.iMy * opv.By)
@@ -3595,11 +3665,11 @@ function FE_set_momentum_coupled2_one_fluid(
                 interpolate_y = interpolating_coefficient_Navier(grid_v,grid_p,bc_interface[iLS])
                 # implicit part of viscous stress, from tangential velocity at wall with Navier, 
                 # interpolated from scalar to u, v grids
-                A[bulk_u_velocity,range_nb_iLS_Navier] = - iRe * τ .* (
+                A[bulk_u_velocity,range_nb_iLS_Navier] = - iRe * timestep_n .* (
                     opu.BxT * opu.iMx * opu.Hx[iLS] .+
                     opu.ByT * opu.iMy * opu.Hy[iLS]
                 ) * sinα_u * interpolate_x
-                A[bulk_v_velocity,range_nb_iLS_Navier] = - iRe * τ .* (
+                A[bulk_v_velocity,range_nb_iLS_Navier] = - iRe * timestep_n .* (
                     opv.BxT * opv.iMx * opv.Hx[iLS] .+
                     opv.ByT * opv.iMy * opv.Hy[iLS]
                 ) * (-cosα_v) * interpolate_y
@@ -3811,7 +3881,7 @@ function check_coupled_matrix()
     # C_NULL::Ptr{Cvoid})::Cint
 
     irho1 = 1.0/num.rho1
-    factor = num.τ * irho1
+    factor = num.timestep_n * irho1
     Adummy[bulk_u_velocity,bulk_pressure] = factor * opu.AxT * opu.Rx #TODO + or multiply by cell volume ? + not required, only component of matrix
     Adummy[bulk_v_velocity,bulk_pressure] = factor * opv.AyT * opv.Ry 
     #Outer boundaries
@@ -4020,8 +4090,8 @@ function set_convection_with_rho!(
         # printstyled(color=:red, @sprintf "\n set_convection B %.2e T %.2e L %.2e R %.2e\n" maximum(abs.(vecb_B(∇ϕ_x,grid_u))) maximum(abs.(vecb_T(∇ϕ_x,grid_u))) maximum(abs.(vecb_L(∇ϕ_y,grid_v))) maximum(abs.(vecb_R(∇ϕ_y,grid_v))))
         # printstyled(color=:red, @sprintf "\n set_convection B %.2e T %.2e L %.2e R %.2e\n" maximum(grd_x[end,:]) maximum(grd_x[1,:]) maximum(grd_y[:,1]) maximum(grd_y[:,end]))
 
-        # print("\n dt ", num.τ)
-        dt = num.τ
+        # print("\n dt ", num.timestep_n)
+        dt = num.timestep_n
 
         velocity_and_BC_convection_u_y[1,:] .+= dt* grad_x[1,:] #vecb_B(uD,grid_u) + 
         velocity_and_BC_convection_u_y[end,:] .+= dt* grad_x[end,:] #vecb_T(uD,grid_u) + 
@@ -5506,8 +5576,8 @@ function set_convection_preallocated!(
         # printstyled(color=:red, @sprintf "\n set_convection B %.2e T %.2e L %.2e R %.2e\n" maximum(abs.(vecb_B(∇ϕ_x,grid_u))) maximum(abs.(vecb_T(∇ϕ_x,grid_u))) maximum(abs.(vecb_L(∇ϕ_y,grid_v))) maximum(abs.(vecb_R(∇ϕ_y,grid_v))))
         # printstyled(color=:red, @sprintf "\n set_convection B %.2e T %.2e L %.2e R %.2e\n" maximum(grd_x[end,:]) maximum(grd_x[1,:]) maximum(grd_y[:,1]) maximum(grd_y[:,end]))
 
-        # print("\n dt ", num.τ)
-        dt = num.τ
+        # print("\n dt ", num.timestep_n)
+        dt = num.timestep_n
 
         velocity_and_BC_convection_u_y[1,:] .+= dt* grad_x[1,:] #vecb_B(uD,grid_u) + 
         velocity_and_BC_convection_u_y[end,:] .+= dt* grad_x[end,:] #vecb_T(uD,grid_u) + 

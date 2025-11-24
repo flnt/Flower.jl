@@ -30,6 +30,9 @@ import scipy
 
 from matplotlib.ticker import MaxNLocator, ScalarFormatter
 
+import pathlib
+
+
 # from matplotlib._layoutgrid import plot_children
 
 
@@ -779,14 +782,14 @@ def plot_radius_from_h5():
         h5_files = sys.argv[2::]
 
     try:
-        yamlfile = sys.argv[1]
-        if ".yml" not in yamlfile:
-            yamlfile += ".yml"
+        yaml_file = sys.argv[1]
+        if ".yml" not in yaml_file:
+            yaml_file += ".yml"
     except Exception as error:
         print(error)
         print(colored("error", "red"))
 
-    with open(yamlfile, "r") as file:
+    with open(yaml_file, "r") as file:
         yml = yaml.safe_load(file)
 
         plotpar = yml["plot"]
@@ -806,8 +809,8 @@ def plot_radius_from_h5():
                 continue
             time_list =[]
             radius_list=[]
-            for file_name in h5_files:
-                with h5py.File(file_name, "r") as file:
+            for h5_file_name in h5_files:
+                with h5py.File(h5_file_name, "r") as file:
                     print(file.keys())
                     time = file["time"][()]
                     radius = file["radius"][()]
@@ -842,14 +845,14 @@ def plot_phase_change_from_h5():
         h5_files = sys.argv[2::]
 
     try:
-        yamlfile = sys.argv[1]
-        if ".yml" not in yamlfile:
-            yamlfile += ".yml"
+        yaml_file = sys.argv[1]
+        if ".yml" not in yaml_file:
+            yaml_file += ".yml"
     except Exception as error:
         print(error)
         print(colored("error", "red"))
 
-    with open(yamlfile, "r") as file:
+    with open(yaml_file, "r") as file:
         yml = yaml.safe_load(file)
 
         plotpar = yml["plot"]
@@ -867,8 +870,8 @@ def plot_phase_change_from_h5():
             print(figpar)
             time_list =[]
             radius_list=[]
-            for file_name in h5_files:
-                with h5py.File(file_name, "r") as file:
+            for h5_file_name in h5_files:
+                with h5py.File(h5_file_name, "r") as file:
                     print(file.keys())
                     time = file["time"][()]
                     radius = file["barycenter_x_coord"][()]
@@ -1167,20 +1170,42 @@ def set_size(width,fraction=1,ratio=1,nvary=1,ratio2=4.8/6.4,height=None,golden_
     return fig_dim
 
 
-def plot_all_fig_func():
+# def plot_all_fig_func():
+#     """
+#     Plot all films in YAML file
+#     """
+
+#     # print('arg', len(sys.argv),sys.argv)
+#     if len(sys.argv) == 2:
+#         # List all files in the current directory
+#         all_files = os.listdir(".")
+#         h5_files = [file for file in all_files if file.endswith(".h5")]
+#     else:
+#         h5_files = sys.argv[2::]
+          
+def plot_all_fig_func(yaml_file,args):
     """
     Plot all films in YAML file
+    example:
+
+    python3 ../../../Flower.jl/examples/flower_post_proc.py ../../../Flower.jl/examples/one_fluid_hysing_coupled2.yml --func plot_all_fig_func --h5 flower_00000*.h5
+
+    python3 ../../../Flower.jl/examples/flower_post_proc.py ../../../Flower.jl/examples/one_fluid_hysing_coupled2.yml --func plot_all_fig_func --h5 flower_00000001.h5 --skip-existing
+    
+    python3 ../../../Flower.jl/examples/flower_post_proc.py ../../../Flower.jl/examples/one_fluid_hysing_coupled2.yml --func plot_all_fig_func --h5 flower_00000001.h5 --name ucorr vcorr
+
+
     """
 
-    # print('arg', len(sys.argv),sys.argv)
-    if len(sys.argv) == 2:
-        # List all files in the current directory
+
+    # If no h5 files are provided via args, list all .h5 files in current directory
+    if not args.h5 or len(args.h5) == 0:
         all_files = os.listdir(".")
         h5_files = [file for file in all_files if file.endswith(".h5")]
     else:
-        h5_files = sys.argv[2::]
-          
-    
+        h5_files = args.h5
+
+    output_dir = '.'
     # print(h5_files)
     h5_files = sorted(h5_files)
     print(h5_files)
@@ -1188,14 +1213,14 @@ def plot_all_fig_func():
     # print(sys.argv)
 
     try:
-        yamlfile = sys.argv[1]
-        if ".yml" not in yamlfile:
-            yamlfile += ".yml"
+        yaml_file = sys.argv[1]
+        if ".yml" not in yaml_file:
+            yaml_file += ".yml"
     except Exception as error:
         print(error)
         print(colored("error", "red"))
 
-    with open(yamlfile, "r") as file:
+    with open(yaml_file, "r") as file:
         yml = yaml.safe_load(file)
 
     # print(yml)
@@ -1252,11 +1277,11 @@ def plot_all_fig_func():
 
 
     
-    for file_name in h5_files:
+    for h5_file_name in h5_files:
 
-        print(file_name)
+        print(h5_file_name)
         # Load the HDF5 file
-        with h5py.File(file_name, "r") as file:
+        with h5py.File(h5_file_name, "r") as file:
             # print(file.keys())
 
             # data = file['data'][:]
@@ -1279,6 +1304,26 @@ def plot_all_fig_func():
             print("time", time, "nstep", nstep)
 
             for figpar in plotpar["figures"]:
+
+                file_name = figpar['file']
+                # print('figure name general',file_name)
+                file_name_list = get_value_from_dicts('macro_file_name',figpar,plotpar)
+                # print('file_name_list',file_name_list)
+                fig_name = eval(file_name_list[0])
+                # print('figure name ',fig_name,type(fig_name))
+                # stem = Path(fig_name).stem               # e.g. flower_00000001
+                # print('stem',stem)
+                # fig_path = output_dir / f"{stem}.pdf"  # expected output figure
+                fig_path = pathlib.Path(fig_name)
+                # SKIP LOGIC
+                if args.name:
+                    # if args.name[0] != file_name:
+                    if all(name != file_name for name in args.name):
+                        print(colored(f"Skipping {file_name} (figures {args.name} specified)", "yellow"))
+                        continue
+                if args.skip_existing and fig_path.exists():
+                    print(colored(f"Skipping {file_name} (figure already exists)", "yellow"))
+                    continue
 
                 for theme in plotpar['themes']:
 
@@ -1368,14 +1413,14 @@ def plot_all_fig():
     # print(sys.argv)
 
     try:
-        yamlfile = sys.argv[1]
-        if ".yml" not in yamlfile:
-            yamlfile += ".yml"
+        yaml_file = sys.argv[1]
+        if ".yml" not in yaml_file:
+            yaml_file += ".yml"
     except Exception as error:
         print(error)
         print(colored("error", "red"))
 
-    with open(yamlfile, "r") as file:
+    with open(yaml_file, "r") as file:
         yml = yaml.safe_load(file)
 
     # print(yml)
@@ -1433,11 +1478,11 @@ def plot_all_fig():
 
     #     file_name=file_name_1 + "_" + str(field_index) #"_bulk"
 
-    for file_name in h5_files:
+    for h5_file_name in h5_files:
 
-        print(file_name)
+        print(h5_file_name)
         # Load the HDF5 file
-        with h5py.File(file_name, "r") as file:
+        with h5py.File(h5_file_name, "r") as file:
             # print(file.keys())
 
             # data = file['data'][:]
@@ -1600,14 +1645,14 @@ def plot_all_films():
     # print(sys.argv)
 
     try:
-        yamlfile = sys.argv[1]
-        if ".yml" not in yamlfile:
-            yamlfile += ".yml"
+        yaml_file = sys.argv[1]
+        if ".yml" not in yaml_file:
+            yaml_file += ".yml"
     except Exception as error:
         print(error)
         print(colored("error", "red"))
 
-    with open(yamlfile, "r") as file:
+    with open(yaml_file, "r") as file:
         yml = yaml.safe_load(file)
 
     # print(yml)
@@ -1666,18 +1711,29 @@ def plot_all_films():
         )
 
 
-def plot_all_films_func():
+def plot_all_films_func(yaml_file,args):
     """
     Plot all films in YAML file
+    example:
+    python3 ../../../Flower.jl/examples/flower_post_proc.py ../../../Flower.jl/examples/one_fluid_hysing_coupled2.yml --func plot_all_films_func --h5 flower_00000*.h5
+
     """
 
-    # print('arg', len(sys.argv),sys.argv)
-    if len(sys.argv) == 2:
-        # List all files in the current directory
+
+    # If no h5 files are provided via args, list all .h5 files in current directory
+    if not args.h5 or len(args.h5) == 0:
         all_files = os.listdir(".")
         h5_files = [file for file in all_files if file.endswith(".h5")]
     else:
-        h5_files = sys.argv[2::]
+        h5_files = args.h5
+
+    # # print('arg', len(sys.argv),sys.argv)
+    # if len(sys.argv) == 2:
+    #     # List all files in the current directory
+    #     all_files = os.listdir(".")
+    #     h5_files = [file for file in all_files if file.endswith(".h5")]
+    # else:
+    #     h5_files = sys.argv[2::]
 
    
     
@@ -1688,14 +1744,14 @@ def plot_all_films_func():
     # print(sys.argv)
 
     try:
-        yamlfile = sys.argv[1]
-        if ".yml" not in yamlfile:
-            yamlfile += ".yml"
+        # yaml_file = sys.argv[1]
+        if ".yml" not in yaml_file:
+            yaml_file += ".yml"
     except Exception as error:
         print(error)
         print(colored("error", "red"))
 
-    with open(yamlfile, "r") as file:
+    with open(yaml_file, "r") as file:
         yml = yaml.safe_load(file)
 
     # print(yml)
@@ -1746,6 +1802,30 @@ def plot_all_films_func():
 
     for figpar in plotpar["films"]:
         print(colored(figpar['file'],'red'))
+
+        # nstep =
+        file_name = figpar['file']
+        # # print('figure name general',file_name)
+        # file_name_list = get_value_from_dicts('macro_file_name',figpar,plotpar)
+        # # print('file_name_list',file_name_list)
+        # fig_name = eval(file_name_list[0])
+        # # print('figure name ',fig_name,type(fig_name))
+        # # stem = Path(fig_name).stem               # e.g. flower_00000001
+        # # print('stem',stem)
+        # # fig_path = output_dir / f"{stem}.pdf"  # expected output figure
+        fig_name = figpar['file'] + '.mp4'
+        fig_path = pathlib.Path(fig_name)
+        # SKIP LOGIC
+        if args.name:
+            # if args.name[0] != file_name:
+            if all(name != file_name for name in args.name):
+                print(colored(f"Skipping {file_name} (figures {args.name} specified)", "yellow"))
+                continue
+        if args.skip_existing and fig_path.exists():
+            print(colored(f"Skipping {file_name} (figure already exists)", "yellow"))
+            continue
+
+
         if 'func' in figpar.keys():
             func = globals()[figpar['func']] #'plot_current_lines'
         else:
@@ -2205,7 +2285,7 @@ def plot_file(
     # cbarlabel = plotpar["cbarlabel"]
     isocontour = plotpar["isocontour"]
 
-    time /= scale_time 
+    # time /= scale_time 
     # radius /= scale_x
 
     shading="nearest"
@@ -2605,7 +2685,7 @@ def plot_file(
             xufull[i] = xufull[i-1] + dx
             # xufull[i] = i*dx
 
-            print('xufull',xufull)
+            # print('xufull',xufull)
 
         xufull[-1] = mesh["xmax"]
 
@@ -2622,7 +2702,7 @@ def plot_file(
             yvfull[i] = yvfull[i-1] + dy
             # xufull[i] = i*dx
 
-            print('xufull',yvfull)
+            # print('xufull',yvfull)
 
         yvfull[-1] = mesh["ymax"]
 
@@ -2636,12 +2716,12 @@ def plot_file(
 
             
 
-        for ixp in range(len(xp)-1):
-            print('xp',(xp[ixp+1]-xp[ixp])/dx,'xufull',(xufull[ixp+1]-xufull[ixp])/dx)
+        # for ixp in range(len(xp)-1):
+        #     print('xp',(xp[ixp+1]-xp[ixp])/dx,'xufull',(xufull[ixp+1]-xufull[ixp])/dx)
 
 
-        for ixp in range(len(xufull)-1):
-            print('xufull',(xufull[ixp+1]-xufull[ixp])/dx)
+        # for ixp in range(len(xufull)-1):
+        #     print('xufull',(xufull[ixp+1]-xufull[ixp])/dx)
 
     str_time = '{:.2e}'.format(time/plotpar['scale_time'])
     # strrad = '{:.2e}'.format(radius)
@@ -2649,6 +2729,10 @@ def plot_file(
 
     # plt.title("t "+str_time +r"$(\unit{s})$")
     if get_value_from_dicts('title_macro',figpar,plotpar) != None:
+        # print(colored('title macro', 'red'))
+        # print(get_value_from_dicts('title_macro',figpar,plotpar))
+        # print(figpar['title_macro'])
+
         exec(get_value_from_dicts('title_macro',figpar,plotpar))
     else:
         ax2.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$',color=plotpar['text_color'])
@@ -6341,7 +6425,7 @@ def plot_current_wall(
     # cbarlabel = plotpar["cbarlabel"]
     isocontour = plotpar["isocontour"]
 
-    time /= scale_time 
+    # time /= scale_time 
     # radius /= scale_x
 
     # fig.subplots_adjust(right=0.75)
@@ -6698,14 +6782,14 @@ def report():
     """
 
     try:
-        yamlfile = sys.argv[1]
-        if ".yml" not in yamlfile:
-            yamlfile += ".yml"
+        yaml_file = sys.argv[1]
+        if ".yml" not in yaml_file:
+            yaml_file += ".yml"
     except Exception as error:
         print(error)
         print(colored("error", "red"))
 
-    with open(yamlfile, "r") as file:
+    with open(yaml_file, "r") as file:
         yml = yaml.safe_load(file)
 
     boundaries_list = yml["flower"]["macros"]["boundaries_list"]

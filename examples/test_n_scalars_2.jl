@@ -116,12 +116,12 @@ cmap = plt.cm.viridis
 adapt_timestep_mode=2
 adapt_timestep_mode=3
 
-dt0 = 5e-5
-dt0 = 2.5e-5 #CFL >1 for n = 128
-dt0 = 1.25e-5 #CFL >0.5 for n = 128
-dt0 = 6.25e-6 #CFL >0.5 for n = 128
-dt0 = 3.125e-6 #radius CFL: 3.54e-01 -7.17e+00% 
-# dt0 = 1e-6 error dnH2 -2.40e-15
+timestep_0 = 5e-5
+timestep_0 = 2.5e-5 #CFL >1 for n = 128
+timestep_0 = 1.25e-5 #CFL >0.5 for n = 128
+timestep_0 = 6.25e-6 #CFL >0.5 for n = 128
+timestep_0 = 3.125e-6 #radius CFL: 3.54e-01 -7.17e+00% 
+# timestep_0 = 1e-6 error dnH2 -2.40e-15
 
 convection_Cdivu = true
 convection_Cdivu = false
@@ -205,7 +205,7 @@ Re=rho1*v_inlet*L0/mu
 printstyled(color=:green, @sprintf "\n Re : %.2e %.2e %.2e %.2e\n" Re rho1/mu1 rho1 mu1)
 
 
-printstyled(color=:red, @sprintf "\n CFL: %.2e \n" v_inlet*dt0/L0*n)
+printstyled(color=:red, @sprintf "\n CFL: %.2e \n" v_inlet*timestep_0/L0*n)
 
 
 # save_every=max_iter
@@ -370,7 +370,7 @@ num = Numerical(
     # NB = 24,
     plot_xscale = plot_xscale,
     plot_prefix = prefix,
-    dt0 = dt0,
+    timestep_0 = timestep_0,
     concentration_check_factor = concentration_check_factor,
     )
     # ref_thickness_2d = ref_thickness_2d,
@@ -562,11 +562,11 @@ print_electrolysis_statistics(num,gp,phL)
 printstyled(color=:green, @sprintf "\n TODO timestep CFL scal, and print \n")
 
 
-@unpack τ,CFL,Δ,Re,θd=num
-# print(@sprintf "dt %.2e %.2e %.2e %.2e %.2e %.2e\n" τ CFL CFL*Δ CFL*Δ^2*Re Re θd)
-# τ=CFL*Δ/v_inlet
-# num.τ=τ
-# print(@sprintf "dt %.2e \n" τ)
+@unpack timestep_n,CFL,Δ,Re,θd=num
+# print(@sprintf "dt %.2e %.2e %.2e %.2e %.2e %.2e\n" timestep_n CFL CFL*Δ CFL*Δ^2*Re Re θd)
+# timestep_n=CFL*Δ/v_inlet
+# num.timestep_n=timestep_n
+# print(@sprintf "dt %.2e \n" timestep_n)
 
 #TODO pressure left and right BC not mentioned in the article Khalighi 2023
 

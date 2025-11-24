@@ -46,7 +46,7 @@ heat = false,
 navier_stokes = true,
 ns_solid_phase = false,
 ns_liquid_phase = true,
-speed = -num.Δ / 1. / num.τ,
+speed = -num.Δ / 1. / num.timestep_n,
 verbose = true,
 show_every = 1
 )

@@ -74,13 +74,13 @@ colsize!(fv.layout, 1, widths(ax.scene.viewport[])[1])
 rowsize!(fv.layout, 1, widths(ax.scene.viewport[])[2])
 resize_to_layout!(fv)
 
-# pavg = mean(phL.p[LIQUID].*num.τ)
-# pstd = std(phL.p[LIQUID].*num.τ)*2
+# pavg = mean(phL.p[LIQUID].*num.timestep_n)
+# pstd = std(phL.p[LIQUID].*num.timestep_n)*2
 
 # fp = Figure(size = (1600, 1000))
 # colsize!(fp.layout, 1, Aspect(1, 1.0))
 # ax = Axis(fp[1,1], aspect = 1, xticks = tcks, yticks = tcks)  # customized as you see fit
-# heatmap!(gp.x[1,:], gp.y[:,1], (phL.p.*num.τ)', colorrange=(pavg-pstd, pavg+pstd))
+# heatmap!(gp.x[1,:], gp.y[:,1], (phL.p.*num.timestep_n)', colorrange=(pavg-pstd, pavg+pstd))
 # contour!(gp.x[1,:], gp.y[:,1], gp.u', levels = 0:0, color=:red, linewidth = 3);
 # limits!(ax, -lim, lim, -lim, lim)
 # resize_to_layout!(fp)

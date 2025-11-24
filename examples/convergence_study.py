@@ -482,8 +482,8 @@ def plot_errors_from_h5():
 
             time_list =[]
             radius_list=[]
-            for file_name in h5_files:
-                  with h5py.File(file_name, "r") as file:
+            for h5_file_name in h5_files:
+                  with h5py.File(h5_file_name, "r") as file:
                      print(file.keys())
                      nx_list = file["nx_list"][()]
                      l1_rel_error = file["l1_rel_error"][()]
@@ -509,7 +509,7 @@ def plot_errors_from_h5():
 
                      print(df)
 
-                     plot_errors_from_pandas(df,figpar,plotpar,colors,file_name)
+                     plot_errors_from_pandas(df,figpar,plotpar,colors,h5_file_name)
 
 
 
@@ -612,22 +612,39 @@ def plot_schematics_func():
 
 
 
-def plot_convergence_study_func():
+def plot_convergence_study_func(yaml_file, args):
    """
-   Plot all films in YAML file
+   Run a convergence study based on a YAML case file.
+   Example:
+      python3 ../Flower.jl/examples/flower_post_proc.py ../Flower.jl/examples/one_fluid_hysing_coupled2.yml --func plot_convergence_study_func
    """
 
-   # print('arg', len(sys.argv),sys.argv)
-   if len(sys.argv) == 2:
-      # List all files in the current directory
-      all_files = os.listdir(".")
-      h5_files = [file for file in all_files if file.endswith(".h5")]
-   else:
-      h5_files = sys.argv[2::]
-         
-   print('h5_files',h5_files)
+   import yaml
+   from pathlib import Path
 
-   # print(sys.argv)
+   # ----------------------------
+   # Resolve YAML path
+   # ----------------------------
+   yaml_path = Path(yaml_file).resolve()
+   if not yaml_path.exists():
+      raise FileNotFoundError(f"YAML file not found: {yaml_path}")
+
+   # Use current working directory as case folder
+   case_folder = Path.cwd()
+   # print(f"[INFO] Using current directory as case folder: {case_folder}")
+   # ----------------------------
+   # Load YAML
+   # ----------------------------
+   with open(yaml_path, "r") as f:
+      yml = yaml.safe_load(f)
+
+   # print(f"[INFO] Loaded YAML: {yaml_path.name}")
+   # print(f"[INFO] YAML keys: {list(yml.keys())}")
+
+   # ----------------------------
+   # Find .h5 files
+   # ----------------------------
+   h5_files = list(case_folder.glob("*.h5"))
 
    try:
       yamlfile = sys.argv[1]
@@ -1850,8 +1867,8 @@ def plot_time(
       # TODO get mass center from h5 files 
       #    time_list =[]
       #       radius_list=[]
-      #       for file_name in h5_files:
-      #           with h5py.File(file_name, "r") as file:
+      #       for h5_file_name in h5_files:
+      #           with h5py.File(h5_file_name, "r") as file:
       #               print(file.keys())
       #               time = file["time"][()]
       #               radius = file["radius"][()]
@@ -2297,8 +2314,8 @@ def plot_1D(
       # TODO get mass center from h5 files 
       #    time_list =[]
       #       radius_list=[]
-      #       for file_name in h5_files:
-      #           with h5py.File(file_name, "r") as file:
+      #       for h5_file_name in h5_files:
+      #           with h5py.File(h5_file_name, "r") as file:
       #               print(file.keys())
       #               time = file["time"][()]
       #               radius = file["radius"][()]
@@ -2696,8 +2713,8 @@ def plot_convergence_study_errors():
 
                   df = pd.DataFrame()
 
-                  for file_name in h5_files:
-                     with h5py.File(file_name, "r") as file:
+                  for h5_file_name in h5_files:
+                     with h5py.File(h5_file_name, "r") as file:
                         # print(file.keys())
 
                         nx = file["study_nb_grid_points"][()]

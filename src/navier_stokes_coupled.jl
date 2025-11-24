@@ -685,8 +685,8 @@ function set_convection!(
         # printstyled(color=:red, @sprintf "\n set_convection B %.2e T %.2e L %.2e R %.2e\n" maximum(abs.(vecb_B(∇ϕ_x,grid_u))) maximum(abs.(vecb_T(∇ϕ_x,grid_u))) maximum(abs.(vecb_L(∇ϕ_y,grid_v))) maximum(abs.(vecb_R(∇ϕ_y,grid_v))))
         # printstyled(color=:red, @sprintf "\n set_convection B %.2e T %.2e L %.2e R %.2e\n" maximum(grd_x[end,:]) maximum(grd_x[1,:]) maximum(grd_y[:,1]) maximum(grd_y[:,end]))
 
-        # print("\n dt ", num.τ)
-        dt = num.τ
+        # print("\n dt ", num.timestep_n)
+        dt = num.timestep_n
 
         Du_y[1,:] .+= dt* grad_x[1,:] #vecb_B(uD,grid_u) + 
         Du_y[end,:] .+= dt* grad_x[end,:] #vecb_T(uD,grid_u) + 
@@ -793,7 +793,7 @@ function FE_set_momentum_coupled(
     Lv, bc_Lv, bc_Lv_b, Mvm1, BCv,
     ls_advection
     )
-    @unpack τ, Re, nLS, nNavier, visc_coeff = num
+    @unpack timestep_n, Re, nLS, nNavier, visc_coeff = num
 
     # iRe = 1.0 / Re
     iRe = visc_coeff
@@ -832,9 +832,9 @@ function FE_set_momentum_coupled(
     if ls_advection
         A.nzval .= 0.0
         # Implicit part of viscous term
-        A[1:niu,1:niu] = pad_crank_nicolson(opu.M .- τ .* Lu, gu, τ)
+        A[1:niu,1:niu] = pad_crank_nicolson(opu.M .- timestep_n .* Lu, gu, timestep_n)
         # Contribution to implicit part of viscous term from outer boundaries
-        A[1:niu,ntu-nbu+1:ntu] = - τ .* bc_Lu_b
+        A[1:niu,ntu-nbu+1:ntu] = - timestep_n .* bc_Lu_b
         # Boundary conditions for outer boundaries
         A[ntu-nbu+1:ntu,1:niu] = b_bu * (opu.HxT_b * opu.iMx_b' * opu.Bx .+ opu.HyT_b * opu.iMy_b' * opu.By)
         A[ntu-nbu+1:ntu,ntu-nbu+1:ntu] = pad(b_bu * (
@@ -843,9 +843,9 @@ function FE_set_momentum_coupled(
         ) .- opu.χ_b * a1_bu)
 
         # Implicit part of viscous term
-        A[ntu+1:ntu+niv,ntu+1:ntu+niv] = pad_crank_nicolson(opv.M .- τ .* Lv, gv, τ)
+        A[ntu+1:ntu+niv,ntu+1:ntu+niv] = pad_crank_nicolson(opv.M .- timestep_n .* Lv, gv, timestep_n)
         # Contribution to implicit part of viscous term from outer boundaries
-        A[ntu+1:ntu+niv,ntu+ntv-nbv+1:ntu+ntv] = - τ .* bc_Lv_b
+        A[ntu+1:ntu+niv,ntu+ntv-nbv+1:ntu+ntv] = - timestep_n .* bc_Lv_b
         # Boundary conditions for outer boundaries
         A[ntu+ntv-nbv+1:ntu+ntv,ntu+1:ntu+niv] = b_bv * (opv.HxT_b * opv.iMx_b' * opv.Bx .+ opv.HyT_b * opv.iMy_b' * opv.By)
         A[ntu+ntv-nbv+1:ntu+ntv,ntu+ntv-nbv+1:ntu+ntv] = pad(b_bv * (
@@ -996,8 +996,8 @@ function FE_set_momentum_coupled(
         if ls_advection
             if !is_navier_cl(bc_type[iLS]) && !is_navier(bc_type[iLS])
                 # Contribution to implicit part of viscous term from inner boundaries
-                A[1:niu,sbu] = - τ .* bc_Lu[iLS]
-                A[ntu+1:ntu+niv,sbv] = - τ .* bc_Lv[iLS]
+                A[1:niu,sbu] = - timestep_n .* bc_Lu[iLS]
+                A[ntu+1:ntu+niv,sbv] = - timestep_n .* bc_Lv[iLS]
                 # Boundary conditions for inner boundaries
                 A[sbu,1:niu] = bu * (opu.HxT[iLS] * opu.iMx * opu.Bx .+ opu.HyT[iLS] * opu.iMy * opu.By)
                 A[sbv,ntu+1:ntu+niv] = bv * (opv.HxT[iLS] * opv.iMx * opv.Bx .+ opv.HyT[iLS] * opv.iMy * opv.By)
@@ -1240,11 +1240,11 @@ function FE_set_momentum_coupled(
                     pJJ = lexicographic(II, gv.ny)
                     avgy[pJJ,pII-1] = 0.5
                 end
-                A[1:niu,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * τ .* (
+                A[1:niu,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * timestep_n .* (
                     opu.BxT * opu.iMx * opu.Hx[iLS] .+
                     opu.ByT * opu.iMy * opu.Hy[iLS]
                 ) * sinα_u * avgx
-                A[ntu+1:ntu+niv,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * τ .* (
+                A[ntu+1:ntu+niv,ntu+ntv+1+nNav1*nip:ntu+ntv+(nNav1+1)*nip] = - iRe * timestep_n .* (
                     opv.BxT * opv.iMx * opv.Hx[iLS] .+
                     opv.ByT * opv.iMy * opv.Hy[iLS]
                 ) * (-cosα_v) * avgy
@@ -1881,10 +1881,10 @@ function CN_set_momentum(
     Lm1, bc_Lm1, bc_Lm1_b, Mm1, BC,
     ls_advection
     )
-    @unpack τ = num
+    @unpack timestep_n = num
     @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
 
-    τ2 = 0.5 * τ
+    timestep_n2 = 0.5 * timestep_n
 
     ni = grid.nx * grid.ny
     nb = 2 * grid.nx + 2 * grid.ny
@@ -1902,17 +1902,17 @@ function CN_set_momentum(
 
     if ls_advection
         # Implicit part of viscous term
-        A[1:ni,1:ni] = pad_crank_nicolson(M .- τ2 .* L, grid, τ)
+        A[1:ni,1:ni] = pad_crank_nicolson(M .- timestep_n2 .* L, grid, timestep_n)
         # Contribution to implicit part of viscous term from outer boundaries
-        A[1:ni,end-nb+1:end] = - τ2 .* bc_L_b
+        A[1:ni,end-nb+1:end] = - timestep_n2 .* bc_L_b
         # Boundary conditions for outer boundaries
         A[end-nb+1:end,1:ni] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
         A[end-nb+1:end,end-nb+1:end] = pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b)
 
         # Explicit part of viscous term
-        B[1:ni,1:ni] = Mm1 .+ τ2 .* Lm1
+        B[1:ni,1:ni] = Mm1 .+ timestep_n2 .* Lm1
         # Contribution to implicit part of viscous term from outer boundaries
-        B[1:ni,end-nb+1:end] = τ2 .* bc_Lm1_b
+        B[1:ni,end-nb+1:end] = timestep_n2 .* bc_Lm1_b
     end
 
     for iLS in 1:num.nLS
@@ -1952,7 +1952,7 @@ function CN_set_momentum(
 
         if ls_advection
             # Contribution to implicit part of viscous term from inner boundaries
-            A[1:ni,sb] = - τ2 .* bc_L[iLS]
+            A[1:ni,sb] = - timestep_n2 .* bc_L[iLS]
             # Boundary conditions for inner boundaries
             A[sb,1:ni] = b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
             for i in 1:num.nLS
@@ -1966,7 +1966,7 @@ function CN_set_momentum(
             A[end-nb+1:end,sb] = b_b * (HxT_b * iMx_b' * Hx[iLS] .+ HyT_b * iMy_b' * Hy[iLS])
 
             # Contribution to implicit part of viscous term from inner boundaries
-            B[1:ni,sb] = τ2 .* bc_Lm1[iLS]
+            B[1:ni,sb] = timestep_n2 .* bc_Lm1[iLS]
         end
 
         veci(rhs,grid,iLS+1) .= χ[iLS] * vec(a0)
@@ -2008,7 +2008,7 @@ function FE_set_momentum(
     L, bc_L, bc_L_b, Mm1, BC,
     ls_advection
     )
-    @unpack τ = num
+    @unpack timestep_n = num
     @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
 
     ni = grid.nx * grid.ny
@@ -2027,9 +2027,9 @@ function FE_set_momentum(
 
     if ls_advection
         # Implicit part of viscous term
-        A[1:ni,1:ni] = pad_crank_nicolson(M .- τ .* L, grid, τ)
+        A[1:ni,1:ni] = pad_crank_nicolson(M .- timestep_n .* L, grid, timestep_n)
         # Contribution to implicit part of viscous term from outer boundaries
-        A[1:ni,end-nb+1:end] = - τ .* bc_L_b
+        A[1:ni,end-nb+1:end] = - timestep_n .* bc_L_b
         # Boundary conditions for outer boundaries
         A[end-nb+1:end,1:ni] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
         A[end-nb+1:end,end-nb+1:end] = pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b)
@@ -2076,7 +2076,7 @@ function FE_set_momentum(
 
         if ls_advection
             # Contribution to implicit part of viscous term from inner boundaries
-            A[1:ni,sb] = - τ .* bc_L[iLS]
+            A[1:ni,sb] = - timestep_n .* bc_L[iLS]
             # Boundary conditions for inner boundaries
             A[sb,1:ni] = b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
             # Contribution to Neumann BC from other boundaries
@@ -2126,7 +2126,7 @@ function FE_set_momentum_old(
     L, bc_L, bc_L_b, Mm1, BC,
     ls_advection
     )
-    @unpack τ = num
+    @unpack timestep_n = num
     @unpack Bx, By, Hx, Hy, HxT, HyT, χ, M, iMx, iMy, Hx_b, Hy_b, HxT_b, HyT_b, iMx_b, iMy_b, iMx_bd, iMy_bd, χ_b = opC
 
     ni = grid.nx * grid.ny
@@ -2145,9 +2145,9 @@ function FE_set_momentum_old(
 
     if ls_advection
         # Implicit part of viscous term
-        A[1:ni,1:ni] = pad_crank_nicolson(M .- τ .* L, grid, τ)
+        A[1:ni,1:ni] = pad_crank_nicolson(M .- timestep_n .* L, grid, timestep_n)
         # Contribution to implicit part of viscous term from outer boundaries
-        A[1:ni,end-nb+1:end] = - τ .* bc_L_b
+        A[1:ni,end-nb+1:end] = - timestep_n .* bc_L_b
         # Boundary conditions for outer boundaries
         A[end-nb+1:end,1:ni] = b_b * (HxT_b * iMx_b' * Bx .+ HyT_b * iMy_b' * By)
         A[end-nb+1:end,end-nb+1:end] = pad(b_b * (HxT_b * iMx_bd * Hx_b .+ HyT_b * iMy_bd * Hy_b) .- χ_b * a1_b)
@@ -2192,7 +2192,7 @@ function FE_set_momentum_old(
 
         if ls_advection
             # Contribution to implicit part of viscous term from inner boundaries
-            A[1:ni,sb] = - τ .* bc_L[iLS]
+            A[1:ni,sb] = - timestep_n .* bc_L[iLS]
             # Boundary conditions for inner boundaries
             A[sb,1:ni] = b * (HxT[iLS] * iMx * Bx .+ HyT[iLS] * iMy * By)
             # Contribution to Neumann BC from other boundaries
@@ -2605,7 +2605,7 @@ solves Navier-Stokes equations with a pressure projection method.
 - `pres_free_suface`: Free surface pressure.
 - `diff_inv_rho`: Difference in inverse densities.
 - `jump_mass_transfer_rate`: Flag for mass flux jump.
-- `τ`: Time step.
+- `timestep_n`: Time step.
 - `Aϕ`: Matrix for the Poisson equation.
 - `num`: Numerical parameters.
 - `epsilon_mode`, `epsilon_vol`: parameters for epsilon handling.
@@ -2668,13 +2668,13 @@ function pressure_projection!(
     Cum1, Cvm1, Mum1, Mvm1,
     periodic_x, periodic_y, advection, ls_advection, current_iter, Ra, navier, pres_free_suface,jump_mass_transfer_rate,mass_transfer_rate
     )
-    @unpack Re, τ, σ, g, β, nLS, nNavier = num
+    @unpack Re, timestep_n, σ, g, β, nLS, nNavier = num
     @unpack p, pD, ϕ, ϕD, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr, uT = ph
     @unpack Cu, Cv, CUTCu, CUTCv = op_conv
     @unpack rho1,rho2,visc_coeff = num
 
     iRe = visc_coeff
-    iτ = 1.0 / τ
+    itimestep_n = 1.0 / timestep_n
     irho1 = 1.0/rho1
     mu1_over_rho1 = num.mu1 / num.rho1 
 
@@ -2810,16 +2810,16 @@ function pressure_projection!(
         # if is_wall_no_slip(bc_int)
         #     vec1(uD,grid_u) .= vec(u)
         #     # update_dirichlet_field!(grid_u, uD, u, BC_u)
-        #     vec1(rhs_u,grid_u) .+= -τ .* (opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid))
+        #     vec1(rhs_u,grid_u) .+= -timestep_n .* (opC_u.AxT * opC_u.Rx * vec1(pD,grid) .+ opC_u.Gx_b * vecb(pD,grid))
         #     for iLS in 1:nLS
-        #         vec1(rhs_u,grid_u) .+= -τ .* (opC_u.Gx[iLS] * veci(pD,grid,iLS+1))
+        #         vec1(rhs_u,grid_u) .+= -timestep_n .* (opC_u.Gx[iLS] * veci(pD,grid,iLS+1))
         #     end
         # end
         mul!(rhs_u, Bu, uD, 1.0, 1.0)
-        vec1(rhs_u,grid_u) .+= τ .* grav_x
-        vec1(rhs_u,grid_u) .-= τ .* Convu
-        vec1(rhs_u,grid_u) .+= τ .* ra_x
-        vec1(rhs_u,grid_u) .-= τ .* irho1 .* ph.Gxm1 
+        vec1(rhs_u,grid_u) .+= timestep_n .* grav_x
+        vec1(rhs_u,grid_u) .-= timestep_n .* Convu
+        vec1(rhs_u,grid_u) .+= timestep_n .* ra_x
+        vec1(rhs_u,grid_u) .-= timestep_n .* irho1 .* ph.Gxm1 
         
         kill_dead_cells!(vec1(rhs_u,grid_u), grid_u, geo_u[end])
         for iLS in 1:nLS
@@ -2843,9 +2843,9 @@ function pressure_projection!(
         # if is_wall_no_slip(bc_int)
         #     vec1(vD,grid_v) .= vec(v)
         #     # update_dirichlet_field!(grid_v, vD, v, BC_v)
-        #     vec1(rhs_v,grid_v) .+= -τ .* (opC_v.AyT * opC_v.Ry * vec1(pD,grid) .+opC_v.Gy_b * vecb(pD,grid))
+        #     vec1(rhs_v,grid_v) .+= -timestep_n .* (opC_v.AyT * opC_v.Ry * vec1(pD,grid) .+opC_v.Gy_b * vecb(pD,grid))
         #     for iLS in 1:nLS
-        #         vec1(rhs_v,grid_v) .+= -τ .* (opC_v.Gy[iLS] * veci(pD,grid,iLS+1))
+        #         vec1(rhs_v,grid_v) .+= -timestep_n .* (opC_v.Gy[iLS] * veci(pD,grid,iLS+1))
         #     end
         # end
 
@@ -2860,25 +2860,25 @@ function pressure_projection!(
         "v_1D"::Cstring, rhs_v::Ptr{Cdouble}, PDI_OUT::Cint,
         C_NULL::Ptr{Cvoid})::Cint
 
-        vec1(rhs_v,grid_v) .+= - τ .* grav_y #TODO - minus sign here + sign there
+        vec1(rhs_v,grid_v) .+= - timestep_n .* grav_y #TODO - minus sign here + sign there
 
         PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_v"::Cstring,
         "v_1D"::Cstring, rhs_v::Ptr{Cdouble}, PDI_OUT::Cint,
         C_NULL::Ptr{Cvoid})::Cint
 
-        vec1(rhs_v,grid_v) .-= τ .* Convv
+        vec1(rhs_v,grid_v) .-= timestep_n .* Convv
         
         PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_v"::Cstring,
         "v_1D"::Cstring, rhs_v::Ptr{Cdouble}, PDI_OUT::Cint,
         C_NULL::Ptr{Cvoid})::Cint
 
-        vec1(rhs_v,grid_v) .+= τ .* ra_y
+        vec1(rhs_v,grid_v) .+= timestep_n .* ra_y
 
         PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_v"::Cstring,
         "v_1D"::Cstring, rhs_v::Ptr{Cdouble}, PDI_OUT::Cint,
         C_NULL::Ptr{Cvoid})::Cint
 
-        vec1(rhs_v,grid_v) .-= τ .* irho1 .* ph.Gym1
+        vec1(rhs_v,grid_v) .-= timestep_n .* irho1 .* ph.Gym1
 
         PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_v"::Cstring,
         "v_1D"::Cstring, rhs_v::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -2947,15 +2947,15 @@ function pressure_projection!(
 
         rhs_uv .+=  Buv * uvm1
 
-        rhs_uv[1:niu] .+= τ .* grav_x
-        rhs_uv[1:niu] .-= τ .* Convu
-        rhs_uv[1:niu] .+= τ .* ra_x
-        rhs_uv[1:niu] .-= τ .* irho1 .* ph.Gxm1 
+        rhs_uv[1:niu] .+= timestep_n .* grav_x
+        rhs_uv[1:niu] .-= timestep_n .* Convu
+        rhs_uv[1:niu] .+= timestep_n .* ra_x
+        rhs_uv[1:niu] .-= timestep_n .* irho1 .* ph.Gxm1 
 
-        rhs_uv[ntu+1:ntu+niv] .+= τ .* grav_y
-        rhs_uv[ntu+1:ntu+niv] .-= τ .* Convv
-        rhs_uv[ntu+1:ntu+niv] .+= τ .* ra_y
-        rhs_uv[ntu+1:ntu+niv] .-= τ .* irho1 .* ph.Gym1 
+        rhs_uv[ntu+1:ntu+niv] .+= timestep_n .* grav_y
+        rhs_uv[ntu+1:ntu+niv] .-= timestep_n .* Convv
+        rhs_uv[ntu+1:ntu+niv] .+= timestep_n .* ra_y
+        rhs_uv[ntu+1:ntu+niv] .-= timestep_n .* irho1 .* ph.Gym1 
 
         @views kill_dead_cells!(rhs_uv[1:niu], grid_u, geo_u[end])
         @views kill_dead_cells!(rhs_uv[ntu+1:ntu+niv], grid_v, geo_v[end])
@@ -2975,7 +2975,14 @@ function pressure_projection!(
             @time uvD .= Auv \ rhs_uv
         catch e
             uvD .= Inf
+            
+            printstyled(color=:red, @sprintf "\n --------------------------------------------------------------\n")
+            printstyled(color=:red, @sprintf "\n NS solver error pressure_projection!\n")
             println(e)
+            @error("NS solver error solve_one_fluid_NS_no_phase!")
+            num.status = 1
+            printstyled(color=:red, @sprintf "\n --------------------------------------------------------------\n")
+
         end
 
         vec1(ucorrD, grid_u) .= uvD[1:niu]
@@ -3054,7 +3061,7 @@ function pressure_projection!(
 
     # Poisson equation: source term
     # divergence of velocity / dt
-    vec1(rhs_ϕ,grid) .= iτ .* Duv
+    vec1(rhs_ϕ,grid) .= itimestep_n .* Duv
 
     #region needs to be corrected/documented for the signs, free surface pressure BC 
     
@@ -3158,7 +3165,7 @@ function pressure_projection!(
         # "not consistent with a second-order discretization of the Navier–Stokes equations since, 
         # due to Eq. (72), the normal component of the pressure gradient will remain constant in time at the boundary"
         # Brown 2001
-        vec1(pD,grid) .+= vec(ϕ) #no τ  since div u not rho1
+        vec1(pD,grid) .+= vec(ϕ) #no timestep_n  since div u not rho1
 
     elseif num.prediction == "PmII" || num.prediction == "PmIIimposedpressure" || num.prediction == "PmIIimposedpressureBCincrement"
         # \nabla_h p^{n+1/2} = \nabla_h p^{n-1/2} + \nabla_h \phi^{n+1} - 
@@ -3248,11 +3255,11 @@ function pressure_projection!(
     # vec1(∇ϕ_y,grid) .*= irho1
 
     
-    # u .= ucorr .- τ .* reshape(iMu * ∇ϕ_x, grid_u)
-    # v .= vcorr .- τ .* reshape(iMv * ∇ϕ_y, grid_v)
+    # u .= ucorr .- timestep_n .* reshape(iMu * ∇ϕ_x, grid_u)
+    # v .= vcorr .- timestep_n .* reshape(iMv * ∇ϕ_y, grid_v)
 
-    u .= ucorr .- τ .* irho1 .* reshape(iMu * ∇ϕ_x, grid_u)
-    v .= vcorr .- τ .* irho1 .* reshape(iMv * ∇ϕ_y, grid_v)
+    u .= ucorr .- timestep_n .* irho1 .* reshape(iMu * ∇ϕ_x, grid_u)
+    v .= vcorr .- timestep_n .* irho1 .* reshape(iMv * ∇ϕ_y, grid_v)
 
     kill_dead_cells!(u, grid_u, geo_u[end])
     kill_dead_cells!(v, grid_v, geo_v[end])
@@ -3270,13 +3277,13 @@ function pressure_projection!(
         #     @inbounds for II in grid_u.ind.all_indices
         #         pII = lexicographic(II, grid_u.ny)
         #         if abs(veci(ucorrD,grid_u,iLS+1)[pII]) > 1e-12
-        #             veci(ucorrD,grid_u,iLS+1)[pII] -= (τ .* iMu * ∇ϕ_x)[pII]
+        #             veci(ucorrD,grid_u,iLS+1)[pII] -= (timestep_n .* iMu * ∇ϕ_x)[pII]
         #         end
         #     end
         #     @inbounds for II in grid_v.ind.all_indices
         #         pII = lexicographic(II, grid_v.ny)
         #         if abs(veci(vcorrD,grid_v,iLS+1)[pII]) > 1e-12
-        #             veci(vcorrD,grid_v,iLS+1)[pII] -= (τ .* iMv * ∇ϕ_y)[pII]
+        #             veci(vcorrD,grid_v,iLS+1)[pII] -= (timestep_n .* iMv * ∇ϕ_y)[pII]
         #         end
         #     end
         # end
@@ -3338,7 +3345,7 @@ solves Navier-Stokes equations with a coupled pressure velocity method.
 - `pres_free_suface`: Free surface pressure.
 - `diff_inv_rho`: Difference in inverse densities.
 - `jump_mass_transfer_rate`: Flag for mass flux jump.
-- `τ`: Time step.
+- `timestep_n`: Time step.
 - `Aϕ`: Matrix for the Poisson equation.
 - `num`: Numerical parameters.
 - `epsilon_mode`, `epsilon_vol`: parameters for epsilon handling.
@@ -3384,13 +3391,13 @@ function coupled_pressure_velocity!(
     Cum1, Cvm1, Mum1, Mvm1,
     periodic_x, periodic_y, advection, ls_advection, current_iter, Ra, navier, pres_free_suface,jump_mass_transfer_rate,mass_transfer_rate
     )
-    @unpack Re, τ, σ, g, β, nLS, nNavier = num
+    @unpack Re, timestep_n, σ, g, β, nLS, nNavier = num
     @unpack p, pD, ϕ, ϕD, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr = ph
     @unpack Cu, Cv, CUTCu, CUTCv = op_conv
     @unpack rho1,rho2,visc_coeff = num
 
     iRe = visc_coeff
-    iτ = 1.0 / τ
+    itimestep_n = 1.0 / timestep_n
     irho1 = 1.0/rho1
     mu1_over_rho1 = num.mu1 / num.rho1 
 
@@ -3484,10 +3491,10 @@ function coupled_pressure_velocity!(
 
     #cf in prediction
     # mul!(rhs_u, Bu, uD, 1.0, 1.0)
-    # vec1(rhs_u,grid_u) .+= τ .* grav_x
-    # vec1(rhs_u,grid_u) .-= τ .* Convu
-    # vec1(rhs_u,grid_u) .+= τ .* ra_x
-    # vec1(rhs_u,grid_u) .-= τ .* irho1 .* ph.Gxm1 
+    # vec1(rhs_u,grid_u) .+= timestep_n .* grav_x
+    # vec1(rhs_u,grid_u) .-= timestep_n .* Convu
+    # vec1(rhs_u,grid_u) .+= timestep_n .* ra_x
+    # vec1(rhs_u,grid_u) .-= timestep_n .* irho1 .* ph.Gxm1 
     
     # kill_dead_cells!(vec1(rhs_u,grid_u), grid_u, geo_u[end])
     # for iLS in 1:nLS
@@ -3587,15 +3594,15 @@ function coupled_pressure_velocity!(
     # C_NULL::Ptr{Cvoid})::Cint
 
 
-    rhs_uv[1:niu] .+= τ .* grav_x
-    rhs_uv[1:niu] .-= τ .* Convu
-    rhs_uv[1:niu] .+= τ .* ra_x
-    # rhs_uv[1:niu] .-= τ .* irho1 .* ph.Gxm1 
+    rhs_uv[1:niu] .+= timestep_n .* grav_x
+    rhs_uv[1:niu] .-= timestep_n .* Convu
+    rhs_uv[1:niu] .+= timestep_n .* ra_x
+    # rhs_uv[1:niu] .-= timestep_n .* irho1 .* ph.Gxm1 
 
-    rhs_uv[ntu+1:ntu+niv] .+= τ .* grav_y
-    rhs_uv[ntu+1:ntu+niv] .-= τ .* Convv
-    rhs_uv[ntu+1:ntu+niv] .+= τ .* ra_y
-    # rhs_uv[ntu+1:ntu+niv] .-= τ .* irho1 .* ph.Gym1 
+    rhs_uv[ntu+1:ntu+niv] .+= timestep_n .* grav_y
+    rhs_uv[ntu+1:ntu+niv] .-= timestep_n .* Convv
+    rhs_uv[ntu+1:ntu+niv] .+= timestep_n .* ra_y
+    # rhs_uv[ntu+1:ntu+niv] .-= timestep_n .* irho1 .* ph.Gym1 
 
     @views kill_dead_cells!(rhs_uv[1:niu], grid_u, geo_u[end])
     @views kill_dead_cells!(rhs_uv[ntu+1:ntu+niv], grid_v, geo_v[end])
@@ -4190,7 +4197,7 @@ function linear_advection!(
     num, grid, geo, grid_u, geo_u, grid_v, geo_v, ph,
     BC_u, BC_v, op_conv
     )
-    @unpack τ = num
+    @unpack timestep_n = num
     @unpack u, v, uD, vD = ph
     @unpack Cu, Cv, CUTCu, CUTCv = op_conv
 
@@ -4237,12 +4244,12 @@ function linear_advection!(
     set_convection!(num, grid, geo, grid_u, grid_u.LS, grid_v, grid_v.LS, u_midp, v_midp, op_conv, ph, BC_u, BC_v,opC_p, opC_u, opC_v)
 
     Convu .= Cu * vec(u_midp) .+ CUTCu
-    vec1(rhs_u, grid_u) .-= τ .* Convu
+    vec1(rhs_u, grid_u) .-= timestep_n .* Convu
     kill_dead_cells!(vec1(rhs_u, grid_u), grid_u, geo_u)
     kill_dead_cells!(vec2(rhs_u, grid_u), grid_u, geo_u)
 
     Convv .= Cv * vec(v_midp) .+ CUTCv
-    vec1(rhs_v, grid_v) .-= τ .* Convv
+    vec1(rhs_v, grid_v) .-= timestep_n .* Convv
     kill_dead_cells!(vec1(rhs_v, grid_v), grid_v, geo_v)
     kill_dead_cells!(vec2(rhs_v, grid_v), grid_v, geo_v)
     
@@ -4255,7 +4262,7 @@ function linear_advection!(
 end
 
 function residual(u_guess, v_guess, num, grid, geo, grid_u, geo_u, grid_v, geo_v, u, v, op_conv, ph, BC_u, BC_v)
-    @unpack τ = num
+    @unpack timestep_n = num
     @unpack uD, vD = ph
     @unpack Cu, Cv, CUTCu, CUTCv = op_conv
 
@@ -4277,8 +4284,8 @@ function residual(u_guess, v_guess, num, grid, geo, grid_u, geo_u, grid_v, geo_v
     set_convection!(num, grid, geo, grid_u, grid_u.LS, grid_v, grid_v.LS, u_midp, v_midp, op_conv, ph, BC_u, BC_v,opC_p, opC_u, opC_v)
     Convu .= Cu * vec(u_midp) .+ CUTCu
     Convv .= Cv * vec(v_midp) .+ CUTCv
-    vec1(rhs_u, grid_u) .-= τ .* Convu
-    vec1(rhs_v, grid_v) .-= τ .* Convv
+    vec1(rhs_u, grid_u) .-= timestep_n .* Convu
+    vec1(rhs_v, grid_v) .-= timestep_n .* Convv
     
     kill_dead_cells!(vec1(rhs_u, grid_u), grid_u, geo_u)
     kill_dead_cells!(vec2(rhs_u, grid_u), grid_u, geo_u)

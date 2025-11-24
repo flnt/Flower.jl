@@ -1040,9 +1040,9 @@ set_border_matrices!
 
 ```julia
 # Implicit part of heat equation
-        A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* τ .* diffusion_coeff_scal .* LT, grid, τ)
-        A[1:ni,ni+1:2*ni] = - 0.5 .* τ .* diffusion_coeff_scal .* LD
-        A[1:ni,end-nb+1:end] = - 0.5 .* τ .* diffusion_coeff_scal .* LD_b
+        A[1:ni,1:ni] = pad_crank_nicolson(M .- 0.5 .* timestep_n .* diffusion_coeff_scal .* LT, grid, timestep_n)
+        A[1:ni,ni+1:2*ni] = - 0.5 .* timestep_n .* diffusion_coeff_scal .* LD
+        A[1:ni,end-nb+1:end] = - 0.5 .* timestep_n .* diffusion_coeff_scal .* LD_b
 
         # Interior BC
         A[ni+1:2*ni,1:ni] = b * (HxT[1] * iMx * Bx .+ HyT[1] * iMy * By)
@@ -1055,9 +1055,9 @@ set_border_matrices!
         A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b, 4.0)
 
         # Explicit part of heat equation
-        B[1:ni,1:ni] = M .+ 0.5 .* τ .* diffusion_coeff_scal .* LT .- τ .* CT
-        B[1:ni,ni+1:2*ni] = 0.5 .* τ .* diffusion_coeff_scal .* LD
-        B[1:ni,end-nb+1:end] = 0.5 .* τ .* diffusion_coeff_scal .* LD_b
+        B[1:ni,1:ni] = M .+ 0.5 .* timestep_n .* diffusion_coeff_scal .* LT .- timestep_n .* CT
+        B[1:ni,ni+1:2*ni] = 0.5 .* timestep_n .* diffusion_coeff_scal .* LD
+        B[1:ni,end-nb+1:end] = 0.5 .* timestep_n .* diffusion_coeff_scal .* LD_b
 ```
 
 ## Poisson equation (old implementation)
@@ -2105,7 +2105,7 @@ FE_set_momentum_coupled
 
 New version 
 
-!!! todo "capcities for divergence"
+!!! todo "capacities for divergence"
     ```julia
     Duv = opC_p.AxT * vec1(ucorrD,grid_u) .+ opC_p.Gx_b * vecb(ucorrD,grid_u) .+
           opC_p.AyT * vec1(vcorrD,grid_v) .+ opC_p.Gy_b * vecb(vcorrD,grid_v)
@@ -2185,6 +2185,15 @@ set_Crank_Nicolson!
 solve_one_fluid_NS!
 ```
 
+
+### Matrix
+The matrix for the one-fluid model is defined here:
+```@docs
+FE_set_momentum_coupled2_one_fluid
+```
+
+
+
 The interpolations for the viscosity are done with:
 
 ```@docs
@@ -2198,10 +2207,22 @@ bilinear_interpolation
     <figcaption>Staggered grids </figcaption>
 </figure>
 ```
+### Surface tension
+If num.surface_tension = 1, the surface tension is computed based on the levelset.
+
+#### Based on the levelset
+
+When the surface tension is computed based on the levelset, the levelset is firt smoothed with:
+
+```@docs
+levelset_heavyside
+```
 
 ```@docs
 compute_surface_tension_LS!
 ```
+
+#### Based on the VOF
 
 ```@docs
 compute_surface_tension_VOF!
@@ -2211,6 +2232,11 @@ compute_surface_tension_VOF!
 get_curvature
 ```
 
+## Interface transport 
+
+```@docs
+select_advection!
+```
 
 ## Velocity-pressure coupling
 
@@ -3138,6 +3164,12 @@ Changing
 
 with diagonal scaling (not useful for direct resolution?): norm2(Ax-b)/norm2(b)=21.5550725612907207e-12
 
+
+## Timestep
+
+```@docs
+adapt_timestep!
+```
 
 ## Possible improvements 
 * Restart (TODO restart with PDI) cf hello_access.jl

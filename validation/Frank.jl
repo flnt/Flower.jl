@@ -62,7 +62,7 @@ function conv_Frank(x;
 
         push!(grid, num.H)
         push!(radius_data, radius)
-        time = [1 + i*num.τ for i in 0:num.max_iterations]
+        time = [1 + i*num.timestep_n for i in 0:num.max_iterations]
         push!(time_data, time)
 
         e = analytical_temperature - fwd.TL

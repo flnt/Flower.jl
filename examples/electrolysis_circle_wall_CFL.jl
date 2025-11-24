@@ -116,13 +116,13 @@ cmap = plt.cm.viridis
 adapt_timestep_mode=2
 adapt_timestep_mode=3
 
-dt0 = 5e-5
-dt0 = 2.5e-5 #CFL >1 for n = 128
-dt0 = 1.25e-5 #CFL >0.5 for n = 128
-dt0 = 6.25e-6 #CFL >0.5 for n = 128
-dt0 = 3.125e-6 #radius CFL: 3.54e-01 -7.17e+00% 
-# dt0 = 1e-6 #error dnH2 -2.40e-15
-# dt0 = 1e-6 #dnH2 -2.40e-15
+timestep_0 = 5e-5
+timestep_0 = 2.5e-5 #CFL >1 for n = 128
+timestep_0 = 1.25e-5 #CFL >0.5 for n = 128
+timestep_0 = 6.25e-6 #CFL >0.5 for n = 128
+timestep_0 = 3.125e-6 #radius CFL: 3.54e-01 -7.17e+00% 
+# timestep_0 = 1e-6 #error dnH2 -2.40e-15
+# timestep_0 = 1e-6 #dnH2 -2.40e-15
 
 
 ###################################################################################################
@@ -867,7 +867,7 @@ num = Numerical(
     # NB = 24,
     plot_xscale = plot_xscale,
     plot_prefix = prefix,
-    dt0 = dt0,
+    timestep_0 = timestep_0,
     concentration_check_factor = concentration_check_factor,
     radial_vel_factor = radial_vel_factor,
     scalar_debug =scalar_debug,
@@ -936,7 +936,7 @@ if imposed_velocity == "radial"
         end
     end
 
-    printstyled(color=:red, @sprintf "\n radial vel: %.2e %.2e CFL %.2e dt0 %.2e dx %.2e \n" maximum(phL.u) maximum(phL.v) max(maximum(phL.u),maximum(phL.v))*dt0/gp.dx[1,1] dt0 gp.dx[1,1])
+    printstyled(color=:red, @sprintf "\n radial vel: %.2e %.2e CFL %.2e timestep_0 %.2e dx %.2e \n" maximum(phL.u) maximum(phL.v) max(maximum(phL.u),maximum(phL.v))*timestep_0/gp.dx[1,1] timestep_0 gp.dx[1,1])
 
             
 
@@ -1075,11 +1075,11 @@ print_electrolysis_statistics(num,gp,phL)
 printstyled(color=:green, @sprintf "\n TODO timestep CFL scal, and print \n")
 
 
-@unpack τ,CFL,Δ,Re,θd=num
-# print(@sprintf "dt %.2e %.2e %.2e %.2e %.2e %.2e\n" τ CFL CFL*Δ CFL*Δ^2*Re Re θd)
-# τ=CFL*Δ/v_inlet
-# num.τ=τ
-# print(@sprintf "dt %.2e \n" τ)
+@unpack timestep_n,CFL,Δ,Re,θd=num
+# print(@sprintf "dt %.2e %.2e %.2e %.2e %.2e %.2e\n" timestep_n CFL CFL*Δ CFL*Δ^2*Re Re θd)
+# timestep_n=CFL*Δ/v_inlet
+# num.timestep_n=timestep_n
+# print(@sprintf "dt %.2e \n" timestep_n)
 
 #TODO pressure left and right BC not mentioned in the article Khalighi 2023
 

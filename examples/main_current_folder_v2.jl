@@ -389,7 +389,7 @@ elseif sim.name == "channel_Dirichlet_pressure"
 
     print("\n phys.ref_length ",phys.ref_length)
     
-    printstyled(color=:green, @sprintf "\n mu1 : %.2e v %.2e vtest %.2e sim.CFL %.2e \n" mu1 phys.v_inlet test_v phys.v_inlet*sim.dt0/(phys.ref_length/mesh.nx))
+    printstyled(color=:green, @sprintf "\n mu1 : %.2e v %.2e vtest %.2e sim.CFL %.2e \n" mu1 phys.v_inlet test_v phys.v_inlet*sim.timestep_0/(phys.ref_length/mesh.nx))
 
     printstyled(color=:green, @sprintf "\n p_bottom : %.2e p_top %.2e grad %.2e grad %.2e \n" p_bottom p_top -(p_top-p_bottom)/phys.ref_length 8*mu1/phys.ref_length^2*phys.v_inlet)
 
@@ -423,10 +423,10 @@ elseif sim.name == "channel_Dirichlet_constant_vel"
     # save_every = 1
 
     # sim.CFL 1
-    sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet
+    sim.timestep_0 = phys.ref_length/mesh.nx/phys.v_inlet
 
     # sim.CFL 0.5
-    sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet/2 
+    sim.timestep_0 = phys.ref_length/mesh.nx/phys.v_inlet/2 
     
     BC_trans_scal_H2 = BoundariesInt(
     bottom = Dirichlet(val = phys.concentration0[1]),
@@ -477,10 +477,10 @@ elseif sim.name == "channel_Dirichlet_zero_vel"
 
 
     # sim.CFL 1
-    sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet
+    sim.timestep_0 = phys.ref_length/mesh.nx/phys.v_inlet
 
     # sim.CFL 0.5
-    sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet/2 
+    sim.timestep_0 = phys.ref_length/mesh.nx/phys.v_inlet/2 
     
     BC_trans_scal_H2 = BoundariesInt(
     bottom = Dirichlet(val = phys.concentration0[1]),
@@ -532,10 +532,10 @@ elseif sim.name == "channel_Dirichlet_imposed_Poiseuille"
     # save_every = 1
 
     # # sim.CFL 1
-    # sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet 
+    # sim.timestep_0 = phys.ref_length/mesh.nx/phys.v_inlet 
 
     # sim.CFL 0.5
-    sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet/2 
+    sim.timestep_0 = phys.ref_length/mesh.nx/phys.v_inlet/2 
 
     
     BC_trans_scal_H2 = BoundariesInt(
@@ -676,7 +676,7 @@ num = Numerical(
     # NB = 24,
     plot_xscale = io.scale_x,
     plot_prefix = prefix,
-    dt0 = sim.dt0,
+    timestep_0 = sim.timestep_0,
     concentration_check_factor = sim.concentration_check_factor,
     radial_vel_factor = radial_vel_factor,
     debug = sim.debug,
@@ -712,7 +712,7 @@ if sim.imposed_velocity == "radial"
     radial_vel!(phL,gu,gv,radial_vel_factor,phys.intfc_x,phys.intfc_y,phys.radius)
     radial_vel!(phS,gu,gv,radial_vel_factor,phys.intfc_x,phys.intfc_y,phys.radius)
 
-    printstyled(color=:red, @sprintf "\n radial vel: %.2e %.2e sim.CFL %.2e sim.dt0 %.2e dx %.2e \n" maximum(phL.u) maximum(phL.v) max(maximum(phL.u),maximum(phL.v))*sim.dt0/gp.dx[1,1] sim.dt0 gp.dx[1,1])
+    printstyled(color=:red, @sprintf "\n radial vel: %.2e %.2e sim.CFL %.2e sim.timestep_0 %.2e dx %.2e \n" maximum(phL.u) maximum(phL.v) max(maximum(phL.u),maximum(phL.v))*sim.timestep_0/gp.dx[1,1] sim.timestep_0 gp.dx[1,1])
     vPoiseuilleb = 0.0
 
 elseif sim.imposed_velocity == "constant"
@@ -1076,11 +1076,11 @@ print_electrolysis_statistics(phys.nb_transported_scalars,gp,phL)
 printstyled(color=:green, @sprintf "\n TODO timestep sim.CFL scal, and print \n")
 
 
-@unpack τ,sim.CFL,Δ,Re,θd=num
-# print(@sprintf "dt %.2e %.2e %.2e %.2e %.2e %.2e\n" τ sim.CFL sim.CFL*Δ sim.CFL*Δ^2*Re Re θd)
-# τ=sim.CFL*Δ/phys.v_inlet
-# num.τ=τ
-# print(@sprintf "dt %.2e \n" τ)
+@unpack timestep_n,sim.CFL,Δ,Re,θd=num
+# print(@sprintf "dt %.2e %.2e %.2e %.2e %.2e %.2e\n" timestep_n sim.CFL sim.CFL*Δ sim.CFL*Δ^2*Re Re θd)
+# timestep_n=sim.CFL*Δ/phys.v_inlet
+# num.timestep_n=timestep_n
+# print(@sprintf "dt %.2e \n" timestep_n)
 
 #TODO pressure left and right BC not mentioned in the article Khalighi 2023
 

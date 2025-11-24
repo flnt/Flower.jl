@@ -89,9 +89,9 @@ if sim.name == "falling_drop"
     Re = 1.0
     # dt in branch free-surface 
     deltax = min(diff(x)..., diff(y)...)
-    sim.dt0 = min(sim.CFL*deltax^2*Re, sim.CFL*deltax)
+    sim.timestep_0 = min(sim.CFL*deltax^2*Re, sim.CFL*deltax)
 
-    print("\n dt0 ", sim.dt0)
+    print("\n timestep_0 ", sim.timestep_0)
 
     # advection deactivated
 
@@ -331,7 +331,7 @@ else
 
         print("\n phys.ref_length ",phys.ref_length)
         
-        printstyled(color=:green, @sprintf "\n mu1 : %.2e v %.2e vtest %.2e sim.CFL %.2e \n" mu1 phys.v_inlet test_v phys.v_inlet*sim.dt0/(phys.ref_length/mesh.nx))
+        printstyled(color=:green, @sprintf "\n mu1 : %.2e v %.2e vtest %.2e sim.CFL %.2e \n" mu1 phys.v_inlet test_v phys.v_inlet*sim.timestep_0/(phys.ref_length/mesh.nx))
 
         printstyled(color=:green, @sprintf "\n p_bottom : %.2e p_top %.2e grad %.2e grad %.2e \n" p_bottom p_top -(p_top-p_bottom)/phys.ref_length 8*mu1/phys.ref_length^2*phys.v_inlet)
 
@@ -361,7 +361,7 @@ else
 
         save_every = sim.max_iter
 
-        sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet/2 
+        sim.timestep_0 = phys.ref_length/mesh.nx/phys.v_inlet/2 
         
         BC_trans_scal_H2 = BoundariesInt(
         bottom = Dirichlet(val = phys.concentration0[1]),
@@ -409,7 +409,7 @@ else
 
         save_every = sim.max_iter
 
-        sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet/2 
+        sim.timestep_0 = phys.ref_length/mesh.nx/phys.v_inlet/2 
         
         BC_trans_scal_H2 = BoundariesInt(
         bottom = Dirichlet(val = phys.concentration0[1]),
@@ -460,9 +460,9 @@ else
         # sim.max_iter = 1
         # save_every = 1
         # # sim.CFL 1
-        # sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet 
+        # sim.timestep_0 = phys.ref_length/mesh.nx/phys.v_inlet 
         # sim.CFL 0.5
-        sim.dt0 = phys.ref_length/mesh.nx/phys.v_inlet/2 
+        sim.timestep_0 = phys.ref_length/mesh.nx/phys.v_inlet/2 
 
         
         BC_trans_scal_H2 = BoundariesInt(
@@ -586,7 +586,7 @@ num = Numerical(
     NB = sim.NB,
     plot_xscale = io.scale_x,
     plot_prefix = prefix,
-    dt0 = sim.dt0,
+    timestep_0 = sim.timestep_0,
     concentration_check_factor = sim.concentration_check_factor,
     radial_vel_factor = radial_vel_factor,
     debug = sim.debug,
@@ -1015,7 +1015,7 @@ elseif sim.name == "sessile_2LS_adv"
 
     dx = diff(x)[1]
 
-    v_adv = dx/sim.dt0*0.5
+    v_adv = dx/sim.timestep_0*0.5
 
     phL.u .= v_adv
     phL.v .= 0.0
@@ -1207,7 +1207,7 @@ if sim.imposed_velocity == "radial"
     radial_vel!(phL,gu,gv,radial_vel_factor,phys.intfc_x,phys.intfc_y,phys.radius)
     radial_vel!(phS,gu,gv,radial_vel_factor,phys.intfc_x,phys.intfc_y,phys.radius)
 
-    printstyled(color=:red, @sprintf "\n radial vel: %.2e %.2e sim.CFL %.2e sim.dt0 %.2e dx %.2e \n" maximum(phL.u) maximum(phL.v) max(maximum(phL.u),maximum(phL.v))*sim.dt0/gp.dx[1,1] sim.dt0 gp.dx[1,1])
+    printstyled(color=:red, @sprintf "\n radial vel: %.2e %.2e sim.CFL %.2e sim.timestep_0 %.2e dx %.2e \n" maximum(phL.u) maximum(phL.v) max(maximum(phL.u),maximum(phL.v))*sim.timestep_0/gp.dx[1,1] sim.timestep_0 gp.dx[1,1])
     vPoiseuilleb = 0.0
 
 elseif sim.imposed_velocity == "constant"
@@ -1625,11 +1625,11 @@ print_electrolysis_statistics(num,gp,phL)
 printstyled(color=:green, @sprintf "\n TODO timestep sim.CFL scal, and print \n")
 
 
-@unpack τ,CFL,Δ,Re,θd=num
-# print(@sprintf "dt %.2e %.2e %.2e %.2e %.2e %.2e\n" τ sim.CFL sim.CFL*Δ sim.CFL*Δ^2*Re Re θd)
-# τ=sim.CFL*Δ/phys.v_inlet
-# num.τ=τ
-# print(@sprintf "dt %.2e \n" τ)
+@unpack timestep_n,CFL,Δ,Re,θd=num
+# print(@sprintf "dt %.2e %.2e %.2e %.2e %.2e %.2e\n" timestep_n sim.CFL sim.CFL*Δ sim.CFL*Δ^2*Re Re θd)
+# timestep_n=sim.CFL*Δ/phys.v_inlet
+# num.timestep_n=timestep_n
+# print(@sprintf "dt %.2e \n" timestep_n)
 
 #TODO pressure left and right BC not mentioned in the article Khalighi 2023
 

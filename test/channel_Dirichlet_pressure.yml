@@ -103,7 +103,7 @@ flower:
     imposed_velocity : "none" #"zero" #"none"
     index_phase_change: 1
     index_electrolyte: 2
-    dt0: 1e-5 #1e-4 #1e-3 #1e-6 #2.5e-5 #5e-5 #3.125e-6 #1e-4 #5e-3 #3.125e-6 #first timestep
+    timestep_0: 1e-5 #1e-4 #1e-3 #1e-6 #2.5e-5 #5e-5 #3.125e-6 #1e-4 #5e-3 #3.125e-6 #first timestep
     max_iter: 1 #1 #60 #1 #60 #1 #60 #maximum number of iterations
     average_velocity: 1 #0
     laplacian: 1 #multiply by 4/3

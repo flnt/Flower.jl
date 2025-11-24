@@ -10,7 +10,7 @@ function run_koenig(num, idx, tmp, fwd, s_l, u_x, u_y;
         top = Boundary())
     )
 
-    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, τ, L0, NB, n, Δ, CFL, max_iterations, current_iter, reinit_every, nb_reinit, ϵ, H, B, BT, m, θ₀, aniso = num
+    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, timestep_n, L0, NB, n, Δ, CFL, max_iterations, current_iter, reinit_every, nb_reinit, ϵ, H, B, BT, m, θ₀, aniso = num
     @unpack inside, b_left, b_bottom, b_right, b_top = idx
     @unpack SCUT, LCUT, AS, AL, BS, BL, LSA, LSB, SOL, LIQ, sol_projection, liq_projection = tmp
     @unpack iso, u, TS, TL, Tall, V, κ, usave, TSsave, TLsave, Tsave, Vsave, κsave, lengthsave = fwd
@@ -23,7 +23,7 @@ function run_koenig(num, idx, tmp, fwd, s_l, u_x, u_y;
 
     while current_iter < max_iterations + 1
 
-        t += τ
+        t += timestep_n
         marching_squares!(H, iso, u, TS, TL, κ, SOL, LIQ, sol_projection, liq_projection, Δ, L0, B, BT, inside, ϵ, n, faces)
 
         bcs!(faces, BC_u.left, Δ); bcs!(faces, BC_u.right, Δ)

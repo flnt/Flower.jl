@@ -59,7 +59,7 @@ function surface_tension_effect(x;
 
         if i == 1
             push!(grid, num.H)
-            time = [i*num.τ for i in 0:num.max_iterations]
+            time = [i*num.timestep_n for i in 0:num.max_iterations]
             push!(time_data, time)
         end
 

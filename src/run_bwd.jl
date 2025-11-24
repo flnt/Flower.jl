@@ -31,7 +31,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
     show_every = 100,
     )
 
-    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, num.τ, L0, NB, max_iterations, num.current_iter, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
+    @unpack L0, A, N, θd, ϵ_κ, ϵ_V, T_inf, num.timestep_n, L0, NB, max_iterations, num.current_iter, reinit_every, nb_reinit, ϵ, m, θ₀, aniso = num
     @unpack nx, ny, ind, faces, geoS, geoL, mid_point = grid
     @unpack all_indices, inside, b_left, b_bottom, b_right, b_top = ind
     @unpack usave, TSsave, TLsave, Tsave, Vsave, κsave = fwd
@@ -127,7 +127,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
                     laplacian!(dir, num, opS.LT, opS.CUTT, bcSx, bcSy, geoS.dcap, ny, BC_TS, inside, LIQUID,
                                 MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
                     crank_nicolson!(num, grid, geoS, opS)
-                    TS .= reshape(gmres(opS.A,(opS.B*vec(TS) + 2.0*num.τ*opS.CUTT)), (ny,nx))
+                    TS .= reshape(gmres(opS.A,(opS.B*vec(TS) + 2.0*num.timestep_n*opS.CUTT)), (ny,nx))
                 end
                 if liquid_phase
                     HL .= 0.
@@ -145,7 +145,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
                     laplacian!(dir, num, opL.LT, opL.CUTT, bcLx, bcLy, geoL.dcap, ny, BC_TL, inside, SOLID,
                                 MIXED, b_left[1], b_bottom[1], b_right[1], b_top[1])
                     crank_nicolson!(num, grid, geoL, opL)
-                    TL .= reshape(gmres(opL.A,(opL.B*vec(TL) + 2.0*num.τ*opL.CUTT)), (ny,nx))
+                    TL .= reshape(gmres(opL.A,(opL.B*vec(TL) + 2.0*num.timestep_n*opL.CUTT)), (ny,nx))
                 end
             catch
                 @error ("Unphysical temperature field, iteration $num.current_iter")
@@ -157,7 +157,7 @@ function run_backward(num, grid, opS, opL, fwd, adj;
             if num.current_iter%show_every == 0
                 try
                     printstyled(color=:green, @sprintf "\n Current iteration : %d (%d%%) \n" (num.current_iter-1) 100*(num.current_iter-1)/max_iterations)
-                    printstyled(color=:green, @sprintf "\n CFL : %.2e CFL : %.2e num.τ : %.2e\n" CFL max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)*num.τ/Δ num.τ)
+                    printstyled(color=:green, @sprintf "\n CFL : %.2e CFL : %.2e num.timestep_n : %.2e\n" CFL max(abs.(V)..., abs.(phL.u)..., abs.(phL.v)..., abs.(phS.u)..., abs.(phS.v)...)*num.timestep_n/Δ num.timestep_n)
 
                     print(@sprintf "V_mean = %.2f  V_max = %.2f  V_min = %.2f\n" mean(V[MIXED]) findmax(V[MIXED])[1] findmin(V[MIXED])[1])
                     print(@sprintf "κ_mean = %.2f  κ_max = %.2f  κ_min = %.2f\n" mean(κ[MIXED]) findmax(κ[MIXED])[1] findmin(κ[MIXED])[1])

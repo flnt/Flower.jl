@@ -133,9 +133,15 @@ function compute_surface_tension_LS!(num,grid, grid_u, grid_v, opC_p, opC_u, opC
     # curvature_u = zeros(grid_u)
     # curvature_v = zeros(grid_v)
 
-    interpolate_scalar!(grid, grid_u, grid_v, curvature_p, curvature_u, curvature_v)
+    # interpolate_scalar!(grid, grid_u, grid_v, curvature_p, curvature_u, curvature_v)
+
+    interpolate_scalar_one_fluid_or_one_phase!(num,grid, grid_u, grid_v, curvature_p, curvature_u, curvature_v)
+
 
     #endregion interpolate curvature from scalar to u and v grids
+
+    # curvature_u .= 4.0
+    # curvature_v .= 4.0
 
     # integrate the volumic surface tension
     volumic_surface_tension_u .= - num.sigma .* curvature_u .* normal_and_dirac_u

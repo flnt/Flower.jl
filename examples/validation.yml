@@ -58,7 +58,7 @@ flower:
     epsilon: 0.05 #cut small cells
     epsilon_mode: 2 #way to handle epsilon
     imposed_velocity: "none"
-    dt0: 3.125e-6 #first timestep
+    timestep_0: 3.125e-6 #first timestep
     max_iter: 100 #maximum number of iterations
     mode_2d: 3
     # mode_2d = 1 #use equivalent cylinder

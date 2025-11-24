@@ -276,7 +276,9 @@ function init_fields_multiple_levelsets!(num,TD,T,H,BC,grid,dir_val_intfc,str)
         end
 
     else
-        vec2(TD,grid) .= dir_val_intfc
+        if num.nLS>1
+            vec2(TD,grid) .= dir_val_intfc
+        end
     end
 
     if is_neumann(BC.left)
