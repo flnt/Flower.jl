@@ -612,6 +612,47 @@ def plot_schematics_func():
 
 
 
+
+#   """
+#     Plot all films in YAML file
+#     example:
+
+#     python3 ../../../Flower.jl/examples/flower_post_proc.py ../../../Flower.jl/examples/one_fluid_hysing_coupled2.yml --func plot_all_fig_func --h5 flower_00000*.h5
+
+#     python3 ../../../Flower.jl/examples/flower_post_proc.py ../../../Flower.jl/examples/one_fluid_hysing_coupled2.yml --func plot_all_fig_func --h5 flower_00000001.h5 --skip-existing
+    
+#     python3 ../../../Flower.jl/examples/flower_post_proc.py ../../../Flower.jl/examples/one_fluid_hysing_coupled2.yml --func plot_all_fig_func --h5 flower_00000001.h5 --name ucorr vcorr
+
+
+#     """
+
+
+   #  # If no h5 files are provided via args, list all .h5 files in current directory
+   #  if not args.h5 or len(args.h5) == 0:
+   #      all_files = os.listdir(".")
+   #      h5_files = [file for file in all_files if file.endswith(".h5")]
+   #  else:
+   #      h5_files = args.h5
+
+   #  output_dir = '.'
+   #  # print(h5_files)
+   #  h5_files = sorted(h5_files)
+   #  print(h5_files)
+
+   #  # print(sys.argv)
+
+   #  try:
+   #      yaml_file = sys.argv[1]
+   #      if ".yml" not in yaml_file:
+   #          yaml_file += ".yml"
+   #  except Exception as error:
+   #      print(error)
+   #      print(colored("error", "red"))
+
+   #  with open(yaml_file, "r") as file:
+   #      yml = yaml.safe_load(file)
+
+
 def plot_convergence_study_func(yaml_file, args):
    """
    Run a convergence study based on a YAML case file.
@@ -622,29 +663,58 @@ def plot_convergence_study_func(yaml_file, args):
    import yaml
    from pathlib import Path
 
-   # ----------------------------
-   # Resolve YAML path
-   # ----------------------------
-   yaml_path = Path(yaml_file).resolve()
-   if not yaml_path.exists():
-      raise FileNotFoundError(f"YAML file not found: {yaml_path}")
+   #print(colored('curves','red'))
 
-   # Use current working directory as case folder
-   case_folder = Path.cwd()
-   # print(f"[INFO] Using current directory as case folder: {case_folder}")
-   # ----------------------------
-   # Load YAML
-   # ----------------------------
-   with open(yaml_path, "r") as f:
-      yml = yaml.safe_load(f)
+   # If no h5 files are provided via args, list all .h5 files in current directory
+   if not args.h5 or len(args.h5) == 0:
+      all_files = os.listdir(".")
+      h5_files = [file for file in all_files if file.endswith(".h5")]
+   else:
+      h5_files = args.h5
 
-   # print(f"[INFO] Loaded YAML: {yaml_path.name}")
-   # print(f"[INFO] YAML keys: {list(yml.keys())}")
+   # print('args',args.h5,len(args.h5))
 
-   # ----------------------------
-   # Find .h5 files
-   # ----------------------------
-   h5_files = list(case_folder.glob("*.h5"))
+   output_dir = '.'
+   # print(h5_files)
+   h5_files = sorted(h5_files)
+   # print(h5_files)
+
+   # print(sys.argv)
+
+   # try:
+   #    yaml_file = sys.argv[1]
+   #    if ".yml" not in yaml_file:
+   #       yaml_file += ".yml"
+   # except Exception as error:
+   #    print(error)
+   #    print(colored("error", "red"))
+
+   # with open(yaml_file, "r") as file:
+   #    yml = yaml.safe_load(file)
+
+   # # ----------------------------
+   # # Resolve YAML path
+   # # ----------------------------
+   # yaml_path = Path(yaml_file).resolve()
+   # if not yaml_path.exists():
+   #    raise FileNotFoundError(f"YAML file not found: {yaml_path}")
+
+   # # Use current working directory as case folder
+   # case_folder = Path.cwd()
+   # # print(f"[INFO] Using current directory as case folder: {case_folder}")
+   # # ----------------------------
+   # # Load YAML
+   # # ----------------------------
+   # with open(yaml_path, "r") as f:
+   #    yml = yaml.safe_load(f)
+
+   # # print(f"[INFO] Loaded YAML: {yaml_path.name}")
+   # # print(f"[INFO] YAML keys: {list(yml.keys())}")
+
+   # # ----------------------------
+   # # Find .h5 files
+   # # ----------------------------
+   # h5_files = list(case_folder.glob("*.h5"))
 
    try:
       yamlfile = sys.argv[1]
@@ -719,9 +789,23 @@ def plot_convergence_study_func(yaml_file, args):
 
 
 
-      # print(colored('Curves','red'))
+      # #print(colored('curves','red'))
 
-   for figpar in plotpar["curves"]:
+   #print(colored('curves','red'))
+   for figpar in plotpar['curves']:
+
+      file_name = figpar['file']
+
+      if args.name: #TODO WIP
+         # if args.name[0] != file_name:
+         if all(name != file_name for name in args.name):
+            print(colored(f"Skipping {file_name} (figures {args.name} specified)", "yellow"))
+            # for name in args.name:
+            #     print(file_name,name)
+            continue
+      if args.skip_existing and fig_path.exists():
+         print(colored(f"Skipping {file_name} (figure already exists)", "yellow"))
+         continue
          
       try:
          # print(figpar)
@@ -2394,6 +2478,16 @@ def plot_1D(
          # X = varx
          # print(X)
          # local_context = {}
+
+         # print("figpar['iter']",figpar['iter'])
+         # label2 = file[figpar['iter']]
+         # print('label2',label2)
+         # # label1
+         # color2 = colors[figpar['iter']]
+         # print(color2)
+         # print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
+         # ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
+
          exec(figpar['macro'],
             #   ,globals(),
             # globals(),
@@ -2406,9 +2500,9 @@ def plot_1D(
 
    
       #    print(label1)
-      # print(label2)
-      # print(label1)
-      # print(figpar['macro'])
+      print(label2)
+      print(label1)
+      print(figpar['macro'])
       # print(figpar)
       if 'logplot' in figpar.keys():
 

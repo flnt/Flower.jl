@@ -682,9 +682,17 @@ function run_forward!(
             Mum1_S = copy(op.opC_uS.M)
             Mvm1_S = copy(op.opC_vS.M)
         end
+
+        # M defined in set_cutcell_matrices!
         Mm1_L = copy(op.opC_pL.M)
         Mum1_L = copy(op.opC_uL.M)
         Mvm1_L = copy(op.opC_vL.M)
+
+        if num.one_fluid_model == 1
+            @error("\n Mum1L needs to be redefined for one-fluid ")
+       
+        end
+
 
         if navier_stokes || heat || electrolysis
 
@@ -2190,6 +2198,12 @@ function run_forward!(
                         velocity_and_BC_convection_u_y ,
                         velocity_and_BC_convection_v_x ,
                         velocity_and_BC_convection_v_y)
+
+                        # Mm1_L .= op.opC_pL.M
+                        # Mum1_L .= op.opC_uL.M
+                        # Mvm1_L .= op.opC_vL.M
+
+                        
                     end
                     #endregion update LS for convection (bool=true)+ one fluid
 
@@ -2237,7 +2251,9 @@ function run_forward!(
                     # @error("\n check temporal terms")
 
                     # Mum1_L is put in B matrix that multiplies v
-                    print("\n advection ", ns_advection, " adv ",advection)
+                    # print("\n advection ", ns_advection, " adv ",advection)
+                    one_fluid_NS_ls_advection = true #update matrix
+
                     Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L,
                     Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = solve_one_fluid_NS!(
                     time_scheme, BC_int,
@@ -2248,7 +2264,7 @@ function run_forward!(
                     AuL, BuL, AvL, BvL, AϕL, AuvL, BuvL,rhs_uv,
                     Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L, Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L,
                     Cum1L, Cvm1L, Mum1_L, Mvm1_L,
-                    periodic_x, periodic_y, ns_advection, advection, num.current_iter, Ra, navier,
+                    periodic_x, periodic_y, ns_advection, one_fluid_NS_ls_advection, num.current_iter, Ra, navier,
                     volume_fraction,
                     levelset_one_fluid,
                     rho_one_fluid,

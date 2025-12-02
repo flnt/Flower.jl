@@ -158,6 +158,10 @@ function bilinear_interpolation(grid_p, x, y,values)
 end
 
 
+
+
+
+
 """
 store every nodes (border included) in a 2D matrix for interpolations
 uses geoL, not geoS
@@ -486,6 +490,128 @@ end
 
 
 """
+    compute_fluxes(u, v, rho, dx_p, dy_p)
+
+Compute the convective fluxes for a staggered grid system with variable grid spacing
+using a second-order centered scheme.
+
+# Arguments
+- `u::Matrix{Float64}`: x-velocity component (staggered in x)
+- `v::Matrix{Float64}`: y-velocity component (staggered in y)
+- `rho::Matrix{Float64}`: Density field (defined at cell centers)
+- `dx_p::Vector{Float64}`: x-direction grid spacing for the p grid (cell-centered)
+- `dy_p::Vector{Float64}`: y-direction grid spacing for the p grid (cell-centered)
+
+# Returns
+- `flux_x::Matrix{Float64}`: x-direction flux (staggered in x)
+- `flux_y::Matrix{Float64}`: y-direction flux (staggered in y)
+"""
+function compute_fluxes(u, v, rho_u, rho_v, dx_u, dy_u ,dx_v, dy_v,grid_u,grid_v)
+    # Get dimensions
+    nx = size(u, 2)  # u is staggered in x (one more column than rho)
+    ny = size(v, 1)  # v is staggered in y (one more row than rho)
+
+    # Initialize flux arrays with proper staggering
+    flux_x = zeros(grid_u)  # flux_x is staggered in x (one less column than u)
+    flux_y = zeros(grid_v)   # flux_y is staggered in y (one less row than v)
+
+    
+
+    # Compute convective flux of u in x-direction: ∂(u u)/∂x + ∂(v u)/∂y
+    # Compute x-direction flux (u at (i-1/2, j))
+    for j in 1:grid_u.ny
+        for i in 1:grid_u.nx
+            # Calculate u velocities at cell faces
+            u_east = 0.5 * (u[j, i+1] + u[j, i])
+            u_west = 0.5 * (u[j, i]   + u[j, i-1])
+
+            u_north = 0.5 * (u[j+1, i] + u[j, i]) # u at y = y_{j+1/2}, x = x_{i+1/2}
+            u_south = 0.5 * (u[j, i  ] + u[j-1, i]) # u at y = y_{j-1/2}, x = x_{i+1/2}
+
+
+            # Calculate v velocities at cell faces
+            v_north = 0.5 * (v[j+1, i-1] + v[j+1, i])
+            v_south = 0.5 * (v[j,   i-1] + v[j,   i])
+
+            # Compute flux in x-direction (integral approximation)
+            # Using the density at the cell center rho[j, i]
+            rho_c = rho_u[j, i]
+            
+            # try
+            #     dy = dy_u[j,i-1]
+            # catch e
+            #     error("\n dy ",j,i,size(dy_u))
+            # end
+
+            # try
+            #     dx = dx_u[j,i]
+            # catch e
+            #     error("\n dy ",j,i,size(dy_u))
+            # end
+
+
+            flux_x[j, i] = rho_c * (
+                ( u_east * u_east * dy_u[j,i] - u_west * u_west * dy_u[j,i-1] ) +
+                ( v_north * u_north * dx_u[j,i] - v_south * u_south * dx_u[j-1,i] )
+            )
+        end
+    end
+
+    # Compute convective flux of v in y-direction: ∂(uv)/∂x + ∂(vv)/∂y
+    for j in 1:grid_v.ny
+        for i in 1:grid_v.nx
+
+            # Calculate v velocities at cell faces
+            v_north = 0.5 * (v[j+1, i] + v[j, i])  # y = y_{j+1/2}, x = x_i
+            v_south = 0.5 * (v[j,   i] + v[j-1, i])  # y = y_{j-1/2}, x = x_i
+
+            v_east  = 0.5 * (v[j, i+1] + v[j, i])  # x = x_{i+1/2}, y = y_{j-1/2}
+            v_west  = 0.5 * (v[j, i]   + v[j, i-1])  # x = x_{i-1/2}, y = y_{j-1/2}
+
+            # u interpolated to east/west faces of v control volume
+            u_east = 0.5 * ( u[j,   i+1] + u[j-1, i+1] )  # y = y_{j-1/2}, x = x_{i+1/2}
+            u_west = 0.5 * ( u[j,   i]   + u[j-1, i]   )  # y = y_{j-1/2}, x = x_{i-1/2}
+
+            rho_c = rho_v[j, i]  # density at v control volume center (or interpolated)
+
+            # convective flux
+            flux_y[j, i] = rho_c * (
+                ( u_east * v_east * dy_v[j,i] - u_west * v_west  * dy_v[j,i-1]) +   # x-flux
+                ( v_north * v_north * dx_v[j,i]- v_south * v_south * dx_v[j-1,i])  # y-flux
+            )
+        end
+    end
+
+   
+
+    return flux_x, flux_y
+end
+
+
+"""
+allocate_offset_array(xrange::UnitRange, yrange::UnitRange; init_val=0.0)
+
+Allocate a 2D OffsetArray with custom index ranges `xrange` and `yrange`.
+Optionally initialize all values to `init_val`.
+"""
+function allocate_offset_array(yrange::UnitRange, xrange::UnitRange; init_val=0.0)
+    arr = OffsetArray{Float64}(undef, yrange, xrange)
+    fill!(arr, init_val)
+    return arr
+end
+
+function fill_bulk_ghost(uconv,u,grid_u)
+
+    uconv[1:grid_u.ny,1:grid_u.nx] .= u 
+    uconv[0,1:grid_u.nx] .= u[1,1:grid_u.nx]
+    uconv[grid_u.ny+1,1:grid_u.nx] .= u[grid_u.ny,1:grid_u.nx]
+    uconv[1:grid_u.ny,0] .= u[1:grid_u.ny,1]
+    uconv[1:grid_u.ny,grid_u.nx+1] .= u[1:grid_u.ny,grid_u.nx]
+    
+end
+
+
+"""
 solves Navier-Stokes equations with a pressure projection method. 
 
 
@@ -794,7 +920,7 @@ function solve_one_fluid_NS!(
     end
 
     if num.convection == 0
-       
+        
         if advection
             # scheme
             if current_iter == 1
@@ -805,6 +931,134 @@ function solve_one_fluid_NS!(
                 convection_v .+= 1.5 .* Cvi .- 0.5 .* Cvm1
             end
         end
+
+    elseif num.convection == 1
+       
+        print("\n size Cui",size(Cui))
+
+        rho_u_one = ones(grid_u)
+        rho_v_one = ones(grid_v)
+
+        # print("\n size rho_one",size(rho_one))
+
+        # uconv =zeros(grid_u.ny,grid_u.nx)
+        # vconv =zeros(grid_v.ny,grid_v.nx)
+        nghost = 1
+        # uconv = init_ghost_neumann_2(u,grid_u.nx,grid_u.ny,nghost)
+        # vconv = init_ghost_neumann_2(v,grid_v.nx,grid_v.ny,nghost)
+
+        print("\nalloc",0:(grid_u.ny - 1 + 2*nghost), 0:(grid_u.nx - 1 + 2*nghost), 0:(grid_v.ny - 1 + 2*nghost), 0:(grid_v.nx - 1 + 2*nghost))
+        # Allocate with ghosts and OffsetArrays to start indexing at 0
+        # uconv = OffsetArray(zeros(grid_u.ny + 2*nghost, grid_u.nx + 2*nghost), 0:(grid_u.ny - 1 + 2*nghost), 0:(grid_u.nx - 1 + 2*nghost))
+        # vconv = OffsetArray(zeros(grid_v.ny + 2*nghost, grid_v.nx + 2*nghost), 0:(grid_v.ny - 1 + 2*nghost), 0:(grid_v.nx - 1 + 2*nghost))
+
+        uconv = allocate_offset_array((1-nghost):(grid_u.ny+nghost), (1-nghost):(grid_u.nx+nghost), init_val=NaN)
+        vconv = allocate_offset_array((1-nghost):(grid_v.ny+nghost), (1-nghost):(grid_v.nx+nghost), init_val=NaN)
+
+        fill_bulk_ghost(uconv,u,grid_u)
+        fill_bulk_ghost(vconv,v,grid_v)
+
+        print("\n uconv ", size(uconv))
+        print("\n vconv ", size(vconv))
+
+
+        #store dx dy from p nodes including p nodes at wall
+        nx, ny = grid_p.nx, grid_p.ny
+        
+        #dx at top bottom faces of u control volume
+        dx_u = allocate_offset_array(0:ny, 1:grid_u.nx, init_val=NaN)
+
+        dx_u[1:ny,1:nx+1] .= grid_u.dx
+        dx_u[1:ny,1] .= dx_u[1:ny,2]/2
+        dx_u[1:ny,nx+1] .= dx_u[1:ny,nx]/2
+
+        dx_u[0,1:nx+1] .= dx_u[1,1:nx+1]
+
+
+        print("\n dx_u")
+        display(dx_u)
+        println("\n dx at u top bottom faces X indices: ", axes(dx_u,1),"Y indices: ", axes(dx_u,2))
+
+        # dy_u = OffsetArray(os(grid_p.ny + 2*nghost, grid_p.nx + 2*nghost), 0:(grid_p.ny - 1 + 2*nghost), 0:(grid_p.nx - 1 + 2*nghost))
+        
+        #dy_u dy at p nodes (left right faces for u )         
+        dy_u = allocate_offset_array(1:ny, 0:grid_u.nx, init_val=NaN)
+
+        # dy_u .= NaN
+
+        dy_u[1:grid_p.ny,1:grid_p.nx] = grid_p.dx 
+        dy_u[1:grid_u.ny,0] = grid_p.dx[1:grid_u.ny,1] #/2
+        dy_u[1:grid_u.ny,nx+1] = grid_p.dx[1:grid_u.ny,nx] #/2
+
+        # dy_u[0,1:grid_u.nx] = 
+
+        display(dy_u)
+
+        # top bottom faces for v (p nodes)
+        dy_v = allocate_offset_array(1:grid_v.ny, 0:nx, init_val=NaN)
+        
+        dy_v[1:grid_v.ny,1:grid_v.nx] .= grid_v.dy
+
+        dy_v[1,1:nx] .= dy_v[2,1:nx]/2
+        dy_v[ny+1,1:nx] .= dy_v[ny,1:nx]/2
+
+
+        dy_v[1:grid_v.ny,0] .= grid_v.dy[1:grid_v.ny,1]
+
+        print("\n dv_v")
+        display(dy_v)
+
+
+
+        # dx_v = OffsetArray(zeros(grid_p.ny + 2*nghost, grid_p.nx + 2*nghost), 0:(grid_p.ny - 1 + 2*nghost), 0:(grid_p.nx - 1 + 2*nghost))
+        # dx_v .= NaN
+        
+        dx_v = allocate_offset_array(0:ny+1, 1:nx, init_val=NaN)
+
+        dx_v[1:grid_p.ny,1:grid_p.nx] = grid_p.dx 
+        
+        dx_v[0,1:grid_p.nx] = grid_p.dx[1,1:grid_p.nx]
+        dx_v[ny+1,1:grid_p.nx] = grid_p.dx[ny,1:grid_p.nx]
+
+
+        Cui2D, Cvi2D = compute_fluxes(uconv, vconv, rho_u_one,rho_v_one, dx_u, dy_u ,dx_v, dy_v ,grid_u,grid_v) # TODO check location dx vs face
+
+        "conv"
+
+        Cui = vec(Cui2D)
+        Cvi = vec(Cvi2D)
+
+        print("\n dx_u ",minimum(dx_u)," ",maximum(dx_u))
+        print("\n dy_u ",minimum(dy_u)," ",maximum(dy_u))
+
+        print("\n dx_v ",minimum(dx_v)," ",maximum(dx_v))
+        print("\n dy_v ",minimum(dy_v)," ",maximum(dy_v))
+
+        print("\n u check",minimum(u)," ",maximum(u))
+        print("\n v check",minimum(v)," ",maximum(v))
+
+        print("\n warning flux check ",minimum(Cui)," ",maximum(Cui))
+        print("\n warning flux check ",minimum(Cvi)," ",maximum(Cvi))
+        print("\n Cui2D \n")
+        display(Cui2D)
+        
+        print("\n Cvi2D \n")
+
+        display(Cvi2D)
+
+
+        if advection
+            # scheme
+            if current_iter == 1
+                convection_u .+= Cui
+                convection_v .+= Cvi
+            else
+                convection_u .+= 1.5 .* Cui .- 0.5 .* Cum1 #Cui returned at the end of function to Cum1
+                convection_v .+= 1.5 .* Cvi .- 0.5 .* Cvm1
+            end
+        end
+
+        
     else
         convection_u .= 0.0
         convection_v .= 0.0
@@ -855,6 +1109,18 @@ function solve_one_fluid_NS!(
 
     @views mul!(rhs_uv[velocity_block], Buv[velocity_block,velocity_block], uvm1, 1.0, 1.0)
     
+    # PDI_status = @ccall "libpdi".PDI_multi_expose("write_volume_u"::Cstring,
+    # "volume_u"::Cstring, Buv[bulk_u_velocity]::Ptr{Cdouble}, PDI_OUT::Cint,
+    # C_NULL::Ptr{Cvoid})::Cint #LoadError: conversion to pointer not defined for SparseVector{Float64, Int64}
+
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("write_temporal_u"::Cstring,
+    "rhs_temporal_u"::Cstring, rhs_uv[bulk_u_velocity]::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("write_temporal_v"::Cstring,
+    "rhs_temporal_v"::Cstring, rhs_uv[bulk_v_velocity]::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
 
     PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
     "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
@@ -1005,7 +1271,15 @@ function solve_one_fluid_NS!(
 
     conv_y = reshape(convection_v,grid_v)
 
+    conv_x = reshape(convection_u,grid_u)
+
+
     grav_y_2D = reshape(grav_y,grid_v)
+
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("conv_x"::Cstring,
+    "conv_x"::Cstring, conv_x::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
 
     PDI_status = @ccall "libpdi".PDI_multi_expose("conv_y"::Cstring,
     # "grad_x"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -2324,6 +2598,20 @@ function set_Forward_Euler_one_fluid!(
         #     @error("\n One-fluid model error M null")
         # end
 
+        if any(opC_u.M.diag  == 0 )
+            @error("\n One-fluid model error M null")
+        end
+
+        if num.current_iter == 1
+            printstyled(color=:red, @sprintf "\n Redefine M mass")
+
+            # Mm1 .= op.opC_pL.M
+            Mum1 .= opC_u.M
+            Mvm1 .= opC_v.M
+      
+      
+        end
+
     else
         laps = Lpm1, bc_Lpm1, bc_Lpm1_b, Lum1, bc_Lum1, bc_Lum1_b, Lvm1, bc_Lvm1, bc_Lvm1_b
     end
@@ -2980,7 +3268,7 @@ end
 Set the system matrix for Forward-Euler scheme
 
 * bc_interface: interface boundary condition
-* B contains Mum1 and Mvm1 (cell volumes)
+* B contains Mum1 and Mvm1 (cell volumes), also noted Buv or BuvL in the code
 
 ## Modifications to `rhs`
 

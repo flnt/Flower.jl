@@ -2193,6 +2193,10 @@ FE_set_momentum_coupled2_one_fluid
 ```
 
 
+## Convection
+```@docs
+compute_fluxes(u, v, rho, dx_p, dy_p)
+```
 
 The interpolations for the viscosity are done with:
 
@@ -2232,11 +2236,6 @@ compute_surface_tension_VOF!
 get_curvature
 ```
 
-## Interface transport 
-
-```@docs
-select_advection!
-```
 
 ## Velocity-pressure coupling
 
@@ -2939,9 +2938,9 @@ static_stencil
 
 The mass matrix: 
 M: face-centered mass matrices, diagonal with coefficients ``V_\alpha`` (the volume of the staggered control volumes)
-is stored in the struct Operators and defined in:  
+is stored in the struct Operators and defined in [`set_matrices!`](@ref) in [`set_cutcell_matrices!`](@ref):  
 ```julia   
-M.diag .= vec(geo[end].dcap[:,:,5]) in [`set_matrices!`](@ref)
+M.diag .= vec(geo[end].dcap[:,:,5]) 
 ```
 Example: 
 ```julia   
@@ -3057,10 +3056,17 @@ called in
 set_border_matrices!
 ```
 
+
+## Interface transport 
+
+```@docs
+select_advection!
+```
+
 ### Levelset
 
 !!! todo "TODO"
-    The levelset is not extended for the evaluation of capacities. At the borders, the interpolation is shifted one cell. You can see this in [marching_squares!](@ref)  (the ``II\_0`` variable).  
+    The levelset is not extended for the evaluation of capacities. At the borders, the interpolation is shifted by one cell. You can see this in [marching_squares!](@ref)  (the ``II\_0`` variable).  
 
 #### Ghost cells
 ```@docs
@@ -3249,6 +3255,15 @@ inv_weight_clip
 * approximation of interface
 
 
+## Tools for grids
+
+```@docs
+create_2D_grid_x
+```
+
+```@docs
+create_2D_grid_y
+```
 
 
 

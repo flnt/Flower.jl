@@ -1320,6 +1320,8 @@ def plot_all_fig_func(yaml_file,args):
                     # if args.name[0] != file_name:
                     if all(name != file_name for name in args.name):
                         print(colored(f"Skipping {file_name} (figures {args.name} specified)", "yellow"))
+                        # for name in args.name:
+                        #     print(file_name,name)
                         continue
                 if args.skip_existing and fig_path.exists():
                     print(colored(f"Skipping {file_name} (figure already exists)", "yellow"))
@@ -2429,8 +2431,14 @@ def plot_file(
         else:
             CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=get_value_from_dicts('linewidth',figpar,plotpar),linestyles=get_value_from_dicts('linestyle',figpar,plotpar),zorder=1)
 
-    if 'plot_vector_macro' in figpar.keys():
-        exec(figpar['plot_vector_macro'])
+    print(colored('plot vector','red'))
+    print('plot_vector_macro' in figpar.keys()  )
+    print(figpar.keys())
+
+    if get_value_from_dicts('plot_vector_macro',figpar,plotpar): #'plot_vector_macro' in figpar.keys():
+        print(colored('plot vector','red'))
+        # exec(figpar['plot_vector_macro'])
+        exec(get_value_from_dicts('plot_vector_macro',figpar,plotpar))
         vec_x = vec_x_2
         vec_y = vec_y_2
 
@@ -2478,6 +2486,7 @@ def plot_file(
     if 'plot_normal' in figpar.keys():
         if 'plot_normal_macro' in figpar.keys(): 
             exec(figpar['plot_normal_macro'])
+            print(colored('plot normal','red'))
             normal_x = normal_x_2
             normal_y = normal_y_2
 
@@ -5645,8 +5654,10 @@ def plot_python_pdf_full2(
             linewidths=linewidths,linestyles=linestyles,
         )
 
-    if 'plot_vector_macro' in figpar.keys():
-        exec(figpar['plot_vector_macro'])
+    if get_value_from_dicts('plot_vector_macro',figpar,plotpar): #'plot_vector_macro' in figpar.keys():
+        print(colored('plot vector','red'))
+        # exec(figpar['plot_vector_macro'])
+        exec(get_value_from_dicts('plot_vector_macro',figpar,plotpar))
         vec_x = vec_x_2
         vec_y = vec_y_2
 
