@@ -621,7 +621,7 @@ def plot_schematics_func():
 
 #     python3 ../../../Flower.jl/examples/flower_post_proc.py ../../../Flower.jl/examples/one_fluid_hysing_coupled2.yml --func plot_all_fig_func --h5 flower_00000001.h5 --skip-existing
     
-#     python3 ../../../Flower.jl/examples/flower_post_proc.py ../../../Flower.jl/examples/one_fluid_hysing_coupled2.yml --func plot_all_fig_func --h5 flower_00000001.h5 --name ucorr vcorr
+#     python3 ../../../Flower.jl/examples/flower_post_proc.py ../../../Flower.jl/examples/one_fluid_hysing_coupled2.yml --func plot_all_fig_func --h5 flower_00000001.h5 --name ucorr v_prediction
 
 
 #     """

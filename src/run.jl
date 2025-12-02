@@ -279,12 +279,12 @@ function run_forward!(
         phi_ext_vel = zeros(grid_p)
         u_ext_vel = zeros(grid_u)
         v_ext_vel= zeros(grid_v)
-        ucorrD_ext_vel= fzeros(grid_u)
-        vcorrD_ext_vel= fzeros(grid_v)
+        u_predictionD_ext_vel= fzeros(grid_u)
+        v_predictionD_ext_vel= fzeros(grid_v)
         uD_ext_vel= fzeros(grid_u)
         vD_ext_vel= fzeros(grid_v)
-        ucorr_ext_vel= zeros(grid_u)
-        vcorr_ext_vel= zeros(grid_v)
+        u_prediction_ext_vel= zeros(grid_u)
+        v_prediction_ext_vel= zeros(grid_v)
         uT_ext_vel = zeros(grid_p)
         pres_grad_x = fzeros(grid_u)
         pres_grad_y = fzeros(grid_v)
@@ -410,13 +410,13 @@ function run_forward!(
         get_height!(grid_u.LS[1],grid_u.ind,grid_u.dx,grid_u.dy,grid_u.LS[end].geoS,tmp_vec_u) #here tmp_vec_u solid
 
         init_fields_multiple_levelsets!(num,phS.uD,phS.u,tmp_vec_u,BC_uS,grid_u,num.uD,"uS")
-        # init_fields_multiple_levelsets!(num,phS.ucorrD,phS.u,HSu,BC_uS,grid_u,num.uD)
+        # init_fields_multiple_levelsets!(num,phS.u_predictionD,phS.u,HSu,BC_uS,grid_u,num.uD)
     end
 
     get_height!(grid_u.LS[1],grid_u.ind,grid_u.dx,grid_u.dy,grid_u.LS[end].geoL,tmp_vec_u)  #here tmp_vec_u liquid
 
     init_fields_multiple_levelsets!(num,phL.uD,phL.u,tmp_vec_u,BC_uL,grid_u,num.uD,"uL")
-    # init_fields_multiple_levelsets!(num,phL.ucorrD,phL.u,HLu,BC_uL,grid_u,num.uD)
+    # init_fields_multiple_levelsets!(num,phL.u_predictionD,phL.u,HLu,BC_uL,grid_u,num.uD)
 
 
     # TODO reset zero
@@ -425,13 +425,13 @@ function run_forward!(
         get_height!(grid_v.LS[1],grid_v.ind,grid_v.dx,grid_v.dy,grid_v.LS[end].geoS,tmp_vec_v) 
 
         init_fields_multiple_levelsets!(num,phS.vD,phS.v,tmp_vec_v,BC_vS,grid_v,num.vD,"vS")
-        # init_fields_multiple_levelsets!(num,phS.vcorrD,phS.v,HSv,BC_vS,grid_v,num.vD)
+        # init_fields_multiple_levelsets!(num,phS.v_predictionD,phS.v,HSv,BC_vS,grid_v,num.vD)
     end
 
     get_height!(grid_v.LS[1],grid_v.ind,grid_v.dx,grid_v.dy,grid_v.LS[end].geoL,tmp_vec_v)
 
     init_fields_multiple_levelsets!(num,phL.vD,phL.v,tmp_vec_v,BC_vL,grid_v,num.vD,"vL")
-    # init_fields_multiple_levelsets!(num,phL.vcorrD,phL.v,HLv,BC_vL,grid_v,num.vD)
+    # init_fields_multiple_levelsets!(num,phL.v_predictionD,phL.v,HLv,BC_vL,grid_v,num.vD)
 
 
     # TODO reset zero
@@ -2311,7 +2311,7 @@ function run_forward!(
                         time_scheme, BC_int,
                         num, grid_p, geoL, grid_u, geo_uL, grid_v, geo_vL, 
                         # phL,
-                        p_ext_vel, pD_ext_vel, phi_ext_vel, u_ext_vel, v_ext_vel, ucorrD_ext_vel, vcorrD_ext_vel, uD_ext_vel, vD_ext_vel, ucorr_ext_vel, vcorr_ext_vel, uT_ext_vel,
+                        p_ext_vel, pD_ext_vel, phi_ext_vel, u_ext_vel, v_ext_vel, u_predictionD_ext_vel, v_predictionD_ext_vel, uD_ext_vel, vD_ext_vel, u_prediction_ext_vel, v_prediction_ext_vel, uT_ext_vel,
                         pres_grad_x, pres_grad_y,                    
                         phase_change_currently_activated,
                         BC_uL, BC_vL, BC_pL,

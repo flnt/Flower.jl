@@ -343,14 +343,14 @@ struct Phase{T <: Real} <: MutatingFields
     u::Array{T,2}
     v::Array{T,2}
     ucorr::Array{T,2}
-    vcorr::Array{T,2}
+    v_prediction::Array{T,2}
     TD::Array{T,1}
     pD::Array{T,1}
     ϕD::Array{T,1}
     uD::Array{T,1}
     vD::Array{T,1}
     ucorrD::Array{T,1}
-    vcorrD::Array{T,1}
+    v_predictionD::Array{T,1}
     uT::Array{T,2}
     trans_scal::Array{T,3}
     phi_ele::Array{T,2}
@@ -389,7 +389,7 @@ struct ForwardPhase{T <: Real} <: MutatingFields
     TD::Array{T,2}
     pD::Array{T,2}
     ucorrD::Array{T,2}
-    vcorrD::Array{T,2}
+    v_predictionD::Array{T,2}
     Vratio::Vector{T}
     trans_scal::Array{T,4}
     phi_ele::Array{T,3}

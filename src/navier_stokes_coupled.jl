@@ -2579,8 +2579,8 @@ solves Navier-Stokes equations with a pressure projection method.
 
 
 #### Variables and Data Structures
-- `vec1(ucorrD, grid_u)`: Velocity correction for the horizontal grid.
-- `vec1(vcorrD, grid_v)`: Velocity correction for the vertical grid.
+- `vec1(u_predictionD, grid_u)`: Velocity correction for the horizontal grid.
+- `vec1(v_predictionD, grid_v)`: Velocity correction for the vertical grid.
 - `vec1(rhs_ϕ, grid)`: Right-hand side of the Poisson equation.
 - `vec1(pD, grid)`: Pressure correction.
 - `vec1(uD, grid_u)`: Updated horizontal velocity.
@@ -2618,9 +2618,9 @@ solves Navier-Stokes equations with a pressure projection method.
 
 #### Functions and Operations
 1. **Initialization and Updates**
-   - `vecb(vcorrD, grid_v) .= uvD[ntu+ntv-nbv+1:ntu+ntv]`: Updates the vertical velocity correction.
-   - `kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])`: Removes dead cells from the vertical velocity correction grid.
-   - `vcorr .= reshape(vec1(vcorrD,grid_v), grid_v)`: Reshapes the vertical velocity correction.
+   - `vecb(v_predictionD, grid_v) .= uvD[ntu+ntv-nbv+1:ntu+ntv]`: Updates the vertical velocity correction.
+   - `kill_dead_cells!(vec1(v_predictionD,grid_v), grid_v, geo_v[end])`: Removes dead cells from the vertical velocity correction grid.
+   - `v_prediction .= reshape(vec1(v_predictionD,grid_v), grid_v)`: Reshapes the vertical velocity correction.
 
 2. **Navier and Non-Navier Boundary Conditions**
    - Loop through linear solvers (`iLS`) to apply boundary conditions:
@@ -2669,7 +2669,7 @@ function pressure_projection!(
     periodic_x, periodic_y, advection, ls_advection, current_iter, Ra, navier, pres_free_suface,jump_mass_transfer_rate,mass_transfer_rate
     )
     @unpack Re, timestep_n, σ, g, β, nLS, nNavier = num
-    @unpack p, pD, ϕ, ϕD, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr, uT = ph
+    @unpack p, pD, ϕ, ϕD, u, v, u_predictionD, v_predictionD, uD, vD, u_prediction, v_prediction, uT = ph
     @unpack Cu, Cv, CUTCu, CUTCv = op_conv
     @unpack rho1,rho2,visc_coeff = num
 
@@ -2735,8 +2735,8 @@ function pressure_projection!(
         # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
         "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
         "grad_v"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
-        "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-        "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "u_1D"::Cstring, u_predictionD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "v_1D"::Cstring, v_predictionD::Ptr{Cdouble}, PDI_OUT::Cint,
         "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
         C_NULL::Ptr{Cvoid})::Cint
     end
@@ -2825,20 +2825,20 @@ function pressure_projection!(
         for iLS in 1:nLS
             kill_dead_cells!(veci(rhs_u,grid_u,iLS+1), grid_u, geo_u[end])
         end
-        # @time bicgstabl!(ucorrD, Au, rhs_u, log=true)
+        # @time bicgstabl!(u_predictionD, Au, rhs_u, log=true)
         try
-            # @time bicgstabl!(ucorrD, Au, rhs_u, Pl=Diagonal(Au), log=true)
-            @time ucorrD .= Au \ rhs_u
+            # @time bicgstabl!(u_predictionD, Au, rhs_u, Pl=Diagonal(Au), log=true)
+            @time u_predictionD .= Au \ rhs_u
         catch e
-            ucorrD .= Inf
+            u_predictionD .= Inf
             println(e)
         end
 
-        kill_dead_cells!(vec1(ucorrD,grid_u), grid_u, geo_u[end])
+        kill_dead_cells!(vec1(u_predictionD,grid_u), grid_u, geo_u[end])
         for iLS in 1:nLS
-            kill_dead_cells!(veci(ucorrD,grid_u,iLS+1), grid_u, geo_u[end])
+            kill_dead_cells!(veci(u_predictionD,grid_u,iLS+1), grid_u, geo_u[end])
         end
-        ucorr .= reshape(vec1(ucorrD,grid_u), grid_u)
+        u_prediction .= reshape(vec1(u_predictionD,grid_u), grid_u)
 
         # if is_wall_no_slip(bc_int)
         #     vec1(vD,grid_v) .= vec(v)
@@ -2888,21 +2888,21 @@ function pressure_projection!(
         for iLS in 1:nLS
             kill_dead_cells!(veci(rhs_v,grid_v,iLS+1), grid_v, geo_v[end])
         end
-        # bicgstabl!(vcorrD, Av, rhs_v, log=true)
+        # bicgstabl!(v_predictionD, Av, rhs_v, log=true)
         
 
         try
-            # @time bicgstabl!(vcorrD, Av, rhs_v, Pl=Diagonal(Av), log=true)
-            @time vcorrD .= Av \ rhs_v
+            # @time bicgstabl!(v_predictionD, Av, rhs_v, Pl=Diagonal(Av), log=true)
+            @time v_predictionD .= Av \ rhs_v
         catch e
-            vcorrD .= Inf
+            v_predictionD .= Inf
             println(e)
         end
 
 
         PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_prediction"::Cstring,
-        "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-        "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "u_1D"::Cstring, u_predictionD::Ptr{Cdouble}, PDI_OUT::Cint,
+        "v_1D"::Cstring, v_predictionD::Ptr{Cdouble}, PDI_OUT::Cint,
         "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
         C_NULL::Ptr{Cvoid})::Cint
 
@@ -2911,20 +2911,20 @@ function pressure_projection!(
         # print("\n A coeff ",Av[pII,:])
 
         # PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_prediction"::Cstring,
-        # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "u_1D"::Cstring, u_predictionD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "v_1D"::Cstring, v_predictionD::Ptr{Cdouble}, PDI_OUT::Cint,
         # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
         # C_NULL::Ptr{Cvoid})::Cint
 
-        # print("\n proj v ",reshape(vec1(vcorrD,grid_v),grid_v)[div(grid_v.ny,2),:]," size ",size(reshape(vec1(vcorrD,grid_v),grid_v)[div(grid_v.ny,2),:]))
-        # print("\n proj v vecb_L",vecb_L(vcorrD,grid_v)," size ",size(vecb_L(vcorrD,grid_v))," size ",size(vecb_B(vcorrD,grid_v)))
+        # print("\n proj v ",reshape(vec1(v_predictionD,grid_v),grid_v)[div(grid_v.ny,2),:]," size ",size(reshape(vec1(v_predictionD,grid_v),grid_v)[div(grid_v.ny,2),:]))
+        # print("\n proj v vecb_L",vecb_L(v_predictionD,grid_v)," size ",size(vecb_L(v_predictionD,grid_v))," size ",size(vecb_B(v_predictionD,grid_v)))
 
 
-        kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])
+        kill_dead_cells!(vec1(v_predictionD,grid_v), grid_v, geo_v[end])
         for iLS in 1:nLS
-            kill_dead_cells!(veci(vcorrD,grid_v,iLS+1), grid_v, geo_v[end])
+            kill_dead_cells!(veci(v_predictionD,grid_v,iLS+1), grid_v, geo_v[end])
         end
-        vcorr .= reshape(vec1(vcorrD,grid_v), grid_v)
+        v_prediction .= reshape(vec1(v_predictionD,grid_v), grid_v)
     #endregion not Navier
 
     #region Navier
@@ -2985,25 +2985,25 @@ function pressure_projection!(
 
         end
 
-        vec1(ucorrD, grid_u) .= uvD[1:niu]
-        vecb(ucorrD, grid_u) .= uvD[ntu-nbu+1:ntu]
-        kill_dead_cells!(vec1(ucorrD,grid_u), grid_u, geo_u[end])
-        ucorr .= reshape(vec1(ucorrD,grid_u), grid_u)
+        vec1(u_predictionD, grid_u) .= uvD[1:niu]
+        vecb(u_predictionD, grid_u) .= uvD[ntu-nbu+1:ntu]
+        kill_dead_cells!(vec1(u_predictionD,grid_u), grid_u, geo_u[end])
+        u_prediction .= reshape(vec1(u_predictionD,grid_u), grid_u)
 
-        vec1(vcorrD, grid_v) .= uvD[ntu+1:ntu+niv]
-        vecb(vcorrD, grid_v) .= uvD[ntu+ntv-nbv+1:ntu+ntv]
-        kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])
-        vcorr .= reshape(vec1(vcorrD,grid_v), grid_v)
+        vec1(v_predictionD, grid_v) .= uvD[ntu+1:ntu+niv]
+        vecb(v_predictionD, grid_v) .= uvD[ntu+ntv-nbv+1:ntu+ntv]
+        kill_dead_cells!(vec1(v_predictionD,grid_v), grid_v, geo_v[end])
+        v_prediction .= reshape(vec1(v_predictionD,grid_v), grid_v)
 
         nNav = 0
         _iLS = 1
         for iLS in 1:nLS
             if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
-                veci(ucorrD,grid_u,iLS+1) .= uvD[_iLS*niu+1:(_iLS+1)*niu]
-                kill_dead_cells!(veci(ucorrD,grid_u,iLS+1), grid_u, geo_u[end])
+                veci(u_predictionD,grid_u,iLS+1) .= uvD[_iLS*niu+1:(_iLS+1)*niu]
+                kill_dead_cells!(veci(u_predictionD,grid_u,iLS+1), grid_u, geo_u[end])
 
-                veci(vcorrD,grid_v,iLS+1) .= uvD[ntu+_iLS*niv+1:ntu+(_iLS+1)*niv]
-                kill_dead_cells!(veci(vcorrD,grid_v,iLS+1), grid_v, geo_v[end])
+                veci(v_predictionD,grid_v,iLS+1) .= uvD[ntu+_iLS*niv+1:ntu+(_iLS+1)*niv]
+                kill_dead_cells!(veci(v_predictionD,grid_v,iLS+1), grid_v, geo_v[end])
                 _iLS += 1
             else
                 @inbounds uT[nNav+1,:] .= vec(uvD[ntu+ntv+1+nNav*nip:ntu+ntv+(nNav+1)*nip])
@@ -3015,8 +3015,8 @@ function pressure_projection!(
 
 
     PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_prediction"::Cstring,
-    "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-    "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "u_1D"::Cstring, u_predictionD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "v_1D"::Cstring, v_predictionD::Ptr{Cdouble}, PDI_OUT::Cint,
     "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
@@ -3031,13 +3031,13 @@ function pressure_projection!(
 
 
     # # Test analytical vel
-    # ucorrD = copy(uD)
-    # vcorrD = copy(vD)
+    # u_predictionD = copy(uD)
+    # v_predictionD = copy(vD)
     # print("\n test analytical vel ")
 
     # PDI_status = @ccall "libpdi".PDI_multi_expose("print_velocity_prediction"::Cstring,
-    # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "u_1D"::Cstring, u_predictionD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "v_1D"::Cstring, v_predictionD::Ptr{Cdouble}, PDI_OUT::Cint,
     # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
     # C_NULL::Ptr{Cvoid})::Cint
 
@@ -3047,12 +3047,12 @@ function pressure_projection!(
     #region correction 
 
     # Compute divergence of velocity
-    Duv = opC_p.AxT * vec1(ucorrD,grid_u) .+ opC_p.Gx_b * vecb(ucorrD,grid_u) .+
-          opC_p.AyT * vec1(vcorrD,grid_v) .+ opC_p.Gy_b * vecb(vcorrD,grid_v)
+    Duv = opC_p.AxT * vec1(u_predictionD,grid_u) .+ opC_p.Gx_b * vecb(u_predictionD,grid_u) .+
+          opC_p.AyT * vec1(v_predictionD,grid_v) .+ opC_p.Gy_b * vecb(v_predictionD,grid_v)
     for iLS in 1:nLS
         if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
-            Duv .+= opC_p.Gx[iLS] * veci(ucorrD,grid_u,iLS+1) .+ 
-                    opC_p.Gy[iLS] * veci(vcorrD,grid_v,iLS+1)
+            Duv .+= opC_p.Gx[iLS] * veci(u_predictionD,grid_u,iLS+1) .+ 
+                    opC_p.Gy[iLS] * veci(v_predictionD,grid_v,iLS+1)
         end
     end
 
@@ -3075,8 +3075,8 @@ function pressure_projection!(
         for iLS in 1:nLS
             if is_fs(bc_int[iLS])
                 Smat = strain_rate(iLS, opC_u, opC_v, opC_p)
-                S = Smat[1,1] * vec1(ucorrD,grid_u) .+ Smat[1,2] * veci(ucorrD,grid_u,iLS+1) .+
-                    Smat[2,1] * vec1(vcorrD,grid_v) .+ Smat[2,2] * veci(vcorrD,grid_v,iLS+1)
+                S = Smat[1,1] * vec1(u_predictionD,grid_u) .+ Smat[1,2] * veci(u_predictionD,grid_u,iLS+1) .+
+                    Smat[2,1] * vec1(v_predictionD,grid_v) .+ Smat[2,2] * veci(v_predictionD,grid_v,iLS+1)
     
                 fs_mat = opC_p.HxT[iLS] * opC_p.Hx[iLS] .+ opC_p.HyT[iLS] * opC_p.Hy[iLS]
                 veci(rhs_ϕ,grid,iLS+1) .= -2.0 .* mu1_over_rho1 .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid.LS[iLS].κ) .- pres_free_suface .- diff_inv_rho * mass_transfer_rate ^ 2)
@@ -3086,8 +3086,8 @@ function pressure_projection!(
         for iLS in 1:nLS
             if is_fs(bc_int[iLS])
                 Smat = strain_rate(iLS, opC_u, opC_v, opC_p)
-                S = Smat[1,1] * vec1(ucorrD,grid_u) .+ Smat[1,2] * veci(ucorrD,grid_u,iLS+1) .+
-                    Smat[2,1] * vec1(vcorrD,grid_v) .+ Smat[2,2] * veci(vcorrD,grid_v,iLS+1)
+                S = Smat[1,1] * vec1(u_predictionD,grid_u) .+ Smat[1,2] * veci(u_predictionD,grid_u,iLS+1) .+
+                    Smat[2,1] * vec1(v_predictionD,grid_v) .+ Smat[2,2] * veci(v_predictionD,grid_v,iLS+1)
 
                 fs_mat = opC_p.HxT[iLS] * opC_p.Hx[iLS] .+ opC_p.HyT[iLS] * opC_p.Hy[iLS]
                 veci(rhs_ϕ,grid,iLS+1) .= -2.0 .* mu1_over_rho1 .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid.LS[iLS].κ) .- pres_free_suface )
@@ -3203,8 +3203,8 @@ function pressure_projection!(
     end
 
     # PDI_status = @ccall "libpdi".PDI_multi_expose("print_pressure_projection"::Cstring,
-    # "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "u_1D"::Cstring, u_predictionD::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "v_1D"::Cstring, v_predictionD::Ptr{Cdouble}, PDI_OUT::Cint,
     # "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
     # C_NULL::Ptr{Cvoid})::Cint
 
@@ -3255,35 +3255,35 @@ function pressure_projection!(
     # vec1(∇ϕ_y,grid) .*= irho1
 
     
-    # u .= ucorr .- timestep_n .* reshape(iMu * ∇ϕ_x, grid_u)
-    # v .= vcorr .- timestep_n .* reshape(iMv * ∇ϕ_y, grid_v)
+    # u .= u_prediction .- timestep_n .* reshape(iMu * ∇ϕ_x, grid_u)
+    # v .= v_prediction .- timestep_n .* reshape(iMv * ∇ϕ_y, grid_v)
 
-    u .= ucorr .- timestep_n .* irho1 .* reshape(iMu * ∇ϕ_x, grid_u)
-    v .= vcorr .- timestep_n .* irho1 .* reshape(iMv * ∇ϕ_y, grid_v)
+    u .= u_prediction .- timestep_n .* irho1 .* reshape(iMu * ∇ϕ_x, grid_u)
+    v .= v_prediction .- timestep_n .* irho1 .* reshape(iMv * ∇ϕ_y, grid_v)
 
     kill_dead_cells!(u, grid_u, geo_u[end])
     kill_dead_cells!(v, grid_v, geo_v[end])
 
     vec1(uD,grid_u) .= vec(u)
-    vecb(uD,grid_u) .= vecb(ucorrD,grid_u)
+    vecb(uD,grid_u) .= vecb(u_predictionD,grid_u)
     vec1(vD,grid_v) .= vec(v)
-    vecb(vD,grid_v) .= vecb(vcorrD,grid_v)
+    vecb(vD,grid_v) .= vecb(v_predictionD,grid_v)
     for iLS in 1:nLS
         if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
-            veci(uD,grid_u,iLS+1) .= veci(ucorrD,grid_u,iLS+1)
-            veci(vD,grid_v,iLS+1) .= veci(vcorrD,grid_v,iLS+1)
+            veci(uD,grid_u,iLS+1) .= veci(u_predictionD,grid_u,iLS+1)
+            veci(vD,grid_v,iLS+1) .= veci(v_predictionD,grid_v,iLS+1)
         end
         # if is_fs(bc_int[iLS])
         #     @inbounds for II in grid_u.ind.all_indices
         #         pII = lexicographic(II, grid_u.ny)
-        #         if abs(veci(ucorrD,grid_u,iLS+1)[pII]) > 1e-12
-        #             veci(ucorrD,grid_u,iLS+1)[pII] -= (timestep_n .* iMu * ∇ϕ_x)[pII]
+        #         if abs(veci(u_predictionD,grid_u,iLS+1)[pII]) > 1e-12
+        #             veci(u_predictionD,grid_u,iLS+1)[pII] -= (timestep_n .* iMu * ∇ϕ_x)[pII]
         #         end
         #     end
         #     @inbounds for II in grid_v.ind.all_indices
         #         pII = lexicographic(II, grid_v.ny)
-        #         if abs(veci(vcorrD,grid_v,iLS+1)[pII]) > 1e-12
-        #             veci(vcorrD,grid_v,iLS+1)[pII] -= (timestep_n .* iMv * ∇ϕ_y)[pII]
+        #         if abs(veci(v_predictionD,grid_v,iLS+1)[pII]) > 1e-12
+        #             veci(v_predictionD,grid_v,iLS+1)[pII] -= (timestep_n .* iMv * ∇ϕ_y)[pII]
         #         end
         #     end
         # end
@@ -3301,8 +3301,8 @@ function pressure_projection!(
     # "grad_y"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
     "grad_u"::Cstring,grad_x::Ptr{Cdouble}, PDI_OUT::Cint,
     "grad_v"::Cstring, grad_y::Ptr{Cdouble}, PDI_OUT::Cint,
-    "u_1D"::Cstring, ucorrD::Ptr{Cdouble}, PDI_OUT::Cint,
-    "v_1D"::Cstring, vcorrD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "u_1D"::Cstring, u_predictionD::Ptr{Cdouble}, PDI_OUT::Cint,
+    "v_1D"::Cstring, v_predictionD::Ptr{Cdouble}, PDI_OUT::Cint,
     "p_1D"::Cstring, ph.pD::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
@@ -3319,8 +3319,8 @@ solves Navier-Stokes equations with a coupled pressure velocity method.
 
 
 #### Variables and Data Structures
-- `vec1(ucorrD, grid_u)`: Velocity correction for the horizontal grid.
-- `vec1(vcorrD, grid_v)`: Velocity correction for the vertical grid.
+- `vec1(u_predictionD, grid_u)`: Velocity correction for the horizontal grid.
+- `vec1(v_predictionD, grid_v)`: Velocity correction for the vertical grid.
 - `vec1(rhs_ϕ, grid)`: Right-hand side of the Poisson equation.
 - `vec1(pD, grid)`: Pressure correction.
 - `vec1(uD, grid_u)`: Updated horizontal velocity.
@@ -3358,9 +3358,9 @@ solves Navier-Stokes equations with a coupled pressure velocity method.
 
 #### Functions and Operations
 1. **Initialization and Updates**
-   - `vecb(vcorrD, grid_v) .= uvD[ntu+ntv-nbv+1:ntu+ntv]`: Updates the vertical velocity correction.
-   - `kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])`: Removes dead cells from the vertical velocity correction grid.
-   - `vcorr .= reshape(vec1(vcorrD,grid_v), grid_v)`: Reshapes the vertical velocity correction.
+   - `vecb(v_predictionD, grid_v) .= uvD[ntu+ntv-nbv+1:ntu+ntv]`: Updates the vertical velocity correction.
+   - `kill_dead_cells!(vec1(v_predictionD,grid_v), grid_v, geo_v[end])`: Removes dead cells from the vertical velocity correction grid.
+   - `v_prediction .= reshape(vec1(v_predictionD,grid_v), grid_v)`: Reshapes the vertical velocity correction.
 
 2. **Navier and Non-Navier Boundary Conditions**
    - Loop through linear solvers (`iLS`) to apply boundary conditions:
@@ -3392,7 +3392,7 @@ function coupled_pressure_velocity!(
     periodic_x, periodic_y, advection, ls_advection, current_iter, Ra, navier, pres_free_suface,jump_mass_transfer_rate,mass_transfer_rate
     )
     @unpack Re, timestep_n, σ, g, β, nLS, nNavier = num
-    @unpack p, pD, ϕ, ϕD, u, v, ucorrD, vcorrD, uD, vD, ucorr, vcorr = ph
+    @unpack p, pD, ϕ, ϕD, u, v, u_predictionD, v_predictionD, uD, vD, u_prediction, v_prediction = ph
     @unpack Cu, Cv, CUTCu, CUTCv = op_conv
     @unpack rho1,rho2,visc_coeff = num
 
@@ -4129,15 +4129,15 @@ function coupled_pressure_velocity!(
 
 
 
-    # vec1(ucorrD, grid_u) .= uvD[1:niu]
-    # vecb(ucorrD, grid_u) .= uvD[ntu-nbu+1:ntu]
-    # kill_dead_cells!(vec1(ucorrD,grid_u), grid_u, geo_u[end])
-    # ucorr .= reshape(vec1(ucorrD,grid_u), grid_u)
+    # vec1(u_predictionD, grid_u) .= uvD[1:niu]
+    # vecb(u_predictionD, grid_u) .= uvD[ntu-nbu+1:ntu]
+    # kill_dead_cells!(vec1(u_predictionD,grid_u), grid_u, geo_u[end])
+    # u_prediction .= reshape(vec1(u_predictionD,grid_u), grid_u)
 
-    # vec1(vcorrD, grid_v) .= uvD[ntu+1:ntu+niv]
-    # vecb(vcorrD, grid_v) .= uvD[ntu+ntv-nbv+1:ntu+ntv]
-    # kill_dead_cells!(vec1(vcorrD,grid_v), grid_v, geo_v[end])
-    # vcorr .= reshape(vec1(vcorrD,grid_v), grid_v)
+    # vec1(v_predictionD, grid_v) .= uvD[ntu+1:ntu+niv]
+    # vecb(v_predictionD, grid_v) .= uvD[ntu+ntv-nbv+1:ntu+ntv]
+    # kill_dead_cells!(vec1(v_predictionD,grid_v), grid_v, geo_v[end])
+    # v_prediction .= reshape(vec1(v_predictionD,grid_v), grid_v)
 
     nNav = 0
     _iLS = 1

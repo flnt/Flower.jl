@@ -1192,7 +1192,7 @@ def plot_all_fig_func(yaml_file,args):
 
     python3 ../../../Flower.jl/examples/flower_post_proc.py ../../../Flower.jl/examples/one_fluid_hysing_coupled2.yml --func plot_all_fig_func --h5 flower_00000001.h5 --skip-existing
     
-    python3 ../../../Flower.jl/examples/flower_post_proc.py ../../../Flower.jl/examples/one_fluid_hysing_coupled2.yml --func plot_all_fig_func --h5 flower_00000001.h5 --name ucorr vcorr
+    python3 ../../../Flower.jl/examples/flower_post_proc.py ../../../Flower.jl/examples/one_fluid_hysing_coupled2.yml --func plot_all_fig_func --h5 flower_00000001.h5 --name u_prediction v_prediction
 
 
     """
@@ -2530,35 +2530,35 @@ def plot_file(
             #color = "re
             )
         
-        else:
-        # if figpar['plot_normal']:
-            normal_angle = file[key_normal][:]
-            normal_angle = normal_angle.transpose()
+        # else:
+        # # if figpar['plot_normal']:
+        #     normal_angle = file[key_normal][:]
+        #     normal_angle = normal_angle.transpose()
 
-            us = np.cos(normal_angle)
-            vs = np.sin(normal_angle)
+        #     us = np.cos(normal_angle)
+        #     vs = np.sin(normal_angle)
             
-            scale_units=plotpar["quiver_scale_unit"]
-            scale_units = None if scale_units == 'None' else scale_units
+        #     scale_units=plotpar["quiver_scale_unit"]
+        #     scale_units = None if scale_units == 'None' else scale_units
             
-            # if 'skip_every' in figpar.keys():
-            #     skip_every = int(figpar['skip_every'])
-            # else:
-            #     skip_every = int(plotpar['skip_every'])
+        #     # if 'skip_every' in figpar.keys():
+        #     #     skip_every = int(figpar['skip_every'])
+        #     # else:
+        #     #     skip_every = int(plotpar['skip_every'])
             
-            skip_every = int(get_value_from_dicts('skip_every',figpar,plotpar))
+        #     skip_every = int(get_value_from_dicts('skip_every',figpar,plotpar))
 
-            quiver_scale = float(get_value_from_dicts('quiver_scale',figpar,plotpar))
+        #     quiver_scale = float(get_value_from_dicts('quiver_scale',figpar,plotpar))
 
-            skip = (slice(None, None, skip_every), slice(None, None, skip_every))
-            skip1D = slice(None, None, skip_every)
+        #     skip = (slice(None, None, skip_every), slice(None, None, skip_every))
+        #     skip1D = slice(None, None, skip_every)
 
-            q = ax2.quiver(xp[skip1D],yp[skip1D],us[skip],vs[skip],
-            scale=quiver_scale,
-            scale_units=scale_units,
-            angles=scale_units,
-            #color = "red",
-            )
+        #     q = ax2.quiver(xp[skip1D],yp[skip1D],us[skip],vs[skip],
+        #     scale=quiver_scale,
+        #     scale_units=scale_units,
+        #     angles=scale_units,
+        #     #color = "red",
+        #     )
         
         # CSlvl = ax2.contour(x_1D, y_1D, LSdat, [0.0],colors="r",linewidths=get_value_from_dicts('linewidth',figpar,plotpar),linestyles=get_value_from_dicts('linestyle',figpar,plotpar),zorder=1)
         

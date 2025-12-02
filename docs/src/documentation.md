@@ -2107,12 +2107,12 @@ New version
 
 !!! todo "capacities for divergence"
     ```julia
-    Duv = opC_p.AxT * vec1(ucorrD,grid_u) .+ opC_p.Gx_b * vecb(ucorrD,grid_u) .+
-          opC_p.AyT * vec1(vcorrD,grid_v) .+ opC_p.Gy_b * vecb(vcorrD,grid_v)
+    Duv = opC_p.AxT * vec1(u_predictionD,grid_u) .+ opC_p.Gx_b * vecb(u_predictionD,grid_u) .+
+          opC_p.AyT * vec1(v_predictionD,grid_v) .+ opC_p.Gy_b * vecb(v_predictionD,grid_v)
     for iLS in 1:nLS
         if !is_navier(bc_int[iLS]) && !is_navier_cl(bc_int[iLS])
-            Duv .+= opC_p.Gx[iLS] * veci(ucorrD,grid_u,iLS+1) .+ 
-                    opC_p.Gy[iLS] * veci(vcorrD,grid_v,iLS+1)
+            Duv .+= opC_p.Gx[iLS] * veci(u_predictionD,grid_u,iLS+1) .+ 
+                    opC_p.Gy[iLS] * veci(v_predictionD,grid_v,iLS+1)
         end
     end
     ```
