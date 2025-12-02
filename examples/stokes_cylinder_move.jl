@@ -59,7 +59,7 @@ pref = "/Users/alex/Documents/PhD/Cutcell/New_ops/stokes/moving/rigid_solid/"
 suff = ""
 make_video(num, fwd, gu, "u"; title_prefix=pref,
         title_suffix=suff, framerate=20, limitsx=(-lim,lim), limitsy=(-lim,lim))#, minv = -0.5, maxv = 0.5)
-make_video(num, fwd, gu, "ucorr"; title_prefix=pref,
+make_video(num, fwd, gu, "u_prediction"; title_prefix=pref,
         title_suffix=suff, framerate=20, limitsx=(-lim,lim), limitsy=(-lim,lim))#, minv = -0.5, maxv = 0.5)
 make_video(num, fwd, gv, "v"; title_prefix=pref,
         title_suffix=suff, framerate=20, limitsx=(-lim,lim), limitsy=(-lim,lim))#, minv = -0.3, maxv = 0.3)

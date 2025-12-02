@@ -621,7 +621,7 @@ def plot_schematics_func():
 
 #     python3 ../../../Flower.jl/examples/flower_post_proc.py ../../../Flower.jl/examples/one_fluid_hysing_coupled2.yml --func plot_all_fig_func --h5 flower_00000001.h5 --skip-existing
     
-#     python3 ../../../Flower.jl/examples/flower_post_proc.py ../../../Flower.jl/examples/one_fluid_hysing_coupled2.yml --func plot_all_fig_func --h5 flower_00000001.h5 --name ucorr v_prediction
+#     python3 ../../../Flower.jl/examples/flower_post_proc.py ../../../Flower.jl/examples/one_fluid_hysing_coupled2.yml --func plot_all_fig_func --h5 flower_00000001.h5 --name u_prediction v_prediction
 
 
 #     """
@@ -2276,7 +2276,22 @@ def plot_1D(
 
    # print('nx',nx,ny)
 
-   if key=="u_1D":
+   if 'mesh_macro' in figpar.keys():
+      # print('x_1D',len(x_1D),x_1D)
+      # print('y_1D',len(y_1D),y_1D)
+
+      exec(figpar['mesh_macro'])
+      x_1D = x_1D_2
+      y_1D = y_1D_2
+      key_LS = key_LS_2
+      # ny = ny_2
+
+      # print('x_1D',len(x_1D),x_1D)
+      # print('y_1D',len(y_1D),y_1D)
+
+      key_LS_wall = "levelset_p_wall"
+      key_normal = 'normal_angle'
+   elif key=="u_1D":
       nx=nx+1
       x_1D = xu 
       y_1D = yp

@@ -802,14 +802,14 @@ plot: #default parameters for plots
         # linewidth: 1
         # linestyle: None
 
-      - var: ucorr
+      - var: u_prediction
         # func: plot_python_pdf_full2
-        file: ucorr
+        file: u_prediction
         macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
         figsize: None
         aspect_box: 'box'
         aspect_ratio: 'equal'
-        cbarlabel: ucorr
+        cbarlabel: u_prediction
         fontsize: 4
         isocontour: False
         levels: 10
@@ -4159,7 +4159,7 @@ pdi:
     normal_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } # angle to compute normal (cos,sin) in 2D
     normal_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } # angle to compute normal (cos,sin) in 2D
 
-    ucorr: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    u_prediction: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     v_prediction: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
 
     normal_velocity_intfc: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
@@ -6381,7 +6381,7 @@ pdi:
       - file: flower_${nstep:08}.h5 
         collision_policy: write_into
         on_event: write_velocity_prediction
-        write: [ucorr,v_prediction]
+        write: [u_prediction,v_prediction]
 
 
       - file: flower_${nstep:08}.h5 

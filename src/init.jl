@@ -1160,14 +1160,14 @@ function init_fields(num::NumericalParameters,
         Gym1S = fzeros(grid_v)
         uS = zeros(grid_u)
         vS = zeros(grid_v)
-        ucorrS = zeros(grid_u)
+        u_predictionS = zeros(grid_u)
         v_predictionS = zeros(grid_v)
         TDS = fnzeros(grid, num)
         pDS = fnzeros(grid, num)
         ϕDS = fnzeros(grid, num)
         uDS = fnzeros(grid_u, num)
         vDS = fnzeros(grid_v, num)
-        ucorrDS = fnzeros(grid_u, num)
+        u_predictionDS = fnzeros(grid_u, num)
         v_predictionDS = fnzeros(grid_v, num)
         uTS = fzeros(num.nNavier, grid)
         trans_scalS = zeros(grid, nb_transported_scalars)
@@ -1184,14 +1184,14 @@ function init_fields(num::NumericalParameters,
     Gym1L = fzeros(grid_v)
     uL = zeros(grid_u)
     vL = zeros(grid_v)
-    ucorrL = zeros(grid_u)
+    u_predictionL = zeros(grid_u)
     v_predictionL = zeros(grid_v)
     TDL = fnzeros(grid, num)
     pDL = fnzeros(grid, num)
     ϕDL = fnzeros(grid, num)
     uDL = fnzeros(grid_u, num)
     vDL = fnzeros(grid_v, num)
-    ucorrDL = fnzeros(grid_u, num)
+    u_predictionDL = fnzeros(grid_u, num)
     v_predictionDL = fnzeros(grid_v, num)
     uTL = fzeros(num.nNavier, grid)
 
@@ -1334,8 +1334,8 @@ function init_fields(num::NumericalParameters,
                 Operators(AxT_vS, AyT_vS, Bx_vS, By_vS, BxT_vS, ByT_vS, Hx_vS, Hy_vS, HxT_vS, HyT_vS, tmp_x_vS, tmp_y_vS, M_vS, iMx_vS, iMy_vS, χ_vS, Rx, Ry, Gx_S, Gy_S, Hx_b_vS, Hy_b_vS, HxT_b_vS, HyT_b_vS, iMx_b_vS, iMy_b_vS, iMx_bd_vS, iMy_bd_vS, Gx_b_vS, Gy_b_vS, χ_b_vS),
                 Operators(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L, Hx_b_vL, Hy_b_vL, HxT_b_vL, HyT_b_vL, iMx_b_vL, iMy_b_vL, iMx_bd_vL, iMy_bd_vL, Gx_b_vL, Gy_b_vL, χ_b_vL)
             ),
-            Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, ucorrS, v_predictionS, TDS, pDS, ϕDS, uDS, vDS, ucorrDS, v_predictionDS, uTS, trans_scalS, phi_eleS, trans_scalDS, phi_eleDS),
-            Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, v_predictionL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, v_predictionDL, uTL, trans_scalL, phi_eleL, trans_scalDL, phi_eleDL),
+            Phase(TS, pS, ϕS, Gxm1S, Gym1S, uS, vS, u_predictionS, v_predictionS, TDS, pDS, ϕDS, uDS, vDS, u_predictionDS, v_predictionDS, uTS, trans_scalS, phi_eleS, trans_scalDS, phi_eleDS),
+            Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, u_predictionL, v_predictionL, TDL, pDL, ϕDL, uDL, vDL, u_predictionDL, v_predictionDL, uTL, trans_scalL, phi_eleL, trans_scalDL, phi_eleDL),
         )
 
     else
@@ -1353,7 +1353,7 @@ function init_fields(num::NumericalParameters,
                 Operators(AxT_vL, AyT_vL, Bx_vL, By_vL, BxT_vL, ByT_vL, Hx_vL, Hy_vL, HxT_vL, HyT_vL, tmp_x_vL, tmp_y_vL, M_vL, iMx_vL, iMy_vL, χ_vL, Rx, Ry, Gx_L, Gy_L, Hx_b_vL, Hy_b_vL, HxT_b_vL, HyT_b_vL, iMx_b_vL, iMy_b_vL, iMx_bd_vL, iMy_bd_vL, Gx_b_vL, Gy_b_vL, χ_b_vL)
             ),
             nothing,
-            Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, ucorrL, v_predictionL, TDL, pDL, ϕDL, uDL, vDL, ucorrDL, v_predictionDL, uTL, trans_scalL, phi_eleL, trans_scalDL, phi_eleDL),
+            Phase(TL, pL, ϕL, Gxm1L, Gym1L, uL, vL, u_predictionL, v_predictionL, TDL, pDL, ϕDL, uDL, vDL, u_predictionDL, v_predictionDL, uTL, trans_scalL, phi_eleL, trans_scalDL, phi_eleDL),
         )
 
     end

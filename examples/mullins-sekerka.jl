@@ -96,7 +96,7 @@ make_video(num, fwd, gp, "T"; title_prefix=pref,
         title_suffix=suff, framerate=20)
 make_video(num, fwd, gp, "ϕ"; title_prefix=pref,
         title_suffix=suff, framerate=20)
-make_video(num, fwd, gu, "ucorr"; title_prefix=pref,
+make_video(num, fwd, gu, "u_prediction"; title_prefix=pref,
         title_suffix=suff, framerate=20, limitsx=(-1.0,1.0), limitsy=(-1.0,1.0))
 make_video(num, fwd, gv, "v_prediction"; title_prefix=pref,
         title_suffix=suff, framerate=20, limitsx=(-1.0,1.0), limitsy=(-1.0,1.0))

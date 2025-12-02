@@ -131,7 +131,7 @@ resize_to_layout!(fv)
 # make_video(num, fwd, gu, "u"; title_prefix=prefix,
 #         title_suffix=suffix, framerate=100)
 
-# # # make_video(num, fwd, gu, "ucorr"; title_prefix=prefix,
+# # # make_video(num, fwd, gu, "u_prediction"; title_prefix=prefix,
 # # #         title_suffix=suffix, framerate=100)
 
 # make_video(num, fwd, gv, "v"; title_prefix=prefix,
