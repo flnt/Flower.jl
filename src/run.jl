@@ -325,6 +325,7 @@ function run_forward!(
     # nb_gaz_acceptors = zeros(grid_p)
 
     #region electrolysis
+    #TODO harmonic conductivity
     if electrolysis
         if num.nb_transported_scalars>1
             elec_cond = zeros(grid_p)

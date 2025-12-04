@@ -75,6 +75,9 @@ colors= [
    "#D55E00", #orange
    "#009E73", #vert,
    "#CC79A7",
+   "#000000",
+   "#56B4E9", #1 bleu clair 86, 180, 233
+   "#F0E442", #3 jaune 240, 228, 66
 ]
 
 orange_Okabe = "#D55E00"

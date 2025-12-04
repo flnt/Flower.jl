@@ -149,6 +149,7 @@ Stores parameters for the simulation
     marching_squares_epsilon::T=1e-9
     marching_squares_max_iter::D=10
     convection::D=0
+    convection_scheme::String = "upwind"
     nucleation_time::T=0.0
     phase_change_currently_activated::D=0
     stop_simulation::D=0

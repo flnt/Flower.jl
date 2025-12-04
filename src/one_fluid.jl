@@ -561,6 +561,7 @@ function compute_fluxes(u, v, rho_u, rho_v, dx_u, dy_u ,dx_v, dy_v,grid_u,grid_v
     for j in 1:grid_v.ny
         for i in 1:grid_v.nx
 
+
             # Calculate v velocities at cell faces
             v_north = 0.5 * (v[j+1, i] + v[j, i])  # y = y_{j+1/2}, x = x_i
             v_south = 0.5 * (v[j,   i] + v[j-1, i])  # y = y_{j-1/2}, x = x_i
@@ -579,6 +580,14 @@ function compute_fluxes(u, v, rho_u, rho_v, dx_u, dy_u ,dx_v, dy_v,grid_u,grid_v
                 ( u_east * v_east * dy_v[j,i] - u_west * v_west  * dy_v[j,i-1]) +   # x-flux
                 ( v_north * v_north * dx_v[j,i]- v_south * v_south * dx_v[j-1,i])  # y-flux
             )
+            
+            if j == 1
+                # print("\n check flux ",j," ",i," ",u_east," ",v_east," ",  dy_v[j,i]," ",u_west ," ", v_west  ," ", dy_v[j,i-1] ," ", v_north ," ", dx_v[j,i] ," ", v_south ," ", dx_v[j-1,i] )
+                printstyled(color=:green, @sprintf "\n i %.5i j %.5i flux %.2e u_east %.2e v_east %.2e u_west %.2e v_west %.2e v_north %.2e v_south %.2e dy_v[j,i-1] %.2e dx_v[j-1,i] %.2e \n" i j flux_y[j, i] u_east v_east u_west v_west v_north v_south dy_v[j,i-1] dx_v[j-1,i])
+
+           
+            end
+
         end
     end
 
@@ -600,6 +609,10 @@ function allocate_offset_array(yrange::UnitRange, xrange::UnitRange; init_val=0.
     return arr
 end
 
+
+"""
+fill ghost with Neumann BC (explicit)
+"""
 function fill_bulk_ghost(uconv,u,grid_u)
 
     uconv[1:grid_u.ny,1:grid_u.nx] .= u 
@@ -779,6 +792,8 @@ function solve_one_fluid_NS!(
         elseif num.prediction == "PmIIimposedpressure_nodiv_3"
             BC_Poisson = Boundaries(top=Dirichlet(),
                                     bottom=Dirichlet()) 
+        elseif num.prediction == "no_correction"
+            BC_Poisson = nothing 
         else
             BC_Poisson = copy(BC_p) 
         end
@@ -934,7 +949,7 @@ function solve_one_fluid_NS!(
 
     elseif num.convection == 1
        
-        print("\n size Cui",size(Cui))
+        # print("\n size Cui",size(Cui))
 
         rho_u_one = ones(grid_u)
         rho_v_one = ones(grid_v)
@@ -947,7 +962,7 @@ function solve_one_fluid_NS!(
         # uconv = init_ghost_neumann_2(u,grid_u.nx,grid_u.ny,nghost)
         # vconv = init_ghost_neumann_2(v,grid_v.nx,grid_v.ny,nghost)
 
-        print("\nalloc",0:(grid_u.ny - 1 + 2*nghost), 0:(grid_u.nx - 1 + 2*nghost), 0:(grid_v.ny - 1 + 2*nghost), 0:(grid_v.nx - 1 + 2*nghost))
+        # print("\nalloc",0:(grid_u.ny - 1 + 2*nghost), 0:(grid_u.nx - 1 + 2*nghost), 0:(grid_v.ny - 1 + 2*nghost), 0:(grid_v.nx - 1 + 2*nghost))
         # Allocate with ghosts and OffsetArrays to start indexing at 0
         # uconv = OffsetArray(zeros(grid_u.ny + 2*nghost, grid_u.nx + 2*nghost), 0:(grid_u.ny - 1 + 2*nghost), 0:(grid_u.nx - 1 + 2*nghost))
         # vconv = OffsetArray(zeros(grid_v.ny + 2*nghost, grid_v.nx + 2*nghost), 0:(grid_v.ny - 1 + 2*nghost), 0:(grid_v.nx - 1 + 2*nghost))
@@ -955,11 +970,49 @@ function solve_one_fluid_NS!(
         uconv = allocate_offset_array((1-nghost):(grid_u.ny+nghost), (1-nghost):(grid_u.nx+nghost), init_val=NaN)
         vconv = allocate_offset_array((1-nghost):(grid_v.ny+nghost), (1-nghost):(grid_v.nx+nghost), init_val=NaN)
 
+
         fill_bulk_ghost(uconv,u,grid_u)
         fill_bulk_ghost(vconv,v,grid_v)
 
-        print("\n uconv ", size(uconv))
-        print("\n vconv ", size(vconv))
+        # Impose Dirichlet BC for uconv
+        if BC_u.left isa Dirichlet
+            # Set the solution vector to the Dirichlet value at the left boundary nodes (i=0)
+            uconv[0, :] .= BC_u.left.val
+        end
+        if BC_u.right isa Dirichlet
+            # Set the solution vector to the Dirichlet value at the right boundary nodes (i=end)
+            uconv[end, :] .= BC_u.right.val
+        end
+        if BC_u.top isa Dirichlet
+            # Set the solution vector to the Dirichlet value at the top boundary nodes (j=end)
+            uconv[:, end] .= BC_u.top.val
+        end
+        if BC_u.bottom isa Dirichlet
+            # Set the solution vector to the Dirichlet value at the bottom boundary nodes (j=0)
+            uconv[:, 0] .= BC_u.bottom.val
+        end
+
+        # Impose Dirichlet BC for vconv
+        if BC_v.left isa Dirichlet
+            # Set the solution vector to the Dirichlet value at the left boundary nodes (i=0)
+            vconv[0, :] .= BC_v..left.val
+        end
+        if BC_v.right isa Dirichlet
+            # Set the solution vector to the Dirichlet value at the right boundary nodes (i=end)
+            vconv[end, :] .= BC_v.right.val
+        end
+        if BC_v.top isa Dirichlet
+            # Set the solution vector to the Dirichlet value at the top boundary nodes (j=end)
+            vconv[:, end] .= BC_v.top.val
+        end
+        if BC_v.bottom isa Dirichlet
+            # Set the solution vector to the Dirichlet value at the bottom boundary nodes (j=0)
+            vconv[:, 0] .= BC_v.bottom.val
+        end
+
+
+        # print("\n uconv ", size(uconv), minimum(uconv),maximum(uconv))
+        # print("\n vconv ", size(vconv),minimum(vconv),maximum(vconv))
 
 
         #store dx dy from p nodes including p nodes at wall
@@ -975,9 +1028,9 @@ function solve_one_fluid_NS!(
         dx_u[0,1:nx+1] .= dx_u[1,1:nx+1]
 
 
-        print("\n dx_u")
-        display(dx_u)
-        println("\n dx at u top bottom faces X indices: ", axes(dx_u,1),"Y indices: ", axes(dx_u,2))
+        # print("\n dx_u")
+        # display(dx_u)
+        # println("\n dx at u top bottom faces X indices: ", axes(dx_u,1),"Y indices: ", axes(dx_u,2))
 
         # dy_u = OffsetArray(os(grid_p.ny + 2*nghost, grid_p.nx + 2*nghost), 0:(grid_p.ny - 1 + 2*nghost), 0:(grid_p.nx - 1 + 2*nghost))
         
@@ -992,7 +1045,7 @@ function solve_one_fluid_NS!(
 
         # dy_u[0,1:grid_u.nx] = 
 
-        display(dy_u)
+        # display(dy_u)
 
         # top bottom faces for v (p nodes)
         dy_v = allocate_offset_array(1:grid_v.ny, 0:nx, init_val=NaN)
@@ -1003,10 +1056,10 @@ function solve_one_fluid_NS!(
         dy_v[ny+1,1:nx] .= dy_v[ny,1:nx]/2
 
 
-        dy_v[1:grid_v.ny,0] .= grid_v.dy[1:grid_v.ny,1]
+        dy_v[1:grid_v.ny,0] .= dy_v[1:grid_v.ny,1]
 
-        print("\n dv_v")
-        display(dy_v)
+        # print("\n dv_v")
+        # display(dy_v)
 
 
 
@@ -1020,31 +1073,36 @@ function solve_one_fluid_NS!(
         dx_v[0,1:grid_p.nx] = grid_p.dx[1,1:grid_p.nx]
         dx_v[ny+1,1:grid_p.nx] = grid_p.dx[ny,1:grid_p.nx]
 
-
-        Cui2D, Cvi2D = compute_fluxes(uconv, vconv, rho_u_one,rho_v_one, dx_u, dy_u ,dx_v, dy_v ,grid_u,grid_v) # TODO check location dx vs face
-
-        "conv"
+        if num.convection_scheme == "upwind"
+            Cui2D, Cvi2D = compute_fluxes_upwind(uconv, vconv, rho_u_one,rho_v_one, dx_u, dy_u ,dx_v, dy_v ,grid_u,grid_v) # TODO check location dx vs face
+        elseif num.convection_scheme == "centered"
+            Cui2D, Cvi2D = compute_fluxes(uconv, vconv, rho_u_one,rho_v_one, dx_u, dy_u ,dx_v, dy_v ,grid_u,grid_v) # TODO check location dx vs face
+        end
+        # "conv"
 
         Cui = vec(Cui2D)
         Cvi = vec(Cvi2D)
 
-        print("\n dx_u ",minimum(dx_u)," ",maximum(dx_u))
-        print("\n dy_u ",minimum(dy_u)," ",maximum(dy_u))
 
-        print("\n dx_v ",minimum(dx_v)," ",maximum(dx_v))
-        print("\n dy_v ",minimum(dy_v)," ",maximum(dy_v))
 
-        print("\n u check",minimum(u)," ",maximum(u))
-        print("\n v check",minimum(v)," ",maximum(v))
+        # print("\n dx_u ",minimum(dx_u)," ",maximum(dx_u))
+        # print("\n dy_u ",minimum(dy_u)," ",maximum(dy_u))
 
-        print("\n warning flux check ",minimum(Cui)," ",maximum(Cui))
-        print("\n warning flux check ",minimum(Cvi)," ",maximum(Cvi))
-        print("\n Cui2D \n")
-        display(Cui2D)
+        # print("\n dx_v ",minimum(dx_v)," ",maximum(dx_v))
+        # print("\n dy_v ",minimum(dy_v)," ",maximum(dy_v))
+
+        # print("\n u check",minimum(u)," ",maximum(u))
+        # print("\n v check",minimum(v)," ",maximum(v))
+
+        print("\n flux check u v ",minimum(Cui)," ",maximum(Cui)," ",minimum(Cvi)," ",maximum(Cvi))
+
+        print("\nCvi ",Cvi2D[1,:]) 
+        # print("\n Cui2D \n")
+        # display(Cui2D)
         
-        print("\n Cvi2D \n")
+        # print("\n Cvi2D \n")
 
-        display(Cvi2D)
+        # display(Cvi2D)
 
 
         if advection
@@ -2007,6 +2065,9 @@ function solve_one_fluid_NS!(
 
         elseif num.prediction == "testpressure"
             print("test pressure")
+        elseif num.prediction == "no_correction"
+            print("test pressure")
+            # pD .= 0.0
 
         else
             @error("wrong prediction method, does not exist")
@@ -3186,30 +3247,31 @@ function set_Forward_Euler_one_fluid!(
 
         print("\n min max coeff ",minimum(mat_coeffDx),maximum(mat_coeffDx),minimum(mat_coeffDy),maximum(mat_coeffDy))
 
-        solve_poisson_one_fluid!(num, 
-        grid_p, 
-        grid_u, 
-        grid_v, 
-        opC_p,
-        A_phi, 
-        rhs_phi,
-        # F_residual,
-        # tmp_vec_p, #a0
-        # a1_p,
-        BC_p,
-        # phL,    
-        # elec_cond,                    
-        # elec_condD,
-        # rho_one_fluid,
-        # rho_one_fluid_u, #tmp_vec_u,
-        # rho_one_fluid_v ,#tmp_vec_v,
-        mat_coeffDx,
-        mat_coeffDy,
-        # tmp_vec_u0,
-        # tmp_vec_v0,
-        # i_butler,
-        ls_advection)  # heat
-        
+        if !isnothing(BC_p) #TODO
+            solve_poisson_one_fluid!(num, 
+            grid_p, 
+            grid_u, 
+            grid_v, 
+            opC_p,
+            A_phi, 
+            rhs_phi,
+            # F_residual,
+            # tmp_vec_p, #a0
+            # a1_p,
+            BC_p,
+            # phL,    
+            # elec_cond,                    
+            # elec_condD,
+            # rho_one_fluid,
+            # rho_one_fluid_u, #tmp_vec_u,
+            # rho_one_fluid_v ,#tmp_vec_v,
+            mat_coeffDx,
+            mat_coeffDy,
+            # tmp_vec_u0,
+            # tmp_vec_v0,
+            # i_butler,
+            ls_advection)  # heat
+        end 
 
 
         # print("\n rhs phi ",size(rhs_phi))

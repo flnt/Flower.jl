@@ -156,6 +156,7 @@ include("interface_transport.jl")
 include("solve_one_fluid.jl")
 include("compute_mass_transfer_rate.jl")
 include("test_functions.jl")
+include("convection.jl")
 
 ###################################################################################################
 # For plotting with python
