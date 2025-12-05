@@ -2048,21 +2048,26 @@ def plot_time(
 
       color1 = colors[(figpar['iter'])%len(colors)]
       ls1=ls
-      if 'macro' in figpar.keys():
-         # X = varx
-         # print(X)
-         # local_context = {}
-         exec(figpar['macro'],
-            #   ,globals(),
-            # globals(),
-            # # locals(), 
-            # local_context
-            )
+
+      exec( get_value_from_dicts('macro_label_linestyle_color',figpar,plotpar) )
+      label1 = label2
+      color1=color2
+      ls1=ls2
+      # if 'macro' in figpar.keys():
+      #    # X = varx
+      #    # print(X)
+      #    # local_context = {}
+      #    exec(figpar['macro'],
+      #       #   ,globals(),
+      #       # globals(),
+      #       # # locals(), 
+      #       # local_context
+      #       )
          
-         # label1 = local_context['label1']
-         label1 = label2
-         color1=color2
-         ls1=ls2
+      #    # label1 = local_context['label1']
+      #    label1 = label2
+      #    color1=color2
+      #    ls1=ls2
    
       #    print(label1)
       # print(label2)
@@ -2492,35 +2497,40 @@ def plot_1D(
          print('y_1D',y_1D*scale_x)
 
 
-      if 'macro' in figpar.keys():
-         # X = varx
-         # print(X)
-         # local_context = {}
+      exec( get_value_from_dicts('macro_label_linestyle_color',figpar,plotpar) )
+      label1 = label2
+      color1=color2
+      ls1=ls2
 
-         # print("figpar['iter']",figpar['iter'])
-         # label2 = file[figpar['iter']]
-         # print('label2',label2)
-         # # label1
-         # color2 = colors[figpar['iter']]
-         # print(color2)
-         # print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
-         # ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
+      # if 'macro' in figpar.keys():
+      #    # X = varx
+      #    # print(X)
+      #    # local_context = {}
 
-         exec(figpar['macro'],
-            #   ,globals(),
-            # globals(),
-            # # locals(), 
-            # local_context
-            )
+      #    # print("figpar['iter']",figpar['iter'])
+      #    # label2 = file[figpar['iter']]
+      #    # print('label2',label2)
+      #    # # label1
+      #    # color2 = colors[figpar['iter']]
+      #    # print(color2)
+      #    # print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
+      #    # ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
+
+      #    exec(figpar['macro'],
+      #       #   ,globals(),
+      #       # globals(),
+      #       # # locals(), 
+      #       # local_context
+      #       )
          
-         # label1 = local_context['label1']
-         label1 = label2
+      #    # label1 = local_context['label1']
+      #    label1 = label2
 
    
       #    print(label1)
-      print(label2)
-      print(label1)
-      print(figpar['macro'])
+      # print(label2)
+      # print(label1)
+      # print(figpar['macro'])
       # print(figpar)
       if 'logplot' in figpar.keys():
 

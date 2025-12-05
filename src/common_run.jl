@@ -42,6 +42,20 @@ handles 2 crossing levelsets, levelsets are combined at grid.LS[end]
 * empty = true
 """
 function update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, empty = true,one_fluid_model=false)
+
+    # if num.one_fluid_model == 1
+    #     print("\n dummy volume green")
+    #     xmax = num.x[end]
+    #     xmin = num.x[1]
+    #     ymax = num.y[end]
+    #     ymin = num.y[1]
+    #     vol = (xmax-xmin)*(ymax-ymin)/(grid.nx*grid.ny)
+    #     grid.LS[end].geoL.dcap[:,:,5] .= vol
+    #     grid_u.LS[end].geoL.dcap[:,:,5] .= vol
+    #     grid_v.LS[end].geoL.dcap[:,:,5] .= vol
+
+    # end
+
     if num.nLS > 1
         for iLS in 1:num.nLS
             update_ls_data(num, grid, grid_u, grid_v, iLS, grid.LS[iLS].u, grid.LS[iLS].κ, BC_int, BC_int[iLS], periodic_x, periodic_y, false, empty,one_fluid_model)

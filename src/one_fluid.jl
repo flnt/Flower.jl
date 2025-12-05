@@ -741,6 +741,23 @@ function solve_one_fluid_NS!(
     @unpack p, pD, ϕ, u, v, u_predictionD, v_predictionD, uD, vD, u_prediction, v_prediction, uT = ph
     @unpack Cu, Cv, CUTCu, CUTCv = op_conv
 
+
+    convection_u .=0.0
+    convection_v .=0.0
+
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("write_one_fluid_capacities"::Cstring,                    
+    # "dcap"::Cstring, permutedims(grid_p.LS[num.iLSpdi].geoL.dcap, (3, 2, 1))::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "dcap_1"::Cstring, grid_p.LS[num.iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "dcap_2"::Cstring, grid_p.LS[num.iLSpdi].geoL.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "dcap_3"::Cstring, grid_p.LS[num.iLSpdi].geoL.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "dcap_4"::Cstring, grid_p.LS[num.iLSpdi].geoL.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint,
+    "cell_volume_p"::Cstring, grid_p.LS[num.iLSpdi].geoL.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint,
+    "cell_volume_u"::Cstring, grid_u.LS[num.iLSpdi].geoL.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint,
+    "cell_volume_v"::Cstring, grid_v.LS[num.iLSpdi].geoL.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint      
+
+
     u0 = copy(u)
     v0 = copy(v)
 
@@ -948,6 +965,9 @@ function solve_one_fluid_NS!(
         end
 
     elseif num.convection == 1
+
+        convection_u .= 0.0
+        convection_v .= 0.0
        
         # print("\n size Cui",size(Cui))
 
@@ -995,7 +1015,7 @@ function solve_one_fluid_NS!(
         # Impose Dirichlet BC for vconv
         if BC_v.left isa Dirichlet
             # Set the solution vector to the Dirichlet value at the left boundary nodes (i=0)
-            vconv[0, :] .= BC_v..left.val
+            vconv[0, :] .= BC_v.left.val
         end
         if BC_v.right isa Dirichlet
             # Set the solution vector to the Dirichlet value at the right boundary nodes (i=end)
@@ -1074,8 +1094,12 @@ function solve_one_fluid_NS!(
         dx_v[ny+1,1:grid_p.nx] = grid_p.dx[ny,1:grid_p.nx]
 
         if num.convection_scheme == "upwind"
-            Cui2D, Cvi2D = compute_fluxes_upwind(uconv, vconv, rho_u_one,rho_v_one, dx_u, dy_u ,dx_v, dy_v ,grid_u,grid_v) # TODO check location dx vs face
-        elseif num.convection_scheme == "centered"
+            Cui2D, Cvi2D = compute_fluxes_upwind(num,uconv, vconv, rho_u_one,rho_v_one, dx_u, dy_u ,dx_v, dy_v ,grid_u,grid_v) # TODO check location dx vs face
+        elseif num.convection_scheme == "CUI"
+            Cui2D, Cvi2D = compute_fluxes_CUI(uconv, vconv, rho_u_one,rho_v_one, dx_u, dy_u ,dx_v, dy_v ,grid_u,grid_v) # TODO check location dx vs face
+        
+        elseif num.convection_scheme == "centered" 
+            @error("\n check Peclet")
             Cui2D, Cvi2D = compute_fluxes(uconv, vconv, rho_u_one,rho_v_one, dx_u, dy_u ,dx_v, dy_v ,grid_u,grid_v) # TODO check location dx vs face
         end
         # "conv"
@@ -1096,8 +1120,10 @@ function solve_one_fluid_NS!(
 
         print("\n flux check u v ",minimum(Cui)," ",maximum(Cui)," ",minimum(Cvi)," ",maximum(Cvi))
 
-        print("\nCvi ",Cvi2D[1,:]) 
+        # print("\nCvi ",Cvi2D[1,:]) 
+
         # print("\n Cui2D \n")
+
         # display(Cui2D)
         
         # print("\n Cvi2D \n")
@@ -1122,6 +1148,10 @@ function solve_one_fluid_NS!(
         convection_v .= 0.0
 
     end
+
+    # print("\n test dummy no convective")
+    # convection_u .= 0.0
+    # convection_v .= 0.0
 
 
     #endregion convection
@@ -1165,8 +1195,11 @@ function solve_one_fluid_NS!(
     "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
-    @views mul!(rhs_uv[velocity_block], Buv[velocity_block,velocity_block], uvm1, 1.0, 1.0)
-    
+    if num.non_dimensionalize == 2
+        rhs_uv[velocity_block] .= uvm1
+    else
+        @views mul!(rhs_uv[velocity_block], Buv[velocity_block,velocity_block], uvm1, 1.0, 1.0)
+    end
     # PDI_status = @ccall "libpdi".PDI_multi_expose("write_volume_u"::Cstring,
     # "volume_u"::Cstring, Buv[bulk_u_velocity]::Ptr{Cdouble}, PDI_OUT::Cint,
     # C_NULL::Ptr{Cvoid})::Cint #LoadError: conversion to pointer not defined for SparseVector{Float64, Int64}
@@ -1255,9 +1288,26 @@ function solve_one_fluid_NS!(
 
     rhs_uv[bulk_u_velocity] .-= timestep_n .* grav_x #timestep_n * rho_one_fluid_u .* grav_x
 
-    rhs_uv[bulk_u_velocity] .-= timestep_n .* convection_u #rho in convection_u
 
-     PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
+    # if num.non_dimensionalize == 0
+    rhs_uv[bulk_u_velocity] .-= timestep_n .* convection_u #rho in convection_u
+    # elseif num.non_dimensionalize == 2
+    #     print("\n dummy volume green")
+    #     xmax = num.x[end]
+    #     xmin = num.x[1]
+    #     ymax = num.y[end]
+    #     ymin = num.y[1]
+    #     fixed_volume = (xmax-xmin)*(ymax-ymin)/(grid_p.nx*grid_p.ny)
+    #     fixed_factor = timestep_n/fixed_volume
+
+    #     @inbounds for i in eachindex(bulk_u_velocity)
+    #         rhs_uv[bulk_u_velocity[i]] -= convection_u[i] * fixed_factor
+    #     end
+    #     # rhs_uv[bulk_u_velocity] .-= timestep_n .* convection_u ./ vec(geo_u[end].dcap[:,:,5])
+    #     # opC_u.M
+    # end
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
     "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,
     "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
@@ -1326,6 +1376,23 @@ function solve_one_fluid_NS!(
     C_NULL::Ptr{Cvoid})::Cint
 
     rhs_uv[bulk_v_velocity] .-= timestep_n .* convection_v
+
+    # if num.non_dimensionalize == 0
+    rhs_uv[bulk_v_velocity] .-= timestep_n .* convection_v
+    # elseif num.non_dimensionalize == 2
+    #     xmax = num.x[end]
+    #     xmin = num.x[1]
+    #     ymax = num.y[end]
+    #     ymin = num.y[1]
+    #     fixed_volume = (xmax-xmin)*(ymax-ymin)/(grid_p.nx*grid_p.ny)
+    #     fixed_factor = timestep_n/fixed_volume
+
+    #     # @inbounds for i in eachindex(bulk_v_velocity)
+    #     #     rhs_uv[bulk_v_velocity[i]] -= convection_v[i] * fixed_factor
+    #     # end
+    #     # rhs_uv[bulk_v_velocity] .-= timestep_n .* convection_v ./vec(geo_v[end].dcap[:,:,5])
+    #     # opC_v.M
+    # end
 
     conv_y = reshape(convection_v,grid_v)
 
@@ -1512,6 +1579,11 @@ function solve_one_fluid_NS!(
     "rhs_uv_1D"::Cstring, rhs_uv::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("write_rhs_uv_u"::Cstring,
+    "rhs_uv_u"::Cstring, rhs_uv[bulk_u_velocity]::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
     PDI_status = @ccall "libpdi".PDI_multi_expose("write_rhs_uv_v"::Cstring,
     "rhs_uv_v"::Cstring, rhs_uv[bulk_v_velocity]::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
@@ -1540,11 +1612,11 @@ function solve_one_fluid_NS!(
     #endregion check_one_fluid
 
 
-    print("\n test A")
-    II = CartesianIndex(1,1)
-    pII = lexicographic(II, grid_v.ny)
-    print("\n test A v",Auv[pII+ntu,:])
-    print("\n end test A \n")
+    # print("\n test A")
+    # II = CartesianIndex(1,1)
+    # pII = lexicographic(II, grid_v.ny)
+    # print("\n test A v",Auv[pII+ntu,:])
+    # print("\n end test A \n")
 
 
     if num.pressure_velocity_coupling == 3
@@ -1567,11 +1639,11 @@ function solve_one_fluid_NS!(
         print("\n End setting first cells \n")
     end
 
-    print("\n test A")
-    II = CartesianIndex(1,1)
-    pII = lexicographic(II, grid_v.ny)
-    print("\n test A v",Auv[pII+ntu,:])
-    print("\n end test A \n")
+    # print("\n test A")
+    # II = CartesianIndex(1,1)
+    # pII = lexicographic(II, grid_v.ny)
+    # print("\n test A v",Auv[pII+ntu,:])
+    # print("\n end test A \n")
 
     
     #region solver
@@ -2148,10 +2220,19 @@ function solve_one_fluid_NS!(
         # kill_dead_cells!(v, grid_v, geo_v[end])
         #endregion cut-cell
 
-        vec1(uD,grid_u) .= vec(u)
-        vecb(uD,grid_u) .= vecb(u_predictionD,grid_u)
-        vec1(vD,grid_v) .= vec(v)
-        vecb(vD,grid_v) .= vecb(v_predictionD,grid_v)
+        if num.prediction == "no_correction"
+        
+            vec1(uD,grid_u) .= vec(u)
+            # vecb(uD,grid_u) .= vecb(u_predictionD,grid_u)
+            vec1(vD,grid_v) .= vec(v)
+            # vecb(vD,grid_v) .= vecb(v_predictionD,grid_v)
+
+        else
+            vec1(uD,grid_u) .= vec(u)
+            vecb(uD,grid_u) .= vecb(u_predictionD,grid_u)
+            vec1(vD,grid_v) .= vec(v)
+            vecb(vD,grid_v) .= vecb(v_predictionD,grid_v)
+        end
 
         vecb(vD,grid_v) .= vecb(v_predictionD,grid_v)
 
@@ -3602,6 +3683,16 @@ function FE_set_momentum_coupled2_one_fluid(
         # Implicit part of viscous term
         if num.non_dimensionalize == 0
             A[bulk_u_velocity,bulk_u_velocity] = opu.M .- timestep_n * diag_inv_rho_u * diffusion_bulk_u #pad_crank_nicolson(opu.M .- timestep_n * diag_inv_rho_u * diffusion_bulk_u , grid_u, timestep_n)
+        elseif num.non_dimensionalize == 2
+            # print("\n min max opu.M", minimum(opu.M), " ",maximum(opu.M))
+            # dummy_diag = Diagonal()
+            # A[bulk_u_velocity,bulk_u_velocity] .= 1.0
+            # M.diag .= vec(geo[end].dcap[:,:,5])
+
+            @inbounds for i in eachindex(bulk_u_velocity)
+                A[bulk_u_velocity[i], bulk_u_velocity[i]] = 1.0
+            end
+
         else
             A[bulk_u_velocity,bulk_u_velocity] = pad_crank_nicolson(rho_one_fluid_u*opu.M .- timestep_n .* diffusion_bulk_u, grid_u, timestep_n)
         end
@@ -3661,18 +3752,28 @@ function FE_set_momentum_coupled2_one_fluid(
             A[bulk_u_velocity,border_v_velocity] = - timestep_n .* cross_term_diffusion_bulk_d_dv_dx_dy_border
         end
         
-
-        # Boundary conditions for outer boundaries
-        A[border_u_velocity,bulk_u_velocity] = b_bu * (opu.HxT_b * opu.iMx_b' * opu.Bx .+ opu.HyT_b * opu.iMy_b' * opu.By)
-        A[border_u_velocity,border_u_velocity] = pad(b_bu * (
-            opu.HxT_b * opu.iMx_bd * opu.Hx_b .+ 
-            opu.HyT_b * opu.iMy_bd * opu.Hy_b
-        ) .- opu.χ_b * a1_bu)
+        if num.non_dimensionalize == 2
+            @inbounds for i in eachindex(border_u_velocity)
+                A[border_u_velocity[i], border_u_velocity[i]] = 1.0
+            end
+        else
+            # Boundary conditions for outer boundaries
+            A[border_u_velocity,bulk_u_velocity] = b_bu * (opu.HxT_b * opu.iMx_b' * opu.Bx .+ opu.HyT_b * opu.iMy_b' * opu.By)
+            A[border_u_velocity,border_u_velocity] = pad(b_bu * (
+                opu.HxT_b * opu.iMx_bd * opu.Hx_b .+ 
+                opu.HyT_b * opu.iMy_bd * opu.Hy_b
+            ) .- opu.χ_b * a1_bu)
+        end
 
         # Implicit part of viscous term
         if num.non_dimensionalize == 0
             A[bulk_v_velocity,bulk_v_velocity] = opv.M .- timestep_n .* diag_inv_rho_v * diffusion_bulk_v #pad_crank_nicolson(opv.M .- timestep_n .* diag_inv_rho_v * diffusion_bulk_v  , grid_v, timestep_n)
             A[bulk_v_velocity,bulk_u_velocity] = - timestep_n .* diag_inv_rho_v * cross_term_diffusion_bulk_d_du_dy_dx 
+        elseif num.non_dimensionalize == 2
+            # A[bulk_v_velocity,bulk_v_velocity] .= 1.0
+            @inbounds for i in eachindex(bulk_v_velocity)
+                A[bulk_v_velocity[i], bulk_v_velocity[i]] = 1.0
+            end
         else
             A[bulk_v_velocity,bulk_v_velocity] = pad_crank_nicolson(rho_one_fluid_v * opv.M .- timestep_n .* diffusion_bulk_v, grid_v, timestep_n)
             A[bulk_v_velocity,bulk_u_velocity] = - timestep_n .* cross_term_diffusion_bulk_d_du_dy_dx 
@@ -3688,14 +3789,18 @@ function FE_set_momentum_coupled2_one_fluid(
             A[bulk_v_velocity,border_u_velocity] = - timestep_n .* cross_term_diffusion_bulk_d_du_dy_dx_border
         end
         
-
-        
-        # Boundary conditions for outer boundaries
-        A[border_v_velocity,bulk_v_velocity] = b_bv * (opv.HxT_b * opv.iMx_b' * opv.Bx .+ opv.HyT_b * opv.iMy_b' * opv.By)
-        A[border_v_velocity,border_v_velocity] = pad(b_bv * (
-            opv.HxT_b * opv.iMx_bd * opv.Hx_b .+ 
-            opv.HyT_b * opv.iMy_bd * opv.Hy_b
-        ) .- opv.χ_b * a1_bv)
+        if num.non_dimensionalize == 2
+            @inbounds for i in eachindex(border_v_velocity)
+                A[border_v_velocity[i], border_v_velocity[i]] = 1.0
+            end
+        else
+            # Boundary conditions for outer boundaries
+            A[border_v_velocity,bulk_v_velocity] = b_bv * (opv.HxT_b * opv.iMx_b' * opv.Bx .+ opv.HyT_b * opv.iMy_b' * opv.By)
+            A[border_v_velocity,border_v_velocity] = pad(b_bv * (
+                opv.HxT_b * opv.iMx_bd * opv.Hx_b .+ 
+                opv.HyT_b * opv.iMy_bd * opv.Hy_b
+            ) .- opv.χ_b * a1_bv)
+        end
 
         # TODO pad 1 or -4
         #TODO sign divergence not same u v and p

@@ -2191,18 +2191,22 @@ function run_forward!(
                     if advection
                         # update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y, true) 
                         update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y, true,true) 
+                        if num.convection == 0
+                            # op.opL is op_conv
+                            set_convection_preallocated!(num, grid_p, geoL[end], grid_u, grid_u.LS, grid_v, grid_v.LS, phL.u, phL.v, op.opL,
+                            phL, BC_uL, BC_vL,op.opC_pL, op.opC_uL, op.opC_vL,
+                            velocity_and_BC_convection_u_x ,
+                            velocity_and_BC_convection_u_y ,
+                            velocity_and_BC_convection_v_x ,
+                            velocity_and_BC_convection_v_y)
 
-                        # op.opL is op_conv
-                        set_convection_preallocated!(num, grid_p, geoL[end], grid_u, grid_u.LS, grid_v, grid_v.LS, phL.u, phL.v, op.opL,
-                        phL, BC_uL, BC_vL,op.opC_pL, op.opC_uL, op.opC_vL,
-                        velocity_and_BC_convection_u_x ,
-                        velocity_and_BC_convection_u_y ,
-                        velocity_and_BC_convection_v_x ,
-                        velocity_and_BC_convection_v_y)
+                            # Mm1_L .= op.opC_pL.M
+                            # Mum1_L .= op.opC_uL.M
+                            # Mvm1_L .= op.opC_vL.M
+                        else
 
-                        # Mm1_L .= op.opC_pL.M
-                        # Mum1_L .= op.opC_uL.M
-                        # Mvm1_L .= op.opC_vL.M
+
+                        end
 
                         
                     end
@@ -2254,6 +2258,7 @@ function run_forward!(
                     # Mum1_L is put in B matrix that multiplies v
                     # print("\n advection ", ns_advection, " adv ",advection)
                     one_fluid_NS_ls_advection = true #update matrix
+
 
                     Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L,
                     Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = solve_one_fluid_NS!(

@@ -564,6 +564,18 @@ function set_matrices!(
         periodic_x, periodic_y
     )
 
+    # if num.one_fluid_model == 1
+    #     print("\n dummy volume green")
+    #     xmax = num.x[end]
+    #     xmin = num.x[1]
+    #     ymax = num.y[end]
+    #     ymin = num.y[1]
+    #     vol = (xmax-xmin)*(ymax-ymin)/(grid.nx*grid.ny)
+    #     grid.LS[end].geoL.dcap[:,:,5] .= vol
+    #     grid_u.LS[end].geoL.dcap[:,:,5] .= vol
+    #     grid_v.LS[end].geoL.dcap[:,:,5] .= vol
+    # end
+
     set_cutcell_matrices!(num, grid, geo, geo, opC_p, periodic_x, periodic_y)
     set_cutcell_matrices!(num, grid_u, geo_u, geo, opC_u, periodic_x, periodic_y)
     set_cutcell_matrices!(num, grid_v, geo_v, geo, opC_v, periodic_x, periodic_y)
