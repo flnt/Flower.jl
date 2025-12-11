@@ -670,6 +670,7 @@ def plot_convergence_study_func(yaml_file, args):
 
    # If no h5 files are provided via args, list all .h5 files in current directory
    if not args.h5 or len(args.h5) == 0:
+      import os
       all_files = os.listdir(".")
       h5_files = [file for file in all_files if file.endswith(".h5")]
    else:
@@ -838,6 +839,8 @@ def plot_convergence_study_func(yaml_file, args):
 
          if 'files' in figpar.keys():
             h5_files_tmp = figpar['files']
+         elif 'files' in plotpar.keys():
+            h5_files_tmp = plotpar['files']
          else:
             h5_files_tmp = h5_files
 
@@ -2049,6 +2052,7 @@ def plot_time(
       color1 = colors[(figpar['iter'])%len(colors)]
       ls1=ls
 
+      # print('file keys',file.keys())
       exec( get_value_from_dicts('macro_label_linestyle_color',figpar,plotpar) )
       label1 = label2
       color1=color2

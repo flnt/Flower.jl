@@ -67,16 +67,68 @@ function update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_frac
     # "mesh_p_y"::Cstring, grid_p.y::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
+
+    volume_cell = grid_p.LS[iLSpdi].geoS.dcap[:,:,5]
+    # grid_p.LS[iLSpdi].geoL.dcap[:,:,5]
+
+    center_of_mass_x, center_of_mass_y = calculate_centroid(grid_p.x, grid_p.y, volume_cell)
+
+    # println("center of mass", center_of_mass_x, center_of_mass_y)
+
+    area = sum(volume_cell)
+
+    # perimeter_bubble = sum(capa) #cf interface length
+
+    # χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
+    # χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
+    # intfc_length_cell = sqrt(χx + χy)
+    # intfc_length += intfc_length_cell
+
+    rise_velocity_y = calculate_rise_velocity(velocity_y, volume_cell)
+
+    perimeter_bubble = sum(sqrt.((grid_p.LS[iLSpdi].geoS.dcap[:,:,3] .- grid_p.LS[iLSpdi].geoS.dcap[:,:,1]).^2 .+ (grid_p.LS[iLSpdi].geoS.dcap[:,:,4] .- grid_p.LS[iLSpdi].geoS.dcap[:,:,2]).^2))
+
+    # println("area", area, perimeter_bubble)
+
+    circularity = calculate_circularity(perimeter_bubble, area)
+
+    area_gaz = area
+
+    area_liq = sum(grid_p.LS[iLSpdi].geoL.dcap[:,:,5])
+
+    # println("test py ", center_of_mass_y, rise_velocity_y, circularity)
+    
+    println("center_of_mass_y $(center_of_mass_y) v $(rise_velocity_y) circ  $(circularity)")
+
+    # println_and_save("Iter $(nstep) drop area $(area_liq)")
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose(
+    "write_postprocessing_rising_bubble"::Cstring,
+    "nstep"::Cstring, num.current_iter::Ref{Clonglong}, PDI_OUT::Cint,
+    "center_of_mass_x"::Cstring, center_of_mass_x::Ref{Cdouble}, PDI_OUT::Cint,
+    "center_of_mass_y"::Cstring, center_of_mass_y::Ref{Cdouble}, PDI_OUT::Cint,
+    "rise_velocity_y"::Cstring, rise_velocity_y::Ref{Cdouble}, PDI_OUT::Cint,
+    "circularity"::Cstring, circularity::Ref{Cdouble}, PDI_OUT::Cint,
+    "area_gaz"::Cstring, area_gaz::Ref{Cdouble}, PDI_OUT::Cint,
+    "area_liq"::Cstring, area_liq::Ref{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    # pdi.PDI_multi_expose('write_postprocessing_rising_bubble', [
+    #         ('nstep', nstep, pdi.OUT),
+    #         ('center_of_mass_x', center_of_mass_x, pdi.OUT),
+    #         ('center_of_mass_y', center_of_mass_y, pdi.OUT),
+    #         ('rise_velocity_y', rise_velocity_y, pdi.OUT),
+    #         ('circularity', circularity, pdi.OUT),
+    #         ('area_gaz', area_gaz, pdi.OUT),
+    #         ('area_liq', area_liq, pdi.OUT),
+    #         ])
+
     PDI_status = @ccall "libpdi".PDI_multi_expose("post_processing_rising_bubble"::Cstring,
     "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
-    # "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "rho_one_fluid_u"::Cstring, rho_one_fluid_u::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "rho_one_fluid_v"::Cstring, rho_one_fluid_v::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
     "velocity_y"::Cstring, velocity_y::Ptr{Cdouble}, PDI_OUT::Cint,      
     "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
-    "volume_liq_cell"::Cstring, grid_p.LS[end].geoL.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
-    "volume_cell"::Cstring, grid_p.LS[end].geoS.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+    "volume_liq_cell"::Cstring, grid_p.LS[iLSpdi].geoL.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+    "volume_cell"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
     "mesh_p_x"::Cstring, grid_p.x::Ptr{Cdouble}, PDI_OUT::Cint,
     "mesh_p_y"::Cstring, grid_p.y::Ptr{Cdouble}, PDI_OUT::Cint,
     "dcap_1"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
@@ -84,6 +136,12 @@ function update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_frac
     "dcap_3"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
     "dcap_4"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
     C_NULL::Ptr{Cvoid})::Cint
+    #iLSpdi, not end for PDI
+
+    # "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "rho_one_fluid_u"::Cstring, rho_one_fluid_u::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "rho_one_fluid_v"::Cstring, rho_one_fluid_v::Ptr{Cdouble}, PDI_OUT::Cint,
+    # "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
 
     # print("\n num.current_iter ",num.current_iter)
 
@@ -1118,7 +1176,7 @@ function solve_one_fluid_NS!(
         # print("\n u check",minimum(u)," ",maximum(u))
         # print("\n v check",minimum(v)," ",maximum(v))
 
-        print("\n flux check u v ",minimum(Cui)," ",maximum(Cui)," ",minimum(Cvi)," ",maximum(Cvi))
+        print("\n convection u v ",minimum(Cui)," ",maximum(Cui)," ",minimum(Cvi)," ",maximum(Cvi))
 
         # print("\nCvi ",Cvi2D[1,:]) 
 
@@ -2234,7 +2292,7 @@ function solve_one_fluid_NS!(
             vecb(vD,grid_v) .= vecb(v_predictionD,grid_v)
         end
 
-        vecb(vD,grid_v) .= vecb(v_predictionD,grid_v)
+        # vecb(vD,grid_v) .= vecb(v_predictionD,grid_v)
 
         if num.prediction == "PmIIimposedpressure_nodiv_4"
 
@@ -3690,8 +3748,16 @@ function FE_set_momentum_coupled2_one_fluid(
             # M.diag .= vec(geo[end].dcap[:,:,5])
 
             @inbounds for i in eachindex(bulk_u_velocity)
-                A[bulk_u_velocity[i], bulk_u_velocity[i]] = 1.0
+                A[bulk_u_velocity[i], bulk_u_velocity[i]] = 1.0 
             end
+
+        elseif num.non_dimensionalize == 3
+    
+            @inbounds for i in eachindex(bulk_u_velocity)
+                A[bulk_u_velocity[i], bulk_u_velocity[i]] = 1.0 
+            end
+
+            A[bulk_u_velocity,bulk_u_velocity] .-= timestep_n * diag_inv_rho_u * diffusion_bulk_u ./opu.M
 
         else
             A[bulk_u_velocity,bulk_u_velocity] = pad_crank_nicolson(rho_one_fluid_u*opu.M .- timestep_n .* diffusion_bulk_u, grid_u, timestep_n)
@@ -3756,6 +3822,16 @@ function FE_set_momentum_coupled2_one_fluid(
             @inbounds for i in eachindex(border_u_velocity)
                 A[border_u_velocity[i], border_u_velocity[i]] = 1.0
             end
+
+        elseif num.non_dimensionalize == 3
+            @inbounds for i in eachindex(border_u_velocity)
+                A[border_u_velocity[i], border_u_velocity[i]] = 1.0
+            end
+            
+            A[bulk_u_velocity,border_v_velocity] = - timestep_n .* diag_inv_rho_u * cross_term_diffusion_bulk_d_dv_dx_dy_border ./opv.M
+
+
+
         else
             # Boundary conditions for outer boundaries
             A[border_u_velocity,bulk_u_velocity] = b_bu * (opu.HxT_b * opu.iMx_b' * opu.Bx .+ opu.HyT_b * opu.iMy_b' * opu.By)
@@ -3774,6 +3850,14 @@ function FE_set_momentum_coupled2_one_fluid(
             @inbounds for i in eachindex(bulk_v_velocity)
                 A[bulk_v_velocity[i], bulk_v_velocity[i]] = 1.0
             end
+
+        # elseif num.non_dimensionalize == 3
+        #     # A[bulk_v_velocity,bulk_v_velocity] .= 1.0
+        #     @inbounds for i in eachindex(bulk_v_velocity)
+        #         A[bulk_v_velocity[i], bulk_v_velocity[i]] = 1.0
+        #     end
+
+
         else
             A[bulk_v_velocity,bulk_v_velocity] = pad_crank_nicolson(rho_one_fluid_v * opv.M .- timestep_n .* diffusion_bulk_v, grid_v, timestep_n)
             A[bulk_v_velocity,bulk_u_velocity] = - timestep_n .* cross_term_diffusion_bulk_d_du_dy_dx 

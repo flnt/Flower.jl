@@ -632,8 +632,9 @@ def compute_slope(ax,xls,yls,
     return(ax)
 
 
-def compute_zoom(figpar,i0,i1,j0,j1):
-    if figpar['zoom_mode'] == 'coord':
+def compute_zoom(figpar,plotpar,i0,i1,j0,j1):
+    if get_value_from_dicts('zoom_mode',figpar,plotpar):
+    # if figpar['zoom_mode'] == 'coord':
 
         i0=0
         i1=0
@@ -1833,11 +1834,14 @@ def plot_all_films_func(yaml_file,args):
         else:
             func = globals()['plot_file']
 
-        if get_value_from_dicts('files_macro',figpar,plotpar) != None:
-            exec(get_value_from_dicts('files_macro',figpar,plotpar))
-            h5_files_tmp = h5_files_2      
-        else:
+        if args.h5:
             h5_files_tmp = h5_files
+        else:
+            if get_value_from_dicts('files_macro',figpar,plotpar) != None:
+                exec(get_value_from_dicts('files_macro',figpar,plotpar))
+                h5_files_tmp = h5_files_2      
+            else:
+                h5_files_tmp = h5_files
 
         key = figpar['var']
 
@@ -2296,7 +2300,7 @@ def plot_file(
    
 
     # if 'zoom' in figpar.keys():
-    #     compute_zoom(figpar,i0,i1,j0,j1)
+    #     compute_zoom(figpar,plotpar,i0,i1,j0,j1)
 
 
     if get_value_from_dicts('plot_mode',figpar,plotpar) == "contourf":
@@ -5187,8 +5191,8 @@ def plot_python_pdf_full2(
 
     cmap = plt.get_cmap(plotpar["cmap"])
 
-    if figpar['zoom_mode'] == 'coord':
-
+    if get_value_from_dicts('zoom_mode',figpar,plotpar):
+    # if figpar['zoom_mode'] == 'coord':
         i0=0
         i1=0
         j0=0

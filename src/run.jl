@@ -1262,24 +1262,24 @@ function run_forward!(
     
 
     if (num.one_fluid_model == 1 &&  num.solve_Navier_Stokes_liquid_phase == 1) 
-        rise_velocity_y =0.0
-        PDI_status = @ccall "libpdi".PDI_multi_expose("post_processing_rising_bubble_first_share"::Cstring,
-        "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
-        # "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "rho_one_fluid_u"::Cstring, rho_one_fluid_u::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "rho_one_fluid_v"::Cstring, rho_one_fluid_v::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
-        "rise_velocity_y"::Cstring, rise_velocity_y::Ref{Cdouble}, PDI_OUT::Cint,  
-        "timestep"::Cstring, num.timestep_n::Ref{Cdouble}, PDI_OUT::Cint,  
-        # "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "volume_cell"::Cstring, grid_p.LS[end].geoS.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
-        # "mesh_p_x"::Cstring, grid_p.x::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "mesh_p_y"::Cstring, grid_p.y::Ptr{Cdouble}, PDI_OUT::Cint,
-        # "dcap_1"::Cstring, grid_p.LS[num.iLSpdi].geoS.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
-        # "dcap_2"::Cstring, grid_p.LS[num.iLSpdi].geoS.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
-        # "dcap_3"::Cstring, grid_p.LS[num.iLSpdi].geoS.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
-        # "dcap_4"::Cstring, grid_p.LS[num.iLSpdi].geoS.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
-        C_NULL::Ptr{Cvoid})::Cint
+        # rise_velocity_y =0.0
+        # PDI_status = @ccall "libpdi".PDI_multi_expose("post_processing_rising_bubble_first_share"::Cstring,
+        # "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
+        # # "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
+        # # "rho_one_fluid_u"::Cstring, rho_one_fluid_u::Ptr{Cdouble}, PDI_OUT::Cint,
+        # # "rho_one_fluid_v"::Cstring, rho_one_fluid_v::Ptr{Cdouble}, PDI_OUT::Cint,
+        # # "mu_one_fluid"::Cstring, mu_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "rise_velocity_y"::Cstring, rise_velocity_y::Ref{Cdouble}, PDI_OUT::Cint,  
+        # "timestep"::Cstring, num.timestep_n::Ref{Cdouble}, PDI_OUT::Cint,  
+        # # "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
+        # # "volume_cell"::Cstring, grid_p.LS[end].geoS.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # # "mesh_p_x"::Cstring, grid_p.x::Ptr{Cdouble}, PDI_OUT::Cint,
+        # # "mesh_p_y"::Cstring, grid_p.y::Ptr{Cdouble}, PDI_OUT::Cint,
+        # # "dcap_1"::Cstring, grid_p.LS[num.iLSpdi].geoS.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # # "dcap_2"::Cstring, grid_p.LS[num.iLSpdi].geoS.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # # "dcap_3"::Cstring, grid_p.LS[num.iLSpdi].geoS.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # # "dcap_4"::Cstring, grid_p.LS[num.iLSpdi].geoS.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # C_NULL::Ptr{Cvoid})::Cint
 
         update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_fraction,levelset_one_fluid,rho_one_fluid,
                                                     rho_one_fluid_u,rho_one_fluid_v,mu_one_fluid,tmp_vec_p0)
@@ -2239,6 +2239,7 @@ function run_forward!(
                                 tmp_vec_u1,tmp_vec_v1,#normal_u, normal_v, 
                                 tmp_vec_u,tmp_vec_v,#curvature_u, curvature_v
                                 )
+                            # elseif num. TODO HF                               
                             end
 
                         end

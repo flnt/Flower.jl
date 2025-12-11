@@ -140,8 +140,11 @@ function compute_surface_tension_LS!(num,grid, grid_u, grid_v, opC_p, opC_u, opC
 
     #endregion interpolate curvature from scalar to u and v grids
 
-    # curvature_u .= 4.0
-    # curvature_v .= 4.0
+   
+    if num.constant_curvature >0
+        curvature_u .= 4.0
+        curvature_v .= 4.0
+    end 
 
     # integrate the volumic surface tension
     volumic_surface_tension_u .= - num.sigma .* curvature_u .* normal_and_dirac_u

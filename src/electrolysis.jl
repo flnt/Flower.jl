@@ -1819,7 +1819,9 @@ end
 
 
 """
+sets tmp_vec_u0 and tmp_vec_v0 with V
 for now i j p --> i, j u and v, TODO check special cases
+
 """
 function interpolate_scalar_Dirac_to_u_v!(grid_p, grid_u, grid_v, V, tmp_vec_u0, tmp_vec_v0)
 
@@ -1880,6 +1882,9 @@ function interpolate_scalar_one_fluid_or_one_phase!(num,grid_p, grid_u, grid_v, 
 
 end                
 
+"""
+returns tmp_vec_p and tmp_vec_p0
+"""
 function interpolate_staggered_u_v_to_scalar_grid_one_fluid_or_one_phase!(num,grid_p,grid_u,grid_v,u,v,tmp_vec_p,tmp_vec_p0)
 
     if num.one_fluid_model == 1 
@@ -1993,6 +1998,9 @@ end
 
 
 """Interpolate velocity on scalar grid for regular grids for vizualisation
+LS_u and LS_v for capcaities for weights of interpolation
+from u and v staggered velocities to scalar nodes    
+returns us, vs
 
 # Arguments
 - `grid`: scalar grid

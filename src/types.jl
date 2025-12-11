@@ -168,6 +168,7 @@ Stores parameters for the simulation
     mass_transfer_rate_imposed_value::T=0.0
     activate_interface::D=1
     status::D=0
+    constant_curvature::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

@@ -176,6 +176,31 @@ if io.pdi>0
 
     @debug "After full PDI init"
 
+    # nx_pdi = [nx]
+    # nstep_pdi = [nstep]
+
+    # local PDI_status = @ccall "libpdi".PDI_multi_expose("test_pycall_write_arr"::Cstring, 
+    #     "nx_arr"::Cstring, nx_pdi::Ref{Clonglong}, PDI_OUT::Cint,
+    #     "nstep_arr"::Cstring, nstep_pdi::Ref{Clonglong}, PDI_OUT::Cint,
+    #     C_NULL::Ptr{Cvoid})::Cint
+
+    # local PDI_status = @ccall "libpdi".PDI_multi_expose("test_pycall_write"::Cstring, 
+    #         "nx"::Cstring, nx::Ref{Clonglong}, PDI_OUT::Cint,
+    #         "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+    #         C_NULL::Ptr{Cvoid})::Cint
+
+    # local PDI_status = @ccall "libpdi".PDI_multi_expose("test_pycall_write"::Cstring, 
+    #         "nx"::Cstring, nx::Ref{Clonglong}, PDI_INOUT::Cint,
+    #         "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_INOUT::Cint,
+    #         C_NULL::Ptr{Cvoid})::Cint
+
+
+    # local PDI_status = @ccall "libpdi".PDI_multi_expose("write_pycall"::Cstring, 
+    #         "nx"::Cstring, nx::Ref{Clonglong}, PDI_OUT::Cint,
+    #         "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
+    #         C_NULL::Ptr{Cvoid})::Cint
+
+ 
 end #if io.pdi>0
 
 # arrays to store errors
@@ -747,6 +772,57 @@ for timestep in timesteps
             end
 
         end #if io_pdi
+
+
+        velocity_y_bubble = 0.0 .* gp.LS[end].geoS.dcap[:,:,5]
+        volume_fraction = gp.LS[end].geoS.dcap[:,:,5]
+        center_of_mass_x = 0.0
+        center_of_mass_y = 0.0
+        circularity = 1.0
+        rise_velocity_y = 0.0
+        iLSpdi = 1
+        velocity_y = velocity_y_bubble
+        area_liq = 0.0
+        area_gaz = 0.0
+        # PDI_status = @ccall "libpdi".PDI_multi_expose("write_postprocessing_rising_bubble"::Cstring,
+        # "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
+        # "center_of_mass_x"::Cstring, center_of_mass_x::Ref{Cdouble}, PDI_OUT::Cint,      
+        # "center_of_mass_y"::Cstring, center_of_mass_y::Ref{Cdouble}, PDI_OUT::Cint,      
+        # "rise_velocity_y"::Cstring, rise_velocity_y::Ref{Cdouble}, PDI_OUT::Cint,      
+        # "circularity"::Cstring, circularity::Ref{Cdouble}, PDI_OUT::Cint,      
+        # "velocity_y_bubble"::Cstring, velocity_y_bubble::Ptr{Cdouble}, PDI_OUT::Cint,      
+        # "area_gaz"::Cstring, area_gaz::Ref{Cdouble}, PDI_OUT::Cint,      
+        # "area_liq"::Cstring, area_liq::Ref{Cdouble}, PDI_OUT::Cint,      
+        # C_NULL::Ptr{Cvoid})::Cint
+
+        # PDI_status = @ccall "libpdi".PDI_multi_expose("post_processing_rising_bubble_new"::Cstring,
+        # "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
+        # "velocity_y"::Cstring, velocity_y_bubble::Ptr{Cdouble}, PDI_OUT::Cint,      
+        # "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
+        # # "volume_liq_cell"::Cstring, grid_p.LS[end].geoL.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # # "volume_cell"::Cstring, grid_p.LS[end].geoS.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # "mesh_p_x"::Cstring, gp.x::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "mesh_p_y"::Cstring, gp.y::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "dcap_1"::Cstring, gp.LS[iLSpdi].geoS.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # "dcap_2"::Cstring, gp.LS[iLSpdi].geoS.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # "dcap_3"::Cstring, gp.LS[iLSpdi].geoS.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # "dcap_4"::Cstring, gp.LS[iLSpdi].geoS.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # C_NULL::Ptr{Cvoid})::Cint
+
+
+        # PDI_status = @ccall "libpdi".PDI_multi_expose("post_processing_rising_bubble"::Cstring,
+        # "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
+        # "velocity_y"::Cstring, velocity_y::Ptr{Cdouble}, PDI_OUT::Cint,      
+        # "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "volume_liq_cell"::Cstring, gp.LS[iLSpdi].geoL.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # "volume_cell"::Cstring, gp.LS[iLSpdi].geoS.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # "mesh_p_x"::Cstring, gp.x::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "mesh_p_y"::Cstring, gp.y::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "dcap_1"::Cstring, gp.LS[iLSpdi].geoS.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # "dcap_2"::Cstring, gp.LS[iLSpdi].geoS.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # "dcap_3"::Cstring, gp.LS[iLSpdi].geoS.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # "dcap_4"::Cstring, gp.LS[iLSpdi].geoS.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+        # C_NULL::Ptr{Cvoid})::Cint
 
         # if num.io_pdi>0
         #     iLSpdi = 1 # TODO all grid.LS                
