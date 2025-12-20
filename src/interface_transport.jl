@@ -116,6 +116,8 @@ select method to compute the interfacial velocity for interface transport
 advection_LS_mode:
 * 12 : u and v
 * 13 : 
+* 14 : ghost cell adv in normal direction
+* 16 : Cipriano, with extended
 
 """
 function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, periodic_x, periodic_y, 
@@ -570,13 +572,16 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
                     C_NULL::Ptr{Cvoid})::Cint
                     
                     #pbm localisation interp vs normal
-
-                    interpolate_staggered_u_v_to_scalar_grid_one_fluid_or_one_phase!(num,grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
+                    #region u v v bulk velocity to scalar grid for plotting
+                    # interpolate_staggered_u_v_to_scalar_grid_one_fluid_or_one_phase!(num,grid_p,grid_u,grid_v,phL.u,phL.v,tmp_vec_p,tmp_vec_p0)
+                    interpolate_staggered_u_v_to_scalar_grid_one_fluid_or_one_phase!(num,grid_p,grid_u,grid_v,grid_u.V,grid_v.V,tmp_vec_p,tmp_vec_p0)
 
                     PDI_status = @ccall "libpdi".PDI_multi_expose("write_interpolated_advection_velocity_bulk"::Cstring,                               
                     "advection_velocity_bulk_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "advection_velocity_bulk_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,                                  
                     C_NULL::Ptr{Cvoid})::Cint
+                    #endregion u v v bulk velocity to scalar grid for plotting
+
 
                     #endregion bulk velocity
 
@@ -584,7 +589,7 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
                     #region add phase-change contribution (localised)
                     tmp_vec_u0 .= 0.0 
                     tmp_vec_v0 .= 0.0
-                    # project normal contribution to u and v : tmp_vec_u0 and tmp_vec_v0
+                    # project (normal) phase change contribution to u and v : tmp_vec_u0 and tmp_vec_v0
                     interpolate_scalar_Dirac_to_u_v!(grid_p, grid_u, grid_v, grid_p.V, tmp_vec_u0, tmp_vec_v0)
 
                     PDI_status = @ccall "libpdi".PDI_multi_expose("write_mass_transfer_rate_uv"::Cstring,
@@ -624,10 +629,14 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
                     "advection_velocity_phase_change_x"::Cstring, tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,   
                     "advection_velocity_phase_change_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,                                  
                     C_NULL::Ptr{Cvoid})::Cint
-
-                    grid_u.V .+= tmp_vec_u0
-                    grid_v.V .+= tmp_vec_v0
                     
+                    #region add phase-change contribution to u and v fo IIOE and S2IIOE!
+                    if num.advection_LS_mode == 13 #TODO check
+                        grid_u.V .+= tmp_vec_u0
+                        grid_v.V .+= tmp_vec_v0
+                    end
+                    #endregion add phase-change contribution to u and v 
+
                     #endregion add phase-change contribution (localised)
 
                     PDI_status = @ccall "libpdi".PDI_multi_expose("write_advection_velocity_before_extension"::Cstring,
@@ -674,7 +683,8 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
 
         
 
-                    if num.advection_LS_mode == 13
+                    if num.advection_LS_mode == 13 
+                        #region use u and v (IIOE! and S2IIOE!)
                         rhs_LS .= 0.0
                         grid_p.LS[iLS].A.nzval .= 0.0
                         grid_p.LS[iLS].B.nzval .= 0.0
@@ -688,6 +698,7 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
                         BC_LS_interior!(num, grid_p, grid_u, grid_v, iLS, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_int, periodic_x, periodic_y)
                         BC_LS!(grid_p, grid_p.LS[iLS].u, grid_p.LS[iLS].A, grid_p.LS[iLS].B, rhs_LS, BC_u)
                         grid_p.LS[iLS].u .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u) .+ rhs_LS), grid_p)
+                        #endregion use u and v (IIOE! and S2IIOE!)
                     elseif num.advection_LS_mode == 14
                         #region ghost cell adv in normal direction
                         if num.extend_field == 0
@@ -784,12 +795,15 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
                         # Project velocities to the normal and use advection scheme for advection just
                         # in the normal direction
 
-                        if num.advection_LS_mode == 16
-                            # grid_p.V not reset to zero to keep phase change contribution
-                            @inbounds @threads for II in grid_p.LS[iLS].MIXED
-                                grid_p.V[II] += compute_normal_component_of_velocity(num,grid_u, grid_v, u_extended, v_extended, grid_p, iLS, II)
-                            end
+                        # if num.advection_LS_mode == 16
+
+                        # grid_p.V not reset to zero to keep phase change contribution
+                        @inbounds @threads for II in grid_p.LS[iLS].MIXED
+                            grid_p.V[II] += compute_normal_component_of_velocity(num,grid_u, grid_v, grid_u.V, grid_v.V, grid_p, iLS, II)
+                            # grid_p.V[II] += compute_normal_component_of_velocity(num,grid_u, grid_v, u_extended, v_extended, grid_p, iLS, II)
+
                         end
+                        # end
 
                         # gridp.V .+= interp
 
@@ -843,7 +857,49 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
 
                     num.current_radius = radius_pdi[1]
 
-        
+                    print("\n radius pdi ", radius_pdi[1])
+                    # slice = levelset_p[nx//2,:]
+                    # x_1D = mesh_p_y[nx//2,:]
+                 
+                    # num.current_radius = compute_radius_from_levelset_slice(grid_p.LS[num.iLSpdi].u[:,grid_p.nx/2],
+                    # grid_p.y[grid_p.nx/2,:])
+
+
+                    # # try
+                    # radius_vertical = compute_radius_from_levelset_slice(grid_p.LS[num.iLSpdi].u[:,div(grid_p.nx,2)],
+                    # grid_p.y[:,div(grid_p.nx,2)])
+                    # # catch error
+                    # # volume_cell = grid_p.LS[num.iLSpdi].geoS.dcap[:,:,5] #bubble
+                    # volume_cell = grid_p.LS[num.iLSpdi].geoL.cap[:,:,5] #drop
+
+                    # center_of_mass_x, center_of_mass_y = calculate_centroid(grid_p.x, grid_p.y, volume_cell)
+
+                    
+                    # indices_bubble_mass_center = find_slice_coord_bubble_mass_center(center_of_mass_x,center_of_mass_y,
+                    # num,grid_p)
+                    # radius_horizontal = compute_radius_from_levelset_slice(grid_p.LS[num.iLSpdi].u[indices_bubble_mass_center[1],:],
+                    # grid_p.y[indices_bubble_mass_center[1],:]) 
+
+                    # if isnothing(radius_vertical)
+                    #     print("\n error radius vertical")
+                    #     if isnothing(radius_horizontal)
+                    #         print("\n error radius horizontal and vertical")
+                    #     else
+                    #         num.current_radius = radius_horizontal
+                    #     end
+
+                    # else
+                    #     if isnothing(radius_horizontal)
+                    #         print("\n error radius horizontal")
+                    #     else
+                    #         num.current_radius = max(radius_horizontal, radius_vertical)
+                    #     end
+                    # end
+                    # # end
+
+                    compute_bubble_drop_radius(num, grid_p)
+
+
 
                 else
                     printstyled(color=:red, @sprintf "\n no levelset advection before nucleation \n" )

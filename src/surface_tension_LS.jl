@@ -249,10 +249,14 @@ function compute_unit_normal(num,grid, grid_u, grid_v,
     # ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(TD,grid) .+ opC_v.Gy_b * vecb(TD,grid)
 
     #TODO check interpolation
-    interpolate_grid_liquid_2!(num, grid, grid_u.LS[end], grid_v.LS[end], normal_and_dirac_u, normal_and_dirac_v, tmp_vec_p, tmp_vec_p0) #compute normal x and y on scalar grid
+    interpolate_grid_liquid_2!(num, grid, 
+    grid_u.LS[end], grid_v.LS[end], 
+    normal_and_dirac_u, normal_and_dirac_v, 
+    tmp_vec_p, tmp_vec_p0) #compute normal x and y on scalar grid
+
     #compute normal x and y on scalar grid 
 
-
+# interpolate_scalar_one_fluid_or_one_phase!
 
     # normalize 
     # normal_and_dirac_u .= normal_and_dirac_u / sqrt(normal_and_dirac_u**2+interpolate_v_to_u())
@@ -411,7 +415,10 @@ function compute_unit_normal(num,grid, grid_u, grid_v,
     # display(normal_and_dirac_v)
 
     #region integrate gradient of levelset_1D
-    compute_grad_T_x_T_y_array_u_v_capacities_cell_integrated!(num, grid, grid_u, grid_v, opC_u, opC_v, normal_and_dirac_u, normal_and_dirac_v, levelset_1D)
+    #fill normal_and_dirac_u and normal_and_dirac_v with gradient of levelset_1D
+    compute_grad_T_x_T_y_array_u_v_capacities_cell_integrated!(num, grid, grid_u, grid_v, opC_u, opC_v, 
+    normal_and_dirac_u, normal_and_dirac_v, 
+    levelset_1D) 
     #endregion integrate gradient of levelset_1D
 
 end
@@ -594,6 +601,7 @@ function compute_unit_normal_debug(num,grid, grid_u, grid_v,
     display(normal_and_dirac_v)
 
 end
+
 
 function compute_curvature_cutcell_operator(opC_p,normal_and_dirac_u,normal_and_dirac_v)
      # TODO border ???

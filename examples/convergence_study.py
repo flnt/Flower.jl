@@ -12,6 +12,8 @@ import matplotlib.patches as patches
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import matplotlib.transforms as transforms
 from matplotlib.ticker import MaxNLocator
+import matplotlib.ticker as mticker
+import pathlib
 
 
 # import numpy as np
@@ -799,6 +801,7 @@ def plot_convergence_study_func(yaml_file, args):
    for figpar in plotpar['curves']:
 
       file_name = figpar['file']
+      fig_path = pathlib.Path(file_name)
 
       if args.name: #TODO WIP
          # if args.name[0] != file_name:
@@ -2185,6 +2188,9 @@ def plot_time(
    # twin2.yaxis.set_label_position("right")
 
 
+   
+
+
    if plotpar['theme'] == 'dark':
 
       # Change the color of the ticks
@@ -2243,6 +2249,18 @@ def plot_time(
 
    # plt.show()
 
+   # print("'ax_locator_x' in figpar.keys():",'ax_locator_x' in figpar.keys())
+   if 'ax_locator_x' in figpar.keys():
+      
+      print('get_value_from_dicts', get_value_from_dicts('ax_locator_x',figpar,plotpar))
+      ax2.xaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_x',figpar,plotpar)))
+      ax2.yaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_y',figpar,plotpar)))
+
+      if get_value_from_dicts('ax_formatter_x',figpar,plotpar) != None:
+         ax2.xaxis.set_major_formatter(mticker.FixedFormatter(get_value_from_dicts('ax_formatter_x',figpar,plotpar)))
+         ax2.yaxis.set_major_formatter(mticker.FixedFormatter(get_value_from_dicts('ax_formatter_y',figpar,plotpar)))
+      # plt.savefig('test.pdf')
+   
    if mode == 'first': 
       if len(figpar['var'])>1:
          ax2list = [ax2,twin1,twin2]

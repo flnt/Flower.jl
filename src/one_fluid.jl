@@ -48,7 +48,6 @@ function update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_frac
         # mu_one_fluid_v .= harmonic_average_one_fluid.(num.mu1,num.mu2,grid_v.LS[end].geoL.cap[:,:,5])
     end
 
-    iLSpdi = 1
 
     # PDI_status = @ccall "libpdi".PDI_multi_expose("print_one_fluid"::Cstring,
     # "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -68,8 +67,8 @@ function update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_frac
     C_NULL::Ptr{Cvoid})::Cint
 
 
-    volume_cell = grid_p.LS[iLSpdi].geoS.dcap[:,:,5]
-    # grid_p.LS[iLSpdi].geoL.dcap[:,:,5]
+    volume_cell = grid_p.LS[num.iLSpdi].geoS.dcap[:,:,5]
+    # grid_p.LS[num.iLSpdi].geoL.dcap[:,:,5]
 
     center_of_mass_x, center_of_mass_y = calculate_centroid(grid_p.x, grid_p.y, volume_cell)
 
@@ -86,7 +85,7 @@ function update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_frac
 
     rise_velocity_y = calculate_rise_velocity(velocity_y, volume_cell)
 
-    perimeter_bubble = sum(sqrt.((grid_p.LS[iLSpdi].geoS.dcap[:,:,3] .- grid_p.LS[iLSpdi].geoS.dcap[:,:,1]).^2 .+ (grid_p.LS[iLSpdi].geoS.dcap[:,:,4] .- grid_p.LS[iLSpdi].geoS.dcap[:,:,2]).^2))
+    perimeter_bubble = sum(sqrt.((grid_p.LS[num.iLSpdi].geoS.dcap[:,:,3] .- grid_p.LS[num.iLSpdi].geoS.dcap[:,:,1]).^2 .+ (grid_p.LS[num.iLSpdi].geoS.dcap[:,:,4] .- grid_p.LS[num.iLSpdi].geoS.dcap[:,:,2]).^2))
 
     # println("area", area, perimeter_bubble)
 
@@ -94,7 +93,7 @@ function update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_frac
 
     area_gaz = area
 
-    area_liq = sum(grid_p.LS[iLSpdi].geoL.dcap[:,:,5])
+    area_liq = sum(grid_p.LS[num.iLSpdi].geoL.dcap[:,:,5])
 
     # println("test py ", center_of_mass_y, rise_velocity_y, circularity)
     
@@ -127,16 +126,16 @@ function update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_frac
     "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
     "velocity_y"::Cstring, velocity_y::Ptr{Cdouble}, PDI_OUT::Cint,      
     "volume_fraction"::Cstring, volume_fraction::Ptr{Cdouble}, PDI_OUT::Cint,
-    "volume_liq_cell"::Cstring, grid_p.LS[iLSpdi].geoL.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
-    "volume_cell"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+    "volume_liq_cell"::Cstring, grid_p.LS[num.iLSpdi].geoL.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+    "volume_cell"::Cstring, grid_p.LS[num.iLSpdi].geoS.dcap[:,:,5]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
     "mesh_p_x"::Cstring, grid_p.x::Ptr{Cdouble}, PDI_OUT::Cint,
     "mesh_p_y"::Cstring, grid_p.y::Ptr{Cdouble}, PDI_OUT::Cint,
-    "dcap_1"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
-    "dcap_2"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
-    "dcap_3"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
-    "dcap_4"::Cstring, grid_p.LS[iLSpdi].geoS.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+    "dcap_1"::Cstring, grid_p.LS[num.iLSpdi].geoS.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+    "dcap_2"::Cstring, grid_p.LS[num.iLSpdi].geoS.dcap[:,:,2]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+    "dcap_3"::Cstring, grid_p.LS[num.iLSpdi].geoS.dcap[:,:,3]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
+    "dcap_4"::Cstring, grid_p.LS[num.iLSpdi].geoS.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
     C_NULL::Ptr{Cvoid})::Cint
-    #iLSpdi, not end for PDI
+    #num.iLSpdi, not end for PDI
 
     # "rho_one_fluid"::Cstring, rho_one_fluid::Ptr{Cdouble}, PDI_OUT::Cint,
     # "rho_one_fluid_u"::Cstring, rho_one_fluid_u::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -5857,7 +5856,7 @@ function variable_coeff_part()
 
     
         # if num.io_pdi>0
-        #     iLSpdi = 1
+        #     num.iLSpdi = 1
         #     # dcap_1 for Wall capacity (left)
         #     # II = ind.b_left[1][i]
         #     # opC.χ_b[i, i] = geo.dcap[II,1]
@@ -5868,7 +5867,7 @@ function variable_coeff_part()
         #         "phi_ele_1D"::Cstring, ph.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
         #         "elec_cond_1D"::Cstring, coeffD::Ptr{Cdouble}, PDI_OUT::Cint, 
         #         "rhs_1D"::Cstring, rhs_updated::Ptr{Cdouble}, PDI_OUT::Cint, 
-        #         "dcap_1"::Cstring, grid.LS[iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         "dcap_1"::Cstring, grid.LS[num.iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
         #         C_NULL::Ptr{Cvoid})::Cint
         #     catch error
         #         printstyled(color=:red, @sprintf "\n PDI error \n")
@@ -5961,7 +5960,7 @@ function variable_coeff_part()
         #     # dcap_1 for Wall capacity (left)
         #     # II = ind.b_left[1][i]
         #     # opC.χ_b[i, i] = geo.dcap[II,1]
-        #     iLSpdi = 1
+        #     num.iLSpdi = 1
         #     try
         #         # in YAML file: save only if iscal ==1 for example
         #         PDI_status = @ccall "libpdi".PDI_multi_expose("check_electrical_potential_convergence"::Cstring,
@@ -5969,7 +5968,7 @@ function variable_coeff_part()
         #         "phi_ele_1D"::Cstring, ph.phi_eleD::Ptr{Cdouble}, PDI_OUT::Cint,   
         #         "elec_cond_1D"::Cstring, coeffD::Ptr{Cdouble}, PDI_OUT::Cint, 
         #         "rhs_1D"::Cstring, rhs_updated::Ptr{Cdouble}, PDI_OUT::Cint, 
-        #         "dcap_1"::Cstring, grid.LS[iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
+        #         "dcap_1"::Cstring, grid.LS[num.iLSpdi].geoL.dcap[:,:,1]::Ptr{Cdouble}, PDI_OUT::Cint,
         #         C_NULL::Ptr{Cvoid})::Cint
         #     catch error
         #         printstyled(color=:red, @sprintf "\n PDI error \n")

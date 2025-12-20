@@ -577,3 +577,17 @@ end
     θrec::T = π / 2
     Tval::N = 0.0
 end
+
+
+abstract type ElectrolysisReaction end
+
+"""
+Electrode on left wall
+"""
+struct ButlerNoConcentration <: ElectrolysisReaction end 
+
+
+"""
+Electrode on bottom wall
+"""
+struct FixedCurrent <: ElectrolysisReaction end

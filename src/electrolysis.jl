@@ -1562,7 +1562,8 @@ function compute_phase_change_velocity_electrolysis!(num, grid_p, grid_u, grid_v
                     # grid_p.V[II] = dTL #+ dTS
                     # printstyled(color=:cyan, @sprintf "\n v %.2e v from int %.2e %.2e %.2e\n" grid_p.V[II] dTL*factor_velocity T_1 concentration_scal_intfc)
                     # 
-                    printstyled(color=:cyan, @sprintf "\n interface_length_cell %.2e j %.5i i %.5i T1 %.2e T2 %.2e v %.2e v from int %.2e %.2e %.2e mass_transfer_rate %.2e %.2e\n" interface_length[II] II[1] II[2] T_1 T_2 grid_p.V[II] dTL*factor_velocity T_1 concentration_scal_intfc mass_transfer_rate[II] factor_mass_transfer_rate)
+                    #TODO print
+                    # printstyled(color=:cyan, @sprintf "\n interface_length_cell %.2e j %.5i i %.5i T1 %.2e T2 %.2e v %.2e v from int %.2e %.2e %.2e mass_transfer_rate %.2e %.2e\n" interface_length[II] II[1] II[2] T_1 T_2 grid_p.V[II] dTL*factor_velocity T_1 concentration_scal_intfc mass_transfer_rate[II] factor_mass_transfer_rate)
 
                 
                     #endregion compare grad

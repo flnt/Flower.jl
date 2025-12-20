@@ -348,7 +348,13 @@ function run_forward!(
             printstyled(color=:green, @sprintf "\n conductivity one")
         end 
 
-        i_butler = zeros(grid_p.ny) #left wall
+        if num.electrolysis_reaction == "Butler_no_concentration"
+            i_butler = zeros(grid_p.ny) #left wall
+        elseif num.electrolysis_reaction == "fixed_current"
+            i_butler = zeros(grid_p.nx) #bottom wall
+
+        end
+
     end #electrolysis
     #endregion electrolysis
 
@@ -1259,7 +1265,54 @@ function run_forward!(
         C_NULL::Ptr{Cvoid})::Cint
         num.current_radius = radius_pdi[1]
 
+        
+        print("\n radius pdi ", radius_pdi[1]) 
+
+        # slice = levelset_p[nx//2,:]
+        # x_1D = mesh_p_y[nx//2,:]
+
+        # try
+    #     radius_vertical = compute_radius_from_levelset_slice(grid_p.LS[num.iLSpdi].u[:,div(grid_p.nx,2)],
+    #     grid_p.y[:,div(grid_p.nx,2)])
+    #     # catch error
+    #     # volume_cell = grid_p.LS[num.iLSpdi].geoS.cap[:,:,5] #bubble
+    #     volume_cell = grid_p.LS[num.iLSpdi].geoL.cap[:,:,5] #drop
+
+    #     center_of_mass_x, center_of_mass_y = calculate_centroid(grid_p.x, grid_p.y, volume_cell)
+
+        
+    #     indices_bubble_mass_center = find_slice_coord_bubble_mass_center(center_of_mass_x,center_of_mass_y,
+    #     num,grid_p)
+    #     radius_horizontal = compute_radius_from_levelset_slice(grid_p.LS[num.iLSpdi].u[indices_bubble_mass_center[1],:],
+    #     grid_p.y[indices_bubble_mass_center[1],:]) 
+
+    #     if isnothing(radius_vertical)
+    #         print("\n error radius vertical")
+    #         if isnothing(radius_horizontal)
+    #             print("\n error radius horizontal and vertical")
+    #         else
+    #             num.current_radius = radius_horizontal
+    #         end
+
+    #     else
+    #         if isnothing(radius_horizontal)
+    #             print("\n error radius horizontal")
+    #         else
+    #             num.current_radius = max(radius_horizontal, radius_vertical)
+    #         end
+    #     end
+    #     # end
+
+    #     num.current_radius = maximum(compute_radii_from_slices(
+    # grid_p.LS[num.iLSpdi].u,
+    # x_grid::AbstractMatrix,
+    # y_grid::AbstractMatrix,
+    # slices::Vector{Tuple{Union{Int, Colon}, Union{Int, Colon}}};
+    # center_x,center_y)
+
     
+    compute_bubble_drop_radius(num, grid_p)
+
 
     if (num.one_fluid_model == 1 &&  num.solve_Navier_Stokes_liquid_phase == 1) 
         # rise_velocity_y =0.0
@@ -1655,6 +1708,15 @@ function run_forward!(
                             # for testn in 1:grid_p.ny
                             #     printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i border %.5e\n" testn grid_p.ny-testn+1 vecb_L(phL.trans_scalD[:,iscal], grid_p)[testn])
                             # end
+                        elseif num.electrolysis_reaction == "Butler_no_concentration" && num.nLS == 1
+                            if iscal==1 || iscal==2
+                                inv_stoechiometric_coeff = -1.0/2.0 #H2 and KOH
+                            elseif iscal == 3
+                                inv_stoechiometric_coeff = 1.0 #H2O consummed
+                            end
+
+                            BC_trans_scal[iscal].bottom.val = i_butler./(num.Faraday*num.diffusion_coeff[iscal])*inv_stoechiometric_coeff
+
 
                         end
                     end
@@ -1774,6 +1836,14 @@ function run_forward!(
 
                     print("\n num.stop_simulation after scalar ",num.stop_simulation)
 
+
+                    PDI_status = @ccall "libpdi".PDI_multi_expose("check_concentrations"::Cstring,
+                        "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
+                        "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,            
+                        "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+                        C_NULL::Ptr{Cvoid})::Cint
+
+                    print("\n BC_trans_scal ",BC_trans_scal)
 
                     # PDI_status = @ccall "libpdi".PDI_multi_expose("check_concentrations"::Cstring,
                 

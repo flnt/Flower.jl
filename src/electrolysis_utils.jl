@@ -776,6 +776,249 @@ function compute_bulk_or_interface_average(scalar_1D_vec, grid, iLS)
 
 end
 
+"""
+find sign changes used to compute radius
+"""
+function find_sign_changes(slice::AbstractVector)
+    # Ensure the slice has at least two elements
+    if length(slice) < 2
+        throw(ArgumentError("Slice must have at least two elements to detect sign changes."))
+    end
+
+    # Iterate through the slice to find the first sign change
+    for i in 1:(length(slice)-1)
+        if slice[i] * slice[i+1] < 0
+            return (i, i+1)  # Return indices as a tuple
+        end
+    end
+
+    # If no sign change is found, return nothing 
+    return nothing,nothing
+end
+
+# function find_sign_changes(slice)
+#     # print('len',len(slice),slice)
+#     # min_dist = np.min(abs(slice))
+#     # min_dist_tmp = np.max(abs(slice))
+#     for i = 1:size(slice)
+#         if (slice[i] * slice[i+1]) < 0
+#             i1 = i
+#             i2 = i+1
+#             break
+#         end
+
+#     end
+#     return(i1,i2)
+
+# end
+
+"""
+
+"""
+function compute_bubble_drop_radius(num, grid_p)
+    
+    volume_cell = grid_p.LS[num.iLSpdi].geoL.cap[:, :, 5]
+   
+    # Calculate center of mass
+    center_of_mass_x, center_of_mass_y = calculate_centroid(
+        grid_p.x, grid_p.y, volume_cell
+    )
+
+    # Find indices for bubble mass center
+    indices_bubble_mass_center = find_slice_coord_bubble_mass_center(
+        center_of_mass_x, center_of_mass_y, num, grid_p
+    )
+
+    # # Compute horizontal radius
+    # radius_horizontal = compute_radius_from_levelset_slice(
+    #     grid_p.LS[num.iLSpdi].u[indices_bubble_mass_center[1], :],
+    #     grid_p.y[indices_bubble_mass_center[1], :]
+    # )
+
+    # Compute vertical radius
+    # radius_vertical = compute_radius_from_levelset_slice(
+    #     grid_p.LS[num.iLSpdi].u[:, div(grid_p.nx, 2)],
+    #     grid_p.y[:, div(grid_p.nx, 2)]
+    # )
+    print("\n indices_bubble_mass_center ",indices_bubble_mass_center)
+
+    slice_indices_list = [
+    (1, :),  # Horizontal slice at bottom wall (for bubble at wall)
+    (indices_bubble_mass_center[1], :),  # Horizontal slice at bubble mass center
+    (: , div(grid_p.nx, 2)), # Vertical slice at middle of domain
+    (: , indices_bubble_mass_center[2])  # Vertical slice at bubble mass center
+    ]
+
+    radii = Vector{Union{Float64, Nothing}}(undef, length(slice_indices_list))
+    for (i, slice_indices) in enumerate(slice_indices_list)
+        print("\n i slice ",i, " ",slice_indices)
+        radii[i] = compute_radius_from_levelset_slice(
+            grid_p.LS[num.iLSpdi].u, grid_p.x, grid_p.y, slice_indices)
+    end
+
+    print("\nradii ",radii)
+    # print("\nradii ",skipmissing(radii))
+    
+    # num.current_radius = maximum(radii) 
+    # num.current_radius = maximum(skipmissing(radii))
+    num.current_radius = maximum(x for x in radii if x !== nothing)
+
+    # # Handle errors and set current radius
+    # if isnothing(radius_vertical) && isnothing(radius_horizontal)
+    #     @error "Error: Both radius_vertical and radius_horizontal are nothing."
+    # elseif isnothing(radius_vertical)
+    #     @warn "Warning: radius_vertical is nothing. Using radius_horizontal."
+    #     num.current_radius = radius_horizontal
+    # elseif isnothing(radius_horizontal)
+    #     @warn "Warning: radius_horizontal is nothing. Using radius_vertical."
+    #     num.current_radius = radius_vertical
+    # else
+    #     num.current_radius = max(radius_horizontal, radius_vertical)
+    # end
+
+end
+
+# """
+#     compute_radii_from_slices(
+#         u::AbstractMatrix,
+#         x_grid::AbstractMatrix,
+#         y_grid::AbstractMatrix,
+#         slices::Vector{Tuple{Union{Int, Colon}, Union{Int, Colon}}};
+#         center_x::Real=0.0,
+#         center_y::Real=0.0
+#     )
+
+# Compute the radius for each slice in `slices` from a level set function.
+
+# # Arguments
+# - `u`: Level set function (2D matrix).
+# - `x_grid`, `y_grid`: Grid coordinates (2D matrices).
+# - `slices`: Vector of slice indices, e.g., `[(nx, :), (: , ny), ...]`.
+# - `center_x`, `center_y`: Reference point (default: `(0.0, 0.0)`).
+
+# # Returns
+# - Vector of radii (one for each slice) or `nothing` for slices with no interface.
+# """
+# function compute_radii_from_slices(
+#     u::AbstractMatrix,
+#     x_grid::AbstractMatrix,
+#     y_grid::AbstractMatrix,
+#     slices::Vector{Tuple{Union{Int, Colon}, Union{Int, Colon}}};
+#     center_x::Real=0.0,
+#     center_y::Real=0.0
+# )
+#     radii = Vector{Union{Float64, Nothing}}(undef, length(slices))
+#     for (i, slice) in enumerate(slices)
+#         radii[i] = compute_radius_from_levelset_slice(
+#             u, x_grid, y_grid, slice)
+#     end
+#     return radii
+# end
+
+
+"""
+
+"""
+function compute_radius_from_levelset_slice(
+    u::AbstractMatrix,
+    x_grid::AbstractMatrix,
+    y_grid::AbstractMatrix,
+    slice_indices)     
+   
+
+    # Determine if the slice is vertical or horizontal
+    is_vertical = slice_indices[2] isa Int  
+    is_horizontal = slice_indices[1] isa Int 
+    print("\n slice_indices ",slice_indices)
+    # Select the correct coordinate and center
+    if is_vertical
+        coord_slice = y_grid[:, slice_indices[2]] 
+        # center = center_y
+    elseif is_horizontal
+        coord_slice = x_grid[slice_indices[1], :]  
+        # center = center_x
+    else
+        error("Slice indices must be of the form `(nx, :)` or `(: , ny)`.")
+    end
+
+    slice = u[slice_indices...]
+    # x_slice = x_grid[slice_indices...]
+    # y_slice = y_grid[slice_indices...]
+
+    # slice = u[slice_indices]
+
+    dx = coord_slice[2]-coord_slice[1]
+
+    # # print(colored('first','red'))
+    # i1,i2 = find_one_minimum(slice,coord_slice,eps)
+    # print('i1 i2',i1,i2)
+
+    # # print(colored('second','red'))
+    # itmp = max(i1,i2)
+    # # print('itmp',itmp)
+    # slice2 = slice[itmp+1:] 
+    # i3,i4 = find_one_minimum(slice2,coord_slice,eps)
+    # i3+= itmp+1
+    # i4+= itmp+1
+    # print('i3 i4',i3,i4)
+
+    # print("\n slice ",slice)
+
+    i1,i2 = find_sign_changes(slice)
+    if (isnothing(i1) || isnothing(i2)) 
+        return nothing
+    end
+    # print('i1 i2',i1,i2)
+    itmp = max(i1,i2)
+    slice2 = slice[itmp+1:end]
+    i3,i4 = find_sign_changes(slice2)
+    
+    if (isnothing(i3) || isnothing(i4)) 
+        return nothing
+    end
+
+    i3+= itmp+1
+    i4+= itmp+1
+    # print('i3 i4',i3,i4)
+
+
+    a = (slice[i1]-slice[i2])/((coord_slice[i1]-coord_slice[i2]))
+    interp1 = coord_slice[i1]-slice[i1]/a
+    # print('x1',coord_slice[i1],coord_slice[i2],interp1)
+
+    a = (slice[i3]-slice[i4])/((coord_slice[i3]-coord_slice[i4]))
+    interp2 = coord_slice[i3]-slice[i3]/a
+    # print('x1',coord_slice[i3],coord_slice[i4],interp2)
+
+    radius = abs(interp2-interp1)/2
+
+    return radius
+end
+
+
+"""
+
+"""
+function find_slice_coord_bubble_mass_center(center_of_mass_x,center_of_mass_y,num,grid_p)
+    dx = grid_p.dx[2] - grid_p.x[1]
+    dy = grid_p.dy[2] - grid_p.y[1]
+   
+    xmin = grid_p.x[1,1] #with regards to first scalar node (inner) (1,1), 
+    #hence we can take dx, and not dx/2 or dx in the case we took num.x[1,1] the domain corner
+    ymin = grid_p.y[1,1] #with regards to first scalar node (inner) (1,1)
+
+
+    
+    print("\n mass center ", center_of_mass_x, " ",center_of_mass_y)
+
+    i = floor(Int,(center_of_mass_x-xmin)/dx)+1
+    j = floor(Int,(center_of_mass_y-ymin)/dy)+1
+    #trunc
+
+    print("\n mass center coord i ", i, " j ", j, " xmin ",xmin, " ymin ",ymin)
+
+    return(j,i)
+end
 # """
 # To read BC from dict
 # """

@@ -163,6 +163,7 @@ function compute_fluxes_upwind(num,u, v, rho_u, rho_v, dx_u, dy_u ,dx_v, dy_v,gr
             Fy_minus = Fy_v_upwind(v, j-1, i)       # south face: v^2 at (i, j-1/2)
 
             if num.non_dimensionalize == 2 
+                #TODO interpolate rho at faces
                conv_y[j,i] = rho_c * (
                     (Fx_plus - Fx_minus) / dx_v[j,i] +
                     (Fy_plus - Fy_minus ) / dy_v[j,i] 
