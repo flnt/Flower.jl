@@ -158,6 +158,7 @@ include("compute_mass_transfer_rate.jl")
 include("test_functions.jl")
 include("convection.jl")
 include("post_processing.jl")
+include("fill_struct.jl")
 
 
 

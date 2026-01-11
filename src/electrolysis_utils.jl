@@ -861,7 +861,20 @@ function compute_bubble_drop_radius(num, grid_p)
     
     # num.current_radius = maximum(radii) 
     # num.current_radius = maximum(skipmissing(radii))
-    num.current_radius = maximum(x for x in radii if x !== nothing)
+
+    # if isempty(radii)
+    #     print("\n empty radii")
+    # end
+
+    if all(x -> x === nothing, radii)
+        # error("All radii are nothing")
+        print("\n All radii are nothing")
+    else
+        num.current_radius = maximum(x for x in radii if x !== nothing)
+    end
+
+
+   
 
     # # Handle errors and set current radius
     # if isnothing(radius_vertical) && isnothing(radius_horizontal)

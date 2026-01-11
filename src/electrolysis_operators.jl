@@ -346,6 +346,14 @@ function integrate_mass_transfer_rate_over_interface(num::Numerical{Float64, Int
         "mass_transfer_rate_border"::Cstring, mass_transfer_rate_vecb_2::Ptr{Cdouble}, PDI_OUT::Cint,
         "mass_transfer_rate_intfc"::Cstring, mass_transfer_rate_veci_2::Ptr{Cdouble}, PDI_OUT::Cint,
         C_NULL::Ptr{Cvoid})::Cvoid
+
+        @ccall "libpdi".PDI_multi_expose("write_mass_transfer_rate_cutcell"::Cstring,
+        "mass_transfer_rate_cutcell"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "mass_transfer_rate_bulk"::Cstring, mass_transfer_rate_vec1_2::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "mass_transfer_rate_border"::Cstring, mass_transfer_rate_vecb_2::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "mass_transfer_rate_intfc"::Cstring, mass_transfer_rate_veci_2::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cvoid
+
     end #if num.io_pdi>0
      
     # print("\n sum mass flux ", sum(mass_transfer_rate),"\n ")

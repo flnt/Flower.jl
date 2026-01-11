@@ -205,8 +205,6 @@ flower:
       phi_ele =  gp.x[:,1] .*0.0
       i_butler=butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_ele,phys.phi_ele1,phys.Ru,phys.temperature0)
 
-    
-    
 
       BC_uL = BoundariesInt(
         left   = Neumann(),

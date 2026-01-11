@@ -1980,7 +1980,7 @@ kill_dead_cells!
 ## Butler-Volmer equation
 
 ```@docs
-update_BC_electrical_potential!(num,grid,BC_phi_ele,elec_cond,elec_condD,i_butler)
+update_BC_electrical_potential_left!(num,grid,BC_phi_ele,elec_cond,elec_condD,i_butler)
 ```
 
 ```@docs

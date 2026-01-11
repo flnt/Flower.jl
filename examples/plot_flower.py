@@ -2195,6 +2195,10 @@ def plot_file(
 
     # print('size xp ',len(xp),len(yp))
 
+    if 'mask' in figpar.keys():
+        # print(file.keys())
+        mask_1D = file['mask_1D'][:]
+        data = np.ma.masked_where(mask_1D <= 0.0, data[0])
 
     
     if 'field_index' in figpar.keys():
@@ -2245,8 +2249,16 @@ def plot_file(
 
     
     if 'macro_data' in figpar.keys():
+        print('field',field[0,:])
+        print('field',field[:,0])
+        print('size', data.ndim,data.shape )
         exec(figpar['macro_data'])
-        field = field_2
+        field = np.copy(field_2)
+        print('field',field[0,:])
+        print('field',field[:,0])
+
+    
+
 
     # mesh["nx"] = nx
     # mesh["ny"] = ny
@@ -5174,6 +5186,7 @@ def plot_python_pdf_full2(
         # print('x_1D',len(x_1D),x_1D)
         # print('y_1D',len(y_1D),y_1D)
 
+    
 
 
     try:
@@ -5181,6 +5194,17 @@ def plot_python_pdf_full2(
     except:
         print(colored('Failed to open '+key+' in '+figpar['file'],'red'))
         print(file.keys())
+
+    # if 'mask' in figpar.keys():
+    #     print('mask')
+    #     # print(file.keys())
+    #     mask_1D = file['mask_1D'][:]
+    #     # try:
+    #     #     data = np.ma.masked_where(mask_1D <= 0.0, data)
+    #     # except:
+    #     data_1D = np.ma.masked_where(mask_1D <= 0.0, data_1D[0])
+    #     data = np.ma.masked_where(mask_1D <= 0.0, data[0])
+
         
 
     file_name = figpar['file']
@@ -5281,6 +5305,13 @@ def plot_python_pdf_full2(
         # print("data_1D.ndim ==2")
         field0 = data_1D.transpose()
         plot_bc_possible_based_on_dim = False
+
+
+    if 'macro_data' in figpar.keys():
+        exec(figpar['macro_data'])
+        field0 = field_2
+
+    
 
     #TODO slice vector trans_scal
 

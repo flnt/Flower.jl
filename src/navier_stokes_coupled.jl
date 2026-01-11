@@ -23,6 +23,7 @@ function set_borders!(grid, cl, u, a0, a1, b, BC, n_ext)
     elseif is_neumann(BC.left)
         @inbounds a1[idx] .= 0.0
         @inbounds b[idx] .= 1.0
+        print(("\n left BC Neumann"))
     elseif is_robin(BC.left)
         @inbounds a1[idx] .= -1.0
         @inbounds b[idx] .= 1.0
@@ -63,6 +64,7 @@ function set_borders!(grid, cl, u, a0, a1, b, BC, n_ext)
     else
         @error ("Not implemented yet")
     end
+    
 
     _idx = ny+1:ny+nx
     idx = 1:nx

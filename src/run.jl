@@ -93,6 +93,10 @@ function run_forward!(
         #TODO 1e-...
     end
 
+    electrode_definition_function = (num.electrolysis_reaction_symb === :Butler_no_concentration) ? vecb_L : vecb_B
+    # Temp = heat ? T : num.temperature0
+
+
     # if monophasic
     # if length(BC_int) != num.nLS
     #     @error ("You have to specify $(num.nLS) boundary conditions.")
@@ -348,12 +352,34 @@ function run_forward!(
             printstyled(color=:green, @sprintf "\n conductivity one")
         end 
 
-        if num.electrolysis_reaction == "Butler_no_concentration"
-            i_butler = zeros(grid_p.ny) #left wall
-        elseif num.electrolysis_reaction == "fixed_current"
-            i_butler = zeros(grid_p.nx) #bottom wall
+        # update_electrical_conductivity!(num,grid,elec_cond,elec_condD,heat;phL)
 
+
+        # if num.electrolysis_reaction == "Butler_no_concentration"
+        #     i_butler = zeros(grid_p.ny) #left wall
+        # elseif num.electrolysis_reaction == "fixed_current"
+        #     i_butler = zeros(grid_p.nx) #bottom wall
+        # end
+
+        printstyled(color=:red, @sprintf "\n Reaction")
+
+        i_butler = Float64[]   # empty vector, defined in scope
+
+        print("\n electrolysis_reaction_symb ",num.electrolysis_reaction_symb)
+
+        size_BC_reaction = if num.electrolysis_reaction_symb === :Butler_no_concentration
+            grid_p.ny
+        elseif num.electrolysis_reaction_symb === :fixed_current
+            grid_p.nx
+        else
+            error("Unknown electrolysis_reaction")
         end
+
+        resize!(i_butler, size_BC_reaction)
+        fill!(i_butler, 0.0)
+
+
+
 
     end #electrolysis
     #endregion electrolysis
@@ -836,6 +862,9 @@ function run_forward!(
                 velocity_and_BC_convection_v_x = zeros(grid_v)
                 velocity_and_BC_convection_v_y = zeros(grid_v)
 
+            else
+                volume_fraction = nothing 
+                interface_length = nothing
             end
 
             if (num.pressure_velocity_coupling == 0 && num.one_fluid_model == 0)
@@ -1349,8 +1378,11 @@ function run_forward!(
                                            
     end
 
-    
-    conservation = compute_conservation_mass(num,phL, grid_p ,grid_u, grid_v, rho_one_fluid)
+    if num.one_fluid_model == 1
+        conservation = compute_conservation_mass(num,phL, grid_p ,grid_u, grid_v, rho_one_fluid)
+    else
+        conservation = 0 # TODO
+    end
 
     # Compute divergence of velocity
     Duv = op.opC_pL.AxT * vec1(phL.uD,grid_u) .+ op.opC_pL.Gx_b * vecb(phL.uD,grid_u) .+
@@ -1368,6 +1400,12 @@ function run_forward!(
     "velocity_divergence"::Cstring, Duv::Ptr{Cdouble}, PDI_OUT::Cint,
     # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
+
+    #save initialised electrical potential and current (iter 0)
+    if num.electrical_potential>0
+        compute_grad_phi_ele!(num, grid_p, grid_u, grid_v, grid_u.LS[end], grid_v.LS[end], phL,
+        op.opC_pL, elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p0,tmp_vec_p1) #TODO current
+    end
 
     # PDI_status = @ccall "libpdi".PDI_multi_expose("check_conservation"::Cstring,
     # "nstep"::Cstring, num.current_iter::Ref{Clonglong}, PDI_OUT::Cint,
@@ -1645,26 +1683,37 @@ function run_forward!(
                 #endregion Impose velocity
 
                 #region Update current
-                if num.electrolysis_reaction == "Butler_no_concentration"
+               
+                # if num.electrolysis_reaction == "Butler_no_concentration"
                     
-                    update_electrical_current_from_Butler_Volmer!(num,grid_p,heat,phL.phi_eleD,i_butler;phL.T)
+                #     update_electrical_current_from_Butler_Volmer!(num,grid_p,heat,phL.phi_eleD,i_butler;phL.T)
 
-                    # #TODO dev multiple levelsets
-                    # if heat
-                    #     i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phL.phi_eleD, grid_p),
-                    #     num.phi_ele1,num.Ru,phL.T)
-                    # else
-                    #     if num.nLS == 1
-                    #         i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phL.phi_eleD, grid_p),
-                    #         num.phi_ele1,num.Ru,num.temperature0)
-                    #     # else
-                    #         #imposed by LS 2
-                    #         # iLS_elec = 2
-                    #         # i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(phL.phi_eleD, grid_p,iLS_elec+1),
-                    #         # num.phi_ele1,num.Ru,num.temperature0)
-                    #     end
-                    # end   
+                #     # #TODO dev multiple levelsets
+                #     # if heat
+                #     #     i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phL.phi_eleD, grid_p),
+                #     #     num.phi_ele1,num.Ru,phL.T)
+                #     # else
+                #     #     if num.nLS == 1
+                #     #         i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phL.phi_eleD, grid_p),
+                #     #         num.phi_ele1,num.Ru,num.temperature0)
+                #     #     # else
+                #     #         #imposed by LS 2
+                #     #         # iLS_elec = 2
+                #     #         # i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(phL.phi_eleD, grid_p,iLS_elec+1),
+                #     #         # num.phi_ele1,num.Ru,num.temperature0)
+                #     #     end
+                #     # end   
+                # end
+
+                # if num.electrolysis_reaction_symb in (:Butler_no_concentration, :fixed_current)
+                if num.electrolysis_reaction_symb === :Butler_no_concentration
+
+                    print("\n electrode_definition_function ",electrode_definition_function)
+
+                    update_electrical_current_from_Butler_Volmer_func!(num,grid_p,heat,phL.phi_eleD,i_butler,electrode_definition_function;phL.T)
+                    #if fixed do not update
                 end
+
                 #endregion Update current
 
 
@@ -1685,40 +1734,41 @@ function run_forward!(
 
                         @views veci(phL.trans_scalD[:,iscal],grid_p,1) .= vec(phL.trans_scal[:,:,iscal])
 
-                        if num.electrolysis_reaction == "Butler_no_concentration" && num.nLS == 1
 
+                        if num.nLS == 1
                             #BC for LS 2 in scalar transport : done in scalar loop
-
-                            if iscal==1 || iscal==2
-                                inv_stoechiometric_coeff = -1.0/2.0 #H2 and KOH
-                            elseif iscal == 3
-                                inv_stoechiometric_coeff = 1.0 #H2O consummed
-                            end
-
-                            # print("\n BC_trans_scal[iscal].left.val ", BC_trans_scal[iscal].left.val )
-                            # print("\n BC_trans_scal[iscal].left.val ", i_butler./(num.Faraday*num.diffusion_coeff[iscal])*inv_stoechiometric_coeff )
-
-                            # BC at left wall
-                            # -(-/i_butler) because i=-lambda grad phi and BC at left: -e_x
-                            BC_trans_scal[iscal].left.val = i_butler./(num.Faraday*num.diffusion_coeff[iscal])*inv_stoechiometric_coeff
-
-                            # print("\n")
-                            # print("\n left BC ", BC_trans_scal[iscal].left.val)
-
-                            # for testn in 1:grid_p.ny
-                            #     printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i border %.5e\n" testn grid_p.ny-testn+1 vecb_L(phL.trans_scalD[:,iscal], grid_p)[testn])
+                            # if iscal==1 || iscal==2
+                            #     inv_stoechiometric_coeff = -1.0/2.0 #H2 and KOH
+                            # elseif iscal == 3
+                            #     inv_stoechiometric_coeff = 1.0 #H2O consummed
                             # end
-                        elseif num.electrolysis_reaction == "Butler_no_concentration" && num.nLS == 1
-                            if iscal==1 || iscal==2
-                                inv_stoechiometric_coeff = -1.0/2.0 #H2 and KOH
-                            elseif iscal == 3
-                                inv_stoechiometric_coeff = 1.0 #H2O consummed
+                            inv_stoechiometric_coeff = num.inv_stoechiometric_coeff[iscal]
+
+                            if num.electrolysis_reaction_symb === :Butler_no_concentration
+
+                                # BC at left wall
+                                # -(-/i_butler) because i=-lambda grad phi and BC at left: -e_x
+                                BC_trans_scal[iscal].left.val = i_butler./(num.Faraday*num.diffusion_coeff[iscal])*inv_stoechiometric_coeff
+
+                                # debug
+                                # for testn in 1:grid_p.ny
+                                #     printstyled(color=:green, @sprintf "\n jtmp : %.5i j : %.5i border %.5e\n" testn grid_p.ny-testn+1 vecb_L(phL.trans_scalD[:,iscal], grid_p)[testn])
+                                # end
+
+                                # elseif num.electrolysis_reaction_symb === :fixed_current && num.nLS == 1
+                                #already initialised in convergence.jl
+                                #     print("\n scalar ", iscal, " ", BC_trans_scal[iscal].bottom.val)
+                                #     BC_trans_scal[iscal].bottom.val = i_butler./(num.Faraday*num.diffusion_coeff[iscal])*inv_stoechiometric_coeff
+
                             end
-
-                            BC_trans_scal[iscal].bottom.val = i_butler./(num.Faraday*num.diffusion_coeff[iscal])*inv_stoechiometric_coeff
-
 
                         end
+
+
+
+
+
+
                     end
 
                     #TODO convection_Cdivu BC divergence
@@ -1836,14 +1886,47 @@ function run_forward!(
 
                     print("\n num.stop_simulation after scalar ",num.stop_simulation)
 
+                    mask_1D = fnzeros(grid_p,num)
+                    compute_mask_1D!(num,grid_p,mask_1D)
 
                     PDI_status = @ccall "libpdi".PDI_multi_expose("check_concentrations"::Cstring,
                         "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
                         "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,            
                         "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "mask_1D"::Cstring, mask_1D::Ptr{Cdouble}, PDI_OUT::Cint,
                         C_NULL::Ptr{Cvoid})::Cint
 
-                    print("\n BC_trans_scal ",BC_trans_scal)
+                    PDI_status = @ccall "libpdi".PDI_multi_expose("write_mask_one_phase"::Cstring,
+                        "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,                
+                        "mask_1D"::Cstring, mask_1D::Ptr{Cdouble}, PDI_OUT::Cint,
+                        C_NULL::Ptr{Cvoid})::Cint
+
+                    # if fix
+                    print("\n BC_trans_scal ",BC_trans_scal[1])
+
+                    print("\n BC_trans_scal ",BC_trans_scal[1].bottom.val)
+
+
+                    concentration_boundary_layer_width,averaged_electrode_concentration = compute_concentration_boundary_layer_width(num,grid_p,num.diffusion_coeff[1],
+                    num.current,num.saturation_concentration_H2,phL.trans_scalD[:,1],mask_1D,electrode_definition_function)
+
+                    # compute_concentration_boundary_layer_width(num,diffusion_coefficient,current,saturation_concentration,concentration_1D,mask_1D,func)
+
+
+                    sherwood = 2*num.R / concentration_boundary_layer_width #num.R : initial radius
+
+                    #TODO test rewrite diffusion + convection at interface with dot m 
+
+                    sherwood_bubble = num.ambiant_pressure / (num.Ru * num.temperature0) * 2 * num.current_radius * (num.current_radius-num.previous_radius) /num.τ   / (num.num.diffusion_coeff[1] * (averaged_electrode_concentration - num.saturation_concentration_H2)) 
+                    # sherwood = compute_sherwood()
+
+
+                    PDI_status = @ccall "libpdi".PDI_multi_expose("write_sherwood"::Cstring,
+                        "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,                
+                        "concentration_boundary_layer_width"::Cstring, concentration_boundary_layer_width::Ref{Cdouble}, PDI_OUT::Cint,
+                        "sherwood"::Cstring, sherwood::Ref{Cdouble}, PDI_OUT::Cint,
+                        "sherwood_bubble"::Cstring, sherwood_bubble::Ref{Cdouble}, PDI_OUT::Cint,
+                        C_NULL::Ptr{Cvoid})::Cint
 
                     # PDI_status = @ccall "libpdi".PDI_multi_expose("check_concentrations"::Cstring,
                 
@@ -2039,6 +2122,7 @@ function run_forward!(
 
         #region compute mass transfer
         if num.solve_Navier_Stokes_liquid_phase == 1 && num.phase_change_method >0
+            num.previous_radius = num.current_radius
             # num.status = 
             compute_mass_transfer_rate_main!(num, grid_p, grid_u, grid_v, op, phL, phS, BC_int, electrolysis, electrolysis_phase_change_case, 
             periodic_x, periodic_y, λ, Vmean, num.iLSpdi, mode_2d, show_every, 

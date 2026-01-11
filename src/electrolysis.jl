@@ -259,11 +259,8 @@ function scalar_transport!(num::Numerical{Float64, Int64},
     # print("\n nb_transported_scalars ",num.nb_transported_scalars)
     # println("\n grid.LS[1].geoL.dcap[1,1,:]",grid.LS[1].geoL.dcap[1,1,:])
 
-    if convection
-
-    else
+    if !convection
         printstyled(color=:red, @sprintf "\n no convection\n")
-
     end
 
     ni = nx * ny #Size in the bulk 
@@ -295,7 +292,11 @@ function scalar_transport!(num::Numerical{Float64, Int64},
     tmp_vec_p_2 = zeros(grid) #TODO
     tmp_vec_p_3 = zeros(grid)
 
-    
+    #TODO at interface u_c-u_\Sigma 
+    #TODO do it in advection for interface for step n+1 of scalar transport ()
+    #need to recompute
+    # vec2(uD,grid_u)=vec1(uD,grid_u)-phase_change_contrib
+
     # Operators
     if convection
         
@@ -431,7 +432,8 @@ function scalar_transport!(num::Numerical{Float64, Int64},
     if num.nLS ==1
         #error iLS 1 
         if ls_advection
-            update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
+            # update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
+            update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false,false)
 
             # Mass matrices
             M.diag .= vec(grid.LS[1].geoL.dcap[:,:,5])
@@ -502,7 +504,8 @@ function scalar_transport!(num::Numerical{Float64, Int64},
 
          #error iLS 1 
          if ls_advection
-            update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
+            # update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false)
+            update_all_ls_data(num, grid, grid_u, grid_v, BC_int, periodic_x, periodic_y, false,false)
 
             # Mass matrices
             M.diag .= vec(grid.LS[end].geoL.dcap[:,:,5])
@@ -610,7 +613,8 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         # )
         # veci(rhs,grid_p,1) .+= op.opC_pL.M * vec(b)
         
-        # print("\n rhs ",minimum(rhs)," rhs ",maximum(rhs))
+        print("\n iscal ",iscal,"rhs ",minimum(rhs)," rhs ",maximum(rhs))
+        print("\n iscal ",iscal,"rhs ",minimum(vec2(rhs,grid))," rhs ",maximum(vec2(rhs,grid)))
 
 
 
@@ -637,6 +641,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         #     diffusion_coeff_scal *= 0.5
         # end
         # printstyled(color=:red, @sprintf "\n test diffusion_coeff_scal %.2e \n" diffusion_coeff_scal )
+
 
 
         #Interface boundary condition
@@ -678,6 +683,11 @@ function scalar_transport!(num::Numerical{Float64, Int64},
             _b = ones(grid) .* __b
             b = Diagonal(vec(_b))
 
+            # print("\n iscal ",iscal, " num.nLS ",num.nLS," ",bc[iscal].int.val)
+
+
+
+
         end #if num.nLS ==1
 
 
@@ -696,12 +706,16 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         # LD = BxT * iMx * Hx[1] .+ ByT * iMy * Hy[1]
         LD_b = BxT * op.iMx_b * op.Hx_b .+ ByT * op.iMy_b * op.Hy_b
 
-        if num.scalar_scheme == 0
+        
+        if num.scalar_scheme == 0 # Crank-Nicolson
             time_factor = 0.5 .* num.timestep_n
-        elseif num.scalar_scheme == 1
+        elseif num.scalar_scheme == 1 # Implicit
             time_factor = num.timestep_n
+        # Euler 1, explicit
+        
+
         end
-      
+       
 
         if num.nLS ==1
             LD = BxT * iMx * Hx[1] .+ ByT * iMy * Hy[1]
@@ -722,16 +736,37 @@ function scalar_transport!(num::Numerical{Float64, Int64},
             A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b, 4.0)
             # A[end-nb+1:end,end-nb+1:end] = pad(b_b * (op.HxT_b * op.iMx_bd * op.Hx_b .+ op.HyT_b * op.iMy_bd * op.Hy_b) .- op.χ_b * a1_b)
 
-            # Explicit part of heat equation
-            if num.convection_mode == 2
-                B[1:ni,1:ni] = M .+ time_factor .* diffusion_coeff_scal .* LT
-            else
-                B[1:ni,1:ni] = M .+ time_factor .* diffusion_coeff_scal .* LT .- num.timestep_n .* op_conv.CT
+            #region Explicit part of heat equation
+            # Temporal derivative term with cell volume
+            B[1:ni,1:ni] = M
+
+            # Explicit part of diffusion
+            if num.scalar_scheme != 1 #if not fully implicit
+                B[1:ni,1:ni] .+= time_factor .* diffusion_coeff_scal .* LT
+                B[1:ni,ni+1:2*ni] = time_factor .* diffusion_coeff_scal .* LD
+                B[1:ni,end-nb+1:end] = time_factor .* diffusion_coeff_scal .* LD_b
             end
-            B[1:ni,ni+1:2*ni] = time_factor .* diffusion_coeff_scal .* LD
-            B[1:ni,end-nb+1:end] = time_factor .* diffusion_coeff_scal .* LD_b
+
+            #Convection
+            if num.convection_mode != 2
+                B[1:ni,1:ni] .-= num.timestep_n .* op_conv.CT
+            end
+
+
+            # if num.convection_mode == 2
+            #     B[1:ni,1:ni] = M .+ time_factor .* diffusion_coeff_scal .* LT
+            # else
+            #     B[1:ni,1:ni] = M .+ time_factor .* diffusion_coeff_scal .* LT .- num.timestep_n .* op_conv.CT
+            # end
+            # B[1:ni,ni+1:2*ni] = time_factor .* diffusion_coeff_scal .* LD
+            # B[1:ni,end-nb+1:end] = time_factor .* diffusion_coeff_scal .* LD_b
 
             vec2(rhs,grid) .+= op.χ[1] * vec(a0)
+            print("\nvec2")
+            print("\n iscal ",iscal,"rhs ",minimum(rhs)," rhs ",maximum(rhs))
+            print("\n iscal ",iscal,"rhs ",minimum(vec2(rhs,grid))," rhs ",maximum(vec2(rhs,grid)))
+            
+            #endregion Explicit part of heat equation
 
             #region test reactivate
     
@@ -810,19 +845,22 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                         # a0 = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(ph.phi_eleD, grid,iLS_elec+1),
                         # num.phi_ele1,num.Ru,num.temperature0)./(2*num.Faraday*num.diffusion_coeff[iscal])
 
-                        if iscal==1 || iscal==2 #produced: *- (i negative)
-                            # a0 = -butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,reshape(veci(ph.phi_eleD, grid,iLS_elec+1),grid),
-                            # num.phi_ele1,num.Ru,num.temperature0)./(2*num.Faraday*num.diffusion_coeff[iscal])
-                            inv_stoechiometric_coeff = -1.0/2.0 #H2 and KOH
+                        # if iscal==1 || iscal==2 #produced: *- (i negative)
+                        #     # a0 = -butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,reshape(veci(ph.phi_eleD, grid,iLS_elec+1),grid),
+                        #     # num.phi_ele1,num.Ru,num.temperature0)./(2*num.Faraday*num.diffusion_coeff[iscal])
+                        #     inv_stoechiometric_coeff = -1.0/2.0 #H2 and KOH
                         
-                        elseif iscal == 3
-                            #H2O consummed: *+
-                            # a0 = +butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,reshape(veci(ph.phi_eleD, grid,iLS_elec+1),grid),
-                            # num.phi_ele1,num.Ru,num.temperature0)./(2*num.Faraday*num.diffusion_coeff[iscal])
-                            inv_stoechiometric_coeff = 1
-                        else 
-                            @error("inv_stoechiometric_coeff")
-                        end
+                        # elseif iscal == 3
+                        #     #H2O consummed: *+
+                        #     # a0 = +butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,reshape(veci(ph.phi_eleD, grid,iLS_elec+1),grid),
+                        #     # num.phi_ele1,num.Ru,num.temperature0)./(2*num.Faraday*num.diffusion_coeff[iscal])
+                        #     inv_stoechiometric_coeff = 1
+                        # else 
+                        #     @error("inv_stoechiometric_coeff")
+                        # end
+                        inv_stoechiometric_coeff = num.inv_stoechiometric_coeff[iscal]
+
+                        
 
                         # if iscal ==2
                         #     @error("test inv_stoechiometric_coeff")
@@ -922,6 +960,9 @@ function scalar_transport!(num::Numerical{Float64, Int64},
                 print("\n a0 min max ",minimum(a0)," ",maximum(a0))
                 print("\n _b min max ",minimum(_b)," ",maximum(_b))
 
+                print("\nveci")
+                print("\n iscal ",iscal,"rhs ",minimum(rhs)," rhs ",maximum(rhs))
+
                 
             end #for iLS in 1:num.nLS
 
@@ -935,25 +976,42 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         # print("\n before conv rhs[pII]",rhs[pII])
 
         # #endregion test reactivate
+        print("\nbefore convection")
+        print("\n iscal ",iscal,"rhs ",minimum(rhs)," rhs ",maximum(rhs))
+        print("\n iscal ",iscal,"rhs ",minimum(vec2(rhs,grid))," rhs ",maximum(vec2(rhs,grid)))
 
-        if convection
+        if convection && num.convection_mode != 2
+
             vec1(rhs,grid) .-= num.timestep_n .* all_CUTCT[:,iscal]
+            print("\n ")
         end
 
-        if iscal == 1
-            # if num.phase_change_method == 2 && num.phase_change_currently_activated == 1
-            #     #TODO Dirac ?
-            #     vec1(rhs,grid) .-= vec(num.timestep_n * mass_transfer_rate ./ num.MWH2)             
-            # elseif num.phase_change_method == 4 && num.phase_change_currently_activated == 1
-            #     vec1(rhs,grid) .-= vec(num.timestep_n * mass_transfer_rate ./ num.MWH2) #grid.LS[end].geoL.dcap[:,:,5]
-            # end
-            if num.phase_change_currently_activated == 1
-                vec1(rhs,grid) .-= vec(num.timestep_n * mass_transfer_rate ./ num.MWH2)
-            end
+        print("\nconvection")
+        print("\n iscal ",iscal,"rhs ",minimum(rhs)," rhs ",maximum(rhs))
+        print("\n iscal ",iscal,"rhs ",minimum(vec2(rhs,grid))," rhs ",maximum(vec2(rhs,grid)))
 
-        end
+        # if iscal == 1
+        #     # if num.phase_change_method == 2 && num.phase_change_currently_activated == 1
+        #     #     #TODO Dirac ?
+        #     #     vec1(rhs,grid) .-= vec(num.timestep_n * mass_transfer_rate ./ num.MWH2)             
+        #     # elseif num.phase_change_method == 4 && num.phase_change_currently_activated == 1
+        #     #     vec1(rhs,grid) .-= vec(num.timestep_n * mass_transfer_rate ./ num.MWH2) #grid.LS[end].geoL.dcap[:,:,5]
+        #     # end
+
+        #     #TODO 
+        #     # if num.phase_change_currently_activated == 1
+        #     #     vec1(rhs,grid) .-= vec(num.timestep_n * mass_transfer_rate ./ num.MWH2)
+        #     # end
+
+        # end
 
         vecb(rhs,grid) .+= op.χ_b * vec(a0_b)
+
+         
+        print("\nvecb")
+        print("\n iscal ",iscal,"rhs ",minimum(rhs)," rhs ",maximum(rhs))
+        print("\n iscal ",iscal,"rhs ",minimum(vec2(rhs,grid))," rhs ",maximum(vec2(rhs,grid)))
+
         
         if num.convection_Cdivu>0
             # Duv = fzeros(grid)
@@ -989,14 +1047,24 @@ function scalar_transport!(num::Numerical{Float64, Int64},
 
         # #endregion test reactivate
 
-        if num.scalar_scheme == 0
-        @views mul!(rhs, B, ph.trans_scalD[:,iscal], 1.0, 1.0) #TODO @views not necessary ?
-        end
+        # if num.scalar_scheme == 0 # Crank-Nicolson
+        #     @views mul!(rhs, B, ph.trans_scalD[:,iscal], 1.0, 1.0) #TODO @views not necessary ?
+        # end
+        @views mul!(rhs, B, ph.trans_scalD[:,iscal], 1.0, 1.0)
 
         # II = CartesianIndex(3,37)
         # pII =lexicographic(II,grid.ny)
         # # print("\n A[pII,:]",A[pII,:])
         # print("\n  scal rhs[pII]",rhs[pII])
+
+        print("\n iscal ",iscal,"rhs ",minimum(rhs)," rhs ",maximum(rhs))
+        print("\n iscal ",iscal,"rhs ",minimum(vec2(rhs,grid))," rhs ",maximum(vec2(rhs,grid)))
+
+
+        print("\n iscal ",iscal, " num.nLS ",num.nLS," ",bc[iscal].int.val)
+
+        print("\n a0 iLS_elec min max ",minimum(a0)," ",maximum(a0))
+
 
         #System resolution
         @views ph.trans_scalD[:,iscal] .= A \ rhs
@@ -1331,7 +1399,7 @@ function compute_mass_transfer_rate!(num, grid_p, grid_u, grid_v, iLS, uD, vD,
     interface_length .= 0.0
     total_interface_length = 0.0
     # num_mixed_cells = 0
-    rho_bulk = num.rho1
+    rho_bulk = num.rho1 
     rho_gaz = num.rho2
 
     # if num.rho_bulk == 0
@@ -1340,9 +1408,10 @@ function compute_mass_transfer_rate!(num, grid_p, grid_u, grid_v, iLS, uD, vD,
     #     rho_bulk = sum(ph.trans_scal[II,:])
     # end
 
-    factor_mass_transfer_rate = (num.MWH2 * diffusion_coeff_scal[1]) / (1 - rho_gaz/rho_bulk)
-    
-   
+    factor_mass_transfer_rate = -(num.MWH2 * diffusion_coeff_scal[1]) / (1 - rho_gaz/rho_bulk)
+    print("\n factor_mass_transfer_rate ",factor_mass_transfer_rate)
+    #careful orientation of normal towards liquid 
+   #gra negative ?
 
 
     #region redistribute mass transfer rate
@@ -1368,8 +1437,11 @@ function compute_mass_transfer_rate!(num, grid_p, grid_u, grid_v, iLS, uD, vD,
                 if num.phase_change_method in [5,6,7] 
                     mass_transfer_rate[II] = -num.mass_transfer_rate_imposed_value 
                     #minus sign because in Flower.jl normal towards liquid, so opposite sign when \:dot m refers to the liquid
+                    # for test case of shrinking drop in gaz, gaz phase : reference phase
+                    # we have mass_transfer_rate[II] = -num.mass_transfer_rate_imposed_value >0 and the drop shrinks (normal points towards drop)
                 else
                     mass_transfer_rate[II] *= factor_mass_transfer_rate / interface_length_cell #was integrated on surface
+                    # we have mass_transfer_rate[II] = >0 and the bubble shrinks (normal points towards liquid)
                 end
 
                 num.sum_mass_transfer_rate += mass_transfer_rate[II]
@@ -1430,6 +1502,8 @@ function compute_phase_change_velocity_electrolysis!(num, grid_p, grid_u, grid_v
     total_interface_length = 0.0
 
     num_mixed_cells = 0
+
+    grad_JC = zeros(grid_p)
 
     for II in grid_p.LS[iLS].MIXED
         # print("\n II update ",II, grid_p.LS[end].u[II], " iso end ",grid_p.LS[end].iso[II]," iso 1 ",grid_p.LS[1].iso[II])
@@ -1559,6 +1633,8 @@ function compute_phase_change_velocity_electrolysis!(num, grid_p, grid_u, grid_v
                         T_1 = interpolated_temperature(grid_p, grid_p.LS[iLS].geoL.projection[II].angle, grid_p.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
                         dTL = normal_gradient(grid_p.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
                     end
+
+                    grad_JC[II] = dTL
                     # grid_p.V[II] = dTL #+ dTS
                     # printstyled(color=:cyan, @sprintf "\n v %.2e v from int %.2e %.2e %.2e\n" grid_p.V[II] dTL*factor_velocity T_1 concentration_scal_intfc)
                     # 
@@ -1616,6 +1692,11 @@ function compute_phase_change_velocity_electrolysis!(num, grid_p, grid_u, grid_v
     PDI_status = @ccall "libpdi".PDI_multi_expose("write_interface_length"::Cstring,
                         "interface_length"::Cstring, interface_length::Ptr{Cdouble}, PDI_OUT::Cint,
                         C_NULL::Ptr{Cvoid})::Cint
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("write_mass_transfer_rate_JC"::Cstring,
+    "mass_transfer_rate_JC"::Cstring, grad_JC::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
 
     # @ccall "libpdi".PDI_multi_expose("write_mass_transfer_rate_only"::Cstring,
     #     "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,
@@ -4249,7 +4330,8 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
                 __a2 = 0.0
                 __b = 1.0
             end
-    
+            
+            #region 2LS
             if num.nLS > 1
                
                 iLS_elec = 2
@@ -4366,7 +4448,7 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
                     # a0 = ones(grid) .* __a0
             
             end #num.nLS > 1
-
+            #endregion 2LS
 
             # _a1 = ones(grid) .* __a1
             # a1 = Diagonal(vec(_a1))
@@ -4572,7 +4654,7 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
         # update_electrical_current_from_Butler_Volmer!(num,grid,heat,ph.phi_eleD,i_butler)
 
         # # print("\n i_butler ",i_butler)
-        # update_BC_electrical_potential!(num,grid,BC,elec_cond,coeffD,i_butler)
+        # update_BC_electrical_potential_left!(num,grid,BC,elec_cond,coeffD,i_butler)
 
         # a0_b = zeros(nb)
         # _a1_b = zeros(nb)
@@ -4671,7 +4753,7 @@ function solve_poisson_variable_coeff!(num::Numerical{Float64, Int64},
         # update_electrical_current_from_Butler_Volmer!(num,grid,heat,ph.phi_eleD,i_butler)
 
         # print("\n i_butler ",i_butler)
-        # update_BC_electrical_potential!(num,grid,BC,elec_cond,coeffD,i_butler)
+        # update_BC_electrical_potential_left!(num,grid,BC,elec_cond,coeffD,i_butler)
 
         # a0_b = zeros(nb)
         # _a1_b = zeros(nb)
@@ -5903,7 +5985,7 @@ Based on num.bulk_conductivity:
 * 2 conductivity computed from wall concentration and bulk concentration
 * 3 conductivity computed from wall concentration and bulk concentration (homogeneous conductivity)
 """
-function update_BC_electrical_potential!(num,grid,BC_phi_ele,elec_cond,elec_condD,i_butler)
+function update_BC_electrical_potential_left!(num,grid,BC_phi_ele,elec_cond,elec_condD,i_butler)
 
     # BC LS 2 in set_poisson directly
     
@@ -5912,7 +5994,7 @@ function update_BC_electrical_potential!(num,grid,BC_phi_ele,elec_cond,elec_cond
 
 
     print("\n i butler ",i_butler )
-    PDI_status = @ccall "libpdi".PDI_multi_expose("update_BC_electrical_potential!"::Cstring,
+    PDI_status = @ccall "libpdi".PDI_multi_expose("update_BC_electrical_potential_left!"::Cstring,
         "elec_cond_1D"::Cstring, elec_condD::Ptr{Cdouble}, PDI_OUT::Cint,
         "i_butler"::Cstring, i_butler::Ptr{Cdouble}, PDI_OUT::Cint,
         C_NULL::Ptr{Cvoid})::Cint
@@ -5975,6 +6057,38 @@ function update_electrical_current_from_Butler_Volmer!(num,grid,heat,phi_eleD,i_
     # print("\n update_electrical_current_from_Butler_Volmer! ",vecb_L(phi_eleD, grid))
 
 end
+
+
+"""
+If the heat equation is solved, it uses the computed temperature, otherwise num.temperature0 is used.
+"""
+function update_electrical_current_from_Butler_Volmer_func!(num,grid,heat,phi_eleD,i_butler,func;T=nothing)
+
+    #TODO dev multiple levelsets
+    if heat
+        i_butler .= butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,func(phi_eleD, grid),
+        num.phi_ele1,num.Ru,T)
+    else
+        #
+        i_butler .= butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,func(phi_eleD, grid),
+            num.phi_ele1,num.Ru,num.temperature0)
+        # if num.nLS == 1
+        #     i_butler .= butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,vecb_L(phi_eleD, grid),
+        #     num.phi_ele1,num.Ru,num.temperature0)
+        # # else
+        #     #imposed by LS 2
+        #     # iLS_elec = 2
+        #     # i_butler = butler_volmer_no_concentration.(num.alpha_a,num.alpha_c,num.Faraday,num.i0,veci(phL.phi_eleD, grid,iLS_elec+1),
+        #     # num.phi_ele1,num.Ru,num.temperature0)
+        # end
+    end   
+
+    # print("\n update_electrical_current_from_Butler_Volmer! ",i_butler)
+    # print("\n update_electrical_current_from_Butler_Volmer! ",num.alpha_a,num.alpha_c,num.Faraday,num.i0,num.phi_ele1,num.Ru,num.temperature0)
+    # print("\n update_electrical_current_from_Butler_Volmer! ",vecb_L(phi_eleD, grid))
+
+end
+
 
 
 """
@@ -6233,12 +6347,26 @@ function solve_poisson_loop!(num::Numerical{Float64, Int64},
             # printstyled(color=:red, @sprintf "\n Recomputing Butler \n" )
 
             #region Update current
-            if num.electrolysis_reaction == "Butler_no_concentration"                
-                update_electrical_current_from_Butler_Volmer!(num,grid,heat,phL.phi_eleD,i_butler;phL.T)
+            # if num.electrolysis_reaction == "Butler_no_concentration"                
+            #     update_electrical_current_from_Butler_Volmer!(num,grid,heat,phL.phi_eleD,i_butler;phL.T)
+            # end
+            
+            if num.electrolysis_reaction_symb === :Butler_no_concentration                
+                electrode_definition_function = (num.electrolysis_reaction_symb === :Butler_no_concentration) ? vecb_L : vecb_B
+                # Temp = heat ? T : num.temperature0
+
+                print("\n electrode_definition_function ",electrode_definition_function)
+
+                update_electrical_current_from_Butler_Volmer_func!(num,grid_p,heat,phL.phi_eleD,i_butler,electrode_definition_function;phL.T)
+                #if fixed do not update
+                # update_electrical_current_from_Butler_Volmer_func!(num,grid,heat,phL.phi_eleD,i_butler;phL.T)
+                
+                update_BC_electrical_potential_left!(num,grid,BC_phi_ele,elec_cond,elec_condD,i_butler)
+
             end
+
             #endregion Update current
 
-            update_BC_electrical_potential!(num,grid,BC_phi_ele,elec_cond,elec_condD,i_butler)
 
 
 
@@ -6246,7 +6374,11 @@ function solve_poisson_loop!(num::Numerical{Float64, Int64},
 
         print("\n BC_phi_ele ",BC_phi_ele)
 
-        handle_special_cells_electrical_potential!(num,grid,op,BC_phi_ele,phL,elec_condD)
+        if num.electrolysis_reaction_symb === :Butler_no_concentration
+            handle_special_cells_electrical_potential!(num,grid,op,BC_phi_ele,phL,elec_condD)
+        elseif num.electrolysis_reaction_symb === :fixed_current
+            print("\n TODO special cells")  
+        end
 
         print("\n BC_phi_ele ",BC_phi_ele)
 
@@ -6372,9 +6504,20 @@ function solve_poisson_loop!(num::Numerical{Float64, Int64},
 
     
     #region Update current
-    if num.electrolysis_reaction == "Butler_no_concentration"
-        update_electrical_current_from_Butler_Volmer!(num,grid,heat,phL.phi_eleD,i_butler;phL.T)
+    # if num.electrolysis_reaction == "Butler_no_concentration"
+    #     update_electrical_current_from_Butler_Volmer!(num,grid,heat,phL.phi_eleD,i_butler;phL.T)
+    # end
+    if num.electrolysis_reaction_symb === :Butler_no_concentration                
+        electrode_definition_function = (num.electrolysis_reaction_symb === :Butler_no_concentration) ? vecb_L : vecb_B
+        # Temp = heat ? T : num.temperature0
+
+        print("\n electrode_definition_function ",electrode_definition_function)
+
+        update_electrical_current_from_Butler_Volmer_func!(num,grid_p,heat,phL.phi_eleD,i_butler,electrode_definition_function;phL.T)
+        #if fixed do not update
+        # update_electrical_current_from_Butler_Volmer_func!(num,grid,heat,phL.phi_eleD,i_butler;phL.T)
     end
+
     #endregion Update current at end
 
     if num.electrical_potential>0
@@ -6518,13 +6661,27 @@ function compute_residual_electrical_potential!(num::Numerical{Float64, Int64},
         # print("\n a0 max  ", maximum(a0)," min ",minimum(a0))
     end #for iLS in 1:num.nLS
 
-    if num.electrolysis_reaction == "Butler_no_concentration"
-        #TODO reevaluate BC for right ,... specify wall
-        update_electrical_current_from_Butler_Volmer!(num,grid,heat,ph.phi_eleD,i_butler)
+    # if num.electrolysis_reaction == "Butler_no_concentration"
+    #     #TODO reevaluate BC for right ,... specify wall
+    #     update_electrical_current_from_Butler_Volmer!(num,grid,heat,ph.phi_eleD,i_butler)
 
-        # print("\n i_butler ",i_butler)
-        update_BC_electrical_potential!(num,grid,BC,elec_cond,elec_condD,i_butler)
+    #     # print("\n i_butler ",i_butler)
+    #     update_BC_electrical_potential_left!(num,grid,BC,elec_cond,elec_condD,i_butler)
+    # end
+
+    if num.electrolysis_reaction_symb === :Butler_no_concentration                
+        electrode_definition_function = (num.electrolysis_reaction_symb === :Butler_no_concentration) ? vecb_L : vecb_B
+        # Temp = heat ? T : num.temperature0
+
+        print("\n electrode_definition_function ",electrode_definition_function)
+
+        update_electrical_current_from_Butler_Volmer_func!(num,grid_p,heat,phL.phi_eleD,i_butler,electrode_definition_function;phL.T)
+        #if fixed do not update
+        # update_electrical_current_from_Butler_Volmer_func!(num,grid,heat,phL.phi_eleD,i_butler;phL.T)
+        update_BC_electrical_potential_left!(num,grid,BC,elec_cond,elec_condD,i_butler)
+        #TODO update_BC_electrical_potential_left! with func vecb_B 
     end
+
 
     a0_b = zeros(nb)
     _a1_b = zeros(nb)
@@ -6898,3 +7055,57 @@ function impose_radial_velocity(phS::Nothing,phL,num::Numerical{Float64,Int64})
     end
 
 end
+
+
+"""
+cf Qin
+"""
+function compute_concentration_boundary_layer_width(num,grid_p,diffusion_coefficient,current,saturation_concentration,
+    concentration_1D,mask_1D,electrode_definition_function)
+
+    sum_mask = sum(electrode_definition_function(mask_1D,grid_p))
+    print("\n current ",num.current)
+    print("\n mask ", electrode_definition_function(mask_1D,grid_p) )
+    print("\n concentration_1D ", electrode_definition_function(concentration_1D,grid_p) )
+    print("\n sum mask", sum_mask )
+    # if sum_mask < eps
+    # index = iLS+1
+    # num=0
+    # nonzero = 0.0
+
+    # # cf veci @view a[g.ny*g.nx*(p-1)+1:g.ny*g.nx*p]
+
+    # for i in grid.ny*grid.nx*(index-1)+1:grid.ny*grid.nx*index
+    #     if abs(scalD[i,iscal]) .> 0.0
+    #         nonzero += scalD[i,iscal]
+    #         num += 1
+    #     end
+    # end
+
+    # if num == 0
+    #     print("\n no intfc in mean_intfc_non_null")
+    #     return 0
+    # else
+    #     nonzero /= num
+    #     return nonzero
+    # end
+
+    # when not null
+    averaged_electrode_concentration = sum( electrode_definition_function(concentration_1D,grid_p) .* electrode_definition_function(mask_1D,grid_p)) / sum(electrode_definition_function(mask_1D,grid_p))
+    
+    # cf mean_intfc_non_null
+    # use mask_1D
+
+    J = current/2*num.Faraday
+    concentration_boundary_layer_width = diffusion_coefficient * (averaged_electrode_concentration-saturation_concentration) / J
+    return concentration_boundary_layer_width,averaged_electrode_concentration
+
+end
+
+
+# """
+# cf Qin 
+# """
+# function compute_sherwood(electrode_length)
+#     return concentration_boundary_layer_width/electrode_length
+# end

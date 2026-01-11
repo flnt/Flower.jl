@@ -72,6 +72,7 @@ Stores parameters for the simulation
     _nLS::D = nLS == 1 ? 1 : nLS + 1
     nb_transported_scalars::D = 0
     concentration0::Array{T} = [0.0]
+    inv_stoechiometric_coeff::Array{T} = [0.0]
     epsilon_concentration::Array{T} = [0.0]
     diffusion_coeff::Array{T} = [0.0]
     temperature0::T = 0.0
@@ -130,6 +131,7 @@ Stores parameters for the simulation
     electrical_potential_residual::T=1e-2
     electrical_potential_nonlinear_solver::D=0
     electrolysis_reaction::String = "none"
+    electrolysis_reaction_symb::Symbol = Symbol("none")
     index_levelset_pdi::D = 1 #to expose levelset number ... to PDI
     time::T=0.0
     iter_solve::D=0
@@ -169,6 +171,10 @@ Stores parameters for the simulation
     activate_interface::D=1
     status::D=0
     constant_curvature::D=0
+    current::T=0.0
+    saturation_concentration_H2::T=0.0
+    electrode_length::T=0.0
+    ambiant_pressure::T=0.0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters
@@ -547,10 +553,10 @@ init_mode specifies how the vector is initialized based on boundary conditions
     top::BoundaryCondition = Neumann()
     int::BoundaryCondition = Neumann()
     LS::Vector{BoundaryCondition} = [Neumann(),Neumann()]
-    left_function::Function = x -> x
-    right_function::Function = x -> x
-    bottom_function::Function = x -> x
-    top_function::Function = x -> x
+    # left_function::Function = x -> x
+    # right_function::Function = x -> x
+    # bottom_function::Function = x -> x
+    # top_function::Function = x -> x
     init_mode::String = ""
 end
 ####################################################################################################
