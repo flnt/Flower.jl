@@ -175,6 +175,7 @@ Stores parameters for the simulation
     saturation_concentration_H2::T=0.0
     electrode_length::T=0.0
     ambiant_pressure::T=0.0
+    scalar_transport_implementation::D=0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

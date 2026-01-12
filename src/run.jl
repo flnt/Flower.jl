@@ -1917,7 +1917,7 @@ function run_forward!(
 
                     #TODO test rewrite diffusion + convection at interface with dot m 
 
-                    sherwood_bubble = num.ambiant_pressure / (num.Ru * num.temperature0) * 2 * num.current_radius * (num.current_radius-num.previous_radius) /num.τ   / (num.num.diffusion_coeff[1] * (averaged_electrode_concentration - num.saturation_concentration_H2)) 
+                    sherwood_bubble = num.ambiant_pressure / (num.Ru * num.temperature0) * 2 * num.current_radius * (num.current_radius-num.previous_radius) /num.timestep_n   / (num.diffusion_coeff[1] * (averaged_electrode_concentration - num.saturation_concentration_H2)) 
                     # sherwood = compute_sherwood()
 
 
