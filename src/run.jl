@@ -1764,6 +1764,14 @@ function run_forward!(
 
                         end
 
+                         if num.scalar_transport_implementation == 1 
+                            if num.time>num.nucleation_time
+                                BC_trans_scal[1].int = Dirichlet(val = num.concnentration0[1])
+                            else
+                                BC_trans_scal[1].int = Neumann()
+
+                            end
+                         end
 
 
 

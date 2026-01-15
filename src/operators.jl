@@ -970,7 +970,10 @@ function scalar_convection!(::Dirichlet, O, B, u, v, Dx, Dy, Du, Dv, cap, n, BC,
     return nothing
 end
 
-function scalar_convection_CUTCT!(::Dirichlet, B, u, v, Dx, Dy, Du, Dv, cap, n, BC, inside, b_left, b_bottom, b_right, b_top)
+function scalar_convection_CUTCT!(::Dirichlet, B, u, v, 
+    Dx, Dy, #BC for scalar i.e. \q^Gamma
+    Du, Dv, #BC for v i.e. u^\Gamma
+    cap, n, BC, inside, b_left, b_bottom, b_right, b_top)
     B .= 0.0
     # O .= 0.0
     #TODO compute without Dx[II] and then multiply generic -0.5* ((A3 - B1) * Du[δx⁺(II)] + (B1 - A1) * Du[II]) ... by Dx and Dy

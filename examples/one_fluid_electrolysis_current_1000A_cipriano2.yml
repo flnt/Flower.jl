@@ -123,8 +123,8 @@ flower:
     # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
     # electrolysis_phase_change_case: "levelset" # local
     eps: 1.0e-12 #1.0e-30 #eps for small numbers
-    epsilon: 0.05 #0.0 #0.05 #0.2 #0.0 #0.05 #0.2 #cut small cells
-    epsilon_wall: 0.05 #0.0 #0.05 #0.2 #0.0 #0.05 #0.2
+    epsilon: 0.0 #0.05 #0.0 #0.05 #0.2 #0.0 #0.05 #0.2 #cut small cells
+    epsilon_wall: 0.0 #0.05 #0.0 #0.05 #0.2 #0.0 #0.05 #0.2
     #if epsilon=0 centroids will be on the interface
     epsilon_mode: 2 #way to handle epsilon:
     # if num.epsilon_mode == 0
@@ -179,7 +179,7 @@ flower:
     show_every: 1
     scalar_bc: 0 #1 for multiple LS (describing wall) #0 for one LS
     scalar_scheme: 1 #0 #1 #0 #CN 1  #Backward Euler (implicit)
-    scalar_transport_implementation: 1 #0 #1 try conv diff rewritten at interface
+    scalar_transport_implementation: 0 #0 #1 try conv diff rewritten at interface
     solve_Navier_Stokes_liquid_phase: 1 #1 #1 activated
     solve_potential: 1
     solve_species: 1
@@ -559,7 +559,7 @@ study:
   #tolerance for tests
   test_tolerance: 1.e-11 #1.e-14
   test_tolerance_solution_absolute:  1.e-1 # from n = 16 
-  meshes: [256] #[128] #[80] #[128] #[80] #[40] #[40] #[16] #  [32] #   [128] #[64] #[128] #[32] #[32,64,128] #[32,64,128,256]
+  meshes: [128] #[80] #[128] #[80] #[40] #[40] #[16] #  [32] #   [128] #[64] #[128] #[32] #[32,64,128] #[32,64,128,256]
   compute_errors: None
   timesteps:  [1e-3] #[1e-4] #[1e-3] #[5e-3] #[1e-2] #[5e-2] #[5e-3] # #[1e-3] #[1e-4]
   #nucleation_time is 2.0e-2
@@ -664,7 +664,7 @@ plot: #default parameters for plots
           # timestep_1_0000e-02/mesh_00040/flower*.h5,
           # timestep_5_0000e-03/mesh_00040/flower*.h5,
           timestep_1_0000e-03/mesh_00128/flower*.h5,
-          timestep_1_0000e-03/mesh_00256/flower*.h5,
+          # timestep_1_0000e-03/mesh_00256/flower*.h5,
           # timestep_2_0000e-03/mesh_00064/flower*.h5,
           # timestep_2_0000e-03/mesh_000128/flower*.h5,
 
@@ -7086,12 +7086,13 @@ pdi:
             sherwood: $sherwood
             sherwood_bubble: $sherwood_bubble
             concentration_boundary_layer_width: $concentration_boundary_layer_width
+            radius: $radius
           exec: |
             import numpy as np
             print('\033[91m')
             print('[write_sherwood]')
 
-            print('sherwood bubble', sherwood_bubble,'sherwood', sherwood,'concentration_boundary_layer_width',concentration_boundary_layer_width,"\n ")
+            print('sherwood bubble', sherwood_bubble,'sherwood', sherwood,'concentration_boundary_layer_width',concentration_boundary_layer_width,'radius',radius,"\n ")
 
             print('\033[0m')
         

@@ -380,6 +380,8 @@ function scalar_transport!(num::Numerical{Float64, Int64},
             # Dv_y[end,:] .= vecb_T(vD,grid_v)
         end #num.convection_mode
 
+  
+
         
         #TODO HT multiple LS
         # HT = zeros(grid)
@@ -395,11 +397,47 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         #values for convection
         set_scalar_boundaries!(num,grid, bc[iscal], ph.trans_scalD[:,iscal], tmp_vec_p_2, tmp_vec_p_3)
 
-        # @views necessary
-        @views scalar_convection!(dir, op_conv.CT, all_CUTCT[:,iscal], u, v, tmp_vec_p_2, tmp_vec_p_3,
-        tmp_vec_u, tmp_vec_v, grid.LS[end].geoL.dcap, ny, 
-        bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1]
-        )
+        #tmp_vec_u , tmp_vec_v u v with BC
+        # tmp_vec_p_2 , tmp_vec_p_3 BC for scal 
+
+        if num.scalar_transport_implementation == 1 # for iscal = 1 reacting species
+            
+            tmp_vec_u_react = copy(tmp_vec_u)
+            tmp_vec_v_react = copy(tmp_vec_v)
+            tmp_vec_u_react .= 0.0 # convection (and diffusion) expressed by mass transfer term at reacting interface
+            tmp_vec_v_react .= 0.0 # convection (and diffusion) expressed by mass transfer term at reacting interface
+        
+            tmp_vec_u[1,:] .= vecb_B(uD, grid_u)
+            tmp_vec_u[end,:] .= vecb_T(uD, grid_u)
+            tmp_vec_u[:,1] .= vecb_L(uD, grid_u)
+            tmp_vec_u[:,end] .= vecb_R(uD, grid_u)
+
+            tmp_vec_v[:,1] .= vecb_L(vD,grid_v)
+            tmp_vec_v[1,:] .= vecb_B(vD,grid_v)
+            tmp_vec_v[:,end] .= vecb_R(vD,grid_v)
+            tmp_vec_v[end,:] .= vecb_T(vD,grid_v)
+            
+            #TODO check copy does not affect tmp_vec_u
+            #TODO check implem eq \dot m and diffusion
+            # @views necessary
+            @views scalar_convection!(dir, op_conv.CT, all_CUTCT[:,iscal], u, v, 
+            tmp_vec_p_2, tmp_vec_p_3, #BC for scal 
+            tmp_vec_u_react, tmp_vec_v_react, # BC for v
+            grid.LS[end].geoL.dcap, ny, 
+            bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1]
+            )
+
+        else
+
+            # @views necessary
+            @views scalar_convection!(dir, op_conv.CT, all_CUTCT[:,iscal], u, v, 
+            tmp_vec_p_2, tmp_vec_p_3, #BC for scal 
+            tmp_vec_u, tmp_vec_v, # BC for v
+            grid.LS[end].geoL.dcap, ny, 
+            bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1]
+            )
+
+        end
         # @views scalar_convection!(dir, op_conv.CT, all_CUTCT[:,iscal], u, v, bcTx, bcTy, bcU, bcV, grid.LS[1].geoL.dcap, ny, 
         # bc[iscal], inside, b_left[1], b_bottom[1], b_right[1], b_top[1]
         # )
@@ -630,7 +668,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
     
         diffusion_coeff_scal = num.diffusion_coeff[iscal]
 
-
+        print("\n diffusion coeff ",diffusion_coeff_scal)
 
 
         # printstyled(color=:red, @sprintf "\n test diffusion_coeff_scal ")
@@ -720,10 +758,26 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         if num.nLS ==1
             LD = BxT * iMx * Hx[1] .+ ByT * iMy * Hy[1]
 
+         
+
             # Implicit part of heat equation
             A[1:ni,1:ni] = pad_crank_nicolson(M .- time_factor .* diffusion_coeff_scal .* LT, grid, 4 * time_factor)
-            A[1:ni,ni+1:2*ni] = - time_factor .* diffusion_coeff_scal .* LD
+            # A[1:ni,ni+1:2*ni] = - time_factor .* diffusion_coeff_scal .* LD
             A[1:ni,end-nb+1:end] = - time_factor .* diffusion_coeff_scal .* LD_b
+
+            # TODO sherwood
+            if num.scalar_transport_implementation == 1 && iscal == 1
+                # if num.time>num.nucleation_time
+                    # TODO if num.time>num.nucleation_time put Neumann
+                    # print("TODO red num.time>num.nucleation_time put Neuman", num.time>num.nucleation_time put Neumann)
+                    
+                A[1:ni,ni+1:2*ni] = - time_factor .* num.MWH2 * diffusion_coeff_scal / (1.0-num.rho2/num.rho1 ) .* LD
+                # else
+
+                # end
+            else
+                A[1:ni,ni+1:2*ni] = - time_factor .* diffusion_coeff_scal .* LD
+            end
 
             # Interior BC
             A[ni+1:2*ni,1:ni] = b * (HxT[1] * iMx * Bx .+ HyT[1] * iMy * By)
@@ -743,8 +797,20 @@ function scalar_transport!(num::Numerical{Float64, Int64},
             # Explicit part of diffusion
             if num.scalar_scheme != 1 #if not fully implicit
                 B[1:ni,1:ni] .+= time_factor .* diffusion_coeff_scal .* LT
-                B[1:ni,ni+1:2*ni] = time_factor .* diffusion_coeff_scal .* LD
+                # B[1:ni,ni+1:2*ni] = time_factor .* diffusion_coeff_scal .* LD
                 B[1:ni,end-nb+1:end] = time_factor .* diffusion_coeff_scal .* LD_b
+
+
+                if num.scalar_transport_implementation == 1 && iscal == 1
+                    # if num.time>num.nucleation_time
+                    B[1:ni,ni+1:2*ni] = - time_factor .* num.MWH2 * diffusion_coeff_scal / (1.0-num.rho2/num.rho1 ) .* LD
+                    # else
+
+                    # end
+                else
+                    B[1:ni,ni+1:2*ni] = time_factor .* diffusion_coeff_scal .* LD
+                end
+
             end
 
             #Convection
@@ -1050,7 +1116,7 @@ function scalar_transport!(num::Numerical{Float64, Int64},
         # if num.scalar_scheme == 0 # Crank-Nicolson
         #     @views mul!(rhs, B, ph.trans_scalD[:,iscal], 1.0, 1.0) #TODO @views not necessary ?
         # end
-        @views mul!(rhs, B, ph.trans_scalD[:,iscal], 1.0, 1.0)
+        @views mul!(rhs, B, ph.trans_scalD[:,iscal], 1.0, 1.0) #explicit part B
 
         # II = CartesianIndex(3,37)
         # pII =lexicographic(II,grid.ny)
