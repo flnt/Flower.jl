@@ -356,7 +356,7 @@ flower:
 
 
     print_parameters: | 
-      print("\n test print_parameters2 \n")
+      print("\n Print parameters from yml file \n")
       mu = phys.mu_cin1 *phys.rho1 #in Pa s = M L^{-1} T^{-1}}
 
       phys.mu1 = mu
@@ -401,7 +401,7 @@ flower:
 
       # printstyled(color=:green, @sprintf "\n sim.CFL : %.2e dt : %.2e\n" sim.CFL sim.CFL*phys.ref_length/mesh.nx/phys.v_inlet)
 
-      print("\n end test print_parameters2 \n")
+      print("\n end Print parameters from yml file \n")
 
     test_end: |
       print("\n test end \n")

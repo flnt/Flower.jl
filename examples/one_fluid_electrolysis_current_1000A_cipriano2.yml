@@ -253,7 +253,7 @@ flower:
       )  
 
       i_butler = -phys.current
-      print("\n current ", phys.current) 
+      
       BC_phi_ele = BoundariesInt(
       bottom   = Neumann(val=i_butler./elec_cond), #TODO -BC in Flower ? so i_butler not -i_butler
       # right  = Neumann(),
@@ -452,7 +452,7 @@ flower:
 
 
     print_parameters: | 
-      print("\n test print_parameters2 \n")
+      print("\n Print parameters from yml file \n")
       # mu = phys.mu_cin1 *phys.rho1 #in Pa s = M L^{-1} T^{-1}}
       # phys.mu1 = mu
       # phys.mu2 = mu
@@ -542,7 +542,7 @@ flower:
         # The file will be automatically closed here
       end
 
-      print("\n end test print_parameters2 \n")
+      print("\n end Print parameters from yml file \n")
 
     # test_end: |
     #   phi_test = -1.166e-02

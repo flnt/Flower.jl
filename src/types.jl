@@ -176,6 +176,9 @@ Stores parameters for the simulation
     electrode_length::T=0.0
     ambiant_pressure::T=0.0
     scalar_transport_implementation::D=0
+    solve_Navier_Stokes::D=1
+    sphere_post_processing::D=0 #can be done with PDI also with Pycall
+    bulk_velocity_symb::Symbol = Symbol("none")
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

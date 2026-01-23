@@ -8,7 +8,7 @@ function update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_frac
     levelset_one_fluid .= grid_p.LS[end].u
 
 
-    print("\nvolume fraction update ")
+    # print("\nvolume fraction update ")
 
     # display(volume_fraction)
     # display(volume_fraction)
@@ -3696,41 +3696,46 @@ function FE_set_momentum_coupled2_one_fluid(
     if ls_advection
         A.nzval .= 0.0
 
+            
         #region print debug coeff
-        pII = lexicographic(CartesianIndex(5,5),grid_u.ny)
-        
-        print("\n A[bulk_u_velocity,bulk_u_velocity] before ",pII)
+        # debug_coeff = false
 
-        print("\n dt ",timestep_n )
-        print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
+        # if debug_coeff
+        #     pII = lexicographic(CartesianIndex(5,5),grid_u.ny)
+            
+        #     print("\n A[bulk_u_velocity,bulk_u_velocity] before ",pII)
 
-        # example with mu1=mu2=1 and dt =1 : factor 2 for x, so 2-4 2 and 1 -2 1
-        # diffusion_bulk_u   [101]  =  2.0
-        # [132]  =  1.0
-        # [133]  =  -6.0
-        # [134]  =  1.0
-        # [165]  =  2.0
+        #     print("\n dt ",timestep_n )
+        #     print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
 
-        pII = lexicographic(CartesianIndex(1,5),grid_u.ny)
-        pIIv = lexicographic(CartesianIndex(1,5),grid_v.ny)
+        #     # example with mu1=mu2=1 and dt =1 : factor 2 for x, so 2-4 2 and 1 -2 1
+        #     # diffusion_bulk_u   [101]  =  2.0
+        #     # [132]  =  1.0
+        #     # [133]  =  -6.0
+        #     # [134]  =  1.0
+        #     # [165]  =  2.0
 
-        print("\n pIIv ",ntu + pIIv," pII ",pII)
+        #     pII = lexicographic(CartesianIndex(1,5),grid_u.ny)
+        #     pIIv = lexicographic(CartesianIndex(1,5),grid_v.ny)
 
-        print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
+        #     print("\n pIIv ",ntu + pIIv," pII ",pII)
 
-        pII = lexicographic(CartesianIndex(5,1),grid_u.ny)
-        pIIv = lexicographic(CartesianIndex(5,1),grid_v.ny)
+        #     print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
 
-        print("\n pIIv ",ntu + pIIv," pII ",pII)
+        #     pII = lexicographic(CartesianIndex(5,1),grid_u.ny)
+        #     pIIv = lexicographic(CartesianIndex(5,1),grid_v.ny)
 
-        print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
+        #     print("\n pIIv ",ntu + pIIv," pII ",pII)
 
-        pII = lexicographic(CartesianIndex(1,1),grid_u.ny)
-        pIIv = lexicographic(CartesianIndex(1,1),grid_v.ny)
+        #     print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
 
-        print("\n pIIv ",ntu + pIIv," pII ",pII)
+        #     pII = lexicographic(CartesianIndex(1,1),grid_u.ny)
+        #     pIIv = lexicographic(CartesianIndex(1,1),grid_v.ny)
 
-        print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
+        #     print("\n pIIv ",ntu + pIIv," pII ",pII)
+
+        #     print("\n diffusion_bulk_u ",diffusion_bulk_u[pII,:] )
+        # end
         #endregion print debug coeff
 
         diag_inv_rho_u = Diagonal(1.0./vec(rho_one_fluid_u))
@@ -3771,25 +3776,26 @@ function FE_set_momentum_coupled2_one_fluid(
         #same with opu.M
 
         #region print debug coeff
-        print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
+        # print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
 
-        print("\n size(A) ",size(A))
+        # print("\n size(A) ",size(A))
 
-        print("\n size(bulk_u_velocity) ",size(bulk_u_velocity))
-        print("\n bulk_u_velocity ",bulk_u_velocity)
-        print("\n bulk_v_velocity ",bulk_v_velocity)
+        # print("\n size(bulk_u_velocity) ",size(bulk_u_velocity))
+        # print("\n bulk_u_velocity ",bulk_u_velocity)
+        # print("\n bulk_v_velocity ",bulk_v_velocity)
 
-        pIIv = lexicographic(CartesianIndex(5,5),grid_v.ny)
+        # pIIv = lexicographic(CartesianIndex(5,5),grid_v.ny)
 
-        # A[bulk_u_velocity,ntu + pIIv] .= 333
+        # # A[bulk_u_velocity,ntu + pIIv] .= 333
         
-        print("\n pIIv ",ntu + pIIv)
+        # print("\n pIIv ",ntu + pIIv)
 
-        print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
+        # print("\n A[bulk_u_velocity,bulk_u_velocity] ",A[pII,:])
         
-        print("\n grid_p ",grid_p.dx[5,5]," ", grid_u.dx[5,5] ," ",grid_v.dx[5,5]," ")
-        print("\n grid_p ",grid_p.dy[5,5]," ", grid_u.dy[5,5] ," ",grid_v.dy[5,5]," ")
+        # print("\n grid_p ",grid_p.dx[5,5]," ", grid_u.dx[5,5] ," ",grid_v.dx[5,5]," ")
+        # print("\n grid_p ",grid_p.dy[5,5]," ", grid_u.dy[5,5] ," ",grid_v.dy[5,5]," ")
         #endregion print debug coeff
+
         if num.non_dimensionalize == 0 
             A[bulk_u_velocity,bulk_v_velocity] = - timestep_n * diag_inv_rho_u * cross_term_diffusion_bulk_d_dv_dx_dy 
         else

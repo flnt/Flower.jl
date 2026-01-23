@@ -2133,7 +2133,7 @@ i.e., the traveled length ``l`` of the interface is:
 
 [40] S.W. Welch, J. Wilson, A volume of fluid based method for fluid flows with phase change, J. Comput. Phys. 160 (2) (2000) 662-682.
 
-[6] J. Crunk, The Mathematics of Diffusion, Oxford University Press, 1975.
+[6] J. Crank, The Mathematics of Diffusion, Oxford University Press, 1975.
 "
 
 

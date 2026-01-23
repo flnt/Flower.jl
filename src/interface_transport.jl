@@ -557,13 +557,17 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
                     num.phase_change_currently_activated = 1 #TODO before after
                     
                     #region bulk velocity
-                    
-                    if num.advection_LS_mode == 16
-                        grid_u.V .= u_extended
-                        grid_v.V .= v_extended
+                    if num.bulk_velocity_symb === :zero
+                        grid_u.V .= 0.0
+                        grid_v.V .= 0.0
                     else
-                        grid_u.V .= phL.u #reshape(vec1(phL.uD,grid_u), grid_u)
-                        grid_v.V .= phL.v #reshape(vec1(phL.vD,grid_v), grid_v)
+                        if num.advection_LS_mode == 16
+                            grid_u.V .= u_extended
+                            grid_v.V .= v_extended
+                        else
+                            grid_u.V .= phL.u #reshape(vec1(phL.uD,grid_u), grid_u)
+                            grid_v.V .= phL.v #reshape(vec1(phL.vD,grid_v), grid_v)
+                        end
                     end
                     
                     PDI_status = @ccall "libpdi".PDI_multi_expose("write_advection_velocity_bulk"::Cstring,
@@ -896,9 +900,9 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
                     #     end
                     # end
                     # # end
-
-                    compute_bubble_drop_radius(num, grid_p)
-
+                    if num.sphere_post_processing == 1
+                        compute_bubble_drop_radius(num, grid_p)
+                    end
 
 
                 else

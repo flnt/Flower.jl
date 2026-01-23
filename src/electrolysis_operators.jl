@@ -237,10 +237,32 @@ function integrate_mass_transfer_rate_over_interface(num::Numerical{Float64, Int
     mass_transfer_rate_vec1   .= opC_p.HxT[interface_id] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid) .+ opC_p.HyT[interface_id] * opC_p.iMy * opC_p.By * vec1(scalD,grid)
     mass_transfer_rate_vecb   .= opC_p.HxT[interface_id] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid) .+ opC_p.HyT[interface_id] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)
 
+    # if num.scalar_transport_implementation > 0
+    #     for iLS in 1:num.nLS
+    #         # Create a vector of the same size as veci(scalD, grid, iLS+1) filled with num.saturation_concentration
+    #         replacement_vector = fill(num.saturation_concentration_H2, length(veci(scalD, grid, iLS+1)))
+    #         t
+    #         mass_transfer_rate_veci .+= opC_p.HxT[interface_id] * opC_p.iMx * opC_p.Hx[iLS] * replacement_vector
+    #         mass_transfer_rate_veci .+= opC_p.HyT[interface_id] * opC_p.iMy * opC_p.Hy[iLS] * replacement_vector
+    #     end
+    # else
+    #     for iLS in 1:num.nLS
+    #         mass_transfer_rate_veci .+= opC_p.HxT[interface_id] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
+    #         mass_transfer_rate_veci .+= opC_p.HyT[interface_id] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
+    #     end
+    # end
+  
+
     for iLS in 1:num.nLS
+
+        if num.scalar_transport_implementation > 0
+            veci(scalD,grid,iLS+1) .= num.saturation_concentration_H2
+        end
+        
         mass_transfer_rate_veci .+= opC_p.HxT[interface_id] * opC_p.iMx * opC_p.Hx[iLS] * veci(scalD,grid,iLS+1)
         mass_transfer_rate_veci .+= opC_p.HyT[interface_id] * opC_p.iMy * opC_p.Hy[iLS] * veci(scalD,grid,iLS+1)
     end
+
 
     # printstyled(color=:red, @sprintf "\n vec1 x y %.2e %.2e \n" sum(opC_p.HxT[iLStmp] * opC_p.iMx * opC_p.Bx * vec1(scalD,grid)) sum(opC_p.HyT[iLStmp] * opC_p.iMy * opC_p.By * vec1(scalD,grid)))
     # printstyled(color=:red, @sprintf "\n vecb x y %.2e %.2e\n" sum(opC_p.HxT[iLStmp] * opC_p.iMx_b * opC_p.Hx_b * vecb(scalD,grid)) sum(opC_p.HyT[iLStmp] *  opC_p.iMy_b * opC_p.Hy_b * vecb(scalD,grid)))

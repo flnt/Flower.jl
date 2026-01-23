@@ -211,7 +211,7 @@ function run_forward!(
         Re = num.Re
     end
 
-    if num.verbosity > 0
+    if num.verbosity > 0 && num.solve_Navier_Stokes>0
         printstyled(color=:green, @sprintf "\n Re : %.2e %.2e\n" Re num.visc_coeff)
         printstyled(color=:magenta, @sprintf "\n CFL_sc : %.2e\n" CFL_sc)
     end
@@ -367,18 +367,22 @@ function run_forward!(
 
         print("\n electrolysis_reaction_symb ",num.electrolysis_reaction_symb)
 
-        size_BC_reaction = if num.electrolysis_reaction_symb === :Butler_no_concentration
-            grid_p.ny
-        elseif num.electrolysis_reaction_symb === :fixed_current
-            grid_p.nx
+        if num.electrolysis_reaction_symb === :none
+
         else
-            error("Unknown electrolysis_reaction")
+
+            size_BC_reaction = if num.electrolysis_reaction_symb === :Butler_no_concentration
+                grid_p.ny
+            elseif num.electrolysis_reaction_symb === :fixed_current
+                grid_p.nx
+            else
+                error("Unknown electrolysis_reaction")
+            end
+
+            resize!(i_butler, size_BC_reaction)
+            fill!(i_butler, 0.0)
+
         end
-
-        resize!(i_butler, size_BC_reaction)
-        fill!(i_butler, 0.0)
-
-
 
 
     end #electrolysis
@@ -1339,11 +1343,11 @@ function run_forward!(
     # slices::Vector{Tuple{Union{Int, Colon}, Union{Int, Colon}}};
     # center_x,center_y)
 
-    
-    compute_bubble_drop_radius(num, grid_p)
+    if num.sphere_post_processing == 1 
+        compute_bubble_drop_radius(num, grid_p)
+    end
 
-
-    if (num.one_fluid_model == 1 &&  num.solve_Navier_Stokes_liquid_phase == 1) 
+    if (num.one_fluid_model == 1 &&  num.solve_Navier_Stokes_liquid_phase == 1 && num.solve_Navier_Stokes == 1) 
         # rise_velocity_y =0.0
         # PDI_status = @ccall "libpdi".PDI_multi_expose("post_processing_rising_bubble_first_share"::Cstring,
         # "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
@@ -1378,7 +1382,8 @@ function run_forward!(
                                            
     end
 
-    if num.one_fluid_model == 1
+    
+    if num.one_fluid_model == 1 && num.solve_Navier_Stokes == 1
         conservation = compute_conservation_mass(num,phL, grid_p ,grid_u, grid_v, rho_one_fluid)
     else
         conservation = 0 # TODO
@@ -1394,28 +1399,31 @@ function run_forward!(
         end
     end
 
-    PDI_status = @ccall "libpdi".PDI_multi_expose("print_conservation"::Cstring,
-    "nstep"::Cstring, num.current_iter::Ref{Clonglong}, PDI_OUT::Cint,
-    "conservation"::Cstring, conservation::Ref{Cdouble}, PDI_OUT::Cint,
-    "velocity_divergence"::Cstring, Duv::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-    C_NULL::Ptr{Cvoid})::Cint
+    
+    if num.solve_Navier_Stokes == 1 && num.solve_Navier_Stokes == 1
+        PDI_status = @ccall "libpdi".PDI_multi_expose("print_conservation"::Cstring,
+        "nstep"::Cstring, num.current_iter::Ref{Clonglong}, PDI_OUT::Cint,
+        "conservation"::Cstring, conservation::Ref{Cdouble}, PDI_OUT::Cint,
+        "velocity_divergence"::Cstring, Duv::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
 
-    #save initialised electrical potential and current (iter 0)
-    if num.electrical_potential>0
-        compute_grad_phi_ele!(num, grid_p, grid_u, grid_v, grid_u.LS[end], grid_v.LS[end], phL,
-        op.opC_pL, elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p0,tmp_vec_p1) #TODO current
+        #save initialised electrical potential and current (iter 0)
+        if num.electrical_potential>0
+            compute_grad_phi_ele!(num, grid_p, grid_u, grid_v, grid_u.LS[end], grid_v.LS[end], phL,
+            op.opC_pL, elec_cond,tmp_vec_u,tmp_vec_v,tmp_vec_p,tmp_vec_p0,tmp_vec_p1) #TODO current
+        end
+
+        # PDI_status = @ccall "libpdi".PDI_multi_expose("check_conservation"::Cstring,
+        # "nstep"::Cstring, num.current_iter::Ref{Clonglong}, PDI_OUT::Cint,
+        # "conservation"::Cstring, conservation::Ref{Cdouble}, PDI_OUT::Cint,
+        # "velocity_divergence"::Cstring, Duv::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+        # C_NULL::Ptr{Cvoid})::Cint
+
     end
-
-    # PDI_status = @ccall "libpdi".PDI_multi_expose("check_conservation"::Cstring,
-    # "nstep"::Cstring, num.current_iter::Ref{Clonglong}, PDI_OUT::Cint,
-    # "conservation"::Cstring, conservation::Ref{Cdouble}, PDI_OUT::Cint,
-    # "velocity_divergence"::Cstring, Duv::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
-    # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-    # C_NULL::Ptr{Cvoid})::Cint
-
 
 
     simulation_finished = false
@@ -1436,8 +1444,10 @@ function run_forward!(
 
         
         num.timestep_n = adapt_timestep!(num, phL, phS, grid_u, grid_v,adapt_timestep_mode)
-        printstyled(color=:green, @sprintf "\n num.CFL : %.2e dt : %.2e num.timestep_n : %.2e\n" num.CFL num.timestep_n num.timestep_n)
-        print("\n num.stop_simulation start loop ",num.stop_simulation)
+       
+        # printstyled(color=:green, @sprintf "\n num.CFL : %.2e dt : %.2e num.timestep_n : %.2e\n" num.CFL num.timestep_n num.timestep_n)
+        # print("\n num.stop_simulation start loop ",num.stop_simulation)
+
         #endregion adapt time
         
         if grid_p.LS[1].geoL.dcap[1,1,:] == 0.0
@@ -1607,6 +1617,7 @@ function run_forward!(
 
         
         #region Electrolysis 
+        #TODO scalar without electrical potential
         if electrolysis && (num.solve_potential == 1 ) && (num.solve_species == 1)
             if electrolysis_liquid_phase
 
@@ -1707,8 +1718,9 @@ function run_forward!(
 
                 # if num.electrolysis_reaction_symb in (:Butler_no_concentration, :fixed_current)
                 if num.electrolysis_reaction_symb === :Butler_no_concentration
-
-                    print("\n electrode_definition_function ",electrode_definition_function)
+                    # if num.verbosity>0
+                    #     print("\n electrode_definition_function ",electrode_definition_function)
+                    # end
 
                     update_electrical_current_from_Butler_Volmer_func!(num,grid_p,heat,phL.phi_eleD,i_butler,electrode_definition_function;phL.T)
                     #if fixed do not update
@@ -1764,14 +1776,18 @@ function run_forward!(
 
                         end
 
-                         if num.scalar_transport_implementation == 1 
-                            if num.time>num.nucleation_time
-                                BC_trans_scal[1].int = Dirichlet(val = num.concnentration0[1])
-                            else
-                                BC_trans_scal[1].int = Neumann()
+                        #  if num.scalar_transport_implementation > 0 
+                            
+                        #     printstyled(color=:red, @sprintf "\n scalar_transport_implementation")
 
-                            end
-                         end
+                        #     if num.time>num.nucleation_time
+                        #         BC_trans_scal[1].int = Dirichlet(val = num.concentration0[1])
+                        #     else
+                        #         BC_trans_scal[1].int = Neumann()
+                        #         print("\n BC_trans_scal[1].int ", BC_trans_scal[1].int  )
+
+                        #     end
+                        #  end
 
 
 
@@ -1873,6 +1889,11 @@ function run_forward!(
                     "levelset_iso"::Cstring, grid_p.LS[num.iLSpdi].iso::Ptr{Cdouble}, PDI_OUT::Cint,
                     C_NULL::Ptr{Cvoid})::Cint
 
+                    # printstyled(color=:magenta, @sprintf "\n Before scalar transport\n")
+                    # printstyled(color=:cyan, @sprintf "\n Before scalar transport\n")
+                    # printstyled(color=:green, @sprintf "\n Before scalar transport\n")
+
+
                     scalar_transport!(num, grid_p, grid_u, grid_v,
                     op.opC_TL, #op
                     op.opL, #op_conv
@@ -1910,9 +1931,9 @@ function run_forward!(
                         C_NULL::Ptr{Cvoid})::Cint
 
                     # if fix
-                    print("\n BC_trans_scal ",BC_trans_scal[1])
+                    # print("\n BC_trans_scal ",BC_trans_scal[1])
 
-                    print("\n BC_trans_scal ",BC_trans_scal[1].bottom.val)
+                    # print("\n BC_trans_scal ",BC_trans_scal[1].bottom.val)
 
 
                     concentration_boundary_layer_width,averaged_electrode_concentration = compute_concentration_boundary_layer_width(num,grid_p,num.diffusion_coeff[1],
@@ -2103,6 +2124,14 @@ function run_forward!(
                 "velocity_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,      
                 "radius"::Cstring, num.current_radius::Ref{Cdouble}, PDI_OUT::Cint, 
                 C_NULL::Ptr{Cvoid})::Cint
+
+                # if num.nb_transported_scalars>0
+                #     PDI_status = @ccall "libpdi".PDI_multi_expose("write_data_species"::Cstring,
+                #     "nstep"::Cstring, num.current_iter::Ref{Clonglong}, PDI_OUT::Cint,
+                #     "trans_scal_1DT"::Cstring, phL.trans_scalD'::Ptr{Cdouble}, PDI_OUT::Cint,            
+                #     C_NULL::Ptr{Cvoid})::Cint
+                # end
+
         
                 
                 #TODO debug with volume fraction
@@ -2383,7 +2412,7 @@ function run_forward!(
 
 
 
-                    if (num.one_fluid_model == 1 &&  num.solve_Navier_Stokes_liquid_phase == 1) 
+                    if (num.one_fluid_model == 1 &&  num.solve_Navier_Stokes_liquid_phase == 1) && (num.solve_Navier_Stokes == 1)
                         if num.activate_interface == 0
                             volumic_surface_tension_u .= 0.0
                             volumic_surface_tension_v .= 0.0
@@ -2693,9 +2722,10 @@ function run_forward!(
             println("num.timestep_n = $num.timestep_n")
         end
 
-        printstyled(color=:red, @sprintf "\n advection")
-        print("\n num.advection_LS_mode ",num.advection_LS_mode," advection ",advection)
-        printstyled(color=:red, @sprintf "\n advection")
+        # printstyled(color=:red, @sprintf "\n advection")
+        if num.verbosity>0
+            print("\n num.advection_LS_mode ",num.advection_LS_mode," advection ",advection)
+        end
 
 
         #region Advection 

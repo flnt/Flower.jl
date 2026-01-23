@@ -483,7 +483,9 @@ for timestep in timesteps
 
         global num = num_new
 
-        print("\n num",num)
+        if num.verbosity >0
+            print("\n Parameters num ",num)
+        end
 
         Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
         @debug "After Numerical"

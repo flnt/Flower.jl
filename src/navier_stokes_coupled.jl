@@ -23,7 +23,7 @@ function set_borders!(grid, cl, u, a0, a1, b, BC, n_ext)
     elseif is_neumann(BC.left)
         @inbounds a1[idx] .= 0.0
         @inbounds b[idx] .= 1.0
-        print(("\n left BC Neumann"))
+        # print(("\n left BC Neumann"))
     elseif is_robin(BC.left)
         @inbounds a1[idx] .= -1.0
         @inbounds b[idx] .= 1.0

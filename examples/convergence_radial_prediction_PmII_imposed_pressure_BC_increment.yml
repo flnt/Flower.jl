@@ -347,7 +347,7 @@ flower:
 
 
     print_parameters: | 
-      print("\n test print_parameters2 \n")
+      print("\n Print parameters from yml file \n")
       mu = phys.mu_cin1 *phys.rho1 #in Pa s = M L^{-1} T^{-1}}
 
       phys.mu1 = mu
@@ -389,7 +389,7 @@ flower:
 
       diffusion_t = (phys.radius^2)./phys.diffusion_coeff
       print("\n diffusion time ", diffusion_t,"\n")
-      print("\n end test print_parameters2 \n")
+      print("\n end Print parameters from yml file \n")
 
     test_end: |
       print("\n test end \n")
