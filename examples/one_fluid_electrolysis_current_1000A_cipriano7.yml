@@ -50,7 +50,7 @@ flower:
     nb_levelsets: &nb_levelsets 1 #2
     nb_transported_scalars: &nb_transported_scalars 3
     Navier_slip_length: 1.0e-2    
-    nucleation_time: 2.0e-2
+    nucleation_time: &nucleation_time 2.0e-2
     #Electric potential
     phi_ele0: 0.0
     phi_ele1: &phi_ele1 -0.6
@@ -107,7 +107,8 @@ flower:
     # uses bulk or interfacial concentrationfor conductivity
     case: None #Planar #Cylinder
     CFL: 0.5
-    concentration_check_factor: &concentration_check_factor 1.0e-4 #TODO do not write 1e-4, ill read in python
+    # concentration_check_factor: &concentration_check_factor 1.0e-4 #TODO do not write 1e-4, ill read in python
+    concentration_check_factor: &concentration_check_factor 1.0e-2 #TODO do not write 1e-4, ill read in python
     contact_angle: 1 #activate advancing/receding contact angle
     convection_Cdivu: 0
     convection_mode: 1 #2 #1 #0 #1
@@ -5405,6 +5406,230 @@ plot: #default parameters for plots
         macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 
                           'file_name+"_"+plotpar["theme"]+".svg"']
 
+
+      - var: [[time,radius]]
+        file: log_radius
+        logplot_x: True
+        logplot_y: True
+        # files: [
+        #         # timestep_5_0000e-02/mesh_00040/flower*.h5,
+        #         # timestep_1_0000e-02/mesh_00040/flower*.h5,
+        #         # timestep_5_0000e-03/mesh_00040/flower*.h5,
+        #         timestep_2_0000e-03/mesh_00032/flower*.h5,
+        #         # timestep_2_0000e-03/mesh_00064/flower*.h5,
+        #         # timestep_2_0000e-03/mesh_000128/flower*.h5,
+
+        #         # timestep_5_0000e-02/mesh_00040/flower_0000001*.h5,
+        #           # timestep_5_0000e-02/mesh_00040/flower_0000000*.h5,
+        #         # timestep_5_0000e-03/mesh_00040/flower*.h5,
+        # ]
+        # files: [timestep_5_0000e-02/mesh_00040/flower_00000060.h5]
+        func: plot_time #plot_1D
+        labels: [["$\\text{Time} ( \\unit{\\s})$", "$ \\text{Radius} ( \\unit{\\m})$" ]]
+        # linestyles: ['(0, (3, 6))' ]
+        linestyles: ['(0, (3, 6))',
+                     '(0, ())', #solid
+                     '(3, (3, 6))', #"dashdot"
+                     '(6, (3, 6))'] #"dotted"
+        macro_label_linestyle_color: |
+          global label2,color2,ls2 
+          label2 = file[figpar['iter']]
+          # label1
+          color2 = colors[figpar['iter']]
+          print(color2)
+          print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
+          ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
+        
+        slope_start: '1'
+        slope_end: 'len(varx)'
+        nucleation_time: *nucleation_time
+        # macro_slope: |
+        #   xls = np.array(varx)
+        #   yls = slice_1D
+        #   # print('yls',yls)
+        #   nucleation_time = float(figpar['nucleation_time'])
+        #   # i0 = eval(figpar['slope_start'])
+        #   # i0 = np.searchsorted(xls, nucleation_time)
+        #   i0 = np.where(xls > nucleation_time)[0][0]
+
+        #   print('nucleation_time',nucleation_time)
+        #   print('slope start i0',i0)
+        #   print('xls',xls)
+
+        #   xls=xls[i0:eval(figpar['slope_end'])+1]
+        #   yls=yls[i0:eval(figpar['slope_end'])+1]
+         
+        #   # print('len xls yls',len(xls),len(yls))
+        #   # R2=0
+        #   # slope_and_correlation = [0,0]
+        #   # compute_slope(ax2,xls,yls,
+        #   # slope_and_correlation,R2,param_line,color_line,alpha,plot_text=True,logslope=False)
+        #   # print('least squares',slope_and_correlation)
+
+        #   compute_slope_figpar(ax2, xls, yls,plotpar,figpar, plot_text=True, logslope=False)
+
+
+        # macro_ref: |
+        #   global time_ref_2,val_ref_2
+        #   time_ref_2 = np.array(varx)
+         
+        #   val_ref_2 = time_ref_2
+        #   radius_list = vary_2
+
+        #   # Nucleation time
+        #   t_nuc = float(figpar['nucleation_time'])
+
+        #   # Constants
+        #   R0 = radius_list[1]  # constant radius during nucleation, first one analytical, second one numerical (by interpolation)
+
+        #   # Post-nucleation growth coefficients
+        #   C_westwater = 1.0
+        
+
+        #   def radius_with_nucleation(t, C,t_nuc,R0):
+        #       R = np.zeros_like(t)
+        #       eps=1e-4
+        #       mask_nuc = t <= t_nuc+eps
+            
+        #       mask_grow = t > t_nuc+eps
+        #       i_nuc = np.argmin(np.abs(t - t_nuc))
+        #       i_nuc = i_nuc+1 #current time step, activated when >t_nuc
+        #       t_nuc_eff = t[i_nuc]
+        #       print('t nearest',t_nuc_eff)
+
+        #       print('t[mask_grow] ',t[mask_grow])
+        #       print('t[mask_grow] - t_nuc_eff',t[mask_grow] - t_nuc_eff)
+
+        #       R[mask_nuc] = R0
+        #       R[mask_grow] = R0 + C * np.sqrt(t[mask_grow] - t_nuc_eff)
+        #       # R[mask_grow] = R0 
+
+        #       return R
+
+        #   R_westwater = radius_with_nucleation(time_ref_2, C_westwater,t_nuc,R0)
+        #   print('R_westwater',R_westwater)
+        #   val_ref_2 = R_westwater
+           
+        # radius_list = vary_2
+        # print('time_ref_2',time_ref_2)
+        # print('radius_list',radius_list)
+        #   # rho_l = yml['flower']['physics']['rho1']
+        #   rho_g = yml['flower']['physics']['rho2']
+        #   rho_l = yml['flower']['physics']['rho2']
+
+        #   mass_transfer_rate = -0.05
+
+        #   # val_ref_2 = radius_list[0] + mass_transfer_rate/rho_g * time_ref_2
+
+        #   # val_ref_2 = yml['flower']['physics']['radius'] + mass_transfer_rate/rho_l * time_ref_2
+        #   beta = 0.5
+        #   nucleation_time = yml['flower']['physics']['nucleation_time']
+     
+
+        #   # for i,t in enumerate(time_ref_2):
+        #   #   if t < nucleation_time:
+        #   #     val_ref_2[i] = yml['flower']['physics']['radius']
+        #   #   else:
+        #   #     val_ref_2[i] = yml['flower']['physics']['radius']+ 2*beta * np.sqrt(time_ref_2[i]-nucleation_time)
+
+        #   val_ref_2 =  2*beta * np.sqrt(time_ref_2)
+
+        #   print('time_ref_2',time_ref_2)
+
+        #   # print(figpar['slope_end'])
+        #   # print(eval(figpar['slope_end']))
+
+
+        #   xls = np.array(varx)
+        #   yls = np.array(val_ref_2)
+          
+        #   param_line=[]
+        #   slope_and_correlation=0
+        #   R2=0
+        #   color_line=plotpar['text_color']
+        #   alpha= 1 
+        #   lw = 1
+       
+        #   xls=xls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
+        #   yls=yls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
+        #   print('xls',xls)
+        #   print('yls',yls)
+        #   print('len xls yls',len(xls),len(yls))
+
+        #   slope_and_correlation=[0,0]
+        #   compute_slope(ax2,xls,yls,
+        #               #   x,y,
+        #                 slope_and_correlation,R2,param_line,color_line,alpha,plot_text=True,logslope=False)
+        #   print('least squares',slope_and_correlation)
+          
+        #   label = r'$$'
+          
+
+        #   if math.isnan(slope_and_correlation[1]): 
+        #       text_slope = r"$\mathrm{{{text}}}: {slope:.2f}".format(text=', slope',slope=slope_and_correlation[0]) + '$'
+        #   else:
+        #       text_slope = r"$\mathrm{{{text}}}: {slope:.2f}, R^2: {R2:.2f}".format(text=', slope',slope=slope_and_correlation[0],R2=slope_and_correlation[1]) + '$'
+
+        #   print('text_slope',text_slope)
+
+        
+       
+          
+
+        macro_data: |
+          global varx_2,vary_2,values
+          import glob
+
+          # time_list =[]
+
+          # radius_list=[]
+
+          values = {}
+
+          for var_list in figpar['var']:
+            # print('var_list',var_list)
+            for var in var_list:
+              values[var] = []
+
+          # for files in h5_files:
+          files = h5_files[figpar['iter']]
+
+          files = glob.glob(files)
+
+          files = sorted(files)
+          print('h5_files',h5_files)
+
+          # print(files)
+
+          for file_name in files:
+        
+            with h5py.File(file_name, "r") as file:
+              # print('file',file_name)
+              # print(file.keys())
+              try:
+                for var_list in figpar['var']:
+                  for var in var_list:
+                    value = file[var][()]
+                    values[var].append(value)
+                    # print('var',var,value)
+              except:
+                # print('variable not saved')
+                print(colored(var+' not saved','red'))
+
+
+          
+          # print(values)
+          varx_2 = values[figpar['var'][0][0]]
+          vary_2 = values[figpar['var'][0][1]]
+
+               
+          varx_2 = np.log(varx_2)
+          vary_2 = np.log(vary_2)
+          
+        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 
+                          'file_name+"_"+plotpar["theme"]+".svg"']
+                     
+
       - var: [[time,radius]]
         file: volume_3d_compare_cipriano
         files: [
@@ -5600,12 +5825,23 @@ plot: #default parameters for plots
         
         slope_start: '1'
         slope_end: 'len(varx)'
-
+        nucleation_time: *nucleation_time
         macro_slope: |
           xls = np.array(varx)
           yls = slice_1D
-          xls=xls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
-          yls=yls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
+          # print('yls',yls)
+          nucleation_time = float(figpar['nucleation_time'])
+          # i0 = eval(figpar['slope_start'])
+          # i0 = np.searchsorted(xls, nucleation_time)
+          i0 = np.where(xls > nucleation_time)[0][0]
+
+          print('nucleation_time',nucleation_time)
+          print('slope start i0',i0)
+          print('xls',xls)
+
+          xls=xls[i0:eval(figpar['slope_end'])+1]
+          yls=yls[i0:eval(figpar['slope_end'])+1]
+         
           # print('len xls yls',len(xls),len(yls))
           # R2=0
           # slope_and_correlation = [0,0]
@@ -5616,13 +5852,50 @@ plot: #default parameters for plots
           compute_slope_figpar(ax2, xls, yls,plotpar,figpar, plot_text=True, logslope=False)
 
 
-        # macro_ref: |
-        #   global time_ref_2,val_ref_2
-        #   time_ref_2 = np.array(varx)
-        #   radius_list = vary_2
+        macro_ref: |
+          global time_ref_2,val_ref_2
+          time_ref_2 = np.array(varx)
+         
+          val_ref_2 = time_ref_2
+          radius_list = vary_2
 
-        #   print('time_ref_2',time_ref_2)
-        #   print('radius_list',radius_list)
+          # Nucleation time
+          t_nuc = float(figpar['nucleation_time'])
+
+          # Constants
+          R0 = radius_list[1]  # constant radius during nucleation, first one analytical, second one numerical (by interpolation)
+
+          # Post-nucleation growth coefficients
+          C_westwater = 1.0
+        
+
+          def radius_with_nucleation(t, C,t_nuc,R0):
+              R = np.zeros_like(t)
+              eps=1e-4
+              mask_nuc = t <= t_nuc+eps
+            
+              mask_grow = t > t_nuc+eps
+              i_nuc = np.argmin(np.abs(t - t_nuc))
+              i_nuc = i_nuc+1 #current time step, activated when >t_nuc
+              t_nuc_eff = t[i_nuc]
+              print('t nearest',t_nuc_eff)
+
+              print('t[mask_grow] ',t[mask_grow])
+              print('t[mask_grow] - t_nuc_eff',t[mask_grow] - t_nuc_eff)
+
+              R[mask_nuc] = R0
+              R[mask_grow] = R0 + C * np.sqrt(t[mask_grow] - t_nuc_eff)
+              # R[mask_grow] = R0 
+
+              return R
+
+          R_westwater = radius_with_nucleation(time_ref_2, C_westwater,t_nuc,R0)
+          print('R_westwater',R_westwater)
+          val_ref_2 = R_westwater
+           
+        # radius_list = vary_2
+        # print('time_ref_2',time_ref_2)
+        # print('radius_list',radius_list)
         #   # rho_l = yml['flower']['physics']['rho1']
         #   rho_g = yml['flower']['physics']['rho2']
         #   rho_l = yml['flower']['physics']['rho2']
@@ -5634,7 +5907,7 @@ plot: #default parameters for plots
         #   # val_ref_2 = yml['flower']['physics']['radius'] + mass_transfer_rate/rho_l * time_ref_2
         #   beta = 0.5
         #   nucleation_time = yml['flower']['physics']['nucleation_time']
-        #   val_ref_2 = time_ref_2
+     
 
         #   # for i,t in enumerate(time_ref_2):
         #   #   if t < nucleation_time:
@@ -6619,10 +6892,10 @@ plot: #default parameters for plots
         slope_stop: 256
         xlim: [1e-3,1e-1]
 
-      - var: radius 
-        file: radius
-        slope_start: 1.2e-4 #2e-4
-        slope_stop: 1e-3
+      # - var: radius 
+      #   file: radius
+      #   slope_start: 1.2e-4 #2e-4
+      #   slope_stop: 1e-3
         # cbarlabel: H2 #'$Concentration H_2$'
         # img_format: mp4
         # isocontour: False

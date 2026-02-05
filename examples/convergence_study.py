@@ -675,8 +675,11 @@ def plot_convergence_study_func(yaml_file, args):
       import os
       all_files = os.listdir(".")
       h5_files = [file for file in all_files if file.endswith(".h5")]
+      print('h5_files from listdir',h5_files)
    else:
       h5_files = args.h5
+      print('h5_files from args',h5_files)
+
 
    # print('args',args.h5,len(args.h5))
 
@@ -747,7 +750,7 @@ def plot_convergence_study_func(yaml_file, args):
       h5_files = h5_files
    else:
       h5_files = sorted(h5_files)
-   print(h5_files)
+   print('h5_files',h5_files)
 
 
    try:
@@ -942,6 +945,9 @@ def plot_convergence_func(
    # h5_files = sorted(h5_files)
    # print(h5_files)
 
+   # print(colored('[plot_convergence_func]','cyan'))
+
+
    size_frame = len(h5_files)
 
    print('size_frame',size_frame,key)
@@ -977,170 +983,54 @@ def plot_convergence_func(
    df['Iteration'].astype("Int64")
    
 
-   for i,file_name in enumerate(h5_files):
-      # figpar['iter'] = i
-      figpar['iter'] = i
-      # print('figpar iter',i)
-      if 'macro_data' in figpar.keys():
-         print(colored('macro_data','red'))
-         # exec(figpar['macro_data'])
-         file = h5_files
-         time = None   
-         nstep = None
-         nx = None
-         if i == 0:
-            mode = 'first'
-         else:
-            mode = 'next'
+   print('h5_files',h5_files)
 
-         fig1,ax2,cbar = func(
-         file,
-         key,
-         xp,
-         yp,
-         xu,
-         yv,
-         yml,
-         mesh,
-         time,
-         nstep,
-         plotpar,
-         figpar=figpar,
-         mode=mode,
-         fig1=fig1,
-         ax2=ax2,
-         cbar=cbar,
-         )
-
+   if figpar['func'] == 'plot_1D_list':
+      i=0
+      file = h5_files
+      time = None   
+      nstep = None
+      nx = None
+      if i == 0:
+         mode = 'first'
       else:
+         mode = 'next'
+      figpar['iter'] = i
+      fig1,ax2,cbar = func(
+      file,
+      key,
+      xp,
+      yp,
+      xu,
+      yv,
+      yml,
+      mesh,
+      time,
+      nstep,
+      plotpar,
+      figpar=figpar,
+      mode=mode,
+      fig1=fig1,
+      ax2=ax2,
+      cbar=cbar,
+      )
 
-         with h5py.File(file_name, "r") as file:
-        
-            try:
-               time = file["time"][()]
-               # nstep = file["nstep"][()]
-            except:
-               time = 0
-               # nstep = 0 
-               print("time not available")
+   else: #loop
 
-            try:
-               # time = file["time"][()]
-               nstep = file["nstep"][()]
-            except:
-               # time = 0
-               nstep = 0 
-               print("nstep not available")
+      #region h5 files loop
+      for i,file_name in enumerate(h5_files):
+         # figpar['iter'] = i
+         figpar['iter'] = i
+         # print('figpar iter',i)
+         # if 'macro_data' in figpar.keys():
+         if 'macro_data' in figpar.keys() or 'macro_data' in plotpar.keys():
 
-            print(key,file_name)
-
-
-            try:
-               # Fill dataframe for latex and html
-               k = file['poisson_iter'][()]
-
-               # phi_wall = file['variation_electrical_potential'][()]
-
-               residual = file['residual_electrical_potential'][()]
-
-               variation = file['variation_electrical_potential'][()]
-
-               # Create the list of values
-               data_list = [k, 
-                           #  phi_wall,
-                           residual, 
-                           variation]
-
-               # Append the list to the DataFrame
-               df.loc[len(df)] = data_list
-            except:
-               print('no poisson_iter')
-
-            # print('test keys',file.keys())
-            # print(file.keys())
-            nx = file['nx'][()]
-            ny = nx 
-
-            # if key=="u_1D":
-            #    nx=nx+1
-            #    # x_1D = xu 
-            #    # y_1D = yp
-            #    # key_LS = "levelset_u"
-
-            # elif key=="v_1D":
-            #    ny=ny+1
-               # x_1D = xp
-               # y_1D = yv 
-               # key_LS = "levelset_v"
-
-            # else:
-            #    x_1D = xp
-            #    y_1D = yp
-            #    key_LS = "levelset_p"
-
-            # print('nx',nx)
-
-            mesh["nx"] = nx
-            mesh["ny"] = ny
-
-            print(colored('mesh '+str(nx)+" "+str(mesh["nx"]),'red'))
-
-            mesh["xmax"] = float(mesh["xmax"])
-            mesh["xmin"] = float(mesh["xmin"])
-
-            mesh["ymax"] = float(mesh["ymax"])
-            mesh["ymin"] = float(mesh["ymin"])
-
-            mesh["dx"] = (mesh["xmax"] - mesh["xmin"]) / mesh["nx"]
-            mesh["dy"] = (mesh["ymax"] - mesh["ymin"]) / mesh["ny"]
-
-            # import numpy as np
-
-            xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
-            yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
-
-            print('TODO mesh check')
-
-            dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
-            dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
-
-
-            # print(xp)
-            # print(yp)
-
-            print('len(xp)',len(xp),len(yp))
-
-            xp[0] = dx/2
-            yp[0] = dy/2
-
-            for i in range(1,len(xp)):
-               xp[i] = xp[i-1]+dx
-
-            for i in range(1,len(yp)):
-               yp[i] = yp[i-1]+dx
-
-            # print('xp',xp)
-            # print('yp',yp)
-            
-            print('len(xp)',len(xp),len(yp))
-
-            xu = xp + dx / 2
-            xu = np.insert(xu, 0, xp[0] - dx / 2)
-            # yu = yp # xv = xp
-            yv = yp + dy / 2
-            yv = np.insert(yv, 0, yp[0] - dy / 2)
-
-            plotpar["scale_x"] = float(plotpar["scale_x"])
-            plotpar["scale_y"] = float(plotpar["scale_y"])
-
-            scale_x = float(plotpar["scale_x"])
-            scale_y = float(plotpar["scale_y"])
-
-            xp /= scale_x
-            yp /= scale_y
-            xu /= scale_x
-            yv /= scale_y
-
+            print(colored('macro_data','red'))
+            # exec(figpar['macro_data'])
+            file = h5_files
+            time = None   
+            nstep = None
+            nx = None
             if i == 0:
                mode = 'first'
             else:
@@ -1164,7 +1054,162 @@ def plot_convergence_func(
             ax2=ax2,
             cbar=cbar,
             )
-       
+
+         else:
+
+            with h5py.File(file_name, "r") as file:
+         
+               try:
+                  time = file["time"][()]
+                  # nstep = file["nstep"][()]
+               except:
+                  time = 0
+                  # nstep = 0 
+                  print("time not available")
+
+               try:
+                  # time = file["time"][()]
+                  nstep = file["nstep"][()]
+               except:
+                  # time = 0
+                  nstep = 0 
+                  print("nstep not available")
+
+               print(key,file_name)
+
+
+               try:
+                  # Fill dataframe for latex and html
+                  k = file['poisson_iter'][()]
+
+                  # phi_wall = file['variation_electrical_potential'][()]
+
+                  residual = file['residual_electrical_potential'][()]
+
+                  variation = file['variation_electrical_potential'][()]
+
+                  # Create the list of values
+                  data_list = [k, 
+                              #  phi_wall,
+                              residual, 
+                              variation]
+
+                  # Append the list to the DataFrame
+                  df.loc[len(df)] = data_list
+               except:
+                  print('no poisson_iter')
+
+               # print('test keys',file.keys())
+               # print(file.keys())
+               nx = file['nx'][()]
+               ny = nx 
+
+               # if key=="u_1D":
+               #    nx=nx+1
+               #    # x_1D = xu 
+               #    # y_1D = yp
+               #    # key_LS = "levelset_u"
+
+               # elif key=="v_1D":
+               #    ny=ny+1
+                  # x_1D = xp
+                  # y_1D = yv 
+                  # key_LS = "levelset_v"
+
+               # else:
+               #    x_1D = xp
+               #    y_1D = yp
+               #    key_LS = "levelset_p"
+
+               # print('nx',nx)
+
+               mesh["nx"] = nx
+               mesh["ny"] = ny
+
+               print(colored('mesh '+str(nx)+" "+str(mesh["nx"]),'red'))
+
+               mesh["xmax"] = float(mesh["xmax"])
+               mesh["xmin"] = float(mesh["xmin"])
+
+               mesh["ymax"] = float(mesh["ymax"])
+               mesh["ymin"] = float(mesh["ymin"])
+
+               mesh["dx"] = (mesh["xmax"] - mesh["xmin"]) / mesh["nx"]
+               mesh["dy"] = (mesh["ymax"] - mesh["ymin"]) / mesh["ny"]
+
+               # import numpy as np
+
+               xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+               yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+
+               print('TODO mesh check')
+
+               dx = (float(mesh["xmax"]) - float(mesh["xmin"])) / int(mesh["nx"])
+               dy = (float(mesh["ymax"]) - float(mesh["ymin"])) / int(mesh["ny"])
+
+
+               # print(xp)
+               # print(yp)
+
+               print('len(xp)',len(xp),len(yp))
+
+               xp[0] = dx/2
+               yp[0] = dy/2
+
+               for i in range(1,len(xp)):
+                  xp[i] = xp[i-1]+dx
+
+               for i in range(1,len(yp)):
+                  yp[i] = yp[i-1]+dx
+
+               # print('xp',xp)
+               # print('yp',yp)
+               
+               print('len(xp)',len(xp),len(yp))
+
+               xu = xp + dx / 2
+               xu = np.insert(xu, 0, xp[0] - dx / 2)
+               # yu = yp # xv = xp
+               yv = yp + dy / 2
+               yv = np.insert(yv, 0, yp[0] - dy / 2)
+
+               plotpar["scale_x"] = float(plotpar["scale_x"])
+               plotpar["scale_y"] = float(plotpar["scale_y"])
+
+               scale_x = float(plotpar["scale_x"])
+               scale_y = float(plotpar["scale_y"])
+
+               xp /= scale_x
+               yp /= scale_y
+               xu /= scale_x
+               yv /= scale_y
+
+               if i == 0:
+                  mode = 'first'
+               else:
+                  mode = 'next'
+
+               fig1,ax2,cbar = func(
+               file,
+               key,
+               xp,
+               yp,
+               xu,
+               yv,
+               yml,
+               mesh,
+               time,
+               nstep,
+               plotpar,
+               figpar=figpar,
+               mode=mode,
+               fig1=fig1,
+               ax2=ax2,
+               cbar=cbar,
+               )
+
+      #endregion h5 files loop
+   
    file_name = figpar['file']
 
    # plt.savefig(file_name+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
@@ -1808,7 +1853,12 @@ def plot_time(
    file_name = figpar['file']
 
    # nx = file['nx'][()]
+   # ny = file['ny'][()]
    # ny = nx 
+
+   # nx = mesh['nx']
+   # ny = mesh['ny']
+
    from matplotlib.colors import LinearSegmentedColormap, ListedColormap
    cmap = ListedColormap(colors)
 
@@ -1905,11 +1955,18 @@ def plot_time(
 
       varx = varxy[0]
 
-      if 'macro_data' in figpar.keys():   
+      # if 'macro_data' in figpar.keys():   
+      if 'macro_data' in figpar.keys() or 'macro_data' in plotpar.keys():   
          h5_files = file
-      
+         
          print(colored('macro_data','red'))
-         exec(figpar['macro_data'])
+         exec(get_value_from_dicts('macro_data',figpar,plotpar))
+
+         if 'macro_data2' in figpar.keys():
+            print(colored('macro_data2','red'))
+            exec(get_value_from_dicts('macro_data2',figpar,plotpar))
+
+         # exec(figpar['macro_data'])
          varx = []
          slice_1D = []
          varx = varx_2
@@ -1938,8 +1995,11 @@ def plot_time(
 
 
       # print('varxy',varxy)
+      labels = get_value_from_dicts('labels',figpar,plotpar)
+      print('labels',labels)
+      label_i = r""+labels[i][1]
 
-      label_i = r""+figpar['labels'][i][1]
+      # label_i = r""+figpar['labels'][i][1]
 
       
       label1 = ''
@@ -1949,7 +2009,9 @@ def plot_time(
 
       lw = get_value_from_dicts('linewidth',figpar,plotpar)
 
-      labelx = figpar['labels'][i][0]
+      labelx = labels[i][0]
+
+      # labelx = figpar['labels'][i][0]
 
       if len(figpar['var'])>1:
          # Offset the right spine of twin2.  The ticks and label have already been
@@ -2299,8 +2361,12 @@ def plot_1D(
 
    file_name = figpar['file']
 
-   nx = file['nx'][()]
-   ny = nx 
+   try:
+      nx = file['nx'][()]
+      ny = nx 
+   except:
+      print('nx not loaded')
+
    from matplotlib.colors import LinearSegmentedColormap, ListedColormap
    cmap = ListedColormap(colors)
 
@@ -2338,7 +2404,7 @@ def plot_1D(
       y_1D = yp
       key_LS = "levelset_p"
 
-   print(file.keys())
+   # print(file.keys())
 
    field_index = 1 #bulk
    file_name = figpar['file']
@@ -2392,14 +2458,17 @@ def plot_1D(
    if 'plot_mode' not in figpar.keys():
       figpar['plot_mode'] = plotpar['plot_mode']
 
-   scale_time = float(plotpar["scale_time"])
-   scale_x = float(plotpar["scale_x"])
-   cmap = plt.get_cmap(plotpar["cmap"])
+   try:
+      scale_time = float(plotpar["scale_time"])
+      scale_x = float(plotpar["scale_x"])
+      cmap = plt.get_cmap(plotpar["cmap"])
 
-   # cbarlabel = plotpar["cbarlabel"]
-   isocontour = plotpar["isocontour"]
+      # cbarlabel = plotpar["cbarlabel"]
+      isocontour = plotpar["isocontour"]
 
-   time /= scale_time 
+      time /= scale_time 
+   except:
+      print('not rescaled')
    # radius /= scale_x
 
    # fig.subplots_adjust(right=0.75)
@@ -2426,7 +2495,11 @@ def plot_1D(
 
       label_i = r""+figpar['labels'][i][1]
 
-      label1 = str(nx)
+      try:
+         label1 = str(nx)
+      except:
+         label1=''
+         print('label1',label1)
 
       ls  = eval(get_value_from_dicts('linestyles',figpar,plotpar)[i])
 
@@ -2452,7 +2525,25 @@ def plot_1D(
       #               time_list.append(time)
       #               radius_list.append(radius)
 
-      data = file[vary][:]
+
+      print('file before slice',file)
+
+      if isinstance(file, list):
+         file0=file[0]
+         with h5py.File(file0, "r") as loaded_h5_file:
+            data = loaded_h5_file[vary][:]
+            nx = loaded_h5_file['nx'][()]
+            ny = loaded_h5_file['ny'][()]
+            exec(figpar['mesh_macro'])
+
+      elif isinstance(file, str):
+
+         print('file before slice',file)
+         with h5py.File(file, "r") as loaded_h5_file:
+            data = loaded_h5_file[vary][:]
+
+      else:
+         data = file[vary][:]
 
       # data= reshape_data_veci(data,nx,ny,field_index)
       # slice_1D = data[0,:]
@@ -2765,6 +2856,416 @@ def plot_1D(
       # print([ax20,twin1,twin2])
       return(fig1,ax2,cbar)
    
+
+
+
+def plot_1D_list(
+     file,
+     key,
+     xp,
+     yp,
+     xu,
+     yv,
+     yml,
+     mesh,
+     time,
+     nstep,
+     plotpar,
+     figpar=None,
+     mode='close',
+     fig1=None,
+     ax2=None,
+     cbar=None,
+):
+    """Plot one figure for field"""
+
+
+    from matplotlib.colors import LinearSegmentedColormap, ListedColormap
+     #     cmap = ListedColormap(colors)
+
+    print(colored('[plot_1D_list]','magenta'))
+
+    if 'field_index' in figpar.keys():
+        field_index = figpar['field_index']
+    else:
+        field_index = 1 # bulk value
+        
+    # print(key,nstep,time,"max ",np.max(data),'min',np.min(data))
+    #  print('key',key)
+
+
+
+    if figpar == None:
+        figpar = plotpar
+
+    if mode == 'first':
+        ax20 = ax2
+        # print(ax20)
+        # ax20.cla()
+        if len(figpar['var'])>1:
+            twin1 = ax20.twinx()
+            twin2 = ax20.twinx()
+    else:
+        ax20 = ax2
+
+
+
+
+
+    if 'plot_mode' not in figpar.keys():
+        figpar['plot_mode'] = plotpar['plot_mode']
+
+#     try:
+#         scale_time = float(plotpar["scale_time"])
+#         scale_x = float(plotpar["scale_x"])
+#         cmap = plt.get_cmap(plotpar["cmap"])
+
+#         # cbarlabel = plotpar["cbarlabel"]
+#         isocontour = plotpar["isocontour"]
+
+#         time /= scale_time 
+#     except:
+#         print('not rescaled')
+    # radius /= scale_x
+
+    # fig.subplots_adjust(right=0.75)
+
+  
+    #region file loop
+    print('file before slice',file)
+
+    for i,file_name in enumerate(file):
+        print('file_name',file_name,i)
+        figpar['iter'] = i
+
+        with h5py.File(file_name, "r") as loaded_h5_file:
+            figpar['iter']
+            nx = loaded_h5_file['nx'][()]
+            ny = loaded_h5_file['ny'][()]
+            mesh["nx"] = nx
+            mesh["ny"] = ny
+
+            # exec(figpar['mesh_macro'])
+
+            # mesh["xmax"] = float(mesh["xmax"])
+            # mesh["xmin"] = float(mesh["xmin"])
+
+            # mesh["ymax"] = float(mesh["ymax"])
+            # mesh["ymin"] = float(mesh["ymin"])
+
+            # mesh["dx"] = (mesh["xmax"] - mesh["xmin"]) / mesh["nx"]
+            # mesh["dy"] = (mesh["ymax"] - mesh["ymin"]) / mesh["ny"]
+
+            x_1D = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+            y_1D = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+
+            # x_1D = x_1D2
+            # y_1D = y_1D2
+
+            #region var loop
+
+            for i, varxy in enumerate(figpar['var']):
+
+                varx = varxy[0]
+
+                if varx == 'x_1D':
+                        varx = x_1D
+                        print(x_1D)
+                elif varx == 'y_1D':
+                        varx = y_1D
+                elif varx == 'poisson_iter':
+                        varx = file['poisson_iter'][()] 
+                else:
+                        varx = x_1D
+
+
+                # print('varxy',varxy)
+                vary = varxy[1]
+
+                data = loaded_h5_file[vary][:]
+
+
+                label_i = r""+figpar['labels'][i][1]
+
+                try:
+                        label1 = str(nx)
+                except:
+                        label1=''
+                        print('label1',label1)
+
+                ls  = eval(get_value_from_dicts('linestyles',figpar,plotpar)[i])
+
+                lw = get_value_from_dicts('linewidth',figpar,plotpar)
+
+                labelx = figpar['labels'][i][0]
+            
+                if len(figpar['var'])>1:
+                        # Offset the right spine of twin2.  The ticks and label have already been
+                        # placed on the right by twinx above.
+                        twin2.spines.right.set_position(("axes", figpar['axis_offset']))
+
+
+
+
+                # data= reshape_data_veci(data,nx,ny,field_index)
+                # slice_1D = data[0,:]
+
+                slice_1D = eval(figpar['macro_slice'])
+                # print(colored('plot_1D','red'))
+                # if 'macro_data' in figpar.keys():    
+                #     print(colored('macro_data','red'))
+                #     exec(figpar['macro_data'])
+                #     varx = varx_2
+                #     slice_1D = vary_2
+
+                # print('data',slice_1D)
+                try:
+                        print('len data',len(slice_1D))
+                except:
+                        print('one point')
+
+                # if 'macro_analytical' in figpar.keys():
+                #     exec(figpar['macro_analytical'])
+
+
+                try:
+                        tick0 = list(eval(figpar['ticks'][0]))
+                except:
+                        print('no ticks')
+
+                if 'logplot_x' in figpar.keys():
+                        if figpar['logplot_x']:
+                            ax2.set_xscale("log")
+                
+                if 'logplot_y' in figpar.keys():
+                        if figpar['logplot_y']:
+                            ax2.set_yscale("log")
+                        # print('plot log')
+
+
+
+                # print('varx',varx,len(varx))
+                # print('slice_1D',slice_1D,len(slice_1D))
+
+                print('mesh number',figpar['iter'])
+
+            
+                if 'plot_ref' in figpar.keys() and figpar['iter'] == 0:
+                        print('plotting ref')
+                        ref = eval(figpar['plot_ref'])
+                        # print('ref',ref)
+                        # print(4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])))
+                        # print(yml["flower"]["physics"]["v_inlet"])
+                        # print((mesh["xmax"]-mesh["xmin"]))
+                        print('i test',i,get_value_from_dicts('linestyles',figpar,plotpar)[i+1],get_value_from_dicts('linestyles',figpar,plotpar)[i])
+                        # ls  = eval(get_value_from_dicts('linestyles',figpar,plotpar)[i+1])
+                        ax20.plot(varx, ref, 
+                        # 'k',
+                        plotpar['text_color'],
+                        label='Reference solution',
+                        ls=eval(get_value_from_dicts('linestyles',figpar,plotpar)[i+1]),
+                        lw=lw)
+                        print('ref',ref)
+                        print('len ref',len(ref))
+
+                        print('y_1D',y_1D)
+                        print('y_1D',y_1D*scale_x)
+
+
+                exec( get_value_from_dicts('macro_label_linestyle_color',figpar,plotpar) )
+                label1 = label2
+                color1=color2
+                ls1=ls2
+
+                # if 'macro' in figpar.keys():
+                #     # X = varx
+                #     # print(X)
+                #     # local_context = {}
+
+                #     # print("figpar['iter']",figpar['iter'])
+                #     # label2 = file[figpar['iter']]
+                #     # print('label2',label2)
+                #     # # label1
+                #     # color2 = colors[figpar['iter']]
+                #     # print(color2)
+                #     # print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
+                #     # ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
+
+                #     exec(figpar['macro'],
+                #         #    ,globals(),
+                #         # globals(),
+                #         # # locals(), 
+                #         # local_context
+                #         )
+                        
+                #     # label1 = local_context['label1']
+                #     label1 = label2
+
+            
+                #     print(label1)
+                # print(label2)
+                # print(label1)
+                # print(figpar['macro'])
+                # print(figpar)
+                if 'logplot' in figpar.keys():
+
+                        ax20.scatter(x=varx, y=slice_1D, 
+                                        #  s=10,
+                                        #  marker='+',
+                        #  colors[i+1], #color wrt variable
+                        color=colors[(figpar['iter'])%len(colors)],
+                        # cmap=cmap,
+                        label=label1,
+                        # ls=ls, #creates bug
+                        lw=lw)
+
+                        figpar['error_list'].append(slice_1D)
+                        figpar['x_list'].append(varx)
+
+                
+
+                else:
+                        p1, = ax20.plot(varx, slice_1D, 
+                        #  colors[i+1], #color wrt variable
+                        colors[(figpar['iter'])%len(colors)],
+                        # cmap=cmap,
+                        label=label1,ls=ls,lw=lw)
+
+
+
+                # Axes 
+                
+                # ax20.set(
+                # # xlim=(0, 2),
+                # # ylim=(0, 2),
+                # xlabel=labelx, #r""+plotpar['xlabel'],
+                # ylabel=label_i,color=plotpar['text_color'])
+
+                ax20.set_xlabel(labelx, color=plotpar['text_color'])    # Set xlabel color
+                ax20.set_ylabel(label_i, color=plotpar['text_color'])    # Set xlabel color
+
+                        
+                handles, labels = plt.gca().get_legend_handles_labels()
+                # print('handles',handles,labels)
+
+
+                if 'legend_pos' in figpar.keys():
+                        if plotpar['theme'] == 'dark':
+                            plt.legend(loc=figpar['legend_pos'],
+                            facecolor='none',         # Legend background
+                            edgecolor='white',        # Legend border
+                            labelcolor='white',      # Text color
+                                        )
+                        else:
+                            plt.legend(loc=figpar['legend_pos'])
+                else:
+                        if plotpar['theme'] == 'dark':
+                            plt.legend(
+                            facecolor='none',         # Legend background
+                            edgecolor='white',        # Legend border
+                            labelcolor='white',      # Text color
+                                        )
+                        else:
+                            plt.legend()
+
+            #endregion var loop
+
+    #endregion file loop
+
+
+    if plotpar['theme'] == 'dark':
+
+        # Change the color of the ticks
+        ax2.tick_params(axis='x', colors=plotpar['text_color'])  # Change x ticks color
+        ax2.tick_params(axis='y', colors=plotpar['text_color'])  # Change y ticks color
+
+        # Change the color of the splines (spines are the lines connecting the axis tick marks)
+        ax2.spines['bottom'].set_color(plotpar['text_color'])  # Change bottom spine color
+        ax2.spines['top'].set_color(plotpar['text_color'])     # Change top spine color
+        ax2.spines['left'].set_color(plotpar['text_color'])  # Change left spine color
+        ax2.spines['right'].set_color(plotpar['text_color']) # Change right spine color
+
+
+    if 'plot_legend' in figpar.keys():
+        if 'legend_pos' in figpar.keys():
+            legend_pos = figpar['legend_pos']
+            # plt.legend(loc=figpar['legend_pos'])
+        else:
+            # plt.legend()
+            legend_pos = "outside upper left"
+
+
+        from plot_flower import parse_is_true
+        # if parse_is_true(figpar['plot_legend']):
+        #     if 'macro_analytical' in figpar.keys():
+        #         # print(analytical)
+        #         fig1.legend(
+        #             # handles=[p1, analytical],
+        #         # loc = "center left",
+        #         loc = legend_pos,
+        #         )
+        #     else:
+        #         fig1.legend(handles=[p1, p2, p3],
+        #         # loc = "center left",
+        #         loc = legend_pos,
+        #         )
+
+        if parse_is_true(figpar['plot_legend']):
+            print(colored('theme'+plotpar['theme'],'red'))
+            if plotpar['theme'] == 'dark':
+                if 'macro_analytical' in figpar.keys():
+                    # print(analytical)
+                    fig1.legend(
+                        # handles=[p1, analytical],
+                    # loc = "center left",
+                    loc = legend_pos,
+                    facecolor='none',         # Legend background
+                    edgecolor='white',        # Legend border
+                    labelcolor='white',      # Text color
+                    )
+                else:
+                    fig1.legend(handles=[p1, p2, p3],
+                    # loc = "center left",
+                    loc = legend_pos,
+                    facecolor='none',         # Legend background
+                    edgecolor='white',        # Legend border
+                    labelcolor='white',      # Text color
+                    )
+
+                 
+            else:
+                    if 'macro_analytical' in figpar.keys():
+                        # print(analytical)
+                        fig1.legend(
+                            # handles=[p1, analytical],
+                        # loc = "center left",
+                        loc = legend_pos,
+                        )
+                    else:
+                        fig1.legend(handles=[p1, p2, p3],
+                        # loc = "center left",
+                        loc = legend_pos,
+                        )
+
+
+
+
+    print(colored('theme '+plotpar['theme'],'red'))
+
+
+    if mode == 'first': 
+        if len(figpar['var'])>1:
+            ax2list = [ax2,twin1,twin2]
+        else:
+            ax2list = ax2
+        # print(mode)
+        # print(ax2list)
+        return(fig1,ax2list,cbar)     
+    else:
+        # print(ax2)
+        # print([ax20,twin1,twin2])
+        return(fig1,ax2,cbar)
+
 
 
 def plot_convergence_study_errors():

@@ -325,7 +325,8 @@ for timestep in timesteps
             y = scalar_mesh_y,
             timestep_n = timestep,
             timestep_0 = timestep,
-            electrolysis_reaction_symb = Symbol(phys.electrolysis_reaction)
+            electrolysis_reaction_symb = Symbol(phys.electrolysis_reaction),
+            bulk_velocity_symb = Symbol(phys.bulk_velocity),
             )  # construct default parametric instance with x otherwise L0 and ... not defined in the same way
 
 
