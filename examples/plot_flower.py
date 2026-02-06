@@ -1845,6 +1845,10 @@ def plot_all_films_func(yaml_file,args):
 
         key = figpar['var']
 
+        if args.skip_first_h5:
+            print('TODO skip-first-h5')
+            print('files',h5_files_tmp)
+
         # print('func',func)
         
         python_movie_zoom_func(
@@ -5080,6 +5084,12 @@ def plot_python_pdf_full2(
     
     data = file[key][:]
 
+    # try:
+    #     data = file[key][:]
+    # except:
+    #     print('file keys',file.keys())
+    #     data = file['levelset_p'][:]
+    #     print('dummy data')
     # print('check keys',file.keys())
 
     if file["nx"][()] != None:
