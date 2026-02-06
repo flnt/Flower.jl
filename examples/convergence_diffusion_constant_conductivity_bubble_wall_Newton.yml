@@ -4,6 +4,7 @@ flower:
     alpha: &alpha 0.5
     alpha_a: 0.5
     alpha_c: 0.5
+    bulk_velocity: zero #use zero velocity in liquid phase for transport
     # Species        H2      KOH    H2O
     # concentration0: &concentration0 [1.6e-1, 6.7e3, 4.9e4]
     # concentration0: [&cH2, cKOH, cH2O]
