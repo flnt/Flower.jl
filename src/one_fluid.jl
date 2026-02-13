@@ -2395,6 +2395,10 @@ function solve_one_fluid_NS!(
     "Stefan_velocity_phase_change_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,
     C_NULL::Ptr{Cvoid})::Cint
 
+    tmp_vec_p .= 0.0
+    tmp_vec_p0 .= 0.0
+
+
     # if num.phase_change_symb === :extract_Stefan_velocity
         
 

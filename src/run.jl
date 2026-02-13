@@ -279,19 +279,30 @@ function run_forward!(
         # local Mum1_L_ext_vel
         # local Mvm1_L_ext_vel
         p_ext_vel = zeros(grid_p)
-        pD_ext_vel = fzeros(grid_p)
         phi_ext_vel = zeros(grid_p)
         u_ext_vel = zeros(grid_u)
         v_ext_vel= zeros(grid_v)
-        u_predictionD_ext_vel= fzeros(grid_u)
-        v_predictionD_ext_vel= fzeros(grid_v)
-        uD_ext_vel= fzeros(grid_u)
-        vD_ext_vel= fzeros(grid_v)
+
+ 
         u_prediction_ext_vel= zeros(grid_u)
         v_prediction_ext_vel= zeros(grid_v)
+
         uT_ext_vel = zeros(grid_p)
-        pres_grad_x = fzeros(grid_u)
-        pres_grad_y = fzeros(grid_v)
+        pres_grad_x = collect(fzeros(grid_u))
+        pres_grad_y = collect(fzeros(grid_v))
+
+
+        #1D
+        #TODO check need Array for contiguous , garbage collector 
+        pD_ext_vel = fnzeros(grid_p,num) # collect(fzeros(grid_p))
+
+        u_predictionD_ext_vel= fnzeros(grid_u,num) #collect(fzeros(grid_u))
+        v_predictionD_ext_vel= fnzeros(grid_v,num) #collect(fzeros(grid_v))
+        uD_ext_vel= fnzeros(grid_u,num) #collect(fzeros(grid_u))
+        vD_ext_vel= fnzeros(grid_v,num) #collect(fzeros(grid_v))
+       
+      
+
     else 
         if num.phase_change_symb === :extract_Stefan_velocity
             u_ext_vel = zeros(grid_u)
@@ -2461,6 +2472,14 @@ function run_forward!(
                     # print("\n advection ", ns_advection, " adv ",advection)
                     one_fluid_NS_ls_advection = true #update matrix
 
+                    printstyled(color=:magenta, @sprintf "\n NS\n")
+
+                    PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction_extended"::Cstring,
+                    "uD_ext_vel"::Cstring, uD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "vD_ext_vel"::Cstring, vD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "pD_ext_vel"::Cstring, pD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
+                    C_NULL::Ptr{Cvoid})::Cint
+
 
                     Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L,
                     Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, Mm1_L, Mum1_L, Mvm1_L, Cum1L, Cvm1L = solve_one_fluid_NS!(
@@ -2497,6 +2516,9 @@ function run_forward!(
                     rhs_phi,
                     pres_free_surfaceL,jump_mass_transfer_rateL,mass_transfer_rate,u_ext_vel, v_ext_vel)  
 
+                    printstyled(color=:magenta, @sprintf "\n NS end\n")
+
+
                     #region ciprianoMulticomponentDropletEvaporation2024
                     if extend_liquid_velocity
 
@@ -2511,6 +2533,41 @@ function run_forward!(
                         # Mm1_L = copy(op.opC_pL.M)
                         # Mum1_L = copy(op.opC_uL.M)
                         # Mvm1_L = copy(op.opC_vL.M)
+
+                        printstyled(color=:magenta, @sprintf "\n before NS u extended print \n")
+
+                        PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction_extended"::Cstring,
+                        "uD_ext_vel"::Cstring, uD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "vD_ext_vel"::Cstring, vD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "pD_ext_vel"::Cstring, pD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
+                        C_NULL::Ptr{Cvoid})::Cint
+
+
+                        PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction_extended"::Cstring,
+                        "uD_ext_vel"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "vD_ext_vel"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "pD_ext_vel"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        C_NULL::Ptr{Cvoid})::Cint
+                        
+                        printstyled(color=:magenta, @sprintf "\n before NS u extended print \n")
+
+                        PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction"::Cstring,
+                        "u_1D"::Cstring, uD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "v_1D"::Cstring, vD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "p_1D"::Cstring, pD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
+                        C_NULL::Ptr{Cvoid})::Cint
+
+                        PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction"::Cstring,
+                        "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        C_NULL::Ptr{Cvoid})::Cint
+
+                        print("\n min max u ext", minimum(uD_ext_vel)," max",maximum(uD_ext_vel))
+                        print("\n min max u ext", minimum(vD_ext_vel),maximum(vD_ext_vel))
+                        print("\n min max u ext", minimum(pD_ext_vel),maximum(pD_ext_vel))
+
+                        printstyled(color=:magenta, @sprintf "\n before NS u extended\n")
 
                         Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L,
                         Lvm1_L, bc_Lvm1_L, bc_Lvm1_b_L, 
@@ -2552,10 +2609,15 @@ function run_forward!(
                         rhs_phi,
                         pres_free_surfaceL,jump_mass_transfer_rateL,mass_transfer_rate )  
 
+
+
                         PDI_status = @ccall "libpdi".PDI_multi_expose("velocity_extension"::Cstring,                    
                         "u_ext_vel"::Cstring, u_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
                         "v_ext_vel"::Cstring, v_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
                         C_NULL::Ptr{Cvoid})::Cint
+
+                        printstyled(color=:magenta, @sprintf "\n NS end u extended\n")
+
 
                     end
                     #endregion ciprianoMulticomponentDropletEvaporation2024

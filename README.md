@@ -6,10 +6,10 @@
 
 ### in a directory /testlocal 
 git clone https://github.com/jmbatto/julia1.12-trixie-pdi.git
-### remove Dockerfile (avoids reconstructing imùage in local, by accident)
+### remove Dockerfile (avoids reconstructing image in local, by accident)
 sudo docker compose up -d
 ### this commande creates the container with Julia 1.12 and precompilation
-### THen we check
+### Then we check
 sudo docker ps
 ### Now we need to get shell access (bash)
 docker exec -it julia_c_lab bash
