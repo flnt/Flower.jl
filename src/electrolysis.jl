@@ -1492,6 +1492,12 @@ function compute_interface_length!(num, grid_p, iLS, interface_length)
     
 end
 
+function compute_interface_length_one_fluid!(num, grid_p, interface_length)
+
+    return compute_interface_length!(num, grid_p, 1, interface_length)
+    
+end
+
 
 """
 From update_free_surface_velocity and update_stefan_velocity
@@ -1499,16 +1505,12 @@ TODO si deux cellules adj ont un flux non nul par ex au niveau de la ligne de co
 """
 function compute_mass_transfer_rate!(num, grid_p, grid_u, grid_v, iLS, uD, vD, 
     periodic_x, periodic_y, average_velocity, concentration_scalD, concentration_scal, diffusion_coeff_scal,concentration_scal_intfc, 
-    electrolysis_phase_change_case,mass_transfer_rate,mass_transfer_rate_redistributed,nb_gaz_acceptors,volume_fraction,interface_length)
+    electrolysis_phase_change_case,mass_transfer_rate,mass_transfer_rate_redistributed,nb_gaz_acceptors,volume_fraction,interface_length,total_interface_length)
 
-    # nb_gaz_acceptors .= 0
 
-    # grid_p.V .= 0
     num.sum_mass_transfer_rate = 0.0
 
-    interface_length .= 0.0
-    total_interface_length = 0.0
-    # num_mixed_cells = 0
+   
     rho_bulk = num.rho1 
     rho_gaz = num.rho2
 
@@ -1517,41 +1519,25 @@ function compute_mass_transfer_rate!(num, grid_p, grid_u, grid_v, iLS, uD, vD,
     # else
     #     rho_bulk = sum(ph.trans_scal[II,:])
     # end
+
     factor_mass_transfer_rate = -(num.MWH2 * diffusion_coeff_scal[1]) / (1 - rho_gaz/rho_bulk)
 
-    # if bulk_velocity_symb === :none
-    #     factor_mass_transfer_rate = -(num.MWH2 * diffusion_coeff_scal[1]) / (1 - rho_gaz/rho_bulk)
-    # else
-    #     factor_mass_transfer_rate = 
-    # end
+    # print("\n factor_mass_transfer_rate ",factor_mass_transfer_rate)
 
-   
-    print("\n factor_mass_transfer_rate ",factor_mass_transfer_rate)
     #careful orientation of normal towards liquid 
-   #gra negative ?
 
+    fixed_mass_transfer = num.phase_change_method in [5, 6, 7]
 
-    #region redistribute mass transfer rate
+    print("\n num.nb_levelsets ",num.nLS)
 
+    if num.nLS == 1 
 
-    for II in grid_p.LS[iLS].MIXED
-        # print("\n II update ",II, grid_p.LS[end].u[II], " iso end ",grid_p.LS[end].iso[II]," iso 1 ",grid_p.LS[1].iso[II])
-        if grid_p.LS[end].iso[II] < 14.5 #15.0 -0.5 # check if inside domain defined by other LS 
-        # if grid_p.LS[end].u[II]>0.0 # check if inside domain defined by other LS 
-        # if grid_p.LS[2].u[II]>0.0 #second wall
-   
-            #compute interface length
-            χx = (grid_p.LS[iLS].geoL.dcap[II,3] .- grid_p.LS[iLS].geoL.dcap[II,1]) .^ 2
-            χy = (grid_p.LS[iLS].geoL.dcap[II,4] .- grid_p.LS[iLS].geoL.dcap[II,2]) .^ 2
-            interface_length_cell = sqrt(χx + χy)
+         for II in grid_p.LS[iLS].MIXED
+            # if grid_p.LS[end].iso[II] < 14.5 #15.0 -0.5 # check if inside domain defined by other LS # TODO check only interface_length for faster loop ?
+        
+            if interface_length[II] > num.epsilon_dist
 
-            if interface_length_cell > num.epsilon_dist
-            # if num.epsilon_volume_fraction_phase_change < volume_fraction TODO ? 
-
-                total_interface_length += interface_length_cell
-
-                interface_length[II] = interface_length_cell
-                if num.phase_change_method in [5,6,7] 
+                if fixed_mass_transfer
                     mass_transfer_rate[II] = -num.mass_transfer_rate_imposed_value 
                     #minus sign because in Flower.jl normal towards liquid, so opposite sign when \:dot m refers to the liquid
                     # for test case of shrinking drop in gaz, gaz phase : reference phase
@@ -1566,23 +1552,70 @@ function compute_mass_transfer_rate!(num, grid_p, grid_u, grid_v, iLS, uD, vD,
             # else
             #     mass_transfer_rate[II] = 0.0 #cancelling mass flux    
             end
-
-            
+            # end
         end
-    end
+
+    else
+        interface_length .= 0.0
+        total_interface_length = 0.0
+        #TODO do not recompute if only one LS
+        for II in grid_p.LS[iLS].MIXED
+            # print("\n II update ",II, grid_p.LS[end].u[II], " iso end ",grid_p.LS[end].iso[II]," iso 1 ",grid_p.LS[1].iso[II])
+            if grid_p.LS[end].iso[II] < 14.5 #15.0 -0.5 # check if inside domain defined by other LS 
+            # if grid_p.LS[end].u[II]>0.0 # check if inside domain defined by other LS 
+            # if grid_p.LS[2].u[II]>0.0 #second wall
+    
+                #compute interface length
+                χx = (grid_p.LS[iLS].geoL.dcap[II,3] .- grid_p.LS[iLS].geoL.dcap[II,1]) .^ 2
+                χy = (grid_p.LS[iLS].geoL.dcap[II,4] .- grid_p.LS[iLS].geoL.dcap[II,2]) .^ 2
+                interface_length_cell = sqrt(χx + χy)
+
+                if interface_length_cell > num.epsilon_dist
+                # if num.epsilon_volume_fraction_phase_change < volume_fraction TODO ? 
+
+                    total_interface_length += interface_length_cell
+
+                    interface_length[II] = interface_length_cell
+                    if fixed_mass_transfer
+                        mass_transfer_rate[II] = -num.mass_transfer_rate_imposed_value 
+                        #minus sign because in Flower.jl normal towards liquid, so opposite sign when \:dot m refers to the liquid
+                        # for test case of shrinking drop in gaz, gaz phase : reference phase
+                        # we have mass_transfer_rate[II] = -num.mass_transfer_rate_imposed_value >0 and the drop shrinks (normal points towards drop)
+                    else
+                        mass_transfer_rate[II] *= factor_mass_transfer_rate / interface_length_cell #was integrated on surface
+                        # we have mass_transfer_rate[II] = >0 and the bubble shrinks (normal points towards liquid)
+                    end
+
+                    num.sum_mass_transfer_rate += mass_transfer_rate[II]
+
+                # else
+                #     mass_transfer_rate[II] = 0.0 #cancelling mass flux    
+                end
+
+                
+            end
+        end
+
+    end #multiple LS
 
     if total_interface_length == 0.0
         @error("\n error total_interface_length")
     end
 
-    
-    
-    # display(nb_gaz_acceptors)
-    # if redistr
-    compute_number_gaz_acceptors!(nb_gaz_acceptors,num.epsilon_volume_fraction_phase_change,grid_p.nx,grid_p.ny,volume_fraction)
+    #region redistribute mass transfer rate
 
-    redistribute_mass_transfer_rate!(num,num.epsilon_volume_fraction_phase_change,interface_length,
-    nb_gaz_acceptors,mass_transfer_rate,mass_transfer_rate_redistributed,grid_p.nx,grid_p.ny,volume_fraction)
+    # display(nb_gaz_acceptors)
+
+    if num.mass_transfer_redistribute_symb === :no
+
+        mass_transfer_rate_redistributed .= mass_transfer_rate .* interface_length
+    
+    else 
+        compute_number_gaz_acceptors!(nb_gaz_acceptors,num.epsilon_volume_fraction_phase_change,grid_p.nx,grid_p.ny,volume_fraction)
+
+        redistribute_mass_transfer_rate!(num,num.epsilon_volume_fraction_phase_change,interface_length,
+        nb_gaz_acceptors,mass_transfer_rate,mass_transfer_rate_redistributed,grid_p.nx,grid_p.ny,volume_fraction)
+    end
 
 
     #endregion redistribute mass transfer rate
@@ -1939,29 +1972,25 @@ end
 """
 @gennariCFDMethodologyMass2023
 """
-function redistribute_mass_transfer_rate!(num,eps_redistr,total_interface_length,nb_gaz_acceptors,mass_transfer_rate,mass_transfer_rate_redistr,nx,ny,volume_fraction)
+function redistribute_mass_transfer_rate!(num,eps_redistr,interface_length,nb_gaz_acceptors,mass_transfer_rate,mass_transfer_rate_redistr,nx,ny,volume_fraction)
 
     mass_transfer_rate_redistr .= 0.0
-    if num.phase_change_method == 5
-        mass_transfer_rate_redistr .= mass_transfer_rate .* total_interface_length
-    else
-
-        for j in 1:ny, i in 1:nx
-            if volume_fraction[j, i] < eps_redistr  # Si la cellule est une cellule acceptrice
-                sum_contribution = 0.0
-                for dj in -1:1, di in -1:1
-                    nj, ni = j + dj, i + di
-                    if is_valid_index(ni, nj, nx, ny)
-                        if eps_redistr ≤ volume_fraction[nj, ni] ≤ 1.0 - eps_redistr && nb_gaz_acceptors[nj, ni] > 0
-                            sum_contribution += mass_transfer_rate[nj, ni] * total_interface_length[nj, ni] / nb_gaz_acceptors[nj, ni]
-                        end
+  
+    for j in 1:ny, i in 1:nx
+        if volume_fraction[j, i] < eps_redistr  # Si la cellule est une cellule acceptrice
+            sum_contribution = 0.0
+            for dj in -1:1, di in -1:1
+                nj, ni = j + dj, i + di
+                if is_valid_index(ni, nj, nx, ny)
+                    if eps_redistr ≤ volume_fraction[nj, ni] ≤ 1.0 - eps_redistr && nb_gaz_acceptors[nj, ni] > 0
+                        sum_contribution += mass_transfer_rate[nj, ni] * interface_length[nj, ni] / nb_gaz_acceptors[nj, ni]
                     end
                 end
-                mass_transfer_rate_redistr[j, i] = sum_contribution
             end
+            mass_transfer_rate_redistr[j, i] = sum_contribution
         end
     end
-
+    
 end
 
 

@@ -1845,9 +1845,31 @@ def plot_all_films_func(yaml_file,args):
 
         key = figpar['var']
 
-        if args.skip_first_h5:
-            print('TODO skip-first-h5')
-            print('files',h5_files_tmp)
+        # if args.skiph5:
+        #     print('skipped h5 files',h5_files_tmp)
+        #     print('skipped h5 files',args.skiph5)
+        #     h5_files_tmp.remove(args.skiph5)
+        # # print('TODO skip-first-h5')
+        #     print('skipped h5 files',h5_files_tmp)
+
+        if args.skiph5:
+            # Ensure args.skiph5 is a list, even if it's a single filename
+            skip_files = [args.skiph5] if isinstance(args.skiph5, str) else args.skiph5
+
+            # Remove each file in skip_files from h5_files_tmp
+            for file in skip_files:
+                if file in h5_files_tmp:
+                    h5_files_tmp.remove(file)
+                    print(f"Skipped h5 file: {file}")
+
+            print("Remaining h5 files:", h5_files_tmp)
+
+        if args.dark:
+            plotpar['theme'] = 'dark'
+            # plotpar['themes'] = ['dark']
+            plotpar['text_color'] = 'w'
+            # plotpar['theme'] = theme
+
 
         # print('func',func)
         
@@ -6351,6 +6373,15 @@ def python_movie_zoom_func(
     # with open(key+'_html5'+'.html', "w") as f:
     #     print(ani.to_html5_video(), file=f)
 
+    #save last frame , useful when printing revealjs to pdf
+    last_name = figpar['file'] + "_last"+'_'+plotpar['theme']
+   
+    plt.savefig(last_name+'.pdf',transparent=True)
+
+    call_inkscape(last_name)
+
+
+    # print("Saved last frame:", last_name)
 
     plt.close("all")
 

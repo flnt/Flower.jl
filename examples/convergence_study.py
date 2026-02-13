@@ -2645,13 +2645,21 @@ def plot_1D(
       # print(label1)
       # print(figpar['macro'])
       # print(figpar)
+
+      if plotpar['theme'] == 'dark':
+        color = colors[(figpar['iter'])%len(colors)]
+        if color == 'k':
+           color = 'w'
+      else:
+        color = colors[(figpar['iter'])%len(colors)]
+
       if 'logplot' in figpar.keys():
 
          ax20.scatter(x=varx, y=slice_1D, 
                      #  s=10,
                      #  marker='+',
          #  colors[i+1], #color wrt variable
-         color=colors[(figpar['iter'])%len(colors)],
+         color=color, #colors[(figpar['iter'])%len(colors)],
          # cmap=cmap,
          label=label1,
          # ls=ls, #creates bug
@@ -2665,7 +2673,7 @@ def plot_1D(
       else:
          p1, = ax20.plot(varx, slice_1D, 
          #  colors[i+1], #color wrt variable
-         colors[(figpar['iter'])%len(colors)],
+         color=color, #colors[(figpar['iter'])%len(colors)], #colors[(figpar['iter'])%len(colors)],
          # cmap=cmap,
          label=label1,ls=ls,lw=lw)
 
@@ -3018,6 +3026,12 @@ def plot_1D_list(
                 #     varx = varx_2
                 #     slice_1D = vary_2
 
+                if 'macro_data2' in figpar.keys():            
+                    print(colored('macro_data2','red'))
+                    exec(get_value_from_dicts('macro_data2',figpar,plotpar))
+                    slice_1D = vary_2
+                    varx = varx_2
+
                 # print('data',slice_1D)
                 try:
                         print('len data',len(slice_1D))
@@ -3048,6 +3062,22 @@ def plot_1D_list(
                 # print('slice_1D',slice_1D,len(slice_1D))
 
                 print('mesh number',figpar['iter'])
+
+                if 'macro_ref' in figpar.keys() and figpar['iter'] == 0:
+                    print('macro_ref')
+                    exec(figpar['macro_ref'])
+
+
+                    # ref = eval(figpar['plot_ref'])
+                    varx_ref = varx_2
+                    val_ref = val_ref_2
+                    # print('i test',i,get_value_from_dicts('linestyles',figpar,plotpar)[i+1],get_value_from_dicts('linestyles',figpar,plotpar)[i])
+                    ax20.plot(varx_ref, val_ref, 
+                    # 'k',
+                    plotpar['text_color'],
+                    label='Reference solution',
+                    ls=eval(get_value_from_dicts('linestyles',figpar,plotpar)[i+1]),
+                    lw=lw)
 
             
                 if 'plot_ref' in figpar.keys() and figpar['iter'] == 0:

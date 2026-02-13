@@ -1,6 +1,33 @@
 # Flower
 
-## Documentation
+
+## How to install Julia 1.12 and run Flower.jl with Docker 
+**Author**: Jean-Michel Batto (CEA, Maison de la Simulation)
+
+### in a directory /testlocal 
+git clone https://github.com/jmbatto/julia1.12-trixie-pdi.git
+### remove Dockerfile (avoids reconstructing imùage in local, by accident)
+sudo docker compose up -d
+### this commande creates the container with Julia 1.12 and precompilation
+### THen we check
+sudo docker ps
+### Now we need to get shell access (bash)
+docker exec -it julia_c_lab bash
+### You have access to the image, you may work in /usr/local/var for instance but may encounter rights problem
+sudo chown coder /usr/local/var
+### in the repository you run 
+git clone -b electrolysis  https://github.com/flnt/Flower.jl 
+### check with the command env to see you have PYTHONPATH=/usr/local/lib/python3/dist-packages
+### in /usr/local/var, you have a new folder Flower.jl but we do not workl in it
+### Run mkdir -p /usr/local/var/test to launch your jobs
+### Precompile
+xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24 -nolisten tcp" julia --project=../Flower.jl -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+### Run the simulation
+xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24 -nolisten tcp" julia --project=../Flower.jl --threads=1 ../Flower.jl/examples/convergence.jl ../Flower.jl/examples/convergence_diffusion_constant_conductivity_bubble_wall_Newton.yml
+
+
+
+## Generating documentation
 
 ```bash
 julia +1.10.5 --project=../Flower.jl docs/make.jl

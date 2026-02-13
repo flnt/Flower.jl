@@ -792,7 +792,7 @@ function solve_one_fluid_NS!(
     tmp_vec_p,
     tmp_vec_p0,
     rhs_phi,
-    pres_free_suface,jump_mass_transfer_rate,mass_transfer_rate
+    pres_free_suface,jump_mass_transfer_rate,mass_transfer_rate,u_ext_vel, v_ext_vel
     )
     @unpack Re, timestep_n, σ, g, β, nLS, nNavier = num
     @unpack p, pD, ϕ, u, v, u_predictionD, v_predictionD, uD, vD, u_prediction, v_prediction, uT = ph
@@ -2385,6 +2385,24 @@ function solve_one_fluid_NS!(
     
     #endregion correction 
 
+    #region phase change extract Stefan flow
+    compute_Stefan_velocity(num,grid_p,grid_u,grid_v,rhs_phi,A_phi,mass_transfer_rate,result_p,opC_u,opC_v,u_ext_vel,v_ext_vel,rho_one_fluid_u,rho_one_fluid_v)
+
+    interpolate_staggered_u_v_to_scalar_grid_one_fluid_or_one_phase!(num,grid_p,grid_u,grid_v,u_ext_vel,v_ext_vel,tmp_vec_p,tmp_vec_p0)
+
+    PDI_status = @ccall "libpdi".PDI_multi_expose("write_Stefan_velocity"::Cstring,
+    "Stefan_velocity_phase_change_x"::Cstring,tmp_vec_p::Ptr{Cdouble}, PDI_OUT::Cint,
+    "Stefan_velocity_phase_change_y"::Cstring, tmp_vec_p0::Ptr{Cdouble}, PDI_OUT::Cint,
+    C_NULL::Ptr{Cvoid})::Cint
+
+    # if num.phase_change_symb === :extract_Stefan_velocity
+        
+
+    # end
+
+    #endregion phase change extract Stefan flow
+
+
 
 
     #region end coupled
@@ -2695,6 +2713,13 @@ function solve_one_fluid_NS!(
     C_NULL::Ptr{Cvoid})::Cint
 
     #endregion check divergence
+
+    #region phase change extract Stefan flow
+    if num.phase_change_symb === :extract_Stefan_velocity
+        u_ext_vel .= u .- u_ext_vel
+        v_ext_vel .= v .- v_ext_vel
+    end
+    #endregion phase change extract Stefan flow
 
 
     return Lp, bc_Lp, bc_Lp_b, Lu, diffusion_LS_u, diffusion_border_u, Lv, diffusion_LS_v, diffusion_border_v, opC_p.M, opC_u.M, opC_v.M, Cui, Cvi
@@ -5623,4 +5648,101 @@ function set_convection_preallocated!(
     # display(geo.dcap)
 
     return nothing
+end
+
+
+"""
+compute Stefan velocity u_S
+
+"""
+function compute_Stefan_velocity(num,grid_p,grid_u,grid_v,rhs_phi,A_phi,mass_transfer_rate,result_p,opC_u,opC_v,u,v,rho_one_fluid_u,rho_one_fluid_v)
+    @unpack timestep_n = num
+
+    # Poisson equation: source term
+    # divergence of velocity / dt
+    u .= 0.0
+    v .= 0.0
+
+    rhs_phi .= 0.0
+    # vec1(rhs_phi,grid_p) .= velocity_divergence
+
+    if num.phase_change_currently_activated == 1
+        vec1(rhs_phi,grid_p) .+=  vec( mass_transfer_rate * ( 1.0/num.rho1 - 1.0/num.rho2 ) )
+
+        # PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv_divergence"::Cstring,
+        # "rhs_uv_divergence"::Cstring, vec1(rhs_phi,grid_p)::Ptr{Cdouble}, PDI_OUT::Cint,
+        # C_NULL::Ptr{Cvoid})::Cint
+
+        #TODO BC u v mass transfer outflow , so Neumann
+    end
+
+
+
+    #region needs to be corrected/documented for the signs, free surface pressure BC 
+    
+    # pres_free_suface = 0.0
+    #TODO Marangoni
+    #TODO phase change
+    # diff_inv_rho = 1.0/rho1 - 1.0/rho2
+    # jump_mass_transfer_rate = 0.0 #TODO
+
+    #region cut-cell
+    # if jump_mass_transfer_rate
+    #     for iLS in 1:nLS
+    #         if is_fs(bc_int[iLS])
+    #             Smat = strain_rate(iLS, opC_u, opC_v, opC_p)
+    #             S = Smat[1,1] * vec1(u_predictionD,grid_u) .+ Smat[1,2] * veci(u_predictionD,grid_u,iLS+1) .+
+    #                 Smat[2,1] * vec1(v_predictionD,grid_v) .+ Smat[2,2] * veci(v_predictionD,grid_v,iLS+1)
+    
+    #             fs_mat = opC_p.HxT[iLS] * opC_p.Hx[iLS] .+ opC_p.HyT[iLS] * opC_p.Hy[iLS]
+    #             veci(rhs_phi,grid_p,iLS+1) .= -2.0 .* mu1_over_rho1 .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid_p.LS[iLS].κ) .- pres_free_suface .- diff_inv_rho * mass_transfer_rate ^ 2)
+    #         end
+    #     end
+    # else
+    #     for iLS in 1:nLS
+    #         if is_fs(bc_int[iLS])
+    #             Smat = strain_rate(iLS, opC_u, opC_v, opC_p)
+    #             S = Smat[1,1] * vec1(u_predictionD,grid_u) .+ Smat[1,2] * veci(u_predictionD,grid_u,iLS+1) .+
+    #                 Smat[2,1] * vec1(v_predictionD,grid_v) .+ Smat[2,2] * veci(v_predictionD,grid_v,iLS+1)
+
+    #             fs_mat = opC_p.HxT[iLS] * opC_p.Hx[iLS] .+ opC_p.HyT[iLS] * opC_p.Hy[iLS]
+    #             veci(rhs_phi,grid_p,iLS+1) .= -2.0 .* mu1_over_rho1 .* S .+ Diagonal(diag(fs_mat)) * ( σ .* vec(grid_p.LS[iLS].κ) .- pres_free_suface )
+    #         end
+    #     end
+    # end
+    #endregion cut-cell
+
+    # Remove nullspace by adding small quantity to main diagonal
+    if num.null_space == 0
+        @inbounds @threads for i in 1:A_phi.m
+            @inbounds A_phi[i,i] += 1e-10
+        end
+    end
+    # kill_dead_cells!(vec1(rhs_phi,grid_p), grid_p, geo[end])
+    # for iLS in 1:nLS
+    #     kill_dead_cells!(veci(rhs_phi,grid_p,iLS+1), grid_p, geo[end])
+    # end
+    # @time bicgstabl!(result_p, A_phi, rhs_phi, Pl = Diagonal(A_phi), log = true)
+
+    #endregion needs to be corrected/documented for the signs, free surface pressure BC 
+
+
+    # print("size pressure ",size(rhs_phi)," ",size(result_p)," ",size(A_phi))
+    # Solve Poisson equation
+    # \phi^{n+1}: result_p
+    # @time result_p .= A_phi \ rhs_phi
+    result_p = A_phi \ rhs_phi
+
+    # ϕ .= reshape(vec1(result_p,grid_p), grid_p)
+
+    iMu = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_u.M.diag))
+    iMv = Diagonal(inv_weight_eps2.(num.epsilon_mode,num.epsilon_vol,opC_v.M.diag))
+    # Gradient of pressure, eq. 17 in 
+    #"A Conservative Cartesian Cut-Cell Method for Mixed Boundary Conditions and the Incompressible Navier-Stokes Equations on Staggered Meshes"
+    ∇ϕ_x = opC_u.AxT * opC_u.Rx * vec1(result_p,grid_p) .+ opC_u.Gx_b * vecb(result_p,grid_p)
+    ∇ϕ_y = opC_v.AyT * opC_v.Ry * vec1(result_p,grid_p) .+ opC_v.Gy_b * vecb(result_p,grid_p)
+
+    u .=  .- timestep_n .* reshape(iMu * ∇ϕ_x, grid_u) ./ rho_one_fluid_u
+    v .=  .- timestep_n .* reshape(iMv * ∇ϕ_y, grid_v) ./ rho_one_fluid_v
+
 end

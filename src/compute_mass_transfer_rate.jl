@@ -4,7 +4,7 @@ function compute_mass_transfer_rate_main!(num, grid_p, grid_u, grid_v, op, phL, 
     mass_transfer_rate_vec1,
     mass_transfer_rate_vecb,mass_transfer_rate_veci, mass_transfer_rate_redistributed, tmp_vec_p, tmp_vec_p0, tmp_vec_p1,
     nb_gaz_acceptors, volume_fraction, 
-    interface_length)
+    interface_length,total_interface_length)
 
     # print("\n electrolysis_phase_change_case ",electrolysis_phase_change_case)
     #TODO print case, quantity, ...
@@ -14,7 +14,7 @@ function compute_mass_transfer_rate_main!(num, grid_p, grid_u, grid_v, op, phL, 
         
         # print("\n total_interface_length ",total_interface_length)
 
-        total_interface_length = compute_interface_length!(num, grid_p, 1, interface_length)
+        # total_interface_length = compute_interface_length!(num, grid_p, 1, interface_length)
 
         print("\n total_interface_length ",total_interface_length)
 
@@ -76,7 +76,7 @@ function compute_mass_transfer_rate_main!(num, grid_p, grid_u, grid_v, op, phL, 
                         periodic_x, periodic_y, num.average_velocity, phL.trans_scalD[:,num.index_phase_change],phL.trans_scal[:,:,num.index_phase_change],
                         num.diffusion_coeff[num.index_phase_change],num.concentration0[num.index_phase_change],
                         electrolysis_phase_change_case,mass_transfer_rate, mass_transfer_rate_redistributed,
-                        nb_gaz_acceptors,volume_fraction,interface_length)
+                        nb_gaz_acceptors,volume_fraction,interface_length,total_interface_length)
 
                         PDI_status = @ccall "libpdi".PDI_multi_expose("check_mass_transfer_rate_NS"::Cstring,
                         "mass_transfer_rate"::Cstring, mass_transfer_rate::Ptr{Cdouble}, PDI_OUT::Cint,

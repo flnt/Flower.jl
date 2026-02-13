@@ -146,7 +146,7 @@ function run_forward!(
         end
     end
 
-    if num.advection_LS_mode == 16 || num.advection_LS_mode == 16 #test Cipriano 2024 's method
+    if num.advection_LS_mode == 16 || num.phase_change_symb === :Double_Pressure_Velocity_Coupling_Cipriano #|| num.advection_LS_mode == 16 #test Cipriano 2024 's method
         extend_liquid_velocity = true
     else
         extend_liquid_velocity = false
@@ -293,8 +293,13 @@ function run_forward!(
         pres_grad_x = fzeros(grid_u)
         pres_grad_y = fzeros(grid_v)
     else 
-        u_ext_vel = nothing
-        v_ext_vel= nothing
+        if num.phase_change_symb === :extract_Stefan_velocity
+            u_ext_vel = zeros(grid_u)
+            v_ext_vel= zeros(grid_v)
+        else
+            u_ext_vel = nothing
+            v_ext_vel= nothing
+        end
 
     end
 
@@ -2157,6 +2162,9 @@ function run_forward!(
             end
         end #if io_pdi
 
+        # total_interface_length = compute_interface_length!(num, grid_p, 1, interface_length)
+        total_interface_length = compute_interface_length_one_fluid!(num, grid_p,interface_length)
+
         #region compute mass transfer
         if num.solve_Navier_Stokes_liquid_phase == 1 && num.phase_change_method >0
             num.previous_radius = num.current_radius
@@ -2165,7 +2173,7 @@ function run_forward!(
             periodic_x, periodic_y, λ, Vmean, num.iLSpdi, mode_2d, show_every, 
             mass_transfer_rate,mass_transfer_rate_vec1,
             mass_transfer_rate_vecb,mass_transfer_rate_veci, mass_transfer_rate_redistributed, tmp_vec_p, tmp_vec_p0, tmp_vec_p1,    
-            nb_gaz_acceptors, volume_fraction, interface_length)
+            nb_gaz_acceptors, volume_fraction, interface_length,total_interface_length)
         #endregion compute mass transfer
         end
 
@@ -2300,7 +2308,9 @@ function run_forward!(
                     update_one_fluid_density_viscosity(num,grid_p,grid_u,grid_v,volume_fraction,levelset_one_fluid,rho_one_fluid,
                                                         rho_one_fluid_u,rho_one_fluid_v,mu_one_fluid,tmp_vec_p0)
 
-                    total_interface_length = compute_interface_length!(num, grid_p, 1, interface_length)
+                    # # total_interface_length = compute_interface_length!(num, grid_p, 1, interface_length)
+                    # total_interface_length = compute_interface_length_one_fluid!(num, grid_p,interface_length)
+
                     # MIXED =
 
                     nb_levelsets = num.nLS
@@ -2485,7 +2495,7 @@ function run_forward!(
                     tmp_vec_p,
                     tmp_vec_p0,            
                     rhs_phi,
-                    pres_free_surfaceL,jump_mass_transfer_rateL,mass_transfer_rate )  
+                    pres_free_surfaceL,jump_mass_transfer_rateL,mass_transfer_rate,u_ext_vel, v_ext_vel)  
 
                     #region ciprianoMulticomponentDropletEvaporation2024
                     if extend_liquid_velocity
@@ -2509,7 +2519,9 @@ function run_forward!(
                         time_scheme, BC_int,
                         num, grid_p, geoL, grid_u, geo_uL, grid_v, geo_vL, 
                         # phL,
-                        p_ext_vel, pD_ext_vel, phi_ext_vel, u_ext_vel, v_ext_vel, u_predictionD_ext_vel, v_predictionD_ext_vel, uD_ext_vel, vD_ext_vel, u_prediction_ext_vel, v_prediction_ext_vel, uT_ext_vel,
+                        p_ext_vel, pD_ext_vel, phi_ext_vel, u_ext_vel, v_ext_vel, 
+                        u_predictionD_ext_vel, v_predictionD_ext_vel, uD_ext_vel, vD_ext_vel, 
+                        u_prediction_ext_vel, v_prediction_ext_vel, uT_ext_vel,
                         pres_grad_x, pres_grad_y,                    
                         phase_change_currently_activated,
                         BC_uL, BC_vL, BC_pL,

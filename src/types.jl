@@ -179,6 +179,8 @@ Stores parameters for the simulation
     solve_Navier_Stokes::D=1
     sphere_post_processing::D=0 #can be done with PDI also with Pycall
     bulk_velocity_symb::Symbol = Symbol("none")
+    phase_change_symb::Symbol = Symbol("none")
+    mass_transfer_redistribute_symb::Symbol = Symbol("no")
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

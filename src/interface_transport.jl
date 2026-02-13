@@ -118,7 +118,8 @@ advection_LS_mode:
 * 13 : 
 * 14 : ghost cell adv in normal direction
 * 16 : Cipriano, with extended
-
+* 17
+* 18 : extract Stefan velocity
 """
 function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, periodic_x, periodic_y, 
     θ_out, rhs_LS, utmp, electrolysis_phase_change_case, mass_transfer_rate, levelset_1D,volume_fraction,
@@ -550,7 +551,8 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
                 grid_p.LS[iLS].u .= reshape(gmres(grid_p.LS[iLS].A, grid_p.LS[iLS].B * vec(grid_p.LS[iLS].u) .+ rhs_LS), grid_p)
 
             #region bulk +phase-change velocity    
-                elseif num.advection_LS_mode == 13 || num.advection_LS_mode == 14 || num.advection_LS_mode == 15 || num.advection_LS_mode == 16 || num.advection_LS_mode == 17
+                elseif num.advection_LS_mode >= 13 
+                    # num.advection_LS_mode == 13 || num.advection_LS_mode == 14 || num.advection_LS_mode == 15 || num.advection_LS_mode == 16 || num.advection_LS_mode == 17
 
                 if num.time > num.nucleation_time #TODO more precisely no mass transfer but velocity 
                     
@@ -793,7 +795,7 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
                         #endregion ghost cell adv in normal direction
 
 
-                    elseif num.advection_LS_mode == 16 || num.advection_LS_mode == 17
+                    elseif num.advection_LS_mode == 16 || num.advection_LS_mode == 17 || num.advection_LS_mode == 18
 
                         #region ghost cell adv in normal direction
                         # Project velocities to the normal and use advection scheme for advection just

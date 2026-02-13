@@ -1,15 +1,58 @@
+# **Author**: Jean-Michel Batto (CEA, Maison de la Simulation)
+
 # using Revise 
 using Flower
+using YAML
+using Printf
 
+# ---------------------------------------------------------------------------------------------
+# FUNCTION BARRIER: Wrapper pour exécuter la simulation
+# Cela permet d'isoler le code compilé des variables dynamiques (BC) générées par eval()
+# ---------------------------------------------------------------------------------------------
 
-# PDI
+function execute_simulation_step(num, gp, gu, gv, op, phS, phL, sim, phys, time_scheme, bc_dict)
+    
+    # Préparation des arguments optionnels (Keyword Arguments)
+    # On construit un NamedTuple uniquement avec les BC qui existent vraiment
+    kwargs_bc = Dict{Symbol, Any}()
+    
+    # Liste des clés possibles
+    keys_to_check = [:BC_uL, :BC_uS, :BC_vL, :BC_vS, :BC_pL, :BC_pS, :BC_u, :BC_int, :BC_trans_scal, :BC_phi_ele]
+    
+    for k in keys_to_check
+        if haskey(bc_dict, k)
+            kwargs_bc[k] = bc_dict[k]
+        end
+    end
 
+    # Appel avec le splatting operator (...) qui déballe le dictionnaire en arguments
+    run_forward!(
+        num, gp, gu, gv, op, phS, phL;
+        periodic_x = (sim.periodic_x == 1),
+        periodic_y = (sim.periodic_y == 1),
+        auto_reinit = sim.auto_reinit,
+        time_scheme = time_scheme,
+        electrolysis = true,
+        navier_stokes = true,
+        ns_advection = (sim.ns_advection == 1),
+        ns_liquid_phase = (sim.solve_Navier_Stokes_liquid_phase == 1),
+        verbose = true,
+        show_every = sim.show_every,
+        electrolysis_convection = (sim.electrolysis_convection == 1),
+        electrolysis_liquid_phase = true,
+        electrolysis_phase_change_case = sim.electrolysis_phase_change_case,
+        imposed_velocity = sim.imposed_velocity,
+        adapt_timestep_mode = sim.adapt_timestep_mode,
+        non_dimensionalize = sim.non_dimensionalize,
+        mode_2d = sim.mode_2d,
+        breakup = sim.breakup,
+        # On injecte ici les BC dynamiques présentes
+        kwargs_bc...
+    )
+end
 
+# Lecture des arguments et du fichier YAML
 localARGS = ARGS
-# @show localARGS 
-# print("\n Arguments ", localARGS)
-# print("\n length(localARGS) ",length(localARGS))
-
 if length(localARGS)>0
     yamlfile = localARGS[1]
     printstyled(color=:magenta, @sprintf "\n YAML file ")
@@ -50,84 +93,8 @@ macros = PropertyDict(flower.macros) #to parse code from .yml
 # boundaries_dict = PropertyDict(macros.boundaries_list)
 study_name = ""
 
-
-#region change one parameter at a time
-# # print("\n changing parameters",Meta.parseall(study.macro))
-# change_one_parameter_at_a_time = PropertyDict(study.change_one_parameter_at_a_time)
-
-# # eval(Meta.parseall(study.change_one_parameter_at_a_time.macro))
-# # for 
-# # study_name = change_one_parameter_at_a_time
-
-# for (key, value) in change_one_parameter_at_a_time
-#     print("\n changing parameter")
-#     print("\n key ",key) 
-#     print("\n value ",value)
-#     # eval(value.macro)    
-#     print("\n mu ",phys.mu1,phys.mu2)
-#     eval(value["macro"])
-#     print("\n mu ",phys.mu1,phys.mu2)
-# end
-
-# # Step 2: Modify multiple parameters
-# # Define a dictionary with the parameters you want to change and their new values
-# # changes = Dict(
-# #     "parameter1" => "new_value1",
-# #     "parameter2" => "new_value2",
-# #     "parameter3" => "new_value3"
-# #     # Add more parameters as needed
-# # )
-# # changes = eval(study.change_one_parameter_at_a_time)
-
-
-# # Apply the changes to the original YAML data
-# # for (key, value) in study.change_one_parameter_at_a_time
-# #     print("\n changing parameter")
-# #     print(key) 
-# #     eval(value.macro)
-# # end
-
-#endregion change one parameter at a time
-
-
-
 # print parameters by evaluating Julia code stored in .yml   
 eval(Meta.parseall(macros.print_parameters))
-
-
-
-
-
-
-#region attempt at precompiling Flower modules to librairies (.so)
-# print("\n test juliac")
-
-# # @ccall "simple.so".add_julia(2::Cint, 2::Cint)::Cint
-
-# # test_juliac = @ccall "simple.so".add_julia(2::Cint, 2::Cint)::Cint
-
-# # # Get the current working directory
-# # current_directory = pwd()
-
-# # # Print the current working directory
-# # println("Current working directory: ", current_directory)
-
-# # test_juliac = @ccall "./simple.so".add_julia(2::Cint, 2::Cint)::Cint
-
-# # test_juliac = @ccall "/local/home/pr277828/flower/juliac/simple.so".add_julia(2::Cint, 2::Cint)::Cint
-
-# test_juliac = @ccall add_julia(2::Cint, 2::Cint)::Cint
-
-
-# print("\n test ",test_juliac)
-# # juliac_status = @ccall "mylib".load_parameters()::Cint
-# # juliac_status = @ccall "libmylib.so".load_parameters()::Cint
-
-# print("\n test juliac")
-
-# # pdipath = "libpdi"
-# pdipath = "/usr/lib/x86_64-linux-gnu/libpdi.so"
-#endregion attempt at precompiling Flower modules to librairies (.so)
 
 
 if io.pdi>0
@@ -142,20 +109,12 @@ if io.pdi>0
     @debug "after PDI_init"
 
     # Send meta-data to PDI
-    mpi_coords_x = 1
-    mpi_coords_y = 1
-    mpi_max_coords_x = 1
-    mpi_max_coords_y = 1
+    mpi_coords_x = 1; mpi_coords_y = 1
+    mpi_max_coords_x = 1; mpi_max_coords_y = 1
     local nx = 32
     local ny = 32
     nstep = 0
-    # nx=gp.nx
-    # ny=gp.ny
-
-    #TODO check Clonglong ...
-
     phys_time = 0.0 #Cdouble
-    # nstep = num.current_iter
     
 
     local PDI_status = @ccall "libpdi".PDI_multi_expose("init_PDI"::Cstring, 
@@ -178,33 +137,6 @@ if io.pdi>0
 
     @debug "After full PDI init"
 
-    # nx_pdi = [nx]
-    # nstep_pdi = [nstep]
-
-    # local PDI_status = @ccall "libpdi".PDI_multi_expose("test_pycall_write_arr"::Cstring, 
-    #     "nx_arr"::Cstring, nx_pdi::Ref{Clonglong}, PDI_OUT::Cint,
-    #     "nstep_arr"::Cstring, nstep_pdi::Ref{Clonglong}, PDI_OUT::Cint,
-    #     C_NULL::Ptr{Cvoid})::Cint
-
-    # local PDI_status = @ccall "libpdi".PDI_multi_expose("test_pycall_write"::Cstring, 
-    #         "nx"::Cstring, nx::Ref{Clonglong}, PDI_OUT::Cint,
-    #         "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
-    #         C_NULL::Ptr{Cvoid})::Cint
-
-    # local PDI_status = @ccall "libpdi".PDI_multi_expose("test_pycall_write"::Cstring, 
-    #         "nx"::Cstring, nx::Ref{Clonglong}, PDI_INOUT::Cint,
-    #         "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_INOUT::Cint,
-    #         C_NULL::Ptr{Cvoid})::Cint
-
-
-    # local PDI_status = @ccall "libpdi".PDI_multi_expose("write_pycall"::Cstring, 
-    #         "nx"::Cstring, nx::Ref{Clonglong}, PDI_OUT::Cint,
-    #         "nstep"::Cstring, nstep::Ref{Clonglong}, PDI_OUT::Cint,
-    #         C_NULL::Ptr{Cvoid})::Cint
-
-
-
- 
 end #if io.pdi>0
 
 # arrays to store errors
@@ -221,8 +153,6 @@ error_list_linfty_full = zeros(n_cases)
 cell_volume_list = zeros(n_cases)
 
 base_directory = pwd()
-
-# print("\n base directory ",base_directory)
 
 #region timestep convergence
 for timestep in timesteps
@@ -251,34 +181,15 @@ for timestep in timesteps
         study_nb_grid_points_x = study_nb_grid_points
         study_nb_grid_points_y = study_nb_grid_points * mesh_ratio
 
-        print("\n nx ",study_nb_grid_points_x, " ny ",study_nb_grid_points_y)
+        print("\n nx ", study_nb_grid_points_x, " ny ", study_nb_grid_points_y)
 
         mkpath(mesh_to_string)
         cd(mesh_to_string)
 
         
-        #delete output.txt:
-        # local PDI_status = @ccall "libpdi".PDI_multi_expose("macro_delete_file"::Cstring,C_NULL::Ptr{Cvoid})::Cint
-        #bug
-        # if study_name !=""
-        #     # mkpath(study.change_one_parameter_at_a_time.name)
-        #     print("\nstudy ",study.change_one_parameter_at_a_time.name)
-        # end
-        
-
         # init regular grid
         scalar_mesh_x = collect(LinRange(mesh.xmin, mesh.xmax, study_nb_grid_points_x + 1))    
         scalar_mesh_y = collect(LinRange(mesh.ymin, mesh.ymax, study_nb_grid_points_y + 1))
-
-
-        # # print("\n test juliac")
-
-        # # juliac_status = @ccall "mylib".load_parameters()::Cint
-        # juliac_status = @ccall "libmylib".load_parameters()::Cint
-
-        # # print("\n test juliac")
-
-        # print("\n mu1 mu2 ",phys.mu1," ",typeof(phys.mu1)," ",phys.mu2," ",typeof(phys.mu2))
 
         @debug "Before Numerical"
 
@@ -304,21 +215,29 @@ for timestep in timesteps
             :timestep_0 => :timestep,
             :timestep_n => :timestep,
             :io_pdi => :pdi,
-            # :convection => :convection_mode, #debug
         )
 
         # fields defined locally, not in yml
         extra = Dict(
             :scalar_mesh_x => scalar_mesh_x,
             :scalar_mesh_y => scalar_mesh_y,
-            # :electrolysis_reaction => Symbol(phys.electrolysis_reaction),
-            # :intfc_x       => intfc_x,
-            # :intfc_y       => intfc_y,
         )
 
 
-      
-        
+        phase_change_symb = isnothing(sim.phase_change) ? "default" : Symbol(sim.phase_change)
+
+        if isnothing(sim.mass_transfer_redistribute)
+            if sim.phase_change_method == 5
+                mass_transfer_redistribute_symb = :no
+            elseif num.phase_change_method in [6,7]
+                mass_transfer_redistribute_symb = :yes
+            end
+        else
+            mass_transfer_redistribute_symb = Symbol(sim.mass_transfer_redistribute)
+        end
+        # mass_transfer_redistribute_symb = isnothing(sim.mass_transfer_redistribute) ? "no" : Symbol(sim.mass_transfer_redistribute)
+
+       
 
         default = Numerical{Float64,Int}(
             x = scalar_mesh_x,
@@ -327,7 +246,10 @@ for timestep in timesteps
             timestep_0 = timestep,
             electrolysis_reaction_symb = Symbol(phys.electrolysis_reaction),
             bulk_velocity_symb = Symbol(phys.bulk_velocity),
-            )  # construct default parametric instance with x otherwise L0 and ... not defined in the same way
+            phase_change_symb = phase_change_symb,
+            mass_transfer_redistribute_symb = mass_transfer_redistribute_symb,
+            )  
+        # construct default parametric instance with x otherwise L0 and ... not defined in the same way
 
 
         # global num_new = safefill_with_aliases(Numerical{Float64, Int}, sim, phys, io,aliases)
@@ -337,150 +259,14 @@ for timestep in timesteps
         #                          aliases,
         #                          extra)
 
-        print("\n ns_advection ",(sim.ns_advection ==1))
+        print("\n ns_advection ", (sim.ns_advection == 1))
 
-        global num_new = safefill_with_aliases_and_extra_already_init(Numerical{Float64,Int},default,
-                                 sim, phys, io,
-                                 aliases,
-                                 extra)
+        global num_new = safefill_with_aliases_and_extra_already_init(Numerical{Float64,Int}, default,
+                                 sim, phys, io, aliases, extra)
 
         #endregion test fill struct
 
-        
-
-
-        # # global num = Numerical(
-        # #     CFL = sim.CFL,
-        # #     Re = Re, #in Flower, not real Re
-        # #     end_time=phys.end_time,
-        # #     x = scalar_mesh_x,
-        # #     y = scalar_mesh_y,
-        # #     xcoord = phys.intfc_x,
-        # #     ycoord = phys.intfc_y,
-        # #     case = sim.case,
-        # #     R = phys.radius,
-        # #     max_iterations = sim.max_iter,
-        # #     save_every = sim.max_iter,
-        # #     ϵ = sim.epsilon, 
-        # #     ϵwall = sim.epsilon_wall,
-        # #     epsilon_mode = sim.epsilon_mode,
-        # #     nLS = phys.nb_levelsets,
-        # #     nb_transported_scalars=phys.nb_transported_scalars,
-        # #     concentration0=phys.concentration0, 
-        # #     epsilon_concentration=phys.epsilon_concentration,
-        # #     diffusion_coeff=phys.diffusion_coeff,
-        # #     temperature0=phys.temperature0,
-        # #     i0=phys.i0,
-        # #     phi_ele0=phys.phi_ele0,
-        # #     phi_ele1=phys.phi_ele1,
-        # #     alpha_c=phys.alpha_c,
-        # #     alpha_a=phys.alpha_a,
-        # #     Ru=phys.Ru,
-        # #     Faraday=phys.Faraday,
-        # #     MWH2=phys.MWH2,
-        # #     θd=phys.temperature0,
-        # #     eps=sim.eps,
-        # #     mu1=phys.mu1,
-        # #     mu2=phys.mu2,
-        # #     rho1=phys.rho1,
-        # #     rho2=phys.rho2,
-        # #     # u_inf = 0.0,
-        # #     # v_inf = 0.0,
-        # #     pres0=phys.pres0,
-        # #     g = phys.g,
-        # #     β = phys.beta,
-        # #     σ = phys.sigma,  
-        # #     sigma = phys.sigma,
-        # #     reinit_every = sim.reinit_every,
-        # #     nb_reinit = sim.nb_reinit,
-        # #     δreinit = sim.delta_reinit,
-        # #     n_ext_cl = sim.n_ext,
-        # #     NB = sim.NB,
-        # #     # plot_xscale = io.scale_x,
-        # #     timestep_n = timestep, #timestep convergence #sim.timestep_0,
-        # #     timestep_0 = timestep, #timestep convergence #sim.timestep_0,
-        # #     concentration_check_factor = sim.concentration_check_factor,
-        # #     radial_vel_factor = phys.radial_vel_factor,
-        # #     debug = sim.debug,
-        # #     v_inlet = phys.v_inlet,
-        # #     prediction = sim.prediction,
-        # #     null_space = sim.null_space,
-        # #     io_pdi = io.pdi,
-        # #     bulk_conductivity = sim.bulk_conductivity,
-        # #     electrical_potential = sim.electrical_potential,
-        # #     contact_angle = sim.contact_angle,
-        # #     convection_Cdivu = sim.convection_Cdivu,
-        # #     convection_mode = sim.convection_mode,
-        # #     advection_LS_mode = sim.advection_LS_mode,
-        # #     scalar_bc = sim.scalar_bc,
-        # #     scalar_scheme = sim.scalar_scheme,
-        # #     solver = sim.solver,
-        # #     mass_transfer_rate = sim.mass_transfer_rate,
-        # #     average_liquid_solid = sim.average_liquid_solid,
-        # #     index_phase_change = sim.index_phase_change,
-        # #     index_electrolyte = sim.index_electrolyte,
-        # #     extend_field = sim.extend_field,
-        # #     average_velocity = sim.average_velocity,
-        # #     laplacian = sim.laplacian,
-        # #     electrical_potential_max_iter = sim.electrical_potential_max_iter,
-        # #     electrical_potential_relative_residual = sim.electrical_potential_relative_residual,
-        # #     electrical_potential_residual = sim.electrical_potential_residual,
-        # #     electrical_potential_nonlinear_solver = sim.electrical_potential_nonlinear_solver,
-        # #     electrolysis_reaction = phys.electrolysis_reaction,
-        # #     pressure_velocity_coupling = sim.pressure_velocity_coupling,
-        # #     pressure_velocity_solver = sim.pressure_velocity_solver,
-        # #     solve_solid = sim.solve_solid,
-        # #     phase_change_method = sim.phase_change_method,
-        # #     one_fluid_model = sim.one_fluid_model,
-        # #     smooth_VOF = sim.smooth_VOF,
-        # #     surface_tension = sim.surface_tension,
-        # #     non_dimensionalize=sim.non_dimensionalize,
-        # #     levelset_reinitialize=sim.levelset_reinitialize,
-        # #     mu_one_fluid_average = sim.mu_one_fluid_average,
-        # #     one_fluid_normal = sim.one_fluid_normal,
-        # #     marching_squares_epsilon = sim.marching_squares_epsilon,
-        # #     marching_squares_max_iter = sim.marching_squares_max_iter,
-        # #     convection = sim.convection_mode,
-        # #     nucleation_time = phys.nucleation_time,
-        # #     solve_potential = sim.solve_potential,
-        # #     solve_species = sim.solve_species,
-        # #     kill_dead_cells = sim.kill_dead_cells,
-        # #     epsilon_volume_fraction_phase_change = sim.epsilon_volume_fraction_phase_change,
-        # #     solve_Navier_Stokes_liquid_phase = sim.solve_Navier_Stokes_liquid_phase,
-        # #     mass_transfer_rate_imposed_value = sim.mass_transfer_rate_imposed_value,
-        # #     verbosity = sim.verbosity,
-        # #     mode_2d = sim.mode_2d,
-        # #     mu_cin1 = phys.mu_cin1,
-        # #     mu_cin2 = phys.mu_cin2,
-        # #     # u_inf = phys.u_inf,
-        # #     )
-
-        # if (num == num_new)
-        #     print("\n New init of num OK")
-        # else
-        #     @error("\n init num")
-        # end
-
-        # function diff_struct(a, b)
-        #     @assert typeof(a) == typeof(b) "Types differ"
-
-        #     for name in fieldnames(typeof(a))
-        #         va = getfield(a, name)
-        #         vb = getfield(b, name)
-        #         if va != vb
-        #             println("Field $name differs:")
-        #             println("   a.$name = $va")
-        #             println("   b.$name = $vb")
-        #         end
-        #     end
-        # end
-
-        # diff_struct(num, num_new)
-
-        # print("\n num x ",num.x)
-        # print("\n num x ",num_new.x)
-        # print("\n num y ",num.y)
-        # print("\n num y ",num_new.y)
+    
 
         global num = num_new
 
@@ -497,21 +283,38 @@ for timestep in timesteps
         #gp, gu, gv = init_meshes(num) does not work for eval(Meta.parseall(macros.boundaries))
         global op, phS, phL = init_fields(num, gp, gu, gv)
 
-        gp.LS[1].u .= 1.0 #deactivate interface
+        gp.LS[1].u .= 1.0 # deactivate interface
 
-        # Init fields
+		
+		# ------------------------------------------------------------
+        # EVALUATION DYNAMIQUE (Macros & BC)
+        # ------------------------------------------------------------
+        # 1. On exécute TOUTES les macros pour créer les variables dans Main
         eval(Meta.parseall(macros.init_fields))
 
         # Define boundary conditions
         eval(Meta.parseall(macros.boundaries))
+        eval(Meta.parseall(macros.interface)) # <--- DÉPLACÉ ICI (IMPORTANT)
 
+        # 2. Capture des BC dans un dictionnaire pour éviter le "World Age Problem"
+        bc_dict = Dict{Symbol, Any}()
+        bc_symbols = [:BC_uL, :BC_uS, :BC_vL, :BC_vS, :BC_pL, :BC_pS, :BC_u, :BC_int, :BC_trans_scal, :BC_phi_ele]
+        
+        for sym in bc_symbols
+            if isdefined(Main, sym)
+                bc_dict[sym] = getfield(Main, sym)
+            else
+                # Si la variable n'est pas définie, on ne l'ajoute pas au dict.
+                # Cela laissera run_forward! utiliser sa valeur par défaut (si elle existe)
+                # ou plantera avec une erreur plus claire si elle est obligatoire.
+            end
+        end
+        # ------------------------------------------------------------
 
-        if num.io_pdi>0
-
-
+        if num.io_pdi > 0
             # Send meta-data to PDI
-            nx=gp.nx
-            ny=gp.ny
+            nx = gp.nx
+            ny = gp.ny
             
             try
                 local PDI_status = @ccall "libpdi".PDI_multi_expose("init_PDI"::Cstring, 
@@ -545,45 +348,6 @@ for timestep in timesteps
 
         # Define interfaces (for bubbles, drops...)
         eval(Meta.parseall(macros.interface))
-
-        # if sim.activate_interface == 1
-
-        #     gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
-        
-        #     #modify velocity field near interface
-        #     su = sqrt.((gv.x .- phys.intfc_x).^2 .+ (gv.y .- phys.intfc_y).^2)
-        #     R1 = phys.radius + 3.0*num.Δ
-
-        #     bl = 4.0
-        #     for II in gv.ind.all_indices
-        #         if su[II] <= R1
-        #             phL.v[II] = 0.0
-        #         # elseif su[II] > R1
-        #         #     uL[II] = tanh(bl*(su[II]-R1))
-        #         end
-        #     end
-
-        # elseif sim.activate_interface == -1
-        #     gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
-        #     gp.LS[1].u .*= -1.0
-
-        # else
-        #     gp.LS[1].u .= 1.0
-        # end
-
-        # test_LS(gp)
-
-        # Create segments from interface
-        # x,y,field,connectivities,num_vtx = convert_interfacial_D_to_segments(num,gp,phL.T,1)
-        # print("\n number of interface points ", num_vtx)
-        # # print("\n x",x)
-        # # print("\n x",y)
-        # # print("\n x",field)
-        # print("\n x",connectivities)
-        # print("\n x",num_vtx)
-
-        # printstyled(color=:green, @sprintf "\n Initialisation0 \n")
-        # print_electrolysis_statistics(num,gp,phL)
 
 
         if sim.time_scheme == "FE"
@@ -741,60 +505,15 @@ for timestep in timesteps
         "dcap_4"::Cstring, gp.LS[iLSpdi].geoS.dcap[:,:,4]::Ptr{Cdouble}, PDI_OUT::Cint, #geoS for bubble phase
         C_NULL::Ptr{Cvoid})::Cint
 
-        # if num.io_pdi>0
-        #     iLSpdi = 1 # TODO all grid.LS                
-        #     PDI_status = @ccall "libpdi".PDI_multi_expose("write_capacities"::Cstring,                    
-        #     "dcap"::Cstring, permutedims(gp.LS[iLSpdi].geoL.dcap, (3, 1, 2))::Ptr{Cdouble}, PDI_OUT::Cint,                            
-        #     C_NULL::Ptr{Cvoid})::Cint 
-        #     # try                            
-        #     #     iLSpdi = 1 # TODO all grid.LS                
-        #     #     PDI_status = @ccall "libpdi".PDI_multi_expose("write_capacities"::Cstring,                    
-        #     #     "dcap"::Cstring, gp.LS[iLSpdi].geoL.dcap'::Ptr{Cdouble}, PDI_OUT::Cint,                            
-        #     #     C_NULL::Ptr{Cvoid})::Cint                           
-        #     # catch error
-        #     #     printstyled(color=:red, @sprintf "\n PDI error \n")
-        #     #     print(error)
-        #     #     printstyled(color=:red, @sprintf "\n PDI error \n")
-        #     # end
-        # end #if io_pdi
-        # printstyled(color=:red, @sprintf "\n after pdi \n")
-
-        # printstyled(color=:red, @sprintf "\n before run_forward \n")
-
-        # print("\n BC_uL ",BC_uL)
-
-        run_forward!(
-            num, gp, gu, gv, op, phS, phL;
-            periodic_x = (sim.periodic_x == 1),
-            periodic_y = (sim.periodic_y == 1),
-            BC_uL = BC_uL,
-            BC_uS=BC_uS,
-            BC_vL = BC_vL,
-            BC_vS=BC_vS,
-            BC_pL = BC_pL,
-            BC_pS=BC_pS,
-            BC_u = BC_u,
-            BC_int = BC_int,
-            BC_trans_scal=BC_trans_scal,
-            BC_phi_ele = BC_phi_ele,
-            auto_reinit = sim.auto_reinit,
-            time_scheme = time_scheme,
-            electrolysis = true,
-            navier_stokes = true,
-            ns_advection = (sim.ns_advection ==1),
-            ns_liquid_phase = (sim.solve_Navier_Stokes_liquid_phase == 1),
-            verbose = true,
-            show_every = sim.show_every,
-            electrolysis_convection = (sim.electrolysis_convection ==1),  
-            electrolysis_liquid_phase = true,
-            electrolysis_phase_change_case = sim.electrolysis_phase_change_case,
-            imposed_velocity = sim.imposed_velocity,
-            adapt_timestep_mode = sim.adapt_timestep_mode,#1,
-            non_dimensionalize=sim.non_dimensionalize,
-            mode_2d = sim.mode_2d,
-            breakup = sim.breakup,    
+        # -----------------------------------------------------------------------------------------
+        # APPEL DU SOLVEUR via FUNCTION BARRIER + INVOKELATEST
+        # C'est ici que la correction opère : on passe le dictionnaire 'bc_dict' via invokelatest
+        # -----------------------------------------------------------------------------------------
+        @debug "Before run_forward wrapper"
+        Base.invokelatest(
+            execute_simulation_step, 
+            num, gp, gu, gv, op, phS, phL, sim, phys, time_scheme, bc_dict
         )
-
         @debug "After run"
 
 
@@ -917,17 +636,6 @@ for timestep in timesteps
                 l1_full,l2_full,linfty_full = relative_errors(phL.trans_scal[:,:,2], concentration_profile, LIQUID, gp.LS[1].geoL.cap[:,:,5], num.Δ)
             end
 
-            # error_list_l1[i] = norm_all[1]
-            # error_list_l2[i] = norm_all[2]
-            # error_list_linfty[i] = norm_all[3]
-
-            # error_list_l1_mixed[i] = norm_mixed[1]
-            # error_list_l2_mixed[i] = norm_mixed[2]
-            # error_list_linfty_mixed[i] = norm_mixed[3]
-
-            # error_list_l1_full[i] = norm_full[1]
-            # error_list_l2_full[i] = norm_full[2]
-            # error_list_linfty_full[i] = norm_full[3]
 
             error_list_l1[i] = l1
             error_list_l2[i] = l2
@@ -1038,6 +746,6 @@ end #if io.pdi>0
 printstyled(color=:red, @sprintf "\n After PDI \n")
 
 #Tests 
-if haskey(macros,"test_end")
+if haskey(macros, "test_end")
     eval(Meta.parseall(macros.test_end))
 end

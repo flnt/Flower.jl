@@ -132,11 +132,99 @@ end
 
 #endregion build BC once
 
+#region
+
+function build_init_function(code::String)
+
+    wrapped = """
+    function init_fields_from_yaml!(phL, phS, phys, gp, num, mesh)
+        $code
+        return nothing
+    end
+    """
+
+    expr = Meta.parse(wrapped)
+
+    # Evaluate at global scope
+    return eval(expr)
+end
+
+
+function build_interface_function(code::String)
+
+    wrapped = """
+    function init_interface_from_yaml!(phL, phS, phys, gp, num, mesh)
+        $code
+        return nothing
+    end
+    """
+
+    expr = Meta.parse(wrapped)
+
+    # Evaluate at global scope
+    return eval(expr)
+end
+
+
+function build_interface_function(code::String)
+
+    wrapped = """
+    function init_fields_from_yaml!(phL, phS, phys, gp, num, mesh)
+        $code
+        return nothing
+    end
+    """
+
+    expr = Meta.parse(wrapped)
+
+    # Evaluate at global scope
+    return eval(expr)
+end
+
+
+function build_test_end_function(code::String)
+
+    wrapped = """
+    function test_end_from_yaml!(phL, phS, phys, gp, num, mesh)
+        $code
+        return nothing
+    end
+    """
+
+    expr = Meta.parse(wrapped)
+
+    # Evaluate at global scope
+    return eval(expr)
+end
+
+#endregion
+
+
+
+#region define functions from YAML
 # # Define boundary conditions
 # eval(Meta.parseall(macros.boundaries))
 
 BC_CODE = macros.boundaries #Meta.parseall(macros.boundaries)
 const bc_fun = build_bc_function(BC_CODE)
+
+# eval(Meta.parseall(macros.init_fields))
+
+INIT_CODE = macros.init_fields #Meta.parseall(macros.boundaries)
+const init_fields_from_yaml! = build_init_function(INIT_CODE)
+
+# eval(Meta.parseall(macros.interface))
+INTERFACE_CODE = macros.interface #Meta.parseall(macros.boundaries)
+const init_interface_from_yaml! = build_interface_function(INTERFACE_CODE)
+
+# eval(Meta.parseall(macros.test_end))
+TEST_END_CODE = macros.interface #Meta.parseall(macros.boundaries)
+const test_end_from_yaml = build_test_end_function(TEST_END_CODE)
+
+
+
+#endregion define functions from YAML
+
 
 #region attempt at precompiling Flower modules to librairies (.so)
 # print("\n test juliac")
@@ -358,6 +446,7 @@ for timestep in timesteps
 
       
         
+        phase_change_symb = isnothing(sim.phase_change) ? "default" : Symbol(sim.phase_change)
 
         default = Numerical{Float64,Int}(
             x = scalar_mesh_x,
@@ -366,7 +455,10 @@ for timestep in timesteps
             timestep_0 = timestep,
             electrolysis_reaction_symb = Symbol(phys.electrolysis_reaction),
             bulk_velocity_symb = Symbol(phys.bulk_velocity),
-            )  # construct default parametric instance with x otherwise L0 and ... not defined in the same way
+            phase_change_symb = phase_change_symb,
+            )  
+        # construct default parametric instance with x otherwise L0 and ... not defined in the same way
+
 
 
         # global num_new = safefill_with_aliases(Numerical{Float64, Int}, sim, phys, io,aliases)
@@ -539,7 +631,8 @@ for timestep in timesteps
         gp.LS[1].u .= 1.0 #deactivate interface
 
         # Init fields
-        eval(Meta.parseall(macros.init_fields))
+        # eval(Meta.parseall(macros.init_fields))
+        init_fields_from_yaml!(phL, phS, phys, gp, num, mesh)
 
         # # Define boundary conditions
         # eval(Meta.parseall(macros.boundaries))
@@ -597,7 +690,8 @@ for timestep in timesteps
 
 
         # Define interfaces (for bubbles, drops...)
-        eval(Meta.parseall(macros.interface))
+        # eval(Meta.parseall(macros.interface))
+        init_interface_from_yaml!(phL, phS, phys, gp, num, mesh)
 
         # if sim.activate_interface == 1
 
@@ -1092,5 +1186,6 @@ printstyled(color=:red, @sprintf "\n After PDI \n")
 
 #Tests 
 if haskey(macros,"test_end")
-    eval(Meta.parseall(macros.test_end))
+    # eval(Meta.parseall(macros.test_end))
+    test_end_from_yaml!(phL, phS, phys, gp, num, mesh)
 end

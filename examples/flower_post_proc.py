@@ -36,14 +36,19 @@ parser.add_argument(
     help="Skip processing if the output figure already exists"
 )
 parser.add_argument(
-    "--skip-first-h5",
-    action="store_true",
-    help="Skip processing if the output figure already exists"
+    "--skiph5",
+    nargs="+",          # one or more .h5 files
+    help="Skip"
 )
 parser.add_argument(
     "--name",
     nargs="+",          # one or more figure names
     help="List of figures to process (for example plot only pressure_zoom defined in .yml in figures section and skip all others)"
+)
+parser.add_argument(
+    "--dark",
+    action="store_true",
+    help=""
 )
 args = parser.parse_args()
 
