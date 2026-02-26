@@ -81,6 +81,10 @@ print("\n number of points ", nb_grid_points, "\n")
 #timestep convergence
 timesteps = study.timesteps
 
+save_step_list = study.save_step
+save_step_scalar_list = study.save_step_scalar
+
+
 #endregion study parameters
 
 io = PropertyDict(prop_dict.plot) 
@@ -155,7 +159,7 @@ cell_volume_list = zeros(n_cases)
 base_directory = pwd()
 
 #region timestep convergence
-for timestep in timesteps
+for (i_timestep,timestep) in enumerate(timesteps)
     
     print("\n Timestep ",timestep)
     timestep_to_string = @sprintf "timestep_%.4e" timestep
@@ -165,6 +169,12 @@ for timestep in timesteps
 
     mkpath(timestep_to_string)
     cd(timestep_to_string)
+
+    
+    save_step = save_step_list[i_timestep]
+    save_step_scalar = save_step_scalar_list[i_timestep]
+
+    print("\n Save steps ",save_step," scalar ",save_step_scalar)
 
     # print("\n pwd() ",pwd())
 
@@ -329,6 +339,8 @@ for timestep in timesteps
                         "nstep"::Cstring, num.current_iter::Ref{Clonglong}, PDI_OUT::Cint,
                         "nb_Navier_slip_BC"::Cstring, num.nNavier::Ref{Clonglong}, PDI_OUT::Cint,
                         "timestep"::Cstring, timestep::Ref{Cdouble}, PDI_OUT::Cint,
+                        "save_step"::Cstring, save_step::Ref{Clonglong}, PDI_OUT::Cint,
+                        "save_step_scalar"::Cstring, save_step_scalar::Ref{Clonglong}, PDI_OUT::Cint,
                         C_NULL::Ptr{Cvoid})::Cint
 
             catch error

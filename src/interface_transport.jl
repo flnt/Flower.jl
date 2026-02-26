@@ -803,12 +803,42 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
 
                         # if num.advection_LS_mode == 16
 
+                        # min, max, average normal velocity from mass transfer
+                        mass_transfer_contrib_interface_min,mass_transfer_contrib_interface_max,mass_transfer_contrib_interface_average = compute_interface_average(num,grid_p.V,grid_p,iLS)
+
+                        normal_bulk_velocity_interface_min = Inf
+                        normal_bulk_velocity_interface_max = -Inf
+                        normal_bulk_velocity_interface_average = 0.0
+                        count = 0
+
                         # grid_p.V not reset to zero to keep phase change contribution
                         @inbounds @threads for II in grid_p.LS[iLS].MIXED
-                            grid_p.V[II] += compute_normal_component_of_velocity(num,grid_u, grid_v, grid_u.V, grid_v.V, grid_p, iLS, II)
-                            # grid_p.V[II] += compute_normal_component_of_velocity(num,grid_u, grid_v, u_extended, v_extended, grid_p, iLS, II)
-
+                            normal_component_of_velocity = compute_normal_component_of_velocity(num,grid_u, grid_v, grid_u.V, grid_v.V, grid_p, iLS, II)
+                            grid_p.V[II] += normal_component_of_velocity
+                            # Update min, max, and sum
+                            normal_bulk_velocity_interface_min = min(normal_bulk_velocity_interface_min, normal_component_of_velocity)
+                            normal_bulk_velocity_interface_max = max(normal_bulk_velocity_interface_max, normal_component_of_velocity)
+                            normal_bulk_velocity_interface_average += normal_component_of_velocity
+                            count += 1
                         end
+
+                        if count == 0
+                            println("\nNo interface cells found, no stats computed for phase change")
+                        else
+                            normal_bulk_velocity_interface_average /= count
+                        end
+
+                        PDI_status = @ccall "libpdi".PDI_multi_expose("write_phase_change_statistics"::Cstring,
+                        "normal_bulk_velocity_interface_min"::Cstring, normal_bulk_velocity_interface_min::Ref{Cdouble}, PDI_OUT::Cint,
+                        "normal_bulk_velocity_interface_max"::Cstring, normal_bulk_velocity_interface_max::Ref{Cdouble}, PDI_OUT::Cint,
+                        "normal_bulk_velocity_interface_average"::Cstring, normal_bulk_velocity_interface_average::Ref{Cdouble}, PDI_OUT::Cint,
+                        "mass_transfer_contrib_interface_min"::Cstring, mass_transfer_contrib_interface_min::Ref{Cdouble}, PDI_OUT::Cint,
+                        "mass_transfer_contrib_interface_max"::Cstring, mass_transfer_contrib_interface_max::Ref{Cdouble}, PDI_OUT::Cint,
+                        "mass_transfer_contrib_interface_average"::Cstring, mass_transfer_contrib_interface_average::Ref{Cdouble}, PDI_OUT::Cint,
+                        C_NULL::Ptr{Cvoid})::Cint
+
+
+
                         # end
 
                         # gridp.V .+= interp

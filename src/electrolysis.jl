@@ -1630,6 +1630,8 @@ function compute_phase_change_velocity_electrolysis!(num, grid_p, grid_u, grid_v
     periodic_x, periodic_y, average_velocity, concentration_scalD, concentration_scal, diffusion_coeff_scal,concentration_scal_intfc, 
     electrolysis_phase_change_case,mass_transfer_rate,mass_transfer_rate_redistributed,nb_gaz_acceptors,volume_fraction,interface_length)
 
+    not_fixed_mass_transfer = !(num.phase_change_method in [5, 6, 7])
+
 
     grid_p.V .= 0
     v_mean = 0.0
@@ -1744,47 +1746,50 @@ function compute_phase_change_velocity_electrolysis!(num, grid_p, grid_u, grid_v
                     #region compare grad
                     
                     dTL = 0.0
-                    # print("\n II ",II," flag ",grid_p.LS[iLS].geoL.projection[II].flag)
-                    if grid_p.LS[iLS].geoL.projection[II].flag
-                        T_1, T_2 = interpolated_temperature(grid_p, grid_p.LS[iLS].geoL.projection[II].angle, grid_p.LS[iLS].geoL.projection[II].point1, grid_p.LS[iLS].geoL.projection[II].point2, concentration_scal, II, periodic_x, periodic_y)
-                        dTL = normal_gradient(grid_p.LS[iLS].geoL.projection[II].d1, grid_p.LS[iLS].geoL.projection[II].d2, T_1, T_2, concentration_scal_intfc)
-                    
-                        # printstyled(color=:cyan, @sprintf "\n interface_length_cell %.2e T1 %.2e T2 %.2e \n" interface_length_cell T_1 T_2 )
+                    if not_fixed_mass_transfer
+                        # print("\n II ",II," flag ",grid_p.LS[iLS].geoL.projection[II].flag)
+                        if grid_p.LS[iLS].geoL.projection[II].flag 
+                            T_1, T_2 = interpolated_temperature(grid_p, grid_p.LS[iLS].geoL.projection[II].angle, 
+                            grid_p.LS[iLS].geoL.projection[II].point1, grid_p.LS[iLS].geoL.projection[II].point2, concentration_scal, II, periodic_x, periodic_y)
+                            dTL = normal_gradient(grid_p.LS[iLS].geoL.projection[II].d1, grid_p.LS[iLS].geoL.projection[II].d2, T_1, T_2, concentration_scal_intfc)
+                        
+                            # printstyled(color=:cyan, @sprintf "\n interface_length_cell %.2e T1 %.2e T2 %.2e \n" interface_length_cell T_1 T_2 )
 
-                        if isnan(T_2)
-                            printstyled(color=:red, @sprintf "\n T2 NaN, resorting to other method \n")
-                            print("\n P2 ",grid_p.LS[iLS].geoL.projection[II].point2)
+                            if isnan(T_2)
+                                printstyled(color=:red, @sprintf "\n T2 NaN, resorting to other method \n")
+                                print("\n P2 ",grid_p.LS[iLS].geoL.projection[II].point2)
 
 
+                                T_1 = interpolated_temperature(grid_p, grid_p.LS[iLS].geoL.projection[II].angle, grid_p.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
+                                dTL = normal_gradient(grid_p.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
+                            end
+
+                            if isnan(T_1) || isnan(T_2) #debug
+                                printstyled(color=:red, @sprintf "\n T1 or T2 NaN, debug \n")
+
+                                print("\n II ",II," flag ",grid_p.LS[iLS].geoL.projection[II].flag)
+
+                                vtx_num = 2                
+                                vtx_x = [grid_p.LS[iLS].geoL.projection[II].point1.x,grid_p.LS[iLS].geoL.projection[II].point2.x]
+                                vtx_y = [grid_p.LS[iLS].geoL.projection[II].point1.y,grid_p.LS[iLS].geoL.projection[II].point2.y]
+
+                                PDI_status = @ccall "libpdi".PDI_multi_expose("debug_phase_change"::Cstring,
+                                "vtx_num"::Cstring, vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
+                                "vtx_x"::Cstring, vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                                "vtx_y"::Cstring, vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
+                                C_NULL::Ptr{Cvoid})::Cint
+
+                                return 1
+                                
+                            end
+
+                        else
                             T_1 = interpolated_temperature(grid_p, grid_p.LS[iLS].geoL.projection[II].angle, grid_p.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
                             dTL = normal_gradient(grid_p.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
                         end
+                        grad_JC[II] = dTL
+                    end #if  not_fixed_mass_transfer
 
-                        if isnan(T_1) || isnan(T_2) #debug
-                            printstyled(color=:red, @sprintf "\n T1 or T2 NaN, debug \n")
-
-                            print("\n II ",II," flag ",grid_p.LS[iLS].geoL.projection[II].flag)
-
-                            vtx_num = 2                
-                            vtx_x = [grid_p.LS[iLS].geoL.projection[II].point1.x,grid_p.LS[iLS].geoL.projection[II].point2.x]
-                            vtx_y = [grid_p.LS[iLS].geoL.projection[II].point1.y,grid_p.LS[iLS].geoL.projection[II].point2.y]
-
-                            PDI_status = @ccall "libpdi".PDI_multi_expose("debug_phase_change"::Cstring,
-                            "vtx_num"::Cstring, vtx_num::Ref{Clonglong}, PDI_OUT::Cint, 
-                            "vtx_x"::Cstring, vtx_x::Ptr{Cdouble}, PDI_OUT::Cint,
-                            "vtx_y"::Cstring, vtx_y::Ptr{Cdouble}, PDI_OUT::Cint,
-                            C_NULL::Ptr{Cvoid})::Cint
-
-                            return 1
-                            
-                        end
-
-                    else
-                        T_1 = interpolated_temperature(grid_p, grid_p.LS[iLS].geoL.projection[II].angle, grid_p.LS[iLS].geoL.projection[II].point1, concentration_scal, II, periodic_x, periodic_y)
-                        dTL = normal_gradient(grid_p.LS[iLS].geoL.projection[II].d1, T_1, concentration_scal_intfc)
-                    end
-
-                    grad_JC[II] = dTL
                     # grid_p.V[II] = dTL #+ dTS
                     # printstyled(color=:cyan, @sprintf "\n v %.2e v from int %.2e %.2e %.2e\n" grid_p.V[II] dTL*factor_velocity T_1 concentration_scal_intfc)
                     # 
@@ -1843,9 +1848,13 @@ function compute_phase_change_velocity_electrolysis!(num, grid_p, grid_u, grid_v
                         "interface_length"::Cstring, interface_length::Ptr{Cdouble}, PDI_OUT::Cint,
                         C_NULL::Ptr{Cvoid})::Cint
 
-    PDI_status = @ccall "libpdi".PDI_multi_expose("write_mass_transfer_rate_JC"::Cstring,
-    "mass_transfer_rate_JC"::Cstring, grad_JC::Ptr{Cdouble}, PDI_OUT::Cint,
-    C_NULL::Ptr{Cvoid})::Cint
+    if not_fixed_mass_transfer
+
+        PDI_status = @ccall "libpdi".PDI_multi_expose("write_mass_transfer_rate_JC"::Cstring,
+        "mass_transfer_rate_JC"::Cstring, grad_JC::Ptr{Cdouble}, PDI_OUT::Cint,
+        C_NULL::Ptr{Cvoid})::Cint
+
+    end
 
 
     # @ccall "libpdi".PDI_multi_expose("write_mass_transfer_rate_only"::Cstring,

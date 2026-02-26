@@ -308,8 +308,11 @@ function run_forward!(
             u_ext_vel = zeros(grid_u)
             v_ext_vel= zeros(grid_v)
         else
-            u_ext_vel = nothing
-            v_ext_vel= nothing
+            # u_ext_vel = nothing
+            # v_ext_vel = nothing
+            #for plotting Stefan velocity
+            u_ext_vel = zeros(grid_u)
+            v_ext_vel= zeros(grid_v)
         end
 
     end
@@ -2474,11 +2477,11 @@ function run_forward!(
 
                     printstyled(color=:magenta, @sprintf "\n NS\n")
 
-                    PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction_extended"::Cstring,
-                    "uD_ext_vel"::Cstring, uD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
-                    "vD_ext_vel"::Cstring, vD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
-                    "pD_ext_vel"::Cstring, pD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
-                    C_NULL::Ptr{Cvoid})::Cint
+                    # PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction_extended"::Cstring,
+                    # "uD_ext_vel"::Cstring, uD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
+                    # "vD_ext_vel"::Cstring, vD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
+                    # "pD_ext_vel"::Cstring, pD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
+                    # C_NULL::Ptr{Cvoid})::Cint
 
 
                     Lpm1_L, bc_Lpm1_L, bc_Lpm1_b_L, Lum1_L, bc_Lum1_L, bc_Lum1_b_L,
@@ -2534,38 +2537,38 @@ function run_forward!(
                         # Mum1_L = copy(op.opC_uL.M)
                         # Mvm1_L = copy(op.opC_vL.M)
 
-                        printstyled(color=:magenta, @sprintf "\n before NS u extended print \n")
+                        # printstyled(color=:magenta, @sprintf "\n before NS u extended print \n")
 
-                        PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction_extended"::Cstring,
-                        "uD_ext_vel"::Cstring, uD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "vD_ext_vel"::Cstring, vD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "pD_ext_vel"::Cstring, pD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
-                        C_NULL::Ptr{Cvoid})::Cint
+                        # PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction_extended"::Cstring,
+                        # "uD_ext_vel"::Cstring, uD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "vD_ext_vel"::Cstring, vD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "pD_ext_vel"::Cstring, pD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # C_NULL::Ptr{Cvoid})::Cint
 
 
-                        PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction_extended"::Cstring,
-                        "uD_ext_vel"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "vD_ext_vel"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "pD_ext_vel"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-                        C_NULL::Ptr{Cvoid})::Cint
+                        # PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction_extended"::Cstring,
+                        # "uD_ext_vel"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "vD_ext_vel"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "pD_ext_vel"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # C_NULL::Ptr{Cvoid})::Cint
                         
-                        printstyled(color=:magenta, @sprintf "\n before NS u extended print \n")
+                        # printstyled(color=:magenta, @sprintf "\n before NS u extended print \n")
 
-                        PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction"::Cstring,
-                        "u_1D"::Cstring, uD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "v_1D"::Cstring, vD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "p_1D"::Cstring, pD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
-                        C_NULL::Ptr{Cvoid})::Cint
+                        # PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction"::Cstring,
+                        # "u_1D"::Cstring, uD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "v_1D"::Cstring, vD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "p_1D"::Cstring, pD_ext_vel::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # C_NULL::Ptr{Cvoid})::Cint
 
-                        PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction"::Cstring,
-                        "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
-                        "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
-                        C_NULL::Ptr{Cvoid})::Cint
+                        # PDI_status = @ccall "libpdi".PDI_multi_expose("print_before_prediction"::Cstring,
+                        # "u_1D"::Cstring, phL.uD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "v_1D"::Cstring, phL.vD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # "p_1D"::Cstring, phL.pD::Ptr{Cdouble}, PDI_OUT::Cint,
+                        # C_NULL::Ptr{Cvoid})::Cint
 
-                        print("\n min max u ext", minimum(uD_ext_vel)," max",maximum(uD_ext_vel))
-                        print("\n min max u ext", minimum(vD_ext_vel),maximum(vD_ext_vel))
-                        print("\n min max u ext", minimum(pD_ext_vel),maximum(pD_ext_vel))
+                        # print("\n min max u ext", minimum(uD_ext_vel)," max",maximum(uD_ext_vel))
+                        # print("\n min max u ext", minimum(vD_ext_vel),maximum(vD_ext_vel))
+                        # print("\n min max u ext", minimum(pD_ext_vel),maximum(pD_ext_vel))
 
                         printstyled(color=:magenta, @sprintf "\n before NS u extended\n")
 

@@ -14,7 +14,7 @@ import matplotlib.transforms as transforms
 from matplotlib.ticker import MaxNLocator
 import matplotlib.ticker as mticker
 import pathlib
-
+from collections import Counter
 
 # import numpy as np
 from scipy.stats import pearsonr
@@ -595,7 +595,16 @@ def plot_schematics_func():
    for theme in plotpar['themes']:
 
       print(colored('Theme : '+theme,'green'))
+      
+    #   print(' figpar methods',figpar['methods'])
 
+    #   if 'methods' in figpar:
+    #     print(colored('Reset errors : '+theme,'green'))
+        
+    #     print(' figpar methods',figpar['methods'])
+
+    #     figpar['methods'] = {}
+    #     print(' figpar methods',figpar['methods'])
 
       if theme == 'light':
          plotpar['text_color'] = 'k'
@@ -854,6 +863,43 @@ def plot_convergence_study_func(yaml_file, args):
 
             print(colored('Theme : '+theme,'green'))
 
+            # print(' figpar methods',figpar['methods'])
+
+            figpar['methods'] = {}
+
+            def get_method(label):
+                return (
+                    'DPV' if 'cipriano' in label else
+                    'Stefan' if 'Stefan' in label else
+                    'redist' if 'redist' in label else ''
+                )
+
+            methods = [get_method(f) for f in h5_files_tmp]
+            print('methods', methods)
+            total = Counter(methods)
+            figpar['methods']['total'] = total
+            print('total',total)
+            seen = Counter()
+            figpar['methods']['seen'] = seen
+
+            # for file in h5_files_tmp:
+            #     print('file',file)
+            #     label2 = file
+            #     method2 = get_method(label2)
+
+            #     seen[method2] += 1
+            #     if seen[method2] < total[method2]:
+            #         label2 = ''
+            #     print('label',label2)
+
+            # if 'methods' in figpar:
+            #     # print(colored('Reset errors : '+theme,'green'))
+                
+            #     # print(' figpar methods',figpar['methods'])
+
+            #     figpar['methods'] = {}
+            #     # print(' figpar methods',figpar['methods'])
+
 
             if theme == 'light':
                plotpar['text_color'] = 'k'
@@ -878,6 +924,7 @@ def plot_convergence_study_func(yaml_file, args):
             )
       except:
          print(colored('Failed '+figpar['file'], "red"))   
+        #  print('files failed ',files)
          raise # was: pass
 
 
@@ -1231,35 +1278,35 @@ def plot_convergence_func(
 
 
 
-   if 'logplot' in figpar.keys():
+#    if 'logplot' in figpar.keys():
      
-      xls = figpar['x_list']
-      yls = figpar['error_list']
+#       xls = figpar['x_list']
+#       yls = figpar['error_list']
 
-      q_values = []
-      n = len(yls)
+#       q_values = []
+#       n = len(yls)
 
-      for k in range(2, n-1):
+#       for k in range(2, n-1):
      
-         # Calculate the numerator and denominator
-         numerator = (yls[k+1] - yls[k]) / (yls[k] - yls[k-1])
-         denominator = (yls[k] - yls[k-1]) / (yls[k-1] - yls[k-2])
+#          # Calculate the numerator and denominator
+#          numerator = (yls[k+1] - yls[k]) / (yls[k] - yls[k-1])
+#          denominator = (yls[k] - yls[k-1]) / (yls[k-1] - yls[k-2])
 
-         # Compute q
-         q = np.log(abs(numerator)) / np.log(abs(denominator))
-         print(k,'order',q)
-         q_values.append(q)
+#          # Compute q
+#          q = np.log(abs(numerator)) / np.log(abs(denominator))
+#          print(k,'order',q)
+#          q_values.append(q)
       
-      print(colored(q_values,'red'))
+#       print(colored(q_values,'red'))
 
-      xls = xls[figpar['slope_start']:figpar['slope_stop']]
-      yls = yls[figpar['slope_start']:figpar['slope_stop']]
+#       xls = xls[figpar['slope_start']:figpar['slope_stop']]
+#       yls = yls[figpar['slope_start']:figpar['slope_stop']]
 
-      print(xls)
-      print(yls)
+#       print(xls)
+#       print(yls)
 
-      for j,yelem in enumerate(yls):
-         print(yelem**2)
+#       for j,yelem in enumerate(yls):
+#          print(yelem**2)
 
       # if plot_slope:
       #    slope_and_correlation = [0,0]
@@ -1760,77 +1807,219 @@ def plot_convergence_func_new_ax(
    # plt.close("all")
 
 
-def compute_slope_figpar(ax, xls, yls, plotpar, figpar, plot_text=True, logslope=True):
-   #  print('compute_slope')
-   #  print(xls)
-   #  print(yls)
+# def compute_slope_figpar(ax, xls, yls, plotpar, figpar, plot_text=True, logslope=True):
+#    #  print('compute_slope')
+#    #  print(xls)
+#    #  print(yls)
 
-    if logslope:
-        X_mean1 = np.mean(xls)
-        Y_mean1 = np.mean(yls)
-        xls = np.log10(xls)
-        yls = np.log10(yls)
+#     if logslope:
+#         X_mean1 = np.mean(xls)
+#         Y_mean1 = np.mean(yls)
+#         xls = np.log10(xls)
+#         yls = np.log10(yls)
 
-    X_mean = np.mean(xls)
-    Y_mean = np.mean(yls)
-    X_min = np.min(xls)
-    Y_min = np.min(yls)
-    X_max = np.max(xls)
-    Y_max = np.max(yls)
+#     X_mean = np.mean(xls)
+#     Y_mean = np.mean(yls)
+#     X_min = np.min(xls)
+#     Y_min = np.min(yls)
+#     X_max = np.max(xls)
+#     Y_max = np.max(yls)
 
-    num = sum((xls[i] - X_mean) * (yls[i] - Y_mean) for i in range(len(xls)))
-    den = sum((xls[i] - X_mean) ** 2 for i in range(len(xls)))
-    m = num / den
-    c = Y_mean - m * X_mean
+#     num = sum((xls[i] - X_mean) * (yls[i] - Y_mean) for i in range(len(xls)))
+#     den = sum((xls[i] - X_mean) ** 2 for i in range(len(xls)))
+#     m = num / den
+#     c = Y_mean - m * X_mean
 
-    Y_pred = m * xls + c
+#     Y_pred = m * xls + c
 
-    rms = np.linalg.norm(yls - Y_pred, ord=2)
-    rmsx = np.linalg.norm(xls - X_mean, ord=2)
-    rmsy = np.linalg.norm(yls - Y_mean, ord=2)
+#     rms = np.linalg.norm(yls - Y_pred, ord=2)
+#     rmsx = np.linalg.norm(xls - X_mean, ord=2)
+#     rmsy = np.linalg.norm(yls - Y_mean, ord=2)
 
-    corr = num / (rmsx * rmsy)
-    R2 = corr
+#     corr = num / (rmsx * rmsy)
+#     R2 = corr
 
-    plot_line = False
-   #  if plot_line:
-    if logslope:
-        line1, = ax.plot([10 ** (min(xls)), 10 ** (max(xls))], [10 ** (min(Y_pred)), 10 ** (max(Y_pred))],
-                         color=get_value_from_dicts('slope_color',figpar,plotpar), 
-                         alpha=get_value_from_dicts('slope_alpha',figpar,plotpar))
-        xy = (X_mean1, Y_mean1)
-    else:
+#     plot_line = False
+#    #  if plot_line:
+#     if logslope:
+#         line1, = ax.plot([10 ** (min(xls)), 10 ** (max(xls))], [10 ** (min(Y_pred)), 10 ** (max(Y_pred))],
+#                          color=get_value_from_dicts('slope_color',figpar,plotpar), 
+#                          alpha=get_value_from_dicts('slope_alpha',figpar,plotpar))
+#         xy = (X_mean1, Y_mean1)
+#     else:
         
-        if min(Y_pred) < 0:
-            ax.plot([X_mean, max(xls)], [X_mean * m + c, max(Y_pred)], 
-                    color=get_value_from_dicts('slope_color',figpar,plotpar), 
-                     alpha=get_value_from_dicts('slope_alpha',figpar,plotpar),
-                     lw=get_value_from_dicts('linewidth',figpar,plotpar))
+#         if min(Y_pred) < 0:
+#             ax.plot([X_mean, max(xls)], [X_mean * m + c, max(Y_pred)], 
+#                     color=get_value_from_dicts('slope_color',figpar,plotpar), 
+#                      alpha=get_value_from_dicts('slope_alpha',figpar,plotpar),
+#                      lw=get_value_from_dicts('linewidth',figpar,plotpar))
+#         else:
+#             if plot_line:
+#                # ax.plot([min(xls), max(xls)], [min(Y_pred), max(Y_pred)], 
+#                ax.plot([min(xls), max(xls)], [Y_pred[0], Y_pred[-1]], 
+#                      color=get_value_from_dicts('slope_color',figpar,plotpar),
+#                         alpha=get_value_from_dicts('slope_alpha',figpar,plotpar),
+#                      lw=get_value_from_dicts('linewidth',figpar,plotpar))
+
+
+#         xy = (X_mean, Y_mean)
+
+#     text = 'Slope={:.2g}\nR²={:.2g}'.format(float(m), float(corr))
+#     text_one_line = 'Slope={:.2g} R²={:.2g}'.format(float(m), float(corr))
+
+#     if plot_text:
+#         ax.annotate(text=text, xy=xy, ha='left', va='top',color=plotpar['text_color'])
+
+#    #  print(colored('test' + str(m), 'red'))
+#     print('least-squares', m, c, corr)
+#     print('alpha',get_value_from_dicts('slope_alpha',figpar,plotpar))
+#    #  print(min(Y_pred), max(Y_pred), Y_min, Y_max, 10 ** (min(xls)), 10 ** (max(xls)))
+#    #  slopes[0:2] = [m, R2]
+
+#    #  print('return test', slopes)
+#     return ax,text,text_one_line,m,corr
+
+
+
+def compute_slope_figpar(ax, xls, yls, plotpar, figpar,
+                         plot_text=True, logslope=True, plot_line=False):
+    """
+    Compute least–squares slope and R² and optionally plot the fitted line.
+
+    ----------------------------------------------------------------------
+    MATHEMATICAL MODEL
+    ----------------------------------------------------------------------
+
+    Linear regression:
+
+        y = m x + c
+
+    where slope m and intercept c minimize:
+
+        Σ (y_i - (m x_i + c))²
+
+    Least–squares solution:
+
+        m = Σ[(x_i - x̄)(y_i - ȳ)] / Σ[(x_i - x̄)²]
+        c = ȳ - m x̄
+
+    Coefficient of determination:
+
+        R² = 1 - Σ(y_i - ŷ_i)² / Σ(y_i - ȳ)²
+
+    ----------------------------------------------------------------------
+    LOG–LOG MODE (logslope=True)
+    ----------------------------------------------------------------------
+
+    We fit:
+
+        log10(y) = m log10(x) + c
+
+    which corresponds to a power law:
+
+        y = 10^c * x^m
+
+    so:
+        m = power-law exponent
+        10^c = prefactor
+    ----------------------------------------------------------------------
+    """
+
+    # --- convert to numpy arrays
+    xls = np.asarray(xls, dtype=float)
+    yls = np.asarray(yls, dtype=float)
+
+    # --- log transform if requested
+    if logslope:
+        X_mean_plot = np.mean(xls)
+        Y_mean_plot = np.mean(yls)
+
+        x = np.log10(xls)
+        y = np.log10(yls)
+    else:
+        x = xls
+        y = yls
+
+    # --- means
+    x_mean = np.mean(x)
+    y_mean = np.mean(y)
+
+    # --- centered variables
+    dx = x - x_mean
+    dy = y - y_mean
+
+    # ------------------------------------------------------------------
+    # Least-squares slope:
+    # m = (dx · dy) / (dx · dx)
+    # ------------------------------------------------------------------
+    m = np.dot(dx, dy) / np.dot(dx, dx)
+
+    # intercept
+    c = y_mean - m * x_mean
+
+    # prediction
+    y_pred = m * x + c
+
+    # ------------------------------------------------------------------
+    # Coefficient of determination
+    #
+    # R² = 1 − SS_res / SS_tot
+    #
+    # SS_res = Σ(y − y_pred)²
+    # SS_tot = Σ(y − ȳ)²
+    # ------------------------------------------------------------------
+    SS_res = np.sum((y - y_pred) ** 2)
+    SS_tot = np.sum((y - y_mean) ** 2)
+    R2 = 1.0 - SS_res / SS_tot
+
+    if plot_line:
+        # ------------------------------------------------------------------
+        # Plot fitted line
+        # ------------------------------------------------------------------
+        xmin, xmax = np.min(x), np.max(x)
+
+        if logslope:
+            xx = np.array([xmin, xmax])
+            yy = m * xx + c
+
+            ax.plot(10**xx, 10**yy,
+                    color=get_value_from_dicts('slope_color', figpar, plotpar),
+                    alpha=get_value_from_dicts('slope_alpha', figpar, plotpar),
+                    lw=get_value_from_dicts('linewidth', figpar, plotpar))
+
+            xy = (X_mean_plot, Y_mean_plot)
+
         else:
-            if plot_line:
-               # ax.plot([min(xls), max(xls)], [min(Y_pred), max(Y_pred)], 
-               ax.plot([min(xls), max(xls)], [Y_pred[0], Y_pred[-1]], 
-                     color=get_value_from_dicts('slope_color',figpar,plotpar),
-                        alpha=get_value_from_dicts('slope_alpha',figpar,plotpar),
-                     lw=get_value_from_dicts('linewidth',figpar,plotpar))
+            xx = np.array([xmin, xmax])
+            yy = m * xx + c
 
+            ax.plot(xx, yy,
+                    color=get_value_from_dicts('slope_color', figpar, plotpar),
+                    alpha=get_value_from_dicts('slope_alpha', figpar, plotpar),
+                    lw=get_value_from_dicts('linewidth', figpar, plotpar))
 
-        xy = (X_mean, Y_mean)
+        xy = (x_mean, y_mean)
 
-    text = 'Slope={:.2g}\nR²={:.2g}'.format(float(m), float(corr))
+    # ------------------------------------------------------------------
+    # Annotation
+    # ------------------------------------------------------------------
+    text = f"Slope={m:.2g}\nR²={R2:.2g}"
+    text_one_line = f"Slope={m:.2g} R²={R2:.2g}"
+
     if plot_text:
-        ax.annotate(text=text, xy=xy, ha='left', va='top',color=plotpar['text_color'])
+        ax.annotate(text=text,
+                    xy=xy,
+                    ha='left',
+                    va='top',
+                    color=plotpar['text_color'])
 
-   #  print(colored('test' + str(m), 'red'))
-    print('least-squares', m, c, corr)
-    print('alpha',get_value_from_dicts('slope_alpha',figpar,plotpar))
-   #  print(min(Y_pred), max(Y_pred), Y_min, Y_max, 10 ** (min(xls)), 10 ** (max(xls)))
-   #  slopes[0:2] = [m, R2]
+    print("least-squares:", m, c, R2)
+    print("alpha:", get_value_from_dicts('slope_alpha', figpar, plotpar))
 
-   #  print('return test', slopes)
-    return ax
+    return ax, text, text_one_line, m, R2
 
-def plot_time(
+
+def plot_error(
     file,
     key,
     xp,
@@ -1850,6 +2039,8 @@ def plot_time(
 ):
    """Plot one figure for field"""
 
+   print(colored('[plot_error]','green'))
+   #    print('h5_files',h5_files)
    file_name = figpar['file']
 
    # nx = file['nx'][()]
@@ -1961,6 +2152,602 @@ def plot_time(
          
          print(colored('macro_data','red'))
          exec(get_value_from_dicts('macro_data',figpar,plotpar))
+        #  print('file values ',file)
+         nx = values['nx']
+         ny = values['ny']
+         print('nx' ,nx)
+
+
+
+         if 'macro_data2' in figpar.keys():
+            print(colored('macro_data2','red'))
+            exec(get_value_from_dicts('macro_data2',figpar,plotpar))
+
+         # exec(figpar['macro_data'])
+         varx = []
+         slice_1D = []
+         varx = varx_2
+         slice_1D = vary_2
+
+         if 'macro_method' in figpar.keys():
+            print(colored('macro_method','red'))
+            exec(get_value_from_dicts('macro_method',figpar,plotpar))
+            method = method2
+            print(colored('method '+method,'blue'))
+
+
+        #  if 'methods' not in figpar.keys():
+        #     figpar['methods'] = {}
+        
+
+
+         if method not in figpar['methods'].keys():
+
+            figpar['methods'][method]= {}
+            figpar['methods'][method]['error'] = np.array([])
+            figpar['methods'][method]['mesh'] = np.array([])
+            
+         print(colored('appending','magenta'))
+         print('figpar methods',figpar['methods'][method])
+
+         figpar['methods'][method]['error'] = np.append(figpar['methods'][method]['error'],slice_1D)
+         figpar['methods'][method]['mesh'] = np.append(figpar['methods'][method]['mesh'],varx)
+
+         print('figpar methods',figpar['methods'][method])
+      
+         # print('varx',varx)
+         # print('slice_1D',slice_1D)
+
+   
+      else:
+         if varx == 'x_1D':
+            varx = x_1D
+            print(x_1D)
+         elif varx == 'y_1D':
+            varx = y_1D
+         elif varx == 'poisson_iter':
+            varx = file['poisson_iter'][()] 
+         else:
+            varx = x_1D
+
+         vary = varxy[1]
+         data = file[vary][:]
+
+         slice_1D = eval(figpar['macro_slice'])
+
+
+
+      # print('varxy',varxy)
+      labels = get_value_from_dicts('labels',figpar,plotpar)
+      print('labels',labels)
+      label_i = r""+labels[i][1]
+
+      # label_i = r""+figpar['labels'][i][1]
+
+      
+      label1 = ''
+
+
+      ls  = eval(get_value_from_dicts('linestyles',figpar,plotpar)[i])
+
+      lw = get_value_from_dicts('linewidth',figpar,plotpar)
+
+      labelx = labels[i][0]
+
+      # labelx = figpar['labels'][i][0]
+
+      if len(figpar['var'])>1:
+         # Offset the right spine of twin2.  The ticks and label have already been
+         # placed on the right by twinx above.
+         twin2.spines.right.set_position(("axes", figpar['axis_offset']))
+
+
+      # TODO get mass center from h5 files 
+      #    time_list =[]
+      #       radius_list=[]
+      #       for h5_file_name in h5_files:
+      #           with h5py.File(h5_file_name, "r") as file:
+      #               print(file.keys())
+      #               time = file["time"][()]
+      #               radius = file["radius"][()]
+      #               print(time,radius)
+      #               time_list.append(time)
+      #               radius_list.append(radius)
+
+
+      # data= reshape_data_veci(data,nx,ny,field_index)
+      # slice_1D = data[0,:]
+
+
+      #endregion get data
+
+
+      # print('data',slice_1D)
+      try:
+         print('len data',len(slice_1D))
+      except:
+         print('one point')
+
+      # if 'macro_analytical' in figpar.keys():
+      #    exec(figpar['macro_analytical'])
+
+
+      try:
+         tick0 = list(eval(figpar['ticks'][0]))
+      except:
+         print('no ticks')
+
+      if 'logplot_x' in figpar.keys():
+         if figpar['logplot_x']:
+            ax2.set_xscale("log")
+      
+      if 'logplot_y' in figpar.keys():
+         if figpar['logplot_y']:
+            ax2.set_yscale("log")
+      
+      ax2.set_xscale("log")
+      ax2.set_yscale("log")
+
+         # print('plot log')
+
+
+
+      # print('varx',varx,len(varx))
+      # print('slice_1D',slice_1D,len(slice_1D))
+
+      # print('mesh number',figpar['iter'])
+
+
+      if 'macro_ref' in figpar.keys() and figpar['iter'] == 0:
+         print('macro_ref')
+         exec(figpar['macro_ref'])
+
+
+         # ref = eval(figpar['plot_ref'])
+         time_ref = time_ref_2
+         val_ref = val_ref_2
+         print('i test',i,get_value_from_dicts('linestyles',figpar,plotpar)[i+1],get_value_from_dicts('linestyles',figpar,plotpar)[i])
+         ax20.plot(time_ref, val_ref, 
+         # 'k',
+         plotpar['text_color'],
+         label='Reference solution',
+         ls=eval(get_value_from_dicts('linestyles',figpar,plotpar)[i+1]),
+         lw=lw)
+
+         # print('ref',ref)
+         # print('len ref',len(ref))
+
+         # print('y_1D',y_1D)
+         # print('y_1D',y_1D*scale_x)
+      
+   
+      if 'plot_ref' in figpar.keys() and figpar['iter'] == 0:
+         print('plotting ref')
+         ref = eval(figpar['plot_ref'])
+         # print('ref',ref)
+         # print(4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])))
+         # print(yml["flower"]["physics"]["v_inlet"])
+         # print((mesh["xmax"]-mesh["xmin"]))
+         print('i test',i,get_value_from_dicts('linestyles',figpar,plotpar)[i+1],get_value_from_dicts('linestyles',figpar,plotpar)[i])
+         # ls  = eval(get_value_from_dicts('linestyles',figpar,plotpar)[i+1])
+         ax20.plot(varx, ref, 
+         plotpar['text_color'],
+         label='Reference solution',
+         ls=eval(get_value_from_dicts('linestyles',figpar,plotpar)[i+1]),
+         lw=lw)
+         print('ref',ref)
+         print('len ref',len(ref))
+
+         print('y_1D',y_1D)
+         print('y_1D',y_1D*scale_x)
+
+      color1 = colors[(figpar['iter'])%len(colors)]
+      ls1=ls
+      slope_text = ''
+      if 'macro_slope' in figpar.keys():
+            exec(figpar['macro_slope'])
+            slope_text = slope_text2
+            print('slope text', slope_text)
+    
+      # print('file keys',file.keys())
+      exec( get_value_from_dicts('macro_label_linestyle_color',figpar,plotpar) )
+      label1 = label2
+      color1=color2
+      ls1=ls2
+      method = method2
+      marker = marker2
+
+      exec( get_value_from_dicts('macro_label_slope',figpar,plotpar) )
+      label1 = label2
+
+
+      # if 'macro' in figpar.keys():
+      #    # X = varx
+      #    # print(X)
+      #    # local_context = {}
+      #    exec(figpar['macro'],
+      #       #   ,globals(),
+      #       # globals(),
+      #       # # locals(), 
+      #       # local_context
+      #       )
+         
+      #    # label1 = local_context['label1']
+      #    label1 = label2
+      #    color1=color2
+      #    ls1=ls2
+   
+      #    print(label1)
+      # print(label2)
+      # print(label1)
+      # print(figpar['macro'])
+      # print(figpar)
+    #   if 'logplot' in figpar.keys():
+
+    #      ax20.scatter(x=varx, y=slice_1D, 
+    #                  #  s=10,
+    #                  #  marker='+',
+    #      #  colors[i+1], #color wrt variable
+    #      color=color1,
+    #      # cmap=cmap,
+    #      label=label1,
+    #      ls=ls1, #creates bug
+    #      lw=lw)
+
+    #      figpar['error_list'].append(slice_1D)
+    #      figpar['x_list'].append(varx)
+
+      
+
+    #   else:
+    #      p1, = ax20.plot(varx, slice_1D, 
+    #      #  colors[i+1], #color wrt variable
+    #      color1,
+    #      # cmap=cmap,
+    #      label=label1,ls=ls1,lw=lw)
+
+      ax20.scatter(x=varx, y=slice_1D, 
+                     #  s=10,
+                     #  marker='+',
+         marker=marker , #'+',
+         #  colors[i+1], #color wrt variable
+         color=color1,
+         # cmap=cmap,
+         label=label1,
+        #  ls=ls1, #creates bug
+         lw=lw,
+         )
+    
+    #   if 'methods' not in figpar.keys():
+    #     figpar['methods']= {}
+
+    #   if method not in figpar['methods'].keys():
+
+    #     figpar['methods'][method]= {}
+    #     figpar['methods'][method]['error'] = np.array([])
+    #     figpar['methods'][method]['mesh'] = np.array([])
+        
+    #   print(colored('appending','magenta'))
+    #   print('figpar',figpar['methods'][method])
+
+    #   figpar['methods'][method]['error'] = np.append(figpar['methods'][method]['error'],slice_1D)
+    #   figpar['methods'][method]['mesh'] = np.append(figpar['methods'][method]['mesh'],varx)
+
+    #   print('figpar',figpar['methods'][method])
+
+
+      # print(colored(color1,'red'))
+      # print(slice_1D)
+      # ax20.set(
+      # # xlim=(0, 2),
+      # # ylim=(0, 2),
+      # xlabel=labelx, #r""+plotpar['xlabel'],
+      # ylabel=label_i,color=plotpar['text_color'])
+
+        #  if 'macro_slope' in figpar.keys():
+        #     exec(figpar['macro_slope'])
+        #     slope_text = slope_text2
+        #     print('slope text', slope_text)
+
+      ax20.set_xlabel(labelx, color=plotpar['text_color'])   # Set xlabel color
+      ax20.set_ylabel(label_i, color=plotpar['text_color'])   # Set xlabel color
+
+         
+      handles, labels = plt.gca().get_legend_handles_labels()
+      # print('handles',handles,labels)
+      if plotpar['theme'] == 'dark':
+         if 'legend_pos' in figpar.keys():
+            plt.legend(loc=figpar['legend_pos'], 
+                        facecolor='none',       # Legend background
+                        edgecolor='white',      # Legend border
+                        labelcolor='white',     # Text color
+                        )
+         else:
+            plt.legend( facecolor='none',       # Legend background
+                        edgecolor='white',      # Legend border
+                        labelcolor='white',     # Text color
+                        )
+      else:
+         if 'legend_pos' in figpar.keys():
+               plt.legend(loc=figpar['legend_pos'], 
+                           # facecolor='black',       # Legend background
+                           # edgecolor='white',      # Legend border
+                           # labelcolor='white',     # Text color
+               )
+         else:
+            plt.legend()
+
+
+
+   # tick0 = list(eval(figpar['ticks'][0]))
+   # ax20.yaxis.set_major_locator(mticker.FixedLocator(tick0))
+   # # ax2.yaxis.set_minor_locator(mticker.FixedLocator(tick0))
+   # ax20.yaxis.set_ticks(tick0)
+
+
+   # twin1.yaxis.set_major_locator(mticker.FixedLocator(eval(figpar['ticks'][1])))
+   # twin1.yaxis.set_ticks(eval(figpar['ticks'][1]))
+
+   # twin2.yaxis.set_major_locator(mticker.FixedLocator(eval(figpar['ticks'][2])))
+
+   # twin2.yaxis.set_ticks(eval(figpar['ticks'][2]))
+
+   # ax20.set_title('Time '+r"$\SI[retain-zero-exponent=true]{{{0:.2e}}}".format(time/plotpar['scale_time'])+'{'+plotpar['unit_time']+'}$')
+
+   # ax20.yaxis.label.set_color(p1.get_color())
+   # twin1.yaxis.label.set_color(p2.get_color())
+   # twin2.yaxis.label.set_color(p3.get_color())
+
+   # twin1.spines["right"].set_color(p2.get_color())
+   # twin2.spines["right"].set_color(p3.get_color())
+
+   # ax20.set(
+   # # xlim=(0, 2),
+   # # ylim=(0, 2),
+   # xlabel=r""+plotpar['ylabel'],
+   # ylabel=label1)
+   # twin1.set(
+   #    # ylim=(0, 4), 
+   # ylabel=label2)
+   # twin2.set(
+   #    # ylim=(1, 65), 
+   # ylabel=label3)
+
+   # ax20.tick_params(axis="y", right = False, colors=p1.get_color())
+   # twin1.tick_params(axis="y", right = True, labelright = True, left = False, labelleft = False, colors=p2.get_color())
+   # twin2.tick_params(axis="y", right = True, labelright = True, left = False, labelleft = False, colors=p3.get_color())
+
+   # twin1.yaxis.set_label_position("right")
+   # twin2.yaxis.set_label_position("right")
+
+
+   
+
+
+   if plotpar['theme'] == 'dark':
+
+      # Change the color of the ticks
+      ax2.tick_params(axis='x', colors=plotpar['text_color'])  # Change x ticks color
+      ax2.tick_params(axis='y', colors=plotpar['text_color'])  # Change y ticks color
+
+      # Change the color of the splines (spines are the lines connecting the axis tick marks)
+      ax2.spines['bottom'].set_color(plotpar['text_color'])  # Change bottom spine color
+      ax2.spines['top'].set_color(plotpar['text_color'])    # Change top spine color
+      ax2.spines['left'].set_color(plotpar['text_color'])  # Change left spine color
+      ax2.spines['right'].set_color(plotpar['text_color']) # Change right spine color
+
+
+   if 'plot_legend' in figpar.keys():
+      if 'legend_pos' in figpar.keys():
+         legend_pos = figpar['legend_pos']
+         # plt.legend(loc=figpar['legend_pos'])
+      else:
+         # plt.legend()
+         legend_pos = "outside upper left"
+
+
+      from plot_flower import parse_is_true
+      if parse_is_true(figpar['plot_legend']):
+         if 'macro_analytical' in figpar.keys():
+            # print(analytical)
+            fig1.legend(
+               # handles=[p1, analytical],
+            # loc = "center left",
+            loc = legend_pos,
+            )
+         else:
+            fig1.legend(handles=[p1, p2, p3],
+            # loc = "center left",
+            loc = legend_pos,
+            )
+
+
+   ###########################################
+
+
+   # return(fig1,ax2,cbar)
+
+
+   # if mode =='first' or mode =='close':
+
+   
+   #    str_nstep = str(nstep)
+   #    plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi']) #also for film for latex display
+
+   # if mode == 'close':
+   #    # str_nstep = str(nstep)
+   #    # plt.savefig(file_name+'_'+str_nstep+ "." + plotpar["img_format"],dpi=plotpar['dpi'])
+   #    plt.close(fig1)
+   #    return
+
+   # plt.show()
+
+   # print("'ax_locator_x' in figpar.keys():",'ax_locator_x' in figpar.keys())
+   if 'ax_locator_x' in figpar.keys():
+      
+      print('get_value_from_dicts', get_value_from_dicts('ax_locator_x',figpar,plotpar))
+      ax2.xaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_x',figpar,plotpar)))
+      ax2.yaxis.set_major_locator(mticker.FixedLocator(get_value_from_dicts('ax_locator_y',figpar,plotpar)))
+
+      if get_value_from_dicts('ax_formatter_x',figpar,plotpar) != None:
+         ax2.xaxis.set_major_formatter(mticker.FixedFormatter(get_value_from_dicts('ax_formatter_x',figpar,plotpar)))
+         ax2.yaxis.set_major_formatter(mticker.FixedFormatter(get_value_from_dicts('ax_formatter_y',figpar,plotpar)))
+      # plt.savefig('test.pdf')
+   
+   if mode == 'first': 
+      if len(figpar['var'])>1:
+         ax2list = [ax2,twin1,twin2]
+      else:
+         ax2list = ax2
+      # print(mode)
+      # print(ax2list)
+      return(fig1,ax2list,cbar)    
+   else:
+      # print(ax2)
+      # print([ax20,twin1,twin2])
+      return(fig1,ax2,cbar)
+   
+
+
+def plot_time(
+    file,
+    key,
+    xp,
+    yp,
+    xu,
+    yv,
+    yml,
+    mesh,
+    time,
+    nstep,
+    plotpar,
+    figpar=None,
+    mode='close',
+    fig1=None,
+    ax2=None,
+    cbar=None,
+):
+   """Plot one figure for field"""
+
+   print(colored('[plot_time]','green'))
+   #    print('h5_files',h5_files)
+   file_name = figpar['file']
+
+   # nx = file['nx'][()]
+   # ny = file['ny'][()]
+   # ny = nx 
+
+   # nx = mesh['nx']
+   # ny = mesh['ny']
+
+   from matplotlib.colors import LinearSegmentedColormap, ListedColormap
+   cmap = ListedColormap(colors)
+
+   # print('nx',nx,ny)
+
+   # if key=="u_1D":
+   #    nx=nx+1
+   #    x_1D = xu 
+   #    y_1D = yp
+   #    key_LS = "levelset_u"
+
+   # elif key=="v_1D":
+   #    ny=ny+1
+   #    x_1D = xp
+   #    y_1D = yv 
+   #    key_LS = "levelset_v"
+
+   # else:
+   #    x_1D = xp
+   #    y_1D = yp
+   #    key_LS = "levelset_p"
+
+   # print(file.keys())
+
+   field_index = 1 #bulk
+   file_name = figpar['file']
+
+   if 'field_index' in figpar.keys():
+      field_index = figpar['field_index']
+   else:
+      field_index = 1 # bulk value
+      
+   # print(key,nstep,time,"max ",np.max(data),'min',np.min(data))
+
+   #  print('key',key)
+
+
+
+   if figpar == None:
+      figpar = plotpar
+
+   if mode == 'first':
+      ax20 = ax2
+      # print(ax20)
+      # ax20.cla()
+      if len(figpar['var'])>1:
+         twin1 = ax20.twinx()
+         twin2 = ax20.twinx()
+   else:
+      ax20 = ax2
+
+   # elif mode == 'film':
+   #    # print(ax2)
+   #    ax20,twin1,twin2 = ax2
+   #    # ax20.cla()     
+   #    if len(figpar['var'])>1:   
+   #       twin1.cla()
+   #       twin2.cla()
+   #    # twin1 = ax20.twinx()
+   #    # twin2 = ax20.twinx()
+
+   # else:
+   #    fig1,ax20 = init_fig(plotpar,figpar)
+   #    if len(figpar['var'])>1:
+   #       twin1 = ax20.twinx()
+   #       twin2 = ax20.twinx()
+
+
+
+   ###########################################
+
+
+
+   if 'plot_mode' not in figpar.keys():
+      figpar['plot_mode'] = plotpar['plot_mode']
+
+   scale_time = float(plotpar["scale_time"])
+   scale_x = float(plotpar["scale_x"])
+   cmap = plt.get_cmap(plotpar["cmap"])
+
+   # cbarlabel = plotpar["cbarlabel"]
+   isocontour = plotpar["isocontour"]
+
+   # time /= scale_time 
+   # radius /= scale_x
+
+   # fig.subplots_adjust(right=0.75)
+
+   #region get data
+
+
+
+   for i, varxy in enumerate(figpar['var']):
+
+      varx = varxy[0]
+
+      # if 'macro_data' in figpar.keys():   
+      if 'macro_data' in figpar.keys() or 'macro_data' in plotpar.keys():   
+         h5_files = file
+         
+         print(colored('macro_data','red'))
+         exec(get_value_from_dicts('macro_data',figpar,plotpar))
+        #  print('file values ',file)
+         nx = values['nx']
+         ny = values['ny']
+         print('nx' ,nx)
+
+
 
          if 'macro_data2' in figpar.keys():
             print(colored('macro_data2','red'))
@@ -2117,11 +2904,16 @@ def plot_time(
       color1 = colors[(figpar['iter'])%len(colors)]
       ls1=ls
 
+      if 'macro_slope' in figpar.keys():
+            exec(figpar['macro_slope'])
+            slope_text = slope_text2
+            print('slope text', slope_text)
       # print('file keys',file.keys())
       exec( get_value_from_dicts('macro_label_linestyle_color',figpar,plotpar) )
       label1 = label2
       color1=color2
       ls1=ls2
+      marker = marker2
       # if 'macro' in figpar.keys():
       #    # X = varx
       #    # print(X)
@@ -2147,7 +2939,7 @@ def plot_time(
 
          ax20.scatter(x=varx, y=slice_1D, 
                      #  s=10,
-                     #  marker='+',
+        # marker=marker , #'+',
          #  colors[i+1], #color wrt variable
          color=color1,
          # cmap=cmap,
@@ -2175,8 +2967,10 @@ def plot_time(
       # xlabel=labelx, #r""+plotpar['xlabel'],
       # ylabel=label_i,color=plotpar['text_color'])
 
-         if 'macro_slope' in figpar.keys():
-            exec(figpar['macro_slope'])
+        #  if 'macro_slope' in figpar.keys():
+        #     exec(figpar['macro_slope'])
+        #     slope_text = slope_text2
+        #     print('slope text', slope_text)
 
       ax20.set_xlabel(labelx, color=plotpar['text_color'])   # Set xlabel color
       ax20.set_ylabel(label_i, color=plotpar['text_color'])   # Set xlabel color

@@ -9,7 +9,9 @@ function compute_mass_transfer_rate_main!(num, grid_p, grid_u, grid_v, op, phL, 
     # print("\n electrolysis_phase_change_case ",electrolysis_phase_change_case)
     #TODO print case, quantity, ...
 
-    if electrolysis && electrolysis_phase_change_case != "None"
+    not_fixed_mass_transfer = !(num.phase_change_method in [5, 6, 7])
+
+    if electrolysis && electrolysis_phase_change_case != "None" && not_fixed_mass_transfer
         printstyled(color=:magenta, @sprintf "\n integrate_mass_transfer_rate_over_interface\n")
         
         # print("\n total_interface_length ",total_interface_length)
@@ -72,8 +74,14 @@ function compute_mass_transfer_rate_main!(num, grid_p, grid_u, grid_v, op, phL, 
 
                         #use interface_length or temp_vec_p0
 
+                        # Define the scalar array (concentration of H2 for instance) or set it to nothing if imposed mass transfer rate
+                        scalar_1D = not_fixed_mass_transfer ? phL.trans_scalD[:, num.index_phase_change] : nothing 
+                        scalar_2D = not_fixed_mass_transfer ? phL.trans_scal[:,:,num.index_phase_change] : nothing
+
                         flower_status = compute_mass_transfer_rate!(num, grid_p, grid_u, grid_v, iLS, phL.uD, phL.vD, 
-                        periodic_x, periodic_y, num.average_velocity, phL.trans_scalD[:,num.index_phase_change],phL.trans_scal[:,:,num.index_phase_change],
+                        periodic_x, periodic_y, num.average_velocity, 
+                        scalar_1D,
+                        scalar_2D,
                         num.diffusion_coeff[num.index_phase_change],num.concentration0[num.index_phase_change],
                         electrolysis_phase_change_case,mass_transfer_rate, mass_transfer_rate_redistributed,
                         nb_gaz_acceptors,volume_fraction,interface_length,total_interface_length)
@@ -99,7 +107,9 @@ function compute_mass_transfer_rate_main!(num, grid_p, grid_u, grid_v, op, phL, 
                         # end
 
                         flower_status = compute_phase_change_velocity_electrolysis!(num, grid_p, grid_u, grid_v, iLS, phL.uD, phL.vD, 
-                        periodic_x, periodic_y, num.average_velocity, phL.trans_scalD[:,num.index_phase_change],phL.trans_scal[:,:,num.index_phase_change],
+                        periodic_x, periodic_y, num.average_velocity, 
+                        scalar_1D, 
+                        scalar_2D,
                         num.diffusion_coeff[num.index_phase_change],num.concentration0[num.index_phase_change],
                         electrolysis_phase_change_case,mass_transfer_rate, mass_transfer_rate_redistributed,
                         nb_gaz_acceptors,volume_fraction,interface_length)
