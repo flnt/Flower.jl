@@ -552,7 +552,6 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
 
             #region bulk +phase-change velocity    
             elseif num.advection_LS_mode >= 13 
-                    # num.advection_LS_mode == 13 || num.advection_LS_mode == 14 || num.advection_LS_mode == 15 || num.advection_LS_mode == 16 || num.advection_LS_mode == 17
 
                 if num.time > num.nucleation_time #TODO more precisely no mass transfer but velocity 
                     
@@ -804,7 +803,11 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
                         # if num.advection_LS_mode == 16
 
                         # min, max, average normal velocity from mass transfer
-                        mass_transfer_contrib_interface_min,mass_transfer_contrib_interface_max,mass_transfer_contrib_interface_average = compute_interface_average(num,grid_p.V,grid_p,iLS)
+                        # mass_transfer_contrib_interface_min,mass_transfer_contrib_interface_max,mass_transfer_contrib_interface_average = compute_interface_average(num,grid_p.V,grid_p,0)
+
+                        mass_transfer_contrib_interface_min = Inf
+                        mass_transfer_contrib_interface_max = -Inf
+                        mass_transfer_contrib_interface_average = 0.0
 
                         normal_bulk_velocity_interface_min = Inf
                         normal_bulk_velocity_interface_max = -Inf
@@ -813,6 +816,12 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
 
                         # grid_p.V not reset to zero to keep phase change contribution
                         @inbounds @threads for II in grid_p.LS[iLS].MIXED
+                            mass_transfer_contrib_cell = grid_p.V[II]
+                            mass_transfer_contrib_interface_min = min(mass_transfer_contrib_interface_min, mass_transfer_contrib_cell)
+                            mass_transfer_contrib_interface_max = max(mass_transfer_contrib_interface_max, mass_transfer_contrib_cell)
+                            mass_transfer_contrib_interface_average += mass_transfer_contrib_cell
+                            # compute_interface_average(num,grid_p.V,grid_p,0)
+
                             normal_component_of_velocity = compute_normal_component_of_velocity(num,grid_u, grid_v, grid_u.V, grid_v.V, grid_p, iLS, II)
                             grid_p.V[II] += normal_component_of_velocity
                             # Update min, max, and sum
@@ -825,6 +834,7 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
                         if count == 0
                             println("\nNo interface cells found, no stats computed for phase change")
                         else
+                            mass_transfer_contrib_interface_average /= count
                             normal_bulk_velocity_interface_average /= count
                         end
 

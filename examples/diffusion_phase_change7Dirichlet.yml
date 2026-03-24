@@ -4,11 +4,11 @@ flower:
     alpha: &alpha 0.5
     alpha_a: 0.5
     alpha_c: 0.5
-    bulk_velocity: default
+    bulk_velocity: zero #use zero velocity in liquid phase for transport
     # Species        H2      KOH    H2O
-    concentration0_H2: &concentration0_H2 2.0e-2 #TODO 2.0e-3 #1.6e-1 #44
-    saturation_concentration_H2: &saturation_concentration_H2 2.0e-2
-    bubble_concentration: &bubble_concentration 2.0e-1
+    concentration0_H2: &concentration0_H2 0.0
+    saturation_concentration_H2: &saturation_concentration_H2 7.5e-1 #2.0e-2
+    bubble_concentration: &bubble_concentration 8.0e-2 #2.0e-1
     concentration0_KOH: &concentration0_KOH 6.7e3
     concentration0_H2O: &concentration0_H2O 4.9e4
     concentration0: [*concentration0_H2, *concentration0_KOH, *concentration0_H2O]
@@ -19,26 +19,26 @@ flower:
     #      = 1.0 #H2O consummed
     # end
     epsilon_concentration: [1e-14, 1e-14, 1e-14]
-    electrolysis_reaction: "fixed_current" #"Butler_no_concentration"
-    diffusion_coeff_H2: &diffusion_coeff_H2 7.38e-9 #5.8e-9
+    electrolysis_reaction: "none" #"Butler_no_concentration"
+    diffusion_coeff_H2: &diffusion_coeff_H2 2.0e-7 #2.0e-9 #
     diffusion_coeff_KOH: &diffusion_coeff_KOH 3.2e-9
     diffusion_coeff_H2O: &diffusion_coeff_H2O 3.2e-9
     diffusion_coeff: [*diffusion_coeff_H2, *diffusion_coeff_KOH, *diffusion_coeff_H2O]
-    end_time: 4.0 #7.3 #s
+    end_time: 7.3 #s
     current: 1000 #A
     Faraday: &Faraday 9.64853321233100184e4 #C⋅mol−1
-    Henry_H2: &Henry_H2 1
+    Henry_H2: &Henry_H2 1.203
     Henry_KOH: &Henry_KOH 0
     Henry_H2O: &Henry_H2O 0
     Henry: [*Henry_H2, *Henry_KOH, *Henry_H2O]
     i0: &i0 1.0
-    intfc_x: 5.0e-1 #1.27e-4/2 #1.5875e-4 # x coordinate of bubble center
-    intfc_y: 5.0e-1 # y coordinate of bubble center
+    intfc_x: 0.0 # x coordinate of bubble center
+    intfc_y: 0.0 # y coordinate of bubble center
     # KOHwtpercent: 30
-    ls_wall_xmin: 5.0e-6
-    mu1: 0.0 #1.0e-3 #10.0 #0.0 #6.7e-7*1258.0
-    mu2: 0.0 #1.0e-4 #1.0 #0.0
-    # cf http://basilisk.fr/sandbox/ecipriano/run/fixedfluxmac.c
+    ls_wall_xmin: &ls_wall_xmin 4.7e-2 #5.0e-4
+    mu1: 1.05e-3 #10.0 #0.0 #6.7e-7*1258.0
+    mu2: 1.46e-5 #1.0 #0.0
+
     # mu1: 5.0 #10.0 #0.0 #6.7e-7*1258.0
     # mu2: 5.0e-1 #1.0 #0.0
 
@@ -47,20 +47,21 @@ flower:
 
     mu_cin1: &mu_cin1 6.7e-7
     mu_cin2: &mu_cin2 6.7e-7 #m^2/s
-    MWH2: 2.0e-2 #2.01568e-3 #kg/mol #HACK not real property
+    MWH2: 4.4e-2 #2.01568e-3 #kg/mol #HACK not real property molar mass
     nb_levelsets: &nb_levelsets 1 #2
-    nb_transported_scalars: &nb_transported_scalars 0 #3
+    nb_transported_scalars: &nb_transported_scalars 3
     Navier_slip_length: 1.0e-2    
-    nucleation_time: -1.0 #deactivated
+    nucleation_time: 0.0
     #Electric potential
     phi_ele0: 0.0
     phi_ele1: &phi_ele1 -0.6
     pres0:  0.0 #1e5
-    radius: &radius 2.3e-1  #initial radius
+    ambiant_pressure: 1.01325e+5
+    radius: &radius 6.35e-6  #initial radius
     electrode_length: 6.35e-5
-    ref_length: 1.27e-5
-    rho1: &rho1 2.0 #1000.0 #1258.0 #liquid
-    rho2: &rho2 1.0 #500.0 #1000.0 #0.069575 #gaz #HACK not real property
+    ref_length: &ref_length 1.0e-2
+    rho1: &rho1 998 #liquid hack to take gaz rho and 0 velocity in gaz
+    rho2: &rho2  1.8  #1000.0 #0.069575 #gaz #HACK not real property
     #TODO need for 80°C, check with other study
     #"0.7016E-01" in \citet{cohnTABLETHERMODYNAMICPROPERTIES1963} H2
     # Linear interpolation between 350 and 360
@@ -69,7 +70,7 @@ flower:
     radial_vel_factor: 1.0e-7
     Ru: &Ru 8.314
     sigma: &sigma 0.0 #75.e-7 #7.5e-2 #2.45e+1 #2.45e+1 #7.7e-2 #0.0 # 
-    temperature0: &temperature0 353.0
+    temperature0: &temperature0 298.15 #353.0
     theta_e: 30 #145 #90  
     theta_adv: 120
     theta_rec: 30
@@ -91,12 +92,12 @@ flower:
     nx: 40 #128
     ny: 80 #256
     xmin: &mesh_xmin 0.0
-    xmax: &mesh_xmax 1.0 # 3.175e-4
+    xmax: &mesh_xmax 1.0e-1 #10Lref 1.0e-2
     ymin: &mesh_ymin 0.0 
-    ymax: &mesh_ymax 1.0 #3.175e-4
+    ymax: &mesh_ymax 1.0e-1
   simulation:
-    activate_interface: &activate_interface -1 #drop
-    advection_LS_mode: 16 #16 cipriano#15 #13 #13 #12 #11 #0 #9 #10:dummy adv #9 #8 #2 #5 #4 #3 #2
+    activate_interface: &activate_interface 1
+    advection_LS_mode: 16 #13 #12 #11 #0 #9 #10:dummy adv #9 #8 #2 #5 #4 #3 #2
     adapt_timestep_mode: 3 #fixed timestep
     average_liquid_solid: 0
     ns_advection: 1 #0 no advection
@@ -118,15 +119,15 @@ flower:
     electrical_potential_residual: 1.0e-10
     electrical_potential_nonlinear_solver: 1 #0 for successive substitutions #1 for Newton-Raphson
     electrolysis_phase_change_case: "levelset_averaged" #None #"levelset_averaged" #"Khalighi" #no phase change
-    phase_change: extract_Stefan_velocity
+    phase_change: Double_Pressure_Velocity_Coupling_Cipriano
     phase_change_method: 6 #6 redistributed #5 #fixed mass transfer rate 0.05 rho_l  #4
     mass_transfer_redistribute: no
     epsilon_volume_fraction_phase_change: 1.0e-6
     # electrolysis_phase_change_case: "Khalighi" #integration on whole surface to get a radius
     # electrolysis_phase_change_case: "levelset" # local
     eps: 1.0e-12 #1.0e-30 #eps for small numbers
-    epsilon: 0.0 #0.05 #0.2 #0.0 #0.05 #0.2 #cut small cells
-    epsilon_wall: 0.0 #0.05 #0.2 #0.0 #0.05 #0.2
+    epsilon: 0.05 #0.05 #0.0 #0.05 #0.2 #0.0 #0.05 #0.2 #cut small cells
+    epsilon_wall: 0.05 #0.05 #0.0 #0.05 #0.2 #0.0 #0.05 #0.2
     #if epsilon=0 centroids will be on the interface
     epsilon_mode: 2 #way to handle epsilon:
     # if num.epsilon_mode == 0
@@ -141,13 +142,12 @@ flower:
     imposed_velocity : "none" #"zero" #"none" #"zero" #"none"
     index_phase_change: 1
     index_electrolyte: 2
-    max_iter: 4000 #1 #2000 ##1000 #200 #21 #200 #2 #20 #60 #1 #60 #1 #60 #maximum number of iterations
+    max_iter: 60 #1 #60 #1 #60 #maximum number of iterations
     average_velocity: 0 #1 #0
     laplacian: 0 #1 #1 #1 #multiply by 4/3
     marching_squares_epsilon: 1.0e-9
     marching_squares_max_iter: 15
     mass_transfer_rate: 2 #1 #Johansen & Colella
-    mass_transfer_rate_imposed_value: -1.0e-1 #-5.0e-2 \times \rho_l#for liq: negative ==>liquid volume shrinks
     mode_2d: 3
     # mode_2d = 1 #use equivalent cylinder
     # mode_2d = 2 #mol/meter 
@@ -161,6 +161,8 @@ flower:
     one_fluid_normal: 1
     surface_tension: 1 # 0 for CSF from VOF, 1 for LS
     mu_one_fluid_average: 1 #0 : arithmetic #1 harmonic
+    convection: 0 #-1 #0 #-1 #deactivate convection
+    # convection_scheme: "upwind"
     smooth_VOF: 2
     periodic_x: 0
     periodic_y: 0
@@ -179,8 +181,12 @@ flower:
     restart: 0 #TODO restart with PDI
     show_every: 1
     scalar_bc: 0 #1 for multiple LS (describing wall) #0 for one LS
-    scalar_scheme: 0 #1 #0 #CN 1  #Backward Euler (implicit)
+    scalar_scheme: 1 #0 #1 #0 #CN 1  #Backward Euler (implicit)
+    scalar_transport_implementation: 0 #2 #1 #0 #1 try conv diff rewritten at interface # 2 mass_transfer_rate not included in scalar transport, 
+    # 3 also no flux for other species
     solve_Navier_Stokes_liquid_phase: 1 #1 #1 activated
+    # solve_Navier_Stokes: 0
+    # sphere_post_processing: 0
     solve_potential: 1
     solve_species: 1
     solver: 0 #2 #0 #1 #0: Julia 1: MUMPS
@@ -212,10 +218,11 @@ flower:
       phi_ele =  gp.x[:,1] .*0.0
       i_butler=butler_volmer_no_concentration.(phys.alpha_a,phys.alpha_c,phys.Faraday,phys.i0,phi_ele,phys.phi_ele1,phys.Ru,phys.temperature0)
 
+
       BC_uL = BoundariesInt(
         left   = Neumann(),
         right  = Neumann(),
-        bottom = Neumann(),
+        bottom = Dirichlet(),
         top    = Neumann(), #Neumann(val=0.0),
         int = Dirichlet(),
         LS = [Dirichlet()],
@@ -225,7 +232,7 @@ flower:
       BC_vL= BoundariesInt(
             left   = Neumann(),
             right  = Neumann(),
-            bottom = Neumann(),
+            bottom = Dirichlet(),
             top    = Neumann(),
             int = Dirichlet(),
             LS = [Dirichlet()],
@@ -250,15 +257,17 @@ flower:
         top = Dirichlet(),
         init_mode = "None",
       )  
+      #TODO check ptop 0 for p, here pcor
+      #for testing only : H2 production at top, outlet at top
 
       i_butler = -phys.current
       
       BC_phi_ele = BoundariesInt(
-      bottom   = Neumann(val=i_butler./elec_cond), #TODO -BC in Flower ? so i_butler not -i_butler
+      bottom   = Dirichlet(), #TODO -BC in Flower ? so i_butler not -i_butler
       # right  = Neumann(),
       right = Neumann(val=gp.x[:,1] .*0.0),
       left = Neumann(val=gp.x[:,1] .*0.0),
-      top    = Dirichlet(val=0.0),
+      top    = Neumann(val=i_butler./elec_cond),
       int    = Neumann(val=0.0),
       LS = [Neumann(val=0.0)]
       )
@@ -274,11 +283,18 @@ flower:
 
       # H2
       BC_trans_scal_H2 = BoundariesInt(
-      bottom = Neumann(val=-i_butler/(2*phys.Faraday*DH2)),
-      top    = Dirichlet(val = phys.concentration0[1]),
-      left   = Neumann(),
+      bottom = Neumann(),
+      top    = Dirichlet(),
+      left   = Neumann(), 
       right  = Neumann(),
-      int    = Dirichlet(val = phys.bubble_concentration))
+      int    = Dirichlet(val = phys.rho2/phys.MWH2/phys.Henry_H2))
+
+      # BC_trans_scal_H2 = BoundariesInt(
+      # bottom = Neumann(val=-i_butler/(2*phys.Faraday*DH2)),
+      # top    = Dirichlet(val = phys.concentration0[1]),
+      # left   = Neumann(),
+      # right  = Neumann(),
+      # int    = Dirichlet(val = phys.bubble_concentration))
 
       # BC_trans_scal_H2 = BoundariesInt(
       # bottom = Dirichlet(val = phys.concentration0[1]),
@@ -296,17 +312,17 @@ flower:
 
       # KOH
       BC_trans_scal_KOH = BoundariesInt(
-          top = Dirichlet(val = phys.concentration0[2]),
+          top = Neumann(val=-i_butler/(2*phys.Faraday*DKOH)),
           left    = Neumann(),
-          bottom   = Neumann(val=-i_butler/(2*phys.Faraday*DKOH)),
+          bottom   = Dirichlet(),
           right  = Neumann(),
           int    = Neumann(val=0.0))
       
       # H2O   
       BC_trans_scal_H2O = BoundariesInt(
-          top = Dirichlet(val = phys.concentration0[3]),
+          top = Neumann(val=i_butler/(phys.Faraday*DH2O)),
           left    = Neumann(),
-          bottom   = Neumann(val=i_butler/(phys.Faraday*DH2O)),
+          bottom   = Dirichlet(),
           right  = Neumann(),
           int    = Neumann(val=0.0)) 
 
@@ -420,34 +436,35 @@ flower:
 
     interface: |
 
-      # gp.LS[1].u .= gp.x .- phys.ls_wall_xmin
+      # gp.LS[1].u .= gp.x .- phys.ls_wall_xmin      
+      gp.LS[1].u .= gp.y .- phys.ls_wall_xmin   
       
-      if sim.activate_interface == 1
+      # if sim.activate_interface == 1
 
-        gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
+      #   gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
       
-        #modify velocity field near interface
-        su = sqrt.((gv.x .- phys.intfc_x).^2 .+ (gv.y .- phys.intfc_y).^2)
-        R1 = phys.radius + 3.0*num.Δ
+      #   #modify velocity field near interface
+      #   su = sqrt.((gv.x .- phys.intfc_x).^2 .+ (gv.y .- phys.intfc_y).^2)
+      #   R1 = phys.radius + 3.0*num.Δ
 
-        bl = 4.0
-        for II in gv.ind.all_indices
-            if su[II] <= R1
-                phL.v[II] = 0.0
-            # elseif su[II] > R1
-            #     uL[II] = tanh(bl*(su[II]-R1))
-            end
-        end
+      #   bl = 4.0
+      #   for II in gv.ind.all_indices
+      #       if su[II] <= R1
+      #           phL.v[II] = 0.0
+      #       # elseif su[II] > R1
+      #       #     uL[II] = tanh(bl*(su[II]-R1))
+      #       end
+      #   end
 
-      elseif sim.activate_interface == -1
-        gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
-        gp.LS[1].u .*= -1.0
+      # elseif sim.activate_interface == -1
+      #   gp.LS[1].u .= sqrt.((gp.x .- phys.intfc_x).^2 + (gp.y .- phys.intfc_y).^2) - phys.radius * ones(gp)
+      #   gp.LS[1].u .*= -1.0
 
-      else
-          gp.LS[1].u .= 1.0
-      end
+      # else
+      #     gp.LS[1].u .= 1.0
+      # end
       
-      test_LS(gp)
+      # test_LS(gp)
 
 
     print_parameters: | 
@@ -561,25 +578,18 @@ study:
   compute_errors: None
   #nucleation_time is 2.0e-2
 
-  # meshes: [32] #[32] #[64] # [32] #[64] ##[32] #[80] #[128] #[80] #[40] #[40] #[16] #  [32] #   [128] #[64] #[128] #[32] #[32,64,128] #[32,64,128,256]
-  # timesteps:  [2e-3] #[1e-4] #[1e-3] #[5e-3] #[1e-2] #[5e-2] #[5e-3] # #[1e-3] #[1e-4]
-
-  # meshes: [16]
-  # timesteps:  [5e-3]
-
-  meshes: [64]
+  meshes: [128]
   timesteps:  [1e-3]
-  save_step: [20]
+  save_step: [1]
   save_step_scalar: [1]
 
-
 plot: #default parameters for plots
-  ax_locator_x: [0,1.0] #ticks in matplotlib
-  ax_locator_y: [0,1.0]
-  ax_formatter_x: [0,$L_e$]
+  ax_locator_x: [0,5.0e-4,1.0e-2] #ticks in matplotlib
+  ax_locator_y: [0,1.0e-2]
+  ax_formatter_x: [0,5e-6, '$\num{1.0e-4}$' ]
   ax_formatter_y: [0,$L_e$]
-  xlim: [0,1.0] #[0,3.175e-4]
-  ylim: [0,1.0] #[0,3.175e-4]
+  xlim: [0,1.0e-4] #[0,3.175e-4]
+  ylim: [0,1.0e-4] #[0,3.175e-4]
   cbarlabel: "" #["u","v"]
   cmap: "viridis"
   color_line: "k" #"w" #"k"
@@ -678,49 +688,6 @@ plot: #default parameters for plots
     ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[(figpar['iter']+1)%len(get_value_from_dicts('linestyles',figpar,plotpar))])
     # ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1%len(get_value_from_dicts('linestyles',figpar,plotpar))])
     # ls2 = '--'
-
-  macro_label_linestyle_color_study: &macro_label_linestyle_color_study |
-    global label2,color2,ls2,marker2 
-    print("figpar['iter']",figpar['iter'])
-    label2 = file[figpar['iter']]
-    print('label2 ',label2)
-
-    # label1
-    # color2 = colors[figpar['iter']]
-    # print(color2)
-    # print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
-    # ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
-    method_index = 0
-    if 'cipriano' in label2:
-      label2 = 'Double Pressure Velocity Coupling'
-      # +' '+str(nx)
-      marker2 = 'D'
-    elif 'Stefan' in label2:
-      label2 = 'Stefan'
-      # +' '+str(nx)
-      # label2 = ''
-      marker2 = '*'
-      method_index = 1
-    elif 'redist' in label2:
-      label2 = 'Redistribution'
-      # +' '+str(nx)
-      marker2 = '>'
-      method_index = 2
-
-    color2 = colors[method_index]
-    ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[method_index])
-
-    # print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
-  
-  files_study: &files_study  [
-      ../fixed_mass_transfer_rate_proj_cipriano_evap_drop4/timestep_2_0000e-03/mesh_00032/flower*.h5,
-      ../fixed_mass_transfer_rate_proj_cipriano_evap_drop4/timestep_5_0000e-03/mesh_00016/flower*.h5,
-      ../fixed_mass_transfer_rate_proj_Stefan_vel_evap_drop2/timestep_1_0000e-03/mesh_00064/flower*.h5,
-      ../fixed_mass_transfer_rate_proj_Stefan_vel_evap_drop2/timestep_2_0000e-03/mesh_00032/flower*.h5,
-      ../fixed_mass_transfer_rate_proj_Stefan_vel_evap_drop2/timestep_5_0000e-03/mesh_00016/flower*.h5,
-      ../fixed_mass_transfer_rate_proj_redist_evap_drop3/timestep_2_0000e-03/mesh_00032/flower*.h5,
-      ../fixed_mass_transfer_rate_proj_redist_evap_drop3/timestep_5_0000e-03/mesh_00016/flower*.h5,
-    ]
   
   files: [
           # timestep_5_0000e-02/mesh_00040/flower*.h5,
@@ -769,9 +736,6 @@ plot: #default parameters for plots
   #                   'file_name+"_"+str(mesh["nx"])+"_"+"it"+"_"+str(nstep)+"_"+plotpar["theme"]+".svg"']
   macro_file_name: ['file_name+"_"+"it"+"_"+str(nstep)+"_"+plotpar["theme"]+ ".pdf"', 
                     'file_name+"_"+"it"+"_"+str(nstep)+"_"+plotpar["theme"]+".svg"']
-
-  macro_file_name_study: &macro_file_name_study ['file_name+"_"+plotpar["theme"]+ ".pdf"', 
-                          'file_name+"_"+plotpar["theme"]+".svg"'] 
   macro_data: |
     global varx_2,vary_2,values
     import glob
@@ -804,42 +768,23 @@ plot: #default parameters for plots
       with h5py.File(file_name, "r") as file:
         # print('file',file_name)
         # print(file.keys())
-
         try:
-          # read nstep (adapt path if needed)
-          nstep = file["nstep"][()]   # or file["/solver/nstep"][()]
-        except:
-          print('nstep not saved in file ',file_name)
-          continue
-        # ---- selection rule ----
-        if nstep == 0: # or nstep % 20 != 0:
-          continue   # skip this file
 
-        for var_list in figpar['var']:
-
-          tmp_values = {}
-          missing = False
-
-          # try to read all variables of the group
-          for var in var_list:
-            try:
-              tmp_values[var] = file[var][()]
-            except KeyError:
-              print(colored(var + ' not saved in ' + file_name, 'red'))
-              missing = True
-              break
-
-          # only save if ALL variables were found
-          if not missing:
-            for var, value in tmp_values.items():
+          for var_list in figpar['var']:
+            for var in var_list:
+              value = file[var][()]
               values[var].append(value)
-
-        # save mesh size (independent variables)
-        if 'nx' in file:
+              # print('var',var,value)
+          
+          #save file nx for label
+          # print('macro data nx',file['nx'][()])
           values['nx'] = file['nx'][()]
-        if 'ny' in file:
           values['ny'] = file['ny'][()]
-        
+          
+        except:
+          # print('variable not saved')
+          print(colored(var+' not saved','red'))
+
 
     
     # print(values)
@@ -849,10 +794,8 @@ plot: #default parameters for plots
     vary_2 = np.asarray(vary_2)
 
     # nx = file['nx'][()]
-    # ny = file['ny'][()] 
+    # ny = file['ny'][()]
 
-  macro_slice: "vecb_B(reshape_data(data),nx,ny)" 
-  # macro_slice: "reshape_data_veci(data,nx,ny,field_index)[:,0]"                  
   ticks_format: '%.2e'
   files_macro: | #macro to select files for film
     import re
@@ -875,26 +818,18 @@ plot: #default parameters for plots
 
       if  (iter%freq == 0) and (iter < max_iter):
         h5_files_2.append(file)
-  # zoom: &zoom1 [[0.0,1.0],[0.0,1.0]]
-  # zoom_mode: &zoom_mode1 coord
-  zoom: &zoom1 [[0.27,0.73],[0.27,0.73]]
+    
+  zoom: &zoom1 [[5.5e-5,7.0e-5],[0,1.5e-5]]
   zoom_mode: &zoom_mode1 coord
 
-  zoom2: &zoom2 [[0.4,0.6],[0.6,0.8]]
+  zoom2: &zoom2 [[5.5e-5,6.0e-5],[0,5.0e-6]]
   zoom_mode2: &zoom_mode2 coord
-
-  # zoom2: &zoom2 [[0.0,0.1],[0,0.1]]
-  # zoom_mode2: &zoom_mode2 coord
-
-  # zoom3: &zoom3 [[0.9,1.0],[0,0.1]]
-  # zoom_mode3: &zoom_mode3 coord
-
-  # zoom4: &zoom4 [[0.9,1.0],[0.9,1.0]]
-  # zoom_mode4: &zoom_mode4 coord
-
-  # zoom5: &zoom5 [[0,0.1],[0.9,1.0]]
-  # zoom_mode5: &zoom_mode5 coord
     
+  zoom_test: &zoom_test [[3.0e-6,4.0e-6],[0,1.0e-6],'coord']
+
+  zoom_left_corner: &zoom_left_corner [[0,2.0e-7],[0,2.0e-7],'coord']
+
+
   figures:
 
       # - var: volumic_surface_tension_u
@@ -1072,6 +1007,176 @@ plot: #default parameters for plots
       #   # range: 'np.linspace(-0.00001,3e-4,10)' #'[0,3e-4]'
       #   # plot_mode: contourf
 
+      - var: volumic_surface_tension_u
+        file: volumic_surface_tension_u_zoom
+        func: plot_python_pdf_full2
+        cbarlabel: Volumic surface tension u 
+        zoom: *zoom_test
+        mesh_macro: |
+          global x_1D_2, y_1D_2,key_LS_2
+          x_1D_2 = xu
+          y_1D_2 = yp
+          key_LS_2 = 'levelset_u'
+
+      - var: concentration_H2_1DT
+        # func: plot_python_pdf_full2
+        file: concentration_H2
+        cbarlabel: "$ \\text{Concentration} ~ \\ce{H2}$"       
+        plot_bc: True
+        # plot_mode: pcolormesh #contourf
+        # print_mode: "val"
+
+      - var: concentration_KOH_1DT
+        # func: plot_python_pdf_full2
+        file: concentration_KOH
+        cbarlabel: "$ \\text{Concentration} ~ \\ce{KOH}$"  
+
+      - var: concentration_H2O_1DT
+        # func: plot_python_pdf_full2
+        file: concentration_H2O
+        cbarlabel: "$ \\text{Concentration} ~ \\ce{H2O}$"  
+        # mask: True
+
+ 
+      - var: concentration_H2O_1DT
+        file: concentration_H2O_int
+        field_index: 2
+        cbarlabel: "$\\text{Concentration}~\\ce{H2O}$"
+        # mask: True
+
+
+      - var: mass_transfer_rate_JC
+        func: plot_python_pdf_full2
+        file: mass_transfer_rate_JC_zoom
+        cbarlabel: Gradient JC      
+        plot_bc: True
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        zoom: *zoom_test
+        mask: True
+
+      - var: mass_transfer_rate_cutcell
+        func: plot_python_pdf_full2
+        file: mass_transfer_rate_cutcell_zoom
+        cbarlabel: Gradient cutcell      
+        plot_bc: True
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        zoom: *zoom_test
+        mask: True
+
+      - var: mass_transfer_rate_cutcell
+        func: plot_python_pdf_full2
+        file: mass_transfer_rate_cutcell_zoom
+        cbarlabel: Gradient cutcell      
+        plot_bc: True
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        zoom: *zoom_test
+        mask: True
+        macro_data: |
+          global field_2
+          grad = file['mass_transfer_rate_cutcell'][:]
+          length = file['interface_length'][:]
+           
+          field_2 = file['mass_transfer_rate_cutcell'][:]/file['interface_length'][:]
+          # print('field_2',field_2[0,:])
+          # print('field_2',field_2[:,0])
+          # print('transpose',field_2.ndim,field.shape)
+
+          mask = length != 0
+          field_2 = np.zeros_like(grad)
+          field_2[mask] = grad[mask] /length[mask]
+
+          field_2 = field_2.transpose()
+
+          # print('field_2',field_2[0,:])
+          # print('field_2',field_2[:,0])
+          
+
+      - var: mass_transfer_rate_cutcell
+        file: mass_transfer_rate_cutcell
+        cbarlabel: Gradient cutcell      
+      
+        macro_data: |
+          global field_2
+          grad = file['mass_transfer_rate_cutcell'][:]
+          length = file['interface_length'][:]
+           
+          field_2 = file['mass_transfer_rate_cutcell'][:]/file['interface_length'][:]
+          # print('field_2',field_2[0,:])
+          # print('field_2',field_2[:,0])
+          # print('transpose',field_2.ndim,field.shape)
+
+          mask = length != 0
+          field_2 = np.zeros_like(grad)
+          field_2[mask] = grad[mask] /length[mask]
+
+          field_2 = field_2.transpose()
+
+          # print('field_2',field_2[0,:])
+          # print('field_2',field_2[:,0])
+          
+
+      - var: interface_length
+        func: plot_python_pdf_full2
+        file: interface_length_zoom
+        cbarlabel: interface_length   
+        plot_bc: True
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        zoom: *zoom_test
+        mask: True
+       
+
+
+      - var: concentration_H2_1DT
+        func: plot_python_pdf_full2
+        file: concentration_H2_zoom
+        cbarlabel: "$ \\text{Concentration} ~ \\ce{H2}$"       
+        plot_bc: True
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        zoom: *zoom_test
+        # range: [0,1e-4]
+        mask: True
+
+      - var: concentration_H2_1DT
+        func: plot_python_pdf_full2
+        file: concentration_H2_zoom_left_corner
+        cbarlabel: "$ \\text{Concentration} ~ \\ce{H2}$"       
+        plot_bc: True
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        zoom: *zoom_left_corner
+        mask: True
+        
+      - var: concentration_H2O_1DT
+        func: plot_python_pdf_full2
+        file: concentration_H2O_zoom
+        cbarlabel: "$ \\text{Concentration} ~ \\ce{H2O}$"       
+        plot_bc: True
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        zoom: *zoom_test
+        # range: [0,1e-4]
+        mask: True
+
+
+      # - var: concentration_H2O_1DT
+      #   func: plot_python_pdf_full2
+      #   file: concentration_H2O_zoom
+      #   cbarlabel: "$ \\text{Concentration} ~ \\ce{H2O}$"       
+      #   plot_bc: True
+       
+      #   plot_mode: pcolormesh #contourf
+      #   print_mode: "val"
+      #   # range: [0,1e-4]
+        
+      #   zoom: [[30,50],[0,20]]
+      #   zoom_mode: index
+
+
 
       - var: p_1D
         file: pressure_test      
@@ -1133,6 +1238,11 @@ plot: #default parameters for plots
           # vec_x_2.fill(0)
           # vec_y_2.fill(dx/dt)
           # vec_y_2.fill(dx)
+
+          scale = np.max(np.sqrt(vec_x_2**2+vec_y_2**2))
+          scale = scale /dx
+          print('scale',scale)
+          print('max',np.max(vec_x_2),np.max(vec_y_2))
 
           vec_x_2 /= scale
           vec_y_2 /= scale
@@ -1270,6 +1380,17 @@ plot: #default parameters for plots
         zoom: *zoom2
         func: plot_python_pdf_full2
         zoom_mode: *zoom_mode2
+
+      - var: advection_velocity_phase_change_v
+        file: advection_velocity_phase_change_v_zoom      
+        cbarlabel: Velocity magnitude
+        mesh_macro: |
+          global x_1D_2, y_1D_2,key_LS_2
+          x_1D_2 = xp
+          y_1D_2 = yv
+          key_LS_2 = 'levelset_v'
+        func: plot_python_pdf_full2
+        zoom: *zoom_test
 
       - var: advection_velocity_phase_change_v
         file: advection_velocity_phase_change_v_zoom2      
@@ -1710,8 +1831,18 @@ plot: #default parameters for plots
         print_mode: "val"        
         # zoom: [[30,50],[0,20]]
         # zoom_mode: index
-        zoom: *zoom1
-        zoom_mode: *zoom_mode1
+        zoom: *zoom_test
+
+      - var: mass_transfer_rate
+        func: plot_python_pdf_full2
+        file: mass_transfer_rate_zoom_left_corner
+        cbarlabel: Mass transfer rate       
+        plot_bc: True
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"        
+        # zoom: [[30,50],[0,20]]
+        # zoom_mode: index
+        zoom: *zoom_left_corner
 
 
       - var: mass_transfer_rate_before_redistribution
@@ -1795,18 +1926,7 @@ plot: #default parameters for plots
         zoom_mode: *zoom_mode1
         cbarlabel: Levelset       
 
-      - var: concentration_H2O_1DT
-        func: plot_python_pdf_full2
-        file: concentration_H2O_zoom
-        cbarlabel: "$ \\text{Concentration} ~ \\ce{H2O}$"       
-        plot_bc: True
-       
-        plot_mode: pcolormesh #contourf
-        print_mode: "val"
-        # range: [0,1e-4]
-        
-        zoom: [[30,50],[0,20]]
-        zoom_mode: index
+
 
       - var: concentration_KOH_1DT
         func: plot_python_pdf_full2
@@ -1821,21 +1941,12 @@ plot: #default parameters for plots
         zoom: [[30,50],[0,20]]
         zoom_mode: index
 
-      # - var: concentration_H2_1DT
-      #   # func: plot_python_pdf_full2
-      #   file: concentration_H2_zoom_int
-      #   field_index: 2
-      #   cbarlabel: "$\\text{Concentration}~\\ce{H2}$"
-      #   # fontsize: 4
-      #   # isocontour: False
-      #   # levels: 10
-      #   # plot_bc: #True
-      #   # plot_grid: True
-      #   # plot_levelset: False
-      #   # plot_levelset_segments: False
-      #   # plot_mode: pcolormesh #contourf
-      #   # print_mode: "val"
-      #   # range: [0,1e-4]
+      - var: concentration_H2_1DT
+        file: concentration_H2_int
+        field_index: 2
+        cbarlabel: "$\\text{Concentration}~\\ce{H2}$"
+      
+
         
 
       - var: v_1D
@@ -1846,7 +1957,17 @@ plot: #default parameters for plots
         # zoom_mode: index
 
       
-      
+      - var: interface_length 
+        func: plot_python_pdf_full2
+        file: interface_length
+        zoom: [[30,50],[0,2]]
+        zoom_mode: index
+        cbarlabel: interface_length
+        print_mode: val
+        # macro_print: |
+        #   global str2
+        #   str2 = str2="{:03} {:03}".format(igrid0,jgrid0)
+        #   # global str2="{:03}".format(igrid0)
 
       # - var: dcap_1 
       #   func: plot_python_pdf_full2
@@ -2116,31 +2237,26 @@ plot: #default parameters for plots
       #   linestyle: None
 
     
+      - var: i_current_x
+        figsize: True
+        file: current_lines2
+        cbarlabel: "$ \\text{Electrical potential} ~ (\\unit{V})$" #Electrical potential
+
+      - var: phi_ele_1D
+        file: phi
+        cbarlabel: "$ \\text{Electrical potential} ~ (\\unit{V})$" #Electrical potential
 
       - var: i_current_x
         figsize: True
         file: current_lines
-        #macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
-        fig_fraction: 1.0
-        fig_ratio: 0.5
+        # fig_fraction: 1.0
+        fig_ratio: 0.5 #for schematics
         # add_schematics: #True
         add_schematics_coords: [0, 2, 61, 63] #[0, 1, 55, 57]
         fontsize: 6
         func: plot_current_lines
         cbarlabel: "$ \\text{Electrical potential} ~ (\\unit{V})$" #Electrical potential
-        # ax_locator_x: [0,0.5,1]
-        # ax_locator_y: [0,0.5,1,0.5,2]
-        img_format: mp4
-        isocontour: #True
-        levels: 10 #10
-        # range: np.linspace(-1.116e-2,0,11)
-        plot_bc: True
-        plot_grid: True
-        plot_levelset: #True
-        plot_levelset_segments: False
-        plot_mode: contourf
-        # range: [0,1e-4]
-        ticks_format: '%.2e'
+ 
         
         
         linewidth: 0.25 #1
@@ -2156,6 +2272,49 @@ plot: #default parameters for plots
         # broken_streamlines: True
         streamplot_lw: 0.25
         # plot_schematic_wall: True
+
+
+      # - var: i_current_x
+      #   figsize: True
+      #   file: current_lines
+      #   #macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
+      #   fig_fraction: 1.0
+      #   fig_ratio: 0.5
+      #   # add_schematics: #True
+      #   add_schematics_coords: [0, 2, 61, 63] #[0, 1, 55, 57]
+      #   fontsize: 6
+      #   func: plot_current_lines
+      #   cbarlabel: "$ \\text{Electrical potential} ~ (\\unit{V})$" #Electrical potential
+      #   # ax_locator_x: [0,0.5,1]
+      #   # ax_locator_y: [0,0.5,1]
+
+      #   img_format: mp4
+      #   isocontour: #True
+      #   levels: 10 #10
+      #   range: np.linspace(-1.116e-2,0,11)
+      #   plot_bc: True
+      #   plot_grid: True
+      #   plot_levelset: True
+      #   plot_levelset_segments: False
+      #   plot_mode: contourf
+      #   # range: [0,1e-4]
+      #   ticks_format: '%.2e'
+        
+        
+      #   linewidth: 0.25 #1
+      #   linestyle: '-' #'dotted'
+      #   zoom_mode: None
+      #   #For current lines
+      #   density: '[0.5,0.5]'
+      #   streamplot_cbarlabel: "$ \\text{Current magnitude} ~ \\rightarrow$"
+      #   streamplot_color: 'k' #mag
+      #   streamplot_mutation_scale: 5 #1 very small, 10 default?
+      #   # start_points: 'np.array([[100,100,100,100,100,100,100,100,100,100,100,100,100,100], [10,20,30,40,45,47.5,48,51,52.5,55,60,70,80,90]])' #'np.array([[0,0.5,1], [0,0.5,1]])'
+     
+      #   # broken_streamlines: True
+      #   streamplot_lw: 0.25
+      #   # plot_schematic_wall: True
+
 
 
       # - var: volume_fraction
@@ -3675,13 +3834,84 @@ plot: #default parameters for plots
   films:
 
 
-      - var: Stefan_velocity_phase_change_x
-        file: Stefan_velocity_phase_change      
-        cbarlabel: Stefan velocity
+      - var: mass_transfer_rate
+        func: plot_python_pdf_full2
+        file: mass_transfer_rate_zoom_left_corner
+        cbarlabel: Mass transfer rate       
+        plot_bc: True
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"        
+        zoom: *zoom_left_corner
+
+
+      - var: velocity_x
+        file: velocity_magnitude_zoom_left_corner      
+        cbarlabel: Velocity magnitude
         macro_data: |
           global field_2
-          field_2 = np.sqrt(file['Stefan_velocity_phase_change_x'][:]**2+file['Stefan_velocity_phase_change_y'][:]**2)
+          field_2 = np.sqrt(file['velocity_x'][:]**2+file['velocity_y'][:]**2)
           field_2.transpose()
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        zoom: *zoom_left_corner
+        func: plot_python_pdf_full2
+
+      - var: concentration_H2_1DT
+        func: plot_python_pdf_full2
+        file: concentration_H2_zoom_left_corner
+        cbarlabel: "$ \\text{Concentration} ~ \\ce{H2}$"       
+        plot_bc: True
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"
+        zoom: *zoom_left_corner
+        mask: True
+        
+
+      - var: advection_velocity_bulk_x
+        func: plot_python_pdf_full2
+        file: advection_velocity_bulk_zoom_left_corner
+        plot_bc: True
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"        
+        zoom: *zoom_left_corner        
+        cbarlabel: Velocity magnitude
+        macro_data: |
+          global field_2
+          field_2 = np.sqrt(file['advection_velocity_bulk_x'][:]**2+file['advection_velocity_bulk_y'][:]**2)
+          field_2.transpose()
+
+        plot_vector_macro: |
+          global vec_x_2,vec_y_2
+          vec_x_2 = file['advection_velocity_bulk_x'][:]
+          vec_y_2 = file['advection_velocity_bulk_y'][:]
+          scale = 0.05 #mass transfer rate * rho
+          vec_x_2 /= scale
+          vec_y_2 /= scale
+
+
+
+
+
+      - var: mass_transfer_rate
+        func: plot_python_pdf_full2
+        file: mass_transfer_rate_zoom_left_corner
+        cbarlabel: Mass transfer rate       
+        plot_bc: True
+        plot_mode: pcolormesh #contourf
+        print_mode: "val"        
+        # zoom: [[30,50],[0,20]]
+        # zoom_mode: index
+        zoom: *zoom_left_corner
+
+      - var: mass_flow_rate
+        file: mass_flow_rate      
+        cbarlabel: mass_flow_rate
+
+      - var: mass_transfer_rate
+        file: mass_transfer_rate_zoom      
+        cbarlabel: mass_transfer_rate
+        zoom: *zoom_test
+        func: plot_python_pdf_full2  
 
       - var: velocity_divergence
         file: velocity_divergence      
@@ -3749,7 +3979,10 @@ plot: #default parameters for plots
           # vec_y_2.fill(dx)
 
           scale = 0.05 #mass transfer rate * rho
-
+          scale = np.max(np.sqrt(vec_x_2**2+vec_y_2**2))
+          scale = scale /dx
+          print('scale',scale)
+          print('max',np.max(vec_x_2),np.max(vec_y_2))
           vec_x_2 /= scale
           vec_y_2 /= scale
 
@@ -4523,46 +4756,517 @@ plot: #default parameters for plots
 
   curves:
 
-      - var: [[x_1D,u_1D]]
-        file: v_slice
-        files: [
-          timestep_2_0000e-03/mesh_00032/flower_00000001.h5,
-          timestep_2_0000e-03/mesh_00032/flower_00000100.h5,
-
-        ]
-        func: plot_1D
+      - var: [[y_1D,concentration_H2_1DT]]
+        file: concentration_H2_slice_derivative
+        func: plot_1D_list
         fontsize: 10
-        labels: [["$x ( \\unit{\\m})$", "$ \\text{Velocity}$"]]
-        
+        labels: [["$y ( \\unit{\\m})$", "$ \\text{Concentration} ~ \\ce{H2}~\\text{derivative}$" ]]
+        ticks: ['[0,0.5,1]', '[0,0.5,1]']
+        linewidth: 0.5        
+        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+plotpar["theme"]+".svg"']
+        macro_slice: "veci(reshape_data(data),nx,ny,field_index)[:,nx//2]"
+        # add_schematics: True
+        add_schematics_coords: [0,1,0,0.001]
+        schematics_width: 40%
+        schematics_height: 40%
+        schematics_loc: center
+        # mesh_macro: |
+        #   global x_1D_2, y_1D_2,key_LS_2
+        #   print('loaded_h5_file',loaded_h5_file.keys())
+        #   x_1D_2 = loaded_h5_file['mesh_p_x'][0,:] #xp
+        #   y_1D_2 = loaded_h5_file['mesh_p_x'][:,0]
+        #   # nx = file['nx'][()]
+        #   # ny = file['ny'][()]
+        macro_data2: |
+          global vary_2,varx_2
+          vary_2 = slice_1D
+          print('vary_2',vary_2)
+          print('before vary',file)
+          print('need ny')
+          dy = (yml['flower']['mesh']['ymax'] - yml['flower']['mesh']['ymin'])/loaded_h5_file['ny'][()]
+          vary_2 = np.array(vary_2)
+          print('before vary')
+          vary_2 = (vary_2[1:] - vary_2[:-1]) / dy
+          print('vary_2',vary_2)
+          varx_2 = (varx[1:] + varx[:-1])/2
+
+        macro_ref: |
+          import numpy as np
+          from scipy.special import erf
+          global varx_2,val_ref_2
+
+          varx = np.array(varx)
+          varx_2 = varx
+          rho2 = yml['flower']['physics']['rho2']
+          MWH2 = yml['flower']['physics']['MWH2']
+          Henry = yml['flower']['physics']['Henry_H2']
+
+          cgaz = rho2/MWH2
+          print('cgaz',cgaz, 'cgaz/Henry' ,cgaz/Henry,'rho2',rho2)
+             
+          D = yml['flower']['physics']['diffusion_coeff'][0]
+          print('Diffusion',D)
+          
+          t = loaded_h5_file['time'][()]
+          print('time',t)
+          y = np.maximum(varx - yml['flower']['physics']['ls_wall_xmin'], 0) #otherwise bug display with negative y
+          val_ref_2 = [-cgaz/(Henry * np.sqrt(np.pi*D * t) )]*len(varx)
+          print('val_ref_2',val_ref_2)
+          print('y',y)
+
+        files: [
+          # ../diffusion_phase_change7/timestep_1_0000e-03/mesh_00032/flower_00000060.h5,
+          # ../diffusion_phase_change7/timestep_1_0000e-03/mesh_00064/flower_00000001.h5,
+          # ../diffusion_phase_change6/timestep_1_0000e-03/mesh_00128/flower_00000060.h5,
+          # ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00032/flower_00000060.h5,
+          # ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00064/flower_00000001.h5,
+          # ../diffusion_phase_change7Dirichlet/timestep_1_0000e-04/mesh_00064/flower_00000001.h5,
+          ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00128/flower_00000001.h5,
+
+          # ../diffusion_phase_change_Dirichlet_test/timestep_1_0000e-03/mesh_00128/flower_00000060.h5,
+
+          #
+          ]
+        macro_label_linestyle_color: |
+          global label2,color2,ls2 
+          print("figpar['iter']",figpar['iter'])
+          label2 = file[figpar['iter']]
+          # label1
+          color2 = colors[figpar['iter']]
+          print(color2)
+          print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
+          ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
+          if 'Dirichlet' in label2:
+            label2 = 'Method A'+' '+str(nx)
+            # label2 = 'Method A'+' '+str(values['nx'])
+          else:
+            label2 = 'Method B'+' '+str(nx)
+
+
+      - var: [[y_1D,concentration_H2_1DT]]
+        file: concentration_H2_slice_int
+        func: plot_1D_list
+        fontsize: 10
+        labels: [["$y ( \\unit{\\m})$", "$ \\text{Concentration} ~ \\ce{H2}$" ]]
+        # linestyles: ['(0, (3, 6))' ] #,
+                    #  '(3, (3, 6))', #"dashdot"
+                    #  '(6, (3, 6))'] #"dotted" #['-']
         ticks: ['[0,0.5,1]', '[0,0.5,1]']
         linewidth: 0.5
-        # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
         
-        # #macro_file_name: ['file_name+"_"+str(mesh["nx"])+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+str(mesh["nx"])+ "_"+plotpar["theme"]+".svg"']
         macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+plotpar["theme"]+".svg"']
-        macro_slice: "reshape_data_veci(data,nx,ny,field_index)[:,ny//2]"
-        # add_schematics: #True
-        # add_schematics_coords: [0,1,0,0.001]
-        # schematics_width: 40%
-        # schematics_height: 40%
-        # schematics_loc: center left
+
+        macro_slice: "veci(reshape_data(data),nx,ny,2)[:,nx//2]"
+       
+        macro_ref: |
+          import numpy as np
+          from scipy.special import erf
+          global varx_2,val_ref_2
+
+          varx = np.array(varx)
+          varx_2 = varx
+          rho2 = yml['flower']['physics']['rho2']
+          MWH2 = yml['flower']['physics']['MWH2']
+          Henry = yml['flower']['physics']['Henry_H2']
+
+          cgaz = rho2/MWH2
+          print('cgaz',cgaz, 'cgaz/Henry' ,cgaz/Henry,'rho2',rho2)
+             
+          D = yml['flower']['physics']['diffusion_coeff'][0]
+          print('Diffusion',D)
+          
+          t = loaded_h5_file['time'][()]
+          print('time',t)
+          # y = np.maximum(varx - yml['flower']['physics']['ls_wall_xmin'], 0) #otherwise bug display with negative y
+          # val_ref_2 = cgaz/Henry * (1- erf( y/(2.0 * np.sqrt(D * t))) )
+          
+          y = varx - yml['flower']['physics']['ls_wall_xmin']
+
+          val_ref_2 = np.where(y > 0, cgaz/Henry * (1- erf( y/(2.0 * np.sqrt(D * t))) ), cgaz)
         
-        macro_show_slice: |
-          linewidth_points = 1
-          line, = inset_ax.plot([0, 0], [0, 1], ls='-',color='r',lw=linewidth_points)
 
-          # shift the object over 2 points, and down 2 points
-          dx, dy = +(linewidth_points/2)/72.,0
-          offset = transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
-          shadow_transform = inset_ax.transData + offset
 
-          inset_ax.text(0.0,0.2, 'Slice',
-          va='center', 
-          ha='left',
-          transform = shadow_transform,
-          color='r',
-          fontsize=fontsize,
-          )
+        # add_schematics: True
+        add_schematics_coords: [0,1,0,0.001]
+        schematics_width: 40%
+        schematics_height: 40%
+        schematics_loc: center
+ 
+        files: [
+          # ../diffusion_phase_change7/timestep_1_0000e-03/mesh_00032/flower_00000060.h5,
+          # ../diffusion_phase_change7/timestep_1_0000e-03/mesh_00064/flower_00000001.h5,
+          # ../diffusion_phase_change6/timestep_1_0000e-03/mesh_00128/flower_00000060.h5,
+          # ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00032/flower_00000060.h5,
+          # ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00064/flower_00000001.h5,
+          # ../diffusion_phase_change7Dirichlet/timestep_1_0000e-04/mesh_00064/flower_00000001.h5,
+          ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00128/flower_00000001.h5,
+          # ../diffusion_phase_change_Dirichlet_test/timestep_1_0000e-03/mesh_00128/flower_00000060.h5,
+
+          #
+          ]
+        macro_label_linestyle_color: |
+          global label2,color2,ls2 
+          print("figpar['iter']",figpar['iter'])
+          label2 = file[figpar['iter']]
+          # label1
+          color2 = colors[figpar['iter']]
+          print(color2)
+          print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
+          ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
+          if 'Dirichlet' in label2:
+            label2 = 'Method A'+' '+str(nx)
+            # label2 = 'Method A'+' '+str(values['nx'])
+          else:
+            label2 = 'Method B'+' '+str(nx)
+
+      # - var: [[y_1D,concentration_H2_1DT]]
+      - var: [[cell_centroid_y,concentration_H2_1DT]]
+        file: concentration_H2_slice
+        func: plot_1D_list
+        fontsize: 10
+        labels: [["$y ( \\unit{\\m})$", "$ \\text{Concentration} ~ \\ce{H2}$" ]]
+        # linestyles: ['(0, (3, 6))' ] #,
+                    #  '(3, (3, 6))', #"dashdot"
+                    #  '(6, (3, 6))'] #"dotted" #['-']
+        ticks: ['[0,0.5,1]', '[0,0.5,1]']
+        linewidth: 0.5
+        
+        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 'file_name+"_"+plotpar["theme"]+".svg"']
+
+        macro_slice: "veci(reshape_data(data),nx,ny,field_index)[:,nx//2]"
+        macro_data2: |
+          global varx_2,vary_2
+          varx_2 = varx[:,nx//2]
+          vary_2 = slice_1D
+          print(colored('varx'+str(varx_2),'red'))
+
+        macro_ref: |
+          import numpy as np
+          from scipy.special import erf
+          global varx_2,val_ref_2
+
+          print(colored('[Reference]','magenta'))
+          print('varx',varx)
+          varx = np.array(varx)
+          varx_2 = varx
+          rho2 = yml['flower']['physics']['rho2']
+          MWH2 = yml['flower']['physics']['MWH2']
+          Henry = yml['flower']['physics']['Henry_H2']
+
+          cgaz = rho2/MWH2
+             
+          D = yml['flower']['physics']['diffusion_coeff'][0]
+          print('Diffusion',D)
+          
+          t = loaded_h5_file['time'][()]
+          print('time',t)
+          # y = np.maximum(varx - yml['flower']['physics']['ls_wall_xmin'], 0) #otherwise bug display with negative y
+          y0 = yml['flower']['physics']['ls_wall_xmin'] - 2/Henry * np.sqrt(D*t/np.pi)
+          # y = varx - yml['flower']['physics']['ls_wall_xmin']
+          y = varx - y0
+
+          # val_ref_2 = cgaz/Henry * (1- erf( y/(2.0 * np.sqrt(D * t))) )
+          # y = varx
+
+          val_ref_2 = cgaz/Henry * (1- erf( y/(2.0 * np.sqrt(D * t))) )
+
+          val_ref_2 = np.where(y > 0, cgaz/Henry * (1- erf( y/(2.0 * np.sqrt(D * t))) ), cgaz)
+          print('y',y)
+          print('val_ref_2',val_ref_2)
+          print('yml',yml['flower']['physics']['ls_wall_xmin'])
+          print('cgaz/Henry',cgaz/Henry)
+          print('cgaz',cgaz)
+
+          
+          diffusion_t = ((mesh['xmax']-mesh['xmin'])**2)/D
+          print('diffusion time',diffusion_t,D,mesh['xmin'],mesh['xmax'])
+          print(colored('[Reference]','magenta'))
+
+
+        # add_schematics: True
+        add_schematics_coords: [0,1,0,0.001]
+        schematics_width: 40%
+        schematics_height: 40%
+        schematics_loc: center
+        files: [
+          # ../diffusion_phase_change7/timestep_1_0000e-03/mesh_00032/flower_00000060.h5,
+          # ../diffusion_phase_change7/timestep_1_0000e-03/mesh_00064/flower_00000001.h5,
+          # ../diffusion_phase_change6/timestep_1_0000e-03/mesh_00128/flower_00000060.h5,
+          # ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00032/flower_00000060.h5,
+          # ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00064/flower_00000001.h5,
+          ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00128/flower_00000001.h5,
+          ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00128/flower_00000060.h5,
+          # ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00064/flower_00000002.h5,
+          # ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00064/flower_00000010.h5,
+          # ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00064/flower_00000020.h5,
+          # ../diffusion_phase_change7Dirichlet/timestep_1_0000e-04/mesh_00064/flower_00000001.h5,
+          # ../diffusion_phase_change7Dirichlet/timestep_1_0000e-04/mesh_00064/flower_00000002.h5,
+          # ../diffusion_phase_change_Dirichlet_test/timestep_1_0000e-03/mesh_00128/flower_00000060.h5,
+
+          #
+        ]
+        # files: [
+        #   # ../diffusion_phase_change7/timestep_1_0000e-03/mesh_00032/flower_00000060.h5,
+        #   ../diffusion_phase_change7/timestep_1_0000e-03/mesh_00064/flower_00000001.h5,
+        #   # ../diffusion_phase_change6/timestep_1_0000e-03/mesh_00128/flower_00000060.h5,
+        #   # ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00032/flower_00000060.h5,
+        #   ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00064/flower_00000001.h5,
+        #   ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00128/flower_00000001.h5,
+        #   # ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00064/flower_00000002.h5,
+        #   # ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00064/flower_00000010.h5,
+        #   # ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00064/flower_00000020.h5,
+        #   ../diffusion_phase_change7Dirichlet/timestep_1_0000e-04/mesh_00064/flower_00000001.h5,
+        #   ../diffusion_phase_change7Dirichlet/timestep_1_0000e-04/mesh_00064/flower_00000002.h5,
+        #   # ../diffusion_phase_change_Dirichlet_test/timestep_1_0000e-03/mesh_00128/flower_00000060.h5,
+
+        #   #
+        #   ]
+
+        macro_label_linestyle_color: |
+          global label2,color2,ls2 
+          print("figpar['iter']",figpar['iter'])
+          label2 = file[figpar['iter']]
+          # label1
+          color2 = colors[figpar['iter']]
+          print(color2)
+          print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
+          ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
+          if 'Dirichlet' in label2:
+            label2 = 'Method A'+' '+str(nx)
+            # label2 = 'Method A'+' '+str(values['nx'])
+          else:
+            label2 = 'Method B'+' '+str(nx)
+
+
+      - var: [[time,area_liq]]
+        file: interface_y_comp
+        files: [
+          # ../diffusion_phase_change7/timestep_1_0000e-03/mesh_00032/flower_*.h5,
+          ../diffusion_phase_change7/timestep_1_0000e-03/mesh_00064/flower_*.h5,
+          ../diffusion_phase_change7Dirichlet/timestep_1_0000e-03/mesh_00064/flower_*.h5,
+          # ../diffusion_phase_change6/timestep_1_0000e-03/mesh_00128/flower_*.h5,
+          # ../diffusion_phase_change_Dirichlet_test/timestep_1_0000e-03/mesh_00032/flower_*.h5,
+          # ../diffusion_phase_change_Dirichlet_test/timestep_1_0000e-03/mesh_00064/flower_*.h5,
+          # ../diffusion_phase_change_Dirichlet_test/timestep_1_0000e-03/mesh_00128/flower_*.h5,
+
+          #
+          ]
+        func: plot_time
+        labels: [["$time ( \\unit{\\s})$", "$(Y-Y^{(0)})/L_{\\text{ref}}$" ]]
+        ref_length: *ref_length
+        ls_wall_xmin: *ls_wall_xmin
+        # macro_data2: |
+        #   global vary_2
+        #   # varx_2 = values[figpar['var'][0][0]]
+        #   vary_2 = (vary_2 / figpar['ref_length']-figpar['ref_length']+figpar['ls_wall_xmin'])/figpar['ref_length']
+        macro_data2: |
+          global vary_2
+          vary_2 = vary_2-vary_2[0] #figpar['ls_wall_xmin']
+        macro_label_linestyle_color: |
+          global label2,color2,ls2 
+          label2 = file[figpar['iter']]
+          # label1
+          color2 = colors[figpar['iter']]
+          print(color2)
+          print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
+          ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
+          if 'Dirichlet' in label2:
+            # label2 = 'Method A'+' '+str(nx)
+            label2 = 'Method A'+' '+str(values['nx'])
+          else:
+            label2 = 'Method B'+' '+str(values['nx'])
+
+        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 
+                    'file_name+"_"+plotpar["theme"]+".svg"']
+        macro_ref: |
+          global time_ref_2,val_ref_2
+
+          t_adim = yml['flower']['physics']['rho1'] * yml['flower']['physics']['ref_length']**2 / yml['flower']['physics']['mu1']
+          print('t_adim',t_adim)
+          t_end = 0.8 * t_adim
+
+          time_ref_2 = np.linspace(0,t_end,10)
+          time_ref_2 = np.array(varx)
+
+          # radius_list = vary_2
+          print('time_ref_2',time_ref_2)
+        
+          # rho_l = yml['flower']['physics']['rho1']
+          D = yml['flower']['physics']['diffusion_coeff'][0]
+          print('Diffusion',D)
+          val_ref_2 = 2/ yml['flower']['physics']['Henry_H2'] *  np.sqrt( D* time_ref_2/np.pi)
+          adim = False
+          if adim:
+            val_ref_2 = val_ref_2 / yml['flower']['physics']['ref_length']
+          print(val_ref_2)
+          print(vary_2)
+
+
+
+      - var: [[time,area_liq]]
+        file: interface_y
+        files: [
+          timestep_1_0000e-03/mesh_00032/flower_*.h5,
+          #
+          ]
+        func: plot_time
+        labels: [["$time ( \\unit{\\s})$", "Y coordinate of interface" ]]
+        ref_length: *ref_length
+        macro_data2: |
+          global vary_2
+          # varx_2 = values[figpar['var'][0][0]]
+          vary_2 = (vary_2 / figpar['ref_length']-figpar['ref_length'])/figpar['ref_length']
+
+        macro_label_linestyle_color: |
+          global label2,color2,ls2 
+          label2 = file[figpar['iter']]
+          # label1
+          color2 = colors[figpar['iter']]
+          print(color2)
+          print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
+          ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
+
+      - var: [[time,radius]]
+        file: volume_3d_compare_cipriano
+        func: plot_time #plot_1D
+        labels: [["$\\text{Time} ( \\unit{\\s})$", "$ \\text{Radius} ( \\unit{\\m})$" ]]
+        macro_label_linestyle_color: |
+          global label2,color2,ls2 
+          label2 = file[figpar['iter']]
+          # label1
+          color2 = colors[figpar['iter']]
+          print(color2)
+          print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
+          ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
+        
+        slope_start: '1'
+        slope_end: 'len(varx)'
+
+        # macro_slope: |
+        #   xls = np.array(varx)
+        #   yls = slice_1D
+        #   xls=xls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
+        #   yls=yls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
+        #   # print('len xls yls',len(xls),len(yls))
+        #   # R2=0
+        #   # slope_and_correlation = [0,0]
+        #   # compute_slope(ax2,xls,yls,
+        #   # slope_and_correlation,R2,param_line,color_line,alpha,plot_text=True,logslope=False)
+        #   # print('least squares',slope_and_correlation)
+
+        #   compute_slope_figpar(ax2, xls, yls,plotpar,figpar, plot_text=True, logslope=False)
+
+
+        macro_ref: |
+          global time_ref_2,val_ref_2
+          time_ref_2 = np.array(varx)
+          radius_list = vary_2
+
+          print('time_ref_2',time_ref_2)
+          print('radius_list',radius_list)
+          # rho_l = yml['flower']['physics']['rho1']
+          rho_g = yml['flower']['physics']['rho2']
+          rho_l = yml['flower']['physics']['rho2']
+
+          mass_transfer_rate = -0.05
+
+          # val_ref_2 = radius_list[0] + mass_transfer_rate/rho_g * time_ref_2
+
+          val_ref_2 = yml['flower']['physics']['radius'] + mass_transfer_rate/rho_l * time_ref_2
+
+          val_ref_2 = 4/3*np.pi*val_ref_2**3
+
+          # print(figpar['slope_end'])
+          # print(eval(figpar['slope_end']))
+
+
+          # xls = np.array(varx)
+          # yls = np.array(val_ref_2)
+          
+          # param_line=[]
+          # slope_and_correlation=0
+          # R2=0
+          # color_line=plotpar['text_color']
+          # alpha= 1 
+          # lw = 1
+       
+          # xls=xls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
+          # yls=yls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
+          # print('xls',xls)
+          # print('yls',yls)
+          # print('len xls yls',len(xls),len(yls))
+
+          # slope_and_correlation=[0,0]
+          # compute_slope(ax2,xls,yls,
+          #             #   x,y,
+          #               slope_and_correlation,R2,param_line,color_line,alpha,plot_text=True,logslope=False)
+          # print('least squares',slope_and_correlation)
+          
+          # label = r'$$'
+          
+
+          # if math.isnan(slope_and_correlation[1]): 
+          #     text_slope = r"$\mathrm{{{text}}}: {slope:.2f}".format(text=', slope',slope=slope_and_correlation[0]) + '$'
+          # else:
+          #     text_slope = r"$\mathrm{{{text}}}: {slope:.2f}, R^2: {R2:.2f}".format(text=', slope',slope=slope_and_correlation[0],R2=slope_and_correlation[1]) + '$'
+
+          # print('text_slope',text_slope)
+
+        
+       
+          
+
+        macro_data: |
+          global varx_2,vary_2,values
+          import glob
+
+          # time_list =[]
+
+          # radius_list=[]
+
+          values = {}
+
+          for var_list in figpar['var']:
+            # print('var_list',var_list)
+            for var in var_list:
+              values[var] = []
+
+          # for files in h5_files:
+          files = h5_files[figpar['iter']]
+
+          files = glob.glob(files)
+
+          files = sorted(files)
+          print('h5_files',h5_files)
+
+          # print(files)
+
+          for file_name in files:
+        
+            with h5py.File(file_name, "r") as file:
+              # print('file',file_name)
+              # print(file.keys())
+              try:
+                for var_list in figpar['var']:
+                  for var in var_list:
+                    value = file[var][()]
+                    values[var].append(value)
+                    # print('var',var,value)
+              except:
+                # print('variable not saved')
+                print(colored(var+' not saved','red'))
+
+
+          
+          # print(values)
+          varx_2 = values[figpar['var'][0][0]]
+          vary_2 = values[figpar['var'][0][1]]
+          vary_2 = np.array(vary_2)
+          vary_2 = 4/3*np.pi*vary_2**3
+
+        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 
+                          'file_name+"_"+plotpar["theme"]+".svg"']
+
 
       - var: [[x_1D,v_1D]]
         file: v_wall #_poisson_iter
@@ -4574,14 +5278,16 @@ plot: #default parameters for plots
                 timestep_2_0000e-03/mesh_00032/flower_00000001.h5,
                 # timestep_2_0000e-03/mesh_00064/flower*.h5,
                 # timestep_2_0000e-03/mesh_000128/flower*.h5,
-
                 # timestep_5_0000e-02/mesh_00040/flower_0000001*.h5,
-                  # timestep_5_0000e-02/mesh_00040/flower_0000000*.h5,
+                # timestep_5_0000e-02/mesh_00040/flower_0000000*.h5,
                 # timestep_5_0000e-03/mesh_00040/flower*.h5,
         ]
         func: plot_1D
         fontsize: 10
         labels: [["$x ( \\unit{\\m})$", "$ \\text{v} ~ (\\unit{V})$"]]
+        # linestyles: ['(0, (3, 6))' ] #,
+                    #  '(3, (3, 6))', #"dashdot"
+                    #  '(6, (3, 6))'] #"dotted" #['-']
         ticks: ['[0,0.5,1]', '[0,0.5,1]']
         linewidth: 0.5
         # plot_ref: '4* yml["flower"]["physics"]["v_inlet"]*x_1D*scale_x/(mesh["xmax"]-mesh["xmin"])*(1-x_1D*scale_x/(mesh["xmax"]-mesh["xmin"]))' #use "" not '' in ''
@@ -4611,242 +5317,20 @@ plot: #default parameters for plots
           fontsize=fontsize,
           )
 
-      # - var: [[time,conservation]]
-      #   file: conservation_error
-      #   files: [
-      #           # timestep_5_0000e-02/mesh_00040/flower*.h5,
-      #           # timestep_1_0000e-02/mesh_00040/flower*.h5,
-      #           # timestep_5_0000e-03/mesh_00040/flower*.h5,
-      #           timestep_2_0000e-03/mesh_00032/flower*.h5,
-      #           # timestep_2_0000e-03/mesh_00064/flower*.h5,
-      #           # timestep_2_0000e-03/mesh_000128/flower*.h5,
-
-      #           # timestep_5_0000e-02/mesh_00040/flower_0000001*.h5,
-      #             # timestep_5_0000e-02/mesh_00040/flower_0000000*.h5,
-      #           # timestep_5_0000e-03/mesh_00040/flower*.h5,
-      #   ]
-      #   # files: [timestep_5_0000e-02/mesh_00040/flower_00000060.h5]
-      #   func: plot_time #plot_1D
-      #   labels: [["$\\text{Time} ( \\unit{\\s})$", "$ \\text{Conservation relative error}$" ]]
-      #   # linestyles: ['(0, (3, 6))' ]
-      #   linestyles: ['(0, (3, 6))',
-      #                '(0, ())', #solid
-      #                '(3, (3, 6))', #"dashdot"
-      #                '(6, (3, 6))'] #"dotted"
-      #   macro: |
-      #     global label2,color2,ls2 
-      #     label2 = file[figpar['iter']]
-      #     # label1
-      #     color2 = colors[figpar['iter']]
-      #     print(color2)
-      #     print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
-      #     ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
-        
-      #   slope_start: '1'
-      #   slope_end: 'len(varx)'
-
-      
-      #   macro_data: |
-      #     global varx_2,vary_2,values
-      #     varx_2, vary_2 = process_h5_files(figpar, h5_files)
-          
-      #     # varx_2 = varx_2[1:] #exclude t=0
-      #     # vary_2 = vary_2[1:]
-
-      #     print('varx_2',varx_2)
-      #     print('vary_2',vary_2)
-
-      #     rho_g = yml['flower']['physics']['rho2']
-      #     rho_l = yml['flower']['physics']['rho2']
-
-      #     mass_transfer_rate = -0.05
-
-      #     time_ref_2 = np.array(varx_2)
-
-      #     val_ref_2 = yml['flower']['physics']['radius'] + mass_transfer_rate/rho_l * time_ref_2
-
-      #     val_ref_2 = (1**2-np.pi*val_ref_2**2) 
-
-      #     val_ref_2 = rho_l*val_ref_2
-          
-      #     # print('val_ref_2',val_ref_2)
-      #     # print('time_ref_2',time_ref_2)
-
-      #     val_ref_2 = np.diff(val_ref_2)
-
-      #     vary_2 = vary_2[1:] 
-
-      #     vary_2 = abs(vary_2-val_ref_2)/val_ref_2
-
-      #     varx_2 = varx_2[1:]
-
-      #     print('varx_2',varx_2)
-      #     print('vary_2',vary_2)
-
-
-      #     # ax2.set_xscale('log')
-      #     ax2.set_yscale('log')
-
-         
-      #   macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 
-      #                     'file_name+"_"+plotpar["theme"]+".svg"']
-
-
-      # - var: [[time,conservation]]
-      #   file: conservation
-      #   files: [
-      #           # timestep_5_0000e-02/mesh_00040/flower*.h5,
-      #           # timestep_1_0000e-02/mesh_00040/flower*.h5,
-      #           # timestep_5_0000e-03/mesh_00040/flower*.h5,
-      #           timestep_2_0000e-03/mesh_00032/flower*.h5,
-      #           # timestep_2_0000e-03/mesh_00064/flower*.h5,
-      #           # timestep_2_0000e-03/mesh_000128/flower*.h5,
-
-      #           # timestep_5_0000e-02/mesh_00040/flower_0000001*.h5,
-      #             # timestep_5_0000e-02/mesh_00040/flower_0000000*.h5,
-      #           # timestep_5_0000e-03/mesh_00040/flower*.h5,
-      #   ]
-      #   # files: [timestep_5_0000e-02/mesh_00040/flower_00000060.h5]
-      #   func: plot_time #plot_1D
-      #   labels: [["$\\text{Time} ( \\unit{\\s})$", "$ \\text{Conservation} ( \\unit{\\m/})$" ]]
-      #   # linestyles: ['(0, (3, 6))' ]
-      #   linestyles: ['(0, (3, 6))',
-      #                '(0, ())', #solid
-      #                '(3, (3, 6))', #"dashdot"
-      #                '(6, (3, 6))'] #"dotted"
-      #   macro: |
-      #     global label2,color2,ls2 
-      #     label2 = file[figpar['iter']]
-      #     # label1
-      #     color2 = colors[figpar['iter']]
-      #     print(color2)
-      #     print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
-      #     ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
-        
-      #   slope_start: '1'
-      #   slope_end: 'len(varx)'
-
-      #   # macro_slope: |
-      #   #   xls = np.array(varx)
-      #   #   yls = slice_1D
-      #   #   xls=xls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
-      #   #   yls=yls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
-      #   #   # print('len xls yls',len(xls),len(yls))
-      #   #   # R2=0
-      #   #   # slope_and_correlation = [0,0]
-      #   #   # compute_slope(ax2,xls,yls,
-      #   #   # slope_and_correlation,R2,param_line,color_line,alpha,plot_text=True,logslope=False)
-      #   #   # print('least squares',slope_and_correlation)
-
-      #   #   compute_slope_figpar(ax2, xls, yls,plotpar,figpar, plot_text=True, logslope=False)
-
-
-      #   macro_ref: |
-      #     global time_ref_2,val_ref_2
-      #     time_ref_2 = np.array(varx)
-
-      #     print('time_ref_2',time_ref_2)
-      #     # rho_l = yml['flower']['physics']['rho1']
-      #     rho_g = yml['flower']['physics']['rho2']
-      #     rho_l = yml['flower']['physics']['rho2']
-
-      #     mass_transfer_rate = -0.05
-
-      #     val_ref_2 = yml['flower']['physics']['radius'] + mass_transfer_rate/rho_l * time_ref_2
-
-      #     val_ref_2 = (1**2-np.pi*val_ref_2**2) 
-
-      #     val_ref_2 = rho_l*val_ref_2
-          
-      #     # print('val_ref_2',val_ref_2)
-      #     # print('time_ref_2',time_ref_2)
-
-      #     val_ref_2 = np.diff(val_ref_2)
-
-      #     time_ref_2 = time_ref_2[1:]
-
-      #     print('time_ref_2',time_ref_2)
-
-      #     print('val_ref_2',val_ref_2)
-
-      #     # print(figpar['slope_end'])
-      #     # print(eval(figpar['slope_end']))
-
-
-      #     # xls = np.array(varx)
-      #     # yls = np.array(val_ref_2)
-          
-      #     # param_line=[]
-      #     # slope_and_correlation=0
-      #     # R2=0
-      #     # color_line=plotpar['text_color']
-      #     # alpha= 1 
-      #     # lw = 1
-       
-      #     # xls=xls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
-      #     # yls=yls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
-      #     # print('xls',xls)
-      #     # print('yls',yls)
-      #     # print('len xls yls',len(xls),len(yls))
-
-      #     # slope_and_correlation=[0,0]
-      #     # compute_slope(ax2,xls,yls,
-      #     #             #   x,y,
-      #     #               slope_and_correlation,R2,param_line,color_line,alpha,plot_text=True,logslope=False)
-      #     # print('least squares',slope_and_correlation)
-          
-      #     # label = r'$$'
-          
-
-      #     # if math.isnan(slope_and_correlation[1]): 
-      #     #     text_slope = r"$\mathrm{{{text}}}: {slope:.2f}".format(text=', slope',slope=slope_and_correlation[0]) + '$'
-      #     # else:
-      #     #     text_slope = r"$\mathrm{{{text}}}: {slope:.2f}, R^2: {R2:.2f}".format(text=', slope',slope=slope_and_correlation[0],R2=slope_and_correlation[1]) + '$'
-
-      #     # print('text_slope',text_slope)
-
-        
-       
-          
-
-      #   macro_data: |
-      #     global varx_2,vary_2,values
-      #     varx_2, vary_2 = process_h5_files(figpar, h5_files)
-          
-      #     varx_2 = varx_2[1:] #exclude t=0
-      #     vary_2 = vary_2[1:]
-
-      #     print('varx_2',varx_2)
-      #     print('vary_2',vary_2)
-
-    
-
-      #   macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 
-      #                     'file_name+"_"+plotpar["theme"]+".svg"']
-
-      - var: [[time,area_liq]]
-        file: area_error
-        files: [
-                # timestep_5_0000e-02/mesh_00040/flower*.h5,
-                # timestep_1_0000e-02/mesh_00040/flower*.h5,
-                # timestep_5_0000e-03/mesh_00040/flower*.h5,
-                timestep_2_0000e-03/mesh_00032/flower*.h5,
-                # timestep_2_0000e-03/mesh_00064/flower*.h5,
-                # timestep_2_0000e-03/mesh_000128/flower*.h5,
-
-                # timestep_5_0000e-02/mesh_00040/flower_0000001*.h5,
-                  # timestep_5_0000e-02/mesh_00040/flower_0000000*.h5,
-                # timestep_5_0000e-03/mesh_00040/flower*.h5,
-        ]
-        # files: [timestep_5_0000e-02/mesh_00040/flower_00000060.h5]
+      - var: [[time,conservation]]
+        file: conservation_error
         func: plot_time #plot_1D
-        labels: [["$\\text{Time} ( \\unit{\\s})$", "$ \\text{Radius} ( \\unit{\\m})$" ]]
-        # linestyles: ['(0, (3, 6))' ]
-        linestyles: ['(0, (3, 6))',
-                     '(0, ())', #solid
-                     '(3, (3, 6))', #"dashdot"
-                     '(6, (3, 6))'] #"dotted"
-        macro: |
+        labels: [["$\\text{Time} ( \\unit{\\s})$", "$ \\text{Conservation relative error}$" ]]
+        # macro: |
+        #   global label2,color2,ls2 
+        #   label2 = file[figpar['iter']]
+        #   # label1
+        #   color2 = colors[figpar['iter']]
+        #   print(color2)
+        #   print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
+        #   ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
+
+        macro_label_linestyle_color: |
           global label2,color2,ls2 
           label2 = file[figpar['iter']]
           # label1
@@ -4854,6 +5338,270 @@ plot: #default parameters for plots
           print(color2)
           print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
           ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
+        
+        slope_start: '1'
+        slope_end: 'len(varx)'
+
+        # macro_slope: |
+        #   xls = np.array(varx)
+        #   yls = slice_1D
+        #   xls=xls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
+        #   yls=yls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
+        #   # print('len xls yls',len(xls),len(yls))
+        #   # R2=0
+        #   # slope_and_correlation = [0,0]
+        #   # compute_slope(ax2,xls,yls,
+        #   # slope_and_correlation,R2,param_line,color_line,alpha,plot_text=True,logslope=False)
+        #   # print('least squares',slope_and_correlation)
+
+        #   compute_slope_figpar(ax2, xls, yls,plotpar,figpar, plot_text=True, logslope=False)
+
+
+        # macro_ref: |
+        #   global time_ref_2,val_ref_2
+        #   time_ref_2 = np.array(varx)
+
+        #   print('time_ref_2',time_ref_2)
+        #   # rho_l = yml['flower']['physics']['rho1']
+        #   rho_g = yml['flower']['physics']['rho2']
+        #   rho_l = yml['flower']['physics']['rho2']
+
+        #   mass_transfer_rate = -0.05
+
+        #   val_ref_2 = yml['flower']['physics']['radius'] + mass_transfer_rate/rho_l * time_ref_2
+
+        #   val_ref_2 = (1**2-np.pi*val_ref_2**2) 
+
+        #   val_ref_2 = rho_l*val_ref_2
+          
+        #   # print('val_ref_2',val_ref_2)
+        #   # print('time_ref_2',time_ref_2)
+
+        #   val_ref_2 = np.diff(val_ref_2)
+
+        #   time_ref_2 = time_ref_2[1:]
+
+        #   print('time_ref_2',time_ref_2)
+
+        #   print('val_ref_2',val_ref_2)
+
+        #   # print(figpar['slope_end'])
+        #   # print(eval(figpar['slope_end']))
+
+
+        #   # xls = np.array(varx)
+        #   # yls = np.array(val_ref_2)
+          
+        #   # param_line=[]
+        #   # slope_and_correlation=0
+        #   # R2=0
+        #   # color_line=plotpar['text_color']
+        #   # alpha= 1 
+        #   # lw = 1
+       
+        #   # xls=xls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
+        #   # yls=yls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
+        #   # print('xls',xls)
+        #   # print('yls',yls)
+        #   # print('len xls yls',len(xls),len(yls))
+
+        #   # slope_and_correlation=[0,0]
+        #   # compute_slope(ax2,xls,yls,
+        #   #             #   x,y,
+        #   #               slope_and_correlation,R2,param_line,color_line,alpha,plot_text=True,logslope=False)
+        #   # print('least squares',slope_and_correlation)
+          
+        #   # label = r'$$'
+          
+
+        #   # if math.isnan(slope_and_correlation[1]): 
+        #   #     text_slope = r"$\mathrm{{{text}}}: {slope:.2f}".format(text=', slope',slope=slope_and_correlation[0]) + '$'
+        #   # else:
+        #   #     text_slope = r"$\mathrm{{{text}}}: {slope:.2f}, R^2: {R2:.2f}".format(text=', slope',slope=slope_and_correlation[0],R2=slope_and_correlation[1]) + '$'
+
+        #   # print('text_slope',text_slope)
+
+        macro_data: |
+          global varx_2,vary_2,values
+          varx_2, vary_2 = process_h5_files(figpar, h5_files)
+          
+          # varx_2 = varx_2[1:] #exclude t=0
+          # vary_2 = vary_2[1:]
+
+          print('varx_2',varx_2)
+          print('vary_2',vary_2)
+
+          rho_g = yml['flower']['physics']['rho2']
+          rho_l = yml['flower']['physics']['rho2']
+
+          mass_transfer_rate = -0.05
+
+          time_ref_2 = np.array(varx_2)
+
+          val_ref_2 = yml['flower']['physics']['radius'] + mass_transfer_rate/rho_l * time_ref_2
+          factor = 0.5 #half bubble
+          val_ref_2 = (1**2-factor*np.pi*val_ref_2**2) 
+
+          val_ref_2 = rho_l*val_ref_2
+          
+          # print('val_ref_2',val_ref_2)
+          # print('time_ref_2',time_ref_2)
+
+          val_ref_2 = np.diff(val_ref_2)
+
+          vary_2 = vary_2[1:] 
+
+          vary_2 = abs(vary_2-val_ref_2)/val_ref_2
+
+          varx_2 = varx_2[1:]
+
+          print('varx_2',varx_2)
+          print('vary_2',vary_2)
+
+
+          # ax2.set_xscale('log')
+          ax2.set_yscale('log')
+
+         
+        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 
+                          'file_name+"_"+plotpar["theme"]+".svg"']
+
+
+      - var: [[time,conservation]]
+        file: conservation
+        func: plot_time #plot_1D
+        labels: [["$\\text{Time} ( \\unit{\\s})$", "$ \\text{Conservation} ( \\unit{\\m/})$" ]]
+       
+        # macro: |
+        #   global label2,color2,ls2 
+        #   label2 = file[figpar['iter']]
+        #   # label1
+        #   color2 = colors[figpar['iter']]
+        #   print(color2)
+        #   print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
+        #   ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
+        macro_label_linestyle_color: |
+          global label2,color2,ls2 
+          label2 = file[figpar['iter']]
+          # label1
+          color2 = colors[figpar['iter']]
+          print(color2)
+          print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
+          ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
+        slope_start: '1'
+        slope_end: 'len(varx)'
+
+        # macro_slope: |
+        #   xls = np.array(varx)
+        #   yls = slice_1D
+        #   xls=xls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
+        #   yls=yls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
+        #   # print('len xls yls',len(xls),len(yls))
+        #   # R2=0
+        #   # slope_and_correlation = [0,0]
+        #   # compute_slope(ax2,xls,yls,
+        #   # slope_and_correlation,R2,param_line,color_line,alpha,plot_text=True,logslope=False)
+        #   # print('least squares',slope_and_correlation)
+
+        #   compute_slope_figpar(ax2, xls, yls,plotpar,figpar, plot_text=True, logslope=False)
+
+
+        macro_ref: |
+          global time_ref_2,val_ref_2
+          time_ref_2 = np.array(varx)
+
+          print('time_ref_2',time_ref_2)
+          # rho_l = yml['flower']['physics']['rho1']
+          rho_g = yml['flower']['physics']['rho2']
+          rho_l = yml['flower']['physics']['rho2']
+
+          mass_transfer_rate = -0.05
+
+          val_ref_2 = yml['flower']['physics']['radius'] + mass_transfer_rate/rho_l * time_ref_2
+
+          val_ref_2 = (1**2-np.pi*val_ref_2**2) 
+
+          val_ref_2 = rho_l*val_ref_2
+          
+          # print('val_ref_2',val_ref_2)
+          # print('time_ref_2',time_ref_2)
+
+          val_ref_2 = np.diff(val_ref_2)
+
+          time_ref_2 = time_ref_2[1:]
+
+          print('time_ref_2',time_ref_2)
+
+          print('val_ref_2',val_ref_2)
+
+          # print(figpar['slope_end'])
+          # print(eval(figpar['slope_end']))
+
+
+          # xls = np.array(varx)
+          # yls = np.array(val_ref_2)
+          
+          # param_line=[]
+          # slope_and_correlation=0
+          # R2=0
+          # color_line=plotpar['text_color']
+          # alpha= 1 
+          # lw = 1
+       
+          # xls=xls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
+          # yls=yls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
+          # print('xls',xls)
+          # print('yls',yls)
+          # print('len xls yls',len(xls),len(yls))
+
+          # slope_and_correlation=[0,0]
+          # compute_slope(ax2,xls,yls,
+          #             #   x,y,
+          #               slope_and_correlation,R2,param_line,color_line,alpha,plot_text=True,logslope=False)
+          # print('least squares',slope_and_correlation)
+          
+          # label = r'$$'
+          
+
+          # if math.isnan(slope_and_correlation[1]): 
+          #     text_slope = r"$\mathrm{{{text}}}: {slope:.2f}".format(text=', slope',slope=slope_and_correlation[0]) + '$'
+          # else:
+          #     text_slope = r"$\mathrm{{{text}}}: {slope:.2f}, R^2: {R2:.2f}".format(text=', slope',slope=slope_and_correlation[0],R2=slope_and_correlation[1]) + '$'
+
+          # print('text_slope',text_slope)
+
+        
+       
+          
+
+        macro_data: |
+          global varx_2,vary_2,values
+          varx_2, vary_2 = process_h5_files(figpar, h5_files)
+          
+          varx_2 = varx_2[1:] #exclude t=0
+          vary_2 = vary_2[1:]
+
+          print('varx_2',varx_2)
+          print('vary_2',vary_2)
+
+    
+
+        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 
+                          'file_name+"_"+plotpar["theme"]+".svg"']
+
+      - var: [[time,area_liq]]
+        file: area_error      
+        func: plot_time #plot_1D
+        labels: [["$\\text{Time} ( \\unit{\\s})$", "$ \\text{Radius} ( \\unit{\\m})$" ]]
+      
+        # macro: |
+        #   global label2,color2,ls2 
+        #   label2 = file[figpar['iter']]
+        #   # label1
+        #   color2 = colors[figpar['iter']]
+        #   print(color2)
+        #   print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
+        #   ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
         
         slope_start: '1'
         slope_end: 'len(varx)'
@@ -5153,501 +5901,6 @@ plot: #default parameters for plots
         macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 
                           'file_name+"_"+plotpar["theme"]+".svg"']
 
-      - var: [[time,conservation]]
-        file: conservation_error
-        files: *files_study
-        # files: [../fixed_mass_transfer_rate_proj_Stefan_vel_evap_drop2/timestep_1_0000e-03/mesh_00064/flower*20.h5]
-        func: plot_time
-        labels: [["$\\text{Time} ( \\unit{\\s})$", "Conservation error" ]]
-        macro_label_linestyle_color: *macro_label_linestyle_color_study
-        macro_file_name: *macro_file_name_study     
-
-      - var: [[time,mass_transfer_contrib_interface_average]]
-        file: mass_transfer_contrib_interface_average
-        # files: *files_study
-        files: [../fixed_mass_transfer_rate_proj_Stefan_vel_evap_drop2/timestep_1_0000e-03/mesh_00064/flower*20.h5]
-        func: plot_time
-        labels: [["$\\text{Time} ( \\unit{\\s})$", "$ \\text{mass_transfer_contrib_interface_average} $" ]]
-        macro_label_linestyle_color: *macro_label_linestyle_color_study
-        macro_file_name: *macro_file_name_study     
-
-      - var: [[time,normal_bulk_velocity_interface_average]]
-        file: normal_bulk_velocity_interface_average
-        # files: *files_study
-        files: [../fixed_mass_transfer_rate_proj_Stefan_vel_evap_drop2/timestep_1_0000e-03/mesh_00064/flower*20.h5]
-     
-        func: plot_time #plot_1D
-        labels: [["$\\text{Time} ( \\unit{\\s})$", "$ \\text{Area 2D} ( \\unit{\\m\\squared})$" ]]
-  
-        macro_label_linestyle_color: *macro_label_linestyle_color_study
-   
-        # macro_ref: |
-        #   global time_ref_2,val_ref_2
-        #   time_ref_2 = np.array(varx)
-        #   radius_list = vary_2
-
-        #   print('time_ref_2',time_ref_2)
-        #   print('radius_list',radius_list)
-        #   # rho_l = yml['flower']['physics']['rho1']
-        #   rho_g = yml['flower']['physics']['rho2']
-        #   rho_l = yml['flower']['physics']['rho2']
-
-        #   mass_transfer_rate = -0.05
-
-        #   # val_ref_2 = radius_list[0] + mass_transfer_rate/rho_g * time_ref_2
-
-        #   val_ref_2 = yml['flower']['physics']['radius'] + mass_transfer_rate/rho_l * time_ref_2
-          
-        #   # analytical_radius = yml['flower']['physics']['radius']
-        #   # print('radius',analytical_radius)
-        #   # print('ana vol',analytical_radius**3,4/3*np.pi*analytical_radius**3)
-
-        #   # print('radius',val_ref_2)
-
-        #   val_ref_2 = np.pi*val_ref_2**2
-
-        # macro_data2: |
-        #   global vary_2
-        #   vary_2 = np.array(vary_2)
-        #   # vary_2 = np.pi*vary_2**2
-
-        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 
-                          'file_name+"_"+plotpar["theme"]+".svg"']                      
- 
-      - var: [[time,radius]]
-        file: area_compare_cipriano
-        files: *files_study
-        # [
-        #         # timestep_5_0000e-02/mesh_00040/flower*.h5,
-        #         # timestep_1_0000e-02/mesh_00040/flower*.h5,
-        #         # timestep_5_0000e-03/mesh_00040/flower*.h5,
-        #         # timestep_2_0000e-03/mesh_00032/flower*.h5,
-        #         ../fixed_mass_transfer_rate_proj_cipriano_evap_drop4/timestep_2_0000e-03/mesh_00032/flower*.h5,
-        #         ../fixed_mass_transfer_rate_proj_Stefan_vel_evap_drop2/timestep_2_0000e-03/mesh_00032/flower*.h5,
-        #         ../fixed_mass_transfer_rate_proj_Stefan_vel_evap_drop2/timestep_5_0000e-03/mesh_00016/flower*.h5,
-        #         # ../fixed_mass_transfer_rate_proj_redist_evap_drop2/timestep_2_0000e-03/mesh_00032/flower*.h5,
-        #         ../fixed_mass_transfer_rate_proj_redist_evap_drop3/timestep_2_0000e-03/mesh_00032/flower*.h5
-        #         # timestep_2_0000e-03/mesh_00064/flower*.h5,
-        #         # timestep_2_0000e-03/mesh_000128/flower*.h5,
-        #         # timestep_5_0000e-02/mesh_00040/flower_0000001*.h5,
-        #           # timestep_5_0000e-02/mesh_00040/flower_0000000*.h5,
-        #         # timestep_5_0000e-03/mesh_00040/flower*.h5,
-        # ]
-        # files: [timestep_5_0000e-02/mesh_00040/flower_00000060.h5]
-        func: plot_time #plot_1D
-        labels: [["$\\text{Time} ( \\unit{\\s})$", "$ \\text{Area 2D} ( \\unit{\\m\\squared})$" ]]
-        # linestyles: ['(0, (3, 6))' ]
-        # linestyles: ['(0, (3, 6))',
-        #              '(0, ())', #solid
-        #              '(3, (3, 6))', #"dashdot"
-        #              '(6, (3, 6))'] #"dotted"
-        macro_label_linestyle_color: *macro_label_linestyle_color_study
-        # |
-        #   global label2,color2,ls2 
-        #   label2 = file[figpar['iter']]
-        #   # label1
-        #   color2 = colors[figpar['iter']]
-        #   print(color2)
-        #   print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
-        #   ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
-    
-        slope_start: '1'
-        slope_end: 'len(varx)'
-
-        # macro_slope: |
-        #   xls = np.array(varx)
-        #   yls = slice_1D
-        #   xls=xls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
-        #   yls=yls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
-        #   # print('len xls yls',len(xls),len(yls))
-        #   # R2=0
-        #   # slope_and_correlation = [0,0]
-        #   # compute_slope(ax2,xls,yls,
-        #   # slope_and_correlation,R2,param_line,color_line,alpha,plot_text=True,logslope=False)
-        #   # print('least squares',slope_and_correlation)
-
-        #   compute_slope_figpar(ax2, xls, yls,plotpar,figpar, plot_text=True, logslope=False)
-
-
-        macro_ref: |
-          global time_ref_2,val_ref_2
-          time_ref_2 = np.array(varx)
-          radius_list = vary_2
-
-          print('time_ref_2',time_ref_2)
-          print('radius_list',radius_list)
-          # rho_l = yml['flower']['physics']['rho1']
-          rho_g = yml['flower']['physics']['rho2']
-          rho_l = yml['flower']['physics']['rho2']
-
-          mass_transfer_rate = -0.05
-
-          # val_ref_2 = radius_list[0] + mass_transfer_rate/rho_g * time_ref_2
-
-          val_ref_2 = yml['flower']['physics']['radius'] + mass_transfer_rate/rho_l * time_ref_2
-          
-          # analytical_radius = yml['flower']['physics']['radius']
-          # print('radius',analytical_radius)
-          # print('ana vol',analytical_radius**3,4/3*np.pi*analytical_radius**3)
-
-          # print('radius',val_ref_2)
-
-          val_ref_2 = np.pi*val_ref_2**2
-
-        macro_data2: |
-          global vary_2
-          vary_2 = np.array(vary_2)
-          vary_2 = np.pi*vary_2**2
-
-        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 
-                          'file_name+"_"+plotpar["theme"]+".svg"']   
-
-      - var: [[time,radius]]
-        file: convergence_rel_error_area
-        files: *files_study
-        func: plot_error #plot_1D
-        logplot: True
-        labels: [["Mesh", "Relative error on area" ]]
-        # macro_label_linestyle_color: *macro_label_linestyle_color_study
-        slope_start: '0'
-        slope_end: 'len(figpar["methods"][method]["mesh"])'
-        # slope_start: 16
-        # slope_stop: 32
-        # xlim: [1e-3,1e-1]
-        
-        macro_label_linestyle_color: *macro_label_linestyle_color_study
-        macro_label_slope: |
-          global label2
-          label2 = label1
-          label2 += ' ' + slope_text
-
-          figpar['methods']['seen'][method] += 1
-          print('total',figpar['methods']['seen'][method],'total',figpar['methods']['total'][method])
-          if figpar['methods']['seen'][method] < figpar['methods']['total'][method]:
-            label2 = ''
-        # macro_label_linestyle_color: |
-        #   global label2,color2,ls2, method2 
-        #   print(colored('[macro_label_linestyle_color]','red'))
-        #   print("figpar['iter']",figpar['iter'])
-        #   label2 = file[figpar['iter']]
-        #   # label1
-        #   color2 = colors[figpar['iter']]
-        #   print(color2)
-        #   print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
-        #   ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
-        #   if 'cipriano' in label2:
-        #     label2 = 'Double Pressure Velocity Coupling'+' '+str(nx)
-        #     method2 = 'DPVC'
-        #   elif 'Stefan' in label2:
-        #     label2 = 'Stefan'+' '+str(nx)
-        #     method2 = 'Stefan'
-
-        #   elif 'redist' in label2:
-        #     label2 = 'Redistribution'+' '+str(nx)
-        #     method2 = 'redist'
-
-        #   # print('label2',label2)
-        #   # label2 += ' ' + slope_text
-
-        macro_method: |
-          global method2
-          method2 = ''
-          label2 = file[figpar['iter']]
-          if 'cipriano' in label2:
-            method2 = 'DPVC'
-          elif 'Stefan' in label2:
-            method2 = 'Stefan'
-          elif 'redist' in label2:
-            method2 = 'redist'
-        macro_slope: |
-          global slope_text2
-          
-          slope_text2 = ''
-
-          print(colored('[macro_slope]','red'))
-          if method in figpar['methods'].keys():
-            print('figpar', figpar['methods'][method])
-            print('len',len(figpar['methods'][method]))
-            # Sort both arrays based on the mesh values
-            sort_indices = np.argsort(figpar['methods'][method]['mesh'])
-            figpar['methods'][method]['error'] = figpar['methods'][method]['error'][sort_indices]
-            figpar['methods'][method]['mesh'] = figpar['methods'][method]['mesh'][sort_indices]
-            # if figpar['methods'][method]['error'] and len(figpar['methods'][method]['error'])>1:
-            if len(figpar['methods'][method].get('error', [])) > 1:
-              xls = figpar['methods'][method]['mesh']
-              yls = figpar['methods'][method]['error']
-              xls = np.asarray(xls)
-              yls = np.asarray(yls)
-              print('xls',xls)
-              print('yls',yls)
-              print('len',len(xls))
-
-              xls=xls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
-              yls=yls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
-              
-              print('xls',xls)
-              print('yls',yls)
-
-              # print('len xls yls',len(xls),len(yls))
-              # R2=0
-              # slope_and_correlation = [0,0]
-              # compute_slope(ax2,xls,yls,
-              # slope_and_correlation,R2,param_line,color_line,alpha,plot_text=True,logslope=False)
-              # print('least squares',slope_and_correlation)
-
-              # compute_slope_figpar(ax2, xls, yls,plotpar,figpar, plot_text=True, logslope=False)
-              ax2, slope_text_two_lines,slope_text2,slope,correlation_R2 = compute_slope_figpar(ax2, xls, yls,plotpar,figpar, plot_text=False, logslope=True)
-
-              print('slope_text2',slope_text2)
-
-        macro_data: |
-          global varx_2, vary_2, values
-          import glob
-          import numpy as np
-
-          time_error = 2.0
-          print(colored('looking for time ' + str(time_error), 'red'))
-
-          values = {}
-
-          # initialize containers
-          for var_list in figpar['var']:
-              for var in var_list:
-                  values[var] = []
-
-          files = glob.glob(h5_files[figpar['iter']])
-          files = sorted(files)
-
-          # print('h5_files', files)
-
-          prev_data = None
-          found = False
-
-          for file_name in files:
-
-              with h5py.File(file_name, "r") as file:
-
-                  try:
-                      # ---- read all variables of interest ----
-                      current_data = {}
-
-                      for var_list in figpar['var']:
-                          for var in var_list:
-                              current_data[var] = file[var][()]
-
-                      # time variable = first variable of first list
-                      time_var = figpar['var'][0][0]
-                      t = current_data[time_var]
-
-                      # -----------------------------
-                      # check crossing of time_error
-                      # -----------------------------
-                      if prev_data is not None:
-
-                          t_prev = prev_data[time_var]
-
-                          if t_prev <= time_error <= t:
-
-                              print(colored(
-                                  f'Interpolating at time {time_error}', 'red'))
-                              print('t_prev ',t_prev, ' t',t,' time_error ',time_error)
-
-                              alpha = (time_error - t_prev) / (t - t_prev)
-
-                              # linear interpolation
-                              for var in current_data:
-                                  v_interp = (
-                                      (1 - alpha) * prev_data[var]
-                                      + alpha * current_data[var]
-                                  )
-                                  print(colored(f'Interpolated alpha {alpha}', 'red'))
-
-                                  values[var].append(v_interp)
-
-                              found = True
-                              break
-
-                      # store previous step
-                      prev_data = current_data
-
-                      # save mesh info (once is enough)
-                      values['nx'] = file['nx'][()]
-                      values['ny'] = file['ny'][()]
-
-                  except Exception as e:
-                      print(colored(
-                          f'variable missing in {file_name}: {e}', 'red'))
-
-              if found:
-                  break
-
-          # -----------------------------
-          # convert arrays for plotting
-          # -----------------------------
-          varx_2 = np.asarray(values[figpar['var'][0][0]])
-          
-          # varx_2 = np.asarray(values['nx'])
-
-          vary_2 = np.asarray(values[figpar['var'][0][1]])
-
-          print('varx_2',varx_2)
-          print('vary_2',vary_2)
-
-        macro_data2: |
-          global vary_2,varx_2 
-          # time_ref_2,val_ref_2
-          time_ref_2 = np.array(varx_2)
-          radius_list = vary_2
-
-          print('time_ref_2',time_ref_2)
-          print('radius_list',radius_list)
-          # rho_l = yml['flower']['physics']['rho1']
-          rho_g = yml['flower']['physics']['rho2']
-          rho_l = yml['flower']['physics']['rho2']
-
-          mass_transfer_rate = -0.05
-
-          # val_ref_2 = radius_list[0] + mass_transfer_rate/rho_g * time_ref_2
-
-          val_ref_2 = yml['flower']['physics']['radius'] + mass_transfer_rate/rho_l * time_ref_2
-          
-      
-          print('time',time_ref_2)
-
-          print('radius',val_ref_2)
-
-          val_ref_2 = np.pi*val_ref_2**2
-
-          vary_2 = np.array(vary_2)
-          
-          val_ref_2 = np.array(val_ref_2)
-
-          vary_2 = np.pi*vary_2**2
-          vary_2 = abs(val_ref_2-vary_2)/val_ref_2
-
-          print(colored('error','red'))
-          print('vary_2',vary_2)
-
-          varx_2 = np.asarray(values['nx'])
-
-        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 
-                          'file_name+"_"+plotpar["theme"]+".svg"']               
-                          
-
-      - var: [[time,radius]]
-        file: rel_error_area_compare_cipriano
-        files: *files_study
-        # [
-        #         # timestep_5_0000e-02/mesh_00040/flower*.h5,
-        #         # timestep_1_0000e-02/mesh_00040/flower*.h5,
-        #         # timestep_5_0000e-03/mesh_00040/flower*.h5,
-        #         # timestep_2_0000e-03/mesh_00032/flower*.h5,
-        #         ../fixed_mass_transfer_rate_proj_cipriano_evap_drop4/timestep_2_0000e-03/mesh_00032/flower*.h5,
-        #         ../fixed_mass_transfer_rate_proj_Stefan_vel_evap_drop2/timestep_2_0000e-03/mesh_00032/flower*.h5,
-        #         # ../fixed_mass_transfer_rate_proj_redist_evap_drop2/timestep_2_0000e-03/mesh_00032/flower*.h5,
-        #         ../fixed_mass_transfer_rate_proj_redist_evap_drop3/timestep_2_0000e-03/mesh_00032/flower*.h5
-        #         # timestep_2_0000e-03/mesh_00064/flower*.h5,
-        #         # timestep_2_0000e-03/mesh_000128/flower*.h5,
-        #         # timestep_5_0000e-02/mesh_00040/flower_0000001*.h5,
-        #           # timestep_5_0000e-02/mesh_00040/flower_0000000*.h5,
-        #         # timestep_5_0000e-03/mesh_00040/flower*.h5,
-        # ]
-        # files: [timestep_5_0000e-02/mesh_00040/flower_00000060.h5]
-        func: plot_time #plot_1D
-        labels: [["$\\text{Time} ( \\unit{\\s})$", "$ \\text{Area 2D} ( \\unit{\\m\\squared})$" ]]
-        # linestyles: ['(0, (3, 6))' ]
-        # linestyles: ['(0, (3, 6))',
-        #              '(0, ())', #solid
-        #              '(3, (3, 6))', #"dashdot"
-        #              '(6, (3, 6))'] #"dotted"
-        macro_label_linestyle_color: *macro_label_linestyle_color_study
-        # |
-        #   global label2,color2,ls2 
-        #   label2 = file[figpar['iter']]
-        #   # label1
-        #   color2 = colors[figpar['iter']]
-        #   print(color2)
-        #   print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
-        #   ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
-    
-        slope_start: '1'
-        slope_end: 'len(varx)'
-
-        # macro_slope: |
-        #   xls = np.array(varx)
-        #   yls = slice_1D
-        #   xls=xls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
-        #   yls=yls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
-        #   # print('len xls yls',len(xls),len(yls))
-        #   # R2=0
-        #   # slope_and_correlation = [0,0]
-        #   # compute_slope(ax2,xls,yls,
-        #   # slope_and_correlation,R2,param_line,color_line,alpha,plot_text=True,logslope=False)
-        #   # print('least squares',slope_and_correlation)
-
-        #   compute_slope_figpar(ax2, xls, yls,plotpar,figpar, plot_text=True, logslope=False)
-
-
-        # macro_ref: |
-        #   global time_ref_2,val_ref_2
-        #   time_ref_2 = np.array(varx)
-        #   radius_list = vary_2
-
-        #   print('time_ref_2',time_ref_2)
-        #   print('radius_list',radius_list)
-        #   # rho_l = yml['flower']['physics']['rho1']
-        #   rho_g = yml['flower']['physics']['rho2']
-        #   rho_l = yml['flower']['physics']['rho2']
-
-        #   mass_transfer_rate = -0.05
-
-        #   # val_ref_2 = radius_list[0] + mass_transfer_rate/rho_g * time_ref_2
-
-        #   val_ref_2 = yml['flower']['physics']['radius'] + mass_transfer_rate/rho_l * time_ref_2
-          
-        #   # analytical_radius = yml['flower']['physics']['radius']
-        #   # print('radius',analytical_radius)
-        #   # print('ana vol',analytical_radius**3,4/3*np.pi*analytical_radius**3)
-
-        #   # print('radius',val_ref_2)
-
-        #   val_ref_2 = np.pi*val_ref_2**2
-
-        macro_data2: |
-          global vary_2 
-          # time_ref_2,val_ref_2
-          time_ref_2 = np.array(varx_2)
-          radius_list = vary_2
-
-          print('time_ref_2',time_ref_2)
-          print('radius_list',radius_list)
-          # rho_l = yml['flower']['physics']['rho1']
-          rho_g = yml['flower']['physics']['rho2']
-          rho_l = yml['flower']['physics']['rho2']
-
-          mass_transfer_rate = -0.05
-
-          # val_ref_2 = radius_list[0] + mass_transfer_rate/rho_g * time_ref_2
-
-          val_ref_2 = yml['flower']['physics']['radius'] + mass_transfer_rate/rho_l * time_ref_2
-          
-      
-          print('time',time_ref_2)
-
-          print('radius',val_ref_2)
-
-          val_ref_2 = np.pi*val_ref_2**2
-
-          vary_2 = np.array(vary_2)
-          
-          val_ref_2 = np.array(val_ref_2)
-
-          vary_2 = np.pi*vary_2**2
-          vary_2 = abs(val_ref_2-vary_2)/val_ref_2
-
-        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 
-                          'file_name+"_"+plotpar["theme"]+".svg"']               
-
       - var: [[time,radius]]
         file: volume_3d_compare_cipriano
         files: [
@@ -5670,14 +5923,6 @@ plot: #default parameters for plots
                      '(0, ())', #solid
                      '(3, (3, 6))', #"dashdot"
                      '(6, (3, 6))'] #"dotted"
-        macro_label_linestyle_color: |
-          global label2,color2,ls2 
-          label2 = file[figpar['iter']]
-          # label1
-          color2 = colors[figpar['iter']]
-          print(color2)
-          print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
-          ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
         macro: |
           global label2,color2,ls2 
           label2 = file[figpar['iter']]
@@ -5816,43 +6061,22 @@ plot: #default parameters for plots
                           'file_name+"_"+plotpar["theme"]+".svg"']
 
 
-
       - var: [[time,radius]]
         file: radius
-        files: [
-                # timestep_5_0000e-02/mesh_00040/flower*.h5,
-                # timestep_1_0000e-02/mesh_00040/flower*.h5,
-                # timestep_5_0000e-03/mesh_00040/flower*.h5,
-                # timestep_2_0000e-03/mesh_00032/flower*.h5,
-                ../fixed_mass_transfer_rate_proj_cipriano_evap_drop4/timestep_2_0000e-03/mesh_00032/flower*.h5,
-                ../fixed_mass_transfer_rate_proj_Stefan_vel_evap_drop2/timestep_2_0000e-03/mesh_00032/flower*.h5,
-                ../fixed_mass_transfer_rate_proj_redist_evap_drop2/timestep_2_0000e-03/mesh_00032/flower*.h5,
-                ../fixed_mass_transfer_rate_proj_redist_evap_drop3/timestep_2_0000e-03/mesh_00032/flower*.h5
-                #
-                # timestep_2_0000e-03/mesh_00064/flower*.h5,
-                # timestep_2_0000e-03/mesh_000128/flower*.h5,
-                #
-                # timestep_5_0000e-02/mesh_00040/flower_0000001*.h5,
-                  # timestep_5_0000e-02/mesh_00040/flower_0000000*.h5,
-                # timestep_5_0000e-03/mesh_00040/flower*.h5,
-        ]
- 
-        macro_label_linestyle_color: |
-          global label2,color2,ls2 
-          print("figpar['iter']",figpar['iter'])
-          label2 = file[figpar['iter']]
-          # label1
-          color2 = colors[figpar['iter']]
-          print(color2)
-          print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
-          ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
-          if 'cipriano' in label2:
-            label2 = 'Double Pressure Velocity Coupling'+' '+str(nx)
-          elif 'Stefan' in label2:
-            label2 = 'Stefan'+' '+str(nx)
-          elif 'redist' in label2:
-            label2 = 'Redistribution'+' '+str(nx)
+        logplot_x: True
+        logplot_y: True
+        # files: [
+        #         # timestep_5_0000e-02/mesh_00040/flower*.h5,
+        #         # timestep_1_0000e-02/mesh_00040/flower*.h5,
+        #         # timestep_5_0000e-03/mesh_00040/flower*.h5,
+        #         timestep_2_0000e-03/mesh_00032/flower*.h5,
+        #         # timestep_2_0000e-03/mesh_00064/flower*.h5,
+        #         # timestep_2_0000e-03/mesh_000128/flower*.h5,
 
+        #         # timestep_5_0000e-02/mesh_00040/flower_0000001*.h5,
+        #           # timestep_5_0000e-02/mesh_00040/flower_0000000*.h5,
+        #         # timestep_5_0000e-03/mesh_00040/flower*.h5,
+        # ]
         # files: [timestep_5_0000e-02/mesh_00040/flower_00000060.h5]
         func: plot_time #plot_1D
         labels: [["$\\text{Time} ( \\unit{\\s})$", "$ \\text{Radius} ( \\unit{\\m})$" ]]
@@ -5861,7 +6085,7 @@ plot: #default parameters for plots
                      '(0, ())', #solid
                      '(3, (3, 6))', #"dashdot"
                      '(6, (3, 6))'] #"dotted"
-        macro: |
+        macro_label_linestyle_color: |
           global label2,color2,ls2 
           label2 = file[figpar['iter']]
           # label1
@@ -5888,111 +6112,197 @@ plot: #default parameters for plots
           compute_slope_figpar(ax2, xls, yls,plotpar,figpar, plot_text=True, logslope=False)
 
 
-        macro_ref: |
-          global time_ref_2,val_ref_2
-          time_ref_2 = np.array(varx)
-          radius_list = vary_2
+        # macro_ref: |
+        #   global time_ref_2,val_ref_2
+        #   time_ref_2 = np.array(varx)
+        #   radius_list = vary_2
 
-          print('time_ref_2',time_ref_2)
-          print('radius_list',radius_list)
-          # rho_l = yml['flower']['physics']['rho1']
-          rho_g = yml['flower']['physics']['rho2']
-          rho_l = yml['flower']['physics']['rho2']
+        #   print('time_ref_2',time_ref_2)
+        #   print('radius_list',radius_list)
+        #   # rho_l = yml['flower']['physics']['rho1']
+        #   rho_g = yml['flower']['physics']['rho2']
+        #   rho_l = yml['flower']['physics']['rho2']
 
-          mass_transfer_rate = -0.05
+        #   mass_transfer_rate = -0.05
 
-          # val_ref_2 = radius_list[0] + mass_transfer_rate/rho_g * time_ref_2
+        #   # val_ref_2 = radius_list[0] + mass_transfer_rate/rho_g * time_ref_2
 
-          val_ref_2 = yml['flower']['physics']['radius'] + mass_transfer_rate/rho_l * time_ref_2
+        #   # val_ref_2 = yml['flower']['physics']['radius'] + mass_transfer_rate/rho_l * time_ref_2
+        #   beta = 0.5
+        #   nucleation_time = yml['flower']['physics']['nucleation_time']
+        #   val_ref_2 = time_ref_2
+
+        #   # for i,t in enumerate(time_ref_2):
+        #   #   if t < nucleation_time:
+        #   #     val_ref_2[i] = yml['flower']['physics']['radius']
+        #   #   else:
+        #   #     val_ref_2[i] = yml['flower']['physics']['radius']+ 2*beta * np.sqrt(time_ref_2[i]-nucleation_time)
+
+        #   val_ref_2 =  2*beta * np.sqrt(time_ref_2)
+
+        #   print('time_ref_2',time_ref_2)
+
+        #   # print(figpar['slope_end'])
+        #   # print(eval(figpar['slope_end']))
 
 
-          # print(figpar['slope_end'])
-          # print(eval(figpar['slope_end']))
-
-
-          xls = np.array(varx)
-          yls = np.array(val_ref_2)
+        #   xls = np.array(varx)
+        #   yls = np.array(val_ref_2)
           
-          param_line=[]
-          slope_and_correlation=0
-          R2=0
-          color_line=plotpar['text_color']
-          alpha= 1 
-          lw = 1
+        #   param_line=[]
+        #   slope_and_correlation=0
+        #   R2=0
+        #   color_line=plotpar['text_color']
+        #   alpha= 1 
+        #   lw = 1
        
-          xls=xls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
-          yls=yls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
-          print('xls',xls)
-          print('yls',yls)
-          print('len xls yls',len(xls),len(yls))
+        #   xls=xls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
+        #   yls=yls[eval(figpar['slope_start']):eval(figpar['slope_end'])+1]
+        #   print('xls',xls)
+        #   print('yls',yls)
+        #   print('len xls yls',len(xls),len(yls))
 
-          slope_and_correlation=[0,0]
-          compute_slope(ax2,xls,yls,
-                      #   x,y,
-                        slope_and_correlation,R2,param_line,color_line,alpha,plot_text=True,logslope=False)
-          print('least squares',slope_and_correlation)
+        #   slope_and_correlation=[0,0]
+        #   compute_slope(ax2,xls,yls,
+        #               #   x,y,
+        #                 slope_and_correlation,R2,param_line,color_line,alpha,plot_text=True,logslope=False)
+        #   print('least squares',slope_and_correlation)
           
-          label = r'$$'
+        #   label = r'$$'
           
 
-          if math.isnan(slope_and_correlation[1]): 
-              text_slope = r"$\mathrm{{{text}}}: {slope:.2f}".format(text=', slope',slope=slope_and_correlation[0]) + '$'
-          else:
-              text_slope = r"$\mathrm{{{text}}}: {slope:.2f}, R^2: {R2:.2f}".format(text=', slope',slope=slope_and_correlation[0],R2=slope_and_correlation[1]) + '$'
+        #   if math.isnan(slope_and_correlation[1]): 
+        #       text_slope = r"$\mathrm{{{text}}}: {slope:.2f}".format(text=', slope',slope=slope_and_correlation[0]) + '$'
+        #   else:
+        #       text_slope = r"$\mathrm{{{text}}}: {slope:.2f}, R^2: {R2:.2f}".format(text=', slope',slope=slope_and_correlation[0],R2=slope_and_correlation[1]) + '$'
 
-          print('text_slope',text_slope)
+        #   print('text_slope',text_slope)
 
         
        
           
 
-        # macro_data: |
-        #   global varx_2,vary_2,values
-        #   import glob
+        macro_data: |
+          global varx_2,vary_2,values
+          import glob
 
-        #   # time_list =[]
+          # time_list =[]
 
-        #   # radius_list=[]
+          # radius_list=[]
 
-        #   values = {}
+          values = {}
 
-        #   for var_list in figpar['var']:
-        #     # print('var_list',var_list)
-        #     for var in var_list:
-        #       values[var] = []
+          for var_list in figpar['var']:
+            # print('var_list',var_list)
+            for var in var_list:
+              values[var] = []
 
-        #   # for files in h5_files:
-        #   files = h5_files[figpar['iter']]
+          # for files in h5_files:
+          files = h5_files[figpar['iter']]
 
-        #   files = glob.glob(files)
+          files = glob.glob(files)
 
-        #   files = sorted(files)
-        #   print('h5_files',h5_files)
+          files = sorted(files)
+          print('h5_files',h5_files)
 
-        #   # print(files)
+          # print(files)
 
-        #   for file_name in files:
+          for file_name in files:
         
-        #     with h5py.File(file_name, "r") as file:
-        #       # print('file',file_name)
-        #       # print(file.keys())
-        #       try:
-        #         for var_list in figpar['var']:
-        #           for var in var_list:
-        #             value = file[var][()]
-        #             values[var].append(value)
-        #             # print('var',var,value)
-        #       except:
-        #         # print('variable not saved')
-        #         print(colored(var+' not saved','red'))
+            with h5py.File(file_name, "r") as file:
+              # print('file',file_name)
+              # print(file.keys())
+              try:
+                for var_list in figpar['var']:
+                  for var in var_list:
+                    value = file[var][()]
+                    values[var].append(value)
+                    # print('var',var,value)
+              except:
+                # print('variable not saved')
+                print(colored(var+' not saved','red'))
 
 
           
-        #   # print(values)
-        #   varx_2 = values[figpar['var'][0][0]]
-        #   vary_2 = values[figpar['var'][0][1]]
+          # print(values)
+          varx_2 = values[figpar['var'][0][0]]
+          vary_2 = values[figpar['var'][0][1]]
         macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 
                           'file_name+"_"+plotpar["theme"]+".svg"']
+
+
+      
+      - var: [[time,sherwood_bubble]]
+        file: sherwood_bubble
+        logplot_x: True
+        logplot_y: True
+        func: plot_time #plot_1D
+        labels: [["$\\text{Time} ( \\unit{\\s})$", "$ \\text{Radius} ( \\unit{\\m})$" ]]
+        # linestyles: ['(0, (3, 6))' ]
+        linestyles: ['(0, (3, 6))',
+                     '(0, ())', #solid
+                     '(3, (3, 6))', #"dashdot"
+                     '(6, (3, 6))'] #"dotted"
+        macro_label_linestyle_color: |
+          global label2,color2,ls2 
+          label2 = file[figpar['iter']]
+          # label1
+          color2 = colors[figpar['iter']]
+          print(color2)
+          print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
+          ls2 = eval(get_value_from_dicts('linestyles',figpar,plotpar)[figpar['iter']+1])
+        
+        slope_start: '1'
+        slope_end: 'len(varx)'
+
+        macro_file_name: ['file_name+"_"+plotpar["theme"]+ ".pdf"', 
+                          'file_name+"_"+plotpar["theme"]+".svg"']
+        macro_data: |
+          global varx_2,vary_2,values
+          import glob
+
+          # time_list =[]
+
+          # radius_list=[]
+
+          values = {}
+
+          for var_list in figpar['var']:
+            # print('var_list',var_list)
+            for var in var_list:
+              values[var] = []
+
+          # for files in h5_files:
+          files = h5_files[figpar['iter']]
+
+          files = glob.glob(files)
+
+          files = sorted(files)
+          print('h5_files',h5_files)
+
+          # print(files)
+
+          for file_name in files:
+        
+            with h5py.File(file_name, "r") as file:
+              # print('file',file_name)
+              # print(file.keys())
+              try:
+                for var_list in figpar['var']:
+                  for var in var_list:
+                    value = file[var][()]
+                    values[var].append(value)
+                    # print('var',var,value)
+              except:
+                # print('variable not saved')
+                print(colored(var+' not saved','red'))
+
+
+          
+          # print(values)
+          varx_2 = values[figpar['var'][0][0]]
+          vary_2 = values[figpar['var'][0][1]]
+
 
 
       - var: [[time,center_of_mass_y]]
@@ -6887,9 +7197,11 @@ pdi:
     rise_velocity_y: double
     mean_phase_change_velocity: double
     cell_length: double
+    concentration_boundary_layer_width: double
+    sherwood: double
+    sherwood_bubble: double
     save_step: int64
     save_step_scalar: int64
-
 
 
   data: # values for which PDI does not keep a copy
@@ -6941,6 +7253,8 @@ pdi:
    
     mesh_x_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
     mesh_y_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
+
+    
 
     residual_1D: { size: '($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny', type: array, subtype: double } 
     
@@ -7008,9 +7322,6 @@ pdi:
     advection_velocity_phase_change_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double }
     advection_velocity_phase_change_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double }
 
-    Stefan_velocity_phase_change_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double }
-    Stefan_velocity_phase_change_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double }
-
     advection_velocity_before_extension_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double }
     advection_velocity_before_extension_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double }
 
@@ -7043,6 +7354,11 @@ pdi:
     velocity_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     velocity_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     mass_transfer_rate: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    
+    mass_transfer_rate_cutcell: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    mass_transfer_rate_JC: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+
+
     mass_transfer_rate_redistributed: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     mass_transfer_rate_before_redistribution: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
 
@@ -7078,6 +7394,9 @@ pdi:
     grad_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
     
     grad_pres_y: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
+    grad_pres_coupled_y: { size: [ '$nx', '$ny-1' ], type: array, subtype: double } #Field of the current subdomain
+
+    NS_force_y: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
 
     grav_y: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
     conv_y: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
@@ -7094,6 +7413,8 @@ pdi:
     volume_liq_cell: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
 
     volume_fraction: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    volume_fraction_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
+
     smoothed_volume_fraction: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     levelset_surface_tension: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
 
@@ -7129,6 +7450,10 @@ pdi:
     mesh_p_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     mesh_p_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
 
+    cell_centroid_x: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+    cell_centroid_y: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+
+    
 
     # stored in 3D
     dcap: { size: [ 11,'$nx', '$ny'], type: array, subtype: double } #Field of the current subdomain
@@ -7204,8 +7529,6 @@ pdi:
     pycall:
   
       # logging: "debug"
-
-
 
       on_event:
         # close_pycall:
@@ -7305,38 +7628,51 @@ pdi:
 
 
 
-      
+        write_sherwood:
+          with:
+            sherwood: $sherwood
+            sherwood_bubble: $sherwood_bubble
+            concentration_boundary_layer_width: $concentration_boundary_layer_width
+            radius: $radius
+          exec: |
+            import numpy as np
+            print('\033[91m')
+            print('[write_sherwood]')
+
+            print('sherwood bubble', sherwood_bubble,'sherwood', sherwood,'concentration_boundary_layer_width',concentration_boundary_layer_width,'radius',radius,"\n ")
+
+            print('\033[0m')
         
 
-        # write_advection_velocity:
-        #   with: 
-        #     advection_velocity_u: $advection_velocity_u
-        #     advection_velocity_v: $advection_velocity_v
-        #     nx: $nx
-        #     ny: $ny
-        #   exec: |
-        #     # print('[write_advection_velocity]')
+        write_advection_velocity:
+          with: 
+            advection_velocity_u: $advection_velocity_u
+            advection_velocity_v: $advection_velocity_v
+            nx: $nx
+            ny: $ny
+          exec: |
+            # print('[write_advection_velocity]')
 
 
-        #     advection_velocity_u.transpose() #because julia stores differently
-        #     advection_velocity_v.transpose()
+            advection_velocity_u.transpose() #because julia stores differently
+            advection_velocity_v.transpose()
 
-        #     #TODO irregular grids
-        #     advection_velocity_x = (advection_velocity_u[:-1,:]+advection_velocity_u[1:,:])/2
-        #     advection_velocity_y = (advection_velocity_v[:,:-1]+advection_velocity_v[:,:1:])/2
+            #TODO irregular grids
+            advection_velocity_x = (advection_velocity_u[:-1,:]+advection_velocity_u[1:,:])/2
+            advection_velocity_y = (advection_velocity_v[:,:-1]+advection_velocity_v[:,:1:])/2
 
-        #     advection_velocity_x.transpose()
-        #     advection_velocity_y.transpose()
+            advection_velocity_x.transpose()
+            advection_velocity_y.transpose()
 
-        #     pdi.multi_expose('write_interpolated_advection_velocity', [
-        #             ('advection_velocity_x', advection_velocity_x, pdi.OUT),
-        #             ('advection_velocity_y', advection_velocity_y, pdi.OUT),
-        #             ])
+            pdi.multi_expose('write_interpolated_advection_velocity', [
+                    ('advection_velocity_x', advection_velocity_x, pdi.OUT),
+                    ('advection_velocity_y', advection_velocity_y, pdi.OUT),
+                    ])
 
-        #     advection_velocity_u.transpose()
-        #     advection_velocity_v.transpose()
+            advection_velocity_u.transpose()
+            advection_velocity_v.transpose()
 
-        #     # print('[write_advection_velocity]')
+            # print('[write_advection_velocity]')
 
         # write_advection_velocity_phase_change:
         #   with: 
@@ -7489,61 +7825,61 @@ pdi:
           
             print('\033[0m')
       
+        #TODO update with Julia version / check PDI python
+        # compute_radius:
+        #   with:
+        #     levelset_p: $levelset_p
+        #     mesh_p_x: $mesh_p_x
+        #     mesh_p_y: $mesh_p_y
+        #     # radius: $radius
+        #     radius_vec: $radius_vec
+        #     nx: $nx
+        #     time: $time
+        #     radius_t0: *radius
 
-        compute_radius:
-          with:
-            levelset_p: $levelset_p
-            mesh_p_x: $mesh_p_x
-            mesh_p_y: $mesh_p_y
-            # radius: $radius
-            radius_vec: $radius_vec
-            nx: $nx
-            time: $time
-            radius_t0: *radius
+        #   exec: |
+        #     import numpy as np
+        #     from post_processing import compute_radius_from_levelset_slice
 
-          exec: |
-            import numpy as np
-            from post_processing import compute_radius_from_levelset_slice
+        #     print('\033[36m')
+        #     print('[compute_radius]')
+        #     # print('np.max(abs(mass_transfer_rate))',np.max(abs(mass_transfer_rate)) )
 
-            print('\033[36m')
-            print('[compute_radius]')
-            # print('np.max(abs(mass_transfer_rate))',np.max(abs(mass_transfer_rate)) )
-
-            # slice = levelset_p[:,0]
-            # x_1D = mesh_p_x[:,0]
-            #TODO improve radius computation
-            # slice = levelset_p[nx//2,:]
-            # x_1D = mesh_p_x[nx//2,:]
+        #     # slice = levelset_p[:,0]
+        #     # x_1D = mesh_p_x[:,0]
+        #     #TODO improve radius computation
+        #     # slice = levelset_p[nx//2,:]
+        #     # x_1D = mesh_p_x[nx//2,:]
 
 
-            slice = levelset_p[nx//2,:]
-            x_1D = mesh_p_y[nx//2,:]
+        #     slice = levelset_p[nx//2,:]
+        #     x_1D = mesh_p_y[nx//2,:]
 
-            print('LS line',slice)
-            print('x_1D',slice)
+        #     print('LS line',slice)
+        #     print('x_1D',slice)
 
-            eps = 1e-6
+        #     eps = 1e-6
 
-            print('radius computed on y slice',nx//2)
+        #     print('radius computed on y slice',nx//2)
 
-            # radius = compute_radius_from_levelset_slice(slice,x_1D,eps)
-            # radius_vec.fill(radius)
-            # print('radius_vec',radius_vec)
+        #     # radius = compute_radius_from_levelset_slice(slice,x_1D,eps)
+        #     # radius_vec.fill(radius)
+        #     # print('radius_vec',radius_vec)
 
-            #using an array to give a Ptr , by giving a Ref not working yet 
-            # (cf https://docs.julialang.org/en/v1/manual/calling-c-and-fortran-code/#Passing-Pointers-for-Modifying-Inputs)
-            radius_vec[0] = compute_radius_from_levelset_slice(slice,x_1D,eps)
+        #     #using an array to give a Ptr , by giving a Ref not working yet 
+        #     # (cf https://docs.julialang.org/en/v1/manual/calling-c-and-fortran-code/#Passing-Pointers-for-Modifying-Inputs)
+        #     radius_vec[0] = compute_radius_from_levelset_slice(slice,x_1D,eps)
             
-            print('radius',radius_vec[0],'exact',radius_t0+time*0.05,'time',time)
+        #     print('radius',radius_vec[0],'exact',radius_t0+time*0.05,'time',time)
 
 
-            pdi.multi_expose('write_radius', [
-                ('radius', radius_vec[0], pdi.OUT),            
-                ])
+        #     pdi.multi_expose('write_radius', [
+        #         ('radius', radius_vec[0], pdi.OUT),            
+        #         ])
 
 
-            # PDI_multi_expose
-            print('\033[0m')
+        #     # PDI_multi_expose
+        #     print('\033[0m')
 
               
         
@@ -9256,50 +9592,107 @@ pdi:
 
         
 
-        # warning_scalar_transport:
-        #   with:
-        #     iscal: $iscal
-        #     trans_scal_1DT: $trans_scal_1DT
-        #     concentration_check_value: $concentration_check_value
-        #     # stop_simulation: $stop_simulation
-        #     stop_simulation_vec: $stop_simulation_vec
-        #     nb_levelsets: *nb_levelsets
-        #     nb_transported_scalars: *nb_transported_scalars
-        #     activate_interface: *activate_interface
-        #     concentration_check_factor: *concentration_check_factor 
-        #     concentration0_H2: *concentration0_H2
-        #     concentration0_KOH: *concentration0_KOH
-        #     concentration0_H2O: *concentration0_H2O
+        check_concentrations:
+          with:
+            trans_scal_1DT: $trans_scal_1DT
+            nx_py: $nx
+            ny_py: $ny
+            time: $time
+            nstep: $nstep
+            # iscal: $iscal
+            # trans_scal_1DT: $trans_scal_1DT
+            # concentration_check_value: $concentration_check_value
+            # stop_simulation: $stop_simulation
+            # stop_simulation_vec: $stop_simulation_vec
+            # nb_levelsets: *nb_levelsets
+            # nb_transported_scalars: *nb_transported_scalars
+            # activate_interface: *activate_interface
+            # concentration_check_factor: *concentration_check_factor 
+            # concentration0_H2: *concentration0_H2
+            # concentration0_KOH: *concentration0_KOH
+            # concentration0_H2O: *concentration0_H2O
 
-        #   exec: |
-        #     print('\n \033[91m')
-        #     print()
+          exec: |
+            from debug_flower import vecb_B
+            print('\n \033[91m')
+            print()
+            print('[check_concentrations]')
+
+            scal0 = np.ma.masked_where(mask_1D <= 0.0, trans_scal_1DT[0,:])
+            scal1 = np.ma.masked_where(mask_1D <= 0.0, trans_scal_1DT[1,:])
+            scal2 = np.ma.masked_where(mask_1D <= 0.0, trans_scal_1DT[2,:])
+
+            for iscal in range(3):
+              print('vecb_B ',(vecb_B(trans_scal_1DT[iscal,:],nx_py,ny_py)))
+
             
-        #     concentration0 = [concentration0_H2,concentration0_KOH,concentration0_H2O]
+            # concentration0 = [concentration0_H2,concentration0_KOH,concentration0_H2O]
 
-        #     if iscal == 1:
-        #       print("[warning_scalar_transport] H2  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1-concentration_check_factor)))
-        #     elif iscal == 2: 
-        #       print("[warning_scalar_transport] KOH  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1-concentration_check_factor)))
-        #     elif iscal == 3: 
-        #       print("[warning_scalar_transport] H2O  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1+concentration_check_factor)))
+            # if iscal == 1:
+            #   print("[warning_scalar_transport] H2  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1-concentration_check_factor)))
+            # elif iscal == 2: 
+            #   print("[warning_scalar_transport] KOH  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1-concentration_check_factor)))
+            # elif iscal == 3: 
+            #   print("[warning_scalar_transport] H2O  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1+concentration_check_factor)))
 
-        #     # concentration drop:(minimum(ph.trans_scal[:,:,iscal])-num.concentration0[iscal])/num.concentration0[iscal]*100)
-        #     print("concentration too low")
+            # # concentration drop:(minimum(ph.trans_scal[:,:,iscal])-num.concentration0[iscal])/num.concentration0[iscal]*100)
+            # print("concentration too low")
 
 
-        #     # stop_simulation = 1
-        #     # pdi.expose('stop_simulation', stop_simulation, pdi.OUT)
-        #     # pdi.multi_expose('stop_simulation', [
-        #     #         ('stop_simulation', stop_simulation, pdi.OUT),
-        #     #         ])
+            # stop_simulation = 1
+            # stop_simulation_vec[0] = 1
+            # pdi.expose('stop_simulation', stop_simulation, pdi.OUT)
 
-        #     stop_simulation_vec[0] = 1
+            # pdi.multi_expose('stop_simulation', [
+            #         ('stop_simulation', stop_simulation, pdi.OUT),
+            #         ])
+            # print('Stopping simulation')
 
-         
-        #     print('Stopping simulation')
+            print('\033[0m')
 
-        #     print('\033[0m')
+
+        warning_scalar_transport:
+          with:
+            iscal: $iscal
+            trans_scal_1DT: $trans_scal_1DT
+            concentration_check_value: $concentration_check_value
+            stop_simulation: $stop_simulation
+            stop_simulation_vec: $stop_simulation_vec
+            nb_levelsets: *nb_levelsets
+            nb_transported_scalars: *nb_transported_scalars
+            activate_interface: *activate_interface
+            concentration_check_factor: *concentration_check_factor 
+            concentration0_H2: *concentration0_H2
+            concentration0_KOH: *concentration0_KOH
+            concentration0_H2O: *concentration0_H2O
+
+          exec: |
+            print('\n \033[91m')
+            print()
+            
+            concentration0 = [concentration0_H2,concentration0_KOH,concentration0_H2O]
+
+            if iscal == 1:
+              print("[warning_scalar_transport] H2  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1-concentration_check_factor)))
+            elif iscal == 2: 
+              print("[warning_scalar_transport] KOH  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1-concentration_check_factor)))
+            elif iscal == 3: 
+              print("[warning_scalar_transport] H2O  {iscal:d} {concentration_check_value:.2e} {check_threshold:.2e}".format(iscal=iscal,concentration_check_value=concentration_check_value,check_threshold=concentration0[iscal-1]*(1+concentration_check_factor)))
+
+            # concentration drop:(minimum(ph.trans_scal[:,:,iscal])-num.concentration0[iscal])/num.concentration0[iscal]*100)
+            print("concentration too low")
+
+
+            stop_simulation = 1
+            stop_simulation_vec[0] = 1
+            pdi.expose('stop_simulation', stop_simulation, pdi.OUT)
+
+            pdi.multi_expose('stop_simulation', [
+                    ('stop_simulation', stop_simulation, pdi.OUT),
+                    ])
+            print('Stopping simulation')
+
+            print('\033[0m')
 
 
         check_scalar_transport_interface:
@@ -9360,8 +9753,12 @@ pdi:
             concentration0_H2O: *concentration0_H2O
             mask_1D: $mask_1D #mask containing volumes in bulk, and liquid heights on interfaces, and 0 when a cell is cut
             # so that small cells are ignored when computing min, max, ...
+            rhs_1D: $rhs_1D
+            nx: $nx
+            ny: $ny
 
           exec: |
+            from debug_flower import veci
             print('\n \033[92m')
             print()
             print('[check_scalar_transport]')
@@ -9380,7 +9777,9 @@ pdi:
             print("max(cH2)  {cH2:.2e} max(KOH)  {KOH:.2e} max(H2O)  {H2O:.2e}".format(cH2=np.max(scal0), KOH=np.max(scal1), H2O=np.max(scal2)))
             print("mean(cH2) {cH2:.2e} mean(KOH) {KOH:.2e} mean(H2O) {H2O:.2e}".format(cH2=np.mean(scal0),KOH=np.mean(scal1),H2O=np.mean(scal2)))
             
+            rhs = veci(rhs_1D,nx,ny,1)
 
+            print('iscal',iscal,'rhs ',np.min(rhs),np.max(rhs))
 
             concentration0 = np.array([concentration0_H2,concentration0_KOH,concentration0_H2O])
             # concentration0 = [concentration0_H2[0],concentration0_KOH[0],concentration0_H2O[0]]
@@ -9707,6 +10106,14 @@ pdi:
       #   write: [nx_list,cell_volume_list,l1_rel_error,l2_rel_error,linfty_rel_error,l1_rel_error_full_cells,l2_rel_error_full_cells,linfty_rel_error_full_cells,l1_rel_error_partial_cells,l2_rel_error_partial_cells,linfty_rel_error_partial_cells,min_cell_volume]
       #   #domain_length
 
+
+      #  #write segments of interface
+      # - file: convergence_Poiseuille_${nstep:08}.h5 
+      #   collision_policy: write_into
+      #   on_event: convergence_study_iter
+      #   # write: [intfc_vtx_num,intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_seg_num,intfc_vtx_connectivities]
+      #   write: [nstep,levelset_p,normal_angle,phi_ele_1D,radius,intfc_vtx_num,intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_seg_num,intfc_vtx_connectivities]
+
       #region init
       - file: flower_${nstep:08}.h5 
         collision_policy: replace #replace_and_warn #write_into overwrite old file #TODO
@@ -9740,6 +10147,12 @@ pdi:
       
       #endregion scalar data (0D)
 
+
+      - file: flower_${nstep:08}.h5 
+        when: "$nstep%$save_step = 0"
+        collision_policy: write_into #write_into overwrite old file #TODO
+        on_event: write_cell_centroid
+        write: [cell_centroid_x,cell_centroid_y]
 
       - file: flower_${nstep:08}.h5 
         when: "$nstep%$save_step = 0"
@@ -9847,15 +10260,38 @@ pdi:
 
         
 
+      # #write segments of interface
+      # - file: flower_${nstep:08}.h5 
+      #   collision_policy: write_into
+      #   on_event: write_data_start_loop
+      #   write: [intfc_vtx_num,intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_seg_num,intfc_vtx_connectivities]
+
       #write mass flux used in phase change
       - file: flower_${nstep:08}.h5 
         when: "$nstep%$save_step = 0"
         collision_policy: write_into
         on_event: write_mass_transfer_rate
+        # datasets: #Dataset we are writing in: the whole solution
+        #   data:
+        #     type: array
+        #     subtype: double
+        #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
+        # when: #"$nstep%50 = 0"
         write: [mass_transfer_rate,mass_transfer_rate_bulk,mass_transfer_rate_border,mass_transfer_rate_intfc]
 
       - file: flower_${nstep:08}.h5 
-        when: "$nstep%$save_step = 0"
+        collision_policy: write_into
+        on_event: write_mass_transfer_rate_cutcell
+        write: [mass_transfer_rate_cutcell]
+
+
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: write_mass_transfer_rate_JC
+        write: [mass_transfer_rate_JC]
+        
+
+      - file: flower_${nstep:08}.h5 
         collision_policy: write_into
         on_event: write_mass_transfer_rate_redistributed
         write: [mass_transfer_rate,mass_transfer_rate_before_redistribution,nb_gaz_acceptors]
@@ -9873,66 +10309,177 @@ pdi:
         write: [interface_length]
 
 
+
+      # - file: flower_${nstep:08}.h5 
+      #   collision_policy: write_into
+      #   on_event: write_electrical_potential
+      #   # datasets: #Dataset we are writing in: the whole solution
+      #   #   data:
+      #   #     type: array
+      #   #     subtype: double
+      #   #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
+      #   # when: "$iscal = -1" #"$iscal = 1" #"$nstep%50 = 0"
+      #   write: [rhs_1D,phi_ele_1D] #,trans_scal_1DT"] #chi_1,chi_2]
+      
       - file: flower_${nstep:08}.h5 
-        when: "$nstep%$save_step = 0"
+        when: "$nstep%$save_step = 0 & $iscal = 1"
+        # when: "$iscal = 1" #2 #"$iscal = -1" #"$iscal = 1" #"$nstep%50 = 0"
+        collision_policy: write_into
+        on_event: write_scalar_transport
+        write: [iscal,rhs_1D] #chi_1,chi_2]
+
+      - file: flower_${nstep:08}.h5 
         collision_policy: write_into
         on_event: write_iso
         write: [levelset_iso]
 
+      # - file: flower_${nstep:08}.h5 
+      #   collision_policy: write_into
+      #   on_event: write_capacities
+      #   # datasets: #Dataset we are writing in: the whole solution
+      #   #   data:
+      #   #     type: array
+      #   #     subtype: double
+      #   #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
+      #   # when: #"$nstep%50 = 0"
+      #   write: [dcap] #chi_1,chi_2]
+
       - file: flower_${nstep:08}.h5 
-        when: "$nstep%$save_step = 0"
         collision_policy: write_into
         on_event: write_capacities
+        # datasets: #Dataset we are writing in: the whole solution
+        #   data:
+        #     type: array
+        #     subtype: double
+        #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
+        # when: #"$nstep%50 = 0"
         write: [dcap_1,dcap_2,dcap_3,dcap_4]
 
 
+      # #write capacities
+      # - file: flower_${nstep:08}.h5 
+      #   collision_policy: write_into
+      #   on_event: write_capacities
+      #   datasets: # a list of datasets inside the file created on first access
+      #     #*** define the datasets for main_field
+      #     dcap_1: { type: array, subtype: double, size:  [1, '$nx', '$ny'] }
+      #   write: 
+      #     dcap: # the name of the data to write
+      #       dataset: dcap_1
+      #       memory_selection: #only H2O
+      #         size:  [1, '$nx', '$ny']
+      #         start: [0,0,0]
+
+      # - file: flower_${nstep:08}.h5 
+      #   collision_policy: write_into
+      #   on_event: write_capacities
+      #   datasets: # a list of datasets inside the file created on first access
+      #     #*** define the datasets for main_field
+      #     dcap_2: { type: array, subtype: double, size:  [1, '$nx', '$ny'] }
+      #   write: 
+      #     dcap: # the name of the data to write
+      #       dataset: dcap_2
+      #       memory_selection: #only H2O
+      #         size:  [1, '$nx', '$ny']
+      #         start: [1,0,0]
+
+      # - file: flower_${nstep:08}.h5 
+      #   collision_policy: write_into
+      #   on_event: write_capacities
+      #   datasets: # a list of datasets inside the file created on first access
+      #     #*** define the datasets for main_field
+      #     dcap_3: { type: array, subtype: double, size:  [1, '$nx', '$ny'] }
+      #   write: 
+      #     dcap: # the name of the data to write
+      #       dataset: dcap_3
+      #       memory_selection: #only H2O
+      #         size:  [1, '$nx', '$ny']
+      #         start: [2,0,0]
+
+      # - file: flower_${nstep:08}.h5 
+      #   collision_policy: write_into
+      #   on_event: write_capacities
+      #   datasets: # a list of datasets inside the file created on first access
+      #     #*** define the datasets for main_field
+      #     dcap_4: { type: array, subtype: double, size:  [1, '$nx', '$ny'] }
+      #   write: 
+      #     dcap: # the name of the data to write
+      #       dataset: dcap_4
+      #       memory_selection: #only H2O
+      #         size:  [1, '$nx', '$ny']
+      #         start: [3,0,0]
 
 
-  
+        
+
       #write velocity for LS advection
       - file: flower_${nstep:08}.h5 
-        when: "$nstep%$save_step = 0"
         collision_policy: write_into
         on_event: write_before_LS_adv
+        # datasets: #Dataset we are writing in: the whole solution
+        #   data:
+        #     type: array
+        #     subtype: double
+        #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
+        # when: #"$nstep%50 = 0"
         write: [normal_velocity_intfc]
 
-    
-      
       # - file: flower_${nstep:08}.h5 
-      #   when: "$nstep%$save_step = 0"
       #   collision_policy: write_into
-      #   on_event: viscosity_coeff_for_du_dx
-      #   write: [viscosity_coeff_for_du_dx]
-      
-      # - file: flower_${nstep:08}.h5 
-      #   when: "$nstep%$save_step = 0"
-      #   collision_policy: write_into
-      #   on_event: viscosity_coeff_for_dv_dy
-      #   write: [viscosity_coeff_for_dv_dy]
+      #   on_event: write_data
+      #   # datasets: #Dataset we are writing in: the whole solution
+      #   #   data:
+      #   #     type: array
+      #   #     subtype: double
+      #   #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
+      #   # when: "$nstep%50 = 0"
+      #   write: [u_1D,v_1D,p_1D,time,nstep,velocity_x,velocity_y] #,phi_ele_1D,i_current_x,i_current_y,i_current_mag]
+      #   #,trans_scal_1D_H2,trans_scal_1D_KOH,trans_scal_1D_H2O] #,levelset_p,levelset_u,levelset_v]
 
-      # - file: flower_${nstep:08}.h5 
-      #   when: "$nstep%$save_step = 0"
+      #write_data
+      # - file: mesh_${nx:08}.h5 
       #   collision_policy: write_into
-      #   on_event: viscosity_coeff_for_du_dy
-      #   write: [viscosity_coeff_for_du_dy]
+      #   on_event: write_data
+      #   # datasets: #Dataset we are writing in: the whole solution
+      #   #   data:
+      #   #     type: array
+      #   #     subtype: double
+      #   #     size: ['$nx*$mpi_max_coords_x', '$ny*$mpi_max_coords_y']
+      #   # when: "$nstep%50 = 0"
+      #   write: [u_1D,v_1D,p_1D,time,nx,velocity_x,velocity_y,phi_ele_1D,levelset_p] #,i_current_x,i_current_y,i_current_mag]
+      #   #,trans_scal_1D_H2,trans_scal_1D_KOH,trans_scal_1D_H2O] #,levelset_p,levelset_u,levelset_v]
       
-      # - file: flower_${nstep:08}.h5 
-      #   when: "$nstep%$save_step = 0"
-      #   collision_policy: write_into
-      #   on_event: viscosity_coeff_for_dv_dx
-      #   write: [viscosity_coeff_for_dv_dx]
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: viscosity_coeff_for_du_dx
+        write: [viscosity_coeff_for_du_dx]
+      
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: viscosity_coeff_for_dv_dy
+        write: [viscosity_coeff_for_dv_dy]
 
-      # - file: flower_${nstep:08}.h5 
-      #   when: "$nstep%$save_step = 0"
-      #   collision_policy: write_into
-      #   on_event: write_rhs_uv_v
-      #   write: [rhs_uv_v]
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: viscosity_coeff_for_du_dy
+        write: [viscosity_coeff_for_du_dy]
+      
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: viscosity_coeff_for_dv_dx
+        write: [viscosity_coeff_for_dv_dx]
 
-      # - file: flower_${nstep:08}.h5 
-      #   when: "$nstep%$save_step = 0"
-      #   collision_policy: write_into
-      #   on_event: rhs_uv_divergence
-      #   write: [rhs_uv_divergence]
+
+
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: write_rhs_uv_v
+        write: [rhs_uv_v]
+
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: rhs_uv_divergence
+        write: [rhs_uv_divergence]
 
       # - file: flower_${nstep:08}.h5 
       #   collision_policy: write_into
@@ -9951,7 +10498,16 @@ pdi:
       #   collision_policy: write_into
       #   on_event: conv_y
       #   write: [conv_y]
-        
+
+
+      
+      
+      
+      # - file: flower_${nstep:08}.h5 
+      #   collision_policy: write_into
+      #   on_event: write_sherwood
+      #   write: [concentration_boundary_layer_width,sherwood,sherwood_bubble]
+
 
       - file: flower_${nstep:08}.h5 
         collision_policy: write_into
@@ -9994,66 +10550,81 @@ pdi:
         write: [levelset_surface_tension,levelset_heavyside]
      
 
-      # - file: poisson_${nx:08}_${poisson_iter:08}.h5 
-      #   collision_policy: write_into
-      #   on_event: check_electrical_potential
-      #   write: [poisson_iter,nx,ny,phi_ele_1D,i_current_x,i_current_y,levelset_p,residual_electrical_potential,variation_electrical_potential]
-
-      # - file: flower_${nstep:08}.h5 
+      - file: poisson_${nx:08}_${poisson_iter:08}.h5 
+        collision_policy: write_into
+        on_event: check_electrical_potential
+        write: [poisson_iter,nx,ny,phi_ele_1D,i_current_x,i_current_y,levelset_p,residual_electrical_potential,variation_electrical_potential]
+        # $BC_phi_ele_left,elec_cond_1D
+        #     phi_ele_1D_py: $phi_ele_1D
+        #     i_current_x_py: $i_current_x
+        #     nx_py: $nx
+        #     ny_py: $ny]
+      
+      # write_data_elec_ix_iy
+      # - file: mesh_${nx:08}.h5  #flower_${nstep:08}.h5 
       #   collision_policy: write_into
       #   on_event: write_data_elec_ix_iy
       #   write: [i_current_x,i_current_y,phi_ele_1D]
-   
-      # - file: flower_${nstep:08}.h5 
-      #   collision_policy: write_into
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: write_data_elec_ix_iy
+        write: [i_current_x,i_current_y,phi_ele_1D]
+
+      # write_data_elec_imag
+      # - file: mesh_${nx:08}.h5  
       #   on_event: write_data_elec_imag
       #   write: [i_current_mag]
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: write_data_elec_imag
+        write: [i_current_mag]
 
-      # - file: flower_${nstep:08}.h5 
-      #   collision_policy: write_into
-      #   on_event: debug_phase_change
-      #   write: [vtx_num,vtx_x,vtx_y]
 
-      # #write concentration for H2 only : data selection 
-      # # - file: flower_${nstep:08}.h5 #Name of the file
-      # - file: flower_${nstep:08}.h5 #mesh_${nx:08}.h5 
-      #   collision_policy: write_into
-      #   on_event: write_data
-      #   datasets: # a list of datasets inside the file created on first access
-      #     #*** define the datasets for main_field
-      #     concentration_H2_1DT: { type: array, subtype: double, size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny'] }
-      #   write: 
-      #     trans_scal_1DT: # the name of the data to write
-      #       dataset: concentration_H2_1DT
-      #       memory_selection: #only H2O
-      #         size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny']
-      #         start: [0,0]
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: debug_phase_change
+        write: [vtx_num,vtx_x,vtx_y]
+
+      #write concentration for H2 only : data selection 
+      # - file: flower_${nstep:08}.h5 #Name of the file
+      - file: flower_${nstep:08}.h5 #mesh_${nx:08}.h5 
+        collision_policy: write_into
+        on_event: write_data
+        datasets: # a list of datasets inside the file created on first access
+          #*** define the datasets for main_field
+          concentration_H2_1DT: { type: array, subtype: double, size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny'] }
+        write: 
+          trans_scal_1DT: # the name of the data to write
+            dataset: concentration_H2_1DT
+            memory_selection: #only H2O
+              size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny']
+              start: [0,0]
       
 
-      # # - file: flower_${nstep:08}.h5 #Name of the file 
-      # - file: flower_${nstep:08}.h5
-      #   collision_policy: write_into
-      #   on_event: write_data
-      #   datasets: # a list of datasets inside the file created on first access
-      #     #*** define the datasets for main_field
-      #     concentration_KOH_1DT: { type: array, subtype: double, size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny'] }
-      #   write: 
-      #     trans_scal_1DT: # the name of the data to write
-      #       dataset: concentration_KOH_1DT
-      #       memory_selection: #only H2O
-      #         size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny']
-      #         start: [1,0]
+      # - file: flower_${nstep:08}.h5 #Name of the file 
+      - file: flower_${nstep:08}.h5
+        collision_policy: write_into
+        on_event: write_data
+        datasets: # a list of datasets inside the file created on first access
+          #*** define the datasets for main_field
+          concentration_KOH_1DT: { type: array, subtype: double, size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny'] }
+        write: 
+          trans_scal_1DT: # the name of the data to write
+            dataset: concentration_KOH_1DT
+            memory_selection: #only H2O
+              size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny']
+              start: [1,0]
 
-      # # - file: flower_${nstep:08}.h5 #Name of the file test.h5
-      # - file: flower_${nstep:08}.h5
-      #   collision_policy: write_into
-      #   on_event: write_data
-      #   datasets: # a list of datasets inside the file created on first access
-      #     #*** define the datasets for main_field
-      #     concentration_H2O_1DT: { type: array, subtype: double, size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny'] }
-      #   write: 
-      #     trans_scal_1DT: # the name of the data to write
-      #       dataset: concentration_H2O_1DT
-      #       memory_selection: #only H2O
-      #         size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny']
-      #         start: [2,0]
+      # - file: flower_${nstep:08}.h5 #Name of the file test.h5
+      - file: flower_${nstep:08}.h5
+        collision_policy: write_into
+        on_event: write_data
+        datasets: # a list of datasets inside the file created on first access
+          #*** define the datasets for main_field
+          concentration_H2O_1DT: { type: array, subtype: double, size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny'] }
+        write: 
+          trans_scal_1DT: # the name of the data to write
+            dataset: concentration_H2O_1DT
+            memory_selection: #only H2O
+              size:  [1,'($nb_levelsets + 1) * ($ny) * ($nx) + 2 * ($nx) + 2 * $ny']
+              start: [2,0]

@@ -866,13 +866,41 @@ def plot_convergence_study_func(yaml_file, args):
             # print(' figpar methods',figpar['methods'])
 
             figpar['methods'] = {}
-
-            def get_method(label):
+            
+            # Define the default method (as provided)
+            def get_default_method(label: str) -> str:
+                """Determine the method based on the label."""
                 return (
-                    'DPV' if 'cipriano' in label else
+                    'DPVC' if 'cipriano' in label else
                     'Stefan' if 'Stefan' in label else
-                    'redist' if 'redist' in label else ''
+                    'redist' if 'redist' in label else
+                    # 'OFM' if 'OFM' in label else
+                    ''
                 )
+
+            # --- Main logic ---
+            if 'macro_get_method' in plotpar:
+                # If a custom method is provided, use it (assuming it's a callable or a string defining a function)
+                if callable(plotpar['macro_get_method']):
+                    get_method = plotpar['macro_get_method']
+                elif isinstance(plotpar['macro_get_method'], str):
+                    # If it's a string, try to evaluate it as a function definition
+                    try:
+                        # Create a local namespace to safely evaluate the function
+                        local_namespace = {}
+                        exec(plotpar['macro_get_method'], globals(), local_namespace)
+                        get_method = local_namespace['get_method']
+                    except Exception as e:
+                        raise ValueError(f"Failed to evaluate 'macro_get_method': {e}")
+                else:
+                    raise ValueError("'macro_get_method' must be a callable or a string defining a function.")
+            else:
+                # Fall back to the default method
+                get_method = get_default_method
+
+            figpar['get_method'] = get_method
+
+            print("figpar['get_method']",figpar['get_method']('OFM') )
 
             methods = [get_method(f) for f in h5_files_tmp]
             print('methods', methods)
@@ -881,6 +909,9 @@ def plot_convergence_study_func(yaml_file, args):
             print('total',total)
             seen = Counter()
             figpar['methods']['seen'] = seen
+
+
+            # print('get_method',get_method)
 
             # for file in h5_files_tmp:
             #     print('file',file)
@@ -921,6 +952,7 @@ def plot_convergence_study_func(yaml_file, args):
             func,
             plotpar,
             figpar,
+            get_method,
             )
       except:
          print(colored('Failed '+figpar['file'], "red"))   
@@ -987,6 +1019,7 @@ def plot_convergence_func(
     func,
     plotpar,
     figpar,
+    get_method,
 ):
    # # print(h5_files)
    # h5_files = sorted(h5_files)
@@ -998,6 +1031,9 @@ def plot_convergence_func(
    size_frame = len(h5_files)
 
    print('size_frame',size_frame,key)
+
+#    print('get_method',get_method)
+
 
    # file_name = h5_files[0]
 
@@ -2171,6 +2207,10 @@ def plot_error(
 
          if 'macro_method' in figpar.keys():
             print(colored('macro_method','red'))
+
+            # label2 = file[figpar['iter']]
+            # method2 = get_method(label2)
+
             exec(get_value_from_dicts('macro_method',figpar,plotpar))
             method = method2
             print(colored('method '+method,'blue'))
@@ -3770,6 +3810,9 @@ def plot_1D_list(
 
                 varx = varxy[0]
 
+                print(colored('varx '+varx,'red'))
+
+
                 if varx == 'x_1D':
                         varx = x_1D
                         print(x_1D)
@@ -3778,7 +3821,9 @@ def plot_1D_list(
                 elif varx == 'poisson_iter':
                         varx = file['poisson_iter'][()] 
                 else:
-                        varx = x_1D
+                        # varx = 
+                        varx = loaded_h5_file[varx][:]
+                        print('varx',varx)
 
 
                 # print('varxy',varxy)

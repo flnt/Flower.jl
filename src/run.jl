@@ -146,7 +146,7 @@ function run_forward!(
         end
     end
 
-    if num.advection_LS_mode == 16 || num.phase_change_symb === :Double_Pressure_Velocity_Coupling_Cipriano #|| num.advection_LS_mode == 16 #test Cipriano 2024 's method
+    if num.phase_change_symb === :Double_Pressure_Velocity_Coupling_Cipriano #|| num.advection_LS_mode == 16 #test Cipriano 2024 's method
         extend_liquid_velocity = true
     else
         extend_liquid_velocity = false
@@ -1907,6 +1907,29 @@ function run_forward!(
                     "nstep"::Cstring, num.current_iter::Ref{Clonglong}, PDI_OUT::Cint,
                     "levelset_iso"::Cstring, grid_p.LS[num.iLSpdi].iso::Ptr{Cdouble}, PDI_OUT::Cint,
                     C_NULL::Ptr{Cvoid})::Cint
+
+
+
+                    # if num.current_iter == 1
+                    #     phL.u .= -0.5 .* grid_u.y .+ getproperty.(grid_u.LS[1].geoL.centroid, :y) .* grid_u.dy
+                    #     phL.v .= 0.5 .* grid_v.x .+ getproperty.(grid_v.LS[1].geoL.centroid, :x) .* grid_v.dx
+                    #     phL.u[grid_u.LS[1].SOLID] .= 0.0
+                    #     phL.v[grid_v.LS[1].SOLID] .= 0.0
+
+                    cell_centroid_x = grid_p.x .+ getproperty.(grid_p.LS[1].geoL.centroid, :x) .* grid_p.dx 
+                    cell_centroid_y = grid_p.y .+ getproperty.(grid_p.LS[1].geoL.centroid, :y) .* grid_p.dy 
+                    # display(x_centroid)
+                    # display(y_centroid)
+                    #geoS
+
+                    PDI_status = @ccall "libpdi".PDI_multi_expose("write_cell_centroid"::Cstring,
+                    "nstep"::Cstring, num.current_iter::Ref{Clonglong}, PDI_OUT::Cint,
+                    "cell_centroid_x"::Cstring, cell_centroid_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                    "cell_centroid_y"::Cstring, cell_centroid_x::Ptr{Cdouble}, PDI_OUT::Cint,
+                    C_NULL::Ptr{Cvoid})::Cint
+
+                    
+
 
                     # printstyled(color=:magenta, @sprintf "\n Before scalar transport\n")
                     # printstyled(color=:cyan, @sprintf "\n Before scalar transport\n")
