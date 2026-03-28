@@ -2979,6 +2979,14 @@ function run_forward!(
         "levelset_v"::Cstring, grid_v.LS[num.iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,      
         C_NULL::Ptr{Cvoid})::Cint
 
+        PDI_status = @ccall "libpdi".PDI_multi_expose("write_levelset_p_after_adv"::Cstring,
+        "nstep"::Cstring, num.current_iter::Ref{Clonglong}, PDI_OUT::Cint,
+        "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,      
+        "levelset_p_after_adv"::Cstring, grid_p.LS[num.iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "levelset_u"::Cstring, grid_u.LS[num.iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+        # "levelset_v"::Cstring, grid_v.LS[num.iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,      
+        C_NULL::Ptr{Cvoid})::Cint
+
         # if levelset && (advection || num.current_iter<2 || electrolysis_advection)
         if levelset && (advection || num.current_iter<2)
             try

@@ -4,7 +4,7 @@ flower:
     alpha: &alpha 0.5
     alpha_a: 0.5
     alpha_c: 0.5
-    bulk_velocity: default
+    bulk_velocity: zero
     # Species        H2      KOH    H2O
     concentration0_H2: &concentration0_H2 2.0e-2 #TODO 2.0e-3 #1.6e-1 #44
     saturation_concentration_H2: &saturation_concentration_H2 2.0e-2
@@ -118,7 +118,7 @@ flower:
     electrical_potential_residual: 1.0e-10
     electrical_potential_nonlinear_solver: 1 #0 for successive substitutions #1 for Newton-Raphson
     electrolysis_phase_change_case: "levelset_averaged" #None #"levelset_averaged" #"Khalighi" #no phase change
-    phase_change: extract_Stefan_velocity
+    phase_change: Double_Pressure_Velocity_Coupling_Cipriano
     phase_change_method: 6 #6 redistributed #5 #fixed mass transfer rate 0.05 rho_l  #4
     mass_transfer_redistribute: no
     epsilon_volume_fraction_phase_change: 1.0e-6
@@ -566,6 +566,13 @@ study:
 
   # meshes: [16]
   # timesteps:  [5e-3]
+  # save_step: [1]
+  # save_step_scalar: [1]
+
+  # meshes: [32]
+  # timesteps:  [2e-3]
+  # save_step: [1]
+  # save_step_scalar: [1]
 
   meshes: [64]
   timesteps:  [1e-3]
@@ -734,17 +741,20 @@ plot: #default parameters for plots
     # print(colored( "figpar['iter']" + str(figpar['iter'])+" "+colors[figpar['iter']] ,'red'))
   
   files_study: &files_study  [
-      ../fixed_mass_transfer_rate_proj_cipriano_evap_drop4/timestep_1_0000e-03/mesh_00064/flower*.h5,
+      ../fixed_mass_transfer_rate_proj_cipriano_evap_drop4/timestep_1_0000e-03/mesh_00064/flower*0.h5,
       ../fixed_mass_transfer_rate_proj_cipriano_evap_drop4/timestep_2_0000e-03/mesh_00032/flower*.h5,
       ../fixed_mass_transfer_rate_proj_cipriano_evap_drop4/timestep_5_0000e-03/mesh_00016/flower*.h5,
       ../fixed_mass_transfer_rate_proj_Stefan_vel_evap_drop2/timestep_1_0000e-03/mesh_00064/flower*.h5,
       ../fixed_mass_transfer_rate_proj_Stefan_vel_evap_drop2/timestep_2_0000e-03/mesh_00032/flower*.h5,
       ../fixed_mass_transfer_rate_proj_Stefan_vel_evap_drop2/timestep_5_0000e-03/mesh_00016/flower*.h5,
-      ../fixed_mass_transfer_rate_proj_redist_evap_drop3/timestep_1_0000e-03/mesh_00064/flower*.h5,
+      # ../fixed_mass_transfer_rate_proj_redist_evap_drop3/timestep_1_0000e-03/mesh_00064/flower*.h5,
       ../fixed_mass_transfer_rate_proj_redist_evap_drop3/timestep_2_0000e-03/mesh_00032/flower*.h5,
       ../fixed_mass_transfer_rate_proj_redist_evap_drop3/timestep_5_0000e-03/mesh_00016/flower*.h5,
       # ../fixed_mass_transfer_rate_proj_OFM_evap_drop/timestep_5_0000e-03/mesh_00016/flower*.h5,
       # ../fixed_mass_transfer_rate_proj_OFM_evap_drop/timestep_2_0000e-03/mesh_00032/flower*.h5,
+      ../fixed_mass_transfer_rate_proj_zero_bulk_liq_evap_drop/timestep_1_0000e-03/mesh_00064/flower*0.h5,
+      ../fixed_mass_transfer_rate_proj_zero_bulk_liq_evap_drop/timestep_5_0000e-03/mesh_00016/flower*.h5,
+      ../fixed_mass_transfer_rate_proj_zero_bulk_liq_evap_drop/timestep_2_0000e-03/mesh_00032/flower*.h5,
     ]
 
   files_study_32: &files_study_32  [
@@ -846,7 +856,8 @@ plot: #default parameters for plots
     files = glob.glob(files)
 
     files = sorted(files)
-    print('h5_files',h5_files)
+
+    # print('h5_files',h5_files)
 
     # print(files)
 
@@ -1406,7 +1417,40 @@ plot: #default parameters for plots
           x_1D_2 = xp
           y_1D_2 = yv
           key_LS_2 = 'levelset_v'
-      
+
+
+      - var: levelset_p
+        func: plot_file
+        plot_mode: contourf #pcolormesh #
+        file: levelset_p     
+        cbarlabel: levelset_p
+        plot_ref: 
+        plot_normal: True
+        plot_normal_macro: |
+          global normal_x_2,normal_y_2
+          # normal_x_2 = file['normal_x'][:]
+          # normal_y_2 = file['normal_y'][:]
+
+          # normal_x_2.fill(1)
+          # normal_y_2.fill(0)
+
+          phi = data
+
+          dx = x_1D[4] - x_1D[3]
+          dy = y_1D[4] - y_1D[3]
+
+          # Compute the gradient (normal vectors) using finite differences
+          phi_x = np.gradient(phi, dx, axis=0)
+          phi_y = np.gradient(phi, dy, axis=1)
+
+          # Normalize the gradient to get the normal vectors
+          norm = np.sqrt(phi_x**2 + phi_y**2 + 1e-10)
+          phi_x /= norm
+          phi_x /= norm
+
+          normal_x_2 = phi_x
+          normal_y_2 = phi_y
+
       - var: levelset_p
         file: levelset_p     
         cbarlabel: levelset_p
@@ -5005,7 +5049,7 @@ plot: #default parameters for plots
           files = glob.glob(files)
 
           files = sorted(files)
-          print('h5_files',h5_files)
+          # print('h5_files',h5_files)
 
           # print(files)
 
@@ -5178,7 +5222,7 @@ plot: #default parameters for plots
           files = glob.glob(files)
 
           files = sorted(files)
-          print('h5_files',h5_files)
+          # print('h5_files',h5_files)
 
           # print(files)
 
@@ -5222,6 +5266,42 @@ plot: #default parameters for plots
         labels: [["$\\text{Time} ( \\unit{\\s})$", "$ \\text{mass_transfer_contrib_interface_average} $" ]]
         macro_label_linestyle_color: *macro_label_linestyle_color_study
         macro_file_name: *macro_file_name_study     
+
+      - var: [[time,mass_transfer_contrib_interface_average]]
+        file: mass_transfer_contrib_interface_average_32
+        files: *files_study_32
+        func: plot_time
+        labels: [["$\\text{Time} ( \\unit{\\s})$", "$ \\text{mass_transfer_contrib_interface_average} $" ]]
+        macro_label_linestyle_color: *macro_label_linestyle_color_study
+        macro_file_name: *macro_file_name_study    
+
+
+      - var: [[time,normal_bulk_velocity_interface_average]]
+        file: normal_bulk_velocity_interface_average_32
+        files: *files_study_32     
+        func: plot_time #plot_1D
+        labels: [["$\\text{Time} ( \\unit{\\s})$", "$ \\text{normal_bulk_velocity_interface_average} ( \\unit{\\m\\per\\s})$" ]]
+        macro_label_linestyle_color: *macro_label_linestyle_color_study
+        macro_file_name: *macro_file_name_study    
+
+
+      - var: [[time,mass_transfer_contrib_interface_average]]
+        file: mass_transfer_contrib_interface_average_16
+        files: *files_study_16
+        func: plot_time
+        labels: [["$\\text{Time} ( \\unit{\\s})$", "$ \\text{mass_transfer_contrib_interface_average} $" ]]
+        macro_label_linestyle_color: *macro_label_linestyle_color_study
+        macro_file_name: *macro_file_name_study    
+
+
+      - var: [[time,normal_bulk_velocity_interface_average]]
+        file: normal_bulk_velocity_interface_average_16
+        files: *files_study_16    
+        func: plot_time #plot_1D
+        labels: [["$\\text{Time} ( \\unit{\\s})$", "$ \\text{normal_bulk_velocity_interface_average} ( \\unit{\\m\\per\\s})$" ]]
+        macro_label_linestyle_color: *macro_label_linestyle_color_study
+        macro_file_name: *macro_file_name_study    
+
 
       - var: [[time,normal_bulk_velocity_interface_average]]
         file: normal_bulk_velocity_interface_average
@@ -5457,14 +5537,21 @@ plot: #default parameters for plots
 
           # print('h5_files', files)
 
+          if not files:
+            print(colored('Error, missing files','red'))
+            print(h5_files[figpar['iter']])
+            print(colored('____________________','red'))
+
+
           prev_data = None
           found = False
+          nstep_interp = -1
 
           for file_name in files:
 
               with h5py.File(file_name, "r") as file:
                   # print('file_name',file_name)
-
+                  # print('found',found)
                   try:
                       # ---- read all variables of interest ----
                       current_data = {}
@@ -5472,6 +5559,14 @@ plot: #default parameters for plots
                       for var_list in figpar['var']:
                           for var in var_list:
                               current_data[var] = file[var][()]
+                      
+                      # current_data['nstep'] = file['nstep'][()]
+                      # print('nstep',current_data['nstep'])
+                      try:
+                        nstep_interp = file['nstep'][()]
+                        h5_file_name_interp = file_name
+                      except:
+                        print('nstep not saved')
 
                       # time variable = first variable of first list
                       time_var = figpar['var'][0][0]
@@ -5492,17 +5587,52 @@ plot: #default parameters for plots
 
                               alpha = (time_error - t_prev) / (t - t_prev)
 
+                              print(colored('Getting nstep','cyan'))
+                              # if alpha <0.5:
+                              #   nstep_interp = prev_data['nstep']
+                              # else:
+                              #   nstep_interp = current_data['nstep']
+
+
                               # linear interpolation
                               for var in current_data:
                                   v_interp = (
                                       (1 - alpha) * prev_data[var]
                                       + alpha * current_data[var]
                                   )
-                                  print(colored(f'Interpolated alpha {alpha}', 'red'))
+                                  print(colored(f'Interpolated alpha {alpha} prev {prev_data[var]} current {current_data[var]}', 'red'))
 
                                   values[var].append(v_interp)
-
+                              print(colored('Found, exiting','green'))
+                              print('nstep_interp',nstep_interp)
                               found = True
+                              # print(colored('Found, exiting','green'))
+                              # print(colored('Found, exiting','magenta'))
+
+                              # print(colored('[Found, snapshot]','cyan'))
+                      
+                              # func = 
+                              # fig1,ax2,cbar = plot_file(
+                              # file,
+                              # key,
+                              # xp,
+                              # yp,
+                              # xu,
+                              # yv,
+                              # yml,
+                              # mesh,
+                              # time,
+                              # nstep_interp,
+                              # plotpar,
+                              # figpar=figpar,
+                              # mode=mode,
+                              # fig1=fig1,
+                              # ax2=ax2,
+                              # cbar=cbar,
+                              # )
+                              # print(colored('[Found, snapshot end]','cyan'))
+
+
                               break
 
                       # store previous step
@@ -5516,8 +5646,94 @@ plot: #default parameters for plots
                       print(colored(
                           f'variable missing in {file_name}: {e}', 'red'))
 
-              if found:
-                  break
+                  # if found:
+                  #     print(colored('Found, snapshot','cyan'))
+                  #     break
+                  #     # print('nstep_interp',nstep_interp)
+                  #     # # func = 
+                  #     # fig1,ax2,cbar = plot_file(
+                  #     # file,
+                  #     # key,
+                  #     # xp,
+                  #     # yp,
+                  #     # xu,
+                  #     # yv,
+                  #     # yml,
+                  #     # mesh,
+                  #     # time,
+                  #     # nstep,
+                  #     # plotpar,
+                  #     # figpar=figpar,
+                  #     # mode=mode,
+                  #     # fig1=fig1,
+                  #     # ax2=ax2,
+                  #     # cbar=cbar,
+                  #     # )
+                  #     print(colored('Found found, snapshot','cyan'))
+                  #     break
+          if found:
+              print(colored('Found, snapshot','cyan'))
+              print('nstep_interp',nstep_interp)
+              # func = 
+              key_interp = 'levelset_p'
+              print('key',key_interp)
+              print('file',file)
+              for figpar_interp in plotpar["figures"]:
+                  print(colored('figpar','cyan'))
+                  print('var',figpar_interp['var'])
+                  print('figpar_interp',figpar_interp)
+                  if figpar_interp['var'] == 'levelset_p': 
+                      # figpar_interp = figpar
+                      break
+
+              print('figpar_interp',figpar_interp)
+              time_interp = t
+              mode_interp = 'close'
+              # fig_interp,ax_interp = init_fig(plotpar,figpar)
+              # cbar_interp = [None,None]
+              plotpar_interp = plotpar.copy()
+              with h5py.File(h5_file_name_interp, "r") as file_interp:
+                  plot_file(
+                  file_interp,
+                  key_interp,
+                  xp,
+                  yp,
+                  xu,
+                  yv,
+                  yml,
+                  mesh,
+                  time_interp,
+                  nstep_interp,
+                  plotpar_interp,
+                  figpar_interp,
+                  mode='close',
+                  fig1=None,
+                  ax2=None,
+                  cbar=None,
+                  )
+
+                  # fig_interp,ax_interp,cbar_interp = plot_file(
+                  # file_interp,
+                  # key_interp,
+                  # xp,
+                  # yp,
+                  # xu,
+                  # yv,
+                  # yml,
+                  # mesh,
+                  # time_interp,
+                  # nstep_interp,
+                  # plotpar_interp,
+                  # figpar_interp,
+                  # mode_interp,
+                  # fig1=fig_interp,
+                  # ax2=ax_interp,
+                  # cbar=cbar_interp,
+                  # )
+                  print(colored('plotted file, snapshot','cyan'))
+              print(colored('Found found, snapshot','cyan'))
+
+
 
           # -----------------------------
           # convert arrays for plotting
@@ -5823,15 +6039,18 @@ plot: #default parameters for plots
           files = glob.glob(files)
 
           files = sorted(files)
-          print('h5_files',h5_files)
+          # print('h5_files',h5_files)
 
           if not h5_files:
-            print(colred("No HDF5 files found",'red'))
+            print(colored("No HDF5 files found",'red'))
 
 
           # print(files)
 
           for file_name in files:
+
+            print('file',file_name)
+
         
             with h5py.File(file_name, "r") as file:
               # print('file',file_name)
@@ -6096,7 +6315,7 @@ plot: #default parameters for plots
           files = glob.glob(files)
 
           files = sorted(files)
-          print('h5_files',h5_files)
+          # print('h5_files',h5_files)
 
           # print(files)
 
@@ -7041,6 +7260,9 @@ pdi:
     levelset_p: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     levelset_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double } #Field of the current subdomain
     levelset_v: { size: [ '$nx', '$ny+1' ], type: array, subtype: double } #Field of the current subdomain
+    
+    levelset_p_after_adv: { size: [ '$nx', '$ny' ], type: array, subtype: double } #Field of the current subdomain
+
 
     advection_velocity_p: { size: [ '$nx', '$ny' ], type: array, subtype: double }
     advection_velocity_u: { size: [ '$nx+1', '$ny' ], type: array, subtype: double }
@@ -10003,6 +10225,12 @@ pdi:
         when: "$nstep%$save_step = 0"
         write: [u_1D,v_1D,p_1D,time,timestep,nx,ny,velocity_x,velocity_y,phi_ele_1D,levelset_p,levelset_u,levelset_v] #,i_current_x,i_current_y,i_current_mag]
         #,trans_scal_1D_H2,trans_scal_1D_KOH,trans_scal_1D_H2O] #,levelset_p,levelset_u,levelset_v]
+
+      - file: flower_${nstep:08}.h5 
+        collision_policy: write_into
+        on_event: write_levelset_p_after_adv
+        when: "$nstep%$save_step = 0"
+        write: [levelset_p_after_adv] 
 
       - file: flower_${nstep:08}.h5 
         when: "$nstep%$save_step = 0"
