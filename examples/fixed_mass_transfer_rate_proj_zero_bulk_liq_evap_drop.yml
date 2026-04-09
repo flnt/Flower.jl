@@ -7546,9 +7546,20 @@ pdi:
             print('[write_phase_change_statistics]')
 
             
-            print("Iter {it} Time {time:.2e} bulk min {t:.2e} max {p:.2e} mean {s:.2e} mass trans min {v:.2e} max {d:.2e} mean {g:.2e}".format(
+            # print("Iter {it} Time {time:.2e} bulk min {t:.2e} max {p:.2e} mean {s:.2e} mass trans min {v:.2e} max {d:.2e} mean {g:.2e}".format(
                 it=nstep,time=time,t=normal_bulk_velocity_interface_min,p=normal_bulk_velocity_interface_max,
                   s=normal_bulk_velocity_interface_average,v=mass_transfer_contrib_interface_min,d=mass_transfer_contrib_interface_max,g=mass_transfer_contrib_interface_average)) 
+
+            print("Iter {it} Time {time:.2e} bulk min {t:.2e} max {p:.2e} mean {s:.2e} mass trans min {v:.2e} max {d:.2e} mean {g:.2e}".format(
+                it=int(nstep),
+                time=float(time),
+                t=float(normal_bulk_velocity_interface_min),
+                p=float(normal_bulk_velocity_interface_max),
+                s=float(normal_bulk_velocity_interface_average),
+                v=float(mass_transfer_contrib_interface_min),
+                d=float(mass_transfer_contrib_interface_max),
+                g=float(mass_transfer_contrib_interface_average)))
+            print('\033[0m')
 
             print('\033[0m')
 
@@ -9426,9 +9437,9 @@ pdi:
             print("max(u)  {u:.2e} max(v)  {v:.2e} max(p)  {p:.2e}".format(u=np.max(u_1D),v=np.max(v_1D),p=np.max(p_1D)))
             print("mean(u) {u:.2e} mean(v) {v:.2e} mean(p) {p:.2e}".format(u=np.mean(u_1D),v=np.mean(v_1D),p=np.mean(p_1D)))
 
-            print("min(cH2)  {cH2:.2e} min(KOH)  {KOH:.2e} min(H2O)  {H2O:.2e}".format(cH2=np.min(trans_scal_1DT[0,:]),KOH=np.min(trans_scal_1DT[1,:]),H2O=np.min(trans_scal_1DT[2,:])))
-            print("max(cH2)  {cH2:.2e} max(KOH)  {KOH:.2e} max(H2O)  {H2O:.2e}".format(cH2=np.max(trans_scal_1DT[0,:]),KOH=np.max(trans_scal_1DT[1,:]),H2O=np.max(trans_scal_1DT[2,:])))
-            print("mean(cH2) {cH2:.2e} mean(KOH) {KOH:.2e} mean(H2O) {H2O:.2e}".format(cH2=np.mean(trans_scal_1DT[0,:]),KOH=np.mean(trans_scal_1DT[1,:]),H2O=np.mean(trans_scal_1DT[2,:])))
+            # print("min(cH2)  {cH2:.2e} min(KOH)  {KOH:.2e} min(H2O)  {H2O:.2e}".format(cH2=np.min(trans_scal_1DT[0,:]),KOH=np.min(trans_scal_1DT[1,:]),H2O=np.min(trans_scal_1DT[2,:])))
+            # print("max(cH2)  {cH2:.2e} max(KOH)  {KOH:.2e} max(H2O)  {H2O:.2e}".format(cH2=np.max(trans_scal_1DT[0,:]),KOH=np.max(trans_scal_1DT[1,:]),H2O=np.max(trans_scal_1DT[2,:])))
+            # print("mean(cH2) {cH2:.2e} mean(KOH) {KOH:.2e} mean(H2O) {H2O:.2e}".format(cH2=np.mean(trans_scal_1DT[0,:]),KOH=np.mean(trans_scal_1DT[1,:]),H2O=np.mean(trans_scal_1DT[2,:])))
             
         
             print('\033[0m')
