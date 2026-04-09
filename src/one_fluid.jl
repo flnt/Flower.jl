@@ -1518,7 +1518,7 @@ function solve_one_fluid_NS!(
         #Surface tension
         rhs_uv[bulk_v_velocity] .+= timestep_n .* vec(volumic_surface_tension_v) ./  vec(rho_one_fluid_v)
 
-        print("\n surface tension y")
+        # print("\n surface tension y")
 
         PDI_status = @ccall "libpdi".PDI_multi_expose("rhs_uv"::Cstring,
         "rhs_uv_len"::Cstring, length(rhs_uv)::Ref{Clonglong}, PDI_OUT::Cint,

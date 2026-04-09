@@ -8032,111 +8032,111 @@ pdi:
             
             print('\033[0m')
 
-        post_processing_rising_bubble:
-          with:
-            nstep: $nstep
-            volume_fraction: $volume_fraction
-            volume_liq_cell: $volume_liq_cell
-            volume_cell: $volume_cell
-            mesh_p_x: $mesh_p_x
-            mesh_p_y: $mesh_p_y
-            # center_of_mass_x
-            velocity_y: $velocity_y
-            dcap_1: $dcap_1
-            dcap_2: $dcap_2
-            dcap_3: $dcap_3
-            dcap_4: $dcap_4
-          exec: |
-            print('\033[36m')
-            print('[post_processing_rising_bubble]')
-            from post_processing import calculate_centroid,calculate_circularity, calculate_rise_velocity
-            import pdi, yaml
-            from debug_flower import print_and_save 
+        # post_processing_rising_bubble:
+        #   with:
+        #     nstep: $nstep
+        #     volume_fraction: $volume_fraction
+        #     volume_liq_cell: $volume_liq_cell
+        #     volume_cell: $volume_cell
+        #     mesh_p_x: $mesh_p_x
+        #     mesh_p_y: $mesh_p_y
+        #     # center_of_mass_x
+        #     velocity_y: $velocity_y
+        #     dcap_1: $dcap_1
+        #     dcap_2: $dcap_2
+        #     dcap_3: $dcap_3
+        #     dcap_4: $dcap_4
+        #   exec: |
+        #     print('\033[36m')
+        #     print('[post_processing_rising_bubble]')
+        #     from post_processing import calculate_centroid,calculate_circularity, calculate_rise_velocity
+        #     import pdi, yaml
+        #     from debug_flower import print_and_save 
 
             
-            # TODO variable mesh spacing
-            dx = 1 
-            dy = 1
-            circularity = 0
-            rise_velocity_y = 0
-            center_of_mass_y = 0
+        #     # TODO variable mesh spacing
+        #     dx = 1 
+        #     dy = 1
+        #     circularity = 0
+        #     rise_velocity_y = 0
+        #     center_of_mass_y = 0
 
-            # volume_cell = 1 - volume_cell # for gaz phase
+        #     # volume_cell = 1 - volume_cell # for gaz phase
 
-            # for j in range(40):
-            #   for i in range(40):
-            #     print('volume_cell',j,i,volume_cell[j,i])
+        #     # for j in range(40):
+        #     #   for i in range(40):
+        #     #     print('volume_cell',j,i,volume_cell[j,i])
 
-            center_of_mass_x, center_of_mass_y = calculate_centroid(mesh_p_x, mesh_p_y, volume_cell)
+        #     center_of_mass_x, center_of_mass_y = calculate_centroid(mesh_p_x, mesh_p_y, volume_cell)
 
-            # print('center of mass',center_of_mass_x, center_of_mass_y)
+        #     # print('center of mass',center_of_mass_x, center_of_mass_y)
 
-            area = np.sum(volume_cell)
+        #     area = np.sum(volume_cell)
 
 
 
-            # perimeter_bubble = sum(capa) #cf interface length
+        #     # perimeter_bubble = sum(capa) #cf interface length
 
-            #    χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
-            #             χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
-            #             intfc_length_cell = sqrt(χx + χy)
-            #             intfc_length += intfc_length_cell
+        #     #    χx = (grid.LS[iLS].geoL.dcap[II,3] .- grid.LS[iLS].geoL.dcap[II,1]) .^ 2
+        #     #             χy = (grid.LS[iLS].geoL.dcap[II,4] .- grid.LS[iLS].geoL.dcap[II,2]) .^ 2
+        #     #             intfc_length_cell = sqrt(χx + χy)
+        #     #             intfc_length += intfc_length_cell
 
          
-            rise_velocity_y = calculate_rise_velocity(velocity_y, volume_cell)
+        #     rise_velocity_y = calculate_rise_velocity(velocity_y, volume_cell)
 
           
-            perimeter_bubble = np.sum( np.sqrt ( (dcap_3 - dcap_1)**2 + (dcap_4 - dcap_2)**2 ) )
+        #     perimeter_bubble = np.sum( np.sqrt ( (dcap_3 - dcap_1)**2 + (dcap_4 - dcap_2)**2 ) )
 
-            # print('area',area,perimeter_bubble)
+        #     # print('area',area,perimeter_bubble)
 
-            circularity = calculate_circularity(perimeter_bubble, area)
+        #     circularity = calculate_circularity(perimeter_bubble, area)
 
-            area_gaz = area
+        #     area_gaz = area
 
-            area_liq = np.sum(volume_liq_cell)
+        #     area_liq = np.sum(volume_liq_cell)
 
 
-            # print('test py ',center_of_mass_y,rise_velocity_y,circularity)
-            print("center_of_mass_y {c:.2e} v {v:.2e} circ  {circ:.2e}".format(c=center_of_mass_y,v=rise_velocity_y,
-            circ=circularity))
+        #     # print('test py ',center_of_mass_y,rise_velocity_y,circularity)
+        #     print("center_of_mass_y {c:.2e} v {v:.2e} circ  {circ:.2e}".format(c=center_of_mass_y,v=rise_velocity_y,
+        #     circ=circularity))
 
-            print_and_save("Iter {t} drop area {a:.2e}".format(t=nstep,a=area_liq))
+        #     print_and_save("Iter {t} drop area {a:.2e}".format(t=nstep,a=area_liq))
 
-            pdi.multi_expose('write_postprocessing_rising_bubble', [
-                    ('nstep', nstep, pdi.OUT),
-                    ('center_of_mass_x', center_of_mass_x, pdi.OUT),
-                    ('center_of_mass_y', center_of_mass_y, pdi.OUT),
-                    ('rise_velocity_y', rise_velocity_y, pdi.OUT),
-                    ('circularity', circularity, pdi.OUT),
-                    ('area_gaz', area_gaz, pdi.OUT),
-                    ('area_liq', area_liq, pdi.OUT),
-                    ])
+        #     pdi.multi_expose('write_postprocessing_rising_bubble', [
+        #             ('nstep', nstep, pdi.OUT),
+        #             ('center_of_mass_x', center_of_mass_x, pdi.OUT),
+        #             ('center_of_mass_y', center_of_mass_y, pdi.OUT),
+        #             ('rise_velocity_y', rise_velocity_y, pdi.OUT),
+        #             ('circularity', circularity, pdi.OUT),
+        #             ('area_gaz', area_gaz, pdi.OUT),
+        #             ('area_liq', area_liq, pdi.OUT),
+        #             ])
             
 
             
 
           
-            # main_comm = MPI.COMM_WORLD
-            # pdi.init(yaml.dump(config['pdi']))
-            # main_comm_f = np.array(main_comm.py2f())
-            # pdi.expose('mpi_comm_F', main_comm_f, pdi.INOUT)
+        #     # main_comm = MPI.COMM_WORLD
+        #     # pdi.init(yaml.dump(config['pdi']))
+        #     # main_comm_f = np.array(main_comm.py2f())
+        #     # pdi.expose('mpi_comm_F', main_comm_f, pdi.INOUT)
    
            
 
-            # pdi.expose('center_of_mass_x', center_of_mass_x, pdi.OUT)
-            # pdi.expose('center_of_mass_y', center_of_mass_y, pdi.OUT)
+        #     # pdi.expose('center_of_mass_x', center_of_mass_x, pdi.OUT)
+        #     # pdi.expose('center_of_mass_y', center_of_mass_y, pdi.OUT)
 
 
-            # pdi.multi_expose('newiter', [
-            #             ('iter', ii, pdi.INOUT),
-            #             ('main_field', cur, pdi.INOUT)
-            #             ])
-            # pdi.expose('iter', ii, pdi.OUT)
-            # pdi.expose('main_field', cur, pdi.OUT)
-            # pdi.finalize()
+        #     # pdi.multi_expose('newiter', [
+        #     #             ('iter', ii, pdi.INOUT),
+        #     #             ('main_field', cur, pdi.INOUT)
+        #     #             ])
+        #     # pdi.expose('iter', ii, pdi.OUT)
+        #     # pdi.expose('main_field', cur, pdi.OUT)
+        #     # pdi.finalize()
 
-            print('\033[0m')
+        #     print('\033[0m')
 
 
         # write_data:
@@ -8319,168 +8319,168 @@ pdi:
         #   # # Print the dense representation of the sparse matrix
         #   # print("\nDense Representation:")
         #   # print(sparse_matrix.toarray())      
-        write_one_fluid_surface_tension:
-          #curvature should be 4 (R =0.25)
-          with: 
-            volume_fraction: $volume_fraction
-            curvature_p: $curvature_p
-            curvature_u: $curvature_u
-            curvature_v: $curvature_v
-            volumic_surface_tension_u: $volumic_surface_tension_u
-            volumic_surface_tension_v: $volumic_surface_tension_v
+        # write_one_fluid_surface_tension:
+        #   #curvature should be 4 (R =0.25)
+        #   with: 
+        #     volume_fraction: $volume_fraction
+        #     curvature_p: $curvature_p
+        #     curvature_u: $curvature_u
+        #     curvature_v: $curvature_v
+        #     volumic_surface_tension_u: $volumic_surface_tension_u
+        #     volumic_surface_tension_v: $volumic_surface_tension_v
 
-          exec: |
-            import numpy as np
+        #   exec: |
+        #     import numpy as np
 
-            print('\033[36m')
+        #     print('\033[36m')
 
-            print('[write_one_fluid_surface_tension]')
-            print('curvature')
-            print("min(u)  {u:.2e} min(v)  {v:.2e} min(p)  {p:.2e}".format(u=np.min(curvature_u),v=np.min(curvature_v),p=np.min(curvature_p)))
-            print("max(u)  {u:.2e} max(v)  {v:.2e} max(p)  {p:.2e}".format(u=np.max(curvature_u),v=np.max(curvature_v),p=np.max(curvature_p)))
-            print("mean(u) {u:.2e} mean(v) {v:.2e} mean(p) {p:.2e}".format(u=np.mean(curvature_u),v=np.mean(curvature_v),p=np.mean(curvature_p)))
-            print('volumic_surface_tension')
-            print("min(u)  {u:.2e} min(v)  {v:.2e} ".format(u=np.min(volumic_surface_tension_u),v=np.min(volumic_surface_tension_v)))
-            print("max(u)  {u:.2e} max(v)  {v:.2e} ".format(u=np.max(volumic_surface_tension_u),v=np.max(volumic_surface_tension_v)))
-
-
-            print('\033[0m')
-
-        write_one_fluid_surface_tension_concise:
-          #curvature should be 4 (R =0.25)
-          with: 
-            # volume_fraction: $volume_fraction
-            # curvature_p: $curvature_p
-            # curvature_u: $curvature_u
-            # curvature_v: $curvature_v
-            volumic_surface_tension_u: $volumic_surface_tension_u
-            volumic_surface_tension_v: $volumic_surface_tension_v
-
-          exec: |
-            import numpy as np
-
-            print('\033[36m')
-
-            print('[write_one_fluid_surface_tension]')
-            # print('curvature')
-            # print("min(u)  {u:.2e} min(v)  {v:.2e} min(p)  {p:.2e}".format(u=np.min(curvature_u),v=np.min(curvature_v),p=np.min(curvature_p)))
-            # print("max(u)  {u:.2e} max(v)  {v:.2e} max(p)  {p:.2e}".format(u=np.max(curvature_u),v=np.max(curvature_v),p=np.max(curvature_p)))
-            # print("mean(u) {u:.2e} mean(v) {v:.2e} mean(p) {p:.2e}".format(u=np.mean(curvature_u),v=np.mean(curvature_v),p=np.mean(curvature_p)))
-            print('volumic_surface_tension')
-            print("min(u)  {u:.2e} min(v)  {v:.2e} ".format(u=np.min(volumic_surface_tension_u),v=np.min(volumic_surface_tension_v)))
-            print("max(u)  {u:.2e} max(v)  {v:.2e} ".format(u=np.max(volumic_surface_tension_u),v=np.max(volumic_surface_tension_v)))
+        #     print('[write_one_fluid_surface_tension]')
+        #     print('curvature')
+        #     print("min(u)  {u:.2e} min(v)  {v:.2e} min(p)  {p:.2e}".format(u=np.min(curvature_u),v=np.min(curvature_v),p=np.min(curvature_p)))
+        #     print("max(u)  {u:.2e} max(v)  {v:.2e} max(p)  {p:.2e}".format(u=np.max(curvature_u),v=np.max(curvature_v),p=np.max(curvature_p)))
+        #     print("mean(u) {u:.2e} mean(v) {v:.2e} mean(p) {p:.2e}".format(u=np.mean(curvature_u),v=np.mean(curvature_v),p=np.mean(curvature_p)))
+        #     print('volumic_surface_tension')
+        #     print("min(u)  {u:.2e} min(v)  {v:.2e} ".format(u=np.min(volumic_surface_tension_u),v=np.min(volumic_surface_tension_v)))
+        #     print("max(u)  {u:.2e} max(v)  {v:.2e} ".format(u=np.max(volumic_surface_tension_u),v=np.max(volumic_surface_tension_v)))
 
 
-            print('\033[0m')
+        #     print('\033[0m')
+
+        # write_one_fluid_surface_tension_concise:
+        #   #curvature should be 4 (R =0.25)
+        #   with: 
+        #     # volume_fraction: $volume_fraction
+        #     # curvature_p: $curvature_p
+        #     # curvature_u: $curvature_u
+        #     # curvature_v: $curvature_v
+        #     volumic_surface_tension_u: $volumic_surface_tension_u
+        #     volumic_surface_tension_v: $volumic_surface_tension_v
+
+        #   exec: |
+        #     import numpy as np
+
+        #     print('\033[36m')
+
+        #     print('[write_one_fluid_surface_tension]')
+        #     # print('curvature')
+        #     # print("min(u)  {u:.2e} min(v)  {v:.2e} min(p)  {p:.2e}".format(u=np.min(curvature_u),v=np.min(curvature_v),p=np.min(curvature_p)))
+        #     # print("max(u)  {u:.2e} max(v)  {v:.2e} max(p)  {p:.2e}".format(u=np.max(curvature_u),v=np.max(curvature_v),p=np.max(curvature_p)))
+        #     # print("mean(u) {u:.2e} mean(v) {v:.2e} mean(p) {p:.2e}".format(u=np.mean(curvature_u),v=np.mean(curvature_v),p=np.mean(curvature_p)))
+        #     print('volumic_surface_tension')
+        #     print("min(u)  {u:.2e} min(v)  {v:.2e} ".format(u=np.min(volumic_surface_tension_u),v=np.min(volumic_surface_tension_v)))
+        #     print("max(u)  {u:.2e} max(v)  {v:.2e} ".format(u=np.max(volumic_surface_tension_u),v=np.max(volumic_surface_tension_v)))
+
+
+        #     print('\033[0m')
      
-        write_rhs_uv_v:
-          with: 
-            nstep: $nstep
-            rhs_uv_v: $rhs_uv_v 
-          exec: |
-            import numpy as np
-            print('\033[36m')
-            print('[rhs_uv_v]')
-            print('nstep',nstep)
-            print('rhs',np.min(rhs_uv_v),np.max(rhs_uv_v))
-            print('\033[0m')
+        # write_rhs_uv_v:
+        #   with: 
+        #     nstep: $nstep
+        #     rhs_uv_v: $rhs_uv_v 
+        #   exec: |
+        #     import numpy as np
+        #     print('\033[36m')
+        #     print('[rhs_uv_v]')
+        #     print('nstep',nstep)
+        #     print('rhs',np.min(rhs_uv_v),np.max(rhs_uv_v))
+        #     print('\033[0m')
 
 
 
         #region rhs_uv
-        rhs_uv:
-          with: 
-            nx: $nx
-            ny: $ny
-            rhs_uv: $rhs_uv_1D 
-            nNavier: $nb_Navier_slip_BC
-            nb_levelsets: $nb_levelsets
+        # rhs_uv:
+        #   with: 
+        #     nx: $nx
+        #     ny: $ny
+        #     rhs_uv: $rhs_uv_1D 
+        #     nNavier: $nb_Navier_slip_BC
+        #     nb_levelsets: $nb_levelsets
 
-          exec: |
-            import numpy as np
-            # np.set_printoptions(suppress=False, precision=2)
-            np.set_printoptions(formatter={'float': lambda x: format(x, '.2e')})
+        #   exec: |
+        #     import numpy as np
+        #     # np.set_printoptions(suppress=False, precision=2)
+        #     np.set_printoptions(formatter={'float': lambda x: format(x, '.2e')})
 
-            from debug_flower import vecb, vecb_B,vecb_T,vecb_L,vecb_R
+        #     from debug_flower import vecb, vecb_B,vecb_T,vecb_L,vecb_R
 
-            print('\033[36m')
-            print('[rhs_uv]')
+        #     print('\033[36m')
+        #     print('[rhs_uv]')
             
 
-            nip = nx * ny
-            nbp = 2 * nx + 2 * ny
+        #     nip = nx * ny
+        #     nbp = 2 * nx + 2 * ny
 
-            niu = (nx+1) * ny
-            nbu = 2 * (nx+1) + 2 * ny
-            # ntu = (nb_levelsets - nNavier + 1) * niu + nbu
-            ntu = niu + nbu
+        #     niu = (nx+1) * ny
+        #     nbu = 2 * (nx+1) + 2 * ny
+        #     # ntu = (nb_levelsets - nNavier + 1) * niu + nbu
+        #     ntu = niu + nbu
 
-            niv = nx * (ny+1)
-            nbv = 2 * nx + 2 * (ny+1)
-            # ntv = (nb_levelsets - nNavier + 1) * niv + nbv
-            ntv = niv + nbv
-            ntNavier = nNavier * nip
+        #     niv = nx * (ny+1)
+        #     nbv = 2 * nx + 2 * (ny+1)
+        #     # ntv = (nb_levelsets - nNavier + 1) * niv + nbv
+        #     ntv = niv + nbv
+        #     ntNavier = nNavier * nip
             
-            nt = ntu+ntv+ntNavier+nip*(nb_levelsets+1)+nbp
+        #     nt = ntu+ntv+ntNavier+nip*(nb_levelsets+1)+nbp
 
 
-            #Examples
-            # extract = data[-2 * ny - 2 * nx:]
-            # extract = data[-2 * ny - 2 * nx:]
-            # extract = data[0 : ny]
+        #     #Examples
+        #     # extract = data[-2 * ny - 2 * nx:]
+        #     # extract = data[-2 * ny - 2 * nx:]
+        #     # extract = data[0 : ny]
     
         
-            # nt = (num.nb_levelsets - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv + (num.nb_levelsets + 1) * ni_p + nb_p
+        #     # nt = (num.nb_levelsets - num.nNavier + 1) * ni_uv + num.nNavier * ni_p + nb_uv + (num.nb_levelsets + 1) * ni_p + nb_p
 
-            print('bulk_u_velocity',rhs_uv[0:niu],len(rhs_uv[0:niu]))
-            # print('border_u_velocity',rhs_uv[ntu-nbu:ntu],len(rhs_uv[ntu-nbu:ntu]))
-
-
-            # print('whole_u_velocity',rhs_uv[0:ntu],len(rhs_uv[0:ntu]))
-
-            # print('whole_v_velocity',rhs_uv[ntu:ntu+ntv],len(rhs_uv[ntu:ntu+ntv]))
+        #     print('bulk_u_velocity',rhs_uv[0:niu],len(rhs_uv[0:niu]))
+        #     # print('border_u_velocity',rhs_uv[ntu-nbu:ntu],len(rhs_uv[ntu-nbu:ntu]))
 
 
-            print('bulk_v_velocity',rhs_uv[ntu:ntu+niv],len(rhs_uv[ntu:ntu+niv]))
+        #     # print('whole_u_velocity',rhs_uv[0:ntu],len(rhs_uv[0:ntu]))
+
+        #     # print('whole_v_velocity',rhs_uv[ntu:ntu+ntv],len(rhs_uv[ntu:ntu+ntv]))
+
+
+        #     print('bulk_v_velocity',rhs_uv[ntu:ntu+niv],len(rhs_uv[ntu:ntu+niv]))
             
-            # print('border_v_velocity',rhs_uv[ntu+ntv-nbv:ntu+ntv],len(rhs_uv[ntu+ntv-nbv:ntu+ntv]))
+        #     # print('border_v_velocity',rhs_uv[ntu+ntv-nbv:ntu+ntv],len(rhs_uv[ntu+ntv-nbv:ntu+ntv]))
 
-            # border_v_velocity = rhs_uv[ntu+ntv-nbv:ntu+ntv]
+        #     # border_v_velocity = rhs_uv[ntu+ntv-nbv:ntu+ntv]
 
-            # print('border v velocity left  ', border_v_velocity[0:ny+1])
-            # print('border v velocity bottom', border_v_velocity[ny+1:ny+1+nx])
+        #     # print('border v velocity left  ', border_v_velocity[0:ny+1])
+        #     # print('border v velocity bottom', border_v_velocity[ny+1:ny+1+nx])
 
-            # print('v velocity left  ',vecb_L(rhs_uv[ntu:ntu+ntv],nx,ny+1))
-            # print('v velocity bottom',vecb_B(rhs_uv[ntu:ntu+ntv],nx,ny+1))
-            # print('v velocity right ',vecb_R(rhs_uv[ntu:ntu+ntv],nx,ny+1))
-            # print('v velocity top   ',vecb_T(rhs_uv[ntu:ntu+ntv],nx,ny+1))
+        #     # print('v velocity left  ',vecb_L(rhs_uv[ntu:ntu+ntv],nx,ny+1))
+        #     # print('v velocity bottom',vecb_B(rhs_uv[ntu:ntu+ntv],nx,ny+1))
+        #     # print('v velocity right ',vecb_R(rhs_uv[ntu:ntu+ntv],nx,ny+1))
+        #     # print('v velocity top   ',vecb_T(rhs_uv[ntu:ntu+ntv],nx,ny+1))
 
-            # #region print line by line
-            # field = rhs_uv[ntu:ntu+niv]
-            # field = np.reshape(field, (nx, ny+1))   
-            # field = field.transpose()
+        #     # #region print line by line
+        #     # field = rhs_uv[ntu:ntu+niv]
+        #     # field = np.reshape(field, (nx, ny+1))   
+        #     # field = field.transpose()
 
-            # for line in field:
-            #   print('bulk v velocity',*line)
+        #     # for line in field:
+        #     #   print('bulk v velocity',*line)
 
-            # #endregion print line by line
+        #     # #endregion print line by line
 
-            # print('bulk_pressure',rhs_uv[ntu+ntv+nNavier*nip:ntu+ntv+(nNavier+1)*nip],len(rhs_uv[ntu+ntv+nNavier*nip:ntu+ntv+(nNavier+1)*nip]))
+        #     # print('bulk_pressure',rhs_uv[ntu+ntv+nNavier*nip:ntu+ntv+(nNavier+1)*nip],len(rhs_uv[ntu+ntv+nNavier*nip:ntu+ntv+(nNavier+1)*nip]))
 
-            # # bulk
-            # field = rhs_uv[ntu+ntv+nNavier*nip:ntu+ntv+(nNavier+1)*nip]
-            # field = np.reshape(field, (nx, ny))   
-            # field = field.transpose()
+        #     # # bulk
+        #     # field = rhs_uv[ntu+ntv+nNavier*nip:ntu+ntv+(nNavier+1)*nip]
+        #     # field = np.reshape(field, (nx, ny))   
+        #     # field = field.transpose()
 
-            # for line in field:
-            #   print('bulk p',*line)
+        #     # for line in field:
+        #     #   print('bulk p',*line)
 
-            # print('interface_pressure',rhs_uv[ntu+ntv+(nNavier+1)*nip:ntu+ntv+(nNavier+2)*nip],len(rhs_uv[ntu+ntv+(nNavier+1)*nip:ntu+ntv+(nNavier+2)*nip]))
+        #     # print('interface_pressure',rhs_uv[ntu+ntv+(nNavier+1)*nip:ntu+ntv+(nNavier+2)*nip],len(rhs_uv[ntu+ntv+(nNavier+1)*nip:ntu+ntv+(nNavier+2)*nip]))
 
 
-            # print('border_pressure',rhs_uv[nt-nbp:nt],len(rhs_uv[nt-nbp:nt]))
+        #     # print('border_pressure',rhs_uv[nt-nbp:nt],len(rhs_uv[nt-nbp:nt]))
 
-            print('\033[0m')
+        #     print('\033[0m')
           #endregion rhs_uv
 
 
@@ -10261,18 +10261,18 @@ pdi:
         on_event: write_one_fluid
         write: [nstep,rho_one_fluid,rho_one_fluid_u,rho_one_fluid_v,volume_fraction] #mu_one_fluid
 
-      - file: flower_${nstep:08}.h5 
-        when: "$nstep%$save_step = 0"
-        collision_policy: write_into
-        on_event: write_one_fluid_surface_tension
-        write: [volume_fraction,grad_u,grad_v,curvature_p,curvature_u,curvature_v,volumic_surface_tension_u,volumic_surface_tension_v,normal_x,normal_y,normal_angle]
+      # - file: flower_${nstep:08}.h5 
+      #   when: "$nstep%$save_step = 0"
+      #   collision_policy: write_into
+      #   on_event: write_one_fluid_surface_tension
+      #   write: [volume_fraction,grad_u,grad_v,curvature_p,curvature_u,curvature_v,volumic_surface_tension_u,volumic_surface_tension_v,normal_x,normal_y,normal_angle]
 
      
-      - file: flower_${nstep:08}.h5 
-        when: "$nstep%$save_step = 0"
-        collision_policy: write_into
-        on_event: write_one_fluid_smoothed_volume_fraction
-        write: [smoothed_volume_fraction]
+      # - file: flower_${nstep:08}.h5 
+      #   when: "$nstep%$save_step = 0"
+      #   collision_policy: write_into
+      #   on_event: write_one_fluid_smoothed_volume_fraction
+      #   write: [smoothed_volume_fraction]
 
 
       - file: flower_${nstep:08}.h5 
