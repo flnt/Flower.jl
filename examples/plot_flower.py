@@ -2089,7 +2089,7 @@ def plot_file(
 
     # print('nx',nx)
 
-    xp,yp,xu,yv = create_mesh(figpar,mesh,plotpar,nx,ny,xp,yp,xu,yv,data)
+    xp,yp,xu,yv = create_mesh(figpar,mesh,plotpar,nx,ny,xp,yp,xu,yv)
 
 
     # if 'size_macro' in figpar.keys():
@@ -4435,7 +4435,7 @@ def add_schematics_full_cell(ax2,fontsize,figpar):
     return ax2
 
 
-def create_mesh(figpar,mesh,plotpar,nx,ny,xp,yp,xu,yv,data):
+def create_mesh(figpar,mesh,plotpar,nx,ny,xp,yp,xu,yv):
     if 'size_macro' in figpar.keys():
         exec(figpar['size_macro'])
         nx = nx_2
@@ -4588,7 +4588,7 @@ def plot_current_lines(file,
     # xp = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
     # yp = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
 
-    xp,yp,xu,yv = create_mesh(figpar,mesh,plotpar,nx,ny,xp,yp,xu,yv,data)
+    xp,yp,xu,yv = create_mesh(figpar,mesh,plotpar,nx,ny,xp,yp,xu,yv)
 
     # print('xp',xp)
     # print('yp',yp)
@@ -5130,7 +5130,7 @@ def plot_python_pdf_full2(
 
     # print('nx',nx)
 
-    xp,yp,xu,yv = create_mesh(figpar,mesh,plotpar,nx,ny,xp,yp,xu,yv,data)
+    xp,yp,xu,yv = create_mesh(figpar,mesh,plotpar,nx,ny,xp,yp,xu,yv)
 
 
     nx = mesh["nx"]

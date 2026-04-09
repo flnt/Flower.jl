@@ -574,10 +574,15 @@ study:
   # save_step: [1]
   # save_step_scalar: [1]
 
-  meshes: [64]
-  timesteps:  [1e-3]
-  save_step: [20]
-  save_step_scalar: [1]
+  # meshes: [64]
+  # timesteps:  [1e-3]
+  # save_step: [20]
+  # save_step_scalar: [1]
+
+  meshes: [128]
+  timesteps:  [5e-4]
+  save_step: [100]
+  save_step_scalar: [100]
 
 
 plot: #default parameters for plots

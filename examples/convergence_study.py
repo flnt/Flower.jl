@@ -25,7 +25,7 @@ from plot_flower import set_size, init_fig, compute_slope, roundlog, \
    logticks,reshape_data,veci,vecb_L,vecb_B,reshape_data_veci,plot_current_lines,\
    plot_python_pdf_full2,plot_file,plot_schematics,plot_schematics_full,\
    add_schematics,add_schematics_full_cell,compute_slope_lin_or_log,plot_vector,plot_schematics_fluxes,\
-   plot_schematics_full_with_losses,call_inkscape, get_value_from_dicts 
+   plot_schematics_full_with_losses,call_inkscape, get_value_from_dicts,create_mesh 
 
 plt.rcParams["text.parse_math"] = False #necessary for mhchem
 
@@ -3798,8 +3798,13 @@ def plot_1D_list(
             # mesh["dx"] = (mesh["xmax"] - mesh["xmin"]) / mesh["nx"]
             # mesh["dy"] = (mesh["ymax"] - mesh["ymin"]) / mesh["ny"]
 
-            x_1D = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
-            y_1D = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+            # x_1D = np.linspace(float(mesh["xmin"]), float(mesh["xmax"]), int(mesh["nx"]))
+            # y_1D = np.linspace(float(mesh["ymin"]), float(mesh["ymax"]), int(mesh["ny"]))
+
+            xp,yp,xu,yv = create_mesh(figpar,mesh,plotpar,nx,ny,xp,yp,xu,yv)
+
+            x_1D = xp
+            y_1D = yp
 
             # x_1D = x_1D2
             # y_1D = y_1D2
@@ -3917,6 +3922,15 @@ def plot_1D_list(
                     label='Reference solution',
                     ls=eval(get_value_from_dicts('linestyles',figpar,plotpar)[i+1]),
                     lw=lw)
+
+                if 'macro_lines' in figpar.keys() and figpar['iter'] == 0:
+                    print('macro_lines')
+                    exec(figpar['macro_lines'])
+
+                if 'macro_color_levelset' in figpar.keys() and figpar['iter'] == 0:
+                    print(colored('[macro_color_levelset]','magenta'))
+                    exec(figpar['macro_color_levelset'])
+                
 
             
                 if 'plot_ref' in figpar.keys() and figpar['iter'] == 0:
