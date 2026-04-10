@@ -235,6 +235,7 @@ for (i_timestep,timestep) in enumerate(timesteps)
 
 
         phase_change_symb = isnothing(sim.phase_change) ? "default" : Symbol(sim.phase_change)
+        solve_navier_stokes_symb = isnothing(sim.solve_navier_stokes) ? "yes" : Symbol(sim.solve_navier_stokes)
 
         if isnothing(sim.mass_transfer_redistribute)
             if sim.phase_change_method == 5
@@ -258,6 +259,7 @@ for (i_timestep,timestep) in enumerate(timesteps)
             bulk_velocity_symb = Symbol(phys.bulk_velocity),
             phase_change_symb = phase_change_symb,
             mass_transfer_redistribute_symb = mass_transfer_redistribute_symb,
+            solve_navier_stokes_symb = solve_navier_stokes_symb,
             )  
         # construct default parametric instance with x otherwise L0 and ... not defined in the same way
 

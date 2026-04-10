@@ -128,11 +128,11 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
     op,
     phL::Phase{Float64},u_extended=nothing, v_extended=nothing)
 
-    print("\n select_advection")
+    # print("\n select_advection")
 
    #In the current implementations, the first cell is not solved: levelset not advected
     for (iLS, bc) in enumerate(BC_int)
-        print("\n advecting LS number ",iLS," num.advection_LS_mode ",num.advection_LS_mode )
+        # print("\n advecting LS number ",iLS," num.advection_LS_mode ",num.advection_LS_mode )
 
         # if no mixed cells, do not advect
         if isempty(grid_p.LS[iLS].MIXED)

@@ -181,6 +181,7 @@ flower:
     scalar_bc: 0 #1 for multiple LS (describing wall) #0 for one LS
     scalar_scheme: 0 #1 #0 #CN 1  #Backward Euler (implicit)
     solve_Navier_Stokes_liquid_phase: 1 #1 #1 activated
+    solve_navier_stokes: no
     solve_potential: 1
     solve_species: 1
     solver: 0 #2 #0 #1 #0: Julia 1: MUMPS
@@ -7826,25 +7827,25 @@ pdi:
 
               
         
-        check_pressure_velocity_BC:
-          with: 
-            u_1D: $u_1D
-            v_1D: $v_1D
-            p_1D: $p_1D
+        # check_pressure_velocity_BC:
+        #   with: 
+        #     u_1D: $u_1D
+        #     v_1D: $v_1D
+        #     p_1D: $p_1D
  
-          exec: |
-            import numpy as np
-            from debug_flower import vecb_B,print_and_save 
+        #   exec: |
+        #     import numpy as np
+        #     from debug_flower import vecb_B,print_and_save 
 
-            print('\033[38;5;206m')
-            print('[check_pressure_velocity_BC]')
+        #     print('\033[38;5;206m')
+        #     print('[check_pressure_velocity_BC]')
 
-            print_and_save(vecb_B(p_1D,nx,ny))
+        #     print_and_save(vecb_B(p_1D,nx,ny))
 
-            print_and_save(vecb_B(v_1D,nx,ny+1))
+        #     print_and_save(vecb_B(v_1D,nx,ny+1))
 
 
-            print('\033[0m')
+        #     print('\033[0m')
 
 
 
@@ -9277,46 +9278,46 @@ pdi:
 
 
 
-        print_conservation:
-          with:
-            nstep: $nstep
-            conservation: $conservation
-            velocity_divergence: $velocity_divergence
-          exec: |
-            from debug_flower import print_and_save 
-            # print('\033[93m')
-            # print('[print_conservation]')
-            # print('nstep {n} conservation  {c:.2e} max divergence  {d:.2e}'.format(n=nstep,c=conservation, d=np.max(velocity_divergence)))
-            # print('\033[0m')
+        # print_conservation:
+        #   with:
+        #     nstep: $nstep
+        #     conservation: $conservation
+        #     velocity_divergence: $velocity_divergence
+        #   exec: |
+        #     from debug_flower import print_and_save 
+        #     # print('\033[93m')
+        #     # print('[print_conservation]')
+        #     # print('nstep {n} conservation  {c:.2e} max divergence  {d:.2e}'.format(n=nstep,c=conservation, d=np.max(velocity_divergence)))
+        #     # print('\033[0m')
 
-            # with open('log.txt','w') as file:
-            #   sys.stdout = Tee(sys.stdout, file)
-            #   print('\033[93m')
-            #   print('[print_conservation]')
-            #   print('nstep {n} conservation  {c:.2e} max divergence  {d:.2e}'.format(n=nstep,c=conservation, d=np.max(velocity_divergence)))
-            #   print('\033[0m')
+        #     # with open('log.txt','w') as file:
+        #     #   sys.stdout = Tee(sys.stdout, file)
+        #     #   print('\033[93m')
+        #     #   print('[print_conservation]')
+        #     #   print('nstep {n} conservation  {c:.2e} max divergence  {d:.2e}'.format(n=nstep,c=conservation, d=np.max(velocity_divergence)))
+        #     #   print('\033[0m')
 
-            # print_and_save(message, filename="output.txt")
-            print_and_save('\033[93m')
-            print_and_save('[print_conservation]')
-            print_and_save('nstep {n} conservation  {c:.2e} max divergence  {d:.2e}'.format(n=nstep,c=conservation, d=np.max(velocity_divergence)))
-            print_and_save('\033[0m')
+        #     # print_and_save(message, filename="output.txt")
+        #     print_and_save('\033[93m')
+        #     print_and_save('[print_conservation]')
+        #     print_and_save('nstep {n} conservation  {c:.2e} max divergence  {d:.2e}'.format(n=nstep,c=conservation, d=np.max(velocity_divergence)))
+        #     print_and_save('\033[0m')
 
-        check_divergence:
-          nstep: $nstep
-          with: { velocity_divergence: $velocity_divergence, nstep: $nstep} 
-          exec: |
-            import numpy as np
-            from debug_flower import print_and_save 
+        # check_divergence:
+        #   nstep: $nstep
+        #   with: { velocity_divergence: $velocity_divergence, nstep: $nstep} 
+        #   exec: |
+        #     import numpy as np
+        #     from debug_flower import print_and_save 
 
-            # print('\033[36m')
-            # print('[Before check_divergence]')
-            # print("min  {u:.2e} max {v:.2e} mean {p:.2e}".format(u=np.min(velocity_divergence),v=np.max(velocity_divergence),p=np.mean(velocity_divergence)))
-            # print('\033[0m')
-            print_and_save('\033[36m')
-            print_and_save('[Before check_divergence]')
-            print_and_save("nstep {n} min  {u:.2e} max {v:.2e} mean {p:.2e}".format(n=nstep,u=np.min(velocity_divergence),v=np.max(velocity_divergence),p=np.mean(velocity_divergence)))
-            print_and_save('\033[0m')
+        #     # print('\033[36m')
+        #     # print('[Before check_divergence]')
+        #     # print("min  {u:.2e} max {v:.2e} mean {p:.2e}".format(u=np.min(velocity_divergence),v=np.max(velocity_divergence),p=np.mean(velocity_divergence)))
+        #     # print('\033[0m')
+        #     print_and_save('\033[36m')
+        #     print_and_save('[Before check_divergence]')
+        #     print_and_save("nstep {n} min  {u:.2e} max {v:.2e} mean {p:.2e}".format(n=nstep,u=np.min(velocity_divergence),v=np.max(velocity_divergence),p=np.mean(velocity_divergence)))
+        #     print_and_save('\033[0m')
 
         # check_divergence:
         #   with: { velocity_divergence: $velocity_divergence, nstep: $nstep} 

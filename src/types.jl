@@ -181,6 +181,7 @@ Stores parameters for the simulation
     bulk_velocity_symb::Symbol = Symbol("none")
     phase_change_symb::Symbol = Symbol("none")
     mass_transfer_redistribute_symb::Symbol = Symbol("no")
+    solve_navier_stokes_symb::Symbol = Symbol("yes")
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

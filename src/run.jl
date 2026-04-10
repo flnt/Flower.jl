@@ -2225,7 +2225,7 @@ function run_forward!(
                 navier_stokes = true
             end
 
-            if navier_stokes
+            if navier_stokes && num.solve_navier_stokes_symb === :yes
 
 
                 # Adapt cell volume W for gradients 
@@ -2823,9 +2823,9 @@ function run_forward!(
         end
 
         # printstyled(color=:red, @sprintf "\n advection")
-        if num.verbosity>0
-            print("\n num.advection_LS_mode ",num.advection_LS_mode," advection ",advection)
-        end
+        # if num.verbosity>0
+        #     print("\n num.advection_LS_mode ",num.advection_LS_mode," advection ",advection)
+        # end
 
 
         #region Advection 
@@ -2839,7 +2839,7 @@ function run_forward!(
 
             end # if num.io_pdi>0
 
-            printstyled(color=:red, @sprintf "\n select advection")
+            # printstyled(color=:red, @sprintf "\n select advection")
 
 
             select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, periodic_x, periodic_y, 
