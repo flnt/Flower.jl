@@ -141,7 +141,7 @@ flower:
     imposed_velocity : "none" #"zero" #"none" #"zero" #"none"
     index_phase_change: 1
     index_electrolyte: 2
-    max_iter: 4000 #1 #2000 ##1000 #200 #21 #200 #2 #20 #60 #1 #60 #1 #60 #maximum number of iterations
+    max_iter: 4200 #1 #2000 ##1000 #200 #21 #200 #2 #20 #60 #1 #60 #1 #60 #maximum number of iterations
     average_velocity: 0 #1 #0
     laplacian: 0 #1 #1 #1 #multiply by 4/3
     marching_squares_epsilon: 1.0e-9
@@ -174,7 +174,7 @@ flower:
     pressure_velocity_coupling: 0 #3 #3 #1 # 0: projection, 1: coupled
     pressure_velocity_solver: 0 #direct 1 #BICGSTAB(2)
     solve_solid: 0 #0 do not solve in solid
-    reinit_every: 3 #0 #3 # period of levelset reinialization
+    reinit_every: 3 #3 #0 #3 # period of levelset reinialization
     levelset_reinitialize: 0 #do not reinit
     restart: 0 #TODO restart with PDI
     show_every: 1
@@ -580,10 +580,16 @@ study:
   # save_step: [20]
   # save_step_scalar: [1]
 
+  # meshes: [128]
+  # timesteps:  [5e-4]
+  # save_step: [100]
+  # save_step_scalar: [100]
+
   meshes: [128]
-  timesteps:  [5e-4]
+  timesteps:  [1e-3]
   save_step: [100]
   save_step_scalar: [100]
+
 
 
 plot: #default parameters for plots
@@ -758,6 +764,8 @@ plot: #default parameters for plots
       ../fixed_mass_transfer_rate_proj_redist_evap_drop3/timestep_5_0000e-03/mesh_00016/flower*.h5,
       # ../fixed_mass_transfer_rate_proj_OFM_evap_drop/timestep_5_0000e-03/mesh_00016/flower*.h5,
       # ../fixed_mass_transfer_rate_proj_OFM_evap_drop/timestep_2_0000e-03/mesh_00032/flower*.h5,
+      ../fixed_mass_transfer_rate_proj_zero_bulk_liq_evap_drop/timestep_1_0000e-03/mesh_00128/flower*0.h5,
+      # ../fixed_mass_transfer_rate_proj_zero_bulk_liq_evap_drop/timestep_5_0000e-04/mesh_00128/flower*0.h5,
       ../fixed_mass_transfer_rate_proj_zero_bulk_liq_evap_drop/timestep_1_0000e-03/mesh_00064/flower*0.h5,
       ../fixed_mass_transfer_rate_proj_zero_bulk_liq_evap_drop/timestep_5_0000e-03/mesh_00016/flower*.h5,
       ../fixed_mass_transfer_rate_proj_zero_bulk_liq_evap_drop/timestep_2_0000e-03/mesh_00032/flower*.h5,
@@ -1432,30 +1440,32 @@ plot: #default parameters for plots
         cbarlabel: levelset_p
         plot_ref: 
         plot_normal: True
-        plot_normal_macro: |
-          global normal_x_2,normal_y_2
-          # normal_x_2 = file['normal_x'][:]
-          # normal_y_2 = file['normal_y'][:]
+        macro_file_name: ['file_name+"_"+"nx"+"_"+str(nx)+"_"+"it"+"_"+str(nstep)+"_"+plotpar["theme"]+ ".pdf"', 
+                    'file_name+"_"+"nx"+"_"+str(nx)+"_"+"it"+"_"+str(nstep)+"_"+plotpar["theme"]+".svg"']
+        # plot_normal_macro: |
+        #   global normal_x_2,normal_y_2
+        #   # normal_x_2 = file['normal_x'][:]
+        #   # normal_y_2 = file['normal_y'][:]
 
-          # normal_x_2.fill(1)
-          # normal_y_2.fill(0)
+        #   # normal_x_2.fill(1)
+        #   # normal_y_2.fill(0)
 
-          phi = data
+        #   phi = data
 
-          dx = x_1D[4] - x_1D[3]
-          dy = y_1D[4] - y_1D[3]
+        #   dx = x_1D[4] - x_1D[3]
+        #   dy = y_1D[4] - y_1D[3]
 
-          # Compute the gradient (normal vectors) using finite differences
-          phi_x = np.gradient(phi, dx, axis=0)
-          phi_y = np.gradient(phi, dy, axis=1)
+        #   # Compute the gradient (normal vectors) using finite differences
+        #   phi_x = np.gradient(phi, dx, axis=0)
+        #   phi_y = np.gradient(phi, dy, axis=1)
 
-          # Normalize the gradient to get the normal vectors
-          norm = np.sqrt(phi_x**2 + phi_y**2 + 1e-10)
-          phi_x /= norm
-          phi_x /= norm
+        #   # Normalize the gradient to get the normal vectors
+        #   norm = np.sqrt(phi_x**2 + phi_y**2 + 1e-10)
+        #   phi_x /= norm
+        #   phi_x /= norm
 
-          normal_x_2 = phi_x
-          normal_y_2 = phi_y
+        #   normal_x_2 = phi_x
+        #   normal_y_2 = phi_y
 
       - var: levelset_p
         file: levelset_p     
@@ -5524,6 +5534,7 @@ plot: #default parameters for plots
               print('slope_text2',slope_text2)
 
         macro_data: |
+          print(colored('[macro_data]','magenta'))
           global varx_2, vary_2, values
           import glob
           import numpy as np
@@ -5573,11 +5584,15 @@ plot: #default parameters for plots
                         h5_file_name_interp = file_name
                       except:
                         print('nstep not saved')
+                      
+                      eps_dt = file['timestep'][()]
+                      # print(colored('eps_dt'+str(eps_dt),'red'))
+
 
                       # time variable = first variable of first list
                       time_var = figpar['var'][0][0]
                       t = current_data[time_var]
-
+                      # print('time error',time_error,t)
                       # -----------------------------
                       # check crossing of time_error
                       # -----------------------------
@@ -5585,13 +5600,17 @@ plot: #default parameters for plots
 
                           t_prev = prev_data[time_var]
 
-                          if t_prev <= time_error <= t:
+                          # if t_prev <= time_error <= t:
+                          if t_prev <= time_error <= t or (t < time_error and abs(time_error - t) < eps_dt):
 
                               print(colored(
                                   f'Interpolating at time {time_error}', 'red'))
-                              print('t_prev ',t_prev, ' t',t,' time_error ',time_error)
+                              # print('t_prev ',t_prev, ' t',t,' time_error ',time_error)
 
                               alpha = (time_error - t_prev) / (t - t_prev)
+
+                              print('t_prev ',t_prev, ' t',t,' time_error ',time_error,'alpha',alpha)
+
 
                               print(colored('Getting nstep','cyan'))
                               # if alpha <0.5:
@@ -5678,16 +5697,16 @@ plot: #default parameters for plots
                   #     print(colored('Found found, snapshot','cyan'))
                   #     break
           if found:
-              print(colored('Found, snapshot','cyan'))
+              # print(colored('Found, snapshot','cyan'))
               print('nstep_interp',nstep_interp)
               # func = 
               key_interp = 'levelset_p'
-              print('key',key_interp)
-              print('file',file)
+              # print('key',key_interp)
+              # print('file',file)
               for figpar_interp in plotpar["figures"]:
-                  print(colored('figpar','cyan'))
-                  print('var',figpar_interp['var'])
-                  print('figpar_interp',figpar_interp)
+                  # print(colored('figpar','cyan'))
+                  # print('var',figpar_interp['var'])
+                  # print('figpar_interp',figpar_interp)
                   if figpar_interp['var'] == 'levelset_p': 
                       # figpar_interp = figpar
                       break

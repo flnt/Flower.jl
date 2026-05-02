@@ -1898,7 +1898,10 @@ def plot_segments(file,plotpar,figpar,ax2):
 
     intfc_vtx_x = file["intfc_vtx_x"][:]
     intfc_vtx_y = file["intfc_vtx_y"][:]
-    intfc_vtx_field = file["intfc_vtx_field"][:]
+    try:
+        intfc_vtx_field = file["intfc_vtx_field"][:]
+    except:
+        intfc_vtx_field = None
     intfc_vtx_connectivities = file["intfc_vtx_connectivities"][:]
 
     # print(intfc_vtx_x)
@@ -1923,37 +1926,42 @@ def plot_segments(file,plotpar,figpar,ax2):
                 s=ms,
                 )
     
-    if figpar['plot_levelset_segments_print'] != None:
-        for i in range(intfc_vtx_num):
+    if 'plot_levelset_segments_print' in figpar.keys():
+        if figpar['plot_levelset_segments_print'] != None:
+            for i in range(intfc_vtx_num):
 
-            if figpar['plot_levelset_segments_print'] == "val":
-                str1='{:.2e}'.format(intfc_vtx_field[i])
-            elif figpar['plot_levelset_segments_print'] == "ij":
-                str1="{:03}".format(i)
-            elif figpar['plot_levelset_segments_print'] == "ijval": 
-                str1="{:.2e} {:03}".format(intfc_vtx_field[i],i)  
-            elif figpar['plot_levelset_segments_print'] == "ijcoord": 
-                str1="{:.2e} {:.2e} {:03}".format(intfc_vtx_x[i],intfc_vtx_y[i],i)       
-            elif figpar['plot_levelset_segments_print'] == "ijx": 
-                str1="{:.2e} {:03}".format(intfc_vtx_x[i],i)                        
-            elif figpar['plot_levelset_segments_print'] == "ijy": 
-                str1="{:.2e} {:03}".format(intfc_vtx_y[i],i)    
-            elif 'format' in figpar['plot_levelset_segments_print']:
-                # print(figpar['plot_levelset_segments_print'])
-                # error = manufactured_solution_1(intfc_vtx_x,intfc_vtx_y)-intfc_vtx_field[i]
-                # print(error)
-                # str1='{:.2e}'.format(error)
-                str1=eval(figpar['plot_levelset_segments_print'])
-            else:
-                str1='{:.2e}'.format(intfc_vtx_field[i])
+                if figpar['plot_levelset_segments_print'] == "val":
+                    str1='{:.2e}'.format(intfc_vtx_field[i])
+                elif figpar['plot_levelset_segments_print'] == "ij":
+                    str1="{:03}".format(i)
+                elif figpar['plot_levelset_segments_print'] == "ijval": 
+                    str1="{:.2e} {:03}".format(intfc_vtx_field[i],i)  
+                elif figpar['plot_levelset_segments_print'] == "ijcoord": 
+                    str1="{:.2e} {:.2e} {:03}".format(intfc_vtx_x[i],intfc_vtx_y[i],i)       
+                elif figpar['plot_levelset_segments_print'] == "ijx": 
+                    str1="{:.2e} {:03}".format(intfc_vtx_x[i],i)                        
+                elif figpar['plot_levelset_segments_print'] == "ijy": 
+                    str1="{:.2e} {:03}".format(intfc_vtx_y[i],i)    
+                elif 'format' in figpar['plot_levelset_segments_print']:
+                    # print(figpar['plot_levelset_segments_print'])
+                    # error = manufactured_solution_1(intfc_vtx_x,intfc_vtx_y)-intfc_vtx_field[i]
+                    # print(error)
+                    # str1='{:.2e}'.format(error)
+                    str1=eval(figpar['plot_levelset_segments_print'])
+                else:
+                    str1='{:.2e}'.format(intfc_vtx_field[i])
 
-            ax2.annotate(str1,(intfc_vtx_x[i],intfc_vtx_y[i]),fontsize=get_value_from_dicts('fontsize',figpar,plotpar),c=lcolor,ha="center",va=va)
+                ax2.annotate(str1,(intfc_vtx_x[i],intfc_vtx_y[i]),fontsize=get_value_from_dicts('fontsize',figpar,plotpar),c=lcolor,ha="center",va=va)
 
-    
+    # print('intfc_vtx_connectivities',intfc_vtx_connectivities)
     for i in range(intfc_seg_num):
         connect = intfc_vtx_connectivities[2*i:2*i+2] #+1 python
-        print(range(2*i,2*i+2) ,connect)
-        plt .plot(intfc_vtx_x[connect],intfc_vtx_y[connect],lw=0.1,color='k')
+        # connect = intfc_vtx_connectivities[2*i:2*i+1] #+1 python
+        # print(range(2*i,2*i+2) ,connect)
+
+        plt .plot(intfc_vtx_x[connect-1],intfc_vtx_y[connect-1],lw=0.1,color='k')
+
+
 
 
     # # order segments
@@ -2351,11 +2359,11 @@ def plot_file(
             extend=plotpar['extend'],)
             # print(colored('range','red'))
         else:
-            print('test')
-            print(x_1D)
-            print(y_1D)
-            print(field)
-            print('sizes',len(x_1D),len(y_1D),np.size(field,0),np.size(field,1))
+            # print('test')
+            # print(x_1D)
+            # print(y_1D)
+            # print(field)
+            # print('sizes',len(x_1D),len(y_1D),np.size(field,0),np.size(field,1))
 
 
             CS = ax2.contourf(x_1D,y_1D,field, 
@@ -2679,9 +2687,20 @@ def plot_file(
         # #         ax2.fill_between(contour[:,0], contour[:,1],y_1D[-1],color=plotpar['color_wall'])
 
 
+    # print(colored('[plot_levelset_segments]','red'))
 
-    if get_value_from_dicts('plot_levelset_segments',figpar,plotpar):
+    # if get_value_from_dicts('plot_levelset_segments',figpar,plotpar):
+    #     print(colored('[plot_levelset_segments]','red'))
+    #     ax2 = plot_segments(file,plotpar,figpar,ax2)
+    
+    if 'plot_levelset_segments' in figpar.keys():
+        print(colored('[plot_levelset_segments]','red'))
         ax2 = plot_segments(file,plotpar,figpar,ax2)
+
+    if 'macro_ref' in figpar.keys():
+        print(colored('[macro_ref]','red'))
+        exec(get_value_from_dicts('macro_ref',figpar,plotpar))
+
     
 
     size_nodes = 0.7

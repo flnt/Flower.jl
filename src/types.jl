@@ -182,6 +182,10 @@ Stores parameters for the simulation
     phase_change_symb::Symbol = Symbol("none")
     mass_transfer_redistribute_symb::Symbol = Symbol("no")
     solve_navier_stokes_symb::Symbol = Symbol("yes")
+    advection_LS_mode_symb::Symbol = Symbol("default")
+    reinit_LS_mode_symb::Symbol = Symbol("default")
+    intfc_x::T=0.0
+    intfc_y::T=0.0
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

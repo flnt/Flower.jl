@@ -407,6 +407,17 @@ function run_forward!(
     end #electrolysis
     #endregion electrolysis
 
+    # if num.advection_LS_mode_symb === :front_tracking
+    #     ft = FrontTracker(num, grid_p)   # reads num.R, num.x0, num.y0
+    # else
+    #     ft = nothing
+    # end
+
+    # print("\n ft connec",ft.connectivities)
+
+    # intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num, intfc_seg_num = convert_interfacial_D_to_segments(num,grid_p,phL.TD,1,2)
+
+
     if levelset
 
         # At every iteration, update_all_ls_data is called twice, 
@@ -417,6 +428,26 @@ function run_forward!(
         # The flag=true, the capacities are set for the convection, the flag=false they are set for the other operators
 
         NB_indices = update_all_ls_data(num, grid_p, grid_u, grid_v, BC_int, periodic_x, periodic_y)
+
+
+        if num.advection_LS_mode_symb === :front_tracking || num.advection_LS_mode_symb === :front_tracking_bilinear
+            ft = FrontTracker(num, grid_p)   # reads num.R, num.x0, num.y0
+        else
+            ft = nothing
+        end
+
+        # print("\n ft connec",ft.connectivities)
+        
+        ft_pdi!(ft, num, grid_p,grid_u,grid_v)
+
+
+        # intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num, intfc_seg_num = convert_interfacial_D_to_segments(num,grid_p,phL.TD,1,2)
+
+
+
+        if num.advection_LS_mode_symb === :acls
+            acls_init!(grid_p, grid_u, grid_v, num.Δ)
+        end
 
         # printstyled(color=:red, @sprintf "\n levelset:\n")
         # println(grid_p.LS[1].geoL.dcap[1,1,:])
@@ -2848,7 +2879,7 @@ function run_forward!(
                 tmp_vec_p,tmp_vec_p0,
                 tmp_vec_u,tmp_vec_v,tmp_vec_u0,tmp_vec_v0,tmp_vec_u1,tmp_vec_v1,
                 op,
-                phL, u_ext_vel, v_ext_vel)
+                phL, ft, u_ext_vel, v_ext_vel)
 
 
 
@@ -2856,65 +2887,80 @@ function run_forward!(
 
             #region reinitialize Levelset
 
-            #TODO document
-            if num.levelset_reinitialize == 0
+            if num.reinit_LS_mode_symb ===:acls
+                # acls_compress!(ψ, eps_LS, num.Δ, grid_p.nx, grid_p.ny, periodic_x, periodic_y; n_iter=6)
+                print("ACLS reinit done before")
+
+            elseif num.reinit_LS_mode_symb ===:chiodi
+                # band = narrow_band_mask(grid_p.LS[1].u, num.Δ, grid_p.nx, grid_p.ny; band_width=8)
+                # chiodi_reinit!(grid_p.LS[1].u, num.Δ, grid_p.nx, grid_p.ny, periodic_x, periodic_y; n_iter=8, narrow_band=band)
+
+                chiodi_reinit_2!(grid_p.LS[1].u, num.Δ, grid_p.nx, grid_p.ny,
+                grid_p.ind, periodic_x, periodic_y;
+                n_iter = num.nb_reinit,
+                band   = 8)
+
+            elseif num.reinit_LS_mode_symb ===:default
+
+                #TODO document
+                if num.levelset_reinitialize == 0
 
 
-                if analytical
-                    u[grid_p.ind.b_top[1]] .= sqrt.(grid_p.x[grid_p.ind.b_top[1]] .^ 2 + grid_p.y[grid_p.ind.b_top[1]] .^ 2) .- (num.R + speed*num.current_iter*num.timestep_n);
-                    u[grid_p.ind.b_bottom[1]] .= sqrt.(grid_p.x[grid_p.ind.b_bottom[1]] .^ 2 + grid_p.y[grid_p.ind.b_bottom[1]] .^ 2) .- (num.R + speed*num.current_iter*num.timestep_n);
-                    u[grid_p.ind.b_left[1]] .= sqrt.(grid_p.x[grid_p.ind.b_left[1]] .^ 2 + grid_p.y[grid_p.ind.b_left[1]] .^ 2) .- (num.R + speed*num.current_iter*num.timestep_n);
-                    u[grid_p.ind.b_right[1]] .= sqrt.(grid_p.x[grid_p.ind.b_right[1]] .^ 2 + grid_p.y[grid_p.ind.b_right[1]] .^ 2) .- (num.R + speed*num.current_iter*num.timestep_n);
-                elseif num.nb_reinit > 0
-                    if auto_reinit == 1 && (num.current_iter-1)%num.reinit_every == 0
-                        for iLS in 1:num.nLS
-                            if !is_wall(BC_int[iLS])
-                                ls_rg, rl_rg_v = rg(num, grid_p, grid_p.LS[iLS].u, periodic_x, periodic_y, BC_int)
-                                println("$(ls_rg)")
-                                printstyled(color=:green, @sprintf "\n ls_rg : %.2e \n" ls_rg)
-                                if ls_rg >= num.δreinit || num.current_iter == 1
-                                    print("(ls_rg >= num.δreinit || num.current_iter == 1): yes")
-                                    # println("yes")
-                                    RK2_reinit!(ls_scheme, grid_p, grid_p.ind, iLS, grid_p.LS[iLS].u, num.nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
-                                    
+                    if analytical
+                        u[grid_p.ind.b_top[1]] .= sqrt.(grid_p.x[grid_p.ind.b_top[1]] .^ 2 + grid_p.y[grid_p.ind.b_top[1]] .^ 2) .- (num.R + speed*num.current_iter*num.timestep_n);
+                        u[grid_p.ind.b_bottom[1]] .= sqrt.(grid_p.x[grid_p.ind.b_bottom[1]] .^ 2 + grid_p.y[grid_p.ind.b_bottom[1]] .^ 2) .- (num.R + speed*num.current_iter*num.timestep_n);
+                        u[grid_p.ind.b_left[1]] .= sqrt.(grid_p.x[grid_p.ind.b_left[1]] .^ 2 + grid_p.y[grid_p.ind.b_left[1]] .^ 2) .- (num.R + speed*num.current_iter*num.timestep_n);
+                        u[grid_p.ind.b_right[1]] .= sqrt.(grid_p.x[grid_p.ind.b_right[1]] .^ 2 + grid_p.y[grid_p.ind.b_right[1]] .^ 2) .- (num.R + speed*num.current_iter*num.timestep_n);
+                    elseif num.nb_reinit > 0
+                        if auto_reinit == 1 && (num.current_iter-1)%num.reinit_every == 0
+                            for iLS in 1:num.nLS
+                                if !is_wall(BC_int[iLS])
                                     ls_rg, rl_rg_v = rg(num, grid_p, grid_p.LS[iLS].u, periodic_x, periodic_y, BC_int)
-                                    println("$(ls_rg) ")
+                                    println("$(ls_rg)")
                                     printstyled(color=:green, @sprintf "\n ls_rg : %.2e \n" ls_rg)
+                                    if ls_rg >= num.δreinit || num.current_iter == 1
+                                        print("(ls_rg >= num.δreinit || num.current_iter == 1): yes")
+                                        # println("yes")
+                                        RK2_reinit!(ls_scheme, grid_p, grid_p.ind, iLS, grid_p.LS[iLS].u, num.nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
+                                        
+                                        ls_rg, rl_rg_v = rg(num, grid_p, grid_p.LS[iLS].u, periodic_x, periodic_y, BC_int)
+                                        println("$(ls_rg) ")
+                                        printstyled(color=:green, @sprintf "\n ls_rg : %.2e \n" ls_rg)
+                                    end
                                 end
                             end
-                        end
-                    elseif (num.current_iter-1)%num.reinit_every == 0
-                        for iLS in 1:num.nLS
-                            if !is_wall(BC_int[iLS])
-                                RK2_reinit!(ls_scheme, grid_p, grid_p.ind, iLS, grid_p.LS[iLS].u, num.nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
+                        elseif (num.current_iter-1)%num.reinit_every == 0
+                            for iLS in 1:num.nLS
+                                if !is_wall(BC_int[iLS])
+                                    RK2_reinit!(ls_scheme, grid_p, grid_p.ind, iLS, grid_p.LS[iLS].u, num.nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
+                                end
                             end
-                        end
-                    # elseif num.nLS > 1
-                    #     for iLS in 1:num.nLS
-                    #         if !is_wall(BC_int[iLS])
-                    #             RK2_reinit!(ls_scheme, grid_p, grid_p.ind, iLS, grid_p.LS[iLS].u, 2num.nb_reinit, periodic_x, periodic_y, BC_u, BC_int, true)
-                    #         end
-                    #     end
+                        # elseif num.nLS > 1
+                        #     for iLS in 1:num.nLS
+                        #         if !is_wall(BC_int[iLS])
+                        #             RK2_reinit!(ls_scheme, grid_p, grid_p.ind, iLS, grid_p.LS[iLS].u, 2num.nb_reinit, periodic_x, periodic_y, BC_u, BC_int, true)
+                        #         end
+                        #     end
+                                end
                             end
-                        end
 
-                # Numerical breakup
-                if free_surface && breakup ==1
-                    count, id_break = breakup_n(grid_p.LS[1].u, grid_p.nx, grid_p.ny, grid_p.dx, grid_p.dy, periodic_x, periodic_y, NB_indices, 5e-2)
-                    println(count)
-                    if count > count_limit_breakup
-                        println("BREAK UP!!") 
-                        breakup_f(grid_p, grid_p.LS[1].u, id_break)
-                        RK2_reinit!(ls_scheme, grid_p, grid_p.ind, 1, grid_p.LS[1].u, num.nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
+                    # Numerical breakup
+                    if free_surface && breakup ==1
+                        count, id_break = breakup_n(grid_p.LS[1].u, grid_p.nx, grid_p.ny, grid_p.dx, grid_p.dy, periodic_x, periodic_y, NB_indices, 5e-2)
+                        println(count)
+                        if count > count_limit_breakup
+                            println("BREAK UP!!") 
+                            breakup_f(grid_p, grid_p.LS[1].u, id_break)
+                            RK2_reinit!(ls_scheme, grid_p, grid_p.ind, 1, grid_p.LS[1].u, num.nb_reinit, periodic_x, periodic_y, BC_u, BC_int)
+                        end
                     end
-                end
 
-            elseif num.levelset_reinitialize == -1
-                printstyled(color=:red, @sprintf "\n No reinit")
+                elseif num.levelset_reinitialize == -1
+                    printstyled(color=:red, @sprintf "\n No reinit")
 
 
-            end #if num.levelset_reinitialize
-
+                end #if num.levelset_reinitialize
+            end #reinit_LS_mode_symb
         end
 
         #endregion reinitialize Levelset

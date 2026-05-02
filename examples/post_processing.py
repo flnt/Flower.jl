@@ -216,42 +216,48 @@ def find_sign_changes(slice,x_1D,eps):
     return(i1,i2)
 
 
-def compute_radius_from_levelset_slice(slice,x_1D,eps):      
-   
-    dx = x_1D[1]-x_1D[0]
+def compute_radius_from_levelset_slice(slice,x_1D,eps):   
+    # from termcolor import colored   
+    try:
+        # print(colored('[compute_radius_from_levelset_slice]','green'))
+        # print('slice',slice)
+        dx = x_1D[1]-x_1D[0]
 
-    # # print(colored('first','red'))
-    # i1,i2 = find_one_minimum(slice,x_1D,eps)
-    # print('i1 i2',i1,i2)
+        # # print(colored('first','red'))
+        # i1,i2 = find_one_minimum(slice,x_1D,eps)
+        # print('i1 i2',i1,i2)
 
-    # # print(colored('second','red'))
-    # itmp = max(i1,i2)
-    # # print('itmp',itmp)
-    # slice2 = slice[itmp+1:] 
-    # i3,i4 = find_one_minimum(slice2,x_1D,eps)
-    # i3+= itmp+1
-    # i4+= itmp+1
-    # print('i3 i4',i3,i4)
+        # # print(colored('second','red'))
+        # itmp = max(i1,i2)
+        # # print('itmp',itmp)
+        # slice2 = slice[itmp+1:] 
+        # i3,i4 = find_one_minimum(slice2,x_1D,eps)
+        # i3+= itmp+1
+        # i4+= itmp+1
+        # print('i3 i4',i3,i4)
 
-    i1,i2 = find_sign_changes(slice,x_1D,eps)
-    # print('i1 i2',i1,i2)
-    itmp = max(i1,i2)
-    slice2 = slice[itmp+1:]
-    i3,i4 = find_sign_changes(slice2,x_1D,eps)
-    i3+= itmp+1
-    i4+= itmp+1
-    # print('i3 i4',i3,i4)
+        i1,i2 = find_sign_changes(slice,x_1D,eps)
+        # print('i1 i2',i1,i2)
+        itmp = max(i1,i2)
+        slice2 = slice[itmp+1:]
+        i3,i4 = find_sign_changes(slice2,x_1D,eps)
+        i3+= itmp+1
+        i4+= itmp+1
+        # print('i3 i4',i3,i4)
 
 
-    a = (slice[i1]-slice[i2])/((x_1D[i1]-x_1D[i2]))
-    interp1 = x_1D[i1]-slice[i1]/a
-    # print('x1',x_1D[i1],x_1D[i2],interp1)
+        a = (slice[i1]-slice[i2])/((x_1D[i1]-x_1D[i2]))
+        interp1 = x_1D[i1]-slice[i1]/a
+        # print('x1',x_1D[i1],x_1D[i2],interp1)
 
-    a = (slice[i3]-slice[i4])/((x_1D[i3]-x_1D[i4]))
-    interp2 = x_1D[i3]-slice[i3]/a
-    # print('x1',x_1D[i3],x_1D[i4],interp2)
+        a = (slice[i3]-slice[i4])/((x_1D[i3]-x_1D[i4]))
+        interp2 = x_1D[i3]-slice[i3]/a
+        # print('x1',x_1D[i3],x_1D[i4],interp2)
 
-    radius = abs(interp2-interp1)/2
+        radius = abs(interp2-interp1)/2
+    except:
+        print('Error computing radius from levelset')
+        radius = 0.0
 
     return radius
 

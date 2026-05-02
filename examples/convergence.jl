@@ -94,6 +94,15 @@ sim = PropertyDict(flower.simulation)
 phys = PropertyDict(flower.physics)
 macros = PropertyDict(flower.macros) #to parse code from .yml
 
+# if max_iter in study
+#     max_iter_list = study.max_iter
+# else
+#     max_iter_list = similar(timesteps)
+#     max_iter_list .= sim.max_iter
+# end
+
+max_iter_list = study.max_iter
+
 # boundaries_dict = PropertyDict(macros.boundaries_list)
 study_name = ""
 
@@ -173,6 +182,7 @@ for (i_timestep,timestep) in enumerate(timesteps)
     
     save_step = save_step_list[i_timestep]
     save_step_scalar = save_step_scalar_list[i_timestep]
+    max_iter = max_iter_list[i_timestep]
 
     print("\n Save steps ",save_step," scalar ",save_step_scalar)
 
@@ -234,9 +244,13 @@ for (i_timestep,timestep) in enumerate(timesteps)
         )
 
 
-        phase_change_symb = isnothing(sim.phase_change) ? "default" : Symbol(sim.phase_change)
-        solve_navier_stokes_symb = isnothing(sim.solve_navier_stokes) ? "yes" : Symbol(sim.solve_navier_stokes)
+        phase_change_symb = isnothing(sim.phase_change) ? Symbol("default") : Symbol(sim.phase_change)
+        solve_navier_stokes_symb = isnothing(sim.solve_navier_stokes) ? Symbol("yes") : Symbol(sim.solve_navier_stokes)
+        advection_LS_mode_symb = isnothing(sim.levelset_method) ? Symbol("default") : Symbol(sim.levelset_method)
+        reinit_LS_mode_symb = isnothing(sim.reinit_levelset_method) ? Symbol("default") : Symbol(sim.reinit_levelset_method)
 
+
+        
         if isnothing(sim.mass_transfer_redistribute)
             if sim.phase_change_method == 5
                 mass_transfer_redistribute_symb = :no
@@ -260,6 +274,8 @@ for (i_timestep,timestep) in enumerate(timesteps)
             phase_change_symb = phase_change_symb,
             mass_transfer_redistribute_symb = mass_transfer_redistribute_symb,
             solve_navier_stokes_symb = solve_navier_stokes_symb,
+            advection_LS_mode_symb = advection_LS_mode_symb,
+            reinit_LS_mode_symb = reinit_LS_mode_symb,
             )  
         # construct default parametric instance with x otherwise L0 and ... not defined in the same way
 
@@ -287,6 +303,10 @@ for (i_timestep,timestep) in enumerate(timesteps)
         end
 
         Broadcast.broadcastable(num::Numerical) = Ref(num) #do not broadcast num 
+
+        
+        num.max_iterations = max_iter
+
         @debug "After Numerical"
 
         # num.electrolysis_reaction = Symbol(num.electrolysis_reaction)
@@ -307,6 +327,14 @@ for (i_timestep,timestep) in enumerate(timesteps)
         # Define boundary conditions
         eval(Meta.parseall(macros.boundaries))
         eval(Meta.parseall(macros.interface)) # <--- DÉPLACÉ ICI (IMPORTANT)
+
+        if num.advection_LS_mode_symb ===:acls
+            # After geometry is set up, convert to ACLS indicator:
+            eps_LS = 1.5 * num.Δ
+            gp.LS[1].u .= 0.5 .* (1.0 .+ tanh.(gp.LS[1].u ./ (2*eps_LS)))
+            gu.LS[1].u .= 0.5 .* (1.0 .+ tanh.(gu.LS[1].u ./ (2*eps_LS)))
+            gv.LS[1].u .= 0.5 .* (1.0 .+ tanh.(gv.LS[1].u ./ (2*eps_LS)))
+        end
 
         # 2. Capture des BC dans un dictionnaire pour éviter le "World Age Problem"
         bc_dict = Dict{Symbol, Any}()

@@ -126,7 +126,7 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
     tmp_vec_p,tmp_vec_p0,
     tmp_vec_u,tmp_vec_v,tmp_vec_u0,tmp_vec_v0,tmp_vec_u1,tmp_vec_v1,
     op,
-    phL::Phase{Float64},u_extended=nothing, v_extended=nothing)
+    phL::Phase{Float64},ft,u_extended=nothing, v_extended=nothing)
 
     # print("\n select_advection")
 
@@ -146,6 +146,11 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
 
         # elseif is_fs(bc) || (occursin("levelset",electrolysis_phase_change_case) && iLS == num.iLSbubble)
         else 
+
+            # if num.advection_LS_mode_symb === :weno5
+
+            # end
+
             if num.advection_LS_mode == 0
                 advection_u_and_v(grid_p, grid_u, grid_v, iLS, θ_out, num, BC_int, BC_u, rhs_LS, periodic_x, periodic_y)
 
@@ -864,24 +869,263 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
                         "normal_velocity_intfc_LS_ext"::Cstring, grid_p.V::Ptr{Cdouble}, PDI_OUT::Cint,
                         C_NULL::Ptr{Cvoid})::Cint
 
-                        nghost = 1
-                        Aghost, Bghost = allocate_ghost_matrices_2(grid_p.nx,grid_p.ny,nghost)
-                        # update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
-                        printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
-                        LSghost = init_ghost_neumann_2(grid_p.LS[iLS].u,grid_p.nx,grid_p.ny,nghost)
-                        Vghost = init_ghost_neumann_2(grid_p.V,grid_p.nx,grid_p.ny,nghost)
-                        IIOE_normal_indices_2!(grid_p, Aghost, Bghost, grid_p.LS[iLS].u, LSghost, 
-                        Vghost, CFL_sc, periodic_x, periodic_y,nghost)
-                        LSghost .= reshape(gmres(Aghost, Bghost * vec(LSghost)), (grid_p.ny+2*nghost,grid_p.nx+2*nghost))
 
-                        #Store result of LS advection without ghost cells
-                        for j=1:grid_p.ny
-                            for i=1:grid_p.nx
-                                grid_p.LS[iLS].u[j,i] = LSghost[j+1,i+1]
+                        # # After geometry is set up, convert to ACLS indicator:
+                        # eps_LS = 1.5 * num.Δ
+                        # grid_p.LS[1].u .= 0.5 .* (1.0 .+ tanh.(phi_initial ./ (2*eps_LS)))
+                        # grid_u.LS[1].u .= 0.5 .* (1.0 .+ tanh.(phi_u_initial ./ (2*eps_LS)))
+                        # grid_v.LS[1].u .= 0.5 .* (1.0 .+ tanh.(phi_v_initial ./ (2*eps_LS)))
+
+                        if num.advection_LS_mode_symb === :acls
+                            
+                            # ACLS path (best for mass conservation + no zero-level drift)
+                            eps_LS = 1.5 * num.Δ
+                            # acls_advect!(ψ, phL.u, phL.v, num.timestep_n, num.Δ, grid_p.nx, grid_p.ny, periodic_x, periodic_y)
+                            # acls_compress!(ψ, eps_LS, num.Δ, grid_p.nx, grid_p.ny, periodic_x, periodic_y; n_iter=6)
+
+                            acls_step!(grid_p, grid_u, grid_v, phL, num, periodic_x, periodic_y)
+                            
+                        elseif num.advection_LS_mode_symb === :weno5
+                            # or, if staying with signed-distance φ:
+                            # weno5_advect!(grid_p.LS[1].u, phL.u, phL.v, num.timestep_n, num.Δ, grid_p.nx, grid_p.ny, periodic_x, periodic_y)
+                            # band = narrow_band_mask(grid_p.LS[1].u, num.Δ, grid_p.nx, grid_p.ny; band_width=8)
+                            # chiodi_reinit!(grid_p.LS[1].u, num.Δ, grid_p.nx, grid_p.ny, periodic_x, periodic_y; n_iter=8, narrow_band=band)
+
+
+                            # weno5_advect_ls_normalvel!(grid_p, num)
+
+                            φ   = grid_p.LS[1].u
+                            phi = grid_p.LS[1].u
+                            h   = num.Δ
+                            dt  = num.timestep_n
+                            nx  = grid_p.nx
+                            ny  = grid_p.ny
+
+                            # Decompose normal velocity into (u,v) cell-centred components
+                            u_n = similar(φ)
+                            v_n = similar(φ)
+                            normalx = similar(φ)
+                            normaly = similar(φ)
+
+
+                            # levelset_1D .= 0.0
+                            # levelset_one_fluid = grid_p.LS[end].u
+                            
+                            # heavyside_epsilon = grid_p.dx[2,2]
+
+                            # if num.one_fluid_normal == 0
+
+                            #     for j in 1:grid_p.ny
+                            #         for i in 1:grid_p.nx
+                            #             pII = lexicographic(CartesianIndex(j,i),grid_p.ny)
+                            #             levelset_1D[pII] = levelset_heavyside(levelset_one_fluid[j,i],heavyside_epsilon)
+                            #         end
+                            #     end
+                            # elseif num.one_fluid_normal == 1
+                                
+                            #     for j in 1:grid_p.ny
+                            #         for i in 1:grid_p.nx
+                            #             pII = lexicographic(CartesianIndex(j,i),grid_p.ny)
+                            #             levelset_1D[pII] = levelset_to_binary(levelset_one_fluid[j,i])
+                            #         end
+                            #     end
+
+                            # end
+                            
+                            # # Step 1: Compute the unit normal (this is done once for the whole grid)
+                            # tmp_vec_u .= 0.0
+                            # tmp_vec_v .= 0.0
+                            # tmp_vec_u1 .= 0.0
+                            # tmp_vec_v1 .= 0.0
+                            # compute_unit_normal(num,grid_p, grid_u, grid_v, 
+                            # op.opC_uL, op.opC_vL,levelset_1D,
+                            # volume_fraction,
+                            # tmp_vec_p,tmp_vec_p0,
+                            # tmp_vec_u,tmp_vec_v, #normal_and_dirac_u, normal_and_dirac_v,
+                            # tmp_vec_u1,tmp_vec_v1,#normal_u, normal_v, 
+                            # )
+                            # # # Step 2: Interpolate the normal components to the u and v grids
+                            # # interpolate_scalar_Dirac_to_u_v!(
+                            # #     tmp_vec_u1, tmp_vec_v1,  # Source (normal components on pressure grid)
+                            # #     tmp_vec_u, tmp_vec_v,     # Destination (normal components on u and v grids)
+                            # #     grid_p, grid_u, grid_v,
+                            # # )
+
+                            # if maximum(tmp_vec_u1) < 1.0
+                            #     @error("normal levelset")
+                            # end
+
+                            eps = 1e-12
+                            normalx .= 0.0
+                            normaly .= 0.0
+
+
+                            for j in 2:grid_p.ny-1
+                                for i in 2:grid_p.nx-1
+
+                                    dphidx = (phi[j, i+1] - phi[j, i-1]) / (2 * grid_p.dx[j,i])
+                                    dphidy = (phi[j+1, i] - phi[j-1, i]) / (2 * grid_p.dy[j,i])
+
+                                    grad2 = dphidx^2 + dphidy^2
+
+                                    if grad2 > eps
+                                        invnorm = 1 / sqrt(grad2)
+                                        normalx[j,i] = dphidx * invnorm
+                                        normaly[j,i] = dphidy * invnorm
+                                    else
+                                        normalx[j,i] = 0.0
+                                        normaly[j,i] = 0.0
+                                    end
+
+                                end
                             end
-                        end
 
+                            # display(normalx)
+                            # display(normaly)
+
+                            # Step 3: Assign normal velocity components
+                            @inbounds for j in 1:ny, i in 1:nx
+                                II = CartesianIndex(j, i)
+                                V_normal = grid_p.V[II]
+                                # Use interpolated normals from tmp_vec_u and tmp_vec_v
+                                # n̂_x = tmp_vec_u1[II]  # Interpolated x-component of normal
+                                # n̂_y = tmp_vec_v1[II]  # Interpolated y-component of normal
+                                # u_n[II] = V_normal * n̂_x
+                                # v_n[II] = V_normal * n̂_y
+                                u_n[II] = V_normal * normalx[II]
+                                v_n[II] = V_normal * normaly[II]
+
+                                # grid_u.V[II] = V_normal * n̂_x
+                                # grid_v.V[II] = V_normal * n̂_y
+
+                                # print("\n II test ",II," v ",V_normal," nor ", n̂_x," nor ",n̂_y)
+                                # print("\n II test ",II," v ",V_normal," nor ", normalx[II]," nor ",normaly[II])
+
+                            end
+
+
+                            PDI_status = @ccall "libpdi".PDI_multi_expose("write_advection_velocity_xy"::Cstring,
+                            "advection_velocity_x"::Cstring, u_n::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "advection_velocity_y"::Cstring, v_n::Ptr{Cdouble}, PDI_OUT::Cint,                                       
+                            C_NULL::Ptr{Cvoid})::Cint
+
+                            _rk3_step!(φ, u_n, v_n, dt, h, nx, ny)
+
+                            # _rk3_step!(grid_p.LS[1].u, u_n, v_n, dt, h, nx, ny)
+                            # _rk3_step!(φ, grid_u.V, grid_v.V, dt, h, nx, ny)
+                            
+                            # if num.extend_field == 0
+                            #     i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext = indices_extension(grid_u, grid_u.LS[iLS], grid_u.ind.inside, periodic_x, periodic_y)
+                            #     i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext = indices_extension(grid_v, grid_v.LS[iLS], grid_v.ind.inside, periodic_x, periodic_y)
+
+                            #     field_extension!(grid_u, grid_u.LS[iLS].u, grid_u.V, i_u_ext, l_u_ext, b_u_ext, r_u_ext, t_u_ext, num.NB, periodic_x, periodic_y)
+                            #     field_extension!(grid_v, grid_v.LS[iLS].u, grid_v.V, i_v_ext, l_v_ext, b_v_ext, r_v_ext, t_v_ext, num.NB, periodic_x, periodic_y)
+                            # end
+
+
+                            # PDI_status = @ccall "libpdi".PDI_multi_expose("check_advection"::Cstring,
+                            # "levelset_p"::Cstring, grid_p.LS[num.iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                            # "advection_velocity_p"::Cstring, grid_p.V::Ptr{Cdouble}, PDI_OUT::Cint,
+                            # "advection_velocity_u"::Cstring, grid_u.V::Ptr{Cdouble}, PDI_OUT::Cint,
+                            # "advection_velocity_v"::Cstring, grid_v.V::Ptr{Cdouble}, PDI_OUT::Cint,                        
+                            # C_NULL::Ptr{Cvoid})::Cint
+
+                            # PDI_status = @ccall "libpdi".PDI_multi_expose("write_advection"::Cstring,
+                            # "levelset_p"::Cstring, grid_p.LS[num.iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                            # "advection_velocity_p"::Cstring, grid_p.V::Ptr{Cdouble}, PDI_OUT::Cint,
+                            # "advection_velocity_u"::Cstring, grid_u.V::Ptr{Cdouble}, PDI_OUT::Cint,
+                            # "advection_velocity_v"::Cstring, grid_v.V::Ptr{Cdouble}, PDI_OUT::Cint,                        
+                            # C_NULL::Ptr{Cvoid})::Cint
+
+
+
+                        elseif num.advection_LS_mode_symb === :default
+                            nghost = 1
+                            Aghost, Bghost = allocate_ghost_matrices_2(grid_p.nx,grid_p.ny,nghost)
+                            # update_radius_from_contact_line(num,grid_p, grid_p.LS[iLS].u, BC_u)
+                            printstyled(color=:green, @sprintf "\n grid_p p u v max : %.2e %.2e %.2e\n" maximum(abs.(grid_p.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_u.V[grid_p.LS[iLS].MIXED])) maximum(abs.(grid_v.V[grid_v.LS[iLS].MIXED])))
+                            LSghost = init_ghost_neumann_2(grid_p.LS[iLS].u,grid_p.nx,grid_p.ny,nghost)
+                            Vghost = init_ghost_neumann_2(grid_p.V,grid_p.nx,grid_p.ny,nghost)
+                            IIOE_normal_indices_2!(grid_p, Aghost, Bghost, grid_p.LS[iLS].u, LSghost, 
+                            Vghost, CFL_sc, periodic_x, periodic_y,nghost)
+                            LSghost .= reshape(gmres(Aghost, Bghost * vec(LSghost)), (grid_p.ny+2*nghost,grid_p.nx+2*nghost))
+                            #Store result of LS advection without ghost cells
+                            for j=1:grid_p.ny
+                                for i=1:grid_p.nx
+                                    grid_p.LS[iLS].u[j,i] = LSghost[j+1,i+1]
+                                end
+                            end
+
+
+                        elseif num.advection_LS_mode_symb === :front_tracking_bilinear
+                            ft_step!(ft, num, grid_p, grid_u, grid_v;
+                                    vel_mode = :bilinear,
+                                    recompute_ls = true,    # false = keep old φ, just move markers
+                                    redistribute = true)
+                            
+                            # print("\nft.connectivities ",ft.connectivities)
+
+                            ft_pdi!(ft, num, grid_p,grid_u,grid_v)
+
+                        elseif num.advection_LS_mode_symb === :front_tracking
+                            ft_step!(ft, num, grid_p, grid_u, grid_v;
+                                    vel_mode = :exact,
+                                    recompute_ls = true,    # false = keep old φ, just move markers
+                                    redistribute = true)
+                            
+                            # print("\nft.connectivities ",ft.connectivities)
+
+                            ft_pdi!(ft, num, grid_p,grid_u,grid_v)
+
+
+                            # PDI_status = @ccall "libpdi".PDI_multi_expose("write_front_tracking"::Cstring,
+                            # "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
+                            # "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,            
+                            # "intfc_vtx_num"::Cstring, ft.n_markers::Ref{Clonglong}, PDI_OUT::Cint, 
+                            # "intfc_seg_num"::Cstring, ft.n_markers::Ref{Clonglong}, PDI_OUT::Cint, 
+                            # "intfc_vtx_x"::Cstring, ft.x::Ptr{Cdouble}, PDI_OUT::Cint,
+                            # "intfc_vtx_y"::Cstring, ft.y::Ptr{Cdouble}, PDI_OUT::Cint,
+                            # # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+                            # "intfc_vtx_connectivities"::Cstring, ft.connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+                            # # "barycenter_x_coord"::Cstring, barycenter_x_coord::Ref{Cdouble}, PDI_OUT::Cint,
+                            # C_NULL::Ptr{Cvoid})::Cint
+
+                            # "write_front_tracking"::Cstring,
+                            # "nstep"::Cstring,        num.current_iter::Ref{Clonglong},  PDI_OUT::Cint,
+                            # "time"::Cstring,         num.time::Ref{Cdouble},            PDI_OUT::Cint,
+                            # "levelset_p"::Cstring,   grid_p.LS[num.iLSpdi].u::Ptr{Cdouble}, PDI_OUT::Cint,
+                            # "ft_n_markers"::Cstring, n::Ref{Clonglong},                 PDI_OUT::Cint,
+                            # "ft_marker_x"::Cstring,  ft.x::Ptr{Cdouble},               PDI_OUT::Cint,
+                            # "ft_marker_y"::Cstring,  ft.y::Ptr{Cdouble},               PDI_OUT::Cint,
+                            # C_NULL::Ptr{Cvoid})::Cint
+
+
+                        elseif num.advection_LS_mode_symb === :front_tracking_passive
+                            ft_step!(ft, num, grid_p, grid_u, grid_v;
+                                    vel_mode = :exact,
+                                    recompute_ls = false,    # false = keep old φ, just move markers
+                                    redistribute = true)
+                            # ft_pdi_write!(ft, num, grid_p)
+
+                            PDI_status = @ccall "libpdi".PDI_multi_expose("write_front_tracking"::Cstring,
+                            "nstep"::Cstring, num.current_iter ::Ref{Clonglong}, PDI_OUT::Cint,
+                            "time"::Cstring, num.time::Ref{Cdouble}, PDI_OUT::Cint,                                 
+                            "intfc_vtx_num"::Cstring, ft.n_markers::Ref{Clonglong}, PDI_OUT::Cint, 
+                            "intfc_seg_num"::Cstring, ft.n_markers::Ref{Clonglong}, PDI_OUT::Cint, 
+                            "intfc_vtx_x"::Cstring, ft.x::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "intfc_vtx_y"::Cstring, ft.y::Ptr{Cdouble}, PDI_OUT::Cint,
+                            # "intfc_vtx_field"::Cstring, intfc_vtx_field::Ptr{Cdouble}, PDI_OUT::Cint,
+                            "intfc_vtx_connectivities"::Cstring, ft.connectivities::Ptr{Clonglong}, PDI_OUT::Cint,
+                            # "barycenter_x_coord"::Cstring, barycenter_x_coord::Ref{Cdouble}, PDI_OUT::Cint,
+                            C_NULL::Ptr{Cvoid})::Cint
+
+
+
+                        end #advection_LS_mode_symb
+
+                        
                         #endregion ghost cell adv in normal direction
+
 
 
 
