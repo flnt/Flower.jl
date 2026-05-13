@@ -186,6 +186,7 @@ Stores parameters for the simulation
     reinit_LS_mode_symb::Symbol = Symbol("default")
     intfc_x::T=0.0
     intfc_y::T=0.0
+    test_symb::Symbol = Symbol("none")
 end
 
 @with_kw struct Indices{T <: Integer} <: NumericalParameters

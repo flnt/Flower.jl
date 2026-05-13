@@ -276,6 +276,7 @@ for (i_timestep,timestep) in enumerate(timesteps)
             solve_navier_stokes_symb = solve_navier_stokes_symb,
             advection_LS_mode_symb = advection_LS_mode_symb,
             reinit_LS_mode_symb = reinit_LS_mode_symb,
+            test_symb = Symbol(sim.test),
             )  
         # construct default parametric instance with x otherwise L0 and ... not defined in the same way
 

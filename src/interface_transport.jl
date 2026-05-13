@@ -126,7 +126,7 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
     tmp_vec_p,tmp_vec_p0,
     tmp_vec_u,tmp_vec_v,tmp_vec_u0,tmp_vec_v0,tmp_vec_u1,tmp_vec_v1,
     op,
-    phL::Phase{Float64},ft,u_extended=nothing, v_extended=nothing)
+    phL::Phase{Float64},ft,phi_pad,phi_tmp,u_extended=nothing, v_extended=nothing)
 
     # print("\n select_advection")
 
@@ -1037,6 +1037,15 @@ function select_advection!(num, grid_p, BC_int, BC_u, grid_u, grid_v, CFL_sc, pe
                             # "advection_velocity_v"::Cstring, grid_v.V::Ptr{Cdouble}, PDI_OUT::Cint,                        
                             # C_NULL::Ptr{Cvoid})::Cint
 
+
+                        elseif num.advection_LS_mode_symb === :godunov_selector
+                            dt_u = num.timestep_n
+                            Nc = grid_p.nx
+                            const_Vn = -0.05
+                            NG = 3
+                            h = grid_p.dx[2,2]
+                            
+                            rk3_advect!(phi_pad, phi_tmp, dt_u, h, Nc, Nc, const_Vn, NG)
 
 
                         elseif num.advection_LS_mode_symb === :default

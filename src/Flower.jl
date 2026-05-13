@@ -165,6 +165,8 @@ include("levelset_2.jl")
 include("acls_flower.jl")
 include("weno5_levelset.jl")
 include("front_tracking.jl")
+include("levelset_new.jl")
+
 
 
 

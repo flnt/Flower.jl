@@ -432,13 +432,48 @@ function run_forward!(
 
         if num.advection_LS_mode_symb === :front_tracking || num.advection_LS_mode_symb === :front_tracking_bilinear
             ft = FrontTracker(num, grid_p)   # reads num.R, num.x0, num.y0
+            phi_pad = nothing
+            phi_tmp = nothing
+
+            # print("\n ft connec",ft.connectivities)
+        
+            ft_pdi!(ft, num, grid_p,grid_u,grid_v)
+
+        elseif num.advection_LS_mode_symb === :godunov_selector 
+            ft = nothing
+
+            const_L    = num.x[end] - num.x[1]
+            const_R0   = num.current_radius
+            # const_Vn   = 0.1       # m/s (growing bubble, dphi/dt + Vn|gradphi|=0)
+            # const_tf   = 1e-2
+            # const_Rth  = const_R0 + const_Vn * const_tf   # 2e-3 m
+            Nc = grid_p.nx
+            NG = 3
+
+            h  = const_L / Nc
+            Np = Nc + 2NG
+
+            # Cell centres: domain [-L/2, L/2]² centred at origin
+            xc = [-const_L/2 + (i-0.5)*h for i in 1:Nc]
+            yc = [-const_L/2 + (j-0.5)*h for j in 1:Nc]
+
+            # Padded phi (Np × Np)
+            phi_pad = zeros(Float64, Np, Np)
+            phi_tmp = zeros(Float64, Np, Np)
+
+            for j in 1:Nc, i in 1:Nc
+                phi_pad[j+NG, i+NG] = sqrt(xc[i]^2 + yc[j]^2) - const_R0
+            end
+            fill_ghost!(phi_pad, Nc, Nc, NG)
+
         else
             ft = nothing
+            phi_pad = nothing
+            phi_tmp = nothing
         end
 
-        # print("\n ft connec",ft.connectivities)
-        
-        ft_pdi!(ft, num, grid_p,grid_u,grid_v)
+
+
 
 
         # intfc_vtx_x,intfc_vtx_y,intfc_vtx_field,intfc_vtx_connectivities,intfc_vtx_num, intfc_seg_num = convert_interfacial_D_to_segments(num,grid_p,phL.TD,1,2)
@@ -2879,7 +2914,7 @@ function run_forward!(
                 tmp_vec_p,tmp_vec_p0,
                 tmp_vec_u,tmp_vec_v,tmp_vec_u0,tmp_vec_v0,tmp_vec_u1,tmp_vec_v1,
                 op,
-                phL, ft, u_ext_vel, v_ext_vel)
+                phL, ft,phi_pad, u_ext_vel, v_ext_vel)
 
 
 
@@ -2887,11 +2922,20 @@ function run_forward!(
 
             #region reinitialize Levelset
 
-            if num.reinit_LS_mode_symb ===:acls
+            if num.reinit_LS_mode_symb === :acls
                 # acls_compress!(ψ, eps_LS, num.Δ, grid_p.nx, grid_p.ny, periodic_x, periodic_y; n_iter=6)
                 print("ACLS reinit done before")
 
-            elseif num.reinit_LS_mode_symb ===:chiodi
+            elseif num.reinit_LS_mode_symb === :fsm
+                # if use_chiodi
+                #     chiodi_pin!(phi_pad, h, Nc, Nc, NG)
+                # end
+                fsm!(phi_pad, h, Nc, Nc, NG)
+                # Extract interior
+                
+                @views grid_p.LS[1].u .= phi_pad[(NG+1):(Ny+NG), (NG+1):(Nx+NG)]   # view into phi_pad
+
+            elseif num.reinit_LS_mode_symb === :chiodi
                 # band = narrow_band_mask(grid_p.LS[1].u, num.Δ, grid_p.nx, grid_p.ny; band_width=8)
                 # chiodi_reinit!(grid_p.LS[1].u, num.Δ, grid_p.nx, grid_p.ny, periodic_x, periodic_y; n_iter=8, narrow_band=band)
 
@@ -2900,7 +2944,7 @@ function run_forward!(
                 n_iter = num.nb_reinit,
                 band   = 8)
 
-            elseif num.reinit_LS_mode_symb ===:default
+            elseif num.reinit_LS_mode_symb === :default
 
                 #TODO document
                 if num.levelset_reinitialize == 0

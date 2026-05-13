@@ -6,7 +6,7 @@
 # Three marker velocity modes:
 #   :exact     →  V_n = num.mdot_rho  (constant — shrinking bubble test)
 #   :bilinear    →  V_n bilinearly interpolated from grid_p.V
-#   :peskin    →  V_n via Peskin regularised δ kernel from grid_p.V
+#   :peskin    →  V_n via Peskin regularised delta_x_res kernel from grid_p.V
 #
 # Two LS options (recompute_ls kwarg):
 #   true   →  φ rebuilt from scratch (exact signed distance, no drift)
@@ -35,7 +35,7 @@ mutable struct FrontTracker
     n_seg          :: Int64
     vn_markers     :: Vector{Float64}   # workspace: normal speed at each marker
     # Grid metadata
-    nx :: Int;  ny :: Int;  Δ :: Float64
+    nx :: Int;  ny :: Int;  delta_x_res :: Float64
     xc1 :: Float64;  yc1 :: Float64    # centre of cell (j=1, i=1)
 end
 
@@ -95,7 +95,7 @@ function FrontTracker(num, grid_p)
     end
 
 
-    Δ   = num.Δ
+    delta_x_res   = num.Δ
     nx  = grid_p.nx
     ny  = grid_p.ny
     xc1 = grid_p.x[1, 1]
@@ -107,7 +107,7 @@ function FrontTracker(num, grid_p)
         normals,
         connectivities, n_m, n_s,
         zeros(n_m),
-        nx, ny, Δ, xc1, yc1
+        nx, ny, delta_x_res, xc1, yc1
     )
 end
 
@@ -129,7 +129,7 @@ end
 #     normals = compute_circle_normals(x, y, center)
 
 #     # Extract grid parameters
-#     Δ   = num.Δ
+#     delta_x_res   = num.Δ
 #     nx  = grid_p.nx
 #     ny  = grid_p.ny
 #     xc1 = grid_p.x[1, 1]
@@ -144,7 +144,7 @@ end
 #         normals,
 #         nx,
 #         ny,
-#         Δ,
+#         delta_x_res,
 #         xc1,
 #         yc1
 #     )
@@ -316,9 +316,9 @@ end
 # ─────────────────────────────────────────────────────────────────────────────
 # Bilinear interpolation of a (ny×nx) cell-centred field at (px, py)
 # ─────────────────────────────────────────────────────────────────────────────
-@inline function _bilinear(field, px, py, Δ, xc1, yc1, nx, ny)
-    fi = (px - xc1) / Δ + 1.0
-    fj = (py - yc1) / Δ + 1.0
+@inline function _bilinear(field, px, py, delta_x_res, xc1, yc1, nx, ny)
+    fi = (px - xc1) / delta_x_res + 1.0
+    fj = (py - yc1) / delta_x_res + 1.0
     i0 = clamp(floor(Int, fi), 1, nx-1)
     j0 = clamp(floor(Int, fj), 1, ny-1)
     tx = clamp(fi - i0, 0.0, 1.0)
@@ -331,14 +331,14 @@ end
 
 @inline function interp_u(grid_u, px, py)
     @unpack V, x, y, nx, ny = grid_u
-    # u is shifted in x by -Δ/2
+    # u is shifted in x by -delta_x_res/2
     dx = grid_u.dx[2,2]
     return _bilinear(V, px - 0.5*dx, py, dx, x, y, nx, ny)
 end
 
 @inline function interp_v(grid_v, px, py)
     @unpack V, x, y, nx, ny = grid_v
-    # v is shifted in y by -Δ/2
+    # v is shifted in y by -delta_x_res/2
     dy = grid_v.dy[2,2]
     return _bilinear(V, px, py - 0.5*dy, dy, x, y, nx, ny)
 end
@@ -361,7 +361,7 @@ function compute_normal_velocity!(ft, grid_u, grid_v)
 end
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Peskin 4-point δ kernel (Peskin 2002, eq. 2.3)
+# Peskin 4-point delta_x_res kernel (Peskin 2002, eq. 2.3)
 # ─────────────────────────────────────────────────────────────────────────────
 @inline function _peskin_φ(r)
     ra = abs(r)
@@ -370,15 +370,126 @@ end
     return 0.0
 end
 
-function _peskin_interp(field, px, py, Δ, xc1, yc1, nx, ny)
-    fi = (px - xc1) / Δ + 1.0
-    fj = (py - yc1) / Δ + 1.0
+function _peskin_interp(field, px, py, delta_x_res, xc1, yc1, nx, ny)
+    fi = (px - xc1) / delta_x_res + 1.0
+    fj = (py - yc1) / delta_x_res + 1.0
     ic = round(Int, fi);  jc = round(Int, fj)
     val = 0.0
     @inbounds for dj in -1:2, di in -1:2
         i = clamp(ic+di, 1, nx);  j = clamp(jc+dj, 1, ny)
-        rx = (px - (xc1 + (i-1)*Δ)) / Δ
-        ry = (py - (yc1 + (j-1)*Δ)) / Δ
+        rx = (px - (xc1 + (i-1)*delta_x_res)) / delta_x_res
+        ry = (py - (yc1 + (j-1)*delta_x_res)) / delta_x_res
+        val += _peskin_φ(rx) * _peskin_φ(ry) * field[j, i]
+    end
+    return val
+end
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Staggered-grid bilinear interpolation
+#
+# Flower stores:
+#   grid_u.x[j,i], grid_u.y[j,i]  — face centres of the u-staggered grid
+#                                    x_u[j,i] = (i)*delta_x_res,  y_u[j,i] = (j-0.5)*delta_x_res
+#   grid_v.x[j,i], grid_v.y[j,i]  — face centres of the v-staggered grid
+#                                    x_v[j,i] = (i-0.5)*delta_x_res, y_v[j,i] = (j)*delta_x_res
+#
+# For a marker at (px, py) we find the four surrounding nodes of the
+# staggered grid using the node coordinate arrays directly (no assumption
+# on uniform spacing needed — Flower's bilinear_interpolation does the same).
+# ─────────────────────────────────────────────────────────────────────────────
+
+"""
+    _bilinear_u(field, xu, yu, px, py, delta_x_res, nx, ny)
+
+Bilinear interpolation of `field` (ny × nx+1, u-staggered) at point (px, py).
+Uses grid_u.x / grid_u.y as node coordinates, matching Flower's convention:
+  x_u[j,i] = i*delta_x_res,    y_u[j,i] = (j - 0.5)*delta_x_res
+"""
+@inline function _bilinear_u(field, xu, yu, px, py, delta_x_res, nx, ny)
+    # i-index: u-nodes are at x = i*delta_x_res  (i = 1..nx+1 for nx cells)
+    # floor(px/delta_x_res) gives the left u-node index
+    i0 = clamp(floor(Int, px / delta_x_res), 1, nx)
+    i1 = i0 + 1
+    # j-index: u-nodes share the p-grid y, centred at (j-0.5)*delta_x_res
+    j0 = clamp(floor(Int, py / delta_x_res - 0.5) + 1, 1, ny - 1)
+    j1 = j0 + 1
+
+    # Bilinear weights using actual node coordinates
+    x1, x2 = xu[j0, i0], xu[j0, i1]   # x is same for both j rows (uniform)
+    y1, y2 = yu[j0, i0], yu[j1, i0]   # y is same for both i cols
+
+    wx = (x2 - x1) > 1e-14 ? (px - x1) / (x2 - x1) : 0.0
+    wy = (y2 - y1) > 1e-14 ? (py - y1) / (y2 - y1) : 0.0
+    wx = clamp(wx, 0.0, 1.0);  wy = clamp(wy, 0.0, 1.0)
+
+    return ((1-wx)*(1-wy)*field[j0, i0] + wx*(1-wy)*field[j0, i1] +
+            (1-wx)*   wy *field[j1, i0] + wx*   wy *field[j1, i1])
+end
+
+"""
+    _bilinear_v(field, xv, yv, px, py, delta_x_res, nx, ny)
+
+Bilinear interpolation of `field` (ny+1 × nx, v-staggered) at point (px, py).
+  x_v[j,i] = (i - 0.5)*delta_x_res,   y_v[j,i] = j*delta_x_res
+"""
+@inline function _bilinear_v(field, xv, yv, px, py, delta_x_res, nx, ny)
+    # i-index: v-nodes share p-grid x, centred at (i-0.5)*delta_x_res
+    i0 = clamp(floor(Int, px / delta_x_res - 0.5) + 1, 1, nx - 1)
+    i1 = i0 + 1
+    # j-index: v-nodes are at y = j*delta_x_res  (j = 1..ny+1)
+    j0 = clamp(floor(Int, py / delta_x_res), 1, ny)
+    j1 = j0 + 1
+
+    x1, x2 = xv[j0, i0], xv[j0, i1]
+    y1, y2 = yv[j0, i0], yv[j1, i0]
+
+    wx = (x2 - x1) > 1e-14 ? (px - x1) / (x2 - x1) : 0.0
+    wy = (y2 - y1) > 1e-14 ? (py - y1) / (y2 - y1) : 0.0
+    wx = clamp(wx, 0.0, 1.0);  wy = clamp(wy, 0.0, 1.0)
+
+    return ((1-wx)*(1-wy)*field[j0, i0] + wx*(1-wy)*field[j0, i1] +
+            (1-wx)*   wy *field[j1, i0] + wx*   wy *field[j1, i1])
+end
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Staggered-grid Peskin 4-point delta_x_res interpolation
+# ─────────────────────────────────────────────────────────────────────────────
+
+"""
+    _peskin_u(field, xu, yu, px, py, delta_x_res, nx, ny)
+
+Peskin regularised delta_x_res interpolation of u-staggered `field` at (px, py).
+Sums over 4×4 stencil centred on nearest u-node.
+"""
+function _peskin_u(field, xu, yu, px, py, delta_x_res, nx, ny)
+    # Nearest u-node index
+    ic = clamp(round(Int, px / delta_x_res), 1, nx + 1)
+    jc = clamp(round(Int, py / delta_x_res + 0.5), 1, ny)
+    val = 0.0
+    @inbounds for dj in -1:2, di in -1:2
+        i = clamp(ic + di, 1, size(field, 2))
+        j = clamp(jc + dj, 1, size(field, 1))
+        rx = (px - xu[min(j, ny), i]) / delta_x_res
+        ry = (py - yu[j, min(i, size(xu,2))]) / delta_x_res
+        val += _peskin_φ(rx) * _peskin_φ(ry) * field[j, i]
+    end
+    return val
+end
+
+"""
+    _peskin_v(field, xv, yv, px, py, delta_x_res, nx, ny)
+
+Peskin regularised delta_x_res interpolation of v-staggered `field` at (px, py).
+"""
+function _peskin_v(field, xv, yv, px, py, delta_x_res, nx, ny)
+    ic = clamp(round(Int, px / delta_x_res + 0.5), 1, nx)
+    jc = clamp(round(Int, py / delta_x_res), 1, ny + 1)
+    val = 0.0
+    @inbounds for dj in -1:2, di in -1:2
+        i = clamp(ic + di, 1, size(field, 2))
+        j = clamp(jc + dj, 1, size(field, 1))
+        rx = (px - xv[min(j, size(yv,1)), i]) / delta_x_res
+        ry = (py - yv[j, min(i, nx)]) / delta_x_res
         val += _peskin_φ(rx) * _peskin_φ(ry) * field[j, i]
     end
     return val
@@ -388,7 +499,7 @@ end
 # Compute scalar normal velocity at each marker
 # ─────────────────────────────────────────────────────────────────────────────
 function _marker_velocities!(vn, x, y, n, grid_p, grid_u,grid_v,num, vel_mode::Symbol,ft)
-    Δ = num.Δ;  nx = grid_p.nx;  ny = grid_p.ny
+    delta_x_res = num.Δ;  nx = grid_p.nx;  ny = grid_p.ny
     xc1 = grid_p.x[1,1];  yc1 = grid_p.y[1,1]
 
     if vel_mode === :exact
@@ -398,14 +509,26 @@ function _marker_velocities!(vn, x, y, n, grid_p, grid_u,grid_v,num, vel_mode::S
         fill!(vn, Vn)
 
     elseif vel_mode === :bilinear
+
+        if num.test_symb === :adv_diag_res
+            grid_u.V .= delta_x_res/(2.0*num.timestep_n)
+            grid_v.V .= delta_x_res/(2.0*num.timestep_n)
+            #TODO advect not only normal
+        end
+
         @inbounds for k in 1:n
-            # vn[k] = _bilinear(grid_p.V, x[k], y[k], Δ, xc1, yc1, nx, ny)
+            # vn[k] = _bilinear(grid_p.V, x[k], y[k], delta_x_res, xc1, yc1, nx, ny)
             
             px = x[k]
             py = y[k]
 
-            u = interp_u(grid_u, px, py)
-            v = interp_v(grid_v, px, py)
+            # u = interp_u(grid_u, px, py)
+            # v = interp_v(grid_v, px, py)
+
+            u = _bilinear_u(grid_u.V, grid_u.x, grid_u.y,
+                               x[k], y[k], delta_x_res, grid_u.nx, grid_u.ny)
+            v = _bilinear_v(grid_v.V, grid_v.x, grid_v.y,
+                               x[k], y[k], delta_x_res, grid_v.nx, grid_v.ny)
 
             nx = ft.normal[k,1]
             ny = ft.normal[k,2]
@@ -417,7 +540,7 @@ function _marker_velocities!(vn, x, y, n, grid_p, grid_u,grid_v,num, vel_mode::S
 
     elseif vel_mode === :peskin
         @inbounds for k in 1:n
-            vn[k] = _peskin_interp(grid_p.V, x[k], y[k], Δ, xc1, yc1, nx, ny)
+            vn[k] = _peskin_interp(grid_p.V, x[k], y[k], delta_x_res, xc1, yc1, nx, ny)
         end
 
     else
@@ -447,7 +570,7 @@ function _advect_markers!(ft::FrontTracker, grid_p, grid_u, grid_v, num, vel_mod
 
     # Build a lightweight temp struct sharing grid metadata
     # ft_s = FrontTracker(x_s, y_s, ft.connectivities, n, ft.n_seg,
-    #                     vn2, ft.nx, ft.ny, ft.Δ, ft.xc1, ft.yc1)
+    #                     vn2, ft.nx, ft.ny, ft.delta_x_res, ft.xc1, ft.yc1)
     _marker_velocities!(vn2, x_s, y_s, n, grid_p, grid_u,grid_v, num, vel_mode,ft)
 
     vx2 = vn2 .* nx2
@@ -489,13 +612,13 @@ end
 # Recompute signed-distance φ from polygonal front (exact, no drift)
 # ─────────────────────────────────────────────────────────────────────────────
 function _recompute_ls!(grid_p, ft::FrontTracker)
-    n = ft.n_markers;  Δ = ft.Δ
+    n = ft.n_markers;  delta_x_res = ft.delta_x_res
     xc1 = ft.xc1;  yc1 = ft.yc1
     φ = grid_p.LS[1].u
 
     @inbounds for j in 1:ft.ny, i in 1:ft.nx
-        px = xc1 + (i-1)*Δ
-        py = yc1 + (j-1)*Δ
+        px = xc1 + (i-1)*delta_x_res
+        py = yc1 + (j-1)*delta_x_res
         d_min = Inf
         for k in 1:n
             kp = mod1(k+1, n)
